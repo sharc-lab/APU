@@ -50,8 +50,12 @@ htmlcov/
 .hypothesis/
 
 # Results and outputs
-results/*.json
+# Exclude generated run data, but keep Zachary's baseline and markdown reports
+results/claude_code_characterization.json
+results/tail_latency_results.json
+!results/zachary/*.json
 !results/.gitkeep
+!reports/*.md
 reports/*.pdf
 !reports/.gitkeep
 *.npy
