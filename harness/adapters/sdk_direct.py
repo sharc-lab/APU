@@ -30,12 +30,14 @@ from pathlib import Path
 from dotenv import load_dotenv
 from openai import OpenAI
 
+from harness.adapters.base import BackendBase
 from harness.instrumentation import (
     Category, CPU_BOUND_CATS,
     HARNESS_STRICT_CATEGORIES, HARNESS_BROAD_CATEGORIES,
     HARNESS_STRICT_DEFINITION, HARNESS_BROAD_DEFINITION,
     wall_ns, process_cpu_ns, Span,
 )
+from harness.replay import ReplayCache
 
 load_dotenv()
 
@@ -53,6 +55,8 @@ MAX_TURNS = 10
 N_SEEDS    = int(os.environ.get("N_SEEDS",    "5"))
 N_SESSIONS = int(os.environ.get("N_SESSIONS", "10"))
 DEBUG      = os.environ.get("SHARC_DEBUG", "0") == "1"
+REPLAY_MODE = os.environ.get("APU_REPLAY_MODE", "AUTO")
+TRACES_ROOT_ENV = os.environ.get("APU_TRACES_ROOT")
 OUTPUT_PATH = Path(__file__).parent.parent.parent / "results" / "claude_code_characterization.json"
 
 # Harness category groupings (from Zachary's definitions)
@@ -336,6 +340,36 @@ TOOL_IMPLS: dict[str, callable] = {
     "code_exec":  lambda inp: _tool_code_exec(inp["code"]),
 }
 
+
+class OpenAIChatBackend(BackendBase):
+    """OpenAI chat-completions backend that inherits replay behavior from BackendBase."""
+
+    def __init__(self, client: OpenAI, replay_cache: ReplayCache | None = None) -> None:
+        super().__init__(replay_cache=replay_cache)
+        self.client = client
+
+    def _call_model_api(
+        self,
+        *,
+        model: str,
+        messages: list[dict],
+        tools: list[dict] | None,
+        temperature: float | None,
+        seed: int | None,
+        **kwargs,
+    ):
+        payload = {
+            "model": model,
+            "messages": messages,
+            "tools": tools,
+            **kwargs,
+        }
+        if temperature is not None:
+            payload["temperature"] = temperature
+        if seed is not None:
+            payload["seed"] = seed
+        return self.client.chat.completions.create(**payload)
+
 # ---------------------------------------------------------------------------
 # Instrumentation primitives
 # ---------------------------------------------------------------------------
@@ -385,7 +419,7 @@ def process_cpu_ns() -> int:
 # ---------------------------------------------------------------------------
 
 def run_session(
-    client: OpenAI,
+    backend: OpenAIChatBackend,
     session_id: str,
     task_id: str,
     task: dict,
@@ -410,6 +444,9 @@ def run_session(
     tool_call_sequence: list[dict] = []
     turns = 0
     llm_step = 0
+    replayed_call_count = 0
+    api_recorded_latency_ms_total = 0.0
+    api_replay_latency_ms_total = 0.0
 
     sess_wall_t0 = wall_ns()
     sess_cpu_t0  = process_cpu_ns()   # coarse 15.6ms ticks, but accurate over the session
@@ -438,47 +475,52 @@ def run_session(
         # accurately on Windows during a blocking syscall, and it is
         # genuinely near-zero (kernel I/O wait, not user-space work).
         # wall_ns = full round-trip time (the meaningful latency signal).
-        t0 = wall_ns()
-
-        response = client.chat.completions.create(
+        call_result = backend.model_call(
             model=MODEL,
             messages=messages,
             tools=TOOL_DEFINITIONS,
+            temperature=None,
+            seed=None,
             tool_choice="auto",
             max_tokens=1024,
         )
+        response = call_result.response_json
+        if call_result.replayed:
+            replayed_call_count += 1
+        api_recorded_latency_ms_total += call_result.recorded_latency_ms
+        api_replay_latency_ms_total += call_result.replay_latency_ms
 
-        http_wall = wall_ns() - t0
-        resp_bytes = len(response.model_dump_json().encode())
+        http_wall = int(call_result.recorded_latency_ms * 1e6)
+        resp_bytes = len(json.dumps(response).encode())
 
         spans["HTTP_CLIENT"].record(0, http_wall, b_out=resp_bytes)          # cpu=0: I/O wait
         spans["CLIENT_HTTP"].record(0, http_wall, b_in=prompt_bytes, b_out=resp_bytes)
 
         turns += 1
-        choice  = response.choices[0]
-        message = choice.message
-        finish  = choice.finish_reason
+        choice = response["choices"][0]
+        message = choice["message"]
+        finish = choice.get("finish_reason")
 
         # ── FRAMEWORK ─────────────────────────────────────────────────────
         # Unpack response object, append to message list.
         # CPU-bound: wall proxy.
         t0 = wall_ns()
-        messages.append(message.model_dump(exclude_unset=False))
+        messages.append(message)
         elapsed = wall_ns() - t0
         spans["FRAMEWORK"].record(elapsed, elapsed)
 
         if finish == "stop" or finish not in ("tool_calls", "function_call"):
             break
 
-        if not message.tool_calls:
+        if not message.get("tool_calls"):
             break
 
         # ── Per-tool-call instrumentation ─────────────────────────────────
         tool_result_messages: list[dict] = []
 
-        for tc in message.tool_calls:
-            tool_name = tc.function.name
-            raw_args  = tc.function.arguments
+        for tc in message["tool_calls"]:
+            tool_name = tc["function"]["name"]
+            raw_args = tc["function"]["arguments"]
 
             # CLIENT_PARSE: JSON-decode tool arguments. CPU-bound, wall proxy.
             t0 = wall_ns()
@@ -498,7 +540,7 @@ def run_session(
 
             # SERIALIZATION: pack tool result into message dict. CPU-bound, wall proxy.
             t0 = wall_ns()
-            tool_msg = {"role": "tool", "tool_call_id": tc.id, "content": result_str}
+            tool_msg = {"role": "tool", "tool_call_id": tc["id"], "content": result_str}
             serialized_bytes = len(json.dumps(tool_msg).encode())
             elapsed = wall_ns() - t0
             spans["SERIALIZATION"].record(elapsed, elapsed, b_out=serialized_bytes)
@@ -564,7 +606,11 @@ def run_session(
         "tool_call_counts":             tool_call_counts,
         "tool_call_sequence":           tool_call_sequence,
         "backend":                      BACKEND,
-        "replay":                       False,
+        "replay":                       replayed_call_count > 0,
+        "model_call_count":             turns,
+        "replayed_call_count":          replayed_call_count,
+        "api_recorded_latency_ms_total": api_recorded_latency_ms_total,
+        "api_replay_latency_ms_total":  api_replay_latency_ms_total,
         "provenance": {
             "measured":      instrumented_cpu - residual_ns,
             "step_inferred": 0,
@@ -588,7 +634,7 @@ def _task_schedule(seed: int, n: int) -> list[str]:
     return [ids[(offset + i) % len(ids)] for i in range(n)]
 
 
-def run_seed(client: OpenAI, seed: int) -> dict:
+def run_seed(backend: OpenAIChatBackend, seed: int) -> dict:
     """Run N_SESSIONS sessions for one seed. Returns a SeedArtifact-shaped dict."""
     task_ids = _task_schedule(seed, N_SESSIONS)
     sessions: list[dict] = []
@@ -599,7 +645,7 @@ def run_seed(client: OpenAI, seed: int) -> dict:
         session_id = f"agent_{i}"
         print(f"  Seed {seed} | {i + 1}/{N_SESSIONS} | {task_id}  ({session_id})")
         try:
-            sess = run_session(client, session_id, task_id, TASKS[task_id])
+            sess = run_session(backend, session_id, task_id, TASKS[task_id])
             sessions.append(sess)
         except Exception as exc:
             print(f"    WARNING: {session_id} failed — {exc}")
@@ -909,6 +955,9 @@ def _get_setup_ref() -> dict:
 
 def main() -> None:
     client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+    traces_root = Path(TRACES_ROOT_ENV) if TRACES_ROOT_ENV else None
+    replay_cache = ReplayCache(mode=REPLAY_MODE, traces_root=traces_root)
+    backend = OpenAIChatBackend(client=client, replay_cache=replay_cache)
 
     git_info  = _get_git_info()
     env_info  = _get_env()
@@ -920,7 +969,7 @@ def main() -> None:
         print(f"\n{'=' * 60}")
         print(f"Seed {seed}")
         print(f"{'=' * 60}")
-        artifact = run_seed(client, seed)
+        artifact = run_seed(backend, seed)
         raw_artifacts.append(artifact)
 
     result_validity = _check_validity(raw_artifacts)

@@ -28,6 +28,9 @@ python -m analysis.generate_reports
 
 ```
 APU/
+├── FINAL_STATUS.md
+├── SETUP_SUMMARY.md
+├── VERIFICATION.md
 ├── pyproject.toml
 ├── README.md
 ├── .env                          # API keys (not committed)
@@ -41,24 +44,22 @@ APU/
 │   ├── adapters/
 │   │   ├── __init__.py
 │   │   └── sdk_direct.py         # OpenAI SDK APU adapter (refactored)
-│   ├── tasks.py                  # Task definitions (14 tasks)
-│   ├── tools.py                  # Tool implementations
 │   └── tail_latency_instrument.py # Latency profiler (refactored)
 ├── analysis/
 │   ├── __init__.py
-│   ├── generate_reports.py       # MD + PDF report generation
-│   └── comparisons.py            # Cross-framework comparison logic
+│   └── generate_reports.py       # Report generation
 ├── docs/
 │   ├── DECISIONS.md              # Architectural Decision Records (ADR)
 │   └── SCHEMA.md                 # JSON output schema documentation
 ├── results/
+│   ├── .gitkeep
 │   ├── claude_code_characterization.json
 │   ├── tail_latency_results.json
 │   └── zachary/
 │       └── replication_remote_search_v3.json
 ├── reports/
-│   ├── results_summary.md
-│   └── results_summary.pdf
+│   ├── project_summary.md
+│   └── results_summary.md
 └── tests/
     ├── __init__.py
     ├── test_instrumentation.py   # Unit tests for timing primitives

@@ -44,15 +44,19 @@ from openai import OpenAI
 from harness.adapters.sdk_direct import (
     BACKEND,
     MODEL,
+    REPLAY_MODE,
     PAYLOAD_PROFILE,
     TASKS,
     TOOL_DEFINITIONS,
     TOOL_IMPLS,
+    TRACES_ROOT_ENV,
+    OpenAIChatBackend,
     _get_env,
     _get_git_info,
     _get_setup_ref,
 )
 from harness.instrumentation import wall_ns
+from harness.replay import ReplayCache
 
 load_dotenv()
 
@@ -104,20 +108,21 @@ def _system_msg() -> dict:
     return {"role": "system", "content": "You are a helpful assistant. Use the provided tools when appropriate."}
 
 
-def _call_api(client: OpenAI, messages: list[dict]) -> tuple[object, float]:
-    """Make one API call, return (response, wall_ms)."""
-    t0 = wall_ns()
-    response = client.chat.completions.create(
+def _call_api(backend: OpenAIChatBackend, messages: list[dict]) -> tuple[dict, float, float]:
+    """Make one API call through backend wrapper, return response and latencies."""
+    result = backend.model_call(
         model=MODEL,
         messages=messages,
         tools=TOOL_DEFINITIONS,
+        temperature=None,
+        seed=None,
         tool_choice="auto",
         max_tokens=PROBE_MAX_TOKENS,
     )
-    return response, (wall_ns() - t0) / 1e6
+    return result.response_json, result.recorded_latency_ms, result.replay_latency_ms
 
 
-def _execute_tool_calls(response) -> tuple[list[dict], float]:
+def _execute_tool_calls(response: dict) -> tuple[list[dict], float]:
     """
     Execute all tool calls in a response. Returns (tool_result_messages, total_tool_ms).
     tool_ms is the sum of local execution time across all tool calls in this response.
@@ -125,16 +130,17 @@ def _execute_tool_calls(response) -> tuple[list[dict], float]:
     tool_results: list[dict] = []
     total_tool_ms = 0.0
 
-    if response.choices[0].finish_reason not in ("tool_calls", "function_call"):
+    if response["choices"][0].get("finish_reason") not in ("tool_calls", "function_call"):
         return tool_results, total_tool_ms
 
-    msg = response.choices[0].message
-    if not msg.tool_calls:
+    msg = response["choices"][0]["message"]
+    if not msg.get("tool_calls"):
         return tool_results, total_tool_ms
 
-    for tc in msg.tool_calls:
-        tool_input = json.loads(tc.function.arguments)
-        impl       = TOOL_IMPLS.get(tc.function.name, lambda _: f"unknown tool: {tc.function.name}")
+    for tc in msg["tool_calls"]:
+        tool_input = json.loads(tc["function"]["arguments"])
+        tool_name = tc["function"]["name"]
+        impl = TOOL_IMPLS.get(tool_name, lambda _: f"unknown tool: {tool_name}")
 
         t0 = wall_ns()
         result_str = impl(tool_input)
@@ -142,7 +148,7 @@ def _execute_tool_calls(response) -> tuple[list[dict], float]:
 
         tool_results.append({
             "role":         "tool",
-            "tool_call_id": tc.id,
+            "tool_call_id": tc["id"],
             "content":      result_str,
         })
 
@@ -153,7 +159,7 @@ def _execute_tool_calls(response) -> tuple[list[dict], float]:
 # Probe: single (c=1)
 # ---------------------------------------------------------------------------
 
-def _probe_single(client: OpenAI, task_id: str) -> dict[str, float]:
+def _probe_single(backend: OpenAIChatBackend, task_id: str) -> dict[str, float]:
     """
     One complete turn: send task prompt, optionally execute one round of tool calls.
 
@@ -164,18 +170,23 @@ def _probe_single(client: OpenAI, task_id: str) -> dict[str, float]:
     messages = [_system_msg(), {"role": "user", "content": TASKS[task_id]["prompt"]}]
 
     t_start = wall_ns()
-    response, mcp_ms = _call_api(client, messages)
+    response, recorded_mcp_ms, replay_mcp_ms = _call_api(backend, messages)
     _, tool_ms = _execute_tool_calls(response)
     turn_ms = (wall_ns() - t_start) / 1e6
 
-    return {"mcp_roundtrip_ms": mcp_ms, "tool_dispatch_ms": tool_ms, "turn_total_ms": turn_ms}
+    return {
+        "mcp_roundtrip_ms": recorded_mcp_ms,
+        "replay_roundtrip_ms": replay_mcp_ms,
+        "tool_dispatch_ms": tool_ms,
+        "turn_total_ms": turn_ms,
+    }
 
 
 # ---------------------------------------------------------------------------
 # Probe: chained (c=3 sequential)
 # ---------------------------------------------------------------------------
 
-def _probe_chained(client: OpenAI, task_id: str) -> dict[str, float]:
+def _probe_chained(backend: OpenAIChatBackend, task_id: str) -> dict[str, float]:
     """
     Three sequential tool-use turns in one conversation.
 
@@ -191,19 +202,21 @@ def _probe_chained(client: OpenAI, task_id: str) -> dict[str, float]:
     messages = [_system_msg(), {"role": "user", "content": prompt}]
 
     t_start      = wall_ns()
-    total_mcp_ms  = 0.0
+    total_mcp_ms = 0.0
+    total_replay_mcp_ms = 0.0
     total_tool_ms = 0.0
 
     for _ in range(3):
-        response, mcp_ms = _call_api(client, messages)
+        response, mcp_ms, replay_mcp_ms = _call_api(backend, messages)
         total_mcp_ms += mcp_ms
+        total_replay_mcp_ms += replay_mcp_ms
 
-        finish = response.choices[0].finish_reason
+        finish = response["choices"][0].get("finish_reason")
         if finish == "stop":
             break
 
-        msg = response.choices[0].message
-        messages.append(msg.model_dump(exclude_unset=False))
+        msg = response["choices"][0]["message"]
+        messages.append(msg)
 
         tool_results, tool_ms = _execute_tool_calls(response)
         total_tool_ms += tool_ms
@@ -213,14 +226,19 @@ def _probe_chained(client: OpenAI, task_id: str) -> dict[str, float]:
         messages.extend(tool_results)
 
     turn_ms = (wall_ns() - t_start) / 1e6
-    return {"mcp_roundtrip_ms": total_mcp_ms, "tool_dispatch_ms": total_tool_ms, "turn_total_ms": turn_ms}
+    return {
+        "mcp_roundtrip_ms": total_mcp_ms,
+        "replay_roundtrip_ms": total_replay_mcp_ms,
+        "tool_dispatch_ms": total_tool_ms,
+        "turn_total_ms": turn_ms,
+    }
 
 
 # ---------------------------------------------------------------------------
 # Probe: fan_out (c=3 parallel)
 # ---------------------------------------------------------------------------
 
-def _probe_fanout(client: OpenAI, task_id: str) -> dict[str, float]:
+def _probe_fanout(backend: OpenAIChatBackend, task_id: str) -> dict[str, float]:
     """
     Three independent API calls dispatched in parallel (fan-out pattern).
 
@@ -231,10 +249,10 @@ def _probe_fanout(client: OpenAI, task_id: str) -> dict[str, float]:
     """
     messages = [_system_msg(), {"role": "user", "content": TASKS[task_id]["prompt"]}]
 
-    def _one_call(_: int) -> tuple[float, float]:
-        response, mcp_ms = _call_api(client, messages)
+    def _one_call(_: int) -> tuple[float, float, float]:
+        response, mcp_ms, replay_mcp_ms = _call_api(backend, messages)
         _, tool_ms = _execute_tool_calls(response)
-        return mcp_ms, tool_ms
+        return mcp_ms, replay_mcp_ms, tool_ms
 
     t_start = wall_ns()
     with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
@@ -244,7 +262,8 @@ def _probe_fanout(client: OpenAI, task_id: str) -> dict[str, float]:
 
     return {
         "mcp_roundtrip_ms": max(r[0] for r in results),   # critical path
-        "tool_dispatch_ms": sum(r[1] for r in results),   # total CPU expended
+        "replay_roundtrip_ms": max(r[1] for r in results),
+        "tool_dispatch_ms": sum(r[2] for r in results),   # total CPU expended
         "turn_total_ms":    turn_ms,
     }
 
@@ -264,7 +283,7 @@ _PROBES = {
 # ---------------------------------------------------------------------------
 
 def collect(
-    client: OpenAI,
+    backend: OpenAIChatBackend,
     task_id: str,
     condition: str,
     n: int = MIN_SAMPLES,
@@ -277,14 +296,16 @@ def collect(
 
     tool_dispatch_samples: list[float] = []
     mcp_roundtrip_samples: list[float] = []
+    replay_roundtrip_samples: list[float] = []
     turn_total_samples:    list[float] = []
 
     for i in range(n):
         print(f"    run {i + 1:3d}/{n}  {condition}/{task_id}")
         try:
-            m = probe(client, task_id)
+            m = probe(backend, task_id)
             tool_dispatch_samples.append(m["tool_dispatch_ms"])
             mcp_roundtrip_samples.append(m["mcp_roundtrip_ms"])
+            replay_roundtrip_samples.append(m["replay_roundtrip_ms"])
             turn_total_samples.append(m["turn_total_ms"])
         except Exception as exc:
             print(f"      WARNING: probe failed — {exc}")
@@ -292,6 +313,7 @@ def collect(
     return [
         _tail_record(tool_dispatch_samples, task_id, condition, "tool_dispatch_ms"),
         _tail_record(mcp_roundtrip_samples, task_id, condition, "mcp_roundtrip_ms"),
+        _tail_record(replay_roundtrip_samples, task_id, condition, "replay_roundtrip_ms"),
         _tail_record(turn_total_samples,    task_id, condition, "turn_total_ms"),
     ]
 
@@ -302,6 +324,9 @@ def collect(
 
 def main() -> None:
     client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+    traces_root = Path(TRACES_ROOT_ENV) if TRACES_ROOT_ENV else None
+    replay_cache = ReplayCache(mode=REPLAY_MODE, traces_root=traces_root)
+    backend = OpenAIChatBackend(client=client, replay_cache=replay_cache)
 
     all_records: list[dict] = []
 
@@ -310,7 +335,7 @@ def main() -> None:
             print(f"\n{'─' * 52}")
             print(f"  Task: {task_id}  |  Condition: {condition}")
             print(f"{'─' * 52}")
-            records = collect(client, task_id, condition, MIN_SAMPLES)
+            records = collect(backend, task_id, condition, MIN_SAMPLES)
             all_records.extend(records)
 
     output = {

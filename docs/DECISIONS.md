@@ -103,4 +103,49 @@
 
 ---
 
-*Last updated: 2026-07-14*
+## ADR-006: LLM Judge Design for Open-Ended Quality Scoring (2026-07-22)
+
+**Status:** Accepted
+
+**Context:** The evaluation layer mixes deterministic tasks (exact/programmatic checks) and open-ended tasks that require rubric-based judgment. Re-running a full policy-budget-seed sweep would repeatedly pay for judge calls unless they are cached. We need a reproducible judge protocol that preserves score comparability across reruns.
+
+**Decision:** Use `gpt-4o-mini` as the open-ended quality judge with a 0-10 rubric prompt versioned under `evaluation/judge_prompts/` (currently `rubric_v1`). Route all judge calls through ReplayCache with deterministic keys over model/messages/tools/temperature/seed.
+
+**Rationale:**
+- Maintains a single consistent judge model and rubric across experiments.
+- Versioned prompts provide auditability and controlled evolution of scoring behavior.
+- ReplayCache ensures each distinct judge call is paid once and subsequently replayed.
+- Deterministic seed/temperature settings improve repeatability for longitudinal sweeps.
+
+**Consequences:**
+- Open-ended scoring is reproducible and cost-bounded for repeated analyses.
+- Judge prompt edits must bump version and be recorded as methodology/ADR updates.
+- Cached judge responses become part of experiment provenance and should be retained.
+
+---
+
+## ADR-007: Budget-as-State Routing with Anytime Cascade (2026-07-23)
+
+**Status:** Accepted
+
+**Context:** Static routing thresholds do not adapt to remaining budget. In long sweeps, early aggressive escalation can starve later tasks, while early conservatism can underuse available cloud capacity. We need a policy that can make useful decisions at any point in execution while treating remaining budget as first-class state.
+
+**Decision:** Model routing as an anytime algorithm over a budget state variable. Implement budget-aware cascade with dynamic escalation threshold:
+
+`theta(b) = theta_min + (theta_max - theta_min) * (1 - b)`
+
+where `b` is remaining budget fraction in `[0, 1]`. As budget depletes (`b -> 0`), `theta` rises, making escalation to cloud harder (stingier). Log `theta` and related decision context at each step.
+
+**Rationale:**
+- Anytime framing ensures useful behavior even when execution is interrupted or budget is nearly exhausted.
+- Budget-conditioned thresholds allocate cloud spend across the full task trajectory instead of front-loading by accident.
+- Decision logs with `theta`, confidence signals, and chosen backend enable supervised router training later.
+
+**Consequences:**
+- Routing quality depends on confidence heuristics and threshold calibration.
+- Policy behavior becomes interpretable via per-step `theta` traces.
+- Experiments must compare spend trajectory (early/mid/late), not only endpoint quality and total spend.
+
+---
+
+*Last updated: 2026-07-23*

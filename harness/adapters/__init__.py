@@ -1,3 +1,3 @@
 """Adapters package."""
 
-__all__ = ["sdk_direct"]
+__all__ = ["base", "sdk_direct"]

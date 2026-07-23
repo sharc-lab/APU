@@ -118,7 +118,7 @@ Each seed contains:
 }
 ```
 
-## Instrumentation Categories (13 total)
+## Instrumentation Categories
 
 | Category | Description | CPU Method |
 |---|---|---|
@@ -134,6 +134,7 @@ Each seed contains:
 | `PROMPT_ASSEMBLY` | (optional) Prompt template rendering | wall proxy |
 | `CONTEXT_MGMT` | (optional) Conversation history management | wall proxy |
 | `LOGGING` | (optional) Debug/trace logging overhead | wall proxy |
+| `SPEC_ROLLBACK` | Speculative rollback bookkeeping/merge cost | wall proxy |
 | `RESIDUAL_UNATTRIBUTED` | Unattributed session CPU | process_time delta |
 
 ## Harness Definitions

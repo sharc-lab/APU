@@ -3,7 +3,7 @@
 from enum import Enum
 
 class Category(str, Enum):
-    """All 13 instrumentation categories."""
+    """All instrumentation categories."""
     ORCH_SETUP = "ORCH_SETUP"
     ORCH_DISPATCH = "ORCH_DISPATCH"
     TOKENIZATION = "TOKENIZATION"
@@ -16,13 +16,14 @@ class Category(str, Enum):
     PROMPT_ASSEMBLY = "PROMPT_ASSEMBLY"
     CONTEXT_MGMT = "CONTEXT_MGMT"
     LOGGING = "LOGGING"
+    SPEC_ROLLBACK = "SPEC_ROLLBACK"
     RESIDUAL_UNATTRIBUTED = "RESIDUAL_UNATTRIBUTED"
 
 
 # Categories where wall time is a valid CPU proxy (no blocking I/O)
 CPU_BOUND_CATS = frozenset({
     "ORCH_SETUP", "ORCH_DISPATCH", "TOKENIZATION", "SERIALIZATION",
-    "CLIENT_PARSE", "FRAMEWORK", "TOOL_COMPUTE",
+    "CLIENT_PARSE", "FRAMEWORK", "TOOL_COMPUTE", "SPEC_ROLLBACK",
 })
 
 # Harness category groupings (from Zachary's definitions)

@@ -1,0 +1,11 @@
+# Editable mapping for StaticCategoryPolicy
+category_to_backend:
+  code_hybrid: cloud
+  compute_numerical: local
+  file_output: local
+  long_horizon: cloud
+  retrieval: cloud
+  retrieval_hybrid: cloud
+  search_hybrid: cloud
+  search_only: local
+  sweep_canary: local
