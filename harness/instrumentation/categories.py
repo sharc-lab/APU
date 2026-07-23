@@ -1,0 +1,41 @@
+"""Instrumentation categories for APU characterization."""
+
+from enum import Enum
+
+class Category(str, Enum):
+    """All 13 instrumentation categories."""
+    ORCH_SETUP = "ORCH_SETUP"
+    ORCH_DISPATCH = "ORCH_DISPATCH"
+    TOKENIZATION = "TOKENIZATION"
+    SERIALIZATION = "SERIALIZATION"
+    CLIENT_PARSE = "CLIENT_PARSE"
+    FRAMEWORK = "FRAMEWORK"
+    TOOL_COMPUTE = "TOOL_COMPUTE"
+    HTTP_CLIENT = "HTTP_CLIENT"
+    CLIENT_HTTP = "CLIENT_HTTP"
+    PROMPT_ASSEMBLY = "PROMPT_ASSEMBLY"
+    CONTEXT_MGMT = "CONTEXT_MGMT"
+    LOGGING = "LOGGING"
+    RESIDUAL_UNATTRIBUTED = "RESIDUAL_UNATTRIBUTED"
+
+
+# Categories where wall time is a valid CPU proxy (no blocking I/O)
+CPU_BOUND_CATS = frozenset({
+    "ORCH_SETUP", "ORCH_DISPATCH", "TOKENIZATION", "SERIALIZATION",
+    "CLIENT_PARSE", "FRAMEWORK", "TOOL_COMPUTE",
+})
+
+# Harness category groupings (from Zachary's definitions)
+HARNESS_STRICT_CATEGORIES = frozenset({
+    "ORCH_SETUP", "ORCH_DISPATCH", "TOKENIZATION", "SERIALIZATION"
+})
+HARNESS_BROAD_CATEGORIES = HARNESS_STRICT_CATEGORIES | frozenset({
+    "HTTP_CLIENT", "PROMPT_ASSEMBLY", "CONTEXT_MGMT", "LOGGING"
+})
+
+HARNESS_STRICT_DEFINITION = (
+    "harness_strict (ORCH_SETUP+ORCH_DISPATCH+TOKENIZATION+SERIALIZATION)"
+)
+HARNESS_BROAD_DEFINITION = (
+    "harness_broad (strict + HTTP_CLIENT + PROMPT_ASSEMBLY + CONTEXT_MGMT + LOGGING)"
+)
