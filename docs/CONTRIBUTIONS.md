@@ -2,6 +2,8 @@
 
 This document enumerates the five novelty claims and where they are substantiated in this repository.
 
+Framing note: SDK-vs-LangGraph orchestration and tail-latency characterization are treated as supporting instrumentation that grounds the routing methodology, not as standalone novelty claims.
+
 ## 1. Budget-as-State Routing
 
 - Claim statement: Routing quality/cost improves when remaining budget is an explicit policy state rather than a fixed threshold.

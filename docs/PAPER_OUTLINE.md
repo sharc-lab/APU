@@ -18,6 +18,11 @@ This file maps future paper sections to repository artifacts.
 - [routing/policies/](routing/policies)
 - [evaluation/quality.py](evaluation/quality.py)
 - [evaluation/certify.py](evaluation/certify.py)
+- Supporting instrumentation subsection inputs (SDK-vs-LangGraph + tail latency):
+- [harness/adapters/sdk_direct.py](harness/adapters/sdk_direct.py)
+- [harness/tail_latency_instrument.py](harness/tail_latency_instrument.py)
+- [results/claude_code_characterization.json](results/claude_code_characterization.json)
+- [results/tail_latency_results.json](results/tail_latency_results.json)
 
 ## Section 4: System/Design Decisions and Architecture
 
@@ -39,6 +44,7 @@ This file maps future paper sections to repository artifacts.
 - [results/learned_router_eval.json](results/learned_router_eval.json)
 - [reports/pareto_frontier.png](reports/pareto_frontier.png)
 - [reports/pareto_task_breakdown.md](reports/pareto_task_breakdown.md)
+- Framing note: orchestration comparison figures are reported as methodology-grounding evidence, not as standalone headline claims.
 
 ## Section 6: Threats to Validity
 

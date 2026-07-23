@@ -148,4 +148,24 @@ where `b` is remaining budget fraction in `[0, 1]`. As budget depletes (`b -> 0`
 
 ---
 
+## ADR-008: Project Framing Shift — Routing as Primary, Orchestration Comparison as Supporting Methodology (2026-07-23)
+
+**Status:** Accepted
+
+**Context:** The repository started with strong orchestration-overhead characterization outputs (SDK vs. LangGraph and tail-latency). As routing/evaluation/distillation infrastructure matured, the novel and commercializable through-line became budget-constrained hybrid local/cloud routing rather than framework comparison alone.
+
+**Decision:** Reframe repository and paper narrative so the primary contribution is the hybrid routing study (budget-as-state, step-level policies, speculative execution, distillation flywheel, certification). Keep orchestration comparison and tail-latency as supporting instrumentation that grounds measurement methodology and validity.
+
+**Rationale:**
+- Routing policy behavior under budget constraints is the core novel/commercial angle.
+- Orchestration/tail-latency characterization remains essential for measurement credibility.
+- Separating headline contribution from methodological support makes claims clearer and easier to defend.
+
+**Consequences:**
+- README/paper outline/contributions now lead with routing outcomes.
+- SDK-vs-LangGraph and tail-latency results are referenced as methodological calibration evidence.
+- Future experiments prioritize routing quality-cost-latency frontiers and policy learning loops.
+
+---
+
 *Last updated: 2026-07-23*

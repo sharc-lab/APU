@@ -1,10 +1,12 @@
-# APU Research — Agent Processing Unit Characterization
+# APU Research — Hybrid Local/Cloud Routing Study
 
-A reproducible, budget-constrained benchmark and routing study for hybrid cloud/local agent execution, measuring quality, cloud-token cost, and tail latency across orchestration frameworks.
+A budget-constrained routing study for hybrid cloud/local agent execution, using orchestration-overhead characterization (SDK vs. LangGraph, tail latency) as supporting instrumentation.
 
 ## Thesis
 
-**Orchestration overhead dominates host-CPU cost in AI agent systems.** Direct SDK calls (OpenAI) consume 0.1% host-CPU for orchestration; LangGraph-based agents consume 29.5%. For latency-sensitive applications, framework choice matters more than tool implementation. This work provides reproducible methodology to measure and compare frameworks on any infrastructure.
+**Primary thesis:** budget-aware, step-level routing is the central contribution in this repository.
+
+The project focuses on how to route agent steps between local and cloud backends under explicit cloud-token budgets while preserving quality and latency targets. The SDK-vs-LangGraph overhead and tail-latency characterization are used as supporting instrumentation: they ground our measurement assumptions, attribution categories, and validity checks for the routing experiments.
 
 ## Quick Start
 
@@ -43,13 +45,23 @@ APU/
 │   │   └── timing.py             # _wall_ns(), _process_cpu_ns() primitives
 │   ├── adapters/
 │   │   ├── __init__.py
-│   │   └── sdk_direct.py         # OpenAI SDK APU adapter (refactored)
-│   └── tail_latency_instrument.py # Latency profiler (refactored)
+│   │   └── sdk_direct.py          # Supporting orchestration instrumentation adapter
+│   └── tail_latency_instrument.py # Supporting tail-latency instrumentation
+├── routing/
+│   ├── budget.py                  # Budget state tracking + decision logs
+│   └── policies/                  # Routing policies (static, cascade, speculative, learned)
+├── evaluation/
+│   ├── quality.py                 # Task scoring (deterministic + judge)
+│   ├── sweep.py                   # Policy-budget sweep runner
+│   └── certify.py                 # Sampled quality certification
 ├── analysis/
 │   ├── __init__.py
-│   └── generate_reports.py       # Report generation
+│   ├── generate_reports.py        # Report generation
+│   ├── pareto.py                  # Quality-vs-cost frontier analysis
+│   └── distill_router.py          # Router distillation from decision traces
 ├── docs/
 │   ├── DECISIONS.md              # Architectural Decision Records (ADR)
+│   ├── METHODOLOGY.md            # Routing and replay methodology
 │   └── SCHEMA.md                 # JSON output schema documentation
 ├── results/
 │   ├── .gitkeep
@@ -67,14 +79,20 @@ APU/
     └── test_adapters.py          # Adapter integration tests
 ```
 
-## Key Results
+## Routing Study Outputs
+
+- Budget-constrained policy sweep outputs: `results/pareto_results.json`
+- Sampled certification outputs: `results/certified_quality.json`
+- Learned router distillation/eval outputs: `results/learned_router_eval.json`
+
+## Supporting Instrumentation Results
 
 | Framework | batch_host_cpu_ms | ORCH % | FRAMEWORK % | TOOL_COMPUTE % |
 |---|---|---|---|---|
 | **OpenAI SDK** | 2,765 | 0.1 | 0.0 | 94.1 |
 | **LangGraph** | 2,067 | 29.5 | 8.9 | 20.5 |
 
-**Insight:** LangGraph adds ~38 percentage points of orchestration overhead. Raw SDK scales better per-token spent on framework.
+**Methodological role:** These measurements calibrate orchestration categories and latency baselines that inform routing-policy evaluation; they are supporting instrumentation, not the headline contribution.
 
 ## Instrumentation Categories
 
