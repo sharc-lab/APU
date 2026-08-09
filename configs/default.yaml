@@ -1,0 +1,6 @@
+model: qwen3:4b
+host: http://localhost:11434
+reps: 5
+depths: [0, 2000, 8000, 16000, 32000, 64000]
+filler_mode: unlabelled
+skip_judge: true

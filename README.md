@@ -116,6 +116,50 @@ Measured across 14 task types, 3 concurrency conditions (single, chained, fan-ou
 | FO-01 (file/output) | 5,223 ms | 7,712 ms |
 | SO-01 (search-only) | 1,701 ms | 8,010 ms |
 
+---
+
+## Quality-Degradation Harness
+
+Measures how local LLM output quality degrades as the context window fills with
+filler tokens. Uses the 50-probe eval set in `evaluation/probes/`.
+
+### Quick start (Windows — PowerShell or cmd.exe)
+
+```powershell
+# One-time: install Ollama and pull qwen3:4b
+bash scripts/setup.sh
+
+# One-time: install deps
+py -3.11 -m pip install jsonschema psutil httpx numpy matplotlib pytest
+
+# One-time: validate the eval set
+cd evaluation/probes && py -3.11 validate.py && cd ../..
+
+# Run a sweep (44 probes × 6 depths × 5 reps)
+py -3.11 -m harness.runner
+
+# Plot results
+py -3.11 analysis/plot_degradation.py
+```
+
+### Runner options
+
+```
+--model     Ollama model (default: qwen3:4b)
+--host      Ollama URL   (default: http://localhost:11434)
+--reps      N per cell   (default: 5)
+--depths    token depths (default: 0 2000 8000 16000 32000 64000)
+--probe-ids run subset   (e.g. --probe-ids rea_01 cod_01)
+```
+
+Results land in `results/run_<timestamp>.jsonl`, one row per call with:
+`probe_id, category, difficulty, depth, rep, score, score_detail,`
+`latency_ms, ttft_ms, tokens_in, tokens_out, mem_rss_mb, gpu_mem_mb, config_hash`
+
+Cache in `.cache/calls/` (SHA-256 keyed). Delete to force fresh inference.
+
+---
+
 ## References
 
 - [Zachary Johnson's LangGraph baseline](github.com/zjohnson2005/apu-characterization)

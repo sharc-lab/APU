@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "required": [
+    "a",
+    "c"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "a": {
+      "const": 7
+    },
+    "c": {
+      "const": 8
+    }
+  }
+}

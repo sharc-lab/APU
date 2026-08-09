@@ -1,0 +1,54 @@
+{
+  "type": "object",
+  "required": [
+    "deps"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "deps": {
+      "type": "object",
+      "required": [
+        "alpha",
+        "beta",
+        "gamma",
+        "delta",
+        "epsilon"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "alpha": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "beta": {
+          "type": "array",
+          "items": {
+            "const": "delta"
+          },
+          "minItems": 1,
+          "maxItems": 1
+        },
+        "gamma": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "delta": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "epsilon": {
+          "type": "array",
+          "maxItems": 0
+        }
+      }
+    }
+  }
+}

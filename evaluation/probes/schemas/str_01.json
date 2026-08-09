@@ -1,0 +1,20 @@
+{
+  "type": "object",
+  "required": [
+    "name",
+    "age",
+    "city"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "const": "Marcus Delgado"
+    },
+    "age": {
+      "const": 34
+    },
+    "city": {
+      "const": "Lisbon"
+    }
+  }
+}

@@ -53,6 +53,7 @@ htmlcov/
 # Exclude generated run data, but keep Zachary's baseline and markdown reports
 results/claude_code_characterization.json
 results/tail_latency_results.json
+results/run_*.jsonl
 !results/zachary/*.json
 !results/.gitkeep
 !reports/*.md
@@ -60,6 +61,9 @@ reports/*.pdf
 !reports/.gitkeep
 *.npy
 *.npz
+
+# Record-replay cache (contains full model outputs and prompts)
+.cache/
 
 # OS
 .DS_Store

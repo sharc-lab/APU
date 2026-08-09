@@ -1,0 +1,43 @@
+{
+  "type": "object",
+  "required": [
+    "events"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "events": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "day",
+          "attendees"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "day": {
+            "enum": [
+              4,
+              11,
+              25
+            ]
+          },
+          "attendees": {
+            "enum": [
+              12,
+              8,
+              140
+            ]
+          }
+        }
+      }
+    }
+  }
+}

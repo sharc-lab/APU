@@ -1,0 +1,39 @@
+{
+  "type": "object",
+  "required": [
+    "total",
+    "items"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "total": {
+      "const": 84.5
+    },
+    "items": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "required": [
+          "sku",
+          "qty"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "sku": {
+            "enum": [
+              "SKU-9931",
+              "SKU-4402",
+              "SKU-1180"
+            ]
+          },
+          "qty": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      }
+    }
+  }
+}

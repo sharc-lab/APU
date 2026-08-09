@@ -1,0 +1,20 @@
+{
+  "type": "object",
+  "required": [
+    "a",
+    "b",
+    "c"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "a": {
+      "const": 132
+    },
+    "b": {
+      "const": "KV-CACHE"
+    },
+    "c": {
+      "const": true
+    }
+  }
+}
