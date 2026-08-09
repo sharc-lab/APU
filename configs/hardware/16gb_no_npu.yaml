@@ -1,0 +1,12 @@
+# Seed hardware config A: 16 GB unified memory, no NPU
+# Representative of entry-level AI PC (e.g., AMD Ryzen AI 5 / Intel Core Ultra 5)
+name: 16gb_no_npu
+memory_gb: 16
+has_npu: false
+npu_tops: 0
+quant: q4_k_m
+bom_cost_usd: 799
+notes: >
+  Baseline consumer laptop. Runs qwen3:4b at q4_k_m comfortably within 16 GB.
+  No NPU acceleration; all inference on CPU/iGPU.
+  Representative BOM: ~$799 street price (mid-2024 US market).

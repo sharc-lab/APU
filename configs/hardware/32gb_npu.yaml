@@ -1,0 +1,12 @@
+# Seed hardware config B: 32 GB unified memory, NPU at 45 TOPS
+# Representative of high-end AI PC (e.g., Qualcomm Snapdragon X Elite / AMD Ryzen AI 9)
+name: 32gb_npu
+memory_gb: 32
+has_npu: true
+npu_tops: 45
+quant: q8_0
+bom_cost_usd: 1399
+notes: >
+  High-end AI PC with dedicated NPU. Extra memory allows q8_0 quant and
+  larger context without KV-cache eviction. NPU offloads attention compute.
+  Representative BOM: ~$1399 street price (mid-2024 US market).
