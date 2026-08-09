@@ -4,9 +4,17 @@ A budget-constrained routing study for hybrid cloud/local agent execution, using
 
 ## Thesis
 
-**Primary thesis:** budget-aware, step-level routing is the central contribution in this repository.
+**Primary thesis:** hardware is a decision variable for consumer AI PC provisioning.
 
-The project focuses on how to route agent steps between local and cloud backends under explicit cloud-token budgets while preserving quality and latency targets. The SDK-vs-LangGraph overhead and tail-latency characterization are used as supporting instrumentation: they ground our measurement assumptions, attribution categories, and validity checks for the routing experiments.
+The contribution is a design-space exploration (DSE) over hardware configurations × routing policies, producing a Pareto frontier across three axes: agent task quality, cloud API spend, and hardware bill-of-materials (BOM) cost. The question is which combination of local hardware and routing policy delivers acceptable quality at the lowest total cost of ownership for a given workload.
+
+**Paper 1 — Hardware feasibility envelope (characterization).** Measures how sustained inference load, memory pressure, KV-cache eviction, and context growth affect agent task quality on consumer hardware. Produces the constraint model that Paper 2 consumes: at what context depth and memory config does quality fall below a given floor?
+
+**Paper 2 — DSE + hybrid engine.** Searches the hardware × policy space and outputs the Pareto surface. Each point is a (hardware config, routing policy) pair. The hardware BOM is a first-class axis, not a footnote.
+
+**Routing code role.** `routing/policies/*` implements the policy axis of the DSE search space. Routing is not the primary contribution — it is one dimension of the space being searched. The code is retained in full; its framing changes from "the contribution" to "one axis of the DSE."
+
+The SDK-vs-LangGraph overhead and tail-latency characterization are supporting instrumentation: they ground measurement assumptions, attribution categories, and validity checks for the sweep.
 
 ## Quick Start
 
