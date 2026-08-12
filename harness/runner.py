@@ -36,6 +36,21 @@ DEFAULT_MODEL = "qwen3:4b"
 DEFAULT_HOST = "http://localhost:11434"
 DEFAULT_REPS = 5
 
+# Fields required in every result row written to results/run_*.jsonl.
+# memory_architecture distinguishes unified AI PC configs from discrete
+# measurement hosts so they are never silently pooled in analysis.
+REQUIRED_ROW_FIELDS = frozenset({
+    "probe_id", "category", "depth", "rep", "filler_mode",
+    "score", "config_hash", "hardware_config", "memory_architecture",
+})
+
+
+def validate_result_row(row: dict) -> None:
+    """Raise ValueError if a result row is missing required fields."""
+    missing = REQUIRED_ROW_FIELDS - row.keys()
+    if missing:
+        raise ValueError(f"Result row missing required fields: {sorted(missing)}")
+
 
 def _load_scorers():
     spec = importlib.util.spec_from_file_location("probes_scorers", PROBES_DIR / "scorers.py")
@@ -95,6 +110,8 @@ def run_cell(
     host: str,
     cfg_hash: str,
     filler_mode: str,
+    hardware_config: str,
+    memory_architecture: str,
     scorers,
 ) -> dict[str, Any]:
     filler = context.build_filler(depth, seed=rep)
@@ -138,6 +155,8 @@ def run_cell(
         "mem_rss_mb": round(tel.mem_rss_mb, 1),
         "gpu_mem_mb": round(tel.gpu_mem_mb, 1),
         "config_hash": cfg_hash,
+        "hardware_config": hardware_config,
+        "memory_architecture": memory_architecture,
     }
 
 
@@ -174,6 +193,25 @@ def main() -> None:
         "--dry-run", action="store_true",
         help="Print sweep plan and exit without calling the model",
     )
+    parser.add_argument(
+        "--hardware-config", default="unknown",
+        metavar="NAME",
+        help=(
+            "Name of the hardware config running this sweep "
+            "(e.g. blade_rtx4070, strix_halo_64gb). Written to every result row "
+            "so runs from different hosts cannot be silently pooled."
+        ),
+    )
+    parser.add_argument(
+        "--memory-architecture", default="unknown",
+        choices=["unified", "discrete", "unknown"],
+        help=(
+            "Memory architecture of the host: 'unified' (AI PC, weights and KV "
+            "share one pool) or 'discrete' (separate VRAM). Written to every "
+            "result row. Quality-vs-depth results transfer across architectures; "
+            "TTFT and throughput do not."
+        ),
+    )
     args = parser.parse_args()
 
     scorers = _load_scorers()
@@ -184,6 +222,8 @@ def main() -> None:
         "reps": args.reps,
         "depths": sorted(args.depths),
         "filler_mode": args.filler_mode,
+        "hardware_config": args.hardware_config,
+        "memory_architecture": args.memory_architecture,
     }
     cfg_hash = _config_hash(cfg)
 
@@ -204,6 +244,7 @@ def main() -> None:
     print(f"Sweep : {len(probes)} probes x {len(args.depths)} depths x {args.reps} reps = {total} calls")
     print(f"Model : {args.model}  Host: {args.host}")
     print(f"Filler: {args.filler_mode}")
+    print(f"HW    : {args.hardware_config}  arch={args.memory_architecture}")
     print(f"Config: {cfg_hash}")
 
     if args.dry_run:
@@ -224,7 +265,10 @@ def main() -> None:
                         row = run_cell(
                             probe, depth, rep,
                             args.model, args.host, cfg_hash,
-                            args.filler_mode, scorers,
+                            args.filler_mode,
+                            args.hardware_config,
+                            args.memory_architecture,
+                            scorers,
                         )
                     except Exception as exc:
                         row = {
@@ -236,6 +280,8 @@ def main() -> None:
                             "score": None,
                             "error": str(exc),
                             "config_hash": cfg_hash,
+                            "hardware_config": args.hardware_config,
+                            "memory_architecture": args.memory_architecture,
                         }
 
                     fout.write(json.dumps(row) + "\n")

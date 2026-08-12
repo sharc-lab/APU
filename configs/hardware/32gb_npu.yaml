@@ -1,6 +1,7 @@
 # Seed hardware config B: 32 GB unified memory, NPU at 45 TOPS
 # Representative of high-end AI PC (e.g., Qualcomm Snapdragon X Elite / AMD Ryzen AI 9)
 name: 32gb_npu
+memory_architecture: unified
 memory_gb: 32
 has_npu: true
 npu_tops: 45
