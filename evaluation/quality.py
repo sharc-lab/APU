@@ -1,24 +1,17 @@
 """Per-task quality scoring for APU benchmark runs.
 
 Scoring hierarchy (applied in order, first hit wins):
-  1. Probe-backed deterministic: task_id is in the task_probe_map AND at least
-     one of the mapped probes has scorer_type == span_match.  All span_match
-     probes in the list are scored; the mean of their 0-10 scores becomes
-     score_deterministic.  Per-probe scores are retained in probe_scores.
-     Other scorer types (exact, schema, unit_test) have prompt-specific
-     expected values and return null from _score_with_probe — they are listed
-     for category coverage but do not contribute to score_deterministic.
+  1. Probe-backed deterministic: task_id is in the task_probe_map AND the
+     mapped probe has a scorer_type that can meaningfully evaluate open-ended
+     task outputs (span_match only for now — exact/schema/unit_test scorers are
+     tied to specific probe prompts and cannot be applied to arbitrary outputs).
   2. Deterministic programmatic: hard-coded scorer for CN-01.
-  3. LLM judge: fallback when score_deterministic is None.
+  3. LLM judge: fallback for all other task_ids.
 
 score_task always returns both score_deterministic and score_judge as separate
-fields. They are NEVER averaged. The top-level `score` key equals
-score_deterministic when available, else score_judge, for backward
-compatibility with sweep.py and certify.py.
-
-probe_scores: dict[probe_id -> {score, detail}] is included in the return dict
-whenever the task is in the task_probe_map.  Entries with score=null are probes
-whose scorer_type is not span_match; they are listed for coverage bookkeeping.
+fields. They are NEVER averaged. The caller decides which axis to report on.
+The top-level `score` key equals score_deterministic when available, else
+score_judge, for backward compatibility with sweep.py and certify.py.
 """
 
 from __future__ import annotations
@@ -50,12 +43,8 @@ def _load_probe_scorers():
     return mod
 
 
-def _load_task_probe_map() -> dict[str, list[dict]]:
-    """Load task_map.yaml; return {} when absent.
-
-    Returns dict mapping task_id -> list of probe dicts (full probe objects
-    from prompts.jsonl).  Only probe IDs that exist in prompts.jsonl are kept.
-    """
+def _load_task_probe_map() -> dict[str, dict]:
+    """Load task_map.yaml if it exists; return {} otherwise."""
     if not TASK_MAP_PATH.exists():
         return {}
     try:
@@ -64,6 +53,7 @@ def _load_task_probe_map() -> dict[str, list[dict]]:
     except Exception:
         return {}
 
+    # Load the probe index keyed by probe_id
     probes: dict[str, dict] = {}
     jsonl = PROBES_DIR / "prompts.jsonl"
     if jsonl.exists():
@@ -73,16 +63,11 @@ def _load_task_probe_map() -> dict[str, list[dict]]:
                 p = json.loads(line)
                 probes[p["id"]] = p
 
-    mapping: dict[str, list[dict]] = {}
+    mapping: dict[str, dict] = {}
     for task_id, entry in raw.items():
-        if not isinstance(entry, dict):
-            continue
-        ids = entry.get("probe_ids", [])
-        if isinstance(ids, str):
-            ids = [ids]
-        resolved = [probes[pid] for pid in ids if pid in probes]
-        if resolved:
-            mapping[task_id] = resolved
+        probe_id = entry.get("probe_id") if isinstance(entry, dict) else None
+        if probe_id and probe_id in probes:
+            mapping[task_id] = probes[probe_id]
     return mapping
 
 
@@ -125,12 +110,10 @@ def _probe_score_to_10(score: float | None) -> float | None:
 class QualityEvaluator:
     """Scores deterministic tasks directly and open-ended tasks via cached LLM judge.
 
-    For tasks in task_probe_map, all span_match probes in the mapped list are
-    scored and their mean becomes score_deterministic.  Per-probe scores appear
-    in probe_scores.  Non-span_match probes in the list are included in
-    probe_scores with score=null (for category coverage bookkeeping) but do not
-    contribute to score_deterministic.  The judge runs only when
-    score_deterministic is None.
+    When task_probe_map is populated (loaded from evaluation/probes/task_map.yaml),
+    tasks with probe mappings are scored deterministically using
+    evaluation/probes/scorers.py for span_match probes. score_task returns both
+    score_deterministic and score_judge as separate fields.
     """
 
     def __init__(
@@ -145,7 +128,7 @@ class QualityEvaluator:
         self.prompt_text = self._load_prompt(judge_prompt_version)
         self.judge_backend = CloudOpenAIBackend(model=judge_model, replay_mode=replay_mode)
         self._probe_scorers = None
-        self._task_probe_map: dict[str, list[dict]] = _load_task_probe_map()
+        self._task_probe_map: dict[str, dict] = _load_task_probe_map()
 
     def _get_probe_scorers(self):
         if self._probe_scorers is None:
@@ -161,13 +144,12 @@ class QualityEvaluator:
         """Apply a probe scorer to an open-ended task output.
 
         Only span_match is supported for task outputs: exact/schema/unit_test
-        expected values are prompt-specific and cannot evaluate outputs from a
-        different task prompt.  Returns (None, reason) for non-span_match types
-        so callers can record them in probe_scores without counting as a score.
+        scorers are tied to specific probe prompts and cannot meaningfully
+        evaluate outputs from a different task prompt.
         """
         scorer_type = probe.get("scorer_type")
         if scorer_type != "span_match":
-            return None, f"scorer_type={scorer_type!r} not applicable to task outputs"
+            return None, f"probe scorer_type={scorer_type!r} not applicable to task outputs"
         scorers = self._get_probe_scorers()
         score_01, detail = scorers.score_span_match(output_text, probe["expected"])
         return _probe_score_to_10(score_01), detail
@@ -184,9 +166,8 @@ class QualityEvaluator:
         Always includes:
           score               -- primary score (0-10), deterministic if available
           method              -- how score was derived
-          score_deterministic -- 0-10 mean of span_match probe scores, or null
+          score_deterministic -- 0-10 from probe/programmatic scorer, or null
           score_judge         -- 0-10 from LLM judge, or null
-          probe_scores        -- dict[probe_id -> {score, detail}] when mapped, else null
           judge_model         -- judge model used, or null
           judge_prompt_version
         """
@@ -197,7 +178,6 @@ class QualityEvaluator:
         judge_model: str | None = None
         judge_replayed: bool | None = None
         judge_cache_key: str | None = None
-        probe_scores: dict[str, Any] | None = None
 
         # --- Deterministic path 1: programmatic hard-coded scorer (CN-01) ---
         if DETERMINISTIC_SCORERS.get(task_id) == "compute_numerical":
@@ -206,21 +186,13 @@ class QualityEvaluator:
 
         # --- Deterministic path 2: probe-backed span_match ---
         elif task_id in self._task_probe_map:
-            probe_list = self._task_probe_map[task_id]
-            probe_scores = {}
-            span_scores: list[float] = []
-            for probe in probe_list:
-                s, detail = self._score_with_probe(output_text, probe)
-                probe_scores[probe["id"]] = {"score": s, "detail": detail}
-                if s is not None:
-                    span_scores.append(s)
-            if span_scores:
-                score_deterministic = round(sum(span_scores) / len(span_scores), 2)
-                det_method = (
-                    f"probe_span_match:mean({len(span_scores)}/{len(probe_list)})"
-                )
+            probe = self._task_probe_map[task_id]
+            s, detail = self._score_with_probe(output_text, probe)
+            if s is not None:
+                score_deterministic = s
+                det_method = f"probe_span_match:{probe['id']}"
 
-        # --- Judge path (runs only when no deterministic score is available) ---
+        # --- Judge path (runs when no deterministic score, or always for dual-reporting) ---
         if score_deterministic is None:
             judge_messages = [
                 {"role": "system", "content": self.prompt_text},
@@ -255,7 +227,6 @@ class QualityEvaluator:
             "method": method,
             "score_deterministic": score_deterministic,
             "score_judge": score_judge,
-            "probe_scores": probe_scores,
             "judge_model": judge_model,
             "judge_prompt_version": self.judge_prompt_version if judge_model else None,
             "judge_replayed": judge_replayed,
