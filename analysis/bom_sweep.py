@@ -11,11 +11,14 @@ first shows that experiment is not informative on its own:
      16 GB  -> more still
      32 GB  -> far more
 
-Qwen3-4B's native context window is 32,768 tokens. For a 4B model, even a small
-configuration holds more session than the model can attend to. Memory is NOT the
-binding constraint there; the context window is. A memory sweep at 4B alone
-would produce a flat line and conclude, wrongly, that the Copilot+ 16 GB floor
-is generous.
+Qwen3-4B's native context window is 262,144 tokens (confirmed 2026-08-13 from
+ollama show; the qwen3-2507 release extended all variants to 256k). At this
+window size, memory is the binding constraint for 8 GB and 16 GB unified
+configs: neither can hold enough KV tokens to fill the context window. Memory
+does NOT bind for 32 GB+, where residency exceeds the context window ceiling.
+A 4B sweep therefore DOES carry information across the 8–16 GB range; it is
+NOT a flat line. The earlier conclusion that "16 GB is generous for small
+models" was based on the wrong 32,768 value and is inverted by the true window.
 
 Capacity binds only when the model is large enough that weights plus KV crowd
 the budget. So the BOM question is two-dimensional: (model size x memory), and
@@ -97,10 +100,13 @@ class Model:
 
 
 MODELS: tuple[Model, ...] = (
-    Model("qwen3-4b", 4.0, 36, 8, 128, 32_768),
-    Model("qwen3-8b", 8.2, 36, 8, 128, 32_768),
-    Model("qwen3-14b", 14.8, 40, 8, 128, 32_768),
-    Model("qwen3-32b", 32.8, 64, 8, 128, 32_768),
+    # native_ctx confirmed 2026-08-13: ollama show qwen3:4b-instruct and qwen3:4b
+    # both report 262144 (qwen3-2507 release). Previous value of 32768 was wrong
+    # and inverted the binding conclusion for 16 GB configs.
+    Model("qwen3-4b",  4.0,  36,  8, 128, 262_144),
+    Model("qwen3-8b",  8.2,  36,  8, 128, 262_144),
+    Model("qwen3-14b", 14.8, 40,  8, 128, 262_144),
+    Model("qwen3-32b", 32.8, 64,  8, 128, 262_144),
 )
 
 
@@ -154,7 +160,7 @@ BLADE_HOST = BomConfig(
     memory_gb=8,
     bom_cost_usd=0,
     memory_architecture="discrete",
-    reserved_gb=0.8,
+    reserved_gb=0.82,  # measured: 783 MiB framework workspace above model weights
     notes=(
         "measurement host, RTX 4070 Laptop 8188 MiB VRAM; "
         "NOT a BOM candidate; discrete GDDR6 memory, "
