@@ -8,7 +8,11 @@ context depth can be attributed to a mechanism rather than reported as generic
 
 ---
 
-## cha_04 — Config-Parameter Substitution (chained_tools, hard)
+## cha_04 — Mechanism Disconfirmed by Ablation (chained_tools, hard)
+
+**Status: DISCONFIRMED.** The config-parameter substitution mechanism proposed
+after the main sweep was ruled out by ablation on 2026-08-17. See
+`results/ablation_cha04_20260817.jsonl` and `evaluation/probes/ablation.jsonl`.
 
 **Sweep:** run_20260813T021516Z.jsonl, blade_rtx4070, depths 0–32000
 
@@ -19,50 +23,67 @@ pass at d=16000 r=2). The sharpest 1→0 transition in the run.
 ```
 Tool results, in call order:
 get_config() -> {"retries": 3, "backoff_ms": 200, "jitter": false}
-get_attempt_log() -> [["fail", "fail", "success"]
+get_attempt_log() -> ["fail", "fail", "success"]
 With no jitter and constant backoff, how many total milliseconds were
 spent waiting in backoff before the successful attempt?
 ```
 
 Expected answer: 400 (2 failures × 200 ms).
 
-**Observed outputs:**
-- d=0: "400" — model correctly counts 2 failures from the log, computes 2 × 200.
+**Observed outputs (main sweep):**
+- d=0: "400" — matches expected.
 - d=2000–32000: "600" (dominant), "4200" (one outlier rep at d=2000).
-  - 600 = retries × backoff_ms = 3 × 200. The model uses the `retries` field
-    from get_config() instead of counting actual failures from get_attempt_log().
-  - 4200 is not obviously derivable from the given values and is likely an
-    internal computation error compounded by the wrong substitution.
 
-**Failure mode: config-parameter substitution.**
-The model does not fail randomly. It makes a specific, internally consistent
-error: it substitutes the `retries=3` configuration parameter for the
-count that should be derived from reading `get_attempt_log()`. The attempt log
-shows `["fail", "fail", "success"]` — two failures — but the model treats the
-retry count as an authoritative count of failure events. This is a
-schema-over-observation error: the model prefers the typed, labeled field
-(`retries: 3`) over the event sequence that must be interpreted (`["fail",
-"fail", "success"]`).
+**Original hypothesis (substitution):** The model uses `retries=3` from
+get_config() instead of counting the 2 failure events in get_attempt_log(),
+yielding 3 × 200 = 600. This appeared to explain the score drop at depth.
 
-**Why this matters for score interpretation:**
-A score of 0.0 at d=2000+ is not evidence that the model lost access to the
-tool results. The model clearly read get_config() correctly (it uses the
-backoff_ms=200 value accurately). The failure is in preferring the config
-schema to the log — a reasoning shortcut that selects the most salient labeled
-number rather than performing the required multi-step inference (count
-occurrences in the log, then multiply). Context depth may increase the
-saliency of the config block relative to the log, or it may simply lower the
-model's willingness to perform the counting step when a labeled number is
-available. Either way, the failure mode is substitution, not access failure.
+**Ablation design (2026-08-17, 45 calls, depths 0/8000/32000, 5 reps):**
+- `cha_04_ablate`: `retries` field removed entirely from get_config().
+  Expected: removing the supposed distractor restores correct counting.
+- `cha_04_swap`: `retries` changed from 3 to 7.
+  Expected: if substituting the field, model would output 7 × 200 = 1400.
 
-**Implication for Phase 2 design:**
-Probes that have both a labeled configuration parameter and a derived count
-that differs from it will detect substitution-vs-derivation failures. These
-are a distinct capability from simple artifact retrieval (can you find X in
-the context?). The chained_tools category should include at least one probe
-where the correct answer requires overriding a labeled number with a
-computed one, and the score should be annotated with the actual output to
-enable post-hoc failure mode classification.
+**Ablation results:**
+
+| Probe | Depth | Output | Count |
+|---|---|---|---|
+| cha_04 (control) | 0 | 400 | 5/5 |
+| cha_04 (control) | 8000 | 600 | 5/5 |
+| cha_04 (control) | 32000 | 600 | 5/5 |
+| cha_04_ablate (no retries) | 0 | 1200 | 5/5 |
+| cha_04_ablate (no retries) | 8000 | 600 | 5/5 |
+| cha_04_ablate (no retries) | 32000 | 200 (×3), 200200 (×2) | 5/5 |
+| cha_04_swap (retries=7) | 0 | 1200 | 5/5 |
+| cha_04_swap (retries=7) | 8000 | 200000 (×2), 200 (×2), 2000 (×1) | 5/5 |
+| cha_04_swap (retries=7) | 32000 | "200"×46 str (×3), 200000 (×1), 600 (×1) | 5/5 |
+
+**Why substitution is ruled out:**
+The decisive result is `cha_04_ablate` at d=8000: it returns 600 even though
+the `retries` field is absent. If the model were substituting the labeled field
+for a log count, removing the field should change the answer. It does not. The
+answer 600 is derivable from the log alone (e.g., 3 total entries × 200 ms),
+independent of whether `retries` is present.
+
+`cha_04_swap` does not return 1400 (7 × 200) at any depth. Instead it returns
+unstable values (200, 2000, 200000, repeated "200" strings) inconsistent with
+any simple field-substitution reading.
+
+**What remains unexplained:**
+Both ablation variants fail at d=0 with output "1200" (5/5 reps each). The
+original probe at d=0 returns "400" correctly, but the ablation shows this is
+not robust: changing or removing `retries` produces a consistently wrong answer
+at d=0, suggesting the d=0 correctness for cha_04 is not general log-counting
+ability. "1200" is not directly derivable from the stated values under any
+obvious formula; no current hypothesis explains it.
+
+The `cha_04_swap` behavior at depth (chaotic, non-reproducible) also has no
+clean explanation.
+
+**Current status:** The failure mode at depth is confirmed (score 0.0,
+wrong numerical answer), but the mechanism is not characterized. The probe
+remains valid for detecting this class of failure; the mechanism claim in the
+paper must not be asserted without further evidence.
 
 ---
 
