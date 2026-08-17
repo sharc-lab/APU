@@ -49,7 +49,18 @@ This file seeds Section 6 of the paper and tracks planned mitigations.
   - `evaluation/quality.py` scores agent task outputs using the LLM judge (and the CN-01 programmatic scorer, which is task-specific, not probe-derived). This is the Paper 2 routing study quality axis.
 - If deterministic scoring is needed for additional agent tasks, write a task-specific programmatic scorer inside `evaluation/quality.py` (as was done for CN-01), not a probe answer key.
 
-## 8. d=0 Baseline Confound: Prompt Presence vs. Context Depth
+## 8. Format Compliance Scored as Quality Failure
+
+- Threat: Exact-match scorers reject outputs where the correct answer is present but surrounded by additional text (e.g., "130/5=26" when "26" is expected; "1130+612+765=2507" when "2507" is expected). These are format failures — the model computed the right answer but violated the "ONLY the final answer" instruction — but the scorer records them as quality failures (score=0), inflating apparent degradation.
+- Measurement: Scanning run_20260813T021516Z.jsonl for exact-scoring rows where score=0.0 and the expected value appears in the output as a complete token (not a coincidental digit substring) found 12 true format failures across 2 probes out of 676 exact-scoring rows (1.8%). False-positive rate from naive substring matching was high (29 additional coincidental matches, mostly rea_05 "1200" containing "120"), so the boundary between format failure and correct answer requires word-boundary matching.
+- Affected probes and counts by depth:
+  - sea_03 (search_heavy): outputs "A+B+C=2507" instead of "2507". Occurs at d=2000 (2/5 reps), d=8000 (2/5), d=16000 (1/5), d=32000 (2/5). Flat across depths — stochastic non-compliance with the "ONLY" instruction, not depth-driven.
+  - lon_02 (long_horizon): outputs "130/5=26" instead of "26" at d=16000 (4/5 reps) and d=32000 (1/5 reps). Notably, these are the reps that compute the arithmetic correctly; at d=0 the model outputs a wrong answer, and at d=32000 some reps output "126" (genuinely wrong). The format failure and the correct computation are coupled: the model that computes step-by-step correctly at d=16000 also shows its working.
+- Impact: 12 rows scored 0.0 that should be classified as format-fail rather than quality-fail. This slightly inflates apparent degradation at d=16000 (5 rows, rate 3.8% of exact-scoring attempts) and d=32000 (3 rows, 2.3%). The overall effect on aggregate mean scores is small (<0.01 absolute), but for per-probe analysis lon_02 at d=16000 shows apparent score=0.0 when the model is computing correctly.
+- Note: rea_05 consistently outputs "1200" (wants "120") at all depths — this is a unit error (divides by 100 instead of 1000), not a format failure. "120" appears as a substring of "1200" but 1200 is a genuinely wrong answer.
+- Mitigation: For Phase 2, add a format-aware scorer mode that extracts the last numeric token from outputs before exact-matching. This separates format compliance (did the model follow the ONLY instruction?) from arithmetic correctness (did it compute the right answer?), which are distinct capabilities.
+
+## 9. d=0 Baseline Confound: Prompt Presence vs. Context Depth
 
 - Threat: The d=0 condition is structurally different from every d>0 condition. At d=0, the model receives only the probe prompt (typically 30–200 tokens). At d=2000, it receives ~2000 tokens of filler followed by the probe — a prompt that is 10–50× longer in aggregate. This structural difference (presence vs. absence of any filler) changes model inference behaviour independently of the depth being measured.
 - Evidence: Two reverse-pattern probes illuminate the mechanism.
