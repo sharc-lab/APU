@@ -48,3 +48,17 @@ This file seeds Section 6 of the paper and tracks planned mitigations.
   - `harness/runner.py` runs probes against their own prompts and scores with `evaluation/probes/scorers.py`. This is the Paper 1 quality axis (local-model degradation under context growth).
   - `evaluation/quality.py` scores agent task outputs using the LLM judge (and the CN-01 programmatic scorer, which is task-specific, not probe-derived). This is the Paper 2 routing study quality axis.
 - If deterministic scoring is needed for additional agent tasks, write a task-specific programmatic scorer inside `evaluation/quality.py` (as was done for CN-01), not a probe answer key.
+
+## 8. KV Prefix Cache Not Persistent Between API Calls (Discrete Host)
+
+- Threat: The depth→rep→probe loop order was originally motivated partly by the hypothesis that consecutive probe calls at the same depth would benefit from Ollama's KV prefix cache (shared filler prefix = cache hit). A two-call persistence test at d=64,000 tokens on the Razer Blade (RTX 4070, Ollama 0.9.x) showed that the cache is flushed between `/api/chat` calls: both calls took ~124 s (consistent cold load), not ~3.5 s (expected cache-hit latency). No KV persistence was observed.
+- Impact: `position_in_cell` tracks scheduling position within a (depth, rep) cell, not warm/cold cache status. Any latency regression of position on score is a scheduling-order confound, not a cache effect. Latency analyses should treat position_in_cell as a nuisance covariate, not a cache indicator.
+- Mitigation: The field `cache_state` was removed from result rows (it would have silently labelled position 0 as "cold" and the rest as "warm" — false data). `position_in_cell` is retained as-is; its causal interpretation is ambiguous (it could reflect anything from thermal throttling to scheduler jitter) and must not be treated as a cache signal.
+- Note: KV caching behaviour is host-specific. Sweeps on the AMD Strix Halo unified-memory host should re-run the persistence test before treating probe ordering as a cache confound.
+
+## 9. Extreme Latency Outliers at d=32,000 rep=1 (Discrete Host)
+
+- Threat: Three probes in the d=32,000, rep=1 cell showed anomalous latencies: sea_01 (6,703 s ≈ 112 min), sea_04 (3,831 s ≈ 64 min), lon_02 (3,641 s ≈ 61 min). All three produced 2–4 output tokens despite num_predict=800. The preceding probe in that cell was cod_07, which generated 714/800 tokens over ~1,085 s at d=32,000 rep=0, likely leaving the Ollama server in a degraded state.
+- Impact: The three outlier rows have valid scores and must not be excluded from quality analysis. Their latencies, however, reflect server-state degradation rather than model inference speed and must be excluded from any latency or throughput analysis.
+- Identification: A row is a latency outlier if latency_s > 1800 and tokens_out < 10. Three rows match this criterion in run_20260813T021516Z.jsonl (probes sea_01, sea_04, lon_02 at d=32000, r=1).
+- Mitigation: Add a server health check (e.g., a ping call with num_predict=1 and timeout=30 s) between cells when the previous cell's maximum latency exceeded a threshold (e.g., 600 s). This would detect and surface degraded state before the next cell begins.
