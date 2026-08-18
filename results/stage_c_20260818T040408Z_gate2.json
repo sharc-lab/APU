@@ -1,0 +1,23 @@
+{
+  "filler_tokens": 4005,
+  "probe_full_tokens": {
+    "rag_01": 4183,
+    "rag_02": 4168,
+    "rag_03": 4169,
+    "rag_04": 4171,
+    "rag_05": 4161,
+    "rag_06": 4169,
+    "sea_01": 4290,
+    "sea_03": 4294,
+    "sea_04": 4293,
+    "sea_05": 4304,
+    "sea_06": 4297
+  },
+  "gate2_result": "ERRORS",
+  "truncation_method": "harness_left_char",
+  "gate2_probe": "rag_01",
+  "gate2_ratio": 0.85,
+  "gate2_num_ctx": 3556,
+  "gate2_full_tokens": 4183,
+  "gate2_detail": "HTTP 400: Ollama rejects num_ctx < prompt length. Falling back to harness-side left-char truncation."
+}
