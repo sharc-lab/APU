@@ -72,7 +72,7 @@ def independent_answers():
     a["rea_06"] = [k for k, v in sol.items() if v == "coffee"][0]
 
     # rag_01 / rag_03 / rag_04 / rag_05 policy logic
-    a["rag_01"] = "0.15%"
+    a["rag_01"] = "0.15"
     a["rag_03"] = str(sum([62 > 75, False]))                 # dinner<=75, mileage exempt
     a["rag_04"] = str(sum([True, False]))                    # intl taxi yes, mileage exempt
     a["rag_05"] = f"{200 * 0.67:.2f}"

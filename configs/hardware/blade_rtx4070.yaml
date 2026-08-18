@@ -17,11 +17,11 @@ has_npu: false
 npu_tops: 0
 quant: q4_k_m
 bom_cost_usd: 0
-reserved_gb: 0.8
+reserved_gb: 0.82
 notes: >
   Razer Blade 15, RTX 4070 Laptop GPU, 8188 MiB GDDR6 VRAM.
   Measurement host for Paper 1 context-depth sweep.
   NOT a BOM candidate: discrete GDDR6 bandwidth and pressure dynamics
   differ from unified LPDDR5x targets (AMD Strix Halo, Apple Silicon).
-  reserved_gb = 0.8 is VRAM overhead estimate; verify with nvidia-smi
-  after model load.
+  reserved_gb = 0.82 measured 2026-08-12: qwen3:4b idle = 3167 MiB,
+  model weights = 2384 MiB, framework workspace = 783 MiB = 0.82 GB.

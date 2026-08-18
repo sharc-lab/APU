@@ -1,0 +1,229 @@
+{
+  "llama3_1_8b": {
+    "model": "llama3.1:8b",
+    "depth": 256,
+    "reps": 3,
+    "n_calls": 132,
+    "overall_mean": 0.4621,
+    "by_category": {
+      "search_heavy": {
+        "mean": 0.2,
+        "n_probes": 5
+      },
+      "structured_output": {
+        "mean": 0.8,
+        "n_probes": 5
+      },
+      "code_heavy": {
+        "mean": 0.9583,
+        "n_probes": 8
+      },
+      "reasoning_heavy": {
+        "mean": 0.1667,
+        "n_probes": 6
+      },
+      "long_horizon": {
+        "mean": 0.0,
+        "n_probes": 5
+      },
+      "chained_tools": {
+        "mean": 0.2,
+        "n_probes": 5
+      },
+      "fan_out": {
+        "mean": 0.5,
+        "n_probes": 4
+      },
+      "rag_heavy": {
+        "mean": 0.6111,
+        "n_probes": 6
+      }
+    },
+    "by_difficulty": {
+      "easy": {
+        "mean": 0.8571,
+        "n_probes": 7
+      },
+      "hard": {
+        "mean": 0.4583,
+        "n_probes": 16
+      },
+      "medium": {
+        "mean": 0.3333,
+        "n_probes": 21
+      }
+    },
+    "dynamic_range": {
+      "ceiling_probes": [
+        "cha_02",
+        "cod_01",
+        "cod_02",
+        "cod_03",
+        "cod_04",
+        "cod_05",
+        "cod_06",
+        "cod_08",
+        "fan_02",
+        "fan_04",
+        "rag_01",
+        "rag_02",
+        "rag_04",
+        "rea_06",
+        "sea_01",
+        "str_01",
+        "str_02",
+        "str_04",
+        "str_05"
+      ],
+      "floor_probes": [
+        "cha_03",
+        "cha_04",
+        "cha_05",
+        "cha_06",
+        "fan_03",
+        "fan_05",
+        "lon_01",
+        "lon_02",
+        "lon_03",
+        "lon_05",
+        "lon_06",
+        "rag_03",
+        "rag_05",
+        "rea_01",
+        "rea_03",
+        "rea_04",
+        "rea_05",
+        "rea_07",
+        "sea_03",
+        "sea_04",
+        "sea_05",
+        "sea_06",
+        "str_03"
+      ],
+      "variable_probes": [
+        "cod_07",
+        "rag_06"
+      ],
+      "n_ceiling": 19,
+      "n_floor": 23,
+      "n_variable": 2
+    },
+    "result_file": "results/run_20260818T000746Z.jsonl",
+    "config_hash": "d75470ebda63"
+  },
+  "qwen3_4b_instruct": {
+    "model": "qwen3:4b-instruct",
+    "depth": 2000,
+    "depth_note": "comparison depth is d=2000 from main sweep; d=256 was not run for qwen3. d=0 excluded due to documented confound (THREATS.md T-09).",
+    "reps": 5,
+    "n_calls": 220,
+    "overall_mean": 0.5228,
+    "by_category": {
+      "long_horizon": {
+        "mean": 0.2,
+        "n_probes": 5
+      },
+      "code_heavy": {
+        "mean": 0.8125,
+        "n_probes": 8
+      },
+      "fan_out": {
+        "mean": 0.25,
+        "n_probes": 4
+      },
+      "reasoning_heavy": {
+        "mean": 0.3333,
+        "n_probes": 6
+      },
+      "rag_heavy": {
+        "mean": 0.6667,
+        "n_probes": 6
+      },
+      "structured_output": {
+        "mean": 1.0,
+        "n_probes": 5
+      },
+      "chained_tools": {
+        "mean": 0.28,
+        "n_probes": 5
+      },
+      "search_heavy": {
+        "mean": 0.4,
+        "n_probes": 5
+      }
+    },
+    "by_difficulty": {
+      "hard": {
+        "mean": 0.375,
+        "n_probes": 16
+      },
+      "medium": {
+        "mean": 0.5429,
+        "n_probes": 21
+      },
+      "easy": {
+        "mean": 0.7857,
+        "n_probes": 7
+      }
+    },
+    "dynamic_range": {
+      "ceiling_probes": [
+        "cha_02",
+        "cod_02",
+        "cod_03",
+        "cod_04",
+        "cod_05",
+        "cod_06",
+        "cod_08",
+        "fan_02",
+        "lon_02",
+        "rag_01",
+        "rag_02",
+        "rag_05",
+        "rag_06",
+        "rea_06",
+        "rea_07",
+        "sea_01",
+        "sea_04",
+        "str_01",
+        "str_02",
+        "str_03",
+        "str_04",
+        "str_05"
+      ],
+      "floor_probes": [
+        "cha_04",
+        "cha_05",
+        "cha_06",
+        "cod_07",
+        "fan_03",
+        "fan_04",
+        "fan_05",
+        "lon_01",
+        "lon_03",
+        "lon_05",
+        "lon_06",
+        "rag_03",
+        "rag_04",
+        "rea_01",
+        "rea_03",
+        "rea_04",
+        "rea_05",
+        "sea_03",
+        "sea_05",
+        "sea_06"
+      ],
+      "variable_probes": [
+        "cha_03",
+        "cod_01"
+      ],
+      "n_ceiling": 22,
+      "n_floor": 20,
+      "n_variable": 2
+    },
+    "result_file": "results/run_20260813T021516Z.jsonl",
+    "config_hash": "c77c9119ba4c"
+  },
+  "finding": "llama3.1:8b does not materially beat qwen3:4b-instruct. Overall means are 0.462 vs 0.523. llama3.1:8b wins on code_heavy (+0.125) and fan_out (+0.250) but loses on medium difficulty (-0.210), long_horizon (-0.200), search_heavy (-0.200), and structured_output (-0.200). Dynamic range does not improve: both models pin ~93% of probes at ceiling or floor (only 2 variable probes each). The bimodal structure of this eval set is model-agnostic at this parameter scale. qwen3:4b-instruct is preferred for Stage C given the existing main sweep data.",
+  "dynamic_range_note": "Dynamic range \u2014 count of probes not pinned at 0.0 or 1.0 \u2014 is the key metric for experimental sensitivity. llama3.1:8b: 2/44 variable. qwen3:4b: 2/44 variable. Both are too low for position-pressure effects to show as score changes on most probes. Stage C must rely on specific probes from the rag_*, sea_*, cha_*, lon_* families that have substantial inline content."
+}

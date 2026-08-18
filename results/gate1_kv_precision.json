@@ -1,0 +1,129 @@
+{
+  "ollama_cli_version": "0.32.9",
+  "ollama_server_version": "0.32.6",
+  "model": "qwen3:4b-instruct",
+  "num_ctx_weights": 512,
+  "num_ctx_kv": 32768,
+  "architectural_bpt": {
+    "f16": 147456,
+    "q8_0": 73728,
+    "q4_0": 36864.0
+  },
+  "server_startup_env": {
+    "OLLAMA_FLASH_ATTENTION": "false",
+    "OLLAMA_KV_CACHE_TYPE": "",
+    "note": "Read from server.log startup block"
+  },
+  "note_flash_attn": "Server started with OLLAMA_FLASH_ATTENTION=false but llama-server is invoked with --flash-attn auto, which enables Flash Attention regardless. Flash Attention is active on this build.",
+  "weight_vram_mib": 7906,
+  "conditions": [
+    {
+      "label": "f16_with_flash",
+      "kv_type_requested": "f16",
+      "flash_attention": "1",
+      "env": {
+        "OLLAMA_KV_CACHE_TYPE": "f16",
+        "OLLAMA_FLASH_ATTENTION": "1"
+      },
+      "total_vram_mib": 7870,
+      "kv_vram_mib_by_subtraction": -36,
+      "gpu_kv_mib_from_log": 3712.0,
+      "cpu_kv_mib_from_log": 896.0,
+      "kv_type_k_from_log": "f16",
+      "kv_type_v_from_log": "f16",
+      "flash_attn_log": "resolve_fused_ops: Flash Attention enabled",
+      "gpu_kv_bytes": 3892314112,
+      "bpt_measured": 118784.0,
+      "bpt_architectural": 147456,
+      "ratio_measured_over_arch": 0.806,
+      "kv_line_from_log": "llama_kv_cache: size = 4608.00 MiB ( 32768 cells,  36 layers,  1/1 seqs), K (f16): 2304.00 MiB, V (f16): 2304.00 MiB"
+    },
+    {
+      "label": "q8_0_with_flash",
+      "kv_type_requested": "q8_0",
+      "flash_attention": "1",
+      "env": {
+        "OLLAMA_KV_CACHE_TYPE": "q8_0",
+        "OLLAMA_FLASH_ATTENTION": "1"
+      },
+      "total_vram_mib": 7870,
+      "kv_vram_mib_by_subtraction": -36,
+      "gpu_kv_mib_from_log": 3712.0,
+      "cpu_kv_mib_from_log": 896.0,
+      "kv_type_k_from_log": "f16",
+      "kv_type_v_from_log": "f16",
+      "flash_attn_log": "resolve_fused_ops: Flash Attention enabled",
+      "gpu_kv_bytes": 3892314112,
+      "bpt_measured": 118784.0,
+      "bpt_architectural": 73728,
+      "ratio_measured_over_arch": 1.611,
+      "kv_line_from_log": "llama_kv_cache: size = 4608.00 MiB ( 32768 cells,  36 layers,  1/1 seqs), K (f16): 2304.00 MiB, V (f16): 2304.00 MiB"
+    },
+    {
+      "label": "q4_0_with_flash",
+      "kv_type_requested": "q4_0",
+      "flash_attention": "1",
+      "env": {
+        "OLLAMA_KV_CACHE_TYPE": "q4_0",
+        "OLLAMA_FLASH_ATTENTION": "1"
+      },
+      "total_vram_mib": 7870,
+      "kv_vram_mib_by_subtraction": -36,
+      "gpu_kv_mib_from_log": 3712.0,
+      "cpu_kv_mib_from_log": 896.0,
+      "kv_type_k_from_log": "f16",
+      "kv_type_v_from_log": "f16",
+      "flash_attn_log": "resolve_fused_ops: Flash Attention enabled",
+      "gpu_kv_bytes": 3892314112,
+      "bpt_measured": 118784.0,
+      "bpt_architectural": 36864.0,
+      "ratio_measured_over_arch": 3.222,
+      "kv_line_from_log": "llama_kv_cache: size = 4608.00 MiB ( 32768 cells,  36 layers,  1/1 seqs), K (f16): 2304.00 MiB, V (f16): 2304.00 MiB"
+    },
+    {
+      "label": "f16_no_flash",
+      "kv_type_requested": "f16",
+      "flash_attention": "unset",
+      "env": {
+        "OLLAMA_KV_CACHE_TYPE": "f16"
+      },
+      "total_vram_mib": 7870,
+      "kv_vram_mib_by_subtraction": -36,
+      "gpu_kv_mib_from_log": 3712.0,
+      "cpu_kv_mib_from_log": 896.0,
+      "kv_type_k_from_log": "f16",
+      "kv_type_v_from_log": "f16",
+      "flash_attn_log": "resolve_fused_ops: Flash Attention enabled",
+      "gpu_kv_bytes": 3892314112,
+      "bpt_measured": 118784.0,
+      "bpt_architectural": 147456,
+      "ratio_measured_over_arch": 0.806,
+      "kv_line_from_log": "llama_kv_cache: size = 4608.00 MiB ( 32768 cells,  36 layers,  1/1 seqs), K (f16): 2304.00 MiB, V (f16): 2304.00 MiB"
+    }
+  ],
+  "verdict": "FAIL \u2014 OLLAMA_KV_CACHE_TYPE and LLAMA_ARG_CACHE_TYPE_K/V both ignored on Ollama 0.32.9. KV cache is f16 regardless of configuration. Stage D CANCELLED. llama-server binary supports --cache-type-k directly but is not used by this run.",
+  "llama_arg_env_test": {
+    "method": "LLAMA_ARG_CACHE_TYPE_K and LLAMA_ARG_CACHE_TYPE_V env vars",
+    "q8_0": {
+      "kv_type_k": "f16",
+      "kv_type_v": "f16",
+      "cuda_kv_mib": 3712.0,
+      "bpt": 118784.0
+    },
+    "q4_0": {
+      "kv_type_k": "f16",
+      "kv_type_v": "f16",
+      "cuda_kv_mib": 3712.0,
+      "bpt": 118784.0
+    },
+    "result": "No effect \u2014 Ollama 0.32.x reads LLAMA_ARG_* in the startup env block but does not propagate them to the llama-server command line. Confirmed by log: --cache-type-k absent from all llama-server invocations observed."
+  },
+  "llama_server_direct": {
+    "installed": true,
+    "path": "C:\\Users\\rithw\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\llama-server.exe",
+    "supports_cache_type_k": true,
+    "env_vars": "LLAMA_ARG_CACHE_TYPE_K, LLAMA_ARG_CACHE_TYPE_V",
+    "note": "Direct use would bypass Ollama model management. Viable fallback but adds operational complexity. Stage D would require switching to llama-server direct invocation."
+  },
+  "stage_d_status": "CANCELLED \u2014 precision axis does not exist via Ollama on this build"
+}
