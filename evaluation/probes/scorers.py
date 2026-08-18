@@ -275,6 +275,124 @@ def score_judge(output: str, spec: dict, client=None) -> tuple[float | None, str
     raise JudgeNotConfigured("wire the judge client before enabling judge probes")
 
 
+# ---------------------------------------------------------------- abstention
+
+# Phrases that assert the *source material* (provided text/documents/context)
+# is missing the needed information. Ordered longest-first so a more specific
+# phrase matches before its prefix would.
+_ABSTENTION_PHRASES: tuple[str, ...] = (
+    "impossible to determine",
+    "cannot be determined",
+    "unable to determine",
+    "cannot determine",
+    "does not mention",
+    "does not contain",
+    "not contain",
+    "not mentioned",
+    "not provided",
+    "not specified",
+    "not stated",
+    "not given",
+    "no information",
+    "no mention",
+    "insufficient information",
+    "insufficient data",
+    "not present in",
+    "not available in",
+    "documents do not",
+    "document does not",
+    "text does not",
+    "passage does not",
+    "context does not",
+    "provided text",   # "provided text does not..." — partial match is fine
+)
+
+# After an abstention phrase, if the model continues with answer-giving language
+# followed by a specific value, the output is a hedge-then-fabrication.
+# We look for these patterns in the text *after* the abstention phrase.
+#
+# Uses adversative conjunctions only (but/however/though/yet), not consequential
+# ones (so/therefore/thus), because "so it is impossible to determine" is a
+# continuation of the abstention, not a pivot to an answer.
+#
+# Also matches explicit answer-declaration patterns without a leading conjunction.
+_HEDGE_THEN_ANSWER = re.compile(
+    r"\b(?:but|however|though|yet|still)\b"
+    r"[^.]{0,80}"
+    r"\b(?:likely|probably|approximately|around|about|would be|it is|they are)\s*"
+    r"(?!(?:impossible|unable|cannot|not\b))"   # exclude "it is impossible" etc.
+    r"[\d\w]",
+    re.I,
+)
+_DIRECT_ANSWER_AFTER = re.compile(
+    r"\b(?:the answer is|answer would be|result is|value is|that is)\s*[\d\w]",
+    re.I,
+)
+
+
+def classify_abstention(output: str) -> bool:
+    """Return True if *output* is a genuine abstention from the source material.
+
+    Genuine abstention: the model explicitly declares that the provided
+    text/documents/context does not contain the information needed to answer,
+    without then going on to provide a specific answer anyway.
+
+    Not an abstention:
+    - Confident wrong answers with no hedge language.
+    - Outputs that contain an abstention phrase but then provide a specific
+      value (hedge-then-fabrication): e.g. "I cannot determine from the text,
+      but it is approximately 0.15".
+
+    The line: an abstention phrase must be present AND the text after that
+    phrase must not contain answer-giving language followed by a specific value.
+    A purely explanatory refusal (no answer materialises after the hedge) counts
+    as abstention even if lengthy.
+    """
+    t = output.lower()
+
+    # Find the position of the earliest abstention phrase.
+    first_pos = -1
+    for phrase in _ABSTENTION_PHRASES:
+        pos = t.find(phrase)
+        if pos != -1 and (first_pos == -1 or pos < first_pos):
+            first_pos = pos
+
+    if first_pos == -1:
+        return False  # no abstention language at all
+
+    # Check whether the model answered anyway after the abstention phrase.
+    after = t[first_pos:]
+    if _HEDGE_THEN_ANSWER.search(after) or _DIRECT_ANSWER_AFTER.search(after):
+        return False  # hedge-then-answer: fabrication
+
+    return True
+
+
+def outcome_class(output: str | None, score: float | None, truncated: bool) -> str:
+    """Classify a row into one of four mutually exclusive outcome classes.
+
+    Classes:
+      correct    score == 1.0
+      abstained  model declared source material insufficient (no answer given)
+      incorrect  model gave a specific wrong answer
+      error      output is None (call failed)
+
+    Note: abstention and correctness are orthogonal by design. An abstention on
+    a probe whose artifact is *present* (truncated=False) is a failure to answer;
+    an abstention where the artifact was *removed* (truncated=True) is correct
+    behaviour. The score field carries the scorer's judgment; outcome_class
+    carries the response type. Callers must condition analysis on `truncated` to
+    interpret abstentions correctly.
+    """
+    if output is None:
+        return "error"
+    if score == 1.0:
+        return "correct"
+    if classify_abstention(output):
+        return "abstained"
+    return "incorrect"
+
+
 # ---------------------------------------------------------------- dispatch
 
 def score(probe: dict, output: str, judge_client=None):
