@@ -1,0 +1,264 @@
+{
+  "experiment": "self_report_arms",
+  "model": "qwen3:4b-instruct",
+  "hardware": "blade_rtx4070",
+  "probes": [
+    "rag_01",
+    "rag_02",
+    "rag_05",
+    "sea_01",
+    "sea_04"
+  ],
+  "ratios": [
+    0.85,
+    0.7,
+    0.55,
+    0.4
+  ],
+  "n_reps": 3,
+  "arm_descriptions": {
+    "arm1_baseline": "Reused Stage C EARLY truncated data, no prompt modification",
+    "arm2_abstention_instruction": "Appended: If the information needed to answer is not present above, respond exactly: INSUFFICIENT_CONTEXT",
+    "arm3_self_report": "Appended: First state whether the information needed to answer is present above, then answer. Format: AVAILABLE: yes|no, then the answer."
+  },
+  "aggregate_by_arm": {
+    "arm1_baseline": {
+      "n_total": 60,
+      "fabrication_rate": 0.8,
+      "abstention_rate": 0.2,
+      "correct_rate": 0.0
+    },
+    "arm2_abstention_instruction": {
+      "n_total": 60,
+      "fabrication_rate": 1.0,
+      "abstention_rate": 0.0,
+      "correct_rate": 0.0
+    },
+    "arm3_self_report": {
+      "n_total": 60,
+      "fabrication_rate": 0.7667,
+      "abstention_rate": 0.2333,
+      "correct_rate": 0.0
+    }
+  },
+  "per_arm_per_ratio": {
+    "arm1_baseline": {
+      "0.85": {
+        "n": 15,
+        "correct": 0,
+        "abstained": 3,
+        "incorrect": 12,
+        "fabrication_rate": 0.8,
+        "abstention_rate": 0.2
+      },
+      "0.7": {
+        "n": 15,
+        "correct": 0,
+        "abstained": 3,
+        "incorrect": 12,
+        "fabrication_rate": 0.8,
+        "abstention_rate": 0.2
+      },
+      "0.55": {
+        "n": 15,
+        "correct": 0,
+        "abstained": 3,
+        "incorrect": 12,
+        "fabrication_rate": 0.8,
+        "abstention_rate": 0.2
+      },
+      "0.4": {
+        "n": 15,
+        "correct": 0,
+        "abstained": 3,
+        "incorrect": 12,
+        "fabrication_rate": 0.8,
+        "abstention_rate": 0.2
+      }
+    },
+    "arm2_abstention_instruction": {
+      "0.85": {
+        "n": 15,
+        "correct": 0,
+        "abstained": 0,
+        "incorrect": 15,
+        "fabrication_rate": 1.0,
+        "abstention_rate": 0.0
+      },
+      "0.7": {
+        "n": 15,
+        "correct": 0,
+        "abstained": 0,
+        "incorrect": 15,
+        "fabrication_rate": 1.0,
+        "abstention_rate": 0.0
+      },
+      "0.55": {
+        "n": 15,
+        "correct": 0,
+        "abstained": 0,
+        "incorrect": 15,
+        "fabrication_rate": 1.0,
+        "abstention_rate": 0.0
+      },
+      "0.4": {
+        "n": 15,
+        "correct": 0,
+        "abstained": 0,
+        "incorrect": 15,
+        "fabrication_rate": 1.0,
+        "abstention_rate": 0.0
+      }
+    },
+    "arm3_self_report": {
+      "0.85": {
+        "n": 15,
+        "correct": 0,
+        "abstained": 4,
+        "incorrect": 11,
+        "fabrication_rate": 0.7333,
+        "abstention_rate": 0.2667
+      },
+      "0.7": {
+        "n": 15,
+        "correct": 0,
+        "abstained": 4,
+        "incorrect": 11,
+        "fabrication_rate": 0.7333,
+        "abstention_rate": 0.2667
+      },
+      "0.55": {
+        "n": 15,
+        "correct": 0,
+        "abstained": 3,
+        "incorrect": 12,
+        "fabrication_rate": 0.8,
+        "abstention_rate": 0.2
+      },
+      "0.4": {
+        "n": 15,
+        "correct": 0,
+        "abstained": 3,
+        "incorrect": 12,
+        "fabrication_rate": 0.8,
+        "abstention_rate": 0.2
+      }
+    }
+  },
+  "arm2_sentinel": {
+    "n_total": 60,
+    "sentinel_used": 48,
+    "sentinel_used_rate": 0.8,
+    "sentinel_ignored": 12,
+    "sentinel_ignored_rate": 0.2,
+    "sentinel_failures_by_probe": {
+      "sea_01": [
+        0.4,
+        0.55
+      ],
+      "sea_04": [
+        0.55,
+        0.85
+      ]
+    },
+    "note": "All sentinel failures are sea_01 and sea_04 probes; model outputs 93850 (filler number) overriding the instruction"
+  },
+  "arm3_available_field": {
+    "n_total": 60,
+    "available_yes": 24,
+    "available_yes_rate": 0.4,
+    "available_no": 36,
+    "available_no_rate": 0.6,
+    "available_yes_outcome_breakdown": {
+      "incorrect": 21,
+      "abstained": 3,
+      "correct": 0
+    },
+    "available_no_outcome_breakdown": {
+      "incorrect": 25,
+      "abstained": 11,
+      "correct": 0
+    },
+    "available_yes_fabrication_note": "All 24 AVAILABLE:yes rows are from sea_01 and sea_04; model asserts context present then outputs 93850 (filler number)",
+    "available_no_but_answers_note": "25/36 AVAILABLE:no rows still provide a value; model declares context absent but produces an answer"
+  },
+  "arm3_yes_samples": [
+    {
+      "probe_id": "sea_01",
+      "budget_ratio": 0.85,
+      "available_field": "yes",
+      "outcome": "incorrect",
+      "output": "AVAILABLE: yes, 93850"
+    },
+    {
+      "probe_id": "sea_01",
+      "budget_ratio": 0.7,
+      "available_field": "yes",
+      "outcome": "incorrect",
+      "output": "AVAILABLE: yes, 93850"
+    },
+    {
+      "probe_id": "sea_01",
+      "budget_ratio": 0.7,
+      "available_field": "yes",
+      "outcome": "abstained",
+      "output": "AVAILABLE: yes, all required information is present in the provided text. 93850"
+    },
+    {
+      "probe_id": "sea_01",
+      "budget_ratio": 0.55,
+      "available_field": "yes",
+      "outcome": "incorrect",
+      "output": "AVAILABLE: yes, 93850"
+    },
+    {
+      "probe_id": "sea_01",
+      "budget_ratio": 0.4,
+      "available_field": "yes",
+      "outcome": "incorrect",
+      "output": "AVAILABLE: yes, all entries are consistent and complete up to the point of truncation, and the information needed to determine the status of compliance and maintenance is fully present in the provided log entries. maintenance of infrastructure segment 93850 was completed on schedule and filed under reference 93850."
+    },
+    {
+      "probe_id": "sea_04",
+      "budget_ratio": 0.85,
+      "available_field": "yes",
+      "outcome": "abstained",
+      "output": "AVAILABLE: yes, all required information is present in the provided text."
+    },
+    {
+      "probe_id": "sea_04",
+      "budget_ratio": 0.85,
+      "available_field": "yes",
+      "outcome": "incorrect",
+      "output": "AVAILABLE: yes, 93850"
+    },
+    {
+      "probe_id": "sea_04",
+      "budget_ratio": 0.7,
+      "available_field": "yes",
+      "outcome": "incorrect",
+      "output": "AVAILABLE: yes, 93850"
+    },
+    {
+      "probe_id": "sea_04",
+      "budget_ratio": 0.55,
+      "available_field": "yes",
+      "outcome": "incorrect",
+      "output": "AVAILABLE: yes, 93850"
+    },
+    {
+      "probe_id": "sea_04",
+      "budget_ratio": 0.4,
+      "available_field": "yes",
+      "outcome": "incorrect",
+      "output": "AVAILABLE: yes, all entries are consistent and complete up to the point of truncation, and the information needed to determine the status of compliance and maintenance is fully present in the provided log entries. The oversight committee confirmed that operational metrics remained within baseline parameters, no anomalies were recorded, budget allocations were processed without escalation, and routine maintenance was completed on schedule for each district from 93834 to 93850. The final entry is cut off mid-sentence, but the pattern and content of all prior entries are complete and sufficient to infer the status. Therefore, the status of compliance and maintenance for district 9"
+    }
+  ],
+  "interpretation": {
+    "arm2_suppresses_fabrication_partially": true,
+    "arm2_sea_probes_override_instruction": true,
+    "arm3_no_introspective_access": true,
+    "arm3_note": "AVAILABLE:yes on all sea probe rows confirms model cannot detect missing info; it reports context present and fabricates from filler. AVAILABLE:no but then provides value (69% of AVAILABLE:no rows) confirms self-report does not prevent fabrication.",
+    "fabrication_persists_in_all_arms": true
+  }
+}
