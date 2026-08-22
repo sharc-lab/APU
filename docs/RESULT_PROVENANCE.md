@@ -74,3 +74,11 @@ explicitly. The 21 rows that produced empty output (`output == ""`) were
 rerun with `harness/stage_a_rerun.py` at `MIN_PREDICT=1024`; those
 replacement rows carry `classification_method: "done_reason"` and `rerun:
 true`, and their `done_reason` field is authoritative.
+
+**Outcome labels on pre-fix rows are valid.** The 51 non-empty pre-fix rows
+produced coherent, complete outputs at MIN_PREDICT=512 (the model reached the
+answer phase within budget). Outputs are short single-word or short-phrase
+responses ('51847', '0.0073', 'unknown', '0.0147', etc.) with no evidence of
+output truncation. The missing `done_reason` and `eval_count` fields are
+instrumentation gaps only; the `outcome`, `score`, and `lifted_from_filler`
+labels on these rows stand and do not need to be recomputed.

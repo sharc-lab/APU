@@ -8,6 +8,84 @@ context depth can be attributed to a mechanism rather than reported as generic
 
 ---
 
+## Stage A — gpt-oss:120b-cloud Type-Match Results and Disconfirmed Claim
+
+**Experiment:** `harness/stage_a_scale.py` → `results/stage_a_scale.json`  
+**Date:** 2026-08-22, git hash 70d8663 (initial run) + bda6894 (rerun)  
+**Machine:** blade14_rtx4070
+
+### Confirmed findings
+
+**Headroom failure / interference — art_02/F-TYPED:** At r=1.20 (artifact fully
+present, af=1.00), the 120B model outputs `"0.0147"` — a ppb value from
+type-matched filler — in 5 of 6 runs (the sixth rep also showed this on rerun).
+The model retrieves the type-matched filler value in preference to the artifact
+value even when the artifact is present and untruncated. This is a
+recency/position interference effect, not a truncation effect.
+art_02/F-TYPED is the headline cell for the interference experiment.
+
+**F-NUM fabrication:** 100% fabrication rate under dissimilar filler (F-NUM)
+across all 4 probes at both extinct ratios. Same behaviour as qwen3:4b. No
+abstention. This matches the pattern established at smaller model sizes.
+
+**F-TYPED lifting (art_06):** ~50% lift rate across r=0.85 and r=0.40. Model
+retrieves surnames from filler records rather than denying. Same mechanism as
+at smaller models.
+
+### Disconfirmed claim: implicit abstention
+
+**Status: DISCONFIRMED.**
+
+The Stage A commit described "novel failure mode: art_06/F-NUM and art_07
+(both fillers) produce empty string outputs (implicit abstention) rather than
+fabricating." This was wrong. The empty outputs were **thinking-budget
+exhaustion**, not deliberate abstention.
+
+**Evidence:** On rerun at MIN_PREDICT=1024 (`harness/stage_a_rerun.py`,
+commit bda6894), the 21 originally-empty rows split as:
+
+- `done_reason='length'` (budget exhausted): **12 rows** — art_07 across
+  both fillers and both ratios (5/6 reps even at 1024), plus art_06/F-TY
+  r=0.85 rep=1. These rows remain without output at 1024.
+- Became non-empty: **9 rows**. Of these, 8 are fabrications (surnames,
+  wrong versions, lifted ppb values); 1 is a denial ('NOTFOUND').
+
+**art_06/F-NUM r=0.85 specifically:** All three reps that were empty at 512
+tokens produced fabricated surnames at 1024 (`'Miller'`, `'Smith'`,
+`'Smith'`). The 120B model fabricates under dissimilar filler like qwen3:4b;
+it produced no novel failure mode there. The apparent empty-output behaviour
+was entirely an artefact of token budget.
+
+**Corrected reading:** Under F-NUM filler, gpt-oss:120b fabricates (like
+qwen3:4b), not abstains (unlike llama3.1:8b). The cross-model abstention
+contrast (qwen/120b fabricate, llama abstains) holds without qualification
+from 120B data.
+
+### art_07 — genuinely long-thinking at scale
+
+art_07 is a version-number probe (ORM release notes, CVE lookup). At
+MIN_PREDICT=1024, art_07 rows remain `done_reason='length'` in **5 of 6**
+rerun reps across both fillers and both extinct ratios (r=0.85 and r=0.40).
+This is not under-budgeting — 1024 tokens is a substantial thinking budget.
+The model's search through long version-history filler appears to require more
+than 1024 thinking tokens when the artifact is extinct.
+
+**Implication for the Stage A table:** The art_07 extinct rows are largely
+missing outcomes. In `results/stage_a_scale.json`, art_07 rows at r=0.85 and
+r=0.40 should be treated as `outcome=None` / not classifiable for the
+fabrication-rate analysis. They are flagged with `classification_method:
+"unavailable"` (pre-fix rows) or `rerun: true` + `done_reason: "length"`
+(rerun rows). Any aggregate fabrication rate that includes art_07 extinct rows
+is inflated (those rows are classified `outcome="incorrect"` by the scorer
+when `output=""`, but the true outcome is unknown).
+
+The art_07 r=1.20 headroom rows (artifact fully present) produced correct
+outputs (`'3.11.9'`) in all 6 reps at 512 tokens — so the model can retrieve
+the correct value quickly when no search is needed. The long-thinking issue
+is specific to the extinct context (full filler scan required).
+
+---
+
 ## cha_04 — Mechanism Disconfirmed by Ablation (chained_tools, hard)
 
 **Status: DISCONFIRMED.** The config-parameter substitution mechanism proposed
