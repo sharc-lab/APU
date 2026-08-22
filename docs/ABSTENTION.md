@@ -153,10 +153,85 @@ The routing and execution-engine implications of context-state blindness (a mode
 
 ## Threats
 
-**T-A01: Sea probe filler design.** The filler generates numbered entries (93850, 93851, ...) that are domain-adjacent to sea probe questions ("Which lot/region/segment..."). The contamination is unusually strong because the filler number is a valid answer format for the question type. A filler with no numeric content might not produce this effect.
+**T-A01: Sea probe filler design.** The filler generates numbered entries that are domain-adjacent to sea probe questions. This threat is addressed by the filler composition experiment below; see Section "Filler Composition Control."
 
 **T-A02: Single model.** All results are from qwen3:4b-instruct. A larger model or one with stronger instruction-following may show higher sentinel compliance in arm 2 and more accurate self-report in arm 3.
 
 **T-A03: Probe coverage.** The 5-probe set is small. The rag/sea split that drives the AVAILABLE:yes/no split in arm 3 may not generalise to other probe categories.
 
 **T-A04: Hardware mismatch.** Data collected on blade_rtx4070. Target hardware (AMD Strix Halo, unified memory) may produce different context-state effects under actual memory pressure.
+
+---
+
+## Filler Composition Control
+
+**Date:** 2026-08-21  
+**Data:** `results/filler_composition.json`
+
+### Motivation
+
+Every fabrication in the sea probes came from the model outputting "93850" — the last entry number in the filler. This is a domain-adjacent integer: the sea probes ask for structured record values, and the filler provides numbered entries. T-A01 above raised the question of whether the fabrication effect depends on this specific contamination, or is general.
+
+Three filler variants were run to separate the factors:
+
+| Variant | Description |
+|---|---|
+| F-NUM | Existing numbered log entries (control, seed=42 → entries 93810-93850) |
+| F-PROSE | Digit-free descriptive landscape prose; no integers, no spelled-out numbers, no ordinals. Assertion verified programmatically. |
+| F-STRUCT-NONNUM | Same sentence skeleton as F-NUM but word-based identifiers (e.g. `[SLATE-KNOLL]`) in place of integers |
+
+5 probes × 3 variants × 2 ratios (0.70, 0.40) × 2 arms (baseline, self-report) × 3 reps = 180 calls.
+
+### Fabrication rates
+
+| Variant | arm1 baseline | arm3 self-report |
+|---|---|---|
+| F-NUM | 80.0% (24/30) | 76.7% (23/30) |
+| F-PROSE | **90.0% (27/30)** | **86.7% (26/30)** |
+| F-STRUCT-NONNUM | 86.7% (26/30) | 80.0% (24/30) |
+
+Fabrication does not drop under the non-numeric variants. F-PROSE produces the highest rate.
+
+### What changes: the fabricated value
+
+The specific fabricated value is filler-driven, but fabrication is not:
+
+| Variant | sea probe fabrication | source |
+|---|---|---|
+| F-NUM | `93850` | Last entry number in filler; appears verbatim |
+| F-PROSE | `below the escarpment the terrain flattened into a broad open area with poor drainage` | Verbatim sentence from landscape prose filler |
+| F-STRUCT-NONNUM | `SLATE-KNOLL` | Last entry label in filler; appears verbatim |
+
+In every case the model lifts the last prominent entity from the remaining context and presents it as the answer. F-PROSE replaces a number with a landscape sentence; the model outputs this sentence as the answer to "Which lot has the highest defect rate?" The format is wrong, the content is wrong, and the model reports AVAILABLE:yes in arm 3 regardless.
+
+For rag probes (rag_01, rag_05), the fabricated values ("0.0001", "0.00") do not appear in any filler variant — those are prior-only fabrications from model weights.
+
+### AVAILABLE:yes false-positive is probe-type-driven
+
+| Variant | sea_01 AVAILABLE:yes | sea_04 AVAILABLE:yes | rag probes AVAILABLE:yes |
+|---|---|---|---|
+| F-NUM | 6/6 | 6/6 | 0/18 |
+| F-PROSE | 6/6 | 6/6 | 0/18 |
+| F-STRUCT-NONNUM | 6/6 | 6/6 | 0/18 |
+
+The false-availability rate is identical across all three filler variants. Sea probes report AVAILABLE:yes in 100% of arm 3 cells regardless of whether the filler contains numbers, landscape prose, or word-coded labels. This rules out filler content as the driver: the AVAILABLE:yes report is a function of the probe type (structured-record question), not filler contamination. The model reads whatever structured content remains in the truncated context as "the records" and reports availability accordingly.
+
+### rag_02 anomaly: filler domain signal affects abstention
+
+rag_02 is the one probe where the filler variant changes outcomes:
+
+| Variant | rag_02 arm1 abstentions | rag_02 arm1 fabrications |
+|---|---|---|
+| F-NUM | 6/6 | 0/6 |
+| F-STRUCT-NONNUM | 4/6 | 2/6 |
+| F-PROSE | 3/6 | 3/6 |
+
+F-NUM and F-STRUCT-NONNUM share the same sentence skeleton ("operational metrics", "infrastructure segment", "compliance period"). This vocabulary is domain-adjacent to administrative data and distant from sensor arrays. The model reads this context and recognises the domain mismatch with the rag_02 question ("Which array shows drift near 0.9% per month?") — and abstains.
+
+F-PROSE provides no domain signal. The model, reading landscape descriptions before the question, falls back entirely to priors and attempts to answer: "The question refers to a specific array showing drift near 0.9% per month... Meridian-3."
+
+This is a nuance in the abstention mechanism: structured domain-adjacent filler induces abstention by giving the model a clear signal that the context is not what the question is about. Absent that signal, the model fabricates from weights. This does not change the fabrication headline — rag_02 is one probe and the effect reverses the abstention/fabrication label, not the error-versus-correct outcome.
+
+### Summary
+
+The filler design (T-A01) is not a confound for the headline finding. Fabrication rates under digit-free prose (90%) are higher than under the numeric control (80%), and the fabricated value changes but fabrication does not stop. "93850" was not special — it was the incidental content the model happened to lift. The finding is general: under left-char truncation of the EARLY arm, the model fabricates from whatever entity is most salient in the remaining context, independent of whether that entity is a number, a word-code, or a landscape sentence.
