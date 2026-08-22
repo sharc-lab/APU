@@ -1,0 +1,479 @@
+{
+  "n_rows": 480,
+  "mean_score_by_form_model_arm_ratio": {
+    "structured|qwen3:4b-instruct|arm1_baseline": {
+      "1.2": 1.0,
+      "0.98": 0.0,
+      "0.85": 0.0,
+      "0.4": 0.0
+    },
+    "structured|qwen3:4b-instruct|arm3_self_report": {
+      "1.2": 0.0,
+      "0.98": 0.0,
+      "0.85": 0.0,
+      "0.4": 0.0
+    },
+    "structured|llama3.1:8b|arm1_baseline": {
+      "1.2": 1.0,
+      "0.98": 0.0,
+      "0.85": 0.0,
+      "0.4": 0.0
+    },
+    "structured|llama3.1:8b|arm3_self_report": {
+      "1.2": 1.0,
+      "0.98": 0.0,
+      "0.85": 0.0,
+      "0.4": 0.0
+    },
+    "narrative|qwen3:4b-instruct|arm1_baseline": {
+      "1.2": 1.0,
+      "0.98": 0.0,
+      "0.85": 0.0,
+      "0.4": 0.0
+    },
+    "narrative|qwen3:4b-instruct|arm3_self_report": {
+      "1.2": 0.3333,
+      "0.98": 0.0,
+      "0.85": 0.0,
+      "0.4": 0.0
+    },
+    "narrative|llama3.1:8b|arm1_baseline": {
+      "1.2": 1.0,
+      "0.98": 0.0,
+      "0.85": 0.0,
+      "0.4": 0.0
+    },
+    "narrative|llama3.1:8b|arm3_self_report": {
+      "1.2": 1.0,
+      "0.98": 0.0,
+      "0.85": 0.0,
+      "0.4": 0.0
+    },
+    "mixed|qwen3:4b-instruct|arm1_baseline": {
+      "1.2": 1.0,
+      "0.98": 1.0,
+      "0.85": 0.0,
+      "0.4": 0.0
+    },
+    "mixed|qwen3:4b-instruct|arm3_self_report": {
+      "1.2": 0.0,
+      "0.98": 0.0,
+      "0.85": 0.0,
+      "0.4": 0.0
+    },
+    "mixed|llama3.1:8b|arm1_baseline": {
+      "1.2": 1.0,
+      "0.98": 1.0,
+      "0.85": 0.0,
+      "0.4": 0.0
+    },
+    "mixed|llama3.1:8b|arm3_self_report": {
+      "1.2": 1.0,
+      "0.98": 0.6667,
+      "0.85": 0.0,
+      "0.4": 0.0
+    }
+  },
+  "fab_abs_by_form": {
+    "structured": {
+      "n": 72,
+      "fabricated": 36,
+      "abstained": 36,
+      "correct": 0,
+      "fab_rate": 0.5,
+      "abs_rate": 0.5,
+      "correct_rate": 0.0
+    },
+    "narrative": {
+      "n": 54,
+      "fabricated": 28,
+      "abstained": 26,
+      "correct": 0,
+      "fab_rate": 0.5185,
+      "abs_rate": 0.4815,
+      "correct_rate": 0.0
+    },
+    "mixed": {
+      "n": 54,
+      "fabricated": 24,
+      "abstained": 12,
+      "correct": 18,
+      "fab_rate": 0.4444,
+      "abs_rate": 0.2222,
+      "correct_rate": 0.3333
+    }
+  },
+  "fabricated_value_source_by_form": {
+    "structured": {
+      "n_incorrect": 36,
+      "from_filler": 0,
+      "from_prior": 36
+    },
+    "narrative": {
+      "n_incorrect": 28,
+      "from_filler": 3,
+      "from_prior": 25
+    },
+    "mixed": {
+      "n_incorrect": 24,
+      "from_filler": 0,
+      "from_prior": 24
+    }
+  },
+  "arm3_available_yes_rate_by_form": {
+    "structured": {
+      "n": 72,
+      "yes": 0,
+      "no": 72,
+      "none": 0,
+      "yes_rate": 0.0
+    },
+    "narrative": {
+      "n": 54,
+      "yes": 0,
+      "no": 54,
+      "none": 0,
+      "yes_rate": 0.0
+    },
+    "mixed": {
+      "n": 54,
+      "yes": 10,
+      "no": 44,
+      "none": 0,
+      "yes_rate": 0.1852
+    }
+  },
+  "per_probe_scores_arm1": {
+    "art_01": {
+      "form": "structured",
+      "scores": {
+        "1.2": 1.0,
+        "0.98": 0.0,
+        "0.85": 0.0,
+        "0.4": 0.0
+      }
+    },
+    "art_02": {
+      "form": "structured",
+      "scores": {
+        "1.2": 1.0,
+        "0.98": 0.0,
+        "0.85": 0.0,
+        "0.4": 0.0
+      }
+    },
+    "art_03": {
+      "form": "structured",
+      "scores": {
+        "1.2": 1.0,
+        "0.98": 0.0,
+        "0.85": 0.0,
+        "0.4": 0.0
+      }
+    },
+    "art_04": {
+      "form": "structured",
+      "scores": {
+        "1.2": 1.0,
+        "0.98": 0.0,
+        "0.85": 0.0,
+        "0.4": 0.0
+      }
+    },
+    "art_05": {
+      "form": "narrative",
+      "scores": {
+        "1.2": 1.0,
+        "0.98": 0.0,
+        "0.85": 0.0,
+        "0.4": 0.0
+      }
+    },
+    "art_06": {
+      "form": "narrative",
+      "scores": {
+        "1.2": 1.0,
+        "0.98": 0.0,
+        "0.85": 0.0,
+        "0.4": 0.0
+      }
+    },
+    "art_07": {
+      "form": "narrative",
+      "scores": {
+        "1.2": 1.0,
+        "0.98": 0.0,
+        "0.85": 0.0,
+        "0.4": 0.0
+      }
+    },
+    "art_08": {
+      "form": "mixed",
+      "scores": {
+        "1.2": 1.0,
+        "0.98": 1.0,
+        "0.85": 0.0,
+        "0.4": 0.0
+      }
+    },
+    "art_09": {
+      "form": "mixed",
+      "scores": {
+        "1.2": 1.0,
+        "0.98": 1.0,
+        "0.85": 0.0,
+        "0.4": 0.0
+      }
+    },
+    "art_10": {
+      "form": "mixed",
+      "scores": {
+        "1.2": 1.0,
+        "0.98": 1.0,
+        "0.85": 0.0,
+        "0.4": 0.0
+      }
+    }
+  },
+  "per_probe_fabricated_outputs_arm1": {
+    "art_01": {
+      "form": "structured",
+      "outputs": [
+        "0"
+      ]
+    },
+    "art_02": {
+      "form": "structured",
+      "outputs": [
+        "0"
+      ]
+    },
+    "art_03": {
+      "form": "structured",
+      "outputs": [
+        "0"
+      ]
+    },
+    "art_04": {
+      "form": "structured",
+      "outputs": [
+        "none"
+      ]
+    },
+    "art_05": {
+      "form": "narrative",
+      "outputs": [
+        "There is no mention of grid reference coordinates being recorded for the sediment core extraction in the provided text. The text appears to be a series of administrative log entries related to routine maintenance, budget allocations, and operational metrics, but it does not include any information about sediment core extraction or grid reference coordinates.",
+        "The provided text does not mention any grid reference coordinates, nor does it reference sediment core extraction or related data. All entries describe compliance reviews, budget processing, and routine maintenance for various districts (e.g., 93815 to 93850), but there is no information about sediment core extraction or associated geographic coordinates (N and W values).\n\nTherefore, **no grid reference coordinates were recorded** in the text for sediment core extraction.\n\n**Answer: No coordinates were recorded.**",
+        "The provided text does not mention any grid reference coordinates, nor does it reference sediment core extraction or related data. All entries describe administrative log reviews, compliance periods, budget allocations, and routine maintenance of infrastructure segments, but there is no information about sediment core extraction or associated geographic coordinates (such as N and W values).\n\nTherefore, **no grid reference coordinates were recorded** for the sediment core extraction in the given text.\n\n**Answer: No coordinates were recorded.**"
+      ]
+    },
+    "art_06": {
+      "form": "narrative",
+      "outputs": [
+        "M\u00e4kinen",
+        "unknown",
+        "none"
+      ]
+    },
+    "art_07": {
+      "form": "narrative",
+      "outputs": [
+        "3.11.8",
+        "0.0.0",
+        "3.2.1"
+      ]
+    },
+    "art_08": {
+      "form": "mixed",
+      "outputs": [
+        "none",
+        "There is no SKU number mentioned in the text."
+      ]
+    },
+    "art_09": {
+      "form": "mixed",
+      "outputs": [
+        "0"
+      ]
+    },
+    "art_10": {
+      "form": "mixed",
+      "outputs": [
+        "0",
+        "1000",
+        "100"
+      ]
+    }
+  },
+  "r098_partial_artifact_detail": {
+    "art_01": {
+      "form": "structured",
+      "artifact_fraction": 0.0,
+      "mean_score": 0.0,
+      "outcomes": [
+        "incorrect",
+        "incorrect",
+        "incorrect",
+        "abstained",
+        "abstained",
+        "abstained"
+      ],
+      "outputs": [
+        "0",
+        "There is no mention of a \"listen_port\" in the provided text."
+      ]
+    },
+    "art_02": {
+      "form": "structured",
+      "artifact_fraction": 0.0,
+      "mean_score": 0.0,
+      "outcomes": [
+        "incorrect",
+        "incorrect",
+        "incorrect",
+        "abstained",
+        "abstained",
+        "abstained"
+      ],
+      "outputs": [
+        "0",
+        "There is not enough information to provide an answer."
+      ]
+    },
+    "art_03": {
+      "form": "structured",
+      "artifact_fraction": 0.0,
+      "mean_score": 0.0,
+      "outcomes": [
+        "incorrect",
+        "incorrect",
+        "incorrect",
+        "abstained",
+        "abstained",
+        "abstained"
+      ],
+      "outputs": [
+        "0",
+        "There is no mention of a CPU_HOURS value for job J-10894 in the provided text."
+      ]
+    },
+    "art_04": {
+      "form": "structured",
+      "artifact_fraction": 0.0,
+      "mean_score": 0.0,
+      "outcomes": [
+        "incorrect",
+        "incorrect",
+        "incorrect",
+        "abstained",
+        "abstained",
+        "abstained"
+      ],
+      "outputs": [
+        "none",
+        "There is no mention of a user named tcosta in the provided text."
+      ]
+    },
+    "art_05": {
+      "form": "narrative",
+      "artifact_fraction": 0.246377,
+      "mean_score": 0.0,
+      "outcomes": [
+        "abstained",
+        "abstained",
+        "abstained",
+        "incorrect",
+        "abstained",
+        "abstained"
+      ],
+      "outputs": [
+        "The provided text does not contain any information about grid reference coordinates for sediment core extraction. There is no mention of N (north) or W (west) values, nor any reference to geographic coordinates, grid systems, or locations related to sediment core sampling.\n\nTherefore, based on the content given, **no grid reference coordinates were recorded** for the sediment core extraction.\n\n**Answer: Not recorded in the text.**",
+        "The provided text does not contain any information about grid reference coordinates for sediment core extraction. There is no mention of geographic coordinates, grid references, or any location data related to sediment core sampling.\n\nTherefore, **no N or W values** were recorded in the text.\n\n**Answer: Not available.**",
+        "There is no mention of grid reference coordinates being recorded for the sediment core extraction in the provided text. The text appears to be a series of administrative log entries related to routine maintenance, budget allocations, and operational metrics, but it does not include any information about sediment core extraction or grid reference coordinates.",
+        "There is no mention of grid reference coordinates or sediment core extraction in the provided text. The text appears to be a series of administrative log entries related to routine maintenance, budget allocations, and operational metrics for an infrastructure segment over several cycles (93810-93850)."
+      ]
+    },
+    "art_06": {
+      "form": "narrative",
+      "artifact_fraction": 0.34375,
+      "mean_score": 0.0,
+      "outcomes": [
+        "abstained",
+        "abstained",
+        "abstained",
+        "incorrect",
+        "incorrect",
+        "incorrect"
+      ],
+      "outputs": [
+        "None of the provided text mentions a motion to retire the DELPHI-2 indexing service or anyone seconding such a motion. Therefore, based on the information given, no last name can be identified for someone who seconded that motion.\n\nNone",
+        "M\u00e4kinen"
+      ]
+    },
+    "art_07": {
+      "form": "narrative",
+      "artifact_fraction": 0.393064,
+      "mean_score": 0.0,
+      "outcomes": [
+        "incorrect",
+        "incorrect",
+        "incorrect",
+        "incorrect",
+        "incorrect",
+        "incorrect"
+      ],
+      "outputs": [
+        "3.11.8"
+      ]
+    },
+    "art_08": {
+      "form": "mixed",
+      "artifact_fraction": 0.429348,
+      "mean_score": 1.0,
+      "outcomes": [
+        "correct",
+        "correct",
+        "correct",
+        "correct",
+        "correct",
+        "correct"
+      ],
+      "outputs": [
+        "PN-38901"
+      ]
+    },
+    "art_09": {
+      "form": "mixed",
+      "artifact_fraction": 0.233766,
+      "mean_score": 1.0,
+      "outcomes": [
+        "correct",
+        "correct",
+        "correct",
+        "correct",
+        "correct",
+        "correct"
+      ],
+      "outputs": [
+        "73"
+      ]
+    },
+    "art_10": {
+      "form": "mixed",
+      "artifact_fraction": 0.277296,
+      "mean_score": 1.0,
+      "outcomes": [
+        "correct",
+        "correct",
+        "correct",
+        "correct",
+        "correct",
+        "correct"
+      ],
+      "outputs": [
+        "1847293"
+      ]
+    }
+  }
+}
