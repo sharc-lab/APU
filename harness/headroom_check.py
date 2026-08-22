@@ -54,7 +54,7 @@ def _count_fn(text: str, model: str = "qwen3:4b-instruct") -> int:
         return json.loads(r.read())["prompt_eval_count"]
 
 
-def _call(prompt: str, model: str) -> tuple[str | None, float]:
+def _call(prompt, model):
     extra = {}
     if "qwen" in model:
         extra["think"] = False
@@ -74,10 +74,11 @@ def _call(prompt: str, model: str) -> tuple[str | None, float]:
     try:
         with urllib.request.urlopen(req, timeout=180) as r:
             data = json.loads(r.read())
-        return data["message"]["content"].strip(), time.monotonic() - t0
+        content = data["message"]["content"].strip()
+        return content, time.monotonic() - t0, data.get("eval_count"), data.get("prompt_eval_count"), data.get("done_reason")
     except Exception as e:
         print(f"    [CALL ERROR: {e}]")
-        return None, time.monotonic() - t0
+        return None, time.monotonic() - t0, None, None, None
 
 
 def main() -> None:
@@ -133,7 +134,7 @@ def main() -> None:
             for model in MODELS:
                 for rep in range(N_REPS):
                     call_n += 1
-                    output, latency = _call(prompt, model)
+                    output, latency, eval_count, prompt_eval_count, done_reason = _call(prompt, model)
                     score, score_detail = (
                         scorers_mod.score(probe_dict, output) if output is not None
                         else (None, "no output")
@@ -146,6 +147,9 @@ def main() -> None:
                         "output": output,
                         "score": score,
                         "score_detail": score_detail,
+                        "eval_count": eval_count,
+                        "prompt_eval_count": prompt_eval_count,
+                        "done_reason": done_reason,
                         "latency_s": round(latency, 3),
                         "hardware": "blade14_rtx4070",
                     }

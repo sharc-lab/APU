@@ -55,7 +55,7 @@ def _count_fn(text: str) -> int:
         return json.loads(r.read())["prompt_eval_count"]
 
 
-def _call(prompt: str) -> tuple[str | None, float]:
+def _call(prompt):
     payload = json.dumps({
         "model": MODEL,
         "messages": [{"role": "user", "content": prompt}],
@@ -72,9 +72,10 @@ def _call(prompt: str) -> tuple[str | None, float]:
     try:
         with urllib.request.urlopen(req, timeout=120) as r:
             data = json.loads(r.read())
-        return data["message"]["content"].strip(), time.monotonic() - t0
+        content = data["message"]["content"].strip()
+        return content, time.monotonic() - t0, data.get("eval_count"), data.get("prompt_eval_count"), data.get("done_reason")
     except Exception as e:
-        return None, time.monotonic() - t0
+        return None, time.monotonic() - t0, None, None, None
 
 
 def left_truncate(prompt: str, full_tokens: int, target_tokens: int) -> str:
@@ -198,7 +199,7 @@ def main() -> None:
 
                     for rep in range(N_REPS):
                         call_n += 1
-                        output, latency = _call(truncated)
+                        output, latency, eval_count, prompt_eval_count, done_reason = _call(truncated)
 
                         probe_dict = {
                             "id": pid,
@@ -224,6 +225,9 @@ def main() -> None:
                             "score_detail": score_detail,
                             "outcome": outcome,
                             "fabrication_source": fab_source,
+                            "eval_count": eval_count,
+                            "prompt_eval_count": prompt_eval_count,
+                            "done_reason": done_reason,
                             "latency_s": round(latency, 3),
                             "model": MODEL,
                             "hardware": "blade14_rtx4070",

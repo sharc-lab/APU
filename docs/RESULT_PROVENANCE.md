@@ -49,3 +49,28 @@ RAM total). This iGPU was not previously documented. It is now registered as
 780M as of this date. When they are, their rows will carry
 `"hardware": "blade14_780m"` and must not be pooled with `blade14_rtx4070`
 rows or with future AMD Strix Halo data.
+
+---
+
+## Note: stage_a_scale.json — missing instrumentation fields (pre-fix rows)
+
+**Affected file:** `results/stage_a_scale.json`  
+**Affected rows:** The 51 rows where `classification_method == "unavailable"` (all
+rows not replaced by the Stage A rerun).
+
+**Missing fields:** `eval_count`, `prompt_eval_count`, `done_reason`. The
+`thinking` field is present only as a 120-character snippet under the key
+`thinking_snippet`; the full thinking trace was not stored.
+
+**Cause:** These rows were written by `harness/stage_a_scale.py` at
+`MIN_PREDICT=512` before the harness instrumentation fix that added the above
+fields to all harnesses. The fix raised `MIN_PREDICT` to 1024 and stores the
+full thinking trace under `"thinking"`.
+
+**Reading rule:** For the 51 pre-fix rows, `done_reason` is unknown. These rows
+cannot be classified as `budget_exhausted` or `null_response` from the data
+alone. The field `classification_method: "unavailable"` marks them
+explicitly. The 21 rows that produced empty output (`output == ""`) were
+rerun with `harness/stage_a_rerun.py` at `MIN_PREDICT=1024`; those
+replacement rows carry `classification_method: "done_reason"` and `rerun:
+true`, and their `done_reason` field is authoritative.

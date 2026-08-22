@@ -1,28 +1,20 @@
-"""Stage A — scale experiment: does the type-match effect survive 120B?
+"""Rerun Stage A rows that produced empty output.
 
-Uses gpt-oss:120b-cloud (cloud-hosted 120B model) to run the same type-match
-experiment that established the effect at 4B and 8B. Results are directly
-comparable to results/type_match.json.
+Reads results/stage_a_scale.json, identifies rows where output == "",
+reruns them with MIN_PREDICT=1024, and writes the results back in-place
+(replacing those rows). The un-rerun rows receive classification_method:
+"unavailable" (they lack done_reason because they predate the harness fix).
+Rerun rows receive classification_method: "done_reason" and the done_reason
+field is used to distinguish budget_exhausted vs null_response:
+  done_reason == "length" -> budget_exhausted (hit token ceiling mid-thinking)
+  done_reason == "stop" and output == "" -> null_response
+  done_reason == "stop" and output != "" -> regular output (valid)
 
-Design:
-  Probes:  art_01, art_02, art_06, art_07
-  Filler:  F-NUM (dissimilar) and F-TYPED (type-matched)
-  Ratios:  1.20 (headroom), 0.85, 0.40
-  Model:   gpt-oss:120b-cloud
-  Reps:    3
-  Total:   4 x 2 x 3 x 3 = 72 calls
-
-Note: gpt-oss:120b-cloud is a thinking model. All tokens (thinking + answer)
-count toward num_predict. MIN_PREDICT=512 ensures enough budget for thinking
-plus a short answer. Token counting uses qwen3:4b-instruct locally (same
-approximation used throughout; only affects truncation ratio application).
-
-Results written to results/stage_a_scale.json.
+Results written back to results/stage_a_scale.json.
 """
 
 from __future__ import annotations
 
-import importlib.util
 import json
 import random
 import re
@@ -38,18 +30,15 @@ sys.path.insert(0, str(REPO / "harness"))
 
 import context as ctx_mod
 
-TARGET_PROBES = ["art_01", "art_02", "art_06", "art_07"]
 MODEL = "gpt-oss:120b-cloud"
-COUNT_MODEL = "qwen3:4b-instruct"   # local tokenizer for truncation sizing
+COUNT_MODEL = "qwen3:4b-instruct"
 HOST = "http://localhost:11434"
 FILLER_TOKENS = 4000
-BUDGET_RATIOS = [1.20, 0.85, 0.40]
-N_REPS = 3
-MIN_PREDICT = 1024  # thinking model: budget must cover reasoning + answer
+MIN_PREDICT = 1024
 
 
 # ---------------------------------------------------------------------------
-# Filler generators (identical to type_match_experiment.py)
+# Filler generators (identical to stage_a_scale.py, same seed=42)
 # ---------------------------------------------------------------------------
 
 def _build_port_filler(target_tokens, seed, count_fn):
@@ -254,9 +243,11 @@ TYPED_BUILDERS = {
     "art_07": _build_version_filler,
 }
 
+TARGET_PROBES = ["art_01", "art_02", "art_06", "art_07"]
+
 
 # ---------------------------------------------------------------------------
-# Inference helpers
+# Helpers
 # ---------------------------------------------------------------------------
 
 def _count_fn(text):
@@ -308,12 +299,6 @@ def left_truncate(prompt, full_tokens, target_tokens):
     return prompt[len(prompt) - chars_to_keep:]
 
 
-def artifact_survival(artifact, chars_dropped):
-    a = len(artifact)
-    surviving = max(0, a - chars_dropped)
-    return surviving, round(surviving / a if a else 0.0, 6)
-
-
 def value_in_text(value, text):
     return bool(re.search(r"(?<![0-9a-zA-Z._-])" + re.escape(value) + r"(?![0-9a-zA-Z._-])", text))
 
@@ -324,13 +309,28 @@ def lifted_from_filler(output, liftable_values):
     return any(value_in_text(v, output) for v in liftable_values)
 
 
+def classify_done_reason(output, done_reason):
+    if done_reason == "length":
+        return "budget_exhausted"
+    if done_reason == "stop" and not output:
+        return "null_response"
+    return "done_reason"
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
 def main():
-    RESULTS.mkdir(parents=True, exist_ok=True)
+    result_path = RESULTS / "stage_a_scale.json"
+    data = json.loads(result_path.read_text(encoding="utf-8"))
+    rows = data["rows"]
+    liftable_values = data["liftable_values"]
 
+    empty_indices = [i for i, r in enumerate(rows) if not (r.get("output") or "").strip()]
+    print(f"Found {len(empty_indices)} empty-output rows to rerun (MIN_PREDICT={MIN_PREDICT})")
+
+    import importlib.util
     spec = importlib.util.spec_from_file_location("scorers", PROBES_DIR / "scorers.py")
     scorers_mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(scorers_mod)
@@ -341,141 +341,117 @@ def main():
         if s["id"] in TARGET_PROBES
     }
 
-    print(f"Building F-NUM filler ({FILLER_TOKENS} tok)...")
+    print("Building F-NUM filler (seed=42)...")
     filler_a = ctx_mod.build_filler(FILLER_TOKENS, seed=42, count_fn=_count_fn, variant="F-NUM")
-    print(f"  F-NUM: {_count_fn(filler_a)} tok ({len(filler_a)} chars)")
 
-    print("Building F-TYPED fillers...")
+    print("Building F-TYPED fillers (seed=42)...")
     filler_b_data = {}
-    all_liftable = {}
     for pid in TARGET_PROBES:
         text, liftable = TYPED_BUILDERS[pid](FILLER_TOKENS, seed=42, count_fn=_count_fn)
-        tok = _count_fn(text)
-        print(f"  {pid} F-TYPED: {tok} tok ({len(text)} chars), {len(liftable)} liftable values")
         filler_b_data[pid] = (text, liftable)
-        all_liftable[pid] = liftable
+        print(f"  {pid}: {len(liftable)} liftable values")
 
-    print("\nMeasuring full prompt sizes (F-NUM filler)...")
-    full_tokens_fnum = {}
+    # Precompute full token counts for each probe×filler combination
+    print("Measuring full prompt token counts...")
+    full_tokens_cache = {}
     for pid in TARGET_PROBES:
         seg = segments[pid]
-        early = f"{seg['artifact']}\n\n{filler_a}\n\n{seg['question']}"
-        ft = _count_fn(early)
-        full_tokens_fnum[pid] = ft
-        ext = 1.0 - len(seg["artifact"]) / len(early)
-        print(f"  {pid}: {ft} tok  extinction≈{ext:.3f}")
+        key_fnum = (pid, "filler_a_F-NUM")
+        key_ftyped = (pid, "filler_b_F-TYPED")
+        if key_fnum not in full_tokens_cache:
+            ft = _count_fn(f"{seg['artifact']}\n\n{filler_a}\n\n{seg['question']}")
+            full_tokens_cache[key_fnum] = ft
+        if key_ftyped not in full_tokens_cache:
+            ft = _count_fn(f"{seg['artifact']}\n\n{filler_b_data[pid][0]}\n\n{seg['question']}")
+            full_tokens_cache[key_ftyped] = ft
+    print(f"  Cached {len(full_tokens_cache)} prompt sizes")
 
-    total_calls = len(TARGET_PROBES) * 2 * len(BUDGET_RATIOS) * N_REPS
-    print(f"\nTotal calls: {total_calls} (4 probes × 2 fillers × {len(BUDGET_RATIOS)} ratios × {N_REPS} reps)")
-    print(f"Model: {MODEL}  MIN_PREDICT={MIN_PREDICT}")
-
-    rows = []
+    results_by_done_reason = {"budget_exhausted": 0, "null_response": 0, "became_nonempty": 0}
     call_n = 0
 
-    fillers = [
-        ("filler_a_F-NUM",   filler_a,  {pid: []                      for pid in TARGET_PROBES}),
-        ("filler_b_F-TYPED", None,      {pid: filler_b_data[pid][1]   for pid in TARGET_PROBES}),
-    ]
+    for idx in empty_indices:
+        row = rows[idx]
+        pid = row["probe_id"]
+        filler_name = row["filler_type"]
+        ratio = row["budget_ratio"]
+        rep = row["rep"]
+        seg = segments[pid]
 
-    for ratio in BUDGET_RATIOS:
-        print(f"\n=== ratio {ratio:.2f} ===")
-        for filler_name, filler_text_shared, liftable_map in fillers:
-            for pid in TARGET_PROBES:
-                seg = segments[pid]
-                probe_dict = {"id": pid, "scorer_type": seg["scorer_type"], "expected": seg["expected"]}
+        if filler_name.startswith("filler_a"):
+            filler_text = filler_a
+            liftable = []
+        else:
+            filler_text, liftable = filler_b_data[pid]
 
-                if filler_name.startswith("filler_a"):
-                    filler_text = filler_text_shared
-                    liftable = liftable_map[pid]
-                    base_ft = full_tokens_fnum[pid]
-                else:
-                    filler_text, liftable = filler_b_data[pid]
-                    base_ft = _count_fn(f"{seg['artifact']}\n\n{filler_text}\n\n{seg['question']}")
+        full_tokens = full_tokens_cache[(pid, filler_name)]
+        t_tokens = round(full_tokens * ratio)
+        truncating = t_tokens < full_tokens
+        base_prompt = f"{seg['artifact']}\n\n{filler_text}\n\n{seg['question']}"
+        prompt = left_truncate(base_prompt, full_tokens, t_tokens)
 
-                t_tokens = round(base_ft * ratio)
-                truncating = t_tokens < base_ft
-                base_prompt = f"{seg['artifact']}\n\n{filler_text}\n\n{seg['question']}"
-                prompt = left_truncate(base_prompt, base_ft, t_tokens)
-                chars_dropped = len(base_prompt) - len(prompt)
-                _, a_fraction = artifact_survival(seg["artifact"], chars_dropped)
+        call_n += 1
+        print(f"[{call_n}/{len(empty_indices)}] {pid} {filler_name[8:13]} r={ratio:.2f} rep={rep}")
+        output, thinking, latency, eval_count, prompt_eval_count, done_reason = _call(prompt)
 
-                for rep in range(N_REPS):
-                    call_n += 1
-                    output, thinking, latency, eval_count, prompt_eval_count, done_reason = _call(prompt)
-                    score, score_detail = (
-                        scorers_mod.score(probe_dict, output) if output is not None
-                        else (None, "no output")
-                    )
-                    outcome = scorers_mod.outcome_class(output, score, truncated=truncating)
-                    lifted = lifted_from_filler(output, liftable) if outcome == "incorrect" else False
+        score, score_detail = (
+            scorers_mod.score({"id": pid, "scorer_type": seg["scorer_type"], "expected": seg["expected"]}, output)
+            if output is not None else (None, "no output")
+        )
+        outcome = scorers_mod.outcome_class(output, score, truncated=truncating)
+        lifted = lifted_from_filler(output, liftable) if outcome == "incorrect" else False
 
-                    row = {
-                        "probe_id": pid,
-                        "model": MODEL,
-                        "filler_type": filler_name,
-                        "budget_ratio": ratio,
-                        "truncating": truncating,
-                        "artifact_fraction": a_fraction,
-                        "rep": rep,
-                        "output": output,
-                        "thinking": thinking or "",
-                        "score": score,
-                        "score_detail": score_detail,
-                        "outcome": outcome,
-                        "lifted_from_filler": lifted,
-                        "eval_count": eval_count,
-                        "prompt_eval_count": prompt_eval_count,
-                        "done_reason": done_reason,
-                        "latency_s": round(latency, 3),
-                        "hardware": "blade14_rtx4070",
-                    }
-                    rows.append(row)
+        classification_method = classify_done_reason(output, done_reason)
+        if (output or "").strip():
+            results_by_done_reason["became_nonempty"] += 1
+        elif done_reason == "length":
+            results_by_done_reason["budget_exhausted"] += 1
+        else:
+            results_by_done_reason["null_response"] += 1
 
-                    tag = "✓" if score == 1.0 else ("A" if outcome == "abstained" else ("L" if lifted else "✗"))
-                    print(
-                        f"[{call_n:3d}/{total_calls}] {pid} {filler_name[8:13]} "
-                        f"r{rep} af={a_fraction:.2f} {tag} {latency*1000:.0f}ms  "
-                        f"{repr((output or '')[:50])}"
-                    )
+        print(f"  done_reason={done_reason!r}  output={repr((output or '')[:60])}  classification={classification_method}")
 
-    out = RESULTS / "stage_a_scale.json"
-    out.write_text(
-        json.dumps({"rows": rows, "liftable_values": all_liftable, "model": MODEL}, indent=2),
-        encoding="utf-8",
-    )
-    print(f"\nWritten {len(rows)} rows → {out}")
-    _print_summary(rows)
+        rows[idx].update({
+            "output": output,
+            "thinking": thinking or "",
+            "score": score,
+            "score_detail": score_detail,
+            "outcome": outcome,
+            "lifted_from_filler": lifted,
+            "eval_count": eval_count,
+            "prompt_eval_count": prompt_eval_count,
+            "done_reason": done_reason,
+            "latency_s": round(latency, 3),
+            "classification_method": classification_method,
+            "rerun": True,
+        })
 
+    # Mark all non-rerun rows (those without classification_method)
+    marked = 0
+    for row in rows:
+        if "classification_method" not in row:
+            row["classification_method"] = "unavailable"
+            marked += 1
+    print(f"\nMarked {marked} non-rerun rows with classification_method='unavailable'")
 
-def _print_summary(rows):
-    print("\n=== HEADROOM CHECK (r=1.20) ===")
-    for ft in ["filler_a_F-NUM", "filler_b_F-TYPED"]:
-        for pid in TARGET_PROBES:
-            base = [r for r in rows if r["probe_id"]==pid and r["filler_type"]==ft and r["budget_ratio"]==1.20]
-            if base:
-                ms = sum(r["score"] for r in base if r["score"] is not None) / len(base)
-                print(f"  {pid} {ft[8:13]}: score={ms:.2f} (n={len(base)})")
+    data["rows"] = rows
+    result_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    print(f"Written {len(rows)} rows → {result_path}")
 
-    print("\n=== FULLY-EXTINCT ROWS (r=0.85, r=0.40): fab / abs / lift ===")
-    ext = [r for r in rows if r["budget_ratio"] in [0.85, 0.40]]
-    for ft in ["filler_a_F-NUM", "filler_b_F-TYPED"]:
-        for pid in TARGET_PROBES:
-            s = [r for r in ext if r["filler_type"]==ft and r["probe_id"]==pid]
-            n = len(s)
-            if not n: continue
-            fab = sum(1 for r in s if r["outcome"]=="incorrect")
-            abs_ = sum(1 for r in s if r["outcome"]=="abstained")
-            lift = sum(1 for r in s if r.get("lifted_from_filler"))
-            print(f"  {pid} {ft[8:13]}: n={n}  fab={fab/n:.0%}  abs={abs_/n:.0%}  lift={lift/n:.0%}")
+    print("\n=== RERUN SUMMARY ===")
+    print(f"  budget_exhausted (done_reason=length):        {results_by_done_reason['budget_exhausted']}")
+    print(f"  null_response (done_reason=stop, empty):      {results_by_done_reason['null_response']}")
+    print(f"  became_nonempty (valid output at 1024 tok):   {results_by_done_reason['became_nonempty']}")
+    total = sum(results_by_done_reason.values())
+    print(f"  total rerun: {total}")
 
-    print("\n=== SAMPLE OUTPUTS (up to 10 fully-extinct incorrect rows) ===")
-    shown = 0
-    for r in rows:
-        if r["budget_ratio"] in [0.85, 0.40] and r["outcome"] == "incorrect" and r["output"]:
-            print(f"  {r['probe_id']} {r['filler_type'][8:13]} r={r['budget_ratio']} lift={r['lifted_from_filler']}  {repr(r['output'][:70])}")
-            shown += 1
-            if shown >= 10:
-                break
+    if results_by_done_reason["became_nonempty"] > 0:
+        print("\nWARNING: Some previously-empty rows produced output at 1024 tokens.")
+        print("If these are fabrications, the implicit-abstention finding must be dropped.")
+        print("Outputs:")
+        for idx in empty_indices:
+            row = rows[idx]
+            if row.get("rerun") and (row.get("output") or "").strip():
+                print(f"  {row['probe_id']} {row['filler_type'][8:13]} r={row['budget_ratio']} rep={row['rep']}: {repr(row['output'][:80])}")
 
 
 if __name__ == "__main__":
