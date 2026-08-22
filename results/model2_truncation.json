@@ -951,7 +951,7 @@
       "output": "There is no final numerical answer to this problem as it appears to be a series of administrative logs with repetitive information.",
       "score": 0.0,
       "score_detail": "got='thereisnofinalnumericalanswertothisproblemasitappearstobeaseriesofadministrativelogswithrepetitiveinformation' want='a9'",
-      "outcome": "incorrect",
+      "outcome": "abstained",
       "fabrication_source": "partial_in_context",
       "latency_s": 2.329,
       "hardware": "blade_rtx4070"
@@ -970,7 +970,7 @@
       "output": "There is no final numerical answer to this problem as it appears to be a series of administrative logs with repetitive information.",
       "score": 0.0,
       "score_detail": "got='thereisnofinalnumericalanswertothisproblemasitappearstobeaseriesofadministrativelogswithrepetitiveinformation' want='a9'",
-      "outcome": "incorrect",
+      "outcome": "abstained",
       "fabrication_source": "partial_in_context",
       "latency_s": 0.966,
       "hardware": "blade_rtx4070"
@@ -989,7 +989,7 @@
       "output": "There is no final numerical answer to this problem as it appears to be a series of administrative logs with repetitive information.",
       "score": 0.0,
       "score_detail": "got='thereisnofinalnumericalanswertothisproblemasitappearstobeaseriesofadministrativelogswithrepetitiveinformation' want='a9'",
-      "outcome": "incorrect",
+      "outcome": "abstained",
       "fabrication_source": "partial_in_context",
       "latency_s": 0.971,
       "hardware": "blade_rtx4070"
@@ -1068,7 +1068,7 @@
       "output": "There is no final answer as this appears to be a repetitive block of text describing routine maintenance and budget allocations without any specific question or problem to solve.",
       "score": 0.0,
       "score_detail": "got='thereisnofinalanswerasthisappearstobearepetitiveblockoftextdescribingroutinemaintenanceandbudgetallocationswithoutanyspecificquestionorproblemtosolve' want='se'",
-      "outcome": "incorrect",
+      "outcome": "abstained",
       "fabrication_source": "partial_in_context",
       "latency_s": 2.689,
       "hardware": "blade_rtx4070"
@@ -1087,7 +1087,7 @@
       "output": "There is no final answer as this appears to be a repetitive block of text without any specific question or problem to solve.",
       "score": 0.0,
       "score_detail": "got='thereisnofinalanswerasthisappearstobearepetitiveblockoftextwithoutanyspecificquestionorproblemtosolve' want='se'",
-      "outcome": "incorrect",
+      "outcome": "abstained",
       "fabrication_source": "partial_in_context",
       "latency_s": 1.02,
       "hardware": "blade_rtx4070"
@@ -1106,7 +1106,7 @@
       "output": "There is no final answer as this appears to be a repetitive block of text without any specific question or problem to solve.",
       "score": 0.0,
       "score_detail": "got='thereisnofinalanswerasthisappearstobearepetitiveblockoftextwithoutanyspecificquestionorproblemtosolve' want='se'",
-      "outcome": "incorrect",
+      "outcome": "abstained",
       "fabrication_source": "partial_in_context",
       "latency_s": 1.041,
       "hardware": "blade_rtx4070"
@@ -1359,7 +1359,7 @@
       "output": "AVAILABLE: no\n\nThere is not enough information provided to determine which array still shows drift near 0.9% per month, as there are multiple arrays with similar descriptions and no specific details about their performance metrics or maintenance records.",
       "score": 0.0,
       "score_detail": "missing:meridian-3;missing_group:['original firmware', 'old firmware', 'not updated']...",
-      "outcome": "incorrect",
+      "outcome": "abstained",
       "fabrication_source": "partial_in_context",
       "latency_s": 2.62,
       "hardware": "blade_rtx4070",
@@ -1379,7 +1379,7 @@
       "output": "AVAILABLE: no\n\nThere is not enough information provided to determine which array still shows drift near 0.9% per month, as there are multiple arrays with similar metrics and no clear indication of which one exhibits this specific trend.",
       "score": 0.0,
       "score_detail": "missing:meridian-3;missing_group:['original firmware', 'old firmware', 'not updated']...",
-      "outcome": "incorrect",
+      "outcome": "abstained",
       "fabrication_source": "partial_in_context",
       "latency_s": 1.48,
       "hardware": "blade_rtx4070",
@@ -1399,7 +1399,7 @@
       "output": "AVAILABLE: no\n\nThere is not enough information provided to determine which array still shows drift near 0.9% per month, as there are multiple arrays with similar metrics and no clear indication of which one exhibits this specific trend.",
       "score": 0.0,
       "score_detail": "missing:meridian-3;missing_group:['original firmware', 'old firmware', 'not updated']...",
-      "outcome": "incorrect",
+      "outcome": "abstained",
       "fabrication_source": "partial_in_context",
       "latency_s": 1.473,
       "hardware": "blade_rtx4070",
@@ -1536,7 +1536,7 @@
       "output": "There is no final answer as this appears to be a series of identical administrative log entries.",
       "score": 0.0,
       "score_detail": "got='thereisnofinalanswerasthisappearstobeaseriesofidenticaladministrativelogentries' want='a9'",
-      "outcome": "incorrect",
+      "outcome": "abstained",
       "fabrication_source": "partial_in_context",
       "latency_s": 1.92,
       "hardware": "blade_rtx4070"
@@ -1555,7 +1555,7 @@
       "output": "There is no final answer as this appears to be a series of identical administrative log entries.",
       "score": 0.0,
       "score_detail": "got='thereisnofinalanswerasthisappearstobeaseriesofidenticaladministrativelogentries' want='a9'",
-      "outcome": "incorrect",
+      "outcome": "abstained",
       "fabrication_source": "partial_in_context",
       "latency_s": 0.847,
       "hardware": "blade_rtx4070"
@@ -1574,7 +1574,7 @@
       "output": "There is no final answer as this appears to be a series of identical administrative log entries.",
       "score": 0.0,
       "score_detail": "got='thereisnofinalanswerasthisappearstobeaseriesofidenticaladministrativelogentries' want='a9'",
-      "outcome": "incorrect",
+      "outcome": "abstained",
       "fabrication_source": "partial_in_context",
       "latency_s": 0.826,
       "hardware": "blade_rtx4070"
@@ -1653,7 +1653,7 @@
       "output": "There is no final numerical answer to this problem as it appears to be a series of administrative log entries with repetitive information.",
       "score": 0.0,
       "score_detail": "got='thereisnofinalnumericalanswertothisproblemasitappearstobeaseriesofadministrativelogentrieswithrepetitiveinformation' want='se'",
-      "outcome": "incorrect",
+      "outcome": "abstained",
       "fabrication_source": "partial_in_context",
       "latency_s": 2.08,
       "hardware": "blade_rtx4070"
@@ -1672,7 +1672,7 @@
       "output": "There is no final numerical answer to this problem as it appears to be a series of administrative log entries with repetitive information.",
       "score": 0.0,
       "score_detail": "got='thereisnofinalnumericalanswertothisproblemasitappearstobeaseriesofadministrativelogentrieswithrepetitiveinformation' want='se'",
-      "outcome": "incorrect",
+      "outcome": "abstained",
       "fabrication_source": "partial_in_context",
       "latency_s": 0.992,
       "hardware": "blade_rtx4070"
@@ -1691,7 +1691,7 @@
       "output": "There is no final numerical answer to this problem as it appears to be a series of administrative log entries with repetitive information.",
       "score": 0.0,
       "score_detail": "got='thereisnofinalnumericalanswertothisproblemasitappearstobeaseriesofadministrativelogentrieswithrepetitiveinformation' want='se'",
-      "outcome": "incorrect",
+      "outcome": "abstained",
       "fabrication_source": "partial_in_context",
       "latency_s": 0.963,
       "hardware": "blade_rtx4070"
@@ -1944,7 +1944,7 @@
       "output": "AVAILABLE: no\nThere is not enough information provided to determine which array still shows drift near 0.9% per month and why.",
       "score": 0.0,
       "score_detail": "missing:meridian-3;missing_group:['original firmware', 'old firmware', 'not updated']...",
-      "outcome": "incorrect",
+      "outcome": "abstained",
       "fabrication_source": "partial_in_context",
       "latency_s": 1.71,
       "hardware": "blade_rtx4070",
@@ -1964,7 +1964,7 @@
       "output": "AVAILABLE: no\nThere is not enough information provided to determine which array still shows drift near 0.9% per month as there are multiple arrays with similar descriptions and no specific data or metrics are presented to compare them.",
       "score": 0.0,
       "score_detail": "missing:meridian-3;missing_group:['original firmware', 'old firmware', 'not updated']...",
-      "outcome": "incorrect",
+      "outcome": "abstained",
       "fabrication_source": "partial_in_context",
       "latency_s": 1.417,
       "hardware": "blade_rtx4070",
@@ -1984,7 +1984,7 @@
       "output": "AVAILABLE: no\nThere is not enough information provided to determine which array still shows drift near 0.9% per month as there are multiple arrays with similar descriptions and no specific data or metrics are presented to compare them.",
       "score": 0.0,
       "score_detail": "missing:meridian-3;missing_group:['original firmware', 'old firmware', 'not updated']...",
-      "outcome": "incorrect",
+      "outcome": "abstained",
       "fabrication_source": "partial_in_context",
       "latency_s": 1.413,
       "hardware": "blade_rtx4070",
@@ -2121,7 +2121,7 @@
       "output": "There is no final numerical answer to this problem as it appears to be a series of administrative log entries.",
       "score": 0.0,
       "score_detail": "got='thereisnofinalnumericalanswertothisproblemasitappearstobeaseriesofadministrativelogentries' want='a9'",
-      "outcome": "incorrect",
+      "outcome": "abstained",
       "fabrication_source": "partial_in_context",
       "latency_s": 1.478,
       "hardware": "blade_rtx4070"
@@ -2140,7 +2140,7 @@
       "output": "There is no final numerical answer to this problem as it appears to be a series of administrative log entries.",
       "score": 0.0,
       "score_detail": "got='thereisnofinalnumericalanswertothisproblemasitappearstobeaseriesofadministrativelogentries' want='a9'",
-      "outcome": "incorrect",
+      "outcome": "abstained",
       "fabrication_source": "partial_in_context",
       "latency_s": 0.892,
       "hardware": "blade_rtx4070"
@@ -2159,7 +2159,7 @@
       "output": "There is no final numerical answer to this problem as it appears to be a series of administrative log entries.",
       "score": 0.0,
       "score_detail": "got='thereisnofinalnumericalanswertothisproblemasitappearstobeaseriesofadministrativelogentries' want='a9'",
-      "outcome": "incorrect",
+      "outcome": "abstained",
       "fabrication_source": "partial_in_context",
       "latency_s": 0.873,
       "hardware": "blade_rtx4070"
@@ -2238,7 +2238,7 @@
       "output": "There is no final answer as this appears to be a series of repetitive administrative logs.",
       "score": 0.0,
       "score_detail": "got='thereisnofinalanswerasthisappearstobeaseriesofrepetitiveadministrativelogs' want='se'",
-      "outcome": "incorrect",
+      "outcome": "abstained",
       "fabrication_source": "partial_in_context",
       "latency_s": 1.386,
       "hardware": "blade_rtx4070"
@@ -2257,7 +2257,7 @@
       "output": "There is no final answer as this appears to be a series of repetitive administrative logs.",
       "score": 0.0,
       "score_detail": "got='thereisnofinalanswerasthisappearstobeaseriesofrepetitiveadministrativelogs' want='se'",
-      "outcome": "incorrect",
+      "outcome": "abstained",
       "fabrication_source": "partial_in_context",
       "latency_s": 0.831,
       "hardware": "blade_rtx4070"
@@ -2276,7 +2276,7 @@
       "output": "There is no final answer as this appears to be a series of repetitive administrative logs.",
       "score": 0.0,
       "score_detail": "got='thereisnofinalanswerasthisappearstobeaseriesofrepetitiveadministrativelogs' want='se'",
-      "outcome": "incorrect",
+      "outcome": "abstained",
       "fabrication_source": "partial_in_context",
       "latency_s": 0.804,
       "hardware": "blade_rtx4070"
@@ -2459,14 +2459,11 @@
     },
     "truncated_arm1_outcomes": {
       "n_total": 45,
-      "classifier_fabrication": 36,
-      "classifier_abstained": 9,
-      "classifier_fabrication_rate": 0.8,
-      "classifier_note": "llama3.1:8b abstention phrasing ('there is no final numerical answer', 'not enough information provided') is not in _ABSTENTION_PHRASES; soft abstentions are misclassified as incorrect by the classifier.",
-      "manual_fabrication": 18,
-      "manual_abstained": 27,
-      "manual_fabrication_rate": 0.4,
-      "manual_abstention_rate": 0.6,
+      "fabrication": 18,
+      "abstained": 27,
+      "fabrication_rate": 0.4,
+      "abstention_rate": 0.6,
+      "classifier_note": "Counts reflect the updated classifier (scorers.py rev after classifier audit). llama3.1:8b abstention phrasing (\"there is no final numerical answer\", \"not enough information provided\") added to _ABSTENTION_PHRASES.",
       "valid_probes_only": {
         "n": 18,
         "fabrication": 9,
@@ -2521,9 +2518,9 @@
       "available_no": 27,
       "yes_then_fabricate": 18,
       "yes_then_fabricate_rate": 1.0,
-      "no_then_fabricate": 24,
-      "no_then_fabricate_rate": 0.8889,
-      "no_then_abstain_manual": 9
+      "no_then_fabricate": 18,
+      "no_then_fabricate_rate": 0.6667,
+      "no_then_abstain": 9
     },
     "key_finding_arm3_reversal": "Under arm1 (baseline), llama3.1:8b correctly identifies sea-probe filler as administrative logs and refuses ('There is no final numerical answer to this problem as it appears to be a series of administrative logs'). Under arm3 (self-report), the same model reports AVAILABLE:yes and lifts verbatim filler text ('Routine maintenance of infrastructure segment 93859 was completed on schedule and filed under reference 93859'). The self-report instruction suppresses the natural refusal and enables tail-entity lifting. Qwen3-4B lifts regardless of arm.",
     "ten_raw_outputs": [

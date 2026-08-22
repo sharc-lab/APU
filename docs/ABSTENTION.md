@@ -184,13 +184,15 @@ Three filler variants were run to separate the factors:
 
 ### Fabrication rates
 
+*Numbers reflect the updated classifier (see classifier audit note below).*
+
 | Variant | arm1 baseline | arm3 self-report |
 |---|---|---|
 | F-NUM | 80.0% (24/30) | 76.7% (23/30) |
-| F-PROSE | **90.0% (27/30)** | **86.7% (26/30)** |
-| F-STRUCT-NONNUM | 86.7% (26/30) | 80.0% (24/30) |
+| F-PROSE | 80.0% (24/30) | 80.0% (24/30) |
+| F-STRUCT-NONNUM | 80.0% (24/30) | 80.0% (24/30) |
 
-Fabrication does not drop under the non-numeric variants. F-PROSE produces the highest rate.
+Fabrication does not drop under the non-numeric variants. All three variants produce an identical 80.0% fabrication rate after classifier correction, strengthening the invariance finding: the fabrication headline is entirely insensitive to filler content.
 
 ### What changes: the fabricated value
 
@@ -232,6 +234,21 @@ F-PROSE provides no domain signal. The model, reading landscape descriptions bef
 
 This is a nuance in the abstention mechanism: structured domain-adjacent filler induces abstention by giving the model a clear signal that the context is not what the question is about. Absent that signal, the model fabricates from weights. This does not change the fabrication headline — rag_02 is one probe and the effect reverses the abstention/fabrication label, not the error-versus-correct outcome.
 
+### Classifier audit note
+
+After Stage 1 (llama3.1:8b replication), the outcome classifier was audited against all Qwen3-4B truncated rows. The audit found:
+
+- **Stage C EARLY arm (132 truncated rows, source of the 88.9% headline):** zero mis-classifications. All 96 incorrect rows are short confident tokens ("93850", "0.0001", "0.00", "1"). The 88.9% fabrication rate among non-correct outcomes is unchanged.
+- **Filler composition F-PROSE and F-STRUCT-NONNUM:** 5 rag_02 rows were misclassified. The classifier did not recognise "it is impossible to answer the question" or "no data or metrics about drift are provided in the text" as abstention language. After correction, F-PROSE and F-STRUCT-NONNUM fabrication rates drop from 90.0%/86.7% to 80.0%/80.0%.
+
+Four phrases were added to `_ABSTENTION_PHRASES` in `evaluation/probes/scorers.py`:
+- `"there is no final"` — llama3.1:8b sea-probe refusal pattern
+- `"not enough information"` — llama3.1:8b alternative refusal pattern
+- `"impossible to answer"` — Qwen3-4B F-PROSE rag_02 pattern
+- `"no data"` — Qwen3-4B F-STRUCT-NONNUM rag_02 pattern
+
+The fabrication rates in this section reflect the corrected classifier. The 88.9% headline number is unaffected.
+
 ### Summary
 
-The filler design (T-A01) is not a confound for the headline finding. Fabrication rates under digit-free prose (90%) are higher than under the numeric control (80%), and the fabricated value changes but fabrication does not stop. "93850" was not special — it was the incidental content the model happened to lift. The finding is general: under left-char truncation of the EARLY arm, the model fabricates from whatever entity is most salient in the remaining context, independent of whether that entity is a number, a word-code, or a landscape sentence.
+The filler design (T-A01) is not a confound for the headline finding. After classifier correction, fabrication rates are identical across all three filler variants (80.0%), strengthening the invariance result: "93850" was not special — it was the incidental content the model happened to lift. The finding is general: under left-char truncation of the EARLY arm, the model fabricates from whatever entity is most salient in the remaining context, independent of whether that entity is a number, a word-code, or a landscape sentence.

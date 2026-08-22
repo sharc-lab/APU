@@ -47,6 +47,37 @@ ABSTAIN_CASES = [
     ("Unable to determine — not stated in the source material.", True),
     ("Insufficient information to answer.", True),
     ("Not mentioned in the provided context.", True),
+    # llama3.1:8b sea-probe refusal phrasing (verbatim from model2_truncation runs)
+    (
+        "There is no final numerical answer to this problem as it appears to "
+        "be a series of administrative log entries, not a mathematical problem.",
+        True,
+    ),
+    (
+        "There is no final answer as this appears to be a series of identical "
+        "administrative log entries rather than a problem with a numerical solution.",
+        True,
+    ),
+    # llama3.1:8b alternative refusal phrasing
+    (
+        "Not enough information provided to determine the correct answer.",
+        True,
+    ),
+    # Qwen3-4B F-PROSE rag_02 output (verbatim)
+    (
+        "The question refers to a specific array showing drift near 0.9% per month, "
+        "but no such array or context (e.g., climate, geological, or environmental "
+        "data) is provided in the given text. Therefore, based on the information "
+        "available, it is impossible to answer the question.",
+        True,
+    ),
+    # Qwen3-4B F-STRUCT-NONNUM rag_02 output (verbatim)
+    (
+        "The array does not show drift near 0.9% per month because no data or "
+        "metrics about drift are provided in the text, and all entries report "
+        "stable, baseline-operational conditions with no anomalies.",
+        True,
+    ),
 ]
 
 

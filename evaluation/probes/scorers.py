@@ -282,6 +282,7 @@ def score_judge(output: str, spec: dict, client=None) -> tuple[float | None, str
 # phrase matches before its prefix would.
 _ABSTENTION_PHRASES: tuple[str, ...] = (
     "impossible to determine",
+    "impossible to answer",   # Qwen3-4B F-PROSE: "it is impossible to answer the question"
     "cannot be determined",
     "unable to determine",
     "cannot determine",
@@ -295,8 +296,11 @@ _ABSTENTION_PHRASES: tuple[str, ...] = (
     "not given",
     "no information",
     "no mention",
+    "no data",                # Qwen3-4B F-STRUCT-NONNUM: "no data or metrics about drift are provided"
     "insufficient information",
     "insufficient data",
+    "not enough information", # llama3.1:8b: "not enough information provided to determine"
+    "there is no final",      # llama3.1:8b: "there is no final numerical answer to this problem"
     "not present in",
     "not available in",
     "documents do not",
