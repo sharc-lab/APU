@@ -260,6 +260,116 @@ for pid, p in PROBES.items():
               and len(p["expected"].get("rubric", "")) > 40, "thin rubric")
 
 
+# ============================================================ report (prompts.jsonl)
+
+print(f"probes            : {len(PROBES)}")
+print(f"by category       : {dict(Counter(p['category'] for p in PROBES.values()))}")
+print(f"by difficulty     : {dict(Counter(p['difficulty'] for p in PROBES.values()))}")
+print(f"by scorer         : {dict(Counter(p['scorer_type'] for p in PROBES.values()))}")
+det = sum(1 for p in PROBES.values() if p["scorer_type"] != "judge")
+print(f"deterministic     : {det}/{len(PROBES)}")
+print(f"independent recomp: {len(IND)} answers")
+print()
+
+
+# ============================================================ artifact.jsonl probes
+
+ART_PROBES = {json.loads(l)["id"]: json.loads(l)
+              for l in (ROOT / "artifact.jsonl").read_text().splitlines() if l.strip()}
+
+# C. INDEPENDENT — recomputable from table content, not from expected field
+
+def art_independent_answers():
+    a = {}
+    # art_03: CPU_HOURS for job J-10894 — parsed from the probe prompt
+    for line in ART_PROBES["art_03"]["prompt"].splitlines():
+        if line.startswith("J-10894"):
+            parts = [p.strip() for p in line.split("|")]
+            a["art_03"] = parts[2]  # CPU_HOURS column
+            break
+
+    # art_06: who seconded the motion on Item 3 — parsed from the prompt
+    in_item3 = False
+    for line in ART_PROBES["art_06"]["prompt"].splitlines():
+        if "Item 3:" in line:
+            in_item3 = True
+        if in_item3 and "Second:" in line:
+            # Format: "  Motion: V. Herrera. Second: T. Blum."
+            import re
+            m = re.search(r"Second:\s+\w+\.\s+(\w+)\.", line)
+            if m:
+                a["art_06"] = m.group(1)
+            break
+        if "Item 4:" in line:
+            in_item3 = False
+    return a
+
+
+ART_IND = art_independent_answers()
+
+for pid, computed in ART_IND.items():
+    stated = ART_PROBES[pid]["expected"]
+    check(f"INDEPENDENT {pid}", str(stated) == str(computed),
+          f"answer key says {stated!r}, recomputed {computed!r}")
+
+
+# A/B exact — art_* probes with exact scorer
+for pid, p in ART_PROBES.items():
+    if p["scorer_type"] != "exact":
+        continue
+    s, d = scorers.score_exact(p["expected"], p["expected"])
+    check(f"POSITIVE {pid}", s == 1.0, f"identity scored {s} ({d})")
+    s2, _ = scorers.score_exact("banana", p["expected"])
+    check(f"NEGATIVE {pid}", s2 < 1.0, "wrong answer scored 1.0")
+    s3, _ = scorers.score_exact(f"The answer is {p['expected']}.", p["expected"])
+    check(f"ROBUST {pid}", s3 == 1.0, "wrapped answer rejected")
+
+
+# A/B span_match — art_* probes with span_match scorer
+ART_SPAN_GOOD = {
+    "art_05": "The sediment core was extracted at grid reference N47.3 / W12.8.",
+}
+ART_SPAN_BAD = {
+    "art_05": "The core was extracted at N52.1 / W8.3.",
+}
+
+for pid, p in ART_PROBES.items():
+    if p["scorer_type"] != "span_match":
+        continue
+    check(f"art span fixture {pid}", pid in ART_SPAN_GOOD, "no good fixture")
+    if pid not in ART_SPAN_GOOD:
+        continue
+    s, d = scorers.score_span_match(ART_SPAN_GOOD[pid], p["expected"])
+    check(f"POSITIVE {pid}", s == 1.0, f"good answer scored {s} ({d})")
+    s2, _ = scorers.score_span_match(ART_SPAN_BAD[pid], p["expected"])
+    check(f"NEGATIVE {pid}", s2 < 1.0, f"bad answer scored {s2}")
+
+
+# Artifact-deletion static check: expected answer must NOT appear verbatim in the
+# question portion. If it does, the artifact is unnecessary for answering.
+# (Full model-based deletion check is in harness/headroom_check.py.)
+#
+# Locate question portion: everything after the last double-newline in the prompt.
+for pid, p in ART_PROBES.items():
+    parts = p["prompt"].rsplit("\n\n", 1)
+    question_text = parts[-1].lower()
+    exp = p["expected"]
+    if isinstance(exp, str):
+        check(f"deletion-static {pid}",
+              exp.lower() not in question_text,
+              f"expected {exp!r} appears verbatim in question text")
+
+
+# Structural checks for art_* probes
+for pid, p in ART_PROBES.items():
+    check(f"struct {pid} ctx-indep", p["context_independent"] is True, "")
+    check(f"struct {pid} maxtok", 0 < p["max_tokens"] <= 800, "")
+    check(f"struct {pid} difficulty",
+          p["difficulty"] in ("easy", "medium", "hard"), "")
+    check(f"struct {pid} artifact_form",
+          p.get("artifact_form") in ("structured", "narrative", "mixed"), "")
+
+
 # ============================================================ report
 
 print(f"probes            : {len(PROBES)}")
@@ -269,6 +379,11 @@ print(f"by scorer         : {dict(Counter(p['scorer_type'] for p in PROBES.value
 det = sum(1 for p in PROBES.values() if p["scorer_type"] != "judge")
 print(f"deterministic     : {det}/{len(PROBES)}")
 print(f"independent recomp: {len(IND)} answers")
+print()
+print(f"artifact probes   : {len(ART_PROBES)}")
+art_forms = Counter(p.get("artifact_form") for p in ART_PROBES.values())
+print(f"by artifact_form  : {dict(art_forms)}")
+print(f"art independent   : {len(ART_IND)} answers")
 print()
 
 if fails:
