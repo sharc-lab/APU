@@ -202,7 +202,7 @@ def main() -> None:
                         "outcome": outcome,
                         "fabrication_source": fab_src,
                         "latency_s": round(latency, 3),
-                        "hardware": "blade_rtx4070",
+                        "hardware": "blade14_rtx4070",
                     }
                     if arm_name == "arm3_self_report":
                         row["available_field"] = classify_available(output or "")

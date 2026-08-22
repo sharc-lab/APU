@@ -81,7 +81,7 @@ for r in avail_yes:
 out = {
     "experiment": "self_report_arms",
     "model": "qwen3:4b-instruct",
-    "hardware": "blade_rtx4070",
+    "hardware": "blade14_rtx4070",
     "probes": TARGET_PROBES,
     "ratios": RATIOS,
     "n_reps": 3,

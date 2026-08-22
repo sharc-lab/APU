@@ -72,10 +72,10 @@ This file seeds Section 6 of the paper and tracks planned mitigations.
 
 ## 9. KV Prefix Cache Not Persistent Between API Calls (Discrete Host)
 
-- Threat: The depth→rep→probe loop order was originally motivated partly by the hypothesis that consecutive probe calls at the same depth would benefit from Ollama's KV prefix cache (shared filler prefix = cache hit). A two-call persistence test at d=64,000 tokens on the Razer Blade (RTX 4070, Ollama 0.9.x) showed that the cache is flushed between `/api/chat` calls: both calls took ~124 s (consistent cold load), not ~3.5 s (expected cache-hit latency). No KV persistence was observed.
+- Threat: The depth→rep→probe loop order was originally motivated partly by the hypothesis that consecutive probe calls at the same depth would benefit from Ollama's KV prefix cache (shared filler prefix = cache hit). A two-call persistence test at d=64,000 tokens on the Razer Blade 14 RZ09-0508 (RTX 4070 dGPU, Ollama 0.9.x) showed that the cache is flushed between `/api/chat` calls: both calls took ~124 s (consistent cold load), not ~3.5 s (expected cache-hit latency). No KV persistence was observed.
 - Impact: `position_in_cell` tracks scheduling position within a (depth, rep) cell, not warm/cold cache status. Any latency regression of position on score is a scheduling-order confound, not a cache effect. Latency analyses should treat position_in_cell as a nuisance covariate, not a cache indicator.
 - Mitigation: The field `cache_state` was removed from result rows (it would have silently labelled position 0 as "cold" and the rest as "warm" — false data). `position_in_cell` is retained as-is; its causal interpretation is ambiguous (it could reflect anything from thermal throttling to scheduler jitter) and must not be treated as a cache signal.
-- Note: KV caching behaviour is host-specific. Sweeps on the AMD Strix Halo unified-memory host should re-run the persistence test before treating probe ordering as a cache confound.
+- Note: KV caching behaviour is host-specific. The blade14_780m iGPU (AMD Radeon 780M, unified LPDDR5) is available on the measurement host for an architecture-comparison replication; it is not target-class. Sweeps on a target-class unified-memory device (AMD Strix Halo) should re-run the persistence test before treating probe ordering as a cache confound on that hardware.
 
 ## 9. Extreme Latency Outliers at d=32,000 rep=1 (Discrete Host)
 

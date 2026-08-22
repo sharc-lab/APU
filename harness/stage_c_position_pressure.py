@@ -44,7 +44,7 @@ ARMS = ["LATE", "EARLY"]
 N_REPS = 3
 MAX_TOKENS = 128
 
-HW_CONFIG = "blade_rtx4070"
+HW_CONFIG = "blade14_rtx4070"
 MEM_ARCH = "discrete"
 
 

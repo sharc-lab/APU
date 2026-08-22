@@ -147,7 +147,7 @@ def main() -> None:
                         "score": score,
                         "score_detail": score_detail,
                         "latency_s": round(latency, 3),
-                        "hardware": "blade_rtx4070",
+                        "hardware": "blade14_rtx4070",
                     }
                     rows.append(row)
                     status = "✓" if score == 1.0 else ("✗" if score is not None else "E")

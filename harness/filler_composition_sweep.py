@@ -226,7 +226,7 @@ def main() -> None:
                             "fabrication_source": fab_source,
                             "latency_s": round(latency, 3),
                             "model": MODEL,
-                            "hardware": "blade_rtx4070",
+                            "hardware": "blade14_rtx4070",
                         }
 
                         if arm_name == "arm3_self_report":
@@ -250,7 +250,7 @@ def main() -> None:
             {
                 "experiment": "filler_composition",
                 "model": MODEL,
-                "hardware": "blade_rtx4070",
+                "hardware": "blade14_rtx4070",
                 "probes": TARGET_PROBES,
                 "variants": VARIANTS,
                 "ratios": BUDGET_RATIOS,

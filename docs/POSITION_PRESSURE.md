@@ -2,7 +2,7 @@
 
 **Run:** stage_c_20260818T040408Z  
 **Model:** qwen3:4b-instruct (instruct variant, thinking_enabled=false)  
-**Hardware:** blade_rtx4070 (discrete VRAM, 8188 MiB) — NOT the BOM target  
+**Hardware:** blade14_rtx4070 (Razer Blade 14 RZ09-0508, RTX 4070 dGPU, discrete VRAM, 8188 MiB) — NOT the BOM target  
 **Date:** 2026-08-18
 
 ---
@@ -131,7 +131,7 @@ Aggregate LATE score increases from 0.455 (no-truncation) to 0.545 (truncation).
 
 **T-C06: Single-rep truncation confirmation.** The same physical truncation is applied to all 3 reps of a given probe×arm×ratio cell. Rep-to-rep variation within a cell reflects inference stochasticity, not truncation stochasticity. At temperature=0 the model is deterministic, so the 3 reps are identical by design.
 
-**T-C07: Hardware mismatch.** All data collected on blade_rtx4070 (discrete VRAM, GDDR6). Target hardware is AMD Strix Halo (unified LPDDR5x). Position-pressure effects may differ under hardware-induced memory pressure (actual KV eviction), which this experiment cannot simulate.
+**T-C07: Hardware mismatch.** All data collected on blade14_rtx4070 (discrete VRAM, GDDR6). Unified-memory validation on a target-class device (AMD Strix Halo, LPDDR5x) is pending. A lower-bandwidth unified iGPU (AMD Radeon 780M, LPDDR5, 15.6 GB shared pool) is available on the same measurement host (blade14_780m) for architecture-comparison experiments — it can test whether unified-memory pressure changes position-pressure degradation curves relative to discrete VRAM, but its bandwidth is not representative of Strix Halo targets.
 
 ---
 

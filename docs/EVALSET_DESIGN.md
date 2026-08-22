@@ -43,7 +43,7 @@ depth would confound the measurement.
 
 ---
 
-## Phase 1 Sweep Configuration (blade_rtx4070, 2026-08-13)
+## Phase 1 Sweep Configuration (blade14_rtx4070, 2026-08-13)
 
 Run: `results/run_20260813T021516Z.jsonl`
 
@@ -51,7 +51,7 @@ Run: `results/run_20260813T021516Z.jsonl`
 - Probes: 44 (50 defined, 6 judge-only excluded from primary axis)
 - Reps: 5 per (depth, probe) cell
 - Model: qwen3:4b-instruct, thinking_enabled=false
-- Hardware: Razer Blade 15, RTX 4070 Laptop, 8188 MiB discrete VRAM
+- Hardware: Razer Blade 14 (RZ09-0508), RTX 4070 Laptop GPU, 8188 MiB discrete VRAM
 
 Findings: mean score flat at 0.48–0.52 across all depths. Two populations
 dominate: 17 probes at ceiling (1.0 all depths), 14 at floor (0.0 all depths).

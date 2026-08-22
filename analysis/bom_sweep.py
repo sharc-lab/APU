@@ -156,7 +156,7 @@ LADDER: tuple[BomConfig, ...] = (
 # Measurement host — discrete GPU, NOT a BOM candidate.
 # reserved_gb here is VRAM driver/framework overhead, not system RAM.
 BLADE_HOST = BomConfig(
-    "blade_rtx4070",
+    "blade14_rtx4070",
     memory_gb=8,
     bom_cost_usd=0,
     memory_architecture="discrete",

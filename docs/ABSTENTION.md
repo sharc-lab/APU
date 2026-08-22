@@ -2,7 +2,7 @@
 
 **Experiment:** Self-report arms (Stage 2)  
 **Model:** qwen3:4b-instruct (thinking_enabled=false)  
-**Hardware:** blade_rtx4070 (discrete VRAM) — NOT the BOM target  
+**Hardware:** blade14_rtx4070 (Razer Blade 14 RZ09-0508, RTX 4070 dGPU, discrete VRAM) — NOT the BOM target  
 **Date:** 2026-08-18  
 **Data:** `results/selfreport_arms.json`
 
@@ -159,7 +159,7 @@ The routing and execution-engine implications of context-state blindness (a mode
 
 **T-A03: Probe coverage.** The 5-probe set is small. The rag/sea split that drives the AVAILABLE:yes/no split in arm 3 may not generalise to other probe categories.
 
-**T-A04: Hardware mismatch.** Data collected on blade_rtx4070. Target hardware (AMD Strix Halo, unified memory) may produce different context-state effects under actual memory pressure.
+**T-A04: Hardware mismatch.** Data collected on blade14_rtx4070 (RTX 4070 dGPU, discrete VRAM). Unified-memory validation on a target-class device (AMD Strix Halo) is pending. A lower-bandwidth unified iGPU (AMD Radeon 780M, LPDDR5, 15.6 GB shared pool) is available on the same measurement host (blade14_780m) for architecture-comparison experiments; it is not a target-class device and its results must be labelled and analysed separately.
 
 ---
 

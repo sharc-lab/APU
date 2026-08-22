@@ -14,7 +14,7 @@ context depth can be attributed to a mechanism rather than reported as generic
 after the main sweep was ruled out by ablation on 2026-08-17. See
 `results/ablation_cha04_20260817.jsonl` and `evaluation/probes/ablation.jsonl`.
 
-**Sweep:** run_20260813T021516Z.jsonl, blade_rtx4070, depths 0–32000
+**Sweep:** run_20260813T021516Z.jsonl, blade14_rtx4070, depths 0–32000
 
 **Score pattern:** 1.0 at d=0 (5/5 reps), 0.0 at d=2000+ (with one stochastic
 pass at d=16000 r=2). The sharpest 1→0 transition in the run.
@@ -89,7 +89,7 @@ paper must not be asserted without further evidence.
 
 ## lon_02 — Format Compliance Couples with Correct Computation at d=16000
 
-**Sweep:** run_20260813T021516Z.jsonl, blade_rtx4070, depths 0–32000
+**Sweep:** run_20260813T021516Z.jsonl, blade14_rtx4070, depths 0–32000
 
 **Score pattern:** 0.0 at d=0 (wrong answer 63), 1.0 at d=2000–8000 (correct
 answer 26), 0.0 at d=16000+ (either format failure or wrong answer 126).

@@ -1,0 +1,39 @@
+# Measurement host — NOT a BOM candidate.
+# Razer Blade 14 (RZ09-0508), RTX 4070 Laptop GPU, 8188 MiB GDDR6 VRAM.
+#
+# memory_architecture: discrete
+#   Primary inference runs on the RTX 4070 dGPU. Weights and KV live in
+#   dedicated VRAM. System RAM is a separate pool and irrelevant to the
+#   dGPU inference budget. reserved_gb here is VRAM driver/framework
+#   overhead, not system RAM — this field means something different from
+#   unified configs where reserved_gb covers the OS.
+#
+# Also present: AMD Radeon 780M integrated GPU sharing system memory.
+#   Shared GPU memory pool: 15.6 GB. System RAM total: 31.3 GB.
+#   The 780M is architecturally unified (weights + KV share one pool with
+#   the OS), making it usable for architecture-comparison experiments.
+#   It is NOT a target-class device: LPDDR5 bandwidth is far below
+#   Strix Halo LPDDR5x, and the memory pool is smaller. Experiments run
+#   on the 780M are labelled blade14_780m and must not be pooled with
+#   either blade14_rtx4070 or AMD Strix Halo data.
+#
+# bom_cost_usd: 0 — excluded from BOM analysis and Pareto frontiers.
+# Quality-vs-depth results collected on the dGPU transfer to unified targets;
+# TTFT, throughput, and BOM feasibility numbers do not.
+name: blade14_rtx4070
+memory_architecture: discrete
+memory_gb: 8
+has_npu: false
+npu_tops: 0
+quant: q4_k_m
+bom_cost_usd: 0
+reserved_gb: 0.82
+notes: >
+  Razer Blade 14 (RZ09-0508), RTX 4070 Laptop GPU, 8188 MiB GDDR6 VRAM.
+  Also equipped with AMD Radeon 780M iGPU (unified, 15.6 GB shared pool,
+  31.3 GB system RAM total) — see blade14_780m config for iGPU experiments.
+  Measurement host for Paper 1 context-depth sweep.
+  NOT a BOM candidate: discrete GDDR6 bandwidth and pressure dynamics
+  differ from unified LPDDR5x targets (AMD Strix Halo, Apple Silicon).
+  reserved_gb = 0.82 measured 2026-08-12: qwen3:4b idle = 3167 MiB,
+  model weights = 2384 MiB, framework workspace = 783 MiB = 0.82 GB.

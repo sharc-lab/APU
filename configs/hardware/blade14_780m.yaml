@@ -1,0 +1,30 @@
+# Measurement host iGPU — NOT a BOM candidate, NOT target-class unified memory.
+# Razer Blade 14 (RZ09-0508), AMD Radeon 780M integrated GPU.
+#
+# memory_architecture: unified
+#   Weights, KV, and OS share a single LPDDR5 pool. This is architecturally
+#   equivalent to unified targets (Strix Halo, Apple Silicon) but at lower
+#   bandwidth and smaller pool size. Suitable for architecture-comparison
+#   experiments (does unified-memory pressure produce different degradation
+#   curves than discrete VRAM?) but not for BOM feasibility or throughput
+#   benchmarks targeting production AI PCs.
+#
+# bom_cost_usd: 0 — excluded from BOM analysis and Pareto frontiers.
+# NOT yet used for any experiment. Config defined for labelling purposes.
+name: blade14_780m
+memory_architecture: unified
+memory_gb: 16
+has_npu: false
+npu_tops: 0
+quant: q4_k_m
+bom_cost_usd: 0
+reserved_gb: null
+notes: >
+  Razer Blade 14 (RZ09-0508), AMD Radeon 780M iGPU.
+  Shared GPU memory pool 15.6 GB, system RAM 31.3 GB total.
+  Unified memory: weights + KV share one pool with the OS.
+  Memory bandwidth far below AMD Strix Halo LPDDR5x — not a target-class
+  device for throughput or BOM analysis. Useful for architecture-comparison
+  experiments (discrete vs. unified degradation curves) when labelled
+  separately from blade14_rtx4070 and Strix Halo data.
+  No experiments run yet as of 2026-08-22.

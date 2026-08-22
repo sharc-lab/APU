@@ -262,7 +262,7 @@ def main() -> None:
         metavar="NAME",
         help=(
             "Name of the hardware config running this sweep "
-            "(e.g. blade_rtx4070, strix_halo_64gb). Written to every result row "
+            "(e.g. blade14_rtx4070, strix_halo_64gb). Written to every result row "
             "so runs from different hosts cannot be silently pooled."
         ),
     )

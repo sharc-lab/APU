@@ -226,7 +226,7 @@ def main() -> None:
                             "outcome": outcome,
                             "available_field": available_field,
                             "latency_s": round(latency, 3),
-                            "hardware": "blade_rtx4070",
+                            "hardware": "blade14_rtx4070",
                         }
                         rows.append(row)
 
