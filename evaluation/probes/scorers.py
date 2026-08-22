@@ -309,6 +309,13 @@ _ABSTENTION_PHRASES: tuple[str, ...] = (
     "passage does not",
     "context does not",
     "provided text",   # "provided text does not..." — partial match is fine
+    # Entity-keyed denials: "no X for Y" / "no X of Y" where X names a
+    # record type and Y is the queried entity.  The entity is specific (named
+    # from the probe's artifact) rather than generic like "no information".
+    # Hedge-then-answer detection still applies after the match.
+    "no configuration for",
+    "no record of",
+    "no entry for",
 )
 
 # After an abstention phrase, if the model continues with answer-giving language

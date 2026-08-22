@@ -1440,7 +1440,7 @@
       "output": "There is no configuration for the invoice-relay service in the provided output.",
       "score": 0.0,
       "score_detail": "got='thereisnoconfigurationfortheinvoice-relayserviceintheprovidedoutput' want='51847'",
-      "outcome": "incorrect",
+      "outcome": "abstained",
       "lifted_from_filler": false,
       "latency_s": 7.234,
       "hardware": "blade14_rtx4070"
@@ -1457,7 +1457,7 @@
       "output": "There is no configuration for the invoice-relay service in the provided output.",
       "score": 0.0,
       "score_detail": "got='thereisnoconfigurationfortheinvoice-relayserviceintheprovidedoutput' want='51847'",
-      "outcome": "incorrect",
+      "outcome": "abstained",
       "lifted_from_filler": false,
       "latency_s": 0.719,
       "hardware": "blade14_rtx4070"
@@ -1474,7 +1474,7 @@
       "output": "There is no configuration for the invoice-relay service in the provided output.",
       "score": 0.0,
       "score_detail": "got='thereisnoconfigurationfortheinvoice-relayserviceintheprovidedoutput' want='51847'",
-      "outcome": "incorrect",
+      "outcome": "abstained",
       "lifted_from_filler": false,
       "latency_s": 0.735,
       "hardware": "blade14_rtx4070"
@@ -2256,7 +2256,7 @@
       "output": "There is no configuration for the invoice-relay service in the provided output.",
       "score": 0.0,
       "score_detail": "got='thereisnoconfigurationfortheinvoice-relayserviceintheprovidedoutput' want='51847'",
-      "outcome": "incorrect",
+      "outcome": "abstained",
       "lifted_from_filler": false,
       "latency_s": 7.297,
       "hardware": "blade14_rtx4070"
@@ -2273,7 +2273,7 @@
       "output": "There is no configuration for the invoice-relay service in the provided output.",
       "score": 0.0,
       "score_detail": "got='thereisnoconfigurationfortheinvoice-relayserviceintheprovidedoutput' want='51847'",
-      "outcome": "incorrect",
+      "outcome": "abstained",
       "lifted_from_filler": false,
       "latency_s": 0.812,
       "hardware": "blade14_rtx4070"
@@ -2290,7 +2290,7 @@
       "output": "There is no configuration for the invoice-relay service in the provided output.",
       "score": 0.0,
       "score_detail": "got='thereisnoconfigurationfortheinvoice-relayserviceintheprovidedoutput' want='51847'",
-      "outcome": "incorrect",
+      "outcome": "abstained",
       "lifted_from_filler": false,
       "latency_s": 0.859,
       "hardware": "blade14_rtx4070"
@@ -3072,7 +3072,7 @@
       "output": "There is no configuration for the invoice-relay service in the provided output.",
       "score": 0.0,
       "score_detail": "got='thereisnoconfigurationfortheinvoice-relayserviceintheprovidedoutput' want='51847'",
-      "outcome": "incorrect",
+      "outcome": "abstained",
       "lifted_from_filler": false,
       "latency_s": 6.469,
       "hardware": "blade14_rtx4070"
@@ -3089,7 +3089,7 @@
       "output": "There is no configuration for the invoice-relay service in the provided output.",
       "score": 0.0,
       "score_detail": "got='thereisnoconfigurationfortheinvoice-relayserviceintheprovidedoutput' want='51847'",
-      "outcome": "incorrect",
+      "outcome": "abstained",
       "lifted_from_filler": false,
       "latency_s": 0.719,
       "hardware": "blade14_rtx4070"
@@ -3106,7 +3106,7 @@
       "output": "There is no configuration for the invoice-relay service in the provided output.",
       "score": 0.0,
       "score_detail": "got='thereisnoconfigurationfortheinvoice-relayserviceintheprovidedoutput' want='51847'",
-      "outcome": "incorrect",
+      "outcome": "abstained",
       "lifted_from_filler": false,
       "latency_s": 0.734,
       "hardware": "blade14_rtx4070"

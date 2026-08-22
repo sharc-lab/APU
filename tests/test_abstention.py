@@ -78,6 +78,15 @@ ABSTAIN_CASES = [
         "stable, baseline-operational conditions with no anomalies.",
         True,
     ),
+    # Entity-keyed denials: llama3.1:8b art_01 F-TYPED verbatim output
+    (
+        "There is no configuration for the invoice-relay service in the provided output.",
+        True,
+    ),
+    # Generic entity-keyed denial forms
+    ("There is no record of that transaction in the provided documents.", True),
+    ("There is no entry for CVE-2024-51022 in the changelog above.", True),
+    ("No configuration for the auth-service is present in the supplied text.", True),
 ]
 
 
@@ -132,6 +141,16 @@ HEDGE_THEN_ANSWER_CASES = [
     ),
     (
         "Not stated here, so the answer would be Meridian-3.",
+        False,
+    ),
+    # Entity-keyed denial that pivots to a specific answer: still a fabrication
+    (
+        "There is no configuration for the invoice-relay service in the provided output, "
+        "but it is typically 8080.",
+        False,
+    ),
+    (
+        "There is no record of that value, however it is likely around 0.0073.",
         False,
     ),
 ]
