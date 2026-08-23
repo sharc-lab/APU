@@ -20,6 +20,7 @@ Results written to results/interference_r120.json.
 
 from __future__ import annotations
 
+import argparse
 import importlib.util
 import json
 import random
@@ -246,6 +247,26 @@ def _build_version_filler(target_tokens, seed, count_fn):
     return text, list(set(liftable))
 
 
+OUTFILE = RESULTS / "interference_r120.jsonl"
+
+
+def _load_completed_jsonl(outfile, keys):
+    """Return set of cell tuples already written to outfile."""
+    completed = set()
+    if not outfile.exists():
+        return completed
+    for line in outfile.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            r = json.loads(line)
+            completed.add(tuple(r[k] for k in keys))
+        except (json.JSONDecodeError, KeyError):
+            pass
+    return completed
+
+
 TYPED_BUILDERS = {
     "art_01": _build_port_filler,
     "art_02": _build_ppb_filler,
@@ -318,6 +339,11 @@ def lifted_from_filler(output, liftable_values):
 # ---------------------------------------------------------------------------
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--resume", action="store_true",
+                        help="Skip cells already present in the output file.")
+    args = parser.parse_args()
+
     RESULTS.mkdir(parents=True, exist_ok=True)
 
     spec = importlib.util.spec_from_file_location("scorers", PROBES_DIR / "scorers.py")
@@ -329,6 +355,11 @@ def main():
         for s in [json.loads(l) for l in (PROBES_DIR / "segments.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
         if s["id"] in TARGET_PROBES
     }
+
+    _CELL_KEYS = ["probe_id", "filler_type", "model", "rep"]
+    completed = _load_completed_jsonl(OUTFILE, _CELL_KEYS) if args.resume else set()
+    if completed:
+        print(f"--resume: {len(completed)} cells already completed.")
 
     print(f"Building F-NUM filler ({FILLER_TOKENS} tok)...")
     filler_a = ctx_mod.build_filler(FILLER_TOKENS, seed=42, count_fn=_count_fn, variant="F-NUM")
@@ -356,8 +387,9 @@ def main():
         print(f"  {pid} F-NUM={ft_fnum} tok  F-TYPED={ft_ftyp} tok")
 
     total_calls = len(TARGET_PROBES) * 2 * len(MODELS) * N_REPS
-    print(f"\nTotal calls: {total_calls} (4 probes x 2 fillers x {len(MODELS)} models x {N_REPS} reps)")
+    print(f"\nTotal cells: {total_calls}  Completed: {len(completed)}  Remaining: {total_calls - len(completed)}")
     print(f"Budget ratio: {BUDGET_RATIO} (artifact fully present, no truncation)")
+    print(f"Output: {OUTFILE}")
 
     rows = []
     call_n = 0
@@ -367,7 +399,8 @@ def main():
         ("filler_b_F-TYPED", None,      {pid: filler_b_data[pid][1] for pid in TARGET_PROBES}),
     ]
 
-    for filler_name, filler_text_shared, liftable_map in fillers:
+    with OUTFILE.open("a", encoding="utf-8") as out_fh:
+      for filler_name, filler_text_shared, liftable_map in fillers:
         for model in MODELS:
             for pid in TARGET_PROBES:
                 seg = segments[pid]
@@ -381,13 +414,15 @@ def main():
 
                 ft = full_tokens[(pid, filler_name)]
                 t_tokens = round(ft * BUDGET_RATIO)
-                # At r=1.20 the full prompt fits; no truncation
                 prompt = f"{seg['artifact']}\n\n{filler_text}\n\n{seg['question']}"
-                # Confirm no truncation needed
                 truncating = t_tokens < ft
 
                 for rep in range(N_REPS):
                     call_n += 1
+                    cell = (pid, filler_name, model, rep)
+                    if cell in completed:
+                        print(f"[{call_n:3d}/{total_calls}] SKIP {pid} {filler_name[8:13]} {model[:16]} r{rep}")
+                        continue
                     output, thinking, latency, eval_count, prompt_eval_count, done_reason = _call(prompt, model)
                     score, score_detail = (
                         scorers_mod.score(probe_dict, output) if output is not None
@@ -419,6 +454,8 @@ def main():
                         row["thinking"] = thinking
 
                     rows.append(row)
+                    out_fh.write(json.dumps(row) + "\n")
+                    out_fh.flush()
 
                     tag = "✓" if score == 1.0 else ("A" if outcome == "abstained" else ("L" if lifted else "✗"))
                     print(
@@ -426,7 +463,10 @@ def main():
                         f"{model[:16]} r{rep} {tag} {latency*1000:.0f}ms  "
                         f"{repr((output or '')[:50])}"
                     )
+                    if call_n % 10 == 0:
+                        print(f"--- progress: {call_n}/{total_calls} calls ---")
 
+    print(f"\nDone. {len(rows)} rows written to {OUTFILE}")
     out = RESULTS / "interference_r120.json"
     out.write_text(
         json.dumps({"rows": rows, "liftable_values": all_liftable, "budget_ratio": BUDGET_RATIO}, indent=2),

@@ -10,6 +10,7 @@ every row.
 
 from __future__ import annotations
 
+import argparse
 import importlib.util
 import json
 import sys
@@ -32,6 +33,7 @@ VARIANTS = ["F-NUM", "F-PROSE", "F-STRUCT-NONNUM"]
 BUDGET_RATIOS = [0.70, 0.40]
 N_REPS = 3
 MAX_TOKENS = 128
+OUTFILE = RESULTS / "filler_composition.jsonl"
 
 ARM3_SUFFIX = (
     "\nFirst state whether the information needed to answer is present above,"
@@ -120,7 +122,27 @@ def source_of_fabrication(output: str | None, truncated_prompt: str) -> str:
     return "prior_only"
 
 
+def _load_completed_jsonl(outfile, keys):
+    completed = set()
+    if not outfile.exists():
+        return completed
+    for line in outfile.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            r = json.loads(line)
+            completed.add(tuple(r[k] for k in keys))
+        except (json.JSONDecodeError, KeyError):
+            pass
+    return completed
+
+
 def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--resume", action="store_true", help="Skip cells already in OUTFILE")
+    args = parser.parse_args()
+
     RESULTS.mkdir(parents=True, exist_ok=True)
 
     spec = importlib.util.spec_from_file_location(
@@ -174,79 +196,92 @@ def main() -> None:
     print()
 
     total_calls = len(TARGET_PROBES) * len(VARIANTS) * len(BUDGET_RATIOS) * 2 * N_REPS
-    print(f"Total calls: {total_calls}")
+    _CELL_KEYS = ["probe_id", "filler_variant", "arm", "budget_ratio", "rep"]
+    completed = _load_completed_jsonl(OUTFILE, _CELL_KEYS) if args.resume else set()
+    print(f"Total calls: {total_calls}  (completed: {len(completed)})")
     print()
 
     rows: list[dict] = []
     call_n = 0
+    written = 0
 
-    for variant in VARIANTS:
-        filler = fillers[variant]
-        for pid in TARGET_PROBES:
-            seg = segments[pid]
-            full_tokens = full_tokens_by_probe[pid]
+    with OUTFILE.open("a", encoding="utf-8") as out_fh:
+        for variant in VARIANTS:
+            filler = fillers[variant]
+            for pid in TARGET_PROBES:
+                seg = segments[pid]
+                full_tokens = full_tokens_by_probe[pid]
 
-            for ratio in BUDGET_RATIOS:
-                target_tokens = round(full_tokens * ratio)
+                for ratio in BUDGET_RATIOS:
+                    target_tokens = round(full_tokens * ratio)
 
-                for arm_name, question in [
-                    ("arm1_baseline", seg["question"]),
-                    ("arm3_self_report", seg["question"] + ARM3_SUFFIX),
-                ]:
-                    full_prompt = f"{seg['artifact']}\n\n{filler}\n\n{question}"
-                    truncated = left_truncate(full_prompt, full_tokens, target_tokens)
-                    chars_dropped = len(full_prompt) - len(truncated)
+                    for arm_name, question in [
+                        ("arm1_baseline", seg["question"]),
+                        ("arm3_self_report", seg["question"] + ARM3_SUFFIX),
+                    ]:
+                        full_prompt = f"{seg['artifact']}\n\n{filler}\n\n{question}"
+                        truncated = left_truncate(full_prompt, full_tokens, target_tokens)
+                        chars_dropped = len(full_prompt) - len(truncated)
 
-                    for rep in range(N_REPS):
-                        call_n += 1
-                        output, latency, eval_count, prompt_eval_count, done_reason = _call(truncated)
+                        for rep in range(N_REPS):
+                            call_n += 1
+                            cell = (pid, variant, arm_name, ratio, rep)
+                            if cell in completed:
+                                print(f"[{call_n:3d}/{total_calls}] SKIP {variant} {pid} r={ratio:.2f} {arm_name[:5]} rep={rep}")
+                                continue
+                            output, latency, eval_count, prompt_eval_count, done_reason = _call(truncated)
 
-                        probe_dict = {
-                            "id": pid,
-                            "scorer_type": seg["scorer_type"],
-                            "expected": seg["expected"],
-                        }
-                        score, score_detail = scorers_mod.score(probe_dict, output)
-                        outcome = scorers_mod.outcome_class(output, score, truncated=True)
+                            probe_dict = {
+                                "id": pid,
+                                "scorer_type": seg["scorer_type"],
+                                "expected": seg["expected"],
+                            }
+                            score, score_detail = scorers_mod.score(probe_dict, output)
+                            outcome = scorers_mod.outcome_class(output, score, truncated=True)
 
-                        fab_source = source_of_fabrication(output, truncated)
+                            fab_source = source_of_fabrication(output, truncated)
 
-                        row: dict = {
-                            "probe_id": pid,
-                            "filler_variant": variant,
-                            "arm": arm_name,
-                            "budget_ratio": ratio,
-                            "target_tokens": target_tokens,
-                            "full_tokens": full_tokens,
-                            "chars_dropped": chars_dropped,
-                            "rep": rep,
-                            "output": output,
-                            "score": score,
-                            "score_detail": score_detail,
-                            "outcome": outcome,
-                            "fabrication_source": fab_source,
-                            "eval_count": eval_count,
-                            "prompt_eval_count": prompt_eval_count,
-                            "done_reason": done_reason,
-                            "latency_s": round(latency, 3),
-                            "model": MODEL,
-                            "hardware": "blade14_rtx4070",
-                        }
+                            row: dict = {
+                                "probe_id": pid,
+                                "filler_variant": variant,
+                                "arm": arm_name,
+                                "budget_ratio": ratio,
+                                "target_tokens": target_tokens,
+                                "full_tokens": full_tokens,
+                                "chars_dropped": chars_dropped,
+                                "rep": rep,
+                                "output": output,
+                                "score": score,
+                                "score_detail": score_detail,
+                                "outcome": outcome,
+                                "fabrication_source": fab_source,
+                                "eval_count": eval_count,
+                                "prompt_eval_count": prompt_eval_count,
+                                "done_reason": done_reason,
+                                "latency_s": round(latency, 3),
+                                "model": MODEL,
+                                "hardware": "blade14_rtx4070",
+                            }
 
-                        if arm_name == "arm3_self_report":
-                            row["available_field"] = classify_available(output or "")
+                            if arm_name == "arm3_self_report":
+                                row["available_field"] = classify_available(output or "")
 
-                        rows.append(row)
+                            rows.append(row)
+                            out_fh.write(json.dumps(row) + "\n")
+                            out_fh.flush()
+                            written += 1
 
-                        fab_flag = fab_source[0].upper() if outcome == "incorrect" else " "
-                        avail = row.get("available_field", "")
-                        status = "✓" if score == 1.0 else ("A" if outcome == "abstained" else "✗")
-                        print(
-                            f"[{call_n:3d}/{total_calls}] {variant:16s} {pid} "
-                            f"r={ratio:.2f} {arm_name[:5]} rep={rep} "
-                            f"{status} src={fab_flag} av={avail:3s} "
-                            f"{latency*1000:.0f}ms  {repr((output or '')[:50])}"
-                        )
+                            fab_flag = fab_source[0].upper() if outcome == "incorrect" else " "
+                            avail = row.get("available_field", "")
+                            status = "✓" if score == 1.0 else ("A" if outcome == "abstained" else "✗")
+                            print(
+                                f"[{call_n:3d}/{total_calls}] {variant:16s} {pid} "
+                                f"r={ratio:.2f} {arm_name[:5]} rep={rep} "
+                                f"{status} src={fab_flag} av={avail:3s} "
+                                f"{latency*1000:.0f}ms  {repr((output or '')[:50])}"
+                            )
+                            if call_n % 10 == 0:
+                                print(f"--- progress: {call_n}/{total_calls} calls, {written} written ---")
 
     out = Path("results/filler_composition.json")
     out.write_text(
@@ -267,7 +302,8 @@ def main() -> None:
         ),
         encoding="utf-8",
     )
-    print(f"\nWritten {len(rows)} rows to {out}")
+    print(f"\nWritten {len(rows)} rows to {out} (legacy JSON)")
+    print(f"Incremental JSONL: {written} rows → {OUTFILE}")
 
     # Quick summary
     from collections import defaultdict

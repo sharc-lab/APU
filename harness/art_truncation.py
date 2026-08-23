@@ -20,6 +20,7 @@ Results written to results/art_truncation.json.
 
 from __future__ import annotations
 
+import argparse
 import importlib.util
 import json
 import re
@@ -41,6 +42,7 @@ FILLER_TARGET = 4000
 BUDGET_RATIOS = [1.20, 0.98, 0.85, 0.40]
 N_REPS = 3
 MAX_TOKENS = 256
+OUTFILE = RESULTS / "art_truncation.jsonl"
 
 ARM1_SUFFIX = ""
 ARM3_SUFFIX = (
@@ -109,6 +111,22 @@ def artifact_survival(artifact: str, chars_dropped: int):
     return surviving, round(fraction, 6)
 
 
+def _load_completed_jsonl(outfile, keys):
+    completed = set()
+    if not outfile.exists():
+        return completed
+    for line in outfile.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            r = json.loads(line)
+            completed.add(tuple(r[k] for k in keys))
+        except (json.JSONDecodeError, KeyError):
+            pass
+    return completed
+
+
 def parse_available(output: str | None) -> str | None:
     if output is None:
         return None
@@ -117,6 +135,10 @@ def parse_available(output: str | None) -> str | None:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--resume", action="store_true", help="Skip cells already in OUTFILE")
+    args = parser.parse_args()
+
     RESULTS.mkdir(parents=True, exist_ok=True)
 
     spec = importlib.util.spec_from_file_location("scorers", PROBES_DIR / "scorers.py")
@@ -165,87 +187,101 @@ def main() -> None:
 
     arms = [("arm1_baseline", ARM1_SUFFIX), ("arm3_self_report", ARM3_SUFFIX)]
     total_calls = len(probe_ids) * len(BUDGET_RATIOS) * len(MODELS) * len(arms) * N_REPS
-    print(f"Total calls: {total_calls}")
+    _CELL_KEYS = ["probe_id", "model", "arm", "budget_ratio", "rep"]
+    completed = _load_completed_jsonl(OUTFILE, _CELL_KEYS) if args.resume else set()
+    print(f"Total calls: {total_calls}  (completed: {len(completed)})")
     print()
 
     rows: list[dict] = []
     call_n = 0
+    written = 0
 
-    for ratio in BUDGET_RATIOS:
-        print(f"=== ratio {ratio:.2f} ===")
-        for model in MODELS:
-            for arm_name, arm_suffix in arms:
-                for pid in probe_ids:
-                    seg = segments[pid]
-                    full_tokens = full_tokens_by_probe[pid]
-                    artifact_tokens_total = artifact_tokens_by_probe[pid]
-                    target_tokens = round(full_tokens * ratio)
-                    truncating = target_tokens < full_tokens
+    with OUTFILE.open("a", encoding="utf-8") as out_fh:
+        for ratio in BUDGET_RATIOS:
+            print(f"=== ratio {ratio:.2f} ===")
+            for model in MODELS:
+                for arm_name, arm_suffix in arms:
+                    for pid in probe_ids:
+                        seg = segments[pid]
+                        full_tokens = full_tokens_by_probe[pid]
+                        artifact_tokens_total = artifact_tokens_by_probe[pid]
+                        target_tokens = round(full_tokens * ratio)
+                        truncating = target_tokens < full_tokens
 
-                    base_prompt = f"{seg['artifact']}\n\n{filler}\n\n{seg['question']}"
-                    truncated_base = left_truncate(base_prompt, full_tokens, target_tokens)
-                    full_prompt = truncated_base + arm_suffix
+                        base_prompt = f"{seg['artifact']}\n\n{filler}\n\n{seg['question']}"
+                        truncated_base = left_truncate(base_prompt, full_tokens, target_tokens)
+                        full_prompt = truncated_base + arm_suffix
 
-                    chars_dropped = len(base_prompt) - len(truncated_base)
-                    a_chars_surviving, a_fraction = artifact_survival(seg["artifact"], chars_dropped)
-                    a_tokens_surviving = round(artifact_tokens_total * a_fraction)
+                        chars_dropped = len(base_prompt) - len(truncated_base)
+                        a_chars_surviving, a_fraction = artifact_survival(seg["artifact"], chars_dropped)
+                        a_tokens_surviving = round(artifact_tokens_total * a_fraction)
 
-                    probe_dict = {
-                        "id": pid,
-                        "scorer_type": seg["scorer_type"],
-                        "expected": seg["expected"],
-                    }
-
-                    for rep in range(N_REPS):
-                        call_n += 1
-                        output, latency, eval_count, prompt_eval_count, done_reason = _call(full_prompt, model)
-
-                        score, score_detail = (
-                            scorers_mod.score(probe_dict, output) if output is not None
-                            else (None, "no output")
-                        )
-                        outcome = scorers_mod.outcome_class(output, score, truncated=truncating)
-                        available_field = parse_available(output) if arm_name == "arm3_self_report" else None
-
-                        row: dict = {
-                            "probe_id": pid,
-                            "artifact_form": art_form[pid],
-                            "model": model,
-                            "arm": arm_name,
-                            "budget_ratio": ratio,
-                            "target_tokens": target_tokens,
-                            "full_tokens": full_tokens,
-                            "truncating": truncating,
-                            "chars_dropped": chars_dropped,
-                            "artifact_tokens_total": artifact_tokens_total,
-                            "artifact_tokens_surviving": a_tokens_surviving,
-                            "artifact_fraction": a_fraction,
-                            "rep": rep,
-                            "output": output,
-                            "score": score,
-                            "score_detail": score_detail,
-                            "outcome": outcome,
-                            "available_field": available_field,
-                            "eval_count": eval_count,
-                            "prompt_eval_count": prompt_eval_count,
-                            "done_reason": done_reason,
-                            "latency_s": round(latency, 3),
-                            "hardware": "blade14_rtx4070",
+                        probe_dict = {
+                            "id": pid,
+                            "scorer_type": seg["scorer_type"],
+                            "expected": seg["expected"],
                         }
-                        rows.append(row)
 
-                        status = "✓" if score == 1.0 else ("A" if outcome == "abstained" else "✗")
-                        avail_tag = f" AVAIL:{available_field}" if available_field else ""
-                        print(
-                            f"[{call_n:3d}/{total_calls}] {pid} {arm_name[:5]} "
-                            f"{model[:14]} r{rep}"
-                            f" af={a_fraction:.2f} {status}{avail_tag}"
-                            f" {latency*1000:.0f}ms  {repr((output or '')[:45])}"
-                        )
+                        for rep in range(N_REPS):
+                            call_n += 1
+                            cell = (pid, model, arm_name, ratio, rep)
+                            if cell in completed:
+                                print(f"[{call_n:3d}/{total_calls}] SKIP {pid} {arm_name[:5]} {model[:14]} r{rep}")
+                                continue
+                            output, latency, eval_count, prompt_eval_count, done_reason = _call(full_prompt, model)
+
+                            score, score_detail = (
+                                scorers_mod.score(probe_dict, output) if output is not None
+                                else (None, "no output")
+                            )
+                            outcome = scorers_mod.outcome_class(output, score, truncated=truncating)
+                            available_field = parse_available(output) if arm_name == "arm3_self_report" else None
+
+                            row: dict = {
+                                "probe_id": pid,
+                                "artifact_form": art_form[pid],
+                                "model": model,
+                                "arm": arm_name,
+                                "budget_ratio": ratio,
+                                "target_tokens": target_tokens,
+                                "full_tokens": full_tokens,
+                                "truncating": truncating,
+                                "chars_dropped": chars_dropped,
+                                "artifact_tokens_total": artifact_tokens_total,
+                                "artifact_tokens_surviving": a_tokens_surviving,
+                                "artifact_fraction": a_fraction,
+                                "rep": rep,
+                                "output": output,
+                                "score": score,
+                                "score_detail": score_detail,
+                                "outcome": outcome,
+                                "available_field": available_field,
+                                "eval_count": eval_count,
+                                "prompt_eval_count": prompt_eval_count,
+                                "done_reason": done_reason,
+                                "latency_s": round(latency, 3),
+                                "hardware": "blade14_rtx4070",
+                            }
+                            rows.append(row)
+                            out_fh.write(json.dumps(row) + "\n")
+                            out_fh.flush()
+                            written += 1
+
+                            status = "✓" if score == 1.0 else ("A" if outcome == "abstained" else "✗")
+                            avail_tag = f" AVAIL:{available_field}" if available_field else ""
+                            print(
+                                f"[{call_n:3d}/{total_calls}] {pid} {arm_name[:5]} "
+                                f"{model[:14]} r{rep}"
+                                f" af={a_fraction:.2f} {status}{avail_tag}"
+                                f" {latency*1000:.0f}ms  {repr((output or '')[:45])}"
+                            )
+                            if call_n % 10 == 0:
+                                print(f"--- progress: {call_n}/{total_calls} calls, {written} written ---")
 
     out = RESULTS / "art_truncation.json"
     out.write_text(json.dumps({"rows": rows}, indent=2), encoding="utf-8")
-    print(f"\nWritten {len(rows)} rows → {out}")
+    print(f"\nWritten {len(rows)} rows → {out} (legacy JSON)")
+    print(f"Incremental JSONL: {written} rows → {OUTFILE}")
 
     # Quick summary
     _print_summary(rows, probe_ids, art_form, BUDGET_RATIOS, MODELS, arms)

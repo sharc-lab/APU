@@ -22,6 +22,7 @@ Results written to results/stage_a_scale.json.
 
 from __future__ import annotations
 
+import argparse
 import importlib.util
 import json
 import random
@@ -308,6 +309,25 @@ def left_truncate(prompt, full_tokens, target_tokens):
     return prompt[len(prompt) - chars_to_keep:]
 
 
+OUTFILE = RESULTS / "stage_a_scale.jsonl"
+
+
+def _load_completed_jsonl(outfile, keys):
+    completed = set()
+    if not outfile.exists():
+        return completed
+    for line in outfile.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            r = json.loads(line)
+            completed.add(tuple(r[k] for k in keys))
+        except (json.JSONDecodeError, KeyError):
+            pass
+    return completed
+
+
 def artifact_survival(artifact, chars_dropped):
     a = len(artifact)
     surviving = max(0, a - chars_dropped)
@@ -329,6 +349,10 @@ def lifted_from_filler(output, liftable_values):
 # ---------------------------------------------------------------------------
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--resume", action="store_true")
+    args = parser.parse_args()
+
     RESULTS.mkdir(parents=True, exist_ok=True)
 
     spec = importlib.util.spec_from_file_location("scorers", PROBES_DIR / "scorers.py")
@@ -340,6 +364,11 @@ def main():
         for s in [json.loads(l) for l in (PROBES_DIR / "segments.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
         if s["id"] in TARGET_PROBES
     }
+
+    _CELL_KEYS = ["probe_id", "filler_type", "budget_ratio", "rep"]
+    completed = _load_completed_jsonl(OUTFILE, _CELL_KEYS) if args.resume else set()
+    if completed:
+        print(f"--resume: {len(completed)} cells already completed.")
 
     print(f"Building F-NUM filler ({FILLER_TOKENS} tok)...")
     filler_a = ctx_mod.build_filler(FILLER_TOKENS, seed=42, count_fn=_count_fn, variant="F-NUM")
@@ -377,7 +406,8 @@ def main():
         ("filler_b_F-TYPED", None,      {pid: filler_b_data[pid][1]   for pid in TARGET_PROBES}),
     ]
 
-    for ratio in BUDGET_RATIOS:
+    with OUTFILE.open("a", encoding="utf-8") as out_fh:
+      for ratio in BUDGET_RATIOS:
         print(f"\n=== ratio {ratio:.2f} ===")
         for filler_name, filler_text_shared, liftable_map in fillers:
             for pid in TARGET_PROBES:
@@ -401,6 +431,10 @@ def main():
 
                 for rep in range(N_REPS):
                     call_n += 1
+                    cell = (pid, filler_name, ratio, rep)
+                    if cell in completed:
+                        print(f"[{call_n:3d}/{total_calls}] SKIP {pid} {filler_name[8:13]} r={ratio} rep={rep}")
+                        continue
                     output, thinking, latency, eval_count, prompt_eval_count, done_reason = _call(prompt)
                     score, score_detail = (
                         scorers_mod.score(probe_dict, output) if output is not None
@@ -430,6 +464,8 @@ def main():
                         "hardware": "blade14_rtx4070",
                     }
                     rows.append(row)
+                    out_fh.write(json.dumps(row) + "\n")
+                    out_fh.flush()
 
                     tag = "✓" if score == 1.0 else ("A" if outcome == "abstained" else ("L" if lifted else "✗"))
                     print(
@@ -437,6 +473,8 @@ def main():
                         f"r{rep} af={a_fraction:.2f} {tag} {latency*1000:.0f}ms  "
                         f"{repr((output or '')[:50])}"
                     )
+                    if call_n % 10 == 0:
+                        print(f"--- progress: {call_n}/{total_calls} calls ---")
 
     out = RESULTS / "stage_a_scale.json"
     out.write_text(

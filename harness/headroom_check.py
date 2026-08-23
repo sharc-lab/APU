@@ -17,6 +17,7 @@ Results written to results/art_headroom.json.
 
 from __future__ import annotations
 
+import argparse
 import importlib.util
 import json
 import sys
@@ -36,6 +37,7 @@ HOST = "http://localhost:11434"
 FILLER_TARGET = 4000
 N_REPS = 3
 MAX_TOKENS = 128
+OUTFILE = RESULTS / "art_headroom.jsonl"
 
 
 def _count_fn(text: str, model: str = "qwen3:4b-instruct") -> int:
@@ -81,7 +83,27 @@ def _call(prompt, model):
         return None, time.monotonic() - t0, None, None, None
 
 
+def _load_completed_jsonl(outfile, keys):
+    completed = set()
+    if not outfile.exists():
+        return completed
+    for line in outfile.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            r = json.loads(line)
+            completed.add(tuple(r[k] for k in keys))
+        except (json.JSONDecodeError, KeyError):
+            pass
+    return completed
+
+
 def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--resume", action="store_true", help="Skip cells already in OUTFILE")
+    args = parser.parse_args()
+
     RESULTS.mkdir(parents=True, exist_ok=True)
 
     spec = importlib.util.spec_from_file_location("scorers", PROBES_DIR / "scorers.py")
@@ -111,54 +133,77 @@ def main() -> None:
 
     probe_ids = [p["id"] for p in art_probes]
     total_calls = len(probe_ids) * 2 * len(MODELS) * N_REPS
+    _CELL_KEYS = ["probe_id", "check_type", "model", "rep"]
+    completed = _load_completed_jsonl(OUTFILE, _CELL_KEYS) if args.resume else set()
     print(f"Probes  : {probe_ids}")
     print(f"Models  : {MODELS}")
     print(f"N_reps  : {N_REPS}")
-    print(f"Calls   : {total_calls} (2 check types × 2 models × 3 reps × 10 probes)")
+    print(f"Calls   : {total_calls} (2 check types × 2 models × 3 reps × 10 probes)  (completed: {len(completed)})")
     print()
 
     rows: list[dict] = []
     call_n = 0
+    written = 0
 
-    for pid in probe_ids:
-        seg = segments[pid]
-        probe_dict = {
-            "id": pid,
-            "scorer_type": seg["scorer_type"],
-            "expected": seg["expected"],
-        }
-        headroom_prompt = f"{seg['artifact']}\n\n{filler}\n\n{seg['question']}"
-        deletion_prompt = f"{filler}\n\n{seg['question']}"
+    with OUTFILE.open("a", encoding="utf-8") as out_fh:
+        for pid in probe_ids:
+            seg = segments[pid]
+            probe_dict = {
+                "id": pid,
+                "scorer_type": seg["scorer_type"],
+                "expected": seg["expected"],
+            }
+            headroom_prompt = f"{seg['artifact']}\n\n{filler}\n\n{seg['question']}"
+            deletion_prompt = f"{filler}\n\n{seg['question']}"
 
-        for check_type, prompt in [("deletion", deletion_prompt), ("headroom", headroom_prompt)]:
-            for model in MODELS:
-                for rep in range(N_REPS):
-                    call_n += 1
-                    output, latency, eval_count, prompt_eval_count, done_reason = _call(prompt, model)
-                    score, score_detail = (
-                        scorers_mod.score(probe_dict, output) if output is not None
-                        else (None, "no output")
-                    )
-                    row = {
-                        "probe_id": pid,
-                        "check_type": check_type,
-                        "model": model,
-                        "rep": rep,
-                        "output": output,
-                        "score": score,
-                        "score_detail": score_detail,
-                        "eval_count": eval_count,
-                        "prompt_eval_count": prompt_eval_count,
-                        "done_reason": done_reason,
-                        "latency_s": round(latency, 3),
-                        "hardware": "blade14_rtx4070",
-                    }
-                    rows.append(row)
-                    status = "✓" if score == 1.0 else ("✗" if score is not None else "E")
-                    print(
-                        f"[{call_n:3d}/{total_calls}] {pid} {check_type} {model[:14]} r{rep}"
-                        f" {status} {latency*1000:.0f}ms  {repr((output or '')[:50])}"
-                    )
+            for check_type, prompt in [("deletion", deletion_prompt), ("headroom", headroom_prompt)]:
+                for model in MODELS:
+                    for rep in range(N_REPS):
+                        call_n += 1
+                        cell = (pid, check_type, model, rep)
+                        if cell in completed:
+                            print(f"[{call_n:3d}/{total_calls}] SKIP {pid} {check_type} {model[:14]} r{rep}")
+                            continue
+                        output, latency, eval_count, prompt_eval_count, done_reason = _call(prompt, model)
+                        score, score_detail = (
+                            scorers_mod.score(probe_dict, output) if output is not None
+                            else (None, "no output")
+                        )
+                        row = {
+                            "probe_id": pid,
+                            "check_type": check_type,
+                            "model": model,
+                            "rep": rep,
+                            "output": output,
+                            "score": score,
+                            "score_detail": score_detail,
+                            "eval_count": eval_count,
+                            "prompt_eval_count": prompt_eval_count,
+                            "done_reason": done_reason,
+                            "latency_s": round(latency, 3),
+                            "hardware": "blade14_rtx4070",
+                        }
+                        rows.append(row)
+                        out_fh.write(json.dumps(row) + "\n")
+                        out_fh.flush()
+                        written += 1
+                        status = "✓" if score == 1.0 else ("✗" if score is not None else "E")
+                        print(
+                            f"[{call_n:3d}/{total_calls}] {pid} {check_type} {model[:14]} r{rep}"
+                            f" {status} {latency*1000:.0f}ms  {repr((output or '')[:50])}"
+                        )
+                        if call_n % 10 == 0:
+                            print(f"--- progress: {call_n}/{total_calls} calls, {written} written ---")
+
+    # Reload all rows from JSONL so analysis includes resumed cells too
+    all_rows = []
+    for line in OUTFILE.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line:
+            try:
+                all_rows.append(json.loads(line))
+            except json.JSONDecodeError:
+                pass
 
     # Analysis
     deletion_failures: list[dict] = []
@@ -167,9 +212,9 @@ def main() -> None:
     for pid in probe_ids:
         headroom_results[pid] = {}
         for model in MODELS:
-            del_rows = [r for r in rows if r["probe_id"] == pid
+            del_rows = [r for r in all_rows if r["probe_id"] == pid
                         and r["check_type"] == "deletion" and r["model"] == model]
-            head_rows = [r for r in rows if r["probe_id"] == pid
+            head_rows = [r for r in all_rows if r["probe_id"] == pid
                          and r["check_type"] == "headroom" and r["model"] == model]
 
             del_scores = [r["score"] for r in del_rows if r["score"] is not None]
@@ -200,13 +245,14 @@ def main() -> None:
     }
 
     out = RESULTS / "art_headroom.json"
-    out.write_text(json.dumps({"rows": rows, "analysis": analysis}, indent=2), encoding="utf-8")
-    print(f"\nWritten {len(rows)} rows to {out}")
+    out.write_text(json.dumps({"rows": all_rows, "analysis": analysis}, indent=2), encoding="utf-8")
+    print(f"\nWritten {len(all_rows)} rows to {out} (legacy JSON)")
+    print(f"Incremental JSONL: {written} new rows → {OUTFILE}")
 
     print("\n=== DELETION CHECK (must all be ✗) ===")
     for pid in probe_ids:
         for model in MODELS:
-            del_scores = [r["score"] for r in rows if r["probe_id"] == pid
+            del_scores = [r["score"] for r in all_rows if r["probe_id"] == pid
                           and r["check_type"] == "deletion" and r["model"] == model
                           and r["score"] is not None]
             any_pass = any(s == 1.0 for s in del_scores)

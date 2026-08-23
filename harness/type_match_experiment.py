@@ -23,6 +23,7 @@ Results written to results/type_match.json.
 
 from __future__ import annotations
 
+import argparse
 import importlib.util
 import json
 import random
@@ -41,6 +42,23 @@ import context as ctx_mod
 
 TARGET_PROBES = ["art_01", "art_02", "art_06", "art_07"]
 MODELS = ["qwen3:4b-instruct", "llama3.1:8b"]
+OUTFILE = RESULTS / "type_match.jsonl"
+
+
+def _load_completed_jsonl(outfile, keys):
+    completed = set()
+    if not outfile.exists():
+        return completed
+    for line in outfile.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            r = json.loads(line)
+            completed.add(tuple(r[k] for k in keys))
+        except (json.JSONDecodeError, KeyError):
+            pass
+    return completed
 HOST = "http://localhost:11434"
 FILLER_TOKENS = 4000
 BUDGET_RATIOS = [1.20, 0.98, 0.85, 0.40]
@@ -369,7 +387,16 @@ def lifted_from_filler(output: str, liftable_values: list[str]) -> bool:
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--resume", action="store_true")
+    args = parser.parse_args()
+
     RESULTS.mkdir(parents=True, exist_ok=True)
+
+    _CELL_KEYS = ["probe_id", "filler_type", "model", "budget_ratio", "rep"]
+    completed = _load_completed_jsonl(OUTFILE, _CELL_KEYS) if args.resume else set()
+    if completed:
+        print(f"--resume: {len(completed)} cells already completed.")
 
     spec = importlib.util.spec_from_file_location("scorers", PROBES_DIR / "scorers.py")
     scorers_mod = importlib.util.module_from_spec(spec)
@@ -414,12 +441,14 @@ def main():
     ]
 
     total_calls = len(TARGET_PROBES) * 2 * len(BUDGET_RATIOS) * len(MODELS) * N_REPS
-    print(f"\nTotal calls: {total_calls}")
+    print(f"\nTotal cells: {total_calls}  Completed: {len(completed)}  Remaining: {total_calls - len(completed)}")
+    print(f"Output: {OUTFILE}")
 
     rows = []
     call_n = 0
 
-    for ratio in BUDGET_RATIOS:
+    with OUTFILE.open("a", encoding="utf-8") as out_fh:
+     for ratio in BUDGET_RATIOS:
         print(f"\n=== ratio {ratio:.2f} ===")
         for model in MODELS:
             for filler_name, filler_text_shared, liftable_map in fillers:
@@ -460,6 +489,10 @@ def main():
 
                     for rep in range(N_REPS):
                         call_n += 1
+                        cell = (pid, filler_name, model, ratio, rep)
+                        if cell in completed:
+                            print(f"[{call_n:3d}/{total_calls}] SKIP {pid} {filler_name[:7]} {model[:14]} r={ratio} rep={rep}")
+                            continue
                         output, latency, eval_count, prompt_eval_count, done_reason = _call(truncated_base, model)
                         score, score_detail = (
                             scorers_mod.score(probe_dict, output) if output is not None
@@ -489,6 +522,8 @@ def main():
                             "hardware": "blade14_rtx4070",
                         }
                         rows.append(row)
+                        out_fh.write(json.dumps(row) + "\n")
+                        out_fh.flush()
 
                         tag = "✓" if score == 1.0 else ("A" if outcome == "abstained" else ("L" if lifted else "✗"))
                         print(
@@ -496,10 +531,13 @@ def main():
                             f"{model[:14]} r{rep} af={a_fraction:.2f} {tag} "
                             f"{latency*1000:.0f}ms  {repr((output or '')[:40])}"
                         )
+                        if call_n % 10 == 0:
+                            print(f"--- progress: {call_n}/{total_calls} calls ---")
 
+    print(f"\nDone. {len(rows)} rows written to {OUTFILE}")
     out = RESULTS / "type_match.json"
     out.write_text(json.dumps({"rows": rows, "liftable_values": {pid: filler_b_data[pid][1] for pid in TARGET_PROBES}}, indent=2), encoding="utf-8")
-    print(f"\nWritten {len(rows)} rows → {out}")
+    print(f"Also written to {out} (legacy JSON)")
     _print_summary(rows)
 
 

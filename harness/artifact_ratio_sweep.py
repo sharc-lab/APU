@@ -26,6 +26,7 @@ Results written to results/artifact_ratio_sweep.json.
 
 from __future__ import annotations
 
+import argparse
 import importlib.util
 import json
 import sys
@@ -46,6 +47,7 @@ MODEL = "qwen3:4b-instruct"
 HOST = "http://localhost:11434"
 N_REPS = 3
 MAX_TOKENS = 256
+OUTFILE = RESULTS / "artifact_ratio_sweep.jsonl"
 
 # Number of ratios to sample on each side of the extinction point
 RATIOS_ABOVE = [0.03, 0.01]     # extinction + delta (partial regime)
@@ -136,7 +138,27 @@ def build_ratio_grid(extinction: float) -> list[float]:
     return sorted(ratios, reverse=True)
 
 
+def _load_completed_jsonl(outfile, keys):
+    completed = set()
+    if not outfile.exists():
+        return completed
+    for line in outfile.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            r = json.loads(line)
+            completed.add(tuple(r[k] for k in keys))
+        except (json.JSONDecodeError, KeyError):
+            pass
+    return completed
+
+
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--resume", action="store_true", help="Skip cells already in OUTFILE")
+    args = parser.parse_args()
+
     RESULTS.mkdir(parents=True, exist_ok=True)
 
     spec = importlib.util.spec_from_file_location("scorers", PROBES_DIR / "scorers.py")
@@ -187,76 +209,90 @@ def main():
             })
 
     total_calls = sum(len(c["ratios"]) for c in configs) * N_REPS
-    print(f"\nTotal calls: {total_calls}  (varies by config, ~{total_calls} expected)")
+    _CELL_KEYS = ["probe_id", "filler_size", "budget_ratio", "rep"]
+    completed = _load_completed_jsonl(OUTFILE, _CELL_KEYS) if args.resume else set()
+    print(f"\nTotal calls: {total_calls}  (completed: {len(completed)})")
 
     rows = []
     call_n = 0
+    written = 0
 
-    for cfg in configs:
-        pid = cfg["probe_id"]
-        fsize = cfg["filler_size"]
-        seg = segments[pid]
-        filler = fillers[fsize]
-        full_tokens = cfg["full_tokens"]
-        extinction = cfg["extinction_ratio"]
+    with OUTFILE.open("a", encoding="utf-8") as out_fh:
+        for cfg in configs:
+            pid = cfg["probe_id"]
+            fsize = cfg["filler_size"]
+            seg = segments[pid]
+            filler = fillers[fsize]
+            full_tokens = cfg["full_tokens"]
+            extinction = cfg["extinction_ratio"]
 
-        for ratio in cfg["ratios"]:
-            target_tokens = round(full_tokens * ratio)
-            truncating = target_tokens < full_tokens
-            base_prompt = f"{seg['artifact']}\n\n{filler}\n\n{seg['question']}"
-            truncated = left_truncate(base_prompt, full_tokens, target_tokens)
-            chars_dropped = len(base_prompt) - len(truncated)
-            a_fraction = artifact_survival(seg["artifact"], chars_dropped)
+            for ratio in cfg["ratios"]:
+                target_tokens = round(full_tokens * ratio)
+                truncating = target_tokens < full_tokens
+                base_prompt = f"{seg['artifact']}\n\n{filler}\n\n{seg['question']}"
+                truncated = left_truncate(base_prompt, full_tokens, target_tokens)
+                chars_dropped = len(base_prompt) - len(truncated)
+                a_fraction = artifact_survival(seg["artifact"], chars_dropped)
 
-            probe_dict = {
-                "id": pid,
-                "scorer_type": seg["scorer_type"],
-                "expected": seg["expected"],
-            }
-
-            for rep in range(N_REPS):
-                call_n += 1
-                output, latency, eval_count, prompt_eval_count, done_reason = _call(truncated)
-                score, score_detail = (
-                    scorers_mod.score(probe_dict, output) if output is not None
-                    else (None, "no output")
-                )
-                outcome = scorers_mod.outcome_class(output, score, truncated=truncating)
-
-                row = {
-                    "probe_id": pid,
-                    "filler_size": fsize,
-                    "budget_ratio": round(ratio, 4),
-                    "extinction_ratio": extinction,
-                    "partial_regime_width": cfg["partial_regime_width"],
-                    "full_tokens": full_tokens,
-                    "target_tokens": target_tokens,
-                    "truncating": truncating,
-                    "artifact_fraction": a_fraction,
-                    "rep": rep,
-                    "output": output,
-                    "score": score,
-                    "score_detail": score_detail,
-                    "outcome": outcome,
-                    "eval_count": eval_count,
-                    "prompt_eval_count": prompt_eval_count,
-                    "done_reason": done_reason,
-                    "latency_s": round(latency, 3),
-                    "hardware": "blade14_rtx4070",
+                probe_dict = {
+                    "id": pid,
+                    "scorer_type": seg["scorer_type"],
+                    "expected": seg["expected"],
                 }
-                rows.append(row)
 
-                tag = "✓" if score == 1.0 else ("A" if outcome == "abstained" else "✗")
-                zone = "partial" if 0 < a_fraction < 1 else ("full" if a_fraction == 1.0 else "extinct")
-                print(
-                    f"[{call_n:3d}/{total_calls}] {pid} f={fsize:5d} "
-                    f"r={ratio:.3f} ({zone:<7}) af={a_fraction:.2f} {tag} "
-                    f"{latency*1000:.0f}ms  {repr((output or '')[:35])}"
-                )
+                for rep in range(N_REPS):
+                    call_n += 1
+                    cell = (pid, fsize, round(ratio, 4), rep)
+                    if cell in completed:
+                        print(f"[{call_n:3d}/{total_calls}] SKIP {pid} f={fsize} r={ratio:.4f} rep={rep}")
+                        continue
+                    output, latency, eval_count, prompt_eval_count, done_reason = _call(truncated)
+                    score, score_detail = (
+                        scorers_mod.score(probe_dict, output) if output is not None
+                        else (None, "no output")
+                    )
+                    outcome = scorers_mod.outcome_class(output, score, truncated=truncating)
+
+                    row = {
+                        "probe_id": pid,
+                        "filler_size": fsize,
+                        "budget_ratio": round(ratio, 4),
+                        "extinction_ratio": extinction,
+                        "partial_regime_width": cfg["partial_regime_width"],
+                        "full_tokens": full_tokens,
+                        "target_tokens": target_tokens,
+                        "truncating": truncating,
+                        "artifact_fraction": a_fraction,
+                        "rep": rep,
+                        "output": output,
+                        "score": score,
+                        "score_detail": score_detail,
+                        "outcome": outcome,
+                        "eval_count": eval_count,
+                        "prompt_eval_count": prompt_eval_count,
+                        "done_reason": done_reason,
+                        "latency_s": round(latency, 3),
+                        "hardware": "blade14_rtx4070",
+                    }
+                    rows.append(row)
+                    out_fh.write(json.dumps(row) + "\n")
+                    out_fh.flush()
+                    written += 1
+
+                    tag = "✓" if score == 1.0 else ("A" if outcome == "abstained" else "✗")
+                    zone = "partial" if 0 < a_fraction < 1 else ("full" if a_fraction == 1.0 else "extinct")
+                    print(
+                        f"[{call_n:3d}/{total_calls}] {pid} f={fsize:5d} "
+                        f"r={ratio:.3f} ({zone:<7}) af={a_fraction:.2f} {tag} "
+                        f"{latency*1000:.0f}ms  {repr((output or '')[:35])}"
+                    )
+                    if call_n % 10 == 0:
+                        print(f"--- progress: {call_n}/{total_calls} calls, {written} written ---")
 
     out = RESULTS / "artifact_ratio_sweep.json"
     out.write_text(json.dumps({"rows": rows, "configs": configs}, indent=2), encoding="utf-8")
-    print(f"\nWritten {len(rows)} rows → {out}")
+    print(f"\nWritten {len(rows)} rows → {out} (legacy JSON)")
+    print(f"Incremental JSONL: {written} rows → {OUTFILE}")
     _print_summary(rows, configs)
 
 
