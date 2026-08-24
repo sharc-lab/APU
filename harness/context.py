@@ -177,21 +177,38 @@ def _trim_to_tokens(
     raw: str,
     target_tokens: int,
     count_fn: Callable[[str], int] | None,
+    label: str = "filler",
+    max_iter: int = 8,
 ) -> str:
-    """Trim raw string to approximately target_tokens using count_fn refinement."""
+    """Trim raw string to approximately target_tokens using count_fn refinement.
+
+    Logs each iteration. Accepts the closest result if max_iter is exhausted
+    without converging — never hangs.
+    """
     target_chars = min(int(target_tokens * _CHARS_PER_TOKEN), len(raw))
     filler = raw[:target_chars].strip()
     if count_fn is None:
         return filler
-    for _ in range(4):
+    best = filler
+    best_err = float("inf")
+    for i in range(max_iter):
         actual = count_fn(filler)
         if actual <= 0:
             break
-        if abs(actual - target_tokens) / target_tokens <= 0.02:
-            break
+        err = abs(actual - target_tokens) / max(target_tokens, 1)
+        is_best = err < best_err
+        if is_best:
+            best, best_err = filler, err
+        print(f"  [{label} trim {i+1}/{max_iter}] {actual} tok  err={err:.1%}{' *' if is_best else ''}")
+        if err <= 0.02:
+            return filler
         new_chars = min(int(len(filler) * target_tokens / actual), len(raw))
+        if new_chars == len(filler):
+            break
         filler = raw[:new_chars].strip()
-    return filler
+    if best_err > 0.02:
+        print(f"  [{label}] WARNING: did not converge in {max_iter} iters, accepting best (err={best_err:.1%})")
+    return best
 
 
 def build_filler(

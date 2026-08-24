@@ -40,6 +40,7 @@ import json
 import random
 import re
 import sys
+import threading
 import time
 import urllib.request
 from pathlib import Path
@@ -62,9 +63,86 @@ N_REPS = 5
 MAX_TOKENS = 256
 MIN_PREDICT_120B = 1024
 
+# Chars-per-token estimate calibrated from smoke tests (matches context.py).
+_CHARS_PER_TOKEN = 5.03
+# Maximum entries to accumulate before accepting the corpus as-is.
+_FILLER_BUILD_CAP = 600
 
 # ---------------------------------------------------------------------------
-# F-TYPED builders (same as interference_r120.py, seed=42)
+# Watchdog: abort if no model call starts within 5 min of process start.
+# Set _first_call_started before issuing the first HTTP request.
+# ---------------------------------------------------------------------------
+_first_call_started = threading.Event()
+
+
+def _start_watchdog(timeout: float = 300.0) -> None:
+    def _watchdog():
+        if not _first_call_started.wait(timeout=timeout):
+            print(
+                f"\n[WATCHDOG] No model call started within {timeout:.0f}s of process start.",
+                flush=True,
+            )
+            print(
+                "[WATCHDOG] Process is likely stuck in filler building. Aborting.",
+                flush=True,
+            )
+            import os
+            os._exit(2)
+
+    t = threading.Thread(target=_watchdog, daemon=True)
+    t.start()
+
+
+# ---------------------------------------------------------------------------
+# Filler trim helper — capped at max_iter count_fn calls, always returns.
+# ---------------------------------------------------------------------------
+
+def _trim_with_cap(
+    raw: str,
+    target_tokens: int,
+    count_fn,
+    label: str = "filler",
+    max_iter: int = 8,
+) -> tuple[str, int, bool]:
+    """Trim raw to ~target_tokens.
+
+    Returns (text, realized_tok, converged).
+    Logs every iteration. Accepts the best result when max_iter is exhausted.
+    """
+    target_chars = min(int(target_tokens * _CHARS_PER_TOKEN), len(raw))
+    text = raw[:target_chars].strip()
+    if count_fn is None:
+        return text, target_tokens, True
+
+    best = text
+    best_err = float("inf")
+    best_tok = target_tokens
+
+    for i in range(max_iter):
+        actual = count_fn(text)
+        err = abs(actual - target_tokens) / max(target_tokens, 1)
+        is_best = err < best_err
+        if is_best:
+            best, best_err, best_tok = text, err, actual
+        print(f"  [{label} trim {i+1}/{max_iter}] {actual} tok  err={err:.1%}{' *' if is_best else ''}", flush=True)
+        if err <= 0.02:
+            return text, actual, True
+        new_chars = min(int(len(text) * target_tokens / actual), len(raw))
+        if new_chars == len(text):
+            break
+        text = raw[:new_chars].strip()
+
+    converged = best_err <= 0.02
+    if not converged:
+        print(
+            f"  [{label}] accepting best: {best_tok} tok (err={best_err:.1%}, not converged in {max_iter} iters)",
+            flush=True,
+        )
+    return best, best_tok, converged
+
+
+# ---------------------------------------------------------------------------
+# F-TYPED builders (same schema as interference_r120.py, seed=42)
 # ---------------------------------------------------------------------------
 
 def _build_port_filler(target_tokens, seed, count_fn):
@@ -80,6 +158,7 @@ def _build_port_filler(target_tokens, seed, count_fn):
     schemes = ["HMAC-SHA3", "Bearer", "mTLS", "API-Key", "OIDC", "HMAC-SHA256"]
     liftable = []
     other_fields = {"auth_schemes": set(), "max_payload_kb": set()}
+
     def make_entry():
         port = rng.randint(10240, 65535)
         while port in EXCLUDE:
@@ -103,13 +182,22 @@ def _build_port_filler(target_tokens, seed, count_fn):
             f'  "circuit_breaker_threshold": {rng.randint(4,30)}\n'
             f"}}"
         )
-    entries = []
-    while True:
-        entries.append(make_entry())
-        text = "\n\n".join(entries)
-        if count_fn(text) >= target_tokens:
+
+    needed_chars = int(target_tokens * _CHARS_PER_TOKEN * 1.5)
+    entries: list[str] = []
+    total_chars = 0
+    while total_chars < needed_chars:
+        e = make_entry()
+        entries.append(e)
+        total_chars += len(e) + 2
+        if len(entries) >= _FILLER_BUILD_CAP:
+            print(f"  [art_01/F-TYPED] capped at {_FILLER_BUILD_CAP} entries", flush=True)
             break
-    return text, liftable, {k: list(v) for k, v in other_fields.items()}
+
+    print(f"  [art_01/F-TYPED] {len(entries)} entries, {total_chars} chars, trimming...", flush=True)
+    raw = "\n\n".join(entries)
+    text, tok, converged = _trim_with_cap(raw, target_tokens, count_fn, label="art_01/F-TYPED")
+    return text, liftable, {k: list(v) for k, v in other_fields.items()}, tok, converged
 
 
 def _build_surname_filler(target_tokens, seed, count_fn):
@@ -139,6 +227,7 @@ def _build_surname_filler(target_tokens, seed, count_fn):
     ]
     liftable = []
     other_fields = {"movers": set(), "chairs": set()}
+
     def make_entry():
         session_surnames = [s for s in rng.sample(surnames, 5) if s not in EXCLUDE][:5]
         if len(session_surnames) < 5:
@@ -173,19 +262,28 @@ def _build_surname_filler(target_tokens, seed, count_fn):
             f"  Votes — {votes_str}\n"
             f"  Outcome: {outcome} ({yes} yes / {no} no / {abst} abstain)"
         )
-    entries = []
-    while True:
-        entries.append(make_entry())
-        text = "\n\n".join(entries)
-        if count_fn(text) >= target_tokens:
+
+    needed_chars = int(target_tokens * _CHARS_PER_TOKEN * 1.5)
+    entries: list[str] = []
+    total_chars = 0
+    while total_chars < needed_chars:
+        e = make_entry()
+        entries.append(e)
+        total_chars += len(e) + 2
+        if len(entries) >= _FILLER_BUILD_CAP:
+            print(f"  [art_06/F-TYPED] capped at {_FILLER_BUILD_CAP} entries", flush=True)
             break
-    return text, list(set(liftable)), {k: list(v) for k, v in other_fields.items()}
+
+    print(f"  [art_06/F-TYPED] {len(entries)} entries, {total_chars} chars, trimming...", flush=True)
+    raw = "\n\n".join(entries)
+    text, tok, converged = _trim_with_cap(raw, target_tokens, count_fn, label="art_06/F-TYPED")
+    return text, list(set(liftable)), {k: list(v) for k, v in other_fields.items()}, tok, converged
 
 
 def _build_version_filler(target_tokens, seed, count_fn):
     """F-TYPED for art_07: same changelog format, OTHER ORM names (not Ferrite)."""
     rng = random.Random(seed)
-    EXCLUDE_VERSIONS = {"3.11.9", "3.12.0", "3.11.8"}
+    EXCLUDE_VERSIONS: set[str] = {"3.11.9", "3.12.0", "3.11.8"}
     orm_names = ["Granite ORM", "Quartz ORM", "Basalt ORM", "Obsidian ORM",
                  "Feldspar ORM", "Schist ORM"]
     cve_changes = [
@@ -208,21 +306,17 @@ def _build_version_filler(target_tokens, seed, count_fn):
     ]
     liftable = []
     other_fields = {"cve_ids": set()}
+
     def make_entry():
-        orm = rng.choice(orm_names)
-        major = rng.randint(2, 5)
-        minor = rng.randint(0, 14)
-        patch_hi = rng.randint(2, 8)
-        patch_lo = patch_hi - rng.randint(1, 2)
-        ver_hi = f"{major}.{minor}.{patch_hi}"
-        ver_lo = f"{major}.{minor}.{patch_lo}"
-        while ver_hi in EXCLUDE_VERSIONS or ver_lo in EXCLUDE_VERSIONS:
+        for _attempt in range(100):
             major = rng.randint(2, 5)
             minor = rng.randint(0, 14)
-            patch_hi = rng.randint(2, 8)
+            patch_hi = rng.randint(1, 15)
             patch_lo = patch_hi - 1
             ver_hi = f"{major}.{minor}.{patch_hi}"
             ver_lo = f"{major}.{minor}.{patch_lo}"
+            if ver_hi not in EXCLUDE_VERSIONS and ver_lo not in EXCLUDE_VERSIONS:
+                break
         EXCLUDE_VERSIONS.add(ver_hi)
         EXCLUDE_VERSIONS.add(ver_lo)
         liftable.extend([ver_hi, ver_lo])
@@ -230,6 +324,7 @@ def _build_version_filler(target_tokens, seed, count_fn):
         other_fields["cve_ids"].add(cve_num)
         date_hi = f"2025-{rng.randint(1,12):02d}-{rng.randint(1,28):02d}"
         date_lo = f"2024-{rng.randint(1,12):02d}-{rng.randint(1,28):02d}"
+        orm = rng.choice(orm_names)
         return (
             f"[RELEASE NOTES — {orm}]\n\n"
             f"Version {ver_hi} ({date_hi})\n"
@@ -239,13 +334,22 @@ def _build_version_filler(target_tokens, seed, count_fn):
             f"  - Patched {cve_num}: {rng.choice(cve_changes)}\n"
             f"  - Cursor iteration now releases lock on connection return"
         )
-    entries = []
-    while True:
-        entries.append(make_entry())
-        text = "\n\n".join(entries)
-        if count_fn(text) >= target_tokens:
+
+    needed_chars = int(target_tokens * _CHARS_PER_TOKEN * 1.5)
+    entries: list[str] = []
+    total_chars = 0
+    while total_chars < needed_chars:
+        e = make_entry()
+        entries.append(e)
+        total_chars += len(e) + 2
+        if len(entries) >= _FILLER_BUILD_CAP:
+            print(f"  [art_07/F-TYPED] capped at {_FILLER_BUILD_CAP} entries", flush=True)
             break
-    return text, list(set(liftable)), {k: list(v) for k, v in other_fields.items()}
+
+    print(f"  [art_07/F-TYPED] {len(entries)} entries, {total_chars} chars, trimming...", flush=True)
+    raw = "\n\n".join(entries)
+    text, tok, converged = _trim_with_cap(raw, target_tokens, count_fn, label="art_07/F-TYPED")
+    return text, list(set(liftable)), {k: list(v) for k, v in other_fields.items()}, tok, converged
 
 
 # ---------------------------------------------------------------------------
@@ -269,6 +373,7 @@ def _build_art01_schema(target_tokens, seed, count_fn):
     schemes = ["HMAC-SHA3", "Bearer", "mTLS", "API-Key", "OIDC", "HMAC-SHA256"]
     liftable = []
     other_fields = {"auth_schemes": set(), "max_payload_kb": set()}
+
     def make_entry():
         port = rng.randint(10240, 65535)
         while port in EXCLUDE_PORTS:
@@ -292,13 +397,22 @@ def _build_art01_schema(target_tokens, seed, count_fn):
             f'  "circuit_breaker_threshold": {rng.randint(4,30)}\n'
             f"}}"
         )
-    entries = []
-    while True:
-        entries.append(make_entry())
-        text = "\n\n".join(entries)
-        if count_fn(text) >= target_tokens:
+
+    needed_chars = int(target_tokens * _CHARS_PER_TOKEN * 1.5)
+    entries: list[str] = []
+    total_chars = 0
+    while total_chars < needed_chars:
+        e = make_entry()
+        entries.append(e)
+        total_chars += len(e) + 2
+        if len(entries) >= _FILLER_BUILD_CAP:
+            print(f"  [art_01/F-SCHEMA] capped at {_FILLER_BUILD_CAP} entries", flush=True)
             break
-    return text, liftable, {k: list(v) for k, v in other_fields.items()}
+
+    print(f"  [art_01/F-SCHEMA] {len(entries)} entries, {total_chars} chars, trimming...", flush=True)
+    raw = "\n\n".join(entries)
+    text, tok, converged = _trim_with_cap(raw, target_tokens, count_fn, label="art_01/F-SCHEMA")
+    return text, liftable, {k: list(v) for k, v in other_fields.items()}, tok, converged
 
 
 def _build_art06_schema(target_tokens, seed, count_fn):
@@ -333,6 +447,7 @@ def _build_art06_schema(target_tokens, seed, count_fn):
     ]
     liftable = []
     other_fields = {"movers": set(), "chairs": set()}
+
     def make_entry():
         session_surnames = rng.sample(surnames, 5)
         chair = session_surnames[0]
@@ -365,24 +480,40 @@ def _build_art06_schema(target_tokens, seed, count_fn):
             f"  Votes — {votes_str}\n"
             f"  Outcome: {outcome} ({yes} yes / {no} no / {abst} abstain)"
         )
-    entries = []
-    while True:
-        entries.append(make_entry())
-        text = "\n\n".join(entries)
-        if count_fn(text) >= target_tokens:
+
+    needed_chars = int(target_tokens * _CHARS_PER_TOKEN * 1.5)
+    entries: list[str] = []
+    total_chars = 0
+    while total_chars < needed_chars:
+        e = make_entry()
+        entries.append(e)
+        total_chars += len(e) + 2
+        if len(entries) >= _FILLER_BUILD_CAP:
+            print(f"  [art_06/F-SCHEMA] capped at {_FILLER_BUILD_CAP} entries", flush=True)
             break
-    return text, list(set(liftable)), {k: list(v) for k, v in other_fields.items()}
+
+    print(f"  [art_06/F-SCHEMA] {len(entries)} entries, {total_chars} chars, trimming...", flush=True)
+    raw = "\n\n".join(entries)
+    text, tok, converged = _trim_with_cap(raw, target_tokens, count_fn, label="art_06/F-SCHEMA")
+    return text, list(set(liftable)), {k: list(v) for k, v in other_fields.items()}, tok, converged
 
 
 def _build_art07_schema(target_tokens, seed, count_fn):
     """F-SCHEMA for art_07: RELEASE NOTES for Ferrite ORM specifically (same ORM
     as artifact), with version numbers outside the artifact's range and different
     CVEs (not CVE-2024-51022). The model must find CVE-2024-51022 among many
-    Ferrite ORM entries. Tests whether same-ORM records cause version confusion."""
+    Ferrite ORM entries. Tests whether same-ORM records cause version confusion.
+
+    Version space: minor in [1..10, 13, 14, 15] (avoids artifact's minor 11/12),
+    patch_hi in [1..15]. Inner loop capped at 100 attempts; if space exhausted,
+    accepts a potentially-repeated combination rather than hanging.
+    """
     rng = random.Random(seed)
-    EXCLUDE_VERSIONS = {"3.11.9", "3.12.0", "3.11.8"}
-    minor_ranges = list(range(5, 11)) + [13, 14, 15]
-    EXCLUDE_CVES = {"CVE-2024-51022"}
+    EXCLUDE_VERSIONS: set[str] = {"3.11.9", "3.12.0", "3.11.8"}
+    # Expanded minor range: avoids 11 and 12 (artifact's minor versions).
+    # 13 values × 15 patch values = 195 unique (minor, patch_hi) pairs — sufficient.
+    minor_ranges = list(range(1, 11)) + [13, 14, 15]
+    EXCLUDE_CVES: set[str] = {"CVE-2024-51022"}
     cve_changes = [
         "stack overflow in schema diff with cyclic references",
         "heap overflow in connection pool under burst load",
@@ -407,20 +538,20 @@ def _build_art07_schema(target_tokens, seed, count_fn):
     ]
     liftable = []
     other_fields = {"cve_ids": set()}
+
     def make_entry():
-        minor = rng.choice(minor_ranges)
-        patch_hi = rng.randint(2, 8)
-        patch_lo = patch_hi - rng.randint(1, 2)
-        if patch_lo < 0:
-            patch_lo = 0
-        ver_hi = f"3.{minor}.{patch_hi}"
-        ver_lo = f"3.{minor}.{patch_lo}"
-        while ver_hi in EXCLUDE_VERSIONS or ver_lo in EXCLUDE_VERSIONS or ver_hi == ver_lo:
+        # Cap inner search at 100 attempts; if version space is exhausted,
+        # accept a repeated combination rather than hanging.
+        for _attempt in range(100):
             minor = rng.choice(minor_ranges)
-            patch_hi = rng.randint(2, 8)
+            patch_hi = rng.randint(1, 15)
             patch_lo = patch_hi - 1
             ver_hi = f"3.{minor}.{patch_hi}"
             ver_lo = f"3.{minor}.{patch_lo}"
+            if ver_hi not in EXCLUDE_VERSIONS and ver_lo not in EXCLUDE_VERSIONS and ver_hi != ver_lo:
+                break
+        # Add unconditionally — even if a repeated pair slips through,
+        # liftable tracking still works (artifact versions excluded from EXCLUDE_CVES).
         EXCLUDE_VERSIONS.add(ver_hi)
         EXCLUDE_VERSIONS.add(ver_lo)
         liftable.extend([ver_hi, ver_lo])
@@ -440,13 +571,22 @@ def _build_art07_schema(target_tokens, seed, count_fn):
             f"  - Patched {cve_num}: {rng.choice(cve_changes)}\n"
             f"  - Cursor iteration now releases lock on connection return"
         )
-    entries = []
-    while True:
-        entries.append(make_entry())
-        text = "\n\n".join(entries)
-        if count_fn(text) >= target_tokens:
+
+    needed_chars = int(target_tokens * _CHARS_PER_TOKEN * 1.5)
+    entries: list[str] = []
+    total_chars = 0
+    while total_chars < needed_chars:
+        e = make_entry()
+        entries.append(e)
+        total_chars += len(e) + 2
+        if len(entries) >= _FILLER_BUILD_CAP:
+            print(f"  [art_07/F-SCHEMA] capped at {_FILLER_BUILD_CAP} entries", flush=True)
             break
-    return text, list(set(liftable)), {k: list(v) for k, v in other_fields.items()}
+
+    print(f"  [art_07/F-SCHEMA] {len(entries)} entries, {total_chars} chars, trimming...", flush=True)
+    raw = "\n\n".join(entries)
+    text, tok, converged = _trim_with_cap(raw, target_tokens, count_fn, label="art_07/F-SCHEMA")
+    return text, list(set(liftable)), {k: list(v) for k, v in other_fields.items()}, tok, converged
 
 
 TYPED_BUILDERS = {
@@ -483,6 +623,7 @@ def _count_fn(text):
 
 
 def _call(prompt, model):
+    _first_call_started.set()  # disarms watchdog
     is_thinking = model == "gpt-oss:120b-cloud"
     num_predict = MIN_PREDICT_120B if is_thinking else MAX_TOKENS
     body = {
@@ -575,6 +716,11 @@ def main():
                         help="Skip cells already present in the output file.")
     args = parser.parse_args()
 
+    # Filler building makes ~50-70 count_fn calls (~5s each) before the first
+    # model call, so 300s is too tight. 900s catches runaway loops (which took
+    # 15+ hours before) without false-positives on normal filler building.
+    _start_watchdog(timeout=900.0)
+
     RESULTS.mkdir(parents=True, exist_ok=True)
 
     spec = importlib.util.spec_from_file_location("scorers", PROBES_DIR / "scorers.py")
@@ -601,20 +747,26 @@ def main():
     print(f"  F-NUM: {filler_num_tok} tok ({len(filler_num)} chars)")
 
     print("Building F-TYPED fillers (seed=42)...")
-    filler_typed = {}
+    filler_typed: dict[str, tuple] = {}
+    filler_typed_meta: dict[str, tuple[int, bool]] = {}
     for pid in TARGET_PROBES:
-        text, liftable, other = TYPED_BUILDERS[pid](FILLER_TOKENS, seed=42, count_fn=_count_fn)
-        tok = _count_fn(text)
-        print(f"  {pid} F-TYPED: {tok} tok, {len(liftable)} liftable values")
+        text, liftable, other, tok, converged = TYPED_BUILDERS[pid](FILLER_TOKENS, seed=42, count_fn=_count_fn)
+        if not converged:
+            print(f"  WARNING: {pid} F-TYPED filler did not converge (realized={tok} tok)")
+        print(f"  {pid} F-TYPED: {tok} tok, {len(liftable)} liftable values", flush=True)
         filler_typed[pid] = (text, liftable, other)
+        filler_typed_meta[pid] = (tok, converged)
 
     print("Building F-SCHEMA fillers (seed=42)...")
-    filler_schema = {}
+    filler_schema: dict[str, tuple] = {}
+    filler_schema_meta: dict[str, tuple[int, bool]] = {}
     for pid in TARGET_PROBES:
-        text, liftable, other = SCHEMA_BUILDERS[pid](FILLER_TOKENS, seed=42, count_fn=_count_fn)
-        tok = _count_fn(text)
-        print(f"  {pid} F-SCHEMA: {tok} tok, {len(liftable)} liftable values")
+        text, liftable, other, tok, converged = SCHEMA_BUILDERS[pid](FILLER_TOKENS, seed=42, count_fn=_count_fn)
+        if not converged:
+            print(f"  WARNING: {pid} F-SCHEMA filler did not converge (realized={tok} tok)")
+        print(f"  {pid} F-SCHEMA: {tok} tok, {len(liftable)} liftable values", flush=True)
         filler_schema[pid] = (text, liftable, other)
+        filler_schema_meta[pid] = (tok, converged)
 
     print("Measuring full prompt token counts...")
     for pid in TARGET_PROBES:
@@ -626,6 +778,17 @@ def main():
         ]:
             ft = _count_fn(f"{seg['artifact']}\n\n{ftext}\n\n{seg['question']}")
             print(f"  {pid} {fname}: {ft} tok")
+
+    # Build per-filler realized_tokens and convergence_failed metadata.
+    filler_realized: dict[tuple, int] = {}
+    filler_converged: dict[tuple, bool] = {}
+    filler_realized[("F-NUM", "*")] = filler_num_tok
+    filler_converged[("F-NUM", "*")] = True
+    for pid in TARGET_PROBES:
+        filler_realized[("F-TYPED",  pid)] = filler_typed_meta[pid][0]
+        filler_converged[("F-TYPED",  pid)] = filler_typed_meta[pid][1]
+        filler_realized[("F-SCHEMA", pid)] = filler_schema_meta[pid][0]
+        filler_converged[("F-SCHEMA", pid)] = filler_schema_meta[pid][1]
 
     fillers_config = [
         ("F-NUM",    lambda pid: (filler_num,              [],                           {})),
@@ -652,6 +815,8 @@ def main():
                         "expected": seg["expected"],
                     }
                     filler_text, liftable, other_fields = filler_fn(pid)
+                    r_tok = filler_realized.get((filler_name, pid), filler_realized.get((filler_name, "*"), 0))
+                    r_conv = filler_converged.get((filler_name, pid), filler_converged.get((filler_name, "*"), True))
 
                     for rep in range(N_REPS):
                         call_n += 1
@@ -686,6 +851,8 @@ def main():
                             "probe_id": pid,
                             "model": model,
                             "filler_type": filler_name,
+                            "filler_realized_tokens": r_tok,
+                            "convergence_failed": not r_conv,
                             "budget_ratio": BUDGET_RATIO,
                             "truncating": False,
                             "artifact_fraction": 1.0,
@@ -753,9 +920,12 @@ def _print_summary(outfile):
                     f"{repr((r['output'] or '')[:20])}({r.get('wrong_field','?')})"
                     for r in wrong
                 ) if wrong else "—"
+                conv_flag = ""
+                if any(r.get("convergence_failed") for r in s):
+                    conv_flag = " [conv-fail]"
                 print(
                     f"  {pid:8} {filler_name:10} {model:20}  {mean_score:.2f}   "
-                    f"{lift_rate:.0%}  {wrong_strs}"
+                    f"{lift_rate:.0%}  {wrong_strs}{conv_flag}"
                 )
 
     print("\n=== ALL FAILURES (score < 1.0) ===")
