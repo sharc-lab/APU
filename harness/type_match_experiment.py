@@ -393,6 +393,12 @@ def main():
 
     RESULTS.mkdir(parents=True, exist_ok=True)
 
+    if OUTFILE.exists() and not args.resume:
+        n = sum(1 for l in OUTFILE.read_text(encoding="utf-8").splitlines() if l.strip())
+        if n > 0:
+            print(f"ERROR: {OUTFILE.name} has {n} existing rows. Pass --resume to continue, or delete to restart.", flush=True)
+            sys.exit(1)
+
     _CELL_KEYS = ["probe_id", "filler_type", "model", "budget_ratio", "rep"]
     completed = _load_completed_jsonl(OUTFILE, _CELL_KEYS) if args.resume else set()
     if completed:

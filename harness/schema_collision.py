@@ -659,10 +659,25 @@ def value_in_text(value, text):
     ))
 
 
-def lifted_from_filler(output, liftable_values):
+def classify_lift(output, liftable_values, artifact_text):
+    """Return (lifted_from_filler, ambiguous_lift).
+
+    lifted_from_filler=True only when the output value appears in the filler
+    and NOT in the artifact — a genuine filler read.
+
+    ambiguous_lift=True when the value appears in both filler and artifact;
+    field confusion within the artifact is then equally plausible and the
+    classification cannot distinguish the two without further evidence.
+    """
     if not output:
-        return False
-    return any(value_in_text(v, output) for v in liftable_values)
+        return False, False
+    in_filler = any(value_in_text(v, output) for v in liftable_values)
+    if not in_filler:
+        return False, False
+    in_artifact = value_in_text(output, artifact_text)
+    if in_artifact:
+        return False, True  # ambiguous
+    return True, False  # genuine filler lift
 
 
 def classify_wrong_field(output, probe_id, other_fields):
@@ -722,6 +737,12 @@ def main():
     _start_watchdog(timeout=900.0)
 
     RESULTS.mkdir(parents=True, exist_ok=True)
+
+    if OUTFILE.exists() and not args.resume:
+        n = sum(1 for l in OUTFILE.read_text(encoding="utf-8").splitlines() if l.strip())
+        if n > 0:
+            print(f"ERROR: {OUTFILE.name} has {n} existing rows. Pass --resume to continue, or delete to restart.", flush=True)
+            sys.exit(1)
 
     spec = importlib.util.spec_from_file_location("scorers", PROBES_DIR / "scorers.py")
     scorers_mod = importlib.util.module_from_spec(spec)
@@ -834,11 +855,14 @@ def main():
                             else (None, "no output")
                         )
                         outcome = scorers_mod.outcome_class(output, score, truncated=False)
-                        is_lifted = lifted_from_filler(output, liftable) if outcome == "incorrect" else False
+                        is_lifted, is_ambiguous = (
+                            classify_lift(output, liftable, seg["artifact"])
+                            if outcome == "incorrect" else (False, False)
+                        )
 
                         wrong_field = None
                         if outcome == "incorrect" and output:
-                            if is_lifted:
+                            if is_lifted or is_ambiguous:
                                 wrong_field = {
                                     "art_01": "listen_port",
                                     "art_06": "seconder_or_mover",
@@ -862,6 +886,7 @@ def main():
                             "score_detail": score_detail,
                             "outcome": outcome,
                             "lifted_from_filler": is_lifted,
+                            "ambiguous_lift": is_ambiguous,
                             "wrong_field": wrong_field,
                             "eval_count": eval_count,
                             "prompt_eval_count": prompt_eval_count,
