@@ -1,0 +1,565 @@
+﻿{
+    "hypothesis":  "F-SCHEMA filler (same record format and entity namespace as artifact) causes more interference than F-TYPED filler",
+    "art_06_f_typed_note":  "art_06 F-TYPED qwen3:4b-instruct: score=0.00, 5/5 reps, output=\u0027Herrera\u0027, wrong_field=\u0027seconder_or_mover\u0027. Herrera appears in F-TYPED filler as seconder_or_mover (board meeting with different entity names). Artifact correct answer is \u0027Blum\u0027. Model lifts \u0027Herrera\u0027 from filler. Effect is model-specific (llama3.1:8b and gpt-oss:120b-cloud score 1.00 on same cell). F-SCHEMA with the same board name and overlapping attendee pool does NOT cause the same failure.",
+    "probes":  [
+                   "art_01",
+                   "art_06",
+                   "art_07"
+               ],
+    "models":  [
+                   "qwen3:4b-instruct",
+                   "llama3.1:8b",
+                   "gpt-oss:120b-cloud"
+               ],
+    "n_probes":  3,
+    "n_reps":  5,
+    "art_07_f_schema_note":  "Critical discriminating case: art_07 uses Ferrite ORM in both artifact and F-SCHEMA filler (different CVEs/versions). Score=1.00 across all 3 models. No version confusion induced.",
+    "experiment":  "schema_collision",
+    "date_run":  "2026-08-24",
+    "filler_type_means":  [
+                              {
+                                  "mean_score":  1,
+                                  "n_rows":  45,
+                                  "filler_type":  "F-NUM",
+                                  "lift_rate":  0
+                              },
+                              {
+                                  "mean_score":  1,
+                                  "n_rows":  45,
+                                  "filler_type":  "F-SCHEMA",
+                                  "lift_rate":  0
+                              },
+                              {
+                                  "mean_score":  0.8889,
+                                  "n_rows":  45,
+                                  "filler_type":  "F-TYPED",
+                                  "lift_rate":  0.1111
+                              }
+                          ],
+    "conclusion":  "DISCONFIRMED: F-SCHEMA mean_score=1.00 across all 9 probe×model cells, 0% lift rate. F-TYPED causes one interference pattern (art_06, qwen3:4b-instruct only). Schema collision does not predict interference; the effect is model- and probe-specific, not format-driven.",
+    "hardware":  "blade14_rtx4070",
+    "cell_summaries":  [
+                           {
+                               "n_reps":  5,
+                               "outputs":  [
+                                               "51847",
+                                               "51847",
+                                               "51847",
+                                               "51847",
+                                               "51847"
+                                           ],
+                               "probe_id":  "art_01",
+                               "n_scored":  5,
+                               "lift_rate":  0,
+                               "filler_type":  "F-NUM",
+                               "mean_score":  1,
+                               "model":  "gpt-oss:120b-cloud",
+                               "lift_count":  0
+                           },
+                           {
+                               "n_reps":  5,
+                               "outputs":  [
+                                               "51847",
+                                               "51847",
+                                               "51847",
+                                               "51847",
+                                               "51847"
+                                           ],
+                               "probe_id":  "art_01",
+                               "n_scored":  5,
+                               "lift_rate":  0,
+                               "filler_type":  "F-NUM",
+                               "mean_score":  1,
+                               "model":  "llama3.1:8b",
+                               "lift_count":  0
+                           },
+                           {
+                               "n_reps":  5,
+                               "outputs":  [
+                                               "51847",
+                                               "51847",
+                                               "51847",
+                                               "51847",
+                                               "51847"
+                                           ],
+                               "probe_id":  "art_01",
+                               "n_scored":  5,
+                               "lift_rate":  0,
+                               "filler_type":  "F-NUM",
+                               "mean_score":  1,
+                               "model":  "qwen3:4b-instruct",
+                               "lift_count":  0
+                           },
+                           {
+                               "n_reps":  5,
+                               "outputs":  [
+                                               "Blum",
+                                               "Blum",
+                                               "Blum",
+                                               "Blum",
+                                               "Blum"
+                                           ],
+                               "probe_id":  "art_06",
+                               "n_scored":  5,
+                               "lift_rate":  0,
+                               "filler_type":  "F-NUM",
+                               "mean_score":  1,
+                               "model":  "gpt-oss:120b-cloud",
+                               "lift_count":  0
+                           },
+                           {
+                               "n_reps":  5,
+                               "outputs":  [
+                                               "Blum",
+                                               "Blum",
+                                               "Blum",
+                                               "Blum",
+                                               "Blum"
+                                           ],
+                               "probe_id":  "art_06",
+                               "n_scored":  5,
+                               "lift_rate":  0,
+                               "filler_type":  "F-NUM",
+                               "mean_score":  1,
+                               "model":  "llama3.1:8b",
+                               "lift_count":  0
+                           },
+                           {
+                               "n_reps":  5,
+                               "outputs":  [
+                                               "Blum",
+                                               "Blum",
+                                               "Blum",
+                                               "Blum",
+                                               "Blum"
+                                           ],
+                               "probe_id":  "art_06",
+                               "n_scored":  5,
+                               "lift_rate":  0,
+                               "filler_type":  "F-NUM",
+                               "mean_score":  1,
+                               "model":  "qwen3:4b-instruct",
+                               "lift_count":  0
+                           },
+                           {
+                               "n_reps":  5,
+                               "outputs":  [
+                                               "3.11.9",
+                                               "3.11.9",
+                                               "3.11.9",
+                                               "3.11.9",
+                                               "3.11.9"
+                                           ],
+                               "probe_id":  "art_07",
+                               "n_scored":  5,
+                               "lift_rate":  0,
+                               "filler_type":  "F-NUM",
+                               "mean_score":  1,
+                               "model":  "gpt-oss:120b-cloud",
+                               "lift_count":  0
+                           },
+                           {
+                               "n_reps":  5,
+                               "outputs":  [
+                                               "3.11.9",
+                                               "3.11.9",
+                                               "3.11.9",
+                                               "3.11.9",
+                                               "3.11.9"
+                                           ],
+                               "probe_id":  "art_07",
+                               "n_scored":  5,
+                               "lift_rate":  0,
+                               "filler_type":  "F-NUM",
+                               "mean_score":  1,
+                               "model":  "llama3.1:8b",
+                               "lift_count":  0
+                           },
+                           {
+                               "n_reps":  5,
+                               "outputs":  [
+                                               "3.11.9",
+                                               "3.11.9",
+                                               "3.11.9",
+                                               "3.11.9",
+                                               "3.11.9"
+                                           ],
+                               "probe_id":  "art_07",
+                               "n_scored":  5,
+                               "lift_rate":  0,
+                               "filler_type":  "F-NUM",
+                               "mean_score":  1,
+                               "model":  "qwen3:4b-instruct",
+                               "lift_count":  0
+                           },
+                           {
+                               "n_reps":  5,
+                               "outputs":  [
+                                               "51847",
+                                               "51847",
+                                               "51847",
+                                               "51847",
+                                               "51847"
+                                           ],
+                               "probe_id":  "art_01",
+                               "n_scored":  5,
+                               "lift_rate":  0,
+                               "filler_type":  "F-SCHEMA",
+                               "mean_score":  1,
+                               "model":  "gpt-oss:120b-cloud",
+                               "lift_count":  0
+                           },
+                           {
+                               "n_reps":  5,
+                               "outputs":  [
+                                               "51847",
+                                               "51847",
+                                               "51847",
+                                               "51847",
+                                               "51847"
+                                           ],
+                               "probe_id":  "art_01",
+                               "n_scored":  5,
+                               "lift_rate":  0,
+                               "filler_type":  "F-SCHEMA",
+                               "mean_score":  1,
+                               "model":  "llama3.1:8b",
+                               "lift_count":  0
+                           },
+                           {
+                               "n_reps":  5,
+                               "outputs":  [
+                                               "51847",
+                                               "51847",
+                                               "51847",
+                                               "51847",
+                                               "51847"
+                                           ],
+                               "probe_id":  "art_01",
+                               "n_scored":  5,
+                               "lift_rate":  0,
+                               "filler_type":  "F-SCHEMA",
+                               "mean_score":  1,
+                               "model":  "qwen3:4b-instruct",
+                               "lift_count":  0
+                           },
+                           {
+                               "n_reps":  5,
+                               "outputs":  [
+                                               "Blum",
+                                               "Blum",
+                                               "Blum",
+                                               "Blum",
+                                               "Blum"
+                                           ],
+                               "probe_id":  "art_06",
+                               "n_scored":  5,
+                               "lift_rate":  0,
+                               "filler_type":  "F-SCHEMA",
+                               "mean_score":  1,
+                               "model":  "gpt-oss:120b-cloud",
+                               "lift_count":  0
+                           },
+                           {
+                               "n_reps":  5,
+                               "outputs":  [
+                                               "Blum",
+                                               "Blum",
+                                               "Blum",
+                                               "Blum",
+                                               "Blum"
+                                           ],
+                               "probe_id":  "art_06",
+                               "n_scored":  5,
+                               "lift_rate":  0,
+                               "filler_type":  "F-SCHEMA",
+                               "mean_score":  1,
+                               "model":  "llama3.1:8b",
+                               "lift_count":  0
+                           },
+                           {
+                               "n_reps":  5,
+                               "outputs":  [
+                                               "Blum",
+                                               "Blum",
+                                               "Blum",
+                                               "Blum",
+                                               "Blum"
+                                           ],
+                               "probe_id":  "art_06",
+                               "n_scored":  5,
+                               "lift_rate":  0,
+                               "filler_type":  "F-SCHEMA",
+                               "mean_score":  1,
+                               "model":  "qwen3:4b-instruct",
+                               "lift_count":  0
+                           },
+                           {
+                               "n_reps":  5,
+                               "outputs":  [
+                                               "3.11.9",
+                                               "3.11.9",
+                                               "3.11.9",
+                                               "3.11.9",
+                                               "3.11.9"
+                                           ],
+                               "probe_id":  "art_07",
+                               "n_scored":  5,
+                               "lift_rate":  0,
+                               "filler_type":  "F-SCHEMA",
+                               "mean_score":  1,
+                               "model":  "gpt-oss:120b-cloud",
+                               "lift_count":  0
+                           },
+                           {
+                               "n_reps":  5,
+                               "outputs":  [
+                                               "3.11.9",
+                                               "3.11.9",
+                                               "3.11.9",
+                                               "3.11.9",
+                                               "3.11.9"
+                                           ],
+                               "probe_id":  "art_07",
+                               "n_scored":  5,
+                               "lift_rate":  0,
+                               "filler_type":  "F-SCHEMA",
+                               "mean_score":  1,
+                               "model":  "llama3.1:8b",
+                               "lift_count":  0
+                           },
+                           {
+                               "n_reps":  5,
+                               "outputs":  [
+                                               "3.11.9",
+                                               "3.11.9",
+                                               "3.11.9",
+                                               "3.11.9",
+                                               "3.11.9"
+                                           ],
+                               "probe_id":  "art_07",
+                               "n_scored":  5,
+                               "lift_rate":  0,
+                               "filler_type":  "F-SCHEMA",
+                               "mean_score":  1,
+                               "model":  "qwen3:4b-instruct",
+                               "lift_count":  0
+                           },
+                           {
+                               "n_reps":  5,
+                               "outputs":  [
+                                               "51847",
+                                               "51847",
+                                               "51847",
+                                               "51847",
+                                               "51847"
+                                           ],
+                               "probe_id":  "art_01",
+                               "n_scored":  5,
+                               "lift_rate":  0,
+                               "filler_type":  "F-TYPED",
+                               "mean_score":  1,
+                               "model":  "gpt-oss:120b-cloud",
+                               "lift_count":  0
+                           },
+                           {
+                               "n_reps":  5,
+                               "outputs":  [
+                                               "51847",
+                                               "51847",
+                                               "51847",
+                                               "51847",
+                                               "51847"
+                                           ],
+                               "probe_id":  "art_01",
+                               "n_scored":  5,
+                               "lift_rate":  0,
+                               "filler_type":  "F-TYPED",
+                               "mean_score":  1,
+                               "model":  "llama3.1:8b",
+                               "lift_count":  0
+                           },
+                           {
+                               "n_reps":  5,
+                               "outputs":  [
+                                               "51847",
+                                               "51847",
+                                               "51847",
+                                               "51847",
+                                               "51847"
+                                           ],
+                               "probe_id":  "art_01",
+                               "n_scored":  5,
+                               "lift_rate":  0,
+                               "filler_type":  "F-TYPED",
+                               "mean_score":  1,
+                               "model":  "qwen3:4b-instruct",
+                               "lift_count":  0
+                           },
+                           {
+                               "n_reps":  5,
+                               "outputs":  [
+                                               "Blum",
+                                               "Blum",
+                                               "Blum",
+                                               "Blum",
+                                               "Blum"
+                                           ],
+                               "probe_id":  "art_06",
+                               "n_scored":  5,
+                               "lift_rate":  0,
+                               "filler_type":  "F-TYPED",
+                               "mean_score":  1,
+                               "model":  "gpt-oss:120b-cloud",
+                               "lift_count":  0
+                           },
+                           {
+                               "n_reps":  5,
+                               "outputs":  [
+                                               "Blum",
+                                               "Blum",
+                                               "Blum",
+                                               "Blum",
+                                               "Blum"
+                                           ],
+                               "probe_id":  "art_06",
+                               "n_scored":  5,
+                               "lift_rate":  0,
+                               "filler_type":  "F-TYPED",
+                               "mean_score":  1,
+                               "model":  "llama3.1:8b",
+                               "lift_count":  0
+                           },
+                           {
+                               "n_reps":  5,
+                               "outputs":  [
+                                               "Herrera",
+                                               "Herrera",
+                                               "Herrera",
+                                               "Herrera",
+                                               "Herrera"
+                                           ],
+                               "probe_id":  "art_06",
+                               "n_scored":  5,
+                               "lift_rate":  1,
+                               "filler_type":  "F-TYPED",
+                               "mean_score":  0,
+                               "model":  "qwen3:4b-instruct",
+                               "lift_count":  5
+                           },
+                           {
+                               "n_reps":  5,
+                               "outputs":  [
+                                               "3.11.9",
+                                               "3.11.9",
+                                               "3.11.9",
+                                               "3.11.9",
+                                               "3.11.9"
+                                           ],
+                               "probe_id":  "art_07",
+                               "n_scored":  5,
+                               "lift_rate":  0,
+                               "filler_type":  "F-TYPED",
+                               "mean_score":  1,
+                               "model":  "gpt-oss:120b-cloud",
+                               "lift_count":  0
+                           },
+                           {
+                               "n_reps":  5,
+                               "outputs":  [
+                                               "3.11.9",
+                                               "3.11.9",
+                                               "3.11.9",
+                                               "3.11.9",
+                                               "3.11.9"
+                                           ],
+                               "probe_id":  "art_07",
+                               "n_scored":  5,
+                               "lift_rate":  0,
+                               "filler_type":  "F-TYPED",
+                               "mean_score":  1,
+                               "model":  "llama3.1:8b",
+                               "lift_count":  0
+                           },
+                           {
+                               "n_reps":  5,
+                               "outputs":  [
+                                               "3.11.9",
+                                               "3.11.9",
+                                               "3.11.9",
+                                               "3.11.9",
+                                               "3.11.9"
+                                           ],
+                               "probe_id":  "art_07",
+                               "n_scored":  5,
+                               "lift_rate":  0,
+                               "filler_type":  "F-TYPED",
+                               "mean_score":  1,
+                               "model":  "qwen3:4b-instruct",
+                               "lift_count":  0
+                           }
+                       ],
+    "filler_types":  [
+                         "F-NUM",
+                         "F-TYPED",
+                         "F-SCHEMA"
+                     ],
+    "total_rows":  135,
+    "failures":  [
+                     {
+                         "probe_id":  "art_06",
+                         "rep":  0,
+                         "wrong_field":  "seconder_or_mover",
+                         "lifted_from_filler":  true,
+                         "output":  "Herrera",
+                         "filler_type":  "F-TYPED",
+                         "score":  0.0,
+                         "model":  "qwen3:4b-instruct",
+                         "score_detail":  "got=\u0027herrera\u0027 want=\u0027blum\u0027"
+                     },
+                     {
+                         "probe_id":  "art_06",
+                         "rep":  1,
+                         "wrong_field":  "seconder_or_mover",
+                         "lifted_from_filler":  true,
+                         "output":  "Herrera",
+                         "filler_type":  "F-TYPED",
+                         "score":  0.0,
+                         "model":  "qwen3:4b-instruct",
+                         "score_detail":  "got=\u0027herrera\u0027 want=\u0027blum\u0027"
+                     },
+                     {
+                         "probe_id":  "art_06",
+                         "rep":  2,
+                         "wrong_field":  "seconder_or_mover",
+                         "lifted_from_filler":  true,
+                         "output":  "Herrera",
+                         "filler_type":  "F-TYPED",
+                         "score":  0.0,
+                         "model":  "qwen3:4b-instruct",
+                         "score_detail":  "got=\u0027herrera\u0027 want=\u0027blum\u0027"
+                     },
+                     {
+                         "probe_id":  "art_06",
+                         "rep":  3,
+                         "wrong_field":  "seconder_or_mover",
+                         "lifted_from_filler":  true,
+                         "output":  "Herrera",
+                         "filler_type":  "F-TYPED",
+                         "score":  0.0,
+                         "model":  "qwen3:4b-instruct",
+                         "score_detail":  "got=\u0027herrera\u0027 want=\u0027blum\u0027"
+                     },
+                     {
+                         "probe_id":  "art_06",
+                         "rep":  4,
+                         "wrong_field":  "seconder_or_mover",
+                         "lifted_from_filler":  true,
+                         "output":  "Herrera",
+                         "filler_type":  "F-TYPED",
+                         "score":  0.0,
+                         "model":  "qwen3:4b-instruct",
+                         "score_detail":  "got=\u0027herrera\u0027 want=\u0027blum\u0027"
+                     }
+                 ]
+}
