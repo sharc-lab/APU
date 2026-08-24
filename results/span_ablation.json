@@ -191,24 +191,206 @@
       "art_09": 48,
       "art_10": 68
     },
-    "no_answer_failure_mode": {
-      "art_01": "parametric_default: '8080' (common HTTP port)",
-      "art_02": "fabricated: '12400' (plausible calibration value, wrong)",
-      "art_03": "fabricated_computation: '45.6' (derived from other table values)",
-      "art_04": "proper_abstention: 'No action' (recognizes absent event correctly)",
-      "art_05": "proper_abstention: long refusal citing absent coordinates",
-      "art_06": "field_confusion: 'Herrera' (reads Motion field instead of Second)",
-      "art_07": "parametric_hallucination: '3.12.0' (plausible next version)",
-      "art_08": "adjacent_row_fallback: 'PN-38847' (next part number in table)",
-      "art_09": "null_default: '0' (default timeout)",
-      "art_10": "parametric_constant: '2147483647' (INT_MAX)"
+    "normalized_comparison": {
+      "unit": "artifact_tokens_required / artifact_tokens_total (preamble/question excluded from both numerator and denominator)",
+      "bytes_per_token": 118784,
+      "truncation_data_source": "artifact_ratio_sweep.json — artifact_fraction at first passing budget_ratio (art_01, art_07, art_08 only)",
+      "ablation_data_source": "span_ablation.jsonl — prompt_eval_count for minimum-sufficient condition minus preamble_tokens",
+      "preamble_derivation": "preamble_tokens = answer_no_header.prompt_eval_count - answer_span_tokens",
+      "per_probe": {
+        "art_01": {
+          "preamble_tokens": 39,
+          "artifact_total_tokens": 95,
+          "artifact_required_tokens": 20,
+          "ablation_fraction": 0.2105,
+          "reclaimable_tokens_vs_full": 75,
+          "reclaimable_MB_at_118784_Bpt": 8.5,
+          "truncation_threshold_fraction": 0.761,
+          "gap_trunc_minus_ablation": 0.5505,
+          "reclaimable_tokens_trunc_gap": 52.3,
+          "reclaimable_MB_trunc_gap_at_118784_Bpt": 5.92
+        },
+        "art_02": {
+          "preamble_tokens": 42,
+          "artifact_total_tokens": 101,
+          "artifact_required_tokens": 20,
+          "ablation_fraction": 0.198,
+          "reclaimable_tokens_vs_full": 81,
+          "reclaimable_MB_at_118784_Bpt": 9.18
+        },
+        "art_03": {
+          "preamble_tokens": 46,
+          "artifact_total_tokens": 153,
+          "artifact_required_tokens": 25,
+          "ablation_fraction": 0.1634,
+          "reclaimable_tokens_vs_full": 128,
+          "reclaimable_MB_at_118784_Bpt": 14.5
+        },
+        "art_04": {
+          "preamble_tokens": 44,
+          "artifact_total_tokens": 127,
+          "artifact_required_tokens": 55,
+          "ablation_fraction": 0.4331,
+          "reclaimable_tokens_vs_full": 72,
+          "reclaimable_MB_at_118784_Bpt": 8.16
+        },
+        "art_05": {
+          "preamble_tokens": 32,
+          "artifact_total_tokens": 170,
+          "artifact_required_tokens": 37,
+          "ablation_fraction": 0.2176,
+          "reclaimable_tokens_vs_full": 133,
+          "reclaimable_MB_at_118784_Bpt": 15.07
+        },
+        "art_06": {
+          "preamble_tokens": 49,
+          "artifact_total_tokens": 234,
+          "artifact_required_tokens": 15,
+          "ablation_fraction": 0.0641,
+          "reclaimable_tokens_vs_full": 219,
+          "reclaimable_MB_at_118784_Bpt": 24.81
+        },
+        "art_07": {
+          "preamble_tokens": 60,
+          "artifact_total_tokens": 196,
+          "artifact_required_tokens": 67,
+          "ablation_fraction": 0.3418,
+          "reclaimable_tokens_vs_full": 129,
+          "reclaimable_MB_at_118784_Bpt": 14.61,
+          "truncation_threshold_fraction": 0.5968,
+          "gap_trunc_minus_ablation": 0.255,
+          "reclaimable_tokens_trunc_gap": 50.0,
+          "reclaimable_MB_trunc_gap_at_118784_Bpt": 5.66
+        },
+        "art_08": {
+          "preamble_tokens": 43,
+          "artifact_total_tokens": 206,
+          "artifact_required_tokens": 34,
+          "ablation_fraction": 0.165,
+          "reclaimable_tokens_vs_full": 172,
+          "reclaimable_MB_at_118784_Bpt": 19.48,
+          "truncation_threshold_fraction": 0.4443,
+          "gap_trunc_minus_ablation": 0.2793,
+          "reclaimable_tokens_trunc_gap": 57.5,
+          "reclaimable_MB_trunc_gap_at_118784_Bpt": 6.51
+        },
+        "art_09": {
+          "preamble_tokens": 31,
+          "artifact_total_tokens": 144,
+          "artifact_required_tokens": 17,
+          "ablation_fraction": 0.1181,
+          "reclaimable_tokens_vs_full": 127,
+          "reclaimable_MB_at_118784_Bpt": 14.39
+        },
+        "art_10": {
+          "preamble_tokens": 37,
+          "artifact_total_tokens": 158,
+          "artifact_required_tokens": 31,
+          "ablation_fraction": 0.1962,
+          "reclaimable_tokens_vs_full": 127,
+          "reclaimable_MB_at_118784_Bpt": 14.39
+        }
+      },
+      "gap_interpretation": "gap_trunc_minus_ablation = fraction of artifact tokens that prefix-truncation must retain beyond what targeted span retention would require. This is the positional waste: tokens held in KV cache because the answer span is embedded deep in the artifact, not because those tokens are retrievally necessary.",
+      "headline_numbers": {
+        "art_01": "trunc_af=0.761 vs ablat_af=0.211, gap=0.550, reclaimable=52 tok = 5.92 MB per task",
+        "art_07": "trunc_af=0.597 vs ablat_af=0.342, gap=0.255, reclaimable=50 tok = 5.66 MB per task",
+        "art_08": "trunc_af=0.444 vs ablat_af=0.165, gap=0.279, reclaimable=58 tok = 6.52 MB per task"
+      }
     },
-    "format_dependent_probe": "art_04",
-    "format_dependency_detail": "Access log probe (art_04) requires adjacent log entry for format context. answer_plus_header produces 'deleted the system' (natural language); answer_no_header produces 'deleted' (still natural language). Only answer_plus_adjacent (adding the prior QUERY log line) produces the correct log-token 'DELETE'. The adjacent entry establishes that answers should be log action tokens, not prose descriptions. Minimum resident set = answer span + 1 adjacent span.",
-    "art_04_answer_plus_header_note": "Interesting: answer_plus_header FAILS for art_04 even though it has more context than answer_no_header. The header alone does not carry format information — it identifies the system but does not demonstrate the log token format. The adjacent log entry is the format exemplar.",
+    "no_answer_failure_mode": {
+      "art_01": "parametric_default: '8080' (canonical HTTP alternative port; zero-variance across 5 reps)",
+      "art_02": "fabricated: '12400' (no canonical basis; deterministic from filler context at temp=0)",
+      "art_03": "fabricated_computation: '45.6' (derived from visible CPU_HOURS values in remaining table rows)",
+      "art_04": "proper_abstention: 'No action' (reads log but finds no action matching query without tcosta DELETE line)",
+      "art_05": "proper_abstention: verbose refusal citing absent coordinates",
+      "art_06": "field_confusion: 'Herrera' (reads Motion field instead of Second; answer span 'Second: T. Blum.' absent)",
+      "art_07": "plausible_neighbor_fabrication: '3.12.0' (next plausible version after visible 3.11.x series; not a canonical constant)",
+      "art_08": "adjacent_row_fallback: 'PN-38847' (immediately preceding part number in visible table rows)",
+      "art_09": "parametric_default: '0' (zero is canonical null/disabled value for keepalive timeout)",
+      "art_10": "parametric_default: '2147483647' (INT_MAX = 2^31-1, canonical C signed-integer ceiling and common 'unlimited' sentinel)"
+    },
+    "parametric_default_class": {
+      "definition": "A parametric_default failure occurs when the model, absent the artifact answer span, emits the canonical or sentinel value for that field type rather than fabricating freely or abstaining. The value is drawn from model parametric knowledge about the field domain, not from any visible context.",
+      "instances_span_ablation_no_answer": {
+        "art_01": {
+          "output": "8080",
+          "field": "listen_port",
+          "reason": "8080 is the de-facto HTTP alternative port constant in training data"
+        },
+        "art_09": {
+          "output": "0",
+          "field": "keepalive_timeout_s",
+          "reason": "0 is the canonical disabled/no-timeout sentinel for keepalive parameters"
+        },
+        "art_10": {
+          "output": "2147483647",
+          "field": "metric_clamp integer",
+          "reason": "INT_MAX (2^31-1) is the canonical maximum signed 32-bit integer, widely used as unlimited sentinel in config code"
+        }
+      },
+      "audit_art_truncation_fabricated_outputs": {
+        "art_07_000": {
+          "output": "0.0.0",
+          "context": "art_truncation full-filler replacement",
+          "classification": "parametric_default",
+          "reason": "0.0.0 is the canonical null/unset semantic version string"
+        },
+        "art_09_0": {
+          "output": "0",
+          "context": "art_truncation fabricated output",
+          "classification": "parametric_default",
+          "reason": "same as span ablation finding; consistent across both experiments"
+        },
+        "art_10_0": {
+          "output": "0",
+          "context": "art_truncation fabricated output",
+          "classification": "parametric_default",
+          "reason": "zero clamp sentinel; INT_MAX appears in span ablation instead, suggesting context influences which sentinel is selected"
+        },
+        "art_01_0": {
+          "output": "0",
+          "context": "art_truncation under filler replacement",
+          "classification": "ambiguous",
+          "reason": "0 is not a standard port; 8080 appears in span ablation instead, suggesting 0 here is context-driven. Cannot confirm as parametric_default."
+        },
+        "art_02_0": {
+          "output": "0",
+          "context": "art_truncation fabricated output",
+          "classification": "ambiguous",
+          "reason": "0 ppb is not a standard detection threshold; likely wrong-number from filler context"
+        },
+        "art_03_0": {
+          "output": "0",
+          "context": "art_truncation fabricated output",
+          "classification": "ambiguous",
+          "reason": "0 CPU hours not a canonical field value"
+        }
+      },
+      "count_confirmed_parametric_default_span_ablation": 3,
+      "probes_span_ablation": [
+        "art_01",
+        "art_09",
+        "art_10"
+      ],
+      "note_art_truncation": "art_07/'0.0.0' and art_09/'0' also qualify in art_truncation, but appear under full artifact replacement (filler context) rather than the cleaner span-ablation condition. The parametric_default pattern is most clearly visible in span_ablation because the surrounding context is preserved — the model genuinely defaults on the missing value rather than reading from filler."
+    },
+    "format_dependency": {
+      "probe": "art_04",
+      "finding": "The minimum resident set for art_04 includes a format exemplar span in addition to the answer span. The answer span alone ('14:02  DELETE  tcosta') produces incorrect output in all conditions that contain it without an adjacent log entry: answer_plus_header yields 'deleted the system' (natural language); answer_no_header yields 'deleted' (natural language). Only answer_plus_adjacent — which adds the prior log line '10:33  QUERY   tcosta' — produces correct output 'DELETE' (log action token).",
+      "format_exemplar": "10:33  QUERY   tcosta",
+      "exemplar_token_cost_marginal": "~12 tokens (answer_plus_adjacent=99 tokens - answer_plus_header=87 tokens)",
+      "implication_for_eviction_policy": "A KV eviction policy that retains spans by answer-value proximity will drop the format exemplar and retain only the answer span, producing correct-value-but-malformed output. The model extracts the right value but renders it as natural language, which is silently wrong in any system expecting a structured action token. This is a qualitatively distinct failure mode from retrieval failure.",
+      "three_failure_modes": {
+        "retrieval_failure": "answer span evicted; model hallucinates, abstains, or falls back (art_04 no_answer -> 'No action')",
+        "format_failure": "answer span retained, format exemplar evicted; correct value, wrong output format (art_04 answer_plus_header -> 'deleted the system')",
+        "correct": "both answer span and at least one format exemplar retained (art_04 answer_plus_adjacent -> 'DELETE')"
+      },
+      "scope": "Format dependency confirmed for art_04 (access log, structured token output). All other 9 probes pass with answer_span alone. Format dependency appears to be a property of artifact types where the answer value is a typed enum/token whose correct representation is defined by surrounding examples rather than by the value itself."
+    },
     "probes_with_single_span_minimum": 9,
     "probes_with_multi_span_minimum": 1,
-    "conclusion": "For 9 of 10 probes, the minimum resident set is the answer span alone (no header, no adjacent context required). The sole exception (art_04) requires one adjacent log entry to establish output format — the answer span value is present but the surrounding format context determines whether the model renders it as a log token or natural language. This confirms that required resident set is primarily determined by the answer span, with format-contextual spans as a secondary requirement for structured-output artifacts."
+    "conclusion": "For 9 of 10 probes, the minimum resident set is the answer span alone. The sole exception (art_04) requires one additional format-exemplar span (~12 marginal tokens). Normalized comparison against truncation thresholds (3 probes) shows gaps of 0.25–0.55 artifact-fraction, corresponding to 50–58 reclaimable tokens = 5.7–6.5 MB of KV cache per task that prefix-truncation wastes due to positional retention. The parametric_default failure class (art_01/art_09/art_10) is distinct from free fabrication: confirmed values are canonical sentinels (8080, 0, INT_MAX) emitted with zero variance across 5 reps, drawn from model weights rather than context."
   },
   "rows": [
     {
