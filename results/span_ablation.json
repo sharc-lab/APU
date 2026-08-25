@@ -191,113 +191,145 @@
       "art_09": 48,
       "art_10": 68
     },
-    "normalized_comparison": {
-      "unit": "artifact_tokens_required / artifact_tokens_total (preamble/question excluded from both numerator and denominator)",
-      "bytes_per_token": 118784,
-      "truncation_data_source": "artifact_ratio_sweep.json — artifact_fraction at first passing budget_ratio (art_01, art_07, art_08 only)",
-      "ablation_data_source": "span_ablation.jsonl — prompt_eval_count for minimum-sufficient condition minus preamble_tokens",
-      "preamble_derivation": "preamble_tokens = answer_no_header.prompt_eval_count - answer_span_tokens",
+    "required_fraction_summary": {
+      "unit": "artifact_tokens_required / artifact_tokens_total (preamble excluded from both terms)",
+      "mean_all_probes": 0.2108,
+      "mean_excluding_art_06": 0.2271,
+      "min": 0.0641,
+      "max": 0.4331,
+      "art_06_note": "art_06 minimum is 0.064 (probe-design artefact: one relevant item among four agenda items). Not representative of arbitrary retrieval tasks.",
+      "scale_illustration_at_f16_147456_Bpt": {
+        "10k_token_artifact_mean_fraction_0p211": {
+          "required_tokens": 2110,
+          "kv_cost_MB": 311.13
+        },
+        "10k_token_artifact_upper_art04_fraction_0p433": {
+          "required_tokens": 4330,
+          "kv_cost_MB": 638.48
+        },
+        "100k_token_artifact_mean_fraction_0p211": {
+          "required_tokens": 21100,
+          "kv_cost_GB": 3.11
+        }
+      }
+    },
+    "table_A_truncation_gap": {
+      "description": "Positional waste: fraction of artifact tokens that prefix-truncation must retain beyond what targeted span retention requires. Computed for the 3 probes with fine-grained truncation sweep data (artifact_ratio_sweep.json). These two quantities (trunc threshold, ablation fraction) are now in the same unit.",
+      "data_source_truncation": "artifact_ratio_sweep.json — artifact_fraction at first passing budget_ratio",
+      "data_source_ablation": "span_ablation.jsonl — artifact_required_tokens / artifact_total_tokens",
       "per_probe": {
         "art_01": {
-          "preamble_tokens": 39,
+          "truncation_threshold_fraction": 0.761,
+          "ablation_fraction": 0.2105,
+          "gap_trunc_minus_ablation": 0.5505,
+          "reclaimable_tokens": 52.3,
+          "reclaimable_MB": 7.71
+        },
+        "art_07": {
+          "truncation_threshold_fraction": 0.5968,
+          "ablation_fraction": 0.3418,
+          "gap_trunc_minus_ablation": 0.255,
+          "reclaimable_tokens": 50.0,
+          "reclaimable_MB": 7.37
+        },
+        "art_08": {
+          "truncation_threshold_fraction": 0.4443,
+          "ablation_fraction": 0.165,
+          "gap_trunc_minus_ablation": 0.2793,
+          "reclaimable_tokens": 57.5,
+          "reclaimable_MB": 8.48
+        }
+      }
+    },
+    "table_B_required_vs_full": {
+      "description": "Required fraction vs full artifact, all 10 probes. This measures what fraction of the complete artifact is retrievally necessary — a different quantity from Table A. The complement (1 - ablation_fraction) is the fraction evictable without accuracy loss.",
+      "per_probe": {
+        "art_01": {
           "artifact_total_tokens": 95,
           "artifact_required_tokens": 20,
           "ablation_fraction": 0.2105,
+          "evictable_fraction": 0.7895,
           "reclaimable_tokens_vs_full": 75,
-          "reclaimable_MB_at_118784_Bpt": 8.5,
-          "truncation_threshold_fraction": 0.761,
-          "gap_trunc_minus_ablation": 0.5505,
-          "reclaimable_tokens_trunc_gap": 52.3,
-          "reclaimable_MB_trunc_gap_at_118784_Bpt": 5.92
+          "reclaimable_MB_at_toy_scale": 11.06
         },
         "art_02": {
-          "preamble_tokens": 42,
           "artifact_total_tokens": 101,
           "artifact_required_tokens": 20,
           "ablation_fraction": 0.198,
+          "evictable_fraction": 0.802,
           "reclaimable_tokens_vs_full": 81,
-          "reclaimable_MB_at_118784_Bpt": 9.18
+          "reclaimable_MB_at_toy_scale": 11.94
         },
         "art_03": {
-          "preamble_tokens": 46,
           "artifact_total_tokens": 153,
           "artifact_required_tokens": 25,
           "ablation_fraction": 0.1634,
+          "evictable_fraction": 0.8366,
           "reclaimable_tokens_vs_full": 128,
-          "reclaimable_MB_at_118784_Bpt": 14.5
+          "reclaimable_MB_at_toy_scale": 18.87
         },
         "art_04": {
-          "preamble_tokens": 44,
           "artifact_total_tokens": 127,
           "artifact_required_tokens": 55,
           "ablation_fraction": 0.4331,
+          "evictable_fraction": 0.5669,
           "reclaimable_tokens_vs_full": 72,
-          "reclaimable_MB_at_118784_Bpt": 8.16
+          "reclaimable_MB_at_toy_scale": 10.62
         },
         "art_05": {
-          "preamble_tokens": 32,
           "artifact_total_tokens": 170,
           "artifact_required_tokens": 37,
           "ablation_fraction": 0.2176,
+          "evictable_fraction": 0.7824,
           "reclaimable_tokens_vs_full": 133,
-          "reclaimable_MB_at_118784_Bpt": 15.07
+          "reclaimable_MB_at_toy_scale": 19.61
         },
         "art_06": {
-          "preamble_tokens": 49,
           "artifact_total_tokens": 234,
           "artifact_required_tokens": 15,
           "ablation_fraction": 0.0641,
+          "evictable_fraction": 0.9359,
           "reclaimable_tokens_vs_full": 219,
-          "reclaimable_MB_at_118784_Bpt": 24.81
+          "reclaimable_MB_at_toy_scale": 32.29
         },
         "art_07": {
-          "preamble_tokens": 60,
           "artifact_total_tokens": 196,
           "artifact_required_tokens": 67,
           "ablation_fraction": 0.3418,
+          "evictable_fraction": 0.6582,
           "reclaimable_tokens_vs_full": 129,
-          "reclaimable_MB_at_118784_Bpt": 14.61,
-          "truncation_threshold_fraction": 0.5968,
-          "gap_trunc_minus_ablation": 0.255,
-          "reclaimable_tokens_trunc_gap": 50.0,
-          "reclaimable_MB_trunc_gap_at_118784_Bpt": 5.66
+          "reclaimable_MB_at_toy_scale": 19.02
         },
         "art_08": {
-          "preamble_tokens": 43,
           "artifact_total_tokens": 206,
           "artifact_required_tokens": 34,
           "ablation_fraction": 0.165,
+          "evictable_fraction": 0.835,
           "reclaimable_tokens_vs_full": 172,
-          "reclaimable_MB_at_118784_Bpt": 19.48,
-          "truncation_threshold_fraction": 0.4443,
-          "gap_trunc_minus_ablation": 0.2793,
-          "reclaimable_tokens_trunc_gap": 57.5,
-          "reclaimable_MB_trunc_gap_at_118784_Bpt": 6.51
+          "reclaimable_MB_at_toy_scale": 25.36
         },
         "art_09": {
-          "preamble_tokens": 31,
           "artifact_total_tokens": 144,
           "artifact_required_tokens": 17,
           "ablation_fraction": 0.1181,
+          "evictable_fraction": 0.8819,
           "reclaimable_tokens_vs_full": 127,
-          "reclaimable_MB_at_118784_Bpt": 14.39
+          "reclaimable_MB_at_toy_scale": 18.73
         },
         "art_10": {
-          "preamble_tokens": 37,
           "artifact_total_tokens": 158,
           "artifact_required_tokens": 31,
           "ablation_fraction": 0.1962,
+          "evictable_fraction": 0.8038,
           "reclaimable_tokens_vs_full": 127,
-          "reclaimable_MB_at_118784_Bpt": 14.39
+          "reclaimable_MB_at_toy_scale": 18.73
         }
-      },
-      "gap_interpretation": "gap_trunc_minus_ablation = fraction of artifact tokens that prefix-truncation must retain beyond what targeted span retention would require. This is the positional waste: tokens held in KV cache because the answer span is embedded deep in the artifact, not because those tokens are retrievally necessary.",
-      "headline_numbers": {
-        "art_01": "trunc_af=0.761 vs ablat_af=0.211, gap=0.550, reclaimable=52 tok = 5.92 MB per task",
-        "art_07": "trunc_af=0.597 vs ablat_af=0.342, gap=0.255, reclaimable=50 tok = 5.66 MB per task",
-        "art_08": "trunc_af=0.444 vs ablat_af=0.165, gap=0.279, reclaimable=58 tok = 6.52 MB per task"
       }
     },
+    "bytes_per_token": 147456,
+    "bytes_per_token_note": "Architectural f16 cost for Qwen3-4B at bfloat16 precision. The previously used value of 118,784 B/token was a measurement from Blade14/RTX4070 with 896 MiB spilled to system RAM — it reflects what fit on the GPU under that load, not the per-token KV cost.",
+    "bytes_per_token_measured_blade14": 118784,
+    "hardware_note": "All span ablation calls run on Blade14/RTX4070 (8188 MiB VRAM). This is not the BOM target hardware. Target is AMD Strix Halo unified memory. Reclaimable MB figures above are at architectural f16 cost and independent of hardware; the gap metric (Table A) is also hardware-independent.",
     "no_answer_failure_mode": {
       "art_01": "parametric_default: '8080' (canonical HTTP alternative port; zero-variance across 5 reps)",
       "art_02": "fabricated: '12400' (no canonical basis; deterministic from filler context at temp=0)",
@@ -352,7 +384,7 @@
           "output": "0",
           "context": "art_truncation under filler replacement",
           "classification": "ambiguous",
-          "reason": "0 is not a standard port; 8080 appears in span ablation instead, suggesting 0 here is context-driven. Cannot confirm as parametric_default."
+          "reason": "0 is not a standard port; 8080 appears in span ablation instead. Cannot confirm as parametric_default."
         },
         "art_02_0": {
           "output": "0",
@@ -373,7 +405,7 @@
         "art_09",
         "art_10"
       ],
-      "note_art_truncation": "art_07/'0.0.0' and art_09/'0' also qualify in art_truncation, but appear under full artifact replacement (filler context) rather than the cleaner span-ablation condition. The parametric_default pattern is most clearly visible in span_ablation because the surrounding context is preserved — the model genuinely defaults on the missing value rather than reading from filler."
+      "note_art_truncation": "art_07/'0.0.0' and art_09/'0' also qualify in art_truncation, but appear under full artifact replacement (filler context) rather than the cleaner span-ablation condition. The parametric_default pattern is most clearly visible in span_ablation because the surrounding context is preserved."
     },
     "format_dependency": {
       "probe": "art_04",
@@ -390,7 +422,7 @@
     },
     "probes_with_single_span_minimum": 9,
     "probes_with_multi_span_minimum": 1,
-    "conclusion": "For 9 of 10 probes, the minimum resident set is the answer span alone. The sole exception (art_04) requires one additional format-exemplar span (~12 marginal tokens). Normalized comparison against truncation thresholds (3 probes) shows gaps of 0.25–0.55 artifact-fraction, corresponding to 50–58 reclaimable tokens = 5.7–6.5 MB of KV cache per task that prefix-truncation wastes due to positional retention. The parametric_default failure class (art_01/art_09/art_10) is distinct from free fabrication: confirmed values are canonical sentinels (8080, 0, INT_MAX) emitted with zero variance across 5 reps, drawn from model weights rather than context."
+    "conclusion": "For 9 of 10 probes, the minimum resident set is the answer span alone (mean required fraction 0.211 across 10 probes, range 0.064-0.433). The sole exception (art_04) requires one additional format-exemplar span (~12 marginal tokens). Normalized comparison against truncation thresholds (3 probes with sweep data) shows gaps of 0.255-0.551 artifact-fraction: targeted span retention reclaims 50-58 tokens = 7.4-8.5 MB of KV cache per toy-scale task that prefix-truncation must hold due to positional constraints. At 10k artifact tokens and mean required fraction 0.211, required KV is 311 MB; at 100k tokens, 3.11 GB (f16, Qwen3-4B). The parametric_default failure class (art_01/art_09/art_10) is distinct from free fabrication: confirmed values are canonical sentinels emitted with zero variance across 5 reps at temp=0."
   },
   "rows": [
     {
