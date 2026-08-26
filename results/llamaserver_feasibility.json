@@ -1,0 +1,139 @@
+{
+  "experiment": "llamaserver_feasibility",
+  "date_run": "2026-08-26",
+  "hardware": "blade14_rtx4070",
+  "ollama_version": "bundled",
+  "binary": {
+    "path": "C:\\Users\\rithw\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\llama-server.exe",
+    "version_string": "version: 1 (f8def7fe1)",
+    "build_info": "b1-f8def7fe1, Clang 18.1.8, Windows AMD64",
+    "architecture": "stub EXE that loads libllama-server-impl.dll + libllama.dll + ggml-cuda.dll (from cuda_v12 subdirectory)",
+    "stub_size_bytes": 22920
+  },
+  "flags_confirmed": {
+    "--ctx-size": true,
+    "--cache-type-k": true,
+    "--cache-type-v": true,
+    "--n-gpu-layers": true,
+    "--parallel": true,
+    "--context-shift": "present but applies only to infinite text generation (n_predict=-1), NOT single-request prompts",
+    "--no-context-shift": true
+  },
+  "gguf_location": {
+    "manifest_path": "C:\\Users\\rithw\\.ollama\\models\\manifests\\registry.ollama.ai\\library\\qwen3\\4b-instruct",
+    "blob_path": "C:\\Users\\rithw\\.ollama\\models\\blobs\\sha256-85e4a5b7b8ef0e48af0e8658f5aaab9c2324c76c1641493f4d1e25fce54b18b9",
+    "size_bytes": 2497280480,
+    "quantization": "Q4_K - Medium",
+    "model_params": 4022468096,
+    "n_embd": 2560
+  },
+  "gpu_inference": {
+    "confirmed": true,
+    "requirement": "PATH must include cuda_v12 directory; GGML_BACKEND_DL_PATH must point to cuda_v12; server must run with cuda_v12 as working directory or in PATH",
+    "vram_weights_overhead_mib": 3405,
+    "vram_ctx8192_f16_1slot_mib": 3750,
+    "note": "Without cuda_v12 in environment, server silently falls back to CPU with no error — GPU warning appears in log only"
+  },
+  "kv_precision_measurement": {
+    "method": "VRAM delta between ctx=4096 and ctx=32768, n_slots=1, n_gpu_layers=99",
+    "vram_4096_f16_mib": 3970,
+    "vram_32768_f16_mib": 7922,
+    "vram_32768_q8_mib": 5952,
+    "vram_32768_q4_mib": 4800,
+    "weights_overhead_estimate_mib": 3405,
+    "f16": {
+      "measured_bytes_per_token": 144530,
+      "expected_bytes_per_token": 147456,
+      "ratio": 0.98,
+      "note": "2% below architectural value; consistent with SWA (sliding window attention) default which reduces KV for some layers (--swa-full not set)"
+    },
+    "q8_0": {
+      "measured_bytes_per_token": 81490,
+      "expected_bytes_per_token": 73728,
+      "ratio": 1.105,
+      "note": "10% above expected; per-block quantization metadata overhead becomes significant at lower precision"
+    },
+    "q4_0": {
+      "measured_bytes_per_token": 44626,
+      "expected_bytes_per_token": 36864,
+      "ratio": 1.211,
+      "note": "21% above expected; same overhead effect, larger relative fraction at q4"
+    },
+    "flags_effective": true,
+    "conclusion": "KV precision flags take effect. VRAM scales in expected direction (f16 > q8_0 > q4_0). Absolute values deviate from architectural predictions due to SWA and per-block overhead. For the provisioning table, use measured values rather than architectural formula."
+  },
+  "inference_comparison_vs_ollama": {
+    "method": "/v1/chat/completions endpoint (OpenAI-compatible) on both runtimes, same model weights, identical system prompt, temperature=0, seed=42",
+    "probes_tested": [
+      "art_01",
+      "art_02",
+      "art_03",
+      "art_04",
+      "art_05"
+    ],
+    "match_agreement": "5/5",
+    "output_agreement": "5/5",
+    "prompt_token_count_match": "5/5 (identical on all probes)",
+    "per_probe": [
+      {
+        "probe": "art_01",
+        "expected": "51847",
+        "ls_answer": "51847",
+        "ol_answer": "51847",
+        "ls_ptok": 150,
+        "ol_ptok": 150,
+        "agree": true
+      },
+      {
+        "probe": "art_02",
+        "expected": "0.0073",
+        "ls_answer": "0.0073",
+        "ol_answer": "0.0073",
+        "ls_ptok": 159,
+        "ol_ptok": 159,
+        "agree": true
+      },
+      {
+        "probe": "art_03",
+        "expected": "8.9",
+        "ls_answer": "8.9",
+        "ol_answer": "8.9",
+        "ls_ptok": 215,
+        "ol_ptok": 215,
+        "agree": true
+      },
+      {
+        "probe": "art_04",
+        "expected": "DELETE",
+        "ls_answer": "DELETE",
+        "ol_answer": "DELETE",
+        "ls_ptok": 187,
+        "ol_ptok": 187,
+        "agree": true
+      },
+      {
+        "probe": "art_05",
+        "expected": "N47.3 and W12.8",
+        "ls_answer": "N47.3 / W12.8",
+        "ol_answer": "N47.3 / W12.8",
+        "ls_ptok": 219,
+        "ol_ptok": 219,
+        "agree": true
+      }
+    ],
+    "conclusion": "llama-server and ollama are equivalent runtimes on this host for single-turn inference at full context. Outputs are identical, prompt token counts match, the same chat template is applied. Earlier prompt-truncation results are valid under llama-server."
+  },
+  "context_shift_behavior": {
+    "test": "Submitted prompt of 38031 tokens to server with ctx-size=8192, with and without --context-shift flag",
+    "result_without_flag": "HTTP 400: request (38031 tokens) exceeds the available context size (8192 tokens)",
+    "result_with_flag": "HTTP 400: same error",
+    "conclusion": "Context shift in this build applies ONLY to infinite text generation (n_predict=-1), not to single-request prompts that exceed the context window. A pre-built prompt larger than ctx-size is rejected regardless of the --context-shift flag. This is the same behavior as the ollama wrapper. Context shift is not a mechanism for handling large RAG artifacts in single-turn inference.",
+    "implication_for_stage_2": "Stage 2 eviction experiments cannot use the single-request format to trigger context shift. Two viable approaches: (a) incremental multi-turn conversations that accumulate context across requests, using llama-server's KV cache reuse; (b) reframe as streaming eviction with n_predict=-1 and a sufficiently long generation. The programme's framing that llama-server 'performs context shift when a session exceeds its allocated window' applies to the streaming/accumulation case, not the batch inference case. All prior single-turn experiments submitted truncated prompts, which is methodologically consistent with the single-request constraint that applies to both runtimes."
+  },
+  "launch_recipe": {
+    "path_setup": "PATH must include lib/ollama/cuda_v12 and lib/ollama; GGML_BACKEND_DL_PATH=lib/ollama/cuda_v12",
+    "required_args": "--model <gguf_path> --n-gpu-layers 99",
+    "working_directory": "lib/ollama/cuda_v12 (or any directory where cuda_v12 DLLs are resolvable)",
+    "example": "cd C:/Users/rithw/AppData/Local/Programs/Ollama/lib/ollama/cuda_v12 && llama-server.exe --model <gguf> --ctx-size 8192 --n-gpu-layers 99 --parallel 1 --cache-type-k f16 --port 8090 --host 127.0.0.1"
+  }
+}
