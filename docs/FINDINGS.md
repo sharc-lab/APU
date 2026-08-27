@@ -8,6 +8,40 @@ context depth can be attributed to a mechanism rather than reported as generic
 
 ---
 
+## KV Cache Quantization — Measured Gains vs Architectural Prediction
+
+**Experiment:** `results/llamaserver_feasibility.json`  
+**Date:** 2026-08-26, blade14_rtx4070, qwen3:4b-instruct (Q4_K-Medium), llama-server build b1-f8def7fe1  
+**Method:** VRAM delta between ctx=4096 and ctx=32768, n_slots=1, n_gpu_layers=99
+
+### Finding: quantization delivers less memory reduction than the architectural calculation predicts, and the shortfall increases with quantization depth
+
+| Precision | Measured B/tok | Architectural B/tok | Ratio meas/arch | KV reduction vs f16 (meas) | KV reduction vs f16 (arch) |
+|-----------|----------------|---------------------|-----------------|---------------------------|---------------------------|
+| f16  | 144,530 | 147,456 | 0.980 | 1.00× (baseline) | 1.00× (baseline) |
+| q8_0 |  81,490 |  73,728 | 1.105 | 1.77× | 2.00× |
+| q4_0 |  44,626 |  36,864 | 1.211 | 3.24× | 4.00× |
+
+The architectural values assume pure precision: f16 = 2 bytes/element, q8_0 = 1 byte/element, q4_0 = 0.5 bytes/element. Measured values differ for two reasons:
+
+**f16 (0.98 ratio):** Qwen3 uses sliding window attention (SWA) by default (`--swa-full` not set). SWA layers maintain a smaller KV window, reducing total KV allocation below the full-context architectural value. This ratio is build-specific — a build with SWA-full or a non-SWA model would give a different number. Record the build identifier (b1-f8def7fe1) alongside any use of this figure.
+
+**q8_0 and q4_0 (>1.0 ratio):** Per-block quantization metadata (scale factors, block headers) is stored at full precision alongside the quantized elements. This overhead is constant per block regardless of element precision; as precision drops and elements per byte increase, the metadata fraction of total KV grows. At q4_0, overhead accounts for an additional ~21% above the element-only prediction.
+
+### Implication for the provisioning table
+
+The published token-precision literature reasons in architectural bytes-per-token (e.g., "q4 KV is 4× smaller than f16"). This study cannot confirm that claim at its stated ratio: measured f16→q4_0 reduction is **3.24×, not 4×**. A provisioning calculation that uses the architectural ratio will overestimate the memory reduction that quantization delivers.
+
+The provisioning table must carry two columns: architectural and measured. The gap between them is the point — it is what a device OEM would need to correct for when sizing memory from published token-precision data.
+
+Quantization still provides meaningful reduction (3.24× for q4_0 vs 1× for f16) and the flags take effect. The finding is not that quantization is broken but that the reduction is shallower than often stated, and the shortfall is larger at higher compression.
+
+### Note on the 144,530 B/tok f16 figure
+
+This figure is used in Stage 1.4 reclaimable-MB estimates. It is from a specific build (SWA enabled by default) on a specific host (Blade14/RTX4070). Architectural f16 is 147,456 B/tok. For the provisioning table, both are relevant: architectural gives the hardware-maximum cost, measured gives the observed cost on this specific runtime.
+
+---
+
 ## Stage A — gpt-oss:120b-cloud Type-Match Results and Disconfirmed Claim
 
 **Experiment:** `harness/stage_a_scale.py` → `results/stage_a_scale.json`  

@@ -40,6 +40,7 @@ RESULTS = REPO / "results"
 sys.path.insert(0, str(REPO / "harness"))
 
 import context as ctx_mod
+from gpu_guard import verify_gpu_backend
 
 TARGET_PROBES = ["art_01", "art_07", "art_08"]
 FILLER_SIZES = [500, 2000, 4000, 8000]
@@ -158,6 +159,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--resume", action="store_true", help="Skip cells already in OUTFILE")
     args = parser.parse_args()
+
+    gpu_info = verify_gpu_backend(host=HOST, model=MODEL)
 
     RESULTS.mkdir(parents=True, exist_ok=True)
 
@@ -279,6 +282,7 @@ def main():
                         "done_reason": done_reason,
                         "latency_s": round(latency, 3),
                         "hardware": "blade14_rtx4070",
+                        "backend_verified": gpu_info["backend_verified"],
                     }
                     rows.append(row)
                     out_fh.write(json.dumps(row) + "\n")

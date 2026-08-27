@@ -52,6 +52,7 @@ OUTFILE = RESULTS / "schema_collision.jsonl"
 sys.path.insert(0, str(REPO / "harness"))
 
 import context as ctx_mod
+from gpu_guard import verify_gpu_backend
 
 TARGET_PROBES = ["art_01", "art_06", "art_07"]
 MODELS = ["qwen3:4b-instruct", "llama3.1:8b", "gpt-oss:120b-cloud"]
@@ -731,6 +732,8 @@ def main():
                         help="Skip cells already present in the output file.")
     args = parser.parse_args()
 
+    gpu_info = verify_gpu_backend(host=HOST, model="qwen3:4b-instruct")
+
     # Filler building makes ~50-70 count_fn calls (~5s each) before the first
     # model call, so 300s is too tight. 900s catches runaway loops (which took
     # 15+ hours before) without false-positives on normal filler building.
@@ -893,6 +896,7 @@ def main():
                             "done_reason": done_reason,
                             "latency_s": round(latency, 3),
                             "hardware": "blade14_rtx4070",
+                            "backend_verified": gpu_info["backend_verified"],
                         }
                         if thinking is not None:
                             row["thinking"] = thinking

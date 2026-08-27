@@ -25,6 +25,7 @@ sys.path.insert(0, str(REPO))
 
 from harness import context
 from harness.context import DEFAULT_FILLER_MODE
+from harness.gpu_guard import verify_gpu_backend
 
 MODEL = "qwen3:4b-instruct"
 HOST  = "http://localhost:11434"
@@ -93,6 +94,8 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", default=HOST)
     args = parser.parse_args()
+
+    gpu_info = verify_gpu_backend(host=args.host, model=MODEL)
 
     probes = load_probes()
     probe_ids = [p["id"] for p in probes]

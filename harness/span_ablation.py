@@ -38,6 +38,8 @@ PROBES_DIR = REPO / "evaluation" / "probes"
 RESULTS = REPO / "results"
 sys.path.insert(0, str(REPO / "harness"))
 
+from gpu_guard import verify_gpu_backend
+
 MODEL = "qwen3:4b-instruct"
 HOST = "http://localhost:11434"
 N_REPS = 5
@@ -293,6 +295,8 @@ def main() -> None:
     parser.add_argument("--resume", action="store_true", help="Skip cells already in OUTFILE")
     args = parser.parse_args()
 
+    gpu_info = verify_gpu_backend(host=HOST, model=MODEL)
+
     RESULTS.mkdir(parents=True, exist_ok=True)
 
     if OUTFILE.exists() and not args.resume:
@@ -415,6 +419,7 @@ def main() -> None:
                         "done_reason": done_reason,
                         "latency_s": round(latency, 3),
                         "hardware": "blade14_rtx4070",
+                        "backend_verified": gpu_info["backend_verified"],
                     }
                     out_fh.write(json.dumps(row) + "\n")
                     out_fh.flush()

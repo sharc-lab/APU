@@ -36,6 +36,7 @@ RESULTS = REPO / "results"
 sys.path.insert(0, str(REPO / "harness"))
 
 import context as ctx_mod
+from gpu_guard import verify_gpu_backend
 
 TARGET_PROBES = ["art_01", "art_02", "art_06", "art_07"]
 MODELS = ["qwen3:4b-instruct", "llama3.1:8b", "gpt-oss:120b-cloud"]
@@ -344,6 +345,8 @@ def main():
                         help="Skip cells already present in the output file.")
     args = parser.parse_args()
 
+    gpu_info = verify_gpu_backend(host=HOST, model="qwen3:4b-instruct")
+
     RESULTS.mkdir(parents=True, exist_ok=True)
 
     if OUTFILE.exists() and not args.resume:
@@ -455,6 +458,7 @@ def main():
                         "done_reason": done_reason,
                         "latency_s": round(latency, 3),
                         "hardware": "blade14_rtx4070",
+                        "backend_verified": gpu_info["backend_verified"],
                     }
                     if thinking is not None:
                         row["thinking"] = thinking

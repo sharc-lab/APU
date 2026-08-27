@@ -35,6 +35,7 @@ RESULTS = REPO / "results"
 
 sys.path.insert(0, str(REPO / "harness"))
 import context as ctx_mod
+from gpu_guard import verify_gpu_backend
 
 MODEL = "qwen3:4b-instruct"
 HOST = "http://localhost:11434"
@@ -120,6 +121,7 @@ def left_truncate(prompt: str, full_tokens: int, target_tokens: int) -> str:
 
 
 def main():
+    gpu_info = verify_gpu_backend(host=HOST, model=MODEL)
     RESULTS.mkdir(parents=True, exist_ok=True)
     scorers = _load_scorers()
 
@@ -275,6 +277,7 @@ def main():
                             "model": MODEL,
                             "hardware_config": HW_CONFIG,
                             "memory_architecture": MEM_ARCH,
+                            "backend_verified": gpu_info["backend_verified"],
                             "run": ts,
                         }
                         rows.append(row)
@@ -310,6 +313,7 @@ def main():
                             "model": MODEL,
                             "hardware_config": HW_CONFIG,
                             "memory_architecture": MEM_ARCH,
+                            "backend_verified": gpu_info["backend_verified"],
                             "run": ts,
                         })
 

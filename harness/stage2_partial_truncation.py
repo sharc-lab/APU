@@ -33,6 +33,7 @@ RESULTS = REPO / "results"
 sys.path.insert(0, str(REPO / "harness"))
 
 import context as ctx_mod
+from gpu_guard import verify_gpu_backend
 
 MODEL = "qwen3:4b-instruct"
 HOST = "http://localhost:11434"
@@ -119,6 +120,8 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--resume", action="store_true", help="Skip cells already in OUTFILE")
     args = parser.parse_args()
+
+    gpu_info = verify_gpu_backend(host=HOST, model=MODEL)
 
     RESULTS.mkdir(parents=True, exist_ok=True)
 
@@ -242,6 +245,7 @@ def main() -> None:
                         "done_reason": done_reason,
                         "latency_s": round(latency, 3),
                         "hardware": "blade14_rtx4070",
+                        "backend_verified": gpu_info["backend_verified"],
                     }
                     rows.append(row)
                     out_fh.write(json.dumps(row) + "\n")

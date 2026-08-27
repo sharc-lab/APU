@@ -35,32 +35,42 @@
     "note": "Without cuda_v12 in environment, server silently falls back to CPU with no error — GPU warning appears in log only"
   },
   "kv_precision_measurement": {
-    "method": "VRAM delta between ctx=4096 and ctx=32768, n_slots=1, n_gpu_layers=99",
+    "method": "VRAM delta between ctx=4096 and ctx=32768, n_slots=1, n_gpu_layers=99, single server per measurement",
+    "build": "llama-server b1-f8def7fe1, qwen3:4b-instruct Q4_K-Medium",
     "vram_4096_f16_mib": 3970,
     "vram_32768_f16_mib": 7922,
     "vram_32768_q8_mib": 5952,
     "vram_32768_q4_mib": 4800,
     "weights_overhead_estimate_mib": 3405,
-    "f16": {
-      "measured_bytes_per_token": 144530,
-      "expected_bytes_per_token": 147456,
-      "ratio": 0.98,
-      "note": "2% below architectural value; consistent with SWA (sliding window attention) default which reduces KV for some layers (--swa-full not set)"
-    },
-    "q8_0": {
-      "measured_bytes_per_token": 81490,
-      "expected_bytes_per_token": 73728,
-      "ratio": 1.105,
-      "note": "10% above expected; per-block quantization metadata overhead becomes significant at lower precision"
-    },
-    "q4_0": {
-      "measured_bytes_per_token": 44626,
-      "expected_bytes_per_token": 36864,
-      "ratio": 1.211,
-      "note": "21% above expected; same overhead effect, larger relative fraction at q4"
+    "precision_table": {
+      "f16": {
+        "architectural_bytes_per_token": 147456,
+        "measured_bytes_per_token": 144530,
+        "ratio_measured_to_architectural": 0.98,
+        "reduction_vs_f16_architectural": 1.0,
+        "reduction_vs_f16_measured": 1.0,
+        "deviation_note": "2% below architectural. Qwen3 SWA enabled by default (--swa-full not set); SWA layers maintain smaller window, reducing total KV. Build-specific: b1-f8def7fe1."
+      },
+      "q8_0": {
+        "architectural_bytes_per_token": 73728,
+        "measured_bytes_per_token": 81490,
+        "ratio_measured_to_architectural": 1.105,
+        "reduction_vs_f16_architectural": 2.0,
+        "reduction_vs_f16_measured": 1.77,
+        "deviation_note": "10% above architectural. Per-block quantization metadata (scale factors) stored at full precision. Metadata overhead becomes a larger fraction of total KV at lower element precision."
+      },
+      "q4_0": {
+        "architectural_bytes_per_token": 36864,
+        "measured_bytes_per_token": 44626,
+        "ratio_measured_to_architectural": 1.211,
+        "reduction_vs_f16_architectural": 4.0,
+        "reduction_vs_f16_measured": 3.24,
+        "deviation_note": "21% above architectural. Per-block overhead is largest at q4 — each block header scales by block count, not element count. Overhead-to-element ratio is worst at highest compression."
+      }
     },
     "flags_effective": true,
-    "conclusion": "KV precision flags take effect. VRAM scales in expected direction (f16 > q8_0 > q4_0). Absolute values deviate from architectural predictions due to SWA and per-block overhead. For the provisioning table, use measured values rather than architectural formula."
+    "key_finding": "Quantization flags take effect. Measured f16->q4_0 reduction is 3.24x, not the architectural 4x. Provisioning based on architectural bytes-per-token overestimates what quantization buys. The shortfall grows with quantization depth. The provisioning table must carry both architectural and measured columns; the gap between them is the finding.",
+    "implication_for_literature": "Published token-precision literature cites architectural ratios (2x for q8, 4x for q4). This study cannot confirm these ratios at their stated values. Use measured ratios for any hardware provisioning calculation on this model and build."
   },
   "inference_comparison_vs_ollama": {
     "method": "/v1/chat/completions endpoint (OpenAI-compatible) on both runtimes, same model weights, identical system prompt, temperature=0, seed=42",
