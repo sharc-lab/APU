@@ -22,7 +22,9 @@ Multi-turn probes close both gaps. They serve two goals:
 
 ## File
 
-`evaluation/probes/multiturn.jsonl` — 12 probes, one JSON object per line.
+`evaluation/probes/multiturn.jsonl` — 36 probes, one JSON object per line.
+36 = 12 cells × 3 probes per cell.  3 probes per cell are required so that
+per-cell results are separable from probe identity.
 
 ## Schema
 
@@ -62,18 +64,39 @@ a new user message.
 ### Distance (artifact_distance ∈ {2, 5, 9})
 
 Number of full exchange pairs between the artifact response and the final
-retrieval question. Four probes per distance value.
+retrieval question. 12 probes per distance value (3 per cell × 4 cells per
+distance).
 
-| distance | len(turns) | Context budget check (large artifact, 4 char/tok) |
-|---|---|---|
-| 2 | 6 | ~1200 + 4×120 tok ≈ 1680 tok — below 4096, tests recall not eviction |
-| 5 | 12 | ~1200 + 10×180 tok ≈ 3000 tok — approaching 4096 |
-| 9 | 20 | ~1300 + 18×200 tok ≈ 4900 tok — exceeds 4096, eviction expected |
+| distance | len(turns) |
+|---|---|
+| 2 | 6 |
+| 5 | 12 |
+| 9 | 20 |
 
-Design requirement: **large probes at distance=9 must total >4096 tokens**, so
-trajectories actually test eviction rather than ordinary recall. Large probe
-artifact_tokens range 1041–1318; at distance=9 the full trajectory clears 4096
-tokens with margin.
+### Eviction pressure — option (b): vary ctx-size, not trajectory length
+
+**Only large probes at distance=9 naturally exceed 4096 tokens.** In all other
+cells the trajectory fits a standard window, so no eviction fires and those
+probes measure long-context recall rather than memory pressure.
+
+Two remedies were considered:
+
+**(a) Scale trajectory length** — add filler content so every cell exceeds
+the target ctx-size. Rejected: large-trajectory distance=2 probes would
+require thousands of tokens of padding, distorting the intervening-turn
+character and making the schema × size × distance decomposition uninterpretable.
+
+**(b) Vary ctx-size, keep trajectory length fixed** ← chosen. The harness sets
+`num_ctx` to a target fraction of the full prompt token count per cell. All
+cells are subjected to the same eviction ratios (e.g., 100%, 75%, 50%); the
+model sees the same conversation at each ratio, but the effective context
+window shrinks. This cleanly separates eviction pressure (the independent
+variable) from trajectory length (the probe content), and makes eviction ratio
+a first-class experimental parameter without regenerating probe content.
+
+Each probe records `artifact_tokens`; the harness measures `full_tokens` at
+setup time and derives `num_ctx = round(full_tokens * eviction_ratio)` before
+each call.
 
 ### Intervening Schema (intervening_schema ∈ {"same", "different"})
 
@@ -98,23 +121,28 @@ domain (potential semantic interference) or unrelated topics (neutral filler).
 
 ## Probe Inventory
 
-| ID | d | schema | size | artifact type | expected |
+36 probes, 12 cells × 3 probes per cell. Probes within a cell share the same
+(d, schema, size) but use distinct artifacts with distinct expected values.
+
+| IDs | d | schema | size | artifact type | expected values |
 |---|---|---|---|---|---|
-| mt_01 | 2 | same | small | service config | `37419` (listen_port) |
-| mt_02 | 2 | same | large | deployment manifest | `182` (keepalive_timeout_s) |
-| mt_03 | 2 | different | small | calibration record | `0.00419` (alert_threshold_ppb) |
-| mt_04 | 2 | different | large | ORM release notes | `5.2.1` (CVE patch version) |
-| mt_05 | 5 | same | small | service config | `62183` (listen_port) |
-| mt_06 | 5 | same | large | ML inference manifest | `0.273` (kv_cache_fraction) |
-| mt_07 | 5 | different | small | monitoring record | `28614` (alert_count_threshold) |
-| mt_08 | 5 | different | large | inventory review | `PN-47203` (discontinued SKU) |
-| mt_09 | 9 | same | small | service config | `54207` (listen_port) |
-| mt_10 | 9 | same | large | batch processor manifest | `2730` (max_shard_size_mb) |
-| mt_11 | 9 | different | small | service config | `41739` (listen_port) |
-| mt_12 | 9 | different | large | field survey report | `VX-8840-C` (instrument serial) |
+| mt_01–03 | 2 | same | small | service config JSON | `37419`, `62183`, `54207` (listen_port) |
+| mt_04–06 | 2 | same | large | deployment manifests | `182`, `0.273`, `2730` |
+| mt_07–09 | 2 | different | small | calibration/monitoring records | `0.00419`, `28614`, `0.00731` |
+| mt_10–12 | 2 | different | large | ORM release notes, inventory, field survey | `5.2.1`, `PN-47203`, `VX-8840-C` |
+| mt_13–15 | 5 | same | small | service config JSON | `37419`, `62183`, `54207` |
+| mt_16–18 | 5 | same | large | deployment manifests | `182`, `0.273`, `2730` |
+| mt_19–21 | 5 | different | small | calibration/monitoring records | `0.00419`, `28614`, `0.00731` |
+| mt_22–24 | 5 | different | large | ORM release notes, inventory, field survey | `5.2.1`, `PN-47203`, `VX-8840-C` |
+| mt_25–27 | 9 | same | small | service config JSON | `37419`, `62183`, `54207` |
+| mt_28–30 | 9 | same | large | deployment manifests | `182`, `0.273`, `2730` |
+| mt_31–33 | 9 | different | small | calibration/monitoring records | `0.00419`, `28614`, `0.00731` |
+| mt_34–36 | 9 | different | large | ORM release notes, inventory, field survey | `5.2.1`, `PN-47203`, `VX-8840-C` |
 
 All expected values are numeric strings or alphanumeric codes that are unique
-within each probe and not guessable from domain priors.
+within each probe. All 36 probes pass the artifact-deletion check: score drops
+below 1.0 when turns[0] and turns[1] are removed (verified against
+qwen3:4b-instruct). Results in `results/artifact_deletion_check.json`.
 
 ## Validation Checks
 
@@ -151,20 +179,20 @@ the question is answerable without reading the original artifact.
 
 Negative example choices per probe:
 
-| ID | negative_example | rationale |
+| expected | negative_example | rationale |
 |---|---|---|
-| mt_01 | `8080` | default HTTP port |
-| mt_02 | `75` | common keepalive value |
-| mt_03 | `0.0073` | adjacent magnitude |
-| mt_04 | `5.2.0` | prior version |
-| mt_05 | `9090` | common Prometheus port |
-| mt_06 | `0.5` | default fraction |
-| mt_07 | `10000` | round number |
-| mt_08 | `PN-38901` | plausible nearby SKU |
-| mt_09 | `8080` | default HTTP port |
-| mt_10 | `2048` | power-of-two default |
-| mt_11 | `8080` | default HTTP port |
-| mt_12 | `VX-8830-B` | adjacent serial |
+| `37419` | `8080` | default HTTP port |
+| `62183` | `9090` | common Prometheus port |
+| `54207` | `8080` | default HTTP port |
+| `182` | `75` | common keepalive value |
+| `0.273` | `0.5` | default fraction |
+| `2730` | `2048` | power-of-two default |
+| `0.00419` | `0.0073` | adjacent magnitude |
+| `28614` | `10000` | round number |
+| `0.00731` | `0.0050` | adjacent magnitude |
+| `5.2.1` | `5.2.0` | prior version (also mentioned in same artifact) |
+| `PN-47203` | `PN-47218` | co-discontinued SKU in same report |
+| `VX-8840-C` | `VX-8830-B` | adjacent serial |
 
 ### STRUCTURAL
 
