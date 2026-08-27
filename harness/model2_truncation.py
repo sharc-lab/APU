@@ -247,6 +247,7 @@ def main() -> None:
                             "latency_s": round(latency, 3),
                             "hardware": "blade14_rtx4070",
                             "backend_verified": gpu_info["backend_verified"],
+                            "workload_regime": "single_turn",
                         }
                         if arm_name == "arm3_self_report":
                             row["available_field"] = classify_available(output or "")

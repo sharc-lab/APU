@@ -459,6 +459,7 @@ def main():
                         "latency_s": round(latency, 3),
                         "hardware": "blade14_rtx4070",
                         "backend_verified": gpu_info["backend_verified"],
+                        "workload_regime": "single_turn",
                     }
                     if thinking is not None:
                         row["thinking"] = thinking

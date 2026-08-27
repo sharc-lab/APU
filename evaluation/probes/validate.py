@@ -386,6 +386,82 @@ print(f"by artifact_form  : {dict(art_forms)}")
 print(f"art independent   : {len(ART_IND)} answers")
 print()
 
+# ============================================================ multiturn.jsonl probes
+
+MT_FILE = ROOT / "multiturn.jsonl"
+if MT_FILE.exists():
+    MT_PROBES = {json.loads(l)["id"]: json.loads(l)
+                 for l in MT_FILE.read_text(encoding="utf-8").splitlines() if l.strip()}
+
+    for pid, p in MT_PROBES.items():
+        # A. POSITIVE — expected answer must score 1.0 against itself
+        s, d = scorers.score_exact(p["expected"], p["expected"])
+        check(f"MT POSITIVE {pid}", s == 1.0, f"identity scored {s} ({d})")
+
+        # B. NEGATIVE — negative_example must NOT score 1.0
+        neg = p.get("negative_example", "banana")
+        s2, _ = scorers.score_exact(neg, p["expected"])
+        check(f"MT NEGATIVE-scorer {pid}", s2 < 1.0,
+              f"negative_example {neg!r} scored 1.0 against {p['expected']!r}")
+
+        # B. NEGATIVE — expected must not appear verbatim in intervening turns.
+        # Excludes artifact_turn (turn 0) and the immediate assistant response
+        # (turn 1), which naturally quotes artifact values during review.
+        exp = p["expected"]
+        art_idx = p["artifact_turn"]
+        for i, turn in enumerate(p["turns"]):
+            if i <= art_idx + 1:  # artifact turn and its direct response are exempt
+                continue
+            check(f"MT NEGATIVE-leak {pid} turn{i}",
+                  exp not in turn["content"],
+                  f"expected {exp!r} found verbatim in intervening turn {i}")
+
+        # STRUCTURAL — schema integrity
+        check(f"MT struct {pid} workload_regime",
+              p.get("workload_regime") == "multi_turn", "")
+        check(f"MT struct {pid} category",
+              p.get("category") == "multi_turn", "")
+        check(f"MT struct {pid} final_turn_index",
+              p["final_turn_index"] == len(p["turns"]),
+              f"final_turn_index={p['final_turn_index']} but len(turns)={len(p['turns'])}")
+        check(f"MT struct {pid} artifact_turn < final",
+              p["artifact_turn"] < p["final_turn_index"], "")
+        check(f"MT struct {pid} turns_alternation",
+              all(p["turns"][i]["role"] == ("user" if i % 2 == 0 else "assistant")
+                  for i in range(len(p["turns"]))),
+              "turns must strictly alternate user/assistant starting with user")
+        check(f"MT struct {pid} artifact_turn_is_user",
+              p["turns"][p["artifact_turn"]]["role"] == "user", "")
+        check(f"MT struct {pid} artifact_tokens_positive",
+              isinstance(p["artifact_tokens"], int) and p["artifact_tokens"] > 0, "")
+        check(f"MT struct {pid} size_vs_tokens",
+              (p["artifact_size"] == "small" and p["artifact_tokens"] <= 500)
+              or (p["artifact_size"] == "large" and p["artifact_tokens"] > 500),
+              f"artifact_size={p['artifact_size']} artifact_tokens={p['artifact_tokens']}")
+        check(f"MT struct {pid} distance_formula",
+              p["artifact_distance"] == (p["final_turn_index"] - 2) // 2
+              and (p["final_turn_index"] - 2) % 2 == 0,
+              f"d={p['artifact_distance']} final={p['final_turn_index']}")
+        check(f"MT struct {pid} maxtok",
+              0 < p["max_tokens"] <= 800, "")
+        check(f"MT struct {pid} intervening_schema",
+              p.get("intervening_schema") in ("same", "different"), "")
+        check(f"MT struct {pid} negative_example_present",
+              "negative_example" in p and p["negative_example"] != p["expected"], "")
+
+    print(f"multi-turn probes : {len(MT_PROBES)}")
+    dist_ctr = Counter(p["artifact_distance"] for p in MT_PROBES.values())
+    schema_ctr = Counter(p["intervening_schema"] for p in MT_PROBES.values())
+    size_ctr = Counter(p["artifact_size"] for p in MT_PROBES.values())
+    print(f"by distance       : {dict(sorted(dist_ctr.items()))}")
+    print(f"by schema         : {dict(schema_ctr)}")
+    print(f"by size           : {dict(size_ctr)}")
+    print()
+else:
+    print("multiturn.jsonl   : not found (skipped)")
+    print()
+
+
 if fails:
     print(f"FAILED ({len(fails)}):")
     for f in fails:

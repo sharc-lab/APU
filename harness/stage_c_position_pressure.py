@@ -278,6 +278,7 @@ def main():
                             "hardware_config": HW_CONFIG,
                             "memory_architecture": MEM_ARCH,
                             "backend_verified": gpu_info["backend_verified"],
+                            "workload_regime": "single_turn",
                             "run": ts,
                         }
                         rows.append(row)
@@ -314,6 +315,7 @@ def main():
                             "hardware_config": HW_CONFIG,
                             "memory_architecture": MEM_ARCH,
                             "backend_verified": gpu_info["backend_verified"],
+                            "workload_regime": "single_turn",
                             "run": ts,
                         })
 
