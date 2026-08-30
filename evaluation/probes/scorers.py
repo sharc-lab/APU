@@ -197,9 +197,20 @@ def score_unit_test(output: str, test_rel_path: str, timeout: int = 30) -> tuple
 
     # Minimal env: enough to find the interpreter, nothing sensitive.
     # On Windows, SystemRoot is required for Winsock DLL lookup (WinError 10106).
+    # HOME is deliberately set to a nonexistent dir so the child never inherits
+    # the caller's user-site config or credentials. We re-add the current
+    # interpreter's import roots explicitly so pytest remains importable.
+    pythonpath_entries = []
+    for entry in [*sys.path, str(ROOT.parent)]:
+        if not entry or entry == ".":
+            continue
+        norm = os.path.normpath(os.path.abspath(entry))
+        if os.path.isdir(norm):
+            pythonpath_entries.append(norm)
     safe_env = {
         "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
         "HOME": "/nonexistent",
+        "PYTHONPATH": os.pathsep.join(dict.fromkeys(pythonpath_entries)),
         "PYTHONDONTWRITEBYTECODE": "1",
         "PYTHONHASHSEED": "0",
         "NO_PROXY": "*",
@@ -238,7 +249,7 @@ def score_unit_test(output: str, test_rel_path: str, timeout: int = 30) -> tuple
         (d / "test_probe.py").write_text(test_src)
         try:
             r = subprocess.run(
-                [sys.executable, "-I", "-m", "pytest", "test_probe.py", "-q",
+                [sys.executable, "-m", "pytest", "test_probe.py", "-q",
                  "--no-header", "-p", "no:cacheprovider"],
                 cwd=d, capture_output=True, text=True, timeout=timeout,
                 env=safe_env, **popen_extra,
