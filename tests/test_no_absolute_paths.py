@@ -32,7 +32,10 @@ _CHECKED_EXTENSIONS = {".py", ".yaml", ".yml", ".sh", ".toml", ".cfg", ".ini", "
 
 # Paths prefixed with these strings are skipped even when committed.
 # .venv/ is gitignored but we skip it defensively.
+# This file itself is excluded: it intentionally contains the patterns it
+# searches for (in docstrings and regex literals) and cannot be self-checked.
 _SKIP_PREFIXES = (".venv/", ".venv\\", "results/", "results\\")
+_SKIP_EXACT = {"tests/test_no_absolute_paths.py", "tests\\test_no_absolute_paths.py"}
 
 
 def _committed_files() -> list[str]:
@@ -52,6 +55,8 @@ def test_no_absolute_user_paths_in_source() -> None:
 
     for rel in _committed_files():
         if any(rel.startswith(pfx) for pfx in _SKIP_PREFIXES):
+            continue
+        if rel in _SKIP_EXACT:
             continue
         suffix = Path(rel).suffix.lower()
         if suffix not in _CHECKED_EXTENSIONS:

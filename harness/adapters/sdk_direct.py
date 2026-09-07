@@ -13,6 +13,8 @@ Outputs:
     claude_code_characterization.json
 """
 
+from __future__ import annotations
+
 import argparse
 import hashlib
 import json

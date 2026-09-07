@@ -1,5 +1,7 @@
 """Tests for ReplayCache and backend-level model call wrapping."""
 
+from __future__ import annotations
+
 import json
 
 import pytest

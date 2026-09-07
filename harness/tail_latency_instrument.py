@@ -348,19 +348,20 @@ def _run_all(
     for k, v in prior_samples.items():
         all_samples[k].extend(v)
 
-    with open(out_jsonl, "a", encoding="utf-8") as fout:
-        if not no_fsync and not out_jsonl.exists():
-            # Fsync directory so a new file's directory entry is durable.
+    if not no_fsync and not out_jsonl.exists():
+        # Fsync the directory before creating the file so the new directory
+        # entry is durable. Must run before open() — append mode creates the
+        # file immediately, making the exists() check always False inside.
+        try:
+            fd = os.open(str(out_jsonl.parent), os.O_RDONLY)
             try:
-                import os as _os
-                fd = _os.open(str(out_jsonl.parent), _os.O_RDONLY)
-                try:
-                    _os.fsync(fd)
-                finally:
-                    _os.close(fd)
-            except OSError:
-                pass
+                os.fsync(fd)
+            finally:
+                os.close(fd)
+        except OSError:
+            pass
 
+    with open(out_jsonl, "a", encoding="utf-8") as fout:
         for task_id in CHARACTERIZE_TASKS:
             for condition in CONDITIONS:
                 print(f"\n{'─' * 52}")
