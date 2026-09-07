@@ -17,6 +17,7 @@ import argparse
 import hashlib
 import importlib.util
 import json
+import os
 import random
 import time
 from datetime import datetime, timezone
@@ -224,6 +225,69 @@ def run_cell(
     }
 
 
+def _load_completed(path: Path, cfg_hash: str) -> set[tuple[int, int, str]]:
+    """Return (depth, rep, probe_id) triples already written to *path*.
+
+    File-size note: at the default sweep (44 probes × 6 depths × 5 reps) the
+    resume file is ≈0.8 MB; at the largest plausible sweep ≈11 MB.  Loading
+    the whole file with read_text() is fine at these sizes and lets us detect
+    the last non-empty line without two-pass streaming.
+
+    A malformed FINAL line is treated as a truncated write (the power-loss
+    pattern: write + flush reached the OS buffer, fsync did not complete before
+    power cut) and is discarded with a warning that names the file and line
+    number.  A malformed line at any other position raises — that is real
+    corruption, not a truncated write.
+    """
+    completed: set[tuple[int, int, str]] = set()
+    raw_lines = path.read_text(encoding="utf-8").splitlines()
+    nonempty = [(i + 1, ln) for i, ln in enumerate(raw_lines) if ln.strip()]
+    for idx, (lineno, raw) in enumerate(nonempty):
+        is_last = idx == len(nonempty) - 1
+        try:
+            row = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            if is_last:
+                print(
+                    f"WARNING: discarding truncated final line in {path} "
+                    f"(line {lineno}): {exc}",
+                    flush=True,
+                )
+                continue
+            raise ValueError(
+                f"Malformed JSON at {path}:{lineno} "
+                f"(not the final line — this is corruption, not a truncated write): {exc}"
+            ) from exc
+        existing_hash = row.get("config_hash")
+        if existing_hash and existing_hash != cfg_hash:
+            raise ValueError(
+                f"Config hash mismatch: resume file has {existing_hash!r}, "
+                f"current run has {cfg_hash!r}. Check --depths/--reps/--model."
+            )
+        if "depth" in row and "rep" in row and "probe_id" in row:
+            completed.add((row["depth"], row["rep"], row["probe_id"]))
+    return completed
+
+
+def _fsync_dir(d: Path) -> None:
+    """Fsync the directory so a newly-created file's directory entry is durable.
+
+    Required after creating a new result file: os.fsync on the file descriptor
+    makes the file contents durable but does not guarantee the directory entry
+    (the file's existence) survives a power loss before the directory page is
+    written.  Silently no-ops on platforms that do not support opening a
+    directory with O_RDONLY (e.g. Windows).
+    """
+    try:
+        fd = os.open(str(d), os.O_RDONLY)
+        try:
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+    except OSError:
+        pass
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Quality-degradation context sweep")
     parser.add_argument("--model", default=DEFAULT_MODEL)
@@ -292,6 +356,13 @@ def main() -> None:
             "to the same FILE. Config hash must match."
         ),
     )
+    parser.add_argument(
+        "--no-fsync", action="store_true",
+        help=(
+            "Skip os.fsync after each row write. "
+            "Faster for local runs; unsafe across power loss."
+        ),
+    )
     args = parser.parse_args()
 
     scorers = _load_scorers()
@@ -334,20 +405,7 @@ def main() -> None:
         resume_path = Path(args.resume)
         if not resume_path.exists():
             raise FileNotFoundError(f"--resume file not found: {resume_path}")
-        with open(resume_path, encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                row = json.loads(line)
-                existing_hash = row.get("config_hash")
-                if existing_hash and existing_hash != cfg_hash:
-                    raise ValueError(
-                        f"Config hash mismatch: resume file has {existing_hash!r}, "
-                        f"current run has {cfg_hash!r}. Check --depths/--reps/--model."
-                    )
-                if "depth" in row and "rep" in row and "probe_id" in row:
-                    completed.add((row["depth"], row["rep"], row["probe_id"]))
+        completed = _load_completed(resume_path, cfg_hash)
         print(f"Resume: {len(completed)} rows already done in {resume_path.name}")
 
     count_fn = _make_count_fn(args.host, args.model)
@@ -393,6 +451,11 @@ def main() -> None:
     done = 0
     w = len(str(total))
     with open(out_path, file_mode, encoding="utf-8") as fout:
+        if file_mode == "w" and not args.no_fsync:
+            # Fsync the directory so this new file's existence is durable,
+            # not just its contents.  Only needed on the create path; the
+            # resume (append) path implies the entry is already committed.
+            _fsync_dir(out_path.parent)
         for depth in sorted(args.depths):
             for rep in range(args.reps):
                 cell_probe_seed = depth * 100 + rep
@@ -437,6 +500,8 @@ def main() -> None:
 
                     fout.write(json.dumps(row) + "\n")
                     fout.flush()
+                    if not args.no_fsync:
+                        os.fsync(fout.fileno())
                     done += 1
 
                     score_str = (
