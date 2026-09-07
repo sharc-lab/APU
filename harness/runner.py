@@ -9,16 +9,24 @@ Usage:
     py -3.11 -m harness.runner [options]
     py -3.11 -m harness.runner --probe-ids rea_01 str_01 --reps 2
     py -3.11 -m harness.runner --dry-run
+    py -3.11 -m harness.runner --preflight-only
+    py -3.11 -m harness.runner --deadline 6h30m
 """
 
 from __future__ import annotations
 
 import argparse
+import csv
 import hashlib
 import importlib.util
 import json
 import os
 import random
+import re
+import shutil
+import subprocess
+import sys
+import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -228,6 +236,8 @@ def run_cell(
     }
 
 
+# ── resume helper ─────────────────────────────────────────────────────────────
+
 def _load_completed(path: Path, cfg_hash: str) -> set[tuple[int, int, str]]:
     """Return (depth, rep, probe_id) triples already written to *path*.
 
@@ -290,6 +300,210 @@ def _fsync_dir(d: Path) -> None:
     except OSError:
         pass
 
+
+# ── duration parsing ──────────────────────────────────────────────────────────
+
+_DURATION_RE = re.compile(
+    r"(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$"
+)
+
+
+def _parse_duration(s: str) -> float:
+    """Parse a duration string such as '6h30m', '2h', '90s', '45m' into seconds.
+
+    Raises ValueError on unrecognised format.
+    """
+    m = _DURATION_RE.fullmatch(s.strip())
+    if m is None or not any(m.groups()):
+        raise ValueError(f"Unrecognised duration format: {s!r}  (expected e.g. '6h30m', '45m', '90s')")
+    h = int(m.group(1) or 0)
+    mn = int(m.group(2) or 0)
+    sc = int(m.group(3) or 0)
+    total = h * 3600 + mn * 60 + sc
+    if total <= 0:
+        raise ValueError(f"Duration must be positive, got: {s!r}")
+    return float(total)
+
+
+def _deadline_exceeded(deadline_s: float | None, run_start: float) -> bool:
+    """Return True if the wall-clock deadline has been reached."""
+    if deadline_s is None:
+        return False
+    return time.monotonic() - run_start >= deadline_s
+
+
+# ── git / system helpers ──────────────────────────────────────────────────────
+
+def _git_state() -> dict[str, Any]:
+    """Return {'sha': str|None, 'dirty': bool|None} for the repo at REPO_ROOT."""
+    try:
+        sha = subprocess.check_output(
+            ["git", "-C", str(REPO_ROOT), "rev-parse", "HEAD"],
+            stderr=subprocess.DEVNULL, timeout=5,
+        ).decode().strip()
+        dirty_out = subprocess.check_output(
+            ["git", "-C", str(REPO_ROOT), "status", "--porcelain"],
+            stderr=subprocess.DEVNULL, timeout=5,
+        ).decode().strip()
+        return {"sha": sha, "dirty": bool(dirty_out)}
+    except Exception:
+        return {"sha": None, "dirty": None}
+
+
+def _free_bytes_output() -> str | None:
+    """Run 'free -b' and return its stdout; None if the command is unavailable."""
+    try:
+        return subprocess.check_output(
+            ["free", "-b"], stderr=subprocess.DEVNULL, timeout=5,
+        ).decode()
+    except Exception:
+        return None
+
+
+# ── preflight ─────────────────────────────────────────────────────────────────
+
+def _run_preflight(
+    host: str,
+    model: str,
+    evalset_path: Path,
+    probes: list[dict],
+    min_disk_gb: float,
+    min_mem_gb: float,
+) -> list[str]:
+    """Run preflight checks; return a list of failure messages (empty = OK).
+
+    Checks (in order):
+    1. Ollama server reachable and model loadable.
+    2. Free disk space above min_disk_gb on RESULTS_DIR filesystem.
+    3. Free physical memory above min_mem_gb.
+    4. Evalset parsed without error (probes list already populated by caller).
+    5. Git state recorded (informational only — never a failure).
+    """
+    failures: list[str] = []
+
+    # 1 — model loadable
+    try:
+        resp = httpx.get(f"{host}/api/tags", timeout=10)
+        resp.raise_for_status()
+        tags = resp.json()
+        names = [m.get("name", "") for m in tags.get("models", [])]
+        if not any(model in n for n in names):
+            failures.append(
+                f"Model {model!r} not found in Ollama tags at {host}. "
+                f"Available: {names[:5]}{'…' if len(names) > 5 else ''}"
+            )
+    except Exception as exc:
+        failures.append(f"Ollama not reachable at {host}: {exc}")
+
+    # 2 — free disk
+    try:
+        RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+        free_gb = shutil.disk_usage(RESULTS_DIR).free / 1024 ** 3
+        if free_gb < min_disk_gb:
+            failures.append(
+                f"Free disk on {RESULTS_DIR}: {free_gb:.2f} GB < required {min_disk_gb:.2f} GB"
+            )
+    except Exception as exc:
+        failures.append(f"Could not check disk space: {exc}")
+
+    # 3 — free memory
+    try:
+        import psutil
+        free_mb = psutil.virtual_memory().available / 1024 / 1024
+        min_mb = min_mem_gb * 1024
+        if free_mb < min_mb:
+            failures.append(
+                f"Free memory: {free_mb:.0f} MB < required {min_mb:.0f} MB"
+            )
+    except ImportError:
+        pass  # psutil absent — skip silently
+    except Exception as exc:
+        failures.append(f"Could not check free memory: {exc}")
+
+    # 4 — evalset validated (probes already loaded by caller; empty = suspicious)
+    if not probes:
+        failures.append(
+            f"Evalset at {evalset_path} produced zero probes after filtering. "
+            "Check --evalset path and --probe-ids filter."
+        )
+
+    return failures
+
+
+# ── background sampler ────────────────────────────────────────────────────────
+
+def _start_sampler(path: Path, run_start: float) -> threading.Event:
+    """Start a daemon thread writing CPU temp / clocks / free memory every 10 s.
+
+    Returns a threading.Event; set it to stop the thread.
+    Writes a CSV with columns:
+        timestamp_utc, elapsed_s, cpu_pkg_temp_c, cpu_freq_mhz_mean, mem_free_mb
+    """
+    stop_event = threading.Event()
+
+    def _loop() -> None:
+        header_written = path.exists()
+        while not stop_event.wait(10):
+            now = datetime.now(timezone.utc).isoformat()
+            elapsed = round(time.monotonic() - run_start, 1)
+            pkg_temp: float | None = None
+            freq_mean: float | None = None
+            mem_free: float | None = None
+            try:
+                import psutil
+                # CPU package temperature (Linux; empty dict on Windows)
+                temps = psutil.sensors_temperatures()
+                for key in ("coretemp", "k10temp", "acpitz", "cpu_thermal"):
+                    if key in temps:
+                        entries = temps[key]
+                        pkg_candidates = [e.current for e in entries if "package" in e.label.lower()]
+                        if pkg_candidates:
+                            pkg_temp = round(pkg_candidates[0], 1)
+                            break
+                        elif entries:
+                            pkg_temp = round(entries[0].current, 1)
+                            break
+                # Per-core clocks
+                freqs = psutil.cpu_freq(percpu=True)
+                if freqs:
+                    freq_mean = round(sum(f.current for f in freqs) / len(freqs), 1)
+                # Free memory
+                mem_free = round(psutil.virtual_memory().available / 1024 / 1024, 1)
+            except Exception:
+                pass
+
+            row = [now, elapsed, pkg_temp, freq_mean, mem_free]
+            try:
+                with open(path, "a", newline="", encoding="utf-8") as f:
+                    w = csv.writer(f)
+                    if not header_written:
+                        w.writerow(["timestamp_utc", "elapsed_s",
+                                    "cpu_pkg_temp_c", "cpu_freq_mhz_mean", "mem_free_mb"])
+                        header_written = True
+                    w.writerow(row)
+            except Exception:
+                pass
+
+    t = threading.Thread(target=_loop, daemon=True, name="telemetry-sampler")
+    t.start()
+    return stop_event
+
+
+# ── manifest / summary helpers ────────────────────────────────────────────────
+
+def _write_json_atomic(path: Path, data: dict, no_fsync: bool) -> None:
+    """Write *data* as JSON to *path*, flushing+fsyncing unless --no-fsync."""
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+        f.flush()
+        if not no_fsync:
+            try:
+                os.fsync(f.fileno())
+            except OSError:
+                pass
+
+
+# ── main ──────────────────────────────────────────────────────────────────────
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Quality-degradation context sweep")
@@ -366,7 +580,43 @@ def main() -> None:
             "Faster for local runs; unsafe across power loss."
         ),
     )
+    parser.add_argument(
+        "--deadline", default=None, metavar="DURATION",
+        help=(
+            "Stop after this wall-clock duration (e.g. '6h30m', '2h', '90m', '3600s'). "
+            "The current probe always finishes; the deadline is checked between probes. "
+            "SESSION_SUMMARY.json records deadline_hit=true."
+        ),
+    )
+    parser.add_argument(
+        "--preflight-only", action="store_true",
+        help=(
+            "Run preflight checks (server reachable, disk/memory space, evalset valid, "
+            "git state) then exit 0 on success or 1 on failure. No probes are run."
+        ),
+    )
+    parser.add_argument(
+        "--quant", default=None, metavar="QUANT",
+        help="Quantisation used (e.g. 'q4_k_m', 'q8_0'). Recorded in MANIFEST.json only.",
+    )
+    parser.add_argument(
+        "--kv-precision", default=None, metavar="PREC",
+        help="KV-cache precision (e.g. 'fp16', 'int8'). Recorded in MANIFEST.json only.",
+    )
+    parser.add_argument(
+        "--preflight-disk-gb", type=float, default=1.0,
+        help="Minimum free disk space (GB) required to pass preflight (default: 1.0).",
+    )
+    parser.add_argument(
+        "--preflight-mem-gb", type=float, default=2.0,
+        help="Minimum free memory (GB) required to pass preflight (default: 2.0).",
+    )
     args = parser.parse_args()
+
+    # Validate --deadline early so a bad value fails before any work.
+    deadline_s: float | None = None
+    if args.deadline:
+        deadline_s = _parse_duration(args.deadline)
 
     scorers = _load_scorers()
 
@@ -401,6 +651,26 @@ def main() -> None:
 
     total = len(probes) * len(args.depths) * args.reps
 
+    # ── preflight-only path ───────────────────────────────────────────────────
+    if args.preflight_only:
+        git = _git_state()
+        print(f"Git SHA : {git['sha'] or 'unknown'}  dirty={git['dirty']}")
+        print(f"Evalset : {args.evalset}  ({len(probes)} probes after filter)")
+        failures = _run_preflight(
+            host=args.host,
+            model=args.model,
+            evalset_path=Path(args.evalset),
+            probes=probes,
+            min_disk_gb=args.preflight_disk_gb,
+            min_mem_gb=args.preflight_mem_gb,
+        )
+        if failures:
+            for msg in failures:
+                print(f"PREFLIGHT FAIL: {msg}", file=sys.stderr)
+            sys.exit(1)
+        print("Preflight OK")
+        sys.exit(0)
+
     # Load already-completed rows when resuming.
     completed: set[tuple[int, int, str]] = set()
     resume_path: Path | None = None
@@ -419,6 +689,10 @@ def main() -> None:
     print(f"Filler: {args.filler_mode}  (count_fn calibration enabled)")
     print(f"HW    : {args.hardware_config}  arch={args.memory_architecture}")
     print(f"Config: {cfg_hash}")
+    if deadline_s is not None:
+        h, rem = divmod(int(deadline_s), 3600)
+        m, s = divmod(rem, 60)
+        print(f"Deadline: {h}h{m:02d}m{s:02d}s from run start")
 
     # Pre-build all unique (depth, rep) fillers with the calibrated count_fn.
     # count_fn fires once per unique pair (not once per probe × depth × rep).
@@ -451,74 +725,161 @@ def main() -> None:
     remaining = total - len(completed)
     print(f"Output: {out_path}  ({'append' if file_mode == 'a' else 'new'})\n")
 
+    # Derive sibling paths from the result file stem.
+    stem = out_path.stem
+    manifest_path = out_path.parent / f"{stem}_MANIFEST.json"
+    summary_path = out_path.parent / f"{stem}_SESSION_SUMMARY.json"
+    sampler_path = out_path.parent / f"{stem}_telemetry.csv"
+
+    # Record run start and git state.
+    run_start = time.monotonic()
+    utc_start = datetime.now(timezone.utc).isoformat()
+    git = _git_state()
+
+    # Write initial MANIFEST (exit_code and utc_end filled in on exit).
+    manifest: dict[str, Any] = {
+        "utc_start": utc_start,
+        "utc_end": None,
+        "exit_code": None,
+        "argv": sys.argv,
+        "git_sha": git["sha"],
+        "git_dirty": git["dirty"],
+        "model": args.model,
+        "quant": args.quant,
+        "kv_precision": args.kv_precision,
+        "hardware_config": args.hardware_config,
+        "memory_architecture": args.memory_architecture,
+        "config_hash": cfg_hash,
+        "free_b_at_start": _free_bytes_output(),
+        "result_file": str(out_path),
+    }
+    _write_json_atomic(manifest_path, manifest, args.no_fsync)
+
+    # Start background telemetry sampler.
+    sampler_stop = _start_sampler(sampler_path, run_start)
+
     done = 0
-    w = len(str(total))
-    with open(out_path, file_mode, encoding="utf-8") as fout:
-        if file_mode == "w" and not args.no_fsync:
-            # Fsync the directory so this new file's existence is durable,
-            # not just its contents.  Only needed on the create path; the
-            # resume (append) path implies the entry is already committed.
-            _fsync_dir(out_path.parent)
-        for depth in sorted(args.depths):
-            for rep in range(args.reps):
-                cell_probe_seed = depth * 100 + rep
-                cell_probes = list(probes)
-                random.Random(cell_probe_seed).shuffle(cell_probes)
-                for pos, probe in enumerate(cell_probes):
-                    if (depth, rep, probe["id"]) in completed:
+    rows_this_session = 0
+    deadline_hit = False
+    exit_code = 0
+
+    try:
+        w = len(str(total))
+        with open(out_path, file_mode, encoding="utf-8") as fout:
+            if file_mode == "w" and not args.no_fsync:
+                # Fsync the directory so this new file's existence is durable,
+                # not just its contents.  Only needed on the create path; the
+                # resume (append) path implies the entry is already committed.
+                _fsync_dir(out_path.parent)
+            for depth in sorted(args.depths):
+                if deadline_hit:
+                    break
+                for rep in range(args.reps):
+                    if deadline_hit:
+                        break
+                    cell_probe_seed = depth * 100 + rep
+                    cell_probes = list(probes)
+                    random.Random(cell_probe_seed).shuffle(cell_probes)
+                    for pos, probe in enumerate(cell_probes):
+                        if (depth, rep, probe["id"]) in completed:
+                            done += 1
+                            continue
+                        try:
+                            row = run_cell(
+                                probe,
+                                filler_cache[(depth, rep)],
+                                depth, rep, pos, cell_probe_seed,
+                                args.model, args.host, cfg_hash,
+                                args.filler_mode,
+                                args.hardware_config,
+                                args.memory_architecture,
+                                model_variant,
+                                thinking_enabled,
+                                scorers,
+                            )
+                        except Exception as exc:
+                            row = {
+                                "probe_id": probe["id"],
+                                "category": probe["category"],
+                                "depth": depth,
+                                "rep": rep,
+                                "position_in_cell": pos,
+                                "cell_probe_seed": cell_probe_seed,
+                                "filler_mode": args.filler_mode,
+                                "score": None,
+                                "error": str(exc),
+                                "config_hash": cfg_hash,
+                                "hardware_config": args.hardware_config,
+                                "memory_architecture": args.memory_architecture,
+                                "model": args.model,
+                                "model_variant": model_variant,
+                                "thinking_enabled": thinking_enabled,
+                                "ctx_suspect": False,
+                            }
+
+                        fout.write(json.dumps(row) + "\n")
+                        fout.flush()
+                        if not args.no_fsync:
+                            os.fsync(fout.fileno())
                         done += 1
-                        continue
-                    try:
-                        row = run_cell(
-                            probe,
-                            filler_cache[(depth, rep)],
-                            depth, rep, pos, cell_probe_seed,
-                            args.model, args.host, cfg_hash,
-                            args.filler_mode,
-                            args.hardware_config,
-                            args.memory_architecture,
-                            model_variant,
-                            thinking_enabled,
-                            scorers,
+                        rows_this_session += 1
+
+                        score_str = (
+                            f"{row['score']:.3f}" if row.get("score") is not None else "ERR"
                         )
-                    except Exception as exc:
-                        row = {
-                            "probe_id": probe["id"],
-                            "category": probe["category"],
-                            "depth": depth,
-                            "rep": rep,
-                            "position_in_cell": pos,
-                            "cell_probe_seed": cell_probe_seed,
-                            "filler_mode": args.filler_mode,
-                            "score": None,
-                            "error": str(exc),
-                            "config_hash": cfg_hash,
-                            "hardware_config": args.hardware_config,
-                            "memory_architecture": args.memory_architecture,
-                            "model": args.model,
-                            "model_variant": model_variant,
-                            "thinking_enabled": thinking_enabled,
-                            "ctx_suspect": False,
-                        }
+                        lat = row.get("latency_ms", 0)
+                        print(
+                            f"[{done:{w}}/{total}] "
+                            f"{probe['id']} d={depth:>5} r={rep} pos={pos} "
+                            f"score={score_str} lat={lat:.0f}ms",
+                            flush=True,
+                        )
 
-                    fout.write(json.dumps(row) + "\n")
-                    fout.flush()
-                    if not args.no_fsync:
-                        os.fsync(fout.fileno())
-                    done += 1
+                        # Check deadline after every completed probe.
+                        if _deadline_exceeded(deadline_s, run_start):
+                            deadline_hit = True
+                            elapsed = time.monotonic() - run_start
+                            print(
+                                f"\nDeadline reached ({elapsed/3600:.2f}h elapsed). "
+                                f"Finished current probe; stopping after {rows_this_session} "
+                                f"rows this session.",
+                                flush=True,
+                            )
+                            break
 
-                    score_str = (
-                        f"{row['score']:.3f}" if row.get("score") is not None else "ERR"
-                    )
-                    lat = row.get("latency_ms", 0)
-                    print(
-                        f"[{done:{w}}/{total}] "
-                        f"{probe['id']} d={depth:>5} r={rep} pos={pos} "
-                        f"score={score_str} lat={lat:.0f}ms",
-                        flush=True,
-                    )
+    except Exception:
+        exit_code = 1
+        raise
+    finally:
+        sampler_stop.set()
+
+        elapsed_s = round(time.monotonic() - run_start, 1)
+        mean_s = round(elapsed_s / rows_this_session, 2) if rows_this_session > 0 else None
+        rows_remaining = total - done
+        projected = (
+            round(rows_remaining / rows_this_session, 2)
+            if (rows_this_session > 0 and rows_remaining > 0)
+            else 0
+        )
+        summary: dict[str, Any] = {
+            "rows_completed_this_session": rows_this_session,
+            "rows_remaining": rows_remaining,
+            "elapsed_wall_s": elapsed_s,
+            "mean_s_per_row": mean_s,
+            "projected_sessions_remaining": projected,
+            "deadline_hit": deadline_hit,
+        }
+        _write_json_atomic(summary_path, summary, args.no_fsync)
+
+        utc_end = datetime.now(timezone.utc).isoformat()
+        manifest["utc_end"] = utc_end
+        manifest["exit_code"] = exit_code
+        _write_json_atomic(manifest_path, manifest, args.no_fsync)
 
     print(f"\nDone. Results -> {out_path}")
+    print(f"Manifest     -> {manifest_path}")
+    print(f"Summary      -> {summary_path}")
+    print(f"Telemetry    -> {sampler_path}")
 
 
 if __name__ == "__main__":
