@@ -1,6 +1,6 @@
 # APU Research — Hybrid Local/Cloud Routing Study
 
-A budget-constrained routing study for hybrid cloud/local agent execution, using orchestration-overhead characterization (SDK vs. LangGraph, tail latency) as supporting instrumentation.
+A hardware characterization study for consumer AI PCs, measuring how memory pressure and orchestration overhead jointly constrain agent task quality and latency. Includes a budget-constrained routing layer for hybrid cloud/local execution.
 
 ## Thesis
 
@@ -38,9 +38,7 @@ python -m analysis.generate_reports
 
 ```
 APU/
-├── FINAL_STATUS.md
 ├── SETUP_SUMMARY.md
-├── VERIFICATION.md
 ├── pyproject.toml
 ├── README.md
 ├── .env                          # API keys (not committed)
@@ -100,7 +98,7 @@ APU/
 | **OpenAI SDK** | 2,765 | 0.1 | 0.0 | 94.1 |
 | **LangGraph** | 2,067 | 29.5 | 8.9 | 20.5 |
 
-**Methodological role:** These measurements calibrate orchestration categories and latency baselines that inform routing-policy evaluation; they are supporting instrumentation, not the headline contribution.
+**Paper 1 role:** These measurements are a co-equal axis of the hardware characterization. Orchestration overhead and tail-latency distributions determine the latency half of the joint feasibility envelope; the memory/correctness axis is the other half. Neither axis is subordinate.
 
 ## Instrumentation Categories
 
