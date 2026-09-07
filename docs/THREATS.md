@@ -84,6 +84,32 @@ This file seeds Section 6 of the paper and tracks planned mitigations.
 - Identification: A row is a latency outlier if latency_s > 1800 and tokens_out < 10. Three rows match this criterion in run_20260813T021516Z.jsonl (probes sea_01, sea_04, lon_02 at d=32000, r=1).
 - Mitigation: Add a server health check (e.g., a ping call with num_predict=1 and timeout=30 s) between cells when the previous cell's maximum latency exceeded a threshold (e.g., 600 s). This would detect and surface degraded state before the next cell begins.
 
+## 11. Unified vs. Discrete Memory: Non-Equivalence of Nominal Pool Size
+
+- Threat: A 64 GB unified LPDDR5X system (AMD Strix Halo) and a 64 GB discrete
+  GPU VRAM system (e.g., Intel EVO-T2S) share the same nominal memory figure but
+  provide materially different inference headroom. On discrete memory, the GPU VRAM
+  pool is fully available for model weights and KV cache; system RAM is a separate
+  pool. On Strix Halo, the 64 GB is the total shared budget for OS, all processes,
+  KV cache, weights, and GPU workloads combined. OS and driver overhead typically
+  consumes 8–12 GB at idle, reducing effective inference headroom to ~52–56 GB.
+- Impact: Direct comparison of quality-vs-depth curves, KV eviction onset, or
+  fabrication rate between `evox2_strix_halo_64gb` and any discrete-memory 64 GB
+  config conflates two different effective memory constraints and will produce
+  misleading conclusions. A discrete system with nominally the same size reaches
+  eviction later (more headroom) and shows a different curve shape.
+- Scope: Applies to any cross-architecture comparison where both sides are
+  identified by total nominal GB. Does not affect comparisons within the same
+  architecture (e.g., 64 GB vs. 128 GB Strix Halo, or two discrete platforms).
+- Mitigation: Always compare by `achievable_pool_gb` (telemetry-populated field
+  in configs/hardware/), not by `memory_gb`. The `memory_architecture` field
+  (`unified` vs. `discrete`) must be a covariate in any cross-architecture
+  regression. Cross-architecture comparisons must correct for the headroom
+  difference or be restricted to matched achievable-pool values.
+- Config flags: `evox2_strix_halo_64gb.yaml` carries this caveat inline.
+  Analysis code reading configs/hardware/*.yaml should check `memory_architecture`
+  before pooling results from configs with the same `memory_gb`.
+
 ## 10. Artifact Probe Selection Bias Toward Simple Retrieval
 
 - Threat: Two of the ten artifact-bearing probes (art_03 and art_04) were redesigned during authoring because their original formulations required multi-step inference — art_03 asked for the maximum-CPU_HOURS job (argmax over a table) and art_04 asked which user performed a specified action (reverse actor lookup). Both models failed these questions reliably with 4,000 tokens of filler present, even when the artifact was intact, and redesign was necessary to achieve headroom. The final suite therefore consists entirely of direct retrieval lookups: given a key, return the value at that key from the artifact.

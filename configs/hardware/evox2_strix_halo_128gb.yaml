@@ -1,0 +1,47 @@
+# Target hardware: AMD Ryzen AI Max+ 395 (Strix Halo), 128 GB unified LPDDR5X
+# EVO-X2 class device. Primary BOM candidate for Paper 1 feasibility envelope.
+#
+# memory_architecture: unified
+#   GPU and CPU share one physical LPDDR5X pool. Weights, KV cache, and OS
+#   all compete for the same bandwidth. reserved_gb covers OS + driver overhead
+#   (not a separate VRAM region as on discrete hosts). Values below are left
+#   null until populated from telemetry during the first real session.
+#
+# Network: WiFi-only (no Ethernet). Zachary's remote-search baseline data
+#   includes network round-trips; when reproducing on this host, measure or
+#   document the WiFi link rate so network latency can be separated from
+#   inference latency.
+#
+# Cross-device note (64 GB variant): 64 GB unified LPDDR5X on Strix Halo is
+#   NOT equivalent to 64 GB on a discrete-memory Intel EVO-T2S platform.
+#   On discrete memory, GPU VRAM is a separate pool; system RAM is not shared
+#   with inference. On Strix Halo, 64 GB is the total budget for OS, inference,
+#   KV, and GPU workloads combined. Quality-vs-depth curves from the 64 GB
+#   unified config cannot be directly compared with results from a 64 GB
+#   discrete system without correcting for the effective inference-available
+#   memory, which differs substantially. See also docs/THREATS.md §11.
+name: evox2_strix_halo_128gb
+memory_architecture: unified
+os: ubuntu
+cpu: AMD Ryzen AI Max+ 395
+gpu: AMD Radeon 8060S (Strix Halo)
+memory_gb: 128
+memory_type: LPDDR5X
+has_npu: true
+npu_tops: 50
+quant: null            # populate from first run (q4_k_m expected baseline)
+bom_cost_usd: null     # populate from device street price at time of purchase
+reserved_gb: null      # populate from telemetry: OS + driver overhead at idle
+                       # Measured as (total_gb - free_at_idle) on a quiescent system.
+achievable_pool_gb: null   # populate from telemetry: memory_gb - reserved_gb
+bandwidth_gb_s: null       # populate from telemetry or vendor-confirmed measurement
+                           # Do NOT copy from vendor spec sheets without a citation;
+                           # vendor peak figures are not sustained inference bandwidth.
+thermal_ceiling_w: null    # populate from thermal telemetry under sustained load
+notes: >
+  AMD Ryzen AI Max+ 395, Strix Halo die, 128 GB unified LPDDR5X, Ubuntu.
+  Primary Paper 1 characterization target for unified-memory AI PC hardware.
+  Measured fields (reserved_gb, achievable_pool_gb, bandwidth_gb_s,
+  thermal_ceiling_w) are left null; they are populated from harness telemetry
+  during the first real session, not from vendor specifications.
+  WiFi-only: network latency is in-band for remote-search tasks.

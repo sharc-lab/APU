@@ -1,0 +1,45 @@
+# Target hardware: AMD Ryzen AI Max+ 395 (Strix Halo), 64 GB unified LPDDR5X
+# EVO-X2 class device, capped memory variant.
+#
+# IMPORTANT — cross-platform comparison caveat:
+#   64 GB unified LPDDR5X (Strix Halo) is NOT equivalent to 64 GB on a
+#   discrete-memory Intel EVO-T2S platform. On discrete memory, GPU VRAM is
+#   a separate pool; system RAM is not consumed by inference. On Strix Halo,
+#   this 64 GB is the total shared budget for OS, all processes, KV cache,
+#   weights, and GPU workloads combined. In practice, OS + driver overhead
+#   typically consumes 8–12 GB at idle, leaving ~52–56 GB for inference.
+#   A discrete-memory system with 64 GB GPU VRAM has the full 64 GB available
+#   for model weights and KV. Results from this config must not be compared
+#   against discrete-64GB results without correcting for effective inference
+#   headroom. See also docs/THREATS.md §11 and the 128 GB variant for the
+#   unconstrained Strix Halo baseline.
+#
+# Use this config for:
+#   - Cross-device comparison against Intel EVO-T2S (with the caveat above)
+#   - Measuring the quality penalty of the capped unified pool relative to
+#     the 128 GB variant at the same depth and model
+#
+# Do NOT use this config for:
+#   - Direct quality comparison with discrete-memory 64 GB results
+#   - BOM comparison with discrete platforms without headroom correction
+name: evox2_strix_halo_64gb
+memory_architecture: unified
+os: ubuntu
+cpu: AMD Ryzen AI Max+ 395
+gpu: AMD Radeon 8060S (Strix Halo)
+memory_gb: 64
+memory_type: LPDDR5X
+has_npu: true
+npu_tops: 50
+quant: null            # populate from first run
+bom_cost_usd: null     # populate from device street price at time of purchase
+reserved_gb: null      # populate from telemetry at idle
+achievable_pool_gb: null   # populate from telemetry: memory_gb - reserved_gb
+bandwidth_gb_s: null       # populate from telemetry
+thermal_ceiling_w: null    # populate from thermal telemetry under sustained load
+notes: >
+  AMD Ryzen AI Max+ 395, Strix Halo die, 64 GB unified LPDDR5X, Ubuntu.
+  Capped-memory variant of evox2_strix_halo_128gb.
+  See cross-platform comparison caveat in the file header and in
+  docs/THREATS.md §11 before comparing results with any discrete-memory 64 GB
+  system.  Measured fields are left null and populated from telemetry.
