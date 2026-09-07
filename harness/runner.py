@@ -54,6 +54,8 @@ REQUIRED_ROW_FIELDS = frozenset({
     "score", "config_hash", "hardware_config", "memory_architecture",
     "model", "model_variant", "thinking_enabled",
     "ctx_suspect", "position_in_cell",
+    # Span instrumentation (Zachary category names, per-call)
+    "orch_setup_ns", "http_client_ns", "tool_compute_ns",
 })
 
 
@@ -171,7 +173,12 @@ def run_cell(
     thinking_enabled: bool,
     scorers,
 ) -> dict[str, Any]:
+    # ORCH_SETUP: harness cost to assemble the full prompt (wrap_prompt).
+    # CPU-bound; wall elapsed is a valid CPU proxy (no I/O).
+    _t0 = time.perf_counter_ns()
     prompt = context.wrap_prompt(filler, probe["prompt"], filler_mode=filler_mode)
+    orch_setup_ns = time.perf_counter_ns() - _t0
+
     max_tokens: int = probe["max_tokens"]
     params = {
         "max_tokens": max_tokens,
@@ -199,6 +206,15 @@ def run_cell(
             gpu_mem_method=gpu_method,
         )
         cache.put(model, prompt, params, {"output": output, "telemetry": tel.to_dict()})
+
+    # HTTP_CLIENT: Ollama inference wall time.  Recorded from _call_ollama_streaming
+    # (or from cached telemetry on a cache hit — the cached latency is the original
+    # measured value, so the span is historically accurate).
+    # cpu_ns = 0: the thread blocks on network/GPU I/O, not user-space CPU.
+    http_client_ns = int(tel.latency_ms * 1e6)
+
+    # TOOL_COMPUTE: 0 — the quality sweep does not dispatch tool calls.
+    tool_compute_ns = 0
 
     score_val, score_detail = scorers.score(probe, output)
 
@@ -233,6 +249,10 @@ def run_cell(
         "model": model,
         "model_variant": model_variant,
         "thinking_enabled": thinking_enabled,
+        # Span instrumentation — Zachary's category names, per-call
+        "orch_setup_ns":   orch_setup_ns,
+        "http_client_ns":  http_client_ns,
+        "tool_compute_ns": tool_compute_ns,
     }
 
 
@@ -815,6 +835,9 @@ def main() -> None:
                                 "model_variant": model_variant,
                                 "thinking_enabled": thinking_enabled,
                                 "ctx_suspect": False,
+                                "orch_setup_ns":   0,
+                                "http_client_ns":  0,
+                                "tool_compute_ns": 0,
                             }
 
                         fout.write(json.dumps(row) + "\n")

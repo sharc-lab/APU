@@ -13,6 +13,7 @@ Outputs:
     claude_code_characterization.json
 """
 
+import argparse
 import hashlib
 import json
 import os
@@ -23,8 +24,6 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timezone
-import json
-import os
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -47,7 +46,7 @@ load_dotenv()
 
 MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 INSTR_VERSION = 3
-BACKEND = "openai"
+BACKEND = os.environ.get("BACKEND", "openai")   # "openai" or "ollama"
 PAYLOAD_PROFILE = "claude_code_adapter"
 PROFILE = "mixed"
 SEARCH_LOCALITY = "local"   # mock tools — no remote HTTP
@@ -58,6 +57,7 @@ DEBUG      = os.environ.get("SHARC_DEBUG", "0") == "1"
 REPLAY_MODE = os.environ.get("APU_REPLAY_MODE", "AUTO")
 TRACES_ROOT_ENV = os.environ.get("APU_TRACES_ROOT")
 OUTPUT_PATH = Path(__file__).parent.parent.parent / "results" / "claude_code_characterization.json"
+JSONL_PATH  = Path(__file__).parent.parent.parent / "results" / "claude_code_characterization.jsonl"
 
 # Harness category groupings (from Zachary's definitions)
 HARNESS_STRICT_CATEGORIES = frozenset({"ORCH_SETUP", "ORCH_DISPATCH", "TOKENIZATION", "SERIALIZATION"})
@@ -950,38 +950,214 @@ def _get_setup_ref() -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Resume helpers
+# ---------------------------------------------------------------------------
+
+def _sdk_config_hash(backend_name: str) -> str:
+    """Hash of all dimensions that define the output structure.
+
+    Changing n_seeds, n_sessions, model, task list, or backend requires
+    a fresh run (delete the .jsonl) because the aggregate statistics change.
+    """
+    src = json.dumps(
+        {
+            "n_seeds":   N_SEEDS,
+            "n_sessions": N_SESSIONS,
+            "model":     MODEL,
+            "tasks":     sorted(TASKS.keys()),
+            "backend":   backend_name,
+        },
+        sort_keys=True,
+    )
+    return hashlib.sha256(src.encode()).hexdigest()[:12]
+
+
+def _load_jsonl_seeds(
+    path: Path,
+    cfg_hash: str,
+) -> tuple[set[int], list[dict]]:
+    """Load completed seed artifacts from *path*.
+
+    Returns (completed_seeds, loaded_artifacts).
+
+    Truncated final line (power-loss pattern) is discarded with a warning.
+    Malformed non-final line raises ValueError.
+    Config hash mismatch raises ValueError.
+    """
+    completed_seeds: set[int] = set()
+    loaded_artifacts: list[dict] = []
+
+    raw_lines = path.read_text(encoding="utf-8").splitlines()
+    nonempty = [(i + 1, ln) for i, ln in enumerate(raw_lines) if ln.strip()]
+
+    for idx, (lineno, raw) in enumerate(nonempty):
+        is_last = idx == len(nonempty) - 1
+        try:
+            artifact = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            if is_last:
+                print(
+                    f"WARNING: discarding truncated final line in {path} "
+                    f"(line {lineno}): {exc}",
+                    flush=True,
+                )
+                continue
+            raise ValueError(
+                f"Malformed JSON at {path}:{lineno} "
+                f"(not the final line — corruption, not a truncated write): {exc}"
+            ) from exc
+
+        existing_hash = artifact.get("config_hash")
+        if existing_hash and existing_hash != cfg_hash:
+            raise ValueError(
+                f"Config hash mismatch: resume file has {existing_hash!r}, "
+                f"current run has {cfg_hash!r}. "
+                "N_SEEDS, N_SESSIONS, MODEL, task list, or backend changed — "
+                "delete the .jsonl file or start a fresh run."
+            )
+
+        seed = artifact.get("config", {}).get("seed")
+        if seed is not None:
+            completed_seeds.add(seed)
+            loaded_artifacts.append(artifact)
+
+    return completed_seeds, loaded_artifacts
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
 def main() -> None:
-    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
-    traces_root = Path(TRACES_ROOT_ENV) if TRACES_ROOT_ENV else None
-    replay_cache = ReplayCache(mode=REPLAY_MODE, traces_root=traces_root)
-    backend = OpenAIChatBackend(client=client, replay_cache=replay_cache)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--backend",
+        default=os.environ.get("BACKEND", "openai"),
+        choices=["openai", "ollama"],
+        help=(
+            "Inference backend. 'openai' (default): uses OPENAI_API_KEY + OpenAI API. "
+            "'ollama': uses local Ollama at OLLAMA_HOST (default http://localhost:11434). "
+            "Use 'ollama' for the Fig 6.1 joint-envelope experiment."
+        ),
+    )
+    parser.add_argument(
+        "--ollama-host",
+        default=os.environ.get("OLLAMA_HOST", "http://localhost:11434"),
+        help="Ollama server URL when --backend ollama (default: http://localhost:11434).",
+    )
+    parser.add_argument(
+        "--ollama-model",
+        default=os.environ.get("OLLAMA_MODEL", "qwen3:4b-instruct"),
+        help="Model name when --backend ollama (default: qwen3:4b-instruct).",
+    )
+    parser.add_argument(
+        "--resume", action="store_true",
+        help=(
+            f"Resume an interrupted run. Reads {JSONL_PATH.name} to recover "
+            "completed seeds; appends new seed artifacts to the same file."
+        ),
+    )
+    parser.add_argument(
+        "--no-fsync", action="store_true",
+        help="Skip os.fsync after each seed write. Faster for dev; unsafe across power loss.",
+    )
+    args = parser.parse_args()
+
+    # Determine effective model and backend name for this run.
+    effective_model = args.ollama_model if args.backend == "ollama" else MODEL
+    effective_backend = args.backend
+
+    cfg_hash = _sdk_config_hash(effective_backend)
+
+    completed_seeds: set[int] = set()
+    loaded_artifacts: list[dict] = []
+
+    if args.resume:
+        if not JSONL_PATH.exists():
+            raise FileNotFoundError(
+                f"--resume specified but {JSONL_PATH} does not exist. "
+                "Start a fresh run without --resume."
+            )
+        completed_seeds, loaded_artifacts = _load_jsonl_seeds(JSONL_PATH, cfg_hash)
+        print(f"Resume: {len(completed_seeds)} seeds already done: {sorted(completed_seeds)}")
+
+    # Build client based on backend choice.
+    if effective_backend == "ollama":
+        client = OpenAI(
+            base_url=f"{args.ollama_host}/v1",
+            api_key="ollama",   # Ollama ignores this but the OpenAI SDK requires it
+        )
+        # Replay does not apply to a local inference server.
+        replay_cache = ReplayCache(mode="DISABLED", traces_root=None)
+    else:
+        client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+        traces_root = Path(TRACES_ROOT_ENV) if TRACES_ROOT_ENV else None
+        replay_cache = ReplayCache(mode=REPLAY_MODE, traces_root=traces_root)
+
+    backend_obj = OpenAIChatBackend(client=client, replay_cache=replay_cache)
 
     git_info  = _get_git_info()
     env_info  = _get_env()
     setup_ref = _get_setup_ref()
     seeds     = list(range(N_SEEDS))
 
-    raw_artifacts: list[dict] = []
-    for seed in seeds:
-        print(f"\n{'=' * 60}")
-        print(f"Seed {seed}")
-        print(f"{'=' * 60}")
-        artifact = run_seed(backend, seed)
-        raw_artifacts.append(artifact)
+    # raw_artifacts accumulates both loaded (from resume) and newly collected.
+    raw_artifacts: list[dict] = list(loaded_artifacts)
+
+    JSONL_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+    with open(JSONL_PATH, "a", encoding="utf-8") as fout:
+        if args.resume and not loaded_artifacts:
+            # File exists but has no valid rows (e.g. all truncated).
+            pass
+
+        for seed in seeds:
+            if seed in completed_seeds:
+                print(f"\nSkipping seed {seed} (already done)")
+                continue
+
+            print(f"\n{'=' * 60}")
+            print(f"Seed {seed}  ({effective_backend}, model={effective_model})")
+            print(f"{'=' * 60}")
+
+            # Patch MODEL for this run if using Ollama.
+            # run_seed() uses the module-level MODEL constant; override if needed.
+            if effective_backend == "ollama":
+                import harness.adapters.sdk_direct as _self
+                _prev_model = _self.MODEL
+                _self.MODEL = effective_model
+
+            try:
+                artifact = run_seed(backend_obj, seed)
+            finally:
+                if effective_backend == "ollama":
+                    _self.MODEL = _prev_model
+
+            # Strip internal fields before writing to JSONL and accumulating.
+            clean = {k: v for k, v in artifact.items() if not k.startswith("_")}
+            clean["config_hash"] = cfg_hash
+
+            fout.write(json.dumps(clean) + "\n")
+            fout.flush()
+            if not args.no_fsync:
+                try:
+                    os.fsync(fout.fileno())
+                except OSError:
+                    pass
+
+            raw_artifacts.append(artifact)
 
     result_validity = _check_validity(raw_artifacts)
 
-    # Strip internal fields and stamp final validity on every seed artifact
+    # Strip internal fields and stamp final validity on every seed artifact.
+    # For loaded artifacts (no _sessions), stripping is a no-op.
     clean_artifacts = []
     for a in raw_artifacts:
         ca = {k: v for k, v in a.items() if not k.startswith("_")}
         ca["result_validity"] = result_validity
         clean_artifacts.append(ca)
 
-    aggregate = build_aggregate(raw_artifacts)   # uses _sessions on raw artifacts
+    aggregate = build_aggregate(raw_artifacts)
 
     output = {
         "experiment":      "replication_batch",
@@ -996,7 +1172,8 @@ def main() -> None:
             "search_locality":  SEARCH_LOCALITY,
             "seeds":            seeds,
             "sessions":         N_SESSIONS,
-            "backend":          BACKEND,
+            "backend":          effective_backend,
+            "model":            effective_model,
             "comparison_type":  "distribution_over_seeds",
             "allow_dirty":      False,
             "instr_version":    INSTR_VERSION,
@@ -1010,6 +1187,7 @@ def main() -> None:
     med = aggregate["batch_host_cpu_ms"]["median"]
     print(f"\n{'=' * 60}")
     print(f"Output written to  : {OUTPUT_PATH}")
+    print(f"Resume log at      : {JSONL_PATH}")
     print(f"result_validity    : {result_validity}")
     print(f"seeds completed    : {len(clean_artifacts)}")
     print(f"batch_host_cpu_ms  : {med:.1f} ms  (median across seeds)")

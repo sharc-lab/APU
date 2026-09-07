@@ -1,84 +1,101 @@
-# Result File Provenance and Corrections
+# Result Provenance
 
-This file records corrections to metadata embedded in historical result files.
-Result files are not rewritten after the fact; corrections are documented here
-and must be applied when interpreting or pooling result rows.
+This file records the hardware each committed result was produced on,
+whether that hardware is on-target-class, and which figures it feeds.
+It exists because the Razer Blade 14 (the development machine) is
+**not the BOM target**; results from it must not be silently pooled
+with future Strix Halo measurements.
 
----
+**Target hardware:** AMD Ryzen AI Max+ 395 (Strix Halo), unified LPDDR5X,
+Ubuntu. See `configs/hardware/evox2_strix_halo_{64,128}gb.yaml`.
 
-## Correction 1: host string "blade_rtx4070" → "blade14_rtx4070"
-
-**Date of correction:** 2026-08-22  
-**Affected field:** `hardware` (per-row string field in JSON result files)
-
-**Reason:** The measurement host was identified as a Razer Blade 15 in all
-documents and harness scripts prior to 2026-08-22. The correct model is
-**Razer Blade 14 (RZ09-0508)**. The config key was renamed from
-`blade_rtx4070` to `blade14_rtx4070` in the same commit, and all docs were
-updated. Result rows written before this commit carry the string
-`"hardware": "blade_rtx4070"`, which should be read as `"blade14_rtx4070"`.
-The hardware is otherwise unchanged: RTX 4070 Laptop GPU, 8188 MiB GDDR6
-VRAM, discrete memory architecture. No measurement values are affected.
-
-**Files carrying the uncorrected string:**
-
-| File | Rows affected |
-|------|---------------|
-| `results/art_truncation.json` | 480 (all rows) |
-| `results/art_headroom.json` | all rows |
-| `results/partial_truncation.json` | all rows |
-| `results/filler_composition.json` | all rows |
-| `results/model2_truncation.json` | all rows |
-| `results/selfreport_arms.json` | all rows |
-| `results/stage_c_20260818T040408Z.jsonl` | all rows |
-| `results/position_pressure_analysis.json` | all rows |
-| `results/ablation_cha04_20260817.jsonl` | all rows |
-
-**Reading rule:** any row with `"hardware": "blade_rtx4070"` was collected on
-the Razer Blade 14 RZ09-0508, RTX 4070 dGPU, discrete VRAM, and is
-equivalent to rows labelled `"blade14_rtx4070"` from this commit forward.
+**Off-target hardware used so far:** Razer Blade 14 RZ09-0508,
+RTX 4070 Laptop GPU (discrete, 8188 MiB VRAM), Windows 11.
+Identified in result files as `blade_rtx4070`, `blade14_rtx4070`,
+or `hardware_config: blade_rtx4070`.
 
 ---
 
-## Note: AMD Radeon 780M iGPU added to host inventory (2026-08-22)
+## Committed Results — Provenance Table
 
-The Razer Blade 14 RZ09-0508 also carries an **AMD Radeon 780M integrated
-GPU** (unified memory, LPDDR5, 15.6 GB shared GPU memory pool, 31.3 GB system
-RAM total). This iGPU was not previously documented. It is now registered as
-`blade14_780m` in `configs/hardware/`. No experiments have been run on the
-780M as of this date. When they are, their rows will carry
-`"hardware": "blade14_780m"` and must not be pooled with `blade14_rtx4070`
-rows or with future AMD Strix Halo data.
+| File | Hardware | On-target? | Figures fed | Re-run needed? |
+|---|---|---|---|---|
+| `results/run_20260813T021516Z.jsonl` | blade_rtx4070, discrete | **NO** | Fig 4.1 (CORE), Fig 4.2 (SUPPORTING) — primary quality-vs-depth sweep | Yes — re-run on Strix Halo required for Fig 6.1 |
+| `results/run_20260818T000746Z.jsonl` | blade_rtx4070, discrete | **NO** | Fig 4.13 (SUPPORTING) — llama3.1:8b cross-model baseline | Yes — re-run on Strix Halo for Axis A completeness |
+| `results/run_20260812T*.jsonl` (11 files) | blade_rtx4070, discrete | **NO** | Exploratory/development runs; not directly cited in paper | Not required for paper |
+| `results/ablation_cha04_20260817.jsonl` | blade_rtx4070, discrete | **NO** | Fig 4.2 per-probe detail (SUPPORTING) | Yes if cha_04 ablation figure is included |
+| `results/stage_c_20260818T040408Z.jsonl` | blade_rtx4070, discrete | **NO** | Fig 4.12 position pressure (SUPPORTING) | Yes — re-run on Strix Halo |
+| `results/span_ablation.jsonl` | blade_rtx4070, discrete | **NO** | Fig 4.6 span ablation (SUPPORTING) | Yes — re-run on Strix Halo |
+| `results/art_truncation.json` | blade_rtx4070, discrete (inferred) | **NO** | Fig 4.3 (CORE) — artifact truncation cliff | Yes — re-run on Strix Halo required for envelope |
+| `results/art_headroom.json` | blade_rtx4070, discrete (inferred) | **NO** | Fig 4.10 (APPENDIX) — headroom measurement | No (appendix; Blade data acceptable if labeled) |
+| `results/art_truncation_analysis.json` | blade_rtx4070, discrete (inferred) | **NO** | Supports Fig 4.3 analysis | Yes, if Fig 4.3 re-run |
+| `results/artifact_ratio_sweep.json` | blade_rtx4070, discrete (inferred) | **NO** | Fig 4.5 (APPENDIX) — artifact ratio sweep | No (appendix) |
+| `results/crossmodel_baseline.json` | blade_rtx4070, discrete (inferred) | **NO** | Fig 4.13 (SUPPORTING) — cross-model comparison | Yes — re-run on Strix Halo |
+| `results/filler_composition.json` | blade_rtx4070 (explicit field) | **NO** | Fig 4.7 (APPENDIX) — filler composition confound | No (appendix) |
+| `results/model2_truncation.json` | blade_rtx4070, discrete (inferred) | **NO** | Fig 4.13 (SUPPORTING) — llama3.1:8b truncation | Yes — re-run on Strix Halo |
+| `results/partial_truncation.json` | blade_rtx4070, discrete (inferred) | **NO** | Fig 4.4 (APPENDIX) — partial truncation fine sweep | No (appendix) |
+| `results/position_pressure_analysis.json` | blade_rtx4070 (explicit field) | **NO** | Fig 4.12 (SUPPORTING) | Yes — re-run on Strix Halo |
+| `results/selfreport_arms.json` | blade_rtx4070 (explicit field) | **NO** | Fig 4.9 (APPENDIX) — schema collision | No (appendix) |
+| `results/span_ablation.json` | blade_rtx4070, discrete (inferred) | **NO** | Fig 4.6 (SUPPORTING) — span ablation | Yes — re-run on Strix Halo |
+| `results/token_aligned_rerun.json` | blade_rtx4070, discrete (inferred) | **NO** | Quality sweep validation; not a primary figure | No |
+| `results/type_match.json` | blade_rtx4070, discrete (inferred) | **NO** | Fig 4.8 (APPENDIX) — type-matched filler | No (appendix) |
+| `results/schema_collision.json` | blade_rtx4070, discrete (inferred) | **NO** | Fig 4.9 (APPENDIX) | No (appendix) |
+| `results/interference_r120.json` | blade_rtx4070, discrete (inferred) | **NO** | Fig 4.10 (APPENDIX) — headroom interference | No (appendix) |
+| `results/gate1_kv_precision.json` | blade_rtx4070 (explicit in data) | **NO** | Fig 4.11 (SUPPORTING) — KV precision gate | **Yes — pending** (see note below) |
+| `results/llamaserver_feasibility.json` | blade14_rtx4070 (explicit) | **NO** | Reference/validation; no direct figure | No |
+| `results/stage_a_scale.json` | blade_rtx4070, discrete (inferred) | **NO** | Fig 4.14 (APPENDIX) — scale experiment | No (appendix; uses cloud model gpt-oss:120b) |
+
+**"Inferred"** = no explicit `hardware` field in JSON; inferred from commit date,
+model name (`qwen3:4b-instruct` + Ollama), and the Blade 14 being the only
+machine with Ollama access during these commits.
 
 ---
 
-## Note: stage_a_scale.json — missing instrumentation fields (pre-fix rows)
+## gate1_kv_precision.json — Provenance note
 
-**Affected file:** `results/stage_a_scale.json`  
-**Affected rows:** The 51 rows where `classification_method == "unavailable"` (all
-rows not replaced by the Stage A rerun).
+**Produced on:** Razer Blade 14 RZ09-0508, Windows 11, Ollama 0.32.9/0.32.6,
+RTX 4070 Laptop GPU (NVIDIA discrete VRAM, 8188 MiB).
 
-**Missing fields:** `eval_count`, `prompt_eval_count`, `done_reason`. The
-`thinking` field is present only as a 120-character snippet under the key
-`thinking_snippet`; the full thinking trace was not stored.
+**Key result:** f16/q8_0 VRAM ratio ≈ 1.83×; f16/q4_0 ratio ≈ 3.76×.
+This is cited as the ~1.83× int8-to-int4 memory reduction figure in
+analysis and in Fig 4.11.
 
-**Cause:** These rows were written by `harness/stage_a_scale.py` at
-`MIN_PREDICT=512` before the harness instrumentation fix that added the above
-fields to all harnesses. The fix raised `MIN_PREDICT` to 1024 and stores the
-full thinking trace under `"thinking"`.
+**Off-target-class status:** The Blade 14 uses discrete NVIDIA VRAM.
+The KV cache precision test measures GPU-side memory allocation via
+`nvidia-smi`. On Strix Halo (AMD unified memory, no discrete VRAM):
+- `nvidia-smi` is unavailable; the script now falls back to `rocm-smi`
+  and then to `/proc/meminfo` (unified pool, less precise for KV-only)
+- VRAM allocation semantics differ: on unified memory, weights + KV + OS
+  all share one pool; the subtraction method (`total_vram - weight_vram`)
+  may include OS/driver allocations not present on discrete hardware
 
-**Reading rule:** For the 51 pre-fix rows, `done_reason` is unknown. These rows
-cannot be classified as `budget_exhausted` or `null_response` from the data
-alone. The field `classification_method: "unavailable"` marks them
-explicitly. The 21 rows that produced empty output (`output == ""`) were
-rerun with `harness/stage_a_rerun.py` at `MIN_PREDICT=1024`; those
-replacement rows carry `classification_method: "done_reason"` and `rerun:
-true`, and their `done_reason` field is authoritative.
+**Status:** TARGET-CLASS RE-RUN PENDING.
+The committed result is valid for the Blade 14 configuration and documents
+the expected KV ratio for NVIDIA discrete hardware. Before citing this
+figure in the paper for the BOM device, the experiment must be re-run on
+Strix Halo EVO-X2 with a unified-memory-compatible measurement method.
 
-**Outcome labels on pre-fix rows are valid.** The 51 non-empty pre-fix rows
-produced coherent, complete outputs at MIN_PREDICT=512 (the model reached the
-answer phase within budget). Outputs are short single-word or short-phrase
-responses ('51847', '0.0073', 'unknown', '0.0147', etc.) with no evidence of
-output truncation. The missing `done_reason` and `eval_count` fields are
-instrumentation gaps only; the `outcome`, `score`, and `lifted_from_filler`
-labels on these rows stand and do not need to be recomputed.
+**Reproducibility:** `harness/stage_a_kv_precision.py` is now fully portable
+(OLLAMA_BIN / PATH resolution; platform-aware kill, log path, GPU query).
+Run on EVO-X2 after verifying `scripts/verify_platform.py` passes.
+
+---
+
+## Block 1 — Required re-runs on Strix Halo (EVO-X2)
+
+These committed results feed CORE or SUPPORTING figures and must be
+reproduced on target-class hardware before submission.
+
+| Priority | File | Figure | Why needed on target |
+|---|---|---|---|
+| 1 | Any `run_*.jsonl` (10-probe artifact sweep) | Fig 6.1 (CORE) | Joint envelope requires Strix Halo data for both axes |
+| 2 | `art_truncation.json` | Fig 4.3 (CORE) | Truncation cliff may shift with different memory bandwidth |
+| 3 | `run_20260813T021516Z.jsonl` (main quality sweep) | Fig 4.1 (CORE), Fig 4.2 | Primary quality-vs-depth curve |
+| 4 | `gate1_kv_precision.json` | Fig 4.11 (SUPPORTING) | Discrete NVIDIA measurement; AMD unified path unvalidated |
+| 5 | `span_ablation.json` + `span_ablation.jsonl` | Fig 4.6 (SUPPORTING) | Span ablation on unified memory may show different proportions |
+| 6 | `position_pressure_analysis.json` + `stage_c_*.jsonl` | Fig 4.12 (SUPPORTING) | Position pressure at depth may differ on unified memory bandwidth |
+| 7 | `crossmodel_baseline.json`, `model2_truncation.json` | Fig 4.13 (SUPPORTING) | Cross-model comparison needs same-hardware baseline |
+
+Results in **APPENDIX** figures produced on Blade 14 are acceptable labeled
+as "Blade 14 / discrete RTX 4070" with a note that Strix Halo re-runs
+are planned. They do not block submission if the CORE figures are reproduced.

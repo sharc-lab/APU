@@ -105,19 +105,22 @@ tests/test_span.py::test_span_initial_values PASSED              [100%]
 cd SHARC/APU
 
 # Install dependencies
-/c/Users/rithw/miniconda3/python.exe -m pip install -e ".[dev]"
+python -m pip install -e ".[dev]"
 
-# Run adapter (5 seeds × 10 sessions)
-OPENAI_API_KEY=sk-... /c/Users/rithw/miniconda3/python.exe -m harness.adapters.sdk_direct
+# Run adapter (5 seeds × 10 sessions, OpenAI backend)
+OPENAI_API_KEY=sk-... python -m harness.adapters.sdk_direct
+
+# Run adapter against local Ollama (for Fig 6.1 joint-envelope experiment)
+python -m harness.adapters.sdk_direct --backend ollama --ollama-model qwen3:4b-instruct
 
 # Run tail-latency study
-/c/Users/rithw/miniconda3/python.exe -m harness.tail_latency_instrument
+OPENAI_API_KEY=sk-... python -m harness.tail_latency_instrument
 
 # Generate reports
-/c/Users/rithw/miniconda3/python.exe analysis/generate_reports.py
+python analysis/generate_reports.py
 
 # Run tests
-/c/Users/rithw/miniconda3/python.exe -m pytest tests/ -v
+python -m pytest tests/ -v
 ```
 
 ---

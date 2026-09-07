@@ -288,25 +288,47 @@ cross-validates the span attribution methodology.
 
 ### Figure 6.1 — Joint feasibility envelope (both axes on shared hardware)
 
-**Shows:** the feasibility region in (context_depth, quality_floor) space
-overlaid with (p99_latency, orchestration_overhead) contours; a point is
-feasible if it satisfies both the quality constraint (Axis A) and the latency
-budget (Axis B). This is the envelope Paper 2 consumes.
+**Shows:** the feasibility region in (context_depth, quality_score) space with
+latency contours from the same probe calls; a point is feasible if it satisfies
+both the quality floor (Axis A: score ≥ threshold) and the latency budget
+(Axis B: http_client_ns ≤ budget). This is the envelope Paper 2 consumes.
+The join is **per-call** — both axes are recorded in the same result row,
+not pooled across separate experiments.
 
-- Script: NONE — **must be written**
-- Data: **CANNOT BE PRODUCED from current experiments.** `results/zachary/`
-  and `results/*.json` share no joinable row identifier. Axis A scores
-  (from `run_*.jsonl`) and Axis B timing categories (from
-  `claude_code_characterization.json`) were collected on different task sets
-  under different run identifiers. Joining them by probe_id or run_id is not
-  possible without re-instrumentation.
+- Script: [harness/runner.py](harness/runner.py) (span instrumentation now
+  active; every result row carries `orch_setup_ns`, `http_client_ns`,
+  `tool_compute_ns` alongside `score` — **no separate join step required**)
+- Analysis / plot: **must be written** (reads `run_*.jsonl`, plots
+  (depth, score, http_client_ns) per probe, overlays feasibility boundary)
+- Data: **NOT YET COLLECTED on target hardware.**
+  Existing `run_*.jsonl` rows now carry span fields but were produced on
+  Razer Blade 14 (discrete RTX 4070, off-target). A target-class run on
+  Strix Halo EVO-X2 is required.
 
-**What must run to produce this figure:**
-A new instrumented sweep that emits, per probe call, both a quality score
-(via [harness/runner.py](harness/runner.py) scoring path) and a full span
-breakdown (via [harness/instrumentation/](harness/instrumentation)) under a
-shared run_id. This is a new experimental protocol, not a re-analysis of
-existing data.
+**Experiment specification — minimum run for this figure:**
+
+| Parameter | Value | Rationale |
+|---|---|---|
+| Hardware | Strix Halo EVO-X2, 128 GB unified | target class; Blade 14 data NOT usable for envelope |
+| Model | `qwen3:4b-instruct` via Ollama | same as all Axis A Blade runs |
+| Probes | all 10 artifact probes (`art_01`–`art_10`) | highest quality signal at depth |
+| Depths | 0, 2000, 8000, 16000, 32000, 64000 | 6 depth cells |
+| Reps | 5 | matches existing Blade runs |
+| **Total calls** | **10 × 6 × 5 = 300** | — |
+| Estimated wall clock | 75–150 min | 15–30 s/call at depth≥32k on Strix Halo (TBD) |
+| Row schema | `probe_id, depth, rep, score, score_detail, latency_ms, ttft_ms,` | both axes in same row |
+| | `orch_setup_ns, http_client_ns, tool_compute_ns, hardware_config` | span breakdown |
+| Hardware config flag | `--hardware-config evox2_strix_halo_128gb --memory-architecture unified` | required for cross-hw isolation |
+
+**Why per-call pairing matters:** a mean-of-means join across depth cells would
+allow the envelope plot to be driven by cells with different sample compositions
+(e.g., quality sample set ≠ latency sample set). Per-call pairing eliminates
+this confound — each point on the envelope plot is a single (score, latency)
+pair from a single probe execution.
+
+**Prerequisite:** `configs/hardware/evox2_strix_halo_128gb.yaml` fields
+`reserved_gb`, `achievable_pool_gb`, `bandwidth_gb_s` must be populated from
+telemetry before running (run `scripts/verify_platform.py` first).
 
 ---
 

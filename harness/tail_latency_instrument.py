@@ -12,12 +12,22 @@ Conditions:
   fan_out  — three parallel API calls fired simultaneously (c=3 parallel)
 
 Usage:
-    OPENAI_API_KEY=sk-... python tail_latency_instrument.py
+    OPENAI_API_KEY=sk-... python -m harness.tail_latency_instrument
+    python -m harness.tail_latency_instrument --resume       # continue interrupted run
+    python -m harness.tail_latency_instrument --no-fsync     # skip disk sync (dev)
 
-Outputs:
-    tail_latency_results.json
+Durability:
+    Each sample is written immediately to JSONL_PATH as it completes
+    (fsync per row, truncated-final-line tolerance, config-hash guard).
+    The final JSON at OUTPUT_PATH is computed from all samples after
+    the sweep completes and is byte-identical to a full un-interrupted run
+    for the same samples.
 
-Output schema per record:
+Output files:
+    results/tail_latency_results.json   — final aggregate (gitignored)
+    results/tail_latency_results.jsonl  — per-sample resume log (gitignored)
+
+Output schema per JSON record:
     {
         "condition":  "single" | "chained" | "fan_out",
         "task_id":    string,
@@ -30,10 +40,15 @@ Output schema per record:
     }
 """
 
+from __future__ import annotations
+
+import argparse
 import concurrent.futures
+import hashlib
 import json
 import os
 import time
+from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -66,12 +81,21 @@ load_dotenv()
 
 MIN_SAMPLES = 30          # probes per (task, condition) — minimum for stable percentiles
 OUTPUT_PATH = Path(__file__).parent.parent / "results" / "tail_latency_results.json"
+JSONL_PATH  = Path(__file__).parent.parent / "results" / "tail_latency_results.jsonl"
 PROBE_MAX_TOKENS = 512    # keep probes cheap; we care about timing, not output length
 
-# Narrow this list to reduce API cost during development
 CHARACTERIZE_TASKS = list(TASKS.keys())
-
 CONDITIONS = ["single", "chained", "fan_out"]
+
+# Config hash covers all dimensions that define the output structure.
+# Changing model, sample count, task list, or conditions requires a fresh run.
+_CFG_SRC = json.dumps(
+    {"model": MODEL, "min_samples": MIN_SAMPLES,
+     "tasks": sorted(CHARACTERIZE_TASKS), "conditions": CONDITIONS},
+    sort_keys=True,
+)
+CONFIG_HASH = hashlib.sha256(_CFG_SRC.encode()).hexdigest()[:12]
+
 
 # ---------------------------------------------------------------------------
 # Percentile calculation
@@ -101,7 +125,7 @@ def _tail_record(samples: list[float], task_id: str, condition: str, metric: str
 
 
 # ---------------------------------------------------------------------------
-# Probe helpers — shared message builder
+# Probe helpers
 # ---------------------------------------------------------------------------
 
 def _system_msg() -> dict:
@@ -109,7 +133,6 @@ def _system_msg() -> dict:
 
 
 def _call_api(backend: OpenAIChatBackend, messages: list[dict]) -> tuple[dict, float, float]:
-    """Make one API call through backend wrapper, return response and latencies."""
     result = backend.model_call(
         model=MODEL,
         messages=messages,
@@ -123,10 +146,6 @@ def _call_api(backend: OpenAIChatBackend, messages: list[dict]) -> tuple[dict, f
 
 
 def _execute_tool_calls(response: dict) -> tuple[list[dict], float]:
-    """
-    Execute all tool calls in a response. Returns (tool_result_messages, total_tool_ms).
-    tool_ms is the sum of local execution time across all tool calls in this response.
-    """
     tool_results: list[dict] = []
     total_tool_ms = 0.0
 
@@ -156,52 +175,31 @@ def _execute_tool_calls(response: dict) -> tuple[list[dict], float]:
 
 
 # ---------------------------------------------------------------------------
-# Probe: single (c=1)
+# Probe functions
 # ---------------------------------------------------------------------------
 
 def _probe_single(backend: OpenAIChatBackend, task_id: str) -> dict[str, float]:
-    """
-    One complete turn: send task prompt, optionally execute one round of tool calls.
-
-    mcp_roundtrip_ms  — wall time of the single API call
-    tool_dispatch_ms  — time spent executing tool implementations locally (0 if no tools)
-    turn_total_ms     — end-to-end wall time of the entire probe
-    """
     messages = [_system_msg(), {"role": "user", "content": TASKS[task_id]["prompt"]}]
-
     t_start = wall_ns()
     response, recorded_mcp_ms, replay_mcp_ms = _call_api(backend, messages)
     _, tool_ms = _execute_tool_calls(response)
     turn_ms = (wall_ns() - t_start) / 1e6
-
     return {
-        "mcp_roundtrip_ms": recorded_mcp_ms,
+        "mcp_roundtrip_ms":    recorded_mcp_ms,
         "replay_roundtrip_ms": replay_mcp_ms,
-        "tool_dispatch_ms": tool_ms,
-        "turn_total_ms": turn_ms,
+        "tool_dispatch_ms":    tool_ms,
+        "turn_total_ms":       turn_ms,
     }
 
 
-# ---------------------------------------------------------------------------
-# Probe: chained (c=3 sequential)
-# ---------------------------------------------------------------------------
-
 def _probe_chained(backend: OpenAIChatBackend, task_id: str) -> dict[str, float]:
-    """
-    Three sequential tool-use turns in one conversation.
-
-    Metrics are summed across all turns:
-      mcp_roundtrip_ms  — sum of all API call wall times
-      tool_dispatch_ms  — sum of all local tool execution times
-      turn_total_ms     — wall time from first call to last tool result appended
-    """
     prompt = (
         f"{TASKS[task_id]['prompt']}\n\n"
         "Please use at least one tool in each of your first three replies."
     )
     messages = [_system_msg(), {"role": "user", "content": prompt}]
 
-    t_start      = wall_ns()
+    t_start = wall_ns()
     total_mcp_ms = 0.0
     total_replay_mcp_ms = 0.0
     total_tool_ms = 0.0
@@ -211,8 +209,7 @@ def _probe_chained(backend: OpenAIChatBackend, task_id: str) -> dict[str, float]
         total_mcp_ms += mcp_ms
         total_replay_mcp_ms += replay_mcp_ms
 
-        finish = response["choices"][0].get("finish_reason")
-        if finish == "stop":
+        if response["choices"][0].get("finish_reason") == "stop":
             break
 
         msg = response["choices"][0]["message"]
@@ -227,26 +224,14 @@ def _probe_chained(backend: OpenAIChatBackend, task_id: str) -> dict[str, float]
 
     turn_ms = (wall_ns() - t_start) / 1e6
     return {
-        "mcp_roundtrip_ms": total_mcp_ms,
+        "mcp_roundtrip_ms":    total_mcp_ms,
         "replay_roundtrip_ms": total_replay_mcp_ms,
-        "tool_dispatch_ms": total_tool_ms,
-        "turn_total_ms": turn_ms,
+        "tool_dispatch_ms":    total_tool_ms,
+        "turn_total_ms":       turn_ms,
     }
 
 
-# ---------------------------------------------------------------------------
-# Probe: fan_out (c=3 parallel)
-# ---------------------------------------------------------------------------
-
 def _probe_fanout(backend: OpenAIChatBackend, task_id: str) -> dict[str, float]:
-    """
-    Three independent API calls dispatched in parallel (fan-out pattern).
-
-    Latency semantics follow the critical-path model:
-      mcp_roundtrip_ms  — max of the three individual call latencies (blocking path)
-      tool_dispatch_ms  — sum across all branches (total CPU committed)
-      turn_total_ms     — wall time from thread pool submit to last future resolved
-    """
     messages = [_system_msg(), {"role": "user", "content": TASKS[task_id]["prompt"]}]
 
     def _one_call(_: int) -> tuple[float, float, float]:
@@ -261,16 +246,12 @@ def _probe_fanout(backend: OpenAIChatBackend, task_id: str) -> dict[str, float]:
     turn_ms = (wall_ns() - t_start) / 1e6
 
     return {
-        "mcp_roundtrip_ms": max(r[0] for r in results),   # critical path
+        "mcp_roundtrip_ms":    max(r[0] for r in results),
         "replay_roundtrip_ms": max(r[1] for r in results),
-        "tool_dispatch_ms": sum(r[2] for r in results),   # total CPU expended
-        "turn_total_ms":    turn_ms,
+        "tool_dispatch_ms":    sum(r[2] for r in results),
+        "turn_total_ms":       turn_ms,
     }
 
-
-# ---------------------------------------------------------------------------
-# Probe dispatch table
-# ---------------------------------------------------------------------------
 
 _PROBES = {
     "single":  _probe_single,
@@ -278,44 +259,179 @@ _PROBES = {
     "fan_out": _probe_fanout,
 }
 
+
 # ---------------------------------------------------------------------------
-# Sample collector
+# Resume: load completed samples from JSONL
 # ---------------------------------------------------------------------------
 
-def collect(
-    backend: OpenAIChatBackend,
-    task_id: str,
-    condition: str,
-    n: int = MIN_SAMPLES,
-) -> list[dict]:
-    """
-    Run n probes for (task_id, condition).
-    Returns three tail_stats records: tool_dispatch_ms, mcp_roundtrip_ms, turn_total_ms.
-    """
-    probe = _PROBES[condition]
+def _load_jsonl_samples(
+    path: Path,
+    cfg_hash: str,
+) -> tuple[set[tuple[str, str, int]], dict[tuple[str, str], list[dict]]]:
+    """Load completed samples from *path*.
 
-    tool_dispatch_samples: list[float] = []
-    mcp_roundtrip_samples: list[float] = []
-    replay_roundtrip_samples: list[float] = []
-    turn_total_samples:    list[float] = []
+    Returns (completed_set, prior_samples) where:
+      completed_set  — {(task_id, condition, sample_index)} already written
+      prior_samples  — {(task_id, condition): [sample_dict, ...]}
 
-    for i in range(n):
-        print(f"    run {i + 1:3d}/{n}  {condition}/{task_id}")
+    Truncated final line (power-loss pattern) is discarded with a warning.
+    Malformed non-final line raises ValueError.
+    Config hash mismatch raises ValueError.
+    """
+    completed: set[tuple[str, str, int]] = set()
+    prior_samples: dict[tuple[str, str], list[dict]] = defaultdict(list)
+
+    raw_lines = path.read_text(encoding="utf-8").splitlines()
+    nonempty = [(i + 1, ln) for i, ln in enumerate(raw_lines) if ln.strip()]
+
+    for idx, (lineno, raw) in enumerate(nonempty):
+        is_last = idx == len(nonempty) - 1
         try:
-            m = probe(backend, task_id)
-            tool_dispatch_samples.append(m["tool_dispatch_ms"])
-            mcp_roundtrip_samples.append(m["mcp_roundtrip_ms"])
-            replay_roundtrip_samples.append(m["replay_roundtrip_ms"])
-            turn_total_samples.append(m["turn_total_ms"])
-        except Exception as exc:
-            print(f"      WARNING: probe failed — {exc}")
+            row = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            if is_last:
+                print(
+                    f"WARNING: discarding truncated final line in {path} "
+                    f"(line {lineno}): {exc}",
+                    flush=True,
+                )
+                continue
+            raise ValueError(
+                f"Malformed JSON at {path}:{lineno} "
+                f"(not the final line — corruption, not a truncated write): {exc}"
+            ) from exc
 
-    return [
-        _tail_record(tool_dispatch_samples, task_id, condition, "tool_dispatch_ms"),
-        _tail_record(mcp_roundtrip_samples, task_id, condition, "mcp_roundtrip_ms"),
-        _tail_record(replay_roundtrip_samples, task_id, condition, "replay_roundtrip_ms"),
-        _tail_record(turn_total_samples,    task_id, condition, "turn_total_ms"),
-    ]
+        existing_hash = row.get("config_hash")
+        if existing_hash and existing_hash != cfg_hash:
+            raise ValueError(
+                f"Config hash mismatch: resume file has {existing_hash!r}, "
+                f"current run has {cfg_hash!r}. "
+                "Model, task list, condition list, or MIN_SAMPLES changed — "
+                "delete the .jsonl file or start a fresh run."
+            )
+
+        task_id = row.get("task_id")
+        condition = row.get("condition")
+        sample_index = row.get("sample_index")
+
+        if task_id and condition and sample_index is not None:
+            sample = {
+                "mcp_roundtrip_ms":    row.get("mcp_roundtrip_ms"),
+                "replay_roundtrip_ms": row.get("replay_roundtrip_ms"),
+                "tool_dispatch_ms":    row.get("tool_dispatch_ms"),
+                "turn_total_ms":       row.get("turn_total_ms"),
+            }
+            prior_samples[(task_id, condition)].append(sample)
+            completed.add((task_id, condition, sample_index))
+
+    return completed, dict(prior_samples)
+
+
+# ---------------------------------------------------------------------------
+# Sample collector (incremental write)
+# ---------------------------------------------------------------------------
+
+def _run_all(
+    backend: OpenAIChatBackend,
+    out_jsonl: Path,
+    completed: set[tuple[str, str, int]],
+    prior_samples: dict[tuple[str, str], list[dict]],
+    no_fsync: bool,
+) -> dict[tuple[str, str], list[dict]]:
+    """Run all (task_id, condition, sample_index) triples not already completed.
+
+    Writes each sample to *out_jsonl* immediately after collection.
+    Returns a complete sample dict containing both prior and newly collected
+    samples for every (task_id, condition) pair.
+    """
+    all_samples: dict[tuple[str, str], list[dict]] = defaultdict(list)
+    for k, v in prior_samples.items():
+        all_samples[k].extend(v)
+
+    with open(out_jsonl, "a", encoding="utf-8") as fout:
+        if not no_fsync and not out_jsonl.exists():
+            # Fsync directory so a new file's directory entry is durable.
+            try:
+                import os as _os
+                fd = _os.open(str(out_jsonl.parent), _os.O_RDONLY)
+                try:
+                    _os.fsync(fd)
+                finally:
+                    _os.close(fd)
+            except OSError:
+                pass
+
+        for task_id in CHARACTERIZE_TASKS:
+            for condition in CONDITIONS:
+                print(f"\n{'─' * 52}")
+                print(f"  Task: {task_id}  |  Condition: {condition}")
+                print(f"{'─' * 52}")
+                probe = _PROBES[condition]
+
+                for i in range(MIN_SAMPLES):
+                    if (task_id, condition, i) in completed:
+                        continue
+
+                    print(f"    sample {i + 1:3d}/{MIN_SAMPLES}  {condition}/{task_id}")
+                    try:
+                        m = probe(backend, task_id)
+                    except Exception as exc:
+                        print(f"      WARNING: probe failed — {exc}")
+                        m = {
+                            "mcp_roundtrip_ms":    None,
+                            "replay_roundtrip_ms": None,
+                            "tool_dispatch_ms":    None,
+                            "turn_total_ms":       None,
+                        }
+
+                    row = {
+                        "task_id":      task_id,
+                        "condition":    condition,
+                        "sample_index": i,
+                        "config_hash":  CONFIG_HASH,
+                        **m,
+                    }
+                    fout.write(json.dumps(row) + "\n")
+                    fout.flush()
+                    if not no_fsync:
+                        try:
+                            os.fsync(fout.fileno())
+                        except OSError:
+                            pass
+
+                    all_samples[(task_id, condition)].append(m)
+
+    return dict(all_samples)
+
+
+# ---------------------------------------------------------------------------
+# Aggregate computation (unchanged from original)
+# ---------------------------------------------------------------------------
+
+def _compute_tail_records(
+    all_samples: dict[tuple[str, str], list[dict]],
+) -> list[dict]:
+    """Compute tail statistics from collected samples.
+
+    Returns the same list structure as the original collect() output.
+    For a full run (no prior samples, no failures), the result is
+    byte-identical to the original implementation for the same probes.
+    """
+    records: list[dict] = []
+    for task_id in CHARACTERIZE_TASKS:
+        for condition in CONDITIONS:
+            samples = all_samples.get((task_id, condition), [])
+
+            def _extract(key: str) -> list[float]:
+                return [m[key] for m in samples if m.get(key) is not None]
+
+            records.extend([
+                _tail_record(_extract("tool_dispatch_ms"),    task_id, condition, "tool_dispatch_ms"),
+                _tail_record(_extract("mcp_roundtrip_ms"),    task_id, condition, "mcp_roundtrip_ms"),
+                _tail_record(_extract("replay_roundtrip_ms"), task_id, condition, "replay_roundtrip_ms"),
+                _tail_record(_extract("turn_total_ms"),       task_id, condition, "turn_total_ms"),
+            ])
+    return records
 
 
 # ---------------------------------------------------------------------------
@@ -323,20 +439,51 @@ def collect(
 # ---------------------------------------------------------------------------
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--resume", action="store_true",
+        help=(
+            f"Resume an interrupted run. Reads {JSONL_PATH.name} to recover "
+            "completed samples; appends new samples to the same file."
+        ),
+    )
+    parser.add_argument(
+        "--no-fsync", action="store_true",
+        help="Skip os.fsync after each sample write. Faster for dev; unsafe across power loss.",
+    )
+    args = parser.parse_args()
+
+    completed: set[tuple[str, str, int]] = set()
+    prior_samples: dict[tuple[str, str], list[dict]] = {}
+
+    if args.resume:
+        if not JSONL_PATH.exists():
+            raise FileNotFoundError(
+                f"--resume specified but {JSONL_PATH} does not exist. "
+                "Start a fresh run without --resume."
+            )
+        completed, prior_samples = _load_jsonl_samples(JSONL_PATH, CONFIG_HASH)
+        print(f"Resume: {len(completed)} samples already done from {JSONL_PATH.name}")
+
+    total = len(CHARACTERIZE_TASKS) * len(CONDITIONS) * MIN_SAMPLES
+    remaining = total - len(completed)
+    print(f"Config hash : {CONFIG_HASH}")
+    print(f"Total       : {total} samples  ({remaining} remaining)")
+
     client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
     traces_root = Path(TRACES_ROOT_ENV) if TRACES_ROOT_ENV else None
     replay_cache = ReplayCache(mode=REPLAY_MODE, traces_root=traces_root)
     backend = OpenAIChatBackend(client=client, replay_cache=replay_cache)
 
-    all_records: list[dict] = []
+    all_samples = _run_all(
+        backend=backend,
+        out_jsonl=JSONL_PATH,
+        completed=completed,
+        prior_samples=prior_samples,
+        no_fsync=args.no_fsync,
+    )
 
-    for task_id in CHARACTERIZE_TASKS:
-        for condition in CONDITIONS:
-            print(f"\n{'─' * 52}")
-            print(f"  Task: {task_id}  |  Condition: {condition}")
-            print(f"{'─' * 52}")
-            records = collect(backend, task_id, condition, MIN_SAMPLES)
-            all_records.extend(records)
+    all_records = _compute_tail_records(all_samples)
 
     output = {
         "experiment":   "tail_latency_characterization",
@@ -357,9 +504,9 @@ def main() -> None:
 
     OUTPUT_PATH.write_text(json.dumps(output, indent=2), encoding="utf-8")
 
-    # Summary table
     print(f"\n{'=' * 70}")
     print(f"Output written to {OUTPUT_PATH}   ({len(all_records)} records)")
+    print(f"Resume log    at  {JSONL_PATH}")
     print(f"{'=' * 70}")
     print(f"\n{'Task':<8} {'Condition':<10} {'Metric':<22} {'p50':>8} {'p95':>8} {'p99':>8} {'n':>5}")
     print("─" * 70)

@@ -52,8 +52,16 @@ htmlcov/
 # Results and outputs
 # Exclude generated run data, but keep Zachary's baseline and markdown reports
 results/claude_code_characterization.json
+results/claude_code_characterization.jsonl
 results/tail_latency_results.json
+results/tail_latency_results.jsonl
 results/run_*.jsonl
+# Sibling files written by runner.py alongside each run_*.jsonl.
+# These reference the ignored JSONL file, contain sys.argv with absolute paths,
+# and are not useful without the data file they describe.
+results/run_*_MANIFEST.json
+results/run_*_SESSION_SUMMARY.json
+results/run_*_telemetry.csv
 !results/zachary/*.json
 !results/.gitkeep
 !reports/*.md
