@@ -189,4 +189,50 @@ Each seed contains:
 
 ---
 
-*Last updated: 2026-07-14*
+## Quality Sweep Row Schema (results/run_*.jsonl)
+
+One JSON object per line. Fields:
+
+| Field | Type | Description |
+|---|---|---|
+| `probe_id` | str | Probe identifier from evalset |
+| `category` | str | Probe category |
+| `difficulty` | str | Probe difficulty |
+| `depth` | int | Filler token depth |
+| `rep` | int | Repetition index within cell |
+| `position_in_cell` | int | Probe position within shuffled cell |
+| `cell_probe_seed` | int | RNG seed for cell shuffle |
+| `filler_mode` | str | `"unlabelled"` or `"labelled"` |
+| `score` | float\|null | Scorer output (null on error) |
+| `score_detail` | any | Scorer-specific detail dict |
+| `latency_ms` | float | End-to-end wall time ms |
+| `ttft_ms` | float | Time to first token ms |
+| `tokens_in` | int | Prompt token count reported by model |
+| `tokens_out` | int | Output token count |
+| `max_tokens` | int | Generation budget |
+| `ctx_suspect` | bool | True if tokens_in < depth × 0.9 (filler undershoot) |
+| `mem_rss_mb` | float | Process RSS at call time (MB) |
+| `gpu_mem_mb` | float\|**null** | Memory used (MB); **null when measurement unavailable**. See `gpu_mem_method`. Was `0.0` for unavailability in rows written before 2026-09-07; use `gpu_mem_method` to distinguish. |
+| `gpu_mem_method` | str\|null | How `gpu_mem_mb` was measured: `"nvidia_smi"` (discrete VRAM), `"unified_sys_pool"` (MemTotal−MemAvailable from /proc/meminfo, GPU+CPU share), or `"unavailable:<reason>"` when no measurement was possible. Null in rows written before 2026-09-07. |
+| `config_hash` | str | SHA-256 prefix of sweep config (12 chars) |
+| `hardware_config` | str | Hardware config name (e.g. `blade14_rtx4070`) |
+| `memory_architecture` | str | `"discrete"`, `"unified"`, or `"unknown"` |
+| `model` | str | Model name |
+| `model_variant` | str | `"instruct"` or `"reasoning"` |
+| `thinking_enabled` | bool | Whether chain-of-thought was active |
+| `error` | str | Present only on rows where `run_cell` raised |
+
+### gpu_mem_mb nullability change (2026-09-07)
+
+Prior to this date, `gpu_mem_mb` used `0.0` to represent both "genuinely zero
+MB" and "measurement unavailable" (nvidia-smi absent or raised).  On AMD
+Strix Halo (unified memory) every row would silently carry `0.0`.
+
+From this date: `gpu_mem_mb` is `null` when unavailable, and `gpu_mem_method`
+records the reason.  Old committed rows in the repo carry `0.0` and no
+`gpu_mem_method` field; analysis code must treat `gpu_mem_method == null` as
+pre-date and handle `0.0` as ambiguous for those rows.
+
+---
+
+*Last updated: 2026-09-07*

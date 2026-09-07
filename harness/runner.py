@@ -180,13 +180,15 @@ def run_cell(
         output, latency_ms, ttft_ms, tokens_in, tokens_out = _call_ollama_streaming(
             model, prompt, max_tokens, host,
         )
+        gpu_val, gpu_method = telemetry.gpu_mem_mb(memory_architecture)
         tel = telemetry.Telemetry(
             latency_ms=latency_ms,
             ttft_ms=ttft_ms,
             tokens_in=tokens_in,
             tokens_out=tokens_out,
             mem_rss_mb=telemetry.rss_mb(),
-            gpu_mem_mb=telemetry.gpu_mem_mb(),
+            gpu_mem_mb=gpu_val,
+            gpu_mem_method=gpu_method,
         )
         cache.put(model, prompt, params, {"output": output, "telemetry": tel.to_dict()})
 
@@ -215,7 +217,8 @@ def run_cell(
         "max_tokens": max_tokens,
         "ctx_suspect": ctx_suspect,
         "mem_rss_mb": round(tel.mem_rss_mb, 1),
-        "gpu_mem_mb": round(tel.gpu_mem_mb, 1),
+        "gpu_mem_mb": None if tel.gpu_mem_mb is None else round(tel.gpu_mem_mb, 1),
+        "gpu_mem_method": tel.gpu_mem_method,
         "config_hash": cfg_hash,
         "hardware_config": hardware_config,
         "memory_architecture": memory_architecture,
