@@ -73,6 +73,17 @@ def _load_scorers():
     return mod
 
 
+def _load_outcome():
+    """Load evaluation.outcome without triggering evaluation.__init__ (which imports openai)."""
+    spec = importlib.util.spec_from_file_location(
+        "evaluation_outcome",
+        REPO_ROOT / "evaluation" / "outcome.py",
+    )
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
 def _config_hash(cfg: dict) -> str:
     return hashlib.sha256(
         json.dumps(cfg, sort_keys=True).encode()
@@ -172,6 +183,7 @@ def run_cell(
     model_variant: str,
     thinking_enabled: bool,
     scorers,
+    outcome_mod,
 ) -> dict[str, Any]:
     # ORCH_SETUP: harness cost to assemble the full prompt (wrap_prompt).
     # CPU-bound; wall elapsed is a valid CPU proxy (no I/O).
@@ -218,6 +230,14 @@ def run_cell(
 
     score_val, score_detail = scorers.score(probe, output)
 
+    outcome_result = outcome_mod.classify(
+        output=output,
+        expected=probe.get("expected", ""),
+        scorer_type=probe.get("scorer_type", ""),
+        score=score_val,
+        done_reason=None,  # runner path does not receive done_reason from Ollama
+    )
+
     # Flag rows where context delivered is materially less than requested.
     # tokens_in includes filler + probe + chat template; at depth>0 the filler
     # dominates. A ratio < 0.9 almost certainly indicates a filler undershoot.
@@ -234,6 +254,9 @@ def run_cell(
         "filler_mode": filler_mode,
         "score": score_val,
         "score_detail": score_detail,
+        "outcome_class": outcome_result["outcome_class"],
+        "classification_method": outcome_result["classification_method"],
+        "format_compliant": outcome_result["format_compliant"],
         "latency_ms": round(tel.latency_ms, 1),
         "ttft_ms": round(tel.ttft_ms, 1),
         "tokens_in": tel.tokens_in,
@@ -639,6 +662,7 @@ def main() -> None:
         deadline_s = _parse_duration(args.deadline)
 
     scorers = _load_scorers()
+    outcome_mod = _load_outcome()
 
     model_variant = args.model_variant or (
         "instruct" if "instruct" in args.model.lower() else "reasoning"
@@ -816,6 +840,7 @@ def main() -> None:
                                 model_variant,
                                 thinking_enabled,
                                 scorers,
+                                outcome_mod,
                             )
                         except Exception as exc:
                             row = {
@@ -827,6 +852,10 @@ def main() -> None:
                                 "cell_probe_seed": cell_probe_seed,
                                 "filler_mode": args.filler_mode,
                                 "score": None,
+                                "score_detail": None,
+                                "outcome_class": None,
+                                "classification_method": None,
+                                "format_compliant": None,
                                 "error": str(exc),
                                 "config_hash": cfg_hash,
                                 "hardware_config": args.hardware_config,

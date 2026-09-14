@@ -39,6 +39,15 @@ def _load_scorers():
     return mod
 
 
+def _load_outcome():
+    spec = importlib.util.spec_from_file_location(
+        "evaluation_outcome", _REPO / "evaluation" / "outcome.py"
+    )
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -56,24 +65,25 @@ EXACT_PROBE = {
 FILLER = "A" * 100   # short filler that fits in context
 
 
-def _fake_streaming(model, prompt, max_tokens, host):
-    """Simulate _call_ollama_streaming returning the correct answer."""
-    return "4", 1234.5, 200.0, 50, 3
-
-
-def _run_cell_with_span(**kwargs) -> dict[str, Any]:
+def _run_cell_with_span(probe=None, fake_output="4", **kwargs) -> dict[str, Any]:
     """Call runner.run_cell() with span instrumentation active."""
-    from harness import runner, telemetry
+    from harness import runner, telemetry, cache
 
     scorers = _load_scorers()
+    outcome_mod = _load_outcome()
+
+    def _fake(model, prompt, max_tokens, host):
+        return fake_output, 1234.5, 200.0, 50, 3
 
     gpu_mock = MagicMock(return_value=(None, "unavailable:test"))
 
-    with patch.object(runner, "_call_ollama_streaming", side_effect=_fake_streaming), \
+    with patch.object(runner, "_call_ollama_streaming", side_effect=_fake), \
+         patch.object(cache, "get", return_value=None), \
+         patch.object(cache, "put"), \
          patch.object(telemetry, "gpu_mem_mb", side_effect=gpu_mock), \
          patch.object(telemetry, "rss_mb", return_value=256.0):
         return runner.run_cell(
-            probe=EXACT_PROBE,
+            probe=probe or EXACT_PROBE,
             filler=FILLER,
             depth=2000,
             rep=0,
@@ -88,6 +98,7 @@ def _run_cell_with_span(**kwargs) -> dict[str, Any]:
             model_variant="instruct",
             thinking_enabled=False,
             scorers=scorers,
+            outcome_mod=outcome_mod,
         )
 
 
@@ -144,3 +155,108 @@ def test_orch_setup_ns_is_positive() -> None:
     """wrap_prompt takes a non-zero amount of time."""
     row = _run_cell_with_span()
     assert row["orch_setup_ns"] >= 0, "orch_setup_ns must be non-negative"
+
+
+# ---------------------------------------------------------------------------
+# Integration tests — four-way outcome fields wired into run_cell
+# ---------------------------------------------------------------------------
+
+_OUTCOME_FIELDS = ("outcome_class", "classification_method", "format_compliant")
+
+
+def test_outcome_fields_present_on_correct_row() -> None:
+    """All three outcome fields are present when the model output is correct."""
+    row = _run_cell_with_span()  # EXACT_PROBE expects "4", fake returns "4"
+    for field in _OUTCOME_FIELDS:
+        assert field in row, f"Missing field {field!r} on correct row"
+
+
+def test_outcome_class_correct_on_exact_match() -> None:
+    """outcome_class is CORRECT and format_compliant is True for an exact match."""
+    row = _run_cell_with_span()
+    assert row["outcome_class"] == "CORRECT", row["outcome_class"]
+    assert row["format_compliant"] is True
+    assert row["classification_method"] == "score"
+
+
+def test_outcome_class_fabricated_on_wrong_answer() -> None:
+    """outcome_class is FABRICATED when the model returns a wrong answer."""
+    row = _run_cell_with_span(fake_output="99")  # EXACT_PROBE expects "4"
+    assert row["outcome_class"] == "FABRICATED", row["outcome_class"]
+    assert row["score"] == 0.0
+
+
+def test_outcome_class_refused_on_abstention() -> None:
+    """outcome_class is REFUSED when the model explicitly abstains."""
+    abstention = "The provided text does not contain this value."
+    row = _run_cell_with_span(fake_output=abstention)
+    assert row["outcome_class"] == "REFUSED", row["outcome_class"]
+    assert row["format_compliant"] is None
+
+
+def test_outcome_class_unclassifiable_on_empty_output() -> None:
+    """outcome_class is UNCLASSIFIABLE when the model returns an empty string."""
+    row = _run_cell_with_span(fake_output="")
+    assert row["outcome_class"] == "UNCLASSIFIABLE", row["outcome_class"]
+
+
+def test_format_noncompliant_correct_via_last_token() -> None:
+    """outcome_class is CORRECT, format_compliant=False when model shows working."""
+    # EXACT_PROBE expects "4"; model returns "2+2=4" — last token "4" matches
+    row = _run_cell_with_span(fake_output="2+2=4")
+    assert row["outcome_class"] == "CORRECT", row["outcome_class"]
+    assert row["format_compliant"] is False
+    assert row["classification_method"] == "last_token"
+
+
+def test_outcome_fields_present_on_multiple_probes() -> None:
+    """All three outcome fields are present across probes with different scorer types."""
+    probes = [
+        EXACT_PROBE,
+        {
+            "id": "str_01",
+            "category": "structured_output",
+            "difficulty": "easy",
+            "scorer_type": "exact",
+            "prompt": "Return the number seven.",
+            "expected": "7",
+            "max_tokens": 32,
+        },
+    ]
+    for probe in probes:
+        row = _run_cell_with_span(probe=probe)
+        for field in _OUTCOME_FIELDS:
+            assert field in row, (
+                f"Field {field!r} missing on row for probe {probe['id']!r}"
+            )
+
+
+def test_normalize_result_row_fills_missing_fields() -> None:
+    """normalize_result_row adds None for absent outcome fields on old rows."""
+    from evaluation.outcome import normalize_result_row
+
+    old_row = {"probe_id": "rea_01", "score": 1.0, "depth": 0, "rep": 0}
+    normalized = normalize_result_row(old_row)
+
+    assert normalized["outcome_class"] is None
+    assert normalized["classification_method"] is None
+    assert normalized["format_compliant"] is None
+    # Original fields unchanged
+    assert normalized["score"] == 1.0
+    assert normalized["probe_id"] == "rea_01"
+
+
+def test_normalize_result_row_preserves_existing_fields() -> None:
+    """normalize_result_row does not overwrite outcome fields that are already present."""
+    from evaluation.outcome import normalize_result_row
+
+    new_row = {
+        "probe_id": "rea_01",
+        "score": 1.0,
+        "outcome_class": "CORRECT",
+        "classification_method": "score",
+        "format_compliant": True,
+    }
+    normalized = normalize_result_row(new_row)
+    assert normalized["outcome_class"] == "CORRECT"
+    assert normalized["format_compliant"] is True
