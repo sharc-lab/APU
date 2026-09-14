@@ -1089,8 +1089,8 @@ def main() -> None:
             base_url=f"{args.ollama_host}/v1",
             api_key="ollama",   # Ollama ignores this but the OpenAI SDK requires it
         )
-        # Replay does not apply to a local inference server.
-        replay_cache = ReplayCache(mode="DISABLED", traces_root=None)
+        traces_root = Path(TRACES_ROOT_ENV) if TRACES_ROOT_ENV else None
+        replay_cache = ReplayCache(mode=REPLAY_MODE, traces_root=traces_root)
     else:
         client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
         traces_root = Path(TRACES_ROOT_ENV) if TRACES_ROOT_ENV else None

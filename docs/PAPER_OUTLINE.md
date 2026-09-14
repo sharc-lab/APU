@@ -326,6 +326,16 @@ allow the envelope plot to be driven by cells with different sample compositions
 this confound — each point on the envelope plot is a single (score, latency)
 pair from a single probe execution.
 
+**Replay-cache reproducibility caveat:** `ReplayCache` (AUTO / RECORD / REPLAY modes)
+reproduces `recorded_latency_ms` and all quality fields (`score`, model output) from
+stored traces. Span timing fields — `orch_setup_ns`, `http_client_ns`,
+`tool_compute_ns` — are **live wall-clock measurements** at replay time and reflect
+disk-read overhead, not original inference latency. A reader reproducing this figure
+from a replay trace recovers the quality axis and `recorded_latency_ms` faithfully;
+the per-span breakdown in replayed rows is not representative of live inference
+and must not be used for the latency contours. Filter to `replayed == false` rows
+for any span-level analysis. See docs/THREATS.md §12.
+
 **Prerequisite:** `configs/hardware/evox2_strix_halo_128gb.yaml` fields
 `reserved_gb`, `achievable_pool_gb`, `bandwidth_gb_s` must be populated from
 telemetry before running (run `scripts/verify_platform.py` first).

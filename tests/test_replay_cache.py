@@ -134,3 +134,72 @@ def test_cache_key_changes_with_seed_and_temperature():
 
     assert base != changed_seed
     assert base != changed_temp
+
+
+OLLAMA_REQUEST = {
+    "model": "qwen3:4b-instruct",
+    "messages": [{"role": "user", "content": "hello"}],
+    "tools": [{"type": "function", "function": {"name": "search"}}],
+    "temperature": 0.0,
+    "seed": 42,
+}
+
+
+def _call_ollama(backend: FakeBackend):
+    return backend.model_call(
+        model=OLLAMA_REQUEST["model"],
+        messages=OLLAMA_REQUEST["messages"],
+        tools=OLLAMA_REQUEST["tools"],
+        temperature=OLLAMA_REQUEST["temperature"],
+        seed=OLLAMA_REQUEST["seed"],
+    )
+
+
+def test_ollama_record_and_replay(tmp_path):
+    """Ollama model calls record and replay correctly via ReplayCache."""
+    traces_root = tmp_path / "analysis" / "traces"
+    cache = ReplayCache(mode=ReplayMode.AUTO, traces_root=traces_root)
+    backend = FakeBackend(replay_cache=cache)
+
+    first = _call_ollama(backend)
+    second = _call_ollama(backend)
+
+    assert backend.calls == 1, "second call should have replayed, not hit the model"
+    assert first.replayed is False
+    assert second.replayed is True
+    assert second.recorded_latency_ms == first.recorded_latency_ms
+    assert second.token_counts == first.token_counts
+
+
+def test_ollama_cache_dir_no_collision_with_openai(tmp_path):
+    """qwen3:4b-instruct and gpt-4o-mini must use separate cache directories.
+
+    _sanitize_model_name("qwen3:4b-instruct") → "qwen3_4b-instruct" which is
+    distinct from "gpt-4o-mini", so their trace files never collide.
+    """
+    traces_root = tmp_path / "analysis" / "traces"
+    cache = ReplayCache(mode=ReplayMode.RECORD, traces_root=traces_root)
+
+    # Build both cache keys
+    openai_key = ReplayCache.make_key(**REQUEST)
+    ollama_key  = ReplayCache.make_key(**OLLAMA_REQUEST)
+
+    # Keys differ (different model names) — but let's also check directory paths
+    assert openai_key != ollama_key, "different model+prompt → different cache keys"
+
+    # Simulate recording for both — check that the directories are distinct.
+    backend_openai = FakeBackend(replay_cache=ReplayCache(mode=ReplayMode.RECORD, traces_root=traces_root))
+    backend_ollama = FakeBackend(replay_cache=ReplayCache(mode=ReplayMode.RECORD, traces_root=traces_root))
+
+    _call(backend_openai)
+    _call_ollama(backend_ollama)
+
+    # Each model should have its own subdirectory under traces_root
+    dirs = [p for p in traces_root.iterdir() if p.is_dir()]
+    assert len(dirs) == 2, f"expected 2 model dirs under traces_root, got {[d.name for d in dirs]}"
+    dir_names = {d.name for d in dirs}
+    assert "gpt-4o-mini" in dir_names, f"gpt-4o-mini dir not found; dirs={dir_names}"
+    # Ollama model name after sanitization: "qwen3:4b-instruct" → "qwen3_4b-instruct"
+    ollama_dir = next((n for n in dir_names if "qwen3" in n), None)
+    assert ollama_dir is not None, f"no qwen3 dir found; dirs={dir_names}"
+    assert ":" not in ollama_dir, f"colon in dir name {ollama_dir!r} — sanitization failed"

@@ -178,7 +178,7 @@ def _execute_tool_calls(response: dict) -> tuple[list[dict], float]:
 # Probe functions
 # ---------------------------------------------------------------------------
 
-def _probe_single(backend: OpenAIChatBackend, task_id: str) -> dict[str, float]:
+def _probe_single(backend: OpenAIChatBackend, task_id: str, sample_index: int = 0) -> dict[str, float]:
     messages = [_system_msg(), {"role": "user", "content": TASKS[task_id]["prompt"]}]
     t_start = wall_ns()
     response, recorded_mcp_ms, replay_mcp_ms = _call_api(backend, messages)
@@ -192,7 +192,7 @@ def _probe_single(backend: OpenAIChatBackend, task_id: str) -> dict[str, float]:
     }
 
 
-def _probe_chained(backend: OpenAIChatBackend, task_id: str) -> dict[str, float]:
+def _probe_chained(backend: OpenAIChatBackend, task_id: str, sample_index: int = 0) -> dict[str, float]:
     prompt = (
         f"{TASKS[task_id]['prompt']}\n\n"
         "Please use at least one tool in each of your first three replies."
@@ -231,7 +231,7 @@ def _probe_chained(backend: OpenAIChatBackend, task_id: str) -> dict[str, float]
     }
 
 
-def _probe_fanout(backend: OpenAIChatBackend, task_id: str) -> dict[str, float]:
+def _probe_fanout(backend: OpenAIChatBackend, task_id: str, sample_index: int = 0) -> dict[str, float]:
     messages = [_system_msg(), {"role": "user", "content": TASKS[task_id]["prompt"]}]
 
     def _one_call(_: int) -> tuple[float, float, float]:
@@ -375,7 +375,7 @@ def _run_all(
 
                     print(f"    sample {i + 1:3d}/{MIN_SAMPLES}  {condition}/{task_id}")
                     try:
-                        m = probe(backend, task_id)
+                        m = probe(backend, task_id, i)
                     except Exception as exc:
                         print(f"      WARNING: probe failed — {exc}")
                         m = {
