@@ -1,0 +1,70 @@
+# Intel EVO-T2S target device.
+# Data collected 2026-09-14 over SSH from blade14_rtx4070 (Razer Blade 14).
+# Remote shell: Windows PowerShell 5.1 on Windows 11 Pro.
+#
+# MEMORY ARCHITECTURE — UNIFIED (most critical field)
+#   The Intel Arc B390 GPU is the *integrated* GPU in the Core Ultra X7 358H SoC.
+#   Evidence:
+#     - Win32_VideoController: single adapter, AdapterDACType=Internal,
+#       driver iigd_dch.inf (Intel Integrated Graphics Driver)
+#     - DXGI ADAPTER_DESC: DedicatedVideoMemory=128 MiB (BIOS-stolen minimum,
+#       not a real VRAM pool), SharedSystemMemory=37,060 MiB (dynamic,
+#       drawn from system RAM by DVMT)
+#     - PCI subsystem vendor 0x8086 = Intel (no AIB partner)
+#     - GPU and NPU both on root complex instance 3&11583659 (same SoC)
+#   Implication: weights, KV cache, OS, and all processes share the same
+#   64 GB LPDDR5X pool.  Effective inference headroom ≈ total_RAM - OS_overhead.
+#   The 128 MiB stolen region is fixed in BIOS; the DVMT shared pool is dynamic.
+#
+# CPU CORE TOPOLOGY — queried via GetLogicalProcessorInformationEx EfficiencyClass
+#   P-cores (EfficiencyClass=1): 4
+#   E-cores (EfficiencyClass=0): 12
+#   Total: 16 physical = 16 logical (Arrow Lake removed HT from P-cores)
+#
+hostname: EVO-T2S
+source: "SSH from blade14_rtx4070, collected 2026-09-14 via Win32_* / GetLogicalProcessorInformationEx / DXGI P/Invoke"
+name: evo_t2s
+memory_architecture: unified
+os: windows
+os_version: "11 Pro 10.0.26200"
+cpu: Intel(R) Core(TM) Ultra X7 358H
+cpu_vendor: GenuineIntel
+cpu_cores_physical: 16
+cpu_cores_logical: 16
+cpu_p_cores: 4        # EfficiencyClass=1 via GetLogicalProcessorInformationEx
+cpu_e_cores: 12       # EfficiencyClass=0
+cpu_l3_cache_kb: 18432
+gpu: Intel(R) Arc(TM) B390 GPU
+gpu_pci_device: "PCI\\VEN_8086&DEV_B080&SUBSYS_00008086&REV_04"
+gpu_bios_stolen_mib: 128        # DedicatedVideoMemory from DXGI; BIOS-reserved minimum
+gpu_shared_system_mib: 37060    # SharedSystemMemory from DXGI; dynamic DVMT pool from system RAM
+memory_gb: 64                   # 8 × 8 GB LPDDR5X sticks; total unified pool
+memory_type: LPDDR5X            # SMBIOSMemoryType=35 (LPDDR5) at 8533 MT/s (exceeds LPDDR5 max → LPDDR5X)
+memory_speed_mts: 8533
+has_npu: true
+npu_model: "Intel(R) NPU"       # PCI\\VEN_8086&DEV_B03E; Arrow Lake NPU
+npu_tops: UNKNOWN               # device present but TOPS not reported by WMI/registry
+quant: null                     # populate from first run
+bom_cost_usd: null              # populate from device street price at time of purchase
+reserved_gb: null               # populate from telemetry at idle
+achievable_pool_gb: null        # populate from telemetry: memory_gb - reserved_gb
+bandwidth_gb_s: null            # populate from telemetry; LPDDR5X 8533 MT/s
+thermal_ceiling_w: null         # populate from thermal telemetry under sustained load
+gpu_tools:
+  nvidia_smi: absent
+  rocm_smi: absent
+  rocminfo: absent
+  intel_gpu_top: absent
+  clinfo: absent
+notes: >
+  Intel EVO-T2S platform. Intel Core Ultra X7 358H (Arrow Lake-H), 4 P-cores +
+  12 E-cores (16 total, no HT), 18 MB L3 cache.  Integrated Intel Arc B390 GPU
+  sharing 64 GB LPDDR5X system RAM (unified memory architecture — no separate
+  VRAM pool). BIOS-stolen GPU minimum is 128 MiB; dynamic DVMT pool up to
+  ~37 GB depending on OS usage.  Intel NPU present (DEV_B03E, Arrow Lake NPU);
+  TOPS not reported by device driver.  All GPU vendor CLI tools absent; will
+  need Intel GPU tools or OpenCL/SYCL for GPU memory telemetry.
+  Memory type confirmed LPDDR5X: SMBIOSMemoryType=35 at 8533 MT/s
+  (LPDDR5 max is ~6400 MT/s; 8533 MT/s requires LPDDR5X).
+  npu_tops marked UNKNOWN — must populate from Intel product page or
+  direct NPU benchmark before citing in paper.

@@ -22,12 +22,25 @@
 # TTFT, throughput, and BOM feasibility numbers do not.
 name: blade14_rtx4070
 memory_architecture: discrete
-memory_gb: 8
+os: windows
+os_version: "11 Home 10.0.26200"
+cpu: AMD Ryzen 9 8945HS
+cpu_cores_physical: 8
+cpu_cores_logical: 16
+cpu_l3_cache_kb: 16384
+gpu: NVIDIA GeForce RTX 4070 Laptop GPU
+gpu_vram_mib: 8188
+igpu: AMD Radeon 780M
+memory_gb: 8        # VRAM, not system RAM — differs from unified configs
+memory_type: LPDDR5X
 has_npu: false
 npu_tops: 0
 quant: q4_k_m
 bom_cost_usd: 0
 reserved_gb: 0.82
+achievable_pool_gb: null
+bandwidth_gb_s: null
+thermal_ceiling_w: null
 notes: >
   Razer Blade 14 (RZ09-0508), RTX 4070 Laptop GPU, 8188 MiB GDDR6 VRAM.
   Also equipped with AMD Radeon 780M iGPU (unified, 15.6 GB shared pool,
