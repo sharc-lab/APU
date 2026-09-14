@@ -14,12 +14,17 @@ A free-memory check before each cell is necessary and not sufficient. Two
 failures get past it.
 
 **Headroom that is never released between cells.** A dry-run gate passed at
-7,536 MB available, and every cell in that session then ran at roughly 4,800 MB,
+7,536 MB available, and every cell in that session then ran at roughly 4,800 MB
+(**ASSUMED** narrative from protocol design notes; no sealed `run_id` pinned in
+export docs — treat as motivating example, not a cited measurement),
 because memory freed by one cell had not returned before the next started. The
 gate was checked once at launch and never again.
 
 **Drift a threshold cannot see at all.** Identical cells, identical prompt
-hashes, roughly one hour after boot against roughly twenty-two hours:
+hashes, roughly one hour after boot against roughly twenty-two hours
+(**ASSUMED** motivating pair recorded in canonical
+`docs/README_characterizations.md` / `docs/CANARY_PROTOCOL.md`; not a sealed
+export cell — cite only after a sealed `run_id` is attached):
 
 ```
 n_cached = 2,000     1.097 s  ->   2.393 s
@@ -58,9 +63,12 @@ mean wall time per cell:
 N = floor(657 s / 51.34 s) = 12
 ```
 
-from session `7f569929`. That guarantees at least one canary lands inside the
-shortest degradation onset you have actually observed. If you have no such
-session yet, run without a canary once, find the onset, then derive N from it.
+from session `7f569929-4484-4af7-8231-5b535526f653` (onset + mean-cell-wall
+derivation; see `tools/run_delta_prefill_matrix.ps1` n_derivation text and
+canonical `derived/delta_prefill/7f569929-4484-4af7-8231-5b535526f653/`).
+That guarantees at least one canary lands inside the shortest degradation onset
+you have actually observed. If you have no such session yet, run without a
+canary once, find the onset, then derive N from it.
 
 ### 3. Calibrate on the first C canaries
 
@@ -106,8 +114,9 @@ either exceeds its threshold, the session stops immediately with status
 `FAIL_CANARY_DRIFT`.
 
 An aborted run is a successful guard, not a failed run. A run that silently
-degrades 2.5x and finishes is worse than one that stops, because it produces
-numbers that look valid and are not.
+degrades ~2.5× (**ASSUMED** illustrative bound near the 2.56× motivating pair
+above) and finishes is worse than one that stops, because it produces numbers
+that look valid and are not.
 
 ---
 
@@ -160,4 +169,4 @@ canary             drift the other two cannot see
 
 The floor being checked per cell rather than once at launch is not a detail. It
 is the specific failure that let a session pass its gate at 7,536 MB and then
-run every cell at 4,800.
+run every cell at 4,800 (**ASSUMED** motivating example; same caveat as above).

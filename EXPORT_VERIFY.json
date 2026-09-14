@@ -1,29 +1,18 @@
 {
+  "commit": "pending_retag",
   "top5": [
-    {
-      "path": "derived/d1_replay/x2_decomposition.json",
-      "bytes": 211855
-    },
-    {
-      "path": "tools/bfcl_feasibility_probe.py",
-      "bytes": 208232
-    },
-    {
-      "path": "seam/tools/efilter_run.py",
-      "bytes": 119074
-    },
-    {
-      "path": "seam/analysis/efilter.py",
-      "bytes": 118105
-    },
-    {
-      "path": "tools/run_delta_prefill_matrix.ps1",
-      "bytes": 113442
-    }
+    {"path": "derived/d1_replay/x2_decomposition.json", "bytes": 205311},
+    {"path": "tools/bfcl_feasibility_probe.py", "bytes": 203082},
+    {"path": "seam/tools/efilter_run.py", "bytes": 116323},
+    {"path": "seam/analysis/efilter.py", "bytes": 115584},
+    {"path": "tools/run_delta_prefill_matrix.ps1", "bytes": 110936}
   ],
-  "oversize": [],
-  "collisions": [
-    ".gitignore"
-  ],
-  "untagged": []
+  "max_bytes": 205311,
+  "oversize_gt_5mb": [],
+  "collisions_vs_sharc_main": [],
+  "secrets_check": "python311 tools/hooks/check_no_secrets.py exit 0",
+  "untagged_numbers_fixed": [
+    "docs/SEAM_CANARY_PROTOCOL.md: 7536/4800 MB and uptime 1.097→2.393 / 7.090→18.137 / 2.56x tagged ASSUMED (no sealed run_id in export)",
+    "docs/SEAM_CANARY_PROTOCOL.md: N=12 onset derivation cited run_id 7f569929-4484-4af7-8231-5b535526f653"
+  ]
 }
