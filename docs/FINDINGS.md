@@ -120,6 +120,95 @@ is specific to the extinct context (full filler scan required).
 
 ---
 
+## Fabrication rates, unclassifiable rows excluded
+
+**Source:** `results/stage_a_scale.json` (gpt-oss:120b-cloud, 4 probes × 2 fillers × 3 ratios × 3 reps = 72 rows) and `results/selfreport_arms.json` (qwen3:4b-instruct, self-report arms).
+**Script:** `analysis/unclassifiable_rows.py`
+
+### Why a correction is needed
+
+12 rows in `stage_a_scale.json` have `done_reason == 'length'` and `output == ''`:
+the model exhausted its thinking budget (MIN_PREDICT=1024) before producing any
+output token.  The scorer records `outcome = "incorrect"` for an empty string,
+but the true outcome is unknown — the model may have been mid-computation.
+Including these rows in the fabrication-rate denominator inflates the count.
+They are distinct from the 51 rows with `classification_method == 'unavailable'`,
+which are pre-rerun rows that do have non-empty outputs and valid recorded outcomes.
+
+The per-probe rates stated in the confirmed findings above (e.g., "100% fabrication
+under F-NUM") are unaffected for probes other than art_07 because no other probe
+has budget-exhausted rows.  The correction matters for any stated aggregate rate
+over all probes, and for the honest denominator claim at extinct conditions.
+
+### Table 1 — Unclassifiable row inventory (stage_a_scale.json)
+
+| Criterion | Count | Notes |
+|-----------|------:|-------|
+| `done_reason == 'length'` | 12 | art_07 (11 rows) and art_06/F-TYPED/r=0.85 (1 row); output empty; outcome unknown |
+| `classification_method == 'unavailable'` | 51 | Pre-rerun rows; all 51 have non-empty outputs and valid recorded outcomes — **not** unclassifiable |
+| `output == ''` | 12 | Identical to `done_reason == 'length'` set |
+| **Truly unclassifiable (used for correction)** | **12** | `done_reason == 'length'` only |
+
+### Table 2 — Budget-exhausted rows by probe / filler / ratio
+
+| probe | filler | ratio | budget-exhausted rows | cell total |
+|-------|--------|------:|----------------------:|-----------:|
+| art_06 | F-TYPED | 0.85 | 1 | 3 |
+| art_07 | F-NUM | 0.40 | 2 | 3 |
+| art_07 | F-NUM | 0.85 | 3 | 3 |
+| art_07 | F-TYPED | 0.40 | 3 | 3 |
+| art_07 | F-TYPED | 0.85 | 3 | 3 |
+
+All other (probe, filler, ratio) cells have 0 budget-exhausted rows.
+
+### Table 3 — Fabrication / abstention / correct rates: uncorrected vs corrected
+
+**Uncorrected** = budget-exhausted rows counted as incorrect (scorer behaviour, `outcome='incorrect'`).
+**Corrected** = 12 budget-exhausted rows removed from denominator entirely.
+Fabrication (corrected) = `outcome == 'incorrect'` with non-empty output.
+No abstentions were observed in any classifiable row of this file.
+
+| Subset | n | correct | fabrication | abstention | note |
+|--------|--:|--------:|------------:|-----------:|------|
+| All rows — **uncorrected** | 72 | 29.2% | 70.8% | 0.0% | 12 budget-exhausted counted as incorrect |
+| All rows — **corrected** | 60 | 35.0% | 65.0% | 0.0% | 12 budget-exhausted removed |
+| Extinct (r≤0.85) — **uncorrected** | 48 | 0.0% | 100.0% | 0.0% | rate unchanged; denominator claim changes |
+| Extinct (r≤0.85) — **corrected** | 36 | 0.0% | 100.0% | 0.0% | 12 budget-exhausted removed |
+| Extinct + F-NUM — **uncorrected** | 24 | 0.0% | 100.0% | 0.0% | |
+| Extinct + F-NUM — **corrected** | 19 | 0.0% | 100.0% | 0.0% | 5 removed |
+| Extinct + F-TYPED — **uncorrected** | 24 | 0.0% | 100.0% | 0.0% | |
+| Extinct + F-TYPED — **corrected** | 17 | 0.0% | 100.0% | 0.0% | 7 removed |
+| Headroom (r=1.20) — uncorr. = corr. | 24 | 87.5% | 12.5% | 0.0% | no budget-exhausted rows |
+
+The correction changes the all-rows fabrication rate from 70.8% to 65.0%.
+At extinct conditions the rate is 100% in both cases; what changes is the
+denominator: 36 classifiable responses, not 48.
+
+### Table 4 — selfreport_arms.json: aggregate rates by arm (no correction possible)
+
+Individual row data not stored; `done_reason` values unavailable.
+Probes: rag_01, rag_02, rag_05, sea_01, sea_04 (qwen3:4b-instruct, all extinct,
+ratios 0.85 / 0.70 / 0.55 / 0.40, n=60 per arm).
+
+| arm | n | correct | fabrication | abstention |
+|-----|--:|--------:|------------:|-----------:|
+| arm1_baseline (no prompt change) | 60 | 0.0% | 80.0% | 20.0% |
+| arm2_abstention_instruction | 60 | 0.0% | 100.0% | 0.0% |
+| arm3_self_report | 60 | 0.0% | 76.7% | 23.3% |
+
+**Note:** the abstention_instruction arm (arm2) eliminates abstention entirely and
+drives fabrication to 100%, the inverse of its intent.  arm3 self-report
+reduces fabrication modestly (76.7% vs 80.0% baseline) with similar abstention gain.
+
+### Corrected headline rate
+
+Among the 36 classifiable extinct-context responses in `results/stage_a_scale.json`
+(budget_ratio ≤ 0.85; 12 thinking-budget-exhausted art_07 and art_06/F-TYPED rows
+excluded from denominator), gpt-oss:120b fabricated or retrieved a filler value in
+all 36 cases (100%); abstention was not observed in any classifiable row.
+
+---
+
 ## cha_04 — Mechanism Disconfirmed by Ablation (chained_tools, hard)
 
 **Status: DISCONFIRMED.** The config-parameter substitution mechanism proposed

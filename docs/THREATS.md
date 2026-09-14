@@ -158,6 +158,28 @@ This file seeds Section 6 of the paper and tracks planned mitigations.
   gate.  The `gpu_mem_source` field in each result row is the authoritative label
   for what the accompanying `gpu_mem_mb` value actually measures.
 
+## 14. selfreport_arms.json — Arm Rates Cannot Receive the Unclassifiable-Row Correction
+
+- Threat: `results/selfreport_arms.json` stores only pre-computed aggregate statistics
+  (fabrication_rate, abstention_rate, n_total per arm per ratio). No individual row records
+  are stored; the file contains no `done_reason`, `output`, or `classification_method` fields.
+  The budget-exhausted rows identified in `results/stage_a_scale.json` (12 rows with
+  `done_reason='length'` and `output=''`) allowed the fabrication rate for that file to be
+  corrected by removing an identifiable set of truly-unclassifiable rows from the denominator.
+  No equivalent correction is possible for selfreport_arms.json.
+- Impact: The per-arm fabrication rates reported in `docs/FINDINGS.md` (arm1=80%, arm2=100%,
+  arm3=76.7%) are based on the same scorer behaviour as the uncorrected stage_a_scale rates:
+  `outcome='incorrect'` counts all wrong-answer rows including any budget-exhausted ones.
+  If any arm's runs produced budget-exhausted rows, those rows inflate the fabrication count
+  without the denominator correction that could have been applied had row-level data been
+  stored. The arm2 result (100% fabrication, 0% abstention) is the most sensitive to this:
+  if arm2 had budget-exhausted rows, the true rate could be below 100%, though the direction
+  of arm2's perverse effect (eliminating abstention) would remain.
+- Rule: Do not apply the unclassifiable-row correction to selfreport_arms.json rates. State
+  them as reported (uncorrected) with a note that individual row data is unavailable.
+- Mitigation: For any future self-report arm experiment, emit row-level result files alongside
+  aggregate summaries so that `done_reason` and `output` are available for post-hoc correction.
+
 ## 10. Artifact Probe Selection Bias Toward Simple Retrieval
 
 - Threat: Two of the ten artifact-bearing probes (art_03 and art_04) were redesigned during authoring because their original formulations required multi-step inference — art_03 asked for the maximum-CPU_HOURS job (argmax over a table) and art_04 asked which user performed a specified action (reverse actor lookup). Both models failed these questions reliably with 4,000 tokens of filler present, even when the artifact was intact, and redesign was necessary to achieve headroom. The final suite therefore consists entirely of direct retrieval lookups: given a key, return the value at that key from the artifact.
