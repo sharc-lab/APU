@@ -73,7 +73,7 @@ def _run_cell_with_span(probe=None, fake_output="4", **kwargs) -> dict[str, Any]
     outcome_mod = _load_outcome()
 
     def _fake(model, prompt, max_tokens, host):
-        return fake_output, 1234.5, 200.0, 50, 3
+        return fake_output, 1234.5, 200.0, 50, 3, "stop"
 
     gpu_mock = MagicMock(return_value=(None, "unavailable:test"))
 
@@ -99,6 +99,10 @@ def _run_cell_with_span(probe=None, fake_output="4", **kwargs) -> dict[str, Any]
             thinking_enabled=False,
             scorers=scorers,
             outcome_mod=outcome_mod,
+            git_sha="abc123",
+            run_seed=42,
+            hostname="test-host",
+            operator="researcher_a",
         )
 
 
@@ -260,3 +264,106 @@ def test_normalize_result_row_preserves_existing_fields() -> None:
     normalized = normalize_result_row(new_row)
     assert normalized["outcome_class"] == "CORRECT"
     assert normalized["format_compliant"] is True
+
+
+# ---------------------------------------------------------------------------
+# Run-identity and done_reason fields
+# ---------------------------------------------------------------------------
+
+_IDENTITY_FIELDS = ("git_sha", "run_seed", "hostname", "operator", "done_reason")
+
+
+def test_identity_fields_present_on_row() -> None:
+    """All run-identity and done_reason fields appear on every result row."""
+    row = _run_cell_with_span()
+    for field in _IDENTITY_FIELDS:
+        assert field in row, f"Missing field {field!r} on result row"
+
+
+def test_identity_field_values_match_inputs() -> None:
+    """git_sha, run_seed, hostname, operator are the values passed to run_cell."""
+    row = _run_cell_with_span()
+    assert row["git_sha"] == "abc123"
+    assert row["run_seed"] == 42
+    assert row["hostname"] == "test-host"
+    assert row["operator"] == "researcher_a"
+
+
+def test_done_reason_stop_on_normal_output() -> None:
+    """done_reason is 'stop' when the mock returns 'stop' as the stop reason."""
+    row = _run_cell_with_span()  # _fake returns "stop" for done_reason
+    assert row["done_reason"] == "stop"
+
+
+def test_done_reason_length_makes_unclassifiable() -> None:
+    """done_reason='length' causes outcome_class to be UNCLASSIFIABLE."""
+    from harness import runner, telemetry, cache
+
+    scorers = _load_scorers()
+    outcome_mod = _load_outcome()
+
+    def _fake_length(model, prompt, max_tokens, host):
+        return "partial output", 1234.5, 200.0, 50, 3, "length"
+
+    gpu_mock = MagicMock(return_value=(None, "unavailable:test"))
+
+    with patch.object(runner, "_call_ollama_streaming", side_effect=_fake_length), \
+         patch.object(cache, "get", return_value=None), \
+         patch.object(cache, "put"), \
+         patch.object(telemetry, "gpu_mem_mb", side_effect=gpu_mock), \
+         patch.object(telemetry, "rss_mb", return_value=256.0):
+        row = runner.run_cell(
+            probe=EXACT_PROBE,
+            filler=FILLER,
+            depth=2000,
+            rep=0,
+            position_in_cell=0,
+            cell_probe_seed=0,
+            model="qwen3:4b-instruct",
+            host="http://localhost:11434",
+            cfg_hash="test_hash_01",
+            filler_mode="unlabelled",
+            hardware_config="test_hw",
+            memory_architecture="discrete",
+            model_variant="instruct",
+            thinking_enabled=False,
+            scorers=scorers,
+            outcome_mod=outcome_mod,
+            git_sha=None,
+            run_seed=None,
+            hostname="test-host",
+            operator=None,
+        )
+    assert row["done_reason"] == "length"
+    assert row["outcome_class"] == "UNCLASSIFIABLE", row["outcome_class"]
+
+
+def test_normalize_result_row_fills_identity_fields_on_old_row() -> None:
+    """normalize_result_row fills identity fields with None on pre-identity rows."""
+    from evaluation.outcome import normalize_result_row
+
+    old_row = {"probe_id": "rea_01", "score": 1.0}
+    normalized = normalize_result_row(old_row)
+    for field in _IDENTITY_FIELDS:
+        assert field in normalized, f"Missing field {field!r} after normalize"
+        assert normalized[field] is None, f"Expected None for {field!r}, got {normalized[field]!r}"
+
+
+def test_normalize_result_row_preserves_identity_fields_when_set() -> None:
+    """normalize_result_row does not overwrite identity fields already present."""
+    from evaluation.outcome import normalize_result_row
+
+    row = {
+        "probe_id": "rea_01",
+        "git_sha": "deadbeef",
+        "run_seed": 7,
+        "hostname": "strix-halo-01",
+        "operator": "researcher_b",
+        "done_reason": "stop",
+    }
+    normalized = normalize_result_row(row)
+    assert normalized["git_sha"] == "deadbeef"
+    assert normalized["run_seed"] == 7
+    assert normalized["hostname"] == "strix-halo-01"
+    assert normalized["operator"] == "researcher_b"
+    assert normalized["done_reason"] == "stop"

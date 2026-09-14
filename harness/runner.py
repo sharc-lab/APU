@@ -24,6 +24,7 @@ import os
 import random
 import re
 import shutil
+import socket
 import subprocess
 import sys
 import threading
@@ -124,12 +125,16 @@ def _make_count_fn(host: str, model: str):
 
 def _call_ollama_streaming(
     model: str, prompt: str, max_tokens: int, host: str,
-) -> tuple[str, float, float, int, int]:
-    """Return (text, latency_ms, ttft_ms, tokens_in, tokens_out).
+) -> tuple[str, float, float, int, int, str | None]:
+    """Return (text, latency_ms, ttft_ms, tokens_in, tokens_out, done_reason).
 
     Uses /api/chat so the model's chat template is applied. The composed
     filler+probe string is wrapped as a single user message. For the instruct
     model (qwen3:4b-instruct) no think flag is needed — it answers directly.
+
+    done_reason is the Ollama stop reason from the final chunk: "stop" for
+    normal completion, "length" when num_predict was reached, or None if the
+    field was absent.
     """
     url = f"{host}/api/chat"
     payload = {
@@ -146,6 +151,7 @@ def _call_ollama_streaming(
     full_text = ""
     tokens_in = 0
     tokens_out = 0
+    done_reason: str | None = None
 
     with httpx.stream("POST", url, json=payload, timeout=300) as resp:
         resp.raise_for_status()
@@ -161,10 +167,11 @@ def _call_ollama_streaming(
             if chunk.get("done"):
                 tokens_in = chunk.get("prompt_eval_count", 0)
                 tokens_out = chunk.get("eval_count", 0)
+                done_reason = chunk.get("done_reason")
                 break
 
     latency_ms = (time.perf_counter() - start) * 1000
-    return full_text, latency_ms, ttft_ms or latency_ms, tokens_in, tokens_out
+    return full_text, latency_ms, ttft_ms or latency_ms, tokens_in, tokens_out, done_reason
 
 
 def run_cell(
@@ -184,6 +191,10 @@ def run_cell(
     thinking_enabled: bool,
     scorers,
     outcome_mod,
+    git_sha: str | None,
+    run_seed: int | None,
+    hostname: str,
+    operator: str | None,
 ) -> dict[str, Any]:
     # ORCH_SETUP: harness cost to assemble the full prompt (wrap_prompt).
     # CPU-bound; wall elapsed is a valid CPU proxy (no I/O).
@@ -203,9 +214,10 @@ def run_cell(
     if cached:
         output = cached["output"]
         tel = telemetry.Telemetry.from_dict(cached["telemetry"])
+        done_reason: str | None = cached.get("done_reason")
     else:
-        output, latency_ms, ttft_ms, tokens_in, tokens_out = _call_ollama_streaming(
-            model, prompt, max_tokens, host,
+        output, latency_ms, ttft_ms, tokens_in, tokens_out, done_reason = (
+            _call_ollama_streaming(model, prompt, max_tokens, host)
         )
         gpu_val, gpu_source = telemetry.gpu_mem_mb(memory_architecture)
         tel = telemetry.Telemetry(
@@ -217,7 +229,11 @@ def run_cell(
             gpu_mem_mb=gpu_val,
             gpu_mem_source=gpu_source,
         )
-        cache.put(model, prompt, params, {"output": output, "telemetry": tel.to_dict()})
+        cache.put(model, prompt, params, {
+            "output": output,
+            "telemetry": tel.to_dict(),
+            "done_reason": done_reason,
+        })
 
     # HTTP_CLIENT: Ollama inference wall time.  Recorded from _call_ollama_streaming
     # (or from cached telemetry on a cache hit — the cached latency is the original
@@ -235,7 +251,7 @@ def run_cell(
         expected=probe.get("expected", ""),
         scorer_type=probe.get("scorer_type", ""),
         score=score_val,
-        done_reason=None,  # runner path does not receive done_reason from Ollama
+        done_reason=done_reason,
     )
 
     # Flag rows where context delivered is materially less than requested.
@@ -266,12 +282,17 @@ def run_cell(
         "mem_rss_mb": round(tel.mem_rss_mb, 1),
         "gpu_mem_mb": None if tel.gpu_mem_mb is None else round(tel.gpu_mem_mb, 1),
         "gpu_mem_source": tel.gpu_mem_source,
+        "done_reason": done_reason,
         "config_hash": cfg_hash,
         "hardware_config": hardware_config,
         "memory_architecture": memory_architecture,
         "model": model,
         "model_variant": model_variant,
         "thinking_enabled": thinking_enabled,
+        "git_sha": git_sha,
+        "run_seed": run_seed,
+        "hostname": hostname,
+        "operator": operator,
         # Span instrumentation — Zachary's category names, per-call
         "orch_setup_ns":   orch_setup_ns,
         "http_client_ns":  http_client_ns,
@@ -654,12 +675,23 @@ def main() -> None:
         "--preflight-mem-gb", type=float, default=2.0,
         help="Minimum free memory (GB) required to pass preflight (default: 2.0).",
     )
+    parser.add_argument(
+        "--seed", type=int, default=None, metavar="N",
+        help=(
+            "Top-level run seed. Recorded on every result row for reproducibility. "
+            "Does not change the filler or probe shuffle (those use depth×100+rep); "
+            "use this to distinguish intentional re-runs from the same configuration."
+        ),
+    )
     args = parser.parse_args()
 
     # Validate --deadline early so a bad value fails before any work.
     deadline_s: float | None = None
     if args.deadline:
         deadline_s = _parse_duration(args.deadline)
+
+    run_hostname: str = socket.gethostname()
+    run_operator: str | None = os.environ.get("APU_OPERATOR")
 
     scorers = _load_scorers()
     outcome_mod = _load_outcome()
@@ -841,6 +873,10 @@ def main() -> None:
                                 thinking_enabled,
                                 scorers,
                                 outcome_mod,
+                                git["sha"],
+                                args.seed,
+                                run_hostname,
+                                run_operator,
                             )
                         except Exception as exc:
                             row = {
@@ -856,6 +892,7 @@ def main() -> None:
                                 "outcome_class": None,
                                 "classification_method": None,
                                 "format_compliant": None,
+                                "done_reason": None,
                                 "error": str(exc),
                                 "config_hash": cfg_hash,
                                 "hardware_config": args.hardware_config,
@@ -863,6 +900,10 @@ def main() -> None:
                                 "model": args.model,
                                 "model_variant": model_variant,
                                 "thinking_enabled": thinking_enabled,
+                                "git_sha": git["sha"],
+                                "run_seed": args.seed,
+                                "hostname": run_hostname,
+                                "operator": run_operator,
                                 "ctx_suspect": False,
                                 "orch_setup_ns":   0,
                                 "http_client_ns":  0,

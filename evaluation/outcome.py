@@ -47,18 +47,22 @@ _LAST_NUMERIC = re.compile(r"(?<!\w)(-?\d+(?:\.\d+)?)(?!\w)")
 
 _OUTCOME_FIELDS = ("outcome_class", "classification_method", "format_compliant")
 
+# Run-identity and stop-reason fields added 2026-09-14.  Old rows lack them;
+# normalize_result_row fills them with None so analysis code sees a uniform shape.
+_IDENTITY_FIELDS = ("git_sha", "run_seed", "hostname", "operator", "done_reason")
+
 
 def normalize_result_row(d: dict) -> dict:
-    """Return a copy of d with all outcome fields present (None if absent).
+    """Return a copy of d with all schema-tracked fields present (None if absent).
 
-    Backward compat: rows written before the four-way classifier was wired in
-    do not carry outcome_class, classification_method, or format_compliant.
-    Analysis code should call this when loading rows from JSONL files so that
-    old rows and new rows present the same dict shape. Old rows get None —
+    Backward compat: rows written before the four-way classifier or before the
+    run-identity fields were added will be missing some of these keys.  Analysis
+    code MUST call this when loading rows from JSONL files so that old and new
+    rows present the same dict shape.  Missing fields are filled with None —
     never a guessed value.
     """
     out = dict(d)
-    for field in _OUTCOME_FIELDS:
+    for field in _OUTCOME_FIELDS + _IDENTITY_FIELDS:
         out.setdefault(field, None)
     return out
 

@@ -131,6 +131,32 @@ This file seeds Section 6 of the paper and tracks planned mitigations.
 - Scope: Applies to all Axis B span data (Fig 6.1 latency contours, Table 5.1 category
   decomposition). Axis A quality scores are fully reproducible from replay.
 
+## 12a. Call Cache Key Covers Full Assembled Prompt — Hit Cannot Return a Response for Different Inputs
+
+- Finding: The content-addressed call cache in `harness/cache.py` keys on
+  SHA-256 of `{model, prompt, params}` where `prompt` is the fully assembled
+  text returned by `context.wrap_prompt()` — the complete filler block plus the
+  probe text.  Both the filler depth and the probe question therefore participate
+  in the key.  A cache hit can only occur when the model, the full assembled
+  prompt, and all inference parameters (max_tokens, temperature, filler_mode,
+  model_variant) are byte-for-byte identical to a prior call.  It is not possible
+  for a hit to silently return a response produced for a different probe or a
+  different depth.
+- Relevance: A test failure during outcome-classifier integration showed that
+  `_run_cell_with_span` was not patching `cache.get`/`cache.put`, so disk-cached
+  results from an earlier test call were returned regardless of the mock's
+  `fake_output` value.  This looked like the cache returning a response for
+  different inputs, but the mechanism was different: the mock replaced
+  `_call_ollama_streaming` while the disk cache bypassed it entirely.  The
+  failure is an **isolation concern** specific to the test setup, not a
+  correctness concern in the production path.  In production there is no
+  substitute output; `cache.put` stores only the actual model response to a
+  real (model, prompt, params) triple.
+- Rule: Test helpers that mock `_call_ollama_streaming` MUST also patch
+  `cache.get` (returning None) and `cache.put` (no-op) to ensure the mock is
+  actually reached.  See `tests/test_runner_span_scores.py` for the corrected
+  pattern.  Production code requires no change.
+
 ## 13. unified-psutil Measures Whole-System Memory, Not GPU Allocation
 
 - Threat: When no vendor-specific GPU tool (nvidia-smi, rocm-smi, intel-level-zero)
