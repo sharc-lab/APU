@@ -25,6 +25,9 @@ dev = [
     "pytest-cov>=4.1.0",
 ]
 
+[tool.hatch.build.targets.wheel]
+packages = ["harness", "analysis", "evaluation", "routing"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
