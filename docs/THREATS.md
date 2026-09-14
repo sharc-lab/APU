@@ -110,6 +110,54 @@ This file seeds Section 6 of the paper and tracks planned mitigations.
   Analysis code reading configs/hardware/*.yaml should check `memory_architecture`
   before pooling results from configs with the same `memory_gb`.
 
+## 12. Replay Cache: Partial Reproducibility of Axis B Measurements
+
+- Threat: The `ReplayCache` (modes AUTO / RECORD / REPLAY) reproduces `recorded_latency_ms`
+  (the actual inference time measured during recording) and all quality-axis fields
+  (`score`, `score_detail`, model output text) from disk without re-running inference.
+  However, span timing fields — `orch_setup_ns`, `http_client_ns`, `tool_compute_ns` —
+  are **live wall-clock measurements** taken at replay time, not stored in the trace.
+  They reflect the cost of reading the trace from disk plus local harness overhead,
+  not the original inference latency.
+- Impact: A reader reproducing Fig 6.1 from a replay trace will recover the quality
+  axis (score vs. depth) and the `recorded_latency_ms` latency axis faithfully.
+  The span-breakdown fields in the same rows are not replayed values — they are fresh
+  measurements of the replay code path, which is dominated by disk I/O rather than
+  model inference. Any analysis that aggregates or plots span fields from replayed rows
+  alongside live-inference rows will conflate two different measurement populations.
+- Mitigation: Rows emitted during replay carry `replayed: true` in the session output.
+  Any span-level analysis must filter to `replayed == false` rows. The `recorded_latency_ms`
+  field is safe to use from both live and replayed rows.
+- Scope: Applies to all Axis B span data (Fig 6.1 latency contours, Table 5.1 category
+  decomposition). Axis A quality scores are fully reproducible from replay.
+
+## 13. unified-psutil Measures Whole-System Memory, Not GPU Allocation
+
+- Threat: When no vendor-specific GPU tool (nvidia-smi, rocm-smi, intel-level-zero)
+  is available, the telemetry layer falls back to `psutil.virtual_memory()` and
+  emits `gpu_mem_source = "unified-psutil"`.  This value is **total system RAM in
+  use** (OS + all processes + any GPU workloads combined), not a GPU-specific
+  allocation counter.  On EVO-T2S at idle the figure was ≈7.0 GB of 63.5 GB
+  total — reflecting OS and background process footprint, not GPU activity.
+- Impact: Any result row carrying `gpu_mem_source == "unified-psutil"` will be
+  silently misinterpreted as a GPU memory reading if it is pooled with rows from
+  `nvidia-smi`, `rocm-smi`, or `intel-level-zero`.  Cross-source comparisons of
+  `gpu_mem_mb` would mix fundamentally different quantities: VRAM-in-use (discrete)
+  vs. whole-system-RAM-in-use (unified fallback).
+- Rule: **Do not pool or directly compare `gpu_mem_mb` values across different
+  `gpu_mem_source` literals.**  Filter result rows by `gpu_mem_source` before any
+  memory-pressure analysis.  Rows with `gpu_mem_source == "unified-psutil"` may
+  be used as a system-load proxy within the same hardware config but must never
+  be treated as a GPU allocation measurement.
+- Scope: Applies to any hardware config where `memory_architecture = unified` and
+  no Intel Level Zero / rocm-smi path succeeds.  On EVO-T2S the Level Zero library
+  loads but requires `ZES_ENABLE_SYSMAN=1` at `zeInit` time to expose memory
+  modules; when that succeeds, `intel-level-zero` replaces `unified-psutil` as the
+  source and this threat does not apply to those rows.
+- Config flag: `memory_architecture` in `configs/hardware/*.yaml` is the first
+  gate.  The `gpu_mem_source` field in each result row is the authoritative label
+  for what the accompanying `gpu_mem_mb` value actually measures.
+
 ## 10. Artifact Probe Selection Bias Toward Simple Retrieval
 
 - Threat: Two of the ten artifact-bearing probes (art_03 and art_04) were redesigned during authoring because their original formulations required multi-step inference — art_03 asked for the maximum-CPU_HOURS job (argmax over a table) and art_04 asked which user performed a specified action (reverse actor lookup). Both models failed these questions reliably with 4,000 tokens of filler present, even when the artifact was intact, and redesign was necessary to achieve headroom. The final suite therefore consists entirely of direct retrieval lookups: given a key, return the value at that key from the artifact.
