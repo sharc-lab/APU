@@ -41,7 +41,7 @@ or `hardware_config: blade_rtx4070`.
 | `results/type_match.json` | blade_rtx4070, discrete (inferred) | **NO** | Fig 4.8 (APPENDIX) — type-matched filler | No (appendix) |
 | `results/schema_collision.json` | blade_rtx4070, discrete (inferred) | **NO** | Fig 4.9 (APPENDIX) | No (appendix) |
 | `results/interference_r120.json` | blade_rtx4070, discrete (inferred) | **NO** | Fig 4.10 (APPENDIX) — headroom interference | No (appendix) |
-| `results/gate1_kv_precision.json` | blade_rtx4070 (explicit in data) | **NO** | Fig 4.11 (SUPPORTING) — KV precision gate | **Yes — pending** (see note below) |
+| `results/gate1_kv_precision.json` | blade_rtx4070 (explicit in data) | **NO** | Fig 4.11 (SUPPORTING) — KV precision gate | **Yes — must re-run via llama-server directly** (Ollama path cannot set KV precision; see note below) |
 | `results/llamaserver_feasibility.json` | blade14_rtx4070 (explicit) | **NO** | Reference/validation; no direct figure | No |
 | `results/stage_a_scale.json` | blade_rtx4070, discrete (inferred) | **NO** | Fig 4.14 (APPENDIX) — scale experiment | No (appendix; uses cloud model gpt-oss:120b) |
 
@@ -56,9 +56,20 @@ machine with Ollama access during these commits.
 **Produced on:** Razer Blade 14 RZ09-0508, Windows 11, Ollama 0.32.9/0.32.6,
 RTX 4070 Laptop GPU (NVIDIA discrete VRAM, 8188 MiB).
 
-**Key result:** f16/q8_0 VRAM ratio ≈ 1.83×; f16/q4_0 ratio ≈ 3.76×.
-This is cited as the ~1.83× int8-to-int4 memory reduction figure in
-analysis and in Fig 4.11.
+**Key result:** None. All four conditions (f16, q8_0, q4_0, f16_no_flash) ran
+at f16 — Ollama 0.32.x reads `OLLAMA_KV_CACHE_TYPE` at startup but does not
+propagate it to the llama-server command line as `--cache-type-k`. The flag
+is silently ignored; every condition produced identical KV log lines
+(`K (f16): 2304 MiB, V (f16): 2304 MiB`). The file records f16 KV
+allocation on Ollama 0.32.9 (118,784 B/tok at ctx=32768, CUDA0 buffer) and
+documents the API limitation. It is **not** a source of quantization
+reduction ratios. The figures previously cited here (≈1.83× and ≈3.76×)
+were incorrect and have been removed.
+
+**Reference for KV quantization ratios:** `results/llamaserver_feasibility.json`
+(llama-server b1-f8def7fe1, flags confirmed effective). Measured reductions:
+f16→q8_0 = 1.77×, f16→q4_0 = 3.24×. See `docs/KV_MEASUREMENT.md` for the
+full reconciliation.
 
 **Off-target-class status:** The Blade 14 uses discrete NVIDIA VRAM.
 The KV cache precision test measures GPU-side memory allocation via
@@ -99,3 +110,29 @@ reproduced on target-class hardware before submission.
 Results in **APPENDIX** figures produced on Blade 14 are acceptable labeled
 as "Blade 14 / discrete RTX 4070" with a note that Strix Halo re-runs
 are planned. They do not block submission if the CORE figures are reproduced.
+
+---
+
+## Path Redaction Record
+
+**Date:** 2026-09-14  
+**Author:** Rithwik Sharma  
+**Nature of change:** Username redaction only. No numeric value, measurement, or
+analysis-relevant field was modified. All five edits replace a literal Windows
+username path prefix with the platform-token equivalent so the repo does not
+leak the developer's username.
+
+| File | JSON key path | Before (prefix) | After |
+|---|---|---|---|
+| `results/gate1_kv_precision.json` | `["llama_server_direct"]["path"]` | `C:\Users\rithw\AppData\Local\...` | `%LOCALAPPDATA%\...` |
+| `results/llamaserver_feasibility.json` | `["binary"]["path"]` | `C:\Users\rithw\AppData\Local\...` | `%LOCALAPPDATA%\...` |
+| `results/llamaserver_feasibility.json` | `["gguf_location"]["manifest_path"]` | `C:\Users\rithw\.ollama\...` | `%USERPROFILE%\.ollama\...` |
+| `results/llamaserver_feasibility.json` | `["gguf_location"]["blob_path"]` | `C:\Users\rithw\.ollama\models\blobs\sha256-...` | `%USERPROFILE%\.ollama\models\blobs\sha256-...` (digest preserved) |
+| `results/llamaserver_feasibility.json` | `["launch_recipe"]["example"]` | `cd C:/Users/rithw/AppData/Local/...` | `cd %LOCALAPPDATA%/...` |
+
+None of these fields is load-bearing for any analysis script or figure. They are
+provenance metadata (binary location, model blob path, launch example). The
+SHA-256 model digest in `blob_path` is preserved verbatim.
+
+Tests that verify no username appears in committed JSON result files are in
+`tests/test_no_absolute_paths.py` (the `test_results_no_username` test).

@@ -120,7 +120,7 @@
   },
   "llama_server_direct": {
     "installed": true,
-    "path": "C:\\Users\\rithw\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\llama-server.exe",
+    "path": "%LOCALAPPDATA%\\Programs\\Ollama\\lib\\ollama\\llama-server.exe",
     "supports_cache_type_k": true,
     "env_vars": "LLAMA_ARG_CACHE_TYPE_K, LLAMA_ARG_CACHE_TYPE_V",
     "note": "Direct use would bypass Ollama model management. Viable fallback but adds operational complexity. Stage D would require switching to llama-server direct invocation."

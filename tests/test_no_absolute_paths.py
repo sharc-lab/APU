@@ -35,7 +35,13 @@ _CHECKED_EXTENSIONS = {".py", ".yaml", ".yml", ".sh", ".toml", ".cfg", ".ini", "
 # This file itself is excluded: it intentionally contains the patterns it
 # searches for (in docstrings and regex literals) and cannot be self-checked.
 _SKIP_PREFIXES = (".venv/", ".venv\\", "results/", "results\\")
-_SKIP_EXACT = {"tests/test_no_absolute_paths.py", "tests\\test_no_absolute_paths.py"}
+_SKIP_EXACT = {
+    "tests/test_no_absolute_paths.py",  "tests\\test_no_absolute_paths.py",
+    # RESULT_PROVENANCE.md intentionally records the old paths (Before column)
+    # in the path-redaction table so git history and audit trail are readable.
+    # The redacted results/*.json files are covered by test_results_no_username.
+    "docs/RESULT_PROVENANCE.md",        "docs\\RESULT_PROVENANCE.md",
+}
 
 
 def _committed_files() -> list[str]:
@@ -46,6 +52,41 @@ def _committed_files() -> list[str]:
         cwd=Path(__file__).parent.parent,
     )
     return result.stdout.splitlines()
+
+
+def test_results_no_username() -> None:
+    """results/*.json files must not contain the developer's literal username.
+
+    Absolute paths in these files have been redacted to use %LOCALAPPDATA% and
+    %USERPROFILE% tokens.  This test catches regressions where a result file is
+    regenerated and the raw path is committed again.
+
+    Only the username segment "rithw" is checked (not the general path patterns)
+    because result JSON files may legitimately contain relative path fragments.
+    The sha256 model digest must be preserved — this test does not match it.
+    """
+    repo_root = Path(__file__).parent.parent
+    results_dir = repo_root / "results"
+    if not results_dir.is_dir():
+        return  # nothing to check
+
+    username_pat = re.compile(r"[Uu]sers[/\\]rithw[/\\]")
+    violations: list[str] = []
+
+    for json_file in sorted(results_dir.glob("*.json")):
+        try:
+            text = json_file.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        for i, line in enumerate(text.splitlines(), 1):
+            if username_pat.search(line):
+                violations.append(f"results/{json_file.name}:{i}: {line.strip()[:120]}")
+
+    assert not violations, (
+        f"Username 'rithw' found in {len(violations)} result JSON location(s) "
+        "(should be redacted to %LOCALAPPDATA% / %USERPROFILE%):\n"
+        + "\n".join(violations)
+    )
 
 
 def test_no_absolute_user_paths_in_source() -> None:

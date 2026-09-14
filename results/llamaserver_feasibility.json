@@ -4,7 +4,7 @@
   "hardware": "blade14_rtx4070",
   "ollama_version": "bundled",
   "binary": {
-    "path": "C:\\Users\\rithw\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\llama-server.exe",
+    "path": "%LOCALAPPDATA%\\Programs\\Ollama\\lib\\ollama\\llama-server.exe",
     "version_string": "version: 1 (f8def7fe1)",
     "build_info": "b1-f8def7fe1, Clang 18.1.8, Windows AMD64",
     "architecture": "stub EXE that loads libllama-server-impl.dll + libllama.dll + ggml-cuda.dll (from cuda_v12 subdirectory)",
@@ -20,8 +20,8 @@
     "--no-context-shift": true
   },
   "gguf_location": {
-    "manifest_path": "C:\\Users\\rithw\\.ollama\\models\\manifests\\registry.ollama.ai\\library\\qwen3\\4b-instruct",
-    "blob_path": "C:\\Users\\rithw\\.ollama\\models\\blobs\\sha256-85e4a5b7b8ef0e48af0e8658f5aaab9c2324c76c1641493f4d1e25fce54b18b9",
+    "manifest_path": "%USERPROFILE%\\.ollama\\models\\manifests\\registry.ollama.ai\\library\\qwen3\\4b-instruct",
+    "blob_path": "%USERPROFILE%\\.ollama\\models\\blobs\\sha256-85e4a5b7b8ef0e48af0e8658f5aaab9c2324c76c1641493f4d1e25fce54b18b9",
     "size_bytes": 2497280480,
     "quantization": "Q4_K - Medium",
     "model_params": 4022468096,
@@ -144,6 +144,6 @@
     "path_setup": "PATH must include lib/ollama/cuda_v12 and lib/ollama; GGML_BACKEND_DL_PATH=lib/ollama/cuda_v12",
     "required_args": "--model <gguf_path> --n-gpu-layers 99",
     "working_directory": "lib/ollama/cuda_v12 (or any directory where cuda_v12 DLLs are resolvable)",
-    "example": "cd C:/Users/rithw/AppData/Local/Programs/Ollama/lib/ollama/cuda_v12 && llama-server.exe --model <gguf> --ctx-size 8192 --n-gpu-layers 99 --parallel 1 --cache-type-k f16 --port 8090 --host 127.0.0.1"
+    "example": "cd %LOCALAPPDATA%/Programs/Ollama/lib/ollama/cuda_v12 && llama-server.exe --model <gguf> --ctx-size 8192 --n-gpu-layers 99 --parallel 1 --cache-type-k f16 --port 8090 --host 127.0.0.1"
   }
 }

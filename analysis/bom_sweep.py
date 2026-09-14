@@ -43,8 +43,14 @@ KV QUANTIZATION
 (2 x 36 layers x 8 KV heads x 128 head_dim x 1 byte). The "int4" in the reported
 description refers to WEIGHT quantization; KV quantization is a separate knob,
 consistent with him later listing a "u4 KV cache" as its own lever. That lever
-halves the footprint to 36,864 B/token and doubles residency per GB, so it
-belongs in the sweep as a first-class axis rather than a footnote.
+halves the footprint to 36,864 B/token (architectural, 2x reduction) and doubles
+residency per GB, so it belongs in the sweep as a first-class axis rather than a
+footnote.
+# NOTE: 36,864 and 73,728 are architectural values (pure element cost, no
+# per-block metadata overhead). Measured q8->q4 reduction is 1.83x, not 2x
+# (results/llamaserver_feasibility.json, build b1-f8def7fe1). This module uses
+# architectural values for sweep planning; provisioning calculations should use
+# the measured figure from docs/KV_MEASUREMENT.md.
 
 MEMORY ARCHITECTURE
 -------------------

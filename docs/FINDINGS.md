@@ -34,7 +34,7 @@ The published token-precision literature reasons in architectural bytes-per-toke
 
 The provisioning table must carry two columns: architectural and measured. The gap between them is the point — it is what a device OEM would need to correct for when sizing memory from published token-precision data.
 
-Quantization still provides meaningful reduction (3.24× for q4_0 vs 1× for f16) and the flags take effect. The finding is not that quantization is broken but that the reduction is shallower than often stated, and the shortfall is larger at higher compression.
+Quantization still provides meaningful reduction (3.24× for q4_0 vs 1× for f16 measured — 144,530 B/tok, build b1-f8def7fe1, SWA enabled) and the flags take effect. The finding is not that quantization is broken but that the reduction is shallower than often stated, and the shortfall is larger at higher compression.
 
 ### Note on the 144,530 B/tok f16 figure
 

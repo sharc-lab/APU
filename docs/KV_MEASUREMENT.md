@@ -1,0 +1,189 @@
+# KV Cache Memory Measurement — Methods, Reference, and Reconciliation
+
+This document records what each committed KV measurement file actually
+measured, which one is the reference for the paper, and why the two sets of
+numbers differ.
+
+---
+
+## 1. What each file measured
+
+### results/gate1_kv_precision.json
+**Script:** `harness/stage_a_kv_precision.py`  
+**Date:** 2026-08, blade14_rtx4070, Ollama 0.32.9/0.32.6, qwen3:4b-instruct  
+
+**Method:**  
+- Loaded model in Ollama at `num_ctx=32768` with `OLLAMA_KV_CACHE_TYPE` set via
+  environment variable to f16, q8_0, or q4_0 in successive server restarts.
+- KV allocation read from the `CUDA0 KV buffer size = X MiB` line in the Ollama
+  server log (preferred over nvidia-smi subtraction, which was unreliable due to
+  timing).
+- bytes/token = `(cuda_kv_mib * 1048576) / 32768`.
+- nvidia-smi also polled for total VRAM; subtraction `total - weight_footprint`
+  used as a secondary check.
+
+**Outcome: FAIL — KV quantization was never applied.**  
+All four conditions (f16_with_flash, q8_0_with_flash, q4_0_with_flash,
+f16_no_flash) produced identical log lines:
+
+```
+llama_kv_cache: K (f16): 2304.00 MiB, V (f16): 2304.00 MiB
+CUDA0 KV buffer size = 3712.0 MiB
+```
+
+Ollama 0.32.x reads `OLLAMA_KV_CACHE_TYPE` at startup but does not propagate it
+to the `llama-server` command line as `--cache-type-k`. The env var is silently
+ignored. Confirmed: the server log shows `--cache-type-k` is absent from every
+`llama-server` invocation recorded.
+
+**Consequence for any cited ratio:** There are no valid cross-precision KV ratios
+in this file. The `ratio_measured_over_arch` field in each condition record is
+the fixed f16-at-32768 KV allocation (118,784 B/tok) divided by that condition's
+*own* architectural B/tok prediction — a comparison of one f16 measurement to
+each precision's theoretical floor, not a measurement of reduction. These ratios
+(0.806, 1.611, 3.222) are not f16→q8 or f16→q4 reduction factors; they have no
+interpretation as KV quantization effectiveness.
+
+The file's purpose is to document the Ollama API limitation. It is valid for
+that purpose and as a record of f16 KV allocation on this build. It is not a
+source of quantization reduction measurements.
+
+---
+
+### results/llamaserver_feasibility.json
+**Script:** none — collected manually via llama-server CLI  
+**Date:** 2026-08-26, blade14_rtx4070, llama-server build b1-f8def7fe1,
+qwen3:4b-instruct Q4_K-Medium  
+
+**Method:**  
+- Ran llama-server directly (bypassing Ollama) with `--cache-type-k` and
+  `--cache-type-v` flags confirmed to take effect (verified by server log type
+  fields and VRAM measurements).
+- Measured total VRAM via nvidia-smi at `ctx=32768, n_slots=1, n_gpu_layers=99`
+  for f16, q8_0, and q4_0 individually.
+- Established weight-only overhead separately: `weights_overhead_estimate = 3405
+  MiB` (measured by loading the model with minimal ctx; cross-checked: f16 KV at
+  ctx=4096 ≈ 564 MiB and 3970 − 3405 = 565 MiB ✓).
+- bytes/token = `(vram_32768_X − 3405 MiB) * 1048576 / 32768`.
+
+**Results:**
+
+| Precision | VRAM at ctx=32768 (MiB) | KV only (MiB) | Measured B/tok | Arch B/tok | Ratio meas/arch |
+|-----------|-------------------------|---------------|----------------|------------|-----------------|
+| f16       | 7922                    | 4517          | 144,530        | 147,456    | 0.980           |
+| q8_0      | 5952                    | 2547          | 81,490         | 73,728     | 1.105           |
+| q4_0      | 4800                    | 1395          | 44,626         | 36,864     | 1.211           |
+
+**KV reduction ratios (measured f16 as baseline):**
+
+| Comparison | Measured | Architectural |
+|------------|----------|---------------|
+| f16 → q8_0 | **1.77×** | 2.00× |
+| f16 → q4_0 | **3.24×** | 4.00× |
+| q8_0 → q4_0 | **1.83×** | 2.00× |
+
+The f16 measurement sits 2% below architectural because Qwen3 uses sliding
+window attention (SWA) by default; SWA layers maintain a narrower KV window than
+full-context. The `--swa-full` flag was not set. The q8 and q4 measurements
+exceed architectural because per-block quantization metadata (scale factors,
+block headers) is stored at full precision — a fixed overhead per block whose
+fraction of total KV grows as element precision drops. These are known effects
+of block quantization; see `docs/FINDINGS.md` for the mechanistic analysis.
+
+---
+
+## 2. Reference for the paper
+
+**`results/llamaserver_feasibility.json` is the reference.**
+
+Reasons:
+
+1. **Quantization flags actually took effect.** gate1 never ran q8 or q4 KV;
+   every condition in that file was f16. llamaserver confirmed flag effect via log
+   type fields (K (q8_0) / K (q4_0)) and corroborating VRAM values.
+
+2. **The measurement formula is more principled.** Subtracting a separately
+   measured weight overhead (3405 MiB) is less sensitive to post-load driver
+   allocations than the nvidia-smi subtraction method in stage_a, which yielded
+   negative values (`kv_vram_mib_by_subtraction = -36 MiB`) when timing varied.
+
+3. **The results are mechanistically explained.** The deviations from
+   architectural ratios have identified causes (SWA for f16 undershoot;
+   per-block metadata for q8/q4 overshoot). An unexplained deviation would
+   require a re-run; these do not.
+
+4. **Build provenance is explicit.** Build b1-f8def7fe1 is named alongside every
+   figure. The SWA effect on the f16 baseline is build-specific and is
+   documented as such.
+
+**What to cite in the paper:**  
+Use the measured ratios from llamaserver_feasibility.json: **1.77× for f16→q8_0,
+3.24× for f16→q4_0**. Always name "f16 (measured, b1-f8def7fe1, SWA enabled)" as
+the baseline rather than the architectural f16 value, because the SWA effect
+shifts the f16 floor and the ratios are computed against that actual floor.
+
+If the architectural ratios (2× and 4×) appear in the same figure for comparison,
+label them as "architectural (no metadata overhead)" so the two columns are
+distinguishable.
+
+---
+
+## 3. Reconciliation note for gate1_kv_precision.json
+
+gate1_kv_precision.json's verdict field already records the failure:
+*"FAIL — OLLAMA_KV_CACHE_TYPE and LLAMA_ARG_CACHE_TYPE_K/V both ignored on
+Ollama 0.32.9."*
+
+The file remains committed because it is a valid record of:
+- f16 KV allocation on Ollama 0.32.9 at ctx=32768 (4608 MiB, 118,784 B/tok)
+- The Ollama API limitation that blocks Stage D via the Ollama wrapper
+- The fallback path to llama-server direct invocation
+
+The file does **not** provide quantization reduction measurements and must not be
+read as doing so.
+
+---
+
+## 4. Correction: ratios in RESULT_PROVENANCE.md are wrong
+
+`docs/RESULT_PROVENANCE.md` (§ gate1_kv_precision.json provenance note) states:
+> "Key result: f16/q8_0 VRAM ratio ≈ 1.83×; f16/q4_0 ratio ≈ 3.76×."
+
+Both figures are incorrect:
+
+- **1.83×** is not the f16/q8_0 ratio from any measurement. It is the q8_0/q4_0
+  ratio from llamaserver (81,490 / 44,626 = 1.826 ≈ 1.83×). The correct f16/q8_0
+  measured ratio is **1.77×**. The text immediately below calls it
+  "the ~1.83× int8-to-int4 memory reduction figure," which confirms it is the
+  q8→q4 step, not the f16→q8 step.
+
+- **3.76×** is not derivable from either file. The measured f16→q4_0 ratio from
+  llamaserver is **3.24×**; the architectural f16→q4_0 ratio is 4.00×. No
+  intermediate calculation produces 3.76× consistently. This figure should not
+  be cited.
+
+The RESULT_PROVENANCE.md note needs to be corrected before the paper cites Fig 4.11.
+That correction is tracked here but not yet applied (requires user decision on
+exact wording).
+
+---
+
+## 5. KV ratio citations without explicit f16 baseline — inventory
+
+Locations where a KV reduction ratio is stated but the f16 baseline (architectural
+vs measured, which build) is not named:
+
+| File | Location | Statement | Issue |
+|------|----------|-----------|-------|
+| `docs/RESULT_PROVENANCE.md` | line 59 | "f16/q8_0 VRAM ratio ≈ 1.83×; f16/q4_0 ratio ≈ 3.76×" | Both values wrong; attributed to gate1 which failed; f16 baseline unspecified |
+| `docs/RESULT_PROVENANCE.md` | line 60 | "the ~1.83× int8-to-int4 memory reduction figure" | Mislabeled — this is q8/q4, not f16/q8; f16 baseline absent |
+| `analysis/bom_sweep.py` | lines 42–46 | "73,728 B/token corresponds to int8 KV ... That lever halves the footprint to 36,864 B/token and doubles residency per GB" | Uses architectural values (halving = architectural 2× q8→q4); does not name f16 as baseline for the halving claim or distinguish architectural from measured |
+| `docs/FINDINGS.md` | line 37 | "3.24× for q4_0 vs 1× for f16" | Names f16 as baseline but does not specify measured (144,530 B/tok, SWA, b1-f8def7fe1) vs architectural (147,456 B/tok); the 3.24× was computed against measured f16, so the comparison is internally consistent but the baseline variant is implicit |
+
+Locations where the baseline IS explicitly named (no action needed):
+
+| File | Location | Why it is adequately labelled |
+|------|----------|-------------------------------|
+| `docs/FINDINGS.md` table (lines 19–23) | "KV reduction vs f16 (meas)" / "vs f16 (arch)" columns | Both architectural and measured are listed with column headers; source is llamaserver_feasibility.json; build identifier is in the heading |
+| `docs/FINDINGS.md` line 33 | "measured f16→q4_0 reduction is **3.24×, not 4×**" | "measured" vs "architectural" (4×) are both named in the same sentence |
+| `results/llamaserver_feasibility.json` precision_table | `reduction_vs_f16_architectural` / `reduction_vs_f16_measured` keys | Separate fields for each baseline |
