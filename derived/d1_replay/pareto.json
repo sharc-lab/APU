@@ -1,0 +1,734 @@
+{
+  "dominated": [
+    {
+      "dominated_by": [
+        "cpu-p|RESIDENT|u8|int4|4B",
+        "cpu-p|RESIDENT|u4|int4|4B",
+        "gpu_only|RESIDENT|f16|int4|4B",
+        "gpu_only|RESIDENT|u8|int4|4B",
+        "gpu_only|RESIDENT|u4|int4|4B",
+        "gpu_only|NON_RESIDENT|f16|int4|4B",
+        "gpu_only|NON_RESIDENT|u8|int4|4B",
+        "gpu_only|NON_RESIDENT|u4|int4|4B"
+      ],
+      "id": "cpu-p|RESIDENT|f16|int4|4B"
+    },
+    {
+      "dominated_by": [
+        "cpu-p|RESIDENT|f16|int4|4B",
+        "cpu-p|RESIDENT|f16|int8|4B",
+        "cpu-p|RESIDENT|u8|int4|4B",
+        "cpu-p|RESIDENT|u8|int4|8B",
+        "cpu-p|RESIDENT|u8|int8|4B",
+        "cpu-p|RESIDENT|u4|int4|4B",
+        "cpu-p|RESIDENT|u4|int4|8B",
+        "cpu-p|RESIDENT|u4|int8|4B",
+        "gpu_only|RESIDENT|f16|int4|4B",
+        "gpu_only|RESIDENT|f16|int4|8B",
+        "gpu_only|RESIDENT|f16|int8|4B",
+        "gpu_only|RESIDENT|u8|int4|4B",
+        "gpu_only|RESIDENT|u8|int4|8B",
+        "gpu_only|RESIDENT|u8|int8|4B",
+        "gpu_only|RESIDENT|u4|int4|4B",
+        "gpu_only|RESIDENT|u4|int4|8B",
+        "gpu_only|RESIDENT|u4|int8|4B",
+        "gpu_only|NON_RESIDENT|f16|int4|4B",
+        "gpu_only|NON_RESIDENT|f16|int4|8B",
+        "gpu_only|NON_RESIDENT|f16|int8|4B",
+        "gpu_only|NON_RESIDENT|u8|int4|4B",
+        "gpu_only|NON_RESIDENT|u8|int4|8B",
+        "gpu_only|NON_RESIDENT|u8|int8|4B",
+        "gpu_only|NON_RESIDENT|u4|int4|4B",
+        "gpu_only|NON_RESIDENT|u4|int4|8B",
+        "gpu_only|NON_RESIDENT|u4|int8|4B"
+      ],
+      "id": "cpu-p|RESIDENT|f16|int4|8B"
+    },
+    {
+      "dominated_by": [
+        "cpu-p|RESIDENT|u8|int8|4B",
+        "cpu-p|RESIDENT|u4|int8|4B",
+        "gpu_only|RESIDENT|f16|int8|4B",
+        "gpu_only|RESIDENT|u8|int8|4B",
+        "gpu_only|RESIDENT|u4|int8|4B",
+        "gpu_only|NON_RESIDENT|f16|int8|4B",
+        "gpu_only|NON_RESIDENT|u8|int8|4B",
+        "gpu_only|NON_RESIDENT|u4|int8|4B"
+      ],
+      "id": "cpu-p|RESIDENT|f16|int8|4B"
+    },
+    {
+      "dominated_by": [
+        "cpu-p|RESIDENT|f16|int8|4B",
+        "cpu-p|RESIDENT|u8|int8|4B",
+        "cpu-p|RESIDENT|u8|int8|8B",
+        "cpu-p|RESIDENT|u4|int8|4B",
+        "cpu-p|RESIDENT|u4|int8|8B",
+        "gpu_only|RESIDENT|f16|int8|4B",
+        "gpu_only|RESIDENT|f16|int8|8B",
+        "gpu_only|RESIDENT|u8|int8|4B",
+        "gpu_only|RESIDENT|u8|int8|8B",
+        "gpu_only|RESIDENT|u4|int8|4B",
+        "gpu_only|RESIDENT|u4|int8|8B",
+        "gpu_only|NON_RESIDENT|f16|int8|4B",
+        "gpu_only|NON_RESIDENT|f16|int8|8B",
+        "gpu_only|NON_RESIDENT|u8|int8|4B",
+        "gpu_only|NON_RESIDENT|u8|int8|8B",
+        "gpu_only|NON_RESIDENT|u4|int8|4B",
+        "gpu_only|NON_RESIDENT|u4|int8|8B"
+      ],
+      "id": "cpu-p|RESIDENT|f16|int8|8B"
+    },
+    {
+      "dominated_by": [
+        "cpu-p|RESIDENT|u4|int4|4B",
+        "gpu_only|RESIDENT|u8|int4|4B",
+        "gpu_only|RESIDENT|u4|int4|4B",
+        "gpu_only|NON_RESIDENT|u8|int4|4B",
+        "gpu_only|NON_RESIDENT|u4|int4|4B"
+      ],
+      "id": "cpu-p|RESIDENT|u8|int4|4B"
+    },
+    {
+      "dominated_by": [
+        "cpu-p|RESIDENT|f16|int4|4B",
+        "cpu-p|RESIDENT|f16|int8|4B",
+        "cpu-p|RESIDENT|u8|int4|4B",
+        "cpu-p|RESIDENT|u8|int8|4B",
+        "cpu-p|RESIDENT|u4|int4|4B",
+        "cpu-p|RESIDENT|u4|int8|4B",
+        "gpu_only|RESIDENT|f16|int4|4B",
+        "gpu_only|RESIDENT|f16|int8|4B",
+        "gpu_only|RESIDENT|u8|int4|4B",
+        "gpu_only|RESIDENT|u8|int4|8B",
+        "gpu_only|RESIDENT|u8|int8|4B",
+        "gpu_only|RESIDENT|u4|int4|4B",
+        "gpu_only|RESIDENT|u4|int4|8B",
+        "gpu_only|RESIDENT|u4|int8|4B",
+        "gpu_only|NON_RESIDENT|f16|int4|4B",
+        "gpu_only|NON_RESIDENT|f16|int8|4B",
+        "gpu_only|NON_RESIDENT|u8|int4|4B",
+        "gpu_only|NON_RESIDENT|u8|int4|8B",
+        "gpu_only|NON_RESIDENT|u8|int8|4B",
+        "gpu_only|NON_RESIDENT|u4|int4|4B",
+        "gpu_only|NON_RESIDENT|u4|int4|8B",
+        "gpu_only|NON_RESIDENT|u4|int8|4B"
+      ],
+      "id": "cpu-p|RESIDENT|u8|int4|8B"
+    },
+    {
+      "dominated_by": [
+        "cpu-p|RESIDENT|u4|int8|4B",
+        "gpu_only|RESIDENT|u8|int8|4B",
+        "gpu_only|RESIDENT|u4|int8|4B",
+        "gpu_only|NON_RESIDENT|u8|int8|4B",
+        "gpu_only|NON_RESIDENT|u4|int8|4B"
+      ],
+      "id": "cpu-p|RESIDENT|u8|int8|4B"
+    },
+    {
+      "dominated_by": [
+        "cpu-p|RESIDENT|f16|int8|4B",
+        "cpu-p|RESIDENT|u8|int8|4B",
+        "cpu-p|RESIDENT|u4|int8|4B",
+        "gpu_only|RESIDENT|f16|int8|4B",
+        "gpu_only|RESIDENT|u8|int8|4B",
+        "gpu_only|RESIDENT|u8|int8|8B",
+        "gpu_only|RESIDENT|u4|int8|4B",
+        "gpu_only|RESIDENT|u4|int8|8B",
+        "gpu_only|NON_RESIDENT|f16|int8|4B",
+        "gpu_only|NON_RESIDENT|u8|int8|4B",
+        "gpu_only|NON_RESIDENT|u8|int8|8B",
+        "gpu_only|NON_RESIDENT|u4|int8|4B",
+        "gpu_only|NON_RESIDENT|u4|int8|8B"
+      ],
+      "id": "cpu-p|RESIDENT|u8|int8|8B"
+    },
+    {
+      "dominated_by": [
+        "gpu_only|RESIDENT|u4|int4|4B",
+        "gpu_only|NON_RESIDENT|u4|int4|4B"
+      ],
+      "id": "cpu-p|RESIDENT|u4|int4|4B"
+    },
+    {
+      "dominated_by": [
+        "cpu-p|RESIDENT|f16|int4|4B",
+        "cpu-p|RESIDENT|f16|int8|4B",
+        "cpu-p|RESIDENT|u8|int4|4B",
+        "cpu-p|RESIDENT|u8|int8|4B",
+        "cpu-p|RESIDENT|u4|int4|4B",
+        "cpu-p|RESIDENT|u4|int8|4B",
+        "gpu_only|RESIDENT|f16|int4|4B",
+        "gpu_only|RESIDENT|f16|int8|4B",
+        "gpu_only|RESIDENT|u8|int4|4B",
+        "gpu_only|RESIDENT|u8|int8|4B",
+        "gpu_only|RESIDENT|u4|int4|4B",
+        "gpu_only|RESIDENT|u4|int4|8B",
+        "gpu_only|RESIDENT|u4|int8|4B",
+        "gpu_only|NON_RESIDENT|f16|int4|4B",
+        "gpu_only|NON_RESIDENT|f16|int8|4B",
+        "gpu_only|NON_RESIDENT|u8|int4|4B",
+        "gpu_only|NON_RESIDENT|u8|int8|4B",
+        "gpu_only|NON_RESIDENT|u4|int4|4B",
+        "gpu_only|NON_RESIDENT|u4|int4|8B",
+        "gpu_only|NON_RESIDENT|u4|int8|4B"
+      ],
+      "id": "cpu-p|RESIDENT|u4|int4|8B"
+    },
+    {
+      "dominated_by": [
+        "gpu_only|RESIDENT|u4|int8|4B",
+        "gpu_only|NON_RESIDENT|u4|int8|4B"
+      ],
+      "id": "cpu-p|RESIDENT|u4|int8|4B"
+    },
+    {
+      "dominated_by": [
+        "cpu-p|RESIDENT|f16|int8|4B",
+        "cpu-p|RESIDENT|u8|int8|4B",
+        "cpu-p|RESIDENT|u4|int8|4B",
+        "gpu_only|RESIDENT|f16|int8|4B",
+        "gpu_only|RESIDENT|u8|int8|4B",
+        "gpu_only|RESIDENT|u4|int8|4B",
+        "gpu_only|RESIDENT|u4|int8|8B",
+        "gpu_only|NON_RESIDENT|f16|int8|4B",
+        "gpu_only|NON_RESIDENT|u8|int8|4B",
+        "gpu_only|NON_RESIDENT|u4|int8|4B",
+        "gpu_only|NON_RESIDENT|u4|int8|8B"
+      ],
+      "id": "cpu-p|RESIDENT|u4|int8|8B"
+    },
+    {
+      "dominated_by": [
+        "cpu-p|RESIDENT|f16|int4|4B",
+        "cpu-p|RESIDENT|u8|int4|4B",
+        "cpu-p|RESIDENT|u4|int4|4B",
+        "cpu-p|NON_RESIDENT|u8|int4|4B",
+        "cpu-p|NON_RESIDENT|u4|int4|4B",
+        "gpu_only|RESIDENT|f16|int4|4B",
+        "gpu_only|RESIDENT|u8|int4|4B",
+        "gpu_only|RESIDENT|u4|int4|4B",
+        "gpu_only|NON_RESIDENT|f16|int4|4B",
+        "gpu_only|NON_RESIDENT|u8|int4|4B",
+        "gpu_only|NON_RESIDENT|u4|int4|4B"
+      ],
+      "id": "cpu-p|NON_RESIDENT|f16|int4|4B"
+    },
+    {
+      "dominated_by": [
+        "cpu-p|RESIDENT|f16|int4|4B",
+        "cpu-p|RESIDENT|f16|int4|8B",
+        "cpu-p|RESIDENT|f16|int8|4B",
+        "cpu-p|RESIDENT|u8|int4|4B",
+        "cpu-p|RESIDENT|u8|int4|8B",
+        "cpu-p|RESIDENT|u8|int8|4B",
+        "cpu-p|RESIDENT|u4|int4|4B",
+        "cpu-p|RESIDENT|u4|int4|8B",
+        "cpu-p|RESIDENT|u4|int8|4B",
+        "cpu-p|NON_RESIDENT|f16|int4|4B",
+        "cpu-p|NON_RESIDENT|f16|int8|4B",
+        "cpu-p|NON_RESIDENT|u8|int4|4B",
+        "cpu-p|NON_RESIDENT|u8|int4|8B",
+        "cpu-p|NON_RESIDENT|u8|int8|4B",
+        "cpu-p|NON_RESIDENT|u4|int4|4B",
+        "cpu-p|NON_RESIDENT|u4|int4|8B",
+        "cpu-p|NON_RESIDENT|u4|int8|4B",
+        "gpu_only|RESIDENT|f16|int4|4B",
+        "gpu_only|RESIDENT|f16|int4|8B",
+        "gpu_only|RESIDENT|f16|int8|4B",
+        "gpu_only|RESIDENT|u8|int4|4B",
+        "gpu_only|RESIDENT|u8|int4|8B",
+        "gpu_only|RESIDENT|u8|int8|4B",
+        "gpu_only|RESIDENT|u4|int4|4B",
+        "gpu_only|RESIDENT|u4|int4|8B",
+        "gpu_only|RESIDENT|u4|int8|4B",
+        "gpu_only|NON_RESIDENT|f16|int4|4B",
+        "gpu_only|NON_RESIDENT|f16|int4|8B",
+        "gpu_only|NON_RESIDENT|f16|int8|4B",
+        "gpu_only|NON_RESIDENT|u8|int4|4B",
+        "gpu_only|NON_RESIDENT|u8|int4|8B",
+        "gpu_only|NON_RESIDENT|u8|int8|4B",
+        "gpu_only|NON_RESIDENT|u4|int4|4B",
+        "gpu_only|NON_RESIDENT|u4|int4|8B",
+        "gpu_only|NON_RESIDENT|u4|int8|4B"
+      ],
+      "id": "cpu-p|NON_RESIDENT|f16|int4|8B"
+    },
+    {
+      "dominated_by": [
+        "cpu-p|RESIDENT|f16|int8|4B",
+        "cpu-p|RESIDENT|u8|int8|4B",
+        "cpu-p|RESIDENT|u4|int8|4B",
+        "cpu-p|NON_RESIDENT|u8|int8|4B",
+        "cpu-p|NON_RESIDENT|u4|int8|4B",
+        "gpu_only|RESIDENT|f16|int8|4B",
+        "gpu_only|RESIDENT|u8|int8|4B",
+        "gpu_only|RESIDENT|u4|int8|4B",
+        "gpu_only|NON_RESIDENT|f16|int8|4B",
+        "gpu_only|NON_RESIDENT|u8|int8|4B",
+        "gpu_only|NON_RESIDENT|u4|int8|4B"
+      ],
+      "id": "cpu-p|NON_RESIDENT|f16|int8|4B"
+    },
+    {
+      "dominated_by": [
+        "cpu-p|RESIDENT|f16|int8|4B",
+        "cpu-p|RESIDENT|f16|int8|8B",
+        "cpu-p|RESIDENT|u8|int8|4B",
+        "cpu-p|RESIDENT|u8|int8|8B",
+        "cpu-p|RESIDENT|u4|int8|4B",
+        "cpu-p|RESIDENT|u4|int8|8B",
+        "cpu-p|NON_RESIDENT|f16|int8|4B",
+        "cpu-p|NON_RESIDENT|u8|int8|4B",
+        "cpu-p|NON_RESIDENT|u8|int8|8B",
+        "cpu-p|NON_RESIDENT|u4|int8|4B",
+        "cpu-p|NON_RESIDENT|u4|int8|8B",
+        "gpu_only|RESIDENT|f16|int8|4B",
+        "gpu_only|RESIDENT|f16|int8|8B",
+        "gpu_only|RESIDENT|u8|int8|4B",
+        "gpu_only|RESIDENT|u8|int8|8B",
+        "gpu_only|RESIDENT|u4|int8|4B",
+        "gpu_only|RESIDENT|u4|int8|8B",
+        "gpu_only|NON_RESIDENT|f16|int8|4B",
+        "gpu_only|NON_RESIDENT|f16|int8|8B",
+        "gpu_only|NON_RESIDENT|u8|int8|4B",
+        "gpu_only|NON_RESIDENT|u8|int8|8B",
+        "gpu_only|NON_RESIDENT|u4|int8|4B",
+        "gpu_only|NON_RESIDENT|u4|int8|8B"
+      ],
+      "id": "cpu-p|NON_RESIDENT|f16|int8|8B"
+    },
+    {
+      "dominated_by": [
+        "cpu-p|RESIDENT|u8|int4|4B",
+        "cpu-p|RESIDENT|u4|int4|4B",
+        "cpu-p|NON_RESIDENT|u4|int4|4B",
+        "gpu_only|RESIDENT|u8|int4|4B",
+        "gpu_only|RESIDENT|u4|int4|4B",
+        "gpu_only|NON_RESIDENT|u8|int4|4B",
+        "gpu_only|NON_RESIDENT|u4|int4|4B"
+      ],
+      "id": "cpu-p|NON_RESIDENT|u8|int4|4B"
+    },
+    {
+      "dominated_by": [
+        "cpu-p|RESIDENT|f16|int4|4B",
+        "cpu-p|RESIDENT|f16|int8|4B",
+        "cpu-p|RESIDENT|u8|int4|4B",
+        "cpu-p|RESIDENT|u8|int4|8B",
+        "cpu-p|RESIDENT|u8|int8|4B",
+        "cpu-p|RESIDENT|u4|int4|4B",
+        "cpu-p|RESIDENT|u4|int4|8B",
+        "cpu-p|RESIDENT|u4|int8|4B",
+        "cpu-p|NON_RESIDENT|f16|int4|4B",
+        "cpu-p|NON_RESIDENT|f16|int8|4B",
+        "cpu-p|NON_RESIDENT|u8|int4|4B",
+        "cpu-p|NON_RESIDENT|u8|int8|4B",
+        "cpu-p|NON_RESIDENT|u4|int4|4B",
+        "cpu-p|NON_RESIDENT|u4|int4|8B",
+        "cpu-p|NON_RESIDENT|u4|int8|4B",
+        "gpu_only|RESIDENT|f16|int4|4B",
+        "gpu_only|RESIDENT|f16|int8|4B",
+        "gpu_only|RESIDENT|u8|int4|4B",
+        "gpu_only|RESIDENT|u8|int4|8B",
+        "gpu_only|RESIDENT|u8|int8|4B",
+        "gpu_only|RESIDENT|u4|int4|4B",
+        "gpu_only|RESIDENT|u4|int4|8B",
+        "gpu_only|RESIDENT|u4|int8|4B",
+        "gpu_only|NON_RESIDENT|f16|int4|4B",
+        "gpu_only|NON_RESIDENT|f16|int8|4B",
+        "gpu_only|NON_RESIDENT|u8|int4|4B",
+        "gpu_only|NON_RESIDENT|u8|int4|8B",
+        "gpu_only|NON_RESIDENT|u8|int8|4B",
+        "gpu_only|NON_RESIDENT|u4|int4|4B",
+        "gpu_only|NON_RESIDENT|u4|int4|8B",
+        "gpu_only|NON_RESIDENT|u4|int8|4B"
+      ],
+      "id": "cpu-p|NON_RESIDENT|u8|int4|8B"
+    },
+    {
+      "dominated_by": [
+        "cpu-p|RESIDENT|u8|int8|4B",
+        "cpu-p|RESIDENT|u4|int8|4B",
+        "cpu-p|NON_RESIDENT|u4|int8|4B",
+        "gpu_only|RESIDENT|u8|int8|4B",
+        "gpu_only|RESIDENT|u4|int8|4B",
+        "gpu_only|NON_RESIDENT|u8|int8|4B",
+        "gpu_only|NON_RESIDENT|u4|int8|4B"
+      ],
+      "id": "cpu-p|NON_RESIDENT|u8|int8|4B"
+    },
+    {
+      "dominated_by": [
+        "cpu-p|RESIDENT|f16|int8|4B",
+        "cpu-p|RESIDENT|u8|int8|4B",
+        "cpu-p|RESIDENT|u8|int8|8B",
+        "cpu-p|RESIDENT|u4|int8|4B",
+        "cpu-p|RESIDENT|u4|int8|8B",
+        "cpu-p|NON_RESIDENT|f16|int8|4B",
+        "cpu-p|NON_RESIDENT|u8|int8|4B",
+        "cpu-p|NON_RESIDENT|u4|int8|4B",
+        "cpu-p|NON_RESIDENT|u4|int8|8B",
+        "gpu_only|RESIDENT|f16|int8|4B",
+        "gpu_only|RESIDENT|u8|int8|4B",
+        "gpu_only|RESIDENT|u8|int8|8B",
+        "gpu_only|RESIDENT|u4|int8|4B",
+        "gpu_only|RESIDENT|u4|int8|8B",
+        "gpu_only|NON_RESIDENT|f16|int8|4B",
+        "gpu_only|NON_RESIDENT|u8|int8|4B",
+        "gpu_only|NON_RESIDENT|u8|int8|8B",
+        "gpu_only|NON_RESIDENT|u4|int8|4B",
+        "gpu_only|NON_RESIDENT|u4|int8|8B"
+      ],
+      "id": "cpu-p|NON_RESIDENT|u8|int8|8B"
+    },
+    {
+      "dominated_by": [
+        "cpu-p|RESIDENT|u4|int4|4B",
+        "gpu_only|RESIDENT|u4|int4|4B",
+        "gpu_only|NON_RESIDENT|u4|int4|4B"
+      ],
+      "id": "cpu-p|NON_RESIDENT|u4|int4|4B"
+    },
+    {
+      "dominated_by": [
+        "cpu-p|RESIDENT|f16|int4|4B",
+        "cpu-p|RESIDENT|f16|int8|4B",
+        "cpu-p|RESIDENT|u8|int4|4B",
+        "cpu-p|RESIDENT|u8|int8|4B",
+        "cpu-p|RESIDENT|u4|int4|4B",
+        "cpu-p|RESIDENT|u4|int4|8B",
+        "cpu-p|RESIDENT|u4|int8|4B",
+        "cpu-p|NON_RESIDENT|f16|int4|4B",
+        "cpu-p|NON_RESIDENT|f16|int8|4B",
+        "cpu-p|NON_RESIDENT|u8|int4|4B",
+        "cpu-p|NON_RESIDENT|u8|int8|4B",
+        "cpu-p|NON_RESIDENT|u4|int4|4B",
+        "cpu-p|NON_RESIDENT|u4|int8|4B",
+        "gpu_only|RESIDENT|f16|int4|4B",
+        "gpu_only|RESIDENT|f16|int8|4B",
+        "gpu_only|RESIDENT|u8|int4|4B",
+        "gpu_only|RESIDENT|u8|int8|4B",
+        "gpu_only|RESIDENT|u4|int4|4B",
+        "gpu_only|RESIDENT|u4|int4|8B",
+        "gpu_only|RESIDENT|u4|int8|4B",
+        "gpu_only|NON_RESIDENT|f16|int4|4B",
+        "gpu_only|NON_RESIDENT|f16|int8|4B",
+        "gpu_only|NON_RESIDENT|u8|int4|4B",
+        "gpu_only|NON_RESIDENT|u8|int8|4B",
+        "gpu_only|NON_RESIDENT|u4|int4|4B",
+        "gpu_only|NON_RESIDENT|u4|int4|8B",
+        "gpu_only|NON_RESIDENT|u4|int8|4B"
+      ],
+      "id": "cpu-p|NON_RESIDENT|u4|int4|8B"
+    },
+    {
+      "dominated_by": [
+        "cpu-p|RESIDENT|u4|int8|4B",
+        "gpu_only|RESIDENT|u4|int8|4B",
+        "gpu_only|NON_RESIDENT|u4|int8|4B"
+      ],
+      "id": "cpu-p|NON_RESIDENT|u4|int8|4B"
+    },
+    {
+      "dominated_by": [
+        "cpu-p|RESIDENT|f16|int8|4B",
+        "cpu-p|RESIDENT|u8|int8|4B",
+        "cpu-p|RESIDENT|u4|int8|4B",
+        "cpu-p|RESIDENT|u4|int8|8B",
+        "cpu-p|NON_RESIDENT|f16|int8|4B",
+        "cpu-p|NON_RESIDENT|u8|int8|4B",
+        "cpu-p|NON_RESIDENT|u4|int8|4B",
+        "gpu_only|RESIDENT|f16|int8|4B",
+        "gpu_only|RESIDENT|u8|int8|4B",
+        "gpu_only|RESIDENT|u4|int8|4B",
+        "gpu_only|RESIDENT|u4|int8|8B",
+        "gpu_only|NON_RESIDENT|f16|int8|4B",
+        "gpu_only|NON_RESIDENT|u8|int8|4B",
+        "gpu_only|NON_RESIDENT|u4|int8|4B",
+        "gpu_only|NON_RESIDENT|u4|int8|8B"
+      ],
+      "id": "cpu-p|NON_RESIDENT|u4|int8|8B"
+    },
+    {
+      "dominated_by": [
+        "gpu_only|RESIDENT|u8|int4|4B",
+        "gpu_only|RESIDENT|u4|int4|4B"
+      ],
+      "id": "gpu_only|RESIDENT|f16|int4|4B"
+    },
+    {
+      "dominated_by": [
+        "gpu_only|RESIDENT|f16|int4|4B",
+        "gpu_only|RESIDENT|f16|int8|4B",
+        "gpu_only|RESIDENT|u8|int4|4B",
+        "gpu_only|RESIDENT|u8|int4|8B",
+        "gpu_only|RESIDENT|u8|int8|4B",
+        "gpu_only|RESIDENT|u4|int4|4B",
+        "gpu_only|RESIDENT|u4|int4|8B",
+        "gpu_only|RESIDENT|u4|int8|4B"
+      ],
+      "id": "gpu_only|RESIDENT|f16|int4|8B"
+    },
+    {
+      "dominated_by": [
+        "gpu_only|RESIDENT|u8|int8|4B",
+        "gpu_only|RESIDENT|u4|int8|4B"
+      ],
+      "id": "gpu_only|RESIDENT|f16|int8|4B"
+    },
+    {
+      "dominated_by": [
+        "gpu_only|RESIDENT|f16|int8|4B",
+        "gpu_only|RESIDENT|u8|int8|4B",
+        "gpu_only|RESIDENT|u8|int8|8B",
+        "gpu_only|RESIDENT|u4|int8|4B",
+        "gpu_only|RESIDENT|u4|int8|8B"
+      ],
+      "id": "gpu_only|RESIDENT|f16|int8|8B"
+    },
+    {
+      "dominated_by": [
+        "gpu_only|RESIDENT|u4|int4|4B"
+      ],
+      "id": "gpu_only|RESIDENT|u8|int4|4B"
+    },
+    {
+      "dominated_by": [
+        "gpu_only|RESIDENT|f16|int4|4B",
+        "gpu_only|RESIDENT|f16|int8|4B",
+        "gpu_only|RESIDENT|u8|int4|4B",
+        "gpu_only|RESIDENT|u8|int8|4B",
+        "gpu_only|RESIDENT|u4|int4|4B",
+        "gpu_only|RESIDENT|u4|int4|8B",
+        "gpu_only|RESIDENT|u4|int8|4B"
+      ],
+      "id": "gpu_only|RESIDENT|u8|int4|8B"
+    },
+    {
+      "dominated_by": [
+        "gpu_only|RESIDENT|u4|int8|4B"
+      ],
+      "id": "gpu_only|RESIDENT|u8|int8|4B"
+    },
+    {
+      "dominated_by": [
+        "gpu_only|RESIDENT|f16|int8|4B",
+        "gpu_only|RESIDENT|u8|int8|4B",
+        "gpu_only|RESIDENT|u4|int8|4B",
+        "gpu_only|RESIDENT|u4|int8|8B"
+      ],
+      "id": "gpu_only|RESIDENT|u8|int8|8B"
+    },
+    {
+      "dominated_by": [
+        "gpu_only|RESIDENT|f16|int4|4B",
+        "gpu_only|RESIDENT|f16|int8|4B",
+        "gpu_only|RESIDENT|u8|int4|4B",
+        "gpu_only|RESIDENT|u8|int8|4B",
+        "gpu_only|RESIDENT|u4|int4|4B",
+        "gpu_only|RESIDENT|u4|int8|4B"
+      ],
+      "id": "gpu_only|RESIDENT|u4|int4|8B"
+    },
+    {
+      "dominated_by": [
+        "gpu_only|RESIDENT|f16|int8|4B",
+        "gpu_only|RESIDENT|u8|int8|4B",
+        "gpu_only|RESIDENT|u4|int8|4B"
+      ],
+      "id": "gpu_only|RESIDENT|u4|int8|8B"
+    },
+    {
+      "dominated_by": [
+        "gpu_only|RESIDENT|f16|int4|4B",
+        "gpu_only|RESIDENT|u8|int4|4B",
+        "gpu_only|RESIDENT|u4|int4|4B",
+        "gpu_only|NON_RESIDENT|u8|int4|4B",
+        "gpu_only|NON_RESIDENT|u4|int4|4B"
+      ],
+      "id": "gpu_only|NON_RESIDENT|f16|int4|4B"
+    },
+    {
+      "dominated_by": [
+        "cpu-p|RESIDENT|f16|int4|4B",
+        "cpu-p|RESIDENT|f16|int8|4B",
+        "cpu-p|RESIDENT|u8|int4|4B",
+        "cpu-p|RESIDENT|u8|int8|4B",
+        "cpu-p|RESIDENT|u4|int4|4B",
+        "cpu-p|RESIDENT|u4|int8|4B",
+        "gpu_only|RESIDENT|f16|int4|4B",
+        "gpu_only|RESIDENT|f16|int4|8B",
+        "gpu_only|RESIDENT|f16|int8|4B",
+        "gpu_only|RESIDENT|u8|int4|4B",
+        "gpu_only|RESIDENT|u8|int4|8B",
+        "gpu_only|RESIDENT|u8|int8|4B",
+        "gpu_only|RESIDENT|u4|int4|4B",
+        "gpu_only|RESIDENT|u4|int4|8B",
+        "gpu_only|RESIDENT|u4|int8|4B",
+        "gpu_only|NON_RESIDENT|f16|int4|4B",
+        "gpu_only|NON_RESIDENT|f16|int8|4B",
+        "gpu_only|NON_RESIDENT|u8|int4|4B",
+        "gpu_only|NON_RESIDENT|u8|int4|8B",
+        "gpu_only|NON_RESIDENT|u8|int8|4B",
+        "gpu_only|NON_RESIDENT|u4|int4|4B",
+        "gpu_only|NON_RESIDENT|u4|int4|8B",
+        "gpu_only|NON_RESIDENT|u4|int8|4B"
+      ],
+      "id": "gpu_only|NON_RESIDENT|f16|int4|8B"
+    },
+    {
+      "dominated_by": [
+        "gpu_only|RESIDENT|f16|int8|4B",
+        "gpu_only|RESIDENT|u8|int8|4B",
+        "gpu_only|RESIDENT|u4|int8|4B",
+        "gpu_only|NON_RESIDENT|u8|int8|4B",
+        "gpu_only|NON_RESIDENT|u4|int8|4B"
+      ],
+      "id": "gpu_only|NON_RESIDENT|f16|int8|4B"
+    },
+    {
+      "dominated_by": [
+        "cpu-p|RESIDENT|f16|int8|4B",
+        "cpu-p|RESIDENT|u8|int8|4B",
+        "cpu-p|RESIDENT|u4|int8|4B",
+        "gpu_only|RESIDENT|f16|int8|4B",
+        "gpu_only|RESIDENT|f16|int8|8B",
+        "gpu_only|RESIDENT|u8|int8|4B",
+        "gpu_only|RESIDENT|u8|int8|8B",
+        "gpu_only|RESIDENT|u4|int8|4B",
+        "gpu_only|RESIDENT|u4|int8|8B",
+        "gpu_only|NON_RESIDENT|f16|int8|4B",
+        "gpu_only|NON_RESIDENT|u8|int8|4B",
+        "gpu_only|NON_RESIDENT|u8|int8|8B",
+        "gpu_only|NON_RESIDENT|u4|int8|4B",
+        "gpu_only|NON_RESIDENT|u4|int8|8B"
+      ],
+      "id": "gpu_only|NON_RESIDENT|f16|int8|8B"
+    },
+    {
+      "dominated_by": [
+        "gpu_only|RESIDENT|u8|int4|4B",
+        "gpu_only|RESIDENT|u4|int4|4B",
+        "gpu_only|NON_RESIDENT|u4|int4|4B"
+      ],
+      "id": "gpu_only|NON_RESIDENT|u8|int4|4B"
+    },
+    {
+      "dominated_by": [
+        "cpu-p|RESIDENT|f16|int4|4B",
+        "cpu-p|RESIDENT|f16|int8|4B",
+        "cpu-p|RESIDENT|u8|int4|4B",
+        "cpu-p|RESIDENT|u8|int8|4B",
+        "cpu-p|RESIDENT|u4|int4|4B",
+        "cpu-p|RESIDENT|u4|int8|4B",
+        "gpu_only|RESIDENT|f16|int4|4B",
+        "gpu_only|RESIDENT|f16|int8|4B",
+        "gpu_only|RESIDENT|u8|int4|4B",
+        "gpu_only|RESIDENT|u8|int4|8B",
+        "gpu_only|RESIDENT|u8|int8|4B",
+        "gpu_only|RESIDENT|u4|int4|4B",
+        "gpu_only|RESIDENT|u4|int4|8B",
+        "gpu_only|RESIDENT|u4|int8|4B",
+        "gpu_only|NON_RESIDENT|f16|int4|4B",
+        "gpu_only|NON_RESIDENT|f16|int8|4B",
+        "gpu_only|NON_RESIDENT|u8|int4|4B",
+        "gpu_only|NON_RESIDENT|u8|int8|4B",
+        "gpu_only|NON_RESIDENT|u4|int4|4B",
+        "gpu_only|NON_RESIDENT|u4|int4|8B",
+        "gpu_only|NON_RESIDENT|u4|int8|4B"
+      ],
+      "id": "gpu_only|NON_RESIDENT|u8|int4|8B"
+    },
+    {
+      "dominated_by": [
+        "gpu_only|RESIDENT|u8|int8|4B",
+        "gpu_only|RESIDENT|u4|int8|4B",
+        "gpu_only|NON_RESIDENT|u4|int8|4B"
+      ],
+      "id": "gpu_only|NON_RESIDENT|u8|int8|4B"
+    },
+    {
+      "dominated_by": [
+        "cpu-p|RESIDENT|f16|int8|4B",
+        "cpu-p|RESIDENT|u8|int8|4B",
+        "cpu-p|RESIDENT|u4|int8|4B",
+        "gpu_only|RESIDENT|f16|int8|4B",
+        "gpu_only|RESIDENT|u8|int8|4B",
+        "gpu_only|RESIDENT|u8|int8|8B",
+        "gpu_only|RESIDENT|u4|int8|4B",
+        "gpu_only|RESIDENT|u4|int8|8B",
+        "gpu_only|NON_RESIDENT|f16|int8|4B",
+        "gpu_only|NON_RESIDENT|u8|int8|4B",
+        "gpu_only|NON_RESIDENT|u4|int8|4B",
+        "gpu_only|NON_RESIDENT|u4|int8|8B"
+      ],
+      "id": "gpu_only|NON_RESIDENT|u8|int8|8B"
+    },
+    {
+      "dominated_by": [
+        "gpu_only|RESIDENT|u4|int4|4B"
+      ],
+      "id": "gpu_only|NON_RESIDENT|u4|int4|4B"
+    },
+    {
+      "dominated_by": [
+        "cpu-p|RESIDENT|f16|int4|4B",
+        "cpu-p|RESIDENT|f16|int8|4B",
+        "cpu-p|RESIDENT|u8|int4|4B",
+        "cpu-p|RESIDENT|u8|int8|4B",
+        "cpu-p|RESIDENT|u4|int4|4B",
+        "cpu-p|RESIDENT|u4|int8|4B",
+        "gpu_only|RESIDENT|f16|int4|4B",
+        "gpu_only|RESIDENT|f16|int8|4B",
+        "gpu_only|RESIDENT|u8|int4|4B",
+        "gpu_only|RESIDENT|u8|int8|4B",
+        "gpu_only|RESIDENT|u4|int4|4B",
+        "gpu_only|RESIDENT|u4|int4|8B",
+        "gpu_only|RESIDENT|u4|int8|4B",
+        "gpu_only|NON_RESIDENT|f16|int4|4B",
+        "gpu_only|NON_RESIDENT|f16|int8|4B",
+        "gpu_only|NON_RESIDENT|u8|int4|4B",
+        "gpu_only|NON_RESIDENT|u8|int8|4B",
+        "gpu_only|NON_RESIDENT|u4|int4|4B",
+        "gpu_only|NON_RESIDENT|u4|int8|4B"
+      ],
+      "id": "gpu_only|NON_RESIDENT|u4|int4|8B"
+    },
+    {
+      "dominated_by": [
+        "gpu_only|RESIDENT|u4|int8|4B"
+      ],
+      "id": "gpu_only|NON_RESIDENT|u4|int8|4B"
+    },
+    {
+      "dominated_by": [
+        "cpu-p|RESIDENT|f16|int8|4B",
+        "cpu-p|RESIDENT|u8|int8|4B",
+        "cpu-p|RESIDENT|u4|int8|4B",
+        "gpu_only|RESIDENT|f16|int8|4B",
+        "gpu_only|RESIDENT|u8|int8|4B",
+        "gpu_only|RESIDENT|u4|int8|4B",
+        "gpu_only|RESIDENT|u4|int8|8B",
+        "gpu_only|NON_RESIDENT|f16|int8|4B",
+        "gpu_only|NON_RESIDENT|u8|int8|4B",
+        "gpu_only|NON_RESIDENT|u4|int8|4B"
+      ],
+      "id": "gpu_only|NON_RESIDENT|u4|int8|8B"
+    }
+  ],
+  "n_dominated": 46,
+  "n_non_dominated": 2,
+  "non_dominated": [
+    "gpu_only|RESIDENT|u4|int4|4B",
+    "gpu_only|RESIDENT|u4|int8|4B"
+  ],
+  "objectives": [
+    "minimize session_time",
+    "minimize peak_commit",
+    "maximize completion",
+    "maximize emission",
+    "minimize cloud_usd"
+  ]
+}

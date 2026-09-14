@@ -1,0 +1,60 @@
+# SEAM harness dependencies (Phase −1, milestones M0–M1).
+#
+# Pinned with lower bounds and an upper major bound: blueprint §5.7 targets an artifact-evaluation
+# "reusable" badge, which requires pinned dependencies, while an unbounded range would let a major
+# release silently change measurement behaviour.
+#
+# Install:  py -3 -m pip install -r seam/requirements.txt
+#
+# Only what M0/M1/M2.1/M-SLICE actually use is listed. An unused pin is a claim that something was
+# tested, so the remaining telemetry stack (RAPL, thermal) stays absent until M2 needs it.
+
+# Config loading. Configs are data: safe_load only, never executable YAML.
+PyYAML>=6.0,<7
+
+# Round-trip YAML for writing the verified topology back into the platform config without
+# destroying its provenance comments (seam/topology.py). PyYAML cannot do this.
+ruamel.yaml>=0.18,<0.19
+
+# Run-manifest schema validation. A missing validator is a hard failure in seam/manifest.py, not a
+# skipped check, so this is a required dependency rather than an optional one.
+jsonschema>=4.21,<5
+
+# CPU affinity pinning for the cpu-p / cpu-lpe targets (spec §4).
+psutil>=5.9,<8
+
+# M2.1 S1 battery-counter characterization: root\WMI BatteryStatus via the WMI package
+# (requires pywin32). Without these, the sampler falls back to per-sample PowerShell and
+# cannot sustain the configured 10 Hz rate.
+WMI>=1.5.1,<2
+pywin32>=306
+
+# --- M-SLICE: local execution (minimal M4) ---
+#
+# One runtime spans CPU / iGPU / NPU on Intel, so the backend abstraction written for M-SLICE
+# carries forward to full M4 unchanged. Spec §5.2 requires 2026.0 or later: that line validates
+# NPU 5010 on Panther Lake / Windows 11. Hybrid core selection (SCHEDULING_CORE_TYPE) is what
+# gives us the cpu-p / cpu-lpe contrast.
+openvino>=2026.0,<2027
+openvino-genai>=2026.0,<2027
+openvino-tokenizers>=2026.0,<2027
+
+# INT4 weight compression and the scripted IR export (seam/tools/export_model.py). Never
+# hand-converted — spec §5.3.
+optimum-intel>=2.0,<3
+
+# --- M-SLICE: cloud execution (minimal M3) ---
+#
+# Anthropic client. The pinned snapshot identifier and the dated pricing table live in
+# configs/, not here; this pin only fixes the wire protocol and the usage-field names that
+# the budget ledger parses.
+anthropic>=0.40,<1
+
+# Loads the API key from a gitignored .env at repo root (seam/credentials.py). The key is read
+# from the environment only and never reaches a log, a manifest, or the repo.
+python-dotenv>=1.0,<2
+
+# --- development / CI ---
+pytest>=8.0,<9
+ruff>=0.5,<1
+mypy>=1.10,<2

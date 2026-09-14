@@ -1,0 +1,569 @@
+[
+  {
+    "run_id": "4042b031-6d78-48d9-b142-ba9804bd6e64",
+    "arm": null,
+    "date": "2026-07-30T02:14:20.331623+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/4042b031-6d78-48d9-b142-ba9804bd6e64"
+  },
+  {
+    "run_id": "0d7c607b-b80b-4563-a5cc-00fa34d51fd8",
+    "arm": null,
+    "date": "2026-07-30T14:59:39.365631+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/0d7c607b-b80b-4563-a5cc-00fa34d51fd8"
+  },
+  {
+    "run_id": "3fb88dcd-35e7-4826-96b9-8a3edce2b341",
+    "arm": null,
+    "date": "2026-07-30T23:18:50.381886+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/3fb88dcd-35e7-4826-96b9-8a3edce2b341"
+  },
+  {
+    "run_id": "963a849e-e8b3-4bde-83ac-2cc33add2f7e",
+    "arm": null,
+    "date": "2026-07-30T23:19:37.414240+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/963a849e-e8b3-4bde-83ac-2cc33add2f7e"
+  },
+  {
+    "run_id": "855e3590-10af-4723-ab38-fb3ae0f16c86",
+    "arm": null,
+    "date": "2026-07-30T23:34:57.099294+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/855e3590-10af-4723-ab38-fb3ae0f16c86"
+  },
+  {
+    "run_id": "7b5fc2e2-dc9d-4741-8e4b-8b6e64a37f5c",
+    "arm": null,
+    "date": "2026-07-30T23:38:18.700531+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/7b5fc2e2-dc9d-4741-8e4b-8b6e64a37f5c"
+  },
+  {
+    "run_id": "fb5cd2d5-e850-4de1-9b90-d368b5aa9994",
+    "arm": null,
+    "date": "2026-07-30T23:57:05.320541+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/fb5cd2d5-e850-4de1-9b90-d368b5aa9994"
+  },
+  {
+    "run_id": "911965cf-257c-4276-954b-17611a5e75eb",
+    "arm": null,
+    "date": "2026-07-31T02:46:38.997131+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/911965cf-257c-4276-954b-17611a5e75eb"
+  },
+  {
+    "run_id": "472d2200-6deb-4dba-90b7-e50938a7d719",
+    "arm": null,
+    "date": "2026-08-02T23:36:31.478873+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/472d2200-6deb-4dba-90b7-e50938a7d719"
+  },
+  {
+    "run_id": "fc262806-debf-4905-828b-2b8061dc0333",
+    "arm": null,
+    "date": "2026-08-03T15:31:48.223592+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/fc262806-debf-4905-828b-2b8061dc0333"
+  },
+  {
+    "run_id": "5eb09eba-b321-4b7e-b7df-e9b01194d388",
+    "arm": null,
+    "date": "2026-08-03T22:13:43.480577+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/5eb09eba-b321-4b7e-b7df-e9b01194d388"
+  },
+  {
+    "run_id": "0dfd5bfb-0e82-495c-8648-29cd3fe74140",
+    "arm": null,
+    "date": "2026-08-03T22:58:52.514941+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/0dfd5bfb-0e82-495c-8648-29cd3fe74140"
+  },
+  {
+    "run_id": "d8f0875b-dfc5-473f-8260-8c8827d18295",
+    "arm": null,
+    "date": "2026-08-03T23:04:27.347464+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/d8f0875b-dfc5-473f-8260-8c8827d18295"
+  },
+  {
+    "run_id": "6b40e3fe-cbc1-4b6a-8867-46650b4ead61",
+    "arm": null,
+    "date": "2026-08-03T23:33:35.183613+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/6b40e3fe-cbc1-4b6a-8867-46650b4ead61"
+  },
+  {
+    "run_id": "1fd81d2a-3bae-40b1-b2a6-b9c5a50586b1",
+    "arm": null,
+    "date": "2026-08-03T23:39:53.172248+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/1fd81d2a-3bae-40b1-b2a6-b9c5a50586b1"
+  },
+  {
+    "run_id": "1a0166b9-cbaf-43f4-8d76-bcd7c01841e0",
+    "arm": null,
+    "date": "2026-08-03T23:58:29.881021+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/1a0166b9-cbaf-43f4-8d76-bcd7c01841e0"
+  },
+  {
+    "run_id": "f4fd4f79-7c5e-4da7-b5fa-8316dd4e83b0",
+    "arm": null,
+    "date": "2026-08-04T13:24:06.145864+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/f4fd4f79-7c5e-4da7-b5fa-8316dd4e83b0"
+  },
+  {
+    "run_id": "6bdfe71b-ee3d-4cb7-9d24-c01381baa2d9",
+    "arm": null,
+    "date": "2026-08-04T13:24:11.369139+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/6bdfe71b-ee3d-4cb7-9d24-c01381baa2d9"
+  },
+  {
+    "run_id": "4474ff04-9992-4e6f-a43e-120c0043bbd5",
+    "arm": null,
+    "date": "2026-08-04T13:32:58.112923+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/4474ff04-9992-4e6f-a43e-120c0043bbd5"
+  },
+  {
+    "run_id": "eb1c92a8-2713-4f67-8531-3a3f623a6f06",
+    "arm": null,
+    "date": "2026-08-04T13:37:20.290804+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/eb1c92a8-2713-4f67-8531-3a3f623a6f06"
+  },
+  {
+    "run_id": "fe683e57-9286-4535-aae1-3b3c728244fd",
+    "arm": null,
+    "date": "2026-08-04T14:05:59.058236+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/fe683e57-9286-4535-aae1-3b3c728244fd"
+  },
+  {
+    "run_id": "e6bae93f-998c-42c4-ac8c-6351cf389f57",
+    "arm": null,
+    "date": "2026-08-04T15:59:55.613052+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/e6bae93f-998c-42c4-ac8c-6351cf389f57"
+  },
+  {
+    "run_id": "b2a75509-10e4-4352-8452-980a7e6a4b22",
+    "arm": null,
+    "date": "2026-08-04T18:31:58.899841+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/b2a75509-10e4-4352-8452-980a7e6a4b22"
+  },
+  {
+    "run_id": "ede96981-a957-4d1e-9865-2aae95a45af6",
+    "arm": null,
+    "date": "2026-08-05T01:37:32.856040+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/ede96981-a957-4d1e-9865-2aae95a45af6"
+  },
+  {
+    "run_id": "f632701a-0306-4226-900c-223b343593f8",
+    "arm": null,
+    "date": "2026-08-05T02:05:41.872870+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/f632701a-0306-4226-900c-223b343593f8"
+  },
+  {
+    "run_id": "bf458efb-9a5a-4c0e-841f-ef3929af3af8",
+    "arm": null,
+    "date": "2026-08-05T02:42:43.926179+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/bf458efb-9a5a-4c0e-841f-ef3929af3af8"
+  },
+  {
+    "run_id": "6f388dd3-d8fd-4cd8-9768-bb29c1ee976e",
+    "arm": null,
+    "date": "2026-08-05T19:54:18.401663+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/6f388dd3-d8fd-4cd8-9768-bb29c1ee976e"
+  },
+  {
+    "run_id": "b11553d7-3bbb-4162-ad3e-ba9a8b18987b",
+    "arm": null,
+    "date": "2026-08-06T19:42:38.628001+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/b11553d7-3bbb-4162-ad3e-ba9a8b18987b"
+  },
+  {
+    "run_id": "21c1a2ab-af60-4196-84df-3a99f7ef0419",
+    "arm": null,
+    "date": "2026-08-06T20:05:44.432094+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/21c1a2ab-af60-4196-84df-3a99f7ef0419"
+  },
+  {
+    "run_id": "9e3ca312-d6fa-4a8f-8215-3a8b270a049d",
+    "arm": null,
+    "date": "2026-08-06T20:30:02.198852+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/9e3ca312-d6fa-4a8f-8215-3a8b270a049d"
+  },
+  {
+    "run_id": "483751fd-79fc-4be4-9bfc-5aec448b6249",
+    "arm": null,
+    "date": "2026-08-06T20:48:42.504942+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/483751fd-79fc-4be4-9bfc-5aec448b6249"
+  },
+  {
+    "run_id": "c3319520-3787-4904-8816-507bc2c599a4",
+    "arm": null,
+    "date": "2026-08-06T21:15:29.603222+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/c3319520-3787-4904-8816-507bc2c599a4"
+  },
+  {
+    "run_id": "09dfe95d-a4b2-4b93-9757-10c4fead16b5",
+    "arm": null,
+    "date": "2026-08-06T21:15:31.477362+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/09dfe95d-a4b2-4b93-9757-10c4fead16b5"
+  },
+  {
+    "run_id": "68e1c0d9-4813-4058-8b65-a34f39728ff0",
+    "arm": null,
+    "date": "2026-08-06T21:15:31.780623+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/68e1c0d9-4813-4058-8b65-a34f39728ff0"
+  },
+  {
+    "run_id": "2bc2304e-ff03-4a9d-ae50-112cb08077a2",
+    "arm": null,
+    "date": "2026-08-06T22:20:23.643696+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/2bc2304e-ff03-4a9d-ae50-112cb08077a2"
+  },
+  {
+    "run_id": "5f87cb60-0dc3-49cd-b7c8-01d38ec7cf5e",
+    "arm": null,
+    "date": "2026-08-06T22:43:45.487274+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/5f87cb60-0dc3-49cd-b7c8-01d38ec7cf5e"
+  },
+  {
+    "run_id": "cb8e8d7c-74dd-4e72-ae69-8db7239a7b0f",
+    "arm": null,
+    "date": "2026-08-06T22:43:46.981716+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/cb8e8d7c-74dd-4e72-ae69-8db7239a7b0f"
+  },
+  {
+    "run_id": "bc468de3-18ca-4c87-a6a1-186285369f50",
+    "arm": null,
+    "date": "2026-08-06T22:43:47.252043+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/bc468de3-18ca-4c87-a6a1-186285369f50"
+  },
+  {
+    "run_id": "693b44d2-8234-453c-bc8d-107a9ff259a0",
+    "arm": null,
+    "date": "2026-08-07T20:51:32.227424+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/693b44d2-8234-453c-bc8d-107a9ff259a0"
+  },
+  {
+    "run_id": "f1b40956-1500-40cf-9af8-1be72d851d39",
+    "arm": null,
+    "date": "2026-08-07T20:51:32.674712+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/f1b40956-1500-40cf-9af8-1be72d851d39"
+  },
+  {
+    "run_id": "d5c98342-a0b2-41a9-b6e2-93ac7a39c3ba",
+    "arm": null,
+    "date": "2026-08-10T02:46:22.287106+00:00",
+    "tree_sha256": "89ecf2be579c8f09bf13cb361089586f958da077876aa57b8592f4109635154f",
+    "kind": "derived_diagnostic",
+    "measured": null,
+    "source_path": "derived/delta_prefill/sealed_d5c98342-a0b2-41a9-b6e2-93ac7a39c3ba"
+  },
+  {
+    "run_id": "9f38eb15-6fe6-40b4-871b-a02ec5629bb1",
+    "arm": null,
+    "date": "2026-08-10T12:35:30.446636+00:00",
+    "tree_sha256": "5d2115f544e0ac95107467fcc582db7e2c71e99f204865986e6446e686f683a0",
+    "kind": "derived_diagnostic",
+    "measured": null,
+    "source_path": "derived/delta_prefill/sealed_9f38eb15-6fe6-40b4-871b-a02ec5629bb1"
+  },
+  {
+    "run_id": "9f38eb15-6fe6-40b4-871b-a02ec5629bb1",
+    "arm": null,
+    "date": "2026-08-10T12:47:34.391771+00:00",
+    "tree_sha256": null,
+    "kind": "delta_prefill_matrix",
+    "measured": null,
+    "source_path": "raw/9f38eb15-6fe6-40b4-871b-a02ec5629bb1"
+  },
+  {
+    "run_id": "d5c98342-a0b2-41a9-b6e2-93ac7a39c3ba",
+    "arm": null,
+    "date": "2026-08-10T12:47:34.854496+00:00",
+    "tree_sha256": null,
+    "kind": "delta_prefill_matrix",
+    "measured": null,
+    "source_path": "raw/d5c98342-a0b2-41a9-b6e2-93ac7a39c3ba"
+  },
+  {
+    "run_id": "ad7b9288-42e6-42e8-be3e-ad1a1b1abc4c",
+    "arm": null,
+    "date": "2026-08-10T13:02:45.065074+00:00",
+    "tree_sha256": "0ea26e2c043b6f9db41a78ce995749784fdece57cabcc6fca9e8a6e83c07f5f8",
+    "kind": "derived_diagnostic",
+    "measured": null,
+    "source_path": "derived/ceiling_a/sealed_ad7b9288-42e6-42e8-be3e-ad1a1b1abc4c"
+  },
+  {
+    "run_id": "b5ce21e5-9f29-46f4-8319-f74adcdeb628",
+    "arm": null,
+    "date": "2026-08-10T13:05:32.521810+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/b5ce21e5-9f29-46f4-8319-f74adcdeb628"
+  },
+  {
+    "run_id": "64e525e7-37df-4a7a-91e5-21419acf5dd2",
+    "arm": null,
+    "date": "2026-08-10T13:05:32.760619+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/64e525e7-37df-4a7a-91e5-21419acf5dd2"
+  },
+  {
+    "run_id": "404dc3d0-1760-41a8-b9c5-d0d439b1a1fe",
+    "arm": null,
+    "date": "2026-08-10T13:05:32.978942+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/404dc3d0-1760-41a8-b9c5-d0d439b1a1fe"
+  },
+  {
+    "run_id": "29253ddc-3042-4c7e-8e45-a7321f8a71f6",
+    "arm": null,
+    "date": "2026-08-10T20:12:07.493886+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/29253ddc-3042-4c7e-8e45-a7321f8a71f6"
+  },
+  {
+    "run_id": "2d385fa3-08ed-4366-86e5-aedd47c503c2",
+    "arm": null,
+    "date": "2026-08-10T20:12:07.747931+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/2d385fa3-08ed-4366-86e5-aedd47c503c2"
+  },
+  {
+    "run_id": "a621ff7d-2919-463d-aaf6-673f9e6bafbc",
+    "arm": null,
+    "date": "2026-08-11T19:48:14.251100+00:00",
+    "tree_sha256": "b3e28b1dda14cd6a46a94fd74338d8e9b0bf94c88982607debc27a0b96453c26",
+    "kind": "derived_diagnostic",
+    "measured": null,
+    "source_path": "derived/bfcl_feasibility/session_residency/sealed_a621ff7d-2919-463d-aaf6-673f9e6bafbc"
+  },
+  {
+    "run_id": "cbeb8b72-048f-4464-b60b-1397b351e1b0",
+    "arm": null,
+    "date": "2026-08-11T21:39:42.924665+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/cbeb8b72-048f-4464-b60b-1397b351e1b0"
+  },
+  {
+    "run_id": "a6de44e4-9548-474d-b0d1-c9842339cdb9",
+    "arm": null,
+    "date": "2026-08-11T21:39:43.178775+00:00",
+    "tree_sha256": null,
+    "kind": null,
+    "measured": null,
+    "source_path": "raw/a6de44e4-9548-474d-b0d1-c9842339cdb9"
+  },
+  {
+    "run_id": "41e419bd-f3e9-43b1-8364-0ebd89fa086b",
+    "arm": null,
+    "date": "2026-08-24T16:13:53.604983Z",
+    "tree_sha256": "6efdef15a0af8a54f21b965b32ac8e7520e5b5cb9e4da82592cd6482bd1ec1ab",
+    "kind": "derived_diagnostic",
+    "measured": null,
+    "source_path": "derived/delta_prefill/sealed_41e419bd-f3e9-43b1-8364-0ebd89fa086b"
+  },
+  {
+    "run_id": "a784f5ec-5615-4fea-a680-a07874426ae4",
+    "arm": null,
+    "date": "2026-08-29T18:31:17.292684+00:00",
+    "tree_sha256": "0abd0784bd9871dfaf36df27a51af216d86f591fe0f958515a7c4004ec9dcb85",
+    "kind": "derived_diagnostic",
+    "measured": null,
+    "source_path": "derived/delta_prefill/sealed_a784f5ec-5615-4fea-a680-a07874426ae4"
+  },
+  {
+    "run_id": "6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a",
+    "arm": null,
+    "date": "2026-08-30T21:20:43.667371+00:00",
+    "tree_sha256": "a3033def0035932f6e877b92e49ceebfbcac2744f37a3dc6e3fb7d2a1d85ee50",
+    "kind": "derived_diagnostic",
+    "measured": null,
+    "source_path": "derived/bfcl_feasibility/w3_weight_quality/sealed_6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a"
+  },
+  {
+    "run_id": "1d8db970-4c18-4bcf-824d-d9c141b6eb22",
+    "arm": null,
+    "date": "2026-08-30T21:20:43.773784+00:00",
+    "tree_sha256": "5fd03d928f5ab09898d1720edece47c8af71368a5e7202d1d916fd8336951f08",
+    "kind": "derived_diagnostic",
+    "measured": null,
+    "source_path": "derived/bfcl_feasibility/w3_weight_quality/sealed_1d8db970-4c18-4bcf-824d-d9c141b6eb22"
+  },
+  {
+    "run_id": "48779b5a-dd7b-428a-aba3-560c59b49ea3",
+    "arm": null,
+    "date": "2026-09-01T03:27:56.919848+00:00",
+    "tree_sha256": "23710d25f58922c471da146d66dbc0a288a67b850f58053bf62a49d6bef5efde",
+    "kind": "derived_diagnostic",
+    "measured": null,
+    "source_path": "derived/delta_prefill/sealed_48779b5a-dd7b-428a-aba3-560c59b49ea3"
+  },
+  {
+    "run_id": "cb781dbf-3486-4fbc-a69a-34026f801abe",
+    "arm": null,
+    "date": "2026-09-07T23:00:03.224951+00:00",
+    "tree_sha256": "fcb17e421ff5e7c3a21af4a8506ffa22ecd4fc08c4c59a4dd3cd7ded24b1e5f2",
+    "kind": "derived_diagnostic",
+    "measured": null,
+    "source_path": "derived/bfcl_feasibility/x2_feasibility_table/sealed_cb781dbf-3486-4fbc-a69a-34026f801abe"
+  },
+  {
+    "run_id": "9fdedb46-3318-4abc-a56f-50b7d23d25ca",
+    "arm": null,
+    "date": "2026-09-07T23:00:03.244343+00:00",
+    "tree_sha256": "dea164343b39834bd9fcfc2a243c24737e71b46db3ca05b0accf33f6cb3093c9",
+    "kind": "derived_diagnostic",
+    "measured": null,
+    "source_path": "derived/bfcl_feasibility/x2_feasibility_table/sealed_9fdedb46-3318-4abc-a56f-50b7d23d25ca"
+  },
+  {
+    "run_id": "afd1aa21-d4b2-4491-81b4-b1b6f4fa681a",
+    "arm": null,
+    "date": "2026-09-07T23:00:03.260928+00:00",
+    "tree_sha256": "d9f942bb0e3309a6c26af5637754f38d0e0601b558bdd3f84698b409aaf01519",
+    "kind": "derived_diagnostic",
+    "measured": null,
+    "source_path": "derived/bfcl_feasibility/x2_feasibility_table/sealed_afd1aa21-d4b2-4491-81b4-b1b6f4fa681a"
+  },
+  {
+    "run_id": "0963168f-9144-4d21-99cf-5a77232dd477",
+    "arm": null,
+    "date": "2026-09-07T23:00:03.277285+00:00",
+    "tree_sha256": "bb420a31ea053615d0342a3fa61d4342e474c9bea23631931861a74c8445a943",
+    "kind": "derived_diagnostic",
+    "measured": null,
+    "source_path": "derived/bfcl_feasibility/x2_feasibility_table/sealed_0963168f-9144-4d21-99cf-5a77232dd477"
+  },
+  {
+    "run_id": "62395fdb-1899-415f-b708-6adc81a24dda",
+    "arm": null,
+    "date": "2026-09-08T21:14:51.356219+00:00",
+    "tree_sha256": "95cc9d5c28fc87dcefd7c990ab216854997c5fffdf2b8212d6173173da25ae0c",
+    "kind": "derived_diagnostic",
+    "measured": "ttft_limits={\"gpu_only_f16\": 10000, \"gpu_only_u4\": 10000, \"gpu_only_u8\": 10000}",
+    "source_path": "derived/c2_ttft/sealed_62395fdb-1899-415f-b708-6adc81a24dda"
+  }
+]

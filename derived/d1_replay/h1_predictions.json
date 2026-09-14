@@ -1,0 +1,441 @@
+{
+  "cloud_fit": {
+    "c3_confirm": {
+      "c3_fitted_exponent": 1.026974487407871,
+      "c3_linear_r2_aggregated": 0.9798644526439462,
+      "c3_verdict": "closer to linear in remaining cloud turns (fitted exponent 1.027); quadratic claim not supported",
+      "linear_confirmed": true,
+      "n_points_all_from_turn": 70,
+      "n_points_full_entry": 20,
+      "per_entry_all_from_turn_r2": 0.7132240894033286,
+      "per_entry_full_entry_only_intercept": 0.045709673684210556,
+      "per_entry_full_entry_only_r2": 0.4363912622899151,
+      "per_entry_full_entry_only_slope": 0.06418357894736841
+    },
+    "intercept": 0.010377342993768995,
+    "mean_usd_full_entry": 0.2703522,
+    "n": 70,
+    "r2": 0.7132240894033286,
+    "residual_se": 0.054412249747246504,
+    "slope": 0.07126656281698306,
+    "tag": "ASSUMED(fit=20 entries cloud_multi_turn_report.json)"
+  },
+  "cloud_recon_exact_lookup_test": {
+    "billing_model": "sum over API calls of cloud_usd(prompt_tokens, completion_tokens); each call resent full context; tokens from cloud report, not local trace",
+    "kind": "exact_lookup_test",
+    "max_abs_error_usd": 1.1102230246251565e-16,
+    "mean_abs_error_usd": 2.8449465006019634e-17,
+    "measured_total_usd": 5.407044000000001,
+    "n_entries": 20,
+    "note": "Sealed 20-entry token lookup; H-1 reports the fit predictor, not this.",
+    "per_entry": [
+      {
+        "completion_tokens": 1984,
+        "error_usd": 1.1102230246251565e-16,
+        "id": "multi_turn_base_0",
+        "measured_usd": 0.5286479999999999,
+        "n_calls": 16,
+        "predicted_usd": 0.528648,
+        "prompt_tokens": 166296
+      },
+      {
+        "completion_tokens": 1043,
+        "error_usd": 0.0,
+        "id": "multi_turn_base_1",
+        "measured_usd": 0.201192,
+        "n_calls": 11,
+        "predicted_usd": 0.201192,
+        "prompt_tokens": 61849
+      },
+      {
+        "completion_tokens": 1420,
+        "error_usd": -1.1102230246251565e-16,
+        "id": "multi_turn_base_2",
+        "measured_usd": 0.4075080000000001,
+        "n_calls": 15,
+        "predicted_usd": 0.407508,
+        "prompt_tokens": 128736
+      },
+      {
+        "completion_tokens": 771,
+        "error_usd": 1.3877787807814457e-17,
+        "id": "multi_turn_base_3",
+        "measured_usd": 0.10838099999999999,
+        "n_calls": 6,
+        "predicted_usd": 0.108381,
+        "prompt_tokens": 32272
+      },
+      {
+        "completion_tokens": 1136,
+        "error_usd": -5.551115123125783e-17,
+        "id": "multi_turn_base_4",
+        "measured_usd": 0.26450100000000004,
+        "n_calls": 8,
+        "predicted_usd": 0.264501,
+        "prompt_tokens": 82487
+      },
+      {
+        "completion_tokens": 1284,
+        "error_usd": 0.0,
+        "id": "multi_turn_base_5",
+        "measured_usd": 0.384318,
+        "n_calls": 12,
+        "predicted_usd": 0.384318,
+        "prompt_tokens": 121686
+      },
+      {
+        "completion_tokens": 1125,
+        "error_usd": -5.551115123125783e-17,
+        "id": "multi_turn_base_6",
+        "measured_usd": 0.28865100000000005,
+        "n_calls": 15,
+        "predicted_usd": 0.288651,
+        "prompt_tokens": 90592
+      },
+      {
+        "completion_tokens": 616,
+        "error_usd": 2.7755575615628914e-17,
+        "id": "multi_turn_base_7",
+        "measured_usd": 0.219858,
+        "n_calls": 7,
+        "predicted_usd": 0.21985800000000003,
+        "prompt_tokens": 70206
+      },
+      {
+        "completion_tokens": 1599,
+        "error_usd": 0.0,
+        "id": "multi_turn_base_8",
+        "measured_usd": 0.31478999999999996,
+        "n_calls": 9,
+        "predicted_usd": 0.31478999999999996,
+        "prompt_tokens": 96935
+      },
+      {
+        "completion_tokens": 1606,
+        "error_usd": 0.0,
+        "id": "multi_turn_base_9",
+        "measured_usd": 0.250404,
+        "n_calls": 13,
+        "predicted_usd": 0.250404,
+        "prompt_tokens": 75438
+      },
+      {
+        "completion_tokens": 1658,
+        "error_usd": 0.0,
+        "id": "multi_turn_base_10",
+        "measured_usd": 0.346032,
+        "n_calls": 18,
+        "predicted_usd": 0.346032,
+        "prompt_tokens": 107054
+      },
+      {
+        "completion_tokens": 682,
+        "error_usd": 0.0,
+        "id": "multi_turn_base_11",
+        "measured_usd": 0.160929,
+        "n_calls": 5,
+        "predicted_usd": 0.160929,
+        "prompt_tokens": 50233
+      },
+      {
+        "completion_tokens": 491,
+        "error_usd": 5.551115123125783e-17,
+        "id": "multi_turn_base_12",
+        "measured_usd": 0.15746699999999997,
+        "n_calls": 9,
+        "predicted_usd": 0.15746700000000002,
+        "prompt_tokens": 50034
+      },
+      {
+        "completion_tokens": 848,
+        "error_usd": 0.0,
+        "id": "multi_turn_base_13",
+        "measured_usd": 0.223779,
+        "n_calls": 7,
+        "predicted_usd": 0.223779,
+        "prompt_tokens": 70353
+      },
+      {
+        "completion_tokens": 1272,
+        "error_usd": 5.551115123125783e-17,
+        "id": "multi_turn_base_14",
+        "measured_usd": 0.27320099999999997,
+        "n_calls": 10,
+        "predicted_usd": 0.273201,
+        "prompt_tokens": 84707
+      },
+      {
+        "completion_tokens": 1160,
+        "error_usd": -5.551115123125783e-17,
+        "id": "multi_turn_base_15",
+        "measured_usd": 0.314784,
+        "n_calls": 10,
+        "predicted_usd": 0.31478399999999995,
+        "prompt_tokens": 99128
+      },
+      {
+        "completion_tokens": 943,
+        "error_usd": 0.0,
+        "id": "multi_turn_base_16",
+        "measured_usd": 0.20051099999999997,
+        "n_calls": 11,
+        "predicted_usd": 0.20051099999999997,
+        "prompt_tokens": 62122
+      },
+      {
+        "completion_tokens": 965,
+        "error_usd": 0.0,
+        "id": "multi_turn_base_17",
+        "measured_usd": 0.287127,
+        "n_calls": 11,
+        "predicted_usd": 0.287127,
+        "prompt_tokens": 90884
+      },
+      {
+        "completion_tokens": 1707,
+        "error_usd": 0.0,
+        "id": "multi_turn_base_18",
+        "measured_usd": 0.27366599999999996,
+        "n_calls": 8,
+        "predicted_usd": 0.27366599999999996,
+        "prompt_tokens": 82687
+      },
+      {
+        "completion_tokens": 728,
+        "error_usd": 2.7755575615628914e-17,
+        "id": "multi_turn_base_19",
+        "measured_usd": 0.201297,
+        "n_calls": 8,
+        "predicted_usd": 0.20129700000000003,
+        "prompt_tokens": 63459
+      }
+    ],
+    "predicted_total_usd": 5.407043999999999,
+    "sealed_spend_usd": 5.407044000000001,
+    "tag": "MEASURED(cloud_multi_turn_report.json) per-call tokens at 3/15"
+  },
+  "rows": [
+    {
+      "cloud_billing": {
+        "escalate_records_n": 200,
+        "exact_lookup_reserved_for_test": true,
+        "fit_tag": "ASSUMED(fit=20 entries cloud_multi_turn_report.json)",
+        "model": "linear usd ~ a + b*turns_remaining; ASSUMED(fit=20 entries)",
+        "n_escalated": 200
+      },
+      "cloud_usd_half_width": 2.9475998084729658,
+      "cloud_usd_hi": 57.01803980847296,
+      "cloud_usd_interval": {
+        "formula": "mean(usd_full_entry among 20) * 200",
+        "half_width": 2.9475998084729658,
+        "hi": 57.01803980847296,
+        "lo": 51.12284019152703,
+        "mean_per_entry": 0.2703522,
+        "mode": "r0_mean_per_entry_x_200",
+        "n_scale": 200,
+        "tag": "ASSUMED(fit=20 entries cloud_multi_turn_report.json)",
+        "value": 54.07044
+      },
+      "cloud_usd_lo": 51.12284019152703,
+      "cloud_usd_total": 54.07044,
+      "completion": {
+        "tag": "PROVISIONAL MEASURED(cloud_multi_turn_report.json) n=20",
+        "value": 0.65
+      },
+      "config": {
+        "kv": "u8",
+        "placement": "gpu_only",
+        "residency": "RESIDENT",
+        "tier": "4B",
+        "weight": "int4"
+      },
+      "emission": {
+        "tag": "ASSUMED(cloud tool-call emission not separately measured)",
+        "value": 1.0
+      },
+      "label": "R0",
+      "n_cloud_turns": 732,
+      "n_local_turns": 0,
+      "n_trace_entries": 200,
+      "peak_commit_bytes": 0.0,
+      "policy": "cloud_only",
+      "session_time_s_mean": 0.0,
+      "session_time_s_sum": 0.0,
+      "slo_fraction_local_turns": null,
+      "trace_n": 200
+    },
+    {
+      "cloud_billing": {
+        "escalate_records_n": 0,
+        "exact_lookup_reserved_for_test": true,
+        "fit_tag": "ASSUMED(fit=20 entries cloud_multi_turn_report.json)",
+        "model": "linear usd ~ a + b*turns_remaining; ASSUMED(fit=20 entries)",
+        "n_escalated": 0
+      },
+      "cloud_usd_half_width": 0.0,
+      "cloud_usd_hi": 0.0,
+      "cloud_usd_interval": {
+        "half_width": 0.0,
+        "hi": 0.0,
+        "lo": 0.0,
+        "mode": "no_cloud",
+        "n": 0,
+        "tag": "MEASURED(no cloud escalation under this policy)",
+        "value": 0.0
+      },
+      "cloud_usd_lo": 0.0,
+      "cloud_usd_total": 0.0,
+      "completion": {
+        "tag": "MEASURED(6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a)",
+        "value": 0.1
+      },
+      "config": {
+        "kv": "u8",
+        "placement": "cpu-p",
+        "residency": "NON_RESIDENT",
+        "tier": "4B",
+        "weight": "int4"
+      },
+      "emission": {
+        "tag": "MEASURED(6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a) entry-level 1-empty_turn/200",
+        "value": 0.775
+      },
+      "label": "R1",
+      "n_cloud_turns": 0,
+      "n_local_turns": 732,
+      "n_trace_entries": 200,
+      "peak_commit_bytes": 3990503332.471827,
+      "policy": "agnostic_default",
+      "session_time_s_mean": 385.98905928124685,
+      "session_time_s_sum": 77197.81185624935,
+      "slo_fraction_local_turns": 0.0,
+      "trace_n": 200
+    },
+    {
+      "cloud_billing": {
+        "escalate_records_n": 0,
+        "exact_lookup_reserved_for_test": true,
+        "fit_tag": "ASSUMED(fit=20 entries cloud_multi_turn_report.json)",
+        "model": "linear usd ~ a + b*turns_remaining; ASSUMED(fit=20 entries)",
+        "n_escalated": 0
+      },
+      "cloud_usd_half_width": 0.0,
+      "cloud_usd_hi": 0.0,
+      "cloud_usd_interval": {
+        "half_width": 0.0,
+        "hi": 0.0,
+        "lo": 0.0,
+        "mode": "no_cloud",
+        "n": 0,
+        "tag": "MEASURED(no cloud escalation under this policy)",
+        "value": 0.0
+      },
+      "cloud_usd_lo": 0.0,
+      "cloud_usd_total": 0.0,
+      "completion": {
+        "tag": "MEASURED(6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a)",
+        "value": 0.1
+      },
+      "config": {
+        "kv": "u8",
+        "placement": "gpu_only",
+        "residency": "RESIDENT",
+        "tier": "4B",
+        "weight": "int4"
+      },
+      "emission": {
+        "tag": "MEASURED(6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a) entry-level 1-empty_turn/200",
+        "value": 0.775
+      },
+      "label": "R2a",
+      "n_cloud_turns": 0,
+      "n_local_turns": 732,
+      "n_trace_entries": 200,
+      "peak_commit_bytes": 3990503332.471827,
+      "policy": "slo_escalate",
+      "session_time_s_mean": 13.20729306639086,
+      "session_time_s_sum": 2641.4586132781724,
+      "slo_fraction_local_turns": 1.0,
+      "trace_n": 200
+    },
+    {
+      "cloud_billing": {
+        "escalate_records_n": 45,
+        "exact_lookup_reserved_for_test": true,
+        "fit_tag": "ASSUMED(fit=20 entries cloud_multi_turn_report.json)",
+        "model": "linear usd ~ a + b*turns_remaining; ASSUMED(fit=20 entries)",
+        "n_escalated": 45
+      },
+      "cloud_usd_half_width": 1.2059282598120387,
+      "cloud_usd_hi": 14.287090313137643,
+      "cloud_usd_interval": {
+        "half_width": 1.2059282598120387,
+        "hi": 14.287090313137643,
+        "lo": 11.875233793513566,
+        "mode": "fit_sum_over_escalated",
+        "n": 45,
+        "n_escalated": 45,
+        "tag": "ASSUMED(fit=20 entries cloud_multi_turn_report.json)",
+        "value": 13.081162053325604
+      },
+      "cloud_usd_lo": 11.875233793513566,
+      "cloud_usd_total": 13.081162053325604,
+      "completion": {
+        "tag": "ASSUMED escalated complete at cloud rate; cloud rate PROVISIONAL MEASURED(cloud_multi_turn_report.json) n=20",
+        "value": 0.24625000000000002
+      },
+      "completion_range": {
+        "cloud_rate": {
+          "tag": "PROVISIONAL MEASURED(cloud_multi_turn_report.json) n=20",
+          "value": 0.65
+        },
+        "floor": {
+          "tag": "ASSUMED escalated entries complete at 0; local=MEASURED(6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a)",
+          "value": 0.1
+        },
+        "formula_floor": "local_completion",
+        "formula_indep": "local_completion + (n_empty/n)*cloud_rate",
+        "indep": {
+          "tag": "ASSUMED escalated complete at cloud rate; cloud rate PROVISIONAL MEASURED(cloud_multi_turn_report.json) n=20",
+          "value": 0.24625000000000002
+        },
+        "n_empty": 45,
+        "n_entries": 200
+      },
+      "config": {
+        "kv": "u8",
+        "placement": "gpu_only",
+        "residency": "RESIDENT",
+        "tier": "4B",
+        "weight": "int4"
+      },
+      "emission": {
+        "tag": "ASSUMED escalated emit at cloud rate; cloud rate PROVISIONAL MEASURED(cloud_multi_turn_report.json) n=20",
+        "value": 0.92125
+      },
+      "emission_policy": "On an empty-turn response, the cloud redoes that turn and the entry stays on cloud. Granularity: ENTRY (W-3 ledger).",
+      "emission_range": {
+        "floor": {
+          "tag": "ASSUMED escalated entries emit at 0; local=MEASURED(6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a) entry-level 1-empty_turn/200",
+          "value": 0.775
+        },
+        "formula_floor": "local_emission",
+        "formula_indep": "local_emission + (n_empty/n)*cloud_rate",
+        "indep": {
+          "tag": "ASSUMED escalated emit at cloud rate; cloud rate PROVISIONAL MEASURED(cloud_multi_turn_report.json) n=20",
+          "value": 0.92125
+        }
+      },
+      "label": "R2b",
+      "n_cloud_turns": 177,
+      "n_local_turns": 555,
+      "n_trace_entries": 200,
+      "peak_commit_bytes": 3990503332.471827,
+      "policy": "emission_escalate",
+      "session_time_s_mean": 9.918699999861873,
+      "session_time_s_sum": 1983.7399999723746,
+      "slo_fraction_local_turns": 1.0,
+      "trace_n": 200
+    }
+  ]
+}

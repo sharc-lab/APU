@@ -1,0 +1,95 @@
+{
+  "entries": [
+    {
+      "id": "fixture_entry_0",
+      "question": [[], [], []],
+      "n_user_turns": 3
+    },
+    {
+      "id": "fixture_entry_1",
+      "question": [[], []],
+      "n_user_turns": 2
+    },
+    {
+      "id": "fixture_entry_2",
+      "question": [[]],
+      "n_user_turns": 1
+    }
+  ],
+  "cloud_tokens_in": 1000,
+  "cloud_tokens_out": 200,
+  "local_script": {
+    "fixture_entry_0": [
+      {
+        "n_ctx": 500,
+        "ttft_s": 2.0,
+        "decode_tok_s": 12.0,
+        "emitted_parseable_tool_call": true,
+        "turn_wall_s": 0.05,
+        "t_generate": 0.03,
+        "t_tokenize": 0.005,
+        "t_template_build": 0.005,
+        "t_tool_exec": 0.005
+      },
+      {
+        "n_ctx": 12000,
+        "ttft_s": 2.0,
+        "decode_tok_s": 12.0,
+        "emitted_parseable_tool_call": true,
+        "turn_wall_s": 0.05,
+        "t_generate": 0.03,
+        "t_tokenize": 0.005,
+        "t_template_build": 0.005,
+        "t_tool_exec": 0.005
+      },
+      {
+        "n_ctx": 800,
+        "ttft_s": 1.0,
+        "decode_tok_s": 15.0,
+        "emitted_parseable_tool_call": true,
+        "turn_wall_s": 0.05,
+        "t_generate": 0.03,
+        "t_tokenize": 0.005,
+        "t_template_build": 0.005,
+        "t_tool_exec": 0.005
+      }
+    ],
+    "fixture_entry_1": [
+      {
+        "n_ctx": 400,
+        "ttft_s": 1.5,
+        "decode_tok_s": 10.0,
+        "emitted_parseable_tool_call": false,
+        "turn_wall_s": 0.05,
+        "t_generate": 0.03,
+        "t_tokenize": 0.005,
+        "t_template_build": 0.005,
+        "t_tool_exec": 0.005
+      },
+      {
+        "n_ctx": 400,
+        "ttft_s": 1.5,
+        "decode_tok_s": 10.0,
+        "emitted_parseable_tool_call": true,
+        "turn_wall_s": 0.05,
+        "t_generate": 0.03,
+        "t_tokenize": 0.005,
+        "t_template_build": 0.005,
+        "t_tool_exec": 0.005
+      }
+    ],
+    "fixture_entry_2": [
+      {
+        "n_ctx": 300,
+        "ttft_s": 1.0,
+        "decode_tok_s": 20.0,
+        "emitted_parseable_tool_call": true,
+        "turn_wall_s": 0.05,
+        "t_generate": 0.03,
+        "t_tokenize": 0.005,
+        "t_template_build": 0.005,
+        "t_tool_exec": 0.005
+      }
+    ]
+  }
+}

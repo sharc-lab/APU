@@ -1,0 +1,59 @@
+# Platform A — Dell XPS 16 / Intel Core Ultra 5 325 (Panther Lake).
+# SEAM export name: aipc_c1. Canonical evidence: zjohnson2005/gnn-hls-accel.
+# Schema fields mirror configs/hardware/evo_t2s.yaml on sharc-lab/APU main.
+#
+# MEMORY ARCHITECTURE — UNIFIED
+#   Xe3 iGPU (Arc-class integrated) shares the single 16 GB LPDDR5X pool with
+#   CPU, NPU, OS, weights, and KV. No discrete VRAM.
+#
+# CPU CORE TOPOLOGY — measured M1 run_id fb5cd2d5-e850-4de1-9b90-d368b5aa9994
+#   P-cores (EfficiencyClass=1): 4  logical CPUs 0-3
+#   LP-E cores (EfficiencyClass=0): 4  logical CPUs 4-7
+#   Total: 8 physical = 8 logical (no SMT on this SKU)
+#
+hostname: computadora
+source: "SEAM Platform A probe + M1 topology verify; see zjohnson2005/gnn-hls-accel configs/platforms/aipc-c1.yaml"
+name: aipc_c1
+memory_architecture: unified
+os: windows
+os_version: "11 Pro 10.0.26200"
+cpu: Intel(R) Core(TM) Ultra 5 325
+cpu_vendor: GenuineIntel
+cpu_cores_physical: 8
+cpu_cores_logical: 8
+cpu_p_cores: 4
+cpu_e_cores: 4
+cpu_l3_cache_kb: null   # ASSUMED: not yet probe-attested in SEAM export
+gpu: Intel(R) Graphics (Xe3 / Arc-class iGPU)
+gpu_pci_device: "PCI\VEN_8086&DEV_B090"
+gpu_bios_stolen_mib: null   # ASSUMED: not yet filled from DXGI on this export
+gpu_shared_system_mib: null # ASSUMED: dynamic DVMT; fill from DXGI before citing
+memory_gb: 16
+memory_type: LPDDR5X
+memory_speed_mts: 7467
+has_npu: true
+npu_model: "Intel(R) NPU 5 (NPU 5010)"
+npu_tops: UNKNOWN
+quant: null
+bom_cost_usd: null
+reserved_gb: null
+achievable_pool_gb: null
+bandwidth_gb_s: null
+thermal_ceiling_w: null
+runtime:
+  openvino: "2026.2.1-21919-ede283a88e3-releases/2026/2"
+  openvino_genai: "2026.2.1.0-3123-7dea0459b2a"
+  note: "Pinned from live load_arm_pipeline meta on Platform A (D-2c inspect)."
+gpu_tools:
+  nvidia_smi: absent
+  rocm_smi: absent
+  rocminfo: absent
+  intel_gpu_top: absent
+  clinfo: absent
+notes: >
+  Dell XPS 16 DA16260, Intel Core Ultra 5 325 (Panther Lake), 4 P + 4 LP-E,
+  8 logical CPUs no SMT, 16 GB unified LPDDR5X, Xe3 iGPU, NPU 5, Windows 11
+  build 26200. SEAM Platform A (aipc_c1). Topology citing_run
+  fb5cd2d5-e850-4de1-9b90-d368b5aa9994. OpenVINO GenAI 2026.2.1 is the
+  local inference stack used for sealed W-3/X-2/C-2 arms. Evidence canonical
+  in zjohnson2005/gnn-hls-accel — see docs/SEAM_PROVENANCE.md.

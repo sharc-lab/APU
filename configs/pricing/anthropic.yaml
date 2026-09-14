@@ -1,0 +1,64 @@
+# Anthropic pricing — dated table (spec §7 M3.2, as corrected by AMENDMENTS.md AM-020).
+#
+# WHY A TABLE AND NOT A CONSTANT
+# ------------------------------
+# Introductory pricing for claude-sonnet-5 expires 2026-08-31. A constant would silently
+# under-report every cost incurred from 2026-09-01 onward, and H1 collection may straddle that
+# boundary. Cost is therefore looked up by the UTC date of the call, never by a module-level rate.
+#
+# AUTHORITY AND RETRIEVAL
+# -----------------------
+# Rates below were supplied by the project owner from Anthropic's published pricing page. Every
+# manifest records `pricing_version` and `pricing_retrieved_utc` so a later rate change cannot
+# retroactively alter an already-sealed run's recorded cost.
+#
+# BILLING IS COMPUTED FROM THE API RESPONSE, NOT FROM LOCAL ESTIMATES. These rates are multiplied
+# by the `usage` fields Anthropic returns (input_tokens, output_tokens, cache_read_input_tokens,
+# cache_creation_input_tokens). Local token estimates are used ONLY for the pre-flight budget
+# projection, and projected-vs-actual is logged so the projection self-calibrates.
+
+pricing_version: "2026-08-02.1"
+pricing_retrieved_utc: "2026-08-02"
+pricing_source: "https://platform.claude.com/docs/en/about-claude/pricing"
+currency: USD
+
+# Rates are USD per million tokens (MTok).
+models:
+  claude-sonnet-5:
+    # Pinned snapshot identifier. Dateless BY PROVIDER CONVENTION: from the 4.6 generation onward
+    # Anthropic never updates weights under an existing ID, so this string IS the pin (AM-020).
+    # Do NOT construct a dated variant — no such identifier exists.
+    pin_convention: anthropic_dateless_generation_id
+    tiers:
+      - effective_from: "2026-01-01"
+        effective_through: "2026-08-31"
+        label: introductory
+        input_per_mtok: 2.00
+        output_per_mtok: 10.00
+        # Documented multipliers on the input base: cache read 0.1x, 5m write 1.25x, 1h write 2x.
+        cache_read_per_mtok: 0.20
+        cache_write_5m_per_mtok: 2.50
+        cache_write_1h_per_mtok: 4.00
+      - effective_from: "2026-09-01"
+        effective_through: null
+        label: standard
+        input_per_mtok: 3.00
+        output_per_mtok: 15.00
+        # Same multipliers carried onto the $3 base.
+        cache_read_per_mtok: 0.30
+        cache_write_5m_per_mtok: 3.75
+        cache_write_1h_per_mtok: 6.00
+
+# Batch API halves both directions. NOT used in M-SLICE: the deadline policy needs real
+# wall-clock latency, and batch submission destroys it. Recorded because H1 is offline and
+# should use it.
+batch_discount_factor: 0.5
+batch_used_in_slice: false
+
+# Server-side token overhead injected when tools are supplied. Needed for an honest pre-flight
+# projection; the response `usage` remains authoritative for what is actually billed.
+tool_use_overhead_tokens:
+  tool_choice_auto: 354
+  tool_choice_none: 354
+  tool_choice_any: 474
+  tool_choice_tool: 474

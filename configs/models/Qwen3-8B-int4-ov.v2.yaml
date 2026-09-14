@@ -1,0 +1,226 @@
+name: Qwen3-8B-int4-ov
+revision: 5c47abf4b8e12ebe8e99745bb0c1ec17e0c0abcc
+ladder_position: slice-8b
+source: pre-converted
+source_repo: OpenVINO/Qwen3-8B-int4-ov
+download_method: hf download (huggingface_hub 1.26.0)
+self_converted: false
+publisher_quantization:
+  available: true
+  source: readme
+  mode: INT4_ASYM
+  ratio: 1.0
+  group_size: 128
+  awq: false
+  scale_estimation: true
+  dataset: wikitext2
+note: The 4B is INT4_SYM; this is INT4_ASYM with scale_estimation on wikitext2. Any
+  4B-vs-8B comparison confounds model size with quantization recipe. Acceptable for
+  latency and footprint; NOT acceptable for a quality comparison without either matching
+  recipes or stating the confound.
+ir_dir: C:\Users\zjohn\Projects\gnn-hls-accel\models\Qwen3-8B-int4-ov
+ir_sha256: cd97874b28acfc95cca83801636396c2673703ec800f6675a1b123c3eebb50fe
+ir_files:
+  .gitattributes: 34448b82c17d60fec9b65b1f093c115ddbaadc04beb1b0140b6bfed2e012a930
+  README.md: 0686b8873ecada688c61d10a1db18cfad86044311918ee91e4a37c7166699b33
+  added_tokens.json: c0284b582e14987fbd3d5a2cb2bd139084371ed9acbae488829a1c900833c680
+  chat_template.jinja: a55ee1b1660128b7098723e0abcd92caa0788061051c62d51cbe87d9cf1974d8
+  config.json: ea744cdd40567da2635a279fcf95d542c2759a4e47a7b6b79fd52d1f11594f83
+  generation_config.json: 64d86df2173901c58389974bde21f7d2ab9eb7d79f35a337753329d39cf265c0
+  merges.txt: 8831e4f1a044471340f7c0a83d7bd71306a5b867e95fd870f74d0c5308a904d5
+  openvino_config.json: 05fdf8e55166ca32203e1fde4dbd1f69c0f7f6ccd23faae35d973f3054059793
+  openvino_detokenizer.bin: d73093f72c80ebcaffb76a192727170ecd3c6a06c4df52df0e76b3f70ad9d7f7
+  openvino_detokenizer.xml: 13247d687ad651e0d21285719896f24dcac206e1259863ad6eee493dc5217e90
+  openvino_model.bin: f2e6960fde61d24a83c477c46f9ee7158748762089f2018fc2bb6a6d6c7f2a7e
+  openvino_model.xml: 7f8cb8a693a0fef1c6d65f52e2bbda937d5497463cab146a339bbd20e34295c2
+  openvino_tokenizer.bin: 63c613e041e2d7f84f7376d6b628b72c8af29259b4d1b27540035f0d9ef034b3
+  openvino_tokenizer.xml: cee34515686c4c8c44c1276c8279273c457cae68497a9f2a5bca531e1ff7296c
+  special_tokens_map.json: 76862e765266b85aa9459767e33cbaf13970f327a0e88d1c65846c2ddd3a1ecd
+  tokenizer.json: aeb13307a71acd8fe81861d94ad54ab689df773318809eed3cbe794b4492dae4
+  tokenizer_config.json: 443bfa629eb16387a12edbf92a76f6a6f10b2af3b53d87ba1550adfcf45f7fa0
+  vocab.json: ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910
+ir_bytes: 4882865352
+fetched_utc: '2026-08-26T12:41:08Z'
+fetch_duration_s: 6.917885780334473
+transfer_attempts:
+  .gitattributes: 0
+  README.md: 0
+  added_tokens.json: 0
+  chat_template.jinja: 0
+  config.json: 0
+  generation_config.json: 0
+  merges.txt: 0
+  openvino_config.json: 0
+  openvino_detokenizer.bin: 0
+  openvino_detokenizer.xml: 0
+  openvino_model.bin: 0
+  openvino_model.xml: 0
+  openvino_tokenizer.bin: 0
+  openvino_tokenizer.xml: 0
+  special_tokens_map.json: 0
+  tokenizer.json: 0
+  tokenizer_config.json: 0
+  vocab.json: 0
+verification:
+  .gitattributes:
+    method: git-blob-sha1
+    expected_size: 1570
+    actual_size: 1570
+    size_ok: true
+    hash_ok: true
+    expected_hash: 52373fe24473b1aa44333d318f578ae6bf04b49b
+    actual_hash: 52373fe24473b1aa44333d318f578ae6bf04b49b
+    ok: true
+  README.md:
+    method: git-blob-sha1
+    expected_size: 5368
+    actual_size: 5368
+    size_ok: true
+    hash_ok: true
+    expected_hash: f8cfce3ce251d4ecdce3003b9582c75966d340c9
+    actual_hash: f8cfce3ce251d4ecdce3003b9582c75966d340c9
+    ok: true
+  added_tokens.json:
+    method: git-blob-sha1
+    expected_size: 707
+    actual_size: 707
+    size_ok: true
+    hash_ok: true
+    expected_hash: b54f9135e44c1e81047e8d05cb027af8bc039eed
+    actual_hash: b54f9135e44c1e81047e8d05cb027af8bc039eed
+    ok: true
+  chat_template.jinja:
+    method: git-blob-sha1
+    expected_size: 4168
+    actual_size: 4168
+    size_ok: true
+    hash_ok: true
+    expected_hash: 01be9b307daa2d425f7c168c9fb145a286e0afb4
+    actual_hash: 01be9b307daa2d425f7c168c9fb145a286e0afb4
+    ok: true
+  config.json:
+    method: git-blob-sha1
+    expected_size: 1537
+    actual_size: 1537
+    size_ok: true
+    hash_ok: true
+    expected_hash: 4e2a09ac9e0234a2541c41ed1eb618078b24547c
+    actual_hash: 4e2a09ac9e0234a2541c41ed1eb618078b24547c
+    ok: true
+  generation_config.json:
+    method: git-blob-sha1
+    expected_size: 214
+    actual_size: 214
+    size_ok: true
+    hash_ok: true
+    expected_hash: be89f8af8cb53cdfeaa15cc2c340fe0ce5b01378
+    actual_hash: be89f8af8cb53cdfeaa15cc2c340fe0ce5b01378
+    ok: true
+  merges.txt:
+    method: git-blob-sha1
+    expected_size: 1671853
+    actual_size: 1671853
+    size_ok: true
+    hash_ok: true
+    expected_hash: 31349551d90c7606f325fe0f11bbb8bd5fa0d7c7
+    actual_hash: 31349551d90c7606f325fe0f11bbb8bd5fa0d7c7
+    ok: true
+  openvino_config.json:
+    method: git-blob-sha1
+    expected_size: 527
+    actual_size: 527
+    size_ok: true
+    hash_ok: true
+    expected_hash: cc25b26a5fca3b0e524cc2f524ebf7350d1ebe92
+    actual_hash: cc25b26a5fca3b0e524cc2f524ebf7350d1ebe92
+    ok: true
+  openvino_detokenizer.bin:
+    method: sha256
+    expected_size: 2189717
+    actual_size: 2189717
+    size_ok: true
+    hash_ok: true
+    expected_hash: d73093f72c80ebcaffb76a192727170ecd3c6a06c4df52df0e76b3f70ad9d7f7
+    actual_hash: d73093f72c80ebcaffb76a192727170ecd3c6a06c4df52df0e76b3f70ad9d7f7
+    ok: true
+  openvino_detokenizer.xml:
+    method: git-blob-sha1
+    expected_size: 11650
+    actual_size: 11650
+    size_ok: true
+    hash_ok: true
+    expected_hash: fa0c668777f897eae2dc972b7a919c19714d64bc
+    actual_hash: fa0c668777f897eae2dc972b7a919c19714d64bc
+    ok: true
+  openvino_model.bin:
+    method: sha256
+    expected_size: 4855348053
+    actual_size: 4855348053
+    size_ok: true
+    hash_ok: true
+    expected_hash: f2e6960fde61d24a83c477c46f9ee7158748762089f2018fc2bb6a6d6c7f2a7e
+    actual_hash: f2e6960fde61d24a83c477c46f9ee7158748762089f2018fc2bb6a6d6c7f2a7e
+    ok: true
+  openvino_model.xml:
+    method: git-blob-sha1
+    expected_size: 3807005
+    actual_size: 3807005
+    size_ok: true
+    hash_ok: true
+    expected_hash: 93dfffc565b9bb5fa59eafccf2d26864c877fc13
+    actual_hash: 93dfffc565b9bb5fa59eafccf2d26864c877fc13
+    ok: true
+  openvino_tokenizer.bin:
+    method: sha256
+    expected_size: 5588835
+    actual_size: 5588835
+    size_ok: true
+    hash_ok: true
+    expected_hash: 63c613e041e2d7f84f7376d6b628b72c8af29259b4d1b27540035f0d9ef034b3
+    actual_hash: 63c613e041e2d7f84f7376d6b628b72c8af29259b4d1b27540035f0d9ef034b3
+    ok: true
+  openvino_tokenizer.xml:
+    method: git-blob-sha1
+    expected_size: 28644
+    actual_size: 28644
+    size_ok: true
+    hash_ok: true
+    expected_hash: 569aedd48e4fe546e7469b6ad6afbd8c121d3ebc
+    actual_hash: 569aedd48e4fe546e7469b6ad6afbd8c121d3ebc
+    ok: true
+  special_tokens_map.json:
+    method: git-blob-sha1
+    expected_size: 613
+    actual_size: 613
+    size_ok: true
+    hash_ok: true
+    expected_hash: ac23c0aaa2434523c494330aeb79c58395378103
+    actual_hash: ac23c0aaa2434523c494330aeb79c58395378103
+    ok: true
+  tokenizer.json:
+    method: sha256
+    expected_size: 11422654
+    actual_size: 11422654
+    size_ok: true
+    hash_ok: true
+    expected_hash: aeb13307a71acd8fe81861d94ad54ab689df773318809eed3cbe794b4492dae4
+    actual_hash: aeb13307a71acd8fe81861d94ad54ab689df773318809eed3cbe794b4492dae4
+    ok: true
+  tokenizer_config.json:
+    method: git-blob-sha1
+    expected_size: 5404
+    actual_size: 5404
+    size_ok: true
+    hash_ok: true
+    expected_hash: ddaf69808214a44fdd26d3785b66c1367c78277a
+    actual_hash: ddaf69808214a44fdd26d3785b66c1367c78277a
+    ok: true
+  vocab.json:
+    method: git-blob-sha1
+    expected_size: 2776833
+    actual_size: 2776833
+    size_ok: true
+    hash_ok: true
+    expected_hash: 4783fe10ac3adce15ac8f358ef5462739852c569
+    actual_hash: 4783fe10ac3adce15ac8f358ef5462739852c569
+    ok: true

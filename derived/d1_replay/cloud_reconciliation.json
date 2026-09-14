@@ -1,0 +1,194 @@
+{
+  "billing_model": "sum over API calls of cloud_usd(prompt_tokens, completion_tokens); each call resent full context; tokens from cloud report, not local trace",
+  "kind": "exact_lookup_test",
+  "max_abs_error_usd": 1.1102230246251565e-16,
+  "mean_abs_error_usd": 2.8449465006019634e-17,
+  "measured_total_usd": 5.407044000000001,
+  "n_entries": 20,
+  "note": "Sealed 20-entry token lookup; H-1 reports the fit predictor, not this.",
+  "per_entry": [
+    {
+      "completion_tokens": 1984,
+      "error_usd": 1.1102230246251565e-16,
+      "id": "multi_turn_base_0",
+      "measured_usd": 0.5286479999999999,
+      "n_calls": 16,
+      "predicted_usd": 0.528648,
+      "prompt_tokens": 166296
+    },
+    {
+      "completion_tokens": 1043,
+      "error_usd": 0.0,
+      "id": "multi_turn_base_1",
+      "measured_usd": 0.201192,
+      "n_calls": 11,
+      "predicted_usd": 0.201192,
+      "prompt_tokens": 61849
+    },
+    {
+      "completion_tokens": 1420,
+      "error_usd": -1.1102230246251565e-16,
+      "id": "multi_turn_base_2",
+      "measured_usd": 0.4075080000000001,
+      "n_calls": 15,
+      "predicted_usd": 0.407508,
+      "prompt_tokens": 128736
+    },
+    {
+      "completion_tokens": 771,
+      "error_usd": 1.3877787807814457e-17,
+      "id": "multi_turn_base_3",
+      "measured_usd": 0.10838099999999999,
+      "n_calls": 6,
+      "predicted_usd": 0.108381,
+      "prompt_tokens": 32272
+    },
+    {
+      "completion_tokens": 1136,
+      "error_usd": -5.551115123125783e-17,
+      "id": "multi_turn_base_4",
+      "measured_usd": 0.26450100000000004,
+      "n_calls": 8,
+      "predicted_usd": 0.264501,
+      "prompt_tokens": 82487
+    },
+    {
+      "completion_tokens": 1284,
+      "error_usd": 0.0,
+      "id": "multi_turn_base_5",
+      "measured_usd": 0.384318,
+      "n_calls": 12,
+      "predicted_usd": 0.384318,
+      "prompt_tokens": 121686
+    },
+    {
+      "completion_tokens": 1125,
+      "error_usd": -5.551115123125783e-17,
+      "id": "multi_turn_base_6",
+      "measured_usd": 0.28865100000000005,
+      "n_calls": 15,
+      "predicted_usd": 0.288651,
+      "prompt_tokens": 90592
+    },
+    {
+      "completion_tokens": 616,
+      "error_usd": 2.7755575615628914e-17,
+      "id": "multi_turn_base_7",
+      "measured_usd": 0.219858,
+      "n_calls": 7,
+      "predicted_usd": 0.21985800000000003,
+      "prompt_tokens": 70206
+    },
+    {
+      "completion_tokens": 1599,
+      "error_usd": 0.0,
+      "id": "multi_turn_base_8",
+      "measured_usd": 0.31478999999999996,
+      "n_calls": 9,
+      "predicted_usd": 0.31478999999999996,
+      "prompt_tokens": 96935
+    },
+    {
+      "completion_tokens": 1606,
+      "error_usd": 0.0,
+      "id": "multi_turn_base_9",
+      "measured_usd": 0.250404,
+      "n_calls": 13,
+      "predicted_usd": 0.250404,
+      "prompt_tokens": 75438
+    },
+    {
+      "completion_tokens": 1658,
+      "error_usd": 0.0,
+      "id": "multi_turn_base_10",
+      "measured_usd": 0.346032,
+      "n_calls": 18,
+      "predicted_usd": 0.346032,
+      "prompt_tokens": 107054
+    },
+    {
+      "completion_tokens": 682,
+      "error_usd": 0.0,
+      "id": "multi_turn_base_11",
+      "measured_usd": 0.160929,
+      "n_calls": 5,
+      "predicted_usd": 0.160929,
+      "prompt_tokens": 50233
+    },
+    {
+      "completion_tokens": 491,
+      "error_usd": 5.551115123125783e-17,
+      "id": "multi_turn_base_12",
+      "measured_usd": 0.15746699999999997,
+      "n_calls": 9,
+      "predicted_usd": 0.15746700000000002,
+      "prompt_tokens": 50034
+    },
+    {
+      "completion_tokens": 848,
+      "error_usd": 0.0,
+      "id": "multi_turn_base_13",
+      "measured_usd": 0.223779,
+      "n_calls": 7,
+      "predicted_usd": 0.223779,
+      "prompt_tokens": 70353
+    },
+    {
+      "completion_tokens": 1272,
+      "error_usd": 5.551115123125783e-17,
+      "id": "multi_turn_base_14",
+      "measured_usd": 0.27320099999999997,
+      "n_calls": 10,
+      "predicted_usd": 0.273201,
+      "prompt_tokens": 84707
+    },
+    {
+      "completion_tokens": 1160,
+      "error_usd": -5.551115123125783e-17,
+      "id": "multi_turn_base_15",
+      "measured_usd": 0.314784,
+      "n_calls": 10,
+      "predicted_usd": 0.31478399999999995,
+      "prompt_tokens": 99128
+    },
+    {
+      "completion_tokens": 943,
+      "error_usd": 0.0,
+      "id": "multi_turn_base_16",
+      "measured_usd": 0.20051099999999997,
+      "n_calls": 11,
+      "predicted_usd": 0.20051099999999997,
+      "prompt_tokens": 62122
+    },
+    {
+      "completion_tokens": 965,
+      "error_usd": 0.0,
+      "id": "multi_turn_base_17",
+      "measured_usd": 0.287127,
+      "n_calls": 11,
+      "predicted_usd": 0.287127,
+      "prompt_tokens": 90884
+    },
+    {
+      "completion_tokens": 1707,
+      "error_usd": 0.0,
+      "id": "multi_turn_base_18",
+      "measured_usd": 0.27366599999999996,
+      "n_calls": 8,
+      "predicted_usd": 0.27366599999999996,
+      "prompt_tokens": 82687
+    },
+    {
+      "completion_tokens": 728,
+      "error_usd": 2.7755575615628914e-17,
+      "id": "multi_turn_base_19",
+      "measured_usd": 0.201297,
+      "n_calls": 8,
+      "predicted_usd": 0.20129700000000003,
+      "prompt_tokens": 63459
+    }
+  ],
+  "predicted_total_usd": 5.407043999999999,
+  "sealed_spend_usd": 5.407044000000001,
+  "tag": "MEASURED(cloud_multi_turn_report.json) per-call tokens at 3/15"
+}

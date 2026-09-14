@@ -1,0 +1,13 @@
+# Additive OpenVINO runtime fields for EVO-T2S (does NOT replace evo_t2s.yaml).
+name: evo_t2s_openvino
+extends: evo_t2s
+memory_architecture: unified
+os: windows
+source: "Additive SEAM export; hardware facts from evo_t2s.yaml (sharc/main)"
+runtime:
+  openvino: "2026.2.1"   # ASSUMED target until T2S attests exact build string
+  openvino_genai: "2026.2.1"  # ASSUMED target until T2S attests
+  stack: "OpenVINO GenAI LLMPipeline (same path as SEAM Platform A W-3/X-2)"
+notes: >
+  Separate additive file so SEAM OpenVINO work on T2S does not overwrite
+  configs/hardware/evo_t2s.yaml. Merge reviews should keep both.

@@ -1,0 +1,3342 @@
+{
+  "cloud_cost_fit": {
+    "c3_confirm": {
+      "c3_fitted_exponent": 1.026974487407871,
+      "c3_linear_r2_aggregated": 0.9798644526439462,
+      "c3_verdict": "closer to linear in remaining cloud turns (fitted exponent 1.027); quadratic claim not supported",
+      "linear_confirmed": true,
+      "n_points_all_from_turn": 70,
+      "n_points_full_entry": 20,
+      "per_entry_all_from_turn_r2": 0.7132240894033286,
+      "per_entry_full_entry_only_intercept": 0.045709673684210556,
+      "per_entry_full_entry_only_r2": 0.4363912622899151,
+      "per_entry_full_entry_only_slope": 0.06418357894736841
+    },
+    "intercept": 0.010377342993768995,
+    "n": 70,
+    "r0_200": {
+      "formula": "mean(usd_full_entry among 20) * 200",
+      "half_width": 2.9475998084729658,
+      "hi": 57.01803980847296,
+      "lo": 51.12284019152703,
+      "mean_per_entry": 0.2703522,
+      "n_scale": 200,
+      "tag": "ASSUMED(fit=20 entries cloud_multi_turn_report.json)",
+      "value": 54.07044
+    },
+    "r2": 0.7132240894033286,
+    "residual_se": 0.054412249747246504,
+    "slope": 0.07126656281698306,
+    "tag": "ASSUMED(fit=20 entries cloud_multi_turn_report.json)"
+  },
+  "component_tags": {
+    "commit_W": {
+      "tag": "MEASURED(83127e1b-9d6e-4103-bee6-2a63c00f479f)",
+      "value": 2913453904.471827
+    },
+    "cpu_p_decode": "ASSUMED(from=gpu fit); sealed cpu-p decode ladder LOST (Aug-7 14.9@2048 has no run_id; W-2 zero cpu-p cells)",
+    "decode_bw": {
+      "tag": "MEASURED(a784f5ec-5615-4fea-a680-a07874426ae4) OLS",
+      "value": 66580243328.69539
+    },
+    "decode_c": {
+      "tag": "MEASURED(a784f5ec-5615-4fea-a680-a07874426ae4) OLS",
+      "value": 4.612811826633656
+    },
+    "delta_resident": "MEASURED(41e419bd-f3e9-43b1-8364-0ebd89fa086b) SD-001 noted (no ir_sha256 in run record)",
+    "emission_granularity": "ENTRY: failure_bucket==multi_turn:empty_turn_model_response on sealed W-3 ledgers. Future W-3 runs also record per_turn.emitted_parseable_tool_call (boolean); sealed runs untouched. emission_escalate still uses entry granularity until a turn-level policy is specified.",
+    "prefill_cpu_4b": "MEASURED(b5ce21e5-9f29-46f4-8319-f74adcdeb628) seal=ad7b9288-42e6-42e8-be3e-ad1a1b1abc4c fit_n=[2000, 4000, 6000, 8000, 10000, 12000, 14000, 16000]",
+    "prefill_gpu_4b": "PROVISIONAL MEASURED(62395fdb-1899-415f-b708-6adc81a24dda) fit_n=[8000, 10000, 10250, 10500, 11000, 12000]",
+    "tier_scale_8b": {
+      "tag": "ASSUMED(from=4B) ir_bytes_8B/ir_bytes_4B pins",
+      "value": 2.1315405864719406
+    }
+  },
+  "decode_residuals": [
+    {
+      "measured_decode_tok_s": 28.457245910623843,
+      "n": 2000,
+      "predicted_decode_tok_s": 29.891659814365564,
+      "rel_residual": -0.05040592853738583,
+      "residual": -1.4344139037417207,
+      "tag": "MEASURED(a784f5ec-5615-4fea-a680-a07874426ae4)",
+      "weight": "int4"
+    },
+    {
+      "measured_decode_tok_s": 27.949287029232757,
+      "n": 5000,
+      "predicted_decode_tok_s": 25.759949223792976,
+      "rel_residual": 0.07833250999032303,
+      "residual": 2.1893378054397807,
+      "tag": "MEASURED(a784f5ec-5615-4fea-a680-a07874426ae4)",
+      "weight": "int4"
+    },
+    {
+      "measured_decode_tok_s": 19.9773282829348,
+      "n": 12000,
+      "predicted_decode_tok_s": 19.921598587318265,
+      "rel_residual": 0.002789647085298208,
+      "residual": 0.055729695616534514,
+      "tag": "MEASURED(a784f5ec-5615-4fea-a680-a07874426ae4)",
+      "weight": "int4"
+    },
+    {
+      "measured_decode_tok_s": 19.184407544740765,
+      "n": 2000,
+      "predicted_decode_tok_s": 19.754539632916938,
+      "rel_residual": -0.029718514207256286,
+      "residual": -0.5701320881761731,
+      "tag": "MEASURED(a784f5ec-5615-4fea-a680-a07874426ae4)",
+      "weight": "int8"
+    },
+    {
+      "measured_decode_tok_s": 18.303967254682455,
+      "n": 5000,
+      "predicted_decode_tok_s": 18.168159952511044,
+      "rel_residual": 0.007419555568570497,
+      "residual": 0.13580730217141124,
+      "tag": "MEASURED(a784f5ec-5615-4fea-a680-a07874426ae4)",
+      "weight": "int8"
+    },
+    {
+      "measured_decode_tok_s": 15.129033959262628,
+      "n": 12000,
+      "predicted_decode_tok_s": 15.50536277057251,
+      "rel_residual": -0.024874609464372185,
+      "residual": -0.3763288113098824,
+      "tag": "MEASURED(a784f5ec-5615-4fea-a680-a07874426ae4)",
+      "weight": "int8"
+    }
+  ],
+  "feasibility": {
+    "memory": "objective (peak commit), not a constraint; no ceiling",
+    "over_slo": "completes slowly; penalty is modeled time, not failure",
+    "predicate": "TTFT<=10s AND decode>=6 tok/s"
+  },
+  "generated_utc": "2026-09-08T23:04:30.407906+00:00",
+  "kind": "d1_design_space_configs",
+  "n_configs": 48,
+  "rows": [
+    {
+      "config": {
+        "id": "cpu-p|RESIDENT|f16|int4|4B",
+        "kv": "f16",
+        "placement": "cpu-p",
+        "residency": "RESIDENT",
+        "tier": "4B",
+        "weight": "int4"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[cpu-p] + decode; SLO predicate",
+          "value": 0
+        },
+        "completion": {
+          "tag": "MEASURED(6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a)",
+          "value": 0.1
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "ASSUMED(from=gpu fit; cpu-p sealed decode ladder LOST - Aug-7 14.9 tok/s@2048 has no run_id; W-2 has zero cpu-p cells)",
+          "value": 28.62442185272028
+        },
+        "emission": {
+          "tag": "MEASURED(6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a) entry-level 1-empty_turn/200",
+          "value": 0.775
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 4391432585.805342
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.2556150188789087
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 65.32513989048896
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 13065.02797809779
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 0.7076502732240437
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 8.181646978712326
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 57.5364071500063
+        }
+      },
+      "source_axes": {
+        "kv": "f16",
+        "placement": "cpu-p",
+        "residency": "RESIDENT",
+        "tier": "4B",
+        "weight": "int4"
+      }
+    },
+    {
+      "config": {
+        "id": "cpu-p|RESIDENT|f16|int4|8B",
+        "kv": "f16",
+        "placement": "cpu-p",
+        "residency": "RESIDENT",
+        "tier": "8B",
+        "weight": "int4"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[cpu-p] + decode; SLO predicate",
+          "value": 0
+        },
+        "completion": {
+          "tag": "ASSUMED(from=4B int4 6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a)",
+          "value": 0.1
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "ASSUMED(from=gpu fit; cpu-p sealed decode ladder LOST - Aug-7 14.9 tok/s@2048 has no run_id; W-2 has zero cpu-p cells)",
+          "value": 17.02307829530011
+        },
+        "emission": {
+          "tag": "ASSUMED(from=4B int4)",
+          "value": 0.775
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 6983529756.805341
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.4064949320632348
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 135.38006998408602
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 27076.0139968172
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 0.3442622950819672
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 16.349117442439578
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 120.48539469580446
+        }
+      },
+      "source_axes": {
+        "kv": "f16",
+        "placement": "cpu-p",
+        "residency": "RESIDENT",
+        "tier": "8B",
+        "weight": "int4"
+      }
+    },
+    {
+      "config": {
+        "id": "cpu-p|RESIDENT|f16|int8|4B",
+        "kv": "f16",
+        "placement": "cpu-p",
+        "residency": "RESIDENT",
+        "tier": "4B",
+        "weight": "int8"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[cpu-p] + decode; SLO predicate",
+          "value": 0
+        },
+        "completion": {
+          "tag": "MEASURED(1d8db970-4c18-4bcf-824d-d9c141b6eb22)",
+          "value": 0.115
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "ASSUMED(from=gpu fit; cpu-p sealed decode ladder LOST - Aug-7 14.9 tok/s@2048 has no run_id; W-2 has zero cpu-p cells)",
+          "value": 19.29054388065265
+        },
+        "emission": {
+          "tag": "MEASURED(1d8db970-4c18-4bcf-824d-d9c141b6eb22) entry-level 1-empty_turn/200",
+          "value": 0.9
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 6154736859.805341
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.35825283614716846
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 68.14192651500737
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 13628.385303001472
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 0.7076502732240437
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 8.932116815833398
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 59.65211021900304
+        }
+      },
+      "source_axes": {
+        "kv": "f16",
+        "placement": "cpu-p",
+        "residency": "RESIDENT",
+        "tier": "4B",
+        "weight": "int8"
+      }
+    },
+    {
+      "config": {
+        "id": "cpu-p|RESIDENT|f16|int8|8B",
+        "kv": "f16",
+        "placement": "cpu-p",
+        "residency": "RESIDENT",
+        "tier": "8B",
+        "weight": "int8"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[cpu-p] + decode; SLO predicate",
+          "value": 0
+        },
+        "completion": {
+          "tag": "ASSUMED(from=4B int8 1d8db970-4c18-4bcf-824d-d9c141b6eb22)",
+          "value": 0.115
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "ASSUMED(from=gpu fit; cpu-p sealed decode ladder LOST - Aug-7 14.9 tok/s@2048 has no run_id; W-2 has zero cpu-p cells)",
+          "value": 11.910486671061278
+        },
+        "emission": {
+          "tag": "ASSUMED(from=4B int8)",
+          "value": 0.9
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 10742084383.13578
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.6252716052774212
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 139.6148208755822
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 27922.964175116434
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 0.3442622950819672
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 17.463662981207477
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 123.01160123316131
+        }
+      },
+      "source_axes": {
+        "kv": "f16",
+        "placement": "cpu-p",
+        "residency": "RESIDENT",
+        "tier": "8B",
+        "weight": "int8"
+      }
+    },
+    {
+      "config": {
+        "id": "cpu-p|RESIDENT|u8|int4|4B",
+        "kv": "u8",
+        "placement": "cpu-p",
+        "residency": "RESIDENT",
+        "tier": "4B",
+        "weight": "int4"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[cpu-p] + decode; SLO predicate",
+          "value": 0
+        },
+        "completion": {
+          "tag": "MEASURED(6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a)",
+          "value": 0.1
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "ASSUMED(from=gpu fit; cpu-p sealed decode ladder LOST - Aug-7 14.9 tok/s@2048 has no run_id; W-2 has zero cpu-p cells)",
+          "value": 29.812882703105117
+        },
+        "emission": {
+          "tag": "MEASURED(6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a) entry-level 1-empty_turn/200",
+          "value": 0.775
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 3990503332.471827
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.2322778648505818
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 64.56046624503023
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 12912.093249006048
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 0.7049180327868853
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 7.939686477143869
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 57.013944205467745
+        }
+      },
+      "source_axes": {
+        "kv": "u8",
+        "placement": "cpu-p",
+        "residency": "RESIDENT",
+        "tier": "4B",
+        "weight": "int4"
+      }
+    },
+    {
+      "config": {
+        "id": "cpu-p|RESIDENT|u8|int4|8B",
+        "kv": "u8",
+        "placement": "cpu-p",
+        "residency": "RESIDENT",
+        "tier": "8B",
+        "weight": "int4"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[cpu-p] + decode; SLO predicate",
+          "value": 0
+        },
+        "completion": {
+          "tag": "ASSUMED(from=4B int4 6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a)",
+          "value": 0.1
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "ASSUMED(from=gpu fit; cpu-p sealed decode ladder LOST - Aug-7 14.9 tok/s@2048 has no run_id; W-2 has zero cpu-p cells)",
+          "value": 17.333134971589512
+        },
+        "emission": {
+          "tag": "ASSUMED(from=4B int4)",
+          "value": 0.775
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 6582600503.471827
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.3831577780349079
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 134.36680716322536
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 26873.36143264508
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 0.35792349726775957
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 16.16101411224087
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 120.42860799329658
+        }
+      },
+      "source_axes": {
+        "kv": "u8",
+        "placement": "cpu-p",
+        "residency": "RESIDENT",
+        "tier": "8B",
+        "weight": "int4"
+      }
+    },
+    {
+      "config": {
+        "id": "cpu-p|RESIDENT|u8|int8|4B",
+        "kv": "u8",
+        "placement": "cpu-p",
+        "residency": "RESIDENT",
+        "tier": "4B",
+        "weight": "int8"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[cpu-p] + decode; SLO predicate",
+          "value": 0
+        },
+        "completion": {
+          "tag": "MEASURED(1d8db970-4c18-4bcf-824d-d9c141b6eb22)",
+          "value": 0.115
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "ASSUMED(from=gpu fit; cpu-p sealed decode ladder LOST - Aug-7 14.9 tok/s@2048 has no run_id; W-2 has zero cpu-p cells)",
+          "value": 19.72624008912154
+        },
+        "emission": {
+          "tag": "MEASURED(1d8db970-4c18-4bcf-824d-d9c141b6eb22) entry-level 1-empty_turn/200",
+          "value": 0.9
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 5753807606.471827
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.3349156821188416
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 67.45551918497272
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 13491.10383699455
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 0.7049180327868853
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 8.73769393540304
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 59.27797891325645
+        }
+      },
+      "source_axes": {
+        "kv": "u8",
+        "placement": "cpu-p",
+        "residency": "RESIDENT",
+        "tier": "4B",
+        "weight": "int8"
+      }
+    },
+    {
+      "config": {
+        "id": "cpu-p|RESIDENT|u8|int8|8B",
+        "kv": "u8",
+        "placement": "cpu-p",
+        "residency": "RESIDENT",
+        "tier": "8B",
+        "weight": "int8"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[cpu-p] + decode; SLO predicate",
+          "value": 0
+        },
+        "completion": {
+          "tag": "ASSUMED(from=4B int8 1d8db970-4c18-4bcf-824d-d9c141b6eb22)",
+          "value": 0.115
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "ASSUMED(from=gpu fit; cpu-p sealed decode ladder LOST - Aug-7 14.9 tok/s@2048 has no run_id; W-2 has zero cpu-p cells)",
+          "value": 12.016607533837373
+        },
+        "emission": {
+          "tag": "ASSUMED(from=4B int8)",
+          "value": 0.9
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 10341155129.802265
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.6019344512490943
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 138.70039287553723
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 27740.078575107444
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 0.35792349726775957
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 17.097202969802826
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 122.72975057689456
+        }
+      },
+      "source_axes": {
+        "kv": "u8",
+        "placement": "cpu-p",
+        "residency": "RESIDENT",
+        "tier": "8B",
+        "weight": "int8"
+      }
+    },
+    {
+      "config": {
+        "id": "cpu-p|RESIDENT|u4|int4|4B",
+        "kv": "u4",
+        "placement": "cpu-p",
+        "residency": "RESIDENT",
+        "tier": "4B",
+        "weight": "int4"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[cpu-p] + decode; SLO predicate",
+          "value": 0
+        },
+        "completion": {
+          "tag": "MEASURED(6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a)",
+          "value": 0.1
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "ASSUMED(from=gpu fit; cpu-p sealed decode ladder LOST - Aug-7 14.9 tok/s@2048 has no run_id; W-2 has zero cpu-p cells)",
+          "value": 30.547290550370022
+        },
+        "emission": {
+          "tag": "MEASURED(6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a) entry-level 1-empty_turn/200",
+          "value": 0.775
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 3761118904.471827
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.21892593384672812
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 64.44160916704445
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 12888.321833408883
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 0.7062841530054644
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 7.8751553530322935
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 56.91261274946922
+        }
+      },
+      "source_axes": {
+        "kv": "u4",
+        "placement": "cpu-p",
+        "residency": "RESIDENT",
+        "tier": "4B",
+        "weight": "int4"
+      }
+    },
+    {
+      "config": {
+        "id": "cpu-p|RESIDENT|u4|int4|8B",
+        "kv": "u4",
+        "placement": "cpu-p",
+        "residency": "RESIDENT",
+        "tier": "8B",
+        "weight": "int4"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[cpu-p] + decode; SLO predicate",
+          "value": 0
+        },
+        "completion": {
+          "tag": "ASSUMED(from=4B int4 6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a)",
+          "value": 0.1
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "ASSUMED(from=gpu fit; cpu-p sealed decode ladder LOST - Aug-7 14.9 tok/s@2048 has no run_id; W-2 has zero cpu-p cells)",
+          "value": 17.51759698564338
+        },
+        "emission": {
+          "tag": "ASSUMED(from=4B int4)",
+          "value": 0.775
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 6353216075.471827
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.36980584703105424
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 134.4753334454008
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 26895.06668908016
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 0.3551912568306011
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 16.16470393747207
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 120.39538633419401
+        }
+      },
+      "source_axes": {
+        "kv": "u4",
+        "placement": "cpu-p",
+        "residency": "RESIDENT",
+        "tier": "8B",
+        "weight": "int4"
+      }
+    },
+    {
+      "config": {
+        "id": "cpu-p|RESIDENT|u4|int8|4B",
+        "kv": "u4",
+        "placement": "cpu-p",
+        "residency": "RESIDENT",
+        "tier": "4B",
+        "weight": "int8"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[cpu-p] + decode; SLO predicate",
+          "value": 0
+        },
+        "completion": {
+          "tag": "MEASURED(1d8db970-4c18-4bcf-824d-d9c141b6eb22)",
+          "value": 0.115
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "ASSUMED(from=gpu fit; cpu-p sealed decode ladder LOST - Aug-7 14.9 tok/s@2048 has no run_id; W-2 has zero cpu-p cells)",
+          "value": 19.98734983778803
+        },
+        "emission": {
+          "tag": "MEASURED(1d8db970-4c18-4bcf-824d-d9c141b6eb22) entry-level 1-empty_turn/200",
+          "value": 0.9
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 5524423178.471827
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.3215637511149879
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 67.3829822163593
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 13476.596443271861
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 0.7062841530054644
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 8.650202941122279
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 58.96786668205172
+        }
+      },
+      "source_axes": {
+        "kv": "u4",
+        "placement": "cpu-p",
+        "residency": "RESIDENT",
+        "tier": "4B",
+        "weight": "int8"
+      }
+    },
+    {
+      "config": {
+        "id": "cpu-p|RESIDENT|u4|int8|8B",
+        "kv": "u4",
+        "placement": "cpu-p",
+        "residency": "RESIDENT",
+        "tier": "8B",
+        "weight": "int8"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[cpu-p] + decode; SLO predicate",
+          "value": 0
+        },
+        "completion": {
+          "tag": "ASSUMED(from=4B int8 1d8db970-4c18-4bcf-824d-d9c141b6eb22)",
+          "value": 0.115
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "ASSUMED(from=gpu fit; cpu-p sealed decode ladder LOST - Aug-7 14.9 tok/s@2048 has no run_id; W-2 has zero cpu-p cells)",
+          "value": 12.078722353829342
+        },
+        "emission": {
+          "tag": "ASSUMED(from=4B int8)",
+          "value": 0.9
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 10111770701.802265
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.5885825202452406
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 138.8671023138515
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 27773.420462770307
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 0.3551912568306011
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 17.06698216753749
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 122.56573484424861
+        }
+      },
+      "source_axes": {
+        "kv": "u4",
+        "placement": "cpu-p",
+        "residency": "RESIDENT",
+        "tier": "8B",
+        "weight": "int8"
+      }
+    },
+    {
+      "config": {
+        "id": "cpu-p|NON_RESIDENT|f16|int4|4B",
+        "kv": "f16",
+        "placement": "cpu-p",
+        "residency": "NON_RESIDENT",
+        "tier": "4B",
+        "weight": "int4"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[cpu-p] + decode; SLO predicate",
+          "value": 0
+        },
+        "completion": {
+          "tag": "MEASURED(6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a)",
+          "value": 0.1
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "ASSUMED(from=gpu fit; cpu-p sealed decode ladder LOST - Aug-7 14.9 tok/s@2048 has no run_id; W-2 has zero cpu-p cells)",
+          "value": 28.62442185272028
+        },
+        "emission": {
+          "tag": "MEASURED(6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a) entry-level 1-empty_turn/200",
+          "value": 0.775
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 4391432585.805342
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.2556150188789087
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 386.4384541566583
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 77287.69083133167
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 0.0
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 96.21167438099197
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 162.81852826533395
+        }
+      },
+      "source_axes": {
+        "kv": "f16",
+        "placement": "cpu-p",
+        "residency": "NON_RESIDENT",
+        "tier": "4B",
+        "weight": "int4"
+      }
+    },
+    {
+      "config": {
+        "id": "cpu-p|NON_RESIDENT|f16|int4|8B",
+        "kv": "f16",
+        "placement": "cpu-p",
+        "residency": "NON_RESIDENT",
+        "tier": "8B",
+        "weight": "int4"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[cpu-p] + decode; SLO predicate",
+          "value": 0
+        },
+        "completion": {
+          "tag": "ASSUMED(from=4B int4 6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a)",
+          "value": 0.1
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "ASSUMED(from=gpu fit; cpu-p sealed decode ladder LOST - Aug-7 14.9 tok/s@2048 has no run_id; W-2 has zero cpu-p cells)",
+          "value": 17.02307829530011
+        },
+        "emission": {
+          "tag": "ASSUMED(from=4B int4)",
+          "value": 0.775
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 6983529756.805341
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.4064949320632348
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 819.8461321989452
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 163969.22643978905
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 0.0
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 204.05697981033714
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 341.85669667577395
+        }
+      },
+      "source_axes": {
+        "kv": "f16",
+        "placement": "cpu-p",
+        "residency": "NON_RESIDENT",
+        "tier": "8B",
+        "weight": "int4"
+      }
+    },
+    {
+      "config": {
+        "id": "cpu-p|NON_RESIDENT|f16|int8|4B",
+        "kv": "f16",
+        "placement": "cpu-p",
+        "residency": "NON_RESIDENT",
+        "tier": "4B",
+        "weight": "int8"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[cpu-p] + decode; SLO predicate",
+          "value": 0
+        },
+        "completion": {
+          "tag": "MEASURED(1d8db970-4c18-4bcf-824d-d9c141b6eb22)",
+          "value": 0.115
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "ASSUMED(from=gpu fit; cpu-p sealed decode ladder LOST - Aug-7 14.9 tok/s@2048 has no run_id; W-2 has zero cpu-p cells)",
+          "value": 19.29054388065265
+        },
+        "emission": {
+          "tag": "MEASURED(1d8db970-4c18-4bcf-824d-d9c141b6eb22) entry-level 1-empty_turn/200",
+          "value": 0.9
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 6154736859.805341
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.35825283614716846
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 389.25524078117667
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 77851.04815623532
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 0.0
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 96.63295340707016
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 164.44883994774247
+        }
+      },
+      "source_axes": {
+        "kv": "f16",
+        "placement": "cpu-p",
+        "residency": "NON_RESIDENT",
+        "tier": "4B",
+        "weight": "int8"
+      }
+    },
+    {
+      "config": {
+        "id": "cpu-p|NON_RESIDENT|f16|int8|8B",
+        "kv": "f16",
+        "placement": "cpu-p",
+        "residency": "NON_RESIDENT",
+        "tier": "8B",
+        "weight": "int8"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[cpu-p] + decode; SLO predicate",
+          "value": 0
+        },
+        "completion": {
+          "tag": "ASSUMED(from=4B int8 1d8db970-4c18-4bcf-824d-d9c141b6eb22)",
+          "value": 0.115
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "ASSUMED(from=gpu fit; cpu-p sealed decode ladder LOST - Aug-7 14.9 tok/s@2048 has no run_id; W-2 has zero cpu-p cells)",
+          "value": 11.910486671061278
+        },
+        "emission": {
+          "tag": "ASSUMED(from=4B int8)",
+          "value": 0.9
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 10742084383.13578
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.6252716052774212
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 824.0808830904413
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 164816.17661808827
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 0.0
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 205.17817684235231
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 347.37468321994095
+        }
+      },
+      "source_axes": {
+        "kv": "f16",
+        "placement": "cpu-p",
+        "residency": "NON_RESIDENT",
+        "tier": "8B",
+        "weight": "int8"
+      }
+    },
+    {
+      "config": {
+        "id": "cpu-p|NON_RESIDENT|u8|int4|4B",
+        "kv": "u8",
+        "placement": "cpu-p",
+        "residency": "NON_RESIDENT",
+        "tier": "4B",
+        "weight": "int4"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[cpu-p] + decode; SLO predicate",
+          "value": 0
+        },
+        "completion": {
+          "tag": "MEASURED(6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a)",
+          "value": 0.1
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "ASSUMED(from=gpu fit; cpu-p sealed decode ladder LOST - Aug-7 14.9 tok/s@2048 has no run_id; W-2 has zero cpu-p cells)",
+          "value": 29.812882703105117
+        },
+        "emission": {
+          "tag": "MEASURED(6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a) entry-level 1-empty_turn/200",
+          "value": 0.775
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 3990503332.471827
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.2322778648505818
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 385.98905928124685
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 77197.81185624935
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 0.0
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 96.05718285644325
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 162.2036037796001
+        }
+      },
+      "source_axes": {
+        "kv": "u8",
+        "placement": "cpu-p",
+        "residency": "NON_RESIDENT",
+        "tier": "4B",
+        "weight": "int4"
+      }
+    },
+    {
+      "config": {
+        "id": "cpu-p|NON_RESIDENT|u8|int4|8B",
+        "kv": "u8",
+        "placement": "cpu-p",
+        "residency": "NON_RESIDENT",
+        "tier": "8B",
+        "weight": "int4"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[cpu-p] + decode; SLO predicate",
+          "value": 0
+        },
+        "completion": {
+          "tag": "ASSUMED(from=4B int4 6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a)",
+          "value": 0.1
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "ASSUMED(from=gpu fit; cpu-p sealed decode ladder LOST - Aug-7 14.9 tok/s@2048 has no run_id; W-2 has zero cpu-p cells)",
+          "value": 17.333134971589512
+        },
+        "emission": {
+          "tag": "ASSUMED(from=4B int4)",
+          "value": 0.775
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 6582600503.471827
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.3831577780349079
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 819.5048988724933
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 163900.97977449867
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 0.0
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 203.90076233294337
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 341.38973816910124
+        }
+      },
+      "source_axes": {
+        "kv": "u8",
+        "placement": "cpu-p",
+        "residency": "NON_RESIDENT",
+        "tier": "8B",
+        "weight": "int4"
+      }
+    },
+    {
+      "config": {
+        "id": "cpu-p|NON_RESIDENT|u8|int8|4B",
+        "kv": "u8",
+        "placement": "cpu-p",
+        "residency": "NON_RESIDENT",
+        "tier": "4B",
+        "weight": "int8"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[cpu-p] + decode; SLO predicate",
+          "value": 0
+        },
+        "completion": {
+          "tag": "MEASURED(1d8db970-4c18-4bcf-824d-d9c141b6eb22)",
+          "value": 0.115
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "ASSUMED(from=gpu fit; cpu-p sealed decode ladder LOST - Aug-7 14.9 tok/s@2048 has no run_id; W-2 has zero cpu-p cells)",
+          "value": 19.72624008912154
+        },
+        "emission": {
+          "tag": "MEASURED(1d8db970-4c18-4bcf-824d-d9c141b6eb22) entry-level 1-empty_turn/200",
+          "value": 0.9
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 5753807606.471827
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.3349156821188416
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 388.88411222118935
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 77776.82244423791
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 0.0
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 96.58083609958453
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 164.3883507092515
+        }
+      },
+      "source_axes": {
+        "kv": "u8",
+        "placement": "cpu-p",
+        "residency": "NON_RESIDENT",
+        "tier": "4B",
+        "weight": "int8"
+      }
+    },
+    {
+      "config": {
+        "id": "cpu-p|NON_RESIDENT|u8|int8|8B",
+        "kv": "u8",
+        "placement": "cpu-p",
+        "residency": "NON_RESIDENT",
+        "tier": "8B",
+        "weight": "int8"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[cpu-p] + decode; SLO predicate",
+          "value": 0
+        },
+        "completion": {
+          "tag": "ASSUMED(from=4B int8 1d8db970-4c18-4bcf-824d-d9c141b6eb22)",
+          "value": 0.115
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "ASSUMED(from=gpu fit; cpu-p sealed decode ladder LOST - Aug-7 14.9 tok/s@2048 has no run_id; W-2 has zero cpu-p cells)",
+          "value": 12.016607533837373
+        },
+        "emission": {
+          "tag": "ASSUMED(from=4B int8)",
+          "value": 0.9
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 10341155129.802265
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.6019344512490943
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 823.8384845848051
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 164767.69691696108
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 0.0
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 205.14417108588674
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 347.04295077406726
+        }
+      },
+      "source_axes": {
+        "kv": "u8",
+        "placement": "cpu-p",
+        "residency": "NON_RESIDENT",
+        "tier": "8B",
+        "weight": "int8"
+      }
+    },
+    {
+      "config": {
+        "id": "cpu-p|NON_RESIDENT|u4|int4|4B",
+        "kv": "u4",
+        "placement": "cpu-p",
+        "residency": "NON_RESIDENT",
+        "tier": "4B",
+        "weight": "int4"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[cpu-p] + decode; SLO predicate",
+          "value": 0
+        },
+        "completion": {
+          "tag": "MEASURED(6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a)",
+          "value": 0.1
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "ASSUMED(from=gpu fit; cpu-p sealed decode ladder LOST - Aug-7 14.9 tok/s@2048 has no run_id; W-2 has zero cpu-p cells)",
+          "value": 30.547290550370022
+        },
+        "emission": {
+          "tag": "MEASURED(6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a) entry-level 1-empty_turn/200",
+          "value": 0.775
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 3761118904.471827
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.21892593384672812
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 385.72578758030113
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 77145.1575160602
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 0.0
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 95.96682730492924
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 161.84331033656937
+        }
+      },
+      "source_axes": {
+        "kv": "u4",
+        "placement": "cpu-p",
+        "residency": "NON_RESIDENT",
+        "tier": "4B",
+        "weight": "int4"
+      }
+    },
+    {
+      "config": {
+        "id": "cpu-p|NON_RESIDENT|u4|int4|8B",
+        "kv": "u4",
+        "placement": "cpu-p",
+        "residency": "NON_RESIDENT",
+        "tier": "8B",
+        "weight": "int4"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[cpu-p] + decode; SLO predicate",
+          "value": 0
+        },
+        "completion": {
+          "tag": "ASSUMED(from=4B int4 6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a)",
+          "value": 0.1
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "ASSUMED(from=gpu fit; cpu-p sealed decode ladder LOST - Aug-7 14.9 tok/s@2048 has no run_id; W-2 has zero cpu-p cells)",
+          "value": 17.51759698564338
+        },
+        "emission": {
+          "tag": "ASSUMED(from=4B int4)",
+          "value": 0.775
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 6353216075.471827
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.36980584703105424
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 819.3055995245495
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 163861.11990490995
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 0.0
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 203.80966510733708
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 341.1169795309175
+        }
+      },
+      "source_axes": {
+        "kv": "u4",
+        "placement": "cpu-p",
+        "residency": "NON_RESIDENT",
+        "tier": "8B",
+        "weight": "int4"
+      }
+    },
+    {
+      "config": {
+        "id": "cpu-p|NON_RESIDENT|u4|int8|4B",
+        "kv": "u4",
+        "placement": "cpu-p",
+        "residency": "NON_RESIDENT",
+        "tier": "4B",
+        "weight": "int8"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[cpu-p] + decode; SLO predicate",
+          "value": 0
+        },
+        "completion": {
+          "tag": "MEASURED(1d8db970-4c18-4bcf-824d-d9c141b6eb22)",
+          "value": 0.115
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "ASSUMED(from=gpu fit; cpu-p sealed decode ladder LOST - Aug-7 14.9 tok/s@2048 has no run_id; W-2 has zero cpu-p cells)",
+          "value": 19.98734983778803
+        },
+        "emission": {
+          "tag": "MEASURED(1d8db970-4c18-4bcf-824d-d9c141b6eb22) entry-level 1-empty_turn/200",
+          "value": 0.9
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 5524423178.471827
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.3215637511149879
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 388.667160629616
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 77733.4321259232
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 0.0
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 96.55040770214923
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 164.35294674972312
+        }
+      },
+      "source_axes": {
+        "kv": "u4",
+        "placement": "cpu-p",
+        "residency": "NON_RESIDENT",
+        "tier": "4B",
+        "weight": "int8"
+      }
+    },
+    {
+      "config": {
+        "id": "cpu-p|NON_RESIDENT|u4|int8|8B",
+        "kv": "u4",
+        "placement": "cpu-p",
+        "residency": "NON_RESIDENT",
+        "tier": "8B",
+        "weight": "int8"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[cpu-p] + decode; SLO predicate",
+          "value": 0
+        },
+        "completion": {
+          "tag": "ASSUMED(from=4B int8 1d8db970-4c18-4bcf-824d-d9c141b6eb22)",
+          "value": 0.115
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "ASSUMED(from=gpu fit; cpu-p sealed decode ladder LOST - Aug-7 14.9 tok/s@2048 has no run_id; W-2 has zero cpu-p cells)",
+          "value": 12.078722353829342
+        },
+        "emission": {
+          "tag": "ASSUMED(from=4B int8)",
+          "value": 0.9
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 10111770701.802265
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.5885825202452406
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 823.6973683930003
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 164739.4736786
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 0.0
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 205.1106612796907
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 346.84981232461666
+        }
+      },
+      "source_axes": {
+        "kv": "u4",
+        "placement": "cpu-p",
+        "residency": "NON_RESIDENT",
+        "tier": "8B",
+        "weight": "int8"
+      }
+    },
+    {
+      "config": {
+        "id": "gpu_only|RESIDENT|f16|int4|4B",
+        "kv": "f16",
+        "placement": "gpu_only",
+        "residency": "RESIDENT",
+        "tier": "4B",
+        "weight": "int4"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[gpu_only] + decode; SLO predicate",
+          "value": 9937
+        },
+        "completion": {
+          "tag": "MEASURED(6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a)",
+          "value": 0.1
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "MEASURED(a784f5ec-5615-4fea-a680-a07874426ae4) OLS; W=MEASURED(configs/models/Qwen3-4B-int4-ov.yaml); kv=MEASURED(83127e1b-9d6e-4103-bee6-2a63c00f479f)",
+          "value": 28.62442185272028
+        },
+        "emission": {
+          "tag": "MEASURED(6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a) entry-level 1-empty_turn/200",
+          "value": 0.775
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 4391432585.805342
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.2556150188789087
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 13.694658019669706
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 2738.931603933942
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 1.0
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 2.331657586922945
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 8.446006896660462
+        }
+      },
+      "source_axes": {
+        "kv": "f16",
+        "placement": "gpu_only",
+        "residency": "RESIDENT",
+        "tier": "4B",
+        "weight": "int4"
+      }
+    },
+    {
+      "config": {
+        "id": "gpu_only|RESIDENT|f16|int4|8B",
+        "kv": "f16",
+        "placement": "gpu_only",
+        "residency": "RESIDENT",
+        "tier": "8B",
+        "weight": "int4"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[gpu_only] + decode; SLO predicate",
+          "value": 0
+        },
+        "completion": {
+          "tag": "ASSUMED(from=4B int4 6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a)",
+          "value": 0.1
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "MEASURED(a784f5ec-5615-4fea-a680-a07874426ae4) OLS; W=MEASURED(configs/models/Qwen3-8B-int4-ov.yaml); kv=MEASURED(83127e1b-9d6e-4103-bee6-2a63c00f479f)",
+          "value": 17.02307829530011
+        },
+        "emission": {
+          "tag": "ASSUMED(from=4B int4)",
+          "value": 0.775
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 6983529756.805341
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.4064949320632348
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 25.32760237733107
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 5065.520475466213
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 0.726775956284153
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 3.971579951014969
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 16.32128483543205
+        }
+      },
+      "source_axes": {
+        "kv": "f16",
+        "placement": "gpu_only",
+        "residency": "RESIDENT",
+        "tier": "8B",
+        "weight": "int4"
+      }
+    },
+    {
+      "config": {
+        "id": "gpu_only|RESIDENT|f16|int8|4B",
+        "kv": "f16",
+        "placement": "gpu_only",
+        "residency": "RESIDENT",
+        "tier": "4B",
+        "weight": "int8"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[gpu_only] + decode; SLO predicate",
+          "value": 9937
+        },
+        "completion": {
+          "tag": "MEASURED(1d8db970-4c18-4bcf-824d-d9c141b6eb22)",
+          "value": 0.115
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "MEASURED(a784f5ec-5615-4fea-a680-a07874426ae4) OLS; W=MEASURED(configs/models/Qwen3-4B-int8-ov.yaml); kv=MEASURED(83127e1b-9d6e-4103-bee6-2a63c00f479f)",
+          "value": 19.29054388065265
+        },
+        "emission": {
+          "tag": "MEASURED(1d8db970-4c18-4bcf-824d-d9c141b6eb22) entry-level 1-empty_turn/200",
+          "value": 0.9
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 6154736859.805341
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.35825283614716846
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 16.511444644188117
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 3302.288928837624
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 1.0
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 3.008727765510826
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 9.747396712290868
+        }
+      },
+      "source_axes": {
+        "kv": "f16",
+        "placement": "gpu_only",
+        "residency": "RESIDENT",
+        "tier": "4B",
+        "weight": "int8"
+      }
+    },
+    {
+      "config": {
+        "id": "gpu_only|RESIDENT|f16|int8|8B",
+        "kv": "f16",
+        "placement": "gpu_only",
+        "residency": "RESIDENT",
+        "tier": "8B",
+        "weight": "int8"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[gpu_only] + decode; SLO predicate",
+          "value": 0
+        },
+        "completion": {
+          "tag": "ASSUMED(from=4B int8 1d8db970-4c18-4bcf-824d-d9c141b6eb22)",
+          "value": 0.115
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "MEASURED(a784f5ec-5615-4fea-a680-a07874426ae4) OLS; W=ASSUMED(from=4B int8/int4 ratio applied to 8B-int4 pin); kv=MEASURED(83127e1b-9d6e-4103-bee6-2a63c00f479f)",
+          "value": 11.910486671061278
+        },
+        "emission": {
+          "tag": "ASSUMED(from=4B int8)",
+          "value": 0.9
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 10742084383.13578
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.6252716052774212
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 29.56235326882724
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 5912.470653765444
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 0.726775956284153
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 4.996535094232417
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 18.27961190759637
+        }
+      },
+      "source_axes": {
+        "kv": "f16",
+        "placement": "gpu_only",
+        "residency": "RESIDENT",
+        "tier": "8B",
+        "weight": "int8"
+      }
+    },
+    {
+      "config": {
+        "id": "gpu_only|RESIDENT|u8|int4|4B",
+        "kv": "u8",
+        "placement": "gpu_only",
+        "residency": "RESIDENT",
+        "tier": "4B",
+        "weight": "int4"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[gpu_only] + decode; SLO predicate",
+          "value": 9937
+        },
+        "completion": {
+          "tag": "MEASURED(6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a)",
+          "value": 0.1
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "MEASURED(a784f5ec-5615-4fea-a680-a07874426ae4) OLS; W=MEASURED(configs/models/Qwen3-4B-int4-ov.yaml); kv=MEASURED(41e419bd-f3e9-43b1-8364-0ebd89fa086b)",
+          "value": 29.812882703105117
+        },
+        "emission": {
+          "tag": "MEASURED(6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a) entry-level 1-empty_turn/200",
+          "value": 0.775
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 3990503332.471827
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.2322778648505818
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 13.20729306639086
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 2641.4586132781724
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 1.0
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 2.212224022657468
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 8.252328020151552
+        }
+      },
+      "source_axes": {
+        "kv": "u8",
+        "placement": "gpu_only",
+        "residency": "RESIDENT",
+        "tier": "4B",
+        "weight": "int4"
+      }
+    },
+    {
+      "config": {
+        "id": "gpu_only|RESIDENT|u8|int4|8B",
+        "kv": "u8",
+        "placement": "gpu_only",
+        "residency": "RESIDENT",
+        "tier": "8B",
+        "weight": "int4"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[gpu_only] + decode; SLO predicate",
+          "value": 0
+        },
+        "completion": {
+          "tag": "ASSUMED(from=4B int4 6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a)",
+          "value": 0.1
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "MEASURED(a784f5ec-5615-4fea-a680-a07874426ae4) OLS; W=MEASURED(configs/models/Qwen3-8B-int4-ov.yaml); kv=MEASURED(41e419bd-f3e9-43b1-8364-0ebd89fa086b)",
+          "value": 17.333134971589512
+        },
+        "emission": {
+          "tag": "ASSUMED(from=4B int4)",
+          "value": 0.775
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 6582600503.471827
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.3831577780349079
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 24.905434288833277
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 4981.086857766661
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 0.726775956284153
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 3.8567861923858784
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 16.20527000385671
+        }
+      },
+      "source_axes": {
+        "kv": "u8",
+        "placement": "gpu_only",
+        "residency": "RESIDENT",
+        "tier": "8B",
+        "weight": "int4"
+      }
+    },
+    {
+      "config": {
+        "id": "gpu_only|RESIDENT|u8|int8|4B",
+        "kv": "u8",
+        "placement": "gpu_only",
+        "residency": "RESIDENT",
+        "tier": "4B",
+        "weight": "int8"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[gpu_only] + decode; SLO predicate",
+          "value": 9937
+        },
+        "completion": {
+          "tag": "MEASURED(1d8db970-4c18-4bcf-824d-d9c141b6eb22)",
+          "value": 0.115
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "MEASURED(a784f5ec-5615-4fea-a680-a07874426ae4) OLS; W=MEASURED(configs/models/Qwen3-4B-int8-ov.yaml); kv=MEASURED(41e419bd-f3e9-43b1-8364-0ebd89fa086b)",
+          "value": 19.72624008912154
+        },
+        "emission": {
+          "tag": "MEASURED(1d8db970-4c18-4bcf-824d-d9c141b6eb22) entry-level 1-empty_turn/200",
+          "value": 0.9
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 5753807606.471827
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.3349156821188416
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 16.102346006333356
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 3220.4692012666696
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 1.0
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 2.9115259890739504
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 9.572176948721896
+        }
+      },
+      "source_axes": {
+        "kv": "u8",
+        "placement": "gpu_only",
+        "residency": "RESIDENT",
+        "tier": "4B",
+        "weight": "int8"
+      }
+    },
+    {
+      "config": {
+        "id": "gpu_only|RESIDENT|u8|int8|8B",
+        "kv": "u8",
+        "placement": "gpu_only",
+        "residency": "RESIDENT",
+        "tier": "8B",
+        "weight": "int8"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[gpu_only] + decode; SLO predicate",
+          "value": 0
+        },
+        "completion": {
+          "tag": "ASSUMED(from=4B int8 1d8db970-4c18-4bcf-824d-d9c141b6eb22)",
+          "value": 0.115
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "MEASURED(a784f5ec-5615-4fea-a680-a07874426ae4) OLS; W=ASSUMED(from=4B int8/int4 ratio applied to 8B-int4 pin); kv=MEASURED(41e419bd-f3e9-43b1-8364-0ebd89fa086b)",
+          "value": 12.016607533837373
+        },
+        "emission": {
+          "tag": "ASSUMED(from=4B int8)",
+          "value": 0.9
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 10341155129.802265
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.6019344512490943
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 29.239020001145143
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 5847.804000229029
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 0.726775956284153
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 4.917380086505832
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 18.180140623023416
+        }
+      },
+      "source_axes": {
+        "kv": "u8",
+        "placement": "gpu_only",
+        "residency": "RESIDENT",
+        "tier": "8B",
+        "weight": "int8"
+      }
+    },
+    {
+      "config": {
+        "id": "gpu_only|RESIDENT|u4|int4|4B",
+        "kv": "u4",
+        "placement": "gpu_only",
+        "residency": "RESIDENT",
+        "tier": "4B",
+        "weight": "int4"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[gpu_only] + decode; SLO predicate",
+          "value": 9937
+        },
+        "completion": {
+          "tag": "MEASURED(6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a)",
+          "value": 0.1
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "MEASURED(a784f5ec-5615-4fea-a680-a07874426ae4) OLS; W=MEASURED(configs/models/Qwen3-4B-int4-ov.yaml); kv=MEASURED(41e419bd-f3e9-43b1-8364-0ebd89fa086b)",
+          "value": 30.547290550370022
+        },
+        "emission": {
+          "tag": "MEASURED(6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a) entry-level 1-empty_turn/200",
+          "value": 0.775
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 3761118904.471827
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.21892593384672812
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 12.96854334359505
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 2593.7086687190103
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 1.0
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 2.137046329316218
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 8.154212686703058
+        }
+      },
+      "source_axes": {
+        "kv": "u4",
+        "placement": "gpu_only",
+        "residency": "RESIDENT",
+        "tier": "4B",
+        "weight": "int4"
+      }
+    },
+    {
+      "config": {
+        "id": "gpu_only|RESIDENT|u4|int4|8B",
+        "kv": "u4",
+        "placement": "gpu_only",
+        "residency": "RESIDENT",
+        "tier": "8B",
+        "weight": "int4"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[gpu_only] + decode; SLO predicate",
+          "value": 0
+        },
+        "completion": {
+          "tag": "ASSUMED(from=4B int4 6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a)",
+          "value": 0.1
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "MEASURED(a784f5ec-5615-4fea-a680-a07874426ae4) OLS; W=MEASURED(configs/models/Qwen3-8B-int4-ov.yaml); kv=MEASURED(41e419bd-f3e9-43b1-8364-0ebd89fa086b)",
+          "value": 17.51759698564338
+        },
+        "emission": {
+          "tag": "ASSUMED(from=4B int4)",
+          "value": 0.775
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 6353216075.471827
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.36980584703105424
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 24.758404532576673
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 4951.680906515332
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 0.726775956284153
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 3.807958204337458
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 16.13786873257934
+        }
+      },
+      "source_axes": {
+        "kv": "u4",
+        "placement": "gpu_only",
+        "residency": "RESIDENT",
+        "tier": "8B",
+        "weight": "int4"
+      }
+    },
+    {
+      "config": {
+        "id": "gpu_only|RESIDENT|u4|int8|4B",
+        "kv": "u4",
+        "placement": "gpu_only",
+        "residency": "RESIDENT",
+        "tier": "4B",
+        "weight": "int8"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[gpu_only] + decode; SLO predicate",
+          "value": 9937
+        },
+        "completion": {
+          "tag": "MEASURED(1d8db970-4c18-4bcf-824d-d9c141b6eb22)",
+          "value": 0.115
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "MEASURED(a784f5ec-5615-4fea-a680-a07874426ae4) OLS; W=MEASURED(configs/models/Qwen3-4B-int8-ov.yaml); kv=MEASURED(41e419bd-f3e9-43b1-8364-0ebd89fa086b)",
+          "value": 19.98734983778803
+        },
+        "emission": {
+          "tag": "MEASURED(1d8db970-4c18-4bcf-824d-d9c141b6eb22) entry-level 1-empty_turn/200",
+          "value": 0.9
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 5524423178.471827
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.3215637511149879
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 15.909916392909903
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 3181.9832785819804
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 1.0
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 2.85887809143511
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 9.49188993054304
+        }
+      },
+      "source_axes": {
+        "kv": "u4",
+        "placement": "gpu_only",
+        "residency": "RESIDENT",
+        "tier": "4B",
+        "weight": "int8"
+      }
+    },
+    {
+      "config": {
+        "id": "gpu_only|RESIDENT|u4|int8|8B",
+        "kv": "u4",
+        "placement": "gpu_only",
+        "residency": "RESIDENT",
+        "tier": "8B",
+        "weight": "int8"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[gpu_only] + decode; SLO predicate",
+          "value": 0
+        },
+        "completion": {
+          "tag": "ASSUMED(from=4B int8 1d8db970-4c18-4bcf-824d-d9c141b6eb22)",
+          "value": 0.115
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "MEASURED(a784f5ec-5615-4fea-a680-a07874426ae4) OLS; W=ASSUMED(from=4B int8/int4 ratio applied to 8B-int4 pin); kv=MEASURED(41e419bd-f3e9-43b1-8364-0ebd89fa086b)",
+          "value": 12.078722353829342
+        },
+        "emission": {
+          "tag": "ASSUMED(from=4B int8)",
+          "value": 0.9
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 10111770701.802265
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.5885825202452406
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 29.150173401027367
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 5830.0346802054755
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 0.726775956284153
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 4.887995293215676
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 18.125837741044524
+        }
+      },
+      "source_axes": {
+        "kv": "u4",
+        "placement": "gpu_only",
+        "residency": "RESIDENT",
+        "tier": "8B",
+        "weight": "int8"
+      }
+    },
+    {
+      "config": {
+        "id": "gpu_only|NON_RESIDENT|f16|int4|4B",
+        "kv": "f16",
+        "placement": "gpu_only",
+        "residency": "NON_RESIDENT",
+        "tier": "4B",
+        "weight": "int4"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[gpu_only] + decode; SLO predicate",
+          "value": 9937
+        },
+        "completion": {
+          "tag": "MEASURED(6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a)",
+          "value": 0.1
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "MEASURED(a784f5ec-5615-4fea-a680-a07874426ae4) OLS; W=MEASURED(configs/models/Qwen3-4B-int4-ov.yaml); kv=MEASURED(83127e1b-9d6e-4103-bee6-2a63c00f479f)",
+          "value": 28.62442185272028
+        },
+        "emission": {
+          "tag": "MEASURED(6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a) entry-level 1-empty_turn/200",
+          "value": 0.775
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 4391432585.805342
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.2556150188789087
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 47.04483036722357
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 9408.966073444712
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 0.11885245901639344
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 11.890212773667702
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 18.157459971851996
+        }
+      },
+      "source_axes": {
+        "kv": "f16",
+        "placement": "gpu_only",
+        "residency": "NON_RESIDENT",
+        "tier": "4B",
+        "weight": "int4"
+      }
+    },
+    {
+      "config": {
+        "id": "gpu_only|NON_RESIDENT|f16|int4|8B",
+        "kv": "f16",
+        "placement": "gpu_only",
+        "residency": "NON_RESIDENT",
+        "tier": "8B",
+        "weight": "int4"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[gpu_only] + decode; SLO predicate",
+          "value": 0
+        },
+        "completion": {
+          "tag": "ASSUMED(from=4B int4 6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a)",
+          "value": 0.1
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "MEASURED(a784f5ec-5615-4fea-a680-a07874426ae4) OLS; W=MEASURED(configs/models/Qwen3-8B-int4-ov.yaml); kv=MEASURED(83127e1b-9d6e-4103-bee6-2a63c00f479f)",
+          "value": 17.02307829530011
+        },
+        "emission": {
+          "tag": "ASSUMED(from=4B int4)",
+          "value": 0.775
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 6983529756.805341
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.4064949320632348
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 96.41484830197632
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 19282.96966039527
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 0.0
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 24.5725409702245
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 36.72860844968555
+        }
+      },
+      "source_axes": {
+        "kv": "f16",
+        "placement": "gpu_only",
+        "residency": "NON_RESIDENT",
+        "tier": "8B",
+        "weight": "int4"
+      }
+    },
+    {
+      "config": {
+        "id": "gpu_only|NON_RESIDENT|f16|int8|4B",
+        "kv": "f16",
+        "placement": "gpu_only",
+        "residency": "NON_RESIDENT",
+        "tier": "4B",
+        "weight": "int8"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[gpu_only] + decode; SLO predicate",
+          "value": 9937
+        },
+        "completion": {
+          "tag": "MEASURED(1d8db970-4c18-4bcf-824d-d9c141b6eb22)",
+          "value": 0.115
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "MEASURED(a784f5ec-5615-4fea-a680-a07874426ae4) OLS; W=MEASURED(configs/models/Qwen3-4B-int8-ov.yaml); kv=MEASURED(83127e1b-9d6e-4103-bee6-2a63c00f479f)",
+          "value": 19.29054388065265
+        },
+        "emission": {
+          "tag": "MEASURED(1d8db970-4c18-4bcf-824d-d9c141b6eb22) entry-level 1-empty_turn/200",
+          "value": 0.9
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 6154736859.805341
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.35825283614716846
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 49.86161699174198
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 9972.323398348399
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 0.11885245901639344
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 12.427406196702638
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 22.343656293588985
+        }
+      },
+      "source_axes": {
+        "kv": "f16",
+        "placement": "gpu_only",
+        "residency": "NON_RESIDENT",
+        "tier": "4B",
+        "weight": "int8"
+      }
+    },
+    {
+      "config": {
+        "id": "gpu_only|NON_RESIDENT|f16|int8|8B",
+        "kv": "f16",
+        "placement": "gpu_only",
+        "residency": "NON_RESIDENT",
+        "tier": "8B",
+        "weight": "int8"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[gpu_only] + decode; SLO predicate",
+          "value": 0
+        },
+        "completion": {
+          "tag": "ASSUMED(from=4B int8 1d8db970-4c18-4bcf-824d-d9c141b6eb22)",
+          "value": 0.115
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "MEASURED(a784f5ec-5615-4fea-a680-a07874426ae4) OLS; W=ASSUMED(from=4B int8/int4 ratio applied to 8B-int4 pin); kv=MEASURED(83127e1b-9d6e-4103-bee6-2a63c00f479f)",
+          "value": 11.910486671061278
+        },
+        "emission": {
+          "tag": "ASSUMED(from=4B int8)",
+          "value": 0.9
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 10742084383.13578
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.6252716052774212
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 100.6495991934725
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 20129.919838694484
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 0.0
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 25.42276116081497
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 39.07377707039073
+        }
+      },
+      "source_axes": {
+        "kv": "f16",
+        "placement": "gpu_only",
+        "residency": "NON_RESIDENT",
+        "tier": "8B",
+        "weight": "int8"
+      }
+    },
+    {
+      "config": {
+        "id": "gpu_only|NON_RESIDENT|u8|int4|4B",
+        "kv": "u8",
+        "placement": "gpu_only",
+        "residency": "NON_RESIDENT",
+        "tier": "4B",
+        "weight": "int4"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[gpu_only] + decode; SLO predicate",
+          "value": 9937
+        },
+        "completion": {
+          "tag": "MEASURED(6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a)",
+          "value": 0.1
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "MEASURED(a784f5ec-5615-4fea-a680-a07874426ae4) OLS; W=MEASURED(configs/models/Qwen3-4B-int4-ov.yaml); kv=MEASURED(41e419bd-f3e9-43b1-8364-0ebd89fa086b)",
+          "value": 29.812882703105117
+        },
+        "emission": {
+          "tag": "MEASURED(6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a) entry-level 1-empty_turn/200",
+          "value": 0.775
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 3990503332.471827
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.2322778648505818
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 46.59543549181216
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 9319.087098362432
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 0.11885245901639344
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 11.815134906377862
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 17.816068770256397
+        }
+      },
+      "source_axes": {
+        "kv": "u8",
+        "placement": "gpu_only",
+        "residency": "NON_RESIDENT",
+        "tier": "4B",
+        "weight": "int4"
+      }
+    },
+    {
+      "config": {
+        "id": "gpu_only|NON_RESIDENT|u8|int4|8B",
+        "kv": "u8",
+        "placement": "gpu_only",
+        "residency": "NON_RESIDENT",
+        "tier": "8B",
+        "weight": "int4"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[gpu_only] + decode; SLO predicate",
+          "value": 0
+        },
+        "completion": {
+          "tag": "ASSUMED(from=4B int4 6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a)",
+          "value": 0.1
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "MEASURED(a784f5ec-5615-4fea-a680-a07874426ae4) OLS; W=MEASURED(configs/models/Qwen3-8B-int4-ov.yaml); kv=MEASURED(41e419bd-f3e9-43b1-8364-0ebd89fa086b)",
+          "value": 17.333134971589512
+        },
+        "emission": {
+          "tag": "ASSUMED(from=4B int4)",
+          "value": 0.775
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 6582600503.471827
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.3831577780349079
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 96.07361497552448
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 19214.722995104905
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 0.0
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 24.494587707454077
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 36.09465437386896
+        }
+      },
+      "source_axes": {
+        "kv": "u8",
+        "placement": "gpu_only",
+        "residency": "NON_RESIDENT",
+        "tier": "8B",
+        "weight": "int4"
+      }
+    },
+    {
+      "config": {
+        "id": "gpu_only|NON_RESIDENT|u8|int8|4B",
+        "kv": "u8",
+        "placement": "gpu_only",
+        "residency": "NON_RESIDENT",
+        "tier": "4B",
+        "weight": "int8"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[gpu_only] + decode; SLO predicate",
+          "value": 9937
+        },
+        "completion": {
+          "tag": "MEASURED(1d8db970-4c18-4bcf-824d-d9c141b6eb22)",
+          "value": 0.115
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "MEASURED(a784f5ec-5615-4fea-a680-a07874426ae4) OLS; W=MEASURED(configs/models/Qwen3-4B-int8-ov.yaml); kv=MEASURED(41e419bd-f3e9-43b1-8364-0ebd89fa086b)",
+          "value": 19.72624008912154
+        },
+        "emission": {
+          "tag": "MEASURED(1d8db970-4c18-4bcf-824d-d9c141b6eb22) entry-level 1-empty_turn/200",
+          "value": 0.9
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 5753807606.471827
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.3349156821188416
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 49.490488431754656
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 9898.097686350928
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 0.11885245901639344
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 12.344156644186775
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 21.97185854489758
+        }
+      },
+      "source_axes": {
+        "kv": "u8",
+        "placement": "gpu_only",
+        "residency": "NON_RESIDENT",
+        "tier": "4B",
+        "weight": "int8"
+      }
+    },
+    {
+      "config": {
+        "id": "gpu_only|NON_RESIDENT|u8|int8|8B",
+        "kv": "u8",
+        "placement": "gpu_only",
+        "residency": "NON_RESIDENT",
+        "tier": "8B",
+        "weight": "int8"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[gpu_only] + decode; SLO predicate",
+          "value": 0
+        },
+        "completion": {
+          "tag": "ASSUMED(from=4B int8 1d8db970-4c18-4bcf-824d-d9c141b6eb22)",
+          "value": 0.115
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "MEASURED(a784f5ec-5615-4fea-a680-a07874426ae4) OLS; W=ASSUMED(from=4B int8/int4 ratio applied to 8B-int4 pin); kv=MEASURED(41e419bd-f3e9-43b1-8364-0ebd89fa086b)",
+          "value": 12.016607533837373
+        },
+        "emission": {
+          "tag": "ASSUMED(from=4B int8)",
+          "value": 0.9
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 10341155129.802265
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.6019344512490943
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 100.40720068783635
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 20081.44013756726
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 0.0
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 25.384193201158055
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 38.79192641412399
+        }
+      },
+      "source_axes": {
+        "kv": "u8",
+        "placement": "gpu_only",
+        "residency": "NON_RESIDENT",
+        "tier": "8B",
+        "weight": "int8"
+      }
+    },
+    {
+      "config": {
+        "id": "gpu_only|NON_RESIDENT|u4|int4|4B",
+        "kv": "u4",
+        "placement": "gpu_only",
+        "residency": "NON_RESIDENT",
+        "tier": "4B",
+        "weight": "int4"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[gpu_only] + decode; SLO predicate",
+          "value": 9937
+        },
+        "completion": {
+          "tag": "MEASURED(6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a)",
+          "value": 0.1
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "MEASURED(a784f5ec-5615-4fea-a680-a07874426ae4) OLS; W=MEASURED(configs/models/Qwen3-4B-int4-ov.yaml); kv=MEASURED(41e419bd-f3e9-43b1-8364-0ebd89fa086b)",
+          "value": 30.547290550370022
+        },
+        "emission": {
+          "tag": "MEASURED(6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a) entry-level 1-empty_turn/200",
+          "value": 0.775
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 3761118904.471827
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.21892593384672812
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 46.332163790866446
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 9266.432758173289
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 0.11885245901639344
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 11.766469581203078
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 17.80081331766543
+        }
+      },
+      "source_axes": {
+        "kv": "u4",
+        "placement": "gpu_only",
+        "residency": "NON_RESIDENT",
+        "tier": "4B",
+        "weight": "int4"
+      }
+    },
+    {
+      "config": {
+        "id": "gpu_only|NON_RESIDENT|u4|int4|8B",
+        "kv": "u4",
+        "placement": "gpu_only",
+        "residency": "NON_RESIDENT",
+        "tier": "8B",
+        "weight": "int4"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[gpu_only] + decode; SLO predicate",
+          "value": 0
+        },
+        "completion": {
+          "tag": "ASSUMED(from=4B int4 6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a)",
+          "value": 0.1
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "MEASURED(a784f5ec-5615-4fea-a680-a07874426ae4) OLS; W=MEASURED(configs/models/Qwen3-8B-int4-ov.yaml); kv=MEASURED(41e419bd-f3e9-43b1-8364-0ebd89fa086b)",
+          "value": 17.51759698564338
+        },
+        "emission": {
+          "tag": "ASSUMED(from=4B int4)",
+          "value": 0.775
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 6353216075.471827
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.36980584703105424
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 95.87431562758077
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 19174.863125516164
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 0.0
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 24.45519838022952
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 35.72631281003741
+        }
+      },
+      "source_axes": {
+        "kv": "u4",
+        "placement": "gpu_only",
+        "residency": "NON_RESIDENT",
+        "tier": "8B",
+        "weight": "int4"
+      }
+    },
+    {
+      "config": {
+        "id": "gpu_only|NON_RESIDENT|u4|int8|4B",
+        "kv": "u4",
+        "placement": "gpu_only",
+        "residency": "NON_RESIDENT",
+        "tier": "4B",
+        "weight": "int8"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[gpu_only] + decode; SLO predicate",
+          "value": 9937
+        },
+        "completion": {
+          "tag": "MEASURED(1d8db970-4c18-4bcf-824d-d9c141b6eb22)",
+          "value": 0.115
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "MEASURED(a784f5ec-5615-4fea-a680-a07874426ae4) OLS; W=MEASURED(configs/models/Qwen3-4B-int8-ov.yaml); kv=MEASURED(41e419bd-f3e9-43b1-8364-0ebd89fa086b)",
+          "value": 19.98734983778803
+        },
+        "emission": {
+          "tag": "MEASURED(1d8db970-4c18-4bcf-824d-d9c141b6eb22) entry-level 1-empty_turn/200",
+          "value": 0.9
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 5524423178.471827
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.3215637511149879
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 49.27353684018129
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 9854.707368036265
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 0.11885245901639344
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 12.293842902038687
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 21.49270574509305
+        }
+      },
+      "source_axes": {
+        "kv": "u4",
+        "placement": "gpu_only",
+        "residency": "NON_RESIDENT",
+        "tier": "4B",
+        "weight": "int8"
+      }
+    },
+    {
+      "config": {
+        "id": "gpu_only|NON_RESIDENT|u4|int8|8B",
+        "kv": "u4",
+        "placement": "gpu_only",
+        "residency": "NON_RESIDENT",
+        "tier": "8B",
+        "weight": "int8"
+      },
+      "objectives": {
+        "cloud_usd": {
+          "tag": "config table local-only baseline; policies set cloud $",
+          "value": 0.0
+        },
+        "cold_start_slo_limit_tokens": {
+          "tag": "derived from prefill[gpu_only] + decode; SLO predicate",
+          "value": 0
+        },
+        "completion": {
+          "tag": "ASSUMED(from=4B int8 1d8db970-4c18-4bcf-824d-d9c141b6eb22)",
+          "value": 0.115
+        },
+        "decode_tok_s_at_2048": {
+          "tag": "MEASURED(a784f5ec-5615-4fea-a680-a07874426ae4) OLS; W=ASSUMED(from=4B int8/int4 ratio applied to 8B-int4 pin); kv=MEASURED(41e419bd-f3e9-43b1-8364-0ebd89fa086b)",
+          "value": 12.078722353829342
+        },
+        "emission": {
+          "tag": "ASSUMED(from=4B int8)",
+          "value": 0.9
+        },
+        "peak_commit_bytes": {
+          "tag": "derived(commit model)",
+          "value": 10111770701.802265
+        },
+        "peak_commit_vs_16gb": {
+          "tag": "info only; memory is an objective not a constraint",
+          "value": 0.5885825202452406
+        },
+        "session_time_s_mean": {
+          "tag": "derived(trace replay)",
+          "value": 100.26608449603147
+        },
+        "session_time_s_sum": {
+          "tag": "derived(trace replay)",
+          "value": 20053.21689920629
+        },
+        "slo_fraction": {
+          "tag": "derived(SLO predicate on local turns)",
+          "value": 0.0
+        },
+        "turn_latency_p50_s": {
+          "tag": "derived(trace replay)",
+          "value": 25.363724750586346
+        },
+        "turn_latency_p95_s": {
+          "tag": "derived(trace replay)",
+          "value": 38.55895619908719
+        }
+      },
+      "source_axes": {
+        "kv": "u4",
+        "placement": "gpu_only",
+        "residency": "NON_RESIDENT",
+        "tier": "8B",
+        "weight": "int8"
+      }
+    }
+  ],
+  "trace": {
+    "n_entries": 200,
+    "path": "derived/bfcl_feasibility/w3_weight_quality/sealed_6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a/artifacts/session_residency_gpu_only_RESIDENT_report.json",
+    "run_id": "6225d6e1-4e0a-41c9-90bb-695ecc5fbe0a"
+  }
+}

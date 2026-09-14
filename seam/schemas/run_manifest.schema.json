@@ -1,0 +1,744 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sharclab.gatech.edu/seam/schemas/run_manifest-1.0.json",
+  "title": "SEAM run manifest",
+  "description": "Implements blueprint §5.2 plus the Platform-A fields of implementation spec §6.1. Every experimental run emits one of these. No manifest, no data. The union of the two field sets is deliberate: see AMENDMENTS.md AM-003 for the fields blueprint §5.2 requires that spec §6.1 omits — those are present here as optional and nullable so a blueprint requirement is never silently dropped.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_id",
+    "spec_version",
+    "timestamp_utc",
+    "git_sha",
+    "git_dirty",
+    "allow_dirty",
+    "config_hash",
+    "elevated",
+    "platform",
+    "drivers",
+    "power_state",
+    "thermal",
+    "target",
+    "model",
+    "npu_config",
+    "workload",
+    "condition_label",
+    "blinded_label",
+    "outputs",
+    "integrity",
+    "isolation_mode"
+  ],
+  "properties": {
+    "run_id": {
+      "description": "uuid4. The identifier every emitted number must trace back to (spec §9.2).",
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "spec_version": {
+      "description": "Manifest schema version. Bumped only alongside this file and an AMENDMENTS.md entry.",
+      "type": "string",
+      "const": "1.0"
+    },
+    "timestamp_utc": {
+      "description": "ISO-8601 with explicit offset. For cross-signal correlation only — durations use perf_counter_ns (spec §3.5).",
+      "type": "string",
+      "format": "date-time"
+    },
+    "git_sha": {
+      "description": "Full 40-hex commit of the harness that produced this run. Never null: an unknown git state is a hard failure, not a null field.",
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "git_dirty": {
+      "description": "True if the working tree had uncommitted changes. When true, git_sha does NOT describe the code that ran.",
+      "type": "boolean"
+    },
+    "allow_dirty": {
+      "description": "True if --allow-dirty was passed. Recorded per spec §7/M1 so a non-reproducible run can never look reproducible. Must be true whenever git_dirty is true (enforced by the conditional below).",
+      "type": "boolean"
+    },
+    "git_branch": {
+      "type": ["string", "null"]
+    },
+    "git_dirty_files": {
+      "description": "git status --porcelain lines when dirty. States what was uncommitted, not merely that something was.",
+      "type": ["array", "null"],
+      "items": { "type": "string" }
+    },
+    "config_hash": {
+      "description": "sha256 of the fully resolved config, canonically serialised.",
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "config_sources": {
+      "description": "Repository-relative config paths that produced config_hash, in load order.",
+      "type": ["array", "null"],
+      "items": { "type": "string" }
+    },
+    "elevated": {
+      "description": "Whether the process ran with Administrator rights. RAPL MSR access (spec §3.1 S2) requires it.",
+      "type": "boolean"
+    },
+
+    "isolation_mode": {
+      "description": "Machine state the run was measured under. 'remote' is the mode of docs/SETUP_remote_measurement.md — editor and browsers closed, driven over SSH, untouched while in flight. 'local' is a machine in normal use. Results from different modes are NEVER pooled or compared: the unexplained 1.98x between two identically-configured runs was a difference in this field, unrecorded. There is no default and no null — an undeclared mode refuses to emit, because a defaulted value would mislabel exactly the runs this field exists to keep apart.",
+      "type": "string",
+      "enum": ["remote", "local"]
+    },
+    "isolation_evidence": {
+      "description": "Machine state measured at emit time, corroborating or contradicting isolation_mode. Declaring 'remote' with contending processes resident is refused rather than recorded, so on a sealed run this is the evidence that the declaration was checked, not merely asserted.",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "contending_processes": {
+          "description": "Tier-1 operator-controlled software from seam.isolation.TIER1_CONTENDING_PROCESS_NAMES. Must be empty when isolation_mode is 'remote'. Tier-2 shell/vendor agents are recorded separately and do not refuse.",
+          "type": ["array", "null"],
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "pid"],
+            "properties": {
+              "name": { "type": "string" },
+              "pid": { "type": "integer", "minimum": 0 },
+              "working_set_bytes": { "type": ["integer", "null"], "minimum": 0 },
+              "private_working_set_bytes": { "type": ["integer", "null"], "minimum": 0 }
+            }
+          }
+        },
+        "tier2_recorded_processes": {
+          "description": "Tier-2 auto-respawning shell/vendor agents (seam.isolation.TIER2_CONTENDING_PROCESS_NAMES). Recorded for contamination audit; never refuse remote mode. Also mirrored per-cell in environment_start/environment_peak.tier2_processes.",
+          "type": ["array", "null"],
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "pid"],
+            "properties": {
+              "name": { "type": "string" },
+              "pid": { "type": "integer", "minimum": 0 },
+              "working_set_bytes": { "type": ["integer", "null"], "minimum": 0 },
+              "private_working_set_bytes": { "type": ["integer", "null"], "minimum": 0 }
+            }
+          }
+        },
+        "sshd_session_count": {
+          "description": "Live SSH sessions, excluding the listener. Corroborates 'remote' but does not establish it: a detached run outlives the session that launched it, so zero is expected for a correctly detached remote run.",
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "consistent_with_declaration": { "type": ["boolean", "null"] },
+        "probe_error": {
+          "description": "Non-null when evidence could not be gathered. A failed probe is not a quiet machine.",
+          "type": ["string", "null"]
+        }
+      }
+    },
+
+    "launch_context": {
+      "description": "How this process was launched. Distinct from isolation_mode: remote can be ssh_foreground (session held open) or ssh_detached (WMI/spawn_detached, session 0, Service-0x0). ΔN and the acceptance gate use only ssh_detached. Declared via SEAM_LAUNCH_CONTEXT — never inferred. Null on runs that predate the field; those runs cannot be pooled with runs that record it.",
+      "type": ["string", "null"],
+      "enum": ["ssh_detached", "ssh_foreground", "local_console", null]
+    },
+    "session_id": {
+      "description": "Windows session id of the measuring process (ProcessIdToSessionId). ssh_detached lands in 0.",
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "window_station": {
+      "description": "Window station name for the measuring process. Service-0x0-... means session 0 with no desktop; WinSta0 is the interactive desktop.",
+      "type": ["string", "null"]
+    },
+
+    "platform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "cpu", "family", "topology", "os_build", "provenance_artifacts"],
+      "properties": {
+        "id": { "type": "string", "const": "aipc-c1" },
+        "cpu": { "type": "string" },
+        "family": { "type": "string" },
+        "topology": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["p_cpus", "lpe_cpus", "verified"],
+          "properties": {
+            "p_cpus": {
+              "description": "Logical CPUs measured to be P-cores. Null until verified — never a plausible guess (AMENDMENTS.md AM-008).",
+              "type": ["array", "null"],
+              "items": { "type": "integer", "minimum": 0 },
+              "uniqueItems": true
+            },
+            "lpe_cpus": {
+              "type": ["array", "null"],
+              "items": { "type": "integer", "minimum": 0 },
+              "uniqueItems": true
+            },
+            "verified": {
+              "description": "True only if seam.topology measured the split empirically (spec §4).",
+              "type": "boolean"
+            }
+          }
+        },
+        "os_build": { "type": "string", "const": "26200" },
+        "provenance_artifacts": {
+          "description": "Probe artifacts this run relied on, hashed at emit time (blueprint AF-002). Hashes are computed from bytes on disk, never transcribed.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "sha256"],
+            "properties": {
+              "path": { "type": "string" },
+              "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+            }
+          }
+        },
+
+        "microcode": {
+          "description": "Blueprint §5.2 requires this; spec §6.1 omits it. Nullable until captured. See AM-003.",
+          "type": ["string", "null"]
+        },
+        "bios_version": { "type": ["string", "null"] },
+        "kernel": { "type": ["string", "null"] },
+        "power_cap_w": {
+          "description": "Blueprint §5.2. Required to identify an M5 power-cap sweep cell (15/25/55 W).",
+          "type": ["number", "null"]
+        },
+        "cpu_governor": { "type": ["string", "null"] }
+      }
+    },
+
+    "drivers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["npu", "igpu", "openvino", "genai", "lhm_bridge"],
+      "properties": {
+        "npu": { "type": ["string", "null"] },
+        "igpu": { "type": ["string", "null"] },
+        "openvino": { "type": ["string", "null"] },
+        "genai": { "type": ["string", "null"] },
+        "lhm_bridge": { "type": ["string", "null"] }
+      }
+    },
+
+    "power_state": {
+      "description": "MEASUREMENT-TIME host environment (spec §3.2 item 1). Must reflect conditions during the measured work — from a self-seal capture during the run, or from per-cell / measurement records. Null when unrecorded. NEVER populated from a promote-time / retro-seal host sample (AM-036); that belongs in promote_time_power_state.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "on_battery",
+        "battery_pct_start",
+        "battery_pct_end",
+        "soc_at_start",
+        "soc_at_end",
+        "charging",
+        "power_plan",
+        "display_brightness",
+        "defender_realtime",
+        "windows_update_paused",
+        "pinned_profile",
+        "ac_disconnected_for_s",
+        "discharge_rate_stable",
+        "background_quiesced",
+        "wifi_state",
+        "design_capacity_mwh",
+        "full_charge_capacity_mwh"
+      ],
+      "properties": {
+        "on_battery": { "type": ["boolean", "null"] },
+        "battery_pct_start": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+        "battery_pct_end": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+        "soc_at_start": {
+          "description": "State of charge at run start (%). Same source as battery_pct_start; named explicitly for battery-pinned profiles (spec §3.7).",
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 100
+        },
+        "soc_at_end": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 100
+        },
+        "charging": {
+          "description": "True while the battery is taking bulk charge. Charging consumes adapter headroom and adds chassis heat, so an AC run under charge is not the same condition as one at full charge — a distinction on_battery cannot express.",
+          "type": ["boolean", "null"]
+        },
+        "power_plan": { "type": ["string", "null"] },
+        "display_brightness": { "type": ["number", "null"] },
+        "defender_realtime": { "type": ["string", "null"] },
+        "windows_update_paused": { "type": ["boolean", "null"] },
+        "pinned_profile": {
+          "description": "Named profile asserted for this run (AM-016). Null only for runs that predate AM-016.",
+          "type": ["string", "null"],
+          "enum": ["ac-pinned", "battery-pinned", null]
+        },
+        "power_source": {
+          "description": "Blueprint §2.1 / H10 axis. Distinct from on_battery: a host may be on AC while the pack is still present. Null until the axis is recorded for the run.",
+          "type": ["string", "null"],
+          "enum": ["battery", "mains", null]
+        },
+        "ac_disconnected_for_s": {
+          "description": "Seconds since AC disconnect at assertion time. Null until settle timing is measured (M2.1).",
+          "type": ["number", "null"],
+          "minimum": 0
+        },
+        "discharge_rate_stable": {
+          "description": "Whether rolling discharge rate met the profile stability band. Null until M2.1 sets the band.",
+          "type": ["boolean", "null"]
+        },
+        "background_quiesced": {
+          "description": "Operator-attested quiesce for battery-pinned runs (spec §3.7).",
+          "type": ["boolean", "null"]
+        },
+        "wifi_state": { "type": ["string", "null"] },
+        "design_capacity_mwh": {
+          "description": "Pack design capacity (mWh). Prefer root\\WMI BatteryStaticData.DesignedCapacity when Win32_Battery.DesignCapacity is null.",
+          "type": ["number", "null"],
+          "minimum": 0
+        },
+        "full_charge_capacity_mwh": {
+          "description": "Present full-charge capacity (mWh). Prefer root\\WMI BatteryFullChargedCapacity when Win32_Battery.FullChargeCapacity is null.",
+          "type": ["number", "null"],
+          "minimum": 0
+        }
+      }
+    },
+
+    "promote_time_power_state": {
+      "description": "Optional host power sample taken at raw-promote / retro-seal time (AM-036). Forensic only — MUST NOT be read as measurement environment. Measurement conditions belong in power_state (or stay null).",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "on_battery": { "type": ["boolean", "null"] },
+        "battery_pct_start": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+        "battery_pct_end": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+        "soc_at_start": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+        "soc_at_end": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+        "charging": { "type": ["boolean", "null"] },
+        "power_plan": { "type": ["string", "null"] },
+        "display_brightness": { "type": ["number", "null"] },
+        "defender_realtime": { "type": ["string", "null"] },
+        "windows_update_paused": { "type": ["boolean", "null"] },
+        "pinned_profile": {
+          "type": ["string", "null"],
+          "enum": ["ac-pinned", "battery-pinned", null]
+        },
+        "power_source": {
+          "type": ["string", "null"],
+          "enum": ["battery", "mains", null]
+        },
+        "ac_disconnected_for_s": { "type": ["number", "null"], "minimum": 0 },
+        "discharge_rate_stable": { "type": ["boolean", "null"] },
+        "background_quiesced": { "type": ["boolean", "null"] },
+        "wifi_state": { "type": ["string", "null"] },
+        "design_capacity_mwh": { "type": ["number", "null"], "minimum": 0 },
+        "full_charge_capacity_mwh": { "type": ["number", "null"], "minimum": 0 },
+        "captured_at_utc": {
+          "description": "When this promote-time sample was taken (ISO-8601).",
+          "type": ["string", "null"],
+          "format": "date-time"
+        }
+      }
+    },
+
+    "power_state_note": {
+      "description": "Provenance note about measurement power_state — e.g. unrecorded because the run predates measurement-time powerstate capture (AM-036). Null when no note is required.",
+      "type": ["string", "null"]
+    },
+
+    "retro_seal": {
+      "description": "True when this manifest was emitted by a post-hoc raw promote / retro-seal path (AM-036). Null/absent on runs that predate the field. Loaders use this (with summary.promotion post_hoc markers) to detect promote-time power leakage structurally — never by growing a run_id allowlist.",
+      "type": ["boolean", "null"]
+    },
+
+    "measurement_power_from_records": {
+      "description": "True when measurement power_state was derived from measurement / cell records under retro_seal (AM-036). Distinguishes legitimate record-backed measurement environment from a promote-time host sample. Null/absent when not applicable.",
+      "type": ["boolean", "null"]
+    },
+
+    "thermal": {
+      "description": "Constants are null until M2.3 determines and freezes them (blueprint §5.4). The illustrative values in spec §6.1 are schema examples, not defaults — see AMENDMENTS.md AM-006.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ambient_c",
+        "warmup_s",
+        "cooldown_ceiling_c",
+        "throttle_residency_pct",
+        "throttle_threshold_pct",
+        "excluded"
+      ],
+      "properties": {
+        "ambient_c": { "type": ["number", "null"] },
+        "warmup_s": { "type": ["number", "null"], "minimum": 0 },
+        "cooldown_ceiling_c": { "type": ["number", "null"] },
+        "throttle_residency_pct": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+        "throttle_threshold_pct": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+        "excluded": {
+          "description": "True if throttle residency exceeded the threshold (blueprint §5.4 item 5). Excluded runs stay in raw/ and are counted in the throttling table — never deleted.",
+          "type": "boolean"
+        },
+
+        "ambient_c_start": {
+          "description": "Blueprint §5.2 wants both endpoints so ambient drift within a run is detectable; spec §6.1 collapses them to one. See AM-003.",
+          "type": ["number", "null"]
+        },
+        "ambient_c_end": { "type": ["number", "null"] },
+        "pkg_temp_series_path": {
+          "description": "Blueprint §5.4 item 4 mandates a ≥1 Hz temperature series.",
+          "type": ["string", "null"]
+        },
+        "throttle_events": { "type": ["integer", "null"], "minimum": 0 },
+        "regime": {
+          "description": "Blueprint §6.4 / H8. Thermal treated as a confound (controlled/excluded) or as an axis (swept). The two regimes must never be pooled in analysis.",
+          "type": ["string", "null"],
+          "enum": ["confound", "axis", null]
+        }
+      }
+    },
+
+    "confinement_mechanism": {
+      "description": "Blueprint §6.2 / isolation invariant. Both arms of a partition experiment must use the same mechanism. Null for non-local or pre-slice runs.",
+      "type": ["string", "null"],
+      "enum": ["process-affinity", "scheduling-core-type", null]
+    },
+
+    "target": {
+      "description": "Four local targets plus cloud. cpu-placement is restricted to a diagnostic sweep spanning the two CPU clusters. No dGPU on this platform.",
+      "type": "string",
+      "enum": ["cpu-p", "cpu-lpe", "cpu-placement", "igpu", "npu", "cloud"]
+    },
+
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "revision", "quantization", "ir_sha256", "provenance"],
+      "properties": {
+        "name": { "type": ["string", "null"] },
+        "revision": { "type": ["string", "null"] },
+        "quantization": { "type": ["string", "null"] },
+        "ir_sha256": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+        "runtime": { "type": ["string", "null"] },
+        "precision": { "type": ["string", "null"] },
+        "reasoning_mode": {
+          "description": "AM-024: thinking_off / thinking_on, matched on local and cloud sides of the arm. Null for non-slice runs.",
+          "type": ["string", "null"],
+          "enum": ["thinking_off", "thinking_on", null]
+        },
+        "provenance": {
+          "description": "AM-023: discriminates self-exported ModelSpec from pre-converted FetchedModelSpec. Flattening the two paths would hide the documented §5.3 weakening. Null only for runs that load no local IR (cloud-only).",
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["kind", "self_converted"],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": ["self_exported", "pre_converted", "cloud", "absent"]
+            },
+            "self_converted": { "type": ["boolean", "null"] },
+            "source_repo": { "type": ["string", "null"] },
+            "download_method": { "type": ["string", "null"] },
+            "export_command": {
+              "type": ["array", "null"],
+              "items": { "type": "string" }
+            },
+            "quantization_config": { "type": ["object", "null"] },
+            "ladder_position": { "type": ["string", "null"] },
+            "spec_path": { "type": ["string", "null"] },
+            "spec_sha256": {
+              "type": ["string", "null"],
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "file_verification": {
+              "description": "Per-file verification method against the external authority (publisher lfs.oid or git blob SHA-1). Aggregate ir_sha256 is self-constructed and not publisher-verifiable; these per-file methods are the externally checkable ones.",
+              "type": ["object", "null"],
+              "additionalProperties": {
+                "type": "string",
+                "enum": ["sha256", "git-blob-sha1", "size-only"]
+              }
+            }
+          }
+        },
+        "cloud": {
+          "description": "Blueprint §5.2 models.cloud. Absent from spec §6.1, but target may be 'cloud' and M3.2/M6 mandate pinned dated snapshots plus versioned pricing. Becomes required for cloud runs at M3 — see AM-003.",
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "properties": {
+            "provider": { "type": ["string", "null"] },
+            "model_snapshot_id": { "type": ["string", "null"] },
+            "access_date": { "type": ["string", "null"] },
+            "pricing_table_version": { "type": ["string", "null"] },
+            "pin_convention": { "type": ["string", "null"] },
+            "prompt_caching": { "type": ["boolean", "null"] },
+            "reasoning_mode": {
+              "type": ["string", "null"],
+              "enum": ["thinking_off", "thinking_on", null]
+            }
+          }
+        }
+      }
+    },
+
+    "npu_config": {
+      "description": "openvino#34617 requires both to be set explicitly; never rely on defaults (spec §5.2).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["MAX_PROMPT_LEN", "NPUW_LLM_PREFILL_CHUNK_SIZE"],
+      "properties": {
+        "MAX_PROMPT_LEN": { "type": ["integer", "null"], "minimum": 1 },
+        "NPUW_LLM_PREFILL_CHUNK_SIZE": { "type": ["integer", "null"], "minimum": 1 }
+      }
+    },
+
+    "workload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "benchmark", "task_ids", "seed", "n_repeats"],
+      "properties": {
+        "kind": {
+          "description": "'topology_verify' is the §4 core-classification run. It is a distinct kind rather than a 'microbench' because it is the one workload whose REFUSAL is itself the result: a verification that does not establish the mapping still emits a manifest so its per-CPU scores are citable (AMENDMENTS.md AM-010, AUDIT_LOG.md AF-006).",
+          "type": "string",
+          "enum": [
+            "microbench",
+            "aa",
+            "h1_pilot",
+            "topology_verify",
+            "battery_counter_char",
+            "mslice_baseline",
+            "mslice_aa",
+            "mslice_noise",
+            "mslice_main",
+            "mslice_key_validation",
+            "mslice_affinity_matrix",
+            "delta_prefill_matrix",
+            "session_residency",
+            "efilter_pilot",
+            "efilter_stage1",
+            "prompt_a2_preflight",
+            "prompt_a2_refusal",
+            "prompt_a2_contention_reproduction",
+            "prompt_a2_placement_reproduction",
+            "prompt_a2_paging_baseline",
+            "efilter_canary_baseline",
+            "a3_residency_sweep",
+            "a3_residency_refusal",
+            "a3_residency_partial"
+          ]
+        },
+        "benchmark": { "type": "string", "minLength": 1 },
+        "task_ids": { "type": "array", "items": { "type": "string" } },
+        "seed": { "type": ["integer", "null"] },
+        "n_repeats": { "type": ["integer", "null"], "minimum": 1 },
+        "concurrency": {
+          "description": "Blueprint §2.1 / H9. Number of concurrent agents. Null when the axis is not under test (serial runs).",
+          "type": ["integer", "null"],
+          "minimum": 1
+        }
+      }
+    },
+
+    "policy": {
+      "description": "Blueprint §5.2. The partition policy under test — the independent variable for H2/H3. Absent from spec §6.1; see AM-003.",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": ["string", "null"] },
+        "version": { "type": ["string", "null"] },
+        "params": { "type": ["object", "null"] },
+        "escalation_semantics": {
+          "description": "Blueprint §2.1. predictive (M-SLICE default) or preemptive (in-scope second axis; not deferred).",
+          "type": ["string", "null"],
+          "enum": ["predictive", "preemptive", null]
+        },
+        "kv_residency": {
+          "description": "Blueprint §2.1 / H11. KV cache fate on escalation.",
+          "type": ["string", "null"],
+          "enum": ["discard", "retain", "transfer", null]
+        }
+      }
+    },
+
+    "network": {
+      "description": "Blueprint §5.2 / §9.3. Cloud latency is uninterpretable without it. Absent from spec §6.1; see AM-003.",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "regime_name": { "type": ["string", "null"] },
+        "measured_rtt_ms_p50": { "type": ["number", "null"] },
+        "measured_rtt_ms_p95": { "type": ["number", "null"] },
+        "measured_bw_mbps": { "type": ["number", "null"] },
+        "shaping_rule": { "type": ["string", "null"] }
+      }
+    },
+
+    "condition_label": {
+      "description": "The true condition. WRITTEN HERE BUT NEVER READ BY ANALYSIS. Analysis consumes blinded_label only (spec §8, blueprint §5); a separate explicit unblind step joins them.",
+      "type": "string",
+      "minLength": 1
+    },
+    "blinded_label": {
+      "description": "The only label analysis code may consume.",
+      "type": "string",
+      "pattern": "^cond_[0-9a-f]{4,}$"
+    },
+
+    "outputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["samples", "steps", "summary"],
+      "properties": {
+        "samples": { "type": ["string", "null"] },
+        "steps": { "type": ["string", "null"] },
+        "summary": { "type": ["string", "null"] },
+        "tasks": {
+          "description": "Optional per-task JSONL path (machine-measurement + task metrics). Present when the workload emits task-level records (E-FILTER writes tasks.jsonl). Parallel to steps; omitted by older sealed runs that never produced the artifact. C2e: schema was incomplete — the emitter correctly indexed a real artifact that additionalProperties:false rejected (run e66701aa).",
+          "type": ["string", "null"]
+        },
+        "token_ledger_path": {
+          "description": "Blueprint §5.2 / M3.2 mandates a token and cost ledger. Absent from spec §6.1; see AM-003.",
+          "type": ["string", "null"]
+        },
+        "energy_trace_path": { "type": ["string", "null"] },
+        "events_path": {
+          "description": "JSON-lines structured log for this run (spec §8).",
+          "type": ["string", "null"]
+        }
+      }
+    },
+
+    "integrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["self_check", "raw_sha256"],
+      "properties": {
+        "self_check": {
+          "description": "Harness self-check verdict. A 'fail' is one of only three grounds for discarding a run (blueprint §5.3).",
+          "type": "string",
+          "enum": ["pass", "fail", "pending"]
+        },
+        "raw_sha256": {
+          "description": "Tree hash over the run's data outputs, excluding manifest.json (a hash cannot cover the file containing it) and events.ndjson (which grows as this manifest is emitted). The seal marker separately records a hash covering the whole run, which is what verify_sealed() checks.",
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    }
+  },
+
+  "allOf": [
+    {
+      "description": "A run claiming remote isolation must have no contending interactive software resident. Enforced in the schema and not only in the emitter, so a manifest asserting a quiet machine while listing an editor cannot exist in raw/ at all.",
+      "if": {
+        "properties": { "isolation_mode": { "const": "remote" } },
+        "required": ["isolation_mode"]
+      },
+      "then": {
+        "properties": {
+          "isolation_evidence": {
+            "type": "object",
+            "properties": { "contending_processes": { "type": "array", "maxItems": 0 } }
+          }
+        }
+      }
+    },
+    {
+      "description": "A dirty tree is only permissible when it was explicitly allowed. This makes it structurally impossible to emit a manifest that hides a non-reproducible run.",
+      "if": { "properties": { "git_dirty": { "const": true } }, "required": ["git_dirty"] },
+      "then": { "properties": { "allow_dirty": { "const": true } }, "required": ["allow_dirty"] }
+    },
+    {
+      "description": "A run claiming a verified topology must name the CPUs it verified.",
+      "if": {
+        "properties": {
+          "platform": {
+            "properties": { "topology": { "properties": { "verified": { "const": true } } } }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "platform": {
+            "properties": {
+              "topology": {
+                "properties": {
+                  "p_cpus": { "type": "array", "minItems": 1 },
+                  "lpe_cpus": { "type": "array", "minItems": 1 }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "A cpu-p or cpu-lpe run is meaningless without a verified core mapping. The single exemption is the run that PRODUCES the mapping: a 'topology_verify' workload cannot assert a verified topology as a precondition of establishing one, and when it refuses it must still be able to record that refusal (AMENDMENTS.md AM-010). The exemption is keyed on workload.kind, not on target, so no measurement workload can escape the precondition.",
+      "if": {
+        "allOf": [
+          {
+            "properties": { "target": { "enum": ["cpu-p", "cpu-lpe"] } },
+            "required": ["target"]
+          },
+          {
+            "not": {
+              "properties": {
+                "workload": {
+                  "properties": { "kind": { "const": "topology_verify" } },
+                  "required": ["kind"]
+                }
+              },
+              "required": ["workload"]
+            }
+          }
+        ]
+      },
+      "then": {
+        "properties": {
+          "platform": {
+            "properties": {
+              "topology": { "properties": { "verified": { "const": true } } }
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "A topology_verify run that did not establish the mapping must say so in its verdict. Without this, the AF-006 fix would create a new hazard: a manifest that records a refusal while reporting self_check 'pass', which would read as a successful verification.",
+      "if": {
+        "allOf": [
+          {
+            "properties": {
+              "workload": {
+                "properties": { "kind": { "const": "topology_verify" } },
+                "required": ["kind"]
+              }
+            },
+            "required": ["workload"]
+          },
+          {
+            "properties": {
+              "platform": {
+                "properties": {
+                  "topology": {
+                    "properties": { "verified": { "const": false } },
+                    "required": ["verified"]
+                  }
+                },
+                "required": ["topology"]
+              }
+            },
+            "required": ["platform"]
+          }
+        ]
+      },
+      "then": {
+        "properties": {
+          "integrity": {
+            "properties": { "self_check": { "const": "fail" } },
+            "required": ["self_check"]
+          }
+        },
+        "required": ["integrity"]
+      }
+    }
+  ]
+}

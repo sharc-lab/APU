@@ -1,0 +1,457 @@
+{
+  "c3_confirm": {
+    "c3_fitted_exponent": 1.026974487407871,
+    "c3_linear_r2_aggregated": 0.9798644526439462,
+    "c3_verdict": "closer to linear in remaining cloud turns (fitted exponent 1.027); quadratic claim not supported",
+    "linear_confirmed": true,
+    "n_points_all_from_turn": 70,
+    "n_points_full_entry": 20,
+    "per_entry_all_from_turn_r2": 0.7132240894033286,
+    "per_entry_full_entry_only_intercept": 0.045709673684210556,
+    "per_entry_full_entry_only_r2": 0.4363912622899151,
+    "per_entry_full_entry_only_slope": 0.06418357894736841
+  },
+  "df": 68,
+  "intercept": 0.010377342993768995,
+  "mean_usd_full_entry": 0.2703522,
+  "mean_x": 2.3857142857142857,
+  "n": 70,
+  "points": [
+    {
+      "from_turn": 0,
+      "id": "multi_turn_base_0",
+      "turns_remaining": 4,
+      "usd": 0.528648
+    },
+    {
+      "from_turn": 1,
+      "id": "multi_turn_base_0",
+      "turns_remaining": 3,
+      "usd": 0.345744
+    },
+    {
+      "from_turn": 2,
+      "id": "multi_turn_base_0",
+      "turns_remaining": 2,
+      "usd": 0.24777899999999997
+    },
+    {
+      "from_turn": 3,
+      "id": "multi_turn_base_0",
+      "turns_remaining": 1,
+      "usd": 0.181272
+    },
+    {
+      "from_turn": 0,
+      "id": "multi_turn_base_1",
+      "turns_remaining": 4,
+      "usd": 0.201192
+    },
+    {
+      "from_turn": 1,
+      "id": "multi_turn_base_1",
+      "turns_remaining": 3,
+      "usd": 0.16840199999999997
+    },
+    {
+      "from_turn": 2,
+      "id": "multi_turn_base_1",
+      "turns_remaining": 2,
+      "usd": 0.097377
+    },
+    {
+      "from_turn": 3,
+      "id": "multi_turn_base_1",
+      "turns_remaining": 1,
+      "usd": 0.039936
+    },
+    {
+      "from_turn": 0,
+      "id": "multi_turn_base_2",
+      "turns_remaining": 5,
+      "usd": 0.407508
+    },
+    {
+      "from_turn": 1,
+      "id": "multi_turn_base_2",
+      "turns_remaining": 4,
+      "usd": 0.30756000000000006
+    },
+    {
+      "from_turn": 2,
+      "id": "multi_turn_base_2",
+      "turns_remaining": 3,
+      "usd": 0.255954
+    },
+    {
+      "from_turn": 3,
+      "id": "multi_turn_base_2",
+      "turns_remaining": 2,
+      "usd": 0.202182
+    },
+    {
+      "from_turn": 4,
+      "id": "multi_turn_base_2",
+      "turns_remaining": 1,
+      "usd": 0.05911500000000001
+    },
+    {
+      "from_turn": 0,
+      "id": "multi_turn_base_3",
+      "turns_remaining": 2,
+      "usd": 0.108381
+    },
+    {
+      "from_turn": 1,
+      "id": "multi_turn_base_3",
+      "turns_remaining": 1,
+      "usd": 0.074187
+    },
+    {
+      "from_turn": 0,
+      "id": "multi_turn_base_4",
+      "turns_remaining": 3,
+      "usd": 0.264501
+    },
+    {
+      "from_turn": 1,
+      "id": "multi_turn_base_4",
+      "turns_remaining": 2,
+      "usd": 0.169476
+    },
+    {
+      "from_turn": 2,
+      "id": "multi_turn_base_4",
+      "turns_remaining": 1,
+      "usd": 0.10386000000000001
+    },
+    {
+      "from_turn": 0,
+      "id": "multi_turn_base_5",
+      "turns_remaining": 4,
+      "usd": 0.384318
+    },
+    {
+      "from_turn": 1,
+      "id": "multi_turn_base_5",
+      "turns_remaining": 3,
+      "usd": 0.23174999999999998
+    },
+    {
+      "from_turn": 2,
+      "id": "multi_turn_base_5",
+      "turns_remaining": 2,
+      "usd": 0.168111
+    },
+    {
+      "from_turn": 3,
+      "id": "multi_turn_base_5",
+      "turns_remaining": 1,
+      "usd": 0.06846
+    },
+    {
+      "from_turn": 0,
+      "id": "multi_turn_base_6",
+      "turns_remaining": 5,
+      "usd": 0.288651
+    },
+    {
+      "from_turn": 1,
+      "id": "multi_turn_base_6",
+      "turns_remaining": 4,
+      "usd": 0.218826
+    },
+    {
+      "from_turn": 2,
+      "id": "multi_turn_base_6",
+      "turns_remaining": 3,
+      "usd": 0.18013200000000001
+    },
+    {
+      "from_turn": 3,
+      "id": "multi_turn_base_6",
+      "turns_remaining": 2,
+      "usd": 0.142098
+    },
+    {
+      "from_turn": 4,
+      "id": "multi_turn_base_6",
+      "turns_remaining": 1,
+      "usd": 0.103059
+    },
+    {
+      "from_turn": 0,
+      "id": "multi_turn_base_7",
+      "turns_remaining": 3,
+      "usd": 0.21985800000000003
+    },
+    {
+      "from_turn": 1,
+      "id": "multi_turn_base_7",
+      "turns_remaining": 2,
+      "usd": 0.127869
+    },
+    {
+      "from_turn": 2,
+      "id": "multi_turn_base_7",
+      "turns_remaining": 1,
+      "usd": 0.064233
+    },
+    {
+      "from_turn": 0,
+      "id": "multi_turn_base_8",
+      "turns_remaining": 4,
+      "usd": 0.31478999999999996
+    },
+    {
+      "from_turn": 1,
+      "id": "multi_turn_base_8",
+      "turns_remaining": 3,
+      "usd": 0.250938
+    },
+    {
+      "from_turn": 2,
+      "id": "multi_turn_base_8",
+      "turns_remaining": 2,
+      "usd": 0.18026699999999998
+    },
+    {
+      "from_turn": 3,
+      "id": "multi_turn_base_8",
+      "turns_remaining": 1,
+      "usd": 0.07253699999999999
+    },
+    {
+      "from_turn": 0,
+      "id": "multi_turn_base_9",
+      "turns_remaining": 3,
+      "usd": 0.250404
+    },
+    {
+      "from_turn": 1,
+      "id": "multi_turn_base_9",
+      "turns_remaining": 2,
+      "usd": 0.200655
+    },
+    {
+      "from_turn": 2,
+      "id": "multi_turn_base_9",
+      "turns_remaining": 1,
+      "usd": 0.070623
+    },
+    {
+      "from_turn": 0,
+      "id": "multi_turn_base_10",
+      "turns_remaining": 5,
+      "usd": 0.346032
+    },
+    {
+      "from_turn": 1,
+      "id": "multi_turn_base_10",
+      "turns_remaining": 4,
+      "usd": 0.262836
+    },
+    {
+      "from_turn": 2,
+      "id": "multi_turn_base_10",
+      "turns_remaining": 3,
+      "usd": 0.165969
+    },
+    {
+      "from_turn": 3,
+      "id": "multi_turn_base_10",
+      "turns_remaining": 2,
+      "usd": 0.12670499999999998
+    },
+    {
+      "from_turn": 4,
+      "id": "multi_turn_base_10",
+      "turns_remaining": 1,
+      "usd": 0.042918
+    },
+    {
+      "from_turn": 0,
+      "id": "multi_turn_base_11",
+      "turns_remaining": 2,
+      "usd": 0.160929
+    },
+    {
+      "from_turn": 1,
+      "id": "multi_turn_base_11",
+      "turns_remaining": 1,
+      "usd": 0.065769
+    },
+    {
+      "from_turn": 0,
+      "id": "multi_turn_base_12",
+      "turns_remaining": 3,
+      "usd": 0.15746700000000002
+    },
+    {
+      "from_turn": 1,
+      "id": "multi_turn_base_12",
+      "turns_remaining": 2,
+      "usd": 0.072711
+    },
+    {
+      "from_turn": 2,
+      "id": "multi_turn_base_12",
+      "turns_remaining": 1,
+      "usd": 0.03675
+    },
+    {
+      "from_turn": 0,
+      "id": "multi_turn_base_13",
+      "turns_remaining": 2,
+      "usd": 0.223779
+    },
+    {
+      "from_turn": 1,
+      "id": "multi_turn_base_13",
+      "turns_remaining": 1,
+      "usd": 0.06813
+    },
+    {
+      "from_turn": 0,
+      "id": "multi_turn_base_14",
+      "turns_remaining": 4,
+      "usd": 0.273201
+    },
+    {
+      "from_turn": 1,
+      "id": "multi_turn_base_14",
+      "turns_remaining": 3,
+      "usd": 0.199848
+    },
+    {
+      "from_turn": 2,
+      "id": "multi_turn_base_14",
+      "turns_remaining": 2,
+      "usd": 0.147018
+    },
+    {
+      "from_turn": 3,
+      "id": "multi_turn_base_14",
+      "turns_remaining": 1,
+      "usd": 0.09059400000000001
+    },
+    {
+      "from_turn": 0,
+      "id": "multi_turn_base_15",
+      "turns_remaining": 5,
+      "usd": 0.31478399999999995
+    },
+    {
+      "from_turn": 1,
+      "id": "multi_turn_base_15",
+      "turns_remaining": 4,
+      "usd": 0.256755
+    },
+    {
+      "from_turn": 2,
+      "id": "multi_turn_base_15",
+      "turns_remaining": 3,
+      "usd": 0.194967
+    },
+    {
+      "from_turn": 3,
+      "id": "multi_turn_base_15",
+      "turns_remaining": 2,
+      "usd": 0.133065
+    },
+    {
+      "from_turn": 4,
+      "id": "multi_turn_base_15",
+      "turns_remaining": 1,
+      "usd": 0.066057
+    },
+    {
+      "from_turn": 0,
+      "id": "multi_turn_base_16",
+      "turns_remaining": 3,
+      "usd": 0.20051099999999997
+    },
+    {
+      "from_turn": 1,
+      "id": "multi_turn_base_16",
+      "turns_remaining": 2,
+      "usd": 0.07847399999999999
+    },
+    {
+      "from_turn": 2,
+      "id": "multi_turn_base_16",
+      "turns_remaining": 1,
+      "usd": 0.04065
+    },
+    {
+      "from_turn": 0,
+      "id": "multi_turn_base_17",
+      "turns_remaining": 3,
+      "usd": 0.287127
+    },
+    {
+      "from_turn": 1,
+      "id": "multi_turn_base_17",
+      "turns_remaining": 2,
+      "usd": 0.23843100000000003
+    },
+    {
+      "from_turn": 2,
+      "id": "multi_turn_base_17",
+      "turns_remaining": 1,
+      "usd": 0.110919
+    },
+    {
+      "from_turn": 0,
+      "id": "multi_turn_base_18",
+      "turns_remaining": 3,
+      "usd": 0.27366599999999996
+    },
+    {
+      "from_turn": 1,
+      "id": "multi_turn_base_18",
+      "turns_remaining": 2,
+      "usd": 0.17564400000000002
+    },
+    {
+      "from_turn": 2,
+      "id": "multi_turn_base_18",
+      "turns_remaining": 1,
+      "usd": 0.108744
+    },
+    {
+      "from_turn": 0,
+      "id": "multi_turn_base_19",
+      "turns_remaining": 3,
+      "usd": 0.20129700000000003
+    },
+    {
+      "from_turn": 1,
+      "id": "multi_turn_base_19",
+      "turns_remaining": 2,
+      "usd": 0.154269
+    },
+    {
+      "from_turn": 2,
+      "id": "multi_turn_base_19",
+      "turns_remaining": 1,
+      "usd": 0.051261
+    }
+  ],
+  "r0_200": {
+    "formula": "mean(usd_full_entry among 20) * 200",
+    "half_width": 2.9475998084729658,
+    "hi": 57.01803980847296,
+    "lo": 51.12284019152703,
+    "mean_per_entry": 0.2703522,
+    "n_scale": 200,
+    "tag": "ASSUMED(fit=20 entries cloud_multi_turn_report.json)",
+    "value": 54.07044
+  },
+  "r2": 0.7132240894033286,
+  "residual_se": 0.054412249747246504,
+  "sd_usd_full_entry": 0.09715964225227197,
+  "slope": 0.07126656281698306,
+  "sxx": 98.58571428571425,
+  "tag": "ASSUMED(fit=20 entries cloud_multi_turn_report.json)"
+}
