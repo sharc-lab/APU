@@ -47,6 +47,7 @@ import concurrent.futures
 import hashlib
 import json
 import os
+import sys
 import time
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -280,6 +281,7 @@ def _load_jsonl_samples(
     """
     completed: set[tuple[str, str, int]] = set()
     prior_samples: dict[tuple[str, str], list[dict]] = defaultdict(list)
+    seen: set[tuple[str, str, int]] = set()
 
     raw_lines = path.read_text(encoding="utf-8").splitlines()
     nonempty = [(i + 1, ln) for i, ln in enumerate(raw_lines) if ln.strip()]
@@ -315,14 +317,25 @@ def _load_jsonl_samples(
         sample_index = row.get("sample_index")
 
         if task_id and condition and sample_index is not None:
+            key = (task_id, condition, sample_index)
             sample = {
                 "mcp_roundtrip_ms":    row.get("mcp_roundtrip_ms"),
                 "replay_roundtrip_ms": row.get("replay_roundtrip_ms"),
                 "tool_dispatch_ms":    row.get("tool_dispatch_ms"),
                 "turn_total_ms":       row.get("turn_total_ms"),
             }
-            prior_samples[(task_id, condition)].append(sample)
-            completed.add((task_id, condition, sample_index))
+            if key in seen:
+                print(
+                    f"WARNING: duplicate row in {path} "
+                    f"(task_id={task_id!r}, condition={condition!r}, "
+                    f"sample_index={sample_index}) — skipping extra copy",
+                    file=sys.stderr,
+                    flush=True,
+                )
+            else:
+                seen.add(key)
+                prior_samples[(task_id, condition)].append(sample)
+            completed.add(key)
 
     return completed, dict(prior_samples)
 
