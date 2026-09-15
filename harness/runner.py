@@ -124,20 +124,31 @@ def _make_count_fn(host: str, model: str):
 
 
 def _call_ollama_streaming(
-    model: str, prompt: str, max_tokens: int, host: str,
-) -> tuple[str, float, float, int, int, str | None]:
-    """Return (text, latency_ms, ttft_ms, tokens_in, tokens_out, done_reason).
+    model: str,
+    prompt: str,
+    max_tokens: int,
+    host: str,
+    suppress_thinking: bool = True,
+) -> tuple[str, float, float | None, int, int, str | None, int]:
+    """Return (text, latency_ms, ttft_ms, tokens_in, tokens_out, done_reason, thinking_chars).
 
     Uses /api/chat so the model's chat template is applied. The composed
-    filler+probe string is wrapped as a single user message. For the instruct
-    model (qwen3:4b-instruct) no think flag is needed — it answers directly.
+    filler+probe string is wrapped as a single user message.
+
+    suppress_thinking: when True, adds "think": false to the top-level payload so
+    that thinking-capable models (e.g. qwen3) do not enter a reasoning phase.
+    Must be False only for model_variant=="reasoning" runs.
 
     done_reason is the Ollama stop reason from the final chunk: "stop" for
     normal completion, "length" when num_predict was reached, or None if the
     field was absent.
+
+    thinking_chars is the total length of message.thinking content accumulated
+    across all streamed chunks.  0 means suppression succeeded; >0 means the
+    model produced a thinking phase regardless of the flag.
     """
     url = f"{host}/api/chat"
-    payload = {
+    payload: dict = {
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
         "stream": True,
@@ -146,9 +157,12 @@ def _call_ollama_streaming(
             "temperature": 0,
         },
     }
+    if suppress_thinking:
+        payload["think"] = False
     start = time.perf_counter()
     ttft_ms: float | None = None
     full_text = ""
+    thinking_chars = 0
     tokens_in = 0
     tokens_out = 0
     done_reason: str | None = None
@@ -160,7 +174,9 @@ def _call_ollama_streaming(
             if not raw:
                 continue
             chunk = json.loads(raw)
-            token = chunk.get("message", {}).get("content", "")
+            msg = chunk.get("message", {})
+            token = msg.get("content", "")
+            thinking_chars += len(msg.get("thinking") or "")
             if token and ttft_ms is None:
                 ttft_ms = (time.perf_counter() - start) * 1000
             full_text += token
@@ -173,7 +189,7 @@ def _call_ollama_streaming(
     latency_ms = (time.perf_counter() - start) * 1000
     # Return None if no content token arrived (empty response); never substitute
     # latency_ms — callers tag ttft_source="streamed" only when this is not None.
-    return full_text, latency_ms, ttft_ms, tokens_in, tokens_out, done_reason
+    return full_text, latency_ms, ttft_ms, tokens_in, tokens_out, done_reason, thinking_chars
 
 
 def run_cell(
@@ -221,9 +237,14 @@ def run_cell(
         # meaningless when replayed from cache at a different time.
         row_ttft_ms: float | None = None
         row_ttft_source: str = "replay-unavailable"
+        # thinking_chars not replayed — cache entries predate the field
+        row_thinking_chars: int | None = cached.get("thinking_chars")
     else:
-        output, latency_ms, ttft_ms, tokens_in, tokens_out, done_reason = (
-            _call_ollama_streaming(model, prompt, max_tokens, host)
+        output, latency_ms, ttft_ms, tokens_in, tokens_out, done_reason, thinking_chars = (
+            _call_ollama_streaming(
+                model, prompt, max_tokens, host,
+                suppress_thinking=not thinking_enabled,
+            )
         )
         gpu_val, gpu_source = telemetry.gpu_mem_mb(memory_architecture)
         tel = telemetry.Telemetry(
@@ -239,9 +260,11 @@ def run_cell(
             "output": output,
             "telemetry": tel.to_dict(),
             "done_reason": done_reason,
+            "thinking_chars": thinking_chars,
         })
         row_ttft_ms = ttft_ms  # None when no content token arrived (empty response)
         row_ttft_source = "streamed"
+        row_thinking_chars = thinking_chars
 
     # HTTP_CLIENT: Ollama inference wall time.  Recorded from _call_ollama_streaming
     # (or from cached telemetry on a cache hit — the cached latency is the original
@@ -284,6 +307,7 @@ def run_cell(
         "latency_ms": round(tel.latency_ms, 1),
         "ttft_ms": None if row_ttft_ms is None else round(row_ttft_ms, 1),
         "ttft_source": row_ttft_source,
+        "thinking_chars": row_thinking_chars,
         "tokens_in": tel.tokens_in,
         "tokens_out": tel.tokens_out,
         "max_tokens": max_tokens,

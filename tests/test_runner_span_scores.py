@@ -72,8 +72,8 @@ def _run_cell_with_span(probe=None, fake_output="4", **kwargs) -> dict[str, Any]
     scorers = _load_scorers()
     outcome_mod = _load_outcome()
 
-    def _fake(model, prompt, max_tokens, host):
-        return fake_output, 1234.5, 200.0, 50, 3, "stop"
+    def _fake(model, prompt, max_tokens, host, suppress_thinking=True):
+        return fake_output, 1234.5, 200.0, 50, 3, "stop", 0
 
     gpu_mock = MagicMock(return_value=(None, "unavailable:test"))
 
@@ -302,8 +302,8 @@ def test_done_reason_length_makes_unclassifiable() -> None:
     scorers = _load_scorers()
     outcome_mod = _load_outcome()
 
-    def _fake_length(model, prompt, max_tokens, host):
-        return "partial output", 1234.5, 200.0, 50, 3, "length"
+    def _fake_length(model, prompt, max_tokens, host, suppress_thinking=True):
+        return "partial output", 1234.5, 200.0, 50, 3, "length", 0
 
     gpu_mock = MagicMock(return_value=(None, "unavailable:test"))
 
@@ -460,3 +460,179 @@ def test_normalize_result_row_preserves_ttft_when_set() -> None:
     normalized = normalize_result_row(row)
     assert normalized["ttft_ms"] == 123.4
     assert normalized["ttft_source"] == "streamed"
+
+
+# ---------------------------------------------------------------------------
+# think=false payload and thinking_chars field
+# ---------------------------------------------------------------------------
+
+def test_think_false_in_payload_for_instruct_model() -> None:
+    """_call_ollama_streaming sends 'think': False when suppress_thinking=True."""
+    import json as _json
+    from unittest.mock import MagicMock, patch
+    import httpx
+    from harness.runner import _call_ollama_streaming
+
+    captured: dict = {}
+
+    done_chunk = _json.dumps({
+        "message": {"content": "4", "thinking": ""},
+        "done": True,
+        "done_reason": "stop",
+        "eval_count": 1,
+        "prompt_eval_count": 5,
+    })
+
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status = MagicMock()
+    mock_resp.iter_lines.return_value = iter([done_chunk])
+    mock_resp.__enter__ = lambda s: s
+    mock_resp.__exit__ = MagicMock(return_value=False)
+
+    def fake_stream(method, url, json=None, timeout=None):
+        captured.update(json or {})
+        return mock_resp
+
+    with patch("httpx.stream", side_effect=fake_stream):
+        _call_ollama_streaming(
+            "qwen3:4b-instruct", "hello", 32, "http://localhost:11434",
+            suppress_thinking=True,
+        )
+
+    assert captured.get("think") is False, (
+        f"Expected 'think': False in payload, got think={captured.get('think')!r}. "
+        "The suppression flag must be transmitted to the API."
+    )
+
+
+def test_think_absent_from_payload_for_reasoning_model() -> None:
+    """_call_ollama_streaming omits 'think' key when suppress_thinking=False."""
+    import json as _json
+    from unittest.mock import MagicMock, patch
+    from harness.runner import _call_ollama_streaming
+
+    captured: dict = {}
+
+    done_chunk = _json.dumps({
+        "message": {"content": "yes", "thinking": "let me think..."},
+        "done": True,
+        "done_reason": "stop",
+        "eval_count": 2,
+        "prompt_eval_count": 8,
+    })
+
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status = MagicMock()
+    mock_resp.iter_lines.return_value = iter([done_chunk])
+    mock_resp.__enter__ = lambda s: s
+    mock_resp.__exit__ = MagicMock(return_value=False)
+
+    def fake_stream(method, url, json=None, timeout=None):
+        captured.update(json or {})
+        return mock_resp
+
+    with patch("httpx.stream", side_effect=fake_stream):
+        _call_ollama_streaming(
+            "reasoning-model", "hello", 64, "http://localhost:11434",
+            suppress_thinking=False,
+        )
+
+    assert "think" not in captured, (
+        f"Expected 'think' key absent from payload for reasoning model, "
+        f"but got think={captured.get('think')!r}."
+    )
+
+
+def test_thinking_chars_zero_when_no_thinking_content() -> None:
+    """thinking_chars is 0 when the model returns no message.thinking content."""
+    import json as _json
+    from unittest.mock import MagicMock, patch
+    from harness.runner import _call_ollama_streaming
+
+    done_chunk = _json.dumps({
+        "message": {"content": "42"},
+        "done": True,
+        "done_reason": "stop",
+        "eval_count": 1,
+        "prompt_eval_count": 5,
+    })
+
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status = MagicMock()
+    mock_resp.iter_lines.return_value = iter([done_chunk])
+    mock_resp.__enter__ = lambda s: s
+    mock_resp.__exit__ = MagicMock(return_value=False)
+
+    with patch("httpx.stream", return_value=mock_resp):
+        _, _, _, _, _, _, thinking_chars = _call_ollama_streaming(
+            "qwen3:4b-instruct", "hello", 32, "http://localhost:11434",
+        )
+
+    assert thinking_chars == 0, f"Expected thinking_chars=0, got {thinking_chars!r}"
+
+
+def test_thinking_chars_nonzero_when_thinking_content_present() -> None:
+    """thinking_chars counts chars from message.thinking across all chunks."""
+    import json as _json
+    from unittest.mock import MagicMock, patch
+    from harness.runner import _call_ollama_streaming
+
+    think_chunk = _json.dumps({
+        "message": {"content": "", "thinking": "let me reason"},
+        "done": False,
+    })
+    answer_chunk = _json.dumps({
+        "message": {"content": "4", "thinking": ""},
+        "done": False,
+    })
+    done_chunk = _json.dumps({
+        "message": {"content": ""},
+        "done": True,
+        "done_reason": "stop",
+        "eval_count": 1,
+        "prompt_eval_count": 5,
+    })
+
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status = MagicMock()
+    mock_resp.iter_lines.return_value = iter([think_chunk, answer_chunk, done_chunk])
+    mock_resp.__enter__ = lambda s: s
+    mock_resp.__exit__ = MagicMock(return_value=False)
+
+    with patch("httpx.stream", return_value=mock_resp):
+        _, _, _, _, _, _, thinking_chars = _call_ollama_streaming(
+            "qwen3:4b-instruct", "hello", 32, "http://localhost:11434",
+            suppress_thinking=False,
+        )
+
+    assert thinking_chars == len("let me reason"), (
+        f"Expected thinking_chars={len('let me reason')}, got {thinking_chars!r}"
+    )
+
+
+def test_thinking_chars_on_result_row() -> None:
+    """thinking_chars field is present on every result row from run_cell."""
+    row = _run_cell_with_span()  # _fake returns thinking_chars=0
+    assert "thinking_chars" in row, "thinking_chars missing on result row"
+    assert row["thinking_chars"] == 0, (
+        f"Expected thinking_chars=0 for instruct model with suppression, got {row['thinking_chars']!r}"
+    )
+
+
+def test_normalize_result_row_fills_thinking_chars_on_old_row() -> None:
+    """normalize_result_row fills thinking_chars with None on rows that predate it."""
+    from evaluation.outcome import normalize_result_row
+
+    old_row = {"probe_id": "rea_01", "score": 1.0}
+    normalized = normalize_result_row(old_row)
+    assert "thinking_chars" in normalized, "thinking_chars missing after normalize"
+    assert normalized["thinking_chars"] is None
+
+
+def test_normalize_result_row_preserves_thinking_chars_when_set() -> None:
+    """normalize_result_row does not overwrite thinking_chars when already present."""
+    from evaluation.outcome import normalize_result_row
+
+    row = {"probe_id": "rea_01", "thinking_chars": 1234}
+    normalized = normalize_result_row(row)
+    assert normalized["thinking_chars"] == 1234

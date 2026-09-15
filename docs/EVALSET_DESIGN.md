@@ -50,7 +50,10 @@ Run: `results/run_20260813T021516Z.jsonl`
 - Depths: [0, 2000, 8000, 16000, 32000] tokens of unlabelled filler
 - Probes: 44 (50 defined, 6 judge-only excluded from primary axis)
 - Reps: 5 per (depth, probe) cell
-- Model: qwen3:4b-instruct, thinking_enabled=false
+- Model: qwen3:4b-instruct, thinking_enabled=false (**unverified for this run**: produced
+  by `harness/runner.py`, which recorded `thinking_enabled` as a row label but did not
+  transmit `"think": false` to the Ollama API before 2026-09-14. Thinking suppression
+  cannot be confirmed from the existing rows; see THREATS.md §15.)
 - Hardware: Razer Blade 14 (RZ09-0508), RTX 4070 Laptop GPU, 8188 MiB discrete VRAM
 
 Findings: mean score flat at 0.48–0.52 across all depths. Two populations

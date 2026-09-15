@@ -56,18 +56,24 @@ _IDENTITY_FIELDS = ("git_sha", "run_seed", "hostname", "operator", "done_reason"
 # ttft_source == "streamed" — other source values carry no valid measurement.
 _TTFT_FIELDS = ("ttft_ms", "ttft_source")
 
+# Thinking-suppression verification field added 2026-09-14.  thinking_chars is
+# the total length of message.thinking content accumulated across all streamed
+# chunks.  0 = suppression succeeded; >0 = model produced a thinking phase
+# despite the flag; None = cache hit or row predates this field.
+_THINKING_FIELDS = ("thinking_chars",)
+
 
 def normalize_result_row(d: dict) -> dict:
     """Return a copy of d with all schema-tracked fields present (None if absent).
 
     Backward compat: rows written before the four-way classifier, before the
-    run-identity fields, or before the TTFT fields were added will be missing
-    some of these keys.  Analysis code MUST call this when loading rows from
-    JSONL files so that old and new rows present the same dict shape.  Missing
-    fields are filled with None — never a guessed value.
+    run-identity fields, or before the TTFT/thinking fields were added will be
+    missing some of these keys.  Analysis code MUST call this when loading rows
+    from JSONL files so that old and new rows present the same dict shape.
+    Missing fields are filled with None — never a guessed value.
     """
     out = dict(d)
-    for field in _OUTCOME_FIELDS + _IDENTITY_FIELDS + _TTFT_FIELDS:
+    for field in _OUTCOME_FIELDS + _IDENTITY_FIELDS + _TTFT_FIELDS + _THINKING_FIELDS:
         out.setdefault(field, None)
     return out
 

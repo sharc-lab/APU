@@ -212,3 +212,48 @@ This file seeds Section 6 of the paper and tracks planned mitigations.
 - Impact: The valid artifact suite is selected for probe types that both models can handle under the experimental condition. Multi-step inference over an artifact (filtering, argmax, reverse lookup) is not represented. The truncation result — that score drops to zero when the artifact is absent from context — is established for **retrieval-type artifact dependence**, not for inference-over-artifact dependence. The claim that truncation causes fabrication is sound within this scope but does not extend to inference tasks without a separate experiment showing the same probes pass headroom.
 - Implications for the discreteness argument: the structured-vs-narrative contrast in the art_* suite tests whether different artifact *formats* behave differently under truncation, while both being retrieval tasks. It does not test whether structured artifacts require more inference steps than narrative ones, which is a separate question.
 - Planned future work: Author a multi-step inference variant of the art_* suite (argmax, filter, chain-of-lookup) and repeat the headroom + truncation experiment. If these also show abrupt collapse, the discreteness argument extends to inference. If they show graded degradation even at partial-artifact, the mechanism differs and must be characterised separately.
+
+## 15. thinking_enabled Label Not Operative in runner.py — Phase 1 Sweep Unconstrained
+
+- Threat: `harness/runner.py` computes `thinking_enabled = model_variant == "reasoning"` (line
+  711) and records the value in every result row. Before 2026-09-14 it never transmitted this
+  as an API control: the payload sent to Ollama `/api/chat` did not include `"think": false`,
+  even when `thinking_enabled=False`. The field was a metadata annotation, not a transmitted
+  instruction.
+- Affected data: three committed JSONL files produced by runner.py:
+  `results/run_20260813T011126Z.jsonl` (40 rows, pilot, qwen3:4b-instruct),
+  `results/run_20260813T021516Z.jsonl` (1100 rows, Phase 1 sweep, qwen3:4b-instruct),
+  `results/run_20260818T000746Z.jsonl` (132 rows, Phase 1 replication, llama3.1:8b).
+  Total: 1272 rows.
+- Documented claims that rely on the label: `docs/EVALSET_DESIGN.md` §"Phase 1 Sweep
+  Configuration" asserts `thinking_enabled=false` for `run_20260813T021516Z.jsonl`.
+  This is the source file for Figures 4.1 and 4.2 (`PAPER_OUTLINE.md`) and the cha_04
+  and lon_02 findings in `FINDINGS.md`. The claim is that thinking mode was inactive during
+  these sweeps; the payload evidence says the mode was at the model's discretion.
+- Evidence that the label can be wrong: `results/stage_a_scale.json` shows that
+  `gpt-oss:120b-cloud` produced 1826–3637 characters of `message.thinking` content per call
+  despite `"think": False` being present in those payloads. That is a different model and
+  backend, but it demonstrates the flag is not universally effective.
+- Impact on figures and findings: For qwen3:4b-instruct (1140 rows), the raw-chunk probe
+  at warm model showed no thinking content for short prompts. Whether thinking fired on
+  complex reasoning probes (rea_*, cha_*) at d=8000–32000 is unknown — the 1272 rows
+  carry no `thinking_chars` field and thinking content was not captured. Score-based
+  findings (categorical 1→0 cliff at d=2000 for cha_04, format failures at d=16000 for
+  lon_02) are behavioral observations that are unlikely to be explained by a thinking phase
+  on a 4B model, but the mode-consistency claim cannot be verified from existing data.
+- Code fix (2026-09-14, forward only): runner.py now sends `"think": false` in the API
+  payload when `thinking_enabled=False`, matching all other harness scripts. The row label
+  and the transmitted flag are now derived from the same `thinking_enabled` value and
+  cannot diverge again. A `thinking_chars` field is recorded on every new result row
+  (total chars of `message.thinking` across all streamed chunks; 0 means suppression
+  succeeded; None on cache hits).
+- Existing rows (1272, unverifiable): the three committed JSONL files listed above carry
+  `thinking_chars=None` because thinking content was not captured when they were recorded.
+  The `thinking_enabled=False` label in those rows is a metadata annotation whose
+  correctness cannot be checked retrospectively. It cannot be corrected by re-running
+  because the original model-load state, seed ordering, and context depths would need to
+  be replicated exactly.
+- Rule: Any paper claim of the form "thinking was disabled for this sweep" MUST reference
+  either (a) rows from 2026-09-14 onwards where `thinking_chars == 0` (verified at the
+  API level), or (b) rows predating 2026-09-14 with a qualifying footnote that the claim
+  rests on the row label only and was not verified at the API level.

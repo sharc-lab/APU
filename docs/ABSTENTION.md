@@ -1,7 +1,10 @@
 # Abstention and Fabrication Under Truncation
 
 **Experiment:** Self-report arms (Stage 2)  
-**Model:** qwen3:4b-instruct (thinking_enabled=false)  
+**Model:** qwen3:4b-instruct (thinking_enabled=false; arm2/arm3 new calls and the Stage C
+EARLY arm they depend on were produced by standalone harness scripts that transmitted
+`"think": false` to the API — this claim is operationally verified. Contrast with
+`harness/runner.py` runs where the flag was a row label only; see THREATS.md §15.)  
 **Hardware:** blade14_rtx4070 (Razer Blade 14 RZ09-0508, RTX 4070 dGPU, discrete VRAM) — NOT the BOM target  
 **Date:** 2026-08-18  
 **Data:** `results/selfreport_arms.json`
