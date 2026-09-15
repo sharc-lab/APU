@@ -51,6 +51,7 @@ htmlcov/
 
 # Results and outputs
 # Exclude generated run data, but keep Zachary's baseline and markdown reports
+results/*.log
 results/claude_code_characterization.json
 results/claude_code_characterization.jsonl
 results/tail_latency_results.json

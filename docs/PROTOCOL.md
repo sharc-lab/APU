@@ -240,6 +240,29 @@ see THREATS.md §14.
 
 ## §8 Telemetry
 
+### §8.1 TTFT
+
+Every result row MUST carry both of the following TTFT fields together:
+
+| Field | Type | Semantics |
+|---|---|---|
+| `ttft_ms` | float \| null | Time from request dispatch to first content token (milliseconds). Null for replayed rows and non-streaming rows; never 0.0 as a proxy for unavailability. |
+| `ttft_source` | str \| null | How the value was produced; null on old rows written before this field was added. |
+
+Valid `ttft_source` literals:
+
+| Literal | Meaning |
+|---|---|
+| `"streamed"` | Value was measured live from the streaming path in `harness/runner.py`: interval from request dispatch to the first non-empty content token. `ttft_ms` is a valid measurement. |
+| `"replay-unavailable"` | Row was served from the harness replay cache. The original wall-clock interval is meaningless when replayed at a different time. `ttft_ms` is null. |
+| `"nonstreaming-unavailable"` | Row was produced by a non-streaming backend (e.g. `LocalOllamaBackend`, `CloudOpenAIBackend`). No TTFT signal is available. `ttft_ms` is null. |
+
+**Any TTFT analysis MUST filter on `ttft_source == "streamed"` before using `ttft_ms`.** Rows with other source values carry no valid measurement. Old rows that predate this field have `ttft_source == null` after `normalize_result_row()` — treat them as `"replay-unavailable"` for analysis purposes.
+
+Old rows written before this field was added will have `ttft_source == null` and `ttft_ms == null` after `normalize_result_row()` is applied.
+
+### §8.2 Memory
+
 Every result row MUST carry both of the following memory fields together:
 
 | Field | Type | Semantics |
@@ -300,9 +323,13 @@ the row schema. They MUST be recorded manually (in run notes or a companion
 | `regime` | §6 | No row-level field; currently derived post-hoc from `done_reason` and latency patterns |
 
 Fields promoted out of this section on 2026-09-14:
-`git_sha`, `run_seed`, `hostname`, `operator`, `done_reason` — all now
-row-level fields in `harness/runner.py`; backward-compat None fill in
-`evaluation/outcome.normalize_result_row()`.
+- `git_sha`, `run_seed`, `hostname`, `operator`, `done_reason` — all now
+  row-level fields in `harness/runner.py`; backward-compat None fill in
+  `evaluation/outcome.normalize_result_row()`.
+- `ttft_ms`, `ttft_source` — now normative in §8.1. Both fields are emitted by
+  `harness/runner.py` on every streamed call. Old rows receive `None` for both
+  via `normalize_result_row()`. Any TTFT analysis MUST filter on
+  `ttft_source == "streamed"`.
 
 ---
 
@@ -312,3 +339,4 @@ row-level fields in `harness/runner.py`; backward-compat None fill in
 |---|---|---|
 | 2026-09-14 | Rithwik Sharma | Initial draft. Derives from SCHEMA.md, telemetry.py, THREATS.md, KV_MEASUREMENT.md, and RESULT_PROVENANCE.md. |
 | 2026-09-14 | Rithwik Sharma | Promote `git_sha`, `run_seed`, `hostname`, `operator`, `done_reason` from §10 (proposed) to normative §2 and §6. All five are now row-level fields emitted by harness/runner.py; backward-compat fill in evaluation/outcome.normalize_result_row(). |
+| 2026-09-14 | Rithwik Sharma | Add `ttft_ms` and `ttft_source` as normative fields (§8.1). Streamed rows carry a live measurement; replayed and non-streaming rows carry null. Any TTFT analysis must filter on ttft_source == "streamed". |

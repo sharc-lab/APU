@@ -367,3 +367,96 @@ def test_normalize_result_row_preserves_identity_fields_when_set() -> None:
     assert normalized["hostname"] == "strix-halo-01"
     assert normalized["operator"] == "researcher_b"
     assert normalized["done_reason"] == "stop"
+
+
+# ---------------------------------------------------------------------------
+# TTFT fields — ttft_ms and ttft_source
+# ---------------------------------------------------------------------------
+
+def test_ttft_fields_present_on_streamed_row() -> None:
+    """ttft_ms and ttft_source are present on a live-streamed row."""
+    row = _run_cell_with_span()  # _fake returns ttft_ms=200.0, not a cache hit
+    assert "ttft_ms" in row, "ttft_ms missing on streamed row"
+    assert "ttft_source" in row, "ttft_source missing on streamed row"
+    assert row["ttft_source"] == "streamed", (
+        f"Expected ttft_source='streamed', got {row['ttft_source']!r}"
+    )
+    # ttft_ms is 200.0 (from _fake); must be a positive float, not None
+    assert row["ttft_ms"] is not None, "ttft_ms must not be None on a streamed row"
+    assert row["ttft_ms"] == pytest.approx(200.0, abs=0.2)
+
+
+def test_ttft_replay_unavailable_on_cache_hit() -> None:
+    """When a cache hit is served, ttft_source='replay-unavailable' and ttft_ms=None."""
+    from harness import runner, telemetry, cache
+    from harness.telemetry import Telemetry
+
+    scorers = _load_scorers()
+    outcome_mod = _load_outcome()
+
+    # Build a cached entry that looks like a prior streamed call.
+    cached_tel = Telemetry(
+        latency_ms=1234.5, ttft_ms=200.0, tokens_in=50, tokens_out=3,
+        mem_rss_mb=256.0, gpu_mem_mb=None, gpu_mem_source="unavailable:test",
+    )
+    cached_entry = {"output": "4", "telemetry": cached_tel.to_dict(), "done_reason": "stop"}
+
+    gpu_mock = MagicMock(return_value=(None, "unavailable:test"))
+
+    with patch.object(cache, "get", return_value=cached_entry), \
+         patch.object(cache, "put"), \
+         patch.object(telemetry, "gpu_mem_mb", side_effect=gpu_mock), \
+         patch.object(telemetry, "rss_mb", return_value=256.0):
+        row = runner.run_cell(
+            probe=EXACT_PROBE,
+            filler=FILLER,
+            depth=2000,
+            rep=0,
+            position_in_cell=0,
+            cell_probe_seed=0,
+            model="qwen3:4b-instruct",
+            host="http://localhost:11434",
+            cfg_hash="test_hash_01",
+            filler_mode="unlabelled",
+            hardware_config="test_hw",
+            memory_architecture="discrete",
+            model_variant="instruct",
+            thinking_enabled=False,
+            scorers=scorers,
+            outcome_mod=outcome_mod,
+            git_sha="abc123",
+            run_seed=42,
+            hostname="test-host",
+            operator="researcher_a",
+        )
+
+    assert row["ttft_source"] == "replay-unavailable", row["ttft_source"]
+    assert row["ttft_ms"] is None, (
+        f"ttft_ms must be None on cache-hit rows, got {row['ttft_ms']!r}"
+    )
+
+
+def test_normalize_result_row_fills_ttft_fields_on_old_row() -> None:
+    """normalize_result_row fills ttft_ms and ttft_source with None on old rows."""
+    from evaluation.outcome import normalize_result_row
+
+    old_row = {"probe_id": "rea_01", "score": 1.0, "latency_ms": 500.0}
+    normalized = normalize_result_row(old_row)
+    assert "ttft_ms" in normalized, "ttft_ms missing after normalize"
+    assert "ttft_source" in normalized, "ttft_source missing after normalize"
+    assert normalized["ttft_ms"] is None
+    assert normalized["ttft_source"] is None
+
+
+def test_normalize_result_row_preserves_ttft_when_set() -> None:
+    """normalize_result_row does not overwrite ttft fields already present."""
+    from evaluation.outcome import normalize_result_row
+
+    row = {
+        "probe_id": "rea_01",
+        "ttft_ms": 123.4,
+        "ttft_source": "streamed",
+    }
+    normalized = normalize_result_row(row)
+    assert normalized["ttft_ms"] == 123.4
+    assert normalized["ttft_source"] == "streamed"

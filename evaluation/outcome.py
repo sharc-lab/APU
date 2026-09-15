@@ -51,18 +51,23 @@ _OUTCOME_FIELDS = ("outcome_class", "classification_method", "format_compliant")
 # normalize_result_row fills them with None so analysis code sees a uniform shape.
 _IDENTITY_FIELDS = ("git_sha", "run_seed", "hostname", "operator", "done_reason")
 
+# TTFT fields added 2026-09-14.  ttft_ms is None for replayed and non-streaming
+# rows; ttft_source records why.  Any TTFT analysis MUST filter on
+# ttft_source == "streamed" — other source values carry no valid measurement.
+_TTFT_FIELDS = ("ttft_ms", "ttft_source")
+
 
 def normalize_result_row(d: dict) -> dict:
     """Return a copy of d with all schema-tracked fields present (None if absent).
 
-    Backward compat: rows written before the four-way classifier or before the
-    run-identity fields were added will be missing some of these keys.  Analysis
-    code MUST call this when loading rows from JSONL files so that old and new
-    rows present the same dict shape.  Missing fields are filled with None —
-    never a guessed value.
+    Backward compat: rows written before the four-way classifier, before the
+    run-identity fields, or before the TTFT fields were added will be missing
+    some of these keys.  Analysis code MUST call this when loading rows from
+    JSONL files so that old and new rows present the same dict shape.  Missing
+    fields are filled with None — never a guessed value.
     """
     out = dict(d)
-    for field in _OUTCOME_FIELDS + _IDENTITY_FIELDS:
+    for field in _OUTCOME_FIELDS + _IDENTITY_FIELDS + _TTFT_FIELDS:
         out.setdefault(field, None)
     return out
 

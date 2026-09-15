@@ -57,7 +57,7 @@ from dataclasses import asdict, dataclass, fields
 @dataclass
 class Telemetry:
     latency_ms: float
-    ttft_ms: float
+    ttft_ms: float | None
     tokens_in: int
     tokens_out: int
     mem_rss_mb: float

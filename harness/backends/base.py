@@ -27,6 +27,10 @@ class ModelCallResult:
     replayed: bool
     cache_key: str
     per_turn_categories: dict[str, dict[str, int]]
+    # TTFT fields — always None for backends (non-streaming or replayed).
+    # ttft_source literals: "streamed" | "replay-unavailable" | "nonstreaming-unavailable"
+    ttft_ms: float | None = None
+    ttft_source: str | None = None
 
 
 class Backend(ABC):
@@ -114,6 +118,10 @@ class Backend(ABC):
         _ = replay_result.response_json.get("choices", [])
         self._record(categories, Category.FRAMEWORK.value, cpu_ns=time.perf_counter_ns() - t_fw)
 
+        ttft_source = (
+            "replay-unavailable" if replay_result.replayed
+            else "nonstreaming-unavailable"
+        )
         return ModelCallResult(
             backend=self.name,
             model=chosen_model,
@@ -124,6 +132,8 @@ class Backend(ABC):
             replayed=replay_result.replayed,
             cache_key=replay_result.key,
             per_turn_categories=categories,
+            ttft_ms=None,
+            ttft_source=ttft_source,
         )
 
     @staticmethod

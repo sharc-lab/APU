@@ -171,7 +171,9 @@ def _call_ollama_streaming(
                 break
 
     latency_ms = (time.perf_counter() - start) * 1000
-    return full_text, latency_ms, ttft_ms or latency_ms, tokens_in, tokens_out, done_reason
+    # Return None if no content token arrived (empty response); never substitute
+    # latency_ms — callers tag ttft_source="streamed" only when this is not None.
+    return full_text, latency_ms, ttft_ms, tokens_in, tokens_out, done_reason
 
 
 def run_cell(
@@ -215,6 +217,10 @@ def run_cell(
         output = cached["output"]
         tel = telemetry.Telemetry.from_dict(cached["telemetry"])
         done_reason: str | None = cached.get("done_reason")
+        # Replayed rows carry no TTFT — the original wall-clock interval is
+        # meaningless when replayed from cache at a different time.
+        row_ttft_ms: float | None = None
+        row_ttft_source: str = "replay-unavailable"
     else:
         output, latency_ms, ttft_ms, tokens_in, tokens_out, done_reason = (
             _call_ollama_streaming(model, prompt, max_tokens, host)
@@ -234,6 +240,8 @@ def run_cell(
             "telemetry": tel.to_dict(),
             "done_reason": done_reason,
         })
+        row_ttft_ms = ttft_ms  # None when no content token arrived (empty response)
+        row_ttft_source = "streamed"
 
     # HTTP_CLIENT: Ollama inference wall time.  Recorded from _call_ollama_streaming
     # (or from cached telemetry on a cache hit — the cached latency is the original
@@ -274,7 +282,8 @@ def run_cell(
         "classification_method": outcome_result["classification_method"],
         "format_compliant": outcome_result["format_compliant"],
         "latency_ms": round(tel.latency_ms, 1),
-        "ttft_ms": round(tel.ttft_ms, 1),
+        "ttft_ms": None if row_ttft_ms is None else round(row_ttft_ms, 1),
+        "ttft_source": row_ttft_source,
         "tokens_in": tel.tokens_in,
         "tokens_out": tel.tokens_out,
         "max_tokens": max_tokens,
