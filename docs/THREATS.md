@@ -307,3 +307,23 @@ This file seeds Section 6 of the paper and tracks planned mitigations.
 - Rule: Until the 224-byte difference is characterised (e.g. by `gguf-dump` or
   equivalent), any cross-path comparison MUST carry a footnote citing this threat.
   The footnote must not assert the difference is harmless.
+
+## 18. Ollama Version Change — 0.32.9 → 0.34.0
+
+- Threat: All KV-measurement and position-pressure results cited in `KV_MEASUREMENT.md`
+  and `POSITION_PRESSURE.md` were produced on Ollama 0.32.9. The Blade 14 installation
+  has since been updated to Ollama 0.34.0. Re-runs on the Blade will use a different
+  runtime than the originals, and results cannot be compared without confirming
+  version-to-version reproducibility.
+- Known behaviour differences confirmed between 0.32.9 and 0.34.0 on Blade:
+  - KV cache type bug: 0.32.9 did not propagate `OLLAMA_KV_CACHE_TYPE` to the bundled
+    llama-server. 0.34.0 propagates it correctly as `--cache-type-k` and `--cache-type-v`.
+    Any KV-cache-type sweep result from 0.32.9 must be treated as having used the default
+    KV type regardless of what `OLLAMA_KV_CACHE_TYPE` was set to.
+  - Context shift: 0.34.0 passes `--context-shift --keep 4` to the bundled llama-server
+    by default. Whether 0.32.9 did the same has not been verified from a captured
+    invocation.
+- Rule: Do not run new Ollama measurements on the Blade and compare them to prior
+  0.32.9 results without explicitly recording both versions and noting that version
+  parity has not been established. Tag every result row with the Ollama version as
+  measured at run time (e.g. `ollama --version` output), not assumed from install history.
