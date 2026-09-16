@@ -25,6 +25,7 @@ This file seeds Section 6 of the paper and tracks planned mitigations.
 - Threat: Limited per-task repetitions under each policy/budget condition can underpower tail-latency and quality comparisons.
 - Impact: p95/p99 estimates and per-task quality conclusions may be noisy.
 - Planned resolution on AMD Linux machine: Increase per-task repetitions and introduce stratified resampling/bootstrapped uncertainty reporting for tails and task-level quality.
+- Runtime truncation clarification (2026-09-15): No runtime tested in this study produces silent prompt truncation. Both llama-server b10970 and Ollama 0.32.9 return HTTP 400 (`exceed_context_size_error`) when the prompt exceeds the configured context window, regardless of the `--context-shift` flag. Prior harness-level truncation (Stage C) therefore models application-layer context management, not runtime behaviour. See `docs/RUNTIME_EVICTION.md` for the empirical characterisation.
 
 ## 5. RLIMIT Enforcement Unavailable on Windows
 
@@ -257,3 +258,52 @@ This file seeds Section 6 of the paper and tracks planned mitigations.
   either (a) rows from 2026-09-14 onwards where `thinking_chars == 0` (verified at the
   API level), or (b) rows predating 2026-09-14 with a qualifying footnote that the claim
   rests on the row label only and was not verified at the API level.
+
+## 16. Backend Confound — Mitigation by Vulkan Standardization
+
+- Threat (original): The Blade 14 previously ran only llama.cpp build b1-f8def7fe1 (CUDA
+  backend) while evo-t2s runs build b10970 (Vulkan backend). Different release versions,
+  different compute backends, and different quantization implementations meant that
+  cross-platform comparisons conflated hardware differences with kernel differences.
+- Mitigation (2026-09-14): Vulkan build b10970 has been installed on the Blade 14 alongside
+  the existing CUDA path. The CUDA path is retained. Both machines now share an identical
+  Vulkan binary: llama-server.exe SHA256
+  `0c8338ae5694f31db394ad3ea9578ba3de4a3ab35095d3ca6f16d74a02bdae35`; zip SHA256
+  `f17091a433feb686d9e17378a8a2fc53a1437d64c1bf302ab6fb3072b4afcf0d`.
+  All future cross-platform measurements will use the Vulkan backend on both machines.
+- Residual confound (quantified): The CUDA backend is retained on the Blade to measure
+  the backend delta directly: identical model, identical prompts, identical flags, CUDA vs
+  Vulkan on fixed hardware. This converts the backend effect from an uncontrolled confound
+  into a quantified term that can be subtracted from cross-platform comparisons.
+- Prior Blade data: All measurements recorded under CUDA build b1-f8def7fe1 — including
+  KV cache compression ratios 1.77× (f16→q8_0) and 3.24× (f16→q4_0) documented in
+  docs/KV_MEASUREMENT.md, and all Stage C / ABSTENTION / filler-composition results — were
+  taken under the CUDA backend and MUST NOT be compared directly to Vulkan b10970
+  measurements without applying the measured backend delta. The KV ratios must be
+  re-measured under Vulkan b10970 before being cited for any platform comparison.
+- Rule: Every llama-server result row MUST record `build_id`, `backend` (one of: "cuda",
+  "vulkan"), and `platform` (one of: "blade14", "evo-t2s"). These fields must never be
+  omitted or defaulted; they are the only basis for separating arms in analysis.
+
+## 17. Ollama Blob vs HF GGUF — Unverified Weight Identity
+
+- Threat: The Ollama blob used for all existing repo results
+  (SHA-256 `85e4a5b7b8ef0e48af0e8658f5aaab9c2324c76c1641493f4d1e25fce54b18b9`,
+  2,497,280,480 bytes) and the canonical HuggingFace GGUF used for all
+  llama-server results
+  (SHA-256 `7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5`,
+  2,497,280,256 bytes) differ by 224 bytes. The two files are not byte-identical.
+- The difference is likely in GGUF metadata fields (e.g. tokenizer vocabulary
+  strings, model card text, or key-value metadata entries) rather than in tensor
+  weights, since a 224-byte difference is too small to alter any weight block in a
+  Q4_K_M quantisation. However, this has not been verified by diffing the decoded
+  GGUF structures. It is possible, though unlikely, that a metadata field influences
+  inference behaviour (e.g. a rope_freq_base or context_length override embedded in
+  the file).
+- Affected data: All Ollama-path rows (runner.py sweeps, Stage C, ABSTENTION,
+  filler-composition) used the blob. All llama-server rows (evo-t2s sentinel test,
+  future sweeps) use the HF file. Any claim that compares scores or latencies across
+  these two sets is comparing results from files that are not verified as identical.
+- Rule: Until the 224-byte difference is characterised (e.g. by `gguf-dump` or
+  equivalent), any cross-path comparison MUST carry a footnote citing this threat.
+  The footnote must not assert the difference is harmless.

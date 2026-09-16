@@ -23,6 +23,17 @@ Acceptable evidence:
 - A side-by-side diff of two consecutive server invocations (flag on / flag off)
   with the memory readout changing as expected
 
+**R1 exception — `--context-shift` (llama-server b10970):** This flag emits no
+startup log line at any verbosity level (confirmed at `-lv 5`, 2,800 log lines
+searched). R1 cannot be satisfied by a log grep for this flag. The positive
+control MUST instead be a deliberate generation-overflow probe at session start:
+a short prompt whose generation is guaranteed to fill the KV cache, with a
+verified `W slot operator(): slot context shift, n_keep = N, n_left = N, n_discard = N`
+warning line in the server log. Record the probe result per server session,
+keyed by `server_session_id`. A session that produced no overflow probe MUST NOT
+have rows recorded against `--context-shift` behaviour. See
+`docs/RUNTIME_EVICTION.md` for the observed eviction policy.
+
 **Worked example of why this requirement exists** — `docs/KV_MEASUREMENT.md`:
 `OLLAMA_KV_CACHE_TYPE=q8_0` was passed correctly on the command line for the
 entire gate1 sweep. Ollama 0.32.x accepts the variable but does not propagate it
@@ -120,6 +131,16 @@ K and V types that were applied.
 For llama-server direct: copy the startup banner lines that confirm `--cache-type-k`,
 `--cache-type-v`, `--n-gpu-layers`, and `--ctx-size`.
 
+**`n_ctx_slot` is ground truth for effective context size, not `--ctx-size`.**
+llama-server b10970 silently raises the requested context size to a minimum of
+256: passing `--ctx-size 128` results in `n_ctx_slot = 256` in the startup log.
+For values ≥ 256 the server uses the requested value unchanged (confirmed at 256
+and 512). Every llama-server result row MUST record the `n_ctx_slot` value from
+the startup log line `load_model: initializing, n_slots = N, n_ctx_slot = M`.
+Any budget level (depth, filler target) MUST be validated against the logged
+`n_ctx_slot`, not against the `--ctx-size` argument. A sweep designed for a
+128-token context is actually running at 256 if the flag is not verified.
+
 For OpenVINO: record the `ov::device::full_name` and `ov::intel_gpu::execution_units_count`
 properties from `ov::Core().get_property()`, and the precision reported in the
 model's XML manifest.
@@ -184,6 +205,9 @@ a row-level field.
 `max_tokens` is a row-level field (the generation budget per call). The
 **sweep depth** is the filler token target, recorded as `depth` (row-level).
 Both are required. `ctx_suspect` (row-level) flags rows where `tokens_in < depth × 0.9`.
+
+Add `n_ctx_slot` to §10 proposed additions as a required row-level field for all
+llama-server runs. Until promoted, record it in the run-level meta file.
 
 ---
 
@@ -321,6 +345,8 @@ the row schema. They MUST be recorded manually (in run notes or a companion
 | `weight_precision` | §5 | In hardware YAML (`quant` field) but not propagated to result rows |
 | `model_tier` | §5 | No canonical field; derivable from `model` string but not normalised |
 | `regime` | §6 | No row-level field; currently derived post-hoc from `done_reason` and latency patterns |
+| `n_ctx_slot` | §4 | Effective context size as logged by llama-server; differs from `--ctx-size` below 256; not yet captured per-row |
+| `server_session_id` | §1 R1 | UUID4 assigned per server start; links measurement rows to the session whose R1 overflow probe verified `--context-shift` |
 
 Fields promoted out of this section on 2026-09-14:
 - `git_sha`, `run_seed`, `hostname`, `operator`, `done_reason` — all now
@@ -340,3 +366,4 @@ Fields promoted out of this section on 2026-09-14:
 | 2026-09-14 | Rithwik Sharma | Initial draft. Derives from SCHEMA.md, telemetry.py, THREATS.md, KV_MEASUREMENT.md, and RESULT_PROVENANCE.md. |
 | 2026-09-14 | Rithwik Sharma | Promote `git_sha`, `run_seed`, `hostname`, `operator`, `done_reason` from §10 (proposed) to normative §2 and §6. All five are now row-level fields emitted by harness/runner.py; backward-compat fill in evaluation/outcome.normalize_result_row(). |
 | 2026-09-14 | Rithwik Sharma | Add `ttft_ms` and `ttft_source` as normative fields (§8.1). Streamed rows carry a live measurement; replayed and non-streaming rows carry null. Any TTFT analysis must filter on ttft_source == "streamed". |
+| 2026-09-15 | Rithwik Sharma | Add R1 exception for `--context-shift`: flag produces no startup log line at any verbosity; positive control must be a generation-overflow probe per session, keyed by server_session_id. Add `n_ctx_slot` as ground truth for effective context (llama-server silently raises values below 256); add n_ctx_slot and server_session_id to §10 proposed additions. Cross-reference docs/RUNTIME_EVICTION.md. |
