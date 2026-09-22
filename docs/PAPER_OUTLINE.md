@@ -186,8 +186,18 @@ depth level; identifies memory headroom remaining for model output at each depth
 INT8 → INT4; establishes minimum precision floor for target correctness.
 
 - Script: [harness/stage_a_kv_precision.py](harness/stage_a_kv_precision.py) (data)
-- Data: `results/gate1_kv_precision.json` — **IN REPO**
-- Status: data ready; plot script needed
+- Data: `results/gate1_kv_precision.json` — **IN REPO but contains no valid
+  cross-precision measurements**. All four conditions ran at f16 because
+  Ollama 0.32.x silently ignores `OLLAMA_KV_CACHE_TYPE`. File is a valid
+  record of f16 allocation on Ollama 0.32.9 (118,784 B/tok at ctx=32768) and
+  documents the API limitation, nothing more. See `docs/RESULT_PROVENANCE.md`
+  (gate1 note) and `docs/KV_MEASUREMENT.md` §1.
+- **Reference for KV ratios:** `results/llamaserver_feasibility.json`
+  (llama-server b1-f8def7fe1, flags confirmed effective):
+  f16→q8_0 = **1.77×**, f16→q4_0 = **3.24×** (vs architectural 2× and 4×).
+  See `docs/KV_MEASUREMENT.md` §2 for rationale and §3 for reconciliation.
+- Status: **data not ready** — gate1 must be re-run via llama-server with
+  `--cache-type-k` flags confirmed effective; target hardware is Strix Halo.
 
 ---
 

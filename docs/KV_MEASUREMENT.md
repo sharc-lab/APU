@@ -162,9 +162,10 @@ Both figures are incorrect:
   intermediate calculation produces 3.76× consistently. This figure should not
   be cited.
 
-The RESULT_PROVENANCE.md note needs to be corrected before the paper cites Fig 4.11.
-That correction is tracked here but not yet applied (requires user decision on
-exact wording).
+The RESULT_PROVENANCE.md note was corrected: the incorrect figures have been removed
+and the gate1 section now reads "Key result: None" with the f16-only explanation.
+The Fig 4.11 entry in PAPER_OUTLINE.md has also been corrected to reflect that gate1
+contains no valid cross-precision data and points to llamaserver_feasibility.json.
 
 ---
 
@@ -173,12 +174,13 @@ exact wording).
 Locations where a KV reduction ratio is stated but the f16 baseline (architectural
 vs measured, which build) is not named:
 
-| File | Location | Statement | Issue |
-|------|----------|-----------|-------|
-| `docs/RESULT_PROVENANCE.md` | line 59 | "f16/q8_0 VRAM ratio ≈ 1.83×; f16/q4_0 ratio ≈ 3.76×" | Both values wrong; attributed to gate1 which failed; f16 baseline unspecified |
-| `docs/RESULT_PROVENANCE.md` | line 60 | "the ~1.83× int8-to-int4 memory reduction figure" | Mislabeled — this is q8/q4, not f16/q8; f16 baseline absent |
-| `analysis/bom_sweep.py` | lines 42–46 | "73,728 B/token corresponds to int8 KV ... That lever halves the footprint to 36,864 B/token and doubles residency per GB" | Uses architectural values (halving = architectural 2× q8→q4); does not name f16 as baseline for the halving claim or distinguish architectural from measured |
-| `docs/FINDINGS.md` | line 37 | "3.24× for q4_0 vs 1× for f16" | Names f16 as baseline but does not specify measured (144,530 B/tok, SWA, b1-f8def7fe1) vs architectural (147,456 B/tok); the 3.24× was computed against measured f16, so the comparison is internally consistent but the baseline variant is implicit |
+| File | Location | Statement | Status |
+|------|----------|-----------|--------|
+| `docs/RESULT_PROVENANCE.md` | gate1 note | "f16/q8_0 VRAM ratio ≈ 1.83×; f16/q4_0 ratio ≈ 3.76×" | **CORRECTED** — figures removed; gate1 section now states "Key result: None" |
+| `docs/RESULT_PROVENANCE.md` | gate1 note | "the ~1.83× int8-to-int4 memory reduction figure" | **CORRECTED** — removed with above |
+| `docs/PAPER_OUTLINE.md` | Fig 4.11 | "data ready; plot script needed" | **CORRECTED** — now states gate1 has no cross-precision data; points to llamaserver_feasibility.json |
+| `analysis/bom_sweep.py` | lines 49–51 | "NOTE: 36,864 and 73,728 are architectural values. Measured q8->q4 reduction is 1.83x" | **CORRECT** — q8→q4 = 1.83× matches KV_MEASUREMENT.md §1; architectural caveat is explicitly noted |
+| `docs/FINDINGS.md` | line 37 | "3.24× for q4_0 vs 1× for f16" | Baseline not specifying measured vs architectural — acceptable in context; see §1 for explicit table |
 
 Locations where the baseline IS explicitly named (no action needed):
 
