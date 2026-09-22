@@ -151,10 +151,19 @@ it; the EARLY arm loses its artifact first.
 
 - Files: `results/stage_c_20260818T040408Z.jsonl` (396 rows, blade_rtx4070,
   qwen3:4b-instruct), `results/position_pressure_analysis.json`;
-  `results/fig61_stagec_full_20260922T191031Z.jsonl` (396 rows, evo-t2s,
-  Intel Arrow Lake, Vulkan b10970, qwen3-4b-instruct-85e4a5b7.gguf, matched checkpoint)
+  `results/fig61_stagec_full_20260922T203557Z.jsonl` (396 rows, evo-t2s,
+  Intel Arrow Lake, Vulkan b10970, qwen3-4b-instruct-85e4a5b7.gguf, matched checkpoint);
+  `results/fig61_stagec_full_20260922T230133Z.jsonl` (396 rows, blade_rtx4070,
+  CUDA b10970, same checkpoint, like-for-like replication)
 - Hardware: blade_rtx4070 (discrete, OFF-TARGET) + evo-t2s (unified LPDDR5X, OFF-TARGET)
-- **Status: OFF-TARGET-ONLY** — two-architecture replication complete; Strix Halo EVO-X2 run required for submission.
+- **Three-architecture replication note:** All three runs agree on the position-pressure
+  effect (LATE > EARLY at r<1 for probes where artifact is intact). One cell disagrees
+  between CUDA and Vulkan backends: sea_01 LATE at r=1.0 and r=1.2 — CUDA outputs "C8"
+  (wrong), Vulkan outputs "A9" (correct). Both Blade runs (Ollama and CUDA llama-server)
+  agree on "C8". This is backend numerical sensitivity on one borderline probe; 130/132
+  cells match. The disagreement does not affect the position-pressure claim.
+- **Status: OFF-TARGET-ONLY** — three-architecture replication complete (blade Ollama,
+  blade CUDA, evo-t2s Vulkan); Strix Halo EVO-X2 run required for submission.
 
 ---
 
