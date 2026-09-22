@@ -195,10 +195,19 @@ def _load_scorers():
 
 # ── main ──────────────────────────────────────────────────────────────────────
 
-def main(smoke: bool = False, gate: bool = False):
+def main(smoke: bool = False, gate: bool = False, blade: bool = False):
     hostname = socket.gethostname().upper()
-    assert "EVO" in hostname or "T2S" in hostname, \
-        f"WRONG HOST: {hostname}. Must run on EVO-T2S."
+    if blade:
+        platform     = "blade_rtx4070"
+        hw_config    = "blade_rtx4070"
+        mem_arch     = "discrete"
+        print(f"MODE: --blade (Razer Blade 14, RTX 4070, CUDA b10970)")
+    else:
+        assert "EVO" in hostname or "T2S" in hostname, \
+            f"WRONG HOST: {hostname}. Must run on EVO-T2S."
+        platform     = PLATFORM
+        hw_config    = HW_CONFIG
+        mem_arch     = MEM_ARCH
 
     props    = _query_props()
     build_id = props.get("build_info", props.get("build", "UNKNOWN"))
@@ -384,9 +393,9 @@ def main(smoke: bool = False, gate: bool = False):
                             "count_method":               "llamaserver_tokenize",
                             "model":                      "qwen3:4b-instruct",
                             "build_id":                   build_id,
-                            "platform":                   PLATFORM,
-                            "hardware_config":            HW_CONFIG,
-                            "memory_architecture":        MEM_ARCH,
+                            "platform":                   platform,
+                            "hardware_config":            hw_config,
+                            "memory_architecture":        mem_arch,
                             "error":                      error,
                         }
                         rows.append(row)
@@ -408,9 +417,9 @@ def main(smoke: bool = False, gate: bool = False):
         "run_tag":          run_tag,
         "result_file":      out_path.name,
         "n_rows":           len(rows),
-        "platform":         PLATFORM,
-        "hardware_config":  HW_CONFIG,
-        "memory_architecture": MEM_ARCH,
+        "platform":         platform,
+        "hardware_config":  hw_config,
+        "memory_architecture": mem_arch,
         "server": {
             "build_id":        build_id,
             "ctx_size":        N_CTX_SLOT,
@@ -502,12 +511,15 @@ if __name__ == "__main__":
     ap.add_argument("--smoke", action="store_true")
     ap.add_argument("--gate",  action="store_true")
     ap.add_argument("--full",  action="store_true")
+    ap.add_argument("--blade", action="store_true",
+                    help="Run on Razer Blade 14 (RTX 4070, CUDA). "
+                         "Skips EVO-T2S hostname check and sets blade_rtx4070 metadata.")
     args = ap.parse_args()
 
     STAGE_C = RESULTS_DIR / "stage_c_20260818T040408Z.jsonl"
 
     if args.smoke:
-        smoke_rows, _ = main(smoke=True)
+        smoke_rows, _ = main(smoke=True, blade=args.blade)
         pc_fails      = [r for r in smoke_rows if not r["positive_control_ok"]]
         print(f"\nSMOKE: PC failures={len(pc_fails)}")
         for r in pc_fails:
@@ -517,7 +529,7 @@ if __name__ == "__main__":
         print(f"SMOKE {'PASS' if not pc_fails else 'FAIL'}")
 
     elif args.gate:
-        gate_rows, _      = main(gate=True)
+        gate_rows, _      = main(gate=True, blade=args.blade)
         n_disagree, diffs = run_gate_check(gate_rows, STAGE_C)
         print(f"\nGATE: {n_disagree}/22 cells disagree with stage C at ratio=1.20")
         for d in diffs:
@@ -531,5 +543,5 @@ if __name__ == "__main__":
             print(f"GATE PASS ({n_disagree} <= 4). Run full sweep.")
 
     elif args.full:
-        rows, path = main()
+        rows, path = main(blade=args.blade)
         print(f"Full sweep: {len(rows)} rows -> {path.name}")
