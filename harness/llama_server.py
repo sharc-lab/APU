@@ -67,7 +67,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import httpx
 
@@ -201,9 +201,16 @@ def _raise_if_context_size_error(body: str) -> None:
             except (json.JSONDecodeError, AttributeError):
                 return
         if isinstance(err, dict) and err.get("type") == "exceed_context_size_error":
+            raw_n_prompt = err.get("n_prompt_tokens")
+            raw_n_ctx = err.get("n_ctx")
+            if raw_n_prompt is None or raw_n_ctx is None:
+                _LOG.warning(
+                    "exceed_context_size_error body missing n_prompt_tokens or n_ctx: %s",
+                    body[:200],
+                )
             raise ContextSizeError(
-                n_prompt_tokens=int(err.get("n_prompt_tokens", 0)),
-                n_ctx=int(err.get("n_ctx", 0)),
+                n_prompt_tokens=int(raw_n_prompt) if raw_n_prompt is not None else 0,
+                n_ctx=int(raw_n_ctx) if raw_n_ctx is not None else 0,
                 raw=body,
             )
     except (json.JSONDecodeError, AttributeError, TypeError):
@@ -650,6 +657,76 @@ class LlamaServerSession:
             "platform": self.cfg.platform,
             "context_shift_probe_result": self.context_shift_probe_result,
         }
+
+    # ── Tokenization ───────────────────────────────────────────────────────────
+
+    def tokenize(self, text: str) -> int:
+        """Return the token count for *text* via POST /tokenize.
+
+        Always passes ``add_special=False`` to suppress BOS/EOS insertion.
+        This is correct for filler counting: the filler is injected into the
+        prompt body, not at the start of the token stream, so special tokens
+        from the chat template (which llama-server adds separately) must not
+        be counted here.
+
+        Behavior by model family (empirically verified on b10970):
+        - Qwen3: tokenizer has no BOS configured; ``add_special`` has no
+          effect either way. Explicitly passing ``False`` is a no-op but
+          documents intent.
+        - Llama 3.1: BOS token (ID 128000, ``<|begin_of_text|>``) IS
+          configured. Default (no ``add_special``) or ``True`` would prepend
+          it, over-counting the filler by 1 token. ``add_special=False``
+          prevents this.
+
+        Raises
+        ------
+        RuntimeError
+            Session not started.
+        httpx.HTTPStatusError
+            Non-200 response from /tokenize.
+        """
+        if self._proc is None:
+            raise RuntimeError("Session not started; call start() first")
+        url = f"http://127.0.0.1:{self.cfg.port}/tokenize"
+        r = httpx.post(
+            url,
+            json={"content": text, "add_special": False},
+            timeout=30.0,
+        )
+        r.raise_for_status()
+        return len(r.json()["tokens"])
+
+    def make_count_fn(self) -> Callable[[str], int]:
+        """Return a ``count_fn`` for use with ``context.build_filler``.
+
+        Verifies that /tokenize is reachable before returning. Raises
+        ``RuntimeError`` immediately rather than silently falling back to the
+        character heuristic — a misconfigured filler-calibration path must
+        fail loudly before the sweep begins.
+
+        The returned callable is safe to call repeatedly during filler
+        calibration. Each call is a single HTTP POST; no connection pooling
+        or state is held.
+        """
+        if self._proc is None:
+            raise RuntimeError("Session not started; call start() first")
+        # Connectivity probe — fail loud before returning the callable.
+        try:
+            probe_resp = httpx.post(
+                f"http://127.0.0.1:{self.cfg.port}/tokenize",
+                json={"content": "test", "add_special": False},
+                timeout=5.0,
+            )
+            probe_resp.raise_for_status()
+        except Exception as exc:
+            raise RuntimeError(
+                f"llama-server /tokenize not reachable at port {self.cfg.port}: {exc}"
+            ) from exc
+
+        def _count(text: str) -> int:
+            return self.tokenize(text)
+
+        return _count
 
     # ── Internal ───────────────────────────────────────────────────────────────
 

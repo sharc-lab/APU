@@ -35,6 +35,7 @@ CORRECT = "CORRECT"
 REFUSED = "REFUSED"
 FABRICATED = "FABRICATED"
 UNCLASSIFIABLE = "UNCLASSIFIABLE"
+REJECTED = "REJECTED"
 
 # Arm-2 of selfreport_arms instructs the model to respond with this exact
 # string when context is insufficient. Treat it as a refusal.
@@ -62,18 +63,51 @@ _TTFT_FIELDS = ("ttft_ms", "ttft_source")
 # despite the flag; None = cache hit or row predates this field.
 _THINKING_FIELDS = ("thinking_chars",)
 
+# llama-server session metadata added 2026-09-16.  Present on rows produced via
+# LlamaServerSession; None on Ollama rows and all rows written before this date.
+# server_session_id links rows to the session whose R1 overflow probe verified
+# --context-shift.  n_ctx_slot is ground truth for effective context size.
+_SESSION_FIELDS = (
+    "server_session_id",
+    "n_ctx_slot",
+    "build_id",
+    "backend",
+    "platform",
+    "context_shift_probe_result",
+)
+
+# Replay and context-overflow fields added 2026-09-16.
+_REPLAY_FIELDS = ("replayed",)
+_CONTEXT_OVERFLOW_FIELDS = ("context_size_exceeded", "n_prompt_tokens", "n_ctx")
+
+# Filler calibration method added 2026-09-21. Values:
+#   "ollama_prompt_eval"    — Ollama count_fn (prompt_eval_count, Blade14 arm)
+#   "llamaserver_tokenize"  — llama-server /tokenize endpoint (evo-t2s arm)
+#   "heuristic"             — char-only estimate (depth=0 or uncalibrated)
+_COUNT_METHOD_FIELDS = ("count_method",)
+
 
 def normalize_result_row(d: dict) -> dict:
     """Return a copy of d with all schema-tracked fields present (None if absent).
 
     Backward compat: rows written before the four-way classifier, before the
-    run-identity fields, or before the TTFT/thinking fields were added will be
-    missing some of these keys.  Analysis code MUST call this when loading rows
-    from JSONL files so that old and new rows present the same dict shape.
+    run-identity fields, before the TTFT/thinking fields, before the
+    llama-server session metadata fields, or before count_method was added will
+    be missing some of these keys.  Analysis code MUST call this when loading
+    rows from JSONL files so that old and new rows present the same dict shape.
     Missing fields are filled with None — never a guessed value.
     """
     out = dict(d)
-    for field in _OUTCOME_FIELDS + _IDENTITY_FIELDS + _TTFT_FIELDS + _THINKING_FIELDS:
+    for field in (
+        _OUTCOME_FIELDS
+        + _IDENTITY_FIELDS
+        + _TTFT_FIELDS
+        + _THINKING_FIELDS
+        + _SESSION_FIELDS
+        + _REPLAY_FIELDS
+        + _CONTEXT_OVERFLOW_FIELDS
+        + _COUNT_METHOD_FIELDS
+    ):
         out.setdefault(field, None)
     return out
 

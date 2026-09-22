@@ -37,6 +37,7 @@ import httpx
 
 from harness import cache, context, telemetry
 from harness.context import DEFAULT_FILLER_MODE, FILLER_MODES
+from harness.llama_server import ContextSizeError, LlamaServerSession
 
 REPO_ROOT = Path(__file__).parent.parent
 PROBES_DIR = REPO_ROOT / "evaluation" / "probes"
@@ -57,6 +58,15 @@ REQUIRED_ROW_FIELDS = frozenset({
     "ctx_suspect", "position_in_cell",
     # Span instrumentation (Zachary category names, per-call)
     "orch_setup_ns", "http_client_ns", "tool_compute_ns",
+    # llama-server session metadata (None for Ollama rows)
+    "server_session_id", "n_ctx_slot", "build_id", "backend", "platform",
+    "context_shift_probe_result",
+    # Replay flag
+    "replayed",
+    # Filler calibration method used for this row's depth
+    "count_method",
+    # Context-overflow fields (False/None on non-REJECTED rows)
+    "context_size_exceeded", "n_prompt_tokens", "n_ctx",
 })
 
 
@@ -213,6 +223,8 @@ def run_cell(
     run_seed: int | None,
     hostname: str,
     operator: str | None,
+    session: "LlamaServerSession | None" = None,
+    count_method: str = "heuristic",
 ) -> dict[str, Any]:
     # ORCH_SETUP: harness cost to assemble the full prompt (wrap_prompt).
     # CPU-bound; wall elapsed is a valid CPU proxy (no I/O).
@@ -221,31 +233,80 @@ def run_cell(
     orch_setup_ns = time.perf_counter_ns() - _t0
 
     max_tokens: int = probe["max_tokens"]
-    params = {
-        "max_tokens": max_tokens,
-        "temperature": 0,
+
+    # Common identity fields shared by all row types from this call.
+    _common = {
+        "probe_id": probe["id"],
+        "category": probe["category"],
+        "difficulty": probe.get("difficulty"),
+        "depth": depth,
+        "rep": rep,
+        "position_in_cell": position_in_cell,
+        "cell_probe_seed": cell_probe_seed,
         "filler_mode": filler_mode,
+        "count_method": count_method,
+        "max_tokens": max_tokens,
+        "config_hash": cfg_hash,
+        "hardware_config": hardware_config,
+        "memory_architecture": memory_architecture,
+        "model": model,
         "model_variant": model_variant,
+        "thinking_enabled": thinking_enabled,
+        "git_sha": git_sha,
+        "run_seed": run_seed,
+        "hostname": hostname,
+        "operator": operator,
+        "orch_setup_ns": orch_setup_ns,
     }
 
-    cached = cache.get(model, prompt, params)
-    if cached:
-        output = cached["output"]
-        tel = telemetry.Telemetry.from_dict(cached["telemetry"])
-        done_reason: str | None = cached.get("done_reason")
-        # Replayed rows carry no TTFT — the original wall-clock interval is
-        # meaningless when replayed from cache at a different time.
-        row_ttft_ms: float | None = None
-        row_ttft_source: str = "replay-unavailable"
-        # thinking_chars not replayed — cache entries predate the field
-        row_thinking_chars: int | None = cached.get("thinking_chars")
-    else:
-        output, latency_ms, ttft_ms, tokens_in, tokens_out, done_reason, thinking_chars = (
-            _call_ollama_streaming(
-                model, prompt, max_tokens, host,
-                suppress_thinking=not thinking_enabled,
+    session_meta: dict[str, Any] = (
+        session.row_metadata() if session is not None
+        else {
+            "server_session_id": None,
+            "n_ctx_slot": None,
+            "build_id": None,
+            "backend": None,
+            "platform": None,
+            "context_shift_probe_result": None,
+        }
+    )
+
+    if session is not None:
+        # ── llama-server path ──────────────────────────────────────────────
+        # No replay cache on this path: every call is live.
+        try:
+            output, latency_ms, ttft_ms, tokens_in, tokens_out, done_reason, thinking_chars = (
+                session.call(prompt, max_tokens)
             )
-        )
+        except ContextSizeError as exc:
+            gpu_val, gpu_source = telemetry.gpu_mem_mb(memory_architecture)
+            return {
+                **_common,
+                **session_meta,
+                "score": None,
+                "score_detail": None,
+                "outcome_class": outcome_mod.REJECTED,
+                "classification_method": "context_size_exceeded",
+                "format_compliant": None,
+                "latency_ms": None,
+                "ttft_ms": None,
+                "ttft_source": None,
+                "thinking_chars": None,
+                "tokens_in": exc.n_prompt_tokens,
+                "tokens_out": 0,
+                "ctx_suspect": True,
+                "mem_rss_mb": round(telemetry.rss_mb(), 1),
+                "gpu_mem_mb": None if gpu_val is None else round(gpu_val, 1),
+                "gpu_mem_source": gpu_source,
+                "done_reason": None,
+                "replayed": False,
+                "context_size_exceeded": True,
+                "n_prompt_tokens": exc.n_prompt_tokens,
+                "n_ctx": exc.n_ctx,
+                "http_client_ns": 0,
+                "tool_compute_ns": 0,
+            }
+
         gpu_val, gpu_source = telemetry.gpu_mem_mb(memory_architecture)
         tel = telemetry.Telemetry(
             latency_ms=latency_ms,
@@ -256,20 +317,60 @@ def run_cell(
             gpu_mem_mb=gpu_val,
             gpu_mem_source=gpu_source,
         )
-        cache.put(model, prompt, params, {
-            "output": output,
-            "telemetry": tel.to_dict(),
-            "done_reason": done_reason,
-            "thinking_chars": thinking_chars,
-        })
-        row_ttft_ms = ttft_ms  # None when no content token arrived (empty response)
-        row_ttft_source = "streamed"
-        row_thinking_chars = thinking_chars
+        row_ttft_ms = ttft_ms
+        row_ttft_source: str = "streamed"
+        row_thinking_chars: int | None = thinking_chars
+        row_replayed = False
+    else:
+        # ── Ollama path ────────────────────────────────────────────────────
+        params = {
+            "max_tokens": max_tokens,
+            "temperature": 0,
+            "filler_mode": filler_mode,
+            "model_variant": model_variant,
+        }
 
-    # HTTP_CLIENT: Ollama inference wall time.  Recorded from _call_ollama_streaming
-    # (or from cached telemetry on a cache hit — the cached latency is the original
-    # measured value, so the span is historically accurate).
-    # cpu_ns = 0: the thread blocks on network/GPU I/O, not user-space CPU.
+        cached = cache.get(model, prompt, params)
+        if cached:
+            output = cached["output"]
+            tel = telemetry.Telemetry.from_dict(cached["telemetry"])
+            done_reason: str | None = cached.get("done_reason")
+            # Replayed rows carry no TTFT — the original wall-clock interval is
+            # meaningless when replayed from cache at a different time.
+            row_ttft_ms = None
+            row_ttft_source = "replay-unavailable"
+            # thinking_chars not replayed — cache entries predate the field
+            row_thinking_chars = cached.get("thinking_chars")
+            row_replayed = True
+        else:
+            output, latency_ms, ttft_ms, tokens_in, tokens_out, done_reason, thinking_chars = (
+                _call_ollama_streaming(
+                    model, prompt, max_tokens, host,
+                    suppress_thinking=not thinking_enabled,
+                )
+            )
+            gpu_val, gpu_source = telemetry.gpu_mem_mb(memory_architecture)
+            tel = telemetry.Telemetry(
+                latency_ms=latency_ms,
+                ttft_ms=ttft_ms,
+                tokens_in=tokens_in,
+                tokens_out=tokens_out,
+                mem_rss_mb=telemetry.rss_mb(),
+                gpu_mem_mb=gpu_val,
+                gpu_mem_source=gpu_source,
+            )
+            cache.put(model, prompt, params, {
+                "output": output,
+                "telemetry": tel.to_dict(),
+                "done_reason": done_reason,
+                "thinking_chars": thinking_chars,
+            })
+            row_ttft_ms = ttft_ms  # None when no content token arrived (empty response)
+            row_ttft_source = "streamed"
+            row_thinking_chars = thinking_chars
+            row_replayed = False
+
+    # HTTP_CLIENT: inference wall time.  cpu_ns = 0: thread blocks on network/GPU I/O.
     http_client_ns = int(tel.latency_ms * 1e6)
 
     # TOOL_COMPUTE: 0 — the quality sweep does not dispatch tool calls.
@@ -291,14 +392,8 @@ def run_cell(
     ctx_suspect = depth > 0 and tel.tokens_in < depth * 0.9
 
     return {
-        "probe_id": probe["id"],
-        "category": probe["category"],
-        "difficulty": probe["difficulty"],
-        "depth": depth,
-        "rep": rep,
-        "position_in_cell": position_in_cell,
-        "cell_probe_seed": cell_probe_seed,
-        "filler_mode": filler_mode,
+        **_common,
+        **session_meta,
         "score": score_val,
         "score_detail": score_detail,
         "outcome_class": outcome_result["outcome_class"],
@@ -310,25 +405,16 @@ def run_cell(
         "thinking_chars": row_thinking_chars,
         "tokens_in": tel.tokens_in,
         "tokens_out": tel.tokens_out,
-        "max_tokens": max_tokens,
         "ctx_suspect": ctx_suspect,
         "mem_rss_mb": round(tel.mem_rss_mb, 1),
         "gpu_mem_mb": None if tel.gpu_mem_mb is None else round(tel.gpu_mem_mb, 1),
         "gpu_mem_source": tel.gpu_mem_source,
         "done_reason": done_reason,
-        "config_hash": cfg_hash,
-        "hardware_config": hardware_config,
-        "memory_architecture": memory_architecture,
-        "model": model,
-        "model_variant": model_variant,
-        "thinking_enabled": thinking_enabled,
-        "git_sha": git_sha,
-        "run_seed": run_seed,
-        "hostname": hostname,
-        "operator": operator,
-        # Span instrumentation — Zachary's category names, per-call
-        "orch_setup_ns":   orch_setup_ns,
-        "http_client_ns":  http_client_ns,
+        "replayed": row_replayed,
+        "context_size_exceeded": False,
+        "n_prompt_tokens": None,
+        "n_ctx": None,
+        "http_client_ns": http_client_ns,
         "tool_compute_ns": tool_compute_ns,
     }
 
@@ -632,6 +718,36 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--backend", default="ollama", choices=["ollama", "llama-server"],
+        help=(
+            "Inference backend. 'ollama' (default): use Ollama /api/chat with replay "
+            "cache. 'llama-server': use a persistent llama-server process via "
+            "LlamaServerSession; requires --llama-exe, --llama-model, --llama-port. "
+            "Replay cache does not apply on the llama-server path."
+        ),
+    )
+    parser.add_argument("--llama-exe", default=None, metavar="PATH",
+        help="Path to llama-server.exe (required when --backend=llama-server).")
+    parser.add_argument("--llama-model", default=None, metavar="PATH",
+        help="Path to .gguf model file (required when --backend=llama-server).")
+    parser.add_argument("--llama-port", type=int, default=8181, metavar="N",
+        help="Port for llama-server (default: 8181).")
+    parser.add_argument("--llama-ctx-size", type=int, default=8192, metavar="N",
+        help="Context size passed as --ctx-size to llama-server (default: 8192).")
+    parser.add_argument("--llama-n-gpu-layers", type=int, default=99, metavar="N",
+        help="--n-gpu-layers for llama-server (default: 99).")
+    parser.add_argument("--llama-platform", default="unknown", metavar="NAME",
+        help="Platform identifier recorded on llama-server rows (e.g. 'evo-t2s').")
+    parser.add_argument("--llama-build-id", default="b10970", metavar="ID",
+        help="llama-server build identifier recorded on rows (default: 'b10970').")
+    parser.add_argument("--llama-backend", default="vulkan",
+        choices=["vulkan", "cuda", "cpu"],
+        help="Inference backend label recorded on llama-server rows (default: 'vulkan').")
+    parser.add_argument("--llama-context-shift", action="store_true",
+        help="Pass --context-shift to llama-server and run the overflow probe at startup.")
+    parser.add_argument("--llama-reasoning-budget", type=int, default=None, metavar="N",
+        help="--reasoning-budget for llama-server. Use 0 to suppress thinking.")
+    parser.add_argument(
         "--dry-run", action="store_true",
         help="Print sweep plan and exit without calling the model",
     )
@@ -718,6 +834,15 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    if args.backend == "llama-server":
+        if not args.llama_exe or not args.llama_model:
+            import sys as _sys
+            print(
+                "error: --backend=llama-server requires --llama-exe and --llama-model",
+                file=_sys.stderr,
+            )
+            _sys.exit(1)
+
     # Validate --deadline early so a bad value fails before any work.
     deadline_s: float | None = None
     if args.deadline:
@@ -790,12 +915,53 @@ def main() -> None:
         completed = _load_completed(resume_path, cfg_hash)
         print(f"Resume: {len(completed)} rows already done in {resume_path.name}")
 
-    count_fn = _make_count_fn(args.host, args.model)
+    # Determine filler count method and count_fn.
+    # On the llama-server path the session must start first so we can obtain
+    # the /tokenize callable; on the Ollama path the session is None.
+    # count_fn is None for depth=0 cells (no filler); the method label for those
+    # rows is still set to match the backend, but no tokenizer is consulted.
+    #
+    # The session (if any) is started here, before the inner try/finally that
+    # guards the sweep loop. A second guard (below) catches failures between
+    # session start and the inner try so the subprocess is never leaked.
+    llama_session: LlamaServerSession | None = None
+    count_fn = None
+    filler_count_method: str
+
+    if args.backend == "llama-server":
+        from harness.llama_server import LlamaServerConfig
+        _ls_cfg = LlamaServerConfig(
+            exe=args.llama_exe,
+            model=args.llama_model,
+            ctx_size=args.llama_ctx_size,
+            port=args.llama_port,
+            n_gpu_layers=args.llama_n_gpu_layers,
+            context_shift=args.llama_context_shift,
+            reasoning_budget=args.llama_reasoning_budget,
+            platform=args.llama_platform,
+            build_id=args.llama_build_id,
+            backend=args.llama_backend,
+        )
+        llama_session = LlamaServerSession(_ls_cfg).start()
+        print(f"llama-server: n_ctx_slot={llama_session.n_ctx_slot} "
+              f"session_id={llama_session.server_session_id[:8]}... "
+              f"context_shift_probe={llama_session.context_shift_probe_result}")
+        # make_count_fn() verifies /tokenize reachability and raises immediately
+        # if the endpoint is down — no silent fallback to the char heuristic.
+        try:
+            count_fn = llama_session.make_count_fn()
+        except Exception:
+            llama_session.stop()
+            raise
+        filler_count_method = "llamaserver_tokenize"
+    else:
+        count_fn = _make_count_fn(args.host, args.model)
+        filler_count_method = "ollama_prompt_eval"
 
     print(f"Sweep : {len(probes)} probes x {len(args.depths)} depths x {args.reps} reps = {total} calls")
     print(f"Model : {args.model}  variant={model_variant}  thinking={thinking_enabled}")
-    print(f"Host  : {args.host}")
-    print(f"Filler: {args.filler_mode}  (count_fn calibration enabled)")
+    print(f"Host  : {args.host}  backend={args.backend}")
+    print(f"Filler: {args.filler_mode}  count_method={filler_count_method}")
     print(f"HW    : {args.hardware_config}  arch={args.memory_architecture}")
     print(f"Config: {cfg_hash}")
     if deadline_s is not None:
@@ -809,18 +975,33 @@ def main() -> None:
     # latency statistics, which capture only _call_ollama_streaming.
     unique_depth_reps = sorted({(d, r) for d in args.depths for r in range(args.reps)})
     filler_cache: dict[tuple[int, int], str] = {}
+    # count_method_cache records, per (depth, rep), which calibration method was
+    # actually applied. depth=0 needs no filler and no tokenizer call; all other
+    # depths use the backend-specific count_fn.
+    count_method_cache: dict[tuple[int, int], str] = {}
     non_zero = [(d, r) for d, r in unique_depth_reps if d > 0]
     if non_zero:
         print(f"\nCalibrating filler for {len(non_zero)} depth×rep pairs "
               f"({len(unique_depth_reps) - len(non_zero)} at d=0 need no calibration)...")
-    for d, r in unique_depth_reps:
-        fn = count_fn if (d > 0 and not args.dry_run) else None
-        filler_cache[(d, r)] = context.build_filler(d, seed=r, count_fn=fn)
+    try:
+        for d, r in unique_depth_reps:
+            if d == 0 or args.dry_run:
+                filler_cache[(d, r)] = context.build_filler(d, seed=r, count_fn=None)
+                count_method_cache[(d, r)] = "heuristic"
+            else:
+                filler_cache[(d, r)] = context.build_filler(d, seed=r, count_fn=count_fn)
+                count_method_cache[(d, r)] = filler_count_method
+    except Exception:
+        if llama_session is not None:
+            llama_session.stop()
+        raise
     if non_zero:
         print("Filler calibration complete.\n")
 
     if args.dry_run:
         print("\n[dry-run] exiting before any model calls (filler calibration skipped).")
+        if llama_session is not None:
+            llama_session.stop()
         return
 
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -910,16 +1091,32 @@ def main() -> None:
                                 args.seed,
                                 run_hostname,
                                 run_operator,
+                                session=llama_session,
+                                count_method=count_method_cache[(depth, rep)],
                             )
                         except Exception as exc:
+                            _session_meta = (
+                                llama_session.row_metadata()
+                                if llama_session is not None
+                                else {
+                                    "server_session_id": None,
+                                    "n_ctx_slot": None,
+                                    "build_id": None,
+                                    "backend": None,
+                                    "platform": None,
+                                    "context_shift_probe_result": None,
+                                }
+                            )
                             row = {
                                 "probe_id": probe["id"],
                                 "category": probe["category"],
+                                "difficulty": probe.get("difficulty"),
                                 "depth": depth,
                                 "rep": rep,
                                 "position_in_cell": pos,
                                 "cell_probe_seed": cell_probe_seed,
                                 "filler_mode": args.filler_mode,
+                                "count_method": count_method_cache[(depth, rep)],
                                 "score": None,
                                 "score_detail": None,
                                 "outcome_class": None,
@@ -938,9 +1135,14 @@ def main() -> None:
                                 "hostname": run_hostname,
                                 "operator": run_operator,
                                 "ctx_suspect": False,
+                                "replayed": False,
+                                "context_size_exceeded": None,
+                                "n_prompt_tokens": None,
+                                "n_ctx": None,
                                 "orch_setup_ns":   0,
                                 "http_client_ns":  0,
                                 "tool_compute_ns": 0,
+                                **_session_meta,
                             }
 
                         fout.write(json.dumps(row) + "\n")
@@ -953,11 +1155,12 @@ def main() -> None:
                         score_str = (
                             f"{row['score']:.3f}" if row.get("score") is not None else "ERR"
                         )
-                        lat = row.get("latency_ms", 0)
+                        lat = row.get("latency_ms")
+                        lat_str = f"{lat:.0f}ms" if lat is not None else "REJ"
                         print(
                             f"[{done:{w}}/{total}] "
                             f"{probe['id']} d={depth:>5} r={rep} pos={pos} "
-                            f"score={score_str} lat={lat:.0f}ms",
+                            f"score={score_str} lat={lat_str}",
                             flush=True,
                         )
 
@@ -978,6 +1181,8 @@ def main() -> None:
         raise
     finally:
         sampler_stop.set()
+        if llama_session is not None:
+            llama_session.stop()
 
         elapsed_s = round(time.monotonic() - run_start, 1)
         mean_s = round(elapsed_s / rows_this_session, 2) if rows_this_session > 0 else None
