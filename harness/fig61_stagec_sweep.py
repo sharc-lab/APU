@@ -401,6 +401,66 @@ def main(smoke: bool = False, gate: bool = False):
                               f"{pc_flag} finish={finish_reason}")
 
     print(f"\nWrote {len(rows)} rows -> {out_path.name}")
+
+    pc_pass = sum(1 for r in rows if r["positive_control_ok"])
+    manifest = {
+        "schema_version":   1,
+        "run_tag":          run_tag,
+        "result_file":      out_path.name,
+        "n_rows":           len(rows),
+        "platform":         PLATFORM,
+        "hardware_config":  HW_CONFIG,
+        "memory_architecture": MEM_ARCH,
+        "server": {
+            "build_id":        build_id,
+            "ctx_size":        N_CTX_SLOT,
+            "n_parallel":      1,
+            "port":            8383,
+            "reasoning_flags": "none",
+        },
+        "model": {
+            "alias":       "qwen3:4b-instruct",
+            "gguf_sha256": "85e4a5b7b8ef0e48af0e8658f5aaab9c2324c76c1641493f4d1e25fce54b18b9",
+        },
+        "generation": {
+            "max_tokens":                  MAX_TOKENS,
+            "temperature":                 TEMPERATURE,
+            "cache_prompt":                False,
+            "stream_options_include_usage": True,
+        },
+        "filler": {
+            "target_tokens": FILLER_TARGET,
+            "actual_tokens": filler_tokens,
+            "seed":          FILLER_SEED,
+            "variant":       "F-NUM",
+            "count_fn":      "llamaserver_tokenize",
+        },
+        "truncation": {
+            "method":                    "left_char",
+            "chars_per_token_heuristic": 5.03,
+        },
+        "n_prompt_tokens_source": "llamaserver_tokenize",
+        "sweep": {
+            "n_probes":       len(probe_subset),
+            "n_budget_ratios": len(ratio_list),
+            "budget_ratios":  ratio_list,
+            "n_arms":         2,
+            "n_reps":         n_reps,
+            "total_calls":    total,
+        },
+        "positive_control": {
+            "tolerance_pct": 5.0,
+            "n_pass":        pc_pass,
+            "n_fail":        len(rows) - pc_pass,
+            "pass_rate_pct": round(pc_pass / len(rows) * 100, 1) if rows else 0,
+        },
+    }
+    manifest_path = out_path.with_name(out_path.name.replace("_full_", "_manifest_")
+                                                      .replace("_smoke_", "_manifest_")
+                                                      .replace("_gate_", "_manifest_")
+                                                      .replace(".jsonl", ".json"))
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    print(f"Wrote manifest -> {manifest_path.name}")
     return rows, out_path
 
 

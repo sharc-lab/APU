@@ -1,0 +1,152 @@
+{
+  "schema_version": 1,
+  "run_tag": "stagec_full_20260922T203557Z",
+  "result_file": "fig61_stagec_full_20260922T203557Z.jsonl",
+  "validity_notes": "FULLY VALID. Scores match 191031Z cell-for-cell (0 differences). cache_prompt=false verified (7640ms vs 5846ms at startup, ratio=1.3x). PC: 387/396 pass; 9 marginal failures at r=0.40 LATE sea probes (5.0-5.3%).",
+  "n_rows": 396,
+  "platform": "evo-t2s",
+  "hardware_config": "evox2_evo-t2s",
+  "memory_architecture": "unified",
+  "server": {
+    "binary": "C:\\apu\\bin\\llama-b10970\\llama-server.exe",
+    "build_id": "b10970-bfdc32183",
+    "ctx_size": 8192,
+    "n_parallel": 1,
+    "port": 8383,
+    "reasoning_flags": "none"
+  },
+  "model": {
+    "alias": "qwen3:4b-instruct",
+    "gguf_path": "C:\\apu\\models\\qwen3-4b-instruct-85e4a5b7.gguf",
+    "gguf_sha256": "85e4a5b7b8ef0e48af0e8658f5aaab9c2324c76c1641493f4d1e25fce54b18b9"
+  },
+  "generation": {
+    "max_tokens": 128,
+    "temperature": 0,
+    "cache_prompt": false,
+    "stream_options_include_usage": true
+  },
+  "filler": {
+    "target_tokens": 4000,
+    "actual_tokens": 3997,
+    "seed": 42,
+    "variant": "F-NUM",
+    "count_fn": "llamaserver_tokenize"
+  },
+  "truncation": {
+    "method": "left_char",
+    "chars_per_token_heuristic": 5.03
+  },
+  "n_prompt_tokens_source": "llamaserver_tokenize",
+  "sweep": {
+    "n_probes": 11,
+    "n_budget_ratios": 6,
+    "budget_ratios": [
+      1.2,
+      1.0,
+      0.85,
+      0.7,
+      0.55,
+      0.4
+    ],
+    "n_arms": 2,
+    "n_reps": 3,
+    "total_calls": 396
+  },
+  "quality_gate": {
+    "gate_file": "fig61_stagec_gate_20260922T190239Z.jsonl",
+    "reference_file": "stage_c_20260818T040408Z.jsonl",
+    "n_cells_checked": 22,
+    "n_cells_disagree": 1,
+    "disagreements": [
+      {
+        "probe_id": "sea_01",
+        "arm": "LATE",
+        "stage_c_mean": 0.0,
+        "evo_t2s": 1.0,
+        "output": "A9"
+      }
+    ]
+  },
+  "positive_control": {
+    "tolerance_pct": 5.0,
+    "n_pass": 387,
+    "n_fail": 9,
+    "pass_rate_pct": 97.7,
+    "failures": [
+      {
+        "probe_id": "sea_01",
+        "arm": "LATE",
+        "budget_ratio": 0.4,
+        "actual": 1804,
+        "intended": 1713,
+        "err_pct": 5.3
+      },
+      {
+        "probe_id": "sea_01",
+        "arm": "LATE",
+        "budget_ratio": 0.4,
+        "actual": 1804,
+        "intended": 1713,
+        "err_pct": 5.3
+      },
+      {
+        "probe_id": "sea_01",
+        "arm": "LATE",
+        "budget_ratio": 0.4,
+        "actual": 1804,
+        "intended": 1713,
+        "err_pct": 5.3
+      },
+      {
+        "probe_id": "sea_05",
+        "arm": "LATE",
+        "budget_ratio": 0.4,
+        "actual": 1807,
+        "intended": 1718,
+        "err_pct": 5.2
+      },
+      {
+        "probe_id": "sea_05",
+        "arm": "LATE",
+        "budget_ratio": 0.4,
+        "actual": 1807,
+        "intended": 1718,
+        "err_pct": 5.2
+      },
+      {
+        "probe_id": "sea_05",
+        "arm": "LATE",
+        "budget_ratio": 0.4,
+        "actual": 1807,
+        "intended": 1718,
+        "err_pct": 5.2
+      },
+      {
+        "probe_id": "sea_06",
+        "arm": "LATE",
+        "budget_ratio": 0.4,
+        "actual": 1802,
+        "intended": 1716,
+        "err_pct": 5.0
+      },
+      {
+        "probe_id": "sea_06",
+        "arm": "LATE",
+        "budget_ratio": 0.4,
+        "actual": 1802,
+        "intended": 1716,
+        "err_pct": 5.0
+      },
+      {
+        "probe_id": "sea_06",
+        "arm": "LATE",
+        "budget_ratio": 0.4,
+        "actual": 1802,
+        "intended": 1716,
+        "err_pct": 5.0
+      }
+    ],
+    "note": "9 failures at r=0.40 LATE sea probes: char-truncation rounding over-delivers 5.0-5.3% tokens. Conservative (more context than intended). See THREATS.md section 20."
+  }
+}
