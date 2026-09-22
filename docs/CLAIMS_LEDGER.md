@@ -162,6 +162,13 @@ it; the EARLY arm loses its artifact first.
   (wrong), Vulkan outputs "A9" (correct). Both Blade runs (Ollama and CUDA llama-server)
   agree on "C8". This is backend numerical sensitivity on one borderline probe; 130/132
   cells match. The disagreement does not affect the position-pressure claim.
+- **Harness change confirmed neutral:** The Blade CUDA gate (`fig61_stagec_gate_20260922T230052Z.jsonl`)
+  compared llama-server CUDA b10970 against `stage_c_20260818T040408Z.jsonl` (Ollama) on
+  the same hardware (Blade 14, RTX 4070) and found **0/22 disagreements**. This confirms
+  that the switch from Ollama to llama-server introduced no score change on the Blade.
+  The evo-t2s vs. Blade score differences (1 cell: sea_01 LATE) can therefore be
+  attributed to architecture (discrete CUDA vs. unified Vulkan), not to harness or
+  runtime changes.
 - **Status: OFF-TARGET-ONLY** — three-architecture replication complete (blade Ollama,
   blade CUDA, evo-t2s Vulkan); Strix Halo EVO-X2 run required for submission.
 

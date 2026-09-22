@@ -373,21 +373,28 @@ This file seeds Section 6 of the paper and tracks planned mitigations.
   low budget ratios the tail of the LATE-arm prompt after truncation contains proportionally
   more artifact and question tokens, which are denser than the dropped filler prefix.
   This causes the delivered token count to exceed the intended budget.
-- **Observed:** In `fig61_stagec_full_20260922T203557Z.jsonl`, 9 of 396 rows fail the 5%
-  positive-control tolerance: all at `r=0.40`, all LATE arm, all search (sea) probes
-  (sea_01, sea_05, sea_06), over-delivering by 5.0–5.3% (~89 tokens over target of ~1716).
-  RAG probes and higher ratios pass, consistent with filler comprising a smaller fraction
-  of remaining context at those ratios.
+- **Observed:** Exactly 9 of 396 rows fail the 5% positive-control tolerance in both
+  the evo-t2s run (`fig61_stagec_full_20260922T203557Z.jsonl`) and the Blade CUDA
+  replication (`fig61_stagec_full_20260922T230133Z.jsonl`): all at `r=0.40`, all LATE
+  arm, the same three search probes (sea_01, sea_05, sea_06), over-delivering by
+  5.0–5.3% (~89 tokens over target of ~1716) on both machines. The identical failure
+  set across two different architectures (Vulkan unified memory vs. CUDA discrete)
+  confirms this is **deterministic and method-intrinsic**: it arises from the
+  char-truncation heuristic applied to these specific probes at this ratio, not from
+  any machine-specific behaviour.
 - **Directionality:** Conservative — the model receives slightly more context than the
   nominal budget, so any observed score degradation at low ratios is not an artefact of
   under-delivering context.
 - **Both arms carry this bias equally:** Stage C on the Blade used the same char-based
-  truncation with the same heuristic. The evo-t2s replication used the same `context.py`
-  `build_filler` and `left_truncate` methods. Cross-run score comparisons are therefore
-  not confounded by this bias.
-- **Planned fix:** Replace char-based truncation with token-accurate truncation via a
-  `/tokenize` call per prompt in a future run. This was not done in stage C or the
-  evo-t2s replication to preserve comparability.
+  truncation with the same heuristic. All three runs (stage_c, 203557Z, 230133Z) used
+  the same `context.py` `build_filler` and `left_truncate` methods. Cross-run score
+  comparisons are not confounded by this bias.
+- **Fix committed:** `fig61_stagec_sweep.py` now supports `--tok-trunc`, which uses
+  `/tokenize` binary search to find the exact token-level cut point (function
+  `left_truncate_tokens`). The char-based path remains the default to preserve
+  comparability with prior runs. A validation arm at 396 rows (`fig61_toktrunc_full_*`)
+  will empirically measure whether the 9 marginal failures disappear and whether scores
+  change for any cell.
 
 ## 18. Ollama Version Change — 0.32.9 → 0.34.0
 
@@ -408,3 +415,31 @@ This file seeds Section 6 of the paper and tracks planned mitigations.
   0.32.9 results without explicitly recording both versions and noting that version
   parity has not been established. Tag every result row with the Ollama version as
   measured at run time (e.g. `ollama --version` output), not assumed from install history.
+
+## 21. CUDA/Vulkan Numerical Divergence — sea_01 LATE at Full Context
+
+- **Threat:** The CUDA and Vulkan backends of llama-server b10970 (build bfdc32183)
+  produce different outputs for probe `sea_01` at the LATE arm when the full prompt is
+  delivered (budget_ratio >= 1.00). Both runs use the same GGUF checkpoint
+  (sha256: `85e4a5b7...b18b9`, 2,497,280,480 bytes) and identical inference parameters
+  (temperature=0, max_tokens=128, cache_prompt=false).
+- **Observed:** In all 3 reps at r=1.0 and r=1.2 (6 rows total):
+  - Blade/CUDA (`fig61_stagec_full_20260922T230133Z.jsonl`): outputs "C8" (wrong; expected "A9")
+  - evo-t2s/Vulkan (`fig61_stagec_full_20260922T203557Z.jsonl`): outputs "A9" (correct)
+  The divergence is **deterministic across 3 reps on both backends** — it is not
+  stochastic jitter, it is a stable output difference between the two compute paths.
+- **Corroboration:** The original Stage C Blade/Ollama run
+  (`stage_c_20260818T040408Z.jsonl`) also scores sea_01 LATE at r=1.2 as 0.0,
+  consistent with the CUDA result. Two independent Blade runs (Ollama CUDA and
+  llama-server CUDA) agree; the Vulkan backend differs.
+- **Scope:** 2 of 132 scored cells (r=1.0 and r=1.2, LATE arm only). The EARLY arm
+  and all truncating ratios (r<1.0) agree across backends. The position-pressure
+  effect (LATE > EARLY at r<1 for artifact-intact probes) holds in 130/132 cells.
+- **Cause (inferred):** Floating-point accumulation order differs between CUDA matmul
+  kernels and Vulkan compute shaders, producing different logit rankings for the next
+  token at the specific attention pattern produced by this probe's full-context prompt.
+  At truncated context the prompt structure changes enough that both backends converge.
+- **Rule:** Cross-backend comparisons of individual probe scores MUST note that
+  backend numerical sensitivity can change a 0/1 score on borderline probes.
+  Do not cite sea_01 LATE absolute scores as a cross-backend reproducibility claim.
+  The aggregate position-pressure result is unaffected.

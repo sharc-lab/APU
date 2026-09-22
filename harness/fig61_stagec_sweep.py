@@ -98,6 +98,26 @@ def left_truncate(prompt: str, full_tokens: int, target_tokens: int) -> str:
     return prompt[len(prompt) - chars_to_keep:]
 
 
+def left_truncate_tokens(prompt: str, target_tokens: int) -> str:
+    """Token-accurate left truncation via /tokenize binary search.
+
+    Finds the largest suffix of `prompt` whose token count is <= target_tokens.
+    Takes O(log len(prompt)) /tokenize calls.
+    """
+    if _tokenize(prompt) <= target_tokens:
+        return prompt
+    # Binary search: find smallest start index s.t. _tokenize(prompt[s:]) <= target_tokens.
+    # At s=len(prompt), token count=0 <= target (guaranteed solution).
+    lo, hi = 0, len(prompt)
+    while lo < hi:
+        mid = (lo + hi) // 2
+        if _tokenize(prompt[mid:]) <= target_tokens:
+            hi = mid   # suffix starting at mid is short enough; try smaller start
+        else:
+            lo = mid + 1  # still too many tokens; need larger start
+    return prompt[lo:]
+
+
 def _chat_streaming(prompt: str) -> tuple[str, float, float, int, int, str | None]:
     """POST to /v1/chat/completions with stream=True, cache disabled.
 
@@ -195,7 +215,7 @@ def _load_scorers():
 
 # ── main ──────────────────────────────────────────────────────────────────────
 
-def main(smoke: bool = False, gate: bool = False, blade: bool = False):
+def main(smoke: bool = False, gate: bool = False, blade: bool = False, tok_trunc: bool = False):
     hostname = socket.gethostname().upper()
     if blade:
         platform     = "blade_rtx4070"
@@ -247,26 +267,34 @@ def main(smoke: bool = False, gate: bool = False, blade: bool = False):
     _verify_cache_disabled(_sample_prompt)
     print()
 
+    trunc_tag = "toktrunc" if tok_trunc else "stagec"
+    trunc_method_label = "left_tokens" if tok_trunc else "left_char"
+    if tok_trunc:
+        print(f"TRUNCATION: token-accurate (left_truncate_tokens via /tokenize binary search)")
+    else:
+        print(f"TRUNCATION: char-based (left_truncate, 5.03 chars/token heuristic)")
+    print()
+
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     if smoke:
-        out_path     = RESULTS_DIR / f"fig61_stagec_smoke_{ts}.jsonl"
-        run_tag      = f"stagec_smoke_{ts}"
+        out_path     = RESULTS_DIR / f"fig61_{trunc_tag}_smoke_{ts}.jsonl"
+        run_tag      = f"{trunc_tag}_smoke_{ts}"
         probe_subset = [probes[0]]
         ratio_list   = BUDGET_RATIOS
         n_reps       = 1
         total        = len(ratio_list) * 2 * n_reps
         print(f"SMOKE TEST: 1 probe × {len(ratio_list)} ratios × 2 arms × 1 rep = {total} calls")
     elif gate:
-        out_path     = RESULTS_DIR / f"fig61_stagec_gate_{ts}.jsonl"
-        run_tag      = f"stagec_gate_{ts}"
+        out_path     = RESULTS_DIR / f"fig61_{trunc_tag}_gate_{ts}.jsonl"
+        run_tag      = f"{trunc_tag}_gate_{ts}"
         probe_subset = probes
         ratio_list   = [1.20]
         n_reps       = 1
         total        = len(probe_subset) * 2 * n_reps
         print(f"BASELINE GATE: {len(probe_subset)} probes × 1 ratio × 2 arms × 1 rep = {total} calls")
     else:
-        out_path     = RESULTS_DIR / f"fig61_stagec_full_{ts}.jsonl"
-        run_tag      = f"stagec_full_{ts}"
+        out_path     = RESULTS_DIR / f"fig61_{trunc_tag}_full_{ts}.jsonl"
+        run_tag      = f"{trunc_tag}_full_{ts}"
         probe_subset = probes
         ratio_list   = BUDGET_RATIOS
         n_reps       = N_REPS
@@ -311,7 +339,10 @@ def main(smoke: bool = False, gate: bool = False, blade: bool = False):
 
                         full_prompt = build_arm_prompt(arm, filler, artifact, question)
                         if truncating:
-                            prompt        = left_truncate(full_prompt, full_tokens, target_tokens)
+                            if tok_trunc:
+                                prompt = left_truncate_tokens(full_prompt, target_tokens)
+                            else:
+                                prompt = left_truncate(full_prompt, full_tokens, target_tokens)
                             chars_dropped = len(full_prompt) - len(prompt)
                         else:
                             prompt        = full_prompt
@@ -373,7 +404,7 @@ def main(smoke: bool = False, gate: bool = False, blade: bool = False):
                             "full_tokens":                full_tokens,
                             "filler_tokens":              filler_tokens,
                             "truncating":                 truncating,
-                            "truncation_method":          "left_char" if truncating else "none",
+                            "truncation_method":          trunc_method_label if truncating else "none",
                             "chars_dropped":              chars_dropped,
                             "artifact_fraction_retained": round(art_frac, 4),
                             "score":                      score,
@@ -445,8 +476,9 @@ def main(smoke: bool = False, gate: bool = False, blade: bool = False):
             "count_fn":      "llamaserver_tokenize",
         },
         "truncation": {
-            "method":                    "left_char",
-            "chars_per_token_heuristic": 5.03,
+            "method":                    trunc_method_label,
+            "chars_per_token_heuristic": 5.03 if not tok_trunc else None,
+            "tok_trunc_via":             "/tokenize binary search" if tok_trunc else None,
         },
         "n_prompt_tokens_source": "llamaserver_tokenize",
         "sweep": {
@@ -514,12 +546,16 @@ if __name__ == "__main__":
     ap.add_argument("--blade", action="store_true",
                     help="Run on Razer Blade 14 (RTX 4070, CUDA). "
                          "Skips EVO-T2S hostname check and sets blade_rtx4070 metadata.")
+    ap.add_argument("--tok-trunc", action="store_true",
+                    help="Token-accurate truncation: use /tokenize binary search to find "
+                         "exact suffix <= target_tokens instead of char-based heuristic. "
+                         "Outputs to fig61_toktrunc_* files.")
     args = ap.parse_args()
 
     STAGE_C = RESULTS_DIR / "stage_c_20260818T040408Z.jsonl"
 
     if args.smoke:
-        smoke_rows, _ = main(smoke=True, blade=args.blade)
+        smoke_rows, _ = main(smoke=True, blade=args.blade, tok_trunc=args.tok_trunc)
         pc_fails      = [r for r in smoke_rows if not r["positive_control_ok"]]
         print(f"\nSMOKE: PC failures={len(pc_fails)}")
         for r in pc_fails:
@@ -529,7 +565,7 @@ if __name__ == "__main__":
         print(f"SMOKE {'PASS' if not pc_fails else 'FAIL'}")
 
     elif args.gate:
-        gate_rows, _      = main(gate=True, blade=args.blade)
+        gate_rows, _      = main(gate=True, blade=args.blade, tok_trunc=args.tok_trunc)
         n_disagree, diffs = run_gate_check(gate_rows, STAGE_C)
         print(f"\nGATE: {n_disagree}/22 cells disagree with stage C at ratio=1.20")
         for d in diffs:
@@ -543,5 +579,5 @@ if __name__ == "__main__":
             print(f"GATE PASS ({n_disagree} <= 4). Run full sweep.")
 
     elif args.full:
-        rows, path = main(blade=args.blade)
+        rows, path = main(blade=args.blade, tok_trunc=args.tok_trunc)
         print(f"Full sweep: {len(rows)} rows -> {path.name}")
