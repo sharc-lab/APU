@@ -308,6 +308,87 @@ This file seeds Section 6 of the paper and tracks planned mitigations.
   equivalent), any cross-path comparison MUST carry a footnote citing this threat.
   The footnote must not assert the difference is harmless.
 
+## 19. Fig 6.1 Model and Inference-Mode Confound — Stage C vs evo-t2s Run
+
+### 19a. Different checkpoint: qwen3:4b-instruct vs Qwen3-4B hybrid
+
+- Threat: Stage C (`stage_c_20260818T040408Z.jsonl`, 396 rows, blade_rtx4070) used Ollama `qwen3:4b-instruct`
+  (blob sha256:85e4a5b7b8ef0e48af0e8658f5aaab9c2324c76c1641493f4d1e25fce54b19b9, Ollama template has no
+  `<think>` block — a dedicated non-reasoning instruct model).
+  The evo-t2s Fig 6.1 sweep (`fig61_full_20260922T060942Z.jsonl`, 180 rows) used
+  `Qwen3-4B-Q4_K_M.gguf` (filename has no `-Instruct` suffix — the hybrid reasoning model)
+  via llama-server b10970 with `--reasoning-budget 0 --reasoning-format deepseek`.
+  Evidence: every EARLY arm output in the Fig 6.1 run begins with `</think>\n\n`
+  (the closing tag bleeds through even when `--reasoning-budget 0` suppresses thinking content),
+  confirming the GGUF is the hybrid model. Stage C outputs for the same prompts are
+  direct single tokens with no thinking artefact ("0.15", "A9").
+
+- Impact: The two runs cannot be compared as replications. They differ in
+  (a) checkpoint weights (qwen3:4b-instruct ≠ Qwen3-4B base), (b) inference mode
+  (Ollama default temperature vs llama-server temperature=0), and (c) CoT suppression
+  mechanism (none in Stage C vs `--reasoning-budget 0` in Fig 6.1). Any claim of the form
+  "evo-t2s agrees with / differs from Stage C (Blade 14)" is comparing across two confounds
+  simultaneously and is uninterpretable.
+
+- Rule: Cross-platform comparisons between Stage C Blade data and evo-t2s Fig 6.1 data
+  MUST NOT be made until a replication run exists on evo-t2s using the same checkpoint
+  family (qwen3:4b-instruct or qwen3:4b with matched inference mode) as Stage C.
+
+### 19b. max_tokens=128 output budget — LATE RAG scores are not position measurements
+
+- Threat: The Fig 6.1 sweep set `max_tokens=128`. LATE arm RAG probes (rag_01, rag_02, rag_05)
+  receive a full ~4000-token filler block followed by the artifact and question.
+  The hybrid model with `--reasoning-budget 0` externalizes its suppressed reasoning as visible
+  prose in the output ("Okay, let's see. The question is asking about…") and exhausts the
+  128-token budget before emitting an answer. All LATE RAG rows at all budget_ratios
+  including 1.20 (no truncation) have `finish_reason: "length"` and `tokens_out: 128`.
+  Scorer takes the last non-empty line of the truncated prose, which is not the answer.
+
+- Evidence that this is output-budget exhaustion, not a position effect: rag_02 LATE at
+  ratio=0.55 scores 1.0 — a truncating condition where a shorter input prompt allows the
+  model to reach the answer within 128 tokens. Score=0.0 at ratio=1.00 and score=1.0 at
+  ratio=0.55 for the same arm on the same probe is non-monotonic and physically inconsistent
+  with a position-pressure explanation; it is explained by the output budget decreasing with
+  prompt length.
+
+- Impact: The RAG LATE column in the Fig 6.1 run is not a measurement of position-driven
+  quality degradation. LATE RAG scores=0.0 at ratios 1.20 and 1.00 should not be cited as
+  evidence that LATE arm fails on RAG probes. The run does not establish whether the LATE
+  arm would fail or succeed on RAG probes with adequate output budget.
+
+- Rule: Do not use Fig 6.1 LATE RAG scores from `fig61_full_20260922T060942Z.jsonl`
+  as a position-effect measurement for RAG probes. Rerun with max_tokens ≥ 512
+  (or ideally uncapped) before drawing conclusions. In any figure or table citing
+  this run, annotate all LATE RAG cells as "invalid — output budget exhaustion (128 tok)".
+
+- Affected rows: all rag_01, rag_02, rag_05 LATE rows (54 of 180 rows total).
+  EARLY RAG rows are not affected (finish_reason="stop", tokens_out=8-17 for most).
+  Note: rag_05 EARLY also fails at all ratios (finish_reason="length"), same mechanism.
+
+## 20. Char-Truncation Bias at Low Budget Ratios
+
+- **Threat:** The harness truncates prompts by character count using a fixed heuristic of
+  5.03 chars/token (from `context.py`). The actual chars/token ratio varies with content:
+  filler (sequential integers) is token-dense; artifact and question text is less so. At
+  low budget ratios the tail of the LATE-arm prompt after truncation contains proportionally
+  more artifact and question tokens, which are denser than the dropped filler prefix.
+  This causes the delivered token count to exceed the intended budget.
+- **Observed:** In `fig61_stagec_full_20260922T203557Z.jsonl`, 9 of 396 rows fail the 5%
+  positive-control tolerance: all at `r=0.40`, all LATE arm, all search (sea) probes
+  (sea_01, sea_05, sea_06), over-delivering by 5.0–5.3% (~89 tokens over target of ~1716).
+  RAG probes and higher ratios pass, consistent with filler comprising a smaller fraction
+  of remaining context at those ratios.
+- **Directionality:** Conservative — the model receives slightly more context than the
+  nominal budget, so any observed score degradation at low ratios is not an artefact of
+  under-delivering context.
+- **Both arms carry this bias equally:** Stage C on the Blade used the same char-based
+  truncation with the same heuristic. The evo-t2s replication used the same `context.py`
+  `build_filler` and `left_truncate` methods. Cross-run score comparisons are therefore
+  not confounded by this bias.
+- **Planned fix:** Replace char-based truncation with token-accurate truncation via a
+  `/tokenize` call per prompt in a future run. This was not done in stage C or the
+  evo-t2s replication to preserve comparability.
+
 ## 18. Ollama Version Change — 0.32.9 → 0.34.0
 
 - Threat: All KV-measurement and position-pressure results cited in `KV_MEASUREMENT.md`

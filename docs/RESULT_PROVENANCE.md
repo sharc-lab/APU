@@ -44,6 +44,9 @@ or `hardware_config: blade_rtx4070`.
 | `results/gate1_kv_precision.json` | blade_rtx4070 (explicit in data) | **NO** | Fig 4.11 (SUPPORTING) — KV precision gate | **Yes — must re-run via llama-server directly** (Ollama path cannot set KV precision; see note below) |
 | `results/llamaserver_feasibility.json` | blade14_rtx4070 (explicit) | **NO** | Reference/validation; no direct figure | No |
 | `results/stage_a_scale.json` | blade_rtx4070, discrete (inferred) | **NO** | Fig 4.14 (APPENDIX) — scale experiment | No (appendix; uses cloud model gpt-oss:120b) |
+| `results/fig61_full_20260922T060942Z.jsonl` | evo-t2s (evox2_evo-t2s, Intel Arrow Lake, Vulkan, unified LPDDR5X) | **NO** | **DIAGNOSTIC ONLY — DO NOT CITE** | Yes — model confound (hybrid Qwen3-4B-Q4_K_M.gguf used instead of qwen3:4b-instruct); output budget confound (max_tokens=128, all LATE RAG rows finish_reason=length); TTFT absent (non-streaming). See THREATS.md §19. Replaced by `fig61_stagec_full_20260922T191031Z.jsonl`. |
+| `results/fig61_stagec_full_20260922T191031Z.jsonl` | evo-t2s (Intel Arrow Lake, Vulkan b10970-bfdc32183, unified LPDDR5X) | **NO** | Fig 6.1 position-pressure sweep — **SCORES VALID, TIMING INVALID, PC UNVERIFIED** | **Do not cite TTFT or latency from this file.** Two defects: (1) prefix KV cache was NOT disabled — rep 0 ttft≈5177ms, rep 1 ttft≈75ms on identical prompt (70x spread is cache state, not prompt variation); (2) n_prompt_tokens_actual=0 for all 396 rows (streaming returned no usage; direct /tokenize measurement not used). Scores are valid: correct checkpoint, correct scorer, correct truncation. Superseded by `fig61_stagec_full_20260922T203557Z.jsonl`. |
+| `results/fig61_stagec_full_20260922T203557Z.jsonl` | evo-t2s (Intel Arrow Lake, Vulkan b10970-bfdc32183, unified LPDDR5X) | **NO** | Fig 6.1 position-pressure sweep — **VALID** | Scores match 191031Z cell-for-cell (0 differences). cache_prompt=false verified (7640ms vs 5846ms, ratio=1.3x at startup). n_prompt_tokens_actual from /tokenize on truncated prompt string. stream_options honored: tokens_in_api populated for 396/396 rows (gap=+8 tokens, chat template). PC: 387/396 pass; 9 failures at r=0.40 LATE for sea_01/sea_05/sea_06 (5.0–5.3% over threshold, char-truncation rounding, conservative — delivers slightly more context than intended). TTFT scales linearly with budget_ratio, LATE≈EARLY within 3% at each ratio. Wall clock: 37.5 min inference. |
 
 **"Inferred"** = no explicit `hardware` field in JSON; inferred from commit date,
 model name (`qwen3:4b-instruct` + Ollama), and the Blade 14 being the only
@@ -89,6 +92,48 @@ Strix Halo EVO-X2 with a unified-memory-compatible measurement method.
 **Reproducibility:** `harness/stage_a_kv_precision.py` is now fully portable
 (OLLAMA_BIN / PATH resolution; platform-aware kill, log path, GPU query).
 Run on EVO-X2 after verifying `scripts/verify_platform.py` passes.
+
+---
+
+## Rep determinism note (applies to all fig61_stagec_* files and stage_c_20260818T040408Z.jsonl)
+
+At temperature=0 with an identical prompt, reps are near-deterministic. Per-cell variance
+across reps (N=3) is not a meaningful error estimate — the three values are produced by the
+same deterministic path. This matches stage C behavior. Reps exist to detect non-determinism
+(e.g., sampling glitches) and to confirm stability, not to provide a variance estimate.
+
+---
+
+## fig61_full_20260922T060942Z.jsonl — Diagnostic run note
+
+**Produced on:** evo-t2s (Intel Arrow Lake, Vulkan build b10970, unified LPDDR5X).
+**Date:** 2026-09-22.
+
+**Status: DIAGNOSTIC ONLY. Do not cite in paper. Do not pool with stage C.**
+
+Two confounds make this run non-comparable to stage C (`stage_c_20260818T040408Z.jsonl`):
+
+1. **Model confound (THREATS.md §19a):** The run used `Qwen3-4B-Q4_K_M.gguf`
+   (hybrid thinking model, `--reasoning-budget 0 --reasoning-format deepseek`).
+   Stage C used `qwen3:4b-instruct` (Ollama, sha256:85e4a5b7..., instruct-tuned,
+   no thinking capability). These are different checkpoints with different output
+   behavior (EARLY outputs begin `</think>\n\n`; LATE RAG outputs are verbose).
+
+2. **Output budget confound (THREATS.md §19b):** `max_tokens=128` was used
+   (correct, matching stage C), but the hybrid model produces longer reasoning
+   outputs, causing all LATE RAG rows to hit `finish_reason: length` before
+   the answer is reached. Score=0.0 at non-truncating ratios for these rows
+   is an output budget artifact, not a position effect.
+
+**Affected rows:** All 54 rag_01/rag_02/rag_05 LATE rows. All rag_02 LATE rows
+show non-monotonic scores (score=0.0 at r=1.20, score=1.0 at r=0.55) —
+this is output budget artifact, not a real position signal.
+
+**Valid rows:** EARLY RAG rows and all SEA rows are usable for internal
+comparison purposes, but cannot be compared to stage C (different checkpoint).
+
+**Required fix:** Re-run with `qwen3-4b-instruct-85e4a5b7.gguf` (no reasoning
+flags), streaming (for TTFT), matched stage C generation params.
 
 ---
 
