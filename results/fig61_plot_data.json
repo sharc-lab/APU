@@ -1,0 +1,495 @@
+{
+  "source_file": "fig61_full_20260922T060942Z.jsonl",
+  "run_ts": "20260922T060942Z",
+  "n_rows": 180,
+  "n_probes": 5,
+  "probe_ids": [
+    "rag_01",
+    "rag_02",
+    "rag_05",
+    "sea_01",
+    "sea_04"
+  ],
+  "budget_ratios": [
+    1.2,
+    1.0,
+    0.85,
+    0.7,
+    0.55,
+    0.4
+  ],
+  "arms": [
+    "LATE",
+    "EARLY"
+  ],
+  "reps": 3,
+  "hardware": "evo-t2s / Intel Arrow Lake / unified LPDDR5X 64 GB / NOT the Strix Halo BOM target",
+  "platform": "evo-t2s",
+  "backend": "llama-server b10970 Vulkan",
+  "model": "Qwen3-4B-Q4_K_M.gguf",
+  "n_ctx_slot": 8192,
+  "filler_tokens": 3997,
+  "count_method": "llamaserver_tokenize",
+  "reasoning_budget": 0,
+  "positive_control": {
+    "ok": 174,
+    "total": 180,
+    "failures": [
+      {
+        "probe_id": "sea_01",
+        "arm": "LATE",
+        "budget_ratio": 0.4,
+        "rep": 0,
+        "intended": 1713,
+        "actual": 1812
+      },
+      {
+        "probe_id": "sea_01",
+        "arm": "LATE",
+        "budget_ratio": 0.4,
+        "rep": 1,
+        "intended": 1713,
+        "actual": 1812
+      },
+      {
+        "probe_id": "sea_01",
+        "arm": "LATE",
+        "budget_ratio": 0.4,
+        "rep": 2,
+        "intended": 1713,
+        "actual": 1812
+      },
+      {
+        "probe_id": "sea_04",
+        "arm": "LATE",
+        "budget_ratio": 0.4,
+        "rep": 0,
+        "intended": 1714,
+        "actual": 1806
+      },
+      {
+        "probe_id": "sea_04",
+        "arm": "LATE",
+        "budget_ratio": 0.4,
+        "rep": 1,
+        "intended": 1714,
+        "actual": 1806
+      },
+      {
+        "probe_id": "sea_04",
+        "arm": "LATE",
+        "budget_ratio": 0.4,
+        "rep": 2,
+        "intended": 1714,
+        "actual": 1806
+      }
+    ]
+  },
+  "note_late_arm": "LATE = [filler][artifact][question]; artifact is at END of prompt after 4000-token filler",
+  "note_early_arm": "EARLY = [artifact][filler][question]; artifact is at START of prompt",
+  "note_signal": "LATE outperforms EARLY aggregated (search probes drive this: records adjacent to question at end). RAG probes: LATE fails at all ratios (artifact buried at position ~4000 not attended to without CoT). Search probes: LATE=1.0 at ratios 0.85-0.55 (records near question), EARLY collapses at first truncating ratio. Both categories collapse to 0 when artifact is removed by truncation. Effect is probe-category dependent: position-near-question beats position-at-start for search; position-at-start may beat burial for RAG when CoT is disabled.",
+  "aggregated_all": {
+    "1.20_LATE": {
+      "mean": 0.4,
+      "n": 15
+    },
+    "1.20_EARLY": {
+      "mean": 0.3,
+      "n": 15
+    },
+    "1.00_LATE": {
+      "mean": 0.4,
+      "n": 15
+    },
+    "1.00_EARLY": {
+      "mean": 0.3,
+      "n": 15
+    },
+    "0.85_LATE": {
+      "mean": 0.5,
+      "n": 15
+    },
+    "0.85_EARLY": {
+      "mean": 0.0,
+      "n": 15
+    },
+    "0.70_LATE": {
+      "mean": 0.4,
+      "n": 15
+    },
+    "0.70_EARLY": {
+      "mean": 0.0,
+      "n": 15
+    },
+    "0.55_LATE": {
+      "mean": 0.6,
+      "n": 15
+    },
+    "0.55_EARLY": {
+      "mean": 0.0,
+      "n": 15
+    },
+    "0.40_LATE": {
+      "mean": 0.2,
+      "n": 15
+    },
+    "0.40_EARLY": {
+      "mean": 0.0,
+      "n": 15
+    }
+  },
+  "aggregated_by_category": {
+    "rag": {
+      "1.20_LATE": {
+        "mean": 0.0,
+        "n": 9
+      },
+      "1.20_EARLY": {
+        "mean": 0.5,
+        "n": 9
+      },
+      "1.00_LATE": {
+        "mean": 0.0,
+        "n": 9
+      },
+      "1.00_EARLY": {
+        "mean": 0.5,
+        "n": 9
+      },
+      "0.85_LATE": {
+        "mean": 0.1667,
+        "n": 9
+      },
+      "0.85_EARLY": {
+        "mean": 0.0,
+        "n": 9
+      },
+      "0.70_LATE": {
+        "mean": 0.0,
+        "n": 9
+      },
+      "0.70_EARLY": {
+        "mean": 0.0,
+        "n": 9
+      },
+      "0.55_LATE": {
+        "mean": 0.3333,
+        "n": 9
+      },
+      "0.55_EARLY": {
+        "mean": 0.0,
+        "n": 9
+      },
+      "0.40_LATE": {
+        "mean": 0.0,
+        "n": 9
+      },
+      "0.40_EARLY": {
+        "mean": 0.0,
+        "n": 9
+      }
+    },
+    "search": {
+      "1.20_LATE": {
+        "mean": 1.0,
+        "n": 6
+      },
+      "1.20_EARLY": {
+        "mean": 0.0,
+        "n": 6
+      },
+      "1.00_LATE": {
+        "mean": 1.0,
+        "n": 6
+      },
+      "1.00_EARLY": {
+        "mean": 0.0,
+        "n": 6
+      },
+      "0.85_LATE": {
+        "mean": 1.0,
+        "n": 6
+      },
+      "0.85_EARLY": {
+        "mean": 0.0,
+        "n": 6
+      },
+      "0.70_LATE": {
+        "mean": 1.0,
+        "n": 6
+      },
+      "0.70_EARLY": {
+        "mean": 0.0,
+        "n": 6
+      },
+      "0.55_LATE": {
+        "mean": 1.0,
+        "n": 6
+      },
+      "0.55_EARLY": {
+        "mean": 0.0,
+        "n": 6
+      },
+      "0.40_LATE": {
+        "mean": 0.5,
+        "n": 6
+      },
+      "0.40_EARLY": {
+        "mean": 0.0,
+        "n": 6
+      }
+    }
+  },
+  "per_probe": {
+    "rag_01": {
+      "1.20_LATE": {
+        "mean": 0.0,
+        "n": 3
+      },
+      "1.20_EARLY": {
+        "mean": 1.0,
+        "n": 3
+      },
+      "1.00_LATE": {
+        "mean": 0.0,
+        "n": 3
+      },
+      "1.00_EARLY": {
+        "mean": 1.0,
+        "n": 3
+      },
+      "0.85_LATE": {
+        "mean": 0.0,
+        "n": 3
+      },
+      "0.85_EARLY": {
+        "mean": 0.0,
+        "n": 3
+      },
+      "0.70_LATE": {
+        "mean": 0.0,
+        "n": 3
+      },
+      "0.70_EARLY": {
+        "mean": 0.0,
+        "n": 3
+      },
+      "0.55_LATE": {
+        "mean": 0.0,
+        "n": 3
+      },
+      "0.55_EARLY": {
+        "mean": 0.0,
+        "n": 3
+      },
+      "0.40_LATE": {
+        "mean": 0.0,
+        "n": 3
+      },
+      "0.40_EARLY": {
+        "mean": 0.0,
+        "n": 3
+      }
+    },
+    "rag_02": {
+      "1.20_LATE": {
+        "mean": 0.0,
+        "n": 3
+      },
+      "1.20_EARLY": {
+        "mean": 0.5,
+        "n": 3
+      },
+      "1.00_LATE": {
+        "mean": 0.0,
+        "n": 3
+      },
+      "1.00_EARLY": {
+        "mean": 0.5,
+        "n": 3
+      },
+      "0.85_LATE": {
+        "mean": 0.5,
+        "n": 3
+      },
+      "0.85_EARLY": {
+        "mean": 0.0,
+        "n": 3
+      },
+      "0.70_LATE": {
+        "mean": 0.0,
+        "n": 3
+      },
+      "0.70_EARLY": {
+        "mean": 0.0,
+        "n": 3
+      },
+      "0.55_LATE": {
+        "mean": 1.0,
+        "n": 3
+      },
+      "0.55_EARLY": {
+        "mean": 0.0,
+        "n": 3
+      },
+      "0.40_LATE": {
+        "mean": 0.0,
+        "n": 3
+      },
+      "0.40_EARLY": {
+        "mean": 0.0,
+        "n": 3
+      }
+    },
+    "rag_05": {
+      "1.20_LATE": {
+        "mean": 0.0,
+        "n": 3
+      },
+      "1.20_EARLY": {
+        "mean": 0.0,
+        "n": 3
+      },
+      "1.00_LATE": {
+        "mean": 0.0,
+        "n": 3
+      },
+      "1.00_EARLY": {
+        "mean": 0.0,
+        "n": 3
+      },
+      "0.85_LATE": {
+        "mean": 0.0,
+        "n": 3
+      },
+      "0.85_EARLY": {
+        "mean": 0.0,
+        "n": 3
+      },
+      "0.70_LATE": {
+        "mean": 0.0,
+        "n": 3
+      },
+      "0.70_EARLY": {
+        "mean": 0.0,
+        "n": 3
+      },
+      "0.55_LATE": {
+        "mean": 0.0,
+        "n": 3
+      },
+      "0.55_EARLY": {
+        "mean": 0.0,
+        "n": 3
+      },
+      "0.40_LATE": {
+        "mean": 0.0,
+        "n": 3
+      },
+      "0.40_EARLY": {
+        "mean": 0.0,
+        "n": 3
+      }
+    },
+    "sea_01": {
+      "1.20_LATE": {
+        "mean": 1.0,
+        "n": 3
+      },
+      "1.20_EARLY": {
+        "mean": 0.0,
+        "n": 3
+      },
+      "1.00_LATE": {
+        "mean": 1.0,
+        "n": 3
+      },
+      "1.00_EARLY": {
+        "mean": 0.0,
+        "n": 3
+      },
+      "0.85_LATE": {
+        "mean": 1.0,
+        "n": 3
+      },
+      "0.85_EARLY": {
+        "mean": 0.0,
+        "n": 3
+      },
+      "0.70_LATE": {
+        "mean": 1.0,
+        "n": 3
+      },
+      "0.70_EARLY": {
+        "mean": 0.0,
+        "n": 3
+      },
+      "0.55_LATE": {
+        "mean": 1.0,
+        "n": 3
+      },
+      "0.55_EARLY": {
+        "mean": 0.0,
+        "n": 3
+      },
+      "0.40_LATE": {
+        "mean": 0.0,
+        "n": 3
+      },
+      "0.40_EARLY": {
+        "mean": 0.0,
+        "n": 3
+      }
+    },
+    "sea_04": {
+      "1.20_LATE": {
+        "mean": 1.0,
+        "n": 3
+      },
+      "1.20_EARLY": {
+        "mean": 0.0,
+        "n": 3
+      },
+      "1.00_LATE": {
+        "mean": 1.0,
+        "n": 3
+      },
+      "1.00_EARLY": {
+        "mean": 0.0,
+        "n": 3
+      },
+      "0.85_LATE": {
+        "mean": 1.0,
+        "n": 3
+      },
+      "0.85_EARLY": {
+        "mean": 0.0,
+        "n": 3
+      },
+      "0.70_LATE": {
+        "mean": 1.0,
+        "n": 3
+      },
+      "0.70_EARLY": {
+        "mean": 0.0,
+        "n": 3
+      },
+      "0.55_LATE": {
+        "mean": 1.0,
+        "n": 3
+      },
+      "0.55_EARLY": {
+        "mean": 0.0,
+        "n": 3
+      },
+      "0.40_LATE": {
+        "mean": 1.0,
+        "n": 3
+      },
+      "0.40_EARLY": {
+        "mean": 0.0,
+        "n": 3
+      }
+    }
+  }
+}

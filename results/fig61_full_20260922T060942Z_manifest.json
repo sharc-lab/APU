@@ -1,0 +1,35 @@
+{
+  "run": "20260922T060942Z",
+  "mode": "full",
+  "server_url": "http://127.0.0.1:8383",
+  "n_ctx_slot": 8192,
+  "filler_tokens": 3997,
+  "probe_ids": [
+    "rag_01",
+    "rag_02",
+    "rag_05",
+    "sea_01",
+    "sea_04"
+  ],
+  "budget_ratios": [
+    1.2,
+    1.0,
+    0.85,
+    0.7,
+    0.55,
+    0.4
+  ],
+  "arms": [
+    "LATE",
+    "EARLY"
+  ],
+  "n_reps": 3,
+  "total_calls": 180,
+  "rows_written": 180,
+  "out_path": "C:\\apu\\fig61_results\\fig61_full_20260922T060942Z.jsonl",
+  "hardware_config": "evox2_evo-t2s",
+  "memory_architecture": "unified",
+  "platform": "evo-t2s",
+  "build_id": "b10970",
+  "model": "qwen3:4b-q4_k_m"
+}

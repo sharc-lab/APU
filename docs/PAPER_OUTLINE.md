@@ -62,16 +62,20 @@ segments.jsonl, multiturn.jsonl; workload_regime field values.
 
 ---
 
-### Figure 4.1 — Quality vs. context depth by category
+### Figure 4.1 — Quality vs. context depth by category *(supporting negative result)*
 
 **Shows:** mean score ± stderr by filler depth (0 / 2k / 8k / 16k / 32k / 64k tokens)
-for each probe category; reveals depth at which each category first degrades.
+for each probe category. **Finding: quality is flat across depth up to 32k at fixed
+budget.** This is a supporting negative result — it establishes that depth alone is
+not the productive axis for the quality degradation story, which motivates the budget
+ratio × artifact position framing in Fig 6.1.
 
 - Script: [analysis/plot_degradation.py](analysis/plot_degradation.py)
 - Data: `results/run_*.jsonl` — **gitignored, local only**;
   produced by `python -m harness.runner`
 - Status: data exists locally; must re-run `harness/runner.py` to regenerate
   (results not committed; gitignored by `results/run_*.jsonl` pattern)
+- **Rank:** SUPPORTING (negative result) — not CORE
 
 ---
 
@@ -298,57 +302,86 @@ cross-validates the span attribution methodology.
 
 ### Figure 6.1 — Joint feasibility envelope (both axes on shared hardware)
 
-**Shows:** the feasibility region in (context_depth, quality_score) space with
-latency contours from the same probe calls; a point is feasible if it satisfies
-both the quality floor (Axis A: score ≥ threshold) and the latency budget
-(Axis B: http_client_ns ≤ budget). This is the envelope Paper 2 consumes.
-The join is **per-call** — both axes are recorded in the same result row,
-not pooled across separate experiments.
+**Shows:** the feasibility region in (budget_ratio, quality_score) space with
+latency contour (http_client_ns) from the same probe calls, with artifact
+position (EARLY vs LATE) as the grouping variable. A point is feasible if it
+satisfies both the quality floor (Axis A: score ≥ threshold) and the latency
+budget (Axis B: http_client_ns ≤ budget). This is the envelope Paper 2 consumes.
+The join is **per-call** — both axes are recorded in the same result row.
 
-- Script: [harness/runner.py](harness/runner.py) (span instrumentation now
-  active; every result row carries `orch_setup_ns`, `http_client_ns`,
-  `tool_compute_ns` alongside `score` — **no separate join step required**)
-- Analysis / plot: **must be written** (reads `run_*.jsonl`, plots
-  (depth, score, http_client_ns) per probe, overlays feasibility boundary)
-- Data: **NOT YET COLLECTED on target hardware.**
-  Existing `run_*.jsonl` rows now carry span fields but were produced on
-  Razer Blade 14 (discrete RTX 4070, off-target). A target-class run on
-  Strix Halo EVO-X2 is required.
+**Rationale for axis change from depth to budget_ratio:** Fig 4.1 establishes that
+quality is flat across depth up to 32k at fixed budget (supporting negative result).
+The productive axis is artifact position under memory pressure, not depth per se.
+Budget ratio (total prompt tokens / n_ctx_slot) parametrises the pressure
+continuously and directly, while EARLY vs LATE position shows whether artifact
+placement modifies the quality response to that pressure.
 
-**Experiment specification — minimum run for this figure:**
+- Script: [harness/runner.py](harness/runner.py) (span instrumentation active;
+  every result row carries `orch_setup_ns`, `http_client_ns`, `tool_compute_ns`
+  alongside `score` — no separate join step required). Requires adding
+  `filler_mode="reversed"` to `harness/context.py` for the EARLY-position arm
+  (filler appended after probe, so artifact appears first in the context window).
+- Analysis / plot: **must be written** (reads run JSONL, plots
+  (budget_ratio, score) per position arm, overlays latency contour)
+- Data: **NOT YET COLLECTED** — first draft target: evo-t2s (Intel Arrow Lake,
+  Vulkan, 64 GB unified LPDDR5X). Not the Strix Halo BOM target; caption must
+  label hardware and state this is a first-draft run.
+
+**Budget ratio definition (same as stage C):**
+`budget_ratio = target_tokens / full_prompt_tokens` where
+`full_prompt_tokens` is the untruncated prompt token count (filler + artifact +
+question, measured per probe via /tokenize ≈ 4160–4295 tokens) and
+`target_tokens = round(full_prompt_tokens × ratio)`.
+At ratio ≥ 1.0 the full prompt is sent (no truncation). At ratio < 1.0
+harness-side left-char truncation removes from the start: LATE arm (filler first)
+loses filler; EARLY arm (artifact first) loses the artifact. This is the
+position-pressure signal. The server ctx=8192 with -np 1 handles all ratios: even
+the untruncated full prompt (~4300 tokens) fits within 8192. No server restart is
+needed between ratios.
+
+**Budget lever: harness-side left-char truncation, not server restart per ratio.**
+Reuses `left_truncate` from `harness/stage_c_position_pressure.py` directly, so
+results are on the same logical scale as the committed stage C data.
+
+**Positive control per row:**
+- `intended_budget_tokens` = `min(target_tokens, full_tokens)` (what we intend to send)
+- `n_prompt_tokens_actual` = `tokens_in` from the server's usage field
+- `positive_control_ok` = |n_prompt_tokens_actual − intended_budget_tokens| / intended_budget_tokens ≤ 0.05
+- `artifact_fraction_retained`: for EARLY arm at truncating ratios, fraction of
+  artifact chars that survived left-truncation; 1.0 for LATE arm and ratio ≥ 1.0.
+  Flag any EARLY row with artifact_fraction_retained > 0.05 at ratio ≤ 0.85 as
+  unexpected (artifact should be fully removed at these ratios for ~4200-token prompts).
+
+**Experiment specification — minimum run for first Fig 6.1 draft:**
 
 | Parameter | Value | Rationale |
 |---|---|---|
-| Hardware | Strix Halo EVO-X2, 128 GB unified | target class; Blade 14 data NOT usable for envelope |
-| Model | `qwen3:4b-instruct` via Ollama | same as all Axis A Blade runs |
-| Probes | all 10 artifact probes (`art_01`–`art_10`) | highest quality signal at depth |
-| Depths | 0, 2000, 8000, 16000, 32000, 64000 | 6 depth cells |
-| Reps | 5 | matches existing Blade runs |
-| **Total calls** | **10 × 6 × 5 = 300** | — |
-| Estimated wall clock | 75–150 min | 15–30 s/call at depth≥32k on Strix Halo (TBD) |
-| Row schema | `probe_id, depth, rep, score, score_detail, latency_ms, ttft_ms,` | both axes in same row |
-| | `orch_setup_ns, http_client_ns, tool_compute_ns, hardware_config` | span breakdown |
-| Hardware config flag | `--hardware-config evox2_strix_halo_128gb --memory-architecture unified` | required for cross-hw isolation |
+| Hardware | evo-t2s (Intel Arrow Lake, Vulkan, 64 GB unified LPDDR5X) | available; not the BOM target |
+| Backend | llama-server b10970, Qwen3-4B-Q4_K_M.gguf | confirmed stable this session |
+| ctx-size | **8192, -np 1** | stable config used this session; full prompts ~4200 tok fit within 8192 |
+| Filler | 4000 tokens, F-NUM, seed=42 | matches stage C; /tokenize calibration |
+| Probes | rag_01, rag_02, rag_05, sea_04, sea_01 | 5 probes with max EARLY/LATE separation in position_pressure_analysis.json |
+| Budget ratios | 1.20, 1.00, 0.85, 0.70, 0.55, 0.40 | same as stage C |
+| Position arms | LATE (`{filler}{artifact}{question}`), EARLY (`{artifact}{filler}{question}`) | same as stage C |
+| Reps | 3 | matches stage C for direct comparison |
+| **Total calls** | **5 × 6 × 2 × 3 = 180** | — |
+| Estimated wall clock | ~1.5–2 h | avg ~25–35 s/call (short prompts, fast Vulkan inference) |
+| Smoke test | 1 probe × 6 ratios × 2 arms × 1 rep = 12 calls | verify positive control before full run |
+| Row schema | probe_id, arm, budget_ratio, target_tokens, full_tokens, truncating, chars_dropped, artifact_fraction_retained, score, latency_ms, orch_setup_ns, http_client_ns, tool_compute_ns, n_prompt_tokens_actual, positive_control_ok | both axes + positive control per call |
+| Server launch | `llama-server.exe -m Qwen3-4B-Q4_K_M.gguf --port 8383 --ctx-size 8192 --n-gpu-layers 99 --no-context-shift --reasoning-budget 0 --reasoning-format deepseek -np 1 --log-verbosity 3` | stable; recorded in manifest |
 
-**Why per-call pairing matters:** a mean-of-means join across depth cells would
-allow the envelope plot to be driven by cells with different sample compositions
-(e.g., quality sample set ≠ latency sample set). Per-call pairing eliminates
-this confound — each point on the envelope plot is a single (score, latency)
-pair from a single probe execution.
+**Why per-call pairing matters:** a mean-of-means join would allow the envelope
+plot to be driven by cells with different sample compositions. Per-call pairing
+eliminates this confound — each envelope point is one (score, latency, ratio, position) tuple.
 
-**Replay-cache reproducibility caveat:** `ReplayCache` (AUTO / RECORD / REPLAY modes)
-reproduces `recorded_latency_ms` and all quality fields (`score`, model output) from
-stored traces. Span timing fields — `orch_setup_ns`, `http_client_ns`,
-`tool_compute_ns` — are **live wall-clock measurements** at replay time and reflect
-disk-read overhead, not original inference latency. A reader reproducing this figure
-from a replay trace recovers the quality axis and `recorded_latency_ms` faithfully;
-the per-span breakdown in replayed rows is not representative of live inference
-and must not be used for the latency contours. Filter to `replayed == false` rows
-for any span-level analysis. See docs/THREATS.md §12.
+**evo-t2s caption note (required):** "Hardware: Intel Arrow Lake, unified LPDDR5X,
+64 GB. This is a first-draft run on evo-t2s, not the Strix Halo BOM target.
+Results on Strix Halo (AMD Ryzen AI Max+ 395, 128 GB) may differ."
 
-**Prerequisite:** `configs/hardware/evox2_strix_halo_128gb.yaml` fields
-`reserved_gb`, `achievable_pool_gb`, `bandwidth_gb_s` must be populated from
-telemetry before running (run `scripts/verify_platform.py` first).
+**Prerequisite for target-class run:** Strix Halo EVO-X2
+`configs/hardware/evox2_strix_halo_128gb.yaml` fields `reserved_gb`,
+`achievable_pool_gb`, `bandwidth_gb_s` must be populated from telemetry
+(run `scripts/verify_platform.py` first).
 
 ---
 

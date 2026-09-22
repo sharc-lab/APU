@@ -1,0 +1,31 @@
+{
+  "run": "20260922T060616Z",
+  "mode": "smoke",
+  "server_url": "http://127.0.0.1:8383",
+  "n_ctx_slot": 8192,
+  "filler_tokens": 3997,
+  "probe_ids": [
+    "rag_01"
+  ],
+  "budget_ratios": [
+    1.2,
+    1.0,
+    0.85,
+    0.7,
+    0.55,
+    0.4
+  ],
+  "arms": [
+    "LATE",
+    "EARLY"
+  ],
+  "n_reps": 1,
+  "total_calls": 12,
+  "rows_written": 12,
+  "out_path": "C:\\apu\\fig61_results\\fig61_smoke_20260922T060616Z.jsonl",
+  "hardware_config": "evox2_evo-t2s",
+  "memory_architecture": "unified",
+  "platform": "evo-t2s",
+  "build_id": "b10970",
+  "model": "qwen3:4b-q4_k_m"
+}

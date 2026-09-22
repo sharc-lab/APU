@@ -244,21 +244,42 @@ for every probe call.
 
 | Field | Type | Values |
 |---|---|---|
-| `score` | float \| null | 0.0–1.0 (null on error rows only) |
-| `outcome_class` | str \| null | `CORRECT`, `REFUSED`, `FABRICATED`, `UNCLASSIFIABLE` (null on pre-classifier rows and error rows) |
-| `classification_method` | str \| null | `score`, `last_token`, `refused_sentinel`, `refused_abstention`, `unclassifiable` |
+| `score` | float \| null | 0.0–1.0 (null on error rows and REJECTED rows) |
+| `outcome_class` | str \| null | `CORRECT`, `REFUSED`, `FABRICATED`, `UNCLASSIFIABLE`, `REJECTED` (null on pre-classifier rows and infrastructure-error rows) |
+| `classification_method` | str \| null | `score`, `last_token`, `refused_sentinel`, `refused_abstention`, `unclassifiable`, `context_size_exceeded` |
 | `format_compliant` | bool \| null | True = scorer accepted as-is; False = last-token match (model showed working); None = not applicable |
+
+The five `outcome_class` values:
+
+| Value | Meaning | Inference ran? |
+|---|---|---|
+| `CORRECT` | Model produced the expected answer (score == 1.0, or last-token match) | Yes |
+| `REFUSED` | Model declined to answer (abstention language or sentinel string) | Yes |
+| `FABRICATED` | Model produced a wrong or hallucinated answer | Yes |
+| `UNCLASSIFIABLE` | Model ran but output cannot be classified (empty output, budget exhausted) | Yes — output unusable |
+| `REJECTED` | Request refused before inference; no model output exists | No |
+
+`REJECTED` is a **feasibility outcome**, not a quality outcome. It means the
+request was refused by the runtime before any inference was attempted — for
+example, because the prompt exceeded the server's context window
+(`context_size_exceeded=True`). `REJECTED` rows MUST be excluded from all
+quality-rate denominators (correct/refused/fabricated/unclassifiable rates)
+and counted separately as a feasibility statistic. They are not errors: the
+rejection is a designed experimental condition.
+
+`UNCLASSIFIABLE` rows (empty output, `done_reason == "length"` or
+`"budget_exhausted"`) MUST also be excluded from fabrication rate denominators.
+The distinction from `REJECTED`: `UNCLASSIFIABLE` means inference ran but
+produced unusable output; `REJECTED` means inference never ran.
+
+The corrected rate for `results/stage_a_scale.json` is documented in
+`docs/FINDINGS.md`. The per-arm rates in `results/selfreport_arms.json` cannot
+receive this correction because that file stores only aggregate statistics —
+see THREATS.md §14.
 
 Old rows that predate the classifier wiring will have `outcome_class == null`.
 When loading JSONL rows for analysis, call `evaluation.outcome.normalize_result_row(d)`
 to fill missing fields with null rather than raising a KeyError.
-
-`UNCLASSIFIABLE` rows (empty output, `done_reason == "length"` or
-`"budget_exhausted"`) MUST be excluded from fabrication rate denominators. The
-corrected rate for `results/stage_a_scale.json` is documented in
-`docs/FINDINGS.md`. The per-arm rates in `results/selfreport_arms.json` cannot
-receive this correction because that file stores only aggregate statistics —
-see THREATS.md §14.
 
 ---
 
@@ -367,3 +388,4 @@ Fields promoted out of this section on 2026-09-14:
 | 2026-09-14 | Rithwik Sharma | Promote `git_sha`, `run_seed`, `hostname`, `operator`, `done_reason` from §10 (proposed) to normative §2 and §6. All five are now row-level fields emitted by harness/runner.py; backward-compat fill in evaluation/outcome.normalize_result_row(). |
 | 2026-09-14 | Rithwik Sharma | Add `ttft_ms` and `ttft_source` as normative fields (§8.1). Streamed rows carry a live measurement; replayed and non-streaming rows carry null. Any TTFT analysis must filter on ttft_source == "streamed". |
 | 2026-09-15 | Rithwik Sharma | Add R1 exception for `--context-shift`: flag produces no startup log line at any verbosity; positive control must be a generation-overflow probe per session, keyed by server_session_id. Add `n_ctx_slot` as ground truth for effective context (llama-server silently raises values below 256); add n_ctx_slot and server_session_id to §10 proposed additions. Cross-reference docs/RUNTIME_EVICTION.md. |
+| 2026-09-16 | Rithwik Sharma | Add `REJECTED` as a fifth `outcome_class` value (§7): request refused before inference, no model output. `REJECTED` is a feasibility outcome, excluded from quality-rate denominators, counted separately. Add `context_size_exceeded` classification_method. Clarify UNCLASSIFIABLE vs REJECTED distinction: UNCLASSIFIABLE = inference ran, output unusable; REJECTED = inference never ran. |
