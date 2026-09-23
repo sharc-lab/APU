@@ -389,12 +389,14 @@ This file seeds Section 6 of the paper and tracks planned mitigations.
   truncation with the same heuristic. All three runs (stage_c, 203557Z, 230133Z) used
   the same `context.py` `build_filler` and `left_truncate` methods. Cross-run score
   comparisons are not confounded by this bias.
-- **Fix committed:** `fig61_stagec_sweep.py` now supports `--tok-trunc`, which uses
-  `/tokenize` binary search to find the exact token-level cut point (function
-  `left_truncate_tokens`). The char-based path remains the default to preserve
-  comparability with prior runs. A validation arm at 396 rows (`fig61_toktrunc_full_*`)
-  will empirically measure whether the 9 marginal failures disappear and whether scores
-  change for any cell.
+- **Fix validated:** `fig61_stagec_sweep.py --tok-trunc` uses `/tokenize` binary search
+  to find the exact token-level cut point (`left_truncate_tokens`). The validation arm
+  `fig61_toktrunc_full_20260922T233232Z.jsonl` (396 rows, evo-t2s, Vulkan b10970) shows:
+  (a) PC 396/396 pass — the 9 marginal failures are gone, token-accurate delivery confirmed;
+  (b) 0/132 score differences vs 203557Z — char-truncation over-delivery was conservative
+  and introduced no score change. THREATS §20 is empirically bounded: the bias
+  affects token delivery accuracy but not any cell-level score.
+  The char-based path remains the default for all prior-run comparisons.
 
 ## 18. Ollama Version Change — 0.32.9 → 0.34.0
 
