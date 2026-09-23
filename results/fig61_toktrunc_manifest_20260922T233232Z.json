@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "run_tag": "toktrunc_full_20260922T233232Z",
+  "result_file": "fig61_toktrunc_full_20260922T233232Z.jsonl",
+  "n_rows": 396,
+  "platform": "evo-t2s",
+  "hardware_config": "evox2_evo-t2s",
+  "memory_architecture": "unified",
+  "server": {
+    "build_id": "b10970-bfdc32183",
+    "ctx_size": 8192,
+    "n_parallel": 1,
+    "port": 8383,
+    "reasoning_flags": "none"
+  },
+  "model": {
+    "alias": "qwen3:4b-instruct",
+    "gguf_sha256": "85e4a5b7b8ef0e48af0e8658f5aaab9c2324c76c1641493f4d1e25fce54b18b9"
+  },
+  "generation": {
+    "max_tokens": 128,
+    "temperature": 0,
+    "cache_prompt": false,
+    "stream_options_include_usage": true
+  },
+  "filler": {
+    "target_tokens": 4000,
+    "actual_tokens": 3997,
+    "seed": 42,
+    "variant": "F-NUM",
+    "count_fn": "llamaserver_tokenize"
+  },
+  "truncation": {
+    "method": "left_tokens",
+    "chars_per_token_heuristic": null,
+    "tok_trunc_via": "/tokenize binary search"
+  },
+  "n_prompt_tokens_source": "llamaserver_tokenize",
+  "sweep": {
+    "n_probes": 11,
+    "n_budget_ratios": 6,
+    "budget_ratios": [
+      1.2,
+      1.0,
+      0.85,
+      0.7,
+      0.55,
+      0.4
+    ],
+    "n_arms": 2,
+    "n_reps": 3,
+    "total_calls": 396
+  },
+  "positive_control": {
+    "tolerance_pct": 5.0,
+    "n_pass": 396,
+    "n_fail": 0,
+    "pass_rate_pct": 100.0
+  }
+}
