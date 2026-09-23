@@ -431,12 +431,12 @@ is wrong) in a way that makes the per-depth mean misleading.
 
 ## Bandwidth Saturation — evo-t2s Unified LPDDR5X
 
-**Experiment:** `results/bw_saturation_20260923T045844Z.jsonl` (f16, 5 ctx points);
-`results/bw_saturation_20260923T065604Z.jsonl` (q8_0, partial — ctx=32768 and 65536 complete)  
+**Experiment:** `results/bw_saturation_20260923T045844Z.jsonl` (f16, 5 clean ctx points + 1 partial);
+`results/bw_saturation_20260923T065604Z.jsonl` (q8_0 and q4_0, complete for ctx 8192–131072; 262144/524288 rows present but failed or killed — see `_note`/`status` per row)  
 **Date:** 2026-09-23, evo-t2s (Intel Arrow Lake, Vulkan b10970-bfdc32183, unified LPDDR5X)  
 **Method:** 90% fill prompts, sweep ctx=[8192, 16384, 32768, 65536, 131072] at f16, q8_0, q4_0 KV precisions; measure prefill and decode tok/s per config
 
-### Finding: on unified LPDDR5X, decode throughput scales as 1/N with context length and inversely with KV bytes per token; no knee anywhere across a 16× range and three precisions; the binding constraint is memory bandwidth, not capacity
+### Finding: on unified LPDDR5X, decode throughput scales as 1/N with context length; no knee anywhere across a 16× range and three precisions; the binding constraint is memory bandwidth, not capacity
 
 **f16 — five context points:**
 
@@ -460,14 +460,41 @@ of whether the context fits in memory. On unified memory the binding constraint 
 bandwidth, not capacity; capacity determines which contexts are reachable, but bandwidth
 determines whether those contexts are usable.
 
-**Cross-precision comparison (ctx=32768 and 65536, f16 and q8_0):**
+### Storage vs. throughput: KV bytes are not the decode bottleneck on this build
 
-| ctx | f16 prefill | q8_0 prefill | f16 decode | q8_0 decode |
-|-----|------------|--------------|------------|-------------|
-| 32,768 | 106.3 tok/s | 109.3 tok/s | 5.76 tok/s | 5.98 tok/s |
-| 65,536 | 53.7 tok/s | 55.7 tok/s | 3.18 tok/s | 3.27 tok/s |
+**Storage (allocator, from `results/kv_val_vulkan_20260923.json`, three cold-start memory deltas at ctx=32768):** q8_0 is 1.999× smaller than f16, q4_0 is 3.997× smaller than f16 — both at essentially exact architectural ratios (2×, 4×). The precision flags take effect at the allocator.
 
-(q4_0 pending)
+**Throughput does not scale with that storage ratio.** Cross-precision decode and prefill at matched ctx, from `results/bw_saturation_20260923T065604Z.jsonl`:
+
+| ctx | f16 decode | q8_0 decode | q8_0/f16 | q4_0 decode | q4_0/f16 |
+|-----|-----------:|------------:|---------:|------------:|---------:|
+| 8,192 | 15.84 | 14.19 | 0.90× | 18.07 | 1.14× |
+| 16,384 | 10.21 | (incomplete — see row) | — | 11.92 | 1.17× |
+| 32,768 | 5.76 | 5.98 | 1.04× | 7.09 | 1.23× |
+| 65,536 | 3.18 | 3.27 | 1.03× | 3.93 | 1.24× |
+| 131,072 | 1.66 | 1.72 | 1.04× | 2.02 | 1.22× |
+
+| ctx | f16 prefill | q4_0 prefill | q4_0/f16 |
+|-----|-----------:|-------------:|---------:|
+| 8,192 | 402.57 | 452.15 | 1.12× |
+| 16,384 | 207.29 | 257.26 | 1.24× |
+| 32,768 | 106.29 | 104.89 | 0.99× |
+| 65,536 | 53.73 | 50.00 | 0.93× |
+| 131,072 | 27.29 | 24.85 | **0.91×** |
+
+A 2× (q8_0) and 4× (q4_0) reduction in resident KV bytes produces only a ~3–4% decode speedup at q8_0 and ~14–24% at q4_0 — nowhere near proportional to the storage reduction. q4_0 prefill is *faster* than f16 at small ctx (8,192–16,384) but crosses over to *slower* than f16 from ctx=32,768 upward, reaching 0.91× of f16 at ctx=131,072. Because TTFT is dominated by prefill at these context lengths, q4_0's slower prefill outweighs its faster decode for typical response lengths (e.g. ~128 output tokens) at ctx=131,072: q4_0 end-to-end (TTFT + decode time) is slower than f16 there, despite quantized KV being 4× smaller and decode-tok/s being ~1.22× faster in isolation.
+
+**KV bytes resident in memory are not the decode bottleneck on this build.** Reducing KV size by 2–4× does not proportionally reduce attention cost, and at large ctx it can *increase* prefill cost for q4_0. Something other than raw KV byte count — most plausibly attention/dequantization compute overhead on the Vulkan backend — dominates at these context lengths.
+
+### Mechanism: flash attention is forced on for quantized KV; cited from source, not the runtime log
+
+The runtime log (`kv_val_f16.txt`, `--log-verbosity 3`) contains no flash-attention statement and no KV buffer-size line at any precision — the Vulkan server build only logs `n_ctx_slot`/`kv_unified` at load, nothing about the attention path. That question was resolved from llama.cpp source at the exact commit the binary was built from, not from the log:
+
+- Build `b10970-bfdc32183` corresponds to upstream commit `bfdc32183d57f1e35bacf35c47d6311e2028bbbc` (`gh api repos/ggml-org/llama.cpp/commits/bfdc32183`, dated 2026-09-14).
+- `bw_saturation_sweep.py`'s server launch command (`start_server()`) never passes `-fa`/`--flash-attn`. Default is `LLAMA_FLASH_ATTN_TYPE_AUTO` (`common/common.h:499` at that commit).
+- `src/llama-context.cpp:3704-3707` at that commit: when the V-cache type is quantized (`ggml_is_quantized(params.type_v)`) and flash-attn is `AUTO`, llama.cpp force-enables it, logging `"enabling flash_attn since it is required for quantized V cache"` — the non-flash attention path cannot consume a quantized V cache at all, so it is not an available fallback.
+
+So the q8_0 and q4_0 runs in this sweep ran with flash attention forced on by this code path (not by an explicit flag). The f16 runs had an unquantized V cache, so this specific force-enable branch never triggered for them; whether AUTO also resolved to flash-attn there depends on the Vulkan backend's fused-op capability probe (`resolve(llm_fused_op_flash_attn_probe, ...)`, `llama-context.cpp:556`), which was not inspected — source-level confirmation of the f16 case, and of whether the Vulkan flash-attn kernel dequantizes KV to f16 internally per block versus operating on quantized bytes directly, would require reading `ggml/src/ggml-vulkan/ggml-vulkan.cpp`'s flash-attention kernel dispatch, which has not been done. That remains open; nothing above should be read as characterizing the Vulkan kernel's internal compute path, only the fact that flash-attn is active for quantized KV runs.
 
 **This measures throughput only.** Whether KV quantization costs task quality at
 these context lengths — specifically whether retrieving a target span from a 131K-token

@@ -50,7 +50,7 @@ or `hardware_config: blade_rtx4070`.
 | `results/fig61_stagec_full_20260922T230133Z.jsonl` | blade_rtx4070 (Razer Blade 14, RTX 4070, CUDA b10970-bfdc32183, Windows 11) | **NO** | Fig 6.1 position-pressure sweep — **VALID (Blade CUDA replication)** | Gate: 0/22 disagreements with stage_c_20260818T040408Z.jsonl. cache_prompt=false verified (1.5x ratio at startup). PC: 387/396 pass; same 9 failures at r=0.40 LATE sea_01/sea_05/sea_06 (5.0–5.3%) as evo-t2s run. Score comparison vs 203557Z: 130/132 cells match. 2 disagreements: sea_01 LATE at r=1.0 and r=1.2 — Blade/CUDA outputs "C8" (wrong), evo-t2s/Vulkan outputs "A9" (correct). Both Blade runs (Ollama stage_c + CUDA llama-server) agree on "C8"; this is a backend numerical sensitivity on a borderline probe, not a data integrity issue. Position-pressure effect (LATE > EARLY at r<1 for retained-artifact probes) holds across 130/132 cells on both architectures. TTFT at full context ~1.2s on RTX 4070 discrete vs ~7.4s on evo-t2s unified (6× difference consistent with discrete vs unified memory bandwidth). |
 | `results/fig61_toktrunc_full_20260922T233232Z.jsonl` | evo-t2s (Intel Arrow Lake, Vulkan b10970-bfdc32183, unified LPDDR5X) | **NO** | **TRUNCATION-METHOD VALIDATION ARM — not a replacement for 203557Z** | Token-accurate truncation via `/tokenize` binary search (`left_truncate_tokens`). PC: **396/396 pass** (all 9 marginal r=0.40 LATE sea failures from 203557Z are resolved — token-accurate delivery confirmed). Score diff vs 203557Z: **0/132 cells** — char-truncation over-delivery was conservative; no score changes result from fixing it. sea_01 LATE r=1.0 and r=1.2 still score 1.0 (out="A9") on Vulkan backend — CUDA/Vulkan divergence is a compute-backend property, not a truncation artifact. cache_prompt=false verified (7499ms vs 5854ms, ratio=1.3x). Use 203557Z as primary for score comparisons; use this file to bound THREATS §20. |
 | `results/bw_saturation_20260923T045844Z.jsonl` | evo-t2s (Intel Arrow Lake, Vulkan b10970-bfdc32183, unified LPDDR5X) | **NO** | **Bandwidth saturation sweep — f16 arm** | qwen3-4b-instruct Q4_K_M, f16 KV, ctx=[8192, 16384, 32768, 65536, 131072], ~90% fill prompts. 5 rows status=ok. Row 6 (ctx=262144) status=http_200, inference aborted by SSH disconnect (WinError 10054), not RAM exhaustion. See note below. |
-| `results/bw_saturation_20260923T065604Z.jsonl` | evo-t2s (Intel Arrow Lake, Vulkan b10970-bfdc32183, unified LPDDR5X) | **NO** | **Bandwidth saturation sweep — q8_0 arm (partial)** | qwen3-4b-instruct Q4_K_M, q8_0 KV, ctx=[32768, 65536] complete; ctx=[8192, 16384] output lost to carriage-return overwrite in log; ctx=131072 in progress at commit time. Rows reconstructed from bw_sweep_run.log (JSONL writer had a bug). q4_0 arm pending. |
+| `results/bw_saturation_20260923T065604Z.jsonl` | evo-t2s (Intel Arrow Lake, Vulkan b10970-bfdc32183, unified LPDDR5X) | **NO** | **Bandwidth saturation sweep — q8_0 and q4_0 arms** | qwen3-4b-instruct Q4_K_M, q8_0 and q4_0 KV. Complete (status=ok) for ctx=[8192, 32768, 65536, 131072, 262144] q8_0 and ctx=[8192, 16384, 32768, 65536, 131072] q4_0. ctx=16384 q8_0 has no usable metrics (status=incomplete_no_metrics — http_200 but per-config log block never printed, corrupted by terminal CR overwrite). ctx=262144 q4_0 was manually killed mid-run (status=killed_connection_reset, before/after memory only, no timing). ctx=524288 failed server-side ctx cap at both precisions (status=fail_http_400). All 15 rows reconstructed from `bw_sweep_run.log` (JSONL writer had a bug under `-NoNewWindow` redirect: `sys.__stdout__` is `None`, so the Tee class silently dropped writes to the JSONL path while the log file received everything). Timing values for ok rows cross-checked against the script's own final merged summary table printed at the end of the log run. |
 | `results/kv_val_vulkan_20260923.json` | evo-t2s (Intel Arrow Lake, Vulkan b10970-bfdc32183, unified LPDDR5X) | **NO** | **KV precision validation — three cold starts** | Three server starts at ctx=32768 (f16, q8_0, q4_0) on port 8384, no inference. Memory delta confirms KV is compressed: f16=7599 MiB, q8_0=5458 MiB, q4_0=4279 MiB. b10970 Vulkan does not emit llama_kv_cache log line. Derived B/tok: f16=147,456 (arch), q8_0~73,765 (1.999× reduction), q4_0~36,892 (3.997× reduction). See docs/KV_MEASUREMENT.md §6–7. |
 
 **"Inferred"** = no explicit `hardware` field in JSON; inferred from commit date,
@@ -138,10 +138,30 @@ It did not measure throughput. The present sweep supplies throughput measurement
 each restart; log parser returned `{}`). Indirect estimate from incremental memory deltas
 gives ~152,078 B/tok (upper bound; includes compute buffers). See `docs/KV_MEASUREMENT.md §6`.
 
-**q8_0 arm:** Partial results in `results/bw_saturation_20260923T065604Z.jsonl`
-(ctx=32768 and 65536 confirmed; ctx=131072 in progress at commit time; ctx=8192 and
-16384 log output lost to carriage-return overwrite). **q4_0 arm:** Pending; sweep
-still running at commit time.
+**q8_0 and q4_0 arms:** Complete in `results/bw_saturation_20260923T065604Z.jsonl`
+for ctx=8192–131072 (q4_0 also complete at 262144 before the run was killed for
+262144 f16-equivalent cost reasons — see row status). ctx=16384 q8_0 has no usable
+metrics (per-config log block corrupted by terminal CR overwrite; only the
+computed/theoretical KV size is known for that row, not a measurement). ctx=524288
+failed a server-side ctx cap (server refuses n_ctx > 262144 regardless of requested
+value) at both precisions — this is not a capacity/OOM measurement.
+
+**Flash attention / attention-path mechanism (evo-t2s Vulkan, b10970-bfdc32183):**
+The runtime log at `--log-verbosity 3` does not print a flash-attention or KV-buffer
+line at any point — this cannot be determined from the log. It was determined instead
+from llama.cpp source at the exact upstream commit the binary was built from
+(`bfdc32183d57f1e35bacf35c47d6311e2028bbbc`, confirmed via `gh api
+repos/ggml-org/llama.cpp/commits/bfdc32183`): the sweep script never passes `-fa`, so
+`flash_attn_type` defaults to `AUTO` (`common/common.h:499`); when the V-cache type is
+quantized, `llama-context.cpp:3704-3707` force-enables flash attention under `AUTO`
+because the non-flash path cannot consume quantized V at all. So the q8_0 and q4_0 rows
+in this sweep ran with flash attention forced on by this code path. Whether AUTO also
+resolves to flash-attn for the f16 rows (unquantized V, so the force-enable branch does
+not trigger), and whether the Vulkan flash-attn kernel dequantizes KV per block or
+operates on quantized bytes directly, was not determined — that requires reading
+`ggml/src/ggml-vulkan/ggml-vulkan.cpp`'s flash-attention dispatch, which has not been
+done. See `docs/FINDINGS.md` "Bandwidth Saturation" section for the full citation and
+the throughput data this explains.
 
 ---
 
