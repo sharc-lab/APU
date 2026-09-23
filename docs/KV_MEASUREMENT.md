@@ -189,3 +189,52 @@ Locations where the baseline IS explicitly named (no action needed):
 | `docs/FINDINGS.md` table (lines 19–23) | "KV reduction vs f16 (meas)" / "vs f16 (arch)" columns | Both architectural and measured are listed with column headers; source is llamaserver_feasibility.json; build identifier is in the heading |
 | `docs/FINDINGS.md` line 33 | "measured f16→q4_0 reduction is **3.24×, not 4×**" | "measured" vs "architectural" (4×) are both named in the same sentence |
 | `results/llamaserver_feasibility.json` precision_table | `reduction_vs_f16_architectural` / `reduction_vs_f16_measured` keys | Separate fields for each baseline |
+
+---
+
+## 6. Vulkan arm (evo-t2s) — f16 KV constant status
+
+**Source:** `results/bw_saturation_20260923T045844Z.jsonl`, rows ctx=8192–131072, kv_precision=f16.
+**Build:** b10970-bfdc32183, Vulkan, Intel Arrow Lake, unified LPDDR5X.
+
+**Direct measurement status:** NOT AVAILABLE. `measured_kv_mib` is null in all rows.
+The server log file (`bw_srv_log.txt`) is overwritten on each server restart; the last
+run wrote only 7 lines before being killed. No KV buffer report line was captured.
+
+**Indirect estimate from incremental memory deltas:**
+
+Each row records `sys_free_before_server_mib` and `sys_free_after_server_mib` (from
+`ctypes.GlobalMemoryStatusEx`, no subprocess). Because model weights are constant per
+restart, the difference in total-memory-delta between adjacent context sizes isolates
+the per-token KV contribution (including any context-proportional compute buffers):
+
+| Ctx step | Free Δ difference (MiB) | Tokens added | Implied B/tok |
+|---|---|---|---|
+| 8192 → 16384 | 5259 − 4057 = 1202 | 8,192 | 153,600 |
+| 16384 → 32768 | 7626 − 5259 = 2367 | 16,384 | 151,552 |
+| 32768 → 65536 | 12352 − 7626 = 4726 | 32,768 | 151,273 |
+| 65536 → 131072 | 21825 − 12352 = 9473 | 65,536 | 151,887 |
+| **Mean** | | | **~152,078 B/tok** |
+
+**Comparison:**
+
+| Baseline | B/tok | Delta from arch |
+|---|---|---|
+| Architectural f16 (Qwen3-4B, full KV) | 147,456 | — |
+| Blade CUDA measured (b1-f8def7fe1, SWA on) | 144,530 | −2.0% |
+| evo-t2s Vulkan (memory-delta upper bound) | ~152,078 | +3.1% |
+
+The memory-delta figure is an **upper bound**: it captures KV cache plus any
+context-proportional compute buffers allocated by the Vulkan backend. The true KV
+B/tok may be lower (equal to or below architectural). On CUDA, SWA reduced f16 2%
+below architectural; on Vulkan, no SWA reduction is visible, which suggests either
+the Vulkan build allocates full-context KV for all layers regardless of SWA, or the
+compute-buffer overhead masks it.
+
+**Conclusion:** No per-platform table is warranted yet. The Blade CUDA value (144,530
+B/tok) remains the only directly measured figure. The Vulkan indirect estimate is
+consistent with architectural within measurement uncertainty; the 5% gap vs CUDA is
+plausibly explained by SWA allocation differences between backends. Direct Vulkan
+measurement requires either (a) a fixed log parser that captures the KV buffer line
+from the server log before it is overwritten, or (b) a dedicated one-shot measurement
+run with a persistent log path.

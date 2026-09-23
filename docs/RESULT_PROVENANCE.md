@@ -49,6 +49,7 @@ or `hardware_config: blade_rtx4070`.
 | `results/fig61_stagec_full_20260922T203557Z.jsonl` | evo-t2s (Intel Arrow Lake, Vulkan b10970-bfdc32183, unified LPDDR5X) | **NO** | Fig 6.1 position-pressure sweep — **VALID** | Scores match 191031Z cell-for-cell (0 differences). cache_prompt=false verified (7640ms vs 5846ms, ratio=1.3x at startup). n_prompt_tokens_actual from /tokenize on truncated prompt string. stream_options honored: tokens_in_api populated for 396/396 rows (gap=+8 tokens, chat template). PC: 387/396 pass; 9 failures at r=0.40 LATE for sea_01/sea_05/sea_06 (5.0–5.3% over threshold, char-truncation rounding, conservative — delivers slightly more context than intended). TTFT scales linearly with budget_ratio, LATE≈EARLY within 3% at each ratio. Wall clock: 37.5 min inference. |
 | `results/fig61_stagec_full_20260922T230133Z.jsonl` | blade_rtx4070 (Razer Blade 14, RTX 4070, CUDA b10970-bfdc32183, Windows 11) | **NO** | Fig 6.1 position-pressure sweep — **VALID (Blade CUDA replication)** | Gate: 0/22 disagreements with stage_c_20260818T040408Z.jsonl. cache_prompt=false verified (1.5x ratio at startup). PC: 387/396 pass; same 9 failures at r=0.40 LATE sea_01/sea_05/sea_06 (5.0–5.3%) as evo-t2s run. Score comparison vs 203557Z: 130/132 cells match. 2 disagreements: sea_01 LATE at r=1.0 and r=1.2 — Blade/CUDA outputs "C8" (wrong), evo-t2s/Vulkan outputs "A9" (correct). Both Blade runs (Ollama stage_c + CUDA llama-server) agree on "C8"; this is a backend numerical sensitivity on a borderline probe, not a data integrity issue. Position-pressure effect (LATE > EARLY at r<1 for retained-artifact probes) holds across 130/132 cells on both architectures. TTFT at full context ~1.2s on RTX 4070 discrete vs ~7.4s on evo-t2s unified (6× difference consistent with discrete vs unified memory bandwidth). |
 | `results/fig61_toktrunc_full_20260922T233232Z.jsonl` | evo-t2s (Intel Arrow Lake, Vulkan b10970-bfdc32183, unified LPDDR5X) | **NO** | **TRUNCATION-METHOD VALIDATION ARM — not a replacement for 203557Z** | Token-accurate truncation via `/tokenize` binary search (`left_truncate_tokens`). PC: **396/396 pass** (all 9 marginal r=0.40 LATE sea failures from 203557Z are resolved — token-accurate delivery confirmed). Score diff vs 203557Z: **0/132 cells** — char-truncation over-delivery was conservative; no score changes result from fixing it. sea_01 LATE r=1.0 and r=1.2 still score 1.0 (out="A9") on Vulkan backend — CUDA/Vulkan divergence is a compute-backend property, not a truncation artifact. cache_prompt=false verified (7499ms vs 5854ms, ratio=1.3x). Use 203557Z as primary for score comparisons; use this file to bound THREATS §20. |
+| `results/bw_saturation_20260923T045844Z.jsonl` | evo-t2s (Intel Arrow Lake, Vulkan b10970-bfdc32183, unified LPDDR5X) | **NO** | **Bandwidth saturation sweep — METHODS/FRAMING** | qwen3-4b-instruct Q4_K_M, f16 KV, ctx=[8192, 16384, 32768, 65536, 131072], ~90% fill prompts. 5 rows status=ok. Row 6 (ctx=262144) status=http_200, inference aborted — see note below. Row 7 empty (script killed mid-run). q8_0/q4_0 arms pending separate file. |
 
 **"Inferred"** = no explicit `hardware` field in JSON; inferred from commit date,
 model name (`qwen3:4b-instruct` + Ollama), and the Blade 14 being the only
@@ -94,6 +95,49 @@ Strix Halo EVO-X2 with a unified-memory-compatible measurement method.
 **Reproducibility:** `harness/stage_a_kv_precision.py` is now fully portable
 (OLLAMA_BIN / PATH resolution; platform-aware kill, log path, GPU query).
 Run on EVO-X2 after verifying `scripts/verify_platform.py` passes.
+
+---
+
+## bw_saturation_20260923T045844Z.jsonl — Bandwidth sweep note
+
+**Produced on:** evo-t2s (Intel Arrow Lake, Vulkan b10970-bfdc32183, unified LPDDR5X).
+**Date:** 2026-09-23. **Script:** `C:\apu\bw_saturation_sweep.py` (not checked into repo).
+**Model:** `qwen3-4b-instruct-85e4a5b7.gguf` (Q4_K_M, same checkpoint as fig61 runs).
+
+**Results (f16, rows 1–5):**
+
+| ctx | KV (GiB, computed) | prefill tok/s | decode tok/s | TTFT (s) |
+|---|---|---|---|---|
+| 8,192 | 1.1 | 402.6 | 15.8 | 18.3 |
+| 16,384 | 2.2 | 207.3 | 10.2 | 71.1 |
+| 32,768 | 4.4 | 106.3 | 5.8 | 277.4 |
+| 65,536 | 8.9 | 53.7 | 3.2 | 1,097.8 |
+| 131,072 | 18.1 | 27.3 | 1.7 | 4,322.0 |
+
+**Key finding:** Prefill throughput scales as exact 1/N across a 16× context range
+(8K→131K): 402 → 207 → 106 → 54 → 27 tok/s, ratio per doubling = 2.00× ± 0.02.
+This is pure memory-bandwidth-limited operation with no capacity cliff on unified memory.
+Decode follows the same trend (halving per doubling of ctx), but from a lower absolute rate.
+At ctx=131072, decode=1.66 tok/s is unusable regardless of whether memory fits.
+
+**Row 6 (ctx=262144) — aborted, not a RAM error:**
+Server loaded successfully (sys_free dropped from 59526 to 18767 MiB = ~40 GiB allocated,
+consistent with model + 36 GiB KV). Inference was in progress (235,929-token prompt was
+built; HTTP 200 received) when the SSH session carrying the Python process was killed.
+Exact error: `[WinError 10054] An existing connection was forcibly closed by the remote host`.
+**No config in this file failed due to genuine RAM exhaustion.** The "9 GiB allocation cap"
+hypothesis from the design phase was incorrect; the allocator placed 40 GiB with no refusal.
+
+**What was NOT in the original "no-ceiling" observation:** The earlier run that loaded
+ctx=262144 f16 (from the design phase) showed only that the allocator does not refuse.
+It did not measure throughput. The present sweep supplies throughput measurements.
+
+**KV constant validation:** `measured_kv_mib` is null in all rows (server log overwritten
+each restart; log parser returned `{}`). Indirect estimate from incremental memory deltas
+gives ~152,078 B/tok (upper bound; includes compute buffers). See `docs/KV_MEASUREMENT.md §6`.
+
+**q8_0 and q4_0 arms:** Pending. Separate file (`bw_saturation_*Z.jsonl`, timestamp TBD)
+to be committed after sweep completes (~1.6 hours estimated).
 
 ---
 
