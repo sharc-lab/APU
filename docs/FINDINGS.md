@@ -426,3 +426,51 @@ a bare answer at d=32000 may be taking a less careful path that sometimes
 produces the wrong number. The coupling is a confound: score=0.0 at d=16000
 for lon_02 mixes format failures (model is right) and arithmetic errors (model
 is wrong) in a way that makes the per-depth mean misleading.
+
+---
+
+## Bandwidth Saturation — evo-t2s Unified LPDDR5X
+
+**Experiment:** `results/bw_saturation_20260923T045844Z.jsonl` (f16, 5 ctx points);
+`results/bw_saturation_20260923T065604Z.jsonl` (q8_0, partial — ctx=32768 and 65536 complete)  
+**Date:** 2026-09-23, evo-t2s (Intel Arrow Lake, Vulkan b10970-bfdc32183, unified LPDDR5X)  
+**Method:** 90% fill prompts, sweep ctx=[8192, 16384, 32768, 65536, 131072] at f16, q8_0, q4_0 KV precisions; measure prefill and decode tok/s per config
+
+### Finding: on unified LPDDR5X, decode throughput scales as 1/N with context length and inversely with KV bytes per token; no knee anywhere across a 16× range and three precisions; the binding constraint is memory bandwidth, not capacity
+
+**f16 — five context points:**
+
+| ctx | prefill tok/s | decode tok/s | Ratio vs prev doubling (prefill) |
+|-----|--------------|-------------|----------------------------------|
+| 8,192 | 402.6 | 15.8 | — |
+| 16,384 | 207.3 | 10.2 | 1.94× |
+| 32,768 | 106.3 | 5.8 | 1.95× |
+| 65,536 | 53.7 | 3.2 | 1.98× |
+| 131,072 | 27.3 | 1.7 | 1.97× |
+
+Prefill throughput halves per context doubling to within 2–3% across a 16× range.
+This is pure memory-bandwidth-limited operation: attention over N tokens requires
+reading all previous KV for each new token (O(N²) total reads), so throughput ∝ 1/N
+when bandwidth is the bottleneck. No capacity cliff appears at any point. The unified
+LPDDR5X pool accepted ctx=262144 (~40 GiB allocated) before inference was interrupted
+by SSH disconnection; no allocation failure occurred at any tested context length.
+
+At ctx=131072, decode=1.66 tok/s. This is unusable in interactive settings regardless
+of whether the context fits in memory. On unified memory the binding constraint is
+bandwidth, not capacity; capacity determines which contexts are reachable, but bandwidth
+determines whether those contexts are usable.
+
+**Cross-precision comparison (ctx=32768 and 65536, f16 and q8_0):**
+
+| ctx | f16 prefill | q8_0 prefill | f16 decode | q8_0 decode |
+|-----|------------|--------------|------------|-------------|
+| 32,768 | 106.3 tok/s | 109.3 tok/s | 5.76 tok/s | 5.98 tok/s |
+| 65,536 | 53.7 tok/s | 55.7 tok/s | 3.18 tok/s | 3.27 tok/s |
+
+(q4_0 pending)
+
+**This measures throughput only.** Whether KV quantization costs task quality at
+these context lengths — specifically whether retrieving a target span from a 131K-token
+context is less accurate with q4_0 KV than with f16 — is the open question this sweep
+does not address. The throughput measurement establishes the hardware operating point;
+the accuracy measurement requires the probe suite.

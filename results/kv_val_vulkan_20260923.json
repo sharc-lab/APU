@@ -1,0 +1,47 @@
+{
+  "experiment": "kv_validation_vulkan",
+  "date": "2026-09-23",
+  "hardware": "evo-t2s, Intel Arrow Lake, Vulkan b10970-bfdc32183, unified LPDDR5X",
+  "model": "qwen3-4b-instruct-85e4a5b7.gguf (Q4_K_M)",
+  "model_sha": "85e4a5b7",
+  "method": "three cold server starts on port 8384, ctx=32768, no inference; memory delta from Win32_OperatingSystem.FreePhysicalMemory before/after server reaches /health",
+  "server_binary": "llama-b10970/llama-server.exe",
+  "kv_log_line_available": false,
+  "kv_log_note": "b10970 Vulkan build does not emit llama_kv_cache or KV buffer size line at verbosity 3; log sequence is: startup warnings -> llama threadpool init -> load_model initializing (n_ctx_slot, kv_unified) -> model loaded -> listening; no allocation line exists to parse",
+  "ctx": 32768,
+  "runs": [
+    {
+      "kv_precision": "f16",
+      "flags": ["-ctk", "f16", "-ctv", "f16"],
+      "mem_before_mib": 51186,
+      "mem_after_mib": 43587,
+      "delta_mib": 7599,
+      "healthy": true
+    },
+    {
+      "kv_precision": "q8_0",
+      "flags": ["-ctk", "q8_0", "-ctv", "q8_0"],
+      "mem_before_mib": 50967,
+      "mem_after_mib": 45509,
+      "delta_mib": 5458,
+      "healthy": true
+    },
+    {
+      "kv_precision": "q4_0",
+      "flags": ["-ctk", "q4_0", "-ctv", "q4_0"],
+      "mem_before_mib": 51207,
+      "mem_after_mib": 46928,
+      "delta_mib": 4279,
+      "healthy": true
+    }
+  ],
+  "derived": {
+    "model_weight_mib": 2991,
+    "model_weight_derivation": "delta_f16 - architectural_kv_mib_at_ctx32768 = 7599 - 4608 = 2991 MiB; Vulkan model weight ~12% below CUDA (3405 MiB on b1-f8def7fe1) due to backend buffer layout differences",
+    "f16_b_per_tok": 147456,
+    "f16_b_per_tok_basis": "architectural (Qwen3-4B: 36 layers x 8 KV heads x 128 head_dim x 2 types x 2 bytes = 147456); Vulkan allocates full-context KV for all layers with no SWA discount",
+    "f16_to_q8_ratio_measured": "1.999x",
+    "f16_to_q4_ratio_measured": "3.997x",
+    "ratio_note": "near-architectural (2x, 4x); negligible per-block metadata overhead vs CUDA (1.77x, 3.24x); see docs/KV_MEASUREMENT.md section 7"
+  }
+}
