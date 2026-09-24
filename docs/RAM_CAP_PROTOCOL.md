@@ -149,12 +149,27 @@ before every run, refuse to proceed on mismatch — same check already used in
   `WorkingSet64` via a single-process `Get-Process`/`Get-CimInstance` query
   on the server's own PID — never system-wide free memory, consistent with
   every other experiment in this project)
-- iGPU shared-memory limit as Windows reports it (`Get-CimInstance
-  Win32_VideoController` → `AdapterRAM`, and/or `dxdiag`/DirectX shared
-  system memory figures — Strix Halo's iGPU draws its VRAM allocation from
-  this same capped physical pool, so this figure should itself shrink as the
-  RAM cap tightens; recording it confirms the cap is actually constraining
-  the GPU-visible pool, not just CPU-visible system RAM)
+- **BIOS iGPU memory reservation** and **Windows-visible RAM**, both as
+  explicit fields in every row, not just checked once at setup. `AdapterRAM`
+  (`Get-CimInstance Win32_VideoController`) is NOT used for this — it is
+  well known to be unreliable for modern iGPUs with dynamically-shared
+  memory, frequently reporting 0 or a wrapped-around garbage value above
+  4 GB. Use `dxdiag /t <file>`'s own "Dedicated Memory" / "Shared Memory"
+  fields instead (the same figures Windows itself surfaces to a user), read
+  back from the generated text report — this is what
+  `scripts/setup_evox2.ps1`'s iGPU check step already does, and the
+  per-level measurement script should call the same pattern per cell, not
+  just once at setup. Pair this with `Win32_OperatingSystem.TotalVisibleMemorySize`
+  (Windows-visible RAM) and `Win32_ComputerSystem.TotalPhysicalMemory`
+  (SMBIOS-reported installed RAM) every cell: on Strix Halo, the BIOS
+  carves out iGPU memory from physical RAM *before* Windows ever sees it,
+  so `TotalPhysicalMemory − TotalVisibleMemorySize` is not fully accounted
+  for by `truncatememory` alone — part of that gap is the BIOS carve-out,
+  and it may itself shift if the iGPU's shared-memory allocation is dynamic.
+  Recording all of this per cell (not assuming it's constant across levels)
+  is the only way to know how much of the *nominal* RAM-cap budget was
+  actually available to the CPU/model versus already consumed by the iGPU
+  before the cap logic even applies.
 - Exact error text on any failure (HTTP error body, process exit code +
   stderr, or explicit "hung past timeout" if neither)
 
