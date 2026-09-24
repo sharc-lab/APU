@@ -244,6 +244,43 @@ is a more fragile, multi-step process than the GUI for a one-time grant on
 one account — the GUI path above is recommended unless there's a specific
 need to script the grant itself.
 
+### GRANTED on evo-t2s, 2026-09-24 — exact procedure used and revert command
+
+Done remotely for the `sharc` account, `S-1-5-21-1075653639-4075138772-47584247-1001`:
+
+```powershell
+secedit /export /cfg C:\apu\secpol_before.inf
+# Insert "SeLockMemoryPrivilege = *S-1-5-21-1075653639-4075138772-47584247-1001"
+# immediately after the [Privilege Rights] line -> C:\apu\secpol_new.inf
+# (no other line touched -- confirmed via Compare-Object on the two files
+# before applying, which showed exactly one line of difference)
+secedit /configure /db C:\apu\secpol.sdb /cfg C:\apu\secpol_new.inf /areas USER_RIGHTS
+```
+
+Verified in a freshly-opened SSH session (a new logon token is required to
+see a newly-granted privilege — an already-open session will not show it):
+`whoami /priv` lists `SeLockMemoryPrivilege ... Enabled` (already enabled by
+default in a fresh token here, not merely present-but-disabled — even more
+favorable than the minimum "present" bar this section originally described).
+
+**Exact revert command** (restores the pre-grant state for the
+`USER_RIGHTS` area exactly, by replaying the original export back):
+
+```powershell
+secedit /configure /db C:\apu\secpol.sdb /cfg C:\apu\secpol_before.inf /areas USER_RIGHTS
+```
+
+`C:\apu\secpol_before.inf` (the pristine pre-grant export) must still exist
+on evo-t2s for this exact command to work — it has not been deleted.
+
+**Should the privilege stay granted for the next run?** Yes, for now — it is
+what `harness/memory_balloon_awe.py` (Phase C) needs to actually hold
+physical memory that can't be paged, which is the entire point of moving
+past the two failed balloon designs. Revert it once the RAM-cap protocol
+above (the primary method) and any locked-balloon follow-up work on evo-t2s
+are both done, since it is a standing local security policy change on
+somebody else's machine and should not outlive the reason it was granted.
+
 **After granting:** re-run `memory_balloon.py` v2 unmodified (it already
 attempts the lock and reports the outcome verbatim) — its own stdout/log
 header will read `LOCK STATUS: LOCKED` instead of `UNLOCKED` once the
