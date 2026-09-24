@@ -84,3 +84,25 @@ The `/tokenize` endpoint's `add_special` parameter controls whether BOS/EOS toke
 | gpt-oss:120b-cloud | Cloud API model, no local weights | Not applicable | Cannot test |
 
 The implementation always passes `add_special=False`. This is correct for filler calibration regardless of model: filler is injected into the prompt body, not at the token stream start; the chat template adds BOS separately. The Qwen3 case is empirically verified on b10970. The Llama 3.1 case is unverified — the expected behaviour follows from the tokenizer configuration, but the effect via the `/tokenize` endpoint has not been measured with a live GGUF.
+
+## Launching unattended multi-hour sweeps on evo-t2s over SSH
+
+Windows OpenSSH puts every process spawned by an SSH session's PowerShell host into a Job Object with kill-on-job-close semantics. This kills descendant processes when the SSH session's job closes — including on a clean client disconnect — **regardless of how the child was detached**. Confirmed not to survive session end, in order of attempts made during the KV quality/provisioning sweeps (2026-09-23):
+
+1. **`Start-Process ... -WindowStyle Hidden -RedirectStandardOutput/-Error -PassThru`** — process alive at +3s, dead by +15-65s with empty (0-byte) redirect files. Removing `-WindowStyle Hidden` did not help.
+2. **`cmd.exe /c "... > log 2>&1"` via `Start-Process`** — same failure mode; the `cmd.exe` wrapper does not escape the job either.
+3. **Task Scheduler (`schtasks /create` + `schtasks /run`)** — task never actually ran (`schtasks /query /v` reported `Last Result: 267011` = `SCHED_S_TASK_HAS_NOT_RUN`, `Last Run Time` unset) despite `/run` reporting success. Likely a logon-context restriction (task requires an interactive session the SSH connection does not provide); not resolved further since (4) worked.
+4. **`Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{CommandLine=...}` (WMI process creation)** — **works**. The new process is created by the WMI provider host, outside the SSH session's job object entirely. Confirmed alive and accumulating real CPU time (`llama-server` CPU-seconds climbing across repeated checks) at +90s, +150s+, and across full multi-hour unattended runs (kv_quality: 316.5 min; kv_provisioning: ~5.3h estimated for the q4_0/131072 leg).
+
+Usage pattern (PowerShell, run via `ssh ... "..."`, quoting for the outer shell already applied):
+
+```powershell
+Invoke-CimMethod -ClassName Win32_Process -MethodName Create `
+  -Arguments @{CommandLine='cmd /c cd /d C:\apu && python script.py > run.log 2>&1'}
+```
+
+`ReturnValue=0` on the result indicates success; the result's `ProcessId` is `cmd.exe`'s PID, not the actual `python.exe`/`llama-server.exe` PIDs spawned underneath it — check by process name (`Get-Process -Name python,llama-server`) to confirm the real workers are running, not just the wrapper.
+
+Because stdout is not a TTY when redirected this way, Python fully buffers it — `print()` output in the log file does not appear until the buffer fills or the process exits, even though the process is actively working. This is expected and does not indicate a hang; check `Get-Process ... | Select CPU` for rising CPU time as the liveness signal instead of the log file during a run, or use `python -u` to disable buffering if live log tailing is needed.
+
+Before trusting a detached launch for an unattended run, verify survival past at least 60-90s (not just the first few seconds) — job-object teardown on some paths above took up to ~65s to manifest, not immediately.
