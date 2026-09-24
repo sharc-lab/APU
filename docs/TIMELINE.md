@@ -26,18 +26,32 @@ changes, all dates below must be recalculated.
 
 ## EVO-X2 (Strix Halo) availability
 
-The BOM target is AMD Ryzen AI Max+ 395 (Strix Halo, 128 GB unified LPDDR5X), identified
-in `configs/hardware/evox2_strix_halo_128gb.yaml`. It is **not yet provisioned** and will
-not be available until **approximately December 3, 2026** — about 12 days before the
-estimated full-paper deadline.
+**UPDATE 2026-09-24: EVO-X2 is in hand now, not arriving December 3.** The
+BOM target (AMD Ryzen AI Max+ 395, Strix Halo, 128 GB unified LPDDR5X,
+identified in `configs/hardware/evox2_strix_halo_128gb.yaml`) is physically
+available today, roughly **11 weeks before** the estimated full-paper
+deadline (~2026-12-15) rather than the ~12 days this document previously
+assumed. Every "EVO-X2 BLOCKED" / "cannot realistically run before deadline"
+framing below is now stale and should be re-evaluated — CORE figures that
+were assumed off-critical-path may now be achievable on-target before
+submission. The week-by-week schedule below has been adjusted to start
+EVO-X2 setup immediately rather than waiting for a Sep29–Oct5 delivery
+window that has already passed; the downstream weeks were NOT otherwise
+re-planned in this pass and should be revisited once setup (below) is
+confirmed working and initial runtime is known.
 
-**Primary plan: the paper does not depend on Strix Halo data for submission.** The paper
-will be written, structured, and submitted based on off-target results (Blade 14, evo-t2s)
-clearly labeled as such. EVO-X2 data, if available, would strengthen CORE figures; its
-absence does not block a valid submission. See fallback options below.
+Setup is being done via `scripts/setup_evox2.ps1` (Windows, matching the
+balloon/WMI-launch tooling already built for evo-t2s, which is
+Windows-specific) — see that script and its prerequisites checklist before
+running it once at the machine's own keyboard.
 
-Items marked **[EVO-X2 BLOCKED]** below require Strix Halo data to be labeled SUPPORTED-ON-TARGET,
-but the paper can be submitted with those figures labeled off-target pending replication.
+**Prior framing (superseded, kept for context):** the paper was planned to
+not depend on Strix Halo data for submission, with off-target results
+(Blade 14, evo-t2s) as the primary path and EVO-X2 data treated as a
+stretch goal. With ~11 weeks of runway now available instead of ~12 days,
+on-target CORE data is plausible before the deadline — but this has not yet
+been re-confirmed by actually running anything on the machine, so treat the
+sections below as not-yet-updated until real EVO-X2 timing data exists.
 
 ---
 
@@ -45,8 +59,8 @@ but the paper can be submitted with those figures labeled off-target pending rep
 
 | Week | Dates | Tasks | Depends on |
 |---|---|---|---|
-| **W1** | Sep 22 – Sep 28 | Complete 7-step evo-t2s replication (matched checkpoint, streaming, baseline gate, 396-call full sweep). Commit valid Fig 4.12 evo-t2s data. Update RESULT_PROVENANCE.md. | evo-t2s server available |
-| **W2** | Sep 29 – Oct 5 | EVO-X2 unboxing and OS setup. Run `scripts/verify_platform.py`; populate `evox2_strix_halo_128gb.yaml` fields (reserved_gb, achievable_pool_gb, bandwidth_gb_s). Confirm llama-server Vulkan or ROCm build runs on AMD iGPU. | **EVO-X2 physical delivery** |
+| **W1** | Sep 22 – Sep 28 | Complete 7-step evo-t2s replication (matched checkpoint, streaming, baseline gate, 396-call full sweep). Commit valid Fig 4.12 evo-t2s data. Update RESULT_PROVENANCE.md. **EVO-X2 arrived during this window (2026-09-24) — setup below starts immediately, not in W2.** | evo-t2s server available |
+| **W2** (starts early, ~Sep 24) | Sep 24 – Oct 5 | EVO-X2 setup via `scripts/setup_evox2.ps1` (OpenSSH, Tailscale, Python 3.12 + numpy/pandas/pytest, llama-server b10970 Vulkan build + instruct GGUF with sha256 verification). Run `scripts/verify_platform.py`; populate `evox2_strix_halo_128gb.yaml` fields (reserved_gb, achievable_pool_gb, bandwidth_gb_s). Confirm llama-server Vulkan build runs on the AMD iGPU. | **EVO-X2 now in hand — no longer gated on delivery** |
 | **W3** | Oct 6 – Oct 12 | EVO-X2: Fig 4.1 (quality vs depth, main quality sweep — `harness/runner.py`, 11 probes × 7 depths × 5 reps ≈ 385 calls ≈ 4–6 h). Confirm flat-at-depth negative result replicates. **[EVO-X2 BLOCKED]** | W2 complete |
 | **W4** | Oct 13 – Oct 19 | EVO-X2: Fig 4.3 (artifact truncation cliff — `harness/art_truncation.py`). Confirm per-probe cliff positions. **[EVO-X2 BLOCKED]** | W3 |
 | **W5** | Oct 20 – Oct 26 | EVO-X2: Fig 4.11 (KV precision gate — `harness/stage_a_kv_precision.py` via llama-server, `--cache-type-k` flags verified). Confirm f16→q8→q4 reduction ratios on AMD unified path. **[EVO-X2 BLOCKED]** | W3 |
@@ -91,8 +105,15 @@ high-risk for the December 15 deadline.
 
 ## Submission options (ordered by preference)
 
-EVO-X2 arrives ~December 3. It cannot realistically run CORE experiments and have results
-committed before the Dec 14/15 paper deadline. The paper must be submittable without it.
+**SUPERSEDED 2026-09-24**: this section was written assuming EVO-X2 arrives ~December 3
+with ~12 days of runway, making on-target CORE runs before the deadline unrealistic. EVO-X2
+is now in hand with ~11 weeks of runway instead. On-target CORE data before the deadline is
+plausible and should be the actively pursued path once setup (`scripts/setup_evox2.ps1`) is
+confirmed working, not treated as a stretch goal. The options below are kept for the
+no-longer-primary scenario where EVO-X2 setup or runs slip badly enough to eat most of that
+runway anyway (e.g. hardware issues, driver/build problems specific to that unit) — re-derive
+the actual critical path once real EVO-X2 run timings exist, rather than trusting the
+"cannot realistically run before deadline" framing this paragraph previously asserted.
 
 **Primary plan (preferred):** Submit to ISPASS 2027 with off-target data clearly labeled.
 All CORE figures (6.1, 4.3, 4.1) are reproduced on evo-t2s and/or Blade 14 with explicit
@@ -137,10 +158,12 @@ This is a durable result regardless of hardware delays.
 
 ## Highest-risk timeline items
 
-1. **EVO-X2 arrives December 3, 12 days before deadline** — on-target CORE data is not
-   on the critical path for submission (see primary plan above). Risk is not "will it
-   arrive?" but "does ISPASS require on-target data?" Mitigated by the tool-track fallback
-   (option d) and by the explicit off-target labeling strategy (primary plan).
+1. **SUPERSEDED 2026-09-24 — EVO-X2 is in hand, not arriving December 3.** ~11 weeks of
+   runway are available, not ~12 days. On-target CORE data before the deadline is plausible
+   and is now the path to actively pursue via `scripts/setup_evox2.ps1`, not a stretch goal
+   to be waved off with off-target labeling. The remaining real risk is whether setup and
+   the actual CORE sweeps (Fig 6.1, 4.3, 4.1, etc.) run cleanly on this specific unit in
+   time — re-assess once setup is confirmed and initial run timings on EVO-X2 are known.
 
 2. **Fig 4.15 multi-turn harness not written** — independent two-week implementation
    required before any run can begin. If this starts in W8 at EVO-X2, it cannot produce
