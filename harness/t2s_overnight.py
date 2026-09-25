@@ -524,11 +524,11 @@ def section_a_items(lab):
         grid = sorted(grid_by)
         yarn = ["--rope-scaling", "yarn", "--rope-scale", str(mi.yarn_factor), "--yarn-orig-ctx", str(mi.max_ctx_native)] \
             if (mid in YARN_MODELS and not extra_arm and max(grid) > mi.max_ctx_native) else []
-        low = "device_total" if "device_total" in grid_of else next(iter(grid_of))
-        core_set = set(grid_of[low])
-        for lb, g in grid_of.items():
-            if lb != low:
-                core_set |= {g[i] for i in (2, 3, 5) if i < len(g)}
+        # The 32B smoke allocated 39.8 GB (above the 37,060 MiB device-total figure) and ran, so that number is not a
+        # hard limit. The operational budget B is the llama-server free-memory figure (47,865 MiB), which dxdiag's
+        # shared memory (48,634 MB) corroborates within 2%. Its grid is the core; the device-total grid is an extra.
+        primary = "device_free" if "device_free" in grid_of else next(iter(grid_of))
+        core_set = set(grid_of[primary])
         rng = random.Random(SEED + crc(mid))
         order = grid[:]
         rng.shuffle(order)
