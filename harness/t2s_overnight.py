@@ -587,7 +587,7 @@ def trim(items, budget_s):
 
 def build_plan(lab):
     items = section_a_items(lab) + section_b_items(lab) + section_c_items(lab) + section_d_items(lab)
-    budget = lab.left() - 45 * 60
+    budget = lab.left() - lab.args.reserve_min * 60
     kept, dropped, used = trim(items, budget)
     kept_ids = {k["item_id"] for k in kept}
     kept = [k for k in kept if k.get("kind") != "cell" or k.get("backend") != "sycl" or "D_prepare" in kept_ids]
@@ -838,6 +838,8 @@ def main():
     ap.add_argument("--smoke", action="store_true")
     ap.add_argument("--resume", default=None)
     ap.add_argument("--only", default=None, help="run only section 0, A, B, C or D")
+    ap.add_argument("--reserve-min", type=float, default=45.0, help="minutes kept free at the end for cleanup")
+    ap.add_argument("--max-items", type=int, default=0, help="smoke only: run at most N items per section")
     ap.add_argument("--models", default=None, help="comma list of model ids to include (smoke and resume use)")
     args = ap.parse_args()
     if args.models:
@@ -881,7 +883,10 @@ def main():
         for sec in ("A", "B", "C", "D"):
             if args.only and args.only != sec:
                 continue
-            for it in [p for p in plan if p["section"] == sec]:
+            sec_items = [p for p in plan if p["section"] == sec]
+            if args.max_items:
+                sec_items = [p for p in sec_items if p.get("kind") != "probe_max"][:args.max_items] +                             [p for p in sec_items if p.get("kind") == "probe_max"][:1]
+            for it in sec_items:
                 if it["item_id"] in lab.done:
                     continue
                 if sec == "D" and it["kind"] != "prepare" and lab.sycl_ok is not True:
