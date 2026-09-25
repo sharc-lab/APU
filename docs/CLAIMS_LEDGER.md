@@ -274,6 +274,7 @@ artifact size** under partial KV eviction.
 - Files: `results/ramlock_evo-t2s_20260925T010739Z.jsonl`, `results/ramlock_phaseD_telemetry/`
 - Hardware: evo-t2s (unified memory, OFF-TARGET)
 - **Status: OFF-TARGET-ONLY.** Hard-fault and pagefile data after server start are UNKNOWN at 6, 5 and 4 GB.
+- **UNVERIFIED (2026-09-25, correction):** the balloon's safety valve released the lock during load at 6 GB and the 4 GB level shows an unconstrained working set after load, so "no slowdown at 6 and 4 GB" is not a valid constrained result. The supported range is no silent slowdown from 12 GB down to 7 GB. The crash at 5 GB is a load-phase event under real pressure and stays one unrepeated run. See `docs/FINDINGS.md` (Phase D correction). The status line above is kept unchanged.
 
 ---
 
