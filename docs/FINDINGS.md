@@ -686,3 +686,40 @@ n = 3 calls per condition, so ranges rather than confidence intervals: TTFT rang
 ### Bearing on the paper claim (PENDING)
 
 This is the unified-memory half of the "failure regime is selected by driver and runtime policy" claim only in a loose sense: on this SoC a CPU-side load degrades iGPU inference through shared power allocation, a mechanism that has no analogue on the discrete Blade. It does not by itself confirm the claim.
+
+---
+
+## C1, Blade: silent VRAM spill, quantified. A sharp onset between ctx 36864 and 38912, then decode slowdown proportional to the spilled fraction (2026-09-25)
+
+**Hardware arm:** Blade 14 only (RTX 4070 Laptop, 8188 MiB discrete VRAM, CUDA b10970, driver 610.88, AC power, Balanced plan). CUDA Sysmem Fallback Policy value UNKNOWN (never changed, not readable). Not the BOM target, never pooled with the evo-t2s data.
+**Sources:** `results/blade_c1_spill_sweep_20260925T053651Z.jsonl`, its manifest and telemetry (`_smi.csv`, `_dmon.txt`, `_winctr.csv`), and `results/blade_c1_server_logs/`. Table from `analysis/blade_c1_spill_analysis.py` (commit bf32465). The run used harness commit 1c17f5d.
+**Design:** qwen3-4b-instruct, f16 KV, `-fa on -ngl 99 -np 1 -t 4`, no co-runner, prompt filled to 90% of ctx. ctx 32768 (anchor) then 34816 to 47104 in steps of 2048, order of the 7 grid points shuffled with seed 20260925, the anchor re-measured after every 3 grid points. Per ctx: 1 discarded warm-up and 5 measured calls (128 tokens, `ignore_eos`, `cache_prompt` false), thermal gate before every call (up to 5 min to reach within 3 C of idle, waits logged per call). Telemetry every 1 s: nvidia-smi, `dmon` with PCIe, and Windows GPU Process Memory for the server PID.
+
+| ctx | prompt tokens | TTFT s, median [IQR] | slowdown vs no-spill expectation [bootstrap 95% CI] | decode tok/s (slowdown) | max Shared MiB | excess Shared MiB | excess spilled fraction | SM clock MHz | power W |
+|---|---|---|---|---|---|---|---|---|---|
+| 32768 (4 anchors, n=20) | 29482 | 19.52 [19.48, 19.59] | 1.00 [1.00, 1.01] | 29.0 (0.96) | 122 | 0 | 0 | 2565 | 97.2 |
+| 34816 | 31328 | 21.98 [21.95, 21.99] | 1.01 [1.00, 1.01] | 28.0 (1.00) | 124 | 0 | 0 | 2565 | 95.2 |
+| 36864 | 33179 | 24.02 [24.01, 24.05] | 0.98 [0.98, 0.99] | 26.9 (1.04) | 126 | 0 | 0 | 2565 | 95.5 |
+| **38912** | 35018 | **100.23** [100.22, 100.24] | **3.71** [3.71, 3.71] | 16.4 (1.70) | 306 | 178 | 0.022 | 2550 | 50.9 |
+| 40960 | 36861 | 114.81 [113.86, 117.48] | 3.85 [3.79, 3.95] | 6.5 (4.33) | 598 | 468 | 0.055 | 2565 | 46.3 |
+| 43008 | 38702 | 167.00 [166.90, 167.03] | 5.10 [5.10, 5.10] | 4.5 (6.24) | 890 | 758 | 0.086 | 2565 | 41.6 |
+| 45056 | 40546 | 179.04 [179.02, 179.32] | 5.00 [5.00, 5.02] | 3.2 (8.67) | 1178 | 1044 | 0.115 | 2565 | 39.0 |
+| 47104 | 42391 | 245.99 [244.95, 246.68] | 6.30 [6.26, 6.36] | 2.6 (10.78) | 1474 | 1338 | 0.142 | 2565 | 36.2 |
+
+The no-spill expectation is a quadratic fit of TTFT against prompt length on the five clean points (M1 at ctx 8192 to 24576 plus the anchor). The bootstrap intervals resample the 5 measured calls and so cover call-to-call noise only, not fit uncertainty. Excess Shared is Shared Usage minus a baseline fitted on the three clean ctx (90 MiB plus 1 MiB per 1024 ctx), because the driver holds a pinned host allocation of about 100 to 130 MiB with no spill. Excess spilled fraction is that excess divided by (dedicated plus shared).
+
+### What the data show
+
+1. **The onset is a step, not a slope.** Slowdown is 0.98x to 1.01x at ctx 34816 and 36864 (CI includes 1.0) and 3.71x at 38912 (CI excludes 1.0), a 4.2x jump in TTFT (24.0 s to 100.2 s) across a single 2048-token step. Dedicated memory reaches 7925 to 7931 MiB (VRAM full) from 38912 on, and Shared Usage above the baseline appears in the same step. The onset therefore lies between ctx 36864 and 38912; the 2048 step is the resolution.
+2. **It is spill, not throttling.** SM clock stays at 2550 to 2565 MHz in every spilled row, no thermal throttle bit is set on any active row, power falls from about 95 W to 36 to 51 W, and the anchors re-measured after every block drift by only +0.5%, +0.3% and +0.2%. Maximum GPU temperature was 68 to 82 C.
+3. **Spill grows by about 290 MiB per 2048 ctx** (178, 468, 758, 1044, 1338 MiB excess), which equals the KV growth per step (147,456 B per token x 2048 = 288 MiB): once VRAM is full, all further KV lands in system memory.
+4. **Decode slowdown is proportional to the spilled fraction; TTFT is a fixed penalty plus a ramp.** Over the five spilled points, decode slowdown = 0.08 + 74.6 x excess fraction (R2 0.998, n=5); TTFT slowdown = 3.03 + 20.95 x excess fraction (R2 0.888, n=5). Five points is a small fit, but the decode relation is nearly exact.
+5. **No failure was reached.** The server started and answered at ctx 47104 with 1338 MiB (14.2%) of the allocation outside VRAM. The 10x stop rule was not triggered (the largest length-scaled ratio was about 8.7x), so the point of failure lies above 47104 and was not found.
+
+### Limits
+
+- One server and 5 measured calls per ctx; the onset resolution is 2048 tokens.
+- Shared Usage is a Windows per-process counter, sampled at 1 s and taken as the maximum over each call window.
+- The nvidia-smi power reading can glitch (values near 590 W were seen at idle); readings above 200 W were dropped.
+- C1 ran before the stale-server guard existed. Its own start-time check passed, each of the 11 servers logged exactly 6 requests (1 warm-up and 5 measured), and each row records its server PID.
+- The C1 manifest does not record script SHAs (added afterwards); the script version is commit 1c17f5d.
