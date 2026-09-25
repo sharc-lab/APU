@@ -350,8 +350,11 @@ def parse_server_log(path):
 
 
 class Server:
-    def __init__(self, lab, mi: ModelInfo, n_ctx, backend="vulkan", mmap=True, extra=(), tag="s"):
+    def __init__(self, lab, mi: ModelInfo, n_ctx, backend="vulkan", mmap=True, extra=(), tag="s", load_mode=None):
+        """mmap=True uses the build default (load mode auto, which is mmap when the device supports it);
+        mmap=False passes --load-mode none. load_mode overrides both (for the explicit mmap control)."""
         self.lab, self.mi, self.n_ctx, self.backend, self.mmap, self.extra, self.tag = lab, mi, n_ctx, backend, mmap, list(extra), tag
+        self.load_mode = load_mode or ("auto" if mmap else "none")
         self.proc = None
         self.pid = None
         self.log_path = str(Path(lab.prefix + f"_srv_{tag}.txt"))
@@ -363,8 +366,8 @@ class Server:
         c = [BINARIES[self.backend], "-m", self.mi.path, "--port", str(PORT), "-c", str(self.n_ctx), "-ctk", "f16",
              "-ctv", "f16", "-fa", "on", "-ngl", "99", "-np", "1", "-t", "4", "--no-context-shift",
              "--log-file", self.log_path, "--log-verbosity", "4"]
-        if not self.mmap:
-            c.append("--no-mmap")
+        if self.load_mode != "auto":
+            c += ["--load-mode", self.load_mode]
         return c + self.extra
 
     def start(self, timeout=1500):

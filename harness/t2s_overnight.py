@@ -139,7 +139,7 @@ def do_call(lab, srv, mi, section, item_id, prompt, n_tok, *, warmup, rep, extra
     lab.check()
     gate = lab.tele.thermal_gate(lab.idle_temp, idle_pkg=lab.idle_pkg)
     ok, lp = srv.alive_and_ours()
-    base = dict(n_ctx=srv.n_ctx, prompt_tokens=n_tok, mmap=srv.mmap, co_runner=co_runner, rep=rep,
+    base = dict(n_ctx=srv.n_ctx, prompt_tokens=n_tok, mmap=srv.mmap, load_mode=srv.load_mode, co_runner=co_runner, rep=rep,
                 mem_headroom_gb=mem_headroom_gb, load_s=srv.start_info.get("load_s"), item_id=item_id, kind=kind,
                 warmup=warmup, server_pid=srv.pid, llama_build=srv.start_info.get("build"), **gate, **extra)
     if not ok:
@@ -206,7 +206,7 @@ def probe_sequence(lab, srv, mi, section, item_id, fill_tokens, *, extra, mem_he
 
 
 def start_row(lab, srv, mi, section, item_id, info, extra):
-    r = lab.row(section, mi, srv.backend, n_ctx=srv.n_ctx, mmap=srv.mmap, load_s=info.get("load_s"), item_id=item_id,
+    r = lab.row(section, mi, srv.backend, n_ctx=srv.n_ctx, mmap=srv.mmap, load_mode=srv.load_mode, load_s=info.get("load_s"), item_id=item_id,
                 kind="start", error=info.get("error"), server_pid=info.get("pid"), llama_build=info.get("build"),
                 valid=info.get("ok"), t_start_utc=info["t_start"], t_end_utc=info["t_end"], **extra)
     time.sleep(1.5)
@@ -394,24 +394,24 @@ def mmap_control(lab):
     mid = "qwen3-8b" if "qwen3-8b" in lab.models else next(iter(lab.models))
     mi, tab = lab.models[mid], lab.table.get(mid, {})
     res = {}
-    for arm in (True, False):
-        name = "on" if arm else "off"
-        srv = L.Server(lab, mi, 8192, mmap=arm, tag=f"mmapctl_{name}")
+    for name, mode in (("on", "auto"), ("explicit_mmap", "mmap"), ("off", "none")):
+        srv = L.Server(lab, mi, 8192, mmap=(mode != "none"), tag=f"mmapctl_{name}", load_mode=mode)
         lab.resources["server"] = srv
         info = srv.start()
-        start_row(lab, srv, mi, "0", f"mmapctl_{name}", info, {"purpose": "mmap_control"})
+        start_row(lab, srv, mi, "0", f"mmapctl_{name}", info, {"purpose": "mmap_control", "load_mode": mode})
         res[name] = {"ok": info.get("ok"), "private_mib": info.get("private_mib"), "working_set_mib": info.get("working_set_mib"),
                      "load_s": info.get("load_s"), "error": info.get("error")}
         srv.stop()
         lab.resources["server"] = None
     w = tab.get("model_buffer_mib") or mi.file_bytes / 2 ** 20
-    ok = all(res[k]["ok"] for k in res)
+    ok = res["on"]["ok"] and res["off"]["ok"]
     dpriv = abs((res["on"]["private_mib"] or 0) - (res["off"]["private_mib"] or 0)) if ok else None
     dws = abs((res["on"]["working_set_mib"] or 0) - (res["off"]["working_set_mib"] or 0)) if ok else None
     demonstrated = bool(ok and ((dpriv or 0) >= 0.25 * w or (dws or 0) >= 0.25 * w))
     lab.emit({"record": "mmap_control", "model_id": mid, "weights_mib": w, "on": res["on"], "off": res["off"],
+              "explicit_mmap": res["explicit_mmap"],
               "private_diff_mib": dpriv, "working_set_diff_mib": dws, "demonstrated": demonstrated, "ts_utc": utc_iso()})
-    log(f"mmap control ({mid}): on={res['on']} off={res['off']} demonstrated={demonstrated}")
+    log(f"mmap control ({mid}): on={res['on']} explicit={res['explicit_mmap']} off={res['off']} demonstrated={demonstrated}")
 
 
 # ---------------------------------------------------------------- planning
