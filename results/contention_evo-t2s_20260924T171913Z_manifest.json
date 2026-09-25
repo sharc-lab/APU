@@ -1,0 +1,16 @@
+{
+  "platform": "evo-t2s",
+  "hw_config": "evox2_evo-t2s",
+  "mem_arch": "unified",
+  "model_sha256": "85e4a5b7b8ef0e48af0e8658f5aaab9c2324c76c1641493f4d1e25fce54b18b9",
+  "n_cores": 16,
+  "thread_to_pct": {
+    "4": 25,
+    "8": 50,
+    "12": 75,
+    "16": 100
+  },
+  "started_ts": "2026-09-24T17:19:13.176297+00:00",
+  "finished_ts": "2026-09-24T23:26:33.547828+00:00",
+  "n_rows": 28
+}
