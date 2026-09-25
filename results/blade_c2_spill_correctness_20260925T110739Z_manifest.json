@@ -1,0 +1,89 @@
+{
+  "experiment": "C2 correctness under spill",
+  "script_provenance": {
+    "git_head": "9bfd881e664fdc103174c68d93f9e236d1a4bffc",
+    "committed": true,
+    "problems": [],
+    "files": [
+      {
+        "path": "harness/blade_spill_sweep.py",
+        "tracked": true,
+        "modified_or_untracked": false,
+        "last_commit_touching": "c6ab4a91accfcbb7d21079af90b67bbc3ff2706b",
+        "git_blob_sha": "9d547a800e18ff5974bf2266f791118831907126",
+        "sha256": "c8df946578abec167f6d7e7b4cc97e0a73e70c6225c09bc88a2d000bf7def650"
+      },
+      {
+        "path": "harness/blade_telemetry.py",
+        "tracked": true,
+        "modified_or_untracked": false,
+        "last_commit_touching": "1c17f5dd92c2034f29829605bee4c2287100cd00",
+        "git_blob_sha": "9f84eab081e700d28c1c149f86bcf980f1bf9d85",
+        "sha256": "bbb7ada3902f345e2c7ba96f355526d37252f0c290f4e74be807a31d6e7d26fb"
+      },
+      {
+        "path": "harness/server_guard.py",
+        "tracked": true,
+        "modified_or_untracked": false,
+        "last_commit_touching": "24b2088ad9bb4aa1f1a005328af6fb1ad55f1a7e",
+        "git_blob_sha": "6fe68cbf7f3ddfd47437d42ef03d00a98827f7a1",
+        "sha256": "bb9518df0a0de1ee994b94b30bf13d0e40dd4227db06f8f9e8c97ecefafcab03"
+      },
+      {
+        "path": "harness/run_provenance.py",
+        "tracked": true,
+        "modified_or_untracked": false,
+        "last_commit_touching": "144f792eed68192c19269dbad6c19056626d9dcf",
+        "git_blob_sha": "34a9aa4007a360b9e990deac036291ee07e0ff30",
+        "sha256": "d0393dbb9e553ba1b091592687797f5e724f2bb7098365517460c9878af9b9b3"
+      },
+      {
+        "path": "harness/context.py",
+        "tracked": true,
+        "modified_or_untracked": false,
+        "last_commit_touching": "4aa61becf5340e7a1ce7104f80e4dcb8ea19076b",
+        "git_blob_sha": "d86d23b6d11f5ada9e3918138bbcf75af386fd62",
+        "sha256": "e44ae51d9e782d8e01b0613c1974222dc32b6c80ed59f1c06f45b3793db4a20d"
+      },
+      {
+        "path": "evaluation/probes/scorers.py",
+        "tracked": true,
+        "modified_or_untracked": false,
+        "last_commit_touching": "37f768f324fe584994dbbb003bed2ceadd90230c",
+        "git_blob_sha": "577b791c97d9c4a8a174009465b50d9caf41f6db",
+        "sha256": "78fe4a0c2a320f8fea32dfb4e9ee7b1d42454ca626092a81cc0d471762f285c0"
+      }
+    ]
+  },
+  "environment": {
+    "captured_utc": "2026-09-25T11:07:30.377090+00:00",
+    "hostname": "RITZLAPTOP",
+    "power_plan": "Power Scheme GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (Balanced)",
+    "ac_power_online": "True",
+    "win32_battery_status_code": "2",
+    "gpu": "NVIDIA GeForce RTX 4070 Laptop GPU, 610.88, 8188 MiB",
+    "cuda_sysmem_fallback_policy": "UNKNOWN: not exposed by nvidia-smi and not read from the driver profile; never changed by this harness",
+    "os": "Microsoft Windows 11 Home 10.0.26200",
+    "logical_processors": 16,
+    "utc_offset_hours_local": -7.0,
+    "processes_over_5pct_cpu_before_start": []
+  },
+  "ctxs": [
+    36864,
+    47104
+  ],
+  "probes": [
+    "art_01",
+    "art_02",
+    "art_03",
+    "art_04",
+    "art_05"
+  ],
+  "model_sha256": "85e4a5b7b8ef0e48af0e8658f5aaab9c2324c76c1641493f4d1e25fce54b18b9",
+  "placement": "filler, then artifact, then question (artifact adjacent to question)",
+  "fill_ratio": 0.9,
+  "max_tokens": 32,
+  "scorer": "evaluation/probes/scorers.py score(probe_dict, output)",
+  "idle_temp_c": 57,
+  "completed_utc": "2026-09-25T12:00:15.819347+00:00"
+}

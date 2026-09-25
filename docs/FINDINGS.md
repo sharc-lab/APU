@@ -723,3 +723,27 @@ The no-spill expectation is a quadratic fit of TTFT against prompt length on the
 - The nvidia-smi power reading can glitch (values near 590 W were seen at idle); readings above 200 W were dropped.
 - C1 ran before the stale-server guard existed. Its own start-time check passed, each of the 11 servers logged exactly 6 requests (1 warm-up and 5 measured), and each row records its server PID.
 - The C1 manifest does not record script SHAs (added afterwards); the script version is commit 1c17f5d.
+
+---
+
+## C2, Blade: correctness under spill. No answer changed (2026-09-25)
+
+**Hardware arm:** Blade 14 only (RTX 4070 Laptop, 8188 MiB VRAM, CUDA b10970). Not the BOM target, never pooled with evo-t2s.
+**Sources:** `results/blade_c2_spill_correctness_20260925T110739Z.jsonl`, its manifest, telemetry and `results/blade_c2_server_logs/`. Scripts committed before the run and recorded in the manifest (git head 9bfd881, `harness/blade_spill_sweep.py` last changed in c6ab4a9). Run with the stale-server guard active.
+**Design:** the five artifact probes art_01 to art_05, filler first, then the artifact, then the question (artifact adjacent to the question), filler sized to 90% of ctx, `cache_prompt` false, max_tokens 32, scored by `score()` in `evaluation/probes/scorers.py`. Two contexts: ctx 36864, the last clean context from C1 (0.98x), and ctx 47104, the largest spilled context (6.30x, 1338 MiB spilled).
+
+| probe | expected answer | ctx 36864 (33.2k tokens, no spill): output, score | ctx 47104 (42.4k tokens, 14.2% spilled): output, score |
+|---|---|---|---|
+| art_01 | 51847 | 51847, 1.0 | 51847, 1.0 |
+| art_02 | 0.0073 | 0.0073, 1.0 | 0.0073, 1.0 |
+| art_03 | 8.9 | 8.9, 1.0 | 8.9, 1.0 |
+| art_04 | DELETE | DELETE, 1.0 | DELETE, 1.0 |
+| art_05 | (text answer) | scored 1.0 | scored 1.0 (identical output text) |
+
+10 of 10 probes correct, and every output string is identical between the two contexts. TTFT was 24.2 to 25.7 s at ctx 36864 and 240.3 to 243.5 s at ctx 47104, consistent with C1. No row is invalid, the guard records show no problems for either server, and each server log holds exactly 5 request markers.
+
+### Reading and limits
+
+- The silent spill cost time, not correctness, on these probes: the driver moved KV cache into system RAM and the model still returned the same answers. That is the expected outcome, because spill changes where the KV lives, not the arithmetic.
+- The probes are single-fact retrieval and were already at ceiling in earlier sweeps, so this cannot detect subtle degradation. It is a null result on gross errors only.
+- One pass per ctx (temperature 0, so a repeat would add little), and the two contexts differ in prompt length (33.2k vs 42.4k tokens) because filler is sized to the context. An answer change could not have been attributed to spill alone, but none occurred.

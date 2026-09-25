@@ -250,6 +250,42 @@ artifact size** under partial KV eviction.
 
 ---
 
+### Claim A-20 (Fig 6.2 candidate, SUPPORTING)
+**On a discrete GPU with the driver-default Sysmem Fallback Policy, exceeding VRAM causes a silent slowdown with a sharp onset, no error and no clock throttling.** On the Blade the onset lies between ctx 36864 (0.98x) and 38912 (3.71x TTFT); decode slowdown is proportional to the spilled fraction (0.08 + 74.6 x excess fraction, R2 0.998, n=5); 10 of 10 correctness probes are unchanged under 14.2% spill. Whether the setting "Prefer No Sysmem Fallback" turns this into a hard out-of-memory failure (C3) is not yet tested.
+
+- Files: `results/blade_m1_vram_spill_20260925T041415Z.jsonl`, `results/blade_c1_spill_sweep_20260925T053651Z.jsonl`, `results/blade_c2_spill_correctness_20260925T110739Z.jsonl`
+- Hardware: blade_rtx4070 (discrete, OFF-TARGET)
+- **Status: OFF-TARGET-ONLY.** The forced-failure half is PENDING (C3).
+
+---
+
+### Claim A-21 (Fig 6.2 candidate, SUPPORTING, mechanism open)
+**A host-side memory-bandwidth co-runner slows a fully VRAM-resident model on the Blade** by 3.1x to 4.7x on TTFT and 2.7x to 5.6x on decode (memcpy at 16 threads, ctx 8192) while GPU utilization falls 57 to 67 points. A pure-compute co-runner (spin, 16 processes) costs 1.09x TTFT and 1.79x decode. The mechanism is not established: host-on-critical-path is supported in three of four rows, shared power is not ruled out for the default-thread memcpy row, PCIe was not tested, and Shared Usage was not captured under load.
+
+- Files: `results/blade_m2_host_interference_20260925T043921Z.jsonl` (Parts A and B only; Part C is invalid)
+- Hardware: blade_rtx4070 (discrete, OFF-TARGET)
+- **Status: OFF-TARGET-ONLY** for the magnitude. Mechanism: not established.
+
+---
+
+### Claim A-22 (Fig 6.2 candidate, SUPPORTING)
+**On unified-memory evo-t2s (Vulkan), locking available memory from 12 GB down to 4 GB produced no silent slowdown** (TTFT at most 1.08x, 5 of 5 probes correct at every level whose server started) **and one loud crash at 5 GB** (Vulkan device lost, exit 0xC0000409) that did not recur at 4 GB. Server load time rose from about 3 s to about 150 s at 6 and 4 GB. One run per level; the crash is unrepeated.
+
+- Files: `results/ramlock_evo-t2s_20260925T010739Z.jsonl`, `results/ramlock_phaseD_telemetry/`
+- Hardware: evo-t2s (unified memory, OFF-TARGET)
+- **Status: OFF-TARGET-ONLY.** Hard-fault and pagefile data after server start are UNKNOWN at 6, 5 and 4 GB.
+
+---
+
+### Claim A-23 (Fig 6.2 candidate, SUPPORTING)
+**On evo-t2s a CPU-only co-runner slows iGPU inference through a shared package power limit.** With 12 or 16 cores spinning, RAPL package power sits at about 45 W, the iGPU is held at its power-limited 1650 MHz (from 2500 MHz) and TTFT rises 1.42x and 1.41x; with only the 4 P-cores spinning TTFT rises 1.04x. The prediction that P-core spin would hurt more was wrong.
+
+- Files: `results/t2s_m3_power_coupling_20260925T075348Z.jsonl` (+ Sysman and Windows counter files)
+- Hardware: evo-t2s (unified memory, OFF-TARGET)
+- **Status: OFF-TARGET-ONLY.** 3 calls per condition, one run; other shared-resource mechanisms are not excluded.
+
+---
+
 ## Section 5 — Axis B: Orchestration / Throughput vs. Latency
 
 ### Claim B-01 (Table 5.1, SUPPORTING)
@@ -335,6 +371,8 @@ OFF-TARGET-ONLY or PENDING.
 | 7 | A-15 (multi-model comparison) | Fig 4.13 (SUPPORTING) | Blade only |
 | 8 | A-19 (multi-turn recall) | Fig 4.15 (SUPPORTING) | Harness not written; EVO-X2 required |
 | 9 | B-01 / B-02 (Axis B span data) | Table 5.1, Fig 5.1 | Files gitignored; must commit or re-run |
+| 10 | A-20 / A-21 (Blade VRAM spill and host interference) | Fig 6.2 candidates | Discrete GPU behaviour; Strix Halo has unified memory, so the regime must be measured there |
+| 11 | A-22 / A-23 (evo-t2s memory lock and power coupling) | Fig 6.2 candidates | Intel Arc B390 unified memory, Vulkan; AMD Strix Halo path unmeasured |
 
 **APPENDIX figures** (A-03, A-06, A-07, A-09, A-10, A-11, A-14, A-16, A-17, A-18, B-03)
 are acceptable labeled as "Blade 14 / RTX 4070" with a note that Strix Halo re-runs are
