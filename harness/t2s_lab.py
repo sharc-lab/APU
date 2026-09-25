@@ -377,7 +377,9 @@ class Server:
             raise RuntimeError("STOP: a llama-server process we did not start is running")
         Path(self.log_path).unlink(missing_ok=True)
         t0 = time.time()
-        self.proc = subprocess.Popen(self._cmd(), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
+        self.out_path = self.log_path + ".stdout.txt"
+        self._out = open(self.out_path, "w", encoding="utf-8", errors="replace")
+        self.proc = subprocess.Popen(self._cmd(), stdout=self._out, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
         self.pid = self.proc.pid
         self.lab.tele.set_pid(self.pid)
         healthy = False
@@ -401,6 +403,16 @@ class Server:
             code = self.proc.poll()
             err = "hung past load timeout" if code is None else f"process exited with code {code} ({code & 0xFFFFFFFF:#x})"
             tail = " | ".join(lp.get("error_lines", [])[-3:])
+            try:
+                self._out.flush()
+                so = Path(self.out_path).read_text(encoding="utf-8", errors="replace").strip().splitlines()
+                so_tail = " / ".join(re.sub(r"\[[0-9;]*m", "", l).strip()[:160] for l in so[-5:])
+            except Exception:
+                so_tail = ""
+            if so_tail:
+                tail = (tail + " | " if tail else "") + "stdout/stderr: " + so_tail
+            elif not tail:
+                tail = "server wrote nothing to its log or stdout before exiting"
             info.update({"ok": False, "exit_code": code, "error": (err + (" ; log: " + tail if tail else ""))[:600]})
             self.stop()
             self.start_info = info
@@ -433,6 +445,10 @@ class Server:
         return self.guard.check()
 
     def stop(self):
+        try:
+            self._out.close()
+        except Exception:
+            pass
         if self.proc is not None and self.pid:
             for _ in range(3):
                 m3.kill_tree(self.pid)

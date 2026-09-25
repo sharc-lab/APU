@@ -381,7 +381,37 @@ def section0(lab):
     for mid, (fn, hyb, mx, yf) in MODEL_FILES.items():
         if mid not in lab.models and mid in lab.table and (fn in lab.dl_sha or mid == "qwen3-4b-2507"):
             lab.models[mid] = L.ModelInfo(mid, str(Path(L.MODELS_DIR) / fn), KNOWN_4B_SHA if mid == "qwen3-4b-2507" else lab.dl_sha[fn], hyb, mx, yf)
+    if "mmapctl" not in lab.done:
+        mmap_control(lab)
+        lab.item_done("mmapctl")
     Path(lab.prefix + "_model_table.json").write_text(json.dumps(lab.table, indent=1, default=str), encoding="utf-8")
+
+
+def mmap_control(lab):
+    """Positive control for the mmap knob: start one model with mmap on and off (no balloon) and compare the server's
+    private bytes and working set at load. The knob counts as demonstrated only if they differ by at least a quarter of
+    the weights."""
+    mid = "qwen3-8b" if "qwen3-8b" in lab.models else next(iter(lab.models))
+    mi, tab = lab.models[mid], lab.table.get(mid, {})
+    res = {}
+    for arm in (True, False):
+        name = "on" if arm else "off"
+        srv = L.Server(lab, mi, 8192, mmap=arm, tag=f"mmapctl_{name}")
+        lab.resources["server"] = srv
+        info = srv.start()
+        start_row(lab, srv, mi, "0", f"mmapctl_{name}", info, {"purpose": "mmap_control"})
+        res[name] = {"ok": info.get("ok"), "private_mib": info.get("private_mib"), "working_set_mib": info.get("working_set_mib"),
+                     "load_s": info.get("load_s"), "error": info.get("error")}
+        srv.stop()
+        lab.resources["server"] = None
+    w = tab.get("model_buffer_mib") or mi.file_bytes / 2 ** 20
+    ok = all(res[k]["ok"] for k in res)
+    dpriv = abs((res["on"]["private_mib"] or 0) - (res["off"]["private_mib"] or 0)) if ok else None
+    dws = abs((res["on"]["working_set_mib"] or 0) - (res["off"]["working_set_mib"] or 0)) if ok else None
+    demonstrated = bool(ok and ((dpriv or 0) >= 0.25 * w or (dws or 0) >= 0.25 * w))
+    lab.emit({"record": "mmap_control", "model_id": mid, "weights_mib": w, "on": res["on"], "off": res["off"],
+              "private_diff_mib": dpriv, "working_set_diff_mib": dws, "demonstrated": demonstrated, "ts_utc": utc_iso()})
+    log(f"mmap control ({mid}): on={res['on']} off={res['off']} demonstrated={demonstrated}")
 
 
 # ---------------------------------------------------------------- planning
@@ -403,10 +433,12 @@ def quad_fit(pts):
 
 
 def prefill_s(tab, n):
+    """Quadratic fit from prompts up to about 6.5k tokens, times a correction for longer prompts: measured
+    8B prefill at 14.7k tokens took about 2x the fit (75 s against 35 s), and 4B at 7.4k about 1.4x."""
     a, b = tab.get("ta"), tab.get("tb")
     if a is None:
         return n / (tab.get("prefill_tps") or 50.0)
-    return a * n + b * n * n
+    return (a * n + b * n * n) * (1 + min(2.0, 0.5 * n / 7000))
 
 
 def est_call_s(tab, fill_tokens, n_out=128):
