@@ -12,6 +12,7 @@ current status. Status definitions:
 - **UNSUPPORTED** — no committed data supports this claim. Either the experiment was not run
   or the result file contains no valid measurements for this claim.
 - **PENDING** — data collection is in progress now; status will be updated when committed.
+- **UNVERIFIED** (added 2026-09-25, applied on top of the status above, never replacing it) - the claim rests on a result file whose stale-server exposure cannot be excluded, or whose generating script is lost. The claim is neither confirmed nor withdrawn.
 
 No status field is valid without a cited file path.
 
@@ -142,6 +143,8 @@ metadata overhead and SWA default on Qwen3.
 - **Status: OFF-TARGET-ONLY** — must re-run via llama-server on Strix Halo with
   `--cache-type-k` flags verified effective; unified memory subtraction method differs.
 
+- **UNVERIFIED (2026-09-25):** `results/llamaserver_feasibility.json` is SCRIPT LOST, and `results/gate1_kv_precision.json` was run through `harness/llama_server.py`, which has no stale-server check, so exposure cannot be excluded. See `docs/RESULT_PROVENANCE.md`, sections "Stale-server exposure audit" and "Result file to generating script map". The status line above is kept unchanged; nothing was removed.
+
 ---
 
 ### Claim A-13 (Fig 4.12, SUPPORTING)
@@ -172,6 +175,8 @@ it; the EARLY arm loses its artifact first.
 - **Status: OFF-TARGET-ONLY** — three-architecture replication complete (blade Ollama,
   blade CUDA, evo-t2s Vulkan); Strix Halo EVO-X2 run required for submission.
 
+- **UNVERIFIED (2026-09-25):** for the parts resting on the `fig61_*` replications: the `fig61_*` files were produced with a server started outside the harness and with no model, ctx, PID or port check, so stale or wrong-server exposure cannot be excluded. The Ollama-based `stage_c_20260818T040408Z.jsonl` is not exposed to this failure mode. See `docs/RESULT_PROVENANCE.md`, sections "Stale-server exposure audit" and "Result file to generating script map". The status line above is kept unchanged; nothing was removed.
+
 ---
 
 ### Claim A-14 (Fig 6.1, CORE — primary contribution)
@@ -186,6 +191,8 @@ which envelope face the workload lies on.
 - Target hardware: Strix Halo EVO-X2 — NOT YET PROVISIONED (arrives ~Dec 3, 2026).
 - **Status: OFF-TARGET-ONLY** — evo-t2s replication complete; Strix Halo run required for submission.
 
+- **UNVERIFIED (2026-09-25):** the `fig61_*` files were produced with a server started outside the harness and with no model, ctx, PID or port check, so stale or wrong-server exposure cannot be excluded. `fig61_stagec_full_20260922T203557Z.jsonl` also has an uncertain script version (nearest committed version 0fd749a). See `docs/RESULT_PROVENANCE.md`, sections "Stale-server exposure audit" and "Result file to generating script map". The status line above is kept unchanged; nothing was removed.
+
 ---
 
 ### Claim A-15 (Fig 4.13, SUPPORTING)
@@ -196,6 +203,8 @@ modes from qwen3:4b-instruct, establishing the curves are not harness artifacts.
   `results/run_20260818T000746Z.jsonl`
 - Hardware: blade_rtx4070 (inferred)
 - **Status: OFF-TARGET-ONLY**
+
+- **UNVERIFIED (2026-09-25):** for the part resting on `results/crossmodel_baseline.json`: SCRIPT LOST. See `docs/RESULT_PROVENANCE.md`, sections "Stale-server exposure audit" and "Result file to generating script map". The status line above is kept unchanged; nothing was removed.
 
 ---
 
@@ -272,6 +281,8 @@ for the remote-search LangGraph task.
 - Hardware: UNKNOWN (external replication; hardware not documented)
 - **Status: OFF-TARGET-ONLY** — hardware not documented; label as external replication.
 
+- **UNVERIFIED (2026-09-25):** `results/zachary/replication_remote_search_v3.json` was produced by a script outside this repository, so no generating script is available here (SCRIPT LOST from this repo's point of view). See `docs/RESULT_PROVENANCE.md`, sections "Stale-server exposure audit" and "Result file to generating script map". The status line above is kept unchanged; nothing was removed.
+
 ---
 
 ### Claim B-04 (Fig 6.1, CORE — per-call join)
@@ -292,6 +303,8 @@ per-call (not mean-of-means) joint envelope points.
 ---
 
 ## Section 6 — Joint Envelope (Primary Contribution)
+
+- **UNVERIFIED (2026-09-25):** the `fig61_*` files were produced with a server started outside the harness and with no model, ctx, PID or port check, so stale or wrong-server exposure cannot be excluded. `fig61_stagec_full_20260922T203557Z.jsonl` also has an uncertain script version. See `docs/RESULT_PROVENANCE.md`, sections "Stale-server exposure audit" and "Result file to generating script map". The status line above is kept unchanged; nothing was removed.
 
 ### Claim J-01 (PRIMARY CLAIM)
 **f(workload type, quality floor) → minimum provisioned GB**: the minimum context memory
@@ -326,3 +339,5 @@ OFF-TARGET-ONLY or PENDING.
 **APPENDIX figures** (A-03, A-06, A-07, A-09, A-10, A-11, A-14, A-16, A-17, A-18, B-03)
 are acceptable labeled as "Blade 14 / RTX 4070" with a note that Strix Halo re-runs are
 planned; they do not block submission if CORE figures 6.1, 4.3, and 4.1 are reproduced.
+
+- **UNVERIFIED (2026-09-25):** for the parts resting on the `fig61_*` replications: the `fig61_*` files were produced with a server started outside the harness and with no model, ctx, PID or port check, so stale or wrong-server exposure cannot be excluded. The Ollama-based `stage_c_20260818T040408Z.jsonl` is not exposed to this failure mode. See `docs/RESULT_PROVENANCE.md`, sections "Stale-server exposure audit" and "Result file to generating script map". The status line above is kept unchanged; nothing was removed.
