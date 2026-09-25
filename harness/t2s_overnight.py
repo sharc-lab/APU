@@ -459,7 +459,7 @@ def section_a_items(lab):
     lab.emit({"record": "budget", "ts_utc": utc_iso(), "candidates_mib": cands,
               "note": "dxdiag Shared Memory and the absent Shared Limit counter are in the preflight record"})
     for mid, extra_arm, prio in (("qwen3-32b", False, 10), ("qwen3-30b-a3b-2507", False, 11), ("qwen3-14b", False, 12),
-                                 ("qwen3-4b-2507", True, 16), ("qwen3-8b", True, 17)):
+                                 ("qwen3-4b-2507", True, 45), ("qwen3-8b", True, 46)):
         mi, tab = lab.models.get(mid), lab.table.get(mid)
         if not mi or not tab or not tab.get("ok") or not cands:
             continue
@@ -500,8 +500,8 @@ def section_a_items(lab):
             if (i2 + 1) % 3 == 0:
                 seq.append(("anchor", lowest))
         for k, (kind, g) in enumerate(seq):
-            fill = fill_cap_tokens(tab, g, 150.0)
-            est = (tab.get("load_s") or 60) * 2 + 4 * est_call_s(tab, fill) + (0 if extra_arm else 5 * est_call_s(tab, fill, 32)) + 240
+            fill = fill_cap_tokens(tab, g, 60.0)
+            est = (tab.get("load_s") or 60) * 2 + 6 * est_call_s(tab, fill) + 180
             labels = {lb: ns for lb, ns in grid_by[g]}
             items.append({"item_id": f"A_{mid}_{kind}_{g}_{k}", "section": "A", "prio": prio, "est_s": est, "model_id": mid,
                           "n_ctx": g, "kind": kind, "extra": yarn, "fill": fill, "nstar": labels, "beyond": extra_arm,
@@ -512,15 +512,15 @@ def section_a_items(lab):
                           "est_s": 2 * ((tab.get("load_s") or 60) + 5 * est_call_s(tab, fill_y, 32) + 150), "model_id": mid,
                           "kind": "yarn_check", "extra": yarn, "nstar": {}, "beyond": False, "budgets": cands, "n_ctx": 16384})
         items.append({"item_id": f"A_{mid}_probe_max", "section": "A", "prio": prio + 0.5,
-                      "est_s": 300 + 5 * est_call_s(tab, fill_cap_tokens(tab, max(grid), 150.0), 32), "model_id": mid,
+                      "est_s": 300 + 5 * est_call_s(tab, fill_cap_tokens(tab, max(grid), 60.0), 32), "model_id": mid,
                       "kind": "probe_max", "extra": yarn, "nstar": {}, "beyond": extra_arm, "budgets": cands, "n_ctx": None})
     return items
 
 
 def section_b_items(lab):
     items = []
-    order = [("qwen3-4b-2507", 20, True), ("qwen3-8b", 21, True), ("llama31-8b", 26, False), ("qwen3-14b", 27, False),
-             ("qwen3-30b-a3b-2507", 32, False), ("qwen3-32b", 34, False)]
+    order = [("qwen3-4b-2507", 20, True), ("qwen3-8b", 23, True), ("llama31-8b", 32, False), ("qwen3-14b", 34, False),
+             ("qwen3-30b-a3b-2507", 36, False), ("qwen3-32b", 38, False)]
     for mid, prio, causal in order:
         mi, tab = lab.models.get(mid), lab.table.get(mid)
         if not mi or not tab or not tab.get("ok"):
@@ -532,7 +532,7 @@ def section_b_items(lab):
                       "fill": fill, "cap": 100, "cells": c100})
         if causal:
             for j, cap in enumerate((50,) if lab.smoke else (70, 50, 30)):
-                items.append({"item_id": f"B_{mid}_cap{cap}", "section": "B", "prio": prio + 0.1 * (j + 1) + 4, "est_s": 240 + cell_s * 2,
+                items.append({"item_id": f"B_{mid}_cap{cap}", "section": "B", "prio": prio + 0.1 * (j + 1) + 1, "est_s": 240 + cell_s * 2,
                               "model_id": mid, "fill": fill, "cap": cap, "cells": ["none", "nonp12"]})
     return items
 
@@ -543,7 +543,7 @@ def section_c_items(lab):
         lab.emit({"record": "section_c_disabled", "reason": "paging telemetry positive control did not pass", "ts_utc": utc_iso()})
         return items
     levels = [8, 0] if lab.smoke else [8, 4, 2, 1, 0, -1, -2]
-    for mid, base_prio in (("qwen3-8b", 23), ("qwen3-14b", 29), ("qwen3-32b", 35)):
+    for mid, base_prio in (("qwen3-8b", 26), ("qwen3-14b", 40), ("qwen3-32b", 42)):
         mi, tab = lab.models.get(mid), lab.table.get(mid)
         if not mi or not tab or not tab.get("ok"):
             continue
@@ -568,8 +568,8 @@ def section_c_items(lab):
                 seq.append(("anchor", True, 8, 0, need + 8 * 1024))
         for k, (kind, arm, lv, rep, target) in enumerate(seq):
             est = 150 + (tab.get("load_s") or 60) * 1.5 + 6 * (call + 30) + 5 * (est_call_s(tab, fill, 32) + 30)
-            core = kind == "anchor" or (lv <= 1 and rep == 0) or lv == 8
-            prio = base_prio + (0 if core else 2) + (0 if arm else 0.3)
+            core = kind == "anchor" or (lv in (8, 1, 0, -1, -2) and rep == 0)
+            prio = base_prio + (0 if core else 8) + (0 if arm else 0.3) + (0.1 * rep)
             items.append({"item_id": f"C_{mid}_{kind}_{'mm' if arm else 'nomm'}_{lv}_{rep}_{k}", "section": "C", "prio": prio,
                           "est_s": est, "model_id": mid, "n_ctx": n_ctx, "mmap": arm, "headroom_gb": lv, "rep": rep,
                           "target_avail_mb": target, "need_mib": need, "fill": fill, "kind": kind, "backend": "vulkan"})
@@ -648,7 +648,7 @@ def run_a_item(lab, it):
     srv = L.Server(lab, mi, n_ctx, extra=it["extra"], tag=it["item_id"])
     lab.resources["server"] = srv
     info = srv.start(timeout=1800)
-    fill = fill_cap_tokens(tab, n_ctx, 150.0)
+    fill = fill_cap_tokens(tab, n_ctx, 60.0)
     w = tab.get("model_buffer_mib") or mi.file_bytes / 2 ** 20
     need = w + (tab.get("compute_buffer_mib") or 800.0) + mi.kv_bpt_meta * n_ctx / 2 ** 20
     extra = {"need_mib": need, "budgets_mib": it["budgets"], "exceeds_budget": {k: need > v for k, v in it["budgets"].items()},
