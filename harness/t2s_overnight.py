@@ -115,7 +115,7 @@ class Lab:
         r.update(self.identity)
         r.update({"backend": backend, "section": section, "seed": SEED, "git_sha": self.git_sha,
                   "script_sha": self.script_sha, "kv_type": "f16", "flash_attn": "on", "ts_utc": utc_iso(),
-                  "proc_throttle_max": self.cap()})
+                  "proc_throttle_max": self.cap(), "rope_flags": None})
         if mi is not None:
             r.update({"model_id": mi.model_id, "model_sha256": mi.sha256, "quant": mi.quant})
         r.update(kw)
@@ -494,6 +494,11 @@ def section_a_items(lab):
             items.append({"item_id": f"A_{mid}_{kind}_{g}_{k}", "section": "A", "prio": prio, "est_s": est, "model_id": mid,
                           "n_ctx": g, "kind": kind, "extra": yarn, "fill": fill, "nstar": labels, "beyond": extra_arm,
                           "budgets": cands})
+        if yarn:
+            fill_y = int(0.9 * 16384)
+            items.append({"item_id": f"A_{mid}_yarn_check", "section": "A", "prio": prio + 0.2,
+                          "est_s": 2 * ((tab.get("load_s") or 60) + 5 * est_call_s(tab, fill_y, 32) + 150), "model_id": mid,
+                          "kind": "yarn_check", "extra": yarn, "nstar": {}, "beyond": False, "budgets": cands, "n_ctx": 16384})
         items.append({"item_id": f"A_{mid}_probe_max", "section": "A", "prio": prio + 0.5,
                       "est_s": 300 + 5 * est_call_s(tab, fill_cap_tokens(tab, max(grid), 150.0), 32), "model_id": mid,
                       "kind": "probe_max", "extra": yarn, "nstar": {}, "beyond": extra_arm, "budgets": cands, "n_ctx": None})
@@ -599,8 +604,26 @@ def build_plan(lab):
 
 
 # ---------------------------------------------------------------- Section A
+def run_yarn_check(lab, it):
+    """5 art probes at 16K with the model's YaRN flags off and on: YaRN alone must not change the answers."""
+    mi = lab.models[it["model_id"]]
+    fill = int(0.9 * 16384)
+    for tag, flags in (("off", []), ("on", it["extra"])):
+        srv = L.Server(lab, mi, 16384, extra=flags, tag=f"{it['item_id']}_{tag}")
+        lab.resources["server"] = srv
+        info = srv.start(timeout=1800)
+        extra = {"yarn_check": tag, "rope_flags": flags or None, "budgets_mib": it["budgets"]}
+        start_row(lab, srv, mi, "A", it["item_id"], info, extra)
+        if info.get("ok"):
+            probe_sequence(lab, srv, mi, "A", it["item_id"], fill, extra=extra)
+        srv.stop()
+        lab.resources["server"] = None
+
+
 def run_a_item(lab, it):
     mi, tab = lab.models[it["model_id"]], lab.table[it["model_id"]]
+    if it["kind"] == "yarn_check":
+        return run_yarn_check(lab, it)
     if it["kind"] == "probe_max":
         started = sorted(lab.a_started.get(it["model_id"], []))
         if not started:
