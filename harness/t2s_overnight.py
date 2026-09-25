@@ -216,7 +216,8 @@ def start_row(lab, srv, mi, section, item_id, info, extra):
     r.update({"kv_buffer_mib_log": lg.get("kv_buffer_mib"), "compute_buffer_mib_log": lg.get("compute_buffer_mib"),
               "model_buffer_mib_log": lg.get("model_buffer_mib"), "device_line": lg.get("device_line"),
               "device_free_mib": lg.get("device_free_mib"), "mmap_lines": lg.get("mmap_lines"),
-              "exit_code": info.get("exit_code")})
+              "exit_code": info.get("exit_code"), "private_mib_at_load": info.get("private_mib"),
+              "working_set_mib_at_load": info.get("working_set_mib")})
     lab.emit(r)
 
 
@@ -268,7 +269,7 @@ def paging_control(lab):
 
 def section0_model(lab, mi):
     sid = f"s0_{mi.model_id}"
-    srv = L.Server(lab, mi, 4096, tag=sid)
+    srv = L.Server(lab, mi, 8192, tag=sid)
     lab.resources["server"] = srv
     pre_avail = L.avail_mb()
     info = srv.start()
@@ -285,8 +286,8 @@ def section0_model(lab, mi):
         return
     lg = info["log"]
     kv_log = lg.get("kv_buffer_mib")
-    kv_meta_mib = mi.kv_bpt_meta * 4096 / 2 ** 20
-    tab.update({"kv_buffer_mib_log_4096": kv_log, "kv_meta_mib_4096": kv_meta_mib,
+    kv_meta_mib = mi.kv_bpt_meta * 8192 / 2 ** 20
+    tab.update({"kv_buffer_mib_log_8192": kv_log, "kv_meta_mib_8192": kv_meta_mib,
                 "kv_agree": (abs(kv_log - kv_meta_mib) / kv_meta_mib <= 0.02) if kv_log else None,
                 "model_buffer_mib": lg.get("model_buffer_mib"), "compute_buffer_mib": lg.get("compute_buffer_mib"),
                 "device_line": lg.get("device_line"), "device_free_mib": lg.get("device_free_mib"),

@@ -416,6 +416,13 @@ class Server:
             return info
         self.guard = sg.RequestGuard(PORT, self.pid)
         self.props = rec
+        time.sleep(2)
+        pm = ps(f"$g = Get-Process -Id {self.pid} -ErrorAction SilentlyContinue; if ($g) {{ \"$($g.PrivateMemorySize64),$($g.WorkingSet64)\" }}")
+        try:
+            pv, ws = [int(x) for x in pm.split(",")]
+            info["private_mib"], info["working_set_mib"] = pv / 2 ** 20, ws / 2 ** 20
+        except Exception:
+            info["private_mib"] = info["working_set_mib"] = None
         info.update({"ok": True, "exit_code": None, "error": None, "guard": rec, "build": rec.get("props_build_info")})
         self.start_info = info
         return info
