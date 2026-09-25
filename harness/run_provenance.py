@@ -52,3 +52,28 @@ def script_provenance(paths, require_committed: bool = True) -> dict:
     if require_committed and not committed:
         raise ProvenanceError("refusing to run, scripts not committed: " + "; ".join(problems))
     return {"git_head": head, "committed": committed, "problems": problems, "files": files}
+
+
+def git_blob_sha(data: bytes) -> str:
+    """Same value as `git hash-object` for these bytes."""
+    return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
+
+
+def verify_deployed_blobs(base_dir, expected_json_path) -> dict:
+    """For machines without git (evo-t2s). expected_json_path holds {"git_head": sha, "blobs": {name: blob_sha}},
+    written at deploy time from `git rev-parse HEAD:<path>` of the COMMITTED files, and the deployed bytes were
+    produced with `git show HEAD:<path>`. Any mismatch raises ProvenanceError."""
+    import json
+    exp = json.loads(Path(expected_json_path).read_text(encoding="utf-8"))
+    files, problems = [], []
+    for name, want in exp["blobs"].items():
+        data = (Path(base_dir) / name).read_bytes()
+        got = git_blob_sha(data)
+        files.append({"path": name, "expected_git_blob_sha": want, "actual_git_blob_sha": got,
+                      "sha256": hashlib.sha256(data).hexdigest()})
+        if got != want:
+            problems.append(f"{name}: blob {got} != committed {want}")
+    if problems:
+        raise ProvenanceError("deployed scripts do not match the committed blobs: " + "; ".join(problems))
+    return {"git_head": exp["git_head"], "committed": True, "verified_by": "git blob sha1 of deployed bytes",
+            "problems": [], "files": files}
