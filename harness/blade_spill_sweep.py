@@ -446,8 +446,8 @@ def _load_scorers():
     return mod
 
 
-def cmd_c2(ctxs: list[int]):
-    prov = _provenance(False)
+def cmd_c2(ctxs: list[int], smoke: bool = False):
+    prov = _provenance(smoke)
     verify_model_sha256()
     env = bt.environment_manifest()
     scorers = _load_scorers()
@@ -457,7 +457,9 @@ def cmd_c2(ctxs: list[int]):
             d = json.loads(l)
             segs[d["id"]] = d
     probes = [segs[f"art_{i:02d}"] for i in range(1, 6)]
-    run = Run("blade_c2_spill_correctness", RESULTS_DIR, scratch=False)
+    if smoke:
+        probes = probes[:2]
+    run = Run("smoke_c2" if smoke else "blade_c2_spill_correctness", SCRATCH_DIR if smoke else RESULTS_DIR, scratch=smoke)
     run.manifest = {"experiment": "C2 correctness under spill", "script_provenance": prov, "environment": env, "ctxs": ctxs,
                     "probes": [p["id"] for p in probes], "model_sha256": MODEL_SHA256,
                     "placement": "filler, then artifact, then question (artifact adjacent to question)",
@@ -531,7 +533,13 @@ def cmd_c2(ctxs: list[int]):
         run.tele.stop()
         time.sleep(2)
         run.save_manifest()
-    (RESULTS_DIR / f"{run.stem}.DONE").write_text("done\n")
+    if smoke:
+        cols = check_columns(run.tele.prefix)
+        print(json.dumps(cols, indent=2))
+        bad = {k: v for k, v in cols.items() if not k.endswith("n_rows") and v < 0.8}
+        print("SMOKE COLUMN CHECK:", "PASS" if not bad and cols else f"FAIL {bad}")
+    else:
+        (RESULTS_DIR / f"{run.stem}.DONE").write_text("done\n")
     log("C2 finished")
 
 
@@ -542,12 +550,13 @@ if __name__ == "__main__":
     a.add_argument("--smoke", action="store_true")
     b = sub.add_parser("c2")
     b.add_argument("--ctx", type=int, nargs="+", required=True)
+    b.add_argument("--smoke", action="store_true")
     args = ap.parse_args()
     try:
         if args.cmd == "c1":
             cmd_c1(args.smoke)
         else:
-            cmd_c2(args.ctx)
+            cmd_c2(args.ctx, args.smoke)
     except StopExperiment as e:
         log(f"STOP: {e}")
         sys.exit(2)
