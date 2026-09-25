@@ -592,6 +592,8 @@ def trim(items, budget_s):
 
 def build_plan(lab):
     items = section_a_items(lab) + section_b_items(lab) + section_c_items(lab) + section_d_items(lab)
+    if lab.args.only in ("A", "B", "C", "D"):
+        items = [i for i in items if i["section"] == lab.args.only]
     budget = lab.left() - lab.args.reserve_min * 60
     kept, dropped, used = trim(items, budget)
     kept_ids = {k["item_id"] for k in kept}
