@@ -841,6 +841,41 @@ def run_d_prepare(lab, it):
     lab.emit(info)
 
 
+def plan_only(args, prov):
+    class _T:
+        sysman = None
+    lab = Lab.__new__(Lab)
+    lab.args, lab.prov, lab.smoke = args, prov, False
+    lab.deadline_ts = time.time() + args.deadline_h * 3600
+    lab.models, lab.table, lab.done = {}, {}, set()
+    lab.paging_ok, lab.sycl_ok = True, None
+    lab.prefix = str(OUT_ROOT / "plan_only")
+    lab.rows = type("R", (), {"write": staticmethod(lambda r: None)})()
+    lab.emit = lambda r: None
+    for tp in args.tables:
+        for mid, v in json.load(open(tp, encoding="utf-8")).items():
+            lab.table[mid] = v
+    read_downloads(lab)
+    for mid, (fn, hyb, mx, yf) in MODEL_FILES.items():
+        if mid in lab.table and Path(L.MODELS_DIR, fn).exists():
+            sha = KNOWN_4B_SHA if mid == "qwen3-4b-2507" else lab.dl_sha.get(fn, "unknown")
+            lab.models[mid] = L.ModelInfo(mid, str(Path(L.MODELS_DIR) / fn), sha, hyb, mx, yf)
+    items = section_a_items(lab) + section_b_items(lab) + section_c_items(lab) + section_d_items(lab)
+    kept, dropped, used = trim(items, lab.left() - args.reserve_min * 60)
+    print(f"deadline {args.deadline_h} h, reserve {args.reserve_min} min: {len(kept)} items kept ({used / 3600:.2f} h), {len(dropped)} trimmed")
+    from collections import Counter
+    for name, its in (("kept", kept), ("trimmed", dropped)):
+        c = Counter((i["section"], i["model_id"] if "model_id" in i else "-") for i in its)
+        print(name + ":", ", ".join(f"{sec}/{m} x{n}" for (sec, m), n in sorted(c.items())))
+    for it in kept:
+        pass
+    print("kept est hours by section:", {sec: round(sum(i["est_s"] for i in kept if i["section"] == sec) / 3600, 2) for sec in "ABCD"})
+    print("A budget plans:")
+    for i in items:
+        if i["section"] == "A" and i.get("kind") == "grid":
+            pass
+
+
 # ---------------------------------------------------------------- main
 def cleanup_partial(lab):
     r = lab.resources
@@ -877,6 +912,8 @@ def main():
     ap.add_argument("--only", default=None, help="run only section 0, A, B, C or D")
     ap.add_argument("--reserve-min", type=float, default=45.0, help="minutes kept free at the end for cleanup")
     ap.add_argument("--max-items", type=int, default=0, help="smoke only: run at most N items per section")
+    ap.add_argument("--plan-only", action="store_true", help="print the schedule from --tables and exit; no servers, no telemetry")
+    ap.add_argument("--tables", nargs="*", default=[], help="model_table.json files for --plan-only (later ones override)")
     ap.add_argument("--models", default=None, help="comma list of model ids to include (smoke and resume use)")
     args = ap.parse_args()
     if args.models:
@@ -889,6 +926,8 @@ def main():
     if "No User exists" not in q:
         raise SystemExit("another interactive session is logged in: " + q)
     prov = rp.verify_deployed_blobs(DEPLOY, args.expect_blobs)
+    if args.plan_only:
+        return plan_only(args, prov)
     lab = Lab(args, prov)
     lab.resources["powercap"] = L.PowerCap()
     Path(lab.prefix + "_manifest.json").write_text(json.dumps({
