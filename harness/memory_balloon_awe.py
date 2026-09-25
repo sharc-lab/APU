@@ -36,6 +36,7 @@ SAMPLER every --sample-interval-s (default 5s), for the whole run:
   - held page count (and MB, held_pages * page_size)
   - Available MBytes
   - \\Memory\\Pages/sec (hard faults -- the precise disk-paging signal)
+  - \\PhysicalDisk(_Total)\\Disk Read Bytes/sec (weight re-reads from SSD; added 2026-09-25)
   - \\Paging File(_Total)\\% Usage
   - for --server-pid (if provided): PrivateMemorySize64, WorkingSet64,
     \\GPU Process Memory(pid_<PID>*)\\Shared Usage and Dedicated Usage
@@ -267,11 +268,18 @@ def get_gpu_counters(server_pid: int | None) -> dict:
         return {"gpu_counter_parse_error": out[:300]}
 
 
+def _ts() -> str:
+    """True UTC. Earlier versions wrote local time with a false Z suffix (local was UTC-7 on evo-t2s)."""
+    import datetime as _dt
+    return _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 def get_system_counters() -> dict:
     cmd = (
         "$out = @{}; "
         "try { $out.pages_per_sec = (Get-Counter '\\Memory\\Pages/sec' -ErrorAction Stop).CounterSamples[0].CookedValue } catch { $out.pages_per_sec_error = $_.Exception.Message } "
         "try { $out.pagefile_pct_usage = (Get-Counter '\\Paging File(_Total)\\% Usage' -ErrorAction Stop).CounterSamples[0].CookedValue } catch { $out.pagefile_pct_usage_error = $_.Exception.Message } "
+        "try { $out.disk_read_bytes_per_sec = (Get-Counter '\\PhysicalDisk(_Total)\\Disk Read Bytes/sec' -ErrorAction Stop).CounterSamples[0].CookedValue } catch { $out.disk_read_bytes_per_sec_error = $_.Exception.Message } "
         "$out | ConvertTo-Json"
     )
     out = ps(cmd, timeout=15)
@@ -370,7 +378,7 @@ def main():
                        f"held_mb_final={balloon.held_mb():.1f} page_size={page_size}\n")
             logf.write("ts_iso,elapsed_s,held_mb,available_mb,pages_per_sec,pagefile_pct_usage,"
                        "server_private_mb,server_workingset_mb,gpu_shared_usage,gpu_dedicated_usage,"
-                       "gpu_adapter_shared_usage_total,note\n")
+                       "gpu_adapter_shared_usage_total,note,disk_read_bytes_per_sec,counter_read_s\n")
             logf.flush()
 
             # ---- hold + sample phase ----
@@ -388,7 +396,7 @@ def main():
                     hb_age = float("inf")
                 if hb_age > args.heartbeat_timeout_s:
                     print(f"SAFETY VALVE: heartbeat stale ({hb_age:.1f}s).", flush=True)
-                    logf.write(f"{time.strftime('%Y-%m-%dT%H:%M:%SZ')},{elapsed:.1f},{balloon.held_mb():.1f},,,,,,,,safety_valve_heartbeat\n")
+                    logf.write(f"{_ts()},{elapsed:.1f},{balloon.held_mb():.1f},,,,,,,,safety_valve_heartbeat\n")
                     break
 
                 cur_avail = available_mb()
@@ -398,24 +406,26 @@ def main():
                     elif now - low_avail_since > args.low_available_max_consecutive_s:
                         print(f"SAFETY VALVE: available < {args.low_available_floor_mb} MB for "
                               f">{args.low_available_max_consecutive_s}s.", flush=True)
-                        logf.write(f"{time.strftime('%Y-%m-%dT%H:%M:%SZ')},{elapsed:.1f},{balloon.held_mb():.1f},{cur_avail:.1f},,,,,,,safety_valve_low_available\n")
+                        logf.write(f"{_ts()},{elapsed:.1f},{balloon.held_mb():.1f},{cur_avail:.1f},,,,,,,safety_valve_low_available\n")
                         break
                 else:
                     low_avail_since = None
 
+                _t_read = time.monotonic()
                 sys_counters = get_system_counters()
                 srv_stats = get_server_process_stats(args.server_pid)
                 gpu_counters = get_gpu_counters(args.server_pid)
 
                 row = (
-                    f"{time.strftime('%Y-%m-%dT%H:%M:%SZ')},{elapsed:.1f},{balloon.held_mb():.1f},"
+                    f"{_ts()},{elapsed:.1f},{balloon.held_mb():.1f},"
                     f"{cur_avail:.1f},{sys_counters.get('pages_per_sec', '')},"
                     f"{sys_counters.get('pagefile_pct_usage', '')},"
                     f"{(srv_stats.get('PrivateMemorySize64', 0) or 0) / (1024*1024):.1f},"
                     f"{(srv_stats.get('WorkingSet64', 0) or 0) / (1024*1024):.1f},"
                     f"{gpu_counters.get('gpu_shared_usage', '')},"
                     f"{gpu_counters.get('gpu_dedicated_usage', '')},"
-                    f"{gpu_counters.get('gpu_adapter_shared_usage_total', '')},\n"
+                    f"{gpu_counters.get('gpu_adapter_shared_usage_total', '')},,"
+                    f"{sys_counters.get('disk_read_bytes_per_sec', '')},{time.monotonic() - _t_read:.1f}\n"
                 )
                 logf.write(row)
                 logf.flush()
