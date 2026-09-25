@@ -38,6 +38,7 @@ MODEL_FILES = {
     "qwen3-30b-a3b-2507": ("Qwen3-30B-A3B-Instruct-2507-Q4_K_M.gguf", False, 262144, 1),
     "qwen3-32b": ("Qwen3-32B-Q4_K_M.gguf", True, 32768, 4),
 }
+PAGING_FILE = "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf"
 YARN_MODELS = ("qwen3-32b", "qwen3-14b", "qwen3-8b")
 KNOWN_4B_SHA = "85e4a5b7b8ef0e48af0e8658f5aaab9c2324c76c1641493f4d1e25fce54b18b9"
 MASKS = {"none": None, "p4": 0x000F, "e4": 0x00F0, "nonp12": 0xFFF0, "all16": 0xFFFF}
@@ -239,11 +240,8 @@ def read_downloads(lab):
 
 def paging_control(lab):
     """Evict the file cache with the balloon, then read 2 GB of a model file: pages input must be nonzero."""
-    target = str(Path(L.MODELS_DIR) / MODEL_FILES["llama31-8b"][0])
+    target = str(Path(L.MODELS_DIR) / PAGING_FILE)
     while not Path(target).exists() and lab.left() > 0:
-        read_downloads(lab)
-        if MODEL_FILES["llama31-8b"][0] in lab.dl_sha:
-            break
         time.sleep(20)
     b = L.Balloon(lab, BALLOON_SCRIPT, "pagectl")
     info = b.start(8192)
