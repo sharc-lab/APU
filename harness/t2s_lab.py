@@ -276,13 +276,30 @@ class Telemetry:
             "temp_c_max": _max([r.get("temp_c") for r in self.sys_ring.window(t0, t1) if r["kind"] == "temp"]),
         }
 
-    def thermal_gate(self, idle_temp, tol=3.0, max_wait=300.0):
+    def pkg_now(self):
+        now = time.time()
+        v = [x.get("rapl_pkg_mw") for x in self.win_ring.window(now - 6, now) if x.get("rapl_pkg_mw") is not None]
+        return (st.median(v) / 1000) if v else None
+
+    def thermal_gate(self, idle_temp, tol=3.0, max_wait=300.0, idle_pkg=None):
+        """No temperature sensor is exposed on this machine (Sysman lists none, the ACPI zone is constant), so when
+        idle_temp is None the gate falls back to a package-power proxy: wait at least 20 s and until RAPL package power
+        is within 25% of its idle value, at most 120 s. The row records which rule released the gate."""
         t0 = time.monotonic()
         temp = self.temp_now()
         start = temp
         if idle_temp is None or temp is None:
-            return {"thermal_wait_s": 0.0, "temp_at_gate_start": start, "temp_at_release": temp, "idle_temp": idle_temp,
-                    "gate_released_by": "no_temperature"}
+            if idle_pkg is None:
+                return {"thermal_wait_s": 0.0, "temp_at_gate_start": start, "temp_at_release": temp, "idle_temp": idle_temp,
+                        "gate_released_by": "no_temperature_no_proxy"}
+            time.sleep(20)
+            p = self.pkg_now()
+            while p is not None and p > idle_pkg * 1.25 and time.monotonic() - t0 < 120:
+                time.sleep(5)
+                p = self.pkg_now()
+            by = "pkg_power_proxy" if (p is None or p <= idle_pkg * 1.25) else "pkg_power_proxy_timeout"
+            return {"thermal_wait_s": round(time.monotonic() - t0, 1), "temp_at_gate_start": start, "temp_at_release": temp,
+                    "idle_temp": idle_temp, "idle_pkg_w": idle_pkg, "pkg_w_at_release": p, "gate_released_by": by}
         released = "temp"
         while temp is not None and temp > idle_temp + tol:
             if time.monotonic() - t0 > max_wait:
@@ -308,22 +325,25 @@ class ModelInfo:
 def parse_server_log(path):
     """Buffer sizes and the device memory line from a llama-server log (verbosity 3)."""
     out = {"kv_buffer_mib": None, "compute_buffer_mib": None, "model_buffer_mib": None, "device_line": None,
-           "device_free_mib": None, "mmap_lines": []}
+           "device_free_mib": None, "device_total_mib": None, "mmap_lines": []}
     try:
         txt = Path(path).read_text(encoding="utf-8", errors="replace")
     except Exception:
         return out
     txt = re.sub(r"\x1b\[[0-9;]*m", "", txt)
-    kv = re.findall(r"KV buffer size\s*=\s*([\d.]+)\s*MiB", txt)
-    out["kv_buffer_mib"] = sum(float(x) for x in kv) if kv else None
-    cb = re.findall(r"compute buffer size\s*=\s*([\d.]+)\s*MiB", txt)
-    out["compute_buffer_mib"] = sum(float(x) for x in cb) if cb else None
-    mb = re.findall(r"model buffer size\s*=\s*([\d.]+)\s*MiB", txt)
-    out["model_buffer_mib"] = sum(float(x) for x in mb) if mb else None
-    m = re.search(r"using device (Vulkan\d|SYCL\d)[^\n]*?-\s*([\d]+)\s*MiB free", txt)
+    def last_per_device(pattern):
+        d = {}
+        for dev, val in re.findall(pattern, txt):
+            d[dev] = float(val)
+        return sum(d.values()) if d else None
+    out["kv_buffer_mib"] = last_per_device(r"(\S+)\s+KV buffer size\s*=\s*([\d.]+)\s*MiB")
+    out["compute_buffer_mib"] = last_per_device(r"(\S+)\s+compute buffer size\s*=\s*([\d.]+)\s*MiB")
+    out["model_buffer_mib"] = last_per_device(r"(\S+)\s+model buffer size\s*=\s*([\d.]+)\s*MiB")
+    m = re.search(r"-\s*(Vulkan\d|SYCL\d)\s*:[^\n]*?\((\d+)\s*MiB,\s*(\d+)\s*MiB free\)", txt)
     if m:
         out["device_line"] = m.group(0)
-        out["device_free_mib"] = float(m.group(2))
+        out["device_total_mib"] = float(m.group(2))
+        out["device_free_mib"] = float(m.group(3))
     out["mmap_lines"] = [l.strip()[:200] for l in txt.splitlines() if "mmap" in l.lower()][:6]
     out["error_lines"] = [l.strip()[:300] for l in txt.splitlines() if ERR_RE.search(l)][-6:]
     return out
@@ -342,7 +362,7 @@ class Server:
     def _cmd(self):
         c = [BINARIES[self.backend], "-m", self.mi.path, "--port", str(PORT), "-c", str(self.n_ctx), "-ctk", "f16",
              "-ctv", "f16", "-fa", "on", "-ngl", "99", "-np", "1", "-t", "4", "--no-context-shift",
-             "--log-file", self.log_path, "--log-verbosity", "3"]
+             "--log-file", self.log_path, "--log-verbosity", "4"]
         if not self.mmap:
             c.append("--no-mmap")
         return c + self.extra

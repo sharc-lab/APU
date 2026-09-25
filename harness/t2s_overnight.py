@@ -70,6 +70,7 @@ class Lab:
         self.git_sha = prov["git_head"]
         self.script_sha = next((f["actual_git_blob_sha"] for f in prov["files"] if f["path"] == "t2s_overnight.py"), None)
         self.idle_temp = None
+        self.idle_pkg = None
         self.models, self.table, self.done = {}, {}, set()
         self.dl_sha, self.dl_dropped = {}, set()
         self.scorers, self.probes = L.load_probes()
@@ -78,6 +79,7 @@ class Lab:
         self.knob_ok = None
         self.base_pkg = {}
         self.a_started = {}
+        self.a_last_below = {}
         self.sycl_ok = None
         self.identity = {
             "hw_id": "evo-t2s",
@@ -134,7 +136,7 @@ def prompt_for(srv, fill_tokens):
 def do_call(lab, srv, mi, section, item_id, prompt, n_tok, *, warmup, rep, extra, max_tokens=128, ignore_eos=True,
             mem_headroom_gb=None, co_runner="none", kind="call", probe=None):
     lab.check()
-    gate = lab.tele.thermal_gate(lab.idle_temp)
+    gate = lab.tele.thermal_gate(lab.idle_temp, idle_pkg=lab.idle_pkg)
     ok, lp = srv.alive_and_ours()
     base = dict(n_ctx=srv.n_ctx, prompt_tokens=n_tok, mmap=srv.mmap, co_runner=co_runner, rep=rep,
                 mem_headroom_gb=mem_headroom_gb, load_s=srv.start_info.get("load_s"), item_id=item_id, kind=kind,
@@ -168,6 +170,8 @@ def do_call(lab, srv, mi, section, item_id, prompt, n_tok, *, warmup, rep, extra
         r.update({"score": score, "score_detail": det, "probe_id": probe["id"]})
     lab.emit(r)
     res.update({"pkg_power_w": m["pkg_power_w"], "igpu_mhz": m["igpu_mhz"]})
+    if probe is not None:
+        res["score"] = r.get("score")
     return res
 
 
@@ -286,6 +290,7 @@ def section0_model(lab, mi):
                 "kv_agree": (abs(kv_log - kv_meta_mib) / kv_meta_mib <= 0.02) if kv_log else None,
                 "model_buffer_mib": lg.get("model_buffer_mib"), "compute_buffer_mib": lg.get("compute_buffer_mib"),
                 "device_line": lg.get("device_line"), "device_free_mib": lg.get("device_free_mib"),
+                "device_total_mib": lg.get("device_total_mib"),
                 "props_build": info.get("build"), "mmap_lines": lg.get("mmap_lines")})
     time.sleep(4)
     g = lab.tele.gpu_ring.last()
@@ -294,19 +299,29 @@ def section0_model(lab, mi):
     tab["shared_expected_mib"] = expect
     tab["shared_ok"] = bool(tab["shared_after_load_mib"] and expect and 0.6 <= tab["shared_after_load_mib"] / expect <= 1.6)
     pts = []
-    for fill in (800, 2600):
+    fills = [800, 2600]
+    for i in range(3):
+        if i == 2:
+            n1, t1 = pts[0][0], pts[0][1]
+            n2, t2 = pts[1][0], pts[1][1]
+            aa, bb = quad_fit([(n1, t1), (n2, t2)])
+            fills.append(6500 if aa * 6500 + bb * 6500 ** 2 < 240 else 3500)
+        fill = fills[i]
         prompt = prompt_for(srv, fill)
         n_tok = srv.tokenize(prompt)
         r = do_call(lab, srv, mi, "0", sid, prompt, n_tok, warmup=False, rep=0, extra={"purpose": "timing"}, max_tokens=64)
         if r and r.get("outcome") == "ok":
             pts.append((n_tok, r["ttft_s"], r["decode_tok_s"], r["e2e_s"], r.get("think_tag")))
+        else:
+            break
     tab["timing"] = pts
-    if len(pts) == 2:
-        (n1, t1, d1, _, _), (n2, t2, d2, _, _) = pts
-        tab["prefill_tps"] = (n2 - n1) / (t2 - t1) if t2 > t1 else n2 / t2
-        tab["decode_tps"] = st.mean([x for x in (d1, d2) if x])
+    if len(pts) >= 2:
+        tab["ta"], tab["tb"] = quad_fit([(p[0], p[1]) for p in pts])
+        tab["decode_tps"] = st.mean([p[2] for p in pts if p[2]])
+        tab["prefill_tps"] = pts[-1][0] / pts[-1][1]
         tab["think_tag_seen"] = any(p[4] for p in pts)
     elif len(pts) == 1:
+        tab["ta"], tab["tb"] = pts[0][1] / pts[0][0], 0.0
         tab["prefill_tps"] = pts[0][0] / pts[0][1]
         tab["decode_tps"] = pts[0][2]
     pr = probe_sequence(lab, srv, mi, "0", sid, 1500, extra={"purpose": "smoke_probe"})
@@ -359,19 +374,64 @@ def section0(lab):
 
 
 # ---------------------------------------------------------------- planning
+def quad_fit(pts):
+    """Least squares t = a*n + b*n^2 through the origin (b clamped to >= 0)."""
+    s11 = sum(n * n for n, _ in pts)
+    s12 = sum(n ** 3 for n, _ in pts)
+    s22 = sum(n ** 4 for n, _ in pts)
+    y1 = sum(n * t for n, t in pts)
+    y2 = sum(n * n * t for n, t in pts)
+    det = s11 * s22 - s12 * s12
+    if abs(det) < 1e-9:
+        return pts[0][1] / pts[0][0], 0.0
+    a = (y1 * s22 - y2 * s12) / det
+    b = (s11 * y2 - s12 * y1) / det
+    if b < 0:
+        return y1 / s11, 0.0
+    return a, b
+
+
+def prefill_s(tab, n):
+    a, b = tab.get("ta"), tab.get("tb")
+    if a is None:
+        return n / (tab.get("prefill_tps") or 50.0)
+    return a * n + b * n * n
+
+
 def est_call_s(tab, fill_tokens, n_out=128):
-    return fill_tokens / (tab.get("prefill_tps") or 50.0) + n_out / (tab.get("decode_tps") or 5.0)
+    return prefill_s(tab, fill_tokens) + n_out / (tab.get("decode_tps") or 5.0)
 
 
 def fill_cap_tokens(tab, n_ctx, cap_s):
+    """Largest prompt (at most 90% of n_ctx) whose estimated prefill plus 128 decode tokens fits cap_s."""
     full = int(0.9 * n_ctx)
-    by_time = int(max(cap_s - 128 / (tab.get("decode_tps") or 5.0), 30) * (tab.get("prefill_tps") or 50.0))
-    return max(min(full, by_time), 512)
+    budget = max(cap_s - 128 / (tab.get("decode_tps") or 5.0), 20.0)
+    a, b = tab.get("ta"), tab.get("tb")
+    if a is None:
+        n = int(budget * (tab.get("prefill_tps") or 50.0))
+    elif b and b > 0:
+        n = int((-a + (a * a + 4 * b * budget) ** 0.5) / (2 * b))
+    else:
+        n = int(budget / a)
+    return max(min(full, n), 512)
+
+
+def budget_candidates(lab):
+    """The llama-server device line gives (total, free); dxdiag (preflight) gave a third figure. Both llama-server
+    numbers are tried because they disagree by more than 5%."""
+    tot = [t.get("device_total_mib") for t in lab.table.values() if t.get("device_total_mib")]
+    free = [t.get("device_free_mib") for t in lab.table.values() if t.get("device_free_mib")]
+    out = {}
+    if tot:
+        out["device_total"] = max(tot)
+    if free:
+        out["device_free"] = max(free)
+    return out
 
 
 def budget_mib(lab):
-    vals = [t.get("device_free_mib") for t in lab.table.values() if t.get("device_free_mib")]
-    return max(vals) if vals else None
+    c = budget_candidates(lab)
+    return c.get("device_free")
 
 
 def need_mib(tab, n_ctx, mi):
@@ -380,51 +440,64 @@ def need_mib(tab, n_ctx, mi):
 
 
 def section_a_items(lab):
+    """Grid around each candidate budget B (llama-server device total and device free; they disagree by >5%):
+    3 points below and 5 above, KV growing by 512 MiB per step, capped at the model's supported context. A model whose
+    n_ctx* exceeds its supported context for a candidate is recorded as 'budget not reachable' for that candidate."""
     items = []
-    B = budget_mib(lab)
-    lab.emit({"record": "budget", "ts_utc": utc_iso(), "B_mib_llama_server": B})
+    cands = budget_candidates(lab)
+    lab.emit({"record": "budget", "ts_utc": utc_iso(), "candidates_mib": cands,
+              "note": "dxdiag Shared Memory and the absent Shared Limit counter are in the preflight record"})
     for mid, extra_arm, prio in (("qwen3-32b", False, 10), ("qwen3-30b-a3b-2507", False, 11), ("qwen3-14b", False, 12),
                                  ("qwen3-4b-2507", True, 16), ("qwen3-8b", True, 17)):
         mi, tab = lab.models.get(mid), lab.table.get(mid)
-        if not mi or not tab or not tab.get("ok") or not B:
+        if not mi or not tab or not tab.get("ok") or not cands:
             continue
         w = tab.get("model_buffer_mib") or mi.file_bytes / 2 ** 20
         c = tab.get("compute_buffer_mib") or 800.0
         kv = mi.kv_bpt_meta / 2 ** 20
-        nstar = int((B - w - c) / kv)
         cap_ctx = 10 ** 9 if extra_arm else mi.max_ctx_native * (mi.yarn_factor if mid in YARN_MODELS else 1)
-        rec = {"record": "budget_plan", "model_id": mid, "B_mib": B, "weights_mib": w, "compute_mib": c,
-               "kv_bytes_per_token": mi.kv_bpt_meta, "n_ctx_star": nstar, "max_ctx_supported": cap_ctx if not extra_arm else None,
-               "beyond_trained_context_arm": extra_arm, "ts_utc": utc_iso()}
-        if nstar > cap_ctx:
-            rec["result"] = "budget not reachable"
-            rec["need_at_max_ctx_mib"] = w + c + kv * cap_ctx
-            lab.emit(rec)
-            continue
         step = max(int(round(512 / kv / 256)) * 256, 256)
-        grid = [g for g in (nstar - 3 * step, nstar - 2 * step, nstar - step, nstar + step, nstar + 2 * step,
-                            nstar + 3 * step, nstar + 4 * step, nstar + 5 * step) if 2048 <= g <= cap_ctx]
-        rec["grid"] = grid
-        lab.emit(rec)
+        grid_by = {}
+        for label, B in cands.items():
+            nstar = int((B - w - c) / kv)
+            rec = {"record": "budget_plan", "model_id": mid, "budget_label": label, "B_mib": B, "weights_mib": w, "compute_mib": c,
+                   "kv_bytes_per_token": mi.kv_bpt_meta, "n_ctx_star": nstar,
+                   "max_ctx_supported": None if extra_arm else cap_ctx, "beyond_trained_context_arm": extra_arm, "ts_utc": utc_iso()}
+            if nstar > cap_ctx:
+                rec["result"] = "budget not reachable"
+                rec["need_at_max_ctx_mib"] = w + c + kv * cap_ctx
+                lab.emit(rec)
+                continue
+            g = [x for x in (nstar - 3 * step, nstar - 2 * step, nstar - step, nstar + step, nstar + 2 * step,
+                             nstar + 3 * step, nstar + 4 * step, nstar + 5 * step) if 2048 <= x <= cap_ctx]
+            rec["grid"] = g
+            lab.emit(rec)
+            for x in g:
+                grid_by.setdefault(x, []).append((label, nstar))
+        if not grid_by:
+            continue
+        grid = sorted(grid_by)
         yarn = ["--rope-scaling", "yarn", "--rope-scale", str(mi.yarn_factor), "--yarn-orig-ctx", str(mi.max_ctx_native)] \
             if (mid in YARN_MODELS and not extra_arm and max(grid) > mi.max_ctx_native) else []
         rng = random.Random(SEED + crc(mid))
         order = grid[:]
         rng.shuffle(order)
-        below = [g for g in grid if g < nstar]
+        lowest = min(g for g in grid)
         seq = []
-        for i, g in enumerate(order):
+        for i2, g in enumerate(order):
             seq.append(("grid", g))
-            if (i + 1) % 3 == 0:
-                seq.append(("anchor", min(grid)))
+            if (i2 + 1) % 3 == 0:
+                seq.append(("anchor", lowest))
         for k, (kind, g) in enumerate(seq):
             fill = fill_cap_tokens(tab, g, 150.0)
             est = (tab.get("load_s") or 60) * 2 + 4 * est_call_s(tab, fill) + (0 if extra_arm else 5 * est_call_s(tab, fill, 32)) + 240
+            labels = {lb: ns for lb, ns in grid_by[g]}
             items.append({"item_id": f"A_{mid}_{kind}_{g}_{k}", "section": "A", "prio": prio, "est_s": est, "model_id": mid,
-                          "n_ctx": g, "kind": kind, "extra": yarn, "fill": fill, "nstar": nstar, "below": g < nstar,
-                          "beyond": extra_arm, "last_below": bool(below) and g == max(below)})
-        items.append({"item_id": f"A_{mid}_probe_max", "section": "A", "prio": prio + 0.5, "est_s": 300 + 5 * est_call_s(tab, fill_cap_tokens(tab, max(grid), 150.0), 32),
-                      "model_id": mid, "kind": "probe_max", "extra": yarn, "nstar": nstar, "beyond": extra_arm, "grid": grid})
+                          "n_ctx": g, "kind": kind, "extra": yarn, "fill": fill, "nstar": labels, "beyond": extra_arm,
+                          "budgets": cands})
+        items.append({"item_id": f"A_{mid}_probe_max", "section": "A", "prio": prio + 0.5,
+                      "est_s": 300 + 5 * est_call_s(tab, fill_cap_tokens(tab, max(grid), 150.0), 32), "model_id": mid,
+                      "kind": "probe_max", "extra": yarn, "nstar": {}, "beyond": extra_arm, "budgets": cands, "n_ctx": None})
     return items
 
 
@@ -540,9 +613,11 @@ def run_a_item(lab, it):
     lab.resources["server"] = srv
     info = srv.start(timeout=1800)
     fill = fill_cap_tokens(tab, n_ctx, 150.0)
-    extra = {"budget_star_ctx": it["nstar"], "below_budget": n_ctx < it["nstar"], "beyond_trained_ctx": it["beyond"],
-             "anchor": it["kind"] == "anchor", "fill_capped": fill < int(0.9 * n_ctx), "rope_flags": it["extra"] or None,
-             "B_mib": budget_mib(lab)}
+    w = tab.get("model_buffer_mib") or mi.file_bytes / 2 ** 20
+    need = w + (tab.get("compute_buffer_mib") or 800.0) + mi.kv_bpt_meta * n_ctx / 2 ** 20
+    extra = {"need_mib": need, "budgets_mib": it["budgets"], "exceeds_budget": {k: need > v for k, v in it["budgets"].items()},
+             "beyond_trained_ctx": it["beyond"], "anchor": it["kind"] == "anchor", "fill_capped": fill < int(0.9 * n_ctx),
+             "rope_flags": it["extra"] or None}
     start_row(lab, srv, mi, "A", it["item_id"], info, extra)
     if info.get("ok"):
         lab.a_started.setdefault(it["model_id"], set()).add(n_ctx)
@@ -550,7 +625,11 @@ def run_a_item(lab, it):
         n_tok = srv.tokenize(prompt)
         if it["kind"] != "probe_max":
             measured_sequence(lab, srv, mi, "A", it["item_id"], prompt, n_tok, extra=extra)
-        if it["kind"] == "probe_max" or it.get("last_below"):
+        below_all = [k for k, v in it["budgets"].items() if need <= v]
+        lb = lab.a_last_below.setdefault(it["model_id"], 0)
+        if it["kind"] == "probe_max" or (below_all and n_ctx >= lb and it["kind"] == "grid"):
+            if it["kind"] != "probe_max":
+                lab.a_last_below[it["model_id"]] = n_ctx
             probe_sequence(lab, srv, mi, "A", it["item_id"], fill, extra=extra)
     srv.stop()
     lab.resources["server"] = None
@@ -789,7 +868,12 @@ def main():
             if t:
                 temps.append(t)
         lab.idle_temp = st.median(temps) if temps else None
-        lab.emit({"record": "idle_temp", "idle_temp_c": lab.idle_temp, "ts_utc": utc_iso()})
+        pk = [lab.tele.pkg_now() for _ in range(6) if not time.sleep(1)]
+        pk = [x for x in pk if x is not None]
+        lab.idle_pkg = st.median(pk) if pk else None
+        lab.emit({"record": "idle_temp", "idle_temp_c": lab.idle_temp, "idle_pkg_w": lab.idle_pkg,
+                  "note": "no temperature sensor exposed; package-power proxy gate used" if lab.idle_temp is None else None,
+                  "ts_utc": utc_iso()})
         section0(lab)
         if args.only == "0":
             return
