@@ -1,0 +1,96 @@
+{
+  "experiment": "C1 fine VRAM-spill sweep",
+  "environment": {
+    "captured_utc": "2026-09-25T05:36:41.403371+00:00",
+    "hostname": "RITZLAPTOP",
+    "power_plan": "Power Scheme GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (Balanced)",
+    "ac_power_online": "True",
+    "win32_battery_status_code": "2",
+    "gpu": "NVIDIA GeForce RTX 4070 Laptop GPU, 610.88, 8188 MiB",
+    "cuda_sysmem_fallback_policy": "UNKNOWN: not exposed by nvidia-smi and not read from the driver profile; never changed by this harness",
+    "os": "Microsoft Windows 11 Home 10.0.26200",
+    "logical_processors": 16,
+    "utc_offset_hours_local": -7.0,
+    "processes_over_5pct_cpu_before_start": []
+  },
+  "order_seed": 20260925,
+  "plan": [
+    [
+      "baseline",
+      32768,
+      0
+    ],
+    [
+      "grid",
+      47104,
+      1
+    ],
+    [
+      "grid",
+      40960,
+      1
+    ],
+    [
+      "grid",
+      45056,
+      1
+    ],
+    [
+      "baseline",
+      32768,
+      1
+    ],
+    [
+      "grid",
+      34816,
+      2
+    ],
+    [
+      "grid",
+      43008,
+      2
+    ],
+    [
+      "grid",
+      36864,
+      2
+    ],
+    [
+      "baseline",
+      32768,
+      2
+    ],
+    [
+      "grid",
+      38912,
+      3
+    ],
+    [
+      "baseline",
+      32768,
+      3
+    ]
+  ],
+  "anchor_ctx": 32768,
+  "grid": [
+    34816,
+    36864,
+    38912,
+    40960,
+    43008,
+    45056,
+    47104
+  ],
+  "n_warmup": 1,
+  "n_measured": 5,
+  "call_timeout_s": 2700,
+  "fill_ratio": 0.9,
+  "model_sha256": "85e4a5b7b8ef0e48af0e8658f5aaab9c2324c76c1641493f4d1e25fce54b18b9",
+  "server_bin": "C:\\apu\\bin\\llama-b10970-cuda\\llama-server.exe",
+  "smoke": false,
+  "note_order": "grid order randomized with logged seed; anchor re-measured after every 3 grid points",
+  "note_nvidia_smi_glitch": "idle nvidia-smi can report impossible power values (~590 W); filter power > 200 W in analysis",
+  "idle_temp_c": 44,
+  "idle_temp_definition": "median of 10 readings, first server loaded and idle, 15 s after health ok",
+  "completed_utc": "2026-09-25T11:03:37.811072+00:00"
+}
