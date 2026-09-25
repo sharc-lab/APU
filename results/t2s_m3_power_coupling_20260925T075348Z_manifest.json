@@ -1,0 +1,92 @@
+{
+  "experiment": "M3 CPU spin vs iGPU package power",
+  "script_provenance": {
+    "git_head": "2ce23fd6de6eac26db9b5206f780ccd78028779f",
+    "committed": true,
+    "verified_by": "git blob sha1 of deployed bytes",
+    "problems": [],
+    "files": [
+      {
+        "path": "t2s_m3_power_coupling.py",
+        "expected_git_blob_sha": "4c7cfe7fdae44f7eadb8000e75267da3a077b7c9",
+        "actual_git_blob_sha": "4c7cfe7fdae44f7eadb8000e75267da3a077b7c9",
+        "sha256": "61a0344d4fa352e519de29f94fca5154989442f56370b99742c61920b417ddde"
+      },
+      {
+        "path": "level_zero_sysman.py",
+        "expected_git_blob_sha": "6ff308939c7470b3509b367f15e033c91f8f448a",
+        "actual_git_blob_sha": "6ff308939c7470b3509b367f15e033c91f8f448a",
+        "sha256": "bf5291dbc3d70987f6e17df35cfd34375d77d654264251f9aa4e2a50e1f778af"
+      },
+      {
+        "path": "spin_hog_affinity.py",
+        "expected_git_blob_sha": "43e00f3556366c051e37467397b74ca1c3d6eed7",
+        "actual_git_blob_sha": "43e00f3556366c051e37467397b74ca1c3d6eed7",
+        "sha256": "e5afebd732d9d0b193d6e8adea7fe21c5f9ec1607f871541ecffc735ab5f8925"
+      },
+      {
+        "path": "run_provenance.py",
+        "expected_git_blob_sha": "34a9aa4007a360b9e990deac036291ee07e0ff30",
+        "actual_git_blob_sha": "34a9aa4007a360b9e990deac036291ee07e0ff30",
+        "sha256": "d0393dbb9e553ba1b091592687797f5e724f2bb7098365517460c9878af9b9b3"
+      },
+      {
+        "path": "server_guard.py",
+        "expected_git_blob_sha": "6fe68cbf7f3ddfd47437d42ef03d00a98827f7a1",
+        "actual_git_blob_sha": "6fe68cbf7f3ddfd47437d42ef03d00a98827f7a1",
+        "sha256": "bb9518df0a0de1ee994b94b30bf13d0e40dd4227db06f8f9e8c97ecefafcab03"
+      }
+    ]
+  },
+  "order_seed": 20260925,
+  "ctx": 8192,
+  "n_measured": 3,
+  "smoke": false,
+  "conditions": {
+    "spin16": 65535,
+    "spinP": 15,
+    "spinE": 65520
+  },
+  "topology_note": "logical 0-3 efficiency class 1 (P), 4-15 class 0 (E plus LP-E)",
+  "priority_raised": true,
+  "captured_utc": "2026-09-25T07:53:48.469363+00:00",
+  "power_plan": "Power Scheme GUID: 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c  (High performance)",
+  "gpu": "{\"Name\":\"Intel(R) Arc(TM) B390 GPU\",\"DriverVersion\":\"32.0.101.8509\"}",
+  "cpu": "{\"Name\":\"Intel(R) Core(TM) Ultra X7 358H\",\"NumberOfCores\":16,\"NumberOfLogicalProcessors\":16}",
+  "context_py_sha256": "fd7a79c52d04365a6ff7eaa403b28e2710f931509b44adb039397773a0c089f2",
+  "ac_note": "mini PC without battery; AC assumed, not measured",
+  "processes_over_5pct_cpu_before_start": [],
+  "sysman": {
+    "available": true,
+    "drivers": 1,
+    "devices": 1,
+    "freq_props": [
+      {
+        "rc": 0,
+        "type": 0,
+        "onSubdevice": 0,
+        "min": 100.0,
+        "max": 2500.0
+      },
+      {
+        "rc": 0,
+        "type": 2,
+        "onSubdevice": 0,
+        "min": 100.0,
+        "max": 1200.0
+      }
+    ],
+    "power_props": [
+      {
+        "rc": 0,
+        "onSubdevice": 0,
+        "canControl": 0,
+        "defaultLimit_mW": 25000,
+        "minLimit_mW": -1,
+        "maxLimit_mW": -1
+      }
+    ],
+    "errors": []
+  },
+  "completed_utc": "2026-09-25T08:04:06.246853+00:00"
+}

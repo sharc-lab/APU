@@ -647,3 +647,42 @@ So the non-evictable footprint is about 5.1 GB and the weights are the part Wind
 ### Bearing on the paper claim (PENDING)
 
 On this unified-memory Windows/Vulkan stack the regime under locked-memory shortage is: no measurable silent degradation down to 4 GB available, a large load-time cost, and an occasional loud crash. On the discrete-GPU Blade the regime under VRAM shortage is a silent 6x TTFT cliff (M1). Both observations are consistent with the failure regime being set by driver and runtime defaults, but Phase D alone does not establish that; the S=5 result needs a repeat with the guard and the disk-read counter before it can support a claim.
+
+---
+
+## M3, evo-t2s: CPU compute slows the iGPU through a shared package power limit, but the P-core prediction was wrong (2026-09-25)
+
+**Hardware arm:** evo-t2s only (Core Ultra X7 358H: 4 P-cores plus 12 E and LP-E cores, Arc B390 iGPU, unified memory, Vulkan b10970). Not the BOM target, never pooled with the Blade.
+**Sources:** `results/t2s_m3_power_coupling_20260925T075348Z.jsonl`, its manifest, `_sysman.csv`, `_wincounters.jsonl` and the per-condition hog files. Table from `analysis/t2s_m3_analysis.py`. Scripts committed before the run (commit 144f792) and verified on the machine against their committed git blobs (manifest `script_provenance`, git head 2ce23fd).
+**Design:** ctx 8192, qwen3-4b-instruct, f16 KV, 90% fill, one discarded warm-up then 3 measured calls per condition, co-runner started 5 s before and pinned by affinity mask, order of the three spin conditions shuffled with logged seed 20260925 (realised order: none, spinE, spin16, spinP, none_end). Co-runner is a pure integer loop with no memory traffic. Telemetry at 1 s: Level Zero Sysman iGPU frequency, power-limited frequency, throttle reasons and energy counter (`ZES_ENABLE_SYSMAN=1`), plus Windows GPU Engine, RAPL Energy Meter and processor counters.
+
+| condition | cores busy | TTFT s (x none) | decode tok/s (slowdown) | iGPU MHz median (samples below 2500) | iGPU power W median | RAPL package W median (min to max) | throttle bit 2 set on |
+|---|---|---|---|---|---|---|---|
+| none | 0 | 18.30 (1.00) | 16.04 (1.00) | 2500 (0%) | 18.0 | 23.8 (20.8 to 34.0) | 0% of samples |
+| spinE, logical 4 to 15 | 12 | 26.08 (1.42) | 12.98 (1.24) | 1650 (100%) | 8.4 | 44.9 (44.2 to 45.1) | 100% |
+| spin16, all cores | 16 | 25.85 (1.41) | 12.89 (1.24) | 1650 (100%) | 8.4 | 44.9 (44.9 to 45.1) | 100% |
+| spinP, logical 0 to 3 | 4 | 19.07 (1.04) | 16.00 (1.00) | 2500 (32%) | 17.7 | 44.9 (42.5 to 45.1) | 30% |
+| none_end | 0 | 18.31 (1.00) | 16.04 (1.00) | 2500 (0%) | 18.1 | 23.7 (21.1 to 36.6) | 0% |
+
+n = 3 calls per condition, so ranges rather than confidence intervals: TTFT ranges are within 0.7% of the median in every condition, and the two no-co-runner conditions bracket the run without drift (18.30 s and 18.31 s). The baseline is the mean of none and none_end. Positive controls: every spin row has hog iterations per second above 0 and every worker reported exactly the requested affinity mask (65535, 65520, 15); no row was invalid, no request failed, and no process other than ours was above 5% CPU before the start.
+
+### What the data show
+
+1. **The slowdown tracks a package power limit.** In all three spin conditions the RAPL package power sits at about 45 W (median 44.9 W, worst-case range 42.5 to 45.1 W), against 23.8 W with no co-runner. Where the effect appears, the iGPU is held at Sysman's power-limited frequency (1650 MHz against a 2500 MHz maximum) on 100% of samples with throttle-reason bit 2 set, and its own power falls from 18.0 W to 8.4 W. No thermal bit appears in any condition.
+2. **The prediction that P-core spin would hurt more is rejected.** It hurt least. Pinning the spin to the 4 P-cores gave TTFT 1.04x and no decode loss, while the 12 E and LP-E cores gave 1.42x and 1.24x, the same as all 16 cores. Under spinP the iGPU dipped below 2500 MHz on 32% of samples but its median stayed at 2500 MHz.
+3. **A consistent reading, with an approximation.** The package sits at the same cap in all three spin conditions, so what differs is how the cap is shared. By subtraction (package minus iGPU power, which assumes the RAPL package domain includes the iGPU and that the two counters are comparable) the CPU side drew about 36.5 W under spinE, 27.2 W under spinP and 5.8 W with no co-runner. Twelve E-cores pulled more of the shared budget than four P-cores, leaving the iGPU less. The hog's per-core rate is consistent with a CPU-side limit too: 14.6 million iterations/s per core on P, 10.5 on E, and 7.8 averaged over 16 cores; the 16-core total (124 M/s) is no higher than the 12-core total (126 M/s), so adding the 4 P-cores bought nothing.
+4. **Prefill suffers more than decode** (1.42x vs 1.24x), which fits a frequency-limited compute-bound phase against a bandwidth-bound one.
+
+### Limits
+
+- Three calls per condition and one run per condition; the two no-co-runner conditions agree closely, but there is no repeat of the spin conditions.
+- The E set is 12 cores because Windows reports the 8 E and 4 LP-E cores in one efficiency class here, so E and LP-E effects cannot be separated.
+- The package limit of about 45 W is read off the telemetry. The BIOS PL1 and PL2 settings were not queried.
+- Throttle-reason bit meanings and the Sysman struct layouts follow `zes_api.h` as recalled and could not be checked against a header on the machine. The values are physically sensible (iGPU range 100 to 2500 MHz, power limit 25 W, readings up to 28 W), and bit 2 tracks the observed slowdown, but the label "burst power cap" is not independently confirmed.
+- The Windows processor-frequency counter read a constant 1600 MHz and is not informative. The RAPL per-core counters summed to 0.
+- Other mechanisms are not excluded: shared uncore or ring clocks and contention among the 12 busy cores are not separable from a power limit with this design. The co-runner is a synthetic integer loop, not a realistic workload.
+- AC power is assumed for this mini PC, not measured.
+
+### Bearing on the paper claim (PENDING)
+
+This is the unified-memory half of the "failure regime is selected by driver and runtime policy" claim only in a loose sense: on this SoC a CPU-side load degrades iGPU inference through shared power allocation, a mechanism that has no analogue on the discrete Blade. It does not by itself confirm the claim.
