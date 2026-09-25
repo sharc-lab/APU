@@ -595,3 +595,55 @@ Throttle bit 0x1 is GPU idle and 0x4 is software power cap; the low minimum cloc
 Shared Usage is 598 MiB against 122 MiB at the previous ctx (an excess of about 470 MiB over the linear baseline growth). TTFT rose 6.09x for a 1.25x longer prompt, so the length-scaled ratio is 4.9x, above the 1.5x threshold (the earlier steps ran 1.3x to 1.4x on the same measure). SM clock median 2565 MHz, min 2550 MHz, within 5%.
 
 Note for C1: the raw fraction Shared / (Dedicated + Shared) includes the roughly 100 MiB pinned baseline that exists with no spill, so C1 reports both the raw fraction and the excess over the fitted baseline.
+
+---
+
+## Phase D: locked-memory sweep on evo-t2s (Intel Arc B390, unified memory, Vulkan): no silent slowdown, one loud crash, and the crash is not monotonic in the memory limit (2026-09-25)
+
+**Hardware arm:** evo-t2s only (Core Ultra X7 358H, unified memory, Vulkan b10970). Not the BOM target, never pooled with the Blade.
+**Sources:** `results/ramlock_evo-t2s_20260925T010739Z.jsonl`, its manifest, and `results/ramlock_phaseD_telemetry/` (per-level balloon CSV, GPU sampler CSV, server log, run log).
+**Design:** an AWE locked balloon holds physical pages that Windows cannot trim or page, leaving S GB available. Server qwen3-4b-instruct, ctx 32768, f16 KV, 90% fill, one throughput call plus 5 correctness probes per level. D2 was a smoke gate at S=7 that passed its three literal checks (held pages constant, available within S+250 MB, no free or resize logged). Classes: runs_normally (TTFT within 1.25x of D1 and correctness unchanged), pages_and_slows, fails_loudly, fails_silently.
+
+| level | available before server MB | server load s | TTFT s (x D1) | decode tok/s | probes correct | class |
+|---|---|---|---|---|---|---|
+| D1 baseline, no balloon | n/a | 2.6 | 277.7 (1.00) | 5.85 | 5/5 | runs_normally |
+| S=12 | 12228 | 4.6 | 277.4 (1.00) | 5.81 | 5/5 | runs_normally |
+| S=10 | 10146 | 2.6 | 278.7 (1.00) | 5.83 | 5/5 | runs_normally |
+| S=9 | 9155 | 4.5 | 282.6 (1.02) | 5.74 | 5/5 | runs_normally |
+| S=8 | 8082 | 6.6 | 287.9 (1.04) | 5.65 | 5/5 | runs_normally |
+| S=7.5 | 7594 | 6.6 | 289.7 (1.04) | 5.59 | 5/5 | runs_normally |
+| S=7 (also the D2 smoke, 303.4 s) | 7096 | 10.9 | 300.1 (1.08) | 5.18 | 5/5 | runs_normally |
+| S=6 | 5983 | 154.6 | 296.8 (1.07) | 5.40 | 5/5 | runs_normally |
+| S=5 | 0 (no server) | 46.8 then crash | none | none | none | **fails_loudly** |
+| S=4 | 3944 | 150.9 | 291.1 (1.05) | 5.53 | 5/5 | runs_normally |
+
+### What the data show
+
+1. **There is no gradual-degradation regime in the tested range.** The largest TTFT ratio is 1.08x (S=7) against the 1.25x threshold, and every level whose server started scored 5/5. Decode fell at most 11% (5.85 to 5.18 tok/s at S=7).
+2. **The single failure is a Vulkan device-lost crash during model load, not a memory-exhaustion message.** At S=5 the server exited with code 3221226505 (0xC0000409) and its log ends with `ggml_vulkan: device lost on Vulkan0` about 43 s after thread-pool init. Available memory bottomed at 4.9 MB in that level.
+3. **The failure is not monotonic.** S=4, with less memory than S=5, started and ran normally. Each level was run once and none was repeated, so no threshold can be stated. Available memory reached about 5 to 15 MB during server load at every level from S=7 down (S=7 about 14 MB, S=6 14.9 MB, S=5 4.9 MB, S=4 15.0 MB), so whether a load survives at that floor may be close to chance. This is a hypothesis, not a result.
+4. **Load time is where the pressure shows.** Server load took 2.6 to 6.6 s down to S=8, 10.9 s at S=7, then 154.6 s at S=6 and 150.9 s at S=4 (about 50x the baseline). The likely cause is the weights being evicted and re-read from the SSD, but disk reads were not recorded (see limits), so this is inferred.
+5. **Paging evidence exists only for S=7.** During the first 30 s after the server started, hard faults (Pages/sec) reached a peak of 277,470/s, with a median of 74,278/s over the window and about 981,000 pages (roughly 3.7 GB) read in total, while Available fell to 14 to 87 MB and pagefile use rose from 7.9% to 11.8%. At S=12 through S=8 the same window shows medians of 10 to 16 pages/s. For S=6, S=5 and S=4 hard faults after server start are UNKNOWN (see limits).
+
+### Why S=7 ran normally although the server needs about 7.6 GB
+
+GPU shared usage was 7489 MiB at every level (dedicated usage 0, as expected for unified memory), which is the source of the roughly 7.6 GB estimate. That figure treats everything as non-evictable. Splitting it:
+
+- The GGUF is **2382 MiB of file-backed mapped weights**: evictable and re-readable from disk.
+- The f16 KV cache at ctx 32768 is 36 layers x 2 x 8 KV heads x 128 x 2 bytes x 32768 tokens = **4608 MiB** (computed from the model architecture; it matches the roughly 145 KiB per token growth seen on the Blade in M1).
+- The remainder, 7489 - 2382 - 4608 = **about 499 MiB**, is compute buffers by subtraction (inferred, not measured).
+
+So the non-evictable footprint is about 5.1 GB and the weights are the part Windows can drop. S=7 leaves about 1.9 GB above that, and even S=6 is above it, which fits both runs being normal, the load slowdown, and the S=7 page-in storm. This reading assumes the weights are the mapped pages and the KV and compute buffers are the anonymous ones. It does **not** explain S=4, which is below 5.1 GB and ran normally, and it does not explain the S=5 crash on its own. The server's process **private bytes** (11,837 MB, its commit charge) were identical at all levels and are not informative. Its **working set** swung from a median of 0 MB (max 79 MB) at S=7 to 9,011 MB at S=6 and S=4, because Windows trims it, so working set is not a valid measure of what the server needs.
+
+### Limits of this run
+
+- The balloon CSV covers only about the first 100 s of each level. After the server starts, its sampling interval stretched to about 20 s and `pages_per_sec` and `pagefile_pct_usage` read exactly 0 at S=6, S=5 and S=4, which is implausible and is treated as a counter failure under starvation. Hard faults and pagefile use for those three levels after server start are UNKNOWN.
+- The balloon CSV timestamps are local time (UTC-7) labelled with a false Z. The analysis shifted them by 7 h. The GPU sampler CSV timestamps are true UTC.
+- The balloon CSV server columns are 0 (the PID is unknown to the balloon). Server private bytes and working set come from the separate GPU sampler CSV.
+- `\PhysicalDisk(_Total)\Disk Read Bytes/sec` was not recorded, so weight re-reads from the SSD are not directly visible. `harness/memory_balloon_awe.py` now records it, a counter-read duration column, and true UTC timestamps (commit 2b317ef); no completed run used that version.
+- One run per level. The S=5 crash and the S=4 success are single observations.
+- Stale-server check: every level whose server started has exactly 7 request markers in its log, and the S=5 log has 0 plus the device-lost line, so no level was answered by another server.
+
+### Bearing on the paper claim (PENDING)
+
+On this unified-memory Windows/Vulkan stack the regime under locked-memory shortage is: no measurable silent degradation down to 4 GB available, a large load-time cost, and an occasional loud crash. On the discrete-GPU Blade the regime under VRAM shortage is a silent 6x TTFT cliff (M1). Both observations are consistent with the failure regime being set by driver and runtime defaults, but Phase D alone does not establish that; the S=5 result needs a repeat with the guard and the disk-read counter before it can support a claim.

@@ -1,0 +1,160 @@
+[34m0.00.050.477[0m [32mI [0mcmn  common_param: common_params_print_info: verbosity = 3 (adjust with the `-lv N` CLI arg)
+[34m0.00.050.711[0m [35mW srv  llama_server: -----------------
+[0m[34m0.00.050.715[0m [35mW srv  llama_server: CORS is set to allow all origins ('*') and no API key is set
+[0m[34m0.00.050.717[0m [35mW srv  llama_server: this can be a security risk (cross-origin attacks)
+[0m[34m0.00.050.717[0m [35mW srv  llama_server: more info: https://github.com/ggml-org/llama.cpp/pull/25655
+[0m[34m0.00.050.717[0m [35mW srv  llama_server: -----------------
+[0m[34m0.00.056.151[0m [32mI [0msrv    load_model: loading model 'C:\apu\models\qwen3-4b-instruct-85e4a5b7.gguf'
+[34m0.00.375.598[0m [35mW load: control-looking token: 128247 '</s>' was not control-type; this is probably a bug in the model. its type will be overridden
+[0m[34m0.04.628.407[0m [32mI [0mcmn          init: llama threadpool init, n_threads = 4
+[34m0.06.212.428[0m [32mI [0msrv    load_model: initializing, n_slots = 1, n_ctx_slot = 32768, kv_unified = 'false'
+[34m0.06.253.422[0m [32mI [0msrv  llama_server: model loaded
+[34m0.06.253.444[0m [32mI [0msrv  llama_server: listening on http://127.0.0.1:8385
+[34m0.07.681.941[0m [32mI [0mslot get_availabl: id  0 | task -1 | selected slot by LRU, t_last = -1
+[34m0.07.683.461[0m [32mI [0mslot launch_slot_: id  0 | task 0 | processing task, is_child = 0
+[34m0.12.362.075[0m [32mI [0mslot print_timing: id  0 | task 0 | prompt processing, n_tokens =   4096, progress = 0.14, t =   4.68 s / 875.51 tokens per second
+[34m0.18.830.663[0m [32mI [0mslot print_timing: id  0 | task 0 | prompt processing, n_tokens =   6144, progress = 0.21, t =  11.15 s / 551.18 tokens per second
+[34m0.28.057.694[0m [32mI [0mslot print_timing: id  0 | task 0 | prompt processing, n_tokens =   8192, progress = 0.28, t =  20.37 s / 402.09 tokens per second
+[34m0.39.801.980[0m [32mI [0mslot print_timing: id  0 | task 0 | prompt processing, n_tokens =  10240, progress = 0.35, t =  32.12 s / 318.83 tokens per second
+[34m0.54.115.469[0m [32mI [0mslot print_timing: id  0 | task 0 | prompt processing, n_tokens =  12288, progress = 0.42, t =  46.43 s / 264.65 tokens per second
+[34m1.11.036.587[0m [32mI [0mslot print_timing: id  0 | task 0 | prompt processing, n_tokens =  14336, progress = 0.49, t =  63.35 s / 226.29 tokens per second
+[34m1.30.790.682[0m [32mI [0mslot print_timing: id  0 | task 0 | prompt processing, n_tokens =  16384, progress = 0.56, t =  83.11 s / 197.15 tokens per second
+[34m1.53.611.713[0m [32mI [0mslot print_timing: id  0 | task 0 | prompt processing, n_tokens =  18432, progress = 0.63, t = 105.93 s / 174.01 tokens per second
+[34m2.20.261.762[0m [32mI [0mslot print_timing: id  0 | task 0 | prompt processing, n_tokens =  20480, progress = 0.69, t = 132.58 s / 154.48 tokens per second
+[34m2.50.589.528[0m [32mI [0mslot print_timing: id  0 | task 0 | prompt processing, n_tokens =  22528, progress = 0.76, t = 162.90 s / 138.29 tokens per second
+[34m3.24.450.050[0m [32mI [0mslot print_timing: id  0 | task 0 | prompt processing, n_tokens =  24576, progress = 0.83, t = 196.76 s / 124.90 tokens per second
+[34m4.01.615.862[0m [32mI [0mslot print_timing: id  0 | task 0 | prompt processing, n_tokens =  26624, progress = 0.90, t = 233.93 s / 113.81 tokens per second
+[34m4.42.017.786[0m [32mI [0mslot print_timing: id  0 | task 0 | prompt processing, n_tokens =  28672, progress = 0.97, t = 274.33 s / 104.52 tokens per second
+[34m5.29.300.273[0m [32mI [0mslot print_timing: id  0 | task 0 | n_gen =    100, tg =   5.27 t/s, tg_3s =   5.32 t/s
+[34m5.32.333.301[0m [32mI [0mslot print_timing: id  0 | task 0 | n_gen =    116, tg =   5.27 t/s, tg_3s =   5.28 t/s
+[34m5.34.617.527[0m [32mI [0mslot print_timing: id  0 | task 0 | prompt eval time =  302824.29 ms / 29490 tokens (   10.27 ms per token,    97.38 tokens per second)
+[34m5.34.617.537[0m [32mI [0mslot print_timing: id  0 | task 0 |        eval time =   24102.39 ms /   128 tokens (  189.78 ms per token,     5.27 tokens per second)
+[34m5.34.617.877[0m [32mI [0mslot print_timing: id  0 | task 0 |       total time =  326926.68 ms / 29618 tokens
+[34m5.34.617.902[0m [32mI [0mslot print_timing: id  0 | task 0 |    graphs reused =        127
+[34m5.34.625.737[0m [32mI [0mslot      release: id  0 | task 0 | stop processing: n_tokens = 29617, truncated = 0
+[34m5.34.685.396[0m [32mI [0mslot get_availabl: id  0 | task -1 | selected slot by LCP similarity, f_sim_best = 1.000 (> 0.100 thold), f_keep = 0.996
+[34m5.34.686.489[0m [32mI [0mslot launch_slot_: id  0 | task 143 | processing task, is_child = 0
+[34m5.39.350.720[0m [32mI [0mslot print_timing: id  0 | task 143 | prompt processing, n_tokens =   4096, progress = 0.14, t =   4.66 s / 878.20 tokens per second
+[34m5.45.845.232[0m [32mI [0mslot print_timing: id  0 | task 143 | prompt processing, n_tokens =   6144, progress = 0.21, t =  11.16 s / 550.61 tokens per second
+[34m5.55.099.154[0m [32mI [0mslot print_timing: id  0 | task 143 | prompt processing, n_tokens =   8192, progress = 0.28, t =  20.41 s / 401.33 tokens per second
+[34m6.06.870.050[0m [32mI [0mslot print_timing: id  0 | task 143 | prompt processing, n_tokens =  10240, progress = 0.35, t =  32.18 s / 318.18 tokens per second
+[34m6.21.179.006[0m [32mI [0mslot print_timing: id  0 | task 143 | prompt processing, n_tokens =  12288, progress = 0.42, t =  46.49 s / 264.31 tokens per second
+[34m6.38.070.334[0m [32mI [0mslot print_timing: id  0 | task 143 | prompt processing, n_tokens =  14336, progress = 0.49, t =  63.38 s / 226.18 tokens per second
+[34m6.57.727.708[0m [32mI [0mslot print_timing: id  0 | task 143 | prompt processing, n_tokens =  16384, progress = 0.56, t =  83.04 s / 197.30 tokens per second
+[34m7.20.555.312[0m [32mI [0mslot print_timing: id  0 | task 143 | prompt processing, n_tokens =  18432, progress = 0.63, t = 105.87 s / 174.11 tokens per second
+[34m7.47.194.592[0m [32mI [0mslot print_timing: id  0 | task 143 | prompt processing, n_tokens =  20480, progress = 0.69, t = 132.51 s / 154.56 tokens per second
+[34m8.17.711.067[0m [32mI [0mslot print_timing: id  0 | task 143 | prompt processing, n_tokens =  22528, progress = 0.76, t = 163.02 s / 138.19 tokens per second
+[34m8.51.723.569[0m [32mI [0mslot print_timing: id  0 | task 143 | prompt processing, n_tokens =  24576, progress = 0.83, t = 197.03 s / 124.73 tokens per second
+[34m9.29.015.259[0m [32mI [0mslot print_timing: id  0 | task 143 | prompt processing, n_tokens =  26624, progress = 0.90, t = 234.32 s / 113.62 tokens per second
+[34m10.09.491.371[0m [32mI [0mslot print_timing: id  0 | task 143 | prompt processing, n_tokens =  28672, progress = 0.97, t = 274.80 s / 104.34 tokens per second
+[34m10.56.766.579[0m [32mI [0mslot print_timing: id  0 | task 143 | n_gen =    100, tg =   5.28 t/s, tg_3s =   5.33 t/s
+[34m10.59.797.207[0m [32mI [0mslot print_timing: id  0 | task 143 | n_gen =    116, tg =   5.28 t/s, tg_3s =   5.28 t/s
+[34m11.02.068.928[0m [32mI [0mslot print_timing: id  0 | task 143 | prompt eval time =  303325.62 ms / 29490 tokens (   10.29 ms per token,    97.22 tokens per second)
+[34m11.02.068.935[0m [32mI [0mslot print_timing: id  0 | task 143 |        eval time =   24050.90 ms /   128 tokens (  189.38 ms per token,     5.28 tokens per second)
+[34m11.02.068.937[0m [32mI [0mslot print_timing: id  0 | task 143 |       total time =  327376.52 ms / 29618 tokens
+[34m11.02.068.938[0m [32mI [0mslot print_timing: id  0 | task 143 |    graphs reused =        253
+[34m11.02.069.573[0m [32mI [0mslot      release: id  0 | task 143 | stop processing: n_tokens = 29617, truncated = 0
+[34m11.03.649.762[0m [32mI [0mslot get_availabl: id  0 | task -1 | selected slot by LRU, t_last = 662009315
+[34m11.40.060.625[0m [32mI [0mslot launch_slot_: id  0 | task 286 | processing task, is_child = 0
+[34m11.44.796.072[0m [32mI [0mslot print_timing: id  0 | task 286 | prompt processing, n_tokens =   4096, progress = 0.14, t =   4.73 s / 865.60 tokens per second
+[34m11.51.255.219[0m [32mI [0mslot print_timing: id  0 | task 286 | prompt processing, n_tokens =   6144, progress = 0.21, t =  11.19 s / 548.95 tokens per second
+[34m12.00.464.538[0m [32mI [0mslot print_timing: id  0 | task 286 | prompt processing, n_tokens =   8192, progress = 0.28, t =  20.40 s / 401.56 tokens per second
+[34m12.12.212.135[0m [32mI [0mslot print_timing: id  0 | task 286 | prompt processing, n_tokens =  10240, progress = 0.35, t =  32.15 s / 318.53 tokens per second
+[34m12.26.539.174[0m [32mI [0mslot print_timing: id  0 | task 286 | prompt processing, n_tokens =  12288, progress = 0.42, t =  46.47 s / 264.40 tokens per second
+[34m12.43.527.627[0m [32mI [0mslot print_timing: id  0 | task 286 | prompt processing, n_tokens =  14336, progress = 0.49, t =  63.46 s / 225.89 tokens per second
+[34m13.03.215.739[0m [32mI [0mslot print_timing: id  0 | task 286 | prompt processing, n_tokens =  16384, progress = 0.56, t =  83.15 s / 197.04 tokens per second
+[34m13.26.018.574[0m [32mI [0mslot print_timing: id  0 | task 286 | prompt processing, n_tokens =  18432, progress = 0.62, t = 105.95 s / 173.96 tokens per second
+[34m13.52.629.396[0m [32mI [0mslot print_timing: id  0 | task 286 | prompt processing, n_tokens =  20480, progress = 0.69, t = 132.56 s / 154.49 tokens per second
+[34m14.22.998.000[0m [32mI [0mslot print_timing: id  0 | task 286 | prompt processing, n_tokens =  22528, progress = 0.76, t = 162.93 s / 138.27 tokens per second
+[34m14.56.812.810[0m [32mI [0mslot print_timing: id  0 | task 286 | prompt processing, n_tokens =  24576, progress = 0.83, t = 196.74 s / 124.91 tokens per second
+[34m15.33.966.753[0m [32mI [0mslot print_timing: id  0 | task 286 | prompt processing, n_tokens =  26624, progress = 0.90, t = 233.90 s / 113.83 tokens per second
+[34m16.14.391.391[0m [32mI [0mslot print_timing: id  0 | task 286 | prompt processing, n_tokens =  28672, progress = 0.97, t = 274.32 s / 104.52 tokens per second
+[34m16.43.818.791[0m [32mI [0mslot print_timing: id  0 | task 286 | prompt eval time =  302793.14 ms / 29500 tokens (   10.26 ms per token,    97.43 tokens per second)
+[34m16.43.818.812[0m [32mI [0mslot print_timing: id  0 | task 286 |        eval time =     951.91 ms /     6 tokens (  190.38 ms per token,     5.25 tokens per second)
+[34m16.43.818.815[0m [32mI [0mslot print_timing: id  0 | task 286 |       total time =  303745.05 ms / 29506 tokens
+[34m16.43.818.820[0m [32mI [0mslot print_timing: id  0 | task 286 |    graphs reused =        257
+[34m16.43.843.442[0m [32mI [0mslot      release: id  0 | task 286 | stop processing: n_tokens = 29505, truncated = 0
+[34m16.45.174.709[0m [32mI [0mslot get_availabl: id  0 | task -1 | selected slot by LRU, t_last = 1003772322
+[34m16.45.176.618[0m [35mW srv         alloc:  - making room for prompt cache entry, removing oldest entry (size = 4165.230 MiB)
+[0m[34m17.21.520.251[0m [32mI [0mslot launch_slot_: id  0 | task 307 | processing task, is_child = 0
+[34m17.26.264.951[0m [32mI [0mslot print_timing: id  0 | task 307 | prompt processing, n_tokens =   4096, progress = 0.14, t =   4.74 s / 863.86 tokens per second
+[34m17.32.727.724[0m [32mI [0mslot print_timing: id  0 | task 307 | prompt processing, n_tokens =   6144, progress = 0.21, t =  11.20 s / 548.34 tokens per second
+[34m17.41.935.401[0m [32mI [0mslot print_timing: id  0 | task 307 | prompt processing, n_tokens =   8192, progress = 0.28, t =  20.41 s / 401.32 tokens per second
+[34m17.53.680.168[0m [32mI [0mslot print_timing: id  0 | task 307 | prompt processing, n_tokens =  10240, progress = 0.35, t =  32.16 s / 318.45 tokens per second
+[34m18.07.986.789[0m [32mI [0mslot print_timing: id  0 | task 307 | prompt processing, n_tokens =  12288, progress = 0.42, t =  46.46 s / 264.47 tokens per second
+[34m18.24.953.912[0m [32mI [0mslot print_timing: id  0 | task 307 | prompt processing, n_tokens =  14336, progress = 0.49, t =  63.43 s / 226.01 tokens per second
+[34m18.44.674.258[0m [32mI [0mslot print_timing: id  0 | task 307 | prompt processing, n_tokens =  16384, progress = 0.56, t =  83.15 s / 197.04 tokens per second
+[34m19.07.454.178[0m [32mI [0mslot print_timing: id  0 | task 307 | prompt processing, n_tokens =  18432, progress = 0.62, t = 105.93 s / 174.00 tokens per second
+[34m19.34.076.865[0m [32mI [0mslot print_timing: id  0 | task 307 | prompt processing, n_tokens =  20480, progress = 0.69, t = 132.55 s / 154.51 tokens per second
+[34m20.04.419.808[0m [32mI [0mslot print_timing: id  0 | task 307 | prompt processing, n_tokens =  22528, progress = 0.76, t = 162.89 s / 138.30 tokens per second
+[34m20.38.288.928[0m [32mI [0mslot print_timing: id  0 | task 307 | prompt processing, n_tokens =  24576, progress = 0.83, t = 196.76 s / 124.90 tokens per second
+[34m21.15.445.813[0m [32mI [0mslot print_timing: id  0 | task 307 | prompt processing, n_tokens =  26624, progress = 0.90, t = 233.92 s / 113.82 tokens per second
+[34m21.55.854.020[0m [32mI [0mslot print_timing: id  0 | task 307 | prompt processing, n_tokens =  28672, progress = 0.97, t = 274.32 s / 104.52 tokens per second
+[34m22.25.520.734[0m [32mI [0mslot print_timing: id  0 | task 307 | prompt eval time =  302847.07 ms / 29501 tokens (   10.27 ms per token,    97.41 tokens per second)
+[34m22.25.520.754[0m [32mI [0mslot print_timing: id  0 | task 307 |        eval time =    1140.08 ms /     7 tokens (  190.01 ms per token,     5.26 tokens per second)
+[34m22.25.520.758[0m [32mI [0mslot print_timing: id  0 | task 307 |       total time =  303987.15 ms / 29508 tokens
+[34m22.25.520.763[0m [32mI [0mslot print_timing: id  0 | task 307 |    graphs reused =        262
+[34m22.25.544.487[0m [32mI [0mslot      release: id  0 | task 307 | stop processing: n_tokens = 29507, truncated = 0
+[34m22.26.776.494[0m [32mI [0mslot get_availabl: id  0 | task -1 | selected slot by LRU, t_last = 1345461340
+[34m22.26.778.462[0m [35mW srv         alloc:  - making room for prompt cache entry, removing oldest entry (size = 4149.479 MiB)
+[0m[34m23.03.232.919[0m [32mI [0mslot launch_slot_: id  0 | task 329 | processing task, is_child = 0
+[34m23.07.983.187[0m [32mI [0mslot print_timing: id  0 | task 329 | prompt processing, n_tokens =   4096, progress = 0.14, t =   4.75 s / 862.74 tokens per second
+[34m23.14.446.746[0m [32mI [0mslot print_timing: id  0 | task 329 | prompt processing, n_tokens =   6144, progress = 0.21, t =  11.21 s / 548.00 tokens per second
+[34m23.23.657.589[0m [32mI [0mslot print_timing: id  0 | task 329 | prompt processing, n_tokens =   8192, progress = 0.28, t =  20.42 s / 401.13 tokens per second
+[34m23.35.409.676[0m [32mI [0mslot print_timing: id  0 | task 329 | prompt processing, n_tokens =  10240, progress = 0.35, t =  32.17 s / 318.27 tokens per second
+[34m23.49.724.915[0m [32mI [0mslot print_timing: id  0 | task 329 | prompt processing, n_tokens =  12288, progress = 0.42, t =  46.49 s / 264.32 tokens per second
+[34m24.06.711.746[0m [32mI [0mslot print_timing: id  0 | task 329 | prompt processing, n_tokens =  14336, progress = 0.49, t =  63.47 s / 225.85 tokens per second
+[34m24.26.447.338[0m [32mI [0mslot print_timing: id  0 | task 329 | prompt processing, n_tokens =  16384, progress = 0.56, t =  83.21 s / 196.90 tokens per second
+[34m24.49.222.266[0m [32mI [0mslot print_timing: id  0 | task 329 | prompt processing, n_tokens =  18432, progress = 0.62, t = 105.98 s / 173.91 tokens per second
+[34m25.15.843.451[0m [32mI [0mslot print_timing: id  0 | task 329 | prompt processing, n_tokens =  20480, progress = 0.69, t = 132.60 s / 154.44 tokens per second
+[34m25.46.213.340[0m [32mI [0mslot print_timing: id  0 | task 329 | prompt processing, n_tokens =  22528, progress = 0.76, t = 162.97 s / 138.23 tokens per second
+[34m26.20.117.185[0m [32mI [0mslot print_timing: id  0 | task 329 | prompt processing, n_tokens =  24576, progress = 0.83, t = 196.88 s / 124.83 tokens per second
+[34m26.57.282.376[0m [32mI [0mslot print_timing: id  0 | task 329 | prompt processing, n_tokens =  26624, progress = 0.90, t = 234.04 s / 113.76 tokens per second
+[34m27.37.673.775[0m [32mI [0mslot print_timing: id  0 | task 329 | prompt processing, n_tokens =  28672, progress = 0.97, t = 274.43 s / 104.48 tokens per second
+[34m28.06.677.969[0m [32mI [0mslot print_timing: id  0 | task 329 | prompt eval time =  302857.62 ms / 29501 tokens (   10.27 ms per token,    97.41 tokens per second)
+[34m28.06.677.984[0m [32mI [0mslot print_timing: id  0 | task 329 |        eval time =     574.22 ms /     4 tokens (  191.41 ms per token,     5.22 tokens per second)
+[34m28.06.677.987[0m [32mI [0mslot print_timing: id  0 | task 329 |       total time =  303431.84 ms / 29505 tokens
+[34m28.06.677.990[0m [32mI [0mslot print_timing: id  0 | task 329 |    graphs reused =        264
+[34m28.06.696.712[0m [32mI [0mslot      release: id  0 | task 329 | stop processing: n_tokens = 29504, truncated = 0
+[34m28.07.939.494[0m [32mI [0mslot get_availabl: id  0 | task -1 | selected slot by LRU, t_last = 1686601554
+[34m28.07.941.397[0m [35mW srv         alloc:  - making room for prompt cache entry, removing oldest entry (size = 4149.760 MiB)
+[0m[34m28.44.204.047[0m [32mI [0mslot launch_slot_: id  0 | task 348 | processing task, is_child = 0
+[34m28.48.950.707[0m [32mI [0mslot print_timing: id  0 | task 348 | prompt processing, n_tokens =   4096, progress = 0.14, t =   4.74 s / 863.54 tokens per second
+[34m28.55.416.691[0m [32mI [0mslot print_timing: id  0 | task 348 | prompt processing, n_tokens =   6144, progress = 0.21, t =  11.21 s / 548.06 tokens per second
+[34m29.04.629.716[0m [32mI [0mslot print_timing: id  0 | task 348 | prompt processing, n_tokens =   8192, progress = 0.28, t =  20.42 s / 401.11 tokens per second
+[34m29.16.372.898[0m [32mI [0mslot print_timing: id  0 | task 348 | prompt processing, n_tokens =  10240, progress = 0.35, t =  32.17 s / 318.35 tokens per second
+[34m29.30.684.218[0m [32mI [0mslot print_timing: id  0 | task 348 | prompt processing, n_tokens =  12288, progress = 0.42, t =  46.48 s / 264.39 tokens per second
+[34m29.47.636.794[0m [32mI [0mslot print_timing: id  0 | task 348 | prompt processing, n_tokens =  14336, progress = 0.49, t =  63.43 s / 226.02 tokens per second
+[34m30.07.377.660[0m [32mI [0mslot print_timing: id  0 | task 348 | prompt processing, n_tokens =  16384, progress = 0.56, t =  83.17 s / 197.00 tokens per second
+[34m30.30.164.708[0m [32mI [0mslot print_timing: id  0 | task 348 | prompt processing, n_tokens =  18432, progress = 0.62, t = 105.96 s / 173.96 tokens per second
+[34m30.56.787.853[0m [32mI [0mslot print_timing: id  0 | task 348 | prompt processing, n_tokens =  20480, progress = 0.69, t = 132.58 s / 154.48 tokens per second
+[34m31.27.195.382[0m [32mI [0mslot print_timing: id  0 | task 348 | prompt processing, n_tokens =  22528, progress = 0.76, t = 162.98 s / 138.22 tokens per second
+[34m32.01.101.557[0m [32mI [0mslot print_timing: id  0 | task 348 | prompt processing, n_tokens =  24576, progress = 0.83, t = 196.89 s / 124.82 tokens per second
+[34m32.38.347.590[0m [32mI [0mslot print_timing: id  0 | task 348 | prompt processing, n_tokens =  26624, progress = 0.90, t = 234.13 s / 113.71 tokens per second
+[34m33.18.902.485[0m [32mI [0mslot print_timing: id  0 | task 348 | prompt processing, n_tokens =  28672, progress = 0.97, t = 274.69 s / 104.38 tokens per second
+[34m33.47.745.849[0m [32mI [0mslot print_timing: id  0 | task 348 | prompt eval time =  303330.69 ms / 29501 tokens (   10.28 ms per token,    97.26 tokens per second)
+[34m33.47.745.863[0m [32mI [0mslot print_timing: id  0 | task 348 |        eval time =     195.94 ms /     2 tokens (  195.94 ms per token,     5.10 tokens per second)
+[34m33.47.745.866[0m [32mI [0mslot print_timing: id  0 | task 348 |       total time =  303526.63 ms / 29503 tokens
+[34m33.47.745.870[0m [32mI [0mslot print_timing: id  0 | task 348 |    graphs reused =        264
+[34m33.47.766.911[0m [32mI [0mslot      release: id  0 | task 348 | stop processing: n_tokens = 29502, truncated = 0
+[34m33.49.260.238[0m [32mI [0mslot get_availabl: id  0 | task -1 | selected slot by LRU, t_last = 2027659750
+[34m33.49.261.919[0m [35mW srv         alloc:  - making room for prompt cache entry, removing oldest entry (size = 4149.338 MiB)
+[0m[34m34.26.016.766[0m [32mI [0mslot launch_slot_: id  0 | task 365 | processing task, is_child = 0
+[34m34.30.775.861[0m [32mI [0mslot print_timing: id  0 | task 365 | prompt processing, n_tokens =   4096, progress = 0.14, t =   4.76 s / 861.27 tokens per second
+[34m34.37.233.289[0m [32mI [0mslot print_timing: id  0 | task 365 | prompt processing, n_tokens =   6144, progress = 0.21, t =  11.21 s / 547.88 tokens per second
+[34m34.46.439.346[0m [32mI [0mslot print_timing: id  0 | task 365 | prompt processing, n_tokens =   8192, progress = 0.28, t =  20.42 s / 401.18 tokens per second
+[34m34.58.189.639[0m [32mI [0mslot print_timing: id  0 | task 365 | prompt processing, n_tokens =  10240, progress = 0.35, t =  32.17 s / 318.31 tokens per second
+[34m35.12.497.390[0m [32mI [0mslot print_timing: id  0 | task 365 | prompt processing, n_tokens =  12288, progress = 0.42, t =  46.48 s / 264.39 tokens per second
+[34m35.29.481.767[0m [32mI [0mslot print_timing: id  0 | task 365 | prompt processing, n_tokens =  14336, progress = 0.49, t =  63.46 s / 225.91 tokens per second
+[34m35.49.202.552[0m [32mI [0mslot print_timing: id  0 | task 365 | prompt processing, n_tokens =  16384, progress = 0.56, t =  83.18 s / 196.97 tokens per second
+[34m36.12.040.487[0m [32mI [0mslot print_timing: id  0 | task 365 | prompt processing, n_tokens =  18432, progress = 0.62, t = 106.02 s / 173.86 tokens per second
+[34m36.38.632.935[0m [32mI [0mslot print_timing: id  0 | task 365 | prompt processing, n_tokens =  20480, progress = 0.69, t = 132.61 s / 154.44 tokens per second
+[34m37.09.000.673[0m [32mI [0mslot print_timing: id  0 | task 365 | prompt processing, n_tokens =  22528, progress = 0.76, t = 162.98 s / 138.23 tokens per second
+[34m37.42.843.544[0m [32mI [0mslot print_timing: id  0 | task 365 | prompt processing, n_tokens =  24576, progress = 0.83, t = 196.82 s / 124.87 tokens per second
+[34m38.20.086.094[0m [32mI [0mslot print_timing: id  0 | task 365 | prompt processing, n_tokens =  26624, progress = 0.90, t = 234.06 s / 113.75 tokens per second
+[34m39.00.644.071[0m [32mI [0mslot print_timing: id  0 | task 365 | prompt processing, n_tokens =  28672, progress = 0.97, t = 274.62 s / 104.41 tokens per second
+[34m39.34.231.341[0m [32mI [0mslot print_timing: id  0 | task 365 | prompt eval time =  303075.68 ms / 29500 tokens (   10.27 ms per token,    97.34 tokens per second)
+[34m39.34.231.355[0m [32mI [0mslot print_timing: id  0 | task 365 |        eval time =    5125.23 ms /    28 tokens (  189.82 ms per token,     5.27 tokens per second)
+[34m39.34.231.358[0m [32mI [0mslot print_timing: id  0 | task 365 |       total time =  308200.91 ms / 29528 tokens
+[34m39.34.231.360[0m [32mI [0mslot print_timing: id  0 | task 365 |    graphs reused =        290
+[34m39.34.242.655[0m [32mI [0mslot      release: id  0 | task 365 | stop processing: n_tokens = 29527, truncated = 0

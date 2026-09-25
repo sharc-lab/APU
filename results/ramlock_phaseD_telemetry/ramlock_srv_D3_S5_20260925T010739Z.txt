@@ -1,0 +1,11 @@
+[34m0.00.194.961[0m [32mI [0mcmn  common_param: common_params_print_info: verbosity = 3 (adjust with the `-lv N` CLI arg)
+[34m0.00.196.182[0m [35mW srv  llama_server: -----------------
+[0m[34m0.00.196.187[0m [35mW srv  llama_server: CORS is set to allow all origins ('*') and no API key is set
+[0m[34m0.00.196.188[0m [35mW srv  llama_server: this can be a security risk (cross-origin attacks)
+[0m[34m0.00.196.188[0m [35mW srv  llama_server: more info: https://github.com/ggml-org/llama.cpp/pull/25655
+[0m[34m0.00.196.188[0m [35mW srv  llama_server: -----------------
+[0m[34m0.00.208.700[0m [32mI [0msrv    load_model: loading model 'C:\apu\models\qwen3-4b-instruct-85e4a5b7.gguf'
+[34m0.00.581.794[0m [35mW load: control-looking token: 128247 '</s>' was not control-type; this is probably a bug in the model. its type will be overridden
+[0m[34m0.43.330.395[0m [32mI [0mcmn          init: llama threadpool init, n_threads = 4
+[34m0.43.614.073[0m [31mE ggml_vulkan: device lost on Vulkan0
+[0m

@@ -1,0 +1,124 @@
+[2026-09-25T01:07:39.204030+00:00] Model sha256 verified: 85e4a5b7b8ef0e48af0e8658f5aaab9c2324c76c1641493f4d1e25fce54b18b9
+[2026-09-25T01:07:40.499347+00:00] A0=60482.6 MB, pagefile={'Name': 'C:\\pagefile.sys', 'AllocatedBaseSize': 12078, 'CurrentUsage': 382, 'PeakUsage': 12121}, gpu_shared_limit={'error': 'The specified counter could not be found.'}
+[2026-09-25T01:07:40.499347+00:00] === D1: baseline (no balloon) ===
+  [filler trim 1/8] 29482 tok  err=0.0% *
+[2026-09-25T01:17:42.506031+00:00]  [D1_baseline] throughput ttft=277.7400971999741 decode_tps=5.852951092733221 outcome=ok
+  [filler trim 1/8] 29430 tok  err=0.0% *
+[2026-09-25T01:22:54.020023+00:00]     [art_01] score=1.0 outcome=ok
+[2026-09-25T01:28:06.220510+00:00]     [art_02] score=1.0 outcome=ok
+[2026-09-25T01:33:17.229974+00:00]     [art_03] score=1.0 outcome=ok
+[2026-09-25T01:38:27.614431+00:00]     [art_04] score=1.0 outcome=ok
+[2026-09-25T01:43:42.057198+00:00]     [art_05] score=1.0 outcome=ok
+[2026-09-25T01:43:43.469026+00:00] === D2: smoke gate at S=7GB ===
+[2026-09-25T01:43:43.485829+00:00]  [D2_smoke] balloon started pid=2480 target=7168MB
+[2026-09-25T01:43:48.917138+00:00]  [D2_smoke] target reached, holding 60s
+  [filler trim 1/8] 29482 tok  err=0.0% *
+[2026-09-25T01:55:51.256499+00:00]  [D2_smoke] throughput ttft=303.3818350000074 decode_tps=5.280490047435774 outcome=ok
+  [filler trim 1/8] 29430 tok  err=0.0% *
+[2026-09-25T02:01:33.042952+00:00]     [art_01] score=1.0 outcome=ok
+[2026-09-25T02:07:14.743702+00:00]     [art_02] score=1.0 outcome=ok
+[2026-09-25T02:12:55.894828+00:00]     [art_03] score=1.0 outcome=ok
+[2026-09-25T02:18:36.969325+00:00]     [art_04] score=1.0 outcome=ok
+[2026-09-25T02:24:23.436025+00:00]     [art_05] score=1.0 outcome=ok
+[2026-09-25T02:24:28.044624+00:00] D2 gate_pass=True detail=held_mb constant (53218.7 MB), available stayed within S+250MB, no free/resize logged
+[2026-09-25T02:24:28.048384+00:00] === D3: S=12GB ===
+[2026-09-25T02:24:28.051346+00:00]  [D3_S12] balloon started pid=4176 target=12288MB
+[2026-09-25T02:24:33.510471+00:00]  [D3_S12] target reached, holding 60s
+  [filler trim 1/8] 29482 tok  err=0.0% *
+[2026-09-25T02:35:38.349963+00:00]  [D3_S12] throughput ttft=277.4052658000146 decode_tps=5.809642772797108 outcome=ok
+  [filler trim 1/8] 29430 tok  err=0.0% *
+[2026-09-25T02:40:52.642694+00:00]     [art_01] score=1.0 outcome=ok
+[2026-09-25T02:46:06.256435+00:00]     [art_02] score=1.0 outcome=ok
+[2026-09-25T02:51:18.136966+00:00]     [art_03] score=1.0 outcome=ok
+[2026-09-25T02:56:30.653722+00:00]     [art_04] score=1.0 outcome=ok
+[2026-09-25T03:01:47.733172+00:00]     [art_05] score=1.0 outcome=ok
+[2026-09-25T03:01:50.772241+00:00]  [D3 S=12] classification=runs_normally
+[2026-09-25T03:01:50.876209+00:00] === D3: S=10GB ===
+[2026-09-25T03:01:50.876209+00:00]  [D3_S10] balloon started pid=7752 target=10240MB
+[2026-09-25T03:01:56.320598+00:00]  [D3_S10] target reached, holding 60s
+  [filler trim 1/8] 29482 tok  err=0.0% *
+[2026-09-25T03:13:00.117002+00:00]  [D3_S10] throughput ttft=278.69186800002353 decode_tps=5.832141150300685 outcome=ok
+  [filler trim 1/8] 29430 tok  err=0.0% *
+[2026-09-25T03:18:16.098598+00:00]     [art_01] score=1.0 outcome=ok
+[2026-09-25T03:23:30.129117+00:00]     [art_02] score=1.0 outcome=ok
+[2026-09-25T03:28:44.498205+00:00]     [art_03] score=1.0 outcome=ok
+[2026-09-25T03:33:58.210832+00:00]     [art_04] score=1.0 outcome=ok
+[2026-09-25T03:39:17.438039+00:00]     [art_05] score=1.0 outcome=ok
+[2026-09-25T03:39:20.863595+00:00]  [D3 S=10] classification=runs_normally
+[2026-09-25T03:39:21.001497+00:00] === D3: S=9GB ===
+[2026-09-25T03:39:21.001497+00:00]  [D3_S9] balloon started pid=6756 target=9216MB
+[2026-09-25T03:39:26.461728+00:00]  [D3_S9] target reached, holding 60s
+  [filler trim 1/8] 29482 tok  err=0.0% *
+[2026-09-25T03:50:40.235793+00:00]  [D3_S9] throughput ttft=282.57178380002733 decode_tps=5.736907223568618 outcome=ok
+  [filler trim 1/8] 29430 tok  err=0.0% *
+[2026-09-25T03:55:58.521828+00:00]     [art_01] score=1.0 outcome=ok
+[2026-09-25T04:01:16.920829+00:00]     [art_02] score=1.0 outcome=ok
+[2026-09-25T04:06:36.731707+00:00]     [art_03] score=1.0 outcome=ok
+[2026-09-25T04:11:55.995644+00:00]     [art_04] score=1.0 outcome=ok
+[2026-09-25T04:17:20.145827+00:00]     [art_05] score=1.0 outcome=ok
+[2026-09-25T04:17:23.433615+00:00]  [D3 S=9] classification=runs_normally
+[2026-09-25T04:17:23.568474+00:00] === D3: S=8GB ===
+[2026-09-25T04:17:23.574770+00:00]  [D3_S8] balloon started pid=6672 target=8192MB
+[2026-09-25T04:17:29.044788+00:00]  [D3_S8] target reached, holding 60s
+  [filler trim 1/8] 29482 tok  err=0.0% *
+[2026-09-25T04:28:56.331846+00:00]  [D3_S8] throughput ttft=287.8935760000022 decode_tps=5.646555879900924 outcome=ok
+  [filler trim 1/8] 29430 tok  err=0.0% *
+[2026-09-25T04:34:22.585735+00:00]     [art_01] score=1.0 outcome=ok
+[2026-09-25T04:39:48.329157+00:00]     [art_02] score=1.0 outcome=ok
+[2026-09-25T04:45:12.780781+00:00]     [art_03] score=1.0 outcome=ok
+[2026-09-25T04:50:37.209048+00:00]     [art_04] score=1.0 outcome=ok
+[2026-09-25T04:56:05.743757+00:00]     [art_05] score=1.0 outcome=ok
+[2026-09-25T04:56:09.047385+00:00]  [D3 S=8] classification=runs_normally
+[2026-09-25T04:56:09.168582+00:00] === D3: S=7.5GB ===
+[2026-09-25T04:56:09.174720+00:00]  [D3_S7.5] balloon started pid=5144 target=7680.0MB
+[2026-09-25T04:56:14.633196+00:00]  [D3_S7.5] target reached, holding 60s
+  [filler trim 1/8] 29482 tok  err=0.0% *
+[2026-09-25T05:07:47.406414+00:00]  [D3_S7.5] throughput ttft=289.6967447999632 decode_tps=5.589287246385869 outcome=ok
+  [filler trim 1/8] 29430 tok  err=0.0% *
+[2026-09-25T05:13:16.799383+00:00]     [art_01] score=1.0 outcome=ok
+[2026-09-25T05:18:47.019252+00:00]     [art_02] score=1.0 outcome=ok
+[2026-09-25T05:24:15.427610+00:00]     [art_03] score=1.0 outcome=ok
+[2026-09-25T05:29:43.199200+00:00]     [art_04] score=1.0 outcome=ok
+[2026-09-25T05:35:15.588046+00:00]     [art_05] score=1.0 outcome=ok
+[2026-09-25T05:35:19.078710+00:00]  [D3 S=7.5] classification=runs_normally
+[2026-09-25T05:35:19.208127+00:00] === D3: S=7GB ===
+[2026-09-25T05:35:19.213598+00:00]  [D3_S7] balloon started pid=5508 target=7168MB
+[2026-09-25T05:35:24.676815+00:00]  [D3_S7] target reached, holding 60s
+  [filler trim 1/8] 29482 tok  err=0.0% *
+[2026-09-25T05:47:23.625064+00:00]  [D3_S7] throughput ttft=300.0550192000228 decode_tps=5.178996645165539 outcome=ok
+  [filler trim 1/8] 29430 tok  err=0.0% *
+[2026-09-25T05:53:02.760364+00:00]     [art_01] score=1.0 outcome=ok
+[2026-09-25T05:58:50.441481+00:00]     [art_02] score=1.0 outcome=ok
+[2026-09-25T06:04:32.616160+00:00]     [art_03] score=1.0 outcome=ok
+[2026-09-25T06:10:13.374639+00:00]     [art_04] score=1.0 outcome=ok
+[2026-09-25T06:16:04.190954+00:00]     [art_05] score=1.0 outcome=ok
+[2026-09-25T06:16:08.668156+00:00]  [D3 S=7] classification=runs_normally
+[2026-09-25T06:16:08.796566+00:00] === D3: S=6GB ===
+[2026-09-25T06:16:08.813696+00:00]  [D3_S6] balloon started pid=4888 target=6144MB
+[2026-09-25T06:16:14.300377+00:00]  [D3_S6] target reached, holding 60s
+  [filler trim 1/8] 29482 tok  err=0.0% *
+[2026-09-25T06:30:30.557552+00:00]  [D3_S6] throughput ttft=296.7657010999974 decode_tps=5.397402937155202 outcome=ok
+  [filler trim 1/8] 29430 tok  err=0.0% *
+[2026-09-25T06:36:00.133185+00:00]     [art_01] score=1.0 outcome=ok
+[2026-09-25T06:41:30.071201+00:00]     [art_02] score=1.0 outcome=ok
+[2026-09-25T06:46:59.074436+00:00]     [art_03] score=1.0 outcome=ok
+[2026-09-25T06:52:27.236669+00:00]     [art_04] score=1.0 outcome=ok
+[2026-09-25T06:58:00.556332+00:00]     [art_05] score=1.0 outcome=ok
+[2026-09-25T06:58:02.480556+00:00]  [D3 S=6] classification=runs_normally
+[2026-09-25T06:58:02.581424+00:00] === D3: S=5GB ===
+[2026-09-25T06:58:02.593002+00:00]  [D3_S5] balloon started pid=7276 target=5120MB
+[2026-09-25T06:58:08.036258+00:00]  [D3_S5] target reached, holding 60s
+[2026-09-25T06:59:56.923283+00:00]  [D3 S=5] classification=fails_loudly
+[2026-09-25T06:59:57.063339+00:00] === D3: S=4GB ===
+[2026-09-25T06:59:57.075384+00:00]  [D3_S4] balloon started pid=3932 target=4096MB
+[2026-09-25T07:00:02.611807+00:00]  [D3_S4] target reached, holding 60s
+  [filler trim 1/8] 29482 tok  err=0.0% *
+[2026-09-25T07:14:03.086757+00:00]  [D3_S4] throughput ttft=291.08034680003766 decode_tps=5.526225656811739 outcome=ok
+  [filler trim 1/8] 29430 tok  err=0.0% *
+[2026-09-25T07:19:27.574561+00:00]     [art_01] score=1.0 outcome=ok
+[2026-09-25T07:24:52.024910+00:00]     [art_02] score=1.0 outcome=ok
+[2026-09-25T07:30:15.683817+00:00]     [art_03] score=1.0 outcome=ok
+[2026-09-25T07:35:39.167352+00:00]     [art_04] score=1.0 outcome=ok
+[2026-09-25T07:41:07.197788+00:00]     [art_05] score=1.0 outcome=ok
+[2026-09-25T07:41:09.160894+00:00]  [D3 S=4] classification=runs_normally
+[2026-09-25T07:41:09.271817+00:00] DONE. 11 rows -> ramlock_evo-t2s_20260925T010739Z.jsonl

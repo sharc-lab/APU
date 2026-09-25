@@ -1,0 +1,116 @@
+{
+  "A0_mb": 60482.56640625,
+  "pagefile": {
+    "Name": "C:\\pagefile.sys",
+    "AllocatedBaseSize": 12078,
+    "CurrentUsage": 382,
+    "PeakUsage": 12121
+  },
+  "gpu_shared_limit": {
+    "error": "The specified counter could not be found."
+  },
+  "model_sha256": "85e4a5b7b8ef0e48af0e8658f5aaab9c2324c76c1641493f4d1e25fce54b18b9",
+  "started_ts": "2026-09-25T01:07:40.499347+00:00",
+  "server_command_lines": [
+    {
+      "label": "D1_baseline",
+      "CommandLine": "C:\\apu\\bin\\llama-b10970\\llama-server.exe -m C:\\apu\\models\\qwen3-4b-instruct-85e4a5b7.gguf --port 8385 -c 32768 -ctk f16 -ctv f16 -fa on -ngl 99 -np 1 -t 4 --no-context-shift --log-file C:\\apu\\ramlock_srv_D1_baseline_20260925T010739Z.txt --log-verbosity 3",
+      "WorkingSet64": 7920685056,
+      "PrivateMemorySize64": 7991590912
+    },
+    {
+      "label": "D2_smoke",
+      "CommandLine": "C:\\apu\\bin\\llama-b10970\\llama-server.exe -m C:\\apu\\models\\qwen3-4b-instruct-85e4a5b7.gguf --port 8385 -c 32768 -ctk f16 -ctv f16 -fa on -ngl 99 -np 1 -t 4 --no-context-shift --log-file C:\\apu\\ramlock_srv_D2_smoke_20260925T010739Z.txt --log-verbosity 3",
+      "WorkingSet64": 5867859968,
+      "PrivateMemorySize64": 7991418880
+    },
+    {
+      "label": "D3_S12",
+      "CommandLine": "C:\\apu\\bin\\llama-b10970\\llama-server.exe -m C:\\apu\\models\\qwen3-4b-instruct-85e4a5b7.gguf --port 8385 -c 32768 -ctk f16 -ctv f16 -fa on -ngl 99 -np 1 -t 4 --no-context-shift --log-file C:\\apu\\ramlock_srv_D3_S12_20260925T010739Z.txt --log-verbosity 3",
+      "WorkingSet64": 7920631808,
+      "PrivateMemorySize64": 7991578624
+    },
+    {
+      "label": "D3_S10",
+      "CommandLine": "C:\\apu\\bin\\llama-b10970\\llama-server.exe -m C:\\apu\\models\\qwen3-4b-instruct-85e4a5b7.gguf --port 8385 -c 32768 -ctk f16 -ctv f16 -fa on -ngl 99 -np 1 -t 4 --no-context-shift --log-file C:\\apu\\ramlock_srv_D3_S10_20260925T010739Z.txt --log-verbosity 3",
+      "WorkingSet64": 7920697344,
+      "PrivateMemorySize64": 7991914496
+    },
+    {
+      "label": "D3_S9",
+      "CommandLine": "C:\\apu\\bin\\llama-b10970\\llama-server.exe -m C:\\apu\\models\\qwen3-4b-instruct-85e4a5b7.gguf --port 8385 -c 32768 -ctk f16 -ctv f16 -fa on -ngl 99 -np 1 -t 4 --no-context-shift --log-file C:\\apu\\ramlock_srv_D3_S9_20260925T010739Z.txt --log-verbosity 3",
+      "WorkingSet64": 7920820224,
+      "PrivateMemorySize64": 7992061952
+    },
+    {
+      "label": "D3_S8",
+      "CommandLine": "C:\\apu\\bin\\llama-b10970\\llama-server.exe -m C:\\apu\\models\\qwen3-4b-instruct-85e4a5b7.gguf --port 8385 -c 32768 -ctk f16 -ctv f16 -fa on -ngl 99 -np 1 -t 4 --no-context-shift --log-file C:\\apu\\ramlock_srv_D3_S8_20260925T010739Z.txt --log-verbosity 3",
+      "WorkingSet64": 7318630400,
+      "PrivateMemorySize64": 7991635968
+    },
+    {
+      "label": "D3_S7.5",
+      "CommandLine": "C:\\apu\\bin\\llama-b10970\\llama-server.exe -m C:\\apu\\models\\qwen3-4b-instruct-85e4a5b7.gguf --port 8385 -c 32768 -ctk f16 -ctv f16 -fa on -ngl 99 -np 1 -t 4 --no-context-shift --log-file C:\\apu\\ramlock_srv_D3_S7.5_20260925T010739Z.txt --log-verbosity 3",
+      "WorkingSet64": 6025986048,
+      "PrivateMemorySize64": 7992102912
+    },
+    {
+      "label": "D3_S7",
+      "CommandLine": "C:\\apu\\bin\\llama-b10970\\llama-server.exe -m C:\\apu\\models\\qwen3-4b-instruct-85e4a5b7.gguf --port 8385 -c 32768 -ctk f16 -ctv f16 -fa on -ngl 99 -np 1 -t 4 --no-context-shift --log-file C:\\apu\\ramlock_srv_D3_S7_20260925T010739Z.txt --log-verbosity 3",
+      "WorkingSet64": 274432,
+      "PrivateMemorySize64": 7991394304
+    },
+    {
+      "label": "D3_S6",
+      "CommandLine": "C:\\apu\\bin\\llama-b10970\\llama-server.exe -m C:\\apu\\models\\qwen3-4b-instruct-85e4a5b7.gguf --port 8385 -c 32768 -ctk f16 -ctv f16 -fa on -ngl 99 -np 1 -t 4 --no-context-shift --log-file C:\\apu\\ramlock_srv_D3_S6_20260925T010739Z.txt --log-verbosity 3",
+      "WorkingSet64": 5020971008,
+      "PrivateMemorySize64": 7990652928
+    },
+    {
+      "label": "D3_S4",
+      "CommandLine": "C:\\apu\\bin\\llama-b10970\\llama-server.exe -m C:\\apu\\models\\qwen3-4b-instruct-85e4a5b7.gguf --port 8385 -c 32768 -ctk f16 -ctv f16 -fa on -ngl 99 -np 1 -t 4 --no-context-shift --log-file C:\\apu\\ramlock_srv_D3_S4_20260925T010739Z.txt --log-verbosity 3",
+      "WorkingSet64": 5021163520,
+      "PrivateMemorySize64": 7990587392
+    }
+  ],
+  "levels": [
+    {
+      "s_gb": 12,
+      "classification": "runs_normally"
+    },
+    {
+      "s_gb": 10,
+      "classification": "runs_normally"
+    },
+    {
+      "s_gb": 9,
+      "classification": "runs_normally"
+    },
+    {
+      "s_gb": 8,
+      "classification": "runs_normally"
+    },
+    {
+      "s_gb": 7.5,
+      "classification": "runs_normally"
+    },
+    {
+      "s_gb": 7,
+      "classification": "runs_normally"
+    },
+    {
+      "s_gb": 6,
+      "classification": "runs_normally"
+    },
+    {
+      "s_gb": 5,
+      "classification": "fails_loudly"
+    },
+    {
+      "s_gb": 4,
+      "classification": "runs_normally"
+    }
+  ],
+  "finished_ts": "2026-09-25T07:41:09.259099+00:00",
+  "n_rows": 11
+}
