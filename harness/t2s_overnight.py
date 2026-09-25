@@ -631,14 +631,31 @@ def section_d_items(lab):
     return items
 
 
+SECTION_SHARE = {"A": 0.38, "B": 0.30, "C": 0.32, "D": 0.0}
+
+
 def trim(items, budget_s):
-    kept, dropped, used = [], [], 0.0
-    for it in sorted(items, key=lambda x: (x["prio"], x.get("ord", 0))):
+    """Pass 1: in priority order, each section may use its share of the budget. Pass 2: leftover time is filled by
+    priority from what pass 1 dropped (D and the extra arms live here). Returned in (priority, creation) order."""
+    ordered = sorted(items, key=lambda x: (x["prio"], x.get("ord", 0)))
+    used_sec = {k: 0.0 for k in SECTION_SHARE}
+    kept, rest = [], []
+    for it in ordered:
+        cap = SECTION_SHARE.get(it["section"], 0.0) * budget_s
+        if used_sec[it["section"]] + it["est_s"] <= cap:
+            kept.append(it)
+            used_sec[it["section"]] += it["est_s"]
+        else:
+            rest.append(it)
+    used = sum(used_sec.values())
+    dropped = []
+    for it in rest:
         if used + it["est_s"] <= budget_s:
             kept.append(it)
             used += it["est_s"]
         else:
             dropped.append(it)
+    kept.sort(key=lambda x: (x["prio"], x.get("ord", 0)))
     return kept, dropped, used
 
 
