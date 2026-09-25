@@ -71,9 +71,10 @@ def classify(sets):
 def main():
     out = {"captured_utc": datetime.now(timezone.utc).isoformat(), "hostname": socket.gethostname()}
     fails = []
-    q = ps("query user 2>&1 | Out-String")
+    q = ps("try { (& query.exe user 2>&1) -join \"`n\" } catch { $_.Exception.Message }")
     out["query_user"] = q
-    sessions = [l for l in q.splitlines()[1:] if l.strip()]
+    # "No User exists for *" means there is no interactive session at all. Otherwise line 1 is the header.
+    sessions = [] if "No User exists" in q else [l for l in q.splitlines()[1:] if l.strip()]
     others = [l for l in sessions if not l.strip().lstrip(">").lower().startswith("sharc")]
     out["other_interactive_sessions"] = others
     if others:
