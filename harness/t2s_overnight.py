@@ -468,7 +468,7 @@ def section_a_items(lab):
         kv = mi.kv_bpt_meta / 2 ** 20
         cap_ctx = 10 ** 9 if extra_arm else mi.max_ctx_native * (mi.yarn_factor if mid in YARN_MODELS else 1)
         step = max(int(round(512 / kv / 256)) * 256, 256)
-        grid_by = {}
+        grid_by, grid_of = {}, {}
         for label, B in cands.items():
             nstar = int((B - w - c) / kv)
             rec = {"record": "budget_plan", "model_id": mid, "budget_label": label, "B_mib": B, "weights_mib": w, "compute_mib": c,
@@ -483,6 +483,7 @@ def section_a_items(lab):
                              nstar + 3 * step, nstar + 4 * step, nstar + 5 * step) if 2048 <= x <= cap_ctx]
             rec["grid"] = g
             lab.emit(rec)
+            grid_of[label] = g
             for x in g:
                 grid_by.setdefault(x, []).append((label, nstar))
         if not grid_by:
@@ -490,6 +491,11 @@ def section_a_items(lab):
         grid = sorted(grid_by)
         yarn = ["--rope-scaling", "yarn", "--rope-scale", str(mi.yarn_factor), "--yarn-orig-ctx", str(mi.max_ctx_native)] \
             if (mid in YARN_MODELS and not extra_arm and max(grid) > mi.max_ctx_native) else []
+        low = "device_total" if "device_total" in grid_of else next(iter(grid_of))
+        core_set = set(grid_of[low])
+        for lb, g in grid_of.items():
+            if lb != low:
+                core_set |= {g[i] for i in (2, 3, 5) if i < len(g)}
         rng = random.Random(SEED + crc(mid))
         order = grid[:]
         rng.shuffle(order)
@@ -503,7 +509,8 @@ def section_a_items(lab):
             fill = fill_cap_tokens(tab, g, 60.0)
             est = (tab.get("load_s") or 60) * 2 + 6 * est_call_s(tab, fill) + 180
             labels = {lb: ns for lb, ns in grid_by[g]}
-            items.append({"item_id": f"A_{mid}_{kind}_{g}_{k}", "section": "A", "prio": prio, "est_s": est, "model_id": mid,
+            items.append({"item_id": f"A_{mid}_{kind}_{g}_{k}", "section": "A", "prio": prio if (g in core_set or kind == "anchor") else prio + 20,
+                          "est_s": est, "model_id": mid,
                           "n_ctx": g, "kind": kind, "extra": yarn, "fill": fill, "nstar": labels, "beyond": extra_arm,
                           "budgets": cands})
         if yarn:
