@@ -38,7 +38,7 @@ MODEL_FILES = {
     "qwen3-30b-a3b-2507": ("Qwen3-30B-A3B-Instruct-2507-Q4_K_M.gguf", False, 262144, 1),
     "qwen3-32b": ("Qwen3-32B-Q4_K_M.gguf", True, 32768, 4),
 }
-PAGING_FILE = "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf"
+PAGING_FILE = "Qwen3-32B-Q4_K_M.gguf"
 YARN_MODELS = ("qwen3-32b", "qwen3-14b", "qwen3-8b")
 KNOWN_4B_SHA = "85e4a5b7b8ef0e48af0e8658f5aaab9c2324c76c1641493f4d1e25fce54b18b9"
 MASKS = {"none": None, "p4": 0x000F, "e4": 0x00F0, "nonp12": 0xFFF0, "all16": 0xFFFF}
@@ -239,30 +239,42 @@ def read_downloads(lab):
 
 
 def paging_control(lab):
-    """Evict the file cache with the balloon, then read 2 GB of a model file: pages input must be nonzero."""
+    """Positive control for the paging telemetry. With only 4 GB left available, read a random 2 GB slice of the 32B
+    file (19 GB, so it cannot be cached) and require Pages Input/sec to peak at 10,000 or more. Up to 3 attempts at
+    different offsets; a warm cache (pages input near zero) is not a pass."""
     target = str(Path(L.MODELS_DIR) / PAGING_FILE)
     while not Path(target).exists() and lab.left() > 0:
         time.sleep(20)
+    size = Path(target).stat().st_size
     b = L.Balloon(lab, BALLOON_SCRIPT, "pagectl")
-    info = b.start(8192)
+    info = b.start(4096)
     if not info.get("ok"):
         b.stop()
         return {"ok": False, "why": f"balloon control failed: {info}"}
-    t0 = time.time()
-    n = 0
-    with open(target, "rb") as f:
-        while n < 2 * 2 ** 30:
-            c = f.read(4 * 2 ** 20)
-            if not c:
-                break
-            n += len(c)
-    t1 = time.time()
-    time.sleep(3)
-    m = lab.tele.metrics(t0, t1 + 3)
+    rng = random.Random(int(time.time()))
+    tries = []
+    ok = False
+    for attempt in range(3):
+        off = rng.randrange(0, max(size - 2 * 2 ** 30, 1) // (4 * 2 ** 20)) * 4 * 2 ** 20
+        t0 = time.time()
+        n = 0
+        with open(target, "rb") as f:
+            f.seek(off)
+            while n < 2 * 2 ** 30:
+                c = f.read(4 * 2 ** 20)
+                if not c:
+                    break
+                n += len(c)
+        t1 = time.time()
+        time.sleep(3)
+        m = lab.tele.metrics(t0, t1 + 3)
+        tries.append({"offset": off, "bytes": n, "pages_input_max": m["pages_input_per_s"], "page_reads_max": m["hard_faults_per_s"]})
+        if m["pages_input_per_s"] and m["pages_input_per_s"] >= 10000:
+            ok = True
+            break
     b.stop()
     time.sleep(5)
-    return {"ok": bool(m["pages_input_per_s"] and m["pages_input_per_s"] > 0), "pages_input_max": m["pages_input_per_s"],
-            "page_reads_max": m["hard_faults_per_s"], "bytes_read": n, "balloon": info}
+    return {"ok": ok, "threshold_pages_per_s": 10000, "attempts": tries, "balloon": info}
 
 
 def section0_model(lab, mi):
