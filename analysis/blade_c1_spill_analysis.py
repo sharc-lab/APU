@@ -188,6 +188,37 @@ def main():
                 ss_res = sum((y - (icpt + slope * x)) ** 2 for x, y in zip(xs, ys))
                 ss_tot = sum((y - my) ** 2 for y in ys)
                 print(f"fit {name} = {icpt:.3f} + {slope:.3f} * raw_spill_fraction   R2={1 - ss_res / ss_tot:.3f}  n={len(xs)}")
+    # Spill in excess of the pinned baseline. Shared Usage has a baseline of about 100 to 130 MiB that grows slowly with
+    # ctx and exists with no spill, so it is fitted on the clean points (slowdown < 1.05, ctx >= 32768) and removed.
+    cl = [o for o in out if o["slowdown"] is not None and o["slowdown"] < 1.05 and o["sh_max_mib"]]
+    if len(cl) >= 2:
+        mx, my = st.mean(o["ctx"] for o in cl), st.mean(o["sh_max_mib"] for o in cl)
+        b = sum((o["ctx"] - mx) * (o["sh_max_mib"] - my) for o in cl) / sum((o["ctx"] - mx) ** 2 for o in cl)
+        a = my - b * mx
+        dec0 = st.median(o["dec_med"] for o in cl if o["dec_med"])
+        print(f"\nclean shared baseline fit: Shared MiB = {a:.1f} + {b * 1024:.3f} per 1024 ctx (from {len(cl)} clean ctx)")
+        print("ctx | excess shared MiB | excess spilled fraction (excess / (dedicated + shared)) | TTFT slowdown | decode slowdown")
+        pts = []
+        for o in out:
+            if not o["sh_max_mib"]:
+                continue
+            ex = o["sh_max_mib"] - (a + b * o["ctx"])
+            fr = ex / (o["sh_max_mib"] + o["ded_max_mib"])
+            dsd = dec0 / o["dec_med"] if o["dec_med"] else None
+            print(f"{o['ctx']} | {ex:.0f} | {fr:.4f} | {o['slowdown']:.2f} | {dsd:.2f}")
+            if fr > 0.01:
+                pts.append((fr, o["slowdown"], dsd))
+        for label, idx in (("TTFT slowdown", 1), ("decode slowdown", 2)):
+            xs = [q_[0] for q_ in pts]
+            ys = [q_[idx] for q_ in pts]
+            if len(xs) >= 3:
+                mx2, my2 = st.mean(xs), st.mean(ys)
+                sxx = sum((x - mx2) ** 2 for x in xs)
+                sl = sum((x - mx2) * (y - my2) for x, y in zip(xs, ys)) / sxx
+                ic = my2 - sl * mx2
+                ss_res = sum((y - (ic + sl * x)) ** 2 for x, y in zip(xs, ys))
+                ss_tot = sum((y - my2) ** 2 for y in ys)
+                print(f"fit over spilled ctx only: {label} = {ic:.2f} + {sl:.2f} * excess_fraction   R2={1 - ss_res / ss_tot:.3f}  n={len(xs)}")
     Path(prefix + "_analysis.json").write_text(json.dumps(out, indent=2, default=str), encoding="utf-8")
 
 
