@@ -50,6 +50,7 @@ class Sysman:
         self.errors: list[str] = []
         self.freq_handles: list = []
         self.power_handles: list = []
+        self.temp_handles: list = []
         self.freq_props: list[dict] = []
         self.power_props: list[dict] = []
         self.n_drivers = self.n_devices = 0
@@ -86,6 +87,8 @@ class Sysman:
         dev_get = self._fn("zesDeviceGet", [ctypes.c_void_p, u32p, vpp])
         enum_f = self._fn("zesDeviceEnumFrequencyDomains", [ctypes.c_void_p, u32p, vpp])
         enum_p = self._fn("zesDeviceEnumPowerDomains", [ctypes.c_void_p, u32p, vpp])
+        enum_t = self._fn("zesDeviceEnumTemperatureSensors", [ctypes.c_void_p, u32p, vpp])
+        self._temp_state = self._fn("zesTemperatureGetState", [ctypes.c_void_p, ctypes.POINTER(ctypes.c_double)])
         self._freq_props = self._fn("zesFrequencyGetProperties", [ctypes.c_void_p, ctypes.POINTER(FreqProps)])
         self._freq_state = self._fn("zesFrequencyGetState", [ctypes.c_void_p, ctypes.POINTER(FreqState)])
         self._power_props = self._fn("zesPowerGetProperties", [ctypes.c_void_p, ctypes.POINTER(PowerProps)])
@@ -102,6 +105,7 @@ class Sysman:
             for i in range(nd.value):
                 self._enum(enum_f, devs[i], self.freq_handles)
                 self._enum(enum_p, devs[i], self.power_handles)
+                self._enum(enum_t, devs[i], self.temp_handles)
         for h in self.freq_handles:
             fp = FreqProps(stype=STYPE_FREQ_PROPERTIES)
             rc = self._freq_props(h, ctypes.byref(fp))
@@ -146,6 +150,10 @@ class Sysman:
                 self._last_energy[i] = (ec.energy, ec.timestamp)
             rows.append({"kind": "power", "domain": i, "rc": rc, "energy_uj": ec.energy, "timestamp_us": ec.timestamp,
                          "power_w": power})
+        for i, h in enumerate(self.temp_handles):
+            t = ctypes.c_double(0.0)
+            rc = self._temp_state(h, ctypes.byref(t))
+            rows.append({"kind": "temp", "domain": i, "rc": rc, "temp_c": t.value if rc == 0 else None})
         return rows
 
 

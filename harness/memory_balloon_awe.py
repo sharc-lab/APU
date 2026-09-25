@@ -318,6 +318,9 @@ def main():
     ap.add_argument("--max-runtime-s", type=float, default=10800.0)  # 3h, matches Phase D's own cap
     ap.add_argument("--log-path", type=str, required=True)
     ap.add_argument("--sample-interval-s", type=float, default=5.0)
+    ap.add_argument("--light", action="store_true",
+                    help="skip the PowerShell counter reads in the sampling loop (they stall under memory pressure "
+                         "and stretch the cadence); log only held and available memory")
     args = ap.parse_args()
 
     enabled, detail = enable_lock_privilege()
@@ -412,9 +415,12 @@ def main():
                     low_avail_since = None
 
                 _t_read = time.monotonic()
-                sys_counters = get_system_counters()
-                srv_stats = get_server_process_stats(args.server_pid)
-                gpu_counters = get_gpu_counters(args.server_pid)
+                if args.light:
+                    sys_counters, srv_stats, gpu_counters = {}, {}, {}
+                else:
+                    sys_counters = get_system_counters()
+                    srv_stats = get_server_process_stats(args.server_pid)
+                    gpu_counters = get_gpu_counters(args.server_pid)
 
                 row = (
                     f"{_ts()},{elapsed:.1f},{balloon.held_mb():.1f},"
