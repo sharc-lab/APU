@@ -40,6 +40,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "harness"))
 import blade_telemetry as bt  # noqa: E402
+import server_guard as sg  # noqa: E402
 import context as ctx_mod  # noqa: E402
 
 RESULTS_DIR = REPO / "results"
@@ -85,12 +86,15 @@ def verify_model_sha256():
     log(f"model sha256 verified {MODEL_SHA256}")
 
 
-def ensure_port_free_and_no_stale_server():
-    pid = bt.listener_pid(PORT)
-    if pid is not None:
-        raise StopExperiment(f"port {PORT} already has a listener (pid {pid}); refusing to start")
+def ensure_port_free_and_no_stale_server(run=None):
+    try:
+        sg.assert_port_free(PORT)
+    except sg.GuardError as e:
+        if run is not None:
+            run.emit({"record": "guard_stop", **e.record})
+        raise StopExperiment(str(e))
     if bt.ps("(Get-Process llama-server -ErrorAction SilentlyContinue | Measure-Object).Count").strip() not in ("", "0"):
-        raise StopExperiment("a llama-server process is already running; refusing to start")
+        raise StopExperiment("a llama-server process is already running (not listening on the port); refusing to start")
 
 
 def start_server(ctx: int, log_path: str) -> subprocess.Popen:
@@ -239,7 +243,7 @@ class Run:
 
 def bring_up_server(run: Run, ctx: int, tag: str):
     """Start a server, prove it is OURS (listener pid == our pid), record its identity and memory."""
-    ensure_port_free_and_no_stale_server()
+    ensure_port_free_and_no_stale_server(run)
     bt.require_ac()
     srv_log = str(SCRATCH_DIR / f"{run.stem}_srv_{tag}.txt")
     proc = start_server(ctx, srv_log)
@@ -248,15 +252,19 @@ def bring_up_server(run: Run, ctx: int, tag: str):
         if proc.poll() is None:
             kill_and_confirm(proc.pid)
         return None, srv_log
-    lp = bt.listener_pid(PORT)
-    if lp != proc.pid:
+    expected = {"model_path": MODEL_PATH, "n_ctx": ctx, "ctk": "f16", "ctv": "f16", "fa": "on", "ngl": 99,
+                "np": 1, "threads": 4}
+    try:
+        guard_rec = sg.assert_server_matches(SERVER_URL, PORT, proc.pid, expected)
+    except sg.GuardError as e:
+        run.emit({"record": "guard_stop", "tag": tag, "ctx": ctx, **e.record})
         kill_and_confirm(proc.pid)
-        raise StopExperiment(f"listener on {PORT} is pid {lp}, not our server pid {proc.pid}")
+        raise StopExperiment(str(e))
     run.tele.start_winctr(proc.pid)
     time.sleep(3)
     info = bt.process_info(proc.pid)
     run.emit({"record": "server_start", "tag": tag, "ctx": ctx, "started": True, "server_pid": proc.pid,
-              "server_log": srv_log, **info})
+              "server_log": srv_log, "guard": guard_rec, **info})
     return proc, srv_log
 
 
@@ -280,6 +288,14 @@ def run_throughput_ctx(run: Run, ctx: int, tag: str, kind: str, block: int) -> d
         failed = False
         for i in range(N_WARMUP + N_MEASURED):
             gate = thermal_gate(run.idle_temp)
+            ok, lp = sg.RequestGuard(PORT, proc.pid).check()
+            if not ok:
+                run.emit({"record": "call", "tag": tag, "kind": kind, "block": block, "ctx": ctx, "call": i,
+                          "warmup": i < N_WARMUP, "invalid": True, "outcome": "invalid_listener_mismatch",
+                          "server_pid": proc.pid, "listener_pids": lp})
+                log(f"  {tag} call={i} INVALID: listener {lp} != started pid {proc.pid}; stopping this condition")
+                failed = True
+                break
             t_start = bt.utcnow_iso()
             res = chat_call(prompt, THROUGHPUT_MAX_TOKENS, True, n_tok)
             row = {"record": "call", "tag": tag, "kind": kind, "block": block, "ctx": ctx, "n_prompt_tokens": n_tok,
@@ -471,6 +487,12 @@ def cmd_c2(ctxs: list[int]):
                     prompt = f"{filler}\n\n{artifact}\n\n{question}"
                     n_tok = tokenize(prompt)
                     gate = thermal_gate(run.idle_temp)
+                    ok, lp = sg.RequestGuard(PORT, proc.pid).check()
+                    if not ok:
+                        run.emit({"record": "probe", "tag": tag, "ctx": ctx, "probe_id": probe["id"], "invalid": True,
+                                  "outcome": "invalid_listener_mismatch", "server_pid": proc.pid, "listener_pids": lp})
+                        log(f"  {tag} {probe['id']} INVALID: listener {lp} != {proc.pid}; stopping this condition")
+                        break
                     t_start = bt.utcnow_iso()
                     res = chat_call(prompt, CORRECTNESS_MAX_TOKENS, False, n_tok)
                     score = detail = None
