@@ -914,12 +914,12 @@ def main():
             for it in sec_items:
                 if it["item_id"] in lab.done:
                     continue
-                if sec == "D" and it["kind"] != "prepare" and lab.sycl_ok is not True:
+                if sec == "D" and it.get("kind") != "prepare" and lab.sycl_ok is not True:
                     continue
                 lab.check()
                 log(f"item {it['item_id']} (est {it['est_s'] / 60:.0f} min, left {lab.left() / 3600:.2f} h)")
                 try:
-                    (run_d_prepare if it["kind"] == "prepare" else runners[sec])(lab, it)
+                    (run_d_prepare if it.get("kind") == "prepare" else runners[sec])(lab, it)
                 except Deadline:
                     raise
                 except Exception as e:
