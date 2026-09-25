@@ -511,8 +511,9 @@ def section_a_items(lab):
                 rec["need_at_max_ctx_mib"] = w + c + kv * cap_ctx
                 lab.emit(rec)
                 continue
-            g = [x for x in (nstar - 3 * step, nstar - 2 * step, nstar - step, nstar + step, nstar + 2 * step,
-                             nstar + 3 * step, nstar + 4 * step, nstar + 5 * step) if 2048 <= x <= cap_ctx]
+            g = [int(round(x / 256)) * 256 for x in (nstar - 3 * step, nstar - 2 * step, nstar - step, nstar + step,
+                                                      nstar + 2 * step, nstar + 3 * step, nstar + 4 * step, nstar + 5 * step)]
+            g = [x for x in g if 2048 <= x <= cap_ctx]
             rec["grid"] = g
             lab.emit(rec)
             grid_of[label] = g
@@ -632,7 +633,7 @@ def section_d_items(lab):
 
 def trim(items, budget_s):
     kept, dropped, used = [], [], 0.0
-    for it in sorted(items, key=lambda x: (x["prio"], x["item_id"])):
+    for it in sorted(items, key=lambda x: (x["prio"], x.get("ord", 0))):
         if used + it["est_s"] <= budget_s:
             kept.append(it)
             used += it["est_s"]
@@ -643,6 +644,8 @@ def trim(items, budget_s):
 
 def build_plan(lab):
     items = section_a_items(lab) + section_b_items(lab) + section_c_items(lab) + section_d_items(lab)
+    for n, it in enumerate(items):
+        it["ord"] = n
     if lab.args.only in ("A", "B", "C", "D"):
         items = [i for i in items if i["section"] == lab.args.only]
     budget = lab.left() - lab.args.reserve_min * 60
@@ -660,7 +663,7 @@ def build_plan(lab):
 def run_yarn_check(lab, it):
     """5 art probes at 16K with the model's YaRN flags off and on: YaRN alone must not change the answers."""
     mi = lab.models[it["model_id"]]
-    fill = int(0.9 * 16384)
+    fill = 3000 if lab.smoke else int(0.9 * 16384)
     for tag, flags in (("off", []), ("on", it["extra"])):
         srv = L.Server(lab, mi, 16384, extra=flags, tag=f"{it['item_id']}_{tag}")
         lab.resources["server"] = srv
@@ -901,6 +904,8 @@ def plan_only(args, prov):
             sha = KNOWN_4B_SHA if mid == "qwen3-4b-2507" else lab.dl_sha.get(fn, "unknown")
             lab.models[mid] = L.ModelInfo(mid, str(Path(L.MODELS_DIR) / fn), sha, hyb, mx, yf)
     items = section_a_items(lab) + section_b_items(lab) + section_c_items(lab) + section_d_items(lab)
+    for n, it in enumerate(items):
+        it["ord"] = n
     kept, dropped, used = trim(items, lab.left() - args.reserve_min * 60)
     print(f"deadline {args.deadline_h} h, reserve {args.reserve_min} min: {len(kept)} items kept ({used / 3600:.2f} h), {len(dropped)} trimmed")
     from collections import Counter
@@ -1001,7 +1006,8 @@ def main():
                 continue
             sec_items = [p for p in plan if p["section"] == sec]
             if args.max_items:
-                sec_items = [p for p in sec_items if p.get("kind") != "probe_max"][:args.max_items] +                             [p for p in sec_items if p.get("kind") == "probe_max"][:1]
+                special = [p for p in sec_items if p.get("kind") in ("probe_max", "yarn_check")]
+                sec_items = [p for p in sec_items if p.get("kind") not in ("probe_max", "yarn_check")][:args.max_items] + special[:2]
             for it in sec_items:
                 if it["item_id"] in lab.done:
                     continue
