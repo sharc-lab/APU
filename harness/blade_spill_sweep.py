@@ -41,6 +41,7 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "harness"))
 import blade_telemetry as bt  # noqa: E402
 import server_guard as sg  # noqa: E402
+import run_provenance as rp  # noqa: E402
 import context as ctx_mod  # noqa: E402
 
 RESULTS_DIR = REPO / "results"
@@ -352,8 +353,21 @@ def check_columns(prefix: str) -> dict:
     return res
 
 
+def _provenance(smoke: bool) -> dict:
+    """Standing rule: refuse to produce a result from scripts that are not committed. Smoke runs may proceed
+    dirty but the record says so."""
+    here = Path(__file__).resolve().parent
+    files = [__file__, here / "blade_telemetry.py", here / "server_guard.py", here / "run_provenance.py",
+             here / "context.py", PROBES_DIR / "scorers.py"]
+    try:
+        return rp.script_provenance(files, require_committed=not smoke)
+    except rp.ProvenanceError as e:
+        raise StopExperiment(str(e))
+
+
 def cmd_c1(smoke: bool):
     global N_MEASURED
+    prov = _provenance(smoke)
     verify_model_sha256()
     env = bt.environment_manifest()
     out_dir = SCRATCH_DIR if smoke else RESULTS_DIR
@@ -368,7 +382,7 @@ def cmd_c1(smoke: bool):
         plan.append(("baseline", ANCHOR_CTX, b))
     if smoke:
         plan = [("baseline", 8192, 0)]
-    run.manifest = {"experiment": "C1 fine VRAM-spill sweep", "environment": env, "order_seed": ORDER_SEED,
+    run.manifest = {"experiment": "C1 fine VRAM-spill sweep", "script_provenance": prov, "environment": env, "order_seed": ORDER_SEED,
                     "plan": plan, "anchor_ctx": ANCHOR_CTX, "grid": GRID, "n_warmup": N_WARMUP,
                     "n_measured": N_MEASURED, "call_timeout_s": CALL_TIMEOUT_S, "fill_ratio": FILL_RATIO,
                     "model_sha256": MODEL_SHA256, "server_bin": SERVER_BIN, "smoke": smoke,
@@ -433,6 +447,7 @@ def _load_scorers():
 
 
 def cmd_c2(ctxs: list[int]):
+    prov = _provenance(False)
     verify_model_sha256()
     env = bt.environment_manifest()
     scorers = _load_scorers()
@@ -443,7 +458,7 @@ def cmd_c2(ctxs: list[int]):
             segs[d["id"]] = d
     probes = [segs[f"art_{i:02d}"] for i in range(1, 6)]
     run = Run("blade_c2_spill_correctness", RESULTS_DIR, scratch=False)
-    run.manifest = {"experiment": "C2 correctness under spill", "environment": env, "ctxs": ctxs,
+    run.manifest = {"experiment": "C2 correctness under spill", "script_provenance": prov, "environment": env, "ctxs": ctxs,
                     "probes": [p["id"] for p in probes], "model_sha256": MODEL_SHA256,
                     "placement": "filler, then artifact, then question (artifact adjacent to question)",
                     "fill_ratio": FILL_RATIO, "max_tokens": CORRECTNESS_MAX_TOKENS,
