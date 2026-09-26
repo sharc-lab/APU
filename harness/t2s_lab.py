@@ -350,13 +350,14 @@ def parse_server_log(path):
 
 
 class Server:
-    def __init__(self, lab, mi: ModelInfo, n_ctx, backend="vulkan", mmap=None, extra=(), tag="s", load_mode=None):
+    def __init__(self, lab, mi: ModelInfo, n_ctx, backend="vulkan", mmap=None, extra=(), tag="s", load_mode=None, ngl=99, fit=None):
         """mmap=None keeps the build default (--load-mode auto). mmap=True passes --load-mode mmap and mmap=False passes
         --load-mode none. Measured on this Vulkan device: auto behaves like none (identical private bytes and working
         set), and only an explicit mmap maps the file, so the self.mmap field is true only for load mode mmap."""
         self.lab, self.mi, self.n_ctx, self.backend, self.extra, self.tag = lab, mi, n_ctx, backend, list(extra), tag
         self.load_mode = load_mode or ("mmap" if mmap is True else ("none" if mmap is False else "auto"))
         self.mmap = self.load_mode == "mmap"
+        self.ngl, self.fit = ngl, fit  # ngl None leaves -ngl unset (build default auto); fit "on" or "off" adds -fit
         self.proc = None
         self.pid = None
         self.log_path = str(Path(lab.prefix + f"_srv_{tag}.txt"))
@@ -366,8 +367,12 @@ class Server:
 
     def _cmd(self):
         c = [BINARIES[self.backend], "-m", self.mi.path, "--port", str(PORT), "-c", str(self.n_ctx), "-ctk", "f16",
-             "-ctv", "f16", "-fa", "on", "-ngl", "99", "-np", "1", "-t", "4", "--no-context-shift",
+             "-ctv", "f16", "-fa", "on", "-np", "1", "-t", "4", "--no-context-shift",
              "--log-file", self.log_path, "--log-verbosity", "4"]
+        if self.ngl is not None:
+            c += ["-ngl", str(self.ngl)]
+        if self.fit is not None:
+            c += ["-fit", self.fit]
         if self.load_mode != "auto":
             c += ["--load-mode", self.load_mode]
         return c + self.extra

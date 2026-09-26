@@ -64,7 +64,7 @@ class Lab:
         self.deadline_ts = time.time() + args.deadline_h * 3600
         self.out_dir = OUT_ROOT / ("smoke" if args.smoke else "results")
         self.out_dir.mkdir(parents=True, exist_ok=True)
-        self.stem = args.resume or f"t2s_overnight_{time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())}"
+        self.stem = args.resume or f"{getattr(args, 'stem_prefix', 't2s_overnight')}_{time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())}"
         self.prefix = str(self.out_dir / self.stem)
         self.rows = L.Jsonl(self.prefix + ".jsonl")
         self.tele = L.Telemetry(self.prefix)
@@ -178,15 +178,15 @@ def do_call(lab, srv, mi, section, item_id, prompt, n_tok, *, warmup, rep, extra
 
 
 def measured_sequence(lab, srv, mi, section, item_id, prompt, n_tok, *, extra, mem_headroom_gb=None, co_runner="none",
-                      slow_s=90.0, max_tokens=128):
-    """1 discarded warm-up then 5 measured calls (3 when a call exceeds slow_s, flagged n_reduced)."""
+                      slow_s=90.0, max_tokens=128, n_calls=None):
+    """1 discarded warm-up then 5 measured calls (3 when a call exceeds slow_s, flagged n_reduced; n_calls overrides)."""
     w = do_call(lab, srv, mi, section, item_id, prompt, n_tok, warmup=True, rep=-1, extra=extra, max_tokens=max_tokens,
                 mem_headroom_gb=mem_headroom_gb, co_runner=co_runner)
     if w is None or w.get("outcome") != "ok":
         return []
     slow = (w.get("e2e_s") or 0) > slow_s
     out = []
-    for i in range(1 if lab.smoke else (3 if slow else 5)):
+    for i in range(1 if lab.smoke else (n_calls or (3 if slow else 5))):
         r = do_call(lab, srv, mi, section, item_id, prompt, n_tok, warmup=False, rep=i, extra=dict(extra, n_reduced=slow),
                     max_tokens=max_tokens, mem_headroom_gb=mem_headroom_gb, co_runner=co_runner)
         if r is None or r.get("outcome") != "ok":
@@ -666,6 +666,50 @@ def trim(items, budget_s):
     return kept, dropped, used
 
 
+SEC_RANK = {"A": 0, "B": 1, "C": 2, "D": 3}
+
+
+def queue_key(it):
+    return (SEC_RANK.get(it["section"], 9), it["prio"], it.get("ord", 0))
+
+
+def pick_backfill(queue, dropped, avail_s, done_ids=()):
+    """Pure. Trimmed items to pull back in: highest priority first, while the estimated time of the work still queued
+    plus the pulled items fits in avail_s. Section shares no longer apply, only the total. A SYCL cell is pulled only
+    together with (or after) D_prepare."""
+    free = avail_s - sum(i["est_s"] for i in queue)
+    have = {i["item_id"] for i in queue} | set(done_ids)
+    picked = []
+    for it in sorted(dropped, key=queue_key):
+        if it.get("kind") == "cell" and it.get("backend") == "sycl" and "D_prepare" not in have:
+            continue
+        if it["est_s"] <= free:
+            picked.append(it)
+            free -= it["est_s"]
+            have.add(it["item_id"])
+    return picked
+
+
+def simulate_backfill(kept, dropped, budget_s, speed):
+    """Run the queue with each item taking speed x its estimate; after every item call pick_backfill. Returns the
+    events and the end state, for the plan-only test."""
+    queue = sorted(kept, key=queue_key)
+    dropped = list(dropped)
+    clock, done, events = 0.0, [], []
+    while queue:
+        it = queue.pop(0)
+        clock += it["est_s"] * speed
+        done.append(it["item_id"])
+        pulled = pick_backfill(queue, dropped, budget_s - clock, done)
+        if pulled:
+            ids = {p["item_id"] for p in pulled}
+            dropped = [d for d in dropped if d["item_id"] not in ids]
+            queue = sorted(queue + pulled, key=queue_key)
+            events.append({"after": it["item_id"], "clock_h": round(clock / 3600, 2), "pulled": [p["item_id"] for p in pulled]})
+    return {"events": events, "finished_h": round(clock / 3600, 2), "budget_h": round(budget_s / 3600, 2),
+            "items_run": len(done), "still_trimmed": len(dropped)}
+
+
 def build_plan(lab):
     items = section_a_items(lab) + section_b_items(lab) + section_c_items(lab) + section_d_items(lab)
     for n, it in enumerate(items):
@@ -676,6 +720,9 @@ def build_plan(lab):
     kept, dropped, used = trim(items, budget)
     kept_ids = {k["item_id"] for k in kept}
     kept = [k for k in kept if k.get("kind") != "cell" or k.get("backend") != "sycl" or "D_prepare" in kept_ids]
+    kept_ids = {k["item_id"] for k in kept}
+    dropped = [d for d in dropped] + [d for d in items if d["item_id"] not in kept_ids and d not in dropped]
+    lab.dropped = dropped
     lab.emit({"record": "schedule", "ts_utc": utc_iso(), "budget_s": budget, "planned_s": used, "kept": len(kept),
               "dropped": [{"item_id": d["item_id"], "est_s": d["est_s"], "prio": d["prio"]} for d in dropped]})
     log(f"schedule: {len(kept)} items kept ({used / 3600:.2f} h of {budget / 3600:.2f} h), {len(dropped)} trimmed")
@@ -939,10 +986,9 @@ def plan_only(args, prov):
     for it in kept:
         pass
     print("kept est hours by section:", {sec: round(sum(i["est_s"] for i in kept if i["section"] == sec) / 3600, 2) for sec in "ABCD"})
-    print("A budget plans:")
-    for i in items:
-        if i["section"] == "A" and i.get("kind") == "grid":
-            pass
+    if args.simulate_speed:
+        sim = simulate_backfill(kept, dropped, lab.left() - args.reserve_min * 60, args.simulate_speed)
+        print(f"backfill simulation at {args.simulate_speed}x the estimates:", json.dumps(sim, indent=1))
 
 
 # ---------------------------------------------------------------- main
@@ -984,6 +1030,7 @@ def main():
     ap.add_argument("--no-cap-arm", action="store_true", help="skip the PROCTHROTTLEMAX causal arm (its positive control failed in smoke)")
     ap.add_argument("--plan-only", action="store_true", help="print the schedule from --tables and exit; no servers, no telemetry")
     ap.add_argument("--tables", nargs="*", default=[], help="model_table.json files for --plan-only (later ones override)")
+    ap.add_argument("--simulate-speed", type=float, default=0.0, help="plan-only: simulate actual time = this x estimate and show backfill")
     ap.add_argument("--models", default=None, help="comma list of model ids to include (smoke and resume use)")
     args = ap.parse_args()
     if args.models:
@@ -1026,6 +1073,7 @@ def main():
             return
         plan = build_plan(lab)
         runners = {"A": run_a_item, "B": run_b_item, "C": run_c_item, "D": run_c_item}
+        queue = []
         for sec in ("A", "B", "C", "D"):
             if args.only and args.only != sec:
                 continue
@@ -1033,11 +1081,12 @@ def main():
             if args.max_items:
                 special = [p for p in sec_items if p.get("kind") in ("probe_max", "yarn_check")]
                 sec_items = [p for p in sec_items if p.get("kind") not in ("probe_max", "yarn_check")][:args.max_items] + special[:2]
-            for it in sec_items:
-                if it["item_id"] in lab.done:
-                    continue
-                if sec == "D" and it.get("kind") != "prepare" and lab.sycl_ok is not True:
-                    continue
+            queue += sec_items
+        queue.sort(key=queue_key)
+        while queue:
+            it = queue.pop(0)
+            sec = it["section"]
+            if it["item_id"] not in lab.done and not (sec == "D" and it.get("kind") != "prepare" and lab.sycl_ok is not True):
                 lab.check()
                 log(f"item {it['item_id']} (est {it['est_s'] / 60:.0f} min, left {lab.left() / 3600:.2f} h)")
                 try:
@@ -1052,7 +1101,18 @@ def main():
                         raise
                 if sec != "B":
                     lab.item_done(it["item_id"])
-            (Path(lab.out_dir) / f"{lab.stem}_section{sec}.DONE").write_text("done\n")
+            if not any(q["section"] == sec for q in queue):
+                (Path(lab.out_dir) / f"{lab.stem}_section{sec}.DONE").write_text("done\n")
+            if args.only and args.only != "0":
+                lab.dropped = [d for d in lab.dropped if d["section"] == args.only]
+            pulled = pick_backfill(queue, lab.dropped, lab.left() - args.reserve_min * 60, lab.done)
+            if pulled:
+                ids = {p["item_id"] for p in pulled}
+                lab.dropped = [d for d in lab.dropped if d["item_id"] not in ids]
+                queue = sorted(queue + pulled, key=queue_key)
+                lab.emit({"record": "backfill", "after": it["item_id"], "left_h": lab.left() / 3600,
+                          "pulled": [{"item_id": p["item_id"], "est_s": p["est_s"], "prio": p["prio"]} for p in pulled], "ts_utc": utc_iso()})
+                log(f"backfill: pulled {len(pulled)} trimmed items back in after {it['item_id']}")
     except Deadline:
         note = "deadline reached"
     except Exception as e:
