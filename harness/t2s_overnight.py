@@ -550,7 +550,7 @@ def section_a_items(lab):
                           "budgets": cands})
         if yarn:
             fill_y = int(0.9 * 16384)
-            items.append({"item_id": f"A_{mid}_yarn_check", "section": "A", "prio": prio + 0.2,
+            items.append({"item_id": f"A_{mid}_yarn_check", "section": "A", "prio": prio - 0.5,
                           "est_s": 2 * ((tab.get("load_s") or 60) + 5 * est_call_s(tab, fill_y, 32) + 150), "model_id": mid,
                           "kind": "yarn_check", "extra": yarn, "nstar": {}, "beyond": False, "budgets": cands, "n_ctx": 16384})
         items.append({"item_id": f"A_{mid}_probe_max", "section": "A", "prio": prio + 0.5,
@@ -580,40 +580,45 @@ def section_b_items(lab):
 
 
 def section_c_items(lab):
+    """8B, 14B, 32B at n_ctx 16384. Levels are visited in an order that pairs the two arms at each headroom (arm order
+    within a pair randomised with the run seed), most informative first: 0, -1, +2, -2, +1, +4, +8. Repeats 1 and 2 (three
+    in total at +1 to -2) follow later in priority. The anchor (+8, mmap on) is re-measured after every 3 cells. Calls are
+    capped at about 60 s each so more levels fit; the prompt length is recorded in every row."""
     items = []
     if not lab.paging_ok:
         lab.emit({"record": "section_c_disabled", "reason": "paging telemetry positive control did not pass", "ts_utc": utc_iso()})
         return items
-    levels = [8, 0] if lab.smoke else [8, 4, 2, 1, 0, -1, -2]
+    level_order = [0, -1, 2, -2, 1, 4, 8]
     for mid, base_prio in (("qwen3-8b", 26), ("qwen3-14b", 40), ("qwen3-32b", 42)):
         mi, tab = lab.models.get(mid), lab.table.get(mid)
         if not mi or not tab or not tab.get("ok"):
             continue
         n_ctx = 16384
         need = need_mib(tab, n_ctx, mi)
-        fill = fill_cap_tokens(tab, n_ctx, 150.0)
+        fill = fill_cap_tokens(tab, n_ctx, 60.0)
         call = est_call_s(tab, fill)
         rng = random.Random(SEED + 7 + crc(mid))
         cells = []
-        for arm in ((True, False) if lab.mmap_off_ok else (True,)):
-            for lv in levels:
-                target = need + lv * 1024
-                if target < 3072:
+        for rep_i in range(3):
+            for lv in level_order:
+                if rep_i > 0 and lv not in (1, 0, -1, -2):
                     continue
-                for r in range(1 if lab.smoke else (3 if lv <= 1 else 1)):
-                    cells.append((arm, lv, r, target))
-        rng.shuffle(cells)
+                arms = [True, False] if lab.mmap_off_ok else [True]
+                rng.shuffle(arms)
+                for arm in arms:
+                    target = need + lv * 1024
+                    if target >= 3072:
+                        cells.append((arm, lv, rep_i, target))
         seq = []
         for i, c in enumerate(cells):
             seq.append(("cell",) + c)
             if (i + 1) % 3 == 0:
                 seq.append(("anchor", True, 8, 0, need + 8 * 1024))
-        for k, (kind, arm, lv, rep, target) in enumerate(seq):
+        for k, (kind, arm, lv, rep_i, target) in enumerate(seq):
             est = 150 + (tab.get("load_s") or 60) * 1.5 + 6 * (call + 30) + 5 * (est_call_s(tab, fill, 32) + 30)
-            core = kind == "anchor" or (lv in (8, 1, 0, -1, -2) and rep == 0)
-            prio = base_prio + (0 if core else 8) + (0 if arm else 0.3) + (0.1 * rep)
-            items.append({"item_id": f"C_{mid}_{kind}_{'mm' if arm else 'nomm'}_{lv}_{rep}_{k}", "section": "C", "prio": prio,
-                          "est_s": est, "model_id": mid, "n_ctx": n_ctx, "mmap": arm, "headroom_gb": lv, "rep": rep,
+            prio = base_prio + (0 if rep_i == 0 else 6) + 0.01 * k
+            items.append({"item_id": f"C_{mid}_{kind}_{'mm' if arm else 'nomm'}_{lv}_{rep_i}_{k}", "section": "C", "prio": prio,
+                          "est_s": est, "model_id": mid, "n_ctx": n_ctx, "mmap": arm, "headroom_gb": lv, "rep": rep_i,
                           "target_avail_mb": target, "need_mib": need, "fill": fill, "kind": kind, "backend": "vulkan"})
     return items
 
