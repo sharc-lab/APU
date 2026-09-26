@@ -355,7 +355,7 @@ def phase_arms(lab):
     for n_ctx in GRID_FAIL:
         for arm, kw in (("a_ngl99", {"ngl": 99, "fit": None}), ("b_fit_default", {"ngl": None, "fit": None}),
                         ("c_fit_off", {"ngl": None, "fit": "off"})):
-            item = f"AM_arm_{arm}_{n_ctx}"
+            item = f"AM_arm2_{arm}_{n_ctx}"
             if item in lab.done:
                 continue
             lab.check()

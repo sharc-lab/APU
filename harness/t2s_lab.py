@@ -428,7 +428,7 @@ class Server:
             self.start_info = info
             return info
         try:
-            exp = {"model_path": self.mi.path, "n_ctx": self.n_ctx, "ctk": "f16", "ctv": "f16", "fa": "on", "ngl": 99,
+            exp = {"model_path": self.mi.path, "n_ctx": self.n_ctx, "ctk": "f16", "ctv": "f16", "fa": "on", "ngl": self.ngl,
                    "np": 1, "threads": 4}
             rec = sg.assert_server_matches(SERVER_URL, PORT, self.pid, exp)
         except sg.GuardError as e:
