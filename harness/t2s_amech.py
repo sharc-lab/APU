@@ -216,11 +216,19 @@ class Prober:
         srv, info, px = start_and_record(self.lab, self.mi, n_ctx, f"bis_{self.label}_{n_ctx}_{self.n}", f"AM_bis_{self.label}_{n_ctx}_{self.n}",
                                          "bisect", self.flags, bisect_label=self.label, beyond_trained_ctx=n_ctx > self.mi.max_ctx_native,
                                          kv_bpt_meta=self.mi.kv_bpt_meta)
+        started, cap = bool(info.get("ok")), None
+        m = re.match(r"guard: server does not match intended config: n_ctx (\d+) != (\d+)", info.get("error") or "")
+        if not started and m and "llama_server: listening on" in read_logs(srv):
+            # llama-server created the context (the KV buffer of the requested size is in its log) but /props reports a
+            # smaller n_ctx (131072 with YaRN factor 4, 262144 native). For a memory test that is a start, not a refusal.
+            started, cap = True, int(m.group(1))
         srv.stop()
         self.lab.resources["server"] = None
+        self.lab.emit({"record": "bisect_probe", "label": self.label, "n_ctx": n_ctx, "started": started, "props_n_ctx_cap": cap,
+                       "guard_error": info.get("error") if cap else None, "ts_utc": utc_iso()})
         lg = info.get("log", {})
         logged = sum(x for x in (lg.get("model_buffer_mib"), lg.get("kv_buffer_mib"), lg.get("compute_buffer_mib")) if x)
-        res = {"ok": bool(info.get("ok")), "projected_mib": px.get("projected_mib"), "logged_mib": logged or None,
+        res = {"ok": started, "props_cap": cap, "projected_mib": px.get("projected_mib"), "logged_mib": logged or None,
                "error": info.get("error"), "vk": px.get("vk_errors"), "alloc_failed": px.get("alloc_failed")}
         self.cache[n_ctx] = res
         log(f"bisect {self.label} n_ctx {n_ctx}: ok={res['ok']} projected={res['projected_mib']} logged={res['logged_mib']}")
@@ -269,7 +277,7 @@ def boundary_record(lab, mi, label, flags, pr, lo, hi, target_note=None):
            "last_ok_n_ctx": lo, "first_fail_n_ctx": hi, "step_tokens": STEP, "step_mib_of_kv": kv_mib_step,
            "projected_mib_last_ok": a.get("projected_mib"), "projected_mib_first_fail": b.get("projected_mib"),
            "logged_mib_last_ok": a.get("logged_mib"), "budget_B_mib": BUDGET_MIB, "fit_margin_mib": FIT_MARGIN_MIB,
-           "beyond_trained_ctx": (hi or 0) > mi.max_ctx_native, "n_probes": pr.n, "first_fail_error": b.get("error"),
+           "beyond_trained_ctx": (hi or 0) > mi.max_ctx_native, "n_probes": pr.n, "first_fail_error": b.get("error"), "props_cap_at_last_ok": a.get("props_cap"),
            "first_fail_vk": b.get("vk"), "first_fail_alloc": b.get("alloc_failed"), "note": target_note}
     lab.emit(rec)
     log(f"boundary {label}: last_ok {lo} (projected {a.get('projected_mib')}) first_fail {hi} (projected {b.get('projected_mib')}) B={BUDGET_MIB}")
@@ -279,7 +287,7 @@ def boundary_record(lab, mi, label, flags, pr, lo, hi, target_note=None):
 def phase_bisect(lab, models):
     primary = None
     for mid in models:
-        item = f"AM_bisect_{mid}"
+        item = f"AM_bisect_v2_{mid}"
         if item in lab.done:
             continue
         mi = lab.models[mid]
