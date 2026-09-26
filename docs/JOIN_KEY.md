@@ -17,7 +17,8 @@ Every call, probe and server-start row has all of these keys (null when not appl
 | `llama_build` | `build_info` from `/props` |
 | `model_id`, `model_sha256`, `quant` | model label, SHA-256 of the GGUF, quantization from GGUF metadata |
 | `kv_type`, `flash_attn` | always `f16` and `on` in this run |
-| `mmap` | true unless the server was started with `--no-mmap` |
+| `mmap` | true for the build default (`--load-mode auto`, mmap when the device supports it) and for `--load-mode mmap`; false for `--load-mode none`. b10970 has no `--no-mmap` flag |
+| `load_mode` | the `--load-mode` value passed to llama-server: `auto`, `mmap` or `none` |
 | `n_ctx`, `prompt_tokens` | server context size and measured prompt length in tokens |
 | `co_runner` | `none`, `p4` (logical CPUs 0 to 3), `e4` (4 to 7), `nonp12` (4 to 15), `all16` |
 | `proc_throttle_max` | active power plan `PROCTHROTTLEMAX` on AC, percent |
