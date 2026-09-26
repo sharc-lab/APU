@@ -914,7 +914,7 @@ def plan_only(args, prov):
     lab.args, lab.prov, lab.smoke = args, prov, False
     lab.deadline_ts = time.time() + args.deadline_h * 3600
     lab.models, lab.table, lab.done = {}, {}, set()
-    lab.paging_ok, lab.sycl_ok = True, None
+    lab.paging_ok, lab.sycl_ok, lab.mmap_off_ok = True, None, True
     lab.dl_sha, lab.dl_dropped = {}, set()
     lab.prefix = str(OUT_ROOT / "plan_only")
     lab.rows = type("R", (), {"write": staticmethod(lambda r: None)})()
