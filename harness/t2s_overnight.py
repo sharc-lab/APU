@@ -399,7 +399,7 @@ def mmap_control(lab):
         srv = L.Server(lab, mi, 8192, mmap=(mode != "none"), tag=f"mmapctl_{name}", load_mode=mode)
         lab.resources["server"] = srv
         info = srv.start()
-        start_row(lab, srv, mi, "0", f"mmapctl_{name}", info, {"purpose": "mmap_control", "load_mode": mode})
+        start_row(lab, srv, mi, "0", f"mmapctl_{name}", info, {"purpose": "mmap_control"})
         res[name] = {"ok": info.get("ok"), "private_mib": info.get("private_mib"), "working_set_mib": info.get("working_set_mib"),
                      "load_s": info.get("load_s"), "error": info.get("error")}
         srv.stop()
