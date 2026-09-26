@@ -350,11 +350,13 @@ def parse_server_log(path):
 
 
 class Server:
-    def __init__(self, lab, mi: ModelInfo, n_ctx, backend="vulkan", mmap=True, extra=(), tag="s", load_mode=None):
-        """mmap=True uses the build default (load mode auto, which is mmap when the device supports it);
-        mmap=False passes --load-mode none. load_mode overrides both (for the explicit mmap control)."""
-        self.lab, self.mi, self.n_ctx, self.backend, self.mmap, self.extra, self.tag = lab, mi, n_ctx, backend, mmap, list(extra), tag
-        self.load_mode = load_mode or ("auto" if mmap else "none")
+    def __init__(self, lab, mi: ModelInfo, n_ctx, backend="vulkan", mmap=None, extra=(), tag="s", load_mode=None):
+        """mmap=None keeps the build default (--load-mode auto). mmap=True passes --load-mode mmap and mmap=False passes
+        --load-mode none. Measured on this Vulkan device: auto behaves like none (identical private bytes and working
+        set), and only an explicit mmap maps the file, so the self.mmap field is true only for load mode mmap."""
+        self.lab, self.mi, self.n_ctx, self.backend, self.extra, self.tag = lab, mi, n_ctx, backend, list(extra), tag
+        self.load_mode = load_mode or ("mmap" if mmap is True else ("none" if mmap is False else "auto"))
+        self.mmap = self.load_mode == "mmap"
         self.proc = None
         self.pid = None
         self.log_path = str(Path(lab.prefix + f"_srv_{tag}.txt"))

@@ -395,8 +395,8 @@ def mmap_control(lab):
     mid = "qwen3-8b" if "qwen3-8b" in lab.models else next(iter(lab.models))
     mi, tab = lab.models[mid], lab.table.get(mid, {})
     res = {}
-    for name, mode in (("on", "auto"), ("explicit_mmap", "mmap"), ("off", "none")):
-        srv = L.Server(lab, mi, 8192, mmap=(mode != "none"), tag=f"mmapctl_{name}", load_mode=mode)
+    for name, mode in (("auto_default", "auto"), ("on", "mmap"), ("off", "none")):
+        srv = L.Server(lab, mi, 8192, tag=f"mmapctl_{name}", load_mode=mode)
         lab.resources["server"] = srv
         info = srv.start()
         start_row(lab, srv, mi, "0", f"mmapctl_{name}", info, {"purpose": "mmap_control"})
@@ -411,9 +411,9 @@ def mmap_control(lab):
     demonstrated = bool(ok and ((dpriv or 0) >= 0.25 * w or (dws or 0) >= 0.25 * w))
     lab.mmap_off_ok = bool(res["off"]["ok"])
     lab.emit({"record": "mmap_control", "model_id": mid, "weights_mib": w, "on": res["on"], "off": res["off"],
-              "explicit_mmap": res["explicit_mmap"],
+              "auto_default": res["auto_default"],
               "private_diff_mib": dpriv, "working_set_diff_mib": dws, "demonstrated": demonstrated, "ts_utc": utc_iso()})
-    log(f"mmap control ({mid}): on={res['on']} explicit={res['explicit_mmap']} off={res['off']} demonstrated={demonstrated}")
+    log(f"mmap control ({mid}): mmap={res['on']} auto={res['auto_default']} none={res['off']} demonstrated={demonstrated}")
 
 
 # ---------------------------------------------------------------- planning
