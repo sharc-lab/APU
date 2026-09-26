@@ -82,6 +82,7 @@ class Lab:
         self.a_started = {}
         self.a_last_below = {}
         self.sycl_ok = None
+        self.mmap_off_ok = True
         self.identity = {
             "hw_id": "evo-t2s",
             "cpu_name": ps("(Get-CimInstance Win32_Processor | Select-Object -First 1).Name"),
@@ -408,6 +409,7 @@ def mmap_control(lab):
     dpriv = abs((res["on"]["private_mib"] or 0) - (res["off"]["private_mib"] or 0)) if ok else None
     dws = abs((res["on"]["working_set_mib"] or 0) - (res["off"]["working_set_mib"] or 0)) if ok else None
     demonstrated = bool(ok and ((dpriv or 0) >= 0.25 * w or (dws or 0) >= 0.25 * w))
+    lab.mmap_off_ok = bool(res["off"]["ok"])
     lab.emit({"record": "mmap_control", "model_id": mid, "weights_mib": w, "on": res["on"], "off": res["off"],
               "explicit_mmap": res["explicit_mmap"],
               "private_diff_mib": dpriv, "working_set_diff_mib": dws, "demonstrated": demonstrated, "ts_utc": utc_iso()})
@@ -570,7 +572,7 @@ def section_b_items(lab):
         c100 = ["none", "nonp12"] if lab.smoke else ["none", "p4", "e4", "nonp12", "all16"]
         items.append({"item_id": f"B_{mid}_cap100", "section": "B", "prio": prio, "est_s": 240 + cell_s * 7, "model_id": mid,
                       "fill": fill, "cap": 100, "cells": c100})
-        if causal:
+        if causal and not lab.args.no_cap_arm:
             for j, cap in enumerate((50,) if lab.smoke else (70, 50, 30)):
                 items.append({"item_id": f"B_{mid}_cap{cap}", "section": "B", "prio": prio + 0.1 * (j + 1) + 1, "est_s": 240 + cell_s * 2,
                               "model_id": mid, "fill": fill, "cap": cap, "cells": ["none", "nonp12"]})
@@ -593,7 +595,7 @@ def section_c_items(lab):
         call = est_call_s(tab, fill)
         rng = random.Random(SEED + 7 + crc(mid))
         cells = []
-        for arm in (True, False):
+        for arm in ((True, False) if lab.mmap_off_ok else (True,)):
             for lv in levels:
                 target = need + lv * 1024
                 if target < 3072:
@@ -974,6 +976,7 @@ def main():
     ap.add_argument("--only", default=None, help="run only section 0, A, B, C or D")
     ap.add_argument("--reserve-min", type=float, default=45.0, help="minutes kept free at the end for cleanup")
     ap.add_argument("--max-items", type=int, default=0, help="smoke only: run at most N items per section")
+    ap.add_argument("--no-cap-arm", action="store_true", help="skip the PROCTHROTTLEMAX causal arm (its positive control failed in smoke)")
     ap.add_argument("--plan-only", action="store_true", help="print the schedule from --tables and exit; no servers, no telemetry")
     ap.add_argument("--tables", nargs="*", default=[], help="model_table.json files for --plan-only (later ones override)")
     ap.add_argument("--models", default=None, help="comma list of model ids to include (smoke and resume use)")
