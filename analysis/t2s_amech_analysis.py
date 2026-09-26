@@ -59,6 +59,11 @@ def vulkan(rows):
 def bisect(rows):
     print("\n## Bisection (server start only, no prompts)\n")
     probes = defaultdict(dict)
+    t_v2 = min((r["ts_utc"] for r in rows if r.get("record") == "bisect_probe"), default="9")
+    n_v1 = sum(1 for r in rows if r.get("phase") == "bisect" and r.get("kind") == "start" and r["ts_utc"] < t_v2)
+    print(f"first attempt (before the guard n_ctx-cap fix, {n_v1} start rows) is superseded and excluded below; its 8B and 30B-A3B rows above "
+          "n_ctx 131072 and 262144 were misclassified as failures by the stale-server guard (context was created).\n")
+    rows = [r for r in rows if not (r.get("ts_utc", "9") < t_v2 and (r.get("phase") == "bisect" or r.get("record") == "bisect_result"))]
     for r in rows:
         if r.get("phase") == "bisect" and r.get("kind") == "start":
             probes[r["bisect_label"]].setdefault(r["n_ctx"], []).append(r)
