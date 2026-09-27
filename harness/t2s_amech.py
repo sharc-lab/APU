@@ -14,14 +14,21 @@ Phases (each resumable through item_done records):
            call is slow) and 5 art probes with the prompt filled to 90% of n_ctx, capped so one call is estimated at
            FILL_CALL_CAP_S or less (recorded as fill_capped).
   fill     32B at the last passing overnight context (111104): 1 warm-up + 3 calls and the probes with the same fill rule.
+  fillmatched  32B at 111104 (ngl 99, YaRN) with the prompt forced to arm (b)'s measured 12802 tokens at 117248, so the
+           two are a matched comparison at the same prompt length and rope flags.
+  map      arm (b) only (ngl unset, default fit) across a 1024-token grid around each model's bisected boundary (32B,
+           30B-A3B, 8B), 3 repeats in randomised order. Server start only plus one short call (512 in, 64 out) for decode
+           speed when the server starts. Records outcome (runs / refused_at_context / crashed / hung), layers on GPU,
+           llama.cpp's projected MiB, and the last 30 log lines plus a device-lost flag for every crash.
 
-Usage on evo-t2s (deployed to C:\\apu\\ovn): python t2s_amech.py --expect-blobs expected_blobs.json --phases rope,vk,bisect,arms,fill
+Usage on evo-t2s (deployed to C:\\apu\\ovn): python t2s_amech.py --expect-blobs expected_blobs.json --phases rope,vk,bisect,arms,fill,fillmatched,map
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import random
 import re
 import socket
 import statistics as st
@@ -30,6 +37,7 @@ import sys
 import time
 import types
 import urllib.request
+import zlib
 from pathlib import Path
 
 import run_provenance as rp
@@ -387,6 +395,90 @@ def phase_fill(lab):
     lab.item_done(item)
 
 
+# ---------------------------------------------------------------- matched fill (same prompt length as arm b at 117248)
+MATCHED_PROMPT_TOKENS = 12802  # arm2_b_fit_default_117248's measured prompt length
+
+
+def phase_fillmatched(lab):
+    """32B at the last passing ngl=99 context (111104), same YaRN flags, prompt matched to arm (b)'s 12802 tokens at
+    117248, so the arm (b) slowdown is a matched TTFT/decode comparison and not confounded by prompt length."""
+    mi = lab.models["qwen3-32b"]
+    item = f"AM_fillmatch_{LAST_PASS}"
+    if item in lab.done:
+        return
+    srv, info, px = start_and_record(lab, mi, LAST_PASS, item, item, "fillmatch", YARN, arm="matched_ngl99")
+    if info.get("ok"):
+        prompt = ov.prompt_for(srv, MATCHED_PROMPT_TOKENS)
+        n_tok = srv.tokenize(prompt)
+        ex = {"arm": "matched_ngl99", "rope_flags": YARN, "fill_used": n_tok, "matched_to": "AM_arm2_b_fit_default_117248",
+              "matched_target_tokens": MATCHED_PROMPT_TOKENS, "layers_gpu": px.get("layers_gpu")}
+        ov.measured_sequence(lab, srv, mi, "AM", item, prompt, n_tok, extra=ex, n_calls=3)
+    else:
+        lab.emit({"record": "item_error", "item_id": item, "error": info.get("error"), "ts_utc": utc_iso()})
+    srv.stop()
+    lab.resources["server"] = None
+    lab.item_done(item)
+
+
+# ---------------------------------------------------------------- fit-policy map (arm b only, cheap, start + one short call)
+MAP_SPEC = [
+    ("qwen3-32b", 115968, 125440, 1024, YARN),
+    ("qwen3-30b-a3b-2507", 320512, 329728, 1024, []),
+    ("qwen3-8b", 305408, 314432, 1024, YARN),
+]
+
+
+def classify_start(info):
+    if info.get("ok"):
+        return "runs"
+    code = info.get("exit_code")
+    if code is None:
+        return "hung"
+    if code == 1:
+        return "refused_at_context"
+    return "crashed"
+
+
+def phase_map(lab):
+    for mid, start_n, end_n, step, flags in MAP_SPEC:
+        mi = lab.models.get(mid)
+        if mi is None:
+            continue
+        points = list(range(start_n, end_n + 1, step))
+        trials = [(n, r) for n in points for r in range(3)]
+        rng = random.Random(20260925 + zlib.crc32(mid.encode()))
+        rng.shuffle(trials)
+        for n_ctx, rep in trials:
+            item = f"AM_map_{mid}_{n_ctx}_{rep}"
+            if item in lab.done:
+                continue
+            lab.check()
+            srv, info, px = start_and_record(lab, mi, n_ctx, item, item, "map", flags, ngl=None, fit=None, rep=rep, arm="b_fit_default")
+            outcome = classify_start(info)
+            crash_tail = None
+            if outcome == "crashed":
+                crash_tail = read_logs(srv).splitlines()[-30:]
+            lab.emit({"record": "map_probe", "model_id": mid, "n_ctx": n_ctx, "rep": rep, "outcome": outcome,
+                      "exit_code": info.get("exit_code"), "layers_gpu": px.get("layers_gpu"), "layers_total": px.get("layers_total"),
+                      "projected_mib": px.get("projected_mib"), "error": info.get("error"), "crash_log_tail": crash_tail,
+                      "device_lost": bool(crash_tail and any("device lost" in l.lower() for l in crash_tail)), "ts_utc": utc_iso()})
+            log(f"map {mid} n_ctx {n_ctx} rep {rep}: {outcome} layers={px.get('layers_gpu')}/{px.get('layers_total')} "
+                f"projected={px.get('projected_mib')} exit_code={info.get('exit_code')}")
+            if outcome == "runs":
+                try:
+                    prompt = ov.prompt_for(srv, 512)
+                    n_tok = srv.tokenize(prompt)
+                    ov.do_call(lab, srv, mi, "AM", item, prompt, n_tok, warmup=False, rep=0, max_tokens=64,
+                               extra={"purpose": "map_decode_speed", "layers_gpu": px.get("layers_gpu"), "rope_flags": flags or None})
+                except ov.Deadline:
+                    raise
+                except Exception as e:
+                    lab.emit({"record": "item_error", "item_id": item, "error": repr(e)[:400], "ts_utc": utc_iso()})
+            srv.stop()
+            lab.resources["server"] = None
+            lab.item_done(item)
+
+
 # ---------------------------------------------------------------- main
 def main():
     ap = argparse.ArgumentParser()
@@ -421,7 +513,8 @@ def main():
                 continue
             log(f"phase {ph}")
             {"rope": lambda: phase_rope(lab), "vk": lambda: phase_vk(lab), "bisect": lambda: phase_bisect(lab, bm),
-             "arms": lambda: phase_arms(lab), "fill": lambda: phase_fill(lab)}[ph]()
+             "arms": lambda: phase_arms(lab), "fill": lambda: phase_fill(lab), "fillmatched": lambda: phase_fillmatched(lab),
+             "map": lambda: phase_map(lab)}[ph]()
             lab.item_done(f"AM_phase_{ph}")
     except ov.Deadline:
         note = "deadline reached"
