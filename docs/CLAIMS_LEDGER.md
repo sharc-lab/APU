@@ -331,10 +331,11 @@ artifact size** under partial KV eviction.
 **SDK and LangGraph orchestration decompose into measurable span categories**
 (ORCH_SETUP, HTTP_CLIENT, TOOL_COMPUTE, FRAMEWORK, RESIDUAL) across 14 task types.
 
-- Files: `results/claude_code_characterization.json` — **gitignored, local only**
-- Hardware: UNKNOWN (gitignored; not committed)
-- **Status: UNSUPPORTED** — file not in repo; cannot be independently reproduced.
-  Must commit or re-run before submission.
+- Files: `results/claude_code_characterization.json` — **IN REPO** (committed 2026-09-28,
+  force-added past a stale `.gitignore` entry; see `docs/RESULT_PROVENANCE.md`)
+- Hardware: laptop (AMD Ryzen 9 8945HS, 8c/16t, 31.28 GB), OFF-TARGET
+- **Status: OFF-TARGET-ONLY** — real data, reproducible, but on laptop hardware via the OpenAI
+  API (`gpt-4o-mini`), not evo-t2s/evo-x2 or a llama.cpp backend.
 
 ---
 
@@ -342,9 +343,11 @@ artifact size** under partial KV eviction.
 **Tail-latency (p50/p99) distributions across 14 task types under 3 concurrency conditions**
 identify outlier tasks that constrain system design.
 
-- Files: `results/tail_latency_results.json` — **gitignored, local only**
-- Hardware: UNKNOWN (gitignored)
-- **Status: UNSUPPORTED** — same issue as B-01.
+- Files: `results/tail_latency_results.json` — **IN REPO** (committed 2026-09-28,
+  force-added past a stale `.gitignore` entry; see `docs/RESULT_PROVENANCE.md`)
+- Hardware: laptop (AMD Ryzen 9 8945HS, 8c/16t, 31.28 GB), OFF-TARGET
+- **Status: OFF-TARGET-ONLY** — same basis as B-01: real data, reproducible, laptop/OpenAI-API,
+  not evo-t2s/evo-x2.
 
 ---
 

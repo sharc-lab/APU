@@ -441,3 +441,23 @@ under a fresh item-id namespace, so every C1 `qwen3-8b` cell in night3's own fil
 own; the 3 night2b cells should not be pooled with night3's for any duty-cycle or headroom analysis. Any table drawing
 on Section C1 must state which file(s) it drew from and, if drawing on night2b, that only 3 of the intended 18 cells
 exist there.
+
+## Laptop Axis B files: `claude_code_characterization.json` and `tail_latency_results.json` (committed 2026-09-28)
+
+Both were previously gitignored ("gitignored, local only") and only referenced by claims B-01/B-02 as UNSUPPORTED.
+Checked before committing: no secrets, API keys, or PII in either file -- contents are synthetic LLM-generated task
+transcripts (Flask pagination endpoints, sorting-algorithm write-ups, tool-call sequences) and generic build-tool
+paths in `git.dirty_paths` (a Git-for-Windows SDK checkout), nothing personally identifying.
+
+**Provenance:** `env.platform` "Windows-11-10.0.26200-SP0", `env.cpu_model` "AMD64 Family 25 Model 117 Stepping 2,
+AuthenticAMD", `env.cores_logical` 16, `env.cores_physical` 8, `env.ram_gb` 31.28 -- confirmed to match this laptop
+exactly (`Get-CimInstance Win32_Processor`: AMD Ryzen 9 8945HS, 8 cores/16 threads;
+`Win32_ComputerSystem.TotalPhysicalMemory`: 31.28 GB). `generated_utc` 2026-07-14 (both files, same session,
+`tail_latency_results.json` at 15:33:20Z and `claude_code_characterization.json` at 15:59:29Z for its last row).
+`config.model` "gpt-4o-mini", `config.backend` "openai" -- both ran against the OpenAI API, not a local llama.cpp
+backend. `git.commit` `d2931d8698394ff8f2e51e0824037005a7eed0ef` is a different, earlier local repository (the
+`dirty_paths` are a Git-for-Windows SDK/MinGW checkout), not this repository's history -- do not confuse it with any
+`git_sha` value in the evo-t2s/evo-x2 result rows.
+
+**Status:** OFF-TARGET-ONLY (laptop hardware, OpenAI API backend, not evo-t2s/evo-x2 or a llama.cpp backend). Feeds
+claims B-01 and B-02 (Table 5.1, Figure 5.1); see `docs/CLAIMS_LEDGER.md`.
