@@ -95,3 +95,48 @@ before extracting).
 **Reason:** headless CPU/GPU sensor reading (clock, power, load, temperature) for the X2 telemetry inventory.
 **Standing.** **Revert:** `Remove-Item -Recurse -Force C:\apu\bin\lhm-0.9.6` (no install step, files only; the PawnIO
 driver it depends on is removed separately, see the PawnIO entry above).
+
+---
+
+## 2026-09-28 -- reboot resilience: boot task, single-instance downloader, preflight
+
+**Root cause of the earlier SSH outage (found by the user at the console):** a pending Windows Update service-pack
+restart fired via `MoUsoCoreWorker.exe` at 09:36 UTC. The earlier "pause updates 35 days" registry change blocks new
+updates, not an already-pending mandatory restart -- it did not and could not have prevented this one. After the
+reboot, `sshd` came back `Stopped`/`Manual` (its `StartupType` had reverted); the user set it to `Automatic` and
+started it, and confirmed password/keyboard-interactive logins still refused. The `sshd-any-profile-22` and a second
+`sshd-tailscale-22` firewall rule (both TCP 22, Profile Any, Allow) were already present alongside the original
+Private-only OpenSSH rules; no firewall change was needed for connectivity.
+
+**Command (boot task):**
+```powershell
+# scripts/x2_register_boot_task.ps1, run once over SSH:
+Register-ScheduledTask -TaskName 'APU-BootResilience' -Action (New-ScheduledTaskAction -Execute 'powershell.exe' `
+    -Argument '-NoProfile -ExecutionPolicy Bypass -File C:\apu\ovn\x2_boot_task.ps1') `
+  -Trigger (New-ScheduledTaskTrigger -AtStartup) `
+  -Principal (New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest) -Force
+```
+**Before:** no `APU-BootResilience` task. **After:** present, `State` `Ready` (read back with `Get-ScheduledTask`).
+**Reason:** so a future reboot (planned or forced) cannot silently revert `sshd` to Manual/Stopped again; the task
+(`scripts/x2_boot_task.ps1`) sets `sshd` back to Automatic/Running and starts `Tailscale` if either is down, every boot.
+**Standing.** **Revert:** `Unregister-ScheduledTask -TaskName "APU-BootResilience" -Confirm:$false`.
+
+**Command (download script):** `C:\apu\dl.ps1` replaced with `scripts/x2_download_models.ps1` (committed), which
+takes a named mutex (`Global\apu_dl`) so a second launch while one copy is already running exits immediately instead
+of racing the first -- two copies racing on 2026-09-28 produced a corrupted `sha256.txt` line and a `Get-FileHash`
+failure on a locked file. The already-downloaded 4B, Qwen3-8B and Llama-3.1-8B files and their correct hash lines were
+not touched; the file swap was done while a Qwen3-14B download was in progress and did not interrupt it (PowerShell
+had already loaded the running script into memory).
+**Before/after:** functionally the same download list and resumable `curl -C -` logic; added: the mutex, an
+idempotent skip-if-already-correct check per file, and a de-duplication pass over `sha256.txt` (keeps the last line
+per filename) before the final `ALL DONE` marker, so a relaunch's repeated lines for an already-finished file cannot
+make the file ambiguous.
+**Standing.** **Revert:** not applicable (this is the working downloader now); the previous version is in git history
+if ever needed.
+
+**Command (preflight):** `harness/x2_preflight.py`, read-only by default (`--fix` restarts sshd/Tailscale if stopped,
+relaunches `dl.ps1` if it died before `ALL DONE`, relaunches a queue entry marked "running" whose process is gone).
+Run once after the fixes above: `sshd_ok` true, `tailscale_ok` true, `port_22_listening` true,
+`firewall_rule_present` true, `windows_update_paused` true (until 2026-11-02T09:08:29Z), `reboot_pending` false,
+`dl_ps1_running` true, `downloads_all_done` false (Qwen3-14B in progress at check time).
+**No revert needed** (read-only tool; `--fix` actions are the same idempotent restarts already covered above).
