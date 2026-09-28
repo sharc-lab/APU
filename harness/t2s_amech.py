@@ -488,7 +488,8 @@ def main():
     ap.add_argument("--expect-blobs", required=True)
     ap.add_argument("--deadline-h", type=float, default=9.0)
     ap.add_argument("--resume", default=None)
-    ap.add_argument("--phases", default="rope,vk,bisect,arms,fill")
+    ap.add_argument("--phases", default="rope,vk,bisect,arms,fill,fillmatched,map")
+    ap.add_argument("--force-phase", action="append", default=[], help="re-run this phase even if AM_phase_<name> is already marked done (its own item_done markers inside the phase still skip completed items)")
     ap.add_argument("--bisect-models", default="qwen3-32b,qwen3-8b,qwen3-30b-a3b-2507,llama31-8b")
     args = ap.parse_args()
     if socket.gethostname().upper() != "EVO-T2S":
@@ -498,6 +499,8 @@ def main():
         raise SystemExit("another interactive session is logged in: " + q)
     prov = rp.verify_deployed_blobs(ov.DEPLOY, args.expect_blobs)
     lab = make_lab(args, prov)
+    for ph in args.force_phase:
+        lab.done.discard(f"AM_phase_{ph}")
     phases = args.phases.split(",")
     bm = args.bisect_models.split(",")
     map_models = [m for m, *_ in MAP_SPEC]
