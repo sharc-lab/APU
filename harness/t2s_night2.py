@@ -56,6 +56,15 @@ PYTHON = sys.executable
 SEED = 20260927
 CTX_B = 8192
 FILL_B = 7368
+# Confirmed live on evo-t2s 2026-09-28 via win_cpu_topology.py (GetLogicalProcessorInformationEx, RelationCache,
+# level 2): P-cores 0-3 each have an individual 3 MB L2; E-cores 4-7 share one 4 MB L2 (cluster A); E-cores 8-11
+# share a second 4 MB L2 (cluster B); LP-E cores 12-15 share their own 4 MB L2. Matches the assumed 4-7/8-11 split
+# exactly, so B4 uses it unchanged, but it was read, not assumed.
+E_CLUSTER_A = list(range(4, 8))
+E_CLUSTER_B = list(range(8, 12))
+B4_MASKS = [("none", None), ("e4_clusterA", 0x00F0), ("e4_clusterB", 0x0F00), ("e4_split", 0x0330),
+            ("e2", 0x0030), ("e6", 0x03F0), ("e8", 0x0FF0), ("lp4", 0xF000), ("e8_lp4", 0xFFF0)]
+
 B1_MODELS = ["qwen3-4b-2507", "qwen3-8b"]
 B1_MASKS = [("none", None), ("p4", 0x000F), ("e4", 0x00F0), ("lp4", 0xF000), ("e8", 0x0FF0),
             ("p4e4", 0x00FF), ("nonp12", 0xFFF0), ("all16", 0xFFFF)]
@@ -64,7 +73,7 @@ B3_MODELS = ["llama31-8b", "qwen3-14b", "qwen3-30b-a3b-2507", "qwen3-32b"]
 B3_CORESETS = [("none", None), ("p4", 0x000F), ("e4", 0x00F0), ("nonp12", 0xFFF0)]
 CPU_CLASSES = {"p": list(range(0, 4)), "e": list(range(4, 12)), "lpe": list(range(12, 16))}
 C1_SPEC_8B = [("qwen3-8b", [0, -1, -2], 3)]
-C1_SPEC_REST = [("qwen3-14b", [0, -1], 1), ("qwen3-32b", [0, -1], 1)]
+C1_SPEC_REST = [("qwen3-14b", [0, -1], 2), ("qwen3-32b", [0, -1], 2)]
 C1_SPEC = C1_SPEC_8B + C1_SPEC_REST
 
 
@@ -206,6 +215,50 @@ def phase_b1(lab):
             lab.item_done(item)
         srv.stop()
         lab.resources["server"] = None
+
+
+# ---------------------------------------------------------------- B4 (mechanism test: which E-core grouping matters)
+def _phase_b4(lab, models, label="B4"):
+    for mid in models:
+        mi = lab.models.get(mid)
+        if mi is None:
+            continue
+        item0 = f"{label}_{mid}_start"
+        srv = L.Server(lab, mi, CTX_B, tag=item0)
+        lab.resources["server"] = srv
+        info = srv.start()
+        ov.start_row(lab, srv, mi, label, item0, info, {})
+        if not info.get("ok"):
+            srv.stop()
+            lab.resources["server"] = None
+            continue
+        prompt = ov.prompt_for(srv, FILL_B)
+        n_tok = srv.tokenize(prompt)
+        for co, mask in B4_MASKS:
+            item = f"{label}_{mid}_{co}"
+            if item in lab.done:
+                continue
+            lab.check()
+            hog = None
+            if mask is not None:
+                hog, report, aff = L.m3.start_hog(f"night3_{item}", mask, Path(lab.prefix).parent, Path(lab.prefix).name + f"_{item}")
+                time.sleep(5)
+            measured_with_extra(lab, srv, mi, label, item, prompt, n_tok, {"cpu_mask": hex(mask) if mask else None}, co)
+            if hog is not None:
+                L.m3.kill_tree(hog.pid)
+                time.sleep(3)
+            lab.item_done(item)
+        srv.stop()
+        lab.resources["server"] = None
+
+
+def phase_b4(lab):
+    _phase_b4(lab, ["qwen3-8b"], "B4")
+
+
+def phase_b4_32b(lab):
+    """Backlog: the same B4 mechanism test on qwen3-32b, runs only if time remains."""
+    _phase_b4(lab, ["qwen3-32b"], "B4b")
 
 
 # ---------------------------------------------------------------- B2
@@ -424,8 +477,9 @@ def phase_perfboost(lab):
         log(f"PERFBOOSTMODE restore: {rep}")
 
 
-PRIO = {"b1": 1, "b2": 2, "c1": 3, "b3": 4, "c1b": 5, "perfboost": 9}
-PHASE_FN = {"b1": phase_b1, "b2": phase_b2, "c1": phase_c1, "b3": phase_b3, "c1b": phase_c1b, "perfboost": phase_perfboost}
+PRIO = {"b1": 1, "b2": 2, "c1": 3, "b3": 4, "c1b": 5, "b4": 6, "b4_32b": 7, "perfboost": 9}
+PHASE_FN = {"b1": phase_b1, "b2": phase_b2, "c1": phase_c1, "b3": phase_b3, "c1b": phase_c1b, "b4": phase_b4,
+           "b4_32b": phase_b4_32b, "perfboost": phase_perfboost}
 PHASE_ORDER = "b1,b2,c1,b3,c1b,perfboost"
 
 
@@ -438,22 +492,86 @@ def _load_s(tab, mid):
     return (tab.get(mid) or {}).get("load_s") or 15.0
 
 
-def estimate_hours(lab):
-    """Rough hours per phase from the overnight model table's own prefill/decode fit, for the pre-launch printout and
-    the cut-C1b-first rule. Not exact: co-runner and memory-lock overhead (hog/balloon start, waits) are flat guesses."""
+def load_night2_overheads(path):
+    """Real per-call overheads (server load, non-warmup call e2e, thermal-gate wait) measured directly from a prior
+    night2 results file, medians by model_id. Used to replace the overnight model-table prefill/decode fit for
+    night3's pre-launch estimate, per the user's instruction to use real per-call overheads measured in night2 (gate,
+    load, settle) rather than the old formula-based estimator. Returns {} if path is missing or unreadable -- callers
+    fall back to the overnight-table fit in that case."""
+    import statistics as st
+    if not path or not Path(path).exists():
+        return {}
+    loads, calls, gates = {}, {}, []
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                r = json.loads(line)
+            except Exception:
+                continue
+            mid = r.get("model_id")
+            if not mid:
+                continue
+            if r.get("kind") == "start" and r.get("load_s") is not None:
+                loads.setdefault(mid, []).append(r["load_s"])
+            elif r.get("kind") == "call" and not r.get("warmup"):
+                if r.get("e2e_s") is not None:
+                    calls.setdefault(mid, []).append(r["e2e_s"])
+                if r.get("thermal_wait_s") is not None:
+                    gates.append(r["thermal_wait_s"])
+    return {
+        "load_s": {m: st.median(v) for m, v in loads.items()},
+        "call_e2e_s": {m: st.median(v) for m, v in calls.items()},
+        "gate_wait_s": st.median(gates) if gates else 90.0,
+    }
+
+
+def estimate_hours(lab, overheads=None):
+    """Hours per phase for the pre-launch printout and the cut-C1b-first rule. When `overheads` (from
+    load_night2_overheads) has a real median for a given model, that measured load_s/e2e_s is used in place of the
+    overnight model-table's prefill/decode fit, since the fit does not capture actual gate/load/settle time observed
+    on this machine. Falls back to the table-fit estimate per-model when no real measurement exists for it (e.g. a
+    model night2 never actually ran). Co-runner hog start/stop and memory-lock balloon overhead are still flat
+    guesses -- neither source measures those directly per-call."""
     tab = lab.table or {}
+    ov_ = overheads or {}
+    real_load = ov_.get("load_s", {})
+    real_call = ov_.get("call_e2e_s", {})
+    gate_s = ov_.get("gate_wait_s", 90.0)
+
+    def load_s(mid):
+        return real_load.get(mid) or _load_s(tab, mid)
+
+    def call_s(mid, fill, n_out=128):
+        # real medians were measured at whatever fill/n_out night2 actually used (FILL_B/128 for B1-B3, larger for
+        # C1); only use the real median for the "normal" 128-token call shape, otherwise fall back to the table fit
+        # so probe-length (n_out=32) and long-fill C1 calls still get a fill-aware estimate.
+        if n_out == 128 and mid in real_call:
+            return real_call[mid]
+        return _call_s(tab, mid, fill, n_out)
+
     est = {}
     for ph in ("b1", "b2", "b3"):
         models, conds = (B1_MODELS, len(B1_MASKS)) if ph == "b1" else (B1_MODELS, len(B2_DUTY)) if ph == "b2" else (B3_MODELS, len(B3_CORESETS))
-        est[ph] = sum(_load_s(tab, m) + conds * (6 * _call_s(tab, m, FILL_B) + 10) for m in models) / 3600
+        est[ph] = sum(load_s(m) + conds * (6 * call_s(m, FILL_B) + gate_s) for m in models) / 3600
     for ph, spec in (("c1", C1_SPEC_8B), ("c1b", C1_SPEC_REST)):
         s = 0.0
         for mid, levels, reps in spec:
             fill = ov.fill_cap_tokens(tab.get(mid) or {}, 16384, 60.0) if tab.get(mid, {}).get("ok") else 2000
             n_cells = reps * len(levels) * 2
-            s += n_cells * (_load_s(tab, mid) + 6 * _call_s(tab, mid, fill) + 5 * _call_s(tab, mid, min(fill, 1500), 32) + 90)
+            s += n_cells * (load_s(mid) + 6 * call_s(mid, fill) + 5 * call_s(mid, min(fill, 1500), 32) + 90)
         est[ph] = s / 3600
-    est["perfboost"] = (_load_s(tab, "qwen3-8b") + 2 * (6 * _call_s(tab, "qwen3-8b", FILL_B) + 10)) / 3600
+    for ph, models in (("b4", ["qwen3-8b"]), ("b4_32b", ["qwen3-32b"])):
+        # B4: 1 server load + len(B4_MASKS) conditions, 5 measured calls/condition, fixed 20s co-runner settle
+        # (thermal_gate's corunner_active path) plus 5s hog start + 3s hog kill per non-"none" condition.
+        s = 0.0
+        for mid in models:
+            n_hog = sum(1 for _, mask in B4_MASKS if mask is not None)
+            s += load_s(mid) + len(B4_MASKS) * (5 * call_s(mid, FILL_B) + 20) + n_hog * 8
+        est[ph] = s / 3600
+    est["perfboost"] = (load_s("qwen3-8b") + 2 * (6 * call_s("qwen3-8b", FILL_B) + gate_s)) / 3600
     return est
 
 
@@ -463,6 +581,9 @@ def main():
     ap.add_argument("--deadline-h", type=float, default=10.0)
     ap.add_argument("--resume", default=None)
     ap.add_argument("--overnight-table", default=None)
+    ap.add_argument("--prior-results", default=None,
+                     help="a previous night2 results JSONL to pull real per-call load_s/e2e_s/gate-wait medians from "
+                          "for the pre-launch hour estimate, in place of the overnight-table prefill/decode fit")
     ap.add_argument("--phases", default=PHASE_ORDER)
     ap.add_argument("--no-auto-cut", action="store_true", help="do not drop c1b even if the estimate exceeds the deadline")
     args = ap.parse_args()
@@ -479,9 +600,11 @@ def main():
     all_models = sorted(set(B1_MODELS + B3_MODELS + [m for m, *_ in C1_SPEC]))
     load_models(lab, all_models)
     phases = args.phases.split(",")
-    est = estimate_hours(lab)
+    overheads = load_night2_overheads(args.prior_results)
+    est = estimate_hours(lab, overheads)
     est_total = sum(est.get(p, 0.0) for p in phases)
-    log(f"estimated hours per phase: {json.dumps({p: round(est.get(p, 0.0), 2) for p in phases})}; total {est_total:.2f} h of {args.deadline_h} h deadline")
+    src = f"real medians from {args.prior_results} ({len(overheads.get('load_s', {}))} models)" if overheads else "overnight-table fit (no --prior-results given or file unreadable)"
+    log(f"estimated hours per phase [{src}]: {json.dumps({p: round(est.get(p, 0.0), 2) for p in phases})}; total {est_total:.2f} h of {args.deadline_h} h deadline")
     cut = []
     if est_total > args.deadline_h and not args.no_auto_cut and "c1b" in phases:
         phases = [p for p in phases if p != "c1b"]
@@ -492,8 +615,9 @@ def main():
               "deadline_h": args.deadline_h, "ts_utc": utc_iso()})
     Path(lab.prefix + "_manifest.json").write_text(json.dumps({"launch_utc": utc_iso(), "script_provenance": prov,
                                                               "identity": lab.identity, "phases": phases, "phases_cut": cut,
-                                                              "estimated_hours": est, "seed": SEED,
-                                                              "overnight_table": args.overnight_table},
+                                                              "estimated_hours": est, "estimate_source": src, "seed": SEED,
+                                                              "overnight_table": args.overnight_table,
+                                                              "prior_results": args.prior_results},
                                                              indent=1, default=str), encoding="utf-8")
     lab.tele.start()
     note = "completed"

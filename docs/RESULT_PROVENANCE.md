@@ -428,3 +428,16 @@ during that window are off by the offset and must not be read as literal UTC, as
 parsing entry in `docs/X2_CHANGELOG.md`) is what actually broke the first three `lhm_x2_control` runs' windowing, not
 the clock offset. No cross-machine timestamp comparison (X2 against evo-t2s or against the controller) was computed
 from any of the affected data, so no recorded duration or threshold result is affected by either bug.
+
+## C1 (Section C1, qwen3-8b) cells superseded by night3 (2026-09-28)
+
+`results/t2s_night2_20260928T004924Z.jsonl` (night2b) has exactly 3 `section: "C1"` call rows, all for `qwen3-8b`,
+from the run that was cut short by the duplicate-`mem_headroom_gb`-keyword crash at 09:06:01 UTC (see
+`tests/test_no_duplicate_row_kwargs.py` for the fix). Those 3 cells are **superseded**, not deleted: the file is not
+modified (standing rule -- write UNKNOWN for unknown values, never rewrite a closed results file), and the crash is a
+code bug in the harness, not a defect in the 3 cells' own measurements. night3 (`t2s_night2_<night3 stamp>.jsonl`,
+phase `c1`) re-runs the full `qwen3-8b` C1 sweep (headroom 0/-1/-2 GiB, mmap on/off, 3 reps, randomized) from scratch
+under a fresh item-id namespace, so every C1 `qwen3-8b` cell in night3's own file is authoritative and complete on its
+own; the 3 night2b cells should not be pooled with night3's for any duty-cycle or headroom analysis. Any table drawing
+on Section C1 must state which file(s) it drew from and, if drawing on night2b, that only 3 of the intended 18 cells
+exist there.
