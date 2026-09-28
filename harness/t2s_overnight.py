@@ -38,6 +38,7 @@ MODEL_FILES = {
     "qwen3-14b": ("Qwen3-14B-Q4_K_M.gguf", True, 32768, 4),
     "qwen3-30b-a3b-2507": ("Qwen3-30B-A3B-Instruct-2507-Q4_K_M.gguf", False, 262144, 1),
     "qwen3-32b": ("Qwen3-32B-Q4_K_M.gguf", True, 32768, 4),
+    "llama-3.3-70b": ("Llama-3.3-70B-Instruct-Q4_K_M.gguf", False, 131072, 1),
 }
 PAGING_FILE = "Qwen3-32B-Q4_K_M.gguf"
 YARN_MODELS = ("qwen3-32b", "qwen3-14b", "qwen3-8b")

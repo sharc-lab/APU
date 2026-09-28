@@ -76,6 +76,14 @@ C1_SPEC_8B = [("qwen3-8b", [0, -1, -2], 3)]
 C1_SPEC_REST = [("qwen3-14b", [0, -1], 2), ("qwen3-32b", [0, -1], 2)]
 C1_SPEC = C1_SPEC_8B + C1_SPEC_REST
 
+# R1 speed side (Addendum v3, item 2): matched core set across machines. TTFT(prompt_tokens) at these lengths builds
+# each machine's speed curve for the Fig 6.1 envelope; joined against evo-x2's quality-side data per the addendum's
+# machine(memory->context, speed) x model(context->quality) decomposition. llama-3.3-70b is skipped by load_models
+# (and so by this phase) until its background download/verify actually lands in downloads.jsonl.
+R1_SPEED_MODELS = ["qwen3-8b", "qwen3-14b", "qwen3-32b", "llama-3.3-70b"]
+R1_SPEED_LENGTHS = [1024, 2048, 4096, 8192, 16384]
+R1_SPEED_CTX = 20480  # fits the longest sweep point (16384) plus headroom for the 128-token completion
+
 
 def per_core_perf():
     """One-shot '% Processor Performance' per logical CPU, grouped into P/E/LP-E medians. Diagnostic only: the actual
@@ -134,10 +142,17 @@ def make_lab(args, prov, gpu_vendor=None):
 
 
 def load_models(lab, wanted):
+    """Skips (logs, does not raise) a wanted model whose hash isn't in downloads.jsonl yet -- e.g. the 70B while its
+    background download/verify is still in progress. Every phase already checks `lab.models.get(mid) is None` and
+    skips that model, so a run launched before a large download finishes still executes its other models instead of
+    crashing at startup."""
     ov.read_downloads(lab)
     for mid in wanted:
         fn, hyb, mx, yf = ov.MODEL_FILES[mid]
-        sha = ov.KNOWN_4B_SHA if mid == "qwen3-4b-2507" else lab.dl_sha[fn]
+        sha = ov.KNOWN_4B_SHA if mid == "qwen3-4b-2507" else lab.dl_sha.get(fn)
+        if sha is None:
+            log(f"load_models: {mid} ({fn}) not yet in downloads.jsonl, skipping for this run")
+            continue
         lab.models[mid] = L.ModelInfo(mid, str(Path(L.MODELS_DIR) / fn), sha, hyb, mx, yf)
 
 
@@ -337,6 +352,38 @@ def phase_b3(lab):
         lab.resources["server"] = None
 
 
+# ---------------------------------------------------------------- R1 speed sweep
+def phase_r1_speed(lab):
+    """R1 speed side (Addendum v3): TTFT/decode at 1k/2k/4k/8k/16k prompt tokens, 1 warm-up + 3 measured calls each,
+    no co-runner, tagged axis="latency". Skips a model load_models() didn't populate (e.g. the 70B before its
+    download/verify lands)."""
+    for mid in R1_SPEED_MODELS:
+        mi = lab.models.get(mid)
+        if mi is None:
+            continue
+        item0 = f"R1speed_{mid}_start"
+        srv = L.Server(lab, mi, R1_SPEED_CTX, tag=item0)
+        lab.resources["server"] = srv
+        info = srv.start(timeout=1800)
+        ov.start_row(lab, srv, mi, "R1speed", item0, info, {"axis": "latency"})
+        if not info.get("ok"):
+            srv.stop()
+            lab.resources["server"] = None
+            continue
+        for tgt in R1_SPEED_LENGTHS:
+            item = f"R1speed_{mid}_{tgt}"
+            if item in lab.done:
+                continue
+            lab.check()
+            prompt = ov.prompt_for(srv, tgt)
+            n_tok = srv.tokenize(prompt)
+            ov.measured_sequence(lab, srv, mi, "R1speed", item, prompt, n_tok,
+                                 extra={"axis": "latency", "target_prompt_tokens": tgt}, n_calls=3)
+            lab.item_done(item)
+        srv.stop()
+        lab.resources["server"] = None
+
+
 class ResponsivenessSampler:
     """Local interactive-latency probe for one C1 cell: every 30 s, times a trivial local subprocess
     (python -c "pass") with time.monotonic(). Local, not SSH, because this runs inside the harness process on
@@ -486,9 +533,10 @@ def phase_perfboost(lab):
         log(f"PERFBOOSTMODE restore: {rep}")
 
 
-PRIO = {"b1": 1, "b2": 2, "c1": 3, "b3": 4, "c1b": 5, "b4": 6, "b4_32b": 7, "b4_replicate": 8, "perfboost": 9}
+PRIO = {"b1": 1, "b2": 2, "c1": 3, "b3": 4, "c1b": 5, "b4": 6, "b4_32b": 7, "b4_replicate": 8, "r1_speed": 10, "perfboost": 9}
 PHASE_FN = {"b1": phase_b1, "b2": phase_b2, "c1": phase_c1, "b3": phase_b3, "c1b": phase_c1b, "b4": phase_b4,
-           "b4_32b": phase_b4_32b, "b4_replicate": phase_b4_replicate, "perfboost": phase_perfboost}
+           "b4_32b": phase_b4_32b, "b4_replicate": phase_b4_replicate, "r1_speed": phase_r1_speed,
+           "perfboost": phase_perfboost}
 PHASE_ORDER = "b1,b2,c1,b3,c1b,perfboost"
 
 
@@ -581,6 +629,12 @@ def estimate_hours(lab, overheads=None):
             s += load_s(mid) + len(B4_MASKS) * (5 * call_s(mid, FILL_B) + 20) + n_hog * 8
         est[ph] = s / 3600
     est["perfboost"] = (load_s("qwen3-8b") + 2 * (6 * call_s("qwen3-8b", FILL_B) + gate_s)) / 3600
+    s = 0.0
+    for mid in R1_SPEED_MODELS:
+        if mid not in tab and mid not in real_load:
+            continue  # not on this machine / not downloaded yet
+        s += load_s(mid) + sum(4 * call_s(mid, tgt) for tgt in R1_SPEED_LENGTHS)  # 1 warm-up + 3 measured, per length
+    est["r1_speed"] = s / 3600
     return est
 
 
@@ -606,7 +660,7 @@ def main():
     lab.resources["powercap"] = None
     if args.overnight_table and Path(args.overnight_table).exists():
         lab.table = json.load(open(args.overnight_table, encoding="utf-8"))
-    all_models = sorted(set(B1_MODELS + B3_MODELS + [m for m, *_ in C1_SPEC]))
+    all_models = sorted(set(B1_MODELS + B3_MODELS + R1_SPEED_MODELS + [m for m, *_ in C1_SPEC]))
     load_models(lab, all_models)
     phases = args.phases.split(",")
     overheads = load_night2_overheads(args.prior_results)
