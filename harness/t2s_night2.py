@@ -261,6 +261,15 @@ def phase_b4_32b(lab):
     _phase_b4(lab, ["qwen3-32b"], "B4b")
 
 
+def phase_b4_replicate(lab):
+    """Standing-backlog default: an independent second run of the B4 mechanism test (qwen3-8b), same conditions,
+    fresh server start and fresh item-id namespace ("B4r"). Queued behind night3 so the machine has a real next run
+    once night3 finishes rather than sitting idle -- B4 is a brand-new test with only one run in night3, so a
+    same-machine reproducibility replicate is the most directly justified backlog item, not a new experimental
+    design. A different backlog should replace this in the queue once the user picks one."""
+    _phase_b4(lab, ["qwen3-8b"], "B4r")
+
+
 # ---------------------------------------------------------------- B2
 def phase_b2(lab):
     for mid in B1_MODELS:
@@ -477,9 +486,9 @@ def phase_perfboost(lab):
         log(f"PERFBOOSTMODE restore: {rep}")
 
 
-PRIO = {"b1": 1, "b2": 2, "c1": 3, "b3": 4, "c1b": 5, "b4": 6, "b4_32b": 7, "perfboost": 9}
+PRIO = {"b1": 1, "b2": 2, "c1": 3, "b3": 4, "c1b": 5, "b4": 6, "b4_32b": 7, "b4_replicate": 8, "perfboost": 9}
 PHASE_FN = {"b1": phase_b1, "b2": phase_b2, "c1": phase_c1, "b3": phase_b3, "c1b": phase_c1b, "b4": phase_b4,
-           "b4_32b": phase_b4_32b, "perfboost": phase_perfboost}
+           "b4_32b": phase_b4_32b, "b4_replicate": phase_b4_replicate, "perfboost": phase_perfboost}
 PHASE_ORDER = "b1,b2,c1,b3,c1b,perfboost"
 
 
@@ -563,7 +572,7 @@ def estimate_hours(lab, overheads=None):
             n_cells = reps * len(levels) * 2
             s += n_cells * (load_s(mid) + 6 * call_s(mid, fill) + 5 * call_s(mid, min(fill, 1500), 32) + 90)
         est[ph] = s / 3600
-    for ph, models in (("b4", ["qwen3-8b"]), ("b4_32b", ["qwen3-32b"])):
+    for ph, models in (("b4", ["qwen3-8b"]), ("b4_32b", ["qwen3-32b"]), ("b4_replicate", ["qwen3-8b"])):
         # B4: 1 server load + len(B4_MASKS) conditions, 5 measured calls/condition, fixed 20s co-runner settle
         # (thermal_gate's corunner_active path) plus 5s hog start + 3s hog kill per non-"none" condition.
         s = 0.0
