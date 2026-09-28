@@ -82,13 +82,31 @@ def require_host(name: str) -> dict:
 
 
 # ---------------------------------------------------------------------------------------------------- quality_suite
-# TODO: import from harness.quality_suite once merged; delete the stub implementations below at that point. The
-# stub matches the interface the task spec documents: build_task(task_type, target_tokens, seed) -> (prompt,
-# expected), and callables score_task(task_type, output, expected) -> float in [0, 1] and
-# classify_wrong_answer(task_type, output, expected) -> "fabrication" | "refusal" | "other".
+# quality_suite.py now exists (harness/quality_suite.py). qs_build_task/qs_score/qs_classify below normalize its
+# Task-dataclass-based API (build_task -> Task, score_task(scorer_name, ...) -> (score, detail),
+# classify_fabrication_or_refusal(output) -> str) down to the (prompt, expected, scorer) + plain-float-score shape
+# this module's call sites use, since K1 drives Ollama's HTTP API directly for arms a/b (not quality_suite.run_task's
+# own srv.chat flow). Delete the stub fallback branch once harness/quality_suite.py is guaranteed present.
 try:
-    from quality_suite import build_task, score_task, classify_wrong_answer  # type: ignore  # noqa: E402
+    import quality_suite as _qs  # type: ignore  # noqa: E402
     QUALITY_SUITE_SOURCE = "harness.quality_suite"
+
+    def qs_build_task(task_type, target_tokens, seed):
+        """Normalizes quality_suite.build_task's Task dataclass down to the (prompt, expected, scorer) triple this
+        module's call sites need -- K1 drives Ollama's HTTP API directly for arms a/b (not srv.chat), so it cannot
+        use quality_suite.run_task's own srv-calling flow and needs the prompt/expected/scorer split out instead."""
+        t = _qs.build_task(task_type, target_tokens, seed)
+        return t.prompt, t.expected, t.scorer
+
+    def qs_score(scorer, output, expected):
+        if output is None:
+            return None
+        score, _detail = _qs.score_task(scorer, output, expected)
+        return score
+
+    def qs_classify(output):
+        return _qs.classify_fabrication_or_refusal(output)
+
 except ImportError:
     QUALITY_SUITE_SOURCE = "stub in t2s_k1_ollama.py (harness/quality_suite.py not present yet)"
 
@@ -96,7 +114,7 @@ except ImportError:
         r"\b(i (can'?t|cannot|don'?t have|do not have|am unable)|no (secret|code|value) (was|is) (provided|found)|"
         r"not (provided|available) in the (context|text|document))\b", re.I)
 
-    def build_task(task_type, target_tokens, seed):
+    def qs_build_task(task_type, target_tokens, seed):
         """Approx target_tokens using a words-per-token heuristic (~0.75 tokens/word for English prose); this is
         only a stub for local testing and is not the real quality_suite generator, so exact lengths are not
         load-bearing here. Layout is agent-style: schema/rules block first, the needle buried in filler, the task
@@ -117,14 +135,14 @@ except ImportError:
                   "[[SECRET_CODE:NNNNNN]]. That is the value to report.</rules>\n")
         task = "\n\nTASK: what is the secret code embedded in the log above? Reply with only the digits."
         prompt = schema + filler + task
-        return prompt, needle
+        return prompt, needle, "stub_exact"
 
-    def score_task(task_type, output, expected):
+    def qs_score(scorer, output, expected):
         if not output:
             return 0.0
         return 1.0 if str(expected) in output else 0.0
 
-    def classify_wrong_answer(task_type, output, expected):
+    def qs_classify(output):
         if not output or not output.strip():
             return "refusal"
         if _REFUSAL_RE.search(output):
@@ -384,7 +402,10 @@ def phase_memory_pressure(lab: K1Lab, ollama_model: str, occupier_mi, target_gb:
 
 # ---------------------------------------------------------------------------------------------------- phase: curves
 PROMPT_LENGTHS_TOKENS = (3000, 6000, 12000, 24000, 48000, 96000)
-TASK_TYPES = ("needle_recall",)
+# Must be real quality_suite.TASK_TYPES names once that module is importable (qs_build_task dispatches on them
+# directly); "needle_recall" only exists in the stub path. Default to one real task type (niah_multikey) so a plain
+# `--phase curves` run works out of the box against the real suite; pass --task-types to run more of them.
+TASK_TYPES = (_qs.TASK_TYPES[0],) if QUALITY_SUITE_SOURCE == "harness.quality_suite" else ("needle_recall",)
 
 
 def _fit_num_ctx(length_tokens, headroom_tokens=1024, round_to=1024):
@@ -406,28 +427,28 @@ def phase_quality_curves(lab: K1Lab, ollama_model: str, gguf_mi, default_ctx: in
     for length in lengths:
         for task_type in task_types:
             for rep in range(rep_count):
-                prompt, expected = build_task(task_type, length, seed + rep + length)
+                prompt, expected, scorer = qs_build_task(task_type, length, seed + rep + length)
 
                 ra = ollama.chat(ollama_model, prompt, num_ctx=None, max_tokens=max_tokens)
-                score_a = score_task(task_type, ra.get("message"), expected) if ra.get("outcome") == "ok" else None
+                score_a = qs_score(scorer, ra.get("message"), expected) if ra.get("outcome") == "ok" else None
                 rows.append(lab.emit({
                     "record": "curve", "phase": "curves", "arm": "a", "model_tag": ollama_model, "task_type": task_type,
                     "prompt_len_target": length, "rep": rep, "num_ctx_requested": None,
                     "chat_outcome": ra.get("outcome"), "http_status": ra.get("status"),
                     "prompt_eval_count": ra.get("prompt_eval_count"), "score": score_a, "errored": ra.get("outcome") != "ok",
-                    "fabrication_or_refusal": (classify_wrong_answer(task_type, ra.get("message"), expected)
+                    "fabrication_or_refusal": (qs_classify(ra.get("message"))
                                                if score_a is not None and score_a < 1.0 else None),
                 }))
 
                 fit_ctx = _fit_num_ctx(length)
                 rb = ollama.chat(ollama_model, prompt, num_ctx=fit_ctx, max_tokens=max_tokens)
-                score_b = score_task(task_type, rb.get("message"), expected) if rb.get("outcome") == "ok" else None
+                score_b = qs_score(scorer, rb.get("message"), expected) if rb.get("outcome") == "ok" else None
                 rows.append(lab.emit({
                     "record": "curve", "phase": "curves", "arm": "b", "model_tag": ollama_model, "task_type": task_type,
                     "prompt_len_target": length, "rep": rep, "num_ctx_requested": fit_ctx,
                     "chat_outcome": rb.get("outcome"), "http_status": rb.get("status"),
                     "prompt_eval_count": rb.get("prompt_eval_count"), "score": score_b, "errored": rb.get("outcome") != "ok",
-                    "fabrication_or_refusal": (classify_wrong_answer(task_type, rb.get("message"), expected)
+                    "fabrication_or_refusal": (qs_classify(rb.get("message"))
                                                if score_b is not None and score_b < 1.0 else None),
                 }))
 
@@ -446,13 +467,13 @@ def phase_quality_curves(lab: K1Lab, ollama_model: str, gguf_mi, default_ctx: in
                     res = srv.chat(prompt, max_tokens, ignore_eos=False)
                     outcome = res.get("outcome")
                     errored = outcome != "ok"
-                    score_c = score_task(task_type, res.get("output"), expected) if not errored else None
+                    score_c = qs_score(scorer, res.get("output"), expected) if not errored else None
                     rows.append(lab.emit({
                         "record": "curve", "phase": "curves", "arm": "c", "model_tag": ollama_model, "task_type": task_type,
                         "prompt_len_target": length, "rep": rep, "num_ctx_requested": default_ctx,
                         "prompt_tokens_tokenized": n_tok, "chat_outcome": outcome, "chat_error": res.get("error"),
                         "prompt_eval_count": n_tok if not errored else None, "score": score_c, "errored": errored,
-                        "fabrication_or_refusal": (classify_wrong_answer(task_type, res.get("output"), expected)
+                        "fabrication_or_refusal": (qs_classify(res.get("output"))
                                                    if score_c is not None and score_c < 1.0 else None),
                     }))
                 finally:

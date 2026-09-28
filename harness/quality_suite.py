@@ -231,6 +231,16 @@ _SCORERS: dict[str, Callable[[str, object], tuple[float, str]]] = {
 }
 
 
+def score_task(scorer_name: str, output: str, expected) -> tuple[float, str]:
+    """Public entry point for a caller that does its own chat call (e.g. one driving a different API, like Ollama's,
+    rather than the srv.tokenize/.chat shape run_task expects) and only needs the scoring half. scorer_name is a
+    Task's .scorer field (one of _SCORERS' keys, not the task_type); an unknown name raises KeyError with the valid
+    set, rather than silently mis-scoring."""
+    if scorer_name not in _SCORERS:
+        raise KeyError(f"unknown scorer {scorer_name!r}, expected one of {sorted(_SCORERS)}")
+    return _SCORERS[scorer_name](output, expected)
+
+
 # ---------------------------------------------------------------- fabrication vs refusal
 
 _REFUSAL_PATTERNS = re.compile(

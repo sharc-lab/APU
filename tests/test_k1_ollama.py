@@ -189,7 +189,7 @@ def test_phase_quality_curves_writes_three_arms_per_condition(tmp_path):
     ollama = FakeOllama({"outcome": "ok", "status": 200, "prompt_eval_count": 20, "message": "the code is 123456", "duration_s": 1.0})
     fake_srv = FakeServer(ok=True, tokens=3000, chat_outcome="ok", output="the code is 123456")
     rows = K.phase_quality_curves(
-        lab, "qwen3:8b", gguf_mi=object(), default_ctx=32768, rep_count=1, lengths=(3000,), task_types=("needle_recall",),
+        lab, "qwen3:8b", gguf_mi=object(), default_ctx=32768, rep_count=1, lengths=(3000,), task_types=("niah_multikey",),
         ollama=ollama, server_factory=lambda mi, n_ctx, tag: fake_srv)
     arms = sorted(r["arm"] for r in rows)
     assert arms == ["a", "b", "c"]
@@ -203,7 +203,7 @@ def test_phase_quality_curves_arm_c_error_recorded_as_errored(tmp_path):
     ollama = FakeOllama({"outcome": "ok", "status": 200, "prompt_eval_count": 20, "message": "123456", "duration_s": 1.0})
     fake_srv = FakeServer(ok=True, tokens=96000, chat_outcome="error", output=None)
     rows = K.phase_quality_curves(
-        lab, "qwen3:8b", gguf_mi=object(), default_ctx=8192, rep_count=1, lengths=(96000,), task_types=("needle_recall",),
+        lab, "qwen3:8b", gguf_mi=object(), default_ctx=8192, rep_count=1, lengths=(96000,), task_types=("niah_multikey",),
         ollama=ollama, server_factory=lambda mi, n_ctx, tag: fake_srv)
     c_row = next(r for r in rows if r["arm"] == "c")
     assert c_row["errored"] is True
