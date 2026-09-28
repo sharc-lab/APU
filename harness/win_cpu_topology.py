@@ -6,10 +6,12 @@ be read, not assumed.
 
 Parses the returned buffer with struct.unpack_from rather than a ctypes.Structure mirror of
 SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX/CACHE_RELATIONSHIP: only the 8-byte (Relationship: int32, Size: uint32)
-header is trusted for advancing through the buffer (unambiguous, no compiler padding to get wrong); the
-CACHE_RELATIONSHIP fields are then unpacked at the fixed offsets documented in the Windows SDK (winnt.h) --
-Level/Associativity/LineSize/CacheSize/Type at 8..20, Reserved[18] at 20..38, GroupCount (WORD) at 38..40, 4 bytes of
-alignment padding before the union so GROUP_AFFINITY.Mask (UINT64) is 8-byte aligned, then GroupMask.Mask at 44..52.
+header is trusted for advancing through the buffer (unambiguous, no compiler padding to get wrong). The
+CACHE_RELATIONSHIP field offsets below were confirmed live (not assumed) by dumping raw entry bytes on evo-t2s and
+matching known values (L1D 48 KB, L1I 64 KB, L2 3072/4096 KB, L3 18432 KB shared across a 0xfff mask):
+Level/Associativity/LineSize/CacheSize/Type at entry-relative 8..40 (=8+1+1+2+4+4+18+2, i.e. Reserved really is
+BYTE[18]), then GroupMask.Mask (UINT64) at entry-relative 40..48 with NO padding -- offset 40 is already 8-byte
+aligned, so the compiler inserts none.
 
 Usage: python win_cpu_topology.py   (prints one JSON document; changes nothing)
 """
@@ -24,7 +26,7 @@ import sys
 RelationCache = 2
 HEADER_FMT = "<iI"  # Relationship (int32), Size (uint32)
 HEADER_SIZE = struct.calcsize(HEADER_FMT)
-CACHE_FMT = "<BBHIi18sHxxxxQ"  # Level,Assoc,LineSize,CacheSize,Type,Reserved[18],GroupCount,pad(4),Mask(uint64)
+CACHE_FMT = "<BBHIi18sHQ"  # Level,Assoc,LineSize,CacheSize,Type,Reserved[18],GroupCount,Mask(uint64) -- no padding
 CACHE_MIN_SIZE = struct.calcsize(CACHE_FMT)
 
 
