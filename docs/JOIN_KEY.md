@@ -48,7 +48,16 @@ thermal-gate record and, where relevant, `n_reduced` (3 measured calls instead o
 grouped by the fixed preflight mapping P=0-3, E=4-11, LP-E=12-15), `cpu_n_cores_read` (how many logical CPUs the
 counter returned that sample), `rapl_pp0_w`, `rapl_pp1_w` (best-effort RAPL cores/uncore power, null when the platform
 does not expose those Energy Meter instances), `rapl_available` (whether any such instance was found at all). A
-`b1_positive_control` record gives the one-shot Sysman throttle-reason check for the `all16` condition.
+`b1_positive_control` record gives the one-shot Sysman throttle-reason check for the `all16` condition (on evo-t2s;
+superseded by the condition's own call-row median on evo-x2 and any later evo-t2s run, see the note below).
+
+Every row also carries `igpu_power_w` and `igpu_temp_c_max`, median/max over the call window. On evo-t2s these are
+null (Level Zero Sysman exposes iGPU frequency and package power but not iGPU power or any temperature). On evo-x2
+they come from a persistent LibreHardwareMonitor reader fed into the same `Telemetry.sys_ring` rows Sysman would use
+(`igpu_mhz`/`igpu_power_w` from the `Radeon ... GPU Core` clock/power sensors, `igpu_temp_c_max` from `Radeon ... GPU
+VR SoC`, a voltage-regulator sensor, not the GPU core die). `temp_c_max` is the CPU package temperature
+(`Ryzen ... Core (Tctl/Tdie)`) plus `igpu_temp_c_max` folded in (both are Sysman-shaped "temp" rows); the thermal gate
+itself uses CPU temperature only. Positive-control results and sensor names are in `docs/X2_CHANGELOG.md`.
 
 ## 2. Mapping onto Zachary's `replication_remote_search_v3.json`
 
