@@ -23,7 +23,7 @@ Every call, probe and server-start row has all of these keys (null when not appl
 | `co_runner` | `none`, `p4` (logical CPUs 0 to 3), `e4` (4 to 7), `nonp12` (4 to 15), `all16` |
 | `proc_throttle_max` | active power plan `PROCTHROTTLEMAX` on AC, percent |
 | `mem_headroom_gb` | Section C only: free memory after the lock minus (weights + KV + compute), GiB; null otherwise |
-| `section` | `0`, `A`, `B`, `C` or `D` |
+| `section` | `0`, `A`, `B`, `C` or `D` for `t2s_overnight_*` files; `AM` for `t2s_amech_*` files; `B1`, `B2`, `B3`, `C1` or `PB` for `t2s_night2_*` files |
 | `rep`, `seed` | repetition index within the condition (-1 is the discarded warm-up) and the run's order seed |
 | `git_sha`, `script_sha` | git head of the deployed scripts and git blob SHA of `harness/t2s_overnight.py` |
 | `load_s` | seconds from server spawn to healthy |
@@ -37,8 +37,18 @@ Every call, probe and server-start row has all of these keys (null when not appl
 | `hard_faults_per_s` | maximum `\Memory\Page Reads/sec` over the window (disk reads that satisfied hard faults; Windows has no direct hard-fault rate counter) |
 | `error` | verbatim error text, if any |
 
+`t2s_amech_*` rows (section `AM`) add: `phase` (`rope`, `bisect`, `arms`, `fill`), `ngl` (the `-ngl` value passed, null when the flag was left unset), `fit` (the `-fit` value passed, null when unset), `arm` (`a_ngl99`, `b_fit_default`, `c_fit_off`, `last_pass_ngl99`), `cmdline` (the exact llama-server command line), `projected_mib` and `fit_free_mib` (llama.cpp's own projection of device memory and the free device memory it compared it with), `layers_gpu` and `layers_total`, `vk_errors` and `alloc_failed` (the Vulkan result text and failing buffer size from the server log), `fill_used`, `fill_target_90pct` and `fill_capped` (prompt tokens used against 90% of `n_ctx`), and for bisection `bisect_label`. A `bisect_probe` record gives `started` and `props_n_ctx_cap` when the server created its context but `/props` reported a smaller `n_ctx`.
+
 Rows also carry `item_id`, `kind` (`call`, `probe`, `start`), `warmup`, `t_start_utc`, `t_end_utc`, `server_pid`, the
 thermal-gate record and, where relevant, `n_reduced` (3 measured calls instead of 5) and `valid`.
+
+`t2s_night2_*` rows add: `cpu_mask` (the hex affinity mask passed to the co-runner, null for `none`), `duty_cycle_pct`
+(Section B2 only), `perfboostmode` (Section PB only, the value it was set to), `cpu_p_pct_perf`, `cpu_e_pct_perf`,
+`cpu_lpe_pct_perf` (median Windows `% Processor Performance` over the call window for the P, E and LP-E logical CPUs,
+grouped by the fixed preflight mapping P=0-3, E=4-11, LP-E=12-15), `cpu_n_cores_read` (how many logical CPUs the
+counter returned that sample), `rapl_pp0_w`, `rapl_pp1_w` (best-effort RAPL cores/uncore power, null when the platform
+does not expose those Energy Meter instances), `rapl_available` (whether any such instance was found at all). A
+`b1_positive_control` record gives the one-shot Sysman throttle-reason check for the `all16` condition.
 
 ## 2. Mapping onto Zachary's `replication_remote_search_v3.json`
 
