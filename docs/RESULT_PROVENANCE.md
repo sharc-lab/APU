@@ -395,3 +395,36 @@ way as every other call), so the slowdown finding for `t2s_night2_20260928T00492
 `b1_positive_control` record in that file should be read as sampled while the GPU was briefly idle between the
 condition and the next one, not a valid check of the condition itself. Fixed to use the median `igpu_mhz` and the
 union of `igpu_throttle_bits` from the condition's own call rows.
+
+---
+
+## Duration-measurement clock audit (2026-09-28)
+
+Checked whether ttft_s, decode_tok_s, e2e_s, load_s and thermal_wait_s use a monotonic clock or a time.time()
+difference (a wall-clock step -- NTP correction, DST, or a wrong system clock as found on evo-x2 -- corrupts the
+latter). Found one real bug: `harness/t2s_lab.py` `Server.start()` computed `load_s` as `t1 - t0` where both were
+`time.time()`. Fixed (commit ceadcab) to use `time.monotonic()` for the duration while keeping `time.time()` for
+`t_start`/`t_end` (used as UTC anchors for `t_start_utc`/`t_end_utc` and for `Telemetry.metrics()` windowing, where
+`time.time()` is the correct choice). Unit test: `tests/test_load_s_monotonic.py`.
+
+`ttft_s`, `decode_tok_s` and `e2e_s` (`Server.chat`) already used `time.perf_counter()` throughout; `thermal_wait_s`
+(`Telemetry.thermal_gate`) already used `time.monotonic()`. No other row-level duration field was found using
+`time.time()` differences.
+
+**Practical impact on past results:** every `load_s` value recorded before commit ceadcab (every evo-t2s Section 0/A/B/C
+run, every A-mech run, every night2/night2b row up to this point) used the `time.time()` difference and is
+theoretically exposed to this bug, but evo-t2s's `w32time` has been actively NTP-synced throughout (confirmed
+2026-09-28: Stratum 5, Root Dispersion under 0.3 s, last sync a few hours before the check) with no known clock step
+during any of these runs, so there is no evidence any specific `load_s` value is actually wrong -- this is a latent
+defect, not a known corruption of any committed row.
+
+**evo-x2 LHM windows computed while the clock was ~3h53m17s fast:** `results/t2s_night2_20260928T004924Z*` rows and
+the `lhm_x2_control*` results from before the clock fix used `time.time()`/`[DateTime]::UtcNow` values that were all
+internally consistent with each other (the Python-side window boundaries and the PowerShell reader's row timestamps
+both read the same, single, wrong system clock), so the measured idle/load windows and the reported temperature,
+power and clock rises are not affected by the clock offset itself -- only the recorded `ts_utc` labels on evo-x2
+during that window are off by the offset and must not be read as literal UTC, as already flagged in
+`docs/X2_CHANGELOG.md`. The separate DST/local-timezone parsing bug (fixed the same day, see the LHM timestamp
+parsing entry in `docs/X2_CHANGELOG.md`) is what actually broke the first three `lhm_x2_control` runs' windowing, not
+the clock offset. No cross-machine timestamp comparison (X2 against evo-t2s or against the controller) was computed
+from any of the affected data, so no recorded duration or threshold result is affected by either bug.
