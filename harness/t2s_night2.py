@@ -311,8 +311,8 @@ def _phase_c1(lab, spec, label):
         if info.get("ok"):
             prompt = ov.prompt_for(srv, fill)
             n_tok = srv.tokenize(prompt)
-            ov.measured_sequence(lab, srv, mi, "C1", item, prompt, n_tok, extra={"mem_headroom_gb": lv}, mem_headroom_gb=lv)
-            ov.probe_sequence(lab, srv, mi, "C1", item, fill, extra={"mem_headroom_gb": lv}, mem_headroom_gb=lv)
+            ov.measured_sequence(lab, srv, mi, "C1", item, prompt, n_tok, extra={}, mem_headroom_gb=lv)
+            ov.probe_sequence(lab, srv, mi, "C1", item, fill, extra={}, mem_headroom_gb=lv)
         srv.stop()
         lab.resources["server"] = None
         b.stop()
