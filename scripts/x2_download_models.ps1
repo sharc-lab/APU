@@ -6,6 +6,12 @@
 # sha256.txt line and a Get-FileHash failure on a locked file on 2026-09-28; this script exists to make that
 # structurally impossible rather than relying on the caller not to double-launch.
 #
+# Stall detection: every curl call also carries --speed-limit 100000 --speed-time 120 --retry 10 --retry-delay 10
+# --retry-all-errors, so a transfer that drops below 100 KB/s for 2 minutes straight is killed by curl itself and
+# retried, instead of sitting at 0 B/s indefinitely the way the Qwen3-14B download did on 2026-09-28 (stuck at
+# exactly 52,879,360 bytes for hours; killing that curl.exe and even a clean process restart did not get it moving
+# again, so this flag-level fix -- not a process-level restart -- is what actually addresses that failure mode).
+#
 # Deployed as C:\apu\dl.ps1 on evo-x2. Relaunch after an interruption with exactly:
 #   Start-Process powershell -WindowStyle Minimized -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File C:\apu\dl.ps1'
 # (curl -C - resumes partial files; already-finished files are skipped by their own idempotent hash check below).
@@ -38,7 +44,7 @@ try {
             }
         }
         for ($i = 1; $i -le 5; $i++) {
-            & curl.exe -L -C - --retry 5 -o $out $url
+            & curl.exe -L -C - --speed-limit 100000 --speed-time 120 --retry 10 --retry-delay 10 --retry-all-errors -o $out $url
             if ($LASTEXITCODE -eq 0) { break }
         }
         $h = (Get-FileHash $out -Algorithm SHA256).Hash.ToLower()
