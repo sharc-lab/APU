@@ -429,15 +429,22 @@ MAP_SPEC = [
 ]
 
 
-def classify_start(info):
+def classify_start(info, srv):
     if info.get("ok"):
-        return "runs"
+        return "runs", None
+    err = info.get("error") or ""
+    m = re.match(r"guard: server does not match intended config: n_ctx (\d+) != (\d+)", err)
+    if m and "llama_server: listening on" in read_logs(srv):
+        # Same situation as the bisection Prober: the server created the full context (its own log shows the KV
+        # buffer at the requested size) but YaRN's freq_scale makes /props report the pre-scaling n_ctx. That is a
+        # start, not a refusal or a hang.
+        return "runs", int(m.group(1))
     code = info.get("exit_code")
     if code is None:
-        return "hung"
+        return "hung", None
     if code == 1:
-        return "refused_at_context"
-    return "crashed"
+        return "refused_at_context", None
+    return "crashed", None
 
 
 def phase_map(lab):
@@ -452,22 +459,26 @@ def phase_map(lab):
         rng = random.Random(20260925 + zlib.crc32(mid.encode()))
         rng.shuffle(trials)
         for n_ctx, rep in trials:
-            item = f"AM_map_{mid}_{n_ctx}_{rep}"
+            item = f"AM_map2_{mid}_{n_ctx}_{rep}"
             if item in lab.done:
                 continue
             lab.check()
             srv, info, px = start_and_record(lab, mi, n_ctx, item, item, "map", flags, ngl=None, fit=None, rep=rep, arm="b_fit_default")
-            outcome = classify_start(info)
+            outcome, props_cap = classify_start(info, srv)
             crash_tail = None
             if outcome == "crashed":
                 crash_tail = read_logs(srv).splitlines()[-30:]
-            lab.emit({"record": "map_probe", "model_id": mid, "n_ctx": n_ctx, "rep": rep, "outcome": outcome,
+            lab.emit({"record": "map_probe", "model_id": mid, "n_ctx": n_ctx, "rep": rep, "outcome": outcome, "props_n_ctx_cap": props_cap,
                       "exit_code": info.get("exit_code"), "layers_gpu": px.get("layers_gpu"), "layers_total": px.get("layers_total"),
                       "projected_mib": px.get("projected_mib"), "error": info.get("error"), "crash_log_tail": crash_tail,
                       "device_lost": bool(crash_tail and any("device lost" in l.lower() for l in crash_tail)), "ts_utc": utc_iso()})
-            log(f"map {mid} n_ctx {n_ctx} rep {rep}: {outcome} layers={px.get('layers_gpu')}/{px.get('layers_total')} "
-                f"projected={px.get('projected_mib')} exit_code={info.get('exit_code')}")
-            if outcome == "runs":
+            log(f"map {mid} n_ctx {n_ctx} rep {rep}: {outcome}{' (props cap ' + str(props_cap) + ')' if props_cap else ''} "
+                f"layers={px.get('layers_gpu')}/{px.get('layers_total')} projected={px.get('projected_mib')} exit_code={info.get('exit_code')}")
+            server_alive = outcome == "runs" and srv.proc is not None and srv.proc.poll() is None
+            if outcome == "runs" and not server_alive:
+                lab.emit({"record": "item_error", "item_id": item, "ts_utc": utc_iso(),
+                          "error": "no decode call: the stale-server guard already stopped this server (benign n_ctx-cap mismatch)"})
+            if server_alive:
                 try:
                     prompt = ov.prompt_for(srv, 512)
                     n_tok = srv.tokenize(prompt)
@@ -477,7 +488,7 @@ def phase_map(lab):
                     raise
                 except Exception as e:
                     lab.emit({"record": "item_error", "item_id": item, "error": repr(e)[:400], "ts_utc": utc_iso()})
-            srv.stop()
+            srv.stop()  # idempotent: the guard and health-check failure paths in Server.start() already stopped it
             lab.resources["server"] = None
             lab.item_done(item)
 

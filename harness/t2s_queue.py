@@ -38,15 +38,25 @@ def write_queue(items):
 
 
 def _ps(script):
-    return subprocess.run(["powershell", "-NoProfile", "-Command", script], capture_output=True, text=True, timeout=60).stdout
+    """Runs the script and returns (stdout, stderr). A PowerShell parse error (e.g. bad quoting) lands on stderr, so
+    a caller that only looks at stdout sees an empty string and nothing else -- that silent failure is exactly what
+    the first version of _launch below hit (a backslash-quote is not a PowerShell escape, it just ends the string
+    early); both streams are returned now so that mistake shows up instead of vanishing."""
+    p = subprocess.run(["powershell", "-NoProfile", "-Command", script], capture_output=True, text=True, timeout=60)
+    return p.stdout, p.stderr
 
 
 def _launch(cmd, log_path):
+    """PowerShell single-quoted strings are literal (no escape character except a doubled '), so building the whole
+    cmd.exe command line in Python first and dropping it into one single-quoted PS string avoids the double-escaping
+    that broke the first version of this function. None of cmd, log_path here ever contains a single quote."""
     quoted = " ".join(f'"{c}"' if " " in c else c for c in cmd)
-    ps_cmd = (f'$cmd = "cmd.exe /c cd /d C:\\apu\\ovn && {quoted} > \\"{log_path}\\" 2>&1"; '
-              f'$r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{{CommandLine=$cmd; CurrentDirectory="C:\\apu\\ovn"}}; '
-              f'"rc=" + $r.ReturnValue + " pid=" + $r.ProcessId')
-    return _ps(ps_cmd)
+    full_cmdline = f'cmd.exe /c cd /d C:\\apu\\ovn && {quoted} > "{log_path}" 2>&1'
+    ps_cmd = (f"$cmd = '{full_cmdline}'; "
+              f"$r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{{CommandLine=$cmd; CurrentDirectory='C:\\apu\\ovn'}}; "
+              f"'rc=' + $r.ReturnValue + ' pid=' + $r.ProcessId")
+    out, err = _ps(ps_cmd)
+    return (out + (" | stderr: " + err if err.strip() else "")).strip()
 
 
 def advance(note):
