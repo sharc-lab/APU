@@ -135,7 +135,10 @@ def main():
     t_gpu_idle0 = time.time()
     time.sleep(20)
     t_gpu_idle1 = time.time()
-    proc = subprocess.Popen(["cmd.exe", "/c", llama, "-m", model, "--port", port, "-ctk", "f16", "-ctv", "f16",
+    # No cmd.exe wrapper: launched directly so proc.pid is llama-server.exe's own PID, not a shell wrapper's. Using
+    # "cmd.exe /c <exe>" here previously made proc.pid the wrapper's PID, so the \GPU Process Memory(pid_<pid>_*)
+    # query in check 5 always matched nothing (found live on evo-x2, 2026-09-28).
+    proc = subprocess.Popen([llama, "-m", model, "--port", port, "-ctk", "f16", "-ctv", "f16",
                              "-fa", "on", "-ngl", "99", "-np", "1", "-t", "4", "--no-context-shift",
                              "--log-file", prefix + "_x2ctl_srv.log", "--log-verbosity", "4"],
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
