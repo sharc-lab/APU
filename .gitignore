@@ -52,9 +52,9 @@ htmlcov/
 # Results and outputs
 # Exclude generated run data, but keep Zachary's baseline and markdown reports
 results/*.log
-results/claude_code_characterization.json
+# claude_code_characterization.json and tail_latency_results.json are now committed (2026-09-28, see
+# docs/RESULT_PROVENANCE.md) -- only their .jsonl siblings (a different, uncommitted format) stay ignored.
 results/claude_code_characterization.jsonl
-results/tail_latency_results.json
 results/tail_latency_results.jsonl
 results/run_*.jsonl
 # Sibling files written by runner.py alongside each run_*.jsonl.
