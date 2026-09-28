@@ -158,7 +158,7 @@ it; the EARLY arm loses its artifact first.
   Intel Arrow Lake, Vulkan b10970, qwen3-4b-instruct-85e4a5b7.gguf, matched checkpoint);
   `results/fig61_stagec_full_20260922T230133Z.jsonl` (396 rows, blade_rtx4070,
   CUDA b10970, same checkpoint, like-for-like replication)
-- Hardware: blade_rtx4070 (discrete, OFF-TARGET) + evo-t2s (unified LPDDR5X, OFF-TARGET)
+- Hardware: blade_rtx4070 (discrete, OFF-TARGET) + evo-t2s (unified LPDDR5X, primary target)
 - **Three-architecture replication note:** All three runs agree on the position-pressure
   effect (LATE > EARLY at r<1 for probes where artifact is intact). One cell disagrees
   between CUDA and Vulkan backends: sea_01 LATE at r=1.0 and r=1.2 — CUDA outputs "C8"
@@ -172,8 +172,8 @@ it; the EARLY arm loses its artifact first.
   The evo-t2s vs. Blade score differences (1 cell: sea_01 LATE) can therefore be
   attributed to architecture (discrete CUDA vs. unified Vulkan), not to harness or
   runtime changes.
-- **Status: OFF-TARGET-ONLY** — three-architecture replication complete (blade Ollama,
-  blade CUDA, evo-t2s Vulkan); Strix Halo EVO-X2 run required for submission.
+- **Status: ON-TARGET (evo-t2s)** for the Vulkan leg; the Blade legs (Ollama and CUDA) stay OFF-TARGET-ONLY. Three-architecture
+  replication complete; EVO-X2 (the other primary platform) run still required for submission.
 
 - **UNVERIFIED (2026-09-25):** for the parts resting on the `fig61_*` replications: the `fig61_*` files were produced with a server started outside the harness and with no model, ctx, PID or port check, so stale or wrong-server exposure cannot be excluded. The Ollama-based `stage_c_20260818T040408Z.jsonl` is not exposed to this failure mode. See `docs/RESULT_PROVENANCE.md`, sections "Stale-server exposure audit" and "Result file to generating script map". The status line above is kept unchanged; nothing was removed.
 
@@ -188,8 +188,8 @@ which envelope face the workload lies on.
   Intel Arrow Lake, Vulkan b10970, qwen3-4b-instruct-85e4a5b7.gguf, matched checkpoint,
   streaming with TTFT, cache_prompt=false, max_tokens=128, temp=0, filler=4000 tok seed=42).
   Diagnostic-only predecessor 060942Z superseded (model confound); 191031Z superseded (timing invalid).
-- Target hardware: Strix Halo EVO-X2 — NOT YET PROVISIONED (arrives ~Dec 3, 2026).
-- **Status: OFF-TARGET-ONLY** — evo-t2s replication complete; Strix Halo run required for submission.
+- Target hardware: EVO-X2 (Strix Halo), NOT YET PROVISIONED (arrives ~Dec 3, 2026); evo-t2s is the other primary platform and has run.
+- **Status: ON-TARGET (evo-t2s).** EVO-X2 run still required for submission.
 
 - **UNVERIFIED (2026-09-25):** the `fig61_*` files were produced with a server started outside the harness and with no model, ctx, PID or port check, so stale or wrong-server exposure cannot be excluded. `fig61_stagec_full_20260922T203557Z.jsonl` also has an uncertain script version (nearest committed version 0fd749a). See `docs/RESULT_PROVENANCE.md`, sections "Stale-server exposure audit" and "Result file to generating script map". The status line above is kept unchanged; nothing was removed.
 
@@ -272,18 +272,56 @@ artifact size** under partial KV eviction.
 **On unified-memory evo-t2s (Vulkan), locking available memory from 12 GB down to 4 GB produced no silent slowdown** (TTFT at most 1.08x, 5 of 5 probes correct at every level whose server started) **and one loud crash at 5 GB** (Vulkan device lost, exit 0xC0000409) that did not recur at 4 GB. Server load time rose from about 3 s to about 150 s at 6 and 4 GB. One run per level; the crash is unrepeated.
 
 - Files: `results/ramlock_evo-t2s_20260925T010739Z.jsonl`, `results/ramlock_phaseD_telemetry/`
-- Hardware: evo-t2s (unified memory, OFF-TARGET)
-- **Status: OFF-TARGET-ONLY.** Hard-fault and pagefile data after server start are UNKNOWN at 6, 5 and 4 GB.
+- Hardware: evo-t2s (unified memory, primary target)
+- **Status: ON-TARGET (evo-t2s).** Hard-fault and pagefile data after server start are UNKNOWN at 6, 5 and 4 GB. EVO-X2 not yet run.
 - **UNVERIFIED (2026-09-25, correction):** the balloon's safety valve released the lock during load at 6 GB and the 4 GB level shows an unconstrained working set after load, so "no slowdown at 6 and 4 GB" is not a valid constrained result. The supported range is no silent slowdown from 12 GB down to 7 GB. The crash at 5 GB is a load-phase event under real pressure and stays one unrepeated run. See `docs/FINDINGS.md` (Phase D correction). The status line above is kept unchanged.
+- **Update (2026-09-26, overnight Section C):** a second, independent lock design (8B, context 16,384, headroom measured against weights + KV + compute) found no TTFT slowdown at zero and -1 GB headroom (TTFT +1.4% to +2.0% of the +8 GB anchor, 5 of 5 probes correct) with the file-backed load mode, and at zero headroom without it. A decode cost of 7% to 8.5% is **not ruled out** (outside the 5% band; one anchor, no repeats). The 32B at zero headroom with 3 MB available ran normally (TTFT 1.03x of Section A anchors, 5 of 5 probes). One more loud failure: 8B without mmap at -1 GB stalled 1,115 s at load and lost the device (n=1). Same design limits as above: one cell per level. See `docs/T2S_OVERNIGHT_REPORT.md`.
 
 ---
 
 ### Claim A-23 (Fig 6.2 candidate, SUPPORTING)
-**On evo-t2s a CPU-only co-runner slows iGPU inference through a shared package power limit.** With 12 or 16 cores spinning, RAPL package power sits at about 45 W, the iGPU is held at its power-limited 1650 MHz (from 2500 MHz) and TTFT rises 1.42x and 1.41x; with only the 4 P-cores spinning TTFT rises 1.04x. The prediction that P-core spin would hurt more was wrong.
+**On evo-t2s a CPU-only co-runner slows iGPU inference and drops its clock, by a mechanism that is not established.** With 12 or 16 cores spinning, RAPL package power sits at about 45 W, the iGPU is held at 1650 MHz (from 2500 MHz) and TTFT rises 1.42x and 1.41x; with only the 4 P-cores spinning TTFT rises 1.04x. The prediction that P-core spin would hurt more was wrong.
 
 - Files: `results/t2s_m3_power_coupling_20260925T075348Z.jsonl` (+ Sysman and Windows counter files)
-- Hardware: evo-t2s (unified memory, OFF-TARGET)
-- **Status: OFF-TARGET-ONLY.** 3 calls per condition, one run; other shared-resource mechanisms are not excluded.
+- Hardware: evo-t2s (unified memory, primary target)
+- **Status: ON-TARGET (evo-t2s).** 3 calls per condition, one run. **Mechanism: OPEN.** EVO-X2 not yet run.
+- **Update (2026-09-26, overnight Section B):** the magnitude **replicates** on two more model sizes (4B-2507: 1.40x and 1.39x TTFT, 1.24x decode; 8B: 1.42x and 1.43x, 1.20x), iGPU 1650 and 1600 MHz, 5 measured calls per condition, bootstrap intervals excluding 1.0. Section B adds an e4 arm (4 E-cores) between p4 and nonp12: 4B-2507 1.02x TTFT at 39.1 W package power, 8B 1.05x at 41.1 W, both with the iGPU at 2450 to 2500 MHz, in between the p4 result (44.9 W, iGPU near 2500 MHz, 1.04x to 1.06x) and nonp12/all16 (44.9 W, iGPU 1600 to 1650 MHz, 1.39x to 1.43x). **p4 reaches the same 44.9 W package power as nonp12 but keeps the iGPU at 2,450 to 2,500 MHz, so package power alone does not explain the iGPU clock drop or the slowdown** (Pearson r of package W against iGPU MHz across the five conditions is -0.53 in each model). **Mechanism: OPEN.** Do not describe this as a shared power budget effect. The causal arm (PROCTHROTTLEMAX) failed its positive control (44.93 W at cap 50, 44.94 W at cap 100) and was not run; the co-runner conditions ran without an effective thermal gate (release by 120 s timeout) and no temperature sensor exists on this SoC through Level Zero, so thermal throttling is not ruled out. Two sizes, both Qwen3. See `docs/T2S_OVERNIGHT_REPORT.md`.
+
+---
+
+### Claim A-24 (Fig 6.2 candidate, SUPPORTING)
+**On evo-t2s (Vulkan b10970) a llama-server start fails loudly when the required device memory exceeds the Vulkan memory-heap budget, and the boundary is set by total memory, not by the model.** The budget is 47,866 MiB (`vulkaninfo` heap budget; llama-server free figure 47,865 MiB), not the heap size (37,060 MiB, exceeded by successful runs) and not the single-allocation limit (`maxMemoryAllocationSize` 4,096 MiB; the refused buffer was 964 MiB). Bisecting n_ctx to a 256-token step, four models flip between 47,650 and 47,969 MiB of llama.cpp-projected memory: Qwen3-32B (last pass 115,712, first fail 115,968), Qwen3-8B (305,152 / 305,408), Qwen3-30B-A3B MoE (320,256 / 320,512) and Llama-3.1-8B (343,808 / 344,064). The refusal is `vkAllocateMemory` returning `ErrorOutOfDeviceMemory` during KV allocation; llama.cpp's fit pre-check projected the overflow and only warned because `-ngl` was pinned.
+
+- Files: `results/t2s_amech_20260926T181456Z.jsonl` (+ `_vulkaninfo.txt`, server logs), `results/t2s_overnight_20260926T011744Z.jsonl` (Section A starts)
+- Hardware: evo-t2s (Intel Arc B390 unified memory, Vulkan; primary target)
+- **Status: ON-TARGET (evo-t2s).** Start-only (no prompts); the model-independence spread is 295 MiB (0.6%); all boundary contexts are beyond the trained context (memory tests, not usable contexts); EVO-X2 unmeasured. The 32B boundary flips were repeated 3 to 4 times each and were stable; the other models were probed once per point.
+
+---
+
+### Claim A-25 (Fig 6.2 candidate, SUPPORTING)
+**Below the budget the 32B shows no TTFT slowdown as the allocated context grows from 65,792 to 111,104 tokens** (1.00 [0.99, 1.00], bootstrap 95%, 5 to 20 calls per point, 47,190 MiB of GPU Shared Usage at the larger point). **Above the budget, with `-ngl 99` pinned, only start failures appeared, no slow or wrong-answer regime** (5 of 5 grid points from 117,248 to 125,440 failed at start). **Under the default runtime policy (`-ngl` unset, `-fit on`), the picture changes: the 32B ran at the first failing context with 3 layers offloaded to CPU, at a 17% decode cost** (matched 12,802-token prompt and rope flags: 2.71 tok/s at 62/65 layers on GPU versus 3.25 tok/s at 65/65 layers on GPU at the last passing context, TTFT ratio 1.01x) **, and crashed outright one step higher** (see the fit-policy map, A-mech).
+
+- Files: `results/t2s_overnight_20260926T011744Z.jsonl`, `results/t2s_amech_20260926T181456Z.jsonl` (arms and map phases)
+- Hardware: evo-t2s (primary target)
+- **Status: ON-TARGET (evo-t2s).** **UNVERIFIED for full-KV behavior:** calls used 4,527-token prompts on the pinned-`-ngl` ladder (the KV was allocated but about 4% filled); a 90% fill of these contexts is estimated at hours per call; the matched decode comparison used a 12,802-token prompt (10% fill), not 90%. One model. All points use YaRN factor 4 (see A-26). EVO-X2 not yet run.
+
+---
+
+### Claim A-26 (threat to A-25, SUPPORTING)
+**YaRN alone changed a probe answer on the 32B.** With identical prompts at context 16,384 (14,747 tokens), art_03 answers 8.9 without YaRN (5 of 5 probes correct) and 33.6 with `--rope-scaling yarn --rope-scale 4 --yarn-orig-ctx 32768` (4 of 5). At context 111,104 with YaRN and a 4,532-token prompt art_03 again answers 33.6. The flags produced YaRN behavior (first-token log-probabilities differ from linear scaling at the same `freq_scale` by up to 0.448 nats and from no scaling by up to 0.214; the process command line carries `--rope-scaling yarn`).
+
+- Files: `results/t2s_overnight_20260926T011744Z.jsonl` (YaRN check), `results/t2s_amech_20260926T181456Z.jsonl` (rope phase)
+- Hardware: evo-t2s (primary target)
+- **Status: ON-TARGET (evo-t2s).** One probe, one model, one run; the 4 of 5 at 111,104 must not be read as a memory effect. EVO-X2 not yet run.
+
+---
+
+### Claim A-27 (Fig 6.2 candidate, SUPPORTING)
+**On evo-t2s the default load mode is not file-backed on this Vulkan device, and an explicit `--load-mode mmap` is.** For the 8B: `--load-mode mmap` gives private bytes 5,916 MiB and working set 10,297 MiB; `none` and `auto` give 6,243 and 6,178 MiB. All earlier evo-t2s runs (including Phase D) therefore used non-file-backed weights. In the lock design of A-22, at -1 GB headroom, the mmap arm loaded in 23.0 s (pages input peak 56,571/s) and answered normally, while the non-mmap arm ran for 1,115 s and then exited with 0xc0000409 (device lost). At 0 GB headroom both arms loaded normally (mmap 19.9 s, pages input peak 1,152/s; non-mmap 7.7 s, pages input peak 25,082/s) with no TTFT difference. One start per arm per level (n=1); UNVERIFIED as an mmap effect.
+
+- Files: `results/t2s_overnight_20260926T011744Z.jsonl` (`mmap_control` record, Section C)
+- Hardware: evo-t2s (primary target)
+- **Status: ON-TARGET (evo-t2s).** EVO-X2 not yet run.
 
 ---
 
@@ -335,7 +373,7 @@ per-call (not mean-of-means) joint envelope points.
   prefill scaling linearly with token count. B-04 supports the claim that TTFT is validly
   measured per call in the same row as quality score. It does not support a claim that
   artifact position affects latency.
-- **Status: OFF-TARGET-ONLY** — per-call TTFT measured on evo-t2s; Strix Halo required for submission envelope.
+- **Status: ON-TARGET (evo-t2s).** Per-call TTFT measured on evo-t2s; EVO-X2 required for submission envelope.
 
 ---
 
@@ -348,32 +386,33 @@ per-call (not mean-of-means) joint envelope points.
 needed to meet a quality floor is a function of workload category (RAG vs. search) and
 artifact position, measurable empirically from budget_ratio × position sweeps.
 
-- Files: `results/stage_c_20260818T040408Z.jsonl` (Blade, off-target, non-streaming);
-  `results/fig61_stagec_full_20260922T203557Z.jsonl` (evo-t2s, off-target, streaming,
-  matched checkpoint, TTFT valid, cache_prompt=false). Strix Halo EVO-X2 run required.
-- **Status: OFF-TARGET-ONLY** — two-architecture replication complete; no target-class data yet.
+- Files: `results/stage_c_20260818T040408Z.jsonl` (Blade, OFF-TARGET, non-streaming);
+  `results/fig61_stagec_full_20260922T203557Z.jsonl` (evo-t2s, primary target, streaming,
+  matched checkpoint, TTFT valid, cache_prompt=false). EVO-X2 run required.
+- **Status: ON-TARGET (evo-t2s).** The Blade leg stays OFF-TARGET-ONLY. Two-architecture replication complete; EVO-X2 (the other primary platform) data not yet collected.
 
 ---
 
 ## Claims requiring Strix Halo data before submission
 
-The following claims are in CORE or SUPPORTING figures and must be reproduced on
-AMD Ryzen AI Max+ 395 (EVO-X2, unified LPDDR5X) before submission. All are currently
-OFF-TARGET-ONLY or PENDING.
+The following claims are in CORE or SUPPORTING figures and must also be reproduced on
+AMD Ryzen AI Max+ 395 (EVO-X2, unified LPDDR5X, the other primary platform) before submission.
+evo-t2s and EVO-X2 are both primary target platforms; only the Razer Blade 14 (discrete RTX 4070) is
+OFF-TARGET. A claim resting only on evo-t2s is ON-TARGET but incomplete, not OFF-TARGET-ONLY.
 
 | Priority | Claim | Figure | Blocking issue |
 |---|---|---|---|
-| 1 | J-01 (joint envelope) | Fig 6.1 (CORE) | EVO-X2 not provisioned; evo-t2s replication complete (off-target) |
+| 1 | J-01 (joint envelope) | Fig 6.1 (CORE) | EVO-X2 not provisioned; evo-t2s (primary) replication complete |
 | 2 | A-02 (truncation cliff) | Fig 4.3 (CORE) | Discrete RTX 4070; bandwidth difference may shift cliff |
 | 3 | A-01 (quality flat at depth) | Fig 4.1 (CORE) | Same as A-02 |
 | 4 | A-12 (KV quantization ratios) | Fig 4.11 (SUPPORTING) | gate1 Ollama path invalid; llama-server rerun on Strix Halo AMD unified memory path unvalidated |
 | 5 | A-04 / A-05 (span ablation) | Fig 4.6 (SUPPORTING) | Unified memory bandwidth may change required fraction |
-| 6 | A-13 (position pressure) | Fig 4.12 (SUPPORTING) | Two-architecture replication complete (Blade + evo-t2s); Strix Halo required for submission |
+| 6 | A-13 (position pressure) | Fig 4.12 (SUPPORTING) | Two-architecture replication complete (Blade off-target + evo-t2s primary); EVO-X2 required for submission |
 | 7 | A-15 (multi-model comparison) | Fig 4.13 (SUPPORTING) | Blade only |
 | 8 | A-19 (multi-turn recall) | Fig 4.15 (SUPPORTING) | Harness not written; EVO-X2 required |
 | 9 | B-01 / B-02 (Axis B span data) | Table 5.1, Fig 5.1 | Files gitignored; must commit or re-run |
 | 10 | A-20 / A-21 (Blade VRAM spill and host interference) | Fig 6.2 candidates | Discrete GPU behaviour; Strix Halo has unified memory, so the regime must be measured there |
-| 11 | A-22 / A-23 (evo-t2s memory lock and power coupling) | Fig 6.2 candidates | Intel Arc B390 unified memory, Vulkan; AMD Strix Halo path unmeasured |
+| 11 | A-22 / A-23 / A-24 to A-27 (evo-t2s memory lock, power coupling, budget boundary, runtime policy) | Fig 6.2 candidates | ON-TARGET on evo-t2s (Intel Arc B390 unified memory, Vulkan); EVO-X2 path unmeasured |
 
 **APPENDIX figures** (A-03, A-06, A-07, A-09, A-10, A-11, A-14, A-16, A-17, A-18, B-03)
 are acceptable labeled as "Blade 14 / RTX 4070" with a note that Strix Halo re-runs are

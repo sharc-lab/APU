@@ -650,7 +650,7 @@ On this unified-memory Windows/Vulkan stack the regime under locked-memory short
 
 ---
 
-## M3, evo-t2s: CPU compute slows the iGPU through a shared package power limit, but the P-core prediction was wrong (2026-09-25)
+## M3, evo-t2s: CPU compute slows the iGPU and drops its clock; mechanism open; the P-core prediction was wrong (2026-09-25)
 
 **Hardware arm:** evo-t2s only (Core Ultra X7 358H: 4 P-cores plus 12 E and LP-E cores, Arc B390 iGPU, unified memory, Vulkan b10970). Not the BOM target, never pooled with the Blade.
 **Sources:** `results/t2s_m3_power_coupling_20260925T075348Z.jsonl`, its manifest, `_sysman.csv`, `_wincounters.jsonl` and the per-condition hog files. Table from `analysis/t2s_m3_analysis.py`. Scripts committed before the run (commit 144f792) and verified on the machine against their committed git blobs (manifest `script_provenance`, git head 2ce23fd).
@@ -685,7 +685,7 @@ n = 3 calls per condition, so ranges rather than confidence intervals: TTFT rang
 
 ### Bearing on the paper claim (PENDING)
 
-This is the unified-memory half of the "failure regime is selected by driver and runtime policy" claim only in a loose sense: on this SoC a CPU-side load degrades iGPU inference through shared power allocation, a mechanism that has no analogue on the discrete Blade. It does not by itself confirm the claim.
+This is the unified-memory half of the "failure regime is selected by driver and runtime policy" claim only in a loose sense: on this SoC a CPU-side load degrades iGPU inference and drops its clock, by a mechanism not established here (see the overnight Section B e4/p4 update below, which rules out package power alone), with no analogue on the discrete Blade. It does not by itself confirm the claim.
 
 ---
 
@@ -765,3 +765,92 @@ Re-reading the per-level balloon logs showed three problems with the Phase D con
 The Phase D section above explains why S=7 ran normally by splitting the 7489 MiB of GPU shared usage into 2382 MiB of "file-backed mapped weights (evictable, re-readable)" and about 5.1 GB of KV and compute buffers. That split assumed the server mapped the GGUF. It did not. On this Vulkan device the default llama-server load mode (`--load-mode auto`) behaves exactly like `--load-mode none`: in a control on the 8B (`results/t2s_overnight_20260926T011744Z.jsonl`, record `mmap_control`) the default and `none` starts have identical private bytes (6,243 MiB) and working set (6,178 MiB), while an explicit `--load-mode mmap` start differs (5,916 MiB private, 10,297 MiB working set, an increase of 4,120 MiB). Phase D used the default, so its weights were read into ordinary process memory, not mapped from the file.
 
 What still holds: the arithmetic that about 5.1 GB is KV and compute, and that the working set fell with S. What does not: the claim that the weights were evictable and re-read from the file. The 50x load-time rise at S=6 and S=4 and the hard-fault storm at S=7 are still real observations, but their explanation is open (the weights may have been paged out through the pagefile instead). The explicit mmap-versus-none comparison under a held lock is in tonight's Section C. The same default applies to every other llama-server run in this repository on this build and device.
+
+
+---
+
+## evo-t2s overnight, Section A: crossing the iGPU memory budget. Nothing slowed below the budget, the server did not start above it (2026-09-26)
+
+**Hardware arm:** evo-t2s only (Core Ultra X7 358H, Panther Lake, Arc B390, 63.49 GB unified, Vulkan b10970). Never pooled with the Blade.
+**Sources:** `results/t2s_overnight_20260926T011744Z.jsonl` and its server logs. Table from `analysis/t2s_overnight_analysis.py` (commit 5ebdd01, run on the final file). Script versions per row in `docs/RESULT_PROVENANCE.md`. Full report and self-review: `docs/T2S_OVERNIGHT_REPORT.md`.
+**Design:** Qwen3-32B Q4_K_M, f16 KV, `-fa on -ngl 99`, YaRN flags (`--rope-scaling yarn --rope-scale 4 --yarn-orig-ctx 32768`) at every point, prompt of 4,527 tokens (60 s call cap), 1 discarded warm-up and 5 measured calls per point, anchor (65,792) re-measured every 3 grid points, order shuffled with seed 20260925. B = 47,865 MiB (llama-server free-memory figure; `vulkaninfo` heap budget 47,866 MiB).
+
+| n_ctx | starts ok | TTFT s median [IQR] | decode tok/s | max Shared MiB |
+|---|---|---|---|---|
+| 65,792 (4 anchors) | 5/5 | 31.97 [31.75, 32.09] | 4.6 | 35,751 |
+| 111,104 | 1/1 | 31.88 [31.87, 31.88] | 4.6 | 47,190 |
+| 117,248 to 125,440 (5 points) | 0/5 | none | none | none |
+
+### What the data show
+
+1. **No slowdown below the budget:** 1.00 [0.99, 1.00] at 111,104 against the 65,792 anchors, with 47,190 MiB of Shared Usage.
+2. **Above the budget the failure is loud:** five of five grid points from 117,248 to 125,440 exited with code 1 at start (`failed to allocate buffer for kv cache`). No silent slow regime and no wrong answers were produced at this grid (the 256-token boundary is in the A-mech section below).
+3. **YaRN confounds the ladder.** The YaRN check on the same 14,747-token prompts: 5 of 5 probes correct without YaRN, 4 of 5 with (art_03: 8.9 versus 33.6). The 4 of 5 at 111,104 is a YaRN effect.
+
+### Limits
+
+- One model; the 30B-A3B, 14B, 8B and 4B ladders were trimmed by the planner, as were 12 of the 32B items.
+- Prompts were 4,527 tokens, so the allocated KV was about 4% filled. Full-KV behavior is not measured (see the A-mech filled check).
+- One start per failing grid point. Timing rows used a RAPL package-power proxy gate only.
+
+---
+
+## evo-t2s overnight, Section B: the co-runner slowdown replicates on the 4B and the 8B, and package power does not explain it (2026-09-26)
+
+**Hardware arm:** evo-t2s only. **Sources:** `results/t2s_overnight_20260926T011744Z.jsonl`, hog affinity and iteration files, Sysman and Windows counter files. Table from `analysis/t2s_overnight_analysis.py`.
+**Design:** context 8,192, 7,368-token prompt, 1 warm-up and 5 measured calls per condition, `none` measured 10 times, co-runner (integer spin loop) pinned by affinity mask 5 s before the first call, order per model shuffled with the run seed. Qwen3-4B-2507 and Qwen3-8B. The PROCTHROTTLEMAX arm was not run (positive control failed in smoke: 44.93 W at cap 50 against 44.94 W at cap 100).
+
+| model | co-runner | TTFT slowdown [boot 95%] | decode slowdown | iGPU MHz | package W |
+|---|---|---|---|---|---|
+| 4B-2507 | e4 / p4 / nonp12 / all16 | 1.02 / 1.04 / 1.40 / 1.39 | 1.00 / 1.00 / 1.24 / 1.24 | 2500 / 2500 / 1650 / 1650 | 39.1 / 44.9 / 44.9 / 44.9 |
+| 8B | e4 / p4 / nonp12 / all16 | 1.05 / 1.06 / 1.42 / 1.43 | 1.00 / 1.01 / 1.20 / 1.20 | 2500 / 2450 / 1600 / 1600 | 41.1 / 44.9 / 44.9 / 44.9 |
+
+`none`: 18.20 s and 22.8 W (4B), 20.16 s and 25.8 W (8B). Every interval excludes 1.0 except the `none` reference.
+
+### What the data show
+
+1. **The slowdown replicates** (1.39x to 1.43x TTFT, 1.20x to 1.24x decode) on two more sizes and matches the earlier M3 figure of 1.42x.
+2. **The iGPU frequency falls to 1600 to 1650 MHz exactly when the slowdown appears.**
+3. **Package power is not the explanation on its own.** The 4 P-core co-runner sits at 44.9 W like the 12-core one but leaves the iGPU near 2500 MHz and costs only 1.04x to 1.06x. Across the five conditions the correlation of package W with iGPU MHz is -0.53 in each model.
+4. **What separates the conditions is which cores are busy:** the 12 E and LP-E cores cost 1.40x to 1.42x, the 4 E-cores 1.02x to 1.05x.
+
+### Limits
+
+- Two sizes, one family (Qwen3). One run per condition.
+- The thermal gate is a package-power proxy and it released by timeout in every co-runner condition (48 rows), so each measurement followed at least 120 s of load. No temperature was recorded (Sysman has no sensor), so thermal throttling is not ruled out.
+- Causal test not run; the mechanism claim in A-23 is downgraded to UNVERIFIED.
+
+---
+
+## evo-t2s overnight, Section C: zero and negative headroom did not slow TTFT; the one failure was the non-mmap arm at -1 GB (2026-09-26)
+
+**Hardware arm:** evo-t2s only. **Sources:** `results/t2s_overnight_20260926T011744Z.jsonl`, balloon logs and telemetry. Table from `analysis/t2s_overnight_analysis.py`.
+**Design:** headroom = free memory after the lock minus (weights + KV + compute), 8B at context 16,384 (12,588-token prompt) and 32B at 16,384 (4,527-token prompt); the balloon held the lock for the whole level (valve disabled, own Available sampler, level marked invalid if the balloon died; 0 of 6 levels invalid); arms `--load-mode mmap` and `--load-mode none` (the default `auto` behaves like `none` here); pairs per headroom in randomised order; anchor at +8 GB.
+
+| model | load mode | headroom GB | load s | TTFT s | decode tok/s | probes | max pages in/s | Available min MB |
+|---|---|---|---|---|---|---|---|---|
+| 8B | mmap | +8 | 5.6 | 55.7 | 9.33 | | 960 | 3,702 |
+| 8B | mmap | 0 | 19.9 | 56.5 | 8.67 | 5/5 | 1,152 | 113 |
+| 8B | mmap | -1 | 23.0 | 56.7 | 8.66 | 5/5 | 56,571 | 172 |
+| 8B | none | 0 | 7.7 | 56.8 | 8.54 | 5/5 | 25,082 | 50 |
+| 8B | none | -1 | failed after 1,115 s, Vulkan device lost (0xc0000409) | | | | | 1 |
+| 32B | none | 0 | 18.9 | 32.8 | 4.45 | 5/5 | 26,733 | 3 |
+
+### What the data show
+
+1. **TTFT was flat under the lock:** +1.4% to +2.0% of the +8 GB anchor at zero and -1 GB; the 32B at 3 MB available was 1.03x of its Section A anchors. Correctness held (5 of 5 probes in every cell that started).
+2. **Decode fell 7% to 8.5%** (9.33 to 8.54 to 8.67 tok/s), outside the 5% band: a small decode cost is not ruled out. One anchor, no repeats.
+3. **Paging happened (pages input up to 56,571 per second) without changing TTFT**, so the weight and KV traffic under pressure is at load, not in the timed prefill.
+4. **The load-mode arms differ only at load and only once:** at -1 GB the mmap arm loaded in 23 s and the non-mmap arm stalled for 18.6 minutes and lost the device. One observation each.
+
+### Limits
+
+- One cell per level (35 of the 40 planned 8B cells and all 14B and 32B cells but one were trimmed). The 32B has a single cell.
+- The mmap-off failure is one start and is UNVERIFIED as an effect of the load mode.
+- Headroom is defined against the model's own requirement, so levels are not comparable to the Available-memory levels S of Phase D.
+
+---
+
+## evo-t2s overnight, Section D: not run (2026-09-26)
+
+The SYCL section (`D_prepare` and three cells) was trimmed by the planner and never started. No SYCL claim is made. It is a candidate for the backfill added in commit 272cb43.
