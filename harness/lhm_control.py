@@ -10,6 +10,7 @@ Usage on evo-t2s: python lhm_control.py <path to LibreHardwareMonitorLib.dll> <o
 
 from __future__ import annotations
 
+import calendar
 import json
 import statistics as st
 import subprocess
@@ -21,7 +22,7 @@ DEPLOY = Path(__file__).resolve().parent
 sys.path.insert(0, str(DEPLOY))
 import t2s_m3_power_coupling as m3  # noqa: E402
 
-PKG_KEYS = ("package",)
+PKG_KEYS = ("package",)  # matched against the "Temperature | <hw> | <sensor>" key, sensor-name half
 
 
 def start_reader(dll, out):
@@ -35,7 +36,10 @@ def read(out):
         for l in Path(out).read_text(encoding="utf-8", errors="replace").splitlines():
             try:
                 d = json.loads(l)
-                d["t"] = time.mktime(time.strptime(d["ts"][:19], "%Y-%m-%dT%H:%M:%S")) - time.timezone
+                # Found broken on evo-x2, 2026-09-28: mktime(...) - time.timezone assumes the local zone's STANDARD
+                # offset and is wrong by an hour whenever DST is active, which silently moves the query window
+                # hours outside the sample period. The PS reader's timestamps are true UTC; parse them as such.
+                d["t"] = calendar.timegm(time.strptime(d["ts"][:19], "%Y-%m-%dT%H:%M:%S"))
                 rows.append(d)
             except Exception:
                 pass
@@ -46,7 +50,7 @@ def med_window(rows, t0, t1, key_filter):
     vals = []
     for r in rows:
         if t0 <= r["t"] <= t1:
-            for k, v in r["temps"].items():
+            for k, v in r["sensors"].items():
                 if key_filter(k):
                     vals.append(v)
     return st.median(vals) if vals else None
@@ -72,8 +76,8 @@ def main():
     time.sleep(3)
     m3.kill_tree(rd.pid)
     rows = read(out)
-    names = sorted({k for r in rows for k in r["temps"]})
-    is_pkg = lambda k: any(p in k.lower() for p in PKG_KEYS)
+    names = sorted({k for r in rows for k in r["sensors"]})
+    is_pkg = lambda k: k.startswith("Temperature |") and any(p in k.lower() for p in PKG_KEYS)
     idle = med_window(rows, t_idle1 - 40, t_idle1, is_pkg)
     load = med_window(rows, t_load1 - 40, t_load1, is_pkg)
     per_sensor = {}

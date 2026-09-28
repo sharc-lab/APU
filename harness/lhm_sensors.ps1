@@ -21,7 +21,7 @@ $c.IsNetworkEnabled = $false
 $c.IsControllerEnabled = $false
 $c.IsPsuEnabled = $false
 $c.Open()
-$wantedTypes = @('Temperature', 'Clock', 'Power', 'Load')
+$wantedTypes = @('Temperature', 'Clock', 'Power', 'Load', 'Data', 'SmallData')
 $t0 = [DateTime]::UtcNow
 try {
     while ($true) {

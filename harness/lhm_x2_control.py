@@ -22,6 +22,7 @@ Usage on evo-x2: python lhm_x2_control.py <path to LibreHardwareMonitorLib.dll> 
 
 from __future__ import annotations
 
+import calendar
 import json
 import statistics as st
 import subprocess
@@ -41,12 +42,17 @@ def start_reader(dll, out):
 
 
 def read_rows(out):
+    """The PS reader writes true UTC timestamps ('o' format, trailing Z). Must parse as UTC, not
+    time.mktime(...) - time.timezone, which assumes the local zone's STANDARD offset and is wrong by an hour
+    whenever DST is active (confirmed live on evo-x2 on 2026-09-28: Pacific Standard Time reported as the zone ID
+    while PDT, UTC-7, was actually in effect, which silently moved every query window hours outside the ~4-minute
+    sample period and made every med_window() call return None)."""
     rows = []
     if Path(out).exists():
         for l in Path(out).read_text(encoding="utf-8", errors="replace").splitlines():
             try:
                 d = json.loads(l)
-                d["t"] = time.mktime(time.strptime(d["ts"][:19], "%Y-%m-%dT%H:%M:%S")) - time.timezone
+                d["t"] = calendar.timegm(time.strptime(d["ts"][:19], "%Y-%m-%dT%H:%M:%S"))
                 rows.append(d)
             except Exception:
                 pass
@@ -105,8 +111,12 @@ def main():
     time.sleep(3)
 
     rows = read_rows(out)
-    is_cpu_temp = lambda k: k.startswith("Temperature |") and ("cpu" in k.lower() or "package" in k.lower())
-    is_cpu_power = lambda k: k.startswith("Power |") and ("cpu" in k.lower() or "package" in k.lower())
+    # Matched to the exact sensor names LHM exposes on this machine (confirmed live, see docs/X2_CHANGELOG.md): the
+    # CPU/GPU are one die ("AMD RYZEN AI MAX+ 395 w/ Radeon 8060S" hardware entry, plus a separate "AMD Radeon(TM)
+    # 8060S Graphics" entry), so "cpu"/"package" alone is not in the temperature sensor's name -- match by hardware
+    # name (ryzen vs radeon) instead of a loose "cpu"/"gpu" substring on the whole key.
+    is_cpu_temp = lambda k: k.startswith("Temperature |") and "ryzen" in k.lower()
+    is_cpu_power = lambda k: k.startswith("Power |") and "ryzen" in k.lower() and "package" in k.lower()
     cpu_temp_idle = med_window(rows, t_idle1 - 40, t_idle1, is_cpu_temp)
     cpu_temp_load = med_window(rows, t_load1 - 40, t_load1, is_cpu_temp)
     cpu_pw_idle = med_window(rows, t_idle1 - 40, t_idle1, is_cpu_power)
@@ -160,10 +170,10 @@ def main():
         mem_out = ps(f'(Get-Counter -Counter "\\GPU Process Memory(pid_{srv_pid}_*)\\Dedicated Usage","\\GPU Process Memory(pid_{srv_pid}_*)\\Shared Usage" '
                      f'-ErrorAction SilentlyContinue).CounterSamples | Select Path,CookedValue | ConvertTo-Json -Compress')
         rows = read_rows(out)
-        is_gpu_clock = lambda k: k.startswith("Clock |") and "gpu" in k.lower()
-        is_gpu_power = lambda k: k.startswith("Power |") and "gpu" in k.lower()
-        is_gpu_temp = lambda k: k.startswith("Temperature |") and "gpu" in k.lower()
-        is_gpu_mem = lambda k: ("gpu" in k.lower()) and ("memory" in k.lower() or "vram" in k.lower())
+        is_gpu_clock = lambda k: k.startswith("Clock |") and "radeon" in k.lower() and "gpu core" in k.lower()
+        is_gpu_power = lambda k: k.startswith("Power |") and "radeon" in k.lower() and "gpu core" in k.lower()
+        is_gpu_temp = lambda k: k.startswith("Temperature |") and "radeon" in k.lower()
+        is_gpu_mem = lambda k: "radeon" in k.lower() and ("memory" in k.lower() or "vram" in k.lower())
         clk_idle = med_window(rows, t_gpu_idle0, t_gpu_idle1, is_gpu_clock)
         pw_idle = med_window(rows, t_gpu_idle0, t_gpu_idle1, is_gpu_power)
         clk_load = med_window(rows, t_call0, t_call1, is_gpu_clock)
