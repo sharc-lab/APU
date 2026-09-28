@@ -23,6 +23,7 @@ import zlib
 from pathlib import Path
 
 import t2s_lab as L
+import host_config as hc
 import run_provenance as rp
 from t2s_lab import log, ps, utc_iso
 
@@ -67,7 +68,7 @@ class Lab:
         self.stem = args.resume or f"{getattr(args, 'stem_prefix', 't2s_overnight')}_{time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())}"
         self.prefix = str(self.out_dir / self.stem)
         self.rows = L.Jsonl(self.prefix + ".jsonl")
-        self.tele = L.Telemetry(self.prefix)
+        self.tele = L.Telemetry(self.prefix, gpu_vendor=getattr(args, "gpu_vendor", None))
         self.git_sha = prov["git_head"]
         self.script_sha = next((f["actual_git_blob_sha"] for f in prov["files"] if f["path"] == "t2s_overnight.py"), None)
         self.idle_temp = None
@@ -1040,15 +1041,16 @@ def main():
         keep = set(args.models.split(","))
         for k in [k for k in MODEL_FILES if k not in keep]:
             del MODEL_FILES[k]
-    if socket.gethostname().upper() != "EVO-T2S":
-        raise SystemExit("EVO-T2S only")
+    host_cfg = hc.require_host(socket.gethostname())
     q = ps("try { (& query.exe user 2>&1) -join \"`n\" } catch { $_.Exception.Message }")
     if "No User exists" not in q:
         raise SystemExit("another interactive session is logged in: " + q)
     prov = rp.verify_deployed_blobs(DEPLOY, args.expect_blobs)
     if args.plan_only:
         return plan_only(args, prov)
+    args.gpu_vendor = host_cfg["gpu_vendor"]
     lab = Lab(args, prov)
+    lab.identity["hw_id"] = host_cfg["hw_id"]
     lab.resources["powercap"] = L.PowerCap()
     Path(lab.prefix + "_manifest.json").write_text(json.dumps({
         "launch_utc": utc_iso(), "deadline_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(lab.deadline_ts)),

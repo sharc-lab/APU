@@ -195,12 +195,29 @@ while ($true) {
 """
 
 
+class _NoSysman:
+    """Stand-in for lz.Sysman() on a non-Intel GPU: never attempts zesInit (which is Intel-only anyway and already
+    fails safe there), so the reason recorded is explicit (gpu_vendor) rather than whatever zesInit happened to
+    return. available is False and sample() is always []; callers already treat both the same as a real failed init."""
+
+    def __init__(self, gpu_vendor):
+        self.available = False
+        self.errors = [f"vendor_not_intel: gpu_vendor={gpu_vendor}"]
+        self.freq_handles, self.power_handles, self.temp_handles = [], [], []
+        self.freq_props, self.power_props = [], []
+        self.n_drivers = self.n_devices = 0
+
+    def sample(self):
+        return []
+
+
 class Telemetry:
     """Sysman (1 s, in-process), Windows system counters (streaming), per-PID GPU memory (loop), own Available sampler."""
 
-    def __init__(self, prefix):
+    def __init__(self, prefix, gpu_vendor=None):
         self.prefix = prefix
-        self.sysman = lz.Sysman()
+        self.gpu_vendor = gpu_vendor
+        self.sysman = lz.Sysman() if (gpu_vendor is None or gpu_vendor.lower() == "intel") else _NoSysman(gpu_vendor)
         self.sys_ring, self.win_ring, self.gpu_ring, self.avail_ring = Ring(), Ring(), Ring(), Ring()
         self._procs = []
         self._stop = threading.Event()

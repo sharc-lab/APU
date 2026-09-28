@@ -43,6 +43,7 @@ from pathlib import Path
 import run_provenance as rp
 import server_guard as sg
 import t2s_lab as L
+import host_config as hc
 import t2s_overnight as ov
 import t2s_queue as tq
 from t2s_lab import log, ps, utc_iso
@@ -99,9 +100,9 @@ def parse_extra(srv):
     return d
 
 
-def make_lab(args, prov):
+def make_lab(args, prov, gpu_vendor=None):
     ns = types.SimpleNamespace(smoke=False, deadline_h=args.deadline_h, resume=args.resume, stem_prefix="t2s_amech",
-                               only=None, reserve_min=0, no_cap_arm=True, max_items=0)
+                               only=None, reserve_min=0, no_cap_arm=True, max_items=0, gpu_vendor=gpu_vendor)
     lab = ov.Lab(ns, prov)
     lab.resources["powercap"] = None
     return lab
@@ -503,13 +504,13 @@ def main():
     ap.add_argument("--force-phase", action="append", default=[], help="re-run this phase even if AM_phase_<name> is already marked done (its own item_done markers inside the phase still skip completed items)")
     ap.add_argument("--bisect-models", default="qwen3-32b,qwen3-8b,qwen3-30b-a3b-2507,llama31-8b")
     args = ap.parse_args()
-    if socket.gethostname().upper() != "EVO-T2S":
-        raise SystemExit("EVO-T2S only")
+    host_cfg = hc.require_host(socket.gethostname())
     q = ps("try { (& query.exe user 2>&1) -join \"`n\" } catch { $_.Exception.Message }")
     if "No User exists" not in q:
         raise SystemExit("another interactive session is logged in: " + q)
     prov = rp.verify_deployed_blobs(ov.DEPLOY, args.expect_blobs)
-    lab = make_lab(args, prov)
+    lab = make_lab(args, prov, gpu_vendor=host_cfg["gpu_vendor"])
+    lab.identity["hw_id"] = host_cfg["hw_id"]
     for ph in args.force_phase:
         lab.done.discard(f"AM_phase_{ph}")
     phases = args.phases.split(",")

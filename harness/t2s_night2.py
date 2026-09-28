@@ -43,6 +43,7 @@ from pathlib import Path
 
 import run_provenance as rp
 import t2s_lab as L
+import host_config as hc
 import t2s_overnight as ov
 import t2s_queue as tq
 from t2s_lab import log, ps, utc_iso
@@ -111,9 +112,9 @@ def rapl_pp01():
     return {"pp0_w": pp0, "pp1_w": pp1, "available": True, "instances_seen": paths}
 
 
-def make_lab(args, prov):
+def make_lab(args, prov, gpu_vendor=None):
     ns = types.SimpleNamespace(smoke=False, deadline_h=args.deadline_h, resume=args.resume, stem_prefix="t2s_night2",
-                               only=None, reserve_min=20, no_cap_arm=True, max_items=0)
+                               only=None, reserve_min=20, no_cap_arm=True, max_items=0, gpu_vendor=gpu_vendor)
     lab = ov.Lab(ns, prov)
     return lab
 
@@ -414,13 +415,13 @@ def main():
     ap.add_argument("--phases", default=PHASE_ORDER)
     ap.add_argument("--no-auto-cut", action="store_true", help="do not drop c1b even if the estimate exceeds the deadline")
     args = ap.parse_args()
-    if socket.gethostname().upper() != "EVO-T2S":
-        raise SystemExit("EVO-T2S only")
+    host_cfg = hc.require_host(socket.gethostname())
     q = ps("try { (& query.exe user 2>&1) -join \"`n\" } catch { $_.Exception.Message }")
     if "No User exists" not in q:
         raise SystemExit("another interactive session is logged in: " + q)
     prov = rp.verify_deployed_blobs(ov.DEPLOY, args.expect_blobs)
-    lab = make_lab(args, prov)
+    lab = make_lab(args, prov, gpu_vendor=host_cfg["gpu_vendor"])
+    lab.identity["hw_id"] = host_cfg["hw_id"]
     lab.resources["powercap"] = None
     if args.overnight_table and Path(args.overnight_table).exists():
         lab.table = json.load(open(args.overnight_table, encoding="utf-8"))
