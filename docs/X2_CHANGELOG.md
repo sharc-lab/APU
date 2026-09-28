@@ -232,3 +232,41 @@ Dedicated Usage from 939 MB idle to 42.6 GB (see the 2c inventory notes above), 
 reserved/committed VRAM segment size for the process rather than bytes actually holding model data, while LHM's
 sensor is plausibly closer to genuine usage. Not resolved further; both sources are usable individually, just not
 cross-validated against each other at 5%.
+
+---
+
+## 2026-09-28 -- Qwen3-14B download stall: process-level restart did not fix it, replaced the downloader
+
+The Qwen3-14B download stuck at exactly 52,879,360 bytes for several hours, `curl.exe` (PID 9908) alive the whole
+time, 0 bytes/s. Killed only that PID (not the `dl.ps1` parent, PID 3052) as an initial fix attempt: the retry loop
+did relaunch a fresh `curl.exe` (PID 25340) within seconds, but the file still did not grow after several more
+minutes. Diagnosed further (read-only): the new curl's only TCP connections were two `127.0.0.1` loopback sockets,
+not anything to huggingface.co; `netsh winhttp show proxy` confirmed no system proxy; a fresh, isolated
+`curl -r 0-1048576` range request to the same URL completed in 0.19s (302 redirect), so basic outbound HTTPS to HF
+was not broken in general. Root cause of the stall itself was not identified -- decided to stop debugging and replace
+the mechanism instead, per the user's instruction.
+
+**Fix:** added `--speed-limit 100000 --speed-time 120 --retry 10 --retry-delay 10 --retry-all-errors` to every curl
+call in `scripts/x2_download_models.ps1` (commit e2eb6ee), so curl itself aborts and retries any transfer that drops
+below 100 KB/s for 2 minutes, instead of relying on an external process-level restart (which this incident showed
+does not reliably get a stuck transfer moving again).
+
+**Replacement sequence, in order:**
+1. Killed `dl.ps1` (PID 3052) and its `curl.exe` child (PID 25340) -- confirmed via `Get-CimInstance Win32_Process`
+   afterwards that no `dl.ps1` or `curl.exe` process remained.
+2. Deleted the partial `C:\apu\models\Qwen3-14B-Q4_K_M.gguf` (52,879,360 bytes, confirmed size read immediately
+   before deletion).
+3. Deployed the fixed script: extracted the committed blob (`git show HEAD:scripts/x2_download_models.ps1` at commit
+   e2eb6ee), scp'd to `C:\apu\dl_new.ps1`, verified byte-exact via SHA-256
+   (`a49e6992270a1f9adedb88b11a1b63e7c5e266932a786382e691e1eccfaac97a` matched on both sides), archived the old script
+   to `C:\apu\dl.ps1.old_20260928`, moved the new one into place as `C:\apu\dl.ps1`.
+4. Launched once via WMI (`powershell.exe -WindowStyle Minimized -NoProfile -ExecutionPolicy Bypass -File
+   C:\apu\dl.ps1`), confirmed exactly one `dl.ps1` process running (PID 2744) via a process listing filtered on
+   `CommandLine -like '*dl.ps1*'`.
+5. Confirmed real progress: `Qwen3-14B-Q4_K_M.gguf` size at t=0 (a few seconds after launch) 42,319,872 bytes; t=60s
+   680,869,888 bytes; t=120s 1,383,284,736 bytes -- roughly 11 MB/s sustained, well above the mutex-protected
+   downloader's own new 100 KB/s stall floor. No need for the Hugging Face CLI fallback path.
+
+Files at this point per `sha256.txt` (mid-run, before the final dedupe pass): qwen3-4b, Qwen3-8B and
+Meta-Llama-3.1-8B-Instruct already complete and hash-verified; Qwen3-14B in progress under the new downloader;
+Qwen3-30B-A3B, Qwen3-32B and Llama-3.3-70B still queued.
