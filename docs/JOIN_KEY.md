@@ -51,6 +51,14 @@ does not expose those Energy Meter instances), `rapl_available` (whether any suc
 `b1_positive_control` record gives the one-shot Sysman throttle-reason check for the `all16` condition (on evo-t2s;
 superseded by the condition's own call-row median on evo-x2 and any later evo-t2s run, see the note below).
 
+C1 cells emit a `c1_responsiveness` record (`item_id`, `mem_headroom_gb`, `mmap`, `resp_median_s`, `resp_max_s`,
+`resp_n`) once per cell: an in-harness local interactive-latency probe (`ResponsivenessSampler`, `t2s_night2.py`)
+times a trivial `python -c "pass"` subprocess every 30 s with `time.monotonic()`, running from right after the
+balloon confirms the memory lock to right before it releases. It is not attached to the cell's own call/start rows
+(the JSONL is append-only and the final median/max are only known once the cell ends) -- join on `item_id`. A
+matching external, SSH-based probe from the controller (`scripts/t2s_responsiveness_probe.py`) writes
+`results/t2s_responsiveness_<stamp>.jsonl` independently and is not part of this schema.
+
 Every row also carries `igpu_power_w` and `igpu_temp_c_max`, median/max over the call window. On evo-t2s these are
 null (Level Zero Sysman exposes iGPU frequency and package power but not iGPU power or any temperature). On evo-x2
 they come from a persistent LibreHardwareMonitor reader fed into the same `Telemetry.sys_ring` rows Sysman would use

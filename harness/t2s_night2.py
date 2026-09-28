@@ -37,6 +37,9 @@ import json
 import random
 import socket
 import statistics as st
+import subprocess
+import sys
+import threading
 import time
 import types
 from pathlib import Path
@@ -47,6 +50,8 @@ import host_config as hc
 import t2s_overnight as ov
 import t2s_queue as tq
 from t2s_lab import log, ps, utc_iso
+
+PYTHON = sys.executable
 
 SEED = 20260927
 CTX_B = 8192
@@ -270,6 +275,44 @@ def phase_b3(lab):
         lab.resources["server"] = None
 
 
+class ResponsivenessSampler:
+    """Local interactive-latency probe for one C1 cell: every 30 s, times a trivial local subprocess
+    (python -c "pass") with time.monotonic(). Local, not SSH, because this runs inside the harness process on
+    evo-t2s itself -- it measures whether the machine is responsive to a new process launch under the memory lock,
+    the same class of thing the external laptop-side SSH probe measures from outside. Started right after the
+    balloon confirms the lock and stopped right before the balloon is released, so it spans the whole cell."""
+
+    def __init__(self):
+        self.samples = []
+        self._stop = threading.Event()
+        self._thread = None
+
+    def _loop(self):
+        while not self._stop.is_set():
+            t0 = time.monotonic()
+            try:
+                subprocess.run([PYTHON, "-c", "pass"], timeout=25)
+            except Exception:
+                pass
+            self.samples.append(time.monotonic() - t0)
+            self._stop.wait(30.0)
+
+    def start(self):
+        self._thread = threading.Thread(target=self._loop, daemon=True)
+        self._thread.start()
+
+    def stop(self):
+        self._stop.set()
+        if self._thread is not None:
+            self._thread.join(timeout=5)
+
+    def summary(self):
+        if not self.samples:
+            return {"resp_median_s": None, "resp_max_s": None, "resp_n": 0}
+        return {"resp_median_s": round(st.median(self.samples), 3), "resp_max_s": round(max(self.samples), 3),
+                "resp_n": len(self.samples)}
+
+
 # ---------------------------------------------------------------- C1
 def _phase_c1(lab, spec, label):
     if not lab.table:
@@ -304,17 +347,25 @@ def _phase_c1(lab, spec, label):
             b.stop()
             lab.item_done(item)
             continue
-        srv = L.Server(lab, mi, n_ctx, mmap=arm, tag=item)
-        lab.resources["server"] = srv
-        info = srv.start(timeout=1800)
-        ov.start_row(lab, srv, mi, "C1", item, info, {"mem_headroom_gb": lv, "need_mib": need})
-        if info.get("ok"):
-            prompt = ov.prompt_for(srv, fill)
-            n_tok = srv.tokenize(prompt)
-            ov.measured_sequence(lab, srv, mi, "C1", item, prompt, n_tok, extra={}, mem_headroom_gb=lv)
-            ov.probe_sequence(lab, srv, mi, "C1", item, fill, extra={}, mem_headroom_gb=lv)
-        srv.stop()
-        lab.resources["server"] = None
+        resp = ResponsivenessSampler()
+        resp.start()
+        try:
+            srv = L.Server(lab, mi, n_ctx, mmap=arm, tag=item)
+            lab.resources["server"] = srv
+            info = srv.start(timeout=1800)
+            ov.start_row(lab, srv, mi, "C1", item, info, {"mem_headroom_gb": lv, "need_mib": need})
+            if info.get("ok"):
+                prompt = ov.prompt_for(srv, fill)
+                n_tok = srv.tokenize(prompt)
+                ov.measured_sequence(lab, srv, mi, "C1", item, prompt, n_tok, extra={}, mem_headroom_gb=lv)
+                ov.probe_sequence(lab, srv, mi, "C1", item, fill, extra={}, mem_headroom_gb=lv)
+            srv.stop()
+            lab.resources["server"] = None
+        finally:
+            resp.stop()
+            rsum = resp.summary()
+            lab.emit({"record": "c1_responsiveness", "item_id": item, "mem_headroom_gb": lv, "mmap": arm, **rsum, "ts_utc": utc_iso()})
+            log(f"c1 responsiveness {item}: {rsum}")
         b.stop()
         lab.item_done(item)
 
