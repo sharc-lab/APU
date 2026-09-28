@@ -380,3 +380,18 @@ hog is running. `none` calls show `pkg_power_proxy` at `thermal_wait_s` 20 (10 o
 (duty-cycle sweep) uses the same gate call path and is expected to show the identical pattern under its nonp12
 co-runner. Both sections still measured what they measured: no row is invalid, the extra wait only added time between
 calls. This is a data-quality note about the gate, not a correctness problem with the throughput numbers.
+
+---
+
+## night2 B1 positive-control note (2026-09-28)
+
+The `b1_positive_control` record for the `all16` condition (one per model) was, before commit, a fresh live Sysman
+sample taken after `measured_with_extra` returned, not a value from the condition's own calls. That sample is not a
+valid control: for `B1_qwen3-8b_all16`, taken 1.5 s after that condition's last call ended, it read 2500 MHz and
+throttle_reasons 0, while that same call had just measured 1650 MHz with throttle_reasons 2 (BURST_PWR_CAP) during its
+own window. In that 1.5 s gap the GPU boosted back to its idle clock once decoding stopped. The all16 call rows
+themselves are valid (igpu_mhz and igpu_throttle_bits are windowed over each call's own [t_start, t_end+1s], the same
+way as every other call), so the slowdown finding for `t2s_night2_20260928T004924Z.jsonl` B1 does not change. Every
+`b1_positive_control` record in that file should be read as sampled while the GPU was briefly idle between the
+condition and the next one, not a valid check of the condition itself. Fixed to use the median `igpu_mhz` and the
+union of `igpu_throttle_bits` from the condition's own call rows.

@@ -143,15 +143,24 @@ def measured_with_extra(lab, srv, mi, section, item_id, prompt, n_tok, base_extr
     return out
 
 
-def positive_control_throttle(lab, tag):
-    s = lab.tele.sysman.sample()
-    f = next((r for r in s if r.get("kind") == "freq" and r.get("domain") == 0), None)
-    rec = {"record": "b1_positive_control", "tag": tag, "ts_utc": utc_iso()}
-    if not lab.tele.sysman.available or f is None:
-        rec.update({"available": False, "note": "Sysman returned nothing for this sample"})
+def positive_control_throttle(lab, tag, calls):
+    """Uses the igpu_mhz and igpu_throttle_bits already measured DURING the condition's own calls (do_call windows
+    Telemetry.metrics over [t_start, t_end+1s]), not a fresh live Sysman sample. A live sample taken after
+    measured_with_extra returns is not a valid control: on 2026-09-28 it read 2500 MHz and throttle_reasons 0 for
+    qwen3-8b all16 only 1.5 s after that condition's last call ended at 1650 MHz -- the GPU had already boosted back
+    to idle in that gap. See docs/RESULT_PROVENANCE.md."""
+    mhz = [r.get("igpu_mhz") for r in calls if r and r.get("igpu_mhz") is not None]
+    bits = set()
+    for r in calls:
+        for b in (r.get("igpu_throttle_bits") or []):
+            bits.add(b)
+    rec = {"record": "b1_positive_control", "tag": tag, "ts_utc": utc_iso(), "source": "median over the condition's own call rows"}
+    if not mhz:
+        rec.update({"available": False, "note": "no igpu_mhz on any call row for this condition"})
     else:
-        rec.update({"available": True, "actual_mhz": f.get("actual_mhz"), "throttle_reasons": f.get("throttle_reasons"),
-                    "pass": bool(f.get("actual_mhz") and f["actual_mhz"] <= 1700 and f.get("throttle_reasons"))})
+        med = st.median(mhz)
+        rec.update({"available": True, "actual_mhz": med, "throttle_reasons": sorted(bits),
+                    "pass": bool(med <= 1700 and bits)})
     lab.emit(rec)
     log(f"positive control ({tag}): {rec}")
 
@@ -182,9 +191,9 @@ def phase_b1(lab):
             if mask is not None:
                 hog, report, aff = L.m3.start_hog(f"night2_{item}", mask, Path(lab.prefix).parent, Path(lab.prefix).name + f"_{item}")
                 time.sleep(5)
-            measured_with_extra(lab, srv, mi, "B1", item, prompt, n_tok, {"cpu_mask": hex(mask) if mask else None}, co)
+            calls = measured_with_extra(lab, srv, mi, "B1", item, prompt, n_tok, {"cpu_mask": hex(mask) if mask else None}, co)
             if co == "all16":
-                positive_control_throttle(lab, item)
+                positive_control_throttle(lab, item, calls)
             if hog is not None:
                 L.m3.kill_tree(hog.pid)
                 time.sleep(3)

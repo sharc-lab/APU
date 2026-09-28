@@ -174,7 +174,7 @@ def do_call(lab, srv, mi, section, item_id, prompt, n_tok, *, warmup, rep, extra
             score, det = None, f"scorer_error:{e}"
         r.update({"score": score, "score_detail": det, "probe_id": probe["id"]})
     lab.emit(r)
-    res.update({"pkg_power_w": m["pkg_power_w"], "igpu_mhz": m["igpu_mhz"]})
+    res.update({"pkg_power_w": m["pkg_power_w"], "igpu_mhz": m["igpu_mhz"], "igpu_throttle_bits": m["igpu_throttle_bits"]})
     if probe is not None:
         res["score"] = r.get("score")
     return res
