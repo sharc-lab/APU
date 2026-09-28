@@ -17,6 +17,7 @@ HOSTS = {
         "deploy_dir": r"C:\apu\ovn",
         "models_dir": r"C:\apu\models",
         "gpu_vendor": "intel",
+        "ssh_host": "sharc@100.72.40.24",
     },
     "EVO-X2": {
         "hw_id": "evo-x2",
@@ -25,8 +26,13 @@ HOSTS = {
         "deploy_dir": r"C:\apu\ovn",
         "models_dir": r"C:\apu\models",
         "gpu_vendor": "amd",
+        "ssh_host": "Ritz@100.118.33.76",
     },
 }
+
+# Controller-side alias -> HOSTS key, for scripts/deploy_evo.py's --host flag (a short name is easier to type than the
+# hostname the remote machine reports).
+ALIASES = {"evo-t2s": "EVO-T2S", "t2s": "EVO-T2S", "evo-x2": "EVO-X2", "x2": "EVO-X2"}
 
 
 def require_host(hostname: str) -> dict:
