@@ -80,6 +80,12 @@ class _StubTele:
         return None
 
 
+class _StubScorers:
+    @staticmethod
+    def score(probe_dict, output):
+        return 1.0, "stub_score"
+
+
 class StubLab:
     """Enough of t2s_overnight.Lab's public surface for a phase function to run end to end. .rows collects every
     emitted row so a test can assert on axis tags, item_ids, section labels, etc."""
@@ -95,6 +101,7 @@ class StubLab:
         self.table = {}
         self.prefix = "C:\\apu\\ovn\\results\\stub_dryrun"
         self.tele = _StubTele()
+        self.scorers = _StubScorers()
 
     def check(self):
         pass

@@ -50,6 +50,7 @@ import host_config as hc
 import t2s_overnight as ov
 import t2s_queue as tq
 from t2s_lab import log, ps, utc_iso
+from stage_c_position_pressure import left_truncate as sc_left_truncate  # R1 check set: same char-truncation as stage C
 
 PYTHON = sys.executable
 
@@ -83,6 +84,17 @@ C1_SPEC = C1_SPEC_8B + C1_SPEC_REST
 R1_SPEED_MODELS = ["qwen3-8b", "qwen3-14b", "qwen3-32b", "llama-3.3-70b"]
 R1_SPEED_LENGTHS = [1024, 2048, 4096, 8192, 16384]
 R1_SPEED_CTX = 20480  # fits the longest sweep point (16384) plus headroom for the 128-token completion
+
+# R1 quality-side check set (Addendum v3, item 2): the exact Fig 6.1 spec in docs/PAPER_OUTLINE.md Section 6, ported
+# onto the current lab/guard (see phase_r1_check below), run only on evo-t2s's check-set models -- the full ladder
+# runs on evo-x2 instead (docs/CLAIMS_LEDGER.md J-01).
+R1_CHECK_MODELS = ["qwen3-8b", "qwen3-14b"]
+R1_CHECK_PROBE_IDS = ["rag_01", "rag_02", "rag_05", "sea_04", "sea_01"]
+R1_CHECK_RATIOS = [1.20, 1.00, 0.85, 0.70, 0.55, 0.40]
+R1_CHECK_ARMS = ["LATE", "EARLY"]
+R1_CHECK_REPS = 3
+R1_CHECK_FILLER = 4000
+R1_CHECK_CTX = 8192
 
 
 def per_core_perf():
@@ -384,6 +396,87 @@ def phase_r1_speed(lab):
         lab.resources["server"] = None
 
 
+# ---------------------------------------------------------------- R1 check set (Fig 6.1 quality side)
+def load_r1_check_probes():
+    """Read-only load of the 5 named probes from evaluation/probes/segments.jsonl -- never writes to that directory,
+    per the standing rule."""
+    segs = {}
+    for l in (L.PROBES_DIR / "segments.jsonl").read_text(encoding="utf-8").splitlines():
+        if l.strip():
+            d = json.loads(l)
+            segs[d["id"]] = d
+    missing = [pid for pid in R1_CHECK_PROBE_IDS if pid not in segs]
+    if missing:
+        raise RuntimeError(f"R1 check-set probes missing from segments.jsonl: {missing}")
+    return [segs[pid] for pid in R1_CHECK_PROBE_IDS]
+
+
+def _r1_arm_prompt(arm, filler, artifact, question):
+    if arm == "LATE":
+        return f"{filler}\n\n{artifact}\n\n{question}"
+    return f"{artifact}\n\n{filler}\n\n{question}"
+
+
+def phase_r1_check(lab):
+    """R1 quality-side check set (Addendum v3): 5 probes x 6 budget ratios x 2 position arms x 3 reps = 180 calls per
+    model, ported from harness/fig61_stagec_sweep.py's raw-HTTP implementation onto the current L.Server/do_call
+    machinery so it gets the stale-server guard and thermal gate instead of talking to a hardcoded port directly.
+    Same truncation function (stage_c_position_pressure.left_truncate), same filler (4000 tokens, F-NUM, seed=42),
+    same budget-ratio/arm/positive-control definitions as the original script and docs/PAPER_OUTLINE.md Section 6.
+    Every row tagged axis="quality"."""
+    probes = load_r1_check_probes()
+    for mid in R1_CHECK_MODELS:
+        mi = lab.models.get(mid)
+        if mi is None:
+            continue
+        item0 = f"R1check_{mid}_start"
+        srv = L.Server(lab, mi, R1_CHECK_CTX, tag=item0)
+        lab.resources["server"] = srv
+        info = srv.start(timeout=1800)
+        ov.start_row(lab, srv, mi, "R1check", item0, info, {"axis": "quality"})
+        if not info.get("ok"):
+            srv.stop()
+            lab.resources["server"] = None
+            continue
+        filler = L.ctx_mod.build_filler(R1_CHECK_FILLER, seed=42, count_fn=srv.tokenize)
+        full_tokens_cache = {p["id"]: srv.tokenize(_r1_arm_prompt("LATE", filler, p["artifact"].strip(), p["question"].strip()))
+                             for p in probes}
+        for ratio in R1_CHECK_RATIOS:
+            for probe in probes:
+                pid = probe["id"]
+                artifact, question = probe["artifact"].strip(), probe["question"].strip()
+                full_tokens = full_tokens_cache[pid]
+                target_tokens = round(full_tokens * ratio)
+                truncating = ratio < 1.0
+                intended = min(target_tokens, full_tokens)
+                for arm in R1_CHECK_ARMS:
+                    for rep in range(R1_CHECK_REPS):
+                        item = f"R1check_{mid}_{pid}_{ratio}_{arm}_{rep}"
+                        if item in lab.done:
+                            continue
+                        lab.check()
+                        full_prompt = _r1_arm_prompt(arm, filler, artifact, question)
+                        prompt = sc_left_truncate(full_prompt, full_tokens, target_tokens) if truncating else full_prompt
+                        n_tok = srv.tokenize(prompt)
+                        chars_dropped = len(full_prompt) - len(prompt)
+                        art_len = len(artifact)
+                        if arm == "EARLY" and truncating and art_len > 0:
+                            art_frac = max(0.0, 1.0 - min(chars_dropped, art_len) / art_len)
+                        else:
+                            art_frac = 1.0
+                        pc_ok = abs(n_tok - intended) / max(intended, 1) <= 0.05
+                        probe_dict = {"id": pid, "scorer_type": probe["scorer_type"], "expected": probe["expected"]}
+                        ov.do_call(lab, srv, mi, "R1check", item, prompt, n_tok, warmup=False, rep=rep, max_tokens=128,
+                                   ignore_eos=False, kind="call", probe=probe_dict,
+                                   extra={"axis": "quality", "budget_ratio": ratio, "arm": arm, "full_tokens": full_tokens,
+                                          "target_tokens": target_tokens, "truncating": truncating,
+                                          "chars_dropped": chars_dropped, "artifact_fraction_retained": round(art_frac, 4),
+                                          "intended_budget_tokens": intended, "positive_control_ok": pc_ok})
+                        lab.item_done(item)
+        srv.stop()
+        lab.resources["server"] = None
+
+
 class ResponsivenessSampler:
     """Local interactive-latency probe for one C1 cell: every 30 s, times a trivial local subprocess
     (python -c "pass") with time.monotonic(). Local, not SSH, because this runs inside the harness process on
@@ -533,10 +626,11 @@ def phase_perfboost(lab):
         log(f"PERFBOOSTMODE restore: {rep}")
 
 
-PRIO = {"b1": 1, "b2": 2, "c1": 3, "b3": 4, "c1b": 5, "b4": 6, "b4_32b": 7, "b4_replicate": 8, "r1_speed": 10, "perfboost": 9}
+PRIO = {"b1": 1, "b2": 2, "c1": 3, "b3": 4, "c1b": 5, "b4": 6, "b4_32b": 7, "b4_replicate": 8, "r1_speed": 10,
+        "r1_check": 11, "perfboost": 9}
 PHASE_FN = {"b1": phase_b1, "b2": phase_b2, "c1": phase_c1, "b3": phase_b3, "c1b": phase_c1b, "b4": phase_b4,
            "b4_32b": phase_b4_32b, "b4_replicate": phase_b4_replicate, "r1_speed": phase_r1_speed,
-           "perfboost": phase_perfboost}
+           "r1_check": phase_r1_check, "perfboost": phase_perfboost}
 PHASE_ORDER = "b1,b2,c1,b3,c1b,perfboost"
 
 
@@ -635,6 +729,11 @@ def estimate_hours(lab, overheads=None):
             continue  # not on this machine / not downloaded yet
         s += load_s(mid) + sum(4 * call_s(mid, tgt) for tgt in R1_SPEED_LENGTHS)  # 1 warm-up + 3 measured, per length
     est["r1_speed"] = s / 3600
+    s = 0.0
+    for mid in R1_CHECK_MODELS:
+        n_calls = len(R1_CHECK_PROBE_IDS) * len(R1_CHECK_RATIOS) * len(R1_CHECK_ARMS) * R1_CHECK_REPS  # 180
+        s += load_s(mid) + n_calls * call_s(mid, R1_CHECK_FILLER)
+    est["r1_check"] = s / 3600
     return est
 
 
