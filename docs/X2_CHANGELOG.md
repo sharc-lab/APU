@@ -218,3 +218,17 @@ output is quoted above (its own printed JSON has no timestamp field, but the que
 Durations measured entirely on-machine (e.g. the LHM control script's own idle/load windows, all computed from
 `time.time()` calls on the same clock) are internally consistent and unaffected; only comparisons against another
 machine's clock or against the true wall-clock time are off by the offset above.
+
+---
+
+## 2026-09-28 -- GPU memory cross-check re-run after the PID fix: both sources now read real numbers, but disagree
+
+**srv_pid 21680 (the real llama-server.exe PID this time).** LHM `GPU Memory Used`: 32,258.7 MiB. Windows
+`\GPU Process Memory(pid_21680_*)`: Dedicated 39,788.8 MiB + Shared 574.4 MiB = 40,363.3 MiB total. Difference about
+25%, outside the 5% agreement bar. The PID bug is fixed (both readings are now real and process-specific, not the
+earlier 0/0); the remaining gap looks like a metrology difference rather than a bug: the Windows Dedicated Usage
+counter for this process is close to the same order of magnitude seen earlier when a fresh server load alone pushed
+Dedicated Usage from 939 MB idle to 42.6 GB (see the 2c inventory notes above), suggesting that counter reflects a
+reserved/committed VRAM segment size for the process rather than bytes actually holding model data, while LHM's
+sensor is plausibly closer to genuine usage. Not resolved further; both sources are usable individually, just not
+cross-validated against each other at 5%.
