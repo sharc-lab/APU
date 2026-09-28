@@ -2,19 +2,27 @@
 levels (C1), and a PERFBOOSTMODE=0 arm, run in priority order (B1, C1, B2, B3, PERFBOOST) with backfill if any phase
 finishes early. Chained onto the end of the A-mech run via harness/t2s_queue.py; also runs standalone.
 
+Priority order (cheap, high-value phases first, so a deadline cuts the least valuable work): b1, b2, c1 (qwen3-8b only),
+b3, c1b (qwen3-14b and qwen3-32b, 1 repeat each), perfboost. Each phase is wrapped in its own try/except in main(): an
+exception inside one phase is logged and recorded as a phase_error, and the run moves on to the next phase. Only the
+deadline and the interactive-session check stop the whole run.
+
 Sections (each resumable through item_done records):
   B1  Core-set sweep on qwen3-4b-2507 and qwen3-8b: none, p4, e4, lp4, e8, p4e4, nonp12, all16 (context 8192, prompt
-      7,368 tokens as in the overnight Section B). Every call additionally records Level Zero Sysman iGPU throttle
-      reasons (from the same zesFrequencyGetState sample the overnight run used; a separate zesFrequencyGetThrottleReasons
-      call was not added), a best-effort RAPL PP0/PP1 read (recorded null if the platform does not expose it), and
-      per-core-type (P/E/LP-E) '% Processor Performance'. Positive control: during the all16 condition, one direct
-      Sysman sample is taken and its throttle-reason bitmask is required to be non-zero once the iGPU is at or below
-      1700 MHz; if the API returns nothing the control is recorded as unavailable and the phase continues.
+      7,368 tokens as in the overnight Section B). Per-core-type (P/E/LP-E) '% Processor Performance' and best-effort
+      RAPL PP0/PP1 are sampled continuously by the same 1 s Windows-counter stream that already reports igpu_mhz and
+      pkg_power_w (harness/t2s_lab.py SYS_PS), so every call's row carries the median over that call's own window, not
+      a single sample taken before the call. Level Zero Sysman iGPU throttle reasons come from the same
+      zesFrequencyGetState sample the overnight run used; a separate zesFrequencyGetThrottleReasons call was not
+      added. Positive control: during the all16 condition, one direct Sysman sample is taken and its throttle-reason
+      bitmask is required to be non-zero once the iGPU is at or below 1700 MHz; if the API returns nothing the control
+      is recorded as unavailable and the phase continues.
   B2  Duty-cycle sweep (25/50/75/100%) of the nonp12 core set on qwen3-4b-2507 and qwen3-8b, same context and prompt.
+  C1  mmap vs none memory lock, qwen3-8b only: headroom 0, -1, -2 GB, 3 repeats, randomised order.
   B3  none/p4/e4/nonp12 on llama31-8b, qwen3-14b, qwen3-30b-a3b-2507 and qwen3-32b (context 8192).
-  C1  mmap vs none memory lock: qwen3-8b at headroom 0, -1, -2 GB (3 repeats, randomised order); qwen3-14b and
-      qwen3-32b at 0 and -1 GB (2 repeats). Reuses the overnight model table (weights/KV/compute) for the headroom
-      arithmetic; needs `results/t2s_overnight_*_model_table.json` from last night's run.
+  c1b mmap vs none memory lock, qwen3-14b and qwen3-32b: headroom 0 and -1 GB, 1 repeat each tonight (cut first if the
+      estimated total exceeds the deadline). Both C1 phases reuse the overnight model table (weights/KV/compute) for
+      the headroom arithmetic; needs `results/t2s_overnight_*_model_table.json` from last night's run.
   perfboost  PERFBOOSTMODE=0 on AC for the qwen3-8b none vs nonp12 pair, restored in finally. Positive control:
       package power under nonp12 must drop versus the PERFBOOSTMODE default measured in B1.
 
@@ -49,12 +57,17 @@ B2_DUTY = [25, 50, 75, 100]
 B3_MODELS = ["llama31-8b", "qwen3-14b", "qwen3-30b-a3b-2507", "qwen3-32b"]
 B3_CORESETS = [("none", None), ("p4", 0x000F), ("e4", 0x00F0), ("nonp12", 0xFFF0)]
 CPU_CLASSES = {"p": list(range(0, 4)), "e": list(range(4, 12)), "lpe": list(range(12, 16))}
-C1_SPEC = [("qwen3-8b", [0, -1, -2], 3), ("qwen3-14b", [0, -1], 2), ("qwen3-32b", [0, -1], 2)]
+C1_SPEC_8B = [("qwen3-8b", [0, -1, -2], 3)]
+C1_SPEC_REST = [("qwen3-14b", [0, -1], 1), ("qwen3-32b", [0, -1], 1)]
+C1_SPEC = C1_SPEC_8B + C1_SPEC_REST
 
 
 def per_core_perf():
-    """One-shot '% Processor Performance' per logical CPU, grouped into P/E/LP-E medians. Returns None per group
-    when the counter has no samples for it (the counter may not exist on this CPU/OS combination)."""
+    """One-shot '% Processor Performance' per logical CPU, grouped into P/E/LP-E medians. Diagnostic only: the actual
+    per-call telemetry no longer calls this (see the module docstring) -- it is sampled every second by the streaming
+    SYS_PS counter in t2s_lab.py and windowed per call in Telemetry.metrics(), same as igpu_mhz. This function stays
+    for the read-only sanity check and for interactive use. Returns None per group when the counter has no samples for
+    it (the counter may not exist on this CPU/OS combination)."""
     out = ps('try { (Get-Counter -Counter "\\Processor Information(*)\\% Processor Performance" '
              '-ErrorAction Stop).CounterSamples | Where-Object { $_.InstanceName -match "^[0-9]+$" } | '
              'ForEach-Object { $_.InstanceName + "=" + $_.CookedValue } } catch { "" }', 20)
@@ -74,8 +87,9 @@ def per_core_perf():
 
 
 def rapl_pp01():
-    """Best-effort RAPL PP0 (cores)/PP1 (uncore/graphics) via the same Energy Meter counter set the harness already
-    reads for the package. Returns nulls and a note if the platform does not expose these instances."""
+    """Best-effort RAPL PP0 (cores)/PP1 (uncore/DRAM) via the same Energy Meter counter set the harness already reads
+    for the package. Diagnostic only, same note as per_core_perf: the streaming counter already carries this into
+    every row (rapl_pp0_w, rapl_pp1_w), null when the platform does not expose those instances."""
     out = ps('try { $s = (Get-Counter -ListSet "Energy Meter" -ErrorAction Stop).PathsWithInstances; '
              '($s | Where-Object { $_ -like "*rapl_package0_cores*" -or $_ -like "*rapl_package0_uncore*" -or $_ -like "*rapl_dram*" }) -join ";" } catch { "" }', 20)
     paths = [p for p in (out or "").split(";") if p]
@@ -96,10 +110,6 @@ def rapl_pp01():
     return {"pp0_w": pp0, "pp1_w": pp1, "available": True, "instances_seen": paths}
 
 
-def extra_telemetry():
-    return {**{f"cpu_{k}": v for k, v in per_core_perf().items()}, **{f"rapl_{k}": v for k, v in rapl_pp01().items()}}
-
-
 def make_lab(args, prov):
     ns = types.SimpleNamespace(smoke=False, deadline_h=args.deadline_h, resume=args.resume, stem_prefix="t2s_night2",
                                only=None, reserve_min=20, no_cap_arm=True, max_items=0)
@@ -116,15 +126,16 @@ def load_models(lab, wanted):
 
 
 def measured_with_extra(lab, srv, mi, section, item_id, prompt, n_tok, base_extra, co_runner, n_calls=5, slow_s=90.0, max_tokens=128):
-    ex0 = dict(base_extra, **extra_telemetry())
-    w = ov.do_call(lab, srv, mi, section, item_id, prompt, n_tok, warmup=True, rep=-1, extra=ex0, max_tokens=max_tokens, co_runner=co_runner)
+    """Per-core frequency, RAPL PP0/PP1 and iGPU throttle bits are already in every do_call row (t2s_lab.py Telemetry
+    streams and windows them the same way as igpu_mhz/pkg_power_w); base_extra only needs the condition labels."""
+    w = ov.do_call(lab, srv, mi, section, item_id, prompt, n_tok, warmup=True, rep=-1, extra=base_extra, max_tokens=max_tokens, co_runner=co_runner)
     if w is None or w.get("outcome") != "ok":
         return []
     slow = (w.get("e2e_s") or 0) > slow_s
     out = []
     for i in range(3 if slow else n_calls):
-        ex = dict(base_extra, n_reduced=slow, **extra_telemetry())
-        r = ov.do_call(lab, srv, mi, section, item_id, prompt, n_tok, warmup=False, rep=i, extra=ex, max_tokens=max_tokens, co_runner=co_runner)
+        r = ov.do_call(lab, srv, mi, section, item_id, prompt, n_tok, warmup=False, rep=i, extra=dict(base_extra, n_reduced=slow),
+                        max_tokens=max_tokens, co_runner=co_runner)
         if r is None or r.get("outcome") != "ok":
             break
         out.append(r)
@@ -249,13 +260,13 @@ def phase_b3(lab):
 
 
 # ---------------------------------------------------------------- C1
-def phase_c1(lab):
+def _phase_c1(lab, spec, label):
     if not lab.table:
-        lab.emit({"record": "c1_disabled", "reason": "no overnight model table loaded", "ts_utc": utc_iso()})
+        lab.emit({"record": "c1_disabled", "phase": label, "reason": "no overnight model table loaded", "ts_utc": utc_iso()})
         return
     n_ctx = 16384
     cells = []
-    for mid, levels, reps in C1_SPEC:
+    for mid, levels, reps in spec:
         mi, tab = lab.models.get(mid), lab.table.get(mid)
         if not mi or not tab or not tab.get("ok"):
             continue
@@ -297,6 +308,14 @@ def phase_c1(lab):
         lab.item_done(item)
 
 
+def phase_c1(lab):
+    _phase_c1(lab, C1_SPEC_8B, "c1")
+
+
+def phase_c1b(lab):
+    _phase_c1(lab, C1_SPEC_REST, "c1b")
+
+
 # ---------------------------------------------------------------- PERFBOOSTMODE
 def phase_perfboost(lab):
     mi = lab.models.get("qwen3-8b")
@@ -334,8 +353,37 @@ def phase_perfboost(lab):
         log(f"PERFBOOSTMODE restore: {rep}")
 
 
-PRIO = {"b1": 1, "c1": 2, "b2": 2.5, "b3": 3, "perfboost": 9}
-PHASE_FN = {"b1": phase_b1, "c1": phase_c1, "b2": phase_b2, "b3": phase_b3, "perfboost": phase_perfboost}
+PRIO = {"b1": 1, "b2": 2, "c1": 3, "b3": 4, "c1b": 5, "perfboost": 9}
+PHASE_FN = {"b1": phase_b1, "b2": phase_b2, "c1": phase_c1, "b3": phase_b3, "c1b": phase_c1b, "perfboost": phase_perfboost}
+PHASE_ORDER = "b1,b2,c1,b3,c1b,perfboost"
+
+
+def _call_s(tab, mid, fill, n_out=128):
+    t = tab.get(mid) or {}
+    return ov.est_call_s(t, fill, n_out) if t.get("ok") else 45.0  # no overnight timing for this model: a flat guess
+
+
+def _load_s(tab, mid):
+    return (tab.get(mid) or {}).get("load_s") or 15.0
+
+
+def estimate_hours(lab):
+    """Rough hours per phase from the overnight model table's own prefill/decode fit, for the pre-launch printout and
+    the cut-C1b-first rule. Not exact: co-runner and memory-lock overhead (hog/balloon start, waits) are flat guesses."""
+    tab = lab.table or {}
+    est = {}
+    for ph in ("b1", "b2", "b3"):
+        models, conds = (B1_MODELS, len(B1_MASKS)) if ph == "b1" else (B1_MODELS, len(B2_DUTY)) if ph == "b2" else (B3_MODELS, len(B3_CORESETS))
+        est[ph] = sum(_load_s(tab, m) + conds * (6 * _call_s(tab, m, FILL_B) + 10) for m in models) / 3600
+    for ph, spec in (("c1", C1_SPEC_8B), ("c1b", C1_SPEC_REST)):
+        s = 0.0
+        for mid, levels, reps in spec:
+            fill = ov.fill_cap_tokens(tab.get(mid) or {}, 16384, 60.0) if tab.get(mid, {}).get("ok") else 2000
+            n_cells = reps * len(levels) * 2
+            s += n_cells * (_load_s(tab, mid) + 6 * _call_s(tab, mid, fill) + 5 * _call_s(tab, mid, min(fill, 1500), 32) + 90)
+        est[ph] = s / 3600
+    est["perfboost"] = (_load_s(tab, "qwen3-8b") + 2 * (6 * _call_s(tab, "qwen3-8b", FILL_B) + 10)) / 3600
+    return est
 
 
 def main():
@@ -344,7 +392,8 @@ def main():
     ap.add_argument("--deadline-h", type=float, default=10.0)
     ap.add_argument("--resume", default=None)
     ap.add_argument("--overnight-table", default=None)
-    ap.add_argument("--phases", default="b1,c1,b2,b3,perfboost")
+    ap.add_argument("--phases", default=PHASE_ORDER)
+    ap.add_argument("--no-auto-cut", action="store_true", help="do not drop c1b even if the estimate exceeds the deadline")
     args = ap.parse_args()
     if socket.gethostname().upper() != "EVO-T2S":
         raise SystemExit("EVO-T2S only")
@@ -358,9 +407,22 @@ def main():
         lab.table = json.load(open(args.overnight_table, encoding="utf-8"))
     all_models = sorted(set(B1_MODELS + B3_MODELS + [m for m, *_ in C1_SPEC]))
     load_models(lab, all_models)
+    phases = args.phases.split(",")
+    est = estimate_hours(lab)
+    est_total = sum(est.get(p, 0.0) for p in phases)
+    log(f"estimated hours per phase: {json.dumps({p: round(est.get(p, 0.0), 2) for p in phases})}; total {est_total:.2f} h of {args.deadline_h} h deadline")
+    cut = []
+    if est_total > args.deadline_h and not args.no_auto_cut and "c1b" in phases:
+        phases = [p for p in phases if p != "c1b"]
+        cut.append("c1b")
+        est_total = sum(est.get(p, 0.0) for p in phases)
+        log(f"estimate ({est_total + est.get('c1b', 0):.2f} h) exceeds the {args.deadline_h} h deadline: cut c1b first; remaining estimate {est_total:.2f} h")
+    lab.emit({"record": "phase_estimate", "estimated_hours": est, "phases_kept": phases, "phases_cut": cut,
+              "deadline_h": args.deadline_h, "ts_utc": utc_iso()})
     Path(lab.prefix + "_manifest.json").write_text(json.dumps({"launch_utc": utc_iso(), "script_provenance": prov,
-                                                              "identity": lab.identity, "phases": args.phases.split(","),
-                                                              "seed": SEED, "overnight_table": args.overnight_table},
+                                                              "identity": lab.identity, "phases": phases, "phases_cut": cut,
+                                                              "estimated_hours": est, "seed": SEED,
+                                                              "overnight_table": args.overnight_table},
                                                              indent=1, default=str), encoding="utf-8")
     lab.tele.start()
     note = "completed"
@@ -369,12 +431,19 @@ def main():
         pk = [lab.tele.pkg_now() for _ in range(6) if not time.sleep(1)]
         lab.idle_pkg = st.median([x for x in pk if x is not None]) if any(x is not None for x in pk) else None
         lab.idle_temp = None
-        phases = args.phases.split(",")
         for ph in phases:
             if f"phase_{ph}" in lab.done:
                 continue
             log(f"phase {ph}")
-            PHASE_FN[ph](lab)
+            try:
+                PHASE_FN[ph](lab)
+            except ov.Deadline:
+                raise
+            except Exception as e:
+                lab.emit({"record": "phase_error", "phase": ph, "error": repr(e)[:500], "ts_utc": utc_iso()})
+                log(f"phase {ph} error: {e!r}")
+                ov.cleanup_partial(lab)
+                continue
             lab.item_done(f"phase_{ph}")
     except ov.Deadline:
         note = "deadline reached"

@@ -145,16 +145,28 @@ $em = @()
 try { $em = (Get-Counter -ListSet 'Energy Meter' -ErrorAction Stop).PathsWithInstances | Where-Object { $_ -like '*Power*' } } catch {}
 $paths = @('\Memory\Available MBytes','\Memory\Committed Bytes','\Memory\Pages Input/sec','\Memory\Page Reads/sec',
            '\Memory\Page Faults/sec','\Processor Information(_Total)\% Processor Utility',
+           '\Processor Information(*)\% Processor Performance',
            '\GPU Adapter Memory(*)\Shared Usage','\GPU Adapter Memory(*)\Dedicated Usage') + $em
+# P=0-3, E=4-11, LP-E=12-15 (harness/t2s_preflight.py's GetSystemCpuSetInformation classes). Per-second value per class
+# is the mean of that class's logical CPUs, not a median (PowerShell has no built-in median); the call-level median
+# across seconds is taken Python-side in Telemetry.metrics(), the same way igpu_mhz is.
+$pIdx = 0,1,2,3
+$eIdx = 4,5,6,7,8,9,10,11
+$lpeIdx = 12,13,14,15
 Get-Counter -Counter $paths -SampleInterval 1 -Continuous | ForEach-Object {
   $s = $_.CounterSamples
   $v = { param($like) ($s | Where-Object { $_.Path -like $like } | Select-Object -First 1).CookedValue }
   $sh = ($s | Where-Object { $_.Path -like '*gpu adapter memory*shared usage' } | Measure-Object CookedValue -Sum).Sum
   $de = ($s | Where-Object { $_.Path -like '*gpu adapter memory*dedicated usage' } | Measure-Object CookedValue -Sum).Sum
   $pk = ($s | Where-Object { $_.Path -like '*energy meter*rapl_package0_pkg*' } | Select-Object -First 1).CookedValue
+  $pp0 = ($s | Where-Object { $_.Path -like '*energy meter*rapl_package0_cores*' } | Select-Object -First 1).CookedValue
+  $pp1 = ($s | Where-Object { $_.Path -like '*energy meter*rapl_package0_uncore*' -or $_.Path -like '*energy meter*rapl_dram*' } | Select-Object -First 1).CookedValue
+  $perf = $s | Where-Object { $_.Path -like '*processor information*% processor performance*' -and $_.InstanceName -match '^[0-9]+$' }
+  $grp = { param($idxs) $vals = $perf | Where-Object { [int]$_.InstanceName -in $idxs }; if ($vals) { ($vals | Measure-Object CookedValue -Average).Average } else { $null } }
   $o = [ordered]@{ ts = [DateTime]::UtcNow.ToString('o'); avail_mb = (& $v '*available mbytes'); committed_bytes = (& $v '*committed bytes');
                    pages_input = (& $v '*pages input/sec'); page_reads = (& $v '*page reads/sec'); page_faults = (& $v '*page faults/sec');
-                   cpu_util = (& $v '*% processor utility'); adapter_shared = $sh; adapter_dedicated = $de; rapl_pkg_mw = $pk }
+                   cpu_util = (& $v '*% processor utility'); adapter_shared = $sh; adapter_dedicated = $de; rapl_pkg_mw = $pk;
+                   rapl_pp0_mw = $pp0; rapl_pp1_mw = $pp1; p_pct_perf = (& $grp $pIdx); e_pct_perf = (& $grp $eIdx); lpe_pct_perf = (& $grp $lpeIdx) }
   [Console]::Out.WriteLine(($o | ConvertTo-Json -Compress)); [Console]::Out.Flush()
 }
 """
@@ -263,10 +275,17 @@ class Telemetry:
         g = self.gpu_ring.window(t0, t1)
         a = self.avail_ring.window(t0, t1)
         pk = [x.get("rapl_pkg_mw") for x in w]
+        pp0 = [x.get("rapl_pp0_mw") for x in w if x.get("rapl_pp0_mw") is not None]
+        pp1 = [x.get("rapl_pp1_mw") for x in w if x.get("rapl_pp1_mw") is not None]
         return {
             "igpu_mhz": _med([r["actual_mhz"] for r in f]),
             "igpu_throttle_bits": sorted({int(r["throttle_reasons"]) for r in f}) if f else None,
             "pkg_power_w": (_med(pk) / 1000) if _med(pk) is not None else None,
+            "rapl_pp0_w": (_med(pp0) / 1000) if pp0 else None,
+            "rapl_pp1_w": (_med(pp1) / 1000) if pp1 else None,
+            "cpu_p_pct_perf": _med([x.get("p_pct_perf") for x in w]),
+            "cpu_e_pct_perf": _med([x.get("e_pct_perf") for x in w]),
+            "cpu_lpe_pct_perf": _med([x.get("lpe_pct_perf") for x in w]),
             "shared_usage_mib": (_max([x.get("shared") for x in g]) / 2 ** 20) if _max([x.get("shared") for x in g]) is not None else None,
             "total_committed_mib": (_max([x.get("committed_bytes") for x in w]) / 2 ** 20) if _max([x.get("committed_bytes") for x in w]) is not None else None,
             "pages_input_per_s": _max([x.get("pages_input") for x in w]),

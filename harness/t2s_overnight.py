@@ -162,7 +162,9 @@ def do_call(lab, srv, mi, section, item_id, prompt, n_tok, *, warmup, rep, extra
               "igpu_mhz": m["igpu_mhz"], "igpu_throttle_bits": m["igpu_throttle_bits"], "pkg_power_w": m["pkg_power_w"],
               "shared_usage_mib": m["shared_usage_mib"], "total_committed_mib": m["total_committed_mib"],
               "pages_input_per_s": m["pages_input_per_s"], "hard_faults_per_s": m["hard_faults_per_s"],
-              "avail_mb_min": m["avail_mb_min"], "avail_mb_max": m["avail_mb_max"], "temp_c_max": m["temp_c_max"]})
+              "avail_mb_min": m["avail_mb_min"], "avail_mb_max": m["avail_mb_max"], "temp_c_max": m["temp_c_max"],
+              "rapl_pp0_w": m.get("rapl_pp0_w"), "rapl_pp1_w": m.get("rapl_pp1_w"), "cpu_p_pct_perf": m.get("cpu_p_pct_perf"),
+              "cpu_e_pct_perf": m.get("cpu_e_pct_perf"), "cpu_lpe_pct_perf": m.get("cpu_lpe_pct_perf")})
     if probe is not None:
         try:
             score, det = lab.scorers.score({"id": probe["id"], "scorer_type": probe["scorer_type"],
