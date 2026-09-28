@@ -50,3 +50,29 @@ values, verification and revert command. Done at the keyboard by the user before
 **Before:** absent. **After:** present (`Test-Path` true).
 **Reason:** deploy target for `scripts/deploy_evo.py`, matching evo-t2s's `C:\apu\ovn`.
 **Standing.** **Revert:** `Remove-Item -Recurse -Force C:\apu\ovn` (not planned; nothing here needs it removed).
+
+---
+
+## 2026-09-28 -- PawnIO 2.2.0 driver installed
+
+**Command:**
+```powershell
+curl.exe -L -o C:\apu\bin\installers\PawnIO_setup.exe https://github.com/namazso/PawnIO.Setup/releases/download/2.2.0/PawnIO_setup.exe
+# verified sha256 1F519A22E47187F70A1379A48CA604981C4FCF694F4E65B734AAA74A9FBA3032, size 3,410,960 bytes (matches the
+# GitHub release asset size exactly), Authenticode signature Status Valid, signer CN=namazso.eu / O=namazso
+# (E=admin@namazso.eu, L=Debrecen, C=HU), issued by GLOBALTRUST 2015 CODESIGNING 1
+Start-Process -FilePath C:\apu\bin\installers\PawnIO_setup.exe -ArgumentList "-install","-silent" -Wait -PassThru
+```
+**First attempt failed:** `/VERYSILENT /SUPPRESSMSGBOXES /NORESTART` (NSIS-style flags, wrong for this installer) hung
+with no driver service created; the process stayed responsive but produced nothing, so it was not a UAC prompt on the
+active console session, just the wrong argument syntax. Killed (PID 19272, started by this session). The correct
+flags for this installer are `-install -silent`.
+**Before:** no `PawnIO` service. **After:** `Get-Service PawnIO` reports Status Running (4), StartType Manual (3).
+Read back and confirmed.
+**Reason:** kernel driver LibreHardwareMonitor needs for CPU/GPU sensor access, approved for the X2 telemetry
+inventory (no other source found for iGPU clock or GPU power).
+**Standing.** **Revert:** run `PawnIO_setup.exe -uninstall -silent` (uninstaller lives at the same path,
+`C:\apu\bin\installers\PawnIO_setup.exe`; the installer also self-registers an uninstall entry), then confirm
+`Get-Service PawnIO` returns nothing.
+**Note:** `RebootPending` was already `True` before this install (see the Windows Update entry above); this install
+did not newly set it and no reboot was performed or is needed for the driver to be running now.
