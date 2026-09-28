@@ -286,3 +286,38 @@ attempts the lock and reports the outcome verbatim) — its own stdout/log
 header will read `LOCK STATUS: LOCKED` instead of `UNLOCKED` once the
 privilege is actually in effect, and that is the confirmation to trust, not
 an assumption that granting the policy alone was sufficient.
+
+### GRANTED on evo-x2, 2026-09-28 -- exact procedure used and revert command
+
+Done at the keyboard on evo-x2 for the local account `Ritz`,
+`S-1-5-21-3933407323-4233147234-2840271835-1002`:
+
+```powershell
+secedit /export /cfg C:\apu\secpol_before.cfg
+# Insert "SeLockMemoryPrivilege = *S-1-5-21-3933407323-4233147234-2840271835-1002"
+# immediately after the [Privilege Rights] line -> C:\apu\secpol_after.cfg
+secedit /configure /db C:\apu\secpol.sdb /cfg C:\apu\secpol_after.cfg /areas USER_RIGHTS
+secedit /export /cfg C:\apu\secpol_check.cfg
+```
+
+Verified in a fresh SSH session (same reason as evo-t2s: an already-open
+session will not show a newly-granted privilege): `whoami /priv` lists
+`SeLockMemoryPrivilege ... Enabled`.
+
+**Exact revert command** (restores the pre-grant state for the
+`USER_RIGHTS` area exactly, by replaying the original export back):
+
+```powershell
+secedit /configure /db C:\apu\secpol.sdb /cfg C:\apu\secpol_before.cfg /areas USER_RIGHTS
+```
+
+`C:\apu\secpol_before.cfg` must still exist on evo-x2 for this exact command
+to work -- it has not been deleted. `C:\apu\secpol_after.cfg` and
+`C:\apu\secpol_check.cfg` are the applied and post-apply exports, kept for
+audit.
+
+**Should the privilege stay granted?** Same policy as evo-t2s: yes for now,
+needed for the same locked-balloon work; revert once that work on evo-x2 is
+done, since it is a standing local security policy change on a machine
+other people may eventually use and should not outlive the reason it was
+granted.
