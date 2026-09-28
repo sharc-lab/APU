@@ -492,7 +492,8 @@ class Server:
         if ps("(Get-Process llama-server -ErrorAction SilentlyContinue | Measure-Object).Count") not in ("", "0"):
             raise RuntimeError("STOP: a llama-server process we did not start is running")
         Path(self.log_path).unlink(missing_ok=True)
-        t0 = time.time()
+        t0 = time.time()  # UTC anchor for t_start_utc / metrics() windowing, not a duration
+        t0_mono = time.monotonic()  # load_s duration, immune to any wall-clock step during the load
         self.out_path = self.log_path + ".stdout.txt"
         self._out = open(self.out_path, "w", encoding="utf-8", errors="replace")
         self.proc = subprocess.Popen(self._cmd(), stdout=self._out, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
@@ -512,7 +513,8 @@ class Server:
                 pass
             time.sleep(1)
         t1 = time.time()
-        info = {"t_start": t0, "t_end": t1, "load_s": t1 - t0, "pid": self.pid}
+        load_s = time.monotonic() - t0_mono
+        info = {"t_start": t0, "t_end": t1, "load_s": load_s, "pid": self.pid}
         lp = parse_server_log(self.log_path)
         info["log"] = lp
         if not healthy:
