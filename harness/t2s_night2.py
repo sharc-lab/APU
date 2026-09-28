@@ -67,16 +67,17 @@ def per_core_perf():
     per-call telemetry no longer calls this (see the module docstring) -- it is sampled every second by the streaming
     SYS_PS counter in t2s_lab.py and windowed per call in Telemetry.metrics(), same as igpu_mhz. This function stays
     for the read-only sanity check and for interactive use. Returns None per group when the counter has no samples for
-    it (the counter may not exist on this CPU/OS combination)."""
+    it (the counter may not exist on this CPU/OS combination). On this machine InstanceName is "node,cpu" (e.g. "0,10"),
+    confirmed by the read-only check before any real run; the logical CPU is the part after the last comma."""
     out = ps('try { (Get-Counter -Counter "\\Processor Information(*)\\% Processor Performance" '
-             '-ErrorAction Stop).CounterSamples | Where-Object { $_.InstanceName -match "^[0-9]+$" } | '
+             '-ErrorAction Stop).CounterSamples | Where-Object { $_.InstanceName -match "^[0-9]+(,[0-9]+)*$" } | '
              'ForEach-Object { $_.InstanceName + "=" + $_.CookedValue } } catch { "" }', 20)
     d = {}
     for tok in (out or "").split():
         if "=" in tok:
             k, v = tok.split("=", 1)
             try:
-                d[int(k)] = float(v)
+                d[int(k.rsplit(",", 1)[-1])] = float(v)
             except ValueError:
                 pass
     def grp(idxs):
@@ -322,6 +323,15 @@ def phase_perfboost(lab):
     if mi is None:
         return
     pb = L.PowerSetting("SUB_PROCESSOR", "PERFBOOSTMODE")
+    if pb.guid is None or pb.original is None:
+        # Confirmed read-only, before this phase ever ran: PERFBOOSTMODE is not present under SUB_PROCESSOR on this
+        # scheme at all -- not merely hidden. `powercfg -attributes SUB_PROCESSOR PERFBOOSTMODE -ATTRIB_SHOW` and the
+        # same call with the setting's well-known GUID both returned "Invalid Parameters", and `powercfg /query
+        # SCHEME_CURRENT SUB_PROCESSOR` lists only PROCTHROTTLEMIN and PROCTHROTTLEMAX. No value was ever set.
+        lab.emit({"record": "perfboost_unavailable", "ts_utc": utc_iso(),
+                  "reason": "PERFBOOSTMODE not present under SUB_PROCESSOR on this scheme (checked by alias and by its well-known GUID, both 'Invalid Parameters'); only PROCTHROTTLEMIN/MAX are listed"})
+        log("perfboost: PERFBOOSTMODE is not available on this platform, skipping (nothing was set)")
+        return
     try:
         pb.set(0)
         lab.emit({"record": "perfboost_set", "original": pb.original, "current": pb.current, "ts_utc": utc_iso()})

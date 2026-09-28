@@ -161,8 +161,10 @@ Get-Counter -Counter $paths -SampleInterval 1 -Continuous | ForEach-Object {
   $pk = ($s | Where-Object { $_.Path -like '*energy meter*rapl_package0_pkg*' } | Select-Object -First 1).CookedValue
   $pp0 = ($s | Where-Object { $_.Path -like '*energy meter*rapl_package0_cores*' } | Select-Object -First 1).CookedValue
   $pp1 = ($s | Where-Object { $_.Path -like '*energy meter*rapl_package0_uncore*' -or $_.Path -like '*energy meter*rapl_dram*' } | Select-Object -First 1).CookedValue
-  $perf = $s | Where-Object { $_.Path -like '*processor information*% processor performance*' -and $_.InstanceName -match '^[0-9]+$' }
-  $grp = { param($idxs) $vals = $perf | Where-Object { [int]$_.InstanceName -in $idxs }; if ($vals) { ($vals | Measure-Object CookedValue -Average).Average } else { $null } }
+  # InstanceName on this machine is "node,cpu" (e.g. "0,10"), not a bare integer; confirmed live, read-only, before
+  # any real data collection (see docs/RESULT_PROVENANCE.md). Take the part after the last comma as the logical CPU.
+  $perf = $s | Where-Object { $_.Path -like '*processor information*% processor performance*' -and $_.InstanceName -match '^[0-9]+(,[0-9]+)*$' }
+  $grp = { param($idxs) $vals = $perf | Where-Object { [int]($_.InstanceName -replace '^.*,') -in $idxs }; if ($vals) { ($vals | Measure-Object CookedValue -Average).Average } else { $null } }
   $o = [ordered]@{ ts = [DateTime]::UtcNow.ToString('o'); avail_mb = (& $v '*available mbytes'); committed_bytes = (& $v '*committed bytes');
                    pages_input = (& $v '*pages input/sec'); page_reads = (& $v '*page reads/sec'); page_faults = (& $v '*page faults/sec');
                    cpu_util = (& $v '*% processor utility'); adapter_shared = $sh; adapter_dedicated = $de; rapl_pkg_mw = $pk;
