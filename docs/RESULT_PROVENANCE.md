@@ -366,3 +366,17 @@ SHA-256 model digest in `blob_path` is preserved verbatim.
 
 Tests that verify no username appears in committed JSON result files are in
 `tests/test_no_absolute_paths.py` (the `test_results_no_username` test).
+
+---
+
+## night2 B1 and B2 thermal gate note (2026-09-28)
+
+`results/t2s_night2_20260928T004924Z.jsonl` Section B1 rows before commit (see git log for the exact SHA that adds
+`corunner_active` to `Telemetry.thermal_gate`) used the package-power proxy gate under co-runners, and it could not
+release: every co-runner condition (p4, e4, lp4, e8, p4e4, nonp12, all16) shows `gate_released_by`
+`pkg_power_proxy_timeout` at `thermal_wait_s` 120 for all 10 measured calls in each condition, because the co-runner
+itself keeps package power elevated for the whole condition, so the proxy's 25%-of-idle test never passes while the
+hog is running. `none` calls show `pkg_power_proxy` at `thermal_wait_s` 20 (10 of 10), which is correct. Section B2
+(duty-cycle sweep) uses the same gate call path and is expected to show the identical pattern under its nonp12
+co-runner. Both sections still measured what they measured: no row is invalid, the extra wait only added time between
+calls. This is a data-quality note about the gate, not a correctness problem with the throughput numbers.

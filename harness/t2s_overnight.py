@@ -138,7 +138,8 @@ def prompt_for(srv, fill_tokens):
 def do_call(lab, srv, mi, section, item_id, prompt, n_tok, *, warmup, rep, extra, max_tokens=128, ignore_eos=True,
             mem_headroom_gb=None, co_runner="none", kind="call", probe=None):
     lab.check()
-    gate = lab.tele.thermal_gate(lab.idle_temp, idle_pkg=lab.idle_pkg)
+    corunner_active = co_runner not in (None, "none")
+    gate = lab.tele.thermal_gate(lab.idle_temp, idle_pkg=lab.idle_pkg, corunner_active=corunner_active)
     ok, lp = srv.alive_and_ours()
     base = dict(n_ctx=srv.n_ctx, prompt_tokens=n_tok, mmap=srv.mmap, load_mode=srv.load_mode, co_runner=co_runner, rep=rep,
                 mem_headroom_gb=mem_headroom_gb, load_s=srv.start_info.get("load_s"), item_id=item_id, kind=kind,

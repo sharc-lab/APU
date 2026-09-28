@@ -302,11 +302,22 @@ class Telemetry:
         v = [x.get("rapl_pkg_mw") for x in self.win_ring.window(now - 6, now) if x.get("rapl_pkg_mw") is not None]
         return (st.median(v) / 1000) if v else None
 
-    def thermal_gate(self, idle_temp, tol=3.0, max_wait=300.0, idle_pkg=None):
+    def thermal_gate(self, idle_temp, tol=3.0, max_wait=300.0, idle_pkg=None, corunner_active=False):
         """No temperature sensor is exposed on this machine (Sysman lists none, the ACPI zone is constant), so when
         idle_temp is None the gate falls back to a package-power proxy: wait at least 20 s and until RAPL package power
-        is within 25% of its idle value, at most 120 s. The row records which rule released the gate."""
+        is within 25% of its idle value, at most 120 s. The row records which rule released the gate.
+
+        The proxy cannot release while a co-runner is running: the co-runner itself keeps package power elevated for
+        the whole condition, so every co-runner call waits the full 120 s timeout for nothing (confirmed on the
+        overnight and night2 co-runner conditions, gate_released_by pkg_power_proxy_timeout at t=120 in all of them).
+        When corunner_active is true the gate instead sleeps a fixed 20 s settle and returns immediately; the hog
+        itself is unaffected and keeps running for the whole condition."""
         t0 = time.monotonic()
+        if corunner_active:
+            time.sleep(20)
+            p = self.pkg_now()
+            return {"thermal_wait_s": 20.0, "temp_at_gate_start": None, "temp_at_release": None, "idle_temp": idle_temp,
+                    "idle_pkg_w": idle_pkg, "pkg_w_at_release": p, "gate_released_by": "corunner_fixed_settle"}
         temp = self.temp_now()
         start = temp
         if idle_temp is None or temp is None:
