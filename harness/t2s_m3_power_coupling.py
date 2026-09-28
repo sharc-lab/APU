@@ -236,13 +236,14 @@ def chat_call(prompt, n_prompt_tokens):
             "decode_tps": dec, "completion_tokens": ct, "usage_reported": usage_ct is not None}
 
 
-def start_hog(tag, mask, out_dir, stem):
+def start_hog(tag, mask, out_dir, stem, duty_pct=100.0):
     report = str(out_dir / f"{stem}_{tag}_hog_ips.txt")
     aff = str(out_dir / f"{stem}_{tag}_hog_affinity.json")
     for p in (report, aff):
         Path(p).unlink(missing_ok=True)
     proc = subprocess.Popen([PYTHON, str(DEPLOY / "spin_hog_affinity.py"), "--affinity-mask", hex(mask),
-                             "--duration-s", "1800", "--report-file", report, "--affinity-file", aff],
+                             "--duration-s", "1800", "--report-file", report, "--affinity-file", aff,
+                             "--duty-cycle-pct", str(duty_pct)],
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
     return proc, report, aff
 

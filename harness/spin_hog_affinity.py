@@ -34,15 +34,23 @@ def current_affinity() -> int:
     return proc.value
 
 
-def spin_worker(duration_s, counter, lock, q):
+def spin_worker(duration_s, counter, lock, q, duty_pct=100.0, period_s=0.1):
+    """Busy for duty_pct% of every period_s window, sleeps the rest. duty_pct=100 spins continuously (chunked in
+    period_s windows instead of one straight loop, so the positive control below sees the same shape either way)."""
     q.put(current_affinity())
     t_end = time.monotonic() + duration_s
+    busy_s = period_s * max(0.0, min(100.0, duty_pct)) / 100.0
+    idle_s = period_s - busy_s
     x = 0
     while time.monotonic() < t_end:
-        for _ in range(1_000_000):
-            x = (x * 1103515245 + 12345) & 0x7FFFFFFF
-        with lock:
-            counter.value += 1_000_000
+        window_end = time.monotonic() + busy_s
+        while time.monotonic() < window_end:
+            for _ in range(100_000):
+                x = (x * 1103515245 + 12345) & 0x7FFFFFFF
+            with lock:
+                counter.value += 100_000
+        if idle_s > 0:
+            time.sleep(idle_s)
 
 
 def main():
@@ -52,6 +60,7 @@ def main():
     ap.add_argument("--duration-s", type=float, required=True)
     ap.add_argument("--report-file", required=True)
     ap.add_argument("--affinity-file", required=True)
+    ap.add_argument("--duty-cycle-pct", type=float, default=100.0)
     args = ap.parse_args()
 
     k = _k32()
@@ -62,7 +71,8 @@ def main():
     counter = mp.Value("q", 0)
     lock = mp.Lock()
     q = mp.Queue()
-    procs = [mp.Process(target=spin_worker, args=(args.duration_s, counter, lock, q), daemon=True) for _ in range(n)]
+    procs = [mp.Process(target=spin_worker, args=(args.duration_s, counter, lock, q, args.duty_cycle_pct), daemon=True)
+             for _ in range(n)]
     t0 = time.monotonic()
     for p in procs:
         p.start()
@@ -74,7 +84,7 @@ def main():
             masks.append(None)
     with open(args.affinity_file, "w") as f:
         json.dump({"requested_mask": args.affinity_mask, "set_ok": bool(ok), "parent_mask": parent,
-                   "worker_masks": masks, "n_procs": n}, f)
+                   "worker_masks": masks, "n_procs": n, "duty_cycle_pct": args.duty_cycle_pct}, f)
 
     t_end = t0 + args.duration_s
     last_t, last_c = t0, 0

@@ -44,6 +44,7 @@ import run_provenance as rp
 import server_guard as sg
 import t2s_lab as L
 import t2s_overnight as ov
+import t2s_queue as tq
 from t2s_lab import log, ps, utc_iso
 
 YARN = ["--rope-scaling", "yarn", "--rope-scale", "4", "--yarn-orig-ctx", "32768"]
@@ -443,6 +444,8 @@ def phase_map(lab):
     for mid, start_n, end_n, step, flags in MAP_SPEC:
         mi = lab.models.get(mid)
         if mi is None:
+            lab.emit({"record": "map_skipped", "model_id": mid, "reason": "model not loaded", "ts_utc": utc_iso()})
+            log(f"map {mid}: SKIPPED, model not loaded")
             continue
         points = list(range(start_n, end_n + 1, step))
         trials = [(n, r) for n in points for r in range(3)]
@@ -497,7 +500,9 @@ def main():
     lab = make_lab(args, prov)
     phases = args.phases.split(",")
     bm = args.bisect_models.split(",")
-    load_models(lab, sorted(set(["qwen3-32b"] + (bm if "bisect" in phases else []))))
+    map_models = [m for m, *_ in MAP_SPEC]
+    extra_models = (bm if "bisect" in phases else []) + (map_models if "map" in phases else [])
+    load_models(lab, sorted(set(["qwen3-32b"] + extra_models)))
     Path(lab.prefix + "_manifest.json").write_text(json.dumps({"launch_utc": utc_iso(), "script_provenance": prov, "identity": lab.identity,
                                                               "phases": phases, "bisect_models": bm, "yarn_flags": YARN, "linear_flags": LINEAR,
                                                               "budget_mib": BUDGET_MIB}, indent=1, default=str), encoding="utf-8")
@@ -525,6 +530,10 @@ def main():
         ov.cleanup(lab)
         lab.emit({"record": "run_end", "note": note, "ts_utc": utc_iso()})
         (Path(lab.out_dir) / f"{lab.stem}.DONE").write_text(note + "\n")
+        try:
+            tq.advance(note)
+        except Exception as e:
+            log(f"queue advance failed: {e!r}")
 
 
 if __name__ == "__main__":

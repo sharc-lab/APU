@@ -614,6 +614,39 @@ class PowerCap:
         return {"restored": back == self.original, "original": self.original, "read_back": back}
 
 
+class PowerSetting:
+    """Generic AC power-plan setting under a subgroup GUID or alias (e.g. SUB_PROCESSOR PERFBOOSTMODE), read back and
+    restored the same way as PowerCap. restore-in-finally is the caller's job, same as PowerCap."""
+
+    def __init__(self, subgroup, setting):
+        self.subgroup, self.setting = subgroup, setting
+        q = ps("powercfg /getactivescheme")
+        m = re.search(r"([0-9a-fA-F-]{36})", q)
+        self.guid = m.group(1) if m else None
+        self.original = self.read()
+        self.current = self.original
+        self.changed = False
+
+    def read(self):
+        out = ps(f"powercfg /query SCHEME_CURRENT {self.subgroup} {self.setting}")
+        m = re.search(r"Current AC Power Setting Index:\s*(0x[0-9a-fA-F]+)", out)
+        return int(m.group(1), 16) if m else None
+
+    def set(self, val):
+        ps(f"powercfg /setacvalueindex {self.guid} {self.subgroup} {self.setting} {int(val)}; powercfg /setactive {self.guid}")
+        self.changed = True
+        self.current = self.read()
+        return self.current
+
+    def restore(self):
+        if self.original is None:
+            return {"restored": False, "why": "original value unknown"}
+        ps(f"powercfg /setacvalueindex {self.guid} {self.subgroup} {self.setting} {self.original}; powercfg /setactive {self.guid}")
+        back = self.read()
+        self.current = back
+        return {"restored": back == self.original, "original": self.original, "read_back": back}
+
+
 def load_probes():
     import importlib.util
     spec = importlib.util.spec_from_file_location("probes_scorers", PROBES_DIR / "scorers.py")
