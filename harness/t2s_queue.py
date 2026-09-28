@@ -25,6 +25,7 @@ import time
 from pathlib import Path
 
 QUEUE_FILE = Path(r"C:\apu\ovn\queue_state.json")
+EMPTY_FLAG = Path(r"C:\apu\ovn\queue_empty.flag")
 
 
 def read_queue():
@@ -59,9 +60,19 @@ def _launch(cmd, log_path):
     return (out + (" | stderr: " + err if err.strip() else "")).strip()
 
 
+def _write_empty_flag(items, reason):
+    """The machine is about to sit idle with no queued work. Written so a controller (this session or a later one)
+    polling this file, or a person checking the machine, sees it immediately instead of the gap only being noticed
+    hours later the way night2b's queue-empty gap was (idle 09:06 UTC to discovery ~14:30+ UTC, 2026-09-28)."""
+    EMPTY_FLAG.write_text(json.dumps({"ts_utc_epoch": time.time(), "reason": reason,
+                                      "queue_tail": items[-3:] if items else []}, indent=1, default=str),
+                          encoding="utf-8")
+
+
 def advance(note):
     items = read_queue()
     if not items:
+        _write_empty_flag([], "advance() called with an empty queue_state.json")
         return
     halt = note and ("STOP" in str(note) or "another interactive session" in str(note))
     running = next((it for it in items if it["status"] == "running"), None)
@@ -71,9 +82,11 @@ def advance(note):
         running["finished_ts"] = time.time()
     write_queue(items)
     if halt:
+        _write_empty_flag(items, f"queue halted: {note}")
         return
     nxt = next((it for it in items if it["status"] == "pending"), None)
     if nxt is None:
+        _write_empty_flag(items, "no pending entry left after the current run finished")
         return
     nxt["status"] = "running"
     nxt["started_ts"] = time.time()
@@ -82,6 +95,8 @@ def advance(note):
     out = _launch(nxt["cmd"], log_path)
     nxt["launch_result"] = out.strip()
     write_queue(items)
+    if EMPTY_FLAG.exists():
+        EMPTY_FLAG.unlink()  # a run is now launched; clear any stale flag from a prior empty-queue moment
 
 
 if __name__ == "__main__":
