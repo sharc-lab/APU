@@ -76,3 +76,22 @@ inventory (no other source found for iGPU clock or GPU power).
 `Get-Service PawnIO` returns nothing.
 **Note:** `RebootPending` was already `True` before this install (see the Windows Update entry above); this install
 did not newly set it and no reboot was performed or is needed for the driver to be running now.
+
+---
+
+## 2026-09-28 -- LibreHardwareMonitor v0.9.6 downloaded and extracted
+
+**Command:**
+```powershell
+curl.exe -L -o C:\apu\bin\installers\LibreHardwareMonitor.zip https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases/download/v0.9.6/LibreHardwareMonitor.zip
+Expand-Archive -Path C:\apu\bin\installers\LibreHardwareMonitor.zip -DestinationPath C:\apu\bin\lhm-0.9.6 -Force
+```
+**Note:** the release also publishes a `LibreHardwareMonitor.NET.10.zip` asset (a .NET 10 build); the plain
+`LibreHardwareMonitor.zip` (net472, the classic build our `lhm_sensors.ps1` targets from Windows PowerShell 5.1) is
+the one used, matching evo-t2s.
+**Before:** `C:\apu\bin\lhm-0.9.6` absent. **After:** present, `LibreHardwareMonitorLib.dll` etc. extracted.
+**sha256 of the zip:** `086d9f1b5a99e643edc2cfaaac16051685b551e4c5ac0b32a57c58c0e529c001` (matches the value given, verified
+before extracting).
+**Reason:** headless CPU/GPU sensor reading (clock, power, load, temperature) for the X2 telemetry inventory.
+**Standing.** **Revert:** `Remove-Item -Recurse -Force C:\apu\bin\lhm-0.9.6` (no install step, files only; the PawnIO
+driver it depends on is removed separately, see the PawnIO entry above).
