@@ -450,7 +450,12 @@ def main():
         time.sleep(15)
         pk = [lab.tele.pkg_now() for _ in range(6) if not time.sleep(1)]
         lab.idle_pkg = st.median([x for x in pk if x is not None]) if any(x is not None for x in pk) else None
-        lab.idle_temp = None
+        tmp = [lab.tele.temp_now() for _ in range(5) if not time.sleep(1)]
+        tmp = [x for x in tmp if x is not None]
+        # A real idle_temp switches Telemetry.thermal_gate to the temp-based path (within tol=3.0 C of idle, see
+        # t2s_lab.py); on AMD this comes from the LHM CPU package sensor. On Intel (no sensor) it stays None and the
+        # gate falls back to the package-power proxy, unchanged.
+        lab.idle_temp = st.median(tmp) if tmp else None
         for ph in phases:
             if f"phase_{ph}" in lab.done:
                 continue

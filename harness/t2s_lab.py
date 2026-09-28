@@ -42,6 +42,7 @@ MODELS_DIR = r"C:\apu\models"
 BINARIES = {"vulkan": r"C:\apu\bin\llama-b10970\llama-server.exe",
             "sycl": r"C:\apu\bin\llama-b10970-sycl\llama-server.exe"}
 PID_FILE = r"C:\apu\ovn\cur_pid.txt"
+LHM_DLL = r"C:\apu\bin\lhm-0.9.6\LibreHardwareMonitorLib.dll"
 PROBES_DIR = Path(r"C:\apu\APU\evaluation\probes")
 FILE_TYPE = {0: "F32", 1: "F16", 2: "Q4_0", 7: "Q8_0", 12: "Q3_K_M", 14: "Q4_K_S", 15: "Q4_K_M", 17: "Q5_K_M", 18: "Q6_K"}
 ERR_RE = re.compile(r"(error|failed|device lost|out of memory|abort|exception|cannot|unable)", re.I)
@@ -222,6 +223,7 @@ class Telemetry:
         self._procs = []
         self._stop = threading.Event()
         self._threads = []
+        self._lhm_proc = None
 
     def _pump(self, proc, path, ring, conv):
         def run():
@@ -276,6 +278,55 @@ class Telemetry:
         t.start()
         self._threads.append(t)
 
+        if self.gpu_vendor and self.gpu_vendor.lower() == "amd" and Path(LHM_DLL).exists():
+            self._start_lhm_feeder()
+
+    def _start_lhm_feeder(self):
+        """AMD has no Level Zero Sysman; iGPU clock/power and CPU/iGPU temperature come from a persistent
+        LibreHardwareMonitor reader (lhm_sensors.ps1) instead, translated into the same sys_ring row shapes Sysman
+        uses (kind freq/power/temp, domain 0 = CPU/iGPU-core, domain 1 = iGPU secondary sensor) so metrics() and
+        temp_now() need no AMD-specific branch. Sensor names matched to what LHM exposes on evo-x2 (Ryzen AI Max+
+        395 / Radeon 8060S), confirmed by the positive controls in docs/X2_CHANGELOG.md. Requires PawnIO."""
+        out_path = self.prefix + "_lhm.jsonl"
+        proc = subprocess.Popen(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(DEPLOY / "lhm_sensors.ps1"),
+                                 "-Dll", LHM_DLL, "-OutFile", out_path],
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
+        self._lhm_proc = proc
+        self._procs.append(proc)
+
+        def lhm_loop():
+            last_size = 0
+            while not self._stop.is_set():
+                self._stop.wait(1.0)
+                try:
+                    text = Path(out_path).read_text(encoding="utf-8", errors="replace")
+                except FileNotFoundError:
+                    continue
+                new = text[last_size:]
+                last_size = len(text)
+                for line in new.splitlines():
+                    try:
+                        d = json.loads(line)
+                    except Exception:
+                        continue
+                    t = iso_epoch(d["ts"])
+                    s = d.get("sensors", {})
+                    cpu_temp = next((v for k, v in s.items() if k.startswith("Temperature |") and "ryzen" in k.lower()), None)
+                    gpu_clock = next((v for k, v in s.items() if k.startswith("Clock |") and "radeon" in k.lower() and "gpu core" in k.lower()), None)
+                    gpu_power = next((v for k, v in s.items() if k.startswith("Power |") and "radeon" in k.lower() and "gpu core" in k.lower()), None)
+                    gpu_temp = next((v for k, v in s.items() if k.startswith("Temperature |") and "radeon" in k.lower()), None)
+                    if cpu_temp is not None:
+                        self.sys_ring.add({"kind": "temp", "domain": 0, "rc": 0, "temp_c": cpu_temp, "t": t})
+                    if gpu_clock is not None:
+                        self.sys_ring.add({"kind": "freq", "domain": 0, "rc": 0, "actual_mhz": gpu_clock, "throttle_reasons": 0, "t": t})
+                    if gpu_power is not None:
+                        self.sys_ring.add({"kind": "power", "domain": 0, "rc": 0, "power_w": gpu_power, "source": "lhm_gpu", "t": t})
+                    if gpu_temp is not None:
+                        self.sys_ring.add({"kind": "temp", "domain": 1, "rc": 0, "temp_c": gpu_temp, "t": t})
+        th = threading.Thread(target=lhm_loop, daemon=True)
+        th.start()
+        self._threads.append(th)
+
     def set_pid(self, pid):
         Path(PID_FILE).write_text("" if pid is None else str(pid))
 
@@ -285,11 +336,15 @@ class Telemetry:
             m3.kill_tree(p.pid)
 
     def temp_now(self):
-        rows = [r for r in self.sys_ring.window(time.time() - 5, time.time()) if r["kind"] == "temp" and r.get("temp_c")]
+        """CPU temperature only (domain 0), for the thermal gate. GPU temperature (domain 1, LHM-fed on AMD) is
+        reported separately by metrics() as igpu_temp_c_max and does not feed the gate."""
+        rows = [r for r in self.sys_ring.window(time.time() - 5, time.time()) if r["kind"] == "temp" and r["domain"] == 0 and r.get("temp_c")]
         return max((r["temp_c"] for r in rows), default=None)
 
     def metrics(self, t0, t1):
         f = [r for r in self.sys_ring.window(t0, t1) if r["kind"] == "freq" and r["domain"] == 0]
+        p_gpu = [r for r in self.sys_ring.window(t0, t1) if r["kind"] == "power" and r["domain"] == 0 and r.get("source") == "lhm_gpu"]
+        t_gpu = [r for r in self.sys_ring.window(t0, t1) if r["kind"] == "temp" and r["domain"] == 1]
         w = self.win_ring.window(t0, t1)
         g = self.gpu_ring.window(t0, t1)
         a = self.avail_ring.window(t0, t1)
@@ -299,6 +354,8 @@ class Telemetry:
         return {
             "igpu_mhz": _med([r["actual_mhz"] for r in f]),
             "igpu_throttle_bits": sorted({int(r["throttle_reasons"]) for r in f}) if f else None,
+            "igpu_power_w": _med([r["power_w"] for r in p_gpu]) if p_gpu else None,
+            "igpu_temp_c_max": _max([r.get("temp_c") for r in t_gpu]) if t_gpu else None,
             "pkg_power_w": (_med(pk) / 1000) if _med(pk) is not None else None,
             "rapl_pp0_w": (_med(pp0) / 1000) if pp0 else None,
             "rapl_pp1_w": (_med(pp1) / 1000) if pp1 else None,
