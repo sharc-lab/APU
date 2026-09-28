@@ -178,3 +178,43 @@ clock/load/power (SMU) also present but not yet used. `MSAcpi_ThermalZoneTempera
 **Not yet done:** wiring these sensors into the evo-x2 per-call telemetry (harness/t2s_lab.py's Telemetry class is
 Level-Zero-Sysman-shaped and Intel-only; evo-x2 needs its own LHM-based sampler feeding the same igpu_mhz/pkg_power_w/
 temp_c fields) and fixing the per-process PID in the memory cross-check. Queued, not started.
+
+---
+
+## 2026-09-28 -- X2 system clock was wrong by about 3h53m; NTP sync fixed it
+
+**Found by the user's check, not caught earlier.** The timezone (`Pacific Standard Time`, correctly applying PDT
+-07:00 via .NET's DST rules) was never the problem; the underlying UTC clock itself was wrong.
+Measured (same-second comparison, controller `date -u` vs X2 `[DateTime]::UtcNow`): X2 read
+`2026-09-28T10:16:00.07Z` while the controller read `2026-09-28T06:22:42.82Z` -- **X2 was about 3h 53m 17s ahead of
+real UTC.** `w32time` was `Stopped`/`Manual` (never running), so nothing had ever corrected it.
+
+**Command:**
+```powershell
+Set-Service w32time -StartupType Automatic
+Start-Service w32time
+w32tm /config /manualpeerlist:"time.windows.com,0x8" /syncfromflags:manual /reliable:yes /update
+Restart-Service w32time
+w32tm /resync /force
+```
+**Before:** offset about +3h53m17s, `w32time` Stopped/Manual.
+**After:** offset under 2 s (X2 `06:23:38.75Z` vs controller `06:23:40.71Z`, the remaining ~2 s is SSH round-trip, not
+clock error); `w32tm /query /status` reports `Stratum: 5 (secondary reference - syncd by (S)NTP)`, source
+`time.windows.com`, last successful sync logged. Read back and confirmed.
+**Reason:** the harness matches call windows on UTC; a multi-hour clock error makes every timestamp in every row
+wrong by that amount, and was the reason the LHM positive-control reader appeared broken before the parser fix.
+**Standing.** **Revert:** not applicable (a correct clock is not something to revert); if ever needed,
+`Set-Service w32time -StartupType Manual; Stop-Service w32time`.
+
+**Correction to the reboot root-cause entry above:** it reported the restart at "09:36 UTC" from `LastBootUpTime`
+converted via the (at-the-time wrong) X2 clock. Subtracting the measured offset, the reboot actually happened at
+approximately **05:43 UTC**, matching the ~05:35 UTC the user observed directly. The cause (a pending Windows Update
+service-pack restart via `MoUsoCoreWorker.exe`) is unchanged; only the clock time was wrong.
+
+**Rows recorded on evo-x2 before this fix carry a timestamp offset of about +3h53m and must not be read as literal
+UTC:** the four `lhm_x2_control*.log` JSON results (`lhmctl` through `lhmctl4`), the `x2_preflight.py` run whose
+output is quoted above (its own printed JSON has no timestamp field, but the queue and boot-task log lines it read do),
+`x2_boot_task.log`, and every earlier X2_CHANGELOG entry's "before/after" timestamps taken directly from the machine.
+Durations measured entirely on-machine (e.g. the LHM control script's own idle/load windows, all computed from
+`time.time()` calls on the same clock) are internally consistent and unaffected; only comparisons against another
+machine's clock or against the true wall-clock time are off by the offset above.
