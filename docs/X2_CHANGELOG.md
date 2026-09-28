@@ -140,3 +140,41 @@ Run once after the fixes above: `sshd_ok` true, `tailscale_ok` true, `port_22_li
 `firewall_rule_present` true, `windows_update_paused` true (until 2026-11-02T09:08:29Z), `reboot_pending` false,
 `dl_ps1_running` true, `downloads_all_done` false (Qwen3-14B in progress at check time).
 **No revert needed** (read-only tool; `--fix` actions are the same idempotent restarts already covered above).
+
+---
+
+## 2026-09-28 -- LibreHardwareMonitor positive controls, evo-x2
+
+**First run found a real bug, not just a bad control.** `harness/lhm_control.py`'s (evo-t2s, never yet run) and
+`lhm_x2_control.py`'s timestamp parser used `time.mktime(...) - time.timezone`, which assumes the local zone's
+STANDARD offset. The X2 reports its zone ID as "Pacific Standard Time" while PDT (UTC-7) is actually in effect in
+September, so every windowed lookup landed an hour outside the ~4-minute sample period and returned nothing. Fixed in
+both files (`calendar.timegm`, commit c892ae3) and confirmed correct data on the second run.
+
+| sensor | idle | loaded | rise required | pass |
+|---|---|---|---|---|
+| CPU package temperature (60 s idle vs 60 s all-core spin) | 50.81 C | 59.50 C | >= 5 C | yes (+8.69 C) |
+| CPU package power (same spin) | 21.52 W | 84.99 W | any rise | yes |
+| iGPU core clock (idle vs during a real 4B call, ~7000-token prompt) | 600 MHz | 2602 MHz | any rise | yes |
+| iGPU power (same call) | 0 W | 32 W | any rise | yes |
+| iGPU temperature ("GPU VR SoC", the only GPU temperature LHM exposes here -- not a core die sensor; 60 s repeated calls) | 41.0 C | 54.5 C | any rise | yes (not required, passed anyway) |
+| MSAcpi_ThermalZoneTemperature (side comparison, not a control) | 47.05 C | 47.05 C | >= 5 C to trust | no (flat, same as evo-t2s) |
+| GPU memory cross-check | LHM 32,251 MiB used | Windows counter 0 MiB | agree within 5% | no, see below |
+
+Spin positive control: 212,600,000-226,095,519 integer iterations/s across the two runs (co-runner genuinely loaded).
+
+**GPU memory cross-check failure is a bug in the control script, not the sensors.** It queried
+`\GPU Process Memory(pid_<launcher-pid>_*)`, where `<launcher-pid>` was the WMI-created `cmd.exe` wrapper's PID, not
+`llama-server.exe`'s own child PID (the same PID-indirection found manually earlier this session). LHM's own
+`SmallData | AMD Radeon(TM) 8060S Graphics | GPU Memory Used` sensor (32,251 MiB) is itself a real, working,
+system-wide reading; only the per-process cross-check needs the correct child PID, not resolved yet.
+
+**Sensors available and control-verified on evo-x2:** CPU package temperature and power (`Temperature | ... | Core
+(Tctl/Tdie)`, `Power | ... | Package`), iGPU core clock and power (`Clock`/`Power | AMD Radeon(TM) 8060S Graphics |
+GPU Core`), iGPU VR temperature, system-wide GPU memory (`SmallData | ... | GPU Memory Used/Free/Total`). Per-core CPU
+clock/load/power (SMU) also present but not yet used. `MSAcpi_ThermalZoneTemperature` confirmed not trustworthy
+(flat under load), same conclusion as evo-t2s.
+
+**Not yet done:** wiring these sensors into the evo-x2 per-call telemetry (harness/t2s_lab.py's Telemetry class is
+Level-Zero-Sysman-shaped and Intel-only; evo-x2 needs its own LHM-based sampler feeding the same igpu_mhz/pkg_power_w/
+temp_c fields) and fixing the per-process PID in the memory cross-check. Queued, not started.
