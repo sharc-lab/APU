@@ -483,6 +483,90 @@ def phase_r1_check(lab):
         lab.resources["server"] = None
 
 
+# ---------------------------------------------------------------- R1b (truncation cliff)
+# Ported from harness/art_truncation.py (Ollama-based) onto the current L.Server/do_call machinery, same reasoning as
+# phase_r1_check. Probe IDs come from evaluation/probes/artifact.jsonl (art_01..art_10); each probe's actual
+# artifact/question/scorer_type/expected text is the matching art_* entry in segments.jsonl (art_truncation.py itself
+# reads segments.jsonl for those fields, artifact.jsonl only for the id list and artifact_form), so this reuses
+# load_r1_check_probes'-style read-only loading against the same file, just a different id list.
+R1B_MODELS = ["qwen3-8b", "qwen3-14b"]
+R1B_PROBE_IDS = [f"art_{i:02d}" for i in range(1, 11)]
+R1B_RATIOS = [1.20, 0.98, 0.85, 0.40]
+R1B_ARM_SUFFIXES = {
+    "arm1_baseline": "",
+    "arm3_self_report": ("\n\nFirst state whether the information needed to answer is present above, then answer. "
+                         "Format: AVAILABLE: yes|no, then the answer."),
+}
+R1B_REPS = 3
+R1B_FILLER = 4000
+R1B_CTX = 8192
+
+
+def load_r1b_probes():
+    segs = {}
+    for l in (L.PROBES_DIR / "segments.jsonl").read_text(encoding="utf-8").splitlines():
+        if l.strip():
+            d = json.loads(l)
+            segs[d["id"]] = d
+    missing = [pid for pid in R1B_PROBE_IDS if pid not in segs]
+    if missing:
+        raise RuntimeError(f"R1b probes missing from segments.jsonl: {missing}")
+    return [segs[pid] for pid in R1B_PROBE_IDS]
+
+
+def phase_r1b(lab):
+    """R1b truncation cliff (Addendum v3): 10 art_* probes x 4 budget ratios x 2 arms (baseline vs a self-report
+    instruction appended after truncation) x 3 reps = 240 calls/model. Artifact always precedes filler precedes
+    question (no LATE/EARLY position variation, unlike R1a/phase_r1_check) -- position is R1d's axis, not this one.
+    Every row tagged axis="quality"."""
+    probes = load_r1b_probes()
+    for mid in R1B_MODELS:
+        mi = lab.models.get(mid)
+        if mi is None:
+            continue
+        item0 = f"R1b_{mid}_start"
+        srv = L.Server(lab, mi, R1B_CTX, tag=item0)
+        lab.resources["server"] = srv
+        info = srv.start(timeout=1800)
+        ov.start_row(lab, srv, mi, "R1b", item0, info, {"axis": "quality"})
+        if not info.get("ok"):
+            srv.stop()
+            lab.resources["server"] = None
+            continue
+        filler = L.ctx_mod.build_filler(R1B_FILLER, seed=42, count_fn=srv.tokenize)
+        full_tokens_cache = {p["id"]: srv.tokenize(f"{p['artifact'].strip()}\n\n{filler}\n\n{p['question'].strip()}")
+                             for p in probes}
+        for ratio in R1B_RATIOS:
+            for probe in probes:
+                pid = probe["id"]
+                artifact, question = probe["artifact"].strip(), probe["question"].strip()
+                full_tokens = full_tokens_cache[pid]
+                target_tokens = round(full_tokens * ratio)
+                truncating = target_tokens < full_tokens
+                base_prompt = f"{artifact}\n\n{filler}\n\n{question}"
+                truncated_base = sc_left_truncate(base_prompt, full_tokens, target_tokens) if truncating else base_prompt
+                chars_dropped = len(base_prompt) - len(truncated_base)
+                art_len = len(artifact)
+                art_frac = max(0.0, 1.0 - min(chars_dropped, art_len) / art_len) if art_len else 0.0
+                for arm, suffix in R1B_ARM_SUFFIXES.items():
+                    full_prompt = truncated_base + suffix
+                    n_tok = srv.tokenize(full_prompt)
+                    for rep in range(R1B_REPS):
+                        item = f"R1b_{mid}_{pid}_{ratio}_{arm}_{rep}"
+                        if item in lab.done:
+                            continue
+                        lab.check()
+                        probe_dict = {"id": pid, "scorer_type": probe["scorer_type"], "expected": probe["expected"]}
+                        ov.do_call(lab, srv, mi, "R1b", item, full_prompt, n_tok, warmup=False, rep=rep, max_tokens=256,
+                                   ignore_eos=False, kind="call", probe=probe_dict,
+                                   extra={"axis": "quality", "arm": arm, "budget_ratio": ratio, "full_tokens": full_tokens,
+                                          "target_tokens": target_tokens, "truncating": truncating,
+                                          "chars_dropped": chars_dropped, "artifact_fraction_retained": round(art_frac, 4)})
+                        lab.item_done(item)
+        srv.stop()
+        lab.resources["server"] = None
+
+
 # ---------------------------------------------------------------- A70 (70B budget crossing, no YaRN)
 A70_MODEL = "llama-3.3-70b"
 A70_MATCHED_PROMPT_TOKENS = 8000
@@ -746,17 +830,18 @@ def phase_perfboost(lab):
 
 
 PRIO = {"b1": 1, "b2": 2, "c1": 3, "b3": 4, "c1b": 5, "b4": 6, "b4_32b": 7, "b4_replicate": 8, "r1_speed": 10,
-        "r1_check": 11, "a70": 12, "p70": 13, "perfboost": 9}
+        "r1_check": 11, "a70": 12, "p70": 13, "r1b": 14, "perfboost": 9}
 PHASE_FN = {"b1": phase_b1, "b2": phase_b2, "c1": phase_c1, "b3": phase_b3, "c1b": phase_c1b, "b4": phase_b4,
            "b4_32b": phase_b4_32b, "b4_replicate": phase_b4_replicate, "r1_speed": phase_r1_speed,
-           "r1_check": phase_r1_check, "a70": phase_a70, "p70": phase_p70, "perfboost": phase_perfboost}
+           "r1_check": phase_r1_check, "a70": phase_a70, "p70": phase_p70, "r1b": phase_r1b,
+           "perfboost": phase_perfboost}
 PHASE_ORDER = "b1,b2,c1,b3,c1b,perfboost"
 
 # Phases that must pass a 1-item live smoke (server start, stale-server guard, one call, row-schema check) before
 # their first real run in a given resumed stem, per the standing rule added after two duplicate-keyword crashes: a
 # dry run against a stub lab catches code bugs, but only a real machine catches a bad deploy, a missing dependency
 # file, or a wrong assumption about what the live server actually returns.
-SMOKE_GATED_PHASES = {"r1_speed", "r1_check", "a70", "p70"}
+SMOKE_GATED_PHASES = {"r1_speed", "r1_check", "a70", "p70", "r1b"}
 
 
 class SmokeFailure(Exception):
@@ -922,6 +1007,11 @@ def estimate_hours(lab, overheads=None):
     n_extra_points = 6    # 3 below + 3 above the boundary, also server-start-only
     est["a70"] = (a70_load + (n_bisect_probes + n_extra_points) * a70_load + len(A70_ARMS) * (a70_load + 4 * a70_call)) / 3600
     est["p70"] = (a70_load + 2 * (4 * a70_call + gate_s)) / 3600
+    s = 0.0
+    for mid in R1B_MODELS:
+        n_calls = len(R1B_PROBE_IDS) * len(R1B_RATIOS) * len(R1B_ARM_SUFFIXES) * R1B_REPS  # 240
+        s += load_s(mid) + n_calls * call_s(mid, R1B_FILLER, 256)
+    est["r1b"] = s / 3600
     return est
 
 
@@ -939,11 +1029,16 @@ def main():
     ap.add_argument("--r1-check-models", default=None,
                      help="comma list overriding R1_CHECK_MODELS for this run (e.g. the evo-x2 full ladder instead "
                           "of evo-t2s's qwen3-8b,qwen3-14b check set)")
+    ap.add_argument("--r1b-models", default=None,
+                     help="comma list overriding R1B_MODELS for this run (e.g. the evo-x2 full ladder instead of "
+                          "evo-t2s's qwen3-8b,qwen3-14b check set)")
     args = ap.parse_args()
     host_cfg = hc.require_host(socket.gethostname())
     hc.enforce_or_record_interactive_session(host_cfg)  # raises on evo-t2s if occupied; never raises on evo-x2
     if args.r1_check_models:
         globals()["R1_CHECK_MODELS"] = args.r1_check_models.split(",")
+    if args.r1b_models:
+        globals()["R1B_MODELS"] = args.r1b_models.split(",")
     prov = rp.verify_deployed_blobs(ov.DEPLOY, args.expect_blobs)
     lab = make_lab(args, prov, gpu_vendor=host_cfg["gpu_vendor"])
     lab.identity["hw_id"] = host_cfg["hw_id"]
@@ -951,7 +1046,7 @@ def main():
     lab.resources["powercap"] = None
     if args.overnight_table and Path(args.overnight_table).exists():
         lab.table = json.load(open(args.overnight_table, encoding="utf-8"))
-    all_models = sorted(set(B1_MODELS + B3_MODELS + R1_SPEED_MODELS + R1_CHECK_MODELS + [m for m, *_ in C1_SPEC]))
+    all_models = sorted(set(B1_MODELS + B3_MODELS + R1_SPEED_MODELS + R1_CHECK_MODELS + R1B_MODELS + [m for m, *_ in C1_SPEC]))
     load_models(lab, all_models)
     phases = args.phases.split(",")
     overheads = load_night2_overheads(args.prior_results)
