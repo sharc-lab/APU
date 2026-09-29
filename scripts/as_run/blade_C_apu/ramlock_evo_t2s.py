@@ -68,7 +68,7 @@ REPO = Path(r"C:\apu\APU")
 PROBES_DIR = REPO / "evaluation" / "probes"
 RESULTS_DIR = REPO / "results"
 SCRIPT_DIR = Path(r"C:\apu")
-PYTHON_EXE = r"C:\Users\SHARC\AppData\Local\Programs\Python\Python312\python.exe"
+PYTHON_EXE = os.path.expandvars(r"%USERPROFILE%\AppData\Local\Programs\Python\Python312\python.exe")
 
 sys.path.insert(0, str(REPO / "harness"))
 import context as ctx_mod  # noqa: E402

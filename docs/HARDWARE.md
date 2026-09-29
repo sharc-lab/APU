@@ -24,7 +24,7 @@ Set up and verified by the user at the keyboard, 2026-09-28.
 | local admin account | evo-x2\ritz (local account, not a Microsoft account) |
 | SSH | key-only: PasswordAuthentication no, KbdInteractiveAuthentication no, ChallengeResponseAuthentication no; key in C:\ProgramData\ssh\administrators_authorized_keys (ACL SYSTEM + Administrators only); default shell Windows PowerShell 5.1 |
 | Windows build | 10.0.26100 (confirmed live via $PSVersionTable.PSVersion: 5.1.26100.7705) |
-| Python | C:\Users\Ritz\AppData\Local\Programs\Python\Python312\python.exe, 3.12.10 (numpy 2.5.3, pandas 3.0.6, pytest, psutil 7.2.2) |
+| Python | %USERPROFILE%\AppData\Local\Programs\Python\Python312\python.exe, 3.12.10 (numpy 2.5.3, pandas 3.0.6, pytest, psutil 7.2.2) |
 | llama-server | C:\apu\bin\llama-b10970\llama-server.exe, build 10970, commit bfdc32183, Vulkan |
 | GPU | AMD Radeon(TM) 8060S Graphics (Strix Halo iGPU), driver 32.0.31007.1017 |
 | GPU memory (llama-server --list-devices) | Vulkan0: 98,123 MiB total, 93,217 MiB free |

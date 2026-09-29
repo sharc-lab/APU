@@ -3,7 +3,8 @@ import json, sys
 from collections import defaultdict
 from pathlib import Path
 
-src = Path("C:/Users/rithw/OneDrive/Documents/GitHub/APU/results/fig61_full_20260922T060942Z.jsonl")
+REPO = Path(__file__).resolve().parents[3]
+src = REPO / "results/fig61_full_20260922T060942Z.jsonl"
 rows = [json.loads(l) for l in src.read_text("utf-8").splitlines() if l.strip()]
 
 RATIOS = [1.20, 1.00, 0.85, 0.70, 0.55, 0.40]
@@ -121,6 +122,6 @@ out = {
     "per_probe":             per_probe,
 }
 
-dest = Path("C:/Users/rithw/OneDrive/Documents/GitHub/APU/results/fig61_plot_data.json")
+dest = REPO / "results/fig61_plot_data.json"
 dest.write_text(json.dumps(out, indent=2), encoding="utf-8")
 print(f"\nPlot data written to {dest}")

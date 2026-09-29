@@ -6,7 +6,7 @@
 import json
 from pathlib import Path
 
-RESULTS = Path("C:/Users/rithw/OneDrive/Documents/GitHub/APU/results")
+RESULTS = Path(__file__).resolve().parents[3] / "results"
 GGUF_SHA = "85e4a5b7b8ef0e48af0e8658f5aaab9c2324c76c1641493f4d1e25fce54b18b9"
 GATE_DISAGREEMENTS = [
     {"probe_id": "sea_01", "arm": "LATE",

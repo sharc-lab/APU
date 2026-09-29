@@ -1,5 +1,6 @@
 ﻿import json, os, re, statistics as st, datetime as dt, glob, csv
-R = r"C:\Users\rithw\OneDrive\Documents\GitHub\APU\results"
+from pathlib import Path
+R = str(Path(__file__).resolve().parents[1] / "results")
 TS = "20260925T043921Z"
 rows = [json.loads(l) for l in open(f"{R}\\blade_m2_host_interference_{TS}.jsonl")]
 log = open(r"C:\apu\m2_run.log", encoding="utf-8", errors="replace").read().splitlines()

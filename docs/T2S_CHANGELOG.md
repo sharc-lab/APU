@@ -7,7 +7,7 @@ tasks, registry/power-plan changes, installed software) made on it during this p
 ## 2026-09-29 -- APU-QueueWatchdog scheduled task installed
 
 **What:** a Windows scheduled task, `APU-QueueWatchdog`, runs `C:\apu\ovn\queue_watchdog.py` via
-`C:\Users\SHARC\AppData\Local\Programs\Python\Python312\python.exe` every 10 minutes, indefinitely, as SYSTEM.
+`%USERPROFILE%\AppData\Local\Programs\Python\Python312\python.exe` every 10 minutes, indefinitely, as SYSTEM.
 
 **Why:** `harness/t2s_queue.py`'s `advance()` only runs from inside a finishing orchestrator's own process, so it
 cannot recover if that process never reaches its `finally` block (crashed hard, externally killed, powered off
@@ -20,7 +20,7 @@ if neither, it marks the entry "crashed" and launches the next pending entry its
 nothing is pending). See `harness/queue_watchdog.py`'s module docstring for the full decision logic and
 `tests/test_queue_watchdog.py` for its dry-run coverage.
 
-**Installed via:** `scripts/install_queue_watchdog.ps1 -PythonExe 'C:\Users\SHARC\AppData\Local\Programs\Python\Python312\python.exe'`
+**Installed via:** `scripts/install_queue_watchdog.ps1 -PythonExe '%USERPROFILE%\AppData\Local\Programs\Python\Python312\python.exe'`
 (idempotent; safe to re-run to update the task definition).
 
 **Revert:** `Unregister-ScheduledTask -TaskName "APU-QueueWatchdog" -Confirm:$false`
@@ -43,7 +43,7 @@ used on evo-x2. Pulled `qwen3:8b`.
 pressure behavior on evo-t2s for the tier + memory-in-use phases only -- quality curves stay evo-x2-only (that part
 of K1 needs the model-independence check to be meaningful, per the addendum).
 
-**Revert:** uninstall via `C:\Users\SHARC\AppData\Local\Programs\Ollama\unins000.exe /SILENT`, or leave installed but
+**Revert:** uninstall via `%USERPROFILE%\AppData\Local\Programs\Ollama\unins000.exe /SILENT`, or leave installed but
 stop the server: `Stop-Process` the `ollama.exe serve` process.
 
 **Caution noted:** a `ConnectionRefusedError` interrupted the running r1_a70_p70 experiment's r1_check phase at

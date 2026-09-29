@@ -4,7 +4,7 @@ from pathlib import Path
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 from collections import defaultdict
 
-REPO = Path("C:/Users/rithw/OneDrive/Documents/GitHub/APU")
+REPO = Path(__file__).resolve().parents[3]
 OLD  = REPO / "results/fig61_stagec_full_20260922T191031Z.jsonl"
 NEW  = REPO / "results/fig61_stagec_full_20260922T203557Z.jsonl"
 

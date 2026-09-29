@@ -21,7 +21,7 @@ HOSTS = {
     "EVO-T2S": {
         "hw_id": "evo-t2s",
         "user": "sharc",
-        "python_exe": r"C:\Users\SHARC\AppData\Local\Programs\Python\Python312\python.exe",
+        "python_exe": r"%USERPROFILE%\AppData\Local\Programs\Python\Python312\python.exe",
         "deploy_dir": r"C:\apu\ovn",
         "models_dir": r"C:\apu\models",
         "gpu_vendor": "intel",
@@ -31,7 +31,7 @@ HOSTS = {
     "EVO-X2": {
         "hw_id": "evo-x2",
         "user": "Ritz",
-        "python_exe": r"C:\Users\Ritz\AppData\Local\Programs\Python\Python312\python.exe",
+        "python_exe": r"%USERPROFILE%\AppData\Local\Programs\Python\Python312\python.exe",
         "deploy_dir": r"C:\apu\ovn",
         "models_dir": r"C:\apu\models",
         "gpu_vendor": "amd",

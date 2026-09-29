@@ -298,9 +298,9 @@ the corrected `sha256.txt`, one `"event": "done"` line per model.
 ## 2026-09-29 -- APU-QueueWatchdog scheduled task installed
 
 Same task and purpose as the evo-t2s entry in `docs/T2S_CHANGELOG.md` (see there for the full rationale): runs
-`C:\apu\ovn\queue_watchdog.py` via `C:\Users\Ritz\AppData\Local\Programs\Python\Python312\python.exe` every 10
+`C:\apu\ovn\queue_watchdog.py` via `%USERPROFILE%\AppData\Local\Programs\Python\Python312\python.exe` every 10
 minutes, as SYSTEM. Installed via `scripts/install_queue_watchdog.ps1 -PythonExe
-'C:\Users\Ritz\AppData\Local\Programs\Python\Python312\python.exe'`. Confirmed `State: Ready` immediately after
+'%USERPROFILE%\AppData\Local\Programs\Python\Python312\python.exe'`. Confirmed `State: Ready` immediately after
 registration. Revert: `Unregister-ScheduledTask -TaskName "APU-QueueWatchdog" -Confirm:$false`.
 
 ## 2026-09-29 -- Section 0 / Q0 / R1 launch blocked by an active console session

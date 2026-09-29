@@ -50,7 +50,7 @@ if IS_EVO:
     MODEL_PATH = r"C:\apu\models\qwen3-4b-instruct-85e4a5b7.gguf"
     REPO = Path(r"C:\apu\APU")
     SCRIPT_DIR = Path(r"C:\apu")
-    PYTHON_EXE = r"C:\Users\SHARC\AppData\Local\Programs\Python\Python312\python.exe"
+    PYTHON_EXE = os.path.expandvars(r"%USERPROFILE%\AppData\Local\Programs\Python\Python312\python.exe")
     N_CORES = 16
     THREAD_TO_PCT = {4: 25, 8: 50, 12: 75, 16: 100}
 else:
@@ -59,7 +59,7 @@ else:
     MEM_ARCH = "discrete"
     SERVER_BIN = r"C:\apu\bin\llama-b10970-cuda\llama-server.exe"
     MODEL_PATH = r"C:\apu\models\qwen3-4b-instruct-85e4a5b7.gguf"
-    REPO = Path(r"C:\Users\rithw\OneDrive\Documents\GitHub\APU")
+    REPO = Path(__file__).resolve().parents[3]
     SCRIPT_DIR = Path(r"C:\apu")
     PYTHON_EXE = None  # resolved via `py -3.12` launcher below
     N_CORES = 16

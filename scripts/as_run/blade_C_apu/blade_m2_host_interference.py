@@ -59,7 +59,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-REPO = Path(r"C:\Users\rithw\OneDrive\Documents\GitHub\APU")
+REPO = Path(__file__).resolve().parents[3]
 RESULTS_DIR = REPO / "results"
 SCRIPT_DIR = Path(r"C:\apu")
 
