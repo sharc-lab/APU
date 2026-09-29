@@ -485,3 +485,63 @@ converges, with Ollama confirmed stopped, and the boundary is only reported if t
 `harness/t2s_amech.py`/`t2s_night2.phase_a70`). x2_r1_check_full_ladder's cells stand as measured on this basis
 alone; see the separate ConnectionRefusedError contamination window analysis for evo-t2s's r1_check, which is a
 distinct question from Ollama GPU residency.
+
+## Real contamination found: two orchestrator processes fought over port 8385, 2026-09-29 10:38-10:48 UTC
+
+The watchdog's PID-liveness false crash (see docs/T2S_CHANGELOG.md's incident entry) did not just misreport a
+status: it caused a real second process to launch and collide with the still-running original one. `r1_repeat_backlog`
+was launched by the false-crash cascade at 10:03:35Z, sat inert for a while, then reached its own `phase r1_speed`
+step at 10:38:10Z and began starting/stopping llama-server on port 8385 -- the same port the still-alive original
+`r1_a70_p70` process (mid-c1b) was actively using. Confirmed by matching PIDs appearing in both processes' own logs
+for the same Server.stop() escalations (pid 448, 7660, 3084, 9096) between 10:38:10Z and 10:48:38Z, when
+`r1_repeat_backlog` finally hit `STOP: port 8385 held by pid 9096 which is NOT ours` and halted itself.
+
+**This is the direct cause of c1b's own interruption.** The original run's `phase c1b error:
+URLError(ConnectionRefusedError(...))` and the move to `phase b4_32b` both happened at 10:48:41Z, three seconds
+after `r1_repeat_backlog`'s own log shows it doing a "last-resort kill of port-8385 owner pid 9096" at 10:48:34-38Z --
+the competing process killed the server the original run needed.
+
+**Cells tagged `contaminated_watchdog_overlap`** (c1b section, padded +/-90s around the 10:38:10-10:48:38Z window for
+server-start lead time, i.e. 10:36:40Z to 10:50:08Z):
+- `C1_qwen3-14b_mm_-1_1_8` (c1_responsiveness at 10:38:07Z)
+- `C1_qwen3-32b_mm_-1_1_9` (10:40:01Z)
+- `C1_qwen3-32b_nomm_-1_0_10` (10:45:51Z)
+- `C1_qwen3-32b_mm_0_1_11` (10:48:41Z -- the directly-killed cell; its one call recorded `outcome: error,
+  [WinError 10054] An existing connection was forcibly closed by the remote host`)
+
+No A70, P70, or b4_32b cells fall in this window (P70 finished ~08:29Z; b4_32b started 10:48:41Z, after
+`r1_repeat_backlog` had already self-halted at 10:48:38Z, so b4_32b is clean). These four c1b cells should be
+re-measured before being used for any A-22/A-27 conclusion that depends on their exact numbers; the qualitative
+A-27 CONTRADICTED verdict (docs/CLAIMS_LEDGER.md) does not rest on these four specifically (it uses the aggregate
+0/4 negative-headroom mmap survival count across all 4 c1b negative-headroom cells, of which 2 of the 4 -- items
+1 and 4, both outside this window -- already independently showed the same crash pattern).
+
+**Root cause of the underlying false crash, 2026-09-29 10:03:35Z (why `pid_alive_fn(4676)` returned dead while the
+real python.exe process was still running):** not fully confirmed. The real process wrote continuously to its own
+log/JSONL through 12:15:15Z, so the process tree was genuinely alive; `Get-Process -Id 4676` (the WMI-launched
+`cmd.exe /c ...` wrapper PID) is the one signal that returned a negative result. Of the candidates checked:
+- **PID reuse:** not supported -- `Get-Process -Id 4676` at the time of my own later investigation (hours after)
+  returned a real, different, unrelated process (`cmd`, StartTime 9/28 8:40 PM, the session's own leftover shell),
+  which is consistent with 4676 having been freed and reused at some point, but does not establish it happened
+  specifically at 10:03:35Z rather than later.
+- **Session/SYSTEM query denial:** plausible but unconfirmed. The watchdog scheduled task runs as SYSTEM
+  (`Logon Mode: Interactive/Background` per `schtasks /Query`); the actual orchestrator was launched via WMI
+  `Win32_Process Create` from an interactive SSH session under the `sharc` account. A SYSTEM-context `Get-Process`
+  query against a process in a different session can legitimately fail to enumerate it under some Windows session
+  isolation configurations. Not reproduced live; would need a controlled test (launch a long-lived process the same
+  way, then query it as SYSTEM at increasing delays) that there was not time to run in this pass.
+- **The recorded PID being the wrong one (launcher vs. worker):** ruled out for THIS incident specifically -- 4676
+  is the `cmd.exe /c cd /d ... && python.exe ...` wrapper PID, which by ordinary Windows process semantics stays
+  alive exactly as long as the chained command (including python.exe) runs; nothing in this session's evidence
+  shows 4676 specifically being killed without its child (no `taskkill` log entry against 4676, and killing 4676
+  without `/T` before the child needed it is not something any of this harness's own cleanup code does -- all of
+  it is scoped to processes holding port 8385, and 4676 itself, wrapping `cd` and then `python.exe`, never binds
+  that port).
+- **A timezone/clock comparison bug in the check itself:** ruled out -- `pid_alive_fn` does a live `Get-Process -Id`
+  query with no timestamp comparison at all (see `harness/queue_watchdog.py::pid_alive`); there is no clock logic
+  in the old code path that could produce a false negative this way.
+
+**Practical fix already deployed (commit 927a29d) makes the exact cause less urgent to pin down further:** the
+watchdog now requires BOTH the pid check AND a stale heartbeat (job's own log file mtime) to agree before declaring
+a job dead, so this specific failure mode (pid check wrong, heartbeat correct) can no longer cascade into launching
+a second, colliding process even if the underlying `Get-Process` anomaly recurs.
