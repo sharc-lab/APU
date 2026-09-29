@@ -37,6 +37,51 @@ machine triggers a reboot before `C:\apu\models\sha256.txt` says `ALL DONE`.
 
 ---
 
+## 2026-09-29 -- Windows Update auto-restart blocked (AU policy) after the 2026-09-28 pause alone failed to prevent a reboot
+
+**Why:** the 2026-09-28 pause-updates entry above did not stop a Windows Update auto-restart: TrustedInstaller
+initiated a restart at approximately 2026-09-29T07:10-07:12Z ("Operating System: Upgrade (Planned)", System log
+event 1074), which killed the running `x2_r1_check_full_ladder` job mid-run (last row 07:11:16Z, no run_end
+written). The client-side "pause" flag under `HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings` evidently did not
+block an update that was already staged before the pause took effect. This entry adds the stronger Group-Policy-
+style AU policy block (which prevents auto-download in the first place, not just an already-staged install) on top
+of a fresh pause.
+
+**Command:**
+```powershell
+$auPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU"
+New-ItemProperty -Path $auPath -Name "NoAutoUpdate" -Value 0 -PropertyType DWord -Force
+New-ItemProperty -Path $auPath -Name "AUOptions" -Value 2 -PropertyType DWord -Force
+New-ItemProperty -Path $auPath -Name "NoAutoRebootWithLoggedOnUsers" -Value 1 -PropertyType DWord -Force
+
+$uxPath = "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings"
+Set-ItemProperty -Path $uxPath -Name PauseUpdatesStartTime -Value "2026-09-29T11:40:55Z" -Type String
+Set-ItemProperty -Path $uxPath -Name PauseUpdatesExpiryTime -Value "2026-11-03T11:40:55Z" -Type String
+```
+
+**Before:** `HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU` did not exist (no policy-level AU block was
+ever set on this machine). `PauseUpdatesExpiryTime` was `2026-11-02T09:08:29Z` (the 2026-09-28 entry above).
+
+**After (read back immediately):** `NoAutoUpdate=0`, `AUOptions=2` (notify for download, notify for install --
+nothing auto-installs without a person accepting it), `NoAutoRebootWithLoggedOnUsers=1`. `PauseUpdatesStartTime` =
+`2026-09-29T11:40:55Z`, `PauseUpdatesExpiryTime` = `2026-11-03T11:40:55Z` (35 days from this change, extending the
+09-28 pause by about a day).
+
+**Restart-pending check (read-only, no restart performed):** `HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\
+WindowsUpdate\Auto Update\RebootRequired` does not exist (`Test-Path` = False) -- no Windows-Update-driven restart
+is currently pending. `PendingFileRenameOperations` (`HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager`) has
+entries, but all are print-spooler driver files (`mxdwdrv.dll`, `PCL5ERES.DLL`, etc.), unrelated to Windows Update;
+not evidence of a pending Windows-Update reboot.
+
+**Standing or per-experiment:** standing. **Revert:** `Remove-Item -Path $auPath -Recurse -Force` (deletes the whole
+policy key back to not-existing), and for the pause, `Remove-ItemProperty -Path $uxPath -Name
+PauseUpdatesStartTime, PauseUpdatesExpiryTime` or set `PauseUpdatesExpiryTime` to a past date.
+
+**Gate:** per this session's own instruction, PX2 and MX2 must not run until the post-reboot verification pass
+(sshd, Tailscale, port 22 rule, APU-QueueWatchdog task, w32time sync, LHM/PawnIO sensor feed, BIOS UMA/dedicated GPU
+memory, Vulkan heap sizes) has been run and passes -- not required here since no reboot has occurred since this
+change, but recorded as the standing gate for the next time a restart on this machine is unavoidable.
+
 ## 2026-09-28 -- SeLockMemoryPrivilege granted to Ritz
 
 See `docs/RAM_CAP_PROTOCOL.md`, section "GRANTED on evo-x2, 2026-09-28" for the exact `secedit` commands, before/after
