@@ -17,7 +17,7 @@ param(
 $action = New-ScheduledTaskAction -Execute $PythonExe -Argument 'C:\apu\ovn\queue_watchdog.py' `
     -WorkingDirectory 'C:\apu\ovn'
 $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 10) `
-    -RepetitionDuration ([TimeSpan]::MaxValue)
+    -RepetitionDuration (New-TimeSpan -Days 3650)  # ~10 years; [TimeSpan]::MaxValue overflows the task XML duration field
 $principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest
 $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable `
     -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 5)
