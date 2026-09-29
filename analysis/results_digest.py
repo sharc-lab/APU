@@ -23,10 +23,16 @@ from __future__ import annotations
 import argparse
 import json
 import statistics as st
+import sys
 import time
 from pathlib import Path
 
-IDLE_ALERT_THRESHOLD_S = 15 * 60
+# queue_watchdog.py is deployed flat alongside this file on both machines (scripts/deploy_evo.py copies everything
+# into C:\apu\ovn regardless of its source subdirectory in the repo), so this import resolves there. Locally, add
+# harness/ to the path the same way every other analysis/*.py script that reuses harness code does.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "harness"))
+import queue_watchdog as _wd  # noqa: E402
 
 # Fields that, when present and non-null on a row, are treated as a numeric metric worth summarizing per phase.
 # Deliberately generic (not hardcoded per phase) so this does not need updating every time a new phase is added;
@@ -99,11 +105,13 @@ def collect_phase_summaries(jsonl_paths):
     return phases
 
 
-def check_idle(queue_items, log_dir, now=None, threshold_s=IDLE_ALERT_THRESHOLD_S):
+def check_idle(queue_items, log_dir, now=None):
     """Read-only idle check: if the queue has a "running" entry, uses that entry's own queue_<id>.log mtime as the
-    liveness signal (same heartbeat harness/queue_watchdog.py uses) -- this function never touches pid_alive, so it
-    cannot ever be mistaken for something that starts, stops, or kills a process. Returns an ALERT line (str) or
-    None. Also alerts if there is pending work and nothing is running at all (a stalled queue)."""
+    liveness signal (same heartbeat harness/queue_watchdog.py uses, imported directly rather than duplicated, so
+    the two never drift apart) -- this function never touches pid_alive, so it cannot ever be mistaken for
+    something that starts, stops, or kills a process. Stale threshold is the same as the watchdog's own: 30 min, or
+    60 min for a 70B-model phase (not a flat 15 min -- a single 70B call can legitimately take minutes). Returns an
+    ALERT line (str) or None. Also alerts if there is pending work and nothing is running at all (a stalled queue)."""
     now = now if now is not None else time.time()
     running = next((it for it in queue_items if it.get("status") == "running"), None)
     pending = [it for it in queue_items if it.get("status") == "pending"]
@@ -111,14 +119,11 @@ def check_idle(queue_items, log_dir, now=None, threshold_s=IDLE_ALERT_THRESHOLD_
         if pending:
             return f"queue has {len(pending)} pending job(s) and nothing running"
         return None
-    log_path = Path(log_dir) / f"queue_{running['id']}.log"
-    try:
-        age = now - log_path.stat().st_mtime
-    except OSError:
-        age = None
-    if age is None or age > threshold_s:
+    age = _wd.heartbeat_age_s(running, log_dir=log_dir, now=now)
+    if _wd.is_stale(running, age):
         age_str = f"{age:.0f}s" if age is not None else "no log file found"
-        return f"job {running['id']} has not written to its log in {age_str} (threshold {threshold_s}s)"
+        threshold = _wd.HEARTBEAT_STALE_S_70B if _wd.is_70b_phase(running) else _wd.HEARTBEAT_STALE_S
+        return f"job {running['id']} has not written to its log in {age_str} (threshold {threshold}s)"
     return None
 
 

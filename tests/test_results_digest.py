@@ -139,6 +139,27 @@ def test_check_idle_alerts_when_running_with_stale_heartbeat(tmp_path):
     assert "a" in alert
 
 
+def test_check_idle_none_at_40min_for_a_70b_phase_but_stale_for_others(tmp_path):
+    """Not a flat 15-minute threshold: a 70B-model phase gets the watchdog's own 60-minute stale threshold, since
+    a single 70B call can legitimately take minutes each."""
+    import os
+    age_s = 40 * 60  # stale for a non-70B phase (30 min), fresh for a 70B phase (60 min)
+
+    log70 = tmp_path / "queue_a70job.log"
+    log70.write_text("hi", encoding="utf-8")
+    old = time.time() - age_s
+    os.utime(log70, (old, old))
+    items70 = [{"id": "a70job", "status": "running", "cmd": ["python", "x.py", "--models", "llama-3.3-70b"]}]
+    assert rd.check_idle(items70, tmp_path, now=time.time()) is None
+
+    log8b = tmp_path / "queue_8bjob.log"
+    log8b.write_text("hi", encoding="utf-8")
+    os.utime(log8b, (old, old))
+    items8b = [{"id": "8bjob", "status": "running", "cmd": ["python", "x.py", "--models", "qwen3-8b"]}]
+    alert = rd.check_idle(items8b, tmp_path, now=time.time())
+    assert alert is not None
+
+
 def test_check_idle_alerts_when_running_with_no_log_file(tmp_path):
     items = [{"id": "a", "status": "running"}]
     alert = rd.check_idle(items, tmp_path, now=time.time())
