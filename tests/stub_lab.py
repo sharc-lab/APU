@@ -27,14 +27,17 @@ class StubServer:
     """Mimics t2s_lab.Server's public interface used by do_call/measured_sequence/start_row/prompt_for. tokenize()
     uses a fixed chars-per-token estimate so context.build_filler's iterative sizing loop (bounded to 4 iterations
     regardless) terminates without a real tokenizer."""
-    def __init__(self, lab, mi, n_ctx, tag=None, mmap=None):
+    def __init__(self, lab, mi, n_ctx, tag=None, mmap=None, backend="vulkan", extra=(), load_mode=None, ngl=99, fit=None):
         self.lab, self.mi, self.n_ctx, self.tag = lab, mi, n_ctx, tag
         self.mmap = mmap if mmap is not None else True
-        self.load_mode = "auto"
-        self.backend = "vulkan"
+        self.load_mode = load_mode or "auto"
+        self.backend = backend
+        self.extra = list(extra)
+        self.ngl, self.fit = ngl, fit
         self.pid = 4242
         self.start_info = {}
-        self._alive = True
+        self.log_path = "C:\\apu\\ovn\\results\\stub_dryrun_srv.txt"  # never actually written; read_logs()-style
+        self._alive = True                                            # readers must tolerate a missing file
 
     def start(self, timeout=600):
         t0 = 1000000.0
@@ -42,6 +45,9 @@ class StubServer:
                 "build": "b10970-stub", "t_start": t0, "t_end": t0 + 3.0, "private_mib": 1000.0, "working_set_mib": 1200.0}
         self.start_info = info
         return info
+
+    def _cmd(self):
+        return ["llama-server.exe", "-m", getattr(self.mi, "path", "stub.gguf"), "-c", str(self.n_ctx)]
 
     def tokenize(self, prompt):
         return max(1, len(prompt) // 4)

@@ -47,10 +47,16 @@ from pathlib import Path
 import run_provenance as rp
 import t2s_lab as L
 import host_config as hc
+import t2s_amech as am  # A70: reuses Prober/start_and_record/boundary_record (same ov.Lab shape, no reimplementation)
 import t2s_overnight as ov
 import t2s_queue as tq
 from t2s_lab import log, ps, utc_iso
 from stage_c_position_pressure import left_truncate as sc_left_truncate  # R1 check set: same char-truncation as stage C
+
+try:
+    import quality_suite as qs  # A70: the Q0 suite at 8k, once qs.build_task/run_suite exist
+except ImportError:
+    qs = None
 
 PYTHON = sys.executable
 
@@ -477,6 +483,119 @@ def phase_r1_check(lab):
         lab.resources["server"] = None
 
 
+# ---------------------------------------------------------------- A70 (70B budget crossing, no YaRN)
+A70_MODEL = "llama-3.3-70b"
+A70_MATCHED_PROMPT_TOKENS = 8000
+A70_ARMS = [("ngl99", 99, None), ("default_fit", None, None), ("fit_off", None, "off")]
+
+
+def _a70_kv_step_tokens(mi, target_mib=512.0):
+    """Tokens per ~target_mib of KV, rounded to a multiple of am.STEP (the server pads n_ctx to a multiple of 256
+    anyway, so a step finer than that is not meaningful)."""
+    kv_mib_per_step = mi.kv_bpt_meta * am.STEP / 2 ** 20
+    if not kv_mib_per_step:
+        return am.STEP
+    mult = max(1, round(target_mib / kv_mib_per_step))
+    return mult * am.STEP
+
+
+def phase_a70(lab):
+    """Budget crossing on the 70B at native context (no YaRN -- flags=[]), reusing t2s_amech.Prober/boundary_record/
+    start_and_record directly (same ov.Lab shape, no reimplementation). Finds n_ctx* where weights+KV+compute cross
+    am.BUDGET_MIB (47865 MiB), bisected to 256 tokens by Prober.find() itself; records 3 points below and 3 above at
+    roughly 512 MiB of KV apart. Above the boundary, tries three fit arms (-ngl 99, default fit, -fit off); where a
+    server starts, runs 1 warm-up + 3 calls with a matched 8000-token prompt plus the Q0 suite at 8k (if
+    harness/quality_suite.py is importable; skipped with a note otherwise). Records exit codes and crash log tails
+    for every arm, started or not."""
+    mi = lab.models.get(A70_MODEL)
+    if mi is None:
+        log("A70: llama-3.3-70b not loaded (downloads.jsonl has no verified entry yet), skipping")
+        return
+    pr = am.Prober(lab, mi, [], "a70")
+    lo, hi = pr.find(4096, 1024)
+    if lo is None:
+        lab.emit({"record": "a70_no_passing_context", "model_id": mi.model_id, "ts_utc": utc_iso()})
+        return
+    am.boundary_record(lab, mi, "a70", [], pr, lo, hi, target_note="native context, no YaRN, budget 47865 MiB")
+    step = _a70_kv_step_tokens(mi)
+    for i in range(1, 4):
+        pr.probe(max(am.STEP, lo - i * step))
+    for i in range(1, 4):
+        pr.probe(hi + (i - 1) * step)
+
+    for label, ngl, fit in A70_ARMS:
+        item = f"A70_{mi.model_id}_{label}"
+        if item in lab.done:
+            continue
+        lab.check()
+        srv, info, px = am.start_and_record(lab, mi, hi, f"a70_{label}", item, "a70_arms", [], ngl=ngl, fit=fit)
+        try:
+            if not info.get("ok"):
+                lg = info.get("log", {})
+                lab.emit({"record": "a70_arm_result", "arm": label, "model_id": mi.model_id, "started": False,
+                          "exit_code": info.get("exit_code"), "error": info.get("error"),
+                          "error_lines": px.get("error_lines"), "vk_errors": px.get("vk_errors"),
+                          "alloc_failed": px.get("alloc_failed"), "ts_utc": utc_iso()})
+                lab.item_done(item)
+                continue
+            prompt = ov.prompt_for(srv, A70_MATCHED_PROMPT_TOKENS)
+            n_tok = srv.tokenize(prompt)
+            calls = ov.measured_sequence(lab, srv, mi, "A70", item, prompt, n_tok, extra={"arm": label}, n_calls=3)
+            q0_rows = None
+            if qs is not None and hasattr(qs, "run_suite"):
+                try:
+                    q0_rows = qs.run_suite(srv, A70_MATCHED_PROMPT_TOKENS)
+                    for r in q0_rows:
+                        lab.emit({"record": "a70_q0", "arm": label, "model_id": mi.model_id, **r, "ts_utc": utc_iso()})
+                except Exception as e:
+                    lab.emit({"record": "a70_q0_error", "arm": label, "error": repr(e)[:400], "ts_utc": utc_iso()})
+            lab.emit({"record": "a70_arm_result", "arm": label, "model_id": mi.model_id, "started": True,
+                      "n_calls_ok": len(calls), "q0_n": len(q0_rows) if q0_rows is not None else None,
+                      "ts_utc": utc_iso()})
+        finally:
+            srv.stop()
+            lab.resources["server"] = None
+        lab.item_done(item)
+
+
+# ---------------------------------------------------------------- P70 (70B latency axis, none vs nonp12)
+def phase_p70(lab):
+    """None vs nonp12 co-runner on the 70B at context 8192, 1 warm-up + 3 calls each, fixed 20s co-runner settle
+    (thermal_gate's corunner_active path) -- the B3 mechanism, reused for a single model/coreset pair rather than
+    B3's full model x coreset cross."""
+    mi = lab.models.get(A70_MODEL)
+    if mi is None:
+        log("P70: llama-3.3-70b not loaded (downloads.jsonl has no verified entry yet), skipping")
+        return
+    item0 = f"P70_{mi.model_id}_start"
+    srv = L.Server(lab, mi, CTX_B, tag=item0)
+    lab.resources["server"] = srv
+    info = srv.start(timeout=1800)
+    ov.start_row(lab, srv, mi, "P70", item0, info, {})
+    if not info.get("ok"):
+        srv.stop()
+        lab.resources["server"] = None
+        return
+    prompt = ov.prompt_for(srv, FILL_B)
+    n_tok = srv.tokenize(prompt)
+    for co, mask in (("none", None), ("nonp12", 0xFFF0)):
+        item = f"P70_{mi.model_id}_{co}"
+        if item in lab.done:
+            continue
+        lab.check()
+        hog = None
+        if mask is not None:
+            hog, report, aff = L.m3.start_hog(f"night3_{item}", mask, Path(lab.prefix).parent, Path(lab.prefix).name + f"_{item}")
+            time.sleep(5)
+        measured_with_extra(lab, srv, mi, "P70", item, prompt, n_tok, {"cpu_mask": hex(mask) if mask else None}, co, n_calls=3)
+        if hog is not None:
+            L.m3.kill_tree(hog.pid)
+            time.sleep(3)
+        lab.item_done(item)
+    srv.stop()
+    lab.resources["server"] = None
+
+
 class ResponsivenessSampler:
     """Local interactive-latency probe for one C1 cell: every 30 s, times a trivial local subprocess
     (python -c "pass") with time.monotonic(). Local, not SSH, because this runs inside the harness process on
@@ -627,11 +746,61 @@ def phase_perfboost(lab):
 
 
 PRIO = {"b1": 1, "b2": 2, "c1": 3, "b3": 4, "c1b": 5, "b4": 6, "b4_32b": 7, "b4_replicate": 8, "r1_speed": 10,
-        "r1_check": 11, "perfboost": 9}
+        "r1_check": 11, "a70": 12, "p70": 13, "perfboost": 9}
 PHASE_FN = {"b1": phase_b1, "b2": phase_b2, "c1": phase_c1, "b3": phase_b3, "c1b": phase_c1b, "b4": phase_b4,
            "b4_32b": phase_b4_32b, "b4_replicate": phase_b4_replicate, "r1_speed": phase_r1_speed,
-           "r1_check": phase_r1_check, "perfboost": phase_perfboost}
+           "r1_check": phase_r1_check, "a70": phase_a70, "p70": phase_p70, "perfboost": phase_perfboost}
 PHASE_ORDER = "b1,b2,c1,b3,c1b,perfboost"
+
+# Phases that must pass a 1-item live smoke (server start, stale-server guard, one call, row-schema check) before
+# their first real run in a given resumed stem, per the standing rule added after two duplicate-keyword crashes: a
+# dry run against a stub lab catches code bugs, but only a real machine catches a bad deploy, a missing dependency
+# file, or a wrong assumption about what the live server actually returns.
+SMOKE_GATED_PHASES = {"r1_speed", "r1_check", "a70", "p70"}
+
+
+class SmokeFailure(Exception):
+    pass
+
+
+SMOKE_REQUIRED_ROW_KEYS = {"ttft_s", "decode_tok_s", "e2e_s", "outcome"}
+
+
+def smoke_check_phase(lab, phase, model_id="qwen3-8b"):
+    """1-item live smoke for `phase`: start a server (exercises the stale-server guard), run exactly one measured
+    call via ov.measured_sequence(n_calls=1), and check the call's result carries the fields every real phase depends
+    on (ov.do_call always writes item_id/kind/model_id/server_pid into the emitted row itself -- that construction is
+    fixed code, not something a live run can get subtly wrong; ttft_s/decode_tok_s/e2e_s/outcome, in contrast, come
+    from the live chat call and are exactly what a bad deploy, a missing dependency, or a wrong assumption about the
+    live server's response shape would actually break). Returns (ok, reason). Never raises on a server-side failure
+    (that IS the failure being tested for); only a bug in this function itself would raise."""
+    mi = lab.models.get(model_id)
+    if mi is None:
+        return False, f"{model_id} not loaded (check downloads.jsonl)"
+    item0 = f"smoke_{phase}_start"
+    srv = L.Server(lab, mi, 8192, tag=item0)
+    lab.resources["server"] = srv
+    try:
+        info = srv.start(timeout=1800)
+        ov.start_row(lab, srv, mi, "SMOKE", item0, info, {"smoke_for_phase": phase})
+        if not info.get("ok"):
+            return False, f"server start failed: {info.get('error')}"
+        prompt = ov.prompt_for(srv, 256)
+        n_tok = srv.tokenize(prompt)
+        rows = ov.measured_sequence(lab, srv, mi, "SMOKE", f"smoke_{phase}_call", prompt, n_tok,
+                                    extra={"smoke_for_phase": phase}, n_calls=1)
+        if not rows:
+            return False, "measured_sequence returned no rows (warm-up call failed)"
+        row = rows[0]
+        missing = SMOKE_REQUIRED_ROW_KEYS - set(row.keys())
+        if missing:
+            return False, f"row missing expected keys: {sorted(missing)}"
+        if row.get("outcome") != "ok":
+            return False, f"call outcome {row.get('outcome')!r}, error={row.get('error')}"
+        return True, "ok"
+    finally:
+        srv.stop()
+        lab.resources["server"] = None
 
 
 def _call_s(tab, mid, fill, n_out=128):
@@ -734,6 +903,14 @@ def estimate_hours(lab, overheads=None):
         n_calls = len(R1_CHECK_PROBE_IDS) * len(R1_CHECK_RATIOS) * len(R1_CHECK_ARMS) * R1_CHECK_REPS  # 180
         s += load_s(mid) + n_calls * call_s(mid, R1_CHECK_FILLER)
     est["r1_check"] = s / 3600
+    # A70/P70: no overnight-table or night2 timing exists for the 70B at all (it has never run), so this is a flat
+    # guess scaled off the 32B's own load_s/call_s in the same table -- a genuine unknown until A70's own smoke runs.
+    a70_load = load_s(A70_MODEL) if A70_MODEL in tab or A70_MODEL in real_load else 3.5 * load_s("qwen3-32b")
+    a70_call = call_s(A70_MODEL, A70_MATCHED_PROMPT_TOKENS) if A70_MODEL in real_call else 3.0 * call_s("qwen3-32b", A70_MATCHED_PROMPT_TOKENS)
+    n_bisect_probes = 12  # exponential search + bisection to 256 tokens; server-start-only, no measured call
+    n_extra_points = 6    # 3 below + 3 above the boundary, also server-start-only
+    est["a70"] = (a70_load + (n_bisect_probes + n_extra_points) * a70_load + len(A70_ARMS) * (a70_load + 4 * a70_call)) / 3600
+    est["p70"] = (a70_load + 2 * (4 * a70_call + gate_s)) / 3600
     return est
 
 
@@ -796,6 +973,17 @@ def main():
         for ph in phases:
             if f"phase_{ph}" in lab.done:
                 continue
+            if ph in SMOKE_GATED_PHASES and f"smoke_ok_{ph}" not in lab.done:
+                ok, reason = smoke_check_phase(lab, ph)
+                lab.emit({"record": "phase_smoke", "phase": ph, "ok": ok, "reason": reason, "ts_utc": utc_iso()})
+                if not ok:
+                    # Deliberately outside the per-phase try/except below: a smoke failure must stop the whole run
+                    # (not just skip this phase), reach main()'s outer handler, and produce a note containing "STOP"
+                    # so t2s_queue.advance() treats it as a halt (writes queue_empty.flag, does not auto-launch the
+                    # next queued run) instead of quietly moving on.
+                    raise SmokeFailure(f"STOP: smoke failed before phase {ph}: {reason}")
+                lab.item_done(f"smoke_ok_{ph}")
+                log(f"phase {ph} smoke passed")
             log(f"phase {ph}")
             try:
                 PHASE_FN[ph](lab)
