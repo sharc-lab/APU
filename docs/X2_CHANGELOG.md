@@ -270,3 +270,45 @@ does not reliably get a stuck transfer moving again).
 Files at this point per `sha256.txt` (mid-run, before the final dedupe pass): qwen3-4b, Qwen3-8B and
 Meta-Llama-3.1-8B-Instruct already complete and hash-verified; Qwen3-14B in progress under the new downloader;
 Qwen3-30B-A3B, Qwen3-32B and Llama-3.3-70B still queued.
+
+## 2026-09-29 -- all 7 downloads finished; sha256.txt corruption found and fixed
+
+`sha256.txt` said `ALL DONE`, but its per-file lines had been replaced by the literal string
+`System.Collections.Specialized.OrderedDictionary+OrderedDictionaryKeyValueCollection` -- the dedupe pass's
+`Set-Content C:\apu\models\sha256.txt $lastByName.Values` did not enumerate the OrderedDictionary's `.Values`
+collection into lines, it wrote the collection object's own `.ToString()` as one line, destroying every hash line
+while leaving `ALL DONE` intact. The actual model files were unaffected (this only corrupted the summary file).
+Recomputed all 7 hashes directly with `Get-FileHash`; every one matched its known published hash exactly:
+
+| file | sha256 | bytes |
+|---|---|---|
+| Llama-3.3-70B-Instruct-Q4_K_M.gguf | `32df3bacc...3a664` | 42,520,398,816 |
+| Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf | `7b064f584...33557c` | 4,920,739,232 |
+| Qwen3-14B-Q4_K_M.gguf | `500a8806e...ffeb6b81f0` | 9,001,752,960 |
+| Qwen3-30B-A3B-Instruct-2507-Q4_K_M.gguf | `6c997b8af...774d0` | 18,556,686,752 |
+| Qwen3-32B-Q4_K_M.gguf | `efd971561...d1e689` | 19,762,149,024 |
+| qwen3-4b-instruct-85e4a5b7.gguf | `85e4a5b7b...4b18b9` | 2,497,280,480 |
+| Qwen3-8B-Q4_K_M.gguf | `d98cdcbd0...745785` | 5,027,783,488 |
+
+`sha256.txt` rewritten by hand with the correct lines plus `ALL DONE`. Fixed `scripts/x2_download_models.ps1`'s
+dedupe pass (cast to `[string[]]` first, forcing real enumeration) so this cannot recur on a future re-run.
+Generated `C:\apu\ovn\downloads.jsonl` (the format `t2s_overnight.read_downloads`/`load_models` actually reads) from
+the corrected `sha256.txt`, one `"event": "done"` line per model.
+
+## 2026-09-29 -- APU-QueueWatchdog scheduled task installed
+
+Same task and purpose as the evo-t2s entry in `docs/T2S_CHANGELOG.md` (see there for the full rationale): runs
+`C:\apu\ovn\queue_watchdog.py` via `C:\Users\Ritz\AppData\Local\Programs\Python\Python312\python.exe` every 10
+minutes, as SYSTEM. Installed via `scripts/install_queue_watchdog.ps1 -PythonExe
+'C:\Users\Ritz\AppData\Local\Programs\Python\Python312\python.exe'`. Confirmed `State: Ready` immediately after
+registration. Revert: `Unregister-ScheduledTask -TaskName "APU-QueueWatchdog" -Confirm:$false`.
+
+## 2026-09-29 -- Section 0 / Q0 / R1 launch blocked by an active console session
+
+Queued `x2_section0` (Section 0 smoke, all 7 models) -> `x2_q0_control` (Q0 positive control, qwen3-8b) ->
+`x2_r1_check_full_ladder` (R1 quality side, all 7 models) -> `x2_r1_check_repeat_backlog`, and launched the first
+entry. It refused to start: `query.exe user` showed user `ritz` on the console session, `STATE: Active`,
+`IDLE TIME: none` -- a live, non-idle interactive session, not a stale leftover. This is the same "another
+interactive session is logged in" guard every orchestrator script uses; not overridden, since overriding it risks
+interrupting real interactive use of the machine. Queue is seeded and will run as soon as that session is not
+active (or the operator confirms it is safe to proceed anyway).
