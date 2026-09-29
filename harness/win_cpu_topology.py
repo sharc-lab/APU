@@ -50,12 +50,17 @@ def read_cache_groups():
         if relationship == RelationCache and offset + HEADER_SIZE + CACHE_MIN_SIZE <= size.value:
             level, assoc, line_size, cache_size, ctype, _reserved, group_count, mask = \
                 struct.unpack_from(CACHE_FMT, raw, offset + HEADER_SIZE)
-            if level == 2:
+            if level in (2, 3):
                 cpus = [i for i in range(64) if mask & (1 << i)]
-                groups.append({"logical_cpus": cpus, "cache_size_kb": cache_size // 1024, "type": ctype,
-                              "associativity": assoc, "line_size": line_size, "group_count": group_count})
+                groups.append({"level": level, "logical_cpus": cpus, "cache_size_kb": cache_size // 1024,
+                              "type": ctype, "associativity": assoc, "line_size": line_size, "group_count": group_count})
         offset += entry_size
-    return {"l2_groups": sorted(groups, key=lambda g: g["logical_cpus"][0] if g["logical_cpus"] else -1),
+    key = lambda g: g["logical_cpus"][0] if g["logical_cpus"] else -1
+    # L3 groups are what actually define a CCX/CCD on AMD parts -- a physical-core-with-SMT's private L2 says nothing
+    # about which cores share an L3/CCX. Added for PX2's core-set definitions on evo-x2 (Zen 5, no P/E split, so
+    # P4/E4-equivalent core sets must come from real L3 sharing groups, not an assumed cluster boundary).
+    return {"l2_groups": sorted((g for g in groups if g["level"] == 2), key=key),
+            "l3_groups": sorted((g for g in groups if g["level"] == 3), key=key),
             "buffer_bytes": size.value}
 
 
