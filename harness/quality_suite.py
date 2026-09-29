@@ -344,27 +344,65 @@ def _build_variable_tracking(target_tokens: int, seed: int, n_steps: int = 5) ->
 _CW_VOCAB = ["beacon", "ledger", "orbit", "cipher", "harbor", "quartz", "meridian", "paddock",
              "thicket", "ember", "granary", "isthmus", "cobalt", "junction", "willow", "furrow"]
 
+# Padding word pool for common_words_extraction, extracted from context._PROSE_SENTENCES (real English prose already
+# vetted elsewhere in this codebase for build_filler's F-PROSE variant). Original design used synthetic per-position
+# tokens like f"n{seed}{i:06d}" for padding, each appearing exactly once so none could compete with the designed
+# vocabulary's counts -- correct in principle, but those strings are unfamiliar 10-character digit/letter mixes with
+# no real-language structure, so a BPE tokenizer fragments them far more than context.py's calibrated 5.03
+# chars/token assumes (confirmed live on evo-x2, 2026-09-29: a 2000-token-intended prompt actually tokenized to
+# 12,657 tokens, blowing past the 8192-token context and failing every call outright). Real English words from an
+# already-used prose bank tokenize close to that same 5.03 chars/token calibration, fixing the length blowup; see
+# _pad_words_for below for how repeats (unavoidable once padding needs exceed the pool size) are kept safely below
+# the vocabulary's own minimum count instead of relying on per-position uniqueness.
+_PAD_WORD_POOL = sorted({w for s in ctx_mod._PROSE_SENTENCES for w in re.findall(r"[a-z]{3,10}", s.lower())}
+                        - set(_CW_VOCAB))
+
+# _PAD_WORD_POOL's words average ~6.4 characters (plus a separating space = ~7.4) versus context.py's
+# _CHARS_PER_TOKEN=5.03 calibration (measured on the F-NUM template's shorter, function-word-heavy text), i.e. about
+# 1.47 tokens per pool word rather than 1. Budgeting this module's word counts directly against target_tokens (as if
+# 1 word = 1 token) is what caused the original padding-token bug's replacement fix to still overshoot by about that
+# same 1.47x; dividing the word budget by this ratio corrects for it.
+_EST_TOKENS_PER_PAD_WORD = 7.4 / ctx_mod._CHARS_PER_TOKEN
+
+
+def _pad_words_for(pad_needed: int, rng: random.Random) -> list[str]:
+    """pad_needed words from _PAD_WORD_POOL, cycling (not sampling with replacement) so every pool word's exact
+    repeat count is either floor or ceil(pad_needed / pool_size) -- a hard deterministic bound, not a statistical
+    average, so the caller can size the vocabulary's minimum count to safely exceed it at any target_tokens."""
+    pool = list(_PAD_WORD_POOL)
+    rng.shuffle(pool)
+    reps = -(-pad_needed // len(pool))  # ceil division
+    words = (pool * reps)[:pad_needed]
+    rng.shuffle(words)
+    return words
+
 
 def _build_common_words(target_tokens: int, seed: int, n_top: int = 10) -> Task:
     rng = random.Random(seed)
     vocab = list(_CW_VOCAB)
     rng.shuffle(vocab)
     n = len(vocab)
-    k = max(1, target_tokens // 400)
+    # Budget in WORD units, not tokens: dividing by _EST_TOKENS_PER_PAD_WORD corrects for the pool's real words
+    # costing more than 1 token each (see that constant's comment). pad_needed and the resulting max pool-word
+    # repeat count (see _pad_words_for) both scale with the word budget, so k must too: max_pad_repeat is computed
+    # first and k set to clear it with a safety margin, rather than a fixed target_tokens // 400 that had no
+    # relationship to how often any single padding word would actually recur.
+    word_budget = max(int(target_tokens / _EST_TOKENS_PER_PAD_WORD) - 8, 0)
+    approx_pad_needed = max(word_budget - 8, 0)
+    max_pad_repeat = -(-approx_pad_needed // len(_PAD_WORD_POOL))
+    k = max(1, word_budget // 400, max_pad_repeat + 2)
     counts = [(n - i) * k for i in range(n)]  # strictly decreasing by construction
     top_words = vocab[:n_top]
     units: list[str] = []
     for w, c in zip(vocab, counts):
         units.extend([w] * c)
-    pad_needed = max(target_tokens - len(units) - 40, 0)
-    # unique per-position padding tokens: each appears exactly once, so none can compete with the
-    # designed vocabulary counts no matter how large target_tokens gets.
-    units.extend(f"n{seed}{i:06d}" for i in range(pad_needed))
+    pad_needed = max(word_budget - len(units) - 8, 0)
+    units.extend(_pad_words_for(pad_needed, rng))
     rng.shuffle(units)
     passage = "Observed terms, in order: " + " ".join(units) + "."
-    question = ("\n\nQuestion: Ignore the unique nNNNNNN tokens above. Of the remaining words, which "
-                "10 appear most frequently? List exactly 10 words, comma-separated, in any order.")
-    meta = {"counts": dict(zip(vocab, counts)), "top_words": top_words, "n_top": n_top}
+    question = ("\n\nQuestion: Of the words above, which 10 appear most frequently? List exactly 10 "
+                "words, comma-separated, in any order.")
+    meta = {"counts": dict(zip(vocab, counts)), "top_words": top_words, "n_top": n_top, "pad_word_k_margin": k}
     return Task("common_words_extraction", passage + question, set(top_words), "set_f1", 96, meta)
 
 

@@ -86,6 +86,32 @@ class TestBuildTaskAtTargetLength:
         task = qs.build_task("common_words_extraction", TARGET_TOKENS, seed=11)
         assert len(task.expected) == 10
 
+    def test_common_words_prompt_length_does_not_blow_past_target(self):
+        """Regression: the original padding scheme (synthetic f"n{seed}{i:06d}" tokens, each intended as ~1 token)
+        actually tokenized far more expensively than context.py's 5.03 chars/token calibration assumes, so a
+        2000-token-intended prompt came out at 12,657 real tokens on evo-x2 (2026-09-29), exceeding an 8192-token
+        server context and failing every call outright. The estimated token count (char length / _CHARS_PER_TOKEN)
+        must now land close to target_tokens at every scale K1/A70 actually use, not several times over."""
+        for target in (2000, 8000, 24000, 96000):
+            task = qs.build_task("common_words_extraction", target, seed=42)
+            est_tokens = len(task.prompt) / qs.ctx_mod._CHARS_PER_TOKEN
+            assert 0.8 * target <= est_tokens <= 1.3 * target, (
+                f"target={target} estimated_tokens={est_tokens:.0f} ratio={est_tokens / target:.2f}")
+
+    def test_common_words_padding_repeat_count_stays_below_vocab_minimum(self):
+        """No padding word's exact repeat count may reach the vocabulary's own smallest designed count -- otherwise
+        the "top 10 most frequent" answer could legitimately include a padding word instead of a designed one."""
+        for target in (500, 2000, 24000, 96000):
+            task = qs.build_task("common_words_extraction", target, seed=7)
+            min_vocab_count = min(task.meta["counts"].values())
+            word_counts: dict[str, int] = {}
+            for w in task.prompt.split():
+                word_counts[w] = word_counts.get(w, 0) + 1
+            for pad_word in qs._PAD_WORD_POOL:
+                assert word_counts.get(pad_word, 0) < min_vocab_count, (
+                    f"target={target} pad word {pad_word!r} count {word_counts.get(pad_word)} "
+                    f">= vocab minimum {min_vocab_count}")
+
     def test_system_rule_prompt_starts_with_rule(self):
         task = qs.build_task("system_rule_compliance", TARGET_TOKENS, seed=4)
         assert task.prompt.startswith(qs.SYSTEM_RULE)
