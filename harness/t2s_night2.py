@@ -630,6 +630,21 @@ def phase_a70(lab):
     for i in range(1, 4):
         pr.probe(hi + (i - 1) * step)
 
+    # Finalization (STEP 1c, 2026-09-29 contamination check, docs/RESULT_PROVENANCE.md): the boundary above is
+    # reported as confirmed only if rerunning the exact bracket pair (last-pass lo, first-fail hi) reproduces it
+    # with Ollama confirmed absent from the machine. This does not change lo/hi or the reported boundary value; it
+    # only adds a reproduced/not-reproduced flag the report must check before trusting the boundary.
+    _abort_if_ollama_running("a70_finalization")
+    lo_reprobe = pr.probe(lo)
+    hi_reprobe = pr.probe(hi)
+    reproduced = bool(lo_reprobe.get("ok")) and not bool(hi_reprobe.get("ok"))
+    lab.emit({"record": "a70_boundary_finalization", "model_id": mi.model_id, "lo": lo, "hi": hi,
+              "lo_reprobe_ok": lo_reprobe.get("ok"), "hi_reprobe_ok": hi_reprobe.get("ok"),
+              "reproduced": reproduced, "ollama_confirmed_absent": True, "ts_utc": utc_iso()})
+    if not reproduced:
+        log(f"A70 finalization: boundary lo={lo} hi={hi} did NOT reproduce (lo_reprobe ok={lo_reprobe.get('ok')}, "
+            f"hi_reprobe ok={hi_reprobe.get('ok')}); the boundary must be reported as unconfirmed, not as a result")
+
     for label, ngl, fit in A70_ARMS:
         item = f"A70_{mi.model_id}_{label}"
         if item in lab.done:

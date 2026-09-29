@@ -31,6 +31,7 @@ def test_phase_a70_dry_run_full_arm_sweep(monkeypatch):
     logic."""
     lab = StubLab(models={"llama-3.3-70b": _mi70()})
     with mock.patch.object(n2.L, "Server", StubServer), mock.patch.object(n2.am.L, "Server", StubServer), \
+         mock.patch.object(n2.hc, "ollama_process_running", lambda: False), \
          mock.patch.object(n2.am.Prober, "find", lambda self, n_start, step: (4096, 4352)), \
          mock.patch.object(n2.am.Prober, "probe", lambda self, n_ctx: {"ok": True, "props_cap": None, "projected_mib": 1000.0,
                            "logged_mib": 900.0, "error": None, "vk": None, "alloc_failed": None}), \
@@ -46,6 +47,68 @@ def test_phase_a70_dry_run_full_arm_sweep(monkeypatch):
     # every arm item got marked done exactly once
     expected_items = {f"A70_llama-3.3-70b_{label}" for label, _, _ in n2.A70_ARMS}
     assert expected_items <= lab.done
+
+
+def test_phase_a70_finalization_reproduces_boundary(monkeypatch):
+    """The finalization rerun (STEP 1c) probes lo/hi again after the bisection and 3-below/3-above points; when it
+    reproduces the original pass/fail split, reproduced=True and the arm sweep still runs."""
+    lab = StubLab(models={"llama-3.3-70b": _mi70()})
+    probe_calls = []
+
+    def fake_probe(self, n_ctx):
+        probe_calls.append(n_ctx)
+        ok = n_ctx <= 4096  # lo=4096 always passes, hi=4352 (and anything above) always fails
+        return {"ok": ok, "props_cap": None, "projected_mib": 1000.0, "logged_mib": 900.0, "error": None,
+                "vk": None, "alloc_failed": None}
+
+    monkeypatch.setattr(n2.hc, "ollama_process_running", lambda: False)
+    with mock.patch.object(n2.L, "Server", StubServer), mock.patch.object(n2.am.L, "Server", StubServer), \
+         mock.patch.object(n2.am.Prober, "find", lambda self, n_start, step: (4096, 4352)), \
+         mock.patch.object(n2.am.Prober, "probe", fake_probe), \
+         mock.patch.object(n2.time, "sleep", lambda *a: None):
+        n2.phase_a70(lab)
+
+    finalization = [r for r in lab.rows if r.get("record") == "a70_boundary_finalization"]
+    assert len(finalization) == 1
+    f = finalization[0]
+    assert f["lo"] == 4096 and f["hi"] == 4352
+    assert f["reproduced"] is True
+    assert f["ollama_confirmed_absent"] is True
+    # the finalization reprobes lo and hi once each, on top of find()'s own probing and the 3-below/3-above points
+    assert probe_calls[-2:] == [4096, 4352]
+
+
+def test_phase_a70_finalization_flags_when_boundary_does_not_reproduce(monkeypatch):
+    lab = StubLab(models={"llama-3.3-70b": _mi70()})
+
+    def always_ok(self, n_ctx):
+        return {"ok": True, "props_cap": None, "projected_mib": 1000.0, "logged_mib": 900.0, "error": None,
+                "vk": None, "alloc_failed": None}
+
+    monkeypatch.setattr(n2.hc, "ollama_process_running", lambda: False)
+    with mock.patch.object(n2.L, "Server", StubServer), mock.patch.object(n2.am.L, "Server", StubServer), \
+         mock.patch.object(n2.am.Prober, "find", lambda self, n_start, step: (4096, 4352)), \
+         mock.patch.object(n2.am.Prober, "probe", always_ok), \
+         mock.patch.object(n2.time, "sleep", lambda *a: None):
+        n2.phase_a70(lab)
+
+    f = [r for r in lab.rows if r.get("record") == "a70_boundary_finalization"][0]
+    assert f["reproduced"] is False  # hi_reprobe also came back ok=True this time, so the fail side did not reproduce
+
+
+def test_phase_a70_finalization_aborts_if_ollama_running(monkeypatch):
+    lab = StubLab(models={"llama-3.3-70b": _mi70()})
+    monkeypatch.setattr(n2.hc, "ollama_process_running", lambda: True)
+    with mock.patch.object(n2.L, "Server", StubServer), mock.patch.object(n2.am.L, "Server", StubServer), \
+         mock.patch.object(n2.am.Prober, "find", lambda self, n_start, step: (4096, 4352)), \
+         mock.patch.object(n2.am.Prober, "probe", lambda self, n_ctx: {"ok": True, "props_cap": None,
+                           "projected_mib": 1000.0, "logged_mib": 900.0, "error": None, "vk": None, "alloc_failed": None}), \
+         mock.patch.object(n2.time, "sleep", lambda *a: None):
+        try:
+            n2.phase_a70(lab)
+            assert False, "expected SmokeFailure"
+        except n2.SmokeFailure as e:
+            assert "STOP" in str(e) and "ollama" in str(e)
 
 
 def test_phase_a70_dry_run_no_model_present_does_not_crash():
