@@ -545,3 +545,13 @@ log/JSONL through 12:15:15Z, so the process tree was genuinely alive; `Get-Proce
 watchdog now requires BOTH the pid check AND a stale heartbeat (job's own log file mtime) to agree before declaring
 a job dead, so this specific failure mode (pid check wrong, heartbeat correct) can no longer cascade into launching
 a second, colliding process even if the underlying `Get-Process` anomaly recurs.
+
+## Phantom r1_repeat_backlog file excluded, 2026-09-29
+
+The false-crash cascade's phantom `r1_repeat_backlog` process wrote its own real (but useless) data to
+`results/t2s_night2_20260929T103807Z.jsonl` (19 rows, R1speed phase, qwen3-8b and qwen3-14b partial, self-halted
+at 10:48:38Z on `STOP: port 8385 held by pid 9096 which is NOT ours`) before hitting the port-8385 conflict with
+the still-running original process. This file is a separate stem from the main run's own file
+(`t2s_night2_20260929T034014Z.jsonl`), so none of its rows are mixed into the primary dataset. **Excluded from
+every figure, table, and ledger entry**: this file must not be read by analysis/make_paper_figures.py or any
+other script. Kept on disk (not deleted) as the evidence for the contamination writeup above.
