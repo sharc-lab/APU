@@ -24,6 +24,7 @@ import host_config as hc  # noqa: E402
 import quality_suite as qs  # noqa: E402
 import run_provenance as rp  # noqa: E402
 import t2s_lab as L  # noqa: E402
+import t2s_amech as am  # noqa: E402  (YARN flags, same constant every other YaRN-needing phase uses)
 import t2s_overnight as ov  # noqa: E402
 import t2s_queue as tq  # noqa: E402
 from t2s_lab import log, utc_iso  # noqa: E402
@@ -31,6 +32,17 @@ from t2s_lab import log, utc_iso  # noqa: E402
 TARGET_LENGTHS = (2000, 8000, 24000, 96000)
 SEED = 42
 OK_LOW, OK_HIGH = 0.95, 1.05
+
+
+def yarn_extra_for(model_id, want_ctx, max_ctx_native, yarn_models=None):
+    """The extra CLI flags check_all's server needs to actually reach want_ctx. Without YaRN, a context request
+    beyond a model's native trained length silently caps at native ctx server-side, which the stale-server guard
+    then (correctly) refuses to start against -- see the module docstring's 2026-09-29 note. Only requests YaRN for
+    a model that both needs it (want_ctx exceeds its native ctx) and supports it (is in the YARN_MODELS list)."""
+    yarn_models = ov.YARN_MODELS if yarn_models is None else yarn_models
+    if model_id in yarn_models and want_ctx > max_ctx_native:
+        return list(am.YARN)
+    return []
 
 
 def check_all(srv, lab, model_id):
@@ -81,7 +93,9 @@ def main():
     lab.tele.start()
     note = "completed"
     try:
-        srv = L.Server(lab, mi, max(TARGET_LENGTHS) + 4096, tag="q0_calibration")
+        want_ctx = max(TARGET_LENGTHS) + 4096
+        extra = yarn_extra_for(args.model, want_ctx, mi.max_ctx_native)
+        srv = L.Server(lab, mi, want_ctx, extra=extra, tag="q0_calibration")
         lab.resources["server"] = srv
         info = srv.start(timeout=1800)
         ov.start_row(lab, srv, mi, "Q0CAL", "q0_calibration_start", info, {})

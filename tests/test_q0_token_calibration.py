@@ -39,3 +39,23 @@ def test_summarize_independent_across_task_types():
 def test_ok_range_constants_match_the_users_bar():
     assert qc.OK_LOW == 0.95
     assert qc.OK_HIGH == 1.05
+
+
+# ---------------------------------------------------------------------------------------------------- yarn_extra_for
+def test_yarn_extra_for_requests_yarn_when_needed_and_supported():
+    extra = qc.yarn_extra_for("qwen3-8b", want_ctx=100096, max_ctx_native=40960, yarn_models=("qwen3-8b",))
+    assert extra == qc.am.YARN
+
+
+def test_yarn_extra_for_empty_when_ctx_fits_natively():
+    assert qc.yarn_extra_for("qwen3-8b", want_ctx=8192, max_ctx_native=40960, yarn_models=("qwen3-8b",)) == []
+
+
+def test_yarn_extra_for_empty_when_model_not_yarn_capable():
+    assert qc.yarn_extra_for("llama-3.3-70b", want_ctx=100096, max_ctx_native=40960, yarn_models=("qwen3-8b",)) == []
+
+
+def test_yarn_extra_for_matches_real_ov_yarn_models_default():
+    """The bug this fixes (2026-09-29): qwen3-8b's real want_ctx (100,096) exceeds its real native ctx (40,960),
+    and qwen3-8b is a real member of ov.YARN_MODELS, so the default call (no yarn_models override) must trigger it."""
+    assert qc.yarn_extra_for("qwen3-8b", want_ctx=100096, max_ctx_native=40960) == qc.am.YARN
