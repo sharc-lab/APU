@@ -127,7 +127,8 @@ class Lab:
                   "proc_throttle_max": self.cap(), "rope_flags": None,
                   "console_session_state": console.get("console_session_state"),
                   "console_idle_s": console.get("console_idle_s"),
-                  "user_active": console.get("user_active", False)})
+                  "user_active": console.get("user_active", False),
+                  "ollama_model_loaded": hc.get_ollama_loaded_model() if self.track_console else None})
         if mi is not None:
             r.update({"model_id": mi.model_id, "model_sha256": mi.sha256, "quant": mi.quant})
         r.update(kw)

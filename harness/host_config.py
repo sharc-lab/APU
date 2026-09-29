@@ -121,6 +121,23 @@ def get_console_session_state(query_user_fn=_query_user_raw):
             "user_active": idle_s is not None and idle_s < 300.0}
 
 
+def get_ollama_loaded_model(base_url="http://127.0.0.1:11434"):
+    """The model name Ollama currently holds in GPU memory, or None if nothing is loaded or the Ollama server is not
+    reachable (evo-t2s never runs Ollama; on evo-x2 it may not be running yet). Used to stamp ollama_model_loaded on
+    every evo-x2 row -- K1 and every other X2 experiment set OLLAMA_KEEP_ALIVE=0 on the Ollama server so a model
+    never lingers in GPU memory once a call finishes, but this field records the ground truth per row rather than
+    just assuming that setting worked."""
+    import json
+    import urllib.request
+    try:
+        with urllib.request.urlopen(f"{base_url}/api/ps", timeout=3) as r:
+            data = json.loads(r.read())
+    except Exception:
+        return None
+    models = data.get("models") or []
+    return models[0]["name"] if models else None
+
+
 def enforce_or_record_interactive_session(host_cfg, query_user_fn=_query_user_raw):
     """Called once at startup, before the Lab exists. If host_cfg["interactive_guard"] is True (evo-t2s): raises
     SystemExit if anyone is logged in at all, exactly like the old hardcoded check. If False (evo-x2): never raises;

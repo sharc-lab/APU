@@ -292,6 +292,7 @@ class K1Lab:
         row.setdefault("ts_utc", L.utc_iso())
         row.setdefault("host", self.host_cfg["name"])
         row.setdefault("gpu_vendor", self.host_cfg["gpu_vendor"])
+        row.setdefault("ollama_model_loaded", _hc.get_ollama_loaded_model())
         self.rows.write(row)
         return row
 

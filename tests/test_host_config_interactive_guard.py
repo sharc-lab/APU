@@ -1,7 +1,9 @@
 """host_config.py: per-host interactive_guard, query.exe user parsing, and the resulting console-session state that
 Lab.row() (t2s_overnight.py) stamps onto every row on evo-x2 instead of refusing to run."""
+import io
 import sys
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "harness"))
 import host_config as hc  # noqa: E402
@@ -127,3 +129,26 @@ def test_enforce_never_raises_on_unguarded_host_and_returns_state():
     host_cfg = {"interactive_guard": False}
     result = hc.enforce_or_record_interactive_session(host_cfg, query_user_fn=lambda: QUERY_USER_ACTIVE)
     assert result["user_active"] is True
+
+
+# ---------------------------------------------------------------------------------------------------- get_ollama_loaded_model
+def test_get_ollama_loaded_model_none_when_unreachable():
+    assert hc.get_ollama_loaded_model(base_url="http://127.0.0.1:1") is None
+
+
+def test_get_ollama_loaded_model_returns_name_when_a_model_is_loaded():
+    body = b'{"models": [{"name": "qwen3:8b", "size": 5000000000}]}'
+    fake_response = io.BytesIO(body)
+    fake_response.__enter__ = lambda self=fake_response: fake_response
+    fake_response.__exit__ = lambda self, *a: False
+    with mock.patch("urllib.request.urlopen", return_value=fake_response):
+        assert hc.get_ollama_loaded_model() == "qwen3:8b"
+
+
+def test_get_ollama_loaded_model_none_when_nothing_loaded():
+    body = b'{"models": []}'
+    fake_response = io.BytesIO(body)
+    fake_response.__enter__ = lambda self=fake_response: fake_response
+    fake_response.__exit__ = lambda self, *a: False
+    with mock.patch("urllib.request.urlopen", return_value=fake_response):
+        assert hc.get_ollama_loaded_model() is None
