@@ -606,6 +606,26 @@ def _a70_kv_step_tokens(mi, target_mib=512.0):
     return mult * am.STEP
 
 
+def _a70_repeated_loads(lab, mi, n_ctx, label, n_reps=3):
+    """Independent repeated loads at a single n_ctx, bypassing Prober.probe()'s cache (which would otherwise return
+    the same cached result for every repeat, defeating the point -- the finalization needs 3 genuinely independent
+    server starts per point to check for intermittency, not 3 reads of one cached outcome). Same arm/flags as the
+    bisection itself (default fit, ngl=99, no rope flags, matching phase_a70's own Prober(lab, mi, [], "a70"))."""
+    results = []
+    for i in range(n_reps):
+        lab.check()
+        n_ctx_r = int(round(n_ctx / am.STEP)) * am.STEP
+        srv, info, px = am.start_and_record(lab, mi, n_ctx_r, f"a70fin_{label}_{n_ctx_r}_{i}",
+                                            f"A70_finalize_{label}_{n_ctx_r}_{i}", "a70_finalize", [])
+        srv.stop()
+        lab.resources["server"] = None
+        lg = info.get("log", {})
+        logged = sum(x for x in (lg.get("model_buffer_mib"), lg.get("kv_buffer_mib"), lg.get("compute_buffer_mib")) if x)
+        results.append({"ok": bool(info.get("ok")), "error": info.get("error"), "logged_mib": logged or None,
+                        "vk": px.get("vk_errors"), "rep": i})
+    return results
+
+
 def phase_a70(lab):
     """Budget crossing on the 70B at native context (no YaRN -- flags=[]), reusing t2s_amech.Prober/boundary_record/
     start_and_record directly (same ov.Lab shape, no reimplementation). Finds n_ctx* where weights+KV+compute cross
@@ -630,20 +650,23 @@ def phase_a70(lab):
     for i in range(1, 4):
         pr.probe(hi + (i - 1) * step)
 
-    # Finalization (STEP 1c, 2026-09-29 contamination check, docs/RESULT_PROVENANCE.md): the boundary above is
-    # reported as confirmed only if rerunning the exact bracket pair (last-pass lo, first-fail hi) reproduces it
-    # with Ollama confirmed absent from the machine. This does not change lo/hi or the reported boundary value; it
-    # only adds a reproduced/not-reproduced flag the report must check before trusting the boundary.
+    # Finalization (2026-09-29 contamination check, corrected 2026-09-29 to 3 independent loads per side rather
+    # than 1: the boundary above is reported as confirmed only if lo is 3/3 success and hi is 3/3 failure, with
+    # Ollama confirmed absent before each load. This does not change lo/hi or the reported boundary value; it only
+    # adds a reproduced/not-reproduced flag the report must check before trusting the boundary.
     _abort_if_ollama_running("a70_finalization")
-    lo_reprobe = pr.probe(lo)
-    hi_reprobe = pr.probe(hi)
-    reproduced = bool(lo_reprobe.get("ok")) and not bool(hi_reprobe.get("ok"))
+    lo_loads = _a70_repeated_loads(lab, mi, lo, "lo")
+    _abort_if_ollama_running("a70_finalization")
+    hi_loads = _a70_repeated_loads(lab, mi, hi, "hi")
+    lo_ok_count = sum(1 for r in lo_loads if r["ok"])
+    hi_fail_count = sum(1 for r in hi_loads if not r["ok"])
+    reproduced = lo_ok_count == 3 and hi_fail_count == 3
     lab.emit({"record": "a70_boundary_finalization", "model_id": mi.model_id, "lo": lo, "hi": hi,
-              "lo_reprobe_ok": lo_reprobe.get("ok"), "hi_reprobe_ok": hi_reprobe.get("ok"),
+              "lo_loads": lo_loads, "hi_loads": hi_loads, "lo_ok_count": lo_ok_count, "hi_fail_count": hi_fail_count,
               "reproduced": reproduced, "ollama_confirmed_absent": True, "ts_utc": utc_iso()})
     if not reproduced:
-        log(f"A70 finalization: boundary lo={lo} hi={hi} did NOT reproduce (lo_reprobe ok={lo_reprobe.get('ok')}, "
-            f"hi_reprobe ok={hi_reprobe.get('ok')}); the boundary must be reported as unconfirmed, not as a result")
+        log(f"A70 finalization: boundary lo={lo} hi={hi} did NOT reproduce 3/3 (lo_ok={lo_ok_count}/3, "
+            f"hi_fail={hi_fail_count}/3); the boundary must be reported as unconfirmed, not as a result")
 
     for label, ngl, fit in A70_ARMS:
         item = f"A70_{mi.model_id}_{label}"
@@ -682,18 +705,19 @@ def phase_a70(lab):
 
 def phase_a70_finalize(lab):
     """Standalone finalization phase for an A70 run that already completed under the OLD phase_a70 code, before the
-    inline finalization step (STEP 1c, 2026-09-29 contamination check) existed. Reads the already-recorded boundary
-    for A70_MODEL (this run's own 'bisect_result' row, label 'a70') instead of re-deriving it with a fresh,
-    expensive bisection, then reprobes that exact last-pass/first-fail bracket pair with Ollama confirmed absent.
-    Queue this only for a run whose a70 phase finished before this function existed; a new a70 run does this inline
-    and this phase is a no-op for it (no matching bisect_result row without one, or the row already carries a
-    'reproduced' companion row from the inline path -- either way there is nothing new to do)."""
+    inline finalization step (2026-09-29 contamination check) existed. Reads the already-recorded boundary for
+    A70_MODEL (this run's own 'bisect_result' row, label 'a70') instead of re-deriving it with a fresh, expensive
+    bisection, then reruns 3 independent loads at lo and 3 at hi with Ollama confirmed absent, matching phase_a70's
+    own inline finalization (corrected 2026-09-29 from 1 reprobe per side to 3: the boundary is confirmed only if
+    lo is 3/3 success and hi is 3/3 failure). Queue this for a run whose a70 phase finished before this function
+    existed, or whose earlier finalization record used the old 1-reprobe-per-side shape (no 'lo_ok_count' key)."""
     mi = lab.models.get(A70_MODEL)
     if mi is None:
         log("A70 finalize: llama-3.3-70b not loaded, skipping")
         return
-    if any(r.get("record") == "a70_boundary_finalization" and r.get("model_id") == mi.model_id for r in lab.all_rows()):
-        log("A70 finalize: already have a finalization record for this model, skipping")
+    if any(r.get("record") == "a70_boundary_finalization" and r.get("model_id") == mi.model_id
+           and "lo_ok_count" in r for r in lab.all_rows()):
+        log("A70 finalize: already have a 3-load-per-side finalization record for this model, skipping")
         return
     boundary_rows = [r for r in lab.all_rows() if r.get("record") == "bisect_result" and r.get("label") == "a70"
                       and r.get("model_id") == mi.model_id]
@@ -706,16 +730,18 @@ def phase_a70_finalize(lab):
         log(f"A70 finalize: bisect_result row missing last_ok_n_ctx/first_fail_n_ctx: {b}")
         return
     _abort_if_ollama_running("a70_finalize")
-    pr = am.Prober(lab, mi, [], "a70")
-    lo_reprobe = pr.probe(lo)
-    hi_reprobe = pr.probe(hi)
-    reproduced = bool(lo_reprobe.get("ok")) and not bool(hi_reprobe.get("ok"))
+    lo_loads = _a70_repeated_loads(lab, mi, lo, "lo")
+    _abort_if_ollama_running("a70_finalize")
+    hi_loads = _a70_repeated_loads(lab, mi, hi, "hi")
+    lo_ok_count = sum(1 for r in lo_loads if r["ok"])
+    hi_fail_count = sum(1 for r in hi_loads if not r["ok"])
+    reproduced = lo_ok_count == 3 and hi_fail_count == 3
     lab.emit({"record": "a70_boundary_finalization", "model_id": mi.model_id, "lo": lo, "hi": hi,
-              "lo_reprobe_ok": lo_reprobe.get("ok"), "hi_reprobe_ok": hi_reprobe.get("ok"),
+              "lo_loads": lo_loads, "hi_loads": hi_loads, "lo_ok_count": lo_ok_count, "hi_fail_count": hi_fail_count,
               "reproduced": reproduced, "ollama_confirmed_absent": True, "standalone": True, "ts_utc": utc_iso()})
     if not reproduced:
-        log(f"A70 finalize: boundary lo={lo} hi={hi} did NOT reproduce (lo_reprobe ok={lo_reprobe.get('ok')}, "
-            f"hi_reprobe ok={hi_reprobe.get('ok')}); the boundary must be reported as unconfirmed, not as a result")
+        log(f"A70 finalize: boundary lo={lo} hi={hi} did NOT reproduce 3/3 (lo_ok={lo_ok_count}/3, "
+            f"hi_fail={hi_fail_count}/3); the boundary must be reported as unconfirmed, not as a result")
 
 
 # ---------------------------------------------------------------- P70 (70B latency axis, none vs nonp12)

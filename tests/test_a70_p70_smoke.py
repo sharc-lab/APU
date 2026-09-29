@@ -49,22 +49,29 @@ def test_phase_a70_dry_run_full_arm_sweep(monkeypatch):
     assert expected_items <= lab.done
 
 
+def _fake_start_and_record(ok_fn):
+    """A fake am.start_and_record for finalization tests: ok_fn(n_ctx) decides the outcome per call, independent
+    of Prober.probe's cache (which the real _a70_repeated_loads deliberately bypasses). Also used by phase_a70's
+    own arm sweep (which reuses am.start_and_record), so a "started" outcome returns a real StubServer (full
+    tokenize/measured_sequence surface) rather than a bespoke fake."""
+    def _fake(lab, mi, n_ctx, tag, item_id, phase, extra_flags, ngl=99, fit=None, **kw):
+        ok = ok_fn(n_ctx)
+        srv = StubServer(lab, mi, n_ctx)
+        info = {"ok": ok, "error": None if ok else "boom", "log": {}}
+        return srv, info, {"vk_errors": None}
+    return _fake
+
+
 def test_phase_a70_finalization_reproduces_boundary(monkeypatch):
-    """The finalization rerun (STEP 1c) probes lo/hi again after the bisection and 3-below/3-above points; when it
-    reproduces the original pass/fail split, reproduced=True and the arm sweep still runs."""
+    """The finalization rerun does 3 independent loads at lo and 3 at hi after the bisection and 3-below/3-above
+    points; when lo is 3/3 success and hi is 3/3 failure, reproduced=True and the arm sweep still runs."""
     lab = StubLab(models={"llama-3.3-70b": _mi70()})
-    probe_calls = []
-
-    def fake_probe(self, n_ctx):
-        probe_calls.append(n_ctx)
-        ok = n_ctx <= 4096  # lo=4096 always passes, hi=4352 (and anything above) always fails
-        return {"ok": ok, "props_cap": None, "projected_mib": 1000.0, "logged_mib": 900.0, "error": None,
-                "vk": None, "alloc_failed": None}
-
     monkeypatch.setattr(n2.hc, "ollama_process_running", lambda: False)
     with mock.patch.object(n2.L, "Server", StubServer), mock.patch.object(n2.am.L, "Server", StubServer), \
          mock.patch.object(n2.am.Prober, "find", lambda self, n_start, step: (4096, 4352)), \
-         mock.patch.object(n2.am.Prober, "probe", fake_probe), \
+         mock.patch.object(n2.am.Prober, "probe", lambda self, n_ctx: {"ok": True, "props_cap": None,
+                           "projected_mib": 1000.0, "logged_mib": 900.0, "error": None, "vk": None, "alloc_failed": None}), \
+         mock.patch.object(n2.am, "start_and_record", _fake_start_and_record(lambda n_ctx: n_ctx <= 4096)), \
          mock.patch.object(n2.time, "sleep", lambda *a: None):
         n2.phase_a70(lab)
 
@@ -74,26 +81,50 @@ def test_phase_a70_finalization_reproduces_boundary(monkeypatch):
     assert f["lo"] == 4096 and f["hi"] == 4352
     assert f["reproduced"] is True
     assert f["ollama_confirmed_absent"] is True
-    # the finalization reprobes lo and hi once each, on top of find()'s own probing and the 3-below/3-above points
-    assert probe_calls[-2:] == [4096, 4352]
+    assert f["lo_ok_count"] == 3
+    assert f["hi_fail_count"] == 3
+    assert len(f["lo_loads"]) == 3 and len(f["hi_loads"]) == 3
 
 
 def test_phase_a70_finalization_flags_when_boundary_does_not_reproduce(monkeypatch):
     lab = StubLab(models={"llama-3.3-70b": _mi70()})
-
-    def always_ok(self, n_ctx):
-        return {"ok": True, "props_cap": None, "projected_mib": 1000.0, "logged_mib": 900.0, "error": None,
-                "vk": None, "alloc_failed": None}
-
     monkeypatch.setattr(n2.hc, "ollama_process_running", lambda: False)
     with mock.patch.object(n2.L, "Server", StubServer), mock.patch.object(n2.am.L, "Server", StubServer), \
          mock.patch.object(n2.am.Prober, "find", lambda self, n_start, step: (4096, 4352)), \
-         mock.patch.object(n2.am.Prober, "probe", always_ok), \
+         mock.patch.object(n2.am.Prober, "probe", lambda self, n_ctx: {"ok": True, "props_cap": None,
+                           "projected_mib": 1000.0, "logged_mib": 900.0, "error": None, "vk": None, "alloc_failed": None}), \
+         mock.patch.object(n2.am, "start_and_record", _fake_start_and_record(lambda n_ctx: True)), \
          mock.patch.object(n2.time, "sleep", lambda *a: None):
         n2.phase_a70(lab)
 
     f = [r for r in lab.rows if r.get("record") == "a70_boundary_finalization"][0]
-    assert f["reproduced"] is False  # hi_reprobe also came back ok=True this time, so the fail side did not reproduce
+    assert f["reproduced"] is False  # hi also came back ok every time, so the fail side did not reproduce
+    assert f["hi_fail_count"] == 0
+
+
+def test_phase_a70_finalization_flags_when_lo_is_intermittent(monkeypatch):
+    """2/3 success at lo is not good enough -- reproduced requires 3/3, not a majority."""
+    lab = StubLab(models={"llama-3.3-70b": _mi70()})
+    calls = {"n": 0}
+
+    def flaky_lo(n_ctx):
+        if n_ctx > 4096:
+            return False
+        calls["n"] += 1
+        return calls["n"] != 2  # fails on the 2nd of 3 lo loads
+
+    monkeypatch.setattr(n2.hc, "ollama_process_running", lambda: False)
+    with mock.patch.object(n2.L, "Server", StubServer), mock.patch.object(n2.am.L, "Server", StubServer), \
+         mock.patch.object(n2.am.Prober, "find", lambda self, n_start, step: (4096, 4352)), \
+         mock.patch.object(n2.am.Prober, "probe", lambda self, n_ctx: {"ok": True, "props_cap": None,
+                           "projected_mib": 1000.0, "logged_mib": 900.0, "error": None, "vk": None, "alloc_failed": None}), \
+         mock.patch.object(n2.am, "start_and_record", _fake_start_and_record(flaky_lo)), \
+         mock.patch.object(n2.time, "sleep", lambda *a: None):
+        n2.phase_a70(lab)
+
+    f = [r for r in lab.rows if r.get("record") == "a70_boundary_finalization"][0]
+    assert f["lo_ok_count"] == 2
+    assert f["reproduced"] is False
 
 
 def test_phase_a70_finalization_aborts_if_ollama_running(monkeypatch):
@@ -113,18 +144,15 @@ def test_phase_a70_finalization_aborts_if_ollama_running(monkeypatch):
 
 def test_phase_a70_finalize_standalone_reprobes_recorded_boundary(monkeypatch):
     """Standalone finalization for an A70 run that finished under the OLD phase_a70 code, before the inline
-    finalization step existed: reads the recorded boundary instead of re-deriving it with a fresh bisection."""
+    finalization step existed: reads the recorded boundary instead of re-deriving it with a fresh bisection, and
+    does 3 independent loads at lo and 3 at hi."""
     lab = StubLab(models={"llama-3.3-70b": _mi70()})
     lab.emit({"record": "bisect_result", "label": "a70", "model_id": "llama-3.3-70b",
               "last_ok_n_ctx": 23296, "first_fail_n_ctx": 23552})
 
-    def fake_probe(self, n_ctx):
-        ok = n_ctx <= 23296
-        return {"ok": ok, "props_cap": None, "projected_mib": 1000.0, "logged_mib": 900.0, "error": None,
-                "vk": None, "alloc_failed": None}
-
     monkeypatch.setattr(n2.hc, "ollama_process_running", lambda: False)
-    with mock.patch.object(n2.am.L, "Server", StubServer), mock.patch.object(n2.am.Prober, "probe", fake_probe), \
+    with mock.patch.object(n2.am.L, "Server", StubServer), \
+         mock.patch.object(n2.am, "start_and_record", _fake_start_and_record(lambda n_ctx: n_ctx <= 23296)), \
          mock.patch.object(n2.time, "sleep", lambda *a: None):
         n2.phase_a70_finalize(lab)
 
@@ -132,6 +160,8 @@ def test_phase_a70_finalize_standalone_reprobes_recorded_boundary(monkeypatch):
     assert f["lo"] == 23296 and f["hi"] == 23552
     assert f["reproduced"] is True
     assert f["standalone"] is True
+    assert f["lo_ok_count"] == 3
+    assert f["hi_fail_count"] == 3
 
 
 def test_phase_a70_finalize_skips_if_no_boundary_recorded():
@@ -144,11 +174,30 @@ def test_phase_a70_finalize_skips_if_already_finalized(monkeypatch):
     lab = StubLab(models={"llama-3.3-70b": _mi70()})
     lab.emit({"record": "bisect_result", "label": "a70", "model_id": "llama-3.3-70b",
               "last_ok_n_ctx": 23296, "first_fail_n_ctx": 23552})
-    lab.emit({"record": "a70_boundary_finalization", "model_id": "llama-3.3-70b", "reproduced": True})
+    lab.emit({"record": "a70_boundary_finalization", "model_id": "llama-3.3-70b", "reproduced": True,
+              "lo_ok_count": 3, "hi_fail_count": 3})
     calls = []
     monkeypatch.setattr(n2.hc, "ollama_process_running", lambda: (calls.append(1) or False))
     n2.phase_a70_finalize(lab)
     assert not calls  # never even checked ollama, since it bailed out before that point
+
+
+def test_phase_a70_finalize_reruns_if_old_one_reprobe_shape_record_exists(monkeypatch):
+    """An earlier finalization record from before the 3-loads-per-side correction (no 'lo_ok_count' key) must not
+    block a rerun with the corrected design."""
+    lab = StubLab(models={"llama-3.3-70b": _mi70()})
+    lab.emit({"record": "bisect_result", "label": "a70", "model_id": "llama-3.3-70b",
+              "last_ok_n_ctx": 23296, "first_fail_n_ctx": 23552})
+    lab.emit({"record": "a70_boundary_finalization", "model_id": "llama-3.3-70b", "reproduced": True,
+              "lo_reprobe_ok": True, "hi_reprobe_ok": False})  # old shape, no lo_ok_count
+    monkeypatch.setattr(n2.hc, "ollama_process_running", lambda: False)
+    with mock.patch.object(n2.am.L, "Server", StubServer), \
+         mock.patch.object(n2.am, "start_and_record", _fake_start_and_record(lambda n_ctx: n_ctx <= 23296)), \
+         mock.patch.object(n2.time, "sleep", lambda *a: None):
+        n2.phase_a70_finalize(lab)
+
+    new_records = [r for r in lab.rows if r.get("record") == "a70_boundary_finalization" and "lo_ok_count" in r]
+    assert len(new_records) == 1
 
 
 def test_phase_a70_finalize_aborts_if_ollama_running(monkeypatch):
