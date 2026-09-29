@@ -55,3 +55,14 @@ the timing coincidence could not be fully ruled out. The run recovered on its ow
 abandoned r1_check phase was re-queued as `r1_check_backfill` (`--resume` the same stem) rather than re-running
 research judgement calls, since only the harness's own retry classification (not this note) decides what was a
 stale-server error.
+
+## 2026-09-29 -- Ollama contamination check: stopped the idle server, no autostart entry found
+
+Checked every Ollama process for GPU memory residency and any autostart entry before trusting in-progress A70/P70
+data (full detail in `docs/RESULT_PROVENANCE.md`). Found one process, `ollama.exe` PID 2016 (this session's own
+install), zero GPU memory on every sample, no model ever loaded (`ollama ps` empty throughout), no Startup/HKCU/HKLM
+Run entry. Stopped it (`Stop-Process -Id 2016 -Force`, confirmed gone) since Ollama should only run inside K1/K2 jobs
+going forward, not idle in the background between them.
+
+**Revert:** none needed (no persistent setting was changed; the server was only ever a plain foreground-launched
+process). To restart it for a K1/K2 run: the same WMI `Win32_Process Create` launch documented in the entry above.

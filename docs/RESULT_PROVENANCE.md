@@ -461,3 +461,27 @@ backend. `git.commit` `d2931d8698394ff8f2e51e0824037005a7eed0ef` is a different,
 
 **Status:** OFF-TARGET-ONLY (laptop hardware, OpenAI API backend, not evo-t2s/evo-x2 or a llama.cpp backend). Feeds
 claims B-01 and B-02 (Table 5.1, Figure 5.1); see `docs/CLAIMS_LEDGER.md`.
+
+## Ollama contamination check for A70/P70 and x2_r1_check_full_ladder (2026-09-29)
+
+Checked before trusting any in-progress A70/P70 (evo-t2s) or x2_r1_check_full_ladder (evo-x2) data: every Ollama
+process found (`ollama.exe`, `"ollama app.exe"`) on both machines, its GPU memory via
+`Get-Counter '\GPU Process Memory(*)\Dedicated Usage'` and `'...\Shared Usage'` matched by `pid_<PID>`, and any
+autostart entry (Startup folder, HKCU/HKLM `...\CurrentVersion\Run`).
+
+- evo-t2s: one process, `ollama.exe` PID 2016 (child of the `cmd.exe` wrapper WMI reported as PID 1412), started
+  2026-09-29T07:48:04Z, working set 40,087,552 bytes (~38.2 MiB). No GPU counter samples matched `pid_2016` on either
+  the Dedicated or Shared Usage counter -- zero GPU memory at every check, consistent with `ollama ps` returning
+  empty every time it was checked (no model was ever loaded). No autostart entry in Startup, HKCU Run, or HKLM Run.
+  Stopped 2026-09-29T08:13:04Z (`Stop-Process -Id 2016 -Force`, confirmed gone).
+- evo-x2: no Ollama process was running at all by the time of this check (it must have exited on its own at some
+  point after being started; not investigated further, since it never held GPU memory either way). `ollama ps`
+  likewise returned empty on every check made against it. No autostart entry found.
+
+**Conclusion:** GPU usage was zero on every sample on both machines, so nothing in A70/P70 or
+x2_r1_check_full_ladder needs to be tagged `contaminated_ollama_resident` on Ollama-residency grounds. A70 continues
+running; per the standing finalization rule, its last-pass/first-fail bracket pair is re-probed once the bisection
+converges, with Ollama confirmed stopped, and the boundary is only reported if that re-probe reproduces it (see
+`harness/t2s_amech.py`/`t2s_night2.phase_a70`). x2_r1_check_full_ladder's cells stand as measured on this basis
+alone; see the separate ConnectionRefusedError contamination window analysis for evo-t2s's r1_check, which is a
+distinct question from Ollama GPU residency.

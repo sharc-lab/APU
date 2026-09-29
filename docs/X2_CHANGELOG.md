@@ -333,3 +333,13 @@ lingering model would show up in the data even if the env var setting were ever 
 
 **Revert:** `Stop-Process` the `ollama.exe serve` process and relaunch without the `OLLAMA_KEEP_ALIVE=0` env var, or
 simply do not set it on the next launch (default is 5m).
+
+## 2026-09-29 -- Ollama contamination check: no process running, no autostart entry, no residency ever
+
+Checked every Ollama process for GPU memory residency and any autostart entry before trusting x2_r1_check_full_ladder
+data (full detail in `docs/RESULT_PROVENANCE.md`). No `ollama.exe`/`"ollama app.exe"` process was running at all by
+the time of this check -- the server started earlier this session must have exited on its own at some point; not
+investigated further, since `ollama ps` returned empty on every check made against it (no model was ever loaded, so
+it never held GPU memory regardless of whether or when it exited). No Startup/HKCU/HKLM Run entry found. Nothing to
+stop or revert. Ollama will be restarted (same WMI launch, `OLLAMA_KEEP_ALIVE=0`) only inside K1/K2 jobs going
+forward, not left running idle in the background.
