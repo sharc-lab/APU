@@ -45,6 +45,17 @@ def test_advance_flags_on_halt(tmp_path, monkeypatch):
     assert items[1]["status"] == "pending"  # never launched: halted before reaching the pending entry
 
 
+def test_read_queue_tolerates_a_utf8_bom(tmp_path, monkeypatch):
+    """A manual PowerShell edit (ConvertTo-Json | Set-Content -Encoding utf8) writes UTF-8 WITH a BOM despite the
+    encoding name; that BOM crashed read_queue() with JSONDecodeError on 2026-09-29, which crashed advance() before
+    it reached the queue_empty.flag write -- exactly the notification this mechanism exists to guarantee."""
+    queue_file, flag_file = _isolate(tmp_path, monkeypatch)
+    payload = json.dumps([{"id": "x", "cmd": ["echo"], "status": "done"}])
+    queue_file.write_bytes(b"\xef\xbb\xbf" + payload.encode("utf-8"))
+    items = q.read_queue()
+    assert items == [{"id": "x", "cmd": ["echo"], "status": "done"}]
+
+
 def test_advance_clears_stale_flag_when_next_run_launches(tmp_path, monkeypatch):
     queue_file, flag_file = _isolate(tmp_path, monkeypatch)
     flag_file.write_text("{}", encoding="utf-8")  # a stale flag from an earlier empty moment

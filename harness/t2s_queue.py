@@ -31,7 +31,14 @@ EMPTY_FLAG = Path(r"C:\apu\ovn\queue_empty.flag")
 def read_queue():
     if not QUEUE_FILE.exists():
         return []
-    return json.loads(QUEUE_FILE.read_text(encoding="utf-8"))
+    # utf-8-sig (not utf-8) tolerates a leading BOM. A manual PowerShell edit of this file
+    # (ConvertTo-Json | Set-Content -Encoding utf8) writes UTF-8 WITH a BOM despite the encoding name -- that BOM
+    # made a plain utf-8 read raise JSONDecodeError here on 2026-09-29, which crashed advance() before it ever
+    # reached the code that writes queue_empty.flag, so a real idle gap (night3 finished, nothing launched next)
+    # went unnoticed instead of being caught by the very mechanism built to catch it. Reading permissively is the
+    # fix that matters; write_queue() below still writes plain UTF-8 (Python's json.dumps + Path.write_text never
+    # add a BOM), so this is a read-side defense against however the file was last written, not a format change.
+    return json.loads(QUEUE_FILE.read_text(encoding="utf-8-sig"))
 
 
 def write_queue(items):
