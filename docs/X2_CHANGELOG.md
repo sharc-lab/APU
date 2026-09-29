@@ -82,6 +82,37 @@ PauseUpdatesStartTime, PauseUpdatesExpiryTime` or set `PauseUpdatesExpiryTime` t
 memory, Vulkan heap sizes) has been run and passes -- not required here since no reboot has occurred since this
 change, but recorded as the standing gate for the next time a restart on this machine is unavoidable.
 
+## 2026-09-29 -- Post-reboot verification (gate for PX2/MX2): GPU memory pool changed, everything else matches
+
+Checked after the 2026-09-29 Windows Update reboot, per the standing gate that PX2 and MX2 must not run until this
+passes.
+
+**Matches pre-reboot record (docs/HARDWARE.md):**
+- sshd: Running, Automatic. Tailscale: Running, Automatic. Port 22 firewall rule present and enabled (4 matching
+  rules, TCP/UDP x public/private profiles).
+- `APU-QueueWatchdog` scheduled task: State Ready, next run time populated correctly.
+- w32time: synced, Stratum 5, last successful sync 2026-09-29T11:02:11 (local), source time.windows.com.
+- LHM + PawnIO sensor feed: confirmed live via the currently-running x2_q0_token_calibration job's own
+  `q0_calibration_20260929T183701Z_lhm.jsonl` -- CPU package power ~3.3-3.9 W, CPU temp (Tctl/Tdie) 27.5-29.6 C, GPU
+  core clock ~600-607 MHz, all updating every ~1 s as expected.
+- BIOS UMA / dedicated GPU memory: LHM `D3D Dedicated Memory Total` = 65,360.691 MiB, matching the pre-reboot dxdiag
+  figure (Dedicated 65,360 MB) exactly.
+
+**DOES NOT MATCH -- gate fails, PX2/MX2 blocked pending explanation:**
+`llama-server.exe --list-devices` now reports `Vulkan0: 114326 MiB, 108610 MiB free`, versus the pre-reboot record
+of `98,123 MiB total, 93,217 MiB free` (docs/HARDWARE.md) -- total Vulkan-visible capacity grew by about 16,200 MiB
+(+16.5%). LHM confirms this is a real change in the shared pool, not a measurement artifact: `D3D Shared Memory
+Total` now reads 48,790.816 MiB versus the pre-reboot dxdiag figure of 32,587 MB (Shared) -- the dedicated portion
+is unchanged, the shared portion grew by roughly 16,200 MiB, matching the Vulkan-total delta almost exactly.
+
+**Not yet explained.** Windows' dynamically-negotiated GPU shared-memory pool is typically computed from available
+system RAM at driver/session init, so a different amount of free RAM at boot (rather than a BIOS or driver change)
+is the more likely mechanism, but this has not been confirmed against a live RAM inventory at the time of writing.
+Recorded here rather than assumed benign. **PX2 and MX2 remain blocked until this is investigated further** (MX2's
+own first step already records the BIOS UMA setting and Vulkan heap budgets as baseline -- that baseline must use
+today's post-reboot numbers, not the pre-reboot HARDWARE.md figures, and the discrepancy itself should be explained
+before being treated as just "the new normal").
+
 ## 2026-09-28 -- SeLockMemoryPrivilege granted to Ritz
 
 See `docs/RAM_CAP_PROTOCOL.md`, section "GRANTED on evo-x2, 2026-09-28" for the exact `secedit` commands, before/after
