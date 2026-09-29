@@ -152,3 +152,20 @@ def test_get_ollama_loaded_model_none_when_nothing_loaded():
     fake_response.__exit__ = lambda self, *a: False
     with mock.patch("urllib.request.urlopen", return_value=fake_response):
         assert hc.get_ollama_loaded_model() is None
+
+
+# ---------------------------------------------------------------------------------------------------- ollama_process_running
+def test_ollama_process_running_true_when_count_nonzero():
+    assert hc.ollama_process_running(ps_fn=lambda cmd, timeout: "1\n") is True
+
+
+def test_ollama_process_running_true_when_multiple_processes():
+    assert hc.ollama_process_running(ps_fn=lambda cmd, timeout: "2\n") is True
+
+
+def test_ollama_process_running_false_when_count_zero():
+    assert hc.ollama_process_running(ps_fn=lambda cmd, timeout: "0\n") is False
+
+
+def test_ollama_process_running_false_when_output_empty():
+    assert hc.ollama_process_running(ps_fn=lambda cmd, timeout: "") is False

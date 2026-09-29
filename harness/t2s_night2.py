@@ -882,6 +882,15 @@ def _is_stale_server_error(e):
            "a llama-server process we did not start" in msg or "could not clear stale listener" in msg
 
 
+def _abort_if_ollama_running(ph):
+    """No phase in this script is an Ollama phase (K1/K2 are separate scripts that start and stop Ollama themselves).
+    Per the 2026-09-29 contamination check (docs/RESULT_PROVENANCE.md), Ollama must never idle in the background
+    during any other phase, so every phase here checks first and aborts the whole run rather than risk a model load
+    racing against a measurement. Message contains 'STOP' so t2s_queue.advance() halts instead of auto-advancing."""
+    if hc.ollama_process_running():
+        raise SmokeFailure(f"STOP: an ollama process is running; refusing to start phase {ph}")
+
+
 SMOKE_REQUIRED_ROW_KEYS = {"ttft_s", "decode_tok_s", "e2e_s", "outcome"}
 
 
@@ -1116,6 +1125,7 @@ def main():
         for ph in phases:
             if f"phase_{ph}" in lab.done:
                 continue
+            _abort_if_ollama_running(ph)
             if ph in SMOKE_GATED_PHASES and f"smoke_ok_{ph}" not in lab.done:
                 ok, reason = smoke_check_phase(lab, ph)
                 lab.emit({"record": "phase_smoke", "phase": ph, "ok": ok, "reason": reason, "ts_utc": utc_iso()})

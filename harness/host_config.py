@@ -121,6 +121,22 @@ def get_console_session_state(query_user_fn=_query_user_raw):
             "user_active": idle_s is not None and idle_s < 300.0}
 
 
+def ollama_process_running(ps_fn=None):
+    """True if any ollama.exe/"ollama app.exe" process exists right now, regardless of whether it holds a model in
+    GPU memory. Added after the 2026-09-29 contamination check (see docs/RESULT_PROVENANCE.md): Ollama should only
+    run inside K1/K2 jobs, which start and stop it themselves, not idle in the background during any other phase.
+    Every non-Ollama phase checks this before starting and aborts if it finds one, rather than relying on GPU-memory
+    residency alone (an idle server with a 0 KEEP_ALIVE can still race a model load against another experiment)."""
+    if ps_fn is None:
+        p = subprocess.run(["powershell", "-NoProfile", "-Command",
+                           "(Get-Process ollama,'ollama app' -ErrorAction SilentlyContinue | Measure-Object).Count"],
+                          capture_output=True, text=True, timeout=20)
+        out = p.stdout
+    else:
+        out = ps_fn("(Get-Process ollama,'ollama app' -ErrorAction SilentlyContinue | Measure-Object).Count", 20)
+    return out.strip() not in ("", "0")
+
+
 def get_ollama_loaded_model(base_url="http://127.0.0.1:11434"):
     """The model name Ollama currently holds in GPU memory, or None if nothing is loaded or the Ollama server is not
     reachable (evo-t2s never runs Ollama; on evo-x2 it may not be running yet). Used to stamp ollama_model_loaded on

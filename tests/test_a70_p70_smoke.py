@@ -128,6 +128,21 @@ def test_is_stale_server_error_does_not_match_unrelated_errors():
     assert not n2._is_stale_server_error(KeyError("qwen3-999b"))
 
 
+def test_abort_if_ollama_running_raises_when_ollama_present(monkeypatch):
+    monkeypatch.setattr(n2.hc, "ollama_process_running", lambda: True)
+    try:
+        n2._abort_if_ollama_running("r1_speed")
+        assert False, "expected SmokeFailure"
+    except n2.SmokeFailure as e:
+        assert "STOP" in str(e)
+        assert "ollama" in str(e)
+
+
+def test_abort_if_ollama_running_does_nothing_when_absent(monkeypatch):
+    monkeypatch.setattr(n2.hc, "ollama_process_running", lambda: False)
+    n2._abort_if_ollama_running("r1_speed")  # must not raise
+
+
 def test_main_phase_loop_raises_smoke_failure_with_stop_in_message():
     """A smoke failure must surface as a SmokeFailure whose message contains 'STOP', so main()'s note (built from
     repr(e)) trips t2s_queue.advance()'s halt condition instead of silently launching the next queued run."""
