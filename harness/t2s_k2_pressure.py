@@ -48,6 +48,7 @@ import host_config as hc
 import run_provenance as rp
 import t2s_lab as L
 import t2s_overnight as ov
+import t2s_queue as tq
 from t2s_lab import log, ps, utc_iso
 
 try:
@@ -492,6 +493,10 @@ def main():
         ov.cleanup(lab)
         lab.emit({"record": "run_end", "note": note, "ts_utc": utc_iso()})
         (Path(lab.out_dir) / f"{lab.stem}.DONE").write_text(note + "\n")
+        try:
+            tq.advance(note)
+        except Exception as e:
+            log(f"queue advance failed: {e!r}")
 
 
 if __name__ == "__main__":

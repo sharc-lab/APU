@@ -22,6 +22,7 @@ import quality_suite as qs  # noqa: E402
 import run_provenance as rp  # noqa: E402
 import t2s_lab as L  # noqa: E402
 import t2s_overnight as ov  # noqa: E402
+import t2s_queue as tq  # noqa: E402
 from t2s_lab import log, utc_iso  # noqa: E402
 
 TARGET_TOKENS = 2000
@@ -115,6 +116,10 @@ def main():
         ov.cleanup(lab)
         lab.emit({"record": "run_end", "note": note, "ts_utc": utc_iso()})
         (Path(lab.out_dir) / f"{lab.stem}.DONE").write_text(note + "\n")
+        try:
+            tq.advance(note)
+        except Exception as e:
+            log(f"queue advance failed: {e!r}")
 
 
 if __name__ == "__main__":
