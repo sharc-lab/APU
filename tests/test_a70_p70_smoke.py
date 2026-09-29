@@ -116,6 +116,18 @@ def test_smoke_check_phase_fails_on_server_start_error():
     assert "server start failed" in reason
 
 
+def test_is_stale_server_error_matches_known_shapes():
+    assert n2._is_stale_server_error(RuntimeError("STOP guard: port 8385 already has a listener: [...]"))
+    assert n2._is_stale_server_error(RuntimeError("STOP: could not confirm server pid 7408 exited and port 8385 freed"))
+    assert n2._is_stale_server_error(RuntimeError("STOP: a llama-server process we did not start is running"))
+    assert n2._is_stale_server_error(RuntimeError("STOP: could not clear stale listener(s) [4242] on port 8385 even though they were ours"))
+
+
+def test_is_stale_server_error_does_not_match_unrelated_errors():
+    assert not n2._is_stale_server_error(ValueError("some unrelated bug in the phase's own logic"))
+    assert not n2._is_stale_server_error(KeyError("qwen3-999b"))
+
+
 def test_main_phase_loop_raises_smoke_failure_with_stop_in_message():
     """A smoke failure must surface as a SmokeFailure whose message contains 'STOP', so main()'s note (built from
     repr(e)) trips t2s_queue.advance()'s halt condition instead of silently launching the next queued run."""

@@ -36,6 +36,8 @@ import t2s_m3_power_coupling as m3  # noqa: E402  (spin co-runner, kill_tree, re
 import context as ctx_mod  # noqa: E402
 
 PORT = 8385
+OWN_PATH_MARKER = "c:\\apu\\"  # every one of our own deployed processes' command line contains this; never kill on
+                               # port 8385 anything whose command line does not -- that is someone else's process
 SERVER_URL = f"http://127.0.0.1:{PORT}"
 PYTHON = sys.executable
 MODELS_DIR = r"C:\apu\models"
@@ -455,6 +457,33 @@ def parse_server_log(path):
     return out
 
 
+def ensure_port_free_or_cleanup(port=PORT):
+    """Before every server start: if `port` is already held, and every listener's command line contains our own
+    deploy path (OWN_PATH_MARKER), that is a leftover from an earlier run (see the PID 7408 incident, 2026-09-29,
+    where Server.stop()'s own retries could not clear it in time) -- kill it, log a stale_cleanup record's worth of
+    info via log(), and continue once the port is actually free. If ANY listener is not ours, this stops the phase:
+    raises RuntimeError so the caller (and ultimately the run) halts and notifies, rather than silently reusing or
+    killing a process we do not know is ours. Returns {"cleaned": bool, "pids": [...]}."""
+    pids = sg.port_listeners(port)
+    if not pids:
+        return {"cleaned": False, "pids": []}
+    for pid in pids:
+        cmdline = sg.process_cmdline(pid) or ""
+        if OWN_PATH_MARKER.lower() not in cmdline.lower():
+            raise RuntimeError(f"STOP: port {port} held by pid {pid} which is NOT ours ({cmdline!r}); "
+                              f"refusing to kill it, halting for an operator to look")
+    for pid in pids:
+        cmdline = sg.process_cmdline(pid) or ""
+        log(f"stale_cleanup: port {port} held by our own leftover pid {pid} ({cmdline}); killing before start")
+        m3.kill_tree(pid)
+    deadline = time.monotonic() + 30
+    while time.monotonic() < deadline:
+        if not sg.port_listeners(port):
+            return {"cleaned": True, "pids": pids}
+        time.sleep(2)
+    raise RuntimeError(f"STOP: could not clear stale listener(s) {pids} on port {port} even though they were ours")
+
+
 class Server:
     def __init__(self, lab, mi: ModelInfo, n_ctx, backend="vulkan", mmap=None, extra=(), tag="s", load_mode=None, ngl=99, fit=None):
         """mmap=None keeps the build default (--load-mode auto). mmap=True passes --load-mode mmap and mmap=False passes
@@ -485,8 +514,11 @@ class Server:
 
     def start(self, timeout=1500):
         """Returns a dict: ok, load_s, error, exit_code, pid, log parse. Never raises for a server that fails to load."""
+        cleanup = ensure_port_free_or_cleanup(PORT)  # raises RuntimeError itself if the port is stuck or not ours
+        if cleanup.get("cleaned"):
+            self.lab.emit({"record": "stale_cleanup", "port": PORT, "pids": cleanup["pids"], "ts_utc": utc_iso()})
         try:
-            sg.assert_port_free(PORT)
+            sg.assert_port_free(PORT)  # belt-and-suspenders: should already be free after the cleanup above
         except sg.GuardError as e:
             raise RuntimeError("STOP guard: " + str(e))
         if ps("(Get-Process llama-server -ErrorAction SilentlyContinue | Measure-Object).Count") not in ("", "0"):
@@ -568,8 +600,9 @@ class Server:
         except Exception:
             pass
         if self.proc is not None and self.pid:
-            for _ in range(3):
+            for attempt in range(1, 4):
                 m3.kill_tree(self.pid)
+                log(f"Server.stop: escalation {attempt}/3, taskkill /F /T pid {self.pid}")
                 d = time.monotonic() + 45
                 while time.monotonic() < d:
                     alive = ps(f"(Get-Process -Id {self.pid} -ErrorAction SilentlyContinue | Measure-Object).Count", 20) not in ("", "0")
@@ -577,6 +610,27 @@ class Server:
                         self.lab.tele.set_pid(None)
                         return
                     time.sleep(2)
+                log(f"Server.stop: pid {self.pid} or port {PORT} still present after escalation {attempt}/3")
+            # Last resort (see the PID 7408 incident, 2026-09-29: taskkill /F /T on the known pid did not clear the
+            # port within 3x45s -- the process was consuming CPU the whole time, not fully hung, consistent with a
+            # kernel-mode-blocked Vulkan/driver call under the memory-pressure condition being tested, which no
+            # amount of userspace taskkill retrying can force through; it became killable on its own about 1h41m
+            # later). One more check: whatever PID is actually squatting the port now (possibly not self.pid, if a
+            # different process ended up owning it) is killed ONLY if it is ours (own deploy path in its command
+            # line); a listener that is not ours is left alone and reported, never killed blind.
+            leftover = sg.port_listeners(PORT)
+            for pid in leftover:
+                cmdline = sg.process_cmdline(pid) or ""
+                if OWN_PATH_MARKER.lower() in cmdline.lower():
+                    log(f"Server.stop: last-resort kill of port-{PORT} owner pid {pid} (ours: {cmdline})")
+                    m3.kill_tree(pid)
+                else:
+                    log(f"Server.stop: port-{PORT} owner pid {pid} is NOT ours ({cmdline!r}); not killing it")
+            time.sleep(3)
+            still_alive = ps(f"(Get-Process -Id {self.pid} -ErrorAction SilentlyContinue | Measure-Object).Count", 20) not in ("", "0")
+            if not still_alive and not sg.port_listeners(PORT):
+                self.lab.tele.set_pid(None)
+                return
             raise RuntimeError(f"STOP: could not confirm server pid {self.pid} exited and port {PORT} freed")
         self.lab.tele.set_pid(None)
 

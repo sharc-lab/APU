@@ -763,6 +763,17 @@ class SmokeFailure(Exception):
     pass
 
 
+def _is_stale_server_error(e):
+    """True for the error shapes t2s_lab's own port-8385/stale-listener guards raise (assert_port_free's GuardError,
+    wrapped as 'STOP guard: ...'; Server.stop()'s 'STOP: could not confirm server pid ... exited'; the unwanted-
+    llama-server guard in Server.start()) -- the class of error a stale leftover process causes, and the only class
+    this phase loop retries once for. Not matched: ov.Deadline (handled separately, never retried) or any other
+    exception (a real bug in the phase's own logic should not be silently retried and masked)."""
+    msg = str(e)
+    return ("port" in msg and "listener" in msg) or "could not confirm server pid" in msg or \
+           "a llama-server process we did not start" in msg or "could not clear stale listener" in msg
+
+
 SMOKE_REQUIRED_ROW_KEYS = {"ttft_s", "decode_tok_s", "e2e_s", "outcome"}
 
 
@@ -985,14 +996,29 @@ def main():
                 lab.item_done(f"smoke_ok_{ph}")
                 log(f"phase {ph} smoke passed")
             log(f"phase {ph}")
-            try:
-                PHASE_FN[ph](lab)
-            except ov.Deadline:
-                raise
-            except Exception as e:
-                lab.emit({"record": "phase_error", "phase": ph, "error": repr(e)[:500], "ts_utc": utc_iso()})
-                log(f"phase {ph} error: {e!r}")
-                ov.cleanup_partial(lab)
+            succeeded = False
+            for retry in (False, True):
+                try:
+                    PHASE_FN[ph](lab)
+                    succeeded = True
+                    break
+                except ov.Deadline:
+                    raise
+                except Exception as e:
+                    stale = _is_stale_server_error(e)
+                    lab.emit({"record": "phase_error", "phase": ph, "error": repr(e)[:500], "stale_server": stale,
+                             "retried": retry, "ts_utc": utc_iso()})
+                    log(f"phase {ph} error: {e!r}")
+                    ov.cleanup_partial(lab)
+                    if stale and not retry:
+                        # A stale port-8385 listener (see the PID 7408 incident, 2026-09-29): the next Server.start()
+                        # call inside PHASE_FN[ph] will run ensure_port_free_or_cleanup() itself, so simply retrying
+                        # the phase once gives the cleanup-and-retry the spec asks for, instead of failing the whole
+                        # phase over what is usually a one-time leftover-process condition.
+                        log(f"phase {ph}: stale-server error, retrying once after cleanup")
+                        continue
+                    break  # not a stale-server error, or already retried once: give up on this phase
+            if not succeeded:
                 continue
             lab.item_done(f"phase_{ph}")
     except ov.Deadline:
