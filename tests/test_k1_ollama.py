@@ -305,3 +305,16 @@ def test_main_starts_and_stops_its_own_ollama_server():
     finally_idx = src.index("finally:")
     stop_idx = src.index("_hc.stop_ollama_server()")
     assert start_idx < finally_idx < stop_idx
+
+
+# ---------------------------------------------------------------------------------------------------- queue advance wiring
+def test_main_calls_tq_advance_in_a_finally_block():
+    """K1 never called t2s_queue.advance() at all (found 2026-09-29 on evo-x2: the queue sat 'running' after a
+    successful run finished, until the watchdog's heartbeat-staleness threshold expired). main() must always
+    advance the queue on every exit path."""
+    import inspect
+    src = inspect.getsource(K.main)
+    assert "tq.advance(note)" in src
+    finally_idx = src.rindex("finally:")
+    advance_idx = src.index("tq.advance(note)")
+    assert finally_idx < advance_idx

@@ -58,6 +58,7 @@ DEPLOY = Path(__file__).resolve().parent
 sys.path.insert(0, str(DEPLOY))
 import t2s_lab as L  # noqa: E402  (Server, Telemetry, ModelInfo, Jsonl, utc_iso, log, ps, avail_mb)
 import run_provenance as rp  # noqa: E402
+import t2s_queue as tq  # noqa: E402
 
 # ---------------------------------------------------------------------------------------------------- host config
 # harness/host_config.py is the real source of truth for hw_id/user/python_exe/deploy_dir/models_dir/gpu_vendor/
@@ -615,44 +616,59 @@ def main():
     targets = [float(x) for x in args.memory_targets_gb.split(",")] if args.memory_targets_gb else host_cfg.get("memory_targets_gb", [])
     gguf_mi = resolve_gguf_mi(args, host_cfg)
 
-    # K1 is the only script (with K2) allowed to run Ollama at all (2026-09-29 contamination check, see
-    # docs/RESULT_PROVENANCE.md); it starts its own server here and always stops it in the finally block below, so
-    # Ollama never idles in the background once this job ends.
-    started_pid = _hc.start_ollama_server()
-    L.log(f"ollama server {'already running' if started_pid is None else f'started (pid={started_pid})'}")
+    # This must always run, on every exit path, or the queue is left stuck on "running" until the watchdog's
+    # heartbeat-staleness threshold expires (30-60 min wasted) -- found 2026-09-29 when this file turned out to
+    # never call tq.advance() at all.
+    note = "completed"
+    kc = None
     try:
-        if "tier" in phases and "phase_tier" not in lab.done_phases:
-            for rep in range(args.reps):
-                phase_tier(lab, args.ollama_model, rep=rep)
-            lab.phase_done("phase_tier")
+        # K1 is the only script (with K2) allowed to run Ollama at all (2026-09-29 contamination check, see
+        # docs/RESULT_PROVENANCE.md); it starts its own server here and always stops it in the finally block below,
+        # so Ollama never idles in the background once this job ends.
+        started_pid = _hc.start_ollama_server()
+        L.log(f"ollama server {'already running' if started_pid is None else f'started (pid={started_pid})'}")
+        try:
+            if "tier" in phases and "phase_tier" not in lab.done_phases:
+                for rep in range(args.reps):
+                    phase_tier(lab, args.ollama_model, rep=rep)
+                lab.phase_done("phase_tier")
 
-        if "memory" in phases and "phase_memory" not in lab.done_phases:
-            if gguf_mi is None:
-                L.log("memory phase requested but no --gguf-model/--gguf-path given; skipping")
-            else:
-                for target_gb in targets:
-                    for rep in range(args.reps):
-                        phase_memory_pressure(lab, args.ollama_model, gguf_mi, target_gb, args.occupier_n_ctx, rep=rep)
-                lab.phase_done("phase_memory")
-
-        if "curves" in phases and "phase_curves" not in lab.done_phases:
-            if gguf_mi is None:
-                L.log("curves phase requested but no --gguf-model/--gguf-path given; skipping")
-            else:
-                default_ctx = args.default_ctx or build_default_ctx_from_rows(lab.all_rows(), host=host_cfg["name"])
-                if default_ctx is None:
-                    L.log("curves phase requested but no default_ctx known (run --phase tier first, or pass --default-ctx); skipping")
+            if "memory" in phases and "phase_memory" not in lab.done_phases:
+                if gguf_mi is None:
+                    L.log("memory phase requested but no --gguf-model/--gguf-path given; skipping")
                 else:
-                    phase_quality_curves(lab, args.ollama_model, gguf_mi, default_ctx, rep_count=args.reps)
-                    lab.phase_done("phase_curves")
-    finally:
-        stop_result = _hc.stop_ollama_server()
-        L.log(f"ollama server stopped: {stop_result}")
+                    for target_gb in targets:
+                        for rep in range(args.reps):
+                            phase_memory_pressure(lab, args.ollama_model, gguf_mi, target_gb, args.occupier_n_ctx, rep=rep)
+                    lab.phase_done("phase_memory")
 
-    all_rows = lab.all_rows()
-    kc = kill_criteria(all_rows)
-    report_kill_criteria(kc)
-    L.log(f"run complete: stem={lab.stem} rows={len(all_rows)} phases_run={phases}")
+            if "curves" in phases and "phase_curves" not in lab.done_phases:
+                if gguf_mi is None:
+                    L.log("curves phase requested but no --gguf-model/--gguf-path given; skipping")
+                else:
+                    default_ctx = args.default_ctx or build_default_ctx_from_rows(lab.all_rows(), host=host_cfg["name"])
+                    if default_ctx is None:
+                        L.log("curves phase requested but no default_ctx known (run --phase tier first, or pass --default-ctx); skipping")
+                    else:
+                        phase_quality_curves(lab, args.ollama_model, gguf_mi, default_ctx, rep_count=args.reps)
+                        lab.phase_done("phase_curves")
+        finally:
+            stop_result = _hc.stop_ollama_server()
+            L.log(f"ollama server stopped: {stop_result}")
+
+        all_rows = lab.all_rows()
+        kc = kill_criteria(all_rows)
+        report_kill_criteria(kc)
+        L.log(f"run complete: stem={lab.stem} rows={len(all_rows)} phases_run={phases}")
+    except Exception as e:
+        note = f"stopped: {e!r}"[:400]
+        L.log(note)
+        raise
+    finally:
+        try:
+            tq.advance(note)
+        except Exception as e:
+            L.log(f"queue advance failed: {e!r}")
     return kc
 
 
