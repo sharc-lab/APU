@@ -481,6 +481,11 @@ def main():
         for mid in model_ids:
             if f"k2_done_{mid}" in lab.done:
                 continue
+            # K2 never uses Ollama itself; only K1 does (starting/stopping its own server). Per the 2026-09-29
+            # contamination check (docs/RESULT_PROVENANCE.md), Ollama must not idle in the background during any
+            # other phase, so abort rather than risk a model load racing against this measurement.
+            if hc.ollama_process_running():
+                raise RuntimeError(f"STOP: an ollama process is running; refusing to start K2 phase for {mid}")
             log(f"K2 phase: {mid}")
             phase_k2(lab, mid, args.n_ctx)
             lab.item_done(f"k2_done_{mid}")

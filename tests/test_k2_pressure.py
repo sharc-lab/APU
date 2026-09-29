@@ -435,3 +435,15 @@ def test_no_duplicate_kwargs_end_to_end_via_do_call(tmp_path):
                    mem_headroom_gb=None, co_runner="none", kind="quality")
     except TypeError as e:
         pytest.fail(f"duplicate-keyword-argument bug in do_call call site: {e}")
+
+
+# ---------------------------------------------------------------------------------------------------- ollama contamination guard
+def test_main_aborts_if_ollama_is_running():
+    """K2 never uses Ollama itself; per the 2026-09-29 contamination check it must refuse to start a model's phase
+    if an Ollama process is found running rather than risk a model load racing against this measurement."""
+    import inspect
+    src = inspect.getsource(k2.main)
+    assert "hc.ollama_process_running()" in src
+    guard_idx = src.index("hc.ollama_process_running()")
+    phase_call_idx = src.index("phase_k2(lab, mid, args.n_ctx)")
+    assert guard_idx < phase_call_idx

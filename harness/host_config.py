@@ -137,6 +137,38 @@ def ollama_process_running(ps_fn=None):
     return out.strip() not in ("", "0")
 
 
+def start_ollama_server(ps_fn=None):
+    """Starts `ollama serve` headless via WMI Win32_Process Create -- a plain Start-Job does not survive past the SSH
+    session that launched it (discovered 2026-09-28 the hard way, see docs/T2S_CHANGELOG.md) -- with
+    OLLAMA_KEEP_ALIVE=0 so a model never lingers in GPU memory once a call finishes. Idempotent: no-ops (returns None)
+    if ollama_process_running() already reports a process. Returns the launched PID as an int, or None if the launch
+    output could not be parsed. Called by K1/K2's own job lifecycle, which are the only phases allowed to run Ollama
+    at all (see docs/RESULT_PROVENANCE.md, 2026-09-29 contamination check)."""
+    if ollama_process_running(ps_fn=ps_fn):
+        return None
+    cmd = ("$cmd = 'cmd.exe /c set OLLAMA_KEEP_ALIVE=0 && ollama serve > C:\\apu\\ovn\\ollama_serve.log 2>&1'; "
+           "$r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{CommandLine=$cmd}; "
+           "'pid=' + $r.ProcessId")
+    if ps_fn is None:
+        p = subprocess.run(["powershell", "-NoProfile", "-Command", cmd], capture_output=True, text=True, timeout=30)
+        out = p.stdout
+    else:
+        out = ps_fn(cmd, 30)
+    m = re.search(r"pid=(\d+)", out or "")
+    return int(m.group(1)) if m else None
+
+
+def stop_ollama_server(ps_fn=None):
+    """Stops every ollama.exe/"ollama app.exe" process (Stop-Process -Force). Called from K1/K2's own finally block
+    so Ollama never idles in the background once the job that needed it ends -- see start_ollama_server and the
+    2026-09-29 contamination check in docs/RESULT_PROVENANCE.md."""
+    cmd = "Get-Process ollama,'ollama app' -ErrorAction SilentlyContinue | Stop-Process -Force; 'stopped'"
+    if ps_fn is None:
+        p = subprocess.run(["powershell", "-NoProfile", "-Command", cmd], capture_output=True, text=True, timeout=30)
+        return p.stdout.strip()
+    return ps_fn(cmd, 30)
+
+
 def get_ollama_loaded_model(base_url="http://127.0.0.1:11434"):
     """The model name Ollama currently holds in GPU memory, or None if nothing is loaded or the Ollama server is not
     reachable (evo-t2s never runs Ollama; on evo-x2 it may not be running yet). Used to stamp ollama_model_loaded on

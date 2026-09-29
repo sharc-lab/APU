@@ -290,3 +290,18 @@ def test_kill_criteria_truncation_uses_prompt_eval_count_shortfall_not_just_erro
     ]
     result = K.kill_criteria(rows)
     assert result["truncated_cases_keep_quality"]["ok"] is True  # score still matches, so this is a pass, but it must have been *checked*
+
+
+# ---------------------------------------------------------------------------------------------------- ollama lifecycle wiring
+def test_main_starts_and_stops_its_own_ollama_server():
+    """K1 is one of only two scripts allowed to run Ollama (2026-09-29 contamination check); it must start its own
+    server and always stop it, even on failure, rather than assume one is already running in the background."""
+    import inspect
+    src = inspect.getsource(K.main)
+    assert "_hc.start_ollama_server()" in src
+    assert "_hc.stop_ollama_server()" in src
+    # the stop call must be inside a finally block so it always runs
+    start_idx = src.index("_hc.start_ollama_server()")
+    finally_idx = src.index("finally:")
+    stop_idx = src.index("_hc.stop_ollama_server()")
+    assert start_idx < finally_idx < stop_idx

@@ -169,3 +169,36 @@ def test_ollama_process_running_false_when_count_zero():
 
 def test_ollama_process_running_false_when_output_empty():
     assert hc.ollama_process_running(ps_fn=lambda cmd, timeout: "") is False
+
+
+# ---------------------------------------------------------------------------------------------------- start/stop_ollama_server
+def test_start_ollama_server_noop_when_already_running():
+    calls = []
+    result = hc.start_ollama_server(ps_fn=lambda cmd, timeout: (calls.append(cmd) or "1\n"))
+    assert result is None
+    assert len(calls) == 1  # only the ollama_process_running check, no launch attempted
+
+
+def test_start_ollama_server_launches_and_returns_pid():
+    calls = []
+
+    def fake_ps(cmd, timeout):
+        calls.append(cmd)
+        if "Measure-Object" in cmd:
+            return "0\n"
+        return "pid=4242\n"
+
+    result = hc.start_ollama_server(ps_fn=fake_ps)
+    assert result == 4242
+    assert len(calls) == 2
+
+
+def test_start_ollama_server_none_when_pid_unparseable():
+    def fake_ps(cmd, timeout):
+        return "0\n" if "Measure-Object" in cmd else "garbage, no pid here"
+
+    assert hc.start_ollama_server(ps_fn=fake_ps) is None
+
+
+def test_stop_ollama_server_returns_ps_output():
+    assert hc.stop_ollama_server(ps_fn=lambda cmd, timeout: "stopped") == "stopped"
