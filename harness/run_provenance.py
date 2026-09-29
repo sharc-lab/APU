@@ -30,7 +30,30 @@ def _git(*args: str) -> str:
     return r.stdout.strip()
 
 
+def _git_available():
+    """False if the `git` executable is not on PATH at all, or REPO is not a git repository -- both are real on the
+    machines this deploys to: C:\\apu\\ovn is a copy of committed files (via scripts/deploy_evo.py's `git show
+    HEAD:<path>`), not a git clone, so neither git.exe nor a .git directory is guaranteed to exist there. Found
+    2026-09-29 when t2s_k1_ollama.py crashed hard on evo-x2 with an uncaught FileNotFoundError before it ever
+    reached its own try/finally (so the queue never advanced past it either)."""
+    try:
+        r = subprocess.run(["git", "-C", str(REPO), "rev-parse", "--is-inside-work-tree"], capture_output=True,
+                           text=True, timeout=10, stdin=subprocess.DEVNULL)
+        return r.returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
 def script_provenance(paths, require_committed: bool = True) -> dict:
+    """Raises ProvenanceError only when require_committed=True and either git itself is unavailable in this
+    environment, or a listed file is untracked/uncommitted. When require_committed=False (the default for scratch/
+    non-git-clone deploys), a missing git falls back to a degraded-but-non-crashing record ("committed": None,
+    "git_head": None) instead of taking down the whole script before its own try/finally can run."""
+    if not _git_available():
+        msg = "git not available in this environment (no git.exe on PATH, or REPO is not a git repository)"
+        if require_committed:
+            raise ProvenanceError(msg)
+        return {"git_head": None, "committed": None, "problems": [msg], "files": []}
     head = _git("rev-parse", "HEAD")
     files = []
     problems = []
