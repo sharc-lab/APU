@@ -4,14 +4,33 @@ which only runs from inside a finishing orchestrator's own process and therefore
 never gets to its finally block at all (killed externally, powered off mid-run, or crashed hard enough to skip
 cleanup).
 
+2026-09-29 incident (see docs/T2S_CHANGELOG.md / docs/X2_CHANGELOG.md): the original version of this module trusted
+a single PID-liveness check as authoritative. On evo-t2s that produced a false crash: the WMI-launched wrapper PID
+died (root cause under separate investigation) while the actual measurement process kept running and legitimately
+finished 2+ hours later, but the watchdog had already declared it "crashed" and cascaded through launching (or
+failing to launch) every subsequent queued job. On evo-x2, the opposite failure hit the OLD run_end_written()
+heuristic (guessing "the newest .jsonl file mtime after started_ts" when a job's cmd has no --resume flag): it
+picked a DIFFERENT run's file that happened to have a run_end record, concluded the truly-dead x2_section0_retry
+had already finished and advanced itself, and did nothing for 10+ hours while the job sat dead.
+
+Fix: a job is declared dead only when BOTH signals agree it is dead.
+  - pid check: is the recorded pid a live process.
+  - heartbeat: how long since C:\\apu\\ovn\\queue_<id>.log (the job's own dedicated log file, created once by
+    _launch and appended to for as long as the process runs) was last modified. This replaces the old "guess the
+    newest jsonl across all stems" heuristic, which cannot tell one run's file from another's when several stems'
+    files are touched in the same window. Stale = no update for HEARTBEAT_STALE_S (30 min), or
+    HEARTBEAT_STALE_S_70B (60 min) for a 70B-model phase, which runs single calls that can legitimately take
+    several minutes each.
+
 Decision per tick, in order:
-  1. If an entry is "running" but its pid is dead and no run_end record exists in its own results file, mark it
-     "crashed" and launch the next pending entry.
-  2. Else if nothing is "running" and something is "pending", launch the next pending entry.
-  3. Else if nothing is "running" and nothing is "pending", write queue_empty.flag with a timestamp (t2s_queue's own
-     mechanism already does this from inside advance(), but the watchdog is the backstop for the case advance()
-     itself never got the chance to run).
-  4. Else (something legitimately running with a live pid): do nothing.
+  1. If an entry is "running": pid alive -> do nothing. pid dead, heartbeat fresh -> log "pid_check_disagrees" and
+     do nothing else (trust the heartbeat; a later tick will re-check). pid dead AND heartbeat stale -> mark
+     "crashed", launch the next pending entry.
+  2. Else if nothing is "running" and something is "pending" (and its gate, if any, is satisfied), launch it.
+  3. Else if nothing is "running" and nothing eligible is "pending", write queue_empty.flag with a timestamp.
+  4. A "running" entry with no pid ever recorded (its own launch failed) is never marked crashed by this watchdog --
+     see t2s_queue.launch_next, which now reverts a failed launch straight back to "pending" instead of leaving a
+     phantom "running, pid None" entry for the watchdog to find.
 
 Every decision is logged to C:\\apu\\ovn\\watchdog.log, one line per tick, so a human reviewing the machine after the
 fact can see what the watchdog saw and did, not just its final effect on queue_state.json.
@@ -36,7 +55,9 @@ sys.path.insert(0, str(DEPLOY))
 import t2s_queue as q  # noqa: E402
 
 WATCHDOG_LOG = Path(r"C:\apu\ovn\watchdog.log")
-RESULTS_DIR = Path(r"C:\apu\ovn\results")
+QUEUE_LOG_DIR = Path(r"C:\apu\ovn")
+HEARTBEAT_STALE_S = 30 * 60
+HEARTBEAT_STALE_S_70B = 60 * 60
 
 
 def _log(msg):
@@ -61,65 +82,58 @@ def pid_alive(pid, ps_fn=None):
     return out.strip() not in ("", "0")
 
 
-def run_end_written(entry, results_dir=RESULTS_DIR):
-    """True if a run_end record exists for this entry's stem in its results .jsonl. The stem is only known if the
-    entry's own cmd included --resume <stem>; a fresh (non-resumed) launch generates its own timestamped stem that
-    this function cannot predict, so it falls back to the newest .jsonl file modified after the entry's started_ts,
-    which is a reasonable proxy: only one orchestrator runs at a time per machine (t2s_queue's own single-running-
-    entry invariant), so the newest results file touched since this entry started is that entry's own file."""
+def is_70b_phase(entry):
+    """True if this entry's own cmd mentions a 70B model -- those phases run single calls that can legitimately
+    take several minutes each (see P70's ~176s e2e_s per call), so they get the longer stale threshold."""
     cmd = entry.get("cmd") or []
-    stem = None
-    if "--resume" in cmd:
-        i = cmd.index("--resume")
-        if i + 1 < len(cmd):
-            stem = cmd[i + 1]
-    candidates = []
-    if stem:
-        p = results_dir / f"{stem}.jsonl"
-        if p.exists():
-            candidates = [p]
-    else:
-        started = entry.get("started_ts") or 0
-        try:
-            candidates = sorted(
-                (p for p in results_dir.glob("*.jsonl") if p.stat().st_mtime >= started - 5),
-                key=lambda p: p.stat().st_mtime, reverse=True)[:1]
-        except OSError:
-            candidates = []
-    for p in candidates:
-        try:
-            with open(p, encoding="utf-8", errors="replace") as f:
-                for line in f:
-                    if not line.strip():
-                        continue
-                    try:
-                        r = json.loads(line)
-                    except json.JSONDecodeError:
-                        continue
-                    if r.get("record") == "run_end":
-                        return True
-        except OSError:
-            continue
-    return False
+    return any("70b" in str(c).lower() for c in cmd)
 
 
-def tick(pid_alive_fn=pid_alive, run_end_fn=run_end_written):
-    """One watchdog decision cycle. Injectable pid_alive_fn/run_end_fn for tests; production defaults hit the real
-    machine. Returns a dict describing what happened, for logging and for tests to assert on."""
+def heartbeat_age_s(entry, log_dir=QUEUE_LOG_DIR, now=None):
+    """Seconds since C:\\apu\\ovn\\queue_<id>.log (this entry's own dedicated log file) was last modified, or None
+    if that file does not exist. This is the one signal that reflects the actual measurement process's real
+    progress regardless of whether the entry's cmd used --resume or which results stem it ended up writing to --
+    see the module docstring for the 2026-09-29 incident this replaces run_end_written()'s guessing for."""
+    log_path = Path(log_dir) / f"queue_{entry['id']}.log"
+    try:
+        mtime = log_path.stat().st_mtime
+    except OSError:
+        return None
+    now = now if now is not None else time.time()
+    return now - mtime
+
+
+def is_stale(entry, age_s):
+    if age_s is None:
+        return True
+    threshold = HEARTBEAT_STALE_S_70B if is_70b_phase(entry) else HEARTBEAT_STALE_S
+    return age_s > threshold
+
+
+def tick(pid_alive_fn=pid_alive, heartbeat_age_fn=heartbeat_age_s):
+    """One watchdog decision cycle. Injectable pid_alive_fn/heartbeat_age_fn for tests; production defaults hit the
+    real machine. Returns a dict describing what happened, for logging and for tests to assert on."""
     items = q.read_queue()
     running = next((it for it in items if it["status"] == "running"), None)
 
     if running is not None:
+        if running.get("pid") is None:
+            # A launch that never produced a pid should have been reverted to "pending" by launch_next() itself
+            # (see t2s_queue.py); if one is still seen here, leave it alone rather than guess -- do not mark a
+            # never-launched job crashed.
+            return {"action": "none", "reason": f"entry {running['id']} has status running but no pid; leaving alone"}
         if pid_alive_fn(running.get("pid")):
             return {"action": "none", "reason": f"entry {running['id']} running, pid {running.get('pid')} alive"}
-        if run_end_fn(running):
-            # The pid is gone but the run itself finished and wrote its own run_end (and presumably already called
-            # advance() before exiting) -- nothing for the watchdog to do; a subsequent tick will see the launched
-            # next entry (or an empty queue) instead. Do not double-advance.
-            return {"action": "none", "reason": f"entry {running['id']} pid dead but run_end already written"}
+        age = heartbeat_age_fn(running)
+        if not is_stale(running, age):
+            age_str = f"{age:.0f}s" if age is not None else "unknown"
+            reason = (f"entry {running['id']}: pid {running.get('pid')} check says dead but heartbeat age "
+                      f"{age_str} is still fresh; trusting the heartbeat, leaving running")
+            return {"action": "pid_check_disagrees", "reason": reason}
         running["status"] = "crashed"
         running["finished_ts"] = time.time()
-        running["note"] = f"watchdog: pid {running.get('pid')} dead, no run_end found"
+        age_str = f"{age:.0f}s" if age is not None else "no heartbeat log found"
+        running["note"] = f"watchdog: pid {running.get('pid')} dead and heartbeat stale ({age_str})"
         q.write_queue(items)
         launched = q.launch_next(items)
         if launched is None:

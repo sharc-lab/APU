@@ -95,33 +95,55 @@ def launch_next(items):
     """Finds the next pending entry whose gate (if any) is satisfied, marks it running with its launched pid, writes
     the queue, and clears any stale queue_empty.flag. A gated entry that is not yet satisfied is skipped (left
     pending, logged) in favor of the next eligible pending entry, so one unmet gate does not stall the whole queue.
+
+    If the launch itself fails to produce a usable pid (WMI Create returned a non-zero rc, or its output could not
+    be parsed -- see the 2026-09-29 evo-t2s incident, where this left a phantom "running, pid None" entry that a
+    later watchdog tick then wrongly declared crashed), the entry is reverted straight back to "pending" instead:
+    a job that never actually launched must never be marked crashed (only a job that WAS running can die). The
+    failure is recorded on the entry as "last_launch_failure" and the search continues with the next eligible
+    pending entry, bounded so a machine with every launch failing (e.g. WMI itself down) cannot loop forever.
+
     Shared by advance() (called from inside a finished run's own process) and queue_watchdog.py (called from an
     independent, always-on scheduled task) so the launch bookkeeping is identical either way. Returns the launched
-    entry, or None if there was nothing eligible to launch."""
-    skipped = []
-    nxt = None
-    for it in items:
-        if it["status"] != "pending":
+    entry, or None if nothing eligible could be launched."""
+    failed_this_call = set()
+    max_attempts = sum(1 for it in items if it["status"] == "pending") or 1
+    for _attempt in range(max_attempts):
+        skipped = []
+        nxt = None
+        for it in items:
+            if it["status"] != "pending" or it["id"] in failed_this_call:
+                continue
+            if _gate_satisfied(it, items):
+                nxt = it
+                break
+            skipped.append(it["id"])
+        for sid in skipped:
+            print(f"queue: skipping {sid} (gate not satisfied yet)")
+        if nxt is None:
+            return None
+        nxt["status"] = "running"
+        nxt["started_ts"] = time.time()
+        write_queue(items)
+        log_path = f"C:\\apu\\ovn\\queue_{nxt['id']}.log"
+        out = _launch(nxt["cmd"], log_path)
+        nxt["launch_result"] = out.strip()
+        pid = _parse_pid(out)
+        if pid is None:
+            nxt["status"] = "pending"
+            nxt["last_launch_failure"] = {"ts_utc_epoch": time.time(), "launch_result": nxt["launch_result"]}
+            for k in ("started_ts",):
+                nxt.pop(k, None)
+            write_queue(items)
+            failed_this_call.add(nxt["id"])
+            print(f"queue: launch of {nxt['id']} produced no pid ({nxt['launch_result']!r}); left pending, trying next")
             continue
-        if _gate_satisfied(it, items):
-            nxt = it
-            break
-        skipped.append(it["id"])
-    for sid in skipped:
-        print(f"queue: skipping {sid} (gate not satisfied yet)")
-    if nxt is None:
-        return None
-    nxt["status"] = "running"
-    nxt["started_ts"] = time.time()
-    write_queue(items)
-    log_path = f"C:\\apu\\ovn\\queue_{nxt['id']}.log"
-    out = _launch(nxt["cmd"], log_path)
-    nxt["launch_result"] = out.strip()
-    nxt["pid"] = _parse_pid(out)
-    write_queue(items)
-    if EMPTY_FLAG.exists():
-        EMPTY_FLAG.unlink()  # a run is now launched; clear any stale flag from a prior empty-queue moment
-    return nxt
+        nxt["pid"] = pid
+        write_queue(items)
+        if EMPTY_FLAG.exists():
+            EMPTY_FLAG.unlink()  # a run is now launched; clear any stale flag from a prior empty-queue moment
+        return nxt
+    return None
 
 
 def write_empty_flag(items, reason):
