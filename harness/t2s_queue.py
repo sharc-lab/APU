@@ -19,6 +19,7 @@ To seed or inspect the queue from the controller (not on evo-t2s): read/write th
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 import time
@@ -67,7 +68,36 @@ def _launch(cmd, log_path):
     return (out + (" | stderr: " + err if err.strip() else "")).strip()
 
 
-def _write_empty_flag(items, reason):
+def _parse_pid(launch_result):
+    """The cmd.exe wrapper PID from _launch()'s own 'rc=0 pid=1234' output, as an int, or None if the launch failed
+    or the output could not be parsed. This is the PID watchdog scripts check liveness against, since it is the one
+    process every launched run's whole tree hangs off of (killing it, or it dying, ends the run)."""
+    m = re.search(r"pid=(\d+)", launch_result or "")
+    return int(m.group(1)) if m else None
+
+
+def launch_next(items):
+    """Finds the next pending entry, marks it running with its launched pid, writes the queue, and clears any stale
+    queue_empty.flag. Shared by advance() (called from inside a finished run's own process) and queue_watchdog.py
+    (called from an independent, always-on scheduled task) so the launch bookkeeping is identical either way.
+    Returns the launched entry, or None if there was nothing pending."""
+    nxt = next((it for it in items if it["status"] == "pending"), None)
+    if nxt is None:
+        return None
+    nxt["status"] = "running"
+    nxt["started_ts"] = time.time()
+    write_queue(items)
+    log_path = f"C:\\apu\\ovn\\queue_{nxt['id']}.log"
+    out = _launch(nxt["cmd"], log_path)
+    nxt["launch_result"] = out.strip()
+    nxt["pid"] = _parse_pid(out)
+    write_queue(items)
+    if EMPTY_FLAG.exists():
+        EMPTY_FLAG.unlink()  # a run is now launched; clear any stale flag from a prior empty-queue moment
+    return nxt
+
+
+def write_empty_flag(items, reason):
     """The machine is about to sit idle with no queued work. Written so a controller (this session or a later one)
     polling this file, or a person checking the machine, sees it immediately instead of the gap only being noticed
     hours later the way night2b's queue-empty gap was (idle 09:06 UTC to discovery ~14:30+ UTC, 2026-09-28)."""
@@ -79,7 +109,7 @@ def _write_empty_flag(items, reason):
 def advance(note):
     items = read_queue()
     if not items:
-        _write_empty_flag([], "advance() called with an empty queue_state.json")
+        write_empty_flag([], "advance() called with an empty queue_state.json")
         return
     halt = note and ("STOP" in str(note) or "another interactive session" in str(note))
     running = next((it for it in items if it["status"] == "running"), None)
@@ -89,21 +119,10 @@ def advance(note):
         running["finished_ts"] = time.time()
     write_queue(items)
     if halt:
-        _write_empty_flag(items, f"queue halted: {note}")
+        write_empty_flag(items, f"queue halted: {note}")
         return
-    nxt = next((it for it in items if it["status"] == "pending"), None)
-    if nxt is None:
-        _write_empty_flag(items, "no pending entry left after the current run finished")
-        return
-    nxt["status"] = "running"
-    nxt["started_ts"] = time.time()
-    write_queue(items)
-    log_path = f"C:\\apu\\ovn\\queue_{nxt['id']}.log"
-    out = _launch(nxt["cmd"], log_path)
-    nxt["launch_result"] = out.strip()
-    write_queue(items)
-    if EMPTY_FLAG.exists():
-        EMPTY_FLAG.unlink()  # a run is now launched; clear any stale flag from a prior empty-queue moment
+    if launch_next(items) is None:
+        write_empty_flag(items, "no pending entry left after the current run finished")
 
 
 if __name__ == "__main__":
