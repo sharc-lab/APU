@@ -288,13 +288,13 @@ def classify_fabrication_or_refusal(output: str | None) -> str:
 
 # ---------------------------------------------------------------- niah_multikey / niah_multivalue
 
-def _build_niah_multikey(target_tokens: int, seed: int, n_keys: int = 3) -> Task:
+def _build_niah_multikey(target_tokens: int, seed: int, n_keys: int = 3, count_fn=None) -> Task:
     rng = random.Random(seed)
     keys = [f"KEY-{_rand_token(rng, 4)}" for _ in range(n_keys)]
     values = [_rand_token(rng, 6, string.digits) for _ in range(n_keys)]
     sentences = [f"The registration code associated with {k} is {v}." for k, v in zip(keys, values)]
     fill_target = max(target_tokens - 25 * n_keys - 40, 64)
-    filler = ctx_mod.build_filler(fill_target, seed=seed)
+    filler = ctx_mod.build_filler(fill_target, seed=seed, count_fn=count_fn)
     body = _scatter(filler, sentences, rng)
     chosen_idx = rng.randrange(n_keys)
     chosen_key, chosen_val = keys[chosen_idx], values[chosen_idx]
@@ -304,13 +304,13 @@ def _build_niah_multikey(target_tokens: int, seed: int, n_keys: int = 3) -> Task
     return Task("niah_multikey", body + question, chosen_val, "exact", 32, meta)
 
 
-def _build_niah_multivalue(target_tokens: int, seed: int, n_values: int = 4) -> Task:
+def _build_niah_multivalue(target_tokens: int, seed: int, n_values: int = 4, count_fn=None) -> Task:
     rng = random.Random(seed)
     key = f"PROJECT-{_rand_token(rng, 4)}"
     values = [_rand_token(rng, 5, string.ascii_uppercase + string.digits) for _ in range(n_values)]
     sentences = [f"Project {key} was assigned milestone tag {v}." for v in values]
     fill_target = max(target_tokens - 20 * n_values - 60, 64)
-    filler = ctx_mod.build_filler(fill_target, seed=seed)
+    filler = ctx_mod.build_filler(fill_target, seed=seed, count_fn=count_fn)
     body = _scatter(filler, sentences, rng)
     question = (f"\n\nQuestion: List every milestone tag recorded for project {key}. "
                 "Respond with ONLY the tags, comma-separated, in any order.")
@@ -320,7 +320,7 @@ def _build_niah_multivalue(target_tokens: int, seed: int, n_values: int = 4) -> 
 
 # ---------------------------------------------------------------- variable_tracking
 
-def _build_variable_tracking(target_tokens: int, seed: int, n_steps: int = 5) -> Task:
+def _build_variable_tracking(target_tokens: int, seed: int, n_steps: int = 5, count_fn=None) -> Task:
     rng = random.Random(seed)
     final_value = rng.randint(1, 99)
     var_names = [f"X{i + 1}" for i in range(n_steps)]
@@ -328,7 +328,7 @@ def _build_variable_tracking(target_tokens: int, seed: int, n_steps: int = 5) ->
     for i in range(1, n_steps):
         lines.append(f"{var_names[i]} = {var_names[i - 1]}.")
     fill_target = max(target_tokens - 10 * n_steps - 40, 64)
-    filler = ctx_mod.build_filler(fill_target, seed=seed)
+    filler = ctx_mod.build_filler(fill_target, seed=seed, count_fn=count_fn)
     body = _scatter(filler, lines, rng)
     last_var = var_names[-1]
     question = f"\n\nQuestion: What is the final numeric value of {last_var}? Respond with ONLY the number."
@@ -377,31 +377,50 @@ def _pad_words_for(pad_needed: int, rng: random.Random) -> list[str]:
     return words
 
 
-def _build_common_words(target_tokens: int, seed: int, n_top: int = 10) -> Task:
+def _build_common_words(target_tokens: int, seed: int, n_top: int = 10, count_fn=None) -> Task:
     rng = random.Random(seed)
     vocab = list(_CW_VOCAB)
     rng.shuffle(vocab)
     n = len(vocab)
-    # Budget in WORD units, not tokens: dividing by _EST_TOKENS_PER_PAD_WORD corrects for the pool's real words
-    # costing more than 1 token each (see that constant's comment). pad_needed and the resulting max pool-word
-    # repeat count (see _pad_words_for) both scale with the word budget, so k must too: max_pad_repeat is computed
-    # first and k set to clear it with a safety margin, rather than a fixed target_tokens // 400 that had no
-    # relationship to how often any single padding word would actually recur.
-    word_budget = max(int(target_tokens / _EST_TOKENS_PER_PAD_WORD) - 8, 0)
-    approx_pad_needed = max(word_budget - 8, 0)
-    max_pad_repeat = -(-approx_pad_needed // len(_PAD_WORD_POOL))
-    k = max(1, word_budget // 400, max_pad_repeat + 2)
-    counts = [(n - i) * k for i in range(n)]  # strictly decreasing by construction
     top_words = vocab[:n_top]
-    units: list[str] = []
-    for w, c in zip(vocab, counts):
-        units.extend([w] * c)
-    pad_needed = max(word_budget - len(units) - 8, 0)
-    units.extend(_pad_words_for(pad_needed, rng))
-    rng.shuffle(units)
-    passage = "Observed terms, in order: " + " ".join(units) + "."
     question = ("\n\nQuestion: Of the words above, which 10 appear most frequently? List exactly 10 "
                 "words, comma-separated, in any order.")
+
+    def _build_for_word_budget(word_budget, rng):
+        # Budget in WORD units, not tokens: dividing by _EST_TOKENS_PER_PAD_WORD corrects for the pool's real
+        # words costing more than 1 token each (see that constant's comment). pad_needed and the resulting max
+        # pool-word repeat count (see _pad_words_for) both scale with the word budget, so k must too:
+        # max_pad_repeat is computed first and k set to clear it with a safety margin.
+        approx_pad_needed = max(word_budget - 8, 0)
+        max_pad_repeat = -(-approx_pad_needed // len(_PAD_WORD_POOL))
+        k = max(1, word_budget // 400, max_pad_repeat + 2)
+        counts = [(n - i) * k for i in range(n)]  # strictly decreasing by construction
+        units: list[str] = []
+        for w, c in zip(vocab, counts):
+            units.extend([w] * c)
+        pad_needed = max(word_budget - len(units) - 8, 0)
+        units.extend(_pad_words_for(pad_needed, rng))
+        rng.shuffle(units)
+        passage = "Observed terms, in order: " + " ".join(units) + "."
+        return passage, counts, k
+
+    word_budget = max(int(target_tokens / _EST_TOKENS_PER_PAD_WORD) - 8, 0)
+    # count_fn=None: identical to the pre-count_fn code path (same rng object, threaded through in the same order),
+    # so every existing (task_type, target_tokens, seed) prompt stays byte-identical. count_fn given: iterative
+    # refinement against a real tokenizer (mirroring context._trim_to_tokens's own pattern) reseeds a fresh rng
+    # each attempt so the search is reproducible but does not need to match the no-count_fn text.
+    if count_fn is None:
+        passage, counts, k = _build_for_word_budget(word_budget, rng)
+    else:
+        for attempt in range(4):
+            passage, counts, k = _build_for_word_budget(word_budget, random.Random(f"{seed}:{attempt}"))
+            actual = count_fn(passage + question)
+            if actual <= 0:
+                break
+            err = abs(actual - target_tokens) / max(target_tokens, 1)
+            if err <= 0.02:
+                break
+            word_budget = max(int(word_budget * target_tokens / actual), 1)
     meta = {"counts": dict(zip(vocab, counts)), "top_words": top_words, "n_top": n_top, "pad_word_k_margin": k}
     return Task("common_words_extraction", passage + question, set(top_words), "set_f1", 96, meta)
 
@@ -412,8 +431,8 @@ SYSTEM_RULE = ('Answer only in JSON with exactly two keys, "answer" and "source"
                "before or after the JSON object.")
 
 
-def _build_system_rule(target_tokens: int, seed: int) -> Task:
-    niah = _build_niah_multikey(target_tokens, seed, n_keys=1)
+def _build_system_rule(target_tokens: int, seed: int, count_fn=None) -> Task:
+    niah = _build_niah_multikey(target_tokens, seed, n_keys=1, count_fn=count_fn)
     prompt = SYSTEM_RULE + "\n\n" + niah.prompt
     meta = dict(niah.meta, rule=SYSTEM_RULE)
     return Task("system_rule_compliance", prompt, ["answer", "source"], "json_keys", 64, meta)
@@ -441,7 +460,7 @@ _MEETING_TITLES = ["Budget Review", "Roadmap Sync", "Vendor Check-in", "Design C
 _ATTENDEE_NAMES = ["alice", "bob", "carol", "dave", "erin"]
 
 
-def _build_tool_call(target_tokens: int, seed: int) -> Task:
+def _build_tool_call(target_tokens: int, seed: int, count_fn=None) -> Task:
     rng = random.Random(seed)
     title = rng.choice(_MEETING_TITLES)
     date = f"2026-{rng.randint(1, 12):02d}-{rng.randint(1, 28):02d}"
@@ -453,7 +472,7 @@ def _build_tool_call(target_tokens: int, seed: int) -> Task:
     schema_block = ("Function schema (call this function exactly once, with these exact argument "
                      "names and types):\n" + json.dumps(TOOL_SCHEMA, indent=2))
     fill_target = max(target_tokens - 300, 64)
-    filler = ctx_mod.build_filler(fill_target, seed=seed)
+    filler = ctx_mod.build_filler(fill_target, seed=seed, count_fn=count_fn)
     prompt = (schema_block + "\n\n" + filler + "\n\nRequest: " + request +
               "\n\nRespond with ONLY a JSON object of the form {\"name\": ..., \"arguments\": {...}}.")
     expected_call = {"name": TOOL_SCHEMA["name"],
@@ -463,25 +482,35 @@ def _build_tool_call(target_tokens: int, seed: int) -> Task:
     return Task("tool_call_correctness", prompt, expected_call, "tool_call", 128, meta)
 
 
-TASK_BUILDERS: dict[str, Callable[[int, int], Task]] = {
-    "niah_multikey": lambda tt, s: _build_niah_multikey(tt, s, n_keys=3),
-    "niah_multivalue": lambda tt, s: _build_niah_multivalue(tt, s, n_values=4),
-    "variable_tracking": lambda tt, s: _build_variable_tracking(tt, s, n_steps=5),
+TASK_BUILDERS: dict[str, Callable[..., Task]] = {
+    "niah_multikey": lambda tt, s, count_fn=None: _build_niah_multikey(tt, s, n_keys=3, count_fn=count_fn),
+    "niah_multivalue": lambda tt, s, count_fn=None: _build_niah_multivalue(tt, s, n_values=4, count_fn=count_fn),
+    "variable_tracking": lambda tt, s, count_fn=None: _build_variable_tracking(tt, s, n_steps=5, count_fn=count_fn),
     "common_words_extraction": _build_common_words,
     "system_rule_compliance": _build_system_rule,
     "tool_call_correctness": _build_tool_call,
 }
 
 
-def build_task(task_type: str, target_tokens: int, seed: int = 42) -> Task:
+def build_task(task_type: str, target_tokens: int, seed: int = 42, count_fn=None) -> Task:
     """Build one Task deterministically. Same (task_type, target_tokens, seed) always reproduces the
     identical prompt/expected pair, so a result row never needs to store the (potentially huge)
-    prompt text itself, only these three values plus Task.meta."""
+    prompt text itself, only these three values plus Task.meta -- EXCEPT when count_fn is given, since a
+    different tokenizer's real counts can change how much filler gets generated to hit target_tokens.
+
+    count_fn: an optional real tokenizer callback (text -> int token count), the same shape context.py's own
+    build_filler/_trim_to_tokens already accept. Without it, filler sizing uses context._CHARS_PER_TOKEN's single
+    fixed estimate, which was calibrated against Qwen3's tokenizer (see context.py) and under-counts by about 18-20%
+    against Llama 3.1/3.3's tokenizer (real, more BPE-efficient prose) -- see analysis/offline_token_calibration.py,
+    which found this on 2026-09-29. Passing a real tokenizer's count_fn here (or the live server's own /tokenize,
+    matching how build_probe_prompts already does it) makes every family calibrate correctly, since the iterative
+    refinement in context._trim_to_tokens converges toward whatever count_fn actually reports, regardless of which
+    tokenizer family that is."""
     try:
         builder = TASK_BUILDERS[task_type]
     except KeyError:
         raise ValueError(f"unknown task_type {task_type!r}; must be one of {sorted(TASK_BUILDERS)}")
-    return builder(target_tokens, seed)
+    return builder(target_tokens, seed, count_fn=count_fn)
 
 
 # ---------------------------------------------------------------- art probes (reused, read-only)

@@ -1,0 +1,532 @@
+{
+ "results": {
+  "qwen3": {
+   "niah_multikey": [
+    {
+     "target": 2000,
+     "actual": 1962,
+     "ratio": 0.981,
+     "ok": true
+    },
+    {
+     "target": 8000,
+     "actual": 7964,
+     "ratio": 0.9955,
+     "ok": true
+    },
+    {
+     "target": 24000,
+     "actual": 23965,
+     "ratio": 0.9985,
+     "ok": true
+    },
+    {
+     "target": 96000,
+     "actual": 95953,
+     "ratio": 0.9995,
+     "ok": true
+    }
+   ],
+   "niah_multivalue": [
+    {
+     "target": 2000,
+     "actual": 1944,
+     "ratio": 0.972,
+     "ok": true
+    },
+    {
+     "target": 8000,
+     "actual": 7945,
+     "ratio": 0.9931,
+     "ok": true
+    },
+    {
+     "target": 24000,
+     "actual": 23945,
+     "ratio": 0.9977,
+     "ok": true
+    },
+    {
+     "target": 96000,
+     "actual": 95940,
+     "ratio": 0.9994,
+     "ok": true
+    }
+   ],
+   "variable_tracking": [
+    {
+     "target": 2000,
+     "actual": 1962,
+     "ratio": 0.981,
+     "ok": true
+    },
+    {
+     "target": 8000,
+     "actual": 7958,
+     "ratio": 0.9948,
+     "ok": true
+    },
+    {
+     "target": 24000,
+     "actual": 23955,
+     "ratio": 0.9981,
+     "ok": true
+    },
+    {
+     "target": 96000,
+     "actual": 95953,
+     "ratio": 0.9995,
+     "ok": true
+    }
+   ],
+   "common_words_extraction": [
+    {
+     "target": 2000,
+     "actual": 2019,
+     "ratio": 1.0095,
+     "ok": true
+    },
+    {
+     "target": 8000,
+     "actual": 7986,
+     "ratio": 0.9982,
+     "ok": true
+    },
+    {
+     "target": 24000,
+     "actual": 23990,
+     "ratio": 0.9996,
+     "ok": true
+    },
+    {
+     "target": 96000,
+     "actual": 95984,
+     "ratio": 0.9998,
+     "ok": true
+    }
+   ],
+   "system_rule_compliance": [
+    {
+     "target": 2000,
+     "actual": 2003,
+     "ratio": 1.0015,
+     "ok": true
+    },
+    {
+     "target": 8000,
+     "actual": 8007,
+     "ratio": 1.0009,
+     "ok": true
+    },
+    {
+     "target": 24000,
+     "actual": 24000,
+     "ratio": 1.0,
+     "ok": true
+    },
+    {
+     "target": 96000,
+     "actual": 95995,
+     "ratio": 0.9999,
+     "ok": true
+    }
+   ],
+   "tool_call_correctness": [
+    {
+     "target": 2000,
+     "actual": 1969,
+     "ratio": 0.9845,
+     "ok": true
+    },
+    {
+     "target": 8000,
+     "actual": 7963,
+     "ratio": 0.9954,
+     "ok": true
+    },
+    {
+     "target": 24000,
+     "actual": 23964,
+     "ratio": 0.9985,
+     "ok": true
+    },
+    {
+     "target": 96000,
+     "actual": 95958,
+     "ratio": 0.9996,
+     "ok": true
+    }
+   ]
+  },
+  "llama-3.1": {
+   "niah_multikey": [
+    {
+     "target": 2000,
+     "actual": 1953,
+     "ratio": 0.9765,
+     "ok": true
+    },
+    {
+     "target": 8000,
+     "actual": 7951,
+     "ratio": 0.9939,
+     "ok": true
+    },
+    {
+     "target": 24000,
+     "actual": 23947,
+     "ratio": 0.9978,
+     "ok": true
+    },
+    {
+     "target": 96000,
+     "actual": 95951,
+     "ratio": 0.9995,
+     "ok": true
+    }
+   ],
+   "niah_multivalue": [
+    {
+     "target": 2000,
+     "actual": 1946,
+     "ratio": 0.973,
+     "ok": true
+    },
+    {
+     "target": 8000,
+     "actual": 7947,
+     "ratio": 0.9934,
+     "ok": true
+    },
+    {
+     "target": 24000,
+     "actual": 23945,
+     "ratio": 0.9977,
+     "ok": true
+    },
+    {
+     "target": 96000,
+     "actual": 95945,
+     "ratio": 0.9994,
+     "ok": true
+    }
+   ],
+   "variable_tracking": [
+    {
+     "target": 2000,
+     "actual": 1957,
+     "ratio": 0.9785,
+     "ok": true
+    },
+    {
+     "target": 8000,
+     "actual": 7961,
+     "ratio": 0.9951,
+     "ok": true
+    },
+    {
+     "target": 24000,
+     "actual": 23961,
+     "ratio": 0.9984,
+     "ok": true
+    },
+    {
+     "target": 96000,
+     "actual": 95961,
+     "ratio": 0.9996,
+     "ok": true
+    }
+   ],
+   "common_words_extraction": [
+    {
+     "target": 2000,
+     "actual": 2018,
+     "ratio": 1.009,
+     "ok": true
+    },
+    {
+     "target": 8000,
+     "actual": 7986,
+     "ratio": 0.9982,
+     "ok": true
+    },
+    {
+     "target": 24000,
+     "actual": 23990,
+     "ratio": 0.9996,
+     "ok": true
+    },
+    {
+     "target": 96000,
+     "actual": 95985,
+     "ratio": 0.9998,
+     "ok": true
+    }
+   ],
+   "system_rule_compliance": [
+    {
+     "target": 2000,
+     "actual": 1998,
+     "ratio": 0.999,
+     "ok": true
+    },
+    {
+     "target": 8000,
+     "actual": 7995,
+     "ratio": 0.9994,
+     "ok": true
+    },
+    {
+     "target": 24000,
+     "actual": 23999,
+     "ratio": 1.0,
+     "ok": true
+    },
+    {
+     "target": 96000,
+     "actual": 95999,
+     "ratio": 1.0,
+     "ok": true
+    }
+   ],
+   "tool_call_correctness": [
+    {
+     "target": 2000,
+     "actual": 1953,
+     "ratio": 0.9765,
+     "ok": true
+    },
+    {
+     "target": 8000,
+     "actual": 7962,
+     "ratio": 0.9952,
+     "ok": true
+    },
+    {
+     "target": 24000,
+     "actual": 23958,
+     "ratio": 0.9982,
+     "ok": true
+    },
+    {
+     "target": 96000,
+     "actual": 95957,
+     "ratio": 0.9996,
+     "ok": true
+    }
+   ]
+  },
+  "llama-3.3": {
+   "niah_multikey": [
+    {
+     "target": 2000,
+     "actual": 1953,
+     "ratio": 0.9765,
+     "ok": true
+    },
+    {
+     "target": 8000,
+     "actual": 7951,
+     "ratio": 0.9939,
+     "ok": true
+    },
+    {
+     "target": 24000,
+     "actual": 23947,
+     "ratio": 0.9978,
+     "ok": true
+    },
+    {
+     "target": 96000,
+     "actual": 95951,
+     "ratio": 0.9995,
+     "ok": true
+    }
+   ],
+   "niah_multivalue": [
+    {
+     "target": 2000,
+     "actual": 1946,
+     "ratio": 0.973,
+     "ok": true
+    },
+    {
+     "target": 8000,
+     "actual": 7947,
+     "ratio": 0.9934,
+     "ok": true
+    },
+    {
+     "target": 24000,
+     "actual": 23945,
+     "ratio": 0.9977,
+     "ok": true
+    },
+    {
+     "target": 96000,
+     "actual": 95945,
+     "ratio": 0.9994,
+     "ok": true
+    }
+   ],
+   "variable_tracking": [
+    {
+     "target": 2000,
+     "actual": 1957,
+     "ratio": 0.9785,
+     "ok": true
+    },
+    {
+     "target": 8000,
+     "actual": 7961,
+     "ratio": 0.9951,
+     "ok": true
+    },
+    {
+     "target": 24000,
+     "actual": 23961,
+     "ratio": 0.9984,
+     "ok": true
+    },
+    {
+     "target": 96000,
+     "actual": 95961,
+     "ratio": 0.9996,
+     "ok": true
+    }
+   ],
+   "common_words_extraction": [
+    {
+     "target": 2000,
+     "actual": 2018,
+     "ratio": 1.009,
+     "ok": true
+    },
+    {
+     "target": 8000,
+     "actual": 7986,
+     "ratio": 0.9982,
+     "ok": true
+    },
+    {
+     "target": 24000,
+     "actual": 23990,
+     "ratio": 0.9996,
+     "ok": true
+    },
+    {
+     "target": 96000,
+     "actual": 95985,
+     "ratio": 0.9998,
+     "ok": true
+    }
+   ],
+   "system_rule_compliance": [
+    {
+     "target": 2000,
+     "actual": 1998,
+     "ratio": 0.999,
+     "ok": true
+    },
+    {
+     "target": 8000,
+     "actual": 7995,
+     "ratio": 0.9994,
+     "ok": true
+    },
+    {
+     "target": 24000,
+     "actual": 23999,
+     "ratio": 1.0,
+     "ok": true
+    },
+    {
+     "target": 96000,
+     "actual": 95999,
+     "ratio": 1.0,
+     "ok": true
+    }
+   ],
+   "tool_call_correctness": [
+    {
+     "target": 2000,
+     "actual": 1953,
+     "ratio": 0.9765,
+     "ok": true
+    },
+    {
+     "target": 8000,
+     "actual": 7962,
+     "ratio": 0.9952,
+     "ok": true
+    },
+    {
+     "target": 24000,
+     "actual": 23958,
+     "ratio": 0.9982,
+     "ok": true
+    },
+    {
+     "target": 96000,
+     "actual": 95957,
+     "ratio": 0.9996,
+     "ok": true
+    }
+   ]
+  }
+ },
+ "summary": {
+  "qwen3": {
+   "all_ok": true,
+   "worst": {
+    "task_type": "niah_multivalue",
+    "target": 2000,
+    "actual": 1944,
+    "ratio": 0.972,
+    "ok": true
+   },
+   "fail_cells": []
+  },
+  "llama-3.1": {
+   "all_ok": true,
+   "worst": {
+    "task_type": "niah_multivalue",
+    "target": 2000,
+    "actual": 1946,
+    "ratio": 0.973,
+    "ok": true
+   },
+   "fail_cells": []
+  },
+  "llama-3.3": {
+   "all_ok": true,
+   "worst": {
+    "task_type": "niah_multivalue",
+    "target": 2000,
+    "actual": 1946,
+    "ratio": 0.973,
+    "ok": true
+   },
+   "fail_cells": []
+  }
+ },
+ "task_types": [
+  "niah_multikey",
+  "niah_multivalue",
+  "variable_tracking",
+  "common_words_extraction",
+  "system_rule_compliance",
+  "tool_call_correctness"
+ ],
+ "target_lengths": [
+  2000,
+  8000,
+  24000,
+  96000
+ ],
+ "tokenizer_repos": {
+  "qwen3": "Qwen/Qwen3-8B",
+  "llama-3.1": "NousResearch/Meta-Llama-3.1-8B-Instruct",
+  "llama-3.3": "unsloth/Llama-3.3-70B-Instruct"
+ }
+}

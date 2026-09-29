@@ -332,3 +332,48 @@ class TestDryRunPublicAPI:
         for probe, prompt, n_tok in out:
             assert probe["artifact"].strip() in prompt
             assert isinstance(n_tok, int) and n_tok > 0
+
+
+# ---------------------------------------------------------------------------------------------------- build_task count_fn
+def test_build_task_count_fn_none_is_byte_identical_to_old_behavior():
+    """count_fn=None must produce exactly the same prompt as before this parameter existed, for every task type,
+    so no already-recorded result depends on a prompt that silently changed underneath it."""
+    for task_type in qs.TASK_TYPES:
+        a = qs.build_task(task_type, 3000, seed=42)
+        b = qs.build_task(task_type, 3000, seed=42, count_fn=None)
+        assert a.prompt == b.prompt
+
+
+def test_build_task_count_fn_corrects_a_biased_tokenizer():
+    """The 2026-09-29 bug this exists for: a tokenizer that needs more chars/token than context._CHARS_PER_TOKEN
+    assumes under-fills without count_fn (real case: Llama 3.1/3.3 landed around 0.81 actual/target on niah_*).
+    A count_fn that reports fewer tokens than the naive char-based estimate must pull the ratio back up."""
+    def stingy_count_fn(text):
+        return int(len(text) / 6.2)  # needs ~6.2 chars/token, vs context._CHARS_PER_TOKEN=5.03's assumption
+
+    target = 4000
+    without = qs.build_task("niah_multikey", target, seed=42)
+    with_fn = qs.build_task("niah_multikey", target, seed=42, count_fn=stingy_count_fn)
+    ratio_without = stingy_count_fn(without.prompt) / target
+    ratio_with = stingy_count_fn(with_fn.prompt) / target
+    assert abs(ratio_with - 1.0) < abs(ratio_without - 1.0)
+    assert 0.9 < ratio_with < 1.1
+
+
+def test_build_task_common_words_count_fn_none_is_byte_identical_to_old_behavior():
+    """common_words_extraction has its own (non-build_filler) padding scheme; same backward-compat guarantee."""
+    a = qs.build_task("common_words_extraction", 3000, seed=42)
+    b = qs.build_task("common_words_extraction", 3000, seed=42, count_fn=None)
+    assert a.prompt == b.prompt
+
+
+def test_build_task_common_words_count_fn_corrects_a_biased_tokenizer():
+    def stingy_count_fn(text):
+        return int(len(text) / 6.2)
+
+    target = 4000
+    without = qs.build_task("common_words_extraction", target, seed=42)
+    with_fn = qs.build_task("common_words_extraction", target, seed=42, count_fn=stingy_count_fn)
+    ratio_without = stingy_count_fn(without.prompt) / target
+    ratio_with = stingy_count_fn(with_fn.prompt) / target
+    assert abs(ratio_with - 1.0) < abs(ratio_without - 1.0)
