@@ -389,6 +389,23 @@ Results on Strix Halo (AMD Ryzen AI Max+ 395, 128 GB) may differ."
 
 Claim (PENDING): when memory runs short, the failure regime an LLM runtime lands in is selected by driver and runtime policy defaults, not by the memory architecture. Evidence so far, all off-target. On the discrete Blade (RTX 4070 Laptop, 8188 MiB) the driver default silently moves KV cache into system RAM once ctx passes roughly 37k to 39k tokens: TTFT jumps 3.7x at onset and reaches 6.3x by ctx 47104, decode slows up to 10.8x in proportion to the spilled fraction, clocks stay steady, no error is raised and 10 of 10 correctness probes are unchanged (M1, C1, C2). The same driver has a documented switch that should turn this into a hard out-of-memory failure; flipping it and rerunning the onset points (C3) is the next step and has not been done. On the unified-memory evo-t2s (Vulkan) locking available memory down to 7 GB produced no silent slowdown (below that the lock was not held after load, so 6 and 4 GB are invalid), and the only loud failure was one device-lost crash during model load at 5 GB (Phase D, one run), while a CPU-only co-runner slowed the iGPU through a shared package power limit (M3). That is a different regime, but no policy switch has been shown to change it, each level was run once and the crash is unrepeated, so the unified-memory half neither confirms nor refutes the claim. It stays PENDING until (a) C3 shows the discrete regime flips with the driver setting and (b) the unified-memory half is repeated with the stale-server guard and a disk-read counter and a runtime or driver knob is shown to change its regime. This is not a claim about Strix Halo.
 
+**Mechanism figures (generated 2026-09-29 from already-final data; see [figures/MANIFEST.md](../figures/MANIFEST.md)
+and [analysis/make_paper_figures.py](../analysis/make_paper_figures.py), no claim text changed here beyond what
+docs/CLAIMS_LEDGER.md already states):**
+
+- [figures/fig_c1_memory_lock.png](../figures/fig_c1_memory_lock.png) — A-22: qwen3-8b start outcome and
+  responsiveness by memory headroom (night3 C1, evo-t2s), the unified-memory half's repeated-with-the-stale-server-
+  guard data referenced above.
+- [figures/fig_power_effect_b1_b3.png](../figures/fig_power_effect_b1_b3.png) and
+  [figures/fig_b2_duty_cycle.png](../figures/fig_b2_duty_cycle.png) — the CPU-co-runner shared-power-budget effect
+  (M3), 6 models and the duty-cycle dose-response.
+- [figures/fig_b4_ecore_threshold.png](../figures/fig_b4_ecore_threshold.png) — A-23: the >=6-active-E-core
+  threshold for that same power-budget effect (mechanism work now closed, see docs/CLAIMS_LEDGER.md A-23).
+- [figures/fig_a24_budget_boundary.png](../figures/fig_a24_budget_boundary.png) — A-24: the 4-model n_ctx bisection
+  crossing the same Vulkan heap budget on evo-t2s.
+- [figures/fig_blade_c1_spill.png](../figures/fig_blade_c1_spill.png) — A-20: the discrete Blade's silent driver
+  spillover onset curve (OFF-TARGET).
+
 ## Section 7 — Threats to Validity
 
 Sources: [docs/THREATS.md](docs/THREATS.md), [docs/DECISIONS.md](docs/DECISIONS.md),
