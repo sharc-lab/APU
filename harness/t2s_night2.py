@@ -936,18 +936,23 @@ def main():
                           "for the pre-launch hour estimate, in place of the overnight-table prefill/decode fit")
     ap.add_argument("--phases", default=PHASE_ORDER)
     ap.add_argument("--no-auto-cut", action="store_true", help="do not drop c1b even if the estimate exceeds the deadline")
+    ap.add_argument("--r1-check-models", default=None,
+                     help="comma list overriding R1_CHECK_MODELS for this run (e.g. the evo-x2 full ladder instead "
+                          "of evo-t2s's qwen3-8b,qwen3-14b check set)")
     args = ap.parse_args()
     host_cfg = hc.require_host(socket.gethostname())
     q = ps("try { (& query.exe user 2>&1) -join \"`n\" } catch { $_.Exception.Message }")
     if "No User exists" not in q:
         raise SystemExit("another interactive session is logged in: " + q)
+    if args.r1_check_models:
+        globals()["R1_CHECK_MODELS"] = args.r1_check_models.split(",")
     prov = rp.verify_deployed_blobs(ov.DEPLOY, args.expect_blobs)
     lab = make_lab(args, prov, gpu_vendor=host_cfg["gpu_vendor"])
     lab.identity["hw_id"] = host_cfg["hw_id"]
     lab.resources["powercap"] = None
     if args.overnight_table and Path(args.overnight_table).exists():
         lab.table = json.load(open(args.overnight_table, encoding="utf-8"))
-    all_models = sorted(set(B1_MODELS + B3_MODELS + R1_SPEED_MODELS + [m for m, *_ in C1_SPEC]))
+    all_models = sorted(set(B1_MODELS + B3_MODELS + R1_SPEED_MODELS + R1_CHECK_MODELS + [m for m, *_ in C1_SPEC]))
     load_models(lab, all_models)
     phases = args.phases.split(",")
     overheads = load_night2_overheads(args.prior_results)
