@@ -31,3 +31,27 @@ registration.
 **Footprint:** reads/writes only `C:\apu\ovn\queue_state.json`, `C:\apu\ovn\queue_empty.flag`, and appends to
 `C:\apu\ovn\watchdog.log`; it can launch a new orchestrator process (the same way `t2s_queue.advance()` already
 does) but does not otherwise touch machine settings. No admin/system state outside the Task Scheduler entry itself.
+
+## 2026-09-29 -- Ollama installed (K1 tier detection + memory-in-use only)
+
+**What:** Ollama v0.33.2 installed via `winget install -e --id Ollama.Ollama` (per-user install, no reboot, no
+service-restart side effects observed). Server started headless via WMI `Win32_Process Create` (same pattern as
+`t2s_queue._launch`) with `OLLAMA_KEEP_ALIVE=0` so a model never lingers in GPU memory, matching the same setting
+used on evo-x2. Pulled `qwen3:8b`.
+
+**Why:** K1 (quality vs available memory through runtime policy) needs Ollama's own tier-detection and memory-
+pressure behavior on evo-t2s for the tier + memory-in-use phases only -- quality curves stay evo-x2-only (that part
+of K1 needs the model-independence check to be meaningful, per the addendum).
+
+**Revert:** uninstall via `C:\Users\SHARC\AppData\Local\Programs\Ollama\unins000.exe /SILENT`, or leave installed but
+stop the server: `Stop-Process` the `ollama.exe serve` process.
+
+**Caution noted:** a `ConnectionRefusedError` interrupted the running r1_a70_p70 experiment's r1_check phase at
+almost exactly the same time as this install (`winget install` for Ollama, ~90s duration). The error's shape (URLError/
+ConnectionRefusedError from a `/tokenize` or `/chat` call, not a stale-server-guard error) is consistent with an
+ordinary race at a model-transition boundary in the harness's own code, not with anything the installer specifically
+does to running processes -- the install requires no reboot, no service restart, and does not touch port 8385 -- but
+the timing coincidence could not be fully ruled out. The run recovered on its own (moved to the next phase); the
+abandoned r1_check phase was re-queued as `r1_check_backfill` (`--resume` the same stem) rather than re-running
+research judgement calls, since only the harness's own retry classification (not this note) decides what was a
+stale-server error.
