@@ -113,6 +113,64 @@ own first step already records the BIOS UMA setting and Vulkan heap budgets as b
 today's post-reboot numbers, not the pre-reboot HARDWARE.md figures, and the discrepancy itself should be explained
 before being treated as just "the new normal").
 
+## 2026-09-29 -- GPU shared memory growth investigated: driver unchanged, cause still open, MX2/PX2 unblocked
+
+Follow-up to the post-reboot gate check above (Vulkan-visible total grew from 98,123 to 114,326 MiB).
+
+**Driver: confirmed unchanged.** `Get-CimInstance Win32_VideoController`: `32.0.31007.1017`, matching
+docs/HARDWARE.md's pre-reboot record exactly. `pnputil /enum-drivers /class Display` shows exactly one Display
+driver package installed (`oem9.inf`, same version, dated 05/04/2026) -- no second or newer package present, so
+this was not a driver update sitting alongside an old one either. Windows Update history (`Get-HotFix`,
+`Get-WinEvent -LogName Setup`) shows `KB5129195` (a Security/Quality Update, not a driver package) reached
+"Installed" state at 00:12:35 local (~07:12:35Z), matching the reboot; this is a Windows OS update, not a GPU
+driver update.
+
+**Total RAM: confirmed unchanged.** `Win32_ComputerSystem.TotalPhysicalMemory` = 63.65 GB, matching the pre-reboot
+63.6 GB record exactly.
+
+**Dedicated GPU memory: confirmed unchanged.** LHM `D3D Dedicated Memory Total` = 65,360.691 MiB both before and
+after, matching the pre-reboot dxdiag Dedicated figure.
+
+**What changed: the shared pool.** LHM `D3D Shared Memory Total` grew from the pre-reboot dxdiag figure of 32,587 MB
+to 48,790.816 MiB. `vulkaninfo`'s own two memory heaps sum to 111.65 GiB (37.22 + 74.43 GiB), matching
+llama-server's new 114,326 MiB total; no pre-reboot vulkaninfo heap-level capture exists to compare against
+directly (only the aggregate llama-server and dxdiag figures were recorded before today), so the heap-level
+comparison itself is aggregate-only, not heap-by-heap.
+
+**Working theory, not confirmed:** Windows' shared GPU memory allocation is dynamically negotiated at driver/
+session init from currently-free system RAM, not a fixed fraction of total RAM computed once. The pre-reboot
+32,587 MB figure is almost exactly half of the 63.65 GB Windows-visible pool; the post-reboot 48,790 MiB figure is
+not. A clean boot (this machine had been up for multiple days before the Windows-Update-forced restart) has more
+free RAM available at driver init than a machine with days of accumulated working-set usage, which would produce
+exactly this kind of growth without any configuration change. Not verified with a controlled reboot-and-remeasure;
+recorded as the leading explanation, not a settled one.
+
+**Decision: MX2 and PX2 unblocked.** Driver, total RAM, and dedicated GPU memory are all confirmed identical to the
+pre-reboot record; only the dynamically-negotiated shared pool differs, and the working theory above is a normal
+boot-to-boot mechanism rather than a configuration regression. MX2's own first step already records the BIOS UMA
+setting and Vulkan heap budgets as its baseline (per its design), so it will capture today's real numbers rather
+than assume the pre-reboot ones.
+
+**Revert:** none needed; nothing was changed by this investigation itself (the driver-block policy below is a
+separate, intentional change).
+
+## 2026-09-29 -- Windows Update driver installs blocked (ExcludeWUDriversInQualityUpdate)
+
+**Command:**
+```powershell
+New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate" `
+  -Name "ExcludeWUDriversInQualityUpdate" -Value 1 -PropertyType DWord -Force
+```
+
+**Before:** key did not exist. **After (read back):** `ExcludeWUDriversInQualityUpdate = 1`.
+
+**Why:** the graphics driver did not change in this incident, but the AU policy block added earlier (previous
+changelog entry) does not on its own prevent Windows Update from bundling a driver into a future quality update;
+this stops that specific path so a driver change can only happen deliberately, not silently inside an OS update.
+
+**Standing or per-experiment:** standing. **Revert:** `Remove-ItemProperty -Path
+"HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate" -Name "ExcludeWUDriversInQualityUpdate"`.
+
 ## 2026-09-28 -- SeLockMemoryPrivilege granted to Ritz
 
 See `docs/RAM_CAP_PROTOCOL.md`, section "GRANTED on evo-x2, 2026-09-28" for the exact `secedit` commands, before/after
