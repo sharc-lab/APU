@@ -76,6 +76,9 @@ class Lab:
         self.idle_pkg = None
         self.models, self.table, self.done = {}, {}, set()
         self.dl_sha, self.dl_dropped = {}, set()
+        self.track_console = False  # set True by main() when host_cfg["interactive_guard"] is False (evo-x2): idle
+                                     # time changes continuously, so row() re-checks live rather than using one
+                                     # stale startup value
         self.scorers, self.probes = L.load_probes()
         self.resources = {"server": None, "balloon": None, "hog": None, "powercap": None}
         self.paging_ok = None
@@ -116,9 +119,15 @@ class Lab:
     def row(self, section, mi=None, backend="vulkan", **kw):
         r = {k: None for k in ROW_KEYS}
         r.update(self.identity)
+        # Live re-check (not a value cached at startup): idle time changes continuously, so a row built an hour into
+        # a run must reflect whether the operator is active NOW, not whether they were active at launch.
+        console = hc.get_console_session_state() if self.track_console else {}
         r.update({"backend": backend, "section": section, "seed": SEED, "git_sha": self.git_sha,
                   "script_sha": self.script_sha, "kv_type": "f16", "flash_attn": "on", "ts_utc": utc_iso(),
-                  "proc_throttle_max": self.cap(), "rope_flags": None})
+                  "proc_throttle_max": self.cap(), "rope_flags": None,
+                  "console_session_state": console.get("console_session_state"),
+                  "console_idle_s": console.get("console_idle_s"),
+                  "user_active": console.get("user_active", False)})
         if mi is not None:
             r.update({"model_id": mi.model_id, "model_sha256": mi.sha256, "quant": mi.quant})
         r.update(kw)
@@ -1044,15 +1053,14 @@ def main():
         for k in [k for k in MODEL_FILES if k not in keep]:
             del MODEL_FILES[k]
     host_cfg = hc.require_host(socket.gethostname())
-    q = ps("try { (& query.exe user 2>&1) -join \"`n\" } catch { $_.Exception.Message }")
-    if "No User exists" not in q:
-        raise SystemExit("another interactive session is logged in: " + q)
+    hc.enforce_or_record_interactive_session(host_cfg)  # raises on evo-t2s if occupied; never raises on evo-x2
     prov = rp.verify_deployed_blobs(DEPLOY, args.expect_blobs)
     if args.plan_only:
         return plan_only(args, prov)
     args.gpu_vendor = host_cfg["gpu_vendor"]
     lab = Lab(args, prov)
     lab.identity["hw_id"] = host_cfg["hw_id"]
+    lab.track_console = not host_cfg.get("interactive_guard", True)
     lab.resources["powercap"] = L.PowerCap()
     Path(lab.prefix + "_manifest.json").write_text(json.dumps({
         "launch_utc": utc_iso(), "deadline_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(lab.deadline_ts)),

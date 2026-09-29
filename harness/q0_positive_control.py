@@ -78,12 +78,14 @@ def main():
     ap.add_argument("--out-dir", default=r"C:\apu\ovn\results")
     args = ap.parse_args()
     host_cfg = hc.require_host(socket.gethostname())
+    hc.enforce_or_record_interactive_session(host_cfg)  # raises on evo-t2s if occupied; never raises on evo-x2
     prov = rp.verify_deployed_blobs(DEPLOY, args.expect_blobs)
     import types
     ns = types.SimpleNamespace(smoke=False, deadline_h=2.0, resume=None, stem_prefix="q0_control", only=None,
                                reserve_min=0, no_cap_arm=True, max_items=0, gpu_vendor=host_cfg["gpu_vendor"])
     lab = ov.Lab(ns, prov)
     lab.identity["hw_id"] = host_cfg["hw_id"]
+    lab.track_console = not host_cfg.get("interactive_guard", True)
     ov.read_downloads(lab)
     fn, hyb, mx, yf = ov.MODEL_FILES[args.model]
     sha = ov.KNOWN_4B_SHA if args.model == "qwen3-4b-2507" else lab.dl_sha.get(fn)

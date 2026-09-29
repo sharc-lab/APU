@@ -505,12 +505,11 @@ def main():
     ap.add_argument("--bisect-models", default="qwen3-32b,qwen3-8b,qwen3-30b-a3b-2507,llama31-8b")
     args = ap.parse_args()
     host_cfg = hc.require_host(socket.gethostname())
-    q = ps("try { (& query.exe user 2>&1) -join \"`n\" } catch { $_.Exception.Message }")
-    if "No User exists" not in q:
-        raise SystemExit("another interactive session is logged in: " + q)
+    hc.enforce_or_record_interactive_session(host_cfg)  # raises on evo-t2s if occupied; never raises on evo-x2
     prov = rp.verify_deployed_blobs(ov.DEPLOY, args.expect_blobs)
     lab = make_lab(args, prov, gpu_vendor=host_cfg["gpu_vendor"])
     lab.identity["hw_id"] = host_cfg["hw_id"]
+    lab.track_console = not host_cfg.get("interactive_guard", True)
     for ph in args.force_phase:
         lab.done.discard(f"AM_phase_{ph}")
     phases = args.phases.split(",")
