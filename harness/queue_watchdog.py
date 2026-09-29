@@ -156,9 +156,27 @@ def tick(pid_alive_fn=pid_alive, heartbeat_age_fn=heartbeat_age_s):
     return {"action": "empty_flag"}
 
 
+def run_digest():
+    """Calls analysis/results_digest.py as a subprocess (read-only; see that module's own docstring) so the digest
+    stays fresh on the watchdog's own cadence without depending on a controller session being awake. Best-effort:
+    a digest failure must never affect the watchdog's own tick() decision, so this is called after tick() and any
+    exception here is only logged, not raised."""
+    import subprocess
+    script = DEPLOY / "results_digest.py"
+    if not script.exists():
+        return {"action": "skipped", "reason": "results_digest.py not deployed"}
+    try:
+        r = subprocess.run([sys.executable, str(script)], capture_output=True, text=True, timeout=120)
+        return {"action": "ran", "rc": r.returncode, "stdout": r.stdout.strip()[:300]}
+    except Exception as e:
+        return {"action": "error", "reason": repr(e)[:200]}
+
+
 def main():
     result = tick()
     _log(json.dumps(result, default=str))
+    digest_result = run_digest()
+    _log(json.dumps({"digest": digest_result}, default=str))
 
 
 if __name__ == "__main__":

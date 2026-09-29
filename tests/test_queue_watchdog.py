@@ -204,3 +204,40 @@ def test_tick_empty_writes_flag(tmp_path, monkeypatch):
     assert flag_file.exists()
     flag = json.loads(flag_file.read_text(encoding="utf-8"))
     assert "reason" in flag
+
+
+# ---------------------------------------------------------------------------------------------------- run_digest
+def test_run_digest_skips_when_script_not_deployed(monkeypatch, tmp_path):
+    monkeypatch.setattr(wd, "DEPLOY", tmp_path)  # no results_digest.py here
+    result = wd.run_digest()
+    assert result["action"] == "skipped"
+
+
+def test_run_digest_runs_the_script_when_present(monkeypatch, tmp_path):
+    script = tmp_path / "results_digest.py"
+    script.write_text("print('ok')\n", encoding="utf-8")
+    monkeypatch.setattr(wd, "DEPLOY", tmp_path)
+    result = wd.run_digest()
+    assert result["action"] == "ran"
+    assert result["rc"] == 0
+    assert "ok" in result["stdout"]
+
+
+def test_run_digest_never_raises_on_a_script_error(monkeypatch, tmp_path):
+    script = tmp_path / "results_digest.py"
+    script.write_text("raise SystemExit(1)\n", encoding="utf-8")
+    monkeypatch.setattr(wd, "DEPLOY", tmp_path)
+    result = wd.run_digest()
+    assert result["action"] == "ran"
+    assert result["rc"] == 1
+
+
+def test_main_calls_digest_after_tick(monkeypatch, tmp_path):
+    """The digest must run after every watchdog tick, per the standing instruction that results must not depend
+    on a controller session being awake."""
+    _isolate(tmp_path, monkeypatch)
+    q.write_queue([{"id": "a", "cmd": ["echo"], "status": "done"}])
+    calls = []
+    monkeypatch.setattr(wd, "run_digest", lambda: (calls.append(1) or {"action": "ran", "rc": 0, "stdout": ""}))
+    wd.main()
+    assert calls == [1]
