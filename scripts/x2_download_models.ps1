@@ -58,7 +58,13 @@ try {
         $parts = $l -split '\s\s+'
         if ($parts.Count -ge 3) { $lastByName[$parts[2]] = $l }
     }
-    Set-Content C:\apu\models\sha256.txt $lastByName.Values
+    # $lastByName.Values is an OrderedDictionaryKeyValueCollection, not a plain array; passed straight to
+    # Set-Content's positional -Value it was NOT enumerated line-by-line and instead got its .ToString() written as
+    # one literal line ("System.Collections.Specialized.OrderedDictionary+OrderedDictionaryKeyValueCollection"),
+    # silently destroying every hash line while leaving "ALL DONE" intact -- found on 2026-09-29 after the real run
+    # finished; all 7 files were downloaded correctly, only this summary file was corrupted, recomputed by hand from
+    # the actual files. [string[]] forces real enumeration into a string array first.
+    Set-Content C:\apu\models\sha256.txt ([string[]]$lastByName.Values)
     Add-Content C:\apu\models\sha256.txt 'ALL DONE'
 }
 finally {
