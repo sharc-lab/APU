@@ -312,3 +312,24 @@ entry. It refused to start: `query.exe user` showed user `ritz` on the console s
 interactive session is logged in" guard every orchestrator script uses; not overridden, since overriding it risks
 interrupting real interactive use of the machine. Queue is seeded and will run as soon as that session is not
 active (or the operator confirms it is safe to proceed anyway).
+
+## 2026-09-29 -- Ollama installed, OLLAMA_KEEP_ALIVE=0
+
+Installed via `winget install -e --id Ollama.Ollama` (v0.34.4). The desktop tray app ("ollama app.exe") fails to
+start over SSH (`Failed to start: Unable to init instance: Unspecified error` -- its UI-server component needs an
+interactive desktop session SSH does not provide); the headless `ollama.exe serve` works fine launched via WMI
+`Win32_Process Create` (independent of the SSH session, same pattern as `t2s_queue._launch`). ROCm backend detected
+(AMD Radeon 8060S Graphics, gfx1151, 87.9 GiB VRAM); ROCm is preferred over Vulkan by Ollama's own GPU discovery
+("dropping integrated GPU; to enable, set OLLAMA_IGPU_ENABLE=1" refers to a Vulkan fallback path, not iGPU-vs-dGPU).
+`vram-based default context`: default_num_ctx 262144 at this VRAM size.
+
+Pulled `qwen3:8b` (5.2 GB, digest `500a1f067a9f`).
+
+Restarted the server with `OLLAMA_KEEP_ALIVE=0` (per the user's instruction: a model must never linger in GPU memory
+while R1 or any other experiment runs) -- confirmed in the server's own startup log
+(`OLLAMA_KEEP_ALIVE:0s`) and via `ollama ps` (empty, both before and after the restart). Every evo-x2 result row now
+also records `ollama_model_loaded` (queries `/api/ps` live, `harness/host_config.get_ollama_loaded_model`), so a
+lingering model would show up in the data even if the env var setting were ever undone.
+
+**Revert:** `Stop-Process` the `ollama.exe serve` process and relaunch without the `OLLAMA_KEEP_ALIVE=0` env var, or
+simply do not set it on the next launch (default is 5m).
