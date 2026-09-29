@@ -141,6 +141,21 @@ class Lab:
         self.done.add(item_id)
         self.rows.write({"record": "item_done", "item_id": item_id, "ts_utc": utc_iso()})
 
+    def all_rows(self):
+        """Reads this run's own JSONL back from disk -- self.rows is a write-only L.Jsonl handle, not a readable
+        list. Used by phases that need to look up something an earlier phase in the same run already recorded (e.g.
+        phase_a70_finalize reading back the a70 boundary) instead of re-deriving it."""
+        path = self.prefix + ".jsonl"
+        if not Path(path).exists():
+            return []
+        out = []
+        for line in open(path, encoding="utf-8"):
+            try:
+                out.append(json.loads(line))
+            except Exception:
+                continue
+        return out
+
 
 # ---------------------------------------------------------------- shared call logic
 def prompt_for(srv, fill_tokens):

@@ -680,6 +680,44 @@ def phase_a70(lab):
         lab.item_done(item)
 
 
+def phase_a70_finalize(lab):
+    """Standalone finalization phase for an A70 run that already completed under the OLD phase_a70 code, before the
+    inline finalization step (STEP 1c, 2026-09-29 contamination check) existed. Reads the already-recorded boundary
+    for A70_MODEL (this run's own 'bisect_result' row, label 'a70') instead of re-deriving it with a fresh,
+    expensive bisection, then reprobes that exact last-pass/first-fail bracket pair with Ollama confirmed absent.
+    Queue this only for a run whose a70 phase finished before this function existed; a new a70 run does this inline
+    and this phase is a no-op for it (no matching bisect_result row without one, or the row already carries a
+    'reproduced' companion row from the inline path -- either way there is nothing new to do)."""
+    mi = lab.models.get(A70_MODEL)
+    if mi is None:
+        log("A70 finalize: llama-3.3-70b not loaded, skipping")
+        return
+    if any(r.get("record") == "a70_boundary_finalization" and r.get("model_id") == mi.model_id for r in lab.all_rows()):
+        log("A70 finalize: already have a finalization record for this model, skipping")
+        return
+    boundary_rows = [r for r in lab.all_rows() if r.get("record") == "bisect_result" and r.get("label") == "a70"
+                      and r.get("model_id") == mi.model_id]
+    if not boundary_rows:
+        log("A70 finalize: no bisect_result row found for a70, cannot finalize")
+        return
+    b = boundary_rows[-1]
+    lo, hi = b.get("last_ok_n_ctx"), b.get("first_fail_n_ctx")
+    if lo is None or hi is None:
+        log(f"A70 finalize: bisect_result row missing last_ok_n_ctx/first_fail_n_ctx: {b}")
+        return
+    _abort_if_ollama_running("a70_finalize")
+    pr = am.Prober(lab, mi, [], "a70")
+    lo_reprobe = pr.probe(lo)
+    hi_reprobe = pr.probe(hi)
+    reproduced = bool(lo_reprobe.get("ok")) and not bool(hi_reprobe.get("ok"))
+    lab.emit({"record": "a70_boundary_finalization", "model_id": mi.model_id, "lo": lo, "hi": hi,
+              "lo_reprobe_ok": lo_reprobe.get("ok"), "hi_reprobe_ok": hi_reprobe.get("ok"),
+              "reproduced": reproduced, "ollama_confirmed_absent": True, "standalone": True, "ts_utc": utc_iso()})
+    if not reproduced:
+        log(f"A70 finalize: boundary lo={lo} hi={hi} did NOT reproduce (lo_reprobe ok={lo_reprobe.get('ok')}, "
+            f"hi_reprobe ok={hi_reprobe.get('ok')}); the boundary must be reported as unconfirmed, not as a result")
+
+
 # ---------------------------------------------------------------- P70 (70B latency axis, none vs nonp12)
 def phase_p70(lab):
     """None vs nonp12 co-runner on the 70B at context 8192, 1 warm-up + 3 calls each, fixed 20s co-runner settle
@@ -868,11 +906,11 @@ def phase_perfboost(lab):
 
 
 PRIO = {"b1": 1, "b2": 2, "c1": 3, "b3": 4, "c1b": 5, "b4": 6, "b4_32b": 7, "b4_replicate": 8, "r1_speed": 10,
-        "r1_check": 11, "a70": 12, "p70": 13, "r1b": 14, "r1d": 15, "perfboost": 9}
+        "r1_check": 11, "a70": 12, "a70_finalize": 12.5, "p70": 13, "r1b": 14, "r1d": 15, "perfboost": 9}
 PHASE_FN = {"b1": phase_b1, "b2": phase_b2, "c1": phase_c1, "b3": phase_b3, "c1b": phase_c1b, "b4": phase_b4,
            "b4_32b": phase_b4_32b, "b4_replicate": phase_b4_replicate, "r1_speed": phase_r1_speed,
-           "r1_check": phase_r1_check, "a70": phase_a70, "p70": phase_p70, "r1b": phase_r1b, "r1d": phase_r1d,
-           "perfboost": phase_perfboost}
+           "r1_check": phase_r1_check, "a70": phase_a70, "a70_finalize": phase_a70_finalize, "p70": phase_p70,
+           "r1b": phase_r1b, "r1d": phase_r1d, "perfboost": phase_perfboost}
 PHASE_ORDER = "b1,b2,c1,b3,c1b,perfboost"
 
 # Phases that must pass a 1-item live smoke (server start, stale-server guard, one call, row-schema check) before

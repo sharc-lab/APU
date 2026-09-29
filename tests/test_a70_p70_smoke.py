@@ -111,6 +111,58 @@ def test_phase_a70_finalization_aborts_if_ollama_running(monkeypatch):
             assert "STOP" in str(e) and "ollama" in str(e)
 
 
+def test_phase_a70_finalize_standalone_reprobes_recorded_boundary(monkeypatch):
+    """Standalone finalization for an A70 run that finished under the OLD phase_a70 code, before the inline
+    finalization step existed: reads the recorded boundary instead of re-deriving it with a fresh bisection."""
+    lab = StubLab(models={"llama-3.3-70b": _mi70()})
+    lab.emit({"record": "bisect_result", "label": "a70", "model_id": "llama-3.3-70b",
+              "last_ok_n_ctx": 23296, "first_fail_n_ctx": 23552})
+
+    def fake_probe(self, n_ctx):
+        ok = n_ctx <= 23296
+        return {"ok": ok, "props_cap": None, "projected_mib": 1000.0, "logged_mib": 900.0, "error": None,
+                "vk": None, "alloc_failed": None}
+
+    monkeypatch.setattr(n2.hc, "ollama_process_running", lambda: False)
+    with mock.patch.object(n2.am.L, "Server", StubServer), mock.patch.object(n2.am.Prober, "probe", fake_probe), \
+         mock.patch.object(n2.time, "sleep", lambda *a: None):
+        n2.phase_a70_finalize(lab)
+
+    f = [r for r in lab.rows if r.get("record") == "a70_boundary_finalization"][0]
+    assert f["lo"] == 23296 and f["hi"] == 23552
+    assert f["reproduced"] is True
+    assert f["standalone"] is True
+
+
+def test_phase_a70_finalize_skips_if_no_boundary_recorded():
+    lab = StubLab(models={"llama-3.3-70b": _mi70()})
+    n2.phase_a70_finalize(lab)
+    assert lab.rows == []
+
+
+def test_phase_a70_finalize_skips_if_already_finalized(monkeypatch):
+    lab = StubLab(models={"llama-3.3-70b": _mi70()})
+    lab.emit({"record": "bisect_result", "label": "a70", "model_id": "llama-3.3-70b",
+              "last_ok_n_ctx": 23296, "first_fail_n_ctx": 23552})
+    lab.emit({"record": "a70_boundary_finalization", "model_id": "llama-3.3-70b", "reproduced": True})
+    calls = []
+    monkeypatch.setattr(n2.hc, "ollama_process_running", lambda: (calls.append(1) or False))
+    n2.phase_a70_finalize(lab)
+    assert not calls  # never even checked ollama, since it bailed out before that point
+
+
+def test_phase_a70_finalize_aborts_if_ollama_running(monkeypatch):
+    lab = StubLab(models={"llama-3.3-70b": _mi70()})
+    lab.emit({"record": "bisect_result", "label": "a70", "model_id": "llama-3.3-70b",
+              "last_ok_n_ctx": 23296, "first_fail_n_ctx": 23552})
+    monkeypatch.setattr(n2.hc, "ollama_process_running", lambda: True)
+    try:
+        n2.phase_a70_finalize(lab)
+        assert False, "expected SmokeFailure"
+    except n2.SmokeFailure as e:
+        assert "STOP" in str(e) and "ollama" in str(e)
+
+
 def test_phase_a70_dry_run_no_model_present_does_not_crash():
     lab = StubLab(models={})
     with mock.patch.object(n2.L, "Server", StubServer), mock.patch.object(n2.time, "sleep", lambda *a: None):

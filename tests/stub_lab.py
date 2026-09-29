@@ -121,3 +121,6 @@ class StubLab:
 
     def item_done(self, item):
         self.done.add(item)
+
+    def all_rows(self):
+        return self.rows
