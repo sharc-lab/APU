@@ -130,7 +130,13 @@ def tick(pid_alive_fn=pid_alive, run_end_fn=run_end_written):
     pending = next((it for it in items if it["status"] == "pending"), None)
     if pending is not None:
         launched = q.launch_next(items)
-        return {"action": "launched", "launched": launched["id"] if launched else None}
+        if launched is None:
+            # every remaining pending entry has an unsatisfied gate (see t2s_queue._gate_satisfied) -- nothing to
+            # launch this tick, but this is not the same as an empty queue, so say so rather than claim "launched".
+            still_pending = [it["id"] for it in items if it["status"] == "pending"]
+            q.write_empty_flag(items, f"all {len(still_pending)} remaining pending entries are gate-blocked: {still_pending}")
+            return {"action": "gate_blocked", "reason": still_pending}
+        return {"action": "launched", "launched": launched["id"]}
 
     q.write_empty_flag(items, "watchdog: nothing running and nothing pending")
     return {"action": "empty_flag"}

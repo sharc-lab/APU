@@ -66,3 +66,81 @@ def test_advance_clears_stale_flag_when_next_run_launches(tmp_path, monkeypatch)
     assert not flag_file.exists()
     items = q.read_queue()
     assert items[1]["status"] == "running"
+
+
+# ---------------------------------------------------------------------------------------------------- gated entries
+def test_gate_satisfied_with_no_gate():
+    assert q._gate_satisfied({"id": "x"}, [{"id": "x"}]) is True
+
+
+def test_gate_satisfied_when_dependency_done():
+    items = [{"id": "calib", "status": "done"}, {"id": "r1b_r1d", "gate": {"requires_done": "calib"}}]
+    assert q._gate_satisfied(items[1], items) is True
+
+
+def test_gate_not_satisfied_when_dependency_pending():
+    items = [{"id": "calib", "status": "pending"}, {"id": "r1b_r1d", "gate": {"requires_done": "calib"}}]
+    assert q._gate_satisfied(items[1], items) is False
+
+
+def test_gate_not_satisfied_when_dependency_failed():
+    """A gate checks the dependency actually succeeded (status 'done'), not merely that it ran -- error/stopped/
+    crashed must not wave the gated entry through."""
+    for bad_status in ("error", "stopped", "crashed"):
+        items = [{"id": "calib", "status": bad_status}, {"id": "r1b_r1d", "gate": {"requires_done": "calib"}}]
+        assert q._gate_satisfied(items[1], items) is False
+
+
+def test_gate_not_satisfied_when_dependency_missing():
+    items = [{"id": "r1b_r1d", "gate": {"requires_done": "calib"}}]
+    assert q._gate_satisfied(items[0], items) is False
+
+
+def test_launch_next_skips_gated_entry_for_next_eligible_one(tmp_path, monkeypatch):
+    queue_file, flag_file = _isolate(tmp_path, monkeypatch)
+    items = [
+        {"id": "calib", "cmd": ["echo", "calib"], "status": "pending"},
+        {"id": "r1b_r1d", "cmd": ["echo", "r1b"], "status": "pending", "gate": {"requires_done": "calib"}},
+        {"id": "backlog", "cmd": ["echo", "backlog"], "status": "pending"},
+    ]
+    monkeypatch.setattr(q, "_launch", lambda cmd, log_path: "rc=0 pid=1234")
+    # calib itself is pending (not done), so it is the first eligible entry and launches normally.
+    launched = q.launch_next(items)
+    assert launched["id"] == "calib"
+    assert launched["status"] == "running"
+
+
+def test_launch_next_skips_gated_entry_when_its_dependency_already_ran(tmp_path, monkeypatch):
+    queue_file, flag_file = _isolate(tmp_path, monkeypatch)
+    items = [
+        {"id": "calib", "cmd": ["echo", "calib"], "status": "error"},  # ran, but failed -- gate must not be satisfied
+        {"id": "r1b_r1d", "cmd": ["echo", "r1b"], "status": "pending", "gate": {"requires_done": "calib"}},
+        {"id": "backlog", "cmd": ["echo", "backlog"], "status": "pending"},
+    ]
+    monkeypatch.setattr(q, "_launch", lambda cmd, log_path: "rc=0 pid=1234")
+    launched = q.launch_next(items)
+    assert launched["id"] == "backlog"  # r1b_r1d skipped (left pending), backlog launched instead
+    assert items[1]["status"] == "pending"
+
+
+def test_launch_next_returns_none_when_every_pending_entry_is_gate_blocked(tmp_path, monkeypatch):
+    queue_file, flag_file = _isolate(tmp_path, monkeypatch)
+    items = [
+        {"id": "calib", "status": "error"},
+        {"id": "r1b_r1d", "status": "pending", "gate": {"requires_done": "calib"}},
+    ]
+    assert q.launch_next(items) is None
+    assert items[1]["status"] == "pending"
+
+
+def test_advance_reports_gate_blocked_reason_not_no_pending_entry(tmp_path, monkeypatch):
+    queue_file, flag_file = _isolate(tmp_path, monkeypatch)
+    q.write_queue([
+        {"id": "night3", "cmd": ["echo", "hi"], "status": "running"},
+        {"id": "calib", "status": "error"},
+        {"id": "r1b_r1d", "status": "pending", "gate": {"requires_done": "calib"}},
+    ])
+    q.advance("completed")
+    flag = json.loads(flag_file.read_text(encoding="utf-8"))
+    assert "gate-blocked" in flag["reason"]
+    assert "r1b_r1d" in flag["reason"]

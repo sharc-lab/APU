@@ -76,12 +76,39 @@ def _parse_pid(launch_result):
     return int(m.group(1)) if m else None
 
 
+def _gate_satisfied(item, items):
+    """An entry may carry {"gate": {"requires_done": "<other id>"}} -- e.g. r1b_r1d must not start until
+    t2s_q0_token_calibration has passed (STEP 3/10, 2026-09-29). Satisfied when no gate is set, or the named
+    dependency's own status is "done" (not pending/running/error/stopped/crashed -- a gate that only checks
+    "ran" would let a *failed* calibration wave r1b_r1d through, which is exactly the case this exists to block)."""
+    gate = item.get("gate")
+    if not gate:
+        return True
+    req = gate.get("requires_done")
+    if not req:
+        return True
+    dep = next((it for it in items if it["id"] == req), None)
+    return dep is not None and dep.get("status") == "done"
+
+
 def launch_next(items):
-    """Finds the next pending entry, marks it running with its launched pid, writes the queue, and clears any stale
-    queue_empty.flag. Shared by advance() (called from inside a finished run's own process) and queue_watchdog.py
-    (called from an independent, always-on scheduled task) so the launch bookkeeping is identical either way.
-    Returns the launched entry, or None if there was nothing pending."""
-    nxt = next((it for it in items if it["status"] == "pending"), None)
+    """Finds the next pending entry whose gate (if any) is satisfied, marks it running with its launched pid, writes
+    the queue, and clears any stale queue_empty.flag. A gated entry that is not yet satisfied is skipped (left
+    pending, logged) in favor of the next eligible pending entry, so one unmet gate does not stall the whole queue.
+    Shared by advance() (called from inside a finished run's own process) and queue_watchdog.py (called from an
+    independent, always-on scheduled task) so the launch bookkeeping is identical either way. Returns the launched
+    entry, or None if there was nothing eligible to launch."""
+    skipped = []
+    nxt = None
+    for it in items:
+        if it["status"] != "pending":
+            continue
+        if _gate_satisfied(it, items):
+            nxt = it
+            break
+        skipped.append(it["id"])
+    for sid in skipped:
+        print(f"queue: skipping {sid} (gate not satisfied yet)")
     if nxt is None:
         return None
     nxt["status"] = "running"
@@ -122,7 +149,10 @@ def advance(note):
         write_empty_flag(items, f"queue halted: {note}")
         return
     if launch_next(items) is None:
-        write_empty_flag(items, "no pending entry left after the current run finished")
+        still_pending = [it["id"] for it in items if it["status"] == "pending"]
+        reason = (f"all {len(still_pending)} remaining pending entries are gate-blocked: {still_pending}"
+                  if still_pending else "no pending entry left after the current run finished")
+        write_empty_flag(items, reason)
 
 
 if __name__ == "__main__":

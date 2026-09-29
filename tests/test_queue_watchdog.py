@@ -90,6 +90,18 @@ def test_tick_pending_only_launches_next(tmp_path, monkeypatch):
     assert q.read_queue()[1]["status"] == "running"
 
 
+def test_tick_pending_but_gate_blocked_writes_flag_not_launched(tmp_path, monkeypatch):
+    """A gated entry (e.g. r1b_r1d waiting on t2s_q0_token_calibration) that is not yet satisfied must not be
+    reported as 'launched': nothing actually started this tick."""
+    queue_file, flag_file = _isolate(tmp_path, monkeypatch)
+    q.write_queue([{"id": "calib", "status": "error"},
+                   {"id": "r1b_r1d", "status": "pending", "gate": {"requires_done": "calib"}}])
+    result = wd.tick(pid_alive_fn=lambda pid: False, run_end_fn=lambda e: False)
+    assert result["action"] == "gate_blocked"
+    assert flag_file.exists()
+    assert q.read_queue()[1]["status"] == "pending"
+
+
 def test_tick_empty_writes_flag(tmp_path, monkeypatch):
     queue_file, flag_file = _isolate(tmp_path, monkeypatch)
     q.write_queue([{"id": "a", "cmd": ["echo"], "status": "done"}])
