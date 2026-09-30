@@ -506,6 +506,49 @@ def test_ollama_client_pull_reports_error_line(monkeypatch):
     assert res["final_status"] == "model not found"
 
 
+def test_create_model_from_gguf_writes_a_modelfile_with_just_the_from_line(tmp_path):
+    captured = {}
+
+    class FakeResult:
+        returncode = 0
+        stdout = "writing manifest\nsuccess"
+        stderr = ""
+
+    def fake_run_fn(argv):
+        assert argv[0] == "ollama"
+        assert argv[1] == "create"
+        assert argv[2] == "qwen3-4b-2507"
+        assert argv[3] == "-f"
+        modelfile_path = argv[4]
+        captured["modelfile_content"] = open(modelfile_path, encoding="utf-8").read()
+        return FakeResult()
+
+    res = K.create_model_from_gguf("qwen3-4b-2507", r"C:\apu\models\qwen3-4b-instruct-85e4a5b7.gguf",
+                                   run_fn=fake_run_fn)
+    assert res["outcome"] == "ok"
+    assert captured["modelfile_content"] == "FROM C:\\apu\\models\\qwen3-4b-instruct-85e4a5b7.gguf\n"
+
+
+def test_create_model_from_gguf_reports_error_without_raising():
+    class FakeResult:
+        returncode = 1
+        stdout = ""
+        stderr = "Error: gguf file not found"
+
+    res = K.create_model_from_gguf("x", "/nope.gguf", run_fn=lambda argv: FakeResult())
+    assert res["outcome"] == "error"
+    assert "not found" in res["stderr"]
+
+
+def test_create_model_from_gguf_never_raises_on_a_run_fn_exception():
+    def failing_run_fn(argv):
+        raise FileNotFoundError("ollama executable not found")
+
+    res = K.create_model_from_gguf("x", "/nope.gguf", run_fn=failing_run_fn)
+    assert res["outcome"] == "error"
+    assert "FileNotFoundError" in res["stderr"]
+
+
 def test_pull_model_wrapper_calls_ollama_pull():
     calls = []
 
@@ -547,24 +590,53 @@ class FakeV3Ollama:
         return self.chat(model, "", num_ctx=None, max_tokens=1, keep_alive=0)
 
 
-def test_phase_tier_v3_pulls_all_models_before_any_measurement(tmp_path):
-    """Requirement (2): model pull is the literal first step, before any measurement, nothing else concurrent."""
+def _fake_create_fn_ok(calls):
+    def create_fn(name, gguf_path):
+        calls.append((name, gguf_path))
+        return {"outcome": "ok", "returncode": 0, "stdout": "success", "stderr": ""}
+    return create_fn
+
+
+def test_phase_tier_v3_makes_all_models_available_before_any_measurement(tmp_path):
+    """Requirement (2): making every model available (pull or create) is the literal first step, before any
+    measurement, nothing else concurrent. qwen3-4b-2507 is created from its local GGUF (its registry tag does not
+    exist, found 2026-09-30); the other two are pulled as before."""
     lab = make_lab(tmp_path, host="evo-x2")
     fake = FakeV3Ollama()
-    K.phase_tier_v3(lab, ollama=fake, log_finder=lambda: None)
-    tags = [m["tag"] for m in K.K1_V3_MODELS]
-    first_three = fake.call_log[:3]
-    assert [c[0] for c in first_three] == ["pull", "pull", "pull"]
-    assert [c[1] for c in first_three] == tags
-    assert fake.pull_calls == list(tags)
+    create_calls = []
+    K.phase_tier_v3(lab, ollama=fake, log_finder=lambda: None, create_fn=_fake_create_fn_ok(create_calls))
+    assert create_calls == [("qwen3-4b-2507", K.QWEN3_4B_GGUF_PATH)]
+    pull_tags = [m["tag"] for m in K.K1_V3_MODELS if m.get("source", "pull") == "pull"]
+    first_pulls = fake.call_log[:2]
+    assert [c[0] for c in first_pulls] == ["pull", "pull"]
+    assert [c[1] for c in first_pulls] == pull_tags
     first_non_pull_idx = next(i for i, c in enumerate(fake.call_log) if c[0] != "pull")
-    assert first_non_pull_idx == 3  # exactly the 3 pulls, then measurement starts
+    assert first_non_pull_idx == 2  # exactly the 2 registry pulls, then measurement starts
+
+
+def test_phase_tier_v3_one_model_failing_does_not_abort_the_others(tmp_path):
+    """2026-09-30 fix: qwen3-4b-2507's create failing (or any model's pull failing) must not prevent the other
+    models in K1_V3_MODELS from being measured -- this is exactly what happened live, twice, before the fix."""
+    lab = make_lab(tmp_path, host="evo-x2")
+    fake = FakeV3Ollama()
+
+    def failing_create_fn(name, gguf_path):
+        return {"outcome": "error", "returncode": 1, "stdout": "", "stderr": "gguf not found"}
+
+    result = K.phase_tier_v3(lab, ollama=fake, log_finder=lambda: None, create_fn=failing_create_fn)
+    assert len(result["failures"]) == 1
+    assert result["failures"][0]["model_tag"] == "qwen3-4b-2507"
+    # the other two models (both plain pulls) still got fully measured
+    remaining_tags = {m["tag"] for m in K.K1_V3_MODELS if m["tag"] != "qwen3-4b-2507"}
+    assert {r["model_tag"] for r in result["tier_rows"]} == remaining_tags
+    assert {r["model_tag"] for r in result["meta_rows"]} == remaining_tags
+    assert len(result["probe_rows"]) == 2 * len(K.K1_V3_PROBE_LENGTHS)
 
 
 def test_phase_tier_v3_probe_sweep_five_rows_per_model_right_lengths(tmp_path):
     lab = make_lab(tmp_path, host="evo-x2")
     fake = FakeV3Ollama()
-    result = K.phase_tier_v3(lab, ollama=fake, log_finder=lambda: None)
+    result = K.phase_tier_v3(lab, ollama=fake, log_finder=lambda: None, create_fn=_fake_create_fn_ok([]))
     probe_rows = result["probe_rows"]
     assert len(probe_rows) == 3 * len(K.K1_V3_PROBE_LENGTHS)
     for m in K.K1_V3_MODELS:
@@ -582,12 +654,12 @@ def test_phase_tier_v3_labels_qwen3_8b_as_capped(tmp_path):
     models -- capped must be False for the two models whose native ceiling exceeds any plausible tier."""
     lab = make_lab(tmp_path, host="evo-x2")
     fake = FakeV3Ollama()
-    result = K.phase_tier_v3(lab, ollama=fake, log_finder=lambda: None)
+    result = K.phase_tier_v3(lab, ollama=fake, log_finder=lambda: None, create_fn=_fake_create_fn_ok([]))
     meta_by_tag = {r["model_tag"]: r for r in result["meta_rows"]}
     assert meta_by_tag["qwen3:8b"]["capped"] is True
     assert meta_by_tag["qwen3:8b"]["native_ctx"] == 40960
-    assert meta_by_tag["qwen3:4b-instruct-2507"]["capped"] is False
-    assert meta_by_tag["qwen3:4b-instruct-2507"]["native_ctx"] == 262144
+    assert meta_by_tag["qwen3-4b-2507"]["capped"] is False
+    assert meta_by_tag["qwen3-4b-2507"]["native_ctx"] == 262144
     assert meta_by_tag["llama3.1:8b"]["capped"] is False
     assert meta_by_tag["llama3.1:8b"]["native_ctx"] == 131072
     capped_probe_rows = [r for r in result["probe_rows"] if r["model_tag"] == "qwen3:8b"]
@@ -597,11 +669,14 @@ def test_phase_tier_v3_labels_qwen3_8b_as_capped(tmp_path):
 
 
 def test_phase_tier_v3_dry_run_call_counts(tmp_path):
-    """Stub dry run: exact call counts for the 3-model x 5-length K1 v3 design (pulls + tier calls + probe rows)."""
+    """Stub dry run: exact call counts for the 3-model x 5-length K1 v3 design (1 create + 2 pulls + 3 tier
+    calls + 15 probe rows)."""
     lab = make_lab(tmp_path, host="evo-x2")
     fake = FakeV3Ollama()
-    result = K.phase_tier_v3(lab, ollama=fake, log_finder=lambda: None)
-    assert len(fake.pull_calls) == 3
+    create_calls = []
+    result = K.phase_tier_v3(lab, ollama=fake, log_finder=lambda: None, create_fn=_fake_create_fn_ok(create_calls))
+    assert len(create_calls) == 1
+    assert len(fake.pull_calls) == 2
     assert len(result["tier_rows"]) == 3
     assert len(result["probe_rows"]) == 15
 

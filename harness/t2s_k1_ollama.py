@@ -349,6 +349,31 @@ def pull_model(ollama, tag):
     return ollama.pull(tag)
 
 
+def create_model_from_gguf(name, gguf_path, run_fn=None):
+    """"ollama create <name> -f Modelfile" with a Modelfile whose only line is "FROM <gguf_path>" -- the real CLI
+    path (not a guessed HTTP API shape), matching exactly what a person would type. Ollama reads the model's native
+    context straight from the GGUF's own metadata in this path; there is no registry tag lookup involved at all,
+    which is the whole point of using this for a model (qwen3-4b-2507) whose registry tag turned out not to exist.
+    run_fn is injectable for tests: (argv: list[str]) -> subprocess.CompletedProcess-shaped object with
+    .returncode/.stdout/.stderr. Returns {"outcome": "ok"|"error", "returncode": int|None, "stdout": str,
+    "stderr": str}; never raises."""
+    import subprocess
+    import tempfile
+    run_fn = run_fn or (lambda argv: subprocess.run(argv, capture_output=True, text=True, timeout=600))
+    with tempfile.TemporaryDirectory() as td:
+        modelfile_path = os.path.join(td, "Modelfile")
+        with open(modelfile_path, "w", encoding="utf-8") as f:
+            f.write(f"FROM {gguf_path}\n")
+        try:
+            result = run_fn(["ollama", "create", name, "-f", modelfile_path])
+        except Exception as e:
+            return {"outcome": "error", "returncode": None, "stdout": "", "stderr": repr(e)[:500]}
+    outcome = "ok" if getattr(result, "returncode", 1) == 0 else "error"
+    return {"outcome": outcome, "returncode": getattr(result, "returncode", None),
+            "stdout": (getattr(result, "stdout", "") or "")[:2000],
+            "stderr": (getattr(result, "stderr", "") or "")[:2000]}
+
+
 # ---------------------------------------------------------------------------------------------------- lab scaffold
 class K1Lab:
     """Owns the output jsonl, provenance, host config, and resumption state. Not the Server/Telemetry lifecycle for
@@ -445,15 +470,23 @@ def probe_effective_context_empirically(ollama, model, lengths=EMPIRICAL_CTX_PRO
 # "runtime picked a tier bigger than what the model itself supports" whenever the test model's native ceiling sits
 # below any tier a well-provisioned machine would plausibly pick. v3 fixes this by testing two models whose native
 # ceiling exceeds any realistic memory tier, so the observed tier is unambiguously about memory, not the model.
+QWEN3_4B_GGUF_PATH = r"C:\apu\models\qwen3-4b-instruct-85e4a5b7.gguf"
+
 K1_V3_MODELS = (
-    # native context 262144 -- comfortably above any tier either machine would plausibly pick.
-    {"tag": "qwen3:4b-instruct-2507", "native_ctx": 262144, "capped": False},
-    # native context 131072 -- also above any plausible tier.
-    {"tag": "llama3.1:8b", "native_ctx": 131072, "capped": False},
+    # 2026-09-30: "qwen3:4b-instruct-2507" is not a real Ollama registry tag -- pulling it 404s on both machines
+    # (found live, twice). Do not guess at a corrected tag name: create the model locally from the GGUF already on
+    # disk (qwen3-4b-instruct-85e4a5b7.gguf, the same file t2s_overnight.MODEL_FILES uses for this model id), via
+    # "ollama create <name> -f Modelfile" with a Modelfile whose only line is "FROM <gguf_path>". Ollama reads the
+    # model's native context straight from the GGUF's own metadata in this path (there is no registry lookup
+    # involved at all), so native_ctx=262144 below is still the right expectation, just sourced differently.
+    {"tag": "qwen3-4b-2507", "native_ctx": 262144, "capped": False,
+     "source": "create_from_gguf", "gguf_path": QWEN3_4B_GGUF_PATH},
+    # native context 131072 -- also above any plausible tier. Already pulled on both machines.
+    {"tag": "llama3.1:8b", "native_ctx": 131072, "capped": False, "source": "pull"},
     # Kept as a labeled control: native context 40960 is already known to be SMALLER than the tiers either machine
     # is expected to pick, so a run landing at/near 40960 for this model contrasts against, rather than confirms,
     # a genuine memory-availability effect. Every row this model produces below is stamped capped=True.
-    {"tag": "qwen3:8b", "native_ctx": 40960, "capped": True},
+    {"tag": "qwen3:8b", "native_ctx": 40960, "capped": True, "source": "pull"},
 )
 
 K1_V3_PROBE_LENGTHS = (16000, 32000, 48000, 96000, 128000)
@@ -494,37 +527,80 @@ def probe_v3_effective_context(lab: K1Lab, ollama, model_tag: str, capped: bool,
 
 
 def phase_tier_v3(lab: K1Lab, models=K1_V3_MODELS, ollama=None, log_finder=find_ollama_log, pull_fn=pull_model,
-                  probe_lengths=K1_V3_PROBE_LENGTHS):
+                  create_fn=create_model_from_gguf, probe_lengths=K1_V3_PROBE_LENGTHS):
     """K1 v3 orchestrator. Literal first action (before anything else, including phase_tier or any probe call):
-    pull every model in `models`, one at a time, with nothing else measuring concurrently. Then, per model, one
-    phase_tier() call (reused as-is -- the log/api-ps/empirical-probe signal logic is NOT reimplemented here) to
-    capture the tier Ollama actually chose, a small model-meta row stamping capped/native_ctx for that model
-    (phase_tier's own row shape is left untouched, per the task's backward-compatibility requirement), and the
-    5-length empirical probe sweep (probe_v3_effective_context).
+    make every model in `models` available, one at a time, with nothing else measuring concurrently -- a registry
+    pull for models with "source": "pull", or "ollama create ... -f Modelfile" from the local GGUF for models with
+    "source": "create_from_gguf" (see create_model_from_gguf; this is how qwen3-4b-2507 is made available, since
+    its registry tag does not exist -- found live, twice, 2026-09-30). Then, per model, one phase_tier() call
+    (reused as-is -- the log/api-ps/empirical-probe signal logic is NOT reimplemented here) to capture the tier
+    Ollama actually chose, a small model-meta row stamping capped/native_ctx for that model (phase_tier's own row
+    shape is left untouched, per the task's backward-compatibility requirement), and the 5-length empirical probe
+    sweep (probe_v3_effective_context).
+
+    2026-09-30 fix: each model is now fully isolated -- wrapped in its own try/except so one model's pull/create/
+    tier/probe failure is recorded and skipped, never aborting the models after it. This replaced the original
+    all-or-nothing loop after a single real pull failure (qwen3-4b-2507's nonexistent tag) silently prevented
+    llama3.1:8b and qwen3:8b from ever being measured in the same run, on both machines, twice.
 
     Hypothesis under test (this function does not force the result either way): if the memory-tier-vs-availability
     link holds, evo-x2 (larger unified memory) should land close to each model's own native ceiling (262144 for
-    qwen3:4b-instruct-2507, 131072 for llama3.1:8b) while evo-t2s (smaller/different memory budget) should land
-    well below either ceiling (something near 32768) for the SAME two models with the SAME native ceilings -- a
-    comparison K1 v2 could never make, since qwen3:8b's 40960 ceiling was already below any plausible tier on
-    either machine.
+    qwen3-4b-2507, 131072 for llama3.1:8b) while evo-t2s (smaller/different memory budget) should land well below
+    either ceiling (something near 32768) for the SAME two models with the SAME native ceilings -- a comparison
+    K1 v2 could never make, since qwen3:8b's 40960 ceiling was already below any plausible tier on either machine.
     """
     ollama = ollama or lab.ollama
-    for m in models:
-        pull_res = pull_fn(ollama, m["tag"])
-        lab.emit({"record": "tier_v3_pull", "phase": "tier_v3", "model_tag": m["tag"],
-                  "capped": m["capped"], "native_ctx": m["native_ctx"],
-                  "pull_outcome": pull_res.get("outcome") if isinstance(pull_res, dict) else None})
+    tier_rows, meta_rows, probe_rows, failures = [], [], [], []
 
-    tier_rows, meta_rows, probe_rows = [], [], []
+    # Pass 1: make every model available (pull or create), one at a time, nothing else measuring concurrently --
+    # this ordering (every model's availability step, in full, before any model's measurement starts) is the
+    # literal requirement from the original K1 v3 spec ("pull them as the first step of the job itself, with
+    # nothing else measuring"); each model is still isolated in its own try/except so one failing does not stop
+    # the next model's availability step from being attempted.
+    available = []
     for m in models:
-        tier_rows.append(phase_tier(lab, m["tag"], rep=0, ollama=ollama, log_finder=log_finder))
-        meta_rows.append(lab.emit({
-            "record": "tier_v3_model_meta", "phase": "tier_v3", "model_tag": m["tag"],
-            "capped": m["capped"], "native_ctx": m["native_ctx"],
-        }))
-        probe_rows.extend(probe_v3_effective_context(lab, ollama, m["tag"], m["capped"], lengths=probe_lengths))
-    return {"tier_rows": tier_rows, "meta_rows": meta_rows, "probe_rows": probe_rows}
+        try:
+            source = m.get("source", "pull")
+            if source == "create_from_gguf":
+                create_res = create_fn(m["tag"], m["gguf_path"])
+                lab.emit({"record": "tier_v3_create", "phase": "tier_v3", "model_tag": m["tag"],
+                          "capped": m["capped"], "native_ctx": m["native_ctx"], "gguf_path": m["gguf_path"],
+                          "create_outcome": create_res.get("outcome"), "create_stderr": create_res.get("stderr")})
+                if create_res.get("outcome") != "ok":
+                    raise RuntimeError(f"ollama create failed for {m['tag']!r}: {create_res.get('stderr')!r}")
+            else:
+                pull_res = pull_fn(ollama, m["tag"])
+                pull_outcome = pull_res.get("outcome") if isinstance(pull_res, dict) else None
+                pull_error = pull_res.get("final_status") if isinstance(pull_res, dict) else None
+                lab.emit({"record": "tier_v3_pull", "phase": "tier_v3", "model_tag": m["tag"],
+                          "capped": m["capped"], "native_ctx": m["native_ctx"],
+                          "pull_outcome": pull_outcome, "pull_error": pull_error})
+                if pull_outcome != "ok":
+                    raise RuntimeError(f"pull failed for {m['tag']!r}: {pull_error!r}")
+            available.append(m)
+        except Exception as e:
+            L.log(f"K1 v3: {m['tag']!r} unavailable ({e!r}), skipping this model, continuing with the rest")
+            lab.emit({"record": "tier_v3_model_failed", "phase": "tier_v3", "model_tag": m["tag"],
+                      "stage": "make_available", "error": repr(e)[:500]})
+            failures.append({"model_tag": m["tag"], "stage": "make_available", "error": repr(e)[:500]})
+
+    # Pass 2: tier + probe measurement, only for models that actually became available above -- isolated the
+    # same way, one model's measurement failure does not stop the next model's.
+    for m in available:
+        try:
+            tier_rows.append(phase_tier(lab, m["tag"], rep=0, ollama=ollama, log_finder=log_finder))
+            meta_rows.append(lab.emit({
+                "record": "tier_v3_model_meta", "phase": "tier_v3", "model_tag": m["tag"],
+                "capped": m["capped"], "native_ctx": m["native_ctx"],
+            }))
+            probe_rows.extend(probe_v3_effective_context(lab, ollama, m["tag"], m["capped"], lengths=probe_lengths))
+        except Exception as e:
+            L.log(f"K1 v3: {m['tag']!r} tier/probe measurement failed ({e!r}), skipping, continuing with the rest")
+            lab.emit({"record": "tier_v3_model_failed", "phase": "tier_v3", "model_tag": m["tag"],
+                      "stage": "tier_or_probe", "error": repr(e)[:500]})
+            failures.append({"model_tag": m["tag"], "stage": "tier_or_probe", "error": repr(e)[:500]})
+
+    return {"tier_rows": tier_rows, "meta_rows": meta_rows, "probe_rows": probe_rows, "failures": failures}
 
 
 # ---------------------------------------------------------------------------------------------------- phase: tier
