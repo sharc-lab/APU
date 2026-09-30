@@ -464,6 +464,162 @@ def test_main_starts_and_stops_its_own_ollama_server():
 
 
 # ---------------------------------------------------------------------------------------------------- queue advance wiring
+# ---------------------------------------------------------------------------------------------------- K1 v3: OllamaClient.pull
+class _FakeHTTPResponse:
+    """Minimal fake for the object urllib.request.urlopen(...) returns when used as a context manager: iterating
+    over it yields raw response lines, exactly like a real streamed HTTP body."""
+
+    def __init__(self, lines):
+        self._lines = lines
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+    def __iter__(self):
+        return iter(self._lines)
+
+
+def test_ollama_client_pull_blocks_until_success_line(monkeypatch):
+    lines = [
+        b'{"status": "pulling manifest"}\n',
+        b'{"status": "pulling abc123", "total": 100, "completed": 50}\n',
+        b'{"status": "verifying sha256 digest"}\n',
+        b'{"status": "success"}\n',
+    ]
+    monkeypatch.setattr(K.urllib.request, "urlopen", lambda req, timeout=None: _FakeHTTPResponse(lines))
+    client = K.OllamaClient()
+    res = client.pull("qwen3:4b-instruct-2507")
+    assert res["outcome"] == "ok"
+    assert res["final_status"] == "success"
+    assert len(res["status_lines"]) == 4
+
+
+def test_ollama_client_pull_reports_error_line(monkeypatch):
+    lines = [b'{"status": "pulling manifest"}\n', b'{"error": "model not found"}\n']
+    monkeypatch.setattr(K.urllib.request, "urlopen", lambda req, timeout=None: _FakeHTTPResponse(lines))
+    client = K.OllamaClient()
+    res = client.pull("nonexistent:tag")
+    assert res["outcome"] == "error"
+    assert res["final_status"] == "model not found"
+
+
+def test_pull_model_wrapper_calls_ollama_pull():
+    calls = []
+
+    class FakePullOllama:
+        def pull(self, tag):
+            calls.append(tag)
+            return {"outcome": "ok", "final_status": "success", "status_lines": []}
+
+    res = K.pull_model(FakePullOllama(), "llama3.1:8b")
+    assert calls == ["llama3.1:8b"]
+    assert res["outcome"] == "ok"
+
+
+# ---------------------------------------------------------------------------------------------------- K1 v3: phase_tier_v3
+class FakeV3Ollama:
+    """Records every call (pull/chat/get_ps/unload) in call order, in one shared call_log, so tests can assert on
+    ordering (pull-first) as well as content. chat/get_ps/unload always succeed with fixed, deterministic content;
+    real quality_suite marker text is irrelevant to what these tests check."""
+
+    def __init__(self):
+        self.call_log = []
+        self.pull_calls = []
+
+    def pull(self, tag):
+        self.call_log.append(("pull", tag))
+        self.pull_calls.append(tag)
+        return {"outcome": "ok", "final_status": "success", "status_lines": [{"status": "success"}]}
+
+    def chat(self, model, prompt, num_ctx=None, max_tokens=64, keep_alive=None):
+        self.call_log.append(("chat", model))
+        return {"outcome": "ok", "status": 200, "prompt_eval_count": 20, "duration_s": 0.1, "message": "Paris."}
+
+    def get_ps(self):
+        self.call_log.append(("get_ps", None))
+        return {"outcome": "ok", "models": []}
+
+    def unload(self, model):
+        self.call_log.append(("unload", model))
+        return self.chat(model, "", num_ctx=None, max_tokens=1, keep_alive=0)
+
+
+def test_phase_tier_v3_pulls_all_models_before_any_measurement(tmp_path):
+    """Requirement (2): model pull is the literal first step, before any measurement, nothing else concurrent."""
+    lab = make_lab(tmp_path, host="evo-x2")
+    fake = FakeV3Ollama()
+    K.phase_tier_v3(lab, ollama=fake, log_finder=lambda: None)
+    tags = [m["tag"] for m in K.K1_V3_MODELS]
+    first_three = fake.call_log[:3]
+    assert [c[0] for c in first_three] == ["pull", "pull", "pull"]
+    assert [c[1] for c in first_three] == tags
+    assert fake.pull_calls == list(tags)
+    first_non_pull_idx = next(i for i, c in enumerate(fake.call_log) if c[0] != "pull")
+    assert first_non_pull_idx == 3  # exactly the 3 pulls, then measurement starts
+
+
+def test_phase_tier_v3_probe_sweep_five_rows_per_model_right_lengths(tmp_path):
+    lab = make_lab(tmp_path, host="evo-x2")
+    fake = FakeV3Ollama()
+    result = K.phase_tier_v3(lab, ollama=fake, log_finder=lambda: None)
+    probe_rows = result["probe_rows"]
+    assert len(probe_rows) == 3 * len(K.K1_V3_PROBE_LENGTHS)
+    for m in K.K1_V3_MODELS:
+        rows_for_model = [r for r in probe_rows if r["model_tag"] == m["tag"]]
+        assert len(rows_for_model) == 5
+        assert sorted(r["probe_target_tokens"] for r in rows_for_model) == sorted(K.K1_V3_PROBE_LENGTHS)
+        for r in rows_for_model:
+            assert r["record"] == "tier_v3_probe"
+            assert r["http_status"] == 200
+            assert r["sent_tokens_target"] == r["probe_target_tokens"]
+
+
+def test_phase_tier_v3_labels_qwen3_8b_as_capped(tmp_path):
+    """Requirement (1): qwen3:8b is kept as a labeled 'capped' control, contrasted against the two uncapped
+    models -- capped must be False for the two models whose native ceiling exceeds any plausible tier."""
+    lab = make_lab(tmp_path, host="evo-x2")
+    fake = FakeV3Ollama()
+    result = K.phase_tier_v3(lab, ollama=fake, log_finder=lambda: None)
+    meta_by_tag = {r["model_tag"]: r for r in result["meta_rows"]}
+    assert meta_by_tag["qwen3:8b"]["capped"] is True
+    assert meta_by_tag["qwen3:8b"]["native_ctx"] == 40960
+    assert meta_by_tag["qwen3:4b-instruct-2507"]["capped"] is False
+    assert meta_by_tag["qwen3:4b-instruct-2507"]["native_ctx"] == 262144
+    assert meta_by_tag["llama3.1:8b"]["capped"] is False
+    assert meta_by_tag["llama3.1:8b"]["native_ctx"] == 131072
+    capped_probe_rows = [r for r in result["probe_rows"] if r["model_tag"] == "qwen3:8b"]
+    assert capped_probe_rows and all(r["capped"] is True for r in capped_probe_rows)
+    uncapped_probe_rows = [r for r in result["probe_rows"] if r["model_tag"] != "qwen3:8b"]
+    assert uncapped_probe_rows and all(r["capped"] is False for r in uncapped_probe_rows)
+
+
+def test_phase_tier_v3_dry_run_call_counts(tmp_path):
+    """Stub dry run: exact call counts for the 3-model x 5-length K1 v3 design (pulls + tier calls + probe rows)."""
+    lab = make_lab(tmp_path, host="evo-x2")
+    fake = FakeV3Ollama()
+    result = K.phase_tier_v3(lab, ollama=fake, log_finder=lambda: None)
+    assert len(fake.pull_calls) == 3
+    assert len(result["tier_rows"]) == 3
+    assert len(result["probe_rows"]) == 15
+
+
+# ---------------------------------------------------------------------------------------------------- K1 v3: CLI wiring
+def test_build_arg_parser_accepts_tier_v3_phase():
+    ap = K.build_arg_parser()
+    args = ap.parse_args(_REQUIRED_ARGS + ["--phase", "tier_v3"])
+    assert args.phase == "tier_v3"
+
+
+def test_main_wires_tier_v3_phase_to_phase_tier_v3():
+    import inspect
+    src = inspect.getsource(K.main)
+    assert '"tier_v3" in phases' in src
+    assert "phase_tier_v3(lab)" in src
+
+
 def test_main_calls_tq_advance_in_a_finally_block():
     """K1 never called t2s_queue.advance() at all (found 2026-09-29 on evo-x2: the queue sat 'running' after a
     successful run finished, until the watchdog's heartbeat-staleness threshold expired). main() must always
