@@ -71,6 +71,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import random
 import re
 import string
@@ -84,9 +85,12 @@ sys.path.insert(0, str(DEPLOY))
 import context as ctx_mod  # noqa: E402
 import llama_server as ls  # noqa: E402
 import run_provenance as rp  # noqa: E402
+import server_guard as sg  # noqa: E402  (RequestGuard: the stale-server check before each llama-server turn)
 import t2s_k1_ollama as k1  # noqa: E402  (K1Lab, OllamaClient, require_host, run_ollama_ps, find_ollama_log)
 import t2s_lab as L  # noqa: E402
+import t2s_overnight as ov  # noqa: E402  (MODEL_FILES: model id -> gguf filename, for the llama-server arms)
 import t2s_queue as tq  # noqa: E402
+import host_config as hc  # noqa: E402  (start_ollama_server/stop_ollama_server, the K1 start/stop guard)
 from t2s_lab import log, utc_iso  # noqa: E402
 
 # ── Model registry (aliases the existing t2s_overnight.MODEL_FILES ids to Ollama tags) ─────────────
@@ -647,6 +651,15 @@ def enumerate_cells(machine: str, models=ALL_MODELS, memory_conditions=MEMORY_CO
     return cells
 
 
+def build_item_id(model_id: str, arm_id: str, condition_id: str, seed: int, turn_idx: int | None = None) -> str:
+    """Deterministic item_id for resume tracking, at two granularities: the whole cell (turn_idx=None,
+    checked first so a fully-done session is skipped without even rebuilding message history) and one
+    specific turn within it (checked per-turn so a session that dies partway through resumes from its
+    last completed turn instead of redoing the whole session)."""
+    base = f"r2_{model_id}_{arm_id}_{condition_id}_seed{seed}"
+    return base if turn_idx is None else f"{base}_turn{turn_idx:03d}"
+
+
 class R2SessionLab(k1.K1Lab):
     """R2's job/JSONL/resume bookkeeping, reusing t2s_k1_ollama.K1Lab directly rather than a
     separate hand-rolled Lab class (K1Lab already gives done-phase resume tracking, emit()'s
@@ -655,7 +668,12 @@ class R2SessionLab(k1.K1Lab):
     The one override: K1Lab.__init__ hardcodes its auto-generated stem to the literal
     "t2s_k1_ollama_<host>_<timestamp>", which would misname every R2 output file as a K1 run. When
     this is not a --resume, the stem/prefix/rows_path/rows are rebuilt here with R2's own prefix,
-    mirroring exactly how K1Lab itself builds them."""
+    mirroring exactly how K1Lab itself builds them.
+
+    The other addition: K1Lab has no per-item resume tracking at all (only done_phases, for whole
+    phases). R2 needs it at both the whole-cell and per-turn granularity (see build_item_id), so
+    self.done/item_done() are added here mirroring t2s_overnight.Lab's exact item_done pattern
+    (record="item_done", item_id=...) rather than inventing a different resume-record shape."""
 
     def __init__(self, args, host_cfg, prov):
         super().__init__(args, host_cfg, prov)
@@ -664,9 +682,37 @@ class R2SessionLab(k1.K1Lab):
             self.prefix = str(self.out_dir / self.stem)
             self.rows_path = self.prefix + ".jsonl"
             self.rows = L.Jsonl(self.rows_path)
+        self.done = set()
+        if args.resume and Path(self.rows_path).exists():
+            for line in open(self.rows_path, encoding="utf-8"):
+                try:
+                    r = json.loads(line)
+                except Exception:
+                    continue
+                if r.get("record") == "item_done":
+                    self.done.add(r["item_id"])
 
-    def run_turn_ollama(self, model_id: str, arm_id: str, session: SessionSpec, turn: TurnSpec,
-                         messages: list[dict], *, ollama=None, count_fn) -> dict:
+    def item_done(self, item_id: str):
+        self.done.add(item_id)
+        self.rows.write({"record": "item_done", "item_id": item_id, "ts_utc": utc_iso()})
+
+    def replay_turn_row(self, model_id: str, arm_id: str, condition_id: str, seed: int, turn_idx: int) -> dict | None:
+        """Reads back an already-completed turn's own r2_turn row from this run's own JSONL, so a
+        resumed session can rebuild its `messages` history (the model's own prior output, needed for
+        the next turn's conversation) without re-calling the model. Returns None if the row cannot be
+        found (should not happen if the matching item_done marker is in self.done, but this is a
+        read-back from disk, not a cache, so a caller must still handle None defensively)."""
+        for row in self.all_rows():
+            if row.get("record") != "r2_turn":
+                continue
+            if (row.get("model_id") == model_id and row.get("arm_id") == arm_id
+                    and row.get("condition_id") == condition_id and row.get("seed") == seed
+                    and row.get("turn_idx") == turn_idx):
+                return row
+        return None
+
+    def run_turn_ollama(self, model_id: str, arm_id: str, condition_id: str, session: SessionSpec,
+                         turn: TurnSpec, messages: list[dict], *, ollama=None, count_fn) -> dict:
         """One turn against t2s_k1_ollama.OllamaClient.chat, passing the full running `messages`
         history via its messages= keyword (see that method's docstring: this is the reason it was
         extended in this rebuild -- every other caller still only ever sends a single-turn prompt)."""
@@ -677,20 +723,30 @@ class R2SessionLab(k1.K1Lab):
         output_text = resp.get("message") or ""
         row = self.emit({
             "record": "r2_turn", "phase": "r2_session", "backend": "ollama", "arm_id": arm_id,
-            "model_id": model_id, "seed": session.seed, "turn_idx": turn.idx,
+            "model_id": model_id, "condition_id": condition_id, "seed": session.seed, "turn_idx": turn.idx,
             "session_code": session.session_code, "output_text": output_text,
             "sent_tokens": sent_tokens, "processed_tokens": resp.get("prompt_eval_count"),
             "http_status": resp.get("status", 200), "error_text": resp.get("error"),
         })
         return row
 
-    def run_turn_llama_server(self, session_obj, model_id: str, arm_id: str, session: SessionSpec,
-                               turn: TurnSpec, *, log_text_fn) -> dict:
+    def run_turn_llama_server(self, session_obj, model_id: str, arm_id: str, condition_id: str,
+                               session: SessionSpec, turn: TurnSpec, *, log_text_fn, guard=None) -> dict:
         """One turn against an injected llama-server-session-like object. `session_obj` must expose
         .tokenize(text)->int and .call(prompt, max_tokens)-> the 7-tuple LlamaServerSession.call
         returns, raising ls.ContextSizeError on a 400 exceed_context_size_error the same way the
         real session does. `log_text_fn()` returns the server's current log text (for the
-        context-shift check)."""
+        context-shift check). `guard`, if given, is a server_guard.RequestGuard checked before this
+        turn's call -- the stale-server guard the 2026-09-30 instruction requires before every turn,
+        not just once at session start (a long session is exactly the case where a server could be
+        replaced or die partway through without a per-call check ever catching it)."""
+        if guard is not None:
+            ok, listener_pids = guard.check()
+            if not ok:
+                raise RuntimeError(f"STOP: stale-server guard failed before turn {turn.idx} -- port "
+                                   f"{guard.port} listener pids {listener_pids} != started pid {guard.pid}. "
+                                   f"Refusing to send this turn to a server that may not be the one this "
+                                   f"session started with.")
         prompt = turn.user_text
         sent_tokens = session_obj.tokenize(prompt)
         http_status, error_text, processed_tokens = 200, None, None
@@ -711,7 +767,7 @@ class R2SessionLab(k1.K1Lab):
         )
         row = self.emit({
             "record": "r2_turn", "phase": "r2_session", "backend": "llama_server", "arm_id": arm_id,
-            "model_id": model_id, "seed": session.seed, "turn_idx": turn.idx,
+            "model_id": model_id, "condition_id": condition_id, "seed": session.seed, "turn_idx": turn.idx,
             "session_code": session.session_code, "output_text": output_text,
             "sent_tokens": sent_tokens, "processed_tokens": processed_tokens,
             "http_status": http_status, "error_text": error_text,
@@ -721,11 +777,25 @@ class R2SessionLab(k1.K1Lab):
 
     def phase_run_session(self, *, model_id: str, arm_id: str, condition_id: str, seed: int,
                            ollama=None, llama_session=None, count_fn, occupier_factory=None,
-                           max_turns: int = MAX_TURNS, log_text_fn=None) -> dict:
+                           max_turns: int = MAX_TURNS, log_text_fn=None, guard=None) -> dict:
         """Run one full session for one (model, arm, condition, seed) cell and return its
         score_session() result plus the raw per-turn rows. `ollama` (for runtime == "ollama" arms) or
         `llama_session` (for the llama-server arms) is whichever fake/real client the runtime needs;
-        which one gets called is decided purely by ARMS[arm_id]["runtime"]."""
+        which one gets called is decided purely by ARMS[arm_id]["runtime"]. `guard` (llama-server arms
+        only) is checked before every turn, not just once.
+
+        Resumable at two granularities (2026-09-30 instruction): if the whole cell's item_done marker
+        is already in self.done, this returns immediately with skipped=True and does not even start
+        the memory condition. Otherwise, each turn checks its own item_done marker first: an
+        already-completed turn is replayed from its own saved r2_turn row (via replay_turn_row) rather
+        than re-calling the model, so a session that died partway through resumes from its last
+        completed turn instead of redoing the whole thing. A heartbeat log line is written once per
+        turn (L.log(), which this file's own logging setup lets the queue's heartbeat-staleness check
+        see via the job's own stdout-redirected log file -- the same mechanism every other long-running
+        phase in this repo relies on, not a separate heartbeat-file convention)."""
+        cell_id = build_item_id(model_id, arm_id, condition_id, seed)
+        if cell_id in self.done:
+            return {"skipped": True, "reason": "cell already done (resume)"}
         occ, occ_result = wire_memory_condition(condition_id, occupier_factory)
         try:
             session = generate_session(seed, count_fn=count_fn, max_turns=max_turns)
@@ -733,15 +803,29 @@ class R2SessionLab(k1.K1Lab):
             rows = []
             runtime = ARMS[arm_id]["runtime"]
             for turn in session.turns:
+                turn_id = build_item_id(model_id, arm_id, condition_id, seed, turn.idx)
+                if turn_id in self.done:
+                    row = self.replay_turn_row(model_id, arm_id, condition_id, seed, turn.idx)
+                    if row is None:
+                        raise RuntimeError(f"item_done marker exists for {turn_id!r} but its r2_turn row "
+                                           f"could not be found in {self.rows_path!r} -- resume state is "
+                                           f"inconsistent, refusing to guess and silently redo or skip it")
+                    if runtime == "ollama":
+                        messages.append({"role": "user", "content": turn.user_text})
+                        messages.append({"role": "assistant", "content": row["output_text"]})
+                    rows.append(row)
+                    continue
+                L.log(f"R2 turn: {model_id} {arm_id} {condition_id} seed={seed} turn={turn.idx}/{len(session.turns)}")
                 if runtime == "ollama":
                     messages.append({"role": "user", "content": turn.user_text})
-                    row = self.run_turn_ollama(model_id, arm_id, session, turn, messages,
+                    row = self.run_turn_ollama(model_id, arm_id, condition_id, session, turn, messages,
                                                 ollama=ollama, count_fn=count_fn)
                     messages.append({"role": "assistant", "content": row["output_text"]})
                 else:
-                    row = self.run_turn_llama_server(llama_session, model_id, arm_id, session, turn,
-                                                      log_text_fn=log_text_fn or (lambda: ""))
+                    row = self.run_turn_llama_server(llama_session, model_id, arm_id, condition_id, session,
+                                                      turn, log_text_fn=log_text_fn or (lambda: ""), guard=guard)
                 rows.append(row)
+                self.item_done(turn_id)
             turn_outputs = [{"output_text": r["output_text"], "sent_tokens": r["sent_tokens"],
                               "processed_tokens": r["processed_tokens"],
                               "http_status": r["http_status"], "error_text": r["error_text"]}
@@ -749,7 +833,8 @@ class R2SessionLab(k1.K1Lab):
             scored = score_session(session, turn_outputs)
             scored.update({"model_id": model_id, "arm_id": arm_id, "condition_id": condition_id,
                             "memory_condition_result": occ_result})
-            return {"session": session, "rows": rows, "scored": scored}
+            self.item_done(cell_id)
+            return {"skipped": False, "session": session, "rows": rows, "scored": scored}
         finally:
             if occ is not None:
                 occ.stop()
@@ -804,8 +889,49 @@ def build_arg_parser():
     ap.add_argument("--smoke", action="store_true",
                     help="stub dry run against fake clients; no real Ollama server, no real "
                          "llama-server process (t2s_night2.py's SMOKE_GATED_PHASES table does not "
-                         "apply here -- like K1/K2, R2 is a fully separate script with its own flag)")
+                         "apply here -- like K1/K2, R2 is a fully separate script with its own flag). "
+                         "Prints the exact call-shape count and exits; writes no rows.")
+    ap.add_argument("--models", default=None,
+                    help="comma list overriding ALL_MODELS for this run (e.g. for a small live "
+                         "smoke test: --models llama31-8b)")
+    ap.add_argument("--arms", default=None,
+                    help="comma list overriding applicable_arms(host) for this run (e.g. --arms "
+                         "ollama_default for a small live smoke test using only arm (a))")
+    ap.add_argument("--seeds", default=None,
+                    help="comma list of ints overriding SEEDS for this run (e.g. --seeds 20260901 "
+                         "for a single-session live smoke test)")
+    ap.add_argument("--max-turns", type=int, default=None,
+                    help="overrides MAX_TURNS for this run (e.g. --max-turns 6 for a live smoke test)")
+    ap.add_argument("--memory-conditions", default=None,
+                    help="comma list overriding MEMORY_CONDITIONS for this run")
+    ap.add_argument("--gguf-dir", default=L.MODELS_DIR,
+                    help="directory the llama-server arms resolve model gguf filenames against "
+                         "(t2s_overnight.MODEL_FILES gives the filename per model id)")
     return ap
+
+
+def _resolve_llama_server_exe(host_cfg) -> str:
+    return L.BINARIES[host_cfg.get("backend", "vulkan")]
+
+
+def _resolve_gguf_path(model_id: str, gguf_dir: str) -> str:
+    fn = ov.MODEL_FILES[model_id][0]
+    return str(Path(gguf_dir) / fn)
+
+
+def _dry_run_call_shape(models, arms, memory_conditions, seeds, max_turns) -> dict:
+    """The stub call-shape count --smoke reports: one call per turn per cell, broken down by arm so a
+    reviewer can see exactly how many Ollama vs llama-server calls a real run of this scope would
+    make, without starting any real process."""
+    by_arm = {}
+    total = 0
+    for arm_id in arms:
+        n_cells = sum(1 for _m in models for _c in memory_conditions for _s in seeds)
+        n_calls = n_cells * max_turns
+        by_arm[arm_id] = {"cells": n_cells, "calls": n_calls}
+        total += n_calls
+    return {"by_arm": by_arm, "total_calls": total, "models": list(models),
+            "memory_conditions": list(memory_conditions), "seeds": list(seeds), "max_turns": max_turns}
 
 
 def main(argv=None):
@@ -813,32 +939,118 @@ def main(argv=None):
     args = ap.parse_args(argv)
     host_cfg = k1.require_host(args.host)
 
-    est = estimate_hours(machine=host_cfg["hw_id"])
+    models = tuple(args.models.split(",")) if args.models else ALL_MODELS
+    arms = tuple(args.arms.split(",")) if args.arms else tuple(applicable_arms(host_cfg["name"]))
+    seeds = tuple(int(s) for s in args.seeds.split(",")) if args.seeds else SEEDS
+    max_turns = args.max_turns if args.max_turns is not None else MAX_TURNS
+    memory_conditions = (tuple(args.memory_conditions.split(","))
+                         if args.memory_conditions else MEMORY_CONDITIONS)
+
+    # arm (c) is evo-x2 only (R2.3/R2.7); an explicit --arms that names it on evo-t2s is a usage error,
+    # not something to silently drop, since a silently-dropped arm on the T2S side is exactly the kind
+    # of mistake this whole phase exists to catch elsewhere.
+    for arm_id in arms:
+        if arm_id not in applicable_arms(host_cfg["name"]):
+            raise SystemExit(f"arm {arm_id!r} is not applicable on {host_cfg['name']!r} "
+                             f"(machine_restriction={ARMS[arm_id]['machine_restriction']!r})")
+
+    est = estimate_hours(machine=host_cfg["hw_id"], models=models, memory_conditions=memory_conditions,
+                         seeds=seeds, max_turns=max_turns)
     log(f"R2 estimated hours on {host_cfg['hw_id']}: {est['total_hours']:.1f} h over {est['n_cells']} cells "
         f"({est['total_calls']} calls, {est['seconds_per_call_assumption']}s/call assumed)")
 
-    if not args.smoke:
-        raise SystemExit("real (non-smoke) execution requires live Ollama/llama-server wiring not "
-                          "built in this pass -- see module docstring; run with --smoke for the "
-                          "stub dry run, or use R2SessionLab.phase_run_session directly with real "
-                          "clients")
+    if args.smoke:
+        shape = _dry_run_call_shape(models, arms, memory_conditions, seeds, max_turns)
+        log(f"R2 smoke dry run (no real process started): {json.dumps(shape)}")
+        return shape
 
     prov = rp.script_provenance([__file__], require_committed=args.require_committed)
     lab = R2SessionLab(args, host_cfg, prov)
     Path(lab.prefix + "_manifest.json").write_text(json.dumps({
         "launch_utc": utc_iso(), "host": host_cfg, "args": vars(args), "script_provenance": prov,
-        "estimate": est,
+        "estimate": est, "models": models, "arms": arms, "seeds": seeds, "max_turns": max_turns,
+        "memory_conditions": memory_conditions,
     }, indent=1, default=str), encoding="utf-8")
-    log(f"R2 smoke dry run writing to {lab.rows_path}")
+    log(f"R2 real run writing to {lab.rows_path}")
+
+    def occupier_factory_for(host_cfg, occupier_mi, occupier_n_ctx):
+        return lambda: Occupier(lab, occupier_mi, occupier_n_ctx)
 
     note = "completed"
+    ollama_started = False
     try:
-        pass  # --smoke stops here; see module docstring for what a real run still needs wired up
+        needs_ollama = any(ARMS[a]["runtime"] == "ollama" for a in arms)
+        if needs_ollama:
+            # the K1 start/stop guard: start Ollama fresh for this run rather than assume one is
+            # already resident in the background, and always stop it on the way out (main()'s own
+            # try/finally, same shape as t2s_k1_ollama.main()).
+            start_result = hc.start_ollama_server()
+            ollama_started = bool(start_result and start_result.get("ok", True))
+            log(f"R2: Ollama start result: {start_result}")
+
+        occupier_mi = None
+        if "occupied_40gb" in memory_conditions:
+            # the occupying model: reuse whichever gguf t2s_k1_ollama's own phase_memory_pressure
+            # tests use elsewhere (a mid-size model is enough to hold ~40GB at a large n_ctx) -- here,
+            # the first model in this run's own model list, so no extra download is required.
+            occupier_mi = L.ModelInfo(models[0], _resolve_gguf_path(models[0], args.gguf_dir),
+                                      None, False, 32768, 1)
+
+        for model_id in models:
+            for arm_id in arms:
+                runtime = ARMS[arm_id]["runtime"]
+                ollama_tag = MODEL_ID_ALIASES.get(model_id, model_id)
+                for condition_id in memory_conditions:
+                    for seed in seeds:
+                        cell_id = build_item_id(model_id, arm_id, condition_id, seed)
+                        if cell_id in lab.done:
+                            log(f"R2: skipping {cell_id} (already done, resume)")
+                            continue
+                        if runtime == "ollama":
+                            result = lab.phase_run_session(
+                                model_id=ollama_tag, arm_id=arm_id, condition_id=condition_id, seed=seed,
+                                ollama=lab.ollama, count_fn=_approx_token_count,
+                                occupier_factory=(occupier_factory_for(host_cfg, occupier_mi, 32768)
+                                                  if condition_id == "occupied_40gb" else None),
+                                max_turns=max_turns)
+                        else:
+                            exe = _resolve_llama_server_exe(host_cfg)
+                            model_path = _resolve_gguf_path(model_id, args.gguf_dir)
+                            port = args.ollama_port + 1  # distinct from Ollama's own port
+                            cfg = build_llama_server_config(arm_id, exe=exe, model_path=model_path, port=port,
+                                                            n_gpu_layers=99, context_shift=False,
+                                                            reasoning_budget=0, reasoning_format="none",
+                                                            platform=host_cfg["hw_id"])
+                            session_obj = ls.LlamaServerSession(cfg)
+                            session_obj.start()
+                            guard = sg.RequestGuard(port=port, pid=session_obj._proc.pid)
+                            try:
+                                log_path = session_obj._log_path
+                                result = lab.phase_run_session(
+                                    model_id=model_id, arm_id=arm_id, condition_id=condition_id, seed=seed,
+                                    llama_session=session_obj, count_fn=session_obj.tokenize,
+                                    occupier_factory=(occupier_factory_for(host_cfg, occupier_mi, 32768)
+                                                      if condition_id == "occupied_40gb" else None),
+                                    max_turns=max_turns, guard=guard,
+                                    log_text_fn=lambda: Path(log_path).read_text(encoding="utf-8", errors="replace"))
+                            finally:
+                                session_obj.stop()
+                        if result.get("skipped"):
+                            continue
+                        scored = result["scored"]
+                        log(f"R2 cell done: {cell_id} first_failure_turn={scored['first_failure_turn']} "
+                            f"first_error_turn={scored['first_error_turn']} "
+                            f"error_surfaced_before_failure={scored['error_surfaced_before_failure']}")
     except Exception as e:
         note = f"stopped: {e!r}"[:400]
         log(note)
         raise
     finally:
+        if ollama_started:
+            try:
+                hc.stop_ollama_server()
+            except Exception as e:
+                log(f"R2: Ollama stop failed: {e!r}")
         try:
             tq.advance(note)
         except Exception as e:

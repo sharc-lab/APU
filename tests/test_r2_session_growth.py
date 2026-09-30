@@ -649,16 +649,20 @@ class TestStubDryRun:
         assert total_calls == 40  # 8 turns x 5 arms
 
     def test_dry_run_writes_one_jsonl_row_per_turn(self, tmp_path):
+        """5 r2_turn rows (one per turn) plus 6 item_done rows (one per turn, for resumability, plus
+        one for the whole cell) -- see build_item_id/R2SessionLab.item_done."""
         lab = make_lab(tmp_path)
         client = FakeOllama()
         lab.phase_run_session(model_id="qwen3-4b-2507", arm_id="ollama_default",
                                condition_id="as_is", seed=1, ollama=client,
                                count_fn=word_count_fn, max_turns=5)
         lines = Path(lab.rows_path).read_text(encoding="utf-8").strip().splitlines()
-        assert len(lines) == 5
-        for line in lines:
-            row = json.loads(line)
-            assert row["record"] == "r2_turn"
+        rows = [json.loads(line) for line in lines]
+        turn_rows = [r for r in rows if r["record"] == "r2_turn"]
+        done_rows = [r for r in rows if r["record"] == "item_done"]
+        assert len(turn_rows) == 5
+        assert len(done_rows) == 6  # 5 per-turn markers + 1 whole-cell marker
+        assert len(rows) == 11
 
     def test_dry_run_ollama_arm_sends_growing_message_history(self, tmp_path):
         """The reason OllamaClient.chat needed a messages= keyword at all: turn N's call must carry
@@ -694,3 +698,156 @@ class TestStubDryRun:
         classifications = {r["overflow_classification"] for r in result["rows"]}
         assert classifications == {"hard_error"}
         assert all(r["http_status"] == 400 for r in result["rows"])
+
+
+class FakeSilentTruncationSession:
+    """A stub server that never errors (HTTP 200 always) but silently returns fewer processed tokens
+    than were sent once a fake threshold is crossed -- the exact "no error, but data vanished" case
+    item 2's own instruction calls for, distinct from FakeLlamaServerSession's hard_error case."""
+
+    def __init__(self, fake_ctx=200):
+        self.fake_ctx = fake_ctx
+        self.n_calls = 0
+        self.log_text = "ordinary startup log, no context shift line"
+
+    def tokenize(self, text):
+        return len(text.split())
+
+    def call(self, prompt, max_tokens):
+        self.n_calls += 1
+        n_tokens = len(prompt.split())
+        tin = min(n_tokens, self.fake_ctx)  # silently clamps instead of raising
+        return ("truncated but still 200", 10.0, 5.0, tin, 5, "stop", 0)
+
+
+class TestSilentTruncationClassification:
+    def test_silent_truncation_classified_correctly_and_no_error_surfaced(self, tmp_path):
+        lab = make_lab(tmp_path)
+        client = FakeSilentTruncationSession(fake_ctx=1)
+        result = lab.phase_run_session(model_id="qwen3-4b-2507", arm_id="llama_server_default_fit",
+                                        condition_id="as_is", seed=1, llama_session=client,
+                                        count_fn=word_count_fn, max_turns=6,
+                                        log_text_fn=lambda: client.log_text)
+        rows = result["rows"]
+        assert any(r["overflow_classification"] == "silent_truncation" for r in rows)
+        assert all(r["http_status"] == 200 for r in rows)
+        assert all(r["error_text"] is None for r in rows)
+
+
+# ── Resumability: per-turn and per-cell item_done tracking ─────────────────────────────────────────
+
+
+class TestResumability:
+    def test_cell_already_done_is_skipped_entirely(self, tmp_path):
+        lab = make_lab(tmp_path)
+        client = FakeOllama()
+        lab.phase_run_session(model_id="qwen3-4b-2507", arm_id="ollama_default",
+                               condition_id="as_is", seed=1, ollama=client,
+                               count_fn=word_count_fn, max_turns=3)
+        n_calls_first_pass = len(client.calls)
+        result = lab.phase_run_session(model_id="qwen3-4b-2507", arm_id="ollama_default",
+                                        condition_id="as_is", seed=1, ollama=client,
+                                        count_fn=word_count_fn, max_turns=3)
+        assert result == {"skipped": True, "reason": "cell already done (resume)"}
+        assert len(client.calls) == n_calls_first_pass  # no new calls made
+
+    def test_resumed_mid_session_only_calls_for_remaining_turns(self, tmp_path):
+        """Simulates a crash after turn 2 of a 5-turn session (item_done written per turn, but the
+        whole-cell marker never got written) by manually replaying what a first, truncated attempt
+        would have left on disk, then resuming: the resumed run must not re-call the model for the
+        turns already marked done, and must replay their rows (verbatim) into the final result."""
+        lab = make_lab(tmp_path)
+        client = FakeOllama()
+
+        # First "attempt": manually stop after 2 turns by calling with max_turns=2 (this writes the
+        # per-turn item_done markers for turns 1-2, and also the whole-cell marker for THIS 2-turn
+        # session -- to simulate a genuine crash mid-way through a longer session instead, delete the
+        # cell-level marker's row after the fact and keep only the per-turn ones).
+        lab.phase_run_session(model_id="qwen3-4b-2507", arm_id="ollama_default",
+                               condition_id="as_is", seed=1, ollama=client,
+                               count_fn=word_count_fn, max_turns=2)
+        n_calls_after_partial = len(client.calls)
+        assert n_calls_after_partial == 2
+
+        # Simulate the crash: rebuild a fresh lab pointed at the same stem/resume, but first strip the
+        # whole-cell item_done record out of self.done (the per-turn ones are real progress; the
+        # cell-level one is what a genuine crash would never have reached).
+        cell_id = r2.build_item_id("qwen3-4b-2507", "ollama_default", "as_is", 1)
+        lab.done.discard(cell_id)
+
+        result = lab.phase_run_session(model_id="qwen3-4b-2507", arm_id="ollama_default",
+                                        condition_id="as_is", seed=1, ollama=client,
+                                        count_fn=word_count_fn, max_turns=5)
+        assert result["skipped"] is False
+        assert len(result["rows"]) == 5  # 2 replayed + 3 freshly run
+        assert len(client.calls) == n_calls_after_partial + 3  # only the 3 new turns called the model
+
+    def test_missing_replay_row_raises_rather_than_silently_redoing_or_skipping(self, tmp_path):
+        """If a turn's item_done marker exists but its r2_turn row is somehow missing (a corrupted or
+        hand-edited jsonl), this must fail loudly rather than guess -- silently redoing the turn could
+        double-count a call, and silently skipping it would produce a session with a hole in it."""
+        lab = make_lab(tmp_path)
+        turn_id = r2.build_item_id("qwen3-4b-2507", "ollama_default", "as_is", 1, turn_idx=1)
+        lab.item_done(turn_id)  # marker written, but no matching r2_turn row exists
+        client = FakeOllama()
+        import pytest
+        with pytest.raises(RuntimeError, match="resume state is inconsistent"):
+            lab.phase_run_session(model_id="qwen3-4b-2507", arm_id="ollama_default",
+                                   condition_id="as_is", seed=1, ollama=client,
+                                   count_fn=word_count_fn, max_turns=3)
+
+
+# ── Stale-server guard: checked before every llama-server turn ─────────────────────────────────────
+
+
+class FakeGuard:
+    def __init__(self, ok=True, port=8385, pid=1234):
+        self.ok, self.port, self.pid = ok, port, pid
+        self.n_checks = 0
+
+    def check(self):
+        self.n_checks += 1
+        return self.ok, [self.pid] if self.ok else [9999]
+
+
+class TestStaleServerGuard:
+    def test_guard_checked_before_every_turn(self, tmp_path):
+        lab = make_lab(tmp_path)
+        client = FakeLlamaServerSession()
+        guard = FakeGuard(ok=True)
+        lab.phase_run_session(model_id="qwen3-4b-2507", arm_id="llama_server_default_fit",
+                               condition_id="as_is", seed=1, llama_session=client,
+                               count_fn=word_count_fn, max_turns=4,
+                               log_text_fn=lambda: client.log_text, guard=guard)
+        assert guard.n_checks == 4
+
+    def test_guard_failure_stops_the_session_immediately(self, tmp_path):
+        lab = make_lab(tmp_path)
+        client = FakeLlamaServerSession()
+        guard = FakeGuard(ok=False)
+        import pytest
+        with pytest.raises(RuntimeError, match="stale-server guard failed"):
+            lab.phase_run_session(model_id="qwen3-4b-2507", arm_id="llama_server_default_fit",
+                                   condition_id="as_is", seed=1, llama_session=client,
+                                   count_fn=word_count_fn, max_turns=4,
+                                   log_text_fn=lambda: client.log_text, guard=guard)
+        assert client.n_calls == 0  # the guard fires before the call, not after
+
+
+# ── CLI: --smoke dry run reports the call-shape count without starting any real process ────────────
+
+
+class TestSmokeCLI:
+    def test_smoke_reports_call_shape_and_writes_no_rows(self, tmp_path, capsys):
+        shape = r2.main(["--host", "evo-x2", "--smoke", "--models", "qwen3-4b-2507",
+                          "--arms", "ollama_default", "--seeds", "20260901", "--max-turns", "6",
+                          "--memory-conditions", "as_is", "--out-dir", str(tmp_path)])
+        assert shape["total_calls"] == 6  # 1 model x 1 arm x 1 condition x 1 seed x 6 turns
+        assert shape["by_arm"]["ollama_default"] == {"cells": 1, "calls": 6}
+        assert list(tmp_path.glob("*.jsonl")) == []  # smoke writes no rows at all
+
+    def test_smoke_rejects_an_inapplicable_arm_for_the_host(self, tmp_path):
+        import pytest
+        with pytest.raises(SystemExit, match="not applicable"):
+            r2.main(["--host", "evo-t2s", "--smoke", "--arms", "ollama_ctx_32768_x2",
+                     "--out-dir", str(tmp_path)])
