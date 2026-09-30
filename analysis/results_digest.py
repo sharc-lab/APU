@@ -7,6 +7,15 @@ Why this exists (2026-09-29): results must not depend on a controller session be
 notice a machine sitting idle. This script is read-only end to end -- it must never start, stop, or kill any
 process, and never touches queue_state.json or any results file; it only reads them and writes RESULTS_DIGEST.md.
 
+2026-09-30: added a second, distinct alert alongside the idle one -- check_idle above only proves the running job's
+process/log is alive; it says nothing about whether that process is actually producing result rows. A job can look
+"running, heartbeat fresh" for hours after it has effectively stalled (stuck retrying, looping on a guard failure,
+or otherwise not completing calls) while its log file keeps getting touched. harness/queue_watchdog.check_progress_
+stale reads this script's own collect_phase_summaries() output (the real last_ts_utc across every phase) and alerts
+if nothing has been written anywhere in over an hour (two hours for a 70B or 96K+-prompt phase, where a single call
+can legitimately take minutes) -- see that function's own docstring for why it checks globally across phases rather
+than trying to map a queue entry id to one exact phase/section key.
+
 Usage (run locally on evo-t2s or evo-x2, where C:\\apu\\ovn\\results and C:\\apu\\ovn\\queue_state.json live):
   python results_digest.py --out C:\\apu\\ovn\\RESULTS_DIGEST.md
 
@@ -127,10 +136,13 @@ def check_idle(queue_items, log_dir, now=None):
     return None
 
 
-def render_markdown(machine, phases, idle_alert=None, generated_ts_utc=None):
+def render_markdown(machine, phases, idle_alert=None, progress_alert=None, generated_ts_utc=None):
     lines = []
     if idle_alert:
         lines.append(f"**ALERT: {machine} idle since check, reason: {idle_alert}**")
+        lines.append("")
+    if progress_alert:
+        lines.append(f"**ALERT: {machine} progress stale, reason: {progress_alert}**")
         lines.append("")
     lines.append(f"# Results digest -- {machine}")
     lines.append("")
@@ -182,12 +194,14 @@ def main():
         except (OSError, json.JSONDecodeError):
             queue_items = []
     idle_alert = check_idle(queue_items, qpath.parent) if queue_items else None
+    progress_alert = _wd.check_progress_stale(phases, queue_items) if queue_items else None
 
     machine = args.machine or qpath.parent.name or "unknown"
-    md = render_markdown(machine, phases, idle_alert=idle_alert)
+    md = render_markdown(machine, phases, idle_alert=idle_alert, progress_alert=progress_alert)
     Path(args.out).write_text(md, encoding="utf-8")
+    alerts = ", ".join(a for a in (idle_alert, progress_alert) if a)
     print(f"wrote {args.out}: {len(phases)} phases, {sum(p['n'] for p in phases.values())} rows"
-          f"{', ' + idle_alert if idle_alert else ''}")
+          f"{', ' + alerts if alerts else ''}")
 
 
 if __name__ == "__main__":

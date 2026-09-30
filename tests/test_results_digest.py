@@ -178,6 +178,43 @@ def test_render_markdown_no_alert_line_when_none():
     assert "ALERT" not in md
 
 
+def test_render_markdown_includes_progress_alert():
+    md = rd.render_markdown("evo-x2", {}, progress_alert="job r1b_controls stale, 90 min")
+    assert "ALERT: evo-x2 progress stale, reason: job r1b_controls stale, 90 min" in md
+
+
+def test_render_markdown_shows_both_alerts_when_both_present():
+    md = rd.render_markdown("evo-x2", {}, idle_alert="idle reason", progress_alert="progress reason")
+    assert "idle since check" in md
+    assert "progress stale" in md
+
+
+# ------------------------------------------------------------------------------------------- check_progress_stale wiring
+def test_main_surfaces_progress_alert_in_output(tmp_path, monkeypatch, capsys):
+    """End to end through main(): a queue with a running job and a phase whose last row is over an hour old must
+    produce a progress alert in both the written digest and the printed summary line."""
+    import json as _json
+    from datetime import datetime, timedelta, timezone
+    results_dir = tmp_path / "results"
+    results_dir.mkdir()
+    stale_ts = (datetime.now(timezone.utc) - timedelta(minutes=90)).isoformat()
+    (results_dir / "run.jsonl").write_text(
+        _json.dumps({"section": "R1b", "ts_utc": stale_ts, "model_id": "qwen3-8b"}) + "\n", encoding="utf-8")
+    queue_file = tmp_path / "queue_state.json"
+    queue_file.write_text(_json.dumps([{"id": "r1b_controls", "status": "running", "cmd": ["...", "qwen3-8b"]}]),
+                          encoding="utf-8")
+    out_path = tmp_path / "DIGEST.md"
+    monkeypatch.setattr(sys, "argv", ["results_digest.py", "--results-dir", str(results_dir),
+                                      "--queue-file", str(queue_file), "--out", str(out_path),
+                                      "--machine", "evo-x2"])
+    rd.main()
+    printed = capsys.readouterr().out
+    assert "r1b_controls" in printed
+    md = out_path.read_text(encoding="utf-8")
+    assert "progress stale" in md
+    assert "r1b_controls" in md
+
+
 def test_render_markdown_includes_phase_table():
     phases = {"R1speed": {"n": 3, "last_ts_utc": "2026-09-29T01:00:00Z", "metrics": {"ttft_s": {"n": 3, "median": 2.0, "min": 1.0, "max": 3.0}},
                           "contamination_tags": {}, "outcomes": {}, "files": ["x.jsonl"]}}

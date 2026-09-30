@@ -59,6 +59,18 @@ QUEUE_LOG_DIR = Path(r"C:\apu\ovn")
 HEARTBEAT_STALE_S = 30 * 60
 HEARTBEAT_STALE_S_70B = 60 * 60
 
+# Progress-staleness thresholds (2026-09-30): the heartbeat above only proves the PROCESS is alive and its log file
+# is still being touched -- a process can keep logging progress lines (or keep a stale log fresh via any periodic
+# write) while producing zero actual result rows, e.g. stuck retrying a call that never completes, or looping on a
+# guard failure. This is a real, distinct failure mode from a dead process: found on 2026-09-30 when two separate
+# jobs on two separate machines were reported "running" well past when they had actually finished or errored out,
+# because every check only re-confirmed pid-alive/heartbeat-fresh without ever checking whether a NEW RESULT ROW had
+# actually been written recently. The thresholds here are deliberately longer than the heartbeat ones (60/120 min
+# vs 30/60 min) since a real call can legitimately take several minutes without writing a row yet; this check exists
+# to catch "stopped writing rows entirely for an hour-plus", not to second-guess normal per-call latency.
+PROGRESS_STALE_S = 60 * 60
+PROGRESS_STALE_S_LONG = 120 * 60
+
 
 def _log(msg):
     line = f"[{time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}] {msg}"
@@ -108,6 +120,75 @@ def is_stale(entry, age_s):
         return True
     threshold = HEARTBEAT_STALE_S_70B if is_70b_phase(entry) else HEARTBEAT_STALE_S
     return age_s > threshold
+
+
+def is_long_prompt_phase(entry):
+    """True if this entry's own cmd mentions a 96K+ token prompt length -- K1 v3's own probe sweep (16K/32K/48K/
+    96K/128K) is the current example, but this checks the cmd generically (any literal 96000+/128000/196608/262144-
+    scale number as a standalone arg or inside a comma list) rather than hardcoding K1 v3's own constant names, so a
+    future phase that probes similarly long prompts gets the longer threshold without this file needing an edit."""
+    cmd = entry.get("cmd") or []
+    for c in cmd:
+        for tok in str(c).replace(",", " ").split():
+            try:
+                if int(tok) >= 96_000:
+                    return True
+            except ValueError:
+                continue
+    return False
+
+
+def needs_long_progress_threshold(entry):
+    return is_70b_phase(entry) or is_long_prompt_phase(entry)
+
+
+def progress_stale_age_s(phases, now=None):
+    """Seconds since the most recent result row across every phase bucket collect_phase_summaries produced (the
+    real signal item 4 asks for: has ANY new RESULT ROW been written recently, not just a log line). Deliberately
+    global across phases rather than trying to map a queue entry id to one specific phase/section key -- that
+    mapping is not reliable (e.g. "r1b_controls" the queue id vs "R1b"/"R1d" the section values an entry's own rows
+    actually carry), and a wrong guess here would be exactly the kind of silent misattribution this repo's own
+    queue_watchdog history (see module docstring) has already been burned by once. If the job running right now is
+    genuinely producing rows, some phase's last_ts_utc will be recent; if nothing has been written anywhere in over
+    an hour while something is marked running, that is the real alert condition regardless of which phase it would
+    have landed in. Returns None if no phase has ever recorded a last_ts_utc at all."""
+    from datetime import datetime, timezone
+    now = now if now is not None else time.time()
+    timestamps = []
+    for p in phases.values():
+        ts = p.get("last_ts_utc")
+        if not ts:
+            continue
+        try:
+            dt = datetime.fromisoformat(ts)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            timestamps.append(dt.timestamp())
+        except ValueError:
+            continue
+    if not timestamps:
+        return None
+    return now - max(timestamps)
+
+
+def check_progress_stale(phases, queue_items, now=None):
+    """Read-only progress check, alongside (not instead of) the heartbeat check above: if a queue entry is
+    "running", is the last actual result row across all known phases older than PROGRESS_STALE_S (or
+    PROGRESS_STALE_S_LONG for a 70B or 96K+-prompt phase)? Returns an ALERT string or None. Never touches pid_alive
+    and never starts/stops/kills anything -- same read-only contract as check_idle in analysis/results_digest.py,
+    which this is meant to be called alongside there."""
+    now = now if now is not None else time.time()
+    running = next((it for it in queue_items if it.get("status") == "running"), None)
+    if running is None:
+        return None
+    age = progress_stale_age_s(phases, now=now)
+    threshold = PROGRESS_STALE_S_LONG if needs_long_progress_threshold(running) else PROGRESS_STALE_S
+    if age is None:
+        return f"job {running['id']} is running but no phase has ever written a result row"
+    if age > threshold:
+        return (f"job {running['id']} is running (pid/heartbeat may look fine) but no new result row has been "
+                f"written anywhere in {age/60:.0f} min (threshold {threshold//60} min)")
+    return None
 
 
 def tick(pid_alive_fn=pid_alive, heartbeat_age_fn=heartbeat_age_s):

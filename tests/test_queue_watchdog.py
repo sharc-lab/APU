@@ -241,3 +241,104 @@ def test_main_calls_digest_after_tick(monkeypatch, tmp_path):
     monkeypatch.setattr(wd, "run_digest", lambda: (calls.append(1) or {"action": "ran", "rc": 0, "stdout": ""}))
     wd.main()
     assert calls == [1]
+
+
+# ---------------------------------------------------------------------------------------------------- progress-staleness (2026-09-30)
+# Found 2026-09-30: two separate jobs, two separate machines, both reported "running" for hours past when they had
+# actually finished or errored, because every liveness check only re-confirmed pid-alive/heartbeat-fresh without
+# ever checking whether a NEW RESULT ROW had been written recently. These tests cover the new, distinct check.
+
+def _phases(last_ts_map):
+    """Builds a minimal phases dict shaped like results_digest.collect_phase_summaries' output, for the one field
+    progress_stale_age_s/check_progress_stale actually read."""
+    return {k: {"n": 1, "last_ts_utc": v, "metrics": {}, "contamination_tags": {}, "outcomes": {}, "files": []}
+            for k, v in last_ts_map.items()}
+
+
+def test_is_long_prompt_phase_detects_96k_plus_literal_in_cmd():
+    entry = {"cmd": ["python", "t2s_k1_ollama.py", "--phase", "tier_v3", "--lengths", "16000,32000,96000"]}
+    assert wd.is_long_prompt_phase(entry) is True
+
+
+def test_is_long_prompt_phase_false_for_short_prompts_only():
+    entry = {"cmd": ["python", "t2s_night2.py", "--phases", "r1b", "--r1b-models", "qwen3-8b,qwen3-14b"]}
+    assert wd.is_long_prompt_phase(entry) is False
+
+
+def test_needs_long_progress_threshold_true_for_70b_or_long_prompt():
+    assert wd.needs_long_progress_threshold({"cmd": ["...", "llama-3.3-70b"]}) is True
+    assert wd.needs_long_progress_threshold({"cmd": ["...", "128000"]}) is True
+    assert wd.needs_long_progress_threshold({"cmd": ["...", "qwen3-8b"]}) is False
+
+
+def test_progress_stale_age_s_uses_the_most_recent_timestamp_across_phases():
+    now = 1_800_000_000.0
+    phases = _phases({
+        "R1b": "2026-09-30T00:00:00+00:00",
+        "R1d": "2026-09-30T00:30:00+00:00",  # more recent -- this one should win
+    })
+    age = wd.progress_stale_age_s(phases, now=now)
+    from datetime import datetime, timezone
+    expected = now - datetime(2026, 9, 30, 0, 30, 0, tzinfo=timezone.utc).timestamp()
+    assert abs(age - expected) < 1e-6
+
+
+def test_progress_stale_age_s_none_when_no_phase_has_a_timestamp():
+    assert wd.progress_stale_age_s(_phases({}), now=1_800_000_000.0) is None
+
+
+def test_check_progress_stale_none_when_nothing_running():
+    result = wd.check_progress_stale(_phases({"R1b": "2026-09-30T00:00:00+00:00"}),
+                                       [{"id": "a", "status": "pending", "cmd": []}])
+    assert result is None
+
+
+def test_check_progress_stale_none_when_recent():
+    now = 1_800_000_000.0
+    from datetime import datetime, timezone
+    recent_ts = datetime.fromtimestamp(now - 10 * 60, tz=timezone.utc).isoformat()
+    phases = _phases({"R1b": recent_ts})
+    queue_items = [{"id": "r1b_controls", "status": "running", "cmd": ["...", "qwen3-8b"]}]
+    result = wd.check_progress_stale(phases, queue_items, now=now)
+    assert result is None
+
+
+def test_check_progress_stale_alerts_past_60min_for_ordinary_phase():
+    now = 1_800_000_000.0
+    from datetime import datetime, timezone
+    stale_ts = datetime.fromtimestamp(now - 90 * 60, tz=timezone.utc).isoformat()
+    phases = _phases({"R1b": stale_ts})
+    queue_items = [{"id": "r1b_controls", "status": "running", "cmd": ["...", "qwen3-8b"]}]
+    result = wd.check_progress_stale(phases, queue_items, now=now)
+    assert result is not None
+    assert "r1b_controls" in result
+    assert "90 min" in result or "90" in result
+
+
+def test_check_progress_stale_does_not_alert_at_90min_for_70b_phase():
+    """90 min is stale for an ordinary phase (60 min threshold) but not for a 70B phase (120 min threshold) -- the
+    same age must produce different verdicts depending on which phase is running."""
+    now = 1_800_000_000.0
+    from datetime import datetime, timezone
+    stale_ts = datetime.fromtimestamp(now - 90 * 60, tz=timezone.utc).isoformat()
+    phases = _phases({"P70": stale_ts})
+    queue_items = [{"id": "x2_r1b_scale", "status": "running", "cmd": ["...", "llama-3.3-70b"]}]
+    result = wd.check_progress_stale(phases, queue_items, now=now)
+    assert result is None
+
+
+def test_check_progress_stale_alerts_past_120min_for_70b_phase():
+    now = 1_800_000_000.0
+    from datetime import datetime, timezone
+    stale_ts = datetime.fromtimestamp(now - 150 * 60, tz=timezone.utc).isoformat()
+    phases = _phases({"P70": stale_ts})
+    queue_items = [{"id": "x2_r1b_scale", "status": "running", "cmd": ["...", "llama-3.3-70b"]}]
+    result = wd.check_progress_stale(phases, queue_items, now=now)
+    assert result is not None
+
+
+def test_check_progress_stale_alerts_when_no_phase_has_ever_written_a_row():
+    queue_items = [{"id": "fresh_job", "status": "running", "cmd": ["...", "qwen3-8b"]}]
+    result = wd.check_progress_stale(_phases({}), queue_items, now=1_800_000_000.0)
+    assert result is not None
+    assert "no phase has ever written" in result
