@@ -1,7 +1,14 @@
 """Tests for harness/t2s_r2_session_growth.py: turn generator, scorer, arm config-application,
 memory-condition wiring, and a stub end-to-end dry run against fakes (no real network/process
-calls anywhere in this file)."""
+calls anywhere in this file).
 
+Fake-object conventions here follow tests/test_k1_ollama.py exactly (FakeOllama/FakeServer, a
+make_lab(tmp_path, host, resume) helper building a real Lab subclass with an injected host_cfg and
+args.Namespace), since harness/t2s_r2_session_growth.py now reuses t2s_k1_ollama.K1Lab and
+t2s_k1_ollama.OllamaClient directly rather than a separate hand-rolled Lab/client pair."""
+
+import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -145,7 +152,6 @@ class TestScoreTurn:
             "answer": f"looked it up{session.session_code}",
             "source": "lookup_fact",
         }
-        import json
         score = r2.score_turn(turn, session.session_code, json.dumps(output), sent_tokens=100,
                                processed_tokens=100)
         assert score.rule1_json_keys
@@ -164,13 +170,11 @@ class TestScoreTurn:
         assert score.any_rule_failed
 
     def test_rule1_fails_missing_keys(self):
-        import json
         session, turn = make_session_and_turn(idx=1)
         score = r2.score_turn(turn, session.session_code, json.dumps({"foo": "bar"}), 100, 100)
         assert not score.rule1_json_keys
 
     def test_rule2_fails_when_log_event_not_called(self):
-        import json
         session, turn = make_session_and_turn(idx=1)
         output = {"tool_calls": [{"name": turn.tool_name, "arguments": turn.tool_args}],
                   "answer": f"x{session.session_code}", "source": "s"}
@@ -178,7 +182,6 @@ class TestScoreTurn:
         assert not score.rule2_log_event_called
 
     def test_rule3_fails_on_zebra_literal(self):
-        import json
         session, turn = make_session_and_turn(idx=1)
         output = {"tool_calls": [{"name": "log_event", "arguments": {"event": "e"}}],
                   "answer": f"ZEBRA-7{session.session_code}", "source": "s"}
@@ -186,7 +189,6 @@ class TestScoreTurn:
         assert not score.rule3_no_zebra
 
     def test_rule4_fails_on_forbidden_unit_for_length_turn(self):
-        import json
         session, turn = make_session_and_turn(idx=2)  # even turn -> requires_length
         assert turn.requires_length
         output = {"tool_calls": [{"name": "log_event", "arguments": turn.tool_args}],
@@ -195,7 +197,6 @@ class TestScoreTurn:
         assert not score.rule4_metres
 
     def test_rule4_passes_for_non_length_turn_regardless_of_units(self):
-        import json
         session, turn = make_session_and_turn(idx=1)  # odd turn -> not requires_length
         output = {"tool_calls": [{"name": "log_event", "arguments": {"event": "e"}}],
                   "answer": f"3 feet {session.session_code}", "source": "s"}
@@ -203,7 +204,6 @@ class TestScoreTurn:
         assert score.rule4_metres
 
     def test_rule5_fails_when_session_code_missing(self):
-        import json
         session, turn = make_session_and_turn(idx=1)
         output = {"tool_calls": [{"name": "log_event", "arguments": {"event": "e"}}],
                   "answer": "no code here", "source": "s"}
@@ -211,7 +211,6 @@ class TestScoreTurn:
         assert not score.rule5_session_code
 
     def test_tool_args_mismatch_detected(self):
-        import json
         session, turn = make_session_and_turn(idx=1)
         output = {"tool_calls": [{"name": "log_event", "arguments": {"event": "e"}},
                                   {"name": turn.tool_name, "arguments": {"key": "WRONG"}}],
@@ -220,7 +219,6 @@ class TestScoreTurn:
         assert not score.tool_args_match
 
     def test_fact_recall_exact_match(self):
-        import json
         session, turn = make_session_and_turn(idx=4)
         assert turn.is_recall
         output = {"tool_calls": [{"name": "log_event", "arguments": turn.tool_args},
@@ -230,7 +228,6 @@ class TestScoreTurn:
         assert score.fact_recall_ok is True
 
     def test_fact_recall_wrong_value(self):
-        import json
         session, turn = make_session_and_turn(idx=4)
         output = {"tool_calls": [{"name": "log_event", "arguments": turn.tool_args}],
                   "answer": "WRONG-VALUE", "source": "s"}
@@ -238,7 +235,6 @@ class TestScoreTurn:
         assert score.fact_recall_ok is False
 
     def test_fact_recall_none_on_non_recall_turn(self):
-        import json
         session, turn = make_session_and_turn(idx=1)
         output = {"tool_calls": [{"name": "log_event", "arguments": {"event": "e"}}],
                   "answer": f"x{session.session_code}", "source": "s"}
@@ -295,7 +291,6 @@ class TestScoreSession:
             good = {"tool_calls": [{"name": "log_event", "arguments": {"event": "e"}},
                                      {"name": t.tool_name, "arguments": t.tool_args}],
                     "answer": answer, "source": "s"}
-            import json
             if t.idx == 2:
                 outputs.append({"output_text": json.dumps(good), "sent_tokens": 10,
                                  "processed_tokens": 10, "http_status": 500, "error_text": "boom"})
@@ -313,7 +308,6 @@ class TestScoreSession:
     def test_survival_curve_shape(self):
         session = r2.generate_session(1, count_fn=word_count_fn, max_turns=4)
         clean_outputs = []
-        import json
         for t in session.turns:
             answer = f"{t.recall_value} {session.session_code}" if t.is_recall else f"x{session.session_code}"
             good = {"tool_calls": [{"name": "log_event", "arguments": {"event": "e"}},
@@ -437,34 +431,107 @@ class TestClassifyContextOverflow:
                                              processed_tokens=1) == "context_shift"
 
 
-# ── R2.4: memory-condition wiring ───────────────────────────────────────────────────────────────
+# ── R2 host wiring: reuses t2s_k1_ollama.require_host / harness/host_config.py ─────────────────────
 
 
-class FakeOccupierServer:
-    def __init__(self):
+class TestHostWiring:
+    def test_require_host_is_the_real_k1_wrapper(self):
+        cfg = r2.k1.require_host("evo-t2s")
+        assert cfg["gpu_vendor"] == "intel"
+        assert cfg["backend"] == "vulkan"
+
+    def test_require_host_unknown_raises(self):
+        try:
+            r2.k1.require_host("not-a-real-host")
+            assert False, "expected SystemExit"
+        except SystemExit:
+            pass
+
+    def test_build_arg_parser_host_choices_match_k1(self):
+        ap = r2.build_arg_parser()
+        assert set(ap._option_string_actions["--host"].choices) == set(r2.k1.K1_HOST_EXTRAS)
+
+
+# ── R2.4: memory-condition wiring (Occupier mirrors phase_memory_pressure's confirm pattern) ──────
+
+
+class FakeServer:
+    """Same shape as tests/test_k1_ollama.py's FakeServer: .start() -> {"ok", ...}, .stop()."""
+
+    def __init__(self, ok=True, load_s=5.0):
+        self.ok, self.load_s = ok, load_s
         self.started = False
         self.stopped = False
 
     def start(self):
         self.started = True
-        return {"ok": True}
+        return {"ok": self.ok, "load_s": self.load_s, "error": None if self.ok else "boom"}
 
     def stop(self):
         self.stopped = True
 
 
+def make_lab(tmp_path, host="evo-x2", resume=None):
+    host_cfg = r2.k1.require_host(host)
+    args = argparse.Namespace(resume=resume, out_dir=str(tmp_path), ollama_port=11434)
+    prov = {"git_head": "deadbeef", "committed": True, "problems": [], "files": []}
+    return r2.R2SessionLab(args, host_cfg, prov)
+
+
+class TestOccupier:
+    def test_start_confirms_held_gb_within_tolerance(self, tmp_path):
+        lab = make_lab(tmp_path)
+        fake_srv = FakeServer(ok=True)
+        avails = iter([100000.0, 100000.0 - 40 * 1024])  # 40 GB drop
+        occ = r2.Occupier(lab, occupier_mi=object(), occupier_n_ctx=32768,
+                           server_factory=lambda mi, n_ctx, tag: fake_srv,
+                           avail_mb_fn=lambda: next(avails))
+        result = occ.start()
+        assert result["ok"] is True
+        assert result["held_confirmed"] is True
+        assert abs(result["held_gb"] - 40.0) < 0.01
+        occ.stop()
+        assert fake_srv.stopped is True
+
+    def test_start_flags_unconfirmed_when_drop_too_small(self, tmp_path):
+        lab = make_lab(tmp_path)
+        fake_srv = FakeServer(ok=True)
+        avails = iter([100000.0, 100000.0 - 5 * 1024])  # only 5 GB drop against a 40 GB target
+        occ = r2.Occupier(lab, occupier_mi=object(), occupier_n_ctx=32768,
+                           server_factory=lambda mi, n_ctx, tag: fake_srv,
+                           avail_mb_fn=lambda: next(avails))
+        result = occ.start()
+        assert result["held_confirmed"] is False
+
+    def test_start_reports_failure_without_raising(self, tmp_path):
+        lab = make_lab(tmp_path)
+        fake_srv = FakeServer(ok=False)
+        occ = r2.Occupier(lab, occupier_mi=object(), occupier_n_ctx=32768,
+                           server_factory=lambda mi, n_ctx, tag: fake_srv,
+                           avail_mb_fn=lambda: 100000.0)
+        result = occ.start()
+        assert result["ok"] is False
+        assert result["held_gb"] is None
+
+
 class TestMemoryConditionWiring:
     def test_as_is_returns_none_and_starts_nothing(self):
-        result = r2.wire_memory_condition("as_is")
+        occ, result = r2.wire_memory_condition("as_is")
+        assert occ is None
         assert result is None
 
-    def test_occupied_40gb_starts_the_occupier(self):
-        fake_server = FakeOccupierServer()
-        occ = r2.wire_memory_condition("occupied_40gb",
-                                        occupier_factory=lambda: r2.Occupier(fake_server))
-        assert fake_server.started
+    def test_occupied_40gb_starts_the_occupier(self, tmp_path):
+        lab = make_lab(tmp_path)
+        fake_srv = FakeServer(ok=True)
+        occ, result = r2.wire_memory_condition(
+            "occupied_40gb",
+            occupier_factory=lambda: r2.Occupier(lab, occupier_mi=object(), occupier_n_ctx=32768,
+                                                  server_factory=lambda mi, n_ctx, tag: fake_srv,
+                                                  avail_mb_fn=lambda: 100000.0))
+        assert fake_srv.started
+        assert result["ok"] is True
         occ.stop()
-        assert fake_server.stopped
+        assert fake_srv.stopped
 
     def test_occupied_40gb_without_factory_raises(self):
         import pytest
@@ -499,21 +566,26 @@ class TestEstimateHours:
         assert abs(est["total_hours"] - expected) < 1e-9
 
 
-# ── Full stub dry run: R2Lab.phase_run_session against fakes, no real network/process ────────────
+# ── Full stub dry run: R2SessionLab.phase_run_session against fakes, no real network/process ──────
 
 
-class FakeOllamaClient:
-    """Deterministic fake: always answers compliantly except it never calls log_event, so rule 2
-    always fails from turn 1 -- lets the dry run exercise the scorer's failure paths too."""
+class FakeOllama:
+    """Same shape as tests/test_k1_ollama.py's FakeOllama, matching the real
+    t2s_k1_ollama.OllamaClient.chat(model, prompt, num_ctx=None, max_tokens=64, keep_alive=None,
+    messages=None) signature (including the messages= keyword this rebuild added for R2). Always
+    answers compliantly except it never calls log_event, so rule 2 always fails from turn 1 -- lets
+    the dry run exercise the scorer's failure paths too."""
 
     def __init__(self):
-        self.n_calls = 0
+        self.calls = []
 
-    def chat(self, *, model, messages, options):
-        self.n_calls += 1
-        last_user = messages[-1]["content"]
-        return {"message": {"role": "assistant", "content": "not valid json output"},
-                "prompt_eval_count": 50, "http_status": 200, "error": None}
+    def chat(self, model, prompt, num_ctx=None, max_tokens=64, keep_alive=None, messages=None):
+        # snapshot messages (list(...)) since the caller keeps mutating the same list object turn
+        # to turn -- storing the reference itself would make every recorded call alias the final,
+        # fully-grown history instead of what was actually sent at that point in time.
+        self.calls.append({"model": model, "num_ctx": num_ctx, "messages": list(messages or [])})
+        return {"outcome": "ok", "status": 200, "message": "not valid json output",
+                "prompt_eval_count": 50, "error": None}
 
 
 class FakeLlamaServerSession:
@@ -535,9 +607,8 @@ class FakeLlamaServerSession:
         self.n_calls += 1
         n_tokens = len(prompt.split())
         if n_tokens > self.fake_ctx:
-            import json as _json
-            raw = _json.dumps({"error": {"type": "exceed_context_size_error",
-                                          "n_prompt_tokens": n_tokens, "n_ctx": self.fake_ctx}})
+            raw = json.dumps({"error": {"type": "exceed_context_size_error",
+                                         "n_prompt_tokens": n_tokens, "n_ctx": self.fake_ctx}})
             raise ls.ContextSizeError(n_prompt_tokens=n_tokens, n_ctx=self.fake_ctx, raw=raw)
         return ("not valid json output", 10.0, 5.0, n_tokens, 5, "stop", 0)
 
@@ -546,28 +617,25 @@ class TestStubDryRun:
     """End-to-end stub dry run: 8 turns, 1 seed, 1 model, all 5 arms, all against fakes."""
 
     def test_dry_run_all_5_arms_call_shape(self, tmp_path):
-        lab = r2.R2Lab(str(tmp_path / "r2_smoke.jsonl"))
+        lab = make_lab(tmp_path)
         model_id = "qwen3-4b-2507"
         seed = 20260901
         max_turns = 8
         call_counts = {}
         for arm_id in r2.ARM_ORDER:
             runtime = r2.ARMS[arm_id]["runtime"]
-            if runtime == "ollama":
-                client = FakeOllamaClient()
-            else:
-                client = FakeLlamaServerSession()
+            client = FakeOllama() if runtime == "ollama" else FakeLlamaServerSession()
+            kwargs = {"ollama": client} if runtime == "ollama" else {"llama_session": client}
             result = lab.phase_run_session(model_id=model_id, arm_id=arm_id,
-                                            condition_id="as_is", seed=seed, client=client,
+                                            condition_id="as_is", seed=seed,
                                             count_fn=word_count_fn, max_turns=max_turns,
-                                            log_text_fn=(lambda c=client: getattr(c, "log_text", "")))
+                                            log_text_fn=(lambda c=client: getattr(c, "log_text", "")),
+                                            **kwargs)
             n_turns = len(result["rows"])
-            call_counts[arm_id] = {
-                "chat_or_call_invocations": client.n_calls,
-                "turns_run": n_turns,
-            }
+            n_calls = len(client.calls) if runtime == "ollama" else client.n_calls
+            call_counts[arm_id] = {"chat_or_call_invocations": n_calls, "turns_run": n_turns}
             assert n_turns == max_turns
-            assert client.n_calls == max_turns
+            assert n_calls == max_turns
 
         # Exact call-shape breakdown by arm for 8 turns x 1 seed x 1 model x 5 arms.
         assert call_counts == {
@@ -581,35 +649,46 @@ class TestStubDryRun:
         assert total_calls == 40  # 8 turns x 5 arms
 
     def test_dry_run_writes_one_jsonl_row_per_turn(self, tmp_path):
-        jsonl_path = tmp_path / "r2_rows.jsonl"
-        lab = r2.R2Lab(str(jsonl_path))
-        client = FakeOllamaClient()
-        result = lab.phase_run_session(model_id="qwen3-4b-2507", arm_id="ollama_default",
-                                        condition_id="as_is", seed=1, client=client,
-                                        count_fn=word_count_fn, max_turns=5)
-        lines = jsonl_path.read_text(encoding="utf-8").strip().splitlines()
+        lab = make_lab(tmp_path)
+        client = FakeOllama()
+        lab.phase_run_session(model_id="qwen3-4b-2507", arm_id="ollama_default",
+                               condition_id="as_is", seed=1, ollama=client,
+                               count_fn=word_count_fn, max_turns=5)
+        lines = Path(lab.rows_path).read_text(encoding="utf-8").strip().splitlines()
         assert len(lines) == 5
-        import json
         for line in lines:
             row = json.loads(line)
             assert row["record"] == "r2_turn"
 
-    def test_dry_run_with_occupied_40gb_condition_starts_and_stops_occupier(self, tmp_path):
-        lab = r2.R2Lab(str(tmp_path / "r2_occ.jsonl"))
-        fake_server = FakeOccupierServer()
-        client = FakeOllamaClient()
+    def test_dry_run_ollama_arm_sends_growing_message_history(self, tmp_path):
+        """The reason OllamaClient.chat needed a messages= keyword at all: turn N's call must carry
+        every earlier turn's user/assistant messages, not just that turn's own prompt."""
+        lab = make_lab(tmp_path)
+        client = FakeOllama()
         lab.phase_run_session(model_id="qwen3-4b-2507", arm_id="ollama_default",
-                               condition_id="occupied_40gb", seed=1, client=client,
-                               count_fn=word_count_fn, max_turns=3,
-                               occupier_factory=lambda: r2.Occupier(fake_server))
-        assert fake_server.started
-        assert fake_server.stopped
+                               condition_id="as_is", seed=1, ollama=client,
+                               count_fn=word_count_fn, max_turns=4)
+        msg_counts = [len(c["messages"]) for c in client.calls]
+        assert msg_counts == [2, 4, 6, 8]  # system+user, then +assistant+user each turn
+
+    def test_dry_run_with_occupied_40gb_condition_starts_and_stops_occupier(self, tmp_path):
+        lab = make_lab(tmp_path)
+        fake_srv = FakeServer(ok=True)
+        client = FakeOllama()
+        lab.phase_run_session(
+            model_id="qwen3-4b-2507", arm_id="ollama_default", condition_id="occupied_40gb",
+            seed=1, ollama=client, count_fn=word_count_fn, max_turns=3,
+            occupier_factory=lambda: r2.Occupier(lab, occupier_mi=object(), occupier_n_ctx=32768,
+                                                  server_factory=lambda mi, n_ctx, tag: fake_srv,
+                                                  avail_mb_fn=lambda: 100000.0))
+        assert fake_srv.started
+        assert fake_srv.stopped
 
     def test_dry_run_llama_server_arm_classifies_hard_error_on_overflow(self, tmp_path):
-        lab = r2.R2Lab(str(tmp_path / "r2_overflow.jsonl"))
+        lab = make_lab(tmp_path)
         client = FakeLlamaServerSession(fake_ctx=1)  # tiny -> every turn overflows
         result = lab.phase_run_session(model_id="qwen3-4b-2507", arm_id="llama_server_c_131072",
-                                        condition_id="as_is", seed=1, client=client,
+                                        condition_id="as_is", seed=1, llama_session=client,
                                         count_fn=word_count_fn, max_turns=3,
                                         log_text_fn=lambda: client.log_text)
         classifications = {r["overflow_classification"] for r in result["rows"]}

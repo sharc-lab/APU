@@ -7,39 +7,64 @@ carrying 5 checkable rules, a 2-tool schema and 3 recall facts, followed by up t
 that each require exactly one tool call plus a ~1.5k-token simulated tool result, with a recall
 question added every 4th turn. A pure scorer (R2.2) marks rule violations, tool-call validity,
 fact-recall correctness and the sent-vs-processed token gap that is the silent-truncation signal.
-Five runtime arms (R2.3) and three memory conditions (R2.4) are then crossed against the generated
+Five runtime arms (R2.3) and two memory conditions (R2.4) are then crossed against the generated
 sessions to see whether the runtime's context choice tracks free memory or total memory, and
 whether failures are ever preceded by a real error.
 
-Note on repo state (read before extending this file)
-------------------------------------------------------
-The task brief that produced this module named harness/t2s_k1_ollama.py, harness/t2s_k2_pressure.py,
-harness/quality_suite.py, harness/host_config.py, tests/test_k1_ollama.py and tests/test_k2_pressure.py
-as the conventions to imitate, plus a "K1Lab phase_memory_pressure" occupying-server helper. As of
-commit 5ddecb4 (this module's base), none of those files exist in this repository. This module
-instead follows the closest real analogs that do exist:
+Note on repo state / what this rebuild changed (read before extending this file)
+----------------------------------------------------------------------------------
+An earlier version of this module was written from a worktree based on commit 5ddecb4, 90+ commits
+behind current main, where harness/t2s_k1_ollama.py, harness/t2s_k2_pressure.py,
+harness/quality_suite.py and harness/host_config.py did not yet exist. That version built its own
+Lab-equivalent (R2Lab from scratch), its own Ollama chat wrapper, its own occupying-server wrapper,
+and its own ad hoc host guard (require_host(allowed_tuple), keyed off socket.gethostname() with no
+ALIASES). Now that those real modules exist on main, this rebuild reuses them instead:
 
-  - t2s_lab.py / t2s_night2.py / t2s_overnight.py for the Lab/JSONL/CLI/host-guard/provenance
-    conventions (Jsonl row writer, Server/Balloon lifecycle, script_provenance/verify_deployed_blobs,
-    the `--smoke` flag, the socket.gethostname() host guard).
-  - context.py's build_filler for the ~1.5k-token simulated tool-result filler (same count_fn
-    injection pattern already used by t2s_lab.py's build_probe_prompts).
-  - llama_server.py's ContextSizeError, _parse_n_ctx_slot and _log_has_context_shift for the
-    llama-server context-overflow classification in R2.3(d) -- reused directly via
-    classify_context_overflow() below rather than reimplemented.
-  - t2s_lab.py's Server class (already used for the memory-lock experiments in t2s_night2's C1
-    phase) for the 40 GB occupying process in R2.4, wrapped by Occupier below rather than
-    reimplemented.
+  - Host selection now goes through harness/host_config.py's HOSTS/ALIASES/require_host, via
+    harness/t2s_k1_ollama.require_host (which merges host_config's real per-host dict with the one
+    R2-specific value -- backend -- host_config itself has no opinion on, the same way K1 does it).
+    R2's own require_host(allowed) wrapper is gone.
+  - The Lab/JSONL/resume bookkeeping now reuses t2s_k1_ollama.K1Lab directly (R2SessionLab below
+    subclasses it) instead of a separate R2Lab built from t2s_lab.Jsonl alone. K1Lab already gives
+    R2 done-phase resume tracking, emit()'s host/gpu_vendor/ollama_model_loaded stamping, and an
+    OllamaClient wired to --ollama-port -- all needed here and all previously reimplemented by hand.
+    The one place K1Lab does not fit R2 as-is: its stem auto-generation is hardcoded to the literal
+    "t2s_k1_ollama_<host>_<timestamp>" (see K1Lab.__init__), which would misname every R2 output
+    file as a K1 run. R2SessionLab.__init__ calls super().__init__() for everything else, then
+    overrides just the stem/prefix/rows_path/rows fields (mirroring K1Lab's own construction of
+    them) when the run is not a --resume, rather than forking the whole class over one string.
+  - The Ollama HTTP client is now t2s_k1_ollama.OllamaClient, not a hand-rolled urllib wrapper. Its
+    .chat() only sent a single user-turn message ([{"role":"user","content":prompt}]) with no way to
+    carry a growing conversation's history -- a genuine gap for R2, whose entire point is a session
+    that grows turn over turn. Fixed by adding one optional keyword, messages=, to OllamaClient.chat
+    itself (see that method's docstring): None (every existing call site, including K1's own)
+    preserves the exact old single-message body; R2 is the first caller to pass a real messages list.
+  - R2.4's 40 GB occupying-memory condition now mirrors t2s_k1_ollama.phase_memory_pressure's own
+    occupy-and-confirm pattern (start a t2s_lab.Server-shaped occupier via a server_factory, measure
+    the avail_mb drop, and only report held_confirmed once the drop is within tolerance_gb of the
+    target) instead of the previous Occupier, which only wrapped Server.start()/.stop() with no
+    memory confirmation at all. phase_memory_pressure itself is not called directly -- it also runs
+    its own single tier-probe chat call and immediately tears the occupier down, which does not fit
+    R2 (the occupier must stay up for an entire 80-turn session) -- but its confirm-via-avail_mb
+    arithmetic is reused verbatim in Occupier.start() below, which is what the original task brief's
+    "K1's code" for this condition meant.
 
-This is a fully separate script, the same way a hypothetical K1/K2 harness would be: t2s_night2.py
-has no SMOKE_GATED_PHASES table to register into (checked -- absent from this repo), so R2 is not
-wired into t2s_night2.py's PHASE_ORDER. It gets its own --smoke flag instead, following
-t2s_overnight.py's --smoke convention.
+Kept from the original version, unchanged in substance (none of it duplicates logic that exists for
+real elsewhere): the R2.1 turn generator, the R2.2 pure per-turn/per-session scorer, survival_curve,
+evaluate_kill_criterion, the R2.3 arm-config table and llama-server command/overflow-classification
+helpers (these already reused llama_server.py's ContextSizeError/_log_has_context_shift directly and
+still do -- confirmed unchanged on current main), and the R2.8 hour estimator.
+
+t2s_night2.py now has a SMOKE_GATED_PHASES table (re-checked on current main: it does, listing
+r1_speed/r1_check/a70/p70/r1b/r1c/r1d/mx2/px2) -- but neither K1 nor K2 registers into it either;
+both are fully separate scripts with their own argparse/main()/host guard, the same shape this file
+keeps. R2 stays a separate script with its own --smoke flag, matching K1/K2's convention, not
+t2s_night2.py's phase table (which is for phases t2s_night2.py's own scheduler runs in-process, not
+for standalone harness scripts).
 
 Model ids follow the existing registry convention in t2s_overnight.py's MODEL_FILES (e.g.
 "llama31-8b", "qwen3-4b-2507", "qwen3-8b"), not the "llama3.1:8b" / "qwen3:4b-instruct-2507" Ollama
-tag spelling from the task brief -- the two are aliases for the same GGUF files; MODEL_ID_ALIASES
-below documents the mapping to the Ollama tag spelling for the Ollama arms.
+tag spelling; MODEL_ID_ALIASES documents the mapping to the Ollama tag spelling for the Ollama arms.
 """
 
 from __future__ import annotations
@@ -48,7 +73,6 @@ import argparse
 import json
 import random
 import re
-import socket
 import string
 import sys
 import time
@@ -60,7 +84,9 @@ sys.path.insert(0, str(DEPLOY))
 import context as ctx_mod  # noqa: E402
 import llama_server as ls  # noqa: E402
 import run_provenance as rp  # noqa: E402
+import t2s_k1_ollama as k1  # noqa: E402  (K1Lab, OllamaClient, require_host, run_ollama_ps, find_ollama_log)
 import t2s_lab as L  # noqa: E402
+import t2s_queue as tq  # noqa: E402
 from t2s_lab import log, utc_iso  # noqa: E402
 
 # ── Model registry (aliases the existing t2s_overnight.MODEL_FILES ids to Ollama tags) ─────────────
@@ -231,7 +257,7 @@ def generate_session(seed: int, count_fn=None, max_turns: int = MAX_TURNS,
     filler generated so far) reaches max_prompt_tokens, whichever comes first. count_fn defaults to
     a deterministic whitespace-based estimate so this function is usable with no live tokenizer or
     model, per R2.1's "no live model calls needed for this generator itself" requirement; pass a
-    real tokenizer's count_fn (e.g. LlamaServerSession.make_count_fn()) for token-accurate sessions.
+    real tokenizer's count_fn (e.g. a live server's .tokenize) for token-accurate sessions.
     """
     if count_fn is None:
         count_fn = _approx_token_count
@@ -478,12 +504,15 @@ def apply_ollama_arm(arm_id: str, base_options: dict | None = None) -> dict:
     return options
 
 
+DEFAULT_FIT_CTX_SENTINEL = -1  # marks "omit --ctx-size, let llama-server auto-pick"
+
+
 def build_llama_server_config(arm_id: str, *, exe: str, model_path: str, port: int,
                                **extra) -> ls.LlamaServerConfig:
     """Return the LlamaServerConfig for this arm. Arm (d)'s "default fit" behaviour (no --ctx-size
     override) is represented by DEFAULT_FIT_CTX_SENTINEL; callers that actually launch a process for
-    this arm must special-case that sentinel to omit --ctx-size (see start_llama_server_for_arm),
-    since LlamaServerConfig.ctx_size is a required field elsewhere in this shared module and other
+    this arm must special-case that sentinel to omit --ctx-size (see build_llama_server_cmd), since
+    LlamaServerConfig.ctx_size is a required field elsewhere in this shared module and other
     experiments depend on it always being written to the command line."""
     cfg = ARMS[arm_id]
     if cfg["runtime"] != "llama_server":
@@ -492,14 +521,11 @@ def build_llama_server_config(arm_id: str, *, exe: str, model_path: str, port: i
     return ls.LlamaServerConfig(exe=exe, model=model_path, ctx_size=ctx_size, port=port, **extra)
 
 
-DEFAULT_FIT_CTX_SENTINEL = -1  # marks "omit --ctx-size, let llama-server auto-pick"
-
-
 def build_llama_server_cmd(cfg: ls.LlamaServerConfig, log_path: str) -> list[str]:
     """Build the llama-server command line for `cfg`, omitting --ctx-size when cfg.ctx_size is
-    DEFAULT_FIT_CTX_SENTINEL (arm d). Duplicated from LlamaServerSession._build_cmd rather than
-    monkeypatching that shared class, because other experiments' tests assert its exact command
-    shape; this keeps arm (d)'s no-ctx-size behaviour local to R2 only."""
+    DEFAULT_FIT_CTX_SENTINEL (arm d). Duplicated from LlamaServerSession's own command-building
+    rather than monkeypatching that shared class, because other experiments' tests assert its exact
+    command shape; this keeps arm (d)'s no-ctx-size behaviour local to R2 only."""
     cmd = [cfg.exe, "-m", cfg.model, "--n-gpu-layers", str(cfg.n_gpu_layers), "--port", str(cfg.port),
            "--log-file", log_path, "--log-verbosity", "3", "-np", "1"]
     if cfg.ctx_size != DEFAULT_FIT_CTX_SENTINEL:
@@ -539,45 +565,69 @@ def classify_context_overflow(*, log_text: str, sent_tokens: int | None, process
 
 
 # ── R2.4: memory conditions ──────────────────────────────────────────────────────────────────────
+# Occupier mirrors t2s_k1_ollama.phase_memory_pressure's own occupy-and-confirm pattern (start a
+# t2s_lab.Server-shaped occupier, measure the real avail_mb drop, only call it "held" once that drop
+# is within tolerance_gb of the target) rather than the earlier version's bare Server.start()/.stop()
+# wrap with no confirmation at all. phase_memory_pressure itself is not called here because it also
+# fires one tier-probe chat call and tears the occupier straight back down; R2 instead needs the
+# occupier to stay up across a whole 80-turn session, so only its confirm arithmetic is reused.
 
 MEMORY_CONDITIONS = ("as_is", "occupied_40gb")
 OCCUPIER_TARGET_GB = 40
+OCCUPIER_TOLERANCE_GB = 2.0
 
 
 class Occupier:
-    """The 40 GB occupying-memory condition. Wraps t2s_lab.Server (already used for the memory-lock
-    experiments in t2s_night2's C1 phase) rather than reimplementing process/memory management --
-    the "K1Lab phase_memory_pressure" helper named in the original task brief does not exist in this
-    repository (see module docstring); Server is the real analog. In a real run this would be
-    constructed with a Server sized (model + -c) so its resident memory approaches
-    OCCUPIER_TARGET_GB; the exact sizing must be verified against Server.start()'s reported
-    private_mib on the live machine before a run is treated as a true "40 GB held" condition.
-    """
+    """The 40 GB occupying-memory condition (R2.4). occupier_mi/occupier_n_ctx select the GGUF the
+    occupying llama-server loads; server_factory defaults to the exact lambda t2s_k1_ollama.py's own
+    phase_memory_pressure/phase_quality_curves use (L.Server(lab, mi, n_ctx, backend=.., tag=..)), so
+    a caller can inject a fake in tests the same way K1's own tests do."""
 
-    def __init__(self, server):
-        self.server = server
+    def __init__(self, lab, occupier_mi, occupier_n_ctx: int, target_gb: float = OCCUPIER_TARGET_GB,
+                 tolerance_gb: float = OCCUPIER_TOLERANCE_GB, tag: str = "r2_mem_occupier",
+                 server_factory=None, avail_mb_fn=None):
+        self.lab, self.mi, self.n_ctx = lab, occupier_mi, occupier_n_ctx
+        self.target_gb, self.tolerance_gb, self.tag = target_gb, tolerance_gb, tag
+        self.server_factory = server_factory or (
+            lambda mi, n_ctx, tag: L.Server(lab, mi, n_ctx, backend=lab.host_cfg.get("backend", "vulkan"), tag=tag))
+        self.avail_mb_fn = avail_mb_fn or L.avail_mb
+        self.server = None
         self.start_info = None
 
-    def start(self):
+    def start(self) -> dict:
+        """Start the occupier and confirm via avail_mb (same +-tolerance_gb band phase_memory_pressure
+        uses). Returns {"ok", "held_gb", "held_confirmed", "server_start_info"}; never raises -- a
+        failed start or an unconfirmed hold is reported in the dict for the caller/row to record."""
+        pre_avail_mb = self.avail_mb_fn()
+        self.server = self.server_factory(self.mi, self.n_ctx, self.tag)
         self.start_info = self.server.start()
-        return self.start_info
+        if not self.start_info.get("ok"):
+            return {"ok": False, "held_gb": None, "held_confirmed": False,
+                    "server_start_info": self.start_info}
+        time.sleep(4)
+        post_avail_mb = self.avail_mb_fn()
+        held_gb = (pre_avail_mb - post_avail_mb) / 1024.0
+        held_confirmed = held_gb >= (self.target_gb - self.tolerance_gb)
+        return {"ok": True, "held_gb": held_gb, "held_confirmed": held_confirmed,
+                "server_start_info": self.start_info}
 
     def stop(self):
-        return self.server.stop()
+        if self.server is not None:
+            self.server.stop()
 
 
 def wire_memory_condition(condition_id: str, occupier_factory=None):
-    """Apply memory_condition `condition_id`. Returns the Occupier instance if one was started, or
-    None for "as_is". Caller is responsible for calling .stop() on the returned occupier when done
-    (a finally block in the real phase runner)."""
+    """Apply memory_condition `condition_id`. Returns (occupier, start_result) if one was started
+    ((None, None) for "as_is"). Caller is responsible for calling .stop() on the returned occupier
+    when done (a finally block in phase_run_session)."""
     if condition_id == "as_is":
-        return None
+        return None, None
     if condition_id == "occupied_40gb":
         if occupier_factory is None:
             raise ValueError("occupied_40gb condition requires an occupier_factory")
         occ = occupier_factory()
-        occ.start()
-        return occ
+        result = occ.start()
+        return occ, result
     raise ValueError(f"unknown memory condition {condition_id!r}")
 
 
@@ -597,34 +647,41 @@ def enumerate_cells(machine: str, models=ALL_MODELS, memory_conditions=MEMORY_CO
     return cells
 
 
-class R2Lab:
-    """Orchestrates one (model, arm, condition, seed) session end to end and writes one JSONL row
-    per turn, the same way t2s_lab.py's Jsonl-backed rows are written elsewhere in this repo.
-    Every external dependency (the Ollama client, the llama-server session, the occupier) is
-    injected, so this class runs against fakes in tests with no real network or process calls."""
+class R2SessionLab(k1.K1Lab):
+    """R2's job/JSONL/resume bookkeeping, reusing t2s_k1_ollama.K1Lab directly rather than a
+    separate hand-rolled Lab class (K1Lab already gives done-phase resume tracking, emit()'s
+    host/gpu_vendor/ollama_model_loaded stamping, and an OllamaClient wired to --ollama-port).
 
-    def __init__(self, jsonl_path):
-        self.jsonl = L.Jsonl(jsonl_path)
+    The one override: K1Lab.__init__ hardcodes its auto-generated stem to the literal
+    "t2s_k1_ollama_<host>_<timestamp>", which would misname every R2 output file as a K1 run. When
+    this is not a --resume, the stem/prefix/rows_path/rows are rebuilt here with R2's own prefix,
+    mirroring exactly how K1Lab itself builds them."""
 
-    def run_turn_ollama(self, client, model_id: str, arm_id: str, session: SessionSpec,
-                         turn: TurnSpec, history: list[dict], *, count_fn) -> dict:
-        """One turn against an injected Ollama-like client. `client.chat(model, messages, options)`
-        must return a dict with keys: message (={"role":.., "content":..}), prompt_eval_count,
-        http_status (default 200), error (default None)."""
-        options = apply_ollama_arm(arm_id, {"temperature": 0, "seed": session.seed})
-        messages = history + [{"role": "user", "content": turn.user_text}]
-        sent_tokens = count_fn(turn.user_text) + sum(count_fn(m["content"]) for m in history)
-        resp = client.chat(model=model_id, messages=messages, options=options)
-        output_text = (resp.get("message") or {}).get("content", "")
-        row = {
-            "record": "r2_turn", "backend": "ollama", "arm_id": arm_id, "model_id": model_id,
-            "seed": session.seed, "turn_idx": turn.idx, "session_code": session.session_code,
-            "output_text": output_text, "sent_tokens": sent_tokens,
-            "processed_tokens": resp.get("prompt_eval_count"),
-            "http_status": resp.get("http_status", 200), "error_text": resp.get("error"),
-            "ts_utc": utc_iso(),
-        }
-        self.jsonl.write(row)
+    def __init__(self, args, host_cfg, prov):
+        super().__init__(args, host_cfg, prov)
+        if not args.resume:
+            self.stem = f"t2s_r2_session_growth_{host_cfg['name']}_{time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())}"
+            self.prefix = str(self.out_dir / self.stem)
+            self.rows_path = self.prefix + ".jsonl"
+            self.rows = L.Jsonl(self.rows_path)
+
+    def run_turn_ollama(self, model_id: str, arm_id: str, session: SessionSpec, turn: TurnSpec,
+                         messages: list[dict], *, ollama=None, count_fn) -> dict:
+        """One turn against t2s_k1_ollama.OllamaClient.chat, passing the full running `messages`
+        history via its messages= keyword (see that method's docstring: this is the reason it was
+        extended in this rebuild -- every other caller still only ever sends a single-turn prompt)."""
+        ollama = ollama or self.ollama
+        options = apply_ollama_arm(arm_id, {"seed": session.seed})
+        sent_tokens = sum(count_fn(m["content"]) for m in messages)
+        resp = ollama.chat(model_id, "", num_ctx=options.get("num_ctx"), messages=messages)
+        output_text = resp.get("message") or ""
+        row = self.emit({
+            "record": "r2_turn", "phase": "r2_session", "backend": "ollama", "arm_id": arm_id,
+            "model_id": model_id, "seed": session.seed, "turn_idx": turn.idx,
+            "session_code": session.session_code, "output_text": output_text,
+            "sent_tokens": sent_tokens, "processed_tokens": resp.get("prompt_eval_count"),
+            "http_status": resp.get("status", 200), "error_text": resp.get("error"),
+        })
         return row
 
     def run_turn_llama_server(self, session_obj, model_id: str, arm_id: str, session: SessionSpec,
@@ -652,45 +709,46 @@ class R2Lab:
             log_text=log_text_fn(), sent_tokens=sent_tokens, processed_tokens=processed_tokens,
             http_status=http_status, error_body=raw_error_body,
         )
-        row = {
-            "record": "r2_turn", "backend": "llama_server", "arm_id": arm_id, "model_id": model_id,
-            "seed": session.seed, "turn_idx": turn.idx, "session_code": session.session_code,
-            "output_text": output_text, "sent_tokens": sent_tokens,
-            "processed_tokens": processed_tokens, "http_status": http_status,
-            "error_text": error_text, "overflow_classification": classification, "ts_utc": utc_iso(),
-        }
-        self.jsonl.write(row)
+        row = self.emit({
+            "record": "r2_turn", "phase": "r2_session", "backend": "llama_server", "arm_id": arm_id,
+            "model_id": model_id, "seed": session.seed, "turn_idx": turn.idx,
+            "session_code": session.session_code, "output_text": output_text,
+            "sent_tokens": sent_tokens, "processed_tokens": processed_tokens,
+            "http_status": http_status, "error_text": error_text,
+            "overflow_classification": classification,
+        })
         return row
 
     def phase_run_session(self, *, model_id: str, arm_id: str, condition_id: str, seed: int,
-                           client, count_fn, occupier_factory=None, max_turns: int = MAX_TURNS,
-                           log_text_fn=None) -> dict:
+                           ollama=None, llama_session=None, count_fn, occupier_factory=None,
+                           max_turns: int = MAX_TURNS, log_text_fn=None) -> dict:
         """Run one full session for one (model, arm, condition, seed) cell and return its
-        score_session() result plus the raw per-turn rows. `client` is either an Ollama-like fake
-        (for `runtime == "ollama"` arms) or a llama-server-session-like fake (for the other arms);
-        which methods get called is decided purely by ARMS[arm_id]["runtime"]."""
-        occ = wire_memory_condition(condition_id, occupier_factory)
+        score_session() result plus the raw per-turn rows. `ollama` (for runtime == "ollama" arms) or
+        `llama_session` (for the llama-server arms) is whichever fake/real client the runtime needs;
+        which one gets called is decided purely by ARMS[arm_id]["runtime"]."""
+        occ, occ_result = wire_memory_condition(condition_id, occupier_factory)
         try:
             session = generate_session(seed, count_fn=count_fn, max_turns=max_turns)
-            history = [{"role": "system", "content": session.system_prompt}]
+            messages = [{"role": "system", "content": session.system_prompt}]
             rows = []
             runtime = ARMS[arm_id]["runtime"]
             for turn in session.turns:
                 if runtime == "ollama":
-                    row = self.run_turn_ollama(client, model_id, arm_id, session, turn, history,
-                                                count_fn=count_fn)
+                    messages.append({"role": "user", "content": turn.user_text})
+                    row = self.run_turn_ollama(model_id, arm_id, session, turn, messages,
+                                                ollama=ollama, count_fn=count_fn)
+                    messages.append({"role": "assistant", "content": row["output_text"]})
                 else:
-                    row = self.run_turn_llama_server(client, model_id, arm_id, session, turn,
+                    row = self.run_turn_llama_server(llama_session, model_id, arm_id, session, turn,
                                                       log_text_fn=log_text_fn or (lambda: ""))
                 rows.append(row)
-                history.append({"role": "user", "content": turn.user_text})
-                history.append({"role": "assistant", "content": row["output_text"]})
             turn_outputs = [{"output_text": r["output_text"], "sent_tokens": r["sent_tokens"],
                               "processed_tokens": r["processed_tokens"],
                               "http_status": r["http_status"], "error_text": r["error_text"]}
                              for r in rows]
             scored = score_session(session, turn_outputs)
-            scored.update({"model_id": model_id, "arm_id": arm_id, "condition_id": condition_id})
+            scored.update({"model_id": model_id, "arm_id": arm_id, "condition_id": condition_id,
+                            "memory_condition_result": occ_result})
             return {"session": session, "rows": rows, "scored": scored}
         finally:
             if occ is not None:
@@ -732,45 +790,59 @@ def estimate_hours(machine: str = "evo-x2", models=ALL_MODELS, memory_conditions
 # ── CLI ─────────────────────────────────────────────────────────────────────────────────────────
 
 
-def require_host(allowed: tuple[str, ...]) -> str:
-    """Host guard following t2s_night2.py's `socket.gethostname().upper() != "EVO-T2S"` pattern,
-    generalised to the set of machines R2 is allowed to run on (evo-x2 and evo-t2s)."""
-    name = socket.gethostname().upper()
-    if name not in allowed:
-        raise SystemExit(f"R2 may only run on {allowed}, this host is {name!r}")
-    return name
+def build_arg_parser():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--host", required=True, choices=sorted(k1.K1_HOST_EXTRAS),
+                    help="which local machine's config to use (never used to open an SSH connection); "
+                         "see harness/host_config.py HOSTS/ALIASES, wrapped by t2s_k1_ollama.require_host")
+    ap.add_argument("--ollama-port", type=int, default=k1.DEFAULT_OLLAMA_PORT)
+    ap.add_argument("--out-dir", default=str(DEPLOY.parent / "results"))
+    ap.add_argument("--resume", default=None, help="prior run stem to resume/extend")
+    ap.add_argument("--require-committed", action="store_true",
+                    help="refuse to run unless this script is committed (standing rule; off by "
+                         "default while this file is new/under review)")
+    ap.add_argument("--smoke", action="store_true",
+                    help="stub dry run against fake clients; no real Ollama server, no real "
+                         "llama-server process (t2s_night2.py's SMOKE_GATED_PHASES table does not "
+                         "apply here -- like K1/K2, R2 is a fully separate script with its own flag)")
+    return ap
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--expect-blobs", default=None,
-                     help="run_provenance.verify_deployed_blobs manifest; required unless --smoke")
-    ap.add_argument("--out", default=None, help="output JSONL path prefix")
-    ap.add_argument("--smoke", action="store_true",
-                     help="stub dry run against fake clients; no real host guard, no real processes")
-    ap.add_argument("--machine", default=None, help="override machine id for --smoke runs")
+    ap = build_arg_parser()
     args = ap.parse_args(argv)
+    host_cfg = k1.require_host(args.host)
 
-    if args.smoke:
-        machine = args.machine or "evo-x2"
-    else:
-        machine = require_host(("EVO-X2", "EVO-T2S")).lower()
-        if not args.expect_blobs:
-            raise SystemExit("--expect-blobs is required for a non-smoke run")
-        rp.verify_deployed_blobs(DEPLOY, args.expect_blobs)
-
-    est = estimate_hours(machine=machine)
-    log(f"R2 estimated hours on {machine}: {est['total_hours']:.1f} h over {est['n_cells']} cells "
+    est = estimate_hours(machine=host_cfg["hw_id"])
+    log(f"R2 estimated hours on {host_cfg['hw_id']}: {est['total_hours']:.1f} h over {est['n_cells']} cells "
         f"({est['total_calls']} calls, {est['seconds_per_call_assumption']}s/call assumed)")
 
     if not args.smoke:
         raise SystemExit("real (non-smoke) execution requires live Ollama/llama-server wiring not "
                           "built in this pass -- see module docstring; run with --smoke for the "
-                          "stub dry run, or use R2Lab.phase_run_session directly with real clients")
+                          "stub dry run, or use R2SessionLab.phase_run_session directly with real "
+                          "clients")
 
-    out = args.out or str(DEPLOY / f"t2s_r2_smoke_{int(time.time())}")
-    lab = R2Lab(out + ".jsonl")
-    log(f"R2 smoke dry run writing to {out}.jsonl")
+    prov = rp.script_provenance([__file__], require_committed=args.require_committed)
+    lab = R2SessionLab(args, host_cfg, prov)
+    Path(lab.prefix + "_manifest.json").write_text(json.dumps({
+        "launch_utc": utc_iso(), "host": host_cfg, "args": vars(args), "script_provenance": prov,
+        "estimate": est,
+    }, indent=1, default=str), encoding="utf-8")
+    log(f"R2 smoke dry run writing to {lab.rows_path}")
+
+    note = "completed"
+    try:
+        pass  # --smoke stops here; see module docstring for what a real run still needs wired up
+    except Exception as e:
+        note = f"stopped: {e!r}"[:400]
+        log(note)
+        raise
+    finally:
+        try:
+            tq.advance(note)
+        except Exception as e:
+            log(f"queue advance failed: {e!r}")
     return lab, est
 
 
