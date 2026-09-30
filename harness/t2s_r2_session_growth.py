@@ -67,6 +67,30 @@ evaluate_kill_criterion, the R2.3 arm-config table and llama-server command/over
 helpers (these already reused llama_server.py's ContextSizeError/_log_has_context_shift directly and
 still do -- confirmed unchanged on current main), and the R2.8 hour estimator.
 
+2026-09-30, R2 validity fixes (per-rule baseline compliance, native tool-call detection, canary-based
+truncation detection, positive controls) -- read before extending this file further
+----------------------------------------------------------------------------------
+Real live R2 data (both machines) surfaced three validity problems, fixed here:
+
+  1. rule_baseline_compliance()/rule_baseline_compliance_report() -- a rule only counts as "the model
+     actually follows it" if it passes in >=90% of turns 1-10 in arm (b) (ollama_ctx_131072, the
+     no-truncation control) specifically; live data showed all 3 X2 sessions failing at turn 1 in
+     every arm including this control arm, which is baseline non-compliance, not truncation evidence.
+     Rule 2 (log_event) is now also graded against Ollama's native message.tool_calls field
+     (ollama_tools_payload/score_turn's native_tool_calls path) rather than only regexed free text --
+     LlamaServerSession.call has no native tool-calling concept at all (confirmed by reading
+     harness/llama_server.py), so the llama-server arms keep the text-fallback path, recorded as
+     tool_call_detection_method on every row either way.
+  2. prompt_eval_count is not a valid truncation signal for a growing Ollama session (it only counts
+     newly-processed tokens since Ollama's own cached prefix, not the cumulative prompt). Replaced by
+     get_loaded_context_ollama/get_loaded_context_llama_server (the runtime's actually-loaded context
+     size) compared against a real cumulative session token count, combined with a new canary check
+     (generate_canary/CANARY_CHECK_EVERY): a canary miss while cumulative tokens exceed the loaded
+     context is score_session's new truncation_detected_turn -- both conditions are required together.
+  3. Two positive controls (ollama_ctx_8192_positive_control / llama_server_c_8192_positive_control in
+     ARMS, deliberately outside ARM_ORDER) plus run_positive_control() prove the detector actually
+     fires once cumulative tokens cross 8192, for real, without ever reaching main()'s tq.advance().
+
 t2s_night2.py now has a SMOKE_GATED_PHASES table (re-checked on current main: it does, listing
 r1_speed/r1_check/a70/p70/r1b/r1c/r1d/mx2/px2) -- but neither K1 nor K2 registers into it either;
 both are fully separate scripts with their own argparse/main()/host guard, the same shape this file
@@ -147,6 +171,16 @@ TOOLS_SCHEMA = [
     },
 ]
 
+def ollama_tools_payload() -> list[dict]:
+    """TOOLS_SCHEMA converted to the OpenAI/Ollama-style {"type": "function", "function": {...}}
+    shape expected by /api/chat's `tools` field, so rule 2 (log_event must always be called) can be
+    graded against the runtime's own native tool-calling field (message.tool_calls) instead of
+    regexing it out of the model's free-text JSON answer. See score_turn's native_tool_calls /
+    tool_detection_method docstring for why the text-based path stays as a fallback only."""
+    return [{"type": "function", "function": {"name": t["name"], "description": t["description"],
+                                                "parameters": t["parameters"]}} for t in TOOLS_SCHEMA]
+
+
 RULE_TEXT_TEMPLATE = """You are a long-running assistant. These 5 rules apply to every answer you give in this
 session, from this turn onward, with no exception and no expiry:
 
@@ -164,10 +198,17 @@ without looking anything up, at any later turn:
   - {fact0_key}: {fact0_value}
   - {fact1_key}: {fact1_value}
   - {fact2_key}: {fact2_value}
+
+This session also has a unique canary phrase, separate from the facts above and from the session
+code: {canary}
+Starting at turn 5 and every 5th turn after that, you will additionally be asked to repeat this
+canary phrase verbatim in your "answer" field, without looking it up -- this checks whether you can
+still see this message later in a long session.
 """
 
 FACT_KEYS = ("ALPHA-CACHE", "BETA-CACHE", "GAMMA-CACHE")
 _CODE_ALPHABET = string.ascii_uppercase + string.digits
+CANARY_CHECK_EVERY = 5  # new schedule (problem 2), separate from the every-4th-turn fact recall
 
 
 def generate_session_code(seed: int) -> str:
@@ -186,17 +227,33 @@ def pick_facts(seed: int) -> list[tuple[str, str]]:
     return facts
 
 
-def build_system_prompt(seed: int) -> tuple[str, str, list[tuple[str, str]]]:
-    """Return (system_prompt_text, session_code, facts) for turn 0. Pure function of seed."""
+def generate_canary(seed: int) -> str:
+    """Deterministic per-seed canary string (problem 2), distinct from generate_session_code and
+    pick_facts (different multiplier/offset and a different prefix), embedded once in the turn-0
+    system prompt and checked for verbatim reproduction every CANARY_CHECK_EVERY turns. This is the
+    positive half of the new truncation signal: a canary MISS while the session's cumulative token
+    count exceeds the runtime's own loaded context size is the actual truncation detector (problem 2
+    replaces the old prompt_eval_count-based comparison, which is not a valid signal for a growing
+    Ollama session -- see classify_context_overflow's docstring for why that comparison still holds
+    for the llama-server arms, and this module's own top docstring / R2 problem list for why it does
+    not hold for Ollama)."""
+    rng = random.Random(seed * 999331 + 17)
+    return "CANARY-" + "".join(rng.choice(_CODE_ALPHABET) for _ in range(10))
+
+
+def build_system_prompt(seed: int) -> tuple[str, str, list[tuple[str, str]], str]:
+    """Return (system_prompt_text, session_code, facts, canary) for turn 0. Pure function of seed."""
     session_code = generate_session_code(seed)
     facts = pick_facts(seed)
+    canary = generate_canary(seed)
     text = RULE_TEXT_TEMPLATE.format(
         session_code=session_code,
         fact0_key=facts[0][0], fact0_value=facts[0][1],
         fact1_key=facts[1][0], fact1_value=facts[1][1],
         fact2_key=facts[2][0], fact2_value=facts[2][1],
+        canary=canary,
     )
-    return text, session_code, facts
+    return text, session_code, facts, canary
 
 
 @dataclass(frozen=True)
@@ -215,6 +272,8 @@ class TurnSpec:
     is_recall: bool
     recall_key: str | None
     recall_value: str | None
+    canary_check: bool = False
+    canary_expected: str | None = None
 
 
 def _lookup_task(idx: int) -> tuple[str, str, dict]:
@@ -230,12 +289,16 @@ def _length_task(idx: int, rng: random.Random) -> tuple[str, str, dict]:
     return text, "log_event", {"event": f"rack R{idx:03d} cable length {length_cm} cm"}
 
 
-def generate_turn(idx: int, seed: int, facts: list[tuple[str, str]],
+def generate_turn(idx: int, seed: int, facts: list[tuple[str, str]], canary: str | None = None,
                    count_fn=None, filler_tokens: int = FILLER_TOKENS_PER_TURN) -> TurnSpec:
-    """Build turn `idx` (1-based). Pure function of (idx, seed, facts, count_fn): no state from any
-    other turn is read. Alternates between a lookup_fact task and a log_event/length task so both
-    tools and rule 4 (metres) get exercised; every 4th turn also appends a recall question cycling
-    through the 3 turn-0 facts."""
+    """Build turn `idx` (1-based). Pure function of (idx, seed, facts, canary, count_fn): no state
+    from any other turn is read. Alternates between a lookup_fact task and a log_event/length task so
+    both tools and rule 4 (metres) get exercised; every 4th turn also appends a recall question
+    cycling through the 3 turn-0 facts (unchanged); starting at turn CANARY_CHECK_EVERY and every
+    CANARY_CHECK_EVERY turns after that, also appends a canary-repeat question (problem 2's new,
+    separate schedule). canary=None (the default) skips the canary schedule entirely -- kept so
+    existing direct callers of this function (e.g. tests exercising only the recall schedule) do not
+    need to thread a canary through when they are not testing canary behaviour."""
     rng = random.Random(seed * 1_000_003 + idx)
     if idx % 2 == 1:
         task_text, tool_name, tool_args = _lookup_task(idx)
@@ -251,10 +314,32 @@ def generate_turn(idx: int, seed: int, facts: list[tuple[str, str]],
         task_text += (f" Also, recall the exact value that was recorded for key '{recall_key}' at "
                        f"the start of this session, without looking it up.")
 
+    canary_check = canary is not None and idx % CANARY_CHECK_EVERY == 0
+    canary_expected = canary if canary_check else None
+    if canary_check:
+        task_text += (" Also, repeat this session's canary phrase exactly, verbatim, in your answer "
+                       "-- it was given to you at the start of this session, do not look it up.")
+
     filler_text = ctx_mod.build_filler(filler_tokens, seed=seed * 31 + idx, count_fn=count_fn)
     return TurnSpec(idx=idx, user_text=task_text, tool_name=tool_name, tool_args=tool_args,
                      filler_text=filler_text, requires_length=requires_length, is_recall=is_recall,
-                     recall_key=recall_key, recall_value=recall_value)
+                     recall_key=recall_key, recall_value=recall_value, canary_check=canary_check,
+                     canary_expected=canary_expected)
+
+
+def turn_message_content(turn: TurnSpec) -> str:
+    """The actual text sent to the model for this turn: the task text plus the filler block. Before
+    this fix the filler text generated by generate_turn was never actually included in what got sent
+    to a runtime (only turn.user_text was) -- session prompts therefore barely grew at all across
+    turns, which is exactly wrong for a phase whose entire point is a growing session (problem 3's
+    positive controls depend on the filler genuinely driving cumulative tokens past 8192 by turn
+    ~6-7, per that problem's own description). Used consistently by both run_turn_ollama and
+    run_turn_llama_server, and matches generate_session's own token-budget accounting (which already
+    counted user_text + filler_text as one quantity)."""
+    if not turn.filler_text:
+        return turn.user_text
+    return (f"{turn.user_text}\n\n[context filler -- not part of the task, only present to grow this "
+            f"session's context]\n{turn.filler_text}")
 
 
 @dataclass(frozen=True)
@@ -263,6 +348,7 @@ class SessionSpec:
     session_code: str
     facts: list[tuple[str, str]]
     system_prompt: str
+    canary: str = ""
     turns: list[TurnSpec] = field(default_factory=list)
 
 
@@ -277,11 +363,11 @@ def generate_session(seed: int, count_fn=None, max_turns: int = MAX_TURNS,
     """
     if count_fn is None:
         count_fn = _approx_token_count
-    system_prompt, session_code, facts = build_system_prompt(seed)
+    system_prompt, session_code, facts, canary = build_system_prompt(seed)
     cumulative = count_fn(system_prompt)
     turns: list[TurnSpec] = []
     for idx in range(1, max_turns + 1):
-        turn = generate_turn(idx, seed, facts, count_fn=count_fn)
+        turn = generate_turn(idx, seed, facts, canary, count_fn=count_fn)
         turn_tokens = count_fn(turn.user_text) + count_fn(turn.filler_text)
         if turns and cumulative + turn_tokens > max_prompt_tokens:
             break
@@ -290,7 +376,7 @@ def generate_session(seed: int, count_fn=None, max_turns: int = MAX_TURNS,
         if cumulative >= max_prompt_tokens:
             break
     return SessionSpec(seed=seed, session_code=session_code, facts=facts, system_prompt=system_prompt,
-                        turns=turns)
+                        canary=canary, turns=turns)
 
 
 def _approx_token_count(text: str) -> int:
@@ -338,21 +424,68 @@ class TurnScore:
     http_status: int | None
     error_text: str | None
     any_rule_failed: bool
+    output_text: str = ""
+    tool_call_detection_method: str = "text_fallback"
+    canary_check_turn: bool = False
+    canary_expected: str | None = None
+    canary_reproduced: bool | None = None
+
+
+RULE_IDS = ("rule1_json_keys", "rule2_log_event_called", "rule3_no_zebra", "rule4_metres",
+            "rule5_session_code")
+
+
+def _tool_call_name(call) -> str | None:
+    """A tool call's function name, whichever of the two shapes it comes in: Ollama's native
+    message.tool_calls entries are {"function": {"name": .., "arguments": ..}}; this session's own
+    text-based "tool_calls" JSON field (RULE_TEXT_TEMPLATE's own spec) is the flatter
+    {"name": .., "arguments": ..}. Used for both the native and text-fallback detection paths so
+    there is one place that understands both shapes."""
+    if not isinstance(call, dict):
+        return None
+    fn = call.get("function")
+    if isinstance(fn, dict):
+        return fn.get("name")
+    return call.get("name")
+
+
+def _tool_call_args(call):
+    if not isinstance(call, dict):
+        return None
+    fn = call.get("function")
+    if isinstance(fn, dict):
+        return fn.get("arguments")
+    return call.get("arguments")
 
 
 def score_turn(turn: TurnSpec, session_code: str, output_text: str, sent_tokens: int | None,
                processed_tokens: int | None, http_status: int | None = 200,
-               error_text: str | None = None) -> TurnScore:
+               error_text: str | None = None, native_tool_calls: list | None = None,
+               tool_detection_method: str = "text_fallback") -> TurnScore:
     """Grade one turn's raw model output against turn's own requirements and the session's rules.
     Pure and deterministic: same inputs always produce the same TurnScore. output_text is graded
     as-is (rule 3's literal-string check runs over the raw text, not just the parsed JSON, since the
-    rule is about anything the model outputs, not only the "answer" field)."""
+    rule is about anything the model outputs, not only the "answer" field).
+
+    native_tool_calls / tool_detection_method: problem 1's tool-call-detection fix. When the caller
+    used the runtime's own native tool-calling API for this turn (Ollama's message.tool_calls),
+    native_tool_calls holds that list and tool_detection_method must be "native" -- rule 2 and the
+    tool_call_present/tool_args_match fields are then graded against native_tool_calls, not against
+    a "tool_calls" key regexed/parsed out of the free-text JSON answer (the old behaviour, kept as
+    the fallback for runtimes with no native tool-calling support, e.g. this repo's own
+    LlamaServerSession.call, which is a raw single-shot completion with no tools/tool_calls concept
+    at all -- confirmed by reading harness/llama_server.py's LlamaServerSession.call/row_metadata
+    before assuming). tool_call_detection_method is recorded on the returned TurnScore either way, so
+    which path graded a given row is visible in the data, not just true internally."""
     parsed = parse_json_output(output_text)
     rule1 = isinstance(parsed, dict) and isinstance(parsed.get("answer"), str) and "source" in parsed
 
-    tool_calls = parsed.get("tool_calls") if isinstance(parsed, dict) else None
-    tool_calls = tool_calls if isinstance(tool_calls, list) else []
-    rule2 = any(isinstance(c, dict) and c.get("name") == "log_event" for c in tool_calls)
+    if tool_detection_method == "native":
+        tool_calls = native_tool_calls if isinstance(native_tool_calls, list) else []
+    else:
+        tool_calls = parsed.get("tool_calls") if isinstance(parsed, dict) else None
+        tool_calls = tool_calls if isinstance(tool_calls, list) else []
+    rule2 = any(_tool_call_name(c) == "log_event" for c in tool_calls)
 
     rule3 = _ZEBRA not in output_text
 
@@ -364,9 +497,9 @@ def score_turn(turn: TurnSpec, session_code: str, output_text: str, sent_tokens:
 
     rule5 = bool(rule1) and answer_val.endswith(session_code)
 
-    tool_call_present = any(isinstance(c, dict) and c.get("name") == turn.tool_name for c in tool_calls)
-    tool_args_match = any(isinstance(c, dict) and c.get("name") == turn.tool_name
-                           and c.get("arguments") == turn.tool_args for c in tool_calls)
+    tool_call_present = any(_tool_call_name(c) == turn.tool_name for c in tool_calls)
+    tool_args_match = any(_tool_call_name(c) == turn.tool_name and _tool_call_args(c) == turn.tool_args
+                           for c in tool_calls)
 
     # Exact-match on the recalled value's text, not on the whole "answer" field: rule 5 requires the
     # answer to also end with the session code, so a fully compliant recall answer looks like
@@ -374,6 +507,10 @@ def score_turn(turn: TurnSpec, session_code: str, output_text: str, sent_tokens:
     fact_recall_ok = None
     if turn.is_recall:
         fact_recall_ok = bool(rule1) and turn.recall_value in answer_val
+
+    canary_reproduced = None
+    if turn.canary_check:
+        canary_reproduced = bool(rule1) and turn.canary_expected in (answer_val or "")
 
     silent_truncation = (sent_tokens is not None and processed_tokens is not None
                           and processed_tokens < sent_tokens)
@@ -385,19 +522,91 @@ def score_turn(turn: TurnSpec, session_code: str, output_text: str, sent_tokens:
                       tool_call_present=tool_call_present, tool_args_match=tool_args_match,
                       fact_recall_ok=fact_recall_ok, sent_tokens=sent_tokens,
                       processed_tokens=processed_tokens, silent_truncation=silent_truncation,
-                      http_status=http_status, error_text=error_text, any_rule_failed=any_rule_failed)
+                      http_status=http_status, error_text=error_text, any_rule_failed=any_rule_failed,
+                      output_text=output_text, tool_call_detection_method=tool_detection_method,
+                      canary_check_turn=turn.canary_check, canary_expected=turn.canary_expected,
+                      canary_reproduced=canary_reproduced)
 
 
-def score_session(session: SessionSpec, turn_outputs: list[dict]) -> dict:
+def rule_baseline_compliance(arm_b_sessions: list[dict], min_turn: int = 1, max_turn: int = 10,
+                              threshold: float = 0.90) -> dict[str, bool]:
+    """Problem 1's baseline-compliance check. arm_b_sessions is a list of already-scored
+    score_session() outputs for arm (b) (ollama_ctx_131072, the no-truncation control) specifically
+    -- this operates on already-scored TurnScore data, it does not re-score anything.
+
+    A rule counts as "the model actually follows it" only if it passes in at least `threshold`
+    (default 90%) of turns min_turn..max_turn (default 1..10) in the control arm. Live R2 data
+    showed all 3 X2 sessions failing at turn 1 in every arm including this control arm -- if a rule
+    fails at turn 1 in the arm with no truncation possible, that is baseline non-compliance by the
+    model, not evidence of truncation, and must be excluded from any "silent failure" claim for that
+    rule until this check clears it. Returns {rule_id: bool}."""
+    totals = {r: 0 for r in RULE_IDS}
+    passed = {r: 0 for r in RULE_IDS}
+    for session in arm_b_sessions:
+        for score in session["scores"]:
+            if not (min_turn <= score.idx <= max_turn):
+                continue
+            for rule_id in RULE_IDS:
+                totals[rule_id] += 1
+                if getattr(score, rule_id):
+                    passed[rule_id] += 1
+    result = {}
+    for rule_id in RULE_IDS:
+        rate = (passed[rule_id] / totals[rule_id]) if totals[rule_id] else float("nan")
+        result[rule_id] = rate >= threshold
+    return result
+
+
+def rule_baseline_compliance_report(arm_b_sessions: list[dict], min_turn: int = 1, max_turn: int = 10,
+                                     threshold: float = 0.90) -> dict[str, dict]:
+    """Companion report to rule_baseline_compliance, for a human reading a report later: for every
+    rule that fails the control-arm bar, its pass rate plus up to 2 example sessions' verbatim
+    turn-1 output where that rule fails immediately. Returns {rule_id: {"baseline_pass_rate": float,
+    "example_turn1_outputs": [str, ...]}}, containing only rules that failed the bar (a rule that
+    clears it is not "must be excluded", so it has nothing to report here)."""
+    compliance = rule_baseline_compliance(arm_b_sessions, min_turn, max_turn, threshold)
+    report = {}
+    for rule_id in RULE_IDS:
+        if compliance[rule_id]:
+            continue
+        total = passed = 0
+        examples = []
+        for session in arm_b_sessions:
+            for score in session["scores"]:
+                if min_turn <= score.idx <= max_turn:
+                    total += 1
+                    if getattr(score, rule_id):
+                        passed += 1
+            turn1 = next((s for s in session["scores"] if s.idx == 1), None)
+            if turn1 is not None and not getattr(turn1, rule_id) and len(examples) < 2:
+                examples.append(turn1.output_text)
+        rate = (passed / total) if total else float("nan")
+        report[rule_id] = {"baseline_pass_rate": rate, "example_turn1_outputs": examples}
+    return report
+
+
+def score_session(session: SessionSpec, turn_outputs: list[dict],
+                   loaded_context_tokens: int | None = None) -> dict:
     """Score every turn in a session and compute the R2.6 session-level outcomes.
 
     turn_outputs[i] must be a dict with keys: output_text, sent_tokens, processed_tokens,
-    http_status (default 200), error_text (default None) -- one entry per session.turns[i], same
-    order.
+    http_status (default 200), error_text (default None), and optionally native_tool_calls,
+    tool_detection_method (default "text_fallback"), cumulative_tokens -- one entry per
+    session.turns[i], same order.
+
+    loaded_context_tokens: the context size the runtime actually has loaded right now (problem 2) --
+    for Ollama, GET /api/ps's context_length (get_loaded_context_ollama, reusing
+    t2s_k1_ollama.OllamaClient.get_ps); for llama-server, the startup log's n_ctx_slot
+    (get_loaded_context_llama_server, reusing llama_server._parse_n_ctx_slot). None (the default)
+    means truncation_detected_turn is always None -- this is a real prerequisite, not an
+    approximation, so no detection is attempted without it rather than silently falling back to the
+    invalid prompt_eval_count-vs-sent-tokens comparison problem 2 exists to remove.
     """
     scores = [
         score_turn(t, session.session_code, o["output_text"], o.get("sent_tokens"),
-                   o.get("processed_tokens"), o.get("http_status", 200), o.get("error_text"))
+                   o.get("processed_tokens"), o.get("http_status", 200), o.get("error_text"),
+                   native_tool_calls=o.get("native_tool_calls"),
+                   tool_detection_method=o.get("tool_detection_method", "text_fallback"))
         for t, o in zip(session.turns, turn_outputs)
     ]
 
@@ -420,9 +629,23 @@ def score_session(session: SessionSpec, turn_outputs: list[dict]) -> dict:
         error_surfaced_before_failure = (first_error_turn is not None
                                           and first_error_turn < first_failure_turn)
 
+    # problem 2's replacement truncation signal: BOTH conditions required together -- a canary miss
+    # alone can be ordinary model unreliability (see problem 1), and exceeding the loaded context
+    # alone proves nothing if the model still reproduced the canary (e.g. context-shift kept the
+    # canary alive). Only their conjunction is the actual "silently lost its own rules" signal.
+    truncation_detected_turn = None
+    if loaded_context_tokens is not None:
+        for score, o in zip(scores, turn_outputs):
+            cumulative = o.get("cumulative_tokens")
+            if (score.canary_check_turn and score.canary_reproduced is False
+                    and cumulative is not None and cumulative > loaded_context_tokens):
+                truncation_detected_turn = score.idx
+                break
+
     return {
         "seed": session.seed,
         "session_code": session.session_code,
+        "canary": session.canary,
         "n_turns": len(session.turns),
         "scores": scores,
         "first_rule_violation_turn": first_rule_violation_turn,
@@ -432,6 +655,8 @@ def score_session(session: SessionSpec, turn_outputs: list[dict]) -> dict:
         "first_truncation_turn": first_truncation_turn,
         "first_failure_turn": first_failure_turn,
         "error_surfaced_before_failure": error_surfaced_before_failure,
+        "loaded_context_tokens": loaded_context_tokens,
+        "truncation_detected_turn": truncation_detected_turn,
     }
 
 
@@ -500,6 +725,27 @@ ARMS = {
 }
 ARM_ORDER = ("ollama_default", "ollama_ctx_131072", "ollama_ctx_32768_x2",
              "llama_server_default_fit", "llama_server_c_131072")
+
+# ── Problem 3: positive controls ────────────────────────────────────────────────────────────────
+# Deliberately NOT added to ARM_ORDER: these must never be picked up by applicable_arms(),
+# estimate_hours() or main()'s normal cell enumeration (they are not part of the real R2 design, only
+# a proof that the new loaded-context-vs-cumulative-tokens + canary-miss detector actually fires).
+# They live in ARMS (which phase_run_session/apply_ollama_arm/build_llama_server_config all key off
+# directly, not ARM_ORDER) so run_positive_control below can reach them by arm_id like any other arm.
+
+POSITIVE_CONTROL_CTX = 8192
+
+ARMS["ollama_ctx_8192_positive_control"] = {
+    "runtime": "ollama", "num_ctx": POSITIVE_CONTROL_CTX, "machine_restriction": None,
+    "description": "Problem 3 positive control: Ollama num_ctx=8192. The existing ~1.5k-token/turn "
+                    "filler growth drives cumulative session tokens past 8192 by turn ~6-7; the "
+                    "loaded-context-vs-cumulative-tokens + canary-miss detector must fire once it "
+                    "does, proving the detector actually works before it is trusted on real arms.",
+}
+ARMS["llama_server_c_8192_positive_control"] = {
+    "runtime": "llama_server", "ctx_size": POSITIVE_CONTROL_CTX, "machine_restriction": None,
+    "description": "Problem 3 positive control: llama-server -c 8192, likewise.",
+}
 
 
 def applicable_arms(machine: str) -> list[str]:
@@ -578,6 +824,33 @@ def classify_context_overflow(*, log_text: str, sent_tokens: int | None, process
     if sent_tokens is not None and processed_tokens is not None and processed_tokens < sent_tokens:
         return "silent_truncation"
     return "ok"
+
+
+def get_loaded_context_ollama(ollama, model_id: str) -> int | None:
+    """Problem 2's replacement truncation-detection denominator for the Ollama arms: the context
+    length Ollama actually has loaded right now for `model_id`, via GET /api/ps
+    (t2s_k1_ollama.OllamaClient.get_ps, reused verbatim, not reimplemented). prompt_eval_count is NOT
+    a valid signal for this (see this module's top docstring): Ollama reuses its own prompt KV cache
+    across turns in the same conversation, so prompt_eval_count on turn N only counts newly processed
+    tokens since the cached prefix, not the full cumulative prompt length -- it is not comparable to
+    a cumulative sent-token count. The loaded context size is the right comparison target instead.
+    Returns None if the model is not (yet) listed as loaded, or the install's /api/ps response does
+    not expose context_length (older Ollama versions)."""
+    ps = ollama.get_ps()
+    for m in ps.get("models", []):
+        name = m.get("name") or m.get("model")
+        if name == model_id or (name or "").split(":")[0] == model_id.split(":")[0]:
+            ctx = m.get("context_length")
+            return int(ctx) if ctx is not None else None
+    return None
+
+
+def get_loaded_context_llama_server(log_text: str) -> int | None:
+    """llama-server's equivalent of get_loaded_context_ollama: the context size it actually has
+    loaded, parsed from its own startup log via llama_server._parse_n_ctx_slot (reused, not
+    reimplemented -- n_ctx_slot is that module's own documented ground truth, since the server
+    silently clamps a requested --ctx-size below 256, so the requested size cannot be trusted)."""
+    return ls._parse_n_ctx_slot(log_text)
 
 
 # ── R2.4: memory conditions ──────────────────────────────────────────────────────────────────────
@@ -730,15 +1003,37 @@ class R2SessionLab(k1.K1Lab):
                 return row
         return None
 
+    def _try_get_loaded_context_ollama(self, ollama, model_id: str) -> int | None:
+        """Best-effort get_loaded_context_ollama call: a fake Ollama client used in tests/dry runs
+        need not implement .get_ps() at all (most of this file's existing fakes predate it), and a
+        real call can itself fail (network hiccup, older Ollama with no context_length field) -- in
+        every such case the right answer is "we do not know the loaded context yet", i.e. None, not a
+        crashed session. A genuinely missing loaded_context_tokens just means
+        score_session/truncation_detected_turn reports no truncation verdict, which is correct: this
+        module never falls back to a weaker, invalid signal (problem 2's whole point)."""
+        client = ollama or self.ollama
+        try:
+            return get_loaded_context_ollama(client, model_id)
+        except Exception:
+            return None
+
     def run_turn_ollama(self, model_id: str, arm_id: str, condition_id: str, session: SessionSpec,
                          turn: TurnSpec, messages: list[dict], *, ollama=None, count_fn) -> dict:
         """One turn against t2s_k1_ollama.OllamaClient.chat, passing the full running `messages`
         history via its messages= keyword (see that method's docstring: this is the reason it was
-        extended in this rebuild -- every other caller still only ever sends a single-turn prompt)."""
+        extended in this rebuild -- every other caller still only ever sends a single-turn prompt),
+        and the native tools= payload (problem 1) so rule 2 is graded against Ollama's own
+        message.tool_calls field rather than regexed free text. `messages` here must already contain
+        this turn's own user message (turn_message_content(turn), including filler -- see that
+        function's docstring for why the filler must be included at all). sent_tokens is the sum over
+        the full `messages` list -- for Ollama this already IS the cumulative session token count
+        (problem 2), since Ollama arms send the whole growing history every turn, unlike the
+        llama-server arms (see run_turn_llama_server, which must accumulate it manually)."""
         ollama = ollama or self.ollama
         options = apply_ollama_arm(arm_id, {"seed": session.seed})
         sent_tokens = sum(count_fn(m["content"]) for m in messages)
-        resp = ollama.chat(model_id, "", num_ctx=options.get("num_ctx"), messages=messages)
+        resp = ollama.chat(model_id, "", num_ctx=options.get("num_ctx"), messages=messages,
+                            tools=ollama_tools_payload())
         output_text = resp.get("message") or ""
         row = self.emit({
             "record": "r2_turn", "phase": "r2_session", "backend": "ollama", "arm_id": arm_id,
@@ -746,11 +1041,14 @@ class R2SessionLab(k1.K1Lab):
             "session_code": session.session_code, "output_text": output_text,
             "sent_tokens": sent_tokens, "processed_tokens": resp.get("prompt_eval_count"),
             "http_status": resp.get("status", 200), "error_text": resp.get("error"),
+            "native_tool_calls": resp.get("tool_calls"), "tool_detection_method": "native",
+            "cumulative_tokens": sent_tokens,
         })
         return row
 
     def run_turn_llama_server(self, session_obj, model_id: str, arm_id: str, condition_id: str,
-                               session: SessionSpec, turn: TurnSpec, *, log_text_fn, guard=None) -> dict:
+                               session: SessionSpec, turn: TurnSpec, *, log_text_fn, guard=None,
+                               cumulative_tokens_before: int = 0) -> dict:
         """One turn against an injected llama-server-session-like object. `session_obj` must expose
         .tokenize(text)->int and .call(prompt, max_tokens)-> the 7-tuple LlamaServerSession.call
         returns, raising ls.ContextSizeError on a 400 exceed_context_size_error the same way the
@@ -758,7 +1056,18 @@ class R2SessionLab(k1.K1Lab):
         context-shift check). `guard`, if given, is a server_guard.RequestGuard checked before this
         turn's call -- the stale-server guard the 2026-09-30 instruction requires before every turn,
         not just once at session start (a long session is exactly the case where a server could be
-        replaced or die partway through without a per-call check ever catching it)."""
+        replaced or die partway through without a per-call check ever catching it).
+
+        tool_detection_method is always "text_fallback" here: LlamaServerSession.call is a raw
+        single-shot /completion-style call with no tools/tool_calls concept at all (confirmed by
+        reading harness/llama_server.py's LlamaServerSession.call and row_metadata before assuming
+        otherwise -- there is no native tool-calling field to prefer).
+
+        cumulative_tokens_before: this runtime sends only this turn's own prompt each call (no
+        growing message history, unlike the Ollama arms), so unlike run_turn_ollama's sent_tokens
+        (which already is the cumulative total), this turn's contribution must be added to a running
+        total the caller (phase_run_session) tracks across turns -- returned here as
+        "cumulative_tokens" on the row."""
         if guard is not None:
             ok, listener_pids = guard.check()
             if not ok:
@@ -766,7 +1075,7 @@ class R2SessionLab(k1.K1Lab):
                                    f"{guard.port} listener pids {listener_pids} != started pid {guard.pid}. "
                                    f"Refusing to send this turn to a server that may not be the one this "
                                    f"session started with.")
-        prompt = turn.user_text
+        prompt = turn_message_content(turn)
         sent_tokens = session_obj.tokenize(prompt)
         http_status, error_text, processed_tokens = 200, None, None
         output_text = ""
@@ -791,6 +1100,8 @@ class R2SessionLab(k1.K1Lab):
             "sent_tokens": sent_tokens, "processed_tokens": processed_tokens,
             "http_status": http_status, "error_text": error_text,
             "overflow_classification": classification,
+            "native_tool_calls": None, "tool_detection_method": "text_fallback",
+            "cumulative_tokens": cumulative_tokens_before + sent_tokens,
         })
         return row
 
@@ -821,6 +1132,15 @@ class R2SessionLab(k1.K1Lab):
             messages = [{"role": "system", "content": session.system_prompt}]
             rows = []
             runtime = ARMS[arm_id]["runtime"]
+            cumulative_tokens_so_far = 0
+            # problem 2: the runtime's actually-loaded context size, fetched once this cell (it does
+            # not change mid-session) and reused as score_session's truncation-detection denominator.
+            # For llama-server it is known as soon as the server has started (n_ctx_slot is in the
+            # startup log); for Ollama it is only knowable once the model is actually loaded, so it is
+            # fetched lazily after the first turn that runs (or read straight off a replayed turn's
+            # own saved fetch, so a resumed session does not need to hit /api/ps again).
+            loaded_context_tokens = (get_loaded_context_llama_server(log_text_fn())
+                                      if runtime == "llama_server" and log_text_fn is not None else None)
             for turn in session.turns:
                 turn_id = build_item_id(model_id, arm_id, condition_id, seed, turn.idx)
                 if turn_id in self.done:
@@ -830,26 +1150,36 @@ class R2SessionLab(k1.K1Lab):
                                            f"could not be found in {self.rows_path!r} -- resume state is "
                                            f"inconsistent, refusing to guess and silently redo or skip it")
                     if runtime == "ollama":
-                        messages.append({"role": "user", "content": turn.user_text})
+                        messages.append({"role": "user", "content": turn_message_content(turn)})
                         messages.append({"role": "assistant", "content": row["output_text"]})
+                    cumulative_tokens_so_far = row.get("cumulative_tokens", cumulative_tokens_so_far)
+                    if runtime == "ollama" and loaded_context_tokens is None:
+                        loaded_context_tokens = self._try_get_loaded_context_ollama(ollama, model_id)
                     rows.append(row)
                     continue
                 L.log(f"R2 turn: {model_id} {arm_id} {condition_id} seed={seed} turn={turn.idx}/{len(session.turns)}")
                 if runtime == "ollama":
-                    messages.append({"role": "user", "content": turn.user_text})
+                    messages.append({"role": "user", "content": turn_message_content(turn)})
                     row = self.run_turn_ollama(model_id, arm_id, condition_id, session, turn, messages,
                                                 ollama=ollama, count_fn=count_fn)
                     messages.append({"role": "assistant", "content": row["output_text"]})
+                    if loaded_context_tokens is None:
+                        loaded_context_tokens = self._try_get_loaded_context_ollama(ollama, model_id)
                 else:
                     row = self.run_turn_llama_server(llama_session, model_id, arm_id, condition_id, session,
-                                                      turn, log_text_fn=log_text_fn or (lambda: ""), guard=guard)
+                                                      turn, log_text_fn=log_text_fn or (lambda: ""), guard=guard,
+                                                      cumulative_tokens_before=cumulative_tokens_so_far)
+                cumulative_tokens_so_far = row.get("cumulative_tokens", cumulative_tokens_so_far)
                 rows.append(row)
                 self.item_done(turn_id)
             turn_outputs = [{"output_text": r["output_text"], "sent_tokens": r["sent_tokens"],
                               "processed_tokens": r["processed_tokens"],
-                              "http_status": r["http_status"], "error_text": r["error_text"]}
+                              "http_status": r["http_status"], "error_text": r["error_text"],
+                              "native_tool_calls": r.get("native_tool_calls"),
+                              "tool_detection_method": r.get("tool_detection_method", "text_fallback"),
+                              "cumulative_tokens": r.get("cumulative_tokens")}
                              for r in rows]
-            scored = score_session(session, turn_outputs)
+            scored = score_session(session, turn_outputs, loaded_context_tokens=loaded_context_tokens)
             scored.update({"model_id": model_id, "arm_id": arm_id, "condition_id": condition_id,
                             "memory_condition_result": occ_result})
             self.item_done(cell_id)
@@ -857,6 +1187,64 @@ class R2SessionLab(k1.K1Lab):
         finally:
             if occ is not None:
                 occ.stop()
+
+
+def run_positive_control(*, runtime: str, model_id: str, host_cfg: dict, gguf_dir: str = None,
+                          seed: int = SEEDS[0], max_turns: int = 12, out_dir: str | None = None,
+                          ollama_port: int = None, port: int | None = None) -> dict:
+    """Problem 3: run exactly one positive-control session (Ollama num_ctx=8192 or llama-server
+    -c 8192) for real, and return its score_session() dict (includes truncation_detected_turn).
+
+    Calls R2SessionLab.phase_run_session directly -- NOT through main() -- so this never reaches
+    main()'s finally-block tq.advance() call at all (see this module's top-of-file WARNING re the
+    2026-09-30 queue-corruption incident). A caller running this on the shared evo-x2 queue machine
+    outside a real queued entry must still follow that WARNING's own precaution (set
+    APU_QUEUE_JOB_ID to a value that does not match any real running queue entry) if anything in this
+    call path is ever changed to call tq.advance -- it is not, today, by design.
+
+    Starts and stops its own Ollama server / llama-server process for this one session only."""
+    ollama_port = ollama_port if ollama_port is not None else k1.DEFAULT_OLLAMA_PORT
+    gguf_dir = gguf_dir or L.MODELS_DIR
+    args = argparse.Namespace(resume=None, out_dir=out_dir or str(DEPLOY.parent / "results"),
+                              ollama_port=ollama_port)
+    prov = rp.script_provenance([__file__], require_committed=False)
+    lab = R2SessionLab(args, host_cfg, prov)
+    if runtime == "ollama":
+        arm_id = "ollama_ctx_8192_positive_control"
+        ollama_tag = MODEL_ID_ALIASES.get(model_id, model_id)
+        started_pid = hc.start_ollama_server()
+        try:
+            result = lab.phase_run_session(model_id=ollama_tag, arm_id=arm_id, condition_id="as_is",
+                                            seed=seed, ollama=lab.ollama, count_fn=_approx_token_count,
+                                            max_turns=max_turns)
+        finally:
+            try:
+                hc.stop_ollama_server()
+            except Exception as e:
+                log(f"R2 positive control: Ollama stop failed: {e!r}")
+    elif runtime == "llama_server":
+        arm_id = "llama_server_c_8192_positive_control"
+        exe = _resolve_llama_server_exe(host_cfg)
+        model_path = _resolve_gguf_path(model_id, gguf_dir)
+        cfg = build_llama_server_config(arm_id, exe=exe, model_path=model_path,
+                                        port=port or (ollama_port + 1), n_gpu_layers=99,
+                                        context_shift=False, reasoning_budget=0,
+                                        reasoning_format="none", platform=host_cfg["hw_id"])
+        session_obj = ls.LlamaServerSession(cfg)
+        session_obj.start()
+        guard = sg.RequestGuard(port=cfg.port, pid=session_obj._proc.pid)
+        try:
+            log_path = session_obj._log_path
+            result = lab.phase_run_session(
+                model_id=model_id, arm_id=arm_id, condition_id="as_is", seed=seed,
+                llama_session=session_obj, count_fn=session_obj.tokenize, max_turns=max_turns,
+                guard=guard,
+                log_text_fn=lambda: Path(log_path).read_text(encoding="utf-8", errors="replace"))
+        finally:
+            session_obj.stop()
+    else:
+        raise ValueError(f"unknown runtime {runtime!r}")
+    return result
 
 
 # ── R2.8: hour estimate ──────────────────────────────────────────────────────────────────────────
