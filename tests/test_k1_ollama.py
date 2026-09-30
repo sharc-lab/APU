@@ -15,16 +15,30 @@ import t2s_k1_ollama as K  # noqa: E402
 
 # ---------------------------------------------------------------------------------------------------- fakes
 class FakeOllama:
-    def __init__(self, responses):
-        """responses: list of dicts popped in call order, or a single dict reused for every call."""
+    def __init__(self, responses, ps_models=None, ps_after_unload=None):
+        """responses: list of dicts popped in call order, or a single dict reused for every call. ps_models: list
+        of model dicts get_ps() returns before unload() is called; ps_after_unload defaults to [] (confirmed
+        empty) unless overridden to test the "unload did not actually clear it" case."""
         self.responses = responses
         self.calls = []
+        self.ps_models = ps_models if ps_models is not None else []
+        self.ps_after_unload = ps_after_unload if ps_after_unload is not None else []
+        self.unload_called = False
 
-    def chat(self, model, prompt, num_ctx=None, max_tokens=64):
-        self.calls.append({"model": model, "num_ctx": num_ctx, "max_tokens": max_tokens, "prompt_len": len(prompt)})
+    def chat(self, model, prompt, num_ctx=None, max_tokens=64, keep_alive=None):
+        self.calls.append({"model": model, "num_ctx": num_ctx, "max_tokens": max_tokens, "prompt_len": len(prompt),
+                           "keep_alive": keep_alive})
         if isinstance(self.responses, list):
             return self.responses[min(len(self.calls) - 1, len(self.responses) - 1)]
         return self.responses
+
+    def get_ps(self):
+        models = self.ps_after_unload if self.unload_called else self.ps_models
+        return {"outcome": "ok", "models": models}
+
+    def unload(self, model):
+        self.unload_called = True
+        return self.chat(model, "", num_ctx=None, max_tokens=1, keep_alive=0)
 
 
 class FakeServer:
@@ -123,22 +137,82 @@ def test_parse_ollama_log_context_respects_since_pos(tmp_path):
 # ---------------------------------------------------------------------------------------------------- phase_tier
 def test_phase_tier_prefers_ps_context_over_log(tmp_path):
     lab = make_lab(tmp_path)
-    ollama = FakeOllama({"outcome": "ok", "status": 200, "prompt_eval_count": 20, "duration_s": 1.2})
-    row = K.phase_tier(lab, "qwen3:8b", rep=0, ollama=ollama,
-                       ps_fn=lambda: [{"name": "qwen3:8b", "context_len": 65536, "raw": {}}],
-                       log_finder=lambda: None)
+    ollama = FakeOllama({"outcome": "ok", "status": 200, "prompt_eval_count": 20, "duration_s": 1.2},
+                        ps_models=[{"name": "qwen3:8b", "context_length": 65536}])
+    row = K.phase_tier(lab, "qwen3:8b", rep=0, ollama=ollama, log_finder=lambda: None)
     assert row["ollama_default_ctx"] == 65536
+    assert row["ollama_default_ctx_source"] == "api_ps"
     assert row["record"] == "tier"
     assert ollama.calls[0]["num_ctx"] is None  # no override, per spec
+    assert ollama.calls[0]["keep_alive"] == "10m"  # (a): kept alive so ps has something to read
+    assert ollama.unload_called is True  # (a): explicitly unloaded afterward
+    assert row["unload_confirmed_empty"] is True
 
 
 def test_phase_tier_falls_back_to_log_when_ps_has_no_context(tmp_path):
     lab = make_lab(tmp_path)
-    ollama = FakeOllama({"outcome": "ok", "status": 200, "prompt_eval_count": 20, "duration_s": 1.0})
-    row = K.phase_tier(lab, "qwen3:8b", rep=0, ollama=ollama,
-                       ps_fn=lambda: [{"name": "qwen3:8b", "context_len": None, "raw": {}}],
-                       log_finder=lambda: "/fake/does/not/exist.log")
-    assert row["ollama_default_ctx"] is None  # log path doesn't exist -> available False -> no fallback value
+    log = tmp_path / "server.log"
+    log.write_text("", encoding="utf-8")  # log_pos must start at 0 for the new-content-only read below to see it
+    ollama = FakeOllama({"outcome": "ok", "status": 200, "prompt_eval_count": 20, "duration_s": 1.0},
+                        ps_models=[{"name": "qwen3:8b"}])  # no context_length field
+
+    def fake_chat(model, prompt, num_ctx=None, max_tokens=64, keep_alive=None):
+        ollama.calls.append({"model": model, "keep_alive": keep_alive})
+        if keep_alive == "10m":
+            # simulates the real Ollama server appending its runner start line to server.log during this call
+            with open(log, "a", encoding="utf-8") as f:
+                f.write("...starting runner... --ctx-size 32768 --other-flag\n")
+        return {"outcome": "ok", "status": 200, "prompt_eval_count": 20, "duration_s": 1.0, "message": "Paris."}
+
+    ollama.chat = fake_chat
+    row = K.phase_tier(lab, "qwen3:8b", rep=0, ollama=ollama, log_finder=lambda: str(log))
+    assert row["ollama_default_ctx"] == 32768
+    assert row["ollama_default_ctx_source"] == "server_log"
+
+
+def test_phase_tier_falls_back_to_empirical_probe_when_ps_and_log_both_empty(tmp_path):
+    lab = make_lab(tmp_path)
+    # tier chat + unload + 7 empirical probes = 9 calls; every call reports prompt_eval_count == target (no
+    # truncation at any length in this test), so the probe should report the largest length as the estimate.
+    ollama = FakeOllama({"outcome": "ok", "status": 200, "prompt_eval_count": 1000, "duration_s": 1.0},
+                        ps_models=[])  # nothing loaded (confirms the OLLAMA_KEEP_ALIVE=0 real-world finding)
+
+    probe_targets = iter(K.EMPIRICAL_CTX_PROBE_LENGTHS)
+    call_kinds = []  # "tier", "unload", then one "probe" per empirical call, in order
+
+    def fake_chat(model, prompt, num_ctx=None, max_tokens=64, keep_alive=None):
+        ollama.calls.append({"model": model, "keep_alive": keep_alive})
+        if not call_kinds:
+            call_kinds.append("tier")
+            return {"outcome": "ok", "status": 200, "prompt_eval_count": 20, "duration_s": 1.0, "message": "Paris."}
+        if keep_alive == 0 and "unload" not in call_kinds:
+            call_kinds.append("unload")
+            return {"outcome": "ok", "status": 200, "prompt_eval_count": 0, "duration_s": 0.1, "message": ""}
+        call_kinds.append("probe")
+        target = next(probe_targets)
+        return {"outcome": "ok", "status": 200, "prompt_eval_count": target, "duration_s": 1.0, "message": ""}
+
+    ollama.chat = fake_chat
+    row = K.phase_tier(lab, "qwen3:8b", rep=0, ollama=ollama, log_finder=lambda: None)
+    assert row["ollama_default_ctx_source"] == "empirical_probe"
+    assert row["ollama_default_ctx_from_empirical"] == K.EMPIRICAL_CTX_PROBE_LENGTHS[-1]
+
+
+def test_phase_tier_raises_when_no_signal_captures_context(tmp_path):
+    """(d): must never write a row a kill-criteria check could read as a verdict on missing data."""
+    lab = make_lab(tmp_path)
+    ollama = FakeOllama({"outcome": "ok", "status": 200, "prompt_eval_count": None, "duration_s": 1.0},
+                        ps_models=[])
+    try:
+        K.phase_tier(lab, "qwen3:8b", rep=0, ollama=ollama, log_finder=lambda: None)
+        assert False, "expected RuntimeError"
+    except RuntimeError as e:
+        assert "INVALID" in str(e)
+    # the row was still emitted (for forensics) but must not carry a usable ollama_default_ctx
+    rows = lab.all_rows()
+    tier_rows = [r for r in rows if r.get("record") == "tier"]
+    assert len(tier_rows) == 1
+    assert tier_rows[0]["ollama_default_ctx"] is None
 
 
 # ---------------------------------------------------------------------------------------------------- phase_memory

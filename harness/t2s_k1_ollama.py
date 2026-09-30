@@ -177,7 +177,12 @@ def find_ollama_log():
 # load) are best-effort guesses at what an Ollama server.log looks like around a model load; they have not been
 # checked against a real log. parse_ollama_log_context records every matched raw line so a human can correct the
 # regexes after the first real run, rather than silently trusting a wrong parse.
-_LOG_NUM_CTX_RE = re.compile(r"\b(?:num_ctx|n_ctx|context length)\D{0,3}(\d{3,7})", re.I)
+_LOG_NUM_CTX_RE = re.compile(r"\b(?:num_ctx|n_ctx|context length|--ctx-size)\D{0,3}(\d{3,7})", re.I)
+# The runner start line Ollama's server.log writes when it launches its internal llama.cpp-style subprocess: the
+# full command line, including --ctx-size N. This is a narrower, more specific match than _LOG_NUM_CTX_RE above
+# (which also matches looser phrases like "context length" in an unrelated log line); matched separately so
+# phase_tier can report which signal actually fired.
+_LOG_RUNNER_CTX_RE = re.compile(r"--ctx-size[= ](\d+)")
 _LOG_MEM_RE = re.compile(r"\b(total|free|available)\b[^0-9]{0,10}(\d+(?:\.\d+)?)\s*(MiB|MB|GiB|GB)", re.I)
 
 
@@ -241,11 +246,13 @@ class OllamaClient:
         self.base = f"http://{host}:{port}"
         self.timeout = timeout
 
-    def chat(self, model, prompt, num_ctx=None, max_tokens=64):
+    def chat(self, model, prompt, num_ctx=None, max_tokens=64, keep_alive=None):
         options = {"num_predict": max_tokens, "temperature": 0, "seed": 42}
         if num_ctx is not None:
             options["num_ctx"] = num_ctx
         body = {"model": model, "messages": [{"role": "user", "content": prompt}], "stream": False, "options": options}
+        if keep_alive is not None:
+            body["keep_alive"] = keep_alive
         req = urllib.request.Request(f"{self.base}/api/chat", data=json.dumps(body).encode(),
                                      headers={"Content-Type": "application/json"})
         t0 = time.monotonic()
@@ -263,6 +270,25 @@ class OllamaClient:
         return {"outcome": "ok", "status": status, "message": (data.get("message") or {}).get("content"),
                 "prompt_eval_count": data.get("prompt_eval_count"), "eval_count": data.get("eval_count"),
                 "duration_s": dt, "num_ctx_requested": num_ctx, "raw": data}
+
+    def get_ps(self):
+        """GET /api/ps: every currently-loaded model, with every field Ollama returns (name, size, size_vram,
+        expires_at, and context_length when the install exposes it -- confirmed 2026-09-29 that `ollama ps` (the
+        CLI, parsed by parse_ollama_ps) returns nothing once OLLAMA_KEEP_ALIVE=0 unloads the model right after each
+        call; this reads the same live state directly via HTTP instead of shelling out, and phase_tier calls it
+        while the model is still deliberately kept alive (keep_alive="10m") so there is something to read)."""
+        req = urllib.request.Request(f"{self.base}/api/ps")
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                data = json.loads(r.read())
+            return {"outcome": "ok", "models": data.get("models") or []}
+        except Exception as e:
+            return {"outcome": "error", "error": str(e)[:400], "models": []}
+
+    def unload(self, model):
+        """Explicit unload: a chat call with keep_alive=0 and no real generation work (max_tokens=1), matching
+        Ollama's own documented unload mechanism. Returns the chat() result; caller confirms via get_ps()."""
+        return self.chat(model, "", num_ctx=None, max_tokens=1, keep_alive=0)
 
 
 # ---------------------------------------------------------------------------------------------------- lab scaffold
@@ -315,29 +341,119 @@ class K1Lab:
 
 TIER_PROBE_PROMPT = ("You are a helpful assistant. In one short sentence, name the capital of France.")
 
+# ---------------------------------------------------------------------------------------------------- empirical context probe
+# (c) A direct probe that needs no ollama-ps/log parsing at all: send prompts of known target length with no
+# num_ctx, and use Ollama's own prompt_eval_count (returned for every /api/chat call, real ground truth for that
+# specific request) to find where truncation starts. Added 2026-09-29 after phase_tier's ps/log signals both came
+# back empty on evo-x2 (OLLAMA_KEEP_ALIVE=0 unloads the model right after each call, so `ollama ps` -- and the
+# server.log runner line, if it is written to a location this file's candidates miss -- have nothing to show).
+EMPIRICAL_CTX_PROBE_LENGTHS = (1000, 3000, 6000, 12000, 24000, 48000, 96000)
+_EMPIRICAL_CTX_TASK_TYPE = "niah_multikey"  # has a marker key/value buried near the end plus a question last
+
+
+def probe_effective_context_empirically(ollama, model, lengths=EMPIRICAL_CTX_PROBE_LENGTHS, seed=20260930):
+    """For each target length, builds a niah_multikey task (quality_suite.build_task -- filler, a marker
+    key/value pair, then a question asking for that exact value) and sends it with no num_ctx override. Records
+    prompt_eval_count and whether the answer contains the correct marker value. The smallest length (1000 tokens)
+    is assumed to fit under any real default context and calibrates the actual/target ratio for this specific
+    build; each larger length's prompt_eval_count is compared against that calibrated expectation -- a shortfall
+    means Ollama silently truncated the prompt before it reached the model. The largest length whose
+    prompt_eval_count still matches the calibrated expectation (within 2%) is the effective_ctx_estimate; None if
+    even the smallest probe does not return a usable prompt_eval_count."""
+    results = []
+    calibration_ratio = None
+    for target in lengths:
+        prompt, expected, _scorer = qs_build_task(_EMPIRICAL_CTX_TASK_TYPE, target, seed)
+        res = ollama.chat(model, prompt, num_ctx=None, max_tokens=32)
+        pec = res.get("prompt_eval_count")
+        message = res.get("message") or ""
+        marker_used = isinstance(message, str) and str(expected) in message
+        if calibration_ratio is None and pec:
+            calibration_ratio = pec / target
+        expected_pec = target * calibration_ratio if calibration_ratio else None
+        full_retention = (pec is not None and expected_pec is not None and pec >= expected_pec * 0.98)
+        results.append({"target_tokens": target, "chat_outcome": res.get("outcome"), "prompt_eval_count": pec,
+                        "expected_prompt_eval_count": round(expected_pec) if expected_pec else None,
+                        "marker_used": marker_used, "full_retention": full_retention})
+    retained = [r["target_tokens"] for r in results if r["full_retention"]]
+    effective_ctx_estimate = max(retained) if retained else None
+    return {"probes": results, "calibration_ratio": calibration_ratio, "effective_ctx_estimate": effective_ctx_estimate}
+
 
 # ---------------------------------------------------------------------------------------------------- phase: tier
-def phase_tier(lab: K1Lab, ollama_model: str, rep: int = 0, ollama=None, ps_fn=run_ollama_ps, log_finder=find_ollama_log):
-    """Issue one Ollama chat with no num_ctx override, then read `ollama ps` and the Ollama server log for the
-    context size and GPU memory it reports for this model's assigned tier. Records both to a row and returns it."""
+def phase_tier(lab: K1Lab, ollama_model: str, rep: int = 0, ollama=None, log_finder=find_ollama_log,
+               run_empirical=True):
+    """Captures Ollama's default context choice for ollama_model by three independent signals, in order of cost:
+
+    (a) /api/ps while the model is deliberately kept alive: chat with keep_alive="10m" (so OLLAMA_KEEP_ALIVE=0's
+        immediate unload does not race the read), GET /api/ps recording every field the response has (name, size,
+        size_vram, context_length when present, etc.), then explicitly unload (keep_alive=0) and confirm /api/ps
+        comes back empty. Fixes the 2026-09-29 finding on evo-x2: with keep_alive left at the server's own
+        OLLAMA_KEEP_ALIVE=0 default, the model was already gone by the time this phase queried ps.
+    (b) the Ollama server log's runner start line (--ctx-size), parsed from %LOCALAPPDATA%\\Ollama\\server.log.
+    (c) only if (a) and (b) both come back empty: an empirical probe (see probe_effective_context_empirically)
+        that finds the effective default context directly from Ollama's own prompt_eval_count, no ps/log parsing
+        needed at all.
+
+    Raises RuntimeError if none of the three signals capture a context value -- this phase must never emit a row a
+    kill-criteria check could read as a verdict when the underlying data is simply missing."""
     ollama = ollama or lab.ollama
     log_path = log_finder()
     log_pos = os.path.getsize(log_path) if log_path and os.path.exists(log_path) else 0
-    res = ollama.chat(ollama_model, TIER_PROBE_PROMPT, num_ctx=None, max_tokens=32)
-    ps_rows = ps_fn()
-    match = next((r for r in ps_rows if r.get("name") == ollama_model or (r.get("name") or "").startswith(ollama_model.split(":")[0])), None)
+
+    res = ollama.chat(ollama_model, TIER_PROBE_PROMPT, num_ctx=None, max_tokens=32, keep_alive="10m")
+    ps_after_chat = ollama.get_ps()
+    ps_match = next((m for m in ps_after_chat.get("models", [])
+                     if m.get("name") == ollama_model or (m.get("name") or "").startswith(ollama_model.split(":")[0])), None)
+    unload_res = ollama.unload(ollama_model)
+    ps_after_unload = ollama.get_ps()
+    unload_confirmed_empty = not ps_after_unload.get("models")
+
     log_info = parse_ollama_log_context(log_path, log_pos) if log_path else {"available": False, "why": "no log path found"}
+    runner_ctx = None
+    if log_path and os.path.exists(log_path):
+        try:
+            with open(log_path, "rb") as f:
+                f.seek(max(log_pos, 0))
+                text = f.read().decode("utf-8", errors="replace")
+            m = _LOG_RUNNER_CTX_RE.search(text)
+            runner_ctx = int(m.group(1)) if m else None
+        except Exception:
+            runner_ctx = None
     log_ctx_candidates = log_info.get("num_ctx_seen") or []
-    default_ctx = match.get("context_len") if match else None
-    if default_ctx is None and log_ctx_candidates:
-        default_ctx = max(log_ctx_candidates)
+
+    default_ctx_from_ps = ps_match.get("context_length") if ps_match else None
+    default_ctx_from_log = runner_ctx or (max(log_ctx_candidates) if log_ctx_candidates else None)
+
+    empirical = None
+    default_ctx_from_empirical = None
+    if run_empirical and default_ctx_from_ps is None and default_ctx_from_log is None:
+        empirical = probe_effective_context_empirically(ollama, ollama_model)
+        default_ctx_from_empirical = empirical.get("effective_ctx_estimate")
+
+    default_ctx = default_ctx_from_ps if default_ctx_from_ps is not None else \
+        (default_ctx_from_log if default_ctx_from_log is not None else default_ctx_from_empirical)
+    ctx_source = ("api_ps" if default_ctx_from_ps is not None else
+                  "server_log" if default_ctx_from_log is not None else
+                  "empirical_probe" if default_ctx_from_empirical is not None else None)
+
     row = lab.emit({
         "record": "tier", "phase": "tier", "model_tag": ollama_model, "rep": rep,
         "chat_outcome": res.get("outcome"), "chat_status": res.get("status"), "chat_error": res.get("error"),
         "chat_duration_s": res.get("duration_s"), "chat_prompt_eval_count": res.get("prompt_eval_count"),
-        "ollama_ps_raw": match, "ollama_default_ctx": default_ctx, "ollama_log_path": log_path,
-        "ollama_log_info": log_info, "mem_headroom_gb": None,
+        "ollama_ps_raw": ps_match, "unload_outcome": unload_res.get("outcome"),
+        "unload_confirmed_empty": unload_confirmed_empty,
+        "ollama_default_ctx": default_ctx, "ollama_default_ctx_source": ctx_source,
+        "ollama_default_ctx_from_ps": default_ctx_from_ps, "ollama_default_ctx_from_log": default_ctx_from_log,
+        "ollama_default_ctx_from_empirical": default_ctx_from_empirical,
+        "ollama_log_path": log_path, "ollama_log_info": log_info, "ollama_empirical_probe": empirical,
+        "mem_headroom_gb": None,
     })
+    if default_ctx is None:
+        raise RuntimeError(f"K1 tier: could not capture ollama_default_ctx for {ollama_model} by any signal "
+                            f"(api/ps, server.log, empirical probe); this run is INVALID, not a kill-criteria "
+                            f"FAIL -- refusing to write a result a kill-criteria check could read as a verdict "
+                            f"on missing data")
     return row
 
 
@@ -514,9 +630,18 @@ def kill_criteria(rows: list) -> dict:
     """
     out = {}
 
-    tier_rows = [r for r in rows if r.get("record") in ("tier", "memory_pressure") and r.get("ollama_default_ctx") is not None]
-    if not tier_rows:
-        out["defaults_cover_agent_prompts"] = {"ok": False, "reason": "no tier/memory_pressure rows with ollama_default_ctx found"}
+    # A tier/memory_pressure row with ollama_default_ctx=None is INVALID (the context could not be captured by any
+    # signal), not a fail -- phase_tier itself now raises rather than emit one (see phase_tier's (d)), so this only
+    # matters when reading an older/historical run's rows. A fail requires a real captured-but-too-small context.
+    tier_rows_any = [r for r in rows if r.get("record") in ("tier", "memory_pressure")]
+    tier_rows = [r for r in tier_rows_any if r.get("ollama_default_ctx") is not None]
+    if not tier_rows_any:
+        out["defaults_cover_agent_prompts"] = {"ok": False, "reason": "no tier/memory_pressure rows found at all"}
+    elif not tier_rows:
+        out["defaults_cover_agent_prompts"] = {"ok": None, "status": "invalid_no_ctx_captured", "reason": (
+            f"{len(tier_rows_any)} tier/memory_pressure row(s) found, but none captured ollama_default_ctx by any "
+            f"signal (api/ps, server.log, empirical probe) -- this is INVALID, not a kill-criterion FAIL; the run "
+            f"must be re-run with context capture working before this check means anything")}
     else:
         hosts = sorted({r.get("host") for r in tier_rows})
         fails = [r for r in tier_rows if r["ollama_default_ctx"] < KILL_CRITERIA_MIN_DEFAULT_CTX]
@@ -566,7 +691,7 @@ def report_kill_criteria(result: dict):
     criterion ahead of results (see t2s_night2.py / t2s_overnight.py estimate + schedule logging)."""
     L.log("=== KILL CRITERIA (checked first) ===")
     for name, r in result.items():
-        status = "OK" if r["ok"] else "FAIL"
+        status = "OK" if r["ok"] is True else "INVALID" if r.get("status") == "invalid_no_ctx_captured" else "FAIL"
         L.log(f"[{status}] {name}: {r['reason']}")
     L.log("=== end kill criteria ===")
 
