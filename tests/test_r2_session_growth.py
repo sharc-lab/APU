@@ -50,11 +50,12 @@ class TestSessionCodeAndFacts:
 
 class TestSystemPrompt:
     def test_contains_all_5_rules_verbatim_markers(self):
-        text, code, facts = r2.build_system_prompt(5)
+        text, code, facts, canary = r2.build_system_prompt(5)
         assert "log_event" in text and "lookup_fact" in text
         assert "ZEBRA-7" in text
         assert "metres" in text
         assert code in text
+        assert canary in text
         for key, value in facts:
             assert key in text and value in text
 
@@ -62,6 +63,21 @@ class TestSystemPrompt:
         a = r2.build_system_prompt(11)
         b = r2.build_system_prompt(11)
         assert a == b
+
+    def test_canary_distinct_from_session_code_and_facts(self):
+        text, code, facts, canary = r2.build_system_prompt(5)
+        assert canary != code
+        assert canary not in (v for _, v in facts)
+        assert canary.startswith("CANARY-")
+
+
+class TestCanary:
+    def test_deterministic_per_seed(self):
+        assert r2.generate_canary(1) == r2.generate_canary(1)
+        assert r2.generate_canary(1) != r2.generate_canary(2)
+
+    def test_distinct_from_session_code(self):
+        assert r2.generate_canary(1) != r2.generate_session_code(1)
 
 
 class TestGenerateTurn:
@@ -88,6 +104,30 @@ class TestGenerateTurn:
         turn = r2.generate_turn(5, seed=1, facts=r2.pick_facts(1), count_fn=word_count_fn)
         assert not turn.is_recall
         assert turn.recall_key is None
+
+    def test_canary_none_skips_canary_schedule_entirely(self):
+        turn = r2.generate_turn(5, seed=1, facts=r2.pick_facts(1), count_fn=word_count_fn)
+        assert not turn.canary_check
+        assert turn.canary_expected is None
+
+    def test_every_5th_turn_is_a_canary_check_when_canary_given(self):
+        canary = r2.generate_canary(1)
+        facts = r2.pick_facts(1)
+        t5 = r2.generate_turn(5, seed=1, facts=facts, canary=canary, count_fn=word_count_fn)
+        t10 = r2.generate_turn(10, seed=1, facts=facts, canary=canary, count_fn=word_count_fn)
+        t6 = r2.generate_turn(6, seed=1, facts=facts, canary=canary, count_fn=word_count_fn)
+        assert t5.canary_check and t5.canary_expected == canary
+        assert t10.canary_check and t10.canary_expected == canary
+        assert not t6.canary_check
+        assert t6.canary_expected is None
+
+    def test_canary_schedule_is_independent_of_recall_schedule(self):
+        # turn 20 is both a multiple of 4 (recall) and of 5 (canary) -- both must fire together.
+        canary = r2.generate_canary(1)
+        facts = r2.pick_facts(1)
+        t20 = r2.generate_turn(20, seed=1, facts=facts, canary=canary, count_fn=word_count_fn)
+        assert t20.is_recall
+        assert t20.canary_check
 
     def test_pure_function_of_idx_seed_facts(self):
         facts = r2.pick_facts(3)
@@ -323,6 +363,203 @@ class TestScoreSession:
         curve = r2.survival_curve([], max_turns=3)
         assert len(curve) == 3
         assert all(c != c for c in curve)  # NaN != NaN
+
+
+def _compliant_output(session, turn, *, log_event=True, canary_text=None):
+    """Build a fully rule-1/3/4/5-compliant JSON answer string for `turn`, optionally including a
+    verbatim canary reproduction and/or a log_event tool call. Shared helper for the new baseline-
+    compliance / canary tests below.
+
+    NOTE: log_event=False only has an effect on rule 2 for ODD-idx turns (lookup_fact tasks) --
+    even-idx turns' own required tool (turn.tool_name) already IS "log_event" (see _length_task),
+    so it is unconditionally present in tool_calls regardless of this flag."""
+    answer = ""
+    if canary_text is not None:
+        answer += f"{canary_text} "
+    if turn.is_recall:
+        answer += f"{turn.recall_value} "
+    answer += session.session_code
+    tool_calls = [{"name": turn.tool_name, "arguments": turn.tool_args}]
+    if log_event:
+        tool_calls.append({"name": "log_event", "arguments": {"event": "e"}})
+    return json.dumps({"tool_calls": tool_calls, "answer": answer, "source": "s"})
+
+
+def _score_session_with(seed, max_turns, *, log_event_missing_turns=(), loaded_context_tokens=None,
+                        cumulative_tokens_by_turn=None, canary_included_turns=None):
+    """Build a real generated session and score it with per-turn overrides, for the baseline-
+    compliance and canary-truncation tests: log_event_missing_turns makes rule 2 fail on those turn
+    indices (everywhere else it passes); canary_included_turns, if given, restricts which canary-
+    check turns actually reproduce the canary (default: all of them do)."""
+    session = r2.generate_session(seed, count_fn=word_count_fn, max_turns=max_turns)
+    turn_outputs = []
+    for t in session.turns:
+        include_canary = None
+        if t.canary_check:
+            include_canary = (session.canary if canary_included_turns is None
+                               or t.idx in canary_included_turns else None)
+        log_event = t.idx not in log_event_missing_turns
+        text = _compliant_output(session, t, log_event=log_event, canary_text=include_canary)
+        cum = (cumulative_tokens_by_turn or {}).get(t.idx, 100 * t.idx)
+        turn_outputs.append({"output_text": text, "sent_tokens": 100, "processed_tokens": 100,
+                              "http_status": 200, "error_text": None, "cumulative_tokens": cum})
+    return r2.score_session(session, turn_outputs, loaded_context_tokens=loaded_context_tokens)
+
+
+class TestRuleBaselineCompliance:
+    def test_rule_passes_bar_when_compliant_every_turn(self):
+        scored = _score_session_with(1, 10)
+        compliance = r2.rule_baseline_compliance([scored])
+        assert compliance == {r: True for r in r2.RULE_IDS}
+
+    def test_rule2_fails_bar_when_missing_every_turn(self):
+        scored = _score_session_with(1, 10, log_event_missing_turns=range(1, 11))
+        compliance = r2.rule_baseline_compliance([scored])
+        assert compliance["rule2_log_event_called"] is False
+        assert compliance["rule1_json_keys"] is True
+
+    def test_turn1_failure_in_control_arm_specifically_fails_the_bar(self):
+        """The exact live scenario this problem exists for: rule 2 fails at turn 1 (and turn 3, to
+        push the rate below the 90% bar -- turn 2 cannot be used for this since even turns'
+        required tool IS log_event, so the "missing" flag has no effect there; see
+        _compliant_output's docstring-equivalent note in its own body). 2 misses out of 10 -> 80%,
+        under the bar."""
+        scored = _score_session_with(1, 10, log_event_missing_turns=(1, 3))
+        compliance = r2.rule_baseline_compliance([scored])
+        assert compliance["rule2_log_event_called"] is False
+
+    def test_single_turn1_miss_over_enough_turns_can_still_pass(self):
+        scored = _score_session_with(1, 20, log_event_missing_turns=(1,))
+        # baseline window is turns 1-10 by default -- 1 miss out of 10 is exactly 90%, so it passes.
+        compliance = r2.rule_baseline_compliance([scored])
+        assert compliance["rule2_log_event_called"] is True
+
+    def test_report_gives_pass_rate_and_turn1_examples_for_failing_rules_only(self):
+        # odd turns (1,3,5,7,9) are the only ones where "missing log_event" is actually effective
+        # (see the previous test's note) -- all 5 missing -> exactly 50% overall pass rate.
+        odd_missing = (1, 3, 5, 7, 9)
+        scored_a = _score_session_with(1, 10, log_event_missing_turns=odd_missing)
+        scored_b = _score_session_with(2, 10, log_event_missing_turns=odd_missing)
+        report = r2.rule_baseline_compliance_report([scored_a, scored_b])
+        assert set(report.keys()) == {"rule2_log_event_called"}
+        entry = report["rule2_log_event_called"]
+        assert entry["baseline_pass_rate"] == 0.5
+        assert len(entry["example_turn1_outputs"]) == 2
+        assert all(isinstance(o, str) and o for o in entry["example_turn1_outputs"])
+
+    def test_report_empty_when_every_rule_clears_the_bar(self):
+        scored = _score_session_with(1, 10)
+        report = r2.rule_baseline_compliance_report([scored])
+        assert report == {}
+
+
+class TestNativeToolCallDetection:
+    def test_native_tool_calls_used_when_detection_method_is_native(self):
+        session, turn = make_session_and_turn(idx=1)
+        # text-based "tool_calls" field deliberately omits log_event (would fail if graded as text)
+        output = {"answer": f"x{session.session_code}", "source": "s"}
+        native_calls = [{"function": {"name": "log_event", "arguments": {"event": "e"}}},
+                         {"function": {"name": turn.tool_name, "arguments": turn.tool_args}}]
+        score = r2.score_turn(turn, session.session_code, json.dumps(output), 100, 100,
+                               native_tool_calls=native_calls, tool_detection_method="native")
+        assert score.rule2_log_event_called is True
+        assert score.tool_args_match is True
+        assert score.tool_call_detection_method == "native"
+
+    def test_text_fallback_used_by_default(self):
+        session, turn = make_session_and_turn(idx=1)
+        output = {"tool_calls": [{"name": "log_event", "arguments": {"event": "e"}},
+                                  {"name": turn.tool_name, "arguments": turn.tool_args}],
+                  "answer": f"x{session.session_code}", "source": "s"}
+        score = r2.score_turn(turn, session.session_code, json.dumps(output), 100, 100)
+        assert score.tool_call_detection_method == "text_fallback"
+        assert score.rule2_log_event_called is True
+
+    def test_native_empty_tool_calls_fails_rule2_even_with_compliant_text(self):
+        # the model made no real tool call at all; a text "tool_calls" field, if present, must NOT
+        # be used to paper over that once native detection is in effect.
+        session, turn = make_session_and_turn(idx=1)
+        output = {"tool_calls": [{"name": "log_event", "arguments": {"event": "e"}}],
+                  "answer": f"x{session.session_code}", "source": "s"}
+        score = r2.score_turn(turn, session.session_code, json.dumps(output), 100, 100,
+                               native_tool_calls=[], tool_detection_method="native")
+        assert score.rule2_log_event_called is False
+
+    def test_ollama_tools_payload_shape(self):
+        payload = r2.ollama_tools_payload()
+        names = {p["function"]["name"] for p in payload}
+        assert names == {"log_event", "lookup_fact"}
+        assert all(p["type"] == "function" for p in payload)
+
+    def test_run_turn_ollama_records_native_method_and_sends_tools(self, tmp_path):
+        lab = make_lab(tmp_path)
+        client = FakeOllama(tool_calls=[{"function": {"name": "log_event", "arguments": {"event": "e"}}}])
+        session = r2.generate_session(1, count_fn=word_count_fn, max_turns=1)
+        turn = session.turns[0]
+        messages = [{"role": "system", "content": session.system_prompt},
+                    {"role": "user", "content": r2.turn_message_content(turn)}]
+        row = lab.run_turn_ollama("qwen3-4b-2507", "ollama_default", "as_is", session, turn, messages,
+                                   ollama=client, count_fn=word_count_fn)
+        assert row["tool_detection_method"] == "native"
+        assert row["native_tool_calls"] == client.tool_calls
+        assert client.calls[0]["tools"] is not None
+
+    def test_run_turn_llama_server_always_text_fallback(self, tmp_path):
+        lab = make_lab(tmp_path)
+        client = FakeLlamaServerSession()
+        session = r2.generate_session(1, count_fn=word_count_fn, max_turns=1)
+        turn = session.turns[0]
+        row = lab.run_turn_llama_server(client, "qwen3-4b-2507", "llama_server_default_fit", "as_is",
+                                         session, turn, log_text_fn=lambda: client.log_text)
+        assert row["tool_detection_method"] == "text_fallback"
+        assert row["native_tool_calls"] is None
+
+
+class TestCanaryTruncationDetection:
+    def test_canary_hit_no_truncation(self):
+        scored = _score_session_with(1, 5, loaded_context_tokens=1_000_000)
+        assert scored["truncation_detected_turn"] is None
+
+    def test_canary_miss_without_context_exceeded_does_not_count(self):
+        scored = _score_session_with(1, 5, canary_included_turns=set(),
+                                      loaded_context_tokens=1_000_000,
+                                      cumulative_tokens_by_turn={5: 10})
+        assert scored["truncation_detected_turn"] is None
+
+    def test_context_exceeded_without_canary_miss_does_not_count(self):
+        scored = _score_session_with(1, 5, loaded_context_tokens=50,
+                                      cumulative_tokens_by_turn={5: 10_000})
+        assert scored["truncation_detected_turn"] is None
+
+    def test_both_conditions_together_is_the_only_thing_that_fires(self):
+        scored = _score_session_with(1, 5, canary_included_turns=set(), loaded_context_tokens=50,
+                                      cumulative_tokens_by_turn={5: 10_000})
+        assert scored["truncation_detected_turn"] == 5
+
+    def test_no_loaded_context_tokens_means_no_verdict_ever(self):
+        scored = _score_session_with(1, 5, canary_included_turns=set(),
+                                      cumulative_tokens_by_turn={5: 10_000})
+        assert scored["loaded_context_tokens"] is None
+        assert scored["truncation_detected_turn"] is None
+
+
+class TestLoadedContextHelpers:
+    def test_get_loaded_context_ollama_matches_by_name(self):
+        client = FakeOllama(context_length=32768)
+        client.chat("qwen3:4b-instruct-2507", "")  # seed .calls so get_ps can report a name
+        assert r2.get_loaded_context_ollama(client, "qwen3:4b-instruct-2507") == 32768
+
+    def test_get_loaded_context_ollama_none_when_not_loaded(self):
+        client = FakeOllama()
+        client.chat("qwen3:4b-instruct-2507", "")
+        assert r2.get_loaded_context_ollama(client, "qwen3:4b-instruct-2507") is None
+
+    def test_get_loaded_context_llama_server_parses_n_ctx_slot(self):
+        log_text = "I srv    load_model: initializing, n_slots = 1, n_ctx_slot = 8192, n_ctx = 8192"
+        assert r2.get_loaded_context_llama_server(log_text) == 8192
+
+    def test_get_loaded_context_llama_server_none_when_absent(self):
+        assert r2.get_loaded_context_llama_server("no such line here") is None
 
 
 class TestKillCriterion:
@@ -576,16 +813,28 @@ class FakeOllama:
     answers compliantly except it never calls log_event, so rule 2 always fails from turn 1 -- lets
     the dry run exercise the scorer's failure paths too."""
 
-    def __init__(self):
+    def __init__(self, tool_calls=None, context_length=None):
         self.calls = []
+        self.tool_calls = tool_calls  # injected native message.tool_calls for rule-2 native tests
+        self.context_length = context_length  # injected /api/ps context_length for truncation tests
 
-    def chat(self, model, prompt, num_ctx=None, max_tokens=64, keep_alive=None, messages=None):
+    def chat(self, model, prompt, num_ctx=None, max_tokens=64, keep_alive=None, messages=None,
+             tools=None):
         # snapshot messages (list(...)) since the caller keeps mutating the same list object turn
         # to turn -- storing the reference itself would make every recorded call alias the final,
         # fully-grown history instead of what was actually sent at that point in time.
-        self.calls.append({"model": model, "num_ctx": num_ctx, "messages": list(messages or [])})
+        self.calls.append({"model": model, "num_ctx": num_ctx, "messages": list(messages or []),
+                            "tools": tools})
         return {"outcome": "ok", "status": 200, "message": "not valid json output",
-                "prompt_eval_count": 50, "error": None}
+                "prompt_eval_count": 50, "error": None, "tool_calls": self.tool_calls}
+
+    def get_ps(self):
+        if self.context_length is None:
+            return {"outcome": "ok", "models": []}
+        # matches whatever model id the most recent chat() call actually used, so a test need not
+        # guess the exact Ollama tag spelling a given model_id aliases to.
+        name = self.calls[-1]["model"] if self.calls else "unknown"
+        return {"outcome": "ok", "models": [{"name": name, "context_length": self.context_length}]}
 
 
 class FakeLlamaServerSession:
@@ -832,6 +1081,109 @@ class TestStaleServerGuard:
                                    count_fn=word_count_fn, max_turns=4,
                                    log_text_fn=lambda: client.log_text, guard=guard)
         assert client.n_calls == 0  # the guard fires before the call, not after
+
+
+# ── Problem 3: positive-control stubs (fake runtimes that silently drop content past a fake 8192- ──
+# ── token boundary) confirming the new detector actually fires, and at the right turn ───────────────
+
+
+class FakePositiveControlOllama:
+    """A fake Ollama client that answers compliantly (including the canary, when asked) as long as
+    the growing conversation's cumulative token count stays within `fake_ctx`; once it is exceeded,
+    it silently drops the canary from its answer (everything else about the answer stays compliant)
+    -- simulating exactly the "no error, but the model can no longer see its own system prompt"
+    failure mode problem 2's detector exists to catch. session_code/canary are the real session's own
+    values (closed over by the test), so _compliant_output-style grading still works."""
+
+    def __init__(self, session_code, canary, fake_ctx=8192):
+        self.session_code, self.canary, self.fake_ctx = session_code, canary, fake_ctx
+        self.calls = []
+
+    def chat(self, model, prompt, num_ctx=None, max_tokens=64, keep_alive=None, messages=None,
+             tools=None):
+        self.calls.append({"model": model, "messages": list(messages or [])})
+        sent_tokens = sum(len(m["content"].split()) for m in (messages or []))
+        last_user = next((m["content"] for m in reversed(messages or []) if m["role"] == "user"), "")
+        asked_canary = "canary phrase" in last_user
+        include_canary = asked_canary and sent_tokens <= self.fake_ctx
+        answer = (f"{self.canary} " if include_canary else "") + f"ok {self.session_code}"
+        body = {"tool_calls": [{"name": "log_event", "arguments": {"event": "e"}}],
+                "answer": answer, "source": "s"}
+        return {"outcome": "ok", "status": 200, "message": json.dumps(body),
+                "prompt_eval_count": 50, "error": None, "tool_calls": None}
+
+    def get_ps(self):
+        name = self.calls[-1]["model"] if self.calls else "unknown"
+        return {"outcome": "ok", "models": [{"name": name, "context_length": self.fake_ctx}]}
+
+
+class FakePositiveControlLlamaServer:
+    """llama-server equivalent of FakePositiveControlOllama: no growing message history (matches
+    run_turn_llama_server's real send shape), so it tracks its own running cumulative token count
+    across calls the same way phase_run_session's cumulative_tokens_before/row["cumulative_tokens"]
+    does, and compares that running total (not just this call's own prompt) against fake_ctx."""
+
+    def __init__(self, session_code, canary, fake_ctx=8192):
+        self.session_code, self.canary, self.fake_ctx = session_code, canary, fake_ctx
+        self.log_text = f"ordinary startup log, n_ctx_slot = {fake_ctx}"
+        self.cumulative = 0
+        self.n_calls = 0
+
+    def tokenize(self, text):
+        return len(text.split())
+
+    def call(self, prompt, max_tokens):
+        self.n_calls += 1
+        n_tokens = len(prompt.split())
+        self.cumulative += n_tokens
+        asked_canary = "canary phrase" in prompt
+        include_canary = asked_canary and self.cumulative <= self.fake_ctx
+        answer = (f"{self.canary} " if include_canary else "") + f"ok {self.session_code}"
+        body = {"tool_calls": [{"name": "log_event", "arguments": {"event": "e"}}],
+                "answer": answer, "source": "s"}
+        return (json.dumps(body), 10.0, 5.0, n_tokens, 5, "stop", 0)
+
+
+class TestPositiveControlStubs:
+    """Problem 3's two required positive controls, run against fakes (no real process): confirms the
+    loaded-context-vs-cumulative-tokens + canary-miss detector fires once cumulative tokens exceed a
+    fake 8192-token boundary, and reports the exact turn."""
+
+    def test_ollama_positive_control_fires_once_past_8192_tokens(self, tmp_path):
+        lab = make_lab(tmp_path)
+        session = r2.generate_session(20260901, count_fn=word_count_fn, max_turns=10)
+        client = FakePositiveControlOllama(session.session_code, session.canary, fake_ctx=8192)
+        result = lab.phase_run_session(model_id="qwen3-4b-2507",
+                                        arm_id="ollama_ctx_8192_positive_control",
+                                        condition_id="as_is", seed=20260901, ollama=client,
+                                        count_fn=word_count_fn, max_turns=10)
+        scored = result["scored"]
+        assert scored["loaded_context_tokens"] == 8192
+        canary_rows = [r for r in result["rows"] if r["turn_idx"] % r2.CANARY_CHECK_EVERY == 0]
+        expected_turn = next((r["turn_idx"] for r in canary_rows if r["cumulative_tokens"] > 8192), None)
+        assert expected_turn is not None  # the filler growth must actually cross 8192 within 10 turns
+        assert scored["truncation_detected_turn"] == expected_turn
+
+    def test_llama_server_positive_control_fires_once_past_8192_tokens(self, tmp_path):
+        lab = make_lab(tmp_path)
+        session = r2.generate_session(20260901, count_fn=word_count_fn, max_turns=10)
+        client = FakePositiveControlLlamaServer(session.session_code, session.canary, fake_ctx=8192)
+        result = lab.phase_run_session(model_id="qwen3-4b-2507",
+                                        arm_id="llama_server_c_8192_positive_control",
+                                        condition_id="as_is", seed=20260901, llama_session=client,
+                                        count_fn=word_count_fn, max_turns=10,
+                                        log_text_fn=lambda: client.log_text)
+        scored = result["scored"]
+        assert scored["loaded_context_tokens"] == 8192
+        canary_rows = [r for r in result["rows"] if r["turn_idx"] % r2.CANARY_CHECK_EVERY == 0]
+        expected_turn = next((r["turn_idx"] for r in canary_rows if r["cumulative_tokens"] > 8192), None)
+        assert expected_turn is not None
+        assert scored["truncation_detected_turn"] == expected_turn
+
+    def test_positive_control_arms_are_not_in_normal_enumeration(self):
+        assert "ollama_ctx_8192_positive_control" not in r2.ARM_ORDER
+        assert "llama_server_c_8192_positive_control" not in r2.ARM_ORDER
+        assert "ollama_ctx_8192_positive_control" not in r2.applicable_arms("evo-x2")
 
 
 # ── CLI: --smoke dry run reports the call-shape count without starting any real process ────────────

@@ -255,12 +255,19 @@ class OllamaClient:
         self.base = f"http://{host}:{port}"
         self.timeout = timeout
 
-    def chat(self, model, prompt, num_ctx=None, max_tokens=64, keep_alive=None, messages=None):
+    def chat(self, model, prompt, num_ctx=None, max_tokens=64, keep_alive=None, messages=None, tools=None):
         """messages: optional full conversation history ([{"role":.., "content":..}, ...]), for a caller (e.g.
         harness/t2s_r2_session_growth.py's growing agent sessions) that needs more than the single user-turn
         request every other caller of this method sends. None (the default, and every pre-existing call site's
         behavior) still sends exactly [{"role": "user", "content": prompt}] as before; prompt is then ignored only
-        when messages is given, and is still recorded by call sites for logging."""
+        when messages is given, and is still recorded by call sites for logging.
+
+        tools: optional OpenAI-style tools array ([{"type": "function", "function": {"name", "description",
+        "parameters"}}, ...]), forwarded to /api/chat's `tools` field so a caller can use Ollama's native
+        tool-calling support instead of asking the model to describe tool calls in free text (added for
+        harness/t2s_r2_session_growth.py's rule-2 native-vs-text-fallback tool-call detection). None (the
+        default, and every pre-existing call site) omits the field entirely, unchanged from before. The
+        response's own message.tool_calls (if any) is returned verbatim under the "tool_calls" key."""
         options = {"num_predict": max_tokens, "temperature": 0, "seed": 42}
         if num_ctx is not None:
             options["num_ctx"] = num_ctx
@@ -268,6 +275,8 @@ class OllamaClient:
                 "stream": False, "options": options}
         if keep_alive is not None:
             body["keep_alive"] = keep_alive
+        if tools is not None:
+            body["tools"] = tools
         req = urllib.request.Request(f"{self.base}/api/chat", data=json.dumps(body).encode(),
                                      headers={"Content-Type": "application/json"})
         t0 = time.monotonic()
@@ -283,6 +292,7 @@ class OllamaClient:
                     "num_ctx_requested": num_ctx}
         dt = time.monotonic() - t0
         return {"outcome": "ok", "status": status, "message": (data.get("message") or {}).get("content"),
+                "tool_calls": (data.get("message") or {}).get("tool_calls"),
                 "prompt_eval_count": data.get("prompt_eval_count"), "eval_count": data.get("eval_count"),
                 "duration_s": dt, "num_ctx_requested": num_ctx, "raw": data}
 
