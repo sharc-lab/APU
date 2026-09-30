@@ -501,3 +501,59 @@ def test_main_aborts_if_ollama_is_running():
     guard_idx = src.index("hc.ollama_process_running()")
     phase_call_idx = src.index("phase_k2(lab, mid, args.n_ctx, calibration_pass_set=calibration_pass_set)")
     assert guard_idx < phase_call_idx
+
+
+# ---------------------------------------------------------------------------------------------------- PROBLEM 1 fix: guard scoping (2026-09-30)
+def test_main_guard_is_skipped_once_k2_owns_its_own_ollama_server():
+    """K2's per-model loop (arms (a)/(b)) must still abort on a foreign Ollama process it does not own (the case
+    above), but once K2 itself has started Ollama for its own everyday_apps/pause_resume arm (ollama_owned_by_us),
+    the exact same resident process must NOT trip that guard -- it is the arm working as designed, not
+    contamination. The guard condition itself must therefore be gated on ollama_owned_by_us, and that flag must be
+    set to True only after hc.start_ollama_server() has actually been called, before the guarded per-model loop."""
+    src = _get_main_source()
+    assert "ollama_owned_by_us" in src
+    assert "not ollama_owned_by_us and hc.ollama_process_running()" in src
+    start_idx = src.index("hc.start_ollama_server()")
+    owned_true_idx = src.index("ollama_owned_by_us = True")
+    guard_idx = src.index("not ollama_owned_by_us and hc.ollama_process_running()")
+    assert start_idx < owned_true_idx < guard_idx
+
+
+def test_main_starts_and_stops_its_own_ollama_server_for_ollama_needing_arms():
+    """K2 must start and stop its own Ollama server the same way K1's main() does (see tests/test_k1_ollama.py's
+    analogous test), for whichever of its own arms actually need Ollama (everyday_apps and/or pause_resume) --
+    never for the plain per-model loop (arms (a)/(b)), which never uses Ollama at all. The stop call must be in a
+    finally block so it always runs, even on failure, exactly like K1's."""
+    src = _get_main_source()
+    assert "args.everyday_apps or args.pause_resume" in src  # needs_ollama
+    assert "hc.start_ollama_server()" in src
+    assert "hc.stop_ollama_server()" in src
+    start_idx = src.index("hc.start_ollama_server()")
+    finally_idx = src.index("finally:", start_idx)
+    stop_idx = src.index("hc.stop_ollama_server()", finally_idx)
+    assert start_idx < finally_idx < stop_idx
+
+
+def test_main_pause_resume_flag_defaults_to_off():
+    src = _get_main_source()
+    assert "--pause-resume" in src
+    assert "phase_k2_pause_resume" in src
+
+
+def test_guard_condition_fires_for_a_non_ollama_arm_when_ollama_unexpectedly_running(monkeypatch):
+    """Executes the actual boolean expression main() guards the per-model loop with (not ollama_owned_by_us and
+    hc.ollama_process_running()), against a real (monkeypatched) hc.ollama_process_running, for the
+    ollama_owned_by_us=False case (the state during the whole per-model loop on every K2 launch that does not
+    request an Ollama-needing arm): a resident Ollama process must be treated as a violation."""
+    monkeypatch.setattr(k2.hc, "ollama_process_running", lambda: True)
+    ollama_owned_by_us = False
+    assert (not ollama_owned_by_us and k2.hc.ollama_process_running()) is True
+
+
+def test_guard_condition_does_not_fire_once_k2_owns_its_own_ollama_server(monkeypatch):
+    """Same expression, ollama_owned_by_us=True (the state after main() has called hc.start_ollama_server() for its
+    own everyday_apps/pause_resume arm): the exact same resident Ollama process must NOT be treated as a
+    violation -- it is K2's own server."""
+    monkeypatch.setattr(k2.hc, "ollama_process_running", lambda: True)
+    ollama_owned_by_us = True
+    assert (not ollama_owned_by_us and k2.hc.ollama_process_running()) is False

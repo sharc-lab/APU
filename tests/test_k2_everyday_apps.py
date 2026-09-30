@@ -5,6 +5,7 @@ launch/kill is dependency-injected and faked."""
 
 from __future__ import annotations
 
+import math
 import sys
 import time
 from pathlib import Path
@@ -65,6 +66,33 @@ def test_generate_pressure_pages_pages_differ_only_by_index():
     assert t0 != t7
     assert "pressure page 0" in t0 and "__pressure_arr_0" in t0
     assert "pressure page 7" in t7 and "__pressure_arr_7" in t7
+
+
+# ---------------------------------------------------------------- pages_for_total_mb (K2 arm (d) page scaling)
+
+def test_pages_for_total_mb_zero_is_zero_pages():
+    assert bap.pages_for_total_mb(0) == 0
+    assert bap.pages_for_total_mb(-5) == 0
+
+
+def test_pages_for_total_mb_exact_multiple():
+    assert bap.pages_for_total_mb(8 * 1024, page_mb=150) == math.ceil(8 * 1024 / 150)
+
+
+def test_pages_for_total_mb_rounds_up_and_is_at_least_one_page_when_positive():
+    assert bap.pages_for_total_mb(1, page_mb=150) == 1
+
+
+def test_pages_for_total_mb_scales_across_the_5_step_sweep():
+    # 0/8/16/24/32 GB -> monotonically non-decreasing page counts, 0 GB -> 0 pages.
+    counts = [bap.pages_for_total_mb(gb * 1024, page_mb=bap.TARGET_MB_PER_PAGE) for gb in (0, 8, 16, 24, 32)]
+    assert counts[0] == 0
+    assert counts == sorted(counts)
+    assert all(c > 0 for c in counts[1:])
+
+
+def test_pages_for_total_mb_default_page_size_matches_arm_c():
+    assert bap.pages_for_total_mb(300) == math.ceil(300 / bap.TARGET_MB_PER_PAGE)
 
 
 # ---------------------------------------------------------------- browser executable lookup (no real filesystem probing beyond candidates)
@@ -449,3 +477,341 @@ def test_no_duplicate_kwargs_end_to_end_via_run_everyday_apps_item(tmp_path, mon
     except TypeError as e:
         pytest.fail(f"duplicate-keyword-argument bug in run_everyday_apps_item: {e}")
     assert row["kind"] == "everyday_apps_turn"
+
+
+# ======================================================================================================
+# K2 pressure arm (d), pause_resume (idle-unload-reload). No real Ollama, no real server.log, no real
+# browser, no real wall-clock sleep: every dependency is dependency-injected or a plain tmp_path file.
+# ======================================================================================================
+
+class FakeOllamaPsClient:
+    """FakeOllamaClient plus a get_ps() a caller can reconfigure between calls (run_pause_resume_run's own
+    OllamaClient is constructed fresh per run, but capture_ollama_load_placement is called twice against the SAME
+    client instance -- once at the initial load, once at the reload -- so tests need to change what get_ps()
+    returns in between)."""
+
+    def __init__(self, ps_models=None):
+        self.ps_models = ps_models or []
+        self.chat_calls = 0
+
+    def chat(self, model, prompt, num_ctx=None, max_tokens=64, keep_alive=None, messages=None):
+        self.chat_calls += 1
+        return {"outcome": "ok", "status": 200, "message": "ok", "eval_count": 20, "duration_s": 1.0,
+                "prompt_eval_count": 100}
+
+    def get_ps(self):
+        return {"outcome": "ok", "models": self.ps_models}
+
+
+# ---------------------------------------------------------------- capture_ollama_load_placement (log + /api/ps)
+
+def test_capture_ollama_load_placement_reads_layers_context_and_ps_fields(tmp_path):
+    log = tmp_path / "server.log"
+    log.write_text("starting llama runner\n"
+                    "llama_model_load: offloaded 32/32 layers to GPU\n"
+                    "--ctx-size 8192 loaded\n", encoding="utf-8")
+    ollama = FakeOllamaPsClient(ps_models=[{"name": "llama3.1:8b", "size": 5_000_000_000,
+                                            "size_vram": 4_800_000_000, "context_length": 8192}])
+    info = k2.capture_ollama_load_placement(ollama, "llama3.1:8b", since_pos=0, log_path_fn=lambda: str(log))
+    assert info["layers_gpu"] == 32 and info["layers_total"] == 32
+    assert info["size"] == 5_000_000_000 and info["size_vram"] == 4_800_000_000
+    assert info["context_length_ps"] == 8192
+    assert any("offloaded 32/32 layers to GPU" in l for l in info["server_log_placement_lines"])
+    assert info["log_new_pos"] == log.stat().st_size
+
+
+def test_capture_ollama_load_placement_respects_since_pos_for_the_reload_read(tmp_path):
+    log = tmp_path / "server.log"
+    log.write_text("offloaded 32/32 layers to GPU\n", encoding="utf-8")
+    pos_after_initial = log.stat().st_size
+    with open(log, "a", encoding="utf-8") as f:
+        f.write("offloaded 20/32 layers to GPU\n")  # the reload: fewer layers fit now
+    ollama = FakeOllamaPsClient(ps_models=[])
+    info = k2.capture_ollama_load_placement(ollama, "llama3.1:8b", since_pos=pos_after_initial,
+                                             log_path_fn=lambda: str(log))
+    assert info["layers_gpu"] == 20 and info["layers_total"] == 32  # only sees the NEW line, not the initial one
+
+
+def test_capture_ollama_load_placement_no_log_path_is_graceful():
+    ollama = FakeOllamaPsClient(ps_models=[])
+    info = k2.capture_ollama_load_placement(ollama, "llama3.1:8b", log_path_fn=lambda: None)
+    assert info["layers_gpu"] is None and info["layers_total"] is None
+    assert info["server_log_placement_lines"] == []
+
+
+def test_capture_ollama_load_placement_includes_telemetry_snapshot_when_lab_given(tmp_path):
+    lab = StubLab(tmp_path)
+    ollama = FakeOllamaPsClient(ps_models=[])
+    info = k2.capture_ollama_load_placement(ollama, "llama3.1:8b", log_path_fn=lambda: None, lab=lab, t0=0, t1=1)
+    assert info["telemetry"] is not None
+    assert "shared_usage_mib" in info["telemetry"]
+    # dedicated GPU usage is not exposed by t2s_lab.Telemetry.metrics() today -- flagged, not assumed.
+    assert info["telemetry"]["dedicated_usage_mib"] is None
+    assert "dedicated_usage_note" in info["telemetry"]
+
+
+# ---------------------------------------------------------------- run_pause_resume_run lifecycle
+
+class FakePressureForPauseResume:
+    """Same shape as FakeEverydayAppsPressure above, but fails the test outright if constructed at all -- used to
+    prove the 0 GB step never launches a browser (see test_run_pause_resume_run_0gb_never_starts_a_browser)."""
+
+    def __init__(self, lab, tag, n_pages=0, target_mb=150):
+        raise AssertionError("EverydayAppsPressure must not be constructed at all for the 0 GB (control) step")
+
+
+class _SafeFakePressure:
+    """Default everyday_apps_cls for the fixture below: never launches a real subprocess (no real browser, no real
+    process tree), used whenever a test does not care about the pressure object itself."""
+
+    def __init__(self, lab, tag, n_pages=0, target_mb=150):
+        self._alive = False
+
+    def start(self, x):
+        self._alive = True
+        return {"ok": True, "pid": 1}
+
+    def alive(self):
+        return self._alive
+
+    def stop(self):
+        self._alive = False
+
+
+def _make_pause_resume_fixture(tmp_path, app_load_gb, everyday_apps_cls=_SafeFakePressure, log_path=None):
+    lab = StubLab(tmp_path)
+    mi = _mi(tmp_path, "llama31-8b")
+    ollama = FakeOllamaPsClient(ps_models=[{"name": "llama3.1:8b", "size": 1, "size_vram": 1, "context_length": 4096}])
+    sleeps = []
+    kwargs = dict(turns_before=3, turns_after=4, idle_s=k2.PAUSE_RESUME_IDLE_S, sleep_fn=lambda s: sleeps.append(s),
+                  ollama_client_cls=lambda: ollama, log_path_fn=lambda: log_path, everyday_apps_cls=everyday_apps_cls)
+    res = k2.run_pause_resume_run(lab, mi, "llama31-8b", "llama3.1:8b", app_load_gb, **kwargs)
+    return lab, res, sleeps, ollama
+
+
+def test_run_pause_resume_run_0gb_never_starts_a_browser(tmp_path):
+    lab, res, sleeps, ollama = _make_pause_resume_fixture(tmp_path, 0, everyday_apps_cls=FakePressureForPauseResume)
+    assert res["app_load_gb"] == 0
+    assert not any(r.get("record") == "k2_pause_resume_browser_start" for r in lab.rows)
+    assert sleeps == [k2.PAUSE_RESUME_IDLE_S]  # the idle wait still happens even with no app load
+
+
+def test_run_pause_resume_run_positive_gb_starts_and_stops_the_browser(tmp_path):
+    started = {}
+
+    class RecordingPressure:
+        def __init__(self, lab, tag, n_pages=0, target_mb=150):
+            started["n_pages"] = n_pages
+            self._alive = False
+
+        def start(self, x):
+            self._alive = True
+            return {"ok": True, "pid": 1}
+
+        def alive(self):
+            return self._alive
+
+        def stop(self):
+            self._alive = False
+            started["stopped"] = True
+
+    lab, res, sleeps, ollama = _make_pause_resume_fixture(tmp_path, 8, everyday_apps_cls=RecordingPressure)
+    assert started["n_pages"] == bap.pages_for_total_mb(8 * 1024, k2.PAUSE_RESUME_PAGE_MB)
+    assert started.get("stopped") is True
+    assert any(r.get("record") == "k2_pause_resume_browser_start" for r in lab.rows)
+
+
+def test_run_pause_resume_run_uses_ollamas_default_keep_alive_not_zero(tmp_path):
+    lab, res, sleeps, ollama = _make_pause_resume_fixture(tmp_path, 0)
+    assert res["keep_alive"] == k2.PAUSE_RESUME_KEEP_ALIVE
+    assert res["keep_alive"] != 0 and res["keep_alive"] != "0"
+    assert all(ev["keep_alive"] == k2.PAUSE_RESUME_KEEP_ALIVE for ev in res["load_events"])
+
+
+def test_run_pause_resume_run_captures_placement_at_both_the_initial_load_and_the_reload(tmp_path):
+    log = tmp_path / "server.log"
+    log.write_text("offloaded 32/32 layers to GPU\n--ctx-size 8192\n", encoding="utf-8")
+    lab, res, sleeps, ollama = _make_pause_resume_fixture(tmp_path, 8, log_path=str(log))
+    assert len(res["load_events"]) == 2
+    initial = next(e for e in res["load_events"] if e["load_event"] == "initial")
+    reload = next(e for e in res["load_events"] if e["load_event"] == "reload")
+    assert initial["turn_idx"] == 0 and reload["turn_idx"] == 3  # turns_before=3 in the fixture
+    assert initial["layers_gpu"] == 32 and reload["layers_gpu"] == 32  # same log content read twice here
+    assert initial["size_vram"] == 1 and reload["size_vram"] == 1
+    assert initial["context_length_ps"] == 4096 and reload["context_length_ps"] == 4096
+
+
+def test_run_pause_resume_run_idles_for_exactly_idle_s_between_app_load_and_resume(tmp_path):
+    lab, res, sleeps, ollama = _make_pause_resume_fixture(tmp_path, 16)
+    assert sleeps == [k2.PAUSE_RESUME_IDLE_S]
+
+
+def test_run_pause_resume_run_turn_count_matches_before_plus_after(tmp_path):
+    lab, res, sleeps, ollama = _make_pause_resume_fixture(tmp_path, 0)
+    assert len(res["rows"]) == 3 + 4  # turns_before=3, turns_after=4 in the fixture
+
+
+def test_run_pause_resume_run_default_keep_alive_constant_is_5_minutes_not_0():
+    """OLLAMA_KEEP_ALIVE=0 is K1/K2's usual convention everywhere else (contamination avoidance); this arm is a
+    deliberate, documented exception (see docs/FINDINGS.md's pre-registration)."""
+    assert k2.PAUSE_RESUME_KEEP_ALIVE == "5m"
+
+
+# ---------------------------------------------------------------- pause_resume_report (per-step table, one call)
+
+def _load_event(tag, load_event, turn_idx, layers_gpu, layers_total, ctx):
+    return {"item_tag": tag, "load_event": load_event, "turn_idx": turn_idx, "layers_gpu": layers_gpu,
+            "layers_total": layers_total, "context_length_ps": ctx, "context_length_log": ctx}
+
+
+def _pr_row(turn_idx, score, ttft, decode, outcome="ok", error=None):
+    return {"turn_idx": turn_idx, "score": score, "ttft_s": ttft, "decode_tok_s": decode, "outcome": outcome,
+            "error": error}
+
+
+def test_pause_resume_report_produces_one_row_per_step_with_expected_shape():
+    step_results = [
+        {"tag": "t_0gb", "model_id": "llama31-8b", "app_load_gb": 0, "keep_alive": "5m", "turns_before": 3,
+         "rows": [_pr_row(0, 0.9, 0.1, 30), _pr_row(1, 0.9, 0.1, 30), _pr_row(2, 0.9, 0.1, 30),
+                  _pr_row(3, 0.9, 0.1, 30), _pr_row(4, 0.9, 0.1, 30)],
+         "load_events": [_load_event("t_0gb", "initial", 0, 32, 32, 4096), _load_event("t_0gb", "reload", 3, 32, 32, 4096)]},
+        {"tag": "t_32gb", "model_id": "llama31-8b", "app_load_gb": 32, "keep_alive": "5m", "turns_before": 3,
+         "rows": [_pr_row(0, 0.9, 0.1, 30), _pr_row(1, 0.9, 0.1, 30), _pr_row(2, 0.9, 0.1, 30),
+                  _pr_row(3, 0.6, 0.4, 10), _pr_row(4, 0.6, 0.4, 10)],
+         "load_events": [_load_event("t_32gb", "initial", 0, 32, 32, 4096),
+                         _load_event("t_32gb", "reload", 3, 20, 32, 2048)]},
+    ]
+    report = k2.pause_resume_report(step_results)
+    assert len(report) == 2
+    r0, r32 = report[0], report[1]
+    assert r0["app_load_gb"] == 0 and r32["app_load_gb"] == 32
+    assert r0["placement_changed"] is False and r0["context_changed"] is False
+    assert r32["placement_changed"] is True and r32["context_changed"] is True
+    assert r32["quality_score_before_median"] == 0.9 and r32["quality_score_after_median"] == 0.6
+    assert r32["ttft_s_before_median"] == 0.1 and r32["ttft_s_after_median"] == 0.4
+    assert r32["decode_tok_s_before_median"] == 30 and r32["decode_tok_s_after_median"] == 10
+    for key in ("placement_before", "placement_after", "context_before", "context_after", "errors"):
+        assert key in r0
+
+
+def test_pause_resume_report_records_surfaced_errors():
+    step_results = [{"tag": "t", "model_id": "m", "app_load_gb": 8, "keep_alive": "5m", "turns_before": 1,
+                     "rows": [_pr_row(0, 0.9, 0.1, 30), _pr_row(1, None, None, None, outcome="error", error="boom")],
+                     "load_events": []}]
+    report = k2.pause_resume_report(step_results)
+    assert len(report[0]["errors"]) == 1
+    assert report[0]["errors"][0]["error"] == "boom"
+
+
+def test_pause_resume_report_handles_missing_load_events_gracefully():
+    step_results = [{"tag": "t", "model_id": "m", "app_load_gb": 0, "keep_alive": "5m", "turns_before": 1,
+                     "rows": [_pr_row(0, 0.9, 0.1, 30)], "load_events": []}]
+    report = k2.pause_resume_report(step_results)
+    assert report[0]["placement_before"]["layers_gpu"] is None
+    assert report[0]["placement_changed"] is False
+
+
+# ---------------------------------------------------------------- pause_resume_prediction_verdict
+
+def test_prediction_verdict_p1_when_nothing_changes():
+    step = {"placement_before": {"layers_gpu": 32}, "placement_after": {"layers_gpu": 32},
+            "placement_changed": False, "context_changed": False, "errors": []}
+    assert k2.pause_resume_prediction_verdict(step) == "P1"
+
+
+def test_prediction_verdict_p2_when_placement_changes_with_no_error():
+    step = {"placement_before": {"layers_gpu": 32}, "placement_after": {"layers_gpu": 20},
+            "placement_changed": True, "context_changed": False, "errors": []}
+    assert k2.pause_resume_prediction_verdict(step) == "P2"
+
+
+def test_prediction_verdict_inconclusive_when_an_error_surfaced():
+    step = {"placement_before": {"layers_gpu": 32}, "placement_after": {"layers_gpu": 20},
+            "placement_changed": True, "context_changed": False,
+            "errors": [{"turn_idx": 4, "error": "connection reset"}]}
+    assert k2.pause_resume_prediction_verdict(step) == "inconclusive"
+
+
+def test_prediction_verdict_inconclusive_when_placement_data_missing():
+    step = {"placement_before": {"layers_gpu": None}, "placement_after": {"layers_gpu": None},
+            "placement_changed": False, "context_changed": False, "errors": []}
+    assert k2.pause_resume_prediction_verdict(step) == "inconclusive"
+
+
+# ---------------------------------------------------------------- 0GB-step-is-the-control (explicit conclusion)
+
+def test_0gb_step_is_the_control_not_a_separate_arm_variant(tmp_path):
+    """Direct test of this file's own stated conclusion (docs/FINDINGS.md's 'Control' paragraph): the 0 GB step
+    takes the IDENTICAL run_pause_resume_run code path as every other step (same turn counts, same keep_alive, same
+    idle sleep_fn call) and is distinguished only by never constructing/starting EverydayAppsPressure at all -- so
+    no separate 'no app load' arm variant exists or is needed in this codebase."""
+    lab, res, sleeps, ollama = _make_pause_resume_fixture(tmp_path, 0, everyday_apps_cls=FakePressureForPauseResume)
+    # Proves identical lifecycle: turns run, placement captured at both loads, idle wait happens -- exactly like
+    # any other step -- yet FakePressureForPauseResume (which raises if constructed) was never triggered.
+    assert len(res["rows"]) == 3 + 4
+    assert len(res["load_events"]) == 2
+    assert sleeps == [k2.PAUSE_RESUME_IDLE_S]
+    assert res["app_load_gb"] == 0
+
+
+# ---------------------------------------------------------------- phase_k2_pause_resume
+
+def test_phase_k2_pause_resume_runs_every_model_x_step_combination(tmp_path, monkeypatch):
+    lab = StubLab(tmp_path)
+    for m in k2.EVERYDAY_APPS_MODELS:
+        lab.models[m["model_id"]] = _mi(tmp_path, m["model_id"])
+    calls = []
+
+    def fake_run(lab_, mi_, model_id, ollama_model, app_load_gb, **kw):
+        calls.append((model_id, app_load_gb))
+        return {"tag": f"{model_id}_{app_load_gb}", "model_id": model_id, "app_load_gb": app_load_gb,
+                "keep_alive": "5m", "turns_before": 10, "rows": [], "load_events": []}
+
+    monkeypatch.setattr(k2, "run_pause_resume_run", fake_run)
+    out = k2.phase_k2_pause_resume(lab, calibration_pass_set=None)
+    assert len(calls) == len(k2.EVERYDAY_APPS_MODELS) * len(k2.PAUSE_RESUME_APP_LOAD_STEPS_GB)
+    assert set(gb for _, gb in calls) == set(k2.PAUSE_RESUME_APP_LOAD_STEPS_GB)
+    assert len(out) == len(calls)
+    assert any(r.get("record") == "k2_pause_resume_step_report" for r in lab.rows)
+
+
+def test_phase_k2_pause_resume_skips_when_task_type_not_calibrated(tmp_path, monkeypatch):
+    lab = StubLab(tmp_path)
+    ran = []
+    monkeypatch.setattr(k2, "run_pause_resume_run", lambda *a, **kw: ran.append(1) or {})
+    out = k2.phase_k2_pause_resume(lab, calibration_pass_set=set())
+    assert out == []
+    assert ran == []
+    assert lab.rows[-1]["record"] == "k2_disabled"
+
+
+def test_phase_k2_pause_resume_skips_a_missing_model(tmp_path, monkeypatch):
+    lab = StubLab(tmp_path)  # no models loaded
+    calls = []
+    monkeypatch.setattr(k2, "run_pause_resume_run", lambda *a, **kw: calls.append(1) or {})
+    out = k2.phase_k2_pause_resume(lab, calibration_pass_set=None)
+    assert out == []
+    assert calls == []
+    assert all(r["record"] == "k2_disabled" for r in lab.rows)
+
+
+# ---------------------------------------------------------------- pause_resume_dry_run_call_shape
+
+def test_pause_resume_dry_run_call_shape_matches_5_step_x_2_machine_design():
+    shape = k2.pause_resume_dry_run_call_shape()
+    assert shape["n_app_load_steps"] == 5
+    assert shape["n_machines"] == 2
+    n_turns = k2.PAUSE_RESUME_TURNS_BEFORE + k2.PAUSE_RESUME_TURNS_AFTER
+    assert shape["n_turns_per_run"] == n_turns
+    assert shape["total_runs"] == 5 * len(k2.EVERYDAY_APPS_MODELS) * 2
+    assert shape["pause_resume_calls"] == shape["total_runs"] * n_turns
+    assert len(shape["per_run"]) == shape["total_runs"]
+
+
+def test_pause_resume_dry_run_call_shape_with_vs_without_existing_arms():
+    shape = k2.pause_resume_dry_run_call_shape()
+    assert shape["total_calls_with_existing_arms"] > shape["total_calls_without_existing_arms"]
+    assert shape["total_calls_without_existing_arms"] == shape["pause_resume_calls"]
+    expected_everyday_apps_both_machines = k2.everyday_apps_dry_run_call_counts()["total_calls"] * 2
+    assert (shape["total_calls_with_existing_arms"] - shape["total_calls_without_existing_arms"]
+            == expected_everyday_apps_both_machines)

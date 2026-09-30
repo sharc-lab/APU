@@ -1109,3 +1109,63 @@ An arm where the model's very first rule violation (e.g. it stops appending the 
 - No run has been executed against this criterion yet; this section only fixes the rule in advance.
 - The rule is evaluated per session, then aggregated per arm as "does at least one session in this arm show a silent failure" -- it does not require a majority of seeds in an arm to be silent, only at least one, since even one clean demonstration of silent failure is sufficient evidence that the runtime can lose rules with no error.
 - `error_surfaced_before_failure` as computed by `score_session()` only sees errors captured on turns up to and including the first failure turn; an error on a later turn does not retroactively satisfy the criterion, since the failure being silently preceded by nothing is exactly what is being tested for.
+
+---
+
+## K2 arm (d), pause_resume: pre-registered predictions (2026-09-30, NOT YET RUN)
+
+**Motivation.** K2's existing pressure arms (AWE-locked balloon, ordinary pageable touch, everyday_apps) all test
+memory pressure applied DURING active inference: the model is loaded and answering calls the whole time pressure is
+present. A different, equally realistic scenario is not covered by any of them: the model sits idle between agent
+steps, something else (a browser) loads memory in the background while it is idle, Ollama's own keep_alive timer
+expires and unloads the model, and when the agent resumes, the model reloads under the NEW memory conditions --
+possibly with a different GPU-layer placement or a different context size than it started the session with, silently,
+with no error. Arm (d), pause_resume, exists to test this reload path specifically (see `harness/t2s_k2_pressure.py`,
+`run_pause_resume_run`/`phase_k2_pause_resume`, and `harness/browser_pressure.py`'s page-generation code, reused
+rather than reimplemented for the background app load).
+
+**Design summary.** Session turns 1-10 run normally against Ollama with its DEFAULT keep_alive (5 minutes -- a
+deliberate, arm-specific exception to the 0-keep_alive convention every other K1/K2 Ollama call site uses for
+contamination-avoidance; recorded on every row of this arm precisely because it is an exception, not the norm). The
+Chromium memory load from `browser_pressure.py` then opens, scaled in steps of 0/8/16/24/32 GB total browser memory.
+The session then idles for 6 minutes (real wall-clock on a live run, injectable via a `sleep_fn` parameter for tests)
+-- longer than the 5-minute keep_alive, so the model actually unloads. Turns 11-30 then continue. At both the
+initial load (turn 1) and the reload (turn 11), this arm records: the offloaded GPU layer count and the context size
+actually loaded (from Ollama's server.log and GET /api/ps), `size`/`size_vram` from GET /api/ps, and the server.log
+placement lines verbatim. Run on both evo-x2 (unified memory -- dedicated and shared GPU usage, where the telemetry
+layer exposes it) and evo-t2s (Intel path; see the code-level note in `t2s_k2_pressure.py` on which telemetry fields
+are actually available on each vendor -- they are not the same fields, and this file does not assume they are).
+
+**Claims under test (two competing predictions, not one).**
+
+- **(P1)** Mid-session, with the model already loaded, opening apps does NOT change the context or quality; any
+  effect is speed (paging) or a crash. Under P1, the 0 GB and higher-GB steps should look identical at both the
+  initial load and the reload: same layer placement, same context, and the only difference (if any) between GB
+  steps is TTFT/decode speed, not correctness or the presence of an error.
+- **(P2)** After an idle gap longer than keep_alive, the model reloads under the new memory state, and the reload
+  silently changes placement (CPU-offloaded GPU-layer count, read from server.log) and/or context, with a quality
+  and/or speed change and no error surfaced. Under P2, some GB step's reload placement/context should differ from
+  its own initial-load placement/context (or from the 0 GB step's reload), with no HTTP error and no error field
+  anywhere in that step's rows.
+
+**This run is designed to determine which of P1/P2 holds** -- or neither (e.g. every placement/context change
+coincides with a surfaced error, the way R2's and everyday_apps' own kill criteria are framed), or both under
+different conditions (e.g. P1 at low GB steps, P2 only past some threshold GB step). The report from an eventual
+real run must state explicitly, per step and overall, which prediction held; `pause_resume_report()` (one function,
+one call, the whole per-step table: placement before/after, context before/after, TTFT/decode before/after, quality
+before/after, any error surfaced) and `pause_resume_prediction_verdict()` (P1/P2/inconclusive per step) exist so
+that determination is mechanical, not a judgment call made after the fact.
+
+**Control.** The spec asks for "the same pause-and-resume sequence with no app load at all, so the reload itself is
+not the cause." The 0 GB step in the 0/8/16/24/32 GB sweep already is exactly this: at 0 GB, `run_pause_resume_run`
+takes the identical code path (same turn counts, same keep_alive, same idle `sleep_fn` wait) and simply never calls
+`EverydayAppsPressure.start()` at all -- no browser process is launched, so there is no separate "no app load"
+variant to build. **Conclusion: the 0 GB step IS the control**, not a separate arm variant; a placement/context
+change observed at 0 GB (if any) isolates "does merely unloading and reloading, with nothing else going on, itself
+change anything" exactly as the spec's control wording asks for, and any change observed only at GB > 0 isolates the
+app-load effect specifically.
+
+**Status:** PRE-REGISTRATION. No pause_resume run has been executed against these predictions yet; this section is
+written before any of arm (d)'s run-execution code exists, per this repo's standing rule (see the everyday_apps and
+R2 pre-registrations above) that a kill criterion or prediction set is recorded before the run that could satisfy or
+fail it.

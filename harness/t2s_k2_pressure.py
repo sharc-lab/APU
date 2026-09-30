@@ -102,6 +102,35 @@ EVERYDAY_APPS_SCORE_DROP_ABS = 0.10
 SCORE_TOL_REL = 0.05          # median quality score must stay within 5% relative of the +8GB baseline
 RESP_TOL_FACTOR = 2.0         # responsiveness median must stay within 2x of the +8GB baseline
 
+# Pressure arm (d): pause_resume (see docs/FINDINGS.md's "K2 arm (d), pause_resume" pre-registration, 2026-09-30,
+# written before any of this arm's run code existed). Ollama-only (the whole point is Ollama's own keep_alive-driven
+# unload/reload cycle, which llama-server as run elsewhere in this file has no equivalent of): turns 1-10 run
+# normally, the browser_pressure.py load opens (scaled to one of PAUSE_RESUME_APP_LOAD_STEPS_GB), the session idles
+# PAUSE_RESUME_IDLE_S (longer than keep_alive so the model actually unloads), then turns 11-30 continue.
+PAUSE_RESUME_ARM = "pause_resume"
+# Ollama's own DEFAULT keep_alive -- deliberately NOT "0", which every other K1/K2 Ollama call site uses for
+# contamination-avoidance (see t2s_k1_ollama.start_ollama_server's OLLAMA_KEEP_ALIVE=0 and OllamaServerAdapter's
+# keep_alive="10m" default elsewhere in this file). This arm exists specifically to test what happens under Ollama's
+# real default unload behavior, so it must NOT use 0; recorded on every row (see run_pause_resume_run) since it is
+# an intentional, arm-specific exception to this repo's usual convention, not an oversight.
+PAUSE_RESUME_KEEP_ALIVE = "5m"
+PAUSE_RESUME_TURNS_BEFORE = 10   # session turns 1-10
+PAUSE_RESUME_IDLE_S = 360.0      # 6 minutes: longer than the 5-minute default keep_alive, so the model unloads
+PAUSE_RESUME_TURNS_AFTER = 20    # session turns 11-30
+# 0/8/16/24/32 GB of browser memory. 0 GB IS the control (see docs/FINDINGS.md's pre-registration, "Control"
+# paragraph): at 0 GB, run_pause_resume_run takes the identical pause/resume code path and simply never starts the
+# browser, so there is no separate "no app load" arm variant to build.
+PAUSE_RESUME_APP_LOAD_STEPS_GB = (0, 8, 16, 24, 32)
+# Same per-page allocation everyday_apps' arm (c) uses; only the page COUNT is scaled per step (see
+# browser_pressure.pages_for_total_mb).
+PAUSE_RESUME_PAGE_MB = bap.TARGET_MB_PER_PAGE
+# GPU-layer-offload regex on an Ollama server.log: Ollama's bundled llama.cpp-style runner writes this same line
+# llama-server itself does ("offloaded N/M layers to GPU"), which t2s_amech.parse_extra already parses for
+# llama-server logs with an identical pattern; that module is not imported here (it pulls in heavier, llama-server-
+# specific machinery this file does not otherwise need), so the one regex is duplicated rather than the whole
+# module imported for it -- flagged here for a reviewer who would rather share the pattern from one place.
+_OLLAMA_OFFLOAD_RE = re.compile(r"offloaded (\d+)/(\d+) layers to GPU")
+
 REFUSAL_RE = re.compile(r"\b(i (don't|do not) know|cannot determine|not (sure|certain)|unable to (find|determine)"
                          r"|no (reference|such) code|insufficient (information|context))\b", re.I)
 
@@ -646,6 +675,256 @@ def everyday_apps_dry_run_call_counts(models=EVERYDAY_APPS_MODELS, runtimes=EVER
             "total_calls": n_turns * len(models) * len(runtimes)}
 
 
+# ---------------------------------------------------------------- pressure arm (d): pause_resume (idle-unload-reload)
+def _telemetry_snapshot(lab, t0, t1):
+    """Best-effort GPU/host memory snapshot from lab.tele.metrics() around one model load. Reused, not
+    reimplemented: t2s_lab.Telemetry.metrics() already computes shared_usage_mib/avail_mb_min/avail_mb_max on both
+    evo-x2 (AMD) and evo-t2s (Intel). It does NOT expose dedicated GPU usage today (only the per-PID gpu_ring rows
+    carry a raw 'dedicated' field, which metrics() never surfaces into its return dict) -- recorded here as None
+    with a note, rather than assumed equal to shared_usage_mib or silently dropped, since the task explicitly calls
+    for dedicated-vs-shared on evo-x2. igpu_power_w is populated only on evo-x2 (AMD, LHM-fed: metrics() filters on
+    source == 'lhm_gpu') and is always None on evo-t2s (Intel's Sysman-fed power samples carry no 'source' tag, so
+    they never match that filter) -- confirmed by reading t2s_lab.Telemetry directly rather than assumed, per the
+    task's explicit warning that the two vendors do not expose the same fields. Never raises; lab=None or a tele
+    lookup failure returns None/an error dict instead."""
+    if lab is None or getattr(lab, "tele", None) is None:
+        return None
+    try:
+        m = dict(lab.tele.metrics(t0, t1))
+    except Exception as e:
+        return {"error": str(e)[:200]}
+    m["dedicated_usage_mib"] = None
+    m["dedicated_usage_note"] = "not exposed by t2s_lab.Telemetry.metrics() today; only shared_usage_mib is"
+    return m
+
+
+def capture_ollama_load_placement(ollama, model_tag, since_pos=0, log_path_fn=None, lab=None, t0=None, t1=None):
+    """Everything arm (d) records at one model load: GET /api/ps's own size/size_vram/context_length for this
+    model (reused from OllamaServerAdapter/effective_context_signal's own /api/ps call, not reimplemented), the
+    offloaded GPU layer count and matched context-size lines from Ollama's server.log (log discovery and context/
+    mem parsing reused verbatim from t2s_k1_ollama.find_ollama_log/parse_ollama_log_context; only the layer-offload
+    regex is new, since neither that helper nor t2s_lab.parse_server_log extracts one -- see _OLLAMA_OFFLOAD_RE),
+    and a best-effort telemetry snapshot (see _telemetry_snapshot). log_path_fn defaults to k1.find_ollama_log so
+    tests can inject a fake log path with no real filesystem/host dependency."""
+    log_path_fn = log_path_fn or k1.find_ollama_log
+    ps_res = ollama.get_ps()
+    match = next((m for m in ps_res.get("models", [])
+                  if m.get("name") == model_tag or (m.get("name") or "").startswith(model_tag.split(":")[0])), None)
+    log_path = log_path_fn()
+    log_info = k1.parse_ollama_log_context(log_path, since_pos=since_pos)
+    text = ""
+    new_pos = since_pos
+    if log_path:
+        try:
+            with open(log_path, "rb") as f:
+                f.seek(max(since_pos, 0))
+                text = f.read().decode("utf-8", errors="replace")
+            new_pos = Path(log_path).stat().st_size
+        except Exception:
+            pass
+    offloads = _OLLAMA_OFFLOAD_RE.findall(text)
+    layers_gpu, layers_total = (int(offloads[-1][0]), int(offloads[-1][1])) if offloads else (None, None)
+    placement_lines = [l.strip()[:300] for l in text.splitlines() if _OLLAMA_OFFLOAD_RE.search(l)]
+    num_ctx_seen = log_info.get("num_ctx_seen") or []
+    return {"size": (match or {}).get("size"), "size_vram": (match or {}).get("size_vram"),
+            "context_length_ps": (match or {}).get("context_length"), "ps_raw": match, "layers_gpu": layers_gpu,
+            "layers_total": layers_total, "num_ctx_seen": num_ctx_seen,
+            "context_length_log": num_ctx_seen[-1] if num_ctx_seen else None,
+            "server_log_matched_lines": log_info.get("matched_lines"),
+            "server_log_placement_lines": placement_lines,   # stored verbatim, per the task's own requirement
+            "log_since_pos": since_pos, "log_new_pos": new_pos,
+            "telemetry": _telemetry_snapshot(lab, t0, t1) if lab is not None else None}
+
+
+def run_pause_resume_run(lab, mi, model_id, ollama_model, app_load_gb, turns_before=PAUSE_RESUME_TURNS_BEFORE,
+                         idle_s=PAUSE_RESUME_IDLE_S, turns_after=PAUSE_RESUME_TURNS_AFTER,
+                         keep_alive=PAUSE_RESUME_KEEP_ALIVE, page_mb=PAUSE_RESUME_PAGE_MB, sleep_fn=time.sleep,
+                         ollama_client_cls=None, everyday_apps_cls=bap.EverydayAppsPressure,
+                         pages_for_total_mb_fn=bap.pages_for_total_mb, log_path_fn=None):
+    """One full pause-and-resume run for one (model, app_load_gb) step, driven entirely through Ollama (see
+    PAUSE_RESUME_ARM's docstring above for why llama-server is out of scope for this arm): turns_before turns run
+    normally (placement/context captured right after the very first turn, the initial load), then the app load
+    opens (skipped entirely at app_load_gb <= 0 -- this is what makes the 0 GB step the control, see docs/
+    FINDINGS.md), then sleep_fn(idle_s) (real wall-clock on a live run, injectable for tests), then turns_after more
+    turns run (placement/context captured right after the first of those, the reload). Reuses run_everyday_apps_item
+    for every turn's call/scoring path -- no second call-execution path for Ollama turns.
+
+    Returns {"tag", "model_id", "app_load_gb", "keep_alive", "turns_before", "rows", "load_events"} -- the shape
+    pause_resume_report() consumes, one dict per (model, app_load_gb[, machine]) run.
+    """
+    tag = f"k2_pause_resume_{model_id}_{app_load_gb}gb"
+    ollama = (ollama_client_cls or k1.OllamaClient)()
+    srv = OllamaServerAdapter(ollama, ollama_model, keep_alive=keep_alive)
+    lab.resources["server"] = srv
+    ov.start_row(lab, srv, mi, "K2", tag + "_start", {"ok": True, "pid": None, "load_s": None, "error": None,
+                 "build": "ollama", "t_start": time.time(), "t_end": time.time(), "log": {}},
+                 {"pressure_arm": PAUSE_RESUME_ARM, "app_load_gb": app_load_gb, "keep_alive": keep_alive})
+
+    rows, load_events = [], []
+    pressure = None
+    try:
+        for turn_idx in range(turns_before):
+            lab.check()
+            t0 = time.time()
+            rows.append(run_everyday_apps_item(lab, srv, mi, tag, "ollama", turn_idx, False, turn_idx))
+            if turn_idx == 0:
+                placement = capture_ollama_load_placement(ollama, ollama_model, log_path_fn=log_path_fn, lab=lab,
+                                                           t0=t0, t1=time.time())
+                ev = {"record": "k2_pause_resume_load", "item_tag": tag, "model_id": model_id,
+                      "app_load_gb": app_load_gb, "keep_alive": keep_alive, "load_event": "initial",
+                      "turn_idx": turn_idx, **placement, "ts_utc": utc_iso()}
+                lab.emit(ev)
+                load_events.append(ev)
+
+        if app_load_gb > 0:
+            n_pages = pages_for_total_mb_fn(app_load_gb * 1024, page_mb)
+            pressure = everyday_apps_cls(lab, tag, n_pages=n_pages, target_mb=page_mb)
+            lab.resources["balloon"] = pressure
+            pinfo = pressure.start(None)
+            lab.emit({"record": "k2_pause_resume_browser_start", "item_tag": tag, "app_load_gb": app_load_gb,
+                      "n_pages": n_pages, "info": pinfo, "ts_utc": utc_iso()})
+
+        sleep_fn(idle_s)
+
+        for i in range(turns_after):
+            lab.check()
+            turn_idx = turns_before + i
+            t0 = time.time()
+            rows.append(run_everyday_apps_item(lab, srv, mi, tag, "ollama", turn_idx, app_load_gb > 0, turn_idx))
+            if i == 0:
+                placement = capture_ollama_load_placement(ollama, ollama_model, log_path_fn=log_path_fn, lab=lab,
+                                                           t0=t0, t1=time.time())
+                ev = {"record": "k2_pause_resume_load", "item_tag": tag, "model_id": model_id,
+                      "app_load_gb": app_load_gb, "keep_alive": keep_alive, "load_event": "reload",
+                      "turn_idx": turn_idx, **placement, "ts_utc": utc_iso()}
+                lab.emit(ev)
+                load_events.append(ev)
+    finally:
+        if pressure is not None and pressure.alive():
+            pressure.stop()
+            lab.emit({"record": "k2_pause_resume_browser_stop", "item_tag": tag, "app_load_gb": app_load_gb,
+                      "ts_utc": utc_iso()})
+        lab.resources["balloon"] = None
+        lab.resources["server"] = None
+
+    return {"tag": tag, "model_id": model_id, "app_load_gb": app_load_gb, "keep_alive": keep_alive,
+            "turns_before": turns_before, "rows": rows, "load_events": load_events}
+
+
+def phase_k2_pause_resume(lab, calibration_pass_set=None, models=EVERYDAY_APPS_MODELS,
+                          app_load_steps_gb=PAUSE_RESUME_APP_LOAD_STEPS_GB):
+    """Pressure arm (d) across every (model, app_load_gb) combination -- 10 by default (2 models x 5 GB steps).
+    Same per-task calibration gate as phase_k2/phase_k2_everyday_apps."""
+    if calibration_pass_set is not None and TASK_TYPE not in calibration_pass_set:
+        log(f"K2 pause_resume: excluding task_type {TASK_TYPE!r}, did not pass q0_token_calibration")
+        lab.emit({"record": "k2_disabled", "pressure_arm": PAUSE_RESUME_ARM, "task_type": TASK_TYPE,
+                  "reason": "task_type did not pass q0_token_calibration", "ts_utc": utc_iso()})
+        return []
+    all_results = []
+    for model in models:
+        model_id = model["model_id"]
+        mi = lab.models.get(model_id)
+        if mi is None:
+            lab.emit({"record": "k2_disabled", "pressure_arm": PAUSE_RESUME_ARM, "model_id": model_id,
+                      "reason": "model not loaded", "ts_utc": utc_iso()})
+            continue
+        for app_load_gb in app_load_steps_gb:
+            lab.check()
+            res = run_pause_resume_run(lab, mi, model_id, model.get("ollama_model"), app_load_gb)
+            all_results.append(res)
+    report = pause_resume_report(all_results)
+    for step in report:
+        step["prediction"] = pause_resume_prediction_verdict(step)
+        lab.emit({"record": "k2_pause_resume_step_report", **step, "ts_utc": utc_iso()})
+        log(f"K2 pause_resume {step['model_id']}/{step['app_load_gb']}GB: prediction {step['prediction']}")
+    return all_results
+
+
+def pause_resume_report(step_results):
+    """One call, the whole per-step table: given a list of run_pause_resume_run's own return dicts (one per
+    (model, app_load_gb[, machine]) run), returns one summary dict per step with placement/context before and after
+    the idle gap, TTFT/decode-speed medians before and after, quality-score medians before and after, and any error
+    surfaced in either half -- everything docs/FINDINGS.md's pre-registration asks the eventual real-run report to
+    state. 'before' is every turn with turn_idx < turns_before (the initial-load session); 'after' is every turn
+    with turn_idx >= turns_before (the post-idle, reload session)."""
+    report = []
+    for res in step_results:
+        rows, turns_before = res.get("rows", []), res.get("turns_before", PAUSE_RESUME_TURNS_BEFORE)
+        before_rows = [r for r in rows if (r.get("turn_idx") or 0) < turns_before]
+        after_rows = [r for r in rows if (r.get("turn_idx") or 0) >= turns_before]
+        load_events = res.get("load_events", [])
+        initial = next((e for e in load_events if e.get("load_event") == "initial"), None)
+        reload = next((e for e in load_events if e.get("load_event") == "reload"), None)
+
+        def med(vals):
+            vals = [v for v in vals if v is not None]
+            return st.median(vals) if vals else None
+
+        errors = [{"turn_idx": r.get("turn_idx"), "outcome": r.get("outcome"), "error": r.get("error")}
+                  for r in rows if r.get("error") or r.get("outcome") not in (None, "ok")]
+        init_ctx = (initial or {}).get("context_length_ps") or (initial or {}).get("context_length_log")
+        reload_ctx = (reload or {}).get("context_length_ps") or (reload or {}).get("context_length_log")
+        report.append({
+            "tag": res.get("tag"), "model_id": res.get("model_id"), "app_load_gb": res.get("app_load_gb"),
+            "keep_alive": res.get("keep_alive"),
+            "placement_before": {"layers_gpu": (initial or {}).get("layers_gpu"),
+                                  "layers_total": (initial or {}).get("layers_total")},
+            "placement_after": {"layers_gpu": (reload or {}).get("layers_gpu"),
+                                 "layers_total": (reload or {}).get("layers_total")},
+            "context_before": init_ctx, "context_after": reload_ctx,
+            "ttft_s_before_median": med(r.get("ttft_s") for r in before_rows),
+            "ttft_s_after_median": med(r.get("ttft_s") for r in after_rows),
+            "decode_tok_s_before_median": med(r.get("decode_tok_s") for r in before_rows),
+            "decode_tok_s_after_median": med(r.get("decode_tok_s") for r in after_rows),
+            "quality_score_before_median": med(r.get("score") for r in before_rows),
+            "quality_score_after_median": med(r.get("score") for r in after_rows),
+            "placement_changed": bool(initial and reload and
+                                      (initial.get("layers_gpu") != reload.get("layers_gpu"))),
+            "context_changed": bool(initial and reload and init_ctx is not None and reload_ctx is not None and
+                                    init_ctx != reload_ctx),
+            "errors": errors,
+        })
+    return report
+
+
+def pause_resume_prediction_verdict(step_report):
+    """Which of the two pre-registered predictions (docs/FINDINGS.md, "K2 arm (d), pause_resume") one step's report
+    row supports: 'P1' (no placement/context change across the idle gap), 'P2' (a placement and/or context change
+    with no error surfaced in either half), or 'inconclusive' (an error surfaced, so any placement/context change
+    cannot be trusted as evidence either way, or the before/after placement data is simply missing)."""
+    before, after = step_report.get("placement_before") or {}, step_report.get("placement_after") or {}
+    if before.get("layers_gpu") is None or after.get("layers_gpu") is None:
+        return "inconclusive"
+    if step_report.get("errors"):
+        return "inconclusive"
+    changed = bool(step_report.get("placement_changed") or step_report.get("context_changed"))
+    return "P2" if changed else "P1"
+
+
+def pause_resume_dry_run_call_shape(app_load_steps_gb=PAUSE_RESUME_APP_LOAD_STEPS_GB, models=EVERYDAY_APPS_MODELS,
+                                    machines=("evo-x2", "evo-t2s"), turns_before=PAUSE_RESUME_TURNS_BEFORE,
+                                    turns_after=PAUSE_RESUME_TURNS_AFTER,
+                                    everyday_apps_counts=None):
+    """No real run, no I/O: the exact model-call count this arm would add across the full 5-step x 2-machine design
+    (5 app-load steps x 2 models x 2 machines = 20 runs by default), and the same total with existing arm (c),
+    everyday_apps, folded in too (the 'with/without existing arms' comparison the task's deliverable asks for) --
+    everyday_apps_counts defaults to one everyday_apps_dry_run_call_counts() call (arm (c) has no machine axis of
+    its own here; its own total_calls is simply doubled to cover both machines, matching how every K2 arm in this
+    file runs identically on each deployed host)."""
+    n_turns = turns_before + turns_after
+    n_steps, n_models, n_machines = len(app_load_steps_gb), len(models), len(machines)
+    total_runs = n_steps * n_models * n_machines
+    pause_resume_calls = total_runs * n_turns
+    everyday_apps_counts = everyday_apps_counts if everyday_apps_counts is not None else everyday_apps_dry_run_call_counts()
+    everyday_apps_calls_both_machines = everyday_apps_counts["total_calls"] * n_machines
+    return {"n_turns_per_run": n_turns, "n_app_load_steps": n_steps, "n_models": n_models, "n_machines": n_machines,
+            "total_runs": total_runs, "pause_resume_calls": pause_resume_calls,
+            "per_run": {f"{m['model_id']}/{machine}/{gb}gb": n_turns for m in models for machine in machines
+                        for gb in app_load_steps_gb},
+            "total_calls_without_existing_arms": pause_resume_calls,
+            "total_calls_with_existing_arms": pause_resume_calls + everyday_apps_calls_both_machines}
+
+
 # ---------------------------------------------------------------- kill criterion
 def kill_criterion(rows, score_tol_rel=SCORE_TOL_REL, resp_tol_factor=RESP_TOL_FACTOR):
     """"nothing changes in quality or availability until a clean failure": every step's median quality score and
@@ -724,6 +1003,11 @@ def main():
                     "EVERYDAY_APPS_MODELS x EVERYDAY_APPS_RUNTIMES. Off by default: unlike arms (a)/(b), this arm's "
                     "Ollama-runtime leg deliberately starts Ollama, which the main per-model loop's contamination "
                     "guard below otherwise refuses to run alongside.")
+    ap.add_argument("--pause-resume", action="store_true", help="also run pressure arm (d), pause_resume, across "
+                    "PAUSE_RESUME_APP_LOAD_STEPS_GB x EVERYDAY_APPS_MODELS (see docs/FINDINGS.md's 'K2 arm (d), "
+                    "pause_resume' pre-registration). Off by default: like --everyday-apps, this arm deliberately "
+                    "starts Ollama (with its DEFAULT keep_alive, not 0), which the main per-model loop's "
+                    "contamination guard below otherwise refuses to run alongside.")
     args = ap.parse_args()
     host_cfg = hc.require_host(socket.gethostname())
     hc.enforce_or_record_interactive_session(host_cfg)  # raises on evo-t2s if occupied; never raises on evo-x2
@@ -735,12 +1019,16 @@ def main():
     load_models(lab, model_ids)
     if args.everyday_apps:
         load_models(lab, [m["model_id"] for m in EVERYDAY_APPS_MODELS if m["model_id"] not in model_ids])
+    if args.pause_resume:
+        load_models(lab, [m["model_id"] for m in EVERYDAY_APPS_MODELS if m["model_id"] not in model_ids])
     Path(lab.prefix + "_manifest.json").write_text(json.dumps({
         "launch_utc": utc_iso(), "script_provenance": prov, "identity": lab.identity, "models": model_ids,
         "n_ctx": args.n_ctx, "seed": SEED, "levels_gb": LEVELS_GB, "mmap_arms": MMAP_ARMS,
         "pressure_arms": PRESSURE_ARMS, "score_tol_rel": SCORE_TOL_REL, "resp_tol_factor": RESP_TOL_FACTOR,
         "everyday_apps": args.everyday_apps, "everyday_apps_models": [m["model_id"] for m in EVERYDAY_APPS_MODELS],
-        "everyday_apps_runtimes": EVERYDAY_APPS_RUNTIMES},
+        "everyday_apps_runtimes": EVERYDAY_APPS_RUNTIMES,
+        "pause_resume": args.pause_resume, "pause_resume_app_load_steps_gb": PAUSE_RESUME_APP_LOAD_STEPS_GB,
+        "pause_resume_keep_alive": PAUSE_RESUME_KEEP_ALIVE},
         indent=1, default=str), encoding="utf-8")
     calibration_pass_set = None
     if args.calibration_file:
@@ -754,26 +1042,56 @@ def main():
                 log(f"K2: calibration pass set from {args.calibration_file!r}: {sorted(calibration_pass_set)}")
     lab.tele.start()
     note = "completed"
+    # PROBLEM 1 fix (2026-09-30): arms (a)/(b) (the per-model phase_k2 loop just below) never use Ollama themselves,
+    # so the contamination guard inside that loop must keep firing on any Ollama process it finds -- that part was
+    # already correctly scoped. What was NOT correctly scoped: arms (c)/(d) (everyday_apps' Ollama-runtime leg,
+    # pause_resume) legitimately need Ollama for themselves, and nothing here ever started/stopped it, so an
+    # operator (or a previous --everyday-apps/--pause-resume run) had to leave Ollama running externally for those
+    # arms to work at all -- which then tripped the very next phase_k2 iteration's guard, aborting K2 immediately on
+    # launch. Fix: K2 now starts and stops its own Ollama server the same way K1's main() does (_hc.start_ollama_
+    # server() in a try, unconditional _hc.stop_ollama_server() in the finally), whenever either Ollama-needing arm
+    # is requested, and ollama_owned_by_us gates the per-model guard so a resident Ollama process K2 itself started
+    # is never treated as contamination -- only a process found running that K2 does NOT own still aborts the run.
+    needs_ollama = args.everyday_apps or args.pause_resume
+    ollama_owned_by_us = False
     try:
         time.sleep(15)
         pk = [lab.tele.pkg_now() for _ in range(6) if not time.sleep(1)]
         lab.idle_pkg = st.median([x for x in pk if x is not None]) if any(x is not None for x in pk) else None
         lab.idle_temp = None
-        for mid in model_ids:
-            if f"k2_done_{mid}" in lab.done:
-                continue
-            # K2 never uses Ollama itself; only K1 does (starting/stopping its own server). Per the 2026-09-29
-            # contamination check (docs/RESULT_PROVENANCE.md), Ollama must not idle in the background during any
-            # other phase, so abort rather than risk a model load racing against this measurement.
-            if hc.ollama_process_running():
-                raise RuntimeError(f"STOP: an ollama process is running; refusing to start K2 phase for {mid}")
-            log(f"K2 phase: {mid}")
-            phase_k2(lab, mid, args.n_ctx, calibration_pass_set=calibration_pass_set)
-            lab.item_done(f"k2_done_{mid}")
-        if args.everyday_apps and "k2_everyday_apps_done" not in lab.done:
-            log("K2 phase: everyday_apps")
-            phase_k2_everyday_apps(lab, calibration_pass_set=calibration_pass_set, n_ctx=args.n_ctx)
-            lab.item_done("k2_everyday_apps_done")
+        started_pid = hc.start_ollama_server() if needs_ollama else None
+        if needs_ollama:
+            ollama_owned_by_us = True
+            arm_names = "/".join(n for n, on in (("everyday_apps", args.everyday_apps),
+                                                  ("pause_resume", args.pause_resume)) if on)
+            log(f"K2: ollama server {'already running' if started_pid is None else f'started (pid={started_pid})'} "
+                f"(needed for the {arm_names} arm(s))")
+        try:
+            for mid in model_ids:
+                if f"k2_done_{mid}" in lab.done:
+                    continue
+                # K2's own per-model loop (arms (a)/(b)) never uses Ollama itself. Per the 2026-09-29 contamination
+                # check (docs/RESULT_PROVENANCE.md), Ollama must not idle in the background during a non-Ollama arm,
+                # so abort rather than risk a model load racing against this measurement -- but only when K2 has not
+                # itself started that Ollama server for its own everyday_apps/pause_resume arm (ollama_owned_by_us);
+                # a resident Ollama process K2 owns is not contamination, it is the arm working as designed.
+                if not ollama_owned_by_us and hc.ollama_process_running():
+                    raise RuntimeError(f"STOP: an ollama process is running; refusing to start K2 phase for {mid}")
+                log(f"K2 phase: {mid}")
+                phase_k2(lab, mid, args.n_ctx, calibration_pass_set=calibration_pass_set)
+                lab.item_done(f"k2_done_{mid}")
+            if args.everyday_apps and "k2_everyday_apps_done" not in lab.done:
+                log("K2 phase: everyday_apps")
+                phase_k2_everyday_apps(lab, calibration_pass_set=calibration_pass_set, n_ctx=args.n_ctx)
+                lab.item_done("k2_everyday_apps_done")
+            if args.pause_resume and "k2_pause_resume_done" not in lab.done:
+                log("K2 phase: pause_resume")
+                phase_k2_pause_resume(lab, calibration_pass_set=calibration_pass_set)
+                lab.item_done("k2_pause_resume_done")
+        finally:
+            if ollama_owned_by_us:
+                stop_result = hc.stop_ollama_server()
+                log(f"K2: ollama server stopped: {stop_result}")
     except ov.Deadline:
         note = "deadline reached"
     except Exception as e:
