@@ -11,6 +11,18 @@ Five runtime arms (R2.3) and two memory conditions (R2.4) are then crossed again
 sessions to see whether the runtime's context choice tracks free memory or total memory, and
 whether failures are ever preceded by a real error.
 
+WARNING -- never run main() as a bare ad-hoc subprocess outside the queue (2026-09-30 incident, see
+docs/X2_CHANGELOG.md for the full writeup). main()'s own finally block calls t2s_queue.advance(),
+the same shared chaining mechanism every queue-driven script in this repo uses -- it unconditionally
+marks whatever entry is currently status "running" in queue_state.json with THIS process's own exit
+note and launches the next pending entry, with no way to tell that the caller is unrelated to that
+entry. Running this file directly (e.g. "for a quick live smoke test") while a real queued job is
+running mismarks that unrelated job and cascades launch_next() through unintended entries -- exactly
+what happened here: a bare subprocess smoke test corrupted x2_r1d_core's queue status and launched
+three more jobs on top of it. A live smoke test of a small scope (the --models/--arms/--seeds/
+--max-turns overrides exist for exactly this) must be run as its own queued entry, launched through
+t2s_queue.launch_next() like every other job, not as a standalone process.
+
 Note on repo state / what this rebuild changed (read before extending this file)
 ----------------------------------------------------------------------------------
 An earlier version of this module was written from a worktree based on commit 5ddecb4, 90+ commits

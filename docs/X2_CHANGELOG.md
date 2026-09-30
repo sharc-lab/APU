@@ -510,3 +510,43 @@ pre-reboot baseline.
 
 **Revert:** none needed -- this is a read-only diagnostic check (`dxdiag /t` and LHM's existing sensor read), no
 setting was changed.
+
+## 2026-09-30 -- incident: a queue-sharing script run as a bare subprocess corrupted the live queue state
+
+Running `t2s_r2_session_growth.py` as a standalone live smoke test (`python t2s_r2_session_growth.py --host evo-x2
+--models llama31-8b --arms ollama_default --seeds 20260901 --max-turns 6 ...`, outside the queue's own launch
+mechanism, to validate the real main loop before queueing it) triggered its `main()`'s own `finally: tq.advance(note)`
+call, exactly the way every queue-driven job on this machine is designed to call it. But this invocation was not
+itself a queue-launched job -- `tq.advance()` unconditionally marks whatever entry is currently `status: "running"`
+in `queue_state.json` with its own exit note and then calls `launch_next()`, with no way to tell that the process
+calling it is unrelated to that entry.
+
+First smoke attempt (before a real bug in `main()` was caught and fixed) raised an exception; its `except`/`finally`
+still ran `tq.advance()`, which mismarked the genuinely-running `x2_r1d_core` (an unrelated, legitimate job) as
+`"error"` with R2's own exception text, and launched the next pending entry. That cascaded: `x2_k2` and `x2_mx2` each
+launched and self-aborted cleanly on the existing Ollama-contamination guard (no real measurement happened, nothing
+lost), then `x2_r1c` launched for real and ran concurrently with the still-alive `x2_r1d_core` for a few minutes,
+both targeting the same llama-server port. While repairing the queue by hand, a second race window (the watchdog
+ticking between two manual fix passes) launched `x2_r1_check_full_ladder_resume` as well.
+
+Every wrongly-launched process was killed by its own clean process-tree kill (psutil children + terminate, same
+pattern used everywhere else this session) as soon as found: `x2_r1c` (pid 6936, 6 descendants), then
+`x2_r1_check_full_ladder_resume` (pid 8968, 5 descendants). `x2_r1d_core` itself survived the initial mismark and
+kept writing real rows for several more minutes, then hit one real `ConnectionRefusedError` restarting its own
+server (caused by the resource/port churn during the `x2_r1c` cleanup, not a bug in `x2_r1d_core`). No data was
+lost anywhere: every affected job (`x2_r1d_core`, `x2_r1_check_full_ladder_resume`) uses `--resume` on an existing
+stem with per-cell `item_done` tracking, so requeuing with the same `--resume` stem picks up exactly where each one
+left off. `x2_r1c`'s own fresh stem (14 rows, ~2 minutes, mostly smoke-test rows) was abandoned as negligible.
+
+**Root cause, and the fix going forward:** any script sharing this repo's `t2s_queue.advance()`-in-`finally?`
+convention must only ever be run through the real queue launch path (`t2s_queue.launch_next()`, which marks the
+entry `"running"` with a real `pid` before the process starts), never as a bare ad-hoc subprocess for testing --
+even a "just a quick smoke test" run. `harness/t2s_r2_session_growth.py`'s module docstring now states this
+explicitly. A live smoke test of a new queue-driven phase should instead be run as its own tiny queued entry (a
+narrow-scope `--models`/`--arms`/`--seeds`/`--max-turns` cmd, exactly as this smoke test's own args were, just
+launched via the queue instead of bypassing it), or the target script should offer a `--no-queue-advance` escape
+hatch for ad-hoc testing. Neither exists yet; flagged as the concrete follow-up.
+
+**Revert:** queue_state.json entries were repaired by hand (status/note/pid fields corrected) to reflect what
+actually happened; no settings, drivers, or persistent machine state were touched. Fully covered by the affected
+jobs' own `--resume` mechanism -- nothing to revert on the measurement side.
