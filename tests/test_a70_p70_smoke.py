@@ -241,7 +241,7 @@ def test_phase_p70_dry_run_no_model_present_does_not_crash():
 
 
 def test_smoke_gated_phases_matches_new_phases():
-    assert n2.SMOKE_GATED_PHASES == {"r1_speed", "r1_check", "a70", "p70", "r1b", "r1c", "r1d", "mx2"}
+    assert n2.SMOKE_GATED_PHASES == {"r1_speed", "r1_check", "a70", "p70", "r1b", "r1c", "r1d", "mx2", "px2"}
 
 
 def test_smoke_check_phase_passes_against_stub_server():

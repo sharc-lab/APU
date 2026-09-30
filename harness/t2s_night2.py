@@ -25,6 +25,12 @@ Sections (each resumable through item_done records):
       the headroom arithmetic; needs `results/t2s_overnight_*_model_table.json` from last night's run.
   perfboost  PERFBOOSTMODE=0 on AC for the qwen3-8b none vs nonp12 pair, restored in finally. Positive control:
       package power under nonp12 must drop versus the PERFBOOSTMODE default measured in B1.
+  PX2 evo-x2 ONLY, opt in with `--phases px2`: separates the co-runner effect's power component from its memory-
+      bandwidth component with a spin hog and a STREAM-triad hog on the SAME cores (S4 vs B4), plus an S-ladder for
+      dose-response and CCD placement. Core sets come from real L2/L3 cache groups (harness/win_cpu_topology.py), so
+      the phase records px2_disabled and returns on any part whose cache layout does not support that reading --
+      including evo-t2s. Deploying it needs bw_hog.py and win_cpu_topology.py in the scripts/deploy_evo.py path list
+      alongside spin_hog_affinity.py. See the PX2 section docstring below.
 
 Usage on evo-t2s (deployed to C:\\apu\\ovn):
   python t2s_night2.py --expect-blobs expected_blobs.json --deadline-h 10 --overnight-table <model_table.json> [--resume <stem>]
@@ -33,6 +39,8 @@ Usage on evo-t2s (deployed to C:\\apu\\ovn):
 from __future__ import annotations
 
 import argparse
+import ctypes
+import ctypes.wintypes as wt
 import json
 import random
 import re
@@ -46,6 +54,7 @@ import types
 from pathlib import Path
 
 import run_provenance as rp
+import win_cpu_topology as wct  # PX2: real L2 (SMT sibling) and L3 (CCD) groups, not an assumed core map
 import t2s_lab as L
 import host_config as hc
 import t2s_amech as am  # A70: reuses Prober/start_and_record/boundary_record (same ov.Lab shape, no reimplementation)
@@ -1274,20 +1283,439 @@ def phase_perfboost(lab):
         log(f"PERFBOOSTMODE restore: {rep}")
 
 
+# ---------------------------------------------------------------- PX2
+"""PX2: does the B1/B3 CPU co-runner power-coupling effect generalise to an AMD unified-memory part, and is it a power
+effect or a memory-bandwidth effect?
+
+The B1/B3/B4 result on evo-t2s is that a CPU co-runner slows iGPU inference, and B4 showed the effect tracks the E-core
+*grouping*, not just the core count. Two mechanisms are still confounded there: the co-runner draws package power that
+the shared power budget then denies the iGPU, and the co-runner also moves DRAM traffic that competes with the iGPU on
+a unified memory controller. On evo-x2 (Ryzen AI Max+ 395, Strix Halo) the two can be separated, because a spin hog and
+a bandwidth hog on the *same* four cores draw similar CPU power but move wildly different amounts of DRAM traffic:
+
+  S4  4 physical cores, spin hog (harness/spin_hog_affinity.py) -- power load, near-zero DRAM traffic.
+  B4  the SAME 4 physical cores, STREAM-triad hog (harness/bw_hog.py) -- power load plus saturating DRAM traffic.
+
+S4-vs-B4 at a matched core count is therefore the power-versus-bandwidth contrast, and the S-ladder (S2/S4/S8/S8x/S14/
+S28) gives the dose-response and the L3/CCD-placement contrast that B4 gave on Intel.
+
+PLATFORM. Written for evo-x2, which host_config.py already supports: main() calls hc.require_host(gethostname()) and
+hc.enforce_or_record_interactive_session(), so this file runs on EVO-X2 today with `--phases px2` and stamps
+hw_id=evo-x2, gpu_vendor=amd. No new entry point is needed. PX2 rows must never be pooled with the evo-t2s B1/B2/B3/B4
+rows: those are a separate arm (different vendor, different core taxonomy).
+
+TOPOLOGY comes from harness/win_cpu_topology.py (GetLogicalProcessorInformationEx, RelationCache), not from
+GetSystemCpuSetInformation. That module already reports both cache levels PX2 needs, and it was confirmed against real
+hardware rather than assumed:
+  l3_groups -- one entry per last-level-cache domain, i.e. one per CCD on a chiplet part. This is what defines a CCD;
+      a core's private L2 says nothing about which cores share an L3.
+  l2_groups -- on Zen the L2 is private to one physical core and shared only by that core's two SMT threads, so an L2
+      group IS the SMT sibling set. Verified live while writing this: on the 8-core/16-thread development laptop
+      win_cpu_topology.py returns 8 L2 groups of exactly 2 logical CPUs ([0,1], [2,3], ... [14,15]) at 1024 KB each,
+      and a single 16384 KB L3 covering 0-15.
+So GetSystemCpuSetInformation is NOT used here: it would add a second, unverified source for SMT pairing that
+win_cpu_topology.py already gives, and px2_topology() refuses to guess instead -- if any L2 group spans more than two
+logical CPUs (a shared-L2 cluster, which is exactly what evo-t2s's E-cores look like) it raises, because SMT pairing
+cannot be derived from L2 on such a part. That refusal is deliberate: it makes PX2 a no-op-with-a-reason on evo-t2s and
+on the single-CCD development laptop rather than silently measuring the wrong core sets.
+
+PINNING. px2_pin_server() is genuinely new, and that was re-verified against the real code rather than assumed: the
+only SetProcessAffinityMask call anywhere in harness/ is spin_hog_affinity.py's call on *itself*, phase_b4 and
+phase_p70 pin only the hog (via L.m3.start_hog's --affinity-mask), and t2s_lab.Server passes `-t 4` worker threads but
+sets no affinity at all. PX2 needs the server pinned in every condition, including the N0/N1 baselines, so that a hog
+can never preempt the server's own dispatch threads and so that N0 and S28 differ only in the hog.
+
+TELEMETRY actually available on evo-x2, by field name, from t2s_lab.Telemetry.metrics(). Corrected against the real
+Telemetry class and its AMD LibreHardwareMonitor feeder (_start_lhm_feeder / lhm_loop, gated on gpu_vendor == "amd"):
+  igpu_mhz              REAL on AMD. The LHM feeder maps the Radeon "GPU Core" Clock sensor into the same sys_ring
+                        freq/domain-0 rows Sysman uses, so metrics() windows it per call with no AMD-specific branch.
+                        The pre-registered "iGPU clock drop" criterion therefore does have a sensor behind it.
+  igpu_power_w          REAL on AMD: the Radeon "GPU Core" Power sensor (source "lhm_gpu").
+  temp_c_max            REAL on AMD: the Ryzen CPU Temperature sensor. It is also what gives lab.idle_temp a real
+                        value, which switches Telemetry.thermal_gate onto its temperature path (tol 3 C) instead of
+                        the package-power proxy Intel is stuck with.
+  igpu_temp_c_max       REAL on AMD: the Radeon temperature sensor.
+  pkg_power_w,          CPU package/cores/uncore power. These come only from the Windows "Energy Meter" counter set,
+  rapl_pp0_w,           whose instances (rapl_package0_pkg/_cores/_uncore) are Intel RAPL names. lhm_loop does not map
+  rapl_pp1_w            any CPU power sensor into sys_ring, so these are expected null on evo-x2. This is the one real
+                        remaining sensor gap, and it is narrower than "no power telemetry": lhm_sensors.ps1 does
+                        collect every CPU-group Power sensor into <prefix>_lhm.jsonl, so CPU package power is
+                        recoverable offline from that raw file even though no per-call row field carries it.
+  igpu_throttle_bits    PRESENT BUT UNINFORMATIVE on AMD: lhm_loop hardcodes throttle_reasons 0 on the freq rows it
+                        synthesises, so this field is always [0] on evo-x2 and must not be read as "not throttling".
+  cpu_{p,e,lpe}_pct_perf  Intel P/E/LP-E class medians of "% Processor Performance". This part has no P/E split, so
+                        these groupings carry no meaning here and PX2 ignores them; px2_per_core_util() reads real
+                        per-logical-CPU "% Processor Time" instead, for the hog-saturation check.
+  PPT / STAPM / power-limit / throttle-reason registers: still not captured anywhere in this repo.
+"""
+
+PX2_SEED = 20260929
+PX2_CTX = 8192
+PX2_FILL = 2048
+PX2_N_PREDICT = 128
+PX2_SERVER_PHYS_CORES = 2  # 2 physical cores x 2 SMT threads = the 4 logical CPUs t2s_lab.Server's `-t 4` uses
+PX2_SETTLE_S = 20.0
+PX2_THERMAL_TOL_C = 3.0
+PX2_THERMAL_MAX_S = 180.0
+PX2_DRIFT_PCT = 3.0
+PX2_BW_ARRAY_MIB = 320.0
+PX2_HOG_DURATION_S = 1800
+PX2_N_MEASURED = 5
+PX2_N_MEASURED_CUT = 3
+PX2_CUT_MODELS = ("llama-3.3-70b",)  # cut rule: the 70B gets 3 measured calls, not 5, so it cannot eat the deadline
+PX2_MODELS = ["qwen3-8b", "qwen3-14b", "qwen3-32b", "llama-3.3-70b", "llama31-8b"]
+# (label, physical cores taken from the hog CCD, from the server CCD, hog kind). None/None means "special": S14 is
+# every free physical core, S28 is every free logical CPU (both SMT threads). B4 takes the SAME cores as S4 so the
+# power-versus-bandwidth contrast is at a matched core count.
+PX2_LADDER = [("S2", 2, 0, "spin"), ("S4", 4, 0, "spin"), ("S8", 8, 0, "spin"), ("S8x", 4, 4, "spin"),
+              ("S14", None, None, "spin"), ("S28", None, None, "spin"), ("B4", 4, 0, "bw")]
+PX2_HOG_KIND = {label: kind for label, _, _, kind in PX2_LADDER}
+PX2_RANDOMISED = [label for label, *_ in PX2_LADDER]
+# N0 always first and N1 always last; only the middle block is shuffled, so N1-vs-N0 is a clean session drift check.
+PX2_CONDITIONS = ["N0"] + PX2_RANDOMISED + ["N1"]
+
+
+def px2_topology(raw=None):
+    """Physical cores and CCDs from win_cpu_topology.read_cache_groups(). `raw` lets a test inject a recorded topology
+    document instead of reading the live machine.
+
+    A physical core is one L2 group (see the section docstring: private L2 per core on Zen, shared only by the core's
+    SMT siblings). A CCD is one L3 group. Raises rather than guessing when the part's cache layout does not support
+    that reading, so PX2 refuses to run on a shared-L2-cluster part (evo-t2s) or a single-CCD part instead of silently
+    measuring the wrong core sets."""
+    d = raw if raw is not None else wct.read_cache_groups()
+    if d.get("error"):
+        raise RuntimeError(f"win_cpu_topology: {d['error']}")
+    l2, l3 = d.get("l2_groups") or [], d.get("l3_groups") or []
+    if not l2 or not l3:
+        raise RuntimeError(f"win_cpu_topology returned {len(l2)} L2 and {len(l3)} L3 groups; need at least one of each")
+    wide = [g["logical_cpus"] for g in l2 if len(g["logical_cpus"]) > 2]
+    if wide:
+        raise RuntimeError(f"L2 group(s) span more than 2 logical CPUs {wide}: this is a shared-L2 cluster part "
+                           f"(e.g. Intel E-cores), so a physical core cannot be read off L2 here")
+    cores = sorted((sorted(g["logical_cpus"]) for g in l2 if g["logical_cpus"]), key=lambda c: c[0])
+    ccds, seen = [], set()
+    for g in sorted(l3, key=lambda g: (g["logical_cpus"] or [-1])[0]):
+        members = set(g["logical_cpus"])
+        mine = [c for c in cores if set(c) <= members]
+        if mine:
+            ccds.append(mine)
+            seen.update(tuple(c) for c in mine)
+    orphans = [c for c in cores if tuple(c) not in seen]
+    if orphans:
+        raise RuntimeError(f"physical core(s) {orphans} belong to no L3 group: cannot assign them to a CCD")
+    return {"ccds": ccds, "n_ccd": len(ccds), "n_physical": len(cores),
+            "n_logical": sum(len(c) for c in cores),
+            "l3_kb": [g["cache_size_kb"] for g in sorted(l3, key=lambda g: (g["logical_cpus"] or [-1])[0])],
+            "l2_kb": sorted({g["cache_size_kb"] for g in l2})}
+
+
+def px2_server_cpus(topo):
+    """The logical CPUs llama-server is pinned to: every SMT thread of the first PX2_SERVER_PHYS_CORES physical cores
+    of the first CCD. Derived, not hardcoded, so the mask is right whatever the real enumeration order is."""
+    ccd0 = topo["ccds"][0]
+    if len(ccd0) <= PX2_SERVER_PHYS_CORES:
+        raise RuntimeError(f"CCD0 has only {len(ccd0)} physical cores: no free cores left after giving the server "
+                           f"{PX2_SERVER_PHYS_CORES}")
+    return sorted(l for core in ccd0[:PX2_SERVER_PHYS_CORES] for l in core)
+
+
+def px2_condition_cpus(topo, server_cpus=None):
+    """Logical-CPU set per condition, from px2_topology()'s real core/CCD map.
+
+    The server lives on CCD0; the hog ladder is built out of CCD1 first (so a hog never shares the server's L3 unless
+    the condition is specifically testing that), then spills onto CCD0's remaining cores. Any physical core holding one
+    of the server's own logical CPUs is excluded *whole*, not just the shared logical, otherwise an S condition would
+    put a hog thread on the SMT sibling of a core the server dispatches from.
+
+    Every "physical" condition loads one thread per core (the core's lowest logical CPU) and never two SMT siblings;
+    only S28 deliberately uses both siblings of every free core. Raises rather than silently shrinking a condition when
+    the machine is too small for it -- a quietly undersized S8 would look like a real measurement.
+
+    On the expected evo-x2 2 x 8 x 2 layout this gives S2=2, S4=4, S8=8, S8x=8 (4 per CCD), S14=14 (CCD1's 8 plus
+    CCD0's 6 free, since 2 of CCD0's cores hold the server), S28=28 logical, and B4=S4's four cores."""
+    if topo["n_ccd"] < 2:
+        raise RuntimeError(f"px2 needs at least 2 CCDs (distinct last-level-cache domains), found {topo['n_ccd']}")
+    server = sorted(server_cpus if server_cpus is not None else px2_server_cpus(topo))
+    free = [[c for c in ccd if not any(l in server for l in c)] for ccd in topo["ccds"]]
+    srv_ccd, hog_ccd = free[0], free[1]
+    first = lambda cores: [c[0] for c in cores]
+
+    def take(cores, n, label, where):
+        if len(cores) < n:
+            raise RuntimeError(f"px2 condition {label} needs {n} free physical cores on {where}, found {len(cores)}")
+        return first(cores[:n])
+
+    cond = {"N0": [], "N1": []}
+    for label, n_hog, n_srv, _kind in PX2_LADDER:
+        if label == "S14":
+            cond[label] = first([c for ccd in free for c in ccd])
+        elif label == "S28":
+            cond[label] = sorted(l for ccd in free for c in ccd for l in c)
+        else:
+            cond[label] = take(hog_ccd, n_hog, label, "the hog CCD") + \
+                          (take(srv_ccd, n_srv, label, "the server's CCD") if n_srv else [])
+    for name, cpus in cond.items():
+        bad = sorted(set(cpus) & set(server))
+        if bad:
+            raise RuntimeError(f"px2 condition {name} would use the server's own CPUs {bad}")
+        if len(set(cpus)) != len(cpus):
+            raise RuntimeError(f"px2 condition {name} lists a logical CPU twice: {cpus}")
+    return cond
+
+
+def px2_mask(cpus):
+    """Affinity mask for a list of logical CPUs, the same hex-mask form start_hog and spin_hog_affinity.py take."""
+    m = 0
+    for c in cpus:
+        m |= 1 << c
+    return m
+
+
+def px2_pin_server(pid, cpus):
+    """Pin llama-server to `cpus`, and read the mask back. NEW mechanism, not a reuse -- see the section docstring:
+    nothing in this repo pins the server itself today, only hogs. Uses the same SetProcessAffinityMask ctypes call
+    spin_hog_affinity.py uses on itself, applied to the already-running server process."""
+    mask = px2_mask(cpus)
+    k = ctypes.WinDLL("kernel32", use_last_error=True)
+    k.OpenProcess.restype = wt.HANDLE
+    k.OpenProcess.argtypes = [wt.DWORD, wt.BOOL, wt.DWORD]
+    k.SetProcessAffinityMask.restype = wt.BOOL
+    k.SetProcessAffinityMask.argtypes = [wt.HANDLE, ctypes.c_size_t]
+    k.GetProcessAffinityMask.restype = wt.BOOL
+    k.GetProcessAffinityMask.argtypes = [wt.HANDLE, ctypes.POINTER(ctypes.c_size_t), ctypes.POINTER(ctypes.c_size_t)]
+    k.CloseHandle.restype = wt.BOOL
+    k.CloseHandle.argtypes = [wt.HANDLE]
+    PROCESS_SET_INFORMATION, PROCESS_QUERY_INFORMATION = 0x0200, 0x0400
+    h = k.OpenProcess(PROCESS_SET_INFORMATION | PROCESS_QUERY_INFORMATION, False, int(pid))
+    if not h:
+        return {"pinned": False, "why": f"OpenProcess failed, error {ctypes.get_last_error()}", "mask": hex(mask),
+                "server_cpus": list(cpus)}
+    try:
+        ok = bool(k.SetProcessAffinityMask(h, mask))
+        proc, sysm = ctypes.c_size_t(), ctypes.c_size_t()
+        k.GetProcessAffinityMask(h, ctypes.byref(proc), ctypes.byref(sysm))
+        return {"pinned": bool(ok and proc.value == mask), "set_ok": ok, "mask": hex(mask),
+                "read_back": hex(proc.value), "server_cpus": list(cpus)}
+    finally:
+        k.CloseHandle(h)
+
+
+def px2_per_core_util(cpus):
+    """Per-logical-CPU "% Processor Time" for the hog-saturation check. ADAPTATION, documented because it is one: the
+    streaming SYS_PS telemetry carries "% Processor Utility" for _Total only, plus Intel P/E/LP-E class medians of
+    "% Processor Performance" -- and that counter is a frequency ratio, not utilisation, so it cannot answer "is this
+    core busy", and its class groupings are meaningless on a part with no P/E split. So this is a separate one-shot
+    per-instance read, parsed exactly the way per_core_perf() above parses its instances (InstanceName is "node,cpu"
+    on these machines, so the logical CPU is the part after the last comma). Returns {logical: pct} plus the minimum."""
+    out = ps('try { (Get-Counter -Counter "\\Processor Information(*)\\% Processor Time" -ErrorAction Stop).CounterSamples | '
+             'Where-Object { $_.InstanceName -match "^[0-9]+(,[0-9]+)*$" } | '
+             'ForEach-Object { $_.InstanceName + "=" + $_.CookedValue } } catch { "" }', 30)
+    d = {}
+    for tok in (out or "").split():
+        if "=" in tok:
+            k, v = tok.split("=", 1)
+            try:
+                d[int(k.rsplit(",", 1)[-1])] = float(v)
+            except ValueError:
+                pass
+    got = {c: d.get(c) for c in cpus}
+    vals = [v for v in got.values() if v is not None]
+    return {"per_cpu_pct": got, "min_pct": min(vals) if vals else None, "n_read": len(d),
+            "all_at_95": bool(vals) and len(vals) == len(cpus) and min(vals) >= 95.0}
+
+
+def px2_start_hog(lab, item, cpus, kind):
+    """Start a co-runner on `cpus`. The spin arm goes through L.m3.start_hog unchanged (same launcher, same report and
+    affinity file naming, same kill_tree cleanup). The bandwidth arm launches bw_hog.py the same way and with the same
+    argument names, so the report file is a single float either way and L.m3.read_ips reads both -- iterations/s for
+    spin, GB/s for bandwidth."""
+    mask = px2_mask(cpus)
+    out_dir, stem = Path(lab.prefix).parent, Path(lab.prefix).name + f"_{item}"
+    if kind == "spin":
+        hog, report, aff = L.m3.start_hog(f"px2_{item}", mask, out_dir, stem)
+        return hog, report, aff, mask
+    report = str(out_dir / f"{stem}_px2_{item}_hog_gbps.txt")
+    aff = str(out_dir / f"{stem}_px2_{item}_hog_affinity.json")
+    for p in (report, aff):
+        Path(p).unlink(missing_ok=True)
+    hog = subprocess.Popen([PYTHON, str(ov.DEPLOY / "bw_hog.py"), "--affinity-mask", hex(mask),
+                            "--duration-s", str(PX2_HOG_DURATION_S), "--report-file", report, "--affinity-file", aff,
+                            "--array-mib", str(PX2_BW_ARRAY_MIB)],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
+    return hog, report, aff, mask
+
+
+def px2_bw_calibration(lab, cpus):
+    """bw_hog's own achieved GB/s with nothing else running, once per session before the sweep, so B4's in-sweep rate
+    can be read against a solo ceiling. Runs on the same cores B4 uses."""
+    item = "PX2_bw_calibration"
+    hog, report, aff, mask = px2_start_hog(lab, item, cpus, "bw")
+    rec = {"record": "px2_bw_calibration", "item_id": item, "cpu_mask": hex(mask), "cpus": list(cpus),
+           "array_mib": PX2_BW_ARRAY_MIB, "ts_utc": utc_iso()}
+    try:
+        time.sleep(45)  # 3 x 320 MiB allocated and first-faulted per worker, then a settled rate window
+        rec["util"] = px2_per_core_util(cpus)
+        rec["gbps_solo"] = L.m3.read_ips(report)
+        try:
+            rec["hog_affinity"] = json.loads(Path(aff).read_text())
+        except Exception:
+            rec["hog_affinity"] = None
+    finally:
+        L.m3.kill_tree(hog.pid)
+        time.sleep(3)
+    lab.emit(rec)
+    log(f"px2 bandwidth calibration: {rec.get('gbps_solo')} GB/s solo on {list(cpus)}")
+    return rec.get("gbps_solo")
+
+
+def px2_order(mid):
+    """Shuffled middle block for one model, with the seed that produced it so the order is reproducible from the row."""
+    seed = PX2_SEED + ov.crc(mid)
+    order = list(PX2_RANDOMISED)
+    random.Random(seed).shuffle(order)
+    return ["N0"] + order + ["N1"], seed
+
+
+def px2_drift(ttft_by_cond):
+    """N1 versus N0 median TTFT for one model. Flags drift when they differ by more than PX2_DRIFT_PCT, measured
+    against N0 (the clean baseline taken before any hog ran for this model)."""
+    n0 = [t for t in ttft_by_cond.get("N0", []) if t is not None]
+    n1 = [t for t in ttft_by_cond.get("N1", []) if t is not None]
+    if not n0 or not n1:
+        return {"drift_flag": None, "drift_pct": None, "why": "N0 or N1 has no valid TTFT"}
+    m0, m1 = st.median(n0), st.median(n1)
+    pct = (m1 - m0) / m0 * 100.0 if m0 else None
+    return {"drift_flag": bool(pct is not None and abs(pct) > PX2_DRIFT_PCT), "drift_pct": pct,
+            "n0_ttft_median_s": m0, "n1_ttft_median_s": m1, "drift_threshold_pct": PX2_DRIFT_PCT}
+
+
+def phase_px2(lab):
+    """One server per model, held up across all 9 conditions (the B3/P70 pattern: only a model change restarts it), so
+    a condition's effect is never confounded with a reload. Order per model is N0, shuffled S/B block, N1."""
+    try:
+        topo = px2_topology()
+        server_cpus = px2_server_cpus(topo)
+        cond_cpus = px2_condition_cpus(topo, server_cpus)
+    except Exception as e:
+        # Recorded, not raised: on evo-t2s (shared-L2 E-core clusters) and on a single-CCD part this is the correct,
+        # expected outcome, and a phase that refuses with a reason is better than one that measures the wrong cores.
+        lab.emit({"record": "px2_disabled", "reason": f"topology unusable: {e!r}"[:400], "ts_utc": utc_iso()})
+        log(f"px2 disabled: {e!r}")
+        return
+    lab.emit({"record": "px2_topology", "n_ccd": topo["n_ccd"], "n_physical": topo["n_physical"],
+              "n_logical": topo["n_logical"], "l3_kb": topo["l3_kb"], "l2_kb": topo["l2_kb"],
+              "ccd_cores": topo["ccds"], "server_cpus": server_cpus,
+              "condition_cpus": dict(cond_cpus),
+              "condition_masks": {k: hex(px2_mask(v)) for k, v in cond_cpus.items() if v},
+              "hog_kind_by_cond": dict(PX2_HOG_KIND), "ts_utc": utc_iso()})
+    gbps_solo = None
+    if "PX2_bw_calibration" not in lab.done:
+        gbps_solo = px2_bw_calibration(lab, cond_cpus["B4"])
+        lab.item_done("PX2_bw_calibration")
+    for mid in PX2_MODELS:
+        mi = lab.models.get(mid)
+        if mi is None:
+            # Same shape as phase_p70: ov.MODEL_FILES has a real entry for every PX2 model including llama-3.3-70b
+            # (Llama-3.3-70B-Instruct-Q4_K_M.gguf), so a miss here means load_models() found no verified hash in
+            # downloads.jsonl yet on this machine, not that the repo lacks a model definition.
+            log(f"px2: {mid} not loaded (no verified entry in downloads.jsonl yet), skipping")
+            continue
+        order, seed = px2_order(mid)
+        n_measured = PX2_N_MEASURED_CUT if mid in PX2_CUT_MODELS else PX2_N_MEASURED
+        item0 = f"PX2_{mid}_start"
+        srv = L.Server(lab, mi, PX2_CTX, tag=item0)
+        lab.resources["server"] = srv
+        info = srv.start(timeout=1800)
+        pin = px2_pin_server(info["pid"], server_cpus) if info.get("ok") and info.get("pid") \
+            else {"pinned": False, "why": "server did not start", "server_cpus": server_cpus}
+        ov.start_row(lab, srv, mi, "PX2", item0, info, {"px2_order": order, "px2_seed": seed,
+                                                       "server_affinity": pin, "n_measured": n_measured,
+                                                       "n_reduced_cut_rule": mid in PX2_CUT_MODELS,
+                                                       "bw_gbps_solo": gbps_solo})
+        if not info.get("ok"):
+            srv.stop()
+            lab.resources["server"] = None
+            continue
+        log(f"px2 {mid}: order {order} (seed {seed}), server pin {pin}, {n_measured} measured calls per condition")
+        prompt = ov.prompt_for(srv, PX2_FILL)
+        n_tok = srv.tokenize(prompt)
+        ttft_by_cond = {}
+        for cond in order:
+            item = f"PX2_{mid}_{cond}"
+            if item in lab.done:
+                continue
+            lab.check()
+            cpus = cond_cpus[cond]
+            kind = PX2_HOG_KIND.get(cond, "none") if cpus else "none"
+            gate = lab.tele.thermal_gate(lab.idle_temp, tol=PX2_THERMAL_TOL_C, max_wait=PX2_THERMAL_MAX_S,
+                                         idle_pkg=lab.idle_pkg)
+            lab.emit({"record": "px2_condition_gate", "item_id": item, "model_id": mid, "cond": cond,
+                      "gate": gate, "ts_utc": utc_iso()})
+            hog, report, aff, mask = None, None, None, None
+            util = None
+            try:
+                if cpus:
+                    hog, report, aff, mask = px2_start_hog(lab, item, cpus, kind)
+                    time.sleep(PX2_SETTLE_S)
+                    util = px2_per_core_util(cpus)
+                    lab.emit({"record": "px2_hog_settled", "item_id": item, "cond": cond, "hog_kind": kind,
+                              "cpu_mask": hex(mask), "cpus": list(cpus), "settle_s": PX2_SETTLE_S, "util": util,
+                              "rate_at_settle": L.m3.read_ips(report), "ts_utc": utc_iso()})
+                # NOTE the px2_gate_* prefixes: ov.do_call merges its OWN per-call thermal_gate() result into every row
+                # under the plain names (thermal_wait_s, gate_released_by, ...), which are reserved keys -- reusing
+                # them here would be a duplicate-keyword TypeError (see tests/test_no_duplicate_row_kwargs.py). These
+                # two are the separate pre-condition gate taken before the hog started.
+                extra = {"cpu_mask": hex(mask) if mask else None, "cond": cond, "hog_kind": kind,
+                         "hog_cpus": list(cpus), "px2_seed": seed, "px2_order": order,
+                         "server_affinity_mask": hex(px2_mask(server_cpus)), "server_pinned": pin.get("pinned"),
+                         "hog_cpus_all_at_95": (util or {}).get("all_at_95"),
+                         "hog_min_core_pct": (util or {}).get("min_pct"),
+                         "n_measured_planned": n_measured, "n_reduced_cut_rule": mid in PX2_CUT_MODELS,
+                         "bw_gbps_solo": gbps_solo, "px2_gate_released_by": gate.get("gate_released_by"),
+                         "px2_gate_wait_s": gate.get("thermal_wait_s")}
+                rows = measured_with_extra(lab, srv, mi, "PX2", item, prompt, n_tok, extra, cond,
+                                           n_calls=n_measured, max_tokens=PX2_N_PREDICT)
+                ttft_by_cond[cond] = [r.get("ttft_s") for r in rows]
+                lab.emit({"record": "px2_condition_done", "item_id": item, "model_id": mid, "cond": cond,
+                          "hog_kind": kind, "n_rows": len(rows),
+                          "hog_rate_during_calls": L.m3.read_ips(report) if report else None,
+                          "hog_rate_units": {"bw": "gbps", "spin": "iterations_per_s"}.get(kind),
+                          "util": util, "ts_utc": utc_iso()})
+            finally:
+                # Same cleanup-on-exception contract as phase_b1/b3/b4: the hog is killed even if the calls raise, so
+                # no condition's hog can survive into the next one or outlive a deadline abort.
+                if hog is not None:
+                    L.m3.kill_tree(hog.pid)
+                    time.sleep(3)
+            lab.item_done(item)
+        drift = px2_drift(ttft_by_cond)
+        lab.emit({"record": "px2_model_summary", "model_id": mid, "px2_seed": seed, "px2_order": order,
+                  "n_measured": n_measured, "n_reduced_cut_rule": mid in PX2_CUT_MODELS, "bw_gbps_solo": gbps_solo,
+                  "ttft_median_by_cond": {c: (st.median([t for t in v if t is not None])
+                                              if any(t is not None for t in v) else None)
+                                          for c, v in ttft_by_cond.items()},
+                  **drift, "ts_utc": utc_iso()})
+        log(f"px2 {mid} drift check: {drift}")
+        srv.stop()
+        lab.resources["server"] = None
+
+
 PRIO = {"b1": 1, "b2": 2, "c1": 3, "b3": 4, "c1b": 5, "b4": 6, "b4_32b": 7, "b4_replicate": 8, "r1_speed": 10,
         "r1_check": 11, "a70": 12, "a70_finalize": 12.5, "p70": 13, "r1b": 14, "r1d": 15, "r1c": 16, "mx2": 17,
-        "perfboost": 9}
+        "px2": 18, "perfboost": 9}
 PHASE_FN = {"b1": phase_b1, "b2": phase_b2, "c1": phase_c1, "b3": phase_b3, "c1b": phase_c1b, "b4": phase_b4,
            "b4_32b": phase_b4_32b, "b4_replicate": phase_b4_replicate, "r1_speed": phase_r1_speed,
            "r1_check": phase_r1_check, "a70": phase_a70, "a70_finalize": phase_a70_finalize, "p70": phase_p70,
-           "r1b": phase_r1b, "r1d": phase_r1d, "r1c": phase_r1c, "mx2": phase_mx2, "perfboost": phase_perfboost}
-PHASE_ORDER = "b1,b2,c1,b3,c1b,perfboost"
+           "r1b": phase_r1b, "r1d": phase_r1d, "r1c": phase_r1c, "mx2": phase_mx2, "px2": phase_px2,
+           "perfboost": phase_perfboost}
+PHASE_ORDER = "b1,b2,c1,b3,c1b,perfboost"  # mx2/px2 are evo-x2 only: opt in with --phases, never in the default order
 
 # Phases that must pass a 1-item live smoke (server start, stale-server guard, one call, row-schema check) before
 # their first real run in a given resumed stem, per the standing rule added after two duplicate-keyword crashes: a
 # dry run against a stub lab catches code bugs, but only a real machine catches a bad deploy, a missing dependency
 # file, or a wrong assumption about what the live server actually returns.
-SMOKE_GATED_PHASES = {"r1_speed", "r1_check", "a70", "p70", "r1b", "r1c", "r1d", "mx2"}
+SMOKE_GATED_PHASES = {"r1_speed", "r1_check", "a70", "p70", "r1b", "r1c", "r1d", "mx2", "px2"}
 
 
 class SmokeFailure(Exception):
@@ -1486,6 +1914,16 @@ def estimate_hours(lab, overheads=None):
             continue  # not on this machine / not downloaded yet
         s += MX2_N_PROBES_PER_MODEL * load_s(mid) + 2 * (load_s(mid) + (1 + MX2_ARM_CALLS) * call_s(mid, MX2_MATCHED_PROMPT_TOKENS))
     est["mx2"] = s / 3600
+    # PX2: one server load per model, then len(PX2_CONDITIONS) conditions of (1 warm-up + n_measured) calls, plus the
+    # pre-condition gate, a PX2_SETTLE_S hog settle and a ~3 s hog kill on every non-baseline condition, plus the
+    # one-off 48 s bandwidth calibration. n_measured follows the cut rule (3 for PX2_CUT_MODELS, else 5).
+    s = 48.0
+    n_hog_conds = sum(1 for c in PX2_CONDITIONS if c not in ("N0", "N1"))
+    for mid in PX2_MODELS:
+        n_measured = PX2_N_MEASURED_CUT if mid in PX2_CUT_MODELS else PX2_N_MEASURED
+        s += load_s(mid) + len(PX2_CONDITIONS) * ((1 + n_measured) * call_s(mid, PX2_FILL, PX2_N_PREDICT) + gate_s) \
+            + n_hog_conds * (PX2_SETTLE_S + 3)
+    est["px2"] = s / 3600
     return est
 
 
@@ -1531,7 +1969,7 @@ def main():
     if args.overnight_table and Path(args.overnight_table).exists():
         lab.table = json.load(open(args.overnight_table, encoding="utf-8"))
     all_models = sorted(set(B1_MODELS + B3_MODELS + R1_SPEED_MODELS + R1_CHECK_MODELS + R1B_MODELS + R1D_MODELS
-                            + R1C_MODELS + [m for m, *_ in C1_SPEC]))
+                            + R1C_MODELS + PX2_MODELS + [m for m, *_ in C1_SPEC]))
     load_models(lab, all_models)
     phases = args.phases.split(",")
     overheads = load_night2_overheads(args.prior_results)

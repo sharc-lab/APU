@@ -854,3 +854,108 @@ What still holds: the arithmetic that about 5.1 GB is KV and compute, and that t
 ## evo-t2s overnight, Section D: not run (2026-09-26)
 
 The SYCL section (`D_prepare` and three cells) was trimmed by the planner and never started. No SYCL claim is made. It is a candidate for the backfill added in commit 272cb43.
+
+---
+
+## PX2, evo-x2: pre-registered readout for separating the co-runner power effect from the memory-bandwidth effect (2026-09-29, NOT YET RUN)
+
+**Status:** pre-registration only. No PX2 data exists. Nothing below is a result. Recorded here before the run so the
+readout cannot be chosen after seeing the numbers.
+
+**Hardware arm:** evo-x2 only (Ryzen AI Max+ 395, Strix Halo, Radeon 8060S, 2 CCDs, 8 physical cores and 16 logical
+CPUs per CCD, 32 MiB L3 per CCD, no P/E split). PX2 rows must never be pooled with the evo-t2s B1/B2/B3/B4 rows: a
+different vendor and a different core taxonomy make them separate arms.
+
+**Question.** B1/B3 on evo-t2s showed a CPU co-runner slows iGPU inference, and B4 showed the effect tracks the E-core
+grouping rather than the core count alone. Two mechanisms remain confounded there: the co-runner draws package power
+that the shared budget then denies the iGPU, and it also moves DRAM traffic that competes with the iGPU on a unified
+memory controller. On evo-x2 the two can be separated, because a spin co-runner and a STREAM-triad co-runner on the
+same four cores draw comparable CPU power but move very different amounts of DRAM traffic.
+
+**Design.** One llama-server per model, held up across all 9 conditions (only a model change restarts it, the B3/P70
+pattern), context 8,192, prompt 2,048 tokens, 128 output tokens. Order per model is N0 first, then the 7 co-runner
+conditions in an order shuffled with a logged seed (`PX2_SEED + crc(model_id)`, recorded on every row so the order is
+reproducible from the data), then N1 last. The server is pinned to logical CPUs 0 to 3 in every condition including the
+baselines, so N0 and S28 differ only in the hog.
+
+| condition | co-runner | cores | placement |
+|---|---|---|---|
+| N0 | none | | clean baseline, always first |
+| S2 | spin | 2 physical | hog CCD only |
+| S4 | spin | 4 physical | hog CCD only |
+| S8 | spin | 8 physical | hog CCD only (all of it) |
+| S8x | spin | 8 physical | 4 per CCD, same core count as S8, traffic split across both L3 domains |
+| S14 | spin | 14 physical | every core not held by the server |
+| S28 | spin | 28 logical | both SMT threads of all 14 free cores |
+| B4 | bandwidth | the same 4 physical cores as S4 | hog CCD only |
+| N1 | none | | drift check, always last |
+
+Core sets are derived from real cache topology (`harness/win_cpu_topology.py`, GetLogicalProcessorInformationEx with
+RelationCache): an L3 group is a CCD, and an L2 group is one physical core's SMT sibling pair on Zen. Nothing is
+hardcoded. Any physical core holding one of the server's logical CPUs is excluded whole, so no hog thread ever lands on
+the SMT sibling of a core the server dispatches from. If the part's cache layout does not support that reading (a
+shared-L2 cluster part such as evo-t2s, or a single-CCD part) the phase records `px2_disabled` with the reason and runs
+nothing, rather than measuring the wrong core sets.
+
+**Models.** qwen3-8b, qwen3-14b, qwen3-32b, llama-3.3-70b, llama31-8b. 5 measured calls plus 1 warm-up per condition,
+reduced to 3 measured for llama-3.3-70b by the cut rule so the largest model cannot eat the deadline. 252 planned call
+shapes in total (9 conditions x 6 calls x 4 models, plus 9 x 4 for the 70B). `measured_with_extra` cuts a condition to
+3 measured calls anyway if its warm-up exceeds 90 s, so 252 is the planned maximum, not a guarantee.
+
+**Pre-registered criteria, decided before the run.**
+
+1. **Bandwidth is the dominant mechanism** if B4's median TTFT is at least 10% worse than S4's. Same cores, same core
+   count, similar CPU power draw, so a gap of that size is attributable to DRAM traffic rather than to power.
+2. **Power is the dominant mechanism** if B4 and S4 agree within 5% while both are at least 10% worse than N0. The
+   co-runner then costs the same whether or not it touches memory.
+3. **Neither is separable at this sensitivity** if B4 and S4 differ by between 5% and 10%, or if the S-ladder shows no
+   monotone dose response from S2 to S14.
+4. **L3 or CCD placement matters** if S8 and S8x differ by more than 5% at an identical core count. This is the AMD
+   analogue of B4's E-cluster result on Intel.
+5. **SMT contributes beyond core occupancy** if S28 is more than 5% worse than S14.
+
+**Validity gates, all recorded per condition.**
+
+- **Hog saturation:** every pinned logical CPU must read at least 95% "% Processor Time" at the end of the settle
+  window (`hog_cpus_all_at_95`, `hog_min_core_pct`). A condition whose hog did not saturate its mask is not evidence.
+- **Bandwidth positive control:** `bw_hog.py` is run solo once per session on B4's own cores before the sweep, and its
+  achieved GB/s is recorded as `bw_gbps_solo` on every row. B4's in-sweep rate is read against that ceiling. A B4
+  condition whose in-sweep rate is near the solo ceiling is definitely saturating the controller; the reported figure
+  uses the STREAM 3-array convention and understates real traffic, so it is a lower bound.
+- **Session drift:** N1 versus N0 median TTFT per model. Flagged when they differ by more than 3%. A flagged model's
+  condition comparisons are suspect regardless of what the criteria above say.
+- **Thermal settle:** a pre-condition thermal gate (3 C tolerance, 180 s cap) before the hog starts, recorded as
+  `px2_gate_released_by` and `px2_gate_wait_s`, plus `do_call`'s own per-call gate on every row.
+
+**Sensor availability on evo-x2, checked against the real `t2s_lab.Telemetry` and its AMD LibreHardwareMonitor feeder
+rather than assumed.**
+
+| field | on evo-x2 | source |
+|---|---|---|
+| `igpu_mhz` | available | Radeon GPU Core Clock, mapped by the LHM feeder into the same freq rows Sysman uses |
+| `igpu_power_w` | available | Radeon GPU Core Power |
+| `temp_c_max` | available | Ryzen CPU Temperature. This is also what gives `lab.idle_temp` a real value, so the thermal gate uses its temperature path instead of Intel's package-power proxy |
+| `igpu_temp_c_max` | available | Radeon temperature |
+| `pkg_power_w`, `rapl_pp0_w`, `rapl_pp1_w` | expected null | Windows "Energy Meter" counter set only, whose instance names are Intel RAPL ones. The LHM loop maps no CPU power sensor into the per-call rows |
+| `igpu_throttle_bits` | present but uninformative | the LHM feeder hardcodes 0 on the freq rows it synthesises, so a 0 here does not mean "not throttling" |
+| `cpu_p_pct_perf`, `cpu_e_pct_perf`, `cpu_lpe_pct_perf` | meaningless here | Intel P/E/LP-E class groupings; this part has no P/E split. PX2 reads real per-logical-CPU "% Processor Time" instead |
+| PPT, STAPM, power limits, throttle-reason registers | not captured | no plumbing for these exists anywhere in the repo |
+
+Consequence for criterion 1: the iGPU clock side of the claim does have a sensor, because `igpu_mhz` is real on this
+part. What is missing is CPU package power in the per-call row, so "the co-runner raised CPU package power by X W"
+cannot be stated from the rows alone. `harness/lhm_sensors.ps1` does collect every CPU-group Power sensor into
+`<prefix>_lhm.jsonl`, so CPU package power is recoverable offline from that raw file if LibreHardwareMonitor exposes it
+on this part, which is itself unverified. The S4-versus-B4 contrast does not depend on that field: it separates the two
+mechanisms by construction, through matched cores and different DRAM traffic, not by attributing a power number.
+
+**Hour estimate.** 5.3 h by the harness's own `estimate_hours`, anchored on the real per-call medians measured on
+evo-t2s in `results/t2s_night2_20260928T004924Z.jsonl` and `results/t2s_night2_20260928T200748Z.jsonl` (per-model
+`load_s` and non-warmup `e2e_s`, plus a 70 s median thermal-gate wait). This is an over-estimate for two reasons and
+should not be treated as a measurement: those medians were taken at a 7,368-token prompt while PX2 uses 2,048, and
+llama-3.3-70b has never produced a timed call on either machine, so its calls fall back to a flat 45 s guess. There is
+no evo-x2 per-call timing to anchor on: as of this commit no `results/*.jsonl` row carries `hw_id` `evo-x2`, and no
+R1, A70 or P70 phase has produced rows on any machine yet. The estimate will be re-derived from evo-x2's own smoke and
+N0 rows once they exist.
+
+**Deploy note.** PX2 needs `bw_hog.py` and `win_cpu_topology.py` in the `scripts/deploy_evo.py` path list alongside
+`spin_hog_affinity.py`, or the bandwidth arm cannot launch and the topology read fails on the machine.
