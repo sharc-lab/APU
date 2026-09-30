@@ -1024,3 +1024,27 @@ per-row in these result JSONL files (only `full_tokens`/`target_tokens`/`chars_d
 string itself), so checking whether a wrong answer exactly matches another value present in the visible prompt needs
 the exact visible prompt re-derived per row (deterministic from `item_id`/seed/ratio via the same builder R1b used),
 which was not done in this pass. Flagged rather than skipped silently.
+
+## R2, agent session growth: pre-registration (2026-09-29)
+
+**Status:** PRE-REGISTRATION. No R2 run exists yet. This section is written before any session-growth data is collected, per this repo's standing rule that a kill criterion is recorded before the run that could satisfy or fail it.
+
+**Design:** `harness/t2s_r2_session_growth.py` builds deterministic, seeded agent sessions (a turn-0 system prompt carrying 5 checkable rules, a 2-tool schema and 3 recall facts, followed by up to 80 turns each requiring one tool call plus a ~1.5k-token simulated tool result, with a recall question every 4th turn) and scores each turn's rule compliance, tool-call validity, fact recall and sent-vs-processed token gap. Five runtime arms (Ollama default / Ollama num_ctx=131072 / Ollama num_ctx=32768 on evo-x2 only / llama-server default fit / llama-server -c 131072) are crossed with two memory conditions (as-is, and an occupying process holding ~40 GB) on llama3.1:8b, qwen3:4b-instruct-2507 and qwen3:8b, 3 seeds per cell, temperature 0.
+
+**The claim this phase is built to support:** on a memory-constrained machine, a long-running agent session silently loses track of its own system-prompt rules and recall ability as it grows, purely because the runtime silently truncates or shifts context once it exceeds whatever tier the runtime picked for the available memory, with no error ever surfacing.
+
+### Kill criterion
+
+The silent-failure claim for R2 fails if, in every arm, the first rule or tool failure happens only after an explicit error (non-200 HTTP status, or an error field in the response) had already surfaced in that same session.
+
+This is checked mechanically by `evaluate_kill_criterion()`: for each arm, a session counts as showing a silent failure only if its first rule/tool/recall failure turn exists and no error (HTTP non-200 or an error field) was recorded strictly before that turn in the same session. If every arm's sessions fail only after such an error has already surfaced, R2's central claim is killed -- the failures would be a known-and-reported degradation, not a silent one, and would not support the memory -> runtime-chosen context -> silent truncation -> lost rules argument this phase exists to make.
+
+### What would NOT kill it
+
+An arm where the model's very first rule violation (e.g. it stops appending the session code, or answers a length in feet) or its first invalid tool call happens with no prior 400/500 response and no error field anywhere earlier in that session. A single such session in a single arm is enough to keep the claim alive; the criterion only fires if it is absent from every arm.
+
+### Limits of this pre-registration
+
+- No run has been executed against this criterion yet; this section only fixes the rule in advance.
+- The rule is evaluated per session, then aggregated per arm as "does at least one session in this arm show a silent failure" -- it does not require a majority of seeds in an arm to be silent, only at least one, since even one clean demonstration of silent failure is sufficient evidence that the runtime can lose rules with no error.
+- `error_surfaced_before_failure` as computed by `score_session()` only sees errors captured on turns up to and including the first failure turn; an error on a later turn does not retroactively satisfy the criterion, since the failure being silently preceded by nothing is exactly what is being tested for.
