@@ -331,6 +331,18 @@ artifact size** under partial KV eviction.
 
 ---
 
+### Claim A-28 (Fig 6.2 candidate, SUPPORTING -- relabeled 2026-09-30, was misread as a memory-tier kill-criterion result)
+
+**x2_k1_tier_v2's context_length=40,960 for qwen3:8b on evo-x2 is a model-native-context cap, not a memory-tier measurement.** 40,960 is qwen3-8b's own maximum trained context; Ollama's tier-selection logic capped the reported context at the model's own ceiling, which happens to sit below the 48,000-token kill-criterion threshold regardless of how much memory evo-x2 has. The run cannot distinguish "the runtime picked a small tier because of memory" from "the runtime picked a tier bigger than the model supports and reported the model's own ceiling instead" -- correct label: **tier masked by model native context (qwen3-8b, 40960)**. This is not a verdict on evo-x2's memory-tier behavior either way.
+
+- **What the existing run actually captured** (`results/t2s_k1_ollama_evo-x2_20260930T022035Z.jsonl`, 3 reps, `queue_x2_k1_tier_v2.log`): `ollama_default_ctx=40960`, `ollama_default_ctx_source="api_ps"` on all 3 reps -- the context value came straight from Ollama's own `/api/ps` `context_length` field, which fired first and short-circuited the other two signals. `ollama_log_info` shows `"available": true, "num_ctx_seen": [], "matched_lines": []`  on every rep: the server.log was read successfully but contained zero lines matching `--ctx-size` or any context marker, so there is no server.log line "showing the tier and the cap" to quote -- the log simply had nothing to say once `/api/ps` had already answered. `ollama_empirical_probe` is `null` on every rep: `phase_tier`'s empirical-probe fallback never ran, because it is only invoked when both `/api/ps` and the log fail to produce a context value, and `/api/ps` succeeded immediately. The 3 chat calls in this run used 27-token prompts (`chat_prompt_eval_count: 27` on every rep) -- there is no 48K or 96K probe in this run at all, at any length; `phase_tier` was never designed to send long prompts, only to read the runtime's own self-reported tier from a trivial call. The predecessor run (`t2s_k1_ollama_evo-x2_20260929T204656Z.jsonl`, the INVALID run superseded by v2) shows the same pattern before the 3-signal fix existed: `ollama_default_ctx: null` on all reps, zero log lines matched, no empirical probe.
+- **Consequence:** the "HTTP 200 with prompt_eval_count below sent tokens" silent-truncation signature has not actually been observed in any existing K1 run on either machine -- it is the expected signature if the memory-tier link holds, not yet a measured fact. K1 v3 (in progress, see build status) is built specifically to obtain it, using models whose native context (262,144 for qwen3:4b-instruct-2507, 131,072 for llama3.1:8b) exceeds any tier either machine would plausibly pick, at prompt lengths 16K/32K/48K/96K/128K, so a small chosen tier can only be attributed to memory.
+- Files: `results/t2s_k1_ollama_evo-x2_20260930T022035Z.jsonl`, `results/t2s_k1_ollama_evo-x2_20260929T204656Z.jsonl`, `queue_x2_k1_tier_v2.log`
+- Hardware: evo-x2 only; evo-t2s K1 tier run not yet complete.
+- **Status: RELABELED, NOT A KILL-CRITERION VERDICT.** One model (qwen3-8b, itself capped below the threshold by its own training, not by memory) cannot test the memory-tier claim at all. Superseded by K1 v3 (build in progress).
+
+---
+
 ## Section 5 — Axis B: Orchestration / Throughput vs. Latency
 
 ### Claim B-01 (Table 5.1, SUPPORTING)
