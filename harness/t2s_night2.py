@@ -623,6 +623,148 @@ def phase_r1c(lab):
     _phase_position_pressure(lab, R1C_MODELS, R1C_PROBE_IDS, "R1c")
 
 
+# ---------------------------------------------------------------- r1b_controls (why does truncation hurt?)
+# R1b (above) shows a quality cliff as the budget ratio drops below 1.0, but conflates two possible causes: the
+# planted fact (the "needle") is literally cut out of the context, or truncation damages the prompt's structure/rules
+# regardless of whether the needle survives. r1b_controls isolates the two with the same 10 art_* probes, same
+# artifact/filler/question layout and same left_truncate math R1b already uses (sc_left_truncate), on R1b's own
+# qwen3-8b/qwen3-14b pair -- no new probe generation, arm-dispatch, or scoring path, only two new ways to build the
+# prompt:
+#
+#   needle_deleted    Full context, no ratio cut at all: the one artifact line that answers the question is removed
+#                      and the gap closed; every other line is untouched. If the model still fabricates an answer
+#                      here it cannot be attributed to truncation at all -- the fact is cleanly, non-destructively
+#                      absent. Correct behaviour is abstention.
+#   filler_only_cut    Cuts exactly as many characters as ratio 0.98's ordinary left_truncate would drop from the
+#                      full prompt, but takes every one of them out of the filler, never the artifact -- the needle
+#                      and its surrounding artifact text stay byte-identical to the r=1.20 prompt, in the same
+#                      (leading) position. If quality still drops here despite the needle surviving intact, the
+#                      ratio-0.98 quality drop in R1b is truncation/prompt damage, not lost information. If it does
+#                      not drop, R1b's cliff really is about the needle leaving the context.
+R1B_CONTROLS_MODELS = ["qwen3-8b", "qwen3-14b"]
+R1B_CONTROLS_PROBE_IDS = R1B_PROBE_IDS
+R1B_CONTROLS_CONDITIONS = ["needle_deleted", "filler_only_cut"]
+R1B_CONTROLS_REPS = 30
+R1B_CONTROLS_FILLER = R1B_FILLER
+R1B_CONTROLS_CTX = R1B_CTX
+R1B_CONTROLS_CUT_RATIO = 0.98  # the R1b ratio whose ordinary cut amount filler_only_cut must match
+
+_R1BC_STOPWORDS = {
+    "this", "that", "with", "from", "have", "only", "below", "answer", "question", "give", "respond",
+    "explanation", "final", "unit", "units", "punctuation", "using",
+}
+_R1BC_WORD_RE = re.compile(r"[a-zA-Z]{4,}")
+
+
+def _r1bc_needle_values(probe) -> list[str]:
+    """The literal substring(s) that make up the planted fact a probe asks about. `expected` is the scalar value
+    itself for exact/schema/unit_test/judge scorers, or a dict with required_all/required_any for span_match."""
+    expected = probe["expected"]
+    if isinstance(expected, dict):
+        vals = list(expected.get("required_all", [])) or list(expected.get("required_any", []))
+        return [v for v in vals if isinstance(v, str) and v]
+    return [str(expected)]
+
+
+def _r1bc_word_prefixes(text: str) -> set[str]:
+    """Crude, dependency-free stemming (lowercase alpha words length >= 4, first 4 chars) -- enough to match
+    'seconded'/'second' or 'motion'/'motions' without a real stemmer, and deterministic for tests."""
+    return {w[:4] for w in (w.lower() for w in _R1BC_WORD_RE.findall(text)) if w not in _R1BC_STOPWORDS}
+
+
+def _r1bc_select_needle_line(artifact: str, question: str, needles: list[str]) -> int:
+    """Pick the single artifact line that actually answers `question`, among the (possibly several) lines that merely
+    mention a needle value. Some needle values (e.g. a person's surname) recur across an artifact for unrelated
+    reasons (an attendee list, an unrelated vote tally) -- deleting every line containing the substring would corrupt
+    content the question never asked about. Picks the needle-bearing line with the most word-prefix overlap with the
+    question; ties keep the earliest line."""
+    lines = artifact.split("\n")
+    idxs = [i for i, ln in enumerate(lines) if any(v in ln for v in needles)]
+    if not idxs:
+        raise ValueError(f"needle not found in artifact: {needles!r}")
+    if len(idxs) == 1:
+        return idxs[0]
+    q_prefixes = _r1bc_word_prefixes(question)
+    return sorted(idxs, key=lambda i: (-len(_r1bc_word_prefixes(lines[i]) & q_prefixes), i))[0]
+
+
+def _r1bc_delete_needle(probe) -> dict:
+    """Surgically remove the single line that answers the probe's question from its artifact, closing the gap.
+    Every other line is untouched. Returns {artifact, deleted_line, needle_line_idx}."""
+    artifact = probe["artifact"].strip()
+    needles = _r1bc_needle_values(probe)
+    lines = artifact.split("\n")
+    idx = _r1bc_select_needle_line(artifact, probe["question"].strip(), needles)
+    kept = lines[:idx] + lines[idx + 1:]
+    return {"artifact": "\n".join(kept), "deleted_line": lines[idx], "needle_line_idx": idx}
+
+
+def _r1bc_filler_only_cut(artifact: str, filler: str, question: str, full_tokens: int,
+                           ratio: float = R1B_CONTROLS_CUT_RATIO) -> dict:
+    """Cut the same number of characters ratio 0.98's ordinary left_truncate (sc_left_truncate) would drop from the
+    full (artifact + filler + question) prompt, but take every cut character out of the filler, never the artifact
+    or question. Raises ValueError if the filler is too short to absorb the cut (should not happen at
+    R1B_CONTROLS_FILLER size). Returns {prompt, chars_cut, filler_after}."""
+    base_prompt = f"{artifact}\n\n{filler}\n\n{question}"
+    target_tokens = round(full_tokens * ratio)
+    truncated = sc_left_truncate(base_prompt, full_tokens, target_tokens)
+    chars_cut = len(base_prompt) - len(truncated)
+    if chars_cut > len(filler):
+        raise ValueError(f"filler too short to absorb ratio-{ratio} cut: need {chars_cut} chars, filler has {len(filler)}")
+    filler_after = filler[chars_cut:]
+    return {"prompt": f"{artifact}\n\n{filler_after}\n\n{question}", "chars_cut": chars_cut, "filler_after": filler_after}
+
+
+def phase_r1b_controls(lab):
+    """r1b_controls (needle_deleted / filler_only_cut): 10 art_* probes x 2 conditions x 30 reps = 600 calls/model,
+    1200 total across qwen3-8b/qwen3-14b. Reuses load_r1b_probes, L.Server/srv.tokenize, L.ctx_mod.build_filler and
+    ov.do_call/ov.start_row exactly as phase_r1b does -- only the two prompt-construction helpers above are new.
+    Every row tagged axis="quality", condition=<needle_deleted|filler_only_cut>."""
+    probes = load_r1b_probes()
+    for mid in R1B_CONTROLS_MODELS:
+        mi = lab.models.get(mid)
+        if mi is None:
+            continue
+        item0 = f"R1bControls_{mid}_start"
+        srv = L.Server(lab, mi, R1B_CONTROLS_CTX, tag=item0)
+        lab.resources["server"] = srv
+        info = srv.start(timeout=1800)
+        ov.start_row(lab, srv, mi, "R1bControls", item0, info, {"axis": "quality"})
+        if not info.get("ok"):
+            srv.stop()
+            lab.resources["server"] = None
+            continue
+        filler = L.ctx_mod.build_filler(R1B_CONTROLS_FILLER, seed=42, count_fn=srv.tokenize)
+        for probe in probes:
+            pid = probe["id"]
+            artifact, question = probe["artifact"].strip(), probe["question"].strip()
+            probe_dict = {"id": pid, "scorer_type": probe["scorer_type"], "expected": probe["expected"]}
+            for condition in R1B_CONTROLS_CONDITIONS:
+                if condition == "needle_deleted":
+                    deletion = _r1bc_delete_needle(probe)
+                    full_prompt = f"{deletion['artifact']}\n\n{filler}\n\n{question}"
+                    truncating, chars_cut, deleted_line = True, None, deletion["deleted_line"]
+                else:
+                    base_prompt = f"{artifact}\n\n{filler}\n\n{question}"
+                    full_tokens = srv.tokenize(base_prompt)
+                    cut = _r1bc_filler_only_cut(artifact, filler, question, full_tokens)
+                    full_prompt = cut["prompt"]
+                    truncating, chars_cut, deleted_line = False, cut["chars_cut"], None
+                n_tok = srv.tokenize(full_prompt)
+                for rep in range(R1B_CONTROLS_REPS):
+                    item = f"R1bControls_{mid}_{pid}_{condition}_{rep}"
+                    if item in lab.done:
+                        continue
+                    lab.check()
+                    ov.do_call(lab, srv, mi, "R1bControls", item, full_prompt, n_tok, warmup=False, rep=rep,
+                               max_tokens=256, ignore_eos=False, kind="call", probe=probe_dict,
+                               extra={"axis": "quality", "condition": condition, "truncating": truncating,
+                                      "chars_cut": chars_cut, "deleted_line": deleted_line})
+                    lab.item_done(item)
+        srv.stop()
+        lab.resources["server"] = None
+
+
 # ---------------------------------------------------------------- A70 (70B budget crossing, no YaRN)
 A70_MODEL = "llama-3.3-70b"
 A70_MATCHED_PROMPT_TOKENS = 8000
@@ -1703,19 +1845,19 @@ def phase_px2(lab):
 
 PRIO = {"b1": 1, "b2": 2, "c1": 3, "b3": 4, "c1b": 5, "b4": 6, "b4_32b": 7, "b4_replicate": 8, "r1_speed": 10,
         "r1_check": 11, "a70": 12, "a70_finalize": 12.5, "p70": 13, "r1b": 14, "r1d": 15, "r1c": 16, "mx2": 17,
-        "px2": 18, "perfboost": 9}
+        "px2": 18, "perfboost": 9, "r1b_controls": 19}
 PHASE_FN = {"b1": phase_b1, "b2": phase_b2, "c1": phase_c1, "b3": phase_b3, "c1b": phase_c1b, "b4": phase_b4,
            "b4_32b": phase_b4_32b, "b4_replicate": phase_b4_replicate, "r1_speed": phase_r1_speed,
            "r1_check": phase_r1_check, "a70": phase_a70, "a70_finalize": phase_a70_finalize, "p70": phase_p70,
            "r1b": phase_r1b, "r1d": phase_r1d, "r1c": phase_r1c, "mx2": phase_mx2, "px2": phase_px2,
-           "perfboost": phase_perfboost}
-PHASE_ORDER = "b1,b2,c1,b3,c1b,perfboost"  # mx2/px2 are evo-x2 only: opt in with --phases, never in the default order
+           "perfboost": phase_perfboost, "r1b_controls": phase_r1b_controls}
+PHASE_ORDER = "b1,b2,c1,b3,c1b,perfboost"  # mx2/px2/r1b_controls are opt in with --phases, never in the default order
 
 # Phases that must pass a 1-item live smoke (server start, stale-server guard, one call, row-schema check) before
 # their first real run in a given resumed stem, per the standing rule added after two duplicate-keyword crashes: a
 # dry run against a stub lab catches code bugs, but only a real machine catches a bad deploy, a missing dependency
 # file, or a wrong assumption about what the live server actually returns.
-SMOKE_GATED_PHASES = {"r1_speed", "r1_check", "a70", "p70", "r1b", "r1c", "r1d", "mx2", "px2"}
+SMOKE_GATED_PHASES = {"r1_speed", "r1_check", "a70", "p70", "r1b", "r1c", "r1d", "mx2", "px2", "r1b_controls"}
 
 
 class SmokeFailure(Exception):
@@ -1895,6 +2037,11 @@ def estimate_hours(lab, overheads=None):
         n_calls = len(R1B_PROBE_IDS) * len(R1B_RATIOS) * len(R1B_ARM_SUFFIXES) * R1B_REPS  # 240
         s += load_s(mid) + n_calls * call_s(mid, R1B_FILLER, 256)
     est["r1b"] = s / 3600
+    s = 0.0
+    for mid in R1B_CONTROLS_MODELS:
+        n_calls = len(R1B_CONTROLS_PROBE_IDS) * len(R1B_CONTROLS_CONDITIONS) * R1B_CONTROLS_REPS  # 600
+        s += load_s(mid) + n_calls * call_s(mid, R1B_CONTROLS_FILLER, 256)
+    est["r1b_controls"] = s / 3600
     s = 0.0
     for mid in R1D_MODELS:
         n_calls = len(R1D_PROBE_IDS) * len(R1_CHECK_RATIOS) * len(R1_CHECK_ARMS) * R1_CHECK_REPS  # 396
