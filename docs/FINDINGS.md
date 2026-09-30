@@ -1024,3 +1024,31 @@ per-row in these result JSONL files (only `full_tokens`/`target_tokens`/`chars_d
 string itself), so checking whether a wrong answer exactly matches another value present in the visible prompt needs
 the exact visible prompt re-derived per row (deterministic from `item_id`/seed/ratio via the same builder R1b used),
 which was not done in this pass. Flagged rather than skipped silently.
+
+---
+
+## K2 arm (c), everyday_apps: pre-registered kill criterion (2026-09-29, NOT YET RUN)
+
+**Motivation.** K2's existing pressure arms (AWE-locked balloon, ordinary pageable touch, see
+`harness/t2s_k2_pressure.py`) are both synthetic memory-pressure mechanisms. A real agent session on a user's own
+machine is far more likely to lose memory to ordinary background applications (a browser with several tabs open)
+than to either of those two mechanisms. Arm (c), everyday_apps, replaces the synthetic pressure source with a
+headless browser holding 20 local static pages open, each allocating roughly 150 MB of JS heap on load (see
+`harness/browser_pressure.py`), started at a fixed session turn and held for 10 turns before a clean process-tree
+kill, run against Ollama (default fit/tier) and llama-server (default fit) on llama3.1:8b and qwen3:4b-instruct-2507
+(4 combinations).
+
+**Claim under test.** Quality degrades silently under everyday-app memory pressure: a quality drop can occur during
+the everyday_apps arm with no corresponding surfaced error.
+
+**Pre-registered kill criterion, decided before the arm's run code was written (only the page-generation and
+browser-lifecycle plumbing existed at the time this section was written; wiring the arm into a real K2 run did
+not).** The "degrades silently under everyday-app memory pressure" claim fails if every quality drop observed
+during the everyday_apps arm coincides with a surfaced error (a non-200 HTTP status, or a non-null error field) in
+that same call. A silent, error-free quality drop is required to support the claim -- a quality drop that always
+shows up alongside a loud, surfaced failure is not silent degradation, it is an ordinary failure the caller can
+already detect and is not evidence for this claim.
+
+Only calibration-passing Q0 tasks are eligible for this check (`quality_suite.load_calibration_pass_set`,
+excluding common_words_extraction-style tasks per the 2026-09-29 calibration-gate fix) -- a score change on a task
+known to be miscalibrated for a given model is not usable evidence either way.

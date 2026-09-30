@@ -44,8 +44,10 @@ import time
 import types
 from pathlib import Path
 
+import browser_pressure as bap
 import host_config as hc
 import run_provenance as rp
+import t2s_k1_ollama as k1
 import t2s_lab as L
 import t2s_overnight as ov
 import t2s_queue as tq
@@ -72,6 +74,28 @@ LEVELS_GB = [8, 4, 2, 1, 0, -1, -2]
 MMAP_ARMS = ("default", "mmap")
 PRESSURE_ARMS = ("awe_balloon", "pageable_touch")
 RESPONSIVENESS_INTERVAL_S = 30.0
+
+# Pressure arm (c): everyday_apps (see docs/FINDINGS.md's "K2 arm (c), everyday_apps" section for the pre-registered
+# kill criterion, and harness/browser_pressure.py for the page-generation/browser-lifecycle code this arm drives).
+# Structurally different from arms (a)/(b): those sweep LEVELS_GB inside run_k2_run; this one runs a flat sequence
+# of session turns and starts/stops the browser at fixed turns within that sequence, so it has its own run function
+# (run_k2_everyday_apps_run) rather than going through run_k2_run's LEVELS_GB loop -- it still reuses do_call,
+# build_quality_task/score_output and the same lab.row/lab.emit JSONL machinery every other arm uses.
+EVERYDAY_APPS_ARM = "everyday_apps"
+EVERYDAY_APPS_RUNTIMES = ("llama_server", "ollama")
+# 2 models x 2 runtimes = 4 combinations, per the task. ollama_model is Ollama's own tag for the same weights;
+# model_id is the ov.MODEL_FILES key used to start the llama-server leg directly against the local GGUF.
+EVERYDAY_APPS_MODELS = (
+    {"model_id": "llama31-8b", "ollama_model": "llama3.1:8b"},
+    {"model_id": "qwen3-4b-2507", "ollama_model": "qwen3:4b-instruct-2507"},
+)
+EVERYDAY_APPS_START_TURN = bap.DEFAULT_START_TURN   # fixed turn the browser launches at (ASSUMPTION, see browser_pressure.py)
+EVERYDAY_APPS_HOLD_TURNS = bap.DEFAULT_HOLD_TURNS   # turns the browser is held open for (given in the task: 10)
+EVERYDAY_APPS_TAIL_TURNS = 3                        # turns run after close, to see whether quality/availability recover
+# Minimum score drop (absolute, on quality_suite's 0..1 scale) from the pre-pressure baseline that counts as "a
+# quality drop" for the pre-registered kill criterion (see everyday_apps_kill_criterion). Not given numerically in
+# the task; this module's own choice, flagged the same way SCORE_TOL_REL/RESP_TOL_FACTOR already are above.
+EVERYDAY_APPS_SCORE_DROP_ABS = 0.10
 
 # Kill-criterion tolerances. Not given numerically in the K2 spec; reviewer must confirm these two numbers (or
 # replace them) before this is trusted as a pass/fail gate on a real run.
@@ -398,6 +422,230 @@ def phase_k2(lab, model_id, n_ctx=N_CTX, calibration_pass_set=None):
     return all_summaries
 
 
+# ---------------------------------------------------------------- pressure arm (c): everyday_apps (Ollama adapter)
+class OllamaServerAdapter:
+    """Minimal t2s_lab.Server-shaped adapter around t2s_k1_ollama.OllamaClient, so do_call/run_everyday_apps_item
+    can drive an Ollama-served model through exactly the same call/telemetry/JSONL-row path (ov.do_call) that
+    drives a t2s_lab.Server-served one -- no second call-execution path. Implements only the subset of Server's
+    public surface do_call actually touches (n_ctx, mmap, load_mode, backend, pid, start_info, proc, tokenize,
+    alive_and_ours, chat) -- the same subset t2s_k2_pressure's own tests' StubServer implements.
+
+    Ollama's /api/chat used here is not the streaming SSE endpoint t2s_lab.Server.chat uses, so ttft_s is not
+    observable through it and is always None; decode_tok_s is derived instead from Ollama's own
+    eval_count/duration_s, its one true per-call throughput figure. This is default fit/tier: num_ctx is left
+    unset so Ollama picks its own default context, matching "Ollama (default fit/tier)" in the task."""
+
+    def __init__(self, ollama, model_tag, n_ctx=None, keep_alive="10m"):
+        self.ollama, self.model_tag, self.n_ctx, self.keep_alive = ollama, model_tag, n_ctx, keep_alive
+        self.mmap, self.load_mode, self.backend = False, "ollama_default", "ollama"
+        self.pid = None
+        self.start_info = {"load_s": None, "build": "ollama"}
+        self.log_path = None
+        self.proc = types.SimpleNamespace(poll=lambda: None)  # Ollama manages its runner process out of band; it
+                                                                 # is never observed as "crashed" through this field
+
+    def tokenize(self, text):
+        return max(len(text.split()), 1)  # word-count proxy only, for do_call's prompt_tokens field; the real
+                                            # tokenizer's count comes back per-call as prompt_eval_count instead
+
+    def alive_and_ours(self):
+        return True, [self.pid]
+
+    def chat(self, prompt, max_tokens, ignore_eos):
+        res = self.ollama.chat(self.model_tag, prompt, num_ctx=self.n_ctx, max_tokens=max_tokens,
+                                keep_alive=self.keep_alive)
+        if res.get("outcome") != "ok":
+            return {"outcome": "error", "error": res.get("error"), "output": None,
+                    "http_status": res.get("status"), "prompt_eval_count": None}
+        eval_count = res.get("eval_count") or 0
+        duration_s = res.get("duration_s") or 0.0
+        decode_tok_s = (eval_count / duration_s) if duration_s > 0 else None
+        return {"outcome": "ok", "error": None, "output": res.get("message"), "ttft_s": None,
+                "decode_tok_s": decode_tok_s, "e2e_s": duration_s, "completion_tokens": eval_count,
+                "usage_reported": eval_count > 0, "think_tag": False, "http_status": res.get("status"),
+                "prompt_eval_count": res.get("prompt_eval_count")}
+
+    def stop(self):
+        pass
+
+
+def effective_context_signal(runtime, srv):
+    """The effective-context signal for one everyday_apps turn, reusing K1's own signal rather than reimplementing
+    it: for Ollama, GET /api/ps (phase_tier's cheapest and primary signal (a); (b) server.log and (c) the empirical
+    probe are not re-run per turn here -- out of scope for a per-turn diagnostic, flagged for a reviewer who wants
+    them). For llama-server, the context is not ambiguous the way Ollama's auto-tiering is: this arm starts the
+    server with a known --ctx-size, so the effective context is simply srv.n_ctx, source 'configured'."""
+    if runtime == "ollama":
+        ps_res = srv.ollama.get_ps()
+        match = next((m for m in ps_res.get("models", [])
+                      if m.get("name") == srv.model_tag or (m.get("name") or "").startswith(srv.model_tag.split(":")[0])),
+                     None)
+        return {"effective_ctx": (match or {}).get("context_length"), "source": "api_ps", "raw": match}
+    return {"effective_ctx": srv.n_ctx, "source": "configured", "raw": None}
+
+
+def run_everyday_apps_item(lab, srv, mi, tag, runtime, turn_idx, browser_active, rep):
+    """One everyday_apps-arm turn: same call/scoring path as run_quality_item (build_quality_task, ov.do_call,
+    score_output -- do_call's own emit already writes the 'quality' call row with ttft_s/decode_tok_s/telemetry).
+    This function additionally emits an 'everyday_apps_turn' row carrying the extra signals this arm's own
+    diagnostics call for that run_quality_item's shared row shape does not: effective context, raw HTTP
+    status/error text, and prompt_eval_count against tokens actually sent."""
+    prompt, expected, scorer = build_quality_task(TASK_TYPE, TARGET_TOKENS, SEED + rep, srv.tokenize)
+    n_tok = srv.tokenize(prompt)
+    item_id = f"{tag}_turn{turn_idx}"
+    extra = {"k2_phase": f"turn_{turn_idx}", "task_type": TASK_TYPE, "everyday_apps_turn": turn_idx,
+             "everyday_apps_browser_active": browser_active}
+    res = ov.do_call(lab, srv, mi, "K2", item_id, prompt, n_tok, warmup=False, rep=rep, extra=extra,
+                      max_tokens=256, mem_headroom_gb=None, co_runner="none", kind="quality")
+    outcome = res.get("outcome") if res is not None else None
+    score = classification = None
+    if outcome == "ok":
+        score, classification = score_output(scorer, expected, res.get("output") or "")
+    ctx_signal = effective_context_signal(runtime, srv)
+    row = lab.row("K2", mi, srv.backend, item_id=item_id, kind="everyday_apps_turn", pressure_arm=EVERYDAY_APPS_ARM,
+                   runtime=runtime, turn_idx=turn_idx, browser_active=browser_active, task_type=TASK_TYPE, rep=rep,
+                   score=score, classification=classification, outcome=outcome,
+                   http_status=(res or {}).get("http_status"), error=(res or {}).get("error"),
+                   prompt_tokens_sent=n_tok, prompt_eval_count=(res or {}).get("prompt_eval_count"),
+                   ttft_s=(res or {}).get("ttft_s"), decode_tok_s=(res or {}).get("decode_tok_s"),
+                   effective_context=ctx_signal.get("effective_ctx"), effective_context_source=ctx_signal.get("source"))
+    lab.emit(row)
+    return row
+
+
+def run_k2_everyday_apps_run(lab, mi, model_id, runtime, ollama_model=None, n_ctx=N_CTX,
+                             start_turn=EVERYDAY_APPS_START_TURN, hold_turns=EVERYDAY_APPS_HOLD_TURNS,
+                             tail_turns=EVERYDAY_APPS_TAIL_TURNS, everyday_apps_cls=bap.EverydayAppsPressure,
+                             ollama_client_cls=None):
+    """One full everyday_apps run for one (model, runtime) combination: start_turn + hold_turns + tail_turns turns
+    total, the browser launching at turn start_turn and closing after hold_turns turns of holding it open. Reuses
+    do_call (via run_everyday_apps_item), ov.start_row and lab.emit/lab.row exactly as run_k2_run does; the only
+    new lifecycle here is the browser's own start/stop, which is the EverydayAppsPressure class's job."""
+    tag = f"k2_everyday_apps_{model_id}_{runtime}"
+    if runtime == "llama_server":
+        srv = L.Server(lab, mi, n_ctx, tag=tag)  # default fit: no mmap/load_mode override
+        lab.resources["server"] = srv
+        info = srv.start(timeout=1800)
+    elif runtime == "ollama":
+        ollama = (ollama_client_cls or k1.OllamaClient)()
+        srv = OllamaServerAdapter(ollama, ollama_model)
+        now = time.time()
+        info = {"ok": True, "pid": None, "load_s": None, "error": None, "build": "ollama", "t_start": now,
+                "t_end": now, "log": {}}
+        lab.resources["server"] = srv
+    else:
+        raise ValueError(f"unknown everyday_apps runtime {runtime!r}")
+
+    ov.start_row(lab, srv, mi, "K2", tag + "_start", info, {"pressure_arm": EVERYDAY_APPS_ARM, "runtime": runtime})
+    rows = []
+    if not info.get("ok"):
+        lab.resources["server"] = None
+        return rows
+
+    pressure = everyday_apps_cls(lab, tag)
+    lab.resources["balloon"] = pressure  # same shared cleanup key ov.cleanup_partial already knows how to stop
+    browser_active = False
+    n_turns = start_turn + hold_turns + tail_turns
+    try:
+        for turn_idx in range(n_turns):
+            lab.check()
+            if turn_idx == start_turn:
+                pinfo = pressure.start(None)
+                browser_active = bool(pinfo.get("ok"))
+                lab.emit({"record": "k2_everyday_apps_browser_start", "item_tag": tag, "turn_idx": turn_idx,
+                          "info": pinfo, "ts_utc": utc_iso()})
+            row = run_everyday_apps_item(lab, srv, mi, tag, runtime, turn_idx, browser_active, turn_idx)
+            rows.append(row)
+            if browser_active and turn_idx == start_turn + hold_turns - 1:
+                pressure.stop()
+                browser_active = False
+                lab.emit({"record": "k2_everyday_apps_browser_stop", "item_tag": tag, "turn_idx": turn_idx,
+                          "ts_utc": utc_iso()})
+            ok, _lp = srv.alive_and_ours()
+            if not ok:
+                break
+    finally:
+        if pressure.alive():  # safety net: never leave the browser running if the loop above broke out early
+            pressure.stop()
+        lab.resources["balloon"] = None
+
+    if runtime == "llama_server":
+        srv.stop()
+    lab.resources["server"] = None
+    return rows
+
+
+def everyday_apps_kill_criterion(rows, score_drop_abs=EVERYDAY_APPS_SCORE_DROP_ABS):
+    """The pre-registered check from docs/FINDINGS.md's "K2 arm (c), everyday_apps" section (2026-09-29), written
+    before this run-wiring code existed: the "degrades silently under everyday-app memory pressure" claim requires
+    at least one turn whose score drops by more than score_drop_abs from the pre-pressure baseline (median score of
+    turns before the browser started) while that same turn surfaced no error (outcome == 'ok' and error is falsy).
+    If every drop of that size coincides with a surfaced error, or there is no such drop at all, the claim is not
+    supported by this run.
+
+    rows: ordered list of everyday_apps_turn row dicts (see run_everyday_apps_item), one per turn, turn_idx order.
+    Returns {"claim_supported", "reason", "baseline_score", "silent_drop_turns"}."""
+    baseline_rows = [r for r in rows if not r.get("browser_active") and r.get("score") is not None]
+    if not baseline_rows:
+        return {"claim_supported": False, "reason": "no pre-pressure baseline turn with a usable score",
+                "baseline_score": None, "silent_drop_turns": []}
+    baseline_score = st.median(r["score"] for r in baseline_rows)
+    silent_drops = []
+    for r in rows:
+        if r.get("score") is None:
+            continue
+        if (baseline_score - r["score"]) > score_drop_abs:
+            surfaced_error = r.get("outcome") != "ok" or bool(r.get("error"))
+            if not surfaced_error:
+                silent_drops.append(r.get("turn_idx"))
+    claim_supported = len(silent_drops) > 0
+    reason = (f"silent quality drop(s) found at turn(s) {silent_drops}" if claim_supported else
+              "every quality drop observed coincided with a surfaced error (or no drop occurred)")
+    return {"claim_supported": claim_supported, "reason": reason, "baseline_score": baseline_score,
+            "silent_drop_turns": silent_drops}
+
+
+def phase_k2_everyday_apps(lab, calibration_pass_set=None, models=EVERYDAY_APPS_MODELS, runtimes=EVERYDAY_APPS_RUNTIMES,
+                           n_ctx=N_CTX):
+    """Pressure arm (c) across every (model, runtime) combination -- 4 by default (2 models x 2 runtimes). Same
+    per-task calibration gate as phase_k2: this arm only ever exercises TASK_TYPE, so either it passed calibration
+    for a given model or the whole arm is skipped for that model, same reasoning as phase_k2's own gate."""
+    if calibration_pass_set is not None and TASK_TYPE not in calibration_pass_set:
+        log(f"K2 everyday_apps: excluding task_type {TASK_TYPE!r}, did not pass q0_token_calibration")
+        lab.emit({"record": "k2_disabled", "pressure_arm": EVERYDAY_APPS_ARM, "task_type": TASK_TYPE,
+                  "reason": "task_type did not pass q0_token_calibration", "ts_utc": utc_iso()})
+        return []
+    all_rows = []
+    for model in models:
+        model_id = model["model_id"]
+        mi = lab.models.get(model_id)
+        if mi is None:
+            lab.emit({"record": "k2_disabled", "pressure_arm": EVERYDAY_APPS_ARM, "model_id": model_id,
+                      "reason": "model not loaded", "ts_utc": utc_iso()})
+            continue
+        for runtime in runtimes:
+            lab.check()
+            rows = run_k2_everyday_apps_run(lab, mi, model_id, runtime, ollama_model=model.get("ollama_model"),
+                                            n_ctx=n_ctx)
+            kc = everyday_apps_kill_criterion(rows)
+            lab.emit({"record": "k2_everyday_apps_kill_criterion", "model_id": model_id, "runtime": runtime,
+                      **kc, "ts_utc": utc_iso()})
+            log(f"K2 everyday_apps {model_id}/{runtime}: claim {'SUPPORTED' if kc['claim_supported'] else 'not supported'} ({kc['reason']})")
+            all_rows += rows
+    return all_rows
+
+
+def everyday_apps_dry_run_call_counts(models=EVERYDAY_APPS_MODELS, runtimes=EVERYDAY_APPS_RUNTIMES,
+                                      start_turn=EVERYDAY_APPS_START_TURN, hold_turns=EVERYDAY_APPS_HOLD_TURNS,
+                                      tail_turns=EVERYDAY_APPS_TAIL_TURNS):
+    """No real run, no I/O: the exact model-call count this arm would add per (model, runtime) combination, and in
+    total, given the turn-scheduling constants above. One call per turn (n_turns = start_turn+hold_turns+tail_turns)."""
+    n_turns = start_turn + hold_turns + tail_turns
+    per_combo = {f"{m['model_id']}/{r}": n_turns for m in models for r in runtimes}
+    return {"n_turns_per_combo": n_turns, "n_combinations": len(models) * len(runtimes), "per_combo": per_combo,
+            "total_calls": n_turns * len(models) * len(runtimes)}
+
+
 # ---------------------------------------------------------------- kill criterion
 def kill_criterion(rows, score_tol_rel=SCORE_TOL_REL, resp_tol_factor=RESP_TOL_FACTOR):
     """"nothing changes in quality or availability until a clean failure": every step's median quality score and
@@ -472,6 +720,10 @@ def main():
     ap.add_argument("--calibration-file", default=None, help="path to a q0_token_calibration.py run's own jsonl; "
                     "K2 runs only if its single task_type (TASK_TYPE) passed calibration in it, per-task (not "
                     "whole-run) -- see quality_suite.load_calibration_pass_set. Omit to run unfiltered.")
+    ap.add_argument("--everyday-apps", action="store_true", help="also run pressure arm (c), everyday_apps, across "
+                    "EVERYDAY_APPS_MODELS x EVERYDAY_APPS_RUNTIMES. Off by default: unlike arms (a)/(b), this arm's "
+                    "Ollama-runtime leg deliberately starts Ollama, which the main per-model loop's contamination "
+                    "guard below otherwise refuses to run alongside.")
     args = ap.parse_args()
     host_cfg = hc.require_host(socket.gethostname())
     hc.enforce_or_record_interactive_session(host_cfg)  # raises on evo-t2s if occupied; never raises on evo-x2
@@ -481,10 +733,14 @@ def main():
     lab.track_console = not host_cfg.get("interactive_guard", True)
     model_ids = args.models.split(",")
     load_models(lab, model_ids)
+    if args.everyday_apps:
+        load_models(lab, [m["model_id"] for m in EVERYDAY_APPS_MODELS if m["model_id"] not in model_ids])
     Path(lab.prefix + "_manifest.json").write_text(json.dumps({
         "launch_utc": utc_iso(), "script_provenance": prov, "identity": lab.identity, "models": model_ids,
         "n_ctx": args.n_ctx, "seed": SEED, "levels_gb": LEVELS_GB, "mmap_arms": MMAP_ARMS,
-        "pressure_arms": PRESSURE_ARMS, "score_tol_rel": SCORE_TOL_REL, "resp_tol_factor": RESP_TOL_FACTOR},
+        "pressure_arms": PRESSURE_ARMS, "score_tol_rel": SCORE_TOL_REL, "resp_tol_factor": RESP_TOL_FACTOR,
+        "everyday_apps": args.everyday_apps, "everyday_apps_models": [m["model_id"] for m in EVERYDAY_APPS_MODELS],
+        "everyday_apps_runtimes": EVERYDAY_APPS_RUNTIMES},
         indent=1, default=str), encoding="utf-8")
     calibration_pass_set = None
     if args.calibration_file:
@@ -514,6 +770,10 @@ def main():
             log(f"K2 phase: {mid}")
             phase_k2(lab, mid, args.n_ctx, calibration_pass_set=calibration_pass_set)
             lab.item_done(f"k2_done_{mid}")
+        if args.everyday_apps and "k2_everyday_apps_done" not in lab.done:
+            log("K2 phase: everyday_apps")
+            phase_k2_everyday_apps(lab, calibration_pass_set=calibration_pass_set, n_ctx=args.n_ctx)
+            lab.item_done("k2_everyday_apps_done")
     except ov.Deadline:
         note = "deadline reached"
     except Exception as e:
