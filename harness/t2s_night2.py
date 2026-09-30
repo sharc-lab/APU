@@ -590,6 +590,29 @@ def phase_r1b(lab):
         lab.resources["server"] = None
 
 
+# ---------------------------------------------------------------- R1c (truncation cliff under position pressure)
+# R1c is the one cell of the R1 quality design that the R1a/R1b/R1d set leaves empty. R1b runs the art_* truncation-
+# cliff probes with the artifact always FIRST (artifact, filler, question) and sc_left_truncate drops characters from
+# the left, so every truncating R1b cell eats the artifact itself: in R1a/R1d's vocabulary R1b measured the EARLY arm
+# only, and its cliff therefore cannot be separated from "left truncation removes whatever happens to sit at the
+# left". R1a/R1d do vary position (LATE/EARLY) but only over the rag_*/sea_* probes. R1c closes that cross term by
+# running R1b's own 10 art_* probes through the position-pressure machinery unchanged, so at the same budget ratio the
+# LATE arm (filler, artifact, question) keeps the artifact past the truncation point while EARLY still loses it. A
+# cliff that survives the LATE arm is a budget effect; one that appears only in EARLY is an artifact-position effect.
+# The EARLY arm at ratios 1.20/0.85/0.40 also reproduces R1b's own arm1_baseline cells at those ratios, which is a
+# free cross-phase replication check. The art_* artifacts are 272-736 chars against a 4000-token filler, so the two
+# arms really do differ in whether the artifact is inside the dropped span.
+R1C_MODELS = ["qwen3-8b", "qwen3-14b"]
+R1C_PROBE_IDS = R1B_PROBE_IDS
+
+
+def phase_r1c(lab):
+    """R1c truncation cliff under position pressure (Addendum v3): 10 art_* probes x 6 budget ratios x 2 position
+    arms x 3 reps = 360 calls per model. A thin wrapper over _phase_position_pressure with R1b's probe id list and
+    nothing else changed, exactly the way phase_r1_check (R1a) and phase_r1d already share that function."""
+    _phase_position_pressure(lab, R1C_MODELS, R1C_PROBE_IDS, "R1c")
+
+
 # ---------------------------------------------------------------- A70 (70B budget crossing, no YaRN)
 A70_MODEL = "llama-3.3-70b"
 A70_MATCHED_PROMPT_TOKENS = 8000
@@ -932,18 +955,18 @@ def phase_perfboost(lab):
 
 
 PRIO = {"b1": 1, "b2": 2, "c1": 3, "b3": 4, "c1b": 5, "b4": 6, "b4_32b": 7, "b4_replicate": 8, "r1_speed": 10,
-        "r1_check": 11, "a70": 12, "a70_finalize": 12.5, "p70": 13, "r1b": 14, "r1d": 15, "perfboost": 9}
+        "r1_check": 11, "a70": 12, "a70_finalize": 12.5, "p70": 13, "r1b": 14, "r1d": 15, "r1c": 16, "perfboost": 9}
 PHASE_FN = {"b1": phase_b1, "b2": phase_b2, "c1": phase_c1, "b3": phase_b3, "c1b": phase_c1b, "b4": phase_b4,
            "b4_32b": phase_b4_32b, "b4_replicate": phase_b4_replicate, "r1_speed": phase_r1_speed,
            "r1_check": phase_r1_check, "a70": phase_a70, "a70_finalize": phase_a70_finalize, "p70": phase_p70,
-           "r1b": phase_r1b, "r1d": phase_r1d, "perfboost": phase_perfboost}
+           "r1b": phase_r1b, "r1d": phase_r1d, "r1c": phase_r1c, "perfboost": phase_perfboost}
 PHASE_ORDER = "b1,b2,c1,b3,c1b,perfboost"
 
 # Phases that must pass a 1-item live smoke (server start, stale-server guard, one call, row-schema check) before
 # their first real run in a given resumed stem, per the standing rule added after two duplicate-keyword crashes: a
 # dry run against a stub lab catches code bugs, but only a real machine catches a bad deploy, a missing dependency
 # file, or a wrong assumption about what the live server actually returns.
-SMOKE_GATED_PHASES = {"r1_speed", "r1_check", "a70", "p70", "r1b", "r1d"}
+SMOKE_GATED_PHASES = {"r1_speed", "r1_check", "a70", "p70", "r1b", "r1c", "r1d"}
 
 
 class SmokeFailure(Exception):
@@ -1128,6 +1151,11 @@ def estimate_hours(lab, overheads=None):
         n_calls = len(R1D_PROBE_IDS) * len(R1_CHECK_RATIOS) * len(R1_CHECK_ARMS) * R1_CHECK_REPS  # 396
         s += load_s(mid) + n_calls * call_s(mid, R1_CHECK_FILLER)
     est["r1d"] = s / 3600
+    s = 0.0
+    for mid in R1C_MODELS:
+        n_calls = len(R1C_PROBE_IDS) * len(R1_CHECK_RATIOS) * len(R1_CHECK_ARMS) * R1_CHECK_REPS  # 360
+        s += load_s(mid) + n_calls * call_s(mid, R1_CHECK_FILLER)
+    est["r1c"] = s / 3600
     return est
 
 
@@ -1151,6 +1179,9 @@ def main():
     ap.add_argument("--r1d-models", default=None,
                      help="comma list overriding R1D_MODELS for this run (e.g. the evo-x2 full ladder instead of "
                           "evo-t2s's qwen3-8b,qwen3-14b check set)")
+    ap.add_argument("--r1c-models", default=None,
+                     help="comma list overriding R1C_MODELS for this run (e.g. the evo-x2 full ladder instead of "
+                          "evo-t2s's qwen3-8b,qwen3-14b check set)")
     args = ap.parse_args()
     host_cfg = hc.require_host(socket.gethostname())
     hc.enforce_or_record_interactive_session(host_cfg)  # raises on evo-t2s if occupied; never raises on evo-x2
@@ -1160,6 +1191,8 @@ def main():
         globals()["R1B_MODELS"] = args.r1b_models.split(",")
     if args.r1d_models:
         globals()["R1D_MODELS"] = args.r1d_models.split(",")
+    if args.r1c_models:
+        globals()["R1C_MODELS"] = args.r1c_models.split(",")
     prov = rp.verify_deployed_blobs(ov.DEPLOY, args.expect_blobs)
     lab = make_lab(args, prov, gpu_vendor=host_cfg["gpu_vendor"])
     lab.identity["hw_id"] = host_cfg["hw_id"]
@@ -1167,7 +1200,8 @@ def main():
     lab.resources["powercap"] = None
     if args.overnight_table and Path(args.overnight_table).exists():
         lab.table = json.load(open(args.overnight_table, encoding="utf-8"))
-    all_models = sorted(set(B1_MODELS + B3_MODELS + R1_SPEED_MODELS + R1_CHECK_MODELS + R1B_MODELS + R1D_MODELS + [m for m, *_ in C1_SPEC]))
+    all_models = sorted(set(B1_MODELS + B3_MODELS + R1_SPEED_MODELS + R1_CHECK_MODELS + R1B_MODELS + R1D_MODELS
+                            + R1C_MODELS + [m for m, *_ in C1_SPEC]))
     load_models(lab, all_models)
     phases = args.phases.split(",")
     overheads = load_night2_overheads(args.prior_results)
