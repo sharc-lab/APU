@@ -113,43 +113,59 @@ own first step already records the BIOS UMA setting and Vulkan heap budgets as b
 today's post-reboot numbers, not the pre-reboot HARDWARE.md figures, and the discrepancy itself should be explained
 before being treated as just "the new normal").
 
-## 2026-09-29 -- GPU shared memory growth investigated: driver unchanged, cause still open, MX2/PX2 unblocked
+## 2026-09-29 -- GPU shared memory growth investigated further: +50% (corrected), not fully explained, MX2 stays blocked from running
 
-Follow-up to the post-reboot gate check above (Vulkan-visible total grew from 98,123 to 114,326 MiB).
+Follow-up to the post-reboot gate check above (Vulkan-visible total grew from 98,123 to 114,326 MiB). **Correction:**
+the shared-pool growth (32,587 to 48,790.816 MiB) is **+49.7% (about +50%), not the +16.5% reported earlier** --
+that figure was computed against the wrong baseline (the total, not the shared portion alone).
 
 **Driver: confirmed unchanged.** `Get-CimInstance Win32_VideoController`: `32.0.31007.1017`, matching
 docs/HARDWARE.md's pre-reboot record exactly. `pnputil /enum-drivers /class Display` shows exactly one Display
-driver package installed (`oem9.inf`, same version, dated 05/04/2026) -- no second or newer package present, so
-this was not a driver update sitting alongside an old one either. Windows Update history (`Get-HotFix`,
-`Get-WinEvent -LogName Setup`) shows `KB5129195` (a Security/Quality Update, not a driver package) reached
-"Installed" state at 00:12:35 local (~07:12:35Z), matching the reboot; this is a Windows OS update, not a GPU
-driver update.
+driver package installed (`oem9.inf`, same version, dated 05/04/2026). `KB5129195` (a Windows Security/Quality
+Update, not a driver package) reached "Installed" state at ~07:12:35Z, matching the reboot.
 
-**Total RAM: confirmed unchanged.** `Win32_ComputerSystem.TotalPhysicalMemory` = 63.65 GB, matching the pre-reboot
-63.6 GB record exactly.
+**Win32_ComputerSystem.TotalPhysicalMemory: confirmed unchanged.** 63.65 GB, matching the pre-reboot 63.6 GB record.
 
-**Dedicated GPU memory: confirmed unchanged.** LHM `D3D Dedicated Memory Total` = 65,360.691 MiB both before and
-after, matching the pre-reboot dxdiag Dedicated figure.
+**Win32_PhysicalMemory capacity sum (new data point): 128 GB installed** (8 x 16 GiB Micron DIMMs, 8532 MT/s) --
+about 64 GB of the 128 GB physical is not visible to Windows at all (63.65 GB Windows-visible), consistent with a
+fixed ~64 GiB BIOS UMA/dedicated reservation carved out before the OS boots.
 
-**What changed: the shared pool.** LHM `D3D Shared Memory Total` grew from the pre-reboot dxdiag figure of 32,587 MB
-to 48,790.816 MiB. `vulkaninfo`'s own two memory heaps sum to 111.65 GiB (37.22 + 74.43 GiB), matching
-llama-server's new 114,326 MiB total; no pre-reboot vulkaninfo heap-level capture exists to compare against
-directly (only the aggregate llama-server and dxdiag figures were recorded before today), so the heap-level
-comparison itself is aggregate-only, not heap-by-heap.
+**Dedicated GPU memory (new data point, adapter registry key):
+`HardwareInformation.qwMemorySize` = 68,719,476,736 bytes = exactly 64 GiB**, under
+`HKLM:\SYSTEM\CurrentControlSet\Control\Class\{4d36e968-...}\0000` (the AMD Radeon 8060S adapter key). This matches
+LHM's `D3D Dedicated Memory Total` (65,360.691 MiB, both before and after the reboot) to within driver/firmware
+overhead -- **dedicated GPU memory is confirmed unchanged and exactly 64 GiB**, not just approximately so.
 
-**Working theory, not confirmed:** Windows' shared GPU memory allocation is dynamically negotiated at driver/
-session init from currently-free system RAM, not a fixed fraction of total RAM computed once. The pre-reboot
-32,587 MB figure is almost exactly half of the 63.65 GB Windows-visible pool; the post-reboot 48,790 MiB figure is
-not. A clean boot (this machine had been up for multiple days before the Windows-Update-forced restart) has more
-free RAM available at driver init than a machine with days of accumulated working-set usage, which would produce
-exactly this kind of growth without any configuration change. Not verified with a controlled reboot-and-remeasure;
-recorded as the leading explanation, not a settled one.
+**AMD Adrenalin Variable Graphics Memory setting: not found.** Searched the adapter's registry key for any
+value matching Memory/UMA/Aperture/VGM/Graphics; only `HardwareInformation.qwMemorySize` (above) and
+`HardwareInformation.MemorySize` (4,293,918,720 -- a 32-bit-truncated legacy field, not authoritative) matched. If
+Adrenalin exposes a Variable Graphics Memory control for this APU, it is not stored as a plain value under this key;
+not confirmed present or absent, not further pursued given time.
 
-**Decision: MX2 and PX2 unblocked.** Driver, total RAM, and dedicated GPU memory are all confirmed identical to the
-pre-reboot record; only the dynamically-negotiated shared pool differs, and the working theory above is a normal
-boot-to-boot mechanism rather than a configuration regression. MX2's own first step already records the BIOS UMA
-setting and Vulkan heap budgets as its baseline (per its design), so it will capture today's real numbers rather
-than assume the pre-reboot ones.
+**vulkaninfo heap sizes with DEVICE_LOCAL flags (new data point, not comparable to a pre-reboot baseline -- no
+heap-level capture was taken before today):**
+- heap[0]: size 39,960,117,248 B (37.22 GiB), budget 35.35 GiB. Memory types on this heap carry only
+  `HOST_VISIBLE`/`HOST_COHERENT` -- **not** `DEVICE_LOCAL`.
+- heap[1]: size 79,920,234,496 B (74.43 GiB), budget 70.71 GiB. Memory types on this heap carry
+  `DEVICE_LOCAL_BIT` (plus `HOST_VISIBLE`/`DEVICE_COHERENT_BIT_AMD` on some type entries).
+- Sum (111.65 GiB) matches llama-server's `--list-devices` total (114,326 MiB) exactly. Vulkan's device-local/
+  host-visible split does not correspond 1:1 to D3D's Dedicated/Shared split on a unified-memory APU (the whole
+  pool is physically the same RAM; the two APIs draw the accounting line differently), so heap[1]'s 74.43 GiB is
+  not directly comparable to the D3D Dedicated figure of ~65.36 GiB or the D3D Shared figure -- it is a different
+  view of the same growth, not a third independent measurement of it.
+
+**Not fully explained.** Driver, TotalPhysicalMemory, and dedicated GPU memory (both via LHM and the adapter
+registry key) are all confirmed unchanged. The pre-reboot shared figure (32,587 MB) was almost exactly half of the
+63.65 GB Windows-visible pool; the post-reboot figure (48,790.816 MiB) is closer to three-quarters of it. No VGM
+registry override was found to explain a policy change, and no controlled reboot-and-remeasure has been run to
+confirm the "more free RAM at a clean boot" theory from the first entry above. That theory remains the leading
+candidate but is not confirmed, and does not obviously explain a clean 50%-to-75%-of-visible-RAM-looking jump
+rather than a smaller, continuous drift.
+
+**Decision: MX2 may be BUILT but must NOT RUN until this is explained** -- its two memory budget lines are computed
+directly from these numbers. PX2 does not depend on this and may run once built. MX2's own first step still
+records the BIOS UMA setting and Vulkan heap budgets as its baseline at run time, but building on an unexplained
++50% jump risks baselining against a transient rather than the machine's real, settled configuration.
 
 **Revert:** none needed; nothing was changed by this investigation itself (the driver-block policy below is a
 separate, intentional change).
