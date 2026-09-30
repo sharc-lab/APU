@@ -317,6 +317,12 @@ class Telemetry:
                     gpu_clock = next((v for k, v in s.items() if k.startswith("Clock |") and "radeon" in k.lower() and "gpu core" in k.lower()), None)
                     gpu_power = next((v for k, v in s.items() if k.startswith("Power |") and "radeon" in k.lower() and "gpu core" in k.lower()), None)
                     gpu_temp = next((v for k, v in s.items() if k.startswith("Temperature |") and "radeon" in k.lower()), None)
+                    # CPU package power: confirmed live 2026-09-29 (docs/X2_CHANGELOG.md's lhm_x2_control.py positive
+                    # control, 21.5-85 W idle-to-spin range) under the key "Power | ... Ryzen ... | Package". No
+                    # PPT/STAPM/power-limit sensor is exposed by this LHM/PawnIO build on this hardware (checked
+                    # directly against a live sensor dump the same day, every "Power |" key enumerated: only this
+                    # package total, per-core SMU power, and the GPU core power already mapped above exist).
+                    cpu_power = next((v for k, v in s.items() if k.startswith("Power |") and "ryzen" in k.lower() and "package" in k.lower()), None)
                     if cpu_temp is not None:
                         self.sys_ring.add({"kind": "temp", "domain": 0, "rc": 0, "temp_c": cpu_temp, "t": t})
                     if gpu_clock is not None:
@@ -325,6 +331,8 @@ class Telemetry:
                         self.sys_ring.add({"kind": "power", "domain": 0, "rc": 0, "power_w": gpu_power, "source": "lhm_gpu", "t": t})
                     if gpu_temp is not None:
                         self.sys_ring.add({"kind": "temp", "domain": 1, "rc": 0, "temp_c": gpu_temp, "t": t})
+                    if cpu_power is not None:
+                        self.sys_ring.add({"kind": "power", "domain": 0, "rc": 0, "power_w": cpu_power, "source": "lhm_cpu", "t": t})
         th = threading.Thread(target=lhm_loop, daemon=True)
         th.start()
         self._threads.append(th)
@@ -346,6 +354,7 @@ class Telemetry:
     def metrics(self, t0, t1):
         f = [r for r in self.sys_ring.window(t0, t1) if r["kind"] == "freq" and r["domain"] == 0]
         p_gpu = [r for r in self.sys_ring.window(t0, t1) if r["kind"] == "power" and r["domain"] == 0 and r.get("source") == "lhm_gpu"]
+        p_cpu_lhm = [r for r in self.sys_ring.window(t0, t1) if r["kind"] == "power" and r["domain"] == 0 and r.get("source") == "lhm_cpu"]
         t_gpu = [r for r in self.sys_ring.window(t0, t1) if r["kind"] == "temp" and r["domain"] == 1]
         w = self.win_ring.window(t0, t1)
         g = self.gpu_ring.window(t0, t1)
@@ -353,12 +362,17 @@ class Telemetry:
         pk = [x.get("rapl_pkg_mw") for x in w]
         pp0 = [x.get("rapl_pp0_mw") for x in w if x.get("rapl_pp0_mw") is not None]
         pp1 = [x.get("rapl_pp1_mw") for x in w if x.get("rapl_pp1_mw") is not None]
+        # Intel reports package power via a Windows RAPL Energy Meter instance (pk, above); no such instance exists
+        # on AMD, so pk is always empty there. pkg_power_w falls back to the LHM-fed "Package" sensor (lhm_cpu,
+        # domain 0) in that case -- the med() itself decides source_priority: RAPL data present -> RAPL, else LHM.
+        med_pk_mw = _med(pk)
+        pkg_power_w = (med_pk_mw / 1000) if med_pk_mw is not None else (_med([r["power_w"] for r in p_cpu_lhm]) if p_cpu_lhm else None)
         return {
             "igpu_mhz": _med([r["actual_mhz"] for r in f]),
             "igpu_throttle_bits": sorted({int(r["throttle_reasons"]) for r in f}) if f else None,
             "igpu_power_w": _med([r["power_w"] for r in p_gpu]) if p_gpu else None,
             "igpu_temp_c_max": _max([r.get("temp_c") for r in t_gpu]) if t_gpu else None,
-            "pkg_power_w": (_med(pk) / 1000) if _med(pk) is not None else None,
+            "pkg_power_w": pkg_power_w,
             "rapl_pp0_w": (_med(pp0) / 1000) if pp0 else None,
             "rapl_pp1_w": (_med(pp1) / 1000) if pp1 else None,
             "cpu_p_pct_perf": _med([x.get("p_pct_perf") for x in w]),
