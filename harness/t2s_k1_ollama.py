@@ -38,6 +38,15 @@ against the same run (phases that do not depend on the BIOS-fixed memory ceiling
 phase, which reflects a runtime lock rather than the BIOS ceiling) with one command:
   python t2s_k1_ollama.py --phase tier,curves --host evo-x2 --ollama-model qwen3:8b --gguf-model qwen3-8b \
       --resume <prior-run-stem>
+
+K1 v3 (tier_v3 phase): fixes the K1 v2 model-ceiling confound (see K1_V3_MODELS / phase_tier_v3 above). Pulls all
+three K1_V3_MODELS first (nothing else measures concurrently with the pulls), then for each model runs phase_tier()
+once and the 5-length empirical probe sweep (K1_V3_PROBE_LENGTHS). --ollama-model/--gguf-model/--gguf-path are
+unused by this phase (the model list is fixed, from K1_V3_MODELS, not the CLI). Two per-machine invocations
+(x2_k1_tier_v3 / t2s_k1_tier_v3):
+
+  python t2s_k1_ollama.py --phase tier_v3 --host evo-x2 --ollama-model unused
+  python t2s_k1_ollama.py --phase tier_v3 --host evo-t2s --ollama-model unused
 """
 
 from __future__ import annotations
@@ -290,6 +299,49 @@ class OllamaClient:
         Ollama's own documented unload mechanism. Returns the chat() result; caller confirms via get_ps()."""
         return self.chat(model, "", num_ctx=None, max_tokens=1, keep_alive=0)
 
+    def pull(self, tag, timeout=None):
+        """POST /api/pull with stream=True: a real, blocking HTTP call, not a stub. Ollama streams one NDJSON
+        object per line while it pulls (status progresses through e.g. "pulling manifest" -> "pulling <digest>"
+        (with total/completed byte counts) -> "verifying sha256 digest" -> "success"; a failed pull instead sends a
+        line with an "error" field). This reads the response line by line and returns as soon as a "success" status
+        or an "error" is seen (or, if the connection closes with neither, once the stream ends), never assuming the
+        pull finished just because the HTTP request returned. Returns
+        {"outcome": "ok"|"error"|"incomplete"|"http_error", "final_status": str|None, "status_lines": [...]}."""
+        body = {"model": tag, "stream": True}
+        req = urllib.request.Request(f"{self.base}/api/pull", data=json.dumps(body).encode(),
+                                     headers={"Content-Type": "application/json"})
+        status_lines = []
+        try:
+            with urllib.request.urlopen(req, timeout=timeout or self.timeout) as r:
+                for raw_line in r:
+                    line = raw_line.decode("utf-8", errors="replace").strip()
+                    if not line:
+                        continue
+                    try:
+                        obj = json.loads(line)
+                    except Exception:
+                        continue
+                    status_lines.append(obj)
+                    if obj.get("error"):
+                        return {"outcome": "error", "final_status": obj.get("error"), "status_lines": status_lines}
+                    if obj.get("status") == "success":
+                        return {"outcome": "ok", "final_status": "success", "status_lines": status_lines}
+            final = status_lines[-1].get("status") if status_lines else None
+            return {"outcome": "ok" if final == "success" else "incomplete", "final_status": final,
+                    "status_lines": status_lines}
+        except urllib.error.HTTPError as e:
+            return {"outcome": "http_error", "final_status": None, "status_lines": status_lines,
+                    "error": e.read().decode(errors="replace")[:400]}
+        except Exception as e:
+            return {"outcome": "error", "final_status": None, "status_lines": status_lines, "error": str(e)[:400]}
+
+
+def pull_model(ollama, tag):
+    """Thin module-level wrapper around OllamaClient.pull, kept separate so call sites (and tests) can inject a
+    fake pull_fn with this exact (ollama, tag) -> result shape, matching this file's dependency-injection
+    convention elsewhere (ps_fn, log_finder, server_factory, ...)."""
+    return ollama.pull(tag)
+
 
 # ---------------------------------------------------------------------------------------------------- lab scaffold
 class K1Lab:
@@ -378,6 +430,95 @@ def probe_effective_context_empirically(ollama, model, lengths=EMPIRICAL_CTX_PRO
     retained = [r["target_tokens"] for r in results if r["full_retention"]]
     effective_ctx_estimate = max(retained) if retained else None
     return {"probes": results, "calibration_ratio": calibration_ratio, "effective_ctx_estimate": effective_ctx_estimate}
+
+
+# ---------------------------------------------------------------------------------------------------- K1 v3: model-ceiling confound fix
+# K1 v2 (qwen3:8b only) found evo-x2's tier-selection landed on 40960 and this was WRONGLY read as a memory-tier
+# kill-criterion failure; it is qwen3:8b's own native max context (40960), so Ollama's choice was capped by the
+# MODEL's own ceiling, not by available memory. v2 could never tell "runtime picked a small tier" apart from
+# "runtime picked a tier bigger than what the model itself supports" whenever the test model's native ceiling sits
+# below any tier a well-provisioned machine would plausibly pick. v3 fixes this by testing two models whose native
+# ceiling exceeds any realistic memory tier, so the observed tier is unambiguously about memory, not the model.
+K1_V3_MODELS = (
+    # native context 262144 -- comfortably above any tier either machine would plausibly pick.
+    {"tag": "qwen3:4b-instruct-2507", "native_ctx": 262144, "capped": False},
+    # native context 131072 -- also above any plausible tier.
+    {"tag": "llama3.1:8b", "native_ctx": 131072, "capped": False},
+    # Kept as a labeled control: native context 40960 is already known to be SMALLER than the tiers either machine
+    # is expected to pick, so a run landing at/near 40960 for this model contrasts against, rather than confirms,
+    # a genuine memory-availability effect. Every row this model produces below is stamped capped=True.
+    {"tag": "qwen3:8b", "native_ctx": 40960, "capped": True},
+)
+
+K1_V3_PROBE_LENGTHS = (16000, 32000, 48000, 96000, 128000)
+
+
+def probe_v3_effective_context(lab: K1Lab, ollama, model_tag: str, capped: bool, lengths=K1_V3_PROBE_LENGTHS,
+                               seed: int = 20260930):
+    """The 5-length empirical probe sweep required by K1 v3 (see K1_V3_PROBE_LENGTHS). For each target length:
+    build a niah_multikey marker task sized to that many tokens (same construction as
+    probe_effective_context_empirically, via qs_build_task), send it with no num_ctx override, then read BOTH
+    signals at that same point in time: (1) GET /api/ps's context_length for this model (the runtime's own report),
+    and (2) the empirical marker-probe result itself (did the buried marker value survive, and does
+    prompt_eval_count match the sent token count). Recording HTTP status and prompt_eval_count alongside the sent
+    target makes silent truncation directly visible: HTTP 200 with prompt_eval_count < sent tokens means Ollama cut
+    the prompt down before the model ever saw all of it, with no error raised. Emits and returns exactly one row per
+    length via lab.emit."""
+    rows = []
+    for target in lengths:
+        prompt, expected, _scorer = qs_build_task(_EMPIRICAL_CTX_TASK_TYPE, target, seed + target)
+        res = ollama.chat(model_tag, prompt, num_ctx=None, max_tokens=32)
+        ps = ollama.get_ps()
+        ps_match = next((m for m in ps.get("models", [])
+                         if m.get("name") == model_tag or (m.get("name") or "").startswith(model_tag.split(":")[0])),
+                        None)
+        ps_context_length = ps_match.get("context_length") if ps_match else None
+        pec = res.get("prompt_eval_count")
+        message = res.get("message") or ""
+        marker_used = isinstance(message, str) and str(expected) in message
+        silently_truncated = (res.get("status") == 200 and pec is not None and pec < target)
+        rows.append(lab.emit({
+            "record": "tier_v3_probe", "phase": "tier_v3", "model_tag": model_tag, "capped": capped,
+            "probe_target_tokens": target, "sent_tokens_target": target,
+            "chat_outcome": res.get("outcome"), "http_status": res.get("status"),
+            "prompt_eval_count": pec, "marker_used": marker_used,
+            "ps_context_length": ps_context_length, "silently_truncated": silently_truncated,
+        }))
+    return rows
+
+
+def phase_tier_v3(lab: K1Lab, models=K1_V3_MODELS, ollama=None, log_finder=find_ollama_log, pull_fn=pull_model,
+                  probe_lengths=K1_V3_PROBE_LENGTHS):
+    """K1 v3 orchestrator. Literal first action (before anything else, including phase_tier or any probe call):
+    pull every model in `models`, one at a time, with nothing else measuring concurrently. Then, per model, one
+    phase_tier() call (reused as-is -- the log/api-ps/empirical-probe signal logic is NOT reimplemented here) to
+    capture the tier Ollama actually chose, a small model-meta row stamping capped/native_ctx for that model
+    (phase_tier's own row shape is left untouched, per the task's backward-compatibility requirement), and the
+    5-length empirical probe sweep (probe_v3_effective_context).
+
+    Hypothesis under test (this function does not force the result either way): if the memory-tier-vs-availability
+    link holds, evo-x2 (larger unified memory) should land close to each model's own native ceiling (262144 for
+    qwen3:4b-instruct-2507, 131072 for llama3.1:8b) while evo-t2s (smaller/different memory budget) should land
+    well below either ceiling (something near 32768) for the SAME two models with the SAME native ceilings -- a
+    comparison K1 v2 could never make, since qwen3:8b's 40960 ceiling was already below any plausible tier on
+    either machine.
+    """
+    ollama = ollama or lab.ollama
+    for m in models:
+        pull_res = pull_fn(ollama, m["tag"])
+        lab.emit({"record": "tier_v3_pull", "phase": "tier_v3", "model_tag": m["tag"],
+                  "capped": m["capped"], "native_ctx": m["native_ctx"],
+                  "pull_outcome": pull_res.get("outcome") if isinstance(pull_res, dict) else None})
+
+    tier_rows, meta_rows, probe_rows = [], [], []
+    for m in models:
+        tier_rows.append(phase_tier(lab, m["tag"], rep=0, ollama=ollama, log_finder=log_finder))
+        meta_rows.append(lab.emit({
+            "record": "tier_v3_model_meta", "phase": "tier_v3", "model_tag": m["tag"],
+            "capped": m["capped"], "native_ctx": m["native_ctx"],
+        }))
+        probe_rows.extend(probe_v3_effective_context(lab, ollama, m["tag"], m["capped"], lengths=probe_lengths))
+    return {"tier_rows": tier_rows, "meta_rows": meta_rows, "probe_rows": probe_rows}
 
 
 # ---------------------------------------------------------------------------------------------------- phase: tier
@@ -709,7 +850,9 @@ def report_kill_criteria(result: dict):
 # ---------------------------------------------------------------------------------------------------- CLI
 def build_arg_parser():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--phase", default="tier,memory,curves", help="comma-separated subset of tier,memory,curves")
+    ap.add_argument("--phase", default="tier,memory,curves",
+                    help="comma-separated subset of tier,memory,curves,tier_v3 (tier_v3 is K1 v3: pulls "
+                         "K1_V3_MODELS then runs phase_tier_v3 -- see module docstring)")
     ap.add_argument("--host", required=True, choices=sorted(K1_HOST_EXTRAS), help="which local machine's config to use (never used to open an SSH connection)")
     ap.add_argument("--ollama-model", required=True, help="Ollama model tag, already pulled")
     ap.add_argument("--gguf-model", default=None, help="key into MODEL_FILES-style gguf path lookup for the llama-server arms; required for memory/curves phases")
@@ -779,6 +922,10 @@ def main():
                         for rep in range(args.reps):
                             phase_memory_pressure(lab, args.ollama_model, gguf_mi, target_gb, args.occupier_n_ctx, rep=rep)
                     lab.phase_done("phase_memory")
+
+            if "tier_v3" in phases and "phase_tier_v3" not in lab.done_phases:
+                phase_tier_v3(lab)
+                lab.phase_done("phase_tier_v3")
 
             if "curves" in phases and "phase_curves" not in lab.done_phases:
                 if gguf_mi is None:
