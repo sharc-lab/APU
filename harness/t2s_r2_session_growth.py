@@ -977,16 +977,16 @@ def main(argv=None):
         return lambda: Occupier(lab, occupier_mi, occupier_n_ctx)
 
     note = "completed"
-    ollama_started = False
+    needs_ollama = any(ARMS[a]["runtime"] == "ollama" for a in arms)
     try:
-        needs_ollama = any(ARMS[a]["runtime"] == "ollama" for a in arms)
         if needs_ollama:
             # the K1 start/stop guard: start Ollama fresh for this run rather than assume one is
             # already resident in the background, and always stop it on the way out (main()'s own
-            # try/finally, same shape as t2s_k1_ollama.main()).
-            start_result = hc.start_ollama_server()
-            ollama_started = bool(start_result and start_result.get("ok", True))
-            log(f"R2: Ollama start result: {start_result}")
+            # try/finally, same shape as t2s_k1_ollama.main()). start_ollama_server() returns the
+            # launched PID (int) or None if one was already running (idempotent, matching K1's own
+            # usage exactly -- not a dict, this file's first live-smoke pass wrongly assumed it was).
+            started_pid = hc.start_ollama_server()
+            log(f"R2: ollama server {'already running' if started_pid is None else f'started (pid={started_pid})'}")
 
         occupier_mi = None
         if "occupied_40gb" in memory_conditions:
@@ -1046,7 +1046,9 @@ def main(argv=None):
         log(note)
         raise
     finally:
-        if ollama_started:
+        if needs_ollama:
+            # always stop, matching K1's own unconditional finally -- Ollama must never idle in the
+            # background once this job ends, regardless of whether this run itself started it.
             try:
                 hc.stop_ollama_server()
             except Exception as e:
