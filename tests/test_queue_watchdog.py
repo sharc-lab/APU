@@ -49,7 +49,7 @@ def test_launch_next_reverts_to_pending_on_launch_failure_and_tries_next(tmp_pat
     monkeypatch.setattr(q, "_ps", lambda script: ("rc=-2147024891 pid=", "Access is denied"))
     items = [{"id": "a", "cmd": ["echo", "hi"], "status": "pending"},
              {"id": "b", "cmd": ["echo", "next"], "status": "pending"}]
-    monkeypatch.setattr(q, "_launch", lambda cmd, log_path: "rc=-2147024891 pid=")
+    monkeypatch.setattr(q, "_launch", lambda cmd, log_path, job_id: "rc=-2147024891 pid=")
     launched = q.launch_next(items)
     assert launched is None  # both attempts failed to produce a pid
     assert items[0]["status"] == "pending"
@@ -62,7 +62,7 @@ def test_launch_next_skips_failed_launch_and_succeeds_on_next(tmp_path, monkeypa
     _isolate(tmp_path, monkeypatch)
     calls = {"n": 0}
 
-    def fake_launch(cmd, log_path):
+    def fake_launch(cmd, log_path, job_id):
         calls["n"] += 1
         return "rc=-1 pid=" if calls["n"] == 1 else "rc=0 pid=4242"
 

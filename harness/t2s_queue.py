@@ -55,12 +55,20 @@ def _ps(script):
     return p.stdout, p.stderr
 
 
-def _launch(cmd, log_path):
+JOB_ID_ENV_VAR = "APU_QUEUE_JOB_ID"
+
+
+def _launch(cmd, log_path, job_id):
     """PowerShell single-quoted strings are literal (no escape character except a doubled '), so building the whole
     cmd.exe command line in Python first and dropping it into one single-quoted PS string avoids the double-escaping
-    that broke the first version of this function. None of cmd, log_path here ever contains a single quote."""
+    that broke the first version of this function. None of cmd, log_path here ever contains a single quote.
+
+    2026-09-30 fix: `set APU_QUEUE_JOB_ID=<job_id>` is injected ahead of the real command, in the same cmd.exe
+    invocation, so the environment variable is inherited by the launched Python process (and everything it spawns)
+    the normal way -- this is what advance() checks before it is willing to touch queue_state.json at all, see
+    that function's own docstring."""
     quoted = " ".join(f'"{c}"' if " " in c else c for c in cmd)
-    full_cmdline = f'cmd.exe /c cd /d C:\\apu\\ovn && {quoted} > "{log_path}" 2>&1'
+    full_cmdline = (f'cmd.exe /c cd /d C:\\apu\\ovn && set {JOB_ID_ENV_VAR}={job_id} && {quoted} > "{log_path}" 2>&1')
     ps_cmd = (f"$cmd = '{full_cmdline}'; "
               f"$r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{{CommandLine=$cmd; CurrentDirectory='C:\\apu\\ovn'}}; "
               f"'rc=' + $r.ReturnValue + ' pid=' + $r.ProcessId")
@@ -126,7 +134,7 @@ def launch_next(items):
         nxt["started_ts"] = time.time()
         write_queue(items)
         log_path = f"C:\\apu\\ovn\\queue_{nxt['id']}.log"
-        out = _launch(nxt["cmd"], log_path)
+        out = _launch(nxt["cmd"], log_path, nxt["id"])
         nxt["launch_result"] = out.strip()
         pid = _parse_pid(out)
         if pid is None:
@@ -155,13 +163,77 @@ def write_empty_flag(items, reason):
                           encoding="utf-8")
 
 
+def _pid_in_ancestor_chain(target_pid, start_pid=None, max_depth=16):
+    """True if target_pid is start_pid itself or one of its ancestors (walking parent -> grandparent -> ... up to
+    max_depth hops, to bound the walk if the process tree is ever malformed/cyclic). Uses psutil, lazily imported
+    to keep this module's own import surface minimal (matching queue_watchdog.py's lazy-import convention for the
+    same reason). start_pid defaults to os.getpid() -- the calling process itself."""
+    import os
+    import psutil  # noqa: WPS433  (lazy: this module's own import surface stays minimal otherwise)
+    start_pid = start_pid if start_pid is not None else os.getpid()
+    try:
+        proc = psutil.Process(start_pid)
+    except psutil.NoSuchProcess:
+        return False
+    for _ in range(max_depth):
+        if proc.pid == target_pid:
+            return True
+        try:
+            proc = proc.parent()
+        except psutil.NoSuchProcess:
+            return False
+        if proc is None:
+            return False
+    return False
+
+
+def _caller_owns_running_job(running):
+    """2026-09-30 structural fix: verifies the calling process is actually the job queue_state.json currently
+    records as "running" before advance() is allowed to touch queue state at all -- see the 2026-09-30 incident
+    (docs/X2_CHANGELOG.md) this replaces, where a script run as a bare ad-hoc subprocess (a "quick live smoke
+    test") called tq.advance() in its own finally block and mismarked an unrelated, genuinely-running job, then
+    cascaded launch_next() through several more unintended entries.
+
+    Two checks, both must pass:
+      1. The APU_QUEUE_JOB_ID environment variable (set by _launch() ahead of the real command, inherited by this
+         process the normal way) equals `running["id"]`.
+      2. `running["pid"]` (the cmd.exe wrapper PID _launch()'s WMI Create call returned) appears in this process's
+         own ancestor chain -- the calling Python process is a descendant of the exact process launch_next()
+         started for this entry, not just a same-named job id from a stale env var or a copy-pasted invocation.
+
+    Returns (bool, reason_str). A bare "python some_script.py" invocation from an interactive shell has no
+    APU_QUEUE_JOB_ID at all, so check 1 fails immediately and cheaply -- no process-walking needed for the common
+    "run outside the queue" case."""
+    import os
+    job_id = os.environ.get(JOB_ID_ENV_VAR)
+    if not job_id:
+        return False, (f"no {JOB_ID_ENV_VAR} in this process's environment -- not launched via "
+                       f"t2s_queue.launch_next(), refusing to touch queue state")
+    if job_id != running.get("id"):
+        return False, f"{JOB_ID_ENV_VAR}={job_id!r} does not match the running entry's id {running.get('id')!r}"
+    running_pid = running.get("pid")
+    if running_pid is None:
+        return False, f"running entry {running['id']!r} has no recorded pid to verify against"
+    if not _pid_in_ancestor_chain(running_pid):
+        return False, (f"this process is not a descendant of pid {running_pid} (the process launch_next() "
+                       f"started for {running['id']!r}) -- {JOB_ID_ENV_VAR} matched but the pid chain did not, "
+                       f"refusing to touch queue state")
+    return True, "ok"
+
+
 def advance(note):
     items = read_queue()
     if not items:
         write_empty_flag([], "advance() called with an empty queue_state.json")
         return
-    halt = note and ("STOP" in str(note) or "another interactive session" in str(note))
     running = next((it for it in items if it["status"] == "running"), None)
+    if running is not None:
+        owns, reason = _caller_owns_running_job(running)
+        if not owns:
+            print(f"queue: advance() refusing to act -- caller does not own the running entry "
+                 f"{running['id']!r} ({reason}); no-op")
+            return
+    halt = note and ("STOP" in str(note) or "another interactive session" in str(note))
     if running is not None:
         running["status"] = "stopped" if halt else ("error" if note and "stopped:" in str(note) else "done")
         running["note"] = note
