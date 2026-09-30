@@ -959,3 +959,68 @@ N0 rows once they exist.
 
 **Deploy note.** PX2 needs `bw_hog.py` and `win_cpu_topology.py` in the `scripts/deploy_evo.py` path list alongside
 `spin_hog_affinity.py`, or the bandwidth arm cannot launch and the topology read fails on the machine.
+
+## R1b evaluation audit, both machines, from the live Oct-1-cut runs (2026-09-30)
+
+Analysis of `t2s_night2_20260929T202603Z.jsonl` (evo-t2s) and `t2s_night2_20260929T205109Z.jsonl` (evo-x2), the
+currently-running r1b_r1d jobs, pulled live and analyzed locally (`analysis/r1b_wrong_answer_audit.py`, added this
+commit). All art_* probes, baseline (`arm1_baseline`) and self-report (`arm3_self_report`) arms only.
+
+**Per-probe correctness grid (baseline arm).** Clean and consistent across both machines: every probe scores 0.0 at
+ratios 0.4 and 0.85 (`artifact_fraction_retained=0`, the answer material never survives that much truncation) and
+1.0 at ratio 1.2 (`artifact_fraction_retained=1`, full context, answer intact). Ratio 0.98 is the only ratio where
+probes split: art_08/art_09/art_10 score 1.0 (their answer material sits early enough in the prompt to survive a 2%
+cut) while art_01-art_07 score 0.0 (their answer material sits later, in the part that gets cut first). This
+confirms the standing explanation -- correctness at a given ratio is decided by whether that probe's specific answer
+position survives the truncation, not by anything else -- using the harness's own `artifact_fraction_retained` field
+directly rather than re-deriving it.
+
+**Refusal-classified outputs.** 18 refusals out of 480 t2s rows, 51 out of 872 x2 rows, all concentrated on a single
+probe (art_05, a grid-reference-coordinates question) whose wrong-answer phrasing ("The provided text does not
+mention any grid reference coordinates...") a narrow refusal regex initially missed entirely (first pass found 0 on
+both machines; broadening the pattern to catch "no X was/were provided/recorded/mentioned" phrasing, not just
+"no secret/code/value", found these). This is itself worth flagging: a heuristic classifier's true positive rate
+depends heavily on exact phrasing and is not safe to trust uninspected -- exactly the reason the addendum's
+tri-rater (heuristic / hand-label / LLM judge) validation exists rather than citing the heuristic alone.
+
+**Refusal share of wrong answers, by model (the pre-planned "does scale change fabricate vs refuse" question).**
+t2s: qwen3-8b 9/192 (5%), qwen3-14b 9/198 (5%). x2: qwen3-4b-2507 12/198 (6%), qwen3-8b 11/192 (6%), qwen3-14b 9/198
+(5%), qwen3-32b 19/111 (17%). Preliminary read: qwen3-32b's refusal share is roughly 3x the smaller models', but this
+is one model at one point, entirely driven by a single probe (art_05) in the current data, not a general pattern
+across probes yet -- no llama family or 70B data exists yet. Treat this as a lead, not a finding, until it either
+replicates on a second probe or holds up under the tri-rater validation.
+
+**Self-report truncation-awareness.** 0 out of 240 (t2s) and 0 out of 435 (x2) self-report outputs mention that the
+input looked incomplete or truncated, at any ratio. The self-report arm's "AVAILABLE: yes/no" framing never once
+produces a model saying anything like "this context looks cut off" -- when the model reports the answer is
+unavailable, it says so as if the information were simply absent from a complete document, never as evidence of
+truncation.
+
+**Self-report scoring: the running jobs are currently writing wrong scores to disk, live, right now.** The
+`strip_available_prefix` fix (commit `3f7b1f4`) is correctly present in the on-disk `scorers.py` on both machines
+(confirmed: `C:\apu\ovn\scorers.py` on evo-t2s has the function; verified by reading the file directly). But the
+`t2s_night2.py` processes that are actively running `r1b_r1d` on both machines were launched before that fix was
+deployed and hold their own already-imported, pre-fix copy of the module in memory -- a running Python process never
+re-reads a module from disk. Their live `score` field for the self-report arm is therefore still wrong, in real
+time, on both machines: t2s reports self_report@1.2 mean 0.200, x2 reports 0.150. Rescoring the exact same raw
+`output` strings from these same rows, offline, with the correct (disk) scorer gives t2s 0.950 and x2 0.900 at ratio
+1.2 -- 57 of 222 t2s self-report rows and 111 of 402 x2 self-report rows change score under correct scoring, all of
+them wrong-to-right. Ratios 0.4 and 0.85 are unaffected either way (0.000 under both the stale and correct scorer --
+those are real truncation failures, not artifacts). Ratio 0.98 goes from 0.000 to 0.222 (t2s) / 0.194 (x2) under
+correct scoring.
+
+**No data loss and no rerun needed.** The raw `output` text is preserved regardless of which scorer wrote the
+`score` field, so this is fully recoverable by rescoring from the saved JSONL once each run finishes -- restarting
+either running job would lose its `--resume` continuity for no benefit, since nothing here depends on the process
+being fixed mid-run. **Action needed before this run's self-report numbers are used anywhere:** any analysis of
+these two specific stems (`t2s_night2_20260929T202603Z`, `t2s_night2_20260929T205109Z`) must rescore the self-report
+arm from raw `output` via the corrected `score()` dispatcher rather than trust the stored `score` field, until that
+rescoring is done once and the corrected values are written back or cached separately. Future runs are unaffected
+once the process that reads scorers.py is itself started fresh after a deploy (already true for anything queued
+after this point).
+
+**CONFUSION category (item 4f): not computed this pass.** The visible post-truncation prompt text is not stored
+per-row in these result JSONL files (only `full_tokens`/`target_tokens`/`chars_dropped` counts, not the prompt
+string itself), so checking whether a wrong answer exactly matches another value present in the visible prompt needs
+the exact visible prompt re-derived per row (deterministic from `item_id`/seed/ratio via the same builder R1b used),
+which was not done in this pass. Flagged rather than skipped silently.
