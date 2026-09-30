@@ -1,9 +1,42 @@
 # Paper 1 Outline — Hardware Characterization
 
 This file maps Paper 1 sections to repository artifacts.
-Paper 1 characterizes consumer-class AI PC hardware along two co-equal axes:
-(a) memory pressure vs. task correctness, and (b) orchestration overhead vs. latency.
-The joint feasibility envelope over both axes is the primary contribution.
+
+## Framing (2026-09-30)
+
+Paper 1's contribution is the first measured, predictive model of when a consumer AI PC can host an agent step:
+feasibility (does it load/run), latency, and quality (and whether failures are silent), as a function of hardware
+config (memory amount/UMA split, driver budget, CPU load), runtime policy, model, and context length. Paper 2's DSE
+and router consume this model directly (`analysis/envelope_model.py`). Every experiment in this repo must produce a
+parameter of this model, or it is deprioritized.
+
+### Claim -> model term -> Paper 2 use
+
+| Claim | Model term | Paper 2 use |
+|---|---|---|
+| A-24 (budget-boundary bisection, Vulkan heap budget, model-independent within 0.6-0.8%) | `predict_feasibility`: the memory-budget wall in MiB, held near-constant across model size | DSE's hard feasibility gate per (machine, model, context) |
+| C1 / c1b (memory-lock margin, mmap vs non-mmap crash behavior near zero headroom) | `predict_feasibility`: the margin-to-crash curve, mmap as a mitigant | Router's safety margin before scheduling a step on a memory-constrained node |
+| R1 speed (TTFT/decode vs context length, per machine) | `predict_latency`: the base TTFT/decode regression per machine | Router's latency-budget filter |
+| H2 / PX2 (co-runner power vs bandwidth effect, TTFT and decode ratios by condition) | `predict_latency`: the co-runner multiplier factor | Router's contention-aware latency adjustment when other processes are active |
+| K1 (runtime-chosen default context tier vs machine memory) | `predict_effective_context`: the runtime's own tier choice, measured or the documented Ollama tiers as ASSUMED fallback | DSE's context-fit check before routing a step |
+| R2 (agent session growth: silent rule/tool/recall failure vs runtime, arm, memory condition) | `predict_quality_regime` + `failure_silence`: whether a session-level failure is silent | Router's trust signal -- whether a runtime can be used unsupervised for long sessions |
+| R1b (truncation-cliff ratio vs score, fabrication/refusal/confusion split) | `predict_quality_regime`: the cliff curve once effective context is exceeded | DSE's quality-degradation estimate for an over-budget step, not just pass/fail |
+| FAILURE_MAP (cross-vendor/cross-runtime outcome taxonomy) | `predict_failure_silence`: HARD_FAIL / SILENT_SPILL / SILENT_TRUNCATION / CRASH / HANG / NOT_MEASURED per (machine, runtime policy) | Router's decision to trust a runtime's own error reporting, per config |
+| K2 (mid-session and pause-resume memory pressure, everyday-apps arm) | `predict_quality_regime` + `failure_silence` under a co-running-application-memory condition specifically, the clearest open novelty per `docs/PRIOR_ART.md` claim (b) | Router's real-world contention model (an agent step rarely runs on an otherwise-idle machine) |
+
+### Not in the model (deprioritized, moves to the end of both queues)
+
+These do not produce a new parameter for `envelope_model.py` -- they extend coverage of an axis already measured
+(more models at a ratio/condition already characterized), not a new term the model needs:
+
+- R1d beyond qwen3-8b and qwen3-14b (the check-set models already establish the position-pressure effect; more
+  models replicate, they do not add a term)
+- `x2_r1b_r1d_rest` (30B-A3B) -- same reasoning, a replication model, not a new term
+- The r1_check backlogs (repeat-measurement replication, not a new axis)
+- `x2_section0_retry` -- re-running an already-superseded phase
+- R1c stays in the active queue ONLY if its estimate is 4h or less per machine (it contributes the position-pressure
+  control needed for R1b's own quality-regime term); if its real estimate exceeds 4h/machine, it moves to the end
+  with the rest of this list.
 
 Paper 2 (DSE + hybrid engine) is outlined in [docs/PAPER_OUTLINE_DSE.md](docs/PAPER_OUTLINE_DSE.md).
 
