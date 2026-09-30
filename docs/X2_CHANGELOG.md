@@ -493,3 +493,20 @@ investigated further, since `ollama ps` returned empty on every check made again
 it never held GPU memory regardless of whether or when it exited). No Startup/HKCU/HKLM Run entry found. Nothing to
 stop or revert. Ollama will be restarted (same WMI launch, `OLLAMA_KEEP_ALIVE=0`) only inside K1/K2 jobs going
 forward, not left running idle in the background.
+
+## 2026-09-29 -- GPU shared-memory +50% growth confirmed real via dxdiag, not a measurement-method artifact
+
+The pre-reboot baseline read "Shared Memory 32,587 MB" from LiveHardwareMonitor (LHM); the current live reading is
+~50% higher. Before trusting MX2 on this, checked whether the growth is real or just two different tools reading the
+same quantity differently: ran `dxdiag` and read its own "Shared Memory" line the same way as the pre-reboot 32,587
+MB reading was taken. Result: dxdiag reports Shared Memory = 48,790 MB, matching LHM's current live reading (48,790
+MB) exactly. Same tool-independent quantity, same value, both after the growth -- so the +50% is a real change in
+what Windows reports as available shared GPU memory, not a difference in how it was measured. Total system RAM and
+dedicated GPU memory were both re-checked and are unchanged from the pre-reboot baseline; the mechanism behind the
+shared-memory growth itself is still not identified (driver version unchanged, no BIOS/UMA change made this
+session). This does not block MX2: MX2 records the live vulkaninfo heaps/budgets at the start of its own run and
+derives its two memory lines from those live values, so it does not depend on explaining or reproducing the
+pre-reboot baseline.
+
+**Revert:** none needed -- this is a read-only diagnostic check (`dxdiag /t` and LHM's existing sensor read), no
+setting was changed.
