@@ -23,6 +23,7 @@ target host lacks any Chromium-family browser.
 
 from __future__ import annotations
 
+import math
 import shutil
 import subprocess
 from pathlib import Path
@@ -70,6 +71,19 @@ def generate_pressure_pages(out_dir, n_pages=N_PAGES, target_mb=TARGET_MB_PER_PA
                      encoding="utf-8")
         paths.append(p)
     return paths
+
+
+def pages_for_total_mb(total_mb, page_mb=TARGET_MB_PER_PAGE):
+    """How many page_mb-sized pages are needed to reach at least total_mb of total browser memory load (ceil
+    division; 0 or negative total_mb means 0 pages). Used by K2 pressure arm (d), pause_resume (see
+    t2s_k2_pressure.py), to scale EverydayAppsPressure's existing n_pages/target_mb constructor args across its
+    0/8/16/24/32 GB app-load steps -- a new helper alongside generate_pressure_pages rather than a new page
+    generator, since scaling the page COUNT (at a fixed, already-realistic per-page size) is all a total-size target
+    needs; generate_pressure_pages itself, and its n_pages/target_mb signature, are unchanged and stay fully
+    backward compatible (the original fixed 20x150MB everyday_apps arm (c) call sites do not change at all)."""
+    if total_mb <= 0:
+        return 0
+    return max(1, math.ceil(total_mb / page_mb))
 
 
 def find_browser_executable(candidates=None):
