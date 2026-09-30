@@ -703,6 +703,13 @@ class R2SessionLab(k1.K1Lab):
                     continue
                 if r.get("record") == "item_done":
                     self.done.add(r["item_id"])
+        # 2026-09-30 fix: K1Lab has no .tele at all (K1 never needed one), but Occupier's server_factory
+        # defaults to L.Server, whose .start() unconditionally calls self.lab.tele.set_pid(...) -- found live,
+        # mid-run, when the occupied_40gb condition's first real call crashed with AttributeError. set_pid()
+        # only writes a PID file; it does not need .start() to have been called, so this is constructed but
+        # deliberately not started (R2 does not sample telemetry rows itself, only the Occupier needs the
+        # object to exist).
+        self.tele = L.Telemetry(self.prefix, gpu_vendor=host_cfg.get("gpu_vendor"))
 
     def item_done(self, item_id: str):
         self.done.add(item_id)
