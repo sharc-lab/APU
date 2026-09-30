@@ -404,11 +404,28 @@ def outcome_class(output: str | None, score: float | None, truncated: bool) -> s
     return "incorrect"
 
 
+# ---------------------------------------------------------------- self-report prefix
+# R1b's self_report arm (t2s_night2.R1B_ARM_SUFFIXES) asks the model to preface its answer with
+# "AVAILABLE: yes|no" before answering. Found 2026-09-29: this made every self_report@1.20 cell score 0.0 to 0.3
+# even though the model gave the exact same correct answer as the baseline arm (e.g. baseline "51847" scores 1.0,
+# self_report "AVAILABLE: yes 51847" scored 0.0) -- a scorer artifact, not a real quality drop. Stripping this
+# prefix before scoring is safe for every arm: nothing else in this evaluation ever asks a model to start an
+# answer with the literal string "AVAILABLE:", so a baseline output can never contain it.
+_AVAILABLE_PREFIX = re.compile(r"^\s*AVAILABLE\s*:\s*(?:yes|no)\s*[,:]?\s*", re.I)
+
+
+def strip_available_prefix(output: str) -> str:
+    if not isinstance(output, str):
+        return output
+    return _AVAILABLE_PREFIX.sub("", output, count=1)
+
+
 # ---------------------------------------------------------------- dispatch
 
 def score(probe: dict, output: str, judge_client=None):
     st = probe["scorer_type"]
     exp = probe["expected"]
+    output = strip_available_prefix(output)
     if st == "exact":
         return score_exact(output, exp)
     if st == "schema":
