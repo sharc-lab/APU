@@ -26,26 +26,52 @@ completely different vendor-driver responses, on two different runtimes' most si
 single most defensible existing cross-vendor claim in this table -- everything else in the grid is NOT_MEASURED and
 needs new runs before it can be cited.
 
-## Minimum runs needed to fill each NOT_MEASURED gap, with estimated hours
+## Minimum runs needed to fill each NOT_MEASURED gap, with estimated hours (2026-09-30 re-estimate)
 
-Estimates use this repo's own measured per-call medians where a comparable call exists (R1b baseline-arm rates:
-t2s/x2 ~28-55s/cell depending on model size, see `docs/FINDINGS.md`), and are flagged as order-of-magnitude where no
-comparable data exists at all (memory-boundary bisection calls are short, unscored start-only or few-token probes,
-not full quality-suite calls, so real bisection time is dominated by server start/stop cycles at each bisected
-context, not decode time -- t2s's own amech run bisected 4-5 models with ~3-4 repeats each in well under a day).
+**The earlier estimate below this line (35-50h) was inflated.** It assumed the FULL original per-gap design (a
+multi-model probe sweep or a full bisection ladder) for every single gap. The question each gap actually needs to
+answer is narrower: what happens when ONE model is pushed past its memory limit ONCE, under this runtime/policy.
+Where the boundary is already known (T2S from claim A-24, Blade from claim A-20), that is a single known context
+value to probe, not something to bisect for. The minimal design: 1 model, 1 context past the known (or, for X2,
+roughly located) limit, 3 probe calls to confirm the outcome is stable rather than a one-off.
 
 | Gap | Minimum run | Est. hours |
 |---|---|---|
-| T2S, `-fit off` | One amech-style bisection run, reusing the existing 4-5 model set and bisection code, with `-fit off` added as a new fit-arm (the amech harness already supports a fit-arm axis per claim A-25's "map phases") | 4-8h (matches the existing `-ngl 99`/default-fit amech run's own real wall time) |
-| T2S, Ollama default (real shortfall, not just tier choice) | K1 v3 (already queued, `t2s_k1_tier_v3`) -- pull qwen3:4b-instruct-2507/llama3.1:8b (native ceiling above any plausible tier), sweep 16K-128K prompt lengths, record HTTP status and prompt_eval_count vs sent tokens at each | ~16-17h (K1 v3 subagent's own estimate, flagged as extrapolated from a different backend's prefill-scaling formula) |
-| T2S, Ollama `num_ctx` fixed | Same K1 v3 harness, add a `num_ctx` forced past the memory boundary as a variant call at the longest probe length | +1-2h on top of the K1 v3 run above (a handful of extra calls at one fixed setting, not a new sweep) |
-| X2, all 5 columns | Port the amech bisection harness to evo-x2 (new host config, same bisection logic) for the memory-boundary/fit-mode columns; K1 v3 (`x2_k1_tier_v3`, already queued) covers the Ollama-default and Ollama-fixed columns the same way as T2S | Amech port: 4-8h once ported (same order as T2S's own amech run). K1 v3: ~16-17h (queued already, see above). |
-| Blade, default fit / `-fit off` | Re-run `blade_m1_vram_spill.py`-style sweep with `-ngl` unset (default fit) and again with `-fit off`, same ctx ladder | 2-4h each (the original M1 sweep was a single-afternoon run per the file's own timestamp span) |
-| Blade, Ollama default / fixed (shortfall specifically) | An Ollama-driven version of the M1 ctx ladder (pull a model whose native ceiling exceeds VRAM, force contexts past the VRAM boundary via `num_ctx`, watch for the Sysmem Fallback silent-spill signature under Ollama specifically, not just llama-server) | 2-4h |
-| Blade, "Prefer No Sysmem Fallback" driver-setting variant (pre-registered open question in A-20) | Re-run M1's exact ctx ladder once with the Windows NVIDIA control panel's "Prefer No Sysmem Fallback" set, to see whether the same boundary now HARD_FAILs instead of SILENT_SPILLing | 2-3h (same ladder, one driver-setting change, no new code) |
+| T2S, `-fit off` | 1 model, 1 ctx just past A-24's already-known budget wall (47,866 MiB), 3 probes, `-fit off`. No bisection needed, the boundary is already measured. | 0.3h |
+| T2S, Ollama default (real shortfall, not just tier choice) | llama3.1:8b (already pulled both machines), 1 prompt length past its own live-measured tier (4096 on T2S, found during the R2 run on 2026-09-30), 3 probes | 0.3h |
+| T2S, Ollama `num_ctx` fixed | Same model, 1 `num_ctx` forced past the runtime's own chosen tier, 3 probes | 0.3h |
+| X2, all 5 columns | 1 model, 1 context past the memory limit, 3 probes per column. The 3 `llama.cpp` columns need X2's own boundary located first (no A-24-equivalent measurement exists on X2 yet, unlike T2S); the 2 Ollama columns reuse llama3.1:8b at its own live-measured tier (131072 on X2, same R2 run) | ~0.5-1h per llama.cpp column (3 columns, boundary-location overhead), ~0.3h per Ollama column (2 columns) -- 2.4-3.9h total |
+| Blade, default fit / `-fit off` | 1 model, 1 ctx just past A-20's already-known onset (36,864-38,912), 3 probes, `-ngl` unset then `-fit off` | 0.3h each |
+| Blade, Ollama shortfall | 1 model, Ollama `num_ctx` forced past VRAM, 3 probes | 0.3h |
+| Blade, "Prefer No Sysmem Fallback" driver-setting variant | Re-run the same already-known A-20 onset point once with that driver setting, 3 probes | 0.3h |
 
-Total estimated machine-time to fill every gap in this table: roughly **35-50 hours** across all three machines,
-dominated by the two K1 v3 runs (already queued) and the two new amech-style bisection efforts (T2S `-fit off`, and
-the X2 port). The Blade gaps are the cheapest to close (a few hours each, all reusing the existing M1 script with
-one flag changed) and would complete the cross-vendor `-ngl 99` picture with two more `-ngl 99`-adjacent variants
-plus give the first NVIDIA default-fit and Ollama-shortfall data points.
+**Total, minimal design: roughly 3.9-6.4 hours** (0.3h x 6 known-boundary columns + 2.4-3.9h for X2's 5 columns,
+whose boundary is not yet located). Companion script: `analysis/make_failure_map.py` prints this same table.
+
+**Blade reachability, checked 2026-09-30**: not reachable from this session. `harness/host_config.py`'s `HOSTS`
+dict (the single source of truth for every machine this session can SSH to) has entries for `EVO-T2S` and `EVO-X2`
+only -- no Blade entry, no hostname, no Tailscale address, nothing. Whatever produced the Blade's existing committed
+data (claims A-13, A-20, A-21 and others) was run by someone physically at that machine, not reachable by this
+session's own SSH access. Filling the Blade gaps above needs either a host_config.py entry added (if the Blade has
+since been given network/SSH access this session doesn't know about) or the same manual-physical-access path the
+original Blade data used.
+
+---
+
+### Original estimate (superseded above, kept for the record)
+
+Estimates used this repo's own measured per-call medians where a comparable call existed (R1b baseline-arm rates:
+t2s/x2 ~28-55s/cell depending on model size, see `docs/FINDINGS.md`), and were flagged as order-of-magnitude where no
+comparable data existed at all.
+
+| Gap | Minimum run (original, full-sweep design) | Est. hours |
+|---|---|---|
+| T2S, `-fit off` | One amech-style bisection run, reusing the existing 4-5 model set and bisection code, with `-fit off` added as a new fit-arm | 4-8h |
+| T2S, Ollama default (real shortfall) | K1 v3's own full 5-length probe sweep across 3 models | ~16-17h |
+| T2S, Ollama `num_ctx` fixed | Same K1 v3 harness, +1 forced-`num_ctx` variant call | +1-2h on top of K1 v3 |
+| X2, all 5 columns | Port the amech bisection harness to evo-x2; K1 v3's full sweep covers the two Ollama columns | Amech port 4-8h; K1 v3 ~16-17h |
+| Blade, default fit / `-fit off` | Re-run `blade_m1_vram_spill.py`-style sweep with `-ngl` unset and again with `-fit off`, same ctx ladder | 2-4h each |
+| Blade, Ollama default / fixed | An Ollama-driven version of the M1 ctx ladder | 2-4h |
+| Blade, "Prefer No Sysmem Fallback" variant | Re-run M1's exact ctx ladder once with that driver setting | 2-3h |
+
+Total (original, superseded): roughly 35-50 hours.

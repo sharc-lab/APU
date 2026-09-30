@@ -53,15 +53,34 @@ EVIDENCE = {
 }
 
 GAPS_HOURS = {
-    "T2S, -fit off": ("amech-style bisection, -fit off added as a new fit-arm", "4-8h"),
-    "T2S, Ollama default (real shortfall)": ("K1 v3 (queued: t2s_k1_tier_v3)", "~16-17h"),
-    "T2S, Ollama num_ctx fixed": ("K1 v3 harness, +1 forced-num_ctx variant call", "+1-2h on top of K1 v3"),
-    "X2, all 5 columns": ("port amech to evo-x2; K1 v3 (queued: x2_k1_tier_v3) covers the two Ollama columns",
-                           "amech port 4-8h; K1 v3 ~16-17h"),
-    "Blade, default fit / -fit off": ("re-run blade_m1_vram_spill.py-style sweep with -ngl unset, then -fit off", "2-4h each"),
-    "Blade, Ollama shortfall": ("Ollama-driven version of the M1 ctx ladder, model native ceiling > VRAM", "2-4h"),
-    "Blade, Prefer No Sysmem Fallback variant": ("re-run M1's ctx ladder once with that driver setting", "2-3h"),
+    "T2S, -fit off": ("minimal design: 1 model, 1 ctx just past A-24's already-known budget wall (47,866 MiB), "
+                      "3 probes, no bisection needed (the boundary is already measured)", "0.3h"),
+    "T2S, Ollama default (real shortfall)": ("minimal design: llama3.1:8b (already pulled), 1 prompt length past "
+                                             "its own live-measured tier (4096, found during R2), 3 probes", "0.3h"),
+    "T2S, Ollama num_ctx fixed": ("minimal design: 1 model (llama3.1:8b, already pulled), 1 num_ctx forced past "
+                                  "the runtime's own chosen tier, 3 probe calls", "0.3h"),
+    "X2, all 5 columns": ("minimal design per cell: 1 model, 1 length/context past the memory limit, 3 probes. "
+                          "-ngl 99/default fit/-fit off need the boundary located first (X2 has no A-24-equivalent "
+                          "measured boundary yet, unlike T2S); the two Ollama columns reuse llama3.1:8b, already "
+                          "pulled, at the tier already measured live during R2 (131072)",
+                          "~0.5-1h per llama.cpp column (3 columns), ~0.3h per Ollama column (2 columns), "
+                          "~2.4-3.9h total for all 5"),
+    "Blade, default fit / -fit off": ("minimal design: 1 model, 1 ctx just past A-20's already-known onset "
+                                      "(36,864-38,912), 3 probes, -ngl unset then -fit off", "0.3h each"),
+    "Blade, Ollama shortfall": ("minimal design: 1 model, Ollama num_ctx forced past VRAM, 3 probes", "0.3h"),
+    "Blade, Prefer No Sysmem Fallback variant": ("re-run the same A-20 onset point once with that driver setting, "
+                                                  "3 probes (boundary already known, no bisection needed)", "0.3h"),
 }
+
+# 2026-09-30 re-estimate: the original numbers above (K1 v3's own ~16-17h estimate, amech-port guesses of 4-8h)
+# assumed the FULL original design (multiple models x a 5-length probe sweep, or a full bisection ladder) for every
+# gap. The minimal design that actually answers "what happens when memory runs out under this runtime/policy" needs
+# far less: ONE model already pushed past its memory limit ONCE (not bisected -- for T2S and Blade the boundary is
+# already known from A-24/A-20, so "past the limit" is a single known value, not something to search for), 3 probe
+# calls to confirm the outcome is stable, not a one-off. This drops the total from roughly 35-50h to roughly 3.9-6.4h:
+# 0.3h x 6 single-known-boundary columns (T2S -fit off, T2S Ollama default, T2S Ollama fixed, all 3 Blade gaps) plus
+# 2.4-3.9h for X2's 5 columns, whose boundary is not pre-located (no A-24-equivalent measurement exists on X2 yet).
+TOTAL_HOURS_MINIMAL_DESIGN = "roughly 3.9-6.4h total (0.3h x 6 known-boundary columns + 2.4-3.9h for X2's 5 columns)"
 
 
 def print_table():
@@ -77,9 +96,11 @@ def print_table():
 
 
 def print_gaps():
-    print("\nMinimum runs to fill each NOT_MEASURED gap:")
+    print("\nMinimum runs to fill each NOT_MEASURED gap (minimal design: 1 model pushed past its memory limit "
+         "once per cell, 3 probes):")
     for gap, (run, hours) in GAPS_HOURS.items():
         print(f"  {gap}: {run} -- est. {hours}")
+    print(f"\nTotal: {TOTAL_HOURS_MINIMAL_DESIGN}")
 
 
 def not_measured_count():
