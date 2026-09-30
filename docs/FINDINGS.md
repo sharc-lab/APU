@@ -857,10 +857,10 @@ The SYCL section (`D_prepare` and three cells) was trimmed by the planner and ne
 
 ---
 
-## PX2, evo-x2: pre-registered readout for separating the co-runner power effect from the memory-bandwidth effect (2026-09-29, NOT YET RUN)
+## PX2, evo-x2: pre-registered readout for separating the co-runner power effect from the memory-bandwidth effect (2026-09-29, RUN 2026-09-30, real results below the pre-registration)
 
-**Status:** pre-registration only. No PX2 data exists. Nothing below is a result. Recorded here before the run so the
-readout cannot be chosen after seeing the numbers.
+**Status (original, kept for the record):** pre-registration only. No PX2 data exists. Nothing below is a result.
+Recorded here before the run so the readout cannot be chosen after seeing the numbers.
 
 **Hardware arm:** evo-x2 only (Ryzen AI Max+ 395, Strix Halo, Radeon 8060S, 2 CCDs, 8 physical cores and 16 logical
 CPUs per CCD, 32 MiB L3 per CCD, no P/E split). PX2 rows must never be pooled with the evo-t2s B1/B2/B3/B4 rows: a
@@ -959,6 +959,37 @@ N0 rows once they exist.
 
 **Deploy note.** PX2 needs `bw_hog.py` and `win_cpu_topology.py` in the `scripts/deploy_evo.py` path list alongside
 `spin_hog_affinity.py`, or the bandwidth arm cannot launch and the topology read fails on the machine.
+
+### PX2 real results (ran 2026-09-30, `x2_px2`, completed)
+
+File: `results/t2s_night2_20260930T135145Z.jsonl` (the main stem; `PX2` section rows plus `px2_model_summary`,
+`px2_condition_done`, `px2_bw_calibration` records). All 5 models completed (llama-3.3-70b at the reduced 3
+measured calls per the cut rule, the other 4 at the full 5).
+
+**Verdicts against the 5 pre-registered criteria: none fire as literally worded, on TTFT, for any model.**
+1. Bandwidth-dominant (B4 >=10% worse than S4 on TTFT): not met. Real gap is 2-3% across all 5 models (e.g.
+   qwen3-8b S4 1.098x, B4 1.123x).
+2. Power-dominant (B4 and S4 agree within 5%, both >=10% worse than N0): not met. S4 never reaches 10% worse than
+   N0 for any model (max 9.8%, qwen3-8b), even where B4 does.
+3. Neither separable (5-10% B4/S4 gap, or no monotone S2-S14 dose response): does not fire either -- the real gap
+   (2-3%) sits below even this criterion's own 5% floor, and the dose response is monotone (not absent).
+4. L3/CCD placement (S8 vs S8x >5%): not met, any model (max observed gap 1.2%, qwen3-32b).
+5. SMT beyond occupancy (S28 >5% worse than S14): not met, any model (max observed gap 0.9%, llama31-8b).
+
+**Validity gates:** drift (N0 vs N1) passes for all 5 models, |drift_pct| <=0.78%, well under the 3% threshold.
+bw_hog solo calibration 32.212 GB/s; B4's in-sweep achieved rate (llama-3.3-70b) 24.159 GB/s, 75% of the solo
+ceiling. Hog-saturation gate (`hog_cpus_all_at_95`) not independently re-checked in this write-up pass.
+
+**Real finding outside the 5 pre-registered criteria:** the mechanism shows up in decode throughput, not TTFT.
+B4 cuts decode 7-10% below N0 consistently across all 5 models (0.905-0.928x), while S4 leaves decode essentially
+untouched (0.987-1.000x) at the same core count. The original design's TTFT-only criteria miss this entirely --
+the bandwidth effect is real, it just lives in a different metric than the one the criteria were written against.
+iGPU clock and CPU temp were only populated on qwen3-8b's rows in this run; the other 4 models' rows show `null`
+for those two fields, a real LHM-feeder gap worth fixing before the next PX2-style run, not a formatting issue.
+
+This supersedes the "NOT YET RUN" status above and any downstream document (including `analysis/envelope_model.py`'s
+H2/co-runner multiplier, currently substituted from claim A-23's CPU-co-runner ratio pending a refit against
+these real PX2 numbers) that still cites PX2 as unrun.
 
 ## R1b evaluation audit, both machines, from the live Oct-1-cut runs (2026-09-30)
 
