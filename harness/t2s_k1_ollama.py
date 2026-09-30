@@ -255,11 +255,17 @@ class OllamaClient:
         self.base = f"http://{host}:{port}"
         self.timeout = timeout
 
-    def chat(self, model, prompt, num_ctx=None, max_tokens=64, keep_alive=None):
+    def chat(self, model, prompt, num_ctx=None, max_tokens=64, keep_alive=None, messages=None):
+        """messages: optional full conversation history ([{"role":.., "content":..}, ...]), for a caller (e.g.
+        harness/t2s_r2_session_growth.py's growing agent sessions) that needs more than the single user-turn
+        request every other caller of this method sends. None (the default, and every pre-existing call site's
+        behavior) still sends exactly [{"role": "user", "content": prompt}] as before; prompt is then ignored only
+        when messages is given, and is still recorded by call sites for logging."""
         options = {"num_predict": max_tokens, "temperature": 0, "seed": 42}
         if num_ctx is not None:
             options["num_ctx"] = num_ctx
-        body = {"model": model, "messages": [{"role": "user", "content": prompt}], "stream": False, "options": options}
+        body = {"model": model, "messages": messages if messages is not None else [{"role": "user", "content": prompt}],
+                "stream": False, "options": options}
         if keep_alive is not None:
             body["keep_alive"] = keep_alive
         req = urllib.request.Request(f"{self.base}/api/chat", data=json.dumps(body).encode(),
