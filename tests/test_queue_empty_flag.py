@@ -252,3 +252,19 @@ def test_launch_next_still_works_with_the_new_job_id_argument(tmp_path, monkeypa
     launched = q.launch_next(items)
     assert launched["id"] == "the_real_job_id"
     assert captured["job_id"] == "the_real_job_id"
+
+
+def test_launch_cmdline_quotes_the_set_assignment_no_trailing_space(monkeypatch):
+    """Real 2026-09-30 bug: cmd.exe's "set VAR=value && nextcmd" (unquoted) includes the space BEFORE "&&" as
+    part of the value, so the launched process's own APU_QUEUE_JOB_ID env var came out as "the_id " (trailing
+    space) and its own, correct advance() call was rejected by the ownership check as a result -- a completed job
+    sat stuck until the watchdog's 30-minute staleness fallback wrongly declared it "crashed". The fix is
+    cmd.exe's own documented one: quote the whole assignment, `set "VAR=value"`. This test checks the exact
+    string _launch() builds, not just that it runs, since the bug was invisible to every test that mocks _ps and
+    never actually parses the string through real cmd.exe."""
+    captured = {}
+    monkeypatch.setattr(q, "_ps", lambda script: (captured.setdefault("ps_script", script), ("rc=0 pid=1", ""))[1])
+    q._launch(["echo", "hi"], r"C:\apu\ovn\queue_x.log", "the_id")
+    ps_script = captured["ps_script"]
+    assert 'set "APU_QUEUE_JOB_ID=the_id"' in ps_script
+    assert "set APU_QUEUE_JOB_ID=the_id " not in ps_script  # the exact unquoted-with-trailing-space bug pattern

@@ -68,7 +68,13 @@ def _launch(cmd, log_path, job_id):
     the normal way -- this is what advance() checks before it is willing to touch queue_state.json at all, see
     that function's own docstring."""
     quoted = " ".join(f'"{c}"' if " " in c else c for c in cmd)
-    full_cmdline = (f'cmd.exe /c cd /d C:\\apu\\ovn && set {JOB_ID_ENV_VAR}={job_id} && {quoted} > "{log_path}" 2>&1')
+    # 2026-09-30 bug found live: cmd.exe's "set VAR=value && nextcmd" includes the space BEFORE "&&" as part of
+    # value -- quoting the whole assignment ("set VAR=value") is cmd.exe's own documented fix for exactly this,
+    # and is required here (found the hard way: t2s_k1_tier_v3 finished cleanly, called advance(), and the
+    # ownership check failed because its own env var was "t2s_k1_tier_v3 " with a trailing space, so the real,
+    # completed job's own advance() was rejected as a no-op and the queue sat on it until the watchdog's 30-minute
+    # staleness fallback wrongly declared it "crashed").
+    full_cmdline = (f'cmd.exe /c cd /d C:\\apu\\ovn && set "{JOB_ID_ENV_VAR}={job_id}" && {quoted} > "{log_path}" 2>&1')
     ps_cmd = (f"$cmd = '{full_cmdline}'; "
               f"$r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{{CommandLine=$cmd; CurrentDirectory='C:\\apu\\ovn'}}; "
               f"'rc=' + $r.ReturnValue + ' pid=' + $r.ProcessId")
