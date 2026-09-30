@@ -533,15 +533,25 @@ def _fit_num_ctx(length_tokens, headroom_tokens=1024, round_to=1024):
 
 def phase_quality_curves(lab: K1Lab, ollama_model: str, gguf_mi, default_ctx: int, rep_count: int = 3,
                          lengths=PROMPT_LENGTHS_TOKENS, task_types=TASK_TYPES, seed: int = 20260928, ollama=None,
-                         server_factory=None, max_tokens: int = 64):
+                         server_factory=None, max_tokens: int = 64, calibration_pass_set=None):
     """Arm (a) Ollama default (no num_ctx), arm (b) Ollama with num_ctx fit to the prompt, arm (c) llama-server
     directly with -c == default_ctx (Ollama's own default, established once for the whole phase by the caller from
     an earlier phase_tier row: see build_default_ctx_from_rows). Three reps per condition. default_ctx is a
     parameter rather than re-derived here so the fixed-context arm (c) baseline is the SAME number across every
-    prompt length in this phase, matching the task spec ("-c equal to whatever Ollama's default context was")."""
+    prompt length in this phase, matching the task spec ("-c equal to whatever Ollama's default context was").
+
+    calibration_pass_set: an optional set of task_types that q0_token_calibration.py's own per-task check passed
+    (see quality_suite.load_calibration_pass_set). None means "unknown, run every requested task_type unfiltered"
+    (the old behavior). When given, any requested task_type not in the set is skipped and logged with the reason,
+    rather than either blocking this whole phase on one failing task or silently running a known-miscalibrated one."""
     ollama = ollama or lab.ollama
     server_factory = server_factory or (lambda mi, n_ctx, tag: L.Server(lab, mi, n_ctx, backend=lab.host_cfg.get("backend", "vulkan"), tag=tag))
     rows = []
+    if calibration_pass_set is not None:
+        excluded = [t for t in task_types if t not in calibration_pass_set]
+        for t in excluded:
+            L.log(f"K1 curves: excluding task_type {t!r}, did not pass q0_token_calibration for this model")
+        task_types = [t for t in task_types if t in calibration_pass_set]
     for length in lengths:
         for task_type in task_types:
             for rep in range(rep_count):
@@ -713,6 +723,9 @@ def build_arg_parser():
     ap.add_argument("--resume", default=None, help="prior run stem to resume/extend (see BIOS sweep hook in the module docstring)")
     ap.add_argument("--reps", type=int, default=3)
     ap.add_argument("--require-committed", action="store_true", help="refuse to run unless this script is committed (standing rule; off by default while this file is new/under review)")
+    ap.add_argument("--calibration-file", default=None, help="path to a q0_token_calibration.py run's own jsonl; "
+                    "the curves phase runs only the task_types that passed calibration in it, per-task (not "
+                    "whole-run) -- see quality_suite.load_calibration_pass_set. Omit to run every task unfiltered.")
     return ap
 
 
@@ -775,7 +788,18 @@ def main():
                     if default_ctx is None:
                         L.log("curves phase requested but no default_ctx known (run --phase tier first, or pass --default-ctx); skipping")
                     else:
-                        phase_quality_curves(lab, args.ollama_model, gguf_mi, default_ctx, rep_count=args.reps)
+                        calibration_pass_set = None
+                        if args.calibration_file:
+                            if QUALITY_SUITE_SOURCE != "harness.quality_suite" or not hasattr(_qs, "load_calibration_pass_set"):
+                                L.log(f"--calibration-file {args.calibration_file!r} given but {QUALITY_SUITE_SOURCE} has no load_calibration_pass_set; running every task_type unfiltered")
+                            else:
+                                calibration_pass_set = _qs.load_calibration_pass_set(args.calibration_file)
+                            if calibration_pass_set is None:
+                                L.log(f"--calibration-file {args.calibration_file!r} had no usable q0_calibration_summary; running every task_type unfiltered")
+                            else:
+                                L.log(f"K1 curves: calibration pass set from {args.calibration_file!r}: {sorted(calibration_pass_set)}")
+                        phase_quality_curves(lab, args.ollama_model, gguf_mi, default_ctx, rep_count=args.reps,
+                                             calibration_pass_set=calibration_pass_set)
                         lab.phase_done("phase_curves")
         finally:
             stop_result = _hc.stop_ollama_server()

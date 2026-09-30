@@ -69,6 +69,43 @@ TASK_TYPES = (
 )
 
 
+def load_calibration_pass_set(jsonl_path):
+    """Reads a q0_token_calibration.py run's own jsonl for its q0_calibration_summary record (the last one, if the
+    file has more than one for any reason) and returns the set of task_types whose own all_ok was True.
+
+    Per-task, not whole-run: the calibration gate used to be "did the calibration job's queue entry reach status
+    done", which let a job through even when one task (commonly common_words_extraction) failed calibration while
+    the other five passed -- found 2026-09-29 on both evo-t2s and evo-x2. A consumer (K1's phase_quality_curves,
+    K2) should run only the tasks that actually passed, not the whole suite or nothing.
+
+    Returns None if the file does not exist, has no summary record, or cannot be parsed -- callers must treat None
+    as "unknown, do not filter" rather than "nothing passed", since filtering everything out on a read error would
+    silently stop a phase from testing anything at all."""
+    from pathlib import Path
+    import json as _json
+    path = Path(jsonl_path)
+    if not path.exists():
+        return None
+    summary = None
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    r = _json.loads(line)
+                except _json.JSONDecodeError:
+                    continue
+                if r.get("record") == "q0_calibration_summary":
+                    summary = r.get("summary")
+    except OSError:
+        return None
+    if not summary:
+        return None
+    return {task_type for task_type, s in summary.items() if s.get("all_ok")}
+
+
 @dataclass
 class Task:
     """One generated probe. prompt/expected are the (prompt, expected) pair the scorer needs;

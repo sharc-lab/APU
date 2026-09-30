@@ -369,10 +369,22 @@ def run_k2_run(lab, mi, n_ctx, need_mib, mmap_arm, pressure_arm, responsiveness_
     return step_summaries
 
 
-def phase_k2(lab, model_id, n_ctx=N_CTX):
+def phase_k2(lab, model_id, n_ctx=N_CTX, calibration_pass_set=None):
     """Two mmap arms x two pressure arms, run in full (not interleaved/trimmed -- a real deadline-bound overnight run
     may want to cut this cross down; that scheduling is out of scope here, same as it is out of scope for the
-    C1 phase this borrows its memory-lock pattern from)."""
+    C1 phase this borrows its memory-lock pattern from).
+
+    calibration_pass_set: same per-task calibration gate as K1's phase_quality_curves (see
+    quality_suite.load_calibration_pass_set). K2 only ever exercises one task_type (TASK_TYPE), so there is nothing
+    to filter down to -- either it passed calibration for this model or it did not. None means "unknown, run
+    unfiltered" (the old behavior, and the default when no --calibration-file is given). When given and TASK_TYPE is
+    not in it, K2 does not run at all for this model and the job log states why, rather than silently running a
+    whole memory-pressure sweep on a task_type known to be miscalibrated for this model."""
+    if calibration_pass_set is not None and TASK_TYPE not in calibration_pass_set:
+        log(f"K2: excluding model_id {model_id!r}, task_type {TASK_TYPE!r} did not pass q0_token_calibration for this model")
+        lab.emit({"record": "k2_disabled", "model_id": model_id, "task_type": TASK_TYPE,
+                  "reason": "task_type did not pass q0_token_calibration", "ts_utc": utc_iso()})
+        return []
     mi = lab.models.get(model_id)
     if mi is None:
         lab.emit({"record": "k2_disabled", "model_id": model_id, "reason": "model not loaded", "ts_utc": utc_iso()})
@@ -457,6 +469,9 @@ def main():
     ap.add_argument("--resume", default=None)
     ap.add_argument("--models", default="qwen3-8b", help="comma list of model ids to run K2 on")
     ap.add_argument("--n-ctx", type=int, default=N_CTX)
+    ap.add_argument("--calibration-file", default=None, help="path to a q0_token_calibration.py run's own jsonl; "
+                    "K2 runs only if its single task_type (TASK_TYPE) passed calibration in it, per-task (not "
+                    "whole-run) -- see quality_suite.load_calibration_pass_set. Omit to run unfiltered.")
     args = ap.parse_args()
     host_cfg = hc.require_host(socket.gethostname())
     hc.enforce_or_record_interactive_session(host_cfg)  # raises on evo-t2s if occupied; never raises on evo-x2
@@ -471,6 +486,16 @@ def main():
         "n_ctx": args.n_ctx, "seed": SEED, "levels_gb": LEVELS_GB, "mmap_arms": MMAP_ARMS,
         "pressure_arms": PRESSURE_ARMS, "score_tol_rel": SCORE_TOL_REL, "resp_tol_factor": RESP_TOL_FACTOR},
         indent=1, default=str), encoding="utf-8")
+    calibration_pass_set = None
+    if args.calibration_file:
+        if qs is None or not hasattr(qs, "load_calibration_pass_set"):
+            log(f"--calibration-file {args.calibration_file!r} given but quality_suite is unavailable; running unfiltered")
+        else:
+            calibration_pass_set = qs.load_calibration_pass_set(args.calibration_file)
+            if calibration_pass_set is None:
+                log(f"--calibration-file {args.calibration_file!r} had no usable q0_calibration_summary; running unfiltered")
+            else:
+                log(f"K2: calibration pass set from {args.calibration_file!r}: {sorted(calibration_pass_set)}")
     lab.tele.start()
     note = "completed"
     try:
@@ -487,7 +512,7 @@ def main():
             if hc.ollama_process_running():
                 raise RuntimeError(f"STOP: an ollama process is running; refusing to start K2 phase for {mid}")
             log(f"K2 phase: {mid}")
-            phase_k2(lab, mid, args.n_ctx)
+            phase_k2(lab, mid, args.n_ctx, calibration_pass_set=calibration_pass_set)
             lab.item_done(f"k2_done_{mid}")
     except ov.Deadline:
         note = "deadline reached"

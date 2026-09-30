@@ -377,3 +377,79 @@ def test_build_task_common_words_count_fn_corrects_a_biased_tokenizer():
     ratio_without = stingy_count_fn(without.prompt) / target
     ratio_with = stingy_count_fn(with_fn.prompt) / target
     assert abs(ratio_with - 1.0) < abs(ratio_without - 1.0)
+
+
+# ---------------------------------------------------------------------------------------------------- load_calibration_pass_set
+# The 2026-09-29 gate fix: the calibration gate must check the calibration run's own per-task results, not whole-job
+# queue status. A q0_token_calibration.py run writes one q0_calibration_summary record with a per-task_type
+# {"all_ok": bool} map; downstream phases (K1 curves, K2) must run only the task_types that actually passed.
+
+def _write_jsonl(path, records):
+    import json as _json
+    with open(path, "w", encoding="utf-8") as f:
+        for r in records:
+            f.write(_json.dumps(r) + "\n")
+
+
+def test_load_calibration_pass_set_mixed_pass(tmp_path):
+    p = tmp_path / "calib.jsonl"
+    _write_jsonl(p, [
+        {"record": "some_other_row", "x": 1},
+        {"record": "q0_calibration_summary", "summary": {
+            "niah_multikey": {"all_ok": True},
+            "common_words_extraction": {"all_ok": False},
+            "rag_lookup": {"all_ok": True},
+        }},
+    ])
+    result = qs.load_calibration_pass_set(str(p))
+    assert result == {"niah_multikey", "rag_lookup"}
+
+
+def test_load_calibration_pass_set_all_pass(tmp_path):
+    p = tmp_path / "calib.jsonl"
+    _write_jsonl(p, [
+        {"record": "q0_calibration_summary", "summary": {
+            "niah_multikey": {"all_ok": True},
+            "rag_lookup": {"all_ok": True},
+        }},
+    ])
+    assert qs.load_calibration_pass_set(str(p)) == {"niah_multikey", "rag_lookup"}
+
+
+def test_load_calibration_pass_set_all_fail(tmp_path):
+    """Empty-but-not-None matters: an empty set means 'everything failed, filter it all out', which is different
+    from None ('could not determine, do not filter')."""
+    p = tmp_path / "calib.jsonl"
+    _write_jsonl(p, [
+        {"record": "q0_calibration_summary", "summary": {
+            "niah_multikey": {"all_ok": False},
+        }},
+    ])
+    assert qs.load_calibration_pass_set(str(p)) == set()
+
+
+def test_load_calibration_pass_set_missing_file_returns_none(tmp_path):
+    assert qs.load_calibration_pass_set(str(tmp_path / "does_not_exist.jsonl")) is None
+
+
+def test_load_calibration_pass_set_no_summary_record_returns_none(tmp_path):
+    p = tmp_path / "calib.jsonl"
+    _write_jsonl(p, [{"record": "item_done", "task_type": "niah_multikey"}])
+    assert qs.load_calibration_pass_set(str(p)) is None
+
+
+def test_load_calibration_pass_set_malformed_json_lines_are_skipped(tmp_path):
+    p = tmp_path / "calib.jsonl"
+    with open(p, "w", encoding="utf-8") as f:
+        f.write("not json at all\n")
+        f.write('{"record": "q0_calibration_summary", "summary": {"niah_multikey": {"all_ok": true}}}\n')
+    assert qs.load_calibration_pass_set(str(p)) == {"niah_multikey"}
+
+
+def test_load_calibration_pass_set_uses_last_summary_record_if_multiple(tmp_path):
+    p = tmp_path / "calib.jsonl"
+    _write_jsonl(p, [
+        {"record": "q0_calibration_summary", "summary": {"niah_multikey": {"all_ok": True}}},
+        {"record": "q0_calibration_summary", "summary": {"niah_multikey": {"all_ok": False}, "rag_lookup": {"all_ok": True}}},
+    ])
+    assert qs.load_calibration_pass_set(str(p)) == {"rag_lookup"}

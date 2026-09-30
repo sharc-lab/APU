@@ -284,6 +284,88 @@ def test_phase_quality_curves_arm_c_error_recorded_as_errored(tmp_path):
     assert c_row["score"] is None
 
 
+# ---------------------------------------------------------------------------------------------------- phase_curves: calibration gate (2026-09-29 fix)
+def test_phase_quality_curves_unfiltered_when_calibration_pass_set_is_none(tmp_path):
+    """None means 'unknown, run everything' -- the pre-fix behavior, and the default when no --calibration-file is
+    given at all, so an operator who never ran calibration is not silently blocked."""
+    lab = make_lab(tmp_path)
+    ollama = FakeOllama({"outcome": "ok", "status": 200, "prompt_eval_count": 20, "message": "123456", "duration_s": 1.0})
+    fake_srv = FakeServer(ok=True, tokens=3000, output="123456")
+    rows = K.phase_quality_curves(
+        lab, "qwen3:8b", gguf_mi=object(), default_ctx=32768, rep_count=1, lengths=(3000,),
+        task_types=("niah_multikey", "common_words_extraction"), ollama=ollama,
+        server_factory=lambda mi, n_ctx, tag: fake_srv, calibration_pass_set=None)
+    assert {r["task_type"] for r in rows} == {"niah_multikey", "common_words_extraction"}
+
+
+def test_phase_quality_curves_excludes_task_types_not_in_pass_set(tmp_path):
+    """The actual gate fix: a task_type that failed q0_token_calibration for this model must not run here, even
+    though the calibration job's queue status was 'done' (found 2026-09-29: common_words_extraction failed
+    calibration while the job as a whole still reached done, on both machines)."""
+    lab = make_lab(tmp_path)
+    ollama = FakeOllama({"outcome": "ok", "status": 200, "prompt_eval_count": 20, "message": "123456", "duration_s": 1.0})
+    fake_srv = FakeServer(ok=True, tokens=3000, output="123456")
+    rows = K.phase_quality_curves(
+        lab, "qwen3:8b", gguf_mi=object(), default_ctx=32768, rep_count=1, lengths=(3000,),
+        task_types=("niah_multikey", "common_words_extraction"), ollama=ollama,
+        server_factory=lambda mi, n_ctx, tag: fake_srv, calibration_pass_set={"niah_multikey"})
+    assert {r["task_type"] for r in rows} == {"niah_multikey"}
+
+
+def test_phase_quality_curves_empty_pass_set_excludes_everything():
+    """An empty (but non-None) pass set means every requested task_type failed calibration; this must not fall
+    back to running unfiltered, and must not raise -- it just produces no rows."""
+    import tempfile
+    with tempfile.TemporaryDirectory() as d:
+        lab = make_lab(Path(d))
+        ollama = FakeOllama({"outcome": "ok", "status": 200, "prompt_eval_count": 20, "message": "123456", "duration_s": 1.0})
+        fake_srv = FakeServer(ok=True, tokens=3000, output="123456")
+        rows = K.phase_quality_curves(
+            lab, "qwen3:8b", gguf_mi=object(), default_ctx=32768, rep_count=1, lengths=(3000,),
+            task_types=("niah_multikey",), ollama=ollama,
+            server_factory=lambda mi, n_ctx, tag: fake_srv, calibration_pass_set=set())
+        assert rows == []
+
+
+def test_phase_quality_curves_logs_exclusion_reason(tmp_path, capsys):
+    lab = make_lab(tmp_path)
+    ollama = FakeOllama({"outcome": "ok", "status": 200, "prompt_eval_count": 20, "message": "123456", "duration_s": 1.0})
+    fake_srv = FakeServer(ok=True, tokens=3000, output="123456")
+    K.phase_quality_curves(
+        lab, "qwen3:8b", gguf_mi=object(), default_ctx=32768, rep_count=1, lengths=(3000,),
+        task_types=("niah_multikey", "common_words_extraction"), ollama=ollama,
+        server_factory=lambda mi, n_ctx, tag: fake_srv, calibration_pass_set={"niah_multikey"})
+    out = capsys.readouterr()
+    combined = out.out + out.err
+    assert "common_words_extraction" in combined
+    assert "did not pass q0_token_calibration" in combined
+
+
+# ---------------------------------------------------------------------------------------------------- main(): --calibration-file wiring
+_REQUIRED_ARGS = ["--host", "evo-t2s", "--ollama-model", "qwen3:8b"]
+
+
+def test_build_arg_parser_has_calibration_file_flag():
+    ap = K.build_arg_parser()
+    args = ap.parse_args(_REQUIRED_ARGS + ["--calibration-file", "some/path.jsonl"])
+    assert args.calibration_file == "some/path.jsonl"
+
+
+def test_build_arg_parser_calibration_file_defaults_to_none():
+    ap = K.build_arg_parser()
+    args = ap.parse_args(_REQUIRED_ARGS)
+    assert args.calibration_file is None
+
+
+def test_main_passes_calibration_pass_set_to_phase_quality_curves():
+    """main() must load --calibration-file via quality_suite.load_calibration_pass_set and thread the result into
+    the phase_quality_curves(...) call site, not just accept the flag and drop it."""
+    import inspect
+    src = inspect.getsource(K.main)
+    assert "load_calibration_pass_set" in src
+    assert "calibration_pass_set=" in src
+
+
 # ---------------------------------------------------------------------------------------------------- build_default_ctx_from_rows
 def test_build_default_ctx_from_rows_filters_by_host():
     rows = [

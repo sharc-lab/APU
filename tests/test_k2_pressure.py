@@ -329,6 +329,60 @@ def test_phase_k2_missing_model_emits_disabled_record(tmp_path):
     assert lab.rows[-1]["record"] == "k2_disabled"
 
 
+# ---------------------------------------------------------------- calibration gate (2026-09-29 fix)
+def test_phase_k2_unfiltered_when_calibration_pass_set_is_none(tmp_path, monkeypatch):
+    """None means 'unknown, run unfiltered' -- the pre-fix behavior, and the default when no --calibration-file is
+    given at all."""
+    lab = StubLab(tmp_path)
+    mi = _mi(tmp_path)
+    lab.models["qwen3-8b"] = mi
+    monkeypatch.setattr(k2, "run_k2_run", lambda *a, **kw: [{"record": "k2_step_summary", "level_gb": 8,
+                        "median_score": 1.0, "responsiveness_median_s": 0.01, "clean_failure": False}])
+    out = k2.phase_k2(lab, "qwen3-8b", n_ctx=16384, calibration_pass_set=None)
+    assert len(out) == len(k2.MMAP_ARMS) * len(k2.PRESSURE_ARMS)
+
+
+def test_phase_k2_skips_when_task_type_not_in_pass_set(tmp_path, monkeypatch):
+    """The gate fix: K2's single task_type must have actually passed calibration for this model, not merely have
+    belonged to a calibration job whose queue status reached 'done'."""
+    lab = StubLab(tmp_path)
+    mi = _mi(tmp_path)
+    lab.models["qwen3-8b"] = mi
+    ran = []
+    monkeypatch.setattr(k2, "run_k2_run", lambda *a, **kw: ran.append(1) or [])
+    out = k2.phase_k2(lab, "qwen3-8b", n_ctx=16384, calibration_pass_set=set())  # TASK_TYPE cannot be in an empty set
+    assert out == []
+    assert ran == []
+    assert lab.rows[-1]["record"] == "k2_disabled"
+    assert lab.rows[-1]["reason"] == "task_type did not pass q0_token_calibration"
+
+
+def test_phase_k2_runs_when_task_type_in_pass_set(tmp_path, monkeypatch):
+    lab = StubLab(tmp_path)
+    mi = _mi(tmp_path)
+    lab.models["qwen3-8b"] = mi
+    monkeypatch.setattr(k2, "run_k2_run", lambda *a, **kw: [{"record": "k2_step_summary", "level_gb": 8,
+                        "median_score": 1.0, "responsiveness_median_s": 0.01, "clean_failure": False}])
+    out = k2.phase_k2(lab, "qwen3-8b", n_ctx=16384, calibration_pass_set={k2.TASK_TYPE})
+    assert len(out) == len(k2.MMAP_ARMS) * len(k2.PRESSURE_ARMS)
+
+
+def test_main_calibration_file_flag_defaults_to_none():
+    ap_source_has_flag = "--calibration-file" in _get_main_source()
+    assert ap_source_has_flag
+
+
+def _get_main_source():
+    import inspect
+    return inspect.getsource(k2.main)
+
+
+def test_main_threads_calibration_pass_set_into_phase_k2():
+    src = _get_main_source()
+    assert "load_calibration_pass_set" in src
+    assert "calibration_pass_set=" in src
+
+
 # ---------------------------------------------------------------- kill_criterion
 
 def _step(level_gb, score, resp, clean_failure=False):
@@ -445,5 +499,5 @@ def test_main_aborts_if_ollama_is_running():
     src = inspect.getsource(k2.main)
     assert "hc.ollama_process_running()" in src
     guard_idx = src.index("hc.ollama_process_running()")
-    phase_call_idx = src.index("phase_k2(lab, mid, args.n_ctx)")
+    phase_call_idx = src.index("phase_k2(lab, mid, args.n_ctx, calibration_pass_set=calibration_pass_set)")
     assert guard_idx < phase_call_idx
