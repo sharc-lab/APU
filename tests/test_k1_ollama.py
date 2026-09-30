@@ -506,8 +506,9 @@ def test_ollama_client_pull_reports_error_line(monkeypatch):
     assert res["final_status"] == "model not found"
 
 
-def test_create_model_from_gguf_writes_a_modelfile_with_just_the_from_line(tmp_path):
+def test_create_model_from_gguf_writes_a_modelfile_with_just_the_from_line(tmp_path, monkeypatch):
     captured = {}
+    monkeypatch.setenv("OLLAMA_BIN", "ollama")  # deterministic exe resolution, independent of this machine's PATH
 
     class FakeResult:
         returncode = 0
@@ -527,6 +528,30 @@ def test_create_model_from_gguf_writes_a_modelfile_with_just_the_from_line(tmp_p
                                    run_fn=fake_run_fn)
     assert res["outcome"] == "ok"
     assert captured["modelfile_content"] == "FROM C:\\apu\\models\\qwen3-4b-instruct-85e4a5b7.gguf\n"
+
+
+def test_create_model_from_gguf_resolves_exe_via_shutil_which_when_no_env_var(tmp_path, monkeypatch):
+    """2026-09-30 bug: plain 'ollama' failed with FileNotFoundError from subprocess.run (no shell=True) on
+    evo-t2s even though the Ollama server itself was already running. Resolve via OLLAMA_BIN or shutil.which,
+    matching stage_a_kv_precision.py's existing convention for this exact binary. create_model_from_gguf does
+    "import shutil" locally, which reuses the same cached sys.modules['shutil'] object -- patching .which on the
+    module imported here at the top of this test file affects it too."""
+    import shutil
+    monkeypatch.delenv("OLLAMA_BIN", raising=False)
+    monkeypatch.setattr(shutil, "which", lambda name: r"C:\real\path\ollama.exe" if name == "ollama" else None)
+    captured = {}
+
+    class FakeResult:
+        returncode = 0
+        stdout = ""
+        stderr = ""
+
+    def fake_run_fn(argv):
+        captured["exe"] = argv[0]
+        return FakeResult()
+
+    K.create_model_from_gguf("x", "/nope.gguf", run_fn=fake_run_fn)
+    assert captured["exe"] == r"C:\real\path\ollama.exe"
 
 
 def test_create_model_from_gguf_reports_error_without_raising():

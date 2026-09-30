@@ -367,15 +367,22 @@ def create_model_from_gguf(name, gguf_path, run_fn=None):
     run_fn is injectable for tests: (argv: list[str]) -> subprocess.CompletedProcess-shaped object with
     .returncode/.stdout/.stderr. Returns {"outcome": "ok"|"error", "returncode": int|None, "stdout": str,
     "stderr": str}; never raises."""
+    import shutil
     import subprocess
     import tempfile
     run_fn = run_fn or (lambda argv: subprocess.run(argv, capture_output=True, text=True, timeout=600))
+    # 2026-09-30 bug found live on evo-t2s: plain "ollama" failed with FileNotFoundError from subprocess.run
+    # (no shell=True), even though the Ollama server itself was already running on this same machine -- Windows'
+    # CreateProcess (what subprocess.run uses without shell=True) does not always resolve a bare command name the
+    # same way a shell does. harness/stage_a_kv_precision.py already solves this exact problem for this exact
+    # binary (OLLAMA_BIN env var, then shutil.which("ollama")); reused here rather than re-solved differently.
+    exe = os.environ.get("OLLAMA_BIN") or shutil.which("ollama") or "ollama"
     with tempfile.TemporaryDirectory() as td:
         modelfile_path = os.path.join(td, "Modelfile")
         with open(modelfile_path, "w", encoding="utf-8") as f:
             f.write(f"FROM {gguf_path}\n")
         try:
-            result = run_fn(["ollama", "create", name, "-f", modelfile_path])
+            result = run_fn([exe, "create", name, "-f", modelfile_path])
         except Exception as e:
             return {"outcome": "error", "returncode": None, "stdout": "", "stderr": repr(e)[:500]}
     outcome = "ok" if getattr(result, "returncode", 1) == 0 else "error"
