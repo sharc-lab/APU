@@ -35,6 +35,7 @@ from __future__ import annotations
 import argparse
 import json
 import random
+import re
 import socket
 import statistics as st
 import subprocess
@@ -805,6 +806,325 @@ def phase_p70(lab):
     lab.resources["server"] = None
 
 
+# ---------------------------------------------------------------- MX2 (evo-x2 two-line memory budget, unified pool)
+# evo-x2 is a unified-memory APU: the whole Vulkan-visible pool is the same physical RAM, but Vulkan still reports it
+# as several heaps, and only some of them carry DEVICE_LOCAL. That gives two budget lines rather than evo-t2s's one:
+#   line 1 (device_local)  the sum of the DEVICE_LOCAL heaps. Past this line an allocation still SUCCEEDS -- the driver
+#                          satisfies it out of the host-visible portion of the pool -- so the server starts and answers
+#                          correctly, and the only symptom is time. That regime is SILENT_SPILL: it cannot be detected
+#                          from the exit code, which is exactly why it needs its own bisected line.
+#   line 2 (vulkan_total)  the sum of every heap. Past this line the allocation cannot be satisfied at all and the
+#                          server either refuses/crashes (HARD_FAIL) or never becomes healthy (HANG).
+# Both lines are MEASURED at run time from vulkaninfo in a single accounting view, deliberately not derived from the
+# D3D Dedicated/Shared split: docs/X2_CHANGELOG.md (2026-09-29) records that Vulkan's device-local/host-visible split
+# does not correspond 1:1 to D3D's Dedicated/Shared split on this machine, so mixing the two views would produce two
+# lines that are not comparable to each other.
+MX2_MODELS = ["llama-3.3-70b", "qwen3-32b"]
+MX2_MATCHED_PROMPT_TOKENS = 8000
+MX2_START_CTX = 8192
+MX2_START_STEP = 4096
+MX2_SPILL_MARGIN_MIB = 512.0  # one probe step's worth of slack before a logged total counts as over a line
+MX2_ARM_CALLS = 3
+# Planning figure only (estimate_hours), not a cap on the search. Derived, not guessed: the 70B's KV is 0.3125 MiB per
+# token (80 layers x 8 KV heads x 128 x 2 x f16), so inside a ~76 GiB device_local line its ~40.5 GiB of weights leave
+# room for roughly 114k tokens, and inside the ~114 GiB total line for roughly 236k. From MX2_START_CTX with
+# MX2_START_STEP doubling, that is ~6 exponential probes + 8 bisection probes for line 1, then ~5 + 8 for line 2 with
+# the overlapping ones served from the shared cache: ~26 server starts per model. The 32B works out about the same.
+MX2_N_PROBES_PER_MODEL = 26
+# Used only if vulkaninfo cannot be read at run time, and then recorded as fallback_lines with lines_measured=False so
+# no analysis mistakes them for a measurement. Values from docs/X2_CHANGELOG.md's 2026-09-29 post-reboot heap dump
+# (DEVICE_LOCAL heap 74.43 GiB; all heaps 111.65 GiB, matching llama-server --list-devices' 114326 MiB total).
+MX2_FALLBACK_LINES = {"device_local_mib": 74.43 * 1024, "vulkan_total_mib": 114326.0}
+MX2_HEAPS_RE = (r"memoryHeaps\[(\d+)\]:\s*\n?\s*size\s*=\s*(\d+)\s*\((0x[0-9a-f]+)\)[^\n]*\n\s*budget\s*=\s*(\d+)"
+                r"[^\n]*\n\s*usage\s*=\s*(\d+)[^\n]*\n\s*flags:\s*\n?([^\n]*(?:\n\s+MEMORY_HEAP[^\n]*)*)")
+# MX2 measures WHERE the memory lands and WHAT THAT COSTS IN TIME. Output correctness is deliberately out of scope:
+# docs/FINDINGS.md already records that a silent spill moved KV into system RAM while the model returned the same
+# answers, because spill changes where the KV lives and not the arithmetic. Running the Q0 suite here (as phase_a70
+# does) would spend hours re-confirming a null result, so this phase records the scope decision instead.
+MX2_QUALITY_SCOPE_NOTE = ("quality out of scope: spill changes where the KV cache lives, not the arithmetic "
+                          "(docs/FINDINGS.md); this phase measures regime and time cost only, no Q0 suite")
+
+
+def mx2_parse_heaps(txt):
+    """vulkaninfo's memoryHeaps block -> [{index, size_mib, budget_mib, usage_mib, flags, device_local}]. Same regex
+    shape as t2s_amech.phase_vk's own heap parse, so the two agree on what a heap is."""
+    out = []
+    for h in re.findall(MX2_HEAPS_RE, txt or ""):
+        flags = " ".join(h[5].split())
+        out.append({"index": int(h[0]), "size_mib": int(h[1]) / 2 ** 20, "budget_mib": int(h[3]) / 2 ** 20,
+                    "usage_mib": int(h[4]) / 2 ** 20, "flags": flags, "device_local": "DEVICE_LOCAL" in flags})
+    return out
+
+
+def mx2_lines_from_heaps(heaps):
+    """The two budget lines from one heap list. device_local_mib is None when no heap advertises DEVICE_LOCAL (rather
+    than 0, which would read as a real line at zero and make every context look like a spill)."""
+    if not heaps:
+        return {"device_local_mib": None, "vulkan_total_mib": None}
+    dl = [h for h in heaps if h["device_local"]]
+    return {"device_local_mib": sum(h["size_mib"] for h in dl) if dl else None,
+            "vulkan_total_mib": sum(h["size_mib"] for h in heaps)}
+
+
+def mx2_read_vulkaninfo(run=subprocess.run):
+    """Raw vulkaninfo text, or None. Injectable `run` so the whole baseline path is testable without a GPU."""
+    try:
+        p = run(["vulkaninfo"], capture_output=True, text=True, errors="replace", timeout=180)
+        return p.stdout
+    except Exception as e:
+        log(f"MX2 baseline: vulkaninfo failed: {e!r}")
+        return None
+
+
+def mx2_read_list_devices(run=subprocess.run):
+    """llama-server --list-devices' own view: {"total_mib", "free_mib", "device", "raw"}. A cross-check on the heap
+    sum from a second, independent reader -- not the source of either line."""
+    try:
+        p = run([L.BINARIES["vulkan"], "--list-devices"], capture_output=True, text=True,
+                errors="replace", timeout=180)
+        txt = (p.stdout or "") + "\n" + (p.stderr or "")
+    except Exception as e:
+        log(f"MX2 baseline: --list-devices failed: {e!r}")
+        return None
+    m = re.search(r"(\S+):\s*.*?(\d+)\s*MiB,\s*(\d+)\s*MiB free", txt)
+    return {"device": m.group(1) if m else None, "total_mib": float(m.group(2)) if m else None,
+            "free_mib": float(m.group(3)) if m else None, "raw": txt.strip()[:1200]}
+
+
+def mx2_read_registry_dedicated(ps_fn=ps):
+    """HardwareInformation.qwMemorySize off the display adapter's Class key: the BIOS UMA reservation as the driver
+    itself reports it. Recorded as provenance for the baseline, not used to compute a line (see the module comment on
+    why the D3D/Vulkan accounting views are not mixed)."""
+    cmd = (r"$k='HKLM:\SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}\0000'; "
+           r"try { 'qwMemorySize=' + (Get-ItemProperty -Path $k -ErrorAction Stop).'HardwareInformation.qwMemorySize' } "
+           r"catch { 'qwMemorySize=unavailable' }")
+    try:
+        out = ps_fn(cmd, 30)
+    except Exception as e:
+        log(f"MX2 baseline: registry read failed: {e!r}")
+        return None
+    m = re.search(r"qwMemorySize=(\d+)", out or "")
+    return {"qw_memory_size_bytes": int(m.group(1)) if m else None,
+            "qw_memory_size_mib": int(m.group(1)) / 2 ** 20 if m else None, "raw": (out or "").strip()[:400]}
+
+
+def mx2_record_baseline(lab, run=subprocess.run, ps_fn=ps):
+    """Reads and records this machine's memory baseline, then returns the two budget lines. Emits one mx2_baseline
+    row carrying the heaps verbatim, both independent cross-checks, and the standing caveat: docs/X2_CHANGELOG.md
+    records that the Vulkan-visible pool grew about 50% at the 2026-09-29 reboot and that the growth is NOT fully
+    explained, so a baseline taken now may be a baseline against a transient. Recorded per run rather than assumed,
+    which is the whole reason this phase reads the numbers itself instead of importing them from docs/HARDWARE.md."""
+    vk_txt = mx2_read_vulkaninfo(run=run)
+    heaps = mx2_parse_heaps(vk_txt) if vk_txt else []
+    lines = mx2_lines_from_heaps(heaps)
+    measured = lines["device_local_mib"] is not None and lines["vulkan_total_mib"] is not None
+    if not measured:
+        lines = dict(MX2_FALLBACK_LINES)
+    ld = mx2_read_list_devices(run=run)
+    reg = mx2_read_registry_dedicated(ps_fn=ps_fn)
+    heap_sum = sum(h["size_mib"] for h in heaps) if heaps else None
+    ld_total = (ld or {}).get("total_mib")
+    lab.emit({"record": "mx2_baseline", "heaps": heaps, "lines": lines, "lines_measured": measured,
+              "fallback_lines": None if measured else dict(MX2_FALLBACK_LINES),
+              "list_devices": ld, "registry_dedicated": reg,
+              "heap_sum_vs_list_devices_mib": None if (heap_sum is None or ld_total is None) else heap_sum - ld_total,
+              "spill_margin_mib": MX2_SPILL_MARGIN_MIB, "quality_scope": MX2_QUALITY_SCOPE_NOTE,
+              "git_sha": getattr(lab, "git_sha", None), "script_sha": getattr(lab, "script_sha", None),
+              "baseline_caveat": ("the Vulkan-visible pool grew about 50 percent at the 2026-09-29 reboot and that "
+                                  "growth is not fully explained (docs/X2_CHANGELOG.md); these lines are this run's "
+                                  "own measurement and may be a transient, not the machine's settled configuration"),
+              "ts_utc": utc_iso()})
+    log(f"MX2 baseline: device_local={lines['device_local_mib']} MiB vulkan_total={lines['vulkan_total_mib']} MiB "
+        f"measured={measured} list_devices_total={ld_total}")
+    return lines
+
+
+def mx2_classify(info, srv, px, lines):
+    """One probe's regime, plus the evidence it was decided on.
+
+      FITS          the server started and its own logged/projected memory stays inside the device_local line
+      SILENT_SPILL  the server started, but that memory crossed the device_local line -- the driver backed the
+                    allocation out of the host-visible part of the pool. No error, no bad exit code, correct answers:
+                    detectable only by comparing the numbers, which is why this regime exists as a label at all
+      HARD_FAIL     the server did not start and exited with a code (refusal or crash)
+      HANG          the server did not start and never exited (am.classify_start's "hung")
+
+    A benign YaRN /props n_ctx cap counts as a start, not a refusal -- am.classify_start already encodes that, and
+    reusing it here keeps MX2 from re-making the bug that bit the A-mech map phase and the bisection twice."""
+    outcome, props_cap = am.classify_start(info, srv)
+    lg = info.get("log", {}) or {}
+    logged = sum(x for x in (lg.get("model_buffer_mib"), lg.get("kv_buffer_mib"), lg.get("compute_buffer_mib")) if x)
+    logged = logged or None
+    projected = px.get("projected_mib")
+    if outcome != "runs":
+        regime = "HANG" if outcome == "hung" else "HARD_FAIL"
+        return regime, props_cap, {"outcome": outcome, "logged_mib": logged, "projected_mib": projected,
+                                   "spill_evidence": [], "exit_code": info.get("exit_code")}
+    dl = lines.get("device_local_mib")
+    evidence = []
+    if dl is not None:
+        if logged is not None and logged > dl - MX2_SPILL_MARGIN_MIB:
+            evidence.append("logged_buffers_over_device_local_line")
+        if projected is not None and projected > dl:
+            evidence.append("llama_cpp_projection_over_device_local_line")
+    regime = "SILENT_SPILL" if evidence else "FITS"
+    return regime, props_cap, {"outcome": outcome, "logged_mib": logged, "projected_mib": projected,
+                               "spill_evidence": evidence, "exit_code": info.get("exit_code"),
+                               "device_local_line_mib": dl}
+
+
+class Mx2HeapProber(am.Prober):
+    """t2s_amech.Prober with a four-way regime instead of a bare started/refused bit, and a selectable criterion so
+    the SAME inherited exponential-search-then-bisect find() locates either line:
+
+      criterion "no_spill"  ok = regime is FITS                    -> bisects line 1 (spill onset)
+      criterion "start"     ok = regime is FITS or SILENT_SPILL     -> bisects line 2 (allocation failure)
+
+    Two probers over ONE shared raw-result dict, so finding the second line never repeats a server start the first
+    line already paid for -- a 70B load is minutes, and the two searches overlap heavily by construction. Nothing in
+    Prober.find()/boundary_record() is reimplemented: find() reads res["ok"], boundary_record() reads pr.cache, and
+    both are populated here in exactly the shapes they already expect."""
+
+    CRITERIA = {"no_spill": ("FITS",), "start": ("FITS", "SILENT_SPILL")}
+
+    def __init__(self, lab, mi, flags, label, lines, criterion, raw=None):
+        super().__init__(lab, mi, flags, label)
+        if criterion not in self.CRITERIA:
+            raise ValueError(f"unknown MX2 criterion {criterion!r}")
+        self.lines, self.criterion = lines, criterion
+        self.raw = raw if raw is not None else {}
+        self.regimes = {}
+
+    def _probe_raw(self, n_ctx):
+        self.lab.check()
+        self.n += 1
+        tag = f"mx2_{self.label}_{n_ctx}_{self.n}"
+        srv, info, px = am.start_and_record(self.lab, self.mi, n_ctx, tag, f"MX2_probe_{self.label}_{n_ctx}_{self.n}",
+                                            "mx2", self.flags, mx2_label=self.label,
+                                            beyond_trained_ctx=n_ctx > self.mi.max_ctx_native,
+                                            kv_bpt_meta=getattr(self.mi, "kv_bpt_meta", None))
+        regime, props_cap, ev = mx2_classify(info, srv, px, self.lines)
+        srv.stop()
+        self.lab.resources["server"] = None
+        res = {"ok": None, "regime": regime, "props_cap": props_cap, "projected_mib": ev["projected_mib"],
+               "logged_mib": ev["logged_mib"], "error": info.get("error"), "vk": px.get("vk_errors"),
+               "alloc_failed": px.get("alloc_failed"), "spill_evidence": ev["spill_evidence"],
+               "exit_code": info.get("exit_code")}
+        self.lab.emit({"record": "mx2_probe", "label": self.label, "model_id": self.mi.model_id, "n_ctx": n_ctx,
+                       "regime": regime, "props_n_ctx_cap": props_cap, "projected_mib": ev["projected_mib"],
+                       "logged_mib": ev["logged_mib"], "spill_evidence": ev["spill_evidence"],
+                       "exit_code": info.get("exit_code"), "error": info.get("error"),
+                       "device_local_line_mib": self.lines.get("device_local_mib"),
+                       "vulkan_total_line_mib": self.lines.get("vulkan_total_mib"),
+                       "beyond_trained_ctx": n_ctx > self.mi.max_ctx_native, "ts_utc": utc_iso()})
+        log(f"mx2 {self.label} n_ctx {n_ctx}: {regime} projected={ev['projected_mib']} logged={ev['logged_mib']}")
+        return res
+
+    def probe(self, n_ctx):
+        n_ctx = int(round(n_ctx / am.STEP)) * am.STEP
+        if n_ctx not in self.raw:
+            self.raw[n_ctx] = self._probe_raw(n_ctx)
+        res = dict(self.raw[n_ctx])
+        res["ok"] = res["regime"] in self.CRITERIA[self.criterion]
+        self.regimes[n_ctx] = res["regime"]
+        self.cache[n_ctx] = res  # boundary_record() reads pr.cache for the two endpoints
+        return res
+
+
+def _mx2_arm(lab, mi, n_ctx, label, flags, lines):
+    """One measured arm at a fixed context: start, matched 8000-token prompt, 1 warm-up + 3 calls. No Q0 suite, by
+    design (MX2_QUALITY_SCOPE_NOTE)."""
+    item = f"MX2_{mi.model_id}_arm_{label}"
+    if item in lab.done:
+        return None
+    lab.check()
+    srv, info, px = am.start_and_record(lab, mi, n_ctx, f"mx2arm_{label}_{n_ctx}", item, "mx2_arms", flags)
+    regime, props_cap, ev = mx2_classify(info, srv, px, lines)
+    try:
+        if not info.get("ok"):
+            lab.emit({"record": "mx2_arm_result", "arm": label, "model_id": mi.model_id, "n_ctx": n_ctx,
+                      "started": False, "regime": regime, "exit_code": info.get("exit_code"),
+                      "error": info.get("error"), "error_lines": px.get("error_lines"),
+                      "vk_errors": px.get("vk_errors"), "alloc_failed": px.get("alloc_failed"),
+                      "quality_scope": MX2_QUALITY_SCOPE_NOTE, "ts_utc": utc_iso()})
+            lab.item_done(item)
+            return None
+        prompt = ov.prompt_for(srv, MX2_MATCHED_PROMPT_TOKENS)
+        n_tok = srv.tokenize(prompt)
+        calls = ov.measured_sequence(lab, srv, mi, "MX2", item, prompt, n_tok,
+                                     extra={"arm": label, "regime": regime, "mx2_n_ctx": n_ctx,
+                                            "spill_evidence": ev["spill_evidence"]}, n_calls=MX2_ARM_CALLS)
+        lab.emit({"record": "mx2_arm_result", "arm": label, "model_id": mi.model_id, "n_ctx": n_ctx, "started": True,
+                  "regime": regime, "props_n_ctx_cap": props_cap, "n_calls_ok": len(calls),
+                  "logged_mib": ev["logged_mib"], "projected_mib": ev["projected_mib"],
+                  "spill_evidence": ev["spill_evidence"], "matched_prompt_tokens": MX2_MATCHED_PROMPT_TOKENS,
+                  "quality_scope": MX2_QUALITY_SCOPE_NOTE, "ts_utc": utc_iso()})
+    finally:
+        srv.stop()
+        lab.resources["server"] = None
+    lab.item_done(item)
+    return regime
+
+
+def phase_mx2(lab, run=subprocess.run, ps_fn=ps):
+    """Two-line memory budget on evo-x2's unified pool. For each model: bisect the spill-onset line (last context
+    that FITS entirely inside the DEVICE_LOCAL heaps) and the allocation-failure line (last context that starts at
+    all), both to am.STEP tokens, then measure what the window between them costs by running a matched 8000-token
+    arm just below line 1 and another inside the spill window. Reuses t2s_amech.Prober (via Mx2HeapProber),
+    am.start_and_record and am.boundary_record directly; the baseline is read and recorded per run, not imported
+    from docs/HARDWARE.md."""
+    _abort_if_ollama_running("mx2")
+    lines = mx2_record_baseline(lab, run=run, ps_fn=ps_fn)
+    for mid in MX2_MODELS:
+        mi = lab.models.get(mid)
+        if mi is None:
+            lab.emit({"record": "mx2_skipped", "model_id": mid, "reason": "model not loaded", "ts_utc": utc_iso()})
+            log(f"MX2: {mid} not loaded, skipping")
+            continue
+        item = f"MX2_{mid}_lines"
+        if item in lab.done:
+            continue
+        flags = am.YARN if mid in ov.YARN_MODELS else []
+        raw = {}  # shared across both searches: never start the same server twice for the two lines
+        pr_fit = Mx2HeapProber(lab, mi, flags, f"{mid}_device_local", lines, "no_spill", raw)
+        lo1, hi1 = pr_fit.find(MX2_START_CTX, MX2_START_STEP)
+        if lo1 is None:
+            lab.emit({"record": "mx2_no_fitting_context", "model_id": mid, "first_fail_n_ctx": hi1,
+                      "lines": lines, "ts_utc": utc_iso()})
+            log(f"MX2 {mid}: no context fits inside the device_local line at all; nothing to bisect above it")
+            lab.item_done(item)
+            continue
+        am.boundary_record(lab, mi, f"mx2_{mid}_device_local", flags, pr_fit, lo1, hi1,
+                           target_note=f"MX2 line 1 (spill onset): device_local {lines['device_local_mib']} MiB")
+        pr_start = Mx2HeapProber(lab, mi, flags, f"{mid}_vulkan_total", lines, "start", raw)
+        lo2, hi2 = pr_start.find(hi1, MX2_START_STEP)
+        if lo2 is not None:
+            am.boundary_record(lab, mi, f"mx2_{mid}_vulkan_total", flags, pr_start, lo2, hi2,
+                               target_note=f"MX2 line 2 (allocation failure): vulkan_total {lines['vulkan_total_mib']} MiB")
+        window = (lo2 - lo1) if lo2 is not None else None
+        regimes = {n: r["regime"] for n, r in sorted(raw.items())}
+        lab.emit({"record": "mx2_two_line_result", "model_id": mid, "rope_flags": flags or None, "lines": lines,
+                  "device_local_last_fit_n_ctx": lo1, "device_local_first_spill_n_ctx": hi1,
+                  "vulkan_total_last_start_n_ctx": lo2, "vulkan_total_first_fail_n_ctx": hi2,
+                  "spill_window_tokens": window, "regimes_by_n_ctx": regimes,
+                  "regime_counts": {r: sum(1 for x in regimes.values() if x == r) for r in sorted(set(regimes.values()))},
+                  "n_server_starts": len(raw), "beyond_trained_ctx_at_first_fail": (hi2 or 0) > mi.max_ctx_native,
+                  "max_ctx_native": mi.max_ctx_native, "yarn_factor": getattr(mi, "yarn_factor", None),
+                  "quality_scope": MX2_QUALITY_SCOPE_NOTE, "ts_utc": utc_iso()})
+        log(f"MX2 {mid}: fits<={lo1}, spills from {hi1}, starts<={lo2}, fails from {hi2}, window={window} tokens")
+        arms = [("below_line1", lo1)]
+        if window and window > am.STEP:
+            mid_ctx = int(round(((lo1 + lo2) / 2) / am.STEP)) * am.STEP
+            arms.append(("in_spill_window", min(max(mid_ctx, lo1 + am.STEP), lo2)))
+        else:
+            lab.emit({"record": "mx2_no_spill_window", "model_id": mid, "spill_window_tokens": window,
+                      "note": "line 1 and line 2 are within one probe step: no context both starts and spills",
+                      "ts_utc": utc_iso()})
+        for label, n_ctx in arms:
+            _mx2_arm(lab, mi, n_ctx, label, flags, lines)
+        lab.item_done(item)
+
+
 class ResponsivenessSampler:
     """Local interactive-latency probe for one C1 cell: every 30 s, times a trivial local subprocess
     (python -c "pass") with time.monotonic(). Local, not SSH, because this runs inside the harness process on
@@ -955,18 +1275,19 @@ def phase_perfboost(lab):
 
 
 PRIO = {"b1": 1, "b2": 2, "c1": 3, "b3": 4, "c1b": 5, "b4": 6, "b4_32b": 7, "b4_replicate": 8, "r1_speed": 10,
-        "r1_check": 11, "a70": 12, "a70_finalize": 12.5, "p70": 13, "r1b": 14, "r1d": 15, "r1c": 16, "perfboost": 9}
+        "r1_check": 11, "a70": 12, "a70_finalize": 12.5, "p70": 13, "r1b": 14, "r1d": 15, "r1c": 16, "mx2": 17,
+        "perfboost": 9}
 PHASE_FN = {"b1": phase_b1, "b2": phase_b2, "c1": phase_c1, "b3": phase_b3, "c1b": phase_c1b, "b4": phase_b4,
            "b4_32b": phase_b4_32b, "b4_replicate": phase_b4_replicate, "r1_speed": phase_r1_speed,
            "r1_check": phase_r1_check, "a70": phase_a70, "a70_finalize": phase_a70_finalize, "p70": phase_p70,
-           "r1b": phase_r1b, "r1d": phase_r1d, "r1c": phase_r1c, "perfboost": phase_perfboost}
+           "r1b": phase_r1b, "r1d": phase_r1d, "r1c": phase_r1c, "mx2": phase_mx2, "perfboost": phase_perfboost}
 PHASE_ORDER = "b1,b2,c1,b3,c1b,perfboost"
 
 # Phases that must pass a 1-item live smoke (server start, stale-server guard, one call, row-schema check) before
 # their first real run in a given resumed stem, per the standing rule added after two duplicate-keyword crashes: a
 # dry run against a stub lab catches code bugs, but only a real machine catches a bad deploy, a missing dependency
 # file, or a wrong assumption about what the live server actually returns.
-SMOKE_GATED_PHASES = {"r1_speed", "r1_check", "a70", "p70", "r1b", "r1c", "r1d"}
+SMOKE_GATED_PHASES = {"r1_speed", "r1_check", "a70", "p70", "r1b", "r1c", "r1d", "mx2"}
 
 
 class SmokeFailure(Exception):
@@ -1156,6 +1477,15 @@ def estimate_hours(lab, overheads=None):
         n_calls = len(R1C_PROBE_IDS) * len(R1_CHECK_RATIOS) * len(R1_CHECK_ARMS) * R1_CHECK_REPS  # 360
         s += load_s(mid) + n_calls * call_s(mid, R1_CHECK_FILLER)
     est["r1c"] = s / 3600
+    # MX2: server-start-only probes plus two measured arms per model. The two lines share one raw-result cache, so the
+    # second search only pays for the probes the first did not already do -- MX2_N_PROBES_PER_MODEL is that shared
+    # total (see the comment on the constant), not two independent bisections.
+    s = 0.0
+    for mid in MX2_MODELS:
+        if mid not in tab and mid not in real_load:
+            continue  # not on this machine / not downloaded yet
+        s += MX2_N_PROBES_PER_MODEL * load_s(mid) + 2 * (load_s(mid) + (1 + MX2_ARM_CALLS) * call_s(mid, MX2_MATCHED_PROMPT_TOKENS))
+    est["mx2"] = s / 3600
     return est
 
 
