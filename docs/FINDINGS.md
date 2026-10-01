@@ -1125,18 +1125,33 @@ both machines; broadening the pattern to catch "no X was/were provided/recorded/
 depends heavily on exact phrasing and is not safe to trust uninspected -- exactly the reason the addendum's
 tri-rater (heuristic / hand-label / LLM judge) validation exists rather than citing the heuristic alone.
 
-**Refusal share of wrong answers, by model (the pre-planned "does scale change fabricate vs refuse" question).**
+**Refusal share of wrong answers, by model (the pre-planned "does scale change fabricate vs refuse" question) --
+CORRECTED 2026-10-01 against the number register (docs/NUMBERS_REGISTER.md), real files now committed.**
+This section's numbers below were written while `x2_r1b_r1d` was still a live, growing job (the original prose
+here cited "872 x2 rows" total; the file has since grown to 1440 rows once llama31-8b and llama-3.3-70b were
+added and the job completed/was cut) -- recomputed fresh from the final, now-committed files
+(`results/t2s_night2_20260929T202603Z.jsonl`, `..._20260929T205109Z.jsonl`) via the real
+`analysis/r1b_wrong_answer_audit.py::refusal_share_by_model` function:
 t2s: qwen3-8b 9/192 (5%), qwen3-14b 9/198 (5%). x2: qwen3-4b-2507 12/198 (6%), qwen3-8b 11/192 (6%), qwen3-14b 9/198
-(5%), qwen3-32b 19/111 (17%). Preliminary read: qwen3-32b's refusal share is roughly 3x the smaller models', but this
-is one model at one point, entirely driven by a single probe (art_05) in the current data, not a general pattern
-across probes yet -- no llama family or 70B data exists yet. Treat this as a lead, not a finding, until it either
-replicates on a second probe or holds up under the tri-rater validation.
+(5%), llama31-8b 9/174 (5%), llama-3.3-70b 9/183 (5%), **qwen3-32b 41/199 (21%)**. The qwen3-32b figure was
+reported as "19/111 (17%)" earlier today, itself a reconciliation of an even earlier hand-typed "41/82 (50%)"
+that had no backing file at all -- that reconciliation was trust-based on this section's own prior internal
+consistency (the four smaller-model counts summing to a stated x2 total), not an actual fresh recomputation,
+since the source file was not available to recompute from at the time. It is available now, and the real
+number is 41/199 (21%), not 19/111 (17%). qwen3-32b's refusal share is still roughly 4x the smaller models'
+(not 3x as the stale figure suggested), still entirely driven by a single probe (art_05) in the current data,
+still not a general pattern across probes -- now with llama family and 70B data present, and neither shows an
+elevated refusal share (both at 5%, in line with the smaller models), so the effect looks qwen3-32b-specific
+so far, not a general large-model effect. Treat this as a lead, not a finding, until it replicates on a second
+probe or holds up under the tri-rater validation.
 
-**Self-report truncation-awareness.** 0 out of 240 (t2s) and 0 out of 435 (x2) self-report outputs mention that the
-input looked incomplete or truncated, at any ratio. The self-report arm's "AVAILABLE: yes/no" framing never once
-produces a model saying anything like "this context looks cut off" -- when the model reports the answer is
-unavailable, it says so as if the information were simply absent from a complete document, never as evidence of
-truncation.
+**Self-report truncation-awareness -- CORRECTED 2026-10-01.** 0 out of 240 (t2s) and **0 out of 720** (x2, not
+435 as earlier reported -- same live-job/file-growth explanation as the refusal-share correction above) =
+**0/960** self-report outputs mention that the input looked incomplete or truncated, at any ratio. The
+conclusion is unchanged by the correction (still zero, now over a larger real sample): the self-report arm's
+"AVAILABLE: yes/no" framing never once produces a model saying anything like "this context looks cut off" --
+when the model reports the answer is unavailable, it says so as if the information were simply absent from a
+complete document, never as evidence of truncation.
 
 **Self-report scoring: the running jobs are currently writing wrong scores to disk, live, right now.** The
 `strip_available_prefix` fix (commit `3f7b1f4`) is correctly present in the on-disk `scorers.py` on both machines
@@ -1171,7 +1186,16 @@ which was not done in this pass. Flagged rather than skipped silently.
 
 ## A3/A6 audit: reconciling the qwen3-32b refusal-share discrepancy, real row examples, and a citation check (2026-09-30)
 
-### A3: 41/82 (50%) vs 19/111 (17%) -- which is real
+**SUPERSEDED 2026-10-01, see the R1b evaluation audit section above and docs/NUMBERS_REGISTER.md.** The source
+file this section could not reach on 2026-09-30 (`results/t2s_night2_20260929T205109Z.jsonl`) has since been
+pulled and committed. The real, freshly-computed number is **41/199 (21%)**, not 19/111 (17%) as this
+section's own verdict below concluded. That verdict was itself trust-based (internal consistency against this
+doc's own prior prose), not a fresh file computation, since the file was unavailable at the time -- stated
+plainly in this section's own text below ("19/111 is real but can only be confirmed by provenance... not
+independently recomputed from files in the repo today"). The rest of this section (A6's verbatim samples and
+citation check) is unaffected and stands as written.
+
+### A3 (historical, see supersession note above): 41/82 (50%) vs 19/111 (17%) -- which is real
 
 **Verdict: 19/111 (17%) is the only one of the two numbers that is grounded in this repository.
 41/82 (50%) does not appear anywhere in this project's committed history, on any branch, in any
