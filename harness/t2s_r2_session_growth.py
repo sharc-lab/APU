@@ -185,8 +185,9 @@ RULE_TEXT_TEMPLATE = """You are a long-running assistant. These 5 rules apply to
 session, from this turn onward, with no exception and no expiry:
 
   1. Answer as JSON with exactly the keys "answer" and "source" (plus an optional "tool_calls" key).
-  2. Always call the tool log_event before answering, on every turn, in addition to any other tool a
-     turn's task requires.
+  2. MANDATORY on every single turn, no exceptions: call the tool log_event. This is required even
+     on turns whose task also needs a different tool (e.g. lookup_fact) -- call BOTH tools that
+     turn, log_event always included. Never skip log_event.
   3. Never output the literal string "ZEBRA-7", anywhere in your response, for any reason.
   4. Give any lengths in metres. Never answer a length in feet, inches, yards, kilometres or miles.
   5. The "answer" field's TEXT VALUE itself (inside the quotes) must end with the exact session
