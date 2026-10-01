@@ -24,6 +24,7 @@ separate scheduled task -- see this repo's install_queue_watchdog.ps1 for the pa
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import subprocess
 import sys
@@ -58,8 +59,21 @@ foreach ($d in $dirs) {{
 
 
 def _ssh_lines(host_str, ps_script, timeout=600):
+    """2026-10-01 fix: this used to pass ps_script as the literal value of -Command. OpenSSH's Windows client
+    joins all trailing argv elements into one plain string before handing it to the remote host, and that
+    string is then re-tokenized by the remote shell on whitespace (ps_script's directory paths use single
+    quotes, which the remote tokenizer does not treat as grouping). This silently split the multi-line script
+    into many bare words, which (a) made PowerShell print its own -Command usage/help text once per run --
+    identical on every host because it is generic PowerShell help, not host data, confirmed live by dumping
+    those exact lines and finding zero of them reference a file -- and (b) on evo-t2s dropped 7 real files
+    from the enumeration outright (1018 -> 1025 good lines after this fix, confirmed by a live before/after
+    rerun), because the corrupted script body did not visit every file. -EncodedCommand (base64 of the UTF-16LE
+    script, PowerShell's own documented answer to exactly this class of quoting problem) sends the script as
+    one opaque token no shell can re-tokenize, which eliminates both problems in the same live rerun (0 bad
+    lines on both hosts)."""
+    encoded = base64.b64encode(ps_script.encode("utf-16-le")).decode("ascii")
     p = subprocess.run([SSH, "-o", "BatchMode=yes", "-o", "ConnectTimeout=30", host_str,
-                       "powershell", "-NoProfile", "-Command", ps_script],
+                       "powershell", "-NoProfile", "-EncodedCommand", encoded],
                        capture_output=True, text=True, timeout=timeout)
     if p.returncode != 0 and not p.stdout.strip():
         raise RuntimeError(f"ssh enumerate failed: rc={p.returncode} stderr={p.stderr[:500]}")
@@ -67,26 +81,51 @@ def _ssh_lines(host_str, ps_script, timeout=600):
 
 
 def enumerate_remote_files(host_str):
-    """Returns a list of {root, rel, size, sha256} dicts for every file under either remote results dir."""
+    """Returns a list of {root, rel, size, sha256} dicts for every file under either remote results dir.
+
+    Also returns (via the module-level _last_enumerate_line_count) the raw line count straight from the
+    remote shell, so callers can reconcile "lines received" against "files parsed + files we know we're
+    intentionally excluding" and fail loudly on any unexplained gap, instead of a silent drop looking
+    identical to "nothing changed" (see check_enumeration_reconciled)."""
     script = _ENUM_PS.format(dir1=REMOTE_RESULT_DIRS[0], dir2=REMOTE_RESULT_DIRS[1])
     out = []
     skipped = 0
-    for line in _ssh_lines(host_str, script):
+    skipped_lines = []
+    lines = _ssh_lines(host_str, script)
+    for line in lines:
         try:
             obj = json.loads(line)
         except json.JSONDecodeError:
             skipped += 1
+            skipped_lines.append(line)
             continue
         if not isinstance(obj, dict) or not {"root", "rel", "size"} <= obj.keys():
             # A malformed/partial line (e.g. a path containing a character that broke the one-line-per-file
             # JSON framing) parses to something other than the expected object -- skip it rather than crash
             # the whole sync; the file just doesn't get synced this run and will be retried next time.
             skipped += 1
+            skipped_lines.append(line)
             continue
         out.append(obj)
     if skipped:
         print(f"  (skipped {skipped} unparseable/malformed enumeration line(s))", flush=True)
+        for sl in skipped_lines[:10]:
+            print(f"    skipped line: {sl!r}", flush=True)
+    check_enumeration_reconciled(len(lines), len(out), skipped)
     return out
+
+
+def check_enumeration_reconciled(total_lines, n_parsed, n_skipped):
+    """Raises RuntimeError if total_lines != n_parsed + n_skipped -- the one invariant that must always hold
+    for enumerate_remote_files's own counting to be trustworthy. This cannot by itself detect a file that the
+    remote PowerShell never visited at all (e.g. the 2026-10-01 -Command tokenization bug, which produced a
+    consistent but wrong total_lines), but it does turn any future accounting bug in this function itself into
+    a loud error instead of a silent undercount, which is the class of bug that caused that incident to go
+    unnoticed for as long as it did."""
+    if total_lines != n_parsed + n_skipped:
+        raise RuntimeError(
+            f"enumeration reconciliation mismatch: {total_lines} raw lines != "
+            f"{n_parsed} parsed + {n_skipped} skipped (missing {total_lines - n_parsed - n_skipped})")
 
 
 def load_manifest():

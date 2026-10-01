@@ -1509,3 +1509,99 @@ app-load effect specifically.
 written before any of arm (d)'s run-execution code exists, per this repo's standing rule (see the everyday_apps and
 R2 pre-registrations above) that a kill criterion or prediction set is recorded before the run that could satisfy or
 fail it.
+
+## K1 v3, evo-t2s: the 4096 default context is Ollama's own integrated-GPU policy, not an Intel hardware limit (2026-10-01)
+
+**Hardware arm:** evo-t2s only (Intel Core Ultra X7 358H, Arc iGPU, Ollama 0.33.2). Not the BOM target, never
+pooled with evo-x2.
+
+**This replaces the earlier "measurement gap" framing of this result with a mechanism finding.** The prior report
+(same K1 v3 probe set) treated T2S's `ollama_default_ctx == 4096` for all three models as an unexplained host-level
+divergence from evo-x2, where the same three models land at their own native/uncapped context. It is not a gap:
+the real `ollama_serve.log` from a live, read-only `/api/ps` check (pulled under the maintenance lock, 2026-10-01)
+shows the exact mechanism, verbatim:
+
+```
+time=2026-10-01T12:59:00.253-07:00 level=INFO source=runner.go:405 msg="dropping integrated GPU; to enable, set OLLAMA_IGPU_ENABLE=1" id=0 library=Vulkan compute=0.0 name=Vulkan0 description="Intel(R) Arc(TM) B390 GPU" pci_id=""
+time=2026-10-01T12:59:00.254-07:00 level=INFO source=types.go:50 msg="inference compute" id=cpu library=cpu compute="" name=cpu description=cpu libdirs=ollama driver="" pci_id="" type="" total="63.5 GiB" available="50.5 GiB"
+time=2026-10-01T12:59:00.254-07:00 level=INFO source=routes.go:2058 msg="vram-based default context" total_vram="0 B" default_num_ctx=4096
+```
+
+Ollama's own GPU discovery correctly identifies the iGPU (`Vulkan0`, "Intel(R) Arc(TM) B390 GPU") and then explicitly
+drops it by policy, falling back to CPU. Because no GPU is counted, `total_vram="0 B"`, and Ollama's own
+vram-based default-context sizing floors at 4096 in that case. `OLLAMA_IGPU_ENABLE` was confirmed unset in the
+full `OLLAMA_*` env-var dump from the same session (no entry for it at all, i.e. Ollama's own default applies).
+
+**Live-verified fix, read-only in the sense that it changes nothing on disk, only the server's own env var for one
+test invocation:** starting `ollama serve` with `OLLAMA_IGPU_ENABLE=1` and loading llama3.1:8b again:
+
+| | OLLAMA_IGPU_ENABLE unset (default) | OLLAMA_IGPU_ENABLE=1 |
+|---|---|---|
+| size_vram | 0 | 9189206261 (8.56 GiB, full model) |
+| context_length | 4096 | 32768 |
+
+Setting one environment variable moves the model fully onto the iGPU and raises the default context 8x. **This
+confirms the hypothesis: the 4096 ceiling on evo-t2s is Ollama's own integrated-GPU opt-out default, not a hardware
+or driver limitation of the Arc iGPU.** It does not fully explain the T2S vs X2 gap by itself (X2's AMD Strix Halo
+iGPU must either not be subject to the same opt-out, or ships with `OLLAMA_IGPU_ENABLE` effectively on by default
+on that platform's Ollama build -- not yet checked directly; flagged as the next step, not assumed).
+
+**T2S vs X2 default-context table** (from the K1 v3 register rows, `ollama_default_ctx` per model):
+
+| model | evo-t2s default ctx | evo-x2 default ctx | native_ctx |
+|---|---|---|---|
+| qwen3-4b-2507 | 4096 | 262144 | 262144 |
+| llama3.1:8b | 4096 | 131072 | 131072 |
+| qwen3:8b | 4096 | 40960 | 40960 |
+
+**Engine/source mechanism (item 1b): the overflow behavior follows how the model was loaded into Ollama, not the
+model itself.** At the same 4096 default, live-tested:
+
+| model | source | overflow behavior at 4096 default |
+|---|---|---|
+| qwen3-4b-2507 | `ollama create` from local GGUF | HTTP 400 (hard error, `exceed_context_size_error`) |
+| llama3.1:8b | `ollama pull` (library) | HTTP 200, silent truncation (`token_truncated=True`) |
+| llama3.1:8b | `ollama create` from its own local GGUF (same file) | HTTP 400 (hard error, identical message) |
+| qwen3:8b | `ollama pull` (library) | HTTP 200, silent truncation, pinned at 2050 tokens processed (half of 4096) |
+
+The same model (llama3.1:8b) produces opposite overflow behavior depending on creation method alone: a bare
+`FROM <gguf>` Modelfile (no other directives) hard-errors, while the library-pulled version (whose Modelfile
+Ollama ships with additional template/parameter directives not present in a bare GGUF import) silently truncates.
+This settles item 1b: **the behavior follows the Modelfile/creation path, not the model architecture or the
+underlying llama-server engine** (both paths use the same `llama-server.exe` binary per `ollama_serve.log`).
+
+**Register additions:** `T2S-vs-X2-default-ctx` (the table above) and the fraction-of-trace-steps-exceeding-4096
+row are added to `analysis/numbers_register.py` (see item 1c in the 2026-10-01 report for the computed fraction
+and its data file).
+
+## PRE-REGISTRATION: K1 v3 probe set under IPEX-LLM Ollama and llama.cpp Vulkan llama-server (not yet run)
+
+**Hypothesis under test:** the default context and overflow semantics found above are set by the *runtime's own
+device-detection and default-sizing policy*, not by the Arc iGPU hardware itself. The stock-Ollama
+`OLLAMA_IGPU_ENABLE=1` result above is one data point for this; this experiment tests it under two more runtimes
+that are not stock Ollama's CPU/Vulkan-with-iGPU-disabled default path.
+
+**Design, pre-registered before any of this runs:**
+- **(a) Intel's GPU-enabled Ollama build (IPEX-LLM Ollama).** Installed side-by-side with stock Ollama, never
+  replacing it: a separate install directory and a separate `OLLAMA_MODELS`/port, so the existing K1 v3/R2/PX2
+  queue entries that depend on stock Ollama are never put at risk. Version and source URL recorded verbatim at
+  install time. A revert procedure (uninstall steps, confirmation stock Ollama still resolves and serves
+  afterward) is written into `docs/T2S_CHANGELOG.md` before the install runs, not after.
+- **(b) llama.cpp's own `llama-server`, Vulkan backend, with no `-c` flag** -- i.e. whatever its own default
+  context policy is with the context size unspecified, not this repo's usual explicit `-c <n>`.
+- Same three models (qwen3-4b-2507, llama3.1:8b, qwen3:8b), same five probe lengths (16K/32K/48K/96K/128K) as the
+  existing K1 v3 probe set, for direct comparison against the stock-Ollama-CPU and stock-Ollama-iGPU-enabled rows
+  already on record.
+- **Recorded per runtime:** the detected device (verbatim log line, the same way `tier_v3_device_detect` already
+  records it for stock Ollama), the default context before any override, and the overflow behavior per length
+  (HTTP status, sent vs processed tokens) -- the identical schema as the existing `tier_v3_probe` record, so the
+  four runtimes (stock Ollama CPU, stock Ollama+IGPU_ENABLE, IPEX-LLM Ollama, llama.cpp Vulkan) are directly
+  comparable rows in one table.
+- **Prediction:** if the hypothesis holds, IPEX-LLM Ollama's device detection should see the iGPU and move its
+  default context off the 4096 tier (the way `OLLAMA_IGPU_ENABLE=1` already did for stock Ollama above); llama.cpp
+  Vulkan's own no-`-c` default is an independent third data point on whether a non-Ollama runtime's default
+  context policy also depends on detecting the iGPU, or is architected differently (e.g. llama.cpp is known to
+  default to the model's own trained context rather than a VRAM-scaled value, which would make this a genuinely
+  different comparison, not just a replication).
+
+**Status:** PRE-REGISTRATION. Install and run not yet started as of this writing.

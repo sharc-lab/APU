@@ -185,6 +185,72 @@ def compute_trace_cdf_crossing_fractions(repo):
            "n": int(nebius["trajectory_id"].nunique())}
 
 
+def compute_t2s_x2_default_ctx_table(repo):
+    """Per-model ollama_default_ctx on evo-t2s vs evo-x2, from each host's own real K1 v3 jsonl. See
+    docs/FINDINGS.md's 2026-10-01 mechanism entry for why these differ (Ollama's own integrated-GPU
+    opt-out policy on evo-t2s, confirmed live via a read-only /api/ps check and the OLLAMA_IGPU_ENABLE=1
+    test), not a hardware limit."""
+    t2s_path = repo / "results" / "apu_results__t2s_k1_ollama_evo-t2s_20261001T074622Z.jsonl"
+    x2_path = repo / "results" / "t2s_k1_ollama_evo-x2_20260930T205515Z.jsonl"
+    t2s_rows = {r["model_tag"]: r for r in _read_jsonl(t2s_path) if r.get("record") == "tier" and r.get("phase") == "tier"}
+    x2_rows = {r["model_tag"]: r for r in _read_jsonl(x2_path) if r.get("record") == "tier" and r.get("phase") == "tier"}
+    models = ["qwen3-4b-2507", "llama3.1:8b", "qwen3:8b"]
+    table = {}
+    for m in models:
+        if m not in t2s_rows or m not in x2_rows:
+            raise FileNotFoundError(f"missing tier row for {m} on one host")
+        table[m] = {"t2s_default_ctx": t2s_rows[m]["ollama_default_ctx"], "x2_default_ctx": x2_rows[m]["ollama_default_ctx"]}
+    return {"value": json.dumps(table), "n": len(models), "detail": table}
+
+
+def compute_trace_fraction_exceeds_4096(repo):
+    """Fraction of real trace-matched agent steps (both uncensored sources, qwen tokenizer) whose token
+    count exceeds 4096 -- the evo-t2s default context floor found in the K1 v3 mechanism entry -- vs the
+    evo-x2 per-model defaults (131072-262144), for the same trace data."""
+    import pandas as pd
+    path = repo / "results" / "traces" / "agent_step_lengths.parquet"
+    df = pd.read_parquet(path)
+    uncensored = df[df["dataset"].isin([
+        "nebius/SWE-agent-trajectories", "SWE-Gym/SWE-Gym-Trajectories",
+    ])] if set(df["dataset"].unique()) & {"SWE-Gym/SWE-Gym-Trajectories"} else df[df["dataset"] == "nebius/SWE-agent-trajectories"]
+    n = len(uncensored)
+    if n == 0:
+        raise FileNotFoundError("no trace rows matched for the fraction-exceeds-4096 computation")
+    over_4096 = float((uncensored["tokens_qwen"] > 4096).mean())
+    over_x2_floor = float((uncensored["tokens_qwen"] > 40960).mean())  # qwen3:8b is X2's smallest default (40960)
+    return {"value": f"{over_4096*100:.1f}% of steps exceed evo-t2s's 4096 default; "
+                     f"{over_x2_floor*100:.1f}% exceed evo-x2's smallest model default (40,960)",
+           "n": n}
+
+
+def compute_b3_corunner_6model(repo):
+    """Real nonp12-vs-none TTFT ratio per model, section B1 (qwen3-4b-2507, qwen3-8b) and section B3
+    (llama31-8b, qwen3-14b, qwen3-30b-a3b-2507, qwen3-32b) of the real b1/b3 phase run -- matched pairs
+    only (same section, so qwen3-4b-2507/qwen3-8b's B2 dose-response sweep rows, which also happen to
+    carry a 'nonp12' co_runner label as one of several reference arms, are excluded; mixing them in
+    produces a materially different, wrong ratio, confirmed live by computing both ways)."""
+    path = repo / "results" / "t2s_night2_20260928T004924Z.jsonl"
+    rows = [r for r in _read_jsonl(path) if r.get("record") is None and r.get("kind") != "start"
+            and r.get("section") in ("B1", "B3")]
+    if not rows:
+        raise FileNotFoundError("no B1/B3 rows found")
+    by_model = {}
+    for r in rows:
+        by_model.setdefault(r["model_id"], {}).setdefault(r.get("co_runner"), []).append(r.get("ttft_s"))
+    ratios = {}
+    for model, conds in by_model.items():
+        none_vals = [v for v in conds.get("none", []) if v is not None]
+        nonp12_vals = [v for v in conds.get("nonp12", []) if v is not None]
+        if none_vals and nonp12_vals:
+            ratios[model] = statistics.median(nonp12_vals) / statistics.median(none_vals)
+    if len(ratios) < 6:
+        raise FileNotFoundError(f"only {len(ratios)}/6 models have a matched none/nonp12 pair")
+    mean_ratio = statistics.mean(ratios.values())
+    return {"value": f"per-model {', '.join(f'{m}:{r:.3f}x' for m, r in sorted(ratios.items()))}; "
+                     f"mean {mean_ratio:.3f}x (+{(mean_ratio-1)*100:.1f}%)",
+           "n": len(ratios), "detail": ratios}
+
+
 def compute_x2_truncation_cliff(repo):
     import sys
     sys.path.insert(0, str(repo))
@@ -397,6 +463,18 @@ NUMBER_ENTRIES = [
      "data_files": ["results/t2s_night2_20260929T202603Z.jsonl", "results/t2s_night2_20260929T205109Z.jsonl"],
      "script_function": "analysis/numbers_register.py::compute_self_report_truncation_awareness",
      "reported_value": "0/240 (T2S) + 0/720 (X2) = 0/960"},
+    {"claim_id": "T2S-vs-X2-default-ctx", "description": "K1 v3 per-model ollama_default_ctx, evo-t2s vs evo-x2",
+     "compute": compute_t2s_x2_default_ctx_table,
+     "data_files": ["results/apu_results__t2s_k1_ollama_evo-t2s_20261001T074622Z.jsonl",
+                    "results/t2s_k1_ollama_evo-x2_20260930T205515Z.jsonl"],
+     "script_function": "analysis/numbers_register.py::compute_t2s_x2_default_ctx_table"},
+    {"claim_id": "trace-fraction-exceeds-4096", "description": "fraction of trace steps exceeding evo-t2s's 4096 default",
+     "compute": compute_trace_fraction_exceeds_4096, "data_files": ["results/traces/agent_step_lengths.parquet"],
+     "script_function": "analysis/numbers_register.py::compute_trace_fraction_exceeds_4096"},
+    {"claim_id": "B3-corunner-6model", "description": "6-model nonp12 co-runner TTFT ratio (B1+B3 sections)",
+     "compute": compute_b3_corunner_6model, "data_files": ["results/t2s_night2_20260928T004924Z.jsonl"],
+     "script_function": "analysis/numbers_register.py::compute_b3_corunner_6model",
+     "reported_value": "1.43x"},
 ]
 
 
