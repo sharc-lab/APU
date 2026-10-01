@@ -1106,9 +1106,17 @@ class R2SessionLab(k1.K1Lab):
         options = apply_ollama_arm(arm_id, {"seed": session.seed})
         num_ctx = options.get("num_ctx")
 
+        # think=False on every call (2026-10-01, found live testing qwen3:14b): Qwen3's hybrid-reasoning
+        # models default to thinking-on, same root cause as K1 v3's own marker-probe bug (see
+        # t2s_k1_ollama.OllamaClient.chat's think= docstring) -- without it, a thinking model's whole
+        # token budget gets spent on hidden reasoning, leaving message.content empty every time. Live
+        # symptom before this fix: qwen3:14b's validation run showed output_text=="" on every turn and
+        # 6/6 canary misses (100%), which is not a real memory failure, the same class of false signal
+        # already found and fixed once for K1 v3. think=False is a no-op for non-thinking models
+        # (llama3.1:8b, qwen3-4b-instruct-2507), so it is safe to pass unconditionally.
         call1_tools = None if turn.canary_check else ollama_tools_payload()
         resp1 = ollama.chat(model_id, "", num_ctx=num_ctx, messages=messages, tools=call1_tools,
-                            keep_alive="30m")
+                            keep_alive="30m", think=False)
         call1_tool_calls = resp1.get("tool_calls")
         full_messages = messages
         final_resp = resp1
@@ -1118,7 +1126,7 @@ class R2SessionLab(k1.K1Lab):
             for call in call1_tool_calls:
                 full_messages.append({"role": "tool", "content": _synthetic_tool_result(call)})
             final_resp = ollama.chat(model_id, "", num_ctx=num_ctx, messages=full_messages, tools=None,
-                                     keep_alive="30m")
+                                     keep_alive="30m", think=False)
         sent_tokens = sum(count_fn(m["content"]) for m in full_messages)
         output_text = final_resp.get("message") or ""
         row = self.emit({

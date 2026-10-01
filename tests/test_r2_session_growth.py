@@ -934,12 +934,12 @@ class FakeOllama:
         self._responses = list(responses) if responses is not None else None
 
     def chat(self, model, prompt, num_ctx=None, max_tokens=64, keep_alive=None, messages=None,
-             tools=None):
+             tools=None, think=None):
         # snapshot messages (list(...)) since the caller keeps mutating the same list object turn
         # to turn -- storing the reference itself would make every recorded call alias the final,
         # fully-grown history instead of what was actually sent at that point in time.
         self.calls.append({"model": model, "num_ctx": num_ctx, "messages": list(messages or []),
-                            "tools": tools, "keep_alive": keep_alive})
+                            "tools": tools, "keep_alive": keep_alive, "think": think})
         if self._responses:
             return self._responses.pop(0)
         return {"outcome": "ok", "status": 200, "message": "not valid json output",
@@ -1252,7 +1252,7 @@ class FakePositiveControlOllama:
         self.calls = []
 
     def chat(self, model, prompt, num_ctx=None, max_tokens=64, keep_alive=None, messages=None,
-             tools=None):
+             tools=None, think=None):
         self.calls.append({"model": model, "messages": list(messages or [])})
         sent_tokens = sum(len(m["content"].split()) for m in (messages or []))
         last_user = next((m["content"] for m in reversed(messages or []) if m["role"] == "user"), "")
