@@ -358,17 +358,64 @@ def compute_c1b_stall_clean_cells(repo):
 
 
 def compute_r1_check_agreement(repo):
-    """No computation over this file's real R1check rows reproduces a prior report's '100% score agreement,
-    97.2% text agreement' figure -- checked both a raw mean-score interpretation (real: 60.8% mean score
-    across 360 scored rows) and a repeat-measurement agreement interpretation (real: 70.0% same-score,
-    63.1% same-text across 350 real repeat-measurement pairs). Deliberately raises so this is marked
-    UNSUPPORTED rather than silently matched to the wrong computation."""
-    path = repo / "results" / "t2s_night2_20260929T034014Z.jsonl"
-    if not path.exists():
-        raise FileNotFoundError(str(path))
-    raise FileNotFoundError("no computation over this file's real R1check rows reproduces the reported "
-                            "'100% score, 97.2% text' figure -- see this function's own docstring for what "
-                            "was tried")
+    """2026-10-01: resolved. The reported '100% score, 97.2% text' figure is the CROSS-MACHINE agreement
+    (evo-t2s vs evo-x2, paired by (model, prompt_tokens, rep index), not a within-host repeat-measurement
+    comparison (which was the wrong interpretation tried earlier and never matched). qwen3-8b alone gives
+    an exact match: 97.2% text, 100.0% score. qwen3-14b (the only other model both hosts completed) gives
+    95.0% text, 100.0% score -- the combined-model figure is 96.3% text, 100.0% score, 300 paired rows
+    across 64 common (model, prompt_tokens) cells."""
+    t2s_path = repo / "results" / "t2s_night2_20260929T034014Z.jsonl"
+    x2_path = repo / "results" / "t2s_night2_20260929T045127Z.jsonl"
+    for p in (t2s_path, x2_path):
+        if not p.exists():
+            raise FileNotFoundError(str(p))
+
+    def load(path):
+        rows = []
+        for r in _read_jsonl(path):
+            if r.get("section") == "R1check" and r.get("kind") != "start" and r.get("output") is not None:
+                rows.append(r)
+        return rows
+
+    from collections import defaultdict
+    t2s_rows, x2_rows = load(t2s_path), load(x2_path)
+    tc, xc = defaultdict(list), defaultdict(list)
+    for r in t2s_rows:
+        tc[(r["model_id"], r["prompt_tokens"])].append(r)
+    for r in x2_rows:
+        xc[(r["model_id"], r["prompt_tokens"])].append(r)
+    common = sorted(set(tc) & set(xc))
+    if not common:
+        raise FileNotFoundError("no common (model, prompt_tokens) R1check cells between the two hosts")
+
+    per_model = defaultdict(lambda: [0, 0, 0])  # text_match, score_match, total
+    by_length = {}
+    for key in common:
+        model, length = key
+        tr, xr = tc[key], xc[key]
+        n = min(len(tr), len(xr))
+        tm_n = sm_n = 0
+        for i in range(n):
+            tm = tr[i]["output"] == xr[i]["output"]
+            sm = tr[i]["score"] == xr[i]["score"]
+            tm_n += int(tm)
+            sm_n += int(sm)
+            per_model[model][2] += 1
+            per_model[model][0] += int(tm)
+            per_model[model][1] += int(sm)
+        by_length[f"{model}@{length}"] = {"n": n, "text_match": tm_n, "score_match": sm_n}
+
+    total_n = sum(v[2] for v in per_model.values())
+    total_text = sum(v[0] for v in per_model.values())
+    total_score = sum(v[1] for v in per_model.values())
+    detail = {m: {"n": v[2], "text_match_pct": v[0] / v[2] * 100, "score_match_pct": v[1] / v[2] * 100}
+             for m, v in per_model.items()}
+    detail["by_length"] = by_length
+    return {"value": f"{total_text/total_n*100:.1f}% text, {total_score/total_n*100:.1f}% score "
+                     f"(combined); per-model: " + ", ".join(
+                         f"{m}: {d['text_match_pct']:.1f}% text, {d['score_match_pct']:.1f}% score"
+                         for m, d in detail.items() if m != "by_length"),
+           "n": total_n, "detail": detail}
 
 
 def _r1b_audit_module():
