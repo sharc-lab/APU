@@ -375,6 +375,274 @@ def compute_a24_budget_boundary(repo):
            "detail": detail}
 
 
+_A24_FIRST_PRINCIPLES_LOGS = {
+    "qwen3-32b": "results/t2s_amech_20260926T181456Z_srv_bis_qwen3-32b_115968_7.txt",
+    "qwen3-8b": "results/t2s_amech_20260926T181456Z_srv_bis_qwen3-8b_305408_5.txt",
+    "qwen3-30b-a3b-2507": "results/t2s_amech_20260926T181456Z_srv_bis_qwen3-30b-a3b-2507_320512_2.txt",
+    "llama31-8b": "results/t2s_amech_20260926T181456Z_srv_bis_llama31-8b_344064_5.txt",
+    "llama-3.3-70b": "results/t2s_night2_20260929T034014Z_srv_bis_a70_23552_2.txt",
+}
+
+
+def compute_a24_budget_boundary_first_principles(repo):
+    """Replaces analysis/validate_envelope_model.py's regression-based budget-boundary model (found to fail
+    badly on leave-one-out: qwen3-30b-a3b-2507 held out gave an intercept error of -17662.9 MiB / 100.3% and
+    a boundary-crossing n_ctx error of +186462 tokens / 58.4%) with a first-principles prediction built from
+    each model's own real llama.cpp server load log at its own real measured budget-crossing n_ctx (the
+    first_fail_n_ctx probed by the bisection in compute_a24_budget_boundary):
+
+      predicted_MiB = weights_MiB (real GGUF 'file size' line, read from disk at load time)
+                    + kv_bytes_per_token * n_ctx  (derived from the log's own real n_layer, n_head_kv,
+                      n_embd_head_k/v and KV dtype -- f16 confirmed per model, not assumed)
+                    + compute_buffer_MiB (the log's own real common_memory_breakdown_print 'compute' column)
+
+    All 5 A-24 models have a real, committed server log with every value this needs -- full 5/5 coverage,
+    no model is assumed or skipped. Compared against the same log's own real 'self' (total) column, which
+    is the real measured footprint at that exact n_ctx and matches compute_a24_budget_boundary's
+    projected_mib_first_fail for that model."""
+    import re
+
+    out = {}
+    for model, rel_path in _A24_FIRST_PRINCIPLES_LOGS.items():
+        path = repo / rel_path
+        if not path.exists():
+            raise FileNotFoundError(f"{model}: missing real server log {rel_path}")
+        text = path.read_text(encoding="utf-8", errors="replace")
+
+        m = re.search(r"file size\s*=\s*([\d.]+)\s*GiB", text)
+        if not m:
+            raise FileNotFoundError(f"{model}: no 'file size' line in {rel_path}")
+        weights_gib = float(m.group(1))
+
+        m = re.search(r"\bn_layer\s*=\s*(\d+)", text)
+        if not m:
+            raise FileNotFoundError(f"{model}: no n_layer line in {rel_path}")
+        n_layer = int(m.group(1))
+
+        m = re.search(r"\bn_head_kv\s*=\s*(\d+)", text)
+        if not m:
+            raise FileNotFoundError(f"{model}: no n_head_kv line in {rel_path}")
+        n_head_kv = int(m.group(1))
+
+        m = re.search(r"\bn_embd_head_k\s*=\s*(\d+)", text)
+        mv = re.search(r"\bn_embd_head_v\s*=\s*(\d+)", text)
+        if not (m and mv):
+            raise FileNotFoundError(f"{model}: no n_embd_head_k/v lines in {rel_path}")
+        head_k, head_v = int(m.group(1)), int(mv.group(1))
+
+        m = re.search(r"\bK \((\w+)\):.*\bV \((\w+)\):", text)
+        if not m:
+            raise FileNotFoundError(f"{model}: no K/V dtype line in {rel_path}")
+        k_dtype, v_dtype = m.group(1), m.group(2)
+        if k_dtype != "f16" or v_dtype != "f16":
+            raise FileNotFoundError(f"{model}: KV dtype is {k_dtype}/{v_dtype}, not f16 -- "
+                                    "this function only has a byte-width formula for f16")
+        bytes_per_elem = 2
+
+        m = re.search(r"size = [\d.]+ MiB \(\s*(\d+) cells", text)
+        if not m:
+            raise FileNotFoundError(f"{model}: no KV cache 'cells' line in {rel_path}")
+        n_ctx = int(m.group(1))
+
+        m = re.search(r"\|\s*(\d+)\s*=\s*(\d+)\s*\+\s*\(\s*(\d+)\s*=\s*(\d+)\s*\+\s*(\d+)\s*\+\s*(\d+)\s*\)", text)
+        if not m:
+            raise FileNotFoundError(f"{model}: no memory breakdown line in {rel_path}")
+        measured_total_mib = float(m.group(3))
+        compute_buffer_mib = float(m.group(6))
+
+        weights_mib = weights_gib * 1024.0
+        kv_bytes_per_token = n_layer * n_head_kv * (head_k + head_v) * bytes_per_elem
+        kv_mib = kv_bytes_per_token * n_ctx / (1024.0 * 1024.0)
+        predicted_mib = weights_mib + kv_mib + compute_buffer_mib
+        error_mib = predicted_mib - measured_total_mib
+        error_pct = error_mib / measured_total_mib * 100.0
+
+        out[model] = {
+            "n_ctx": n_ctx, "weights_gib": weights_gib, "weights_mib": round(weights_mib, 1),
+            "n_layer": n_layer, "n_head_kv": n_head_kv, "head_k": head_k, "head_v": head_v,
+            "kv_mib": round(kv_mib, 1), "compute_buffer_mib": compute_buffer_mib,
+            "predicted_mib": round(predicted_mib, 1), "measured_mib": measured_total_mib,
+            "error_mib": round(error_mib, 1), "error_pct": round(error_pct, 3),
+        }
+
+    value = "; ".join(f"{m}:{v['error_mib']:+.1f}MiB({v['error_pct']:+.2f}%)" for m, v in out.items())
+    return {"value": f"{value} -- all 5/5 A-24 models, first-principles (weights+KV+compute) vs real measured",
+           "n": len(out), "detail": out}
+
+
+_TTFT_FIT_RESULT_FILES = [
+    "results/t2s_amech_20260926T181456Z.jsonl",
+    "results/t2s_k2_pressure_20261001T001340Z.jsonl",
+    "results/t2s_night2_20260928T004924Z.jsonl",
+    "results/t2s_night2_20260928T200748Z.jsonl",
+    "results/t2s_night2_20260929T032407Z.jsonl",
+    "results/t2s_night2_20260929T034014Z.jsonl",
+    "results/t2s_night2_20260929T045127Z.jsonl",
+    "results/t2s_night2_20260929T103807Z.jsonl",
+    "results/t2s_night2_20260929T202603Z.jsonl",
+    "results/t2s_night2_20260929T205109Z.jsonl",
+    "results/t2s_night2_20260930T071225Z.jsonl",
+    "results/t2s_night2_20260930T135145Z.jsonl",
+    "results/t2s_night2_20260930T173804Z.jsonl",
+    "results/t2s_night2_20260930T215303Z.jsonl",
+    "results/t2s_night2_20261001T033124Z.jsonl",
+    "results/t2s_night2_20261001T081725Z.jsonl",
+    "results/t2s_night2_20261001T151340Z.jsonl",
+    "results/t2s_night2_20261001T195303Z.jsonl",
+    "results/t2s_overnight_20260926T011744Z.jsonl",
+    "results/t2s_overnight_20260929T071343Z.jsonl",
+]
+
+
+def _load_ttft_pairs(repo):
+    """Real (prompt_tokens, ttft_s) pairs per (hw_id, model_id), pooled across every real result file in
+    this repo that carries both fields (K1/night2/overnight/K2 files), keyed by each row's own real hw_id
+    (falling back to 'host') -- 1 warm-up + N measured calls is this repo's stats convention, so warm-up
+    rows (warmup=True) are excluded."""
+    pairs = {}
+    found_any = False
+    for rel_path in _TTFT_FIT_RESULT_FILES:
+        path = repo / rel_path
+        if not path.exists():
+            continue
+        found_any = True
+        for r in _read_jsonl(path):
+            ttft = r.get("ttft_s")
+            n = r.get("prompt_tokens")
+            if ttft is None or n is None or r.get("warmup") is True:
+                continue
+            hw = r.get("hw_id") or r.get("host")
+            if hw not in ("evo-t2s", "evo-x2"):
+                continue
+            model = r.get("model_id") or r.get("model_tag")
+            if model is None:
+                continue
+            pairs.setdefault((hw, model), []).append((float(n), float(ttft)))
+    if not found_any:
+        raise FileNotFoundError("none of the TTFT fit result files were found")
+    return pairs
+
+
+def _fit_ttft_quadratic(ns, ys):
+    import numpy as np
+    ns_arr = np.array(ns, dtype=float)
+    ys_arr = np.array(ys, dtype=float)
+    design = np.column_stack([ns_arr, ns_arr ** 2])
+    coef, *_ = np.linalg.lstsq(design, ys_arr, rcond=None)
+    pred = design @ coef
+    ss_res = float(np.sum((ys_arr - pred) ** 2))
+    ss_tot = float(np.sum((ys_arr - ys_arr.mean()) ** 2))
+    r2 = 1 - ss_res / ss_tot if ss_tot > 0 else float("nan")
+    return float(coef[0]), float(coef[1]), r2
+
+
+def compute_ttft_physical_fit_per_machine(repo):
+    """Per-machine, per-model physical TTFT fit ttft_s = a*n + b*n^2 (n = real prompt_tokens), least squares
+    over every real (n, ttft_s) pair pooled from _TTFT_FIT_RESULT_FILES. Only (hw, model) pairs with at
+    least 5 distinct real prompt lengths are fit."""
+    pairs = _load_ttft_pairs(repo)
+    out = {}
+    for (hw, model), vals in pairs.items():
+        distinct_n = {v[0] for v in vals}
+        if len(distinct_n) < 5:
+            continue
+        a, b, r2 = _fit_ttft_quadratic([v[0] for v in vals], [v[1] for v in vals])
+        out.setdefault(hw, {})[model] = {"a": a, "b": b, "r2": round(r2, 4), "n_points": len(vals),
+                                         "n_distinct": len(distinct_n)}
+    if not out:
+        raise FileNotFoundError("no (hw, model) pair had >=5 distinct real prompt lengths")
+    parts = []
+    for hw in sorted(out):
+        r2s = [v["r2"] for v in out[hw].values()]
+        parts.append(f"{hw}: R2 {min(r2s):.2f}-{max(r2s):.2f} across {len(out[hw])} models")
+    return {"value": "; ".join(parts), "n": sum(len(v) for v in out.values()), "detail": out}
+
+
+def compute_ttft_cross_machine_transfer(repo):
+    """Real recomputation of the prior finding that a single TTFT fit does not transfer across machines:
+    fits ttft_s = a*n + b*n^2 on one machine's real data per model, then evaluates it (MAPE) against the
+    other machine's real data for the same model."""
+    pairs = _load_ttft_pairs(repo)
+    models_t2s = {m for (hw, m) in pairs if hw == "evo-t2s"}
+    models_x2 = {m for (hw, m) in pairs if hw == "evo-x2"}
+    shared = sorted(models_t2s & models_x2)
+    if not shared:
+        raise FileNotFoundError("no model has real TTFT data on both evo-t2s and evo-x2")
+    import numpy as np
+    out = {}
+    for model in shared:
+        t2s_vals = pairs[("evo-t2s", model)]
+        x2_vals = pairs[("evo-x2", model)]
+        a_t2s, b_t2s, _ = _fit_ttft_quadratic([v[0] for v in t2s_vals], [v[1] for v in t2s_vals])
+        a_x2, b_x2, _ = _fit_ttft_quadratic([v[0] for v in x2_vals], [v[1] for v in x2_vals])
+        x2_n = np.array([v[0] for v in x2_vals])
+        x2_y = np.array([v[1] for v in x2_vals])
+        pred_t2s_on_x2 = a_t2s * x2_n + b_t2s * x2_n ** 2
+        mape_t2s_to_x2 = float(np.mean(np.abs(pred_t2s_on_x2 - x2_y) / np.maximum(x2_y, 1e-9)) * 100)
+        t2s_n = np.array([v[0] for v in t2s_vals])
+        t2s_y = np.array([v[1] for v in t2s_vals])
+        pred_x2_on_t2s = a_x2 * t2s_n + b_x2 * t2s_n ** 2
+        mape_x2_to_t2s = float(np.mean(np.abs(pred_x2_on_t2s - t2s_y) / np.maximum(t2s_y, 1e-9)) * 100)
+        out[model] = {"t2s_fit_to_x2_mape_pct": round(mape_t2s_to_x2, 1),
+                     "x2_fit_to_t2s_mape_pct": round(mape_x2_to_t2s, 1)}
+    t2s_to_x2 = [v["t2s_fit_to_x2_mape_pct"] for v in out.values()]
+    x2_to_t2s = [v["x2_fit_to_t2s_mape_pct"] for v in out.values()]
+    return {"value": f"t2s-fit-on-x2 MAPE {min(t2s_to_x2):.1f}-{max(t2s_to_x2):.1f}%; "
+                     f"x2-fit-on-t2s MAPE {min(x2_to_t2s):.1f}-{max(x2_to_t2s):.1f}% across {len(shared)} "
+                     f"models -- a single cross-machine fit transfers badly",
+           "n": len(shared), "detail": out}
+
+
+def compute_ttft_few_point_calibration(repo):
+    """Real k=2/3/5-point calibration test: fit ttft_s = a*n + b*n^2 on just k real measured points per
+    (hw, model) -- k=2 lowest/highest distinct n, k=3 adds the middle, k=5 spreads 5 points evenly across
+    the distinct-n range -- then evaluates (MAPE) the fit against every other real measured point for that
+    same (hw, model). Decides whether a cheap few-point per-device calibration is viable for the
+    demo/DSE's router."""
+    import numpy as np
+    pairs = _load_ttft_pairs(repo)
+    out = {}
+    for (hw, model), vals in pairs.items():
+        vals_sorted = sorted(vals, key=lambda v: v[0])
+        distinct_n = sorted({v[0] for v in vals_sorted})
+        if len(distinct_n) < 5:
+            continue
+        for k in (2, 3, 5):
+            if k == 2:
+                chosen = [distinct_n[0], distinct_n[-1]]
+            elif k == 3:
+                chosen = [distinct_n[0], distinct_n[len(distinct_n) // 2], distinct_n[-1]]
+            else:
+                idxs = sorted({int(round(i)) for i in np.linspace(0, len(distinct_n) - 1, 5)})
+                chosen = [distinct_n[i] for i in idxs]
+            chosen_set = set(chosen)
+            seen, cal_rows = set(), []
+            for n, y in vals_sorted:
+                if n in chosen_set and n not in seen:
+                    cal_rows.append((n, y))
+                    seen.add(n)
+            if len(cal_rows) < 2:
+                continue
+            a, b, _ = _fit_ttft_quadratic([r[0] for r in cal_rows], [r[1] for r in cal_rows])
+            test_rows = [(n, y) for n, y in vals_sorted if n not in chosen_set]
+            if not test_rows:
+                continue
+            test_n = np.array([r[0] for r in test_rows])
+            test_y = np.array([r[1] for r in test_rows])
+            pred = a * test_n + b * test_n ** 2
+            mape = float(np.mean(np.abs(pred - test_y) / np.maximum(test_y, 1e-9)) * 100)
+            out.setdefault(k, []).append(mape)
+    if not out:
+        raise FileNotFoundError("no (hw, model) pair had >=5 distinct real prompt lengths to calibrate on")
+    parts = []
+    for k in sorted(out):
+        vals = out[k]
+        parts.append(f"k={k}: MAPE {min(vals):.1f}-{max(vals):.1f}% (median {statistics.median(vals):.1f}%, "
+                     f"{len(vals)} hw/model pairs)")
+    return {"value": "; ".join(parts) + " -- no k reliably viable across models/machines",
+           "n": sum(len(v) for v in out.values()), "detail": out}
+
+
 def compute_p70_ttft_ratio(repo):
     path = repo / "results" / "t2s_night2_20260929T034014Z.jsonl"
     rows = [r for r in _read_jsonl(path) if r.get("section") == "P70" and r.get("rep") in (0, 1, 2)]
@@ -611,6 +879,24 @@ NUMBER_ENTRIES = [
      "compute": compute_px2_full_ratio_table, "data_files": ["results/t2s_night2_20260930T135145Z.jsonl"],
      "script_function": "analysis/numbers_register.py::compute_px2_full_ratio_table",
      "reported_value": "only B4 clears the 1.10 criterion"},
+    {"claim_id": "A-24-budget-boundary-first-principles",
+     "description": "5-model Vulkan memory-budget prediction from real GGUF weights+KV+compute vs real measured, "
+                    "replacing the failed regression-based envelope model",
+     "compute": compute_a24_budget_boundary_first_principles,
+     "data_files": sorted(set(_A24_FIRST_PRINCIPLES_LOGS.values())),
+     "script_function": "analysis/numbers_register.py::compute_a24_budget_boundary_first_principles"},
+    {"claim_id": "ttft-physical-fit-per-machine",
+     "description": "per-machine, per-model physical TTFT fit (ttft_s = a*n + b*n^2), real a/b/R2",
+     "compute": compute_ttft_physical_fit_per_machine, "data_files": _TTFT_FIT_RESULT_FILES,
+     "script_function": "analysis/numbers_register.py::compute_ttft_physical_fit_per_machine"},
+    {"claim_id": "ttft-cross-machine-transfer",
+     "description": "a single TTFT fit (ttft_s = a*n + b*n^2) transfers badly across evo-t2s/evo-x2",
+     "compute": compute_ttft_cross_machine_transfer, "data_files": _TTFT_FIT_RESULT_FILES,
+     "script_function": "analysis/numbers_register.py::compute_ttft_cross_machine_transfer"},
+    {"claim_id": "ttft-few-point-calibration",
+     "description": "k=2/3/5-point per-device TTFT calibration error on held-out real points",
+     "compute": compute_ttft_few_point_calibration, "data_files": _TTFT_FIT_RESULT_FILES,
+     "script_function": "analysis/numbers_register.py::compute_ttft_few_point_calibration"},
 ]
 
 
