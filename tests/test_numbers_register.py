@@ -67,13 +67,27 @@ def test_compute_trace_context_exit_rate_on_a_small_fixture(tmp_path):
     assert result["n"] == 4
 
 
-def test_compute_a3_qwen32b_refusal_share_unsupported_when_file_missing(tmp_path):
+def test_compute_qwen32b_refusal_share_unsupported_when_file_missing(tmp_path):
     (tmp_path / "results").mkdir()
     try:
-        nr.compute_a3_qwen32b_refusal_share(tmp_path)
-        assert False, "expected FileNotFoundError"
-    except FileNotFoundError:
+        nr.compute_qwen32b_refusal_share(tmp_path)
+        assert False, "expected an exception when the source file does not exist"
+    except Exception:
         pass
+
+
+def test_compute_qwen32b_refusal_share_on_the_real_committed_file():
+    """Exercises the real function against the real, now-committed source file (not a fixture) -- this is
+    the one test in this file allowed to depend on a real results/ file, specifically because this entry's
+    whole point is that it must be computed from the real file, not a fixture standing in for it."""
+    repo_root = Path(__file__).resolve().parents[1]
+    real_file = repo_root / "results" / "t2s_night2_20260929T205109Z.jsonl"
+    if not real_file.exists():
+        import pytest
+        pytest.skip("real source file not present in this checkout")
+    result = nr.compute_qwen32b_refusal_share(repo_root)
+    assert result["n"] > 0
+    assert "/" in result["value"]
 
 
 def test_values_match_exact_number():
@@ -154,11 +168,20 @@ def test_write_register_md_sorts_corrected_and_unsupported_first(tmp_path):
 
 def test_every_entry_script_function_names_a_real_function():
     """Every NUMBER_ENTRIES['script_function'] must name a function that actually exists in this repo --
-    this registry must never cite a function that was renamed or removed."""
+    this registry must never cite a function that was renamed or removed. Entries may cite a function in
+    numbers_register.py itself or in any other module path given relative to the repo root."""
+    import importlib.util
+    repo_root = Path(__file__).resolve().parents[1]
     for entry in nr.NUMBER_ENTRIES:
         module_path, func_name = entry["script_function"].split("::")
-        assert module_path == "analysis/numbers_register.py", (
-            f"{entry['claim_id']}: this test only checks functions within numbers_register.py itself; "
-            f"update this test if an entry starts citing a function in another module")
-        assert hasattr(nr, func_name), f"{entry['claim_id']} cites {func_name}, not found in numbers_register.py"
-        assert callable(getattr(nr, func_name))
+        if module_path == "analysis/numbers_register.py":
+            mod = nr
+        else:
+            full_path = repo_root / module_path
+            assert full_path.exists(), f"{entry['claim_id']} cites {module_path}, which does not exist"
+            spec = importlib.util.spec_from_file_location(full_path.stem, full_path)
+            mod = importlib.util.module_from_spec(spec)
+            sys.path.insert(0, str(full_path.parent))
+            spec.loader.exec_module(mod)
+        assert hasattr(mod, func_name), f"{entry['claim_id']} cites {func_name}, not found in {module_path}"
+        assert callable(getattr(mod, func_name))

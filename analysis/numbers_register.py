@@ -201,18 +201,109 @@ def compute_x2_truncation_cliff(repo):
            "n": "n/a (fraction of steps)", "detail": qwen8b}
 
 
-def compute_a3_qwen32b_refusal_share(repo):
-    """Reconciled 2026-10-01: 19/111 (17%) is the real number, from docs/FINDINGS.md's R1b audit section.
-    The source jsonl files that section cites (results/t2s_night2_20260929T202603Z.jsonl,
-    ..._20260929T205109Z.jsonl) were never committed -- confirmed by the A3 subagent via git log --all.
-    This entry is deliberately UNSUPPORTED (raises) until those files are synced and committed, so the
-    register does not silently treat a doc-only number as file-verified."""
-    path = repo / "results" / "t2s_night2_20260929T205109Z.jsonl"
+def compute_p70_ttft_ratio(repo):
+    path = repo / "results" / "t2s_night2_20260929T034014Z.jsonl"
+    rows = [r for r in _read_jsonl(path) if r.get("section") == "P70" and r.get("rep") in (0, 1, 2)]
+    none_ttft = [r["ttft_s"] for r in rows if r["co_runner"] == "none"]
+    nonp12_ttft = [r["ttft_s"] for r in rows if r["co_runner"] == "nonp12"]
+    if not (none_ttft and nonp12_ttft):
+        raise FileNotFoundError("P70 section rows not found")
+    ratio = statistics.median(nonp12_ttft) / statistics.median(none_ttft)
+    return {"value": f"{ratio:.2f}x", "n": len(none_ttft)}
+
+
+def compute_b4_32b_dose_response(repo):
+    path = repo / "results" / "t2s_night2_20260929T034014Z.jsonl"
+    rows = [r for r in _read_jsonl(path) if r.get("section") == "B4b" and r.get("rep") in (0, 1, 2)]
+    by_cond = {}
+    for r in rows:
+        by_cond.setdefault(r["co_runner"], []).append(r["ttft_s"])
+    if "none" not in by_cond:
+        raise FileNotFoundError("B4b baseline (none) condition not found")
+    base = statistics.median(by_cond["none"])
+    conds = ["e2", "lp4", "e4_clusterA", "e4_clusterB", "e4_split", "e6", "e8", "e8_lp4"]
+    pcts = {c: round((statistics.median(by_cond[c]) / base - 1) * 100, 1) for c in conds if c in by_cond}
+    return {"value": ", ".join(f"{c}:+{v}%" for c, v in pcts.items()), "n": len(by_cond.get("none", [])),
+           "detail": pcts}
+
+
+def compute_c1b_stall_clean_cells(repo):
+    """Real c1b_remeasure data (results/t2s_night2_20260930T215303Z.jsonl, run_end note 'deadline reached',
+    see docs/FINDINGS.md's correction of this run's earlier 'crashed' watchdog mislabel). Reports every
+    below-zero-headroom cell's own median/max individually -- no single cell or simple aggregate across them
+    reproduces a prior report's '36.36 s median / 46.70 s max' figure, so this entry does not attempt to force
+    a match; it reports the real per-cell numbers instead."""
+    path = repo / "results" / "t2s_night2_20260930T215303Z.jsonl"
+    rows = [r for r in _read_jsonl(path) if r.get("record") == "c1_responsiveness"]
+    below_zero = [r for r in rows if r.get("mem_headroom_gb") == -1]
+    if not below_zero:
+        raise FileNotFoundError("no below-zero-headroom c1_responsiveness rows found")
+    detail = {r["item_id"]: {"median_s": r["resp_median_s"], "max_s": r["resp_max_s"], "n": r["resp_n"]}
+             for r in below_zero}
+    return {"value": "; ".join(f"{k}: median={v['median_s']}s max={v['max_s']}s n={v['n']}"
+                               for k, v in detail.items()),
+           "n": len(below_zero), "detail": detail}
+
+
+def compute_r1_check_agreement(repo):
+    """No computation over this file's real R1check rows reproduces a prior report's '100% score agreement,
+    97.2% text agreement' figure -- checked both a raw mean-score interpretation (real: 60.8% mean score
+    across 360 scored rows) and a repeat-measurement agreement interpretation (real: 70.0% same-score,
+    63.1% same-text across 350 real repeat-measurement pairs). Deliberately raises so this is marked
+    UNSUPPORTED rather than silently matched to the wrong computation."""
+    path = repo / "results" / "t2s_night2_20260929T034014Z.jsonl"
     if not path.exists():
-        raise FileNotFoundError(f"{path} not committed -- see docs/FINDINGS.md's A3/A6 audit section for "
-                                "the full provenance note")
-    rows = _read_jsonl(path)
-    return {"value": "recompute once the file exists -- not implemented, placeholder only", "n": len(rows)}
+        raise FileNotFoundError(str(path))
+    raise FileNotFoundError("no computation over this file's real R1check rows reproduces the reported "
+                            "'100% score, 97.2% text' figure -- see this function's own docstring for what "
+                            "was tried")
+
+
+def _r1b_audit_module():
+    import sys
+    sys.path.insert(0, str(REPO / "analysis"))
+    import importlib
+    return importlib.import_module("r1b_wrong_answer_audit")
+
+
+def compute_qwen32b_refusal_share(repo):
+    """Real computation against the real, now-committed file (results/t2s_night2_20260929T205109Z.jsonl,
+    pulled 2026-10-01). Found live: neither the original hand-typed '41/82 (50%)' nor a subagent's own
+    reconciliation of '19/111 (17%)' (which was trust-based on FINDINGS.md's internal self-consistency, not
+    an actual fresh file computation, since that subagent did not have the file either) matches this real
+    number -- the real refusal share is 41/199 (21%). The numerator 41 is the same digit the original
+    hand-typed figure used; only the denominator (82) was wrong, which is itself worth noting: a
+    partially-correct fabricated number is not meaningfully safer than a fully wrong one."""
+    audit = _r1b_audit_module()
+    path = repo / "results" / "t2s_night2_20260929T205109Z.jsonl"
+    rows = audit.load_r1b_rows(str(path))
+    shares = audit.refusal_share_by_model(rows)
+    qwen32b = shares.get("qwen3-32b")
+    if qwen32b is None:
+        raise FileNotFoundError("qwen3-32b not found in refusal_share_by_model output")
+    refused, total = qwen32b
+    return {"value": f"{refused}/{total} ({refused/total*100:.0f}%)", "n": total, "detail": shares}
+
+
+def compute_self_report_truncation_awareness(repo):
+    """Real computation against both real, now-committed files. Found live: the real evo-x2 count is 720
+    self-report outputs (not 435 as previously reported) -- X2's file has 6 models' worth of rows in this
+    run vs T2S's 2, so the self-report row count is proportionally larger."""
+    audit = _r1b_audit_module()
+    t2s_path = repo / "results" / "t2s_night2_20260929T202603Z.jsonl"
+    x2_path = repo / "results" / "t2s_night2_20260929T205109Z.jsonl"
+    import re as _re
+    counts = {}
+    for label, path in [("evo-t2s", t2s_path), ("evo-x2", x2_path)]:
+        rows = audit.load_r1b_rows(str(path))
+        sr_rows = [r for r in rows if r.get("arm") == "arm3_self_report"]
+        aware = sum(1 for r in sr_rows if _re.search(r"truncat|incomplet", (r.get("output") or ""), _re.I))
+        counts[label] = (aware, len(sr_rows))
+    total_aware = sum(v[0] for v in counts.values())
+    total_n = sum(v[1] for v in counts.values())
+    return {"value": f"{counts['evo-t2s'][0]}/{counts['evo-t2s'][1]} (T2S) + "
+                     f"{counts['evo-x2'][0]}/{counts['evo-x2'][1]} (X2) = {total_aware}/{total_n}",
+           "n": total_n, "detail": counts}
 
 
 NUMBER_ENTRIES = [
@@ -248,11 +339,32 @@ NUMBER_ENTRIES = [
      "compute": compute_x2_truncation_cliff, "data_files": ["results/traces/agent_step_lengths.parquet"],
      "script_function": "analysis/numbers_register.py::compute_x2_truncation_cliff",
      "reported_value": "0.9% / 27.6%"},
-    {"claim_id": "A3-qwen32b-refusal", "description": "qwen3-32b refusal share of wrong answers",
-     "compute": compute_a3_qwen32b_refusal_share,
-     "data_files": ["results/t2s_night2_20260929T205109Z.jsonl (not yet committed)"],
-     "script_function": "analysis/numbers_register.py::compute_a3_qwen32b_refusal_share",
-     "reported_value": "19/111 (17%)"},
+    {"claim_id": "P70-TTFT-ratio", "description": "P70 (llama-3.3-70b) nonp12 co-runner TTFT ratio",
+     "compute": compute_p70_ttft_ratio, "data_files": ["results/t2s_night2_20260929T034014Z.jsonl"],
+     "script_function": "analysis/numbers_register.py::compute_p70_ttft_ratio",
+     "reported_value": "1.42x"},
+    {"claim_id": "b4_32b-dose-response", "description": "B4 32B E-core sweep TTFT dose response",
+     "compute": compute_b4_32b_dose_response, "data_files": ["results/t2s_night2_20260929T034014Z.jsonl"],
+     "script_function": "analysis/numbers_register.py::compute_b4_32b_dose_response",
+     "reported_value": "e2:+2.0% lp4:+3.1% e4:+5.4-6.0% e6:+14.3% e8:+30.2% e8_lp4:+41.4%"},
+    {"claim_id": "c1b-stall-clean-cells", "description": "c1b_remeasure below-zero-headroom cell responsiveness",
+     "compute": compute_c1b_stall_clean_cells, "data_files": ["results/t2s_night2_20260930T215303Z.jsonl"],
+     "script_function": "analysis/numbers_register.py::compute_c1b_stall_clean_cells",
+     "reported_value": "36.36 s median / 46.70 s max"},
+    {"claim_id": "R1-check-agreement", "description": "R1 check score/text agreement",
+     "compute": compute_r1_check_agreement, "data_files": ["results/t2s_night2_20260929T034014Z.jsonl"],
+     "script_function": "analysis/numbers_register.py::compute_r1_check_agreement",
+     "reported_value": "100% score, 97.2% text"},
+    {"claim_id": "qwen32b-refusal", "description": "qwen3-32b refusal share of wrong answers (evo-x2)",
+     "compute": compute_qwen32b_refusal_share,
+     "data_files": ["results/t2s_night2_20260929T205109Z.jsonl"],
+     "script_function": "analysis/r1b_wrong_answer_audit.py::refusal_share_by_model",
+     "reported_value": "41/199 (21%)"},
+    {"claim_id": "self-report-truncation-awareness", "description": "self-report arm truncation-awareness, both hosts",
+     "compute": compute_self_report_truncation_awareness,
+     "data_files": ["results/t2s_night2_20260929T202603Z.jsonl", "results/t2s_night2_20260929T205109Z.jsonl"],
+     "script_function": "analysis/numbers_register.py::compute_self_report_truncation_awareness",
+     "reported_value": "0/240 (T2S) + 0/720 (X2) = 0/960"},
 ]
 
 
