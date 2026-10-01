@@ -201,6 +201,33 @@ def compute_x2_truncation_cliff(repo):
            "n": "n/a (fraction of steps)", "detail": qwen8b}
 
 
+def compute_a24_budget_boundary(repo):
+    """Real computation against both real, committed files. Takes the LAST (most recent by ts_utc)
+    bisect_result row per model from the 4-model file (a model probed more than once keeps its final,
+    reprobed result, not an earlier partial run), plus the dedicated A70 (llama-3.3-70b) result from the
+    night2 file."""
+    amech_path = repo / "results" / "t2s_amech_20260926T181456Z.jsonl"
+    night2_path = repo / "results" / "t2s_night2_20260929T034014Z.jsonl"
+    rows = [r for r in _read_jsonl(amech_path) if r.get("record") == "bisect_result"]
+    rows.sort(key=lambda r: r["ts_utc"])
+    last_per_model = {}
+    for r in rows:
+        last_per_model[r["model_id"]] = r
+    a70_rows = [r for r in _read_jsonl(night2_path) if r.get("record") == "bisect_result" and r.get("label") == "a70"]
+    if a70_rows:
+        last_per_model["llama-3.3-70b"] = a70_rows[-1]
+    if len(last_per_model) < 5:
+        raise FileNotFoundError(f"expected 5 models, found {len(last_per_model)}")
+    detail = {m: {"last_ok_n_ctx": r["last_ok_n_ctx"], "first_fail_n_ctx": r["first_fail_n_ctx"],
+                 "projected_mib_last_ok": r["projected_mib_last_ok"],
+                 "projected_mib_first_fail": r["projected_mib_first_fail"]}
+             for m, r in last_per_model.items()}
+    lo = min(v["projected_mib_last_ok"] for v in detail.values())
+    hi = max(v["projected_mib_first_fail"] for v in detail.values())
+    return {"value": f"budget boundary {lo:.0f}-{hi:.0f} MiB projected, 5 models", "n": len(detail),
+           "detail": detail}
+
+
 def compute_p70_ttft_ratio(repo):
     path = repo / "results" / "t2s_night2_20260929T034014Z.jsonl"
     rows = [r for r in _read_jsonl(path) if r.get("section") == "P70" and r.get("rep") in (0, 1, 2)]
@@ -339,6 +366,11 @@ NUMBER_ENTRIES = [
      "compute": compute_x2_truncation_cliff, "data_files": ["results/traces/agent_step_lengths.parquet"],
      "script_function": "analysis/numbers_register.py::compute_x2_truncation_cliff",
      "reported_value": "0.9% / 27.6%"},
+    {"claim_id": "A-24-budget-boundary", "description": "5-model Vulkan memory-heap budget boundary",
+     "compute": compute_a24_budget_boundary,
+     "data_files": ["results/t2s_amech_20260926T181456Z.jsonl", "results/t2s_night2_20260929T034014Z.jsonl"],
+     "script_function": "analysis/numbers_register.py::compute_a24_budget_boundary",
+     "reported_value": "budget boundary 47482-47969 MiB projected, 5 models"},
     {"claim_id": "P70-TTFT-ratio", "description": "P70 (llama-3.3-70b) nonp12 co-runner TTFT ratio",
      "compute": compute_p70_ttft_ratio, "data_files": ["results/t2s_night2_20260929T034014Z.jsonl"],
      "script_function": "analysis/numbers_register.py::compute_p70_ttft_ratio",
