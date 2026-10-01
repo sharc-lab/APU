@@ -300,7 +300,7 @@ class OllamaClient:
         self.timeout = timeout
 
     def chat(self, model, prompt, num_ctx=None, max_tokens=64, keep_alive=None, messages=None, tools=None,
-             timeout=None):
+             timeout=None, think=None):
         """messages: optional full conversation history ([{"role":.., "content":..}, ...]), for a caller (e.g.
         harness/t2s_r2_session_growth.py's growing agent sessions) that needs more than the single user-turn
         request every other caller of this method sends. None (the default, and every pre-existing call site's
@@ -317,7 +317,18 @@ class OllamaClient:
         timeout: optional per-call override of self.timeout (added 2026-10-01 for K1 v3's long-prompt probes,
         which can legitimately take longer than the 1800s instance default on a slow prefill -- three real
         calls on evo-x2 errored at gaps within 2s of exactly 1800s, a client timeout, not a runtime failure).
-        None (the default, every pre-existing call site) keeps self.timeout, unchanged."""
+        None (the default, every pre-existing call site) keeps self.timeout, unchanged.
+
+        think: optional, forwarded to /api/chat's top-level "think" field (Ollama's hybrid-reasoning-model
+        toggle). Found live 2026-10-01: K1 v3's marker probe reported qwen3:8b losing the marker at every
+        length including 16K/32K, where token math shows no truncation at all. Root cause, confirmed by
+        dumping the raw response: qwen3:8b defaults to thinking mode, and the probe's own max_tokens=32
+        budget was being spent entirely on the hidden message.thinking field, with message.content (what
+        marker_used actually checks) left empty every time (done_reason="length", reasoning never finished).
+        think=False (verified live: real marker reproduced in 7 tokens, done_reason="stop") fixes this for
+        any model where thinking is relevant; None (the default, every pre-existing call site) omits the
+        field entirely, unchanged for models like qwen3-4b-instruct-2507 or llama3.1:8b that either have no
+        thinking mode or already default to a non-thinking variant."""
         options = {"num_predict": max_tokens, "temperature": 0, "seed": 42}
         if num_ctx is not None:
             options["num_ctx"] = num_ctx
@@ -327,6 +338,8 @@ class OllamaClient:
             body["keep_alive"] = keep_alive
         if tools is not None:
             body["tools"] = tools
+        if think is not None:
+            body["think"] = think
         req = urllib.request.Request(f"{self.base}/api/chat", data=json.dumps(body).encode(),
                                      headers={"Content-Type": "application/json"})
         t0 = time.monotonic()
@@ -632,7 +645,7 @@ def probe_v3_effective_context(lab: K1Lab, ollama, model_tag: str, capped: bool,
     # Calibration row is emitted (lands in the jsonl) but intentionally NOT included in this function's returned
     # list -- callers/tests treat the return value as exactly one row per real probe length.
     cal_prompt, cal_expected, _ = qs_build_task(_EMPIRICAL_CTX_TASK_TYPE, lengths[0], seed + lengths[0])
-    cal_res = ollama.chat(model_tag, cal_prompt, num_ctx=native_ctx, max_tokens=1)
+    cal_res = ollama.chat(model_tag, cal_prompt, num_ctx=native_ctx, max_tokens=1, think=False)
     cal_pec = cal_res.get("prompt_eval_count")
     tokenizer_ratio = (cal_pec / lengths[0]) if (cal_pec and cal_res.get("outcome") == "ok") else None
     lab.emit({
@@ -645,7 +658,7 @@ def probe_v3_effective_context(lab: K1Lab, ollama, model_tag: str, capped: bool,
     for target in lengths:
         prompt, expected, _scorer = qs_build_task(_EMPIRICAL_CTX_TASK_TYPE, target, seed + target)
         call_timeout = long_probe_timeout_s if target >= long_probe_threshold else None
-        res = ollama.chat(model_tag, prompt, num_ctx=None, max_tokens=32, timeout=call_timeout)
+        res = ollama.chat(model_tag, prompt, num_ctx=None, max_tokens=32, timeout=call_timeout, think=False)
         ps = ollama.get_ps()
         ps_match = next((m for m in ps.get("models", [])
                          if m.get("name") == model_tag or (m.get("name") or "").startswith(model_tag.split(":")[0])),

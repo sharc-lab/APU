@@ -655,8 +655,8 @@ class FakeV3Ollama:
         return {"outcome": "ok", "final_status": "success", "status_lines": [{"status": "success"}]}
 
     def chat(self, model, prompt, num_ctx=None, max_tokens=64, keep_alive=None, messages=None, tools=None,
-             timeout=None):
-        self.call_log.append(("chat", model))
+             timeout=None, think=None):
+        self.call_log.append(("chat", model, think))
         return {"outcome": "ok", "status": 200, "prompt_eval_count": 20, "duration_s": 0.1, "message": "Paris."}
 
     def get_ps(self):
@@ -806,9 +806,10 @@ class _TargetAwareFakeOllama:
         return int(prompt.rsplit("_", 1)[-1])
 
     def chat(self, model, prompt, num_ctx=None, max_tokens=64, keep_alive=None, messages=None, tools=None,
-             timeout=None):
+             timeout=None, think=None):
         target = self._target_from_prompt(prompt)
-        self.calls.append({"target": target, "num_ctx": num_ctx, "max_tokens": max_tokens, "timeout": timeout})
+        self.calls.append({"target": target, "num_ctx": num_ctx, "max_tokens": max_tokens, "timeout": timeout,
+                           "think": think})
         real_sent = round(target * self.ratio)
         if max_tokens == 1:  # the calibration call
             return {"outcome": "ok", "status": 200, "prompt_eval_count": real_sent, "message": ""}
@@ -889,6 +890,49 @@ def test_probe_v3_calibration_call_uses_native_ctx_and_shortest_length(tmp_path,
     cal_call = next(c for c in fake.calls if c["max_tokens"] == 1)
     assert cal_call["target"] == 16000
     assert cal_call["num_ctx"] == 131072
+
+
+def test_ollama_client_chat_sends_think_field_when_given(monkeypatch):
+    """Direct test of the real request body OllamaClient.chat builds, not just the fake double -- confirms
+    the think= kwarg actually reaches /api/chat's top-level "think" field (Ollama's own documented
+    hybrid-reasoning toggle), and that omitting it (the default, every pre-existing call site) leaves the
+    field out entirely, unchanged from before."""
+    import json as _json
+
+    class FakeResp:
+        status = 200
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def read(self):
+            return _json.dumps({"message": {"content": "ok"}, "prompt_eval_count": 1, "eval_count": 1}).encode()
+
+    captured = {}
+
+    def fake_urlopen(req, timeout=None):
+        captured["body"] = _json.loads(req.data)
+        return FakeResp()
+
+    monkeypatch.setattr(K.urllib.request, "urlopen", fake_urlopen)
+    client = K.OllamaClient()
+    client.chat("qwen3:8b", "hi", max_tokens=32, think=False)
+    assert captured["body"]["think"] is False
+
+    client.chat("qwen3:8b", "hi", max_tokens=32)  # default: no think kwarg
+    assert "think" not in captured["body"]
+
+
+def test_probe_v3_sends_think_false_on_every_call(tmp_path, monkeypatch):
+    """Found live 2026-10-01 (evo-x2): qwen3:8b lost the marker at every length including 16K/32K, where
+    token math showed no truncation at all. Root cause, confirmed by dumping the raw Ollama response:
+    qwen3:8b defaults to thinking mode, and the probe's own max_tokens=32 budget was being spent entirely on
+    the hidden message.thinking field, with message.content (what marker_used checks) left empty every time
+    (done_reason='length'). think=False fixes this (verified live: real marker reproduced in 7 tokens,
+    done_reason='stop'). Both the calibration call and every per-length probe call must send it."""
+    _patch_qs_build_task_identity(monkeypatch)
+    lab = make_lab(tmp_path, host="evo-x2")
+    fake = _TargetAwareFakeOllama(ratio=1.0)
+    K.probe_v3_effective_context(lab, fake, "qwen3:8b", capped=True, lengths=(16000, 32000), native_ctx=40960)
+    assert all(c["think"] is False for c in fake.calls)
 
 
 def test_probe_v3_emits_a_calibration_row_not_counted_in_returned_probe_rows(tmp_path, monkeypatch):
