@@ -1028,12 +1028,25 @@ class R2SessionLab(k1.K1Lab):
         function's docstring for why the filler must be included at all). sent_tokens is the sum over
         the full `messages` list -- for Ollama this already IS the cumulative session token count
         (problem 2), since Ollama arms send the whole growing history every turn, unlike the
-        llama-server arms (see run_turn_llama_server, which must accumulate it manually)."""
+        llama-server arms (see run_turn_llama_server, which must accumulate it manually).
+
+        keep_alive="30m" is explicit here (found live 2026-10-01, R2 positive control): without it,
+        OllamaClient.chat omits the field and the server falls through to its own default -- on
+        evo-x2, hc.start_ollama_server() sets OLLAND_KEEP_ALIVE=0 (deliberately, so K1's tier/memory
+        probes always reload from a clean state), which unloads the model immediately after every
+        single turn. That breaks the cross-turn KV-cache reuse this whole module's design assumes
+        (see the top-of-file docstring: "Ollama reuses its own prompt KV cache across turns in the
+        same conversation") and makes get_loaded_context_ollama's /api/ps check always see nothing
+        loaded, which is why the positive control's truncation_detected_turn came back None even
+        though the real canary-miss logic is correct (confirmed separately: the llama-server leg of
+        the same positive control fired correctly at turn 10). 30 minutes comfortably outlives a
+        single session's per-turn latency and resets on every call, so the model stays loaded for the
+        session's whole duration regardless of how many turns it has."""
         ollama = ollama or self.ollama
         options = apply_ollama_arm(arm_id, {"seed": session.seed})
         sent_tokens = sum(count_fn(m["content"]) for m in messages)
         resp = ollama.chat(model_id, "", num_ctx=options.get("num_ctx"), messages=messages,
-                            tools=ollama_tools_payload())
+                            tools=ollama_tools_payload(), keep_alive="30m")
         output_text = resp.get("message") or ""
         row = self.emit({
             "record": "r2_turn", "phase": "r2_session", "backend": "ollama", "arm_id": arm_id,

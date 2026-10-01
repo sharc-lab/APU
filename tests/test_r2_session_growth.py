@@ -504,6 +504,25 @@ class TestNativeToolCallDetection:
         assert row["native_tool_calls"] == client.tool_calls
         assert client.calls[0]["tools"] is not None
 
+    def test_run_turn_ollama_sends_explicit_keep_alive(self, tmp_path):
+        """Found live 2026-10-01 (R2 positive control on evo-x2): without an explicit keep_alive,
+        OllamaClient.chat omits the field and the model falls through to the server's own default --
+        on evo-x2, hc.start_ollama_server() sets OLLAND_KEEP_ALIVE=0 (deliberately, for K1's clean-
+        reload tier probes), which unloaded the model after every single R2 turn, breaking the
+        cross-turn KV-cache reuse the whole module's design assumes and making
+        get_loaded_context_ollama's /api/ps check always see nothing loaded. run_turn_ollama must
+        always pass an explicit, long-lived keep_alive regardless of the server's own default."""
+        lab = make_lab(tmp_path)
+        client = FakeOllama()
+        session = r2.generate_session(1, count_fn=word_count_fn, max_turns=1)
+        turn = session.turns[0]
+        messages = [{"role": "system", "content": session.system_prompt},
+                    {"role": "user", "content": r2.turn_message_content(turn)}]
+        lab.run_turn_ollama("qwen3-4b-2507", "ollama_default", "as_is", session, turn, messages,
+                            ollama=client, count_fn=word_count_fn)
+        assert client.calls[0]["keep_alive"] is not None
+        assert client.calls[0]["keep_alive"] != 0
+
     def test_run_turn_llama_server_always_text_fallback(self, tmp_path):
         lab = make_lab(tmp_path)
         client = FakeLlamaServerSession()
@@ -824,7 +843,7 @@ class FakeOllama:
         # to turn -- storing the reference itself would make every recorded call alias the final,
         # fully-grown history instead of what was actually sent at that point in time.
         self.calls.append({"model": model, "num_ctx": num_ctx, "messages": list(messages or []),
-                            "tools": tools})
+                            "tools": tools, "keep_alive": keep_alive})
         return {"outcome": "ok", "status": 200, "message": "not valid json output",
                 "prompt_eval_count": 50, "error": None, "tool_calls": self.tool_calls}
 
