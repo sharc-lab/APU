@@ -87,6 +87,68 @@ def compute_px2_ttft_gap(repo):
            "n": sum(v["n"] for v in gaps.values()), "detail": gaps}
 
 
+def compute_px2_full_ratio_table(repo):
+    """Full per-model x per-condition (S2,S4,S8,S8x,S14,S28,B4) TTFT and decode ratio vs N0, with
+    bootstrap 95% CI (seeded, 1000 resamples of the real per-call values). 2026-10-01: this resolves
+    the apparent 'only B4 clears the 1.10 criterion' claim -- that was true only for the two largest
+    models (qwen3-32b, llama-3.3-70b, both compute-bound). For llama31-8b, qwen3-14b and qwen3-8b,
+    S14 and S28 (the SMT/occupancy hog conditions) ALSO clear 1.10, and in several cases exceed B4's
+    own ratio for that model. The real max ratio seen anywhere on evo-x2 is 1.129x (qwen3-8b, S28)."""
+    path = repo / "results" / "t2s_night2_20260930T135145Z.jsonl"
+    rows = [r for r in _read_jsonl(path) if r.get("record") is None and r.get("section") == "PX2"]
+    by_ttft, by_decode = {}, {}
+    for r in rows:
+        key = (r["model_id"], r["co_runner"])
+        if r.get("ttft_s") is not None:
+            by_ttft.setdefault(key, []).append(r["ttft_s"])
+        if r.get("decode_tok_s") is not None:
+            by_decode.setdefault(key, []).append(r["decode_tok_s"])
+    if not by_ttft:
+        raise FileNotFoundError("no PX2 ttft rows found")
+    models = sorted({k[0] for k in by_ttft})
+    conds = ["S2", "S4", "S8", "S8x", "S14", "S28", "B4"]
+    import random
+    rng = random.Random(42)
+
+    def boot_ci(vals_cond, vals_base, n=1000):
+        ratios = []
+        for _ in range(n):
+            c = [rng.choice(vals_cond) for _ in vals_cond]
+            b = [rng.choice(vals_base) for _ in vals_base]
+            ratios.append(statistics.median(c) / statistics.median(b))
+        ratios.sort()
+        return ratios[int(0.025 * n)], ratios[int(0.975 * n)]
+
+    table = {}
+    max_ratio = (0.0, None, None)
+    criterion_clears = []
+    for model in models:
+        n0t, n0d = by_ttft.get((model, "N0")), by_decode.get((model, "N0"))
+        if not n0t:
+            continue
+        for cond in conds:
+            ct, cd = by_ttft.get((model, cond)), by_decode.get((model, cond))
+            if not ct:
+                continue
+            ttft_ratio = statistics.median(ct) / statistics.median(n0t)
+            t_lo, t_hi = boot_ci(ct, n0t)
+            entry = {"ttft_ratio": ttft_ratio, "ttft_ci": [t_lo, t_hi], "n": len(ct)}
+            if n0d and cd:
+                decode_ratio = statistics.median(cd) / statistics.median(n0d)
+                d_lo, d_hi = boot_ci(cd, n0d)
+                entry["decode_ratio"] = decode_ratio
+                entry["decode_ci"] = [d_lo, d_hi]
+            table[f"{model}@{cond}"] = entry
+            if ttft_ratio > max_ratio[0]:
+                max_ratio = (ttft_ratio, model, cond)
+            if ttft_ratio >= 1.10:
+                criterion_clears.append(f"{model}/{cond}")
+    return {"value": f"max TTFT ratio on evo-x2: {max_ratio[0]:.3f}x ({max_ratio[1]}/{max_ratio[2]}); "
+                     f"{len(criterion_clears)} (model,condition) pairs clear the 1.10 criterion: "
+                     f"{', '.join(criterion_clears)}",
+           "n": len(table), "detail": table}
+
+
 def compute_px2_decode_ratios(repo):
     path = repo / "results" / "t2s_night2_20260930T135145Z.jsonl"
     rows = [r for r in _read_jsonl(path)
@@ -545,6 +607,10 @@ NUMBER_ENTRIES = [
      "compute": compute_uncensored_trace_32k_crossing, "data_files": ["results/traces/agent_step_lengths.parquet"],
      "script_function": "analysis/numbers_register.py::compute_uncensored_trace_32k_crossing",
      "reported_value": "97% / 6%"},
+    {"claim_id": "PX2-full-ratio-table", "description": "PX2 TTFT and decode ratio vs N0, all 7 conditions x 5 models, with CI",
+     "compute": compute_px2_full_ratio_table, "data_files": ["results/t2s_night2_20260930T135145Z.jsonl"],
+     "script_function": "analysis/numbers_register.py::compute_px2_full_ratio_table",
+     "reported_value": "only B4 clears the 1.10 criterion"},
 ]
 
 
