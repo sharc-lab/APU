@@ -17,6 +17,7 @@ dependencies = [
     "scikit-learn>=1.4.0",
     "psutil>=5.9.0",
     "jsonschema>=4.21.0",
+    "litellm>=1.50.0",
 ]
 
 [project.optional-dependencies]
@@ -26,7 +27,7 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["harness", "analysis", "evaluation", "routing"]
+packages = ["harness", "analysis", "evaluation", "routing", "src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
