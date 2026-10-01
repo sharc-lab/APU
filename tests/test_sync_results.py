@@ -69,6 +69,72 @@ def test_local_dest_path_alt_root_gets_prefixed_to_avoid_collision():
     assert dest.name == "apu_results__t2s_k1_ollama_x.jsonl"
 
 
+def test_git_add_in_batches_splits_a_large_file_list(tmp_path, monkeypatch):
+    """Found live 2026-10-01: git add with 979 individual path args hit Windows' command-line length limit
+    (WinError 206, 'The filename or extension is too long'). Must split into batches."""
+    calls = []
+    monkeypatch.setattr(sr, "git", lambda *a: calls.append(a))
+    monkeypatch.setattr(sr, "GIT_ADD_BATCH_SIZE", 3)
+    paths = [f"file{i}.jsonl" for i in range(7)]
+    sr._git_add_in_batches(paths)
+    assert len(calls) == 3  # 3 + 3 + 1
+    assert calls[0] == ("add", "file0.jsonl", "file1.jsonl", "file2.jsonl")
+    assert calls[2] == ("add", "file6.jsonl")
+
+
+def test_commit_pulled_batches_both_add_and_status(monkeypatch):
+    monkeypatch.setattr(sr, "GIT_ADD_BATCH_SIZE", 2)
+    add_calls = []
+    status_calls = []
+
+    def fake_git(*a):
+        class R:
+            stdout = ""
+        if a[0] == "add":
+            add_calls.append(a)
+        elif a[0] == "status":
+            status_calls.append(a)
+            r = R()
+            r.stdout = " M file0.jsonl\n"
+            return r
+        elif a[0] == "commit":
+            return R()
+        elif a[0] == "rev-parse":
+            r = R()
+            r.stdout = "abc123\n"
+            return r
+        return R()
+
+    monkeypatch.setattr(sr, "git", fake_git)
+    paths = [f"file{i}.jsonl" for i in range(5)]
+    sha = sr.commit_pulled(paths)
+    assert len(add_calls) == 3  # ceil(5/2)
+    assert len(status_calls) == 3
+    assert sha == "abc123"
+
+
+def test_sync_host_does_not_update_manifest_when_commit_fails(tmp_path, monkeypatch):
+    """The manifest must only be saved after a successful commit -- a commit failure must leave every
+    pulled file eligible for retry on the next run, not silently marked done."""
+    monkeypatch.setattr(sr, "REPO", tmp_path)
+    monkeypatch.setattr(sr, "RESULTS_DIR", tmp_path)
+    monkeypatch.setattr(sr, "MANIFEST_PATH", tmp_path / "manifest.json")
+    monkeypatch.setattr(hc_module := sr.hc, "ALIASES", {"evo-x2": "EVO-X2"})
+    monkeypatch.setattr(sr.hc, "HOSTS", {"EVO-X2": {"ssh_host": "user@host"}})
+    monkeypatch.setattr(sr, "enumerate_remote_files", lambda host_str: [
+        {"root": r"C:\apu\ovn\results", "rel": "a.jsonl", "size": 10, "sha256": "aaa"}])
+    monkeypatch.setattr(sr, "pull_files", lambda host_str, key, to_pull, manifest: (
+        manifest.update({"evo-x2::C:\\apu\\ovn\\results::a.jsonl": "aaa"}), ["a.jsonl"])[1])
+
+    def failing_commit(pulled_paths):
+        raise RuntimeError("git add failed: command line too long")
+
+    monkeypatch.setattr(sr, "commit_pulled", failing_commit)
+    result = sr.sync_host("evo-x2", do_commit=True)
+    assert result.get("commit_failed") is True
+    assert sr.load_manifest() == {}  # never saved -- a.jsonl stays eligible for retry
+
+
 def test_manifest_round_trips(tmp_path, monkeypatch):
     monkeypatch.setattr(sr, "MANIFEST_PATH", tmp_path / "manifest.json")
     m = {"evo-x2::C:\\apu\\ovn\\results::a.jsonl": "aaa"}

@@ -172,11 +172,23 @@ def git(*a, check=True):
     return subprocess.run(["git", "-C", str(REPO), *a], capture_output=True, text=True, check=check)
 
 
+GIT_ADD_BATCH_SIZE = 200  # Windows CreateProcess has a ~32K command-line length limit; found live at 979
+                          # pulled files in one sync pass (WinError 206, "filename or extension is too long")
+
+
+def _git_add_in_batches(paths):
+    for i in range(0, len(paths), GIT_ADD_BATCH_SIZE):
+        git("add", *paths[i:i + GIT_ADD_BATCH_SIZE])
+
+
 def commit_pulled(pulled_paths):
     if not pulled_paths:
         return None
-    git("add", *pulled_paths)
-    status = git("status", "--porcelain", "--", *pulled_paths).stdout.strip()
+    _git_add_in_batches(pulled_paths)
+    status_parts = []
+    for i in range(0, len(pulled_paths), GIT_ADD_BATCH_SIZE):
+        status_parts.append(git("status", "--porcelain", "--", *pulled_paths[i:i + GIT_ADD_BATCH_SIZE]).stdout)
+    status = "".join(status_parts).strip()
     if not status:
         return None  # nothing actually changed (re-pulled identical content)
     msg = f"sync_results: pull {len(pulled_paths)} result file(s) from the remote machines\n\n" + "\n".join(
@@ -205,9 +217,21 @@ def sync_host(alias, do_commit=True):
         for f in too_large:
             print(f"    {f['root']}\\{f['rel']} ({f['size'] / 1024 / 1024:.1f} MB)", flush=True)
     pulled = pull_files(host_str, key, to_pull, manifest)
-    save_manifest(manifest)
     print(f"{key}: pulled {len(pulled)} files", flush=True)
-    commit_sha = commit_pulled(pulled) if do_commit else None
+    # Found live 2026-10-01: commit_pulled used to run after save_manifest, so a commit failure (it did fail
+    # once, on Windows' command-line length limit with 979 files) would still have left every pulled file
+    # marked "synced" in the manifest -- silently never retried, even though nothing was actually committed.
+    # Manifest is now saved only after a successful commit (or immediately, if the caller opted out of
+    # committing at all -- do_commit=False is a deliberate "just pull, I'll commit myself" mode, not a
+    # failure, so it still records the pull).
+    try:
+        commit_sha = commit_pulled(pulled) if do_commit else None
+    except Exception as e:
+        print(f"{key}: FAILED to commit {len(pulled)} pulled files ({e!r}) -- manifest NOT updated for them, "
+             f"they will be retried next run", file=sys.stderr, flush=True)
+        return {"host": key, "remote_files": len(remote_files), "pulled": [], "too_large": too_large,
+               "unchanged": len(unchanged), "commit": None, "commit_failed": True}
+    save_manifest(manifest)
     if commit_sha:
         print(f"{key}: committed {commit_sha}", flush=True)
     elif pulled:
