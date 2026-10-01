@@ -135,14 +135,30 @@ def local_dest_path(f):
     return RESULTS_DIR / rel
 
 
+SCP_PER_FILE_TIMEOUT_S = 120
+
+
 def pull_files(host_str, host_key, to_pull, manifest):
+    """Pulls each file independently -- one failure (a hung connection, a transient 'connection closed') must
+    never abort the rest of the sync. Found live 2026-10-01: subprocess.run(..., timeout=...) RAISES
+    TimeoutExpired rather than returning a non-zero-returncode result, so an un-caught timeout on file N of
+    971 crashed the whole sync before files N+1..971 were even attempted. Every exception here is caught,
+    logged, and skipped -- the file is simply retried on the next sync run (it stays in to_pull since its
+    manifest entry is never written on failure)."""
     pulled = []
     for f in to_pull:
         remote_path = f["root"] + "\\" + f["rel"]
         dest = local_dest_path(f)
         dest.parent.mkdir(parents=True, exist_ok=True)
-        p = subprocess.run([SCP, "-q", "-o", "BatchMode=yes", f"{host_str}:{remote_path}", str(dest)],
-                           capture_output=True, text=True, timeout=600)
+        try:
+            p = subprocess.run([SCP, "-q", "-o", "BatchMode=yes", f"{host_str}:{remote_path}", str(dest)],
+                               capture_output=True, text=True, timeout=SCP_PER_FILE_TIMEOUT_S)
+        except subprocess.TimeoutExpired:
+            print(f"  FAILED to pull {remote_path}: timed out after {SCP_PER_FILE_TIMEOUT_S}s", file=sys.stderr)
+            continue
+        except Exception as e:
+            print(f"  FAILED to pull {remote_path}: {e!r}", file=sys.stderr)
+            continue
         if p.returncode != 0:
             print(f"  FAILED to pull {remote_path}: {p.stderr[:300]}", file=sys.stderr)
             continue

@@ -109,6 +109,35 @@ def test_pull_files_updates_manifest_only_for_successful_pulls(tmp_path, monkeyp
     assert manifest["evo-x2::C:\\apu\\ovn\\results::a.jsonl"] == "aaa"
 
 
+def test_pull_files_survives_a_timeout_and_continues_to_the_next_file(tmp_path, monkeypatch):
+    """Found live 2026-10-01: subprocess.run(..., timeout=...) raises TimeoutExpired rather than returning a
+    non-zero-returncode result; an uncaught timeout on file N of many crashed the whole sync before any later
+    file was attempted. pull_files must catch it and keep going."""
+    monkeypatch.setattr(sr, "REPO", tmp_path)
+    monkeypatch.setattr(sr, "RESULTS_DIR", tmp_path)
+    calls = {"n": 0}
+
+    def flaky_run(cmd, capture_output, text, timeout):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise sr.subprocess.TimeoutExpired(cmd=cmd, timeout=timeout)
+        class R:
+            returncode = 0
+            stderr = ""
+        return R()
+
+    monkeypatch.setattr(sr.subprocess, "run", flaky_run)
+    to_pull = [
+        {"root": r"C:\apu\ovn\results", "rel": "a.jsonl", "size": 10, "sha256": "aaa"},
+        {"root": r"C:\apu\ovn\results", "rel": "b.jsonl", "size": 10, "sha256": "bbb"},
+    ]
+    manifest = {}
+    pulled = sr.pull_files("user@host", "evo-x2", to_pull, manifest)
+    assert pulled == ["b.jsonl"]  # a.jsonl timed out and was skipped; b.jsonl still got pulled
+    assert "evo-x2::C:\\apu\\ovn\\results::a.jsonl" not in manifest
+    assert manifest["evo-x2::C:\\apu\\ovn\\results::b.jsonl"] == "bbb"
+
+
 def test_pull_files_does_not_update_manifest_on_scp_failure(tmp_path, monkeypatch):
     monkeypatch.setattr(sr, "RESULTS_DIR", tmp_path)
 
