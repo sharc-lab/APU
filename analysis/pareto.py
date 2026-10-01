@@ -321,6 +321,108 @@ def generate_bom_artifacts(
     }
 
 
+# ---------------------------------------------------------------------------
+# Envelope-model Pareto sweep (B6c): quality floor vs cloud spend, on whatever
+# REAL data exists in this repo. There is no full outcome table yet (B4 --
+# the per-task quality/cost/latency table this would ideally sweep -- has not
+# been built; results/pareto_results.json does not exist). This sweep instead
+# runs analysis/envelope_model.py's real, already-fit quantities (the A-24
+# budget-boundary fit, the R1b truncation-cliff quality-vs-ratio table, and
+# the per-machine H2 co-runner terms from B5) through src/dse/router.py at a
+# small, EXPLICITLY REAL set of (machine, model, context_ratio) points --
+# the same points envelope_model itself was fit/validated on, not a
+# synthesized task distribution. What is real: the quality scores at each
+# ratio (R1B_BASELINE_SCORE_BY_RATIO, measured), the feasibility status at
+# each context length (A-24 fit), and the co-runner multipliers (B5, PX2).
+# What is NOT real/complete: there is no measured cloud-side quality number
+# anywhere in this repo (no live cloud call has ever been made for this
+# project), so "quality if routed to cloud" is not plotted -- only the
+# routing outcome (local/cloud/compact/refuse) and the real local quality
+# the router would have gotten by routing there, are reported. This is
+# stated here, not smoothed over, because synthesizing a cloud-quality
+# number would defeat the point of this being a real-data sweep.
+# ---------------------------------------------------------------------------
+
+def generate_envelope_pareto_sweep(
+    quality_floors: list[float] | None = None,
+    spend_caps_usd: list[float] | None = None,
+) -> dict[str, Any]:
+    """Sweeps (quality_floor, spend_cap) over a small, real set of (machine, model, ratio) points built from
+    envelope_model's own real constants, routing each through src/dse/router.EnvelopeRouter against the stub
+    CloudClient, and reports the resulting local/cloud/compact/refuse split and achieved quality per cell.
+
+    Returns {"points": [...], "sweep": [...], "n_real_points": N, "note": "..."} -- never writes a plot or table
+    file claiming a populated frontier; this is reported as a small/partial real sweep, not padded with
+    synthesized outcome rows.
+    """
+    import sys as _sys
+    import tempfile
+    from pathlib import Path as _Path
+
+    _sys.path.insert(0, str(REPO_ROOT))
+    _sys.path.insert(0, str(REPO_ROOT / "analysis"))
+    import envelope_model as _em  # noqa: PLC0415
+    from src.cloud.client import CloudClient  # noqa: PLC0415
+    from src.dse.router import EnvelopeRouter  # noqa: PLC0415
+
+    quality_floors = quality_floors if quality_floors is not None else [0.0, 0.3, 0.5, 0.8, 1.0]
+    spend_caps_usd = spend_caps_usd if spend_caps_usd is not None else [0.0, 1.0, 50.0]
+
+    # Real points: every (ratio -> real score) pair in R1B_BASELINE_SCORE_BY_RATIO (measured, both machines, R1b
+    # evaluation audit), each materialized as a task against evo-x2's real measured K1 effective context for
+    # qwen3-8b (K1_X2_EFFECTIVE_CTX, 40,960 -- MEASURED, see envelope_model.py) with a full_prompt_tokens chosen
+    # (120,000) large enough that every real ratio bucket actually exceeds that effective context (so each
+    # point lands in the real truncation_cliff regime and gets its real measured score, not silently shortcut to
+    # "full" by a model-native-context coincidence). evo-x2 is used (not evo-t2s) specifically because it has no
+    # A-24-equivalent memory-budget bisection, so feasibility there is NOT_MEASURED and does not confound this
+    # quality-only sweep with the separate memory-budget failure axis (see predict_feasibility).
+    effective_ctx = _em.K1_X2_EFFECTIVE_CTX["qwen3-8b"]
+    full_prompt_tokens = 120_000
+    assert full_prompt_tokens * min(_em.R1B_BASELINE_SCORE_BY_RATIO) > effective_ctx, \
+        "sweep construction invariant: even the smallest real ratio must exceed the real effective context"
+    points = []
+    for ratio in sorted(_em.R1B_BASELINE_SCORE_BY_RATIO):
+        points.append({
+            "task_id": f"r1b_ratio_{ratio}",
+            "model_id": "qwen3-8b",
+            "context_length": full_prompt_tokens,
+            "prompt_tokens": int(ratio * full_prompt_tokens),
+            "full_prompt_tokens": full_prompt_tokens,
+            "prompt": "x",
+            "real_score_at_ratio": _em.R1B_BASELINE_SCORE_BY_RATIO[ratio],
+        })
+
+    sweep_rows = []
+    for floor in quality_floors:
+        for cap in spend_caps_usd:
+            with tempfile.TemporaryDirectory() as tmp:
+                client = CloudClient(api_key=None, spend_cap_usd=cap, ledger_path=_Path(tmp) / "ledger.jsonl")
+                router = EnvelopeRouter(client, machine="evo-x2", runtime_policy="ollama_default",
+                                        quality_floor=floor)
+                targets = [router.route(p).target for p in points]
+            n = len(targets)
+            sweep_rows.append({
+                "quality_floor": floor, "spend_cap_usd": cap,
+                "frac_local": targets.count("local") / n,
+                "frac_cloud": sum(1 for t in targets if t.startswith("cloud")) / n,
+                "frac_compact": targets.count("compact_then_local") / n,
+                "frac_refuse": targets.count("refuse") / n,
+            })
+
+    return {
+        "points": points,
+        "sweep": sweep_rows,
+        "n_real_points": len(points),
+        "note": (
+            f"Swept {len(points)} real (ratio -> measured R1b score) points x {len(quality_floors)} quality "
+            f"floors x {len(spend_caps_usd)} spend caps against the stub CloudClient. This is NOT a full Pareto "
+            f"frontier over a labeled outcome table -- no such table exists yet in this repo (B4 not built, "
+            f"results/pareto_results.json absent). It is a real-data sweep of the only measured quality-vs-"
+            f"context-ratio relationship this repo has (R1b truncation cliff), through the real router logic."
+        ),
+    }
+
+
 def main() -> None:
     out = generate_pareto_artifacts()
     print(f"Pareto plot:  {out['plot_path']}")
