@@ -29,6 +29,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from envelope_model import (  # noqa: E402
     T2S_BUDGET_BISECT_POINTS, T2S_TTFT_FIT, T2S_VULKAN_BUDGET_MIB, T2S_A70_LAST_OK_POINT, _linreg,
+    H2_X2_PER_MODEL,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -139,6 +140,40 @@ def validate_budget_boundary_loo(held_out_model="qwen3-30b-a3b-2507"):
             "boundary_ctx_error_tokens": ctx_error, "boundary_ctx_error_pct": ctx_pct_error}
 
 
+def validate_px2_decode_multiplier_loo():
+    """Leave-one-model-out on H2_X2_PER_MODEL's real decode ratios (results/t2s_night2_20260930T135145Z.jsonl,
+    5 PX2 models, n=5 calls/condition, n=3 for llama-3.3-70b). For each model, predicts its decode ratio (for
+    both B4 and S4) as the mean of the OTHER 4 models' real ratios, then reports the real error against the
+    held-out model's own real ratio. This is the held-out check for the 2026-10-01 per-machine co-runner refit
+    (the prior validation functions above predate that refit and cover evo-t2s's budget boundary / cross-machine
+    TTFT only -- this is the new axis the refit added)."""
+    print("\n=== Validation 3: leave-one-model-out on the real PX2 evo-x2 decode-multiplier refit ===")
+    models = list(H2_X2_PER_MODEL)
+    results = {"B4": [], "S4": []}
+    for cond, field in (("B4", "decode_ratio_b4"), ("S4", "decode_ratio_s4")):
+        print(f"\n  -- condition {cond} ({field}) --")
+        for held_out in models:
+            others = [H2_X2_PER_MODEL[m][field] for m in models if m != held_out]
+            predicted = sum(others) / len(others)
+            real = H2_X2_PER_MODEL[held_out][field]
+            abs_err = predicted - real
+            pct_err = abs(abs_err) / real * 100
+            results[cond].append(pct_err)
+            print(f"    held out {held_out:16s}: real={real:.4f} predicted(mean of other 4)={predicted:.4f} "
+                  f"error={abs_err:+.4f} ({pct_err:.2f}%)")
+        mape = sum(results[cond]) / len(results[cond])
+        print(f"  RESULT: MAPE across {len(models)} held-out models for {cond} = {mape:.2f}%")
+    return {
+        "b4_mape_pct": sum(results["B4"]) / len(results["B4"]),
+        "s4_mape_pct": sum(results["S4"]) / len(results["S4"]),
+        "n_models": len(models),
+        "note": "LOO over 5 real PX2 models; S4's ratio is close to 1.0 for every model so its MAPE is "
+                "expected to be small and uninformative on its own -- B4's MAPE is the real test of whether "
+                "the bandwidth-hog decode effect generalizes across models, not just within the 5 measured ones.",
+    }
+
+
 if __name__ == "__main__":
     validate_ttft_cross_machine()
     validate_budget_boundary_loo()
+    validate_px2_decode_multiplier_loo()
