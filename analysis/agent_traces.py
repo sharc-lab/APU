@@ -80,22 +80,24 @@ MODEL_CONTEXT_CAP = {
 KWAI_CAP_LABEL = "unknown (dataset card: unspecified)"
 SWEGYM_CAP_LABEL = "gpt-4o-2024-08-06 (128K) / claude-3-5-sonnet-20241022 (200K), mixed, no per-row model field"
 
-# K1 v3's measured (Ollama-chosen) effective context, real numbers already on record from the R2 validity work's
-# runtime-context check (not yet K1 v3's own completed per-model tier sweep, which is still in flight on both
-# hosts at the time this script was written -- flagged honestly in the report, not silently treated as final).
+# K1 v3's measured (Ollama-chosen) default context per model, per host.
 #
-# STATUS AS OF 2026-09-30 (A7 check): NEITHER value below is confirmed by a real, completed K1 v3 tier-sweep
-# jsonl file in this repo. No results/t2s_k1_ollama_evo-t2s_*.jsonl or results/t2s_k1_ollama_evo-x2_*.jsonl
-# exists locally (checked: `find . -iname "*k1_ollama*"` under results/, and git log across all local history --
-# the only hits are the harness script and its test, never an output file). CLAIMS_LEDGER.md Claim A-28
-# references two evo-x2 K1 tier-v2 jsonl files by name (results/t2s_k1_ollama_evo-x2_20260930T022035Z.jsonl,
-# ..._20260929T204656Z.jsonl) and says they were superseded by K1 v3, "build in progress"; those files were
-# never committed to this repo either. Commit 655a92a ("k1: fix the real cause of t2s_k1_tier_v3 measuring zero
-# models on evo-t2s") confirms the evo-t2s v3 sweep had not produced a valid tier row as of that fix. Both
-# 4_096 (evo-t2s) and 131_072 (evo-x2) below are therefore CARRIED-OVER ASSUMPTIONS, not independently
-# re-verified this session -- treat truncation_cliff_table()'s output accordingly, and prefer re-running this
-# check once a real completed tier-sweep jsonl exists for either host.
-K1_MEASURED_EFFECTIVE_CTX = {"evo-t2s": 4_096, "evo-x2": 131_072}
+# evo-x2: CONFIRMED from a real, committed file -- results/t2s_k1_ollama_evo-x2_20260930T205515Z.jsonl (25 rows,
+# K1 v3's own tier_v3_model_meta/tier rows, committed 2026-10-01). Ollama's own /api/ps ollama_default_ctx per
+# model: qwen3-4b-2507 -> 262144 (matches its native ctx, uncapped), llama3.1:8b -> 131072 (matches its native
+# ctx, uncapped), qwen3:8b -> 40960 (its own native ctx -- the "capped" control model, not memory-limited here).
+# evo-x2 therefore did NOT pick a single memory-driven tier below any model's native ceiling in this run; every
+# model landed at its own native ctx. A single "evo-x2 = 131072" blanket figure (used in an earlier version of
+# this file, A7 2026-09-30 flagged it as an unconfirmed carry-over) was wrong in a specific, now-fixable way: it
+# silently assumed one tier applies to every model, when the real per-model data shows otherwise.
+#
+# evo-t2s: NOT YET CONFIRMED. No results/t2s_k1_ollama_evo-t2s_*.jsonl exists in this repo as of 2026-10-01 --
+# its first post-A1/A2-fix attempt measured zero models (all three failed to become available; see commit
+# 655a92a), and a retry is queued first in evo-t2s's pending queue. K1_T2S_EFFECTIVE_CTX stays None per model
+# until that real file exists; truncation_cliff_table() below must not silently substitute a guess for it.
+K1_X2_EFFECTIVE_CTX = {"qwen3-4b-2507": 262_144, "llama3.1:8b": 131_072, "qwen3:8b": 40_960}
+K1_X2_EFFECTIVE_CTX_SOURCE = "results/t2s_k1_ollama_evo-x2_20260930T205515Z.jsonl (committed, real)"
+K1_T2S_EFFECTIVE_CTX = None  # no real file yet -- see comment above
 K1_V3_MODEL_NATIVE_CTX = {"qwen3-4b-2507": 262_144, "llama3.1:8b": 131_072, "qwen3:8b": 40_960}
 
 
@@ -412,26 +414,29 @@ def summarize(df):
 
 
 def truncation_cliff_table(df):
-    """Key number for the paper: of steps in the UNCENSORED dataset(s), what fraction exceed each of the two
-    real, currently-measured K1 v3 effective-context values (T2S vs X2), per model whose native context is at
-    or above that tier (a model with a smaller native ceiling than the tier is not this dataset's concern --
-    the tier is never the binding constraint for it)."""
+    """Key number for the paper: of steps in the UNCENSORED dataset(s), what fraction exceed each host's real,
+    per-model measured K1 v3 effective context. evo-x2 uses K1_X2_EFFECTIVE_CTX (confirmed from a real
+    committed file, per model -- see its comment). evo-t2s is skipped entirely (not computed, not guessed)
+    until a real results/t2s_k1_ollama_evo-t2s_*.jsonl exists; the returned dict's "evo-t2s" entry states this
+    rather than silently omitting the host, so a caller printing this table sees why T2S is missing instead of
+    assuming it was forgotten."""
     uncensored = df[df["dataset"].isin([
         "nebius/SWE-rebench-openhands-trajectories", "SWE-Gym/OpenHands-Sampled-Trajectories",
     ])]
-    out = {}
-    for host, ctx in K1_MEASURED_EFFECTIVE_CTX.items():
-        out[host] = {"effective_ctx": ctx, "per_model": {}}
-        for model, native in K1_V3_MODEL_NATIVE_CTX.items():
-            binding_ctx = min(ctx, native)
-            for name, group in uncensored.groupby("dataset"):
-                vals = group["tokens_qwen"].to_numpy()
-                if len(vals) == 0:
-                    continue
-                frac = float((vals > binding_ctx).mean())
-                out[host]["per_model"].setdefault(model, {})[name] = {
-                    "binding_ctx": binding_ctx, "frac_steps_over": frac,
-                }
+    out = {"evo-t2s": {"status": "blocked: no real completed K1 v3 tier-sweep file exists yet for evo-t2s "
+                                 "(see K1_T2S_EFFECTIVE_CTX's comment); not computed from a guess"}}
+    out["evo-x2"] = {"source": K1_X2_EFFECTIVE_CTX_SOURCE, "per_model": {}}
+    for model, ctx in K1_X2_EFFECTIVE_CTX.items():
+        native = K1_V3_MODEL_NATIVE_CTX.get(model, ctx)
+        binding_ctx = min(ctx, native)
+        for name, group in uncensored.groupby("dataset"):
+            vals = group["tokens_qwen"].to_numpy()
+            if len(vals) == 0:
+                continue
+            frac = float((vals > binding_ctx).mean())
+            out["evo-x2"]["per_model"].setdefault(model, {})[name] = {
+                "binding_ctx": binding_ctx, "frac_steps_over": frac,
+            }
     return out
 
 
