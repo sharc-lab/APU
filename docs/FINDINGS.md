@@ -980,16 +980,77 @@ measured calls per the cut rule, the other 4 at the full 5).
 bw_hog solo calibration 32.212 GB/s; B4's in-sweep achieved rate (llama-3.3-70b) 24.159 GB/s, 75% of the solo
 ceiling. Hog-saturation gate (`hog_cpus_all_at_95`) not independently re-checked in this write-up pass.
 
-**Real finding outside the 5 pre-registered criteria:** the mechanism shows up in decode throughput, not TTFT.
-B4 cuts decode 7-10% below N0 consistently across all 5 models (0.905-0.928x), while S4 leaves decode essentially
-untouched (0.987-1.000x) at the same core count. The original design's TTFT-only criteria miss this entirely --
-the bandwidth effect is real, it just lives in a different metric than the one the criteria were written against.
-iGPU clock and CPU temp were only populated on qwen3-8b's rows in this run; the other 4 models' rows show `null`
-for those two fields, a real LHM-feeder gap worth fixing before the next PX2-style run, not a formatting issue.
+**Real finding, restated plainly, with the earlier "2-3% gap" phrasing corrected:** the 2-3% figure in the
+criteria verdicts above is the gap **between B4 and S4**, not the gap of either one from the N0 baseline. Both
+co-runners actually raise TTFT substantially vs N0 on evo-x2 (worked example, qwen3-8b: S4 1.098x, i.e. 9.8%
+worse than N0; B4 1.123x, 12.3% worse than N0 -- a difference of about 2.3 percentage points between the two
+hogs, "S4 max 9.8% worse than N0" being this same ceiling across the 5 models, with B4 exceeding 10% worse than
+N0 for at least one model). So the evo-t2s-style "co-runner slows TTFT" headline effect is **not absent** on
+evo-x2 -- TTFT does get worse under either hog, by a similar amount. What fails to replicate is the specific
+claim PX2 was designed to test: that a bandwidth hog and a power/compute hog can be told apart **on TTFT**. They
+can't -- B4 and S4 move TTFT almost identically (within 2-3% of each other), so criterion 2 (power-dominant)
+comes within a hair of firing (S4 falls just short of the 10%-worse-than-N0 bar on the model where it gets
+closest) while criterion 1 (bandwidth-dominant, which needs B4 to clearly beat S4) does not fire at all.
+TTFT alone is the wrong instrument for this question on evo-x2.
 
-This supersedes the "NOT YET RUN" status above and any downstream document (including `analysis/envelope_model.py`'s
-H2/co-runner multiplier, currently substituted from claim A-23's CPU-co-runner ratio pending a refit against
-these real PX2 numbers) that still cites PX2 as unrun.
+The mechanism that does separate the two hogs cleanly lives in **decode throughput**: B4 (bandwidth hog) cuts
+decode 7-10% below N0 consistently across all 5 models (ratio range 0.905-0.928x), while S4 (compute/power hog,
+same 4 physical cores, comparable CPU occupancy) leaves decode essentially untouched (ratio range 0.987-1.000x).
+The original design's 5 criteria are all written against TTFT, so they miss this distinction entirely even
+though the underlying bandwidth-vs-power separation the experiment set out to find is real -- it just shows up in
+a different metric. Read together with A-23 (evo-t2s, Intel, TTFT-visible, mechanism never established there
+either), this makes the co-runner interference mechanism **vendor-dependent in where it is visible**: on AMD
+Strix Halo the bandwidth/power distinction appears in decode throughput and not in TTFT, where the two hogs are
+nearly indistinguishable; on Intel evo-t2s the only metric measured is TTFT and no bandwidth-vs-power separation
+was ever attempted there, so the two platforms are not even answering the same question yet.
+
+**n and ranges, per model, from the prose numbers already extracted above** (this pass did not recompute these
+from the raw rows -- see the data-availability note below): n = 5 measured calls per condition for qwen3-8b,
+qwen3-14b, qwen3-32b and llama31-8b, n = 3 for llama-3.3-70b (cut rule). Decode-throughput ratio (B4/N0) spans
+0.905x to 0.928x across the 5 models; (S4/N0) spans 0.987x to 1.000x. TTFT ratio B4-vs-S4 gap spans the 2-3%
+band for all 5 models, with qwen3-8b given as the worked example (S4 1.098x vs N0, B4 1.123x vs N0). No
+per-model bootstrap CI is available from this write-up pass; at n=3-5 per cell a real CI would be wide, so these
+are reported as ranges across the 5 models, not within-model confidence intervals, and should not be read as
+such.
+
+**Power/thermal readout: not computable in this pass, and partly not measurable at all on this hardware.**
+The task of this update was to compute per-condition median package power, iGPU clock, iGPU power and CPU
+temperature from `results/t2s_night2_20260930T135145Z.jsonl` plus any PX2 sidecar files. That file is **not
+present in this repository** (checked: not in `results/`, not in any worktree, not in the shared checkout, not
+referenced by any other committed file) even though this section cites it as the completed run's data stem, and
+no `_wingpu`/`_winsys`/`_lhm`/`_sysman`-suffixed sidecar for this run timestamp exists either. Two things follow:
+
+- **Package power cannot be reported for any condition, with or without the file.** Per this section's own
+  pre-registration sensor table above, `pkg_power_w`, `rapl_pp0_w` and `rapl_pp1_w` are "expected null" on
+  evo-x2: Windows exposes only an Intel-RAPL-named "Energy Meter" counter set, and the LHM feeder maps no AMD
+  CPU power sensor into the per-call rows. `harness/lhm_sensors.ps1` writes a separate raw `<prefix>_lhm.jsonl`
+  that might carry a real AMD package-power sensor if LibreHardwareMonitor exposes one on this part, but that
+  file is unverified to exist for this run and was not found in this pass either way.
+- **iGPU clock, iGPU power and CPU temperature are real sensors on evo-x2** (`igpu_mhz`, `igpu_power_w`,
+  `temp_c_max`, `igpu_temp_c_max`, per the sensor-availability table above) and would support a real per-condition
+  median if the file were present. This section already records (from whoever last had the file) that iGPU clock
+  and CPU temp were only populated on qwen3-8b's rows in this run -- the other 4 models' rows read `null` for
+  those two fields, a real LHM-feeder gap, not a formatting issue. That means even with the file recovered, a
+  per-model breakdown for those two fields would only exist for 1 of 5 models; iGPU power's population rate
+  across models is not stated anywhere this pass could find and would need checking once the file is available.
+
+**Consequence for the power/thermal-limit question (step 3 of this task):** cannot be answered from any file
+available in this pass. No condition can be shown to have hit a power ceiling (the sensor does not exist in the
+per-call rows) or a thermal ceiling (CPU/iGPU temp rows are null for 4 of 5 models, and no throttle-flag field is
+trustworthy here either -- `igpu_throttle_bits` is hardcoded to 0 on the LHM-synthesised rows per this section's
+own sensor table, so a 0 does not mean "not throttling"). This is a gap to close by recovering
+`results/t2s_night2_20260930T135145Z.jsonl` (and its `_lhm.jsonl` sidecar if one exists) from wherever it was
+produced, not a result of "no limit was hit."
+
+This supersedes the "NOT YET RUN" status above. It also supersedes any downstream document that still cites PX2
+as unrun, including `analysis/envelope_model.py`'s H2/co-runner multiplier, which is currently substituted from
+claim A-23's evo-t2s CPU-co-runner TTFT ratio (1.39x-1.43x) and needs a refit. The refit is not a simple
+drop-in of a PX2 TTFT number in place of A-23's: evo-x2's own TTFT ratios (S4 ~1.098x, B4 ~1.123x in the worked
+example) are actually close in magnitude to A-23's evo-t2s range, so the multiplier's size may not need to move
+much -- what needs to change is the model's structure, from one scalar TTFT multiplier to a representation that
+also carries the decode-throughput effect (B4-specific, 0.905x-0.928x, bandwidth-attributable) that TTFT alone
+does not capture on evo-x2. See the updated H2 entry in `docs/CLAIMS_LEDGER.md` (claim A-23) and the flag left in
+`analysis/envelope_model.py`.
 
 ## R1b evaluation audit, both machines, from the live Oct-1-cut runs (2026-09-30)
 
