@@ -8,45 +8,49 @@ demo's router is not allowed to invent a hardware behavior that Paper 1 has
 not measured, and every number the demo prints in front of an investor must
 be traceable to a row in docs/CLAIMS_LEDGER.md.
 
-A note on naming before the table: this document was written by reading
-docs/FINDINGS.md, docs/CLAIMS_LEDGER.md, docs/PAPER_OUTLINE.md and
-docs/PAPER_OUTLINE_DSE.md as they exist in this worktree today (2026-09-30).
-Two labels used in the milestone spec handed down for this plan -- "R2" and
-"MX2" -- do not appear anywhere in this repo's docs or code under those exact
-names. Based on the closest matching content:
-- **R2** is read here as the multi-turn recall experiment that
-  docs/CLAIMS_LEDGER.md tracks as **Claim A-19** (Fig 4.15: score vs.
-  artifact_distance x intervening_schema x artifact_size under partial KV
-  eviction). That claim's own ledger entry says "Files: NONE -- harness not
-  yet written; data not yet collected. Status: UNSUPPORTED," and
-  docs/PAPER_OUTLINE.md Figure 4.15 says the harness is "NOT YET WRITTEN." A
-  commit message on main outside this worktree ("r2: fix positive-control
-  driver reading truncation_detected_turn from the wrong dict level")
-  corroborates that an "r2" driver now exists somewhere in the project's
-  history and concerns truncation-detection positive control, which lines up
-  with the multi-turn/eviction design in docs/MULTITURN_DESIGN.md.
-- **MX2** does not match any existing claim, figure, file, or script name in
-  this repo. It is carried through the milestone table below as a labeled
-  placeholder ("second cross-model or cross-machine control run, exact scope
-  TBD") rather than invented. Whoever owns the Oct 14 milestone must pin down
-  what MX2 is before that date; this plan cannot do that from repo contents
-  alone.
-- **K1 / K2**: K1 is confirmed as `harness/t2s_k1_ollama.py` (the evo-t2s
-  model-tier/context classification harness; "t2s_k1_tier_v3" appears in main
-  branch commit messages). That file does not exist in this worktree's
-  checkout (this worktree is branched from an older point on main, commit
-  `5ddecb4`, and is missing at least 5 newer commits visible in the
-  conversation's git-status context, including the K1 v3 fixes). K2 is not
-  named anywhere; it is carried as a placeholder the same way as MX2.
-- **"kappa study"**: no file, script, or doc in this repo uses "kappa,"
-  "Cohen," or "inter-rater" today. The probe suite's scorers
-  (evaluation/probes/scorers.py) and the `classification_method` /
-  `done_reason` fields used throughout docs/FINDINGS.md imply an obvious
-  candidate -- a Cohen's-kappa agreement study between the automated
-  exact-match/classification scorer and a human-labeled sample of the same
-  rows (fabrication vs. abstention vs. correct vs. unclassifiable) -- but this
-  is this document's inference, not a claim that the study is already scoped
-  anywhere in the repo.
+A note on naming before the table: an earlier pass of this document was
+written from a stale worktree checkout (branched from main commit `5ddecb4`,
+missing the K1 v3 fixes and everything after), which could not find R2, K2
+or MX2 anywhere and treated them as unscoped placeholders. Corrected
+2026-10-01 against real main:
+- **R2** is `harness/t2s_r2_session_growth.py` -- the multi-turn agent
+  session growth experiment (turn-0 system prompt with 5 checkable rules, a
+  2-tool schema, 3 recall facts, up to 80 turns, canary-based truncation
+  detection comparing cumulative sent tokens against the runtime's actually
+  loaded context). It is real, built, and has run this session: its positive
+  control (`harness/t2s_r2_positive_control.py`) was confirmed firing
+  correctly on both the Ollama and llama-server runtimes (turn 10,
+  loaded_context_tokens=8192, for llama31-8b) on 2026-10-01, after fixing two
+  real bugs (a `host_cfg['name']` KeyError and a missing `keep_alive` that
+  was silently unloading the model between every turn on evo-x2). `x2_r2` is
+  currently running on evo-x2 (first-run scope: llama3.1:8b, arms a-d,
+  as_is and occupied_40gb, 3 seeds); `t2s_r2` is queued on evo-t2s (as_is
+  conditions only). This is a separate, already-built experiment from Claim
+  A-19 (the multi-turn KV-eviction recall claim, still genuinely
+  UNSUPPORTED/harness-not-written) -- the two should not be conflated; R2
+  tests rule-compliance/tool-call/recall decay under session growth plus the
+  truncation-detection mechanism itself, not KV-eviction-under-partial-
+  context specifically.
+- **K2** is `harness/t2s_k2_pressure.py` -- the everyday-apps memory-pressure
+  experiment, now including a pause-and-resume arm (arm d): run session
+  turns 1-10, open a Chromium-driven browser memory load at a chosen GB
+  step, idle past `keep_alive` so the model unloads, resume turns 11-30, and
+  record whether the reload silently changes GPU layer placement or context.
+  Real, built, run (and once discarded after 18 contaminated rows from an
+  operator debugging collision, now fixed via the maintenance lock -- see
+  this plan's Oct 7 risk note); `x2_k2` is next in evo-x2's queue after
+  `x2_r2` finishes.
+- **MX2** is a phase (`--phases mx2`) inside `harness/t2s_night2.py`, queued
+  as `x2_mx2` right after `x2_k2` on evo-x2. Not yet run as of 2026-10-01;
+  what MX2 itself measures was not re-derived from the phase's own code in
+  this pass -- read `t2s_night2.py`'s MX2 phase function docstring directly
+  before relying on this plan's description of it elsewhere.
+- **"kappa study"**: confirmed still correct that no file, script, or doc in
+  this repo uses "kappa," "Cohen," or "inter-rater" as of 2026-10-01. Neither
+  the 150-item blinded hand-labeling pass nor `x2_llm_judge` (queued,
+  `blocked_not_built`) have been built yet. This is a real gap, not a
+  stale-checkout artifact -- it must be scoped and built before the Oct 7
+  milestone it's listed under.
 
 Where the table below cites a claim ID (A-NN, B-NN, J-01), that ID and its
 file paths come directly from docs/CLAIMS_LEDGER.md. Nothing in this table is
@@ -76,7 +80,7 @@ says so explicitly.
 | **A-25 / A-26 / A-27** Default runtime fit-policy offloads layers to CPU at a 17% decode cost near the boundary rather than crashing; YaRN alone changes a probe's answer; default load mode is not file-backed/mmap on this Vulkan device, affecting crash behavior under memory pressure (Fig 6.2 candidates) | `results/t2s_overnight_20260926T011744Z.jsonl`, `results/t2s_amech_20260926T181456Z.jsonl` | Runtime-flag-sensitivity warnings surfaced in the demo's recommended routing policy: the tool does not just say "use this model on this box," it also pins the runtime flags (rope scaling, load mode) the envelope was measured under, because this evidence shows the same model+hardware pair behaves differently under different default flags |
 | **A-01** Quality flat across depth 0-32k at fixed budget (Fig 4.1, supporting negative result) | `results/run_20260813T021516Z.jsonl` | Justifies *why* the router conditions on budget_ratio x position (A-13) rather than raw context length -- documented in the demo's methodology footnote, not a user-facing feature by itself |
 | **A-18** Parametric-default failure class: models emit canonical field-type sentinels (8080, 0, INT_MAX) when the answer span is absent, not fabricated noise (Table 4.1) | `results/span_ablation.jsonl` | Failure-mode classifier in the live-run view distinguishes `parametric_default` from `free_fabrication` -- both are wrong, but a demo audience sees the distinction between "it guessed a plausible-looking default" and "it made something up with no basis," which is a credibility point for the product's diagnostic value |
-| **A-19** Multi-turn recall vs. artifact distance / schema / size under partial KV eviction (Fig 4.15) -- **UNSUPPORTED, harness not written** | None -- `docs/PAPER_OUTLINE.md`: "harness not yet written; data not yet collected" | Nothing yet. This is the claim the "R2" milestone label most plausibly refers to (see naming note above). The demo cannot claim a multi-turn eviction-aware routing feature until this exists; until then the demo's routing policy must restrict itself to single-turn/short-horizon claims it can actually back with A-02 through A-14 |
+| **A-19** Multi-turn recall vs. artifact distance / schema / size under partial KV eviction (Fig 4.15) -- **UNSUPPORTED, harness not written** | None -- `docs/PAPER_OUTLINE.md`: "harness not yet written; data not yet collected" | Nothing yet. This is a distinct claim from the "R2" milestone (R2 is `harness/t2s_r2_session_growth.py`, real and running -- see naming note above; A-19 specifically is KV-eviction-under-partial-context, not yet built). The demo cannot claim a multi-turn eviction-aware routing feature until this exists; until then the demo's routing policy must restrict itself to single-turn/short-horizon claims it can actually back with A-02 through A-14 |
 | **J-01** (restated above with A-14) f(workload type, quality floor) -> minimum provisioned GB | Two-architecture replication (Blade off-target, evo-t2s on-target) | Hardware recommender's headline output: "recommended hardware" in docs/DEMO_SPEC.md is this function, evaluated at the user's quality floor and workload category |
 | **B-03** Independent replication (Zachary Johnson) cross-validates span-attribution methodology (Fig 5.2) | `results/zachary/replication_remote_search_v3.json` | Not demo-facing directly; backs the orchestration-overhead numbers (ORCH_SETUP/HTTP_CLIENT/TOOL_COMPUTE) that feed the latency-target input on the demo's input form, so the latency budget check is against a validated decomposition, not a single uncorroborated harness |
 | **B-04** TTFT and http_client_ns measured on the same call as quality score, enabling per-call joint envelope points (Fig 6.1) | `results/fig61_stagec_full_20260922T203557Z.jsonl` | The methodological guarantee behind the Pareto frontier screen: every point plotted is one real call's (quality, latency, cost) triple, not a mean-of-means composite that could misrepresent the frontier |
@@ -99,10 +103,10 @@ implies must exist, and docs that must exist by that date).
 
 | Deliverable (as specified) | Concrete files expected to exist |
 |---|---|
-| K1 v3 both machines | `harness/t2s_k1_ollama.py` (confirmed on main outside this worktree; must be merged/present in whatever checkout runs the Oct 7 measurement) run and committed for both evo-t2s and the second "both machines" target (EVO-X2, per docs/TIMELINE.md); `results/t2s_k1_*<timestamp>*.jsonl` + `.DONE` sentinel + manifest, for each machine |
-| R2 first run | Multi-turn recall harness (consumes `evaluation/probes/multiturn.jsonl`, does not exist yet per docs/PAPER_OUTLINE.md Fig 4.15) must be written before this is possible; first output would be a `results/multiturn_<timestamp>.jsonl` file. **This is the highest-risk Oct 7 item**: as of today the harness has not been started in this worktree |
-| Traces final | `harness/replay/cache.py` trace set frozen; the replay traces `evaluation/sweep.py` and `evaluation/certify.py` depend on should stop changing shape after this date |
-| Kappa study | A new script (e.g. `analysis/kappa_agreement.py`) comparing `evaluation/probes/scorers.py` classifications against a human-labeled sample; output `results/kappa_agreement.json` and a short `docs/KAPPA_STUDY.md` note. Nothing with this name exists yet |
+| K1 v3 both machines | `harness/t2s_k1_ollama.py`. evo-x2 has a real completed tier sweep (`results/t2s_k1_ollama_evo-x2_20260930T205515Z.jsonl`, committed); evo-t2s's first attempt measured zero models (root-caused and fixed 2026-10-01: exe resolution and an Ollama-readiness race), retry queued first in evo-t2s's queue as of today |
+| R2 first run | `harness/t2s_r2_session_growth.py` (real, built; see naming note above). Positive control confirmed firing correctly 2026-10-01 after two bug fixes. `x2_r2` running on evo-x2; `t2s_r2` queued on evo-t2s. On track |
+| Traces final | `analysis/agent_traces.py` / `results/traces/agent_step_lengths.parquet` -- real, committed, includes the censoring-artifact correction and the uncensored OpenHands-scaffolded sources. Largely done; truncation-cliff numbers confirmed for evo-x2 (per-model), still blocked on evo-t2s pending its K1 v3 retry |
+| Kappa study | Not built. Confirmed real gap (not a stale-checkout artifact): a new script (e.g. `analysis/kappa_agreement.py`) comparing the probe scorers' classifications against a human-labeled sample; output `results/kappa_agreement.json`. **Highest-risk Oct 7 item** -- nothing exists yet and it has not been scoped |
 | Demo spec | `docs/DEMO_SPEC.md` (this task produces it) |
 | Cloud API with cap | `src/cloud/client.py` (this task produces it), `results/cloud_ledger.jsonl` |
 | Workload pack | A set of example workload descriptions for the demo's input form and the Pareto-frontier demonstration; does not exist yet -- needs a new `demo/workload_pack/` or similar, scoped by whoever owns the demo build |
@@ -114,9 +118,9 @@ Paper 1 core experiments complete: R2, K2, MX2, controls, failure-map gaps.
 
 | Deliverable | Concrete files expected |
 |---|---|
-| R2 complete | `results/multiturn_<timestamp>.jsonl` with full probe grid from `evaluation/probes/multiturn.jsonl`; Claim A-19 updated from UNSUPPORTED to OFF-TARGET-ONLY or ON-TARGET in docs/CLAIMS_LEDGER.md |
-| K2 | Not named anywhere in this repo; placeholder for a second evo-t2s/EVO-X2 tier or kappa-style run in the K-series started by K1. Must be scoped before Oct 7 ends |
-| MX2 | Not named anywhere in this repo; placeholder, likely a second cross-model (per A-15, Fig 4.13) or cross-machine control run. Must be scoped before Oct 7 ends |
+| R2 complete | Full first-run scope (llama3.1:8b, arms a-d, as_is and occupied_40gb, 3 seeds on evo-x2; as_is only on evo-t2s) finished on both machines, written up in docs/FINDINGS.md |
+| K2 | `harness/t2s_k2_pressure.py`, including the pause-and-resume arm (arm d). Queued fresh on evo-x2 (`x2_k2`, right after `x2_r2`) after an earlier run was discarded (18 contaminated rows from an operator-debugging collision, now prevented by the maintenance lock) |
+| MX2 | `t2s_night2.py --phases mx2`, queued (`x2_mx2`) right after `x2_k2`. Not yet run as of 2026-10-01; confirm its exact measurement scope from the phase's own docstring before this milestone |
 | Controls | Positive-control checks already in the pattern of `docs/RESULT_PROVENANCE.md`'s "stale-server exposure audit" -- every result file produced this cycle must pass `harness/server_guard.py`'s three checks (port-free, /props match, PID match) so it does not join the UNVERIFIED list the way five existing fig61_* files already have |
 | Failure-map gaps | Fig 6.2 candidate claims (A-20 through A-27) still have open items per docs/CLAIMS_LEDGER.md: A-20's forced-failure half (C3, driver setting flip) is PENDING; A-23's mechanism is OPEN. These gaps should be closed or explicitly re-labeled by this date |
 | Local outcome tables, both machines | A committed `results/outcome_table_blade_rtx4070.json` and `results/outcome_table_evo-t2s.json` (or EVO-X2 equivalent) aggregating score/latency/memory outcomes per probe x hardware, feeding both the paper's headline table (Oct 21) and the demo's recommender lookups |
@@ -201,24 +205,23 @@ items marked "ahead on main" are known to exist on main but not in this copy.
 
 ### Oct 7 items: still needed
 
-- **R2 (multi-turn recall) first run**: not started. docs/PAPER_OUTLINE.md
-  Figure 4.15 explicitly states the harness consuming
-  `evaluation/probes/multiturn.jsonl` is "NOT YET WRITTEN," and
-  docs/CLAIMS_LEDGER.md's Claim A-19 lists "Files: NONE... Status:
-  UNSUPPORTED." This is the single highest-risk Oct 7 item: it requires
-  writing a harness, not just running an existing one, and docs/TIMELINE.md
-  (written before this plan's Dec 2 deadline was communicated) already flags
-  it as needing "an independent two-week implementation."
-- **Kappa study**: no file or doc in this repo uses "kappa" anywhere. Needs
-  to be scoped (this plan proposes: Cohen's kappa between the automated
-  scorer in `evaluation/probes/scorers.py` and a human-labeled sample) and
-  then built.
+(Corrected 2026-10-01 -- an earlier pass of this section, written from a
+stale checkout, wrongly treated R2/K2/MX2 as unscoped/not-started. See the
+naming note at the top of this document for what each one really is.)
+
+- **R2 first run**: in progress, not at risk -- `x2_r2` is running on
+  evo-x2, `t2s_r2` is queued on evo-t2s, and the positive control is
+  confirmed working.
+- **Kappa study**: genuinely not started, confirmed real (not a
+  stale-checkout artifact). Needs to be scoped (this plan proposes: Cohen's
+  kappa between the automated scorer in `evaluation/probes/scorers.py` and a
+  human-labeled sample) and then built. **This is the single highest-risk
+  Oct 7 item.**
 - **Workload pack**: no `demo/` directory or workload-description set exists
-  in this repo today.
-- **K2 / MX2** (named in the Oct 14 milestone but worth flagging now): these
-  labels appear nowhere in this repo. They cannot be scheduled against real
-  scripts until someone defines what they are; this plan has not invented a
-  definition for them.
+  in this repo today; this is B3, not yet started.
+- **K2 / MX2**: both real and queued (`harness/t2s_k2_pressure.py`,
+  `t2s_night2.py --phases mx2`), not at risk for Oct 7 since they are Oct 14
+  deliverables; see the Oct 14 table above for their real status.
 
 ### results/ and analysis/ state relevant to this plan
 
