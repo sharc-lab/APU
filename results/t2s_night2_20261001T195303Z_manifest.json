@@ -1,0 +1,53 @@
+{
+ "launch_utc": "2026-10-01T19:53:06.985293+00:00",
+ "script_provenance": {
+  "git_head": "0b57800e229fa74165000ca27e157b7f7b199b42",
+  "committed": true,
+  "verified_by": "git blob sha1 of deployed bytes",
+  "problems": [],
+  "files": [
+   {
+    "path": "t2s_k1_ollama.py",
+    "expected_git_blob_sha": "5857352ac205e21dd283bbb6ce1805a6d6830b1b",
+    "actual_git_blob_sha": "5857352ac205e21dd283bbb6ce1805a6d6830b1b",
+    "sha256": "3182b71b7d057cb0927ad5f05443916f80cf8457a7fd5148d950feae133d19b8"
+   }
+  ]
+ },
+ "identity": {
+  "hw_id": "evo-t2s",
+  "cpu_name": "Intel(R) Core(TM) Ultra X7 358H",
+  "gpu_name": "Intel(R) Arc(TM) B390 GPU",
+  "gpu_driver_version": "32.0.101.8509"
+ },
+ "phases": [
+  "r1_speed",
+  "r1_check"
+ ],
+ "phases_cut": [],
+ "estimated_hours": {
+  "b1": 1.3379449556876155,
+  "b2": 0.6698335469402671,
+  "b3": 2.224003851586887,
+  "c1": 3.770147002661926,
+  "c1b": 2.84218863189054,
+  "b4": 0.5427778763090749,
+  "b4_32b": 1.8513810711483891,
+  "b4_replicate": 0.5427778763090749,
+  "perfboost": 0.17739582513478544,
+  "r1_speed": 1.9032187375352758,
+  "r1_check": 2.155665286382104,
+  "a70": 1.9155321636862572,
+  "p70": 1.1574046393169528,
+  "r1b": 4.216203806796151,
+  "r1b_controls": 10.536684580242827,
+  "r1d": 4.739403680642588,
+  "r1c": 4.308780614932507,
+  "mx2": 0.4642857693389687,
+  "px2": 2.95499473525533
+ },
+ "estimate_source": "overnight-table fit (no --prior-results given or file unreadable)",
+ "seed": 20260927,
+ "overnight_table": "C:\\apu\\ovn\\results\\t2s_overnight_20260926T011744Z_model_table.json",
+ "prior_results": null
+}
