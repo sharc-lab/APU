@@ -1434,6 +1434,22 @@ def main(argv=None):
                                                   if condition_id == "occupied_40gb" else None),
                                 max_turns=max_turns)
                         else:
+                            if needs_ollama:
+                                # Found live 2026-10-01 (evo-x2): run_turn_ollama's own keep_alive="30m" fix
+                                # (needed for the cross-turn KV-cache reuse the Ollama arms rely on) means an
+                                # Ollama-held model from an earlier arm in this SAME run can still be loaded
+                                # (and its internal llama-server.exe engine still running) up to 30 minutes
+                                # later when a llama-server arm starts next for the same model -- the
+                                # llama-server arm's own stale-process guard then refuses to start, since
+                                # Ollama's internal engine is also named llama-server.exe and the guard cannot
+                                # tell "ours, via Ollama" from "a genuinely foreign process" by name alone.
+                                # Unload just the model (not hc.stop_ollama_server(), which would kill the
+                                # whole server main() itself manages and started once for the whole run) --
+                                # a no-op if nothing is loaded, safe regardless of arm ordering.
+                                try:
+                                    lab.ollama.unload(ollama_tag)
+                                except Exception as e:
+                                    log(f"R2: pre-llama_server Ollama unload failed (continuing): {e!r}")
                             exe = _resolve_llama_server_exe(host_cfg)
                             model_path = _resolve_gguf_path(model_id, args.gguf_dir)
                             port = args.ollama_port + 1  # distinct from Ollama's own port
