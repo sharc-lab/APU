@@ -1,0 +1,52 @@
+{
+ "launch_utc": "2026-09-30T17:38:07.150909+00:00",
+ "script_provenance": {
+  "git_head": "5c43b33fd64297af8e153d21533efab45a652f7d",
+  "committed": true,
+  "verified_by": "git blob sha1 of deployed bytes",
+  "problems": [],
+  "files": [
+   {
+    "path": "t2s_r2_session_growth.py",
+    "expected_git_blob_sha": "2391d58ee1486a23a47c694f7aedd6086c429238",
+    "actual_git_blob_sha": "2391d58ee1486a23a47c694f7aedd6086c429238",
+    "sha256": "bd45d9aa3477a934824104a24212909d6bdcf5991b93e97e18a1806e01c435f6"
+   }
+  ]
+ },
+ "identity": {
+  "hw_id": "evo-x2",
+  "cpu_name": "AMD RYZEN AI MAX+ 395 w/ Radeon 8060S",
+  "gpu_name": "AMD Radeon(TM) 8060S Graphics",
+  "gpu_driver_version": "32.0.31007.1017"
+ },
+ "phases": [
+  "r1c"
+ ],
+ "phases_cut": [],
+ "estimated_hours": {
+  "b1": 1.6083333333333334,
+  "b2": 0.8083333333333333,
+  "b3": 1.6166666666666667,
+  "c1": 3.0,
+  "c1b": 2.6666666666666665,
+  "b4": 0.6344444444444445,
+  "b4_32b": 0.6344444444444445,
+  "b4_replicate": 0.6344444444444445,
+  "perfboost": 0.20416666666666666,
+  "r1_speed": 0.0,
+  "r1_check": 4.508333333333334,
+  "a70": 0.7708333333333334,
+  "p70": 0.3645833333333333,
+  "r1b": 6.008333333333334,
+  "r1b_controls": 15.008333333333333,
+  "r1d": 9.908333333333333,
+  "r1c": 31.529166666666665,
+  "mx2": 0.0,
+  "px2": 4.532777777777778
+ },
+ "estimate_source": "overnight-table fit (no --prior-results given or file unreadable)",
+ "seed": 20260927,
+ "overnight_table": "C:\\apu\\ovn\\results\\t2s_overnight_20260926T011744Z_model_table.json",
+ "prior_results": null
+}

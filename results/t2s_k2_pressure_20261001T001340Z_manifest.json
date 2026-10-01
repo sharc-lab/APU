@@ -1,0 +1,110 @@
+{
+ "launch_utc": "2026-10-01T00:13:42.851686+00:00",
+ "script_provenance": {
+  "git_head": "0077975e99a21650bd9a9912f28ac20fc6219662",
+  "committed": true,
+  "verified_by": "git blob sha1 of deployed bytes",
+  "problems": [],
+  "files": [
+   {
+    "path": "t2s_r2_positive_control.py",
+    "expected_git_blob_sha": "1cf053aea9282c6b04ef6eac56f46a527693f167",
+    "actual_git_blob_sha": "1cf053aea9282c6b04ef6eac56f46a527693f167",
+    "sha256": "f6e3c77992de1568513c70fa2cef26ce2e6c9507bf5c2b7da06211b88a5736c3"
+   },
+   {
+    "path": "t2s_r2_session_growth.py",
+    "expected_git_blob_sha": "5a29319b86aa4a930a254632a594fdd0349b54ab",
+    "actual_git_blob_sha": "5a29319b86aa4a930a254632a594fdd0349b54ab",
+    "sha256": "0d4a03c81ac5ecd65f7ce10d88a935133ebeaa9f8c50f12fe3340639e3f80624"
+   },
+   {
+    "path": "t2s_k1_ollama.py",
+    "expected_git_blob_sha": "ac2281a34ad0ea821a076a8bda39def21edccf4b",
+    "actual_git_blob_sha": "ac2281a34ad0ea821a076a8bda39def21edccf4b",
+    "sha256": "c89a430f14114a2e49868ed7e72d6d12a5f6a0cfde54c1985aa0f206e6913225"
+   },
+   {
+    "path": "t2s_k2_pressure.py",
+    "expected_git_blob_sha": "a7161ba212940564c56ef2f0da56b8877df948ce",
+    "actual_git_blob_sha": "a7161ba212940564c56ef2f0da56b8877df948ce",
+    "sha256": "3b4df269514e8eac8a5313f5bea6260942f19775c170dec795b9e7fa137e43c5"
+   },
+   {
+    "path": "t2s_queue.py",
+    "expected_git_blob_sha": "37e3ed7e27da1b991da22e5e0c3167436388b078",
+    "actual_git_blob_sha": "37e3ed7e27da1b991da22e5e0c3167436388b078",
+    "sha256": "5731cd7c6087a80db2f113eecd8ef652ccefe987dc575768ac9bb4a4bb67ef5b"
+   },
+   {
+    "path": "host_config.py",
+    "expected_git_blob_sha": "a2eaea249f37a8ae2c4e40b7083a7991b6a005b7",
+    "actual_git_blob_sha": "a2eaea249f37a8ae2c4e40b7083a7991b6a005b7",
+    "sha256": "18c95d98513d52409ed394e118d307aee1dd7543f68a94d6a7e788b39bc1395b"
+   },
+   {
+    "path": "browser_pressure.py",
+    "expected_git_blob_sha": "e0dc4bf6d2114de8c8722a02581104f0de9201d2",
+    "actual_git_blob_sha": "e0dc4bf6d2114de8c8722a02581104f0de9201d2",
+    "sha256": "57f20b1b78f3f0335824da816e691a2e39f7b27cc47bb03e6400de286ac4c551"
+   },
+   {
+    "path": "t2s_lab.py",
+    "expected_git_blob_sha": "2ab141caff02f0e2784d01c7fe85fc97bb3be17d",
+    "actual_git_blob_sha": "2ab141caff02f0e2784d01c7fe85fc97bb3be17d",
+    "sha256": "92ff727562b24040ed5fd4c6b1023aee5ccbb5cd210e96bb69070436edbba789"
+   }
+  ]
+ },
+ "identity": {
+  "hw_id": "evo-x2",
+  "cpu_name": "AMD RYZEN AI MAX+ 395 w/ Radeon 8060S",
+  "gpu_name": "AMD Radeon(TM) 8060S Graphics",
+  "gpu_driver_version": "32.0.31007.1017"
+ },
+ "models": [
+  "qwen3-8b",
+  "qwen3-14b",
+  "qwen3-32b",
+  "llama-3.3-70b"
+ ],
+ "n_ctx": 16384,
+ "seed": 20260928,
+ "levels_gb": [
+  8,
+  4,
+  2,
+  1,
+  0,
+  -1,
+  -2
+ ],
+ "mmap_arms": [
+  "default",
+  "mmap"
+ ],
+ "pressure_arms": [
+  "awe_balloon",
+  "pageable_touch"
+ ],
+ "score_tol_rel": 0.05,
+ "resp_tol_factor": 2.0,
+ "everyday_apps": true,
+ "everyday_apps_models": [
+  "llama31-8b",
+  "qwen3-4b-2507"
+ ],
+ "everyday_apps_runtimes": [
+  "llama_server",
+  "ollama"
+ ],
+ "pause_resume": true,
+ "pause_resume_app_load_steps_gb": [
+  0,
+  8,
+  16,
+  24,
+  32
+ ],
+ "pause_resume_keep_alive": "5m"
+}

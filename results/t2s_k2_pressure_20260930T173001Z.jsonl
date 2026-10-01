@@ -1,0 +1,1 @@
+{"record": "run_end", "note": "stopped: RuntimeError('STOP: an ollama process is running; refusing to start K2 phase for qwen3-8b')", "ts_utc": "2026-09-30T17:30:25.104768+00:00"}

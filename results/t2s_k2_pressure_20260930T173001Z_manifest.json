@@ -1,0 +1,59 @@
+{
+ "launch_utc": "2026-09-30T17:30:03.276689+00:00",
+ "script_provenance": {
+  "git_head": "11a0be186d9916dceb9dd71db9682083f7dc1fb7",
+  "committed": true,
+  "verified_by": "git blob sha1 of deployed bytes",
+  "problems": [],
+  "files": [
+   {
+    "path": "llama_server.py",
+    "expected_git_blob_sha": "241a2684f8ce2b743dcaae93239dfeaa741c4ad4",
+    "actual_git_blob_sha": "241a2684f8ce2b743dcaae93239dfeaa741c4ad4",
+    "sha256": "4c6631f00c333cbf29b5dfa4614a6ed2c0502c5a3b18e4e22aba563c1a049adb"
+   }
+  ]
+ },
+ "identity": {
+  "hw_id": "evo-x2",
+  "cpu_name": "AMD RYZEN AI MAX+ 395 w/ Radeon 8060S",
+  "gpu_name": "AMD Radeon(TM) 8060S Graphics",
+  "gpu_driver_version": "32.0.31007.1017"
+ },
+ "models": [
+  "qwen3-8b",
+  "qwen3-14b",
+  "qwen3-32b",
+  "llama-3.3-70b"
+ ],
+ "n_ctx": 16384,
+ "seed": 20260928,
+ "levels_gb": [
+  8,
+  4,
+  2,
+  1,
+  0,
+  -1,
+  -2
+ ],
+ "mmap_arms": [
+  "default",
+  "mmap"
+ ],
+ "pressure_arms": [
+  "awe_balloon",
+  "pageable_touch"
+ ],
+ "score_tol_rel": 0.05,
+ "resp_tol_factor": 2.0,
+ "everyday_apps": false,
+ "everyday_apps_models": [
+  "llama31-8b",
+  "qwen3-4b-2507"
+ ],
+ "everyday_apps_runtimes": [
+  "llama_server",
+  "ollama"
+ ]
+}
