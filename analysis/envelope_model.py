@@ -19,10 +19,26 @@ Hardware scope actually available in this repo as of this commit (2026-09-30):
     it matters (predict_latency, validate_ttft_cross_machine) rather than papered over.
   - Blade RTX4070 (off-target arm): real silent-spill data (A-20), used only in predict_failure_silence via
     make_failure_map's EVIDENCE table.
-  - PX2 (the pre-registered evo-x2 co-runner experiment meant to supply the H2 multiplier) is, per
-    docs/FINDINGS.md's own PX2 section header, "pre-registration only. No PX2 data exists." So the H2 co-runner
-    multiplier used here is A-23's real measured evo-t2s CPU-co-runner TTFT ratio, not PX2's (nonexistent) data,
-    with that substitution stated explicitly in H2_CORUNNER_MULTIPLIER's docstring.
+  - PX2 (the pre-registered evo-x2 co-runner experiment meant to supply the H2 multiplier) RAN on 2026-09-30 and
+    completed (docs/FINDINGS.md, "PX2 real results" subsection, and docs/CLAIMS_LEDGER.md claim A-23's
+    2026-09-30 update) -- the "pre-registration only" status this file's comments and H2_CORUNNER_TTFT_MULTIPLIER
+    below still describe is STALE. The real result is not a simple TTFT multiplier for evo-x2: both the bandwidth
+    hog (B4) and the compute/power hog (S4) raise evo-x2 TTFT substantially vs baseline (worked example, qwen3-8b:
+    S4 1.098x, B4 1.123x) but move it almost identically (within 2-3% of each other), so none of PX2's 5
+    pre-registered criteria separate bandwidth from power on TTFT. The one clean, criterion-worthy separation is
+    on **decode throughput**: B4 cuts decode 7-10% below baseline (0.905x-0.928x across 5 models) while S4 leaves
+    it untouched (0.987x-1.000x). H2_CORUNNER_TTFT_MULTIPLIER below still substitutes A-23's evo-t2s ratio
+    (1.39x-1.43x) for evo-x2 and still only models a TTFT effect. That substitution's magnitude is not obviously
+    wrong for evo-x2 TTFT alone (1.098x-1.123x is a broadly similar range), but the model has **no representation
+    of the decode-throughput effect at all**, which is evo-x2's actual measured PX2 result. A real refit needs:
+    (1) the raw row data (results/t2s_night2_20260930T135145Z.jsonl, which is NOT present in this repository as
+    of this commit -- checked and confirmed absent from results/, every worktree, and the shared checkout, despite
+    being cited as the completed run's data stem) to get real per-condition, per-model medians and a defensible
+    n/CI rather than the prose ranges quoted above; (2) a second multiplier axis (decode_tok_s, not just ttft_s)
+    so predict_latency can express a bandwidth-hog-specific decode penalty separately from a TTFT penalty; and
+    (3) a decision on whether evo-t2s's existing TTFT-only multiplier and evo-x2's prospective decode multiplier
+    are even the same H2 quantity, given neither machine has measured both metrics under both hog types. This is
+    flagged here, not fixed: no refit is attempted in this change.
 
 Run as a script to print every prediction for a small demo grid:
     py -3.12 analysis/envelope_model.py
@@ -76,9 +92,16 @@ T2S_BUDGET_BISECT_POINTS = {
 T2S_A70_LAST_OK_POINT = (23296, 47482.0)  # (n_ctx, projected_mib), llama-3.3-70b, A-24 update text
 
 # A-23 (docs/CLAIMS_LEDGER.md): the H1 co-runner slowdown replicated across models. PX2 (the evo-x2 experiment
-# meant to supply this multiplier for X2/S-B conditions) is pre-registration only, no data (FINDINGS.md PX2
-# section). Using A-23's real evo-t2s nonp12/all16 CPU co-runner TTFT ratios as the best available substitute,
-# stated explicitly rather than silently treated as if it were PX2 data:
+# meant to supply this multiplier for X2/S-B conditions) has now RUN and completed (2026-09-30; see
+# docs/FINDINGS.md's "PX2 real results" and docs/CLAIMS_LEDGER.md claim A-23's 2026-09-30 update) -- this is
+# STILL using A-23's evo-t2s substitute below, NOT PX2's own evo-x2 numbers, and that is now a known gap, not an
+# absence of data. PX2's real evo-x2 result is not a TTFT multiplier in the first place: TTFT does rise under
+# both hogs (worked example, qwen3-8b: S4 1.098x, B4 1.123x) but the two hogs are statistically indistinguishable
+# on TTFT (within 2-3% of each other); the real bandwidth-vs-power separation on evo-x2 is a decode-throughput
+# effect (B4 0.905x-0.928x of baseline, S4 0.987x-1.000x), which this TTFT-only multiplier has no field for. See
+# the module docstring's PX2 paragraph above for what a real refit would require. Using A-23's real evo-t2s
+# nonp12/all16 CPU co-runner TTFT ratios as the best available substitute, stated explicitly rather than silently
+# treated as if it were PX2 data:
 #   4B-2507: 1.40x, 1.39x; 8B: 1.42x, 1.43x; P70 (llama-3.3-70b): 1.42x (one condition, n=3 calls)
 H2_CORUNNER_TTFT_MULTIPLIER = {
     "value_range": (1.39, 1.43),
@@ -294,8 +317,10 @@ def predict_latency(machine: str, runtime_policy: str, prompt_tokens: int, co_ru
     cross-machine extrapolation, so callers can see exactly how much of the number is real.
 
     H2 co-runner multiplier: A-23's real evo-t2s CPU-co-runner TTFT ratio (1.39x-1.43x, point estimate 1.42x),
-    used as the best available substitute for PX2's pre-registered-but-unmeasured S/B condition multiplier
-    (H2_CORUNNER_TTFT_MULTIPLIER docstring has the full citation).
+    used as a substitute for the evo-x2/PX2 cell. PX2 has since run (2026-09-30) and its real result is a
+    decode-throughput effect (bandwidth hog only, 0.905x-0.928x of baseline), not a TTFT multiplier -- this
+    substitution is flagged as needing a structural refit, not just a number swap (see module docstring and
+    H2_CORUNNER_TTFT_MULTIPLIER's comment for the full citation and what the refit requires).
     """
     if machine == "evo-t2s":
         ttft = T2S_TTFT_FIT["intercept_s"] + T2S_TTFT_FIT["slope_s_per_token"] * prompt_tokens
