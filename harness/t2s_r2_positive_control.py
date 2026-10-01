@@ -35,8 +35,15 @@ def main(argv=None):
             result = r2.run_positive_control(runtime=runtime, model_id=args.model, host_cfg=host_cfg,
                                               max_turns=args.max_turns)
             results[runtime] = result
-            fired_turn = result.get("truncation_detected_turn")
-            print(f"{runtime}: truncation_detected_turn={fired_turn}", flush=True)
+            # phase_run_session returns {"skipped", "session", "rows", "scored"} -- truncation_detected_turn
+            # and loaded_context_tokens live under "scored", not at the top level (bug found live
+            # 2026-10-01: this driver's first version read result.get(...) directly and always printed
+            # None even when detection had genuinely fired, e.g. the llama_server leg at turn 10).
+            scored = result.get("scored", {})
+            fired_turn = scored.get("truncation_detected_turn")
+            loaded_ctx = scored.get("loaded_context_tokens")
+            print(f"{runtime}: loaded_context_tokens={loaded_ctx} truncation_detected_turn={fired_turn}",
+                  flush=True)
             print(json.dumps(result, indent=2, default=str), flush=True)
         except Exception as e:
             import traceback
@@ -46,8 +53,10 @@ def main(argv=None):
 
     print("\n=== SUMMARY ===", flush=True)
     for runtime, result in results.items():
-        fired = result.get("truncation_detected_turn") if isinstance(result, dict) else None
-        print(f"{runtime}: truncation_detected_turn={fired}", flush=True)
+        scored = result.get("scored", {}) if isinstance(result, dict) else {}
+        fired = scored.get("truncation_detected_turn")
+        loaded_ctx = scored.get("loaded_context_tokens")
+        print(f"{runtime}: loaded_context_tokens={loaded_ctx} truncation_detected_turn={fired}", flush=True)
     return results
 
 
