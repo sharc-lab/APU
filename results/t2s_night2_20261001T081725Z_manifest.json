@@ -1,5 +1,5 @@
 {
- "launch_utc": "2026-10-01T14:05:23.126718+00:00",
+ "launch_utc": "2026-10-01T08:17:27.950265+00:00",
  "script_provenance": {
   "git_head": "0b57800e229fa74165000ca27e157b7f7b199b42",
   "committed": true,
@@ -21,7 +21,8 @@
   "gpu_driver_version": "32.0.101.8509"
  },
  "phases": [
-  "r1c"
+  "r1_speed",
+  "r1_check"
  ],
  "phases_cut": [],
  "estimated_hours": {

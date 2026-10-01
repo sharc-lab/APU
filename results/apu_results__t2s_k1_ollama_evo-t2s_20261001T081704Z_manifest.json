@@ -1,0 +1,45 @@
+{
+ "launch_utc": "2026-10-01T08:17:04.742960+00:00",
+ "host": {
+  "hw_id": "evo-t2s",
+  "user": "sharc",
+  "python_exe": "%USERPROFILE%\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+  "deploy_dir": "C:\\apu\\ovn",
+  "models_dir": "C:\\apu\\models",
+  "gpu_vendor": "intel",
+  "ssh_host": "sharc@100.72.40.24",
+  "interactive_guard": true,
+  "name": "evo-t2s",
+  "backend": "vulkan",
+  "memory_targets_gb": [
+   30
+  ],
+  "max_ctx_native": 32768
+ },
+ "args": {
+  "phase": "tier,memory",
+  "host": "evo-t2s",
+  "ollama_model": "qwen3:8b",
+  "gguf_model": "Qwen3-8B-Q4_K_M.gguf",
+  "gguf_path": null,
+  "gguf_sha256": null,
+  "memory_targets_gb": null,
+  "occupier_n_ctx": 32768,
+  "default_ctx": null,
+  "ollama_port": 11434,
+  "out_dir": "C:\\apu\\results",
+  "resume": null,
+  "reps": 3,
+  "require_committed": false,
+  "calibration_file": null
+ },
+ "script_provenance": {
+  "git_head": null,
+  "committed": null,
+  "problems": [
+   "git not available in this environment (no git.exe on PATH, or REPO is not a git repository)"
+  ],
+  "files": []
+ },
+ "quality_suite_source": "harness.quality_suite"
+}
