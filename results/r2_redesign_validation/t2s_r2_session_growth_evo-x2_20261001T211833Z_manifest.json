@@ -1,0 +1,79 @@
+{
+ "launch_utc": "2026-10-01T21:18:33.112244+00:00",
+ "host": {
+  "hw_id": "evo-x2",
+  "user": "Ritz",
+  "python_exe": "%USERPROFILE%\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+  "deploy_dir": "C:\\apu\\ovn",
+  "models_dir": "C:\\apu\\models",
+  "gpu_vendor": "amd",
+  "ssh_host": "Ritz@100.118.33.76",
+  "interactive_guard": false,
+  "name": "evo-x2",
+  "backend": "vulkan",
+  "memory_targets_gb": [
+   40,
+   70
+  ],
+  "max_ctx_native": 32768
+ },
+ "args": {
+  "host": "evo-x2",
+  "ollama_port": 11434,
+  "out_dir": "C:\\apu\\ovn\\results\\r2_redesign_validation",
+  "resume": null,
+  "require_committed": false,
+  "smoke": false,
+  "models": "qwen3-14b",
+  "arms": "ollama_ctx_131072",
+  "seeds": "88888831,88888832,88888833",
+  "max_turns": 10,
+  "memory_conditions": "as_is",
+  "gguf_dir": "C:\\apu\\models"
+ },
+ "script_provenance": {
+  "git_head": null,
+  "committed": null,
+  "problems": [
+   "git not available in this environment (no git.exe on PATH, or REPO is not a git repository)"
+  ],
+  "files": []
+ },
+ "estimate": {
+  "machine": "evo-x2",
+  "n_cells": 15,
+  "max_turns_per_session": 10,
+  "total_calls": 150,
+  "seconds_per_call_assumption": 25.0,
+  "total_hours": 1.0416666666666667,
+  "by_memory_condition": {
+   "as_is": {
+    "cells": 15,
+    "calls": 150,
+    "hours": 1.0416666666666667
+   }
+  },
+  "applicable_arms": [
+   "ollama_default",
+   "ollama_ctx_131072",
+   "ollama_ctx_32768_x2",
+   "llama_server_default_fit",
+   "llama_server_c_131072"
+  ]
+ },
+ "models": [
+  "qwen3-14b"
+ ],
+ "arms": [
+  "ollama_ctx_131072"
+ ],
+ "seeds": [
+  88888831,
+  88888832,
+  88888833
+ ],
+ "max_turns": 10,
+ "memory_conditions": [
+  "as_is"
+ ]
+}
