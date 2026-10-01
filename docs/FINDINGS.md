@@ -1058,6 +1058,167 @@ which was not done in this pass. Flagged rather than skipped silently.
 
 ---
 
+## A3/A6 audit: reconciling the qwen3-32b refusal-share discrepancy, real row examples, and a citation check (2026-09-30)
+
+### A3: 41/82 (50%) vs 19/111 (17%) -- which is real
+
+**Verdict: 19/111 (17%) is the only one of the two numbers that is grounded in this repository.
+41/82 (50%) does not appear anywhere in this project's committed history, on any branch, in any
+doc, result file, or analysis script, and cannot be reconstructed from any committed row data.**
+
+What was checked (`git log --all -p` over the whole repo, plus a literal search of every tracked
+file at the current tip): the string "19/111" occurs in exactly one place anywhere in this
+project's history -- the paragraph added by commit `6368afa` ("R1b audit: per-probe grid, refusal
+dumps, self-report rescore"), which is the same paragraph present today in the section directly
+above this one:
+
+> t2s: qwen3-8b 9/192 (5%), qwen3-14b 9/198 (5%). x2: qwen3-4b-2507 12/198 (6%), qwen3-8b 11/192
+> (6%), qwen3-14b 9/198 (5%), qwen3-32b 19/111 (17%).
+
+That number's stated source is `analysis/r1b_wrong_answer_audit.py` run against
+`results/t2s_night2_20260929T202603Z.jsonl` (evo-t2s) and `results/t2s_night2_20260929T205109Z.jsonl`
+(evo-x2) -- described in the same section as "the currently-running r1b_r1d jobs, pulled live and
+analyzed locally." Those two exact filenames do not exist anywhere in this repository (checked
+at every commit that touches `results/` and at the current tip; no file with either timestamp was
+ever committed). The only `t2s_night2_*.jsonl` files actually committed are
+`results/t2s_night2_20260928T004924Z.jsonl` (300 lines) and `results/t2s_night2_20260928T200748Z.jsonl`
+(225 lines) -- running `analysis/r1b_wrong_answer_audit.py` against both of these directly gives
+**0 R1b art_* rows in either file** (verified by loading both files and filtering for
+`kind == "call"` and `probe_id` starting with `art_`: zero matches, zero `arm1_baseline`/
+`arm3_self_report` rows). These two files are from the night2 B1/B2/C1 core-set-sweep phases
+(the work landed in commit `13a5be2`, before R1b existed), not from the R1b phase at all. So the
+19/111 number is real and correctly attributed to its own analysis, but its two raw source files
+were never pulled off the remote machines into this repository -- they existed only transiently
+("pulled live" means read off evo-t2s/evo-x2 directly during the live run, not saved) -- which
+means the number cannot be independently recomputed from any file in this repo today. It can only
+be confirmed by provenance (one script, one commit, internally consistent numbers) rather than by
+rerunning the script on committed data.
+
+Internal-consistency check on the 19/111 paragraph itself: the same paragraph states "51 [refusals]
+out of 872 x2 rows" for all models combined on evo-x2. Summing the four per-model x2 refusal counts
+it also gives -- qwen3-4b-2507 12, qwen3-8b 11, qwen3-14b 9, qwen3-32b 19 -- gives 12+11+9+19 = 51,
+exactly matching the stated x2 total. This is consistent with 19/111 being a real tabulation from
+one real run, not a transcription error or a guess.
+
+The one row-level artifact that *is* committed and does reference qwen3-32b wrong answers is
+`results/labeling/r1b_wrong_sample.csv` (and its blinded twin), a 150-row stratified sample built
+by `analysis/build_r1b_wrong_sample.py` (commit `b6c8cae`, refreshed in `c7cb214`) from a
+different, later pull (the commit message says "from x2_r1b_scale") that is also not itself
+committed as a raw JSONL. That sample contains only 20 qwen3-32b rows (counted directly from the
+CSV), of which 5 are heuristically labeled REFUSAL and 15 FABRICATION -- 5/20 = 25%. This is a
+*stratified sample* (round-robin across model/ratio/arm/machine strata, capped at 150 rows total),
+not the full wrong-answer population, so 25% from 20 rows is not a competing estimate of the true
+share and is not directly comparable to 19/111 from (apparently) 111 full-population wrong rows;
+it is cited here only because it is the real source used for the row examples in the next section.
+
+**41/82 (50%) traces to nothing.** No commit, in any branch reachable from `main`, ever added the
+string "41/82," "41 / 82," or "50%" anywhere near "refusal" or "qwen3-32b." It is not an earlier,
+narrower-regex version of the same computation either: the FINDINGS text itself records that the
+*narrow* (pre-fix) regex found 0 refusals on both machines for the R1b run, not 41, and the
+narrow-vs-broad regex history in `analysis/r1b_wrong_answer_audit.py` / `analysis/build_r1b_wrong_sample.py`
+only ever contains the one (broadened) pattern as committed -- there is no narrower committed
+version that would yield 41. It does not match the stratified sample's qwen3-32b subset (20 rows,
+not 82) or any arithmetic combination of the other per-model counts in the same paragraph. The
+most likely explanation is that 41/82 is a misremembered or miscommunicated figure from outside
+this repository's committed record -- possibly a conflation with a different model, a different
+phase's row count, or a verbal approximation -- not a stale-but-real number from an earlier
+classifier version or an earlier scope. **Conclusion: 19/111 (17%) stands as the project's number
+for qwen3-32b's refusal share of wrong answers; 41/82 (50%) should not be cited and has no
+identifiable source file.**
+
+### A6(a): real qwen3-32b refusal and fabrication rows
+
+Source: `results/labeling/r1b_wrong_sample.csv` (committed, commit `c7cb214`), filtered to
+`model == qwen3-32b`. This file contains every qwen3-32b row available anywhere in the repository
+with a verbatim model `output` string -- **the full population only has 5 rows this file's own
+heuristic labels as REFUSAL**, not 10. Asking for 10 real refusal rows cannot be satisfied without
+inventing 5 of them, which this audit will not do; all 5 real REFUSAL rows are listed below in
+full, followed by 5 of the 15 real FABRICATION rows. None of the 15 outputs contain `<think>`
+tags or any other reasoning-mode marker (checked by literal substring search across the whole
+column) -- qwen3-32b's outputs in this sample are short, direct answers with no visible chain of
+thought, consistent with either non-thinking mode being used or the harness storing only the
+post-thinking final text.
+
+**Refusal rows (5 of 5 available):**
+
+| id | probe | expected | thinking tags? | ratio/arm | verbatim output |
+|---|---|---|---|---|---|
+| r1bw_029_evo-x2_qwen3-32b_art_06 | art_06 | `Blum` | no | 0.85 / arm1_baseline | "The provided text does not mention who seconded the motion to retire the DELPHI-2 indexing service." |
+| r1bw_045_evo-x2_qwen3-32b_art_06 | art_06 | `Blum` | no | 0.4 / arm1_baseline | "The provided text does not mention who seconded the motion to retire the DELPHI-2 indexing service." |
+| r1bw_085_evo-x2_qwen3-32b_art_02 | art_02 | `0.0073` | no | 0.85 / arm1_baseline | "The information provided does not include the alert_threshold_ppb for unit CHROM-7." |
+| r1bw_094_evo-x2_qwen3-32b_art_02 | art_02 | `0.0073` | no | 0.98 / arm1_baseline | "The information provided does not specify the alert_threshold_ppb for unit CHROM-7." |
+| r1bw_100_evo-x2_qwen3-32b_art_02 | art_02 | `0.0073` | no | 0.4 / arm1_baseline | "The provided text does not contain information about the alert_threshold_ppb for unit CHROM-7." |
+
+Note: all 5 real refusal rows come from only 2 of the 10 art_* probes (art_02 and art_06), both on
+evo-x2, all in `arm1_baseline`. This is too thin a sample (5 rows, 2 probes, 1 machine) to say
+anything about qwen3-32b's refusal behavior in general; it is reported here only because it is
+every real refusal-labeled row this project has committed for this model.
+
+**Fabrication rows (5 of 15 available, chosen to show the range of patterns present):**
+
+| id | probe | expected | thinking tags? | ratio/arm | verbatim output |
+|---|---|---|---|---|---|
+| r1bw_041_evo-x2_qwen3-32b_art_03 | art_03 | `8.9` | no | 1.2 / arm1_baseline | "33.6" |
+| r1bw_038_evo-x2_qwen3-32b_art_04 | art_04 | `DELETE` | no | 0.98 / arm1_baseline | "User tcosta did not perform any action at 14:02." |
+| r1bw_140_evo-x2_qwen3-32b_art_07 | art_07 | `3.11.9` | no | 0.85 / arm1_baseline | "None of the provided administrative log entries mention a version number or reference to CVE-2024-51022. Therefore, it is not possible to determine which version number patched CVE-2024-51022 from the" [excerpted: row value ends mid-sentence in the source CSV] |
+| r1bw_086_evo-x2_qwen3-32b_art_06 | art_06 | `Blum` | no | 1.2 / arm3_self_report | "AVAILABLE: yes, Blum" |
+| r1bw_141_evo-x2_qwen3-32b_art_08 | art_08 | `PN-38901` | no | 1.2 / arm3_self_report | "AVAILABLE: yes, PN-38901" |
+
+The last two rows above are not fabrications in the ordinary sense -- the model's output literally
+contains the correct expected value (`Blum`, `PN-38901`) -- and their presence in a "wrong answer"
+sample is itself evidence for a finding already on record in this file: the self-report arm's
+on-disk `score` field was stale for exactly this run due to the in-process scorer bug described
+above ("Self-report scoring: the running jobs are currently writing wrong scores to disk, live,
+right now"), which the FINDINGS text says flips exactly these kinds of rows from wrong-to-right
+under correct rescoring. These two rows were sampled as "wrong" by `score != 1.0` at build time;
+they are consistent with being two more instances of that same stale-scorer artifact rather than
+real model fabrications, though this was not independently re-verified per-row here.
+
+### A6(b): citation check, `docs/PRIOR_ART.md`
+
+**arXiv 2609.19169 ("SiliconBench").** `docs/PRIOR_ART.md` cites this twice (claim (b), line ~372,
+and claim (c), line ~424) as "SiliconBench (arXiv:2609.19169, Sept 2026) evaluates 'speed, memory,
+and fidelity' together" on Apple Silicon serving engines. **Verified directly** (fetched
+`arxiv.org/abs/2609.19169`): the paper exists and its real title is **"SiliconBench: Speed, Memory,
+and Fidelity for LLM Serving on Unified-Memory Desktops"** (Zhang, Fan, Munhá Correia, Cheema,
+Zhang). It evaluates nine Apple Silicon serving engines on speed, memory consumption, and output
+fidelity, and its abstract/results include the "explicit memory budgets do not guarantee memory
+headroom" finding that `PRIOR_ART.md` quotes verbatim. The citation is real, correctly titled (by
+inference from the fetched content, not restated verbatim from a title field), and used
+accurately -- `PRIOR_ART.md`'s characterization matches the paper's actual content.
+
+**GitHub issues/PRs referenced in `docs/PRIOR_ART.md`.** All 18 distinct references were fetched
+directly and checked against `PRIOR_ART.md`'s description of each. All 18 resolved to real,
+accessible issues whose actual titles and content match what `PRIOR_ART.md` claims for them:
+
+| reference | real title | what it establishes (per PRIOR_ART.md's use of it) |
+|---|---|---|
+| ggml-org/llama.cpp#17284 | Eval bug: Server fails with HTTP 400 (context size exceeded) instead of truncating chat history | server hard-fails on context overflow rather than degrading gracefully |
+| ggml-org/llama.cpp#11577 | Feature Request: resize an existing context | no built-in way to resize context without save/reload |
+| ggml-org/llama.cpp#18889 | Eval bug: `llama_model_fit` results in zero context size | context-fit estimation has a real bug path |
+| ggml-org/llama.cpp#19745 | llama-server/llama-cli hang/crash during RPC tensor upload for large models (AMD/HIP) | AMD path has its own distinct OOM/hang failure mode |
+| ggml-org/llama.cpp#18946 | ErrorOutOfDeviceMemory -- critical out-of-device-memory and memory-accounting failures (Intel Vulkan/SYCL, Lunar Lake) | Intel Vulkan path has its own distinct OOM failure mode, including bad memory accounting |
+| ggml-org/llama.cpp#1866 | CUDA out of memory -- but there's plenty of memory | NVIDIA path OOMs despite free VRAM being reported |
+| espetro/llama.cpp#2 (fork) | State silently truncated to `row_cap`, no usage field in the API response to detect it | real repo, real issue, confirmed to be a fork of ggml-org/llama.cpp with a custom addition ("Kev System One"); the silent-truncation-with-no-usage-field shape is real but is specific to the fork's custom endpoint, not core llama.cpp -- `PRIOR_ART.md`'s own framing ("relevant to a/d framing") already treats it as an analogy rather than a core-llama.cpp bug, which matches |
+| lmstudio-ai/lmstudio-bug-tracker#2404 | Context length silently clamped to ~6,656 tokens regardless of model size, free memory, or parallelism (Apple Silicon, 24GB) | silent context clamping on Apple unified memory, no error surfaced |
+| ollama/ollama#14073 | New default context lengths will break | tiered VRAM-based default overflows VRAM on a real 52 GiB system |
+| ollama/ollama#14116 | Tiered context length can exhaust VRAM | `OLLAMA_NUM_PARALLEL` not factored into the VRAM tier calculation |
+| ollama/ollama#12353 | Feature Request: Auto-size num_ctx to a user VRAM budget (and recalc on model switch) | users asking for auto-fit because over-guessing silently overflows VRAM |
+| ollama/ollama#9774 | Estimate of VRAM needs based on context length and quantization | users have no way to predict VRAM needs from context size |
+| ollama/ollama#9890 | Large context size completely breaks the usability of the model | real user-reported unresponsiveness when raising context size |
+| ollama/ollama#14173 | Ollama 0.15.6 ignores requested context size | requested context size silently not honored |
+| ollama/ollama#11964 | context size larger than set | requested (smaller) context size silently overridden to a larger one |
+| ollama/ollama#18229 | Loaded context length: source not shown (default/env/Modelfile/request) | no visibility into which precedence level set the active context length |
+| ollama/ollama#11659 | Allow users to set context length like we used to instead of terrible GUI presets every launch | env-var override broke, confirms tiering is often unwanted |
+| ollama/ollama#18242 | Can't set custom values for Context Length | custom `OLLAMA_CONTEXT_LENGTH` silently rejected, falls back to default |
+
+All 18 GitHub references and the arXiv paper were verified directly (via live fetch of the actual
+page content), not inferred from memory or from `PRIOR_ART.md`'s own description. 19/19 citations
+checked resolve to real, relevant content; 0 are unresolved. No citation in this list needed to be
+reported as "unverified, no web access" -- web access was available for this audit.
+
+---
+
 ## K2 arm (c), everyday_apps: pre-registered kill criterion (2026-09-29, NOT YET RUN)
 
 **Motivation.** K2's existing pressure arms (AWE-locked balloon, ordinary pageable touch, see
