@@ -83,6 +83,18 @@ SWEGYM_CAP_LABEL = "gpt-4o-2024-08-06 (128K) / claude-3-5-sonnet-20241022 (200K)
 # K1 v3's measured (Ollama-chosen) effective context, real numbers already on record from the R2 validity work's
 # runtime-context check (not yet K1 v3's own completed per-model tier sweep, which is still in flight on both
 # hosts at the time this script was written -- flagged honestly in the report, not silently treated as final).
+#
+# STATUS AS OF 2026-09-30 (A7 check): NEITHER value below is confirmed by a real, completed K1 v3 tier-sweep
+# jsonl file in this repo. No results/t2s_k1_ollama_evo-t2s_*.jsonl or results/t2s_k1_ollama_evo-x2_*.jsonl
+# exists locally (checked: `find . -iname "*k1_ollama*"` under results/, and git log across all local history --
+# the only hits are the harness script and its test, never an output file). CLAIMS_LEDGER.md Claim A-28
+# references two evo-x2 K1 tier-v2 jsonl files by name (results/t2s_k1_ollama_evo-x2_20260930T022035Z.jsonl,
+# ..._20260929T204656Z.jsonl) and says they were superseded by K1 v3, "build in progress"; those files were
+# never committed to this repo either. Commit 655a92a ("k1: fix the real cause of t2s_k1_tier_v3 measuring zero
+# models on evo-t2s") confirms the evo-t2s v3 sweep had not produced a valid tier row as of that fix. Both
+# 4_096 (evo-t2s) and 131_072 (evo-x2) below are therefore CARRIED-OVER ASSUMPTIONS, not independently
+# re-verified this session -- treat truncation_cliff_table()'s output accordingly, and prefer re-running this
+# check once a real completed tier-sweep jsonl exists for either host.
 K1_MEASURED_EFFECTIVE_CTX = {"evo-t2s": 4_096, "evo-x2": 131_072}
 K1_V3_MODEL_NATIVE_CTX = {"qwen3-4b-2507": 262_144, "llama3.1:8b": 131_072, "qwen3:8b": 40_960}
 
