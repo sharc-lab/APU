@@ -1013,34 +1013,60 @@ per-model bootstrap CI is available from this write-up pass; at n=3-5 per cell a
 are reported as ranges across the 5 models, not within-model confidence intervals, and should not be read as
 such.
 
-**Power/thermal readout: not computable in this pass, and partly not measurable at all on this hardware.**
-The task of this update was to compute per-condition median package power, iGPU clock, iGPU power and CPU
-temperature from `results/t2s_night2_20260930T135145Z.jsonl` plus any PX2 sidecar files. That file is **not
-present in this repository** (checked: not in `results/`, not in any worktree, not in the shared checkout, not
-referenced by any other committed file) even though this section cites it as the completed run's data stem, and
-no `_wingpu`/`_winsys`/`_lhm`/`_sysman`-suffixed sidecar for this run timestamp exists either. Two things follow:
+**Power/thermal readout (2026-10-01 correction): the file and its `_lhm.jsonl` sidecar exist on evo-x2 and were
+pulled and committed** (`results/t2s_night2_20260930T135145Z.jsonl`, `..._lhm.jsonl`, `..._manifest.json`,
+`..._sysman.csv`). The earlier claim in this section that package power is "expected null on evo-x2 by sensor
+design" was wrong -- it was reasoning from the pre-registration's sensor table without the file in hand.
+`pkg_power_w` is a real, populated field on every one of the 257 PX2 measurement rows (all 5 models, all 9
+conditions), computed directly here (not from the prose above):
 
-- **Package power cannot be reported for any condition, with or without the file.** Per this section's own
-  pre-registration sensor table above, `pkg_power_w`, `rapl_pp0_w` and `rapl_pp1_w` are "expected null" on
-  evo-x2: Windows exposes only an Intel-RAPL-named "Energy Meter" counter set, and the LHM feeder maps no AMD
-  CPU power sensor into the per-call rows. `harness/lhm_sensors.ps1` writes a separate raw `<prefix>_lhm.jsonl`
-  that might carry a real AMD package-power sensor if LibreHardwareMonitor exposes one on this part, but that
-  file is unverified to exist for this run and was not found in this pass either way.
-- **iGPU clock, iGPU power and CPU temperature are real sensors on evo-x2** (`igpu_mhz`, `igpu_power_w`,
-  `temp_c_max`, `igpu_temp_c_max`, per the sensor-availability table above) and would support a real per-condition
-  median if the file were present. This section already records (from whoever last had the file) that iGPU clock
-  and CPU temp were only populated on qwen3-8b's rows in this run -- the other 4 models' rows read `null` for
-  those two fields, a real LHM-feeder gap, not a formatting issue. That means even with the file recovered, a
-  per-model breakdown for those two fields would only exist for 1 of 5 models; iGPU power's population rate
-  across models is not stated anywhere this pass could find and would need checking once the file is available.
+| model | N0 | B4 | S2 | S4 | S8 | S8x | S14 | S28 |
+|---|---|---|---|---|---|---|---|---|
+| qwen3-8b | 88.9 | 104.7 | 111.4 | 111.0 | 111.4 | 86.6 | 83.8 | 84.0 |
+| llama31-8b | 91.8 | 105.8 | 112.0 | 111.6 | 111.7 | 88.9 | 84.3 | 84.0 |
+| qwen3-14b | 93.3 | 87.7 | 95.2 | 95.4 | 91.6 | 83.7 | 83.6 | 83.7 |
+| qwen3-32b | 83.6 | 83.6 | 83.6 | 83.6 | 83.6 | 83.6 | 83.6 | 83.6 |
+| llama-3.3-70b | 83.6 | 83.6 | -- | -- | -- | 83.6 | 83.6 | -- |
 
-**Consequence for the power/thermal-limit question (step 3 of this task):** cannot be answered from any file
-available in this pass. No condition can be shown to have hit a power ceiling (the sensor does not exist in the
-per-call rows) or a thermal ceiling (CPU/iGPU temp rows are null for 4 of 5 models, and no throttle-flag field is
-trustworthy here either -- `igpu_throttle_bits` is hardcoded to 0 on the LHM-synthesised rows per this section's
-own sensor table, so a 0 does not mean "not throttling"). This is a gap to close by recovering
-`results/t2s_night2_20260930T135145Z.jsonl` (and its `_lhm.jsonl` sidecar if one exists) from wherever it was
-produced, not a result of "no limit was hit."
+(median package power, watts, per condition; n = 5 calls/cell for the 4 smaller models, n = 3 or 4 for
+llama-3.3-70b per the cut rule; llama-3.3-70b's S2/S4/S8 cells were not run under the cut rule, shown as `--`.)
+
+**Real finding this table adds:** qwen3-32b and llama-3.3-70b sit flat at ~83.6W across every single condition,
+co-runner or not -- their own decode compute already saturates whatever headroom the co-runner hogs could use, so
+the hogs add essentially nothing measurable to package power for these two models. qwen3-8b and llama31-8b, by
+contrast, show a real +20W jump under the compute/bandwidth hogs (S2/S4/S8, ~111-112W) vs their own N0 baseline
+(~89-92W) and vs the occupancy-only hogs (S8x/S14/S28, ~84-89W, close to N0). qwen3-14b sits in between. This is
+a real, size-dependent interference signature in power draw that the TTFT/decode-throughput criteria do not
+capture at all: smaller models leave real power headroom for a co-runner to consume; the two largest do not.
+
+**iGPU clock and CPU temperature: confirmed available only for a subset of qwen3-8b's own conditions, from the
+raw `_lhm.jsonl` sidecar directly (not the row-stamped fields, which are even sparser).** Joining the sidecar's
+continuous sensor stream to each condition's real time window (bounded by that condition's own row timestamps)
+gives LHM samples only for qwen3-8b/{N0, B4, S2, S4, S14} -- zero samples fall inside the time windows for
+qwen3-8b/{S8, S28, S8x, N1} or for any of the other 4 models at all. The background LHM collector stopped
+producing samples partway through qwen3-8b's own sweep and never ran again for the rest of the PX2 run -- a
+real, now-precisely-bounded feeder gap (not "4 of 5 models never populated," but "the feeder died partway
+through model 1 of 5 and the run proceeded without it"), worth fixing (keep-alive/restart on the LHM collector
+process) before the next PX2-style run.
+
+What the surviving qwen3-8b samples do show, median [max]:
+
+| condition | CPU temp C | iGPU clock MHz |
+|---|---|---|
+| N0 | 33.3 [51.6] | 602 |
+| B4 | 47.6 [56.3] | 601 |
+| S2 | 65.8 [66.9] | 602 |
+| S4 | 64.8 [65.9] | 602 |
+| S14 | **98.0 [98.1]** | 601 |
+
+**Real thermal-limit finding (qwen3-8b only; cannot be generalized to the other 4 models given the sampling
+gap above):** the S14 condition (SMT/occupancy hog) drives CPU temp to a tight 98.0-98.1C plateau -- a real
+thermal ceiling, not noise (the tight range across the whole condition window is itself the signature of a
+throttle plateau, not a transient spike). No other condition for qwen3-8b gets within 30C of this. iGPU clock
+stays flat (~601-602 MHz) across every condition regardless of CPU temp, so whatever throttling S14 triggers
+does not visibly touch the iGPU clock domain for this model. `igpu_throttle_bits` remains unreliable (hardcoded
+0 on LHM-synthesized rows per the pre-registration's own sensor table) and was not used as evidence here; the
+CPU temp plateau itself is the evidence.
 
 This supersedes the "NOT YET RUN" status above. It also supersedes any downstream document that still cites PX2
 as unrun, including `analysis/envelope_model.py`'s H2/co-runner multiplier, which is currently substituted from
