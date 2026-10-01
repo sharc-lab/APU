@@ -137,6 +137,32 @@ def ollama_process_running(ps_fn=None):
     return out.strip() not in ("", "0")
 
 
+def _resolve_ollama_exe_for_serve():
+    """OLLAMA_BIN env var, then shutil.which("ollama"), then the Windows installer's own standard per-user
+    install location, then the bare command name as a last resort -- same resolution order as
+    t2s_k1_ollama.py's own _resolve_ollama_exe (duplicated here rather than imported, to avoid a circular
+    import: t2s_k1_ollama already imports this module).
+
+    Found live 2026-10-01 (evo-t2s): start_ollama_server's own WMI-launched "cmd.exe /c ... && ollama serve"
+    used the bare command name, which fails to resolve on evo-t2s specifically (confirmed: `where ollama`
+    also fails there even in a plain interactive SSH session, while the exe is confirmed present at the
+    standard install path) -- the server then never actually starts, and every subsequent pull/chat call
+    fails with a connection-refused error, not a timeout. This is T2S-specific: the identical code path has
+    worked on evo-x2 all session, so evo-x2's install must register itself on PATH in a way evo-t2s's does
+    not."""
+    import os
+    import shutil
+    exe = os.environ.get("OLLAMA_BIN") or shutil.which("ollama")
+    if exe:
+        return exe
+    local_appdata = os.environ.get("LOCALAPPDATA")
+    if local_appdata:
+        candidate = os.path.join(local_appdata, "Programs", "Ollama", "ollama.exe")
+        if os.path.exists(candidate):
+            return candidate
+    return "ollama"
+
+
 def start_ollama_server(ps_fn=None):
     """Starts `ollama serve` headless via WMI Win32_Process Create -- a plain Start-Job does not survive past the SSH
     session that launched it (discovered 2026-09-28 the hard way, see docs/T2S_CHANGELOG.md) -- with
@@ -146,7 +172,8 @@ def start_ollama_server(ps_fn=None):
     at all (see docs/RESULT_PROVENANCE.md, 2026-09-29 contamination check)."""
     if ollama_process_running(ps_fn=ps_fn):
         return None
-    cmd = ("$cmd = 'cmd.exe /c set OLLAMA_KEEP_ALIVE=0 && ollama serve > C:\\apu\\ovn\\ollama_serve.log 2>&1'; "
+    exe = _resolve_ollama_exe_for_serve()
+    cmd = (f"$cmd = 'cmd.exe /c set OLLAMA_KEEP_ALIVE=0 && \"{exe}\" serve > C:\\apu\\ovn\\ollama_serve.log 2>&1'; "
            "$r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{CommandLine=$cmd}; "
            "'pid=' + $r.ProcessId")
     if ps_fn is None:
