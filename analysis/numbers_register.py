@@ -795,6 +795,25 @@ def compute_self_report_truncation_awareness(repo):
            "n": total_n, "detail": counts}
 
 
+def compute_pack_trace_weighted_stats(repo):
+    """Workload pack (results/workload_pack/, 400 items, grade.py's own 400/400 grade-check) prompt-token
+    p50/p90/p99, FLAT (matches grade.py exactly) vs TRACE-WEIGHTED (re-weighted by how often a step of that
+    item's approximate token length actually occurs in the real uncensored agent trace data). See
+    analysis/trace_weighted_pack.py's module docstring for the exact weighting method (log-spaced histogram
+    buckets over both real uncensored trace sources, per-item weight = bin's real trace mass split equally
+    across the items in that bin, renormalized to sum to 1 across all 400 items)."""
+    import sys
+    sys.path.insert(0, str(repo))
+    from analysis import trace_weighted_pack as twp
+    result = twp.compute_pack_stats(repo)
+    o = result["overall"]
+    return {
+        "value": (f"flat p50={o['flat_p50']:.0f} p90={o['flat_p90']:.0f} p99={o['flat_p99']:.0f}; "
+                 f"traced p50={o['traced_p50']:.0f} p90={o['traced_p90']:.0f} p99={o['traced_p99']:.0f}"),
+        "n": o["n"], "detail": result,
+    }
+
+
 NUMBER_ENTRIES = [
     {"claim_id": "PX2-TTFT-gap", "description": "PX2 B4-vs-S4 TTFT gap range across 5 models",
      "compute": compute_px2_ttft_gap, "data_files": ["results/t2s_night2_20260930T135145Z.jsonl"],
@@ -897,6 +916,10 @@ NUMBER_ENTRIES = [
      "description": "k=2/3/5-point per-device TTFT calibration error on held-out real points",
      "compute": compute_ttft_few_point_calibration, "data_files": _TTFT_FIT_RESULT_FILES,
      "script_function": "analysis/numbers_register.py::compute_ttft_few_point_calibration"},
+    {"claim_id": "pack-trace-weighted-stats", "description": "workload pack prompt-token p50/p90/p99, flat vs trace-weighted",
+     "compute": compute_pack_trace_weighted_stats,
+     "data_files": ["results/workload_pack/items/*.jsonl", "results/traces/agent_step_lengths.parquet"],
+     "script_function": "analysis/numbers_register.py::compute_pack_trace_weighted_stats"},
 ]
 
 
