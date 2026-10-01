@@ -539,7 +539,14 @@ def rule_baseline_compliance(arm_b_sessions: list[dict], min_turn: int = 1, max_
     showed all 3 X2 sessions failing at turn 1 in every arm including this control arm -- if a rule
     fails at turn 1 in the arm with no truncation possible, that is baseline non-compliance by the
     model, not evidence of truncation, and must be excluded from any "silent failure" claim for that
-    rule until this check clears it. Returns {rule_id: bool}."""
+    rule until this check clears it. Returns {rule_id: bool}.
+
+    2026-10-01: rule2_log_event_called is excluded from canary-check turns' denominator. Those turns now
+    withhold `tools` entirely (see run_turn_ollama's docstring) so the canary signal isn't corrupted by
+    the tool-call/empty-content collision -- but that also means no tool call is offered to make on
+    those turns, so rule2 is not a meaningful measurement there and must not count as a compliance
+    failure (it would otherwise mechanically fail 100% of the time on every canary turn, for a reason
+    that has nothing to do with the model's real log_event discipline)."""
     totals = {r: 0 for r in RULE_IDS}
     passed = {r: 0 for r in RULE_IDS}
     for session in arm_b_sessions:
@@ -547,6 +554,8 @@ def rule_baseline_compliance(arm_b_sessions: list[dict], min_turn: int = 1, max_
             if not (min_turn <= score.idx <= max_turn):
                 continue
             for rule_id in RULE_IDS:
+                if rule_id == "rule2_log_event_called" and getattr(score, "canary_check_turn", False):
+                    continue
                 totals[rule_id] += 1
                 if getattr(score, rule_id):
                     passed[rule_id] += 1
@@ -1045,8 +1054,21 @@ class R2SessionLab(k1.K1Lab):
         ollama = ollama or self.ollama
         options = apply_ollama_arm(arm_id, {"seed": session.seed})
         sent_tokens = sum(count_fn(m["content"]) for m in messages)
+        # 2026-10-01 fix (R2 validity item 2): canary-check turns withhold `tools` entirely. Every turn's
+        # own prompt also carries the session-wide "always call log_event" instruction (rule 2), so a
+        # canary-check turn was asking the model to both make a native tool call AND answer in text in the
+        # same single-shot completion -- and a model that returns tool_calls typically returns empty
+        # `message.content` in the same response (confirmed live: 3/3 raw turn-5 outputs on evo-x2 were
+        # tool_calls=[lookup_fact(...)], content=""). Since canary_reproduced requires rule1 (a parsed
+        # JSON answer) to be true first, an empty content turn automatically fails canary_reproduced
+        # regardless of whether the model actually still "remembers" the canary -- this was being
+        # misread as a truncation/forgetting signal. Withholding tools on canary turns forces a text
+        # response, so the canary check measures what it is supposed to measure. rule2 is not meaningfully
+        # gradable on these turns as a result (no tool was offered to call) -- see
+        # score_turn's docstring and baseline_compliance's canary-turn exclusion for rule 2.
+        turn_tools = None if turn.canary_check else ollama_tools_payload()
         resp = ollama.chat(model_id, "", num_ctx=options.get("num_ctx"), messages=messages,
-                            tools=ollama_tools_payload(), keep_alive="30m")
+                            tools=turn_tools, keep_alive="30m")
         output_text = resp.get("message") or ""
         row = self.emit({
             "record": "r2_turn", "phase": "r2_session", "backend": "ollama", "arm_id": arm_id,

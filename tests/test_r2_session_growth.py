@@ -428,10 +428,21 @@ class TestRuleBaselineCompliance:
         compliance = r2.rule_baseline_compliance([scored])
         assert compliance["rule2_log_event_called"] is False
 
-    def test_single_turn1_miss_over_enough_turns_can_still_pass(self):
+    def test_canary_turns_excluded_from_rule2_denominator(self):
+        # 2026-10-01 fix: turns 5 and 10 (CANARY_CHECK_EVERY=5) withhold tools entirely in the real
+        # harness, so rule2 cannot be meaningfully graded there -- they must not count in its
+        # denominator. With log_event missing only at turn 1, the window 1-10 has 8 gradable turns
+        # (3,4,6,7,8,9 plus 1,2 -- 5 and 10 excluded), 7 of which pass: 7/8 = 87.5%, below the 90% bar.
         scored = _score_session_with(1, 20, log_event_missing_turns=(1,))
-        # baseline window is turns 1-10 by default -- 1 miss out of 10 is exactly 90%, so it passes.
         compliance = r2.rule_baseline_compliance([scored])
+        assert compliance["rule2_log_event_called"] is False
+
+    def test_single_turn1_miss_over_a_wider_window_can_still_pass(self):
+        # Window 1-14 has two canary turns (5, 10) excluded -> 12 gradable turns. One miss at turn 1:
+        # 11/12 = 91.7%, clears the 90% bar -- confirms the exclusion only removes canary turns from
+        # the denominator, it does not otherwise change how the bar is applied.
+        scored = _score_session_with(1, 20, log_event_missing_turns=(1,))
+        compliance = r2.rule_baseline_compliance([scored], min_turn=1, max_turn=14)
         assert compliance["rule2_log_event_called"] is True
 
     def test_report_gives_pass_rate_and_turn1_examples_for_failing_rules_only(self):
@@ -522,6 +533,36 @@ class TestNativeToolCallDetection:
                             ollama=client, count_fn=word_count_fn)
         assert client.calls[0]["keep_alive"] is not None
         assert client.calls[0]["keep_alive"] != 0
+
+    def test_run_turn_ollama_withholds_tools_on_canary_check_turns(self, tmp_path):
+        """2026-10-01 fix (R2 validity item 2): a canary-check turn must not also be offered tools --
+        a model that calls a tool typically returns empty message.content in the same response
+        (confirmed live: 3/3 raw turn-5 outputs on evo-x2 were a lone lookup_fact tool call with
+        content=""), which makes canary_reproduced fail regardless of whether the model actually still
+        remembers the canary. Withholding tools forces a text response so the canary check is not
+        corrupted by this collision."""
+        lab = make_lab(tmp_path)
+        client = FakeOllama()
+        session = r2.generate_session(1, count_fn=word_count_fn, max_turns=5)
+        turn5 = next(t for t in session.turns if t.idx == 5)
+        assert turn5.canary_check is True
+        messages = [{"role": "system", "content": session.system_prompt},
+                    {"role": "user", "content": r2.turn_message_content(turn5)}]
+        lab.run_turn_ollama("qwen3-4b-2507", "ollama_default", "as_is", session, turn5, messages,
+                            ollama=client, count_fn=word_count_fn)
+        assert client.calls[0]["tools"] is None
+
+    def test_run_turn_ollama_still_sends_tools_on_non_canary_turns(self, tmp_path):
+        lab = make_lab(tmp_path)
+        client = FakeOllama()
+        session = r2.generate_session(1, count_fn=word_count_fn, max_turns=5)
+        turn1 = session.turns[0]
+        assert turn1.canary_check is False
+        messages = [{"role": "system", "content": session.system_prompt},
+                    {"role": "user", "content": r2.turn_message_content(turn1)}]
+        lab.run_turn_ollama("qwen3-4b-2507", "ollama_default", "as_is", session, turn1, messages,
+                            ollama=client, count_fn=word_count_fn)
+        assert client.calls[0]["tools"] is not None
 
     def test_run_turn_llama_server_always_text_fallback(self, tmp_path):
         lab = make_lab(tmp_path)
