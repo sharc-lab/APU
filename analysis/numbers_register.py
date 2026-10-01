@@ -251,6 +251,25 @@ def compute_b3_corunner_6model(repo):
            "n": len(ratios), "detail": ratios}
 
 
+def compute_uncensored_trace_32k_crossing(repo):
+    """Fraction of trajectories ever crossing 32K tokens at some step, per uncensored source (not the
+    censored nebius/SWE-agent-trajectories source trace-32k-crossing already covers) -- the two
+    sources x2-truncation-cliff-qwen3-8b already names: SWE-Gym and nebius-rebench-openhands."""
+    import pandas as pd
+    df = pd.read_parquet(repo / "results" / "traces" / "agent_step_lengths.parquet")
+    out = {}
+    for ds, label in [("nebius/SWE-rebench-openhands-trajectories", "nebius-rebench-openhands"),
+                       ("SWE-Gym/OpenHands-Sampled-Trajectories", "SWE-Gym")]:
+        sub = df[df["dataset"] == ds]
+        if sub.empty:
+            raise FileNotFoundError(f"no rows for {ds}")
+        traj_max = sub.groupby("trajectory_id")["tokens_qwen"].max()
+        out[label] = {"frac_over_32k": float((traj_max > 32000).mean()), "n_trajectories": int(traj_max.shape[0])}
+    return {"value": f"nebius-rebench-openhands: {out['nebius-rebench-openhands']['frac_over_32k']*100:.1f}%; "
+                     f"SWE-Gym: {out['SWE-Gym']['frac_over_32k']*100:.1f}%",
+           "n": sum(v["n_trajectories"] for v in out.values()), "detail": out}
+
+
 def compute_x2_truncation_cliff(repo):
     import sys
     sys.path.insert(0, str(repo))
@@ -475,6 +494,10 @@ NUMBER_ENTRIES = [
      "compute": compute_b3_corunner_6model, "data_files": ["results/t2s_night2_20260928T004924Z.jsonl"],
      "script_function": "analysis/numbers_register.py::compute_b3_corunner_6model",
      "reported_value": "1.43x"},
+    {"claim_id": "uncensored-trace-32k-crossing", "description": "fraction of trajectories crossing 32K, uncensored sources",
+     "compute": compute_uncensored_trace_32k_crossing, "data_files": ["results/traces/agent_step_lengths.parquet"],
+     "script_function": "analysis/numbers_register.py::compute_uncensored_trace_32k_crossing",
+     "reported_value": "97% / 6%"},
 ]
 
 
