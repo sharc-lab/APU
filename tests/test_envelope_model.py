@@ -60,13 +60,44 @@ def test_latency_x2_measured_flag_false():
     assert "cross-machine extrapolation" in result["note"]
 
 
-def test_latency_co_runner_multiplier_applied():
+def test_latency_t2s_co_runner_is_a_ttft_multiplier():
     base = em.predict_latency("evo-t2s", "llama_ngl99", 2000, co_runner=False)
     with_corunner = em.predict_latency("evo-t2s", "llama_ngl99", 2000, co_runner=True)
     ratio = with_corunner["ttft_s"] / base["ttft_s"]
-    # H2_CORUNNER_TTFT_MULTIPLIER point estimate is 1.42 (A-23, real measured evo-t2s CPU co-runner TTFT ratio)
-    assert abs(ratio - em.H2_CORUNNER_TTFT_MULTIPLIER["point_estimate"]) < 1e-3
-    assert with_corunner["co_runner_multiplier_source"].startswith("A-23")
+    # H2_T2S_TTFT_MULTIPLIER point estimate is 1.42 (A-23, real measured evo-t2s CPU co-runner TTFT ratio).
+    # evo-t2s's co-runner term is TTFT-only -- decode must be unaffected.
+    assert abs(ratio - em.H2_T2S_TTFT_MULTIPLIER["point_estimate"]) < 1e-3
+    assert with_corunner["ttft_co_runner_multiplier_source"].startswith("A-23")
+    assert with_corunner["decode_co_runner_multiplier"] == 1.0
+    # back-compat alias must still resolve to the same real evo-t2s number
+    assert em.H2_CORUNNER_TTFT_MULTIPLIER == em.H2_T2S_TTFT_MULTIPLIER
+
+
+def test_latency_x2_co_runner_is_a_decode_multiplier_not_ttft():
+    # The 2026-10-01 refit's core claim: evo-x2's co-runner effect lives on decode throughput (bandwidth-hog
+    # specific), not TTFT -- the opposite axis from evo-t2s.
+    base = em.predict_latency("evo-x2", "ollama_default", 2000, co_runner=False)
+    bw = em.predict_latency("evo-x2", "ollama_default", 2000, co_runner=True, co_runner_kind="bandwidth")
+    pw = em.predict_latency("evo-x2", "ollama_default", 2000, co_runner=True, co_runner_kind="power")
+    # bandwidth hog must cut decode measurably; power hog must leave it almost untouched.
+    assert bw["decode_tok_s"] < base["decode_tok_s"] * 0.95
+    assert pw["decode_tok_s"] > base["decode_tok_s"] * 0.97
+    assert bw["decode_co_runner_multiplier_source"].startswith("PX2 (evo-x2, B4")
+    assert pw["decode_co_runner_multiplier_source"].startswith("PX2 (evo-x2, S4")
+    # TTFT is reported (real PX2 data) but is NOT the discriminating signal for evo-x2 -- both hogs raise it
+    # similarly, unlike decode which cleanly separates them.
+    assert bw["ttft_co_runner_multiplier"] is not None
+    assert pw["ttft_co_runner_multiplier"] is not None
+
+
+def test_x2_per_model_decode_ratios_match_real_px2_rows():
+    # Spot-check the per-model constant against the module's own documented extraction (results/
+    # t2s_night2_20260930T135145Z.jsonl); qwen3-8b is the worked example cited in docs/FINDINGS.md.
+    row = em.H2_X2_PER_MODEL["qwen3-8b"]
+    assert 0.90 < row["decode_ratio_b4"] < 0.93
+    assert 0.98 < row["decode_ratio_s4"] < 1.01
+    assert 1.05 < row["ttft_ratio_b4"] < 1.15
+    assert 1.05 < row["ttft_ratio_s4"] < 1.12
 
 
 def test_effective_context_flag_is_assumed_qwen3_8b():
@@ -78,6 +109,26 @@ def test_effective_context_flag_is_assumed_qwen3_8b():
     # A-28, MEASURED) is the binding constraint -- min() must pick the smaller one.
     assert result["effective_context"] == 40960
     assert "MEASURED" in result["native_ctx_source"]
+
+
+def test_effective_context_x2_uses_real_k1_measurement_when_available():
+    # qwen3-8b on evo-x2/ollama_default has a real K1 measurement (results/t2s_k1_ollama_evo-x2_...jsonl) --
+    # must be flagged MEASURED, not fall back to the Ollama VRAM-tier ASSUMED default.
+    result = em.predict_effective_context("evo-x2", "ollama_default", "qwen3-8b")
+    assert result["flag"] == "MEASURED"
+    assert result["measured"] is True
+    assert result["effective_context"] == em.K1_X2_EFFECTIVE_CTX["qwen3-8b"] == 40960
+
+
+def test_effective_context_x2_falls_back_to_assumed_for_unmeasured_model():
+    # llama33-70b was never loaded in the K1 evo-x2 run -- must fall back to ASSUMED, not raise or guess.
+    result = em.predict_effective_context("evo-x2", "ollama_default", "llama33-70b")
+    assert result["flag"] == "ASSUMED"
+    assert result["measured"] is False
+
+
+def test_effective_context_t2s_has_no_real_k1_data():
+    assert em.K1_T2S_EFFECTIVE_CTX == {}
 
 
 def test_effective_context_ollama_tier_picks_smallest_tier_for_low_vram():

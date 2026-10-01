@@ -21,24 +21,21 @@ Hardware scope actually available in this repo as of this commit (2026-09-30):
     make_failure_map's EVIDENCE table.
   - PX2 (the pre-registered evo-x2 co-runner experiment meant to supply the H2 multiplier) RAN on 2026-09-30 and
     completed (docs/FINDINGS.md, "PX2 real results" subsection, and docs/CLAIMS_LEDGER.md claim A-23's
-    2026-09-30 update) -- the "pre-registration only" status this file's comments and H2_CORUNNER_TTFT_MULTIPLIER
-    below still describe is STALE. The real result is not a simple TTFT multiplier for evo-x2: both the bandwidth
-    hog (B4) and the compute/power hog (S4) raise evo-x2 TTFT substantially vs baseline (worked example, qwen3-8b:
-    S4 1.098x, B4 1.123x) but move it almost identically (within 2-3% of each other), so none of PX2's 5
-    pre-registered criteria separate bandwidth from power on TTFT. The one clean, criterion-worthy separation is
-    on **decode throughput**: B4 cuts decode 7-10% below baseline (0.905x-0.928x across 5 models) while S4 leaves
-    it untouched (0.987x-1.000x). H2_CORUNNER_TTFT_MULTIPLIER below still substitutes A-23's evo-t2s ratio
-    (1.39x-1.43x) for evo-x2 and still only models a TTFT effect. That substitution's magnitude is not obviously
-    wrong for evo-x2 TTFT alone (1.098x-1.123x is a broadly similar range), but the model has **no representation
-    of the decode-throughput effect at all**, which is evo-x2's actual measured PX2 result. A real refit needs:
-    (1) the raw row data (results/t2s_night2_20260930T135145Z.jsonl, which is NOT present in this repository as
-    of this commit -- checked and confirmed absent from results/, every worktree, and the shared checkout, despite
-    being cited as the completed run's data stem) to get real per-condition, per-model medians and a defensible
-    n/CI rather than the prose ranges quoted above; (2) a second multiplier axis (decode_tok_s, not just ttft_s)
-    so predict_latency can express a bandwidth-hog-specific decode penalty separately from a TTFT penalty; and
-    (3) a decision on whether evo-t2s's existing TTFT-only multiplier and evo-x2's prospective decode multiplier
-    are even the same H2 quantity, given neither machine has measured both metrics under both hog types. This is
-    flagged here, not fixed: no refit is attempted in this change.
+    2026-09-30 update). **2026-10-01 refit, done in this change:** results/t2s_night2_20260930T135145Z.jsonl IS
+    present in this repo as of this commit (the "absent" status earlier text here described is stale -- the file
+    was pulled from evo-x2 and committed). The H2 co-runner term is now modeled as two separate, per-machine
+    quantities rather than one shared TTFT scalar: H2_T2S_TTFT_MULTIPLIER (evo-t2s, the only metric ever measured
+    there is TTFT, from a CPU co-runner, A-23) and H2_X2_DECODE_MULTIPLIER / H2_X2_TTFT_MULTIPLIER (evo-x2, real
+    per-model ratios computed directly from the raw PX2 call rows across all 5 models -- see the extraction
+    script in the comment above H2_X2_PER_MODEL). On evo-x2 both the bandwidth hog (B4) and the compute/power hog
+    (S4) raise TTFT substantially vs baseline (~1.02x-1.12x across the 5 models) but move it almost identically
+    (within 2-3% of each other), so TTFT cannot separate the two hog types there; the real, criterion-worthy
+    separation is on **decode throughput**: B4 cuts decode to 0.905x-0.928x of baseline across all 5 models while
+    S4 leaves it at 0.987x-1.000x. predict_latency's evo-x2 branch now applies the decode multiplier (keyed by
+    co_runner_kind) as the modeled co-runner effect, and reports the TTFT multiplier for transparency without
+    using it as the discriminating signal. evo-t2s's term remains TTFT-only because no decode-throughput
+    isolation under a co-runner has ever been attempted there -- the two machines' co-runner terms are not
+    assumed to be the same underlying quantity, and are never merged into one scalar.
 
 Run as a script to print every prediction for a small demo grid:
     py -3.12 analysis/envelope_model.py
@@ -91,23 +88,113 @@ T2S_BUDGET_BISECT_POINTS = {
 # uses this single point only for its final held-out-vs-predicted comparison, never for fitting.
 T2S_A70_LAST_OK_POINT = (23296, 47482.0)  # (n_ctx, projected_mib), llama-3.3-70b, A-24 update text
 
-# A-23 (docs/CLAIMS_LEDGER.md): the H1 co-runner slowdown replicated across models. PX2 (the evo-x2 experiment
-# meant to supply this multiplier for X2/S-B conditions) has now RUN and completed (2026-09-30; see
-# docs/FINDINGS.md's "PX2 real results" and docs/CLAIMS_LEDGER.md claim A-23's 2026-09-30 update) -- this is
-# STILL using A-23's evo-t2s substitute below, NOT PX2's own evo-x2 numbers, and that is now a known gap, not an
-# absence of data. PX2's real evo-x2 result is not a TTFT multiplier in the first place: TTFT does rise under
-# both hogs (worked example, qwen3-8b: S4 1.098x, B4 1.123x) but the two hogs are statistically indistinguishable
-# on TTFT (within 2-3% of each other); the real bandwidth-vs-power separation on evo-x2 is a decode-throughput
-# effect (B4 0.905x-0.928x of baseline, S4 0.987x-1.000x), which this TTFT-only multiplier has no field for. See
-# the module docstring's PX2 paragraph above for what a real refit would require. Using A-23's real evo-t2s
-# nonp12/all16 CPU co-runner TTFT ratios as the best available substitute, stated explicitly rather than silently
-# treated as if it were PX2 data:
-#   4B-2507: 1.40x, 1.39x; 8B: 1.42x, 1.43x; P70 (llama-3.3-70b): 1.42x (one condition, n=3 calls)
-H2_CORUNNER_TTFT_MULTIPLIER = {
-    "value_range": (1.39, 1.43),
-    "point_estimate": 1.42,  # matches both the 8B and the P70 nonp12 condition
-    "source": "A-23 (evo-t2s, CPU co-runner, nonp12/all16 condition), NOT PX2 (PX2 has no data as of this commit)",
+# A-23 (docs/CLAIMS_LEDGER.md): the H1 co-runner slowdown replicated across models on evo-t2s (CPU co-runner,
+# TTFT-only). PX2, the evo-x2 experiment meant to supply an equivalent multiplier for X2, RAN and completed
+# (2026-09-30; docs/FINDINGS.md "PX2 real results", docs/CLAIMS_LEDGER.md claim A-23's 2026-09-30 update) and its
+# real result is NOT a TTFT multiplier at all -- the clean, vendor-specific, criterion-worthy separation on evo-x2
+# is a DECODE-throughput effect (bandwidth hog only), not TTFT (the two hog types are statistically
+# indistinguishable on TTFT there). The 2026-10-01 refit below (H2_T2S_TTFT_MULTIPLIER / H2_X2_DECODE_MULTIPLIER /
+# H2_X2_TTFT_MULTIPLIER) replaces the single shared H2_CORUNNER_TTFT_MULTIPLIER scalar that used to sit here (an
+# earlier pass substituted A-23's evo-t2s TTFT ratio for the evo-x2 cell, which this refit removes). An alias is
+# kept at the bottom of this block, pointing at the evo-t2s-only term, so any external caller still importing the
+# old name gets the real evo-t2s number rather than an ImportError, but every production code path in this file
+# now uses the machine-specific names.
+
+# --- 2026-10-01 refit: real PX2 evo-x2 per-machine co-runner terms (results/t2s_night2_20260930T135145Z.jsonl) ---
+# docs/FINDINGS.md's "PX2 real results" section and docs/CLAIMS_LEDGER.md claim A-23's 2026-09-30 update state the
+# finding in prose/worked-example form (qwen3-8b only). The numbers below are computed directly from the raw,
+# committed call rows for all 5 PX2 models, not transcribed from prose, with the exact extraction used:
+#   python -c "
+#   import json, statistics
+#   from collections import defaultdict
+#   rows=[json.loads(l) for l in open('results/t2s_night2_20260930T135145Z.jsonl') if l.strip()]
+#   calls=[r for r in rows if r.get('record') is None and r.get('item_id','').startswith('PX2') and not r.get('warmup')]
+#   by=defaultdict(list)
+#   for r in calls: by[(r['model_id'], r['item_id'].split('_')[-1])].append(r)
+#   def med(cond_rows, field):
+#       vals=[x[field] for x in cond_rows if x.get(field) is not None]
+#       return statistics.median(vals) if vals else None
+#   for m in sorted(set(k[0] for k in by)):
+#       n0 = by[(m,'N0')]
+#       for cond in ('B4','S4'):
+#           c = by[(m,cond)]
+#           print(m, cond, 'ttft_ratio=', med(c,'ttft_s')/med(n0,'ttft_s'), 'decode_ratio=', med(c,'decode_tok_s')/med(n0,'decode_tok_s'))"
+# This is the real, vendor-specific split the module docstring and A-23's 2026-09-30 update call for: on evo-x2
+# the bandwidth hog (B4) and the compute/power hog (S4) are statistically indistinguishable on TTFT (both ~1.05x-
+# 1.12x of N0) but cleanly separable on DECODE throughput (B4 cuts it to 0.91x-0.93x of N0; S4 leaves it at
+# 0.99x-1.00x of N0) -- the opposite of evo-t2s, where the only real co-runner effect ever measured (A-23, CPU
+# co-runner) is a TTFT multiplier and decode throughput under a co-runner has never been isolated on evo-t2s at
+# all. The two machines' co-runner terms are therefore NOT the same quantity and must not be merged into one
+# shared scalar; each is kept as its own per-machine dict below, used by predict_latency's per-machine branches.
+H2_X2_PER_MODEL = {
+    # model_id: {"ttft_ratio_b4": ..., "ttft_ratio_s4": ..., "decode_ratio_b4": ..., "decode_ratio_s4": ..., "n": ...}
+    "qwen3-8b":        {"ttft_ratio_b4": 1.1241, "ttft_ratio_s4": 1.0980, "decode_ratio_b4": 0.9270, "decode_ratio_s4": 0.9943, "n": 5},
+    "qwen3-14b":       {"ttft_ratio_b4": 1.0980, "ttft_ratio_s4": 1.0774, "decode_ratio_b4": 0.9093, "decode_ratio_s4": 0.9869, "n": 5},
+    "qwen3-32b":       {"ttft_ratio_b4": 1.0776, "ttft_ratio_s4": 1.0508, "decode_ratio_b4": 0.9269, "decode_ratio_s4": 0.9997, "n": 5},
+    "llama31-8b":      {"ttft_ratio_b4": 1.1116, "ttft_ratio_s4": 1.0877, "decode_ratio_b4": 0.9282, "decode_ratio_s4": 0.9934, "n": 5},
+    "llama33-70b":     {"ttft_ratio_b4": 1.0451, "ttft_ratio_s4": 1.0244, "decode_ratio_b4": 0.9053, "decode_ratio_s4": 0.9999, "n": 3},
 }
+H2_X2_DECODE_MULTIPLIER = {
+    # the real, criterion-worthy, vendor-specific separation on evo-x2: decode throughput, bandwidth-hog-specific.
+    "bandwidth_hog_b4": {
+        "value_range": (0.9053, 0.9282),
+        "point_estimate": sum(v["decode_ratio_b4"] for v in H2_X2_PER_MODEL.values()) / len(H2_X2_PER_MODEL),
+        "source": "PX2 (evo-x2, B4 bandwidth hog), results/t2s_night2_20260930T135145Z.jsonl, 5 models, "
+                  "n=5 calls/condition (n=3 for llama-3.3-70b)",
+    },
+    "power_hog_s4": {
+        "value_range": (0.9869, 0.9999),
+        "point_estimate": sum(v["decode_ratio_s4"] for v in H2_X2_PER_MODEL.values()) / len(H2_X2_PER_MODEL),
+        "source": "PX2 (evo-x2, S4 compute/power hog), results/t2s_night2_20260930T135145Z.jsonl, same rows",
+    },
+}
+H2_X2_TTFT_MULTIPLIER = {
+    # Real (not borrowed) evo-x2 TTFT ratios. Reported for completeness/transparency only -- predict_latency's
+    # evo-x2 branch does NOT use this as its primary co-runner effect, because B4 and S4 move TTFT almost
+    # identically here (within 2-3% of each other across all 5 models per A-23's 2026-09-30 update), so TTFT is
+    # not the axis that separates the two hog types on this machine. The decode multiplier above is.
+    "bandwidth_hog_b4": {"value_range": (1.0451, 1.1241),
+                         "point_estimate": sum(v["ttft_ratio_b4"] for v in H2_X2_PER_MODEL.values()) / len(H2_X2_PER_MODEL),
+                         "source": "PX2 (evo-x2, B4), same extraction as H2_X2_DECODE_MULTIPLIER"},
+    "power_hog_s4": {"value_range": (1.0244, 1.0980),
+                     "point_estimate": sum(v["ttft_ratio_s4"] for v in H2_X2_PER_MODEL.values()) / len(H2_X2_PER_MODEL),
+                     "source": "PX2 (evo-x2, S4), same extraction as H2_X2_DECODE_MULTIPLIER"},
+}
+# evo-t2s's real co-runner term is a TTFT multiplier (CPU co-runner only; no decode-throughput isolation exists
+# for evo-t2s in this repo). Renamed from H2_CORUNNER_TTFT_MULTIPLIER (kept below as an alias for back-compat)
+# to make the per-machine split explicit at the name level, per the 2026-10-01 refit.
+H2_T2S_TTFT_MULTIPLIER = {
+    "value_range": (1.39, 1.43),
+    "point_estimate": 1.42,
+    "source": "A-23 (evo-t2s, CPU co-runner, nonp12/all16 condition) -- the only co-runner metric ever measured "
+              "on evo-t2s is TTFT; decode throughput under a co-runner has not been isolated on evo-t2s",
+}
+H2_CORUNNER_TTFT_MULTIPLIER = H2_T2S_TTFT_MULTIPLIER  # back-compat alias; evo-t2s-only, see comment above
+
+# --- K1 effective-context: real measured values where they exist, ASSUMED fallback elsewhere ---
+# results/t2s_k1_ollama_evo-x2_20260930T205515Z.jsonl, record=="tier" rows, field ollama_default_ctx (source
+# "api_ps" -- read back from Ollama's own /api/ps after load, not a static config value). Extracted with:
+#   python -c "
+#   import json
+#   rows=[json.loads(l) for l in open('results/t2s_k1_ollama_evo-x2_20260930T205515Z.jsonl') if l.strip()]
+#   for r in rows:
+#       if r.get('record')=='tier': print(r['model_tag'], r['ollama_default_ctx'], r['ollama_default_ctx_source'])"
+# This is a REAL measured effective-context ceiling for evo-x2 under Ollama's own default auto-fit policy, for
+# the 3 model tags this K1 run actually loaded -- not the OLLAMA_VRAM_CONTEXT_TIERS documented-default fallback.
+K1_X2_EFFECTIVE_CTX = {
+    "qwen3-4b-2507": 262144,  # model_tag qwen3-4b-2507, capped=False (native 262144, not capped by VRAM)
+    "llama31-8b": 131072,     # model_tag llama3.1:8b, capped=False (native 131072, not capped by VRAM)
+    "qwen3-8b": 40960,        # model_tag qwen3:8b, capped=True -- matches MODEL_NATIVE_CTX's A-28 figure exactly
+}
+K1_X2_EFFECTIVE_CTX_SOURCE = "MEASURED (results/t2s_k1_ollama_evo-x2_20260930T205515Z.jsonl, record=='tier', " \
+    "ollama_default_ctx via api_ps -- real post-load context, not a config default)"
+# No t2s_k1_ollama_*.jsonl or t2s_r2_*.jsonl file is committed anywhere in this repo for evo-t2s (confirmed by
+# listing results/) -- so there is no evo-t2s equivalent of K1_X2_EFFECTIVE_CTX. This asymmetry is intentional
+# and reported, not papered over with an empty dict pretending to be data:
+K1_T2S_EFFECTIVE_CTX = {}  # NOT_MEASURED: no K1/R2 result JSONL exists for evo-t2s in this repo as of this commit
+K1_T2S_EFFECTIVE_CTX_SOURCE = "NOT_MEASURED (no t2s_k1_ollama_*.jsonl or t2s_r2_*.jsonl file is committed for " \
+    "evo-t2s; predict_effective_context falls back to the OLLAMA_VRAM_CONTEXT_TIERS ASSUMED default for this " \
+    "machine)"
 
 # docs/PRIOR_ART.md lines ~304-305: "Ollama shipped exactly this behavior in v0.15.5: tiers of 4,096 tokens
 # below 24 GiB VRAM, 32,768 tokens from 24-48 GiB, 262,144 tokens at 48 GiB+"
@@ -300,8 +387,9 @@ def predict_feasibility(machine: str, model_id: str, context_length: int, runtim
                       f"[{row!r}, {col!r}]: {detail}"}
 
 
-def predict_latency(machine: str, runtime_policy: str, prompt_tokens: int, co_runner: bool = False) -> dict:
-    """Predicted TTFT and decode tok/s.
+def predict_latency(machine: str, runtime_policy: str, prompt_tokens: int, co_runner: bool = False,
+                    co_runner_kind: str = "bandwidth") -> dict:
+    """Predicted TTFT and decode tok/s, with a PER-MACHINE co-runner term (2026-10-01 refit).
 
     Functional form: simple linear-in-prompt-length OLS, ttft_s = intercept + slope * prompt_tokens, fit
     separately per machine. Chosen because it is the simplest form the real data supports (R2=0.993 on T2S's own
@@ -311,16 +399,25 @@ def predict_latency(machine: str, runtime_policy: str, prompt_tokens: int, co_ru
     A-24 memory-budget boundary (n_ctx 111,104-117,248), so it reflects near-budget TTFT, not TTFT at a small
     fixed context. It is the only real multi-length TTFT series this repo has for evo-t2s.
 
-    evo-x2: NO real TTFT data of any kind exists in this repo for evo-x2 (docs/FINDINGS.md PX2 section: "no
-    evo-x2 per-call timing to anchor on ... no results/*.jsonl row carries hw_id 'evo-x2' [with a ttft]"). Rather
-    than reuse T2S's fit silently, this returns measured=False and the T2S-fit prediction labeled as a
-    cross-machine extrapolation, so callers can see exactly how much of the number is real.
+    evo-x2: NO real TTFT-vs-prompt-length series exists in this repo for evo-x2 (docs/FINDINGS.md PX2 section:
+    "no evo-x2 per-call timing to anchor on ... no results/*.jsonl row carries hw_id 'evo-x2' [with a ttft]" --
+    still true for a *multi-length* series; PX2 itself did measure real evo-x2 TTFT and decode values, but all at
+    one fixed prompt length, so it cannot supply its own length-vs-latency slope). This returns measured=False
+    for the base (no-co_runner) prediction on evo-x2 and labels it a cross-machine extrapolation of T2S's fit.
 
-    H2 co-runner multiplier: A-23's real evo-t2s CPU-co-runner TTFT ratio (1.39x-1.43x, point estimate 1.42x),
-    used as a substitute for the evo-x2/PX2 cell. PX2 has since run (2026-09-30) and its real result is a
-    decode-throughput effect (bandwidth hog only, 0.905x-0.928x of baseline), not a TTFT multiplier -- this
-    substitution is flagged as needing a structural refit, not just a number swap (see module docstring and
-    H2_CORUNNER_TTFT_MULTIPLIER's comment for the full citation and what the refit requires).
+    H2 CO-RUNNER TERM, now per-machine (2026-10-01 refit -- this used to be one shared TTFT scalar borrowed from
+    evo-t2s for both machines; it no longer is):
+      - machine=="evo-t2s": applies H2_T2S_TTFT_MULTIPLIER (the real, measured evo-t2s effect -- a TTFT penalty
+        from a CPU co-runner; A-23). co_runner_kind is accepted but has no effect here, since evo-t2s's A-23 data
+        does not distinguish hog types.
+      - machine=="evo-x2": applies H2_X2_DECODE_MULTIPLIER[co_runner_kind] to decode_tok_s, NOT a TTFT multiplier,
+        because PX2's real, criterion-worthy separation on evo-x2 is a decode-throughput effect that is specific
+        to the bandwidth hog (co_runner_kind="bandwidth" -> B4, ~0.91-0.93x decode) and nearly absent for the
+        power/compute hog (co_runner_kind="power" -> S4, ~0.99-1.00x decode). TTFT on evo-x2 does also rise under
+        either hog (H2_X2_TTFT_MULTIPLIER, real PX2 data) but the two hog types are statistically indistinguishable
+        on that axis there, so TTFT is reported but not used as the discriminating co-runner signal for evo-x2.
+      - any other machine: co_runner has no modeled effect (returns the base prediction unchanged; no H2 data
+        exists for machine=="blade_rtx4070" at all).
     """
     if machine == "evo-t2s":
         ttft = T2S_TTFT_FIT["intercept_s"] + T2S_TTFT_FIT["slope_s_per_token"] * prompt_tokens
@@ -332,35 +429,65 @@ def predict_latency(machine: str, runtime_policy: str, prompt_tokens: int, co_ru
         measured = False
     ttft = max(ttft, 0.01)
     decode = max(decode, 0.01)
-    mult = 1.0
-    mult_source = None
+
+    ttft_mult, ttft_mult_source = 1.0, None
+    decode_mult, decode_mult_source = 1.0, None
     if co_runner:
-        mult = H2_CORUNNER_TTFT_MULTIPLIER["point_estimate"]
-        mult_source = H2_CORUNNER_TTFT_MULTIPLIER["source"]
-        ttft *= mult
+        if machine == "evo-t2s":
+            ttft_mult = H2_T2S_TTFT_MULTIPLIER["point_estimate"]
+            ttft_mult_source = H2_T2S_TTFT_MULTIPLIER["source"]
+        elif machine == "evo-x2":
+            key = "bandwidth_hog_b4" if co_runner_kind == "bandwidth" else "power_hog_s4"
+            decode_mult = H2_X2_DECODE_MULTIPLIER[key]["point_estimate"]
+            decode_mult_source = H2_X2_DECODE_MULTIPLIER[key]["source"]
+            ttft_mult = H2_X2_TTFT_MULTIPLIER[key]["point_estimate"]
+            ttft_mult_source = (H2_X2_TTFT_MULTIPLIER[key]["source"] +
+                                " (reported, not used as the discriminating signal -- see predict_latency docstring)")
+        ttft *= ttft_mult
+        decode *= decode_mult
+
     return {"ttft_s": round(ttft, 3), "decode_tok_s": round(decode, 3), "measured": measured and not co_runner,
             "fit_form": "linear: ttft_s = a + b * prompt_tokens (OLS)",
-            "fit_coefficients": {"t2s": T2S_TTFT_FIT}, "co_runner_multiplier": mult if co_runner else None,
-            "co_runner_multiplier_source": mult_source,
+            "fit_coefficients": {"t2s": T2S_TTFT_FIT},
+            "co_runner_kind": co_runner_kind if co_runner else None,
+            "ttft_co_runner_multiplier": ttft_mult if co_runner else None,
+            "ttft_co_runner_multiplier_source": ttft_mult_source,
+            "decode_co_runner_multiplier": decode_mult if co_runner else None,
+            "decode_co_runner_multiplier_source": decode_mult_source,
             "note": None if machine == "evo-t2s" else
-                    "evo-x2 has zero real TTFT rows in this repo; this is the T2S fit applied to evo-x2 as a "
-                    "cross-machine extrapolation, not a measurement -- see validate_ttft_cross_machine"}
+                    "evo-x2 has no real TTFT-vs-prompt-length series in this repo; the base TTFT prediction is "
+                    "the T2S fit applied to evo-x2 as a cross-machine extrapolation, not a measurement. The "
+                    "co-runner multiplier itself (if co_runner=True) IS real evo-x2 PX2 data -- see "
+                    "H2_X2_DECODE_MULTIPLIER/H2_X2_TTFT_MULTIPLIER -- only the base, no-co-runner TTFT curve is "
+                    "extrapolated; see validate_ttft_cross_machine"}
 
 
 def predict_effective_context(machine: str, runtime_policy: str, model_id: str) -> dict:
     """Effective context length actually usable, with an explicit MEASURED/ASSUMED flag.
 
-    No K1/R2 result JSONL is present in this worktree's results/ directory (confirmed by listing harness/ and
-    results/ -- harness/t2s_k1_ollama.py and harness/t2s_r2_session_growth.py exist as code, but no
-    t2s_k1_ollama_*.jsonl or t2s_r2_*.jsonl file is committed here), so every return from this function is
-    ASSUMED: it falls back to the documented Ollama VRAM tiers (docs/PRIOR_ART.md, OLLAMA_VRAM_CONTEXT_TIERS)
-    capped by the model's own native context (MODEL_NATIVE_CTX, MODEL_NATIVE_CTX_SOURCE has per-model
-    measured/assumed provenance for the native-context figure itself).
+    2026-10-01: evo-x2 now has REAL measured effective-context values for 3 model tags (K1_X2_EFFECTIVE_CTX,
+    results/t2s_k1_ollama_evo-x2_20260930T205515Z.jsonl, see that constant's docstring) -- for an (evo-x2, ollama
+    runtime_policy, model_id) cell that matches one of those 3, this returns the real measured value with
+    flag=="MEASURED" instead of falling back to the documented default. evo-t2s has no K1/R2 equivalent anywhere
+    in this repo (confirmed by listing results/ -- harness/t2s_k1_ollama.py and harness/t2s_r2_session_growth.py
+    exist as code, but no t2s_k1_ollama_*.jsonl or t2s_r2_*.jsonl file is committed for evo-t2s), so every evo-t2s
+    return, and every evo-x2 return for a model_id not in K1_X2_EFFECTIVE_CTX, remains ASSUMED: it falls back to
+    the documented Ollama VRAM tiers (docs/PRIOR_ART.md, OLLAMA_VRAM_CONTEXT_TIERS) capped by the model's own
+    native context (MODEL_NATIVE_CTX, MODEL_NATIVE_CTX_SOURCE has per-model measured/assumed provenance for the
+    native-context figure itself). This MEASURED-for-3-cells/ASSUMED-elsewhere split is reported explicitly in
+    the return rather than blended into one confidence level.
 
-    The "vram_gib" used to pick a tier is a caller-supplied machine memory figure; if not given, machine-specific
-    defaults are used: evo-t2s and evo-x2 are both unified-memory parts reported elsewhere in this repo at 64 GiB
-    (evo-t2s, docs/PAPER_OUTLINE.md Fig 6.1 spec) and 128 GiB (evo-x2, docs/FINDINGS.md PX2 section) respectively.
+    The "vram_gib" used to pick a tier (ASSUMED path only) is a caller-supplied machine memory figure; if not
+    given, machine-specific defaults are used: evo-t2s and evo-x2 are both unified-memory parts reported elsewhere
+    in this repo at 64 GiB (evo-t2s, docs/PAPER_OUTLINE.md Fig 6.1 spec) and 128 GiB (evo-x2, docs/FINDINGS.md
+    PX2 section) respectively.
     """
+    if machine == "evo-x2" and runtime_policy.startswith("ollama") and model_id in K1_X2_EFFECTIVE_CTX:
+        return {"effective_context": K1_X2_EFFECTIVE_CTX[model_id], "measured": True,
+                "flag": "MEASURED",
+                "basis": f"real post-load ollama_default_ctx (api_ps) for model_tag={model_id!r}",
+                "native_ctx_source": K1_X2_EFFECTIVE_CTX_SOURCE,
+                "note": "real K1 measurement, not the OLLAMA_VRAM_CONTEXT_TIERS ASSUMED fallback"}
     machine_vram_gib = {"evo-t2s": 64.0, "evo-x2": 128.0, "blade_rtx4070": 8.0}.get(machine, 64.0)
     if runtime_policy.startswith("ollama"):
         tier_ctx = next(ctx for cap, ctx in OLLAMA_VRAM_CONTEXT_TIERS if machine_vram_gib < cap)
@@ -426,13 +553,14 @@ def predict_failure_silence(machine: str, runtime_policy: str) -> dict:
 
 def predict(machine: str, runtime_policy: str, model_id: str, context_length: int,
             prompt_tokens: Optional[int] = None, full_prompt_tokens: Optional[int] = None,
-            co_runner: bool = False) -> Prediction:
+            co_runner: bool = False, co_runner_kind: str = "bandwidth") -> Prediction:
     """Top-level combiner. prompt_tokens/full_prompt_tokens default to context_length (i.e. "prompt fills the
-    requested context exactly") when not given -- callers doing the trace join pass their own real values."""
+    requested context exactly") when not given -- callers doing the trace join pass their own real values.
+    co_runner_kind ("bandwidth" or "power") only matters for machine=="evo-x2" (see predict_latency)."""
     prompt_tokens = context_length if prompt_tokens is None else prompt_tokens
     full_prompt_tokens = context_length if full_prompt_tokens is None else full_prompt_tokens
     feas = predict_feasibility(machine, model_id, context_length, runtime_policy)
-    lat = predict_latency(machine, runtime_policy, prompt_tokens, co_runner=co_runner)
+    lat = predict_latency(machine, runtime_policy, prompt_tokens, co_runner=co_runner, co_runner_kind=co_runner_kind)
     eff = predict_effective_context(machine, runtime_policy, model_id)
     qual = predict_quality_regime(prompt_tokens, full_prompt_tokens,
                                    eff["effective_context"] if eff["effective_context"] else context_length)
