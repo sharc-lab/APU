@@ -963,7 +963,7 @@ class R2SessionLab(k1.K1Lab):
     def __init__(self, args, host_cfg, prov):
         super().__init__(args, host_cfg, prov)
         if not args.resume:
-            self.stem = f"t2s_r2_session_growth_{host_cfg['name']}_{time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())}"
+            self.stem = f"t2s_r2_session_growth_{host_cfg['hw_id']}_{time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())}"
             self.prefix = str(self.out_dir / self.stem)
             self.rows_path = self.prefix + ".jsonl"
             self.rows = L.Jsonl(self.rows_path)
@@ -1347,7 +1347,7 @@ def main(argv=None):
     host_cfg = k1.require_host(args.host)
 
     models = tuple(args.models.split(",")) if args.models else ALL_MODELS
-    arms = tuple(args.arms.split(",")) if args.arms else tuple(applicable_arms(host_cfg["name"]))
+    arms = tuple(args.arms.split(",")) if args.arms else tuple(applicable_arms(host_cfg["hw_id"]))
     seeds = tuple(int(s) for s in args.seeds.split(",")) if args.seeds else SEEDS
     max_turns = args.max_turns if args.max_turns is not None else MAX_TURNS
     memory_conditions = (tuple(args.memory_conditions.split(","))
@@ -1357,8 +1357,8 @@ def main(argv=None):
     # not something to silently drop, since a silently-dropped arm on the T2S side is exactly the kind
     # of mistake this whole phase exists to catch elsewhere.
     for arm_id in arms:
-        if arm_id not in applicable_arms(host_cfg["name"]):
-            raise SystemExit(f"arm {arm_id!r} is not applicable on {host_cfg['name']!r} "
+        if arm_id not in applicable_arms(host_cfg["hw_id"]):
+            raise SystemExit(f"arm {arm_id!r} is not applicable on {host_cfg['hw_id']!r} "
                              f"(machine_restriction={ARMS[arm_id]['machine_restriction']!r})")
 
     est = estimate_hours(machine=host_cfg["hw_id"], models=models, memory_conditions=memory_conditions,

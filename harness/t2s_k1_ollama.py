@@ -400,7 +400,11 @@ class K1Lab:
         self.args, self.host_cfg, self.prov = args, host_cfg, prov
         self.out_dir = Path(args.out_dir)
         self.out_dir.mkdir(parents=True, exist_ok=True)
-        self.stem = args.resume or f"t2s_k1_ollama_{host_cfg['name']}_{time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())}"
+        # host_cfg has no "name" key (see HOSTS in host_config.py) -- the real per-host identifier is
+        # "hw_id". Found live 2026-10-01: this fallback branch (args.resume not given) was never
+        # exercised before run_positive_control() called K1Lab/R2SessionLab's __init__ with resume=None,
+        # since every other caller always passes --resume.
+        self.stem = args.resume or f"t2s_k1_ollama_{host_cfg['hw_id']}_{time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())}"
         self.prefix = str(self.out_dir / self.stem)
         self.rows_path = self.prefix + ".jsonl"
         self.rows = L.Jsonl(self.rows_path)
@@ -417,7 +421,7 @@ class K1Lab:
 
     def emit(self, row):
         row.setdefault("ts_utc", L.utc_iso())
-        row.setdefault("host", self.host_cfg["name"])
+        row.setdefault("host", self.host_cfg["hw_id"])
         row.setdefault("gpu_vendor", self.host_cfg["gpu_vendor"])
         row.setdefault("ollama_model_loaded", _hc.get_ollama_loaded_model())
         self.rows.write(row)
@@ -1030,7 +1034,7 @@ def main():
                 if gguf_mi is None:
                     L.log("curves phase requested but no --gguf-model/--gguf-path given; skipping")
                 else:
-                    default_ctx = args.default_ctx or build_default_ctx_from_rows(lab.all_rows(), host=host_cfg["name"])
+                    default_ctx = args.default_ctx or build_default_ctx_from_rows(lab.all_rows(), host=host_cfg["hw_id"])
                     if default_ctx is None:
                         L.log("curves phase requested but no default_ctx known (run --phase tier first, or pass --default-ctx); skipping")
                     else:
