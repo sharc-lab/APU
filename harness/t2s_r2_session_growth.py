@@ -1139,6 +1139,19 @@ class R2SessionLab(k1.K1Lab):
         cell_id = build_item_id(model_id, arm_id, condition_id, seed)
         if cell_id in self.done:
             return {"skipped": True, "reason": "cell already done (resume)"}
+        if condition_id == "occupied_40gb" and occupier_factory is not None:
+            # Found live 2026-10-01 (evo-x2): the occupier starts its own llama-server-shaped process via
+            # t2s_lab.Server.start(), which refuses unconditionally if ANY process named llama-server.exe
+            # is already running -- including Ollama's own internal engine, still alive via
+            # run_turn_ollama's keep_alive="30m" from a prior cell in this same run (an Ollama arm's model
+            # stays loaded continuously now, by design, for cross-turn KV-cache reuse). Unload
+            # unconditionally here (self.ollama, not the possibly-None `ollama` param -- a lingering model
+            # could be left over from an earlier cell of either runtime) before the occupier ever tries to
+            # start; harmless no-op if nothing is loaded.
+            try:
+                self.ollama.unload(MODEL_ID_ALIASES.get(model_id, model_id))
+            except Exception as e:
+                L.log(f"R2: pre-occupier Ollama unload failed (continuing): {e!r}")
         occ, occ_result = wire_memory_condition(condition_id, occupier_factory)
         try:
             session = generate_session(seed, count_fn=count_fn, max_turns=max_turns)

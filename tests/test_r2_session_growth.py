@@ -855,6 +855,12 @@ class FakeOllama:
         name = self.calls[-1]["model"] if self.calls else "unknown"
         return {"outcome": "ok", "models": [{"name": name, "context_length": self.context_length}]}
 
+    def unload(self, model):
+        """Matches the real OllamaClient.unload: a chat() call with keep_alive=0, max_tokens=1 --
+        found missing live 2026-10-01 when the pre-occupier unload fix called this on a FakeOllama
+        that didn't have it, silently swallowed by the production code's own except Exception."""
+        return self.chat(model, "", num_ctx=None, max_tokens=1, keep_alive=0)
+
 
 class FakeLlamaServerSession:
     """Deterministic fake standing in for LlamaServerSession: raises ContextSizeError once prompts
@@ -955,6 +961,35 @@ class TestStubDryRun:
                                                   avail_mb_fn=lambda: 100000.0))
         assert fake_srv.started
         assert fake_srv.stopped
+
+    def test_occupied_40gb_unloads_ollama_before_starting_the_occupier(self, tmp_path):
+        """Found live 2026-10-01 (evo-x2): the occupier starts its own llama-server-shaped process via
+        t2s_lab.Server.start(), which refuses unconditionally if ANY process named llama-server.exe is
+        already running -- including Ollama's own internal engine, still alive via run_turn_ollama's
+        keep_alive=30m from an earlier cell in the same run. phase_run_session must unload any Ollama
+        model (via self.ollama, not the possibly-None ollama= param) before the occupier ever starts."""
+        lab = make_lab(tmp_path)
+        lab.ollama = FakeOllama()  # self.ollama, not the client passed as ollama= below
+        fake_srv = FakeServer(ok=True)
+        client = FakeOllama()
+        lab.phase_run_session(
+            model_id="qwen3-4b-2507", arm_id="ollama_default", condition_id="occupied_40gb",
+            seed=1, ollama=client, count_fn=word_count_fn, max_turns=3,
+            occupier_factory=lambda: r2.Occupier(lab, occupier_mi=object(), occupier_n_ctx=32768,
+                                                  server_factory=lambda mi, n_ctx, tag: fake_srv,
+                                                  avail_mb_fn=lambda: 100000.0))
+        unload_calls = [c for c in lab.ollama.calls if c.get("keep_alive") == 0]
+        assert unload_calls, "expected an unload() call (keep_alive=0) on lab.ollama before the occupier started"
+
+    def test_as_is_condition_does_not_unload_ollama(self, tmp_path):
+        """The unload is specific to occupied_40gb -- an as_is cell must not pay for an unnecessary
+        unload/reload cycle."""
+        lab = make_lab(tmp_path)
+        lab.ollama = FakeOllama()
+        client = FakeOllama()
+        lab.phase_run_session(model_id="qwen3-4b-2507", arm_id="ollama_default", condition_id="as_is",
+                              seed=1, ollama=client, count_fn=word_count_fn, max_turns=1)
+        assert lab.ollama.calls == []
 
     def test_dry_run_llama_server_arm_classifies_hard_error_on_overflow(self, tmp_path):
         lab = make_lab(tmp_path)
