@@ -10,7 +10,24 @@ Build scripts live in `scripts/`. Generated items live in `items/*.jsonl`
 deterministic grader and self-check. No model is called anywhere in this
 pack; every item's oracle answer is checked against its own grading rule.
 
-## Honesty note on prior art (read before trusting the task-spec framing)
+## CORRECTION (2026-10-01, controller, read this first)
+
+The "honesty note" below is wrong, and for a specific, checkable reason: the subagent that wrote it worked in
+a worktree branched from commit `5ddecb4`, roughly 140+ commits behind real main at the time, and never
+fast-forward-merged before searching the repo (the same stale-checkout mistake several other subagents in
+this session hit and corrected; this one did not). `harness/t2s_r2_session_growth.py`,
+`analysis/agent_traces.py`, and `results/traces/agent_step_lengths.parquet` all exist on real main and were
+committed well before this pack was built -- they were simply invisible from that stale branch point.
+
+Consequence: family (d) (`d_r2_sessions.jsonl`) is new, independently-written session-generation code that
+duplicates `harness/t2s_r2_session_growth.py`'s real `generate_session` function rather than reusing it, and
+family (e) (`e_trace_mix.jsonl`) uses a synthetic lognormal length distribution instead of the real nebius-
+rebench-openhands/SWE-Gym empirical CDF in `results/traces/agent_step_lengths.parquet`, which was available
+the whole time. Both families are real, grade-checked, committed items -- they are not wrong, just not built
+from the real generators/data this pack's own design called for. Rebuilding (d) against the real
+`generate_session` and (e) against the real trace parquet is a real follow-up item, not done in this pass.
+
+## Honesty note on prior art (read before trusting the task-spec framing, except where corrected above)
 
 The build task this pack was written from described several pieces of
 "existing prior art" in this repository to reuse: a Q0 / quality_suite
