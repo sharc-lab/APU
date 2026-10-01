@@ -443,7 +443,14 @@ def create_model_from_gguf(name, gguf_path, run_fn=None):
     "stderr": str}; never raises."""
     import subprocess
     import tempfile
-    run_fn = run_fn or (lambda argv: subprocess.run(argv, capture_output=True, text=True, timeout=600))
+    # Found live 2026-10-01 (evo-t2s): subprocess.run(..., text=True) decodes stdout/stderr with the
+    # console's default codepage (cp1252 on this machine) when no encoding is given. "ollama create"'s own
+    # output contained a byte cp1252 cannot decode, which crashed the internal reader thread -- and that
+    # left the whole call hanging indefinitely (observed live: the process sat idle, tiny steady memory, no
+    # further log output, for minutes) rather than raising or returning. errors="replace" makes an
+    # undecodable byte become a replacement character instead of killing the reader thread.
+    run_fn = run_fn or (lambda argv: subprocess.run(argv, capture_output=True, text=True, encoding="utf-8",
+                                                     errors="replace", timeout=600))
     exe = _resolve_ollama_exe()
     with tempfile.TemporaryDirectory() as td:
         modelfile_path = os.path.join(td, "Modelfile")

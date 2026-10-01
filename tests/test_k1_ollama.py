@@ -506,6 +506,26 @@ def test_ollama_client_pull_reports_error_line(monkeypatch):
     assert res["final_status"] == "model not found"
 
 
+def test_create_model_from_gguf_default_run_fn_does_not_crash_on_undecodable_bytes(tmp_path, monkeypatch):
+    """Found live 2026-10-01 (evo-t2s): the default run_fn's subprocess.run(..., text=True) decoded with the
+    console's default codepage (cp1252), and ollama create's own real output contained a byte cp1252 cannot
+    decode -- this crashed the internal reader thread and left the whole call hanging indefinitely (observed
+    live: tiny steady memory, no further progress, for minutes) rather than raising or returning promptly.
+    Exercises the real default run_fn (no injected fake) against a real subprocess whose stdout contains an
+    undecodable byte, confirming it returns instead of hanging or raising."""
+    import subprocess
+    monkeypatch.setenv("OLLAMA_BIN", "ollama")
+    # A tiny real subprocess that writes one undecodable-under-cp1252 byte (0x8f) to stdout and exits --
+    # stands in for the real "ollama create" command without needing a real ollama install.
+    result = K.create_model_from_gguf(
+        "x", "/nope.gguf",
+        run_fn=lambda argv: subprocess.run(
+            [sys.executable, "-c", "import sys; sys.stdout.buffer.write(b'before \\x8f after'); sys.stdout.flush()"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30))
+    assert result["outcome"] == "ok"  # real exit code 0; the point is this returns at all, promptly
+    assert "before" in result["stdout"] and "after" in result["stdout"]
+
+
 def test_create_model_from_gguf_writes_a_modelfile_with_just_the_from_line(tmp_path, monkeypatch):
     captured = {}
     monkeypatch.setenv("OLLAMA_BIN", "ollama")  # deterministic exe resolution, independent of this machine's PATH
