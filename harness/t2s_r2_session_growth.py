@@ -458,6 +458,16 @@ def _tool_call_args(call):
     return call.get("arguments")
 
 
+def _synthetic_tool_result(call) -> str:
+    """The simulated tool-result message content for the real-agent-step design (R2 validity item 2,
+    round 2): a generic acknowledgement, never real data. The turn's own task text already carries
+    whatever the model needs for its answer (e.g. a recall turn's fact value is given in the system
+    prompt and the turn says not to look it up), so the simulated tool never needs to supply a real
+    value back -- its only job is to let the model complete a normal tool-call-then-respond cycle."""
+    name = _tool_call_name(call) or "tool"
+    return json.dumps({"status": "ok", "tool": name})
+
+
 def score_turn(turn: TurnSpec, session_code: str, output_text: str, sent_tokens: int | None,
                processed_tokens: int | None, http_status: int | None = 200,
                error_text: str | None = None, native_tool_calls: list | None = None,
@@ -1050,34 +1060,71 @@ class R2SessionLab(k1.K1Lab):
         though the real canary-miss logic is correct (confirmed separately: the llama-server leg of
         the same positive control fired correctly at turn 10). 30 minutes comfortably outlives a
         single session's per-turn latency and resets on every call, so the model stays loaded for the
-        session's whole duration regardless of how many turns it has."""
+        session's whole duration regardless of how many turns it has.
+
+        2026-10-01 REDESIGN (R2 validity item 2, round 2): the earlier fix (withholding tools on
+        canary-check turns) was a patch, not a real fix -- recomputing the real rule-baseline table
+        against the existing arm-b data showed rule1_json_keys and rule5_session_code BOTH at 0%
+        pass rate across EVERY turn, not just canary ones, because a native tool-call response has
+        empty message.content on essentially every turn that calls a tool, and the session's own
+        rule 2 instructs the model to call log_event on every single turn in addition to its
+        primary task -- so every turn had the same tool-call/empty-content collision, not just
+        canary turns.
+
+        This replaces that patch with a real two-call agent step, matching how a tool-using chat
+        model is actually meant to be driven:
+          (a) call 1: the turn's user message, with tools available (unless canary_check, which
+              still forces a text-only turn -- see below).
+          (b) if call 1 returns tool_calls: append the assistant's own tool-call message, then one
+              synthetic tool-result message per call (a generic ack -- the turn's own task text
+              already carries whatever information the model needs; the simulated tool is not a
+              real data source), then call the model a SECOND time with tools withheld, to get the
+              turn's real, final text answer. If call 1 returns no tool_calls, it already produced a
+              text answer and there is no second call.
+          (c) all five text rules (JSON keys, metres, session code, no ZEBRA-7, canary on canary
+              turns) are graded on the FINAL text answer only (call 2's content if there was a
+              second call, otherwise call 1's).
+          (d) rule 2 (log_event) is graded on whether log_event was called at any point in the turn
+              -- with this design that can only be in call 1, since call 2 (if it happens) withholds
+              tools, so this is simply call 1's tool_calls.
+        Both calls' tokens count toward the running session context: sent_tokens below sums over
+        every message involved in the turn, including the synthetic tool-call/tool-result pair if a
+        second call happened; the CALLER's own persisted `messages` history (used to build future
+        turns) still only ever gets the turn's single final text answer appended, same as before --
+        the internal tool round-trip is not replayed into every subsequent turn's history, matching
+        how a real multi-turn session would summarize a completed tool-use step.
+
+        canary_check turns still withhold tools on call 1 directly (skipping straight to a one-call,
+        text-only turn) rather than going through the two-call path at all: a canary turn's own task
+        text does not require a tool call, so there's nothing to call a tool for, and forcing a
+        same-shape single text turn keeps the canary measurement as direct as possible."""
         ollama = ollama or self.ollama
         options = apply_ollama_arm(arm_id, {"seed": session.seed})
-        sent_tokens = sum(count_fn(m["content"]) for m in messages)
-        # 2026-10-01 fix (R2 validity item 2): canary-check turns withhold `tools` entirely. Every turn's
-        # own prompt also carries the session-wide "always call log_event" instruction (rule 2), so a
-        # canary-check turn was asking the model to both make a native tool call AND answer in text in the
-        # same single-shot completion -- and a model that returns tool_calls typically returns empty
-        # `message.content` in the same response (confirmed live: 3/3 raw turn-5 outputs on evo-x2 were
-        # tool_calls=[lookup_fact(...)], content=""). Since canary_reproduced requires rule1 (a parsed
-        # JSON answer) to be true first, an empty content turn automatically fails canary_reproduced
-        # regardless of whether the model actually still "remembers" the canary -- this was being
-        # misread as a truncation/forgetting signal. Withholding tools on canary turns forces a text
-        # response, so the canary check measures what it is supposed to measure. rule2 is not meaningfully
-        # gradable on these turns as a result (no tool was offered to call) -- see
-        # score_turn's docstring and baseline_compliance's canary-turn exclusion for rule 2.
-        turn_tools = None if turn.canary_check else ollama_tools_payload()
-        resp = ollama.chat(model_id, "", num_ctx=options.get("num_ctx"), messages=messages,
-                            tools=turn_tools, keep_alive="30m")
-        output_text = resp.get("message") or ""
+        num_ctx = options.get("num_ctx")
+
+        call1_tools = None if turn.canary_check else ollama_tools_payload()
+        resp1 = ollama.chat(model_id, "", num_ctx=num_ctx, messages=messages, tools=call1_tools,
+                            keep_alive="30m")
+        call1_tool_calls = resp1.get("tool_calls")
+        full_messages = messages
+        final_resp = resp1
+        if call1_tool_calls:
+            full_messages = list(messages) + [{"role": "assistant", "content": resp1.get("message") or "",
+                                               "tool_calls": call1_tool_calls}]
+            for call in call1_tool_calls:
+                full_messages.append({"role": "tool", "content": _synthetic_tool_result(call)})
+            final_resp = ollama.chat(model_id, "", num_ctx=num_ctx, messages=full_messages, tools=None,
+                                     keep_alive="30m")
+        sent_tokens = sum(count_fn(m["content"]) for m in full_messages)
+        output_text = final_resp.get("message") or ""
         row = self.emit({
             "record": "r2_turn", "phase": "r2_session", "backend": "ollama", "arm_id": arm_id,
             "model_id": model_id, "condition_id": condition_id, "seed": session.seed, "turn_idx": turn.idx,
             "session_code": session.session_code, "output_text": output_text,
-            "sent_tokens": sent_tokens, "processed_tokens": resp.get("prompt_eval_count"),
-            "http_status": resp.get("status", 200), "error_text": resp.get("error"),
-            "native_tool_calls": resp.get("tool_calls"), "tool_detection_method": "native",
-            "cumulative_tokens": sent_tokens,
+            "sent_tokens": sent_tokens, "processed_tokens": final_resp.get("prompt_eval_count"),
+            "http_status": final_resp.get("status", 200), "error_text": final_resp.get("error"),
+            "native_tool_calls": call1_tool_calls, "tool_detection_method": "native",
+            "cumulative_tokens": sent_tokens, "two_call_turn": bool(call1_tool_calls),
         })
         return row
 

@@ -564,6 +564,56 @@ class TestNativeToolCallDetection:
                             ollama=client, count_fn=word_count_fn)
         assert client.calls[0]["tools"] is not None
 
+    def test_run_turn_ollama_makes_a_second_call_after_a_tool_call(self, tmp_path):
+        """2026-10-01 redesign: a non-canary turn that returns a tool call in its first response
+        must get a second call (tools withheld) to produce the final text answer, rather than
+        scoring the empty-content tool-call response as the turn's output."""
+        lab = make_lab(tmp_path)
+        tool_call = {"function": {"name": "log_event", "arguments": {"event": "e"}}}
+        client = FakeOllama(responses=[
+            {"outcome": "ok", "status": 200, "message": "", "prompt_eval_count": 50,
+             "error": None, "tool_calls": [tool_call]},
+            {"outcome": "ok", "status": 200, "message": '{"answer": "final SC-X", "source": "s"}',
+             "prompt_eval_count": 80, "error": None, "tool_calls": None},
+        ])
+        session = r2.generate_session(1, count_fn=word_count_fn, max_turns=1)
+        turn = session.turns[0]
+        messages = [{"role": "system", "content": session.system_prompt},
+                    {"role": "user", "content": r2.turn_message_content(turn)}]
+        row = lab.run_turn_ollama("qwen3-4b-2507", "ollama_default", "as_is", session, turn, messages,
+                                   ollama=client, count_fn=word_count_fn)
+        assert len(client.calls) == 2
+        # call 2 must withhold tools and must include the assistant tool-call message plus a
+        # synthetic tool-result message appended after the original 2 messages
+        assert client.calls[1]["tools"] is None
+        assert len(client.calls[1]["messages"]) == 4
+        assert client.calls[1]["messages"][2]["role"] == "assistant"
+        assert client.calls[1]["messages"][2]["tool_calls"] == [tool_call]
+        assert client.calls[1]["messages"][3]["role"] == "tool"
+        # the turn's final output_text is call 2's content, not call 1's empty content
+        assert row["output_text"] == '{"answer": "final SC-X", "source": "s"}'
+        # rule 2 is graded on call 1's tool_calls regardless of the second call
+        assert row["native_tool_calls"] == [tool_call]
+        assert row["processed_tokens"] == 80
+        # sent_tokens counts every message across both calls, including the synthetic round trip
+        assert row["sent_tokens"] == sum(word_count_fn(m["content"]) for m in client.calls[1]["messages"])
+
+    def test_run_turn_ollama_skips_second_call_with_no_tool_call(self, tmp_path):
+        lab = make_lab(tmp_path)
+        client = FakeOllama(responses=[
+            {"outcome": "ok", "status": 200, "message": '{"answer": "direct SC-X", "source": "s"}',
+             "prompt_eval_count": 60, "error": None, "tool_calls": None},
+        ])
+        session = r2.generate_session(1, count_fn=word_count_fn, max_turns=1)
+        turn = session.turns[0]
+        messages = [{"role": "system", "content": session.system_prompt},
+                    {"role": "user", "content": r2.turn_message_content(turn)}]
+        row = lab.run_turn_ollama("qwen3-4b-2507", "ollama_default", "as_is", session, turn, messages,
+                                   ollama=client, count_fn=word_count_fn)
+        assert len(client.calls) == 1
+        assert row["output_text"] == '{"answer": "direct SC-X", "source": "s"}'
+        assert row["native_tool_calls"] is None
+
     def test_run_turn_llama_server_always_text_fallback(self, tmp_path):
         lab = make_lab(tmp_path)
         client = FakeLlamaServerSession()
@@ -873,10 +923,15 @@ class FakeOllama:
     answers compliantly except it never calls log_event, so rule 2 always fails from turn 1 -- lets
     the dry run exercise the scorer's failure paths too."""
 
-    def __init__(self, tool_calls=None, context_length=None):
+    def __init__(self, tool_calls=None, context_length=None, responses=None):
         self.calls = []
         self.tool_calls = tool_calls  # injected native message.tool_calls for rule-2 native tests
         self.context_length = context_length  # injected /api/ps context_length for truncation tests
+        # a queue of distinct canned responses, one per successive chat() call (2026-10-01, the
+        # two-call agent-step redesign: a single tool_calls value can't model "call 1 returns a tool
+        # call, call 2 returns the final text" -- responses, if given, pops one dict per call in
+        # order; falls back to the single-tool_calls shape below once (or if never) exhausted.
+        self._responses = list(responses) if responses is not None else None
 
     def chat(self, model, prompt, num_ctx=None, max_tokens=64, keep_alive=None, messages=None,
              tools=None):
@@ -885,6 +940,8 @@ class FakeOllama:
         # fully-grown history instead of what was actually sent at that point in time.
         self.calls.append({"model": model, "num_ctx": num_ctx, "messages": list(messages or []),
                             "tools": tools, "keep_alive": keep_alive})
+        if self._responses:
+            return self._responses.pop(0)
         return {"outcome": "ok", "status": 200, "message": "not valid json output",
                 "prompt_eval_count": 50, "error": None, "tool_calls": self.tool_calls}
 
