@@ -933,7 +933,7 @@ rather than assumed.**
 | field | on evo-x2 | source |
 |---|---|---|
 | `igpu_mhz` | available | Radeon GPU Core Clock, mapped by the LHM feeder into the same freq rows Sysman uses |
-| `igpu_power_w` | available | Radeon GPU Core Power |
+| `igpu_power_w` | **present but unusable for a contention/throttle signal** (2026-10-01) | Radeon GPU Core Power. Confirmed via the real `_lhm.jsonl` samples (257 PX2 rows' worth of window): reads near zero (median 0W, max 24-36W) in every single condition, including ones with heavy co-runner contention -- this 8B-class Vulkan-offloaded inference workload keeps the iGPU itself barely loaded throughout, so the sensor has nothing to report regardless of whether the package is at its power ceiling. A flat-zero reading here means "this workload doesn't load the iGPU," not "the iGPU is unaffected by contention" -- do not read a steady igpu_power_w as evidence either way |
 | `temp_c_max` | available | Ryzen CPU Temperature. This is also what gives `lab.idle_temp` a real value, so the thermal gate uses its temperature path instead of Intel's package-power proxy |
 | `igpu_temp_c_max` | available | Radeon temperature |
 | `pkg_power_w`, `rapl_pp0_w`, `rapl_pp1_w` | expected null | Windows "Energy Meter" counter set only, whose instance names are Intel RAPL ones. The LHM loop maps no CPU power sensor into the per-call rows |
@@ -1091,6 +1091,50 @@ data exists anywhere for this run -- confirmed by scanning the entire `_lhm.json
 than just the per-condition windows checked above. This is marked a real, unrecoverable gap for this run, not
 reconstructed from anything else -- the next PX2-style run needs the LHM collector kept alive (or restarted)
 across the whole sweep, not just model 1 of 5.
+
+**The firmware-protects-the-iGPU question, retested with the hog's own achieved rate instead of the unusable
+iGPU power sensor (2026-10-01).** Since `igpu_power_w` reads near-zero regardless of real contention (see the
+sensor-availability table above), the test instead uses the co-runner hog's own measured throughput --
+`hog_rate_during_calls` in `px2_condition_done`, real GB/s for B4 (bandwidth hog) and real iterations/s for
+S14 (SMT/occupancy hog) -- as the signal: if the firmware is reserving bandwidth/cycles for the GPU, the
+hog's own rate should drop when co-running with a model whose package sits at the power ceiling (qwen3-32b,
+llama-3.3-70b) compared to a model with real headroom (qwen3-8b, llama31-8b), or compared to the hog running
+alone.
+
+B4 (bandwidth hog), GB/s, solo-alone calibration 32.212 GB/s:
+
+| model | package regime | GB/s | % of solo |
+|---|---|---|---|
+| qwen3-32b | at ceiling (~83.6W) | 25.776 | 80.0% |
+| llama-3.3-70b | at ceiling (~83.6W) | 24.159 | 75.0% |
+| qwen3-14b | intermediate | 24.159 | 75.0% |
+| llama31-8b | below ceiling (real headroom) | 28.186 | 87.5% |
+| qwen3-8b | below ceiling (real headroom) | 22.411 | 69.6% |
+
+S14 (SMT/occupancy hog), iterations/s, no solo-alone baseline exists for this condition in this run:
+
+| model | package regime | iterations/s |
+|---|---|---|
+| qwen3-32b | at ceiling | 98,600,000 |
+| llama-3.3-70b | at ceiling | 99,950,000 |
+| qwen3-14b | intermediate | 101,800,000 |
+| llama31-8b | below ceiling | 102,073,006 |
+| qwen3-8b | below ceiling | 95,506,128 |
+
+**n and CIs:** each cell above is a single real measurement (`hog_rate_during_calls` is one aggregate value
+per model/condition in this run, not a per-call series) -- n=1 per cell, no confidence interval is computable
+from this data, stated plainly rather than invented.
+
+**Reading: this does not support "firmware prioritizes the GPU under contention."** For B4, the at-ceiling
+group (75.0%, 80.0% of solo) is not consistently lower than the below-ceiling group: llama31-8b (87.5% of
+solo, the least suppressed of all 5) fits the hypothesis, but qwen3-8b (69.6% of solo, the most suppressed of
+all 5, even more than either at-ceiling model) directly contradicts it. For S14, the at-ceiling mean
+(~99.3M/s) and below-ceiling mean (~98.8M/s) differ by under 0.5% -- no meaningful separation at all. With
+n=1 per cell this is not a clean, directional pattern in either direction; the honest conclusion is that this
+test is inconclusive on the firmware-protection question, not that it confirms or refutes it. A real answer
+would need multiple real measurements per cell (to get an actual CI) and, ideally, a condition where the
+iGPU itself is genuinely under load (which `igpu_power_w`'s near-zero reading says this workload never
+produces) so the "protect the GPU" framing has something to protect in the first place.
 
 This supersedes the "NOT YET RUN" status above. It also supersedes any downstream document that still cites PX2
 as unrun, including `analysis/envelope_model.py`'s H2/co-runner multiplier, which is currently substituted from
