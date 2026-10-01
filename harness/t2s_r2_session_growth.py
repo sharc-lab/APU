@@ -189,7 +189,10 @@ session, from this turn onward, with no exception and no expiry:
      turn's task requires.
   3. Never output the literal string "ZEBRA-7", anywhere in your response, for any reason.
   4. Give any lengths in metres. Never answer a length in feet, inches, yards, kilometres or miles.
-  5. End every "answer" field with the exact session code given in this message: {session_code}
+  5. The "answer" field's TEXT VALUE itself (inside the quotes) must end with the exact session
+     code given in this message: {session_code}
+     Correct example shape: {{"answer": "your answer text {session_code}", "source": "..."}}
+     Do not put the session code outside the JSON object or after the closing brace.
 
 You have exactly 2 tools available this session: log_event(event: str) and lookup_fact(key: str).
 
