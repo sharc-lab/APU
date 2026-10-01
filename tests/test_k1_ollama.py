@@ -554,6 +554,38 @@ def test_create_model_from_gguf_resolves_exe_via_shutil_which_when_no_env_var(tm
     assert captured["exe"] == r"C:\real\path\ollama.exe"
 
 
+def test_resolve_ollama_exe_falls_back_to_localappdata_when_which_and_env_fail(tmp_path, monkeypatch):
+    """Found live 2026-10-01 (evo-t2s): both OLLAMA_BIN and shutil.which failed in a WMI-launched process even
+    though the exe is confirmed present at the standard per-user install path -- the most likely explanation
+    is that WMI-spawned processes do not inherit the interactive user's PATH/profile. This fallback does not
+    depend on PATH at all."""
+    import shutil
+    monkeypatch.delenv("OLLAMA_BIN", raising=False)
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+    fake_local = tmp_path / "Local"
+    ollama_dir = fake_local / "Programs" / "Ollama"
+    ollama_dir.mkdir(parents=True)
+    exe_path = ollama_dir / "ollama.exe"
+    exe_path.write_text("", encoding="utf-8")
+    monkeypatch.setenv("LOCALAPPDATA", str(fake_local))
+    assert K._resolve_ollama_exe() == str(exe_path)
+
+
+def test_resolve_ollama_exe_prefers_env_var_over_everything(monkeypatch):
+    import shutil
+    monkeypatch.setenv("OLLAMA_BIN", r"C:\explicit\ollama.exe")
+    monkeypatch.setattr(shutil, "which", lambda name: r"C:\which\ollama.exe")
+    assert K._resolve_ollama_exe() == r"C:\explicit\ollama.exe"
+
+
+def test_resolve_ollama_exe_bare_command_as_last_resort(tmp_path, monkeypatch):
+    import shutil
+    monkeypatch.delenv("OLLAMA_BIN", raising=False)
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))  # exists but no Programs/Ollama/ollama.exe inside it
+    assert K._resolve_ollama_exe() == "ollama"
+
+
 def test_create_model_from_gguf_reports_error_without_raising():
     class FakeResult:
         returncode = 1
@@ -657,6 +689,26 @@ def test_phase_tier_v3_one_model_failing_does_not_abort_the_others(tmp_path):
     assert {r["model_tag"] for r in result["tier_rows"]} == remaining_tags
     assert {r["model_tag"] for r in result["meta_rows"]} == remaining_tags
     assert len(result["probe_rows"]) == 2 * len(K.K1_V3_PROBE_LENGTHS)
+
+
+def test_phase_tier_v3_captures_real_pull_error_text_not_just_final_status(tmp_path):
+    """Found live 2026-10-01 (evo-t2s): a pull that fails with a real exception (OllamaClient.pull's except
+    Exception branch, e.g. a connection error) sets "error", not "final_status" -- final_status is only ever
+    populated on an actual pull response. Reading only final_status silently discarded the real cause, logging
+    'pull failed for x: None' with nothing to diagnose. The tier_v3_pull row's pull_error must carry the real
+    text."""
+    lab = make_lab(tmp_path, host="evo-t2s")
+
+    def failing_pull_fn(ollama, tag):
+        return {"outcome": "error", "final_status": None, "status_lines": [],
+                "error": "ConnectionRefusedError: server not ready"}
+
+    result = K.phase_tier_v3(lab, ollama=FakeV3Ollama(), log_finder=lambda: None,
+                             create_fn=_fake_create_fn_ok([]), pull_fn=failing_pull_fn)
+    pull_rows = [r for r in lab.all_rows() if r["record"] == "tier_v3_pull"]
+    assert pull_rows
+    assert all(r["pull_error"] == "ConnectionRefusedError: server not ready" for r in pull_rows)
+    assert all("ConnectionRefusedError: server not ready" in f["error"] for f in result["failures"])
 
 
 def test_phase_tier_v3_probe_sweep_five_rows_per_model_right_lengths(tmp_path):

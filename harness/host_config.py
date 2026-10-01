@@ -169,6 +169,30 @@ def stop_ollama_server(ps_fn=None):
     return ps_fn(cmd, 30)
 
 
+def wait_for_ollama_ready(base_url="http://127.0.0.1:11434", timeout_s=30, poll_interval_s=0.5):
+    """Blocks until GET /api/tags responds (Ollama's HTTP server is actually listening), or timeout_s elapses.
+
+    Found live 2026-10-01: start_ollama_server() returns as soon as the WMI Create call reports a pid, with no
+    confirmation the HTTP server is actually accepting connections yet. On evo-t2s, phase_tier_v3's immediate
+    first pull (9s after the WMI-reported start) failed with a connection error on BOTH non-create models
+    (llama3.1:8b, qwen3:8b) -- a real race, not a flaky one-off, since Ollama's own startup time is not
+    guaranteed to be under any fixed number of seconds on every boot. Returns True once ready, False if
+    timeout_s elapses without a successful response (never raises -- the caller decides what to do with a
+    server that never came up, the same way every other best-effort check in this module does)."""
+    import time
+    import urllib.request
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        try:
+            with urllib.request.urlopen(f"{base_url}/api/tags", timeout=3) as r:
+                if r.status == 200:
+                    return True
+        except Exception:
+            pass
+        time.sleep(poll_interval_s)
+    return False
+
+
 def get_ollama_loaded_model(base_url="http://127.0.0.1:11434"):
     """The model name Ollama currently holds in GPU memory, or None if nothing is loaded or the Ollama server is not
     reachable (evo-t2s never runs Ollama; on evo-x2 it may not be running yet). Used to stamp ollama_model_loaded on

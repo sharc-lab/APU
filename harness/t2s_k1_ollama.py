@@ -54,6 +54,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import random
 import re
 import subprocess
@@ -408,6 +409,30 @@ def pull_model(ollama, tag):
     return ollama.pull(tag)
 
 
+def _resolve_ollama_exe():
+    """OLLAMA_BIN env var, then shutil.which("ollama"), then the Windows Ollama installer's own standard
+    per-user install location (%LOCALAPPDATA%\\Programs\\Ollama\\ollama.exe), then the bare command name as a
+    last resort.
+
+    Found live 2026-10-01 (evo-t2s): both OLLAMA_BIN and shutil.which("ollama") failed even though
+    `ollama serve` (launched the same way, via WMI Win32_Process Create's cmd.exe wrapper) was running at the
+    time -- confirmed `where ollama` ALSO fails in a plain interactive SSH session on this host, while the exe
+    is confirmed present at the standard install path. The most likely explanation: WMI-launched processes
+    (and possibly OpenSSH's own non-interactive command execution) do not inherit the interactive user's
+    PATH/profile the way a normal logon shell does, so neither PATH-based lookup is reliable in this call
+    context regardless of what an interactive terminal reports. The LOCALAPPDATA fallback does not depend on
+    PATH at all."""
+    exe = os.environ.get("OLLAMA_BIN") or shutil.which("ollama")
+    if exe:
+        return exe
+    local_appdata = os.environ.get("LOCALAPPDATA")
+    if local_appdata:
+        candidate = os.path.join(local_appdata, "Programs", "Ollama", "ollama.exe")
+        if os.path.exists(candidate):
+            return candidate
+    return "ollama"
+
+
 def create_model_from_gguf(name, gguf_path, run_fn=None):
     """"ollama create <name> -f Modelfile" with a Modelfile whose only line is "FROM <gguf_path>" -- the real CLI
     path (not a guessed HTTP API shape), matching exactly what a person would type. Ollama reads the model's native
@@ -416,16 +441,10 @@ def create_model_from_gguf(name, gguf_path, run_fn=None):
     run_fn is injectable for tests: (argv: list[str]) -> subprocess.CompletedProcess-shaped object with
     .returncode/.stdout/.stderr. Returns {"outcome": "ok"|"error", "returncode": int|None, "stdout": str,
     "stderr": str}; never raises."""
-    import shutil
     import subprocess
     import tempfile
     run_fn = run_fn or (lambda argv: subprocess.run(argv, capture_output=True, text=True, timeout=600))
-    # 2026-09-30 bug found live on evo-t2s: plain "ollama" failed with FileNotFoundError from subprocess.run
-    # (no shell=True), even though the Ollama server itself was already running on this same machine -- Windows'
-    # CreateProcess (what subprocess.run uses without shell=True) does not always resolve a bare command name the
-    # same way a shell does. harness/stage_a_kv_precision.py already solves this exact problem for this exact
-    # binary (OLLAMA_BIN env var, then shutil.which("ollama")); reused here rather than re-solved differently.
-    exe = os.environ.get("OLLAMA_BIN") or shutil.which("ollama") or "ollama"
+    exe = _resolve_ollama_exe()
     with tempfile.TemporaryDirectory() as td:
         modelfile_path = os.path.join(td, "Modelfile")
         with open(modelfile_path, "w", encoding="utf-8") as f:
@@ -699,7 +718,12 @@ def phase_tier_v3(lab: K1Lab, models=K1_V3_MODELS, ollama=None, log_finder=find_
             else:
                 pull_res = pull_fn(ollama, m["tag"])
                 pull_outcome = pull_res.get("outcome") if isinstance(pull_res, dict) else None
-                pull_error = pull_res.get("final_status") if isinstance(pull_res, dict) else None
+                # Found live 2026-10-01 (evo-t2s): a pull that hits a real exception (OllamaClient.pull's
+                # except Exception branch, e.g. a connection error) sets "error", not "final_status" --
+                # final_status is only ever set on a real pull response (success or a mid-stream "error"
+                # object). Reading only final_status silently discarded the real cause every time, logging
+                # "pull failed for 'x': None" with no way to diagnose it after the fact.
+                pull_error = (pull_res.get("error") or pull_res.get("final_status")) if isinstance(pull_res, dict) else None
                 lab.emit({"record": "tier_v3_pull", "phase": "tier_v3", "model_tag": m["tag"],
                           "capped": m["capped"], "native_ctx": m["native_ctx"],
                           "pull_outcome": pull_outcome, "pull_error": pull_error})
@@ -1119,6 +1143,14 @@ def main():
         # so Ollama never idles in the background once this job ends.
         started_pid = _hc.start_ollama_server()
         L.log(f"ollama server {'already running' if started_pid is None else f'started (pid={started_pid})'}")
+        if started_pid is not None:
+            # Found live 2026-10-01: the WMI-reported pid does not mean the HTTP server is listening yet --
+            # phase_tier_v3's first pull on evo-t2s failed on a connection error 9s after this log line,
+            # before Ollama had finished starting. See wait_for_ollama_ready's own docstring.
+            ready = _hc.wait_for_ollama_ready()
+            L.log(f"ollama server ready: {ready}" if ready else
+                 "ollama server did NOT become ready within the wait timeout; proceeding anyway, expect pull/chat "
+                 "failures")
         try:
             if "tier" in phases and "phase_tier" not in lab.done_phases:
                 for rep in range(args.reps):
