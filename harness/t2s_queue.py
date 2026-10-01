@@ -27,6 +27,45 @@ from pathlib import Path
 
 QUEUE_FILE = Path(r"C:\apu\ovn\queue_state.json")
 EMPTY_FLAG = Path(r"C:\apu\ovn\queue_empty.flag")
+PAUSE_FLAG = Path(r"C:\apu\ovn\queue_pause.flag")
+
+
+def set_pause(reason: str):
+    """Maintenance lock (2026-10-01, added after the third self-inflicted collision: an operator's ad-hoc
+    debug run calling start/stop_ollama_server() killed x2_k2's own Ollama server mid-run because nothing
+    told the watchdog a human was working on the machine). While this flag file exists, queue_watchdog.py's
+    tick() does nothing at all -- no crash detection, no launching the next pending entry -- so an operator
+    can safely stop the running job (at a cell boundary, with --resume preserved), do ad-hoc debug work, and
+    clear the flag when done, without the watchdog racing them by launching something mid-debug. Required
+    procedure, enforced by convention not code (the watchdog cannot know what debug work is about to happen):
+    1. set_pause(reason) before touching any runtime process by hand.
+    2. stop the currently running job's process tree yourself (never a job you did not start).
+    3. do the debug work.
+    4. clear_pause() when done, so the watchdog resumes normal operation.
+    Writes PAUSE_FLAG as JSON ({ts_utc_epoch, reason}) so a later reader can see who paused it and why."""
+    PAUSE_FLAG.write_text(json.dumps({"ts_utc_epoch": time.time(), "reason": reason}, indent=1), encoding="utf-8")
+
+
+def clear_pause():
+    """Removes the maintenance lock. A no-op (does not raise) if the flag was not set, so a caller can call this
+    unconditionally in a finally block without checking is_paused() first."""
+    try:
+        PAUSE_FLAG.unlink()
+    except FileNotFoundError:
+        pass
+
+
+def is_paused() -> dict | None:
+    """Returns the pause record ({ts_utc_epoch, reason}) if the maintenance lock is set, else None. Tolerates a
+    corrupt/unreadable flag file the same permissive way read_queue() tolerates a BOM -- a flag that exists but
+    cannot be parsed must still count as "paused" (fail safe: block launches) rather than silently falling
+    through to "not paused" and launching something during what was meant to be a locked maintenance window."""
+    if not PAUSE_FLAG.exists():
+        return None
+    try:
+        return json.loads(PAUSE_FLAG.read_text(encoding="utf-8-sig"))
+    except Exception:
+        return {"ts_utc_epoch": None, "reason": "unparseable pause flag content; treating as paused"}
 
 
 def read_queue():

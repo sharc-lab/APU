@@ -193,7 +193,17 @@ def check_progress_stale(phases, queue_items, now=None):
 
 def tick(pid_alive_fn=pid_alive, heartbeat_age_fn=heartbeat_age_s):
     """One watchdog decision cycle. Injectable pid_alive_fn/heartbeat_age_fn for tests; production defaults hit the
-    real machine. Returns a dict describing what happened, for logging and for tests to assert on."""
+    real machine. Returns a dict describing what happened, for logging and for tests to assert on.
+
+    Maintenance lock (2026-10-01): if q.is_paused() returns a pause record, this tick does nothing at all --
+    no crash detection, no launching -- and returns immediately. See t2s_queue.set_pause's docstring for why:
+    an operator doing ad-hoc debug work (which may itself start/stop a runtime process) must be able to fully
+    quiesce the watchdog first, not just block new launches, since the watchdog's crash-detection path could
+    otherwise mark a deliberately-stopped job "crashed" and launch the next one mid-debug."""
+    pause = q.is_paused()
+    if pause is not None:
+        return {"action": "paused", "reason": pause}
+
     items = q.read_queue()
     running = next((it for it in items if it["status"] == "running"), None)
 

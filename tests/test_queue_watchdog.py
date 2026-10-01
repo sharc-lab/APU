@@ -19,8 +19,10 @@ import t2s_queue as q  # noqa: E402
 def _isolate(tmp_path, monkeypatch):
     queue_file = tmp_path / "queue_state.json"
     flag_file = tmp_path / "queue_empty.flag"
+    pause_file = tmp_path / "queue_pause.flag"
     monkeypatch.setattr(q, "QUEUE_FILE", queue_file)
     monkeypatch.setattr(q, "EMPTY_FLAG", flag_file)
+    monkeypatch.setattr(q, "PAUSE_FLAG", pause_file)
     monkeypatch.setattr(q, "_ps", lambda script: ("rc=0 pid=4242", ""))  # launch_next's own WMI call, fully stubbed
     return queue_file, flag_file
 
@@ -108,6 +110,33 @@ def test_is_stale_uses_longer_threshold_for_70b():
 
 def test_is_stale_none_age_is_always_stale():
     assert wd.is_stale({"cmd": []}, None) is True
+
+
+# ---------------------------------------------------------------- maintenance lock (2026-10-01)
+def test_tick_does_nothing_while_paused_even_with_a_dead_running_job(tmp_path, monkeypatch):
+    """The whole point of the maintenance lock: while paused, tick() must not even run its own crash-detection
+    logic, since an operator may have deliberately killed the running job's process tree as part of the
+    debug procedure (set_pause -> stop job -> debug -> clear_pause) -- if tick() still crash-detected and
+    launched the next pending entry mid-debug, the lock would not have prevented the third-collision scenario
+    it exists to fix."""
+    _isolate(tmp_path, monkeypatch)
+    q.write_queue([{"id": "a", "cmd": ["echo"], "status": "running", "pid": 111},
+                   {"id": "b", "cmd": ["echo"], "status": "pending"}])
+    q.set_pause("operator debugging x2_k2")
+    result = wd.tick(pid_alive_fn=lambda pid: False, heartbeat_age_fn=lambda e: 99999)
+    assert result["action"] == "paused"
+    items = q.read_queue()
+    assert items[0]["status"] == "running"  # untouched -- not marked crashed
+    assert items[1]["status"] == "pending"  # untouched -- not launched
+
+
+def test_tick_resumes_normal_behavior_after_clear_pause(tmp_path, monkeypatch):
+    _isolate(tmp_path, monkeypatch)
+    q.write_queue([{"id": "a", "cmd": ["echo"], "status": "running", "pid": 111}])
+    q.set_pause("x")
+    q.clear_pause()
+    result = wd.tick(pid_alive_fn=lambda pid: pid == 111, heartbeat_age_fn=lambda e: 0)
+    assert result["action"] == "none"  # normal running-alive path, not "paused"
 
 
 # ---------------------------------------------------------------- queue_watchdog.tick
