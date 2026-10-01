@@ -602,7 +602,8 @@ class FakeV3Ollama:
         self.pull_calls.append(tag)
         return {"outcome": "ok", "final_status": "success", "status_lines": [{"status": "success"}]}
 
-    def chat(self, model, prompt, num_ctx=None, max_tokens=64, keep_alive=None):
+    def chat(self, model, prompt, num_ctx=None, max_tokens=64, keep_alive=None, messages=None, tools=None,
+             timeout=None):
         self.call_log.append(("chat", model))
         return {"outcome": "ok", "status": 200, "prompt_eval_count": 20, "duration_s": 0.1, "message": "Paris."}
 
@@ -704,6 +705,172 @@ def test_phase_tier_v3_dry_run_call_counts(tmp_path):
     assert len(fake.pull_calls) == 2
     assert len(result["tier_rows"]) == 3
     assert len(result["probe_rows"]) == 15
+
+
+# ---------------------------------------------------------------------------------------------------- K1 v3: real
+# labeling fix (A1, 2026-10-01): tokenizer-ratio calibration, long-probe timeout, marker-lost-vs-token-truncated
+def _patch_qs_build_task_identity(monkeypatch):
+    """probe_v3_effective_context builds prompts via qs_build_task(_EMPIRICAL_CTX_TASK_TYPE, target, seed) --
+    stub it to something deterministic and fast, independent of the real quality_suite task generator, and
+    expose which target each call corresponds to via a simple length-tagged string so a fake ollama can derive
+    its response from the target without guessing from call order."""
+    def fake_build(_task_type, target, _seed):
+        return f"PROMPT_FOR_TARGET_{target}", "EXPECTED_MARKER", None
+    monkeypatch.setattr(K, "qs_build_task", fake_build)
+
+
+class _TargetAwareFakeOllama:
+    """chat() reads the target back out of the prompt text (set by _patch_qs_build_task_identity) so its
+    response can depend on which length is being probed, without the test needing to track call order."""
+
+    def __init__(self, ratio=1.0, cap_processed_at=None, truncate_from=None, marker_fails_for=()):
+        self.ratio = ratio
+        self.cap_processed_at = cap_processed_at
+        self.truncate_from = truncate_from or set()
+        self.marker_fails_for = set(marker_fails_for)
+        self.calls = []
+
+    def _target_from_prompt(self, prompt):
+        return int(prompt.rsplit("_", 1)[-1])
+
+    def chat(self, model, prompt, num_ctx=None, max_tokens=64, keep_alive=None, messages=None, tools=None,
+             timeout=None):
+        target = self._target_from_prompt(prompt)
+        self.calls.append({"target": target, "num_ctx": num_ctx, "max_tokens": max_tokens, "timeout": timeout})
+        real_sent = round(target * self.ratio)
+        if max_tokens == 1:  # the calibration call
+            return {"outcome": "ok", "status": 200, "prompt_eval_count": real_sent, "message": ""}
+        if target in self.truncate_from:
+            pec = self.cap_processed_at if self.cap_processed_at is not None else round(real_sent * 0.5)
+        else:
+            pec = real_sent
+        message = "" if target in self.marker_fails_for else "EXPECTED_MARKER"
+        return {"outcome": "ok", "status": 200, "prompt_eval_count": pec, "message": message}
+
+    def get_ps(self):
+        return {"outcome": "ok", "models": []}
+
+
+def test_probe_v3_uses_real_tokenizer_ratio_not_raw_target(tmp_path, monkeypatch):
+    """The exact bug found live: a model whose own tokenizer counts a target-16000 prompt as ~0.818x that many
+    tokens must NOT be labeled truncated just because prompt_eval_count < 16000 -- only if it falls short of
+    its OWN real count (sent_tokens_real)."""
+    _patch_qs_build_task_identity(monkeypatch)
+    lab = make_lab(tmp_path, host="evo-t2s")
+    fake = _TargetAwareFakeOllama(ratio=0.818)  # no truncate_from -- every length fully processed relative to real
+    rows = K.probe_v3_effective_context(lab, fake, "llama3.1:8b", capped=False, lengths=(16000, 32000),
+                                        native_ctx=131072)
+    for r in rows:
+        assert r["sent_tokens_real"] == round(r["probe_target_tokens"] * 0.818)
+        assert r["token_truncated"] is False
+        assert r["silently_truncated"] is False
+
+
+def test_probe_v3_flags_real_token_truncation_against_its_own_tokenizer_count(tmp_path, monkeypatch):
+    _patch_qs_build_task_identity(monkeypatch)
+    lab = make_lab(tmp_path, host="evo-x2")
+    fake = _TargetAwareFakeOllama(ratio=1.0, truncate_from={48000, 96000, 128000}, cap_processed_at=20482)
+    rows = K.probe_v3_effective_context(lab, fake, "qwen3:8b", capped=True,
+                                        lengths=(16000, 32000, 48000, 96000, 128000), native_ctx=40960)
+    by_target = {r["probe_target_tokens"]: r for r in rows}
+    assert by_target[16000]["token_truncated"] is False
+    assert by_target[32000]["token_truncated"] is False
+    assert by_target[48000]["token_truncated"] is True
+    assert by_target[48000]["prompt_eval_count"] == 20482
+    assert by_target[96000]["token_truncated"] is True
+    assert by_target[128000]["token_truncated"] is True
+
+
+def test_probe_v3_marker_lost_without_token_truncation_is_flagged_separately(tmp_path, monkeypatch):
+    """A model can lose the marker for a reason unrelated to context truncation (the real qwen3:8b case at
+    16K/32K, where token math shows no truncation at all) -- this must be reported as
+    marker_lost_unexplained, and silently_truncated still fires (the marker loss itself is a real failure
+    signal worth surfacing), but token_truncated must stay False so the two mechanisms are never conflated."""
+    _patch_qs_build_task_identity(monkeypatch)
+    lab = make_lab(tmp_path, host="evo-x2")
+    fake = _TargetAwareFakeOllama(ratio=1.0, marker_fails_for={16000})
+    rows = K.probe_v3_effective_context(lab, fake, "qwen3:8b", capped=True, lengths=(16000,), native_ctx=40960)
+    r = rows[0]
+    assert r["token_truncated"] is False
+    assert r["marker_lost_unexplained"] is True
+    assert r["silently_truncated"] is True
+
+
+def test_probe_v3_passes_long_timeout_only_for_long_lengths(tmp_path, monkeypatch):
+    _patch_qs_build_task_identity(monkeypatch)
+    lab = make_lab(tmp_path, host="evo-x2")
+    fake = _TargetAwareFakeOllama(ratio=1.0)
+    K.probe_v3_effective_context(lab, fake, "qwen3-4b-2507", capped=False, lengths=(32000, 96000),
+                                 native_ctx=262144, long_probe_threshold=64000, long_probe_timeout_s=3600)
+    probe_calls = [c for c in fake.calls if c["max_tokens"] == 32]
+    timeouts_by_target = {c["target"]: c["timeout"] for c in probe_calls}
+    assert timeouts_by_target[32000] is None
+    assert timeouts_by_target[96000] == 3600
+
+
+def test_probe_v3_calibration_call_uses_native_ctx_and_shortest_length(tmp_path, monkeypatch):
+    _patch_qs_build_task_identity(monkeypatch)
+    lab = make_lab(tmp_path, host="evo-x2")
+    fake = _TargetAwareFakeOllama(ratio=0.818)
+    K.probe_v3_effective_context(lab, fake, "llama3.1:8b", capped=False, lengths=(16000, 32000),
+                                 native_ctx=131072)
+    cal_call = next(c for c in fake.calls if c["max_tokens"] == 1)
+    assert cal_call["target"] == 16000
+    assert cal_call["num_ctx"] == 131072
+
+
+def test_probe_v3_emits_a_calibration_row_not_counted_in_returned_probe_rows(tmp_path, monkeypatch):
+    _patch_qs_build_task_identity(monkeypatch)
+    lab = make_lab(tmp_path, host="evo-x2")
+    fake = _TargetAwareFakeOllama(ratio=1.0)
+    rows = K.probe_v3_effective_context(lab, fake, "qwen3-4b-2507", capped=False, lengths=(16000, 32000),
+                                        native_ctx=262144)
+    assert len(rows) == 2  # calibration row not included
+    assert all(r["record"] == "tier_v3_probe" for r in rows)
+    cal_rows = [r for r in lab.all_rows() if r["record"] == "tier_v3_probe_calibration"]
+    assert len(cal_rows) == 1
+    assert cal_rows[0]["tokenizer_ratio"] == 1.0
+
+
+# ---------------------------------------------------------------------------------------------------- K1 v3: GPU/
+# compute-device detection (A2, 2026-10-01)
+def test_parse_ollama_log_device_detects_gpu_from_library_line(tmp_path):
+    log = tmp_path / "server.log"
+    log.write_text("some noise\nmsg=\"inference compute\" library=vulkan name=\"Intel Arc\"\nmore noise\n",
+                   encoding="utf-8")
+    info = K.parse_ollama_log_device(str(log))
+    assert info["available"] is True
+    assert info["compute_device_guess"] == "gpu"
+
+
+def test_parse_ollama_log_device_detects_cpu_fallback(tmp_path):
+    log = tmp_path / "server.log"
+    log.write_text("looking for compatible GPUs\nno compatible GPUs were discovered, falling back to CPU\n",
+                   encoding="utf-8")
+    info = K.parse_ollama_log_device(str(log))
+    assert info["compute_device_guess"] == "cpu"
+
+
+def test_parse_ollama_log_device_unknown_when_nothing_matches(tmp_path):
+    log = tmp_path / "server.log"
+    log.write_text("totally unrelated log content\n", encoding="utf-8")
+    info = K.parse_ollama_log_device(str(log))
+    assert info["compute_device_guess"] == "unknown"
+
+
+def test_parse_ollama_log_device_missing_file_is_unknown_not_a_crash():
+    info = K.parse_ollama_log_device(None)
+    assert info["available"] is False
+    assert info["compute_device_guess"] == "unknown"
+
+
+def test_phase_tier_v3_emits_one_device_detect_row_per_run(tmp_path, monkeypatch):
+    lab = make_lab(tmp_path, host="evo-t2s")
+    fake = FakeV3Ollama()
+    K.phase_tier_v3(lab, ollama=fake, log_finder=lambda: None, create_fn=_fake_create_fn_ok([]))
+    device_rows = [r for r in lab.all_rows() if r["record"] == "tier_v3_device_detect"]
+    assert len(device_rows) == 1
+    assert device_rows[0]["compute_device_guess"] == "unknown"  # log_finder returns None in this test
 
 
 # ---------------------------------------------------------------------------------------------------- K1 v3: CLI wiring

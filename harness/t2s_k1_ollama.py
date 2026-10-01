@@ -213,6 +213,49 @@ def parse_ollama_log_context(path, since_pos=0):
     return {"available": True, "num_ctx_seen": num_ctx_seen, "mem_seen": mem_seen, "matched_lines": matched}
 
 
+# TODO/ASSUMPTION (2026-10-01, same status as the ctx/mem regexes above: best-effort guess, not yet checked
+# against a real evo-t2s server.log): Ollama's server.log reports its GPU/compute-device discovery near
+# startup with lines resembling "inference compute" (library=cuda/rocm/vulkan/cpu, name=<device>) when a GPU
+# backend is found, or "no compatible GPUs were discovered" / "falling back to CPU" when none is. This exists
+# for A2 (2026-10-01): if evo-t2s's Ollama install runs qwen/llama models on the CPU because it never detected
+# the Intel Arc iGPU (a Vulkan backend-support gap, not a memory-tier decision), the observed small default
+# context tier there must be described as "Ollama did not detect a usable GPU" in every doc that cites it, not
+# as a memory-driven tier choice -- those are two different mechanisms with the same symptom (a small n_ctx),
+# and conflating them would misattribute the cause.
+_LOG_GPU_DETECT_RE = re.compile(
+    r"(inference compute|looking for compatible gpus?|no compatible gpus? (?:were |was )?discovered|"
+    r"falling back to cpu|library=\w+|gpu(?:s)? (?:is|are) (?:not )?(?:compatible|available|discovered))",
+    re.I,
+)
+
+
+def parse_ollama_log_device(path, since_pos=0):
+    """Best-effort scan of the Ollama server log for its own GPU/compute-device detection lines (see
+    _LOG_GPU_DETECT_RE's comment for format caveats and why this exists). Returns {"available": bool,
+    "matched_lines": [...], "compute_device_guess": "gpu"|"cpu"|"unknown"}. compute_device_guess is "cpu" only
+    if a CPU-fallback phrase is seen and no "library=" value other than cpu appears; "gpu" if any non-cpu
+    library= value or an "inference compute" line appears; "unknown" if nothing matched at all -- never raises."""
+    if not path or not os.path.exists(path):
+        return {"available": False, "why": "no log path found", "compute_device_guess": "unknown"}
+    try:
+        with open(path, "rb") as f:
+            f.seek(max(since_pos, 0))
+            text = f.read().decode("utf-8", errors="replace")
+    except Exception as e:
+        return {"available": False, "why": f"could not read log: {e!r}", "compute_device_guess": "unknown"}
+    matched = [l.strip()[:300] for l in text.splitlines() if _LOG_GPU_DETECT_RE.search(l)]
+    lower_all = "\n".join(matched).lower()
+    if not matched:
+        guess = "unknown"
+    elif "no compatible gpu" in lower_all or "falling back to cpu" in lower_all:
+        guess = "cpu"
+    elif re.search(r"library=(?!cpu\b)\w+", lower_all) or "inference compute" in lower_all:
+        guess = "gpu"
+    else:
+        guess = "unknown"
+    return {"available": True, "matched_lines": matched[-20:], "compute_device_guess": guess}
+
+
 def parse_ollama_ps(text):
     """Parse `ollama ps` table output. TODO/ASSUMPTION: unverified against a live install. The header-driven split
     is meant to survive `ollama` adding/removing/reordering columns (observed historically: NAME ID SIZE PROCESSOR
@@ -255,7 +298,8 @@ class OllamaClient:
         self.base = f"http://{host}:{port}"
         self.timeout = timeout
 
-    def chat(self, model, prompt, num_ctx=None, max_tokens=64, keep_alive=None, messages=None, tools=None):
+    def chat(self, model, prompt, num_ctx=None, max_tokens=64, keep_alive=None, messages=None, tools=None,
+             timeout=None):
         """messages: optional full conversation history ([{"role":.., "content":..}, ...]), for a caller (e.g.
         harness/t2s_r2_session_growth.py's growing agent sessions) that needs more than the single user-turn
         request every other caller of this method sends. None (the default, and every pre-existing call site's
@@ -267,7 +311,12 @@ class OllamaClient:
         tool-calling support instead of asking the model to describe tool calls in free text (added for
         harness/t2s_r2_session_growth.py's rule-2 native-vs-text-fallback tool-call detection). None (the
         default, and every pre-existing call site) omits the field entirely, unchanged from before. The
-        response's own message.tool_calls (if any) is returned verbatim under the "tool_calls" key."""
+        response's own message.tool_calls (if any) is returned verbatim under the "tool_calls" key.
+
+        timeout: optional per-call override of self.timeout (added 2026-10-01 for K1 v3's long-prompt probes,
+        which can legitimately take longer than the 1800s instance default on a slow prefill -- three real
+        calls on evo-x2 errored at gaps within 2s of exactly 1800s, a client timeout, not a runtime failure).
+        None (the default, every pre-existing call site) keeps self.timeout, unchanged."""
         options = {"num_predict": max_tokens, "temperature": 0, "seed": 42}
         if num_ctx is not None:
             options["num_ctx"] = num_ctx
@@ -281,7 +330,7 @@ class OllamaClient:
                                      headers={"Content-Type": "application/json"})
         t0 = time.monotonic()
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as r:
+            with urllib.request.urlopen(req, timeout=timeout if timeout is not None else self.timeout) as r:
                 status = r.status
                 data = json.loads(r.read())
         except urllib.error.HTTPError as e:
@@ -513,21 +562,64 @@ K1_V3_MODELS = (
 K1_V3_PROBE_LENGTHS = (16000, 32000, 48000, 96000, 128000)
 
 
+K1_V3_LONG_PROBE_THRESHOLD = 64_000  # at/above this target, use K1_V3_LONG_PROBE_TIMEOUT_S instead of the
+                                      # client's own 1800s default
+K1_V3_LONG_PROBE_TIMEOUT_S = 3600    # found live 2026-09-30/2026-10-01: three real K1 v3 probe calls on evo-x2
+                                      # (qwen3-4b-2507 at 96K/128K, llama3.1:8b at 128K) errored out at gaps of
+                                      # 1800.1s, 1802.0s and 1800.0s respectively -- within 2s of OllamaClient's
+                                      # default 1800s timeout every single time. These were real prefill calls
+                                      # still running past the client's own patience, not a runtime failure; a
+                                      # client timeout must never be reported as a model/runtime error.
+
+
 def probe_v3_effective_context(lab: K1Lab, ollama, model_tag: str, capped: bool, lengths=K1_V3_PROBE_LENGTHS,
-                               seed: int = 20260930):
+                               seed: int = 20260930, native_ctx: int | None = None,
+                               long_probe_threshold: int = K1_V3_LONG_PROBE_THRESHOLD,
+                               long_probe_timeout_s: int = K1_V3_LONG_PROBE_TIMEOUT_S):
     """The 5-length empirical probe sweep required by K1 v3 (see K1_V3_PROBE_LENGTHS). For each target length:
     build a niah_multikey marker task sized to that many tokens (same construction as
     probe_effective_context_empirically, via qs_build_task), send it with no num_ctx override, then read BOTH
     signals at that same point in time: (1) GET /api/ps's context_length for this model (the runtime's own report),
-    and (2) the empirical marker-probe result itself (did the buried marker value survive, and does
-    prompt_eval_count match the sent token count). Recording HTTP status and prompt_eval_count alongside the sent
-    target makes silent truncation directly visible: HTTP 200 with prompt_eval_count < sent tokens means Ollama cut
-    the prompt down before the model ever saw all of it, with no error raised. Emits and returns exactly one row per
-    length via lab.emit."""
+    and (2) the empirical marker-probe result itself (did the buried marker value survive).
+
+    sent_tokens_real / truncation criterion (fixed 2026-10-01, found live): `target` is the nominal prompt size
+    the shared task-builder (qs_build_task) aimed for using ITS OWN tokenizer at build time, not necessarily what
+    the model being probed actually counts the same text as -- comparing prompt_eval_count against `target`
+    directly silently mislabeled every row from a model whose own tokenizer counts text differently (e.g.
+    llama3.1:8b consistently at ~0.818x the nominal target across every length, confirmed not truncated once
+    compared against its own real count instead). Fixed by a one-time calibration call per model: send the
+    lengths[0] prompt (the shortest, least likely to risk truncation) with num_ctx forced to `native_ctx` (or
+    left alone if not given) so it cannot be clipped, read that call's real prompt_eval_count, and scale it to
+    every other length by simple proportion (lengths[0]_prompt and every other length's prompt are built by the
+    same generator at a different scale, so the per-token expansion ratio between the build-time tokenizer and
+    this model's own tokenizer is expected to hold approximately constant across lengths). A row counts as
+    silently truncated only if processed tokens are more than 1% below this real sent-token estimate, OR the
+    marker was lost -- not an OR with raw token-ratio alone, since a model can lose the marker for a reason
+    unrelated to context truncation (see the module's own K1 v3 write-up: qwen3:8b lost the marker at every
+    length including 16K/32K, where its own token math shows no truncation at all -- that is reported here as a
+    separate marker_lost_unexplained flag, not folded into silently_truncated, so a real memory-wall truncation
+    is never confused with an unrelated marker-matching miss).
+
+    Calls at or above long_probe_threshold tokens use long_probe_timeout_s (not the client's own default) -- see
+    K1_V3_LONG_PROBE_TIMEOUT_S's own comment for why this exists. Emits and returns exactly one row per length
+    via lab.emit, plus one calibration row."""
+    # Calibration row is emitted (lands in the jsonl) but intentionally NOT included in this function's returned
+    # list -- callers/tests treat the return value as exactly one row per real probe length.
+    cal_prompt, cal_expected, _ = qs_build_task(_EMPIRICAL_CTX_TASK_TYPE, lengths[0], seed + lengths[0])
+    cal_res = ollama.chat(model_tag, cal_prompt, num_ctx=native_ctx, max_tokens=1)
+    cal_pec = cal_res.get("prompt_eval_count")
+    tokenizer_ratio = (cal_pec / lengths[0]) if (cal_pec and cal_res.get("outcome") == "ok") else None
+    lab.emit({
+        "record": "tier_v3_probe_calibration", "phase": "tier_v3", "model_tag": model_tag, "capped": capped,
+        "calibration_target_tokens": lengths[0], "calibration_num_ctx": native_ctx,
+        "calibration_prompt_eval_count": cal_pec, "tokenizer_ratio": tokenizer_ratio,
+        "calibration_outcome": cal_res.get("outcome"), "calibration_error": cal_res.get("error"),
+    })
     rows = []
     for target in lengths:
         prompt, expected, _scorer = qs_build_task(_EMPIRICAL_CTX_TASK_TYPE, target, seed + target)
-        res = ollama.chat(model_tag, prompt, num_ctx=None, max_tokens=32)
+        call_timeout = long_probe_timeout_s if target >= long_probe_threshold else None
+        res = ollama.chat(model_tag, prompt, num_ctx=None, max_tokens=32, timeout=call_timeout)
         ps = ollama.get_ps()
         ps_match = next((m for m in ps.get("models", [])
                          if m.get("name") == model_tag or (m.get("name") or "").startswith(model_tag.split(":")[0])),
@@ -536,13 +628,19 @@ def probe_v3_effective_context(lab: K1Lab, ollama, model_tag: str, capped: bool,
         pec = res.get("prompt_eval_count")
         message = res.get("message") or ""
         marker_used = isinstance(message, str) and str(expected) in message
-        silently_truncated = (res.get("status") == 200 and pec is not None and pec < target)
+        sent_tokens_real = round(target * tokenizer_ratio) if tokenizer_ratio else None
+        token_truncated = (res.get("status") == 200 and pec is not None and sent_tokens_real is not None
+                          and pec < 0.99 * sent_tokens_real)
+        silently_truncated = token_truncated or not marker_used
+        marker_lost_unexplained = (not marker_used) and not token_truncated
         rows.append(lab.emit({
             "record": "tier_v3_probe", "phase": "tier_v3", "model_tag": model_tag, "capped": capped,
-            "probe_target_tokens": target, "sent_tokens_target": target,
-            "chat_outcome": res.get("outcome"), "http_status": res.get("status"),
+            "probe_target_tokens": target, "sent_tokens_target": target, "sent_tokens_real": sent_tokens_real,
+            "chat_outcome": res.get("outcome"), "chat_error": res.get("error"), "http_status": res.get("status"),
+            "chat_timeout_s": call_timeout,
             "prompt_eval_count": pec, "marker_used": marker_used,
             "ps_context_length": ps_context_length, "silently_truncated": silently_truncated,
+            "token_truncated": token_truncated, "marker_lost_unexplained": marker_lost_unexplained,
         }))
     return rows
 
@@ -572,6 +670,15 @@ def phase_tier_v3(lab: K1Lab, models=K1_V3_MODELS, ollama=None, log_finder=find_
     """
     ollama = ollama or lab.ollama
     tier_rows, meta_rows, probe_rows, failures = [], [], [], []
+
+    # A2 (2026-10-01): record Ollama's own GPU/compute-device detection once per run, before any model-specific
+    # measurement, so a small default context tier on a given host can be correctly attributed to "no GPU
+    # detected" (a backend-support gap) rather than silently assumed to be a memory-tier decision -- those are
+    # different mechanisms with the same symptom.
+    device_log_path = log_finder()
+    device_info = parse_ollama_log_device(device_log_path)
+    lab.emit({"record": "tier_v3_device_detect", "phase": "tier_v3", "ollama_log_path": device_log_path,
+             **device_info})
 
     # Pass 1: make every model available (pull or create), one at a time, nothing else measuring concurrently --
     # this ordering (every model's availability step, in full, before any model's measurement starts) is the
@@ -614,7 +721,8 @@ def phase_tier_v3(lab: K1Lab, models=K1_V3_MODELS, ollama=None, log_finder=find_
                 "record": "tier_v3_model_meta", "phase": "tier_v3", "model_tag": m["tag"],
                 "capped": m["capped"], "native_ctx": m["native_ctx"],
             }))
-            probe_rows.extend(probe_v3_effective_context(lab, ollama, m["tag"], m["capped"], lengths=probe_lengths))
+            probe_rows.extend(probe_v3_effective_context(lab, ollama, m["tag"], m["capped"], lengths=probe_lengths,
+                                                         native_ctx=m["native_ctx"]))
         except Exception as e:
             L.log(f"K1 v3: {m['tag']!r} tier/probe measurement failed ({e!r}), skipping, continuing with the rest")
             lab.emit({"record": "tier_v3_model_failed", "phase": "tier_v3", "model_tag": m["tag"],
