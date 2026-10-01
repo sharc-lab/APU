@@ -1605,3 +1605,74 @@ that are not stock Ollama's CPU/Vulkan-with-iGPU-disabled default path.
   different comparison, not just a replication).
 
 **Status:** PRE-REGISTRATION. Install and run not yet started as of this writing.
+
+## Workload pack: trace-weighted vs flat prompt-token statistics (2026-10-01)
+
+**Why this exists.** `results/workload_pack/grade.py` reports the 400-item pack's prompt-token p50/p90/p99 as a
+flat average -- every item counts once, regardless of family size or how often a real agent step of that length
+actually happens. The real distribution is heavily skewed short (overall p50=356, p90=50642, p99=120010), far
+below the real agent-trace step length (the uncensored trace sources' own p50 is in the thousands -- see
+`x2-truncation-cliff-qwen3-8b` and `uncensored-trace-32k-crossing` in `docs/NUMBERS_REGISTER.md`). This section
+re-weights the pack's own reported statistics by how often a step of each item's approximate length actually
+occurs in the real uncensored trace data, so the "typical" item length reported is the one a real agent workload
+would actually spend most of its steps at, not whatever length the pack generator happened to allocate the most
+items to.
+
+**Method** (implemented in `analysis/trace_weighted_pack.py`, full docstring there):
+1. **Trace mass.** Step-level `tokens_qwen` from both real UNCENSORED sources in
+   `results/traces/agent_step_lengths.parquet` -- `nebius/SWE-rebench-openhands-trajectories` (Qwen3-Coder-480B,
+   256K native) and `SWE-Gym/OpenHands-Sampled-Trajectories` (gpt-4o/claude-3.5-sonnet, 128K/200K native),
+   9,900 real steps combined. The other two dataset values in that parquet
+   (`nebius/SWE-agent-trajectories`, `Kwai-Klear/SWE-smith-mini_swe_agent_plus-trajectories-66k`) are excluded:
+   both are CENSORED at their generating model's own context ceiling (see `analysis/agent_traces.py`'s module
+   docstring and the measured `trace-context-exit-rate` entry -- 29.85% of `nebius/SWE-agent-trajectories` runs
+   hit their own generator's context limit mid-task), so including them would undercount long steps as an
+   artifact of the generator, not a real absence of demand.
+2. **Buckets.** 30 log-spaced histogram bin edges covering both the trace data's observed range (455-88,987
+   tokens) and the pack's own observed range (50-120,017 tokens), log-spaced because the combined range spans
+   roughly 3.5 orders of magnitude.
+3. **Per-item weight.** Each pack item's `prompt_tokens` places it in one bin; that bin's real trace probability
+   mass (real steps in the bin / 9,900 total) is split equally across every pack item landing in the same bin.
+4. **Normalization.** Renormalized to sum to exactly 1.0 across the 400 items (some bins carrying real trace mass
+   have zero pack items, so the raw per-item masses sum to less than 1 before this step).
+5. **Statistic.** Standard weighted-percentile (sort by value, cumulative weight fraction, linear interpolation),
+   the weighted generalization of `grade.py`'s own `pct()`; the flat column below is computed by importing
+   `grade.py`'s `pct()` directly, so it matches `grade.py`'s own printed output exactly, not a second
+   re-implementation that could silently drift from it.
+
+**Flat vs trace-weighted prompt-token percentiles** (from `pack-trace-weighted-stats` in
+`docs/NUMBERS_REGISTER.md`, computed by `analysis/trace_weighted_pack.compute_pack_stats`):
+
+| scope | n | weight mass | flat p50 | flat p90 | flat p99 | traced p50 | traced p90 | traced p99 |
+|---|---|---|---|---|---|---|---|---|
+| overall (400 items) | 400 | 1.0000 | 356 | 50,642 | 120,010 | 16,000 | 32,013 | 64,012 |
+| longdoc_qa | 120 | 0.6294 | 28,006 | 96,012 | 120,014 | 18,746 | 48,007 | 80,002 |
+| trace_length_mix | 60 | 0.3706 | 3,684 | 14,262 | 38,498 | 9,205 | 17,875 | 46,543 |
+| function_calling | 80 | 0.0000 | 347 | 363 | 367 | n/a | n/a | n/a |
+| gsm8k | 80 | 0.0000 | 80 | 117 | 150 | n/a | n/a | n/a |
+| r2_sessions | 60 | 0.0000 | 177 | 205 | 209 | n/a | n/a | n/a |
+
+**Reading.** Trace-weighting moves the overall median UP by about 45x (356 -> 16,000 tokens): once items are
+weighted by how often a real agent step of that length happens, the pack's effective typical length is governed
+almost entirely by `longdoc_qa` (63% of the trace-matched weight mass) and `trace_length_mix` (37%), not by the
+240 short items in `function_calling`, `gsm8k`, and `r2_sessions` (80+80+60=220 of the 400 items, 55% of the pack
+by item count). Those three families' prompt lengths (80-367 tokens) all fall below the real uncensored trace
+data's own minimum observed step length (455 tokens) -- real agent steps essentially never run that short -- so
+every item in them lands in a bin with zero real trace mass and gets a weight of exactly 0 after normalization.
+This is not a computation error (the function returns `NaN` for a percentile over an all-zero-weight subset
+rather than silently falling back to an unweighted value); it is the direct, intended consequence of the
+weighting scheme: a flat per-category average overstates how often an agent workload actually spends time at
+these three families' token lengths by counting each item equally, while the trace-weighted number says the real
+uncensored agent data essentially never visits that range.
+
+**Other per-category numbers checked for a trace-weighted recomputation (step 5 of this task).** Searched
+`docs/PLAN_PAPER1_DEMO.md`, `docs/FINDINGS.md`, and `analysis/numbers_register.py` for any other already-computed
+"per family" / "per category" workload-pack numbers. Found none beyond `grade.py`'s own flat p50/p90/p99 output
+addressed above -- `docs/PLAN_PAPER1_DEMO.md` references the workload pack only as an input to the demo build and
+to the (not yet committed) baseline-policy runs, with no per-family statistic reported in prose anywhere else in
+this repo as of this writing.
+
+**Register addition:** `pack-trace-weighted-stats` in `docs/NUMBERS_REGISTER.md`, computed by
+`analysis/numbers_register.py::compute_pack_trace_weighted_stats`, which calls
+`analysis/trace_weighted_pack.compute_pack_stats`. Data files: `results/workload_pack/items/*.jsonl`,
+`results/traces/agent_step_lengths.parquet`.
