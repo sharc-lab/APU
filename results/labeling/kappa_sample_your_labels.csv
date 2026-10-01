@@ -1,4 +1,4 @@
-id,model,ratio,arm,machine,question,expected,output,visible_prompt_excerpt_near_answer,human_label
+id,model,ratio,arm,machine,question,expected,output,visible_prompt_excerpt_near_answer,annotator_claude
 r1bw_000_evo-x2_qwen3-14b_art_01,qwen3-14b,0.4,arm3_self_report,evo-x2,"What is the listen_port configured for the invoice-relay service?
 
 Respond with ONLY the final answer. No explanation, no units, no punctuation.",51847,"AVAILABLE: no, the information needed to answer is not present above.",[artifact fully truncated -- not visible to the model],REFUSED

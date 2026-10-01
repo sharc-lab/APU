@@ -1,0 +1,94 @@
+id,question,expected,output,label
+ritz30_00_evo-x2_qwen3-8b_art_04_r0.85_arm1_baseline,"What action did user tcosta perform at 14:02?
+
+Respond with ONLY the final answer. No explanation, no units, no punctuation.",DELETE,No action performed,
+ritz30_01_evo-x2_qwen3-4b-2507_art_06_r0.4_arm3_self_report,"Who seconded the motion to retire the DELPHI-2 indexing service? Give the last name only.
+
+Respond with ONLY the final answer. No explanation, no units, no punctuation.",Blum,"AVAILABLE: no,",
+ritz30_02_evo-x2_qwen3-4b-2507_art_03_r0.98_arm1_baseline,"What is the CPU_HOURS value for job J-10894?
+
+Respond with ONLY the final answer. No explanation, no units, no punctuation.",8.9,0,
+ritz30_03_evo-x2_qwen3-14b_art_10_r0.98_arm1_baseline,"What default value is used for the metric_clamp parameter when it is absent from the config?
+
+Respond with ONLY the integer value.",1847293,1847293,
+ritz30_04_evo-x2_llama31-8b_art_05_r0.98_arm3_self_report,What grid reference coordinates were recorded for the sediment core extraction? Include both the N and W values.,"{'required_all': ['47.3', '12.8'], 'required_any': [], 'forbidden': []}","AVAILABLE: no
+
+There is no information about grid reference coordinates for the sediment core extraction in the provided text.",
+ritz30_05_evo-x2_qwen3-32b_art_03_r0.98_arm3_self_report,"What is the CPU_HOURS value for job J-10894?
+
+Respond with ONLY the final answer. No explanation, no units, no punctuation.",8.9,"AVAILABLE: no, 0",
+ritz30_06_evo-x2_qwen3-32b_art_06_r1.2_arm1_baseline,"Who seconded the motion to retire the DELPHI-2 indexing service? Give the last name only.
+
+Respond with ONLY the final answer. No explanation, no units, no punctuation.",Blum,Blum,
+ritz30_07_evo-x2_qwen3-4b-2507_art_02_r0.98_arm3_self_report,"What is the alert_threshold_ppb for unit CHROM-7?
+
+Respond with ONLY the final answer. No explanation, no units, no punctuation.",0.0073,"AVAILABLE: no,",
+ritz30_08_evo-x2_qwen3-32b_art_10_r1.2_arm3_self_report,"What default value is used for the metric_clamp parameter when it is absent from the config?
+
+Respond with ONLY the integer value.",1847293,"AVAILABLE: yes, 1847293",
+ritz30_09_evo-t2s_qwen3-14b_art_01_r0.4_arm1_baseline,"What is the listen_port configured for the invoice-relay service?
+
+Respond with ONLY the final answer. No explanation, no units, no punctuation.",51847,unknown,
+ritz30_10_evo-x2_llama31-8b_art_06_r1.2_arm3_self_report,"Who seconded the motion to retire the DELPHI-2 indexing service? Give the last name only.
+
+Respond with ONLY the final answer. No explanation, no units, no punctuation.",Blum,"AVAILABLE: yes
+Blum",
+ritz30_11_evo-x2_qwen3-32b_art_05_r0.85_arm3_self_report,What grid reference coordinates were recorded for the sediment core extraction? Include both the N and W values.,"{'required_all': ['47.3', '12.8'], 'required_any': [], 'forbidden': []}","AVAILABLE: no, the information needed to answer the question about the grid reference coordinates for the sediment core extraction is not present in the provided text.",
+ritz30_12_evo-x2_llama31-8b_art_07_r0.4_arm3_self_report,"Which version number patched CVE-2024-51022? Give only the version number in X.Y.Z format, no other text.
+
+Respond with ONLY the final answer. No explanation, no units, no punctuation.",3.11.9,"AVAILABLE: no
+1.0.0",
+ritz30_13_evo-x2_qwen3-4b-2507_art_06_r1.2_arm1_baseline,"Who seconded the motion to retire the DELPHI-2 indexing service? Give the last name only.
+
+Respond with ONLY the final answer. No explanation, no units, no punctuation.",Blum,Blum,
+ritz30_14_evo-x2_llama31-8b_art_09_r1.2_arm3_self_report,"What is the keepalive_timeout_s configured in this manifest?
+
+Respond with ONLY the integer value.",73,"AVAILABLE: yes
+73",
+ritz30_15_evo-x2_qwen3-14b_art_04_r0.85_arm3_self_report,"What action did user tcosta perform at 14:02?
+
+Respond with ONLY the final answer. No explanation, no units, no punctuation.",DELETE,"AVAILABLE: no, unknown",
+ritz30_16_evo-x2_qwen3-32b_art_03_r1.2_arm3_self_report,"What is the CPU_HOURS value for job J-10894?
+
+Respond with ONLY the final answer. No explanation, no units, no punctuation.",8.9,"AVAILABLE: yes, 8.9",
+ritz30_17_evo-x2_qwen3-4b-2507_art_10_r1.2_arm1_baseline,"What default value is used for the metric_clamp parameter when it is absent from the config?
+
+Respond with ONLY the integer value.",1847293,1847293,
+ritz30_18_evo-t2s_qwen3-14b_art_10_r0.98_arm3_self_report,"What default value is used for the metric_clamp parameter when it is absent from the config?
+
+Respond with ONLY the integer value.",1847293,"AVAILABLE: no, 1847293",
+ritz30_19_evo-x2_llama31-8b_art_09_r0.98_arm1_baseline,"What is the keepalive_timeout_s configured in this manifest?
+
+Respond with ONLY the integer value.",73,14,
+ritz30_20_evo-x2_qwen3-8b_art_09_r1.2_arm3_self_report,"What is the keepalive_timeout_s configured in this manifest?
+
+Respond with ONLY the integer value.",73,"AVAILABLE: yes, 73",
+ritz30_21_evo-x2_qwen3-32b_art_09_r1.2_arm1_baseline,"What is the keepalive_timeout_s configured in this manifest?
+
+Respond with ONLY the integer value.",73,73,
+ritz30_22_evo-x2_llama-3.3-70b_art_04_r0.98_arm3_self_report,"What action did user tcosta perform at 14:02?
+
+Respond with ONLY the final answer. No explanation, no units, no punctuation.",DELETE,"AVAILABLE: no 
+No information about user tcosta is present",
+ritz30_23_evo-x2_qwen3-32b_art_04_r0.85_arm3_self_report,"What action did user tcosta perform at 14:02?
+
+Respond with ONLY the final answer. No explanation, no units, no punctuation.",DELETE,"AVAILABLE: no,",
+ritz30_24_evo-x2_llama31-8b_art_06_r0.85_arm1_baseline,"Who seconded the motion to retire the DELPHI-2 indexing service? Give the last name only.
+
+Respond with ONLY the final answer. No explanation, no units, no punctuation.",Blum,Harrison,
+ritz30_25_evo-t2s_qwen3-14b_art_09_r0.98_arm1_baseline,"What is the keepalive_timeout_s configured in this manifest?
+
+Respond with ONLY the integer value.",73,73,
+ritz30_26_evo-x2_qwen3-4b-2507_art_09_r0.4_arm3_self_report,"What is the keepalive_timeout_s configured in this manifest?
+
+Respond with ONLY the integer value.",73,"AVAILABLE: no, 0",
+ritz30_27_evo-t2s_qwen3-14b_art_09_r1.2_arm1_baseline,"What is the keepalive_timeout_s configured in this manifest?
+
+Respond with ONLY the integer value.",73,73,
+ritz30_28_evo-x2_qwen3-14b_art_03_r1.2_arm1_baseline,"What is the CPU_HOURS value for job J-10894?
+
+Respond with ONLY the final answer. No explanation, no units, no punctuation.",8.9,8.9,
+ritz30_29_evo-x2_llama31-8b_art_04_r0.85_arm3_self_report,"What action did user tcosta perform at 14:02?
+
+Respond with ONLY the final answer. No explanation, no units, no punctuation.",DELETE,"AVAILABLE: no
+No information about user tcosta is present above.",

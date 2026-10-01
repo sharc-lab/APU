@@ -9,9 +9,12 @@ or "inter-rater" prior to this commit).
 - **Rater A (automated scorer)**: `evaluation/outcome.py`'s `classify()` function, the real, current,
   tested four-way outcome classifier in this repo (`CORRECT` / `REFUSED` / `FABRICATED` /
   `UNCLASSIFIABLE`). It wraps `evaluation/probes/scorers.py`'s `classify_abstention()`.
-- **Rater B (human)**: this session's own independent reading of each row's raw model output against
-  its expected answer, implemented in `analysis/build_kappa_sample.py`'s `classify_human_label()`.
-  This is a separately-written function with its own abstention vocabulary and its own exact/embedded
+- **Rater B (`annotator_claude`)**: this operator's own annotation -- this session's independent
+  reading of each row's raw model output against its expected answer, implemented in
+  `analysis/build_kappa_sample.py`'s `classify_human_label()`. Not a real external human rater (the
+  column was originally named `human_label`; renamed to `annotator_claude` on 2026-10-01 -- see the
+  update section below -- so the name doesn't imply an external annotator that never existed). This
+  is a separately-written function with its own abstention vocabulary and its own exact/embedded
   match check -- it does not call into `scorers.py` or `evaluation/outcome.py` -- so the resulting
   kappa is a real two-rater comparison, not a function compared to itself.
 
@@ -90,7 +93,9 @@ Human totals: `FABRICATED` 77, `REFUSED` 55, `CORRECT` 18, `UNCLASSIFIABLE` 0.
 ## The real kappa value and confusion matrix
 
 Computed by `analysis/kappa_agreement.py` against `results/labeling/kappa_sample.csv`'s
-`scorer_classification` (rows) and `human_label` (columns) columns:
+`scorer_classification` (rows) and `annotator_claude` (columns) columns (column named `human_label`
+at the time this first pass was computed; see the 2026-10-01 update section below for the rename and
+the rescored result):
 
 ```
 n = 150
@@ -167,9 +172,9 @@ paper. Until that second pass exists:
 
 - `results/labeling/kappa_sample.csv` -- full sheet, both raters' labels and reasons, 150 rows.
 - `results/labeling/kappa_sample_blinded.csv` -- same rows, `scorer_classification` removed,
-  `human_label` left empty, for a second independent rater to fill in unanchored.
+  `annotator_claude` left empty, for a second independent rater to fill in unanchored.
 - `results/labeling/kappa_sample_your_labels.csv` -- same shape as the blinded file, with this
-  session's first-pass `human_label` filled in.
+  session's first-pass `annotator_claude` filled in.
 - `analysis/build_kappa_sample.py` -- builds all three CSVs above from
   `results/labeling/r1b_wrong_sample.csv`.
 - `analysis/kappa_agreement.py` -- Cohen's kappa and confusion matrix, implemented directly (no
@@ -178,3 +183,51 @@ paper. Until that second pass exists:
   agreement (kappa = 0.0 exactly, by construction), two hand-computed intermediate values (0.625 and
   0.5, worked in the test comments), a systematic-disagreement case (kappa < 0), input-validation
   errors, and confusion-matrix shape/count checks. All 9 pass.
+
+## 2026-10-01 update: column rename and scorer fixes
+
+**Column rename.** The `human_label` column (in `kappa_sample.csv`, `kappa_sample_blinded.csv`,
+`kappa_sample_your_labels.csv`, and `analysis/build_kappa_sample.py`) was renamed to
+`annotator_claude` everywhere. It was never a real external human rater -- it is this operator's own
+annotation, produced by `classify_human_label()` in `analysis/build_kappa_sample.py`, a Claude
+session's independent read of each row. `human_label` implied an external human rater that never
+existed; `annotator_claude` states what the column actually is.
+
+**Scorer fixes.** The two mechanisms identified above were fixed in `evaluation/outcome.py` (NOT in
+`evaluation/probes/scorers.py`, which remains frozen per its module docstring -- the probe track must
+not change):
+
+1. Refusal detection: added `_is_available_no_sentinel()` (recognizes the self_report arm's own
+   "AVAILABLE: no" protocol signal as a refusal, but only when nothing or only more refusal language
+   follows it -- NOT when a concrete value follows, e.g. "AVAILABLE: no, 0" is still FABRICATED) and
+   `_has_extra_abstention_language()` (adds "not present" (bare), "does not include", "does not
+   specify", "not possible to determine" to the phrase set checked, without touching the frozen
+   `_ABSTENTION_PHRASES` list in scorers.py).
+2. Answer extraction: added `_embedded_exact_match()`, which recovers a format-noncompliant CORRECT
+   for non-numeric expected values (part numbers, version strings, proper nouns -- e.g. expected
+   `PN-38901` found embedded in output `"AVAILABLE: yes, PN-38901"`). Guarded to non-numeric expected
+   values only, since a plain substring check on digits is unsafe (expected `"120"` is a substring of
+   the real wrong answer `"1200"`).
+
+**New kappa, same 150-row sample, fixed scorer vs `annotator_claude`:**
+
+```
+n = 150
+raw agreement = 150/150 = 1.0000
+Cohen's kappa = 1.0000
+```
+
+Confusion matrix (rows = `scorer_classification`, columns = `annotator_claude`):
+
+| scorer \ annotator | CORRECT | FABRICATED | REFUSED |
+|---|---|---|---|
+| **CORRECT** | 18 | 0 | 0 |
+| **FABRICATED** | 0 | 77 | 0 |
+| **REFUSED** | 0 | 0 | 55 |
+
+**Honest read:** kappa = 1.0 on this sample is expected, not a surprise -- the two fixes were derived
+directly from, and targeted exactly at, the 36 disagreement rows this same sample produced in the
+first pass. It confirms the two identified mechanisms are now fully closed on this population; it is
+not evidence the scorer is now perfect in general, and it is still a comparison against this
+operator's own `annotator_claude` labels, not an independent external human rater. The "second,
+truly independent rater" caveat from the first pass above still applies in full.

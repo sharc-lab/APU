@@ -19,20 +19,25 @@ art_05, exact for all other art_* probes) via evaluation/probes/artifact.jsonl. 
 row from this population, and classify()'s only use of the numeric score value is the `score == 1.0`
 check -- any other value routes to the same abstention/fabrication logic regardless of magnitude.
 
-Human classification (first-pass "your_labels"): computed independently by
+Annotation (first-pass "your_labels"): computed independently by
 classify_human_label() below, which is deliberately NOT a call into scorers.py or evaluation/outcome.py
 -- it is a separately-written reading of each row's stripped output against its expected answer, using
 its own abstention vocabulary and its own exact/embedded-match check. This is what lets the resulting
 kappa be a real inter-rater comparison instead of a tautology (comparing a function to itself).
 
+NOTE: the `annotator_claude` column is this operator's own annotation (produced by this script's
+classify_human_label(), a Claude session's independent read of each row), not a real external human
+rater. It was named `human_label` until 2026-10-01; renamed to `annotator_claude` so the column name
+does not imply an external human annotator.
+
 Usage: py -3.12 analysis/build_kappa_sample.py
 Writes:
   results/labeling/kappa_sample.csv            -- full sheet: both raters' labels, for auditing
-  results/labeling/kappa_sample_blinded.csv    -- scorer_classification removed, human_label column
-                                                   empty, for any *new* rater to fill in unanchored
-  results/labeling/kappa_sample_your_labels.csv -- same shape as the blinded file, human_label filled
-                                                   in with this script's first-pass labels (this
-                                                   session's own read, serving as "the human" rater)
+  results/labeling/kappa_sample_blinded.csv    -- scorer_classification removed, annotator_claude
+                                                   column empty, for any *new* rater to fill in unanchored
+  results/labeling/kappa_sample_your_labels.csv -- same shape as the blinded file, annotator_claude
+                                                   filled in with this script's first-pass labels (this
+                                                   session's own read, serving as "the annotator" rater)
 """
 from __future__ import annotations
 
@@ -188,11 +193,11 @@ def classify_human_label(row: dict) -> tuple[str, str]:
 FULL_FIELDS = [
     "id", "model", "ratio", "arm", "machine", "question", "expected", "output",
     "visible_prompt_excerpt_near_answer", "legacy_heuristic_label",
-    "scorer_classification", "human_label", "human_label_reason",
+    "scorer_classification", "annotator_claude", "annotator_claude_reason",
 ]
 BLIND_FIELDS = [
     "id", "model", "ratio", "arm", "machine", "question", "expected", "output",
-    "visible_prompt_excerpt_near_answer", "human_label",
+    "visible_prompt_excerpt_near_answer", "annotator_claude",
 ]
 
 
@@ -212,7 +217,7 @@ def main():
             "machine": r["machine"], "question": r["question"], "expected": r["expected"],
             "output": r["output"], "visible_prompt_excerpt_near_answer": r["visible_prompt_excerpt_near_answer"],
             "legacy_heuristic_label": r["heuristic_label"],
-            "scorer_classification": sc, "human_label": hl, "human_label_reason": reason,
+            "scorer_classification": sc, "annotator_claude": hl, "annotator_claude_reason": reason,
         })
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -226,8 +231,8 @@ def main():
         w = csv.DictWriter(f, fieldnames=BLIND_FIELDS)
         w.writeheader()
         for r in full_rows:
-            blind = {k: r[k] for k in BLIND_FIELDS if k != "human_label"}
-            blind["human_label"] = ""
+            blind = {k: r[k] for k in BLIND_FIELDS if k != "annotator_claude"}
+            blind["annotator_claude"] = ""
             w.writerow(blind)
 
     with open(OUT_DIR / "kappa_sample_your_labels.csv", "w", encoding="utf-8", newline="") as f:
