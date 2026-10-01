@@ -70,11 +70,22 @@ def enumerate_remote_files(host_str):
     """Returns a list of {root, rel, size, sha256} dicts for every file under either remote results dir."""
     script = _ENUM_PS.format(dir1=REMOTE_RESULT_DIRS[0], dir2=REMOTE_RESULT_DIRS[1])
     out = []
+    skipped = 0
     for line in _ssh_lines(host_str, script):
         try:
-            out.append(json.loads(line))
+            obj = json.loads(line)
         except json.JSONDecodeError:
+            skipped += 1
             continue
+        if not isinstance(obj, dict) or not {"root", "rel", "size"} <= obj.keys():
+            # A malformed/partial line (e.g. a path containing a character that broke the one-line-per-file
+            # JSON framing) parses to something other than the expected object -- skip it rather than crash
+            # the whole sync; the file just doesn't get synced this run and will be retried next time.
+            skipped += 1
+            continue
+        out.append(obj)
+    if skipped:
+        print(f"  (skipped {skipped} unparseable/malformed enumeration line(s))", flush=True)
     return out
 
 

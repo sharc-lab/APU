@@ -10,6 +10,23 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import sync_results as sr  # noqa: E402
 
 
+def test_enumerate_remote_files_skips_malformed_lines(monkeypatch):
+    """Found live 2026-10-01: one of 977 real enumerated lines parsed to a non-dict JSON value (a malformed
+    one-line-per-file JSON fragment, likely from an unusual filename), crashing plan_pulls with
+    'string indices must be integers'. enumerate_remote_files must skip anything that isn't a well-formed
+    file-record dict instead of propagating a bad line into the rest of the pipeline."""
+    lines = [
+        '{"root":"C:\\\\apu\\\\ovn\\\\results","rel":"a.jsonl","size":10,"sha256":"aaa"}',
+        '"just a stray string"',
+        'not even valid json {{{',
+        '{"root":"C:\\\\apu\\\\ovn\\\\results","rel":"b.jsonl","size":20,"sha256":"bbb"}',
+    ]
+    monkeypatch.setattr(sr, "_ssh_lines", lambda host_str, script, timeout=600: lines)
+    out = sr.enumerate_remote_files("user@host")
+    assert len(out) == 2
+    assert {f["rel"] for f in out} == {"a.jsonl", "b.jsonl"}
+
+
 def test_plan_pulls_new_file_goes_to_to_pull():
     remote = [{"root": r"C:\apu\ovn\results", "rel": "a.jsonl", "size": 100, "sha256": "aaa"}]
     to_pull, too_large, unchanged = sr.plan_pulls("evo-x2", remote, manifest={})
