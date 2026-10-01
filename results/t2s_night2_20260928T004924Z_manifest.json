@@ -1,0 +1,125 @@
+{
+ "launch_utc": "2026-09-28T07:10:56.971420+00:00",
+ "script_provenance": {
+  "git_head": "9bdc4b6d35cbf6fb3383966546a0967c36ce630d",
+  "committed": true,
+  "verified_by": "git blob sha1 of deployed bytes",
+  "problems": [],
+  "files": [
+   {
+    "path": "t2s_amech.py",
+    "expected_git_blob_sha": "39c08dc06f2f497d91f096c42ed23e98b4e4e6b9",
+    "actual_git_blob_sha": "39c08dc06f2f497d91f096c42ed23e98b4e4e6b9",
+    "sha256": "3581f1d567cf7d0a7a616edb005d010704fc22d69c339154e53dd1ef89e41db2"
+   },
+   {
+    "path": "t2s_queue.py",
+    "expected_git_blob_sha": "9e8f44432d57e117a35d0d37b691cff1109023b7",
+    "actual_git_blob_sha": "9e8f44432d57e117a35d0d37b691cff1109023b7",
+    "sha256": "cd9281f4ee67b077298838c009972d69309198938316921699bbb19dc31f93a2"
+   },
+   {
+    "path": "t2s_night2.py",
+    "expected_git_blob_sha": "0245b0d5e08c019b0edf9cfa2fa2cb805e23a4b1",
+    "actual_git_blob_sha": "0245b0d5e08c019b0edf9cfa2fa2cb805e23a4b1",
+    "sha256": "f42aa1e451830a406f4348779bf26a3bf8a9fbb4fe4037448d3c236f7fb7cd0f"
+   },
+   {
+    "path": "t2s_overnight.py",
+    "expected_git_blob_sha": "d4a4fcfa65526fa1bd8a772344cd1d58eb376e85",
+    "actual_git_blob_sha": "d4a4fcfa65526fa1bd8a772344cd1d58eb376e85",
+    "sha256": "22599ef5ea2eaf40a437155c70150d3d23f18807e467283733573582ed8eb9b4"
+   },
+   {
+    "path": "t2s_lab.py",
+    "expected_git_blob_sha": "36cbf80ea8a0f992fc30efff838c89a4f20f05df",
+    "actual_git_blob_sha": "36cbf80ea8a0f992fc30efff838c89a4f20f05df",
+    "sha256": "f2ff7faee48410b933c18251154942c4af3c854b9a1fe39f28ab1f09f1c4d876"
+   },
+   {
+    "path": "host_config.py",
+    "expected_git_blob_sha": "ce0a207ff26a041f01518c53f6dd9433f238531f",
+    "actual_git_blob_sha": "ce0a207ff26a041f01518c53f6dd9433f238531f",
+    "sha256": "9acb2b4ffb4e85d3109d10a9eab805b5b93b72b1b271a0b9c1e66b2e832d758c"
+   },
+   {
+    "path": "t2s_m3_power_coupling.py",
+    "expected_git_blob_sha": "4f056e0ce6e4a6177f19eabc3d13529412089347",
+    "actual_git_blob_sha": "4f056e0ce6e4a6177f19eabc3d13529412089347",
+    "sha256": "675ac2e25e78a40112475132f8425313fbbe78e6d3aefe0e558928c09ed3b69c"
+   },
+   {
+    "path": "spin_hog_affinity.py",
+    "expected_git_blob_sha": "b6db36c470fcdc03658fb91d94b720a9aa7bb88c",
+    "actual_git_blob_sha": "b6db36c470fcdc03658fb91d94b720a9aa7bb88c",
+    "sha256": "caabb3b0b4242c48b94cf07561342d6e409155777655e129936279d4284f78fa"
+   },
+   {
+    "path": "level_zero_sysman.py",
+    "expected_git_blob_sha": "d30ce137ead16a52cd6e64a90609505bd800568c",
+    "actual_git_blob_sha": "d30ce137ead16a52cd6e64a90609505bd800568c",
+    "sha256": "f2858e5a02897c6144fdf855d8aed4927e46ee2dd218bcdcb050d3e076a86a7f"
+   },
+   {
+    "path": "server_guard.py",
+    "expected_git_blob_sha": "6fe68cbf7f3ddfd47437d42ef03d00a98827f7a1",
+    "actual_git_blob_sha": "6fe68cbf7f3ddfd47437d42ef03d00a98827f7a1",
+    "sha256": "bb9518df0a0de1ee994b94b30bf13d0e40dd4227db06f8f9e8c97ecefafcab03"
+   },
+   {
+    "path": "run_provenance.py",
+    "expected_git_blob_sha": "34a9aa4007a360b9e990deac036291ee07e0ff30",
+    "actual_git_blob_sha": "34a9aa4007a360b9e990deac036291ee07e0ff30",
+    "sha256": "d0393dbb9e553ba1b091592687797f5e724f2bb7098365517460c9878af9b9b3"
+   },
+   {
+    "path": "gguf_meta.py",
+    "expected_git_blob_sha": "173b923aa764aa126788a9e7bd26fa87775b09b2",
+    "actual_git_blob_sha": "173b923aa764aa126788a9e7bd26fa87775b09b2",
+    "sha256": "f01d13bc347ee13effba9a22709fcb4ce3b11d9aa59a2be3e13c2fb5c77767b3"
+   },
+   {
+    "path": "memory_balloon_awe.py",
+    "expected_git_blob_sha": "bf0583800aa9e121a04273fc8c8224c13cb65210",
+    "actual_git_blob_sha": "bf0583800aa9e121a04273fc8c8224c13cb65210",
+    "sha256": "51eb91f560370670fd3231a45053059ed7a370b71fe0434c8352d03d32ec8f49"
+   },
+   {
+    "path": "context.py",
+    "expected_git_blob_sha": "d86d23b6d11f5ada9e3918138bbcf75af386fd62",
+    "actual_git_blob_sha": "d86d23b6d11f5ada9e3918138bbcf75af386fd62",
+    "sha256": "e44ae51d9e782d8e01b0613c1974222dc32b6c80ed59f1c06f45b3793db4a20d"
+   },
+   {
+    "path": "lhm_sensors.ps1",
+    "expected_git_blob_sha": "1f6b267e3944eefa9876b553b2086c5419c26711",
+    "actual_git_blob_sha": "1f6b267e3944eefa9876b553b2086c5419c26711",
+    "sha256": "8e5fa616e202858a8bbb748f7305f533dfc9af6aa8ef0cfae4c1230564b102c7"
+   }
+  ]
+ },
+ "identity": {
+  "hw_id": "evo-t2s",
+  "cpu_name": "Intel(R) Core(TM) Ultra X7 358H",
+  "gpu_name": "Intel(R) Arc(TM) B390 GPU",
+  "gpu_driver_version": "32.0.101.8509"
+ },
+ "phases": [
+  "b3",
+  "c1",
+  "perfboost"
+ ],
+ "phases_cut": [
+  "c1b"
+ ],
+ "estimated_hours": {
+  "b1": 0.98238940013206,
+  "b2": 0.4920557691624893,
+  "b3": 1.8684482960313316,
+  "c1": 3.770147002661926,
+  "c1b": 1.42109431594527,
+  "perfboost": 0.132951380690341
+ },
+ "seed": 20260927,
+ "overnight_table": "C:\\apu\\ovn\\results\\t2s_overnight_20260926T011744Z_model_table.json"
+}

@@ -1,0 +1,37 @@
+{
+  "sweep_type": "bw_saturation",
+  "ts": "20260923T045844Z",
+  "platform": "evo-t2s",
+  "hw": "Intel Arrow Lake, 64 GB LPDDR5X unified",
+  "mem_arch": "unified",
+  "model": "qwen3:4b-instruct Q4_K_M",
+  "model_sha256": "85e4a5b7b8ef0e48af0e8658f5aaab9c2324c76c1641493f4d1e25fce54b18b9",
+  "model_path": "C:\\apu\\models\\qwen3-4b-instruct-85e4a5b7.gguf",
+  "server_bin": "C:\\apu\\bin\\llama-b10970\\llama-server.exe",
+  "server_build": "b10970",
+  "ctx_sizes": [
+    8192,
+    16384,
+    32768,
+    65536,
+    131072,
+    262144,
+    524288
+  ],
+  "kv_precisions": [
+    "f16",
+    "q8_0",
+    "q4_0"
+  ],
+  "fill_ratio": 0.9,
+  "decode_max_tokens": 64,
+  "known_b_per_tok": {
+    "f16": 144530,
+    "q8_0": 81490,
+    "q4_0": 44626
+  },
+  "rows_total": 21,
+  "rows_ok": 15,
+  "rows_fail": 6,
+  "out_path": "C:\\apu\\results\\bw_saturation_20260923T045844Z.jsonl"
+}

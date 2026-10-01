@@ -1,0 +1,59 @@
+SeLockMemoryPrivilege: ENABLED -- SeLockMemoryPrivilege enabled on this process's token
+AWE chunk: requested 524288 pages, got 524288. held_mb=2048.0 avail_mb=61298.6
+AWE chunk: requested 524288 pages, got 524288. held_mb=4096.0 avail_mb=59258.0
+AWE chunk: requested 524288 pages, got 524288. held_mb=6144.0 avail_mb=57205.8
+AWE chunk: requested 524288 pages, got 524288. held_mb=8192.0 avail_mb=55153.8
+AWE chunk: requested 524288 pages, got 524288. held_mb=10240.0 avail_mb=53101.8
+AWE chunk: requested 524288 pages, got 524288. held_mb=12288.0 avail_mb=51051.6
+AWE chunk: requested 524288 pages, got 524288. held_mb=14336.0 avail_mb=48992.3
+AWE chunk: requested 524288 pages, got 524288. held_mb=16384.0 avail_mb=46902.2
+AWE chunk: requested 524288 pages, got 524288. held_mb=18432.0 avail_mb=44836.6
+AWE chunk: requested 524288 pages, got 524288. held_mb=20480.0 avail_mb=42771.8
+AWE chunk: requested 524288 pages, got 524288. held_mb=22528.0 avail_mb=40784.4
+AWE chunk: requested 524288 pages, got 524288. held_mb=24576.0 avail_mb=38732.7
+AWE chunk: requested 524288 pages, got 524288. held_mb=26624.0 avail_mb=36686.9
+AWE chunk: requested 524288 pages, got 524288. held_mb=28672.0 avail_mb=34632.0
+AWE chunk: requested 524288 pages, got 524288. held_mb=30720.0 avail_mb=32581.8
+AWE chunk: requested 524288 pages, got 524288. held_mb=32768.0 avail_mb=30529.9
+AWE chunk: requested 524288 pages, got 524288. held_mb=34816.0 avail_mb=28475.3
+AWE chunk: requested 524288 pages, got 524288. held_mb=36864.0 avail_mb=26425.2
+AWE chunk: requested 524288 pages, got 524288. held_mb=38912.0 avail_mb=24373.0
+AWE chunk: requested 524288 pages, got 524288. held_mb=40960.0 avail_mb=22320.7
+AWE chunk: requested 524288 pages, got 524288. held_mb=43008.0 avail_mb=20270.6
+AWE chunk: requested 524288 pages, got 524288. held_mb=45056.0 avail_mb=18219.4
+AWE chunk: requested 524288 pages, got 524288. held_mb=47104.0 avail_mb=16167.2
+AWE chunk: requested 524288 pages, got 524288. held_mb=49152.0 avail_mb=14115.9
+AWE chunk: requested 458851 pages, got 458851. held_mb=50944.4 avail_mb=12065.5
+TARGET REACHED (or best effort). mechanism=AWE held_mb=50944.4 available_mb=10269.3 target_available_mb=10273.07
+2026-09-29T08:50:28Z,0.0,50944.4,10269.3,,,0.0,0.0,,,,,,0.0
+2026-09-29T08:50:33Z,5.0,50944.4,1217.2,,,0.0,0.0,,,,,,0.0
+2026-09-29T08:50:38Z,10.0,50944.4,83.2,,,0.0,0.0,,,,,,0.1
+2026-09-29T08:50:43Z,15.1,50944.4,1.0,,,0.0,0.0,,,,,,0.2
+2026-09-29T08:50:48Z,20.1,50944.4,26.1,,,0.0,0.0,,,,,,0.4
+2026-09-29T08:50:53Z,25.3,50944.4,21.4,,,0.0,0.0,,,,,,0.1
+2026-09-29T08:50:58Z,30.3,50944.4,6.4,,,0.0,0.0,,,,,,0.3
+2026-09-29T08:51:03Z,35.4,50944.4,5.9,,,0.0,0.0,,,,,,0.3
+2026-09-29T08:51:08Z,40.4,50944.4,22.8,,,0.0,0.0,,,,,,0.1
+2026-09-29T08:51:15Z,45.5,50944.4,3.6,,,0.0,0.0,,,,,,1.1
+2026-09-29T08:51:19Z,50.8,50944.4,12.3,,,0.0,0.0,,,,,,0.2
+2026-09-29T08:51:24Z,55.8,50944.4,13.5,,,0.0,0.0,,,,,,0.5
+2026-09-29T08:51:30Z,61.3,50944.4,45.9,,,0.0,0.0,,,,,,1.4
+2026-09-29T08:51:35Z,66.7,50944.4,34.1,,,0.0,0.0,,,,,,1.1
+2026-09-29T08:51:40Z,71.7,50944.4,9.0,,,0.0,0.0,,,,,,0.2
+2026-09-29T08:51:45Z,76.8,50944.4,5.5,,,0.0,0.0,,,,,,0.1
+2026-09-29T08:51:50Z,81.8,50944.4,14.0,,,0.0,0.0,,,,,,0.7
+2026-09-29T08:51:55Z,86.9,50944.4,7.8,,,0.0,0.0,,,,,,0.2
+2026-09-29T08:52:00Z,91.9,50944.4,18.2,,,0.0,0.0,,,,,,0.9
+2026-09-29T08:52:05Z,97.0,50944.4,28.0,,,0.0,0.0,,,,,,0.7
+2026-09-29T08:52:10Z,102.0,50944.4,5.1,,,0.0,0.0,,,,,,0.2
+2026-09-29T08:52:15Z,107.0,50944.4,44.6,,,0.0,0.0,,,,,,0.1
+2026-09-29T08:52:20Z,112.0,50944.4,29.4,,,0.0,0.0,,,,,,0.2
+2026-09-29T08:52:25Z,117.2,50944.4,46.2,,,0.0,0.0,,,,,,0.2
+2026-09-29T08:52:30Z,122.2,50944.4,48.9,,,0.0,0.0,,,,,,0.3
+2026-09-29T08:52:35Z,127.3,50944.4,98.6,,,0.0,0.0,,,,,,0.1
+2026-09-29T08:52:40Z,132.3,50944.4,41.6,,,0.0,0.0,,,,,,0.3
+2026-09-29T08:52:53Z,137.6,50944.4,96.9,,,0.0,0.0,,,,,,0.9
+2026-09-29T08:52:54Z,145.9,50944.4,30.0,,,0.0,0.0,,,,,,0.1
+2026-09-29T08:52:59Z,151.0,50944.4,85.5,,,0.0,0.0,,,,,,0.1
+2026-09-29T08:53:04Z,156.0,50944.4,124.1,,,0.0,0.0,,,,,,0.1
+2026-09-29T08:53:09Z,161.0,50944.4,1032.6,,,0.0,0.0,,,,,,0.0

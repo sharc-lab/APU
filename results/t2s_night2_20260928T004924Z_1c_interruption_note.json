@@ -1,0 +1,10 @@
+{
+  "record": "interrupted_at_1c_restart",
+  "item_id": "C1_qwen3-8b_nomm_-1_1_2",
+  "reason": "killed at 1c restart",
+  "detail": "night2 (pid 6080) was killed at the b2->c1 boundary while this cell's balloon held the memory lock (available_mb_after 6164.03) but before the server start row was written. No 'start' row exists for this item_id in t2s_night2_20260928T004924Z.jsonl and it was never marked item_done, so night2b (resumed from the same stem, same SEED, same C1_SPEC_8B) regenerates the identical cell list in the identical shuffled order and will run this cell fresh rather than skip it.",
+  "balloon_confirmed_released": true,
+  "available_mb_after_kill": 54798,
+  "two_earlier_c1_cells_in_this_run_are_genuine_crashes_not_interruptions": ["C1_qwen3-8b_nomm_-2_1_0", "C1_qwen3-8b_mm_-2_2_1"],
+  "ts_utc_of_this_note": "2026-09-28T07:26:00Z"
+}

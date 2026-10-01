@@ -1,0 +1,203 @@
+0.00.044.745 I cmn  common_param: common_params_print_info: build 10970 (bfdc32183) with Clang 20.1.8 for Windows x86_64
+0.00.044.746 I cmn  common_param: common_params_print_info: verbosity = 4 (adjust with the `-lv N` CLI arg)
+0.00.044.748 I cmn  common_param: device_info:
+0.00.045.410 I cmn  common_param:   - Vulkan0 : Intel(R) Arc(TM) B390 GPU (37060 MiB, 47865 MiB free)
+0.00.045.418 I cmn  common_param:   - CPU     : Intel(R) Core(TM) Ultra X7 358H (65018 MiB, 60542 MiB free)
+0.00.045.450 I cmn  common_param: system_info: n_threads = 4 (n_threads_batch = 4) / 16 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX_VNNI = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | OPENMP = 1 | REPACK = 1 | 
+0.00.045.482 I srv          init: running without SSL
+0.00.045.530 I srv          init: using 15 threads for HTTP server
+0.00.045.690 W srv  llama_server: -----------------
+0.00.045.692 W srv  llama_server: CORS is set to allow all origins ('*') and no API key is set
+0.00.045.693 W srv  llama_server: this can be a security risk (cross-origin attacks)
+0.00.045.693 W srv  llama_server: more info: https://github.com/ggml-org/llama.cpp/pull/25655
+0.00.045.693 W srv  llama_server: -----------------
+0.00.045.705 I srv         start: binding port with default address family
+0.00.061.759 I srv    load_model: loading model 'C:\apu\models\Qwen3-30B-A3B-Instruct-2507-Q4_K_M.gguf'
+0.00.061.761 I srv    load_model: local path 'C:\apu\models\Qwen3-30B-A3B-Instruct-2507-Q4_K_M.gguf'
+0.00.061.773 I cmn  common_init_: fitting params to device memory ...
+0.00.061.773 I cmn  common_init_: (for bugs during this step try to reproduce them with -fit off, or provide --verbose logs if the bug only occurs with -fit on)
+0.00.061.807 I common_params_fit_impl: getting device memory data for initial parameters:
+0.00.269.418 I common_memory_breakdown_print: | memory breakdown [MiB]                  | total    free     self   model   context   compute    unaccounted |
+0.00.269.425 I common_memory_breakdown_print: |   - Vulkan0 (Intel(R) Arc(TM) B390 GPU) | 37060 = 47864 + (47969 = 17524 +   30048 +     397) +      -58773 |
+0.00.269.426 I common_memory_breakdown_print: |   - Host                                |                    487 =   166 +       0 +     321                |
+0.00.284.286 I common_params_fit_impl: projected to use 47969 MiB of device memory vs. 47864 MiB of free device memory
+0.00.284.293 I common_params_fit_impl: cannot meet free memory target of 1024 MiB, need to reduce device memory by 1128 MiB
+0.00.284.294 I common_params_fit_impl: context size set by user to 320512 -> no change
+0.00.284.343 W common_fit_params: failed to fit params to free device memory: n_gpu_layers already set by user to 99, abort
+0.00.284.351 I common_fit_params: fitting params to free memory took 0.22 seconds
+0.00.313.650 I llama_model_loader: loaded meta data with 45 key-value pairs and 579 tensors from C:\apu\models\Qwen3-30B-A3B-Instruct-2507-Q4_K_M.gguf (version GGUF V3 (latest))
+0.00.313.663 I llama_model_loader: Dumping metadata keys/values. Note: KV overrides do not apply in this output.
+0.00.313.666 I llama_model_loader: - kv   0:                       general.architecture str              = qwen3moe
+0.00.313.666 I llama_model_loader: - kv   1:                               general.type str              = model
+0.00.313.667 I llama_model_loader: - kv   2:                               general.name str              = Qwen3-30B-A3B-Instruct-2507
+0.00.313.668 I llama_model_loader: - kv   3:                            general.version str              = 2507
+0.00.313.668 I llama_model_loader: - kv   4:                           general.finetune str              = Instruct
+0.00.313.669 I llama_model_loader: - kv   5:                           general.basename str              = Qwen3-30B-A3B-Instruct-2507
+0.00.313.670 I llama_model_loader: - kv   6:                       general.quantized_by str              = Unsloth
+0.00.313.670 I llama_model_loader: - kv   7:                         general.size_label str              = 30B-A3B
+0.00.313.670 I llama_model_loader: - kv   8:                            general.license str              = apache-2.0
+0.00.313.672 I llama_model_loader: - kv   9:                       general.license.link str              = https://huggingface.co/Qwen/Qwen3-30B...
+0.00.313.673 I llama_model_loader: - kv  10:                           general.repo_url str              = https://huggingface.co/unsloth
+0.00.313.673 I llama_model_loader: - kv  11:                   general.base_model.count u32              = 1
+0.00.313.674 I llama_model_loader: - kv  12:                  general.base_model.0.name str              = Qwen3 30B A3B Instruct 2507
+0.00.313.674 I llama_model_loader: - kv  13:               general.base_model.0.version str              = 2507
+0.00.313.675 I llama_model_loader: - kv  14:          general.base_model.0.organization str              = Qwen
+0.00.313.676 I llama_model_loader: - kv  15:              general.base_model.0.repo_url str              = https://huggingface.co/Qwen/Qwen3-30B...
+0.00.313.683 I llama_model_loader: - kv  16:                               general.tags arr[str,2]       = ["unsloth", "text-generation"]
+0.00.313.684 I llama_model_loader: - kv  17:                       qwen3moe.block_count u32              = 48
+0.00.313.684 I llama_model_loader: - kv  18:                    qwen3moe.context_length u32              = 262144
+0.00.313.685 I llama_model_loader: - kv  19:                  qwen3moe.embedding_length u32              = 2048
+0.00.313.685 I llama_model_loader: - kv  20:               qwen3moe.feed_forward_length u32              = 6144
+0.00.313.685 I llama_model_loader: - kv  21:              qwen3moe.attention.head_count u32              = 32
+0.00.313.686 I llama_model_loader: - kv  22:           qwen3moe.attention.head_count_kv u32              = 4
+0.00.313.723 I llama_model_loader: - kv  23:                    qwen3moe.rope.freq_base f32              = 10000000.000000
+0.00.313.725 I llama_model_loader: - kv  24:  qwen3moe.attention.layer_norm_rms_epsilon f32              = 0.000001
+0.00.313.726 I llama_model_loader: - kv  25:                 qwen3moe.expert_used_count u32              = 8
+0.00.313.726 I llama_model_loader: - kv  26:              qwen3moe.attention.key_length u32              = 128
+0.00.313.726 I llama_model_loader: - kv  27:            qwen3moe.attention.value_length u32              = 128
+0.00.313.727 I llama_model_loader: - kv  28:                      qwen3moe.expert_count u32              = 128
+0.00.313.727 I llama_model_loader: - kv  29:        qwen3moe.expert_feed_forward_length u32              = 768
+0.00.313.727 I llama_model_loader: - kv  30:                       tokenizer.ggml.model str              = gpt2
+0.00.313.728 I llama_model_loader: - kv  31:                         tokenizer.ggml.pre str              = qwen2
+0.00.329.291 I llama_model_loader: - kv  32:                      tokenizer.ggml.tokens arr[str,151936]  = ["!", "\"", "#", "$", "%", "&", "'", ...
+0.00.334.049 I llama_model_loader: - kv  33:                  tokenizer.ggml.token_type arr[i32,151936]  = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, ...
+0.00.349.789 I llama_model_loader: - kv  34:                      tokenizer.ggml.merges arr[str,151387]  = ["Ġ Ġ", "ĠĠ ĠĠ", "i n", "Ġ t",...
+0.00.349.793 I llama_model_loader: - kv  35:                tokenizer.ggml.eos_token_id u32              = 151645
+0.00.349.793 I llama_model_loader: - kv  36:            tokenizer.ggml.padding_token_id u32              = 151654
+0.00.349.794 I llama_model_loader: - kv  37:               tokenizer.ggml.add_bos_token bool             = false
+0.00.349.796 I llama_model_loader: - kv  38:                    tokenizer.chat_template str              = {%- if tools %}\n    {{- '<|im_start|>...
+0.00.349.797 I llama_model_loader: - kv  39:               general.quantization_version u32              = 2
+0.00.349.797 I llama_model_loader: - kv  40:                          general.file_type u32              = 15
+0.00.349.798 I llama_model_loader: - kv  41:                      quantize.imatrix.file str              = Qwen3-30B-A3B-Instruct-2507-GGUF/imat...
+0.00.349.799 I llama_model_loader: - kv  42:                   quantize.imatrix.dataset str              = unsloth_calibration_Qwen3-30B-A3B-Ins...
+0.00.349.799 I llama_model_loader: - kv  43:             quantize.imatrix.entries_count u32              = 384
+0.00.349.800 I llama_model_loader: - kv  44:              quantize.imatrix.chunks_count u32              = 693
+0.00.349.800 I llama_model_loader: - type  f32:  241 tensors
+0.00.349.801 I llama_model_loader: - type q4_K:  289 tensors
+0.00.349.801 I llama_model_loader: - type q6_K:   49 tensors
+0.00.349.803 I print_info: file format = GGUF V3 (latest)
+0.00.349.803 I print_info: file type   = Q4_K - Medium
+0.00.349.805 I print_info: file size   = 17.28 GiB (4.86 BPW) 
+0.00.350.526 I llama_prepare_model_devices: using device Vulkan0 (Intel(R) Arc(TM) B390 GPU) (unknown id) - 47865 MiB free
+0.00.403.067 I load: 0 unused tokens
+0.00.412.157 W load: control-looking token: 128247 '</s>' was not control-type; this is probably a bug in the model. its type will be overridden
+0.00.414.751 I load: printing all EOG tokens:
+0.00.414.755 I load:   - 128247 ('</s>')
+0.00.414.755 I load:   - 151643 ('<|endoftext|>')
+0.00.414.756 I load:   - 151645 ('<|im_end|>')
+0.00.414.756 I load:   - 151662 ('<|fim_pad|>')
+0.00.414.756 I load:   - 151663 ('<|repo_name|>')
+0.00.414.756 I load:   - 151664 ('<|file_sep|>')
+0.00.414.923 I load: special tokens cache size = 27
+0.00.430.561 I load: token to piece cache size = 0.9311 MB
+0.00.430.576 I print_info: arch                  = qwen3moe
+0.00.430.576 I print_info: vocab_only            = 0
+0.00.430.576 I print_info: no_alloc              = 0
+0.00.430.577 I print_info: n_ctx_train           = 262144
+0.00.430.577 I print_info: n_embd_inp            = 2048
+0.00.430.577 I print_info: n_embd                = 2048
+0.00.430.578 I print_info: n_embd_out            = 2048
+0.00.430.578 I print_info: n_layer               = 48
+0.00.430.578 I print_info: n_layer_all           = 48
+0.00.430.589 I print_info: n_head                = 32
+0.00.430.591 I print_info: n_head_kv             = 4
+0.00.430.591 I print_info: n_rot                 = 128
+0.00.430.591 I print_info: n_swa                 = 0
+0.00.430.592 I print_info: is_swa_any            = 0
+0.00.430.592 I print_info: non_causal_type       = 0
+0.00.430.592 I print_info: n_embd_head_k         = 128
+0.00.430.592 I print_info: n_embd_head_v         = 128
+0.00.430.594 I print_info: n_gqa                 = 8
+0.00.430.595 I print_info: n_embd_k_gqa          = 512
+0.00.430.596 I print_info: n_embd_v_gqa          = 512
+0.00.430.598 I print_info: f_norm_eps            = 0.0e+00
+0.00.430.599 I print_info: f_norm_rms_eps        = 1.0e-06
+0.00.430.599 I print_info: f_clamp_kqv           = 0.0e+00
+0.00.430.599 I print_info: f_max_alibi_bias      = 0.0e+00
+0.00.430.600 I print_info: f_logit_scale         = 0.0e+00
+0.00.430.600 I print_info: f_attn_scale          = 0.0e+00
+0.00.430.600 I print_info: f_attn_value_scale    = 0.0000
+0.00.430.602 I print_info: n_ff                  = 6144
+0.00.430.602 I print_info: n_expert              = 128
+0.00.430.602 I print_info: n_expert_used         = 8
+0.00.430.602 I print_info: n_expert_groups       = 0
+0.00.430.603 I print_info: n_group_used          = 0
+0.00.430.603 I print_info: causal attn           = 1
+0.00.430.603 I print_info: pooling type          = -1
+0.00.430.603 I print_info: rope type             = 2
+0.00.430.604 I print_info: rope scaling          = linear
+0.00.430.604 I print_info: freq_base_train       = 10000000.0
+0.00.430.605 I print_info: freq_scale_train      = 1
+0.00.430.606 I print_info: n_ctx_orig_yarn       = 262144
+0.00.430.606 I print_info: rope_yarn_log_mul     = 0.0000
+0.00.430.606 I print_info: rope_finetuned        = unknown
+0.00.430.607 I print_info: model type            = 30B.A3B
+0.00.430.608 I print_info: model params          = 30.53 B
+0.00.430.608 I print_info: general.name          = Qwen3-30B-A3B-Instruct-2507
+0.00.430.609 I print_info: n_ff_exp              = 768
+0.00.430.609 I print_info: vocab type            = BPE
+0.00.430.609 I print_info: n_vocab               = 151936
+0.00.430.610 I print_info: n_merges              = 151387
+0.00.430.610 I print_info: BOS token             = 11 ','
+0.00.430.610 I print_info: EOS token             = 151645 '<|im_end|>'
+0.00.430.611 I print_info: EOT token             = 151645 '<|im_end|>'
+0.00.430.611 I print_info: PAD token             = 151654 '<|vision_pad|>'
+0.00.430.611 I print_info: LF token              = 198 'Ċ'
+0.00.430.612 I print_info: FIM PRE token         = 151659 '<|fim_prefix|>'
+0.00.430.612 I print_info: FIM SUF token         = 151661 '<|fim_suffix|>'
+0.00.430.612 I print_info: FIM MID token         = 151660 '<|fim_middle|>'
+0.00.430.613 I print_info: FIM PAD token         = 151662 '<|fim_pad|>'
+0.00.430.613 I print_info: FIM REP token         = 151663 '<|repo_name|>'
+0.00.430.613 I print_info: FIM SEP token         = 151664 '<|file_sep|>'
+0.00.430.613 I print_info: EOG token             = 128247 '</s>'
+0.00.430.614 I print_info: EOG token             = 151643 '<|endoftext|>'
+0.00.430.614 I print_info: EOG token             = 151645 '<|im_end|>'
+0.00.430.614 I print_info: EOG token             = 151662 '<|fim_pad|>'
+0.00.430.614 I print_info: EOG token             = 151663 '<|repo_name|>'
+0.00.430.615 I print_info: EOG token             = 151664 '<|file_sep|>'
+0.00.430.615 I print_info: max token length      = 256
+0.00.431.955 I load_tensors: loading model tensors, this can take a while... (load_mode = none)
+0.01.173.118 I load_tensors: offloading output layer to GPU
+0.01.173.122 I load_tensors: offloading 47 repeating layers to GPU
+0.01.173.122 I load_tensors: offloaded 49/49 layers to GPU
+0.01.173.125 I load_tensors:      Vulkan0 model buffer size = 17524.42 MiB
+0.01.173.126 I load_tensors:  Vulkan_Host model buffer size =   166.92 MiB
+0.03.955.626 I cmn  common_init_: added </s> logit bias = -inf
+0.03.955.779 I cmn  common_init_: added <|endoftext|> logit bias = -inf
+0.03.955.783 I cmn  common_init_: added <|im_end|> logit bias = -inf
+0.03.955.784 I cmn  common_init_: added <|fim_pad|> logit bias = -inf
+0.03.955.784 I cmn  common_init_: added <|repo_name|> logit bias = -inf
+0.03.955.785 I cmn  common_init_: added <|file_sep|> logit bias = -inf
+0.03.956.321 I llama_context: constructing llama_context
+0.03.956.330 I llama_context: n_seq_max             = 1
+0.03.956.330 I llama_context: n_ctx                 = 320512
+0.03.956.330 I llama_context: n_ctx_seq             = 320512
+0.03.956.331 I llama_context: n_batch               = 2048
+0.03.956.331 I llama_context: n_ubatch              = 512
+0.03.956.331 I llama_context: causal_attn           = 1
+0.03.956.332 I llama_context: flash_attn            = enabled
+0.03.956.333 I llama_context: kv_unified            = false
+0.03.956.336 I llama_context: freq_base             = 10000000.0
+0.03.956.338 I llama_context: freq_scale            = 1
+0.03.956.338 I llama_context: n_rs_seq              = 0
+0.03.956.338 I llama_context: n_outputs_max         = 1
+0.03.956.339 I llama_context: n_outputs_max_per_seq = 1
+0.03.956.340 W llama_context: n_ctx_seq (320512) > n_ctx_train (262144) -- possible training context overflow
+0.03.956.688 I llama_context: Vulkan_Host  output buffer size =     0.58 MiB
+0.12.694.292 I llama_kv_cache:    Vulkan0 KV buffer size = 30048.00 MiB
+0.14.048.328 I llama_kv_cache: size = 30048.00 MiB (320512 cells,  48 layers,  1/1 seqs), K (f16): 15024.00 MiB, V (f16): 15024.00 MiB
+0.14.048.341 I llama_kv_cache: attn_rot_k = 0, n_embd_head_k_all = 128
+0.14.048.341 I llama_kv_cache: attn_rot_v = 0, n_embd_head_k_all = 128
+0.14.048.354 I sched_reserve: reserving ...
+0.14.049.919 I resolve_fused_ops: resolving fused DeepSeek V4 HC support:
+0.14.053.324 I resolve_fused_ops: fused DeepSeek V4 HC pre enabled
+0.14.056.511 I resolve_fused_ops: fused DeepSeek V4 HC comb enabled
+0.14.059.665 I resolve_fused_ops: fused DeepSeek V4 HC post enabled
+0.14.094.611 E ggml_gallocr_reserve_n_impl: failed to allocate Vulkan0 buffer of size 416294976
+0.14.094.620 E graph_reserve: failed to allocate compute buffers
+0.17.436.542 E llama_init_from_model: failed to initialize the context: failed to allocate compute pp buffers
+0.17.436.554 E cmn  common_init_: failed to create context with model 'C:\apu\models\Qwen3-30B-A3B-Instruct-2507-Q4_K_M.gguf'
+0.17.436.555 E cmn  common_init_: failed to create context with model 'C:\apu\models\Qwen3-30B-A3B-Instruct-2507-Q4_K_M.gguf'
+0.17.436.558 E srv    load_model: failed to create_context with model 'C:\apu\models\Qwen3-30B-A3B-Instruct-2507-Q4_K_M.gguf'
+0.17.436.753 I srv    operator(): operator(): cleaning up before exit...
+0.17.438.582 E srv  llama_server: exiting due to model loading error

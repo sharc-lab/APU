@@ -1,0 +1,3913 @@
+{
+ "kept": [
+  {
+   "item_id": "A_qwen3-32b_yarn_check",
+   "section": "A",
+   "prio": 9.5,
+   "est_s": 5812.380830643292,
+   "model_id": "qwen3-32b",
+   "kind": "yarn_check",
+   "extra": [
+    "--rope-scaling",
+    "yarn",
+    "--rope-scale",
+    "4",
+    "--yarn-orig-ctx",
+    "32768"
+   ],
+   "nstar": {},
+   "beyond": false,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "n_ctx": 16384,
+   "ord": 21
+  },
+  {
+   "item_id": "A_qwen3-32b_anchor_65792_3",
+   "section": "A",
+   "prio": 10,
+   "est_s": 630.3076326756213,
+   "model_id": "qwen3-32b",
+   "n_ctx": 65792,
+   "kind": "anchor",
+   "extra": [
+    "--rope-scaling",
+    "yarn",
+    "--rope-scale",
+    "4",
+    "--yarn-orig-ctx",
+    "32768"
+   ],
+   "fill": 4530,
+   "nstar": {
+    "device_total": 71988
+   },
+   "beyond": false,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 3
+  },
+  {
+   "item_id": "A_qwen3-32b_grid_123392_4",
+   "section": "A",
+   "prio": 10,
+   "est_s": 630.3076326756213,
+   "model_id": "qwen3-32b",
+   "n_ctx": 123392,
+   "kind": "grid",
+   "extra": [
+    "--rope-scaling",
+    "yarn",
+    "--rope-scale",
+    "4",
+    "--yarn-orig-ctx",
+    "32768"
+   ],
+   "fill": 4530,
+   "nstar": {
+    "device_free": 115208
+   },
+   "beyond": false,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 4
+  },
+  {
+   "item_id": "A_qwen3-32b_grid_121344_6",
+   "section": "A",
+   "prio": 10,
+   "est_s": 630.3076326756213,
+   "model_id": "qwen3-32b",
+   "n_ctx": 121344,
+   "kind": "grid",
+   "extra": [
+    "--rope-scaling",
+    "yarn",
+    "--rope-scale",
+    "4",
+    "--yarn-orig-ctx",
+    "32768"
+   ],
+   "fill": 4530,
+   "nstar": {
+    "device_free": 115208
+   },
+   "beyond": false,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 6
+  },
+  {
+   "item_id": "A_qwen3-32b_anchor_65792_7",
+   "section": "A",
+   "prio": 10,
+   "est_s": 630.3076326756213,
+   "model_id": "qwen3-32b",
+   "n_ctx": 65792,
+   "kind": "anchor",
+   "extra": [
+    "--rope-scaling",
+    "yarn",
+    "--rope-scale",
+    "4",
+    "--yarn-orig-ctx",
+    "32768"
+   ],
+   "fill": 4530,
+   "nstar": {
+    "device_total": 71988
+   },
+   "beyond": false,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 7
+  },
+  {
+   "item_id": "A_qwen3-32b_grid_111104_10",
+   "section": "A",
+   "prio": 10,
+   "est_s": 630.3076326756213,
+   "model_id": "qwen3-32b",
+   "n_ctx": 111104,
+   "kind": "grid",
+   "extra": [
+    "--rope-scaling",
+    "yarn",
+    "--rope-scale",
+    "4",
+    "--yarn-orig-ctx",
+    "32768"
+   ],
+   "fill": 4530,
+   "nstar": {
+    "device_free": 115208
+   },
+   "beyond": false,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 10
+  },
+  {
+   "item_id": "A_qwen3-32b_anchor_65792_11",
+   "section": "A",
+   "prio": 10,
+   "est_s": 630.3076326756213,
+   "model_id": "qwen3-32b",
+   "n_ctx": 65792,
+   "kind": "anchor",
+   "extra": [
+    "--rope-scaling",
+    "yarn",
+    "--rope-scale",
+    "4",
+    "--yarn-orig-ctx",
+    "32768"
+   ],
+   "fill": 4530,
+   "nstar": {
+    "device_total": 71988
+   },
+   "beyond": false,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 11
+  },
+  {
+   "item_id": "A_qwen3-32b_grid_117248_12",
+   "section": "A",
+   "prio": 10,
+   "est_s": 630.3076326756213,
+   "model_id": "qwen3-32b",
+   "n_ctx": 117248,
+   "kind": "grid",
+   "extra": [
+    "--rope-scaling",
+    "yarn",
+    "--rope-scale",
+    "4",
+    "--yarn-orig-ctx",
+    "32768"
+   ],
+   "fill": 4530,
+   "nstar": {
+    "device_free": 115208
+   },
+   "beyond": false,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 12
+  },
+  {
+   "item_id": "A_qwen3-32b_grid_119296_13",
+   "section": "A",
+   "prio": 10,
+   "est_s": 630.3076326756213,
+   "model_id": "qwen3-32b",
+   "n_ctx": 119296,
+   "kind": "grid",
+   "extra": [
+    "--rope-scaling",
+    "yarn",
+    "--rope-scale",
+    "4",
+    "--yarn-orig-ctx",
+    "32768"
+   ],
+   "fill": 4530,
+   "nstar": {
+    "device_free": 115208
+   },
+   "beyond": false,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 13
+  },
+  {
+   "item_id": "A_qwen3-32b_anchor_65792_15",
+   "section": "A",
+   "prio": 10,
+   "est_s": 630.3076326756213,
+   "model_id": "qwen3-32b",
+   "n_ctx": 65792,
+   "kind": "anchor",
+   "extra": [
+    "--rope-scaling",
+    "yarn",
+    "--rope-scale",
+    "4",
+    "--yarn-orig-ctx",
+    "32768"
+   ],
+   "fill": 4530,
+   "nstar": {
+    "device_total": 71988
+   },
+   "beyond": false,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 15
+  },
+  {
+   "item_id": "A_qwen3-32b_grid_125440_16",
+   "section": "A",
+   "prio": 10,
+   "est_s": 630.3076326756213,
+   "model_id": "qwen3-32b",
+   "n_ctx": 125440,
+   "kind": "grid",
+   "extra": [
+    "--rope-scaling",
+    "yarn",
+    "--rope-scale",
+    "4",
+    "--yarn-orig-ctx",
+    "32768"
+   ],
+   "fill": 4530,
+   "nstar": {
+    "device_free": 115208
+   },
+   "beyond": false,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 16
+  },
+  {
+   "item_id": "B_qwen3-4b-2507_cap100",
+   "section": "B",
+   "prio": 20,
+   "est_s": 3767.8079929031696,
+   "model_id": "qwen3-4b-2507",
+   "fill": 7372,
+   "cap": 100,
+   "cells": [
+    "none",
+    "p4",
+    "e4",
+    "nonp12",
+    "all16"
+   ],
+   "ord": 78
+  },
+  {
+   "item_id": "B_qwen3-8b_cap100",
+   "section": "B",
+   "prio": 23,
+   "est_s": 4004.1199218975953,
+   "model_id": "qwen3-8b",
+   "fill": 7372,
+   "cap": 100,
+   "cells": [
+    "none",
+    "p4",
+    "e4",
+    "nonp12",
+    "all16"
+   ],
+   "ord": 79
+  },
+  {
+   "item_id": "C_qwen3-8b_cell_mm_0_0_0",
+   "section": "C",
+   "prio": 26.0,
+   "est_s": 1634.1368876872962,
+   "model_id": "qwen3-8b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 0,
+   "rep": 0,
+   "target_avail_mb": 7213.200000000001,
+   "need_mib": 7213.200000000001,
+   "fill": 12584,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 84
+  },
+  {
+   "item_id": "C_qwen3-8b_cell_nomm_0_0_1",
+   "section": "C",
+   "prio": 26.01,
+   "est_s": 1634.1368876872962,
+   "model_id": "qwen3-8b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": 0,
+   "rep": 0,
+   "target_avail_mb": 7213.200000000001,
+   "need_mib": 7213.200000000001,
+   "fill": 12584,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 85
+  },
+  {
+   "item_id": "C_qwen3-8b_cell_nomm_-1_0_2",
+   "section": "C",
+   "prio": 26.02,
+   "est_s": 1634.1368876872962,
+   "model_id": "qwen3-8b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": -1,
+   "rep": 0,
+   "target_avail_mb": 6189.200000000001,
+   "need_mib": 7213.200000000001,
+   "fill": 12584,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 86
+  },
+  {
+   "item_id": "C_qwen3-8b_anchor_mm_8_0_3",
+   "section": "C",
+   "prio": 26.03,
+   "est_s": 1634.1368876872962,
+   "model_id": "qwen3-8b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 8,
+   "rep": 0,
+   "target_avail_mb": 15405.2,
+   "need_mib": 7213.200000000001,
+   "fill": 12584,
+   "kind": "anchor",
+   "backend": "vulkan",
+   "ord": 87
+  },
+  {
+   "item_id": "C_qwen3-8b_cell_mm_-1_0_4",
+   "section": "C",
+   "prio": 26.04,
+   "est_s": 1634.1368876872962,
+   "model_id": "qwen3-8b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": -1,
+   "rep": 0,
+   "target_avail_mb": 6189.200000000001,
+   "need_mib": 7213.200000000001,
+   "fill": 12584,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 88
+  },
+  {
+   "item_id": "C_qwen3-32b_cell_nomm_0_0_0",
+   "section": "C",
+   "prio": 42.0,
+   "est_s": 1178.1806858373398,
+   "model_id": "qwen3-32b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": 0,
+   "rep": 0,
+   "target_avail_mb": 23158.97,
+   "need_mib": 23158.97,
+   "fill": 4530,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 164
+  }
+ ],
+ "dropped": [
+  {
+   "item_id": "A_qwen3-32b_grid_109056_17",
+   "section": "A",
+   "prio": 10,
+   "est_s": 630.3076326756213,
+   "model_id": "qwen3-32b",
+   "n_ctx": 109056,
+   "kind": "grid",
+   "extra": [
+    "--rope-scaling",
+    "yarn",
+    "--rope-scale",
+    "4",
+    "--yarn-orig-ctx",
+    "32768"
+   ],
+   "fill": 4530,
+   "nstar": {
+    "device_free": 115208
+   },
+   "beyond": false,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 17
+  },
+  {
+   "item_id": "A_qwen3-32b_grid_113152_18",
+   "section": "A",
+   "prio": 10,
+   "est_s": 630.3076326756213,
+   "model_id": "qwen3-32b",
+   "n_ctx": 113152,
+   "kind": "grid",
+   "extra": [
+    "--rope-scaling",
+    "yarn",
+    "--rope-scale",
+    "4",
+    "--yarn-orig-ctx",
+    "32768"
+   ],
+   "fill": 4530,
+   "nstar": {
+    "device_free": 115208
+   },
+   "beyond": false,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 18
+  },
+  {
+   "item_id": "A_qwen3-32b_anchor_65792_19",
+   "section": "A",
+   "prio": 10,
+   "est_s": 630.3076326756213,
+   "model_id": "qwen3-32b",
+   "n_ctx": 65792,
+   "kind": "anchor",
+   "extra": [
+    "--rope-scaling",
+    "yarn",
+    "--rope-scale",
+    "4",
+    "--yarn-orig-ctx",
+    "32768"
+   ],
+   "fill": 4530,
+   "nstar": {
+    "device_total": 71988
+   },
+   "beyond": false,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 19
+  },
+  {
+   "item_id": "A_qwen3-32b_probe_max",
+   "section": "A",
+   "prio": 10.5,
+   "est_s": 554.255845753767,
+   "model_id": "qwen3-32b",
+   "kind": "probe_max",
+   "extra": [
+    "--rope-scaling",
+    "yarn",
+    "--rope-scale",
+    "4",
+    "--yarn-orig-ctx",
+    "32768"
+   ],
+   "nstar": {},
+   "beyond": false,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "n_ctx": null,
+   "ord": 22
+  },
+  {
+   "item_id": "A_qwen3-30b-a3b-2507_grid_227072_0",
+   "section": "A",
+   "prio": 11,
+   "est_s": 864.6204381885132,
+   "model_id": "qwen3-30b-a3b-2507",
+   "n_ctx": 227072,
+   "kind": "grid",
+   "extra": [],
+   "fill": 12665,
+   "nstar": {
+    "device_total": 205446
+   },
+   "beyond": false,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 23
+  },
+  {
+   "item_id": "A_qwen3-30b-a3b-2507_grid_221696_1",
+   "section": "A",
+   "prio": 11,
+   "est_s": 864.6204381885132,
+   "model_id": "qwen3-30b-a3b-2507",
+   "n_ctx": 221696,
+   "kind": "grid",
+   "extra": [],
+   "fill": 12665,
+   "nstar": {
+    "device_total": 205446
+   },
+   "beyond": false,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 24
+  },
+  {
+   "item_id": "A_qwen3-30b-a3b-2507_grid_232448_2",
+   "section": "A",
+   "prio": 11,
+   "est_s": 864.6204381885132,
+   "model_id": "qwen3-30b-a3b-2507",
+   "n_ctx": 232448,
+   "kind": "grid",
+   "extra": [],
+   "fill": 12665,
+   "nstar": {
+    "device_total": 205446
+   },
+   "beyond": false,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 25
+  },
+  {
+   "item_id": "A_qwen3-30b-a3b-2507_anchor_189440_3",
+   "section": "A",
+   "prio": 11,
+   "est_s": 864.6204381885132,
+   "model_id": "qwen3-30b-a3b-2507",
+   "n_ctx": 189440,
+   "kind": "anchor",
+   "extra": [],
+   "fill": 12665,
+   "nstar": {
+    "device_total": 205446
+   },
+   "beyond": false,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 26
+  },
+  {
+   "item_id": "A_qwen3-30b-a3b-2507_grid_200192_4",
+   "section": "A",
+   "prio": 11,
+   "est_s": 864.6204381885132,
+   "model_id": "qwen3-30b-a3b-2507",
+   "n_ctx": 200192,
+   "kind": "grid",
+   "extra": [],
+   "fill": 12665,
+   "nstar": {
+    "device_total": 205446
+   },
+   "beyond": false,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 27
+  },
+  {
+   "item_id": "A_qwen3-30b-a3b-2507_grid_189440_5",
+   "section": "A",
+   "prio": 11,
+   "est_s": 864.6204381885132,
+   "model_id": "qwen3-30b-a3b-2507",
+   "n_ctx": 189440,
+   "kind": "grid",
+   "extra": [],
+   "fill": 12665,
+   "nstar": {
+    "device_total": 205446
+   },
+   "beyond": false,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 28
+  },
+  {
+   "item_id": "A_qwen3-30b-a3b-2507_grid_210944_6",
+   "section": "A",
+   "prio": 11,
+   "est_s": 864.6204381885132,
+   "model_id": "qwen3-30b-a3b-2507",
+   "n_ctx": 210944,
+   "kind": "grid",
+   "extra": [],
+   "fill": 12665,
+   "nstar": {
+    "device_total": 205446
+   },
+   "beyond": false,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 29
+  },
+  {
+   "item_id": "A_qwen3-30b-a3b-2507_anchor_189440_7",
+   "section": "A",
+   "prio": 11,
+   "est_s": 864.6204381885132,
+   "model_id": "qwen3-30b-a3b-2507",
+   "n_ctx": 189440,
+   "kind": "anchor",
+   "extra": [],
+   "fill": 12665,
+   "nstar": {
+    "device_total": 205446
+   },
+   "beyond": false,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 30
+  },
+  {
+   "item_id": "A_qwen3-30b-a3b-2507_grid_216320_8",
+   "section": "A",
+   "prio": 11,
+   "est_s": 864.6204381885132,
+   "model_id": "qwen3-30b-a3b-2507",
+   "n_ctx": 216320,
+   "kind": "grid",
+   "extra": [],
+   "fill": 12665,
+   "nstar": {
+    "device_total": 205446
+   },
+   "beyond": false,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 31
+  },
+  {
+   "item_id": "A_qwen3-30b-a3b-2507_grid_194816_9",
+   "section": "A",
+   "prio": 11,
+   "est_s": 864.6204381885132,
+   "model_id": "qwen3-30b-a3b-2507",
+   "n_ctx": 194816,
+   "kind": "grid",
+   "extra": [],
+   "fill": 12665,
+   "nstar": {
+    "device_total": 205446
+   },
+   "beyond": false,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 32
+  },
+  {
+   "item_id": "A_qwen3-30b-a3b-2507_probe_max",
+   "section": "A",
+   "prio": 11.5,
+   "est_s": 837.2767646582572,
+   "model_id": "qwen3-30b-a3b-2507",
+   "kind": "probe_max",
+   "extra": [],
+   "nstar": {},
+   "beyond": false,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "n_ctx": null,
+   "ord": 33
+  },
+  {
+   "item_id": "C_qwen3-8b_cell_nomm_2_0_5",
+   "section": "C",
+   "prio": 26.05,
+   "est_s": 1634.1368876872962,
+   "model_id": "qwen3-8b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": 2,
+   "rep": 0,
+   "target_avail_mb": 9261.2,
+   "need_mib": 7213.200000000001,
+   "fill": 12584,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 89
+  },
+  {
+   "item_id": "C_qwen3-8b_cell_mm_2_0_6",
+   "section": "C",
+   "prio": 26.06,
+   "est_s": 1634.1368876872962,
+   "model_id": "qwen3-8b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 2,
+   "rep": 0,
+   "target_avail_mb": 9261.2,
+   "need_mib": 7213.200000000001,
+   "fill": 12584,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 90
+  },
+  {
+   "item_id": "C_qwen3-8b_anchor_mm_8_0_7",
+   "section": "C",
+   "prio": 26.07,
+   "est_s": 1634.1368876872962,
+   "model_id": "qwen3-8b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 8,
+   "rep": 0,
+   "target_avail_mb": 15405.2,
+   "need_mib": 7213.200000000001,
+   "fill": 12584,
+   "kind": "anchor",
+   "backend": "vulkan",
+   "ord": 91
+  },
+  {
+   "item_id": "C_qwen3-8b_cell_nomm_-2_0_8",
+   "section": "C",
+   "prio": 26.08,
+   "est_s": 1634.1368876872962,
+   "model_id": "qwen3-8b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": -2,
+   "rep": 0,
+   "target_avail_mb": 5165.200000000001,
+   "need_mib": 7213.200000000001,
+   "fill": 12584,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 92
+  },
+  {
+   "item_id": "C_qwen3-8b_cell_mm_-2_0_9",
+   "section": "C",
+   "prio": 26.09,
+   "est_s": 1634.1368876872962,
+   "model_id": "qwen3-8b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": -2,
+   "rep": 0,
+   "target_avail_mb": 5165.200000000001,
+   "need_mib": 7213.200000000001,
+   "fill": 12584,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 93
+  },
+  {
+   "item_id": "C_qwen3-8b_cell_mm_1_0_10",
+   "section": "C",
+   "prio": 26.1,
+   "est_s": 1634.1368876872962,
+   "model_id": "qwen3-8b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 1,
+   "rep": 0,
+   "target_avail_mb": 8237.2,
+   "need_mib": 7213.200000000001,
+   "fill": 12584,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 94
+  },
+  {
+   "item_id": "C_qwen3-8b_anchor_mm_8_0_11",
+   "section": "C",
+   "prio": 26.11,
+   "est_s": 1634.1368876872962,
+   "model_id": "qwen3-8b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 8,
+   "rep": 0,
+   "target_avail_mb": 15405.2,
+   "need_mib": 7213.200000000001,
+   "fill": 12584,
+   "kind": "anchor",
+   "backend": "vulkan",
+   "ord": 95
+  },
+  {
+   "item_id": "C_qwen3-8b_cell_nomm_1_0_12",
+   "section": "C",
+   "prio": 26.12,
+   "est_s": 1634.1368876872962,
+   "model_id": "qwen3-8b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": 1,
+   "rep": 0,
+   "target_avail_mb": 8237.2,
+   "need_mib": 7213.200000000001,
+   "fill": 12584,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 96
+  },
+  {
+   "item_id": "C_qwen3-8b_cell_mm_4_0_13",
+   "section": "C",
+   "prio": 26.13,
+   "est_s": 1634.1368876872962,
+   "model_id": "qwen3-8b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 4,
+   "rep": 0,
+   "target_avail_mb": 11309.2,
+   "need_mib": 7213.200000000001,
+   "fill": 12584,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 97
+  },
+  {
+   "item_id": "C_qwen3-8b_cell_nomm_4_0_14",
+   "section": "C",
+   "prio": 26.14,
+   "est_s": 1634.1368876872962,
+   "model_id": "qwen3-8b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": 4,
+   "rep": 0,
+   "target_avail_mb": 11309.2,
+   "need_mib": 7213.200000000001,
+   "fill": 12584,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 98
+  },
+  {
+   "item_id": "C_qwen3-8b_anchor_mm_8_0_15",
+   "section": "C",
+   "prio": 26.15,
+   "est_s": 1634.1368876872962,
+   "model_id": "qwen3-8b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 8,
+   "rep": 0,
+   "target_avail_mb": 15405.2,
+   "need_mib": 7213.200000000001,
+   "fill": 12584,
+   "kind": "anchor",
+   "backend": "vulkan",
+   "ord": 99
+  },
+  {
+   "item_id": "C_qwen3-8b_cell_nomm_8_0_16",
+   "section": "C",
+   "prio": 26.16,
+   "est_s": 1634.1368876872962,
+   "model_id": "qwen3-8b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": 8,
+   "rep": 0,
+   "target_avail_mb": 15405.2,
+   "need_mib": 7213.200000000001,
+   "fill": 12584,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 100
+  },
+  {
+   "item_id": "C_qwen3-8b_cell_mm_8_0_17",
+   "section": "C",
+   "prio": 26.17,
+   "est_s": 1634.1368876872962,
+   "model_id": "qwen3-8b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 8,
+   "rep": 0,
+   "target_avail_mb": 15405.2,
+   "need_mib": 7213.200000000001,
+   "fill": 12584,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 101
+  },
+  {
+   "item_id": "C_qwen3-8b_anchor_mm_8_0_19",
+   "section": "C",
+   "prio": 26.19,
+   "est_s": 1634.1368876872962,
+   "model_id": "qwen3-8b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 8,
+   "rep": 0,
+   "target_avail_mb": 15405.2,
+   "need_mib": 7213.200000000001,
+   "fill": 12584,
+   "kind": "anchor",
+   "backend": "vulkan",
+   "ord": 103
+  },
+  {
+   "item_id": "C_qwen3-8b_anchor_mm_8_0_23",
+   "section": "C",
+   "prio": 26.23,
+   "est_s": 1634.1368876872962,
+   "model_id": "qwen3-8b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 8,
+   "rep": 0,
+   "target_avail_mb": 15405.2,
+   "need_mib": 7213.200000000001,
+   "fill": 12584,
+   "kind": "anchor",
+   "backend": "vulkan",
+   "ord": 107
+  },
+  {
+   "item_id": "C_qwen3-8b_anchor_mm_8_0_27",
+   "section": "C",
+   "prio": 26.27,
+   "est_s": 1634.1368876872962,
+   "model_id": "qwen3-8b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 8,
+   "rep": 0,
+   "target_avail_mb": 15405.2,
+   "need_mib": 7213.200000000001,
+   "fill": 12584,
+   "kind": "anchor",
+   "backend": "vulkan",
+   "ord": 111
+  },
+  {
+   "item_id": "C_qwen3-8b_anchor_mm_8_0_31",
+   "section": "C",
+   "prio": 26.31,
+   "est_s": 1634.1368876872962,
+   "model_id": "qwen3-8b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 8,
+   "rep": 0,
+   "target_avail_mb": 15405.2,
+   "need_mib": 7213.200000000001,
+   "fill": 12584,
+   "kind": "anchor",
+   "backend": "vulkan",
+   "ord": 115
+  },
+  {
+   "item_id": "C_qwen3-8b_anchor_mm_8_0_35",
+   "section": "C",
+   "prio": 26.35,
+   "est_s": 1634.1368876872962,
+   "model_id": "qwen3-8b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 8,
+   "rep": 0,
+   "target_avail_mb": 15405.2,
+   "need_mib": 7213.200000000001,
+   "fill": 12584,
+   "kind": "anchor",
+   "backend": "vulkan",
+   "ord": 119
+  },
+  {
+   "item_id": "C_qwen3-8b_anchor_mm_8_0_39",
+   "section": "C",
+   "prio": 26.39,
+   "est_s": 1634.1368876872962,
+   "model_id": "qwen3-8b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 8,
+   "rep": 0,
+   "target_avail_mb": 15405.2,
+   "need_mib": 7213.200000000001,
+   "fill": 12584,
+   "kind": "anchor",
+   "backend": "vulkan",
+   "ord": 123
+  },
+  {
+   "item_id": "A_qwen3-32b_grid_65792_0",
+   "section": "A",
+   "prio": 30,
+   "est_s": 630.3076326756213,
+   "model_id": "qwen3-32b",
+   "n_ctx": 65792,
+   "kind": "grid",
+   "extra": [
+    "--rope-scaling",
+    "yarn",
+    "--rope-scale",
+    "4",
+    "--yarn-orig-ctx",
+    "32768"
+   ],
+   "fill": 4530,
+   "nstar": {
+    "device_total": 71988
+   },
+   "beyond": false,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 0
+  },
+  {
+   "item_id": "A_qwen3-32b_grid_82176_1",
+   "section": "A",
+   "prio": 30,
+   "est_s": 630.3076326756213,
+   "model_id": "qwen3-32b",
+   "n_ctx": 82176,
+   "kind": "grid",
+   "extra": [
+    "--rope-scaling",
+    "yarn",
+    "--rope-scale",
+    "4",
+    "--yarn-orig-ctx",
+    "32768"
+   ],
+   "fill": 4530,
+   "nstar": {
+    "device_total": 71988
+   },
+   "beyond": false,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 1
+  },
+  {
+   "item_id": "A_qwen3-32b_grid_69888_2",
+   "section": "A",
+   "prio": 30,
+   "est_s": 630.3076326756213,
+   "model_id": "qwen3-32b",
+   "n_ctx": 69888,
+   "kind": "grid",
+   "extra": [
+    "--rope-scaling",
+    "yarn",
+    "--rope-scale",
+    "4",
+    "--yarn-orig-ctx",
+    "32768"
+   ],
+   "fill": 4530,
+   "nstar": {
+    "device_total": 71988
+   },
+   "beyond": false,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 2
+  },
+  {
+   "item_id": "A_qwen3-32b_grid_73984_5",
+   "section": "A",
+   "prio": 30,
+   "est_s": 630.3076326756213,
+   "model_id": "qwen3-32b",
+   "n_ctx": 73984,
+   "kind": "grid",
+   "extra": [
+    "--rope-scaling",
+    "yarn",
+    "--rope-scale",
+    "4",
+    "--yarn-orig-ctx",
+    "32768"
+   ],
+   "fill": 4530,
+   "nstar": {
+    "device_total": 71988
+   },
+   "beyond": false,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 5
+  },
+  {
+   "item_id": "A_qwen3-32b_grid_67840_8",
+   "section": "A",
+   "prio": 30,
+   "est_s": 630.3076326756213,
+   "model_id": "qwen3-32b",
+   "n_ctx": 67840,
+   "kind": "grid",
+   "extra": [
+    "--rope-scaling",
+    "yarn",
+    "--rope-scale",
+    "4",
+    "--yarn-orig-ctx",
+    "32768"
+   ],
+   "fill": 4530,
+   "nstar": {
+    "device_total": 71988
+   },
+   "beyond": false,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 8
+  },
+  {
+   "item_id": "A_qwen3-32b_grid_76032_9",
+   "section": "A",
+   "prio": 30,
+   "est_s": 630.3076326756213,
+   "model_id": "qwen3-32b",
+   "n_ctx": 76032,
+   "kind": "grid",
+   "extra": [
+    "--rope-scaling",
+    "yarn",
+    "--rope-scale",
+    "4",
+    "--yarn-orig-ctx",
+    "32768"
+   ],
+   "fill": 4530,
+   "nstar": {
+    "device_total": 71988
+   },
+   "beyond": false,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 9
+  },
+  {
+   "item_id": "A_qwen3-32b_grid_78080_14",
+   "section": "A",
+   "prio": 30,
+   "est_s": 630.3076326756213,
+   "model_id": "qwen3-32b",
+   "n_ctx": 78080,
+   "kind": "grid",
+   "extra": [
+    "--rope-scaling",
+    "yarn",
+    "--rope-scale",
+    "4",
+    "--yarn-orig-ctx",
+    "32768"
+   ],
+   "fill": 4530,
+   "nstar": {
+    "device_total": 71988
+   },
+   "beyond": false,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 14
+  },
+  {
+   "item_id": "A_qwen3-32b_grid_80128_20",
+   "section": "A",
+   "prio": 30,
+   "est_s": 630.3076326756213,
+   "model_id": "qwen3-32b",
+   "n_ctx": 80128,
+   "kind": "grid",
+   "extra": [
+    "--rope-scaling",
+    "yarn",
+    "--rope-scale",
+    "4",
+    "--yarn-orig-ctx",
+    "32768"
+   ],
+   "fill": 4530,
+   "nstar": {
+    "device_total": 71988
+   },
+   "beyond": false,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 20
+  },
+  {
+   "item_id": "B_llama31-8b_cap100",
+   "section": "B",
+   "prio": 32,
+   "est_s": 3868.052610838422,
+   "model_id": "llama31-8b",
+   "fill": 7372,
+   "cap": 100,
+   "cells": [
+    "none",
+    "p4",
+    "e4",
+    "nonp12",
+    "all16"
+   ],
+   "ord": 80
+  },
+  {
+   "item_id": "C_qwen3-8b_cell_nomm_0_1_18",
+   "section": "C",
+   "prio": 32.18,
+   "est_s": 1634.1368876872962,
+   "model_id": "qwen3-8b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": 0,
+   "rep": 1,
+   "target_avail_mb": 7213.200000000001,
+   "need_mib": 7213.200000000001,
+   "fill": 12584,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 102
+  },
+  {
+   "item_id": "C_qwen3-8b_cell_mm_0_1_20",
+   "section": "C",
+   "prio": 32.2,
+   "est_s": 1634.1368876872962,
+   "model_id": "qwen3-8b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 0,
+   "rep": 1,
+   "target_avail_mb": 7213.200000000001,
+   "need_mib": 7213.200000000001,
+   "fill": 12584,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 104
+  },
+  {
+   "item_id": "C_qwen3-8b_cell_mm_-1_1_21",
+   "section": "C",
+   "prio": 32.21,
+   "est_s": 1634.1368876872962,
+   "model_id": "qwen3-8b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": -1,
+   "rep": 1,
+   "target_avail_mb": 6189.200000000001,
+   "need_mib": 7213.200000000001,
+   "fill": 12584,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 105
+  },
+  {
+   "item_id": "C_qwen3-8b_cell_nomm_-1_1_22",
+   "section": "C",
+   "prio": 32.22,
+   "est_s": 1634.1368876872962,
+   "model_id": "qwen3-8b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": -1,
+   "rep": 1,
+   "target_avail_mb": 6189.200000000001,
+   "need_mib": 7213.200000000001,
+   "fill": 12584,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 106
+  },
+  {
+   "item_id": "C_qwen3-8b_cell_nomm_-2_1_24",
+   "section": "C",
+   "prio": 32.24,
+   "est_s": 1634.1368876872962,
+   "model_id": "qwen3-8b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": -2,
+   "rep": 1,
+   "target_avail_mb": 5165.200000000001,
+   "need_mib": 7213.200000000001,
+   "fill": 12584,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 108
+  },
+  {
+   "item_id": "C_qwen3-8b_cell_mm_-2_1_25",
+   "section": "C",
+   "prio": 32.25,
+   "est_s": 1634.1368876872962,
+   "model_id": "qwen3-8b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": -2,
+   "rep": 1,
+   "target_avail_mb": 5165.200000000001,
+   "need_mib": 7213.200000000001,
+   "fill": 12584,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 109
+  },
+  {
+   "item_id": "C_qwen3-8b_cell_mm_1_1_26",
+   "section": "C",
+   "prio": 32.26,
+   "est_s": 1634.1368876872962,
+   "model_id": "qwen3-8b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 1,
+   "rep": 1,
+   "target_avail_mb": 8237.2,
+   "need_mib": 7213.200000000001,
+   "fill": 12584,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 110
+  },
+  {
+   "item_id": "C_qwen3-8b_cell_nomm_1_1_28",
+   "section": "C",
+   "prio": 32.28,
+   "est_s": 1634.1368876872962,
+   "model_id": "qwen3-8b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": 1,
+   "rep": 1,
+   "target_avail_mb": 8237.2,
+   "need_mib": 7213.200000000001,
+   "fill": 12584,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 112
+  },
+  {
+   "item_id": "C_qwen3-8b_cell_mm_0_2_29",
+   "section": "C",
+   "prio": 32.29,
+   "est_s": 1634.1368876872962,
+   "model_id": "qwen3-8b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 0,
+   "rep": 2,
+   "target_avail_mb": 7213.200000000001,
+   "need_mib": 7213.200000000001,
+   "fill": 12584,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 113
+  },
+  {
+   "item_id": "C_qwen3-8b_cell_nomm_0_2_30",
+   "section": "C",
+   "prio": 32.3,
+   "est_s": 1634.1368876872962,
+   "model_id": "qwen3-8b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": 0,
+   "rep": 2,
+   "target_avail_mb": 7213.200000000001,
+   "need_mib": 7213.200000000001,
+   "fill": 12584,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 114
+  },
+  {
+   "item_id": "C_qwen3-8b_cell_mm_-1_2_32",
+   "section": "C",
+   "prio": 32.32,
+   "est_s": 1634.1368876872962,
+   "model_id": "qwen3-8b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": -1,
+   "rep": 2,
+   "target_avail_mb": 6189.200000000001,
+   "need_mib": 7213.200000000001,
+   "fill": 12584,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 116
+  },
+  {
+   "item_id": "C_qwen3-8b_cell_nomm_-1_2_33",
+   "section": "C",
+   "prio": 32.33,
+   "est_s": 1634.1368876872962,
+   "model_id": "qwen3-8b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": -1,
+   "rep": 2,
+   "target_avail_mb": 6189.200000000001,
+   "need_mib": 7213.200000000001,
+   "fill": 12584,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 117
+  },
+  {
+   "item_id": "C_qwen3-8b_cell_mm_-2_2_34",
+   "section": "C",
+   "prio": 32.34,
+   "est_s": 1634.1368876872962,
+   "model_id": "qwen3-8b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": -2,
+   "rep": 2,
+   "target_avail_mb": 5165.200000000001,
+   "need_mib": 7213.200000000001,
+   "fill": 12584,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 118
+  },
+  {
+   "item_id": "C_qwen3-8b_cell_nomm_-2_2_36",
+   "section": "C",
+   "prio": 32.36,
+   "est_s": 1634.1368876872962,
+   "model_id": "qwen3-8b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": -2,
+   "rep": 2,
+   "target_avail_mb": 5165.200000000001,
+   "need_mib": 7213.200000000001,
+   "fill": 12584,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 120
+  },
+  {
+   "item_id": "C_qwen3-8b_cell_mm_1_2_37",
+   "section": "C",
+   "prio": 32.37,
+   "est_s": 1634.1368876872962,
+   "model_id": "qwen3-8b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 1,
+   "rep": 2,
+   "target_avail_mb": 8237.2,
+   "need_mib": 7213.200000000001,
+   "fill": 12584,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 121
+  },
+  {
+   "item_id": "C_qwen3-8b_cell_nomm_1_2_38",
+   "section": "C",
+   "prio": 32.38,
+   "est_s": 1634.1368876872962,
+   "model_id": "qwen3-8b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": 1,
+   "rep": 2,
+   "target_avail_mb": 8237.2,
+   "need_mib": 7213.200000000001,
+   "fill": 12584,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 122
+  },
+  {
+   "item_id": "B_qwen3-14b_cap100",
+   "section": "B",
+   "prio": 34,
+   "est_s": 4830.5995235282735,
+   "model_id": "qwen3-14b",
+   "fill": 7372,
+   "cap": 100,
+   "cells": [
+    "none",
+    "p4",
+    "e4",
+    "nonp12",
+    "all16"
+   ],
+   "ord": 81
+  },
+  {
+   "item_id": "B_qwen3-30b-a3b-2507_cap100",
+   "section": "B",
+   "prio": 36,
+   "est_s": 3989.3859011325944,
+   "model_id": "qwen3-30b-a3b-2507",
+   "fill": 7372,
+   "cap": 100,
+   "cells": [
+    "none",
+    "p4",
+    "e4",
+    "nonp12",
+    "all16"
+   ],
+   "ord": 82
+  },
+  {
+   "item_id": "B_qwen3-32b_cap100",
+   "section": "B",
+   "prio": 38,
+   "est_s": 8396.493459019644,
+   "model_id": "qwen3-32b",
+   "fill": 7372,
+   "cap": 100,
+   "cells": [
+    "none",
+    "p4",
+    "e4",
+    "nonp12",
+    "all16"
+   ],
+   "ord": 83
+  },
+  {
+   "item_id": "C_qwen3-14b_cell_nomm_0_0_0",
+   "section": "C",
+   "prio": 40.0,
+   "est_s": 1463.0448780281708,
+   "model_id": "qwen3-14b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": 0,
+   "rep": 0,
+   "target_avail_mb": 11297.07,
+   "need_mib": 11297.07,
+   "fill": 9688,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 124
+  },
+  {
+   "item_id": "C_qwen3-14b_cell_mm_0_0_1",
+   "section": "C",
+   "prio": 40.01,
+   "est_s": 1463.0448780281708,
+   "model_id": "qwen3-14b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 0,
+   "rep": 0,
+   "target_avail_mb": 11297.07,
+   "need_mib": 11297.07,
+   "fill": 9688,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 125
+  },
+  {
+   "item_id": "C_qwen3-14b_cell_nomm_-1_0_2",
+   "section": "C",
+   "prio": 40.02,
+   "est_s": 1463.0448780281708,
+   "model_id": "qwen3-14b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": -1,
+   "rep": 0,
+   "target_avail_mb": 10273.07,
+   "need_mib": 11297.07,
+   "fill": 9688,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 126
+  },
+  {
+   "item_id": "C_qwen3-14b_anchor_mm_8_0_3",
+   "section": "C",
+   "prio": 40.03,
+   "est_s": 1463.0448780281708,
+   "model_id": "qwen3-14b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 8,
+   "rep": 0,
+   "target_avail_mb": 19489.07,
+   "need_mib": 11297.07,
+   "fill": 9688,
+   "kind": "anchor",
+   "backend": "vulkan",
+   "ord": 127
+  },
+  {
+   "item_id": "C_qwen3-14b_cell_mm_-1_0_4",
+   "section": "C",
+   "prio": 40.04,
+   "est_s": 1463.0448780281708,
+   "model_id": "qwen3-14b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": -1,
+   "rep": 0,
+   "target_avail_mb": 10273.07,
+   "need_mib": 11297.07,
+   "fill": 9688,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 128
+  },
+  {
+   "item_id": "C_qwen3-14b_cell_mm_2_0_5",
+   "section": "C",
+   "prio": 40.05,
+   "est_s": 1463.0448780281708,
+   "model_id": "qwen3-14b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 2,
+   "rep": 0,
+   "target_avail_mb": 13345.07,
+   "need_mib": 11297.07,
+   "fill": 9688,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 129
+  },
+  {
+   "item_id": "C_qwen3-14b_cell_nomm_2_0_6",
+   "section": "C",
+   "prio": 40.06,
+   "est_s": 1463.0448780281708,
+   "model_id": "qwen3-14b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": 2,
+   "rep": 0,
+   "target_avail_mb": 13345.07,
+   "need_mib": 11297.07,
+   "fill": 9688,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 130
+  },
+  {
+   "item_id": "C_qwen3-14b_anchor_mm_8_0_7",
+   "section": "C",
+   "prio": 40.07,
+   "est_s": 1463.0448780281708,
+   "model_id": "qwen3-14b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 8,
+   "rep": 0,
+   "target_avail_mb": 19489.07,
+   "need_mib": 11297.07,
+   "fill": 9688,
+   "kind": "anchor",
+   "backend": "vulkan",
+   "ord": 131
+  },
+  {
+   "item_id": "C_qwen3-14b_cell_mm_-2_0_8",
+   "section": "C",
+   "prio": 40.08,
+   "est_s": 1463.0448780281708,
+   "model_id": "qwen3-14b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": -2,
+   "rep": 0,
+   "target_avail_mb": 9249.07,
+   "need_mib": 11297.07,
+   "fill": 9688,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 132
+  },
+  {
+   "item_id": "C_qwen3-14b_cell_nomm_-2_0_9",
+   "section": "C",
+   "prio": 40.09,
+   "est_s": 1463.0448780281708,
+   "model_id": "qwen3-14b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": -2,
+   "rep": 0,
+   "target_avail_mb": 9249.07,
+   "need_mib": 11297.07,
+   "fill": 9688,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 133
+  },
+  {
+   "item_id": "C_qwen3-14b_cell_mm_1_0_10",
+   "section": "C",
+   "prio": 40.1,
+   "est_s": 1463.0448780281708,
+   "model_id": "qwen3-14b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 1,
+   "rep": 0,
+   "target_avail_mb": 12321.07,
+   "need_mib": 11297.07,
+   "fill": 9688,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 134
+  },
+  {
+   "item_id": "C_qwen3-14b_anchor_mm_8_0_11",
+   "section": "C",
+   "prio": 40.11,
+   "est_s": 1463.0448780281708,
+   "model_id": "qwen3-14b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 8,
+   "rep": 0,
+   "target_avail_mb": 19489.07,
+   "need_mib": 11297.07,
+   "fill": 9688,
+   "kind": "anchor",
+   "backend": "vulkan",
+   "ord": 135
+  },
+  {
+   "item_id": "C_qwen3-14b_cell_nomm_1_0_12",
+   "section": "C",
+   "prio": 40.12,
+   "est_s": 1463.0448780281708,
+   "model_id": "qwen3-14b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": 1,
+   "rep": 0,
+   "target_avail_mb": 12321.07,
+   "need_mib": 11297.07,
+   "fill": 9688,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 136
+  },
+  {
+   "item_id": "C_qwen3-14b_cell_nomm_4_0_13",
+   "section": "C",
+   "prio": 40.13,
+   "est_s": 1463.0448780281708,
+   "model_id": "qwen3-14b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": 4,
+   "rep": 0,
+   "target_avail_mb": 15393.07,
+   "need_mib": 11297.07,
+   "fill": 9688,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 137
+  },
+  {
+   "item_id": "C_qwen3-14b_cell_mm_4_0_14",
+   "section": "C",
+   "prio": 40.14,
+   "est_s": 1463.0448780281708,
+   "model_id": "qwen3-14b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 4,
+   "rep": 0,
+   "target_avail_mb": 15393.07,
+   "need_mib": 11297.07,
+   "fill": 9688,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 138
+  },
+  {
+   "item_id": "C_qwen3-14b_anchor_mm_8_0_15",
+   "section": "C",
+   "prio": 40.15,
+   "est_s": 1463.0448780281708,
+   "model_id": "qwen3-14b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 8,
+   "rep": 0,
+   "target_avail_mb": 19489.07,
+   "need_mib": 11297.07,
+   "fill": 9688,
+   "kind": "anchor",
+   "backend": "vulkan",
+   "ord": 139
+  },
+  {
+   "item_id": "C_qwen3-14b_cell_nomm_8_0_16",
+   "section": "C",
+   "prio": 40.16,
+   "est_s": 1463.0448780281708,
+   "model_id": "qwen3-14b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": 8,
+   "rep": 0,
+   "target_avail_mb": 19489.07,
+   "need_mib": 11297.07,
+   "fill": 9688,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 140
+  },
+  {
+   "item_id": "C_qwen3-14b_cell_mm_8_0_17",
+   "section": "C",
+   "prio": 40.17,
+   "est_s": 1463.0448780281708,
+   "model_id": "qwen3-14b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 8,
+   "rep": 0,
+   "target_avail_mb": 19489.07,
+   "need_mib": 11297.07,
+   "fill": 9688,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 141
+  },
+  {
+   "item_id": "C_qwen3-14b_anchor_mm_8_0_19",
+   "section": "C",
+   "prio": 40.19,
+   "est_s": 1463.0448780281708,
+   "model_id": "qwen3-14b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 8,
+   "rep": 0,
+   "target_avail_mb": 19489.07,
+   "need_mib": 11297.07,
+   "fill": 9688,
+   "kind": "anchor",
+   "backend": "vulkan",
+   "ord": 143
+  },
+  {
+   "item_id": "C_qwen3-14b_anchor_mm_8_0_23",
+   "section": "C",
+   "prio": 40.23,
+   "est_s": 1463.0448780281708,
+   "model_id": "qwen3-14b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 8,
+   "rep": 0,
+   "target_avail_mb": 19489.07,
+   "need_mib": 11297.07,
+   "fill": 9688,
+   "kind": "anchor",
+   "backend": "vulkan",
+   "ord": 147
+  },
+  {
+   "item_id": "C_qwen3-14b_anchor_mm_8_0_27",
+   "section": "C",
+   "prio": 40.27,
+   "est_s": 1463.0448780281708,
+   "model_id": "qwen3-14b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 8,
+   "rep": 0,
+   "target_avail_mb": 19489.07,
+   "need_mib": 11297.07,
+   "fill": 9688,
+   "kind": "anchor",
+   "backend": "vulkan",
+   "ord": 151
+  },
+  {
+   "item_id": "C_qwen3-14b_anchor_mm_8_0_31",
+   "section": "C",
+   "prio": 40.31,
+   "est_s": 1463.0448780281708,
+   "model_id": "qwen3-14b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 8,
+   "rep": 0,
+   "target_avail_mb": 19489.07,
+   "need_mib": 11297.07,
+   "fill": 9688,
+   "kind": "anchor",
+   "backend": "vulkan",
+   "ord": 155
+  },
+  {
+   "item_id": "C_qwen3-14b_anchor_mm_8_0_35",
+   "section": "C",
+   "prio": 40.35,
+   "est_s": 1463.0448780281708,
+   "model_id": "qwen3-14b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 8,
+   "rep": 0,
+   "target_avail_mb": 19489.07,
+   "need_mib": 11297.07,
+   "fill": 9688,
+   "kind": "anchor",
+   "backend": "vulkan",
+   "ord": 159
+  },
+  {
+   "item_id": "C_qwen3-14b_anchor_mm_8_0_39",
+   "section": "C",
+   "prio": 40.39,
+   "est_s": 1463.0448780281708,
+   "model_id": "qwen3-14b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 8,
+   "rep": 0,
+   "target_avail_mb": 19489.07,
+   "need_mib": 11297.07,
+   "fill": 9688,
+   "kind": "anchor",
+   "backend": "vulkan",
+   "ord": 163
+  },
+  {
+   "item_id": "C_qwen3-32b_cell_mm_0_0_1",
+   "section": "C",
+   "prio": 42.01,
+   "est_s": 1178.1806858373398,
+   "model_id": "qwen3-32b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 0,
+   "rep": 0,
+   "target_avail_mb": 23158.97,
+   "need_mib": 23158.97,
+   "fill": 4530,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 165
+  },
+  {
+   "item_id": "C_qwen3-32b_cell_nomm_-1_0_2",
+   "section": "C",
+   "prio": 42.02,
+   "est_s": 1178.1806858373398,
+   "model_id": "qwen3-32b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": -1,
+   "rep": 0,
+   "target_avail_mb": 22134.97,
+   "need_mib": 23158.97,
+   "fill": 4530,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 166
+  },
+  {
+   "item_id": "C_qwen3-32b_anchor_mm_8_0_3",
+   "section": "C",
+   "prio": 42.03,
+   "est_s": 1178.1806858373398,
+   "model_id": "qwen3-32b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 8,
+   "rep": 0,
+   "target_avail_mb": 31350.97,
+   "need_mib": 23158.97,
+   "fill": 4530,
+   "kind": "anchor",
+   "backend": "vulkan",
+   "ord": 167
+  },
+  {
+   "item_id": "C_qwen3-32b_cell_mm_-1_0_4",
+   "section": "C",
+   "prio": 42.04,
+   "est_s": 1178.1806858373398,
+   "model_id": "qwen3-32b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": -1,
+   "rep": 0,
+   "target_avail_mb": 22134.97,
+   "need_mib": 23158.97,
+   "fill": 4530,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 168
+  },
+  {
+   "item_id": "C_qwen3-32b_cell_nomm_2_0_5",
+   "section": "C",
+   "prio": 42.05,
+   "est_s": 1178.1806858373398,
+   "model_id": "qwen3-32b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": 2,
+   "rep": 0,
+   "target_avail_mb": 25206.97,
+   "need_mib": 23158.97,
+   "fill": 4530,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 169
+  },
+  {
+   "item_id": "C_qwen3-32b_cell_mm_2_0_6",
+   "section": "C",
+   "prio": 42.06,
+   "est_s": 1178.1806858373398,
+   "model_id": "qwen3-32b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 2,
+   "rep": 0,
+   "target_avail_mb": 25206.97,
+   "need_mib": 23158.97,
+   "fill": 4530,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 170
+  },
+  {
+   "item_id": "C_qwen3-32b_anchor_mm_8_0_7",
+   "section": "C",
+   "prio": 42.07,
+   "est_s": 1178.1806858373398,
+   "model_id": "qwen3-32b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 8,
+   "rep": 0,
+   "target_avail_mb": 31350.97,
+   "need_mib": 23158.97,
+   "fill": 4530,
+   "kind": "anchor",
+   "backend": "vulkan",
+   "ord": 171
+  },
+  {
+   "item_id": "C_qwen3-32b_cell_mm_-2_0_8",
+   "section": "C",
+   "prio": 42.08,
+   "est_s": 1178.1806858373398,
+   "model_id": "qwen3-32b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": -2,
+   "rep": 0,
+   "target_avail_mb": 21110.97,
+   "need_mib": 23158.97,
+   "fill": 4530,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 172
+  },
+  {
+   "item_id": "C_qwen3-32b_cell_nomm_-2_0_9",
+   "section": "C",
+   "prio": 42.09,
+   "est_s": 1178.1806858373398,
+   "model_id": "qwen3-32b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": -2,
+   "rep": 0,
+   "target_avail_mb": 21110.97,
+   "need_mib": 23158.97,
+   "fill": 4530,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 173
+  },
+  {
+   "item_id": "C_qwen3-32b_cell_nomm_1_0_10",
+   "section": "C",
+   "prio": 42.1,
+   "est_s": 1178.1806858373398,
+   "model_id": "qwen3-32b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": 1,
+   "rep": 0,
+   "target_avail_mb": 24182.97,
+   "need_mib": 23158.97,
+   "fill": 4530,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 174
+  },
+  {
+   "item_id": "C_qwen3-32b_anchor_mm_8_0_11",
+   "section": "C",
+   "prio": 42.11,
+   "est_s": 1178.1806858373398,
+   "model_id": "qwen3-32b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 8,
+   "rep": 0,
+   "target_avail_mb": 31350.97,
+   "need_mib": 23158.97,
+   "fill": 4530,
+   "kind": "anchor",
+   "backend": "vulkan",
+   "ord": 175
+  },
+  {
+   "item_id": "C_qwen3-32b_cell_mm_1_0_12",
+   "section": "C",
+   "prio": 42.12,
+   "est_s": 1178.1806858373398,
+   "model_id": "qwen3-32b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 1,
+   "rep": 0,
+   "target_avail_mb": 24182.97,
+   "need_mib": 23158.97,
+   "fill": 4530,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 176
+  },
+  {
+   "item_id": "C_qwen3-32b_cell_mm_4_0_13",
+   "section": "C",
+   "prio": 42.13,
+   "est_s": 1178.1806858373398,
+   "model_id": "qwen3-32b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 4,
+   "rep": 0,
+   "target_avail_mb": 27254.97,
+   "need_mib": 23158.97,
+   "fill": 4530,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 177
+  },
+  {
+   "item_id": "C_qwen3-32b_cell_nomm_4_0_14",
+   "section": "C",
+   "prio": 42.14,
+   "est_s": 1178.1806858373398,
+   "model_id": "qwen3-32b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": 4,
+   "rep": 0,
+   "target_avail_mb": 27254.97,
+   "need_mib": 23158.97,
+   "fill": 4530,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 178
+  },
+  {
+   "item_id": "C_qwen3-32b_anchor_mm_8_0_15",
+   "section": "C",
+   "prio": 42.15,
+   "est_s": 1178.1806858373398,
+   "model_id": "qwen3-32b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 8,
+   "rep": 0,
+   "target_avail_mb": 31350.97,
+   "need_mib": 23158.97,
+   "fill": 4530,
+   "kind": "anchor",
+   "backend": "vulkan",
+   "ord": 179
+  },
+  {
+   "item_id": "C_qwen3-32b_cell_nomm_8_0_16",
+   "section": "C",
+   "prio": 42.16,
+   "est_s": 1178.1806858373398,
+   "model_id": "qwen3-32b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": 8,
+   "rep": 0,
+   "target_avail_mb": 31350.97,
+   "need_mib": 23158.97,
+   "fill": 4530,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 180
+  },
+  {
+   "item_id": "C_qwen3-32b_cell_mm_8_0_17",
+   "section": "C",
+   "prio": 42.17,
+   "est_s": 1178.1806858373398,
+   "model_id": "qwen3-32b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 8,
+   "rep": 0,
+   "target_avail_mb": 31350.97,
+   "need_mib": 23158.97,
+   "fill": 4530,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 181
+  },
+  {
+   "item_id": "C_qwen3-32b_anchor_mm_8_0_19",
+   "section": "C",
+   "prio": 42.19,
+   "est_s": 1178.1806858373398,
+   "model_id": "qwen3-32b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 8,
+   "rep": 0,
+   "target_avail_mb": 31350.97,
+   "need_mib": 23158.97,
+   "fill": 4530,
+   "kind": "anchor",
+   "backend": "vulkan",
+   "ord": 183
+  },
+  {
+   "item_id": "C_qwen3-32b_anchor_mm_8_0_23",
+   "section": "C",
+   "prio": 42.23,
+   "est_s": 1178.1806858373398,
+   "model_id": "qwen3-32b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 8,
+   "rep": 0,
+   "target_avail_mb": 31350.97,
+   "need_mib": 23158.97,
+   "fill": 4530,
+   "kind": "anchor",
+   "backend": "vulkan",
+   "ord": 187
+  },
+  {
+   "item_id": "C_qwen3-32b_anchor_mm_8_0_27",
+   "section": "C",
+   "prio": 42.27,
+   "est_s": 1178.1806858373398,
+   "model_id": "qwen3-32b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 8,
+   "rep": 0,
+   "target_avail_mb": 31350.97,
+   "need_mib": 23158.97,
+   "fill": 4530,
+   "kind": "anchor",
+   "backend": "vulkan",
+   "ord": 191
+  },
+  {
+   "item_id": "C_qwen3-32b_anchor_mm_8_0_31",
+   "section": "C",
+   "prio": 42.31,
+   "est_s": 1178.1806858373398,
+   "model_id": "qwen3-32b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 8,
+   "rep": 0,
+   "target_avail_mb": 31350.97,
+   "need_mib": 23158.97,
+   "fill": 4530,
+   "kind": "anchor",
+   "backend": "vulkan",
+   "ord": 195
+  },
+  {
+   "item_id": "C_qwen3-32b_anchor_mm_8_0_35",
+   "section": "C",
+   "prio": 42.35,
+   "est_s": 1178.1806858373398,
+   "model_id": "qwen3-32b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 8,
+   "rep": 0,
+   "target_avail_mb": 31350.97,
+   "need_mib": 23158.97,
+   "fill": 4530,
+   "kind": "anchor",
+   "backend": "vulkan",
+   "ord": 199
+  },
+  {
+   "item_id": "C_qwen3-32b_anchor_mm_8_0_39",
+   "section": "C",
+   "prio": 42.39,
+   "est_s": 1178.1806858373398,
+   "model_id": "qwen3-32b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 8,
+   "rep": 0,
+   "target_avail_mb": 31350.97,
+   "need_mib": 23158.97,
+   "fill": 4530,
+   "kind": "anchor",
+   "backend": "vulkan",
+   "ord": 203
+  },
+  {
+   "item_id": "A_qwen3-4b-2507_grid_316928_0",
+   "section": "A",
+   "prio": 45,
+   "est_s": 859.8664962957822,
+   "model_id": "qwen3-4b-2507",
+   "n_ctx": 316928,
+   "kind": "grid",
+   "extra": [],
+   "fill": 13371,
+   "nstar": {
+    "device_free": 320595
+   },
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 34
+  },
+  {
+   "item_id": "A_qwen3-4b-2507_anchor_232960_3",
+   "section": "A",
+   "prio": 45,
+   "est_s": 859.8664962957822,
+   "model_id": "qwen3-4b-2507",
+   "n_ctx": 232960,
+   "kind": "anchor",
+   "extra": [],
+   "fill": 13371,
+   "nstar": {
+    "device_total": 243760
+   },
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 37
+  },
+  {
+   "item_id": "A_qwen3-4b-2507_grid_338432_4",
+   "section": "A",
+   "prio": 45,
+   "est_s": 859.8664962957822,
+   "model_id": "qwen3-4b-2507",
+   "n_ctx": 338432,
+   "kind": "grid",
+   "extra": [],
+   "fill": 13371,
+   "nstar": {
+    "device_free": 320595
+   },
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 38
+  },
+  {
+   "item_id": "A_qwen3-4b-2507_grid_313344_5",
+   "section": "A",
+   "prio": 45,
+   "est_s": 859.8664962957822,
+   "model_id": "qwen3-4b-2507",
+   "n_ctx": 313344,
+   "kind": "grid",
+   "extra": [],
+   "fill": 13371,
+   "nstar": {
+    "device_free": 320595
+   },
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 39
+  },
+  {
+   "item_id": "A_qwen3-4b-2507_grid_334848_6",
+   "section": "A",
+   "prio": 45,
+   "est_s": 859.8664962957822,
+   "model_id": "qwen3-4b-2507",
+   "n_ctx": 334848,
+   "kind": "grid",
+   "extra": [],
+   "fill": 13371,
+   "nstar": {
+    "device_free": 320595
+   },
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 40
+  },
+  {
+   "item_id": "A_qwen3-4b-2507_anchor_232960_7",
+   "section": "A",
+   "prio": 45,
+   "est_s": 859.8664962957822,
+   "model_id": "qwen3-4b-2507",
+   "n_ctx": 232960,
+   "kind": "anchor",
+   "extra": [],
+   "fill": 13371,
+   "nstar": {
+    "device_total": 243760
+   },
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 41
+  },
+  {
+   "item_id": "A_qwen3-4b-2507_grid_331264_8",
+   "section": "A",
+   "prio": 45,
+   "est_s": 859.8664962957822,
+   "model_id": "qwen3-4b-2507",
+   "n_ctx": 331264,
+   "kind": "grid",
+   "extra": [],
+   "fill": 13371,
+   "nstar": {
+    "device_free": 320595
+   },
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 42
+  },
+  {
+   "item_id": "A_qwen3-4b-2507_grid_309760_10",
+   "section": "A",
+   "prio": 45,
+   "est_s": 859.8664962957822,
+   "model_id": "qwen3-4b-2507",
+   "n_ctx": 309760,
+   "kind": "grid",
+   "extra": [],
+   "fill": 13371,
+   "nstar": {
+    "device_free": 320595
+   },
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 44
+  },
+  {
+   "item_id": "A_qwen3-4b-2507_anchor_232960_11",
+   "section": "A",
+   "prio": 45,
+   "est_s": 859.8664962957822,
+   "model_id": "qwen3-4b-2507",
+   "n_ctx": 232960,
+   "kind": "anchor",
+   "extra": [],
+   "fill": 13371,
+   "nstar": {
+    "device_total": 243760
+   },
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 45
+  },
+  {
+   "item_id": "A_qwen3-4b-2507_grid_324096_14",
+   "section": "A",
+   "prio": 45,
+   "est_s": 859.8664962957822,
+   "model_id": "qwen3-4b-2507",
+   "n_ctx": 324096,
+   "kind": "grid",
+   "extra": [],
+   "fill": 13371,
+   "nstar": {
+    "device_free": 320595
+   },
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 48
+  },
+  {
+   "item_id": "A_qwen3-4b-2507_anchor_232960_15",
+   "section": "A",
+   "prio": 45,
+   "est_s": 859.8664962957822,
+   "model_id": "qwen3-4b-2507",
+   "n_ctx": 232960,
+   "kind": "anchor",
+   "extra": [],
+   "fill": 13371,
+   "nstar": {
+    "device_total": 243760
+   },
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 49
+  },
+  {
+   "item_id": "A_qwen3-4b-2507_grid_327680_16",
+   "section": "A",
+   "prio": 45,
+   "est_s": 859.8664962957822,
+   "model_id": "qwen3-4b-2507",
+   "n_ctx": 327680,
+   "kind": "grid",
+   "extra": [],
+   "fill": 13371,
+   "nstar": {
+    "device_free": 320595
+   },
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 50
+  },
+  {
+   "item_id": "A_qwen3-4b-2507_anchor_232960_19",
+   "section": "A",
+   "prio": 45,
+   "est_s": 859.8664962957822,
+   "model_id": "qwen3-4b-2507",
+   "n_ctx": 232960,
+   "kind": "anchor",
+   "extra": [],
+   "fill": 13371,
+   "nstar": {
+    "device_total": 243760
+   },
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 53
+  },
+  {
+   "item_id": "A_qwen3-4b-2507_probe_max",
+   "section": "A",
+   "prio": 45.5,
+   "est_s": 843.0910717313925,
+   "model_id": "qwen3-4b-2507",
+   "kind": "probe_max",
+   "extra": [],
+   "nstar": {},
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "n_ctx": null,
+   "ord": 55
+  },
+  {
+   "item_id": "A_qwen3-8b_grid_312576_1",
+   "section": "A",
+   "prio": 46,
+   "est_s": 829.4059327095234,
+   "model_id": "qwen3-8b",
+   "n_ctx": 312576,
+   "kind": "grid",
+   "extra": [],
+   "fill": 12584,
+   "nstar": {
+    "device_free": 305463
+   },
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 57
+  },
+  {
+   "item_id": "A_qwen3-8b_grid_316160_2",
+   "section": "A",
+   "prio": 46,
+   "est_s": 829.4059327095234,
+   "model_id": "qwen3-8b",
+   "n_ctx": 316160,
+   "kind": "grid",
+   "extra": [],
+   "fill": 12584,
+   "nstar": {
+    "device_free": 305463
+   },
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 58
+  },
+  {
+   "item_id": "A_qwen3-8b_anchor_217856_3",
+   "section": "A",
+   "prio": 46,
+   "est_s": 829.4059327095234,
+   "model_id": "qwen3-8b",
+   "n_ctx": 217856,
+   "kind": "anchor",
+   "extra": [],
+   "fill": 12584,
+   "nstar": {
+    "device_total": 228627
+   },
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 59
+  },
+  {
+   "item_id": "A_qwen3-8b_grid_294656_5",
+   "section": "A",
+   "prio": 46,
+   "est_s": 829.4059327095234,
+   "model_id": "qwen3-8b",
+   "n_ctx": 294656,
+   "kind": "grid",
+   "extra": [],
+   "fill": 12584,
+   "nstar": {
+    "device_free": 305463
+   },
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 61
+  },
+  {
+   "item_id": "A_qwen3-8b_anchor_217856_7",
+   "section": "A",
+   "prio": 46,
+   "est_s": 829.4059327095234,
+   "model_id": "qwen3-8b",
+   "n_ctx": 217856,
+   "kind": "anchor",
+   "extra": [],
+   "fill": 12584,
+   "nstar": {
+    "device_total": 228627
+   },
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 63
+  },
+  {
+   "item_id": "A_qwen3-8b_grid_323328_9",
+   "section": "A",
+   "prio": 46,
+   "est_s": 829.4059327095234,
+   "model_id": "qwen3-8b",
+   "n_ctx": 323328,
+   "kind": "grid",
+   "extra": [],
+   "fill": 12584,
+   "nstar": {
+    "device_free": 305463
+   },
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 65
+  },
+  {
+   "item_id": "A_qwen3-8b_grid_298240_10",
+   "section": "A",
+   "prio": 46,
+   "est_s": 829.4059327095234,
+   "model_id": "qwen3-8b",
+   "n_ctx": 298240,
+   "kind": "grid",
+   "extra": [],
+   "fill": 12584,
+   "nstar": {
+    "device_free": 305463
+   },
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 66
+  },
+  {
+   "item_id": "A_qwen3-8b_anchor_217856_11",
+   "section": "A",
+   "prio": 46,
+   "est_s": 829.4059327095234,
+   "model_id": "qwen3-8b",
+   "n_ctx": 217856,
+   "kind": "anchor",
+   "extra": [],
+   "fill": 12584,
+   "nstar": {
+    "device_total": 228627
+   },
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 67
+  },
+  {
+   "item_id": "A_qwen3-8b_grid_319744_12",
+   "section": "A",
+   "prio": 46,
+   "est_s": 829.4059327095234,
+   "model_id": "qwen3-8b",
+   "n_ctx": 319744,
+   "kind": "grid",
+   "extra": [],
+   "fill": 12584,
+   "nstar": {
+    "device_free": 305463
+   },
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 68
+  },
+  {
+   "item_id": "A_qwen3-8b_grid_308992_14",
+   "section": "A",
+   "prio": 46,
+   "est_s": 829.4059327095234,
+   "model_id": "qwen3-8b",
+   "n_ctx": 308992,
+   "kind": "grid",
+   "extra": [],
+   "fill": 12584,
+   "nstar": {
+    "device_free": 305463
+   },
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 70
+  },
+  {
+   "item_id": "A_qwen3-8b_anchor_217856_15",
+   "section": "A",
+   "prio": 46,
+   "est_s": 829.4059327095234,
+   "model_id": "qwen3-8b",
+   "n_ctx": 217856,
+   "kind": "anchor",
+   "extra": [],
+   "fill": 12584,
+   "nstar": {
+    "device_total": 228627
+   },
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 71
+  },
+  {
+   "item_id": "A_qwen3-8b_grid_301824_17",
+   "section": "A",
+   "prio": 46,
+   "est_s": 829.4059327095234,
+   "model_id": "qwen3-8b",
+   "n_ctx": 301824,
+   "kind": "grid",
+   "extra": [],
+   "fill": 12584,
+   "nstar": {
+    "device_free": 305463
+   },
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 73
+  },
+  {
+   "item_id": "A_qwen3-8b_anchor_217856_19",
+   "section": "A",
+   "prio": 46,
+   "est_s": 829.4059327095234,
+   "model_id": "qwen3-8b",
+   "n_ctx": 217856,
+   "kind": "anchor",
+   "extra": [],
+   "fill": 12584,
+   "nstar": {
+    "device_total": 228627
+   },
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 75
+  },
+  {
+   "item_id": "C_qwen3-14b_cell_mm_0_1_18",
+   "section": "C",
+   "prio": 46.18,
+   "est_s": 1463.0448780281708,
+   "model_id": "qwen3-14b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 0,
+   "rep": 1,
+   "target_avail_mb": 11297.07,
+   "need_mib": 11297.07,
+   "fill": 9688,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 142
+  },
+  {
+   "item_id": "C_qwen3-14b_cell_nomm_0_1_20",
+   "section": "C",
+   "prio": 46.2,
+   "est_s": 1463.0448780281708,
+   "model_id": "qwen3-14b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": 0,
+   "rep": 1,
+   "target_avail_mb": 11297.07,
+   "need_mib": 11297.07,
+   "fill": 9688,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 144
+  },
+  {
+   "item_id": "C_qwen3-14b_cell_mm_-1_1_21",
+   "section": "C",
+   "prio": 46.21,
+   "est_s": 1463.0448780281708,
+   "model_id": "qwen3-14b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": -1,
+   "rep": 1,
+   "target_avail_mb": 10273.07,
+   "need_mib": 11297.07,
+   "fill": 9688,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 145
+  },
+  {
+   "item_id": "C_qwen3-14b_cell_nomm_-1_1_22",
+   "section": "C",
+   "prio": 46.22,
+   "est_s": 1463.0448780281708,
+   "model_id": "qwen3-14b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": -1,
+   "rep": 1,
+   "target_avail_mb": 10273.07,
+   "need_mib": 11297.07,
+   "fill": 9688,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 146
+  },
+  {
+   "item_id": "C_qwen3-14b_cell_mm_-2_1_24",
+   "section": "C",
+   "prio": 46.24,
+   "est_s": 1463.0448780281708,
+   "model_id": "qwen3-14b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": -2,
+   "rep": 1,
+   "target_avail_mb": 9249.07,
+   "need_mib": 11297.07,
+   "fill": 9688,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 148
+  },
+  {
+   "item_id": "C_qwen3-14b_cell_nomm_-2_1_25",
+   "section": "C",
+   "prio": 46.25,
+   "est_s": 1463.0448780281708,
+   "model_id": "qwen3-14b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": -2,
+   "rep": 1,
+   "target_avail_mb": 9249.07,
+   "need_mib": 11297.07,
+   "fill": 9688,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 149
+  },
+  {
+   "item_id": "C_qwen3-14b_cell_mm_1_1_26",
+   "section": "C",
+   "prio": 46.26,
+   "est_s": 1463.0448780281708,
+   "model_id": "qwen3-14b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 1,
+   "rep": 1,
+   "target_avail_mb": 12321.07,
+   "need_mib": 11297.07,
+   "fill": 9688,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 150
+  },
+  {
+   "item_id": "C_qwen3-14b_cell_nomm_1_1_28",
+   "section": "C",
+   "prio": 46.28,
+   "est_s": 1463.0448780281708,
+   "model_id": "qwen3-14b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": 1,
+   "rep": 1,
+   "target_avail_mb": 12321.07,
+   "need_mib": 11297.07,
+   "fill": 9688,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 152
+  },
+  {
+   "item_id": "C_qwen3-14b_cell_nomm_0_2_29",
+   "section": "C",
+   "prio": 46.29,
+   "est_s": 1463.0448780281708,
+   "model_id": "qwen3-14b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": 0,
+   "rep": 2,
+   "target_avail_mb": 11297.07,
+   "need_mib": 11297.07,
+   "fill": 9688,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 153
+  },
+  {
+   "item_id": "C_qwen3-14b_cell_mm_0_2_30",
+   "section": "C",
+   "prio": 46.3,
+   "est_s": 1463.0448780281708,
+   "model_id": "qwen3-14b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 0,
+   "rep": 2,
+   "target_avail_mb": 11297.07,
+   "need_mib": 11297.07,
+   "fill": 9688,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 154
+  },
+  {
+   "item_id": "C_qwen3-14b_cell_nomm_-1_2_32",
+   "section": "C",
+   "prio": 46.32,
+   "est_s": 1463.0448780281708,
+   "model_id": "qwen3-14b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": -1,
+   "rep": 2,
+   "target_avail_mb": 10273.07,
+   "need_mib": 11297.07,
+   "fill": 9688,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 156
+  },
+  {
+   "item_id": "C_qwen3-14b_cell_mm_-1_2_33",
+   "section": "C",
+   "prio": 46.33,
+   "est_s": 1463.0448780281708,
+   "model_id": "qwen3-14b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": -1,
+   "rep": 2,
+   "target_avail_mb": 10273.07,
+   "need_mib": 11297.07,
+   "fill": 9688,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 157
+  },
+  {
+   "item_id": "C_qwen3-14b_cell_nomm_-2_2_34",
+   "section": "C",
+   "prio": 46.34,
+   "est_s": 1463.0448780281708,
+   "model_id": "qwen3-14b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": -2,
+   "rep": 2,
+   "target_avail_mb": 9249.07,
+   "need_mib": 11297.07,
+   "fill": 9688,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 158
+  },
+  {
+   "item_id": "C_qwen3-14b_cell_mm_-2_2_36",
+   "section": "C",
+   "prio": 46.36,
+   "est_s": 1463.0448780281708,
+   "model_id": "qwen3-14b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": -2,
+   "rep": 2,
+   "target_avail_mb": 9249.07,
+   "need_mib": 11297.07,
+   "fill": 9688,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 160
+  },
+  {
+   "item_id": "C_qwen3-14b_cell_mm_1_2_37",
+   "section": "C",
+   "prio": 46.37,
+   "est_s": 1463.0448780281708,
+   "model_id": "qwen3-14b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 1,
+   "rep": 2,
+   "target_avail_mb": 12321.07,
+   "need_mib": 11297.07,
+   "fill": 9688,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 161
+  },
+  {
+   "item_id": "C_qwen3-14b_cell_nomm_1_2_38",
+   "section": "C",
+   "prio": 46.38,
+   "est_s": 1463.0448780281708,
+   "model_id": "qwen3-14b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": 1,
+   "rep": 2,
+   "target_avail_mb": 12321.07,
+   "need_mib": 11297.07,
+   "fill": 9688,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 162
+  },
+  {
+   "item_id": "A_qwen3-8b_probe_max",
+   "section": "A",
+   "prio": 46.5,
+   "est_s": 806.5206430881242,
+   "model_id": "qwen3-8b",
+   "kind": "probe_max",
+   "extra": [],
+   "nstar": {},
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "n_ctx": null,
+   "ord": 77
+  },
+  {
+   "item_id": "C_qwen3-32b_cell_nomm_0_1_18",
+   "section": "C",
+   "prio": 48.18,
+   "est_s": 1178.1806858373398,
+   "model_id": "qwen3-32b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": 0,
+   "rep": 1,
+   "target_avail_mb": 23158.97,
+   "need_mib": 23158.97,
+   "fill": 4530,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 182
+  },
+  {
+   "item_id": "C_qwen3-32b_cell_mm_0_1_20",
+   "section": "C",
+   "prio": 48.2,
+   "est_s": 1178.1806858373398,
+   "model_id": "qwen3-32b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 0,
+   "rep": 1,
+   "target_avail_mb": 23158.97,
+   "need_mib": 23158.97,
+   "fill": 4530,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 184
+  },
+  {
+   "item_id": "C_qwen3-32b_cell_mm_-1_1_21",
+   "section": "C",
+   "prio": 48.21,
+   "est_s": 1178.1806858373398,
+   "model_id": "qwen3-32b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": -1,
+   "rep": 1,
+   "target_avail_mb": 22134.97,
+   "need_mib": 23158.97,
+   "fill": 4530,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 185
+  },
+  {
+   "item_id": "C_qwen3-32b_cell_nomm_-1_1_22",
+   "section": "C",
+   "prio": 48.22,
+   "est_s": 1178.1806858373398,
+   "model_id": "qwen3-32b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": -1,
+   "rep": 1,
+   "target_avail_mb": 22134.97,
+   "need_mib": 23158.97,
+   "fill": 4530,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 186
+  },
+  {
+   "item_id": "C_qwen3-32b_cell_nomm_-2_1_24",
+   "section": "C",
+   "prio": 48.24,
+   "est_s": 1178.1806858373398,
+   "model_id": "qwen3-32b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": -2,
+   "rep": 1,
+   "target_avail_mb": 21110.97,
+   "need_mib": 23158.97,
+   "fill": 4530,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 188
+  },
+  {
+   "item_id": "C_qwen3-32b_cell_mm_-2_1_25",
+   "section": "C",
+   "prio": 48.25,
+   "est_s": 1178.1806858373398,
+   "model_id": "qwen3-32b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": -2,
+   "rep": 1,
+   "target_avail_mb": 21110.97,
+   "need_mib": 23158.97,
+   "fill": 4530,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 189
+  },
+  {
+   "item_id": "C_qwen3-32b_cell_nomm_1_1_26",
+   "section": "C",
+   "prio": 48.26,
+   "est_s": 1178.1806858373398,
+   "model_id": "qwen3-32b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": 1,
+   "rep": 1,
+   "target_avail_mb": 24182.97,
+   "need_mib": 23158.97,
+   "fill": 4530,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 190
+  },
+  {
+   "item_id": "C_qwen3-32b_cell_mm_1_1_28",
+   "section": "C",
+   "prio": 48.28,
+   "est_s": 1178.1806858373398,
+   "model_id": "qwen3-32b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 1,
+   "rep": 1,
+   "target_avail_mb": 24182.97,
+   "need_mib": 23158.97,
+   "fill": 4530,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 192
+  },
+  {
+   "item_id": "C_qwen3-32b_cell_mm_0_2_29",
+   "section": "C",
+   "prio": 48.29,
+   "est_s": 1178.1806858373398,
+   "model_id": "qwen3-32b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 0,
+   "rep": 2,
+   "target_avail_mb": 23158.97,
+   "need_mib": 23158.97,
+   "fill": 4530,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 193
+  },
+  {
+   "item_id": "C_qwen3-32b_cell_nomm_0_2_30",
+   "section": "C",
+   "prio": 48.3,
+   "est_s": 1178.1806858373398,
+   "model_id": "qwen3-32b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": 0,
+   "rep": 2,
+   "target_avail_mb": 23158.97,
+   "need_mib": 23158.97,
+   "fill": 4530,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 194
+  },
+  {
+   "item_id": "C_qwen3-32b_cell_mm_-1_2_32",
+   "section": "C",
+   "prio": 48.32,
+   "est_s": 1178.1806858373398,
+   "model_id": "qwen3-32b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": -1,
+   "rep": 2,
+   "target_avail_mb": 22134.97,
+   "need_mib": 23158.97,
+   "fill": 4530,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 196
+  },
+  {
+   "item_id": "C_qwen3-32b_cell_nomm_-1_2_33",
+   "section": "C",
+   "prio": 48.33,
+   "est_s": 1178.1806858373398,
+   "model_id": "qwen3-32b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": -1,
+   "rep": 2,
+   "target_avail_mb": 22134.97,
+   "need_mib": 23158.97,
+   "fill": 4530,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 197
+  },
+  {
+   "item_id": "C_qwen3-32b_cell_mm_-2_2_34",
+   "section": "C",
+   "prio": 48.34,
+   "est_s": 1178.1806858373398,
+   "model_id": "qwen3-32b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": -2,
+   "rep": 2,
+   "target_avail_mb": 21110.97,
+   "need_mib": 23158.97,
+   "fill": 4530,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 198
+  },
+  {
+   "item_id": "C_qwen3-32b_cell_nomm_-2_2_36",
+   "section": "C",
+   "prio": 48.36,
+   "est_s": 1178.1806858373398,
+   "model_id": "qwen3-32b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": -2,
+   "rep": 2,
+   "target_avail_mb": 21110.97,
+   "need_mib": 23158.97,
+   "fill": 4530,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 200
+  },
+  {
+   "item_id": "C_qwen3-32b_cell_mm_1_2_37",
+   "section": "C",
+   "prio": 48.37,
+   "est_s": 1178.1806858373398,
+   "model_id": "qwen3-32b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 1,
+   "rep": 2,
+   "target_avail_mb": 24182.97,
+   "need_mib": 23158.97,
+   "fill": 4530,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 201
+  },
+  {
+   "item_id": "C_qwen3-32b_cell_nomm_1_2_38",
+   "section": "C",
+   "prio": 48.38,
+   "est_s": 1178.1806858373398,
+   "model_id": "qwen3-32b",
+   "n_ctx": 16384,
+   "mmap": false,
+   "headroom_gb": 1,
+   "rep": 2,
+   "target_avail_mb": 24182.97,
+   "need_mib": 23158.97,
+   "fill": 4530,
+   "kind": "cell",
+   "backend": "vulkan",
+   "ord": 202
+  },
+  {
+   "item_id": "A_qwen3-4b-2507_grid_254464_1",
+   "section": "A",
+   "prio": 65,
+   "est_s": 859.8664962957822,
+   "model_id": "qwen3-4b-2507",
+   "n_ctx": 254464,
+   "kind": "grid",
+   "extra": [],
+   "fill": 13371,
+   "nstar": {
+    "device_total": 243760
+   },
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 35
+  },
+  {
+   "item_id": "A_qwen3-4b-2507_grid_232960_2",
+   "section": "A",
+   "prio": 65,
+   "est_s": 859.8664962957822,
+   "model_id": "qwen3-4b-2507",
+   "n_ctx": 232960,
+   "kind": "grid",
+   "extra": [],
+   "fill": 13371,
+   "nstar": {
+    "device_total": 243760
+   },
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 36
+  },
+  {
+   "item_id": "A_qwen3-4b-2507_grid_250880_9",
+   "section": "A",
+   "prio": 65,
+   "est_s": 859.8664962957822,
+   "model_id": "qwen3-4b-2507",
+   "n_ctx": 250880,
+   "kind": "grid",
+   "extra": [],
+   "fill": 13371,
+   "nstar": {
+    "device_total": 243760
+   },
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 43
+  },
+  {
+   "item_id": "A_qwen3-4b-2507_grid_240128_12",
+   "section": "A",
+   "prio": 65,
+   "est_s": 859.8664962957822,
+   "model_id": "qwen3-4b-2507",
+   "n_ctx": 240128,
+   "kind": "grid",
+   "extra": [],
+   "fill": 13371,
+   "nstar": {
+    "device_total": 243760
+   },
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 46
+  },
+  {
+   "item_id": "A_qwen3-4b-2507_grid_247296_13",
+   "section": "A",
+   "prio": 65,
+   "est_s": 859.8664962957822,
+   "model_id": "qwen3-4b-2507",
+   "n_ctx": 247296,
+   "kind": "grid",
+   "extra": [],
+   "fill": 13371,
+   "nstar": {
+    "device_total": 243760
+   },
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 47
+  },
+  {
+   "item_id": "A_qwen3-4b-2507_grid_258048_17",
+   "section": "A",
+   "prio": 65,
+   "est_s": 859.8664962957822,
+   "model_id": "qwen3-4b-2507",
+   "n_ctx": 258048,
+   "kind": "grid",
+   "extra": [],
+   "fill": 13371,
+   "nstar": {
+    "device_total": 243760
+   },
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 51
+  },
+  {
+   "item_id": "A_qwen3-4b-2507_grid_261632_18",
+   "section": "A",
+   "prio": 65,
+   "est_s": 859.8664962957822,
+   "model_id": "qwen3-4b-2507",
+   "n_ctx": 261632,
+   "kind": "grid",
+   "extra": [],
+   "fill": 13371,
+   "nstar": {
+    "device_total": 243760
+   },
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 52
+  },
+  {
+   "item_id": "A_qwen3-4b-2507_grid_236544_20",
+   "section": "A",
+   "prio": 65,
+   "est_s": 859.8664962957822,
+   "model_id": "qwen3-4b-2507",
+   "n_ctx": 236544,
+   "kind": "grid",
+   "extra": [],
+   "fill": 13371,
+   "nstar": {
+    "device_total": 243760
+   },
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 54
+  },
+  {
+   "item_id": "A_qwen3-8b_grid_232192_0",
+   "section": "A",
+   "prio": 66,
+   "est_s": 829.4059327095234,
+   "model_id": "qwen3-8b",
+   "n_ctx": 232192,
+   "kind": "grid",
+   "extra": [],
+   "fill": 12584,
+   "nstar": {
+    "device_total": 228627
+   },
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 56
+  },
+  {
+   "item_id": "A_qwen3-8b_grid_246528_4",
+   "section": "A",
+   "prio": 66,
+   "est_s": 829.4059327095234,
+   "model_id": "qwen3-8b",
+   "n_ctx": 246528,
+   "kind": "grid",
+   "extra": [],
+   "fill": 12584,
+   "nstar": {
+    "device_total": 228627
+   },
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 60
+  },
+  {
+   "item_id": "A_qwen3-8b_grid_242944_6",
+   "section": "A",
+   "prio": 66,
+   "est_s": 829.4059327095234,
+   "model_id": "qwen3-8b",
+   "n_ctx": 242944,
+   "kind": "grid",
+   "extra": [],
+   "fill": 12584,
+   "nstar": {
+    "device_total": 228627
+   },
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 62
+  },
+  {
+   "item_id": "A_qwen3-8b_grid_239360_8",
+   "section": "A",
+   "prio": 66,
+   "est_s": 829.4059327095234,
+   "model_id": "qwen3-8b",
+   "n_ctx": 239360,
+   "kind": "grid",
+   "extra": [],
+   "fill": 12584,
+   "nstar": {
+    "device_total": 228627
+   },
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 64
+  },
+  {
+   "item_id": "A_qwen3-8b_grid_221440_13",
+   "section": "A",
+   "prio": 66,
+   "est_s": 829.4059327095234,
+   "model_id": "qwen3-8b",
+   "n_ctx": 221440,
+   "kind": "grid",
+   "extra": [],
+   "fill": 12584,
+   "nstar": {
+    "device_total": 228627
+   },
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 69
+  },
+  {
+   "item_id": "A_qwen3-8b_grid_217856_16",
+   "section": "A",
+   "prio": 66,
+   "est_s": 829.4059327095234,
+   "model_id": "qwen3-8b",
+   "n_ctx": 217856,
+   "kind": "grid",
+   "extra": [],
+   "fill": 12584,
+   "nstar": {
+    "device_total": 228627
+   },
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 72
+  },
+  {
+   "item_id": "A_qwen3-8b_grid_225024_18",
+   "section": "A",
+   "prio": 66,
+   "est_s": 829.4059327095234,
+   "model_id": "qwen3-8b",
+   "n_ctx": 225024,
+   "kind": "grid",
+   "extra": [],
+   "fill": 12584,
+   "nstar": {
+    "device_total": 228627
+   },
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 74
+  },
+  {
+   "item_id": "A_qwen3-8b_grid_235776_20",
+   "section": "A",
+   "prio": 66,
+   "est_s": 829.4059327095234,
+   "model_id": "qwen3-8b",
+   "n_ctx": 235776,
+   "kind": "grid",
+   "extra": [],
+   "fill": 12584,
+   "nstar": {
+    "device_total": 228627
+   },
+   "beyond": true,
+   "budgets": {
+    "device_total": 37060.0,
+    "device_free": 47865.0
+   },
+   "ord": 76
+  },
+  {
+   "item_id": "D_prepare",
+   "section": "D",
+   "prio": 90,
+   "est_s": 1800,
+   "kind": "prepare",
+   "ord": 204
+  },
+  {
+   "item_id": "D_C_qwen3-8b_mm_1",
+   "section": "D",
+   "prio": 91,
+   "est_s": 900,
+   "model_id": "qwen3-8b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 1,
+   "rep": 0,
+   "target_avail_mb": 8237.2,
+   "need_mib": 7213.200000000001,
+   "fill": 14745,
+   "kind": "cell",
+   "backend": "sycl",
+   "ord": 205
+  },
+  {
+   "item_id": "D_C_qwen3-8b_mm_0",
+   "section": "D",
+   "prio": 92,
+   "est_s": 900,
+   "model_id": "qwen3-8b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": 0,
+   "rep": 0,
+   "target_avail_mb": 7213.200000000001,
+   "need_mib": 7213.200000000001,
+   "fill": 14745,
+   "kind": "cell",
+   "backend": "sycl",
+   "ord": 206
+  },
+  {
+   "item_id": "D_C_qwen3-8b_mm_-1",
+   "section": "D",
+   "prio": 93,
+   "est_s": 900,
+   "model_id": "qwen3-8b",
+   "n_ctx": 16384,
+   "mmap": true,
+   "headroom_gb": -1,
+   "rep": 0,
+   "target_avail_mb": 6189.200000000001,
+   "need_mib": 7213.200000000001,
+   "fill": 14745,
+   "kind": "cell",
+   "backend": "sycl",
+   "ord": 207
+  }
+ ]
+}

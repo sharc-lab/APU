@@ -1,0 +1,62 @@
+SeLockMemoryPrivilege: ENABLED -- SeLockMemoryPrivilege enabled on this process's token
+AWE chunk: requested 524288 pages, got 524288. held_mb=2048.0 avail_mb=61403.4
+AWE chunk: requested 524288 pages, got 524288. held_mb=4096.0 avail_mb=59348.5
+AWE chunk: requested 524288 pages, got 524288. held_mb=6144.0 avail_mb=57297.1
+AWE chunk: requested 524288 pages, got 524288. held_mb=8192.0 avail_mb=55245.1
+AWE chunk: requested 524288 pages, got 524288. held_mb=10240.0 avail_mb=53189.0
+AWE chunk: requested 524288 pages, got 524288. held_mb=12288.0 avail_mb=51139.2
+AWE chunk: requested 524288 pages, got 524288. held_mb=14336.0 avail_mb=49089.0
+AWE chunk: requested 524288 pages, got 524288. held_mb=16384.0 avail_mb=47038.9
+AWE chunk: requested 524288 pages, got 524288. held_mb=18432.0 avail_mb=44986.9
+AWE chunk: requested 524288 pages, got 524288. held_mb=20480.0 avail_mb=42935.3
+AWE chunk: requested 524288 pages, got 524288. held_mb=22528.0 avail_mb=40883.2
+AWE chunk: requested 524288 pages, got 524288. held_mb=24576.0 avail_mb=38829.8
+AWE chunk: requested 524288 pages, got 524288. held_mb=26624.0 avail_mb=36778.5
+AWE chunk: requested 524288 pages, got 524288. held_mb=28672.0 avail_mb=34726.0
+AWE chunk: requested 524288 pages, got 524288. held_mb=30720.0 avail_mb=32674.2
+AWE chunk: requested 524288 pages, got 524288. held_mb=32768.0 avail_mb=30622.2
+AWE chunk: requested 524288 pages, got 524288. held_mb=34816.0 avail_mb=28569.1
+AWE chunk: requested 524288 pages, got 524288. held_mb=36864.0 avail_mb=26517.3
+AWE chunk: requested 524288 pages, got 524288. held_mb=38912.0 avail_mb=24464.9
+AWE chunk: requested 524288 pages, got 524288. held_mb=40960.0 avail_mb=22413.4
+AWE chunk: requested 524288 pages, got 524288. held_mb=43008.0 avail_mb=20361.2
+AWE chunk: requested 524288 pages, got 524288. held_mb=45056.0 avail_mb=18309.0
+AWE chunk: requested 524288 pages, got 524288. held_mb=47104.0 avail_mb=16257.2
+AWE chunk: requested 524288 pages, got 524288. held_mb=49152.0 avail_mb=14205.0
+AWE chunk: requested 524288 pages, got 524288. held_mb=51200.0 avail_mb=12152.9
+AWE chunk: requested 524288 pages, got 524288. held_mb=53248.0 avail_mb=10101.4
+AWE chunk: requested 476027 pages, got 476027. held_mb=55107.5 avail_mb=8048.7
+TARGET REACHED (or best effort). mechanism=AWE held_mb=55107.5 available_mb=6186.0 target_available_mb=6189.200000000001
+2026-09-28T21:00:02Z,0.0,55107.5,6185.9,,,0.0,0.0,,,,,,0.0
+2026-09-28T21:00:07Z,5.0,55107.5,3027.3,,,0.0,0.0,,,,,,0.0
+2026-09-28T21:00:12Z,10.0,55107.5,463.8,,,0.0,0.0,,,,,,0.0
+2026-09-28T21:00:17Z,15.0,55107.5,305.2,,,0.0,0.0,,,,,,0.0
+2026-09-28T21:00:22Z,20.0,55107.5,6.3,,,0.0,0.0,,,,,,0.0
+2026-09-28T21:00:27Z,25.0,55107.5,88.0,,,0.0,0.0,,,,,,0.2
+2026-09-28T21:00:33Z,30.1,55107.5,25.9,,,0.0,0.0,,,,,,0.6
+2026-09-28T21:00:37Z,35.1,55107.5,2.1,,,0.0,0.0,,,,,,0.4
+2026-09-28T21:00:42Z,40.2,55107.5,107.8,,,0.0,0.0,,,,,,0.5
+2026-09-28T21:00:47Z,45.3,55107.5,12.2,,,0.0,0.0,,,,,,0.2
+2026-09-28T21:00:53Z,50.3,55107.5,8.1,,,0.0,0.0,,,,,,0.4
+2026-09-28T21:00:57Z,55.4,55107.5,25.1,,,0.0,0.0,,,,,,0.1
+2026-09-28T21:01:03Z,60.5,55107.5,38.1,,,0.0,0.0,,,,,,0.3
+2026-09-28T21:01:08Z,65.5,55107.5,23.1,,,0.0,0.0,,,,,,0.3
+2026-09-28T21:01:13Z,70.6,55107.5,15.0,,,0.0,0.0,,,,,,0.6
+2026-09-28T21:01:18Z,75.6,55107.5,30.0,,,0.0,0.0,,,,,,0.4
+2026-09-28T21:01:23Z,80.8,55107.5,53.9,,,0.0,0.0,,,,,,0.4
+2026-09-28T21:01:28Z,85.9,55107.5,51.5,,,0.0,0.0,,,,,,0.4
+2026-09-28T21:01:33Z,91.0,55107.5,51.9,,,0.0,0.0,,,,,,0.4
+2026-09-28T21:01:38Z,96.2,55107.5,127.0,,,0.0,0.0,,,,,,0.5
+2026-09-28T21:01:43Z,101.2,55107.5,4.0,,,0.0,0.0,,,,,,0.2
+2026-09-28T21:01:48Z,106.3,55107.5,35.3,,,0.0,0.0,,,,,,0.5
+2026-09-28T21:01:53Z,111.3,55107.5,5.1,,,0.0,0.0,,,,,,0.3
+2026-09-28T21:01:59Z,116.3,55107.5,103.7,,,0.0,0.0,,,,,,0.3
+2026-09-28T21:02:04Z,121.4,55107.5,105.0,,,0.0,0.0,,,,,,0.4
+2026-09-28T21:02:09Z,126.4,55107.5,16.7,,,0.0,0.0,,,,,,0.2
+2026-09-28T21:02:14Z,131.5,55107.5,18.7,,,0.0,0.0,,,,,,0.7
+2026-09-28T21:02:19Z,136.5,55107.5,153.7,,,0.0,0.0,,,,,,0.2
+2026-09-28T21:02:25Z,142.0,55107.5,64.7,,,0.0,0.0,,,,,,1.9
+2026-09-28T21:02:32Z,147.5,55107.5,78.3,,,0.0,0.0,,,,,,2.7
+2026-09-28T21:02:42Z,156.1,55107.5,147.4,,,0.0,0.0,,,,,,0.0
+2026-09-28T21:02:43Z,161.1,55107.5,13.1,,,0.0,0.0,,,,,,0.0
+2026-09-28T21:02:48Z,166.1,55107.5,6357.9,,,0.0,0.0,,,,,,0.0

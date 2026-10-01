@@ -1,0 +1,57 @@
+SeLockMemoryPrivilege: ENABLED -- SeLockMemoryPrivilege enabled on this process's token
+AWE chunk: requested 524288 pages, got 524288. held_mb=2048.0 avail_mb=61150.6
+AWE chunk: requested 524288 pages, got 524288. held_mb=4096.0 avail_mb=59107.8
+AWE chunk: requested 524288 pages, got 524288. held_mb=6144.0 avail_mb=57038.8
+AWE chunk: requested 524288 pages, got 524288. held_mb=8192.0 avail_mb=54954.3
+AWE chunk: requested 524288 pages, got 524288. held_mb=10240.0 avail_mb=52882.3
+AWE chunk: requested 524288 pages, got 524288. held_mb=12288.0 avail_mb=50848.3
+AWE chunk: requested 524288 pages, got 524288. held_mb=14336.0 avail_mb=48840.2
+AWE chunk: requested 524288 pages, got 524288. held_mb=16384.0 avail_mb=46794.1
+AWE chunk: requested 524288 pages, got 524288. held_mb=18432.0 avail_mb=44741.7
+AWE chunk: requested 524288 pages, got 524288. held_mb=20480.0 avail_mb=42690.6
+AWE chunk: requested 524288 pages, got 524288. held_mb=22528.0 avail_mb=40641.4
+AWE chunk: requested 524288 pages, got 524288. held_mb=24576.0 avail_mb=38588.0
+AWE chunk: requested 524288 pages, got 524288. held_mb=26624.0 avail_mb=36535.6
+AWE chunk: requested 524288 pages, got 524288. held_mb=28672.0 avail_mb=34485.7
+AWE chunk: requested 524288 pages, got 524288. held_mb=30720.0 avail_mb=32432.6
+AWE chunk: requested 524288 pages, got 524288. held_mb=32768.0 avail_mb=30384.4
+AWE chunk: requested 524288 pages, got 524288. held_mb=34816.0 avail_mb=28331.2
+AWE chunk: requested 524288 pages, got 524288. held_mb=36864.0 avail_mb=26276.1
+AWE chunk: requested 524288 pages, got 524288. held_mb=38912.0 avail_mb=24223.2
+AWE chunk: requested 524288 pages, got 524288. held_mb=40960.0 avail_mb=22171.0
+AWE chunk: requested 524288 pages, got 524288. held_mb=43008.0 avail_mb=20121.3
+AWE chunk: requested 524288 pages, got 524288. held_mb=45056.0 avail_mb=18071.1
+AWE chunk: requested 524288 pages, got 524288. held_mb=47104.0 avail_mb=16017.9
+AWE chunk: requested 524288 pages, got 524288. held_mb=49152.0 avail_mb=13966.0
+AWE chunk: requested 418213 pages, got 418213. held_mb=50785.6 avail_mb=11906.7
+TARGET REACHED (or best effort). mechanism=AWE held_mb=50785.6 available_mb=10270.4 target_available_mb=10273.07
+2026-09-30T22:14:21Z,0.0,50785.6,10270.3,,,0.0,0.0,,,,,,0.0
+2026-09-30T22:14:26Z,5.0,50785.6,1376.1,,,0.0,0.0,,,,,,0.0
+2026-09-30T22:14:31Z,10.0,50785.6,22.0,,,0.0,0.0,,,,,,0.1
+2026-09-30T22:14:36Z,15.1,50785.6,63.7,,,0.0,0.0,,,,,,0.3
+2026-09-30T22:14:41Z,20.1,50785.6,16.5,,,0.0,0.0,,,,,,0.5
+2026-09-30T22:14:47Z,25.2,50785.6,4.3,,,0.0,0.0,,,,,,1.2
+2026-09-30T22:14:51Z,30.2,50785.6,58.7,,,0.0,0.0,,,,,,0.2
+2026-09-30T22:14:57Z,35.3,50785.6,9.4,,,0.0,0.0,,,,,,0.9
+2026-09-30T22:15:01Z,40.3,50785.6,7.7,,,0.0,0.0,,,,,,0.4
+2026-09-30T22:15:07Z,45.4,50785.6,2.1,,,0.0,0.0,,,,,,0.4
+2026-09-30T22:15:12Z,50.5,50785.6,31.3,,,0.0,0.0,,,,,,0.2
+2026-09-30T22:15:17Z,55.5,50785.6,3.5,,,0.0,0.0,,,,,,0.9
+2026-09-30T22:15:22Z,60.6,50785.6,2.6,,,0.0,0.0,,,,,,0.2
+2026-09-30T22:15:27Z,65.7,50785.6,12.7,,,0.0,0.0,,,,,,0.3
+2026-09-30T22:15:32Z,70.8,50785.6,77.8,,,0.0,0.0,,,,,,0.3
+2026-09-30T22:15:37Z,75.8,50785.6,4.9,,,0.0,0.0,,,,,,0.4
+2026-09-30T22:15:42Z,80.9,50785.6,9.4,,,0.0,0.0,,,,,,0.2
+2026-09-30T22:15:47Z,86.0,50785.6,15.3,,,0.0,0.0,,,,,,0.2
+2026-09-30T22:15:52Z,91.0,50785.6,11.6,,,0.0,0.0,,,,,,0.4
+2026-09-30T22:15:57Z,96.1,50785.6,7.2,,,0.0,0.0,,,,,,1.0
+2026-09-30T22:16:02Z,101.2,50785.6,3.9,,,0.0,0.0,,,,,,0.2
+2026-09-30T22:16:08Z,106.3,50785.6,11.5,,,0.0,0.0,,,,,,0.3
+2026-09-30T22:16:12Z,111.3,50785.6,12.6,,,0.0,0.0,,,,,,0.2
+2026-09-30T22:16:17Z,116.4,50785.6,5.4,,,0.0,0.0,,,,,,0.0
+2026-09-30T22:16:22Z,121.4,50785.6,74.7,,,0.0,0.0,,,,,,0.1
+2026-09-30T22:16:28Z,126.4,50785.6,1.5,,,0.0,0.0,,,,,,0.9
+2026-09-30T22:16:32Z,131.5,50785.6,27.9,,,0.0,0.0,,,,,,0.0
+2026-09-30T22:16:38Z,136.6,50785.6,30.0,,,0.0,0.0,,,,,,0.0
+2026-09-30T22:16:43Z,141.6,50785.6,30.2,,,0.0,0.0,,,,,,0.0
+2026-09-30T22:16:48Z,146.6,50785.6,19.5,,,0.0,0.0,,,,,,0.0

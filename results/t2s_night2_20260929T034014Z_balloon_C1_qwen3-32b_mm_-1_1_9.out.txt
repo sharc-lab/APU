@@ -1,0 +1,44 @@
+SeLockMemoryPrivilege: ENABLED -- SeLockMemoryPrivilege enabled on this process's token
+AWE chunk: requested 524288 pages, got 524288. held_mb=2048.0 avail_mb=61129.4
+AWE chunk: requested 524288 pages, got 524288. held_mb=4096.0 avail_mb=59077.6
+AWE chunk: requested 524288 pages, got 524288. held_mb=6144.0 avail_mb=57033.2
+AWE chunk: requested 524288 pages, got 524288. held_mb=8192.0 avail_mb=54979.5
+AWE chunk: requested 524288 pages, got 524288. held_mb=10240.0 avail_mb=52927.7
+AWE chunk: requested 524288 pages, got 524288. held_mb=12288.0 avail_mb=50876.0
+AWE chunk: requested 524288 pages, got 524288. held_mb=14336.0 avail_mb=48824.0
+AWE chunk: requested 524288 pages, got 524288. held_mb=16384.0 avail_mb=46773.5
+AWE chunk: requested 524288 pages, got 524288. held_mb=18432.0 avail_mb=44721.2
+AWE chunk: requested 524288 pages, got 524288. held_mb=20480.0 avail_mb=42669.5
+AWE chunk: requested 524288 pages, got 524288. held_mb=22528.0 avail_mb=40617.0
+AWE chunk: requested 524288 pages, got 524288. held_mb=24576.0 avail_mb=38554.8
+AWE chunk: requested 524288 pages, got 524288. held_mb=26624.0 avail_mb=36525.5
+AWE chunk: requested 524288 pages, got 524288. held_mb=28672.0 avail_mb=34459.1
+AWE chunk: requested 524288 pages, got 524288. held_mb=30720.0 avail_mb=32390.7
+AWE chunk: requested 524288 pages, got 524288. held_mb=32768.0 avail_mb=30355.7
+AWE chunk: requested 524288 pages, got 524288. held_mb=34816.0 avail_mb=28295.9
+AWE chunk: requested 524288 pages, got 524288. held_mb=36864.0 avail_mb=26229.6
+AWE chunk: requested 524288 pages, got 524288. held_mb=38912.0 avail_mb=24238.4
+TARGET REACHED (or best effort). mechanism=AWE held_mb=38912.0 available_mb=22183.7 target_available_mb=22134.97
+2026-09-29T10:38:10Z,0.0,38912.0,22183.7,,,0.0,0.0,,,,,,0.0
+2026-09-29T10:38:15Z,5.0,38912.0,17042.1,,,0.0,0.0,,,,,,0.0
+2026-09-29T10:38:20Z,10.0,38912.0,11739.4,,,0.0,0.0,,,,,,0.0
+2026-09-29T10:38:25Z,15.0,38912.0,2611.1,,,0.0,0.0,,,,,,0.0
+2026-09-29T10:38:30Z,20.0,38912.0,1044.9,,,0.0,0.0,,,,,,0.0
+2026-09-29T10:38:35Z,25.0,38912.0,700.1,,,0.0,0.0,,,,,,0.0
+2026-09-29T10:38:40Z,30.0,38912.0,700.2,,,0.0,0.0,,,,,,0.0
+2026-09-29T10:38:45Z,35.0,38912.0,11422.2,,,0.0,0.0,,,,,,0.0
+2026-09-29T10:38:50Z,40.0,38912.0,16897.7,,,0.0,0.0,,,,,,0.0
+2026-09-29T10:38:55Z,45.0,38912.0,15705.0,,,0.0,0.0,,,,,,0.0
+2026-09-29T10:39:00Z,50.0,38912.0,15689.3,,,0.0,0.0,,,,,,0.0
+2026-09-29T10:39:05Z,55.0,38912.0,15728.5,,,0.0,0.0,,,,,,0.0
+2026-09-29T10:39:10Z,60.0,38912.0,15715.4,,,0.0,0.0,,,,,,0.0
+2026-09-29T10:39:15Z,65.0,38912.0,15702.5,,,0.0,0.0,,,,,,0.0
+2026-09-29T10:39:20Z,70.0,38912.0,15740.5,,,0.0,0.0,,,,,,0.0
+2026-09-29T10:39:25Z,75.0,38912.0,15689.8,,,0.0,0.0,,,,,,0.0
+2026-09-29T10:39:30Z,80.0,38912.0,15666.6,,,0.0,0.0,,,,,,0.0
+2026-09-29T10:39:35Z,85.0,38912.0,15659.2,,,0.0,0.0,,,,,,0.0
+2026-09-29T10:39:40Z,90.0,38912.0,15664.9,,,0.0,0.0,,,,,,0.0
+2026-09-29T10:39:45Z,95.0,38912.0,15652.5,,,0.0,0.0,,,,,,0.0
+2026-09-29T10:39:50Z,100.0,38912.0,15661.9,,,0.0,0.0,,,,,,0.0
+2026-09-29T10:39:55Z,105.0,38912.0,15654.2,,,0.0,0.0,,,,,,0.0
+2026-09-29T10:40:00Z,110.0,38912.0,20032.2,,,0.0,0.0,,,,,,0.0

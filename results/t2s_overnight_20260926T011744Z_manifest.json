@@ -1,0 +1,82 @@
+{
+ "launch_utc": "2026-09-26T03:16:16.797971+00:00",
+ "deadline_utc": "2026-09-26T12:16:14Z",
+ "script_provenance": {
+  "git_head": "2819d838b61cd24b9175b2babc236287417d6c75",
+  "committed": true,
+  "verified_by": "git blob sha1 of deployed bytes",
+  "problems": [],
+  "files": [
+   {
+    "path": "t2s_overnight.py",
+    "expected_git_blob_sha": "ba2fe8b9d31b4b1920b20ae0fb8ef24d2893e42d",
+    "actual_git_blob_sha": "ba2fe8b9d31b4b1920b20ae0fb8ef24d2893e42d",
+    "sha256": "bec3d8fcc1fbeb8369ffc6eda6be4286f33421a4ae1eade52924d0a8f47f3d04"
+   },
+   {
+    "path": "t2s_lab.py",
+    "expected_git_blob_sha": "2f4bc9e3b0e19946bfb4c2d1a036038e2d5c5d93",
+    "actual_git_blob_sha": "2f4bc9e3b0e19946bfb4c2d1a036038e2d5c5d93",
+    "sha256": "cdabb10333d1755ee8a62da442d392236479a808bf0dfe63171c01726065e35d"
+   },
+   {
+    "path": "t2s_m3_power_coupling.py",
+    "expected_git_blob_sha": "4c7cfe7fdae44f7eadb8000e75267da3a077b7c9",
+    "actual_git_blob_sha": "4c7cfe7fdae44f7eadb8000e75267da3a077b7c9",
+    "sha256": "61a0344d4fa352e519de29f94fca5154989442f56370b99742c61920b417ddde"
+   },
+   {
+    "path": "spin_hog_affinity.py",
+    "expected_git_blob_sha": "43e00f3556366c051e37467397b74ca1c3d6eed7",
+    "actual_git_blob_sha": "43e00f3556366c051e37467397b74ca1c3d6eed7",
+    "sha256": "e5afebd732d9d0b193d6e8adea7fe21c5f9ec1607f871541ecffc735ab5f8925"
+   },
+   {
+    "path": "level_zero_sysman.py",
+    "expected_git_blob_sha": "d30ce137ead16a52cd6e64a90609505bd800568c",
+    "actual_git_blob_sha": "d30ce137ead16a52cd6e64a90609505bd800568c",
+    "sha256": "f2858e5a02897c6144fdf855d8aed4927e46ee2dd218bcdcb050d3e076a86a7f"
+   },
+   {
+    "path": "server_guard.py",
+    "expected_git_blob_sha": "6fe68cbf7f3ddfd47437d42ef03d00a98827f7a1",
+    "actual_git_blob_sha": "6fe68cbf7f3ddfd47437d42ef03d00a98827f7a1",
+    "sha256": "bb9518df0a0de1ee994b94b30bf13d0e40dd4227db06f8f9e8c97ecefafcab03"
+   },
+   {
+    "path": "run_provenance.py",
+    "expected_git_blob_sha": "34a9aa4007a360b9e990deac036291ee07e0ff30",
+    "actual_git_blob_sha": "34a9aa4007a360b9e990deac036291ee07e0ff30",
+    "sha256": "d0393dbb9e553ba1b091592687797f5e724f2bb7098365517460c9878af9b9b3"
+   },
+   {
+    "path": "gguf_meta.py",
+    "expected_git_blob_sha": "173b923aa764aa126788a9e7bd26fa87775b09b2",
+    "actual_git_blob_sha": "173b923aa764aa126788a9e7bd26fa87775b09b2",
+    "sha256": "f01d13bc347ee13effba9a22709fcb4ce3b11d9aa59a2be3e13c2fb5c77767b3"
+   },
+   {
+    "path": "memory_balloon_awe.py",
+    "expected_git_blob_sha": "bf0583800aa9e121a04273fc8c8224c13cb65210",
+    "actual_git_blob_sha": "bf0583800aa9e121a04273fc8c8224c13cb65210",
+    "sha256": "51eb91f560370670fd3231a45053059ed7a370b71fe0434c8352d03d32ec8f49"
+   }
+  ]
+ },
+ "identity": {
+  "hw_id": "evo-t2s",
+  "cpu_name": "Intel(R) Core(TM) Ultra X7 358H",
+  "gpu_name": "Intel(R) Arc(TM) B390 GPU",
+  "gpu_driver_version": "32.0.101.8509"
+ },
+ "seed": 20260925,
+ "smoke": false,
+ "power_cap_original": 100,
+ "cpu_masks": {
+  "none": null,
+  "p4": 15,
+  "e4": 240,
+  "nonp12": 65520,
+  "all16": 65535
+ }
+}

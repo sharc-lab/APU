@@ -1,0 +1,73 @@
+{
+ "launch_utc": "2026-09-29T03:38:44.477844+00:00",
+ "script_provenance": {
+  "git_head": "5adaa0a7ffe4c9fc26e7619786b2c1995a52e69a",
+  "committed": true,
+  "verified_by": "git blob sha1 of deployed bytes",
+  "problems": [],
+  "files": [
+   {
+    "path": "queue_watchdog.py",
+    "expected_git_blob_sha": "f0fc21b3556be91bd12193da282d7fef685500da",
+    "actual_git_blob_sha": "f0fc21b3556be91bd12193da282d7fef685500da",
+    "sha256": "892567f0190113da0fdeec16866c84e62f29163e9975c6759eb2dd5a16683ec0"
+   },
+   {
+    "path": "t2s_queue.py",
+    "expected_git_blob_sha": "36b6117dd9044938292e23cb82fe765f8c5a2fb0",
+    "actual_git_blob_sha": "36b6117dd9044938292e23cb82fe765f8c5a2fb0",
+    "sha256": "5b05d5bb0a4d0558844da2f75bd564a4e23b8806b4c699186fb692472879f188"
+   },
+   {
+    "path": "t2s_lab.py",
+    "expected_git_blob_sha": "26c5a4addc22daf1993da64775c4572ddf0b7754",
+    "actual_git_blob_sha": "26c5a4addc22daf1993da64775c4572ddf0b7754",
+    "sha256": "9b5a1f10577c5d868f15d93a9681dec07d4aa3ea9b08105a62d13cab34939bc6"
+   },
+   {
+    "path": "t2s_night2.py",
+    "expected_git_blob_sha": "f01083dd66259cab199c4e9382daac02cda67efc",
+    "actual_git_blob_sha": "f01083dd66259cab199c4e9382daac02cda67efc",
+    "sha256": "1957a68fb176a3783131759fbae5295e752b02700904ff0bbedaf0c97856d0be"
+   },
+   {
+    "path": "install_queue_watchdog.ps1",
+    "expected_git_blob_sha": "540803dc1a083509031b342ad468698a75ea23af",
+    "actual_git_blob_sha": "540803dc1a083509031b342ad468698a75ea23af",
+    "sha256": "83f473d63a9f7ff97c5307c7f82e6505e2d4101c8b1cd8b4658fb0ac4b12344d"
+   }
+  ]
+ },
+ "identity": {
+  "hw_id": "evo-t2s",
+  "cpu_name": "Intel(R) Core(TM) Ultra X7 358H",
+  "gpu_name": "Intel(R) Arc(TM) B390 GPU",
+  "gpu_driver_version": "32.0.101.8509"
+ },
+ "phases": [
+  "r1_speed",
+  "r1_check",
+  "a70",
+  "p70"
+ ],
+ "phases_cut": [],
+ "estimated_hours": {
+  "b1": 1.3284114640459626,
+  "b2": 0.666026391378966,
+  "b3": 2.0008333454623872,
+  "c1": 1.5653038694584969,
+  "c1b": 2.780199668463837,
+  "b4": 0.4746338960828467,
+  "b4_32b": 1.4678427110217873,
+  "b4_replicate": 0.4746338960828467,
+  "perfboost": 0.17741028376337556,
+  "r1_speed": 1.0710173362640973,
+  "r1_check": 3.984180147673469,
+  "a70": 1.3901160904118377,
+  "p70": 0.8238822727081262
+ },
+ "estimate_source": "real medians from C:\\apu\\ovn\\results\\t2s_night2_20260928T004924Z.jsonl (6 models)",
+ "seed": 20260927,
+ "overnight_table": "C:\\apu\\ovn\\results\\t2s_overnight_20260926T011744Z_model_table.json",
+ "prior_results": "C:\\apu\\ovn\\results\\t2s_night2_20260928T004924Z.jsonl"
+}

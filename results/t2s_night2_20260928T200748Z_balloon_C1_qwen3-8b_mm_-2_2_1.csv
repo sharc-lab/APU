@@ -1,0 +1,9 @@
+# mechanism=AWE target_available_mb=5165.200000000001 held_mb_final=56296.5 page_size=4096
+ts_iso,elapsed_s,held_mb,available_mb,pages_per_sec,pagefile_pct_usage,server_private_mb,server_workingset_mb,gpu_shared_usage,gpu_dedicated_usage,gpu_adapter_shared_usage_total,note,disk_read_bytes_per_sec,counter_read_s
+2026-09-28T20:25:34Z,0.0,56296.5,5161.4,,,0.0,0.0,,,,,,0.0
+2026-09-28T20:25:39Z,5.0,56296.5,2999.9,,,0.0,0.0,,,,,,0.0
+2026-09-28T20:25:44Z,10.0,56296.5,284.3,,,0.0,0.0,,,,,,0.0
+2026-09-28T20:25:49Z,15.0,56296.5,362.4,,,0.0,0.0,,,,,,0.0
+2026-09-28T20:25:54Z,20.0,56296.5,501.0,,,0.0,0.0,,,,,,0.0
+2026-09-28T20:25:59Z,25.0,56296.5,15.4,,,0.0,0.0,,,,,,0.2
+2026-09-28T20:26:04Z,30.1,56296.5,5449.8,,,0.0,0.0,,,,,,0.0
