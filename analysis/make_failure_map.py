@@ -26,7 +26,15 @@ EVIDENCE = {
         "crashes outright at the next context step (claim A-25)",
         ["results/t2s_overnight_20260926T011744Z.jsonl", "results/t2s_amech_20260926T181456Z.jsonl"],
         "n=1 model, 1 step each side (UNVERIFIED at full KV fill)"),
-    ("T2S (Intel, Vulkan)", "llama.cpp -fit off"): ("NOT_MEASURED", None, [], None),
+    ("T2S (Intel, Vulkan)", "llama.cpp -fit off"): (
+        "HARD_FAIL", "llama-3.3-70b pushed to n_ctx=23552 (the A-24 budget boundary's own first_fail point, "
+        "hi) with -fit off: server never starts, exit code 1, vkAllocateMemory ErrorOutOfDeviceMemory "
+        "(233.8 MB alloc request) at 'failed to allocate compute pp buffers' during context init -- a hard, "
+        "immediate failure with no partial start, same failure signature (ErrorOutOfDeviceMemory) as the "
+        "-ngl 99 arm at the same boundary, confirming -fit off does not change the outcome class at this "
+        "point, only removes the automatic fit attempt",
+        ["results/t2s_night2_20260929T034014Z.jsonl"], "n=1 model, 1 point (the A-24 hi boundary, not "
+        "independently re-bisected for this arm)"),
     ("T2S (Intel, Vulkan)", "Ollama default"): (
         "NOT_MEASURED", "K1 v2's 40,960 is a model-native-context cap (qwen3:8b), not a memory-shortfall result "
         "(claim A-28); K1 v3 queued to get the real signal",
