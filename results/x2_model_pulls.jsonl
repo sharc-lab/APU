@@ -1,0 +1,88 @@
+{"record": "model_pull_result", "model_tag": "llama3.1:8b", "ts_utc": "2026-10-02T08:04:29.880993+00:00", "already_present": true, "pulled": false, "pull_exit_code": null, "pull_error": null, "verify_ok": true, "verify_error": null}
+{"record": "model_pull_result", "model_tag": "qwen3:8b", "ts_utc": "2026-10-02T08:04:35.301503+00:00", "already_present": true, "pulled": false, "pull_exit_code": null, "pull_error": null, "verify_ok": true, "verify_error": null}
+{"record": "model_pull_result", "model_tag": "qwen3-4b-2507", "ts_utc": "2026-10-02T08:04:40.414519+00:00", "already_present": false, "pulled": false, "pull_exit_code": 1, "pull_error": "\u001b[?2026h\u001b[?25l\u001b[1Gpulling manifest \u00e2\u00a0\u2039 \u001b[K\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[?25l\u001b[1Gpulling manifest \u00e2\u00a0\u2122 \u001b[K\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[?25l\u001b[1Gpulling manifest \u00e2\u00a0\u00b9 \u001b[K\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[?25l\u001b[1Gpulling manifest \u001b[K\u001b[?25h\u001b[?2026l\nError: pull model manifest: file does not exist\n", "verify_ok": true, "verify_error": null}
+{"record": "model_pull_result", "model_tag": "qwen3:14b", "ts_utc": "2026-10-02T08:04:47.155898+00:00", "already_present": true, "pulled": false, "pull_exit_code": null, "pull_error": null, "verify_ok": true, "verify_error": null}
+{"record": "model_pull_result", "model_tag": "llama3.1:8b", "ts_utc": "2026-10-02T08:06:36.735598+00:00", "already_present": true, "pulled": false, "pull_exit_code": null, "pull_error": null, "verify_ok": true, "verify_error": null}
+{"record": "model_pull_result", "model_tag": "qwen3:8b", "ts_utc": "2026-10-02T08:06:40.636703+00:00", "already_present": true, "pulled": false, "pull_exit_code": null, "pull_error": null, "verify_ok": true, "verify_error": null}
+{"record": "model_pull_result", "model_tag": "qwen3-4b-2507", "ts_utc": "2026-10-02T08:06:44.429022+00:00", "already_present": true, "pulled": false, "pull_exit_code": null, "pull_error": null, "verify_ok": true, "verify_error": null}
+{"record": "model_pull_result", "model_tag": "qwen3:14b", "ts_utc": "2026-10-02T08:06:48.619457+00:00", "already_present": true, "pulled": false, "pull_exit_code": null, "pull_error": null, "verify_ok": true, "verify_error": null}
+{"record": "heartbeat", "model_tag": "qwen3:30b-a3b", "elapsed_s": 60.0, "ts_utc": "2026-10-02T08:07:53.883388+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:30b-a3b", "elapsed_s": 120.0, "ts_utc": "2026-10-02T08:08:53.909367+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:30b-a3b", "elapsed_s": 180.1, "ts_utc": "2026-10-02T08:09:53.925796+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:30b-a3b", "elapsed_s": 240.1, "ts_utc": "2026-10-02T08:10:53.946309+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:30b-a3b", "elapsed_s": 300.1, "ts_utc": "2026-10-02T08:11:53.966564+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:30b-a3b", "elapsed_s": 360.1, "ts_utc": "2026-10-02T08:12:53.984249+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:30b-a3b", "elapsed_s": 420.2, "ts_utc": "2026-10-02T08:13:54.000049+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:30b-a3b", "elapsed_s": 480.2, "ts_utc": "2026-10-02T08:14:54.013408+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:30b-a3b", "elapsed_s": 540.2, "ts_utc": "2026-10-02T08:15:54.025359+00:00"}
+{"record": "model_pull_result", "model_tag": "llama3.1:8b", "ts_utc": "2026-10-02T08:32:00.093862+00:00", "already_present": true, "pulled": false, "pull_exit_code": null, "pull_error": null, "verify_ok": true, "verify_error": null}
+{"record": "model_pull_result", "model_tag": "qwen3:8b", "ts_utc": "2026-10-02T08:32:05.234206+00:00", "already_present": true, "pulled": false, "pull_exit_code": null, "pull_error": null, "verify_ok": true, "verify_error": null}
+{"record": "model_pull_result", "model_tag": "qwen3-4b-2507", "ts_utc": "2026-10-02T08:32:10.255541+00:00", "already_present": true, "pulled": false, "pull_exit_code": null, "pull_error": null, "verify_ok": true, "verify_error": null}
+{"record": "model_pull_result", "model_tag": "qwen3:14b", "ts_utc": "2026-10-02T08:32:14.938938+00:00", "already_present": true, "pulled": false, "pull_exit_code": null, "pull_error": null, "verify_ok": true, "verify_error": null}
+{"record": "heartbeat", "model_tag": "qwen3:30b-a3b", "elapsed_s": 60.0, "ts_utc": "2026-10-02T08:33:22.652695+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:30b-a3b", "elapsed_s": 120.0, "ts_utc": "2026-10-02T08:34:22.669286+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:30b-a3b", "elapsed_s": 180.0, "ts_utc": "2026-10-02T08:35:22.682782+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:30b-a3b", "elapsed_s": 240.1, "ts_utc": "2026-10-02T08:36:22.697295+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:30b-a3b", "elapsed_s": 300.1, "ts_utc": "2026-10-02T08:37:22.712782+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:30b-a3b", "elapsed_s": 360.1, "ts_utc": "2026-10-02T08:38:22.728070+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:30b-a3b", "elapsed_s": 420.1, "ts_utc": "2026-10-02T08:39:22.745968+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:30b-a3b", "elapsed_s": 480.1, "ts_utc": "2026-10-02T08:40:22.761767+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:30b-a3b", "elapsed_s": 540.2, "ts_utc": "2026-10-02T08:41:22.793515+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:30b-a3b", "elapsed_s": 600.2, "ts_utc": "2026-10-02T08:42:22.814029+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:30b-a3b", "elapsed_s": 660.2, "ts_utc": "2026-10-02T08:43:22.830227+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:30b-a3b", "elapsed_s": 720.2, "ts_utc": "2026-10-02T08:44:22.844115+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:30b-a3b", "elapsed_s": 780.2, "ts_utc": "2026-10-02T08:45:22.858373+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:30b-a3b", "elapsed_s": 840.3, "ts_utc": "2026-10-02T08:46:22.877726+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:30b-a3b", "elapsed_s": 900.3, "ts_utc": "2026-10-02T08:47:22.895708+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:30b-a3b", "elapsed_s": 960.3, "ts_utc": "2026-10-02T08:48:22.919417+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:30b-a3b", "elapsed_s": 1020.3, "ts_utc": "2026-10-02T08:49:22.935247+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:30b-a3b", "elapsed_s": 1080.3, "ts_utc": "2026-10-02T08:50:22.946583+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:30b-a3b", "elapsed_s": 1140.3, "ts_utc": "2026-10-02T08:51:22.958928+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:30b-a3b", "elapsed_s": 1200.4, "ts_utc": "2026-10-02T08:52:22.970213+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:30b-a3b", "elapsed_s": 1260.4, "ts_utc": "2026-10-02T08:53:22.981320+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:30b-a3b", "elapsed_s": 1320.4, "ts_utc": "2026-10-02T08:54:22.996343+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:30b-a3b", "elapsed_s": 1380.4, "ts_utc": "2026-10-02T08:55:23.007729+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:30b-a3b", "elapsed_s": 1440.4, "ts_utc": "2026-10-02T08:56:23.021556+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:30b-a3b", "elapsed_s": 1500.4, "ts_utc": "2026-10-02T08:57:23.033304+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:30b-a3b", "elapsed_s": 1560.5, "ts_utc": "2026-10-02T08:58:23.050520+00:00"}
+{"record": "model_pull_result", "model_tag": "qwen3:30b-a3b", "ts_utc": "2026-10-02T08:32:22.632399+00:00", "already_present": false, "pulled": true, "pull_exit_code": 0, "pull_error": null, "verify_ok": true, "verify_error": null}
+{"record": "heartbeat", "model_tag": "qwen3:32b", "elapsed_s": 60.0, "ts_utc": "2026-10-02T09:00:06.627836+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:32b", "elapsed_s": 120.0, "ts_utc": "2026-10-02T09:01:06.644114+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:32b", "elapsed_s": 180.1, "ts_utc": "2026-10-02T09:02:06.667857+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:32b", "elapsed_s": 240.1, "ts_utc": "2026-10-02T09:03:06.682980+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:32b", "elapsed_s": 300.1, "ts_utc": "2026-10-02T09:04:06.698719+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:32b", "elapsed_s": 360.1, "ts_utc": "2026-10-02T09:05:06.709599+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:32b", "elapsed_s": 420.1, "ts_utc": "2026-10-02T09:06:06.722923+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:32b", "elapsed_s": 480.1, "ts_utc": "2026-10-02T09:07:06.733289+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:32b", "elapsed_s": 540.2, "ts_utc": "2026-10-02T09:08:06.746267+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:32b", "elapsed_s": 600.2, "ts_utc": "2026-10-02T09:09:06.759304+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:32b", "elapsed_s": 660.2, "ts_utc": "2026-10-02T09:10:06.774880+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:32b", "elapsed_s": 720.2, "ts_utc": "2026-10-02T09:11:06.789437+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:32b", "elapsed_s": 780.2, "ts_utc": "2026-10-02T09:12:06.803624+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:32b", "elapsed_s": 840.2, "ts_utc": "2026-10-02T09:13:06.821294+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:32b", "elapsed_s": 900.2, "ts_utc": "2026-10-02T09:14:06.836308+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:32b", "elapsed_s": 960.3, "ts_utc": "2026-10-02T09:15:06.849888+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:32b", "elapsed_s": 1020.3, "ts_utc": "2026-10-02T09:16:06.870128+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:32b", "elapsed_s": 1080.3, "ts_utc": "2026-10-02T09:17:06.886181+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:32b", "elapsed_s": 1140.3, "ts_utc": "2026-10-02T09:18:06.901992+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:32b", "elapsed_s": 1200.3, "ts_utc": "2026-10-02T09:19:06.923220+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:32b", "elapsed_s": 1260.4, "ts_utc": "2026-10-02T09:20:06.941855+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:32b", "elapsed_s": 1320.4, "ts_utc": "2026-10-02T09:21:06.959313+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:32b", "elapsed_s": 1380.4, "ts_utc": "2026-10-02T09:22:06.974705+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:32b", "elapsed_s": 1440.4, "ts_utc": "2026-10-02T09:23:06.989002+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:32b", "elapsed_s": 1500.4, "ts_utc": "2026-10-02T09:24:07.005426+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:32b", "elapsed_s": 1560.5, "ts_utc": "2026-10-02T09:25:07.017993+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:32b", "elapsed_s": 1620.5, "ts_utc": "2026-10-02T09:26:07.041636+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:32b", "elapsed_s": 1680.5, "ts_utc": "2026-10-02T09:27:07.060479+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:32b", "elapsed_s": 1740.5, "ts_utc": "2026-10-02T09:28:07.074839+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:32b", "elapsed_s": 1800.5, "ts_utc": "2026-10-02T09:29:07.089346+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:32b", "elapsed_s": 1860.5, "ts_utc": "2026-10-02T09:30:07.106251+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:32b", "elapsed_s": 1920.6, "ts_utc": "2026-10-02T09:31:07.121850+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:32b", "elapsed_s": 1980.6, "ts_utc": "2026-10-02T09:32:07.134580+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:32b", "elapsed_s": 2040.6, "ts_utc": "2026-10-02T09:33:07.150206+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:32b", "elapsed_s": 2100.6, "ts_utc": "2026-10-02T09:34:07.166639+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:32b", "elapsed_s": 2160.6, "ts_utc": "2026-10-02T09:35:07.181266+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:32b", "elapsed_s": 2220.6, "ts_utc": "2026-10-02T09:36:07.194667+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:32b", "elapsed_s": 2280.7, "ts_utc": "2026-10-02T09:37:07.208617+00:00"}
+{"record": "model_pull_result", "model_tag": "qwen3:32b", "ts_utc": "2026-10-02T08:59:06.605326+00:00", "already_present": false, "pulled": true, "pull_exit_code": 0, "pull_error": null, "verify_ok": true, "verify_error": null}
+{"record": "run_end", "all_models_verified": true, "n_models": 6, "ts_utc": "2026-10-02T09:38:02.900465+00:00"}
