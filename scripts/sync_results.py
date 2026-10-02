@@ -216,8 +216,18 @@ GIT_ADD_BATCH_SIZE = 200  # Windows CreateProcess has a ~32K command-line length
 
 
 def _git_add_in_batches(paths):
+    """2026-10-02 fix: a pulled batch can legitimately include a path matched by .gitignore (e.g. a
+    *.log sidecar some phase happens to drop under results/) -- `git add` exits 1 for the WHOLE batch
+    when any single path is ignored, even though it still stages every other real path in that same
+    call (confirmed directly: `git status` shows the real file added despite the ignored one causing
+    a nonzero exit). --ignore-errors does NOT change this exit code for ignored paths specifically
+    (it only covers indexing errors) -- verified live, still exits 1. Found live: this silently
+    turned into a reported 'commit failure' for 7 real result files because 3 unrelated .log files
+    were in the same batch. check=False here is correct, not a bug being papered over: the real
+    success signal is commit_pulled's own subsequent `git status` check on the pulled paths, which
+    already tells the truth regardless of this call's exit code."""
     for i in range(0, len(paths), GIT_ADD_BATCH_SIZE):
-        git("add", *paths[i:i + GIT_ADD_BATCH_SIZE])
+        git("add", *paths[i:i + GIT_ADD_BATCH_SIZE], check=False)
 
 
 def commit_pulled(pulled_paths):

@@ -73,13 +73,38 @@ def test_git_add_in_batches_splits_a_large_file_list(tmp_path, monkeypatch):
     """Found live 2026-10-01: git add with 979 individual path args hit Windows' command-line length limit
     (WinError 206, 'The filename or extension is too long'). Must split into batches."""
     calls = []
-    monkeypatch.setattr(sr, "git", lambda *a: calls.append(a))
+    monkeypatch.setattr(sr, "git", lambda *a, **kw: calls.append((a, kw)))
     monkeypatch.setattr(sr, "GIT_ADD_BATCH_SIZE", 3)
     paths = [f"file{i}.jsonl" for i in range(7)]
     sr._git_add_in_batches(paths)
     assert len(calls) == 3  # 3 + 3 + 1
-    assert calls[0] == ("add", "file0.jsonl", "file1.jsonl", "file2.jsonl")
-    assert calls[2] == ("add", "file6.jsonl")
+    assert calls[0] == (("add", "file0.jsonl", "file1.jsonl", "file2.jsonl"), {"check": False})
+    assert calls[2] == (("add", "file6.jsonl"), {"check": False})
+
+
+def test_git_add_in_batches_tolerates_a_gitignored_path_in_the_batch(tmp_path, monkeypatch):
+    """2026-10-02, found live: a real pulled batch (7 files) included 3 paths matched by .gitignore
+    (*.log sidecars). Plain `git add` exits non-zero for the WHOLE batch when any path is ignored,
+    which commit_pulled's check=True then raised as a commit failure for every file in that batch,
+    not just the ignored ones. Real git repo, real .gitignore, real add -- not mocked, since the bug
+    is specifically in git's own exit-code behavior for this case."""
+    import subprocess
+    repo = tmp_path
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+    subprocess.run(["git", "config", "user.email", "t@t.com"], cwd=repo, check=True)
+    subprocess.run(["git", "config", "user.name", "t"], cwd=repo, check=True)
+    (repo / ".gitignore").write_text("*.log\n", encoding="utf-8")
+    (repo / "real.jsonl").write_text("{}", encoding="utf-8")
+    (repo / "ignored.log").write_text("log text", encoding="utf-8")
+    subprocess.run(["git", "add", ".gitignore"], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "init"], cwd=repo, check=True)
+
+    monkeypatch.setattr(sr, "REPO", repo)
+    monkeypatch.setattr(sr, "GIT_ADD_BATCH_SIZE", 10)
+    sr._git_add_in_batches(["real.jsonl", "ignored.log"])  # must not raise
+    status = subprocess.run(["git", "status", "--porcelain", "real.jsonl"], cwd=repo,
+                            capture_output=True, text=True, check=True).stdout
+    assert status.strip().startswith("A")  # real.jsonl really got staged despite ignored.log in the batch
 
 
 def test_commit_pulled_batches_both_add_and_status(monkeypatch):
@@ -87,7 +112,7 @@ def test_commit_pulled_batches_both_add_and_status(monkeypatch):
     add_calls = []
     status_calls = []
 
-    def fake_git(*a):
+    def fake_git(*a, **kw):
         class R:
             stdout = ""
         if a[0] == "add":
