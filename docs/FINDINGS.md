@@ -1714,3 +1714,60 @@ this repo as of this writing.
 `analysis/numbers_register.py::compute_pack_trace_weighted_stats`, which calls
 `analysis/trace_weighted_pack.compute_pack_stats`. Data files: `results/workload_pack/items/*.jsonl`,
 `results/traces/agent_step_lengths.parquet`.
+
+## PRE-REGISTRATION: MX2 validation, evo-x2 (2026-10-02, NOT YET RUN)
+
+MX2's own bisection (`results/t2s_night2_20261001T151340Z.jsonl`, `mx2_probe`/`mx2_arm_result` records) reported
+FITS/SILENT_SPILL/HARD_FAIL regime boundaries for llama-3.3-70b and qwen3-32b whose onsets line up with the
+measured Vulkan heap sizes, but most of it is unverified: the majority of `mx2_probe` rows above a requested
+n_ctx of roughly 123K (70B) / 225K (32B) carry `"error": "guard: server does not match intended config: n_ctx
+131072 != <requested>"`, meaning the server actually started at n_ctx=131072 regardless of the (much higher)
+requested value -- those rows are all re-measurements of the SAME effective 131072 configuration, not of the
+nominal context they are labeled with. Of the planned cost-of-spill `mx2_arm_result` measurements, 3 of 4 hit
+this same guard and never ran at all (`"started": false`); only one (70B, FITS, n_ctx=110848) produced real
+per-call data.
+
+**Root cause, from `mx2_two_line_result`'s own recorded fields:** both models are launched with RoPE/YaRN
+scaling configured so their effective maximum context is 131072 -- llama-3.3-70b natively (`max_ctx_native:
+131072, yarn_factor: 1`), qwen3-32b via 4x YaRN scaling of its native 32768 (`max_ctx_native: 32768,
+yarn_factor: 4`). A requested n_ctx above that combined ceiling is silently clamped to 131072 by llama-server,
+with no error and no distinct behavior -- this is the answer to "how was n_ctx beyond the trained context
+handled": clamped, not refused, not scaled further. Separately, and at a MUCH higher requested value (not the
+131072 ceiling itself), both models do genuinely crash (`exit code 3221226505`, then `exit code 1` higher
+still) -- the crash log's own text (`common_params_fit_impl: cannot meet free memory target ... failed to fit
+params to free device memory: n_gpu_layers already set by user to 99`) suggests the fit/memory-planning step
+computes its initial budget check against the REQUESTED (not yet clamped) n_ctx, and with `-ngl 99` pinned (no
+layers available to move off-device to compensate), that check itself fails before the request would otherwise
+have been clamped. This is the best-supported mechanistic reading of the existing log text, not independently
+re-verified by code inspection of llama-server's own fit implementation -- treat it as a working hypothesis, not
+a confirmed root cause, until item 1 below's /props-based actual-n_ctx capture lands on fresh data.
+
+**This validation pass** (`harness/mx2_validation.py`, queued on evo-x2):
+1. For every point, records the ACTUAL negotiated n_ctx (`LlamaServerSession.n_ctx_slot`, parsed from the
+   server's own startup log) next to the requested one, and relabels (not drops -- dropping loses the fact that
+   the request was silently served by a smaller context) any point where they differ, naming the real achieved
+   configuration explicitly rather than reporting it under the nominal requested value.
+2. For each model, 3 reps at 3 points (deep FITS, mid SILENT_SPILL, just below the crash onset), with a fixed
+   2048-token prompt and n_predict=128: TTFT, prefill tok/s, decode tok/s, per-process GPU dedicated/shared
+   usage, and the heap budgets at call time. Prefill tok/s and decode tok/s are derived from
+   `LlamaServerSession.call()`'s own (latency_ms, ttft_ms, tokens_in, tokens_out) tuple as
+   `tokens_in / (ttft_ms/1000)` and `(tokens_out-1) / ((latency_ms-ttft_ms)/1000)` respectively (the standard
+   TTFT-as-prefill-boundary approximation; not the server's own `timings` object, which `/completion`
+   non-streaming would provide more directly -- noted here as a follow-up, not switched to mid-flight).
+3. The crash boundary (first HARD_FAIL n_ctx) reproduced 3 times per model: exit code, error text, and a
+   responsiveness check (local round-trip timing of a trivial subprocess call, compared against a pre-run
+   baseline taken once before any crash reproduction) to see whether the crash is contained to the one process
+   or degrades the host.
+
+**Pre-registered confirmation criterion for SILENT_SPILL** (stated before any of the above runs): a point is
+confirmed SILENT_SPILL only if ALL THREE hold: (a) the server load succeeds with no error and no bad exit code,
+(b) GPU shared-memory usage is measurably greater than at a comparable FITS point (the spill actually moved
+data off device-local memory, not just a coincidental classification), and (c) the actual negotiated n_ctx
+(from `/props`/the load log, not the request) equals the requested n_ctx -- a point whose actual n_ctx was
+clamped (case 1 above) is NOT a confirmed SILENT_SPILL measurement of the nominal context it was requested at,
+regardless of what the original bisection labeled it.
+
+**Register addition (once run):** new rows for the regime boundaries (n_ctx and MiB, vs the device-local and
+total heap sizes), the spill decode-speed ratio vs FITS, and the crash signature, plus the evo-x2 llama.cpp
+cells in `docs/FAILURE_MAP.md` (`analysis/make_failure_map.py`'s `EVIDENCE` table, currently all `NOT_MEASURED`
+for the X2 row).
