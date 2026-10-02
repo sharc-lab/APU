@@ -171,36 +171,136 @@ def test_tick_pid_dead_but_heartbeat_fresh_disagrees_and_does_nothing(tmp_path, 
     assert items[1]["status"] == "pending"  # nothing launched on top of it
 
 
+def _no_circuit_kwargs(**overrides):
+    """Default circuit-breaker injections for a test that does not care about the circuit breaker
+    itself: no cleanup ever actually runs, no real sleep, no real file I/O for the small state file,
+    and the crash does not look like a fast-fail or a repeat (so a plain 'requeued, not an immediate
+    retry' path is exercised) unless a test overrides tail_signature_fn/now_fn/started_ts itself."""
+    base = dict(
+        cleanup_fn=lambda ownership: {"killed": [], "ports_freed": {}},
+        sleep_fn=lambda s: None,
+        now_fn=lambda: 10_000_000.0,  # far from any started_ts used below -> never a fast_fail by default
+        ownership_fn=lambda p: False,
+        load_circuit_state_fn=lambda: {"last_crashed_id": None, "last_crash_signature": None},
+        save_circuit_state_fn=lambda state: None,
+        tail_signature_fn=lambda entry: None,
+    )
+    base.update(overrides)
+    return base
+
+
 def test_tick_pid_dead_and_heartbeat_stale_marks_crashed_and_launches_next(tmp_path, monkeypatch):
     """The 2026-09-29 evo-x2 false-negative case, corrected: pid check says dead AND the heartbeat has been stale
-    well past the threshold -- now it is actually safe to declare this job dead."""
+    well past the threshold -- now it is actually safe to declare this job dead. 2026-10-02: the job is requeued
+    (not left 'crashed') with its own attempt counter; since this is neither a fast-fail nor a repeat-of-last-error,
+    no cleanup/wait runs and it goes to the back of the line, letting the next pending entry launch instead."""
     _isolate(tmp_path, monkeypatch)
-    q.write_queue([{"id": "a", "cmd": ["echo"], "status": "running", "pid": 111},
+    q.write_queue([{"id": "a", "cmd": ["echo"], "status": "running", "pid": 111, "started_ts": 0.0},
                    {"id": "b", "cmd": ["echo", "next"], "status": "pending"}])
-    result = wd.tick(pid_alive_fn=lambda pid: False, heartbeat_age_fn=lambda e: 3 * 3600)
-    assert result["action"] == "crashed_launched_next"
+    result = wd.tick(pid_alive_fn=lambda pid: False, heartbeat_age_fn=lambda e: 3 * 3600,
+                     **_no_circuit_kwargs())
+    assert result["action"] == "crashed_requeued"
+    assert result["circuit_triggered"] is False
     items = q.read_queue()
-    assert items[0]["status"] == "crashed"
-    assert "heartbeat stale" in items[0]["note"]
-    assert items[1]["status"] == "running"
-    assert items[1]["pid"] == 4242
+    a = next(it for it in items if it["id"] == "a")
+    assert a["status"] == "pending"  # requeued, never left "crashed"
+    assert a["attempt"] == 2
+    assert "heartbeat stale" in a["note"]
+    b = next(it for it in items if it["id"] == "b")
+    assert b["status"] == "running"
+    assert b["pid"] == 4242
+    assert items[-1]["id"] == "a"  # ordinary (non-circuit) requeue goes to the back of the line
 
 
 def test_tick_pid_dead_and_no_heartbeat_log_at_all_marks_crashed(tmp_path, monkeypatch):
+    """Requeuing always produces at least one pending entry (the job itself), so launch_next()
+    immediately retries it within the same tick -- it ends up 'running' again (with a fresh pid),
+    never stuck 'crashed'. attempt is incremented to prove it is a real retry, not the original run."""
     _isolate(tmp_path, monkeypatch)
-    q.write_queue([{"id": "a", "cmd": ["echo"], "status": "running", "pid": 111}])
-    result = wd.tick(pid_alive_fn=lambda pid: False, heartbeat_age_fn=lambda e: None)
-    assert result["action"] == "crashed_no_next"
-    assert q.read_queue()[0]["status"] == "crashed"
+    q.write_queue([{"id": "a", "cmd": ["echo"], "status": "running", "pid": 111, "started_ts": 0.0}])
+    result = wd.tick(pid_alive_fn=lambda pid: False, heartbeat_age_fn=lambda e: None,
+                     **_no_circuit_kwargs())
+    assert result["action"] == "crashed_requeued"
+    assert result["launched"] == "a"
+    item = q.read_queue()[0]
+    assert item["status"] == "running"
+    assert item["pid"] == 4242  # the stubbed launch_next pid -- a genuinely new launch, not the old pid 111
+    assert item["attempt"] == 2
 
 
-def test_tick_running_dead_crash_with_no_pending_writes_empty_flag(tmp_path, monkeypatch):
+def test_tick_launch_next_failing_after_requeue_writes_empty_flag(tmp_path, monkeypatch):
+    """The genuine empty-flag case: requeuing succeeds, but the retry launch itself fails (e.g. WMI
+    Create errors) -- launch_next reverts it to pending and returns None, so this tick must still
+    report the queue as having nothing successfully running, not silently claim a launch happened."""
     queue_file, flag_file = _isolate(tmp_path, monkeypatch)
-    q.write_queue([{"id": "a", "cmd": ["echo"], "status": "running", "pid": 111}])
-    result = wd.tick(pid_alive_fn=lambda pid: False, heartbeat_age_fn=lambda e: 3 * 3600)
-    assert result["action"] == "crashed_no_next"
+    monkeypatch.setattr(q, "_ps", lambda script: ("rc=1 pid=", "WMI Create failed"))
+    q.write_queue([{"id": "a", "cmd": ["echo"], "status": "running", "pid": 111, "started_ts": 0.0}])
+    result = wd.tick(pid_alive_fn=lambda pid: False, heartbeat_age_fn=lambda e: 3 * 3600,
+                     **_no_circuit_kwargs())
+    assert result["action"] == "crashed_requeued"
+    assert result.get("launched") is None
     assert flag_file.exists()
-    assert q.read_queue()[0]["status"] == "crashed"
+    assert q.read_queue()[0]["status"] == "pending"
+
+
+def test_tick_circuit_breaker_fast_fail_runs_cleanup_and_retries_immediately(tmp_path, monkeypatch):
+    """A job that dies within CIRCUIT_FAST_FAIL_S of its own launch looks like a stale-state trip:
+    cleanup runs, the wait happens, and the retried entry is placed FIRST so it launches next, ahead
+    of other pending work."""
+    _isolate(tmp_path, monkeypatch)
+    q.write_queue([{"id": "a", "cmd": ["echo"], "status": "running", "pid": 111, "started_ts": 1000.0},
+                   {"id": "b", "cmd": ["echo"], "status": "pending"}])
+    cleanup_calls = []
+    slept = []
+    result = wd.tick(pid_alive_fn=lambda pid: False, heartbeat_age_fn=lambda e: 3 * 3600,
+                     **_no_circuit_kwargs(
+                         now_fn=lambda: 1010.0,  # 10s after started_ts -- well under the 120s fast-fail window
+                         cleanup_fn=lambda ownership: cleanup_calls.append(ownership) or {"killed": [1, 2], "ports_freed": {}},
+                         sleep_fn=lambda s: slept.append(s),
+                     ))
+    assert result["circuit_triggered"] is True
+    assert len(cleanup_calls) == 1
+    assert slept == [wd.CIRCUIT_CLEANUP_WAIT_S]
+    # "a" was placed first in line, so launch_next() retries it immediately, ahead of "b"
+    assert result["launched"] == "a"
+    items = q.read_queue()
+    a = next(it for it in items if it["id"] == "a")
+    assert a["status"] == "running"  # successfully retried within the same tick
+    assert a["attempt"] == 2
+    b = next(it for it in items if it["id"] == "b")
+    assert b["status"] == "pending"  # "b" did not jump ahead of the retry
+
+
+def test_tick_circuit_breaker_repeat_error_also_triggers_cleanup(tmp_path, monkeypatch):
+    """2 consecutive crashes with the same tail-of-log error signature also trigger the circuit
+    breaker, even if the second one ran for a while (not a fast-fail by elapsed time alone)."""
+    _isolate(tmp_path, monkeypatch)
+    q.write_queue([{"id": "a", "cmd": ["echo"], "status": "running", "pid": 111, "started_ts": 0.0}])
+    cleanup_calls = []
+    same_error = "RuntimeError: STOP: a llama-server process we did not start is running"
+    result = wd.tick(pid_alive_fn=lambda pid: False, heartbeat_age_fn=lambda e: 3 * 3600,
+                     **_no_circuit_kwargs(
+                         now_fn=lambda: 10_000.0,  # far past the fast-fail window
+                         tail_signature_fn=lambda entry: same_error,
+                         load_circuit_state_fn=lambda: {"last_crashed_id": "z", "last_crash_signature": same_error},
+                         cleanup_fn=lambda ownership: cleanup_calls.append(ownership) or {"killed": [], "ports_freed": {}},
+                     ))
+    assert result["circuit_triggered"] is True
+    assert len(cleanup_calls) == 1
+
+
+def test_tick_gives_up_after_max_attempts_without_retrying_again(tmp_path, monkeypatch):
+    _isolate(tmp_path, monkeypatch)
+    q.write_queue([{"id": "a", "cmd": ["echo"], "status": "running", "pid": 111, "started_ts": 0.0,
+                   "attempt": wd.CIRCUIT_MAX_ATTEMPTS}])
+    cleanup_calls = []
+    result = wd.tick(pid_alive_fn=lambda pid: False, heartbeat_age_fn=lambda e: 3 * 3600,
+                     **_no_circuit_kwargs(cleanup_fn=lambda ownership: cleanup_calls.append(ownership)))
+    assert result["action"] == "failed_max_attempts"
+    assert cleanup_calls == []  # exhausted -- no further cleanup/retry attempted
+    a = q.read_queue()[0]
+    assert a["status"] == "failed_max_attempts"
+    assert a["id"] == "a"
 
 
 def test_tick_pending_only_launches_next(tmp_path, monkeypatch):

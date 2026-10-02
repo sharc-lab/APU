@@ -53,6 +53,13 @@ from pathlib import Path
 DEPLOY = Path(__file__).resolve().parent
 sys.path.insert(0, str(DEPLOY))
 import t2s_queue as q  # noqa: E402
+import stale_server_cleanup as scc  # noqa: E402
+
+CIRCUIT_FAST_FAIL_S = 120  # a job that dies within this long of its own launch looks like a stale-state trip,
+                          # not a genuine mid-run failure
+CIRCUIT_CLEANUP_WAIT_S = 60
+CIRCUIT_MAX_ATTEMPTS = 3
+WATCHDOG_STATE_PATH = Path(r"C:\apu\ovn\watchdog_circuit_state.json")
 
 WATCHDOG_LOG = Path(r"C:\apu\ovn\watchdog.log")
 QUEUE_LOG_DIR = Path(r"C:\apu\ovn")
@@ -191,7 +198,61 @@ def check_progress_stale(phases, queue_items, now=None):
     return None
 
 
-def tick(pid_alive_fn=pid_alive, heartbeat_age_fn=heartbeat_age_s):
+def _tail_error_signature(entry, log_dir=QUEUE_LOG_DIR, read_text=None):
+    """A crude error signature for a crashed job: the last non-empty line of its own queue_<id>.log,
+    used only to detect '2 consecutive jobs failed with the same error' (circuit breaker condition).
+    Not meant to be a precise error parser -- a false match just means one extra cleanup+wait that
+    was not strictly necessary, never a correctness problem. read_text is injectable for tests."""
+    read_text = read_text or (lambda p: p.read_text(encoding="utf-8", errors="replace"))
+    log_path = log_dir / f"queue_{entry['id']}.log"
+    try:
+        text = read_text(log_path)
+    except Exception:
+        return None
+    lines = [l.strip() for l in text.splitlines() if l.strip()]
+    return lines[-1] if lines else None
+
+
+def _load_circuit_state(path=WATCHDOG_STATE_PATH, read_text=None):
+    read_text = read_text or (lambda p: p.read_text(encoding="utf-8"))
+    try:
+        return json.loads(read_text(path))
+    except Exception:
+        return {"last_crashed_id": None, "last_crash_signature": None}
+
+
+def _save_circuit_state(state, path=WATCHDOG_STATE_PATH, write_text=None):
+    write_text = write_text or (lambda p, s: p.write_text(s, encoding="utf-8"))
+    write_text(path, json.dumps(state, indent=1))
+
+
+def host_ownership_predicate(hostname=None):
+    """evo-x2: name match is sufficient (dedicated machine). evo-t2s (and anything else): only a
+    process whose command line points into C:\\apu is ours -- see stale_server_cleanup's own
+    docstring for why these differ."""
+    import socket
+    hostname = (hostname or socket.gethostname()).lower()
+    if "x2" in hostname:
+        return scc.is_ours_dedicated_machine
+    return lambda p: scc.is_ours_shared_machine(p, our_paths=("c:\\apu",))
+
+
+def _circuit_breaker_check(running, elapsed_s, log_dir=QUEUE_LOG_DIR, read_text=None,
+                           state=None, now=None):
+    """Returns (should_run_circuit, error_signature). should_run_circuit is True if this crash looks
+    like a stale-state trip worth an immediate cleanup+retry: either it died within
+    CIRCUIT_FAST_FAIL_S of its own launch, or its error signature matches the immediately preceding
+    crashed job's signature (2 consecutive jobs, same real error)."""
+    state = state if state is not None else _load_circuit_state()
+    sig = _tail_error_signature(running, log_dir=log_dir, read_text=read_text)
+    fast_fail = elapsed_s is not None and elapsed_s < CIRCUIT_FAST_FAIL_S
+    same_as_last = sig is not None and sig == state.get("last_crash_signature")
+    return (fast_fail or same_as_last), sig
+
+
+def tick(pid_alive_fn=pid_alive, heartbeat_age_fn=heartbeat_age_s, cleanup_fn=None, sleep_fn=time.sleep,
+        now_fn=time.time, ownership_fn=None, load_circuit_state_fn=None, save_circuit_state_fn=None,
+        tail_signature_fn=None):
     """One watchdog decision cycle. Injectable pid_alive_fn/heartbeat_age_fn for tests; production defaults hit the
     real machine. Returns a dict describing what happened, for logging and for tests to assert on.
 
@@ -221,16 +282,74 @@ def tick(pid_alive_fn=pid_alive, heartbeat_age_fn=heartbeat_age_s):
             reason = (f"entry {running['id']}: pid {running.get('pid')} check says dead but heartbeat age "
                       f"{age_str} is still fresh; trusting the heartbeat, leaving running")
             return {"action": "pid_check_disagrees", "reason": reason}
-        running["status"] = "crashed"
-        running["finished_ts"] = time.time()
+        # 2026-10-02 circuit breaker: a crashed job is never just left "crashed" (a real crash cascade
+        # on evo-x2 burned through 5 queued jobs in under an hour because every one of them inherited
+        # the same stale-process-guard trip from the first). Every crash is requeued (status back to
+        # "pending", own attempt counter incremented) unless it has already used its 3rd attempt. A
+        # crash that looks like a stale-state trip specifically -- died within CIRCUIT_FAST_FAIL_S of
+        # its own launch, or its error signature matches the immediately preceding crash's -- also
+        # gets an immediate cleanup (stop any of our own stray ollama/llama-server processes, wait for
+        # the port(s) to free) and a CIRCUIT_CLEANUP_WAIT_S pause before that retry, and is placed
+        # FIRST among pending entries so the very next launch is the retry itself, not unrelated work.
+        now_fn = now_fn
+        cleanup_fn = cleanup_fn or (lambda ownership: scc.cleanup_stale_servers(ownership))
+        ownership_fn = ownership_fn or host_ownership_predicate()
+        load_state = load_circuit_state_fn or _load_circuit_state
+        save_state = save_circuit_state_fn or _save_circuit_state
+        tail_sig = tail_signature_fn or _tail_error_signature
+
+        now = now_fn()
+        started_ts = running.get("started_ts")
+        elapsed_s = (now - started_ts) if started_ts else None
+        state = load_state()
+        sig = tail_sig(running)
+        fast_fail = elapsed_s is not None and elapsed_s < CIRCUIT_FAST_FAIL_S
+        same_as_last = sig is not None and sig == state.get("last_crash_signature")
+        circuit_triggered = fast_fail or same_as_last
+
+        attempt = int(running.get("attempt", 1))
         age_str = f"{age:.0f}s" if age is not None else "no heartbeat log found"
-        running["note"] = f"watchdog: pid {running.get('pid')} dead and heartbeat stale ({age_str})"
+        base_note = f"watchdog: pid {running.get('pid')} dead and heartbeat stale ({age_str}), attempt {attempt}"
+        save_state({"last_crashed_id": running["id"], "last_crash_signature": sig})
+
+        if attempt >= CIRCUIT_MAX_ATTEMPTS:
+            running["status"] = "failed_max_attempts"
+            running["finished_ts"] = now
+            running["note"] = base_note + f" -- {CIRCUIT_MAX_ATTEMPTS} attempts exhausted, giving up, not retrying"
+            q.write_queue(items)
+            launched = q.launch_next(items)
+            result = {"action": "failed_max_attempts", "reason": running["note"]}
+            if launched is not None:
+                result["launched"] = launched["id"]
+            return result
+
+        cleanup_result = None
+        if circuit_triggered:
+            cleanup_result = cleanup_fn(ownership_fn)
+            sleep_fn(CIRCUIT_CLEANUP_WAIT_S)
+
+        running["status"] = "pending"
+        running["attempt"] = attempt + 1
+        running["note"] = base_note + (
+            f" -- circuit breaker triggered (fast_fail={fast_fail}, same_error_as_last={same_as_last}), "
+            f"ran cleanup and waited {CIRCUIT_CLEANUP_WAIT_S}s, retrying immediately"
+            if circuit_triggered else " -- requeued for a normal retry (not an immediate-retry trigger)")
+        for k in ("pid", "started_ts", "launch_result"):
+            running.pop(k, None)
+        items = [it for it in items if it is not running]
+        if circuit_triggered:
+            items = [running] + items  # immediate retry: first in line
+        else:
+            items = items + [running]  # ordinary requeue: back of the line, other work goes first
         q.write_queue(items)
         launched = q.launch_next(items)
-        if launched is None:
-            q.write_empty_flag(items, f"entry {running['id']} crashed and no pending entry to launch")
-            return {"action": "crashed_no_next", "reason": running["note"]}
-        return {"action": "crashed_launched_next", "reason": running["note"], "launched": launched["id"]}
+        result = {"action": "crashed_requeued", "reason": running["note"], "circuit_triggered": circuit_triggered,
+                 "cleanup_result": cleanup_result, "attempt": running["attempt"]}
+        if launched is not None:
+            result["launched"] = launched["id"]
+        else:
+            q.write_empty_flag(items, f"entry {running['id']} requeued, no pending entry could launch")
+        return result
 
     pending = next((it for it in items if it["status"] == "pending"), None)
     if pending is not None:
