@@ -203,8 +203,15 @@ def classify_point(requested_n_ctx, actual_n_ctx, gpu_shared_mib, baseline_share
 
 
 def run_regime_point(model_id, point_type, requested_n_ctx, rep, out_path, log, baseline_shared_mib=None):
+    # reasoning_budget=0 suppresses thinking mode -- found live 2026-10-02: qwen3-32b defaults to thinking
+    # mode (matching this repo's own documented pattern for the Qwen3 family, see t2s_k1_ollama.OllamaClient.
+    # chat's own think= docstring), and without this, the whole n_predict=128 budget went into hidden
+    # reasoning content with zero real content tokens ever streamed -- ttft_ms stayed None for every point on
+    # this model despite tokens_out=128/done_reason="length", because _stream_chat's TTFT is stamped on the
+    # first real content token, which never arrived. llama-3.3-70b is unaffected (not a reasoning model), so
+    # this is harmless there (an already-non-thinking model has nothing to suppress).
     cfg = LlamaServerConfig(exe=LLAMA_SERVER_EXE, model=GGUF_PATHS[model_id], ctx_size=requested_n_ctx, port=PORT,
-                            n_gpu_layers=99, platform="evo-x2", backend="vulkan")
+                            n_gpu_layers=99, platform="evo-x2", backend="vulkan", reasoning_budget=0)
     row = {"record": "mx2v_regime_point", "model_id": model_id, "point_type": point_type,
           "requested_n_ctx": requested_n_ctx, "rep": rep, "ts_utc": utc_iso()}
     lines = read_heap_lines()

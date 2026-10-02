@@ -255,6 +255,37 @@ def test_run_stops_at_deadline(tmp_path, monkeypatch):
     assert calls == []
 
 
+# --------------------------------------------------------------------------------------------------- regime point
+def test_run_regime_point_suppresses_thinking_mode(tmp_path, monkeypatch):
+    """2026-10-02 bug found live: qwen3-32b defaults to thinking mode, and without reasoning_budget=0 the
+    whole n_predict budget went into hidden reasoning content -- ttft_ms/decode_tok_s stayed None for every
+    point on this model despite a real, complete generation (tokens_out=128, done_reason='length')."""
+    captured = {}
+
+    class FakeSession:
+        n_ctx_slot = 20480
+        _log_path = None
+        _proc = None
+        def __init__(self, cfg):
+            captured["cfg"] = cfg
+        def __enter__(self):
+            return self
+        def __exit__(self, *a):
+            return False
+        def call(self, prompt, max_tokens):
+            return ("", 1000.0, 500.0, 10, 20, "stop", 0)
+
+    monkeypatch.setattr(mv, "LlamaServerSession", FakeSession)
+    monkeypatch.setattr(mv, "read_heap_lines", lambda: {"device_local_mib": 76000.0})
+    monkeypatch.setattr(mv, "read_non_device_local_usage_mib", lambda: 0.0)
+    monkeypatch.setattr(mv.L, "parse_server_log", lambda path: {})
+    monkeypatch.setattr(mv, "query_gpu_process_memory", lambda pid: {"dedicated_mib": 1.0, "shared_mib": 1.0})
+
+    mv.run_regime_point("qwen3-32b", "deep_fits", 20480, 0, tmp_path / "out.jsonl", log=lambda s: None)
+
+    assert captured["cfg"].reasoning_budget == 0
+
+
 # --------------------------------------------------------------------------------------------------- crash repro
 def test_run_crash_repro_detects_a_process_that_exits_before_health_check(tmp_path, monkeypatch):
     """The real HARD_FAIL case: llama-server crashes before /health ever responds."""
