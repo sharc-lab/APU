@@ -243,6 +243,19 @@ def run_regime_point(model_id, point_type, requested_n_ctx, rep, out_path, log, 
     return row
 
 
+def _wait_after_kill(proc, log, timeout_s=30):
+    """proc.wait() after kill() is NOT guaranteed to return quickly -- found live 2026-10-02: a 32B model
+    process, killed mid-load at a near-crash n_ctx (large VRAM/host allocation to tear down), took longer
+    than a bare 10s wait, raising an uncaught TimeoutExpired that crashed the whole job (the top-level handler
+    in main() caught it and advanced the queue correctly, but the job itself still stopped early, losing the
+    rest of its own run). Never re-raises: the process has already been sent SIGKILL/TerminateProcess, so it
+    WILL die eventually; this only logs if confirming that within timeout_s took longer than expected."""
+    try:
+        proc.wait(timeout=timeout_s)
+    except subprocess.TimeoutExpired:
+        log(f"warning: process {proc.pid} did not exit within {timeout_s}s of being killed; continuing anyway")
+
+
 def run_crash_repro(model_id, n_ctx, rep, out_path, log):
     """Launches llama-server directly (not via LlamaServerSession, which discards exit-code/log detail on a
     failed start) so a genuine crash's exit code and error text are captured, then runs the responsiveness
@@ -278,7 +291,7 @@ def run_crash_repro(model_id, n_ctx, rep, out_path, log):
         # genuine crash exit code -- real_exit_code stays None, and killed_by_probe says why the process is
         # gone at all.
         proc.kill()
-        proc.wait(timeout=10)
+        _wait_after_kill(proc, log)
         killed_by_probe = True
         real_exit_code = None
     else:
@@ -287,7 +300,7 @@ def run_crash_repro(model_id, n_ctx, rep, out_path, log):
             real_exit_code = proc.returncode
         except subprocess.TimeoutExpired:
             proc.kill()
-            proc.wait(timeout=10)
+            _wait_after_kill(proc, log)
             killed_by_probe = True
             real_exit_code = None  # never started, never exited on its own within the timeout -- a HANG, not
                                    # a captured crash code

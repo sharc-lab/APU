@@ -309,6 +309,42 @@ def test_run_crash_repro_kills_a_process_that_does_start(tmp_path, monkeypatch):
     assert row["killed_by_probe"] is True
 
 
+def test_run_crash_repro_survives_a_slow_to_die_process_after_kill(tmp_path, monkeypatch):
+    """2026-10-02 bug found live: a real 32B model process, killed mid-load at a near-crash n_ctx, took
+    longer than a bare 10s proc.wait(timeout=10) to actually exit -- that raised an UNCAUGHT TimeoutExpired
+    (no try/except around that specific wait call) and crashed the whole job. A slow-to-die process after
+    kill() must never crash the script -- it has already been sent SIGKILL/TerminateProcess and will die on
+    its own eventually."""
+    class FakeProc:
+        pid = 4242
+        returncode = None
+        wait_calls = 0
+        def poll(self):
+            return None
+        def kill(self):
+            pass
+        def wait(self, timeout=None):
+            FakeProc.wait_calls += 1
+            raise mv.subprocess.TimeoutExpired(cmd="llama-server", timeout=timeout)
+
+    monkeypatch.setattr(mv.subprocess, "Popen", lambda *a, **kw: FakeProc())
+    monkeypatch.setattr(mv, "REPO", tmp_path)
+
+    class FakeHttpxResp:
+        status_code = 200
+
+    fake_httpx = type("M", (), {"get": staticmethod(lambda url, timeout=2.0: FakeHttpxResp())})
+    monkeypatch.setitem(sys.modules, "httpx", fake_httpx)
+
+    out_path = tmp_path / "out.jsonl"
+    warnings = []
+    row = mv.run_crash_repro("qwen3-32b", 367360, 0, out_path, log=warnings.append)
+    assert row["started"] is True
+    assert row["exit_code"] is None
+    assert FakeProc.wait_calls >= 1
+    assert any("did not exit" in w for w in warnings)
+
+
 # --------------------------------------------------------------------------------------------------- reclassify_file
 def test_reclassify_file_updates_regime_from_saved_gpu_shared_mib_without_rerunning(tmp_path):
     """The real post-processing use case: rows already written with the OLD (wrong, vulkaninfo-based)
