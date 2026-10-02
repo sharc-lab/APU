@@ -1542,9 +1542,47 @@ test invocation:** starting `ollama serve` with `OLLAMA_IGPU_ENABLE=1` and loadi
 
 Setting one environment variable moves the model fully onto the iGPU and raises the default context 8x. **This
 confirms the hypothesis: the 4096 ceiling on evo-t2s is Ollama's own integrated-GPU opt-out default, not a hardware
-or driver limitation of the Arc iGPU.** It does not fully explain the T2S vs X2 gap by itself (X2's AMD Strix Halo
-iGPU must either not be subject to the same opt-out, or ships with `OLLAMA_IGPU_ENABLE` effectively on by default
-on that platform's Ollama build -- not yet checked directly; flagged as the next step, not assumed).
+or driver limitation of the Arc iGPU.**
+
+**evo-x2's own server.log, quoted verbatim (2026-10-01, no new run, `C:\apu\ovn\ollama_serve.log` on evo-x2):**
+
+```
+level=INFO source=runner.go:405 msg="dropping integrated GPU; to enable, set OLLAMA_IGPU_ENABLE=1" id=0 library=Vulkan compute=0.0 name=Vulkan0 description="AMD Radeon(TM) 8060S Graphics" pci_id=""
+level=INFO source=types.go:32 msg="inference compute" id=0 filter_id=0 library=ROCm compute=gfx1151 name=ROCm0 description="AMD Radeon(TM) 8060S Graphics" libdirs=ollama,rocm_v7_1 driver=0.0 pci_id=0000:c5:00.0 type=iGPU total="99.7 GiB" available="99.6 GiB"
+level=INFO source=routes.go:2115 msg="vram-based default context" total_vram="99.7 GiB" default_num_ctx=262144
+```
+
+This settles the T2S vs X2 gap directly, no elimination required: the AMD iGPU **is** dropped by the identical
+Vulkan-backend opt-out policy Intel's iGPU hits. But Ollama then separately discovers the same physical device
+through a second backend, ROCm, which carries no such opt-out -- so evo-x2 ends up using the iGPU anyway, via
+ROCm, while evo-t2s (no ROCm path exists for Intel hardware in Ollama) has no fallback once Vulkan drops it and
+falls through to CPU. The gap is not an AMD-vs-Intel capability difference; it is that Ollama ships a second,
+opt-out-free discovery path for AMD and not for Intel.
+
+**Half-context overflow rule (2026-10-01, `ollama-overflow-keeps-half` in the register).** Across four real,
+independently-checked configurations, an over-length prompt's processed tokens after overflow equal
+`floor(num_ctx / 2) + 2`, every time, with HTTP 200 (not an error):
+
+| num_ctx | processed after overflow | config |
+|---|---|---|
+| 4096 | 2050 | Ollama stock default, evo-t2s |
+| 32768 | 16386 | Ollama `OLLAMA_IGPU_ENABLE=1`, evo-t2s |
+| 40960 | 20482 | Ollama stock default, evo-x2 |
+| 8192 | 4098 | live template-mechanism test, evo-x2 |
+
+Mechanism, cited rather than guessed: Ollama's own internal `llama-server` invocation carries `--context-shift
+--keep 4` on every real command line captured this session (both hosts). This is llama.cpp's own context-shift
+feature: once the context fills, the oldest tokens are discarded (keeping only the first `--keep` tokens, 4 here,
+negligible) and the window slides to retain the most recent content -- a tail-keeping sliding window, not a
+model-specific or host-specific quirk. A live marker probe (front/middle/end markers planted in a ~12,000-word
+prompt, num_ctx=8192) is consistent with the front marker not surviving, but the model also failed to report an
+end-adjacent marker that plausibly fell inside the retained tail -- reported as inconclusive on exact survival,
+most likely a model-recall limitation at this context pressure rather than evidence against tail-retention.
+
+**With `OLLAMA_IGPU_ENABLE=1`, prompts up to the full reported default context pass intact** (no truncation,
+marker found, HTTP 200); only prompts exceeding it get cut to this half-window, still returning HTTP 200 rather
+than erroring -- this corrects the earlier table's wording, which described the flag's ceiling without stating
+that sub-ceiling prompts are unaffected.
 
 **T2S vs X2 default-context table** (from the K1 v3 register rows, `ollama_default_ctx` per model):
 
