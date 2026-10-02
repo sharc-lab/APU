@@ -27,6 +27,22 @@ def _isolate(tmp_path, monkeypatch):
     return queue_file, flag_file
 
 
+# --------------------------------------------------------- queue_watchdog.host_ownership_predicate
+def test_host_ownership_predicate_x2_is_dedicated_machine_rule():
+    assert wd.host_ownership_predicate("evo-x2") is wd.scc.is_ours_dedicated_machine
+
+
+def test_host_ownership_predicate_t2s_uses_real_default_shared_paths_not_a_narrowed_override():
+    """2026-10-02 bug found live: this used to hardcode our_paths=('c:\\apu',), which cannot see Ollama's own
+    internal engine (it never references C:\\apu) -- the exact same gap stale_server_cleanup's own default path
+    list was extended to fix. This predicate must use that real default, not re-narrow it back to just C:\\apu."""
+    predicate = wd.host_ownership_predicate("evo-t2s")
+    ollama_engine = {"pid": 99, "name": "llama-server.exe", "ppid": 0,
+                     "cmdline": ("C:\\Users\\SHARC\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\"
+                                 "llama-server.exe --model C:\\Users\\SHARC\\.ollama\\models\\blobs\\sha256-x")}
+    assert predicate(ollama_engine) is True
+
+
 # ---------------------------------------------------------------- t2s_queue.launch_next / _parse_pid
 def test_parse_pid_extracts_int_or_none():
     assert q._parse_pid("rc=0 pid=1234") == 1234
@@ -39,7 +55,7 @@ def test_parse_pid_extracts_int_or_none():
 def test_launch_next_records_pid_on_the_launched_entry(tmp_path, monkeypatch):
     _isolate(tmp_path, monkeypatch)
     q.write_queue([{"id": "a", "cmd": ["echo", "hi"], "status": "pending"}])
-    launched = q.launch_next(q.read_queue())
+    launched = q.launch_next(q.read_queue(), cleanup_fn=lambda: None)
     assert launched["status"] == "running"
     assert launched["pid"] == 4242
 
@@ -52,12 +68,32 @@ def test_launch_next_reverts_to_pending_on_launch_failure_and_tries_next(tmp_pat
     items = [{"id": "a", "cmd": ["echo", "hi"], "status": "pending"},
              {"id": "b", "cmd": ["echo", "next"], "status": "pending"}]
     monkeypatch.setattr(q, "_launch", lambda cmd, log_path, job_id: "rc=-2147024891 pid=")
-    launched = q.launch_next(items)
+    launched = q.launch_next(items, cleanup_fn=lambda: None)
     assert launched is None  # both attempts failed to produce a pid
     assert items[0]["status"] == "pending"
     assert "last_launch_failure" in items[0]
     assert items[1]["status"] == "pending"
     assert "last_launch_failure" in items[1]
+
+
+def test_launch_next_runs_cleanup_fn_before_launching(tmp_path, monkeypatch):
+    """X1 (2026-10-02): the real root cause of the X2 crash cascade was that a job's orphaned llama-server/ollama
+    process tripped the NEXT job's own stale-process guard. launch_next() now sweeps stale servers immediately
+    before every launch; this confirms the sweep happens, and happens BEFORE the entry is marked running (so a
+    cleanup that itself fails cannot leave a half-launched entry)."""
+    _isolate(tmp_path, monkeypatch)
+    order = []
+    monkeypatch.setattr(q, "_launch", lambda cmd, log_path, job_id: (order.append("launch"), "rc=0 pid=4242")[1])
+    items = [{"id": "a", "cmd": ["echo", "hi"], "status": "pending"}]
+    launched = q.launch_next(items, cleanup_fn=lambda: order.append("cleanup"))
+    assert order == ["cleanup", "launch"]
+    assert launched["id"] == "a"
+
+
+def test_launch_next_default_cleanup_fn_is_the_real_stale_server_sweep(tmp_path, monkeypatch):
+    """The production default (no cleanup_fn passed) must be the real sweep, not a silent no-op -- this is what
+    callers outside the test suite (advance(), queue_watchdog.py) actually get."""
+    assert q.launch_next.__defaults__[0] is q._default_pre_launch_cleanup
 
 
 def test_launch_next_skips_failed_launch_and_succeeds_on_next(tmp_path, monkeypatch):
@@ -71,7 +107,7 @@ def test_launch_next_skips_failed_launch_and_succeeds_on_next(tmp_path, monkeypa
     monkeypatch.setattr(q, "_launch", fake_launch)
     items = [{"id": "a", "cmd": ["echo", "hi"], "status": "pending"},
              {"id": "b", "cmd": ["echo", "next"], "status": "pending"}]
-    launched = q.launch_next(items)
+    launched = q.launch_next(items, cleanup_fn=lambda: None)
     assert launched is not None
     assert launched["id"] == "b"
     assert launched["pid"] == 4242
@@ -307,7 +343,8 @@ def test_tick_pending_only_launches_next(tmp_path, monkeypatch):
     _isolate(tmp_path, monkeypatch)
     q.write_queue([{"id": "a", "cmd": ["echo"], "status": "done"},
                    {"id": "b", "cmd": ["echo", "next"], "status": "pending"}])
-    result = wd.tick(pid_alive_fn=lambda pid: False, heartbeat_age_fn=lambda e: None)
+    result = wd.tick(pid_alive_fn=lambda pid: False, heartbeat_age_fn=lambda e: None,
+                     cleanup_fn=lambda ownership: {"killed": [], "ports_freed": {}}, ownership_fn=lambda p: False)
     assert result["action"] == "launched"
     assert result["launched"] == "b"
     assert q.read_queue()[1]["status"] == "running"

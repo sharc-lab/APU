@@ -234,7 +234,12 @@ def host_ownership_predicate(hostname=None):
     hostname = (hostname or socket.gethostname()).lower()
     if "x2" in hostname:
         return scc.is_ours_dedicated_machine
-    return lambda p: scc.is_ours_shared_machine(p, our_paths=("c:\\apu",))
+    # 2026-10-02 bug found live: this used to hardcode our_paths=("c:\\apu",), which cannot see Ollama's own
+    # internal engine (it runs from C:\Users\SHARC\...\Ollama\lib\ollama\llama-server.exe against
+    # C:\Users\SHARC\.ollama\models\blobs\..., never referencing C:\apu at all) -- 16-18 such orphans on
+    # evo-t2s were invisible to this check. Falling through to scc's own DEFAULT_SHARED_MACHINE_PATHS (which
+    # already includes the Ollama install/blob-cache path fragments) instead of re-narrowing it here.
+    return scc.is_ours_shared_machine
 
 
 def _circuit_breaker_check(running, elapsed_s, log_dir=QUEUE_LOG_DIR, read_text=None,
@@ -265,6 +270,14 @@ def tick(pid_alive_fn=pid_alive, heartbeat_age_fn=heartbeat_age_s, cleanup_fn=No
     if pause is not None:
         return {"action": "paused", "reason": pause}
 
+    # Resolved once, up front, so both the crash branch (circuit-breaker cleanup) and the pending branch
+    # (t2s_queue.launch_next's own pre-launch cleanup, X1 2026-10-02) share the same injected test doubles --
+    # a test that stubs cleanup_fn/ownership_fn for tick() must not have launch_next silently fall through to
+    # the real process-killing defaults underneath it.
+    cleanup_fn = cleanup_fn or (lambda ownership: scc.cleanup_stale_servers(ownership))
+    ownership_fn = ownership_fn or host_ownership_predicate()
+    launch_cleanup = lambda: cleanup_fn(ownership_fn)  # noqa: E731  (local adapter: launch_next's cleanup_fn takes no args)
+
     items = q.read_queue()
     running = next((it for it in items if it["status"] == "running"), None)
 
@@ -291,9 +304,6 @@ def tick(pid_alive_fn=pid_alive, heartbeat_age_fn=heartbeat_age_s, cleanup_fn=No
         # gets an immediate cleanup (stop any of our own stray ollama/llama-server processes, wait for
         # the port(s) to free) and a CIRCUIT_CLEANUP_WAIT_S pause before that retry, and is placed
         # FIRST among pending entries so the very next launch is the retry itself, not unrelated work.
-        now_fn = now_fn
-        cleanup_fn = cleanup_fn or (lambda ownership: scc.cleanup_stale_servers(ownership))
-        ownership_fn = ownership_fn or host_ownership_predicate()
         load_state = load_circuit_state_fn or _load_circuit_state
         save_state = save_circuit_state_fn or _save_circuit_state
         tail_sig = tail_signature_fn or _tail_error_signature
@@ -317,7 +327,7 @@ def tick(pid_alive_fn=pid_alive, heartbeat_age_fn=heartbeat_age_s, cleanup_fn=No
             running["finished_ts"] = now
             running["note"] = base_note + f" -- {CIRCUIT_MAX_ATTEMPTS} attempts exhausted, giving up, not retrying"
             q.write_queue(items)
-            launched = q.launch_next(items)
+            launched = q.launch_next(items, cleanup_fn=launch_cleanup)
             result = {"action": "failed_max_attempts", "reason": running["note"]}
             if launched is not None:
                 result["launched"] = launched["id"]
@@ -342,7 +352,13 @@ def tick(pid_alive_fn=pid_alive, heartbeat_age_fn=heartbeat_age_s, cleanup_fn=No
         else:
             items = items + [running]  # ordinary requeue: back of the line, other work goes first
         q.write_queue(items)
-        launched = q.launch_next(items)
+        # A circuit-triggered retry already ran cleanup_fn above (lines just before); launch_next doing its own
+        # pre-launch sweep again immediately after would be a redundant second real cleanup call for no benefit.
+        # The ordinary (non-circuit) requeue path never ran cleanup_fn at all, so there launch_next's own sweep
+        # is still the thing that clears any stray server this crash may have left before a possibly-different
+        # pending entry launches.
+        next_launch_cleanup = (lambda: None) if circuit_triggered else launch_cleanup
+        launched = q.launch_next(items, cleanup_fn=next_launch_cleanup)
         result = {"action": "crashed_requeued", "reason": running["note"], "circuit_triggered": circuit_triggered,
                  "cleanup_result": cleanup_result, "attempt": running["attempt"]}
         if launched is not None:
@@ -353,7 +369,7 @@ def tick(pid_alive_fn=pid_alive, heartbeat_age_fn=heartbeat_age_s, cleanup_fn=No
 
     pending = next((it for it in items if it["status"] == "pending"), None)
     if pending is not None:
-        launched = q.launch_next(items)
+        launched = q.launch_next(items, cleanup_fn=launch_cleanup)
         if launched is None:
             # every remaining pending entry has an unsatisfied gate (see t2s_queue._gate_satisfied) -- nothing to
             # launch this tick, but this is not the same as an empty queue, so say so rather than claim "launched".

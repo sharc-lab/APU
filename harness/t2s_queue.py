@@ -144,10 +144,33 @@ def _gate_satisfied(item, items):
     return dep is not None and dep.get("status") == "done"
 
 
-def launch_next(items):
+def _default_pre_launch_cleanup():
+    """Real cleanup-before-launch (X1, 2026-10-02): a stale llama-server/ollama process left over from the
+    previous job trips the NEXT job's own stale-process guard -- this was the real root cause of the X2 crash
+    cascade (one job's orphan killed the next, repeatedly). launch_next() is only ever called when no entry has
+    status "running" in queue_state.json (see queue_watchdog.tick()'s control flow: the pending branch only fires
+    when `running is None`, and the crash branch clears the running entry before calling this), so it is always
+    safe to sweep stray servers immediately before a launch -- there is no currently-running job's server to
+    mistake for a stray one. Lazily imports stale_server_cleanup to match this module's minimal-import-surface
+    convention; uses queue_watchdog.host_ownership_predicate() so evo-x2 (dedicated: name match only) and
+    evo-t2s (shared: name match AND path/port match) each get the right policy without duplicating it here."""
+    import stale_server_cleanup as scc
+    import queue_watchdog as qw
+    result = scc.cleanup_stale_servers(qw.host_ownership_predicate())
+    if result.get("killed"):
+        print(f"queue: pre-launch cleanup killed {result['killed']}")
+    return result
+
+
+def launch_next(items, cleanup_fn=_default_pre_launch_cleanup):
     """Finds the next pending entry whose gate (if any) is satisfied, marks it running with its launched pid, writes
     the queue, and clears any stale queue_empty.flag. A gated entry that is not yet satisfied is skipped (left
     pending, logged) in favor of the next eligible pending entry, so one unmet gate does not stall the whole queue.
+
+    Before launching the found entry, runs cleanup_fn() (default: _default_pre_launch_cleanup, real stale-server
+    sweep) so the new job never inherits a previous job's orphaned llama-server/ollama process -- X1's fix for
+    the crash-cascade root cause. Tests pass a stub (e.g. a no-op lambda) here instead of patching the real
+    cleanup through two layers of lazy import.
 
     If the launch itself fails to produce a usable pid (WMI Create returned a non-zero rc, or its output could not
     be parsed -- see the 2026-09-29 evo-t2s incident, where this left a phantom "running, pid None" entry that a
@@ -175,6 +198,7 @@ def launch_next(items):
             print(f"queue: skipping {sid} (gate not satisfied yet)")
         if nxt is None:
             return None
+        cleanup_fn()
         nxt["status"] = "running"
         nxt["started_ts"] = time.time()
         write_queue(items)
@@ -266,7 +290,7 @@ def _caller_owns_running_job(running):
     return True, "ok"
 
 
-def advance(note):
+def advance(note, cleanup_fn=_default_pre_launch_cleanup):
     items = read_queue()
     if not items:
         write_empty_flag([], "advance() called with an empty queue_state.json")
@@ -287,7 +311,7 @@ def advance(note):
     if halt:
         write_empty_flag(items, f"queue halted: {note}")
         return
-    if launch_next(items) is None:
+    if launch_next(items, cleanup_fn=cleanup_fn) is None:
         still_pending = [it["id"] for it in items if it["status"] == "pending"]
         reason = (f"all {len(still_pending)} remaining pending entries are gate-blocked: {still_pending}"
                   if still_pending else "no pending entry left after the current run finished")
