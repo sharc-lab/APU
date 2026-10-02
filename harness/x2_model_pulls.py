@@ -69,15 +69,25 @@ def required_tags():
     return seen
 
 
+def _normalize_tag(tag):
+    """Ollama's /api/tags always reports the full name including an explicit ':latest' for a tagless
+    reference (confirmed live 2026-10-02: a custom model created as 'qwen3-4b-2507' is reported back as
+    'qwen3-4b-2507:latest'), while this module's own required list uses the bare, tagless form everywhere
+    else (MODEL_MAP, chat calls, result rows). Comparing the two directly made an already-present custom
+    model look missing and triggered a doomed pull from the public registry (which has no such model at
+    all) -- strips a trailing ':latest' so both sides compare equal."""
+    return tag[:-len(":latest")] if tag.endswith(":latest") else tag
+
+
 def currently_present_tags():
     """Real /api/tags query against a running server -- never a manifest-file guess (see host_config's own
     wait_for_ollama_ready docstring for why the port being open is not the same question as a model being
-    loadable)."""
+    loadable). Normalized (see _normalize_tag) so a tagless required name matches its ':latest' form."""
     try:
         req = urllib.request.Request("http://127.0.0.1:11434/api/tags")
         with urllib.request.urlopen(req, timeout=10) as r:
             data = json.loads(r.read())
-        return {m["name"] for m in data.get("models", [])}
+        return {_normalize_tag(m["name"]) for m in data.get("models", [])}
     except Exception:
         return set()
 
@@ -156,8 +166,10 @@ def main(argv=None):
             note = f"stopped: models failed verification: {failed}"
         print(f"done: {len(results)} models checked, all_ok={all_ok}")
     except Exception as e:
+        import traceback
         note = f"stopped: {e!r}"[:400]
         print(note)
+        traceback.print_exc()
     finally:
         try:
             tq.advance(note)

@@ -48,6 +48,32 @@ def test_currently_present_tags_parses_real_api_tags_shape(monkeypatch):
     assert mp.currently_present_tags() == {"qwen3:8b", "qwen3:32b"}
 
 
+def test_currently_present_tags_normalizes_a_trailing_latest(monkeypatch):
+    """2026-10-02 bug found live: Ollama's /api/tags reports a tagless custom model (e.g. a MODEL_MAP entry
+    'qwen3-4b-2507') back with an explicit ':latest' suffix ('qwen3-4b-2507:latest'). Comparing the raw name
+    against the bare required tag made an already-present model look missing and triggered a doomed pull
+    from the public registry, which has no such model at all."""
+    import urllib.request
+    import json as _json
+
+    class FakeResp:
+        def __init__(self, payload):
+            self._payload = payload
+        def read(self):
+            return _json.dumps(self._payload).encode()
+        def __enter__(self):
+            return self
+        def __exit__(self, *a):
+            return False
+
+    monkeypatch.setattr(urllib.request, "urlopen",
+                        lambda req, timeout=10: FakeResp({"models": [{"name": "qwen3-4b-2507:latest"},
+                                                                     {"name": "qwen3:8b"}]}))
+    present = mp.currently_present_tags()
+    assert "qwen3-4b-2507" in present  # the bare form, matching required_tags()'s own naming
+    assert "qwen3-4b-2507:latest" not in present
+
+
 def test_currently_present_tags_returns_empty_set_on_any_failure(monkeypatch):
     import urllib.request
 
