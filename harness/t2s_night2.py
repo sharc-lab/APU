@@ -769,6 +769,7 @@ def phase_r1b_controls(lab):
 A70_MODEL = "llama-3.3-70b"
 A70_MATCHED_PROMPT_TOKENS = 8000
 A70_ARMS = [("ngl99", 99, None), ("default_fit", None, None), ("fit_off", None, "off")]
+FORCE_A70_FINALIZE = False  # set from --force-a70-finalize in main(); default False preserves prior behavior
 
 
 def _a70_kv_step_tokens(mi, target_mib=512.0):
@@ -890,8 +891,11 @@ def phase_a70_finalize(lab):
     if mi is None:
         log("A70 finalize: llama-3.3-70b not loaded, skipping")
         return
-    if any(r.get("record") == "a70_boundary_finalization" and r.get("model_id") == mi.model_id
-           and "lo_ok_count" in r for r in lab.all_rows()):
+    if FORCE_A70_FINALIZE:
+        log("A70 finalize: --force-a70-finalize set, running a fresh independent 3-lo/3-hi rerun "
+            "regardless of any earlier finalization record")
+    elif any(r.get("record") == "a70_boundary_finalization" and r.get("model_id") == mi.model_id
+             and "lo_ok_count" in r for r in lab.all_rows()):
         log("A70 finalize: already have a 3-load-per-side finalization record for this model, skipping")
         return
     boundary_rows = [r for r in lab.all_rows() if r.get("record") == "bisect_result" and r.get("label") == "a70"
@@ -2097,6 +2101,10 @@ def main():
     ap.add_argument("--r1c-models", default=None,
                      help="comma list overriding R1C_MODELS for this run (e.g. the evo-x2 full ladder instead of "
                           "evo-t2s's qwen3-8b,qwen3-14b check set)")
+    ap.add_argument("--force-a70-finalize", action="store_true",
+                     help="2026-10-02: bypass phase_a70_finalize's own 'already have a finalization record' skip, "
+                          "for a deliberate fresh independent 3-lo/3-hi rerun even when an earlier run (in this "
+                          "run's own history or --prior-results) already recorded one.")
     args = ap.parse_args()
     host_cfg = hc.require_host(socket.gethostname())
     hc.enforce_or_record_interactive_session(host_cfg)  # raises on evo-t2s if occupied; never raises on evo-x2
@@ -2108,6 +2116,7 @@ def main():
         globals()["R1D_MODELS"] = args.r1d_models.split(",")
     if args.r1c_models:
         globals()["R1C_MODELS"] = args.r1c_models.split(",")
+    globals()["FORCE_A70_FINALIZE"] = args.force_a70_finalize
     prov = rp.verify_deployed_blobs(ov.DEPLOY, args.expect_blobs)
     lab = make_lab(args, prov, gpu_vendor=host_cfg["gpu_vendor"])
     lab.identity["hw_id"] = host_cfg["hw_id"]
