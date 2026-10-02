@@ -45,7 +45,11 @@ MODEL_MAP = {
     "qwen3-8b": ("qwen3:8b", r"C:\apu\models\Qwen3-8B-Q4_K_M.gguf"),
     "qwen3-4b-2507": ("qwen3-4b-2507", r"C:\apu\models\qwen3-4b-instruct-85e4a5b7.gguf"),
     "qwen3-14b": ("qwen3:14b", r"C:\apu\models\Qwen3-14B-Q4_K_M.gguf"),
-    "qwen3-30b-a3b": ("qwen3:30b-a3b-instruct-2507", r"C:\apu\models\Qwen3-30B-A3B-Instruct-2507-Q4_K_M.gguf"),
+    # 2026-10-02 bug found live: "qwen3:30b-a3b-instruct-2507" does not exist on the Ollama registry (confirmed via
+    # the registry's own manifest endpoint: 404) -- every ollama_default call for this model 404'd all night,
+    # silently producing zero real data for this model's ollama leg. The real tag (also confirmed against the
+    # registry: 200) is plain "qwen3:30b-a3b"; the GGUF path for the llama_server leg is unaffected.
+    "qwen3-30b-a3b": ("qwen3:30b-a3b", r"C:\apu\models\Qwen3-30B-A3B-Instruct-2507-Q4_K_M.gguf"),
     "qwen3-32b": ("qwen3:32b", r"C:\apu\models\Qwen3-32B-Q4_K_M.gguf"),
 }
 LLAMA_SERVER_EXE = r"C:\apu\bin\llama-b10970\llama-server.exe"
