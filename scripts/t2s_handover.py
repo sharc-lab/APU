@@ -44,8 +44,14 @@ import sys
 import time
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPO / "harness"))
+# This script is deployed two ways: inside this repo (scripts/t2s_handover.py, with t2s_queue in
+# ../harness/), and flat on evo-t2s itself (C:\apu\ovn\t2s_handover.py, with t2s_queue.py sitting
+# right next to it -- that machine's real deployment layout, confirmed against how every other
+# script this project uses there is laid out). Try the flat/sibling case first since that's where
+# it actually runs in production; fall back to the repo layout for local dev/tests.
+_here = Path(__file__).resolve().parent
+sys.path.insert(0, str(_here))
+sys.path.insert(0, str(_here.parents[0] / "harness"))
 import t2s_queue as tq  # noqa: E402
 
 HANDOVER_DONE_PATH = Path(r"C:\apu\ovn\HANDOVER_DONE.json")
