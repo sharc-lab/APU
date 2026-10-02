@@ -170,37 +170,39 @@ def responsiveness_probe():
     return {"round_trip_s": time.monotonic() - t0, "ok": ok}
 
 
-SPILL_USAGE_THRESHOLD_MIB = 256.0  # a non-device-local heap showing more than this much real usage, while the
-                                   # server is loaded and serving, is treated as spill evidence -- small enough
-                                   # that incidental driver/OS overhead on that heap does not false-positive,
-                                   # large enough that it cannot be mistaken for noise
+SPILL_SHARED_DELTA_THRESHOLD_MIB = 1024.0  # a server process's GPU Shared Usage more than this far above its
+                                           # own deep-FITS baseline is treated as spill evidence
 
 
-def classify_point(requested_n_ctx, actual_n_ctx, non_device_local_usage_mib, logged_mib=None, device_local_mib=None,
-                   spill_margin_mib=512.0):
-    """FITS / SILENT_SPILL, following the exact definitions in t2s_night2.mx2_classify's own docstring, but
-    applied to the ACTUAL negotiated n_ctx -- a point is CLAMPED (actual != requested) in addition to whichever
-    regime its real, achieved configuration falls into.
+def classify_point(requested_n_ctx, actual_n_ctx, gpu_shared_mib, baseline_shared_mib,
+                   non_device_local_usage_mib=None, logged_mib=None, device_local_mib=None):
+    """FITS / SILENT_SPILL, matching this validation pass's own pre-registered criterion (docs/FINDINGS.md):
+    confirmed SILENT_SPILL only if the load succeeded, the actual n_ctx equals the requested one (not
+    CLAMPED), and the server process's own GPU Shared Usage exceeds its deep-FITS baseline by more than
+    SPILL_SHARED_DELTA_THRESHOLD_MIB.
 
-    Primary evidence is non_device_local_usage_mib: the REAL, live Vulkan heap usage on whichever heap is NOT
-    device-local, queried via vulkaninfo while the server is loaded and has just served a real call -- direct
-    confirmation that data moved off device-local memory, matching this validation pass's own pre-registered
-    SILENT_SPILL criterion (docs/FINDINGS.md) more directly than llama-server's own startup-log buffer-size
-    lines, which require --log-verbosity 4 to even appear (found live 2026-10-02: verbosity 3, this build's
-    hardcoded default, never prints them at all). logged_mib/device_local_mib (from the log, when available)
-    are kept as secondary, supplementary evidence only -- never required for the regime decision."""
+    2026-10-02, root cause of an earlier wrong classification: VK_EXT_memory_budget heap usage (what
+    vulkaninfo reports) is per CALLING process -- vulkaninfo, run from this script's own process, can only
+    ever see this script's own trivial usage, never llama-server's, so it is structurally incapable of
+    detecting another process's spill no matter how it is read or timed. A real point (llama-3.3-70b,
+    mid_spill, requested==actual==115200) showed non_device_local_usage_mib=0.0 (vulkaninfo, wrong) while
+    gpu_shared_mib=14030.7 MiB vs a 633.7 MiB deep-FITS baseline (Windows' own per-process GPU Process Memory
+    counter, right) -- a real, large spill vulkaninfo could never have seen. gpu_shared_mib/gpu_dedicated_mib
+    (Get-Counter, per-process, already recorded on every row) are the only signal used here now.
+    non_device_local_usage_mib/logged_mib/device_local_mib are still recorded on every row (useful provenance,
+    and the device-local line is still needed to report where the budget sits) but never used to decide the
+    regime."""
     clamped = actual_n_ctx is not None and requested_n_ctx is not None and actual_n_ctx != requested_n_ctx
-    evidence = []
-    if non_device_local_usage_mib is not None and non_device_local_usage_mib > SPILL_USAGE_THRESHOLD_MIB:
-        evidence.append("non_device_local_heap_usage_over_threshold")
-    if device_local_mib is not None and logged_mib is not None and logged_mib > device_local_mib - spill_margin_mib:
-        evidence.append("logged_buffers_over_device_local_line")
-    regime = "SILENT_SPILL" if evidence else "FITS"
-    return {"regime": regime, "clamped": clamped, "logged_mib": logged_mib, "spill_evidence": evidence,
+    shared_delta_mib = None
+    if gpu_shared_mib is not None and baseline_shared_mib is not None:
+        shared_delta_mib = gpu_shared_mib - baseline_shared_mib
+    is_spill = (not clamped) and shared_delta_mib is not None and shared_delta_mib > SPILL_SHARED_DELTA_THRESHOLD_MIB
+    regime = "SILENT_SPILL" if is_spill else "FITS"
+    return {"regime": regime, "clamped": clamped, "shared_delta_mib": shared_delta_mib, "logged_mib": logged_mib,
             "device_local_line_mib": device_local_mib, "non_device_local_usage_mib": non_device_local_usage_mib}
 
 
-def run_regime_point(model_id, point_type, requested_n_ctx, rep, out_path, log):
+def run_regime_point(model_id, point_type, requested_n_ctx, rep, out_path, log, baseline_shared_mib=None):
     cfg = LlamaServerConfig(exe=LLAMA_SERVER_EXE, model=GGUF_PATHS[model_id], ctx_size=requested_n_ctx, port=PORT,
                             n_gpu_layers=99, platform="evo-x2", backend="vulkan")
     row = {"record": "mx2v_regime_point", "model_id": model_id, "point_type": point_type,
@@ -214,17 +216,19 @@ def run_regime_point(model_id, point_type, requested_n_ctx, rep, out_path, log):
             # lines at all -- read immediately after start()). Reading the log AFTER the actual call, once
             # the model has certainly finished loading and generated real output, avoids that race.
             text, latency_ms, ttft_ms, tokens_in, tokens_out, done_reason, _think = session.call(FIXED_PROMPT, N_PREDICT)
-            non_local_usage = read_non_device_local_usage_mib()  # live, while the model is still loaded
+            gpu_mem = query_gpu_process_memory(session._proc.pid if session._proc else None)
+            non_local_usage = read_non_device_local_usage_mib()  # recorded for provenance only, see classify_point
             parsed = L.parse_server_log(session._log_path) if session._log_path else {}
             mbuf, kbuf, cbuf = parsed.get("model_buffer_mib"), parsed.get("kv_buffer_mib"), parsed.get("compute_buffer_mib")
             logged = sum(x for x in (mbuf, kbuf, cbuf) if x) or None
-            cls = classify_point(requested_n_ctx, actual_n_ctx, non_local_usage, logged, lines.get("device_local_mib"))
+            cls = classify_point(requested_n_ctx, actual_n_ctx, gpu_mem["shared_mib"], baseline_shared_mib,
+                                 non_local_usage, logged, lines.get("device_local_mib"))
             prefill_tok_s = (tokens_in / (ttft_ms / 1000)) if ttft_ms else None
             decode_s = (latency_ms - ttft_ms) / 1000 if (ttft_ms is not None) else None
             decode_tok_s = ((tokens_out - 1) / decode_s) if (decode_s and decode_s > 0 and tokens_out > 1) else None
-            gpu_mem = query_gpu_process_memory(session._proc.pid if session._proc else None)
             row.update({"started": True, "actual_n_ctx": actual_n_ctx, "clamped": cls["clamped"],
-                       "regime": cls["regime"], "spill_evidence": cls["spill_evidence"],
+                       "regime": cls["regime"], "shared_delta_mib": cls["shared_delta_mib"],
+                       "baseline_shared_mib": baseline_shared_mib,
                        "logged_mib": cls["logged_mib"], "device_local_line_mib": cls["device_local_line_mib"],
                        "non_device_local_usage_mib": cls["non_device_local_usage_mib"],
                        "model_buffer_mib": mbuf, "kv_buffer_mib": kbuf, "compute_buffer_mib": cbuf,
@@ -298,8 +302,30 @@ def run_crash_repro(model_id, n_ctx, rep, out_path, log):
     return row
 
 
+def _seed_deep_fits_baselines(out_path):
+    """On --resume, deep_fits points from an earlier run of this same file are not re-measured (see
+    already_done_keys), so the baseline a later mid_spill/near_crash point needs must come from those
+    already-written rows, not just ones produced this process's lifetime."""
+    baselines = {}
+    if not out_path.exists():
+        return baselines
+    for line in out_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            r = json.loads(line)
+        except Exception:
+            continue
+        if (r.get("record") == "mx2v_regime_point" and r.get("point_type") == "deep_fits"
+                and r.get("started") and r.get("gpu_shared_mib") is not None):
+            baselines.setdefault(r["model_id"], r["gpu_shared_mib"])
+    return baselines
+
+
 def run(out_path, smoke=False, deadline_h=3.0, log=print):
     done = already_done_keys(out_path)
+    deep_fits_baseline = _seed_deep_fits_baselines(out_path)
     t_start = time.monotonic()
     deadline_s = deadline_h * 3600
     baseline_resp = responsiveness_probe()
@@ -324,7 +350,10 @@ def run(out_path, smoke=False, deadline_h=3.0, log=print):
                     continue
                 emit(out_path, {"record": "heartbeat", "model_id": model_id, "point_type": point_type, "rep": rep,
                                "ts_utc": utc_iso()})
-                run_regime_point(model_id, point_type, n_ctx, rep, out_path, log)
+                row = run_regime_point(model_id, point_type, n_ctx, rep, out_path, log,
+                                       baseline_shared_mib=deep_fits_baseline.get(model_id))
+                if (point_type == "deep_fits" and row.get("started") and row.get("gpu_shared_mib") is not None):
+                    deep_fits_baseline.setdefault(model_id, row["gpu_shared_mib"])
 
     for model_id in models:
         reps = 1 if smoke else N_REPS
@@ -342,13 +371,58 @@ def run(out_path, smoke=False, deadline_h=3.0, log=print):
     log("done")
 
 
+def reclassify_file(path):
+    """Post-processing, no re-measurement: recomputes regime/clamped/shared_delta_mib for every already-
+    written mx2v_regime_point row using the CURRENT classify_point and each model's own deep_fits
+    gpu_shared_mib (already recorded on those rows) as the baseline -- every other field, including the raw
+    gpu_shared_mib/gpu_dedicated_mib/ttft_ms/decode_tok_s measurements themselves, is left exactly as written.
+    Idempotent (safe to run again, e.g. after a later resumed run added more rows). Returns the number of
+    regime_point rows updated."""
+    rows = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line:
+            try:
+                rows.append(json.loads(line))
+            except Exception:
+                rows.append(line)  # keep unparseable lines verbatim rather than dropping them
+    baselines = {}
+    for r in rows:
+        if (isinstance(r, dict) and r.get("record") == "mx2v_regime_point" and r.get("point_type") == "deep_fits"
+                and r.get("started") and r.get("gpu_shared_mib") is not None):
+            baselines.setdefault(r["model_id"], r["gpu_shared_mib"])
+    n_updated = 0
+    for r in rows:
+        if not isinstance(r, dict) or r.get("record") != "mx2v_regime_point" or not r.get("started"):
+            continue
+        baseline = baselines.get(r["model_id"])
+        cls = classify_point(r.get("requested_n_ctx"), r.get("actual_n_ctx"), r.get("gpu_shared_mib"), baseline,
+                             r.get("non_device_local_usage_mib"), r.get("logged_mib"), r.get("device_local_line_mib"))
+        r["regime"], r["clamped"], r["shared_delta_mib"], r["baseline_shared_mib"] = (
+            cls["regime"], cls["clamped"], cls["shared_delta_mib"], baseline)
+        n_updated += 1
+    with open(path, "w", encoding="utf-8") as f:
+        for r in rows:
+            f.write((json.dumps(r) if isinstance(r, dict) else r) + "\n")
+    return n_updated
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--out", required=True)
     ap.add_argument("--smoke", action="store_true")
     ap.add_argument("--deadline-h", type=float, default=3.0)
+    ap.add_argument("--reclassify", action="store_true",
+                    help="post-process --out in place: recompute regime/clamped from already-recorded "
+                         "gpu_shared_mib, no re-measurement, no queue interaction")
     args = ap.parse_args(argv)
     out_path = Path(args.out)
+
+    if args.reclassify:
+        n = reclassify_file(out_path)
+        print(f"reclassified {n} regime_point rows in {out_path}")
+        return
+
     out_path.parent.mkdir(parents=True, exist_ok=True)
     print(f"logging to {out_path}")
 

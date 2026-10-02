@@ -12,48 +12,43 @@ import mx2_validation as mv  # noqa: E402
 
 
 # --------------------------------------------------------------------------------------------------- classify_point
-def test_classify_point_fits_when_non_device_local_usage_is_low():
-    result = mv.classify_point(requested_n_ctx=20480, actual_n_ctx=20480, non_device_local_usage_mib=10.0)
+def test_classify_point_on_the_two_real_rows_found_live_2026_10_02():
+    """llama-3.3-70b, requested_n_ctx==actual_n_ctx==20480 (deep_fits) and ==115200 (mid_spill), from the real
+    live run. deep_fits's own gpu_shared_mib (633.67578125) is its own baseline (shared_delta_mib=0, FITS).
+    mid_spill's gpu_shared_mib (14030.6875) against that same baseline is a real, large spill that
+    vulkaninfo's non_device_local_usage_mib=0.0 (also a real recorded value, same row) completely missed --
+    this is the exact case the classifier was rewritten for."""
+    deep_fits = mv.classify_point(requested_n_ctx=20480, actual_n_ctx=20480, gpu_shared_mib=633.67578125,
+                                  baseline_shared_mib=633.67578125, non_device_local_usage_mib=0.0)
+    assert deep_fits["regime"] == "FITS"
+    assert deep_fits["shared_delta_mib"] == 0.0
+
+    mid_spill = mv.classify_point(requested_n_ctx=115200, actual_n_ctx=115200, gpu_shared_mib=14030.6875,
+                                  baseline_shared_mib=633.67578125, non_device_local_usage_mib=0.0)
+    assert mid_spill["regime"] == "SILENT_SPILL"
+    assert mid_spill["clamped"] is False
+    assert abs(mid_spill["shared_delta_mib"] - 13397.01171875) < 0.01
+
+
+def test_classify_point_fits_when_shared_delta_is_within_threshold():
+    result = mv.classify_point(requested_n_ctx=20480, actual_n_ctx=20480, gpu_shared_mib=700.0,
+                               baseline_shared_mib=633.67578125)
     assert result["regime"] == "FITS"
-    assert result["clamped"] is False
-    assert result["spill_evidence"] == []
 
 
-def test_classify_point_silent_spill_when_non_device_local_usage_is_high():
-    """The primary, direct spill signal: real live usage on a non-device-local heap, well past the noise
-    threshold -- this is the pre-registered SILENT_SPILL criterion (docs/FINDINGS.md), not an inference from
-    llama-server's own startup-log buffer sizes (which require --log-verbosity 4 to even appear)."""
-    result = mv.classify_point(requested_n_ctx=115200, actual_n_ctx=115200, non_device_local_usage_mib=5000.0)
-    assert result["regime"] == "SILENT_SPILL"
-    assert result["clamped"] is False
-    assert "non_device_local_heap_usage_over_threshold" in result["spill_evidence"]
-
-
-def test_classify_point_silent_spill_from_logged_buffers_even_without_live_usage_reading(monkeypatch):
-    """The secondary evidence path: when the live heap-usage reading is unavailable (None) but the log-parsed
-    buffer sizes are, and they cross the device-local line, that alone is still enough evidence."""
-    result = mv.classify_point(requested_n_ctx=115200, actual_n_ctx=115200, non_device_local_usage_mib=None,
-                               logged_mib=80500.0, device_local_mib=76000.0)
-    assert result["regime"] == "SILENT_SPILL"
-    assert "logged_buffers_over_device_local_line" in result["spill_evidence"]
-
-
-def test_classify_point_flags_clamped_when_actual_differs_from_requested():
-    """The exact 2026-10-02 bug this whole validation pass exists to resolve: a requested n_ctx beyond the
-    model's effective ceiling gets silently served at a smaller actual n_ctx."""
-    result = mv.classify_point(requested_n_ctx=290000, actual_n_ctx=131072, non_device_local_usage_mib=10.0)
+def test_classify_point_fits_when_clamped_even_with_a_large_shared_delta():
+    """The third pre-registered AND-condition: a CLAMPED point (actual != requested) is never confirmed
+    SILENT_SPILL regardless of its shared-memory reading -- it tested a different, smaller actual
+    configuration than the one it is labeled with."""
+    result = mv.classify_point(requested_n_ctx=290000, actual_n_ctx=131072, gpu_shared_mib=20000.0,
+                               baseline_shared_mib=633.67578125)
     assert result["clamped"] is True
+    assert result["regime"] == "FITS"
 
 
-def test_classify_point_not_clamped_when_actual_matches_requested():
-    result = mv.classify_point(requested_n_ctx=20480, actual_n_ctx=20480, non_device_local_usage_mib=10.0)
-    assert result["clamped"] is False
-
-
-def test_classify_point_fits_when_no_evidence_is_available_at_all():
-    result = mv.classify_point(requested_n_ctx=1, actual_n_ctx=1, non_device_local_usage_mib=None,
-                               logged_mib=None, device_local_mib=76000.0)
-    assert result["logged_mib"] is None
+def test_classify_point_fits_when_no_baseline_or_reading_available():
+    result = mv.classify_point(requested_n_ctx=1, actual_n_ctx=1, gpu_shared_mib=None, baseline_shared_mib=None)
+    assert result["shared_delta_mib"] is None
     assert result["regime"] == "FITS"  # no evidence of a spill without any reading to compare
 
 
@@ -149,7 +144,7 @@ def test_run_skips_already_done_points_and_calls_the_rest(tmp_path, monkeypatch)
     monkeypatch.setattr(mv, "responsiveness_probe", lambda: {"round_trip_s": 0.01, "ok": True})
     calls = []
     monkeypatch.setattr(mv, "run_regime_point",
-                        lambda model_id, point_type, n_ctx, rep, out_path, log: calls.append(("point", model_id, point_type, rep)))
+                        lambda model_id, point_type, n_ctx, rep, out_path, log, baseline_shared_mib=None: (calls.append(("point", model_id, point_type, rep)), {})[1])
     monkeypatch.setattr(mv, "run_crash_repro",
                         lambda model_id, n_ctx, rep, out_path, log: calls.append(("crash", model_id, rep)))
     # pre-seed one regime point and one crash rep as already done
@@ -169,12 +164,65 @@ def test_run_skips_already_done_points_and_calls_the_rest(tmp_path, monkeypatch)
     assert ("crash", "llama-3.3-70b", 1) in calls
 
 
+def test_run_passes_the_deep_fits_baseline_to_later_points_in_the_same_session(tmp_path, monkeypatch):
+    out_path = tmp_path / "out.jsonl"
+    monkeypatch.setattr(mv, "responsiveness_probe", lambda: {"round_trip_s": 0.01, "ok": True})
+    monkeypatch.setattr(mv, "run_crash_repro", lambda *a, **kw: None)
+    baselines_seen = []
+
+    def fake_point(model_id, point_type, n_ctx, rep, out_path, log, baseline_shared_mib=None):
+        baselines_seen.append((point_type, rep, baseline_shared_mib))
+        if point_type == "deep_fits":
+            return {"started": True, "gpu_shared_mib": 633.67578125}
+        return {"started": True, "gpu_shared_mib": 14030.6875}
+
+    monkeypatch.setattr(mv, "run_regime_point", fake_point)
+    mv.run(out_path, smoke=False, deadline_h=10.0)
+
+    # deep_fits itself never had a baseline yet (it IS the baseline)
+    assert ("deep_fits", 0, None) in baselines_seen
+    # every later point in this model, this session, gets deep_fits's own rep-0 gpu_shared_mib as baseline
+    assert ("mid_spill", 0, 633.67578125) in baselines_seen
+    assert ("near_crash", 0, 633.67578125) in baselines_seen
+
+
+def test_run_seeds_the_deep_fits_baseline_from_an_already_written_resume_file(tmp_path, monkeypatch):
+    """--resume: deep_fits rows from an earlier run of this file are skipped (already done), so the baseline
+    a later point needs must be read back from the file, not just tracked in this process's own memory."""
+    out_path = tmp_path / "out.jsonl"
+    monkeypatch.setattr(mv, "responsiveness_probe", lambda: {"round_trip_s": 0.01, "ok": True})
+    monkeypatch.setattr(mv, "run_crash_repro", lambda *a, **kw: None)
+    import json
+    done_rows = [
+        {"record": "mx2v_regime_point", "model_id": "llama-3.3-70b", "point_type": "deep_fits", "rep": 0,
+         "started": True, "gpu_shared_mib": 633.67578125},
+        {"record": "mx2v_regime_point", "model_id": "llama-3.3-70b", "point_type": "deep_fits", "rep": 1,
+         "started": True, "gpu_shared_mib": 633.67578125},
+        {"record": "mx2v_regime_point", "model_id": "llama-3.3-70b", "point_type": "deep_fits", "rep": 2,
+         "started": True, "gpu_shared_mib": 633.67578125},
+    ]
+    out_path.write_text("\n".join(json.dumps(r) for r in done_rows) + "\n", encoding="utf-8")
+    baselines_seen = []
+    monkeypatch.setattr(mv, "run_regime_point",
+                        lambda model_id, point_type, n_ctx, rep, out_path, log, baseline_shared_mib=None:
+                            (baselines_seen.append((model_id, baseline_shared_mib)), {"started": True, "gpu_shared_mib": 1.0})[1])
+
+    mv.run(out_path, smoke=False, deadline_h=10.0)
+
+    # llama-3.3-70b's deep_fits reps were all already done (seeded from the resume file), so every call this
+    # run actually makes for that model is mid_spill/near_crash, and each one must get the seeded baseline --
+    # qwen3-32b has no seeded data at all, so its own calls legitimately see baseline_shared_mib=None instead.
+    seventy_b_baselines = [b for m, b in baselines_seen if m == "llama-3.3-70b"]
+    assert seventy_b_baselines  # at least one call happened for this model (mid_spill/near_crash)
+    assert all(b == 633.67578125 for b in seventy_b_baselines)
+
+
 def test_run_in_smoke_mode_only_touches_one_model_one_point_one_rep(tmp_path, monkeypatch):
     out_path = tmp_path / "out.jsonl"
     monkeypatch.setattr(mv, "responsiveness_probe", lambda: {"round_trip_s": 0.01, "ok": True})
     calls = []
     monkeypatch.setattr(mv, "run_regime_point",
-                        lambda model_id, point_type, n_ctx, rep, out_path, log: calls.append(("point", model_id, point_type, rep)))
+                        lambda model_id, point_type, n_ctx, rep, out_path, log, baseline_shared_mib=None: (calls.append(("point", model_id, point_type, rep)), {})[1])
     monkeypatch.setattr(mv, "run_crash_repro",
                         lambda model_id, n_ctx, rep, out_path, log: calls.append(("crash", model_id, rep)))
 
@@ -197,7 +245,7 @@ def test_run_stops_at_deadline(tmp_path, monkeypatch):
     monkeypatch.setattr(mv, "responsiveness_probe", lambda: {"round_trip_s": 0.01, "ok": True})
     calls = []
     monkeypatch.setattr(mv, "run_regime_point",
-                        lambda model_id, point_type, n_ctx, rep, out_path, log: calls.append(1))
+                        lambda model_id, point_type, n_ctx, rep, out_path, log, baseline_shared_mib=None: (calls.append(1), {})[1])
     monkeypatch.setattr(mv, "run_crash_repro", lambda *a, **kw: calls.append(1))
     times = iter([0.0, 100.0])  # t_start=0.0, first deadline check already reads 100.0
     monkeypatch.setattr(mv.time, "monotonic", lambda: next(times, 100.0))
@@ -259,3 +307,72 @@ def test_run_crash_repro_kills_a_process_that_does_start(tmp_path, monkeypatch):
     # started fine and was killed only for cleanup.
     assert row["exit_code"] is None
     assert row["killed_by_probe"] is True
+
+
+# --------------------------------------------------------------------------------------------------- reclassify_file
+def test_reclassify_file_updates_regime_from_saved_gpu_shared_mib_without_rerunning(tmp_path):
+    """The real post-processing use case: rows already written with the OLD (wrong, vulkaninfo-based)
+    classifier get their regime/clamped/shared_delta_mib corrected from their own already-recorded
+    gpu_shared_mib -- no server is started, nothing is re-measured."""
+    import json
+    out_path = tmp_path / "out.jsonl"
+    rows = [
+        {"record": "mx2v_baseline_responsiveness", "ok": True},
+        {"record": "mx2v_regime_point", "model_id": "llama-3.3-70b", "point_type": "deep_fits", "rep": 0,
+         "started": True, "requested_n_ctx": 20480, "actual_n_ctx": 20480, "gpu_shared_mib": 633.67578125,
+         "regime": "FITS", "non_device_local_usage_mib": 0.0,
+         "decode_tok_s": 5.295, "ttft_ms": 21477.9},  # untouched fields that must survive reclassification
+        {"record": "mx2v_regime_point", "model_id": "llama-3.3-70b", "point_type": "mid_spill", "rep": 0,
+         "started": True, "requested_n_ctx": 115200, "actual_n_ctx": 115200, "gpu_shared_mib": 14030.6875,
+         "regime": "FITS", "non_device_local_usage_mib": 0.0},  # the real wrong label this fix exists for
+        {"record": "mx2v_crash_repro", "model_id": "llama-3.3-70b", "n_ctx": 221696, "started": False},
+    ]
+    out_path.write_text("\n".join(json.dumps(r) for r in rows) + "\n", encoding="utf-8")
+
+    n = mv.reclassify_file(out_path)
+
+    updated = [json.loads(l) for l in out_path.read_text(encoding="utf-8").splitlines() if l.strip()]
+    deep_fits = next(r for r in updated if r.get("point_type") == "deep_fits")
+    mid_spill = next(r for r in updated if r.get("point_type") == "mid_spill")
+    assert n == 2
+    assert deep_fits["regime"] == "FITS"
+    assert mid_spill["regime"] == "SILENT_SPILL"  # corrected from the wrong FITS label
+    assert mid_spill["baseline_shared_mib"] == 633.67578125
+    # untouched raw measurement fields survive verbatim
+    assert deep_fits["decode_tok_s"] == 5.295
+    assert deep_fits["ttft_ms"] == 21477.9
+    # non-regime_point records pass through completely unchanged
+    assert updated[0] == rows[0]
+    assert updated[3] == rows[3]
+
+
+def test_reclassify_file_is_idempotent(tmp_path):
+    import json
+    out_path = tmp_path / "out.jsonl"
+    rows = [
+        {"record": "mx2v_regime_point", "model_id": "llama-3.3-70b", "point_type": "deep_fits", "rep": 0,
+         "started": True, "requested_n_ctx": 20480, "actual_n_ctx": 20480, "gpu_shared_mib": 633.67578125,
+         "regime": "FITS"},
+        {"record": "mx2v_regime_point", "model_id": "llama-3.3-70b", "point_type": "mid_spill", "rep": 0,
+         "started": True, "requested_n_ctx": 115200, "actual_n_ctx": 115200, "gpu_shared_mib": 14030.6875,
+         "regime": "FITS"},
+    ]
+    out_path.write_text("\n".join(json.dumps(r) for r in rows) + "\n", encoding="utf-8")
+
+    mv.reclassify_file(out_path)
+    once = out_path.read_text(encoding="utf-8")
+    mv.reclassify_file(out_path)
+    twice = out_path.read_text(encoding="utf-8")
+    assert once == twice
+
+
+def test_reclassify_file_skips_rows_that_never_started(tmp_path):
+    import json
+    out_path = tmp_path / "out.jsonl"
+    rows = [{"record": "mx2v_regime_point", "model_id": "llama-3.3-70b", "point_type": "deep_fits", "rep": 0,
+            "started": False, "error": "something broke"}]
+    out_path.write_text(json.dumps(rows[0]) + "\n", encoding="utf-8")
+    n = mv.reclassify_file(out_path)
+    assert n == 0
+    updated = json.loads(out_path.read_text(encoding="utf-8").splitlines()[0])
+    assert updated == rows[0]  # left exactly as written
