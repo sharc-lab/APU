@@ -128,6 +128,35 @@ def test_pull_one_streams_heartbeats_and_reports_real_exit_code(monkeypatch, tmp
     assert any("heartbeat" in h for h in heartbeats)
 
 
+def test_pull_one_handles_a_real_child_that_floods_unicode_output_without_hanging_or_crashing(monkeypatch, tmp_path):
+    """2026-10-02 bug found live: ollama's progress spinner writes Braille-pattern characters fast enough to
+    fill the OS pipe buffer when nothing reads it, which blocks the child on its own write() (looked exactly
+    like a hang: 9 straight minutes of unchanged heartbeats) and then crashed with UnicodeDecodeError once
+    finally read under Windows' default console codepage. A REAL subprocess here (not a stub) that floods
+    stdout with those exact characters faster than the old code's end-of-run-only read would drain them --
+    if the fix regresses, this either hangs (pipe deadlock) or raises (decode error), not just reports a
+    wrong value."""
+    monkeypatch.setattr(mp, "OLLAMA_EXE", sys.executable)
+    monkeypatch.setattr(mp, "HEARTBEAT_EVERY_S", 10_000)  # keep this test fast; heartbeat timing is covered elsewhere
+    script = (
+        "import sys\n"
+        "sys.stdout.reconfigure(encoding='utf-8')\n"  # force the fake child itself past Windows' own default
+                                                       # console codepage, so only pull_one's own decoding is
+                                                       # under test here, not an unrelated child-side crash
+        "for _ in range(5000):\n"
+        "    sys.stdout.write('\\u283b\\u2819\\u2839 pulling manifest \\n')\n"
+        "sys.stdout.flush()\n"
+    )
+    out_path = tmp_path / "out.jsonl"
+    # mp.pull_one calls [OLLAMA_EXE, "pull", tag] -- OLLAMA_EXE is python here, "pull"/tag become argv it ignores
+    # since the real work is `python -c <script>`; patch Popen's args through instead.
+    real_popen = mp.subprocess.Popen
+    monkeypatch.setattr(mp.subprocess, "Popen",
+                        lambda args, **kw: real_popen([sys.executable, "-c", script], **kw))
+    result = mp.pull_one("qwen3:32b", out_path, log=lambda s: None)
+    assert result["pull_exit_code"] == 0
+
+
 def test_pull_one_kills_and_reports_timeout_past_the_cap(monkeypatch, tmp_path):
     class FakeProc:
         stdout = None

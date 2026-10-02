@@ -95,9 +95,35 @@ def currently_present_tags():
 def pull_one(tag, out_path, log):
     """Streams `ollama pull <tag>`'s own output while emitting a heartbeat line at least every
     HEARTBEAT_EVERY_S seconds regardless of the child's own output cadence (ollama's progress bar writes
-    carriage-return-only updates that do not reliably flush as discrete lines when redirected)."""
+    carriage-return-only updates that do not reliably flush as discrete lines when redirected).
+
+    2026-10-02 bug found live: the previous version polled proc.poll() in a loop without ever reading
+    proc.stdout until the process exited. ollama's progress spinner writes fast enough to fill the OS pipe
+    buffer; once full, the CHILD blocks on its own write() call and the pull looks hung (confirmed live: 9
+    straight minutes of "pulling manifest" heartbeats, no real progress) even though it is not actually
+    stuck, just backpressured on an unread pipe. A background thread now continuously drains stdout into a
+    bounded tail buffer, decoding as UTF-8 with errors replaced (ollama's spinner uses Braille-pattern
+    characters outside Windows' default console codepage, which a bare text=True Popen cannot decode and
+    previously crashed the whole job with UnicodeDecodeError)."""
+    import threading
+
     t0 = time.monotonic()
-    proc = subprocess.Popen([OLLAMA_EXE, "pull", tag], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    proc = subprocess.Popen([OLLAMA_EXE, "pull", tag], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                            encoding="utf-8", errors="replace")
+    tail_buf = []
+
+    def _drain():
+        try:
+            for chunk in iter(lambda: proc.stdout.read(4096), ""):
+                if not chunk:
+                    break
+                tail_buf.append(chunk)
+        except Exception:
+            pass
+
+    drain_thread = threading.Thread(target=_drain, daemon=True)
+    drain_thread.start()
+
     last_heartbeat = time.monotonic()
     while proc.poll() is None:
         time.sleep(2)
@@ -108,9 +134,11 @@ def pull_one(tag, out_path, log):
             last_heartbeat = time.monotonic()
         if time.monotonic() - t0 > PULL_TIMEOUT_S:
             proc.kill()
+            drain_thread.join(timeout=5)
             return {"pull_exit_code": None, "pull_error": f"killed after exceeding {PULL_TIMEOUT_S}s"}
     rc = proc.returncode
-    tail = (proc.stdout.read() or "")[-2000:] if proc.stdout else ""
+    drain_thread.join(timeout=10)
+    tail = "".join(tail_buf)[-2000:]
     return {"pull_exit_code": rc, "pull_error": None if rc == 0 else tail}
 
 
