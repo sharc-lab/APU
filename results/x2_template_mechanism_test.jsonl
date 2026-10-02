@@ -1,0 +1,5 @@
+{"record": "create_bare", "outcome": "ok"}
+{"record": "create_libtemplate", "returncode": 0}
+{"record": "template_test_probe", "label": "library_pull", "model_tag": "llama3.1:8b", "http_status": 200, "prompt_eval_count": 4098, "done_reason": "stop"}
+{"record": "template_test_probe", "label": "gguf_bare_template", "model_tag": "llama31-bare-test", "http_status": 400, "error": "{\"error\":\"{\\\"error\\\":{\\\"code\\\":400,\\\"message\\\":\\\"request (13095 tokens) exceeds the available context size (8192 tokens), try increasing it\\\",\\\"type\\\":\\\"exceed_context_size_error\\\",\\\"n_prompt_tokens\\\":13095,\\\"n_ctx\\\":8192}}\"}"}
+{"record": "template_test_probe", "label": "gguf_library_template", "model_tag": "llama31-libtemplate-test", "http_status": 200, "prompt_eval_count": 4098, "done_reason": "stop"}
