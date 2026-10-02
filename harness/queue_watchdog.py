@@ -235,10 +235,10 @@ def host_ownership_predicate(hostname=None):
     if "x2" in hostname:
         return scc.is_ours_dedicated_machine
     # 2026-10-02 bug found live: this used to hardcode our_paths=("c:\\apu",), which cannot see Ollama's own
-    # internal engine (it runs from C:\Users\SHARC\...\Ollama\lib\ollama\llama-server.exe against
-    # C:\Users\SHARC\.ollama\models\blobs\..., never referencing C:\apu at all) -- 16-18 such orphans on
-    # evo-t2s were invisible to this check. Falling through to scc's own DEFAULT_SHARED_MACHINE_PATHS (which
-    # already includes the Ollama install/blob-cache path fragments) instead of re-narrowing it here.
+    # internal engine (it runs from Ollama's own install dir against its own model blob cache, never
+    # referencing C:\apu at all -- see stale_server_cleanup.DEFAULT_SHARED_MACHINE_PATHS's own docstring for
+    # the exact paths) -- 16-18 such orphans on evo-t2s were invisible to this check. Falling through to scc's
+    # own DEFAULT_SHARED_MACHINE_PATHS (which already includes those fragments) instead of re-narrowing it here.
     return scc.is_ours_shared_machine
 
 
