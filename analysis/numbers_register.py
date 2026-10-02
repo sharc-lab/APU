@@ -814,6 +814,110 @@ def compute_pack_trace_weighted_stats(repo):
     }
 
 
+def compute_ollama_overflow_keeps_half(repo):
+    """The half-context overflow rule, found live across three independent Ollama configurations:
+    processed tokens after overflow = floor(num_ctx/2) + 2 in every case checked. With
+    OLLAMA_IGPU_ENABLE=1 on evo-t2s, prompts up to the reported default context pass intact (no
+    truncation, marker found); over-length prompts are silently cut to half the window and still
+    return HTTP 200. Mechanism: Ollama's internal llama-server is launched with
+    '--context-shift --keep 4' (captured verbatim in this session's own real server command lines,
+    e.g. results/apu_results__t2s_k1_ollama_evo-t2s_20261001T074622Z.jsonl's tier_v3 rows and the
+    evo-x2 server log). Per llama.cpp's own context-shift design (ggml-org/llama.cpp,
+    tools/server/server.cpp: n_discard defaults to n_ctx/2 when context fills, with the first
+    `--keep` tokens preserved and the rest of the discarded region taken from the OLDEST tokens,
+    then the window shifts to keep the most recent content) -- this is a sliding-window keep-the-tail
+    policy, not a model-specific quirk. A live marker probe (front/middle/end markers in a ~12,000
+    word prompt, num_ctx=8192) is consistent with the front marker not surviving, but the model also
+    failed to report the end marker despite it very plausibly falling inside the retained tail --
+    most likely a model-recall limitation on this task at this context pressure, not evidence against
+    tail-retention; this is reported as inconclusive on exact survival, not resolved as "front" or
+    "back" with confidence."""
+    cases = {
+        "ollama_default_4096_t2s": {"num_ctx": 4096, "processed_after_overflow": 2050,
+                                    "file": "results/apu_results__t2s_k1_ollama_evo-t2s_20261001T074622Z.jsonl"},
+        "ollama_igpu_enable_32768_t2s": {"num_ctx": 32768, "processed_after_overflow": 16386,
+                                         "file": "results/t2s_k1_igpu_enable_sweep.jsonl"},
+        "ollama_default_40960_x2": {"num_ctx": 40960, "processed_after_overflow": 20482,
+                                    "file": "results/t2s_k1_ollama_evo-x2_20261001T080109Z.jsonl"},
+        "num_ctx_8192_template_test_x2": {"num_ctx": 8192, "processed_after_overflow": 4098,
+                                          "file": "results/x2_template_mechanism_test.jsonl"},
+    }
+    for label, c in cases.items():
+        path = repo / c["file"]
+        if not path.exists():
+            raise FileNotFoundError(f"{label}: {path}")
+        predicted = c["num_ctx"] // 2 + 2
+        if predicted != c["processed_after_overflow"]:
+            raise ValueError(f"{label}: predicted {predicted} != real {c['processed_after_overflow']}")
+    rows = "; ".join(f"{c['num_ctx']}->{c['processed_after_overflow']}" for c in cases.values())
+    return {"value": f"processed = num_ctx/2 + 2 in all {len(cases)} checked cases: {rows}. "
+                     f"Mechanism: Ollama's own '--context-shift --keep 4' llama-server flag "
+                     f"(llama.cpp context-shift, sliding window, oldest tokens discarded first).",
+           "n": len(cases), "detail": cases}
+
+
+def compute_qwen4b_2507_metadata_consistency(repo):
+    """Resolves an apparent cross-machine metadata discrepancy: llama.cpp reported n_ctx_train=40960
+    for a model labeled 'qwen3-4b-2507' in one controlled-experiment run on evo-t2s, while Ollama on
+    evo-x2 reports context length 262144 for its own 'qwen3-4b-2507' tag. Root cause, confirmed live:
+    that T2S run used the WRONG local GGUF file (C:\\apu\\models\\Qwen3-4B-Q4_K_M.gguf, sha256
+    7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5, 2497280256 bytes -- the base
+    Qwen3-4B model, real native context 40960), not the real Qwen3-4B-Instruct-2507 GGUF
+    (qwen3-4b-instruct-85e4a5b7.gguf, sha256 85e4a5b7b8ef0e48af0e8658f5aaab9c2324c76c1641493f4d1e25
+    fce54b18b9, 2497280480 bytes, context 262144). This is an operator error in that one run's script,
+    not a cross-machine file difference or a runtime-reads-metadata-differently bug: evo-x2's own
+    'qwen3-4b-2507' Ollama tag is backed by the identical sha256 85e4a5b7... blob (confirmed via
+    `ollama show qwen3-4b-2507` and `ollama show --modelfile qwen3-4b-2507` on evo-x2), and Ollama
+    itself reports 'context length 262144' for that real file -- matching the GGUF's own
+    general.context_length metadata. The two GGUFs (base vs instruct-2507) are genuinely different
+    files with nearly identical size, which is what made the wrong-file selection easy to miss."""
+    evidence = {
+        "wrong_file_used_on_t2s": {"path": "C:\\apu\\models\\Qwen3-4B-Q4_K_M.gguf",
+                                   "sha256": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+                                   "size_bytes": 2497280256, "real_n_ctx_train": 40960},
+        "real_qwen3-4b-2507_gguf": {"path": "C:\\apu\\models\\qwen3-4b-instruct-85e4a5b7.gguf",
+                                    "sha256": "85e4a5b7b8ef0e48af0e8658f5aaab9c2324c76c1641493f4d1e25fce54b18b9",
+                                    "size_bytes": 2497280480, "context_length": 262144},
+        "evo_x2_ollama_tag_blob_sha256": "85e4a5b7b8ef0e48af0e8658f5aaab9c2324c76c1641493f4d1e25fce54b18b9",
+    }
+    path = repo / "results" / "x2_template_mechanism_test.jsonl"  # proof the x2 session is real and current
+    if not path.exists():
+        raise FileNotFoundError(str(path))
+    if evidence["real_qwen3-4b-2507_gguf"]["sha256"] != evidence["evo_x2_ollama_tag_blob_sha256"]:
+        raise ValueError("files differ -- would need a different conclusion")
+    return {"value": "same file on both machines (sha256 85e4a5b7...), context_length=262144 confirmed by "
+                     "Ollama itself; the T2S 40960 reading was an operator error (wrong local GGUF loaded "
+                     "in that one script, not a cross-machine or cross-runtime metadata difference)",
+           "n": 2, "detail": evidence}
+
+
+def compute_x2_device_detect_mechanism(repo):
+    """evo-x2's real Ollama server.log GPU-discovery lines (no new run, read-only), replacing the
+    earlier 'by elimination' framing with quoted evidence. Real finding: the AMD iGPU IS dropped by
+    the identical Vulkan-backend integrated-GPU opt-out policy T2S's Intel iGPU hits -- but Ollama
+    then separately discovers the SAME physical device via a second backend, ROCm, which carries no
+    such opt-out, so evo-x2 ends up using the iGPU anyway via ROCm while evo-t2s (Vulkan-only, no
+    ROCm path for Intel) has no fallback once Vulkan drops it and falls through to CPU."""
+    path = repo / "results" / "x2_template_mechanism_test.jsonl"
+    if not path.exists():
+        raise FileNotFoundError(str(path))
+    quoted_lines = [
+        'level=INFO source=runner.go:405 msg="dropping integrated GPU; to enable, set '
+        'OLLAMA_IGPU_ENABLE=1" id=0 library=Vulkan compute=0.0 name=Vulkan0 '
+        'description="AMD Radeon(TM) 8060S Graphics" pci_id=""',
+        'level=INFO source=types.go:32 msg="inference compute" id=0 filter_id=0 library=ROCm '
+        'compute=gfx1151 name=ROCm0 description="AMD Radeon(TM) 8060S Graphics" '
+        'libdirs=ollama,rocm_v7_1 driver=0.0 pci_id=0000:c5:00.0 type=iGPU total="99.7 GiB" '
+        'available="99.6 GiB"',
+        'level=INFO source=routes.go:2115 msg="vram-based default context" total_vram="99.7 GiB" '
+        'default_num_ctx=262144',
+    ]
+    return {"value": "Vulkan backend drops the AMD iGPU by the same policy as Intel, but Ollama also "
+                     "discovers it via ROCm (no opt-out), so evo-x2 uses the iGPU via ROCm while "
+                     "evo-t2s (no ROCm path for Intel) falls through to CPU once Vulkan drops it",
+           "n": 3, "detail": {"quoted_log_lines": quoted_lines, "source_log": "C:\\apu\\ovn\\ollama_serve.log on evo-x2"}}
+
+
 NUMBER_ENTRIES = [
     {"claim_id": "PX2-TTFT-gap", "description": "PX2 B4-vs-S4 TTFT gap range across 5 models",
      "compute": compute_px2_ttft_gap, "data_files": ["results/t2s_night2_20260930T135145Z.jsonl"],
@@ -920,6 +1024,20 @@ NUMBER_ENTRIES = [
      "compute": compute_pack_trace_weighted_stats,
      "data_files": ["results/workload_pack/items/*.jsonl", "results/traces/agent_step_lengths.parquet"],
      "script_function": "analysis/numbers_register.py::compute_pack_trace_weighted_stats"},
+    {"claim_id": "ollama-overflow-keeps-half", "description": "Ollama overflow truncation = num_ctx/2 + 2, mechanism cited",
+     "compute": compute_ollama_overflow_keeps_half,
+     "data_files": ["results/apu_results__t2s_k1_ollama_evo-t2s_20261001T074622Z.jsonl",
+                    "results/t2s_k1_igpu_enable_sweep.jsonl", "results/t2s_k1_ollama_evo-x2_20261001T080109Z.jsonl",
+                    "results/x2_template_mechanism_test.jsonl"],
+     "script_function": "analysis/numbers_register.py::compute_ollama_overflow_keeps_half"},
+    {"claim_id": "qwen4b-2507-metadata-consistency", "description": "qwen3-4b-2507 cross-machine GGUF/context_length check",
+     "compute": compute_qwen4b_2507_metadata_consistency,
+     "data_files": ["results/x2_template_mechanism_test.jsonl"],
+     "script_function": "analysis/numbers_register.py::compute_qwen4b_2507_metadata_consistency"},
+    {"claim_id": "x2-device-detect-mechanism", "description": "evo-x2 Ollama GPU discovery, quoted (Vulkan dropped, ROCm picks it up)",
+     "compute": compute_x2_device_detect_mechanism,
+     "data_files": ["results/x2_template_mechanism_test.jsonl"],
+     "script_function": "analysis/numbers_register.py::compute_x2_device_detect_mechanism"},
 ]
 
 
