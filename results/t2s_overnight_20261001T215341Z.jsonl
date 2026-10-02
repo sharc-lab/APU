@@ -1,0 +1,3 @@
+{"record": "idle_temp", "idle_temp_c": 30.625, "idle_pkg_w": 3.599862970294359, "note": null, "ts_utc": "2026-10-01T21:54:09.603997+00:00"}
+{"record": "paging_control", "ts_utc": "2026-10-01T21:54:11.680618+00:00", "ok": false, "why": "balloon control failed: {'ok': False, 'why': 'balloon exited early rc=2', 'out': \"C:\\\\Users\\\\Ritz\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python312\\\\python.exe: can't open file 'C:\\\\\\\\apu\\\\\\\\ovn\\\\\\\\memory_balloon_awe.py': [Errno 2] No such file or directory\\n\"}"}
+{"record": "run_end", "note": "stopped: RuntimeError('STOP: a llama-server process we did not start is running')", "ts_utc": "2026-10-01T21:54:12.118506+00:00"}
