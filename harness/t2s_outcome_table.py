@@ -33,9 +33,18 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[1]
+# Deployed two ways: inside this repo (harness/t2s_outcome_table.py, REPO is its grandparent), and
+# flat on evo-t2s itself (C:\apu\ovn\t2s_outcome_table.py, with analysis/, results/, t2s_k1_ollama.py
+# etc. all siblings or sub-dirs of that same C:\apu\ovn directory -- confirmed against this project's
+# real remote layout, same fix as t2s_handover.py needed). Detect which layout this is by checking
+# for a sibling "analysis" directory next to this file first.
+_here = Path(__file__).resolve().parent
+if (_here / "analysis").is_dir():
+    REPO = _here  # flat deployment: this file's own directory IS the effective repo root
+else:
+    REPO = _here.parents[0]  # repo layout: harness/t2s_outcome_table.py -> repo root
+sys.path.insert(0, str(_here))
 sys.path.insert(0, str(REPO / "harness"))
-sys.path.insert(0, str(Path(__file__).resolve().parent))  # flat deployment on evo-t2s itself
 sys.path.insert(0, str(REPO))
 
 import host_config as hc  # noqa: E402
