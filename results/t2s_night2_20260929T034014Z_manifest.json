@@ -1,16 +1,16 @@
 {
- "launch_utc": "2026-10-01T03:30:57.570565+00:00",
+ "launch_utc": "2026-10-02T05:57:34.171168+00:00",
  "script_provenance": {
-  "git_head": "5cbdfc243fc3663efa9000cd904f64e5511fa7ff",
+  "git_head": "0b57800e229fa74165000ca27e157b7f7b199b42",
   "committed": true,
   "verified_by": "git blob sha1 of deployed bytes",
   "problems": [],
   "files": [
    {
-    "path": "t2s_r2_session_growth.py",
-    "expected_git_blob_sha": "89dc4f1d12fee2267307415982cf33f1c3778b24",
-    "actual_git_blob_sha": "89dc4f1d12fee2267307415982cf33f1c3778b24",
-    "sha256": "25b533c03d3246acf42a1f81e9d4ac685dfc2373ed19028b2b5f37948347075f"
+    "path": "t2s_k1_ollama.py",
+    "expected_git_blob_sha": "5857352ac205e21dd283bbb6ce1805a6d6830b1b",
+    "actual_git_blob_sha": "5857352ac205e21dd283bbb6ce1805a6d6830b1b",
+    "sha256": "3182b71b7d057cb0927ad5f05443916f80cf8457a7fd5148d950feae133d19b8"
    }
   ]
  },
