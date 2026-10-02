@@ -1,0 +1,302 @@
+"""Outcome-table run: for each workload-pack item (trace-weighted priority order, r2_sessions
+excluded, 340 items), runs llama3.1:8b under three configurations before moving to the next item:
+  1. ollama_default      -- stock Ollama, no env override (collapses to the 4096 default on evo-t2s)
+  2. ollama_igpu_enable   -- Ollama with OLLAMA_IGPU_ENABLE=1 set only inside this job's own server
+                            start (never persisted; restored to absent on every server stop)
+  3. llama_server_vulkan  -- llama.cpp llama-server, Vulkan backend, -c sized to this item's own
+                            prompt_tokens (+256 headroom for the response)
+
+Per (item, config): score (reusing results/workload_pack/grade.py's real GRADERS, against the
+model's real response, not the oracle), TTFT, total latency, tokens sent vs processed, HTTP status,
+the silent-truncation flag (processed < sent), effective context (from /api/ps for Ollama configs,
+from the startup log's n_ctx for llama-server), and a machine-state snapshot (which runtime/device).
+
+Resumable: a real item_id+config key already present in the output file's own rows is skipped.
+Heartbeat: one row per (item, config) flushed immediately (append, not buffered) -- a partial night
+is still fully usable data, per the explicit 2026-10-02 instruction this script was built to satisfy.
+Every call is capped at --call-timeout-s (default 900 = 15 min). The whole run respects
+--deadline-h, checked at the start of each item (not mid-item), so the job stops itself cleanly
+rather than overrunning into the handover.
+
+Usage:
+  py -3.12 harness/t2s_outcome_table.py --out results/t2s_outcome_table_<stem>.jsonl \\
+      [--smoke-n 10] [--deadline-h 5] [--call-timeout-s 900]
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import subprocess
+import sys
+import time
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO / "harness"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # flat deployment on evo-t2s itself
+sys.path.insert(0, str(REPO))
+
+import host_config as hc  # noqa: E402
+import t2s_k1_ollama as k1  # noqa: E402
+
+MODEL_TAG_OLLAMA = "llama3.1:8b"
+GGUF_PATH = r"C:\apu\models\Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf"
+LLAMA_SERVER_EXE = r"C:\apu\bin\llama-b10970\llama-server.exe"
+LLAMA_SERVER_PORT = 58199
+
+CONFIGS = ("ollama_default", "ollama_igpu_enable", "llama_server_vulkan")
+
+
+def utc_iso():
+    import datetime
+    return datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+
+def load_items_trace_weighted(repo):
+    """Real 340 non-r2_sessions items, sorted by real trace-weight descending (so a partial run is
+    still representative, per the explicit instruction)."""
+    sys.path.insert(0, str(repo))
+    from analysis import trace_weighted_pack as twp
+    items, weights, _meta = twp.compute_item_weights(repo)
+    pairs = [(it, w) for it, w in zip(items, weights) if it["family"] != "r2_sessions"]
+    pairs.sort(key=lambda p: p[1], reverse=True)
+    return [p[0] for p in pairs]
+
+
+def load_graders():
+    sys.path.insert(0, str(REPO / "results" / "workload_pack"))
+    import grade as g
+    return g
+
+
+def score_response(grade_module, item, response_text):
+    method = item["grading"]["method"]
+    oracle = item["oracle_answer"]
+    fn = grade_module.GRADERS[method]
+    try:
+        if method == "exact_substring":
+            return fn(oracle, response_text, case_sensitive=item["grading"].get("case_sensitive", True))
+        if method in ("exact_dict_match", "session_rule_recall"):
+            # the grader expects a parsed dict; a real model response is free text -- best-effort
+            # parse, and a response that cannot be parsed as the expected structure scores 0.0
+            # (a real failure mode, not an error to hide).
+            import re
+            m = re.search(r"\{.*\}", response_text, re.S)
+            parsed = json.loads(m.group(0)) if m else {}
+            return fn(oracle, parsed)
+        if method == "final_number_match":
+            return fn(oracle, response_text)
+    except Exception:
+        return 0.0
+    return 0.0
+
+
+def already_done_keys(out_path):
+    done = set()
+    if not out_path.exists():
+        return done
+    for line in out_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            r = json.loads(line)
+        except Exception:
+            continue
+        if r.get("record") == "outcome_row":
+            done.add((r["item_id"], r["config"]))
+    return done
+
+
+def emit(out_path, row):
+    with open(out_path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(row, default=str) + "\n")
+
+
+def run_ollama_call(ollama, model_tag, prompt, num_ctx, call_timeout_s):
+    t0 = time.monotonic()
+    resp = ollama.chat(model_tag, "", num_ctx=num_ctx,
+                       messages=[{"role": "user", "content": prompt}],
+                       max_tokens=256, think=False, keep_alive="2m", timeout=call_timeout_s)
+    dt = time.monotonic() - t0
+    return resp, dt
+
+
+def get_ollama_ps_context_length(model_tag):
+    try:
+        req = urllib.request.Request("http://127.0.0.1:11434/api/ps")
+        with urllib.request.urlopen(req, timeout=30) as r:
+            ps = json.loads(r.read())
+        for m in ps.get("models", []):
+            if m.get("name") == model_tag or m.get("model") == model_tag:
+                return m.get("context_length")
+    except Exception:
+        pass
+    return None
+
+
+def run_one_item_ollama(item, config_label, igpu_enable, out_path, call_timeout_s):
+    exe = hc._resolve_ollama_exe_for_serve()
+    if igpu_enable:
+        cmd = (f"$cmd = 'cmd.exe /c set OLLAMA_KEEP_ALIVE=0 && set OLLAMA_IGPU_ENABLE=1 && \"{exe}\" serve > "
+               f"C:\\apu\\ovn\\ollama_serve_outcome_table.log 2>&1'; "
+               "$r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{CommandLine=$cmd}; "
+               "'pid=' + $r.ProcessId")
+        subprocess.run(["powershell", "-NoProfile", "-Command", cmd], capture_output=True, text=True, timeout=30)
+    else:
+        hc.start_ollama_server()
+    row = {"record": "outcome_row", "item_id": item["item_id"], "family": item["family"],
+          "config": config_label, "model_id": MODEL_TAG_OLLAMA, "ts_utc": utc_iso()}
+    try:
+        hc.wait_for_ollama_ready(timeout_s=60)
+        ollama = k1.OllamaClient()
+        resp, dt = run_ollama_call(ollama, MODEL_TAG_OLLAMA, item["prompt"], None, call_timeout_s)
+        effective_ctx = get_ollama_ps_context_length(MODEL_TAG_OLLAMA)
+        output_text = resp.get("message") or ""
+        grade_module = load_graders()
+        score = score_response(grade_module, item, output_text)
+        sent = item["prompt_tokens"]
+        processed = resp.get("prompt_eval_count")
+        row.update({
+            "http_status": resp.get("status"), "score": score, "ttft_s": None,  # non-streaming call: no separate TTFT
+            "latency_s": dt, "sent_tokens": sent, "processed_tokens": processed,
+            "silently_truncated": bool(processed is not None and processed < sent),
+            "effective_context": effective_ctx, "machine_state": config_label,
+            "chat_outcome": resp.get("outcome"), "error": resp.get("error"),
+        })
+    except Exception as e:
+        row.update({"http_status": None, "score": 0.0, "error": f"driver exception: {e!r}"[:400]})
+    finally:
+        hc.stop_ollama_server()
+    emit(out_path, row)
+    return row
+
+
+def run_one_item_llama_server(item, out_path, call_timeout_s):
+    import socket
+    n_ctx = ((item["prompt_tokens"] + 256 + 255) // 256) * 256  # round up to a multiple of 256, +256 headroom
+    log_path = fr"C:\apu\ovn\results\t2s_outcome_table_llamaserver_{item['item_id']}.log"
+    cmd = [LLAMA_SERVER_EXE, "-m", GGUF_PATH, "--port", str(LLAMA_SERVER_PORT), "--host", "127.0.0.1",
+          "--no-webui", "-c", str(n_ctx), "-np", "1", "-t", "4", "--log-verbosity", "4", "-ngl", "99"]
+    row = {"record": "outcome_row", "item_id": item["item_id"], "family": item["family"],
+          "config": "llama_server_vulkan", "model_id": "llama3.1-8b-gguf", "ts_utc": utc_iso(),
+          "requested_n_ctx": n_ctx}
+    proc = None
+    try:
+        with open(log_path, "w", encoding="utf-8") as logfh:
+            proc = subprocess.Popen(cmd, stdout=logfh, stderr=logfh)
+        t0 = time.monotonic()
+        ready = False
+        while time.monotonic() - t0 < 180:
+            try:
+                with socket.create_connection(("127.0.0.1", LLAMA_SERVER_PORT), timeout=1):
+                    ready = True
+                    break
+            except OSError:
+                time.sleep(1)
+        if not ready:
+            row.update({"http_status": None, "score": 0.0, "error": "server did not open its port in time"})
+            return row
+        # wait for actual model-loaded readiness (port open != loaded, found live 2026-10-01)
+        t1 = time.monotonic()
+        loaded = False
+        while time.monotonic() - t1 < call_timeout_s:
+            try:
+                req = urllib.request.Request(f"http://127.0.0.1:{LLAMA_SERVER_PORT}/v1/chat/completions",
+                                             data=json.dumps({"model": "x", "messages": [{"role": "user", "content": "hi"}],
+                                                              "max_tokens": 1}).encode(),
+                                             headers={"Content-Type": "application/json"})
+                with urllib.request.urlopen(req, timeout=30) as r:
+                    r.read()
+                loaded = True
+                break
+            except urllib.error.HTTPError as e:
+                if e.code != 503:
+                    loaded = True
+                    break
+                time.sleep(3)
+            except Exception:
+                time.sleep(3)
+        if not loaded:
+            row.update({"http_status": None, "score": 0.0, "error": "server never left 'loading' state"})
+            return row
+        t2 = time.monotonic()
+        body = json.dumps({"model": "x", "messages": [{"role": "user", "content": item["prompt"]}],
+                           "max_tokens": 256, "temperature": 0}).encode()
+        req = urllib.request.Request(f"http://127.0.0.1:{LLAMA_SERVER_PORT}/v1/chat/completions", data=body,
+                                     headers={"Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=call_timeout_s) as r:
+                data = json.loads(r.read())
+            dt = time.monotonic() - t2
+            output_text = (data.get("choices") or [{}])[0].get("message", {}).get("content", "") or ""
+            usage = data.get("usage") or {}
+            grade_module = load_graders()
+            score = score_response(grade_module, item, output_text)
+            sent = item["prompt_tokens"]
+            processed = usage.get("prompt_tokens")
+            row.update({
+                "http_status": 200, "score": score, "ttft_s": None, "latency_s": dt,
+                "sent_tokens": sent, "processed_tokens": processed,
+                "silently_truncated": bool(processed is not None and processed < sent),
+                "effective_context": n_ctx, "machine_state": "llama_server_vulkan",
+            })
+        except urllib.error.HTTPError as e:
+            row.update({"http_status": e.code, "score": 0.0, "error": e.read().decode(errors="replace")[:400]})
+        except Exception as e:
+            row.update({"http_status": None, "score": 0.0, "error": str(e)[:400]})
+    finally:
+        if proc is not None:
+            proc.terminate()
+            try:
+                proc.wait(timeout=10)
+            except Exception:
+                proc.kill()
+    emit(out_path, row)
+    return row
+
+
+def run(out_path, smoke_n=None, deadline_h=5.0, call_timeout_s=900):
+    items = load_items_trace_weighted(REPO)
+    if smoke_n:
+        items = items[:smoke_n]
+    done = already_done_keys(out_path)
+    t_start = time.monotonic()
+    deadline_s = deadline_h * 3600
+    n_items_done = 0
+    for item in items:
+        if time.monotonic() - t_start > deadline_s:
+            print(f"deadline reached ({deadline_h}h), stopping at {n_items_done} items done this run")
+            break
+        emit(out_path, {"record": "heartbeat", "item_id": item["item_id"], "ts_utc": utc_iso()})
+        for config in CONFIGS:
+            key = (item["item_id"], config)
+            if key in done:
+                continue
+            t0 = time.monotonic()
+            if config == "ollama_default":
+                row = run_one_item_ollama(item, config, False, out_path, call_timeout_s)
+            elif config == "ollama_igpu_enable":
+                row = run_one_item_ollama(item, config, True, out_path, call_timeout_s)
+            else:
+                row = run_one_item_llama_server(item, out_path, call_timeout_s)
+            dt = time.monotonic() - t0
+            print(f"{item['item_id']} {config}: {dt:.1f}s http={row.get('http_status')} score={row.get('score')}")
+        n_items_done += 1
+    print(f"done: {n_items_done} items this run, output {out_path}")
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--out", required=True)
+    ap.add_argument("--smoke-n", type=int, default=None)
+    ap.add_argument("--deadline-h", type=float, default=5.0)
+    ap.add_argument("--call-timeout-s", type=int, default=900)
+    args = ap.parse_args(argv)
+    run(Path(args.out), smoke_n=args.smoke_n, deadline_h=args.deadline_h, call_timeout_s=args.call_timeout_s)
+
+
+if __name__ == "__main__":
+    main()
