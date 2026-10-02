@@ -31,6 +31,8 @@ from pathlib import Path
 SSH = r"C:\Windows\System32\OpenSSH\ssh.exe"
 HOST = "sharc@100.72.40.24"
 REPO = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO / "harness"))
+from proc_util import run_hidden  # noqa: E402
 LOG_PATH = r"C:\apu\ovn\queue_night2b.log"
 RESULTS_PATH = r"C:\apu\ovn\results\t2s_night2_20260928T004924Z.jsonl"
 REFRESH_EVERY_N_POLLS = 5
@@ -43,8 +45,8 @@ def utc_iso():
 def echo_probe():
     t0 = time.monotonic()
     try:
-        p = subprocess.run([SSH, "-o", "BatchMode=yes", "-o", "ConnectTimeout=120", HOST, "cmd /c echo hi"],
-                           capture_output=True, text=True, timeout=130)
+        p = run_hidden([SSH, "-o", "BatchMode=yes", "-o", "ConnectTimeout=120", HOST, "cmd /c echo hi"],
+                       capture_output=True, text=True, timeout=130)
         rtt = time.monotonic() - t0
         ok = p.returncode == 0 and "hi" in p.stdout
         return rtt, ok, p.stdout.strip()[:100]
@@ -54,9 +56,9 @@ def echo_probe():
 
 def current_phase():
     try:
-        p = subprocess.run([SSH, "-o", "BatchMode=yes", "-o", "ConnectTimeout=30", HOST,
-                           f"Get-Content {LOG_PATH} -ErrorAction SilentlyContinue | Select-String 'phase ' | Select -Last 1"],
-                           capture_output=True, text=True, timeout=40)
+        p = run_hidden([SSH, "-o", "BatchMode=yes", "-o", "ConnectTimeout=30", HOST,
+                       f"Get-Content {LOG_PATH} -ErrorAction SilentlyContinue | Select-String 'phase ' | Select -Last 1"],
+                       capture_output=True, text=True, timeout=40)
         m = re.search(r"phase (\w+)", p.stdout)
         return m.group(1) if m else None
     except Exception:
@@ -67,9 +69,9 @@ def tail_item(prev):
     """Lightweight tail of the live results file for the current item_id and mem_headroom_gb. Called at most once
     every REFRESH_EVERY_N_POLLS; falls back to the previous poll's cached value on any failure or timeout."""
     try:
-        p = subprocess.run([SSH, "-o", "BatchMode=yes", "-o", "ConnectTimeout=30", HOST,
-                           f"Get-Content {RESULTS_PATH} -ErrorAction SilentlyContinue -Tail 1"],
-                           capture_output=True, text=True, timeout=40)
+        p = run_hidden([SSH, "-o", "BatchMode=yes", "-o", "ConnectTimeout=30", HOST,
+                       f"Get-Content {RESULTS_PATH} -ErrorAction SilentlyContinue -Tail 1"],
+                       capture_output=True, text=True, timeout=40)
         d = json.loads(p.stdout.strip().splitlines()[-1]) if p.stdout.strip() else {}
         return d.get("item_id", prev[0]), d.get("mem_headroom_gb", prev[1])
     except Exception:

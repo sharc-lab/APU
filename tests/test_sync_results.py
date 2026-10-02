@@ -185,7 +185,7 @@ def test_pull_files_updates_manifest_only_for_successful_pulls(tmp_path, monkeyp
     monkeypatch.setattr(sr, "RESULTS_DIR", tmp_path)
     calls = []
 
-    def fake_run(cmd, capture_output, text, timeout):
+    def fake_run(cmd, capture_output, text, timeout, **kwargs):
         calls.append(cmd)
         class R:
             returncode = 0
@@ -208,7 +208,7 @@ def test_pull_files_survives_a_timeout_and_continues_to_the_next_file(tmp_path, 
     monkeypatch.setattr(sr, "RESULTS_DIR", tmp_path)
     calls = {"n": 0}
 
-    def flaky_run(cmd, capture_output, text, timeout):
+    def flaky_run(cmd, capture_output, text, timeout, **kwargs):
         calls["n"] += 1
         if calls["n"] == 1:
             raise sr.subprocess.TimeoutExpired(cmd=cmd, timeout=timeout)
@@ -232,7 +232,7 @@ def test_pull_files_survives_a_timeout_and_continues_to_the_next_file(tmp_path, 
 def test_pull_files_does_not_update_manifest_on_scp_failure(tmp_path, monkeypatch):
     monkeypatch.setattr(sr, "RESULTS_DIR", tmp_path)
 
-    def fake_run(cmd, capture_output, text, timeout):
+    def fake_run(cmd, capture_output, text, timeout, **kwargs):
         class R:
             returncode = 1
             stderr = "connection refused"

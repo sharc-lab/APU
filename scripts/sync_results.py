@@ -39,6 +39,7 @@ LFS_SIZE_LIMIT_BYTES = 50 * 1024 * 1024
 
 sys.path.insert(0, str(REPO / "harness"))
 import host_config as hc  # noqa: E402
+from proc_util import run_hidden  # noqa: E402
 
 REMOTE_RESULT_DIRS = (r"C:\apu\ovn\results", r"C:\apu\results")
 
@@ -72,9 +73,9 @@ def _ssh_lines(host_str, ps_script, timeout=600):
     one opaque token no shell can re-tokenize, which eliminates both problems in the same live rerun (0 bad
     lines on both hosts)."""
     encoded = base64.b64encode(ps_script.encode("utf-16-le")).decode("ascii")
-    p = subprocess.run([SSH, "-o", "BatchMode=yes", "-o", "ConnectTimeout=30", host_str,
-                       "powershell", "-NoProfile", "-EncodedCommand", encoded],
-                       capture_output=True, text=True, timeout=timeout)
+    p = run_hidden([SSH, "-o", "BatchMode=yes", "-o", "ConnectTimeout=30", host_str,
+                   "powershell", "-NoProfile", "-EncodedCommand", encoded],
+                   capture_output=True, text=True, timeout=timeout)
     if p.returncode != 0 and not p.stdout.strip():
         raise RuntimeError(f"ssh enumerate failed: rc={p.returncode} stderr={p.stderr[:500]}")
     return [l for l in p.stdout.splitlines() if l.strip()]
@@ -190,8 +191,8 @@ def pull_files(host_str, host_key, to_pull, manifest):
         dest = local_dest_path(f)
         dest.parent.mkdir(parents=True, exist_ok=True)
         try:
-            p = subprocess.run([SCP, "-q", "-o", "BatchMode=yes", f"{host_str}:{remote_path}", str(dest)],
-                               capture_output=True, text=True, timeout=SCP_PER_FILE_TIMEOUT_S)
+            p = run_hidden([SCP, "-q", "-o", "BatchMode=yes", f"{host_str}:{remote_path}", str(dest)],
+                           capture_output=True, text=True, timeout=SCP_PER_FILE_TIMEOUT_S)
         except subprocess.TimeoutExpired:
             print(f"  FAILED to pull {remote_path}: timed out after {SCP_PER_FILE_TIMEOUT_S}s", file=sys.stderr)
             continue
@@ -208,7 +209,7 @@ def pull_files(host_str, host_key, to_pull, manifest):
 
 
 def git(*a, check=True):
-    return subprocess.run(["git", "-C", str(REPO), *a], capture_output=True, text=True, check=check)
+    return run_hidden(["git", "-C", str(REPO), *a], capture_output=True, text=True, check=check)
 
 
 GIT_ADD_BATCH_SIZE = 200  # Windows CreateProcess has a ~32K command-line length limit; found live at 979

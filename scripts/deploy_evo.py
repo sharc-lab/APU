@@ -10,7 +10,6 @@ C:\\Windows\\System32\\OpenSSH\\ssh.exe and scp.exe, BatchMode.
 from __future__ import annotations
 
 import json
-import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -20,10 +19,11 @@ SSH = r"C:\Windows\System32\OpenSSH\ssh.exe"
 SCP = r"C:\Windows\System32\OpenSSH\scp.exe"
 sys.path.insert(0, str(REPO / "harness"))
 import host_config as hc  # noqa: E402
+from proc_util import run_hidden  # noqa: E402
 
 
 def git(*a):
-    return subprocess.run(["git", "-C", str(REPO), *a], capture_output=True, check=True).stdout
+    return run_hidden(["git", "-C", str(REPO), *a], capture_output=True, check=True).stdout
 
 
 def main():
@@ -41,12 +41,12 @@ def main():
     dirty = git("status", "--porcelain", "--", *paths).decode().strip()
     if dirty:
         raise SystemExit("refusing to deploy uncommitted files:\n" + dirty)
-    host = subprocess.run([SSH, "-o", "BatchMode=yes", "-o", "ConnectTimeout=30", HOST, "hostname"],
-                          capture_output=True, text=True, check=True).stdout.strip()
+    host = run_hidden([SSH, "-o", "BatchMode=yes", "-o", "ConnectTimeout=30", HOST, "hostname"],
+                      capture_output=True, text=True, check=True).stdout.strip()
     if host.upper() != key:
         raise SystemExit(f"wrong host {host}, expected {key}")
-    subprocess.run([SSH, "-o", "BatchMode=yes", HOST, f"New-Item -ItemType Directory -Force {remote} | Out-Null"],
-                   check=True)
+    run_hidden([SSH, "-o", "BatchMode=yes", HOST, f"New-Item -ItemType Directory -Force {remote} | Out-Null"],
+              check=True)
     head = git("rev-parse", "HEAD").decode().strip()
     blobs = {}
     with tempfile.TemporaryDirectory() as td:
@@ -55,10 +55,10 @@ def main():
             data = git("show", f"HEAD:{p}")
             (Path(td) / name).write_bytes(data)
             blobs[name] = git("rev-parse", f"HEAD:{p}").decode().strip()
-            subprocess.run([SCP, "-q", "-o", "BatchMode=yes", str(Path(td) / name), f"{HOST}:{remote}/{name}"], check=True)
+            run_hidden([SCP, "-q", "-o", "BatchMode=yes", str(Path(td) / name), f"{HOST}:{remote}/{name}"], check=True)
         exp = Path(td) / "expected_blobs.json"
         exp.write_text(json.dumps({"git_head": head, "blobs": blobs}, indent=1))
-        subprocess.run([SCP, "-q", "-o", "BatchMode=yes", str(exp), f"{HOST}:{remote}/expected_blobs.json"], check=True)
+        run_hidden([SCP, "-q", "-o", "BatchMode=yes", str(exp), f"{HOST}:{remote}/expected_blobs.json"], check=True)
     print(json.dumps({"deployed": list(blobs), "git_head": head, "host": key}))
 
 
