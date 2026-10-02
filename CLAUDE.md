@@ -29,6 +29,24 @@ windows (and a real scp.exe crash dialog) before the fix; 0 after.
   pattern (`scripts/install_sync_results_task.ps1`, `scripts/install_queue_watchdog.ps1`) deliberately, not as
   a quick fix.
 
+## Never leave a machine needing a manual resume
+
+evo-t2s and evo-x2 run unattended for long stretches (overnight, over a weekend). 2026-10-02: `t2s_queue`'s
+pause flag (`set_pause`/`clear_pause`, see its own docstring) was used to stop the watchdog while a model pull
+ran by hand, and nothing else would have cleared it if the session doing that work had ended first -- the
+machine would have sat idle, paused, until a human noticed.
+
+- **Any pause you set must have an automatic release**, not just a plan to come back and clear it yourself.
+  Either: (a) do the work as a queued job instead of by hand, so the job's own `tq.advance()` call on exit is
+  the release, or (b) if you must pause for genuine by-hand debugging, clear it before you stop working this
+  turn, not "later" or "next time you check in."
+- **Record the release mechanism in the pause reason / queue note** -- e.g. "cleared once x2_model_pulls is
+  queued ahead of x2_outcome_table_v2" -- so a later reader (human or agent) can see from the state itself
+  whether the machine is waiting on a person or will resume on its own.
+- Prefer turning one-off manual intervention into a real queued job (see `harness/x2_model_pulls.py` for the
+  pattern: self-checking, safe to re-run, calls `tq.advance()` on exit) over doing it by hand and leaving a
+  pause flag as the only thing standing between "paused" and "running."
+
 ## Research-reporting conventions
 
 Not written down elsewhere in this repo, so stated here directly:
