@@ -2161,7 +2161,11 @@ def main():
         lab.idle_temp = st.median(tmp) if tmp else None
         for ph in phases:
             if f"phase_{ph}" in lab.done:
-                continue
+                if ph == "a70_finalize" and FORCE_A70_FINALIZE:
+                    log(f"phase {ph}: in lab.done from an earlier run on this --resume stem, but "
+                        f"--force-a70-finalize is set, running it again anyway")
+                else:
+                    continue
             _abort_if_ollama_running(ph)
             if ph in SMOKE_GATED_PHASES and f"smoke_ok_{ph}" not in lab.done:
                 ok, reason = smoke_check_phase(lab, ph)
