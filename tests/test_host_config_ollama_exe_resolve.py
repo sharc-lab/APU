@@ -77,10 +77,20 @@ def test_start_ollama_server_sets_host_models_dir(monkeypatch):
     monkeypatch.delenv("OLLAMA_MODELS", raising=False)
     monkeypatch.setattr(hc, "_resolve_ollama_exe_for_serve", lambda: r"C:\x\ollama.exe")
     monkeypatch.setattr(hc, "ollama_process_running", lambda ps_fn=None: False)
-    monkeypatch.setattr(hc, "_this_host_entry", lambda: {"ollama_models": r"C:\Users\Ritz\.ollama\models"})
+    monkeypatch.setattr(hc, "_this_host_entry", lambda: {"ollama_models": r"D:\store\models"})
     captured = {}
     hc.start_ollama_server(ps_fn=lambda cmd, t: captured.setdefault("cmd", cmd) and "pid=1")
-    assert r"set OLLAMA_MODELS=C:\Users\Ritz\.ollama\models&& " in captured["cmd"]
+    assert r"set OLLAMA_MODELS=D:\store\models&& " in captured["cmd"]
+
+
+def test_this_host_entry_resolves_paths_under_the_host_users_profile(monkeypatch):
+    import socket
+    monkeypatch.setattr(socket, "gethostname", lambda: "evo-x2")
+    monkeypatch.setenv("SystemDrive", "C:")
+    h = hc._this_host_entry()
+    assert h["ollama_exe"].lower().endswith(r"\ritz\appdata\local\programs\ollama\ollama.exe")
+    assert h["ollama_models"].lower().endswith(r"\ritz\.ollama\models")
+    assert hc.HOSTS["EVO-X2"]["ollama_exe"] == r"AppData\Local\Programs\Ollama\ollama.exe"
 
 
 def test_start_ollama_server_no_models_dir_on_unknown_host(monkeypatch):

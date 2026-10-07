@@ -27,8 +27,9 @@ HOSTS = {
         "gpu_vendor": "intel",
         "ssh_host": "sharc@100.72.40.24",
         "interactive_guard": True,
-        "ollama_exe": r"C:\Users\sharc\AppData\Local\Programs\Ollama\ollama.exe",
-        "ollama_models": r"C:\Users\sharc\.ollama\models",
+        # Relative to the host user's profile dir; resolved by _this_host_entry.
+        "ollama_exe": r"AppData\Local\Programs\Ollama\ollama.exe",
+        "ollama_models": r".ollama\models",
     },
     "EVO-X2": {
         "hw_id": "evo-x2",
@@ -39,8 +40,9 @@ HOSTS = {
         "gpu_vendor": "amd",
         "ssh_host": "Ritz@100.118.33.76",
         "interactive_guard": False,
-        "ollama_exe": r"C:\Users\Ritz\AppData\Local\Programs\Ollama\ollama.exe",
-        "ollama_models": r"C:\Users\Ritz\.ollama\models",
+        # Relative to the host user's profile dir; resolved by _this_host_entry.
+        "ollama_exe": r"AppData\Local\Programs\Ollama\ollama.exe",
+        "ollama_models": r".ollama\models",
     },
 }
 
@@ -143,8 +145,14 @@ def ollama_process_running(ps_fn=None):
 
 def _this_host_entry() -> dict:
     """HOSTS entry for the machine this process runs on, or {} if it is not a known measurement host."""
+    import os
     import socket
-    return HOSTS.get(socket.gethostname().upper(), {})
+    h = dict(HOSTS.get(socket.gethostname().upper(), {}))
+    if h:
+        home = os.path.join(os.environ.get("SystemDrive", "C:") + os.sep, "Users", h["user"])
+        for k in ("ollama_exe", "ollama_models"):
+            h[k] = os.path.join(home, h[k])
+    return h
 
 
 def _resolve_ollama_exe_for_serve():
