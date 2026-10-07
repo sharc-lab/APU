@@ -578,14 +578,53 @@ class _SafeFakePressure:
         self._alive = False
 
 
-def _make_pause_resume_fixture(tmp_path, app_load_gb, everyday_apps_cls=_SafeFakePressure, log_path=None):
+class ResidencyFakeOllama(FakeOllamaPsClient):
+    """FakeOllamaPsClient with Ollama's real residency behavior modeled: a chat() loads the model (it shows in
+    /api/ps), and expire() (called by the fixture's sleep_fn when the idle wait elapses, i.e. keep_alive ran out)
+    unloads it. never_expire=True models a keep_alive that did NOT run out (the unload-not-confirmed case)."""
+
+    def __init__(self, ps_models=None, never_expire=False, on_chat=None):
+        super().__init__(ps_models=ps_models)
+        self.resident = False
+        self.never_expire = never_expire
+        self.on_chat = on_chat
+
+    def chat(self, model, prompt, num_ctx=None, max_tokens=64, keep_alive=None, messages=None, **kw):
+        was_resident = self.resident
+        self.resident = True
+        self.last_kwargs = dict(keep_alive=keep_alive, **kw)
+        if self.on_chat is not None and not was_resident:
+            self.on_chat(self)  # called only on a real (re)load, the way Ollama writes its load lines
+        return super().chat(model, prompt, num_ctx=num_ctx, max_tokens=max_tokens, keep_alive=keep_alive)
+
+    def expire(self):
+        if not self.never_expire:
+            self.resident = False
+
+    def get_ps(self):
+        return {"outcome": "ok", "models": self.ps_models if self.resident else []}
+
+
+def _make_pause_resume_fixture(tmp_path, app_load_gb, everyday_apps_cls=_SafeFakePressure, log_path=None,
+                               ollama=None, **extra):
     lab = StubLab(tmp_path)
     mi = _mi(tmp_path, "llama31-8b")
-    ollama = FakeOllamaPsClient(ps_models=[{"name": "llama3.1:8b", "size": 1, "size_vram": 1, "context_length": 4096}])
+    ollama = ollama or ResidencyFakeOllama(
+        ps_models=[{"name": "llama3.1:8b", "size": 1, "size_vram": 1, "context_length": 4096}])
     sleeps = []
-    kwargs = dict(turns_before=3, turns_after=4, idle_s=k2.PAUSE_RESUME_IDLE_S, sleep_fn=lambda s: sleeps.append(s),
-                  ollama_client_cls=lambda: ollama, log_path_fn=lambda: log_path, everyday_apps_cls=everyday_apps_cls)
-    res = k2.run_pause_resume_run(lab, mi, "llama31-8b", "llama3.1:8b", app_load_gb, **kwargs)
+
+    def sleep_fn(s):
+        sleeps.append(s)
+        if s == k2.PAUSE_RESUME_IDLE_S:
+            ollama.expire()
+
+    kwargs = dict(turns_before=3, turns_after=4, idle_s=k2.PAUSE_RESUME_IDLE_S, sleep_fn=sleep_fn,
+                  ollama_client_cls=lambda: ollama, log_path_fn=lambda: log_path, everyday_apps_cls=everyday_apps_cls,
+                  avail_mb_fn=lambda: 100000.0)
+    kwargs.update(extra)
+    # do_call's own 1.5 s post-call telemetry settle is real wall-clock; skipped here (no telemetry to settle).
+    with patch.object(ov.time, "sleep", lambda s: None):
+        res = k2.run_pause_resume_run(lab, mi, "llama31-8b", "llama3.1:8b", app_load_gb, **kwargs)
     return lab, res, sleeps, ollama
 
 
@@ -628,15 +667,30 @@ def test_run_pause_resume_run_uses_ollamas_default_keep_alive_not_zero(tmp_path)
     assert all(ev["keep_alive"] == k2.PAUSE_RESUME_KEEP_ALIVE for ev in res["load_events"])
 
 
+def _appending_loader(log, lines_per_load):
+    """on_chat hook for ResidencyFakeOllama: each real load appends the next entry of lines_per_load to the fake
+    server.log, the way Ollama writes one block of load lines per model load."""
+    loads = iter(lines_per_load)
+
+    def on_chat(_ollama):
+        with open(log, "a", encoding="utf-8") as f:
+            f.write(next(loads))
+    return on_chat
+
+
 def test_run_pause_resume_run_captures_placement_at_both_the_initial_load_and_the_reload(tmp_path):
     log = tmp_path / "server.log"
-    log.write_text("offloaded 32/32 layers to GPU\n--ctx-size 8192\n", encoding="utf-8")
-    lab, res, sleeps, ollama = _make_pause_resume_fixture(tmp_path, 8, log_path=str(log))
+    log.write_text("stale line from an earlier session: offloaded 99/99 layers to GPU\n", encoding="utf-8")
+    ollama = ResidencyFakeOllama(ps_models=[{"name": "llama3.1:8b", "size": 1, "size_vram": 1, "context_length": 4096}],
+                                 on_chat=_appending_loader(log, ["offloaded 32/32 layers to GPU\n--ctx-size 8192\n",
+                                                                 "offloaded 32/32 layers to GPU\n--ctx-size 8192\n"]))
+    lab, res, sleeps, ollama = _make_pause_resume_fixture(tmp_path, 8, log_path=str(log), ollama=ollama)
     assert len(res["load_events"]) == 2
     initial = next(e for e in res["load_events"] if e["load_event"] == "initial")
     reload = next(e for e in res["load_events"] if e["load_event"] == "reload")
     assert initial["turn_idx"] == 0 and reload["turn_idx"] == 3  # turns_before=3 in the fixture
-    assert initial["layers_gpu"] == 32 and reload["layers_gpu"] == 32  # same log content read twice here
+    # each read sees only its own load's lines: never the stale 99/99 line written before the step started
+    assert initial["layers_gpu"] == 32 and reload["layers_gpu"] == 32
     assert initial["size_vram"] == 1 and reload["size_vram"] == 1
     assert initial["context_length_ps"] == 4096 and reload["context_length_ps"] == 4096
 
@@ -815,3 +869,244 @@ def test_pause_resume_dry_run_call_shape_with_vs_without_existing_arms():
     expected_everyday_apps_both_machines = k2.everyday_apps_dry_run_call_counts()["total_calls"] * 2
     assert (shape["total_calls_with_existing_arms"] - shape["total_calls_without_existing_arms"]
             == expected_everyday_apps_both_machines)
+
+
+# ======================================================================================================
+# Standalone arm (d) job (2026-10-06): --pause-resume-only, explicit no-app control label, idle-unload
+# verification, fresh initial load per step, and the mechanical P1/P2/inconclusive design check end to end.
+# ======================================================================================================
+
+class FailingTurnOllama(ResidencyFakeOllama):
+    """Returns an error on the chat call numbers listed in fail_calls (1-based), the way a real Ollama 500 would."""
+
+    def __init__(self, fail_calls, **kw):
+        super().__init__(**kw)
+        self.fail_calls = set(fail_calls)
+        self.n = 0
+
+    def chat(self, model, prompt, **kw):
+        self.n += 1
+        if self.n in self.fail_calls:
+            self.resident = True
+            return {"outcome": "http_error", "status": 500, "error": "model runner crashed", "duration_s": 0.1}
+        return super().chat(model, prompt, **kw)
+
+
+_PS = [{"name": "llama3.1:8b", "size": 1, "size_vram": 1, "context_length": 4096}]
+
+
+def test_standalone_0gb_step_is_labeled_as_the_no_app_reload_control(tmp_path):
+    lab, res, sleeps, ollama = _make_pause_resume_fixture(tmp_path, 0, everyday_apps_cls=FakePressureForPauseResume)
+    assert res["condition"] == k2.PAUSE_RESUME_CONTROL_LABEL == "no_app_reload_control"
+    labeled = [r for r in lab.rows if str(r.get("record", "")).startswith("k2_pause_resume")]
+    assert labeled and all(r.get("condition") == "no_app_reload_control" for r in labeled)
+    step = k2.pause_resume_report([res])[0]
+    assert step["condition"] == "no_app_reload_control"
+
+
+def test_standalone_positive_gb_step_is_labeled_app_load(tmp_path):
+    lab, res, sleeps, ollama = _make_pause_resume_fixture(tmp_path, 24)
+    assert res["condition"] == "app_load"
+    assert k2.pause_resume_report([res])[0]["condition"] == "app_load"
+
+
+def test_default_steps_include_the_0gb_control():
+    assert k2.PAUSE_RESUME_APP_LOAD_STEPS_GB == (0, 8, 16, 24, 32)
+    assert k2.pause_resume_condition(0) == k2.PAUSE_RESUME_CONTROL_LABEL
+
+
+def test_unload_is_confirmed_after_the_idle_wait_when_keep_alive_expires(tmp_path):
+    lab, res, sleeps, ollama = _make_pause_resume_fixture(tmp_path, 8)
+    assert res["unload_check"]["unload_confirmed"] is True
+    assert res["unload_check"]["extra_wait_s"] == 0.0
+    assert sleeps == [k2.PAUSE_RESUME_IDLE_S]  # no extra poll sleeps were needed
+    assert any(r.get("record") == "k2_pause_resume_unload_check" and r.get("unload_confirmed") is True
+               for r in lab.rows)
+
+
+def test_unload_not_confirmed_polls_for_the_grace_period_and_forces_inconclusive(tmp_path):
+    ollama = ResidencyFakeOllama(ps_models=_PS, never_expire=True)
+    lab, res, sleeps, _ = _make_pause_resume_fixture(tmp_path, 8, ollama=ollama, unload_grace_s=60.0,
+                                                     unload_poll_s=15.0)
+    assert res["unload_check"]["unload_confirmed"] is False
+    assert sleeps == [k2.PAUSE_RESUME_IDLE_S, 15.0, 15.0, 15.0, 15.0]
+    step = k2.pause_resume_report([res])[0]
+    step["placement_before"] = {"layers_gpu": 32}
+    step["placement_after"] = {"layers_gpu": 32}
+    assert k2.pause_resume_prediction_verdict(step) == "inconclusive"
+
+
+def test_wait_for_unload_unknown_when_ps_never_answers():
+    class NoPs:
+        def get_ps(self):
+            raise ConnectionError("refused")
+    slept = []
+    out = k2.wait_for_unload(NoPs(), "llama3.1:8b", grace_s=30.0, poll_s=10.0, sleep_fn=slept.append)
+    assert out["unload_confirmed"] is None
+    assert slept == [10.0, 10.0, 10.0]
+
+
+def test_each_step_requests_a_fresh_unload_before_turn_1(tmp_path):
+    calls = []
+    lab, res, sleeps, ollama = _make_pause_resume_fixture(
+        tmp_path, 0, unload_fn=lambda o, tag: calls.append(tag) or {"ok": True})
+    assert calls == ["llama3.1:8b"]
+    start = next(r for r in lab.rows if r.get("record") == "k2_pause_resume_step_start")
+    assert start["pre_unload"] == {"ok": True} and start["pre_unload_confirmed"] is True
+
+
+def test_ollama_unload_request_is_a_noop_for_a_client_without_a_base_url():
+    assert k2.ollama_unload_request(object(), "llama3.1:8b")["ok"] is None
+
+
+def test_think_is_omitted_for_non_thinking_models(tmp_path):
+    lab, res, sleeps, ollama = _make_pause_resume_fixture(tmp_path, 0)
+    assert "think" not in ollama.last_kwargs
+    assert res["think_requested"] is None
+    turn_rows = [r for r in lab.rows if r.get("kind") == "everyday_apps_turn"]
+    assert turn_rows and all(r["think_requested"] is None and r["think_tag"] is False for r in turn_rows)
+
+
+def test_think_false_is_sent_and_recorded_when_set(tmp_path):
+    lab, res, sleeps, ollama = _make_pause_resume_fixture(tmp_path, 0, think=False)
+    assert ollama.last_kwargs["think"] is False
+    assert res["think_requested"] is False
+    assert k2.pause_resume_report([res])[0]["think_requested"] is False
+
+
+def test_pause_resume_models_match_the_preregistration():
+    tags = {m["model_id"]: m["ollama_model"] for m in k2.PAUSE_RESUME_MODELS}
+    assert tags == {"llama31-8b": "llama3.1:8b", "qwen3-4b-2507": "qwen3:4b-instruct-2507"}
+    assert all("think" in m for m in k2.PAUSE_RESUME_MODELS)
+
+
+def test_adapter_reports_ollama_load_duration_and_thinking_fields():
+    class RawClient:
+        def chat(self, model, prompt, **kw):
+            return {"outcome": "ok", "status": 200, "message": "<think>x</think> 123", "eval_count": 10,
+                    "duration_s": 2.0, "prompt_eval_count": 50,
+                    "raw": {"message": {"content": "123", "thinking": "hmm"}, "load_duration": 3_000_000_000,
+                            "prompt_eval_duration": 1_500_000_000, "eval_duration": 500_000_000}}
+    srv = k2.OllamaServerAdapter(RawClient(), "llama3.1:8b", keep_alive="5m")
+    out = srv.chat("p", 16, True)
+    assert out["ollama_load_duration_s"] == 3.0 and out["ollama_prompt_eval_duration_s"] == 1.5
+    assert out["think_tag"] is True and out["thinking_field_present"] is True
+
+
+# ---------------------------------------------------------------- mechanical verdict design check, end to end
+
+def _run_step(tmp_path, gb, initial_line, reload_line, ollama_cls=ResidencyFakeOllama, **ollama_kw):
+    log = tmp_path / f"server_{gb}.log"
+    log.write_text("", encoding="utf-8")
+    ollama = ollama_cls(ps_models=_PS, on_chat=_appending_loader(log, [initial_line, reload_line]), **ollama_kw)
+    sub = tmp_path / f"step_{gb}"
+    sub.mkdir()
+    lab, res, sleeps, _ = _make_pause_resume_fixture(sub, gb, log_path=str(log), ollama=ollama)
+    return res
+
+
+def test_verdict_design_check_produces_p1_p2_and_inconclusive_mechanically(tmp_path):
+    """The pre-registration requires the per-step P1/P2/inconclusive determination to be mechanical. Drive three
+    real run_pause_resume_run steps (fakes only) through pause_resume_report and pause_resume_prediction_verdict:
+    an unchanged reload (P1), a reload with fewer GPU layers and no error (P2), and the same placement change with
+    an error surfaced after the reload (inconclusive)."""
+    same = _run_step(tmp_path, 0, "offloaded 33/33 layers to GPU\n", "offloaded 33/33 layers to GPU\n")
+    fewer = _run_step(tmp_path, 32, "offloaded 33/33 layers to GPU\n", "offloaded 20/33 layers to GPU\n")
+    # 3 turns before + the reload turn succeed, then chat call 6 (turn idx 5) errors
+    errored = _run_step(tmp_path, 16, "offloaded 33/33 layers to GPU\n", "offloaded 20/33 layers to GPU\n",
+                        ollama_cls=FailingTurnOllama, fail_calls=[6])
+    report = k2.pause_resume_report([same, fewer, errored])
+    verdicts = {r["app_load_gb"]: k2.pause_resume_prediction_verdict(r) for r in report}
+    assert verdicts == {0: "P1", 32: "P2", 16: "inconclusive"}
+    by_gb = {r["app_load_gb"]: r for r in report}
+    assert by_gb[0]["condition"] == "no_app_reload_control"
+    assert by_gb[32]["placement_before"]["layers_gpu"] == 33 and by_gb[32]["placement_after"]["layers_gpu"] == 20
+    assert by_gb[16]["errors"] and by_gb[16]["errors"][0]["turn_idx"] == 5
+
+
+# ---------------------------------------------------------------- phase_k2_pause_resume standalone path
+
+def test_phase_standalone_runs_all_steps_with_injected_fakes_and_marks_each_step_done(tmp_path):
+    lab = StubLab(tmp_path)
+    for m in k2.PAUSE_RESUME_MODELS:
+        lab.models[m["model_id"]] = _mi(tmp_path, m["model_id"])
+    clients = []
+
+    def factory():
+        c = ResidencyFakeOllama(ps_models=[{"name": "llama3.1:8b"}, {"name": "qwen3:4b-instruct-2507"}])
+        clients.append(c)
+        return c
+
+    def sleep_fn(s):
+        if s == k2.PAUSE_RESUME_IDLE_S:
+            clients[-1].expire()
+
+    run_kwargs = dict(turns_before=2, turns_after=2, sleep_fn=sleep_fn, ollama_client_cls=factory,
+                      log_path_fn=lambda: None, everyday_apps_cls=_SafeFakePressure, avail_mb_fn=lambda: 1.0)
+    with patch.object(ov.time, "sleep", lambda s: None):
+        out = k2.phase_k2_pause_resume(lab, calibration_pass_set=None, run_kwargs=run_kwargs)
+    assert len(out) == 2 * 5
+    reports = [r for r in lab.rows if r.get("record") == "k2_pause_resume_step_report"]
+    assert len(reports) == 10
+    assert sum(r["condition"] == "no_app_reload_control" for r in reports) == 2  # one control per model
+    assert all(r["prediction"] in ("P1", "P2", "inconclusive") for r in reports)
+    assert all(r["unload_confirmed"] is True for r in reports)
+    assert "k2_pause_resume_llama31-8b_0gb_done" in lab.done
+    # resume: a second call with every step already done runs nothing
+    assert k2.phase_k2_pause_resume(lab, calibration_pass_set=None, run_kwargs=run_kwargs) == []
+
+
+def test_phase_standalone_respects_model_and_step_subsets(tmp_path, monkeypatch):
+    lab = StubLab(tmp_path)
+    for m in k2.PAUSE_RESUME_MODELS:
+        lab.models[m["model_id"]] = _mi(tmp_path, m["model_id"])
+    calls = []
+
+    def fake_run(lab_, mi_, model_id, ollama_model, app_load_gb, **kw):
+        calls.append((model_id, app_load_gb, kw.get("think"), kw.get("marker")))
+        return {"tag": "t", "model_id": model_id, "app_load_gb": app_load_gb, "keep_alive": "5m",
+                "turns_before": 10, "rows": [], "load_events": []}
+
+    monkeypatch.setattr(k2, "run_pause_resume_run", fake_run)
+    models = (k2.PAUSE_RESUME_MODELS[1],)
+    k2.phase_k2_pause_resume(lab, models=models, app_load_steps_gb=(0, 32), run_kwargs={"marker": 1})
+    assert calls == [("qwen3-4b-2507", 0, None, 1), ("qwen3-4b-2507", 32, None, 1)]
+
+
+def test_main_pause_resume_only_skips_arms_a_b_and_everyday_apps():
+    import inspect
+    src = inspect.getsource(k2.main)
+    assert "--pause-resume-only" in src
+    assert "model_ids = [] if args.pause_resume_only" in src
+    assert 'stem_prefix="t2s_k2_pause_resume" if args.pause_resume_only' in src
+    assert "args.everyday_apps = False" in src
+    assert "wait_for_ollama_ready" in src
+    assert 'run_kwargs={"log_path_fn": owned_ollama_log_path}' in src
+
+
+def test_owned_ollama_log_path_prefers_the_owned_serve_log(tmp_path, monkeypatch):
+    owned = tmp_path / "ollama_serve.log"
+    owned.write_text("x", encoding="utf-8")
+    monkeypatch.setattr(k2, "OWNED_OLLAMA_SERVE_LOG", str(owned))
+    assert k2.owned_ollama_log_path() == str(owned)
+    monkeypatch.setattr(k2, "OWNED_OLLAMA_SERVE_LOG", str(tmp_path / "missing.log"))
+    monkeypatch.setattr(k2.k1, "find_ollama_log", lambda: "fallback")
+    assert k2.owned_ollama_log_path() == "fallback"
+
+
+def test_ollama_tag_overrides_replace_only_named_models_and_keep_the_default():
+    out = k2.apply_ollama_tag_overrides(k2.PAUSE_RESUME_MODELS, "qwen3-4b-2507=qwen3-4b-2507")
+    by = {m["model_id"]: m for m in out}
+    assert by["qwen3-4b-2507"]["ollama_model"] == "qwen3-4b-2507"
+    assert by["qwen3-4b-2507"]["ollama_model_default"] == "qwen3:4b-instruct-2507"
+    assert by["llama31-8b"]["ollama_model"] == "llama3.1:8b" and "ollama_model_default" not in by["llama31-8b"]
+    assert k2.PAUSE_RESUME_MODELS[1]["ollama_model"] == "qwen3:4b-instruct-2507"  # module constant untouched
+    assert k2.apply_ollama_tag_overrides(k2.PAUSE_RESUME_MODELS, None) == k2.PAUSE_RESUME_MODELS
+
+
+def test_pause_resume_duration_estimate_arithmetic():
+    est = k2.pause_resume_duration_estimate_s({"a": 10.0}, app_load_steps_gb=(0, 8), turns_before=1, turns_after=1,
+                                              idle_s=100.0, unload_grace_s=50.0, per_step_overhead_s=20.0,
+                                              per_turn_overhead_s=0.0)
+    assert est["per_model_s"]["a"] == 2 * (2 * 10.0 + 100.0 + 20.0)
+    assert est["worst_case_total_s"] == est["total_s"] + 2 * 50.0

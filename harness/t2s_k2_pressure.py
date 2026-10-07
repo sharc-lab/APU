@@ -27,6 +27,9 @@ selects gpu_vendor so Telemetry picks Level Zero Sysman on evo-t2s or the LHM fe
 
 Usage (deployed to C:\\apu\\ovn on either machine):
   python t2s_k2_pressure.py --expect-blobs expected_blobs.json --deadline-h 6 --models qwen3-8b [--resume <stem>]
+Pressure arm (d), pause_resume, as its own job (no arms (a)/(b)/(c); stem t2s_k2_pause_resume_*):
+  python t2s_k2_pressure.py --expect-blobs expected_blobs.json --deadline-h 10 --pause-resume-only
+         [--pause-resume-ollama-tags qwen3-4b-2507=qwen3-4b-2507] [--pause-resume-steps-gb 0,8,16,24,32]
 """
 
 from __future__ import annotations
@@ -124,6 +127,34 @@ PAUSE_RESUME_APP_LOAD_STEPS_GB = (0, 8, 16, 24, 32)
 # Same per-page allocation everyday_apps' arm (c) uses; only the page COUNT is scaled per step (see
 # browser_pressure.pages_for_total_mb).
 PAUSE_RESUME_PAGE_MB = bap.TARGET_MB_PER_PAGE
+# Label carried on every arm (d) record so the no-app reload control is explicit in the data, not only implied by
+# app_load_gb == 0 (2026-10-06, standalone arm (d) job): "no_app_reload_control" at 0 GB, "app_load" otherwise.
+PAUSE_RESUME_CONTROL_LABEL = "no_app_reload_control"
+PAUSE_RESUME_APP_LABEL = "app_load"
+# Models for arm (d), per the pre-registration (same two as arm (c)). Both are non-thinking variants
+# (llama3.1:8b has no thinking mode; qwen3:4b-instruct-2507 is Qwen's non-thinking 2507 instruct release), so
+# "think" is None here: the field is omitted from the /api/chat body (t2s_k1_ollama.OllamaClient.chat's own
+# documented default for exactly these two tags), and every turn row records think_requested plus whether the
+# reply carried a <think> tag or a message.thinking field, so thinking contamination is checked from the data
+# rather than assumed absent. Set "think": False on an entry for a hybrid-thinking model (e.g. qwen3:8b).
+PAUSE_RESUME_MODELS = (
+    {"model_id": "llama31-8b", "ollama_model": "llama3.1:8b", "think": None},
+    {"model_id": "qwen3-4b-2507", "ollama_model": "qwen3:4b-instruct-2507", "think": None},
+)
+# Idle-unload verification. The per-request keep_alive ("5m", sent on every /api/chat body by
+# OllamaServerAdapter) overrides the server-wide OLLAMA_KEEP_ALIVE=0 that host_config.start_ollama_server sets, so
+# the model stays resident for 5 minutes after each turn and then unloads; PAUSE_RESUME_IDLE_S (6 min) is longer
+# than that. Rather than trust the arithmetic, run_pause_resume_run polls GET /api/ps after the idle wait and only
+# resumes once the model is gone, waiting up to PAUSE_RESUME_UNLOAD_GRACE_S more in PAUSE_RESUME_UNLOAD_POLL_S
+# steps. If it is still resident after that, the step is recorded unload_confirmed=False and its verdict is
+# forced to "inconclusive" (no reload happened, so the reload path was not tested).
+PAUSE_RESUME_UNLOAD_GRACE_S = 180.0
+PAUSE_RESUME_UNLOAD_POLL_S = 15.0
+# The server log host_config.start_ollama_server redirects `ollama serve` into. When K2 owns its Ollama server
+# (the standalone arm (d) job always does: the queue's pre-launch cleanup kills any stray ollama first), THIS is
+# the log holding this session's load/placement lines; the t2s_k1_ollama.OLLAMA_LOG_PATH_CANDIDATES defaults are
+# the per-user tray app's server.log, which under the SYSTEM-run watchdog is either absent or stale.
+OWNED_OLLAMA_SERVE_LOG = r"C:\apu\ovn\ollama_serve.log"
 # GPU-layer-offload regex on an Ollama server.log: Ollama's bundled llama.cpp-style runner writes this same line
 # llama-server itself does ("offloaded N/M layers to GPU"), which t2s_amech.parse_extra already parses for
 # llama-server logs with an identical pattern; that module is not imported here (it pulls in heavier, llama-server-
@@ -464,8 +495,9 @@ class OllamaServerAdapter:
     eval_count/duration_s, its one true per-call throughput figure. This is default fit/tier: num_ctx is left
     unset so Ollama picks its own default context, matching "Ollama (default fit/tier)" in the task."""
 
-    def __init__(self, ollama, model_tag, n_ctx=None, keep_alive="10m"):
+    def __init__(self, ollama, model_tag, n_ctx=None, keep_alive="10m", think=None):
         self.ollama, self.model_tag, self.n_ctx, self.keep_alive = ollama, model_tag, n_ctx, keep_alive
+        self.think = think  # None: omit /api/chat's "think" field (non-thinking models); False: disable thinking
         self.mmap, self.load_mode, self.backend = False, "ollama_default", "ollama"
         self.pid = None
         self.start_info = {"load_s": None, "build": "ollama"}
@@ -481,18 +513,32 @@ class OllamaServerAdapter:
         return True, [self.pid]
 
     def chat(self, prompt, max_tokens, ignore_eos):
+        kw = {"think": self.think} if self.think is not None else {}
         res = self.ollama.chat(self.model_tag, prompt, num_ctx=self.n_ctx, max_tokens=max_tokens,
-                                keep_alive=self.keep_alive)
+                                keep_alive=self.keep_alive, **kw)
         if res.get("outcome") != "ok":
             return {"outcome": "error", "error": res.get("error"), "output": None,
                     "http_status": res.get("status"), "prompt_eval_count": None}
         eval_count = res.get("eval_count") or 0
         duration_s = res.get("duration_s") or 0.0
         decode_tok_s = (eval_count / duration_s) if duration_s > 0 else None
-        return {"outcome": "ok", "error": None, "output": res.get("message"), "ttft_s": None,
+        raw = res.get("raw") or {}
+        msg = raw.get("message") or {}
+        output = res.get("message")
+
+        def ns_to_s(v):
+            return v / 1e9 if isinstance(v, (int, float)) else None
+        # Ollama's own per-call timings (nanoseconds in the /api/chat response). load_duration is the direct
+        # evidence of a model (re)load on that call, which arm (d)'s reload turn depends on; additive fields only,
+        # ttft_s stays None (see the class docstring).
+        return {"outcome": "ok", "error": None, "output": output, "ttft_s": None,
                 "decode_tok_s": decode_tok_s, "e2e_s": duration_s, "completion_tokens": eval_count,
-                "usage_reported": eval_count > 0, "think_tag": False, "http_status": res.get("status"),
-                "prompt_eval_count": res.get("prompt_eval_count")}
+                "usage_reported": eval_count > 0, "think_tag": "<think" in (output or ""),
+                "thinking_field_present": bool(msg.get("thinking")), "http_status": res.get("status"),
+                "prompt_eval_count": res.get("prompt_eval_count"),
+                "ollama_load_duration_s": ns_to_s(raw.get("load_duration")),
+                "ollama_prompt_eval_duration_s": ns_to_s(raw.get("prompt_eval_duration")),
+                "ollama_eval_duration_s": ns_to_s(raw.get("eval_duration"))}
 
     def stop(self):
         pass
@@ -537,7 +583,12 @@ def run_everyday_apps_item(lab, srv, mi, tag, runtime, turn_idx, browser_active,
                    http_status=(res or {}).get("http_status"), error=(res or {}).get("error"),
                    prompt_tokens_sent=n_tok, prompt_eval_count=(res or {}).get("prompt_eval_count"),
                    ttft_s=(res or {}).get("ttft_s"), decode_tok_s=(res or {}).get("decode_tok_s"),
-                   effective_context=ctx_signal.get("effective_ctx"), effective_context_source=ctx_signal.get("source"))
+                   effective_context=ctx_signal.get("effective_ctx"), effective_context_source=ctx_signal.get("source"),
+                   think_requested=getattr(srv, "think", None), think_tag=(res or {}).get("think_tag"),
+                   thinking_field_present=(res or {}).get("thinking_field_present"),
+                   ollama_load_duration_s=(res or {}).get("ollama_load_duration_s"),
+                   ollama_prompt_eval_duration_s=(res or {}).get("ollama_prompt_eval_duration_s"),
+                   ollama_eval_duration_s=(res or {}).get("ollama_eval_duration_s"))
     lab.emit(row)
     return row
 
@@ -736,43 +787,165 @@ def capture_ollama_load_placement(ollama, model_tag, since_pos=0, log_path_fn=No
             "telemetry": _telemetry_snapshot(lab, t0, t1) if lab is not None else None}
 
 
+def owned_ollama_log_path():
+    """The Ollama server log arm (d) reads placement/context lines from: OWNED_OLLAMA_SERVE_LOG (where
+    host_config.start_ollama_server redirects the server K2 itself started) when it exists, else
+    t2s_k1_ollama.find_ollama_log()'s per-user candidates."""
+    if Path(OWNED_OLLAMA_SERVE_LOG).exists():
+        return OWNED_OLLAMA_SERVE_LOG
+    return k1.find_ollama_log()
+
+
+def apply_ollama_tag_overrides(models, spec):
+    """models with each entry's ollama_model replaced per spec ("model_id=tag,model_id=tag"); entries not named in
+    spec are unchanged, and an override is recorded on the entry as ollama_model_default for provenance."""
+    if not spec:
+        return tuple(models)
+    overrides = dict(kv.split("=", 1) for kv in spec.split(",") if "=" in kv)
+    out = []
+    for m in models:
+        m = dict(m)
+        if m["model_id"] in overrides:
+            m["ollama_model_default"] = m.get("ollama_model")
+            m["ollama_model"] = overrides[m["model_id"]]
+        out.append(m)
+    return tuple(out)
+
+
+def pause_resume_condition(app_load_gb):
+    """The explicit control label for one arm (d) step (see PAUSE_RESUME_CONTROL_LABEL)."""
+    return PAUSE_RESUME_CONTROL_LABEL if app_load_gb <= 0 else PAUSE_RESUME_APP_LABEL
+
+
+def _model_resident(ollama, model_tag):
+    """(resident: bool | None, ps_raw). None means /api/ps itself could not be read, which is not evidence either
+    way. Same name-matching rule capture_ollama_load_placement uses."""
+    try:
+        ps_res = ollama.get_ps()
+    except Exception as e:
+        return None, {"error": str(e)[:200]}
+    if ps_res.get("outcome") not in (None, "ok"):
+        return None, ps_res
+    models = ps_res.get("models") or []
+    hit = any(m.get("name") == model_tag or (m.get("name") or "").startswith(model_tag.split(":")[0]) for m in models)
+    return hit, models
+
+
+def wait_for_unload(ollama, model_tag, grace_s=PAUSE_RESUME_UNLOAD_GRACE_S, poll_s=PAUSE_RESUME_UNLOAD_POLL_S,
+                    sleep_fn=time.sleep):
+    """Called right after the idle wait: polls GET /api/ps until model_tag is no longer resident, sleeping poll_s
+    between checks, for at most grace_s extra. Returns {"unload_confirmed": bool | None, "extra_wait_s",
+    "n_checks", "ps_last"}. unload_confirmed is True once a check shows the model gone, False if it is still
+    resident after grace_s, None if /api/ps never answered (cannot tell)."""
+    waited, n_checks, last = 0.0, 0, None
+    seen_answer = False
+    while True:
+        resident, last = _model_resident(ollama, model_tag)
+        n_checks += 1
+        if resident is not None:
+            seen_answer = True
+        if resident is False:
+            return {"unload_confirmed": True, "extra_wait_s": waited, "n_checks": n_checks, "ps_last": last}
+        if waited >= grace_s:
+            return {"unload_confirmed": False if seen_answer else None, "extra_wait_s": waited,
+                    "n_checks": n_checks, "ps_last": last}
+        sleep_fn(poll_s)
+        waited += poll_s
+
+
+def ollama_unload_request(ollama, model_tag, timeout_s=60):
+    """Asks Ollama to unload model_tag now: POST /api/generate {"model", "keep_alive": 0} with no prompt, Ollama's
+    documented unload request (no tokens generated). Used at the start of every arm (d) step so turn 1 is a real
+    initial load (otherwise the previous step's tail turns, under the 5-minute keep_alive, would leave the model
+    resident and turn 1 would not load anything). Best-effort, never raises: a client with no .base attribute (a
+    test fake) returns {"ok": None, "why": "no base url"}."""
+    import urllib.request
+    base = getattr(ollama, "base", None)
+    if not base:
+        return {"ok": None, "why": "no base url"}
+    body = json.dumps({"model": model_tag, "keep_alive": 0}).encode()
+    req = urllib.request.Request(f"{base}/api/generate", data=body, headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout_s) as r:
+            return {"ok": r.status == 200, "status": r.status, "why": None}
+    except Exception as e:
+        return {"ok": False, "why": str(e)[:200]}
+
+
+def _log_size(log_path_fn):
+    try:
+        p = (log_path_fn or k1.find_ollama_log)()
+        return Path(p).stat().st_size if p else 0
+    except Exception:
+        return 0
+
+
 def run_pause_resume_run(lab, mi, model_id, ollama_model, app_load_gb, turns_before=PAUSE_RESUME_TURNS_BEFORE,
                          idle_s=PAUSE_RESUME_IDLE_S, turns_after=PAUSE_RESUME_TURNS_AFTER,
                          keep_alive=PAUSE_RESUME_KEEP_ALIVE, page_mb=PAUSE_RESUME_PAGE_MB, sleep_fn=time.sleep,
                          ollama_client_cls=None, everyday_apps_cls=bap.EverydayAppsPressure,
-                         pages_for_total_mb_fn=bap.pages_for_total_mb, log_path_fn=None):
+                         pages_for_total_mb_fn=bap.pages_for_total_mb, log_path_fn=None, think=None,
+                         unload_grace_s=PAUSE_RESUME_UNLOAD_GRACE_S, unload_poll_s=PAUSE_RESUME_UNLOAD_POLL_S,
+                         avail_mb_fn=None, unload_fn=ollama_unload_request):
     """One full pause-and-resume run for one (model, app_load_gb) step, driven entirely through Ollama (see
     PAUSE_RESUME_ARM's docstring above for why llama-server is out of scope for this arm): turns_before turns run
     normally (placement/context captured right after the very first turn, the initial load), then the app load
     opens (skipped entirely at app_load_gb <= 0 -- this is what makes the 0 GB step the control, see docs/
-    FINDINGS.md), then sleep_fn(idle_s) (real wall-clock on a live run, injectable for tests), then turns_after more
-    turns run (placement/context captured right after the first of those, the reload). Reuses run_everyday_apps_item
-    for every turn's call/scoring path -- no second call-execution path for Ollama turns.
+    FINDINGS.md; it is labeled condition="no_app_reload_control" on every record), then sleep_fn(idle_s) (real
+    wall-clock on a live run, injectable for tests), then wait_for_unload() confirms via /api/ps that the model
+    actually unloaded (up to unload_grace_s more), then turns_after more turns run (placement/context captured right
+    after the first of those, the reload; its server.log read starts where the initial-load read ended, so the
+    reload's placement can only come from lines written after the initial load). Reuses run_everyday_apps_item for
+    every turn's call/scoring path -- no second call-execution path for Ollama turns.
 
-    Returns {"tag", "model_id", "app_load_gb", "keep_alive", "turns_before", "rows", "load_events"} -- the shape
-    pause_resume_report() consumes, one dict per (model, app_load_gb[, machine]) run.
+    Returns {"tag", "model_id", "app_load_gb", "condition", "keep_alive", "think_requested", "turns_before", "rows",
+    "load_events", "unload_check", "avail_mb_at_reload"} -- the shape pause_resume_report() consumes, one dict per
+    (model, app_load_gb[, machine]) run.
     """
     tag = f"k2_pause_resume_{model_id}_{app_load_gb}gb"
+    condition = pause_resume_condition(app_load_gb)
+    avail_mb_fn = avail_mb_fn or L.avail_mb
     ollama = (ollama_client_cls or k1.OllamaClient)()
-    srv = OllamaServerAdapter(ollama, ollama_model, keep_alive=keep_alive)
+    srv = OllamaServerAdapter(ollama, ollama_model, keep_alive=keep_alive, think=think)
     lab.resources["server"] = srv
     ov.start_row(lab, srv, mi, "K2", tag + "_start", {"ok": True, "pid": None, "load_s": None, "error": None,
                  "build": "ollama", "t_start": time.time(), "t_end": time.time(), "log": {}},
-                 {"pressure_arm": PAUSE_RESUME_ARM, "app_load_gb": app_load_gb, "keep_alive": keep_alive})
+                 {"pressure_arm": PAUSE_RESUME_ARM, "app_load_gb": app_load_gb, "keep_alive": keep_alive,
+                  "condition": condition, "think_requested": think})
+
+    def _avail():
+        try:
+            return avail_mb_fn()
+        except Exception:
+            return None
 
     rows, load_events = [], []
     pressure = None
+    unload_check, avail_at_reload = None, None
+    # Fresh initial load for every step: unload whatever the previous step left resident, confirm it is gone, and
+    # start the initial-load server.log read from the log's size right now, so the "initial" placement can only
+    # come from this step's own turn-1 load.
+    pre_unload = unload_fn(ollama, ollama_model) if unload_fn is not None else {"ok": None, "why": "disabled"}
+    pre_check = wait_for_unload(ollama, ollama_model, grace_s=60.0, poll_s=5.0, sleep_fn=sleep_fn)
+    step_start_log_pos = _log_size(log_path_fn)
+    lab.emit({"record": "k2_pause_resume_step_start", "item_tag": tag, "model_id": model_id,
+              "app_load_gb": app_load_gb, "condition": condition, "think_requested": think,
+              "pre_unload": pre_unload, "pre_unload_confirmed": pre_check.get("unload_confirmed"),
+              "log_start_pos": step_start_log_pos, "ts_utc": utc_iso()})
+    initial_log_pos = step_start_log_pos
     try:
         for turn_idx in range(turns_before):
             lab.check()
             t0 = time.time()
             rows.append(run_everyday_apps_item(lab, srv, mi, tag, "ollama", turn_idx, False, turn_idx))
             if turn_idx == 0:
-                placement = capture_ollama_load_placement(ollama, ollama_model, log_path_fn=log_path_fn, lab=lab,
-                                                           t0=t0, t1=time.time())
+                placement = capture_ollama_load_placement(ollama, ollama_model, since_pos=step_start_log_pos,
+                                                           log_path_fn=log_path_fn, lab=lab, t0=t0, t1=time.time())
+                initial_log_pos = placement.get("log_new_pos") or step_start_log_pos
                 ev = {"record": "k2_pause_resume_load", "item_tag": tag, "model_id": model_id,
-                      "app_load_gb": app_load_gb, "keep_alive": keep_alive, "load_event": "initial",
-                      "turn_idx": turn_idx, **placement, "ts_utc": utc_iso()}
+                      "app_load_gb": app_load_gb, "condition": condition, "keep_alive": keep_alive,
+                      "load_event": "initial", "turn_idx": turn_idx, "avail_mb": _avail(), **placement,
+                      "ts_utc": utc_iso()}
                 lab.emit(ev)
                 load_events.append(ev)
 
@@ -780,11 +953,24 @@ def run_pause_resume_run(lab, mi, model_id, ollama_model, app_load_gb, turns_bef
             n_pages = pages_for_total_mb_fn(app_load_gb * 1024, page_mb)
             pressure = everyday_apps_cls(lab, tag, n_pages=n_pages, target_mb=page_mb)
             lab.resources["balloon"] = pressure
+            avail_before = _avail()
             pinfo = pressure.start(None)
             lab.emit({"record": "k2_pause_resume_browser_start", "item_tag": tag, "app_load_gb": app_load_gb,
-                      "n_pages": n_pages, "info": pinfo, "ts_utc": utc_iso()})
+                      "condition": condition, "n_pages": n_pages, "info": pinfo, "avail_mb_before": avail_before,
+                      "ts_utc": utc_iso()})
 
         sleep_fn(idle_s)
+        unload_check = wait_for_unload(ollama, ollama_model, grace_s=unload_grace_s, poll_s=unload_poll_s,
+                                       sleep_fn=sleep_fn)
+        avail_at_reload = _avail()
+        lab.emit({"record": "k2_pause_resume_unload_check", "item_tag": tag, "model_id": model_id,
+                  "app_load_gb": app_load_gb, "condition": condition, "idle_s": idle_s, "keep_alive": keep_alive,
+                  "avail_mb_at_reload": avail_at_reload,
+                  "browser_alive": bool(pressure is not None and pressure.alive()), **unload_check,
+                  "ts_utc": utc_iso()})
+        if unload_check.get("unload_confirmed") is not True:
+            log(f"K2 pause_resume {tag}: model unload NOT confirmed after idle ({unload_check}); step verdict "
+                f"will be inconclusive")
 
         for i in range(turns_after):
             lab.check()
@@ -792,35 +978,46 @@ def run_pause_resume_run(lab, mi, model_id, ollama_model, app_load_gb, turns_bef
             t0 = time.time()
             rows.append(run_everyday_apps_item(lab, srv, mi, tag, "ollama", turn_idx, app_load_gb > 0, turn_idx))
             if i == 0:
-                placement = capture_ollama_load_placement(ollama, ollama_model, log_path_fn=log_path_fn, lab=lab,
-                                                           t0=t0, t1=time.time())
+                placement = capture_ollama_load_placement(ollama, ollama_model, since_pos=initial_log_pos,
+                                                           log_path_fn=log_path_fn, lab=lab, t0=t0, t1=time.time())
                 ev = {"record": "k2_pause_resume_load", "item_tag": tag, "model_id": model_id,
-                      "app_load_gb": app_load_gb, "keep_alive": keep_alive, "load_event": "reload",
-                      "turn_idx": turn_idx, **placement, "ts_utc": utc_iso()}
+                      "app_load_gb": app_load_gb, "condition": condition, "keep_alive": keep_alive,
+                      "load_event": "reload", "turn_idx": turn_idx, "avail_mb": _avail(),
+                      "ollama_load_duration_s": rows[-1].get("ollama_load_duration_s"), **placement,
+                      "ts_utc": utc_iso()}
                 lab.emit(ev)
                 load_events.append(ev)
     finally:
         if pressure is not None and pressure.alive():
             pressure.stop()
             lab.emit({"record": "k2_pause_resume_browser_stop", "item_tag": tag, "app_load_gb": app_load_gb,
-                      "ts_utc": utc_iso()})
+                      "condition": condition, "ts_utc": utc_iso()})
         lab.resources["balloon"] = None
         lab.resources["server"] = None
 
-    return {"tag": tag, "model_id": model_id, "app_load_gb": app_load_gb, "keep_alive": keep_alive,
-            "turns_before": turns_before, "rows": rows, "load_events": load_events}
+    return {"tag": tag, "model_id": model_id, "app_load_gb": app_load_gb, "condition": condition,
+            "keep_alive": keep_alive, "think_requested": think, "turns_before": turns_before, "rows": rows,
+            "load_events": load_events, "unload_check": unload_check, "avail_mb_at_reload": avail_at_reload}
 
 
-def phase_k2_pause_resume(lab, calibration_pass_set=None, models=EVERYDAY_APPS_MODELS,
-                          app_load_steps_gb=PAUSE_RESUME_APP_LOAD_STEPS_GB):
-    """Pressure arm (d) across every (model, app_load_gb) combination -- 10 by default (2 models x 5 GB steps).
-    Same per-task calibration gate as phase_k2/phase_k2_everyday_apps."""
+def phase_k2_pause_resume(lab, calibration_pass_set=None, models=PAUSE_RESUME_MODELS,
+                          app_load_steps_gb=PAUSE_RESUME_APP_LOAD_STEPS_GB, run_kwargs=None):
+    """Pressure arm (d) across every (model, app_load_gb) combination -- 10 by default (2 models x 5 GB steps,
+    the 0 GB step being the labeled no-app reload control). Same per-task calibration gate as phase_k2/
+    phase_k2_everyday_apps. run_kwargs is passed through to run_pause_resume_run (e.g. log_path_fn from main(),
+    or fakes from a test); each model entry's own "think" value is passed as think=.
+
+    Resumable per step: a step whose own item id (f"{tag}_done") is already in lab.done (a --resume of the same
+    stem) is skipped, so a restarted job does not redo finished steps; the end-of-phase report then covers only the
+    steps this process ran (the earlier steps' own k2_pause_resume_step_report rows are already in the file)."""
+    run_kwargs = dict(run_kwargs or {})
     if calibration_pass_set is not None and TASK_TYPE not in calibration_pass_set:
         log(f"K2 pause_resume: excluding task_type {TASK_TYPE!r}, did not pass q0_token_calibration")
         lab.emit({"record": "k2_disabled", "pressure_arm": PAUSE_RESUME_ARM, "task_type": TASK_TYPE,
                   "reason": "task_type did not pass q0_token_calibration", "ts_utc": utc_iso()})
         return []
     all_results = []
+    done = getattr(lab, "done", set()) or set()
     for model in models:
         model_id = model["model_id"]
         mi = lab.models.get(model_id)
@@ -830,13 +1027,21 @@ def phase_k2_pause_resume(lab, calibration_pass_set=None, models=EVERYDAY_APPS_M
             continue
         for app_load_gb in app_load_steps_gb:
             lab.check()
-            res = run_pause_resume_run(lab, mi, model_id, model.get("ollama_model"), app_load_gb)
+            step_done_id = f"k2_pause_resume_{model_id}_{app_load_gb}gb_done"
+            if step_done_id in done:
+                continue
+            kw = dict(run_kwargs)
+            if "think" in model:
+                kw.setdefault("think", model.get("think"))
+            res = run_pause_resume_run(lab, mi, model_id, model.get("ollama_model"), app_load_gb, **kw)
             all_results.append(res)
-    report = pause_resume_report(all_results)
-    for step in report:
-        step["prediction"] = pause_resume_prediction_verdict(step)
-        lab.emit({"record": "k2_pause_resume_step_report", **step, "ts_utc": utc_iso()})
-        log(f"K2 pause_resume {step['model_id']}/{step['app_load_gb']}GB: prediction {step['prediction']}")
+            step = pause_resume_report([res])[0]
+            step["prediction"] = pause_resume_prediction_verdict(step)
+            lab.emit({"record": "k2_pause_resume_step_report", **step, "ts_utc": utc_iso()})
+            log(f"K2 pause_resume {step['model_id']}/{step['app_load_gb']}GB ({step.get('condition')}): "
+                f"prediction {step['prediction']}")
+            if hasattr(lab, "item_done"):
+                lab.item_done(step_done_id)
     return all_results
 
 
@@ -864,9 +1069,17 @@ def pause_resume_report(step_results):
                   for r in rows if r.get("error") or r.get("outcome") not in (None, "ok")]
         init_ctx = (initial or {}).get("context_length_ps") or (initial or {}).get("context_length_log")
         reload_ctx = (reload or {}).get("context_length_ps") or (reload or {}).get("context_length_log")
+        unload_check = res.get("unload_check") or {}
+        app_gb = res.get("app_load_gb")
         report.append({
-            "tag": res.get("tag"), "model_id": res.get("model_id"), "app_load_gb": res.get("app_load_gb"),
-            "keep_alive": res.get("keep_alive"),
+            "tag": res.get("tag"), "model_id": res.get("model_id"), "app_load_gb": app_gb,
+            "condition": res.get("condition") or (pause_resume_condition(app_gb) if app_gb is not None else None),
+            "keep_alive": res.get("keep_alive"), "think_requested": res.get("think_requested"),
+            "think_tag_turns": sum(1 for r in rows if r.get("think_tag") or r.get("thinking_field_present")),
+            "unload_confirmed": unload_check.get("unload_confirmed"),
+            "unload_extra_wait_s": unload_check.get("extra_wait_s"),
+            "avail_mb_at_reload": res.get("avail_mb_at_reload"),
+            "reload_load_duration_s": (reload or {}).get("ollama_load_duration_s"),
             "placement_before": {"layers_gpu": (initial or {}).get("layers_gpu"),
                                   "layers_total": (initial or {}).get("layers_total")},
             "placement_after": {"layers_gpu": (reload or {}).get("layers_gpu"),
@@ -891,9 +1104,15 @@ def pause_resume_prediction_verdict(step_report):
     """Which of the two pre-registered predictions (docs/FINDINGS.md, "K2 arm (d), pause_resume") one step's report
     row supports: 'P1' (no placement/context change across the idle gap), 'P2' (a placement and/or context change
     with no error surfaced in either half), or 'inconclusive' (an error surfaced, so any placement/context change
-    cannot be trusted as evidence either way, or the before/after placement data is simply missing)."""
+    cannot be trusted as evidence either way, the before/after placement data is simply missing, or the model was
+    never confirmed unloaded after the idle wait so no reload happened)."""
     before, after = step_report.get("placement_before") or {}, step_report.get("placement_after") or {}
     if before.get("layers_gpu") is None or after.get("layers_gpu") is None:
+        return "inconclusive"
+    # Added 2026-10-06 with the standalone arm (d) job: if the model was still resident after the idle wait (and
+    # the unload grace period), turn 11 did not reload anything, so the reload path the predictions are about was
+    # never exercised. Only an explicit False counts; None (unknown, e.g. a pre-change result dict) does not.
+    if step_report.get("unload_confirmed") is False:
         return "inconclusive"
     if step_report.get("errors"):
         return "inconclusive"
@@ -923,6 +1142,25 @@ def pause_resume_dry_run_call_shape(app_load_steps_gb=PAUSE_RESUME_APP_LOAD_STEP
                         for gb in app_load_steps_gb},
             "total_calls_without_existing_arms": pause_resume_calls,
             "total_calls_with_existing_arms": pause_resume_calls + everyday_apps_calls_both_machines}
+
+
+def pause_resume_duration_estimate_s(turn_s_by_model, app_load_steps_gb=PAUSE_RESUME_APP_LOAD_STEPS_GB,
+                                     turns_before=PAUSE_RESUME_TURNS_BEFORE, turns_after=PAUSE_RESUME_TURNS_AFTER,
+                                     idle_s=PAUSE_RESUME_IDLE_S, unload_grace_s=PAUSE_RESUME_UNLOAD_GRACE_S,
+                                     per_step_overhead_s=90.0, per_turn_overhead_s=1.5):
+    """No I/O: projected wall-clock for the standalone arm (d) job. turn_s_by_model maps model_id -> expected
+    seconds per turn (one ~12k-token prompt plus 256 decode tokens; the caller supplies it, e.g. from a real
+    earlier run's per-call e2e_s, since this function has no measured number of its own). Per step:
+    (turns_before + turns_after) * (turn_s + per_turn_overhead_s) [do_call's own 1.5 s telemetry settle] + idle_s
+    + per_step_overhead_s (browser launch/stop, pre-step unload, placement capture). Returns {"per_model_s",
+    "total_s", "worst_case_total_s"}; worst case adds the full unload grace on every step."""
+    n_turns = turns_before + turns_after
+    n_steps = len(app_load_steps_gb)
+    per_model = {m: n_steps * (n_turns * (t + per_turn_overhead_s) + idle_s + per_step_overhead_s)
+                 for m, t in turn_s_by_model.items()}
+    total = sum(per_model.values())
+    return {"per_model_s": per_model, "total_s": total,
+            "worst_case_total_s": total + unload_grace_s * n_steps * len(turn_s_by_model)}
 
 
 # ---------------------------------------------------------------- kill criterion
@@ -982,9 +1220,9 @@ def load_models(lab, wanted):
         lab.models[mid] = L.ModelInfo(mid, str(Path(L.MODELS_DIR) / fn), sha, hyb, mx, yf)
 
 
-def make_lab(args, prov, gpu_vendor=None):
+def make_lab(args, prov, gpu_vendor=None, stem_prefix="t2s_k2_pressure"):
     ns = types.SimpleNamespace(smoke=False, deadline_h=args.deadline_h, resume=args.resume,
-                                stem_prefix="t2s_k2_pressure", only=None, reserve_min=20, no_cap_arm=True,
+                                stem_prefix=stem_prefix, only=None, reserve_min=20, no_cap_arm=True,
                                 max_items=0, gpu_vendor=gpu_vendor)
     return ov.Lab(ns, prov)
 
@@ -1008,27 +1246,55 @@ def main():
                     "pause_resume' pre-registration). Off by default: like --everyday-apps, this arm deliberately "
                     "starts Ollama (with its DEFAULT keep_alive, not 0), which the main per-model loop's "
                     "contamination guard below otherwise refuses to run alongside.")
+    ap.add_argument("--pause-resume-only", action="store_true", help="run ONLY pressure arm (d), pause_resume, as "
+                    "its own job (2026-10-06): skips the per-model awe_balloon/pageable_touch loop (arms (a)/(b)) and "
+                    "everyday_apps entirely, so arm (d) is no longer gated behind arms (a)/(b) finishing for every "
+                    "model. Implies --pause-resume; --models is ignored. Writes under its own stem prefix "
+                    "t2s_k2_pause_resume_* so its rows are never mixed into an arms (a)/(b) file.")
+    ap.add_argument("--pause-resume-steps-gb", default=None, help="comma list of app-load GB steps for arm (d) "
+                    "(default: PAUSE_RESUME_APP_LOAD_STEPS_GB = 0,8,16,24,32; 0 is the labeled no-app reload "
+                    "control and should always be included)")
+    ap.add_argument("--pause-resume-models", default=None, help="comma list of model ids from PAUSE_RESUME_MODELS "
+                    "to run arm (d) on (default: all of them)")
+    ap.add_argument("--pause-resume-ollama-tags", default=None, help="comma list of model_id=ollama_tag overrides "
+                    "for this host's local Ollama tag names, e.g. qwen3-4b-2507=qwen3-4b-2507 on evo-x2, where the "
+                    "4B 2507 instruct weights are registered under that local tag rather than the library tag "
+                    "qwen3:4b-instruct-2507 (checked 2026-10-06: no library qwen3/4b-instruct-2507 manifest there)")
     args = ap.parse_args()
+    if args.pause_resume_only:
+        args.pause_resume = True
+        args.everyday_apps = False
+    pr_steps = (tuple(int(x) for x in args.pause_resume_steps_gb.split(",")) if args.pause_resume_steps_gb
+                else PAUSE_RESUME_APP_LOAD_STEPS_GB)
+    pr_models = PAUSE_RESUME_MODELS
+    if args.pause_resume_models:
+        wanted_pr = args.pause_resume_models.split(",")
+        pr_models = tuple(m for m in PAUSE_RESUME_MODELS if m["model_id"] in wanted_pr)
+    pr_models = apply_ollama_tag_overrides(pr_models, args.pause_resume_ollama_tags)
     host_cfg = hc.require_host(socket.gethostname())
     hc.enforce_or_record_interactive_session(host_cfg)  # raises on evo-t2s if occupied; never raises on evo-x2
     prov = rp.verify_deployed_blobs(DEPLOY, args.expect_blobs)
-    lab = make_lab(args, prov, gpu_vendor=host_cfg["gpu_vendor"])
+    lab = make_lab(args, prov, gpu_vendor=host_cfg["gpu_vendor"],
+                   stem_prefix="t2s_k2_pause_resume" if args.pause_resume_only else "t2s_k2_pressure")
     lab.identity["hw_id"] = host_cfg["hw_id"]
     lab.track_console = not host_cfg.get("interactive_guard", True)
-    model_ids = args.models.split(",")
+    model_ids = [] if args.pause_resume_only else args.models.split(",")
     load_models(lab, model_ids)
     if args.everyday_apps:
         load_models(lab, [m["model_id"] for m in EVERYDAY_APPS_MODELS if m["model_id"] not in model_ids])
     if args.pause_resume:
-        load_models(lab, [m["model_id"] for m in EVERYDAY_APPS_MODELS if m["model_id"] not in model_ids])
+        load_models(lab, [m["model_id"] for m in pr_models if m["model_id"] not in lab.models])
     Path(lab.prefix + "_manifest.json").write_text(json.dumps({
         "launch_utc": utc_iso(), "script_provenance": prov, "identity": lab.identity, "models": model_ids,
         "n_ctx": args.n_ctx, "seed": SEED, "levels_gb": LEVELS_GB, "mmap_arms": MMAP_ARMS,
         "pressure_arms": PRESSURE_ARMS, "score_tol_rel": SCORE_TOL_REL, "resp_tol_factor": RESP_TOL_FACTOR,
         "everyday_apps": args.everyday_apps, "everyday_apps_models": [m["model_id"] for m in EVERYDAY_APPS_MODELS],
         "everyday_apps_runtimes": EVERYDAY_APPS_RUNTIMES,
-        "pause_resume": args.pause_resume, "pause_resume_app_load_steps_gb": PAUSE_RESUME_APP_LOAD_STEPS_GB,
-        "pause_resume_keep_alive": PAUSE_RESUME_KEEP_ALIVE},
+        "pause_resume": args.pause_resume, "pause_resume_only": args.pause_resume_only,
+        "pause_resume_app_load_steps_gb": pr_steps, "pause_resume_keep_alive": PAUSE_RESUME_KEEP_ALIVE,
+        "pause_resume_idle_s": PAUSE_RESUME_IDLE_S, "pause_resume_unload_grace_s": PAUSE_RESUME_UNLOAD_GRACE_S,
+        "pause_resume_turns": [PAUSE_RESUME_TURNS_BEFORE, PAUSE_RESUME_TURNS_AFTER],
+        "pause_resume_models": list(pr_models), "pause_resume_control_label": PAUSE_RESUME_CONTROL_LABEL},
         indent=1, default=str), encoding="utf-8")
     calibration_pass_set = None
     if args.calibration_file:
@@ -1066,6 +1332,10 @@ def main():
                                                   ("pause_resume", args.pause_resume)) if on)
             log(f"K2: ollama server {'already running' if started_pid is None else f'started (pid={started_pid})'} "
                 f"(needed for the {arm_names} arm(s))")
+            ready = hc.wait_for_ollama_ready(timeout_s=60)
+            log(f"K2: ollama server ready={ready}")
+            lab.emit({"record": "k2_ollama_server", "started_pid": started_pid, "ready": ready,
+                      "log_path": owned_ollama_log_path(), "ts_utc": utc_iso()})
         try:
             for mid in model_ids:
                 if f"k2_done_{mid}" in lab.done:
@@ -1086,7 +1356,8 @@ def main():
                 lab.item_done("k2_everyday_apps_done")
             if args.pause_resume and "k2_pause_resume_done" not in lab.done:
                 log("K2 phase: pause_resume")
-                phase_k2_pause_resume(lab, calibration_pass_set=calibration_pass_set)
+                phase_k2_pause_resume(lab, calibration_pass_set=calibration_pass_set, models=pr_models,
+                                      app_load_steps_gb=pr_steps, run_kwargs={"log_path_fn": owned_ollama_log_path})
                 lab.item_done("k2_pause_resume_done")
         finally:
             if ollama_owned_by_us:

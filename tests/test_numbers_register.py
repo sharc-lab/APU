@@ -232,3 +232,36 @@ def test_every_entry_script_function_names_a_real_function():
             spec.loader.exec_module(mod)
         assert hasattr(mod, func_name), f"{entry['claim_id']} cites {func_name}, not found in {module_path}"
         assert callable(getattr(mod, func_name))
+
+
+def _k2_fixture(tmp_path):
+    (tmp_path / "results").mkdir()
+    rows = []
+    for tag, levels, fail_at, kc in [("k2_m1_default_awe_balloon", [8, 4], 4, True),
+                                     ("k2_m1_mmap_pageable_touch", [8, 4, 2], None, True),
+                                     ("k2_m2_default_pageable_touch", [8], None, None)]:
+        rows.append({"kind": "start", "item_id": tag + "_start"})
+        for lv in levels:
+            rows.append({"record": "k2_step_summary", "item_tag": tag, "level_gb": lv, "median_score": 1.0,
+                         "responsiveness_median_s": 0.031 if lv == 2 else 0.016, "clean_failure": lv == fail_at})
+        if kc is not None:
+            rows.append({"record": "k2_kill_criterion", "item_tag": tag, "ok": kc})
+    rows.append({"record": "run_end", "note": "deadline reached"})
+    _write_jsonl(tmp_path / nr._K2_X2_RUN, rows)
+
+
+def test_compute_k2_x2_kill_criterion_table_on_a_small_fixture(tmp_path):
+    _k2_fixture(tmp_path)
+    out = nr.compute_k2_x2_kill_criterion_table(tmp_path)
+    assert out["n"] == 2
+    assert out["value"].startswith("2 kill-criterion evaluations, 2 passed, 0 violated")
+    assert "started without an evaluation: k2_m2_default_pageable_touch" in out["value"]
+    by = {(d["model"], d["mmap_arm"], d["pressure_arm"]): d for d in out["detail"]}
+    assert by[("m1", "default", "awe_balloon")]["first_clean_failure_gb"] == 4
+    assert by[("m1", "mmap", "pageable_touch")]["max_resp_ratio_vs_8gb"] == 1.94
+    assert by[("m2", "default", "pageable_touch")]["kill_criterion"] is None
+
+
+def test_k2_tag_parts_splits_two_word_pressure_arms():
+    assert nr._k2_tag_parts("k2_llama-3.3-70b_default_pageable_touch") == ("llama-3.3-70b", "default", "pageable_touch")
+    assert nr._k2_tag_parts("k2_qwen3-8b_mmap_awe_balloon") == ("qwen3-8b", "mmap", "awe_balloon")

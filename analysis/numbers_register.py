@@ -1064,6 +1064,170 @@ def compute_t2s_outcome_error_causes(repo):
             "n": len(rows)}
 
 
+_K2_X2_RUN = "results/t2s_k2_pressure_20261004T201205Z.jsonl"
+
+
+def _k2_x2_rows(repo):
+    path = repo / _K2_X2_RUN
+    if not path.exists():
+        raise FileNotFoundError(str(path))
+    return _read_jsonl(path)
+
+
+def _k2_tag_parts(tag):
+    """'k2_<model>_<mmap_arm>_<pressure_arm>' -> (model, mmap_arm, pressure_arm); pressure arms contain an
+    underscore themselves, so split from the right on the two known arm names."""
+    body = tag[len("k2_"):]
+    for parm in ("awe_balloon", "pageable_touch"):
+        if body.endswith("_" + parm):
+            rest = body[: -len(parm) - 1]
+            model, mmap_arm = rest.rsplit("_", 1)
+            return model, mmap_arm, parm
+    raise ValueError(f"unrecognized K2 tag {tag!r}")
+
+
+def compute_k2_x2_kill_criterion_table(repo):
+    """K2 arms (a)/(b) on evo-x2 (x2_k2_v2, 2026-10-04/05): every k2_kill_criterion record (one per completed
+    (model, mmap arm, pressure arm) run), how many passed, plus the run(s) that started but never reached a
+    kill-criterion evaluation and the model/arm combinations never started. Per-run detail: levels run, last level,
+    first clean-failure level, minimum step median score, and the largest step-median responsiveness ratio vs the
+    +8GB step."""
+    rows = _k2_x2_rows(repo)
+    kcs = [r for r in rows if r.get("record") == "k2_kill_criterion"]
+    steps = [r for r in rows if r.get("record") == "k2_step_summary"]
+    started = [r["item_id"][: -len("_start")] for r in rows if r.get("kind") == "start"]
+    kc_tags = {r["item_tag"] for r in kcs}
+    detail = []
+    for tag in started:
+        st = [s for s in steps if s["item_tag"] == tag]
+        base = next((s for s in st if s["level_gb"] == 8), None)
+        ratios = [s["responsiveness_median_s"] / base["responsiveness_median_s"] for s in st
+                  if base and s.get("responsiveness_median_s") and base.get("responsiveness_median_s")]
+        kc = next((r for r in kcs if r["item_tag"] == tag), None)
+        model, mmap_arm, parm = _k2_tag_parts(tag)
+        detail.append({"model": model, "mmap_arm": mmap_arm, "pressure_arm": parm,
+                       "levels_run": [s["level_gb"] for s in st],
+                       "first_clean_failure_gb": next((s["level_gb"] for s in st if s["clean_failure"]), None),
+                       "min_step_median_score": min((s["median_score"] for s in st if s["median_score"] is not None),
+                                                    default=None),
+                       "max_resp_ratio_vs_8gb": round(max(ratios), 2) if ratios else None,
+                       "kill_criterion": None if kc is None else ("pass" if kc.get("ok") else "violated")})
+    n_ok = sum(1 for r in kcs if r.get("ok"))
+    no_kc = [t for t in started if t not in kc_tags]
+    models = []
+    for t in started:
+        m = _k2_tag_parts(t)[0]
+        if m not in models:
+            models.append(m)
+    complete = [m for m in models if sum(1 for t in kc_tags if _k2_tag_parts(t)[0] == m) == 4]
+    run_end = next((r.get("note") for r in rows if r.get("record") == "run_end"), None)
+    value = (f"{len(kcs)} kill-criterion evaluations, {n_ok} passed, {len(kcs) - n_ok} violated; "
+             f"models complete (4/4 arm combinations) {len(complete)}/{len(models)} ({', '.join(complete)}); "
+             f"started without an evaluation: {', '.join(no_kc) or 'none'}; run_end note: {run_end}")
+    per_run = ", ".join(
+        f"{d['model']}/{d['mmap_arm']}/{d['pressure_arm']}: levels {d['levels_run'][0]:+d}..{d['levels_run'][-1]:+d}"
+        f" fail {d['first_clean_failure_gb']} minscore {d['min_step_median_score']} maxresp "
+        f"{d['max_resp_ratio_vs_8gb']} kc {d['kill_criterion']}" for d in detail if d["levels_run"])
+    return {"value": value + f"; per run [{per_run}]", "n": len(kcs), "detail": detail}
+
+
+def compute_k2_x2_clean_failures(repo):
+    """Every quality item in the K2 evo-x2 run whose outcome was not ok, with the server crash fields."""
+    rows = _k2_x2_rows(repo)
+    fails = [r for r in rows if r.get("kind") == "quality_score" and (r.get("outcome") != "ok" or r.get("crash"))]
+    n_items = sum(1 for r in rows if r.get("kind") == "quality_score")
+    parts = []
+    for r in fails:
+        parts.append(f"{r['item_id']}: outcome={r.get('outcome')}, crash={r.get('crash')}, "
+                     f"exit_code={r.get('exit_code')} (0x{(r.get('exit_code') or 0):08X}), "
+                     f"error={r.get('error')!r}, server_log_tail={r.get('server_log_tail')}")
+    return {"value": f"{len(fails)}/{n_items} quality items not ok. " + " | ".join(parts), "n": n_items}
+
+
+def compute_k2_x2_score_ceiling(repo):
+    """K2 evo-x2 quality items: how many scored 1.0, the task type, think-tag hits, and the completion length
+    (do_call's default ignore_eos=True forces max_tokens=256 on every call)."""
+    rows = _k2_x2_rows(repo)
+    qs = [r for r in rows if r.get("kind") == "quality_score"]
+    calls = [r for r in rows if r.get("kind") == "quality" and r.get("outcome") == "ok"]
+    n_one = sum(1 for r in qs if r.get("score") == 1.0)
+    n_scored = sum(1 for r in qs if r.get("score") is not None)
+    tasks = sorted({r.get("task_type") for r in qs})
+    think = sum(1 for r in calls if r.get("think_tag"))
+    ctoks = sorted({r.get("completion_tokens") for r in calls})
+    seeds = sorted({r.get("rep") for r in qs})
+    return {"value": f"{n_one}/{n_scored} scored items = 1.0 ({len(qs) - n_scored} unscored); task_type {tasks}; "
+                     f"think_tag {think}/{len(calls)} ok calls; completion_tokens values {ctoks}; "
+                     f"distinct prompts (rep) {seeds}",
+            "n": len(qs)}
+
+
+def compute_k2_x2_decode_by_pressure_arm(repo):
+    """K2 evo-x2: per run, median decode_tok_s over pressure-step calls divided by the median over that run's own
+    3 unpressured baseline calls. Reported as the range per pressure arm."""
+    rows = _k2_x2_rows(repo)
+    by = {}
+    for r in rows:
+        if r.get("kind") == "quality" and r.get("outcome") == "ok" and r.get("decode_tok_s"):
+            phase = r.get("k2_phase")
+            tag = r["item_id"][: r["item_id"].index("_" + phase + "_")]
+            by.setdefault(tag, {"base": [], "press": []})["base" if phase == "baseline" else "press"].append(
+                r["decode_tok_s"])
+    per_arm = {}
+    detail = {}
+    for tag, v in by.items():
+        if not v["base"] or not v["press"]:
+            continue
+        ratio = statistics.median(v["press"]) / statistics.median(v["base"])
+        detail[tag] = round(ratio, 4)
+        per_arm.setdefault(_k2_tag_parts(tag)[2], []).append(ratio)
+    value = "; ".join(f"{arm}: {min(v):.3f}x-{max(v):.3f}x over {len(v)} runs" for arm, v in sorted(per_arm.items()))
+    return {"value": value, "n": len(detail), "detail": detail}
+
+
+def compute_k2_x2_call_timing(repo):
+    """K2 evo-x2: per model, median ttft_s, decode_tok_s and prompt_tokens over every ok quality call (llama-server,
+    Vulkan, n_ctx 16384, ~12k-token niah prompt, 256 forced decode tokens). Used as the per-turn basis for the
+    standalone arm (d) duration projection."""
+    rows = _k2_x2_rows(repo)
+    by = {}
+    for r in rows:
+        if r.get("kind") == "quality" and r.get("outcome") == "ok" and r.get("ttft_s"):
+            by.setdefault(r["model_id"], []).append(r)
+    parts = []
+    for m, v in by.items():
+        parts.append(f"{m}: ttft {statistics.median(x['ttft_s'] for x in v):.1f} s, decode "
+                     f"{statistics.median(x['decode_tok_s'] for x in v):.2f} tok/s, prompt "
+                     f"{statistics.median(x['prompt_tokens'] for x in v):.0f} tok (n={len(v)})")
+    return {"value": "; ".join(parts), "n": sum(len(v) for v in by.values())}
+
+
+def compute_k2_x2_responsiveness_resolution(repo):
+    """K2 evo-x2 responsiveness probe: the distinct step-median values observed (python -c pass launch latency,
+    timed with time.monotonic(), whose resolution on Windows is the ~15.6 ms system tick), and the largest
+    step/baseline ratio against the kill criterion's 2.0x tolerance."""
+    rows = _k2_x2_rows(repo)
+    steps = [r for r in rows if r.get("record") == "k2_step_summary" and r.get("responsiveness_median_s")]
+    vals = sorted({round(r["responsiveness_median_s"], 4) for r in steps})
+    ratios = []
+    for r in steps:
+        base = next((s for s in steps if s["item_tag"] == r["item_tag"] and s["level_gb"] == 8), None)
+        if base:
+            ratios.append(r["responsiveness_median_s"] / base["responsiveness_median_s"])
+    return {"value": f"distinct step medians (s): {vals}; max step/+8GB ratio {max(ratios):.3f}x (tolerance 2.0x)",
+            "n": len(steps)}
+
+
+def compute_k2_x2_unreached_pressure_levels(repo):
+    """K2 evo-x2: pressure steps whose pressure source did not reach its available-memory target."""
+    rows = _k2_x2_rows(repo)
+    starts = [r for r in rows if r.get("record") == "k2_pressure_start"]
+    bad = [r for r in starts if not (r.get("info") or {}).get("ok")]
+    parts = [f"{r['item_tag'][3:]} {r['level_gb']:+d}GB target {r['target_avail_mb']:.0f} MB, reached "
+             f"{(r.get('info') or {}).get('available_mb_after', 0):.0f} MB" for r in bad]
+    return {"value": f"{len(bad)}/{len(starts)} steps did not reach target: " + "; ".join(parts), "n": len(starts)}
+
+
 NUMBER_ENTRIES = [
     {"claim_id": "PX2-TTFT-gap", "description": "PX2 B4-vs-S4 TTFT gap range across 5 models",
      "compute": compute_px2_ttft_gap, "data_files": ["results/t2s_night2_20260930T135145Z.jsonl"],
@@ -1205,6 +1369,28 @@ NUMBER_ENTRIES = [
     {"claim_id": "t2s-outcome-error-causes", "description": "T2S outcome table (synced full file) rows by error cause, and race-signature count",
      "compute": compute_t2s_outcome_error_causes, "data_files": [T2S_OUTCOME_FULL],
      "script_function": "analysis/numbers_register.py::compute_t2s_outcome_error_causes"},
+    {"claim_id": "K2-x2-kill-criterion", "description": "K2 arms (a)/(b) evo-x2 18h run: kill-criterion evaluations, "
+                    "passes, completeness",
+     "compute": compute_k2_x2_kill_criterion_table, "data_files": [_K2_X2_RUN],
+     "script_function": "analysis/numbers_register.py::compute_k2_x2_kill_criterion_table"},
+    {"claim_id": "K2-x2-clean-failures", "description": "K2 evo-x2 quality items not ok (crash fields)",
+     "compute": compute_k2_x2_clean_failures, "data_files": [_K2_X2_RUN],
+     "script_function": "analysis/numbers_register.py::compute_k2_x2_clean_failures"},
+    {"claim_id": "K2-x2-score-ceiling", "description": "K2 evo-x2 quality scores at ceiling, think tags, forced length",
+     "compute": compute_k2_x2_score_ceiling, "data_files": [_K2_X2_RUN],
+     "script_function": "analysis/numbers_register.py::compute_k2_x2_score_ceiling"},
+    {"claim_id": "K2-x2-decode-by-arm", "description": "K2 evo-x2 pressure-step vs baseline decode ratio, per arm",
+     "compute": compute_k2_x2_decode_by_pressure_arm, "data_files": [_K2_X2_RUN],
+     "script_function": "analysis/numbers_register.py::compute_k2_x2_decode_by_pressure_arm"},
+    {"claim_id": "K2-x2-call-timing", "description": "K2 evo-x2 per-model median TTFT/decode at ~12k tokens",
+     "compute": compute_k2_x2_call_timing, "data_files": [_K2_X2_RUN],
+     "script_function": "analysis/numbers_register.py::compute_k2_x2_call_timing"},
+    {"claim_id": "K2-x2-responsiveness-resolution", "description": "K2 evo-x2 responsiveness probe values vs 2x tolerance",
+     "compute": compute_k2_x2_responsiveness_resolution, "data_files": [_K2_X2_RUN],
+     "script_function": "analysis/numbers_register.py::compute_k2_x2_responsiveness_resolution"},
+    {"claim_id": "K2-x2-unreached-levels", "description": "K2 evo-x2 pressure steps that missed their target",
+     "compute": compute_k2_x2_unreached_pressure_levels, "data_files": [_K2_X2_RUN],
+     "script_function": "analysis/numbers_register.py::compute_k2_x2_unreached_pressure_levels"},
 ]
 
 

@@ -1949,3 +1949,139 @@ with `failed to allocate` / `alloc_buffer` / out-of-memory): 18 on ollama_defaul
 - qwen3-32b on a 100-item trace-weighted subset (seed 20261007, weighted sampling without replacement, ids
   recorded in the output file). The subset contains only longdoc_qa and trace_length_mix items: the short
   gsm8k and function_calling items carry almost no trace weight.
+
+## K2 arms (a)/(b), evo-x2, 18 h run of 2026-10-04/05: 13 of 13 kill-criterion evaluations passed, one loud crash, and the measures were at ceiling (2026-10-06)
+
+**Data.** `results/t2s_k2_pressure_20261004T201205Z.jsonl`, its `_manifest.json`, the per-step
+balloon/toucher sidecars, and the job's own queue log `C:\apu\ovn\queue_x2_k2_v2.log` on evo-x2 (read, not
+copied). Queue item `x2_k2_v2`: `t2s_k2_pressure.py --deadline-h 18 --models qwen3-8b,qwen3-14b,qwen3-32b,
+llama-3.3-70b --n-ctx 16384 --everyday-apps --pause-resume`. Every number below is a row of
+`docs/NUMBERS_REGISTER.md` (claim ids `K2-x2-*`, computed by `analysis/numbers_register.py` from that file).
+
+**Correction to the handoff note.** `docs/STATE.md` records this run as "13 kill-criterion hits". The file has
+13 `k2_kill_criterion` records and every one of them is `ok: true`; the queue log prints "kill criterion passed"
+13 times. Register row `K2-x2-kill-criterion`: "13 kill-criterion evaluations, 13 passed, 0 violated; models
+complete (4/4 arm combinations) 3/4 (qwen3-8b, qwen3-14b, qwen3-32b); started without an evaluation:
+k2_llama-3.3-70b_default_pageable_touch; run_end note: deadline reached". So there are no hits to explain one
+by one. The table below gives, for each of the 13 evaluations (plus the one run that never got one), what was
+run, what dropped, and whether an error surfaced.
+
+**Per-run table** (from `K2-x2-kill-criterion`'s detail; "levels" are GB of headroom relative to the model's
+footprint, run in the order +8, +4, +2, +1, 0, -1, -2; 3 items per level after 3 unpressured baseline items).
+
+| model | mmap arm | pressure arm | levels run | first clean failure | min step median score | max responsiveness ratio vs +8 GB | kill criterion |
+|---|---|---|---|---|---|---|---|
+| qwen3-8b | default | awe_balloon | +8, +4 | +4 GB | 1.0 | 1.0 | pass |
+| qwen3-8b | default | pageable_touch | +8 to -2 | none | 1.0 | 1.94 | pass |
+| qwen3-8b | mmap | awe_balloon | +8 to -2 | none | 1.0 | 1.94 | pass |
+| qwen3-8b | mmap | pageable_touch | +8 to -2 | none | 1.0 | 1.0 | pass |
+| qwen3-14b | default | awe_balloon | +8 to -2 | none | 1.0 | 1.94 | pass |
+| qwen3-14b | default | pageable_touch | +8 to -2 | none | 1.0 | 1.0 | pass |
+| qwen3-14b | mmap | awe_balloon | +8 to -2 | none | 1.0 | 1.0 | pass |
+| qwen3-14b | mmap | pageable_touch | +8 to -2 | none | 1.0 | 1.0 | pass |
+| qwen3-32b | default | awe_balloon | +8 to -2 | none | 1.0 | 1.0 | pass |
+| qwen3-32b | default | pageable_touch | +8 to -2 | none | 1.0 | 1.94 | pass |
+| qwen3-32b | mmap | awe_balloon | +8 to -2 | none | 1.0 | 1.32 | pass |
+| qwen3-32b | mmap | pageable_touch | +8 to -2 | none | 1.0 | 1.94 | pass |
+| llama-3.3-70b | default | awe_balloon | +8 to -2 | none | 1.0 | 1.0 | pass |
+| llama-3.3-70b | default | pageable_touch | +8 to -1 (deadline) | none | 1.0 | 1.0 | not evaluated |
+| llama-3.3-70b | mmap | both | not started | | | | |
+
+**Which model is incomplete, and why.** llama-3.3-70b. Its default-load awe_balloon run finished; its
+default-load pageable_touch run reached the -1 GB step and then the 18 h deadline ended the job (`run_end`
+"deadline reached") before the -2 GB step or a kill-criterion evaluation; its two mmap-arm runs never
+started. The runs are long because every K2 call is a ~12k-token prefill at llama-server's measured speed on
+this machine (`K2-x2-call-timing`: "qwen3-8b: ttft 81.9 s ... qwen3-32b: ttft 222.5 s ... llama-3.3-70b:
+ttft 266.2 s"). Arms (c) everyday_apps and (d) pause_resume never ran at all: both are gated behind the
+per-model (a)/(b) loop, which the deadline cut first.
+
+**The one error that surfaced** (`K2-x2-clean-failures`): "1/317 quality items not ok.
+k2_qwen3-8b_default_awe_balloon_level_4_1: outcome=error, crash=True, exit_code=3221226505 (0xC0000409),
+error='[WinError 10054] An existing connection was forcibly closed by the remote host',
+server_log_tail=['... E ggml_vulkan: vkGetDeviceFaultInfoEXT (counts) failed: -4', '... E ggml_vulkan: device
+lost on Vulkan0']". It is the second item of the +4 GB step under the AWE-locked balloon; the first +4 GB item
+scored 1.0. The server log shows the device loss immediately after llama-server's own host-side prompt-cache
+save ("prompt_save: saving prompt with length 12232, total state size = 1720.266 MiB", in
+`t2s_k2_pressure_20261004T201205Z_srv_k2_qwen3-8b_default_awe_balloon.txt`). Assessment: a real event, loud (HTTP
+connection reset plus a server exit code, exactly the "clean failure" the kill criterion allows), n=1, and not
+explained. It did not recur in the same model's mmap/awe_balloon run, which went all the way to -2 GB, so it is
+not a simple monotonic memory limit; the overlap with a 1720 MiB host-side state copy while the balloon holds
+locked memory is a hypothesis, not a tested mechanism. Same shape as the non-monotonic loud crash in evo-t2s
+Phase D (section above).
+
+**Why 13 passes is weak evidence, not a strong null.**
+
+- *Quality is at ceiling.* `K2-x2-score-ceiling`: "316/316 scored items = 1.0 (1 unscored); task_type
+  ['niah_multikey']; think_tag 0/316 ok calls; completion_tokens values [256]; distinct prompts (rep) [0, 1, 2]".
+  One task type, three distinct prompts reused at every level, and a per-step median over 3 items: the score
+  half of the criterion could only ever trip if 2 of 3 items at one step failed. It cannot see a subtle drop.
+- *Responsiveness is quantized at the Windows clock tick.* `K2-x2-responsiveness-resolution`: "distinct step
+  medians (s): [0.016, 0.0235, 0.031, 0.046, 0.047]; max step/+8GB ratio 1.937x (tolerance 2.0x)". The probe
+  times a `python -c pass` launch with `time.monotonic()`, whose resolution here is one ~15.6 ms tick, so one
+  tick of jitter on a one-tick baseline is a 1.94x "slowdown". Five of the 13 passing runs sat at that value,
+  one tick short of a false violation. This half of the criterion detects nothing finer than a doubling of a
+  ~16 ms launch, and is closer to a coin flip than a measurement at this baseline.
+- *The 70B baseline was not at +8 GB.* `K2-x2-unreached-levels`: "4/92 steps did not reach target:
+  llama-3.3-70b_default_awe_balloon +8GB target 54663 MB, reached 48771 MB; ... +4GB target 50567 MB, reached
+  48748 MB; ...pageable_touch +8GB ... 48700 MB; ... +4GB ... 48586 MB". The machine did not have that much
+  free memory with the 70B loaded, so for the 70B the "+8 GB" reference step was really the unpressured state.
+- *Decode speed barely moved, and the small pageable_touch dip is probably the toucher's own traffic.*
+  `K2-x2-decode-by-arm`: "awe_balloon: 0.997x-1.000x over 7 runs; pageable_touch: 0.984x-1.000x over 7 runs"
+  (median decode over pressure steps / the run's own baseline). The pageable_touch dip is already there at the
+  +8 GB step and does not deepen as headroom goes negative; `pageable_touch.py` rewrites every page of its
+  allocation every 5 s, so a co-runner memory-traffic effect fits better than memory pressure. Not tested.
+
+**Explicable-cause checklist, per the task.** *Calibration-failing task:* not applicable, one task type
+(niah_multikey) and it scored 1.0 everywhere, so no item was dropped by a miscalibrated task. *Decode noise:*
+within the 0.984x-1.000x band above, no step changed decode materially. *Thinking contamination:* none; the
+qwen3 models are run with `enable_thinking: false` (t2s_lab's chat_template_kwargs for hybrid models) and
+`think_tag` is 0/316. One quirk: `do_call`'s default `ignore_eos=True` forces all 256 tokens, and the exact
+scorer's substring fallback then accepts the right code anywhere in that output; it inflates nothing that would
+change a pass to a fail here, since every item already scored 1.0. *SYSTEM Ollama bug:* arms (a)/(b) are
+llama-server only, so no measured call went through Ollama. But because the job was launched with
+`--everyday-apps --pause-resume`, K2 started its own Ollama server at launch (queue log: "ollama server
+started (pid=22484)") and left it up, idle and never sent a request, for the whole 18 h until "ollama server
+stopped". No model was loaded by it, and whether that launch even succeeded under SYSTEM before commit 0b1ab71
+cannot be told from saved data (its `ollama_serve.log` has since been overwritten). Not a factor in these
+numbers, but it is exactly the coupling the standalone arm (d) job below removes. *Operator presence:* every
+call row has `user_active: true` (console session Active, idle 0 s; evo-x2 records rather than refuses), a
+caveat for any speed comparison.
+
+**Bottom line.** On evo-x2, across three complete models and one partial, nothing changed in quality,
+availability or decode speed (beyond the 0.984x pageable_touch dip) before a clean failure, and the only
+failure was loud, at +4 GB, and did not reproduce. That supports the kill criterion's null as written. It does
+not show that subtle degradation is absent, because the quality measure was at ceiling and the responsiveness
+measure was one clock tick from tripping on noise. A stronger K2 would need a harder, varied task set (more than
+3 prompts, scored without the forced-length quirk) and a responsiveness probe with sub-tick resolution
+(`time.perf_counter()`), before re-running.
+
+### K2 arm (d), pause_resume, as its own job: design amendments before its first run (2026-10-06)
+
+Arm (d) has still never run (above). It is now runnable standalone: `t2s_k2_pressure.py --pause-resume-only`
+skips arms (a)/(b)/(c) entirely and writes under its own stem `t2s_k2_pause_resume_*`. Changes to the
+pre-registered design (section "K2 arm (d), pause_resume: pre-registered predictions" above), all made before
+any arm (d) data exists:
+
+- *The no-app reload control is labeled, not only implied.* Every arm (d) record and step report carries
+  `condition`: `no_app_reload_control` at 0 GB, `app_load` otherwise. Steps 0/8/16/24/32 GB, unchanged.
+- *The idle unload is verified, not assumed.* The per-request `keep_alive: "5m"` overrides the server-wide
+  `OLLAMA_KEEP_ALIVE=0` that `host_config.start_ollama_server` sets, so the model stays resident 5 minutes after
+  each turn; the 6-minute idle is meant to outlast that. After the idle wait the job polls GET /api/ps until the
+  model is gone (up to 180 s more) and records `k2_pause_resume_unload_check`. **Verdict amendment:** a step whose
+  unload was not confirmed (`unload_confirmed: false`) is `inconclusive`, because turn 11 then reloaded nothing
+  and the predictions are about the reload. Ollama's own `load_duration` for every turn is now recorded too, as
+  direct evidence of which turn actually loaded the model.
+- *Each step starts from a real initial load.* The model is unloaded (POST /api/generate with keep_alive 0) and
+  confirmed gone before turn 1, so the previous step's tail does not leave it resident; the initial-load
+  server.log read starts at the log's size at step start, and the reload read starts where the initial read
+  ended, so neither can pick up a stale placement line.
+- *The right log.* Placement lines are read from `C:\apu\ovn\ollama_serve.log` (where K2's own Ollama server
+  logs) instead of the per-user tray-app `server.log`, which under the SYSTEM-run watchdog is absent or stale.
+- *Models and thinking.* llama3.1:8b and qwen3:4b-instruct-2507 as pre-registered; on evo-x2 the 4B is the
+  local tag `qwen3-4b-2507` (`--pause-resume-ollama-tags`). Both are non-thinking variants, so Ollama's `think`
+  field is omitted (recorded as `think_requested: null`), and every turn records `think_tag` and whether the
+  reply carried a `message.thinking` field.
+
+`pause_resume_report()` and `pause_resume_prediction_verdict()` were checked to produce P1, P2 and inconclusive
+mechanically end to end through `run_pause_resume_run` with fakes
+(`tests/test_k2_everyday_apps.py::test_verdict_design_check_produces_p1_p2_and_inconclusive_mechanically`).
