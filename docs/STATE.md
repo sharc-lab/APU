@@ -95,3 +95,42 @@ the half-context probe, MX2 spill-cost-with-statistics, R2 validation, then the 
 - Stopped `x2_outcome_table_v2` for a full validity overhaul (thinking-mode disable, race/thinking row
   tagging, a canary validity gate, per-cause error classification, a trimmed model list).
 - Began writing `docs/R2_DESIGN.md` for the real two-step R2 design (not yet in a prior session).
+
+### 2026-10-06, continued (post-compaction)
+
+- `docs/R2_DESIGN.md` is now complete and committed (two-call-per-turn mechanic, separate tool-validity vs
+  tool-argument scoring, rule-2 turn-level OR, both calls' tokens counted, canary-based truncation never
+  `prompt_eval_count`, validation plan, first-real-run plan). The R2 harness itself (the two-call driver) is
+  still NOT built -- this is the single largest remaining item.
+- Item 4(a) (MX2 corrections) is now fully closed: llama-3.3-70b's crash boundary was re-tested fresh (same
+  methodology-artifact fix as qwen3-32b's), 3/3 reps complete. Real result is NOT a clean repeatable
+  HARD_FAIL the way qwen3-32b's is -- 2/3 reps crash (two different exit signatures, 347.2s and 2.5s), 1/3
+  neither crashes nor starts within 600s, with the server's own log showing it stalled mid tensor-load
+  (right after the `Vulkan_Host model buffer size` line), never reaching the compute-buffer-allocation stage
+  qwen3-32b's crash log shows. Honest read written into `docs/FINDINGS.md` and `analysis/make_failure_map.py`:
+  this could be genuine non-determinism at the boundary, or disk I/O variance on this model's ~40 GiB weight
+  file unrelated to memory exhaustion -- not resolved, flagged as needing a disk-cache-controlled re-test,
+  not glossed over as a clean result.
+- Built `harness/x2_half_context_probe.py` (item 3(a)): three markers (start/middle/end of a half-context
+  filler) plus a system rule, num_ctx=8192, llama3.1:8b, 5 reps, queue-integrated. Deployed to evo-x2.
+- Built `harness/mx2_spill_stats.py` (item 3(b)): thin driver reusing `mx2_validation.run_regime_point`
+  unchanged, at the 5 specified n_ctx points (20480/65536/100000/115200/131072) for llama-3.3-70b, 5 reps
+  each, reporting decode tok/s and TTFT with 95% CIs plus per-process GPU dedicated/shared usage. Deployed
+  to evo-x2.
+- Queued both as pending items on evo-x2 (`x2_half_context_probe`, then `x2_mx2_spill_stats`), in the
+  explicit machine-time order the operator specified (3a, 3b, R2 validation, then the fixed outcome table).
+- Cleared the queue pause that had been left on evo-x2 since the overhaul-stop decision (its own recorded
+  auto-release condition -- "will be cleared explicitly once the replanned work is queued" -- is now met).
+  The watchdog should pick up `x2_half_context_probe` on its next tick; not yet confirmed running as of this
+  entry.
+- **Not yet done, in the operator's own stated order:** R2 harness build + validation run (blocks the
+  "report after the R2 baseline table" checkpoint), the fixed outcome table restart (item 1(e)), item 1(b)
+  (`--tag-invalid` not yet run against the real weekend file; the validity-overhaul version of
+  `harness/x2_outcome_table.py` is committed locally but NOT yet deployed to evo-x2 -- the machine still has
+  the earlier race-fix-only version), item 1(f) (T2S error-cause breakdown -- partially known from the prior
+  session: 37/100 non-200 rows, all "other" cause, 0 matching the connection-refused race signature, but not
+  written up as a deliverable), item 3(c) (K2 pause-resume as its own job, and the 13-kill-criterion writeup
+  from the already-pulled `results/t2s_k2_pressure_20261004T201205Z.jsonl`), item 4(b) (new independent
+  150-item kappa sample), item 4(c) (first-principles A-24 budget-boundary predicted-vs-measured table),
+  item 4(d) (evo-x2 TTFT R² explanation). Given the size of what remains, these are reported here rather than
+  attempted partially and reported as done.
