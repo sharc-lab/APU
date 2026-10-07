@@ -1,0 +1,7076 @@
+{
+ "description": "Scan of evo-x2 C:\\apu\\ovn\\results\\x2_outcome_table_llamaserver_<model>_<item>.log (the weekend X2 outcome-table llama-server logs, --log-verbosity 4). n_gen is the 'eval time = ... / N tokens' count from each request's print_timing line; the last request in each log is the scored item (the first is the 1-token warm-up probe). max_tokens was 256. llama3.1:8b logs are absent: its log path contained a colon, which wrote into an NTFS alternate data stream.",
+ "source_host": "EVO-X2",
+ "scanned_utc": "2026-10-07T04:00:00Z",
+ "max_tokens": 256,
+ "rows": [
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_12000_00",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.04.278.286 I srv          init: init: chat template, thinking = 1",
+    "0.04.278.294 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_12000_01",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.04.275.493 I srv          init: init: chat template, thinking = 1",
+    "0.04.275.503 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_12000_02",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.04.292.388 I srv          init: init: chat template, thinking = 1",
+    "0.04.292.397 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_12000_03",
+   "n_gen_per_request": [
+    1,
+    250
+   ],
+   "n_gen_scored_request": 250,
+   "chat_template_lines": [
+    "0.04.288.943 I srv          init: init: chat template, thinking = 1",
+    "0.04.288.952 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_12000_04",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.04.338.508 I srv          init: init: chat template, thinking = 1",
+    "0.04.338.516 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_12000_05",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.04.344.558 I srv          init: init: chat template, thinking = 1",
+    "0.04.344.566 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_12000_06",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.04.330.588 I srv          init: init: chat template, thinking = 1",
+    "0.04.330.599 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_12000_07",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.04.276.402 I srv          init: init: chat template, thinking = 1",
+    "0.04.276.409 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_12000_08",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.04.269.824 I srv          init: init: chat template, thinking = 1",
+    "0.04.269.834 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_12000_09",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.04.283.548 I srv          init: init: chat template, thinking = 1",
+    "0.04.283.556 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_16000_00",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.03.217.290 I srv          init: init: chat template, thinking = 1",
+    "0.03.217.298 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_16000_01",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.08.672.838 I srv          init: init: chat template, thinking = 1",
+    "0.08.672.846 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_16000_02",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.12.473.804 I srv          init: init: chat template, thinking = 1",
+    "0.12.473.813 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_16000_03",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.06.527.509 I srv          init: init: chat template, thinking = 1",
+    "0.06.527.530 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_16000_04",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.04.549.753 I srv          init: init: chat template, thinking = 1",
+    "0.04.549.761 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_16000_05",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.03.095.514 I srv          init: init: chat template, thinking = 1",
+    "0.03.095.521 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_16000_06",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.03.088.776 I srv          init: init: chat template, thinking = 1",
+    "0.03.088.783 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_16000_07",
+   "n_gen_per_request": [
+    1,
+    250
+   ],
+   "n_gen_scored_request": 250,
+   "chat_template_lines": [
+    "0.03.081.860 I srv          init: init: chat template, thinking = 1",
+    "0.03.081.868 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_16000_08",
+   "n_gen_per_request": [
+    1,
+    239
+   ],
+   "n_gen_scored_request": 239,
+   "chat_template_lines": [
+    "0.03.079.128 I srv          init: init: chat template, thinking = 1",
+    "0.03.079.135 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_16000_09",
+   "n_gen_per_request": [
+    1,
+    233
+   ],
+   "n_gen_scored_request": 233,
+   "chat_template_lines": [
+    "0.19.346.241 I srv          init: init: chat template, thinking = 1",
+    "0.19.346.358 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_2000_06",
+   "n_gen_per_request": [
+    1,
+    184
+   ],
+   "n_gen_scored_request": 184,
+   "chat_template_lines": [
+    "0.03.871.013 I srv          init: init: chat template, thinking = 1",
+    "0.03.871.020 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_24000_00",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.04.777.631 I srv          init: init: chat template, thinking = 1",
+    "0.04.777.641 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_24000_01",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.04.800.202 I srv          init: init: chat template, thinking = 1",
+    "0.04.800.210 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_24000_02",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.04.904.867 I srv          init: init: chat template, thinking = 1",
+    "0.04.904.876 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_24000_03",
+   "n_gen_per_request": [
+    1,
+    243
+   ],
+   "n_gen_scored_request": 243,
+   "chat_template_lines": [
+    "0.04.824.936 I srv          init: init: chat template, thinking = 1",
+    "0.04.824.944 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_24000_04",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.04.839.921 I srv          init: init: chat template, thinking = 1",
+    "0.04.839.929 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_24000_05",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.04.826.985 I srv          init: init: chat template, thinking = 1",
+    "0.04.826.996 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_24000_06",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.04.829.650 I srv          init: init: chat template, thinking = 1",
+    "0.04.829.658 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_24000_07",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.04.845.869 I srv          init: init: chat template, thinking = 1",
+    "0.04.845.879 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_24000_08",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.04.820.904 I srv          init: init: chat template, thinking = 1",
+    "0.04.820.914 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_24000_09",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.04.810.499 I srv          init: init: chat template, thinking = 1",
+    "0.04.810.508 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_32000_00",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.05.178.663 I srv          init: init: chat template, thinking = 1",
+    "0.05.178.674 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_32000_01",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.05.429.159 I srv          init: init: chat template, thinking = 1",
+    "0.05.429.168 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_32000_02",
+   "n_gen_per_request": [
+    1,
+    243
+   ],
+   "n_gen_scored_request": 243,
+   "chat_template_lines": [
+    "0.05.208.603 I srv          init: init: chat template, thinking = 1",
+    "0.05.208.611 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_32000_03",
+   "n_gen_per_request": [
+    1,
+    233
+   ],
+   "n_gen_scored_request": 233,
+   "chat_template_lines": [
+    "0.05.234.187 I srv          init: init: chat template, thinking = 1",
+    "0.05.234.195 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_32000_04",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.05.160.276 I srv          init: init: chat template, thinking = 1",
+    "0.05.160.285 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_32000_05",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.05.166.880 I srv          init: init: chat template, thinking = 1",
+    "0.05.166.889 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_32000_06",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.05.211.376 I srv          init: init: chat template, thinking = 1",
+    "0.05.211.385 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_32000_07",
+   "n_gen_per_request": [
+    1,
+    226
+   ],
+   "n_gen_scored_request": 226,
+   "chat_template_lines": [
+    "0.05.183.624 I srv          init: init: chat template, thinking = 1",
+    "0.05.183.634 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_32000_08",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.05.133.600 I srv          init: init: chat template, thinking = 1",
+    "0.05.133.608 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_32000_09",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.05.177.012 I srv          init: init: chat template, thinking = 1",
+    "0.05.177.021 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_48000_00",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.05.844.219 I srv          init: init: chat template, thinking = 1",
+    "0.05.844.227 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_48000_01",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.05.861.250 I srv          init: init: chat template, thinking = 1",
+    "0.05.861.259 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_48000_02",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.05.876.551 I srv          init: init: chat template, thinking = 1",
+    "0.05.876.560 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_48000_03",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.05.868.105 I srv          init: init: chat template, thinking = 1",
+    "0.05.868.114 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_48000_04",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.05.852.411 I srv          init: init: chat template, thinking = 1",
+    "0.05.852.420 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_48000_05",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.05.857.780 I srv          init: init: chat template, thinking = 1",
+    "0.05.857.789 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_48000_06",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.05.919.830 I srv          init: init: chat template, thinking = 1",
+    "0.05.919.839 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_48000_07",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.05.852.275 I srv          init: init: chat template, thinking = 1",
+    "0.05.852.284 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_48000_08",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.05.866.246 I srv          init: init: chat template, thinking = 1",
+    "0.05.866.257 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_48000_09",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.05.928.853 I srv          init: init: chat template, thinking = 1",
+    "0.05.928.863 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_64000_00",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.06.630.467 I srv          init: init: chat template, thinking = 1",
+    "0.06.630.476 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_64000_01",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.06.643.244 I srv          init: init: chat template, thinking = 1",
+    "0.06.643.254 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_64000_02",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.06.656.457 I srv          init: init: chat template, thinking = 1",
+    "0.06.656.469 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_64000_03",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.06.629.452 I srv          init: init: chat template, thinking = 1",
+    "0.06.629.462 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_64000_04",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.06.722.136 I srv          init: init: chat template, thinking = 1",
+    "0.06.722.145 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_64000_05",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.06.678.037 I srv          init: init: chat template, thinking = 1",
+    "0.06.678.046 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_64000_06",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.06.631.032 I srv          init: init: chat template, thinking = 1",
+    "0.06.631.042 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_64000_07",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.06.683.044 I srv          init: init: chat template, thinking = 1",
+    "0.06.683.054 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_64000_08",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.06.644.893 I srv          init: init: chat template, thinking = 1",
+    "0.06.644.903 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_64000_09",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.06.678.388 I srv          init: init: chat template, thinking = 1",
+    "0.06.678.397 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_80000_00",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.07.293.357 I srv          init: init: chat template, thinking = 1",
+    "0.07.293.368 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_80000_01",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.07.527.603 I srv          init: init: chat template, thinking = 1",
+    "0.07.527.614 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_80000_02",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.07.278.765 I srv          init: init: chat template, thinking = 1",
+    "0.07.278.774 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_80000_03",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.07.419.453 I srv          init: init: chat template, thinking = 1",
+    "0.07.419.463 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_80000_04",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.07.328.048 I srv          init: init: chat template, thinking = 1",
+    "0.07.328.057 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_80000_05",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.07.305.639 I srv          init: init: chat template, thinking = 1",
+    "0.07.305.647 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_80000_06",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.07.314.889 I srv          init: init: chat template, thinking = 1",
+    "0.07.314.900 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_80000_07",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.13.494.783 I srv          init: init: chat template, thinking = 1",
+    "0.13.494.792 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_80000_08",
+   "n_gen_per_request": [],
+   "n_gen_scored_request": null,
+   "chat_template_lines": []
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_8000_00",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.04.072.202 I srv          init: init: chat template, thinking = 1",
+    "0.04.072.209 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_8000_01",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.04.093.909 I srv          init: init: chat template, thinking = 1",
+    "0.04.093.916 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_8000_02",
+   "n_gen_per_request": [
+    1,
+    246
+   ],
+   "n_gen_scored_request": 246,
+   "chat_template_lines": [
+    "0.04.094.795 I srv          init: init: chat template, thinking = 1",
+    "0.04.094.802 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_8000_03",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.04.087.777 I srv          init: init: chat template, thinking = 1",
+    "0.04.087.787 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_8000_04",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.04.076.397 I srv          init: init: chat template, thinking = 1",
+    "0.04.076.405 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_8000_05",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.04.063.686 I srv          init: init: chat template, thinking = 1",
+    "0.04.063.693 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_8000_06",
+   "n_gen_per_request": [
+    1,
+    251
+   ],
+   "n_gen_scored_request": 251,
+   "chat_template_lines": [
+    "0.04.082.250 I srv          init: init: chat template, thinking = 1",
+    "0.04.082.258 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_8000_07",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.04.096.131 I srv          init: init: chat template, thinking = 1",
+    "0.04.096.140 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_8000_08",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.04.045.583 I srv          init: init: chat template, thinking = 1",
+    "0.04.045.593 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "longdoc_8000_09",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.04.075.795 I srv          init: init: chat template, thinking = 1",
+    "0.04.075.804 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "trace_mix_000",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.04.444.045 I srv          init: init: chat template, thinking = 1",
+    "0.04.444.055 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "trace_mix_004",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.04.094.641 I srv          init: init: chat template, thinking = 1",
+    "0.04.094.648 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "trace_mix_007",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.03.963.171 I srv          init: init: chat template, thinking = 1",
+    "0.03.963.180 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "trace_mix_008",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.05.942.957 I srv          init: init: chat template, thinking = 1",
+    "0.05.942.966 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "trace_mix_009",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.03.992.892 I srv          init: init: chat template, thinking = 1",
+    "0.03.992.903 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "trace_mix_012",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.04.083.668 I srv          init: init: chat template, thinking = 1",
+    "0.04.083.676 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "trace_mix_013",
+   "n_gen_per_request": [
+    1,
+    220
+   ],
+   "n_gen_scored_request": 220,
+   "chat_template_lines": [
+    "0.03.930.598 I srv          init: init: chat template, thinking = 1",
+    "0.03.930.605 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "trace_mix_016",
+   "n_gen_per_request": [
+    1,
+    250
+   ],
+   "n_gen_scored_request": 250,
+   "chat_template_lines": [
+    "0.04.016.738 I srv          init: init: chat template, thinking = 1",
+    "0.04.016.747 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "trace_mix_017",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.03.875.112 I srv          init: init: chat template, thinking = 1",
+    "0.03.875.120 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "trace_mix_018",
+   "n_gen_per_request": [
+    1,
+    227
+   ],
+   "n_gen_scored_request": 227,
+   "chat_template_lines": [
+    "0.04.561.892 I srv          init: init: chat template, thinking = 1",
+    "0.04.561.900 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "trace_mix_028",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.04.294.049 I srv          init: init: chat template, thinking = 1",
+    "0.04.294.059 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "trace_mix_029",
+   "n_gen_per_request": [
+    1,
+    243
+   ],
+   "n_gen_scored_request": 243,
+   "chat_template_lines": [
+    "0.03.966.553 I srv          init: init: chat template, thinking = 1",
+    "0.03.966.560 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "trace_mix_032",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.04.005.662 I srv          init: init: chat template, thinking = 1",
+    "0.04.005.669 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "trace_mix_033",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.03.974.511 I srv          init: init: chat template, thinking = 1",
+    "0.03.974.520 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "trace_mix_034",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.04.001.956 I srv          init: init: chat template, thinking = 1",
+    "0.04.001.963 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "trace_mix_038",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.05.089.067 I srv          init: init: chat template, thinking = 1",
+    "0.05.089.075 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "trace_mix_039",
+   "n_gen_per_request": [
+    1,
+    251
+   ],
+   "n_gen_scored_request": 251,
+   "chat_template_lines": [
+    "0.04.374.200 I srv          init: init: chat template, thinking = 1",
+    "0.04.374.209 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "trace_mix_040",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.03.907.088 I srv          init: init: chat template, thinking = 1",
+    "0.03.907.096 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "trace_mix_041",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.04.028.289 I srv          init: init: chat template, thinking = 1",
+    "0.04.028.296 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "trace_mix_042",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.08.213.072 I srv          init: init: chat template, thinking = 1",
+    "0.08.213.079 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "trace_mix_043",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.04.112.593 I srv          init: init: chat template, thinking = 1",
+    "0.04.112.600 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "trace_mix_044",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.16.161.569 I srv          init: init: chat template, thinking = 1",
+    "0.16.161.578 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "trace_mix_049",
+   "n_gen_per_request": [
+    1,
+    220
+   ],
+   "n_gen_scored_request": 220,
+   "chat_template_lines": [
+    "0.04.208.138 I srv          init: init: chat template, thinking = 1",
+    "0.04.208.146 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "trace_mix_051",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.04.673.801 I srv          init: init: chat template, thinking = 1",
+    "0.04.673.809 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "trace_mix_052",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.03.918.815 I srv          init: init: chat template, thinking = 1",
+    "0.03.918.822 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "trace_mix_053",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.04.442.554 I srv          init: init: chat template, thinking = 1",
+    "0.04.442.561 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "trace_mix_054",
+   "n_gen_per_request": [
+    1,
+    248
+   ],
+   "n_gen_scored_request": 248,
+   "chat_template_lines": [
+    "0.04.094.698 I srv          init: init: chat template, thinking = 1",
+    "0.04.094.706 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "trace_mix_056",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.03.949.776 I srv          init: init: chat template, thinking = 1",
+    "0.03.949.784 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "trace_mix_057",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.04.032.087 I srv          init: init: chat template, thinking = 1",
+    "0.04.032.094 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "trace_mix_058",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.03.940.485 I srv          init: init: chat template, thinking = 1",
+    "0.03.940.493 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-14b",
+   "item_id": "trace_mix_059",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.03.961.501 I srv          init: init: chat template, thinking = 1",
+    "0.03.961.509 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_12000_00",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.335.565 I srv          init: init: chat template, thinking = 1",
+    "0.07.335.573 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_12000_01",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.210.265 I srv          init: init: chat template, thinking = 1",
+    "0.07.210.272 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_12000_02",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.228.726 I srv          init: init: chat template, thinking = 1",
+    "0.07.228.733 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_12000_03",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.103.487 I srv          init: init: chat template, thinking = 1",
+    "0.07.103.495 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_12000_04",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.118.310 I srv          init: init: chat template, thinking = 1",
+    "0.07.118.317 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_12000_05",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.181.823 I srv          init: init: chat template, thinking = 1",
+    "0.07.181.830 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_12000_06",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.137.126 I srv          init: init: chat template, thinking = 1",
+    "0.07.137.134 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_12000_07",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.113.213 I srv          init: init: chat template, thinking = 1",
+    "0.07.113.221 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_12000_08",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.130.911 I srv          init: init: chat template, thinking = 1",
+    "0.07.130.920 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_12000_09",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.158.808 I srv          init: init: chat template, thinking = 1",
+    "0.07.158.815 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_16000_00",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.04.775.552 I srv          init: init: chat template, thinking = 1",
+    "0.04.775.559 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_16000_01",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.57.299.581 I srv          init: init: chat template, thinking = 1",
+    "0.57.299.688 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_16000_02",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.461.393 I srv          init: init: chat template, thinking = 1",
+    "0.07.461.400 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_16000_03",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.16.200.764 I srv          init: init: chat template, thinking = 1",
+    "0.16.200.771 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_16000_04",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.583.235 I srv          init: init: chat template, thinking = 1",
+    "0.07.583.243 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_16000_05",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.04.696.729 I srv          init: init: chat template, thinking = 1",
+    "0.04.696.736 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_16000_06",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.04.677.906 I srv          init: init: chat template, thinking = 1",
+    "0.04.677.914 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_16000_07",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.04.640.792 I srv          init: init: chat template, thinking = 1",
+    "0.04.640.798 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_16000_08",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.04.655.844 I srv          init: init: chat template, thinking = 1",
+    "0.04.655.851 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_16000_09",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.901.038 I srv          init: init: chat template, thinking = 1",
+    "0.07.901.045 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_2000_06",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.092.548 I srv          init: init: chat template, thinking = 1",
+    "0.07.092.556 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_24000_00",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.446.462 I srv          init: init: chat template, thinking = 1",
+    "0.07.446.471 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_24000_01",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.541.518 I srv          init: init: chat template, thinking = 1",
+    "0.07.541.527 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_24000_02",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.508.098 I srv          init: init: chat template, thinking = 1",
+    "0.07.508.107 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_24000_03",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.455.789 I srv          init: init: chat template, thinking = 1",
+    "0.07.455.798 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_24000_04",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.703.454 I srv          init: init: chat template, thinking = 1",
+    "0.07.703.461 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_24000_05",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.530.694 I srv          init: init: chat template, thinking = 1",
+    "0.07.530.703 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_24000_06",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.517.331 I srv          init: init: chat template, thinking = 1",
+    "0.07.517.338 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_24000_07",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.579.019 I srv          init: init: chat template, thinking = 1",
+    "0.07.579.029 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_24000_08",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.800.627 I srv          init: init: chat template, thinking = 1",
+    "0.07.800.635 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_24000_09",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.710.372 I srv          init: init: chat template, thinking = 1",
+    "0.07.710.379 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_32000_00",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.715.759 I srv          init: init: chat template, thinking = 1",
+    "0.07.715.766 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_32000_01",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.876.918 I srv          init: init: chat template, thinking = 1",
+    "0.07.876.925 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_32000_02",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.714.066 I srv          init: init: chat template, thinking = 1",
+    "0.07.714.073 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_32000_03",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.747.052 I srv          init: init: chat template, thinking = 1",
+    "0.07.747.060 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_32000_04",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.740.281 I srv          init: init: chat template, thinking = 1",
+    "0.07.740.290 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_32000_05",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.750.030 I srv          init: init: chat template, thinking = 1",
+    "0.07.750.038 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_32000_06",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.715.067 I srv          init: init: chat template, thinking = 1",
+    "0.07.715.075 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_32000_07",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.727.056 I srv          init: init: chat template, thinking = 1",
+    "0.07.727.064 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_32000_08",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.668.369 I srv          init: init: chat template, thinking = 1",
+    "0.07.668.379 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_32000_09",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.671.766 I srv          init: init: chat template, thinking = 1",
+    "0.07.671.774 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_48000_00",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.08.147.343 I srv          init: init: chat template, thinking = 1",
+    "0.08.147.352 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_48000_01",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.08.231.005 I srv          init: init: chat template, thinking = 1",
+    "0.08.231.013 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_48000_02",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.08.161.118 I srv          init: init: chat template, thinking = 1",
+    "0.08.161.128 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_48000_03",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.08.415.511 I srv          init: init: chat template, thinking = 1",
+    "0.08.415.519 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_48000_04",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.08.238.485 I srv          init: init: chat template, thinking = 1",
+    "0.08.238.493 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_48000_05",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.08.131.273 I srv          init: init: chat template, thinking = 1",
+    "0.08.131.281 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_48000_06",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.08.224.049 I srv          init: init: chat template, thinking = 1",
+    "0.08.224.058 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_48000_07",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.08.133.952 I srv          init: init: chat template, thinking = 1",
+    "0.08.133.960 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_48000_08",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.08.124.727 I srv          init: init: chat template, thinking = 1",
+    "0.08.124.738 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_48000_09",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.08.156.957 I srv          init: init: chat template, thinking = 1",
+    "0.08.156.967 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_64000_00",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.08.564.102 I srv          init: init: chat template, thinking = 1",
+    "0.08.564.111 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_64000_01",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.08.602.030 I srv          init: init: chat template, thinking = 1",
+    "0.08.602.039 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_64000_02",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.08.633.181 I srv          init: init: chat template, thinking = 1",
+    "0.08.633.192 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_64000_03",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.08.867.755 I srv          init: init: chat template, thinking = 1",
+    "0.08.867.765 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_64000_04",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.08.588.998 I srv          init: init: chat template, thinking = 1",
+    "0.08.589.008 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_64000_05",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.08.598.843 I srv          init: init: chat template, thinking = 1",
+    "0.08.598.852 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_64000_06",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.08.592.545 I srv          init: init: chat template, thinking = 1",
+    "0.08.592.555 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_64000_07",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.08.587.326 I srv          init: init: chat template, thinking = 1",
+    "0.08.587.335 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_64000_08",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.08.606.913 I srv          init: init: chat template, thinking = 1",
+    "0.08.606.921 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_64000_09",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.08.542.925 I srv          init: init: chat template, thinking = 1",
+    "0.08.542.937 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_80000_00",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.09.033.144 I srv          init: init: chat template, thinking = 1",
+    "0.09.033.154 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_80000_01",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.09.223.714 I srv          init: init: chat template, thinking = 1",
+    "0.09.223.723 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_80000_02",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.09.053.871 I srv          init: init: chat template, thinking = 1",
+    "0.09.053.880 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_80000_03",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.09.050.736 I srv          init: init: chat template, thinking = 1",
+    "0.09.050.752 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_80000_04",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.09.012.448 I srv          init: init: chat template, thinking = 1",
+    "0.09.012.457 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_80000_05",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.09.034.287 I srv          init: init: chat template, thinking = 1",
+    "0.09.034.296 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_80000_06",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.09.174.792 I srv          init: init: chat template, thinking = 1",
+    "0.09.174.801 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_80000_07",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.51.554.084 I srv          init: init: chat template, thinking = 1",
+    "0.51.554.099 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_80000_08",
+   "n_gen_per_request": [],
+   "n_gen_scored_request": null,
+   "chat_template_lines": []
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_8000_00",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.114.123 I srv          init: init: chat template, thinking = 1",
+    "0.07.114.130 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_8000_01",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.025.942 I srv          init: init: chat template, thinking = 1",
+    "0.07.025.949 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_8000_02",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.110.213 I srv          init: init: chat template, thinking = 1",
+    "0.07.110.221 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_8000_03",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.163.473 I srv          init: init: chat template, thinking = 1",
+    "0.07.163.480 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_8000_04",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.06.992.225 I srv          init: init: chat template, thinking = 1",
+    "0.06.992.232 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_8000_05",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.033.002 I srv          init: init: chat template, thinking = 1",
+    "0.07.033.010 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_8000_06",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.017.967 I srv          init: init: chat template, thinking = 1",
+    "0.07.017.974 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_8000_07",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.189.827 I srv          init: init: chat template, thinking = 1",
+    "0.07.189.836 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_8000_08",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.06.968.222 I srv          init: init: chat template, thinking = 1",
+    "0.06.968.230 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "longdoc_8000_09",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.070.339 I srv          init: init: chat template, thinking = 1",
+    "0.07.070.348 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "trace_mix_000",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.277.054 I srv          init: init: chat template, thinking = 1",
+    "0.07.277.061 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "trace_mix_004",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.026.287 I srv          init: init: chat template, thinking = 1",
+    "0.07.026.295 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "trace_mix_007",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.06.947.238 I srv          init: init: chat template, thinking = 1",
+    "0.06.947.246 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "trace_mix_008",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.08.160.943 I srv          init: init: chat template, thinking = 1",
+    "0.08.160.952 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "trace_mix_009",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.06.928.667 I srv          init: init: chat template, thinking = 1",
+    "0.06.928.674 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "trace_mix_012",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.071.608 I srv          init: init: chat template, thinking = 1",
+    "0.07.071.615 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "trace_mix_013",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.06.972.044 I srv          init: init: chat template, thinking = 1",
+    "0.06.972.052 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "trace_mix_016",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.06.953.374 I srv          init: init: chat template, thinking = 1",
+    "0.06.953.383 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "trace_mix_017",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.141.595 I srv          init: init: chat template, thinking = 1",
+    "0.07.141.602 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "trace_mix_018",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.04.813.390 I srv          init: init: chat template, thinking = 1",
+    "0.04.813.398 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "trace_mix_028",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.147.096 I srv          init: init: chat template, thinking = 1",
+    "0.07.147.110 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "trace_mix_029",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.06.946.119 I srv          init: init: chat template, thinking = 1",
+    "0.06.946.127 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "trace_mix_032",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.018.106 I srv          init: init: chat template, thinking = 1",
+    "0.07.018.113 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "trace_mix_033",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.024.930 I srv          init: init: chat template, thinking = 1",
+    "0.07.024.938 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "trace_mix_034",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.06.955.501 I srv          init: init: chat template, thinking = 1",
+    "0.06.955.509 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "trace_mix_038",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.655.371 I srv          init: init: chat template, thinking = 1",
+    "0.07.655.379 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "trace_mix_039",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.219.754 I srv          init: init: chat template, thinking = 1",
+    "0.07.219.762 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "trace_mix_040",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.06.870.373 I srv          init: init: chat template, thinking = 1",
+    "0.06.870.380 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "trace_mix_041",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.06.976.295 I srv          init: init: chat template, thinking = 1",
+    "0.06.976.303 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "trace_mix_042",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.11.368.305 I srv          init: init: chat template, thinking = 1",
+    "0.11.368.315 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "trace_mix_043",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.06.999.459 I srv          init: init: chat template, thinking = 1",
+    "0.06.999.467 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "trace_mix_044",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.399.617 I srv          init: init: chat template, thinking = 1",
+    "0.07.399.624 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "trace_mix_049",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.04.593.124 I srv          init: init: chat template, thinking = 1",
+    "0.04.593.131 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "trace_mix_051",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.449.093 I srv          init: init: chat template, thinking = 1",
+    "0.07.449.102 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "trace_mix_052",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.024.211 I srv          init: init: chat template, thinking = 1",
+    "0.07.024.218 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "trace_mix_053",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.283.623 I srv          init: init: chat template, thinking = 1",
+    "0.07.283.631 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "trace_mix_054",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.06.981.486 I srv          init: init: chat template, thinking = 1",
+    "0.06.981.493 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "trace_mix_056",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.092.135 I srv          init: init: chat template, thinking = 1",
+    "0.07.092.142 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "trace_mix_057",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.07.121.804 I srv          init: init: chat template, thinking = 1",
+    "0.07.121.811 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "trace_mix_058",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.06.978.227 I srv          init: init: chat template, thinking = 1",
+    "0.06.978.235 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-30b-a3b",
+   "item_id": "trace_mix_059",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.06.940.212 I srv          init: init: chat template, thinking = 1",
+    "0.06.940.219 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_12000_00",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.08.122.702 I srv          init: init: chat template, thinking = 1",
+    "0.08.122.710 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_12000_01",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.08.136.524 I srv          init: init: chat template, thinking = 1",
+    "0.08.136.533 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_12000_02",
+   "n_gen_per_request": [
+    1,
+    252
+   ],
+   "n_gen_scored_request": 252,
+   "chat_template_lines": [
+    "0.08.125.683 I srv          init: init: chat template, thinking = 1",
+    "0.08.125.691 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_12000_03",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.08.166.721 I srv          init: init: chat template, thinking = 1",
+    "0.08.166.730 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_12000_04",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.08.161.391 I srv          init: init: chat template, thinking = 1",
+    "0.08.161.401 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_12000_05",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.08.135.444 I srv          init: init: chat template, thinking = 1",
+    "0.08.135.455 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_12000_06",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.08.138.638 I srv          init: init: chat template, thinking = 1",
+    "0.08.138.647 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_12000_07",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.08.127.920 I srv          init: init: chat template, thinking = 1",
+    "0.08.127.929 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_12000_08",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.08.178.753 I srv          init: init: chat template, thinking = 1",
+    "0.08.178.761 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_12000_09",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.08.168.477 I srv          init: init: chat template, thinking = 1",
+    "0.08.168.484 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_16000_00",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.13.790.847 I srv          init: init: chat template, thinking = 1",
+    "0.13.790.856 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_16000_01",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.50.027.193 I srv          init: init: chat template, thinking = 1",
+    "0.50.027.302 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_16000_02",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.08.683.529 I srv          init: init: chat template, thinking = 1",
+    "0.08.683.541 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_16000_03",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.08.793.968 I srv          init: init: chat template, thinking = 1",
+    "0.08.793.977 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_16000_04",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.08.752.959 I srv          init: init: chat template, thinking = 1",
+    "0.08.752.968 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_16000_05",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.05.699.923 I srv          init: init: chat template, thinking = 1",
+    "0.05.699.931 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_16000_06",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.05.655.654 I srv          init: init: chat template, thinking = 1",
+    "0.05.655.662 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_16000_07",
+   "n_gen_per_request": [
+    1,
+    242
+   ],
+   "n_gen_scored_request": 242,
+   "chat_template_lines": [
+    "0.05.642.130 I srv          init: init: chat template, thinking = 1",
+    "0.05.642.138 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_16000_08",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.09.115.976 I srv          init: init: chat template, thinking = 1",
+    "0.09.115.985 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_16000_09",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "1.08.888.315 I srv          init: init: chat template, thinking = 1",
+    "1.08.888.443 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_2000_06",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.07.679.759 I srv          init: init: chat template, thinking = 1",
+    "0.07.679.767 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_24000_00",
+   "n_gen_per_request": [
+    1,
+    252
+   ],
+   "n_gen_scored_request": 252,
+   "chat_template_lines": [
+    "0.09.272.894 I srv          init: init: chat template, thinking = 1",
+    "0.09.272.904 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_24000_01",
+   "n_gen_per_request": [
+    1,
+    230
+   ],
+   "n_gen_scored_request": 230,
+   "chat_template_lines": [
+    "0.09.130.845 I srv          init: init: chat template, thinking = 1",
+    "0.09.130.855 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_24000_02",
+   "n_gen_per_request": [
+    1,
+    253
+   ],
+   "n_gen_scored_request": 253,
+   "chat_template_lines": [
+    "0.09.083.254 I srv          init: init: chat template, thinking = 1",
+    "0.09.083.264 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_24000_03",
+   "n_gen_per_request": [
+    1,
+    235
+   ],
+   "n_gen_scored_request": 235,
+   "chat_template_lines": [
+    "0.09.253.802 I srv          init: init: chat template, thinking = 1",
+    "0.09.253.813 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_24000_04",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.09.428.656 I srv          init: init: chat template, thinking = 1",
+    "0.09.428.667 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_24000_05",
+   "n_gen_per_request": [
+    1,
+    233
+   ],
+   "n_gen_scored_request": 233,
+   "chat_template_lines": [
+    "0.09.066.715 I srv          init: init: chat template, thinking = 1",
+    "0.09.066.725 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_24000_06",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.09.275.707 I srv          init: init: chat template, thinking = 1",
+    "0.09.275.718 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_24000_07",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.09.048.537 I srv          init: init: chat template, thinking = 1",
+    "0.09.048.545 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_24000_08",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.09.057.326 I srv          init: init: chat template, thinking = 1",
+    "0.09.057.335 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_24000_09",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.09.003.133 I srv          init: init: chat template, thinking = 1",
+    "0.09.003.142 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_32000_00",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.09.620.763 I srv          init: init: chat template, thinking = 1",
+    "0.09.620.772 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_32000_01",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.09.641.320 I srv          init: init: chat template, thinking = 1",
+    "0.09.641.330 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_32000_02",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.09.639.657 I srv          init: init: chat template, thinking = 1",
+    "0.09.639.667 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_32000_03",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.09.613.473 I srv          init: init: chat template, thinking = 1",
+    "0.09.613.483 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_32000_04",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.09.564.614 I srv          init: init: chat template, thinking = 1",
+    "0.09.564.622 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_32000_05",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.09.598.441 I srv          init: init: chat template, thinking = 1",
+    "0.09.598.451 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_32000_06",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.09.591.866 I srv          init: init: chat template, thinking = 1",
+    "0.09.591.875 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_32000_07",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.09.606.207 I srv          init: init: chat template, thinking = 1",
+    "0.09.606.217 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_32000_08",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.09.621.990 I srv          init: init: chat template, thinking = 1",
+    "0.09.622.000 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_32000_09",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.09.645.584 I srv          init: init: chat template, thinking = 1",
+    "0.09.645.593 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_48000_00",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.10.703.911 I srv          init: init: chat template, thinking = 1",
+    "0.10.703.919 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_48000_01",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.10.671.771 I srv          init: init: chat template, thinking = 1",
+    "0.10.671.781 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_48000_02",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.10.744.444 I srv          init: init: chat template, thinking = 1",
+    "0.10.744.454 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_48000_03",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.10.701.672 I srv          init: init: chat template, thinking = 1",
+    "0.10.701.681 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_48000_04",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.10.711.761 I srv          init: init: chat template, thinking = 1",
+    "0.10.711.770 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_48000_05",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.10.669.541 I srv          init: init: chat template, thinking = 1",
+    "0.10.669.549 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_48000_06",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.10.694.665 I srv          init: init: chat template, thinking = 1",
+    "0.10.694.677 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_48000_07",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.10.702.509 I srv          init: init: chat template, thinking = 1",
+    "0.10.702.518 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_48000_08",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.11.006.245 I srv          init: init: chat template, thinking = 1",
+    "0.11.006.254 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_48000_09",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.10.732.842 I srv          init: init: chat template, thinking = 1",
+    "0.10.732.852 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_64000_00",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.11.936.546 I srv          init: init: chat template, thinking = 1",
+    "0.11.936.554 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_64000_01",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.11.948.790 I srv          init: init: chat template, thinking = 1",
+    "0.11.948.798 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_64000_02",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.12.124.383 I srv          init: init: chat template, thinking = 1",
+    "0.12.124.393 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_64000_03",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.11.954.246 I srv          init: init: chat template, thinking = 1",
+    "0.11.954.256 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_64000_04",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.11.937.020 I srv          init: init: chat template, thinking = 1",
+    "0.11.937.030 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_64000_05",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.11.966.315 I srv          init: init: chat template, thinking = 1",
+    "0.11.966.325 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_64000_06",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.11.951.428 I srv          init: init: chat template, thinking = 1",
+    "0.11.951.436 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_64000_07",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.12.260.211 I srv          init: init: chat template, thinking = 1",
+    "0.12.260.220 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_64000_08",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.11.956.354 I srv          init: init: chat template, thinking = 1",
+    "0.11.956.365 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_64000_09",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.11.959.659 I srv          init: init: chat template, thinking = 1",
+    "0.11.959.668 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_80000_00",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.13.026.994 I srv          init: init: chat template, thinking = 1",
+    "0.13.027.003 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_80000_01",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.13.017.373 I srv          init: init: chat template, thinking = 1",
+    "0.13.017.383 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_80000_02",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.13.042.217 I srv          init: init: chat template, thinking = 1",
+    "0.13.042.225 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_80000_03",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.12.981.325 I srv          init: init: chat template, thinking = 1",
+    "0.12.981.334 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_80000_04",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.13.054.343 I srv          init: init: chat template, thinking = 1",
+    "0.13.054.352 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_80000_05",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.13.037.336 I srv          init: init: chat template, thinking = 1",
+    "0.13.037.346 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_80000_06",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.13.206.013 I srv          init: init: chat template, thinking = 1",
+    "0.13.206.022 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_80000_07",
+   "n_gen_per_request": [],
+   "n_gen_scored_request": null,
+   "chat_template_lines": []
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_80000_08",
+   "n_gen_per_request": [],
+   "n_gen_scored_request": null,
+   "chat_template_lines": []
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_8000_00",
+   "n_gen_per_request": [
+    1,
+    246
+   ],
+   "n_gen_scored_request": 246,
+   "chat_template_lines": [
+    "0.07.879.299 I srv          init: init: chat template, thinking = 1",
+    "0.07.879.306 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_8000_01",
+   "n_gen_per_request": [
+    1,
+    238
+   ],
+   "n_gen_scored_request": 238,
+   "chat_template_lines": [
+    "0.07.855.240 I srv          init: init: chat template, thinking = 1",
+    "0.07.855.248 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_8000_02",
+   "n_gen_per_request": [
+    1,
+    217
+   ],
+   "n_gen_scored_request": 217,
+   "chat_template_lines": [
+    "0.07.880.514 I srv          init: init: chat template, thinking = 1",
+    "0.07.880.523 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_8000_03",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.07.868.909 I srv          init: init: chat template, thinking = 1",
+    "0.07.868.917 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_8000_04",
+   "n_gen_per_request": [
+    1,
+    189
+   ],
+   "n_gen_scored_request": 189,
+   "chat_template_lines": [
+    "0.07.927.624 I srv          init: init: chat template, thinking = 1",
+    "0.07.927.633 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_8000_05",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.07.943.545 I srv          init: init: chat template, thinking = 1",
+    "0.07.943.553 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_8000_06",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.07.898.039 I srv          init: init: chat template, thinking = 1",
+    "0.07.898.048 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_8000_07",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.07.851.034 I srv          init: init: chat template, thinking = 1",
+    "0.07.851.044 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_8000_08",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.07.853.432 I srv          init: init: chat template, thinking = 1",
+    "0.07.853.440 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "longdoc_8000_09",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.07.848.929 I srv          init: init: chat template, thinking = 1",
+    "0.07.848.936 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "trace_mix_000",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.08.408.007 I srv          init: init: chat template, thinking = 1",
+    "0.08.408.016 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "trace_mix_004",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.07.886.446 I srv          init: init: chat template, thinking = 1",
+    "0.07.886.453 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "trace_mix_007",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.07.718.150 I srv          init: init: chat template, thinking = 1",
+    "0.07.718.158 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "trace_mix_008",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.10.807.180 I srv          init: init: chat template, thinking = 1",
+    "0.10.807.189 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "trace_mix_009",
+   "n_gen_per_request": [
+    1,
+    239
+   ],
+   "n_gen_scored_request": 239,
+   "chat_template_lines": [
+    "0.07.776.329 I srv          init: init: chat template, thinking = 1",
+    "0.07.776.336 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "trace_mix_012",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.07.904.768 I srv          init: init: chat template, thinking = 1",
+    "0.07.904.776 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "trace_mix_013",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.07.668.952 I srv          init: init: chat template, thinking = 1",
+    "0.07.668.962 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "trace_mix_016",
+   "n_gen_per_request": [
+    1,
+    253
+   ],
+   "n_gen_scored_request": 253,
+   "chat_template_lines": [
+    "0.07.786.527 I srv          init: init: chat template, thinking = 1",
+    "0.07.786.535 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "trace_mix_017",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.07.599.301 I srv          init: init: chat template, thinking = 1",
+    "0.07.599.309 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "trace_mix_018",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.08.957.603 I srv          init: init: chat template, thinking = 1",
+    "0.08.957.613 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "trace_mix_028",
+   "n_gen_per_request": [
+    1,
+    229
+   ],
+   "n_gen_scored_request": 229,
+   "chat_template_lines": [
+    "0.08.272.416 I srv          init: init: chat template, thinking = 1",
+    "0.08.272.424 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "trace_mix_029",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.07.738.339 I srv          init: init: chat template, thinking = 1",
+    "0.07.738.347 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "trace_mix_032",
+   "n_gen_per_request": [
+    1,
+    233
+   ],
+   "n_gen_scored_request": 233,
+   "chat_template_lines": [
+    "0.07.725.994 I srv          init: init: chat template, thinking = 1",
+    "0.07.726.003 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "trace_mix_033",
+   "n_gen_per_request": [
+    1,
+    246
+   ],
+   "n_gen_scored_request": 246,
+   "chat_template_lines": [
+    "0.07.780.931 I srv          init: init: chat template, thinking = 1",
+    "0.07.780.939 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "trace_mix_034",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.07.753.731 I srv          init: init: chat template, thinking = 1",
+    "0.07.753.739 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "trace_mix_038",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.09.498.653 I srv          init: init: chat template, thinking = 1",
+    "0.09.498.663 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "trace_mix_039",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.08.376.030 I srv          init: init: chat template, thinking = 1",
+    "0.08.376.039 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "trace_mix_040",
+   "n_gen_per_request": [
+    1,
+    244
+   ],
+   "n_gen_scored_request": 244,
+   "chat_template_lines": [
+    "0.07.680.165 I srv          init: init: chat template, thinking = 1",
+    "0.07.680.173 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "trace_mix_041",
+   "n_gen_per_request": [
+    1,
+    230
+   ],
+   "n_gen_scored_request": 230,
+   "chat_template_lines": [
+    "0.07.767.635 I srv          init: init: chat template, thinking = 1",
+    "0.07.767.642 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "trace_mix_042",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.10.134.605 I srv          init: init: chat template, thinking = 1",
+    "0.10.134.613 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "trace_mix_043",
+   "n_gen_per_request": [
+    1,
+    236
+   ],
+   "n_gen_scored_request": 236,
+   "chat_template_lines": [
+    "0.07.856.124 I srv          init: init: chat template, thinking = 1",
+    "0.07.856.133 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "trace_mix_044",
+   "n_gen_per_request": [
+    1,
+    246
+   ],
+   "n_gen_scored_request": 246,
+   "chat_template_lines": [
+    "0.08.310.720 I srv          init: init: chat template, thinking = 1",
+    "0.08.310.729 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "trace_mix_049",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.05.236.183 I srv          init: init: chat template, thinking = 1",
+    "0.05.236.191 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "trace_mix_051",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.08.733.326 I srv          init: init: chat template, thinking = 1",
+    "0.08.733.334 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "trace_mix_052",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.07.670.529 I srv          init: init: chat template, thinking = 1",
+    "0.07.670.536 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "trace_mix_053",
+   "n_gen_per_request": [
+    1,
+    247
+   ],
+   "n_gen_scored_request": 247,
+   "chat_template_lines": [
+    "0.08.519.837 I srv          init: init: chat template, thinking = 1",
+    "0.08.519.846 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "trace_mix_054",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.07.864.109 I srv          init: init: chat template, thinking = 1",
+    "0.07.864.118 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "trace_mix_056",
+   "n_gen_per_request": [
+    1,
+    233
+   ],
+   "n_gen_scored_request": 233,
+   "chat_template_lines": [
+    "0.07.794.656 I srv          init: init: chat template, thinking = 1",
+    "0.07.794.665 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "trace_mix_057",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.07.828.739 I srv          init: init: chat template, thinking = 1",
+    "0.07.828.747 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "trace_mix_058",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.07.747.649 I srv          init: init: chat template, thinking = 1",
+    "0.07.747.656 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-32b",
+   "item_id": "trace_mix_059",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.07.745.502 I srv          init: init: chat template, thinking = 1",
+    "0.07.745.509 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_12000_00",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.02.018.927 I srv          init: init: chat template, thinking = 1",
+    "0.02.018.934 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_12000_01",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.02.002.845 I srv          init: init: chat template, thinking = 1",
+    "0.02.002.855 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_12000_02",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.02.010.005 I srv          init: init: chat template, thinking = 1",
+    "0.02.010.013 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_12000_03",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.02.011.045 I srv          init: init: chat template, thinking = 1",
+    "0.02.011.052 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_12000_04",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.02.015.906 I srv          init: init: chat template, thinking = 1",
+    "0.02.015.914 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_12000_05",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.02.014.871 I srv          init: init: chat template, thinking = 1",
+    "0.02.014.879 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_12000_06",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.02.013.414 I srv          init: init: chat template, thinking = 1",
+    "0.02.013.423 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_12000_07",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.02.025.987 I srv          init: init: chat template, thinking = 1",
+    "0.02.025.996 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_12000_08",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.02.018.690 I srv          init: init: chat template, thinking = 1",
+    "0.02.018.699 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_12000_09",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.02.015.695 I srv          init: init: chat template, thinking = 1",
+    "0.02.015.703 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_16000_00",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.02.590.279 I srv          init: init: chat template, thinking = 1",
+    "0.02.590.287 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_16000_01",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.03.076.409 I srv          init: init: chat template, thinking = 1",
+    "0.03.076.417 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_16000_02",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.06.914.550 I srv          init: init: chat template, thinking = 1",
+    "0.06.914.561 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_16000_03",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.04.454.076 I srv          init: init: chat template, thinking = 1",
+    "0.04.454.085 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_16000_04",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.06.441.433 I srv          init: init: chat template, thinking = 1",
+    "0.06.441.439 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_16000_05",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.01.766.374 I srv          init: init: chat template, thinking = 1",
+    "0.01.766.382 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_16000_06",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.01.754.014 I srv          init: init: chat template, thinking = 1",
+    "0.01.754.021 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_16000_07",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.01.766.528 I srv          init: init: chat template, thinking = 1",
+    "0.01.766.535 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_16000_08",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.01.771.500 I srv          init: init: chat template, thinking = 1",
+    "0.01.771.507 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_16000_09",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.04.229.815 I srv          init: init: chat template, thinking = 1",
+    "0.04.229.823 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_2000_06",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.01.694.004 I srv          init: init: chat template, thinking = 1",
+    "0.01.694.011 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_24000_00",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.02.488.063 I srv          init: init: chat template, thinking = 1",
+    "0.02.488.071 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_24000_01",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.02.530.720 I srv          init: init: chat template, thinking = 1",
+    "0.02.530.728 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_24000_02",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.02.502.349 I srv          init: init: chat template, thinking = 1",
+    "0.02.502.358 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_24000_03",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.02.517.489 I srv          init: init: chat template, thinking = 1",
+    "0.02.517.499 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_24000_04",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.02.512.217 I srv          init: init: chat template, thinking = 1",
+    "0.02.512.226 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_24000_05",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.02.504.337 I srv          init: init: chat template, thinking = 1",
+    "0.02.504.344 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_24000_06",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.02.485.632 I srv          init: init: chat template, thinking = 1",
+    "0.02.485.640 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_24000_07",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.02.501.689 I srv          init: init: chat template, thinking = 1",
+    "0.02.501.698 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_24000_08",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.02.536.361 I srv          init: init: chat template, thinking = 1",
+    "0.02.536.371 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_24000_09",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.02.521.837 I srv          init: init: chat template, thinking = 1",
+    "0.02.521.845 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_32000_00",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.02.840.960 I srv          init: init: chat template, thinking = 1",
+    "0.02.840.968 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_32000_01",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.02.946.945 I srv          init: init: chat template, thinking = 1",
+    "0.02.946.953 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_32000_02",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.02.917.911 I srv          init: init: chat template, thinking = 1",
+    "0.02.917.919 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_32000_03",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.02.872.280 I srv          init: init: chat template, thinking = 1",
+    "0.02.872.289 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_32000_04",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.02.849.601 I srv          init: init: chat template, thinking = 1",
+    "0.02.849.609 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_32000_05",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.02.870.376 I srv          init: init: chat template, thinking = 1",
+    "0.02.870.384 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_32000_06",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.02.878.499 I srv          init: init: chat template, thinking = 1",
+    "0.02.878.507 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_32000_07",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.02.862.104 I srv          init: init: chat template, thinking = 1",
+    "0.02.862.114 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_32000_08",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.02.863.330 I srv          init: init: chat template, thinking = 1",
+    "0.02.863.338 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_32000_09",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.02.902.401 I srv          init: init: chat template, thinking = 1",
+    "0.02.902.412 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_48000_00",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.03.462.352 I srv          init: init: chat template, thinking = 1",
+    "0.03.462.361 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_48000_01",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.03.493.278 I srv          init: init: chat template, thinking = 1",
+    "0.03.493.287 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_48000_02",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.03.468.797 I srv          init: init: chat template, thinking = 1",
+    "0.03.468.807 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_48000_03",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.03.470.052 I srv          init: init: chat template, thinking = 1",
+    "0.03.470.061 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_48000_04",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.03.480.567 I srv          init: init: chat template, thinking = 1",
+    "0.03.480.576 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_48000_05",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.03.477.226 I srv          init: init: chat template, thinking = 1",
+    "0.03.477.236 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_48000_06",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.03.524.377 I srv          init: init: chat template, thinking = 1",
+    "0.03.524.385 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_48000_07",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.03.483.599 I srv          init: init: chat template, thinking = 1",
+    "0.03.483.607 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_48000_08",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.03.484.773 I srv          init: init: chat template, thinking = 1",
+    "0.03.484.783 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_48000_09",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.03.518.373 I srv          init: init: chat template, thinking = 1",
+    "0.03.518.383 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_64000_00",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.04.206.753 I srv          init: init: chat template, thinking = 1",
+    "0.04.206.765 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_64000_01",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.04.213.640 I srv          init: init: chat template, thinking = 1",
+    "0.04.213.649 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_64000_02",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.04.196.568 I srv          init: init: chat template, thinking = 1",
+    "0.04.196.578 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_64000_03",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.04.232.421 I srv          init: init: chat template, thinking = 1",
+    "0.04.232.430 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_64000_04",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.04.213.954 I srv          init: init: chat template, thinking = 1",
+    "0.04.213.964 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_64000_05",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.04.236.550 I srv          init: init: chat template, thinking = 1",
+    "0.04.236.560 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_64000_06",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.04.205.214 I srv          init: init: chat template, thinking = 1",
+    "0.04.205.224 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_64000_07",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.04.188.246 I srv          init: init: chat template, thinking = 1",
+    "0.04.188.256 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_64000_08",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.04.235.638 I srv          init: init: chat template, thinking = 1",
+    "0.04.235.648 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_64000_09",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.04.126.914 I srv          init: init: chat template, thinking = 1",
+    "0.04.126.923 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_80000_00",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.04.805.048 I srv          init: init: chat template, thinking = 1",
+    "0.04.805.057 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_80000_01",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.04.792.725 I srv          init: init: chat template, thinking = 1",
+    "0.04.792.733 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_80000_02",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.04.810.405 I srv          init: init: chat template, thinking = 1",
+    "0.04.810.414 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_80000_03",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.04.787.700 I srv          init: init: chat template, thinking = 1",
+    "0.04.787.708 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_80000_04",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.04.790.410 I srv          init: init: chat template, thinking = 1",
+    "0.04.790.418 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_80000_05",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.04.762.834 I srv          init: init: chat template, thinking = 1",
+    "0.04.762.843 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_80000_06",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.04.820.375 I srv          init: init: chat template, thinking = 1",
+    "0.04.820.384 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_80000_07",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.07.519.754 I srv          init: init: chat template, thinking = 1",
+    "0.07.519.764 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_80000_08",
+   "n_gen_per_request": [],
+   "n_gen_scored_request": null,
+   "chat_template_lines": []
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_8000_00",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.01.881.257 I srv          init: init: chat template, thinking = 1",
+    "0.01.881.264 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_8000_01",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.01.869.254 I srv          init: init: chat template, thinking = 1",
+    "0.01.869.261 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_8000_02",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.01.903.659 I srv          init: init: chat template, thinking = 1",
+    "0.01.903.666 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_8000_03",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.01.864.092 I srv          init: init: chat template, thinking = 1",
+    "0.01.864.099 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_8000_04",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.01.861.845 I srv          init: init: chat template, thinking = 1",
+    "0.01.861.852 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_8000_05",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.01.880.893 I srv          init: init: chat template, thinking = 1",
+    "0.01.880.901 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_8000_06",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.01.864.855 I srv          init: init: chat template, thinking = 1",
+    "0.01.864.863 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_8000_07",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.01.881.386 I srv          init: init: chat template, thinking = 1",
+    "0.01.881.393 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_8000_08",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.01.857.233 I srv          init: init: chat template, thinking = 1",
+    "0.01.857.241 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "longdoc_8000_09",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.01.911.523 I srv          init: init: chat template, thinking = 1",
+    "0.01.911.530 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "trace_mix_000",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.02.114.739 I srv          init: init: chat template, thinking = 1",
+    "0.02.114.747 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "trace_mix_004",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.01.906.349 I srv          init: init: chat template, thinking = 1",
+    "0.01.906.356 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "trace_mix_007",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.01.717.520 I srv          init: init: chat template, thinking = 1",
+    "0.01.717.528 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "trace_mix_008",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.03.570.630 I srv          init: init: chat template, thinking = 1",
+    "0.03.570.644 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "trace_mix_009",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.01.807.983 I srv          init: init: chat template, thinking = 1",
+    "0.01.807.991 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "trace_mix_012",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.01.896.479 I srv          init: init: chat template, thinking = 1",
+    "0.01.896.487 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "trace_mix_013",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.01.734.958 I srv          init: init: chat template, thinking = 1",
+    "0.01.734.965 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "trace_mix_016",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.01.835.419 I srv          init: init: chat template, thinking = 1",
+    "0.01.835.429 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "trace_mix_017",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.01.713.341 I srv          init: init: chat template, thinking = 1",
+    "0.01.713.348 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "trace_mix_018",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.06.178.414 I srv          init: init: chat template, thinking = 1",
+    "0.06.178.427 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "trace_mix_028",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.02.049.826 I srv          init: init: chat template, thinking = 1",
+    "0.02.049.834 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "trace_mix_029",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.01.728.788 I srv          init: init: chat template, thinking = 1",
+    "0.01.728.795 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "trace_mix_032",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.01.813.921 I srv          init: init: chat template, thinking = 1",
+    "0.01.813.929 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "trace_mix_033",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.01.773.112 I srv          init: init: chat template, thinking = 1",
+    "0.01.773.119 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "trace_mix_034",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.01.778.387 I srv          init: init: chat template, thinking = 1",
+    "0.01.778.393 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "trace_mix_038",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.02.822.015 I srv          init: init: chat template, thinking = 1",
+    "0.02.822.023 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "trace_mix_039",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.02.113.262 I srv          init: init: chat template, thinking = 1",
+    "0.02.113.269 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "trace_mix_040",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.01.665.663 I srv          init: init: chat template, thinking = 1",
+    "0.01.665.671 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "trace_mix_041",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.01.804.575 I srv          init: init: chat template, thinking = 1",
+    "0.01.804.581 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "trace_mix_042",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.02.071.051 I srv          init: init: chat template, thinking = 1",
+    "0.02.071.059 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "trace_mix_043",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.01.889.981 I srv          init: init: chat template, thinking = 1",
+    "0.01.889.989 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "trace_mix_044",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.05.182.394 I srv          init: init: chat template, thinking = 1",
+    "0.05.182.407 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "trace_mix_049",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.03.237.992 I srv          init: init: chat template, thinking = 1",
+    "0.03.238.001 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "trace_mix_051",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.02.367.752 I srv          init: init: chat template, thinking = 1",
+    "0.02.367.760 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "trace_mix_052",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.01.704.506 I srv          init: init: chat template, thinking = 1",
+    "0.01.704.514 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "trace_mix_053",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.02.244.016 I srv          init: init: chat template, thinking = 1",
+    "0.02.244.026 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "trace_mix_054",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.01.901.551 I srv          init: init: chat template, thinking = 1",
+    "0.01.901.559 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "trace_mix_056",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.01.742.930 I srv          init: init: chat template, thinking = 1",
+    "0.01.742.939 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "trace_mix_057",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.01.920.417 I srv          init: init: chat template, thinking = 1",
+    "0.01.920.426 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "trace_mix_058",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.01.704.087 I srv          init: init: chat template, thinking = 1",
+    "0.01.704.096 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-4b-2507",
+   "item_id": "trace_mix_059",
+   "n_gen_per_request": [
+    1,
+    11
+   ],
+   "n_gen_scored_request": 11,
+   "chat_template_lines": [
+    "0.01.769.864 I srv          init: init: chat template, thinking = 1",
+    "0.01.769.872 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_12000_00",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.02.847.454 I srv          init: init: chat template, thinking = 1",
+    "0.02.847.463 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_12000_01",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.02.913.760 I srv          init: init: chat template, thinking = 1",
+    "0.02.913.769 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_12000_02",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.03.394.113 I srv          init: init: chat template, thinking = 1",
+    "0.03.394.121 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_12000_03",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.02.855.217 I srv          init: init: chat template, thinking = 1",
+    "0.02.855.225 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_12000_04",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.02.835.439 I srv          init: init: chat template, thinking = 1",
+    "0.02.835.447 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_12000_05",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.02.875.845 I srv          init: init: chat template, thinking = 1",
+    "0.02.875.855 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_12000_06",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.02.889.085 I srv          init: init: chat template, thinking = 1",
+    "0.02.889.093 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_12000_07",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.02.843.042 I srv          init: init: chat template, thinking = 1",
+    "0.02.843.049 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_12000_08",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.02.848.440 I srv          init: init: chat template, thinking = 1",
+    "0.02.848.449 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_12000_09",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.02.833.624 I srv          init: init: chat template, thinking = 1",
+    "0.02.833.634 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_16000_00",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.03.715.374 I srv          init: init: chat template, thinking = 1",
+    "0.03.715.382 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_16000_01",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.03.253.596 I srv          init: init: chat template, thinking = 1",
+    "0.03.253.604 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_16000_02",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.18.262.849 I srv          init: init: chat template, thinking = 1",
+    "0.18.262.981 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_16000_03",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.03.365.128 I srv          init: init: chat template, thinking = 1",
+    "0.03.365.136 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_16000_04",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.03.053.392 I srv          init: init: chat template, thinking = 1",
+    "0.03.053.399 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_16000_05",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.03.586.704 I srv          init: init: chat template, thinking = 1",
+    "0.03.586.712 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_16000_06",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.02.378.223 I srv          init: init: chat template, thinking = 1",
+    "0.02.378.230 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_16000_07",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.02.388.814 I srv          init: init: chat template, thinking = 1",
+    "0.02.388.822 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_16000_08",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.02.386.603 I srv          init: init: chat template, thinking = 1",
+    "0.02.386.610 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_16000_09",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.05.655.002 I srv          init: init: chat template, thinking = 1",
+    "0.05.655.009 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_2000_06",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.02.464.506 I srv          init: init: chat template, thinking = 1",
+    "0.02.464.515 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_24000_00",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.03.256.749 I srv          init: init: chat template, thinking = 1",
+    "0.03.256.757 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_24000_01",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.03.305.369 I srv          init: init: chat template, thinking = 1",
+    "0.03.305.376 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_24000_02",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.03.335.177 I srv          init: init: chat template, thinking = 1",
+    "0.03.335.185 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_24000_03",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.03.349.665 I srv          init: init: chat template, thinking = 1",
+    "0.03.349.674 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_24000_04",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.03.325.577 I srv          init: init: chat template, thinking = 1",
+    "0.03.325.585 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_24000_05",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.03.349.810 I srv          init: init: chat template, thinking = 1",
+    "0.03.349.817 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_24000_06",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.03.338.810 I srv          init: init: chat template, thinking = 1",
+    "0.03.338.818 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_24000_07",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.03.323.539 I srv          init: init: chat template, thinking = 1",
+    "0.03.323.548 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_24000_08",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.03.351.331 I srv          init: init: chat template, thinking = 1",
+    "0.03.351.338 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_24000_09",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.03.367.458 I srv          init: init: chat template, thinking = 1",
+    "0.03.367.466 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_32000_00",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.03.682.448 I srv          init: init: chat template, thinking = 1",
+    "0.03.682.457 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_32000_01",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.03.665.984 I srv          init: init: chat template, thinking = 1",
+    "0.03.665.993 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_32000_02",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.03.703.701 I srv          init: init: chat template, thinking = 1",
+    "0.03.703.710 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_32000_03",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.03.686.971 I srv          init: init: chat template, thinking = 1",
+    "0.03.686.979 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_32000_04",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.03.674.193 I srv          init: init: chat template, thinking = 1",
+    "0.03.674.203 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_32000_05",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.03.670.320 I srv          init: init: chat template, thinking = 1",
+    "0.03.670.329 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_32000_06",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.03.685.927 I srv          init: init: chat template, thinking = 1",
+    "0.03.685.936 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_32000_07",
+   "n_gen_per_request": [
+    1,
+    248
+   ],
+   "n_gen_scored_request": 248,
+   "chat_template_lines": [
+    "0.03.686.853 I srv          init: init: chat template, thinking = 1",
+    "0.03.686.862 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_32000_08",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.03.702.769 I srv          init: init: chat template, thinking = 1",
+    "0.03.702.778 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_32000_09",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.03.678.163 I srv          init: init: chat template, thinking = 1",
+    "0.03.678.173 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_48000_00",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.04.283.910 I srv          init: init: chat template, thinking = 1",
+    "0.04.283.919 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_48000_01",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.04.307.199 I srv          init: init: chat template, thinking = 1",
+    "0.04.307.209 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_48000_02",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.04.344.596 I srv          init: init: chat template, thinking = 1",
+    "0.04.344.605 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_48000_03",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.04.284.162 I srv          init: init: chat template, thinking = 1",
+    "0.04.284.172 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_48000_04",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.04.267.435 I srv          init: init: chat template, thinking = 1",
+    "0.04.267.443 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_48000_05",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.04.323.790 I srv          init: init: chat template, thinking = 1",
+    "0.04.323.798 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_48000_06",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.04.284.406 I srv          init: init: chat template, thinking = 1",
+    "0.04.284.416 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_48000_07",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.04.300.409 I srv          init: init: chat template, thinking = 1",
+    "0.04.300.418 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_48000_08",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.04.281.930 I srv          init: init: chat template, thinking = 1",
+    "0.04.281.940 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_48000_09",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.04.346.057 I srv          init: init: chat template, thinking = 1",
+    "0.04.346.066 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_64000_00",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.04.996.986 I srv          init: init: chat template, thinking = 1",
+    "0.04.996.996 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_64000_01",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.04.989.919 I srv          init: init: chat template, thinking = 1",
+    "0.04.989.930 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_64000_02",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.05.035.294 I srv          init: init: chat template, thinking = 1",
+    "0.05.035.305 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_64000_03",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.05.002.345 I srv          init: init: chat template, thinking = 1",
+    "0.05.002.356 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_64000_04",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.05.013.738 I srv          init: init: chat template, thinking = 1",
+    "0.05.013.748 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_64000_05",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.05.113.739 I srv          init: init: chat template, thinking = 1",
+    "0.05.113.749 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_64000_06",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.05.039.227 I srv          init: init: chat template, thinking = 1",
+    "0.05.039.238 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_64000_07",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.05.020.747 I srv          init: init: chat template, thinking = 1",
+    "0.05.020.757 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_64000_08",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.05.077.828 I srv          init: init: chat template, thinking = 1",
+    "0.05.077.839 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_64000_09",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.05.007.258 I srv          init: init: chat template, thinking = 1",
+    "0.05.007.266 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_80000_00",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.05.592.927 I srv          init: init: chat template, thinking = 1",
+    "0.05.592.938 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_80000_01",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.05.609.769 I srv          init: init: chat template, thinking = 1",
+    "0.05.609.777 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_80000_02",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.05.614.869 I srv          init: init: chat template, thinking = 1",
+    "0.05.614.879 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_80000_03",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.05.581.067 I srv          init: init: chat template, thinking = 1",
+    "0.05.581.075 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_80000_04",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.05.594.499 I srv          init: init: chat template, thinking = 1",
+    "0.05.594.510 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_80000_05",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.05.587.552 I srv          init: init: chat template, thinking = 1",
+    "0.05.587.562 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_80000_06",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.05.596.698 I srv          init: init: chat template, thinking = 1",
+    "0.05.596.707 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_80000_07",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.06.405.205 I srv          init: init: chat template, thinking = 1",
+    "0.06.405.213 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_80000_08",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.08.484.253 I srv          init: init: chat template, thinking = 1",
+    "0.08.484.261 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_8000_00",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.02.672.179 I srv          init: init: chat template, thinking = 1",
+    "0.02.672.186 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_8000_01",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.02.707.374 I srv          init: init: chat template, thinking = 1",
+    "0.02.707.382 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_8000_02",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.02.668.589 I srv          init: init: chat template, thinking = 1",
+    "0.02.668.597 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_8000_03",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.02.683.245 I srv          init: init: chat template, thinking = 1",
+    "0.02.683.253 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_8000_04",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.02.685.879 I srv          init: init: chat template, thinking = 1",
+    "0.02.685.886 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_8000_05",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.02.665.781 I srv          init: init: chat template, thinking = 1",
+    "0.02.665.788 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_8000_06",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.02.695.648 I srv          init: init: chat template, thinking = 1",
+    "0.02.695.655 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_8000_07",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.02.714.349 I srv          init: init: chat template, thinking = 1",
+    "0.02.714.356 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_8000_08",
+   "n_gen_per_request": [
+    1,
+    240
+   ],
+   "n_gen_scored_request": 240,
+   "chat_template_lines": [
+    "0.02.678.721 I srv          init: init: chat template, thinking = 1",
+    "0.02.678.730 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "longdoc_8000_09",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.02.697.177 I srv          init: init: chat template, thinking = 1",
+    "0.02.697.186 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "trace_mix_000",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.02.948.645 I srv          init: init: chat template, thinking = 1",
+    "0.02.948.653 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "trace_mix_004",
+   "n_gen_per_request": [
+    1,
+    208
+   ],
+   "n_gen_scored_request": 208,
+   "chat_template_lines": [
+    "0.02.705.229 I srv          init: init: chat template, thinking = 1",
+    "0.02.705.237 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "trace_mix_007",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.02.565.539 I srv          init: init: chat template, thinking = 1",
+    "0.02.565.547 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "trace_mix_008",
+   "n_gen_per_request": [
+    1
+   ],
+   "n_gen_scored_request": 1,
+   "chat_template_lines": [
+    "0.04.395.231 I srv          init: init: chat template, thinking = 1",
+    "0.04.395.239 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "trace_mix_009",
+   "n_gen_per_request": [
+    1,
+    243
+   ],
+   "n_gen_scored_request": 243,
+   "chat_template_lines": [
+    "0.02.622.281 I srv          init: init: chat template, thinking = 1",
+    "0.02.622.289 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "trace_mix_012",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.02.727.161 I srv          init: init: chat template, thinking = 1",
+    "0.02.727.170 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "trace_mix_013",
+   "n_gen_per_request": [
+    1,
+    213
+   ],
+   "n_gen_scored_request": 213,
+   "chat_template_lines": [
+    "0.02.504.938 I srv          init: init: chat template, thinking = 1",
+    "0.02.504.946 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "trace_mix_016",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.02.630.885 I srv          init: init: chat template, thinking = 1",
+    "0.02.630.895 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "trace_mix_017",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.02.460.588 I srv          init: init: chat template, thinking = 1",
+    "0.02.460.596 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "trace_mix_018",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.15.862.670 I srv          init: init: chat template, thinking = 1",
+    "0.15.862.808 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "trace_mix_028",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.02.882.972 I srv          init: init: chat template, thinking = 1",
+    "0.02.882.981 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "trace_mix_029",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.02.554.651 I srv          init: init: chat template, thinking = 1",
+    "0.02.554.659 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "trace_mix_032",
+   "n_gen_per_request": [
+    1,
+    246
+   ],
+   "n_gen_scored_request": 246,
+   "chat_template_lines": [
+    "0.02.619.127 I srv          init: init: chat template, thinking = 1",
+    "0.02.619.137 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "trace_mix_033",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.02.595.818 I srv          init: init: chat template, thinking = 1",
+    "0.02.595.825 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "trace_mix_034",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.02.587.010 I srv          init: init: chat template, thinking = 1",
+    "0.02.587.019 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "trace_mix_038",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.03.599.272 I srv          init: init: chat template, thinking = 1",
+    "0.03.599.281 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "trace_mix_039",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.02.997.446 I srv          init: init: chat template, thinking = 1",
+    "0.02.997.454 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "trace_mix_040",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.02.477.140 I srv          init: init: chat template, thinking = 1",
+    "0.02.477.149 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "trace_mix_041",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.02.621.512 I srv          init: init: chat template, thinking = 1",
+    "0.02.621.519 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "trace_mix_042",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.03.051.193 I srv          init: init: chat template, thinking = 1",
+    "0.03.051.200 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "trace_mix_043",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.02.688.168 I srv          init: init: chat template, thinking = 1",
+    "0.02.688.175 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "trace_mix_044",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.14.230.369 I srv          init: init: chat template, thinking = 1",
+    "0.14.230.514 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "trace_mix_049",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.06.374.211 I srv          init: init: chat template, thinking = 1",
+    "0.06.374.221 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "trace_mix_051",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.03.209.239 I srv          init: init: chat template, thinking = 1",
+    "0.03.209.246 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "trace_mix_052",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.02.491.763 I srv          init: init: chat template, thinking = 1",
+    "0.02.491.771 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "trace_mix_053",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.03.063.992 I srv          init: init: chat template, thinking = 1",
+    "0.03.064.000 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "trace_mix_054",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.02.691.741 I srv          init: init: chat template, thinking = 1",
+    "0.02.691.748 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "trace_mix_056",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.02.575.945 I srv          init: init: chat template, thinking = 1",
+    "0.02.575.952 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "trace_mix_057",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.02.645.144 I srv          init: init: chat template, thinking = 1",
+    "0.02.645.151 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "trace_mix_058",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.02.573.696 I srv          init: init: chat template, thinking = 1",
+    "0.02.573.705 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  },
+  {
+   "model_id": "qwen3-8b",
+   "item_id": "trace_mix_059",
+   "n_gen_per_request": [
+    1,
+    256
+   ],
+   "n_gen_scored_request": 256,
+   "chat_template_lines": [
+    "0.02.571.068 I srv          init: init: chat template, thinking = 1",
+    "0.02.571.075 I srv          init: preserve_reasoning kwarg: not supported by template"
+   ]
+  }
+ ]
+}

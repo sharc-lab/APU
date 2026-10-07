@@ -918,6 +918,137 @@ def compute_x2_device_detect_mechanism(repo):
            "n": 3, "detail": {"quoted_log_lines": quoted_lines, "source_log": "C:\\apu\\ovn\\ollama_serve.log on evo-x2"}}
 
 
+# ───────────────────────────────────────────────── X2 outcome table validity overhaul (2026-10-07)
+X2_WEEKEND = "results/x2_outcome_table_weekend.jsonl"
+X2_WEEKEND_LOGSCAN = "results/x2_weekend_llamaserver_log_scan.json"
+T2S_OUTCOME_FULL = "results/t2s_outcome_table_full.jsonl"
+
+
+def _x2_harness():
+    import sys
+    sys.path.insert(0, str(REPO / "harness"))
+    import x2_outcome_table as x2
+    return x2
+
+
+def _x2_weekend_tagged_rows(repo):
+    """The committed weekend file is untagged; apply harness/x2_outcome_table.py's tag rules in memory on a
+    temporary copy (the committed file is never modified here)."""
+    import shutil
+    import tempfile
+    x2 = _x2_harness()
+    src = repo / X2_WEEKEND
+    with tempfile.TemporaryDirectory() as td:
+        cp = Path(td) / "weekend.jsonl"
+        shutil.copy(src, cp)
+        x2.tag_invalid_rows(cp)
+        return x2, [r for r in x2.read_rows(cp) if r.get("record") == "outcome_row"]
+
+
+def compute_x2_weekend_tag_counts(repo):
+    x2, rows = _x2_weekend_tagged_rows(repo)
+    race = [r for r in rows if r.get("invalid_race")]
+    causes = {}
+    for r in race:
+        causes[r["invalid_race_cause"]] = causes.get(r["invalid_race_cause"], 0) + 1
+    n_think = sum(1 for r in rows if r.get("invalid_thinking"))
+    n_oom = sum(1 for r in rows if r.get("invalid_infra_oom"))
+    n_valid = sum(1 for r in rows if x2.row_is_valid(r))
+    cause_str = ", ".join(f"{k} {v}" for k, v in sorted(causes.items(), key=lambda kv: -kv[1]))
+    return {"value": f"invalid_race {len(race)} ({cause_str}); invalid_thinking {n_think}; invalid_infra_oom {n_oom}; "
+                     f"valid reusable {n_valid} of {len(rows)} outcome rows",
+            "n": len(rows)}
+
+
+def compute_x2_weekend_refused_block(repo):
+    """The contiguous connection-refused block on ollama_default: count, successes inside the window, and the
+    first/last timestamps (the attribution argument: a stop/start race leaves intermittent successes)."""
+    x2 = _x2_harness()
+    rows = [r for r in x2.read_rows(repo / X2_WEEKEND) if r.get("record") == "outcome_row"
+            and r["config"] == "ollama_default"]
+    lo, hi = "2026-10-05T00:00:00", "2026-10-07T00:31:00"
+    win = [r for r in rows if lo <= r["ts_utc"][:19] <= hi]
+    refused = [r for r in win if "10061" in (r.get("error") or "")]
+    ok = [r for r in win if r.get("http_status") == 200]
+    after = [r for r in rows if r["ts_utc"][:19] > hi]
+    after_refused = sum(1 for r in after if "10061" in (r.get("error") or ""))
+    return {"value": f"{len(refused)}/{len(win)} ollama_default calls refused, {len(ok)} succeeded, "
+                     f"{refused[0]['ts_utc'][:19]}Z to {refused[-1]['ts_utc'][:19]}Z; after the user-session relaunch: "
+                     f"{after_refused}/{len(after)} refused",
+            "n": len(win)}
+
+
+def compute_x2_weekend_error_causes(repo):
+    x2 = _x2_harness()
+    rows = [r for r in x2.read_rows(repo / X2_WEEKEND) if r.get("record") == "outcome_row"]
+    tot = {}
+    sub = {}
+    for r in rows:
+        c = x2.classify_error_cause(r)
+        tot[c] = tot.get(c, 0) + 1
+        if c != "none":
+            k = f"{r['config']}/{c}/{x2.error_subcause(r)}"
+            sub[k] = sub.get(k, 0) + 1
+    order = ["none", "context_overflow", "timeout", "connection", "other"]
+    return {"value": "; ".join(f"{c} {tot.get(c, 0)}" for c in order) + "; subcauses: " +
+                     ", ".join(f"{k} {v}" for k, v in sorted(sub.items())),
+            "n": len(rows)}
+
+
+def compute_x2_weekend_thinking_scores(repo):
+    """Mean score over ALL weekend llama_server rows per model (errors score 0), the 0.05-0.22 vs 0.84-1.00 split."""
+    x2 = _x2_harness()
+    rows = [r for r in x2.read_rows(repo / X2_WEEKEND) if r.get("record") == "outcome_row"
+            and r["config"] == "llama_server"]
+    by = {}
+    for r in rows:
+        by.setdefault(r["model_id"], []).append(r.get("score") or 0.0)
+    return {"value": ", ".join(f"{m} {sum(v) / len(v):.3f} (n={len(v)})" for m, v in sorted(by.items())),
+            "n": len(rows)}
+
+
+def compute_x2_weekend_ngen_budget(repo):
+    """From the weekend llama-server log scan: share of scored requests whose generated-token count equals the
+    256-token max_tokens budget, per model, plus the chat-template thinking flag the server logged."""
+    d = json.loads((repo / X2_WEEKEND_LOGSCAN).read_text(encoding="utf-8"))
+    by = {}
+    thinking_flag = {}
+    for r in d["rows"]:
+        g = r["n_gen_scored_request"]
+        if g is None:
+            continue
+        b = by.setdefault(r["model_id"], [0, 0, 0])
+        b[0] += 1
+        b[1] += g == d["max_tokens"]
+        b[2] += g
+        for line in r["chat_template_lines"]:
+            if "thinking =" in line:
+                thinking_flag.setdefault(r["model_id"], set()).add(line.split("thinking =")[1].strip())
+    parts = [f"{m} {v[1]}/{v[0]} at 256 (mean n_gen {v[2] / v[0]:.1f}, template thinking={','.join(sorted(thinking_flag.get(m, [])))})"
+             for m, v in sorted(by.items())]
+    return {"value": "; ".join(parts), "n": sum(v[0] for v in by.values())}
+
+
+def compute_t2s_outcome_error_causes(repo):
+    x2 = _x2_harness()
+    rows = [r for r in x2.read_rows(repo / T2S_OUTCOME_FULL) if r.get("record") == "outcome_row"]
+    tot, sub = {}, {}
+    race = 0
+    for r in rows:
+        c = x2.classify_error_cause(r)
+        tot[c] = tot.get(c, 0) + 1
+        if c != "none":
+            k = f"{r['config']}/{c}/{x2.error_subcause(r)}"
+            sub[k] = sub.get(k, 0) + 1
+        if any(m in (r.get("error") or "").lower() for m in x2._CONNECTION_REFUSED_MARKERS):
+            race += 1
+    order = ["none", "context_overflow", "timeout", "connection", "other"]
+    return {"value": "; ".join(f"{c} {tot.get(c, 0)}" for c in order) + "; subcauses: " +
+                     ", ".join(f"{k} {v}" for k, v in sorted(sub.items())) +
+                     f"; connection-refused race signature: {race}",
+            "n": len(rows)}
+
+
 NUMBER_ENTRIES = [
     {"claim_id": "PX2-TTFT-gap", "description": "PX2 B4-vs-S4 TTFT gap range across 5 models",
      "compute": compute_px2_ttft_gap, "data_files": ["results/t2s_night2_20260930T135145Z.jsonl"],
@@ -1038,6 +1169,24 @@ NUMBER_ENTRIES = [
      "compute": compute_x2_device_detect_mechanism,
      "data_files": ["results/x2_template_mechanism_test.jsonl"],
      "script_function": "analysis/numbers_register.py::compute_x2_device_detect_mechanism"},
+    {"claim_id": "x2-weekend-tag-counts", "description": "X2 weekend outcome rows tagged invalid (race/thinking/oom), with verified race cause",
+     "compute": compute_x2_weekend_tag_counts, "data_files": [X2_WEEKEND],
+     "script_function": "analysis/numbers_register.py::compute_x2_weekend_tag_counts"},
+    {"claim_id": "x2-weekend-refused-block", "description": "X2 weekend contiguous ollama connection-refused block (SYSTEM lineage)",
+     "compute": compute_x2_weekend_refused_block, "data_files": [X2_WEEKEND],
+     "script_function": "analysis/numbers_register.py::compute_x2_weekend_refused_block"},
+    {"claim_id": "x2-weekend-error-causes", "description": "X2 weekend outcome rows by error cause and subcause",
+     "compute": compute_x2_weekend_error_causes, "data_files": [X2_WEEKEND],
+     "script_function": "analysis/numbers_register.py::compute_x2_weekend_error_causes"},
+    {"claim_id": "x2-weekend-thinking-scores", "description": "X2 weekend llama_server mean score per model (all rows)",
+     "compute": compute_x2_weekend_thinking_scores, "data_files": [X2_WEEKEND],
+     "script_function": "analysis/numbers_register.py::compute_x2_weekend_thinking_scores"},
+    {"claim_id": "x2-weekend-ngen-budget", "description": "X2 weekend llama-server scored requests that used the full 256-token budget, per model",
+     "compute": compute_x2_weekend_ngen_budget, "data_files": [X2_WEEKEND_LOGSCAN],
+     "script_function": "analysis/numbers_register.py::compute_x2_weekend_ngen_budget"},
+    {"claim_id": "t2s-outcome-error-causes", "description": "T2S outcome table (synced full file) rows by error cause, and race-signature count",
+     "compute": compute_t2s_outcome_error_causes, "data_files": [T2S_OUTCOME_FULL],
+     "script_function": "analysis/numbers_register.py::compute_t2s_outcome_error_causes"},
 ]
 
 
