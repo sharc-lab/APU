@@ -1092,7 +1092,11 @@ def compute_t2s_outcome_error_causes(repo):
                      ", ".join(f"{k} {v}" for k, v in sorted(sub.items())) +
                      f"; connection-refused race signature: {race}",
             "n": len(rows)}
-R2_VALIDATION_FILE = "results/x2_r2_validation.jsonl"
+
+
+# ───────────────────────────────────────────────── R2 two-step agent harness validation (2026-10-07)
+R2_VALIDATION_FILE = "results/x2_r2_validation.jsonl"        # v1: spec variant (tools on call 2), one canary pair
+R2_VALIDATION_V2_FILE = "results/x2_r2_validation_v2.jsonl"  # v2: tools withheld on call 2, per-check canaries
 
 
 def _r2_agent_module():
@@ -1102,48 +1106,68 @@ def _r2_agent_module():
     return x2_r2_agent
 
 
-def compute_r2_validation_baseline(repo):
-    """R2 two-step harness validation on evo-x2 (harness/x2_r2_agent.py, arm b num_ctx 131072, 3 seeds x 10
-    turns per model): per model, each rule's compliance on the final answer (rule 2 turn-level OR), tool validity
-    per call, tool arguments per valid call, recall, and the negative/positive control results. Computed by
-    x2_r2_agent.evaluate_gates over completed sessions only."""
-    ag = _r2_agent_module()
-    rows = ag.read_rows(repo / R2_VALIDATION_FILE)
-    if not rows:
-        raise FileNotFoundError(repo / R2_VALIDATION_FILE)
-    rep = ag.evaluate_gates(rows)
+def _pct(x):
+    return "n/a" if x is None else f"{100 * x:.1f}%"
 
-    def pct(x):
-        return "n/a" if x is None else f"{100 * x:.1f}%"
-    parts = []
-    n_total = 0
+
+def _r2_table_str(e):
+    rules = ", ".join(f"{r.split('_')[0]} {_pct(v['rate'])}" for r, v in e["rules"].items())
+    return (f"{rules}; tool validity {_pct(e['tool_validity']['rate'])} of {e['tool_validity']['n_calls']} calls; "
+            f"tool args {_pct(e['tool_args']['rate'])}; recall {_pct(e['recall']['rate'])} (n={e['recall']['n']}); "
+            f"canary C {_pct(e['canary_sys']['rate'])}, H {_pct(e['canary_hist']['rate'])} (n={e['canary_sys']['n']}); "
+            f"empty final answers {e['final_content_empty']}")
+
+
+def _r2_gates_summary(repo, rel, call2_tools):
+    ag = _r2_agent_module()
+    rows = ag.read_rows(repo / rel)
+    if not rows:
+        raise FileNotFoundError(repo / rel)
+    rep = ag.evaluate_gates(rows, call2_tools=call2_tools)
+    parts, n_total = [], 0
     for model, e in sorted(rep["baseline_table"].items()):
         n_total += e["n_turns"]
-        rules = ", ".join(f"{r.split('_')[0]} {pct(v['rate'])}" for r, v in e["rules"].items())
         neg = rep["controls"]["negative"].get(model, {})
         pos = rep["controls"]["positive"].get(model, {})
-        parts.append(f"{model}: {rules}; tool validity {pct(e['tool_validity']['rate'])} of "
-                     f"{e['tool_validity']['n_calls']} calls; tool args {pct(e['tool_args']['rate'])}; recall "
-                     f"{pct(e['recall']['rate'])} (n={e['recall']['n']}); negative-control canary misses "
-                     f"{neg.get('canary_misses')}; positive-control truncation turn "
+        parts.append(f"{model}: {_r2_table_str(e)}; negative-control canary misses {neg.get('canary_misses')}/"
+                     f"{2 * neg.get('canary_checks', 0)}; positive-control truncation turn "
                      f"{pos.get('truncation_detected_turns')}")
     return {"value": " / ".join(parts), "n": f"{n_total} turns", "detail": rep}
 
 
-def compute_r2_validation_call2_notools(repo):
-    """Same validation file, the diagnostic arm (tools withheld on call 2 only): per model rule compliance."""
+def _r2_diag_summary(repo, rel, arm):
     ag = _r2_agent_module()
-    rows = ag.read_rows(repo / R2_VALIDATION_FILE)
+    rows = ag.read_rows(repo / rel)
     if not rows:
-        raise FileNotFoundError(repo / R2_VALIDATION_FILE)
-    table = ag.baseline_table(rows, arm="ollama_ctx_131072" + ag.NOTOOLS_SUFFIX)
-    def pct(x):
-        return "n/a" if x is None else f"{100 * x:.1f}%"
-    parts = []
-    for model, e in sorted(table.items()):
-        rules = ", ".join(f"{r.split('_')[0]} {pct(v['rate'])}" for r, v in e["rules"].items())
-        parts.append(f"{model}: {rules}; tool validity {pct(e['tool_validity']['rate'])}")
-    return {"value": " / ".join(parts), "n": sum(e["n_turns"] for e in table.values()), "detail": table}
+        raise FileNotFoundError(repo / rel)
+    table = ag.baseline_table(rows, arm=arm)
+    parts = [f"{m}: {_r2_table_str(e)}" for m, e in sorted(table.items())]
+    return {"value": " / ".join(parts), "n": f"{sum(e['n_turns'] for e in table.values())} turns", "detail": table}
+
+
+def compute_r2_validation_baseline(repo):
+    """R2 validation v1 (harness/x2_r2_agent.py, spec variant: tools available on call 2; arm b num_ctx 131072,
+    3 seeds x 10 turns per model; positive control 8192): per model rule compliance on the final answer (rule 2
+    turn-level OR), tool validity per call, tool arguments per valid call, recall, canaries, controls. Superseded
+    as a gate by v2 (canary echo and llama3.1 call-2 tool loops, see docs/R2_DESIGN.md)."""
+    return _r2_gates_summary(repo, R2_VALIDATION_FILE, True)
+
+
+def compute_r2_validation_call2_notools(repo):
+    """v1 file, the diagnostic arm (tools withheld on call 2 only, same seeds): per model table."""
+    ag = _r2_agent_module()
+    return _r2_diag_summary(repo, R2_VALIDATION_FILE, "ollama_ctx_131072" + ag.NOTOOLS_SUFFIX)
+
+
+def compute_r2_validation_v2_baseline(repo):
+    """R2 validation v2, the gate for the real run: tools withheld on call 2, per-check canaries, arm b 131072
+    3 seeds x 10 turns, positive control 8192 1 seed x 15 turns, per model."""
+    return _r2_gates_summary(repo, R2_VALIDATION_V2_FILE, False)
+
+
+def compute_r2_validation_v2_spec_diag(repo):
+    """v2 file, the diagnostic arm: the spec variant (tools available on call 2) with per-check canaries."""
+    return _r2_diag_summary(repo, R2_VALIDATION_V2_FILE, "ollama_ctx_131072")
 
 
 NUMBER_ENTRIES = [
@@ -1299,6 +1323,15 @@ NUMBER_ENTRIES = [
      "description": "R2 validation diagnostic arm (tools withheld on call 2 only): per model rule compliance",
      "compute": compute_r2_validation_call2_notools, "data_files": [R2_VALIDATION_FILE],
      "script_function": "analysis/numbers_register.py::compute_r2_validation_call2_notools"},
+    {"claim_id": "R2-validation-v2-baseline",
+     "description": "R2 validation v2 (gate for the real run; tools withheld on call 2, per-check canaries): per model "
+                    "rule/tool/recall/canary baseline and negative/positive control results",
+     "compute": compute_r2_validation_v2_baseline, "data_files": [R2_VALIDATION_V2_FILE],
+     "script_function": "analysis/numbers_register.py::compute_r2_validation_v2_baseline"},
+    {"claim_id": "R2-validation-v2-spec-diag",
+     "description": "R2 validation v2 diagnostic arm (spec variant, tools available on call 2, per-check canaries)",
+     "compute": compute_r2_validation_v2_spec_diag, "data_files": [R2_VALIDATION_V2_FILE],
+     "script_function": "analysis/numbers_register.py::compute_r2_validation_v2_spec_diag"},
 ]
 
 

@@ -175,11 +175,14 @@ one extends the spec it says so.
   first user message lists H1..H8; turn 5k asks for Ck and Hk only, so no earlier answer can carry the requested
   canary forward. An answer that contains a different check's canary is recorded (`other_canaries_in_answer`).
 - **Tools withheld on call 2 for the real run (deviation from step 4).** With tools available on call 2,
-  llama3.1:8b answered call 2 with another tool call on every turn (30/30), sometimes stuffing its JSON answer into
-  the tool arguments, so its final text was empty or missing and every text rule failed for a harness reason, not a
-  context reason. With tools withheld on call 2 only (the diagnostic arm, same seeds) its final answers were all
-  non-empty. Both models therefore run the `_call2_notools` arms (`--call2-tools off`), validated again under that
-  variant before the real run. Rule 2 is still a turn-level OR, now in practice satisfied only by call 1.
+  llama3.1:8b answered call 2 with another tool call on 20 of 30 turns in the first run, sometimes stuffing its
+  JSON answer into the tool arguments, leaving those 20 final answers empty, so the text rules failed for a harness
+  reason, not a context reason. With tools withheld on call 2 only (the diagnostic arm, same seeds) all 30 final
+  answers were non-empty. (In the second run, whose prompts differ by the numbered canaries, the spec-variant
+  diagnostic arm made no call-2 tool calls, but llama3.1:8b's rule 5 fell to 0% there against 60% with tools
+  withheld; qwen3:14b passed every rule under both variants.) Both models therefore run the `_call2_notools` arms
+  (`--call2-tools off`), validated again under that variant before the real run. Rule 2 is still a turn-level OR,
+  now in practice satisfied only by call 1.
 - **Per-model rules in use.** A rule that misses the 90% gate for one model is dropped for that model only;
   `--rules-from <validation file>` makes the real run's kill criterion use each model's gate-passing rules.
 - **Positive control** runs 15 turns (two checks past the 8192 window instead of one).

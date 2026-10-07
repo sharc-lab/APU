@@ -35,7 +35,8 @@ rule text, turn tasks and filler), TOOLS_SCHEMA / ollama_tools_payload, CANARY_C
 unit regex, _approx_token_count, evaluate_kill_criterion.
 
 Modes (--call2-tools on = the spec, tools available on call 2; off = withheld on call 2 only, the "_call2_notools"
-arms; chosen for the real run after llama3.1:8b never produced a text answer with tools on call 2, see FINDINGS):
+arms; chosen for the real run after llama3.1:8b left 20 of 30 final answers empty with tools on call 2, see
+R2_DESIGN.md and FINDINGS):
   --mode validation : arm b (num_ctx 131072) 3 seeds x 10 turns, both models (negative control + baseline table),
                       positive control (num_ctx 8192, 1 seed x 15 turns), and the other call-2 variant's arm b as
                       a diagnostic.
