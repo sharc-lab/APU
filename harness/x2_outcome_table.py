@@ -141,7 +141,7 @@ def classify_error_cause(row):
         return "context_overflow"
     if row.get("chat_outcome") == "infra_not_ready" or any(m in error for m in (
             "actively refused", "10061", "connection refused", "did not open its port", "never left 'loading'",
-            "server did not become ready", "connection reset", "remote end closed")):
+            "server did not become ready", "connection reset", "remote end closed", "10054", "forcibly closed")):
         return "connection"
     if "timed out" in error or "timeout" in error:
         return "timeout"
@@ -155,7 +155,8 @@ def error_subcause(row):
         return None
     error = (row.get("error") or "").lower()
     if cause == "other":
-        if "out of memory" in error or "cudamalloc failed" in error or "rocm error" in error:
+        if any(m in error for m in ("out of memory", "out-of-memory", "cudamalloc failed", "rocm error",
+                                    "failed to allocate", "alloc_buffer: failed", "bad_alloc")):
             return "oom"
         if "not found" in error:
             return "model_not_found"
@@ -169,7 +170,9 @@ def error_subcause(row):
             return "ollama_not_ready"
         if "did not open its port" in error or "never left" in error:
             return "llama_server_not_ready"
-        return "refused"
+        if "refused" in error or "10061" in error:
+            return "refused"
+        return "dropped"
     return cause
 
 

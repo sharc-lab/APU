@@ -56,6 +56,11 @@ def test_row_is_valid_rejects_thinking_tag_and_connection_rows_but_keeps_real_er
 
 def test_error_subcause_oom_and_server_not_ready():
     assert x2.error_subcause({"http_status": 500, "error": '{"error":"cudaMalloc failed: out of memory"}'}) == "oom"
+    t2s_alloc = {"http_status": 500, "error": '{"error":"llama-server process has terminated: exit status 1: '
+                                              'alloc_tensor_range: failed to allocate Vulkan0 buffer"}'}
+    assert x2.error_subcause(t2s_alloc) == "oom"
+    assert x2.classify_error_cause({"http_status": None, "error": "[WinError 10054] An existing connection was "
+                                    "forcibly closed by the remote host"}) == "connection"
     row = {"http_status": None, "error": "server did not open its port in time"}
     assert x2.error_subcause(row) == "llama_server_not_ready"
     assert x2.classify_error_cause(row) == "connection"
