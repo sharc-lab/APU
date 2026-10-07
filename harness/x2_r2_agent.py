@@ -20,22 +20,27 @@ Scoring (pure functions below, unit-tested with a fake runtime in tests/test_x2_
     a fresh model load, so nothing is cached and nothing is truncated) as a tokenizer calibration ratio for the
     chars/4 estimate.
 
-Two canaries, not one (a deliberate extension of R2_DESIGN.md, recorded there): Ollama's /api/chat history
-truncation keeps every system message and drops the oldest non-system messages first, so a canary that lives only
-in the system prompt can survive a real truncation and the positive control could never fire. The system-prompt
-canary (generate_canary, reused unchanged) is kept and scored, and a second "history tag" canary is placed in the
-first USER message of the session -- the content Ollama's truncation actually drops first. Both are asked for on
-every canary turn (every 5th turn), both are scored separately, and a miss of either while over the loaded window is
-truncation. Which of the two survives is itself recorded.
+Canaries: two kinds, and a fresh pair per check (extensions of R2_DESIGN.md, recorded there).
+  - Ollama's /api/chat history truncation keeps every system message and drops the oldest non-system messages
+    first, so a canary living only in the system prompt survives a real truncation. Numbered canaries C1..C8 sit in
+    the system prompt (replacing r2's single-canary paragraph) AND numbered history tags H1..H8 sit in the first
+    USER message, which Ollama drops first. Both are scored separately; a miss of either while over the loaded
+    window is truncation, and which kind survives is recorded.
+  - Turn 5k asks only for Ck and Hk. The first validation run (2026-10-07) reused one canary at every check, and
+    qwen3:14b's positive control copied it at turn 10 from its own turn-5 answer, which was still inside the
+    retained tail: with a canary asked exactly once, no earlier answer can carry it forward.
 
 Reused unchanged from harness/t2s_r2_session_growth.py: generate_session (session code, facts, system-prompt canary,
 rule text, turn tasks and filler), TOOLS_SCHEMA / ollama_tools_payload, CANARY_CHECK_EVERY, the forbidden-length
 unit regex, _approx_token_count, evaluate_kill_criterion.
 
-Modes:
-  --mode validation : arm b (num_ctx 131072), 3 seeds x 10 turns, both models (negative control + baseline table),
-                      plus the positive control (num_ctx 8192, 1 seed x 10 turns, both models).
-  --mode real       : Ollama default vs num_ctx 32768 vs num_ctx 4096, 3 seeds x 40 turns, both models.
+Modes (--call2-tools on = the spec, tools available on call 2; off = withheld on call 2 only, the "_call2_notools"
+arms; chosen for the real run after llama3.1:8b never produced a text answer with tools on call 2, see FINDINGS):
+  --mode validation : arm b (num_ctx 131072) 3 seeds x 10 turns, both models (negative control + baseline table),
+                      positive control (num_ctx 8192, 1 seed x 15 turns), and the other call-2 variant's arm b as
+                      a diagnostic.
+  --mode real       : Ollama default vs num_ctx 32768 vs num_ctx 4096, 3 seeds x 40 turns, both models;
+                      --rules-from <validation jsonl> sets each model's rules in use for the kill criterion.
 
 Queue job: calls t2s_queue.advance() exactly once on exit (finally). Never run it as a bare process on evo-x2 while
 another queued job is running (see the WARNING at the top of t2s_r2_session_growth.py; advance() also refuses to act
@@ -90,11 +95,23 @@ for _a, _n in _BASE_ARMS.items():
     ARMS[_a + NOTOOLS_SUFFIX] = {"num_ctx": _n, "call2_tools": False}
 
 SEEDS = r2.SEEDS
-VALIDATION_PLAN = [  # (arm, seeds, turns)
+VALIDATION_PLAN = [  # (arm, seeds, turns) -- the first validation run (2026-10-07, file x2_r2_validation.jsonl)
     ("ollama_ctx_131072", SEEDS, 10),
     ("ollama_ctx_8192_positive_control", SEEDS[:1], 10),
     ("ollama_ctx_131072" + NOTOOLS_SUFFIX, SEEDS, 10),
 ]
+NEG_ARM, POS_ARM = "ollama_ctx_131072", "ollama_ctx_8192_positive_control"
+
+
+def validation_plan(call2_tools: bool, with_diagnostic: bool = True):
+    """Validation for the chosen call-2 variant: negative control/baseline (3 seeds x 10 turns) and positive
+    control (1 seed x 15 turns, so two canary checks fall past the 8192 window). The opposite variant's arm b is
+    added as a diagnostic if with_diagnostic."""
+    sfx = "" if call2_tools else NOTOOLS_SUFFIX
+    plan = [(NEG_ARM + sfx, SEEDS, 10), (POS_ARM + sfx, SEEDS[:1], 15)]
+    if with_diagnostic:
+        plan.append((NEG_ARM + (NOTOOLS_SUFFIX if call2_tools else ""), SEEDS, 10))
+    return plan
 REAL_PLAN = [
     ("ollama_default", SEEDS, 40),
     ("ollama_ctx_32768", SEEDS, 40),
@@ -134,11 +151,53 @@ def est_tokens(text) -> int:
 
 # ── session construction (pure) ─────────────────────────────────────────────────────────────────────
 
-def generate_history_canary(seed: int) -> str:
-    """Second canary, placed in the first USER message (not the system prompt). Distinct constants and prefix
-    from generate_canary/generate_session_code/pick_facts."""
-    rng = random.Random(seed * 7919 + 29)
-    return "HTAG-" + "".join(rng.choice(r2._CODE_ALPHABET) for _ in range(10))
+N_CANARIES = 8  # one fresh canary pair per check; 8 checks covers 40 turns (CANARY_CHECK_EVERY = 5)
+_R2_CANARY_PARAGRAPH = "This session also has a unique canary phrase"
+_R2_CANARY_ASK = (" Also, repeat this session's canary phrase exactly, verbatim, in your answer "
+                  "-- it was given to you at the start of this session, do not look it up.")
+
+
+def generate_sys_canaries(seed: int, n: int = N_CANARIES) -> list[str]:
+    """Numbered system-prompt canaries C1..Cn. Distinct constants from generate_canary/session code/facts."""
+    out = []
+    for k in range(1, n + 1):
+        rng = random.Random(seed * 999331 + 17 + 7919 * k)
+        out.append("CANARY-" + "".join(rng.choice(r2._CODE_ALPHABET) for _ in range(10)))
+    return out
+
+
+def generate_history_tags(seed: int, n: int = N_CANARIES) -> list[str]:
+    """Numbered history tags H1..Hn, placed in the first USER message (what Ollama's truncation drops first)."""
+    out = []
+    for k in range(1, n + 1):
+        rng = random.Random(seed * 7919 + 29 + 104729 * k)
+        out.append("HTAG-" + "".join(rng.choice(r2._CODE_ALPHABET) for _ in range(10)))
+    return out
+
+
+def canary_index(turn) -> int | None:
+    """1-based check number k for a canary turn (turn 5k asks for Ck and Hk), else None."""
+    if not turn.canary_check:
+        return None
+    k = turn.idx // r2.CANARY_CHECK_EVERY
+    if k > N_CANARIES:
+        raise ValueError(f"turn {turn.idx} needs canary #{k} but only {N_CANARIES} exist")
+    return k
+
+
+def build_system_prompt(spec, sys_canaries: list[str]) -> str:
+    """r2's system prompt (rules, tools, facts) with its single-canary paragraph replaced by the numbered list.
+    A single canary asked at every check is echoed by the model's own earlier canary answers, which then keep it
+    alive inside the retained tail after a truncation (observed in the first validation run, positive control,
+    qwen3:14b: both canaries reproduced at turn 10 with the window long exceeded). Each Ck is asked exactly once."""
+    base = spec.system_prompt
+    cut = base.index(_R2_CANARY_PARAGRAPH)
+    lines = "\n".join(f"  C{k}: {c}" for k, c in enumerate(sys_canaries, 1))
+    return (base[:cut] + f"This session also has {len(sys_canaries)} numbered canary phrases, separate from the "
+            f"facts above and from the session code:\n{lines}\nStarting at turn 5 and every 5th turn after that, "
+            f"you will be asked to repeat one of these canary phrases, by its number, verbatim in your \"answer\" "
+            f"field, without looking it up -- this checks whether you can still see this message later in a long "
+            f"session.\n")
 
 
 def build_fact_store(session) -> dict[str, str]:
@@ -155,26 +214,40 @@ def build_fact_store(session) -> dict[str, str]:
 
 @dataclasses.dataclass(frozen=True)
 class AgentSession:
-    spec: object            # r2.SessionSpec
-    hist_canary: str
+    spec: object            # r2.SessionSpec (turns, session code, facts)
+    system_prompt: str
+    sys_canaries: list
+    hist_tags: list
     store: dict
 
 
 def build_agent_session(seed: int, max_turns: int) -> AgentSession:
     spec = r2.generate_session(seed, count_fn=r2._approx_token_count, max_turns=max_turns)
-    return AgentSession(spec=spec, hist_canary=generate_history_canary(seed), store=build_fact_store(spec))
+    sys_c = generate_sys_canaries(seed)
+    return AgentSession(spec=spec, system_prompt=build_system_prompt(spec, sys_c), sys_canaries=sys_c,
+                        hist_tags=generate_history_tags(seed), store=build_fact_store(spec))
 
 
-def user_message(turn, hist_canary: str) -> str:
-    """The text sent for a turn: r2.turn_message_content (task + filler) with the history-tag additions."""
+def expected_canaries(ags: AgentSession, turn) -> tuple[str | None, str | None]:
+    k = canary_index(turn)
+    return (None, None) if k is None else (ags.sys_canaries[k - 1], ags.hist_tags[k - 1])
+
+
+def user_message(turn, ags: AgentSession) -> str:
+    """The text sent for a turn: r2.turn_message_content (task + filler), with r2's single-canary request replaced
+    by a numbered one, and the history-tag list prefixed to turn 1."""
     text = turn.user_text
-    if turn.canary_check:
-        text += (" Also repeat this session's history tag (it was given in the first user message of this "
-                 "session) exactly, verbatim, in your answer.")
+    k = canary_index(turn)
+    if k is not None:
+        text = text.replace(_R2_CANARY_ASK, "")
+        text += (f" Also, repeat canary phrase C{k} (given at the start of this session) and history tag H{k} "
+                 f"(given in the first user message of this session) exactly, verbatim, in your answer; do not "
+                 f"look them up.")
     msg = r2.turn_message_content(dataclasses.replace(turn, user_text=text))
     if turn.idx == 1:
-        msg = (f"Session history tag (remember it; you will be asked to repeat it verbatim later in this "
-               f"session): {hist_canary}\n\n" + msg)
+        tags = "\n".join(f"  H{i}: {h}" for i, h in enumerate(ags.hist_tags, 1))
+        msg = ("Session history tags (remember them; later in this session you will be asked to repeat one of "
+               f"them, by its number, verbatim):\n{tags}\n\n" + msg)
     return msg
 
 
@@ -466,7 +539,7 @@ def run_turn(runtime, model, num_ctx, think, ags: AgentSession, turn, messages: 
              call2_tools: bool = True) -> dict:
     """One two-step turn. Mutates `messages` (the session transcript) and returns the scored turn row."""
     tools = r2.ollama_tools_payload()
-    messages.append({"role": "user", "content": user_message(turn, ags.hist_canary)})
+    messages.append({"role": "user", "content": user_message(turn, ags)})
     resp1, rec1 = _do_call(runtime, model, messages, num_ctx, tools, think, log)
     calls1, method1 = extract_tool_calls(resp1.get("message"), resp1.get("tool_calls"))
     rec1.update({"tool_calls_parsed": calls1, "tool_detection_method": method1})
@@ -492,7 +565,11 @@ def run_turn(runtime, model, num_ctx, think, ags: AgentSession, turn, messages: 
            "is_recall": turn.is_recall, "canary_check": turn.canary_check, "n_calls": len(recs),
            "calls": recs, "final_text": final_text[:4000]}
     row.update(score_calls(turn, calls_by_call))
-    row.update(score_final_answer(turn, final_text, spec.session_code, spec.canary, ags.hist_canary))
+    exp_sys, exp_hist = expected_canaries(ags, turn)
+    row.update(score_final_answer(turn, final_text, spec.session_code, exp_sys, exp_hist))
+    row["canary_k"] = canary_index(turn)
+    row["other_canaries_in_answer"] = sum(1 for c in ags.sys_canaries + ags.hist_tags
+                                          if c in final_text and c not in (exp_sys, exp_hist))
     row["lookup_result_used"] = (turn.tool_name == "lookup_fact"
                                  and ags.store.get(turn.tool_args["key"], "\0") in final_text)
     row["turn_tokens_both_calls"] = sum(_call_tokens(r) for r in recs)
@@ -513,7 +590,7 @@ def run_session(runtime, model, arm, seed, max_turns, emit, log, mode) -> dict:
             "think": think, "call2_tools": call2_tools, "attempt_id": attempt,
             "session_code": ags.spec.session_code}
     unloaded = runtime.unload(model)
-    messages = [{"role": "system", "content": ags.spec.system_prompt}]
+    messages = [{"role": "system", "content": ags.system_prompt}]
     calib = None
     cumulative_billed = 0
     rows = []
@@ -560,6 +637,8 @@ def run_session(runtime, model, arm, seed, max_turns, emit, log, mode) -> dict:
 # ── session / kill-criterion / baseline analysis (pure, operates on rows) ───────────────────────────
 
 def turn_failures(row: dict, rules_in_use=RULE_IDS) -> list[str]:
+    if isinstance(rules_in_use, dict):
+        rules_in_use = rules_in_use.get(row.get("model_id"), RULE_IDS)
     fails = [r for r in rules_in_use if row.get(r) is False]
     if row.get("tool_validity_all") is False:
         fails.append("tool_validity")
@@ -676,12 +755,12 @@ def baseline_table(rows: list[dict], arm="ollama_ctx_131072", threshold=BASELINE
     return out
 
 
-def control_results(rows: list[dict]) -> dict:
+def control_results(rows: list[dict], sfx: str = "") -> dict:
     sessions = completed_sessions(rows)
-    neg = [s for s in sessions if s["arm_id"] == "ollama_ctx_131072"]
-    pos = [s for s in sessions if s["arm_id"] == "ollama_ctx_8192_positive_control"]
+    neg = [s for s in sessions if s["arm_id"] == NEG_ARM + sfx]
+    pos = [s for s in sessions if s["arm_id"] == POS_ARM + sfx]
     res = {"negative": {}, "positive": {}}
-    for model in sorted({s["model_id"] for s in sessions}):
+    for model in sorted({s["model_id"] for s in neg + pos}):
         n = [s for s in neg if s["model_id"] == model]
         p = [s for s in pos if s["model_id"] == model]
         res["negative"][model] = {
@@ -701,9 +780,11 @@ def control_results(rows: list[dict]) -> dict:
     return res
 
 
-def evaluate_gates(rows: list[dict], threshold=BASELINE_THRESHOLD) -> dict:
-    table = baseline_table(rows, threshold=threshold)
-    ctrl = control_results(rows)
+def evaluate_gates(rows: list[dict], threshold=BASELINE_THRESHOLD, call2_tools: bool = True) -> dict:
+    """Gates on the chosen call-2 variant's arms; the other variant's arm b (if present) as a diagnostic table."""
+    sfx = "" if call2_tools else NOTOOLS_SUFFIX
+    table = baseline_table(rows, arm=NEG_ARM + sfx, threshold=threshold)
+    ctrl = control_results(rows, sfx)
     gates = {"baseline": {}, "negative_control": {}, "positive_control": {}, "content_nonempty": {}}
     for model, e in table.items():
         failing = [r for r, v in e["rules"].items() if v["status"] == "fail"]
@@ -716,8 +797,16 @@ def evaluate_gates(rows: list[dict], threshold=BASELINE_THRESHOLD) -> dict:
     for model, p in ctrl["positive"].items():
         gates["positive_control"][model] = {
             "pass": p["n_sessions"] > 0 and all(t is not None for t in p["truncation_detected_turns"]), **p}
-    diag = baseline_table(rows, arm="ollama_ctx_131072" + NOTOOLS_SUFFIX, threshold=threshold)
-    return {"baseline_table": table, "controls": ctrl, "gates": gates, "diagnostic_call2_notools_table": diag}
+    diag = baseline_table(rows, arm=NEG_ARM + (NOTOOLS_SUFFIX if call2_tools else ""), threshold=threshold)
+    return {"call2_tools": call2_tools, "baseline_table": table, "controls": ctrl, "gates": gates,
+            "diagnostic_other_call2_variant_table": diag,
+            "diagnostic_call2_notools_table": diag if call2_tools else None}
+
+
+def rules_in_use_from(validation_rows: list[dict], call2_tools: bool) -> dict:
+    """Per-model gate-passing rules from a validation file: {model: [rule ids]}."""
+    gates = evaluate_gates(validation_rows, call2_tools=call2_tools)["gates"]["baseline"]
+    return {m: g["rules_in_use"] for m, g in gates.items()}
 
 
 def format_baseline_markdown(report: dict) -> str:
@@ -801,6 +890,8 @@ def main(argv=None):
     ap.add_argument("--models", default=",".join(MODELS))
     ap.add_argument("--call2-tools", choices=("on", "off"), default="on",
                     help="real mode: keep tools available on call 2 (spec) or withhold them (the _call2_notools arms)")
+    ap.add_argument("--rules-from", default=None,
+                    help="real mode: a validation JSONL; per-model rules in use = that model's gate-passing rules")
     ap.add_argument("--rules-in-use", default=",".join(RULE_IDS),
                     help="real mode: rules that count toward first-failure / kill criterion (gate-passing rules)")
     args = ap.parse_args(argv)
@@ -818,10 +909,14 @@ def main(argv=None):
         if socket.gethostname().upper() != "EVO-X2":
             raise RuntimeError(f"x2_r2_agent runs on EVO-X2 only, this is {socket.gethostname()!r}")
         models = [m for m in args.models.split(",") if m]
-        plan = VALIDATION_PLAN if args.mode == "validation" else real_plan(args.call2_tools == "on")
+        c2 = args.call2_tools == "on"
+        plan = validation_plan(c2) if args.mode == "validation" else real_plan(c2)
+        rules_in_use = tuple(args.rules_in_use.split(","))
+        if args.rules_from:
+            rules_in_use = rules_in_use_from(read_rows(Path(args.rules_from)), c2)
         with open(out_path, "a", encoding="utf-8") as f:
             f.write(json.dumps({"record": "run_start", "mode": args.mode, "models": models, "plan": plan,
-                                "rules_in_use": args.rules_in_use.split(","), "ts_utc": utc_iso(),
+                                "rules_in_use": rules_in_use, "call2_tools": c2, "ts_utc": utc_iso(),
                                 "max_tokens_per_call": MAX_TOKENS_PER_CALL, "keep_alive": KEEP_ALIVE},
                                default=str) + "\n")
         hc.start_ollama_server()
@@ -840,10 +935,10 @@ def main(argv=None):
         run_plan(runtime, plan, models, args.mode, out_path, log=log)
         rows = read_rows(out_path)
         if args.mode == "validation":
-            report = evaluate_gates(rows)
+            report = evaluate_gates(rows, call2_tools=c2)
         else:
             sessions = [s for s in completed_sessions(rows) if s["mode"] == "real"]
-            report = {"kill_criterion": kill_criterion(sessions, tuple(args.rules_in_use.split(",")), rows)}
+            report = {"rules_in_use": rules_in_use, "kill_criterion": kill_criterion(sessions, rules_in_use, rows)}
         Path(str(out_path) + ".report.json").write_text(json.dumps(report, indent=1, default=str), encoding="utf-8")
         with open(out_path, "a", encoding="utf-8") as f:
             f.write(json.dumps({"record": "run_end", "ts_utc": utc_iso()}) + "\n")

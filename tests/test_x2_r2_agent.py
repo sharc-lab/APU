@@ -34,22 +34,41 @@ def _native(name, **args):
 # ── session construction ────────────────────────────────────────────────────────────────────────────
 
 class TestSession:
-    def test_history_canary_deterministic_and_distinct(self):
-        assert ag.generate_history_canary(1) == ag.generate_history_canary(1)
-        assert ag.generate_history_canary(1) != ag.generate_history_canary(2)
-        assert ag.generate_history_canary(1) != r2.generate_canary(1)
+    def test_canaries_deterministic_distinct_and_unique(self):
+        assert ag.generate_sys_canaries(1) == ag.generate_sys_canaries(1)
+        assert ag.generate_sys_canaries(1) != ag.generate_sys_canaries(2)
+        allc = ag.generate_sys_canaries(1) + ag.generate_history_tags(1)
+        assert len(set(allc)) == 2 * ag.N_CANARIES
+        assert r2.generate_canary(1) not in allc
 
-    def test_history_canary_only_in_first_user_message(self):
+    def test_history_tags_only_in_first_user_message(self):
         ags = _session()
-        first = ag.user_message(_turn(ags, 1), ags.hist_canary)
-        assert ags.hist_canary in first
-        assert ags.hist_canary not in ags.spec.system_prompt
-        assert ags.hist_canary not in ag.user_message(_turn(ags, 2), ags.hist_canary)
+        first = ag.user_message(_turn(ags, 1), ags)
+        for h in ags.hist_tags:
+            assert h in first and h not in ags.system_prompt
+            assert h not in ag.user_message(_turn(ags, 2), ags)
 
-    def test_canary_turn_asks_for_both(self):
+    def test_system_prompt_has_numbered_canaries_not_r2_single(self):
         ags = _session()
-        msg = ag.user_message(_turn(ags, 5), ags.hist_canary)
-        assert "canary phrase" in msg and "history tag" in msg
+        for k, c in enumerate(ags.sys_canaries, 1):
+            assert f"C{k}: {c}" in ags.system_prompt
+        assert ags.spec.canary not in ags.system_prompt
+        assert ags.spec.session_code in ags.system_prompt and "ZEBRA-7" in ags.system_prompt
+
+    def test_canary_turn_asks_for_its_own_pair_only(self):
+        ags = _session(40)
+        msg5 = ag.user_message(_turn(ags, 5), ags)
+        assert "canary phrase C1" in msg5 and "history tag H1" in msg5
+        assert "this session's canary phrase exactly" not in msg5  # r2's single-canary ask removed
+        msg40 = ag.user_message(_turn(ags, 40), ags)
+        assert "C8" in msg40 and "H8" in msg40
+        assert ag.expected_canaries(ags, _turn(ags, 10)) == (ags.sys_canaries[1], ags.hist_tags[1])
+        assert ag.expected_canaries(ags, _turn(ags, 11)) == (None, None)
+
+    def test_too_many_checks_raises(self):
+        ags = _session(45)
+        with pytest.raises(ValueError):
+            ag.user_message(_turn(ags, 45), ags)
 
     def test_fact_store_excludes_recall_facts(self):
         ags = _session()
@@ -124,13 +143,13 @@ class TestToolScoring:
 class TestFinalAnswer:
     def _score(self, turn_idx, text):
         ags = _session()
-        return ag.score_final_answer(_turn(ags, turn_idx), text, ags.spec.session_code, ags.spec.canary,
-                                     ags.hist_canary), ags
+        sc, hc = ag.expected_canaries(ags, _turn(ags, turn_idx))
+        return ag.score_final_answer(_turn(ags, turn_idx), text, ags.spec.session_code, sc, hc), ags
 
     def test_compliant(self):
         ags = _session()
         s = ag.score_final_answer(_turn(ags, 2), _answer("13.5 metres", ags.spec.session_code),
-                                  ags.spec.session_code, ags.spec.canary, ags.hist_canary)
+                                  ags.spec.session_code, None, None)
         assert s["rule1_json_keys"] and s["rule3_no_zebra"] and s["rule4_metres"] and s["rule5_session_code"]
         assert s["canary_sys_ok"] is None and s["recall_ok"] is None
 
@@ -164,11 +183,12 @@ class TestFinalAnswer:
         ags = _session()
         t5 = _turn(ags, 5)
         code = ags.spec.session_code
-        both = _answer(f"{ags.spec.canary} {ags.hist_canary}", code)
-        s = ag.score_final_answer(t5, both, code, ags.spec.canary, ags.hist_canary)
+        sc, hc = ag.expected_canaries(ags, t5)
+        both = _answer(f"{sc} {hc}", code)
+        s = ag.score_final_answer(t5, both, code, sc, hc)
         assert s["canary_sys_ok"] and s["canary_hist_ok"]
-        only_sys = _answer(ags.spec.canary, code)
-        s = ag.score_final_answer(t5, only_sys, code, ags.spec.canary, ags.hist_canary)
+        only_sys = _answer(sc, code)
+        s = ag.score_final_answer(t5, only_sys, code, sc, hc)
         assert s["canary_sys_ok"] is True and s["canary_hist_ok"] is False
 
     def test_recall(self):
@@ -233,7 +253,7 @@ def good_policy(ags):
         if turn.is_recall:
             parts.append(turn.recall_value)
         if turn.canary_check:
-            parts += [ags.spec.canary, ags.hist_canary]
+            parts += list(ag.expected_canaries(ags, turn))
         return _answer(" ".join(parts), code), None
     return policy
 
@@ -361,8 +381,8 @@ class TestTokens:
         _, rows, _, _ = _run(good_policy, turns=2, prompt_eval_first=None)
         assert rows[0]["token_calib_ratio"] is None
         ags = _session(2)
-        est = ag.prompt_tokens_est([{"role": "system", "content": ags.spec.system_prompt},
-                                    {"role": "user", "content": ag.user_message(_turn(ags, 1), ags.hist_canary)}],
+        est = ag.prompt_tokens_est([{"role": "system", "content": ags.system_prompt},
+                                    {"role": "user", "content": ag.user_message(_turn(ags, 1), ags)}],
                                    r2.ollama_tools_payload())
         _, rows, _, _ = _run(good_policy, turns=2, prompt_eval_first=int(est * 1.2))
         assert rows[0]["token_calib_ratio"] == pytest.approx(1.2, rel=0.01)
@@ -382,7 +402,7 @@ class TestTruncation:
             def policy(call_no, messages, turn_idx):
                 content, native = base(call_no, messages, turn_idx)
                 if call_no == 2 and turn_idx > n_turn and ags.spec.turns[turn_idx - 1].canary_check:
-                    return _answer(f"done {ags.spec.canary}", code), None
+                    return _answer(f"done {ag.expected_canaries(ags, ags.spec.turns[turn_idx - 1])[0]}", code), None
                 return content, native
             return factory_policy(policy)
         return factory
@@ -577,3 +597,48 @@ class TestCall2ToolsVariant:
         rep = ag.evaluate_gates(rows)
         assert rep["gates"]["baseline"]["qwen3:14b"]["pass"]
         assert rep["diagnostic_call2_notools_table"]["qwen3:14b"]["rules"]["rule5_session_code"]["status"] == "fail"
+
+
+class TestPerCheckCanaries:
+    def test_echo_of_earlier_canary_does_not_count(self):
+        """A model that copies the canaries it gave at turn 5 when asked at turn 10 (the echo seen in the first
+        validation run) must score a miss at turn 10, and over the window that is truncation."""
+        def factory(ags):
+            base = good_policy(ags)
+            code = ags.spec.session_code
+
+            def policy(call_no, messages, turn_idx):
+                content, native = base(call_no, messages, turn_idx)
+                if call_no == 2 and turn_idx == 10:
+                    sc, hc = ag.expected_canaries(ags, ags.spec.turns[4])  # the turn-5 pair
+                    return _answer(f"done {sc} {hc}", code), None
+                return content, native
+            return policy
+        _, rows, summary, _ = _run(factory, loaded=8192, arm="ollama_ctx_8192_positive_control")
+        t10 = [r for r in rows if r.get("turn_idx") == 10 and r["record"] == "r2a_turn"][0]
+        assert t10["canary_sys_ok"] is False and t10["canary_hist_ok"] is False
+        assert t10["other_canaries_in_answer"] == 2 and t10["canary_k"] == 2
+        assert summary["truncation_detected_turn"] == 10
+
+    def test_validation_plan_variants(self):
+        p = ag.validation_plan(False)
+        assert p[0][0] == "ollama_ctx_131072" + ag.NOTOOLS_SUFFIX and p[1][2] == 15
+        assert p[2][0] == "ollama_ctx_131072"
+        assert len(ag.validation_plan(True, with_diagnostic=False)) == 2
+
+    def test_gates_on_notools_variant_and_rules_in_use_per_model(self):
+        rows = []
+        for model, fac in (("llama3.1:8b", _rule5_breaker), ("qwen3:14b", good_policy)):
+            for seed in ag.SEEDS:
+                ags = ag.build_agent_session(seed, 10)
+                ag.run_session(FakeRuntime(fac(ags)), model, "ollama_ctx_131072" + ag.NOTOOLS_SUFFIX, seed, 10,
+                               rows.append, lambda m: None, "validation")
+        rep = ag.evaluate_gates(rows, call2_tools=False)
+        assert rep["gates"]["baseline"]["qwen3:14b"]["pass"]
+        assert not rep["gates"]["baseline"]["llama3.1:8b"]["pass"]
+        riu = ag.rules_in_use_from(rows, call2_tools=False)
+        assert "rule5_session_code" not in riu["llama3.1:8b"] and "rule5_session_code" in riu["qwen3:14b"]
+        sessions = ag.completed_sessions(rows)
+        kc = ag.kill_criterion(sessions, riu, rows)
+        # llama's only failures are rule 5, which is not in use for llama -> no silent failure from llama
+        assert kc["per_arm"]["ollama_ctx_131072" + ag.NOTOOLS_SUFFIX]["n_silent_failures"] == 0

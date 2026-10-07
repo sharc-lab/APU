@@ -165,3 +165,21 @@ one extends the spec it says so.
   `t2s_r2_session_growth.evaluate_kill_criterion`. A session's first failure is its first turn with a failed rule
   among the rules in use (those that passed the validation gate), a tool-validity failure, a tool-argument failure,
   or a recall failure; an error is any call with a non-200 status, a transport error, or an error field.
+
+### Changes after the first validation run (2026-10-07, `results/x2_r2_validation.jsonl`)
+
+- **One canary pair per check, never reused.** The first run asked for the same two canaries at every check.
+  qwen3:14b's positive control (num_ctx 8192) reproduced both at turn 10 although its final-call prompt (about
+  15.5K estimated tokens) was far past the window: the model copied them from its own turn-5 answer, which was still
+  inside the retained tail. The system prompt now lists C1..C8 (replacing the single-canary paragraph) and the
+  first user message lists H1..H8; turn 5k asks for Ck and Hk only, so no earlier answer can carry the requested
+  canary forward. An answer that contains a different check's canary is recorded (`other_canaries_in_answer`).
+- **Tools withheld on call 2 for the real run (deviation from step 4).** With tools available on call 2,
+  llama3.1:8b answered call 2 with another tool call on every turn (30/30), sometimes stuffing its JSON answer into
+  the tool arguments, so its final text was empty or missing and every text rule failed for a harness reason, not a
+  context reason. With tools withheld on call 2 only (the diagnostic arm, same seeds) its final answers were all
+  non-empty. Both models therefore run the `_call2_notools` arms (`--call2-tools off`), validated again under that
+  variant before the real run. Rule 2 is still a turn-level OR, now in practice satisfied only by call 1.
+- **Per-model rules in use.** A rule that misses the 90% gate for one model is dropped for that model only;
+  `--rules-from <validation file>` makes the real run's kill criterion use each model's gate-passing rules.
+- **Positive control** runs 15 turns (two checks past the 8192 window instead of one).
