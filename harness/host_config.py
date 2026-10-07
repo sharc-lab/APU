@@ -27,6 +27,8 @@ HOSTS = {
         "gpu_vendor": "intel",
         "ssh_host": "sharc@100.72.40.24",
         "interactive_guard": True,
+        "ollama_exe": r"C:\Users\sharc\AppData\Local\Programs\Ollama\ollama.exe",
+        "ollama_models": r"C:\Users\sharc\.ollama\models",
     },
     "EVO-X2": {
         "hw_id": "evo-x2",
@@ -37,6 +39,8 @@ HOSTS = {
         "gpu_vendor": "amd",
         "ssh_host": "Ritz@100.118.33.76",
         "interactive_guard": False,
+        "ollama_exe": r"C:\Users\Ritz\AppData\Local\Programs\Ollama\ollama.exe",
+        "ollama_models": r"C:\Users\Ritz\.ollama\models",
     },
 }
 
@@ -137,6 +141,12 @@ def ollama_process_running(ps_fn=None):
     return out.strip() not in ("", "0")
 
 
+def _this_host_entry() -> dict:
+    """HOSTS entry for the machine this process runs on, or {} if it is not a known measurement host."""
+    import socket
+    return HOSTS.get(socket.gethostname().upper(), {})
+
+
 def _resolve_ollama_exe_for_serve():
     """OLLAMA_BIN env var, then shutil.which("ollama"), then the Windows installer's own standard per-user
     install location, then the bare command name as a last resort -- same resolution order as
@@ -149,12 +159,20 @@ def _resolve_ollama_exe_for_serve():
     standard install path) -- the server then never actually starts, and every subsequent pull/chat call
     fails with a connection-refused error, not a timeout. This is T2S-specific: the identical code path has
     worked on evo-x2 all session, so evo-x2's install must register itself on PATH in a way evo-t2s's does
-    not."""
+    not.
+
+    2026-10-06 (evo-x2): the queue watchdog runs as SYSTEM (APU-QueueWatchdog, ServiceAccount), whose
+    LOCALAPPDATA is the system profile, so the LOCALAPPDATA fallback misses the per-user install and the bare
+    name fails too ('"ollama"' is not recognized; x2_half_context_probe started 0 of its reps). The host's own
+    pinned `ollama_exe` from HOSTS is checked before LOCALAPPDATA for that reason."""
     import os
     import shutil
     exe = os.environ.get("OLLAMA_BIN") or shutil.which("ollama")
     if exe:
         return exe
+    pinned = _this_host_entry().get("ollama_exe")
+    if pinned and os.path.exists(pinned):
+        return pinned
     local_appdata = os.environ.get("LOCALAPPDATA")
     if local_appdata:
         candidate = os.path.join(local_appdata, "Programs", "Ollama", "ollama.exe")
@@ -172,8 +190,12 @@ def start_ollama_server(ps_fn=None):
     at all (see docs/RESULT_PROVENANCE.md, 2026-09-29 contamination check)."""
     if ollama_process_running(ps_fn=ps_fn):
         return None
+    import os
     exe = _resolve_ollama_exe_for_serve()
-    cmd = (f"$cmd = 'cmd.exe /c set OLLAMA_KEEP_ALIVE=0 && \"{exe}\" serve > C:\\apu\\ovn\\ollama_serve.log 2>&1'; "
+    # Under SYSTEM, Ollama's default models dir is the system profile's (empty); point it at the host's own store.
+    models = os.environ.get("OLLAMA_MODELS") or _this_host_entry().get("ollama_models")
+    models_set = f"set OLLAMA_MODELS={models}&& " if models else ""
+    cmd = (f"$cmd = 'cmd.exe /c set OLLAMA_KEEP_ALIVE=0 && {models_set}\"{exe}\" serve > C:\\apu\\ovn\\ollama_serve.log 2>&1'; "
            "$r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{CommandLine=$cmd}; "
            "'pid=' + $r.ProcessId")
     if ps_fn is None:

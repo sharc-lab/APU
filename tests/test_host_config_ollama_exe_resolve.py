@@ -58,3 +58,36 @@ def test_start_ollama_server_quotes_the_resolved_exe_in_the_cmdline(monkeypatch)
 
     hc.start_ollama_server(ps_fn=fake_ps_fn)
     assert '"C:\\Program Files\\Ollama\\ollama.exe"' in captured["cmd"]
+
+
+def test_resolve_uses_host_pinned_exe_when_localappdata_is_system_profile(tmp_path, monkeypatch):
+    """2026-10-06, evo-x2: the queue watchdog runs as SYSTEM, so LOCALAPPDATA is the system profile and the
+    per-user install is not under it. The host's pinned ollama_exe must win over the bare-name fallback."""
+    import shutil
+    monkeypatch.delenv("OLLAMA_BIN", raising=False)
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "systemprofile"))
+    pinned = tmp_path / "ollama.exe"
+    pinned.write_text("", encoding="utf-8")
+    monkeypatch.setattr(hc, "_this_host_entry", lambda: {"ollama_exe": str(pinned)})
+    assert hc._resolve_ollama_exe_for_serve() == str(pinned)
+
+
+def test_start_ollama_server_sets_host_models_dir(monkeypatch):
+    monkeypatch.delenv("OLLAMA_MODELS", raising=False)
+    monkeypatch.setattr(hc, "_resolve_ollama_exe_for_serve", lambda: r"C:\x\ollama.exe")
+    monkeypatch.setattr(hc, "ollama_process_running", lambda ps_fn=None: False)
+    monkeypatch.setattr(hc, "_this_host_entry", lambda: {"ollama_models": r"C:\Users\Ritz\.ollama\models"})
+    captured = {}
+    hc.start_ollama_server(ps_fn=lambda cmd, t: captured.setdefault("cmd", cmd) and "pid=1")
+    assert r"set OLLAMA_MODELS=C:\Users\Ritz\.ollama\models&& " in captured["cmd"]
+
+
+def test_start_ollama_server_no_models_dir_on_unknown_host(monkeypatch):
+    monkeypatch.delenv("OLLAMA_MODELS", raising=False)
+    monkeypatch.setattr(hc, "_resolve_ollama_exe_for_serve", lambda: r"C:\x\ollama.exe")
+    monkeypatch.setattr(hc, "ollama_process_running", lambda ps_fn=None: False)
+    monkeypatch.setattr(hc, "_this_host_entry", lambda: {})
+    captured = {}
+    hc.start_ollama_server(ps_fn=lambda cmd, t: captured.setdefault("cmd", cmd) and "pid=1")
+    assert "OLLAMA_MODELS" not in captured["cmd"]
