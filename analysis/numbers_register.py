@@ -1044,6 +1044,36 @@ def compute_x2_weekend_ngen_budget(repo):
     return {"value": "; ".join(parts), "n": sum(v[0] for v in by.values())}
 
 
+X2_THINKING_VERIFY = "results/x2_thinking_verify.jsonl"
+
+
+def compute_x2_thinking_verify(repo):
+    """Per (runtime, model, mechanism): reasoning chars, content chars, finish reasons over the 3 gsm8k prompts,
+    and the score re-computed from the stored raw response with the fixed final_number_match extraction (the
+    stored per-call score field was written by the pre-fix scorer and is always 0)."""
+    x2 = _x2_harness()
+    import x2_thinking_verify as tv
+    g = x2.load_graders()
+    items = {it["item_id"]: it for it in x2.load_items_trace_weighted(repo)}
+    rows = [r for r in x2.read_rows(repo / X2_THINKING_VERIFY) if r.get("record") == "thinking_verify_call"]
+    groups = {}
+    for r in rows:
+        raw = r.get("raw_response") or {}
+        if r["runtime"] == "llama_server":
+            content = ((raw.get("choices") or [{}])[0].get("message") or {}).get("content") or ""
+        else:
+            content = (raw.get("message") or {}).get("content") or ""
+        score = x2.score_response(g, items[r["item_id"]], x2.strip_thinking(content))
+        groups.setdefault(f"{r['runtime']}/{r['model_id']}/{r['mechanism']}", []).append((r, score))
+    works = tv.works_from_calls(rows)
+    parts = []
+    for k, v in groups.items():
+        parts.append(f"{k}: works={works[k]} reasoning={[r.get('reasoning_chars') for r, _ in v]} "
+                     f"content={[r.get('content_chars') for r, _ in v]} finish={[r.get('finish_reason') for r, _ in v]} "
+                     f"score={sum(s for _, s in v):.0f}/{len(v)}")
+    return {"value": "; ".join(parts), "n": len(rows)}
+
+
 def compute_t2s_outcome_error_causes(repo):
     x2 = _x2_harness()
     rows = [r for r in x2.read_rows(repo / T2S_OUTCOME_FULL) if r.get("record") == "outcome_row"]
@@ -1202,6 +1232,9 @@ NUMBER_ENTRIES = [
     {"claim_id": "x2-weekend-ngen-budget", "description": "X2 weekend llama-server scored requests that used the full 256-token budget, per model",
      "compute": compute_x2_weekend_ngen_budget, "data_files": [X2_WEEKEND_LOGSCAN],
      "script_function": "analysis/numbers_register.py::compute_x2_weekend_ngen_budget"},
+    {"claim_id": "x2-thinking-verify", "description": "evo-x2 live thinking-disable verification per mechanism (llama-server b10970, Ollama)",
+     "compute": compute_x2_thinking_verify, "data_files": [X2_THINKING_VERIFY],
+     "script_function": "analysis/numbers_register.py::compute_x2_thinking_verify"},
     {"claim_id": "t2s-outcome-error-causes", "description": "T2S outcome table (synced full file) rows by error cause, and race-signature count",
      "compute": compute_t2s_outcome_error_causes, "data_files": [T2S_OUTCOME_FULL],
      "script_function": "analysis/numbers_register.py::compute_t2s_outcome_error_causes"},

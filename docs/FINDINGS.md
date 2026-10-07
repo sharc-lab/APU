@@ -1949,3 +1949,48 @@ with `failed to allocate` / `alloc_buffer` / out-of-memory): 18 on ollama_defaul
 - qwen3-32b on a 100-item trace-weighted subset (seed 20261007, weighted sampling without replacement, ids
   recorded in the output file). The subset contains only longdoc_qa and trace_length_mix items: the short
   gsm8k and function_calling items carry almost no trace weight.
+
+### Live thinking verification (evo-x2, llama-server b10970 and Ollama, 2026-10-07T04:51 to 04:55Z)
+
+Run as the first step of queue job `x2_outcome_table_v3` (no other job running), evidence in
+`results/x2_thinking_verify.jsonl` (full request body and raw response JSON per call). Three shortest gsm8k
+items, `max_tokens` 256, temperature 0. [x2-thinking-verify]:
+
+| runtime / model / mechanism | reasoning chars | content chars | finish | score |
+|---|---|---|---|---|
+| llama_server qwen3-8b baseline (weekend setting) | 980, 774, 766 | 0, 0, 0 | length x3 | 0/3 |
+| llama_server qwen3-14b baseline | 994, 791, 844 | 0, 0, 0 | length x3 | 0/3 |
+| llama_server qwen3-32b baseline | 748, 774, 778 | 150, 0, 0 | stop, length, length | 1/3 |
+| llama_server qwen3-8b per-request `chat_template_kwargs: {"enable_thinking": false}` | 0, 0, 0 | 327, 763, 564 | stop x3 | 3/3 |
+| llama_server qwen3-8b `/no_think` appended to the prompt | 0, 0, 0 | 338, 762, 549 | stop x3 | 3/3 |
+| llama_server qwen3-8b server flag `--reasoning-budget 0` | 0, 0, 0 | 448, 639, 585 | stop x3 | 3/3 |
+| llama_server qwen3-8b server flag `--chat-template-kwargs {"enable_thinking":false}` | 0, 0, 0 | 327, 763, 564 | stop x3 | 3/3 |
+| llama_server qwen3-8b production (`--reasoning-budget 0` + per-request kwarg) | 0, 0, 0 | 327, 763, 564 | stop x3 | 3/3 |
+| llama_server qwen3-14b production | 0, 0, 0 | 383, 494, 678 | stop, stop, length | 2/3 |
+| llama_server qwen3-32b production | 0, 0, 0 | 383, 457, 614 | stop, stop, length | 2/3 |
+| Ollama qwen3:8b, `think` omitted | 964, 797, 821 | 0, 0, 0 | length x3 | 0/3 |
+| Ollama qwen3:8b, `"think": false` | 0, 0, 0 | 437, 588, 664 | stop, stop, length | 2/3 |
+
+The baseline rows reproduce the weekend failure exactly: the whole budget goes to `reasoning_content`
+(still mid-arithmetic when cut off, e.g. qwen3-14b ending "So 84 eggs / 12 eggs/dozen."), `content` empty.
+All four llama-server mechanisms suppress reasoning on this build on their own. With both production
+mechanisms applied the output is identical to the per-request kwarg alone (same content lengths), so the
+kwarg is what takes effect when both are present; `--reasoning-budget 0` alone gives different but also
+thinking-free answers. Ollama `"think": false` works. The three `length` finishes in the production rows are
+non-thinking answers that used the full budget (reasoning 0).
+
+Scores above are re-computed from the stored raw responses. The same live check exposed a scoring bug:
+`score_response` passed the whole response to `grade.py`'s `final_number_match`, which compares against a bare
+number, so every gsm8k answer scored 0 (a correct "...#### 3" against oracle "3"). The weekend run never
+reached a gsm8k item, so no weekend score is affected; it would have failed every canary gate. Fixed (extract
+the number after the last `####`, the pack builder's own format); gsm8k rows scored before the fix are not
+reused. `harness/t2s_outcome_table.py` has the same call and the same bug (not yet fixed there; T2S
+gsm8k rows, if any are added, would all score 0).
+
+### Orphaned Ollama runners
+
+Stopping the first v3 run by hand showed `stop_ollama_server()` kills `ollama.exe` but not its model runner
+(`lib\ollama\llama-server.exe`): three orphaned runners holding a qwen3 model stayed alive until the queue's
+pre-launch cleanup killed them. An orphaned runner keeps its GPU allocation, which is a plausible mechanism
+for the weekend's clustered ollama OOM rows (not verified). `stop_ollama_server()` now also kills runners,
+matched by executable path.
