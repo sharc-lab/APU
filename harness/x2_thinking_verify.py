@@ -47,8 +47,22 @@ def verify_prompts(items, n=N_PROMPTS):
 
 
 def mechanism_works(rows):
+    """Thinking is suppressed: no reasoning text and a non-empty answer without a <think> tag, on every prompt.
+    finish_reason is NOT part of the test (first version required "stop"): a non-thinking answer to a
+    "solve step by step" prompt can legitimately use the whole 256-token budget, which says nothing about
+    thinking (live 2026-10-07: qwen3-14b/32b production and Ollama think=false each had one such answer with
+    reasoning_chars 0)."""
     return bool(rows) and all(r.get("http_status") == 200 and r.get("reasoning_chars") == 0 and r.get("content_chars", 0) > 0
-                              and not r.get("think_tag_in_content") and r.get("finish_reason") == "stop" for r in rows)
+                              and not r.get("think_tag_in_content") for r in rows)
+
+
+def works_from_calls(rows):
+    """Recompute per-mechanism verdicts from the stored call records with the current mechanism_works."""
+    groups = {}
+    for r in rows:
+        if r.get("record") == "thinking_verify_call":
+            groups.setdefault(f"{r['runtime']}/{r['model_id']}/{r['mechanism']}", []).append(r)
+    return {k: mechanism_works(v) for k, v in groups.items()}
 
 
 def _llama_rows(out_path, model_key, mechanism, server_args, request_extra, prompt_suffix, prompts, grade_module):
@@ -163,11 +177,20 @@ def ensure_verified(out_path, items, models=None):
     """Runs the verification once per evidence file (skipped when a summary record already exists). If the
     production setting fails for any thinking model, writes an ALERT (the canary gate then also halts it)."""
     out_path = Path(out_path)
-    existing = [r for r in x2.read_rows(out_path) if r.get("record") == "thinking_verify_summary"]
+    rows = x2.read_rows(out_path)
+    existing = [r for r in rows if r.get("record") == "thinking_verify_summary"]
     summary = existing[-1] if existing else run_verification(out_path, items, models)
-    bad = [k for k, v in summary["works"].items() if k.endswith("/production") and not v]
-    if not summary["works"].get(f"ollama/{THINKING_MODELS[0]}/ollama_think_false", True):
+    works = works_from_calls(x2.read_rows(out_path))
+    if works != summary.get("works") and not any(r.get("record") == "thinking_verify_reassessed" for r in rows):
+        x2.emit(out_path, {"record": "thinking_verify_reassessed", "ts_utc": x2.utc_iso(), "works": works,
+                           "note": "verdicts recomputed from the stored calls without the finish_reason=='stop' "
+                                   "requirement; supersedes the summary's 'works' and its alert"})
+    bad =[k for k, v in works.items() if k.endswith("/production") and not v]
+    if not works.get(f"ollama/{THINKING_MODELS[0]}/ollama_think_false", True):
         bad.append("ollama think=false")
+    if any(r.get("record") == "alert" and r.get("source") == "x2_thinking_verify" and r.get("failed") == bad
+           for r in rows):
+        return summary  # already alerted for exactly this, do not repeat on every resume
     if bad:
         x2.emit(out_path, {"record": "alert", "source": "x2_thinking_verify", "ts_utc": x2.utc_iso(),
                            "reason": "production thinking-disable setting failed live verification", "failed": bad})

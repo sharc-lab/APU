@@ -30,7 +30,7 @@ class FakeRunner:
     def __call__(self, item, model_key, target, out_path, call_timeout_s, canary=False):
         self.calls.append((item["item_id"], model_key, canary))
         row = {"record": "outcome_row", "item_id": item["item_id"], "family": item["family"], "config": self.config,
-               "model_id": model_key, "ts_utc": x2.utc_iso(), "canary": canary}
+               "model_id": model_key, "ts_utc": x2.utc_iso(), "canary": canary, "scorer_version": 2}
         row.update(self.behavior(item, model_key, self.config))
         x2.emit(out_path, row)
         return row
@@ -127,7 +127,7 @@ def test_resume_reuses_valid_cached_rows_and_retries_connection_rows(tmp_path):
     out = tmp_path / "out.jsonl"
     for it in _items():
         x2.emit(out, {"record": "outcome_row", "item_id": it["item_id"], "family": it["family"], "config": "llama_server",
-                      "model_id": "llama3.1:8b", "http_status": 200, "score": 1.0})
+                      "model_id": "llama3.1:8b", "http_status": 200, "score": 1.0, "scorer_version": 2})
     x2.emit(out, {"record": "outcome_row", "item_id": "long_0", "family": "longdoc_qa", "config": "ollama_default",
                   "model_id": "llama3.1:8b", "http_status": None, "chat_outcome": "infra_not_ready", "score": 0.0})
     items = _items()
@@ -264,6 +264,32 @@ def test_seed_from_previous_run_copies_only_valid_rows_once(tmp_path):
     assert x2.seed_from_previous_run(out, prev) is None  # idempotent
     copied = [r for r in _rows(out) if r["record"] == "outcome_row"]
     assert len(copied) == 1 and copied[0]["model_id"] == "llama3.1:8b" and copied[0]["reused_from"] == "weekend.jsonl"
+
+
+def test_final_number_match_extracts_number_after_last_hashes():
+    g = x2.load_graders()
+    item = {"grading": {"method": "final_number_match"}, "oracle_answer": "3"}
+    assert x2.score_response(g, item, "Half of 2 is 1.\n### Final Answer:\n#### 3") == 1.0
+    assert x2.score_response(g, item, "#### 2\nwait, recheck\n#### 3") == 1.0
+    assert x2.score_response(g, item, "**#### 3**") == 1.0
+    assert x2.score_response(g, item, "the answer is 3") == 0.0  # format the prompt asks for is required
+    big = {"grading": {"method": "final_number_match"}, "oracle_answer": "1200"}
+    assert x2.score_response(g, big, "#### 1,200") == 1.0
+
+
+def test_pre_fix_gsm8k_rows_are_not_valid_cache():
+    assert x2.row_is_valid({"family": "gsm8k", "http_status": 200, "score": 0.0}) is False
+    assert x2.row_is_valid({"family": "gsm8k", "http_status": 200, "score": 1.0, "scorer_version": 2}) is True
+    assert x2.row_is_valid({"family": "longdoc_qa", "http_status": 200, "score": 1.0}) is True
+
+
+def test_thinking_verify_verdict_ignores_finish_reason():
+    import x2_thinking_verify as tv
+    ok = {"record": "thinking_verify_call", "runtime": "llama_server", "model_id": "m", "mechanism": "production",
+          "http_status": 200, "reasoning_chars": 0, "content_chars": 600, "finish_reason": "length"}
+    leak = dict(ok, mechanism="baseline", reasoning_chars=900, content_chars=0)
+    w = tv.works_from_calls([ok, ok, leak])
+    assert w == {"llama_server/m/production": True, "llama_server/m/baseline": False}
 
 
 def test_safe_name_strips_colon():

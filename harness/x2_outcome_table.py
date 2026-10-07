@@ -183,6 +183,8 @@ def invalid_tags(row):
 def row_is_valid(row):
     """A row is reusable as a cached result unless it carries an invalid_* tag or is an infra failure
     (cause connection). Context overflow, timeouts and other errors are real measured outcomes."""
+    if row.get("family") == "gsm8k" and row.get("http_status") == 200 and row.get("scorer_version", 1) < 2:
+        return False  # scored by the pre-fix final_number_match path (always 0); rerun
     return not invalid_tags(row) and classify_error_cause(row) != "connection"
 
 
@@ -295,10 +297,20 @@ def score_response(grade_module, item, response_text):
             parsed = json.loads(m.group(0)) if m else {}
             return fn(oracle, parsed)
         if method == "final_number_match":
-            return fn(oracle, response_text)
+            # 2026-10-07 bug found live (x2_thinking_verify): grade.py's grader compares the oracle against a bare
+            # number, but this used to pass the whole response, so every gsm8k answer scored 0 (e.g. a correct
+            # "...\n#### 3" vs oracle "3"). Extract the number after the LAST "####", the exact answer format the
+            # prompt asks for and the pack builder's own FINAL_RE (results/workload_pack/scripts/build_c_gsm8k.py).
+            found = _FINAL_NUMBER_RE.findall(response_text or "")
+            return fn(oracle, found[-1]) if found else 0.0
     except Exception:
         return 0.0
     return 0.0
+
+
+_FINAL_NUMBER_RE = re.compile(r"####\s*\**\s*(-?[\d,]+(?:\.\d+)?)")
+# Rows scored before the final_number_match fix carry no scorer_version; they are not valid cached rows.
+SCORER_VERSION = 2
 
 
 # ================================================================================================ results file
@@ -433,7 +445,7 @@ def run_one_ollama(item, model_key, ollama_tag, out_path, call_timeout_s, canary
     hc.start_ollama_server()
     row = {"record": "outcome_row", "item_id": item["item_id"], "family": item["family"],
            "config": "ollama_default", "model_id": model_key, "ts_utc": utc_iso(),
-           "thinking_setting": THINKING_SETTING_OLLAMA, "canary": canary}
+           "thinking_setting": THINKING_SETTING_OLLAMA, "canary": canary, "scorer_version": SCORER_VERSION}
     try:
         # 2026-10-06: a server that never came up must be recorded as infra_not_ready, not scored as a model
         # outcome. One forced restart-and-rewait before giving up.
@@ -593,7 +605,7 @@ def run_one_llama_server(item, model_key, gguf_path, out_path, call_timeout_s, c
     srv = LlamaServer(gguf_path, n_ctx, log_path, extra_args=LLAMA_SERVER_THINKING_ARGS)
     row = {"record": "outcome_row", "item_id": item["item_id"], "family": item["family"],
            "config": "llama_server", "model_id": model_key, "ts_utc": utc_iso(), "requested_n_ctx": n_ctx,
-           "thinking_setting": THINKING_SETTING_LLAMA, "canary": canary}
+           "thinking_setting": THINKING_SETTING_LLAMA, "canary": canary, "scorer_version": SCORER_VERSION}
     try:
         err = srv.start(call_timeout_s=call_timeout_s)
         if srv.guard_record:
