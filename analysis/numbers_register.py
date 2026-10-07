@@ -1092,6 +1092,58 @@ def compute_t2s_outcome_error_causes(repo):
                      ", ".join(f"{k} {v}" for k, v in sorted(sub.items())) +
                      f"; connection-refused race signature: {race}",
             "n": len(rows)}
+R2_VALIDATION_FILE = "results/x2_r2_validation.jsonl"
+
+
+def _r2_agent_module():
+    import sys
+    sys.path.insert(0, str(REPO / "harness"))
+    import x2_r2_agent
+    return x2_r2_agent
+
+
+def compute_r2_validation_baseline(repo):
+    """R2 two-step harness validation on evo-x2 (harness/x2_r2_agent.py, arm b num_ctx 131072, 3 seeds x 10
+    turns per model): per model, each rule's compliance on the final answer (rule 2 turn-level OR), tool validity
+    per call, tool arguments per valid call, recall, and the negative/positive control results. Computed by
+    x2_r2_agent.evaluate_gates over completed sessions only."""
+    ag = _r2_agent_module()
+    rows = ag.read_rows(repo / R2_VALIDATION_FILE)
+    if not rows:
+        raise FileNotFoundError(repo / R2_VALIDATION_FILE)
+    rep = ag.evaluate_gates(rows)
+
+    def pct(x):
+        return "n/a" if x is None else f"{100 * x:.1f}%"
+    parts = []
+    n_total = 0
+    for model, e in sorted(rep["baseline_table"].items()):
+        n_total += e["n_turns"]
+        rules = ", ".join(f"{r.split('_')[0]} {pct(v['rate'])}" for r, v in e["rules"].items())
+        neg = rep["controls"]["negative"].get(model, {})
+        pos = rep["controls"]["positive"].get(model, {})
+        parts.append(f"{model}: {rules}; tool validity {pct(e['tool_validity']['rate'])} of "
+                     f"{e['tool_validity']['n_calls']} calls; tool args {pct(e['tool_args']['rate'])}; recall "
+                     f"{pct(e['recall']['rate'])} (n={e['recall']['n']}); negative-control canary misses "
+                     f"{neg.get('canary_misses')}; positive-control truncation turn "
+                     f"{pos.get('truncation_detected_turns')}")
+    return {"value": " / ".join(parts), "n": f"{n_total} turns", "detail": rep}
+
+
+def compute_r2_validation_call2_notools(repo):
+    """Same validation file, the diagnostic arm (tools withheld on call 2 only): per model rule compliance."""
+    ag = _r2_agent_module()
+    rows = ag.read_rows(repo / R2_VALIDATION_FILE)
+    if not rows:
+        raise FileNotFoundError(repo / R2_VALIDATION_FILE)
+    table = ag.baseline_table(rows, arm="ollama_ctx_131072" + ag.NOTOOLS_SUFFIX)
+    def pct(x):
+        return "n/a" if x is None else f"{100 * x:.1f}%"
+    parts = []
+    for model, e in sorted(table.items()):
+        rules = ", ".join(f"{r.split('_')[0]} {pct(v['rate'])}" for r, v in e["rules"].items())
+        parts.append(f"{model}: {rules}; tool validity {pct(e['tool_validity']['rate'])}")
+    return {"value": " / ".join(parts), "n": sum(e["n_turns"] for e in table.values()), "detail": table}
 
 
 NUMBER_ENTRIES = [
@@ -1238,6 +1290,15 @@ NUMBER_ENTRIES = [
     {"claim_id": "t2s-outcome-error-causes", "description": "T2S outcome table (synced full file) rows by error cause, and race-signature count",
      "compute": compute_t2s_outcome_error_causes, "data_files": [T2S_OUTCOME_FULL],
      "script_function": "analysis/numbers_register.py::compute_t2s_outcome_error_causes"},
+    {"claim_id": "R2-validation-baseline",
+     "description": "R2 two-step harness validation (evo-x2, arm b 131072, 3x10 turns): per model rule/tool/recall "
+                    "baseline and negative/positive control results",
+     "compute": compute_r2_validation_baseline, "data_files": [R2_VALIDATION_FILE],
+     "script_function": "analysis/numbers_register.py::compute_r2_validation_baseline"},
+    {"claim_id": "R2-validation-call2-notools",
+     "description": "R2 validation diagnostic arm (tools withheld on call 2 only): per model rule compliance",
+     "compute": compute_r2_validation_call2_notools, "data_files": [R2_VALIDATION_FILE],
+     "script_function": "analysis/numbers_register.py::compute_r2_validation_call2_notools"},
 ]
 
 
