@@ -1818,3 +1818,30 @@ requested context relative to the model's trained ceiling rather than silently r
 **Action:** llama-3.3-70b's crash-repro reps need re-running from a fresh standalone process (same pattern
 as this qwen3-32b re-test) before its "no crash" result can be trusted. Not done yet in this pass --
 queued as a follow-up, not fabricated here.
+
+**Follow-up, same day: llama-3.3-70b re-tested fresh, 3/3 reps, real result is non-deterministic and not a
+clean crash-boundary signal.** Same n_ctx=221,696, fresh standalone process each rep, 600s budget, real log
+and exit-code evidence:
+- Rep 1: `exit_code=3221226505` (0xC0000409, STATUS_STACK_BUFFER_OVERRUN) at 347.2s -- matches the original
+  bisection's own crash signature at this boundary.
+- Rep 2: `exit_code=3221225477` (0xC0000005, access violation) at 2.5s -- a different signature, too fast to
+  have reached tensor loading.
+- Rep 3: did **not** crash and did **not** start within the full 600s budget (`started=False,
+  proc_exited=False, exit_code=None`). The server's own log shows it stalled directly after
+  `Vulkan_Host model buffer size = 563.63 MiB` at ~3.7s into the log, mid tensor-load, and produced no further
+  lines for the remaining ~596s before the probe terminated it.
+
+**Honest read:** this is not the same clean, fast, reproducing HARD_FAIL that qwen3-32b showed (32.8-36.8s,
+3/3, identical signature). llama-3.3-70b's boundary gives three different outcomes in three reps: two real
+crashes with two different exit signatures, and one run that looks like it stalled on model-weight I/O
+(this model's weights are ~40 GiB on disk) rather than hitting a GPU allocation failure at all -- the log
+never reaches the compute-buffer-allocation stage that qwen3-32b's crash log shows. This could mean the
+70B crash boundary is genuinely less deterministic than qwen3-32b's (plausible: a much larger model, more
+total allocations, more opportunities for a race), or that rep 3's apparent "hang" is actually disk I/O
+variance (cold page cache) unrelated to the memory-exhaustion question this test is trying to isolate, or
+both. **Not resolved.** Treat llama-3.3-70b's crash boundary as "confirmed to crash for real in at least
+some fraction of fresh-process reps (2/3), with an unexplained non-crashing 600s-plus outcome in the third"
+-- not as a clean, repeatable HARD_FAIL the way qwen3-32b's boundary is. A disk-cache-controlled re-test
+(e.g. forcing the model file into the page cache before each rep, or reading the file once to warm it) would
+be needed to separate "boundary is non-deterministic" from "disk I/O dominates elapsed time" before this can
+be called a clean result.

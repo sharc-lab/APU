@@ -49,14 +49,20 @@ EVIDENCE = {
         "'failed to allocate compute pp buffers') -- the earlier 'hung past 60s, no crash' result was a "
         "methodology artifact of testing from inside mx2_validation.py's own long-running process (driver-"
         "level state from many prior server loads in that process, not released by a process-level kill). "
-        "llama-3.3-70b's own crash boundary (n_ctx=221,696) was only tested from inside that same long-"
-        "running process and shares the identical confound -- its 'started normally, no crash' result is "
-        "unconfirmed pending the same fresh-process re-test (not done as of this entry). qwen3-32b has no "
-        "clean (non-clamped) SILENT_SPILL point below its own effective ceiling (131072 via 4x YaRN of a "
-        "native 32768). Host stayed responsive in every crash-reproduction attempt.",
+        "llama-3.3-70b's own crash boundary (n_ctx=221,696), re-tested fresh (3/3 reps, 600s budget each): "
+        "2/3 crash for real (347.2s/exit_code=3221226505 0xC0000409, matching the original bisection "
+        "signature; 2.5s/exit_code=3221225477 0xC0000005 access violation, a different signature), and 1/3 "
+        "neither crashes nor starts within 600s, stalling mid tensor-load (log stops right after the "
+        "Vulkan_Host buffer-size line) with no GPU-allocation-failure line reached -- plausibly disk I/O on "
+        "this model's ~40 GiB weight file rather than a memory-exhaustion signal, not resolved. "
+        "llama-3.3-70b's boundary is therefore NOT a clean, repeatable HARD_FAIL the way qwen3-32b's is; it "
+        "crashes in at least some fraction of fresh-process reps with an unexplained non-crashing outcome in "
+        "the rest. qwen3-32b has no clean (non-clamped) SILENT_SPILL point below its own effective ceiling "
+        "(131072 via 4x YaRN of a native 32768). Host stayed responsive in every crash-reproduction attempt.",
         ["results/mx2_validation.jsonl", "results/t2s_night2_20261001T151340Z.jsonl"],
-        "n=2 models, 3 reps per regime point; qwen3-32b crash confirmed 3/3 fresh-process reps, "
-        "llama-3.3-70b crash boundary not yet re-tested fresh"),
+        "n=2 models, 3 reps per regime point; qwen3-32b crash confirmed 3/3 fresh-process reps (clean, "
+        "consistent signature); llama-3.3-70b crash confirmed 2/3 fresh-process reps (two different exit "
+        "signatures), 1/3 inconclusive (600s stall mid tensor-load, not resolved)"),
     ("X2 (AMD, Vulkan)", "llama.cpp default fit"): ("NOT_MEASURED", None, [], None),
     ("X2 (AMD, Vulkan)", "llama.cpp -fit off"): ("NOT_MEASURED", None, [], None),
     ("X2 (AMD, Vulkan)", "Ollama default"): (
