@@ -1,0 +1,92 @@
+id,question,expected,output,label
+kh_000_evo-x2_qwen3-4b-2507_art_07,"Which version number patched CVE-2024-51022? Give only the version number in X.Y.Z format, no other text.
+
+Respond with ONLY the final answer. No explanation, no units, no punctuation.",3.11.9,0.0.0,
+kh_001_evo-t2s_qwen3-14b_art_02,"What is the alert_threshold_ppb for unit CHROM-7?
+
+Respond with ONLY the final answer. No explanation, no units, no punctuation.",0.0073,0,
+kh_019_evo-x2_qwen3-14b_art_03,"What is the CPU_HOURS value for job J-10894?
+
+Respond with ONLY the final answer. No explanation, no units, no punctuation.",8.9,"AVAILABLE: no, 0",
+kh_025_evo-x2_llama-3.3-70b_art_06,"Who seconded the motion to retire the DELPHI-2 indexing service? Give the last name only.
+
+Respond with ONLY the final answer. No explanation, no units, no punctuation.",Blum,"AVAILABLE: yes
+Mäkinen",
+kh_026_evo-t2s_qwen3-8b_art_01,"What is the listen_port configured for the invoice-relay service?
+
+Respond with ONLY the final answer. No explanation, no units, no punctuation.",51847,AVAILABLE: no,
+kh_028_evo-x2_qwen3-32b_art_01,"What is the listen_port configured for the invoice-relay service?
+
+Respond with ONLY the final answer. No explanation, no units, no punctuation.",51847,The information provided does not specify the listen_port configured for the invoice-relay service.,
+kh_030_evo-x2_qwen3-32b_art_03,"What is the CPU_HOURS value for job J-10894?
+
+Respond with ONLY the final answer. No explanation, no units, no punctuation.",8.9,"AVAILABLE: no, 0",
+kh_032_evo-x2_qwen3-8b_art_05,What grid reference coordinates were recorded for the sediment core extraction? Include both the N and W values.,"{'required_all': ['47.3', '12.8'], 'required_any': [], 'forbidden': []}","AVAILABLE: no
+
+The provided text does not include any grid reference coordinates for the sediment core extraction.",
+kh_033_evo-x2_qwen3-8b_art_09,"What is the keepalive_timeout_s configured in this manifest?
+
+Respond with ONLY the integer value.",73,AVAILABLE: no,
+kh_042_evo-x2_qwen3-14b_art_09,"What is the keepalive_timeout_s configured in this manifest?
+
+Respond with ONLY the integer value.",73,"AVAILABLE: no, 0",
+kh_043_evo-x2_llama-3.3-70b_art_03,"What is the CPU_HOURS value for job J-10894?
+
+Respond with ONLY the final answer. No explanation, no units, no punctuation.",8.9,There is no information about CPU_HOURS or job J-10894 in the given text,
+kh_045_evo-x2_qwen3-14b_art_01,"What is the listen_port configured for the invoice-relay service?
+
+Respond with ONLY the final answer. No explanation, no units, no punctuation.",51847,unknown,
+kh_048_evo-t2s_qwen3-14b_art_08,"What is the SKU number of the discontinued Molex-to-SATA adapter?
+
+Respond with ONLY the final answer. No explanation, no units, no punctuation.",PN-38901,Unknown,
+kh_050_evo-x2_llama31-8b_art_09,"What is the keepalive_timeout_s configured in this manifest?
+
+Respond with ONLY the integer value.",73,"There is no mention of ""keepalive_timeout_s"" in the provided manifest.",
+kh_058_evo-x2_llama-3.3-70b_art_02,"What is the alert_threshold_ppb for unit CHROM-7?
+
+Respond with ONLY the final answer. No explanation, no units, no punctuation.",0.0073,"AVAILABLE: no 
+0",
+kh_060_evo-x2_qwen3-8b_art_03,"What is the CPU_HOURS value for job J-10894?
+
+Respond with ONLY the final answer. No explanation, no units, no punctuation.",8.9,AVAILABLE:yes33.6,
+kh_069_evo-x2_qwen3-8b_art_09,"What is the keepalive_timeout_s configured in this manifest?
+
+Respond with ONLY the integer value.",73,45,
+kh_071_evo-x2_llama31-8b_art_08,"What is the SKU number of the discontinued Molex-to-SATA adapter?
+
+Respond with ONLY the final answer. No explanation, no units, no punctuation.",PN-38901,"AVAILABLE: no
+There is no information about a discontinued Molex-to-SATA adapter.",
+kh_072_evo-t2s_qwen3-8b_art_02,"What is the alert_threshold_ppb for unit CHROM-7?
+
+Respond with ONLY the final answer. No explanation, no units, no punctuation.",0.0073,0,
+kh_074_evo-t2s_qwen3-8b_art_07,"Which version number patched CVE-2024-51022? Give only the version number in X.Y.Z format, no other text.
+
+Respond with ONLY the final answer. No explanation, no units, no punctuation.",3.11.9,3.11.8,
+kh_080_evo-t2s_qwen3-8b_art_07,"Which version number patched CVE-2024-51022? Give only the version number in X.Y.Z format, no other text.
+
+Respond with ONLY the final answer. No explanation, no units, no punctuation.",3.11.9,AVAILABLE: no,
+kh_084_evo-x2_qwen3-32b_art_09,"What is the keepalive_timeout_s configured in this manifest?
+
+Respond with ONLY the integer value.",73,"AVAILABLE: no, -1",
+kh_090_evo-x2_llama31-8b_art_03,"What is the CPU_HOURS value for job J-10894?
+
+Respond with ONLY the final answer. No explanation, no units, no punctuation.",8.9,Not available,
+kh_092_evo-x2_qwen3-4b-2507_art_07,"Which version number patched CVE-2024-51022? Give only the version number in X.Y.Z format, no other text.
+
+Respond with ONLY the final answer. No explanation, no units, no punctuation.",3.11.9,3.11.8,
+kh_094_evo-t2s_qwen3-8b_art_03,"What is the CPU_HOURS value for job J-10894?
+
+Respond with ONLY the final answer. No explanation, no units, no punctuation.",8.9,AVAILABLE: no,
+kh_121_evo-x2_qwen3-8b_art_06,"Who seconded the motion to retire the DELPHI-2 indexing service? Give the last name only.
+
+Respond with ONLY the final answer. No explanation, no units, no punctuation.",Blum,AVAILABLE: no,
+kh_123_evo-x2_qwen3-8b_art_05,What grid reference coordinates were recorded for the sediment core extraction? Include both the N and W values.,"{'required_all': ['47.3', '12.8'], 'required_any': [], 'forbidden': []}",The provided text does not mention any grid reference coordinates or specific locations related to sediment core extraction. The logs describe administrative and operational records for compliance per,
+kh_128_evo-t2s_qwen3-8b_art_06,"Who seconded the motion to retire the DELPHI-2 indexing service? Give the last name only.
+
+Respond with ONLY the final answer. No explanation, no units, no punctuation.",Blum,Mäkinen,
+kh_140_evo-x2_qwen3-8b_art_09,"What is the keepalive_timeout_s configured in this manifest?
+
+Respond with ONLY the integer value.",73,"AVAILABLE: yes, 73",
+kh_144_evo-x2_llama31-8b_art_08,"What is the SKU number of the discontinued Molex-to-SATA adapter?
+
+Respond with ONLY the final answer. No explanation, no units, no punctuation.",PN-38901,There is no SKU number mentioned in the text.,
