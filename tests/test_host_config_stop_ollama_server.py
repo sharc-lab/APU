@@ -51,3 +51,12 @@ def test_stop_ollama_server_returns_immediately_when_already_gone(monkeypatch):
     monkeypatch.setattr(time, "sleep", lambda s: sleeps.append(s))
     hc.stop_ollama_server(ps_fn=lambda cmd, timeout: "stopped", wait_s=5, poll_s=0.1)
     assert sleeps == []  # never had to wait at all
+
+
+def test_stop_ollama_server_also_kills_ollama_runner_but_not_harness_llama_server(monkeypatch):
+    """2026-10-07: orphaned Ollama runners (lib\\ollama\\llama-server.exe) survived ollama.exe being killed."""
+    monkeypatch.setattr(hc, "ollama_process_running", lambda ps_fn=None: False)
+    seen = []
+    hc.stop_ollama_server(ps_fn=lambda cmd, timeout: seen.append(cmd) or "stopped", wait_s=1, poll_s=0.1)
+    assert "Get-Process llama-server" in seen[0]
+    assert "\\Ollama\\" in seen[0]  # path filter: C:\apu\bin\...\llama-server.exe is never matched

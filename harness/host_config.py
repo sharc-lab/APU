@@ -230,7 +230,14 @@ def stop_ollama_server(ps_fn=None, wait_s=15, poll_s=0.5):
     wait_for_ollama_ready's own 60s wait could not help, since nothing was ever going to start. This wait-for-
     exit closes that race at the source; run_one_ollama is also fixed separately to retry once and record a
     distinct infra-failure if the server still isn't ready, as defense in depth."""
-    cmd = "Get-Process ollama,'ollama app' -ErrorAction SilentlyContinue | Stop-Process -Force; 'stopped'"
+    # 2026-10-07, found live on evo-x2: killing ollama.exe does not kill its model runner (a separate
+    # llama-server.exe under Ollama's own lib\ollama dir). Three orphaned runners holding a qwen3 model were
+    # still alive after stop_ollama_server() and were only removed by the queue's pre-launch cleanup. An
+    # orphaned runner keeps its GPU allocation, a candidate cause of the weekend's clustered ollama OOM rows.
+    # Kill runners too, matched by executable path so the harnesses' own llama-server (C:\apu\bin) is untouched.
+    cmd = ("Get-Process ollama,'ollama app' -ErrorAction SilentlyContinue | Stop-Process -Force; "
+           "Get-Process llama-server -ErrorAction SilentlyContinue | Where-Object { $_.Path -like '*\\Ollama\\*' } "
+           "| Stop-Process -Force; 'stopped'")
     if ps_fn is None:
         p = subprocess.run(["powershell", "-NoProfile", "-Command", cmd], capture_output=True, text=True, timeout=30)
         out = p.stdout.strip()
