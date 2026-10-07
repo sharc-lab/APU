@@ -176,3 +176,17 @@ each branch's FINDINGS section and register rows (not repeated here until merged
 - P4 (`worktree-agent-add6f0a7bc9e33011`): `x2_70b_edge_reps` built and queued (warm-read vs standby-purge, ABAB).
 - evo-x2 queue as of ~06:00Z: x2_r2_real_v1 (running) -> x2_outcome_table_v3_resume3 -> x2_70b_edge_reps ->
   x2_k2_pause_resume_v1. No pause set.
+- P0 final (on main through 7fded33): restarted outcome table passed its verification, 11/12 canary gates
+  (qwen3-30b-a3b ollama_default FAIL 0.00: the registry tag `qwen3:30b-a3b` is a different, always-thinking
+  model; the leg now uses a model created from the llama_server GGUF, and that canary reruns when resume3
+  starts). Weekend file tagged in place: invalid_race 412 (405 verified as the SYSTEM ollama-resolution failure,
+  not a stop/start race; 7 unverified), invalid_thinking 330, invalid_infra_oom 207; 378 rows reused. Also
+  fixed: gsm8k always scored 0 (`harness/t2s_outcome_table.py` still has this bug), orphaned Ollama runners
+  after stop, colon in log names. Projected finish of `x2_outcome_table_v3_resume3`: roughly Oct 10-11 UTC
+  (about 82 h of machine time after R2's real run), rough.
+- Open: Oct 2 SYSTEM-launched Ollama success unexplained; OOM cause unverified; `thinking_leak` misses untagged
+  reasoning in content; deploy_evo.py overwrites expected_blobs.json per deploy (provenance lists only the last
+  deploy's files); `--cache-ram 0` control for the TTFT stall; recompute the two TTFT transfer/calibration rows.
+- Process note: worktree isolation blocked cross-checkout merges for all agents. P0 landed on main by running git
+  through the PowerShell tool instead of Bash, so its commits are on main; the other five branches await the
+  operator.
