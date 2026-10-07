@@ -3,3 +3,9 @@
 {"record": "heartbeat", "rep": 1, "ts_utc": "2026-10-07T03:45:44.101624+00:00"}
 {"record": "half_context_probe_result", "rep": 1, "model_id": "llama3.1:8b", "num_ctx": 8192, "target_filler_tokens": 4096, "ts_utc": "2026-10-07T03:45:44.492749+00:00", "started": false, "error": "ollama did not become ready"}
 {"record": "heartbeat", "rep": 2, "ts_utc": "2026-10-07T03:47:47.345818+00:00"}
+{"record": "half_context_probe_result", "rep": 2, "model_id": "llama3.1:8b", "num_ctx": 8192, "target_filler_tokens": 4096, "ts_utc": "2026-10-07T03:47:47.727331+00:00", "started": false, "error": "ollama did not become ready"}
+{"record": "heartbeat", "rep": 3, "ts_utc": "2026-10-07T03:49:50.449303+00:00"}
+{"record": "half_context_probe_result", "rep": 3, "model_id": "llama3.1:8b", "num_ctx": 8192, "target_filler_tokens": 4096, "ts_utc": "2026-10-07T03:49:50.840292+00:00", "started": false, "error": "ollama did not become ready"}
+{"record": "heartbeat", "rep": 4, "ts_utc": "2026-10-07T03:51:53.549803+00:00"}
+{"record": "half_context_probe_result", "rep": 4, "model_id": "llama3.1:8b", "num_ctx": 8192, "target_filler_tokens": 4096, "ts_utc": "2026-10-07T03:51:53.934549+00:00", "started": false, "error": "ollama did not become ready"}
+{"record": "run_end", "ts_utc": "2026-10-07T03:53:56.595967+00:00"}
