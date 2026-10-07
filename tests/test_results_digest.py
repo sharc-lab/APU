@@ -231,3 +231,26 @@ def test_module_never_imports_anything_that_starts_stops_or_kills_processes():
     src = inspect.getsource(rd)
     assert "import subprocess" not in src
     assert "import t2s_lab" not in src
+
+
+# ---------------------------------------------------------------------------------------------------- harness alerts
+def test_collect_alerts_newest_first_and_rendered_at_top(tmp_path):
+    f = tmp_path / "x2_outcome_table_v3.jsonl"
+    _write_jsonl(f, [
+        {"record": "alert", "source": "x2_outcome_table", "reason": "canary_gate_failed", "model_id": "qwen3-8b",
+         "config": "llama_server", "error_rate": 0.0, "mean_score": 0.1, "ts_utc": "2026-10-07T05:00:00+00:00"},
+        {"record": "outcome_row", "item_id": "a", "ts_utc": "2026-10-07T05:01:00+00:00"},
+        {"record": "alert", "source": "x2_outcome_table", "reason": "rolling_error_rate", "model_id": "llama3.1:8b",
+         "config": "ollama_default", "rate": 0.2, "n": 10, "ts_utc": "2026-10-07T06:00:00+00:00"},
+    ])
+    shown, total = rd.collect_alerts([f])
+    assert total == 2 and shown[0]["reason"] == "rolling_error_rate"
+    md = rd.render_markdown("evo-x2", rd.collect_phase_summaries([f]), harness_alerts=(shown, total))
+    first_lines = md.splitlines()[:4]
+    assert "2 harness ALERT" in first_lines[0]
+    assert "rolling_error_rate" in first_lines[2] and "canary_gate_failed" in first_lines[3]
+
+
+def test_render_markdown_no_harness_alert_block_when_none():
+    md = rd.render_markdown("evo-x2", {}, harness_alerts=([], 0))
+    assert "harness ALERT" not in md

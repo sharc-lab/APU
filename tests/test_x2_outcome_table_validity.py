@@ -39,15 +39,26 @@ def test_classify_error_cause_other_for_anything_unrecognized():
     assert x2.classify_error_cause(row) == "other"
 
 
-def test_classify_error_cause_invalid_race_tag_wins():
-    row = {"http_status": 200, "invalid_race": True}
+def test_classify_error_cause_ignores_invalid_tags_and_reports_the_raw_cause():
+    """Validity (invalid_* tags) is a separate axis from cause: a tagged race row still reports connection."""
+    row = {"http_status": None, "error": "<urlopen error [WinError 10061] ...>", "invalid_race": True}
     assert x2.classify_error_cause(row) == "connection"
+    assert x2.row_is_valid(row) is False
 
 
-def test_classify_error_cause_invalid_thinking_tag():
-    row = {"http_status": 200, "invalid_thinking": True}
-    assert x2.classify_error_cause(row) == "thinking_contamination"
+def test_row_is_valid_rejects_thinking_tag_and_connection_rows_but_keeps_real_errors():
+    assert x2.row_is_valid({"http_status": 200, "invalid_thinking": True}) is False
+    assert x2.row_is_valid({"http_status": None, "chat_outcome": "infra_not_ready"}) is False
+    assert x2.row_is_valid({"http_status": 200, "score": 1.0}) is True
+    assert x2.row_is_valid({"http_status": None, "error": "timed out"}) is True  # a real measured outcome
+    assert x2.row_is_valid({"http_status": 400, "error": "exceeds the available context size"}) is True
 
+
+def test_error_subcause_oom_and_server_not_ready():
+    assert x2.error_subcause({"http_status": 500, "error": '{"error":"cudaMalloc failed: out of memory"}'}) == "oom"
+    row = {"http_status": None, "error": "server did not open its port in time"}
+    assert x2.error_subcause(row) == "llama_server_not_ready"
+    assert x2.classify_error_cause(row) == "connection"
 
 # --------------------------------------------------------------------------------------------------- canary_items
 def test_canary_items_picks_5_shortest_gsm8k_and_5_shortest_function_calling():
@@ -120,9 +131,10 @@ def test_tag_invalid_rows_tags_race_and_thinking_without_touching_other_fields(t
     ]
     path.write_text("\n".join(json.dumps(r) for r in rows) + "\n", encoding="utf-8")
 
-    n_race, n_thinking = x2.tag_invalid_rows(path)
+    n_race, n_thinking, n_oom = x2.tag_invalid_rows(path)
     assert n_race == 1
     assert n_thinking == 1
+    assert n_oom == 0
 
     updated = [json.loads(l) for l in path.read_text(encoding="utf-8").splitlines() if l.strip()]
     assert updated[0]["invalid_race"] is True

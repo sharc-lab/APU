@@ -114,6 +114,26 @@ def collect_phase_summaries(jsonl_paths):
     return phases
 
 
+def collect_alerts(jsonl_paths, limit=20):
+    """2026-10-07: rows with record == "alert" (written by a harness itself, e.g. harness/x2_outcome_table.py's
+    canary validity gate or rolling error-rate check) are surfaced at the top of the digest, newest first, so a
+    halted (model, config) is seen without reading the results file. Returns (alerts_newest_first[:limit], total)."""
+    alerts = []
+    for path in jsonl_paths:
+        for row in _iter_jsonl(path):
+            if isinstance(row, dict) and row.get("record") == "alert":
+                alerts.append(dict(row, _file=Path(path).name))
+    alerts.sort(key=lambda r: str(r.get("ts_utc") or ""), reverse=True)
+    return alerts[:limit], len(alerts)
+
+
+def _format_alert(row):
+    detail = ", ".join(f"{k}={row[k]}" for k in ("model_id", "config", "error_rate", "mean_score", "rate", "n", "failed")
+                       if k in row)
+    return (f"**ALERT: {row.get('source') or row['_file']}: {row.get('reason')} ({detail}) at "
+            f"{row.get('ts_utc')} [{row['_file']}]**")
+
+
 def check_idle(queue_items, log_dir, now=None):
     """Read-only idle check: if the queue has a "running" entry, uses that entry's own queue_<id>.log mtime as the
     liveness signal (same heartbeat harness/queue_watchdog.py uses, imported directly rather than duplicated, so
@@ -136,8 +156,16 @@ def check_idle(queue_items, log_dir, now=None):
     return None
 
 
-def render_markdown(machine, phases, idle_alert=None, progress_alert=None, generated_ts_utc=None):
+def render_markdown(machine, phases, idle_alert=None, progress_alert=None, generated_ts_utc=None,
+                    harness_alerts=None):
     lines = []
+    if harness_alerts:
+        shown, total = harness_alerts
+        if shown:
+            lines.append(f"**{total} harness ALERT record(s); newest {len(shown)}:**")
+            lines.append("")
+            lines.extend(_format_alert(a) for a in shown)
+            lines.append("")
     if idle_alert:
         lines.append(f"**ALERT: {machine} idle since check, reason: {idle_alert}**")
         lines.append("")
@@ -197,7 +225,9 @@ def main():
     progress_alert = _wd.check_progress_stale(phases, queue_items) if queue_items else None
 
     machine = args.machine or qpath.parent.name or "unknown"
-    md = render_markdown(machine, phases, idle_alert=idle_alert, progress_alert=progress_alert)
+    harness_alerts = collect_alerts(jsonl_paths)
+    md = render_markdown(machine, phases, idle_alert=idle_alert, progress_alert=progress_alert,
+                         harness_alerts=harness_alerts)
     Path(args.out).write_text(md, encoding="utf-8")
     alerts = ", ".join(a for a in (idle_alert, progress_alert) if a)
     print(f"wrote {args.out}: {len(phases)} phases, {sum(p['n'] for p in phases.values())} rows"
