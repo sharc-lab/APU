@@ -134,3 +134,21 @@ the half-context probe, MX2 spill-cost-with-statistics, R2 validation, then the 
   150-item kappa sample), item 4(c) (first-principles A-24 budget-boundary predicted-vs-measured table),
   item 4(d) (evo-x2 TTFT R² explanation). Given the size of what remains, these are reported here rather than
   attempted partially and reported as done.
+
+## 2026-10-06/07 session log (evening, fresh session)
+
+- Live evo-x2 check at 03:50Z Oct 7: `x2_half_context_probe` had started 0 of its 5 reps (`"ollama did not
+  become ready"`; server log: `'"ollama"' is not recognized`). Root cause: the queue watchdog
+  (`APU-QueueWatchdog`) runs as SYSTEM, so `LOCALAPPDATA` is the system profile; host_config's exe fallback
+  missed the per-user install and fell back to a bare `ollama` not on SYSTEM's PATH. Ollama's default models
+  dir under SYSTEM would also have been empty. This affects every queued Ollama job on evo-x2, and may account
+  for part of the weekend's connection-refused rows previously attributed only to the stop/start race (P0 is
+  re-checking that attribution).
+- Fixed in commit 0b1ab71 (`HOSTS[...]["ollama_exe"/"ollama_models"]`, checked before LOCALAPPDATA;
+  `OLLAMA_MODELS` passed on serve). Deployed to evo-x2 and live-verified under SYSTEM-like conditions
+  (system-profile LOCALAPPDATA, Ollama stripped from PATH): exe resolved, 8 models listed, chat returned,
+  clean stop. The maintenance pause used for that check was cleared in the same session (confirmed
+  `is_paused() -> None`).
+- Queue: `x2_half_context_probe` marked `invalid_infra`; `x2_half_context_probe_retry` queued directly after
+  `x2_mx2_spill_stats` (running). P0..P4 subagents launched for the operator's priority list; their results
+  are appended below as they land.
