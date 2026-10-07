@@ -56,6 +56,66 @@ LLAMA_SERVER_EXE = r"C:\apu\bin\llama-b10970\llama-server.exe"
 LLAMA_SERVER_PORT = 58299
 DEFAULT_MODELS = list(MODEL_MAP.keys())
 
+# 2026-10-06 bug found live: qwen3-8b/14b/32b (base Qwen3, hybrid-thinking-by-default) burned their entire
+# n_predict budget on hidden reasoning_content with content="" on llama_server -- confirmed with a raw
+# response dump (finish_reason="length", content="", reasoning_content=full budget). --reasoning-budget 0
+# at server startup fixes it (verified live: same model, same prompt, finish_reason="stop", correct
+# content). Applied unconditionally -- harmless for models with no reasoning mode (llama3.1:8b) or that
+# already default to non-thinking (qwen3-4b-2507, qwen3-30b-a3b are both -Instruct-2507 releases, confirmed
+# by their own high pre-fix scores: 0.844-1.000 vs 0.055-0.222 for the hybrid-thinking models).
+LLAMA_SERVER_REASONING_BUDGET_ARGS = ["--reasoning-budget", "0"]
+
+# Canary gate (1c): 5 shortest gsm8k + 5 shortest function_calling items, run before the full block for
+# every (model, config). A config that fails the gate is skipped for the rest of the run, never silently
+# included in the full block.
+CANARY_ERROR_RATE_THRESHOLD = 0.10
+CANARY_MIN_MEAN_SCORE = 0.5
+ROLLING_NON_OVERFLOW_ERROR_RATE_THRESHOLD = 0.10
+
+
+def classify_error_cause(row):
+    """Buckets a row's failure into one of: none (score counted normally), context_overflow (HTTP 400,
+    expected), timeout, connection, other. Never a single flat 'error' bucket -- the validity overhaul
+    this function exists for was triggered by exactly that flattening hiding a real race underneath a
+    generic error rate."""
+    if row.get("http_status") == 200 and not row.get("invalid_race") and not row.get("invalid_thinking"):
+        return "none"
+    if row.get("invalid_race"):
+        return "connection"
+    if row.get("invalid_thinking"):
+        return "thinking_contamination"
+    status = row.get("http_status")
+    error = (row.get("error") or "")
+    if status == 400 and ("context" in error.lower() or "exceed" in error.lower()):
+        return "context_overflow"
+    if "connection" in error.lower() or "refused" in error.lower() or row.get("chat_outcome") == "infra_not_ready":
+        return "connection"
+    if "timeout" in error.lower() or "timed out" in error.lower():
+        return "timeout"
+    return "other"
+
+
+def canary_items(items):
+    """5 shortest gsm8k + 5 shortest function_calling items, by prompt_tokens, from the already-loaded,
+    trace-weighted item list (so this never re-reads the pack separately or risks a different ordering)."""
+    gsm8k = sorted((it for it in items if it["family"] == "gsm8k"), key=lambda it: it["prompt_tokens"])[:5]
+    fcall = sorted((it for it in items if it["family"] == "function_calling"), key=lambda it: it["prompt_tokens"])[:5]
+    return gsm8k + fcall
+
+
+def canary_gate_check(canary_rows):
+    """Returns (passed, error_rate, mean_score). A row counts as a canary error if its error_cause is not
+    'none' and not 'context_overflow' (an overflow on a short canary item would itself be a real bug in the
+    canary selection, not an infra problem) -- matches item (d)'s 'never a single error rate' framing."""
+    if not canary_rows:
+        return True, 0.0, 1.0
+    errors = sum(1 for r in canary_rows if classify_error_cause(r) not in ("none", "context_overflow"))
+    scores = [r.get("score", 0.0) for r in canary_rows]
+    error_rate = errors / len(canary_rows)
+    mean_score = sum(scores) / len(scores)
+    passed = error_rate <= CANARY_ERROR_RATE_THRESHOLD and mean_score >= CANARY_MIN_MEAN_SCORE
+    return passed, error_rate, mean_score
+
 
 def utc_iso():
     import datetime
@@ -156,7 +216,8 @@ def run_one_ollama(item, model_key, ollama_tag, out_path, call_timeout_s):
         row.update({"http_status": resp.get("status"), "score": score, "latency_s": dt,
                    "sent_tokens": sent, "processed_tokens": processed,
                    "silently_truncated": bool(processed is not None and processed < sent),
-                   "chat_outcome": resp.get("outcome"), "error": resp.get("error")})
+                   "chat_outcome": resp.get("outcome"), "error": resp.get("error"),
+                   "thinking_disabled": True, "output_text": output_text[:500]})
     except Exception as e:
         row.update({"http_status": None, "score": 0.0, "error": f"driver exception: {e!r}"[:400]})
     finally:
@@ -169,8 +230,9 @@ def run_one_llama_server(item, model_key, gguf_path, out_path, call_timeout_s):
     import socket
     n_ctx = ((item["prompt_tokens"] + 256 + 255) // 256) * 256
     log_path = fr"C:\apu\ovn\results\x2_outcome_table_llamaserver_{model_key}_{item['item_id']}.log"
-    cmd = [LLAMA_SERVER_EXE, "-m", gguf_path, "--port", str(LLAMA_SERVER_PORT), "--host", "127.0.0.1",
+    cmd = ([LLAMA_SERVER_EXE, "-m", gguf_path, "--port", str(LLAMA_SERVER_PORT), "--host", "127.0.0.1",
           "--no-webui", "-c", str(n_ctx), "-np", "1", "-t", "8", "--log-verbosity", "4", "-ngl", "99"]
+          + LLAMA_SERVER_REASONING_BUDGET_ARGS)
     row = {"record": "outcome_row", "item_id": item["item_id"], "family": item["family"],
           "config": "llama_server", "model_id": model_key, "ts_utc": utc_iso(), "requested_n_ctx": n_ctx}
     proc = None
@@ -228,7 +290,9 @@ def run_one_llama_server(item, model_key, gguf_path, out_path, call_timeout_s):
             processed = usage.get("prompt_tokens")
             row.update({"http_status": 200, "score": score, "latency_s": dt, "sent_tokens": sent,
                        "processed_tokens": processed,
-                       "silently_truncated": bool(processed is not None and processed < sent)})
+                       "silently_truncated": bool(processed is not None and processed < sent),
+                       "thinking_disabled": True, "output_text": output_text[:500],
+                       "finish_reason": (data.get("choices") or [{}])[0].get("finish_reason")})
         except urllib.error.HTTPError as e:
             row.update({"http_status": e.code, "score": 0.0, "error": e.read().decode(errors="replace")[:400]})
         except Exception as e:
@@ -244,13 +308,44 @@ def run_one_llama_server(item, model_key, gguf_path, out_path, call_timeout_s):
     return row
 
 
+QWEN32B_SUBSET_N = 100  # (e): qwen3-32b runs on a 100-item trace-weighted subset, not the full 340
+
+
 def run(out_path, models, smoke_n=None, deadline_h=24.0, call_timeout_s=900):
     items = load_items_trace_weighted(REPO)
     if smoke_n:
         items = items[:smoke_n]
+    canaries = canary_items(items)
     done = already_done_keys(out_path)
     t_start = time.monotonic()
     deadline_s = deadline_h * 3600
+
+    gated_off = set()  # (model_key, config) pairs that failed their canary gate -- skipped for the rest of this run
+    rolling = {}  # (model_key, config) -> {"n", "non_overflow_errors"} for the rolling-error-rate alert
+
+    def run_canary_gate(model_key, config, ollama_tag, gguf_path):
+        """(c): 10 canaries (5 short gsm8k + 5 short function_calling) before the first real item for this
+        (model, config). Reuses an already-done row for a canary item id instead of re-running it (e):
+        resumable runs never re-pay for a canary this file already has a valid row for."""
+        rows = []
+        for canary in canaries:
+            key = (canary["item_id"], model_key, config)
+            if key in done:
+                rows.append({"score": 1.0, "http_status": 200})  # cached-valid stand-in for the gate check
+                continue
+            if config == "ollama_default":
+                row = run_one_ollama(canary, model_key, ollama_tag, out_path, call_timeout_s)
+            else:
+                row = run_one_llama_server(canary, model_key, gguf_path, out_path, call_timeout_s)
+            rows.append(row)
+        passed, error_rate, mean_score = canary_gate_check(rows)
+        if not passed:
+            print(f"ALERT: canary gate FAILED for {model_key}/{config}: error_rate={error_rate:.1%} "
+                 f"mean_score={mean_score:.3f} -- skipping this (model, config) for the rest of the run")
+            emit(out_path, {"record": "alert", "model_id": model_key, "config": config, "ts_utc": utc_iso(),
+                           "reason": "canary_gate_failed", "error_rate": error_rate, "mean_score": mean_score})
+        return passed
+
     n_items_done = 0
     for item in items:
         if time.monotonic() - t_start > deadline_s:
@@ -260,18 +355,82 @@ def run(out_path, models, smoke_n=None, deadline_h=24.0, call_timeout_s=900):
         for model_key in models:
             ollama_tag, gguf_path = MODEL_MAP[model_key]
             for config in ("ollama_default", "llama_server"):
+                if (model_key, config) in gated_off:
+                    continue
+                if model_key == "qwen3-32b" and n_items_done >= QWEN32B_SUBSET_N:
+                    continue
                 key = (item["item_id"], model_key, config)
                 if key in done:
                     continue
+                if (model_key, config) not in rolling:
+                    rolling[(model_key, config)] = {"n": 0, "non_overflow_errors": 0}
+                    if not run_canary_gate(model_key, config, ollama_tag, gguf_path):
+                        gated_off.add((model_key, config))
+                        continue
                 t0 = time.monotonic()
                 if config == "ollama_default":
                     row = run_one_ollama(item, model_key, ollama_tag, out_path, call_timeout_s)
                 else:
                     row = run_one_llama_server(item, model_key, gguf_path, out_path, call_timeout_s)
                 dt = time.monotonic() - t0
-                print(f"{item['item_id']} {model_key} {config}: {dt:.1f}s http={row.get('http_status')} score={row.get('score')}")
+                cause = classify_error_cause(row)
+                st = rolling[(model_key, config)]
+                st["n"] += 1
+                if cause not in ("none", "context_overflow"):
+                    st["non_overflow_errors"] += 1
+                if st["n"] >= 10:
+                    rate = st["non_overflow_errors"] / st["n"]
+                    if rate > ROLLING_NON_OVERFLOW_ERROR_RATE_THRESHOLD:
+                        print(f"ALERT: rolling non-overflow error rate for {model_key}/{config} is {rate:.1%} (n={st['n']})")
+                        emit(out_path, {"record": "alert", "model_id": model_key, "config": config, "ts_utc": utc_iso(),
+                                       "reason": "rolling_error_rate", "rate": rate, "n": st["n"]})
+                print(f"{item['item_id']} {model_key} {config}: {dt:.1f}s http={row.get('http_status')} "
+                     f"score={row.get('score')} cause={cause}")
         n_items_done += 1
     print(f"done: {n_items_done} items this run, output {out_path}")
+
+
+# (b): models that default to hybrid thinking mode on this build, pre-fix -- any llama_server row from one
+# of these without "thinking_disabled": true was measured before --reasoning-budget 0 existed and is
+# suspect. llama3.1:8b has no reasoning mode; qwen3-4b-2507/qwen3-30b-a3b are -Instruct-2507 releases,
+# already non-thinking by default (confirmed by their own high pre-fix scores).
+THINKING_BY_DEFAULT_MODELS = {"qwen3-8b", "qwen3-14b", "qwen3-32b"}
+
+_CONNECTION_REFUSED_MARKERS = ("actively refused", "winerror 10061", "connection refused")
+
+
+def tag_invalid_rows(path):
+    """(b): post-processing only, no re-run. Tags every already-written weekend row:
+      invalid_race     -- an ollama_default row whose error text matches the connection-refused race
+                           (host_config/x2_outcome_table fix, 2026-10-06).
+      invalid_thinking  -- a llama_server row for a THINKING_BY_DEFAULT_MODELS model with no
+                           "thinking_disabled": true marker (measured before --reasoning-budget 0 existed).
+    Both tags are additive booleans on the existing row; nothing else is changed. Idempotent. Returns
+    (n_race, n_thinking)."""
+    rows = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line:
+            try:
+                rows.append(json.loads(line))
+            except Exception:
+                rows.append(line)
+    n_race = n_thinking = 0
+    for r in rows:
+        if not isinstance(r, dict) or r.get("record") != "outcome_row":
+            continue
+        error_text = (r.get("error") or "").lower()
+        if r.get("config") == "ollama_default" and any(m in error_text for m in _CONNECTION_REFUSED_MARKERS):
+            r["invalid_race"] = True
+            n_race += 1
+        if (r.get("config") == "llama_server" and r.get("model_id") in THINKING_BY_DEFAULT_MODELS
+                and not r.get("thinking_disabled")):
+            r["invalid_thinking"] = True
+            n_thinking += 1
+    with open(path, "w", encoding="utf-8") as f:
+        for r in rows:
+            f.write((json.dumps(r, default=str) if isinstance(r, dict) else r) + "\n")
+    return n_race, n_thinking
 
 
 def main(argv=None):
@@ -281,7 +440,13 @@ def main(argv=None):
     ap.add_argument("--smoke-n", type=int, default=None)
     ap.add_argument("--deadline-h", type=float, default=24.0)
     ap.add_argument("--call-timeout-s", type=int, default=900)
+    ap.add_argument("--tag-invalid", action="store_true",
+                    help="post-process --out in place: tag invalid_race/invalid_thinking rows, no re-run")
     args = ap.parse_args(argv)
+    if args.tag_invalid:
+        n_race, n_thinking = tag_invalid_rows(Path(args.out))
+        print(f"tagged {n_race} invalid_race rows, {n_thinking} invalid_thinking rows in {args.out}")
+        return
     models = args.models.split(",")
     run(Path(args.out), models, smoke_n=args.smoke_n, deadline_h=args.deadline_h, call_timeout_s=args.call_timeout_s)
 

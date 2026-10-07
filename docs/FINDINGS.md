@@ -1771,3 +1771,50 @@ regardless of what the original bisection labeled it.
 total heap sizes), the spill decode-speed ratio vs FITS, and the crash signature, plus the evo-x2 llama.cpp
 cells in `docs/FAILURE_MAP.md` (`analysis/make_failure_map.py`'s `EVIDENCE` table, currently all `NOT_MEASURED`
 for the X2 row).
+
+## CORRECTION (2026-10-06): MX2 crash boundary re-tested, real HARD_FAIL confirmed, earlier "hang" was a
+## methodology artifact
+
+The first MX2 validation pass (above) reported both models' documented crash boundaries as non-reproducing
+within a 60s start timeout -- llama-3.3-70b started normally (no crash), qwen3-32b hung past 60s in 3/3 reps
+(`started=false, exit_code=None, killed_by_probe=true`). Per instruction, qwen3-32b was re-tested with a
+600s timeout, as a fresh standalone process (not through `mx2_validation.py`'s own long-running session,
+which had already started and killed many prior servers earlier in the same process).
+
+**Real result, 3/3 reps, fresh standalone script, 600s budget:** the server did **not** hang at all -- it
+exited on its own after 32.8s, 32.8s, and 36.8s, every time, with `exit_code=1` and the same real log
+signature:
+```
+ggml_gallocr_reserve_n_impl: failed to allocate Vulkan0 buffer of size 571222020
+graph_reserve: failed to allocate compute buffers
+llama_init_from_model: failed to initialize the context: failed to allocate compute pp buffers
+```
+This is a genuine HARD_FAIL -- a real compute-buffer allocation failure -- not a hang, and it reproduces
+consistently well under even the original 60s timeout. **The earlier "hang" result was a methodology
+artifact of `mx2_validation.py`'s own long-running process**, not a property of the model or n_ctx: that
+process had already started and cleanly killed many prior llama-server instances (9+ across the whole
+validation run) before reaching the crash-repro reps, and driver-level GPU state from those prior loads
+most likely was not fully released by a process-level kill, even though each child process's own exit was
+confirmed. A genuinely fresh process does not carry that accumulated state and crashes fast and clean.
+
+**Correction to the regime labels:** no hard-fail regime "did not reproduce" on evo-x2 -- qwen3-32b's does,
+cleanly, once tested from a fresh process. llama-3.3-70b's own crash boundary (n_ctx=221,696) was only ever
+tested from inside the same long-running `mx2_validation.py` process as well (3/3 reps, same session) --
+its "started normally, no crash" result has the identical confound and should be treated as unconfirmed
+until it is also re-tested from a fresh standalone process, not as evidence the boundary moved.
+
+**Correction to "the earlier crash labels were probe kills":** that description applies specifically to the
+two reps reported in the first validation pass above (qwen3-32b 3/3, and whichever `killed_by_probe=true`
+rows exist for llama-3.3-70b) -- those rows are accurately labeled "killed by the probe's own timeout, not
+a real exit code," which is exactly what `killed_by_probe=true` and `exit_code=None` already state on each
+row. The error here was treating "did not crash within 60s inside a long session" as "the boundary no
+longer reproduces," rather than re-testing in isolation first.
+
+**Requests above n_ctx_train are clamped, confirmed again here:** this re-test's own log shows `n_ctx_seq
+(367360) > n_ctx_train (40960) -- possible training context overflow`, consistent with the original
+validation pass's finding that llama-server negotiates (or in this case, attempts and fails on) the
+requested context relative to the model's trained ceiling rather than silently refusing the request outright.
+
+**Action:** llama-3.3-70b's crash-repro reps need re-running from a fresh standalone process (same pattern
+as this qwen3-32b re-test) before its "no crash" result can be trusted. Not done yet in this pass --
+queued as a follow-up, not fabricated here.

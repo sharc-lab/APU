@@ -41,17 +41,22 @@ EVIDENCE = {
         ["results/t2s_k1_ollama_evo-x2_20260930T022035Z.jsonl (x2 side, same caveat)"], None),
     ("T2S (Intel, Vulkan)", "Ollama num_ctx fixed"): ("NOT_MEASURED", None, [], None),
     ("X2 (AMD, Vulkan)", "llama.cpp -ngl 99"): (
-        "SILENT_SPILL", "mx2_validation (2026-10-02), real-isolation, GPU-shared-usage-counter classifier: "
+        "HARD_FAIL", "mx2_validation (2026-10-02/06), real-isolation, GPU-shared-usage-counter classifier: "
         "llama-3.3-70b confirmed SILENT_SPILL at n_ctx=115200 (actual==requested, +13,397 MiB GPU shared "
         "usage over its own deep-FITS baseline, decode 5.21 vs 5.30 tok/s, TTFT 21,902 vs 21,491 ms -- the "
-        "spill cost is small at this point); the documented crash boundary (n_ctx=221,696, from the original "
-        "MX2 bisection) did NOT reproduce in isolation, 3/3 reps (server starts and serves normally, no "
-        "crash). qwen3-32b: no clean (non-clamped) SILENT_SPILL point exists below its own effective ceiling "
-        "(131072 via 4x YaRN of a native 32768) -- its own documented crash boundary (n_ctx=367,360) also did "
-        "not reproduce in isolation, 3/3 reps (hangs past a 60s start timeout rather than crashing or "
-        "starting). Both models' host stayed responsive in every crash-reproduction attempt.",
+        "spill cost is small at this point). Crash boundary: qwen3-32b (n_ctx=367,360) HARD_FAILs "
+        "consistently when re-tested from a fresh standalone process (3/3 reps, 32.8-36.8s, exit_code=1, "
+        "'failed to allocate compute pp buffers') -- the earlier 'hung past 60s, no crash' result was a "
+        "methodology artifact of testing from inside mx2_validation.py's own long-running process (driver-"
+        "level state from many prior server loads in that process, not released by a process-level kill). "
+        "llama-3.3-70b's own crash boundary (n_ctx=221,696) was only tested from inside that same long-"
+        "running process and shares the identical confound -- its 'started normally, no crash' result is "
+        "unconfirmed pending the same fresh-process re-test (not done as of this entry). qwen3-32b has no "
+        "clean (non-clamped) SILENT_SPILL point below its own effective ceiling (131072 via 4x YaRN of a "
+        "native 32768). Host stayed responsive in every crash-reproduction attempt.",
         ["results/mx2_validation.jsonl", "results/t2s_night2_20261001T151340Z.jsonl"],
-        "n=2 models, 3 reps per regime point, 3 crash-reproduction reps per model"),
+        "n=2 models, 3 reps per regime point; qwen3-32b crash confirmed 3/3 fresh-process reps, "
+        "llama-3.3-70b crash boundary not yet re-tested fresh"),
     ("X2 (AMD, Vulkan)", "llama.cpp default fit"): ("NOT_MEASURED", None, [], None),
     ("X2 (AMD, Vulkan)", "llama.cpp -fit off"): ("NOT_MEASURED", None, [], None),
     ("X2 (AMD, Vulkan)", "Ollama default"): (
