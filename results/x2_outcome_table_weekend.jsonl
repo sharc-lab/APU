@@ -1483,3 +1483,137 @@
 {"record": "outcome_row", "item_id": "longdoc_80000_06", "family": "longdoc_qa", "config": "ollama_default", "model_id": "qwen3-14b", "ts_utc": "2026-10-07T00:20:29.782393+00:00", "http_status": null, "score": 0.0, "latency_s": 2.0469999999913853, "sent_tokens": 80002, "processed_tokens": null, "silently_truncated": false, "chat_outcome": "error", "error": "<urlopen error [WinError 10061] No connection could be made because the target machine actively refused it>"}
 {"record": "outcome_row", "item_id": "longdoc_80000_06", "family": "longdoc_qa", "config": "llama_server", "model_id": "qwen3-14b", "ts_utc": "2026-10-07T00:21:33.124416+00:00", "requested_n_ctx": 80384, "http_status": 400, "score": 0.0, "error": "{\"error\":{\"code\":400,\"message\":\"request (80010 tokens) exceeds the available context size (40960 tokens), try increasing it\",\"type\":\"exceed_context_size_error\",\"n_prompt_tokens\":80010,\"n_ctx\":40960}}"}
 {"record": "outcome_row", "item_id": "longdoc_80000_06", "family": "longdoc_qa", "config": "ollama_default", "model_id": "qwen3-30b-a3b", "ts_utc": "2026-10-07T00:21:43.497186+00:00", "http_status": null, "score": 0.0, "latency_s": 2.062000000005355, "sent_tokens": 80002, "processed_tokens": null, "silently_truncated": false, "chat_outcome": "error", "error": "<urlopen error [WinError 10061] No connection could be made because the target machine actively refused it>"}
+{"record": "outcome_row", "item_id": "longdoc_80000_06", "family": "longdoc_qa", "config": "llama_server", "model_id": "qwen3-30b-a3b", "ts_utc": "2026-10-07T00:22:46.820908+00:00", "requested_n_ctx": 80384, "http_status": 200, "score": 1.0, "latency_s": 430.0470000000205, "sent_tokens": 80002, "processed_tokens": 80010, "silently_truncated": false}
+{"record": "outcome_row", "item_id": "longdoc_80000_06", "family": "longdoc_qa", "config": "ollama_default", "model_id": "qwen3-32b", "ts_utc": "2026-10-07T00:30:07.120964+00:00", "http_status": null, "score": 0.0, "latency_s": 2.0469999999913853, "sent_tokens": 80002, "processed_tokens": null, "silently_truncated": false, "chat_outcome": "error", "error": "<urlopen error [WinError 10061] No connection could be made because the target machine actively refused it>"}
+{"record": "outcome_row", "item_id": "longdoc_80000_06", "family": "longdoc_qa", "config": "llama_server", "model_id": "qwen3-32b", "ts_utc": "2026-10-07T00:31:10.138753+00:00", "requested_n_ctx": 80384, "http_status": 400, "score": 0.0, "error": "{\"error\":{\"code\":400,\"message\":\"request (80010 tokens) exceeds the available context size (40960 tokens), try increasing it\",\"type\":\"exceed_context_size_error\",\"n_prompt_tokens\":80010,\"n_ctx\":40960}}"}
+{"record": "heartbeat", "item_id": "longdoc_80000_07", "ts_utc": "2026-10-07T00:31:26.482632+00:00"}
+{"record": "heartbeat", "item_id": "trace_mix_042", "ts_utc": "2026-10-07T00:31:33.507021+00:00"}
+{"record": "heartbeat", "item_id": "trace_mix_044", "ts_utc": "2026-10-07T00:31:33.507021+00:00"}
+{"record": "heartbeat", "item_id": "trace_mix_049", "ts_utc": "2026-10-07T00:31:33.507021+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_16000_00", "ts_utc": "2026-10-07T00:31:33.508022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_16000_01", "ts_utc": "2026-10-07T00:31:33.508022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_16000_02", "ts_utc": "2026-10-07T00:31:33.508022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_16000_03", "ts_utc": "2026-10-07T00:31:33.508022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_16000_04", "ts_utc": "2026-10-07T00:31:33.508022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_16000_05", "ts_utc": "2026-10-07T00:31:33.509023+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_16000_06", "ts_utc": "2026-10-07T00:31:33.509023+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_16000_07", "ts_utc": "2026-10-07T00:31:33.509023+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_16000_08", "ts_utc": "2026-10-07T00:31:33.509023+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_16000_09", "ts_utc": "2026-10-07T00:31:33.509023+00:00"}
+{"record": "heartbeat", "item_id": "trace_mix_018", "ts_utc": "2026-10-07T00:31:33.509023+00:00"}
+{"record": "heartbeat", "item_id": "trace_mix_053", "ts_utc": "2026-10-07T00:31:33.509023+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_24000_00", "ts_utc": "2026-10-07T00:31:33.509023+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_24000_01", "ts_utc": "2026-10-07T00:31:33.510024+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_24000_02", "ts_utc": "2026-10-07T00:31:33.510024+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_24000_03", "ts_utc": "2026-10-07T00:31:33.510024+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_24000_04", "ts_utc": "2026-10-07T00:31:33.510024+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_24000_05", "ts_utc": "2026-10-07T00:31:33.510024+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_24000_06", "ts_utc": "2026-10-07T00:31:33.510024+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_24000_07", "ts_utc": "2026-10-07T00:31:33.510024+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_24000_08", "ts_utc": "2026-10-07T00:31:33.510024+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_24000_09", "ts_utc": "2026-10-07T00:31:33.511026+00:00"}
+{"record": "heartbeat", "item_id": "trace_mix_051", "ts_utc": "2026-10-07T00:31:33.511026+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_12000_00", "ts_utc": "2026-10-07T00:31:33.511026+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_12000_01", "ts_utc": "2026-10-07T00:31:33.511026+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_12000_02", "ts_utc": "2026-10-07T00:31:33.511026+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_12000_03", "ts_utc": "2026-10-07T00:31:33.511026+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_12000_04", "ts_utc": "2026-10-07T00:31:33.511026+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_12000_05", "ts_utc": "2026-10-07T00:31:33.511026+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_12000_06", "ts_utc": "2026-10-07T00:31:33.512023+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_12000_07", "ts_utc": "2026-10-07T00:31:33.512023+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_12000_08", "ts_utc": "2026-10-07T00:31:33.512023+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_12000_09", "ts_utc": "2026-10-07T00:31:33.512023+00:00"}
+{"record": "heartbeat", "item_id": "trace_mix_000", "ts_utc": "2026-10-07T00:31:33.512023+00:00"}
+{"record": "heartbeat", "item_id": "trace_mix_028", "ts_utc": "2026-10-07T00:31:33.512023+00:00"}
+{"record": "heartbeat", "item_id": "trace_mix_039", "ts_utc": "2026-10-07T00:31:33.512023+00:00"}
+{"record": "heartbeat", "item_id": "trace_mix_007", "ts_utc": "2026-10-07T00:31:33.513023+00:00"}
+{"record": "heartbeat", "item_id": "trace_mix_013", "ts_utc": "2026-10-07T00:31:33.513023+00:00"}
+{"record": "heartbeat", "item_id": "trace_mix_029", "ts_utc": "2026-10-07T00:31:33.513023+00:00"}
+{"record": "heartbeat", "item_id": "trace_mix_052", "ts_utc": "2026-10-07T00:31:33.513023+00:00"}
+{"record": "heartbeat", "item_id": "trace_mix_058", "ts_utc": "2026-10-07T00:31:33.513023+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_32000_00", "ts_utc": "2026-10-07T00:31:33.513023+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_32000_01", "ts_utc": "2026-10-07T00:31:33.513023+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_32000_02", "ts_utc": "2026-10-07T00:31:33.513023+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_32000_03", "ts_utc": "2026-10-07T00:31:33.514022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_32000_04", "ts_utc": "2026-10-07T00:31:33.514022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_32000_05", "ts_utc": "2026-10-07T00:31:33.514022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_32000_06", "ts_utc": "2026-10-07T00:31:33.514022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_32000_07", "ts_utc": "2026-10-07T00:31:33.514022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_32000_08", "ts_utc": "2026-10-07T00:31:33.514022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_32000_09", "ts_utc": "2026-10-07T00:31:33.514022+00:00"}
+{"record": "heartbeat", "item_id": "trace_mix_038", "ts_utc": "2026-10-07T00:31:33.515023+00:00"}
+{"record": "heartbeat", "item_id": "trace_mix_009", "ts_utc": "2026-10-07T00:31:33.515023+00:00"}
+{"record": "heartbeat", "item_id": "trace_mix_032", "ts_utc": "2026-10-07T00:31:33.515023+00:00"}
+{"record": "heartbeat", "item_id": "trace_mix_033", "ts_utc": "2026-10-07T00:31:33.515023+00:00"}
+{"record": "heartbeat", "item_id": "trace_mix_034", "ts_utc": "2026-10-07T00:31:33.515023+00:00"}
+{"record": "heartbeat", "item_id": "trace_mix_041", "ts_utc": "2026-10-07T00:31:33.515023+00:00"}
+{"record": "heartbeat", "item_id": "trace_mix_056", "ts_utc": "2026-10-07T00:31:33.515023+00:00"}
+{"record": "heartbeat", "item_id": "trace_mix_059", "ts_utc": "2026-10-07T00:31:33.515023+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_48000_00", "ts_utc": "2026-10-07T00:31:33.516022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_48000_01", "ts_utc": "2026-10-07T00:31:33.516022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_48000_02", "ts_utc": "2026-10-07T00:31:33.516022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_48000_03", "ts_utc": "2026-10-07T00:31:33.516022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_48000_04", "ts_utc": "2026-10-07T00:31:33.516022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_48000_05", "ts_utc": "2026-10-07T00:31:33.516022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_48000_06", "ts_utc": "2026-10-07T00:31:33.516022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_48000_07", "ts_utc": "2026-10-07T00:31:33.516022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_48000_08", "ts_utc": "2026-10-07T00:31:33.517022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_48000_09", "ts_utc": "2026-10-07T00:31:33.517022+00:00"}
+{"record": "heartbeat", "item_id": "trace_mix_008", "ts_utc": "2026-10-07T00:31:33.517022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_8000_00", "ts_utc": "2026-10-07T00:31:33.517022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_8000_01", "ts_utc": "2026-10-07T00:31:33.517022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_8000_02", "ts_utc": "2026-10-07T00:31:33.517022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_8000_03", "ts_utc": "2026-10-07T00:31:33.517022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_8000_04", "ts_utc": "2026-10-07T00:31:33.517022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_8000_05", "ts_utc": "2026-10-07T00:31:33.517022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_8000_06", "ts_utc": "2026-10-07T00:31:33.518022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_8000_07", "ts_utc": "2026-10-07T00:31:33.518022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_8000_08", "ts_utc": "2026-10-07T00:31:33.518022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_8000_09", "ts_utc": "2026-10-07T00:31:33.518022+00:00"}
+{"record": "heartbeat", "item_id": "trace_mix_004", "ts_utc": "2026-10-07T00:31:33.518022+00:00"}
+{"record": "heartbeat", "item_id": "trace_mix_012", "ts_utc": "2026-10-07T00:31:33.518022+00:00"}
+{"record": "heartbeat", "item_id": "trace_mix_016", "ts_utc": "2026-10-07T00:31:33.518022+00:00"}
+{"record": "heartbeat", "item_id": "trace_mix_043", "ts_utc": "2026-10-07T00:31:33.518022+00:00"}
+{"record": "heartbeat", "item_id": "trace_mix_054", "ts_utc": "2026-10-07T00:31:33.519022+00:00"}
+{"record": "heartbeat", "item_id": "trace_mix_057", "ts_utc": "2026-10-07T00:31:33.519022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_2000_06", "ts_utc": "2026-10-07T00:31:33.519022+00:00"}
+{"record": "heartbeat", "item_id": "trace_mix_017", "ts_utc": "2026-10-07T00:31:33.519022+00:00"}
+{"record": "heartbeat", "item_id": "trace_mix_040", "ts_utc": "2026-10-07T00:31:33.519022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_64000_00", "ts_utc": "2026-10-07T00:31:33.519022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_64000_01", "ts_utc": "2026-10-07T00:31:33.519022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_64000_02", "ts_utc": "2026-10-07T00:31:33.519022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_64000_03", "ts_utc": "2026-10-07T00:31:33.520022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_64000_04", "ts_utc": "2026-10-07T00:31:33.520022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_64000_05", "ts_utc": "2026-10-07T00:31:33.520022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_64000_06", "ts_utc": "2026-10-07T00:31:33.520022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_64000_07", "ts_utc": "2026-10-07T00:31:33.520022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_64000_08", "ts_utc": "2026-10-07T00:31:33.520022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_64000_09", "ts_utc": "2026-10-07T00:31:33.520022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_80000_00", "ts_utc": "2026-10-07T00:31:33.520022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_80000_01", "ts_utc": "2026-10-07T00:31:33.521022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_80000_02", "ts_utc": "2026-10-07T00:31:33.521022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_80000_03", "ts_utc": "2026-10-07T00:31:33.521022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_80000_04", "ts_utc": "2026-10-07T00:31:33.521022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_80000_05", "ts_utc": "2026-10-07T00:31:33.521022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_80000_06", "ts_utc": "2026-10-07T00:31:33.521022+00:00"}
+{"record": "heartbeat", "item_id": "longdoc_80000_07", "ts_utc": "2026-10-07T00:31:33.521022+00:00"}
+{"record": "outcome_row", "item_id": "longdoc_80000_07", "family": "longdoc_qa", "config": "ollama_default", "model_id": "llama3.1:8b", "ts_utc": "2026-10-07T00:31:33.927145+00:00", "http_status": 200, "score": 1.0, "latency_s": 480.73399999999674, "sent_tokens": 80010, "processed_tokens": 80014, "silently_truncated": false, "chat_outcome": "ok", "error": null}
+{"record": "outcome_row", "item_id": "longdoc_80000_07", "family": "longdoc_qa", "config": "llama_server", "model_id": "llama3.1:8b", "ts_utc": "2026-10-07T00:39:39.752017+00:00", "requested_n_ctx": 80384, "http_status": null, "score": 0.0, "error": "timed out"}
+{"record": "outcome_row", "item_id": "longdoc_80000_07", "family": "longdoc_qa", "config": "ollama_default", "model_id": "qwen3-8b", "ts_utc": "2026-10-07T00:54:47.259037+00:00", "http_status": 200, "score": 0.0, "latency_s": 33.40700000000652, "sent_tokens": 80010, "processed_tokens": 20482, "silently_truncated": true, "chat_outcome": "ok", "error": null}
+{"record": "outcome_row", "item_id": "longdoc_80000_07", "family": "longdoc_qa", "config": "llama_server", "model_id": "qwen3-8b", "ts_utc": "2026-10-07T00:55:22.978532+00:00", "requested_n_ctx": 80384, "http_status": 400, "score": 0.0, "error": "{\"error\":{\"code\":400,\"message\":\"request (80018 tokens) exceeds the available context size (40960 tokens), try increasing it\",\"type\":\"exceed_context_size_error\",\"n_prompt_tokens\":80018,\"n_ctx\":40960}}"}
+{"record": "outcome_row", "item_id": "longdoc_80000_07", "family": "longdoc_qa", "config": "ollama_default", "model_id": "qwen3-4b-2507", "ts_utc": "2026-10-07T00:55:30.472399+00:00", "http_status": 200, "score": 1.0, "latency_s": 402.7960000000021, "sent_tokens": 80010, "processed_tokens": 80018, "silently_truncated": false, "chat_outcome": "ok", "error": null}
+{"record": "outcome_row", "item_id": "longdoc_80000_07", "family": "longdoc_qa", "config": "llama_server", "model_id": "qwen3-4b-2507", "ts_utc": "2026-10-07T01:02:15.527698+00:00", "requested_n_ctx": 80384, "http_status": null, "score": 0.0, "error": "timed out"}
+{"record": "outcome_row", "item_id": "longdoc_80000_07", "family": "longdoc_qa", "config": "ollama_default", "model_id": "qwen3-14b", "ts_utc": "2026-10-07T01:17:27.873162+00:00", "http_status": 200, "score": 0.0, "latency_s": 123.53099999998813, "sent_tokens": 80010, "processed_tokens": 20482, "silently_truncated": true, "chat_outcome": "ok", "error": null}
+{"record": "outcome_row", "item_id": "longdoc_80000_07", "family": "longdoc_qa", "config": "llama_server", "model_id": "qwen3-14b", "ts_utc": "2026-10-07T01:19:33.845542+00:00", "requested_n_ctx": 80384, "http_status": 400, "score": 0.0, "error": "{\"error\":{\"code\":400,\"message\":\"request (80018 tokens) exceeds the available context size (40960 tokens), try increasing it\",\"type\":\"exceed_context_size_error\",\"n_prompt_tokens\":80018,\"n_ctx\":40960}}"}
+{"record": "outcome_row", "item_id": "longdoc_80000_07", "family": "longdoc_qa", "config": "ollama_default", "model_id": "qwen3-30b-a3b", "ts_utc": "2026-10-07T01:19:53.106165+00:00", "http_status": 200, "score": 1.0, "latency_s": 318.6559999999881, "sent_tokens": 80010, "processed_tokens": 80020, "silently_truncated": false, "chat_outcome": "ok", "error": null}
+{"record": "outcome_row", "item_id": "longdoc_80000_07", "family": "longdoc_qa", "config": "llama_server", "model_id": "qwen3-30b-a3b", "ts_utc": "2026-10-07T01:25:14.444549+00:00", "requested_n_ctx": 80384, "http_status": 200, "score": 1.0, "latency_s": 505.6559999999881, "sent_tokens": 80010, "processed_tokens": 80018, "silently_truncated": false}
+{"record": "outcome_row", "item_id": "longdoc_80000_07", "family": "longdoc_qa", "config": "ollama_default", "model_id": "qwen3-32b", "ts_utc": "2026-10-07T01:34:36.197596+00:00", "http_status": 200, "score": 0.0, "latency_s": 153.43799999999464, "sent_tokens": 80010, "processed_tokens": 20482, "silently_truncated": true, "chat_outcome": "ok", "error": null}
+{"record": "heartbeat", "item_id": "longdoc_80000_08", "ts_utc": "2026-10-07T01:52:17.660056+00:00"}
+{"record": "outcome_row", "item_id": "longdoc_80000_08", "family": "longdoc_qa", "config": "ollama_default", "model_id": "llama3.1:8b", "ts_utc": "2026-10-07T01:52:18.181335+00:00", "http_status": 200, "score": 1.0, "latency_s": 200.31299999999464, "sent_tokens": 80002, "processed_tokens": 80006, "silently_truncated": false, "chat_outcome": "ok", "error": null}
+{"record": "outcome_row", "item_id": "longdoc_80000_08", "family": "longdoc_qa", "config": "llama_server", "model_id": "llama3.1:8b", "ts_utc": "2026-10-07T01:55:41.462552+00:00", "requested_n_ctx": 80384, "http_status": null, "score": 0.0, "error": "timed out"}
+{"record": "outcome_row", "item_id": "longdoc_80000_08", "family": "longdoc_qa", "config": "ollama_default", "model_id": "qwen3-8b", "ts_utc": "2026-10-07T02:10:50.802122+00:00", "http_status": 200, "score": 0.0, "latency_s": 43.21799999999348, "sent_tokens": 80002, "processed_tokens": 20482, "silently_truncated": true, "chat_outcome": "ok", "error": null}
+{"record": "outcome_row", "item_id": "longdoc_80000_08", "family": "longdoc_qa", "config": "llama_server", "model_id": "qwen3-8b", "ts_utc": "2026-10-07T02:11:36.627367+00:00", "requested_n_ctx": 80384, "http_status": 400, "score": 0.0, "error": "{\"error\":{\"code\":400,\"message\":\"request (80010 tokens) exceeds the available context size (40960 tokens), try increasing it\",\"type\":\"exceed_context_size_error\",\"n_prompt_tokens\":80010,\"n_ctx\":40960}}"}
+{"record": "outcome_row", "item_id": "longdoc_80000_08", "family": "longdoc_qa", "config": "ollama_default", "model_id": "qwen3-4b-2507", "ts_utc": "2026-10-07T02:11:49.152996+00:00", "http_status": 200, "score": 1.0, "latency_s": 224.06200000000536, "sent_tokens": 80002, "processed_tokens": 80010, "silently_truncated": false, "chat_outcome": "ok", "error": null}
+{"record": "outcome_row", "item_id": "longdoc_80000_08", "family": "longdoc_qa", "config": "ollama_default", "model_id": "qwen3-14b", "ts_utc": "2026-10-07T02:30:41.771604+00:00", "http_status": 500, "score": 0.0, "latency_s": 2.5940000000118744, "sent_tokens": 80002, "processed_tokens": null, "silently_truncated": false, "chat_outcome": "http_error", "error": "{\"error\":\"llama-server process has terminated: exit status 1: cudaMalloc failed: out of memory\\nalloc_tensor_range: failed to allocate ROCm0 buffer of size 8832650240\\nerror loading model: unable to allocate ROCm0 buffer\"}"}
+{"record": "outcome_row", "item_id": "longdoc_80000_08", "family": "longdoc_qa", "config": "ollama_default", "model_id": "qwen3-30b-a3b", "ts_utc": "2026-10-07T02:45:48.310594+00:00", "http_status": 500, "score": 0.0, "latency_s": 2.5460000000020955, "sent_tokens": 80002, "processed_tokens": null, "silently_truncated": false, "chat_outcome": "http_error", "error": "{\"error\":\"llama-server process has terminated: exit status 1: cudaMalloc failed: out of memory\\nalloc_tensor_range: failed to allocate ROCm0 buffer of size 18375698432\\nerror loading model: unable to allocate ROCm0 buffer\"}"}
+{"record": "outcome_row", "item_id": "longdoc_80000_08", "family": "longdoc_qa", "config": "ollama_default", "model_id": "qwen3-32b", "ts_utc": "2026-10-07T03:00:54.500373+00:00", "http_status": 500, "score": 0.0, "latency_s": 2.5469999999913853, "sent_tokens": 80002, "processed_tokens": null, "silently_truncated": false, "chat_outcome": "http_error", "error": "{\"error\":\"llama-server process has terminated: exit status 1: cudaMalloc failed: out of memory\\nalloc_tensor_range: failed to allocate ROCm0 buffer of size 19757689856\\nerror loading model: unable to allocate ROCm0 buffer\"}"}
