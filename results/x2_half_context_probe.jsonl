@@ -1,0 +1,5 @@
+{"record": "heartbeat", "rep": 0, "ts_utc": "2026-10-07T03:43:41.071122+00:00"}
+{"record": "half_context_probe_result", "rep": 0, "model_id": "llama3.1:8b", "num_ctx": 8192, "target_filler_tokens": 4096, "ts_utc": "2026-10-07T03:43:41.433084+00:00", "started": false, "error": "ollama did not become ready"}
+{"record": "heartbeat", "rep": 1, "ts_utc": "2026-10-07T03:45:44.101624+00:00"}
+{"record": "half_context_probe_result", "rep": 1, "model_id": "llama3.1:8b", "num_ctx": 8192, "target_filler_tokens": 4096, "ts_utc": "2026-10-07T03:45:44.492749+00:00", "started": false, "error": "ollama did not become ready"}
+{"record": "heartbeat", "rep": 2, "ts_utc": "2026-10-07T03:47:47.345818+00:00"}
