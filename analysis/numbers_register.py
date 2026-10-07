@@ -1074,6 +1074,21 @@ def compute_x2_thinking_verify(repo):
     return {"value": "; ".join(parts), "n": len(rows)}
 
 
+X2_OUTCOME_V3 = "results/x2_outcome_table_v3.jsonl"
+
+
+def compute_x2_v3_canary_gates(repo):
+    """Latest canary_gate record per (model, config) in the restarted X2 outcome table."""
+    x2 = _x2_harness()
+    gates = {}
+    for r in x2.read_rows(repo / X2_OUTCOME_V3):
+        if r.get("record") == "canary_gate":
+            gates[(r["model_id"], r["config"])] = r
+    parts = [f"{m}/{c} {'PASS' if g['passed'] else 'FAIL'} err={g['error_rate']:.2f} mean={g['mean_score']:.2f} "
+             f"leaks={g.get('thinking_leaks')}" for (m, c), g in sorted(gates.items())]
+    return {"value": "; ".join(parts), "n": len(gates)}
+
+
 def compute_t2s_outcome_error_causes(repo):
     x2 = _x2_harness()
     rows = [r for r in x2.read_rows(repo / T2S_OUTCOME_FULL) if r.get("record") == "outcome_row"]
@@ -1235,6 +1250,9 @@ NUMBER_ENTRIES = [
     {"claim_id": "x2-thinking-verify", "description": "evo-x2 live thinking-disable verification per mechanism (llama-server b10970, Ollama)",
      "compute": compute_x2_thinking_verify, "data_files": [X2_THINKING_VERIFY],
      "script_function": "analysis/numbers_register.py::compute_x2_thinking_verify"},
+    {"claim_id": "x2-v3-canary-gates", "description": "X2 outcome table v3 canary gate per (model, config), latest record",
+     "compute": compute_x2_v3_canary_gates, "data_files": [X2_OUTCOME_V3],
+     "script_function": "analysis/numbers_register.py::compute_x2_v3_canary_gates"},
     {"claim_id": "t2s-outcome-error-causes", "description": "T2S outcome table (synced full file) rows by error cause, and race-signature count",
      "compute": compute_t2s_outcome_error_causes, "data_files": [T2S_OUTCOME_FULL],
      "script_function": "analysis/numbers_register.py::compute_t2s_outcome_error_causes"},

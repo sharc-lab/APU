@@ -1994,3 +1994,31 @@ Stopping the first v3 run by hand showed `stop_ollama_server()` kills `ollama.ex
 pre-launch cleanup killed them. An orphaned runner keeps its GPU allocation, which is a plausible mechanism
 for the weekend's clustered ollama OOM rows (not verified). `stop_ollama_server()` now also kills runners,
 matched by executable path.
+
+### Canary gate results, x2_outcome_table_v3 (2026-10-07, 05:37 to 05:57Z)
+
+[x2-v3-canary-gates], 10 canaries each (5 shortest gsm8k, 5 shortest function_calling):
+
+| model | ollama_default | llama_server |
+|---|---|---|
+| llama3.1:8b | PASS, err 0.00, mean 0.60 | PASS, err 0.00, mean 0.70 |
+| qwen3-4b-2507 | PASS, err 0.00, mean 0.70 | PASS, err 0.00, mean 0.60 |
+| qwen3-8b | PASS, err 0.00, mean 0.90 | PASS, err 0.00, mean 1.00 |
+| qwen3-14b | PASS, err 0.00, mean 0.90 | PASS, err 0.00, mean 0.90 |
+| qwen3-30b-a3b | **FAIL**, err 0.00, mean 0.00 | PASS, err 0.00, mean 0.90 |
+| qwen3-32b | PASS, err 0.00, mean 0.90 | PASS, err 0.00, mean 0.80 |
+
+The one failure is real and is what the gate is for: the Ollama registry tag `qwen3:30b-a3b` is not the
+model the llama_server leg runs (`Qwen3-30B-A3B-Instruct-2507`). Its template (read from the manifest's
+template blob on evo-x2) ends the prompt with `<|im_start|>assistant\n<think>\n` unconditionally, where the
+qwen3:8b/32b templates insert an empty think block when `think` is false. So `"think": false` cannot switch it
+off, the reasoning lands in `content` without a tag, every canary hit the 256-token limit mid-reasoning, and
+`thinking_leak` (which looks for reasoning fields or a `<think>` tag) did not flag it; the score did. Every
+weekend qwen3-30b-a3b ollama_default row measured that different model too. Fixed: the Ollama leg now uses
+`qwen3-30b-a3b-2507`, created inside the job from the same GGUF as the llama_server leg (the route
+qwen3-4b-2507 already used); rows measured with the old tag are not reused. The new pair's canaries run when
+the queued resume starts.
+
+gsm8k canaries are scored strictly on the `#### <number>` format the prompt asks for; llama3.1:8b and
+qwen3-4b-2507 lose points by answering "The final answer is 187." with the right number. That is a
+format-compliance outcome, not an infra error, and is reported as scored.
