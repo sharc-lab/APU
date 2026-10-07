@@ -152,3 +152,27 @@ the half-context probe, MX2 spill-cost-with-statistics, R2 validation, then the 
 - Queue: `x2_half_context_probe` marked `invalid_infra`; `x2_half_context_probe_retry` queued directly after
   `x2_mx2_spill_stats` (running). P0..P4 subagents launched for the operator's priority list; their results
   are appended below as they land.
+
+### 2026-10-07 early UTC, subagent results (branches awaiting operator fast-forward unless noted)
+
+Worktree isolation blocked the P1-P4 agents from fast-forwarding main; each branch is rebased and waits for
+`git merge --ff-only <branch>` from the main checkout. P0 landed directly on main. Details and numbers are in
+each branch's FINDINGS section and register rows (not repeated here until merged).
+
+- P0 (outcome table, on main: fe94580..5c7c1fe): validity gate, error-cause classes, item-boundary yield
+  contract, gsm8k scoring fix, thinking-disable live check, weekend invalidation writeup. Still running.
+- P1 R2 (`worktree-agent-a34c7b2161a83443e`): two-step harness `harness/x2_r2_agent.py` built and validated
+  (`results/x2_r2_validation_v2.jsonl`; v1 superseded). Gates pass; llama3.1:8b runs with rules 1/3/4 only
+  (rules 2 and 5 below 90% baseline). `x2_r2_real_v1` running on evo-x2 since 05:58Z Oct 7.
+- P2 K2 (`worktree-agent-af24dbdf5b97fbb71`): CORRECTION, the 18h K2 run had 13/13 kill-criterion evaluations
+  PASS, not "13 hits" as this file said earlier. Arm (d) is a standalone job, `x2_k2_pause_resume_v1`, gated on
+  `x2_r2_real_v1` being done (if R2 ends in error, this item needs a manual edit).
+- P3 kappa (`worktree-agent-a8b65bf2f1e67b33b`): new 150-item held-out sample, seed 20261006; the in-sample 1.0
+  should no longer be cited. `results/labeling/ritz_spotcheck_heldout_30.csv` awaits the operator's labels.
+- P3 analysis (`worktree-agent-ad9948fd40c46c98e`): item 4(c) A-24 flip point built; item 4(d) evo-x2 TTFT R2
+  explained by a first-call-after-prompt-change stall (needs a `--cache-ram 0` control run to confirm the
+  mechanism). `ttft-cross-machine-transfer` and `ttft-few-point-calibration` must be recomputed on rep>=1 rows
+  before citing.
+- P4 (`worktree-agent-add6f0a7bc9e33011`): `x2_70b_edge_reps` built and queued (warm-read vs standby-purge, ABAB).
+- evo-x2 queue as of ~06:00Z: x2_r2_real_v1 (running) -> x2_outcome_table_v3_resume3 -> x2_70b_edge_reps ->
+  x2_k2_pause_resume_v1. No pause set.
