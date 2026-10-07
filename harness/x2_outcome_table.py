@@ -83,11 +83,21 @@ MODEL_MAP = {
     "qwen3-8b": ("qwen3:8b", r"C:\apu\models\Qwen3-8B-Q4_K_M.gguf"),
     "qwen3-4b-2507": ("qwen3-4b-2507", r"C:\apu\models\qwen3-4b-instruct-85e4a5b7.gguf"),
     "qwen3-14b": ("qwen3:14b", r"C:\apu\models\Qwen3-14B-Q4_K_M.gguf"),
-    # 2026-10-02 bug found live: "qwen3:30b-a3b-instruct-2507" does not exist on the Ollama registry (404); the
-    # real tag is plain "qwen3:30b-a3b". The GGUF path for the llama_server leg is unaffected.
-    "qwen3-30b-a3b": ("qwen3:30b-a3b", r"C:\apu\models\Qwen3-30B-A3B-Instruct-2507-Q4_K_M.gguf"),
+    # 2026-10-02: "qwen3:30b-a3b-instruct-2507" does not exist on the Ollama registry (404), so the weekend run
+    # used plain "qwen3:30b-a3b". 2026-10-07, found by the canary gate: that registry tag is NOT the same model
+    # as the llama_server leg's Instruct-2507 GGUF. Its template unconditionally opens "<think>\n" after the
+    # assistant turn (read from the manifest's template blob on evo-x2), so "think": false cannot turn it off
+    # and its reasoning lands in content (10/10 canaries: finish=length, content = "Okay, let's see...",
+    # mean score 0.0). The Ollama leg now uses a local model created from the SAME GGUF as the llama_server
+    # leg (OLLAMA_CREATE_FROM_GGUF, the same route qwen3-4b-2507 already uses), so both configs measure
+    # identical weights.
+    "qwen3-30b-a3b": ("qwen3-30b-a3b-2507", r"C:\apu\models\Qwen3-30B-A3B-Instruct-2507-Q4_K_M.gguf"),
     "qwen3-32b": ("qwen3:32b", r"C:\apu\models\Qwen3-32B-Q4_K_M.gguf"),
 }
+# Ollama tags this harness creates itself (ollama create from the model's own llama_server GGUF) if missing.
+OLLAMA_CREATE_FROM_GGUF = {"qwen3-30b-a3b-2507": r"C:\apu\models\Qwen3-30B-A3B-Instruct-2507-Q4_K_M.gguf"}
+# Ollama tag a row was measured with, for rows written before rows recorded it (all weekend/early-v3 rows).
+LEGACY_OLLAMA_TAG = {"qwen3-30b-a3b": "qwen3:30b-a3b"}
 LLAMA_SERVER_EXE = r"C:\apu\bin\llama-b10970\llama-server.exe"
 LLAMA_SERVER_PORT = 58299
 DEFAULT_MODELS = ["llama3.1:8b", "qwen3-4b-2507", "qwen3-8b", "qwen3-14b", "qwen3-30b-a3b", "qwen3-32b"]
@@ -185,6 +195,11 @@ def row_is_valid(row):
     (cause connection). Context overflow, timeouts and other errors are real measured outcomes."""
     if row.get("family") == "gsm8k" and row.get("http_status") == 200 and row.get("scorer_version", 1) < 2:
         return False  # scored by the pre-fix final_number_match path (always 0); rerun
+    model = row.get("model_id")
+    if row.get("config") == "ollama_default" and model in MODEL_MAP:
+        measured_tag = row.get("ollama_tag") or LEGACY_OLLAMA_TAG.get(model, MODEL_MAP[model][0])
+        if measured_tag != MODEL_MAP[model][0]:
+            return False  # measured a different Ollama model than the current mapping
     return not invalid_tags(row) and classify_error_cause(row) != "connection"
 
 
@@ -440,12 +455,56 @@ def seed_from_previous_run(out_path, reuse_from):
     return rec
 
 
+def ollama_manifest_path(tag, models_dir):
+    name, _, version = tag.partition(":")
+    return Path(models_dir) / "manifests" / "registry.ollama.ai" / "library" / name / (version or "latest")
+
+
+def ensure_ollama_custom_models(models, out_path, run_fn=None, models_dir=None):
+    """Creates any OLLAMA_CREATE_FROM_GGUF tag used by `models` that is not yet in the host's Ollama store
+    (`ollama create <tag> -f Modelfile` with "FROM <gguf>", the same route qwen3-4b-2507 was made by). Runs inside
+    the queue job, before any measurement, so it never overlaps one. Records an "ollama_create" row either way."""
+    import tempfile
+    models_dir = models_dir or hc._this_host_entry().get("ollama_models")
+    for model_key in models:
+        tag = MODEL_MAP[model_key][0]
+        gguf = OLLAMA_CREATE_FROM_GGUF.get(tag)
+        if not gguf:
+            continue
+        if models_dir and ollama_manifest_path(tag, models_dir).exists():
+            continue
+        rec = {"record": "ollama_create", "ts_utc": utc_iso(), "tag": tag, "gguf": gguf}
+        hc.start_ollama_server()
+        try:
+            if not hc.wait_for_ollama_ready(timeout_s=90):
+                rec.update({"outcome": "error", "error": "ollama server not ready"})
+            else:
+                exe = hc._resolve_ollama_exe_for_serve()
+                with tempfile.TemporaryDirectory() as td:
+                    mf = Path(td) / "Modelfile"
+                    mf.write_text(f"FROM {gguf}\n", encoding="utf-8")
+                    run = run_fn or (lambda argv: subprocess.run(argv, capture_output=True, text=True, encoding="utf-8",
+                                                                 errors="replace", timeout=3600))
+                    t0 = time.monotonic()
+                    res = run([exe, "create", tag, "-f", str(mf)])
+                rec.update({"outcome": "ok" if res.returncode == 0 else "error", "returncode": res.returncode,
+                            "elapsed_s": time.monotonic() - t0, "stdout_tail": (res.stdout or "")[-500:],
+                            "stderr_tail": (res.stderr or "")[-500:]})
+        except Exception as e:
+            rec.update({"outcome": "error", "error": repr(e)[:400]})
+        finally:
+            hc.stop_ollama_server()
+        emit(out_path, rec)
+        print(f"ollama create {tag}: {rec.get('outcome')}", flush=True)
+
+
 # ================================================================================================ runtimes
 def run_one_ollama(item, model_key, ollama_tag, out_path, call_timeout_s, canary=False):
     hc.start_ollama_server()
     row = {"record": "outcome_row", "item_id": item["item_id"], "family": item["family"],
            "config": "ollama_default", "model_id": model_key, "ts_utc": utc_iso(),
-           "thinking_setting": THINKING_SETTING_OLLAMA, "canary": canary, "scorer_version": SCORER_VERSION}
+           "thinking_setting": THINKING_SETTING_OLLAMA, "canary": canary, "scorer_version": SCORER_VERSION,
+           "ollama_tag": ollama_tag}
     try:
         # 2026-10-06: a server that never came up must be recorded as infra_not_ready, not scored as a model
         # outcome. One forced restart-and-rewait before giving up.
@@ -731,6 +790,9 @@ def run(out_path, models, smoke_n=None, deadline_h=24.0, call_timeout_s=900, reu
     if verify_thinking:
         import x2_thinking_verify as tv
         tv.ensure_verified(out_path.parent / "x2_thinking_verify.jsonl", items, models)
+
+    if runners.get("ollama_default") is run_one_ollama:  # real runtimes only (tests inject fakes)
+        ensure_ollama_custom_models(models, out_path)
 
     subset = qwen32b_subset(items, weights, n=QWEN32B_SUBSET_N) if "qwen3-32b" in models else set()
     if subset and not any(r.get("record") == "qwen32b_subset" for r in read_rows(out_path)):

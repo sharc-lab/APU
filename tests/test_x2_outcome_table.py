@@ -11,10 +11,46 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "harness"))
 import x2_outcome_table as x2  # noqa: E402
 
 
-def test_qwen3_30b_a3b_ollama_tag_is_the_real_registry_tag():
-    ollama_tag, _gguf = x2.MODEL_MAP["qwen3-30b-a3b"]
-    assert ollama_tag == "qwen3:30b-a3b"
-    assert "instruct-2507" not in ollama_tag  # the confirmed-404 tag
+def test_qwen3_30b_a3b_ollama_leg_uses_a_model_created_from_the_llama_server_gguf():
+    """2026-10-07: the registry tag qwen3:30b-a3b always thinks (template opens <think>) and is not the
+    Instruct-2507 model the llama_server leg runs; the Ollama leg is created from the same GGUF instead."""
+    ollama_tag, gguf = x2.MODEL_MAP["qwen3-30b-a3b"]
+    assert ollama_tag == "qwen3-30b-a3b-2507"
+    assert x2.OLLAMA_CREATE_FROM_GGUF[ollama_tag] == gguf
+    assert "instruct-2507" not in ollama_tag  # the confirmed-404 registry tag
+
+
+def test_rows_measured_with_the_old_30b_registry_tag_are_not_valid_cache():
+    old = {"config": "ollama_default", "model_id": "qwen3-30b-a3b", "http_status": 200, "score": 1.0}
+    assert x2.row_is_valid(old) is False
+    new = dict(old, ollama_tag="qwen3-30b-a3b-2507")
+    assert x2.row_is_valid(new) is True
+    other = {"config": "ollama_default", "model_id": "qwen3-8b", "http_status": 200, "score": 1.0}
+    assert x2.row_is_valid(other) is True  # legacy rows of unchanged mappings stay valid
+
+
+def test_ensure_ollama_custom_models_creates_only_missing_tags(monkeypatch, tmp_path):
+    import host_config as hc
+    import json as _json
+    monkeypatch.setattr(hc, "start_ollama_server", lambda: None)
+    monkeypatch.setattr(hc, "stop_ollama_server", lambda: None)
+    monkeypatch.setattr(hc, "wait_for_ollama_ready", lambda timeout_s=90: True)
+    calls = []
+
+    class R:
+        returncode, stdout, stderr = 0, "success", ""
+
+    out = tmp_path / "out.jsonl"
+    x2.ensure_ollama_custom_models(["qwen3-30b-a3b", "qwen3-8b"], out, run_fn=lambda a: calls.append(a) or R(),
+                                   models_dir=tmp_path)
+    assert len(calls) == 1 and calls[0][1:3] == ["create", "qwen3-30b-a3b-2507"]
+    rec = _json.loads(out.read_text().splitlines()[0])
+    assert rec["record"] == "ollama_create" and rec["outcome"] == "ok"
+    m = x2.ollama_manifest_path("qwen3-30b-a3b-2507", tmp_path)
+    m.parent.mkdir(parents=True)
+    m.write_text("{}")
+    x2.ensure_ollama_custom_models(["qwen3-30b-a3b"], out, run_fn=lambda a: calls.append(a) or R(), models_dir=tmp_path)
+    assert len(calls) == 1  # already present, not recreated
 
 
 def test_every_model_map_entry_has_an_ollama_tag_and_a_gguf_path():
