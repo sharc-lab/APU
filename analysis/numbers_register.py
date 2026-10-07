@@ -995,6 +995,21 @@ def compute_x2_weekend_error_causes(repo):
             "n": len(rows)}
 
 
+def compute_x2_weekend_error_causes_by_cell(repo):
+    """Per (model, config): n, then counts of none/context_overflow/timeout/connection/other."""
+    x2 = _x2_harness()
+    rows = [r for r in x2.read_rows(repo / X2_WEEKEND) if r.get("record") == "outcome_row"]
+    cells = {}
+    for r in rows:
+        c = cells.setdefault((r["model_id"], r["config"]), {})
+        k = x2.classify_error_cause(r)
+        c[k] = c.get(k, 0) + 1
+    order = ["none", "context_overflow", "timeout", "connection", "other"]
+    parts = [f"{m}/{cfg} n={sum(c.values())} " + "/".join(str(c.get(k, 0)) for k in order)
+             for (m, cfg), c in sorted(cells.items())]
+    return {"value": "order none/overflow/timeout/connection/other: " + "; ".join(parts), "n": len(rows)}
+
+
 def compute_x2_weekend_thinking_scores(repo):
     """Mean score over ALL weekend llama_server rows per model (errors score 0), the 0.05-0.22 vs 0.84-1.00 split."""
     x2 = _x2_harness()
@@ -1178,6 +1193,9 @@ NUMBER_ENTRIES = [
     {"claim_id": "x2-weekend-error-causes", "description": "X2 weekend outcome rows by error cause and subcause",
      "compute": compute_x2_weekend_error_causes, "data_files": [X2_WEEKEND],
      "script_function": "analysis/numbers_register.py::compute_x2_weekend_error_causes"},
+    {"claim_id": "x2-weekend-error-causes-by-cell", "description": "X2 weekend error causes per (model, config)",
+     "compute": compute_x2_weekend_error_causes_by_cell, "data_files": [X2_WEEKEND],
+     "script_function": "analysis/numbers_register.py::compute_x2_weekend_error_causes_by_cell"},
     {"claim_id": "x2-weekend-thinking-scores", "description": "X2 weekend llama_server mean score per model (all rows)",
      "compute": compute_x2_weekend_thinking_scores, "data_files": [X2_WEEKEND],
      "script_function": "analysis/numbers_register.py::compute_x2_weekend_thinking_scores"},

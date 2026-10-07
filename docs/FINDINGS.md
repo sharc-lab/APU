@@ -1845,3 +1845,107 @@ some fraction of fresh-process reps (2/3), with an unexplained non-crashing 600s
 (e.g. forcing the model file into the page cache before each rep, or reading the file once to warm it) would
 be needed to separate "boundary is non-deterministic" from "disk I/O dominates elapsed time" before this can
 be called a clean result.
+
+## X2 outcome table: weekend run invalidated, causes verified, restart with a validity gate (2026-10-07)
+
+Every number in this section is a row of `docs/NUMBERS_REGISTER.md` (claim ids in brackets), computed from
+`results/x2_outcome_table_weekend.jsonl`, `results/x2_weekend_llamaserver_log_scan.json` and
+`results/t2s_outcome_table_full.jsonl`.
+
+### Thinking-mode contamination on llama_server (qwen3-8b/14b/32b)
+
+Mean score over all weekend llama_server rows [x2-weekend-thinking-scores]: qwen3-8b 0.054, qwen3-14b
+0.182, qwen3-32b 0.220, against llama3.1:8b 0.829, qwen3-4b-2507 0.836, qwen3-30b-a3b 1.000.
+
+The weekend rows stored only scores, no output text, so the raw outputs cannot be dumped from that file.
+The evidence that does exist is the per-item llama-server logs on evo-x2 (`--log-verbosity 4`), scanned into
+`results/x2_weekend_llamaserver_log_scan.json` [x2-weekend-ngen-budget]: every Qwen model's server logged
+`chat template, thinking = 1`, and the generated-token count of the scored request hit the full 256-token
+`max_tokens` budget on 75/111 (qwen3-8b), 63/110 (qwen3-14b) and 48/109 (qwen3-32b) items, against 0/110 for
+both -Instruct-2507 models (mean n_gen 9.4 and 10.9). The hybrid-thinking models spent the budget on hidden
+reasoning; the -2507 models answered in about ten tokens. Live raw outputs (3 per thinking model, same
+prompts and settings as the weekend run) and the per-mechanism verification are produced by
+`harness/x2_thinking_verify.py` as the first step of the restarted job; see the follow-up below.
+
+Side bug found on the way: the llama-server log path for `llama3.1:8b` contained a colon, which on NTFS
+writes into an alternate data stream of a file named `x2_outcome_table_llamaserver_llama3.1`, so that model
+has no readable logs. Fixed (`safe_name`).
+
+### The 412 connection-refused ollama_default rows: SYSTEM exe resolution, not the stop/start race
+
+[x2-weekend-tag-counts]: 412 rows match connection refused. 405 of them form one contiguous block
+[x2-weekend-refused-block]: 405/405 ollama_default calls refused, 0 succeeded, 2026-10-05T19:16:25Z to
+2026-10-07T00:30:07Z; after the job was relaunched from an SSH user session at 00:31Z, 0/12 were refused.
+
+Process lineage from `C:\apu\ovn\watchdog.log`: at 2026-10-04T20:12:05Z the watchdog (scheduled task, runs as
+SYSTEM) requeued `x2_outcome_table_v2` and launched `x2_k2_v2`; that job's own `advance()` relaunched
+`x2_outcome_table_v2` (pid 15964) from inside a SYSTEM process tree. SYSTEM's PATH (machine PATH plus
+`HKU\S-1-5-18\Environment`, both read live) contains no Ollama directory and its LOCALAPPDATA is the system
+profile, so `start_ollama_server` launched a bare `ollama` that never ran. Each refused row follows a full 60s
+readiness wait. The stop/start race fixed on 2026-10-06 cannot produce this pattern: after a failed call
+nothing is left running, so the next call's start would launch fresh and succeed; a race gives intermittent
+successes, not 405 consecutive failures. Attribution recorded per row (`invalid_race_cause`):
+`system_ollama_exe_resolution` 405, `concurrent_job_contention_unverified` 7 (2026-10-02 07:48 to 08:00Z,
+while `x2_model_pulls` was launched alongside the still-running job; cause not verified beyond timing).
+
+One thing this does not explain: on 2026-10-02 the watchdog also launched this job as SYSTEM (05:43:40Z)
+and its first ollama calls succeeded, with models found in the user's model store. Some Ollama server started
+from a user session may have been alive then; nothing on disk confirms it (ollama_serve.log is overwritten on
+every start). Left open.
+
+### Ollama OOM rows
+
+[x2-weekend-error-causes]: 207 ollama_default rows failed with the runner out of memory (cudaMalloc / ROCm
+/ bad_alloc). They hit all six models, the 4B included, in long clusters (2026-10-02T22:56Z to 2026-10-04T16:01Z
+was all OOM) while the same item lengths succeeded at other times. Ollama on this machine picks a VRAM-based
+default context (up to 262144, quoted in [x2-device-detect-mechanism]), so this may be a stable property of
+`ollama_default` or machine state; it is not known which. Tagged `invalid_infra_oom`, not reused, and rerun:
+the restarted run will show whether the OOMs reproduce on the same items.
+
+### Tags and reuse
+
+[x2-weekend-tag-counts]: invalid_race 412, invalid_thinking 330 (every llama_server row of qwen3-8b/14b/32b),
+invalid_infra_oom 207; 378 of 1327 outcome rows are valid and reused by the restart (`--reuse-from`). Tags
+are additive fields; the weekend file's original fields are unchanged.
+
+### Error causes, X2 weekend (all 1327 rows, raw cause before tagging)
+
+[x2-weekend-error-causes-by-cell], order none / context_overflow / timeout / connection / other:
+
+| model | ollama_default | llama_server |
+|---|---|---|
+| llama3.1:8b | 10/0/0/68/33 (n=111) | 92/0/19/0/0 (n=111) |
+| qwen3-4b-2507 | 10/0/0/68/33 (n=111) | 92/0/18/0/0 (n=110) |
+| qwen3-8b | 9/0/0/68/34 (n=111) | 81/30/0/0/0 (n=111) |
+| qwen3-14b | 6/0/0/69/36 (n=111) | 81/29/0/0/0 (n=110) |
+| qwen3-30b-a3b | 3/0/0/70/38 (n=111) | 110/0/0/0/0 (n=110) |
+| qwen3-32b | 4/0/0/69/38 (n=111) | 70/28/11/0/0 (n=109) |
+
+Every ollama_default "other" is OOM except 5 model-not-found rows (qwen3:32b and qwen3:30b-a3b before they
+were pulled). The llama_server context overflows are only on the base Qwen3 models (8b/14b/32b), on the
+longest longdoc items; the -2507 models and llama3.1:8b have none. The llama_server timeouts are the 900s call
+cap on long items.
+
+### Error causes, T2S (synced `results/t2s_outcome_table_full.jsonl`)
+
+[t2s-outcome-error-causes]: 63 of 100 rows OK; 37 other, all allocation failures (Ollama runner exited
+with `failed to allocate` / `alloc_buffer` / out-of-memory): 18 on ollama_default, 19 on ollama_igpu_enable;
+0 context overflow, 0 timeout, 0 connection. **0 rows match the connection-refused race signature.**
+
+### What the restart changes (harness/x2_outcome_table.py, queue item x2_outcome_table_v3)
+
+- Thinking disabled on both runtimes and recorded on every row (`thinking_setting`, `reasoning_chars`,
+  `content_chars`, `thinking_leak`): llama-server `--reasoning-budget 0` plus per-request
+  `chat_template_kwargs.enable_thinking=false`; Ollama `"think": false`.
+- Canary validity gate: 10 canaries (5 shortest gsm8k, 5 shortest function_calling) per (model, config)
+  before anything else; error rate above 10% or mean score below 0.5 halts that (model, config) with an
+  ALERT record, shown at the top of RESULTS_DIGEST.md. A rolling non-overflow error rate above 10% also
+  ALERTs.
+- Every error classified as context_overflow / timeout / connection / other with a subcause.
+- Item-boundary yield contract for other queue jobs (`C:\apu\ovn\yield_x2_outcome_table`; spec in the
+  harness docstring).
+- llama-server leg now goes through `harness/server_guard.py` (port free, /props model path and n_ctx,
+  listener pid before the request); the weekend leg had no stale-server check.
+- qwen3-32b on a 100-item trace-weighted subset (seed 20261007, weighted sampling without replacement, ids
+  recorded in the output file). The subset contains only longdoc_qa and trace_length_mix items: the short
+  gsm8k and function_calling items carry almost no trace weight.
