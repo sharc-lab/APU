@@ -231,3 +231,37 @@ first pass. It confirms the two identified mechanisms are now fully closed on th
 not evidence the scorer is now perfect in general, and it is still a comparison against this
 operator's own `annotator_claude` labels, not an independent external human rater. The "second,
 truly independent rater" caveat from the first pass above still applies in full.
+
+## 2026-10-06 update: held-out sample (out-of-sample check of the fixed scorer)
+
+Full write-up: `docs/FINDINGS.md`, "Kappa, held-out sample" (2026-10-06). Every number there is a
+`docs/NUMBERS_REGISTER.md` row (`kappa-heldout-sample`, `kappa-heldout`, `kappa-heldout-fn-annotator`,
+`kappa-heldout-disagreements`); this note only points at the files.
+
+**Provenance correction.** The "Source data" section above says the raw JSONL behind
+`r1b_wrong_sample.csv` was never committed. That is no longer true: `analysis/build_r1b_wrong_sample.py`
+(seed 20260930) over `results/t2s_night2_20260929T202603Z.jsonl` and
+`results/t2s_night2_20260929T205109Z.jsonl` reproduces the committed sample row for row, and
+`analysis/build_kappa_heldout_sample.py` asserts that on every run. Corollary: `ritz_spotcheck_30.csv` is
+drawn from the same files, so its "no overlap by construction" claim does not hold; one ritz30 row is also
+in the original 150 (see the `kappa-heldout-sample` register row's exclusion counts).
+
+**Construction.** Same population and stratification as the original, original 150 rows and ritz30 rows
+excluded by raw-row identity (machine, item_id), seed 20261006. Annotator labels are a manual blinded
+read (not the `classify_human_label` function the first pass used), committed before the key was opened.
+
+**Files.**
+- `analysis/build_kappa_heldout_sample.py` -- builds the three files below; prints no verdicts.
+- `kappa_heldout_blinded.csv` -- 150 rows to label, no scorer verdict or score.
+- `kappa_heldout_key.csv` -- the key: source row identity, raw score, current-scorer verdict and method.
+  Do not open while labeling.
+- `kappa_heldout_annotator_claude.csv` -- blinded file with `annotator_claude` and a one-line
+  `annotator_claude_reason` per row.
+- `kappa_heldout_disagreement_read.csv` -- per-disagreement read (scorer_bug / ambiguous / labeler_error)
+  and proposed fix.
+- `ritz_spotcheck_heldout_30.csv` -- blinded 30-row subset (seed 20261007) for a human rater.
+- `py -3.12 analysis/kappa_agreement.py --heldout` -- kappa, analytic and paired-bootstrap 95% CIs,
+  confusion matrix, disagreement list, and the method-controlled secondary comparison.
+
+**Do not tune the scorer on this sample.** Any fix derived from these 14 disagreements needs a third,
+fresh sample (exclude original, ritz30, and held-out rows; new seed) before its kappa can be cited.

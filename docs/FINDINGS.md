@@ -1845,3 +1845,83 @@ some fraction of fresh-process reps (2/3), with an unexplained non-crashing 600s
 (e.g. forcing the model file into the page cache before each rep, or reading the file once to warm it) would
 be needed to separate "boundary is non-deterministic" from "disk I/O dominates elapsed time" before this can
 be called a clean result.
+
+## Kappa, held-out sample: current scorer vs blinded annotator labels on 150 new rows (2026-10-06)
+
+**Why.** The original kappa study (`results/labeling/KAPPA_STUDY_NOTE.md`) went from kappa 0.55 to 1.0
+after two fixes to `evaluation/outcome.py`, but both fixes were derived from that same 150-row sample, so
+the 1.0 is in-sample. This section is the out-of-sample check. The scorer was NOT changed based on these
+rows; proposed fixes are listed below only.
+
+**Sample construction** (register row `kappa-heldout-sample`). The original sample is reproduced exactly
+by `analysis/build_r1b_wrong_sample.py`'s procedure (seed 20260930) over the committed files
+`results/t2s_night2_20260929T202603Z.jsonl` (evo-t2s) and `results/t2s_night2_20260929T205109Z.jsonl`
+(evo-x2), which settles its provenance (the earlier note said the raw files were never committed; they
+were committed later). `analysis/build_kappa_heldout_sample.py` reproduces that sample in-process, asserts
+it is row-for-row equal to the committed `r1b_wrong_sample.csv`, excludes it, also excludes the
+`ritz_spotcheck_30.csv` rows, and redraws with the same stratification (round-robin over model x ratio x
+arm x machine, wrong-answer rows only) under seed 20261006. Register row: "seed 20261006; wrong-answer
+population 1534; excluded 150 original-sample + 20 ritz30 rows (union 169); remaining 1365 over 55
+strata; sampled 150".
+
+**Blinding.** The labeling file (`kappa_heldout_blinded.csv`) has no scorer verdict, score, or
+score_detail. The verdicts live only in `kappa_heldout_key.csv`. The `annotator_claude` labels
+(`kappa_heldout_annotator_claude.csv`, one rationale per row) were written by reading each row's question,
+expected value and output by hand, and committed (`ade9c3b`) before the key was opened. Note the method
+change: the original `annotator_claude` labels were produced by a regex function
+(`analysis/build_kappa_sample.py::classify_human_label`); these are a manual read under the same label
+scheme and channel name.
+
+**Result** (register row `kappa-heldout`): "kappa 0.840 (analytic 95% CI 0.760-0.920, bootstrap 95% CI
+0.755-0.915); raw agreement 136/150; confusion (rows scorer, cols annotator) scorer CORRECT: CORRECT 15,
+FABRICATED 0, REFUSED 0; scorer FABRICATED: CORRECT 1, FABRICATED 70, REFUSED 13; scorer REFUSED:
+CORRECT 0, FABRICATED 0, REFUSED 51".
+
+**Disagreements** (register row `kappa-heldout-disagreements`): "14 disagreements: ambiguous 4,
+scorer_bug 10; direction (scorer->annotator) FABRICATED->CORRECT 1, FABRICATED->REFUSED 13". Per-row read
+in `results/labeling/kappa_heldout_disagreement_read.csv`. All of them are the scorer saying FABRICATED,
+the same one-directional shape as the original first pass. Mechanisms:
+
+- Bare null-token answers (`unknown`, `Unknown`) and the self-report form `AVAILABLE: no, Unknown` /
+  `AVAILABLE: no, none`: read as scorer bugs. These outputs assert no value; the scorer has no null-token
+  path, and `_is_available_no_sentinel` only accepts an empty or abstention-phrase tail.
+- `Not available` (scorers.py only has `not available in`) and `There is no SKU number mentioned in the
+  text.` (list has `no mention` / `not mentioned`, not `no <noun> mentioned`): phrase-list gaps, scorer
+  bugs. Same failure class as the first pass's mechanism 1.
+- Bare `none` / `None` to "who seconded" or "what action": genuinely ambiguous, since "none" can be a
+  claim ("nobody seconded", "no action happened") rather than a non-answer. The annotator also labeled the
+  near-synonym `No action performed` (kh_020) FABRICATED while labeling `none` REFUSED, an annotator-side
+  inconsistency on exactly this boundary.
+- `PN38901` against expected `PN-38901`: ambiguous, a policy call on punctuation-insensitive matching.
+
+None was read as a clear labeler error, but the `none` boundary above is where a second rater is most
+likely to differ.
+
+**Method-controlled secondary** (register row `kappa-heldout-fn-annotator`): "scorer vs
+classify_human_label: kappa 0.988 (bootstrap 95% CI 0.962-1.000), agree 149/150; manual labels vs
+classify_human_label: kappa 0.851, agree 137/150". So on new rows the scorer still almost perfectly
+matches the original annotator function. The drop to 0.840 comes almost entirely from the manual read
+disagreeing with blind spots that the scorer and the original annotator function share (null tokens,
+`no <noun> mentioned`). The original sample contains outputs of exactly these shapes (for example
+`r1bw_110` `unknown`, `r1bw_078` `There is no SKU number mentioned in the text.`), and both original raters
+labeled them FABRICATED, so the in-sample 1.0 was partly agreement between two raters with correlated
+errors, not only a fixed scorer.
+
+**Honest read.** Out-of-sample agreement is "almost perfect" on the Landis and Koch bands at the point
+estimate and "substantial" at the CI's lower end, not 1.0. The residual gap is concentrated in one
+mechanism (null-token and phrase-list refusals scored as FABRICATED), which inflates FABRICATED and deflates
+REFUSED counts in any R1b table built from `outcome_class`. Still one annotator (Claude), not an external
+human; `results/labeling/ritz_spotcheck_heldout_30.csv` is a blinded 30-row subset for Rithwik to label.
+
+**Proposed scorer fixes (not applied; applying them and re-scoring this sample would make it in-sample
+again, so any fix needs a third fresh sample to validate):**
+
+1. In `evaluation/outcome.py`, treat a whole-output null token (`unknown`, `n/a`, `not available`,
+   optionally `none`) as REFUSED, and accept the same tokens as a refusal tail in
+   `_is_available_no_sentinel`. Gate `none` on probes where "none" is not itself a plausible answer, or
+   leave it FABRICATED and document the choice.
+2. Add bare `not available` and a `no <1-3 words> mentioned` pattern to the supplementary refusal layer.
+3. Decide a policy on punctuation-insensitive embedded matching for non-numeric expected values
+   (`PN38901`).
+4. Cosmetic: the FABRICATED fallthrough returns `classification_method: "score"`, which reads like the
+   score==1.0 path; a distinct name such as `fallback` would make the key file self-explanatory.
