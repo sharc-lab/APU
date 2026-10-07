@@ -269,3 +269,14 @@ def test_main_parent_advances_queue_exactly_once_and_child_never(tmp_path, monke
     monkeypatch.setattr(er, "run", boom)
     er.main(["--out", str(tmp_path / "o.jsonl")])
     assert len(calls) == 2 and calls[1].startswith("stopped:") and "STOP" in calls[1]
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows token APIs")
+def test_purge_dry_run_never_raises_and_never_purges(monkeypatch):
+    """dry_run stops after the privilege step whether or not this account holds it (a non-elevated test account
+    does not); the counters are faked so no PowerShell is spawned."""
+    monkeypatch.setattr(er, "read_counters", lambda include_gpu=True, ps_fn=None: er.parse_counter_samples(SAMPLES))
+    r = er.purge_standby_list(dry_run=True)
+    assert r["ok"] is False and r["ntstatus"] is None
+    assert r["standby_before_bytes"] == er.standby_total(er.parse_counter_samples(SAMPLES))
+    assert r.get("dry_run") is True or r["privilege_ok"] is False

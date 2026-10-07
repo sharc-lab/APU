@@ -426,10 +426,11 @@ def warm_read(path=GGUF_PATH, max_s=WARM_READ_MAX_S):
             "complete": complete, "standby_before_bytes": sb0, "standby_after_bytes": sb1}
 
 
-def purge_standby_list():
+def purge_standby_list(dry_run=False):
     """Empties the Windows standby list (NtSetSystemInformation(SystemMemoryListInformation=80,
     MemoryPurgeStandbyList=4)). Needs SeProfileSingleProcessPrivilege (held by SYSTEM / elevated admin).
-    Clean pages only -- nothing is lost, the cache just has to be refilled from disk. Never raises."""
+    Clean pages only -- nothing is lost, the cache just has to be refilled from disk. Never raises.
+    dry_run=True stops after enabling the privilege (checks the job's security context, purges nothing)."""
     import ctypes
     from ctypes import wintypes
     res = {"privilege_ok": False, "ok": False, "ntstatus": None, "error": None}
@@ -450,6 +451,13 @@ def purge_standby_list():
 
         TOKEN_ADJUST_PRIVILEGES, TOKEN_QUERY, SE_PRIVILEGE_ENABLED = 0x20, 0x8, 0x2
         kernel32.GetCurrentProcess.restype = wintypes.HANDLE
+        kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+        advapi32.OpenProcessToken.argtypes = [wintypes.HANDLE, wintypes.DWORD, ctypes.POINTER(wintypes.HANDLE)]
+        advapi32.LookupPrivilegeValueW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR, ctypes.POINTER(LUID)]
+        advapi32.AdjustTokenPrivileges.argtypes = [wintypes.HANDLE, wintypes.BOOL, ctypes.POINTER(TOKEN_PRIVILEGES),
+                                                   wintypes.DWORD, ctypes.c_void_p, ctypes.c_void_p]
+        ntdll.NtSetSystemInformation.argtypes = [ctypes.c_int, ctypes.c_void_p, ctypes.c_ulong]
+        ntdll.NtSetSystemInformation.restype = ctypes.c_long
         h = wintypes.HANDLE()
         if not advapi32.OpenProcessToken(kernel32.GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY,
                                          ctypes.byref(h)):
@@ -467,6 +475,9 @@ def purge_standby_list():
             res["error"] = f"AdjustTokenPrivileges: privilege not held (ok={ok}, err={err})"
             return res
         res["privilege_ok"] = True
+        if dry_run:
+            res["dry_run"] = True
+            return res
         cmd = ctypes.c_int(4)
         status = ntdll.NtSetSystemInformation(80, ctypes.byref(cmd), ctypes.sizeof(cmd)) & 0xFFFFFFFF
         res["ntstatus"] = f"0x{status:08X}"
