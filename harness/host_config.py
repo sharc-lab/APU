@@ -185,15 +185,34 @@ def start_ollama_server(ps_fn=None):
     return int(m.group(1)) if m else None
 
 
-def stop_ollama_server(ps_fn=None):
-    """Stops every ollama.exe/"ollama app.exe" process (Stop-Process -Force). Called from K1/K2's own finally block
-    so Ollama never idles in the background once the job that needed it ends -- see start_ollama_server and the
-    2026-09-29 contamination check in docs/RESULT_PROVENANCE.md."""
+def stop_ollama_server(ps_fn=None, wait_s=15, poll_s=0.5):
+    """Stops every ollama.exe/"ollama app.exe" process (Stop-Process -Force), then polls
+    ollama_process_running() until it reports False (or wait_s elapses) before returning. Called from K1/K2's
+    own finally block so Ollama never idles in the background once the job that needed it ends -- see
+    start_ollama_server and the 2026-09-29 contamination check in docs/RESULT_PROVENANCE.md.
+
+    2026-10-06 bug found live, real data: x2_outcome_table_v2's own per-call start/stop cycle (run_one_ollama)
+    hit "connection refused" on 409 of ~650 ollama_default calls across the weekend. Root cause: Stop-Process
+    -Force returning does not guarantee the target process has actually finished terminating on Windows (it
+    can still hold its process table entry for a brief window). The NEXT call's start_ollama_server() own
+    idempotency check (`if ollama_process_running(): return None`) then saw that dying zombie, skipped
+    launching a fresh server, and the dying process's port was gone by the time the chat call fired --
+    wait_for_ollama_ready's own 60s wait could not help, since nothing was ever going to start. This wait-for-
+    exit closes that race at the source; run_one_ollama is also fixed separately to retry once and record a
+    distinct infra-failure if the server still isn't ready, as defense in depth."""
     cmd = "Get-Process ollama,'ollama app' -ErrorAction SilentlyContinue | Stop-Process -Force; 'stopped'"
     if ps_fn is None:
         p = subprocess.run(["powershell", "-NoProfile", "-Command", cmd], capture_output=True, text=True, timeout=30)
-        return p.stdout.strip()
-    return ps_fn(cmd, 30)
+        out = p.stdout.strip()
+    else:
+        out = ps_fn(cmd, 30)
+    import time
+    deadline = time.monotonic() + wait_s
+    while time.monotonic() < deadline:
+        if not ollama_process_running(ps_fn=ps_fn):
+            break
+        time.sleep(poll_s)
+    return out
 
 
 def wait_for_ollama_ready(base_url="http://127.0.0.1:11434", timeout_s=30, poll_interval_s=0.5):

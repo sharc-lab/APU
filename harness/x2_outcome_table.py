@@ -127,7 +127,22 @@ def run_one_ollama(item, model_key, ollama_tag, out_path, call_timeout_s):
     row = {"record": "outcome_row", "item_id": item["item_id"], "family": item["family"],
           "config": "ollama_default", "model_id": model_key, "ts_utc": utc_iso()}
     try:
-        hc.wait_for_ollama_ready(timeout_s=60)
+        # 2026-10-06 bug found live: this used to discard wait_for_ollama_ready's own return value and call
+        # ollama.chat() regardless, which is exactly how a server that never actually came up (see
+        # host_config.stop_ollama_server's own docstring for the race) produced "connection refused" on 409
+        # of ~650 real ollama_default calls over the weekend. One forced restart-and-rewait before giving up
+        # distinguishes a genuine infra failure from a model/content outcome, rather than silently scoring it
+        # as a model fabrication (score=0.0 either way, but "infra_not_ready" is now a distinct chat_outcome).
+        ready = hc.wait_for_ollama_ready(timeout_s=60)
+        if not ready:
+            hc.stop_ollama_server()
+            hc.start_ollama_server()
+            ready = hc.wait_for_ollama_ready(timeout_s=60)
+        if not ready:
+            row.update({"http_status": None, "score": 0.0, "chat_outcome": "infra_not_ready",
+                       "error": "ollama server did not become ready within 60s, even after one forced restart"})
+            emit(out_path, row)
+            return row
         ollama = k1.OllamaClient()
         t0 = time.monotonic()
         resp = ollama.chat(ollama_tag, "", num_ctx=None, messages=[{"role": "user", "content": item["prompt"]}],
