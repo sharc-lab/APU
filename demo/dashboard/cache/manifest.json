@@ -1,0 +1,86 @@
+{
+ "built_utc": "2026-10-08T21:00:21+00:00",
+ "git_commit": "af18a8a",
+ "backend": {
+  "router": "fake: demo/dashboard/fakes.py (src/dse module not on main yet)",
+  "pareto": "fake: demo/dashboard/fakes.py (src/dse module not on main yet)"
+ },
+ "sources": {
+  "docs/NUMBERS_REGISTER.md": {
+   "sha256": "a916bb9319759beb14046a71dbc60f26b944e62762b5bce9d364e178285ac6f2",
+   "bytes": 68557
+  },
+  "results/x2_r2_real_v1.jsonl": {
+   "sha256": "76fc3f965197a9615dea2c4c79f09da4b748d4b427a00688410de05bd96971df",
+   "bytes": 2231577
+  },
+  "results/x2_outcome_table_v3.jsonl": {
+   "sha256": "46934fbb5ebae6b830a297343a40a4464bc326d6c022d30b3eb5654d996ef928",
+   "bytes": 866265
+  },
+  "results/t2s_outcome_table_full.jsonl": {
+   "sha256": "04e7c4a7218d97afab80f0f0b1d1feb603d95b620eb003a7e06bbf443a363ca0",
+   "bytes": 58821
+  },
+  "results/x2_chat_template_sources.jsonl": {
+   "sha256": "3820c8d3bcc90201352dd250f7bc05009ac2458fcdbef4fba600f7b7161fde69",
+   "bytes": 6458
+  },
+  "configs/hardware/16gb_no_npu.yaml": {
+   "sha256": "00fa17e5588d9a582577ec042f1b7bd19ca203d9da3597b8d051c0499936b6e7",
+   "bytes": 470
+  },
+  "configs/hardware/32gb_npu.yaml": {
+   "sha256": "8124fee96a77b4325b25f5c9321474f3ed73b7134104a54330878ba018fb772b",
+   "bytes": 501
+  },
+  "configs/hardware/blade14_780m.yaml": {
+   "sha256": "0052bef777e337edb612657ad0653bc813c2c6d1ac391eb920924fcee12ada6a",
+   "bytes": 1409
+  },
+  "configs/hardware/blade14_rtx4070.yaml": {
+   "sha256": "67f5e56d12aa53c61d5ee9f9588b854c477034937f8608f921d670516ba48161",
+   "bytes": 2364
+  },
+  "configs/hardware/evo_t2s.yaml": {
+   "sha256": "aa545e570df747c0fd58e47a56f852c6de1dac5a4cec5c010eca2c2dda14fb44",
+   "bytes": 3810
+  },
+  "configs/hardware/evox2_strix_halo_128gb.yaml": {
+   "sha256": "1d153c873be142ce05b0a821eeb38bd71b96ee1ddad5aaf9427aa7a167c8942e",
+   "bytes": 2761
+  },
+  "configs/hardware/evox2_strix_halo_64gb.yaml": {
+   "sha256": "dfba4ef0a40ed80b1964ceff542b7d2c744ba4179d0e8f7361c2dd82d7bf3585",
+   "bytes": 2354
+  },
+  "results/workload_pack/items/a_longdoc_qa.jsonl": {
+   "sha256": "78ffea4e0428704c69f2a63256e375fe6626e37a55f4b2d5ea83b9370b90e1bb",
+   "bytes": 31803035
+  },
+  "results/workload_pack/items/b_function_calling.jsonl": {
+   "sha256": "e06e967c6944fd3e76c0827ff1afb0238a2d94d6b13307d340709130a54ac859",
+   "bytes": 121309
+  },
+  "results/workload_pack/items/c_gsm8k.jsonl": {
+   "sha256": "6a63d10a06082aae5e63dd06c111b54ee3182be058230c5c462d3e059a2f77f0",
+   "bytes": 74658
+  },
+  "results/workload_pack/items/d_r2_sessions.jsonl": {
+   "sha256": "b4e16ea5ded2e36d7e94bf37138963b87276e18b8e0399951534d3e21500ad52",
+   "bytes": 112191
+  },
+  "results/workload_pack/items/e_trace_mix.jsonl": {
+   "sha256": "4fbb48582fde4a77d9db54978b9e3f4ab4123ef6360057be2194beeb22581de0",
+   "bytes": 2649253
+  }
+ },
+ "scenario_register_ids": [
+  "R2-real-v1-first-events",
+  "R2-real-v1-gated-kill",
+  "R2-real-v1-kill-criterion",
+  "R2-real-v1-survival",
+  "R2-mechanism-verdict",
+  "R2-mechanism-lowlevel"
+ ]
+}

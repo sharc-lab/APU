@@ -25,6 +25,7 @@ CONTROLLER_SCRIPTS = [
     REPO / "scripts" / "sync_results.py",
     REPO / "scripts" / "deploy_evo.py",
     REPO / "scripts" / "t2s_responsiveness_probe.py",
+    REPO / "demo" / "dashboard" / "build_cache.py",
 ]
 
 BARE_FUNCS = {"run", "Popen", "check_output", "call"}  # the subprocess functions that can spawn a visible console

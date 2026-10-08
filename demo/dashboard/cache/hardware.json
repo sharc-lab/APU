@@ -1,0 +1,58 @@
+[
+ {
+  "name": "16gb_no_npu",
+  "machine": null,
+  "memory_gb": 16,
+  "memory_architecture": "unified",
+  "bom_cost_usd": 799,
+  "src": "configs/hardware/16gb_no_npu.yaml"
+ },
+ {
+  "name": "32gb_npu",
+  "machine": null,
+  "memory_gb": 32,
+  "memory_architecture": "unified",
+  "bom_cost_usd": 1399,
+  "src": "configs/hardware/32gb_npu.yaml"
+ },
+ {
+  "name": "blade14_780m",
+  "machine": null,
+  "memory_gb": 16,
+  "memory_architecture": "unified",
+  "bom_cost_usd": 0,
+  "src": "configs/hardware/blade14_780m.yaml"
+ },
+ {
+  "name": "blade14_rtx4070",
+  "machine": null,
+  "memory_gb": 8,
+  "memory_architecture": "discrete",
+  "bom_cost_usd": 0,
+  "src": "configs/hardware/blade14_rtx4070.yaml"
+ },
+ {
+  "name": "evo_t2s",
+  "machine": "evo-t2s",
+  "memory_gb": 64,
+  "memory_architecture": "unified",
+  "bom_cost_usd": null,
+  "src": "configs/hardware/evo_t2s.yaml"
+ },
+ {
+  "name": "evox2_strix_halo_128gb",
+  "machine": "evo-x2",
+  "memory_gb": 128,
+  "memory_architecture": "unified",
+  "bom_cost_usd": null,
+  "src": "configs/hardware/evox2_strix_halo_128gb.yaml"
+ },
+ {
+  "name": "evox2_strix_halo_64gb",
+  "machine": null,
+  "memory_gb": 64,
+  "memory_architecture": "unified",
+  "bom_cost_usd": null,
+  "src": "configs/hardware/evox2_strix_halo_64gb.yaml"
+ }
+]

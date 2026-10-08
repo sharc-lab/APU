@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hybrid Routing Demo</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <h1>Hybrid routing demo</h1>
+    <p class="sub">Measured hardware envelope, offline snapshot. Every number links to its register row or result file.</p>
+    <div id="banners"></div>
+    <nav class="steps">
+      <a href="#inputs">1 Inputs</a><a href="#frontier">2 Frontier</a><a href="#rec">3 Recommendation</a><a href="#live">4 Live run</a>
+    </nav>
+  </div>
+</header>
+<main class="wrap">
+  <section id="inputs" class="card">
+    <h2>1. Inputs</h2>
+    <form id="form" autocomplete="off">
+      <div class="grid">
+        <label>Cloud budget (USD total)<input type="number" name="budget" min="0" step="1"></label>
+        <label>Quality floor (0 to 1)<input type="number" name="floor" min="0" max="1" step="0.01"></label>
+        <label>Latency target, p50 (ms)<input type="number" name="latency" min="0" step="500"></label>
+      </div>
+      <fieldset><legend>Hardware</legend><div id="hw"></div></fieldset>
+      <div class="example">
+        <label>Workload example<select id="workload"></select></label>
+        <button type="button" id="use-example">Use example</button>
+      </div>
+      <p id="workload-desc" class="muted"></p>
+    </form>
+  </section>
+
+  <section id="frontier" class="card">
+    <h2>2. Frontier per hardware</h2>
+    <p class="muted">Quality (y) against p50 latency (x) per local config. The line joins the non-dominated configs.
+      Hollow markers are STUB cloud points; a ring marks a bare-template Ollama tag (install path, not model capability).</p>
+    <div id="legend" class="legend"></div>
+    <div id="charts" class="charts"></div>
+    <div id="cloud"></div>
+  </section>
+
+  <section id="rec" class="card">
+    <h2>3. Recommended config</h2>
+    <div id="rec-body"></div>
+  </section>
+
+  <section id="live" class="card">
+    <h2>4. Live run: naive hybrid vs our router at num_ctx 4096</h2>
+    <p class="muted" id="live-intro"></p>
+    <div class="controls">
+      <label>Replayed session<select id="session"></select></label>
+      <label>Step delay (ms)<input type="number" id="delay" value="400" min="0" max="5000" step="100"></label>
+      <button type="button" id="play">Replay</button>
+      <button type="button" id="stop" disabled>Stop</button>
+    </div>
+    <div id="evidence" class="evidence"></div>
+    <div class="sides">
+      <div class="side">
+        <h3>Naive hybrid <span class="tag">hardware-blind</span></h3>
+        <p class="muted small" id="naive-desc"></p>
+        <div class="meters" id="naive-meters"></div>
+        <div class="steps-list" id="naive-steps"></div>
+      </div>
+      <div class="side">
+        <h3>Our router</h3>
+        <p class="muted small" id="ours-desc"></p>
+        <div class="meters" id="ours-meters"></div>
+        <div class="steps-list" id="ours-steps"></div>
+      </div>
+    </div>
+  </section>
+</main>
+<dialog id="src-dialog"><form method="dialog"><button class="close" aria-label="Close">Close</button></form><h3 id="src-title"></h3><pre id="src-body"></pre></dialog>
+<div id="tip" class="tip" role="tooltip" hidden></div>
+<script src="/static/app.js"></script>
+</body>
+</html>
