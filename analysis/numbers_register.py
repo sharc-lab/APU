@@ -2400,6 +2400,107 @@ def compute_t2s_llamaserver_load_failures(repo):
             "n": len(logs)}
 
 
+# ───────────────────────────────────────────────── R2 strengthened run (2026-10-08): v2b validation, mechanism, v1b
+# Rows below are registered before their data exists; build_register marks them PENDING (not UNSUPPORTED) while any
+# of their data files is missing locally, and they compute like every other row once sync_results pulls the files.
+R2_VALIDATION_V2B_FILE = "results/x2_r2_validation_v2b.jsonl"   # qwen3-4b-2507, qwen3:8b; same plan as v2
+R2_MECHANISM_FILE = "results/x2_r2_mechanism.jsonl"
+R2_REAL_V1B_FILE = "results/x2_r2_real_v1b.jsonl"
+R2_V1B_DATA = [R2_REAL_V1_FILE, R2_REAL_V1B_FILE, R2_VALIDATION_V2_FILE, R2_VALIDATION_V2B_FILE]
+
+
+def compute_r2_validation_v2b_baseline(repo):
+    """R2 validation v2b (gate for the new models in the strengthened run): v2's plan (tools withheld on call 2,
+    arm b 131072 3 seeds x 10 turns, positive control 8192 1 seed x 15 turns) for qwen3-4b-2507 and qwen3:8b."""
+    return _r2_gates_summary(repo, R2_VALIDATION_V2B_FILE, False)
+
+
+def compute_r2_mechanism_verdict(repo):
+    """R2 overflow mechanism (Ollama debug log + render-only prompt per call, one session per tier): per tier the
+    first truncated turn, whether the system prompt was kept on every truncated call, contiguous-tail kept,
+    token-level cuts, context shifts; and the verdict on "drops whole old turns, keeps the system prompt"."""
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "harness"))
+    import x2_r2_mechanism as mech
+    rows = _r2_agent_module().read_rows(repo / R2_MECHANISM_FILE)
+    if not rows:
+        raise FileNotFoundError(repo / R2_MECHANISM_FILE)
+    rep = mech.report(rows)
+    parts = []
+    for s in sorted(rep["sessions"], key=lambda s: str(s["arm_id"])):
+        parts.append(f"{s['model_id']} {s['arm_id'].replace('_call2_notools', '')}: first truncated turn "
+                     f"{s['first_truncated_turn']}, {s['n_calls_message_truncated']}/{s['n_calls']} calls truncated, "
+                     f"system kept on all {s['system_kept_on_every_truncated_call']}, contiguous tail "
+                     f"{s['kept_contiguous_tail_on_every_truncated_call']}, cut mid-turn {s['cut_mid_turn_calls']}, "
+                     f"token-level cuts {s['token_level_cut_calls']}, context-shift calls {s['context_shift_calls']}, "
+                     f"exceed-context errors {s['exceed_context_error_calls']}, path {','.join(s['chat_paths'])}")
+    v = rep["verdict"]
+    return {"value": f"verdict {v['drop_old_turns_keep_system']} (token-level cut seen {v['token_level_cut_seen']}, "
+                     f"context shift seen {v['context_shift_seen']}, render/log disagreements "
+                     f"{v['render_log_disagreements']}); " + " / ".join(parts),
+            "n": f"{v['sessions']} sessions"}
+
+
+def _r2_real_v1b_report(repo):
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "analysis"))
+    import r2_real_report as rr
+    for f in (R2_REAL_V1_FILE, R2_REAL_V1B_FILE):
+        if not (repo / f).exists():
+            raise FileNotFoundError(repo / f)
+    return rr, rr.build_combined([repo / R2_REAL_V1_FILE, repo / R2_REAL_V1B_FILE],
+                                 validation_paths=[repo / R2_VALIDATION_V2_FILE, repo / R2_VALIDATION_V2B_FILE])
+
+
+def compute_r2_real_v1b_first_events(repo):
+    """Strengthened R2 (v1 + v1b files), per tier x model, per seed in seed order ('-' = never in 40 turns): first
+    turn over the loaded window, first canary miss, first failure per rule in use, first invalid tool call, first
+    surfaced error, and whether an error surfaced before the first failure."""
+    rr, rep = _r2_real_v1b_report(repo)
+    f = rr._fmt
+    parts = []
+    for key, c in rep["table"].items():
+        s = c["sessions"]
+        rules = ", ".join(f"{r.split('_')[0]} {f(e[f'first_fail_{r}'] for e in s)}" for r in c["rules_in_use"])
+        parts.append(f"{key.replace('|', ' ')} (seeds {f(c['seeds'])}): over window {f(e['first_over_window'] for e in s)}; "
+                     f"canary miss {f(e['first_canary_miss'] for e in s)}; {rules}; "
+                     f"invalid tool call {f(e['first_invalid_tool_call'] for e in s)}; "
+                     f"first error {f(e['first_error'] for e in s)}; error before first failure "
+                     f"{rr._yn(e['error_before_first_failure'] for e in s)}")
+    iss = rep["issues"]
+    return {"value": " / ".join(parts) + f" (duplicates {len(iss['duplicates'])}, other call-2 mode excluded "
+                     f"{len(iss['excluded_other_call2_mode'])})",
+            "n": f"{rep['n_sessions']} sessions, {rep['n_turn_rows']} turns"}
+
+
+def compute_r2_real_v1b_survival(repo):
+    """Strengthened R2: sessions intact (no gated failure, no canary miss) at turns 5/10/15/20/25/30/35/40."""
+    rr, rep = _r2_real_v1b_report(repo)
+    return {"value": "; ".join(f"{k.replace('|', ' ')} " + "/".join(str(c["survival"][t]) for t in rep["checkpoints"])
+                               + f" of {c['n']}" for k, c in rep["table"].items()),
+            "n": rep["n_sessions"]}
+
+
+def compute_r2_real_v1b_kill_criterion(repo):
+    """Strengthened R2: the pre-registered kill criterion over all five tiers (rules in use; tool validity, tool
+    arguments and recall always count)."""
+    _rr, rep = _r2_real_v1b_report(repo)
+    k = rep["kill"]
+    arms = "; ".join(f"{a.replace('_call2_notools', '')} {v['n_silent_failures']}/{v['n_sessions']} silent"
+                     for a, v in k["per_arm"].items())
+    return {"value": f"killed={k['killed']}; {arms}", "n": rep["n_sessions"]}
+
+
+def compute_r2_real_v1b_gated_kill(repo):
+    """Strengthened R2, gated variant: only rules in use plus metrics at >=90% validation baseline (v2 for llama3.1:8b
+    and qwen3:14b, v2b for qwen3-4b-2507 and qwen3:8b); silent failures per tier and after the window was exceeded."""
+    _rr, rep = _r2_real_v1b_report(repo)
+    excl = "; ".join(f"{m} excludes {', '.join(v['excluded']) or 'nothing'}" for m, v in rep["gated_metrics"].items())
+    arms = "; ".join(f"{t} {g['silent']}/{g['n_sessions']} silent, {g['silent_after_window_exceeded']} after window "
+                     f"exceeded" for t, g in rep["gated_kill"].items())
+    return {"value": f"gated killed={rep['gated_killed']}; {arms} ({excl})", "n": rep["n_sessions"]}
+
+
 NUMBER_ENTRIES = [
     {"claim_id": "PX2-TTFT-gap", "description": "PX2 B4-vs-S4 TTFT gap range across 5 models",
      "compute": compute_px2_ttft_gap, "data_files": ["results/t2s_night2_20260930T135145Z.jsonl"],
@@ -2732,7 +2833,43 @@ NUMBER_ENTRIES = [
                     "served vs out-of-device-memory (logs synced, gitignored)",
      "compute": compute_t2s_llamaserver_load_failures, "data_files": [T2S_LLAMASERVER_LOG_GLOB],
      "script_function": "analysis/numbers_register.py::compute_t2s_llamaserver_load_failures"},
+
+    {"claim_id": "R2-validation-v2b-baseline",
+     "description": "R2 validation v2b (gate for qwen3-4b-2507 and qwen3:8b in the strengthened run): per model "
+                    "rule/tool/recall/canary baseline and negative/positive control results",
+     "compute": compute_r2_validation_v2b_baseline, "data_files": [R2_VALIDATION_V2B_FILE], "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_r2_validation_v2b_baseline"},
+    {"claim_id": "R2-mechanism-verdict",
+     "description": "R2 overflow mechanism from the Ollama debug log and render-only prompts, one session per tier",
+     "compute": compute_r2_mechanism_verdict, "data_files": [R2_MECHANISM_FILE], "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_r2_mechanism_verdict"},
+    {"claim_id": "R2-real-v1b-first-events",
+     "description": "Strengthened R2 (v1 + v1b): per tier x model first over-window turn, canary miss, rule failure "
+                    "per rule in use, invalid tool call, error, and error-before-failure",
+     "compute": compute_r2_real_v1b_first_events, "data_files": R2_V1B_DATA, "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_r2_real_v1b_first_events"},
+    {"claim_id": "R2-real-v1b-survival",
+     "description": "Strengthened R2: sessions intact at turns 5/10/15/20/25/30/35/40 per tier x model",
+     "compute": compute_r2_real_v1b_survival, "data_files": R2_V1B_DATA, "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_r2_real_v1b_survival"},
+    {"claim_id": "R2-real-v1b-kill-criterion",
+     "description": "Strengthened R2: pre-registered kill criterion verdict over five tiers",
+     "compute": compute_r2_real_v1b_kill_criterion, "data_files": R2_V1B_DATA, "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_r2_real_v1b_kill_criterion"},
+    {"claim_id": "R2-real-v1b-gated-kill",
+     "description": "Strengthened R2: kill criterion restricted to 90%-baseline metrics, silent failures after the "
+                    "window was exceeded",
+     "compute": compute_r2_real_v1b_gated_kill, "data_files": R2_V1B_DATA, "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_r2_real_v1b_gated_kill"},
 ]
+
+
+def _pending(entry, repo=None) -> list[str]:
+    """Data files of a pending_ok entry that are not present locally yet (empty list: compute it normally)."""
+    if not entry.get("pending_ok"):
+        return []
+    repo = repo or REPO
+    return [f for f in entry["data_files"] if not (repo / f).exists()]
 
 
 def _values_match(reported, computed_value, tolerance_note=False):
@@ -2750,6 +2887,16 @@ def build_register():
     date = _today()
     rows = []
     for entry in NUMBER_ENTRIES:
+        missing = _pending(entry)
+        if missing:
+            rows.append({
+                "claim_id": entry["claim_id"], "status": "PENDING",
+                "value": "not computed: data file(s) not synced yet: " + ", ".join(missing), "n": "n/a",
+                "reported_value": entry.get("reported_value", "(none previously reported)"),
+                "data_files": entry["data_files"], "script_function": entry["script_function"],
+                "commit": head, "date": date,
+            })
+            continue
         try:
             result = entry["compute"](REPO)
             value = result["value"]
@@ -2773,7 +2920,7 @@ def build_register():
 
 
 def write_register_md(rows, out_path):
-    status_order = {"CORRECTED": 0, "UNSUPPORTED": 1, "VERIFIED": 2}
+    status_order = {"CORRECTED": 0, "UNSUPPORTED": 1, "PENDING": 2, "VERIFIED": 3}
     rows_sorted = sorted(rows, key=lambda r: status_order.get(r["status"], 9))
     lines = [
         "# Numbers Register",
@@ -2781,7 +2928,8 @@ def write_register_md(rows, out_path):
         "Every number cited anywhere in this program must come from a row in this table, pasted verbatim,",
         "never hand-typed. Regenerated by `analysis/numbers_register.py` -- every value below was computed",
         "fresh from the listed data file(s) by the listed function at the commit/date shown, not copied from",
-        "a prior report.",
+        "a prior report. A PENDING row is registered ahead of its data and states which file is not synced yet;",
+        "it carries no number and cannot be cited until it computes.",
         "",
         "| claim id | status | value | n | reported value | data file(s) | script::function | commit | date |",
         "|---|---|---|---|---|---|---|---|---|",
@@ -2799,7 +2947,9 @@ def main():
     write_register_md(rows, out_path)
     unsupported = [r for r in rows if r["status"] == "UNSUPPORTED"]
     corrected = [r for r in rows if r["status"] == "CORRECTED"]
-    print(f"wrote {out_path}: {len(rows)} entries, {len(corrected)} CORRECTED, {len(unsupported)} UNSUPPORTED")
+    pending = [r for r in rows if r["status"] == "PENDING"]
+    print(f"wrote {out_path}: {len(rows)} entries, {len(corrected)} CORRECTED, {len(unsupported)} UNSUPPORTED, "
+          f"{len(pending)} PENDING")
     for r in corrected + unsupported:
         print(f"  {r['status']}: {r['claim_id']} -- reported {r['reported_value']!r}, computed {r['value']!r}")
     return 1 if unsupported else 0

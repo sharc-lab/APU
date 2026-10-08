@@ -306,3 +306,28 @@ def test_first_call_filter_marks_rep0_and_repless_rows():
     assert nr._is_first_call_on_prompt({"rep": 0})
     assert nr._is_first_call_on_prompt({})
     assert not nr._is_first_call_on_prompt({"rep": 1})
+
+
+def test_pending_rows_report_missing_files_only_when_pending_ok(tmp_path):
+    (tmp_path / "results").mkdir()
+    entry = {"data_files": ["results/a.jsonl", "results/b.jsonl"], "pending_ok": True}
+    (tmp_path / "results" / "a.jsonl").write_text("{}", encoding="utf-8")
+    assert nr._pending(entry, tmp_path) == ["results/b.jsonl"]
+    assert nr._pending({**entry, "pending_ok": False}, tmp_path) == []
+    (tmp_path / "results" / "b.jsonl").write_text("{}", encoding="utf-8")
+    assert nr._pending(entry, tmp_path) == []
+
+
+def test_r2_strengthened_rows_are_pending_ok_and_raise_without_data(tmp_path):
+    ids = {"R2-validation-v2b-baseline", "R2-mechanism-verdict", "R2-real-v1b-first-events", "R2-real-v1b-survival",
+           "R2-real-v1b-kill-criterion", "R2-real-v1b-gated-kill"}
+    entries = [e for e in nr.NUMBER_ENTRIES if e["claim_id"] in ids]
+    assert len(entries) == len(ids) and all(e.get("pending_ok") for e in entries)
+    (tmp_path / "results").mkdir()
+    for e in entries:
+        raised = False
+        try:
+            e["compute"](tmp_path)
+        except Exception:
+            raised = True
+        assert raised, f"{e['claim_id']} computed without data"

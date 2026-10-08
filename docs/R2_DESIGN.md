@@ -243,3 +243,94 @@ request minus tool_choice, a direct check that the field changes nothing). `x2_r
 "refused to start" note, a `refused` record in its output) unless, for each model, validation finished under the same
 call-2 mode, both control arms completed, at least one rule is in use and every rule in use is at or above 90%, the
 negative control had no canary miss, and the positive control fired on every session.
+
+### Call-2 mode per runtime (operator decision, 2026-10-08)
+
+- **Ollama and llama-server R2 runs: v1 protocol, `--call2-tools off`** (tools withheld on a turn's second call).
+  It is validated (`x2_r2_validation_v2`) and its results stand (`x2_r2_real_v1`). `x2_r2_toolchoice_check`,
+  `x2_r2_validation_v3` and `x2_r2_real_v2` were cancelled; the forced_none code path stays for cloud runs.
+- **Cloud (OpenAI) R2 sessions, if and when they run: `forced_none`** (identical system prompt and tools on every
+  call, `tool_choice: "none"` on call 2, which that API enforces).
+- `CALL2_MODE_BY_RUNTIME` in `harness/x2_r2_agent.py` records this split. Every row carries `call2_mode`: turn and
+  session rows, heartbeats, run_start/runtime/run_end/refused records, toolchoice-check rows (per variant) and
+  mechanism rows. Rows written before the field existed (`x2_r2_real_v1`) carry `call2_tools: false`, which
+  `analysis/r2_real_report.py` reads as mode "off". Runs of different call-2 modes are never pooled: the combined
+  report excludes, and lists, any session whose mode is not "off".
+
+### Strengthened R2 (2026-10-08)
+
+**Plan.** 5 seeds per cell (the existing 20260901-03 plus 20260904 and 20260905), models llama3.1:8b, qwen3:14b,
+qwen3-4b-2507 and qwen3:8b, tiers Ollama default and num_ctx 32768, 16384, 8192, 4096, 40 turns, v1 call-2 mode
+(`--mode real --plan strong`). The 18 v1 sessions (3 seeds x {default, 32768, 4096} x {llama3.1:8b, qwen3:14b}) are
+valid and are not rerun: `--skip-done-from results/x2_r2_real_v1.jsonl` treats a (model, arm, seed) completed there
+as done. New sessions go to `results/x2_r2_real_v1b.jsonl`; `analysis/r2_real_report.py` `build_combined` reads both
+files (a key completed in v1 wins; a duplicate is reported, never pooled). The order is seed-major
+(`--order seed_major`), so an interrupted run leaves every (model, tier) cell with as many seeds as possible.
+
+**Thinking off, verified per row.** `"think": false` is sent for qwen3:14b, qwen3:8b and qwen3-4b-2507. The last is a
+non-thinking Instruct-2507 build created from a bare GGUF; false is sent anyway because Ollama 0.34.4's ChatHandler
+turns an omitted think into true for any model whose capabilities include thinking (read from the GGUF chat template
+for a model without an Ollama template), and only true is rejected for a model without the capability. llama3.1:8b
+has no thinking mode; the field is omitted as before. Every call records `thinking_present` (non-empty
+`message.thinking`) and `think_tag_in_content` (`<think>` or `</think>` in the content); a turn with either fails
+(`thinking_present` in `turn_failures`) and the job log prints `!!! THINKING PRESENT`. Validation has a
+`thinking_off` gate and the real-run preflight refuses a model that failed it.
+
+**Validation for the new models first.** `x2_r2_validation_v2b` runs v2's plan unchanged (arm b num_ctx 131072,
+3 seeds x 10 turns as negative control and baseline, positive control num_ctx 8192 1 seed x 15 turns, the
+spec-variant arm b as a diagnostic) for qwen3-4b-2507 and qwen3:8b into `results/x2_r2_validation_v2b.jsonl`. The
+90% rule gate is per model: a rule below it is dropped for that model only. The strengthened run starts with
+`--require-validation-gates --per-model-refusal --rules-from` the v2 and v2b files: `validation_preflight_per_model`
+checks each model against the last file that has validation rows for it (v2 for the old models, v2b for the new
+ones) with every check of `validation_preflight` (file finished, same call-2 mode, both control arms complete, every
+rule in use at or above 90%, negative control clean, positive control fired, thinking off). A model that fails is
+refused alone (a `refused_model` record; the queue note names it); the job refuses as a whole only if no model
+passes. The rules in use per model come from the same check.
+
+**Report.** Per tier (all 5) x model: first turn over the loaded window, first canary miss, first failure per rule
+in use, first invalid tool call, whether an error surfaced before each of them, survival over all seeds at turns
+5/10/15/20/25/30/35/40 (intact = no gated failure and no canary miss), the pre-registered kill criterion and its
+gated variant. Register rows `R2-validation-v2b-baseline`, `R2-real-v1b-*` and `R2-mechanism-verdict` are defined
+now and show PENDING until their files are synced.
+
+### Overflow mechanism, observed directly (2026-10-08, `--mode mechanism`)
+
+**Question.** After overflow, what does Ollama send the model: whole old turns dropped with the system prompt kept,
+or the single-prompt cut that keeps a fixed tail (`ollama-overflow-keeps-half` in docs/FINDINGS.md)?
+
+**What Ollama 0.34.4 does and logs** (source at tag v0.34.4, llama.cpp b11081; details in
+`harness/x2_r2_mechanism.py`):
+
+1. Message-level truncation before rendering: `server/prompt.go` `chatPrompt` (models with an Ollama Go template:
+   llama3.1:8b, qwen3:8b, qwen3:14b on evo-x2) and `server/routes.go` `truncateNativeChatMessages` (no Go template,
+   llama-server jinja path: qwen3-4b-2507) drop messages from the front until the rendered prompt fits num_ctx,
+   keeping every system message and the last message. Logged at DEBUG only: `truncating input messages which
+   exceed context length truncated=<messages kept>`, or `truncating native chat messages which exceed context
+   length truncated=<index of the first kept message>`.
+2. Token-level cut, Go-template path only, if the prompt is still over num_ctx - 1 tokens (`llm/llama_server.go`
+   `completionPromptForRequest`): the first num_keep tokens (default 4) plus the tail, limit =
+   num_ctx - (num_ctx - keep) / 2. With keep 4 this is floor(num_ctx / 2) + 2, the single-prompt figure in FINDINGS.
+   Logged at WARN: `truncating input prompt limit= prompt= keep= new=`.
+3. llama.cpp context shift during generation (`--context-shift` is on every Ollama-launched llama-server):
+   `slot context shift, n_keep = , n_left = , n_discard = ` at WARN, visible at the `--log-verbosity 4` Ollama always
+   passes. A prompt at or over the slot context is refused instead (`exceeds the available context size`, HTTP 400).
+
+Ollama does not log the rendered prompt text at any level.
+
+**Job.** MECH_MODEL = llama3.1:8b, seed 20260901, one 40-turn session per tier (default, 32768, 16384, 8192, 4096),
+v1 call-2 mode, output `results/x2_r2_mechanism.jsonl`. llama3.1:8b because it overflows at every num_ctx tier (by
+turn 3 at 4096 and turn 23 at 32768 in v1), its sessions are the shortest measured, and the single-prompt
+half-window finding was measured with it; at Ollama default it loaded 131072 and never overflowed in v1, so that
+session is the no-overflow reference. The job stops any Ollama, starts it through
+`host_config.start_ollama_server(env={"OLLAMA_DEBUG": "1"}, log_path=C:\apu\ovn\ollama_serve_mechanism.log)`, and
+stops (queue note "stopped: ...") unless the server's own `server config` line shows `OLLAMA_DEBUG:DEBUG`. Before
+every real call the identical request is sent with `_debug_render_only`; the same truncation runs before the
+render-only return, so the reply is the post-truncation rendered prompt, and each user message is looked up in it.
+The log slice of each call (byte offsets around it, closed by its Gin access line) is parsed. One `r2m_call` row per
+call: dropped turns, first kept turn, system prompt kept, contiguous tail, cut at a turn boundary or inside a turn,
+the log's kept count and whether it agrees with the render, token-level cut, context-shift events, exceed-context
+errors, and the matched log lines verbatim. One `r2m_session` row per session; the raw log slice of each session and
+the full rendered prompt of its first truncated call go to `results/x2_r2_mechanism_logs/`. The `.report.json`
+verdict is confirmed (every truncated call kept the system prompt and a contiguous tail, no token-level cut), refuted,
+or not observed; context shift is reported separately. The render-only requests and debug logging make these
+sessions differ from the real run's, so their turn rows (mode "mechanism") are never pooled with it.
