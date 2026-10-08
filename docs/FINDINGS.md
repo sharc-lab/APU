@@ -2821,3 +2821,94 @@ slot context; once Ollama's trim fills the window to within a call's output leng
 message-level trim almost never lands on a user message: the kept window usually opens with an assistant tool call
 whose user request is gone, and sometimes with a bare tool result. One model and one seed per tier for the observed
 part; the real-run counts are predictions from token counts, not observations.
+
+## PRE-REGISTRATION: R2 mitigation x2_r2_mitigation_v1, client-side trimming at num_ctx 4096 and 8192 (2026-10-08, NOT YET RUN)
+
+**Status:** PRE-REGISTRATION, written and committed before any of the run code is deployed or queued. No mitigation
+data exists. Operator request of 2026-10-08.
+
+**Hypothesis.** Rule compliance at num_ctx 4096 recovers to the arm-b baseline when context shifts are prevented.
+The mechanism run (`R2-mechanism-verdict`, `R2-mechanism-lowlevel`, section above) found that at 4096 Ollama keeps the
+system message when it drops whole messages, but leaves too little room for the answer, so llama.cpp context shifts
+(n_keep 5) and an Ollama token-level cut (keep 4) discard the start of the prompt, system prompt included. If that is
+why the rules break at 4096, then a client that keeps the prompt plus the answer budget inside the window, with the
+system prompt always kept, should see the rules hold again at 4096 (the history is still lost, by design).
+
+**Mitigation (the only change from the v1 protocol).** `harness/x2_r2_agent.py --mode mitigation --client-trim
+margin=0.05`. Before every call the harness itself trims the history it sends so that system prompt + kept turns + the
+answer budget is at most num_ctx minus a 5% margin: kept prompt tokens <= floor(num_ctx x 0.95) - num_predict, with
+num_predict 384 (the harness's per-call cap, sent explicitly as options.num_predict on every request and recorded per
+call). That is a prompt budget of 3507 tokens at 4096 and 7398 at 8192. The system prompt is always kept. Whole turns
+are dropped from the oldest end, where a turn is a user message and everything up to the next user message, so a tool
+result is never sent without its assistant tool call and no assistant message is sent without its user message. The
+current turn is always kept (if the system prompt and the current turn alone exceed the budget, the call is still sent
+and flagged over_budget). The harness's own full transcript is unchanged; only what is sent is trimmed.
+
+**Token counting for the trim.** Render and count: the candidate request (same messages, tools, options) is sent to
+Ollama with `_debug_render_only`, and the rendered prompt is tokenized with the model's own GGUF tokenizer
+(`llama-tokenize`, `harness/prompt_token_check.py`). Why this and not the chars/4 estimate: it is the method the
+mechanism run validated against the prompt_eval_count of fresh uncached requests, matching on every check in all five
+tiers (`R2-mechanism-verdict`: 5/5, 13/13, 11/11, 10/10, 9/9 within 1%), it includes the chat template and the tool
+definitions, and it needs no safety factor. The calibrated chars/4 estimate only picks the first candidate cut; the
+exact count decides. A render that Ollama itself had to trim counts as over budget. If rendering or tokenizing fails
+on a call, that call falls back to the calibrated estimate times a 1.25 safety factor and is recorded as
+count_method estimate_fallback. Recorded per call: the client's estimate of the full and of the kept prompt, the exact
+count of what was sent, the kept and dropped session turns, the budget, num_predict, the counting method.
+
+**Observed, not assumed.** The job runs Ollama under OLLAMA_DEBUG=1 with the mechanism module's per-call log slice and
+`parse_call_log` (`harness/x2_r2_mechanism.py`), so for every call it records whether Ollama still dropped messages
+(expected never), Ollama token-level prompt cuts (expected 0), llama.cpp context shifts (expected 0) and exceed-context
+errors, plus llama-server's own prompt token count for the request next to the client's exact count. The mechanism
+module's prompt check schedule (render tokens vs a fresh-load prompt_eval_count) also runs, for both models.
+
+**Plan.** llama3.1:8b and qwen3:14b, num_ctx 4096 and 8192, seeds 20260901, 20260902, 20260903 (the real run's), 40
+turns, v1 call-2 protocol (tools withheld on call 2), temperature 0, `"think": false` for qwen3:14b (verified per row:
+think sent and thinking_present). Rules in use from `results/x2_r2_validation_v2.jsonl` via --rules-from with
+--require-validation-gates. Output `results/x2_r2_mitigation_v1.jsonl`. Queue id x2_r2_mitigation_v1, immediately
+after x2_r2_real_v1b. Statistics convention: as in the compared runs, no warm-up call; each session's 40 turns are all
+scored.
+
+**Comparison.** The same tiers, models and seeds in the real runs: at 4096 `results/x2_r2_real_v1.jsonl`
+(x2_r2_real_v1b does not rerun those cells), at 8192 `results/x2_r2_real_v1b.jsonl` (8192 is new in v1b; that
+comparison is PENDING until v1b is synced).
+
+**Rules in use and the arm-b baseline** (register row `R2-validation-v2-baseline`, pasted):
+- llama3.1:8b, rules in use 1, 3, 4 (rules 2 and 5 failed the 90% gate): "rule1 100.0%, rule2 60.0%, rule3 100.0%,
+  rule4 100.0%, rule5 60.0%"; "canary C 100.0%, H 100.0% (n=6)"; "negative-control canary misses 0/12".
+- qwen3:14b, rules in use 1 to 5: "rule1 100.0%, rule2 100.0%, rule3 100.0%, rule4 100.0%, rule5 100.0%"; "canary C
+  100.0%, H 100.0% (n=6)"; "negative-control canary misses 0/12".
+
+**What the real run showed at these cells** (register row `R2-real-v1-first-events`, seeds in order, pasted):
+"num_ctx_4096 llama3.1:8b: ... rule1 -/3/5, rule3 -/-/-, rule4 -/-/-"; "num_ctx_4096 qwen3:14b: ... rule1 -/-/-,
+rule2 -/-/-, rule3 -/20/20, rule4 -/-/-, rule5 5/-/5"; first surfaced error "-/-/-" in both.
+
+**Outcome measures** (per tier x model, report `analysis/r2_mitigation_report.py`, register rows R2-mitigation-v1-*):
+1. Rule survival per rule in use: compliance rate over the cell's 120 turns (rule 4 over its length turns), first
+   failure turn per seed, and sessions in which the rule held for all 40 turns; next to the same numbers for the real
+   run's cell.
+2. Canary misses, system-prompt canary C and first-user-message canary H separately. H misses are expected and
+   acceptable (the first turn is trimmed away by design; that is memory loss, not a rule failure). C is in the system
+   prompt, which is always sent, so C is expected to be answered.
+3. Observed context shifts, token-level cuts and Ollama message drops (all expected 0), exceed-context errors.
+4. Surfaced errors (non-200 status or an error field), expected 0.
+5. Thinking present on any call (qwen3:14b), expected 0.
+
+**Verdict rule (mechanical, per model at 4096; the same rule is computed at 8192 as a control).**
+- Valid only if: all 3 sessions completed, 0 observed context shifts, 0 Ollama token-level cuts, 0 calls on which
+  Ollama still dropped messages, 0 exceed-context errors, a complete log slice for every call, and no thinking.
+  Otherwise the cell is "invalid" (the mitigation did not do what it was meant to, or the data is incomplete), and it
+  neither supports nor refutes the hypothesis.
+- recovered: valid, and every rule in use is at or above 90% over the cell's turns (the threshold that put the rule in
+  use on the arm-b baseline).
+- not recovered: valid, and some rule in use is below 90%.
+- Overall: supported if both models are recovered at 4096; refuted if either model is valid and not recovered at
+  4096; otherwise inconclusive.
+
+**What would refute it.** Rules in use still failing at 4096 (any rule in use below 90%) with 0 observed context
+shifts and 0 token cuts: the system prompt was in front of the model on every call and the rules still broke, so the
+loss of the system prompt to the context shift is not the (whole) explanation.
+
+**Known limits, stated before the run.** At 4096 the budget is expected to hold the system prompt and the current turn
+and few or no earlier turns, so the model answers each turn with almost no history, unlike the arm-b baseline, where
+the full history is in context; "recovered" therefore means the rules hold with the system prompt intact, not that
+the session is otherwise equivalent. Three seeds per cell. One runtime (Ollama 0.34.4 on evo-x2).
