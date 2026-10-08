@@ -191,6 +191,19 @@ gaps with the job that fills each.
 
 ### 4.4 Memory-architecture boundaries (2.00 pages)
 
+**Headline figure for H1 (planned, added 2026-10-08): cross-vendor spill cost, FH1.** One figure, three panels, same
+x axis (requested context as a fraction of the platform's memory boundary), y axis = cost of crossing it:
+- **AMD-iGPU (unified, evo-x2 class):** spill cost near zero, i.e. decode and TTFT nearly unchanged past the device-local
+  heap. Data: `results/mx2_spill_stats.jsonl` (5 n_ctx points x 5 reps); **pending a register row** (G5), so no
+  number is stated here.
+- **INTEL-iGPU (unified, budget wall):** no gradual cost; the server either starts or refuses at one shared-heap limit
+  (hard fail). Data: `[A-24-effective-heap-limit]`, `[A-24-flip-point-per-model]`.
+- **NVIDIA-dGPU (discrete):** decode slowdown proportional to the spilled fraction past VRAM. Data: Blade C1 files
+  (no register row yet, G4) plus the night-1 K1 layer split; **pending until Blade night 1 registers it**.
+The claim the figure carries: the same "context exceeds memory" event has three different cost shapes depending on the
+memory architecture (near-free spill, hard wall, proportional slowdown), so a hardware-blind router or sizing rule is
+wrong on at least two of the three. If space is short, FH1 replaces F2 and F3 (their detail moves to the supplement).
+
 **4.4a INTEL-iGPU shared-heap budget and first-principles flip point.**
 
 - **Claim:** a model start on INTEL-iGPU succeeds or fails at one shared-heap limit that also counts host-visible
@@ -455,6 +468,7 @@ citing (G14).
 
 | fig | content | data source | data exists? |
 |---|---|---|---|
+| FH1 (headline, H1) | Cross-vendor spill cost: AMD-iGPU unified near-zero cost, INTEL-iGPU budget wall (hard fail), NVIDIA-dGPU discrete decode slowdown, on a shared normalized x axis | `results/mx2_spill_stats.jsonl` (register row pending, G5); `[A-24-effective-heap-limit]`, `[A-24-flip-point-per-model]`; Blade C1 files (register row pending, G4) and Blade night 1 (a) K1 layer split | partly: INTEL yes; AMD data exists, register row pending; NVIDIA pending Blade night 1 |
 | F1 | Platform and memory-architecture diagram: three platforms, where KV, weights and host-visible buffers live, which runtime backend is used | `docs/HARDWARE.md`, Section 3 of this file | yes (drawing only) |
 | F2 | INTEL-iGPU flip point: measured (last_ok, first_fail] vs accountings A/B/C, all models in `[A-24-budget-boundary]` | `[A-24-flip-point-per-model]`, `[A-24-effective-heap-limit]` | yes; existing `figures/fig_a24_budget_boundary.png` needs regeneration |
 | F3 | NVIDIA-dGPU spill onset: TTFT and decode slowdown vs context with spilled fraction; C3 point | C1/C2 files (no register row); Blade night 2 (d) | partly: C1/C2 yes, C3 no; existing `figures/fig_blade_c1_spill.png` is the M1 ladder |

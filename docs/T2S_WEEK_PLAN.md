@@ -34,11 +34,19 @@ Every input is a number recomputed from a committed result file (`py -3.12 scrip
 | 2d | R2 native, iGPU 32768 default, 2 models x 5 seeds x 40 turns | t2s_wk_r2_real_igpu | 35.4 | scaled | 57.4 |
 | 3 | R2 mitigation (client-side trim) at the native 4096 | t2s_wk_r2_mitigation_cpu | 12.0 | scaled | 69.4 |
 | 4 | Intel bandwidth hog PX2I, N0/B4/e8/N1, Level Zero | t2s_wk_px2i | 1.1 | scaled | 70.5 |
-| 5 | outcome-table subset, 100 items, 2 models, 3 configs | t2s_wk_outcome_subset | 34.3 | measured | 104.8 |
-| 6 | R2 mechanism logging at the 4096 default | t2s_wk_r2_mechanism_cpu | 1.4 | scaled | 106.2 |
+| 5 | R2 mechanism logging at the 4096 default | t2s_wk_r2_mechanism_cpu | 1.4 | scaled | 71.9 |
+| deferred | outcome-table subset, 100 items, 2 models, 3 configs | (not queued) | 34.3 | measured | |
 
-**Total 106.2 h (4.4 days) against the 72 h (3 day) budget line.** Steps 1 to 4 fit (70.5 h); steps 5 and 6 are
-past the line (`beyond_budget: true` in the queue file). See "Budget and cut options".
+**Operator cut (2026-10-08): steps 1 to 4 plus the mechanism run, 71.9 h of the 72 h line.** The outcome-table subset
+is DEFERRED (reason: the evo-x2 outcome table covers quality; the T2S subset would add a second platform's quality
+numbers, not a new finding). It is not in the queue file; its job and harness path stay in the repo for later.
+
+**Trim rule if the measured hours exceed 72 once on the machine** (decided by the operator, applied in this order,
+re-estimating from the first jobs' own wall clocks after step 2a): trim the lowest-value R2 tier first, never the
+mechanism run. The lowest-value tier is the iGPU 32768 real run (2d): it repeats a pattern already measured on evo-x2
+(history lost silently, rules kept), while the CPU 4096 tier (2c) is the one that tests rule loss on Intel. So:
+(1) 2d qwen3:14b to 3 seeds (`--seeds`), (2) 2d llama3.1:8b to 3 seeds, (3) drop 2d qwen3:14b, and only then
+(4) 2c qwen3:14b to 3 seeds. Steps 2a, 2b, 3, 4 and 5 (mechanism) are not trimmed.
 
 How each estimate is formed (inputs and sources in `scripts/t2s_week_queue.py` ESTIMATE_INPUTS):
 - CPU factor 9.45 = evo-t2s CPU seconds per call (49.27 s, median latency of HTTP-200 `ollama_default` rows in
@@ -307,7 +315,7 @@ reported blocked until the x2_r2_agent changes above.
 
 ## Budget and cut options
 
-The full design is 106.2 h; the 72 h line falls inside step 5. Options, hours saved (same estimate inputs):
+**Superseded by the operator cut above (2026-10-08).** Kept for the record: the full design is 106.2 h; the 72 h line falls inside step 5. Options, hours saved (same estimate inputs):
 - iGPU real run, qwen3:14b at 3 seeds instead of 5 (needs `--seeds`, change 4): saves 11.6 h.
 - Outcome subset with llama3.1:8b only: saves 16.6 h (or 50 items for both models: the same 16.6 h).
 - CPU real run, qwen3:14b at 3 seeds: saves 3.9 h.
