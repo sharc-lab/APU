@@ -28,7 +28,19 @@ sys.path.insert(0, str(_here))
 sys.path.insert(0, str(REPO / "harness"))
 
 QUEUE_PATH = REPO / "queues" / "t2s_week_queue.json"
-T2S_PY = r"C:\Users\sharc\AppData\Local\Programs\Python\Python312\python.exe"
+import host_config as _hc  # noqa: E402
+
+
+def host_python(host_key):
+    """The host's interpreter as an absolute path: HOSTS python_exe with %USERPROFILE% expanded to that host user's
+    profile dir. Absolute because the watchdog launches as SYSTEM, whose %USERPROFILE% is the system profile."""
+    import ntpath
+    h = _hc.HOSTS[host_key]
+    profile = ntpath.join("C:" + ntpath.sep, "Users", h["user"])  # as host_config._this_host_entry builds it
+    return h["python_exe"].replace("%USERPROFILE%", profile)
+
+
+T2S_PY = host_python("EVO-T2S")
 ID_PREFIX = "t2s_wk_"
 BUDGET_H = 72.0   # "about 2-3 days machine time": the cut line is drawn at 3 days
 R2_MODELS = "llama3.1:8b,qwen3:14b"
@@ -145,7 +157,7 @@ def job_specs() -> list[dict]:
                     "--rules-from", val_cpu, *gates),
          "out": "results/t2s_r2_mitigation_cpu_v1.jsonl",
          "depends": ["x2_r2_agent host-generic guard", "x2_r2_agent --tiers",
-                     "x2_r2_mitigation_v1 merge (--mode mitigation, --client-trim)"]},
+                     "x2_r2_mitigation_v1 flags (--mode mitigation, --client-trim; merged in 4b46765)"]},
         {"key": "px2i", "step": 4, "gate": "preflight",
          "cmd": [T2S_PY, "t2s_night2.py", "--expect-blobs", "expected_blobs.json", "--deadline-h", "4",
                  "--phases", "px2i"],

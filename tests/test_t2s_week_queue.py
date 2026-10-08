@@ -107,7 +107,7 @@ def _item(**kw):
 
 
 def test_dry_run_catches_a_wrong_host_interpreter_and_an_x2_output_name():
-    bad = _item(cmd=[r"C:\Users\Ritz\AppData\Local\Programs\Python\Python312\python.exe", "t2s_outcome_table.py",
+    bad = _item(cmd=[wq.host_python("EVO-X2"), "t2s_outcome_table.py",
                      "--out", "results/x2_outcome_table_v3.jsonl"])
     res = wq.check_entry(bad, set(), {"x2_outcome_table_v3.jsonl"})
     text = " ".join(res["problems"])
@@ -153,6 +153,9 @@ def test_load_refuses_ids_already_in_the_queue_and_writes_nothing(tmp_path):
 
 
 # ------------------------------------------------------------------ preflight
+MODELS_DIR = r"D:\fake\.ollama\models"
+
+
 class FakeProbe(pf.Probe):
     def __init__(self, files=(), ollama="ollama version is 0.34.4", llama="version: 10970 (bfdc3218)",
                  user="No User exists for *", host="EVO-T2S"):
@@ -174,7 +177,7 @@ class FakeProbe(pf.Probe):
         return r"C:\apu\bin\ollama-0.34.4\ollama.exe"
 
     def ollama_models_dir(self):
-        return r"C:\Users\sharc\.ollama\models"
+        return MODELS_DIR
 
     def run(self, cmd):
         return self.ollama if "ollama" in cmd[0] else self.llama
@@ -192,7 +195,7 @@ class FakeProbe(pf.Probe):
 def _all_files(deploy):
     files = [Path(deploy) / pf.HANDOVER_FILE.name]
     files += [pf.LLAMA_BIN_DIR / t for t in ("llama-server.exe", "llama-tokenize.exe")]
-    files += [pf.manifest_path(t, r"C:\Users\sharc\.ollama\models") for t in pf.OLLAMA_TAGS]
+    files += [pf.manifest_path(t, MODELS_DIR) for t in pf.OLLAMA_TAGS]
     files += [pf.MODELS_DIR / g for g in pf.GGUFS]
     files += [Path(deploy) / f for f in pf.DEPLOYED_FILES] + [Path(deploy) / f for f in pf.DATA_FILES]
     return files

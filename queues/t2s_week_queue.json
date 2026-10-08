@@ -198,7 +198,7 @@
   "depends_on_changes": [
    "x2_r2_agent host-generic guard",
    "x2_r2_agent --tiers",
-   "x2_r2_mitigation_v1 merge (--mode mitigation, --client-trim)"
+   "x2_r2_mitigation_v1 flags (--mode mitigation, --client-trim; merged in 4b46765)"
   ],
   "gate": {
    "requires_done": "t2s_wk_r2_val_cpu"

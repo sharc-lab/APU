@@ -2,6 +2,8 @@
 
 Status: staged, nothing run. evo-t2s is off limits (no SSH, no scp, no queue changes) until the operator says so.
 Every command below that touches evo-t2s is for that moment, not before. No evo-x2 time is used by this plan.
+`<profile>` below is the evo-t2s user's profile directory (C: drive, Users, then `HOSTS["EVO-T2S"]["user"]` from
+`harness/host_config.py`); `scripts/t2s_week_queue.host_python()` builds the interpreter path from it.
 
 Files:
 - `queues/t2s_week_queue.json`: the queue, in `harness/t2s_queue.py` item format, built by
@@ -87,14 +89,14 @@ Do these in order. Nothing is queued or enabled until all pass.
 6. **Versions** (next section). Ollama must be 0.34.4 and llama.cpp b10970 before anything is queued.
 7. **SYSTEM resolution of the Ollama exe and models dir** (0b1ab71, 992f6c8). The watchdog runs as SYSTEM, whose
    LOCALAPPDATA is the system profile, so `host_config._this_host_entry()` resolves the per-user paths from the
-   HOSTS entry (user `sharc`): `C:\Users\sharc\AppData\Local\Programs\Ollama\ollama.exe` and
-   `C:\Users\sharc\.ollama\models`. Check both exist:
-   `Test-Path C:\Users\sharc\AppData\Local\Programs\Ollama\ollama.exe; Test-Path C:\Users\sharc\.ollama\models\manifests`.
+   HOSTS entry (user `sharc`): `<profile>\AppData\Local\Programs\Ollama\ollama.exe` and
+   `<profile>\.ollama\models`. Check both exist:
+   `Test-Path <profile>\AppData\Local\Programs\Ollama\ollama.exe; Test-Path <profile>\.ollama\models\manifests`.
    With the side-by-side 0.34.4 pinned (below), `OLLAMA_BIN` takes precedence over the HOSTS path in
    `_resolve_ollama_exe_for_serve`, and the models dir stays the HOSTS one.
 8. **Deploy** the committed files (byte-exact, `scripts/deploy_evo.py`, refuses uncommitted files and a wrong host):
    ```
-   py -3.12 scripts/deploy_evo.py C:\apu\ovn harness/t2s_queue.py harness/queue_watchdog.py harness/stale_server_cleanup.py harness/host_config.py harness/proc_util.py harness/argparse_probe.py harness/t2s_week_preflight.py harness/t2s_r2_agent.py harness/x2_r2_agent.py harness/t2s_r2_session_growth.py harness/x2_r2_mechanism.py harness/prompt_token_check.py harness/t2s_k1_ollama.py harness/t2s_outcome_table.py harness/chat_template_source.py harness/t2s_night2.py harness/t2s_lab.py harness/t2s_overnight.py harness/t2s_amech.py harness/level_zero_sysman.py harness/win_cpu_topology.py harness/bw_hog.py harness/spin_hog_affinity.py harness/t2s_m3_power_coupling.py harness/run_provenance.py harness/server_guard.py scripts/t2s_week_queue.py queues/t2s_week_queue.json --host evo-t2s
+   py -3.12 scripts/deploy_evo.py C:\apu\ovn harness/t2s_queue.py harness/queue_watchdog.py harness/stale_server_cleanup.py harness/host_config.py harness/proc_util.py harness/argparse_probe.py harness/t2s_week_preflight.py harness/t2s_r2_agent.py harness/x2_r2_agent.py harness/t2s_r2_session_growth.py harness/x2_r2_mechanism.py harness/x2_r2_client_trim.py harness/prompt_token_check.py harness/t2s_k1_ollama.py harness/t2s_outcome_table.py harness/chat_template_source.py harness/t2s_night2.py harness/t2s_lab.py harness/t2s_overnight.py harness/t2s_amech.py harness/level_zero_sysman.py harness/win_cpu_topology.py harness/bw_hog.py harness/spin_hog_affinity.py harness/t2s_m3_power_coupling.py harness/run_provenance.py harness/server_guard.py scripts/t2s_week_queue.py queues/t2s_week_queue.json --host evo-t2s
    ```
    `C:\apu\ovn\analysis\trace_weighted_pack.py` and `C:\apu\ovn\results\workload_pack\` (grade.py, items/, the weights
    file) are the flat-layout copies the earlier T2S outcome run used; the preflight checks they are present. If any is
@@ -105,7 +107,7 @@ Do these in order. Nothing is queued or enabled until all pass.
    decide; this plan changes no scheduled task.
 10. **Load the queue, then the watchdog.** The load (one command, from the controller):
    ```
-   C:\Windows\System32\OpenSSH\ssh.exe sharc@100.72.40.24 "C:\Users\sharc\AppData\Local\Programs\Python\Python312\python.exe C:\apu\ovn\t2s_week_queue.py load C:\apu\ovn\t2s_week_queue.json"
+   C:\Windows\System32\OpenSSH\ssh.exe sharc@100.72.40.24 "<profile>\AppData\Local\Programs\Python\Python312\python.exe C:\apu\ovn\t2s_week_queue.py load C:\apu\ovn\t2s_week_queue.json"
    ```
    It appends the 9 entries as pending after whatever is in `queue_state.json`, refuses (writes nothing) if any
    `t2s_wk_` id is already there, and never edits an existing entry. Then re-enable (not re-register) the watchdog
@@ -125,7 +127,7 @@ result row records an Ollama version at all. So expect a mismatch.
 
 Verification (read only):
 ```
-& "C:\Users\sharc\AppData\Local\Programs\Ollama\ollama.exe" --version
+& "<profile>\AppData\Local\Programs\Ollama\ollama.exe" --version
 & "C:\apu\bin\llama-b10970\llama-server.exe" --version
 & "C:\apu\bin\llama-b10970\llama-tokenize.exe" --version
 Get-FileHash C:\apu\bin\llama-b10970\llama-server.exe -Algorithm SHA256
@@ -146,7 +148,7 @@ Set-Content -Encoding ascii C:\apu\ovn\ollama_pin.json '{"ollama_bin": "C:\\apu\
 `t2s_week_preflight.apply_ollama_pin()` reads the pin file and sets `OLLAMA_BIN`, which
 `host_config._resolve_ollama_exe_for_serve()` checks first; `t2s_r2_agent.py` and `t2s_outcome_table.py` (subset path)
 apply it before any server start, and the preflight job verifies the pinned exe reports 0.34.4. The models store is
-shared (`C:\Users\sharc\.ollama\models`), so nothing is re-pulled. Its runner (`lib\ollama\llama-server.exe` under the
+shared (`<profile>\.ollama\models`), so nothing is re-pulled. Its runner (`lib\ollama\llama-server.exe` under the
 pin dir) still matches `stop_ollama_server`'s `*\Ollama\*` path filter. If llama.cpp is not b10970: stop and ask the
 operator (every T2S llama-server row so far is b10970; a different build is a different runtime).
 
@@ -156,7 +158,7 @@ Record the install in `docs/T2S_CHANGELOG.md`, in its own format:
 
 **What:** the v0.34.4 Windows zip extracted to C:\apu\bin\ollama-0.34.4 (zip SHA-256 <...>, ollama.exe SHA-256 <...>),
 and C:\apu\ovn\ollama_pin.json pointing the queued jobs at it. The per-user install
-(C:\Users\sharc\AppData\Local\Programs\Ollama, 0.33.2) is untouched.
+(<profile>\AppData\Local\Programs\Ollama, 0.33.2) is untouched.
 **Why:** every evo-x2 R2 and outcome-table row was measured with Ollama 0.34.4; the T2S week (docs/T2S_WEEK_PLAN.md)
 must run the same version.
 **Revert:** Remove-Item -Recurse -Force C:\apu\bin\ollama-0.34.4, C:\apu\ovn\ollama_pin.json
@@ -180,15 +182,19 @@ stay pending. The dry run lists them as `blocked_until_x2_r2_agent_changes`.
    silently fall back from the iGPU to the CPU). Call `hc.stop_ollama_server()` before the first start whenever
    server_env is non-empty (start_ollama_server is a no-op while any Ollama runs), and record server_env in the
    `runtime` record (it already is for the mechanism job).
-3. **`--tiers a,b`** (comma-separated base arm ids from `_BASE_ARMS`): passed as `tiers=` to `strong_plan` and
-   `mechanism_plan` (and to the mitigation plan once merged). Validate every name against `_BASE_ARMS`.
-4. **`--seeds s1,s2`** (comma-separated ints): passed as `seeds=` to `strong_plan` (and the mitigation plan). Not used
+3. **`--tiers a,b`** (comma-separated base arm ids from `_BASE_ARMS`): passed as `tiers=` to `strong_plan`,
+   `mechanism_plan` and `mitigation_plan` (all three already take a `tiers` parameter). Validate every name against
+   `_BASE_ARMS`.
+4. **`--seeds s1,s2`** (comma-separated ints): passed as `seeds=` to `strong_plan` and `mitigation_plan`. Not used
    by the queue as built; it is what the cut options below need.
-5. **x2_r2_mitigation_v1** (another agent's job, not on main as of this plan): the T2S mitigation entry uses its
-   documented flags from the pre-registration (`--mode mitigation --client-trim margin=0.05`, docs/FINDINGS.md
-   "PRE-REGISTRATION: R2 mitigation x2_r2_mitigation_v1") plus `--tiers ollama_ctx_4096`. **The entry depends on the
-   x2_r2_mitigation_v1 merge**; if its final flag names differ, update `job_specs()` in `scripts/t2s_week_queue.py`,
-   rebuild, and the dry run checks the new argv against the merged parser.
+5. **x2_r2_mitigation_v1** is on main (4b46765: `--mode mitigation --client-trim margin=0.05`, `MITIGATION_TIERS`
+   4096 and 8192, `SEEDS`, both default models, `harness/x2_r2_client_trim.py`). The T2S mitigation entry reuses those
+   flags as they are and adds only `--tiers ollama_ctx_4096` (change 3). Its tokenizer and models dir resolve through
+   `prompt_token_check.TOKENIZE_EXE` (`C:\apu\bin\llama-b10970\llama-tokenize.exe`) and
+   `prompt_token_check.default_models_dir()` (host_config's per-host store), both already correct on evo-t2s.
+   The dry run parses the entry against the merged parser (`--mode mitigation` and `--client-trim` accepted); note
+   the parser's post-parse `ap.error` checks (for example `--client-trim` only with mitigation) are not reached by the
+   dry run, which stops at `parse_args`.
 
 `harness/t2s_r2_agent.py` already forwards `--server-env OLLAMA_IGPU_ENABLE=1` (igpu_enable), `--tiers` and `--seeds`,
 calls `x2_r2_agent.main(argv, advance=False)` and advances the queue once itself.
@@ -223,7 +229,7 @@ floor(num_ctx x 0.95) - 384 prompt tokens, render-and-count with the model's own
 v1 protocol, rules in use from this machine's own CPU validation file. evo-t2s's native default is 4096 on the CPU, so
 the tier is `ollama_ctx_4096` with `cpu_default` (an explicit num_ctx equal to the native default, which the trim
 budget needs). 8192 is not run on evo-t2s (it is not a native default here). Output
-`results/t2s_r2_mitigation_cpu_v1.jsonl`. Depends on the x2_r2_mitigation_v1 merge.
+`results/t2s_r2_mitigation_cpu_v1.jsonl`. Uses the merged x2_r2_mitigation_v1 flags (4b46765); still needs changes 1 and 3.
 
 ## Step 4: Intel bandwidth hog (PX2I)
 
@@ -280,7 +286,7 @@ default under OLLAMA_DEBUG=1, per-call log slices and render checks (`harness/x2
 as in the plan table: every job waits for `t2s_wk_preflight`; the real and mitigation runs wait for their own
 configuration's validation entry. Each entry's `note` carries its estimate, basis and cumulative hours (overwritten by
 the job's exit note when it finishes); `est_hours`, `est_basis`, `cum_hours`, `beyond_budget`, `expected_out` and
-`depends_on_changes` stay. Interpreter `C:\Users\sharc\AppData\Local\Programs\Python\Python312\python.exe`, an absolute
+`depends_on_changes` stay. Interpreter `<profile>\AppData\Local\Programs\Python\Python312\python.exe`, an absolute
 path, because the watchdog launches as SYSTEM where `%USERPROFILE%` is the system profile.
 
 Every job calls `t2s_queue.advance()` exactly once on exit, on every path, verified by test:

@@ -55,7 +55,8 @@ GGUFS = ("Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf", "Qwen3-8B-Q4_K_M.gguf", "Qwen
 # Every file a queued job of this week imports or runs, flat in C:\apu\ovn (scripts/deploy_evo.py layout).
 DEPLOYED_FILES = ("t2s_queue.py", "queue_watchdog.py", "stale_server_cleanup.py", "host_config.py", "proc_util.py",
                   "argparse_probe.py", "t2s_week_preflight.py", "t2s_r2_agent.py", "x2_r2_agent.py",
-                  "t2s_r2_session_growth.py", "x2_r2_mechanism.py", "prompt_token_check.py", "t2s_k1_ollama.py",
+                  "t2s_r2_session_growth.py", "x2_r2_mechanism.py", "x2_r2_client_trim.py", "prompt_token_check.py",
+                  "t2s_k1_ollama.py",
                   "t2s_outcome_table.py", "chat_template_source.py", "t2s_night2.py", "t2s_lab.py", "t2s_overnight.py",
                   "t2s_amech.py", "level_zero_sysman.py", "win_cpu_topology.py", "bw_hog.py",
                   "spin_hog_affinity.py", "t2s_m3_power_coupling.py", "run_provenance.py", "server_guard.py")
