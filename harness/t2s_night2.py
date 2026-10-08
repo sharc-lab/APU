@@ -31,6 +31,9 @@ Sections (each resumable through item_done records):
       the phase records px2_disabled and returns on any part whose cache layout does not support that reading --
       including evo-t2s. Deploying it needs bw_hog.py and win_cpu_topology.py in the scripts/deploy_evo.py path list
       alongside spin_hog_affinity.py. See the PX2 section docstring below.
+  PX2I evo-t2s, opt in with `--phases px2i` (2026-10-08): the PX2 question on Intel with fixed conditions N0, B4
+      (bandwidth hog, E-cluster A), e8 (spin hog, 8 E-cores), N1 on qwen3-8b and qwen3-14b, server pinned to the
+      P-cores, Level Zero Sysman per call. See the PX2I section docstring.
 
 Usage on evo-t2s (deployed to C:\\apu\\ovn):
   python t2s_night2.py --expect-blobs expected_blobs.json --deadline-h 10 --overnight-table <model_table.json> [--resume <stem>]
@@ -1847,21 +1850,130 @@ def phase_px2(lab):
         lab.resources["server"] = None
 
 
+# ---------------------------------------------------------------- PX2I (Intel, evo-t2s)
+"""PX2I: the PX2 question asked on evo-t2s (docs/T2S_WEEK_PLAN.md step 4). PX2 itself refuses to run on this part
+(px2_topology: shared-L2 E-core clusters), so PX2I uses the core map that was read live on evo-t2s instead
+(E_CLUSTER_A / E_CLUSTER_B above, win_cpu_topology.py, 2026-09-28) and fixed conditions:
+  N0   no co-runner (baseline before any hog)
+  B4   STREAM-triad bandwidth hog (harness/bw_hog.py) on the 4 E-cores of cluster A (logical CPUs 4-7): power load plus
+       saturating DRAM traffic on the shared memory controller
+  e8   spin hog (L.m3.start_hog, the B1/B4 co-runner) on all 8 E-cores (4-11, mask 0x0FF0): the Intel B4 phase's e8
+       condition, power load with near-zero DRAM traffic
+  N1   no co-runner (baseline after the hogs; N1 vs N0 is the drift check, px2_drift)
+B4 and e8 run in a per-model shuffled order (seed PX2I_SEED + crc(model)), as in PX2. The server is pinned to the
+4 P-cores (0-3), which never overlap a hog CPU, in every condition including N0/N1 (px2_pin_server). One server per
+model across all conditions, ctx 8192, fill 2048, 128 output tokens, 1 warm-up + 5 measured calls per condition
+(PX2's constants). Level Zero Sysman telemetry: every call row already carries igpu_mhz / igpu_throttle_bits /
+pkg_power_w windowed over the call (t2s_lab.Telemetry with lz.Sysman on Intel); each condition also gets a
+px2i_level_zero record with the medians over that condition's own call rows and whether Sysman was available.
+PX2I rows are an evo-t2s arm and are never pooled with evo-x2 PX2 rows."""
+
+PX2I_SEED = 20261008
+PX2I_MODELS = ["qwen3-8b", "qwen3-14b"]
+PX2I_SERVER_CPUS = [0, 1, 2, 3]
+PX2I_HOGS = {"B4": ("bw", list(E_CLUSTER_A)), "e8": ("spin", list(E_CLUSTER_A) + list(E_CLUSTER_B))}
+PX2I_CONDITIONS = ["N0", "B4", "e8", "N1"]
+
+
+def px2i_order(mid):
+    seed = PX2I_SEED + ov.crc(mid)
+    mid_block = [c for c in PX2I_CONDITIONS if c in PX2I_HOGS]
+    random.Random(seed).shuffle(mid_block)
+    return ["N0"] + mid_block + ["N1"], seed
+
+
+def px2i_level_zero_summary(rows):
+    """Medians over one condition's own measured call rows (never a sample taken after the calls, see
+    positive_control_throttle)."""
+    def med(key):
+        vals = [r.get(key) for r in rows if r and r.get(key) is not None]
+        return st.median(vals) if vals else None
+    bits = sorted({b for r in rows if r for b in (r.get("igpu_throttle_bits") or [])})
+    return {"igpu_mhz_median": med("igpu_mhz"), "pkg_power_w_median": med("pkg_power_w"),
+            "igpu_throttle_bits": bits, "n_rows": len(rows)}
+
+
+def phase_px2i(lab):
+    gbps_solo = None
+    if "PX2I_bw_calibration" not in lab.done:
+        gbps_solo = px2_bw_calibration(lab, PX2I_HOGS["B4"][1])
+        lab.item_done("PX2I_bw_calibration")
+    sysman_ok = bool(getattr(getattr(lab.tele, "sysman", None), "available", False))
+    for mid in PX2I_MODELS:
+        mi = lab.models.get(mid)
+        if mi is None:
+            log(f"px2i: {mid} not loaded (no verified entry in downloads.jsonl), skipping")
+            continue
+        order, seed = px2i_order(mid)
+        item0 = f"PX2I_{mid}_start"
+        srv = L.Server(lab, mi, PX2_CTX, tag=item0)
+        lab.resources["server"] = srv
+        info = srv.start(timeout=1800)
+        pin = px2_pin_server(info["pid"], PX2I_SERVER_CPUS) if info.get("ok") and info.get("pid") \
+            else {"pinned": False, "why": "server did not start", "server_cpus": PX2I_SERVER_CPUS}
+        ov.start_row(lab, srv, mi, "PX2I", item0, info, {"px2i_order": order, "px2i_seed": seed,
+                                                        "server_affinity": pin, "n_measured": PX2_N_MEASURED,
+                                                        "bw_gbps_solo": gbps_solo, "sysman_available": sysman_ok})
+        if not info.get("ok"):
+            srv.stop()
+            lab.resources["server"] = None
+            continue
+        prompt = ov.prompt_for(srv, PX2_FILL)
+        n_tok = srv.tokenize(prompt)
+        ttft_by_cond = {}
+        for cond in order:
+            item = f"PX2I_{mid}_{cond}"
+            if item in lab.done:
+                continue
+            lab.check()
+            kind, cpus = PX2I_HOGS.get(cond, ("none", []))
+            hog, report, mask, util = None, None, None, None
+            try:
+                if cpus:
+                    hog, report, _aff, mask = px2_start_hog(lab, item, cpus, kind)
+                    time.sleep(PX2_SETTLE_S)
+                    util = px2_per_core_util(cpus)
+                extra = {"cpu_mask": hex(mask) if mask else None, "cond": cond, "hog_kind": kind,
+                         "hog_cpus": list(cpus), "px2i_seed": seed, "px2i_order": order,
+                         "server_affinity_mask": hex(px2_mask(PX2I_SERVER_CPUS)), "server_pinned": pin.get("pinned"),
+                         "hog_cpus_all_at_95": (util or {}).get("all_at_95"), "bw_gbps_solo": gbps_solo}
+                rows = measured_with_extra(lab, srv, mi, "PX2I", item, prompt, n_tok, extra, cond,
+                                           n_calls=PX2_N_MEASURED, max_tokens=PX2_N_PREDICT)
+                ttft_by_cond[cond] = [r.get("ttft_s") for r in rows]
+                lab.emit({"record": "px2i_level_zero", "item_id": item, "model_id": mid, "cond": cond,
+                          "sysman_available": sysman_ok, **px2i_level_zero_summary(rows), "ts_utc": utc_iso()})
+                lab.emit({"record": "px2i_condition_done", "item_id": item, "model_id": mid, "cond": cond,
+                          "hog_kind": kind, "n_rows": len(rows),
+                          "hog_rate_during_calls": L.m3.read_ips(report) if report else None,
+                          "hog_rate_units": {"bw": "gbps", "spin": "iterations_per_s"}.get(kind),
+                          "util": util, "ts_utc": utc_iso()})
+            finally:
+                if hog is not None:
+                    L.m3.kill_tree(hog.pid)
+                    time.sleep(3)
+            lab.item_done(item)
+        lab.emit({"record": "px2i_model_summary", "model_id": mid, "px2i_seed": seed, "px2i_order": order,
+                  **px2_drift(ttft_by_cond), "ts_utc": utc_iso()})
+        srv.stop()
+        lab.resources["server"] = None
+
+
 PRIO = {"b1": 1, "b2": 2, "c1": 3, "b3": 4, "c1b": 5, "b4": 6, "b4_32b": 7, "b4_replicate": 8, "r1_speed": 10,
         "r1_check": 11, "a70": 12, "a70_finalize": 12.5, "p70": 13, "r1b": 14, "r1d": 15, "r1c": 16, "mx2": 17,
-        "px2": 18, "perfboost": 9, "r1b_controls": 19}
+        "px2": 18, "perfboost": 9, "r1b_controls": 19, "px2i": 20}
 PHASE_FN = {"b1": phase_b1, "b2": phase_b2, "c1": phase_c1, "b3": phase_b3, "c1b": phase_c1b, "b4": phase_b4,
            "b4_32b": phase_b4_32b, "b4_replicate": phase_b4_replicate, "r1_speed": phase_r1_speed,
            "r1_check": phase_r1_check, "a70": phase_a70, "a70_finalize": phase_a70_finalize, "p70": phase_p70,
            "r1b": phase_r1b, "r1d": phase_r1d, "r1c": phase_r1c, "mx2": phase_mx2, "px2": phase_px2,
-           "perfboost": phase_perfboost, "r1b_controls": phase_r1b_controls}
+           "perfboost": phase_perfboost, "r1b_controls": phase_r1b_controls, "px2i": phase_px2i}
 PHASE_ORDER = "b1,b2,c1,b3,c1b,perfboost"  # mx2/px2/r1b_controls are opt in with --phases, never in the default order
 
 # Phases that must pass a 1-item live smoke (server start, stale-server guard, one call, row-schema check) before
 # their first real run in a given resumed stem, per the standing rule added after two duplicate-keyword crashes: a
 # dry run against a stub lab catches code bugs, but only a real machine catches a bad deploy, a missing dependency
 # file, or a wrong assumption about what the live server actually returns.
-SMOKE_GATED_PHASES = {"r1_speed", "r1_check", "a70", "p70", "r1b", "r1c", "r1d", "mx2", "px2", "r1b_controls"}
+SMOKE_GATED_PHASES = {"r1_speed", "r1_check", "a70", "p70", "r1b", "r1c", "r1d", "mx2", "px2", "r1b_controls",
+                      "px2i"}
 
 
 class SmokeFailure(Exception):
@@ -2075,6 +2187,12 @@ def estimate_hours(lab, overheads=None):
         s += load_s(mid) + len(PX2_CONDITIONS) * ((1 + n_measured) * call_s(mid, PX2_FILL, PX2_N_PREDICT) + gate_s) \
             + n_hog_conds * (PX2_SETTLE_S + 3)
     est["px2"] = s / 3600
+    # PX2I: the same shape on evo-t2s, PX2I_MODELS x PX2I_CONDITIONS, 2 hog conditions, one 48 s calibration.
+    s = 48.0
+    for mid in PX2I_MODELS:
+        s += load_s(mid) + len(PX2I_CONDITIONS) * ((1 + PX2_N_MEASURED) * call_s(mid, PX2_FILL, PX2_N_PREDICT)
+                                                   + gate_s) + len(PX2I_HOGS) * (PX2_SETTLE_S + 3)
+    est["px2i"] = s / 3600
     return est
 
 
