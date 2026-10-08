@@ -2,6 +2,7 @@
 expected-blob list that harness/run_provenance.verify_deployed_blobs checks on the machine.
 
 Usage: py -3.12 scripts/deploy_evo.py <remote_dir> <repo_path> [<repo_path> ...] [--host evo-t2s|evo-x2]
+expected_blobs.json on the machine accumulates across deploys (see merge_expected); it is never overwritten wholesale.
 --host defaults to evo-t2s. Refuses if any listed path has uncommitted changes, or if the machine that answers on the
 configured SSH host does not report the expected hostname (harness/host_config.py HOSTS). Uses
 C:\\Windows\\System32\\OpenSSH\\ssh.exe and scp.exe, BatchMode.
@@ -49,6 +50,9 @@ def main():
               check=True)
     head = git("rev-parse", "HEAD").decode().strip()
     blobs = {}
+    prior = run_hidden([SSH, "-o", "BatchMode=yes", HOST,
+                        f"if (Test-Path {remote}\\expected_blobs.json) {{ Get-Content -Raw {remote}\\expected_blobs.json }}"],
+                       capture_output=True, text=True, check=True).stdout
     with tempfile.TemporaryDirectory() as td:
         for p in paths:
             name = Path(p).name
@@ -57,9 +61,33 @@ def main():
             blobs[name] = git("rev-parse", f"HEAD:{p}").decode().strip()
             run_hidden([SCP, "-q", "-o", "BatchMode=yes", str(Path(td) / name), f"{HOST}:{remote}/{name}"], check=True)
         exp = Path(td) / "expected_blobs.json"
-        exp.write_text(json.dumps({"git_head": head, "blobs": blobs}, indent=1))
+        merged = merge_expected(prior, head, blobs, {Path(p).name: p for p in paths})
+        exp.write_text(json.dumps(merged, indent=1))
         run_hidden([SCP, "-q", "-o", "BatchMode=yes", str(exp), f"{HOST}:{remote}/expected_blobs.json"], check=True)
-    print(json.dumps({"deployed": list(blobs), "git_head": head, "host": key}))
+    print(json.dumps({"deployed": list(blobs), "git_head": head, "host": key,
+                      "expected_blobs_files": len(merged["blobs"])}))
+
+
+def merge_expected(prior_text: str, head: str, blobs: dict, repo_paths: dict) -> dict:
+    """Accumulates expected_blobs.json across deploys instead of overwriting it (2026-10-07: concurrent one-file
+    deploys each replaced the whole list, so a job's provenance check only covered the last deploy's files).
+
+    Keeps every previously listed file, replaces the entries for the files deployed now, and records per file the
+    commit it came from (`heads`) and its repo path (`paths`). Top-level `git_head` is this deploy's HEAD, and
+    `blobs` keeps the {name: blob_sha} shape harness/run_provenance.verify_deployed_blobs reads."""
+    try:
+        old = json.loads(prior_text) if prior_text and prior_text.strip() else {}
+    except json.JSONDecodeError:
+        old = {}
+    old_head = old.get("git_head")
+    out_blobs = dict(old.get("blobs") or {})
+    out_heads = {n: (old.get("heads") or {}).get(n, old_head) for n in out_blobs}
+    out_paths = {n: p for n, p in (old.get("paths") or {}).items() if n in out_blobs}
+    for name, sha in blobs.items():
+        out_blobs[name] = sha
+        out_heads[name] = head
+        out_paths[name] = repo_paths.get(name, name)
+    return {"git_head": head, "blobs": out_blobs, "heads": out_heads, "paths": out_paths}
 
 
 if __name__ == "__main__":
