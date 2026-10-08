@@ -194,3 +194,13 @@ def test_run_one_llama_server_cmd_includes_reasoning_budget_flag(monkeypatch, tm
     row = x2.run_one_llama_server(item, "qwen3-8b", r"C:\apu\models\x.gguf", tmp_path / "out.jsonl", call_timeout_s=5)
     assert "--reasoning-budget" in captured["cmd"]
     assert row["http_status"] is None  # never got ready in this stub -- just checking the cmd shape
+
+
+def test_guard_clamp_below_request_is_context_overflow():
+    """2026-10-08: qwen3 longdoc_48000 items on llama_server: server clamps -c 48384 to n_ctx_train 40960 and the guard
+    refuses it. That is a context overflow (subcause exceeds_n_ctx_train), not 'other'."""
+    row = {"http_status": None, "error": "server guard mismatch: server does not match intended config: n_ctx 40960 != 48384"}
+    assert x2.classify_error_cause(row) == "context_overflow"
+    assert x2.error_subcause(row) == "exceeds_n_ctx_train"
+    other = {"http_status": None, "error": "server guard mismatch: server does not match intended config: n_ctx 65536 != 48384"}
+    assert x2.classify_error_cause(other) == "other"

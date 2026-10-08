@@ -162,6 +162,14 @@ LLAMA_LOG_DIR = Path(r"C:\apu\ovn\results")
 ERROR_CAUSES = ("context_overflow", "timeout", "connection", "other")
 
 
+def _guard_clamped_below_request(error: str) -> bool:
+    """True for server_guard's 'n_ctx <actual> != <requested>' mismatch where the server came up with a SMALLER
+    context than requested (llama-server clamps -c to the model's trained context)."""
+    import re as _re
+    m = _re.search(r"guard mismatch.*n_ctx (\d+) != (\d+)", error)
+    return bool(m) and int(m.group(1)) < int(m.group(2))
+
+
 def classify_error_cause(row):
     """One of: none (HTTP 200, scored normally), context_overflow (HTTP 400 exceeds-context, expected for an
     item larger than the config can hold), timeout, connection (server unreachable / never came up), other.
@@ -173,6 +181,11 @@ def classify_error_cause(row):
         return "none"
     error = (row.get("error") or "").lower()
     if status == 400 and ("context" in error or "exceed" in error):
+        return "context_overflow"
+    if _guard_clamped_below_request(error):
+        # 2026-10-08: an item longer than the model's trained context (e.g. 48384 > qwen3 40960): llama-server
+        # clamps -c to n_ctx_train and server_guard refuses the mismatched server. The config cannot hold the item,
+        # which is a context overflow, not an infra error (it must not feed the rolling non-overflow error alarm).
         return "context_overflow"
     if row.get("chat_outcome") == "infra_not_ready" or any(m in error for m in (
             "actively refused", "10061", "connection refused", "did not open its port", "never left 'loading'",
@@ -208,6 +221,8 @@ def error_subcause(row):
         if "refused" in error or "10061" in error:
             return "refused"
         return "dropped"
+    if cause == "context_overflow" and _guard_clamped_below_request(error):
+        return "exceeds_n_ctx_train"
     return cause
 
 
