@@ -1,22 +1,22 @@
 {
- "built_utc": "2026-10-08T20:59:23+00:00",
- "git_commit": "de77e91",
+ "built_utc": "2026-10-08T21:00:21+00:00",
+ "git_commit": "af18a8a",
  "backend": {
   "router": "fake: demo/dashboard/fakes.py (src/dse module not on main yet)",
   "pareto": "fake: demo/dashboard/fakes.py (src/dse module not on main yet)"
  },
  "sources": {
   "docs/NUMBERS_REGISTER.md": {
-   "sha256": "b275cadd0dd570fab1cba3dd62df82594c80f772e950dee20caf410df7a50ad4",
-   "bytes": 68555
+   "sha256": "a916bb9319759beb14046a71dbc60f26b944e62762b5bce9d364e178285ac6f2",
+   "bytes": 68557
   },
   "results/x2_r2_real_v1.jsonl": {
    "sha256": "76fc3f965197a9615dea2c4c79f09da4b748d4b427a00688410de05bd96971df",
    "bytes": 2231577
   },
   "results/x2_outcome_table_v3.jsonl": {
-   "sha256": "d9c31e5e9f91e085d4958350be5267bc86d10fbbe567db9be39ccc0d38b5d18f",
-   "bytes": 858458
+   "sha256": "46934fbb5ebae6b830a297343a40a4464bc326d6c022d30b3eb5654d996ef928",
+   "bytes": 866265
   },
   "results/t2s_outcome_table_full.jsonl": {
    "sha256": "04e7c4a7218d97afab80f0f0b1d1feb603d95b620eb003a7e06bbf443a363ca0",

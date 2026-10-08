@@ -10,7 +10,7 @@
    "results/t2s_night2_20260929T034014Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_a24_budget_boundary",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "A-24-budget-boundary-first-principles": {
@@ -27,7 +27,7 @@
    "results/t2s_night2_20260929T034014Z_srv_bis_a70_23552_2.txt"
   ],
   "script": "analysis/numbers_register.py::compute_a24_budget_boundary_first_principles",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "A-24-effective-heap-limit": {
@@ -42,7 +42,7 @@
    "results/t2s_night2_20260929T034014Z_srv_bis_a70_*.txt"
   ],
   "script": "analysis/numbers_register.py::compute_a24_effective_heap_limit",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "A-24-flip-point-inputs": {
@@ -56,7 +56,7 @@
    "results/t2s_night2_20260929T034014Z_srv_bis_a70_*.txt"
   ],
   "script": "analysis/numbers_register.py::compute_a24_flip_point_inputs",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "A-24-flip-point-per-model": {
@@ -72,7 +72,7 @@
    "results/t2s_night2_20260929T034014Z_srv_bis_a70_*.txt"
   ],
   "script": "analysis/numbers_register.py::compute_a24_flip_point_per_model",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "A-24-flip-point-prediction": {
@@ -88,7 +88,7 @@
    "results/t2s_night2_20260929T034014Z_srv_bis_a70_*.txt"
   ],
   "script": "analysis/numbers_register.py::compute_a24_flip_point_prediction",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "B3-corunner-6model": {
@@ -101,7 +101,7 @@
    "results/t2s_night2_20260928T004924Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_b3_corunner_6model",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "K1v3-X2-table": {
@@ -114,7 +114,7 @@
    "results/t2s_k1_ollama_evo-x2_20260930T205515Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k1_v3_x2_table",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "K2-x2-call-timing": {
@@ -127,7 +127,7 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_call_timing",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "K2-x2-clean-failures": {
@@ -140,7 +140,7 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_clean_failures",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "K2-x2-decode-by-arm": {
@@ -153,7 +153,7 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_decode_by_pressure_arm",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "K2-x2-kill-criterion": {
@@ -166,7 +166,7 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_kill_criterion_table",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "K2-x2-responsiveness-resolution": {
@@ -179,7 +179,7 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_responsiveness_resolution",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "K2-x2-score-ceiling": {
@@ -192,7 +192,7 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_score_ceiling",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "K2-x2-unreached-levels": {
@@ -205,7 +205,7 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_unreached_pressure_levels",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "P70-TTFT-ratio": {
@@ -218,7 +218,7 @@
    "results/t2s_night2_20260929T034014Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_p70_ttft_ratio",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "PX2-TTFT-gap": {
@@ -231,7 +231,7 @@
    "results/t2s_night2_20260930T135145Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_px2_ttft_gap",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "PX2-decode-ratio": {
@@ -244,7 +244,7 @@
    "results/t2s_night2_20260930T135145Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_px2_decode_ratios",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "PX2-full-ratio-table": {
@@ -257,7 +257,7 @@
    "results/t2s_night2_20260930T135145Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_px2_full_ratio_table",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "PX2-power": {
@@ -270,7 +270,7 @@
    "results/t2s_night2_20260930T135145Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_px2_package_power",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "PX2-thermal": {
@@ -284,7 +284,7 @@
    "results/t2s_night2_20260930T135145Z_lhm.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_px2_thermal_ceiling",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "R1-check-agreement": {
@@ -297,7 +297,7 @@
    "results/t2s_night2_20260929T034014Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r1_check_agreement",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "R2-install-path-4b-bare": {
@@ -311,7 +311,7 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_install_path_4b_bare",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "R2-install-path-4b-comparison": {
@@ -326,7 +326,7 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_install_path_4b_comparison",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "R2-mechanism-lowlevel": {
@@ -339,7 +339,7 @@
    "results/x2_r2_mechanism.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_mechanism_lowlevel",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "R2-mechanism-verdict": {
@@ -352,7 +352,7 @@
    "results/x2_r2_mechanism.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_mechanism_verdict",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "R2-real-v1-first-events": {
@@ -365,7 +365,7 @@
    "results/x2_r2_real_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1_first_events",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "R2-real-v1-gated-kill": {
@@ -379,7 +379,7 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1_gated_kill",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "R2-real-v1-kill-criterion": {
@@ -392,7 +392,7 @@
    "results/x2_r2_real_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1_kill_criterion",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "R2-real-v1-survival": {
@@ -406,7 +406,7 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1_survival",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "R2-real-v1b-first-events": {
@@ -422,7 +422,7 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1b_first_events",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "R2-real-v1b-gated-kill": {
@@ -438,7 +438,7 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1b_gated_kill",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "R2-real-v1b-kill-criterion": {
@@ -454,7 +454,7 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1b_kill_criterion",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "R2-real-v1b-survival": {
@@ -470,7 +470,7 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1b_survival",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "R2-task-tool-gate": {
@@ -484,7 +484,7 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_task_tool_gate",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "R2-validation-baseline": {
@@ -497,7 +497,7 @@
    "results/x2_r2_validation.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_baseline",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "R2-validation-call2-notools": {
@@ -510,7 +510,7 @@
    "results/x2_r2_validation.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_call2_notools",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "R2-validation-v2-baseline": {
@@ -523,7 +523,7 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_v2_baseline",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "R2-validation-v2-spec-diag": {
@@ -536,7 +536,7 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_v2_spec_diag",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "R2-validation-v2b-baseline": {
@@ -549,7 +549,7 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_v2b_baseline",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "R2-validation-v2b-runinfo": {
@@ -562,7 +562,7 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_v2b_runinfo",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "R2-validation-v2c-baseline": {
@@ -575,7 +575,7 @@
    "results/x2_r2_validation_v2c.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_v2c_baseline",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "T2S-vs-X2-default-ctx": {
@@ -589,7 +589,7 @@
    "results/t2s_k1_ollama_evo-x2_20260930T205515Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_t2s_x2_default_ctx_table",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "b4_32b-dose-response": {
@@ -602,7 +602,7 @@
    "results/t2s_night2_20260929T034014Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_b4_32b_dose_response",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "c1b-stall-clean-cells": {
@@ -615,7 +615,7 @@
    "results/t2s_night2_20260930T215303Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_c1b_stall_clean_cells",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "cloud-budget-inputs": {
@@ -633,7 +633,7 @@
    "docs/DEMO_SPEC.md"
   ],
   "script": "analysis/cloud_budget_forecast.py::load_prices",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "cloud-budget-lines": {
@@ -651,7 +651,7 @@
    "docs/DEMO_SPEC.md"
   ],
   "script": "analysis/cloud_budget_forecast.py::forecast",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "cloud-budget-sensitivity": {
@@ -669,7 +669,7 @@
    "docs/DEMO_SPEC.md"
   ],
   "script": "analysis/cloud_budget_forecast.py::forecast",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "cloud-budget-tokens": {
@@ -687,7 +687,7 @@
    "docs/DEMO_SPEC.md"
   ],
   "script": "analysis/cloud_budget_forecast.py::r2_sessions",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "cloud-budget-totals": {
@@ -705,7 +705,7 @@
    "docs/DEMO_SPEC.md"
   ],
   "script": "analysis/cloud_budget_forecast.py::forecast",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "kappa-heldout": {
@@ -719,7 +719,7 @@
    "results/labeling/kappa_heldout_annotator_claude.csv"
   ],
   "script": "analysis/kappa_agreement.py::heldout_stats",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "kappa-heldout-disagreements": {
@@ -734,7 +734,7 @@
    "results/labeling/kappa_heldout_annotator_claude.csv"
   ],
   "script": "analysis/numbers_register.py::compute_kappa_heldout_disagreement_read",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "kappa-heldout-fn-annotator": {
@@ -748,7 +748,7 @@
    "results/labeling/kappa_heldout_annotator_claude.csv"
   ],
   "script": "analysis/kappa_agreement.py::heldout_stats",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "kappa-heldout-sample": {
@@ -764,7 +764,7 @@
    "results/labeling/ritz_spotcheck_30.csv"
   ],
   "script": "analysis/build_kappa_heldout_sample.py::round_robin_sample",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "ollama-overflow-keeps-half": {
@@ -780,7 +780,7 @@
    "results/x2_template_mechanism_test.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ollama_overflow_keeps_half",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "pack-trace-weighted-stats": {
@@ -794,7 +794,7 @@
    "results/traces/agent_step_lengths.parquet"
   ],
   "script": "analysis/numbers_register.py::compute_pack_trace_weighted_stats",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "qwen32b-refusal": {
@@ -807,7 +807,7 @@
    "results/t2s_night2_20260929T205109Z.jsonl"
   ],
   "script": "analysis/r1b_wrong_answer_audit.py::refusal_share_by_model",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "qwen4b-2507-metadata-consistency": {
@@ -820,7 +820,7 @@
    "results/x2_template_mechanism_test.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_qwen4b_2507_metadata_consistency",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "self-report-truncation-awareness": {
@@ -834,7 +834,7 @@
    "results/t2s_night2_20260929T205109Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_self_report_truncation_awareness",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "t2s-llamaserver-load-failures": {
@@ -847,7 +847,7 @@
    "results/t2s_outcome_table_llamaserver_*.log"
   ],
   "script": "analysis/numbers_register.py::compute_t2s_llamaserver_load_failures",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "t2s-outcome-allocation-failures": {
@@ -860,7 +860,7 @@
    "results/t2s_outcome_table_full.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_t2s_allocation_failures",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "t2s-outcome-error-causes": {
@@ -873,7 +873,7 @@
    "results/t2s_outcome_table_full.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_t2s_outcome_error_causes",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "t2s-outcome-gsm8k-rescore": {
@@ -887,7 +887,7 @@
    "results/t2s_outcome_table_smoke.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_t2s_outcome_gsm8k_rescore",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "trace-32k-crossing": {
@@ -900,7 +900,7 @@
    "results/traces/agent_step_lengths.parquet"
   ],
   "script": "analysis/numbers_register.py::compute_trace_cdf_crossing_fractions",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "trace-context-exit-rate": {
@@ -913,7 +913,7 @@
    "results/traces/exit_status_sample.parquet"
   ],
   "script": "analysis/numbers_register.py::compute_trace_context_exit_rate",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "trace-fraction-exceeds-4096": {
@@ -926,7 +926,7 @@
    "results/traces/agent_step_lengths.parquet"
   ],
   "script": "analysis/numbers_register.py::compute_trace_fraction_exceeds_4096",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "ttft-cross-machine-transfer": {
@@ -958,7 +958,7 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_cross_machine_transfer",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "ttft-few-point-calibration": {
@@ -990,7 +990,7 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_few_point_calibration",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "ttft-first-call-stall": {
@@ -1008,7 +1008,7 @@
    "results/t2s_night2_20260929T202603Z_srv_R1*_start.txt"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_first_call_stall",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "ttft-first-call-stall-per-cell": {
@@ -1026,7 +1026,7 @@
    "results/t2s_night2_20260929T202603Z_srv_R1*_start.txt"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_first_call_stall_per_cell",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "ttft-physical-fit-per-machine": {
@@ -1058,7 +1058,7 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_physical_fit_per_machine",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "ttft-t2s-restricted-to-x2-range": {
@@ -1090,7 +1090,7 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_t2s_restricted_to_x2_range",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "ttft-x2-length-spread": {
@@ -1122,7 +1122,7 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_x2_length_spread",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "ttft-x2-refit-per-model": {
@@ -1154,7 +1154,7 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_x2_refit_per_model",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "ttft-x2-section0-stall-check": {
@@ -1187,7 +1187,7 @@
    "results/t2s_night2_20260929T205109Z_srv_R1*_start.txt"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_x2_section0_stall_check",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "uncensored-trace-32k-crossing": {
@@ -1200,21 +1200,21 @@
    "results/traces/agent_step_lengths.parquet"
   ],
   "script": "analysis/numbers_register.py::compute_uncensored_trace_32k_crossing",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "x2-chat-template-source": {
   "id": "x2-chat-template-source",
   "status": "VERIFIED",
-  "value": "llama3.1:8b/ollama_default (tag llama3.1:8b) ollama_library sha256 948af2743fc7 (v3 rows: 5 ollama_library not valid derived, 30 ollama_library valid derived, 53 ollama_library valid recorded); llama3.1:8b/llama_server gguf_embedded_llama_server sha256 e10ca381b1cc (v3 rows: 121 gguf_embedded_llama_server valid derived); qwen3-4b-2507/ollama_default (tag qwen3-4b-2507) bare_gguf_ollama_create sha256 40c21f34cf67 (v3 rows: 30 bare_gguf_ollama_create valid derived, 53 bare_gguf_ollama_create valid recorded); qwen3-4b-2507/llama_server gguf_embedded_llama_server sha256 40c21f34cf67 (v3 rows: 120 gguf_embedded_llama_server valid derived); qwen3-8b/ollama_default (tag qwen3:8b) ollama_library sha256 ae370d884f10 (v3 rows: 30 ollama_library valid derived, 53 ollama_library valid recorded); qwen3-8b/llama_server gguf_embedded_llama_server sha256 57f1fd00f001 (v3 rows: 28 gguf_embedded_llama_server valid derived, 53 gguf_embedded_llama_server valid recorded); qwen3-14b/ollama_default (tag qwen3:14b) ollama_library sha256 ae370d884f10 (v3 rows: 29 ollama_library valid derived, 53 ollama_library valid recorded); qwen3-14b/llama_server gguf_embedded_llama_server sha256 57f1fd00f001 (v3 rows: 28 gguf_embedded_llama_server valid derived, 53 gguf_embedded_llama_server valid recorded); qwen3-30b-a3b/ollama_default (tag qwen3-30b-a3b-2507) bare_gguf_ollama_create sha256 40c21f34cf67 (v3 rows: 28 bare_gguf_ollama_create valid derived, 53 bare_gguf_ollama_create valid recorded, 15 ollama_library not valid derived); qwen3-30b-a3b/llama_server gguf_embedded_llama_server sha256 40c21f34cf67 (v3 rows: 120 gguf_embedded_llama_server valid derived); qwen3-32b/ollama_default (tag qwen3:32b) ollama_library sha256 ae370d884f10 (v3 rows: 29 ollama_library valid derived, 49 ollama_library valid recorded); qwen3-32b/llama_server gguf_embedded_llama_server sha256 57f1fd00f001 (v3 rows: 28 gguf_embedded_llama_server valid derived, 49 gguf_embedded_llama_server valid recorded)",
-  "n": "1110",
+  "value": "llama3.1:8b/ollama_default (tag llama3.1:8b) ollama_library sha256 948af2743fc7 (v3 rows: 5 ollama_library not valid derived, 30 ollama_library valid derived, 54 ollama_library valid recorded); llama3.1:8b/llama_server gguf_embedded_llama_server sha256 e10ca381b1cc (v3 rows: 121 gguf_embedded_llama_server valid derived); qwen3-4b-2507/ollama_default (tag qwen3-4b-2507) bare_gguf_ollama_create sha256 40c21f34cf67 (v3 rows: 30 bare_gguf_ollama_create valid derived, 54 bare_gguf_ollama_create valid recorded); qwen3-4b-2507/llama_server gguf_embedded_llama_server sha256 40c21f34cf67 (v3 rows: 120 gguf_embedded_llama_server valid derived); qwen3-8b/ollama_default (tag qwen3:8b) ollama_library sha256 ae370d884f10 (v3 rows: 30 ollama_library valid derived, 54 ollama_library valid recorded); qwen3-8b/llama_server gguf_embedded_llama_server sha256 57f1fd00f001 (v3 rows: 28 gguf_embedded_llama_server valid derived, 54 gguf_embedded_llama_server valid recorded); qwen3-14b/ollama_default (tag qwen3:14b) ollama_library sha256 ae370d884f10 (v3 rows: 29 ollama_library valid derived, 54 ollama_library valid recorded); qwen3-14b/llama_server gguf_embedded_llama_server sha256 57f1fd00f001 (v3 rows: 28 gguf_embedded_llama_server valid derived, 54 gguf_embedded_llama_server valid recorded); qwen3-30b-a3b/ollama_default (tag qwen3-30b-a3b-2507) bare_gguf_ollama_create sha256 40c21f34cf67 (v3 rows: 28 bare_gguf_ollama_create valid derived, 54 bare_gguf_ollama_create valid recorded, 15 ollama_library not valid derived); qwen3-30b-a3b/llama_server gguf_embedded_llama_server sha256 40c21f34cf67 (v3 rows: 120 gguf_embedded_llama_server valid derived); qwen3-32b/ollama_default (tag qwen3:32b) ollama_library sha256 ae370d884f10 (v3 rows: 29 ollama_library valid derived, 50 ollama_library valid recorded); qwen3-32b/llama_server gguf_embedded_llama_server sha256 57f1fd00f001 (v3 rows: 28 gguf_embedded_llama_server valid derived, 50 gguf_embedded_llama_server valid recorded)",
+  "n": "1119",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_chat_template_sources.jsonl",
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_chat_template_source",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "x2-device-detect-mechanism": {
@@ -1227,7 +1227,7 @@
    "results/x2_template_mechanism_test.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_device_detect_mechanism",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "x2-thinking-verify": {
@@ -1240,7 +1240,7 @@
    "results/x2_thinking_verify.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_thinking_verify",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "x2-truncation-cliff-qwen3-8b": {
@@ -1253,7 +1253,7 @@
    "results/traces/agent_step_lengths.parquet"
   ],
   "script": "analysis/numbers_register.py::compute_x2_truncation_cliff",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "x2-v3-canary-gate-lenient": {
@@ -1267,7 +1267,7 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_canary_gate_lenient",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "x2-v3-canary-gates": {
@@ -1281,20 +1281,20 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_canary_gates",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "x2-v3-error-causes": {
   "id": "x2-v3-error-causes",
   "status": "VERIFIED",
-  "value": "order none/context_overflow/timeout/connection/other; llama3.1:8b/llama_server 102/0/19/0/0; llama3.1:8b/ollama_default 83/0/0/0/0; qwen3-14b/llama_server 72/0/0/0/9; qwen3-14b/ollama_default 82/0/0/0/0; qwen3-30b-a3b/llama_server 120/0/0/0/0; qwen3-30b-a3b/ollama_default 81/0/0/0/0; qwen3-32b/llama_server 49/0/11/0/7; qwen3-32b/ollama_default 64/0/0/0/3; qwen3-4b-2507/llama_server 102/0/18/0/0; qwen3-4b-2507/ollama_default 83/0/0/0/0; qwen3-8b/llama_server 72/0/0/0/9; qwen3-8b/ollama_default 83/0/0/0/0",
-  "n": "1090",
+  "value": "order none/context_overflow/timeout/connection/other; llama3.1:8b/llama_server 102/0/19/0/0; llama3.1:8b/ollama_default 84/0/0/0/0; qwen3-14b/llama_server 72/10/0/0/0; qwen3-14b/ollama_default 83/0/0/0/0; qwen3-30b-a3b/llama_server 120/0/0/0/0; qwen3-30b-a3b/ollama_default 82/0/0/0/0; qwen3-32b/llama_server 49/8/11/0/0; qwen3-32b/ollama_default 65/0/0/0/3; qwen3-4b-2507/llama_server 102/0/18/0/0; qwen3-4b-2507/ollama_default 84/0/0/0/0; qwen3-8b/llama_server 72/10/0/0/0; qwen3-8b/ollama_default 84/0/0/0/0",
+  "n": "1099",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_error_causes",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "x2-v3-gsm8k-strict-vs-lenient": {
@@ -1307,27 +1307,27 @@
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_gsm8k_strict_vs_lenient",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "x2-v3-progress": {
   "id": "x2-v3-progress",
   "status": "VERIFIED",
-  "value": "total 1069/3600; llama3.1:8b/llama_server 121/340; llama3.1:8b/ollama_default 83/340; qwen3-14b/llama_server 81/340; qwen3-14b/ollama_default 82/340; qwen3-30b-a3b/llama_server 120/340; qwen3-30b-a3b/ollama_default 81/340; qwen3-32b/llama_server 67/100; qwen3-32b/ollama_default 67/100; qwen3-4b-2507/llama_server 120/340; qwen3-4b-2507/ollama_default 83/340; qwen3-8b/llama_server 81/340; qwen3-8b/ollama_default 83/340",
-  "n": "1069",
+  "value": "total 1078/3600; llama3.1:8b/llama_server 121/340; llama3.1:8b/ollama_default 84/340; qwen3-14b/llama_server 82/340; qwen3-14b/ollama_default 83/340; qwen3-30b-a3b/llama_server 120/340; qwen3-30b-a3b/ollama_default 82/340; qwen3-32b/llama_server 68/100; qwen3-32b/ollama_default 68/100; qwen3-4b-2507/llama_server 120/340; qwen3-4b-2507/ollama_default 84/340; qwen3-8b/llama_server 82/340; qwen3-8b/ollama_default 84/340",
+  "n": "1078",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_progress",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "x2-v3-scores": {
   "id": "x2-v3-scores",
   "status": "VERIFIED",
-  "value": "llama3.1:8b/llama_server: function_calling 1.00 (n=5), gsm8k 0.40 (n=5), longdoc_qa 0.76 (n=80), trace_length_mix 1.00 (n=31); trace-weighted 0.97 / llama3.1:8b/ollama_default: function_calling 1.00 (n=5), gsm8k 0.20 (n=5), longdoc_qa 1.00 (n=51), trace_length_mix 1.00 (n=22); trace-weighted 1.00 / qwen3-14b/llama_server: function_calling 1.00 (n=5), gsm8k 0.80 (n=5), longdoc_qa 0.82 (n=49), trace_length_mix 1.00 (n=22); trace-weighted 0.94 / qwen3-14b/ollama_default: function_calling 1.00 (n=5), gsm8k 0.80 (n=5), longdoc_qa 0.92 (n=50), trace_length_mix 1.00 (n=22); trace-weighted 0.98 / qwen3-30b-a3b/llama_server: function_calling 1.00 (n=5), gsm8k 0.80 (n=5), longdoc_qa 1.00 (n=79), trace_length_mix 1.00 (n=31); trace-weighted 1.00 / qwen3-30b-a3b/ollama_default: function_calling 1.00 (n=5) [bare template], gsm8k 0.80 (n=5), longdoc_qa 1.00 (n=49), trace_length_mix 1.00 (n=22); trace-weighted 1.00 (includes bare-template function_calling) / qwen3-32b/llama_server: longdoc_qa 0.64 (n=47), trace_length_mix 0.95 (n=20); trace-weighted 0.83 / qwen3-32b/ollama_default: longdoc_qa 0.96 (n=47), trace_length_mix 0.90 (n=20); trace-weighted 0.87 / qwen3-4b-2507/llama_server: function_calling 1.00 (n=5), gsm8k 0.20 (n=5), longdoc_qa 0.77 (n=79), trace_length_mix 1.00 (n=31); trace-weighted 0.97 / qwen3-4b-2507/ollama_default: function_calling 1.00 (n=5) [bare template], gsm8k 0.40 (n=5), longdoc_qa 1.00 (n=51), trace_length_mix 1.00 (n=22); trace-weighted 1.00 (includes bare-template function_calling) / qwen3-8b/llama_server: function_calling 1.00 (n=5), gsm8k 1.00 (n=5), longdoc_qa 0.82 (n=49), trace_length_mix 1.00 (n=22); trace-weighted 0.94 / qwen3-8b/ollama_default: function_calling 1.00 (n=5), gsm8k 0.80 (n=5), longdoc_qa 0.90 (n=51), trace_length_mix 1.00 (n=22); trace-weighted 0.98",
-  "n": "1090",
+  "value": "llama3.1:8b/llama_server: function_calling 1.00 (n=5), gsm8k 0.40 (n=5), longdoc_qa 0.76 (n=80), trace_length_mix 1.00 (n=31); trace-weighted 0.97 / llama3.1:8b/ollama_default: function_calling 1.00 (n=5), gsm8k 0.20 (n=5), longdoc_qa 1.00 (n=52), trace_length_mix 1.00 (n=22); trace-weighted 1.00 / qwen3-14b/llama_server: function_calling 1.00 (n=5), gsm8k 0.80 (n=5), longdoc_qa 0.80 (n=50), trace_length_mix 1.00 (n=22); trace-weighted 0.94 / qwen3-14b/ollama_default: function_calling 1.00 (n=5), gsm8k 0.80 (n=5), longdoc_qa 0.90 (n=51), trace_length_mix 1.00 (n=22); trace-weighted 0.97 / qwen3-30b-a3b/llama_server: function_calling 1.00 (n=5), gsm8k 0.80 (n=5), longdoc_qa 1.00 (n=79), trace_length_mix 1.00 (n=31); trace-weighted 1.00 / qwen3-30b-a3b/ollama_default: function_calling 1.00 (n=5) [bare template], gsm8k 0.80 (n=5), longdoc_qa 1.00 (n=50), trace_length_mix 1.00 (n=22); trace-weighted 1.00 (includes bare-template function_calling) / qwen3-32b/llama_server: longdoc_qa 0.62 (n=48), trace_length_mix 0.95 (n=20); trace-weighted 0.82 / qwen3-32b/ollama_default: longdoc_qa 0.94 (n=48), trace_length_mix 0.90 (n=20); trace-weighted 0.87 / qwen3-4b-2507/llama_server: function_calling 1.00 (n=5), gsm8k 0.20 (n=5), longdoc_qa 0.77 (n=79), trace_length_mix 1.00 (n=31); trace-weighted 0.97 / qwen3-4b-2507/ollama_default: function_calling 1.00 (n=5) [bare template], gsm8k 0.40 (n=5), longdoc_qa 1.00 (n=52), trace_length_mix 1.00 (n=22); trace-weighted 1.00 (includes bare-template function_calling) / qwen3-8b/llama_server: function_calling 1.00 (n=5), gsm8k 1.00 (n=5), longdoc_qa 0.80 (n=50), trace_length_mix 1.00 (n=22); trace-weighted 0.94 / qwen3-8b/ollama_default: function_calling 1.00 (n=5), gsm8k 0.80 (n=5), longdoc_qa 0.88 (n=52), trace_length_mix 1.00 (n=22); trace-weighted 0.97",
+  "n": "1099",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_outcome_table_v3.jsonl",
@@ -1335,7 +1335,7 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_scores",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "x2-weekend-error-causes": {
@@ -1348,7 +1348,7 @@
    "results/x2_outcome_table_weekend.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_weekend_error_causes",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "x2-weekend-error-causes-by-cell": {
@@ -1361,7 +1361,7 @@
    "results/x2_outcome_table_weekend.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_weekend_error_causes_by_cell",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "x2-weekend-ngen-budget": {
@@ -1374,7 +1374,7 @@
    "results/x2_weekend_llamaserver_log_scan.json"
   ],
   "script": "analysis/numbers_register.py::compute_x2_weekend_ngen_budget",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "x2-weekend-refused-block": {
@@ -1387,7 +1387,7 @@
    "results/x2_outcome_table_weekend.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_weekend_refused_block",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "x2-weekend-tag-counts": {
@@ -1400,7 +1400,7 @@
    "results/x2_outcome_table_weekend.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_weekend_tag_counts",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  },
  "x2-weekend-thinking-scores": {
@@ -1413,7 +1413,7 @@
    "results/x2_outcome_table_weekend.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_weekend_thinking_scores",
-  "commit": "4035e42",
+  "commit": "79a2a85",
   "date": "2026-10-08"
  }
 }
