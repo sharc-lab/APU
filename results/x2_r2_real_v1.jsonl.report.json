@@ -1,0 +1,36 @@
+{
+ "rules_in_use": {
+  "llama3.1:8b": [
+   "rule1_json_keys",
+   "rule3_no_zebra",
+   "rule4_metres"
+  ],
+  "qwen3:14b": [
+   "rule1_json_keys",
+   "rule2_log_event_called",
+   "rule3_no_zebra",
+   "rule4_metres",
+   "rule5_session_code"
+  ]
+ },
+ "kill_criterion": {
+  "killed": false,
+  "per_arm": {
+   "ollama_default_call2_notools": {
+    "n_sessions": 6,
+    "n_silent_failures": 3,
+    "shows_silent_failure": true
+   },
+   "ollama_ctx_32768_call2_notools": {
+    "n_sessions": 6,
+    "n_silent_failures": 4,
+    "shows_silent_failure": true
+   },
+   "ollama_ctx_4096_call2_notools": {
+    "n_sessions": 6,
+    "n_silent_failures": 6,
+    "shows_silent_failure": true
+   }
+  }
+ }
+}
