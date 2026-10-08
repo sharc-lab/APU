@@ -145,7 +145,7 @@ def test_queued_outcome_job_rows_use_the_fixed_gsm8k_scorer_and_lenient_column(m
 def test_queue_entry_argv_reaches_the_model_key_path(monkeypatch):
     sys.path.insert(0, str(REPO / "scripts"))
     import t2s_week_queue as wq
-    cmd = next(it["cmd"] for it in wq.build_queue() if it["id"] == "t2s_wk_outcome_subset")
+    cmd = next(s["cmd"] for s in wq.deferred_specs() if s["key"] == "outcome_subset")   # deferred 2026-10-08
     seen = {}
     monkeypatch.setattr(ot, "run", lambda out, **kw: seen.update(kw) or "completed 0 items")
     monkeypatch.setattr(ot, "hc", types.SimpleNamespace(require_host=lambda h: {"interactive_guard": True},

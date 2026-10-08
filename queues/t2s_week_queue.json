@@ -40,7 +40,7 @@
   "beyond_budget": false,
   "expected_out": "results/t2s_r2_validation_cpu_v1.jsonl",
   "depends_on_changes": [
-   "x2_r2_agent host-generic guard"
+   "x2_r2_agent host allowlist + interactive guard"
   ],
   "gate": {
    "requires_done": "t2s_wk_preflight"
@@ -71,7 +71,7 @@
   "beyond_budget": false,
   "expected_out": "results/t2s_r2_validation_igpu_v1.jsonl",
   "depends_on_changes": [
-   "x2_r2_agent host-generic guard",
+   "x2_r2_agent host allowlist + interactive guard",
    "x2_r2_agent --server-env"
   ],
   "gate": {
@@ -113,7 +113,7 @@
   "beyond_budget": false,
   "expected_out": "results/t2s_r2_real_cpu_v1.jsonl",
   "depends_on_changes": [
-   "x2_r2_agent host-generic guard",
+   "x2_r2_agent host allowlist + interactive guard",
    "x2_r2_agent --tiers"
   ],
   "gate": {
@@ -155,7 +155,7 @@
   "beyond_budget": false,
   "expected_out": "results/t2s_r2_real_igpu_v1.jsonl",
   "depends_on_changes": [
-   "x2_r2_agent host-generic guard",
+   "x2_r2_agent host allowlist + interactive guard",
    "x2_r2_agent --server-env",
    "x2_r2_agent --tiers"
   ],
@@ -196,7 +196,7 @@
   "beyond_budget": false,
   "expected_out": "results/t2s_r2_mitigation_cpu_v1.jsonl",
   "depends_on_changes": [
-   "x2_r2_agent host-generic guard",
+   "x2_r2_agent host allowlist + interactive guard",
    "x2_r2_agent --tiers",
    "x2_r2_mitigation_v1 flags (--mode mitigation, --client-trim; merged in 4b46765)"
   ],
@@ -230,36 +230,6 @@
   }
  },
  {
-  "id": "t2s_wk_outcome_subset",
-  "cmd": [
-   "C:\\Users\\sharc\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
-   "t2s_outcome_table.py",
-   "--out",
-   "results/t2s_outcome_subset_v1.jsonl",
-   "--models",
-   "llama3.1:8b,qwen3-8b",
-   "--subset-n",
-   "100",
-   "--subset-seed",
-   "20261007",
-   "--canary-gate",
-   "--deadline-h",
-   "36"
-  ],
-  "status": "pending",
-  "note": "T2S week step 5: est 34.3 h (measured: 100 items x 2 models x 9.98 min per item-model (evo-t2s, t2s_outcome_table_full, same 3 configs) + 1 h canaries; qwen3-8b assumed equal to llama3.1:8b); cumulative 104.8 h; BEYOND the 72 h budget line, see docs/T2S_WEEK_PLAN.md cut options",
-  "plan_step": 5,
-  "est_hours": 34.27,
-  "est_basis": "measured",
-  "cum_hours": 104.78,
-  "beyond_budget": true,
-  "expected_out": "results/t2s_outcome_subset_v1.jsonl",
-  "depends_on_changes": [],
-  "gate": {
-   "requires_done": "t2s_wk_preflight"
-  }
- },
- {
   "id": "t2s_wk_r2_mechanism_cpu",
   "cmd": [
    "C:\\Users\\sharc\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
@@ -276,15 +246,15 @@
    "off"
   ],
   "status": "pending",
-  "note": "T2S week step 6: est 1.4 h (scaled: one llama3.1:8b CPU 4096 session 66 min x overhead 1.32); cumulative 106.2 h; BEYOND the 72 h budget line, see docs/T2S_WEEK_PLAN.md cut options",
-  "plan_step": 6,
+  "note": "T2S week step 5: est 1.4 h (scaled: one llama3.1:8b CPU 4096 session 66 min x overhead 1.32); cumulative 72.0 h",
+  "plan_step": 5,
   "est_hours": 1.44,
   "est_basis": "scaled",
-  "cum_hours": 106.22,
-  "beyond_budget": true,
+  "cum_hours": 71.96,
+  "beyond_budget": false,
   "expected_out": "results/t2s_r2_mechanism_cpu_v1.jsonl",
   "depends_on_changes": [
-   "x2_r2_agent host-generic guard",
+   "x2_r2_agent host allowlist + interactive guard",
    "x2_r2_agent --tiers"
   ],
   "gate": {

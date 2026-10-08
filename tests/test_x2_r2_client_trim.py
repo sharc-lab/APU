@@ -294,7 +294,9 @@ def _patch_main(monkeypatch, tmp_path):
 
     monkeypatch.setattr(socket, "gethostname", lambda: "EVO-X2")
     monkeypatch.setitem(sys.modules, "host_config", types.SimpleNamespace(
-        start_ollama_server=start, stop_ollama_server=stop, wait_for_ollama_ready=lambda timeout_s=0: True))
+        start_ollama_server=start, stop_ollama_server=stop, wait_for_ollama_ready=lambda timeout_s=0: True,
+        require_host=lambda h: {"hw_id": "evo-x2", "interactive_guard": False},
+        enforce_or_record_interactive_session=lambda cfg: {}))
     monkeypatch.setitem(sys.modules, "t2s_queue", types.SimpleNamespace(advance=calls["notes"].append))
     monkeypatch.setattr(mech, "MECH_SERVE_LOG", str(log))
 

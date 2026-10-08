@@ -1,5 +1,5 @@
 """evo-t2s queue entry point for the R2 agent-session harness (harness/x2_r2_agent.py). Host-neutral wrapper: it
-does not reimplement anything in x2_r2_agent.py and never edits it. docs/T2S_WEEK_PLAN.md is the plan this serves.
+does not reimplement anything in x2_r2_agent.py. docs/T2S_WEEK_PLAN.md is the plan this serves.
 
 What it adds on top of x2_r2_agent.main():
   * --runtime-config: cpu_default (stock Ollama; on evo-t2s Ollama drops the Arc iGPU by policy, runs on CPU, and
@@ -7,11 +7,12 @@ What it adds on top of x2_r2_agent.main():
     persisted; measured default context 32768 for llama3.1:8b, register/FINDINGS "OLLAMA_IGPU_ENABLE=1").
   * a host check (EVO-T2S only, through harness/host_config.py, interactive_guard True there) and an output-name
     check (every output file stem starts with "t2s_", so no evo-t2s file can collide with an evo-x2 result name);
-  * a capability check of the deployed x2_r2_agent.py before any Ollama call: x2_r2_agent.py as of 62c0f8b refuses
-    to run on any host but EVO-X2 and has no flag for a server environment variable or for a tier/seed subset. The
-    exact changes are listed in docs/T2S_WEEK_PLAN.md ("Changes needed in harness/x2_r2_agent.py"). Until they are
-    on main and deployed, this wrapper refuses with a "stopped:" note naming what is missing (the queue marks the
-    entry error and moves on; entries gated on it stay pending);
+  * a capability check of the deployed x2_r2_agent.py before any Ollama call: the host allowlist with the
+    interactive-session guard (no "runs on EVO-X2 only" guard), --server-env, --tiers and --seeds (all on main since
+    the 2026-10-08 T2S change, docs/T2S_WEEK_PLAN.md "Changes needed in harness/x2_r2_agent.py"). If an older
+    x2_r2_agent.py was deployed, this wrapper refuses with a "stopped:" note naming what is missing (the queue marks
+    the entry error and moves on; entries gated on it stay pending);
+  * an argument error inside x2_r2_agent (its parser's SystemExit) becomes a "stopped:" note, never "completed";
   * a post-run runtime check: the loaded context of every turn of the ollama_default arm, per model, against the
     configuration's expected default (recorded as a t2s_runtime_check row; a mismatch is appended to the exit note,
     it never deletes or rewrites a row);
@@ -229,7 +230,11 @@ def main(argv=None, x2mod=None, hc=None, tq=None, hostname=None):
         pin = pf.apply_ollama_pin()  # OLLAMA_BIN = the side-by-side 0.34.4 when the operator pinned one
         print(f"[{utc_iso()}] ollama pin: {pin}", flush=True)
         hc.stop_ollama_server()  # so the server x2_r2_agent starts carries this job's env, not a leftover one
-        note = x2mod.main(fwd, advance=False) or "completed"
+        try:
+            note = x2mod.main(fwd, advance=False) or "completed"
+        except SystemExit as e:  # x2_r2_agent's ap.error (exit 2): nothing ran
+            note = f"stopped: x2_r2_agent.py rejected its arguments (exit {e.code}): {' '.join(fwd)}"[:400]
+            return note
         chk = runtime_check(read_rows(out_path), args.runtime_config)
         with open(out_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(chk, default=str) + "\n")

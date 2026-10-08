@@ -151,7 +151,9 @@ def test_main_creates_validates_and_advances_once(tmp_path, monkeypatch):
     monkeypatch.setattr(socket, "gethostname", lambda: "EVO-X2")
     monkeypatch.setitem(sys.modules, "host_config", types.SimpleNamespace(
         start_ollama_server=lambda: calls.append("start"), stop_ollama_server=lambda: calls.append("stop"),
-        wait_for_ollama_ready=lambda timeout_s=0: True))
+        wait_for_ollama_ready=lambda timeout_s=0: True,
+        require_host=lambda h: {"hw_id": "evo-x2", "interactive_guard": False},
+        enforce_or_record_interactive_session=lambda cfg: {}))
     monkeypatch.setitem(sys.modules, "t2s_queue", types.SimpleNamespace(advance=notes.append))
     monkeypatch.setattr(job, "ensure_tools_tag", lambda emit, out, log=None, hc=None: calls.append("create"))
     import x2_r2_agent as ra
@@ -174,7 +176,9 @@ def test_main_advances_with_stopped_note_on_create_failure(tmp_path, monkeypatch
     notes = []
     monkeypatch.setattr(socket, "gethostname", lambda: "EVO-X2")
     monkeypatch.setitem(sys.modules, "host_config", types.SimpleNamespace(
-        start_ollama_server=lambda: None, stop_ollama_server=lambda: None, wait_for_ollama_ready=lambda timeout_s=0: True))
+        start_ollama_server=lambda: None, stop_ollama_server=lambda: None, wait_for_ollama_ready=lambda timeout_s=0: True,
+        require_host=lambda h: {"hw_id": "evo-x2", "interactive_guard": False},
+        enforce_or_record_interactive_session=lambda cfg: {}))
     monkeypatch.setitem(sys.modules, "t2s_queue", types.SimpleNamespace(advance=notes.append))
 
     def boom(*a, **k):

@@ -25,15 +25,23 @@ def test_queue_order_ids_and_gates():
     q = wq.build_queue()
     keys = [it["id"][len(wq.ID_PREFIX):] for it in q]
     assert keys == ["preflight", "r2_val_cpu", "r2_val_igpu", "r2_real_cpu", "r2_real_igpu", "r2_mitigation_cpu",
-                    "px2i", "outcome_subset", "r2_mechanism_cpu"]
-    assert [it["plan_step"] for it in q] == [1, 2, 2, 2, 2, 3, 4, 5, 6]
+                    "px2i", "r2_mechanism_cpu"]   # operator cut 2026-10-08: outcome_subset deferred
+    assert [it["plan_step"] for it in q] == [1, 2, 2, 2, 2, 3, 4, 5]
     assert all(it["status"] == "pending" for it in q)
     assert "gate" not in q[0]
     gates = {it["id"]: it["gate"]["requires_done"] for it in q[1:]}
     assert gates["t2s_wk_r2_real_cpu"] == "t2s_wk_r2_val_cpu"
     assert gates["t2s_wk_r2_real_igpu"] == "t2s_wk_r2_val_igpu"
     assert gates["t2s_wk_r2_mitigation_cpu"] == "t2s_wk_r2_val_cpu"
-    assert gates["t2s_wk_px2i"] == gates["t2s_wk_outcome_subset"] == "t2s_wk_preflight"
+    assert gates["t2s_wk_px2i"] == gates["t2s_wk_r2_mechanism_cpu"] == "t2s_wk_preflight"
+
+
+def test_operator_cut_defers_the_outcome_subset_and_fits_the_budget():
+    q = wq.build_queue()
+    assert "t2s_wk_outcome_subset" not in {it["id"] for it in q}
+    assert [s["key"] for s in wq.deferred_specs()] == ["outcome_subset"] and set(wq.DEFERRED) == {"outcome_subset"}
+    assert q[-1]["id"] == "t2s_wk_r2_mechanism_cpu" and q[-1]["cum_hours"] <= wq.BUDGET_H
+    assert not any(it["beyond_budget"] for it in q)
 
 
 def test_queue_entries_carry_hours_in_their_notes_and_a_running_total():
@@ -63,7 +71,7 @@ def test_r2_jobs_use_the_v1_protocol_five_seed_plan_and_validation_gates():
 
 
 def test_outcome_job_uses_the_fixed_subset_canary_gate_and_two_models():
-    c = next(it["cmd"] for it in wq.build_queue() if it["id"] == "t2s_wk_outcome_subset")
+    c = next(s["cmd"] for s in wq.deferred_specs() if s["key"] == "outcome_subset")   # deferred, still checked
     assert c[1] == "t2s_outcome_table.py"
     assert c[c.index("--models") + 1] == "llama3.1:8b,qwen3-8b"
     assert c[c.index("--subset-n") + 1] == "100"
@@ -89,15 +97,25 @@ def test_cpu_factor_is_the_measured_per_call_ratio():
 
 
 # ------------------------------------------------------------------ dry run
-def test_dry_run_passes_and_reports_blocked_r2_entries():
+def test_dry_run_passes_with_no_blocked_r2_entries():
     rep = wq.dry_run()
     assert rep["ok"], [e for e in rep["entries"] if not e["ok"]]
     assert rep["fresh_build_matches_file"]
     assert rep["total_hours"] == pytest.approx(sum(it["est_hours"] for it in wq.build_queue()), abs=0.1)
+    assert rep["total_hours"] == rep["hours_within_budget"] <= wq.BUDGET_H
     assert all(e["parse_ok"] for e in rep["entries"])
-    r2_ids = {it["id"] for it in wq.build_queue() if it["cmd"][1] == "t2s_r2_agent.py"}
-    if any(e.get("pending_capabilities") for e in rep["entries"]):
-        assert set(rep["blocked_until_x2_r2_agent_changes"]) <= r2_ids
+    r2 = [e for e in rep["entries"] if e.get("forwarded_argv") is not None]
+    assert len(r2) == 6 and all(e["pending_capabilities"] == [] for e in r2)
+    assert rep["blocked_until_x2_r2_agent_changes"] == []
+    assert rep["deferred"] == {"t2s_wk_outcome_subset": wq.DEFERRED["outcome_subset"]}
+
+
+def test_dry_run_fails_an_r2_entry_the_x2_agent_cannot_run(monkeypatch):
+    import t2s_r2_agent as w
+    monkeypatch.setattr(w, "missing_capabilities", lambda caps, fwd: ["x2_r2_agent.py has no --tiers flag"])
+    item = next(it for it in wq.build_queue() if it["id"] == "t2s_wk_r2_real_cpu")
+    res = wq.check_entry(item, {"t2s_wk_preflight", "t2s_wk_r2_val_cpu"}, set())
+    assert not res["ok"] and any("lacks" in p for p in res["problems"])
 
 
 def _item(**kw):

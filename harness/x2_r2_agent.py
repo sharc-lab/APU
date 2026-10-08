@@ -63,6 +63,16 @@ system prompt and of its tools JSON and the tool_choice it sent, so "identical o
                             the mechanism job's debug server and per-call log parsing record what Ollama and llama.cpp
                             still did (message drops, token cuts, context shifts), observed rather than assumed.
 
+Hosts (2026-10-08): EVO-X2 and EVO-T2S (R2_HOSTS, through host_config.require_host). host_config's interactive-session
+guard runs at start: evo-t2s refuses while anyone is logged in (note "stopped: another interactive session ...", which
+halts the queue); evo-x2 records the console state in run_start (interactive_session) and runs as before. Options for
+the evo-t2s week (docs/T2S_WEEK_PLAN.md, harness/t2s_r2_agent.py), all off by default, recorded in run_start:
+  --server-env KEY=VALUE  extra env for the Ollama server this job starts and restarts (e.g. OLLAMA_IGPU_ENABLE=1);
+  --tiers a,b             keep only these tiers of the real/mechanism/mitigation plan (ollama_ctx_4096, 4096, default);
+  --seeds s1,s2           keep only these seeds (a subset of the plan's unless --allow-new-seeds).
+Without them every mode's plan, argv, server start and run_start are those of 087e790 plus the run_start fields hw_id,
+interactive_session, server_env_extra, tiers, seeds and allow_new_seeds (tests/test_x2_r2_agent_backcompat.py).
+
 Thinking: "think": false is sent for every qwen3 model (MODELS); every call records thinking_present (non-empty
 message.thinking) and think_tag_in_content, and a turn with either fails ("thinking_present" in turn_failures,
 logged with "!!! THINKING PRESENT"). Validation has a thinking_off gate, and the real-run preflight refuses on it.
@@ -250,6 +260,112 @@ MITIGATION_TURNS = 40
 def mitigation_plan(call2_tools="off", tiers=MITIGATION_TIERS, seeds=SEEDS, turns=MITIGATION_TURNS):
     sfx = MODE_SUFFIX[as_mode(call2_tools)]
     return [(a + sfx, tuple(seeds), turns) for a in tiers]
+
+
+# ── host allowlist and the T2S options (2026-10-08, docs/T2S_WEEK_PLAN.md) ──────────────────────────
+# Hosts main() runs on: host_config.require_host's allowlist, narrowed to the two EVO machines (the Blade runs R2
+# through harness/blade_r2.py, never through main(), whose WMI server start would open a console on the controller).
+R2_HOSTS = ("EVO-X2", "EVO-T2S")
+# Modes whose plan --tiers and --seeds restrict (real covers both --plan default and --plan strong).
+SUBSET_MODES = ("real", "mechanism", "mitigation")
+_ENV_KEY_RE = re.compile(r"^[A-Z_][A-Z0-9_]*$")
+_ENV_KEYS_RESERVED = ("OLLAMA_KEEP_ALIVE", "OLLAMA_MODELS")   # set by host_config.start_ollama_server itself
+
+
+def resolve_tier(name: str) -> str:
+    """A tier name -> its base arm id in _BASE_ARMS. Accepts the arm id (ollama_ctx_4096, ollama_default) or a short
+    form: "default" for ollama_default, a number N for ollama_ctx_N. ValueError for anything else."""
+    n = (name or "").strip()
+    if n in _BASE_ARMS:
+        return n
+    if n == "default":
+        return "ollama_default"
+    if n.isdigit() and f"ollama_ctx_{n}" in _BASE_ARMS:
+        return f"ollama_ctx_{n}"
+    raise ValueError(f"unknown tier {name!r} (known: {', '.join(_BASE_ARMS)}; short forms: default, or a number "
+                     f"such as 4096)")
+
+
+def base_arm(arm: str) -> str:
+    """An arm id without its call-2 mode suffix (ollama_ctx_4096_call2_notools -> ollama_ctx_4096)."""
+    for sfx in sorted((s for s in MODE_SUFFIX.values() if s), key=len, reverse=True):
+        if arm.endswith(sfx):
+            return arm[:-len(sfx)]
+    return arm
+
+
+def parse_tiers(text) -> list[str] | None:
+    """--tiers a,b -> resolved base arm ids (None when not given). ValueError on an unknown or repeated tier."""
+    if text is None:
+        return None
+    out = [resolve_tier(t) for t in text.split(",") if t.strip()]
+    if not out:
+        raise ValueError("--tiers is empty")
+    if len(set(out)) != len(out):
+        raise ValueError(f"--tiers names a tier twice: {text!r}")
+    return out
+
+
+def parse_seeds(text) -> list[int] | None:
+    """--seeds s1,s2 -> ints (None when not given). ValueError on a non-integer or repeated seed."""
+    if text is None:
+        return None
+    try:
+        out = [int(s) for s in text.split(",") if s.strip()]
+    except ValueError:
+        raise ValueError(f"--seeds must be comma-separated integers, got {text!r}") from None
+    if not out:
+        raise ValueError("--seeds is empty")
+    if len(set(out)) != len(out):
+        raise ValueError(f"--seeds names a seed twice: {text!r}")
+    return out
+
+
+def parse_server_env(items) -> dict | None:
+    """--server-env KEY=VALUE (repeatable) -> {KEY: VALUE} (None when not given). ValueError on a malformed item, a
+    repeated key, or a variable start_ollama_server sets itself. host_config._extra_env_sets re-checks the value's
+    characters when the server starts."""
+    if not items:
+        return None
+    out = {}
+    for it in items:
+        k, sep, v = it.partition("=")
+        if not sep or not _ENV_KEY_RE.match(k):
+            raise ValueError(f"--server-env wants KEY=VALUE with an upper-case variable name, got {it!r}")
+        if k in _ENV_KEYS_RESERVED:
+            raise ValueError(f"--server-env {k} is set by host_config.start_ollama_server itself")
+        if k in out:
+            raise ValueError(f"--server-env sets {k} twice")
+        out[k] = v
+    return out
+
+
+def restrict_plan(plan, tiers=None, seeds=None, allow_new_seeds=False) -> list:
+    """The plan restricted to the named tiers (base arm ids, see parse_tiers) and seeds, in the plan's own order.
+    Every named tier must be in the plan. Every named seed must be in the plan's seeds unless allow_new_seeds, in which
+    case every remaining arm runs exactly the named seeds. ValueError otherwise. No tiers and no seeds: plan as is."""
+    out = list(plan)
+    if tiers is not None:
+        have = [base_arm(a) for a, _, _ in out]
+        missing = [t for t in tiers if t not in have]
+        if missing:
+            raise ValueError(f"tier(s) {missing} are not in this mode's plan (its tiers: {have})")
+        out = [e for e in out if base_arm(e[0]) in tiers]
+    if seeds is not None:
+        have = []
+        for _, ss, _ in out:
+            have += [s for s in ss if s not in have]
+        new = [s for s in seeds if s not in have]
+        if new and not allow_new_seeds:
+            raise ValueError(f"seed(s) {new} are not in this plan's seeds {have} (--allow-new-seeds to run them)")
+        if allow_new_seeds:
+            out = [(a, tuple(seeds), t) for a, _, t in out]
+        else:
+            out = [(a, tuple(s for s in ss if s in seeds), t) for a, ss, t in out]
+            empty = [a for a, ss, _ in out if not ss]
+            if empty:
+                raise ValueError(f"--seeds leaves no seed for arm(s) {empty}")
+    return out
 
 MAX_TOKENS_PER_CALL = 384
 KEEP_ALIVE = "30m"          # hc.start_ollama_server sets OLLAMA_KEEP_ALIVE=0; keep the model (and its KV cache)
@@ -756,7 +872,7 @@ class OllamaRuntime:
         _start_server(hc, self.server_env, self.server_log)
         return hc.wait_for_ollama_ready(timeout_s=90)
 
-    server_env = None   # set by main() for the mechanism job (OLLAMA_DEBUG)
+    server_env = None   # set by main(): OLLAMA_DEBUG for mechanism/mitigation, plus any --server-env
     server_log = None
 
 
@@ -1613,6 +1729,19 @@ def build_arg_parser():
                     help="real mode: comma-separated result files; a (model, arm, seed) session completed in any of "
                          "them is not run again (the strengthened run reuses x2_r2_real_v1.jsonl's cells)")
     ap.add_argument("--order", choices=("model_major", "seed_major"), default="model_major")
+    # 2026-10-08, for the evo-t2s week (docs/T2S_WEEK_PLAN.md). Not given = the plan and server exactly as before.
+    ap.add_argument("--server-env", action="append", default=None, metavar="KEY=VALUE",
+                    help="repeatable: an extra environment variable for the Ollama server this job starts (e.g. "
+                         "OLLAMA_IGPU_ENABLE=1), also applied on a recovery restart; recorded in run_start and runtime")
+    ap.add_argument("--tiers", default=None,
+                    help="real/mechanism/mitigation: comma-separated tiers to keep from the plan (arm ids such as "
+                         "ollama_ctx_4096 or ollama_default, or short forms 4096 / default); an unknown tier or one "
+                         "not in the plan is an error")
+    ap.add_argument("--seeds", default=None,
+                    help="real/mechanism/mitigation: comma-separated seeds to keep from the plan; each must be one of "
+                         "the plan's seeds unless --allow-new-seeds")
+    ap.add_argument("--allow-new-seeds", action="store_true",
+                    help="with --seeds: run exactly the named seeds on every remaining arm, even ones not in the plan")
     return ap
 
 
@@ -1635,6 +1764,36 @@ def main(argv=None, advance=True):
     rule_files = [p for p in (args.rules_from or "").split(",") if p]
     if len(rule_files) > 1 and args.require_validation_gates and not args.per_model_refusal:
         ap.error("several --rules-from files need --per-model-refusal")
+    try:
+        tiers, seeds = parse_tiers(args.tiers), parse_seeds(args.seeds)
+        extra_env = parse_server_env(args.server_env)
+    except ValueError as e:
+        ap.error(str(e))
+    if (tiers is not None or seeds is not None) and args.mode not in SUBSET_MODES:
+        ap.error(f"--tiers / --seeds apply to --mode {', '.join(SUBSET_MODES)} only")
+    if args.allow_new_seeds and seeds is None:
+        ap.error("--allow-new-seeds needs --seeds")
+    if extra_env and args.mode in ("mechanism", "mitigation"):
+        import x2_r2_mechanism as mech
+        clash = {k: v for k, v in extra_env.items() if k in mech.OLLAMA_DEBUG_ENV and v != mech.OLLAMA_DEBUG_ENV[k]}
+        if clash:
+            ap.error(f"--server-env {clash} conflicts with this mode's own server env {mech.OLLAMA_DEBUG_ENV}")
+    c2 = args.call2_tools
+    if args.mode == "validation":
+        plan = validation_plan(c2)
+    elif args.mode == "real":
+        plan = strong_plan(c2) if args.plan == "strong" else real_plan(c2)
+    elif args.mode == "mechanism":
+        plan = mechanism_plan(c2)
+    elif args.mode == "mitigation":
+        plan = mitigation_plan(c2)
+    else:
+        plan = []
+    if tiers is not None or seeds is not None:
+        try:
+            plan = restrict_plan(plan, tiers, seeds, args.allow_new_seeds)
+        except ValueError as e:
+            ap.error(str(e))
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -1650,21 +1809,21 @@ def main(argv=None, advance=True):
     started = False
     try:
         import socket
-        if socket.gethostname().upper() != "EVO-X2":
-            raise RuntimeError(f"x2_r2_agent runs on EVO-X2 only, this is {socket.gethostname()!r}")
+        hostname = socket.gethostname()
+        try:  # host_config raises SystemExit; as a RuntimeError it becomes this job's "stopped:" note below
+            host_cfg = hc.require_host(hostname)
+        except SystemExit as e:
+            raise RuntimeError(str(e)) from None
+        if hostname.upper() not in R2_HOSTS:
+            raise RuntimeError(f"x2_r2_agent: host {hostname!r} is not one of {R2_HOSTS}")
+        try:  # evo-t2s (interactive_guard): refuses while anyone is logged in; evo-x2: returns the console state
+            interactive = hc.enforce_or_record_interactive_session(host_cfg)
+        except SystemExit as e:  # the queue halts on this note ("another interactive session")
+            note = f"stopped: {e}"[:400]
+            log(note)
+            return note
         models = [m for m in (args.models.split(",") if args.models else _default_models(args.mode, args.plan)) if m]
         models_requested = list(models)
-        c2 = args.call2_tools
-        if args.mode == "validation":
-            plan = validation_plan(c2)
-        elif args.mode == "real":
-            plan = strong_plan(c2) if args.plan == "strong" else real_plan(c2)
-        elif args.mode == "mechanism":
-            plan = mechanism_plan(c2)
-        elif args.mode == "mitigation":
-            plan = mitigation_plan(c2)
-        else:
-            plan = []
         rules_in_use = tuple(args.rules_in_use.split(","))
         preflight = None
         refused_models = {}
@@ -1692,7 +1851,9 @@ def main(argv=None, advance=True):
               "call2_extra": call2_extra(c2), "rules_from": args.rules_from,
               "skip_done_from": args.skip_done_from, "n_skip_done": len(skip_done),
               "validation_preflight": preflight, "ts_utc": utc_iso(),
-              "max_tokens_per_call": MAX_TOKENS_PER_CALL, "keep_alive": KEEP_ALIVE, "client_trim": client_trim})
+              "max_tokens_per_call": MAX_TOKENS_PER_CALL, "keep_alive": KEEP_ALIVE, "client_trim": client_trim,
+              "hw_id": host_cfg.get("hw_id"), "interactive_session": interactive, "server_env_extra": extra_env,
+              "tiers": tiers, "seeds": seeds, "allow_new_seeds": args.allow_new_seeds if seeds is not None else None})
         present = {Path(p).name: Path(p).exists() for p in rule_files}
         finished = {name: any(r.get("record") == "run_end" for r in vrows) for name, vrows in
                     ((Path(p).name, read_rows(Path(p))) for p in rule_files)}
@@ -1713,6 +1874,10 @@ def main(argv=None, advance=True):
             import x2_r2_mechanism as mech
             server_env, server_log = dict(mech.OLLAMA_DEBUG_ENV), mech.MECH_SERVE_LOG
             hc.stop_ollama_server()   # start_ollama_server is a no-op while any Ollama runs; env must take effect
+        if extra_env:   # --server-env: merged over the mode's own env; kept on runtime.server_env for recover()
+            if server_env is None:
+                hc.stop_ollama_server()   # as above: the extra env must take effect
+            server_env = {**(server_env or {}), **extra_env}
         _start_server(hc, server_env, server_log)
         started = True
         if not hc.wait_for_ollama_ready(timeout_s=60):
