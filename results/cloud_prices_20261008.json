@@ -1,0 +1,66 @@
+{
+  "source_url": "https://developers.openai.com/api/docs/pricing",
+  "source_url_requested": "https://platform.openai.com/docs/pricing",
+  "source_note": "platform.openai.com/docs/pricing answered 301 Moved Permanently to developers.openai.com/api/docs/pricing (OpenAI's own docs domain); the redirect target was fetched. https://openai.com/api/pricing answered HTTP 403 and was not used. No third-party source was used.",
+  "caching_source_url": "https://developers.openai.com/api/docs/guides/prompt-caching",
+  "fetched_utc": "2026-10-08T03:33Z",
+  "fetched_local_date": "2026-10-07",
+  "fetch_method": "WebFetch (page converted to text and read back); prices transcribed from that text",
+  "units": "USD per 1M tokens",
+  "context_tiers": "Short context: <=272K input tokens. Long context: >272K input tokens. (quoted from the pricing page)",
+  "caching_rules_quoted": {
+    "minimum_cacheable_prefix": "The minimum cacheable prompt length is 1,024 tokens for GPT-5.6 and later and varies by request settings for earlier models.",
+    "cache_write_rate": "For GPT-5.6 and later: cache writes cost 1.25x the standard, uncached input-token rate.",
+    "cache_write_not_additive": "Cache-write pricing is not an additive fee: input tokens use the uncached-input, cached-input, or cache-write rate.",
+    "cache_read_rate": "Subsequent reads cost 0.1x that rate on most of these models and 0.05x on GPT-6.1 Sol.",
+    "implicit_mode": "Implicit caching is automatic and does incur write charges. When prompt_cache_options.mode is implicit, OpenAI places a breakpoint at the end of the latest eligible message.",
+    "retention": "GPT-5.6 and later: A cached prefix remains eligible for reuse for 30 minutes after its most recent write or reuse."
+  },
+  "selection": {
+    "cheap_small": "gpt-6-luna",
+    "mid_tier": "gpt-6.1-sol",
+    "why": "The page's first rows (its 'Our latest models' section) are the gpt-6 family in three price tiers: gpt-6-astra (10.00 in / 50.00 out), gpt-6-sol and gpt-6.1-sol (2.00 / 10.00), gpt-6-luna (0.10 / 0.50). Cheap small = the cheapest current-generation model, gpt-6-luna. Mid-tier = the middle tier of that family; gpt-6.1-sol is its newer revision (listed second, ahead of gpt-6-sol), same input/output price as gpt-6-sol with a lower cached-input price."
+  },
+  "models": {
+    "gpt-6-luna": {
+      "standard": {"short": {"input": 0.10, "cached_input": 0.01, "cache_write": 0.125, "output": 0.50},
+                   "long": {"input": 0.20, "cached_input": 0.02, "cache_write": 0.25, "output": 0.75}},
+      "batch": {"short": {"input": 0.05, "cached_input": 0.005, "cache_write": 0.0625, "output": 0.25},
+                "long": {"input": 0.10, "cached_input": 0.01, "cache_write": 0.125, "output": 0.375}}
+    },
+    "gpt-6.1-sol": {
+      "standard": {"short": {"input": 2.00, "cached_input": 0.10, "cache_write": 2.50, "output": 10.00},
+                   "long": {"input": 4.00, "cached_input": 0.20, "cache_write": 5.00, "output": 15.00}},
+      "batch": {"short": {"input": 1.00, "cached_input": 0.05, "cache_write": 1.25, "output": 5.00},
+                "long": {"input": 2.00, "cached_input": 0.10, "cache_write": 2.50, "output": 7.50}}
+    },
+    "gpt-6-sol": {
+      "standard": {"short": {"input": 2.00, "cached_input": 0.20, "cache_write": 2.50, "output": 10.00},
+                   "long": {"input": 4.00, "cached_input": 0.40, "cache_write": 5.00, "output": 15.00}},
+      "batch": {"short": {"input": 1.00, "cached_input": 0.10, "cache_write": 1.25, "output": 5.00},
+                "long": {"input": 2.00, "cached_input": 0.20, "cache_write": 2.50, "output": 7.50}}
+    },
+    "gpt-6-astra": {
+      "standard": {"short": {"input": 10.00, "cached_input": 1.00, "cache_write": 12.50, "output": 50.00},
+                   "long": {"input": 20.00, "cached_input": 2.00, "cache_write": 25.00, "output": 75.00}},
+      "batch": {"short": {"input": 5.00, "cached_input": 0.50, "cache_write": 6.25, "output": 25.00},
+                "long": {"input": 10.00, "cached_input": 1.00, "cache_write": 12.50, "output": 37.50}}
+    }
+  },
+  "other_rows_short_context": {
+    "note": "Remaining text-model rows as transcribed (input / cached_input / output); null = no cached price shown.",
+    "standard": {
+      "gpt-5.6-sol": [4.00, 0.40, 20.00], "gpt-5.6-terra": [2.00, 0.20, 12.00], "gpt-5.6-luna": [0.20, 0.02, 1.20],
+      "gpt-5.5": [5.00, 0.50, 30.00], "gpt-5.4": [2.50, 0.25, 15.00], "gpt-5.4-mini": [0.75, 0.075, 4.50],
+      "gpt-5.4-nano": [0.20, 0.02, 1.25], "gpt-5-mini": [0.25, 0.025, 2.00], "gpt-5-nano": [0.05, 0.005, 0.40],
+      "gpt-4.1-mini": [0.40, 0.10, 1.60], "gpt-4o-mini": [0.15, 0.075, 0.60]
+    },
+    "batch": {
+      "gpt-5.6-sol": [2.00, 0.20, 10.00], "gpt-5.6-terra": [1.00, 0.10, 6.00], "gpt-5.6-luna": [0.10, 0.01, 0.60],
+      "gpt-5.5": [2.50, 0.25, 15.00], "gpt-5.4": [1.25, 0.13, 7.50], "gpt-5.4-mini": [0.375, 0.0375, 2.25],
+      "gpt-5.4-nano": [0.10, 0.01, 0.625], "gpt-5-mini": [0.125, 0.0125, 1.00], "gpt-5-nano": [0.025, 0.0025, 0.20],
+      "gpt-4.1-mini": [0.20, null, 0.80], "gpt-4o-mini": [0.075, null, 0.30]
+    },
+    "page_note_quoted": "GPT-5.6 Sol's promotional pricing is available at least through November 21, 2026."
+  }
+}

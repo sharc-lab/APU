@@ -2516,3 +2516,25 @@ rows, all first calls, so no clean refit is possible from existing data. Consequ
 number from an R1-family section that pools rep 0 with the repeats includes this stall; (b) the
 `ttft-cross-machine-transfer` and `ttft-few-point-calibration` rows were computed on the same uncleaned
 pooled data and should be recomputed on rep>=1 rows before they are cited.
+
+## Cloud budget forecast against the USD 50 code cap: fits with caching and Batch, does not fit without them (2026-10-07)
+
+Offline only; no API was called. Script: `analysis/cloud_budget_forecast.py`. Every number below is pasted from
+the `cloud-budget-*` rows of `docs/NUMBERS_REGISTER.md`.
+
+- **Prices**: `results/cloud_prices_20261008.json`, transcribed from OpenAI's official pricing page
+  (platform.openai.com/docs/pricing redirects to developers.openai.com/api/docs/pricing) and its prompt-caching
+  guide, fetched 2026-10-08T03:33Z. Cheap small model gpt-6-luna, mid-tier gpt-6.1-sol (row cloud-budget-inputs).
+- **Tokens** (tiktoken o200k_base): pack input 5490050 tokens, almost all of it long-document QA. R2 session
+  prompt tokens 1837205-1954628 per session; the R2 rows store only a chars/4 estimate, converted with an
+  o200k/chars-4 ratio of [0.6671, 0.6672] measured on the regenerated session text (row cloud-budget-tokens).
+- **Forecast vs pessimistic** (row cloud-budget-lines, USD): (a) 0.57 / 0.57; (b) 5.75 / 11.49; (c) 4.28 / 45.88;
+  (d) 6.65 / 6.65; (e) 5.17 / 19.38.
+- **Totals** (row cloud-budget-totals): forecast USD 22.42 (45% of USD 50 cap); pessimistic USD 83.97 (168% of cap).
+
+What decides it: line (c). The 12 agent sessions are cheap only because each call re-reads the previous call's
+prompt from cache; without caching they alone nearly reach the cap. Before any real agent run on the mid-tier
+model, confirm from the API's own `cached_tokens` usage field that the prefix is actually hit (tool definitions
+must stay identical across calls, or the prefix breaks). Sensitivity (row cloud-budget-sensitivity): 5x output
+tokens for hidden reasoning gives 27.30 / 90.18; R2 prompts left at the chars/4 estimate give 24.77 / 113.31.
+The failure scenario count, 1, is from DEMO_SPEC section 4 (row cloud-budget-inputs).

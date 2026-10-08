@@ -2021,6 +2021,87 @@ def compute_kappa_heldout_disagreement_read(repo):
             "n": len(reads)}
 
 
+_CLOUD_FORECAST_CACHE = {}
+
+
+def _cloud_forecast(repo, **kw):
+    """analysis/cloud_budget_forecast.py::forecast, memoized per (repo, kwargs) within one register build."""
+    key = (str(repo), tuple(sorted(kw.items())))
+    if key not in _CLOUD_FORECAST_CACHE:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("cloud_budget_forecast",
+                                                      repo / "analysis" / "cloud_budget_forecast.py")
+        m = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(m)
+        _CLOUD_FORECAST_CACHE[key] = m.forecast(repo, **kw)
+    return _CLOUD_FORECAST_CACHE[key]
+
+
+_CLOUD_DATA_FILES = ["results/cloud_prices_20261008.json", "results/workload_pack/items/*.jsonl",
+                     "results/workload_pack/item_weights_trace_weighted.json", "results/x2_outcome_table_v3.jsonl",
+                     "results/x2_r2_real_v1.jsonl", "docs/DEMO_SPEC.md"]
+
+
+def compute_cloud_budget_totals(repo):
+    """Cloud budget forecast (2026-10-07): total and pessimistic total vs the USD 50 cap."""
+    f = _cloud_forecast(repo)
+    b, p = f["base"]["total"], f["pessimistic"]["total"]
+    return {"value": f"forecast USD {b:.2f} ({b / f['cap_usd'] * 100:.0f}% of USD {f['cap_usd']:.0f} cap); "
+                     f"pessimistic USD {p:.2f} ({p / f['cap_usd'] * 100:.0f}% of cap); models "
+                     f"{f['models']['cheap']} / {f['models']['mid']}",
+            "n": f"{f['pack']['n_items']} items, {f['r2']['n_sessions']} R2 sessions"}
+
+
+def compute_cloud_budget_lines(repo):
+    """Cloud budget forecast per line (a)-(e), forecast / pessimistic USD."""
+    f = _cloud_forecast(repo)
+    return {"value": "; ".join(f"({k}) {f['base'][k]:.2f} / {f['pessimistic'][k]:.2f}" for k in "abcde"),
+            "n": f"{f['pack']['n_items']} items, {f['r2']['n_sessions']} R2 sessions"}
+
+
+def compute_cloud_budget_tokens(repo):
+    """Token basis of the forecast: pack input (o200k_base), R2 session prompt totals, mean cumulative at turn 40."""
+    f = _cloud_forecast(repo)
+    r2 = f["r2"]
+    sp = r2["session_prompt_tokens"]
+    fam = ", ".join(f"{k} {v['input_tokens']}" for k, v in f["pack"]["families"].items())
+    return {"value": f"pack input {f['pack']['input_tokens_total']} tokens ({fam}); R2 session prompt tokens "
+                     f"{min(sp)}-{max(sp)} (mean cumulative at turn {r2['turns']}: "
+                     f"{r2['mean_cumulative_sent'][-1]:.0f}); o200k/chars-4 ratio {r2['ratio_o200k_per_est']}",
+            "n": f"{f['pack']['n_items']} items, {r2['n_sessions']} sessions"}
+
+
+def compute_cloud_budget_inputs(repo):
+    """Forecast inputs: plan parameters, failure scenarios counted from DEMO_SPEC, output-length medians, prices."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("cloud_budget_forecast", repo / "analysis" / "cloud_budget_forecast.py")
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    f = _cloud_forecast(repo)
+    pr = m.load_prices(repo)
+    px = "; ".join(f"{k} std {v['standard']['short']['input']}/{v['standard']['short']['cached_input']}/"
+                   f"{v['standard']['short']['output']} batch {v['batch']['short']['input']}/"
+                   f"{v['batch']['short']['output']}" for k, v in pr["models"].items() if k in (m.CHEAP, m.MID))
+    outs = ", ".join(f"{k} {v['median']}" for k, v in f["outputs"].items())
+    return {"value": f"{m.N_AGENT_SESSIONS} sessions x {f['r2']['turns']} turns; demo {m.DEMO_LIVE_ITEMS} + "
+                     f"{m.DEMO_REHEARSALS}x{m.DEMO_REHEARSAL_ITEMS} items at {m.CLOUD_SHARE:.0%} cloud = "
+                     f"{f['demo']['cloud_items']:.0f} cloud items; failure scenarios {f['demo']['failure_scenarios']} "
+                     f"({f['demo']['scenario_cloud_calls']} cloud calls); rerun allowance {m.RERUN_ALLOWANCE:.0%}; "
+                     f"output medians (o200k) {outs}; prices USD/1M in/cached/out ({px}); fetched {pr['fetched_utc']}",
+            "n": f"{f['pack']['n_items']} items"}
+
+
+def compute_cloud_budget_sensitivity(repo):
+    """Forecast totals under flat-weighted demo items and under 5x output tokens (hidden reasoning)."""
+    flat = _cloud_forecast(repo, demo_weighting="flat")
+    x5 = _cloud_forecast(repo, output_multiplier=5.0)
+    est = _cloud_forecast(repo, r2_token_basis="row_est")
+    return {"value": f"flat demo weighting: {flat['base']['total']:.2f} / {flat['pessimistic']['total']:.2f}; "
+                     f"output x5: {x5['base']['total']:.2f} / {x5['pessimistic']['total']:.2f}; "
+                     f"R2 at row chars/4 estimate: {est['base']['total']:.2f} / {est['pessimistic']['total']:.2f}",
+            "n": "3 variants"}
+
+
 NUMBER_ENTRIES = [
     {"claim_id": "PX2-TTFT-gap", "description": "PX2 B4-vs-S4 TTFT gap range across 5 models",
      "compute": compute_px2_ttft_gap, "data_files": ["results/t2s_night2_20260930T135145Z.jsonl"],
@@ -2297,6 +2378,21 @@ NUMBER_ENTRIES = [
      "data_files": ["results/labeling/kappa_heldout_disagreement_read.csv", "results/labeling/kappa_heldout_key.csv",
                     "results/labeling/kappa_heldout_annotator_claude.csv"],
      "script_function": "analysis/numbers_register.py::compute_kappa_heldout_disagreement_read"},
+    {"claim_id": "cloud-budget-totals", "description": "cloud budget forecast total and pessimistic total vs USD 50 cap",
+     "compute": compute_cloud_budget_totals, "data_files": _CLOUD_DATA_FILES,
+     "script_function": "analysis/cloud_budget_forecast.py::forecast"},
+    {"claim_id": "cloud-budget-lines", "description": "cloud budget forecast lines (a)-(e), forecast / pessimistic USD",
+     "compute": compute_cloud_budget_lines, "data_files": _CLOUD_DATA_FILES,
+     "script_function": "analysis/cloud_budget_forecast.py::forecast"},
+    {"claim_id": "cloud-budget-tokens", "description": "cloud budget token basis (pack input, R2 session totals)",
+     "compute": compute_cloud_budget_tokens, "data_files": _CLOUD_DATA_FILES,
+     "script_function": "analysis/cloud_budget_forecast.py::r2_sessions"},
+    {"claim_id": "cloud-budget-inputs", "description": "cloud budget forecast inputs (plan volumes, output medians, prices)",
+     "compute": compute_cloud_budget_inputs, "data_files": _CLOUD_DATA_FILES,
+     "script_function": "analysis/cloud_budget_forecast.py::load_prices"},
+    {"claim_id": "cloud-budget-sensitivity", "description": "cloud budget totals (forecast / pessimistic) under flat demo weighting, 5x output, R2 chars/4 tokens",
+     "compute": compute_cloud_budget_sensitivity, "data_files": _CLOUD_DATA_FILES,
+     "script_function": "analysis/cloud_budget_forecast.py::forecast"},
 ]
 
 
