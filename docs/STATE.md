@@ -190,3 +190,25 @@ each branch's FINDINGS section and register rows (not repeated here until merged
 - Process note: worktree isolation blocked cross-checkout merges for all agents. P0 landed on main by running git
   through the PowerShell tool instead of Bash, so its commits are on main; the other five branches await the
   operator.
+
+### 2026-10-07, operator corrections applied
+
+- CLAUDE.md: new rule, never work around a sandbox or permission block; report the exact blocked command
+  instead (81e5f2a).
+- Merged the five agent branches into main in the operator's order (P1 R2, P2 K2, P3 kappa, P3 budget/TTFT,
+  P4 70B edge), FINDINGS conflicts kept both sides, register regenerated. Fixed one latent bug the merge exposed:
+  `x2_model_pulls` would have tried to pull the locally created `qwen3-30b-a3b-2507` tag from the registry.
+  Full suite 1378 passed, 32 skipped. Pushed.
+- `scripts/deploy_evo.py` now accumulates `expected_blobs.json` (per-file source commit and repo path) instead of
+  overwriting it. Redeployed all 43 repo files present on evo-x2 from main 09f8afd; `verify_deployed_blobs`
+  passes for all 43. evo-x2 also holds 82 ad-hoc one-off scripts from earlier sessions that are not in the repo
+  (not used by any queued job).
+- R2 validation gate re-checked from the register row `R2-validation-v2-baseline`: every rule in the real run's
+  `rules_in_use` (llama3.1:8b rules 1/3/4; qwen3:14b rules 1-5) is at 100% baseline; negative control 0/12 misses
+  both models; positive control fires at turn 10 both models. `x2_r2_real_v1` is therefore valid; it finished
+  (status done, 758 rows). Its kill-criterion analysis is not yet computed.
+- evo-x2 queue: x2_outcome_table_v3_resume3 (running) -> x2_70b_edge_reps -> x2_k2_pause_resume_v1 (gate on
+  x2_r2_real_v1 now satisfied). No pause set.
+- In progress (subagents, branches to be merged by the parent): GSM8K bug in t2s_outcome_table.py plus T2S
+  rescoring, lenient GSM8K column, T2S allocation-failure breakdown, cloud cap USD 50 with 50/75/90% alerts;
+  offline cloud budget forecast.
