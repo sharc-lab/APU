@@ -1,0 +1,47 @@
+[
+ {
+  "id": "longdoc_qa",
+  "label": "Long-document QA",
+  "item_id": "longdoc_2000_00",
+  "description": "INTERNAL OPERATIONS DIGEST The following document is a compiled summary of recent operational notes. Read carefully; one sentence contains a verification code you will be asked to report. A new intake form reduced average onboarding time for contractor badges by roughly a day. Th",
+  "src": "results/workload_pack/items/a_longdoc_qa.jsonl",
+  "scenario": false,
+  "replay_src": null
+ },
+ {
+  "id": "function_calling",
+  "label": "Function calling",
+  "item_id": "fc_call_000",
+  "description": "You have access to the following functions: - get_weather(location, unit): Get current weather for a location. Parameters: {'location': 'string', 'unit': 'string (celsius|fahrenheit)'} - send_email(to, subject, body): Send an email to a recipient. Parameters: {'to': 'string (emai",
+  "src": "results/workload_pack/items/b_function_calling.jsonl",
+  "scenario": false,
+  "replay_src": null
+ },
+ {
+  "id": "gsm8k",
+  "label": "Grade-school math",
+  "item_id": "gsm8k_000",
+  "description": "Janet\u2019s ducks lay 16 eggs per day. She eats three for breakfast every morning and bakes muffins for her friends every day with four. She sells the remainder at the farmers' market daily for $2 per fresh duck egg. How much in dollars does she make every day at the farmers' market?",
+  "src": "results/workload_pack/items/c_gsm8k.jsonl",
+  "scenario": false,
+  "replay_src": null
+ },
+ {
+  "id": "r2_session",
+  "label": "Multi-turn agent session (R2)",
+  "item_id": "r2_session_000",
+  "description": "[system] Standing rule: before answering any user request, you must call the `log_action(action: string)` tool summarizing what you are about to do. [user] For reference, my ticket number is TCK-7154. Please keep that noted. [user] Please list open tickets assigned to the team. [",
+  "src": "results/workload_pack/items/d_r2_sessions.jsonl",
+  "scenario": true,
+  "replay_src": "results/x2_r2_real_v1.jsonl"
+ },
+ {
+  "id": "trace_length_mix",
+  "label": "Agent trace length mix",
+  "item_id": "trace_mix_000",
+  "description": "INTERNAL OPERATIONS DIGEST The following document is a compiled summary of recent operational notes. Read carefully; one sentence contains a verification code you will be asked to report. Field engineers rotated the backup compressor into primary service ahead of the scheduled do",
+  "src": "results/workload_pack/items/e_trace_mix.jsonl",
+  "scenario": false,
+  "replay_src": null
+ }
+]
