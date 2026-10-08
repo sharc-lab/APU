@@ -296,3 +296,9 @@ Every report states status against these three checkpoints.
   demo router, Pareto, dashboard; docs/T2S_WEEK_PLAN.md (T2S back about 2026-10-15, no SSH until the operator says);
   docs/PAPER1_DRAFT.md (ISPASS skeleton); docs/BLADE_PLAN.md (overnight only; nothing starts before the operator says
   "start Blade night 1"; all local work paused during Blade runs).
+- 2026-10-08 evo-x2 health: watchdog Ready, heartbeat current, no pause, 12/12 canary gates PASS. Rolling-error ALERTs
+  on llama_server (qwen3-8b/14b/32b) traced to (a) items longer than n_ctx_train (48384 > 40960: server clamps, guard
+  refuses) now classified context_overflow/exceeds_n_ctx_train (commit before 9bd1506, deployed; the running process
+  picks it up at its next restart), and (b) 11 genuine qwen3-32b llama_server timeouts on 32K items (Ollama completes
+  the same items); left as valid timeout outcomes, operator decision whether to raise the timeout. First 4B job marked
+  error_superseded. Progress 1078/3600 (register x2-v3-progress).
