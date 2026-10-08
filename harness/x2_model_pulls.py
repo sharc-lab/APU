@@ -61,9 +61,13 @@ def emit(out_path, row):
 
 
 def required_tags():
-    """De-duplicated ollama tags from x2_outcome_table.MODEL_MAP, in that dict's own order."""
+    """De-duplicated ollama tags from x2_outcome_table.MODEL_MAP, in that dict's own order, minus the tags the
+    outcome table creates locally from a GGUF (OLLAMA_CREATE_FROM_GGUF, e.g. qwen3-30b-a3b-2507 since
+    2026-10-07): those do not exist on the public registry, so a pull would always fail."""
     seen = []
     for ollama_tag, _gguf in x2ot.MODEL_MAP.values():
+        if ollama_tag in x2ot.OLLAMA_CREATE_FROM_GGUF:
+            continue
         if ollama_tag not in seen:
             seen.append(ollama_tag)
     return seen

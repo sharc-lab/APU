@@ -15,7 +15,7 @@ def test_required_tags_matches_model_map_deduplicated_in_order():
     tags = mp.required_tags()
     expected = []
     for ollama_tag, _gguf in x2ot.MODEL_MAP.values():
-        if ollama_tag not in expected:
+        if ollama_tag not in expected and ollama_tag not in x2ot.OLLAMA_CREATE_FROM_GGUF:
             expected.append(ollama_tag)
     assert tags == expected
     assert len(tags) == len(set(tags))  # no duplicates
@@ -25,8 +25,10 @@ def test_required_tags_is_the_real_corrected_list():
     """Locks in the specific 2026-10-02 fix: the bad tag must not reappear, the real one must be present."""
     tags = mp.required_tags()
     assert "qwen3:30b-a3b-instruct-2507" not in tags
-    assert "qwen3:30b-a3b" in tags
     assert "qwen3:32b" in tags
+    # 2026-10-07: the 30b leg now uses a model created locally from the Instruct-2507 GGUF; it must never be
+    # pulled from the registry, where it does not exist.
+    assert "qwen3-30b-a3b-2507" not in tags
 
 
 def test_currently_present_tags_parses_real_api_tags_shape(monkeypatch):
