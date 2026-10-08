@@ -1546,9 +1546,37 @@ def _default_models(mode, plan_name):
     return DEFAULT_MODELS
 
 
-def main(argv=None, advance=True):
-    """advance=False: do not call t2s_queue.advance() on exit (a wrapper job such as x2_r2_4b_tools_validate calls
-    it once itself); the exit note is returned either way."""
+def run_mitigation(runtime, server_log, plan, models, out_path: Path, emit, log, order, client_trim, rules_in_use):
+    """The mitigation run's body (main --mode mitigation, and harness/blade_r2.py on the Blade): OLLAMA_DEBUG check on
+    server_log, tokenizer self-check, MechanismRuntime + ClientTrimRuntime around runtime, run_plan, the report.
+    The caller owns the Ollama server (started with OLLAMA_DEBUG=1, logging to server_log) and writes run_end."""
+    import x2_r2_client_trim as ct
+    import x2_r2_mechanism as mech
+    head = mech.read_log(server_log, 0)
+    if not mech.debug_enabled(head):
+        raise RuntimeError(f"OLLAMA_DEBUG not active: no OLLAMA_DEBUG:DEBUG / level=DEBUG in {server_log}")
+    counter = ct.RenderTokenCounter(runtime)
+    selfcheck = counter.self_check(models)
+    emit({"record": "client_trim_selfcheck", "models": selfcheck, "count_method": ct.COUNT_RENDER,
+          "tokenize_exe": counter.exe, "ts_utc": utc_iso()})
+    log(f"client-trim tokenizer self-check: {json.dumps(selfcheck, default=str)}")
+    mrt = mech.MechanismRuntime(runtime, server_log, emit, out_path.parent / (out_path.stem + "_logs"))
+    trt = ct.ClientTrimRuntime(mrt, counter, margin=client_trim["margin"])
+
+    def _start(m, a, s):
+        mrt.begin_session(m, a, s, mode="mitigation", call2_mode=ARMS[a]["call2_mode"])
+        trt.begin_session()
+    run_plan(trt, plan, models, "mitigation", out_path, log=log, emit=emit, order=order,
+             on_session_start=_start, on_session_end=mrt.end_session)
+    rows = read_rows(out_path)
+    rep = {"rules_in_use": rules_in_use, "client_trim": client_trim,
+           "trim_summary": ct.summarize(rows), "mechanism": mech.report(rows)}
+    Path(str(out_path) + ".report.json").write_text(json.dumps(rep, indent=1, default=str), encoding="utf-8")
+    return rep
+
+
+def build_arg_parser():
+    """main()'s argument parser, also used by harness/blade_r2.py to check the Blade mitigation job's argv."""
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--mode", choices=("validation", "real", "toolchoice_check", "mechanism", "mitigation"),
                     required=True)
@@ -1582,6 +1610,13 @@ def main(argv=None, advance=True):
                     help="real mode: comma-separated result files; a (model, arm, seed) session completed in any of "
                          "them is not run again (the strengthened run reuses x2_r2_real_v1.jsonl's cells)")
     ap.add_argument("--order", choices=("model_major", "seed_major"), default="model_major")
+    return ap
+
+
+def main(argv=None, advance=True):
+    """advance=False: do not call t2s_queue.advance() on exit (a wrapper job such as x2_r2_4b_tools_validate calls
+    it once itself); the exit note is returned either way."""
+    ap = build_arg_parser()
     args = ap.parse_args(argv)
     if args.require_validation_gates and not args.rules_from:
         ap.error("--require-validation-gates needs --rules-from")
@@ -1703,27 +1738,8 @@ def main(argv=None, advance=True):
             log(json.dumps(report, default=str))
             return note
         if args.mode == "mitigation":
-            head = mech.read_log(server_log, 0)
-            if not mech.debug_enabled(head):
-                raise RuntimeError(f"OLLAMA_DEBUG not active: no OLLAMA_DEBUG:DEBUG / level=DEBUG in {server_log}")
-            counter = ct.RenderTokenCounter(runtime)
-            selfcheck = counter.self_check(models)
-            emit({"record": "client_trim_selfcheck", "models": selfcheck, "count_method": ct.COUNT_RENDER,
-                  "tokenize_exe": counter.exe, "ts_utc": utc_iso()})
-            log(f"client-trim tokenizer self-check: {json.dumps(selfcheck, default=str)}")
-            mrt = mech.MechanismRuntime(runtime, server_log, emit, out_path.parent / (out_path.stem + "_logs"))
-            trt = ct.ClientTrimRuntime(mrt, counter, margin=client_trim["margin"])
-
-            def _start(m, a, s):
-                mrt.begin_session(m, a, s, mode="mitigation", call2_mode=ARMS[a]["call2_mode"])
-                trt.begin_session()
-            run_plan(trt, plan, models, "mitigation", out_path, log=log, emit=emit, order=args.order,
-                     on_session_start=_start, on_session_end=mrt.end_session)
-            rows = read_rows(out_path)
-            rep = {"rules_in_use": rules_in_use, "client_trim": client_trim,
-                   "trim_summary": ct.summarize(rows), "mechanism": mech.report(rows)}
-            Path(str(out_path) + ".report.json").write_text(json.dumps(rep, indent=1, default=str),
-                                                            encoding="utf-8")
+            rep = run_mitigation(runtime, server_log, plan, models, out_path, emit, log, args.order, client_trim,
+                                 rules_in_use)
             emit({"record": "run_end", "call2_mode": c2, "ts_utc": utc_iso()})
             log(json.dumps(rep["trim_summary"], default=str)[:4000])
             return note

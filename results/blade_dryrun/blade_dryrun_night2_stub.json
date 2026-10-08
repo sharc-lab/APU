@@ -2,10 +2,10 @@
  "night": 2,
  "summary": {
   "night": 2,
-  "started_utc": "2026-10-08T21:00:53.120141+00:00",
+  "started_utc": "2026-10-08T21:21:32.734273+00:00",
   "refused": null,
   "power": {
-   "log": "C:\\Users\\rithw\\AppData\\Local\\Temp\\blade_night_stub_dtk1mdlt\\logs\\night2_power_20261008T210053Z.json",
+   "log": "C:\\Users\\rithw\\AppData\\Local\\Temp\\blade_night_stub_myq94owb\\logs\\night2_power_20261008T212132Z.json",
    "original": {
     "SUB_SLEEP/STANDBYIDLE": {
      "ac": 1800,
@@ -75,8 +75,8 @@
    ],
    "stopped_early": null
   },
-  "ended_utc": "2026-10-08T21:00:53.599488+00:00",
-  "summary_file": "C:\\Users\\rithw\\AppData\\Local\\Temp\\blade_night_stub_dtk1mdlt\\results\\blade_night2_summary_20261008T210053Z.json"
+  "ended_utc": "2026-10-08T21:21:33.043165+00:00",
+  "summary_file": "C:\\Users\\rithw\\AppData\\Local\\Temp\\blade_night_stub_myq94owb\\results\\blade_night2_summary_20261008T212132Z.json"
  },
  "power_call_order": [
   "/setacvalueindex SUB_SLEEP STANDBYIDLE 0",
@@ -116,6 +116,7 @@
     "tiers": "default,32768,16384,8192,4096",
     "seeds": null,
     "turns": null,
+    "client_trim": null,
     "rules_from": null,
     "require_validation_gates": false,
     "order": "seed_major",

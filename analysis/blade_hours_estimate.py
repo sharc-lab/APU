@@ -118,7 +118,7 @@ def estimate() -> dict:
     add(1, "blade_r2_mitigation_v1 (llama3.1:8b, 4096/8192 x 3 seeds)", m / 60,
         f"x2_r2_real_v1 4096 {d4096:.1f} min and x2_r2_mechanism 8192 {mech[f'ollama_ctx_8192{SFX}']:.1f} min per "
         f"session, x{F['mitigation_overhead']} for render + tokenize per call", "scaled",
-        "depends on mitigation merge; Blade default tier folds into 4096 if K1 measures 4096")
+        "plus one more tier if the K1 default is not 4096 or 8192 (it folds into an existing tier otherwise)")
     a = sum(c1[c]["minutes"] for c in (36864, 38912, 40960, 43008))
     b = sum(c1[c]["minutes"] * 4 / c1[c]["n_calls"] for c in (40960, 43008))
     add(2, "blade_c3_sysmem_fallback_v1 half A (upper bound)", a / 60,

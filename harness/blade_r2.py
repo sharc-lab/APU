@@ -10,16 +10,22 @@ and the dry-run budget. The protocol is v1 (call-2 mode "off": tools withheld on
                       call 2. Gates by x2_r2_agent.evaluate_gates.
   --mode real         --tiers (default: default,4096,32768) x SEEDS_STRONG (5) x 40 turns; refuses per model unless
                       the Blade validation file passes validation_preflight_per_model (--require-validation-gates).
-  --mode mitigation   x2_r2_mitigation_v1's design (client-side trimming, margin 0.05) at the Blade's tiers. DEPENDS ON
-                      THE MITIGATION MERGE: it needs x2_r2_agent.run_mitigation (MITIGATION_ENTRY); without it the job
-                      writes a blocked_dependency record and exits 3, and the night moves on.
+  --mode mitigation   x2_r2_mitigation_v1's design: --client-trim margin=0.05 (x2_r2_client_trim), OLLAMA_DEBUG=1 and
+                      the mechanism log parsing, x2_r2_agent.mitigation_plan over the Blade tiers (4096, 8192 and the
+                      Blade default resolved to K1's measured num_ctx), 3 seeds x 40 turns. The body is
+                      x2_r2_agent.run_mitigation, the same function x2_r2_agent.main --mode mitigation runs on evo-x2;
+                      the equivalent x2_r2_agent argv is built and parsed with x2_r2_agent.build_arg_parser() and
+                      recorded in run_start, so the Blade run is the evo-x2 command with only the server swapped.
   --mode mechanism    x2_r2_agent.mechanism_plan over --tiers, one session per tier, OLLAMA_DEBUG=1, render-only and
                       llama-tokenize prompt checks (x2_r2_mechanism.MechanismRuntime).
 
 Models: --models (always run) plus --models-if-fit (run only if the K1 summary says the model is fully on the GPU at
 its default context: blade_k1.summarize()'s fits_8gb_at_default). The decision is a record in the output.
 
-Exit codes: 0 done (or a clean dry-run stop), 2 error or refusal, 3 blocked on a dependency.
+Tiers other than x2_r2_agent's fixed ones (e.g. a K1 default of 40960) are registered in x2_r2_agent.ARMS at run time
+with the same fields (num_ctx, call-2 mode off).
+
+Exit codes: 0 done (or a clean dry-run stop), 2 error or refusal.
 """
 from __future__ import annotations
 
@@ -36,18 +42,25 @@ import x2_r2_agent as agent  # noqa: E402
 from x2_r2_agent import native_chat_body  # noqa: E402,F401  (x2_r2_mechanism.default_checker looks it up here)
 
 CALL2 = "off"
-DEFAULT_TIERS = {"real": "default,4096,32768", "mitigation": "4096,8192", "mechanism": "default,32768,16384,8192,4096"}
-MITIGATION_ENTRY = "run_mitigation"
-MITIGATION_MARGIN = 0.05
-EXIT_OK, EXIT_ERR, EXIT_BLOCKED = 0, 2, 3
+DEFAULT_TIERS = {"real": "default,4096,32768", "mitigation": "default,4096,8192", "mechanism": "default,32768,16384,8192,4096"}
+DEFAULT_CLIENT_TRIM = "margin=0.05"
+EXIT_OK, EXIT_ERR = 0, 2
+
+
+def tier_base(tier: str) -> str:
+    """'default' -> ollama_default; '40960' -> ollama_ctx_40960, registered in x2_r2_agent.ARMS (all call-2 modes)
+    if x2_r2_agent does not define it."""
+    if tier == "default":
+        return "ollama_default"
+    n = int(tier)
+    base = f"ollama_ctx_{n}"
+    for m, sfx in agent.MODE_SUFFIX.items():
+        agent.ARMS.setdefault(base + sfx, {"num_ctx": n, "call2_tools": m != "off", "call2_mode": m})
+    return base
 
 
 def tier_arm(tier: str) -> str:
-    base = "ollama_default" if tier == "default" else f"ollama_ctx_{int(tier)}"
-    arm = base + agent.MODE_SUFFIX[CALL2]
-    if arm not in agent.ARMS:
-        raise SystemExit(f"tier {tier!r} has no x2_r2_agent arm {arm!r}")
-    return arm
+    return tier_base(tier) + agent.MODE_SUFFIX[CALL2]
 
 
 def plan_for(mode: str, tiers: list[str], seeds=None, turns=None):
@@ -58,7 +71,8 @@ def plan_for(mode: str, tiers: list[str], seeds=None, turns=None):
     if mode == "mechanism":
         return [(tier_arm(t), (agent.SEEDS[0],), turns or agent.MECH_TURNS) for t in tiers]
     if mode == "mitigation":
-        return [(tier_arm(t), tuple(seeds or agent.SEEDS), turns or agent.STRONG_TURNS) for t in tiers]
+        return agent.mitigation_plan(CALL2, tiers=tuple(tier_base(t) for t in tiers), seeds=tuple(seeds or agent.SEEDS),
+                                     turns=turns or agent.MITIGATION_TURNS)
     raise ValueError(mode)
 
 
@@ -124,6 +138,8 @@ def build_arg_parser():
     ap.add_argument("--tiers", default=None, help="comma-separated: default or a num_ctx (real/mitigation/mechanism)")
     ap.add_argument("--seeds", default=None, help="comma-separated override (dry runs)")
     ap.add_argument("--turns", type=int, default=None, help="override (dry runs)")
+    ap.add_argument("--client-trim", default=None,
+                    help=f"mitigation mode (required there), as x2_r2_agent: e.g. {DEFAULT_CLIENT_TRIM}")
     ap.add_argument("--rules-from", default=None)
     ap.add_argument("--require-validation-gates", action="store_true")
     ap.add_argument("--order", choices=("model_major", "seed_major"), default="seed_major")
@@ -133,8 +149,34 @@ def build_arg_parser():
     return ap
 
 
+def agent_argv(args, models: list[str]) -> list[str]:
+    """The x2_r2_agent command this Blade mitigation run is equivalent to (evo-x2's x2_r2_mitigation_v1 command with
+    the Blade's output and models; the plan's tiers come from blade_r2, x2_r2_agent's CLI has no tier flag)."""
+    argv = ["--mode", "mitigation", "--client-trim", args.client_trim, "--call2-tools", CALL2, "--out", args.out,
+            "--models", ",".join(models), "--order", args.order]
+    if args.rules_from:
+        argv += ["--rules-from", args.rules_from]
+        if args.require_validation_gates:
+            argv += ["--require-validation-gates", "--per-model-refusal"]
+    return argv
+
+
+def check_mitigation_args(args, models: list[str]) -> tuple[list[str], dict]:
+    """Parses agent_argv() with x2_r2_agent's own parser and the client-trim spec with x2_r2_client_trim, the same two
+    checks x2_r2_agent.main makes. Raises SystemExit on a bad argv (argparse's own behaviour)."""
+    import x2_r2_client_trim as ct
+    if not args.client_trim:
+        raise SystemExit("--mode mitigation needs --client-trim margin=<fraction>")
+    argv = agent_argv(args, models)
+    parsed = agent.build_arg_parser().parse_args(argv)
+    spec = ct.parse_client_trim(parsed.client_trim)
+    return argv, spec
+
+
 def main(argv=None) -> int:
     args = build_arg_parser().parse_args(argv)
+    if args.client_trim and args.mode != "mitigation":
+        raise SystemExit("--client-trim is only used with --mode mitigation")
     dry = args.dry_run_seconds is not None
     if args.allow_version_mismatch and not dry:
         raise SystemExit("--allow-version-mismatch is for dry runs only")
@@ -157,6 +199,9 @@ def main(argv=None) -> int:
     models = [m for m in args.models.split(",") if m]
     fit = fit_decision([m for m in args.models_if_fit.split(",") if m], args.k1_summary)
     models += [m for m, d in fit.items() if d["run"]]
+    mit_argv = client_trim = None
+    if args.mode == "mitigation":
+        mit_argv, client_trim = check_mitigation_args(args, models)
     exe = args.ollama_exe or bc.PINNED["ollama_exe"]
     versions = bc.versions_record(exe)
     problems = bc.version_problems(versions)
@@ -170,18 +215,13 @@ def main(argv=None) -> int:
               "dry_run": dry, "versions": versions, "version_problems": problems, "models": models,
               "fit_decision": fit, "tiers": tiers, "tier_note": tier_note, "plan": plan, "call2_mode": CALL2, "call2_tools": False,
               "order": args.order, "max_tokens_per_call": agent.MAX_TOKENS_PER_CALL, "keep_alive": agent.KEEP_ALIVE,
-              "host": "blade"})
+              "host": "blade", "client_trim": client_trim, "x2_r2_agent_equivalent_argv": mit_argv})
         for m, d in fit.items():
             log(f"fit decision {m}: run={d['run']} ({d['reason']})")
         if problems and not args.allow_version_mismatch:
             emit({"record": "refused", "reasons": problems})
             log(f"refused (versions): {problems}")
             return EXIT_ERR
-        if args.mode == "mitigation" and not hasattr(agent, MITIGATION_ENTRY):
-            emit({"record": "blocked_dependency", "needs": f"x2_r2_agent.{MITIGATION_ENTRY}",
-                  "why": "x2_r2_mitigation_v1 is not merged into main yet (depends on mitigation merge)"})
-            log("blocked: depends on the x2_r2_mitigation_v1 merge")
-            return EXIT_BLOCKED
         rules_in_use = agent.RULE_IDS
         refused = {}
         if args.mode in ("real", "mitigation") and args.rules_from:
@@ -209,7 +249,7 @@ def main(argv=None) -> int:
               "server_env": server.env, **bc.gpu_memory()})
         if args.mode == "mechanism":
             head = mech.read_log(str(server.log_path), 0)
-            if not mech.debug_enabled(head) and not dry:
+            if not mech.debug_enabled(head):
                 raise RuntimeError("OLLAMA_DEBUG not active in the server log")
             mrt = mech.MechanismRuntime(runtime, str(server.log_path), emit, out.parent / (out.stem + "_logs"))
             agent.run_plan(mrt, plan, models, "mechanism", out, log=log, emit=emit, order=args.order,
@@ -219,9 +259,9 @@ def main(argv=None) -> int:
             rep = mech.write_report(out, agent.read_rows(out))
             log(json.dumps(rep["verdict"], default=str)[:2000])
         elif args.mode == "mitigation":
-            getattr(agent, MITIGATION_ENTRY)(runtime=runtime, plan=plan, models=models, out_path=out, emit=emit,
-                                             log=log, margin=MITIGATION_MARGIN, rules_in_use=rules_in_use,
-                                             server_log=str(server.log_path))
+            rep = agent.run_mitigation(runtime, str(server.log_path), plan, models, out, emit, log, args.order,
+                                       client_trim, rules_in_use)
+            log(json.dumps(rep["trim_summary"], default=str)[:2000])
         else:
             agent.run_plan(runtime, plan, models, args.mode, out, log=log, emit=emit, order=args.order)
             rows = agent.read_rows(out)

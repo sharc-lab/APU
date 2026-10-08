@@ -213,8 +213,12 @@ def stub_runner_factory(events: list, tmp_results: Path):
         args = mod.build_arg_parser().parse_args(job["argv"][1:])
         outs = [Path(o).name for o in job["outputs"]]
         bad = [o for o in outs if not o.startswith("blade_")]
-        events.append({"event": "job", "id": job["id"], "module": mod.__name__, "parsed": vars(args),
-                       "outputs": job["outputs"], "outputs_prefixed_blade": not bad})
+        ev = {"event": "job", "id": job["id"], "module": mod.__name__, "parsed": vars(args),
+              "outputs": job["outputs"], "outputs_prefixed_blade": not bad}
+        if mod.__name__ == "blade_r2" and args.mode == "mitigation":
+            # the equivalent x2_r2_agent argv, parsed by x2_r2_agent's own parser (raises SystemExit if it does not)
+            ev["x2_r2_agent_argv"], ev["client_trim"] = mod.check_mitigation_args(args, args.models.split(","))
+        events.append(ev)
         if bad:
             return 2
         return 0
