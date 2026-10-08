@@ -9,6 +9,12 @@ Output schema matches Zachary Johnson's LangGraph harness exactly
 Usage:
     OPENAI_API_KEY=sk-... python claude_code_adapter.py
 
+Cloud spend: with --backend openai every live request goes through src/cloud/client.py's capped
+CloudClient (mode="real": USD 50 total hard cap, ledger results/cloud_ledger.jsonl, alerts at
+50/75/90%). The cap check runs before BackendBase's timer starts and the ledger write after it stops,
+so HTTP_CLIENT/CLIENT_HTTP (recorded_latency_ms) cover only the SDK request, as before. The cap/ledger
+work is outside every span, so it lands in the session RESIDUAL (one small JSON line append per call).
+
 Outputs:
     claude_code_characterization.json
 """
@@ -28,8 +34,9 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
+from typing import Any
+
 from dotenv import load_dotenv
-from openai import OpenAI
 
 from harness.adapters.base import BackendBase
 from harness.instrumentation import (
@@ -39,6 +46,7 @@ from harness.instrumentation import (
     wall_ns, process_cpu_ns, Span,
 )
 from harness.replay import ReplayCache
+from src.cloud.client import CloudClient, local_openai_compatible_client
 
 load_dotenv()
 
@@ -344,11 +352,35 @@ TOOL_IMPLS: dict[str, callable] = {
 
 
 class OpenAIChatBackend(BackendBase):
-    """OpenAI chat-completions backend that inherits replay behavior from BackendBase."""
+    """OpenAI chat-completions backend that inherits replay behavior from BackendBase.
 
-    def __init__(self, client: OpenAI, replay_cache: ReplayCache | None = None) -> None:
+    Exactly one of `client` (an uncapped OpenAI-compatible SDK client for a LOCAL server, from
+    src.cloud.client.local_openai_compatible_client) or `cloud` (the capped CloudClient, for OpenAI
+    itself) is used. With `cloud` set, every live call goes prepare -> send -> settle through the cap.
+    """
+
+    def __init__(self, client: Any = None, replay_cache: ReplayCache | None = None,
+                 cloud: CloudClient | None = None) -> None:
         super().__init__(replay_cache=replay_cache)
+        if (client is None) == (cloud is None):
+            raise ValueError("OpenAIChatBackend needs exactly one of client= (local server) or cloud= (capped)")
         self.client = client
+        self.cloud = cloud
+
+    @staticmethod
+    def _payload(tools, temperature, seed, kwargs: dict) -> dict:
+        payload = {"tools": tools, **kwargs}
+        if temperature is not None:
+            payload["temperature"] = temperature
+        if seed is not None:
+            payload["seed"] = seed
+        return payload
+
+    def _prepare_capped_call(self, *, model, messages, tools, temperature, seed, **kwargs):
+        if self.cloud is None:
+            return None
+        return self.cloud.prepare(model_id=model, messages=messages,
+                                  **self._payload(tools, temperature, seed, kwargs))
 
     def _call_model_api(
         self,
@@ -1037,7 +1069,8 @@ def main() -> None:
         default=os.environ.get("BACKEND", "openai"),
         choices=["openai", "ollama"],
         help=(
-            "Inference backend. 'openai' (default): uses OPENAI_API_KEY + OpenAI API. "
+            "Inference backend. 'openai' (default): OpenAI API via the capped src/cloud/client.py "
+            "(key OPENAI_API_KEY). "
             "'ollama': uses local Ollama at OLLAMA_HOST (default http://localhost:11434). "
             "Use 'ollama' for the Fig 6.1 joint-envelope experiment."
         ),
@@ -1085,18 +1118,19 @@ def main() -> None:
 
     # Build client based on backend choice.
     if effective_backend == "ollama":
-        client = OpenAI(
-            base_url=f"{args.ollama_host}/v1",
+        client = local_openai_compatible_client(
+            f"{args.ollama_host}/v1",
             api_key="ollama",   # Ollama ignores this but the OpenAI SDK requires it
         )
         traces_root = Path(TRACES_ROOT_ENV) if TRACES_ROOT_ENV else None
         replay_cache = ReplayCache(mode=REPLAY_MODE, traces_root=traces_root)
+        backend_obj = OpenAIChatBackend(client=client, replay_cache=replay_cache)
     else:
-        client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+        # Capped: key from OPENAI_API_KEY (then CLOUD_API_KEY); MissingApiKeyError if neither is set.
+        cloud = CloudClient.real()
         traces_root = Path(TRACES_ROOT_ENV) if TRACES_ROOT_ENV else None
         replay_cache = ReplayCache(mode=REPLAY_MODE, traces_root=traces_root)
-
-    backend_obj = OpenAIChatBackend(client=client, replay_cache=replay_cache)
+        backend_obj = OpenAIChatBackend(cloud=cloud, replay_cache=replay_cache)
 
     git_info  = _get_git_info()
     env_info  = _get_env()

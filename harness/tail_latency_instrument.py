@@ -16,6 +16,14 @@ Usage:
     python -m harness.tail_latency_instrument --resume       # continue interrupted run
     python -m harness.tail_latency_instrument --no-fsync     # skip disk sync (dev)
 
+Cloud spend (2026-10-08):
+    Every live request goes through src/cloud/client.py's capped CloudClient (mode="real", key
+    OPENAI_API_KEY then CLOUD_API_KEY; USD 50 total hard cap; ledger results/cloud_ledger.jsonl;
+    alerts at 50/75/90%). The cap check and reservation run before BackendBase's timer starts and the
+    ledger append after it stops, so mcp_roundtrip_ms covers only the SDK request, exactly as before.
+    turn_total_ms DOES include that extra work (one cap check plus one small JSON line append per call,
+    under a lock shared by the three fan_out threads); rows recorded before this change do not.
+
 Durability:
     Each sample is written immediately to JSONL_PATH as it completes
     (fsync per row, truncated-final-line tolerance, config-hash guard).
@@ -54,7 +62,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from dotenv import load_dotenv
-from openai import OpenAI
 
 # Import shared constants and helpers from the main adapter
 from harness.adapters.sdk_direct import (
@@ -73,6 +80,7 @@ from harness.adapters.sdk_direct import (
 )
 from harness.instrumentation import wall_ns
 from harness.replay import ReplayCache
+from src.cloud.client import CloudClient
 
 load_dotenv()
 
@@ -484,10 +492,10 @@ def main() -> None:
     print(f"Config hash : {CONFIG_HASH}")
     print(f"Total       : {total} samples  ({remaining} remaining)")
 
-    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+    cloud = CloudClient.real()   # capped; MissingApiKeyError if neither OPENAI_API_KEY nor CLOUD_API_KEY is set
     traces_root = Path(TRACES_ROOT_ENV) if TRACES_ROOT_ENV else None
     replay_cache = ReplayCache(mode=REPLAY_MODE, traces_root=traces_root)
-    backend = OpenAIChatBackend(client=client, replay_cache=replay_cache)
+    backend = OpenAIChatBackend(cloud=cloud, replay_cache=replay_cache)
 
     all_samples = _run_all(
         backend=backend,

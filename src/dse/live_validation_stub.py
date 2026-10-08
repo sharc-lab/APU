@@ -1,7 +1,7 @@
 """B6(d)/(e): live validation and failure-scenario demonstrations -- STUBBED, explicitly, by design.
 
 A REAL version of either of these needs:
-  (d) live validation: real cloud API calls (a real CLOUD_API_KEY, real spend against DEFAULT_SPEND_CAP_USD) to
+  (d) live validation: real cloud API calls (CloudClient(mode="real") with OPENAI_API_KEY set, real spend against DEFAULT_SPEND_CAP_USD) to
       check the router's/baselines' predicted quality and cost against what an actual cloud completion returns,
       AND/OR a real local model call (loaded llama-server/Ollama process on evo-t2s or evo-x2) to check the
       envelope model's predicted TTFT/decode/feasibility against a real run.

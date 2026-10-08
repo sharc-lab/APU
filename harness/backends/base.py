@@ -79,7 +79,20 @@ class Backend(ABC):
         )
 
         def _api_call() -> tuple[dict[str, Any], dict[str, int], float]:
+            # Capped cloud path (src/cloud/client.py): cap check before t0, ledger write after the timer.
+            prepared = self._prepare_capped_call(
+                model=chosen_model, messages=messages, tools=tools, temperature=temperature, seed=seed, **kwargs,
+            )
             t0 = time.perf_counter_ns()
+            if prepared is not None:
+                response_obj = prepared.send()
+                # model_dump stays inside the timed region, exactly as in the pre-cap _provider_call.
+                response_json = (response_obj.model_dump(exclude_unset=False)
+                                 if hasattr(response_obj, "model_dump") else response_obj)
+                recorded_latency_ms = (time.perf_counter_ns() - t0) / 1e6
+                prepared.settle(response_json)
+                token_counts = self._extract_token_counts(response_json)
+                return response_json, token_counts, recorded_latency_ms
             response_json = self._provider_call(
                 model=chosen_model,
                 messages=messages,
@@ -171,6 +184,11 @@ class Backend(ABC):
         row["bytes_in"] += int(bytes_in)
         row["bytes_out"] += int(bytes_out)
         row["count"] += 1
+
+    def _prepare_capped_call(self, **call: Any) -> Any:
+        """Return a src.cloud.client.PreparedCall for a capped cloud call, or None (the default) to use
+        _provider_call directly. Backends that talk to a paid API override this."""
+        return None
 
     @abstractmethod
     def _provider_call(

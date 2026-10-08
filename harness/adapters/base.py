@@ -41,17 +41,27 @@ class BackendBase(ABC):
         """Execute or replay a model call with cache metadata attached."""
 
         def _api_call() -> tuple[dict[str, Any], dict[str, int], float]:
-            t0 = time.perf_counter_ns()
-            response_obj = self._call_model_api(
-                model=model,
-                messages=messages,
-                tools=tools,
-                temperature=temperature,
-                seed=seed,
-                **kwargs,
+            # Capped cloud path (src/cloud/client.py): the cap check / reservation runs here, BEFORE t0, and
+            # the ledger write runs after the timer stops, so neither is inside recorded_latency_ms.
+            prepared = self._prepare_capped_call(
+                model=model, messages=messages, tools=tools, temperature=temperature, seed=seed, **kwargs,
             )
+            t0 = time.perf_counter_ns()
+            if prepared is not None:
+                response_obj = prepared.send()
+            else:
+                response_obj = self._call_model_api(
+                    model=model,
+                    messages=messages,
+                    tools=tools,
+                    temperature=temperature,
+                    seed=seed,
+                    **kwargs,
+                )
             recorded_latency_ms = (time.perf_counter_ns() - t0) / 1e6
             response_json = self._to_json(response_obj)
+            if prepared is not None:
+                prepared.settle(response_json)
             token_counts = self._extract_token_counts(response_json)
             return response_json, token_counts, recorded_latency_ms
 
@@ -89,6 +99,11 @@ class BackendBase(ABC):
             "completion_tokens": int(usage.get("completion_tokens") or 0),
             "total_tokens": int(usage.get("total_tokens") or 0),
         }
+
+    def _prepare_capped_call(self, **call: Any) -> Any:
+        """Return a src.cloud.client.PreparedCall for a capped cloud call, or None (the default) to use
+        _call_model_api directly. Backends that talk to a paid API override this."""
+        return None
 
     @abstractmethod
     def _call_model_api(

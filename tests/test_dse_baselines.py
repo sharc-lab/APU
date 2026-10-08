@@ -29,7 +29,7 @@ def test_all_cloud_cheap_uses_cheap_model(tmp_path):
     client = _client(tmp_path)
     results = all_cloud_cheap(TASKS, client)
     assert all(r.target == "cloud_cheap" for r in results)
-    assert all(r.stub is True for r in results)  # no CLOUD_API_KEY -> stub mode
+    assert all(r.stub is True for r in results)  # api_key=None, default mode -> stub mode
     assert all(r.cost_usd == 0.0 for r in results)  # stub calls never cost anything
 
 

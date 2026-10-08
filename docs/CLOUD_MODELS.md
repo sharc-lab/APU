@@ -39,7 +39,71 @@ Notes:
   `{"record": "alert", "source": "cloud_client"}` row in the ledger (surfaced by
   `analysis/results_digest.py`) plus a printed `ALERT:` line. Tests:
   `tests/test_cloud_spend_alerts.py` (fake provider only).
-- The client's real-mode key is `CLOUD_API_KEY`. Scripts that read
-  `OPENAI_API_KEY` directly (`harness/adapters/sdk_direct.py`,
-  `harness/tail_latency_instrument.py`, `harness/backends/cloud_openai.py`) do
-  not go through this client, so this cap does not apply to them.
+
+## Every OpenAI call goes through the capped client (2026-10-08)
+
+Operator decision 2026-10-08: no code path may call OpenAI except through
+`src/cloud/client.py`. `tests/test_no_direct_openai_clients.py` scans every
+tracked `.py` file and fails on `import openai`, `from openai`, `OpenAI(`,
+`AsyncOpenAI(`, a dynamic import of `openai`, `api.openai.com`, or an
+`os.environ` / `os.getenv` read of `OPENAI_API_KEY`, anywhere except
+`src/cloud/client.py` (and the test itself).
+
+### Key and mode rule
+
+`CloudClient(mode=...)`; environment variables are read only in real mode.
+
+| mode | Key used | No key |
+|---|---|---|
+| `"auto"` (default) | the `api_key` argument only; env vars are never read | stub |
+| `"stub"` | none, even if `api_key` is passed | stub |
+| `"real"` / `CloudClient.real(...)` | `api_key` argument, else `OPENAI_API_KEY`, else `CLOUD_API_KEY` | `MissingApiKeyError` (never a silent stub) |
+
+- So `CloudClient(api_key=None)` (how `analysis/pareto.py`, `src/dse/*` and the
+  tests build a stub) stays a stub with `OPENAI_API_KEY` or `CLOUD_API_KEY`
+  exported: exporting a key can never make a sweep spend money. Behaviour
+  change: before 2026-10-08 an exported `CLOUD_API_KEY` did flip such a client
+  to real mode; nothing in the repo relied on that.
+- A key taken from `OPENAI_API_KEY` is only used for OpenAI models
+  (`MODEL_PRICING[...]["provider"] == "openai"`); a real call to
+  `claude-sonnet-4-5` with it raises `ValueError` before anything is sent.
+- OpenAI models are sent with the official `openai` SDK (one SDK client per
+  `CloudClient`); other providers still go through `litellm` (listed in
+  `pyproject.toml` but not installed here).
+- Extra keywords (`tools`, `tool_choice`, `max_tokens`, `seed`, ...) reach the
+  provider unchanged; `tool_choice` is also written to the ledger row. The
+  cap projection uses `max_tokens` as the expected output when the caller
+  gives no `expected_output_tokens` (else 256), plus the tools JSON as input.
+
+### prepare / send / settle (timed callers)
+
+`call()` is `prepare()` (host check, pricing, cap check, reservation, SDK
+client creation) + `send()` (the provider request only) + `settle()` (ledger
+row, running total, alerts). In-flight reservations count against the cap
+under a lock, so concurrent calls cannot jointly overshoot it. Both harness
+backend bases (`harness/adapters/base.py`, `harness/backends/base.py`) call
+`prepare()` before their timer starts and `settle()` after it stops, so the
+cap and ledger add no work to `recorded_latency_ms`.
+
+### Call sites found and what happened to each
+
+| Call site | Before | Now |
+|---|---|---|
+| `harness/adapters/sdk_direct.py` (`--backend openai`) | `OpenAI(api_key=os.environ["OPENAI_API_KEY"])` | `OpenAIChatBackend(cloud=CloudClient.real())`; HTTP_CLIENT/CLIENT_HTTP spans unchanged (send only). The cap/ledger work is outside every span, so it lands in the session RESIDUAL. |
+| `harness/adapters/sdk_direct.py` (`--backend ollama`) | `OpenAI(base_url=ollama)` | `local_openai_compatible_client(base_url)` from the client module: local, no spend, refuses any `openai.com` host. |
+| `harness/tail_latency_instrument.py` | `OpenAI(api_key=os.environ["OPENAI_API_KEY"])` | `OpenAIChatBackend(cloud=CloudClient.real())`. `mcp_roundtrip_ms` is unchanged (send only). `turn_total_ms` now also includes one cap check and one ledger line append per call (under a lock shared by the three `fan_out` threads); rows recorded before 2026-10-08 do not. |
+| `harness/backends/cloud_openai.py` (used by `evaluation/quality.py` judge and `evaluation/sweep.py`) | `OpenAI(api_key=api_key or OPENAI_API_KEY)` | `CloudClient.real(api_key=...)`, or an injected `cloud_client`. `recorded_latency_ms` still covers the SDK request plus `model_dump`, as before. Construction without a key raises `MissingApiKeyError` (the bare SDK constructor also raised). |
+
+No other path was found: the remaining `/v1/chat/completions` posts in the
+repo go to local llama-server / Ollama, and no file posts to `api.openai.com`.
+Every call site could be routed without changing what its latency fields
+measure, so none was left refusing to run.
+
+### Cloud R2
+
+There is no cloud runner for the R2 agent sessions: `harness/x2_r2_agent.py`
+talks only to local Ollama. The operator's call-2 rule (identical tools plus
+`tool_choice` "none", call-2 mode recorded per row) is supported by the client
+(`tools` and `tool_choice` pass through unchanged; `tool_choice` is ledgered),
+tested in `tests/test_cloud_capped_routing.py`, but no cloud R2 runner was
+built.

@@ -1,7 +1,8 @@
 """DSE baselines: all-local, all-cloud (cheap/strong), and RouteLLM.
 
-All baselines run against src/cloud/client.py's CloudClient. With no CLOUD_API_KEY set (the default in this
-environment, and the only mode this task is in scope for), CloudClient is in stub mode: no network call is ever
+All baselines run against src/cloud/client.py's CloudClient. Built with CloudClient(api_key=None) (the default
+mode, which ignores OPENAI_API_KEY / CLOUD_API_KEY in the environment, and the only mode this task is in scope
+for), CloudClient is in stub mode: no network call is ever
 made, every result carries stub=True, and cost_usd is always 0.0. See src/cloud/client.py's module docstring for
 the full stub contract.
 
