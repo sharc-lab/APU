@@ -1,13 +1,13 @@
 {
- "built_utc": "2026-10-08T23:41:29+00:00",
- "git_commit": "ca2a505",
+ "built_utc": "2026-10-08T23:43:38+00:00",
+ "git_commit": "b6de283",
  "backend": {
   "router": "real: src/dse/router.py",
   "pareto": "real: src/dse/pareto.py"
  },
  "sources": {
   "docs/NUMBERS_REGISTER.md": {
-   "sha256": "7f67fc5895a0862e13bcb4d5604dc0ff904236bcfeb64b486fd6c9e19150888a",
+   "sha256": "79dcf759c49415328a3703f941e9299f9a36eaf222106f18b2e32d0429239ac6",
    "bytes": 80877
   },
   "results/x2_r2_real_v1.jsonl": {
