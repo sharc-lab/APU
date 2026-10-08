@@ -109,6 +109,7 @@ def test_git_add_in_batches_tolerates_a_gitignored_path_in_the_batch(tmp_path, m
 
 def test_commit_pulled_batches_both_add_and_status(monkeypatch):
     monkeypatch.setattr(sr, "GIT_ADD_BATCH_SIZE", 2)
+    monkeypatch.setattr(sr, "repo_busy_reason", lambda: None)
     add_calls = []
     status_calls = []
 
@@ -120,7 +121,7 @@ def test_commit_pulled_batches_both_add_and_status(monkeypatch):
         elif a[0] == "status":
             status_calls.append(a)
             r = R()
-            r.stdout = " M file0.jsonl\n"
+            r.stdout = " M file0.jsonl\0"
             return r
         elif a[0] == "commit":
             return R()
@@ -133,7 +134,7 @@ def test_commit_pulled_batches_both_add_and_status(monkeypatch):
     monkeypatch.setattr(sr, "git", fake_git)
     paths = [f"file{i}.jsonl" for i in range(5)]
     sha = sr.commit_pulled(paths)
-    assert len(add_calls) == 3  # ceil(5/2)
+    assert len(add_calls) == 3  # ceil(6/2): 5 pulled files + the manifest
     assert len(status_calls) == 3
     assert sha == "abc123"
 

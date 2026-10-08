@@ -17,6 +17,14 @@ pulled before). Files over 50 MB are flagged for Git LFS rather than committed d
 report for which, if any; this script does not configure LFS itself (not installed on this controller as of
 2026-10-01), it only ever refuses to `git add` an oversized file and says so.
 
+Committing (2026-10-08, after the scheduled task committed in the middle of a merge in the primary checkout):
+each cycle commits with the fixed message "results sync", staging ONLY the files it pulled plus
+results/.sync_manifest.json (never `git add -A`; the commit itself is pathspec-limited). Before touching the
+index it checks the repo (git dir resolved via `git rev-parse`, so a linked worktree works too) and SKIPS the
+commit for that cycle, with the reason logged, if a merge, rebase, cherry-pick or revert is in progress, any git
+lock file exists, or the index has unmerged paths. Skipped files stay on disk and the manifest is not advanced
+for them, so the next cycle re-pulls and commits them.
+
 Usage: py -3.12 scripts/sync_results.py [--host evo-t2s|evo-x2|both] [--commit/--no-commit]
 Intended to also run unattended every 2 hours via the digest task (queue_watchdog.py's run_digest, or a
 separate scheduled task -- see this repo's install_queue_watchdog.ps1 for the pattern to copy).
@@ -208,8 +216,8 @@ def pull_files(host_str, host_key, to_pull, manifest):
     return pulled
 
 
-def git(*a, check=True):
-    return run_hidden(["git", "-C", str(REPO), *a], capture_output=True, text=True, check=check)
+def git(*a, check=True, input=None):
+    return run_hidden(["git", "-C", str(REPO), *a], capture_output=True, text=True, check=check, input=input)
 
 
 GIT_ADD_BATCH_SIZE = 200  # Windows CreateProcess has a ~32K command-line length limit; found live at 979
@@ -231,21 +239,109 @@ def _git_add_in_batches(paths):
         git("add", *paths[i:i + GIT_ADD_BATCH_SIZE], check=False)
 
 
+COMMIT_MESSAGE = "results sync"
+
+
+class CommitSkipped(Exception):
+    """Raised by commit_pulled when the repo is mid-operation (see repo_busy_reason); the message is the reason."""
+
+
+def _git_dirs():
+    """(git_dir, common_dir) as absolute Paths. The primary checkout's .git is a directory; a linked worktree's
+    .git is a FILE pointing at <common>/worktrees/<name>, so never assume REPO/.git -- ask git itself.
+    Relative path format on purpose: an MSYS-flavoured git (e.g. a git-sdk build) prints absolute paths in
+    POSIX form (/tmp/..., /c/...) that Python on Windows cannot open; a path relative to REPO has no drive
+    or mount-point translation to get wrong."""
+    out = git("rev-parse", "--path-format=relative", "--git-dir", "--git-common-dir").stdout.splitlines()
+    repo = Path(REPO).resolve()
+    return (repo / out[0].strip()).resolve(), (repo / out[1].strip()).resolve()
+
+
+def repo_busy_reason():
+    """Returns a human-readable reason string if committing now would be unsafe, else None. Added 2026-10-08:
+    the APU-SyncResults scheduled task committed in the middle of a merge in the primary checkout (a bare
+    `git commit` during a merge concludes that merge with whatever happens to be staged). Any of these makes
+    the sync skip the commit for this cycle: merge, rebase, cherry-pick or revert in progress, any git lock
+    file, or unmerged paths in the index."""
+    try:
+        git_dir, common_dir = _git_dirs()
+    except Exception as e:
+        return f"could not resolve the git dir ({e!r})"
+    for name, what in (("MERGE_HEAD", "merge in progress"),
+                       ("CHERRY_PICK_HEAD", "cherry-pick in progress"),
+                       ("REVERT_HEAD", "revert in progress")):
+        if (git_dir / name).exists():
+            return f"{what} ({name} present in {git_dir})"
+    for name in ("rebase-merge", "rebase-apply"):
+        if (git_dir / name).exists():
+            return f"rebase in progress ({name} present in {git_dir})"
+    locks = []
+    for d in {git_dir, common_dir}:
+        for name in ("index.lock", "HEAD.lock", "packed-refs.lock"):
+            if (d / name).exists():
+                locks.append(d / name)
+        refs = d / "refs"
+        if refs.is_dir():
+            locks.extend(refs.rglob("*.lock"))
+    if locks:
+        return "git lock file present: " + ", ".join(str(x) for x in sorted(set(locks)))
+    try:
+        unmerged = git("ls-files", "-u").stdout.strip()
+    except Exception as e:
+        return f"could not check for unmerged paths ({e!r})"
+    if unmerged:
+        n = len({line.split("\t", 1)[-1] for line in unmerged.splitlines()})
+        return f"{n} unmerged path(s) in the index"
+    return None
+
+
+def _changed_paths(paths):
+    """Paths among `paths` that git status reports as changed (porcelain v1 with -z, so no quoting surprises).
+    Untracked/ignored entries are excluded: only paths git add actually staged can be named in the
+    pathspec-limited commit below."""
+    changed = []
+    for i in range(0, len(paths), GIT_ADD_BATCH_SIZE):
+        out = git("status", "--porcelain", "-z", "--", *paths[i:i + GIT_ADD_BATCH_SIZE]).stdout
+        entries = out.split("\0")
+        j = 0
+        while j < len(entries):
+            e = entries[j]
+            j += 1
+            if len(e) < 4:
+                continue
+            xy, path = e[:2], e[3:]
+            if "R" in xy or "C" in xy:
+                j += 1  # rename/copy: the next entry is the original path
+            if xy in ("??", "!!"):
+                continue
+            changed.append(path)
+    return changed
+
+
 def commit_pulled(pulled_paths):
+    """Stages ONLY the pulled result files plus results/.sync_manifest.json (never `git add -A`) and commits
+    exactly those paths with the fixed message "results sync". The commit is pathspec-limited (--only), so
+    anything else a human happened to have staged in this checkout stays staged and out of this commit.
+    Raises CommitSkipped (before touching the index) if repo_busy_reason() says the repo is mid-operation."""
     if not pulled_paths:
         return None
-    _git_add_in_batches(pulled_paths)
-    status_parts = []
-    for i in range(0, len(pulled_paths), GIT_ADD_BATCH_SIZE):
-        status_parts.append(git("status", "--porcelain", "--", *pulled_paths[i:i + GIT_ADD_BATCH_SIZE]).stdout)
-    status = "".join(status_parts).strip()
-    if not status:
+    reason = repo_busy_reason()
+    if reason:
+        raise CommitSkipped(reason)
+    paths = list(pulled_paths)
+    try:
+        manifest_rel = Path(MANIFEST_PATH).resolve().relative_to(Path(REPO).resolve()).as_posix()
+        if manifest_rel not in paths:
+            paths.append(manifest_rel)
+    except ValueError:
+        pass
+    _git_add_in_batches(paths)
+    changed = _changed_paths(paths)
+    if not changed:
         return None  # nothing actually changed (re-pulled identical content)
-    msg = f"sync_results: pull {len(pulled_paths)} result file(s) from the remote machines\n\n" + "\n".join(
-        f"- {p}" for p in pulled_paths[:50])
-    if len(pulled_paths) > 50:
-        msg += f"\n- ... and {len(pulled_paths) - 50} more"
-    git("commit", "-m", msg)
+    # Pathspecs go via stdin, NUL-separated: no Windows command-line length limit (WinError 206 at 979 files).
+    git("commit", "-q", "-m", COMMIT_MESSAGE, "--only", "--pathspec-from-file=-", "--pathspec-file-nul",
+        input="\0".join(changed))
     return git("rev-parse", "HEAD").stdout.strip()
 
 
@@ -274,14 +370,36 @@ def sync_host(alias, do_commit=True):
     # Manifest is now saved only after a successful commit (or immediately, if the caller opted out of
     # committing at all -- do_commit=False is a deliberate "just pull, I'll commit myself" mode, not a
     # failure, so it still records the pull).
-    try:
-        commit_sha = commit_pulled(pulled) if do_commit else None
-    except Exception as e:
-        print(f"{key}: FAILED to commit {len(pulled)} pulled files ({e!r}) -- manifest NOT updated for them, "
-             f"they will be retried next run", file=sys.stderr, flush=True)
-        return {"host": key, "remote_files": len(remote_files), "pulled": [], "too_large": too_large,
-               "unchanged": len(unchanged), "commit": None, "commit_failed": True}
-    save_manifest(manifest)
+    # The manifest is written BEFORE the commit so it is committed alongside the files it describes; on a
+    # skip or a failure the previous manifest is put back, so nothing pulled this cycle is marked synced.
+    # The pulled files themselves stay on disk either way; they are re-pulled and committed next cycle.
+    if not do_commit:
+        save_manifest(manifest)
+        commit_sha = None
+    else:
+        prior_manifest = MANIFEST_PATH.read_bytes() if MANIFEST_PATH.exists() else None
+        save_manifest(manifest)
+
+        def _restore_manifest():
+            if prior_manifest is None:
+                MANIFEST_PATH.unlink(missing_ok=True)
+            else:
+                MANIFEST_PATH.write_bytes(prior_manifest)
+
+        try:
+            commit_sha = commit_pulled(pulled)
+        except CommitSkipped as e:
+            _restore_manifest()
+            print(f"{key}: SKIPPED commit this cycle: {e} -- {len(pulled)} pulled file(s) left on disk, not "
+                  f"staged; manifest NOT updated for them, they will be retried next run", flush=True)
+            return {"host": key, "remote_files": len(remote_files), "pulled": [], "too_large": too_large,
+                    "unchanged": len(unchanged), "commit": None, "commit_skipped": str(e)}
+        except Exception as e:
+            _restore_manifest()
+            print(f"{key}: FAILED to commit {len(pulled)} pulled files ({e!r}) -- manifest NOT updated for them, "
+                  f"they will be retried next run", file=sys.stderr, flush=True)
+            return {"host": key, "remote_files": len(remote_files), "pulled": [], "too_large": too_large,
+                    "unchanged": len(unchanged), "commit": None, "commit_failed": True}
     if commit_sha:
         print(f"{key}: committed {commit_sha}", flush=True)
     elif pulled:
