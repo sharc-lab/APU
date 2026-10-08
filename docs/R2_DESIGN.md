@@ -186,3 +186,60 @@ one extends the spec it says so.
 - **Per-model rules in use.** A rule that misses the 90% gate for one model is dropped for that model only;
   `--rules-from <validation file>` makes the real run's kill criterion use each model's gate-passing rules.
 - **Positive control** runs 15 turns (two checks past the 8192 window instead of one).
+
+### Call-2 protocol v3 (2026-10-07, operator rule for all R2 runs from here on)
+
+Withholding tools on call 2 (`--call2-tools off`, used by `x2_r2_validation_v2` and `x2_r2_real_v1`) changes the
+request between a turn's two calls: the tool definitions are part of the rendered prompt, so call 2 saw a different
+prompt prefix than call 1. The rule now is: **identical system prompt and identical tool definitions on every call**,
+and the text answer on a turn's second call is forced with `tool_choice: "none"` (or the runtime's equivalent)
+instead of by removing tools. `x2_r2_validation_v2` and `x2_r2_real_v1` stay reproducible with `--call2-tools off`.
+
+**What the installed runtime supports.** evo-x2 runs Ollama 0.34.4 (`ollama --version`, 2026-10-07). From the
+source at tag v0.34.4:
+
+- `/api/chat`: `api.ChatRequest` (`api/types.go`) has no tool_choice field (model, messages, stream, format,
+  keep_alive, tools, options, think, truncate, shift, `_debug_render_only`, logprobs, top_logprobs). The body is bound
+  with Go's JSON decoding, which drops unknown keys, so `"tool_choice": "none"` is accepted and has no effect.
+  `server/routes.go` ChatHandler has no tool_choice handling either.
+- `/v1/chat/completions`: `docs/api/openai-compatibility.mdx` lists `tool_choice` as unsupported (unchecked), and
+  `openai.ChatCompletionRequest` has no such field; the middleware binds with `ShouldBindJSON`, so it is dropped the
+  same way. This endpoint also cannot set `num_ctx`, which the context tiers need, so it is not usable for R2 runs.
+- The one request field that does constrain call 2 to a text answer while the tools stay defined is `format` with a
+  JSON schema (grammar-constrained output; ChatHandler passes format and tools independently, and tool-call parsing
+  still runs). Its cost: the schema is the answer object, so rule 1 (JSON keys) becomes close to automatic and stops
+  measuring instruction following.
+
+So Ollama 0.34.4 has no equivalent of `tool_choice: "none"`. Which way R2 goes is the operator's decision; the
+options, all of which keep the system prompt and tools byte-identical on every call:
+
+1. `forced_none` (implemented, queued as the default for v3): send `tool_choice: "none"` on call 2 anyway, which
+   on 0.34.4 is the same as tools-on-call-2 (the original step 4), and score any call-2 tool call as a **protocol
+   violation** (a turn failure, counted per session and per model). Honest about the rule, but the runtime does not
+   enforce it, and the first validation run saw llama3.1:8b answer call 2 with a tool call on 20 of 30 turns.
+2. `forced_none_format` (implemented, not queued): option 1 plus `format` = the answer JSON schema on call 2. Enforces
+   a text answer; rule 1 must then be dropped from the rules in use (it no longer tests anything).
+3. A runtime that implements `tool_choice` (for example llama-server with its chat-template tool support), which
+   moves R2 off Ollama and changes what the context tiers mean.
+
+A short queued job, `x2_r2_toolchoice_check` (`--mode toolchoice_check`, file `results/x2_r2_toolchoice_check.jsonl`),
+checks this live per model on the real call-2 contexts of a 6-turn forced_none session: the rendered prompt with and
+without tool_choice (`_debug_render_only`, compared byte for byte), plain call 2 twice (run-to-run nondeterminism),
+call 2 with tool_choice none, call 2 with the format schema, and the same contexts on `/v1/chat/completions` with and
+without tool_choice. Its `.report.json` gives per-variant call-2 tool-call counts and a verdict per mechanism.
+
+**What every row records.** Each call: SHA-256 of its system prompt and of its tools JSON (as serialized into the
+request), whether tools were sent, the tool_choice sent, and a hash of any format schema. Each turn: `call2_mode`,
+`call2_tool_choice_sent`, `system_prompt_identical_across_calls`, `tools_identical_across_calls`, and
+`call2_protocol_violation` (forced modes only; a call-2 tool call is still scored for validity, arguments and rule 2
+as before). Sessions and the baseline table count protocol violations and turns whose prompt or tools changed.
+
+**Validation v3 and the real-run start check.** `x2_r2_validation_v3` uses the same plan as v2 under forced_none:
+arm b (num_ctx 131072) 3 seeds x 10 turns as negative control and baseline, positive control at num_ctx 8192 (1 seed x
+15 turns), both models, `think: false` sent and recorded for qwen3:14b, plus the `on` arm b as a diagnostic (the same
+request minus tool_choice, a direct check that the field changes nothing). `x2_r2_real_v2` (default vs 32768 vs 4096,
+3 seeds x 40 turns, `--rules-from` the v3 file) is gated in the queue on v3 being done, and runs with
+`--require-validation-gates`: before starting Ollama it checks the v3 file and refuses to start (queue advanced with a
+"refused to start" note, a `refused` record in its output) unless, for each model, validation finished under the same
+call-2 mode, both control arms completed, at least one rule is in use and every rule in use is at or above 90%, the
+negative control had no canary miss, and the positive control fired on every session.

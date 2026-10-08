@@ -34,14 +34,20 @@ Reused unchanged from harness/t2s_r2_session_growth.py: generate_session (sessio
 rule text, turn tasks and filler), TOOLS_SCHEMA / ollama_tools_payload, CANARY_CHECK_EVERY, the forbidden-length
 unit regex, _approx_token_count, evaluate_kill_criterion.
 
-Modes (--call2-tools on = the spec, tools available on call 2; off = withheld on call 2 only, the "_call2_notools"
-arms; chosen for the real run after llama3.1:8b left 20 of 30 final answers empty with tools on call 2, see
-R2_DESIGN.md and FINDINGS):
-  --mode validation : arm b (num_ctx 131072) 3 seeds x 10 turns, both models (negative control + baseline table),
-                      positive control (num_ctx 8192, 1 seed x 15 turns), and the other call-2 variant's arm b as
-                      a diagnostic.
-  --mode real       : Ollama default vs num_ctx 32768 vs num_ctx 4096, 3 seeds x 40 turns, both models;
-                      --rules-from <validation jsonl> sets each model's rules in use for the kill criterion.
+Call-2 modes (--call2-tools, see CALL2_MODES): on = tools available on call 2, nothing forced (the first spec);
+off = tools withheld on call 2 only, the "_call2_notools" arms (x2_r2_validation_v2 / x2_r2_real_v1, kept to reproduce
+them); forced_none = the protocol for every R2 run from 2026-10-07 on: identical system prompt and identical tool
+definitions on every call, "tool_choice": "none" sent on call 2, a call-2 tool call scored as a protocol violation
+(Ollama 0.34.4 ignores tool_choice; see R2_DESIGN.md "Call-2 protocol v3"); forced_none_format = forced_none plus an
+answer JSON-schema "format" on call 2 (an operator option, not the default). Every call records the SHA-256 of its
+system prompt and of its tools JSON and the tool_choice it sent, so "identical on every call" is checkable from rows.
+  --mode validation       : arm b (num_ctx 131072) 3 seeds x 10 turns, both models (negative control + baseline
+                            table), positive control (num_ctx 8192, 1 seed x 15 turns), and DIAGNOSTIC_MODE's arm b.
+  --mode real             : Ollama default vs num_ctx 32768 vs num_ctx 4096, 3 seeds x 40 turns, both models;
+                            --rules-from <validation jsonl> sets each model's rules in use for the kill criterion;
+                            --require-validation-gates makes the job refuse to start unless validation_preflight
+                            passes on that file.
+  --mode toolchoice_check : short live check of what forces a text answer on call 2 (run_toolchoice_check).
 
 Queue job: calls t2s_queue.advance() exactly once on exit (finally). Never run it as a bare process on evo-x2 while
 another queued job is running (see the WARNING at the top of t2s_r2_session_growth.py; advance() also refuses to act
@@ -59,6 +65,7 @@ import random
 import re
 import sys
 import time
+import urllib.error
 import urllib.request
 import uuid
 from datetime import datetime, timezone
@@ -85,15 +92,53 @@ _BASE_ARMS = {
     "ollama_ctx_32768": 32768,
     "ollama_ctx_4096": 4096,
 }
-# arm id -> {"num_ctx", "call2_tools"}. The spec (R2_DESIGN.md step 4) keeps tools available on call 2; every base
-# arm also has a "_call2_notools" variant that withholds them on call 2 only. Validation runs that variant on arm b
-# as a DIAGNOSTIC alongside the spec arm (gates are computed on the spec arm only), so that if a model loops on tool
-# calls in call 2 instead of answering, the alternative's baseline is already measured in the same job.
+# Call-2 modes (what a turn's second call sends; call 1 is the same in every mode):
+#   "on"                 : tools, nothing else (R2_DESIGN.md step 4 as first written). Arms: no suffix.
+#   "off"                : tools withheld on call 2 only (x2_r2_validation_v2 / x2_r2_real_v1). Arms: _call2_notools.
+#   "forced_none"        : the operator rule from 2026-10-07: identical system prompt and identical tool definitions
+#                          on every call, and "tool_choice": "none" sent on call 2. Ollama 0.34.4 (installed on
+#                          evo-x2) has no tool_choice field in api.ChatRequest and silently drops unknown JSON keys, so
+#                          on that runtime this request is byte-identical in effect to "on"; the field is sent and
+#                          recorded so the data says what was asked for, and a call-2 tool call is scored as a
+#                          protocol violation. See R2_DESIGN.md "Call-2 protocol v3". Arms: _call2_forcednone.
+#   "forced_none_format" : forced_none plus a JSON-schema "format" (the answer object) on call 2, the one mechanism in
+#                          Ollama 0.34.4 that does constrain call 2 to a text answer while tools stay defined. Not the
+#                          default: it makes rule 1 (JSON keys) close to automatic. An operator choice, see the doc.
+#                          Arms: _call2_forcednone_format.
+CALL2_MODES = ("on", "off", "forced_none", "forced_none_format")
 NOTOOLS_SUFFIX = "_call2_notools"
+MODE_SUFFIX = {"on": "", "off": NOTOOLS_SUFFIX, "forced_none": "_call2_forcednone",
+               "forced_none_format": "_call2_forcednone_format"}
+FORCED_MODES = ("forced_none", "forced_none_format")
+ANSWER_FORMAT_SCHEMA = {"type": "object",
+                        "properties": {"answer": {"type": "string"}, "source": {"type": "string"}},
+                        "required": ["answer", "source"]}
+
+
+def call2_extra(mode: str) -> dict:
+    """Extra top-level request fields sent on call 2 only (never on call 1)."""
+    if mode == "forced_none":
+        return {"tool_choice": "none"}
+    if mode == "forced_none_format":
+        return {"tool_choice": "none", "format": ANSWER_FORMAT_SCHEMA}
+    return {}
+
+
+def as_mode(call2) -> str:
+    """Back-compat: True -> "on", False -> "off", a mode string -> itself."""
+    if call2 is True:
+        return "on"
+    if call2 is False:
+        return "off"
+    if call2 not in CALL2_MODES:
+        raise ValueError(f"unknown call-2 mode {call2!r}")
+    return call2
+
+
 ARMS = {}
 for _a, _n in _BASE_ARMS.items():
-    ARMS[_a] = {"num_ctx": _n, "call2_tools": True}
-    ARMS[_a + NOTOOLS_SUFFIX] = {"num_ctx": _n, "call2_tools": False}
+    for _m, _s in MODE_SUFFIX.items():
+        ARMS[_a + _s] = {"num_ctx": _n, "call2_tools": _m != "off", "call2_mode": _m}
 
 SEEDS = r2.SEEDS
 VALIDATION_PLAN = [  # (arm, seeds, turns) -- the first validation run (2026-10-07, file x2_r2_validation.jsonl)
@@ -102,16 +147,20 @@ VALIDATION_PLAN = [  # (arm, seeds, turns) -- the first validation run (2026-10-
     ("ollama_ctx_131072" + NOTOOLS_SUFFIX, SEEDS, 10),
 ]
 NEG_ARM, POS_ARM = "ollama_ctx_131072", "ollama_ctx_8192_positive_control"
+NEG_NUM_CTX = _BASE_ARMS[NEG_ARM]
+# the diagnostic arm-b variant run next to each mode's validation (gates never use it)
+DIAGNOSTIC_MODE = {"on": "off", "off": "on", "forced_none": "on", "forced_none_format": "forced_none"}
 
 
-def validation_plan(call2_tools: bool, with_diagnostic: bool = True):
-    """Validation for the chosen call-2 variant: negative control/baseline (3 seeds x 10 turns) and positive
-    control (1 seed x 15 turns, so two canary checks fall past the 8192 window). The opposite variant's arm b is
-    added as a diagnostic if with_diagnostic."""
-    sfx = "" if call2_tools else NOTOOLS_SUFFIX
+def validation_plan(call2_tools, with_diagnostic: bool = True):
+    """Validation for the chosen call-2 mode: negative control/baseline (3 seeds x 10 turns) and positive
+    control (1 seed x 15 turns, so two canary checks fall past the 8192 window). DIAGNOSTIC_MODE's arm b is
+    added as a diagnostic if with_diagnostic (for forced_none that is "on": the same request minus tool_choice)."""
+    mode = as_mode(call2_tools)
+    sfx = MODE_SUFFIX[mode]
     plan = [(NEG_ARM + sfx, SEEDS, 10), (POS_ARM + sfx, SEEDS[:1], 15)]
     if with_diagnostic:
-        plan.append((NEG_ARM + (NOTOOLS_SUFFIX if call2_tools else ""), SEEDS, 10))
+        plan.append((NEG_ARM + MODE_SUFFIX[DIAGNOSTIC_MODE[mode]], SEEDS, 10))
     return plan
 REAL_PLAN = [
     ("ollama_default", SEEDS, 40),
@@ -120,8 +169,9 @@ REAL_PLAN = [
 ]
 
 
-def real_plan(call2_tools: bool):
-    return [(a if call2_tools else a + NOTOOLS_SUFFIX, s, t) for a, s, t in REAL_PLAN]
+def real_plan(call2_tools):
+    sfx = MODE_SUFFIX[as_mode(call2_tools)]
+    return [(a + sfx, s, t) for a, s, t in REAL_PLAN]
 
 MAX_TOKENS_PER_CALL = 384
 KEEP_ALIVE = "30m"          # hc.start_ollama_server sets OLLAMA_KEEP_ALIVE=0; keep the model (and its KV cache)
@@ -433,6 +483,82 @@ def prompt_tokens_est(messages: list[dict], tools) -> int:
     return transcript_tokens(messages) + (est_tokens(json.dumps(tools)) if tools else 0)
 
 
+# ── request construction and protocol bookkeeping (pure) ───────────────────────────────────────────
+
+def native_chat_body(model, messages, num_ctx, tools, think, extra=None) -> dict:
+    """The /api/chat body, field for field what OllamaClient.chat sends, plus `extra` top-level fields."""
+    options = {"num_predict": MAX_TOKENS_PER_CALL, "temperature": 0, "seed": 42}
+    if num_ctx is not None:
+        options["num_ctx"] = num_ctx
+    body = {"model": model, "messages": messages, "stream": False, "options": options, "keep_alive": KEEP_ALIVE}
+    if tools is not None:
+        body["tools"] = tools
+    if think is not None:
+        body["think"] = think
+    body.update(extra or {})
+    return body
+
+
+def sha256_text(s) -> str | None:
+    import hashlib
+    if s is None:
+        return None
+    return hashlib.sha256(s.encode("utf-8")).hexdigest()
+
+
+def tools_sha256(tools) -> str | None:
+    """Hash of the tools JSON exactly as serialized into the request (json.dumps defaults, as the clients do)."""
+    return None if tools is None else sha256_text(json.dumps(tools))
+
+
+def system_prompt_sha256(messages) -> str | None:
+    sys_msgs = [m.get("content") or "" for m in messages if m.get("role") == "system"]
+    return sha256_text("\n\0\n".join(sys_msgs)) if sys_msgs else None
+
+
+def rendered_template_of(data) -> str | None:
+    """The rendered prompt from a _debug_render_only response (api.DebugInfo.RenderedTemplate); the JSON key name is
+    looked up permissively (any top-level key containing "debug", then any key containing "render")."""
+    if not isinstance(data, dict):
+        return None
+    for k, v in data.items():
+        if "debug" in k.lower() and isinstance(v, dict):
+            for k2, v2 in v.items():
+                if "render" in k2.lower() and isinstance(v2, str):
+                    return v2
+    return None
+
+
+def to_openai_messages(messages: list[dict]) -> list[dict]:
+    """Ollama-native transcript -> OpenAI chat format: assistant tool_calls get ids, type and string arguments; each
+    tool message gets the tool_call_id of the call it answers (matched in order)."""
+    out, pending = [], []
+    n = 0
+    for m in messages:
+        if m["role"] == "assistant" and m.get("tool_calls"):
+            tcs = []
+            for tc in m["tool_calls"]:
+                fn = tc.get("function") or {}
+                args = fn.get("arguments")
+                n += 1
+                cid = tc.get("id") or f"call_{n}"
+                tcs.append({"id": cid, "type": "function",
+                            "function": {"name": fn.get("name"),
+                                         "arguments": args if isinstance(args, str) else json.dumps(args)}})
+                pending.append(cid)
+            out.append({"role": "assistant", "content": m.get("content") or "", "tool_calls": tcs})
+        elif m["role"] == "tool":
+            msg = {"role": "tool", "content": m.get("content") or ""}
+            if pending:
+                msg["tool_call_id"] = pending.pop(0)
+            if m.get("tool_name"):
+                msg["name"] = m["tool_name"]
+            out.append(msg)
+        else:
+            out.append({"role": m["role"], "content": m.get("content") or ""})
+    return out
+
+
 # ── runtime wrapper (real: Ollama over HTTP; tests inject a fake with the same methods) ────────────
 
 class OllamaRuntime:
@@ -441,9 +567,69 @@ class OllamaRuntime:
         self.base = base
         self.client = k1.OllamaClient(timeout=CALL_TIMEOUT_S)
 
-    def chat(self, model, messages, num_ctx, tools, think):
-        return self.client.chat(model, "", num_ctx=num_ctx, max_tokens=MAX_TOKENS_PER_CALL, keep_alive=KEEP_ALIVE,
-                                messages=messages, tools=tools, think=think, timeout=CALL_TIMEOUT_S)
+    def chat(self, model, messages, num_ctx, tools, think, extra=None):
+        """extra: top-level request fields added on call 2 by the forced modes (call2_extra). Without it, the
+        request goes through OllamaClient.chat exactly as in x2_r2_validation_v2 / x2_r2_real_v1."""
+        if not extra:
+            return self.client.chat(model, "", num_ctx=num_ctx, max_tokens=MAX_TOKENS_PER_CALL,
+                                    keep_alive=KEEP_ALIVE, messages=messages, tools=tools, think=think,
+                                    timeout=CALL_TIMEOUT_S)
+        body = native_chat_body(model, messages, num_ctx, tools, think, extra)
+        return self._post_native(body)
+
+    def _post(self, path, body):
+        req = urllib.request.Request(f"{self.base}{path}", data=json.dumps(body).encode(),
+                                     headers={"Content-Type": "application/json"})
+        t0 = time.monotonic()
+        try:
+            with urllib.request.urlopen(req, timeout=CALL_TIMEOUT_S) as r:
+                return r.status, json.loads(r.read()), None, time.monotonic() - t0
+        except urllib.error.HTTPError as e:
+            return e.code, None, e.read().decode(errors="replace")[:400], time.monotonic() - t0
+        except Exception as e:
+            return None, None, str(e)[:400], time.monotonic() - t0
+
+    def _post_native(self, body):
+        """Same return shape as OllamaClient.chat."""
+        status, data, err, dt = self._post("/api/chat", body)
+        if data is None:
+            return {"outcome": "http_error" if status else "error", "status": status, "error": err,
+                    "duration_s": dt, "num_ctx_requested": body.get("options", {}).get("num_ctx")}
+        msg = data.get("message") or {}
+        return {"outcome": "ok", "status": status, "message": msg.get("content"), "tool_calls": msg.get("tool_calls"),
+                "prompt_eval_count": data.get("prompt_eval_count"), "eval_count": data.get("eval_count"),
+                "duration_s": dt, "num_ctx_requested": body.get("options", {}).get("num_ctx"), "raw": data}
+
+    def render_only(self, model, messages, num_ctx, tools, think, extra=None):
+        """/api/chat with _debug_render_only: the prompt text the template renders (no generation). None on error."""
+        body = native_chat_body(model, messages, num_ctx, tools, think, extra)
+        body["_debug_render_only"] = True
+        status, data, err, _ = self._post("/api/chat", body)
+        return rendered_template_of(data), (None if data is not None else f"{status} {err}")
+
+    def chat_openai(self, model, messages, tools, think, tool_choice=None):
+        """/v1/chat/completions (OpenAI-compatible). num_ctx cannot be set on this endpoint in 0.34.4."""
+        body = {"model": model, "messages": to_openai_messages(messages), "stream": False,
+                "max_tokens": MAX_TOKENS_PER_CALL, "temperature": 0, "seed": 42}
+        if tools is not None:
+            body["tools"] = tools
+        if tool_choice is not None:
+            body["tool_choice"] = tool_choice
+        if think is False:
+            body["reasoning_effort"] = "none"   # openai.ThinkingFromReasoningEffort("none") -> think false
+        status, data, err, dt = self._post("/v1/chat/completions", body)
+        if data is None:
+            return {"outcome": "error", "status": status, "error": err, "duration_s": dt}
+        msg = ((data.get("choices") or [{}])[0].get("message") or {})
+        return {"outcome": "ok", "status": status, "message": msg.get("content"), "tool_calls": msg.get("tool_calls"),
+                "duration_s": dt, "finish_reason": (data.get("choices") or [{}])[0].get("finish_reason")}
+
+    def version(self):
+        try:
+            with urllib.request.urlopen(f"{self.base}/api/version", timeout=30) as r:
+                return json.loads(r.read()).get("version")
+        except Exception:
+            return None
 
     def loaded_context(self, model):
         ps = self.client.get_ps()
@@ -489,10 +675,16 @@ class OllamaRuntime:
 
 # ── driver ──────────────────────────────────────────────────────────────────────────────────────────
 
-def _call_record(resp: dict, messages, tools) -> dict:
+def _call_record(resp: dict, messages, tools, extra=None) -> dict:
     raw = resp.get("raw") or {}
     msg = raw.get("message") or {}
+    extra = extra or {}
     return {
+        # what this call sent, so "identical system prompt and tools on every call" is checkable from the data
+        "system_prompt_sha256": system_prompt_sha256(messages), "tools_sha256": tools_sha256(tools),
+        "tools_sent": tools is not None, "tool_choice_sent": extra.get("tool_choice"),
+        "format_sent_sha256": (sha256_text(json.dumps(extra["format"], sort_keys=True))
+                               if extra.get("format") is not None else None),
         "outcome": resp.get("outcome"), "http_status": resp.get("status"), "error": resp.get("error"),
         "content": (resp.get("message") or "")[:4000], "native_tool_calls": resp.get("tool_calls"),
         "prompt_tokens_est": prompt_tokens_est(messages, tools),
@@ -511,15 +703,19 @@ def _call_tokens(rec: dict) -> int:
     return rec["prompt_tokens_est"] + comp
 
 
-def _do_call(runtime, model, messages, num_ctx, tools, think, log):
-    resp = runtime.chat(model, messages, num_ctx, tools, think)
+def _do_call(runtime, model, messages, num_ctx, tools, think, log, extra=None):
+    def go():
+        if extra:
+            return runtime.chat(model, messages, num_ctx, tools, think, extra=extra)
+        return runtime.chat(model, messages, num_ctx, tools, think)
+    resp = go()
     retried = False
     if resp.get("outcome") == "error" and resp.get("status") is None:
         log(f"  connection-level error ({resp.get('error')!r}); recovering and retrying once")
         retried = True
         if runtime.recover():
-            resp = runtime.chat(model, messages, num_ctx, tools, think)
-    rec = _call_record(resp, messages, tools)
+            resp = go()
+    rec = _call_record(resp, messages, tools, extra)
     rec["retried_after_connection_error"] = retried
     return resp, rec
 
@@ -537,8 +733,10 @@ def _tool_msgs(calls, store):
 
 
 def run_turn(runtime, model, num_ctx, think, ags: AgentSession, turn, messages: list, log,
-             call2_tools: bool = True) -> dict:
-    """One two-step turn. Mutates `messages` (the session transcript) and returns the scored turn row."""
+             call2_tools=True) -> dict:
+    """One two-step turn. Mutates `messages` (the session transcript) and returns the scored turn row.
+    call2_tools: a call-2 mode (CALL2_MODES) or the old bool (True = "on", False = "off")."""
+    mode = as_mode(call2_tools)
     tools = r2.ollama_tools_payload()
     messages.append({"role": "user", "content": user_message(turn, ags)})
     resp1, rec1 = _do_call(runtime, model, messages, num_ctx, tools, think, log)
@@ -546,10 +744,12 @@ def run_turn(runtime, model, num_ctx, think, ags: AgentSession, turn, messages: 
     rec1.update({"tool_calls_parsed": calls1, "tool_detection_method": method1})
     calls_by_call = [calls1]
     recs = [rec1]
+    extra2 = call2_extra(mode)
     if calls1:
         messages.append(_assistant_msg(resp1, method1))
         messages.extend(_tool_msgs(calls1, ags.store))
-        resp2, rec2 = _do_call(runtime, model, messages, num_ctx, tools if call2_tools else None, think, log)
+        resp2, rec2 = _do_call(runtime, model, messages, num_ctx, None if mode == "off" else tools, think, log,
+                               extra=extra2)
         calls2, method2 = extract_tool_calls(resp2.get("message"), resp2.get("tool_calls"))
         rec2.update({"tool_calls_parsed": calls2, "tool_detection_method": method2})
         recs.append(rec2)
@@ -566,6 +766,17 @@ def run_turn(runtime, model, num_ctx, think, ags: AgentSession, turn, messages: 
            "is_recall": turn.is_recall, "canary_check": turn.canary_check, "n_calls": len(recs),
            "calls": recs, "final_text": final_text[:4000]}
     row.update(score_calls(turn, calls_by_call))
+    two = len(recs) == 2
+    row.update({
+        "call2_mode": mode,
+        "call2_tool_choice_sent": recs[1]["tool_choice_sent"] if two else None,
+        "system_prompt_identical_across_calls": (recs[0]["system_prompt_sha256"] == recs[1]["system_prompt_sha256"]
+                                                 if two else None),
+        "tools_identical_across_calls": recs[0]["tools_sha256"] == recs[1]["tools_sha256"] if two else None,
+        # forced modes: a tool call in call 2 after tool_choice "none" was sent breaks the protocol; it is still
+        # scored for validity/arguments/rule 2 like any call-2 tool call, and also counts as a turn failure
+        "call2_protocol_violation": (bool(calls_by_call[1]) if two and mode in FORCED_MODES else None),
+    })
     exp_sys, exp_hist = expected_canaries(ags, turn)
     row.update(score_final_answer(turn, final_text, spec.session_code, exp_sys, exp_hist))
     row["canary_k"] = canary_index(turn)
@@ -584,11 +795,12 @@ def run_session(runtime, model, arm, seed, max_turns, emit, log, mode) -> dict:
     """Run one full session; emits r2a_turn rows and one r2a_session row (the completion marker)."""
     num_ctx = ARMS[arm]["num_ctx"]
     call2_tools = ARMS[arm]["call2_tools"]
+    call2_mode = ARMS[arm]["call2_mode"]
     think = MODELS.get(model)
     ags = build_agent_session(seed, max_turns)
     attempt = uuid.uuid4().hex[:12]
     base = {"mode": mode, "model_id": model, "arm_id": arm, "num_ctx_requested": num_ctx, "seed": seed,
-            "think": think, "call2_tools": call2_tools, "attempt_id": attempt,
+            "think": think, "call2_tools": call2_tools, "call2_mode": call2_mode, "attempt_id": attempt,
             "session_code": ags.spec.session_code}
     unloaded = runtime.unload(model)
     messages = [{"role": "system", "content": ags.system_prompt}]
@@ -597,7 +809,7 @@ def run_session(runtime, model, arm, seed, max_turns, emit, log, mode) -> dict:
     rows = []
     for turn in ags.spec.turns:
         t0 = time.monotonic()
-        row = run_turn(runtime, model, num_ctx, think, ags, turn, messages, log, call2_tools=call2_tools)
+        row = run_turn(runtime, model, num_ctx, think, ags, turn, messages, log, call2_tools=call2_mode)
         loaded = runtime.loaded_context(model)
         if turn.idx == 1:
             c1 = row["calls"][0]
@@ -647,6 +859,8 @@ def turn_failures(row: dict, rules_in_use=RULE_IDS) -> list[str]:
         fails.append("tool_args")
     if row.get("recall_ok") is False:
         fails.append("recall")
+    if row.get("call2_protocol_violation") is True:
+        fails.append("call2_protocol_violation")
     return fails
 
 
@@ -686,6 +900,10 @@ def summarize_session(rows: list[dict], rules_in_use=RULE_IDS) -> dict:
         "token_calib_ratio": rows[0].get("token_calib_ratio") if rows else None,
         "max_transcript_tokens_calibrated": max((r.get("transcript_tokens_calibrated") or 0) for r in rows) if rows else 0,
         "session_tokens_billed": rows[-1].get("session_tokens_billed_cumulative") if rows else 0,
+        "call2_protocol_violations": sum(1 for r in rows if r.get("call2_protocol_violation") is True),
+        "prompt_or_tools_changed_within_turn": sum(
+            1 for r in rows if r.get("system_prompt_identical_across_calls") is False
+            or r.get("tools_identical_across_calls") is False),
     }
 
 
@@ -749,6 +967,14 @@ def baseline_table(rows: list[dict], arm="ollama_ctx_131072", threshold=BASELINE
         entry["thinking_present_calls"] = sum(1 for c in calls if c.get("thinking_present"))
         entry["text_fallback_calls"] = sum(1 for c in calls if c.get("tool_detection_method") == "text_fallback")
         entry["http_error_turns"] = sum(1 for r in mt if r.get("any_http_error"))
+        entry["call2_modes"] = sorted({str(r.get("call2_mode", "on" if r.get("call2_tools", True) else "off"))
+                                       for r in mt})
+        entry["two_call_turns"] = sum(1 for r in mt if r["n_calls"] == 2)
+        entry["call2_tool_call_turns"] = sum(1 for r in mt if r.get("n_tool_calls_call2"))
+        entry["call2_protocol_violations"] = sum(1 for r in mt if r.get("call2_protocol_violation") is True)
+        entry["prompt_or_tools_changed_within_turn"] = sum(
+            1 for r in mt if r.get("system_prompt_identical_across_calls") is False
+            or r.get("tools_identical_across_calls") is False)
         entry["think"] = sorted({str(r.get("think")) for r in mt})
         durs = [c["duration_s"] for c in calls if c.get("duration_s") is not None]
         entry["mean_call_s"] = sum(durs) / len(durs) if durs else None
@@ -781,9 +1007,11 @@ def control_results(rows: list[dict], sfx: str = "") -> dict:
     return res
 
 
-def evaluate_gates(rows: list[dict], threshold=BASELINE_THRESHOLD, call2_tools: bool = True) -> dict:
-    """Gates on the chosen call-2 variant's arms; the other variant's arm b (if present) as a diagnostic table."""
-    sfx = "" if call2_tools else NOTOOLS_SUFFIX
+def evaluate_gates(rows: list[dict], threshold=BASELINE_THRESHOLD, call2_tools=True) -> dict:
+    """Gates on the chosen call-2 mode's arms; DIAGNOSTIC_MODE's arm b (if present) as a diagnostic table.
+    call2_tools: a call-2 mode or the old bool (True = "on", False = "off")."""
+    mode = as_mode(call2_tools)
+    sfx = MODE_SUFFIX[mode]
     table = baseline_table(rows, arm=NEG_ARM + sfx, threshold=threshold)
     ctrl = control_results(rows, sfx)
     gates = {"baseline": {}, "negative_control": {}, "positive_control": {}, "content_nonempty": {}}
@@ -798,16 +1026,61 @@ def evaluate_gates(rows: list[dict], threshold=BASELINE_THRESHOLD, call2_tools: 
     for model, p in ctrl["positive"].items():
         gates["positive_control"][model] = {
             "pass": p["n_sessions"] > 0 and all(t is not None for t in p["truncation_detected_turns"]), **p}
-    diag = baseline_table(rows, arm=NEG_ARM + (NOTOOLS_SUFFIX if call2_tools else ""), threshold=threshold)
-    return {"call2_tools": call2_tools, "baseline_table": table, "controls": ctrl, "gates": gates,
+    diag_mode = DIAGNOSTIC_MODE[mode]
+    diag = baseline_table(rows, arm=NEG_ARM + MODE_SUFFIX[diag_mode], threshold=threshold)
+    return {"call2_tools": mode != "off", "call2_mode": mode, "baseline_table": table, "controls": ctrl,
+            "gates": gates, "diagnostic_mode": diag_mode,
             "diagnostic_other_call2_variant_table": diag,
-            "diagnostic_call2_notools_table": diag if call2_tools else None}
+            "diagnostic_call2_notools_table": diag if diag_mode == "off" else None}
 
 
-def rules_in_use_from(validation_rows: list[dict], call2_tools: bool) -> dict:
+def rules_in_use_from(validation_rows: list[dict], call2_tools) -> dict:
     """Per-model gate-passing rules from a validation file: {model: [rule ids]}."""
     gates = evaluate_gates(validation_rows, call2_tools=call2_tools)["gates"]["baseline"]
     return {m: g["rules_in_use"] for m, g in gates.items()}
+
+
+def validation_preflight(validation_rows: list[dict], call2_tools, models, threshold=BASELINE_THRESHOLD) -> dict:
+    """The real run's own start check against its validation file (x2_r2_real_v2 refuses to start unless this
+    passes; no manual step). For every model: the validation file finished (run_end) under the same call-2 mode, the
+    plan's negative-control (3 sessions) and positive-control (1 session) arms completed, the model has at least one
+    rule in use and every rule in use is at or above the threshold, the negative control had no canary miss, and
+    the positive control fired on every session. Returns {"ok", "reasons", "rules_in_use", "gates"}."""
+    mode = as_mode(call2_tools)
+    reasons = []
+    if not any(r.get("record") == "run_end" for r in validation_rows):
+        reasons.append("validation file has no run_end record (validation did not finish)")
+    starts = [r for r in validation_rows if r.get("record") == "run_start" and r.get("mode") == "validation"]
+    start_modes = {str(r.get("call2_mode", "on" if r.get("call2_tools", True) else "off")) for r in starts}
+    if start_modes != {mode}:
+        reasons.append(f"validation file call-2 mode {sorted(start_modes)} != real run's {mode!r}")
+    rep = evaluate_gates(validation_rows, threshold=threshold, call2_tools=mode)
+    g, t = rep["gates"], rep["baseline_table"]
+    need = {a: len(s) for a, s, _ in validation_plan(mode, with_diagnostic=False)}
+    need_neg, need_pos = need[NEG_ARM + MODE_SUFFIX[mode]], need[POS_ARM + MODE_SUFFIX[mode]]
+    riu = {}
+    for m in models:
+        e = t.get(m)
+        if e is None or e["n_sessions"] < need_neg:
+            reasons.append(f"{m}: negative-control arm incomplete "
+                           f"({0 if e is None else e['n_sessions']} of {need_neg} sessions)")
+            continue
+        riu[m] = list(g["baseline"][m]["rules_in_use"])
+        if not riu[m]:
+            reasons.append(f"{m}: no rule reached {threshold:.0%} on the validation baseline")
+        for rule in riu[m]:
+            rate = e["rules"][rule]["rate"]
+            if rate is None or rate < threshold:
+                reasons.append(f"{m}: rule in use {rule} at {rate} < {threshold}")
+        neg = g["negative_control"].get(m)
+        if not neg or not neg["pass"]:
+            reasons.append(f"{m}: negative control failed (canary misses "
+                           f"{neg['canary_misses'] if neg else 'n/a'} at num_ctx 131072)")
+        pos = g["positive_control"].get(m)
+        if not pos or pos["n_sessions"] < need_pos or not pos["pass"]:
+            reasons.append(f"{m}: positive control did not fire (truncation turns "
+                           f"{pos['truncation_detected_turns'] if pos else 'n/a'} at num_ctx 8192)")
+    return {"ok": not reasons, "reasons": reasons, "rules_in_use": riu, "gates": g}
 
 
 def format_baseline_markdown(report: dict) -> str:
@@ -834,6 +1107,10 @@ def format_baseline_markdown(report: dict) -> str:
                                                  for m in models) + " |")
     lines.append("| two-call turns | " + " | ".join(pct(t[m]["two_call_turn_rate"]) for m in models) + " |")
     lines.append("| empty final answers | " + " | ".join(str(t[m]["final_content_empty"]) for m in models) + " |")
+    lines.append("| call-2 tool-call turns / two-call turns | " + " | ".join(
+        f"{t[m].get('call2_tool_call_turns', 'n/a')}/{t[m].get('two_call_turns', 'n/a')}" for m in models) + " |")
+    lines.append("| call-2 protocol violations (forced modes) | " + " | ".join(
+        str(t[m].get("call2_protocol_violations", "n/a")) for m in models) + " |")
     lines.append("| think sent | " + " | ".join(",".join(t[m]["think"]) for m in models) + " |")
     lines.append("| mean s per call | " + " | ".join("n/a" if t[m]["mean_call_s"] is None
                                                      else f"{t[m]['mean_call_s']:.1f}" for m in models) + " |")
@@ -844,6 +1121,149 @@ def format_baseline_markdown(report: dict) -> str:
         ",".join(str(x) for x in c['positive'].get(m, {}).get('truncation_detected_turns', [])) or "none"
         for m in models) + " |")
     return "\n".join(lines)
+
+
+# ── tool_choice check (--mode toolchoice_check, queue id x2_r2_toolchoice_check) ─────────────────────
+#
+# Does anything on this Ollama force a text answer on call 2 while the tools stay defined? Source reading for
+# 0.34.4 (R2_DESIGN.md "Call-2 protocol v3") says: /api/chat has no tool_choice field (unknown JSON keys are
+# dropped), /v1/chat/completions lists tool_choice as unsupported and binds with ShouldBindJSON (also drops it), and
+# a JSON-schema "format" constrains generation. This job checks that live, per model, on the real call-2 contexts of
+# a short forced_none session (arm b num_ctx, seed SEEDS[0], TC_TURNS turns):
+#   on, on_repeat         : /api/chat, tools, nothing else (on_repeat measures run-to-run nondeterminism)
+#   tool_choice_none      : /api/chat, tools, "tool_choice": "none" (this is the call that continues the transcript)
+#   format_schema         : /api/chat, tools, tool_choice none, format = ANSWER_FORMAT_SCHEMA
+#   render_on / render_tool_choice_none : _debug_render_only; the rendered prompt text, compared byte for byte
+#   v1_on / v1_tool_choice_none          : /v1/chat/completions on the same contexts (phase 2, after the session;
+#                                          that endpoint cannot set num_ctx, so the model reloads at its default)
+
+TC_TURNS = 6
+TC_NATIVE_VARIANTS = ("on", "on_repeat", "tool_choice_none", "format_schema")
+TC_V1_VARIANTS = ("v1_on", "v1_tool_choice_none")
+TC_EXTRA = {"on": {}, "on_repeat": {}, "tool_choice_none": {"tool_choice": "none"},
+            "format_schema": {"tool_choice": "none", "format": ANSWER_FORMAT_SCHEMA}}
+
+
+def _tc_row(model, turn_idx, variant, endpoint, resp, extra_fields=None):
+    calls, method = extract_tool_calls(resp.get("message"), resp.get("tool_calls"))
+    row = {"record": "r2tc_call", "model_id": model, "turn_idx": turn_idx, "variant": variant, "endpoint": endpoint,
+           "outcome": resp.get("outcome"), "http_status": resp.get("status"), "error": resp.get("error"),
+           "content": (resp.get("message") or "")[:4000], "native_tool_calls": resp.get("tool_calls"),
+           "n_tool_calls": len(calls), "tool_detection_method": method,
+           "content_empty": not (resp.get("message") or "").strip(),
+           "answer_json_ok": isinstance(parse_json_strict(resp.get("message") or ""), dict),
+           "duration_s": resp.get("duration_s"), "ts_utc": utc_iso()}
+    row.update(extra_fields or {})
+    return row
+
+
+def run_toolchoice_check(runtime, models, emit, log, turns=TC_TURNS):
+    tools = r2.ollama_tools_payload()
+    for model in models:
+        think = MODELS.get(model)
+        ags = build_agent_session(SEEDS[0], turns)
+        runtime.unload(model)
+        messages = [{"role": "system", "content": ags.system_prompt}]
+        contexts = []
+        for turn in ags.spec.turns:
+            messages.append({"role": "user", "content": user_message(turn, ags)})
+            resp1 = runtime.chat(model, messages, NEG_NUM_CTX, tools, think)
+            calls1, method1 = extract_tool_calls(resp1.get("message"), resp1.get("tool_calls"))
+            emit(_tc_row(model, turn.idx, "call1", "api_chat", resp1,
+                         {"system_prompt_sha256": system_prompt_sha256(messages), "tools_sha256": tools_sha256(tools)}))
+            if not calls1:
+                messages.append(_assistant_msg(resp1, "none"))
+                log(f"  {model} turn {turn.idx}: no call-1 tool call, no call-2 context")
+                continue
+            messages.append(_assistant_msg(resp1, method1))
+            messages.extend(_tool_msgs(calls1, ags.store))
+            ctx = [dict(m) for m in messages]
+            contexts.append((turn.idx, ctx))
+            renders = {}
+            for v, ex in (("render_on", {}), ("render_tool_choice_none", {"tool_choice": "none"})):
+                text, err = runtime.render_only(model, ctx, NEG_NUM_CTX, tools, think, ex)
+                renders[v] = text
+                emit({"record": "r2tc_render", "model_id": model, "turn_idx": turn.idx, "variant": v,
+                      "rendered_sha256": sha256_text(text), "rendered_len": len(text) if text else None,
+                      "error": err, "ts_utc": utc_iso()})
+            cont = None
+            for v in TC_NATIVE_VARIANTS:
+                ex = TC_EXTRA[v]
+                resp = runtime.chat(model, ctx, NEG_NUM_CTX, tools, think, extra=ex) if ex else \
+                    runtime.chat(model, ctx, NEG_NUM_CTX, tools, think)
+                emit(_tc_row(model, turn.idx, v, "api_chat", resp,
+                             {"tool_choice_sent": ex.get("tool_choice"), "format_sent": "format" in ex,
+                              "system_prompt_sha256": system_prompt_sha256(ctx), "tools_sha256": tools_sha256(tools)}))
+                if v == "tool_choice_none":
+                    cont = resp
+            calls2, method2 = extract_tool_calls(cont.get("message"), cont.get("tool_calls"))
+            messages.append(_assistant_msg(cont, method2))
+            if calls2:
+                messages.extend(_tool_msgs(calls2, ags.store))
+            log(f"  {model} turn {turn.idx}: renders identical="
+                f"{renders['render_on'] is not None and renders['render_on'] == renders['render_tool_choice_none']}")
+        runtime.unload(model)
+        for turn_idx, ctx in contexts:
+            for v in TC_V1_VARIANTS:
+                tc = "none" if v == "v1_tool_choice_none" else None
+                resp = runtime.chat_openai(model, ctx, tools, think, tool_choice=tc)
+                emit(_tc_row(model, turn_idx, v, "v1_chat_completions", resp, {"tool_choice_sent": tc}))
+        runtime.unload(model)
+
+
+def summarize_toolchoice_check(rows: list[dict]) -> dict:
+    """Per model: per-variant call-2 tool-call / empty / answer-JSON counts, pairwise identical-output counts, and
+    rendered-prompt identity with and without tool_choice. Verdict per mechanism: "no_effect_observed" when every
+    rendered prompt is identical and tool_choice none produced as many call-2 tool calls as plain "on" (or more),
+    "effect_observed" otherwise."""
+    out = {}
+    for model in sorted({r["model_id"] for r in rows if r.get("record") in ("r2tc_call", "r2tc_render")}):
+        calls = [r for r in rows if r.get("record") == "r2tc_call" and r["model_id"] == model]
+        by = {}
+        for r in calls:
+            by.setdefault(r["variant"], {})[r["turn_idx"]] = r
+        variants = {}
+        for v, d in by.items():
+            if v == "call1":
+                continue
+            variants[v] = {"n": len(d), "tool_call_turns": sum(1 for r in d.values() if r["n_tool_calls"]),
+                           "content_empty": sum(1 for r in d.values() if r["content_empty"]),
+                           "answer_json_ok": sum(1 for r in d.values() if r["answer_json_ok"]),
+                           "errors": sum(1 for r in d.values() if r["outcome"] != "ok")}
+
+        def same(a, b):
+            ta = by.get(a, {})
+            tb = by.get(b, {})
+            ks = sorted(set(ta) & set(tb))
+            return {"n": len(ks), "identical": sum(
+                1 for k in ks if ta[k]["content"] == tb[k]["content"]
+                and json.dumps(ta[k]["native_tool_calls"], sort_keys=True)
+                == json.dumps(tb[k]["native_tool_calls"], sort_keys=True))}
+        rend = {}
+        for r in rows:
+            if r.get("record") == "r2tc_render" and r["model_id"] == model:
+                rend.setdefault(r["turn_idx"], {})[r["variant"]] = r["rendered_sha256"]
+        rend_pairs = [d for d in rend.values() if d.get("render_on") and d.get("render_tool_choice_none")]
+        n_rend_same = sum(1 for d in rend_pairs if d["render_on"] == d["render_tool_choice_none"])
+
+        def tc(v):
+            return variants.get(v, {}).get("tool_call_turns")
+        native_ok = (bool(rend_pairs) and n_rend_same == len(rend_pairs)
+                     and tc("on") is not None and tc("tool_choice_none") is not None
+                     and tc("tool_choice_none") >= tc("on"))
+        v1_ok = tc("v1_on") is not None and tc("v1_tool_choice_none") is not None and \
+            tc("v1_tool_choice_none") >= tc("v1_on")
+        out[model] = {
+            "variants": variants,
+            "identical_on_vs_on_repeat": same("on", "on_repeat"),
+            "identical_on_vs_tool_choice_none": same("on", "tool_choice_none"),
+            "identical_v1_on_vs_v1_tool_choice_none": same("v1_on", "v1_tool_choice_none"),
+            "rendered_prompt_pairs": len(rend_pairs), "rendered_prompt_identical": n_rend_same,
+            "verdict_api_chat_tool_choice_none": "no_effect_observed" if native_ok else "effect_observed",
+            "verdict_v1_tool_choice_none": "no_effect_observed" if v1_ok else "effect_observed",
+            "format_schema_tool_call_turns": tc("format_schema"),
+        }
+    return out
 
 
 # ── CLI / queue entry ───────────────────────────────────────────────────────────────────────────────
@@ -886,16 +1306,23 @@ def run_plan(runtime, plan, models, mode, out_path: Path, log=print, emit=None):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--mode", choices=("validation", "real"), required=True)
+    ap.add_argument("--mode", choices=("validation", "real", "toolchoice_check"), required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--models", default=",".join(MODELS))
-    ap.add_argument("--call2-tools", choices=("on", "off"), default="on",
-                    help="real mode: keep tools available on call 2 (spec) or withhold them (the _call2_notools arms)")
+    ap.add_argument("--call2-tools", choices=CALL2_MODES, default="on",
+                    help="call-2 mode: on (tools, nothing forced), off (tools withheld on call 2, v1/v2), "
+                         "forced_none (tools kept, tool_choice none on call 2), forced_none_format (plus an answer "
+                         "JSON-schema format on call 2)")
     ap.add_argument("--rules-from", default=None,
                     help="real mode: a validation JSONL; per-model rules in use = that model's gate-passing rules")
     ap.add_argument("--rules-in-use", default=",".join(RULE_IDS),
                     help="real mode: rules that count toward first-failure / kill criterion (gate-passing rules)")
+    ap.add_argument("--require-validation-gates", action="store_true",
+                    help="real mode: refuse to start (no Ollama call, queue advanced with a note) unless "
+                         "validation_preflight passes on --rules-from")
     args = ap.parse_args(argv)
+    if args.require_validation_gates and not args.rules_from:
+        ap.error("--require-validation-gates needs --rules-from")
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -910,16 +1337,32 @@ def main(argv=None):
         if socket.gethostname().upper() != "EVO-X2":
             raise RuntimeError(f"x2_r2_agent runs on EVO-X2 only, this is {socket.gethostname()!r}")
         models = [m for m in args.models.split(",") if m]
-        c2 = args.call2_tools == "on"
-        plan = validation_plan(c2) if args.mode == "validation" else real_plan(c2)
+        c2 = args.call2_tools
+        plan = (validation_plan(c2) if args.mode == "validation" else real_plan(c2) if args.mode == "real"
+                else [])
         rules_in_use = tuple(args.rules_in_use.split(","))
+        preflight = None
         if args.rules_from:
-            rules_in_use = rules_in_use_from(read_rows(Path(args.rules_from)), c2)
+            vrows = read_rows(Path(args.rules_from))
+            rules_in_use = rules_in_use_from(vrows, c2)
+            if args.require_validation_gates:
+                preflight = validation_preflight(vrows, c2, models)
+                rules_in_use = preflight["rules_in_use"]
         with open(out_path, "a", encoding="utf-8") as f:
             f.write(json.dumps({"record": "run_start", "mode": args.mode, "models": models, "plan": plan,
-                                "rules_in_use": rules_in_use, "call2_tools": c2, "ts_utc": utc_iso(),
+                                "rules_in_use": rules_in_use, "call2_tools": c2 != "off", "call2_mode": c2,
+                                "call2_extra": call2_extra(c2), "rules_from": args.rules_from,
+                                "validation_preflight": preflight, "ts_utc": utc_iso(),
                                 "max_tokens_per_call": MAX_TOKENS_PER_CALL, "keep_alive": KEEP_ALIVE},
                                default=str) + "\n")
+        if preflight is not None and not preflight["ok"]:
+            with open(out_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps({"record": "refused", "reasons": preflight["reasons"], "ts_utc": utc_iso()},
+                                   default=str) + "\n")
+            note = ("stopped: refused to start, validation gates failed in "
+                    f"{Path(args.rules_from).name}: " + "; ".join(preflight["reasons"]))[:400]
+            log(note)
+            return
         hc.start_ollama_server()
         started = True
         if not hc.wait_for_ollama_ready(timeout_s=60):
@@ -932,7 +1375,23 @@ def main(argv=None):
         missing = [m for m in models if m not in avail]
         if missing:
             raise RuntimeError(f"models not present in this Ollama store: {missing} (have {avail})")
-        log(f"x2_r2_agent mode={args.mode} models={models} out={out_path}")
+        version = runtime.version()
+        with open(out_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps({"record": "runtime", "ollama_version": version, "ts_utc": utc_iso()}) + "\n")
+        log(f"x2_r2_agent mode={args.mode} call2={c2} models={models} ollama={version} out={out_path}")
+        if args.mode == "toolchoice_check":
+            def emit(row):
+                with open(out_path, "a", encoding="utf-8") as f:
+                    f.write(json.dumps(row, default=str) + "\n")
+            run_toolchoice_check(runtime, models, emit, log)
+            rows = read_rows(out_path)
+            report = {"ollama_version": version, "per_model": summarize_toolchoice_check(rows)}
+            Path(str(out_path) + ".report.json").write_text(json.dumps(report, indent=1, default=str),
+                                                            encoding="utf-8")
+            with open(out_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps({"record": "run_end", "ts_utc": utc_iso()}) + "\n")
+            log(json.dumps(report, default=str))
+            return
         run_plan(runtime, plan, models, args.mode, out_path, log=log)
         rows = read_rows(out_path)
         if args.mode == "validation":

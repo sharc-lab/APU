@@ -215,9 +215,10 @@ class FakeRuntime:
         self.unloads = []
         self.prompt_eval_first = prompt_eval_first
 
-    def chat(self, model, messages, num_ctx, tools, think):
+    def chat(self, model, messages, num_ctx, tools, think, extra=None):
         snapshot = [dict(m) for m in messages]
-        self.calls.append({"model": model, "messages": snapshot, "num_ctx": num_ctx, "tools": tools, "think": think})
+        self.calls.append({"model": model, "messages": snapshot, "num_ctx": num_ctx, "tools": tools, "think": think,
+                           "extra": extra})
         turn_idx = sum(1 for m in messages if m["role"] == "user")
         call_no = 1 if messages[-1]["role"] == "user" else 2
         content, native = self.policy(call_no, messages, turn_idx)
@@ -642,3 +643,246 @@ class TestPerCheckCanaries:
         kc = ag.kill_criterion(sessions, riu, rows)
         # llama's only failures are rule 5, which is not in use for llama -> no silent failure from llama
         assert kc["per_arm"]["ollama_ctx_131072" + ag.NOTOOLS_SUFFIX]["n_silent_failures"] == 0
+
+
+# ── call-2 protocol v3: forced_none (identical prompt and tools, tool_choice none on call 2) ─────────
+
+FN = "ollama_ctx_131072" + ag.MODE_SUFFIX["forced_none"]
+
+
+def _call2_tool_caller(ags):
+    """Answers call 2 with another tool call (what llama3.1:8b did on 20 of 30 turns in the first validation)."""
+    base = good_policy(ags)
+
+    def policy(call_no, messages, turn_idx):
+        if call_no == 2:
+            return "", [_native("log_event", event="again")]
+        return base(call_no, messages, turn_idx)
+    return policy
+
+
+class TestForcedNone:
+    def test_identical_prompt_and_tools_and_tool_choice_on_call2_only(self):
+        rt, rows, _, _ = _run(good_policy, turns=3, arm=FN)
+        assert len(rt.calls) == 6
+        assert all(c["tools"] for c in rt.calls)  # tools on every call
+        for i, c in enumerate(rt.calls):
+            assert c["extra"] == ({"tool_choice": "none"} if i % 2 == 1 else None)
+        turn_rows = [r for r in rows if r["record"] == "r2a_turn"]
+        for r in turn_rows:
+            c1, c2 = r["calls"]
+            assert c1["system_prompt_sha256"] == c2["system_prompt_sha256"] is not None
+            assert c1["tools_sha256"] == c2["tools_sha256"] is not None
+            assert c1["tool_choice_sent"] is None and c2["tool_choice_sent"] == "none"
+            assert r["system_prompt_identical_across_calls"] and r["tools_identical_across_calls"]
+            assert r["call2_mode"] == "forced_none" and r["call2_tool_choice_sent"] == "none"
+            assert r["call2_protocol_violation"] is False
+        # identical across the whole session too, not only within a turn
+        assert len({c["system_prompt_sha256"] for r in turn_rows for c in r["calls"]}) == 1
+        assert len({c["tools_sha256"] for r in turn_rows for c in r["calls"]}) == 1
+        assert turn_rows[0]["call2_tools"] is True
+
+    def test_hashes_match_what_is_sent(self):
+        rt, rows, _, ags = _run(good_policy, turns=1, arm=FN)
+        c2 = rows[0]["calls"][1]
+        assert c2["tools_sha256"] == ag.sha256_text(json.dumps(rt.calls[1]["tools"]))
+        assert c2["system_prompt_sha256"] == ag.sha256_text(ags.system_prompt)
+
+    def test_call2_tool_call_is_protocol_violation(self):
+        _, rows, summary, _ = _run(_call2_tool_caller, turns=2, arm=FN)
+        r = rows[0]
+        assert r["n_tool_calls_call2"] == 1 and r["call2_protocol_violation"] is True
+        assert "call2_protocol_violation" in ag.turn_failures(r)
+        assert summary["call2_protocol_violations"] == 2
+        assert summary["first_failure_turn"] == 1
+        assert "call2_protocol_violation" in summary["first_failure_reasons"]
+
+    def test_violation_not_scored_in_other_modes(self):
+        _, rows, _, _ = _run(_call2_tool_caller, turns=1)  # mode "on"
+        assert rows[0]["call2_protocol_violation"] is None
+        assert "call2_protocol_violation" not in ag.turn_failures(rows[0])
+        rt, rows, _, _ = _run(good_policy, turns=1, arm="ollama_ctx_131072" + ag.NOTOOLS_SUFFIX)
+        assert rows[0]["tools_identical_across_calls"] is False and rows[0]["calls"][1]["tools_sha256"] is None
+        assert rt.calls[1]["extra"] is None
+
+    def test_format_mode_sends_schema_on_call2_only(self):
+        rt, rows, _, _ = _run(good_policy, turns=1, arm="ollama_ctx_131072_call2_forcednone_format")
+        assert rt.calls[0]["extra"] is None
+        assert rt.calls[1]["extra"] == {"tool_choice": "none", "format": ag.ANSWER_FORMAT_SCHEMA}
+        assert rows[0]["calls"][1]["format_sent_sha256"] and rows[0]["tools_identical_across_calls"]
+
+    def test_plans(self):
+        p = ag.validation_plan("forced_none")
+        assert [a for a, _, _ in p] == [FN, "ollama_ctx_8192_positive_control_call2_forcednone", "ollama_ctx_131072"]
+        assert p[0][1] == ag.SEEDS and p[0][2] == 10 and p[1][2] == 15
+        assert [a for a, _, _ in ag.real_plan("forced_none")] == [
+            "ollama_default_call2_forcednone", "ollama_ctx_32768_call2_forcednone", "ollama_ctx_4096_call2_forcednone"]
+        assert ag.ARMS["ollama_default_call2_forcednone"]["num_ctx"] is None
+        # old bool spellings unchanged
+        assert ag.validation_plan(False) == ag.validation_plan("off")
+        assert ag.real_plan(True) == ag.real_plan("on")
+
+    def test_native_body_matches_client_plus_extra(self):
+        b = ag.native_chat_body("m", [{"role": "user", "content": "x"}], 4096, [{"t": 1}], False,
+                                {"tool_choice": "none"})
+        assert b["options"] == {"num_predict": ag.MAX_TOKENS_PER_CALL, "temperature": 0, "seed": 42, "num_ctx": 4096}
+        assert b["tool_choice"] == "none" and b["tools"] == [{"t": 1}] and b["think"] is False
+        assert b["keep_alive"] == ag.KEEP_ALIVE and b["stream"] is False
+        b2 = ag.native_chat_body("m", [], None, None, None)
+        assert "num_ctx" not in b2["options"] and "tools" not in b2 and "think" not in b2
+
+
+def _validation_rows_mode(mode, neg_factory=good_policy, pos_factory=None, run_end=True, models=None):
+    rows = [{"record": "run_start", "mode": "validation", "call2_mode": mode, "call2_tools": mode != "off"}]
+    for model in models or ("llama3.1:8b", "qwen3:14b"):
+        for arm, seeds, turns in ag.validation_plan(mode, with_diagnostic=False):
+            for seed in seeds:
+                ags = ag.build_agent_session(seed, turns)
+                if "positive" in arm:
+                    fac, loaded = (pos_factory or TestTruncation()._forgetful_after(0)), 8192
+                else:
+                    fac, loaded = neg_factory, 131072
+                ag.run_session(FakeRuntime(fac(ags), loaded=loaded), model, arm, seed, turns, rows.append,
+                               lambda m: None, "validation")
+    if run_end:
+        rows.append({"record": "run_end"})
+    return rows
+
+
+class TestValidationPreflight:
+    MODELS = ["llama3.1:8b", "qwen3:14b"]
+
+    def test_passes_when_all_gates_pass(self):
+        pf = ag.validation_preflight(_validation_rows_mode("forced_none"), "forced_none", self.MODELS)
+        assert pf["ok"], pf["reasons"]
+        assert set(pf["rules_in_use"]["qwen3:14b"]) == set(ag.RULE_IDS)
+
+    def test_refuses_on_negative_control_miss(self):
+        rows = _validation_rows_mode("forced_none", neg_factory=TestTruncation()._forgetful_after(5))
+        pf = ag.validation_preflight(rows, "forced_none", self.MODELS)
+        assert not pf["ok"] and any("negative control" in r for r in pf["reasons"])
+
+    def test_refuses_when_positive_control_does_not_fire(self):
+        rows = _validation_rows_mode("forced_none", pos_factory=good_policy)
+        pf = ag.validation_preflight(rows, "forced_none", self.MODELS)
+        assert not pf["ok"] and any("positive control" in r for r in pf["reasons"])
+
+    def test_refuses_when_no_rule_passes(self):
+        def junk(ags):
+            def policy(call_no, messages, turn_idx):
+                if call_no == 2:
+                    return "ZEBRA-7 not json, 3 feet", None
+                return "", [_native("lookup_fact", key="REC-0001")]  # never log_event: rule 2 fails too
+            return policy
+        pf = ag.validation_preflight(_validation_rows_mode("forced_none", neg_factory=junk), "forced_none",
+                                     self.MODELS)
+        assert not pf["ok"] and any("no rule reached" in r for r in pf["reasons"])
+
+    def test_dropped_rule_does_not_refuse_but_is_not_in_use(self):
+        pf = ag.validation_preflight(_validation_rows_mode("forced_none", neg_factory=_rule5_breaker),
+                                     "forced_none", self.MODELS)
+        assert pf["ok"], pf["reasons"]
+        assert "rule5_session_code" not in pf["rules_in_use"]["llama3.1:8b"]
+
+    def test_refuses_unfinished_or_wrong_mode_or_missing_model(self):
+        pf = ag.validation_preflight(_validation_rows_mode("forced_none", run_end=False), "forced_none", self.MODELS)
+        assert not pf["ok"] and any("run_end" in r for r in pf["reasons"])
+        pf = ag.validation_preflight(_validation_rows_mode("off"), "forced_none", self.MODELS)
+        assert not pf["ok"] and any("call-2 mode" in r for r in pf["reasons"])
+        pf = ag.validation_preflight(_validation_rows_mode("forced_none", models=["qwen3:14b"]), "forced_none",
+                                     self.MODELS)
+        assert not pf["ok"] and any(r.startswith("llama3.1:8b") for r in pf["reasons"])
+
+    def test_main_refuses_without_starting_ollama(self, tmp_path, monkeypatch):
+        vfile = tmp_path / "v3.jsonl"
+        rows = _validation_rows_mode("forced_none", pos_factory=good_policy)
+        vfile.write_text("\n".join(json.dumps(r, default=str) for r in rows) + "\n", encoding="utf-8")
+        import socket
+        import types
+        monkeypatch.setattr(socket, "gethostname", lambda: "EVO-X2")
+        started, notes = [], []
+        monkeypatch.setitem(sys.modules, "host_config", types.SimpleNamespace(
+            start_ollama_server=lambda: started.append(1), stop_ollama_server=lambda: None,
+            wait_for_ollama_ready=lambda timeout_s=0: True))
+        monkeypatch.setitem(sys.modules, "t2s_queue", types.SimpleNamespace(advance=notes.append))
+        out = tmp_path / "real.jsonl"
+        ag.main(["--mode", "real", "--call2-tools", "forced_none", "--rules-from", str(vfile),
+                 "--require-validation-gates", "--out", str(out)])
+        assert started == []
+        assert len(notes) == 1 and notes[0].startswith("stopped: refused to start") and "STOP" not in notes[0]
+        recs = ag.read_rows(out)
+        assert [r["record"] for r in recs] == ["run_start", "refused"]
+        assert recs[0]["call2_mode"] == "forced_none" and recs[0]["validation_preflight"]["ok"] is False
+
+
+class TestGatesForced:
+    def test_protocol_violations_in_table(self):
+        rows = _validation_rows_mode("forced_none", neg_factory=_call2_tool_caller)
+        rep = ag.evaluate_gates(rows, call2_tools="forced_none")
+        t = rep["baseline_table"]["llama3.1:8b"]
+        assert t["call2_protocol_violations"] == 30 and t["call2_tool_call_turns"] == 30
+        assert t["prompt_or_tools_changed_within_turn"] == 0
+        assert rep["call2_mode"] == "forced_none" and rep["diagnostic_mode"] == "on"
+        assert "protocol violations" in ag.format_baseline_markdown(rep)
+
+
+# ── tool_choice check (mock runtime that ignores tool_choice, as Ollama 0.34.4 does) ──────────────
+
+class FakeTCRuntime(FakeRuntime):
+    def render_only(self, model, messages, num_ctx, tools, think, extra=None):
+        # the template never sees tool_choice: identical text with or without it
+        return json.dumps([messages, tools]), None
+
+    def chat_openai(self, model, messages, tools, think, tool_choice=None):
+        self.calls.append({"openai": True, "messages": messages, "tool_choice": tool_choice})
+        return {"outcome": "ok", "status": 200, "message": "", "tool_calls": [_native("log_event", event="x")]}
+
+
+class TestToolChoiceCheck:
+    def test_ignored_tool_choice_gives_no_effect_verdict(self):
+        rows = []
+        ags = ag.build_agent_session(ag.SEEDS[0], ag.TC_TURNS)
+        rt = FakeTCRuntime(_call2_tool_caller(ags))
+        ag.run_toolchoice_check(rt, ["llama3.1:8b"], rows.append, lambda m: None)
+        s = ag.summarize_toolchoice_check(rows)["llama3.1:8b"]
+        n = ag.TC_TURNS
+        assert s["rendered_prompt_pairs"] == n and s["rendered_prompt_identical"] == n
+        assert s["variants"]["on"]["tool_call_turns"] == n and s["variants"]["tool_choice_none"]["tool_call_turns"] == n
+        assert s["identical_on_vs_tool_choice_none"] == {"n": n, "identical": n}
+        assert s["verdict_api_chat_tool_choice_none"] == "no_effect_observed"
+        assert s["verdict_v1_tool_choice_none"] == "no_effect_observed"
+        # tools sent on every native call, tool_choice only on the variants that ask for it
+        native = [c for c in rt.calls if not c.get("openai")]
+        assert all(c["tools"] for c in native)
+        assert sum(1 for c in native if (c["extra"] or {}).get("tool_choice") == "none") == 2 * n
+        assert sum(1 for c in rt.calls if c.get("openai") and c["tool_choice"] == "none") == n
+
+    def test_effect_detected_when_runtime_honours_it(self):
+        class Honouring(FakeTCRuntime):
+            def chat(self, model, messages, num_ctx, tools, think, extra=None):
+                r = super().chat(model, messages, num_ctx, tools, think, extra)
+                if extra and extra.get("tool_choice") == "none":
+                    r = {**r, "message": _answer("ok", "SC"), "tool_calls": None}
+                return r
+        rows = []
+        ags = ag.build_agent_session(ag.SEEDS[0], ag.TC_TURNS)
+        ag.run_toolchoice_check(Honouring(_call2_tool_caller(ags)), ["llama3.1:8b"], rows.append, lambda m: None)
+        s = ag.summarize_toolchoice_check(rows)["llama3.1:8b"]
+        assert s["verdict_api_chat_tool_choice_none"] == "effect_observed"
+        assert s["variants"]["tool_choice_none"]["tool_call_turns"] == 0
+
+    def test_openai_message_conversion(self):
+        msgs = [{"role": "system", "content": "s"}, {"role": "user", "content": "u"},
+                {"role": "assistant", "content": "", "tool_calls": [_native("log_event", event="e"),
+                                                                    _native("lookup_fact", key="K")]},
+                {"role": "tool", "content": "r1", "tool_name": "log_event"},
+                {"role": "tool", "content": "r2", "tool_name": "lookup_fact"}]
+        o = ag.to_openai_messages(msgs)
+        tcs = o[2]["tool_calls"]
+        assert [t["type"] for t in tcs] == ["function", "function"]
+        assert json.loads(tcs[1]["function"]["arguments"]) == {"key": "K"}
+        assert o[3]["tool_call_id"] == tcs[0]["id"] and o[4]["tool_call_id"] == tcs[1]["id"]
+
+    def test_rendered_template_lookup(self):
+        assert ag.rendered_template_of({"_debug_info": {"rendered_template": "abc"}}) == "abc"
+        assert ag.rendered_template_of({"message": {}}) is None
