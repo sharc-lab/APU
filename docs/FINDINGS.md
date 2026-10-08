@@ -2719,3 +2719,38 @@ carry "[bare template]" and are not model capability. The llama_server legs rend
 model's published chat template) and are not marked. Not verified here: whether Ollama 0.34.4 renders a bare tag's
 single-turn outcome-table prompt through the GGUF jinja template or through `{{ .Prompt }}`; that needs a render-only
 request, which is a chat call and was not made by hand.
+
+## R2 mechanism, evo-x2: Ollama keeps the system message, llama.cpp then discards it at 4096 (2026-10-08)
+
+**Run.** `x2_r2_mechanism_v1` (`harness/x2_r2_mechanism.py`): llama3.1:8b, seed 20260901, one 40-turn session per tier
+(Ollama default, num_ctx 32768, 16384, 8192, 4096), v1 call-2 protocol, Ollama 0.34.4 with OLLAMA_DEBUG=1. Before each
+real call the identical request was rendered with `_debug_render_only`; the server log slice of each call was parsed.
+Register rows `R2-mechanism-verdict` and `R2-mechanism-lowlevel`.
+
+**Validity.** For every tier, the render-only prompt tokenized with the model's own GGUF (`llama-tokenize.exe`)
+matched the `prompt_eval_count` of a fresh, uncached request exactly on every check (`R2-mechanism-verdict`: 5/5,
+13/13, 11/11, 10/10, 9/9; 0.0% difference), including 8 post-overflow checks in each truncating tier. Every tier is
+citable. The tokenizer parser was also checked on two known strings before use was confirmed (6 and 164 tokens, BOS
+128000 added once).
+
+**Result per tier** (`R2-mechanism-verdict`, `R2-mechanism-lowlevel`):
+- Message level, every truncating tier: Ollama drops whole messages from the front, always keeps the system message
+  and the current message, and keeps a contiguous tail. The cut is at the message level but usually not at a turn
+  boundary (the first kept message is often an assistant or tool message whose user message was dropped). No
+  render/log disagreement in any call.
+- 16384 and 8192: message-level dropping only; no token-level cut, no context shift. "Drops old turns, keeps the
+  system prompt" is confirmed for these tiers.
+- 32768: message-level dropping, plus 10 llama.cpp context shifts from turn 30 (n_keep 5, n_discard 16381), all on
+  the tool-call request, none on the final-answer request. Confirmed at the message level; the shifts are a second
+  mechanism on top.
+- 4096: the hypothesis is refuted. Ollama keeps the system message when it drops messages, but llama.cpp then fires
+  34 context shifts (n_keep 5, n_discard 2045; 29 of them on the final-answer request) and Ollama made 1 token-level
+  prompt cut (keep 4, 4097 -> 2050 tokens, the num_ctx/2 + 2 rule in `ollama-overflow-keeps-half`). Both keep only
+  the first 4 or 5 tokens and discard what follows, which is where the system prompt sits.
+- Ollama default (131072 loaded): no truncation in 40 turns.
+
+**Reading.** This explains the R2 real-run pattern (`R2-real-v1-gated-kill`): at 32768 and default the conversation
+history is lost silently but the rules hold, because the system message is kept; at 4096 the rules break, because
+after Ollama's message-level trimming leaves too little room, llama.cpp's context shift and Ollama's token cut remove
+the start of the prompt, system prompt included. All of it with HTTP 200 and no error field. One model, one seed per
+tier: the strengthened run (`x2_r2_real_v1b`) covers 4 models x 5 seeds at the same tiers.

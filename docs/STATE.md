@@ -269,3 +269,9 @@ each branch's FINDINGS section and register rows (not repeated here until merged
   x2_r2_real_v1b now runs llama3.1:8b, qwen3:14b, qwen3-4b-2507-tools, qwen3:8b (projected ~51.6 h, partly
   unmeasured), gated on that job; a failing 4B is refused per model. Both bare-GGUF Ollama legs in the outcome
   table (qwen3-4b-2507 and qwen3-30b-a3b-2507) are marked "[bare template]" in the register tables.
+- 2026-10-08: x2_r2_mechanism_v1 done (FINDINGS section of 2026-10-08; register R2-mechanism-verdict and
+  R2-mechanism-lowlevel). All tiers citable (render tokens = fresh prompt_eval_count on every check). x2_r2_4b_tools_validate
+  errored by design: the Modelfile was written with CRLF, so the created template differed from the library one only
+  by CR characters; fixed (ecf1b66, LF), deployed, requeued as x2_r2_4b_tools_validate_r2 ahead of the outcome table via
+  the yield. The old qwen3-4b-2507 tag is untouched. evo-x2 SSH briefly reset connections during the mechanism run
+  (no reboot; uptime since 2026-10-04).
