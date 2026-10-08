@@ -2707,6 +2707,61 @@ def compute_x2_chat_template_source(repo):
                          f"(v3 rows: {rows_s or 'none'})")
     return {"value": "; ".join(parts), "n": len(rows)}
 
+# ───────────────────────────────────────────────── Pareto frontier (src/dse/pareto.py, 2026-10-08)
+PARETO_X2_FILES = [("evo-x2", X2_OUTCOME_V3)]
+PARETO_SAMPLE = {"budget_usd": 50.0, "quality_floor": 0.9, "latency_target_ms": 30_000.0, "hardware": ["evo-x2"]}
+_PARETO_DATA = [X2_OUTCOME_V3, "results/workload_pack/item_weights_trace_weighted.json",
+                "results/cloud_prices_20261008.json", X2_TEMPLATE_FACTS]
+_PARETO_CACHE: dict = {}
+
+
+def _pareto_points(repo):
+    key = str(repo)
+    if key not in _PARETO_CACHE:
+        import sys
+        sys.path.insert(0, str(REPO))
+        from src.dse import pareto as P
+        _PARETO_CACHE[key] = (P, P.load_points(PARETO_X2_FILES, cloud_source="stub", repo=repo))
+    return _PARETO_CACHE[key]
+
+
+def _pareto_fmt(p):
+    lat = "n/a" if p.latency_p50_ms is None else f"{p.latency_p50_ms / 1000:.1f}/{p.latency_p90_ms / 1000:.1f} s"
+    q = "n/a" if p.quality is None else f"{p.quality:.3f}"
+    return f"{p.label()} q {q} (n={p.quality_n}) USD {p.usd_per_1k_steps:.2f}/1k steps p50/p90 {lat}"
+
+
+def compute_pareto_frontier_x2(repo):
+    """Quality vs USD per 1000 steps frontier per machine (src/dse/pareto.py::frontier) over the evo-x2 v3 outcome
+    table; bare-template cells and STUB cloud points (no measured quality) are excluded from the frontier and
+    listed separately."""
+    P, pts = _pareto_points(repo)
+    parts = []
+    for m in sorted({p.machine for p in pts}):
+        f = P.frontier(pts, m)
+        parts.append(f"{m} frontier: " + ("; ".join(_pareto_fmt(p) for p in f) or "none (no measured quality)"))
+    bare = [p for p in pts if p.bare_template]
+    if bare:
+        parts.append("bare template, off frontier: " + "; ".join(_pareto_fmt(p) for p in bare))
+    stub = [p for p in pts if p.stub]
+    if stub:
+        parts.append(f"{P.STUB} cloud (quality not measured): " + "; ".join(
+            f"{p.model} USD {p.usd_per_1k_steps:.2f}/1k steps" for p in stub))
+    n_local = len([p for p in pts if not p.is_cloud])
+    return {"value": f"{n_local} local configs; " + " / ".join(parts), "n": n_local}
+
+
+def compute_pareto_sample_recommendation(repo):
+    """src/dse/pareto.py::recommend for budget USD 50, quality floor 0.9, p50 latency target 30 s, hardware
+    [evo-x2]; savings are vs the cheapest cloud point (STUB until a real cloud ledger or outcome file exists)."""
+    P, pts = _pareto_points(repo)
+    rec = P.recommend(pts, **PARETO_SAMPLE)
+    sav = rec.savings_vs_all_cloud_usd_per_1k
+    return {"value": f"{rec.reason}; savings vs all-cloud "
+                     f"{'n/a' if sav is None else f'USD {sav:.2f}/1k steps'}" + (f" [{P.STUB}]" if rec.stub else ""),
+            "n": len(pts)}
+
+
 def compute_r2_mechanism_lowlevel(repo):
     """R2 mechanism job, per tier: calls with message-level truncation, llama.cpp context-shift events (n_keep,
     n_discard, how many on the final-answer call), and Ollama token-level prompt cuts (limit/keep/new)."""
@@ -3172,6 +3227,14 @@ NUMBER_ENTRIES = [
                     "(evo-x2 probe facts; v3 rows recorded vs derived)",
      "compute": compute_x2_chat_template_source, "data_files": [X2_TEMPLATE_FACTS, X2_OUTCOME_V3],
      "script_function": "analysis/numbers_register.py::compute_x2_chat_template_source"},
+    {"claim_id": "pareto-frontier-x2", "description": "Quality (trace-weighted) vs USD per 1000 steps frontier per "
+                    "machine, evo-x2 v3 outcome table; cloud points are STUB (priced, quality not measured)",
+     "compute": compute_pareto_frontier_x2, "data_files": _PARETO_DATA,
+     "script_function": "src/dse/pareto.py::frontier"},
+    {"claim_id": "pareto-sample-recommendation", "description": "Recommender output for budget USD 50, quality "
+                    "floor 0.9, p50 latency 30 s, hardware evo-x2; savings vs all-cloud (STUB)",
+     "compute": compute_pareto_sample_recommendation, "data_files": _PARETO_DATA,
+     "script_function": "src/dse/pareto.py::recommend"},
     {"claim_id": "R2-mechanism-lowlevel", "description": "R2 mechanism job: message truncation, llama.cpp context "
                     "shifts and Ollama token cuts per tier",
      "compute": compute_r2_mechanism_lowlevel, "data_files": ["results/x2_r2_mechanism.jsonl"],
