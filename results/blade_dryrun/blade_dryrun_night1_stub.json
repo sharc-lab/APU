@@ -5,7 +5,7 @@
   "started_utc": "2026-10-08T21:41:50.918972+00:00",
   "refused": null,
   "power": {
-   "log": "C:\\Users\\rithw\\AppData\\Local\\Temp\\blade_night_stub_jxb72_q8\\logs\\night1_power_20261008T214150Z.json",
+   "log": "%USERPROFILE%\\AppData\\Local\\Temp\\blade_night_stub_jxb72_q8\\logs\\night1_power_20261008T214150Z.json",
    "original": {
     "SUB_SLEEP/STANDBYIDLE": {
      "ac": 1800,
@@ -95,7 +95,7 @@
    "stopped_early": null
   },
   "ended_utc": "2026-10-08T21:41:51.267033+00:00",
-  "summary_file": "C:\\Users\\rithw\\AppData\\Local\\Temp\\blade_night_stub_jxb72_q8\\results\\blade_night1_summary_20261008T214150Z.json"
+  "summary_file": "%USERPROFILE%\\AppData\\Local\\Temp\\blade_night_stub_jxb72_q8\\results\\blade_night1_summary_20261008T214150Z.json"
  },
  "power_call_order": [
   "/setacvalueindex SUB_SLEEP STANDBYIDLE 0",

@@ -302,3 +302,15 @@ Every report states status against these three checkpoints.
   picks it up at its next restart), and (b) 11 genuine qwen3-32b llama_server timeouts on 32K items (Ollama completes
   the same items); left as valid timeout outcomes, operator decision whether to raise the timeout. First 4B job marked
   error_superseded. Progress 1078/3600 (register x2-v3-progress).
+
+### 2026-10-08, Blade decisions applied
+
+- Ollama 0.34.4 installed side by side on the Blade (hash verified; tray 0.34.1 untouched); qwen3:8b pulled, digest
+  equal to evo-x2's (`results/blade_install_20261008.json`). All Blade measurement jobs use the 0.34.4 binary by path;
+  --allow-version-mismatch only on dry runs. Validation cap 32768 (register `blade-validation-ctx-cap`). C3 half B in a
+  finally block plus a read-back gate. Nights: 1 = K1 + llama3.1:8b R2 + mitigation; 2 = C3 + mechanism; 3 = qwen3:8b
+  R2 only if K1 shows it fits. Six 60 s dry runs passed (docs/BLADE_PLAN.md); rates and hours in register rows
+  `blade-dryrun-rates`, `blade-night-hours`. No Blade night has started; waiting for "start Blade night 1".
+- Demo: router merged (Oct 14 checkpoint met with Pareto); dashboard runs on the real router and Pareto backends.
+- Open operator decisions: APU-SyncResults runs --host both (tries evo-t2s every 2 h); T2S week cut (106.2 h plan vs
+  72 h); qwen3-32b llama_server timeout; x2_r2_agent changes for T2S (host guard, --server-env, --tiers, --seeds).

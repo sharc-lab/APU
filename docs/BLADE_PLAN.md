@@ -250,3 +250,23 @@ model was loaded then.
    other CUDA programs.
 6. llama3.1:8b on the Blade: manifest model digest 667b0c19...6a29; whether it equals evo-x2's digest has not been
    checked (no SSH this session). K1 records the digest in its rows via `/api/ps`.
+
+### 60-second live dry runs, run 2026-10-08 (operator-approved), Ollama 0.34.4 side by side
+
+Ollama 0.34.4 installed side by side at `C:\apu\bin\ollama-0.34.4` (zip sha256 equal to the expected value; tray
+0.34.1 untouched; `results/blade_install_20261008.json`). qwen3:8b pulled; its model layer digest equals evo-x2's.
+Each dry run ran alone (no other local work), on llama3.1:8b with the 0.34.4 binary, stopped itself after 60 s, and
+left no ollama or llama-server process; the tray app was restarted (hidden) afterwards. Rates and the per-night hours
+are register rows `blade-dryrun-rates` and `blade-night-hours`; user paths in the result files are redacted.
+
+| dry run | launched | wrote results | cleaned up |
+|---|---|---|---|
+| K1 (default context probe) | yes | yes | yes |
+| R2 validation (negative control at the 32768 cap) | yes | yes | yes |
+| R2 real tiers (4096) | yes | yes | yes |
+| R2 mitigation (4096, client trim) | yes | yes | yes |
+| C3 gate (fake operator, no server, no NVIDIA change) | yes | yes | not applicable |
+| R2 mechanism (4096, OLLAMA_DEBUG) | yes | yes | yes |
+
+The first validation dry run ran at 131072 because the cap commit had not reached main yet; that file is kept as
+`blade_dryrun_r2_validation_precap131072.jsonl` and is not used for rates.
