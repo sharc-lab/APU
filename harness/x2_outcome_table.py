@@ -29,6 +29,12 @@ unless it carries an invalid_* tag, or its cause is "connection" (an infra failu
 --reuse-from PATH copies the valid rows of an earlier run into --out once (marked reused_from), after
 tagging that file's invalid rows in place (tag_invalid_rows, idempotent).
 
+GSM8K SCORING (2026-10-07). "score" stays the strict `#### N` score. gsm8k rows also carry score_strict (same
+value), format_ok (a `#### N` is present) and score_lenient (reference number anywhere in the last sentence; exact
+definition at gsm8k_last_sentence). Every scored row stores output_text (first 500 chars) and output_tail (last
+500 chars), so the last sentence of a long response can be recomputed from the row. Rows written before these
+fields existed are still valid cached rows; they simply lack them.
+
 ITEM-BOUNDARY YIELD CONTRACT (for other queue jobs, e.g. the R2 harness, that need the machine):
   1. The other job queues its own item (status "pending") somewhere after this job's running item.
   2. It creates the file C:\\apu\\ovn\\yield_x2_outcome_table (contents ignored).
@@ -325,7 +331,69 @@ def score_response(grade_module, item, response_text):
 
 _FINAL_NUMBER_RE = re.compile(r"####\s*\**\s*(-?[\d,]+(?:\.\d+)?)")
 # Rows scored before the final_number_match fix carry no scorer_version; they are not valid cached rows.
+# The lenient gsm8k columns added 2026-10-07 do NOT bump this: a v2 row without them is still a valid cached
+# row (its strict score is unchanged); the lenient columns are simply absent on rows measured before them.
 SCORER_VERSION = 2
+
+# ------------------------------------------------------------------------------------------ lenient gsm8k
+# GSM8K is scored twice, and both go on the row:
+#   score_strict  -- the existing `#### N` score (score_response above; also kept as the row's plain "score",
+#                    which the canary gate reads, so gating is unchanged).
+#   format_ok     -- True iff the response contains a `#### N` line at all (format compliance on its own).
+#   score_lenient -- 1.0 iff the reference final number appears anywhere in the response's LAST SENTENCE.
+# "Last sentence" is defined exactly as follows (gsm8k_last_sentence):
+#   1. Strip <think> blocks (the same strip_thinking as the strict score), then leading/trailing whitespace.
+#   2. Split on sentence boundaries: a run of one or more newlines, or ".", "!" or "?" followed by whitespace.
+#      A "." between two digits ("1.5") or at the very end of the text is not a boundary.
+#   3. The last sentence is the last non-empty piece (whitespace-stripped). An empty response has none.
+# Numbers in the last sentence (_LENIENT_NUMBER_RE): optional "-" (only when not preceded by a letter, digit or
+# ".", so the "4" in "3-4" stays positive), optional "$", then either a comma-grouped
+# integer (1,200 / 12,345,678) or plain digits, with an optional decimal part. "$" and grouping commas are
+# removed; a trailing sentence period is never part of a number (the decimal part needs a digit after "."),
+# and a trailing "%" or unit is ignored. A number matches when it equals the oracle numerically (18 == 18.00).
+# It is a superset-in-spirit of strict but not strictly: "#### 18\n\nHope this helps!" is strict 1, lenient 0
+# (the last sentence is the sign-off), which is exactly the format-vs-correctness split these columns separate.
+_SENTENCE_SPLIT_RE = re.compile(r"\n+|(?<=[.!?])\s+")
+_LENIENT_NUMBER_RE = re.compile(r"(?:(?<![\w.])-)?\$?(?:\d{1,3}(?:,\d{3})+(?!\d)|\d+)(?:\.\d+)?")
+
+
+def gsm8k_last_sentence(response_text):
+    pieces = [p.strip() for p in _SENTENCE_SPLIT_RE.split(strip_thinking(response_text))]
+    pieces = [p for p in pieces if p]
+    return pieces[-1] if pieces else ""
+
+
+def _lenient_number_value(tok):
+    return float(tok.replace("$", "").replace(",", ""))
+
+
+def gsm8k_lenient_score(oracle, response_text):
+    try:
+        want = float(str(oracle).replace(",", "").replace("$", "").strip())
+    except ValueError:
+        return 0.0
+    for tok in _LENIENT_NUMBER_RE.findall(gsm8k_last_sentence(response_text)):
+        try:
+            if _lenient_number_value(tok) == want:
+                return 1.0
+        except ValueError:
+            continue
+    return 0.0
+
+
+def gsm8k_score_fields(grade_module, item, response_text):
+    """Extra per-row fields for a final_number_match item: strict score, format compliance, lenient score.
+    Empty dict for every other grading method. response_text is the raw content (thinking is stripped here,
+    the same way the strict path strips it)."""
+    if (item.get("grading") or {}).get("method") != "final_number_match":
+        return {}
+    try:
+        text = strip_thinking(response_text)
+        return {"score_strict": score_response(grade_module, item, text),
+                "format_ok": bool(_FINAL_NUMBER_RE.search(text or "")),
+                "score_lenient": gsm8k_lenient_score(item.get("oracle_answer"), text)}
+    except Exception:
+        return {}  # the extra columns must never turn a measured row into a driver exception
 
 
 # ================================================================================================ results file
@@ -537,7 +605,8 @@ def run_one_ollama(item, model_key, ollama_tag, out_path, call_timeout_s, canary
                     "completion_tokens": resp.get("eval_count"),
                     "finish_reason": (resp.get("raw") or {}).get("done_reason"),
                     "content_chars": len(content), "reasoning_chars": len(reasoning), "thinking_leak": leak,
-                    "output_text": content[:500]})
+                    "output_text": content[:500], "output_tail": content[-500:]})
+        row.update(gsm8k_score_fields(load_graders(), item, content))
     except Exception as e:
         row.update({"http_status": None, "score": 0.0, "error": f"driver exception: {e!r}"[:400]})
     finally:
@@ -698,7 +767,8 @@ def run_one_llama_server(item, model_key, gguf_path, out_path, call_timeout_s, c
                         "silently_truncated": bool(processed is not None and processed < sent),
                         "completion_tokens": usage.get("completion_tokens"), "finish_reason": finish,
                         "content_chars": len(content), "reasoning_chars": len(reasoning), "thinking_leak": leak,
-                        "output_text": content[:500]})
+                        "output_text": content[:500], "output_tail": content[-500:]})
+            row.update(gsm8k_score_fields(load_graders(), item, content))
         except urllib.error.HTTPError as e:
             row.update({"http_status": e.code, "score": 0.0, "error": e.read().decode(errors="replace")[:400]})
         except Exception as e:
