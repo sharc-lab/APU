@@ -314,3 +314,22 @@ Every report states status against these three checkpoints.
 - Demo: router merged (Oct 14 checkpoint met with Pareto); dashboard runs on the real router and Pareto backends.
 - Open operator decisions: APU-SyncResults runs --host both (tries evo-t2s every 2 h); T2S week cut (106.2 h plan vs
   72 h); qwen3-32b llama_server timeout; x2_r2_agent changes for T2S (host guard, --server-env, --tiers, --seeds).
+
+### 2026-10-08, decisions applied; local Claude Code work paused
+
+- APU-SyncResults now runs `--host evo-x2` (changed by hand, installer has `-SyncHost`, default evo-x2). sync_results
+  skips the commit during a merge, rebase, cherry-pick, revert, any git lock or unmerged paths, logs the skip, and
+  commits only the pulled files and the manifest with the message "results sync".
+- T2S week cut: steps 1 to 4 plus mechanism, 71.96 h of 72; outcome subset deferred (evo-x2 outcome table covers
+  quality); trim rule recorded (iGPU tier first, never the mechanism run). x2_r2_agent gained a host check,
+  --server-env, --tiers, --seeds (defaults identical to evo-x2 behaviour, golden tests); the T2S queue (8 entries)
+  passes its dry run with nothing blocked. NOT deployed to evo-x2: x2_r2_agent.py on evo-x2 stays at the previous
+  blob until x2_r2_real_v1b and x2_r2_mitigation_v1 finish; deploy it (and to evo-t2s with t2s_r2_agent.py) after.
+- timeout_latency: analysis-only label for timed-out rows, excluded from accuracy denominators, still in progress
+  and error causes; register x2-v3-usability and qwen3-32b-timeout-count (provisional until v3 finishes). Side effect:
+  the Pareto sample recommendation is now qwen3-4b-2507/llama_server (register pareto-sample-recommendation), a config
+  with 15% timeouts; a usability floor in the recommender is an open operator decision.
+- Paper: FH1 cross-vendor spill-cost headline figure added to docs/PAPER1_DRAFT.md (AMD and NVIDIA panels pending).
+- Local Claude Code work paused: C:\apu\blade\CLAUDE_CODE_PAUSED.flag created. Blade night 1 waits only for the
+  operator's "start Blade night 1" (C:\apu\blade\START_BLADE_NIGHT_1.flag). To resume local work, delete the paused
+  flag (and make sure no Blade night is running).
