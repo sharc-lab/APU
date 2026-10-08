@@ -1711,6 +1711,159 @@ def compute_t2s_outcome_error_causes(repo):
             "n": len(rows)}
 
 
+# ───────────────────────────────────────────────── GSM8K strict vs lenient, T2S allocation failures (2026-10-07)
+def _x2_v3_gsm8k_rows(repo):
+    """Last valid gsm8k row per (item, model, config) in the v3 file (the row the latest canary gate read), with
+    score (the recorded strict score), format_ok and score_lenient. Rows written with the lenient columns carry
+    them. For older rows they are recomputed from output_text, which holds only the first 500 chars: when
+    content_chars > 500 the last sentence was not stored, so score_lenient is None, and format_ok is None unless
+    the strict score is 1 (which implies a `#### N`) or the stored head already contains one."""
+    x2 = _x2_harness()
+    g = x2.load_graders()
+    items = {it["item_id"]: it for it in x2.load_items_trace_weighted(repo)}
+    out = []
+    for (iid, model, config), r in sorted(x2.valid_cached_rows(repo / X2_OUTCOME_V3).items()):
+        if r.get("family") != "gsm8k":
+            continue
+        score = r.get("score") or 0.0
+        if "score_lenient" in r:
+            fmt, lenient = r.get("format_ok"), r.get("score_lenient")
+        else:
+            text = r.get("output_text") or ""
+            if (r.get("content_chars") or 0) <= 500:
+                f = x2.gsm8k_score_fields(g, items[iid], text)
+                fmt, lenient = f["format_ok"], f["score_lenient"]
+            else:
+                head_fmt = bool(x2._FINAL_NUMBER_RE.search(x2.strip_thinking(text)))
+                fmt = True if (score == 1.0 or head_fmt) else None
+                lenient = None
+        out.append({"item_id": iid, "model_id": model, "config": config, "score": score, "format_ok": fmt,
+                    "score_lenient": lenient, "canary": r.get("canary")})
+    return out
+
+
+def compute_x2_v3_gsm8k_strict_vs_lenient(repo):
+    """Per (model, config): gsm8k rows, strict score (the recorded score), format_ok (a `#### N` in the stored
+    text), and the lenient last-sentence score over the rows whose stored text is the whole response."""
+    by = {}
+    for r in _x2_v3_gsm8k_rows(repo):
+        b = by.setdefault((r["model_id"], r["config"]), {"n": 0, "strict": 0.0, "fmt": 0, "len_n": 0, "len": 0.0,
+                                                          "strict_on_len": 0.0})
+        b["n"] += 1
+        b["strict"] += r["score"]
+        b["fmt"] += r["format_ok"] is True
+        b["fmt_unk"] = b.get("fmt_unk", 0) + (r["format_ok"] is None)
+        if r["score_lenient"] is not None:
+            b["len_n"] += 1
+            b["len"] += r["score_lenient"]
+            b["strict_on_len"] += r["score"]
+    parts = [f"{m}/{c} strict {b['strict']:.0f}/{b['n']}, format_ok {b['fmt']}/{b['n']} "
+             f"({b.get('fmt_unk', 0)} unknown), lenient {b['len']:.0f}/"
+             f"{b['len_n']} (strict on the same {b['len_n']}: {b['strict_on_len']:.0f}; "
+             f"{b['n'] - b['len_n']} rows over 500 chars, last sentence not stored)"
+             for (m, c), b in sorted(by.items())]
+    return {"value": "; ".join(parts), "n": sum(b["n"] for b in by.values())}
+
+
+def compute_x2_v3_canary_gate_lenient(repo):
+    """Canary gate mean score per (model, config) as recorded (strict gsm8k) and with lenient gsm8k scores
+    substituted, computable only when all of that cell's gsm8k canaries stored their whole response."""
+    x2 = _x2_harness()
+    gates = {}
+    for r in x2.read_rows(repo / X2_OUTCOME_V3):
+        if r.get("record") == "canary_gate":
+            gates[(r["model_id"], r["config"])] = r
+    gsm = {}
+    for r in _x2_v3_gsm8k_rows(repo):
+        gsm.setdefault((r["model_id"], r["config"]), []).append(r)
+    parts = []
+    for key, gate in sorted(gates.items()):
+        rows = gsm.get(key, [])
+        n = gate["n"]
+        if rows and all(r["score_lenient"] is not None for r in rows):
+            delta = sum(r["score_lenient"] - r["score"] for r in rows)
+            lenient = f"{gate['mean_score'] + delta / n:.2f}"
+        else:
+            # bounds: each gsm8k canary whose last sentence was not stored counts as lenient 0 (low) or 1 (high)
+            known = sum(r["score_lenient"] - r["score"] for r in rows if r["score_lenient"] is not None)
+            unk = [r for r in rows if r["score_lenient"] is None]
+            lo = gate["mean_score"] + (known - sum(r["score"] for r in unk)) / n
+            hi = gate["mean_score"] + (known + sum(1 - r["score"] for r in unk)) / n
+            lenient = f"{lo:.2f} to {hi:.2f} ({len(unk)}/{len(rows)} gsm8k canaries over 500 chars, bounded)"
+        parts.append(f"{key[0]}/{key[1]} strict mean {gate['mean_score']:.2f}, lenient mean {lenient}")
+    return {"value": "; ".join(parts), "n": len(gates)}
+
+
+def compute_t2s_outcome_gsm8k_rescore(repo):
+    """Whether the synced T2S outcome rows can be rescored with the fixed gsm8k scorer: gsm8k rows present, and
+    rows that stored response text."""
+    files = sorted((repo / "results").glob("t2s_outcome_table*.jsonl"))
+    parts, total = [], 0
+    for p in files:
+        rows = [r for r in _read_jsonl(p) if r.get("record") == "outcome_row"]
+        total += len(rows)
+        gsm = sum(1 for r in rows if r.get("family") == "gsm8k")
+        txt = sum(1 for r in rows if r.get("output_text") is not None)
+        fams = sorted({r.get("family") for r in rows})
+        parts.append(f"{p.name}: {len(rows)} rows, gsm8k {gsm}, rows with output text {txt}, families {fams}")
+    return {"value": "; ".join(parts), "n": total}
+
+
+def _t2s_alloc_kind(err):
+    e = (err or "")
+    if "unable to allocate Vulkan0 buffer" in e:
+        return "Vulkan0"
+    if "unable to allocate CPU_REPACK buffer" in e:
+        return "CPU_REPACK"
+    return None
+
+
+def compute_t2s_allocation_failures(repo):
+    """Allocation failures in the synced T2S full file per config: count, allocation kind and buffer size (from the
+    verbatim error), shortest failing and longest succeeding prompt (sent_tokens), and the timestamp of the first
+    failure vs the last success (the failures are time-ordered, not length-ordered)."""
+    import re
+    rows = [r for r in _read_jsonl(repo / T2S_OUTCOME_FULL) if r.get("record") == "outcome_row"]
+    parts = []
+    for cfg in ("ollama_default", "ollama_igpu_enable", "llama_server_vulkan"):
+        cr = [r for r in rows if r["config"] == cfg]
+        fail = [r for r in cr if _t2s_alloc_kind(r.get("error"))]
+        ok = [r for r in cr if r.get("http_status") == 200]
+        if not fail:
+            parts.append(f"{cfg}: 0 allocation failures in {len(cr)} rows ({len(ok)} HTTP 200, longest succeeding "
+                         f"{max((r['sent_tokens'] for r in ok), default=None)} tok)")
+            continue
+        kinds = sorted({(_t2s_alloc_kind(r['error']), int(m)) for r in fail
+                        for m in re.findall(r"buffer of size (\d+)", r["error"])[:1]})
+        f_len = [r["sent_tokens"] for r in fail]
+        ok_after = [r for r in ok if r["ts_utc"] > min(f["ts_utc"] for f in fail)]
+        parts.append(f"{cfg}: {len(fail)} allocation failures of {len(cr)} rows, model {sorted({r['model_id'] for r in fail})}, "
+                     f"buffer {kinds}; failing prompt tokens {min(f_len)}..{max(f_len)}; succeeding prompt tokens "
+                     f"{min(r['sent_tokens'] for r in ok)}..{max(r['sent_tokens'] for r in ok)}; first failure "
+                     f"{min(f['ts_utc'] for f in fail)} ({min(fail, key=lambda f: f['ts_utc'])['item_id']}), last success "
+                     f"{max(r['ts_utc'] for r in ok)}, successes after first failure {len(ok_after)}")
+    import datetime
+    allr = _read_jsonl(repo / T2S_OUTCOME_FULL)
+    items_hb = [r["item_id"] for r in allr if r.get("record") == "heartbeat"]
+    ls_rows = {r["item_id"] for r in rows if r["config"] == "llama_server_vulkan"}
+    missing = sorted(set(items_hb) - ls_rows)
+    # time the unrecorded llama-server attempt took: from the item's last emitted row to the next heartbeat
+    gaps = []
+    for i, r in enumerate(allr):
+        if r.get("record") == "outcome_row" and r["config"] == "ollama_igpu_enable" and r["item_id"] in missing:
+            nxt = next((x for x in allr[i + 1:] if x.get("record") == "heartbeat"), None)
+            if nxt is not None:
+                t0 = datetime.datetime.fromisoformat(r["ts_utc"]) + datetime.timedelta(seconds=r.get("latency_s") or 0)
+                gaps.append((datetime.datetime.fromisoformat(nxt["ts_utc"]) - t0).total_seconds())
+    ls_ok = sorted((r["ts_utc"], r["item_id"], r.get("requested_n_ctx")) for r in rows
+                   if r["config"] == "llama_server_vulkan" and r.get("http_status") == 200)
+    parts.append(f"llama_server_vulkan: no row at all for {len(missing)} heartbeat items (the pre-2026-10-07 harness "
+                 f"returned its two load-failure paths without emitting a row): {missing}; time spent on each unrecorded attempt "
+                 f"(s, n={len(gaps)}): min {min(gaps):.0f}, median {statistics.median(gaps):.0f}, max {max(gaps):.0f}; "
+                 f"last llama_server success {ls_ok[-1][1]} at n_ctx {ls_ok[-1][2]} ({ls_ok[-1][0]})")
+    return {"value": "; ".join(parts), "n": len(rows)}
+
+
 # ───────────────────────────────────────────────── R2 two-step agent harness validation (2026-10-07)
 R2_VALIDATION_FILE = "results/x2_r2_validation.jsonl"        # v1: spec variant (tools on call 2), one canary pair
 R2_VALIDATION_V2_FILE = "results/x2_r2_validation_v2.jsonl"  # v2: tools withheld on call 2, per-check canaries
@@ -2372,6 +2525,19 @@ NUMBER_ENTRIES = [
     {"claim_id": "t2s-outcome-error-causes", "description": "T2S outcome table (synced full file) rows by error cause, and race-signature count",
      "compute": compute_t2s_outcome_error_causes, "data_files": [T2S_OUTCOME_FULL],
      "script_function": "analysis/numbers_register.py::compute_t2s_outcome_error_causes"},
+    {"claim_id": "t2s-outcome-gsm8k-rescore", "description": "T2S outcome rows that could be rescored with the fixed gsm8k scorer (gsm8k rows, rows with output text)",
+     "compute": compute_t2s_outcome_gsm8k_rescore,
+     "data_files": [T2S_OUTCOME_FULL, "results/t2s_outcome_table_smoke.jsonl"],
+     "script_function": "analysis/numbers_register.py::compute_t2s_outcome_gsm8k_rescore"},
+    {"claim_id": "t2s-outcome-allocation-failures", "description": "T2S outcome allocation failures per config: buffer, prompt-length ranges, onset time, unrecorded llama-server attempts",
+     "compute": compute_t2s_allocation_failures, "data_files": [T2S_OUTCOME_FULL],
+     "script_function": "analysis/numbers_register.py::compute_t2s_allocation_failures"},
+    {"claim_id": "x2-v3-gsm8k-strict-vs-lenient", "description": "X2 v3 gsm8k per (model, config): strict #### score, format_ok, lenient last-sentence score",
+     "compute": compute_x2_v3_gsm8k_strict_vs_lenient, "data_files": [X2_OUTCOME_V3],
+     "script_function": "analysis/numbers_register.py::compute_x2_v3_gsm8k_strict_vs_lenient"},
+    {"claim_id": "x2-v3-canary-gate-lenient", "description": "X2 v3 canary gate mean score, strict (recorded) vs lenient gsm8k substituted",
+     "compute": compute_x2_v3_canary_gate_lenient, "data_files": [X2_OUTCOME_V3],
+     "script_function": "analysis/numbers_register.py::compute_x2_v3_canary_gate_lenient"},
     {"claim_id": "R2-validation-baseline",
      "description": "R2 two-step harness validation (evo-x2, arm b 131072, 3x10 turns): per model rule/tool/recall "
                     "baseline and negative/positive control results",

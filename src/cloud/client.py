@@ -50,7 +50,11 @@ most the first 2 and last 2 characters of any key-shaped string.
 
 SPEND CAP
 ---------
-DEFAULT_SPEND_CAP_USD = 50.00 (October 2026 default, per the program brief).
+HARD_SPEND_CAP_USD = 50.00 USD TOTAL (2026-10-07): the hard cap whenever a real
+key is set, summed over the whole ledger (not per month). DEFAULT_SPEND_CAP_USD
+equals it. A caller may pass a LOWER spend_cap_usd; a real-mode client asking
+for a higher one raises ValueError at construction (stub mode spends nothing,
+so any cap is accepted there, e.g. for the Pareto sweep).
 Before every REAL (non-stub) call, the projected cost is computed from the
 model's published per-token price and the call's token counts. If
 `running_total + projected_cost` would exceed the cap, the call is refused
@@ -59,10 +63,23 @@ returned via `SpendCapExceeded`, never silently retried or downgraded. The
 boundary is inclusive: a call that lands exactly on the cap is allowed; a
 call that would push even fractionally past it is refused.
 
+SPEND ALERTS
+------------
+After each real call, when the running total first reaches 50%, 75% and 90%
+of the cap (SPEND_ALERT_FRACTIONS), one alert fires per threshold, exactly
+once for the life of the ledger. It is appended to the ledger as a
+{"record": "alert", "source": "cloud_client", ...} row (no cost_usd, so the
+running total is unchanged), which analysis/results_digest.py's
+collect_alerts surfaces at the top of RESULTS_DIGEST.md (it scans every
+results/*.jsonl for record == "alert"), and it is printed. A threshold already
+present as an alert row in the ledger is never fired again, including by a
+new client process on the same ledger. One call that crosses several
+thresholds fires each of them.
+
 LEDGER
 ------
-Every REAL (non-stub) call appends exactly one row to
-results/cloud_ledger.jsonl: timestamp (UTC ISO 8601), model id, input and
+Every REAL (non-stub) call appends exactly one call row (plus any spend
+alert rows, above) to results/cloud_ledger.jsonl: timestamp (UTC ISO 8601), model id, input and
 output tokens, cost in USD, and the running total after that call. Stub
 calls are never written to the ledger -- the ledger is a record of real
 spend only.
@@ -117,7 +134,9 @@ ENV_VAR_HOST_ROLE = "CLOUD_CLIENT_HOST_ROLE"
 _HARD_DENY_SUBSTRINGS = ("t2s",)  # catches evo-t2s, EVO-T2S, t2s-anything -- never overridable
 _DEFAULT_ALLOWED_SUBSTRINGS = ("evo-x2",)
 
-DEFAULT_SPEND_CAP_USD = 50.00  # October 2026 default per program brief
+HARD_SPEND_CAP_USD = 50.00  # 2026-10-07: hard cap, USD total, whenever a real key is set
+DEFAULT_SPEND_CAP_USD = HARD_SPEND_CAP_USD
+SPEND_ALERT_FRACTIONS = (0.50, 0.75, 0.90)
 DEFAULT_LEDGER_PATH = Path("results/cloud_ledger.jsonl")
 
 # model_id -> pricing, fetched 2026-09-30 from official vendor pages (see module docstring)
@@ -307,8 +326,14 @@ class CloudClient:
         # api_key resolution: explicit arg wins; else env var; absence -> stub mode.
         self.api_key = api_key if api_key is not None else os.environ.get(ENV_VAR_API_KEY)
         self.stub_mode = not bool(self.api_key)
+        if not self.stub_mode and self.spend_cap_usd > HARD_SPEND_CAP_USD + 1e-9:
+            raise ValueError(
+                f"spend_cap_usd ${self.spend_cap_usd:.2f} exceeds the hard cap ${HARD_SPEND_CAP_USD:.2f} total; "
+                "a real-mode client may only lower the cap"
+            )
 
         self._running_total_usd = self._read_running_total()
+        self._fired_alerts = self._read_fired_alerts()
 
     # -- budget bookkeeping -------------------------------------------------
 
@@ -324,10 +349,62 @@ class CloudClient:
                     continue
                 try:
                     row = json.loads(line)
+                    if row.get("record") == "alert":
+                        continue
                     total += float(row.get("cost_usd", 0.0))
                 except (json.JSONDecodeError, TypeError, ValueError):
                     continue
         return total
+
+    def _read_fired_alerts(self) -> set[float]:
+        """Spend-alert thresholds (fractions of the cap) already written to the ledger."""
+        fired: set[float] = set()
+        if not self.ledger_path.exists():
+            return fired
+        with self.ledger_path.open("r", encoding="utf-8") as fh:
+            for line in fh:
+                try:
+                    row = json.loads(line)
+                except (json.JSONDecodeError, TypeError, ValueError):
+                    continue
+                if isinstance(row, dict) and row.get("record") == "alert" and row.get("source") == "cloud_client":
+                    try:
+                        fired.add(round(float(row.get("threshold_fraction")), 4))
+                    except (TypeError, ValueError):
+                        continue
+        return fired
+
+    def _fire_spend_alerts(self) -> list[dict[str, Any]]:
+        """Fire each not-yet-fired threshold the running total has reached: one ledger row each, and a print.
+        Returns the rows written by this call."""
+        fired_now = []
+        for frac in SPEND_ALERT_FRACTIONS:
+            key = round(frac, 4)
+            if key in self._fired_alerts or self._running_total_usd + 1e-9 < frac * self.spend_cap_usd:
+                continue
+            ts = self._clock().isoformat()
+            row = {
+                "record": "alert",
+                "source": "cloud_client",
+                "reason": f"cloud spend reached {frac:.0%} of the ${self.spend_cap_usd:.2f} cap",
+                "threshold_fraction": frac,
+                "threshold_usd": frac * self.spend_cap_usd,
+                "cap_usd": self.spend_cap_usd,
+                "running_total_usd": self._running_total_usd,
+                "ts_utc": ts,
+                "timestamp": ts,
+            }
+            self.ledger_path.parent.mkdir(parents=True, exist_ok=True)
+            with self.ledger_path.open("a", encoding="utf-8") as fh:
+                fh.write(json.dumps(row, sort_keys=True) + "\n")
+            print(
+                f"ALERT: cloud spend ${self._running_total_usd:.4f} reached {frac:.0%} of the "
+                f"${self.spend_cap_usd:.2f} cap",
+                flush=True,
+            )
+            self._fired_alerts.add(key)
+            fired_now.append(row)
+        return fired_now
 
     @property
     def running_total_usd(self) -> float:
@@ -441,6 +518,7 @@ class CloudClient:
         )
         self._append_ledger(result)
         self._running_total_usd += result.cost_usd
+        self._fire_spend_alerts()
         return result
 
 

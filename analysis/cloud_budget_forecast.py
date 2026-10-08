@@ -50,7 +50,10 @@ R2_FILE = "results/x2_r2_real_v1.jsonl"
 DEMO_SPEC = "docs/DEMO_SPEC.md"
 
 CHEAP, MID = "gpt-6-luna", "gpt-6.1-sol"
-CAP_USD = 50.0
+sys.path.insert(0, str(REPO))
+from src.cloud.client import HARD_SPEND_CAP_USD  # noqa: E402  (one source for the cap)
+
+CAP_USD = HARD_SPEND_CAP_USD
 N_AGENT_SESSIONS = 12
 DEMO_LIVE_ITEMS, DEMO_REHEARSALS, DEMO_REHEARSAL_ITEMS = 100, 5, 50
 CLOUD_SHARE = 0.5

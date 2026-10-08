@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 import time
@@ -100,15 +101,84 @@ def score_response(grade_module, item, response_text):
             # the grader expects a parsed dict; a real model response is free text -- best-effort
             # parse, and a response that cannot be parsed as the expected structure scores 0.0
             # (a real failure mode, not an error to hide).
-            import re
             m = re.search(r"\{.*\}", response_text, re.S)
             parsed = json.loads(m.group(0)) if m else {}
             return fn(oracle, parsed)
         if method == "final_number_match":
-            return fn(oracle, response_text)
+            # Same bug and fix as harness/x2_outcome_table.py (commit 1349e6b): grade.py's grader compares the
+            # oracle against a bare number, but this used to pass the whole response, so every gsm8k answer
+            # scored 0. Extract the number after the LAST "####" (the answer format the prompt asks for).
+            found = _FINAL_NUMBER_RE.findall(response_text or "")
+            return fn(oracle, found[-1]) if found else 0.0
     except Exception:
         return 0.0
     return 0.0
+
+
+# Kept byte-identical in behaviour to harness/x2_outcome_table.py (tests/test_gsm8k_lenient_score.py checks
+# parity); duplicated rather than imported because this file is deployed flat to evo-t2s on its own.
+_FINAL_NUMBER_RE = re.compile(r"####\s*\**\s*(-?[\d,]+(?:\.\d+)?)")
+# Rows written before the final_number_match fix carry no scorer_version; their gsm8k score is always 0.
+SCORER_VERSION = 2
+_THINK_TAG_RE = re.compile(r"<think>.*?(</think>|$)", re.S)
+# Lenient gsm8k score: see harness/x2_outcome_table.py (gsm8k_last_sentence) for the exact definition.
+_SENTENCE_SPLIT_RE = re.compile(r"\n+|(?<=[.!?])\s+")
+_LENIENT_NUMBER_RE = re.compile(r"(?:(?<![\w.])-)?\$?(?:\d{1,3}(?:,\d{3})+(?!\d)|\d+)(?:\.\d+)?")
+
+
+def strip_thinking(text):
+    return _THINK_TAG_RE.sub("", text or "").strip()
+
+
+def gsm8k_last_sentence(response_text):
+    pieces = [p.strip() for p in _SENTENCE_SPLIT_RE.split(strip_thinking(response_text))]
+    pieces = [p for p in pieces if p]
+    return pieces[-1] if pieces else ""
+
+
+def gsm8k_lenient_score(oracle, response_text):
+    try:
+        want = float(str(oracle).replace(",", "").replace("$", "").strip())
+    except ValueError:
+        return 0.0
+    for tok in _LENIENT_NUMBER_RE.findall(gsm8k_last_sentence(response_text)):
+        try:
+            if float(tok.replace("$", "").replace(",", "")) == want:
+                return 1.0
+        except ValueError:
+            continue
+    return 0.0
+
+
+def gsm8k_score_fields(grade_module, item, response_text):
+    """score_strict / format_ok / score_lenient for a final_number_match item, {} otherwise."""
+    if (item.get("grading") or {}).get("method") != "final_number_match":
+        return {}
+    try:
+        text = strip_thinking(response_text)
+        return {"score_strict": score_response(grade_module, item, text),
+                "format_ok": bool(_FINAL_NUMBER_RE.search(text or "")),
+                "score_lenient": gsm8k_lenient_score(item.get("oracle_answer"), text)}
+    except Exception:
+        return {}  # the extra columns must never turn a measured row into a driver exception
+
+
+def scored_fields(item, output_text):
+    """Every score-related field a scored row carries: score (strict for gsm8k), scorer_version, the gsm8k
+    strict/lenient/format columns, and the response text (head and tail, 500 chars each) so a row can be
+    rescored later without rerunning it."""
+    grade_module = load_graders()
+    out = {"score": score_response(grade_module, item, output_text), "scorer_version": SCORER_VERSION,
+           "output_text": output_text[:500], "output_tail": output_text[-500:]}
+    out.update(gsm8k_score_fields(grade_module, item, output_text))
+    return out
+
+
+def row_is_reusable(row):
+    """A gsm8k row scored 200 by the pre-fix final_number_match path (no scorer_version) always scored 0 and is
+    rerun; every other row is reused on resume exactly as before."""
+    return not (row.get("family") == "gsm8k" and row.get("http_status") == 200
+                and row.get("scorer_version", 1) < SCORER_VERSION)
 
 
 def already_done_keys(out_path):
@@ -123,7 +193,7 @@ def already_done_keys(out_path):
             r = json.loads(line)
         except Exception:
             continue
-        if r.get("record") == "outcome_row":
+        if r.get("record") == "outcome_row" and row_is_reusable(r):
             done.add((r["item_id"], r["config"]))
     return done
 
@@ -173,12 +243,11 @@ def run_one_item_ollama(item, config_label, igpu_enable, out_path, call_timeout_
         resp, dt = run_ollama_call(ollama, MODEL_TAG_OLLAMA, item["prompt"], None, call_timeout_s)
         effective_ctx = get_ollama_ps_context_length(MODEL_TAG_OLLAMA)
         output_text = resp.get("message") or ""
-        grade_module = load_graders()
-        score = score_response(grade_module, item, output_text)
         sent = item["prompt_tokens"]
         processed = resp.get("prompt_eval_count")
+        row.update(scored_fields(item, output_text))
         row.update({
-            "http_status": resp.get("status"), "score": score, "ttft_s": None,  # non-streaming call: no separate TTFT
+            "http_status": resp.get("status"), "ttft_s": None,  # non-streaming call: no separate TTFT
             "latency_s": dt, "sent_tokens": sent, "processed_tokens": processed,
             "silently_truncated": bool(processed is not None and processed < sent),
             "effective_context": effective_ctx, "machine_state": config_label,
@@ -216,6 +285,7 @@ def run_one_item_llama_server(item, out_path, call_timeout_s):
                 time.sleep(1)
         if not ready:
             row.update({"http_status": None, "score": 0.0, "error": "server did not open its port in time"})
+            emit(out_path, row)  # 2026-10-07: was returned unrecorded, so startup failures left no row
             return row
         # wait for actual model-loaded readiness (port open != loaded, found live 2026-10-01)
         t1 = time.monotonic()
@@ -239,6 +309,7 @@ def run_one_item_llama_server(item, out_path, call_timeout_s):
                 time.sleep(3)
         if not loaded:
             row.update({"http_status": None, "score": 0.0, "error": "server never left 'loading' state"})
+            emit(out_path, row)  # 2026-10-07: was returned unrecorded, so startup failures left no row
             return row
         t2 = time.monotonic()
         body = json.dumps({"model": "x", "messages": [{"role": "user", "content": item["prompt"]}],
@@ -251,12 +322,11 @@ def run_one_item_llama_server(item, out_path, call_timeout_s):
             dt = time.monotonic() - t2
             output_text = (data.get("choices") or [{}])[0].get("message", {}).get("content", "") or ""
             usage = data.get("usage") or {}
-            grade_module = load_graders()
-            score = score_response(grade_module, item, output_text)
             sent = item["prompt_tokens"]
             processed = usage.get("prompt_tokens")
+            row.update(scored_fields(item, output_text))
             row.update({
-                "http_status": 200, "score": score, "ttft_s": None, "latency_s": dt,
+                "http_status": 200, "ttft_s": None, "latency_s": dt,
                 "sent_tokens": sent, "processed_tokens": processed,
                 "silently_truncated": bool(processed is not None and processed < sent),
                 "effective_context": n_ctx, "machine_state": "llama_server_vulkan",
