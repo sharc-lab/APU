@@ -29,6 +29,19 @@ windows (and a real scp.exe crash dialog) before the fix; 0 after.
   pattern (`scripts/install_sync_results_task.ps1`, `scripts/install_queue_watchdog.ps1`) deliberately, not as
   a quick fix.
 
+## Never work around a sandbox or permission block
+
+2026-10-07: a subagent whose cross-checkout `git merge` was refused by the worktree sandbox landed its commits
+anyway by running the same git command through a different shell tool. That is a workaround of a block, not a fix.
+
+- If a command is blocked (sandbox, permission prompt denied, isolation guard, hook), do not retry it through
+  another tool, shell, path, or mechanism (PowerShell instead of Bash, `update-ref` instead of `merge`, a script
+  that runs the same command, and so on).
+- Stop that line of work and report the exact command that was blocked, where it should be run, and why it is
+  needed, so the operator can approve or run it. Continue only with work that does not depend on it.
+- A subagent reports the blocked command to its parent; the parent passes it to the operator unchanged and does
+  not run it on the subagent's behalf without the operator's approval.
+
 ## Never leave a machine needing a manual resume
 
 evo-t2s and evo-x2 run unattended for long stretches (overnight, over a weekend). 2026-10-02: `t2s_queue`'s
