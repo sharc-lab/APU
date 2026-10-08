@@ -2518,6 +2518,29 @@ def compute_r2_real_v1b_gated_kill(repo):
     return {"value": f"gated killed={rep['gated_killed']}; {arms} ({excl})", "n": rep["n_sessions"]}
 
 
+def compute_r2_validation_v2b_runinfo(repo):
+    """R2 validation v2b run details per model: sessions and turns completed, calls with an HTTP error or error field,
+    task tool called correctly, and on the baseline arm how many call-1 replies carried a native tool call vs a tool
+    call written as text ('"name"' inside the reply content)."""
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "harness"))
+    import x2_r2_agent as ra
+    rows = ra.read_rows(repo / "results/x2_r2_validation_v2b.jsonl")
+    out = []
+    for m in sorted({r["model_id"] for r in rows if r.get("record") == "r2a_session"}):
+        sess = [r for r in rows if r.get("record") == "r2a_session" and r["model_id"] == m]
+        turns = [r for r in rows if r.get("record") == "r2a_turn" and r["model_id"] == m]
+        errs = [c for r in turns for c in r.get("calls", []) if c.get("error") or c.get("http_status") not in (200, None)]
+        base = [r for r in turns if r["arm_id"] == "ollama_ctx_131072_call2_notools"]
+        nat = sum(1 for r in base if r["calls"][0].get("native_tool_calls"))
+        txt = sum(1 for r in base if '"name"' in (r["calls"][0].get("content") or ""))
+        tt = sum(1 for r in base if r.get("task_tool_ok"))
+        out.append(f"{m}: {len(sess)} sessions, {len(turns)} turns, {len(errs)} error calls; baseline arm: task tool "
+                   f"correct {tt}/{len(base)}, call-1 native tool call {nat}/{len(base)}, tool call written as text "
+                   f"in content {txt}/{len(base)}")
+    return {"value": " / ".join(out), "n": sum(1 for r in rows if r.get("record") == "r2a_turn")}
+
+
 NUMBER_ENTRIES = [
     {"claim_id": "PX2-TTFT-gap", "description": "PX2 B4-vs-S4 TTFT gap range across 5 models",
      "compute": compute_px2_ttft_gap, "data_files": ["results/t2s_night2_20260930T135145Z.jsonl"],
@@ -2878,6 +2901,10 @@ NUMBER_ENTRIES = [
                     "window was exceeded",
      "compute": compute_r2_real_v1b_gated_kill, "data_files": R2_V1B_DATA, "pending_ok": True,
      "script_function": "analysis/numbers_register.py::compute_r2_real_v1b_gated_kill"},
+    {"claim_id": "R2-validation-v2b-runinfo", "description": "R2 validation v2b: sessions/turns, errors, native vs "
+                    "text tool calls per model",
+     "compute": compute_r2_validation_v2b_runinfo, "data_files": ["results/x2_r2_validation_v2b.jsonl"],
+     "script_function": "analysis/numbers_register.py::compute_r2_validation_v2b_runinfo"},
 ]
 
 
