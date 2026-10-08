@@ -87,3 +87,24 @@ def test_confusion_matrix_includes_category_seen_by_only_one_rater():
     assert "X" in categories
     assert matrix[("C", "X")] == 1
     assert matrix[("X", "C")] == 0
+
+
+def test_analytic_ci_brackets_kappa_and_matches_formula():
+    # 2x2: A=yes/B=yes 20, yes/no 5, no/yes 10, no/no 65 -> p_o = .85, p_e = .25*.30 + .75*.70 = .60,
+    # kappa = .625, SE = sqrt(.85*.15 / (100 * .4^2)) = sqrt(.1275/16) = 0.089268...
+    from kappa_agreement import kappa_analytic_ci
+    a = ["y"] * 25 + ["n"] * 75
+    b = ["y"] * 20 + ["n"] * 5 + ["y"] * 10 + ["n"] * 65
+    se, lo, hi = kappa_analytic_ci(a, b)
+    assert se == pytest.approx((0.1275 / 16) ** 0.5)
+    assert lo < 0.625 < hi
+
+
+def test_bootstrap_ci_is_seeded_and_brackets_kappa():
+    from kappa_agreement import kappa_bootstrap_ci
+    a = ["y"] * 25 + ["n"] * 75
+    b = ["y"] * 20 + ["n"] * 5 + ["y"] * 10 + ["n"] * 65
+    ci1 = kappa_bootstrap_ci(a, b, n_boot=500, seed=1)
+    ci2 = kappa_bootstrap_ci(a, b, n_boot=500, seed=1)
+    assert ci1 == ci2
+    assert ci1[0] < 0.625 < ci1[1]

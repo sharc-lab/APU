@@ -33,3 +33,18 @@ Same four-category scheme used throughout this kappa-agreement study (`CORRECT` 
   language.
 - `REFUSED` -- output declines to answer, or declares the needed information unavailable, without
   then giving a concrete value anyway.
+
+## Correction (2026-10-06)
+
+The "no row overlap by construction" statement above is wrong: the 150-row kappa sample's source files are
+the same two committed files listed here (see `KAPPA_STUDY_NOTE.md`, 2026-10-06 update). One ritz30 row is
+also in the original 150.
+
+# ritz_spotcheck_heldout_30.csv -- blinded 30-row subset of the held-out kappa sample
+
+Built by `analysis/build_kappa_heldout_sample.py`: 30 rows drawn (seed 20261007) from the 150-row held-out
+sample `kappa_heldout_blinded.csv`, which excludes every row of the original kappa sample and of
+`ritz_spotcheck_30.csv`. Same columns (`id`, `question`, `expected`, `output`, `label`) and the same
+allowed label values as above. These rows already have blinded `annotator_claude` labels in
+`kappa_heldout_annotator_claude.csv` and scorer verdicts in `kappa_heldout_key.csv`; label this file
+without opening either, then join on `id`.

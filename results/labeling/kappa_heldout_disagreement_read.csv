@@ -1,0 +1,15 @@
+id,read,mechanism,proposed_fix
+kh_016_evo-x2_llama-3.3-70b_art_08,ambiguous,hyphen-dropped identifier (PN38901 vs PN-38901),policy call: punctuation-insensitive embedded match for non-numeric expected values would make this CORRECT; strict format scoring keeps it wrong
+kh_018_evo-t2s_qwen3-8b_art_06,ambiguous,bare null token None,"None to 'who seconded' can mean 'nobody seconded' (a claim) or 'no answer'; gate a null-token rule on questions where none is not a plausible answer"
+kh_045_evo-x2_qwen3-14b_art_01,scorer_bug,bare null token unknown,treat a whole-output null token (unknown) as REFUSED
+kh_046_evo-x2_qwen3-4b-2507_art_04,scorer_bug,AVAILABLE: no followed by null token none,accept null tokens (none/unknown) as a refusal tail in _is_available_no_sentinel
+kh_048_evo-t2s_qwen3-14b_art_08,scorer_bug,bare null token Unknown,treat a whole-output null token (unknown) as REFUSED
+kh_055_evo-x2_qwen3-4b-2507_art_06,ambiguous,bare null token none,"none to 'who seconded' can mean 'nobody seconded'; same gate as kh_018"
+kh_056_evo-t2s_qwen3-14b_art_01,scorer_bug,bare null token unknown,treat a whole-output null token (unknown) as REFUSED
+kh_062_evo-t2s_qwen3-14b_art_08,scorer_bug,bare null token Unknown,treat a whole-output null token (unknown) as REFUSED
+kh_083_evo-x2_qwen3-32b_art_06,scorer_bug,AVAILABLE: no followed by null token Unknown,accept null tokens (none/unknown) as a refusal tail in _is_available_no_sentinel
+kh_085_evo-t2s_qwen3-14b_art_06,scorer_bug,AVAILABLE: no followed by null token Unknown,accept null tokens (none/unknown) as a refusal tail in _is_available_no_sentinel
+kh_088_evo-x2_qwen3-14b_art_01,scorer_bug,bare null token unknown,treat a whole-output null token (unknown) as REFUSED
+kh_090_evo-x2_llama31-8b_art_03,scorer_bug,bare 'Not available' (scorers.py only has 'not available in'),add bare 'not available' to _EXTRA_ABSTENTION_PHRASES
+kh_144_evo-x2_llama31-8b_art_08,scorer_bug,'no <noun> mentioned' denial (list has 'no mention' and 'not mentioned' only),add a 'no <1-3 words> mentioned' pattern to the supplementary refusal layer
+kh_146_evo-x2_qwen3-4b-2507_art_04,ambiguous,bare null token none,"none to 'what action' can mean 'no action happened' (a claim); same gate as kh_018. Note the annotator labeled the near-synonym 'No action performed' (kh_020) FABRICATED, an annotator-side inconsistency on this boundary"

@@ -1347,6 +1347,77 @@ def compute_k2_x2_unreached_pressure_levels(repo):
              f"{(r.get('info') or {}).get('available_mb_after', 0):.0f} MB" for r in bad]
     return {"value": f"{len(bad)}/{len(starts)} steps did not reach target: " + "; ".join(parts), "n": len(starts)}
 
+def _kappa_module(repo):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("kappa_agreement", repo / "analysis" / "kappa_agreement.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def compute_kappa_heldout_sample(repo):
+    """Held-out kappa sample construction (2026-10-06): population, exclusions, strata, seed, recomputed
+    by re-running the builder's own sampling functions (no files written)."""
+    import importlib.util
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "analysis"))
+    spec = importlib.util.spec_from_file_location("build_kappa_heldout_sample",
+                                                  repo / "analysis" / "build_kappa_heldout_sample.py")
+    b = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(b)
+    pop = b.load_population()
+    pop_keys = {b.row_key(r) for r in pop}
+    orig = b.original_sample_keys(pop)
+    ritz = b.ritz30_keys() & pop_keys
+    excluded = orig | ritz
+    remaining = [r for r in pop if b.row_key(r) not in excluded]
+    sample, n_strata = b.round_robin_sample(remaining, b.N, b.SEED)
+    return {"value": f"seed {b.SEED}; wrong-answer population {len(pop)}; excluded {len(orig)} original-sample + "
+                     f"{len(ritz)} ritz30 rows (union {len(excluded)}); remaining {len(remaining)} over "
+                     f"{n_strata} strata; sampled {len(sample)}",
+            "n": len(sample)}
+
+
+def compute_kappa_heldout(repo):
+    """Held-out kappa, current evaluation/outcome.py scorer vs blinded annotator_claude labels."""
+    s = _kappa_module(repo).heldout_stats(repo)
+    m = s["matrix"]
+    cats = s["categories"]
+    cm = "; ".join(f"scorer {a}: " + ", ".join(f"{b} {m[(a, b)]}" for b in cats) for a in cats)
+    return {"value": f"kappa {s['kappa']:.3f} (analytic 95% CI {s['analytic_ci'][0]:.3f}-{s['analytic_ci'][1]:.3f}, "
+                     f"bootstrap 95% CI {s['bootstrap_ci'][0]:.3f}-{s['bootstrap_ci'][1]:.3f}); raw agreement "
+                     f"{s['agree']}/{s['n']}; confusion (rows scorer, cols annotator) {cm}",
+            "n": s["n"]}
+
+
+def compute_kappa_heldout_fn_annotator(repo):
+    """Method-controlled secondary: scorer vs the original study's annotator FUNCTION on the held-out rows,
+    and manual blinded labels vs that function."""
+    s = _kappa_module(repo).heldout_stats(repo)
+    return {"value": f"scorer vs classify_human_label: kappa {s['fn_annotator_kappa']:.3f} (bootstrap 95% CI "
+                     f"{s['fn_annotator_bootstrap_ci'][0]:.3f}-{s['fn_annotator_bootstrap_ci'][1]:.3f}), agree "
+                     f"{s['fn_annotator_agree']}/{s['n']}; manual labels vs classify_human_label: kappa "
+                     f"{s['manual_vs_fn_kappa']:.3f}, agree {s['manual_vs_fn_agree']}/{s['n']}",
+            "n": s["n"]}
+
+
+def compute_kappa_heldout_disagreement_read(repo):
+    """Breakdown of the held-out disagreements by read (scorer_bug / labeler_error / ambiguous), from the
+    committed read file, after asserting its ids are exactly the live disagreement list."""
+    import csv as _csv
+    from collections import Counter as _Counter
+    s = _kappa_module(repo).heldout_stats(repo)
+    live = {d["id"]: d for d in s["disagreements"]}
+    with open(repo / "results" / "labeling" / "kappa_heldout_disagreement_read.csv", encoding="utf-8") as f:
+        reads = list(_csv.DictReader(f))
+    if {r["id"] for r in reads} != set(live):
+        raise ValueError("disagreement read file ids do not match the live disagreement list")
+    by_read = _Counter(r["read"] for r in reads)
+    direction = _Counter(f"{live[i]['scorer']}->{live[i]['annotator']}" for i in live)
+    return {"value": f"{len(reads)} disagreements: " + ", ".join(f"{k} {v}" for k, v in sorted(by_read.items()))
+                     + "; direction (scorer->annotator) " + ", ".join(f"{k} {v}" for k, v in sorted(direction.items())),
+            "n": len(reads)}
+
 
 NUMBER_ENTRIES = [
     {"claim_id": "PX2-TTFT-gap", "description": "PX2 B4-vs-S4 TTFT gap range across 5 models",
@@ -1536,6 +1607,25 @@ NUMBER_ENTRIES = [
     {"claim_id": "K2-x2-unreached-levels", "description": "K2 evo-x2 pressure steps that missed their target",
      "compute": compute_k2_x2_unreached_pressure_levels, "data_files": [_K2_X2_RUN],
      "script_function": "analysis/numbers_register.py::compute_k2_x2_unreached_pressure_levels"},
+
+    {"claim_id": "kappa-heldout-sample", "description": "held-out kappa sample construction (seed, exclusions, strata)",
+     "compute": compute_kappa_heldout_sample,
+     "data_files": ["results/t2s_night2_20260929T202603Z.jsonl", "results/t2s_night2_20260929T205109Z.jsonl",
+                    "results/labeling/r1b_wrong_sample.csv", "results/labeling/ritz_spotcheck_30.csv"],
+     "script_function": "analysis/build_kappa_heldout_sample.py::round_robin_sample"},
+    {"claim_id": "kappa-heldout", "description": "held-out kappa, current scorer vs blinded annotator_claude, with CI and confusion matrix",
+     "compute": compute_kappa_heldout,
+     "data_files": ["results/labeling/kappa_heldout_key.csv", "results/labeling/kappa_heldout_annotator_claude.csv"],
+     "script_function": "analysis/kappa_agreement.py::heldout_stats"},
+    {"claim_id": "kappa-heldout-fn-annotator", "description": "held-out rows: scorer vs original annotator function, and manual labels vs that function",
+     "compute": compute_kappa_heldout_fn_annotator,
+     "data_files": ["results/labeling/kappa_heldout_key.csv", "results/labeling/kappa_heldout_annotator_claude.csv"],
+     "script_function": "analysis/kappa_agreement.py::heldout_stats"},
+    {"claim_id": "kappa-heldout-disagreements", "description": "held-out disagreement breakdown by read and direction",
+     "compute": compute_kappa_heldout_disagreement_read,
+     "data_files": ["results/labeling/kappa_heldout_disagreement_read.csv", "results/labeling/kappa_heldout_key.csv",
+                    "results/labeling/kappa_heldout_annotator_claude.csv"],
+     "script_function": "analysis/numbers_register.py::compute_kappa_heldout_disagreement_read"},
 ]
 
 
