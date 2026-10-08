@@ -2930,6 +2930,33 @@ def compute_r2_mitigation_v1_observed(repo):
     return {"value": " / ".join(parts), "n": f"{sum(c['observed']['n_calls'] for c in rep['cells'].values())} calls"}
 
 
+def compute_blade_validation_ctx_cap(repo):
+    """Blade validation context cap (operator rule 2026-10-08): max over every call of the evo-x2 R2 validation
+    sessions at num_ctx 131072 (both call-2 variants; the 8192 positive control is excluded because it truncates by
+    design) of prompt + generated tokens, taking per call the larger of Ollama's prompt_eval_count and the calibrated
+    estimate (prompt_tokens_est x the session's token_calib_ratio). Rule: max < 30000 -> cap 32768, else 65536."""
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "harness"))
+    import x2_r2_agent as ra
+    out, overall = [], 0
+    for f, m in (("results/x2_r2_validation_v2.jsonl", "llama3.1:8b"), ("results/x2_r2_validation_v2b.jsonl", "qwen3:8b")):
+        best = (0, None)
+        for r in ra.read_rows(repo / f):
+            if r.get("record") != "r2a_turn" or r.get("model_id") != m or "positive_control" in r.get("arm_id", ""):
+                continue
+            ratio = r.get("token_calib_ratio") or 1.0
+            for c in r.get("calls", []):
+                prompt = max(c.get("prompt_eval_count_info_only") or 0, round((c.get("prompt_tokens_est") or 0) * ratio))
+                tot = prompt + (c.get("completion_tokens") or 0)
+                if tot > best[0]:
+                    best = (tot, f"{r['arm_id']} seed {r['seed']} turn {r['turn_idx']}")
+        out.append(f"{m}: max prompt+generated {best[0]} ({best[1]})")
+        overall = max(overall, best[0])
+    cap = 32768 if overall < 30000 else 65536
+    return {"value": "; ".join(out) + f"; overall max {overall} -> Blade validation cap {cap} (rule: <30000 -> 32768, else 65536)",
+            "n": 2}
+
+
 NUMBER_ENTRIES = [
     {"claim_id": "PX2-TTFT-gap", "description": "PX2 B4-vs-S4 TTFT gap range across 5 models",
      "compute": compute_px2_ttft_gap, "data_files": ["results/t2s_night2_20260930T135145Z.jsonl"],
@@ -3359,6 +3386,11 @@ NUMBER_ENTRIES = [
                     "Ollama message drops and client token counting per tier x model",
      "compute": compute_r2_mitigation_v1_observed, "data_files": [R2_MITIGATION_FILE], "pending_ok": True,
      "script_function": "analysis/numbers_register.py::compute_r2_mitigation_v1_observed"},
+    {"claim_id": "blade-validation-ctx-cap", "description": "Blade R2 validation context cap from the evo-x2 "
+                    "validation sessions' max prompt+generated tokens",
+     "compute": compute_blade_validation_ctx_cap,
+     "data_files": ["results/x2_r2_validation_v2.jsonl", "results/x2_r2_validation_v2b.jsonl"],
+     "script_function": "analysis/numbers_register.py::compute_blade_validation_ctx_cap"},
 ]
 
 
