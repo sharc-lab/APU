@@ -43,6 +43,7 @@ import blade_telemetry as bt  # noqa: E402
 import server_guard as sg  # noqa: E402
 import run_provenance as rp  # noqa: E402
 import context as ctx_mod  # noqa: E402
+from proc_util import popen_hidden, run_hidden  # noqa: E402
 
 RESULTS_DIR = REPO / "results"
 SCRATCH_DIR = Path(r"C:\apu")
@@ -102,7 +103,7 @@ def start_server(ctx: int, log_path: str) -> subprocess.Popen:
     cmd = [SERVER_BIN, "-m", MODEL_PATH, "--port", str(PORT), "-c", str(ctx), "-ctk", "f16", "-ctv", "f16",
            "-fa", "on", "-ngl", "99", "-np", "1", "-t", "4", "--no-context-shift",
            "--log-file", log_path, "--log-verbosity", "3"]
-    return subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
+    return popen_hidden(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
 
 
 def wait_healthy(proc: subprocess.Popen, timeout: int = 420) -> bool:
@@ -124,7 +125,7 @@ def kill_and_confirm(pid: int):
     """Terminate one server we started and confirm the process is gone and the port is free. Never proceeds silently."""
     for attempt in range(3):
         try:
-            subprocess.run(["taskkill", "/F", "/T", "/PID", str(pid)], capture_output=True, timeout=30,
+            run_hidden(["taskkill", "/F", "/T", "/PID", str(pid)], capture_output=True, timeout=30,
                            stdin=subprocess.DEVNULL)
         except Exception:
             pass

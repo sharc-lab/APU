@@ -26,6 +26,13 @@ CONTROLLER_SCRIPTS = [
     REPO / "scripts" / "deploy_evo.py",
     REPO / "scripts" / "t2s_responsiveness_probe.py",
     REPO / "demo" / "dashboard" / "build_cache.py",
+    # The Blade is the controller laptop: its night jobs run here, unattended (docs/BLADE_PLAN.md).
+    REPO / "scripts" / "blade_night.py",
+    REPO / "harness" / "blade_common.py",
+    REPO / "harness" / "blade_queue.py",
+    REPO / "harness" / "blade_k1.py",
+    REPO / "harness" / "blade_telemetry.py",
+    REPO / "harness" / "blade_spill_sweep.py",
 ]
 
 BARE_FUNCS = {"run", "Popen", "check_output", "call"}  # the subprocess functions that can spawn a visible console

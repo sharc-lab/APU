@@ -1,0 +1,210 @@
+{
+ "night": 1,
+ "summary": {
+  "night": 1,
+  "started_utc": "2026-10-08T21:00:51.457128+00:00",
+  "refused": null,
+  "power": {
+   "log": "C:\\Users\\rithw\\AppData\\Local\\Temp\\blade_night_stub_7i9imepm\\logs\\night1_power_20261008T210051Z.json",
+   "original": {
+    "SUB_SLEEP/STANDBYIDLE": {
+     "ac": 1800,
+     "dc": 1800
+    },
+    "SUB_SLEEP/HIBERNATEIDLE": {
+     "ac": 10800,
+     "dc": 10800
+    },
+    "SUB_BUTTONS/LIDACTION": {
+     "ac": 1,
+     "dc": 1
+    }
+   },
+   "night_values": {
+    "SUB_SLEEP/STANDBYIDLE": {
+     "ac": 0,
+     "dc": 0
+    },
+    "SUB_SLEEP/HIBERNATEIDLE": {
+     "ac": 0,
+     "dc": 0
+    },
+    "SUB_BUTTONS/LIDACTION": {
+     "ac": 0,
+     "dc": 0
+    }
+   },
+   "restored_values": {
+    "SUB_SLEEP/STANDBYIDLE": {
+     "ac": 1800,
+     "dc": 1800
+    },
+    "SUB_SLEEP/HIBERNATEIDLE": {
+     "ac": 10800,
+     "dc": 10800
+    },
+    "SUB_BUTTONS/LIDACTION": {
+     "ac": 1,
+     "dc": 1
+    }
+   },
+   "restored": true,
+   "errors": []
+  },
+  "queue": {
+   "night": 1,
+   "jobs": [
+    {
+     "id": "blade_k1_v1",
+     "status": "done",
+     "rc": 0,
+     "outputs": [
+      "results/blade_k1_v1.jsonl",
+      "results/blade_k1_v1.summary.json"
+     ],
+     "log": "C:\\apu\\blade\\logs\\blade_k1_v1.log"
+    },
+    {
+     "id": "blade_r2_validation_v1",
+     "status": "done",
+     "rc": 0,
+     "outputs": [
+      "results/blade_r2_validation_v1.jsonl"
+     ],
+     "log": "C:\\apu\\blade\\logs\\blade_r2_validation_v1.log"
+    },
+    {
+     "id": "blade_r2_real_v1",
+     "status": "done",
+     "rc": 0,
+     "outputs": [
+      "results/blade_r2_real_v1.jsonl"
+     ],
+     "log": "C:\\apu\\blade\\logs\\blade_r2_real_v1.log"
+    },
+    {
+     "id": "blade_r2_mitigation_v1",
+     "status": "done",
+     "rc": 0,
+     "outputs": [
+      "results/blade_r2_mitigation_v1.jsonl"
+     ],
+     "log": "C:\\apu\\blade\\logs\\blade_r2_mitigation_v1.log"
+    }
+   ],
+   "stopped_early": null
+  },
+  "ended_utc": "2026-10-08T21:00:52.320466+00:00",
+  "summary_file": "C:\\Users\\rithw\\AppData\\Local\\Temp\\blade_night_stub_7i9imepm\\results\\blade_night1_summary_20261008T210051Z.json"
+ },
+ "power_call_order": [
+  "/setacvalueindex SUB_SLEEP STANDBYIDLE 0",
+  "/setacvalueindex SUB_SLEEP HIBERNATEIDLE 0",
+  "/setacvalueindex SUB_BUTTONS LIDACTION 0",
+  "/setactive",
+  "/setacvalueindex SUB_SLEEP STANDBYIDLE 1800",
+  "/setacvalueindex SUB_SLEEP HIBERNATEIDLE 10800",
+  "/setacvalueindex SUB_BUTTONS LIDACTION 1",
+  "/setactive"
+ ],
+ "jobs": [
+  {
+   "event": "job",
+   "id": "blade_k1_v1",
+   "module": "blade_k1",
+   "parsed": {
+    "out": "results/blade_k1_v1.jsonl",
+    "models": "llama3.1:8b,qwen3:8b,qwen3-4b-2507-tools",
+    "ollama_exe": null,
+    "llama_server_exe": null,
+    "skip_llamacpp": false,
+    "dry_run_seconds": null,
+    "allow_version_mismatch": false
+   },
+   "outputs": [
+    "results/blade_k1_v1.jsonl",
+    "results/blade_k1_v1.summary.json"
+   ],
+   "outputs_prefixed_blade": true
+  },
+  {
+   "event": "job",
+   "id": "blade_r2_validation_v1",
+   "module": "blade_r2",
+   "parsed": {
+    "mode": "validation",
+    "out": "results/blade_r2_validation_v1.jsonl",
+    "models": "llama3.1:8b",
+    "models_if_fit": "qwen3:8b",
+    "k1_summary": "results/blade_k1_v1.summary.json",
+    "tiers": null,
+    "seeds": null,
+    "turns": null,
+    "rules_from": null,
+    "require_validation_gates": false,
+    "order": "seed_major",
+    "ollama_exe": null,
+    "dry_run_seconds": null,
+    "allow_version_mismatch": false
+   },
+   "outputs": [
+    "results/blade_r2_validation_v1.jsonl"
+   ],
+   "outputs_prefixed_blade": true
+  },
+  {
+   "event": "job",
+   "id": "blade_r2_real_v1",
+   "module": "blade_r2",
+   "parsed": {
+    "mode": "real",
+    "out": "results/blade_r2_real_v1.jsonl",
+    "models": "llama3.1:8b",
+    "models_if_fit": "qwen3:8b",
+    "k1_summary": "results/blade_k1_v1.summary.json",
+    "tiers": "default,4096,32768",
+    "seeds": null,
+    "turns": null,
+    "rules_from": "results/blade_r2_validation_v1.jsonl",
+    "require_validation_gates": true,
+    "order": "seed_major",
+    "ollama_exe": null,
+    "dry_run_seconds": null,
+    "allow_version_mismatch": false
+   },
+   "outputs": [
+    "results/blade_r2_real_v1.jsonl"
+   ],
+   "outputs_prefixed_blade": true
+  },
+  {
+   "event": "job",
+   "id": "blade_r2_mitigation_v1",
+   "module": "blade_r2",
+   "parsed": {
+    "mode": "mitigation",
+    "out": "results/blade_r2_mitigation_v1.jsonl",
+    "models": "llama3.1:8b",
+    "models_if_fit": "qwen3:8b",
+    "k1_summary": "results/blade_k1_v1.summary.json",
+    "tiers": "default,4096,8192",
+    "seeds": null,
+    "turns": null,
+    "rules_from": "results/blade_r2_validation_v1.jsonl",
+    "require_validation_gates": true,
+    "order": "seed_major",
+    "ollama_exe": null,
+    "dry_run_seconds": null,
+    "allow_version_mismatch": false
+   },
+   "outputs": [
+    "results/blade_r2_mitigation_v1.jsonl"
+   ],
+   "outputs_prefixed_blade": true
+  }
+ ],
+ "set_before_first_job": true,
+ "restore_after_last_job": true,
+ "final_values_equal_original": true,
+ "all_outputs_prefixed_blade": true
+}

@@ -20,6 +20,8 @@ import threading
 import time
 from datetime import datetime, timezone
 
+from proc_util import popen_hidden, run_hidden
+
 SMI_QUERY = ("timestamp,utilization.gpu,clocks.sm,clocks.mem,power.draw,temperature.gpu,"
              "memory.used,clocks_throttle_reasons.active")
 WINCTR_HEADER = "ts_iso_utc,server_pid,dedicated_bytes,shared_bytes,cpu_total_pct,adapter_shared_bytes"
@@ -47,7 +49,7 @@ def utcnow_iso() -> str:
 def ps(cmd: str, timeout: int = 30) -> str:
     """Run a PowerShell command. Never raises; returns '' on any failure."""
     try:
-        r = subprocess.run(["powershell", "-NoProfile", "-Command", cmd], capture_output=True, text=True,
+        r = run_hidden(["powershell", "-NoProfile", "-Command", cmd], capture_output=True, text=True,
                            timeout=timeout, stdin=subprocess.DEVNULL)
         return r.stdout
     except Exception:
@@ -67,7 +69,7 @@ def pid_alive(pid: int) -> bool:
 
 def gpu_temp():
     try:
-        r = subprocess.run(["nvidia-smi", "--query-gpu=temperature.gpu", "--format=csv,noheader,nounits"],
+        r = run_hidden(["nvidia-smi", "--query-gpu=temperature.gpu", "--format=csv,noheader,nounits"],
                            capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL)
         return int(r.stdout.strip().splitlines()[0])
     except Exception:
@@ -109,7 +111,7 @@ class Telemetry:
         self._threads.append(t)
 
     def _popen(self, argv):
-        return subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL,
+        return popen_hidden(argv, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL,
                                 text=True, bufsize=1)
 
     def start_gpu(self):
@@ -146,7 +148,7 @@ class Telemetry:
 
 def _kill(pid: int):
     try:
-        subprocess.run(["taskkill", "/F", "/T", "/PID", str(pid)], capture_output=True, timeout=20,
+        run_hidden(["taskkill", "/F", "/T", "/PID", str(pid)], capture_output=True, timeout=20,
                        stdin=subprocess.DEVNULL)
     except Exception:
         pass
@@ -172,7 +174,7 @@ def environment_manifest() -> dict:
     if ac.lower() != "true":
         raise RuntimeError(f"NOT ON AC POWER (PowerOnline={ac!r}, BatteryStatus={bat!r}). STOP.")
     try:
-        r = subprocess.run(["nvidia-smi", "--query-gpu=name,driver_version,memory.total", "--format=csv,noheader"],
+        r = run_hidden(["nvidia-smi", "--query-gpu=name,driver_version,memory.total", "--format=csv,noheader"],
                            capture_output=True, text=True, timeout=15, stdin=subprocess.DEVNULL)
         out["gpu"] = r.stdout.strip()
     except Exception as e:
