@@ -2426,16 +2426,33 @@ def compute_r2_mechanism_verdict(repo):
     if not rows:
         raise FileNotFoundError(repo / R2_MECHANISM_FILE)
     rep = mech.report(rows)
+    per_tier = rep["verdict"]["per_tier"]
     parts = []
     for s in sorted(rep["sessions"], key=lambda s: str(s["arm_id"])):
-        parts.append(f"{s['model_id']} {s['arm_id'].replace('_call2_notools', '')}: first truncated turn "
+        pt = per_tier.get(s["arm_id"]) or {}
+        mr = pt.get("match_rate")
+        cite = (f"prompt check {pt.get('n_match', 0)}/{pt.get('n_checks', 0)} within 1% "
+                f"(match rate {'n/a' if mr is None else f'{mr:.2f}'}), citable {bool(pt.get('mechanism_citable'))}, "
+                + (f"tier verdict {pt.get('hypothesis')}" if pt.get("mechanism_citable")
+                   else "tier verdict not citable (render does not show what the model saw)"))
+        parts.append(f"{s['model_id']} {s['arm_id'].replace('_call2_notools', '')}: {cite}; first truncated turn "
                      f"{s['first_truncated_turn']}, {s['n_calls_message_truncated']}/{s['n_calls']} calls truncated, "
                      f"system kept on all {s['system_kept_on_every_truncated_call']}, contiguous tail "
                      f"{s['kept_contiguous_tail_on_every_truncated_call']}, cut mid-turn {s['cut_mid_turn_calls']}, "
                      f"token-level cuts {s['token_level_cut_calls']}, context-shift calls {s['context_shift_calls']}, "
                      f"exceed-context errors {s['exceed_context_error_calls']}, path {','.join(s['chat_paths'])}")
     v = rep["verdict"]
-    return {"value": f"verdict {v['drop_old_turns_keep_system']} (token-level cut seen {v['token_level_cut_seen']}, "
+    # confirmed/refuted only over tiers whose render-only prompt was shown to match what the model saw
+    cited = {t: p["hypothesis"] for t, p in per_tier.items() if p["mechanism_citable"]}
+    hyps = set(cited.values()) - {"not_observed"}
+    overall = ("not citable (no tier passed the prompt check)" if not cited
+               else "refuted" if "refuted" in hyps else "confirmed" if hyps else "not_observed")
+    not_cited = sorted(str(t).replace("_call2_notools", "") for t in per_tier if t not in cited)
+    return {"value": f"verdict {overall} over citable tiers "
+                     f"[{', '.join(sorted(str(t).replace('_call2_notools', '') for t in cited))}]"
+                     + (f"; not citable (render does not show what the model saw): [{', '.join(not_cited)}]"
+                        if not_cited else "")
+                     + f" (token-level cut seen {v['token_level_cut_seen']}, "
                      f"context shift seen {v['context_shift_seen']}, render/log disagreements "
                      f"{v['render_log_disagreements']}); " + " / ".join(parts),
             "n": f"{v['sessions']} sessions"}

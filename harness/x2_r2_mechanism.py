@@ -38,6 +38,16 @@ cut and any context shift. Both go into one structured row per call (record r2m_
 is written next to the output file (<out stem>_logs/<model>_<arm>_<seed>.ollama_log.txt), as is the full rendered
 prompt of the first truncated call of each session.
 
+Validity check (operator requirement; harness/prompt_token_check.py has the exact commands): on a schedule of calls
+per session (the first pre-overflow call and every 10th one after it, up to 5; the first 3 truncated calls and every
+4th one after, up to 8) the render-only text is tokenized with the model's own tokenizer (llama-tokenize on the GGUF
+blob from the Ollama manifest) and compared with prompt_eval_count of a fresh request (model unloaded first, so no
+cache) with the same messages and options and num_predict 1. Each check is its own record r2m_prompt_check, sent
+after the real call, so the real call's row, log slice and timing are untouched; the next real call starts on a
+freshly loaded model instead of the previous call's KV cache. A tier is mechanism_citable only if it has at least
+5 checks and all match within 1%; otherwise the report states "render does not show what the model saw; mechanism
+result not citable" for it, and the per-tier hypothesis is reported but not citable.
+
 Pure functions (parse_call_log, analyse_render, summarize_*) are unit-tested on synthetic log text; MechanismRuntime
 wraps any runtime with chat/render_only and works with the tests' fake runtime and a temp log file.
 """
@@ -49,11 +59,15 @@ import re
 import time
 from pathlib import Path
 
+import prompt_token_check as ptc
+
 OLLAMA_DEBUG_ENV = {"OLLAMA_DEBUG": "1"}
 MECH_SERVE_LOG = r"C:\apu\ovn\ollama_serve_mechanism.log"
 EXCERPT_MAX_LINES = 60
 EXCERPT_LINE_CHARS = 500
 GIN_WAIT_S = 3.0
+CHECK_PRE_EVERY, CHECK_PRE_MAX = 10, 5         # pre-overflow calls checked: index 0, 10, 20, ... up to 5
+CHECK_TRUNC_FIRST, CHECK_TRUNC_EVERY, CHECK_TRUNC_MAX = 3, 4, 8   # truncated: 0, 1, 2, then 4, 8, ... up to 8
 
 _PATTERNS = {
     "trunc_rendered": re.compile(r'msg="truncating input messages which exceed context length" truncated=(\d+)'),
@@ -281,6 +295,23 @@ def verdict(session_summaries: list[dict]) -> dict:
 
 # ── runtime wrapper ─────────────────────────────────────────────────────────────────────────────────
 
+def check_due(post_overflow: bool, k: int, n_done: int) -> bool:
+    """Is the k-th (0-based) pre-overflow / truncated call of a session checked, given n_done checks of that kind."""
+    if post_overflow:
+        return n_done < CHECK_TRUNC_MAX and (k < CHECK_TRUNC_FIRST or k % CHECK_TRUNC_EVERY == 0)
+    return n_done < CHECK_PRE_MAX and k % CHECK_PRE_EVERY == 0
+
+
+def default_checker(inner):
+    """A PromptChecker for a real runtime (one with _post and unload); None for runtimes without them."""
+    import sys
+    if not (hasattr(inner, "_post") and hasattr(inner, "unload")):
+        return None
+    mod = sys.modules.get(type(inner).__module__)
+    body_fn = getattr(mod, "native_chat_body", None)
+    return ptc.PromptChecker(inner, body_fn) if body_fn else None
+
+
 def _safe(name: str) -> str:
     return re.sub(r"[^A-Za-z0-9._-]+", "_", name)
 
@@ -291,13 +322,20 @@ class MechanismRuntime:
     end_session bracket a session (raw log slice and an r2m_session row)."""
 
     def __init__(self, inner, log_path, emit, raw_dir: Path, sleep=time.sleep, clock=time.monotonic,
-                 gin_wait_s=GIN_WAIT_S):
+                 gin_wait_s=GIN_WAIT_S, checker="default"):
         self.inner, self.log_path, self.emit, self.raw_dir = inner, log_path, emit, Path(raw_dir)
+        self.checker = default_checker(inner) if checker == "default" else checker
         self.sleep, self.clock, self.gin_wait_s = sleep, clock, gin_wait_s
         self.ctx = {}
         self.session_calls = []
         self.session_start = 0
         self._saved_rendered = False
+        self._reset_checks()
+
+    def _reset_checks(self):
+        self.session_checks = []
+        self._k = {True: 0, False: 0}
+        self._n_checked = {True: 0, False: 0}
 
     # delegation
     def loaded_context(self, model):
@@ -314,6 +352,7 @@ class MechanismRuntime:
         self.session_calls = []
         self.session_start = log_size(self.log_path)
         self._saved_rendered = False
+        self._reset_checks()
 
     def _wait_for_gin(self, start):
         """Position after this request's GIN access line (Gin logs it after the handler returns, which can be a
@@ -365,7 +404,27 @@ class MechanismRuntime:
             self._saved_rendered = True
         self.emit(row)
         self.session_calls.append(row)
+        post = bool(row["message_level_truncation"])
+        k = self._k[post]
+        self._k[post] += 1
+        if self.checker is not None and check_due(post, k, self._n_checked[post]):
+            self._n_checked[post] += 1
+            self._prompt_check(model, snap, num_ctx, tools, think, extra, rendered, row)
         return resp
+
+    def _prompt_check(self, model, snap, num_ctx, tools, think, extra, rendered, call_row):
+        """After the real call: fresh-load prompt_eval_count vs the render's own-tokenizer count (record
+        r2m_prompt_check). Any exception becomes an error row, never a skipped check."""
+        try:
+            res = self.checker.check(model, snap, num_ctx, tools, think, extra, rendered)
+        except Exception as e:
+            res = {"error": f"check: {e!r}"[:400], "match": False, "diff": None, "rel_diff": None}
+        row = {"record": "r2m_prompt_check", **self.ctx, "turn_idx": call_row["turn_idx"],
+               "call_idx": call_row["call_idx"], "post_overflow": bool(call_row["message_level_truncation"]),
+               "num_ctx_requested": num_ctx, "rendered_sha256": call_row.get("rendered_sha256"),
+               "real_call_prompt_eval_count": call_row.get("prompt_eval_count"), **res, "ts_utc": _utc()}
+        self.emit(row)
+        self.session_checks.append(row)
 
     def end_session(self) -> dict:
         end = log_size(self.log_path)
@@ -375,7 +434,8 @@ class MechanismRuntime:
         start = self.session_start if end >= self.session_start else 0
         (self.raw_dir / name).write_text(read_log(self.log_path, start, end), encoding="utf-8")
         summ = summarize_session(self.session_calls)
-        row = {"record": "r2m_session", **self.ctx, **summ, "raw_log_file": name, "log_bytes": [start, end],
+        pc = ptc.tier_summary(self.session_checks).get(self.ctx.get("arm_id"))
+        row = {"record": "r2m_session", **self.ctx, **summ, "prompt_check": pc, "raw_log_file": name, "log_bytes": [start, end],
                "ts_utc": _utc()}
         self.emit(row)
         return row
@@ -387,13 +447,29 @@ def _utc():
 
 
 def report(rows: list[dict]) -> dict:
-    """The job's .report.json: per session summary (latest per (model, arm, seed)) and the verdict."""
+    """The job's .report.json: per session summary (latest per (model, arm, seed)), the prompt check per tier, and
+    the verdict. verdict["per_tier"][tier] carries the tier's own hypothesis result, its prompt-check match rate and
+    mechanism_citable; a tier that is not citable gets the explicit not-citable statement, and
+    verdict["mechanism_citable"] is true only when every tier is."""
     latest = {}
     for r in rows:
         if r.get("record") == "r2m_session":
             latest[(r["model_id"], r["arm_id"], r["seed"])] = r
     sessions = list(latest.values())
-    return {"sessions": sessions, "verdict": verdict(sessions)}
+    checks = ptc.tier_summary([r for r in rows if r.get("record") == "r2m_prompt_check"])
+    v = verdict(sessions)
+    per_tier = {}
+    for tier in sorted({s["arm_id"] for s in sessions} | set(checks), key=str):
+        pc = checks.get(tier) or {"n_checks": 0, "n_match": 0, "match_rate": None, "mechanism_citable": False,
+                                  "statement": ptc.NOT_CITABLE + " (no prompt checks)"}
+        hyp = verdict([s for s in sessions if s["arm_id"] == tier])["drop_old_turns_keep_system"]
+        per_tier[tier] = {"hypothesis": hyp, "match_rate": pc["match_rate"], "n_checks": pc["n_checks"],
+                          "n_match": pc["n_match"], "mechanism_citable": pc["mechanism_citable"],
+                          "statement": pc["statement"]}
+    v["per_tier"] = per_tier
+    v["mechanism_citable"] = bool(per_tier) and all(t["mechanism_citable"] for t in per_tier.values())
+    v["not_citable_statements"] = [f"{t}: {p['statement']}" for t, p in per_tier.items() if not p["mechanism_citable"]]
+    return {"sessions": sessions, "prompt_check": checks, "verdict": v}
 
 
 def write_report(out_path: Path, rows: list[dict]) -> dict:
