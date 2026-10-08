@@ -9,7 +9,11 @@ Modules:
   baselines.py  -- all-local, all-cloud (cheap/strong), and a RouteLLM BERT-router baseline (the only RouteLLM
                    router usable without an OpenAI key; see that module's docstring for why mf/sw_ranking are
                    skipped).
-  router.py     -- our own router: envelope feasibility/latency/effective-context from
+  router.py     -- Router (the demo router, 2026-10-08): per agent step local / local_trimmed / cloud from
+                   envelope_data.json (written from numbers-register rows by analysis/build_envelope_data.py), the
+                   R2 context-overflow guard (trim whole turns, keep the system prompt) and remaining cloud budget;
+                   replay_session replays R2 rows through it (r2_replay.py rebuilds the requests).
+                   Also EnvelopeRouter, the older single-task router: envelope feasibility/latency/effective-context from
                    analysis/envelope_model.py, a simple difficulty estimate, live remaining-budget state from
                    CloudClient, and a hard rule against ever routing into a silent-failure configuration.
   live_validation_stub.py -- a runnable script demonstrating what each baseline/router decision looks like

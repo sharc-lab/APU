@@ -2930,6 +2930,77 @@ def compute_r2_mitigation_v1_observed(repo):
     return {"value": " / ".join(parts), "n": f"{sum(c['observed']['n_calls'] for c in rep['cells'].values())} calls"}
 
 
+# ───────────────────────────────────────────────── router envelope inputs (src/dse/envelope_data.json, 2026-10-08)
+
+
+def compute_r2_real_v1_loaded_ctx(repo):
+    """Context Ollama actually loaded (GET /api/ps context_length, every turn) per R2 real-run tier x model on evo-x2.
+    For the ollama_default tier this is Ollama's own default for that model on evo-x2; for the num_ctx tiers it is
+    the requested value. detail: {tier: {model: loaded_context}}; raises if a (tier, model) cell saw more than one
+    value."""
+    rows = [r for r in _read_jsonl(repo / R2_REAL_V1_FILE) if r.get("record") == "r2a_turn"]
+    seen = {}
+    for r in rows:
+        tier = r["arm_id"].replace("_call2_notools", "")
+        seen.setdefault(tier, {}).setdefault(r["model_id"], set()).add(r.get("loaded_context"))
+    detail = {}
+    for tier, models in seen.items():
+        for m, vals in models.items():
+            vals = {v for v in vals if v is not None}
+            if len(vals) != 1:
+                raise ValueError(f"{tier} {m}: loaded_context not unique: {sorted(vals)}")
+            detail.setdefault(tier, {})[m] = vals.pop()
+    value = "; ".join(f"{t} " + ", ".join(f"{m} {v}" for m, v in sorted(ms.items())) for t, ms in sorted(detail.items()))
+    return {"value": value, "n": len(rows), "detail": detail}
+
+
+def compute_r2_real_v1_token_calib(repo):
+    """Per model, the R2 harness's tokenizer calibration ratio (turn 1 call 1 prompt_eval_count / chars-per-4
+    estimate, one per session, harness/x2_r2_agent.py run_session): median, min, max over the real run's sessions.
+    detail: {model: {"median", "min", "max", "n_sessions"}}."""
+    rows = [r for r in _read_jsonl(repo / R2_REAL_V1_FILE) if r.get("record") == "r2a_session"]
+    by = {}
+    for r in rows:
+        if r.get("token_calib_ratio") is not None:
+            by.setdefault(r["model_id"], []).append(float(r["token_calib_ratio"]))
+    if not by:
+        raise FileNotFoundError("no r2a_session row with token_calib_ratio")
+    detail = {m: {"median": statistics.median(v), "min": min(v), "max": max(v), "n_sessions": len(v)}
+              for m, v in sorted(by.items())}
+    value = "; ".join(f"{m} median {d['median']:.4f} (range {d['min']:.4f}-{d['max']:.4f}, {d['n_sessions']} sessions)"
+                      for m, d in detail.items())
+    return {"value": value, "n": sum(len(v) for v in by.values()), "detail": detail}
+
+
+def compute_decode_rate_per_machine(repo):
+    """Median decode_tok_s per (machine, model) over the same pooled real files as the TTFT fit
+    (_TTFT_FIT_RESULT_FILES), warm-up rows excluded and only rows with no co-runner (co_runner absent, "none" or
+    "N0"), so the co-runner penalty stays a separate term. detail: {machine: {model: {"median", "n"}}}."""
+    by = {}
+    found_any = False
+    for rel_path in _TTFT_FIT_RESULT_FILES:
+        path = repo / rel_path
+        if not path.exists():
+            continue
+        found_any = True
+        for r in _read_jsonl(path):
+            d = r.get("decode_tok_s")
+            if not d or r.get("warmup") is True or r.get("co_runner") not in (None, "none", "N0"):
+                continue
+            hw = r.get("hw_id") or r.get("host")
+            model = r.get("model_id") or r.get("model_tag")
+            if hw not in ("evo-t2s", "evo-x2") or model is None:
+                continue
+            by.setdefault(hw, {}).setdefault(model, []).append(float(d))
+    if not found_any:
+        raise FileNotFoundError("none of the TTFT fit result files were found")
+    detail = {hw: {m: {"median": statistics.median(v), "n": len(v)} for m, v in sorted(ms.items())}
+              for hw, ms in sorted(by.items())}
+    value = " / ".join(f"{hw}: " + ", ".join(f"{m} {d['median']:.2f} tok/s (n={d['n']})" for m, d in ms.items())
+                       for hw, ms in detail.items())
+    return {"value": value, "n": sum(d["n"] for ms in detail.values() for d in ms.values()), "detail": detail}
+
+
 NUMBER_ENTRIES = [
     {"claim_id": "PX2-TTFT-gap", "description": "PX2 B4-vs-S4 TTFT gap range across 5 models",
      "compute": compute_px2_ttft_gap, "data_files": ["results/t2s_night2_20260930T135145Z.jsonl"],
@@ -3359,6 +3430,18 @@ NUMBER_ENTRIES = [
                     "Ollama message drops and client token counting per tier x model",
      "compute": compute_r2_mitigation_v1_observed, "data_files": [R2_MITIGATION_FILE], "pending_ok": True,
      "script_function": "analysis/numbers_register.py::compute_r2_mitigation_v1_observed"},
+    {"claim_id": "R2-real-v1-loaded-ctx", "description": "R2 real run: context Ollama loaded per tier x model on "
+                    "evo-x2 (ollama_default = Ollama's own default for the model)",
+     "compute": compute_r2_real_v1_loaded_ctx, "data_files": [R2_REAL_V1_FILE],
+     "script_function": "analysis/numbers_register.py::compute_r2_real_v1_loaded_ctx"},
+    {"claim_id": "R2-real-v1-token-calib", "description": "R2 real run: per-model tokenizer calibration ratio of the "
+                    "chars/4 estimate (median and range over sessions)",
+     "compute": compute_r2_real_v1_token_calib, "data_files": [R2_REAL_V1_FILE],
+     "script_function": "analysis/numbers_register.py::compute_r2_real_v1_token_calib"},
+    {"claim_id": "decode-rate-per-machine", "description": "median decode tok/s per machine x model, no co-runner, "
+                    "pooled over the TTFT-fit files",
+     "compute": compute_decode_rate_per_machine, "data_files": _TTFT_FIT_RESULT_FILES,
+     "script_function": "analysis/numbers_register.py::compute_decode_rate_per_machine"},
 ]
 
 

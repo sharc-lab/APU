@@ -1,0 +1,333 @@
+{
+ "generated_by": "analysis/build_envelope_data.py",
+ "machines": {
+  "evo-t2s": {
+   "co_runner": {
+    "claim_id": "B3-corunner-6model",
+    "condition": "nonp12 (CPU co-runner)",
+    "decode_ratio": {},
+    "ttft_ratio": {
+     "llama31-8b": 1.436801975143071,
+     "qwen3-14b": 1.4329196727969995,
+     "qwen3-30b-a3b-2507": 1.4270103630033524,
+     "qwen3-32b": 1.4278650098106056,
+     "qwen3-4b-2507": 1.4172765723736933,
+     "qwen3-8b": 1.431331057200066
+    }
+   },
+   "decode_tok_s": {
+    "llama-33-70b": 2.3174316362853618,
+    "llama31-8b": 15.814579882160311,
+    "qwen3-14b": 11.689922469915924,
+    "qwen3-30b-a3b-2507": 31.743371668981755,
+    "qwen3-32b": 4.566543330389618,
+    "qwen3-4b-2507": 16.036774054428,
+    "qwen3-8b": 19.834127243023868
+   },
+   "llama_server_memory": {
+    "claim_id": "A-24-budget-boundary",
+    "first_fail_n_ctx": {
+     "llama-33-70b": 23552,
+     "llama31-8b": 344064,
+     "qwen3-30b-a3b-2507": 320512,
+     "qwen3-32b": 115968,
+     "qwen3-8b": 305408
+    },
+    "last_ok_n_ctx": {
+     "llama-33-70b": 23296,
+     "llama31-8b": 343808,
+     "qwen3-30b-a3b-2507": 320256,
+     "qwen3-32b": 115712,
+     "qwen3-8b": 305152
+    }
+   },
+   "ollama_default_ctx": {
+    "llama31-8b": {
+     "claim_ids": [
+      "T2S-vs-X2-default-ctx"
+     ],
+     "ctx": 4096
+    },
+    "qwen3-4b-2507": {
+     "claim_ids": [
+      "T2S-vs-X2-default-ctx"
+     ],
+     "ctx": 4096
+    },
+    "qwen3-8b": {
+     "claim_ids": [
+      "T2S-vs-X2-default-ctx"
+     ],
+     "ctx": 4096
+    }
+   },
+   "ttft_fit": {
+    "llama-33-70b": {
+     "a": 0.00807082088293911,
+     "b": 1.221589210167648e-06,
+     "r2": 0.9934
+    },
+    "llama31-8b": {
+     "a": 0.0016591618867574393,
+     "b": 1.579699423800639e-07,
+     "r2": 0.8674
+    },
+    "qwen3-14b": {
+     "a": 0.0011052197534056757,
+     "b": 4.564982099209174e-07,
+     "r2": 0.9589
+    },
+    "qwen3-30b-a3b-2507": {
+     "a": 0.001367996274379686,
+     "b": 3.0055025200335996e-07,
+     "r2": 0.8854
+    },
+    "qwen3-32b": {
+     "a": 0.003623639514275388,
+     "b": 1.0584356604394683e-06,
+     "r2": 0.9907
+    },
+    "qwen3-4b-2507": {
+     "a": 0.0014727172846332622,
+     "b": 1.8684405323847062e-07,
+     "r2": 0.6818
+    },
+    "qwen3-8b": {
+     "a": 0.0005169006850710777,
+     "b": 3.5385215032395746e-07,
+     "r2": 0.9669
+    }
+   }
+  },
+  "evo-x2": {
+   "co_runner": {
+    "claim_id": "PX2-full-ratio-table",
+    "condition": "B4 (PX2 bandwidth co-runner)",
+    "decode_ratio": {
+     "llama-33-70b": 0.9052805050446194,
+     "llama31-8b": 0.9281783707309829,
+     "qwen3-14b": 0.9094871401573468,
+     "qwen3-32b": 0.9268645620436877,
+     "qwen3-8b": 0.9270090342049329
+    },
+    "ttft_ratio": {
+     "llama-33-70b": 1.0448470660019291,
+     "llama31-8b": 1.110942693630879,
+     "qwen3-14b": 1.09979253505013,
+     "qwen3-32b": 1.077659106386594,
+     "qwen3-8b": 1.1225356839084484
+    }
+   },
+   "decode_tok_s": {
+    "llama-33-70b": 6.421451964738082,
+    "llama31-8b": 45.55158265182216,
+    "qwen3-14b": 27.425752619886573,
+    "qwen3-30b-a3b-2507": 85.83725565249735,
+    "qwen3-32b": 12.433728228645233,
+    "qwen3-4b-2507": 77.06634127949965,
+    "qwen3-8b": 50.10833420929766
+   },
+   "llama_server_memory": null,
+   "ollama_default_ctx": {
+    "llama31-8b": {
+     "claim_ids": [
+      "T2S-vs-X2-default-ctx",
+      "K1v3-X2-table",
+      "R2-real-v1-loaded-ctx"
+     ],
+     "ctx": 131072
+    },
+    "qwen3-14b": {
+     "claim_ids": [
+      "R2-real-v1-loaded-ctx"
+     ],
+     "ctx": 40960
+    },
+    "qwen3-4b-2507": {
+     "claim_ids": [
+      "T2S-vs-X2-default-ctx",
+      "K1v3-X2-table"
+     ],
+     "ctx": 262144
+    },
+    "qwen3-8b": {
+     "claim_ids": [
+      "T2S-vs-X2-default-ctx",
+      "K1v3-X2-table"
+     ],
+     "ctx": 40960
+    }
+   },
+   "ttft_fit": {
+    "llama-33-70b": {
+     "a": 0.013133333204999773,
+     "b": 3.9315432320449065e-07,
+     "r2": 0.6309
+    },
+    "llama31-8b": {
+     "a": 0.0018369340310981288,
+     "b": -3.426612445042197e-10,
+     "r2": 0.1166
+    },
+    "qwen3-14b": {
+     "a": 0.003438775587922193,
+     "b": 5.596965435835343e-08,
+     "r2": 0.176
+    },
+    "qwen3-30b-a3b-2507": {
+     "a": 0.004923125148059965,
+     "b": -6.271458374196435e-07,
+     "r2": -0.0315
+    },
+    "qwen3-32b": {
+     "a": 0.005847502016171795,
+     "b": 3.656118327189125e-07,
+     "r2": 0.3732
+    },
+    "qwen3-4b-2507": {
+     "a": 0.0024599571572129914,
+     "b": -1.6745305523391884e-07,
+     "r2": 0.0451
+    },
+    "qwen3-8b": {
+     "a": 0.001009706402722331,
+     "b": 4.072033366708836e-07,
+     "r2": 0.4193
+    }
+   }
+  }
+ },
+ "note": "derived from numbers-register rows only; regenerate, never edit by hand",
+ "ollama_overflow_processed": {
+  "32768": 16386,
+  "4096": 2050,
+  "40960": 20482,
+  "8192": 4098
+ },
+ "sources": {
+  "A-24-budget-boundary": {
+   "data_files": [
+    "results/t2s_amech_20260926T181456Z.jsonl",
+    "results/t2s_night2_20260929T034014Z.jsonl"
+   ],
+   "register_value": "budget boundary 47482-47969 MiB projected, 5 models",
+   "script_function": "analysis/numbers_register.py::compute_a24_budget_boundary"
+  },
+  "B3-corunner-6model": {
+   "data_files": [
+    "results/t2s_night2_20260928T004924Z.jsonl"
+   ],
+   "register_value": "per-model llama31-8b:1.437x, qwen3-14b:1.433x, qwen3-30b-a3b-2507:1.427x, qwen3-32b:1.428x, qwen3-4b-2507:1.417x, qwen3-8b:1.431x; mean 1.429x (+42.9%)",
+   "script_function": "analysis/numbers_register.py::compute_b3_corunner_6model"
+  },
+  "K1v3-X2-table": {
+   "data_files": [
+    "results/t2s_k1_ollama_evo-x2_20260930T205515Z.jsonl"
+   ],
+   "register_value": "{\"qwen3-4b-2507\": {\"capped\": false, \"native_ctx\": 262144, \"ollama_default_ctx\": 262144}, \"llama3.1:8b\": {\"capped\": false, \"native_ctx\": 131072, \"ollama_default_ctx\": 131072}, \"qwen3:8b\": {\"capped\": true, \"native_ctx\": 40960, \"ollama_default_ctx\": 40960}}",
+   "script_function": "analysis/numbers_register.py::compute_k1_v3_x2_table"
+  },
+  "PX2-full-ratio-table": {
+   "data_files": [
+    "results/t2s_night2_20260930T135145Z.jsonl"
+   ],
+   "register_value": "max TTFT ratio on evo-x2: 1.129x (qwen3-8b/S28); 9 (model,condition) pairs clear the 1.10 criterion: llama31-8b/S14, llama31-8b/S28, llama31-8b/B4, qwen3-14b/S14, qwen3-14b/S28, qwen3-8b/S8x, qwen3-8b/S14, qwen3-8b/S28, qwen3-8b/B4",
+   "script_function": "analysis/numbers_register.py::compute_px2_full_ratio_table"
+  },
+  "R2-mechanism-lowlevel": {
+   "data_files": [
+    "results/x2_r2_mechanism.jsonl"
+   ],
+   "register_value": "ollama_default: 0/80 calls message-truncated; 0 context shifts; 0 token cuts / ollama_ctx_32768: 25/80 calls message-truncated; 10 context shifts (first turn/call (30, 1), n_keep [5], n_discard [16381], 0 on the final-answer call); 0 token cuts / ollama_ctx_16384: 54/80 calls message-truncated; 0 context shifts; 0 token cuts / ollama_ctx_8192: 68/80 calls message-truncated; 0 context shifts; 0 token cuts / ollama_ctx_4096: 76/80 calls message-truncated; 34 context shifts (first turn/call (4, 2), n_keep [5], n_discard [2045], 29 on the final-answer call); 1 token cuts (token cut limit 2050 keep 4 prompt 4097 -> 2050)",
+   "script_function": "analysis/numbers_register.py::compute_r2_mechanism_lowlevel"
+  },
+  "R2-real-v1-loaded-ctx": {
+   "data_files": [
+    "results/x2_r2_real_v1.jsonl"
+   ],
+   "register_value": "ollama_ctx_32768 llama3.1:8b 32768, qwen3:14b 32768; ollama_ctx_4096 llama3.1:8b 4096, qwen3:14b 4096; ollama_default llama3.1:8b 131072, qwen3:14b 40960",
+   "script_function": "analysis/numbers_register.py::compute_r2_real_v1_loaded_ctx"
+  },
+  "R2-real-v1-token-calib": {
+   "data_files": [
+    "results/x2_r2_real_v1.jsonl"
+   ],
+   "register_value": "llama3.1:8b median 0.8613 (range 0.8604-0.8644, 9 sessions); qwen3:14b median 0.9558 (range 0.9550-0.9581, 9 sessions)",
+   "script_function": "analysis/numbers_register.py::compute_r2_real_v1_token_calib"
+  },
+  "T2S-vs-X2-default-ctx": {
+   "data_files": [
+    "results/apu_results__t2s_k1_ollama_evo-t2s_20261001T074622Z.jsonl",
+    "results/t2s_k1_ollama_evo-x2_20260930T205515Z.jsonl"
+   ],
+   "register_value": "{\"qwen3-4b-2507\": {\"t2s_default_ctx\": 4096, \"x2_default_ctx\": 262144}, \"llama3.1:8b\": {\"t2s_default_ctx\": 4096, \"x2_default_ctx\": 131072}, \"qwen3:8b\": {\"t2s_default_ctx\": 4096, \"x2_default_ctx\": 40960}}",
+   "script_function": "analysis/numbers_register.py::compute_t2s_x2_default_ctx_table"
+  },
+  "decode-rate-per-machine": {
+   "data_files": [
+    "results/t2s_amech_20260926T181456Z.jsonl",
+    "results/t2s_k2_pressure_20261001T001340Z.jsonl",
+    "results/t2s_night2_20260928T004924Z.jsonl",
+    "results/t2s_night2_20260928T200748Z.jsonl",
+    "results/t2s_night2_20260929T032407Z.jsonl",
+    "results/t2s_night2_20260929T034014Z.jsonl",
+    "results/t2s_night2_20260929T045127Z.jsonl",
+    "results/t2s_night2_20260929T103807Z.jsonl",
+    "results/t2s_night2_20260929T202603Z.jsonl",
+    "results/t2s_night2_20260929T205109Z.jsonl",
+    "results/t2s_night2_20260930T071225Z.jsonl",
+    "results/t2s_night2_20260930T135145Z.jsonl",
+    "results/t2s_night2_20260930T173804Z.jsonl",
+    "results/t2s_night2_20260930T215303Z.jsonl",
+    "results/t2s_night2_20261001T033124Z.jsonl",
+    "results/t2s_night2_20261001T081725Z.jsonl",
+    "results/t2s_night2_20261001T151340Z.jsonl",
+    "results/t2s_night2_20261001T195303Z.jsonl",
+    "results/t2s_overnight_20260926T011744Z.jsonl",
+    "results/t2s_overnight_20260929T071343Z.jsonl"
+   ],
+   "register_value": "evo-t2s: llama-3.3-70b 2.32 tok/s (n=33), llama31-8b 15.81 tok/s (n=12), qwen3-14b 11.69 tok/s (n=1701), qwen3-30b-a3b-2507 31.74 tok/s (n=13), qwen3-32b 4.57 tok/s (n=184), qwen3-4b-2507 16.04 tok/s (n=22), qwen3-8b 19.83 tok/s (n=1768) / evo-x2: llama-3.3-70b 6.42 tok/s (n=229), llama31-8b 45.55 tok/s (n=234), qwen3-14b 27.43 tok/s (n=630), qwen3-30b-a3b-2507 85.84 tok/s (n=8), qwen3-32b 12.43 tok/s (n=245), qwen3-4b-2507 77.07 tok/s (n=347), qwen3-8b 50.11 tok/s (n=667)",
+   "script_function": "analysis/numbers_register.py::compute_decode_rate_per_machine"
+  },
+  "ollama-overflow-keeps-half": {
+   "data_files": [
+    "results/apu_results__t2s_k1_ollama_evo-t2s_20261001T074622Z.jsonl",
+    "results/t2s_k1_igpu_enable_sweep.jsonl",
+    "results/t2s_k1_ollama_evo-x2_20261001T080109Z.jsonl",
+    "results/x2_template_mechanism_test.jsonl"
+   ],
+   "register_value": "processed = num_ctx/2 + 2 in all 4 checked cases: 4096->2050; 32768->16386; 40960->20482; 8192->4098. Mechanism: Ollama's own '--context-shift --keep 4' llama-server flag (llama.cpp context-shift, sliding window, oldest tokens discarded first).",
+   "script_function": "analysis/numbers_register.py::compute_ollama_overflow_keeps_half"
+  },
+  "ttft-physical-fit-per-machine": {
+   "data_files": [
+    "results/t2s_amech_20260926T181456Z.jsonl",
+    "results/t2s_k2_pressure_20261001T001340Z.jsonl",
+    "results/t2s_night2_20260928T004924Z.jsonl",
+    "results/t2s_night2_20260928T200748Z.jsonl",
+    "results/t2s_night2_20260929T032407Z.jsonl",
+    "results/t2s_night2_20260929T034014Z.jsonl",
+    "results/t2s_night2_20260929T045127Z.jsonl",
+    "results/t2s_night2_20260929T103807Z.jsonl",
+    "results/t2s_night2_20260929T202603Z.jsonl",
+    "results/t2s_night2_20260929T205109Z.jsonl",
+    "results/t2s_night2_20260930T071225Z.jsonl",
+    "results/t2s_night2_20260930T135145Z.jsonl",
+    "results/t2s_night2_20260930T173804Z.jsonl",
+    "results/t2s_night2_20260930T215303Z.jsonl",
+    "results/t2s_night2_20261001T033124Z.jsonl",
+    "results/t2s_night2_20261001T081725Z.jsonl",
+    "results/t2s_night2_20261001T151340Z.jsonl",
+    "results/t2s_night2_20261001T195303Z.jsonl",
+    "results/t2s_overnight_20260926T011744Z.jsonl",
+    "results/t2s_overnight_20260929T071343Z.jsonl"
+   ],
+   "register_value": "evo-t2s: R2 0.68-0.99 across 7 models; evo-x2: R2 -0.03-0.63 across 7 models",
+   "script_function": "analysis/numbers_register.py::compute_ttft_physical_fit_per_machine"
+  }
+ },
+ "token_calib_ratio": {
+  "llama31-8b": 0.8612845673505798,
+  "qwen3-14b": 0.955842997323818
+ }
+}

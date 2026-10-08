@@ -1,0 +1,72 @@
+Router sample decisions on R2 real run steps (results/x2_r2_real_v1.jsonl, seed 20260901), written by analysis/router_sample_decisions.py
+Router settings: hardware evo-x2, runtime = the session's arm, quality_floor 0.9, latency_target_ms None, cloud model gpt-4o-mini, stub cloud client on an empty ledger, context margin 5%, answer budget 384 (the harness's num_predict). Canary turns need turn 1 (history tags).
+
+[1] Ollama default, llama3.1:8b, mid: llama3.1:8b ollama_default_call2_notools, turn 20 call 2
+    real run: prompt 29,229 tok (calibrated), loaded context 131,072, over loaded window: no
+    decision: target=local machine=evo-x2 runtime=ollama_default_call2_notools model=llama3.1:8b num_ctx=131,072
+    tokens: system 414, kept history 28,844, answer budget 384, total 29,642 (untrimmed 29,642); kept turns 20, dropped turns 0
+    predicted latency 61,882 ms; est cost $0.0000; budget remaining $5.0000; stub=True; quality floor met: True
+    reason: local: 29,642 tok <= 124,518 usable of 131,072 ctx on evo-x2 Ollama default ctx 131,072; predicted 61,882 ms
+
+[2] Ollama default, qwen3:14b, before the real overflow: qwen3:14b ollama_default_call2_notools, turn 24 call 2
+    real run: prompt 40,870 tok (calibrated), loaded context 40,960, over loaded window: no
+    decision: target=local_trimmed machine=evo-x2 runtime=ollama_default_call2_notools model=qwen3:14b num_ctx=40,960
+    tokens: system 458, kept history 37,132, answer budget 384, total 37,974 (untrimmed 41,320); kept turns 22, dropped turns 2
+    predicted latency 222,351 ms; est cost $0.0000; budget remaining $5.0000; stub=True; quality floor met: True
+    reason: local_trimmed: 41,320 tok > 38,912 usable of 40,960 ctx on evo-x2 Ollama default ctx 40,960; dropped turns 1-2, kept system prompt; quality floor does not need dropped history; predicted 222,351 ms
+
+[3] Ollama default, qwen3:14b, canary turn: qwen3:14b ollama_default_call2_notools, turn 30 call 2
+    real run: prompt 51,073 tok (calibrated), loaded context 40,960, over loaded window: yes
+    decision: target=cloud machine=cloud runtime=stub model=gpt-4o-mini num_ctx=40,960
+    tokens: system 458, kept history 50,698, answer budget 384, total 51,540 (untrimmed 51,540); kept turns 30, dropped turns 0
+    predicted latency n/a; est cost $0.0079; budget remaining $4.9709; stub=True; quality floor met: True
+    reason: cloud: 51,540 tok > 38,912 usable of 40,960 ctx on evo-x2 Ollama default ctx 40,960; trimming would drop turn 1, which this step needs (quality floor 0.9); gpt-4o-mini est $0.0079, $4.9709 left (stub)
+
+[4] num_ctx 32768, llama3.1:8b, early: llama3.1:8b ollama_ctx_32768_call2_notools, turn 10 call 2
+    real run: prompt 14,780 tok (calibrated), loaded context 32,768, over loaded window: no
+    decision: target=local machine=evo-x2 runtime=ollama_ctx_32768_call2_notools model=llama3.1:8b num_ctx=32,768
+    tokens: system 414, kept history 14,381, answer budget 384, total 15,179 (untrimmed 15,179); kept turns 10, dropped turns 0
+    predicted latency 35,532 ms; est cost $0.0000; budget remaining $5.0000; stub=True; quality floor met: True
+    reason: local: 15,179 tok <= 31,129 usable of 32,768 ctx on evo-x2 Ollama num_ctx 32,768; predicted 35,532 ms
+
+[5] num_ctx 32768, llama3.1:8b, one turn before the real overflow: llama3.1:8b ollama_ctx_32768_call2_notools, turn 22 call 2
+    real run: prompt 31,923 tok (calibrated), loaded context 32,768, over loaded window: no
+    decision: target=local_trimmed machine=evo-x2 runtime=ollama_ctx_32768_call2_notools model=llama3.1:8b num_ctx=32,768
+    tokens: system 414, kept history 30,020, answer budget 384, total 30,818 (untrimmed 32,339); kept turns 21, dropped turns 1
+    predicted latency 64,018 ms; est cost $0.0000; budget remaining $5.0000; stub=True; quality floor met: True
+    reason: local_trimmed: 32,339 tok > 31,129 usable of 32,768 ctx on evo-x2 Ollama num_ctx 32,768; dropped turn 1, kept system prompt; quality floor does not need dropped history; predicted 64,018 ms
+
+[6] num_ctx 4096, llama3.1:8b, early (turn 1): llama3.1:8b ollama_ctx_4096_call2_notools, turn 1 call 1
+    real run: prompt 1,938 tok (calibrated), loaded context 4,096, over loaded window: no
+    decision: target=local machine=evo-x2 runtime=ollama_ctx_4096_call2_notools model=llama3.1:8b num_ctx=4,096
+    tokens: system 542, kept history 1,398, answer budget 384, total 2,324 (untrimmed 2,324); kept turns 1, dropped turns 0
+    predicted latency 11,992 ms; est cost $0.0000; budget remaining $5.0000; stub=True; quality floor met: True
+    reason: local: 2,324 tok <= 3,891 usable of 4,096 ctx on evo-x2 Ollama num_ctx 4,096; predicted 11,992 ms
+
+[7] num_ctx 4096, llama3.1:8b, first real overflow turn: llama3.1:8b ollama_ctx_4096_call2_notools, turn 3 call 1
+    real run: prompt 4,855 tok (calibrated), loaded context 4,096, over loaded window: yes
+    decision: target=local_trimmed machine=evo-x2 runtime=ollama_ctx_4096_call2_notools model=llama3.1:8b num_ctx=4,096
+    tokens: system 542, kept history 2,791, answer budget 384, total 3,717 (untrimmed 5,244); kept turns 2, dropped turns 1
+    predicted latency 14,549 ms; est cost $0.0000; budget remaining $5.0000; stub=True; quality floor met: True
+    reason: local_trimmed: 5,244 tok > 3,891 usable of 4,096 ctx on evo-x2 Ollama num_ctx 4,096; dropped turn 1, kept system prompt; quality floor does not need dropped history; predicted 14,549 ms
+
+[8] num_ctx 4096, qwen3:14b, mid: qwen3:14b ollama_ctx_4096_call2_notools, turn 12 call 2
+    real run: prompt 19,862 tok (calibrated), loaded context 4,096, over loaded window: yes
+    decision: target=local_trimmed machine=evo-x2 runtime=ollama_ctx_4096_call2_notools model=qwen3:14b num_ctx=4,096
+    tokens: system 458, kept history 1,574, answer budget 384, total 2,416 (untrimmed 20,274); kept turns 1, dropped turns 11
+    predicted latency 21,220 ms; est cost $0.0000; budget remaining $4.9915; stub=True; quality floor met: True
+    reason: local_trimmed: 20,274 tok > 3,891 usable of 4,096 ctx on evo-x2 Ollama num_ctx 4,096; dropped turns 1-11, kept system prompt; quality floor does not need dropped history; predicted 21,220 ms
+
+[9] num_ctx 4096, qwen3:14b, mid canary turn: qwen3:14b ollama_ctx_4096_call2_notools, turn 20 call 2
+    real run: prompt 32,865 tok (calibrated), loaded context 4,096, over loaded window: yes
+    decision: target=cloud machine=cloud runtime=stub model=gpt-4o-mini num_ctx=4,096
+    tokens: system 458, kept history 32,452, answer budget 384, total 33,294 (untrimmed 33,294); kept turns 20, dropped turns 0
+    predicted latency n/a; est cost $0.0052; budget remaining $4.9732; stub=True; quality floor met: True
+    reason: cloud: 33,294 tok > 3,891 usable of 4,096 ctx on evo-x2 Ollama num_ctx 4,096; trimming would drop turn 1, which this step needs (quality floor 0.9); gpt-4o-mini est $0.0052, $4.9732 left (stub)
+
+[10] num_ctx 4096, llama3.1:8b, late canary turn, zero cloud budget: llama3.1:8b ollama_ctx_4096_call2_notools, turn 40 call 2
+    real run: prompt 58,055 tok (calibrated), loaded context 4,096, over loaded window: yes
+    decision: target=local_trimmed machine=evo-x2 runtime=ollama_ctx_4096_call2_notools model=llama3.1:8b num_ctx=4,096
+    tokens: system 414, kept history 2,875, answer budget 384, total 3,673 (untrimmed 58,497); kept turns 2, dropped turns 38
+    predicted latency 14,468 ms; est cost $0.0000; budget remaining $0.0000; stub=True; quality floor met: False
+    reason: local_trimmed: 58,497 tok > 3,891 usable of 4,096 ctx on evo-x2 Ollama num_ctx 4,096; dropped turns 1-38, kept system prompt; trimming would drop turn 1, which this step needs (quality floor 0.9) but cloud gpt-4o-mini est $0.0089 > $0.0000 budget left, quality floor NOT met
