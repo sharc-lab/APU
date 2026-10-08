@@ -256,3 +256,10 @@ each branch's FINDINGS section and register rows (not repeated here until merged
   ~0.6 h), x2_r2_mechanism_v1 (OLLAMA_DEBUG render + log per tier, ~1.9 h), x2_r2_real_v1b (82 new sessions, gated
   on v2b, per-model refusal, ~46.5 h of which ~24.5 h is scaled not measured). Register rows for these are PENDING
   until synced. Machine order as instructed: outcome table v3, 70B edge reps, K2 pause-resume, then R2.
+- 2026-10-08 queue change (operator): outcome table yielded at an item boundary (resume3 -> resume4, resumable);
+  order now x2_r2_validation_v2b (running) -> x2_r2_mechanism_v1 -> x2_outcome_table_v3_resume4 -> x2_r2_real_v1b
+  -> x2_k2_pause_resume_v1 -> x2_70b_edge_reps. The mechanism job was held until its prompt-token validity check
+  (render-only tokens via llama-tokenize vs fresh-request prompt_eval_count, >=5 checks per tier, 1% match, tier
+  citable only if all match) was merged and deployed (e96a5cb), then released. Watchdog Ready, no pause.
+  Open risk: llama-tokenize's output format is assumed from its help text; a mismatch shows up as error rows and a
+  not-citable tier, never a silent pass.
