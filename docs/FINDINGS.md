@@ -2642,3 +2642,16 @@ configurations succeeded up to 24,007 tokens. Not supported: a prompt-length (co
 any configuration. Fix landed with this section: `harness/t2s_outcome_table.py` now writes a row for both
 llama-server load-failure paths. Next step: read the llama-server logs for longdoc_24000_05 onward before
 attributing a cause.
+
+## T2S outcome table: llama-server also failed to allocate, from the synced logs (2026-10-08)
+
+The 2026-10-07 T2S allocation section reported 0 llama-server failures because the harness wrote no row for an item
+whose server never served. The synced llama-server logs (`results/t2s_outcome_table_llamaserver_*.log`, gitignored,
+on the controller; register `t2s-llamaserver-load-failures`) show the missing items did not hang: half of the logs
+end in `ErrorOutOfDeviceMemory` (one at the KV-cache allocation, the rest at model load), the other half served
+normally. Every log reports the same static device line (`37060 MiB, 47865 MiB free`), so the logs cannot show what
+held device memory at the time; the about 900 s per item was the harness waiting, not the server. With both Ollama
+configs failing in the same window, the likeliest reading is device memory held by another process (on evo-x2 this
+session, orphaned Ollama runners after `stop_ollama_server` were found and fixed in cd5c5bf), but that is not
+verified for evo-t2s and waits until the machine is back. Since commit 5fff514 the T2S harness writes a row on a
+llama-server load failure.

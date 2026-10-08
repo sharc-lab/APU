@@ -2309,6 +2309,97 @@ def compute_r2_real_v1_gated_kill(repo):
     return {"value": f"{arms} ({excl})", "n": rep["n_sessions"]}
 
 
+# ───────────────────────────────────────────────── X2 outcome table v3 progress (2026-10-08)
+def _x2_v3_cells(repo):
+    """Latest valid outcome_row per (item, model, config) in the v3 file, the planned item set per cell (pack minus
+    r2_sessions; qwen3-32b only its recorded 100-item trace-weighted subset), and the trace weights."""
+    x2 = _x2_harness()
+    rows = x2.read_rows(repo / X2_OUTCOME_V3)
+    weights = x2.load_weights(repo)
+    plan_all = {it["item_id"]: it["family"] for it in x2.load_items_trace_weighted(repo)}
+    sub = next((set(r["item_ids"]) for r in rows if r.get("record") == "qwen32b_subset"), set())
+    latest = {}
+    for r in rows:
+        if r.get("record") == "outcome_row" and x2.row_is_valid(r):
+            latest[(r["item_id"], r["model_id"], r["config"])] = r
+    cells = {}
+    for (iid, m, c), r in latest.items():
+        cells.setdefault((m, c), {})[iid] = r
+    plan = {m: (sub if m == "qwen3-32b" else set(plan_all)) for m in x2.DEFAULT_MODELS}
+    return x2, cells, plan, plan_all, weights
+
+
+def compute_x2_v3_progress(repo):
+    """Items done (latest valid row) vs planned, per model x config."""
+    _x2, cells, plan, _pa, _w = _x2_v3_cells(repo)
+    parts = []
+    for (m, c) in sorted(cells):
+        done = len(set(cells[(m, c)]) & plan.get(m, set()))
+        parts.append(f"{m}/{c} {done}/{len(plan.get(m, ()))}")
+    total_done = sum(len(set(v) & plan.get(m, set())) for (m, _c), v in cells.items())
+    total_plan = sum(len(plan[m]) for m in plan) * 2
+    return {"value": f"total {total_done}/{total_plan}; " + "; ".join(parts), "n": total_done}
+
+
+def compute_x2_v3_scores(repo):
+    """Mean score per family and trace-weighted mean (item weights renormalized over the done items), per model x
+    config, over done items only. The run visits items in descending trace weight, so done items are the heaviest."""
+    _x2, cells, plan, plan_all, w = _x2_v3_cells(repo)
+    parts = []
+    for (m, c) in sorted(cells):
+        rs = {iid: r for iid, r in cells[(m, c)].items() if iid in plan.get(m, set())}
+        fam = {}
+        for iid, r in rs.items():
+            fam.setdefault(plan_all[iid], []).append(r.get("score") or 0.0)
+        wsum = sum(w.get(i, 0.0) for i in rs)
+        tw = (sum(w.get(i, 0.0) * (r.get("score") or 0.0) for i, r in rs.items()) / wsum) if wsum > 0 else None
+        fs = ", ".join(f"{f} {sum(v) / len(v):.2f} (n={len(v)})" for f, v in sorted(fam.items()))
+        parts.append(f"{m}/{c}: {fs}; trace-weighted {'n/a' if tw is None else f'{tw:.2f}'}")
+    return {"value": " / ".join(parts), "n": sum(len(v) for v in cells.values())}
+
+
+def compute_x2_v3_error_causes(repo):
+    """Error cause counts (none/context_overflow/timeout/connection/other) per model x config, done items."""
+    x2, cells, plan, _pa, _w = _x2_v3_cells(repo)
+    order = ["none", "context_overflow", "timeout", "connection", "other"]
+    parts = []
+    for (m, c) in sorted(cells):
+        cnt = {}
+        for iid, r in cells[(m, c)].items():
+            if iid in plan.get(m, set()):
+                k = x2.classify_error_cause(r)
+                cnt[k] = cnt.get(k, 0) + 1
+        parts.append(f"{m}/{c} " + "/".join(str(cnt.get(k, 0)) for k in order))
+    return {"value": "order none/context_overflow/timeout/connection/other; " + "; ".join(parts),
+            "n": sum(len(v) for v in cells.values())}
+
+
+T2S_LLAMASERVER_LOG_GLOB = "results/t2s_outcome_table_llamaserver_*.log"
+
+
+def compute_t2s_llamaserver_load_failures(repo):
+    """Synced T2S llama-server logs (gitignored, local to the controller): served vs ErrorOutOfDeviceMemory, and the
+    failing allocation lines. The harness wrote no row for these items, so the outcome file shows 0 llama-server
+    failures."""
+    import glob as _glob
+    import re as _re
+    logs = sorted(_glob.glob(str(repo / T2S_LLAMASERVER_LOG_GLOB)))
+    oom, served, lines = 0, 0, {}
+    for f in logs:
+        t = Path(f).read_text(encoding="utf-8", errors="replace")
+        if "ErrorOutOfDeviceMemory" in t:
+            oom += 1
+            for ln in t.splitlines():
+                if " E " in ln and ("failed to allocate" in ln or "error loading model" in ln):
+                    k = _re.sub(r"^[0-9.]+ E ", "", ln).strip()
+                    lines[k] = lines.get(k, 0) + 1
+        elif "all slots are idle" in t:
+            served += 1
+    detail = "; ".join(f"{v}x {k}" for k, v in sorted(lines.items(), key=lambda kv: -kv[1]))
+    return {"value": f"{oom}/{len(logs)} logs ErrorOutOfDeviceMemory, {served}/{len(logs)} served; {detail}",
+            "n": len(logs)}
+
+
 NUMBER_ENTRIES = [
     {"claim_id": "PX2-TTFT-gap", "description": "PX2 B4-vs-S4 TTFT gap range across 5 models",
      "compute": compute_px2_ttft_gap, "data_files": ["results/t2s_night2_20260930T135145Z.jsonl"],
@@ -2628,6 +2719,19 @@ NUMBER_ENTRIES = [
                     "metrics, and silent failures after the loaded window was exceeded",
      "compute": compute_r2_real_v1_gated_kill, "data_files": [R2_REAL_V1_FILE, "results/x2_r2_validation_v2.jsonl"],
      "script_function": "analysis/numbers_register.py::compute_r2_real_v1_gated_kill"},
+    {"claim_id": "x2-v3-progress", "description": "X2 outcome table v3: items done vs planned per model x config",
+     "compute": compute_x2_v3_progress, "data_files": [X2_OUTCOME_V3],
+     "script_function": "analysis/numbers_register.py::compute_x2_v3_progress"},
+    {"claim_id": "x2-v3-scores", "description": "X2 outcome table v3: mean score per family and trace-weighted",
+     "compute": compute_x2_v3_scores, "data_files": [X2_OUTCOME_V3, "results/workload_pack/item_weights_trace_weighted.json"],
+     "script_function": "analysis/numbers_register.py::compute_x2_v3_scores"},
+    {"claim_id": "x2-v3-error-causes", "description": "X2 outcome table v3: error causes per model x config",
+     "compute": compute_x2_v3_error_causes, "data_files": [X2_OUTCOME_V3],
+     "script_function": "analysis/numbers_register.py::compute_x2_v3_error_causes"},
+    {"claim_id": "t2s-llamaserver-load-failures", "description": "T2S outcome table llama-server load logs: "
+                    "served vs out-of-device-memory (logs synced, gitignored)",
+     "compute": compute_t2s_llamaserver_load_failures, "data_files": [T2S_LLAMASERVER_LOG_GLOB],
+     "script_function": "analysis/numbers_register.py::compute_t2s_llamaserver_load_failures"},
 ]
 
 
