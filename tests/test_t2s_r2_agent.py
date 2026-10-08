@@ -150,6 +150,32 @@ def test_main_advances_exactly_once_on_the_wrong_host_and_on_a_logged_in_user(tm
     assert "another interactive session" in note and notes == [note] and calls == []
 
 
+def test_main_advances_exactly_once_when_x2_rejects_its_arguments(tmp_path):
+    """x2_r2_agent's ap.error raises SystemExit, which `except Exception` does not catch: it must still become a
+    "stopped:" note (never "completed") and advance once."""
+    fake, calls = _fake_x2()
+    parse_only = fake.main   # the capability probe stops inside its parse; the real call then fails post-parse
+
+    def reject(argv=None, advance=True):
+        parse_only(argv, advance)
+        raise SystemExit(2)
+    fake.main = reject
+    notes = []
+    note = w.main(["--mode", "mitigation", "--runtime-config", "cpu_default", "--out", str(tmp_path / "t2s_m.jsonl"),
+                   "--tiers", "ollama_ctx_16384"], x2mod=fake, hc=FakeHC(),
+                  tq=types.SimpleNamespace(advance=notes.append), hostname="EVO-T2S")
+    assert note.startswith("stopped: x2_r2_agent.py rejected its arguments (exit 2)") and notes == [note]
+
+
+def test_the_real_x2_agent_has_every_capability_the_wrapper_forwards():
+    caps = w.x2_capabilities(x2)
+    for cfg in w.RUNTIME_CONFIGS:
+        args, rest = w.build_parser().parse_known_args(["--mode", "real", "--runtime-config", cfg, "--out",
+                                                        "t2s_x.jsonl", "--tiers", "ollama_default", "--seeds",
+                                                        "20260901"])
+        assert w.missing_capabilities(caps, w.forwarded_argv(args, rest)) == []
+
+
 def test_runtime_check_ignores_other_arms_and_records_per_model():
     rows = [_turn("llama3.1:8b", 4096), _turn("qwen3:14b", 4096), _turn("llama3.1:8b", 131072, "ollama_ctx_131072")]
     chk = w.runtime_check(rows, "cpu_default")

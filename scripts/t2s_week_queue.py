@@ -9,6 +9,9 @@
 Nothing here spawns a process or opens a connection; `load` only reads and writes queue_state.json through
 harness/t2s_queue.py, refuses an id that is already in the queue, and never touches a running entry.
 
+OPERATOR CUT (2026-10-08, docs/T2S_WEEK_PLAN.md): steps 1 to 4 plus the R2 mechanism run are queued; the outcome-table
+subset is deferred (DEFERRED below: kept as a spec so its command stays tested, never written to the queue file).
+
 HOUR ESTIMATES. Every estimate is computed in estimates() from ESTIMATE_INPUTS, and every input is a number that
 inputs_from_files() recomputes from a committed result file (tests/test_t2s_week_queue.py checks the two agree).
 "measured" = the same job shape was timed on evo-t2s; "scaled" = an evo-x2 timing times a measured T2S/X2 ratio
@@ -126,8 +129,16 @@ def _r2(mode, runtime_config, out, *extra):
     return [T2S_PY, "t2s_r2_agent.py", "--mode", mode, "--runtime-config", runtime_config, "--out", out, *extra]
 
 
-def job_specs() -> list[dict]:
-    """The plan's jobs in queue order. gate: the id that must be done first (t2s_queue's requires_done)."""
+# Capabilities of harness/x2_r2_agent.py the R2 entries use (on main since the 2026-10-08 T2S change; the dry run fails
+# an R2 entry if the repo's x2_r2_agent.py lacks one, see t2s_r2_agent.missing_capabilities).
+X2_HOST = "x2_r2_agent host allowlist + interactive guard"
+X2_ENV, X2_TIERS = "x2_r2_agent --server-env", "x2_r2_agent --tiers"
+# key -> why it is not queued (operator decision); the spec stays in _all_specs() so its command keeps being checked.
+DEFERRED = {"outcome_subset": "operator cut 2026-10-08: the evo-x2 outcome table covers quality; deferred, not queued"}
+
+
+def _all_specs() -> list[dict]:
+    """Every job spec, queued or deferred, in plan order. gate: the id that must be done first (requires_done)."""
     val_cpu, val_igpu = "results/t2s_r2_validation_cpu_v1.jsonl", "results/t2s_r2_validation_igpu_v1.jsonl"
     gates = ["--require-validation-gates", "--per-model-refusal"]
     return [
@@ -135,44 +146,54 @@ def job_specs() -> list[dict]:
          "cmd": [T2S_PY, "t2s_week_preflight.py"], "out": "results/t2s_week_preflight.jsonl"},
         {"key": "r2_val_cpu", "step": 2, "gate": "preflight",
          "cmd": _r2("validation", "cpu_default", val_cpu, "--models", R2_MODELS, "--call2-tools", "off"),
-         "out": val_cpu, "depends": ["x2_r2_agent host-generic guard"]},
+         "out": val_cpu, "depends": [X2_HOST]},
         {"key": "r2_val_igpu", "step": 2, "gate": "preflight",
          "cmd": _r2("validation", "igpu_enable", val_igpu, "--models", R2_MODELS, "--call2-tools", "off"),
-         "out": val_igpu, "depends": ["x2_r2_agent host-generic guard", "x2_r2_agent --server-env"]},
+         "out": val_igpu, "depends": [X2_HOST, X2_ENV]},
         {"key": "r2_real_cpu", "step": 2, "gate": "r2_val_cpu",
          "cmd": _r2("real", "cpu_default", "results/t2s_r2_real_cpu_v1.jsonl", "--models", R2_MODELS,
                     "--plan", "strong", "--tiers", "ollama_default", "--call2-tools", "off", "--order", "seed_major",
                     "--rules-from", val_cpu, *gates),
          "out": "results/t2s_r2_real_cpu_v1.jsonl",
-         "depends": ["x2_r2_agent host-generic guard", "x2_r2_agent --tiers"]},
+         "depends": [X2_HOST, X2_TIERS]},
         {"key": "r2_real_igpu", "step": 2, "gate": "r2_val_igpu",
          "cmd": _r2("real", "igpu_enable", "results/t2s_r2_real_igpu_v1.jsonl", "--models", R2_MODELS,
                     "--plan", "strong", "--tiers", "ollama_default", "--call2-tools", "off", "--order", "seed_major",
                     "--rules-from", val_igpu, *gates),
          "out": "results/t2s_r2_real_igpu_v1.jsonl",
-         "depends": ["x2_r2_agent host-generic guard", "x2_r2_agent --server-env", "x2_r2_agent --tiers"]},
+         "depends": [X2_HOST, X2_ENV, X2_TIERS]},
         {"key": "r2_mitigation_cpu", "step": 3, "gate": "r2_val_cpu",
          "cmd": _r2("mitigation", "cpu_default", "results/t2s_r2_mitigation_cpu_v1.jsonl", "--models", R2_MODELS,
                     "--tiers", "ollama_ctx_4096", "--client-trim", "margin=0.05", "--call2-tools", "off",
                     "--rules-from", val_cpu, *gates),
          "out": "results/t2s_r2_mitigation_cpu_v1.jsonl",
-         "depends": ["x2_r2_agent host-generic guard", "x2_r2_agent --tiers",
+         "depends": [X2_HOST, X2_TIERS,
                      "x2_r2_mitigation_v1 flags (--mode mitigation, --client-trim; merged in 4b46765)"]},
         {"key": "px2i", "step": 4, "gate": "preflight",
          "cmd": [T2S_PY, "t2s_night2.py", "--expect-blobs", "expected_blobs.json", "--deadline-h", "4",
                  "--phases", "px2i"],
          "out": "results/t2s_night2_<launch stem>.jsonl (PX2I rows)"},
-        {"key": "outcome_subset", "step": 5, "gate": "preflight",
+        {"key": "outcome_subset", "step": None, "gate": "preflight",
          "cmd": [T2S_PY, "t2s_outcome_table.py", "--out", "results/t2s_outcome_subset_v1.jsonl",
                  "--models", "llama3.1:8b,qwen3-8b", "--subset-n", "100", "--subset-seed", str(SUBSET_SEED),
                  "--canary-gate", "--deadline-h", "36"],
          "out": "results/t2s_outcome_subset_v1.jsonl"},
-        {"key": "r2_mechanism_cpu", "step": 6, "gate": "preflight",
+        {"key": "r2_mechanism_cpu", "step": 5, "gate": "preflight",
          "cmd": _r2("mechanism", "cpu_default", "results/t2s_r2_mechanism_cpu_v1.jsonl", "--tiers",
                     "ollama_default", "--call2-tools", "off"),
          "out": "results/t2s_r2_mechanism_cpu_v1.jsonl",
-         "depends": ["x2_r2_agent host-generic guard", "x2_r2_agent --tiers"]},
+         "depends": [X2_HOST, X2_TIERS]},
     ]
+
+
+def job_specs() -> list[dict]:
+    """The queued jobs in queue order (every spec not in DEFERRED)."""
+    return [s for s in _all_specs() if s["key"] not in DEFERRED]
+
+
+def deferred_specs() -> list[dict]:
+    """The deferred jobs (DEFERRED), never written to the queue file."""
+    return [s for s in _all_specs() if s["key"] in DEFERRED]
 
 
 def build_queue() -> list[dict]:
@@ -325,6 +346,8 @@ def check_entry(item, earlier_ids, x2_result_names) -> dict:
         info["forwarded_argv"] = rep["forwarded_argv"]
         info["pending_capabilities"] = rep["missing_capabilities"]
         info["parse_ok"] = rep["x2_parse_ok"]
+        if rep["missing_capabilities"]:
+            problems.append("the repo's x2_r2_agent.py lacks: " + "; ".join(rep["missing_capabilities"]))
         if not rep["x2_parse_ok"]:
             problems.append(f"x2_r2_agent rejects the forwarded argv: {rep['x2_parse_error']}")
         if rep["out_name_problem"]:
@@ -369,6 +392,7 @@ def dry_run(items=None) -> dict:
     within = sum(it.get("est_hours", 0) for it in items if not it.get("beyond_budget"))
     return {"ok": all(r["ok"] for r in results), "entries": results, "total_hours": round(total, 1),
             "hours_within_budget": round(within, 1), "budget_hours": BUDGET_H,
+            "deferred": {ID_PREFIX + k: v for k, v in DEFERRED.items()},
             "blocked_until_x2_r2_agent_changes": [r["id"] for r in results if r.get("pending_capabilities")],
             "fresh_build_matches_file": items == build_queue()}
 

@@ -803,7 +803,9 @@ class TestValidationPreflight:
         started, notes = [], []
         monkeypatch.setitem(sys.modules, "host_config", types.SimpleNamespace(
             start_ollama_server=lambda: started.append(1), stop_ollama_server=lambda: None,
-            wait_for_ollama_ready=lambda timeout_s=0: True))
+            wait_for_ollama_ready=lambda timeout_s=0: True,
+            require_host=lambda h: {"hw_id": "evo-x2", "interactive_guard": False},
+            enforce_or_record_interactive_session=lambda cfg: {}))
         monkeypatch.setitem(sys.modules, "t2s_queue", types.SimpleNamespace(advance=notes.append))
         out = tmp_path / "real.jsonl"
         ag.main(["--mode", "real", "--call2-tools", "forced_none", "--rules-from", str(vfile),
@@ -1040,7 +1042,9 @@ def _patch_real_main(monkeypatch, plan):
     state = {"started": 0, "notes": []}
     monkeypatch.setitem(sys.modules, "host_config", types.SimpleNamespace(
         start_ollama_server=lambda: state.__setitem__("started", state["started"] + 1),
-        stop_ollama_server=lambda: None, wait_for_ollama_ready=lambda timeout_s=0: True))
+        stop_ollama_server=lambda: None, wait_for_ollama_ready=lambda timeout_s=0: True,
+        require_host=lambda h: {"hw_id": "evo-x2", "interactive_guard": False},
+        enforce_or_record_interactive_session=lambda cfg: {}))
     monkeypatch.setitem(sys.modules, "t2s_queue", types.SimpleNamespace(advance=state["notes"].append))
 
     class RT(FakeRuntime):

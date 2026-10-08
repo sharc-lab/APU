@@ -1,0 +1,1396 @@
+{
+ "mechanism": {
+  "parse": {
+   "call2_tools": "off",
+   "client_trim": null,
+   "mode": "mechanism",
+   "models": null,
+   "order": "model_major",
+   "out": "<TMP>\\mechanism.jsonl",
+   "per_model_refusal": false,
+   "plan": "default",
+   "require_validation_gates": false,
+   "rules_from": null,
+   "rules_in_use": "rule1_json_keys,rule2_log_event_called,rule3_no_zebra,rule4_metres,rule5_session_code",
+   "skip_done_from": null
+  },
+  "run": {
+   "advance_notes": [
+    "stopped: _Stop('first session')"
+   ],
+   "note": "stopped: _Stop('first session')",
+   "records": [
+    "run_start",
+    "runtime"
+   ],
+   "run_start": {
+    "call2_extra": {},
+    "call2_mode": "off",
+    "call2_tools": false,
+    "client_trim": null,
+    "keep_alive": "30m",
+    "max_tokens_per_call": 384,
+    "mode": "mechanism",
+    "models": [
+     "llama3.1:8b"
+    ],
+    "models_requested": [
+     "llama3.1:8b"
+    ],
+    "n_skip_done": 0,
+    "order": "model_major",
+    "plan": [
+     [
+      "ollama_default_call2_notools",
+      [
+       20260901
+      ],
+      40
+     ],
+     [
+      "ollama_ctx_32768_call2_notools",
+      [
+       20260901
+      ],
+      40
+     ],
+     [
+      "ollama_ctx_16384_call2_notools",
+      [
+       20260901
+      ],
+      40
+     ],
+     [
+      "ollama_ctx_8192_call2_notools",
+      [
+       20260901
+      ],
+      40
+     ],
+     [
+      "ollama_ctx_4096_call2_notools",
+      [
+       20260901
+      ],
+      40
+     ]
+    ],
+    "plan_name": "default",
+    "record": "run_start",
+    "rules_from": null,
+    "rules_in_use": [
+     "rule1_json_keys",
+     "rule2_log_event_called",
+     "rule3_no_zebra",
+     "rule4_metres",
+     "rule5_session_code"
+    ],
+    "skip_done_from": null,
+    "validation_preflight": null
+   },
+   "runtime": {
+    "call2_mode": "off",
+    "ollama_version": "0.34.4",
+    "record": "runtime",
+    "server_env": {
+     "OLLAMA_DEBUG": "1"
+    },
+    "server_log": "<TMP>\\mechanism_serve.log"
+   },
+   "runtime_obj": {
+    "server_env": {
+     "OLLAMA_DEBUG": "1"
+    },
+    "server_log": "<TMP>\\mechanism_serve.log"
+   },
+   "server_calls": [
+    {
+     "args": [],
+     "call": "stop_ollama_server",
+     "kwargs": {}
+    },
+    {
+     "args": [],
+     "call": "start_ollama_server",
+     "kwargs": {
+      "env": {
+       "OLLAMA_DEBUG": "1"
+      },
+      "log_path": "<TMP>\\mechanism_serve.log"
+     }
+    },
+    {
+     "args": [],
+     "call": "stop_ollama_server",
+     "kwargs": {}
+    }
+   ]
+  }
+ },
+ "mitigation": {
+  "parse": {
+   "call2_tools": "off",
+   "client_trim": "margin=0.05",
+   "mode": "mitigation",
+   "models": null,
+   "order": "model_major",
+   "out": "<TMP>\\mitigation.jsonl",
+   "per_model_refusal": false,
+   "plan": "default",
+   "require_validation_gates": false,
+   "rules_from": null,
+   "rules_in_use": "rule1_json_keys,rule2_log_event_called,rule3_no_zebra,rule4_metres,rule5_session_code",
+   "skip_done_from": null
+  },
+  "run": {
+   "advance_notes": [
+    "stopped: _Stop('first session')"
+   ],
+   "note": "stopped: _Stop('first session')",
+   "records": [
+    "run_start",
+    "runtime"
+   ],
+   "run_start": {
+    "call2_extra": {},
+    "call2_mode": "off",
+    "call2_tools": false,
+    "client_trim": {
+     "margin": 0.05
+    },
+    "keep_alive": "30m",
+    "max_tokens_per_call": 384,
+    "mode": "mitigation",
+    "models": [
+     "llama3.1:8b",
+     "qwen3:14b"
+    ],
+    "models_requested": [
+     "llama3.1:8b",
+     "qwen3:14b"
+    ],
+    "n_skip_done": 0,
+    "order": "model_major",
+    "plan": [
+     [
+      "ollama_ctx_4096_call2_notools",
+      [
+       20260901,
+       20260902,
+       20260903
+      ],
+      40
+     ],
+     [
+      "ollama_ctx_8192_call2_notools",
+      [
+       20260901,
+       20260902,
+       20260903
+      ],
+      40
+     ]
+    ],
+    "plan_name": "default",
+    "record": "run_start",
+    "rules_from": null,
+    "rules_in_use": [
+     "rule1_json_keys",
+     "rule2_log_event_called",
+     "rule3_no_zebra",
+     "rule4_metres",
+     "rule5_session_code"
+    ],
+    "skip_done_from": null,
+    "validation_preflight": null
+   },
+   "runtime": {
+    "call2_mode": "off",
+    "ollama_version": "0.34.4",
+    "record": "runtime",
+    "server_env": {
+     "OLLAMA_DEBUG": "1"
+    },
+    "server_log": "<TMP>\\mitigation_serve.log"
+   },
+   "runtime_obj": {
+    "server_env": {
+     "OLLAMA_DEBUG": "1"
+    },
+    "server_log": "<TMP>\\mitigation_serve.log"
+   },
+   "server_calls": [
+    {
+     "args": [],
+     "call": "stop_ollama_server",
+     "kwargs": {}
+    },
+    {
+     "args": [],
+     "call": "start_ollama_server",
+     "kwargs": {
+      "env": {
+       "OLLAMA_DEBUG": "1"
+      },
+      "log_path": "<TMP>\\mitigation_serve.log"
+     }
+    },
+    {
+     "args": [],
+     "call": "stop_ollama_server",
+     "kwargs": {}
+    }
+   ]
+  }
+ },
+ "queued_x2_r2_mitigation_v1": {
+  "parse": {
+   "call2_tools": "off",
+   "client_trim": "margin=0.05",
+   "mode": "mitigation",
+   "models": null,
+   "order": "model_major",
+   "out": "<TMP>\\queued_x2_r2_mitigation_v1.jsonl",
+   "per_model_refusal": false,
+   "plan": "default",
+   "require_validation_gates": true,
+   "rules_from": "<REPO>\\results\\x2_r2_validation_v2.jsonl",
+   "rules_in_use": "rule1_json_keys,rule2_log_event_called,rule3_no_zebra,rule4_metres,rule5_session_code",
+   "skip_done_from": null
+  },
+  "run": {
+   "advance_notes": [
+    "stopped: _Stop('first session')"
+   ],
+   "note": "stopped: _Stop('first session')",
+   "records": [
+    "run_start",
+    "runtime"
+   ],
+   "run_start": {
+    "call2_extra": {},
+    "call2_mode": "off",
+    "call2_tools": false,
+    "client_trim": {
+     "margin": 0.05
+    },
+    "keep_alive": "30m",
+    "max_tokens_per_call": 384,
+    "mode": "mitigation",
+    "models": [
+     "llama3.1:8b",
+     "qwen3:14b"
+    ],
+    "models_requested": [
+     "llama3.1:8b",
+     "qwen3:14b"
+    ],
+    "n_skip_done": 0,
+    "order": "model_major",
+    "plan": [
+     [
+      "ollama_ctx_4096_call2_notools",
+      [
+       20260901,
+       20260902,
+       20260903
+      ],
+      40
+     ],
+     [
+      "ollama_ctx_8192_call2_notools",
+      [
+       20260901,
+       20260902,
+       20260903
+      ],
+      40
+     ]
+    ],
+    "plan_name": "default",
+    "record": "run_start",
+    "rules_from": "<REPO>\\results\\x2_r2_validation_v2.jsonl",
+    "rules_in_use": {
+     "llama3.1:8b": [
+      "rule1_json_keys",
+      "rule3_no_zebra",
+      "rule4_metres"
+     ],
+     "qwen3:14b": [
+      "rule1_json_keys",
+      "rule2_log_event_called",
+      "rule3_no_zebra",
+      "rule4_metres",
+      "rule5_session_code"
+     ]
+    },
+    "skip_done_from": null,
+    "validation_preflight": {
+     "gates": {
+      "baseline": {
+       "llama3.1:8b": {
+        "failing_rules": [
+         "rule2_log_event_called",
+         "rule5_session_code"
+        ],
+        "pass": false,
+        "rules_in_use": [
+         "rule1_json_keys",
+         "rule3_no_zebra",
+         "rule4_metres"
+        ]
+       },
+       "qwen3:14b": {
+        "failing_rules": [],
+        "pass": true,
+        "rules_in_use": [
+         "rule1_json_keys",
+         "rule2_log_event_called",
+         "rule3_no_zebra",
+         "rule4_metres",
+         "rule5_session_code"
+        ]
+       }
+      },
+      "content_nonempty": {
+       "llama3.1:8b": {
+        "final_content_empty": 0,
+        "pass": true
+       },
+       "qwen3:14b": {
+        "final_content_empty": 0,
+        "pass": true
+       }
+      },
+      "negative_control": {
+       "llama3.1:8b": {
+        "canary_checks": 6,
+        "canary_misses": 0,
+        "loaded_context_values": [
+         131072
+        ],
+        "max_transcript_tokens_calibrated": 14912,
+        "n_sessions": 3,
+        "pass": true
+       },
+       "qwen3:14b": {
+        "canary_checks": 6,
+        "canary_misses": 0,
+        "loaded_context_values": [
+         40960
+        ],
+        "max_transcript_tokens_calibrated": 17321,
+        "n_sessions": 3,
+        "pass": true
+       }
+      },
+      "positive_control": {
+       "llama3.1:8b": {
+        "canary_hist_misses": 2,
+        "canary_sys_misses": 0,
+        "first_over_window_turns": [
+         6
+        ],
+        "loaded_context_values": [
+         8192
+        ],
+        "n_sessions": 1,
+        "pass": true,
+        "truncation_detected_turns": [
+         10
+        ]
+       },
+       "qwen3:14b": {
+        "canary_hist_misses": 2,
+        "canary_sys_misses": 0,
+        "first_over_window_turns": [
+         5
+        ],
+        "loaded_context_values": [
+         8192
+        ],
+        "n_sessions": 1,
+        "pass": true,
+        "truncation_detected_turns": [
+         10
+        ]
+       }
+      },
+      "task_tool": {
+       "llama3.1:8b": {
+        "n": 30,
+        "n_ok": 27,
+        "pass": true,
+        "rate": 0.9,
+        "threshold": 0.9
+       },
+       "qwen3:14b": {
+        "n": 30,
+        "n_ok": 30,
+        "pass": true,
+        "rate": 1.0,
+        "threshold": 0.9
+       }
+      },
+      "thinking_off": {
+       "llama3.1:8b": {
+        "pass": true,
+        "thinking_present_calls": 0
+       },
+       "qwen3:14b": {
+        "pass": true,
+        "thinking_present_calls": 0
+       }
+      }
+     },
+     "ok": true,
+     "reasons": [],
+     "rules_in_use": {
+      "llama3.1:8b": [
+       "rule1_json_keys",
+       "rule3_no_zebra",
+       "rule4_metres"
+      ],
+      "qwen3:14b": [
+       "rule1_json_keys",
+       "rule2_log_event_called",
+       "rule3_no_zebra",
+       "rule4_metres",
+       "rule5_session_code"
+      ]
+     }
+    }
+   },
+   "runtime": {
+    "call2_mode": "off",
+    "ollama_version": "0.34.4",
+    "record": "runtime",
+    "server_env": {
+     "OLLAMA_DEBUG": "1"
+    },
+    "server_log": "<TMP>\\queued_x2_r2_mitigation_v1_serve.log"
+   },
+   "runtime_obj": {
+    "server_env": {
+     "OLLAMA_DEBUG": "1"
+    },
+    "server_log": "<TMP>\\queued_x2_r2_mitigation_v1_serve.log"
+   },
+   "server_calls": [
+    {
+     "args": [],
+     "call": "stop_ollama_server",
+     "kwargs": {}
+    },
+    {
+     "args": [],
+     "call": "start_ollama_server",
+     "kwargs": {
+      "env": {
+       "OLLAMA_DEBUG": "1"
+      },
+      "log_path": "<TMP>\\queued_x2_r2_mitigation_v1_serve.log"
+     }
+    },
+    {
+     "args": [],
+     "call": "stop_ollama_server",
+     "kwargs": {}
+    }
+   ]
+  }
+ },
+ "queued_x2_r2_real_v1b": {
+  "parse": {
+   "call2_tools": "off",
+   "client_trim": null,
+   "mode": "real",
+   "models": null,
+   "order": "seed_major",
+   "out": "<TMP>\\queued_x2_r2_real_v1b.jsonl",
+   "per_model_refusal": true,
+   "plan": "strong",
+   "require_validation_gates": true,
+   "rules_from": "<REPO>\\results\\x2_r2_validation_v2.jsonl,<REPO>\\results\\x2_r2_validation_v2b.jsonl,<REPO>\\results\\x2_r2_validation_v2c.jsonl",
+   "rules_in_use": "rule1_json_keys,rule2_log_event_called,rule3_no_zebra,rule4_metres,rule5_session_code",
+   "skip_done_from": "<REPO>\\results\\x2_r2_real_v1.jsonl"
+  },
+  "run": {
+   "advance_notes": [
+    "stopped: _Stop('first session')"
+   ],
+   "note": "stopped: _Stop('first session')",
+   "records": [
+    "run_start",
+    "refused_model",
+    "runtime"
+   ],
+   "run_start": {
+    "call2_extra": {},
+    "call2_mode": "off",
+    "call2_tools": false,
+    "client_trim": null,
+    "keep_alive": "30m",
+    "max_tokens_per_call": 384,
+    "mode": "real",
+    "models": [
+     "llama3.1:8b",
+     "qwen3:14b",
+     "qwen3:8b"
+    ],
+    "models_requested": [
+     "llama3.1:8b",
+     "qwen3:14b",
+     "qwen3-4b-2507-tools",
+     "qwen3:8b"
+    ],
+    "n_skip_done": 18,
+    "order": "seed_major",
+    "plan": [
+     [
+      "ollama_default_call2_notools",
+      [
+       20260901,
+       20260902,
+       20260903,
+       20260904,
+       20260905
+      ],
+      40
+     ],
+     [
+      "ollama_ctx_32768_call2_notools",
+      [
+       20260901,
+       20260902,
+       20260903,
+       20260904,
+       20260905
+      ],
+      40
+     ],
+     [
+      "ollama_ctx_16384_call2_notools",
+      [
+       20260901,
+       20260902,
+       20260903,
+       20260904,
+       20260905
+      ],
+      40
+     ],
+     [
+      "ollama_ctx_8192_call2_notools",
+      [
+       20260901,
+       20260902,
+       20260903,
+       20260904,
+       20260905
+      ],
+      40
+     ],
+     [
+      "ollama_ctx_4096_call2_notools",
+      [
+       20260901,
+       20260902,
+       20260903,
+       20260904,
+       20260905
+      ],
+      40
+     ]
+    ],
+    "plan_name": "strong",
+    "record": "run_start",
+    "rules_from": "<REPO>\\results\\x2_r2_validation_v2.jsonl,<REPO>\\results\\x2_r2_validation_v2b.jsonl,<REPO>\\results\\x2_r2_validation_v2c.jsonl",
+    "rules_in_use": {
+     "llama3.1:8b": [
+      "rule1_json_keys",
+      "rule3_no_zebra",
+      "rule4_metres"
+     ],
+     "qwen3:14b": [
+      "rule1_json_keys",
+      "rule2_log_event_called",
+      "rule3_no_zebra",
+      "rule4_metres",
+      "rule5_session_code"
+     ],
+     "qwen3:8b": [
+      "rule1_json_keys",
+      "rule2_log_event_called",
+      "rule3_no_zebra",
+      "rule4_metres"
+     ]
+    },
+    "skip_done_from": "<REPO>\\results\\x2_r2_real_v1.jsonl",
+    "validation_preflight": {
+     "models_ok": [
+      "llama3.1:8b",
+      "qwen3:14b",
+      "qwen3:8b"
+     ],
+     "ok": true,
+     "per_file": {
+      "x2_r2_validation_v2.jsonl": {
+       "ok": true,
+       "reasons": [],
+       "rules_in_use": {
+        "llama3.1:8b": [
+         "rule1_json_keys",
+         "rule3_no_zebra",
+         "rule4_metres"
+        ],
+        "qwen3:14b": [
+         "rule1_json_keys",
+         "rule2_log_event_called",
+         "rule3_no_zebra",
+         "rule4_metres",
+         "rule5_session_code"
+        ]
+       }
+      },
+      "x2_r2_validation_v2b.jsonl": {
+       "ok": true,
+       "reasons": [],
+       "rules_in_use": {
+        "qwen3:8b": [
+         "rule1_json_keys",
+         "rule2_log_event_called",
+         "rule3_no_zebra",
+         "rule4_metres"
+        ]
+       }
+      },
+      "x2_r2_validation_v2c.jsonl": {
+       "ok": false,
+       "reasons": [
+        "qwen3-4b-2507-tools: negative control failed (canary misses 2 at num_ctx 131072)",
+        "qwen3-4b-2507-tools: task tool called correctly on 5/30 baseline turns (< 90%, task-tool gate)"
+       ],
+       "rules_in_use": {
+        "qwen3-4b-2507-tools": [
+         "rule3_no_zebra",
+         "rule4_metres"
+        ]
+       }
+      }
+     },
+     "refused": {
+      "qwen3-4b-2507-tools": [
+       "qwen3-4b-2507-tools: negative control failed (canary misses 2 at num_ctx 131072)",
+       "qwen3-4b-2507-tools: task tool called correctly on 5/30 baseline turns (< 90%, task-tool gate)"
+      ]
+     },
+     "rules_in_use": {
+      "llama3.1:8b": [
+       "rule1_json_keys",
+       "rule3_no_zebra",
+       "rule4_metres"
+      ],
+      "qwen3:14b": [
+       "rule1_json_keys",
+       "rule2_log_event_called",
+       "rule3_no_zebra",
+       "rule4_metres",
+       "rule5_session_code"
+      ],
+      "qwen3:8b": [
+       "rule1_json_keys",
+       "rule2_log_event_called",
+       "rule3_no_zebra",
+       "rule4_metres"
+      ]
+     },
+     "source": {
+      "llama3.1:8b": "x2_r2_validation_v2.jsonl",
+      "qwen3-4b-2507-tools": "x2_r2_validation_v2c.jsonl",
+      "qwen3:14b": "x2_r2_validation_v2.jsonl",
+      "qwen3:8b": "x2_r2_validation_v2b.jsonl"
+     }
+    }
+   },
+   "runtime": {
+    "call2_mode": "off",
+    "ollama_version": "0.34.4",
+    "record": "runtime",
+    "server_env": null,
+    "server_log": null
+   },
+   "runtime_obj": {
+    "server_env": null,
+    "server_log": null
+   },
+   "server_calls": [
+    {
+     "args": [],
+     "call": "start_ollama_server",
+     "kwargs": {}
+    },
+    {
+     "args": [],
+     "call": "stop_ollama_server",
+     "kwargs": {}
+    }
+   ]
+  }
+ },
+ "real": {
+  "parse": {
+   "call2_tools": "on",
+   "client_trim": null,
+   "mode": "real",
+   "models": null,
+   "order": "model_major",
+   "out": "<TMP>\\real.jsonl",
+   "per_model_refusal": false,
+   "plan": "default",
+   "require_validation_gates": false,
+   "rules_from": null,
+   "rules_in_use": "rule1_json_keys,rule2_log_event_called,rule3_no_zebra,rule4_metres,rule5_session_code",
+   "skip_done_from": null
+  },
+  "run": {
+   "advance_notes": [
+    "stopped: _Stop('first session')"
+   ],
+   "note": "stopped: _Stop('first session')",
+   "records": [
+    "run_start",
+    "runtime"
+   ],
+   "run_start": {
+    "call2_extra": {},
+    "call2_mode": "on",
+    "call2_tools": true,
+    "client_trim": null,
+    "keep_alive": "30m",
+    "max_tokens_per_call": 384,
+    "mode": "real",
+    "models": [
+     "llama3.1:8b",
+     "qwen3:14b"
+    ],
+    "models_requested": [
+     "llama3.1:8b",
+     "qwen3:14b"
+    ],
+    "n_skip_done": 0,
+    "order": "model_major",
+    "plan": [
+     [
+      "ollama_default",
+      [
+       20260901,
+       20260902,
+       20260903
+      ],
+      40
+     ],
+     [
+      "ollama_ctx_32768",
+      [
+       20260901,
+       20260902,
+       20260903
+      ],
+      40
+     ],
+     [
+      "ollama_ctx_4096",
+      [
+       20260901,
+       20260902,
+       20260903
+      ],
+      40
+     ]
+    ],
+    "plan_name": "default",
+    "record": "run_start",
+    "rules_from": null,
+    "rules_in_use": [
+     "rule1_json_keys",
+     "rule2_log_event_called",
+     "rule3_no_zebra",
+     "rule4_metres",
+     "rule5_session_code"
+    ],
+    "skip_done_from": null,
+    "validation_preflight": null
+   },
+   "runtime": {
+    "call2_mode": "on",
+    "ollama_version": "0.34.4",
+    "record": "runtime",
+    "server_env": null,
+    "server_log": null
+   },
+   "runtime_obj": {
+    "server_env": null,
+    "server_log": null
+   },
+   "server_calls": [
+    {
+     "args": [],
+     "call": "start_ollama_server",
+     "kwargs": {}
+    },
+    {
+     "args": [],
+     "call": "stop_ollama_server",
+     "kwargs": {}
+    }
+   ]
+  }
+ },
+ "real_off": {
+  "parse": {
+   "call2_tools": "off",
+   "client_trim": null,
+   "mode": "real",
+   "models": null,
+   "order": "model_major",
+   "out": "<TMP>\\real_off.jsonl",
+   "per_model_refusal": false,
+   "plan": "default",
+   "require_validation_gates": false,
+   "rules_from": null,
+   "rules_in_use": "rule1_json_keys,rule2_log_event_called,rule3_no_zebra,rule4_metres,rule5_session_code",
+   "skip_done_from": null
+  },
+  "run": {
+   "advance_notes": [
+    "stopped: _Stop('first session')"
+   ],
+   "note": "stopped: _Stop('first session')",
+   "records": [
+    "run_start",
+    "runtime"
+   ],
+   "run_start": {
+    "call2_extra": {},
+    "call2_mode": "off",
+    "call2_tools": false,
+    "client_trim": null,
+    "keep_alive": "30m",
+    "max_tokens_per_call": 384,
+    "mode": "real",
+    "models": [
+     "llama3.1:8b",
+     "qwen3:14b"
+    ],
+    "models_requested": [
+     "llama3.1:8b",
+     "qwen3:14b"
+    ],
+    "n_skip_done": 0,
+    "order": "model_major",
+    "plan": [
+     [
+      "ollama_default_call2_notools",
+      [
+       20260901,
+       20260902,
+       20260903
+      ],
+      40
+     ],
+     [
+      "ollama_ctx_32768_call2_notools",
+      [
+       20260901,
+       20260902,
+       20260903
+      ],
+      40
+     ],
+     [
+      "ollama_ctx_4096_call2_notools",
+      [
+       20260901,
+       20260902,
+       20260903
+      ],
+      40
+     ]
+    ],
+    "plan_name": "default",
+    "record": "run_start",
+    "rules_from": null,
+    "rules_in_use": [
+     "rule1_json_keys",
+     "rule2_log_event_called",
+     "rule3_no_zebra",
+     "rule4_metres",
+     "rule5_session_code"
+    ],
+    "skip_done_from": null,
+    "validation_preflight": null
+   },
+   "runtime": {
+    "call2_mode": "off",
+    "ollama_version": "0.34.4",
+    "record": "runtime",
+    "server_env": null,
+    "server_log": null
+   },
+   "runtime_obj": {
+    "server_env": null,
+    "server_log": null
+   },
+   "server_calls": [
+    {
+     "args": [],
+     "call": "start_ollama_server",
+     "kwargs": {}
+    },
+    {
+     "args": [],
+     "call": "stop_ollama_server",
+     "kwargs": {}
+    }
+   ]
+  }
+ },
+ "strong": {
+  "parse": {
+   "call2_tools": "off",
+   "client_trim": null,
+   "mode": "real",
+   "models": null,
+   "order": "model_major",
+   "out": "<TMP>\\strong.jsonl",
+   "per_model_refusal": false,
+   "plan": "strong",
+   "require_validation_gates": false,
+   "rules_from": null,
+   "rules_in_use": "rule1_json_keys,rule2_log_event_called,rule3_no_zebra,rule4_metres,rule5_session_code",
+   "skip_done_from": null
+  },
+  "run": {
+   "advance_notes": [
+    "stopped: _Stop('first session')"
+   ],
+   "note": "stopped: _Stop('first session')",
+   "records": [
+    "run_start",
+    "runtime"
+   ],
+   "run_start": {
+    "call2_extra": {},
+    "call2_mode": "off",
+    "call2_tools": false,
+    "client_trim": null,
+    "keep_alive": "30m",
+    "max_tokens_per_call": 384,
+    "mode": "real",
+    "models": [
+     "llama3.1:8b",
+     "qwen3:14b",
+     "qwen3-4b-2507-tools",
+     "qwen3:8b"
+    ],
+    "models_requested": [
+     "llama3.1:8b",
+     "qwen3:14b",
+     "qwen3-4b-2507-tools",
+     "qwen3:8b"
+    ],
+    "n_skip_done": 0,
+    "order": "model_major",
+    "plan": [
+     [
+      "ollama_default_call2_notools",
+      [
+       20260901,
+       20260902,
+       20260903,
+       20260904,
+       20260905
+      ],
+      40
+     ],
+     [
+      "ollama_ctx_32768_call2_notools",
+      [
+       20260901,
+       20260902,
+       20260903,
+       20260904,
+       20260905
+      ],
+      40
+     ],
+     [
+      "ollama_ctx_16384_call2_notools",
+      [
+       20260901,
+       20260902,
+       20260903,
+       20260904,
+       20260905
+      ],
+      40
+     ],
+     [
+      "ollama_ctx_8192_call2_notools",
+      [
+       20260901,
+       20260902,
+       20260903,
+       20260904,
+       20260905
+      ],
+      40
+     ],
+     [
+      "ollama_ctx_4096_call2_notools",
+      [
+       20260901,
+       20260902,
+       20260903,
+       20260904,
+       20260905
+      ],
+      40
+     ]
+    ],
+    "plan_name": "strong",
+    "record": "run_start",
+    "rules_from": null,
+    "rules_in_use": [
+     "rule1_json_keys",
+     "rule2_log_event_called",
+     "rule3_no_zebra",
+     "rule4_metres",
+     "rule5_session_code"
+    ],
+    "skip_done_from": null,
+    "validation_preflight": null
+   },
+   "runtime": {
+    "call2_mode": "off",
+    "ollama_version": "0.34.4",
+    "record": "runtime",
+    "server_env": null,
+    "server_log": null
+   },
+   "runtime_obj": {
+    "server_env": null,
+    "server_log": null
+   },
+   "server_calls": [
+    {
+     "args": [],
+     "call": "start_ollama_server",
+     "kwargs": {}
+    },
+    {
+     "args": [],
+     "call": "stop_ollama_server",
+     "kwargs": {}
+    }
+   ]
+  }
+ },
+ "toolchoice_check": {
+  "parse": {
+   "call2_tools": "on",
+   "client_trim": null,
+   "mode": "toolchoice_check",
+   "models": null,
+   "order": "model_major",
+   "out": "<TMP>\\toolchoice_check.jsonl",
+   "per_model_refusal": false,
+   "plan": "default",
+   "require_validation_gates": false,
+   "rules_from": null,
+   "rules_in_use": "rule1_json_keys,rule2_log_event_called,rule3_no_zebra,rule4_metres,rule5_session_code",
+   "skip_done_from": null
+  },
+  "run": {
+   "advance_notes": [
+    "stopped: _Stop('first session')"
+   ],
+   "note": "stopped: _Stop('first session')",
+   "records": [
+    "run_start",
+    "runtime"
+   ],
+   "run_start": {
+    "call2_extra": {},
+    "call2_mode": "on",
+    "call2_tools": true,
+    "client_trim": null,
+    "keep_alive": "30m",
+    "max_tokens_per_call": 384,
+    "mode": "toolchoice_check",
+    "models": [
+     "llama3.1:8b",
+     "qwen3:14b"
+    ],
+    "models_requested": [
+     "llama3.1:8b",
+     "qwen3:14b"
+    ],
+    "n_skip_done": 0,
+    "order": "model_major",
+    "plan": [],
+    "plan_name": "default",
+    "record": "run_start",
+    "rules_from": null,
+    "rules_in_use": [
+     "rule1_json_keys",
+     "rule2_log_event_called",
+     "rule3_no_zebra",
+     "rule4_metres",
+     "rule5_session_code"
+    ],
+    "skip_done_from": null,
+    "validation_preflight": null
+   },
+   "runtime": {
+    "call2_mode": "on",
+    "ollama_version": "0.34.4",
+    "record": "runtime",
+    "server_env": null,
+    "server_log": null
+   },
+   "runtime_obj": {
+    "server_env": null,
+    "server_log": null
+   },
+   "server_calls": [
+    {
+     "args": [],
+     "call": "start_ollama_server",
+     "kwargs": {}
+    },
+    {
+     "args": [],
+     "call": "stop_ollama_server",
+     "kwargs": {}
+    }
+   ]
+  }
+ },
+ "validation": {
+  "parse": {
+   "call2_tools": "on",
+   "client_trim": null,
+   "mode": "validation",
+   "models": null,
+   "order": "model_major",
+   "out": "<TMP>\\validation.jsonl",
+   "per_model_refusal": false,
+   "plan": "default",
+   "require_validation_gates": false,
+   "rules_from": null,
+   "rules_in_use": "rule1_json_keys,rule2_log_event_called,rule3_no_zebra,rule4_metres,rule5_session_code",
+   "skip_done_from": null
+  },
+  "run": {
+   "advance_notes": [
+    "stopped: _Stop('first session')"
+   ],
+   "note": "stopped: _Stop('first session')",
+   "records": [
+    "run_start",
+    "runtime"
+   ],
+   "run_start": {
+    "call2_extra": {},
+    "call2_mode": "on",
+    "call2_tools": true,
+    "client_trim": null,
+    "keep_alive": "30m",
+    "max_tokens_per_call": 384,
+    "mode": "validation",
+    "models": [
+     "llama3.1:8b",
+     "qwen3:14b"
+    ],
+    "models_requested": [
+     "llama3.1:8b",
+     "qwen3:14b"
+    ],
+    "n_skip_done": 0,
+    "order": "model_major",
+    "plan": [
+     [
+      "ollama_ctx_131072",
+      [
+       20260901,
+       20260902,
+       20260903
+      ],
+      10
+     ],
+     [
+      "ollama_ctx_8192_positive_control",
+      [
+       20260901
+      ],
+      15
+     ],
+     [
+      "ollama_ctx_131072_call2_notools",
+      [
+       20260901,
+       20260902,
+       20260903
+      ],
+      10
+     ]
+    ],
+    "plan_name": "default",
+    "record": "run_start",
+    "rules_from": null,
+    "rules_in_use": [
+     "rule1_json_keys",
+     "rule2_log_event_called",
+     "rule3_no_zebra",
+     "rule4_metres",
+     "rule5_session_code"
+    ],
+    "skip_done_from": null,
+    "validation_preflight": null
+   },
+   "runtime": {
+    "call2_mode": "on",
+    "ollama_version": "0.34.4",
+    "record": "runtime",
+    "server_env": null,
+    "server_log": null
+   },
+   "runtime_obj": {
+    "server_env": null,
+    "server_log": null
+   },
+   "server_calls": [
+    {
+     "args": [],
+     "call": "start_ollama_server",
+     "kwargs": {}
+    },
+    {
+     "args": [],
+     "call": "stop_ollama_server",
+     "kwargs": {}
+    }
+   ]
+  }
+ },
+ "validation_off": {
+  "parse": {
+   "call2_tools": "off",
+   "client_trim": null,
+   "mode": "validation",
+   "models": null,
+   "order": "model_major",
+   "out": "<TMP>\\validation_off.jsonl",
+   "per_model_refusal": false,
+   "plan": "default",
+   "require_validation_gates": false,
+   "rules_from": null,
+   "rules_in_use": "rule1_json_keys,rule2_log_event_called,rule3_no_zebra,rule4_metres,rule5_session_code",
+   "skip_done_from": null
+  },
+  "run": {
+   "advance_notes": [
+    "stopped: _Stop('first session')"
+   ],
+   "note": "stopped: _Stop('first session')",
+   "records": [
+    "run_start",
+    "runtime"
+   ],
+   "run_start": {
+    "call2_extra": {},
+    "call2_mode": "off",
+    "call2_tools": false,
+    "client_trim": null,
+    "keep_alive": "30m",
+    "max_tokens_per_call": 384,
+    "mode": "validation",
+    "models": [
+     "llama3.1:8b",
+     "qwen3:14b"
+    ],
+    "models_requested": [
+     "llama3.1:8b",
+     "qwen3:14b"
+    ],
+    "n_skip_done": 0,
+    "order": "model_major",
+    "plan": [
+     [
+      "ollama_ctx_131072_call2_notools",
+      [
+       20260901,
+       20260902,
+       20260903
+      ],
+      10
+     ],
+     [
+      "ollama_ctx_8192_positive_control_call2_notools",
+      [
+       20260901
+      ],
+      15
+     ],
+     [
+      "ollama_ctx_131072",
+      [
+       20260901,
+       20260902,
+       20260903
+      ],
+      10
+     ]
+    ],
+    "plan_name": "default",
+    "record": "run_start",
+    "rules_from": null,
+    "rules_in_use": [
+     "rule1_json_keys",
+     "rule2_log_event_called",
+     "rule3_no_zebra",
+     "rule4_metres",
+     "rule5_session_code"
+    ],
+    "skip_done_from": null,
+    "validation_preflight": null
+   },
+   "runtime": {
+    "call2_mode": "off",
+    "ollama_version": "0.34.4",
+    "record": "runtime",
+    "server_env": null,
+    "server_log": null
+   },
+   "runtime_obj": {
+    "server_env": null,
+    "server_log": null
+   },
+   "server_calls": [
+    {
+     "args": [],
+     "call": "start_ollama_server",
+     "kwargs": {}
+    },
+    {
+     "args": [],
+     "call": "stop_ollama_server",
+     "kwargs": {}
+    }
+   ]
+  }
+ }
+}
