@@ -1,0 +1,294 @@
+[
+ {
+  "id": "t2s_wk_preflight",
+  "cmd": [
+   "C:\\Users\\sharc\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+   "t2s_week_preflight.py"
+  ],
+  "status": "pending",
+  "note": "T2S week step 1: est 0.1 h (nominal: read-only checks, a few version calls); cumulative 0.1 h",
+  "plan_step": 1,
+  "est_hours": 0.1,
+  "est_basis": "nominal",
+  "cum_hours": 0.1,
+  "beyond_budget": false,
+  "expected_out": "results/t2s_week_preflight.jsonl",
+  "depends_on_changes": []
+ },
+ {
+  "id": "t2s_wk_r2_val_cpu",
+  "cmd": [
+   "C:\\Users\\sharc\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+   "t2s_r2_agent.py",
+   "--mode",
+   "validation",
+   "--runtime-config",
+   "cpu_default",
+   "--out",
+   "results/t2s_r2_validation_cpu_v1.jsonl",
+   "--models",
+   "llama3.1:8b,qwen3:14b",
+   "--call2-tools",
+   "off"
+  ],
+  "status": "pending",
+  "note": "T2S week step 2: est 5.1 h (scaled: x2_r2_validation_v2 32.1 min x CPU factor 9.45); cumulative 5.2 h",
+  "plan_step": 2,
+  "est_hours": 5.06,
+  "est_basis": "scaled",
+  "cum_hours": 5.16,
+  "beyond_budget": false,
+  "expected_out": "results/t2s_r2_validation_cpu_v1.jsonl",
+  "depends_on_changes": [
+   "x2_r2_agent host-generic guard"
+  ],
+  "gate": {
+   "requires_done": "t2s_wk_preflight"
+  }
+ },
+ {
+  "id": "t2s_wk_r2_val_igpu",
+  "cmd": [
+   "C:\\Users\\sharc\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+   "t2s_r2_agent.py",
+   "--mode",
+   "validation",
+   "--runtime-config",
+   "igpu_enable",
+   "--out",
+   "results/t2s_r2_validation_igpu_v1.jsonl",
+   "--models",
+   "llama3.1:8b,qwen3:14b",
+   "--call2-tools",
+   "off"
+  ],
+  "status": "pending",
+  "note": "T2S week step 2: est 1.8 h (scaled: x2_r2_validation_v2 32.1 min x iGPU ratio 3.31); cumulative 6.9 h",
+  "plan_step": 2,
+  "est_hours": 1.77,
+  "est_basis": "scaled",
+  "cum_hours": 6.93,
+  "beyond_budget": false,
+  "expected_out": "results/t2s_r2_validation_igpu_v1.jsonl",
+  "depends_on_changes": [
+   "x2_r2_agent host-generic guard",
+   "x2_r2_agent --server-env"
+  ],
+  "gate": {
+   "requires_done": "t2s_wk_preflight"
+  }
+ },
+ {
+  "id": "t2s_wk_r2_real_cpu",
+  "cmd": [
+   "C:\\Users\\sharc\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+   "t2s_r2_agent.py",
+   "--mode",
+   "real",
+   "--runtime-config",
+   "cpu_default",
+   "--out",
+   "results/t2s_r2_real_cpu_v1.jsonl",
+   "--models",
+   "llama3.1:8b,qwen3:14b",
+   "--plan",
+   "strong",
+   "--tiers",
+   "ollama_default",
+   "--call2-tools",
+   "off",
+   "--order",
+   "seed_major",
+   "--rules-from",
+   "results/t2s_r2_validation_cpu_v1.jsonl",
+   "--require-validation-gates",
+   "--per-model-refusal"
+  ],
+  "status": "pending",
+  "note": "T2S week step 2: est 15.1 h (scaled: 5 seeds x (llama 66 + qwen3:14b 116) min; X2 4096 sessions x CPU factor 9.45); cumulative 22.0 h",
+  "plan_step": 2,
+  "est_hours": 15.12,
+  "est_basis": "scaled",
+  "cum_hours": 22.04,
+  "beyond_budget": false,
+  "expected_out": "results/t2s_r2_real_cpu_v1.jsonl",
+  "depends_on_changes": [
+   "x2_r2_agent host-generic guard",
+   "x2_r2_agent --tiers"
+  ],
+  "gate": {
+   "requires_done": "t2s_wk_r2_val_cpu"
+  }
+ },
+ {
+  "id": "t2s_wk_r2_real_igpu",
+  "cmd": [
+   "C:\\Users\\sharc\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+   "t2s_r2_agent.py",
+   "--mode",
+   "real",
+   "--runtime-config",
+   "igpu_enable",
+   "--out",
+   "results/t2s_r2_real_igpu_v1.jsonl",
+   "--models",
+   "llama3.1:8b,qwen3:14b",
+   "--plan",
+   "strong",
+   "--tiers",
+   "ollama_default",
+   "--call2-tools",
+   "off",
+   "--order",
+   "seed_major",
+   "--rules-from",
+   "results/t2s_r2_validation_igpu_v1.jsonl",
+   "--require-validation-gates",
+   "--per-model-refusal"
+  ],
+  "status": "pending",
+  "note": "T2S week step 2: est 35.4 h (scaled: 5 seeds x X2 32768 sessions (22.73 + 105.57 min) x iGPU ratio 3.31); cumulative 57.4 h",
+  "plan_step": 2,
+  "est_hours": 35.39,
+  "est_basis": "scaled",
+  "cum_hours": 57.43,
+  "beyond_budget": false,
+  "expected_out": "results/t2s_r2_real_igpu_v1.jsonl",
+  "depends_on_changes": [
+   "x2_r2_agent host-generic guard",
+   "x2_r2_agent --server-env",
+   "x2_r2_agent --tiers"
+  ],
+  "gate": {
+   "requires_done": "t2s_wk_r2_val_igpu"
+  }
+ },
+ {
+  "id": "t2s_wk_r2_mitigation_cpu",
+  "cmd": [
+   "C:\\Users\\sharc\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+   "t2s_r2_agent.py",
+   "--mode",
+   "mitigation",
+   "--runtime-config",
+   "cpu_default",
+   "--out",
+   "results/t2s_r2_mitigation_cpu_v1.jsonl",
+   "--models",
+   "llama3.1:8b,qwen3:14b",
+   "--tiers",
+   "ollama_ctx_4096",
+   "--client-trim",
+   "margin=0.05",
+   "--call2-tools",
+   "off",
+   "--rules-from",
+   "results/t2s_r2_validation_cpu_v1.jsonl",
+   "--require-validation-gates",
+   "--per-model-refusal"
+  ],
+  "status": "pending",
+  "note": "T2S week step 3: est 12.0 h (scaled: 3 seeds x CPU 4096 sessions x render/log overhead 1.32 (x2_r2_mechanism 4096 vs x2_r2_real_v1 4096)); cumulative 69.4 h",
+  "plan_step": 3,
+  "est_hours": 11.97,
+  "est_basis": "scaled",
+  "cum_hours": 69.4,
+  "beyond_budget": false,
+  "expected_out": "results/t2s_r2_mitigation_cpu_v1.jsonl",
+  "depends_on_changes": [
+   "x2_r2_agent host-generic guard",
+   "x2_r2_agent --tiers",
+   "x2_r2_mitigation_v1 merge (--mode mitigation, --client-trim)"
+  ],
+  "gate": {
+   "requires_done": "t2s_wk_r2_val_cpu"
+  }
+ },
+ {
+  "id": "t2s_wk_px2i",
+  "cmd": [
+   "C:\\Users\\sharc\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+   "t2s_night2.py",
+   "--expect-blobs",
+   "expected_blobs.json",
+   "--deadline-h",
+   "4",
+   "--phases",
+   "px2i"
+  ],
+  "status": "pending",
+  "note": "T2S week step 4: est 1.1 h (scaled: X2 PX2 per-condition time x 4 conditions x Vulkan ratio 1.99, +0.1 h smoke and calibration); cumulative 70.5 h",
+  "plan_step": 4,
+  "est_hours": 1.11,
+  "est_basis": "scaled",
+  "cum_hours": 70.51,
+  "beyond_budget": false,
+  "expected_out": "results/t2s_night2_<launch stem>.jsonl (PX2I rows)",
+  "depends_on_changes": [],
+  "gate": {
+   "requires_done": "t2s_wk_preflight"
+  }
+ },
+ {
+  "id": "t2s_wk_outcome_subset",
+  "cmd": [
+   "C:\\Users\\sharc\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+   "t2s_outcome_table.py",
+   "--out",
+   "results/t2s_outcome_subset_v1.jsonl",
+   "--models",
+   "llama3.1:8b,qwen3-8b",
+   "--subset-n",
+   "100",
+   "--subset-seed",
+   "20261007",
+   "--canary-gate",
+   "--deadline-h",
+   "36"
+  ],
+  "status": "pending",
+  "note": "T2S week step 5: est 34.3 h (measured: 100 items x 2 models x 9.98 min per item-model (evo-t2s, t2s_outcome_table_full, same 3 configs) + 1 h canaries; qwen3-8b assumed equal to llama3.1:8b); cumulative 104.8 h; BEYOND the 72 h budget line, see docs/T2S_WEEK_PLAN.md cut options",
+  "plan_step": 5,
+  "est_hours": 34.27,
+  "est_basis": "measured",
+  "cum_hours": 104.78,
+  "beyond_budget": true,
+  "expected_out": "results/t2s_outcome_subset_v1.jsonl",
+  "depends_on_changes": [],
+  "gate": {
+   "requires_done": "t2s_wk_preflight"
+  }
+ },
+ {
+  "id": "t2s_wk_r2_mechanism_cpu",
+  "cmd": [
+   "C:\\Users\\sharc\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+   "t2s_r2_agent.py",
+   "--mode",
+   "mechanism",
+   "--runtime-config",
+   "cpu_default",
+   "--out",
+   "results/t2s_r2_mechanism_cpu_v1.jsonl",
+   "--tiers",
+   "ollama_default",
+   "--call2-tools",
+   "off"
+  ],
+  "status": "pending",
+  "note": "T2S week step 6: est 1.4 h (scaled: one llama3.1:8b CPU 4096 session 66 min x overhead 1.32); cumulative 106.2 h; BEYOND the 72 h budget line, see docs/T2S_WEEK_PLAN.md cut options",
+  "plan_step": 6,
+  "est_hours": 1.44,
+  "est_basis": "scaled",
+  "cum_hours": 106.22,
+  "beyond_budget": true,
+  "expected_out": "results/t2s_r2_mechanism_cpu_v1.jsonl",
+  "depends_on_changes": [
+   "x2_r2_agent host-generic guard",
+   "x2_r2_agent --tiers"
+  ],
+  "gate": {
+   "requires_done": "t2s_wk_preflight"
+  }
+ }
+]
