@@ -265,3 +265,44 @@ def test_compute_k2_x2_kill_criterion_table_on_a_small_fixture(tmp_path):
 def test_k2_tag_parts_splits_two_word_pressure_arms():
     assert nr._k2_tag_parts("k2_llama-3.3-70b_default_pageable_touch") == ("llama-3.3-70b", "default", "pageable_touch")
     assert nr._k2_tag_parts("k2_qwen3-8b_mmap_awe_balloon") == ("qwen3-8b", "mmap", "awe_balloon")
+
+_FAKE_LLAMA_LOG = """\
+0.00.243.357 I common_memory_breakdown_print: |   - Vulkan0 (Fake GPU) | 37060 = 47864 + (5123 =  4455 +     576 +      92) +      -58557 |
+0.00.323.497 I print_info: file size   = 4.68 GiB (4.90 BPW)
+0.00.404.356 I print_info: n_layer               = 36
+0.00.404.367 I print_info: n_head_kv             = 8
+0.00.404.368 I print_info: n_embd_head_k         = 128
+0.00.404.368 I print_info: n_embd_head_v         = 128
+0.00.576.815 I load_tensors:      Vulkan0 model buffer size =  4455.34 MiB
+0.00.576.815 I load_tensors:  Vulkan_Host model buffer size =   333.84 MiB
+0.01.331.047 I llama_context: n_ubatch              = 512
+0.03.890.474 I llama_kv_cache:    Vulkan0 KV buffer size =   576.00 MiB
+0.05.708.640 I llama_kv_cache: size =  576.00 MiB (  4096 cells,  36 layers,  1/1 seqs), K (f16): 288.00 MiB, V (f16): 288.00 MiB
+0.05.764.294 I sched_reserve:    Vulkan0 compute buffer size =    92.01 MiB
+0.05.764.306 I sched_reserve: Vulkan_Host compute buffer size =    20.01 MiB
+0.11.649.982 I srv    load_model: initializing, n_slots = 1, n_ctx_slot = 4096, kv_unified = 'false'
+"""
+
+
+def test_parse_llama_server_log_reads_memory_terms(tmp_path):
+    path = tmp_path / "srv.txt"
+    path.write_text(_FAKE_LLAMA_LOG, encoding="utf-8")
+    d = nr._parse_llama_server_log(path)
+    assert d["started"] and d["kv_cells"] == 4096 and d["kv_dtypes"] == ("f16", "f16")
+    assert d["vk_model_mib"] == 4455.34 and d["host_model_mib"] == 333.84
+    assert d["proj_self_mib"] == 5123 and d["proj_compute_mib"] == 92
+    # architecture-derived KV bytes/token must match the logged KV buffer exactly
+    bpt = d["n_layer"] * d["n_head_kv"] * (d["head_k"] + d["head_v"]) * 2
+    assert bpt * d["kv_cells"] == d["kv_mib"] * 2 ** 20
+
+
+def test_a24_solve_flip_is_exact_for_a_linear_budget():
+    p = {"kv_bytes_per_token": 1024 * 1024 - 1024, "compute_slope_bytes_per_token": 1024, "compute_c0_mib": 10.0}
+    # fixed 90 + c0 10 + 1 MiB/token * n = 1100 -> n = 1000
+    assert abs(nr._a24_solve_flip(1100.0, 90.0, p) - 1000.0) < 1e-9
+
+
+def test_first_call_filter_marks_rep0_and_repless_rows():
+    assert nr._is_first_call_on_prompt({"rep": 0})
+    assert nr._is_first_call_on_prompt({})
+    assert not nr._is_first_call_on_prompt({"rep": 1})

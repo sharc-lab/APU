@@ -470,6 +470,282 @@ def compute_a24_budget_boundary_first_principles(repo):
            "n": len(out), "detail": out}
 
 
+# ── A-24 flip point (n_ctx at which llama-server stops starting), predicted from first principles ──
+#
+# compute_a24_budget_boundary_first_principles (above) checks the weights+KV+compute DECOMPOSITION at one
+# n_ctx per model (each model's first_fail point) against the same log's own total. It never solves for the
+# n_ctx at which the total crosses the heap budget, so it is not a predicted-vs-measured flip point. The
+# functions below build that: every _srv_bis_ log for a model is parsed, the KV bytes/token comes from the
+# architecture (n_layer, n_head_kv, head dims, f16), the compute buffer's n_ctx slope is fitted across that
+# model's own successful starts, and the predicted flip is solved against the 47,866 MiB vulkaninfo budget
+# (results/t2s_amech_20260926T181456Z.jsonl, record vulkan_limits).
+
+_A24_BIS_LOG_GLOBS = {
+    "qwen3-32b": "t2s_amech_20260926T181456Z_srv_bis_qwen3-32b_*.txt",
+    "qwen3-8b": "t2s_amech_20260926T181456Z_srv_bis_qwen3-8b_*.txt",
+    "qwen3-30b-a3b-2507": "t2s_amech_20260926T181456Z_srv_bis_qwen3-30b-a3b-2507_*.txt",
+    "llama31-8b": "t2s_amech_20260926T181456Z_srv_bis_llama31-8b_*.txt",
+    "llama-3.3-70b": "t2s_night2_20260929T034014Z_srv_bis_a70_*.txt",
+}
+
+
+def _parse_llama_server_log(path):
+    """Every memory-relevant number one llama-server start log prints, as floats in MiB unless named
+    otherwise. Missing values are None (a failed start stops logging partway through)."""
+    import re
+    text = Path(path).read_text(encoding="utf-8", errors="replace")
+
+    def grab(pattern, cast=float):
+        m = re.search(pattern, text)
+        return cast(m.group(1)) if m else None
+
+    bd = re.search(r"Vulkan0 \(.*?\)\s*\|\s*(\d+)\s*=\s*(\d+)\s*\+\s*\(\s*(\d+)\s*=\s*(\d+)\s*\+\s*(\d+)\s*\+\s*(\d+)\s*\)",
+                   text)
+    kv_dtypes = re.search(r"\bK \((\w+)\):.*\bV \((\w+)\):", text)
+    fail = re.search(r"failed to allocate Vulkan0 buffer of size (\d+)", text)
+    return {
+        "file_size_gib": grab(r"file size\s*=\s*([\d.]+)\s*GiB"),
+        "n_layer": grab(r"\bn_layer\s*=\s*(\d+)", int),
+        "n_head_kv": grab(r"\bn_head_kv\s*=\s*(\d+)", int),
+        "head_k": grab(r"\bn_embd_head_k\s*=\s*(\d+)", int),
+        "head_v": grab(r"\bn_embd_head_v\s*=\s*(\d+)", int),
+        "n_ubatch": grab(r"\bn_ubatch\s*=\s*(\d+)", int),
+        "n_ctx_train": grab(r"\bn_ctx_train\s*=\s*(\d+)", int),
+        "n_ctx_slot": grab(r"n_ctx_slot\s*=\s*(\d+)", int),
+        "kv_dtypes": (kv_dtypes.group(1), kv_dtypes.group(2)) if kv_dtypes else None,
+        "vk_model_mib": grab(r"Vulkan0 model buffer size =\s*([\d.]+)"),
+        "host_model_mib": grab(r"Vulkan_Host model buffer size =\s*([\d.]+)"),
+        "host_output_mib": grab(r"Vulkan_Host\s+output buffer size =\s*([\d.]+)"),
+        "kv_mib": grab(r"Vulkan0 KV buffer size =\s*([\d.]+)"),
+        "kv_cells": grab(r"\(\s*(\d+) cells", int),
+        "vk_compute_mib": grab(r"Vulkan0 compute buffer size =\s*([\d.]+)"),
+        "host_compute_mib": grab(r"Vulkan_Host compute buffer size =\s*([\d.]+)"),
+        "free_mib": int(bd.group(2)) if bd else None,
+        "proj_self_mib": int(bd.group(3)) if bd else None,
+        "proj_model_mib": int(bd.group(4)) if bd else None,
+        "proj_ctx_mib": int(bd.group(5)) if bd else None,
+        "proj_compute_mib": int(bd.group(6)) if bd else None,
+        "failed_alloc_mib": int(fail.group(1)) / 2 ** 20 if fail else None,
+        "pinned_alloc_failed": "Failed to allocate pinned memory" in text,
+        "started": ("n_ctx_slot" in text) and ("exiting due to model loading error" not in text),
+    }
+
+
+def _a24_vulkan_budget_mib(repo):
+    path = repo / "results" / "t2s_amech_20260926T181456Z.jsonl"
+    for r in _read_jsonl(path):
+        if r.get("record") == "vulkan_limits":
+            heaps = r["heaps"]
+            if len(heaps) != 1:
+                raise FileNotFoundError(f"expected a single Vulkan heap, found {len(heaps)}")
+            return float(heaps[0]["budget_mib"]), r
+    raise FileNotFoundError("no vulkan_limits record in t2s_amech_20260926T181456Z.jsonl")
+
+
+def _a24_model_logs(repo):
+    """{model: [parsed log dict + 'req_n_ctx']} for every _srv_bis_ log of the 5 A-24 models."""
+    import re
+    out = {}
+    for model, pattern in _A24_BIS_LOG_GLOBS.items():
+        logs = []
+        for p in sorted((repo / "results").glob(pattern)):
+            if p.name.endswith(".stdout.txt"):
+                continue
+            m = re.search(r"_(\d+)_(\d+)\.txt$", p.name)
+            d = _parse_llama_server_log(p)
+            d["req_n_ctx"] = int(m.group(1))
+            d["file"] = p.name
+            logs.append(d)
+        if not logs:
+            raise FileNotFoundError(f"{model}: no _srv_bis_ logs matching {pattern}")
+        out[model] = logs
+    return out
+
+
+def _a24_model_parameters(model, logs):
+    """Architecture, weights and compute-buffer law for one model, all read from its own logs."""
+    import numpy as np
+    arch = next(d for d in logs if d["n_layer"] and d["kv_dtypes"])
+    if arch["kv_dtypes"] != ("f16", "f16"):
+        raise FileNotFoundError(f"{model}: KV dtype {arch['kv_dtypes']} is not f16/f16")
+    kv_bytes_per_token = arch["n_layer"] * arch["n_head_kv"] * (arch["head_k"] + arch["head_v"]) * 2
+    kv_checks = [d["kv_mib"] * 2 ** 20 / d["kv_cells"] for d in logs if d["kv_mib"] and d["kv_cells"]]
+    kv_logged_bpt = statistics.median(kv_checks)
+    ok = [d for d in logs if d["started"] and d["vk_compute_mib"] is not None]
+    cells = np.array([d["kv_cells"] for d in ok], dtype=float)
+    comp = np.array([d["vk_compute_mib"] for d in ok], dtype=float)
+    hcomp = np.array([d["host_compute_mib"] for d in ok], dtype=float)
+    if len(set(cells)) < 2:
+        raise FileNotFoundError(f"{model}: fewer than 2 distinct successful n_ctx to fit the compute buffer")
+    slope, c0 = np.polyfit(cells, comp, 1)
+    hslope, hc0 = np.polyfit(cells, hcomp, 1)
+    resid = comp - (slope * cells + c0)
+    return {
+        "n_layer": arch["n_layer"], "n_head_kv": arch["n_head_kv"], "head_k": arch["head_k"],
+        "head_v": arch["head_v"], "n_ubatch": arch["n_ubatch"], "n_ctx_train": arch["n_ctx_train"],
+        "kv_bytes_per_token": kv_bytes_per_token, "kv_bytes_per_token_logged": kv_logged_bpt,
+        "gguf_file_mib": arch["file_size_gib"] * 1024.0, "vk_model_mib": arch["vk_model_mib"],
+        "host_model_mib": arch["host_model_mib"], "host_output_mib": arch["host_output_mib"] or 0.0,
+        "compute_slope_bytes_per_token": slope * 2 ** 20, "compute_c0_mib": c0,
+        "compute_fit_max_abs_resid_mib": float(np.max(np.abs(resid))), "compute_fit_points": len(ok),
+        "host_compute_slope_bytes_per_token": hslope * 2 ** 20, "host_compute_c0_mib": hc0,
+    }
+
+
+def _a24_solve_flip(budget_mib, fixed_mib, p):
+    """Smallest n_ctx (continuous) where fixed + KV(n) + device compute(n) exceeds the budget."""
+    per_token_mib = (p["kv_bytes_per_token"] + p["compute_slope_bytes_per_token"]) / 2 ** 20
+    return (budget_mib - fixed_mib - p["compute_c0_mib"]) / per_token_mib
+
+
+def _a24_heap_demand_points(p, logs):
+    """Per log: the heap demand at the moment the start either succeeded or failed, under the shared-heap
+    accounting (Vulkan0 model + Vulkan_Host model/output + KV + Vulkan0 compute; plus the Vulkan_Host
+    compute buffer when its pinned allocation was attempted). Returns (lower_bounds, upper_bounds) on the
+    effective heap limit L, each a list of (MiB, file, kind)."""
+    lowers, uppers = [], []
+    for d in logs:
+        if d["kv_mib"] is None:
+            continue  # failed before the KV buffer: a bigger-n_ctx probe, adds nothing beyond its neighbours
+        base = d["vk_model_mib"] + d["host_model_mib"] + (d["host_output_mib"] or 0.0) + d["kv_mib"]
+        if d["started"]:
+            dev = base + d["vk_compute_mib"]
+            lowers.append((dev, d["file"], "started"))
+            with_host = dev + d["host_compute_mib"]
+            if d["pinned_alloc_failed"]:
+                uppers.append((with_host, d["file"], "pinned host compute refused"))
+            else:
+                lowers.append((with_host, d["file"], "pinned host compute accepted"))
+        elif d["failed_alloc_mib"] is not None and d["failed_alloc_mib"] < 1000:
+            # the refused allocation is the Vulkan0 compute buffer (graph_reserve), sized exactly in bytes
+            uppers.append((base + d["failed_alloc_mib"], d["file"], "device compute refused"))
+    return lowers, uppers
+
+
+def compute_a24_flip_point_prediction(repo):
+    """Predicted vs measured flip n_ctx (first n_ctx at which llama-server fails to start) for the 5 A-24
+    models, solved from first principles against the 47,866 MiB vulkaninfo heap budget, three accountings:
+
+      A (file-size): GGUF file size + KV(n) + Vulkan0 compute(n)  -- the existing first-principles row's terms
+      B (device-only): Vulkan0 model buffer + KV(n) + Vulkan0 compute(n)  -- llama.cpp's own fit projection
+      C (shared heap, leave-one-model-out): Vulkan0 + Vulkan_Host model/output buffers + KV(n) + Vulkan0
+        compute(n) against an effective limit L estimated from the OTHER 4 models' start/fail logs only
+
+    KV(n) = n_layer * n_head_kv * (head_k + head_v) * 2 bytes * n; compute(n) = c0 + slope * n, fitted per
+    model over its own successful starts. Measured flip = compute_a24_budget_boundary's first_fail_n_ctx
+    (bisection step 256 tokens, so the true flip lies in (last_ok, first_fail])."""
+    budget, _ = _a24_vulkan_budget_mib(repo)
+    boundary = compute_a24_budget_boundary(repo)["detail"]
+    logs_by_model = _a24_model_logs(repo)
+    params = {m: _a24_model_parameters(m, logs) for m, logs in logs_by_model.items()}
+    bounds = {m: _a24_heap_demand_points(params[m], logs) for m, logs in logs_by_model.items()}
+    out = {}
+    for model, p in params.items():
+        meas = boundary[model]["first_fail_n_ctx"]
+        last_ok = boundary[model]["last_ok_n_ctx"]
+        others_lo = max(v for m, (lo, _) in bounds.items() if m != model for v, _, _ in lo)
+        others_hi = min(v for m, (_, hi) in bounds.items() if m != model for v, _, _ in hi)
+        loo_limit = (others_lo + others_hi) / 2.0
+        preds = {
+            "A_file_size": _a24_solve_flip(budget, p["gguf_file_mib"], p),
+            "B_device_only": _a24_solve_flip(budget, p["vk_model_mib"], p),
+            "C_shared_heap_loo": _a24_solve_flip(loo_limit, p["vk_model_mib"] + p["host_model_mib"]
+                                                 + p["host_output_mib"], p),
+        }
+        out[model] = {
+            "weights_gguf_mib": round(p["gguf_file_mib"], 1), "weights_vk_mib": p["vk_model_mib"],
+            "weights_host_mib": p["host_model_mib"],
+            "kv_bytes_per_token": p["kv_bytes_per_token"],
+            "kv_bytes_per_token_logged": round(p["kv_bytes_per_token_logged"], 1),
+            "arch": f"{p['n_layer']}L x {p['n_head_kv']}kv x ({p['head_k']}+{p['head_v']}) x f16",
+            "compute_c0_mib": round(p["compute_c0_mib"], 2),
+            "compute_bytes_per_token": round(p["compute_slope_bytes_per_token"], 1),
+            "compute_fit_points": p["compute_fit_points"],
+            "compute_fit_max_abs_resid_mib": round(p["compute_fit_max_abs_resid_mib"], 3),
+            "n_ubatch": p["n_ubatch"], "n_ctx_train_gguf": p["n_ctx_train"],
+            "measured_last_ok": last_ok, "measured_first_fail": meas,
+            "loo_limit_mib": round(loo_limit, 1),
+            "pred": {k: round(v) for k, v in preds.items()},
+            "err_tokens": {k: round(v - meas) for k, v in preds.items()},
+            "err_pct": {k: round((v - meas) / meas * 100.0, 2) for k, v in preds.items()},
+            "within_bisection_step": {k: bool(last_ok < v <= meas) for k, v in preds.items()},
+        }
+
+    def rng(key):
+        vals = [v["err_tokens"][key] for v in out.values()]
+        pcts = [v["err_pct"][key] for v in out.values()]
+        return f"{min(vals):+d} to {max(vals):+d} tokens ({min(pcts):+.2f}% to {max(pcts):+.2f}%)"
+
+    value = (f"flip-point error vs measured first_fail, B={budget:.0f} MiB: A file-size {rng('A_file_size')}; "
+             f"B device-only {rng('B_device_only')}; C shared-heap LOO {rng('C_shared_heap_loo')}")
+    return {"value": value, "n": len(out), "detail": out}
+
+
+def compute_a24_flip_point_inputs(repo):
+    """Per-model inputs of compute_a24_flip_point_prediction, spelled out so each table cell is citable:
+    weights (GGUF file / Vulkan0 buffer / Vulkan_Host buffer, MiB), KV bytes/token derived from the
+    architecture vs read off the logged KV buffer, and the fitted compute-buffer law c0 + bytes/token."""
+    d = compute_a24_flip_point_prediction(repo)["detail"]
+    parts = [f"{m}: weights {v['weights_gguf_mib']:.1f}/{v['weights_vk_mib']:.2f}/{v['weights_host_mib']:.2f} MiB "
+             f"(gguf/vk/host), KV {v['arch']} = {v['kv_bytes_per_token']} B/tok (logged "
+             f"{v['kv_bytes_per_token_logged']:.0f}), compute {v['compute_c0_mib']:.2f} MiB + "
+             f"{v['compute_bytes_per_token']:.0f} B/tok (n_ubatch {v['n_ubatch']}, {v['compute_fit_points']} starts, "
+             f"max resid {v['compute_fit_max_abs_resid_mib']:.3f} MiB)" for m, v in d.items()]
+    return {"value": "; ".join(parts), "n": len(d), "detail": d}
+
+
+def compute_a24_flip_point_per_model(repo):
+    """Per-model predicted vs measured flip n_ctx from compute_a24_flip_point_prediction, one cell each."""
+    d = compute_a24_flip_point_prediction(repo)["detail"]
+    parts = []
+    for m, v in d.items():
+        p, e, pc = v["pred"], v["err_tokens"], v["err_pct"]
+        parts.append(f"{m}: measured ({v['measured_last_ok']}, {v['measured_first_fail']}]; "
+                     f"A {p['A_file_size']} ({e['A_file_size']:+d}, {pc['A_file_size']:+.2f}%), "
+                     f"B {p['B_device_only']} ({e['B_device_only']:+d}, {pc['B_device_only']:+.2f}%), "
+                     f"C {p['C_shared_heap_loo']} ({e['C_shared_heap_loo']:+d}, {pc['C_shared_heap_loo']:+.2f}%, "
+                     f"L_loo {v['loo_limit_mib']:.1f})")
+    return {"value": "; ".join(parts), "n": len(d), "detail": d}
+
+
+def compute_a24_effective_heap_limit(repo):
+    """Bracket on the effective Vulkan heap limit L, from every _srv_bis_ log of the 5 A-24 models, under
+    the shared-heap accounting (the evo-t2s Vulkan device exposes ONE heap and all 4 memory types,
+    including the host-visible ones Vulkan_Host buffers come from, map to heapIndex 0 -- vulkan_limits
+    record). Lower bounds: demand at every successful start (and every accepted pinned host-compute
+    allocation). Upper bounds: demand at every refused device-compute or pinned host-compute allocation.
+    Also reports the same bracket under device-only accounting, which is not consistent across models."""
+    budget, vk = _a24_vulkan_budget_mib(repo)
+    types_on_heap0 = sum(1 for line in vk["memory_properties_text"] if line.strip() == "heapIndex     = 0")
+    logs_by_model = _a24_model_logs(repo)
+    all_lo, all_hi, per_model, dev_lo, dev_hi = [], [], {}, [], []
+    for model, logs in logs_by_model.items():
+        p = _a24_model_parameters(model, logs)
+        lo, hi = _a24_heap_demand_points(p, logs)
+        all_lo += [(v, model, f, k) for v, f, k in lo]
+        all_hi += [(v, model, f, k) for v, f, k in hi]
+        per_model[model] = {"max_lower": round(max(v for v, _, _ in lo), 1),
+                            "min_upper": round(min(v for v, _, _ in hi), 1)}
+        for d in logs:
+            if d["kv_mib"] is None:
+                continue
+            dev = d["vk_model_mib"] + d["kv_mib"]
+            if d["started"]:
+                dev_lo.append(dev + d["vk_compute_mib"])
+            elif d["failed_alloc_mib"] is not None and d["failed_alloc_mib"] < 1000:
+                dev_hi.append(dev + d["failed_alloc_mib"])
+    lo_best = max(all_lo)
+    hi_best = min(all_hi)
+    value = (f"shared-heap L in ({lo_best[0]:.1f}, {hi_best[0]:.1f}] MiB, consistent across all 5 models "
+             f"({len(all_lo)} lower / {len(all_hi)} upper bounds), {lo_best[0] - budget:+.0f} MiB vs the "
+             f"{budget:.0f} MiB budget; device-only accounting is inconsistent "
+             f"(max start {max(dev_lo):.1f} > min refusal {min(dev_hi):.1f} MiB); "
+             f"{types_on_heap0} memory types all on heap 0")
+    return {"value": value, "n": len(all_lo) + len(all_hi),
+            "detail": {"per_model": per_model, "tightest_lower": lo_best, "tightest_upper": hi_best,
+                       "device_only_max_start": max(dev_lo), "device_only_min_refusal": min(dev_hi)}}
+
+
 _TTFT_FIT_RESULT_FILES = [
     "results/t2s_amech_20260926T181456Z.jsonl",
     "results/t2s_k2_pressure_20261001T001340Z.jsonl",
@@ -641,6 +917,332 @@ def compute_ttft_few_point_calibration(repo):
                      f"{len(vals)} hw/model pairs)")
     return {"value": "; ".join(parts) + " -- no k reliably viable across models/machines",
            "n": sum(len(v) for v in out.values()), "detail": out}
+
+
+# ── Why the evo-x2 TTFT fit is poor (R2 -0.03 to 0.63): diagnosis, each hypothesis tested by refitting ──
+
+def _load_ttft_rows(repo):
+    """Same row selection as _load_ttft_pairs (warm-up excluded, hw in evo-t2s/evo-x2, ttft_s and
+    prompt_tokens present), but keeps the whole row so filters can use its other fields."""
+    rows = []
+    for rel_path in _TTFT_FIT_RESULT_FILES:
+        path = repo / rel_path
+        if not path.exists():
+            continue
+        for r in _read_jsonl(path):
+            if r.get("ttft_s") is None or r.get("prompt_tokens") is None or r.get("warmup") is True:
+                continue
+            hw = r.get("hw_id") or r.get("host")
+            model = r.get("model_id") or r.get("model_tag")
+            if hw not in ("evo-t2s", "evo-x2") or model is None:
+                continue
+            r = dict(r)
+            r["_hw"], r["_model"], r["_file"] = hw, model, rel_path
+            rows.append(r)
+    if not rows:
+        raise FileNotFoundError("none of the TTFT fit result files were found")
+    return rows
+
+
+def _r2_rows(rows, intercept=False):
+    import numpy as np
+    ns = np.array([float(r["prompt_tokens"]) for r in rows])
+    ys = np.array([float(r["ttft_s"]) for r in rows])
+    if len(set(ns.tolist())) < 5:
+        return None
+    cols = [ns, ns ** 2] + ([np.ones_like(ns)] if intercept else [])
+    design = np.column_stack(cols)
+    coef, *_ = np.linalg.lstsq(design, ys, rcond=None)
+    pred = design @ coef
+    ss_tot = float(np.sum((ys - ys.mean()) ** 2))
+    return 1 - float(np.sum((ys - pred) ** 2)) / ss_tot if ss_tot > 0 else None
+
+
+def _is_corunner(r):
+    return r.get("co_runner") not in (None, "none", "N0", "N1")
+
+
+def _is_pressure_or_smoke(r):
+    return r.get("section") in ("K2", "MX2", "SMOKE")
+
+
+def _is_first_call_on_prompt(r):
+    """rep 0 = the first measured call on a given prompt (the harness's only warm-up is one call per server
+    start, on a different prompt, so every new item's rep 0 is the first time the server sees that text);
+    rows with no rep field (overnight section 0) are also single first calls."""
+    return r.get("rep") in (0, None)
+
+
+_TTFT_HYPOTHESIS_FILTERS = {
+    "baseline": lambda r: True,
+    "drop_corunner": lambda r: not _is_corunner(r),
+    "drop_K2_MX2_SMOKE": lambda r: not _is_pressure_or_smoke(r),
+    "drop_user_active": lambda r: r.get("user_active") is not True,
+    "drop_first_call_rep0": lambda r: not _is_first_call_on_prompt(r),
+    "all_four_dropped": lambda r: not (_is_corunner(r) or _is_pressure_or_smoke(r)
+                                       or r.get("user_active") is True or _is_first_call_on_prompt(r)),
+}
+
+
+def compute_ttft_x2_length_spread(repo):
+    """Per-model n and prompt-length spread behind the per-machine TTFT fit, both machines: is there enough
+    length spread on evo-x2 for a quadratic in prompt_tokens to explain anything?"""
+    import numpy as np
+    rows = _load_ttft_rows(repo)
+    out = {}
+    for hw in ("evo-x2", "evo-t2s"):
+        for model in sorted({r["_model"] for r in rows if r["_hw"] == hw}):
+            ns = np.array([r["prompt_tokens"] for r in rows if r["_hw"] == hw and r["_model"] == model], float)
+            out.setdefault(hw, {})[model] = {
+                "n": int(len(ns)), "distinct": int(len(set(ns.tolist()))), "min": int(ns.min()),
+                "p10": int(np.percentile(ns, 10)), "p50": int(np.median(ns)), "p90": int(np.percentile(ns, 90)),
+                "max": int(ns.max())}
+    x2 = out["evo-x2"]
+    parts = [f"{m}: n={v['n']}, {v['min']}-{v['max']} tok (p10-p90 {v['p10']}-{v['p90']})" for m, v in x2.items()]
+    return {"value": "evo-x2 " + "; ".join(parts), "n": sum(v["n"] for v in x2.values()), "detail": out}
+
+
+def compute_ttft_x2_refit_by_hypothesis(repo):
+    """Refits ttft_s = a*n + b*n^2 per (machine, model) with each suspected cause removed, plus a variant
+    with an intercept. Hypotheses: co-runner/CPU-hog rows (PX2 conditions other than N0/N1, B-section
+    co-runners), memory-pressure/spill/smoke rows (K2, MX2, SMOKE), user_active rows, first call on each
+    new prompt (rep 0), and all four together. Only (hw, model) pairs with >=5 distinct prompt lengths
+    after filtering are fit (qwen3-30b-a3b-2507 on evo-x2 has only 8 rep-0 rows, so it drops out of every
+    filter that removes rep 0)."""
+    rows = _load_ttft_rows(repo)
+    out = {}
+    for hw in ("evo-x2", "evo-t2s"):
+        models = sorted({r["_model"] for r in rows if r["_hw"] == hw})
+        for name, keep in _TTFT_HYPOTHESIS_FILTERS.items():
+            for model in models:
+                sub = [r for r in rows if r["_hw"] == hw and r["_model"] == model and keep(r)]
+                r2 = _r2_rows(sub)
+                out.setdefault(hw, {}).setdefault(name, {})[model] = {
+                    "n": len(sub), "r2": None if r2 is None else round(r2, 4)}
+        for model in models:
+            sub = [r for r in rows if r["_hw"] == hw and r["_model"] == model]
+            r2 = _r2_rows(sub, intercept=True)
+            out[hw].setdefault("baseline_with_intercept", {})[model] = {
+                "n": len(sub), "r2": None if r2 is None else round(r2, 4)}
+
+    def rng(hw, name):
+        vals = [v["r2"] for v in out[hw][name].values() if v["r2"] is not None]
+        return f"{min(vals):.2f}-{max(vals):.2f} ({len(vals)} models)"
+
+    # residual structure of the baseline fit: how much of the squared error sits on first-call rows
+    import numpy as np
+    shares = {}
+    for model in sorted({r["_model"] for r in rows if r["_hw"] == "evo-x2"}):
+        sub = [r for r in rows if r["_hw"] == "evo-x2" and r["_model"] == model]
+        a, b, _ = _fit_ttft_quadratic([r["prompt_tokens"] for r in sub], [r["ttft_s"] for r in sub])
+        res2 = np.array([(r["ttft_s"] - a * r["prompt_tokens"] - b * r["prompt_tokens"] ** 2) ** 2 for r in sub])
+        first = np.array([_is_first_call_on_prompt(r) for r in sub])
+        shares[model] = {"first_call_row_frac": round(float(first.mean()), 3),
+                         "first_call_ss_res_share": round(float(res2[first].sum() / res2.sum()), 3)}
+    out["evo-x2"]["baseline_residual_share"] = shares
+    mixed = [v for v in shares.values() if v["first_call_row_frac"] < 1.0]  # models that also have repeats
+    rf = [v["first_call_row_frac"] for v in mixed]
+    ss = [v["first_call_ss_res_share"] for v in mixed]
+
+    names = ["baseline", "drop_corunner", "drop_K2_MX2_SMOKE", "drop_user_active", "baseline_with_intercept",
+             "drop_first_call_rep0", "all_four_dropped"]
+    value = (f"evo-x2 rep-0 rows are {min(rf)*100:.0f}-{max(rf)*100:.0f}% of rows but carry "
+             f"{min(ss)*100:.0f}-{max(ss)*100:.0f}% of baseline squared residual ({len(mixed)} models with "
+             f"repeat calls); ")
+    value += "evo-x2 R2: " + "; ".join(f"{n} {rng('evo-x2', n)}" for n in names)
+    value += f" | evo-t2s R2: baseline {rng('evo-t2s', 'baseline')}, drop_first_call_rep0 " \
+             f"{rng('evo-t2s', 'drop_first_call_rep0')}"
+    return {"value": value, "n": sum(len(v) for v in out["evo-x2"].values()), "detail": out}
+
+
+def compute_ttft_x2_refit_per_model(repo):
+    """Per-model cells of compute_ttft_x2_refit_by_hypothesis (baseline, drop first call, all four
+    dropped), both machines, plus the share of the evo-x2 baseline squared residual on first-call rows."""
+    d = compute_ttft_x2_refit_by_hypothesis(repo)["detail"]
+    parts = []
+    for hw in ("evo-x2", "evo-t2s"):
+        for m in sorted(d[hw]["baseline"]):
+            cells = []
+            for name in ("baseline", "drop_first_call_rep0", "all_four_dropped"):
+                c = d[hw][name][m]
+                cells.append(f"{'NA' if c['r2'] is None else format(c['r2'], '.3f')} (n={c['n']})")
+            extra = ""
+            if hw == "evo-x2":
+                s = d[hw]["baseline_residual_share"][m]
+                extra = f", first-call rows {s['first_call_row_frac']*100:.0f}% of rows / " \
+                        f"{s['first_call_ss_res_share']*100:.0f}% of SS_res"
+            parts.append(f"{hw} {m}: " + " / ".join(cells) + extra)
+    return {"value": "baseline / drop_first_call_rep0 / all_four_dropped R2: " + "; ".join(parts),
+            "n": len(parts), "detail": d}
+
+
+def compute_ttft_t2s_restricted_to_x2_range(repo):
+    """Length-spread test: refit evo-t2s on only the rows inside evo-x2's prompt-length range for the same
+    model. If narrow spread were the cause of the low evo-x2 R2, evo-t2s restricted to the same range would
+    collapse too, and it would stay low after dropping first calls."""
+    rows = _load_ttft_rows(repo)
+    out = {}
+    for model in sorted({r["_model"] for r in rows if r["_hw"] == "evo-x2"}):
+        x2n = [r["prompt_tokens"] for r in rows if r["_hw"] == "evo-x2" and r["_model"] == model]
+        lo, hi = min(x2n), max(x2n)
+        sub = [r for r in rows if r["_hw"] == "evo-t2s" and r["_model"] == model and lo <= r["prompt_tokens"] <= hi]
+        sub_rep = [r for r in sub if not _is_first_call_on_prompt(r)]
+        r2a, r2b = _r2_rows(sub), _r2_rows(sub_rep)
+        out[model] = {"x2_range": [lo, hi], "n": len(sub), "r2": None if r2a is None else round(r2a, 4),
+                      "n_rep_ge1": len(sub_rep), "r2_rep_ge1": None if r2b is None else round(r2b, 4)}
+    parts = [f"{m}: {v['r2']:.2f} (n={v['n']})" + (f" -> {v['r2_rep_ge1']:.3f} rep>=1 (n={v['n_rep_ge1']})"
+                                                   if v["r2_rep_ge1"] is not None else "")
+             for m, v in out.items() if v["r2"] is not None]
+    return {"value": "evo-t2s restricted to the evo-x2 prompt range: " + "; ".join(parts),
+            "n": sum(v["n"] for v in out.values()), "detail": out}
+
+
+_TTFT_STALL_SECTIONS = [
+    ("evo-x2", "results/t2s_night2_20260929T205109Z.jsonl", ("R1b", "R1d")),
+    ("evo-x2", "results/t2s_night2_20260929T045127Z.jsonl", ("R1check",)),
+    ("evo-t2s", "results/t2s_night2_20260929T202603Z.jsonl", ("R1b", "R1d")),
+]
+
+
+def _kv_bytes_per_token_from_start_logs(repo, stem):
+    """{model: KV bytes/token} from the real llama-server start logs '<stem>_srv_<section>_<model>_start.txt'
+    (architecture + f16 dtype read from each log, not assumed)."""
+    import re
+    out = {}
+    for p in sorted((repo / "results").glob(f"{stem}_srv_*_start.txt")):
+        m = re.match(rf"{re.escape(stem)}_srv_R1\w*?_(.+)_start\.txt$", p.name)
+        if not m:
+            continue
+        d = _parse_llama_server_log(p)
+        if not (d["n_layer"] and d["kv_dtypes"] == ("f16", "f16")):
+            continue
+        out[m.group(1)] = d["n_layer"] * d["n_head_kv"] * (d["head_k"] + d["head_v"]) * 2
+    return out
+
+
+def compute_ttft_first_call_stall(repo):
+    """The first call on a new prompt (rep 0) vs the repeat of the same prompt (rep 1), R1-family sections
+    (every item is a new prompt; one warm-up per server start). For each rep-0 call that is >1.5x its own
+    rep 1: stall = ttft(rep0) - ttft(rep1), and the KV state of the PREVIOUS call on the same server
+    (its prompt_tokens x KV bytes/token from the server's own start log) divided by the stall. A constant
+    MiB/s across models with different KV bytes/token means the stall scales with the bytes of KV state
+    being displaced, not with the new prompt or with compute. Also reports package power during slow vs
+    normal calls on evo-x2."""
+    import collections
+    out = {}
+    for hw, rel, sections in _TTFT_STALL_SECTIONS:
+        path = repo / rel
+        if not path.exists():
+            raise FileNotFoundError(rel)
+        stem = Path(rel).stem
+        kvb = _kv_bytes_per_token_from_start_logs(repo, stem)
+        rows = [r for r in _read_jsonl(path) if r.get("ttft_s") is not None and r.get("warmup") is False
+                and r.get("section") in sections]
+        rows.sort(key=lambda r: r["ts_utc"])
+        for model in sorted({r["model_id"] for r in rows}):
+            if model not in kvb:
+                raise FileNotFoundError(f"{rel}: no start log with architecture for {model}")
+            for sec in sections:
+                sub = [r for r in rows if r["model_id"] == model and r["section"] == sec]
+                by_stem = collections.defaultdict(dict)
+                for r in sub:
+                    by_stem[r["item_id"].rsplit("_", 1)[0]][r["rep"]] = r
+                pairs = slow = 0
+                stalls, rates, p_slow, p_norm = [], [], [], []
+                for i, r in enumerate(sub):
+                    if r["rep"] != 0:
+                        if isinstance(r.get("pkg_power_w"), (int, float)):
+                            p_norm.append(r["pkg_power_w"])
+                        continue
+                    rep1 = by_stem[r["item_id"].rsplit("_", 1)[0]].get(1)
+                    if rep1 is None:
+                        continue
+                    pairs += 1
+                    if r["ttft_s"] > 1.5 * rep1["ttft_s"]:
+                        slow += 1
+                        s = r["ttft_s"] - rep1["ttft_s"]
+                        stalls.append(s)
+                        if i > 0:
+                            rates.append(sub[i - 1]["prompt_tokens"] * kvb[model] / 2 ** 20 / s)
+                        if isinstance(r.get("pkg_power_w"), (int, float)):
+                            p_slow.append(r["pkg_power_w"])
+                if not pairs:
+                    continue
+                out.setdefault(hw, {})[f"{model}/{sec}"] = {
+                    "pairs": pairs, "slow": slow, "kv_bytes_per_token": kvb[model],
+                    "stall_median_s": round(statistics.median(stalls), 2) if stalls else None,
+                    "displaced_kv_mib_per_s_median": round(statistics.median(rates), 1) if rates else None,
+                    "pkg_w_slow_median": round(statistics.median(p_slow), 1) if p_slow else None,
+                    "pkg_w_rep_ge1_median": round(statistics.median(p_norm), 1) if p_norm else None,
+                }
+    parts = []
+    for hw in ("evo-x2", "evo-t2s"):
+        cells = out[hw].values()
+        rates = [c["displaced_kv_mib_per_s_median"] for c in cells if c["displaced_kv_mib_per_s_median"]]
+        stalls = [c["stall_median_s"] for c in cells if c["stall_median_s"]]
+        slow = sum(c["slow"] for c in cells)
+        pairs = sum(c["pairs"] for c in cells)
+        part = (f"{hw}: {slow}/{pairs} rep-0 calls >1.5x their rep 1, stall median {min(stalls):.1f}-"
+                f"{max(stalls):.1f} s, displaced KV state {min(rates):.1f}-{max(rates):.1f} MiB/s across "
+                f"{len(rates)} model/section cells")
+        if hw == "evo-x2":
+            ps = [c["pkg_w_slow_median"] for c in cells if c["pkg_w_slow_median"]]
+            pn = [c["pkg_w_rep_ge1_median"] for c in cells if c["pkg_w_rep_ge1_median"]]
+            part += f"; pkg power slow calls {min(ps):.1f}-{max(ps):.1f} W vs rep>=1 {min(pn):.1f}-{max(pn):.1f} W"
+        parts.append(part)
+    return {"value": "; ".join(parts), "n": sum(len(v) for v in out.values()), "detail": out}
+
+
+def compute_ttft_first_call_stall_per_cell(repo):
+    """Per model/section cells of compute_ttft_first_call_stall."""
+    d = compute_ttft_first_call_stall(repo)["detail"]
+    parts = [f"{hw} {k}: {c['slow']}/{c['pairs']} slow, stall {c['stall_median_s']:.2f} s, "
+             f"{c['displaced_kv_mib_per_s_median']:.1f} MiB/s, pkg {c['pkg_w_slow_median']} W slow vs "
+             f"{c['pkg_w_rep_ge1_median']} W rep>=1"
+             for hw in ("evo-x2", "evo-t2s") for k, c in d[hw].items()]
+    return {"value": "; ".join(parts), "n": len(parts), "detail": d}
+
+
+def compute_ttft_x2_section0_stall_check(repo):
+    """Out-of-sample check of the displaced-KV-state stall on rows never used to estimate it: evo-x2
+    overnight section 0 (8 calls per model, one server start each, no rep structure). Predicted ttft =
+    the model's own evo-x2 fit on the all_four_dropped rows (see _TTFT_HYPOTHESIS_FILTERS) at this prompt length + (previous call's prompt_tokens x KV
+    bytes/token) / R, where R = the evo-x2 median displaced-state rate from compute_ttft_first_call_stall,
+    applied only to calls whose prompt is not an extension of the previous call's (prompt_tokens not larger
+    than the previous call's). Reports the median absolute error with and without the stall term."""
+    import numpy as np
+    stall = compute_ttft_first_call_stall(repo)["detail"]["evo-x2"]
+    rate = statistics.median(c["displaced_kv_mib_per_s_median"] for c in stall.values()
+                             if c["displaced_kv_mib_per_s_median"])
+    kvb = _kv_bytes_per_token_from_start_logs(repo, "t2s_night2_20260929T205109Z")
+    rows = _load_ttft_rows(repo)
+    s0 = [r for r in rows if r["_hw"] == "evo-x2" and r["_file"].endswith("t2s_overnight_20260929T071343Z.jsonl")]
+    out = {}
+    for model in sorted({r["_model"] for r in s0}):
+        if model not in kvb:
+            continue
+        fit_rows = [r for r in rows if r["_hw"] == "evo-x2" and r["_model"] == model
+                    and _TTFT_HYPOTHESIS_FILTERS["all_four_dropped"](r)]
+        if len({r["prompt_tokens"] for r in fit_rows}) < 5:
+            continue
+        a, b, _ = _fit_ttft_quadratic([r["prompt_tokens"] for r in fit_rows], [r["ttft_s"] for r in fit_rows])
+        seq = sorted([r for r in s0 if r["_model"] == model], key=lambda r: r["ts_utc"])
+        err_with, err_without = [], []
+        for i, r in enumerate(seq):
+            n = r["prompt_tokens"]
+            base = a * n + b * n * n
+            pred = base
+            if i > 0 and n <= seq[i - 1]["prompt_tokens"]:
+                pred = base + seq[i - 1]["prompt_tokens"] * kvb[model] / 2 ** 20 / rate
+            err_with.append(abs(pred - r["ttft_s"]) / r["ttft_s"] * 100)
+            err_without.append(abs(base - r["ttft_s"]) / r["ttft_s"] * 100)
+        out[model] = {"n": len(seq), "mape_with_stall_pct": round(float(np.median(err_with)), 1),
+                      "mape_without_stall_pct": round(float(np.median(err_without)), 1)}
+    w = [v["mape_with_stall_pct"] for v in out.values()]
+    wo = [v["mape_without_stall_pct"] for v in out.values()]
+    return {"value": f"evo-x2 overnight section 0, R={rate:.1f} MiB/s: median abs % error {min(w):.1f}-{max(w):.1f}% "
+                     f"with the stall term vs {min(wo):.1f}-{max(wo):.1f}% without, {len(out)} models",
+            "n": sum(v["n"] for v in out.values()), "detail": out}
 
 
 def compute_p70_ttft_ratio(repo):
@@ -1521,6 +2123,75 @@ NUMBER_ENTRIES = [
      "description": "k=2/3/5-point per-device TTFT calibration error on held-out real points",
      "compute": compute_ttft_few_point_calibration, "data_files": _TTFT_FIT_RESULT_FILES,
      "script_function": "analysis/numbers_register.py::compute_ttft_few_point_calibration"},
+    {"claim_id": "A-24-flip-point-prediction",
+     "description": "5-model predicted vs measured n_ctx flip point (server stops starting), first principles "
+                    "(weights + KV bytes/token x n_ctx + compute(n_ctx)) solved against the 47,866 MiB heap budget, "
+                    "3 accountings",
+     "compute": compute_a24_flip_point_prediction,
+     "data_files": ["results/t2s_amech_20260926T181456Z.jsonl", "results/t2s_night2_20260929T034014Z.jsonl",
+                    "results/t2s_amech_20260926T181456Z_srv_bis_*.txt",
+                    "results/t2s_night2_20260929T034014Z_srv_bis_a70_*.txt"],
+     "script_function": "analysis/numbers_register.py::compute_a24_flip_point_prediction"},
+    {"claim_id": "A-24-flip-point-inputs",
+     "description": "per-model inputs to the flip-point prediction: weights, KV bytes/token (derived vs logged), "
+                    "compute-buffer law",
+     "compute": compute_a24_flip_point_inputs,
+     "data_files": ["results/t2s_amech_20260926T181456Z_srv_bis_*.txt",
+                    "results/t2s_night2_20260929T034014Z_srv_bis_a70_*.txt"],
+     "script_function": "analysis/numbers_register.py::compute_a24_flip_point_inputs"},
+    {"claim_id": "A-24-flip-point-per-model",
+     "description": "per-model predicted vs measured flip n_ctx, accountings A/B/C",
+     "compute": compute_a24_flip_point_per_model,
+     "data_files": ["results/t2s_amech_20260926T181456Z.jsonl", "results/t2s_night2_20260929T034014Z.jsonl",
+                    "results/t2s_amech_20260926T181456Z_srv_bis_*.txt",
+                    "results/t2s_night2_20260929T034014Z_srv_bis_a70_*.txt"],
+     "script_function": "analysis/numbers_register.py::compute_a24_flip_point_per_model"},
+    {"claim_id": "A-24-effective-heap-limit",
+     "description": "effective evo-t2s Vulkan heap limit bracketed from every A-24 bisection start/refusal, "
+                    "shared-heap vs device-only accounting",
+     "compute": compute_a24_effective_heap_limit,
+     "data_files": ["results/t2s_amech_20260926T181456Z.jsonl",
+                    "results/t2s_amech_20260926T181456Z_srv_bis_*.txt",
+                    "results/t2s_night2_20260929T034014Z_srv_bis_a70_*.txt"],
+     "script_function": "analysis/numbers_register.py::compute_a24_effective_heap_limit"},
+    {"claim_id": "ttft-x2-length-spread",
+     "description": "per-model n and prompt-length range behind the evo-x2 TTFT fit",
+     "compute": compute_ttft_x2_length_spread, "data_files": _TTFT_FIT_RESULT_FILES,
+     "script_function": "analysis/numbers_register.py::compute_ttft_x2_length_spread"},
+    {"claim_id": "ttft-x2-refit-by-hypothesis",
+     "description": "evo-x2 TTFT fit R2 refit with each suspected cause removed (co-runner, K2/MX2/SMOKE, "
+                    "user_active, intercept, first call on a new prompt)",
+     "compute": compute_ttft_x2_refit_by_hypothesis, "data_files": _TTFT_FIT_RESULT_FILES,
+     "script_function": "analysis/numbers_register.py::compute_ttft_x2_refit_by_hypothesis"},
+    {"claim_id": "ttft-x2-refit-per-model",
+     "description": "per-model TTFT fit R2: baseline / drop first call / all four suspected causes dropped",
+     "compute": compute_ttft_x2_refit_per_model, "data_files": _TTFT_FIT_RESULT_FILES,
+     "script_function": "analysis/numbers_register.py::compute_ttft_x2_refit_per_model"},
+    {"claim_id": "ttft-t2s-restricted-to-x2-range",
+     "description": "evo-t2s TTFT fit R2 on only the rows inside evo-x2's prompt range (length-spread test)",
+     "compute": compute_ttft_t2s_restricted_to_x2_range, "data_files": _TTFT_FIT_RESULT_FILES,
+     "script_function": "analysis/numbers_register.py::compute_ttft_t2s_restricted_to_x2_range"},
+    {"claim_id": "ttft-first-call-stall",
+     "description": "first call on a new prompt: stall vs repeat call, scaled by the displaced KV state, both machines",
+     "compute": compute_ttft_first_call_stall,
+     "data_files": [rel for _, rel, _ in _TTFT_STALL_SECTIONS] + [
+         "results/t2s_night2_20260929T205109Z_srv_R1*_start.txt",
+         "results/t2s_night2_20260929T045127Z_srv_R1*_start.txt",
+         "results/t2s_night2_20260929T202603Z_srv_R1*_start.txt"],
+     "script_function": "analysis/numbers_register.py::compute_ttft_first_call_stall"},
+    {"claim_id": "ttft-first-call-stall-per-cell",
+     "description": "per model/section first-call stall and displaced-KV-state rate, both machines",
+     "compute": compute_ttft_first_call_stall_per_cell,
+     "data_files": [rel for _, rel, _ in _TTFT_STALL_SECTIONS] + [
+         "results/t2s_night2_20260929T205109Z_srv_R1*_start.txt",
+         "results/t2s_night2_20260929T045127Z_srv_R1*_start.txt",
+         "results/t2s_night2_20260929T202603Z_srv_R1*_start.txt"],
+     "script_function": "analysis/numbers_register.py::compute_ttft_first_call_stall_per_cell"},
+    {"claim_id": "ttft-x2-section0-stall-check",
+     "description": "out-of-sample check: displaced-KV stall term applied to evo-x2 overnight section 0 rows",
+     "compute": compute_ttft_x2_section0_stall_check,
+     "data_files": _TTFT_FIT_RESULT_FILES + ["results/t2s_night2_20260929T205109Z_srv_R1*_start.txt"],
+     "script_function": "analysis/numbers_register.py::compute_ttft_x2_section0_stall_check"},
     {"claim_id": "pack-trace-weighted-stats", "description": "workload pack prompt-token p50/p90/p99, flat vs trace-weighted",
      "compute": compute_pack_trace_weighted_stats,
      "data_files": ["results/workload_pack/items/*.jsonl", "results/traces/agent_step_lengths.parquet"],

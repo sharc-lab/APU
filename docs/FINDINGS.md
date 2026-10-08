@@ -2307,3 +2307,212 @@ again, so any fix needs a third fresh sample to validate):**
    (`PN38901`).
 4. Cosmetic: the FABRICATED fallthrough returns `classification_method: "score"`, which reads like the
    score==1.0 path; a distinct name such as `fallback` would make the key file self-explanatory.
+
+
+## A-24 budget boundary from first principles: predicted vs measured flip n_ctx (2026-10-06)
+
+**What already existed, and what did not.** The register row `A-24-budget-boundary-first-principles`
+(VERIFIED, 2026-10-01) checks the weights + KV + compute DECOMPOSITION of each model's footprint at one
+n_ctx (its own first_fail point) against the same log's total. It never solves for the n_ctx at which that
+total crosses the heap budget, so it is not a predicted-vs-measured flip point. docs/STATE.md was right that
+the flip-point analysis was not built. It is built here (`compute_a24_flip_point_prediction` and helpers in
+`analysis/numbers_register.py`), and it also explains that older row's per-model +MiB errors (see "Why A
+and B miss" below).
+
+**Method.** Every `_srv_bis_` llama-server log for the 5 models is parsed
+(`results/t2s_amech_20260926T181456Z_srv_bis_*.txt`, `results/t2s_night2_20260929T034014Z_srv_bis_a70_*.txt`).
+KV bytes/token is derived from the architecture (n_layer x n_head_kv x (head_k + head_v) x 2 bytes, f16
+checked per log) and checked against the logged KV buffer. The Vulkan0 compute buffer is fitted as c0 +
+slope x n_ctx over each model's own successful starts. The budget is the vulkaninfo heap budget recorded in
+`results/t2s_amech_20260926T181456Z.jsonl` (`vulkan_limits` record). Measured flip = the bisection's
+(last_ok, first_fail] interval from `A-24-budget-boundary` (step 256 tokens). Three accountings are solved
+for the flip n_ctx:
+
+- **A (file size):** GGUF file size + KV(n) + compute(n) vs the 47,866 MiB budget (the older row's terms).
+- **B (device only):** Vulkan0 model buffer + KV(n) + compute(n) vs the 47,866 MiB budget (what llama.cpp's
+  own fit projection compares).
+- **C (shared heap, leave-one-model-out):** Vulkan0 model buffer + Vulkan_Host model/output buffers + KV(n)
+  + compute(n) vs an effective limit L estimated only from the OTHER 4 models' start/refusal logs.
+
+**Inputs per model** (register row `A-24-flip-point-inputs`):
+
+| model | weights MiB (GGUF / Vulkan0 / Vulkan_Host) | KV bytes/token (derived = logged) | Vulkan0 compute buffer |
+|---|---|---|---|
+| qwen3-32b | 18841.6 / 18423.65 / 417.30 | 64L x 8kv x (128+128) x f16 = 262144 | 186.01 MiB + 1024 B/tok (5 starts) |
+| qwen3-8b | 4792.3 / 4455.34 / 333.84 | 36L x 8kv x (128+128) x f16 = 147456 | 88.01 MiB + 1024 B/tok (19 starts) |
+| qwen3-30b-a3b-2507 | 17694.7 / 17524.42 / 166.92 | 48L x 4kv x (128+128) x f16 = 98304 | 84.01 MiB + 1024 B/tok (10 starts) |
+| llama31-8b | 4689.9 / 4403.49 / 281.81 | 32L x 8kv x (128+128) x f16 = 131072 | 100.01 MiB + 1024 B/tok (5 starts) |
+| llama-3.3-70b | 40540.2 / 39979.48 / 563.63 | 80L x 8kv x (128+128) x f16 = 327680 | 200.01 MiB + 1024 B/tok (13 starts) |
+
+The architecture-derived KV bytes/token equals the logged KV buffer per cell exactly for all 5 models. The
+compute buffer is exactly linear in n_ctx (max residual 0.000 MiB for every model) with the same slope of
+1024 bytes/token everywhere, which is n_ubatch (512) x 2 bytes, i.e. one f16 n_ubatch x n_ctx tensor; only
+the intercept is model-specific.
+
+**Predicted vs measured flip n_ctx** (register row `A-24-flip-point-per-model`; error = predicted minus
+measured first_fail, in tokens and %):
+
+| model | measured (last_ok, first_fail] | A file size | B device only | C shared heap, LOO |
+|---|---|---|---|---|
+| qwen3-32b | (115712, 115968] | 114905 (-1063, -0.92%) | 116570 (+602, +0.52%) | 115910 (-58, -0.05%) |
+| qwen3-8b | (305152, 305408] | 303568 (-1840, -0.60%) | 305948 (+540, +0.18%) | 305377 (-31, -0.01%) |
+| qwen3-30b-a3b-2507 | (320256, 320512] | 317622 (-2890, -0.90%) | 319420 (-1092, -0.34%) | 320255 (-257, -0.08%) |
+| llama31-8b | (343808, 344064] | 341937 (-2127, -0.62%) | 344211 (+147, +0.04%) | 343973 (-91, -0.03%) |
+| llama-3.3-70b | (23296, 23552] | 22732 (-820, -3.48%) | 24520 (+968, +4.11%) | 23526 (-26, -0.11%) |
+
+Summary row `A-24-flip-point-prediction`: "flip-point error vs measured first_fail, B=47866 MiB: A file-size
+-2890 to -820 tokens (-3.48% to -0.60%); B device-only -1092 to +968 tokens (-0.34% to +4.11%); C shared-heap
+LOO -257 to -26 tokens (-0.11% to -0.01%)".
+
+**Why A and B miss, and what the boundary really is.** The evo-t2s Vulkan device exposes a single memory
+heap, and all 4 of its memory types (including the host-visible ones that `Vulkan_Host` buffers are
+allocated from) map to that heap (`vulkan_limits` record). So the token-embedding weights llama.cpp keeps in
+`Vulkan_Host` memory, and the pinned host compute buffer, draw on the same heap as the device buffers.
+Register row `A-24-effective-heap-limit`: "shared-heap L in (48112.7, 48124.0] MiB, consistent across all 5
+models (92 lower / 22 upper bounds), +247 MiB vs the 47866 MiB budget; device-only accounting is
+inconsistent (max start 47945.2 > min refusal 47562.5 MiB); 4 memory types all on heap 0". In words:
+
+- Counting device buffers only (B), no single limit separates the starts from the refusals: one model
+  starts at a device total higher than another model's refusal. Adding the Vulkan_Host buffers makes all 92
+  lower bounds and 22 upper bounds (successful starts, refused compute allocations, accepted and refused
+  pinned host-compute allocations, from bisections run on two different days) agree on one limit.
+- B therefore overpredicts the flip for the model with the largest Vulkan_Host buffer (llama-3.3-70b, +968
+  tokens) and underpredicts it for the model with the smallest (qwen3-30b-a3b-2507, -1092), because it drops
+  the Vulkan_Host share while the real limit sits about 247 MiB above the reported budget; the two errors
+  partly cancel, by a different amount per model.
+- A uses the GGUF file size, which already roughly includes the Vulkan_Host share, so its accounting is close
+  to C's. It misses, always early (-820 to -2890 tokens), because it compares against the 47,866 MiB budget,
+  about 247 MiB below the limit the heap actually enforced. The older `A-24-budget-boundary-first-principles`
+  row's positive per-model +MiB errors are the same effect seen from the other side: its file-size weights
+  term counts the Vulkan_Host share, which that row's comparison total (the device-only 'self' column)
+  leaves out. Those MiB were never a failure of the decomposition itself.
+- C, with L estimated from the other 4 models only, lands inside the 256-token bisection step for 4 of 5
+  models. The one miss is qwen3-30b-a3b-2507 (-257 tokens, -0.08%): it supplies the tightest lower bound on
+  L itself (48112.7 MiB, its own last successful start), so leaving it out drops the leave-one-out limit to
+  48112.6 MiB and the prediction falls just below its own last_ok.
+
+**Caveats.** (1) The 247 MiB margin over the reported budget is measured on this driver, llama.cpp build and
+boot state only; the budget figure is the driver's estimate, not a hard cap, and the margin should not be
+assumed on another machine. (2) For qwen3-8b, qwen3-30b-a3b-2507 and llama31-8b the memory flip lies beyond
+the length the server will actually serve per slot (the logs show the full KV allocated for the requested
+n_ctx, but the server then reports a smaller per-slot context, its trained or YaRN-adjusted length). The flip
+predicted here is the memory flip ("will the server start"), not the usable context. (3) Near-boundary
+pinned host-compute refusals are non-fatal (llama.cpp falls back to pageable memory) and are used only as
+bounds on L.
+
+
+## Why the evo-x2 TTFT fit has low R2: the first call on each new prompt carries a stall (2026-10-06)
+
+**Question.** Register row `ttft-physical-fit-per-machine`: "evo-t2s: R2 0.68-0.99 across 7 models; evo-x2:
+R2 -0.03-0.63 across 7 models". Why is evo-x2 so much worse?
+
+**Length spread is not the cause.** Register row `ttft-x2-length-spread`: "evo-x2 llama-3.3-70b: n=278,
+794-8001 tok (p10-p90 1661-4197); llama31-8b: n=293, 794-6499 tok (p10-p90 1661-4183); qwen3-14b: n=845,
+805-6501 tok (p10-p90 1679-4282); qwen3-30b-a3b-2507: n=8, 805-6501 tok (p10-p90 1292-3773); qwen3-32b:
+n=306, 805-6501 tok (p10-p90 1663-4192); qwen3-4b-2507: n=431, 805-6501 tok (p10-p90 1660-4219); qwen3-8b:
+n=878, 254-11966 tok (p10-p90 1664-4282)". The evo-x2 range is narrower than evo-t2s's, but the same narrow
+range fits with R2 0.95 or better once one row class is removed (below). Restricting evo-t2s to the evo-x2
+range (row `ttft-t2s-restricted-to-x2-range`) lowers evo-t2s too ("qwen3-14b: 0.80 (n=1985) -> 0.999 rep>=1
+(n=1498)", "qwen3-8b: 0.89 (n=2148) -> 0.963 rep>=1 (n=1616)"), and the same row-class removal restores it.
+
+**Each hypothesis, tested by refitting with its suspected cause removed** (row `ttft-x2-refit-by-hypothesis`):
+"evo-x2 rep-0 rows are 33-35% of rows but carry 76-89% of baseline squared residual (6 models with repeat
+calls); evo-x2 R2: baseline -0.03-0.63 (7 models); drop_corunner -0.03-0.60 (7 models); drop_K2_MX2_SMOKE
+-0.03-0.57 (7 models); drop_user_active -0.03-0.63 (7 models); baseline_with_intercept 0.00-0.63 (7 models);
+drop_first_call_rep0 0.95-1.00 (6 models); all_four_dropped 0.95-1.00 (6 models) | evo-t2s R2: baseline
+0.68-0.99 (7 models), drop_first_call_rep0 0.99-0.99 (4 models)".
+
+- Co-runner / CPU-hog rows (PX2 conditions other than N0/N1): removing them does not help. Not supported.
+- Memory-pressure, spill and smoke rows (K2, MX2, SMOKE): removing them does not help on its own (it lowers
+  qwen3-8b, whose K2 rows were its long-prompt anchors). Not supported as the cause.
+- user_active rows: no material change. Not supported.
+- Missing intercept (fixed per-call overhead): adding a constant term changes nothing. Not supported.
+- Mixed runtimes or flags across files: every evo-x2 row in the fit comes from the same llama.cpp Vulkan
+  llama-server build with f16 KV and flash attention on, none is an Ollama row, and only the K2 and MX2 rows
+  use a different n_ctx (covered by the K2/MX2 filter above). Not supported.
+- Thermal: evo-x2 rows mostly carry no temperature reading, so this cannot be tested directly; package power
+  is available and is used below.
+- Heteroscedasticity: the baseline residual is concentrated on one row class rather than spread as a variance
+  that grows with n; once that class is removed R2 is 0.95 or better, so heteroscedasticity is not what holds
+  R2 down.
+- **First call on a new prompt (rep 0): removing these rows lifts every evo-x2 model that has repeat calls to
+  R2 0.95-1.00.** Supported.
+
+Per model (row `ttft-x2-refit-per-model`):
+
+| evo-x2 model | R2 baseline | R2 drop rep 0 | R2 all four dropped | rep-0 share of rows / of SS_res |
+|---|---|---|---|---|
+| llama-3.3-70b | 0.631 (n=278) | 0.963 (n=180) | 0.945 (n=164) | 35% / 86% |
+| llama31-8b | 0.117 (n=293) | 0.997 (n=196) | 1.000 (n=168) | 33% / 89% |
+| qwen3-14b | 0.176 (n=845) | 0.998 (n=564) | 0.999 (n=536) | 33% / 76% |
+| qwen3-30b-a3b-2507 | -0.032 (n=8) | NA (n=0) | NA (n=0) | 100% / 100% |
+| qwen3-32b | 0.373 (n=306) | 0.999 (n=204) | 1.000 (n=176) | 33% / 88% |
+| qwen3-4b-2507 | 0.045 (n=431) | 0.999 (n=282) | 0.999 (n=162) | 35% / 81% |
+| qwen3-8b | 0.419 (n=878) | 0.951 (n=581) | 0.999 (n=489) | 34% / 76% |
+
+**What the first-call excess is.** The R1-family harness sections (R1b, R1d, R1check) run 3 reps per item,
+with one warm-up per server start on a different prompt, so each item's rep 0 is the first time the server
+sees that text. Row `ttft-first-call-stall`: "evo-x2: 658/919 rep-0 calls >1.5x their rep 1, stall median
+15.7-40.8 s, displaced KV state 29.0-29.3 MiB/s across 12 model/section cells; pkg power slow calls 13.2-83.2
+W vs rep>=1 83.6-112.2 W; evo-t2s: 242/424 rep-0 calls >1.5x their rep 1, stall median 1.9-4.0 s, displaced
+KV state 134.0-141.0 MiB/s across 4 model/section cells". Per cell (row `ttft-first-call-stall-per-cell`):
+
+| machine, model / section | slow rep 0 | stall median | displaced KV MiB/s | pkg W, slow vs rep>=1 |
+|---|---|---|---|---|
+| evo-x2 llama-3.3-70b / R1b | 38/80 | 40.84 s | 29.0 | 83.2 vs 83.6 |
+| evo-x2 llama31-8b / R1b | 39/80 | 17.23 s | 29.1 | 13.2 vs 109.7 |
+| evo-x2 qwen3-14b / R1b | 38/80 | 21.55 s | 29.2 | 13.3 vs 110.3 |
+| evo-x2 qwen3-14b / R1d | 131/132 | 18.72 s | 29.2 | 13.4 vs 111.7 |
+| evo-x2 qwen3-32b / R1b | 38/80 | 34.51 s | 29.2 | 16.1 vs 83.7 |
+| evo-x2 qwen3-32b / R1d | 3/4 | 35.65 s | 29.3 | 17.1 vs 83.7 |
+| evo-x2 qwen3-4b-2507 / R1b | 38/80 | 19.30 s | 29.3 | 13.3 vs 91.4 |
+| evo-x2 qwen3-8b / R1b | 38/80 | 19.25 s | 29.3 | 13.2 vs 109.3 |
+| evo-x2 qwen3-8b / R1d | 128/131 | 15.80 s | 29.2 | 13.4 vs 108.3 |
+| evo-x2 qwen3-14b / R1check | 49/52 | 19.02 s | 29.2 | 13.4 vs 112.2 |
+| evo-x2 qwen3-4b-2507 / R1check | 59/60 | 16.88 s | 29.1 | 14.1 vs 87.8 |
+| evo-x2 qwen3-8b / R1check | 59/60 | 15.65 s | 29.2 | 13.7 vs 108.6 |
+| evo-t2s qwen3-14b / R1b | 10/80 | 1.94 s | 141.0 | 24.3 vs 32.6 |
+| evo-t2s qwen3-14b / R1d | 63/132 | 2.67 s | 134.0 | 31.5 vs 33.7 |
+| evo-t2s qwen3-8b / R1b | 38/80 | 4.02 s | 139.8 | 27.1 vs 31.0 |
+| evo-t2s qwen3-8b / R1d | 131/132 | 3.21 s | 140.4 | 26.1 vs 30.8 |
+
+Three things in this table point at one mechanism:
+
+1. **The stall is set by the KV state being displaced, not by the new prompt or by compute.** Dividing the
+   previous call's KV state (its prompt_tokens x the model's KV bytes/token, read from the server's own start
+   log) by the stall gives the same rate in every evo-x2 cell, 29.0-29.3 MiB/s, across 6 models whose KV
+   bytes/token differ by more than 2x; evo-t2s gives its own constant, 134.0-141.0 MiB/s. The stall behaves
+   as a fixed-throughput move of the previous request's KV state.
+2. **The GPU is idle during it.** On evo-x2 the slow first calls run at about idle package power (13.2-17.1 W
+   in every cell except llama-3.3-70b) against 83.6-112.2 W for repeats of the same prompt. llama-3.3-70b runs
+   near the same package power in both cases, so the power signature does not separate it, but its stall
+   follows the same rate (29.0 MiB/s).
+3. **It fires only when the prompt changes.** In R1b only about half of the rep-0 calls are slow: the arm-3
+   prompt shares the arm-1 document with the call before it, and those rep-0 calls show no stall. Repeats of an
+   identical prompt never stall, even though every request is sent with `cache_prompt: false` and therefore
+   re-runs the full prefill.
+
+**Out-of-sample check.** Row `ttft-x2-section0-stall-check` applies the stall term (previous call's KV state
+divided by the evo-x2 median rate, added only when the new prompt is not an extension of the previous one) on
+top of each model's clean evo-x2 fit, to the evo-x2 overnight section-0 rows, which were never used to
+estimate the rate: "evo-x2 overnight section 0, R=29.2 MiB/s: median abs % error 0.4-2.3% with the stall term
+vs 48.3-89.6% without, 6 models".
+
+**Mechanism (inferred, not yet confirmed by a control).** Every one of these server start logs, on both
+machines, says "prompt cache is enabled" and "idle slots will be saved to prompt cache upon starting a new
+task". That is llama-server's host-RAM prompt cache: when a task arrives whose prompt does not match the
+slot's current content, the slot's KV state is first saved to host memory, and that copy is what the evo-x2
+TTFT is waiting on. Everything above (scales with the displaced state, fixed throughput per machine, GPU idle,
+fires only on a prompt switch, unaffected by `cache_prompt: false`) is consistent with this, and no other
+tested cause fits. It has not been confirmed with a `--cache-ram 0` control run; until it is, this is the
+leading explanation, and the row-class result (first call on a new prompt) is the finding.
+
+**Conclusion.** Supported: the low evo-x2 R2 is caused by the first call on each new prompt carrying a stall
+proportional to the previous request's KV state, at about 29 MiB/s on evo-x2 (about 140 MiB/s on evo-t2s,
+which is why the evo-t2s fit is hurt less). Removing those rows gives evo-x2 R2 0.95-1.00 for 6 of 7 models.
+Not supported: co-runners, memory pressure, user activity, missing intercept, mixed flags,
+heteroscedasticity, narrow length spread. **Not resolved:** qwen3-30b-a3b-2507 on evo-x2, which has only 8
+rows, all first calls, so no clean refit is possible from existing data. Consequences: (a) any evo-x2 TTFT
+number from an R1-family section that pools rep 0 with the repeats includes this stall; (b) the
+`ttft-cross-machine-transfer` and `ttft-few-point-calibration` rows were computed on the same uncleaned
+pooled data and should be recomputed on rep>=1 rows before they are cited.
