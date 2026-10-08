@@ -10,7 +10,7 @@
    "results/t2s_night2_20260929T034014Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_a24_budget_boundary",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "A-24-budget-boundary-first-principles": {
@@ -27,7 +27,7 @@
    "results/t2s_night2_20260929T034014Z_srv_bis_a70_23552_2.txt"
   ],
   "script": "analysis/numbers_register.py::compute_a24_budget_boundary_first_principles",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "A-24-effective-heap-limit": {
@@ -42,7 +42,7 @@
    "results/t2s_night2_20260929T034014Z_srv_bis_a70_*.txt"
   ],
   "script": "analysis/numbers_register.py::compute_a24_effective_heap_limit",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "A-24-flip-point-inputs": {
@@ -56,7 +56,7 @@
    "results/t2s_night2_20260929T034014Z_srv_bis_a70_*.txt"
   ],
   "script": "analysis/numbers_register.py::compute_a24_flip_point_inputs",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "A-24-flip-point-per-model": {
@@ -72,7 +72,7 @@
    "results/t2s_night2_20260929T034014Z_srv_bis_a70_*.txt"
   ],
   "script": "analysis/numbers_register.py::compute_a24_flip_point_per_model",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "A-24-flip-point-prediction": {
@@ -88,7 +88,7 @@
    "results/t2s_night2_20260929T034014Z_srv_bis_a70_*.txt"
   ],
   "script": "analysis/numbers_register.py::compute_a24_flip_point_prediction",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "B3-corunner-6model": {
@@ -101,7 +101,7 @@
    "results/t2s_night2_20260928T004924Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_b3_corunner_6model",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "K1v3-X2-table": {
@@ -114,7 +114,7 @@
    "results/t2s_k1_ollama_evo-x2_20260930T205515Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k1_v3_x2_table",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "K2-x2-call-timing": {
@@ -127,7 +127,7 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_call_timing",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "K2-x2-clean-failures": {
@@ -140,7 +140,7 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_clean_failures",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "K2-x2-decode-by-arm": {
@@ -153,7 +153,7 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_decode_by_pressure_arm",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "K2-x2-kill-criterion": {
@@ -166,7 +166,7 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_kill_criterion_table",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "K2-x2-responsiveness-resolution": {
@@ -179,7 +179,7 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_responsiveness_resolution",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "K2-x2-score-ceiling": {
@@ -192,7 +192,7 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_score_ceiling",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "K2-x2-unreached-levels": {
@@ -205,7 +205,7 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_unreached_pressure_levels",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "P70-TTFT-ratio": {
@@ -218,7 +218,7 @@
    "results/t2s_night2_20260929T034014Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_p70_ttft_ratio",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "PX2-TTFT-gap": {
@@ -231,7 +231,7 @@
    "results/t2s_night2_20260930T135145Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_px2_ttft_gap",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "PX2-decode-ratio": {
@@ -244,7 +244,7 @@
    "results/t2s_night2_20260930T135145Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_px2_decode_ratios",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "PX2-full-ratio-table": {
@@ -257,7 +257,7 @@
    "results/t2s_night2_20260930T135145Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_px2_full_ratio_table",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "PX2-power": {
@@ -270,7 +270,7 @@
    "results/t2s_night2_20260930T135145Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_px2_package_power",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "PX2-thermal": {
@@ -284,7 +284,7 @@
    "results/t2s_night2_20260930T135145Z_lhm.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_px2_thermal_ceiling",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "R1-check-agreement": {
@@ -297,7 +297,7 @@
    "results/t2s_night2_20260929T034014Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r1_check_agreement",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "R2-install-path-4b-bare": {
@@ -311,7 +311,7 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_install_path_4b_bare",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "R2-install-path-4b-comparison": {
@@ -326,7 +326,7 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_install_path_4b_comparison",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "R2-mechanism-lowlevel": {
@@ -339,7 +339,7 @@
    "results/x2_r2_mechanism.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_mechanism_lowlevel",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "R2-mechanism-verdict": {
@@ -352,7 +352,7 @@
    "results/x2_r2_mechanism.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_mechanism_verdict",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "R2-mitigation-v1-4096": {
@@ -367,7 +367,7 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_mitigation_v1_4096",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "R2-mitigation-v1-8192": {
@@ -382,7 +382,7 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_mitigation_v1_8192",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "R2-mitigation-v1-observed": {
@@ -395,7 +395,7 @@
    "results/x2_r2_mitigation_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_mitigation_v1_observed",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "R2-mitigation-v1-verdict": {
@@ -410,7 +410,7 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_mitigation_v1_verdict",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "R2-orphan-rates": {
@@ -423,7 +423,7 @@
    "results/x2_r2_mechanism.jsonl"
   ],
   "script": "analysis/r2_shift_predictor.py::orphan_summary",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "R2-real-v1-first-events": {
@@ -436,7 +436,7 @@
    "results/x2_r2_real_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1_first_events",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "R2-real-v1-gated-kill": {
@@ -450,7 +450,7 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1_gated_kill",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "R2-real-v1-kill-criterion": {
@@ -463,7 +463,7 @@
    "results/x2_r2_real_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1_kill_criterion",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "R2-real-v1-loaded-ctx": {
@@ -476,7 +476,7 @@
    "results/x2_r2_real_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1_loaded_ctx",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "R2-real-v1-survival": {
@@ -490,7 +490,7 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1_survival",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "R2-real-v1-token-calib": {
@@ -503,7 +503,7 @@
    "results/x2_r2_real_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1_token_calib",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "R2-real-v1b-first-events": {
@@ -519,7 +519,7 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1b_first_events",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "R2-real-v1b-gated-kill": {
@@ -535,7 +535,7 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1b_gated_kill",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "R2-real-v1b-kill-criterion": {
@@ -551,7 +551,7 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1b_kill_criterion",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "R2-real-v1b-survival": {
@@ -567,7 +567,7 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1b_survival",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "R2-shift-predicted-real-v1": {
@@ -580,7 +580,7 @@
    "results/x2_r2_real_v1.jsonl"
   ],
   "script": "analysis/r2_shift_predictor.py::real_summary",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "R2-shift-predictor-confusion": {
@@ -593,7 +593,7 @@
    "results/x2_r2_mechanism.jsonl"
   ],
   "script": "analysis/r2_shift_predictor.py::mechanism_summary",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "R2-task-tool-gate": {
@@ -607,7 +607,7 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_task_tool_gate",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "R2-validation-baseline": {
@@ -620,7 +620,7 @@
    "results/x2_r2_validation.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_baseline",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "R2-validation-call2-notools": {
@@ -633,7 +633,7 @@
    "results/x2_r2_validation.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_call2_notools",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "R2-validation-v2-baseline": {
@@ -646,7 +646,7 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_v2_baseline",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "R2-validation-v2-spec-diag": {
@@ -659,7 +659,7 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_v2_spec_diag",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "R2-validation-v2b-baseline": {
@@ -672,7 +672,7 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_v2b_baseline",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "R2-validation-v2b-runinfo": {
@@ -685,7 +685,7 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_v2b_runinfo",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "R2-validation-v2c-baseline": {
@@ -698,7 +698,7 @@
    "results/x2_r2_validation_v2c.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_v2c_baseline",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "T2S-vs-X2-default-ctx": {
@@ -712,7 +712,7 @@
    "results/t2s_k1_ollama_evo-x2_20260930T205515Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_t2s_x2_default_ctx_table",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "b4_32b-dose-response": {
@@ -725,7 +725,7 @@
    "results/t2s_night2_20260929T034014Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_b4_32b_dose_response",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "blade-dryrun-rates": {
@@ -742,7 +742,7 @@
    "results/blade_dryrun/blade_dryrun_r2_mechanism.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_blade_dryrun_rates",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "blade-night-hours": {
@@ -764,7 +764,7 @@
    "results/blade_c1_spill_sweep_20260925T053651Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_blade_night_hours",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "blade-validation-ctx-cap": {
@@ -778,7 +778,7 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_blade_validation_ctx_cap",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "c1b-stall-clean-cells": {
@@ -791,13 +791,13 @@
    "results/t2s_night2_20260930T215303Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_c1b_stall_clean_cells",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "cloud-budget-inputs": {
   "id": "cloud-budget-inputs",
   "status": "VERIFIED",
-  "value": "12 sessions x 40 turns; demo 100 + 5x50 items at 50% cloud = 175 cloud items; failure scenarios 1 (6 cloud calls); rerun allowance 30%; output medians (o200k) gsm8k 125.5, function_calling 53.0, trace_length_mix 4, longdoc_qa 4.0, r2_sessions_per_turn 54.0; prices USD/1M in/cached/out (gpt-6-luna std 0.1/0.01/0.5 batch 0.05/0.25; gpt-6.1-sol std 2.0/0.1/10.0 batch 1.0/5.0); fetched 2026-10-08T03:33Z",
+  "value": "12 sessions x 40 turns; demo 100 + 5x50 items at 50% cloud = 175 cloud items; failure scenarios 1 (6 cloud calls); rerun allowance 30%; output medians (o200k) gsm8k 125.5, function_calling 53.0, trace_length_mix 4.0, longdoc_qa 4, r2_sessions_per_turn 54.0; prices USD/1M in/cached/out (gpt-6-luna std 0.1/0.01/0.5 batch 0.05/0.25; gpt-6.1-sol std 2.0/0.1/10.0 batch 1.0/5.0); fetched 2026-10-08T03:33Z",
   "n": "400 items",
   "reported": "(none previously reported)",
   "files": [
@@ -809,7 +809,7 @@
    "docs/DEMO_SPEC.md"
   ],
   "script": "analysis/cloud_budget_forecast.py::load_prices",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "cloud-budget-lines": {
@@ -827,7 +827,7 @@
    "docs/DEMO_SPEC.md"
   ],
   "script": "analysis/cloud_budget_forecast.py::forecast",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "cloud-budget-sensitivity": {
@@ -845,7 +845,7 @@
    "docs/DEMO_SPEC.md"
   ],
   "script": "analysis/cloud_budget_forecast.py::forecast",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "cloud-budget-tokens": {
@@ -863,7 +863,7 @@
    "docs/DEMO_SPEC.md"
   ],
   "script": "analysis/cloud_budget_forecast.py::r2_sessions",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "cloud-budget-totals": {
@@ -881,7 +881,7 @@
    "docs/DEMO_SPEC.md"
   ],
   "script": "analysis/cloud_budget_forecast.py::forecast",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "decode-rate-per-machine": {
@@ -913,7 +913,7 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_decode_rate_per_machine",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "kappa-heldout": {
@@ -927,7 +927,7 @@
    "results/labeling/kappa_heldout_annotator_claude.csv"
   ],
   "script": "analysis/kappa_agreement.py::heldout_stats",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "kappa-heldout-disagreements": {
@@ -942,7 +942,7 @@
    "results/labeling/kappa_heldout_annotator_claude.csv"
   ],
   "script": "analysis/numbers_register.py::compute_kappa_heldout_disagreement_read",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "kappa-heldout-fn-annotator": {
@@ -956,7 +956,7 @@
    "results/labeling/kappa_heldout_annotator_claude.csv"
   ],
   "script": "analysis/kappa_agreement.py::heldout_stats",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "kappa-heldout-sample": {
@@ -972,7 +972,7 @@
    "results/labeling/ritz_spotcheck_30.csv"
   ],
   "script": "analysis/build_kappa_heldout_sample.py::round_robin_sample",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "ollama-overflow-keeps-half": {
@@ -988,7 +988,7 @@
    "results/x2_template_mechanism_test.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ollama_overflow_keeps_half",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "pack-trace-weighted-stats": {
@@ -1002,13 +1002,13 @@
    "results/traces/agent_step_lengths.parquet"
   ],
   "script": "analysis/numbers_register.py::compute_pack_trace_weighted_stats",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "pareto-frontier-x2": {
   "id": "pareto-frontier-x2",
   "status": "VERIFIED",
-  "value": "12 local configs; cloud frontier: none (no measured quality) / evo-x2 frontier: qwen3-4b-2507 llama_server q 1.000 (n=102) USD 0.00/1k steps p50/p90 19.0/531.0 s / bare template, off frontier: qwen3-30b-a3b ollama_default [bare template] q 1.000 (n=95) USD 0.00/1k steps p50/p90 25.0/92.8 s; qwen3-4b-2507 ollama_default [bare template] q 1.000 (n=97) USD 0.00/1k steps p50/p90 18.7/115.7 s / STUB cloud (quality not measured): gpt-6-luna USD 1.85/1k steps; gpt-6.1-sol USD 37.03/1k steps",
+  "value": "12 local configs; cloud frontier: none (no measured quality) / evo-x2 frontier: qwen3-4b-2507 llama_server q 1.000 (n=102) USD 0.00/1k steps p50/p90 19.0/531.0 s / bare template, off frontier: qwen3-30b-a3b ollama_default [bare template] q 1.000 (n=109) USD 0.00/1k steps p50/p90 25.0/97.9 s; qwen3-4b-2507 ollama_default [bare template] q 1.000 (n=111) USD 0.00/1k steps p50/p90 18.7/119.3 s / STUB cloud (quality not measured): gpt-6-luna USD 1.85/1k steps; gpt-6.1-sol USD 37.03/1k steps",
   "n": "12",
   "reported": "(none previously reported)",
   "files": [
@@ -1018,7 +1018,7 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "src/dse/pareto.py::frontier",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "pareto-sample-recommendation": {
@@ -1034,20 +1034,20 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "src/dse/pareto.py::recommend",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "qwen3-32b-timeout-count": {
   "id": "qwen3-32b-timeout-count",
   "status": "VERIFIED",
-  "value": "llama_server 11/77, ollama_default 0/78 (timeout_latency/done); provisional: outcome table v3 not finished (1188/3600 done)",
+  "value": "llama_server 11/86, ollama_default 0/86 (timeout_latency/done); provisional: outcome table v3 not finished (1303/3600 done)",
   "n": "11",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_qwen3_32b_timeout_count",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "qwen32b-refusal": {
@@ -1060,7 +1060,7 @@
    "results/t2s_night2_20260929T205109Z.jsonl"
   ],
   "script": "analysis/r1b_wrong_answer_audit.py::refusal_share_by_model",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "qwen4b-2507-metadata-consistency": {
@@ -1073,7 +1073,7 @@
    "results/x2_template_mechanism_test.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_qwen4b_2507_metadata_consistency",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "self-report-truncation-awareness": {
@@ -1087,7 +1087,7 @@
    "results/t2s_night2_20260929T205109Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_self_report_truncation_awareness",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "t2s-llamaserver-load-failures": {
@@ -1100,7 +1100,7 @@
    "results/t2s_outcome_table_llamaserver_*.log"
   ],
   "script": "analysis/numbers_register.py::compute_t2s_llamaserver_load_failures",
-  "commit": "57332cc",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "t2s-outcome-allocation-failures": {
@@ -1113,7 +1113,7 @@
    "results/t2s_outcome_table_full.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_t2s_allocation_failures",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "t2s-outcome-error-causes": {
@@ -1126,7 +1126,7 @@
    "results/t2s_outcome_table_full.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_t2s_outcome_error_causes",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "t2s-outcome-gsm8k-rescore": {
@@ -1140,7 +1140,7 @@
    "results/t2s_outcome_table_smoke.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_t2s_outcome_gsm8k_rescore",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "trace-32k-crossing": {
@@ -1153,7 +1153,7 @@
    "results/traces/agent_step_lengths.parquet"
   ],
   "script": "analysis/numbers_register.py::compute_trace_cdf_crossing_fractions",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "trace-context-exit-rate": {
@@ -1166,7 +1166,7 @@
    "results/traces/exit_status_sample.parquet"
   ],
   "script": "analysis/numbers_register.py::compute_trace_context_exit_rate",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "trace-fraction-exceeds-4096": {
@@ -1179,7 +1179,7 @@
    "results/traces/agent_step_lengths.parquet"
   ],
   "script": "analysis/numbers_register.py::compute_trace_fraction_exceeds_4096",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "ttft-cross-machine-transfer": {
@@ -1211,7 +1211,7 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_cross_machine_transfer",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "ttft-few-point-calibration": {
@@ -1243,7 +1243,7 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_few_point_calibration",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "ttft-first-call-stall": {
@@ -1261,7 +1261,7 @@
    "results/t2s_night2_20260929T202603Z_srv_R1*_start.txt"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_first_call_stall",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "ttft-first-call-stall-per-cell": {
@@ -1279,7 +1279,7 @@
    "results/t2s_night2_20260929T202603Z_srv_R1*_start.txt"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_first_call_stall_per_cell",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "ttft-physical-fit-per-machine": {
@@ -1311,7 +1311,7 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_physical_fit_per_machine",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "ttft-t2s-restricted-to-x2-range": {
@@ -1343,7 +1343,7 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_t2s_restricted_to_x2_range",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "ttft-x2-length-spread": {
@@ -1375,7 +1375,7 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_x2_length_spread",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "ttft-x2-refit-per-model": {
@@ -1407,7 +1407,7 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_x2_refit_per_model",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "ttft-x2-section0-stall-check": {
@@ -1440,7 +1440,7 @@
    "results/t2s_night2_20260929T205109Z_srv_R1*_start.txt"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_x2_section0_stall_check",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "uncensored-trace-32k-crossing": {
@@ -1453,21 +1453,21 @@
    "results/traces/agent_step_lengths.parquet"
   ],
   "script": "analysis/numbers_register.py::compute_uncensored_trace_32k_crossing",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "x2-chat-template-source": {
   "id": "x2-chat-template-source",
   "status": "VERIFIED",
-  "value": "llama3.1:8b/ollama_default (tag llama3.1:8b) ollama_library sha256 948af2743fc7 (v3 rows: 5 ollama_library not valid derived, 30 ollama_library valid derived, 67 ollama_library valid recorded); llama3.1:8b/llama_server gguf_embedded_llama_server sha256 e10ca381b1cc (v3 rows: 121 gguf_embedded_llama_server valid derived); qwen3-4b-2507/ollama_default (tag qwen3-4b-2507) bare_gguf_ollama_create sha256 40c21f34cf67 (v3 rows: 30 bare_gguf_ollama_create valid derived, 67 bare_gguf_ollama_create valid recorded); qwen3-4b-2507/llama_server gguf_embedded_llama_server sha256 40c21f34cf67 (v3 rows: 120 gguf_embedded_llama_server valid derived); qwen3-8b/ollama_default (tag qwen3:8b) ollama_library sha256 ae370d884f10 (v3 rows: 30 ollama_library valid derived, 67 ollama_library valid recorded); qwen3-8b/llama_server gguf_embedded_llama_server sha256 57f1fd00f001 (v3 rows: 28 gguf_embedded_llama_server valid derived, 67 gguf_embedded_llama_server valid recorded); qwen3-14b/ollama_default (tag qwen3:14b) ollama_library sha256 ae370d884f10 (v3 rows: 29 ollama_library valid derived, 67 ollama_library valid recorded); qwen3-14b/llama_server gguf_embedded_llama_server sha256 57f1fd00f001 (v3 rows: 28 gguf_embedded_llama_server valid derived, 67 gguf_embedded_llama_server valid recorded); qwen3-30b-a3b/ollama_default (tag qwen3-30b-a3b-2507) bare_gguf_ollama_create sha256 40c21f34cf67 (v3 rows: 28 bare_gguf_ollama_create valid derived, 67 bare_gguf_ollama_create valid recorded, 15 ollama_library not valid derived); qwen3-30b-a3b/llama_server gguf_embedded_llama_server sha256 40c21f34cf67 (v3 rows: 120 gguf_embedded_llama_server valid derived); qwen3-32b/ollama_default (tag qwen3:32b) ollama_library sha256 ae370d884f10 (v3 rows: 29 ollama_library valid derived, 60 ollama_library valid recorded); qwen3-32b/llama_server gguf_embedded_llama_server sha256 57f1fd00f001 (v3 rows: 28 gguf_embedded_llama_server valid derived, 59 gguf_embedded_llama_server valid recorded)",
-  "n": "1229",
+  "value": "llama3.1:8b/ollama_default (tag llama3.1:8b) ollama_library sha256 948af2743fc7 (v3 rows: 5 ollama_library not valid derived, 30 ollama_library valid derived, 81 ollama_library valid recorded); llama3.1:8b/llama_server gguf_embedded_llama_server sha256 e10ca381b1cc (v3 rows: 121 gguf_embedded_llama_server valid derived); qwen3-4b-2507/ollama_default (tag qwen3-4b-2507) bare_gguf_ollama_create sha256 40c21f34cf67 (v3 rows: 30 bare_gguf_ollama_create valid derived, 81 bare_gguf_ollama_create valid recorded); qwen3-4b-2507/llama_server gguf_embedded_llama_server sha256 40c21f34cf67 (v3 rows: 120 gguf_embedded_llama_server valid derived); qwen3-8b/ollama_default (tag qwen3:8b) ollama_library sha256 ae370d884f10 (v3 rows: 30 ollama_library valid derived, 81 ollama_library valid recorded); qwen3-8b/llama_server gguf_embedded_llama_server sha256 57f1fd00f001 (v3 rows: 28 gguf_embedded_llama_server valid derived, 81 gguf_embedded_llama_server valid recorded); qwen3-14b/ollama_default (tag qwen3:14b) ollama_library sha256 ae370d884f10 (v3 rows: 29 ollama_library valid derived, 81 ollama_library valid recorded); qwen3-14b/llama_server gguf_embedded_llama_server sha256 57f1fd00f001 (v3 rows: 28 gguf_embedded_llama_server valid derived, 81 gguf_embedded_llama_server valid recorded); qwen3-30b-a3b/ollama_default (tag qwen3-30b-a3b-2507) bare_gguf_ollama_create sha256 40c21f34cf67 (v3 rows: 28 bare_gguf_ollama_create valid derived, 81 bare_gguf_ollama_create valid recorded, 15 ollama_library not valid derived); qwen3-30b-a3b/llama_server gguf_embedded_llama_server sha256 40c21f34cf67 (v3 rows: 120 gguf_embedded_llama_server valid derived); qwen3-32b/ollama_default (tag qwen3:32b) ollama_library sha256 ae370d884f10 (v3 rows: 29 ollama_library valid derived, 68 ollama_library valid recorded); qwen3-32b/llama_server gguf_embedded_llama_server sha256 57f1fd00f001 (v3 rows: 28 gguf_embedded_llama_server valid derived, 68 gguf_embedded_llama_server valid recorded)",
+  "n": "1344",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_chat_template_sources.jsonl",
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_chat_template_source",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "x2-device-detect-mechanism": {
@@ -1480,7 +1480,7 @@
    "results/x2_template_mechanism_test.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_device_detect_mechanism",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "x2-thinking-verify": {
@@ -1493,7 +1493,7 @@
    "results/x2_thinking_verify.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_thinking_verify",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "x2-truncation-cliff-qwen3-8b": {
@@ -1506,7 +1506,7 @@
    "results/traces/agent_step_lengths.parquet"
   ],
   "script": "analysis/numbers_register.py::compute_x2_truncation_cliff",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "x2-v3-canary-gate-lenient": {
@@ -1520,7 +1520,7 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_canary_gate_lenient",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "x2-v3-canary-gates": {
@@ -1534,20 +1534,20 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_canary_gates",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "x2-v3-error-causes": {
   "id": "x2-v3-error-causes",
   "status": "VERIFIED",
-  "value": "order none/context_overflow/timeout/connection/other; llama3.1:8b/llama_server 102/0/19/0/0; llama3.1:8b/ollama_default 97/0/0/0/0; qwen3-14b/llama_server 84/11/0/0/0; qwen3-14b/ollama_default 96/0/0/0/0; qwen3-30b-a3b/llama_server 120/0/0/0/0; qwen3-30b-a3b/ollama_default 95/0/0/0/0; qwen3-32b/llama_server 58/8/11/0/0; qwen3-32b/ollama_default 75/0/0/0/3; qwen3-4b-2507/llama_server 102/0/18/0/0; qwen3-4b-2507/ollama_default 97/0/0/0/0; qwen3-8b/llama_server 84/11/0/0/0; qwen3-8b/ollama_default 97/0/0/0/0",
-  "n": "1209",
+  "value": "order none/context_overflow/timeout/connection/other; llama3.1:8b/llama_server 102/0/19/0/0; llama3.1:8b/ollama_default 111/0/0/0/0; qwen3-14b/llama_server 91/18/0/0/0; qwen3-14b/ollama_default 110/0/0/0/0; qwen3-30b-a3b/llama_server 120/0/0/0/0; qwen3-30b-a3b/ollama_default 109/0/0/0/0; qwen3-32b/llama_server 64/11/11/0/0; qwen3-32b/ollama_default 83/0/0/0/3; qwen3-4b-2507/llama_server 102/0/18/0/0; qwen3-4b-2507/ollama_default 111/0/0/0/0; qwen3-8b/llama_server 91/18/0/0/0; qwen3-8b/ollama_default 111/0/0/0/0",
+  "n": "1324",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_error_causes",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "x2-v3-gsm8k-strict-vs-lenient": {
@@ -1560,27 +1560,27 @@
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_gsm8k_strict_vs_lenient",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "x2-v3-progress": {
   "id": "x2-v3-progress",
   "status": "VERIFIED",
-  "value": "total 1188/3600; llama3.1:8b/llama_server 121/340; llama3.1:8b/ollama_default 97/340; qwen3-14b/llama_server 95/340; qwen3-14b/ollama_default 96/340; qwen3-30b-a3b/llama_server 120/340; qwen3-30b-a3b/ollama_default 95/340; qwen3-32b/llama_server 77/100; qwen3-32b/ollama_default 78/100; qwen3-4b-2507/llama_server 120/340; qwen3-4b-2507/ollama_default 97/340; qwen3-8b/llama_server 95/340; qwen3-8b/ollama_default 97/340",
-  "n": "1188",
+  "value": "total 1303/3600; llama3.1:8b/llama_server 121/340; llama3.1:8b/ollama_default 111/340; qwen3-14b/llama_server 109/340; qwen3-14b/ollama_default 110/340; qwen3-30b-a3b/llama_server 120/340; qwen3-30b-a3b/ollama_default 109/340; qwen3-32b/llama_server 86/100; qwen3-32b/ollama_default 86/100; qwen3-4b-2507/llama_server 120/340; qwen3-4b-2507/ollama_default 111/340; qwen3-8b/llama_server 109/340; qwen3-8b/ollama_default 111/340",
+  "n": "1303",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_progress",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "x2-v3-scores": {
   "id": "x2-v3-scores",
   "status": "VERIFIED",
-  "value": "llama3.1:8b/llama_server: function_calling 1.00 (n=5), gsm8k 0.40 (n=5), longdoc_qa 1.00 (n=61), trace_length_mix 1.00 (n=31); trace-weighted 1.00; 19 timeout_latency excluded / llama3.1:8b/ollama_default: function_calling 1.00 (n=5), gsm8k 0.20 (n=5), longdoc_qa 1.00 (n=62), trace_length_mix 1.00 (n=25); trace-weighted 1.00 / qwen3-14b/llama_server: function_calling 1.00 (n=5), gsm8k 0.80 (n=5), longdoc_qa 0.83 (n=60), trace_length_mix 0.96 (n=25); trace-weighted 0.93 / qwen3-14b/ollama_default: function_calling 1.00 (n=5), gsm8k 0.80 (n=5), longdoc_qa 0.92 (n=61), trace_length_mix 0.96 (n=25); trace-weighted 0.97 / qwen3-30b-a3b/llama_server: function_calling 1.00 (n=5), gsm8k 0.80 (n=5), longdoc_qa 1.00 (n=79), trace_length_mix 1.00 (n=31); trace-weighted 1.00 / qwen3-30b-a3b/ollama_default: function_calling 1.00 (n=5) [bare template], gsm8k 0.80 (n=5), longdoc_qa 1.00 (n=60), trace_length_mix 1.00 (n=25); trace-weighted 1.00 (includes bare-template function_calling) / qwen3-32b/llama_server: longdoc_qa 0.83 (n=46), trace_length_mix 1.00 (n=20); trace-weighted 0.94; 11 timeout_latency excluded / qwen3-32b/ollama_default: longdoc_qa 0.95 (n=56), trace_length_mix 0.91 (n=22); trace-weighted 0.88 / qwen3-4b-2507/llama_server: function_calling 1.00 (n=5), gsm8k 0.20 (n=5), longdoc_qa 1.00 (n=61), trace_length_mix 1.00 (n=31); trace-weighted 1.00; 18 timeout_latency excluded / qwen3-4b-2507/ollama_default: function_calling 1.00 (n=5) [bare template], gsm8k 0.40 (n=5), longdoc_qa 1.00 (n=62), trace_length_mix 1.00 (n=25); trace-weighted 1.00 (includes bare-template function_calling) / qwen3-8b/llama_server: function_calling 1.00 (n=5), gsm8k 1.00 (n=5), longdoc_qa 0.83 (n=60), trace_length_mix 0.96 (n=25); trace-weighted 0.93 / qwen3-8b/ollama_default: function_calling 1.00 (n=5), gsm8k 0.80 (n=5), longdoc_qa 0.90 (n=62), trace_length_mix 0.96 (n=25); trace-weighted 0.97",
-  "n": "1209",
+  "value": "llama3.1:8b/llama_server: function_calling 1.00 (n=5), gsm8k 0.40 (n=5), longdoc_qa 1.00 (n=61), trace_length_mix 1.00 (n=31); trace-weighted 1.00; 19 timeout_latency excluded / llama3.1:8b/ollama_default: function_calling 1.00 (n=5), gsm8k 0.20 (n=5), longdoc_qa 1.00 (n=70), trace_length_mix 1.00 (n=31); trace-weighted 1.00 / qwen3-14b/llama_server: function_calling 1.00 (n=5), gsm8k 0.80 (n=5), longdoc_qa 0.75 (n=68), trace_length_mix 0.97 (n=31); trace-weighted 0.92 / qwen3-14b/ollama_default: function_calling 1.00 (n=5), gsm8k 0.80 (n=5), longdoc_qa 0.83 (n=69), trace_length_mix 0.97 (n=31); trace-weighted 0.95 / qwen3-30b-a3b/llama_server: function_calling 1.00 (n=5), gsm8k 0.80 (n=5), longdoc_qa 1.00 (n=79), trace_length_mix 1.00 (n=31); trace-weighted 1.00 / qwen3-30b-a3b/ollama_default: function_calling 1.00 (n=5) [bare template], gsm8k 0.80 (n=5), longdoc_qa 1.00 (n=68), trace_length_mix 1.00 (n=31); trace-weighted 1.00 (includes bare-template function_calling) / qwen3-32b/llama_server: longdoc_qa 0.78 (n=49), trace_length_mix 1.00 (n=26); trace-weighted 0.94; 11 timeout_latency excluded / qwen3-32b/ollama_default: longdoc_qa 0.90 (n=59), trace_length_mix 0.93 (n=27); trace-weighted 0.87 / qwen3-4b-2507/llama_server: function_calling 1.00 (n=5), gsm8k 0.20 (n=5), longdoc_qa 1.00 (n=61), trace_length_mix 1.00 (n=31); trace-weighted 1.00; 18 timeout_latency excluded / qwen3-4b-2507/ollama_default: function_calling 1.00 (n=5) [bare template], gsm8k 0.40 (n=5), longdoc_qa 1.00 (n=70), trace_length_mix 1.00 (n=31); trace-weighted 1.00 (includes bare-template function_calling) / qwen3-8b/llama_server: function_calling 1.00 (n=5), gsm8k 1.00 (n=5), longdoc_qa 0.75 (n=68), trace_length_mix 0.97 (n=31); trace-weighted 0.92 / qwen3-8b/ollama_default: function_calling 1.00 (n=5), gsm8k 0.80 (n=5), longdoc_qa 0.81 (n=70), trace_length_mix 0.97 (n=31); trace-weighted 0.95",
+  "n": "1324",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_outcome_table_v3.jsonl",
@@ -1588,20 +1588,20 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_scores",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "x2-v3-usability": {
   "id": "x2-v3-usability",
   "status": "VERIFIED",
-  "value": "per-call timeout 900 s (harness DEFAULT_CALL_TIMEOUT_S); timeout_latency/done (share) [context tiers]: llama3.1:8b/llama_server 19/121 (15.7%) [longdoc_64000 x10, longdoc_80000 x9]; llama3.1:8b/ollama_default 0/97 (0.0%); qwen3-14b/llama_server 0/95 (0.0%); qwen3-14b/ollama_default 0/96 (0.0%); qwen3-30b-a3b/llama_server 0/120 (0.0%); qwen3-30b-a3b/ollama_default 0/95 (0.0%); qwen3-32b/llama_server 11/77 (14.3%) [longdoc_32000 x10, trace_mix_24000 x1]; qwen3-32b/ollama_default 0/78 (0.0%); qwen3-4b-2507/llama_server 18/120 (15.0%) [longdoc_64000 x10, longdoc_80000 x8]; qwen3-4b-2507/ollama_default 0/97 (0.0%); qwen3-8b/llama_server 0/95 (0.0%); qwen3-8b/ollama_default 0/97 (0.0%)",
+  "value": "per-call timeout 900 s (harness DEFAULT_CALL_TIMEOUT_S); timeout_latency/done (share) [context tiers]: llama3.1:8b/llama_server 19/121 (15.7%) [longdoc_64000 x10, longdoc_80000 x9]; llama3.1:8b/ollama_default 0/111 (0.0%); qwen3-14b/llama_server 0/109 (0.0%); qwen3-14b/ollama_default 0/110 (0.0%); qwen3-30b-a3b/llama_server 0/120 (0.0%); qwen3-30b-a3b/ollama_default 0/109 (0.0%); qwen3-32b/llama_server 11/86 (12.8%) [longdoc_32000 x10, trace_mix_24000 x1]; qwen3-32b/ollama_default 0/86 (0.0%); qwen3-4b-2507/llama_server 18/120 (15.0%) [longdoc_64000 x10, longdoc_80000 x8]; qwen3-4b-2507/ollama_default 0/111 (0.0%); qwen3-8b/llama_server 0/109 (0.0%); qwen3-8b/ollama_default 0/111 (0.0%)",
   "n": "48",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_usability",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "x2-weekend-error-causes": {
@@ -1614,7 +1614,7 @@
    "results/x2_outcome_table_weekend.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_weekend_error_causes",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "x2-weekend-error-causes-by-cell": {
@@ -1627,7 +1627,7 @@
    "results/x2_outcome_table_weekend.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_weekend_error_causes_by_cell",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "x2-weekend-ngen-budget": {
@@ -1640,7 +1640,7 @@
    "results/x2_weekend_llamaserver_log_scan.json"
   ],
   "script": "analysis/numbers_register.py::compute_x2_weekend_ngen_budget",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "x2-weekend-refused-block": {
@@ -1653,7 +1653,7 @@
    "results/x2_outcome_table_weekend.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_weekend_refused_block",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "x2-weekend-tag-counts": {
@@ -1666,7 +1666,7 @@
    "results/x2_outcome_table_weekend.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_weekend_tag_counts",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  },
  "x2-weekend-thinking-scores": {
@@ -1679,7 +1679,7 @@
    "results/x2_outcome_table_weekend.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_weekend_thinking_scores",
-  "commit": "4d6c2d7",
+  "commit": "dde73e5",
   "date": "2026-10-08"
  }
 }

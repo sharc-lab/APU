@@ -38,17 +38,17 @@
    "model": "llama3.1:8b",
    "config_id": "evo-x2:ollama_default:llama3.1:8b",
    "quality": 1.0,
-   "quality_n": 97,
+   "quality_n": 111,
    "usd_per_1k_steps": 0.0,
    "latency_p50_ms": 25219.000000011874,
-   "latency_p90_ms": 133449.9999999884,
+   "latency_p90_ms": 156578.00000003772,
    "stub": false,
    "template_source": "ollama_library",
    "flags": [],
-   "weight_coverage": 0.9023690773067333,
-   "n_rows": 97,
+   "weight_coverage": 0.9555816341499195,
+   "n_rows": 111,
    "error_causes": {
-    "none": 97
+    "none": 111
    },
    "cost_basis": "local: 0 marginal API cost",
    "source_files": [
@@ -60,21 +60,21 @@
    "runtime": "llama_server",
    "model": "qwen3-14b",
    "config_id": "evo-x2:llama_server:qwen3-14b",
-   "quality": 0.9348772843827587,
-   "quality_n": 95,
+   "quality": 0.9212913143735587,
+   "quality_n": 109,
    "usd_per_1k_steps": 0.0,
-   "latency_p50_ms": 40164.00000001886,
-   "latency_p90_ms": 291954.19999999576,
+   "latency_p50_ms": 39954.00000002701,
+   "latency_p90_ms": 285467.9999999935,
    "stub": false,
    "template_source": "gguf_embedded_llama_server",
    "flags": [
-    "errors:context_overflow=11"
+    "errors:context_overflow=18"
    ],
-   "weight_coverage": 0.9010195100484085,
-   "n_rows": 95,
+   "weight_coverage": 0.9542320668915947,
+   "n_rows": 109,
    "error_causes": {
-    "none": 84,
-    "context_overflow": 11
+    "none": 91,
+    "context_overflow": 18
    },
    "cost_basis": "local: 0 marginal API cost",
    "source_files": [
@@ -86,18 +86,18 @@
    "runtime": "ollama_default",
    "model": "qwen3-14b",
    "config_id": "evo-x2:ollama_default:qwen3-14b",
-   "quality": 0.9696725669541013,
-   "quality_n": 96,
+   "quality": 0.9541572167539968,
+   "quality_n": 110,
    "usd_per_1k_steps": 0.0,
    "latency_p50_ms": 48781.49999998277,
-   "latency_p90_ms": 154836.00000001024,
+   "latency_p90_ms": 144864.10000000027,
    "stub": false,
    "template_source": "ollama_library",
    "flags": [],
-   "weight_coverage": 0.9016942936775709,
-   "n_rows": 96,
+   "weight_coverage": 0.9549068505207571,
+   "n_rows": 110,
    "error_causes": {
-    "none": 96
+    "none": 110
    },
    "cost_basis": "local: 0 marginal API cost",
    "source_files": [
@@ -133,19 +133,19 @@
    "model": "qwen3-30b-a3b",
    "config_id": "evo-x2:ollama_default:qwen3-30b-a3b",
    "quality": 1.0,
-   "quality_n": 95,
+   "quality_n": 109,
    "usd_per_1k_steps": 0.0,
    "latency_p50_ms": 24952.99999997951,
-   "latency_p90_ms": 92811.99999998788,
+   "latency_p90_ms": 97863.2000000216,
    "stub": false,
    "template_source": "bare_gguf_ollama_create",
    "flags": [
     "bare_template"
    ],
-   "weight_coverage": 0.9010195100484085,
-   "n_rows": 95,
+   "weight_coverage": 0.9542320668915947,
+   "n_rows": 109,
    "error_causes": {
-    "none": 95
+    "none": 109
    },
    "cost_basis": "local: 0 marginal API cost",
    "source_files": [
@@ -157,24 +157,24 @@
    "runtime": "llama_server",
    "model": "qwen3-32b",
    "config_id": "evo-x2:llama_server:qwen3-32b",
-   "quality": 0.9433266264570348,
-   "quality_n": 76,
+   "quality": 0.9371983405025671,
+   "quality_n": 85,
    "usd_per_1k_steps": 0.0,
-   "latency_p50_ms": 122140.49999997951,
-   "latency_p90_ms": 508826.49999998393,
+   "latency_p50_ms": 86656.49999998277,
+   "latency_p90_ms": 507411.0999999859,
    "stub": false,
    "template_source": "gguf_embedded_llama_server",
    "flags": [
     "timeout_latency_excluded=11",
-    "errors:context_overflow=8",
+    "errors:context_overflow=11",
     "errors:timeout=11"
    ],
-   "weight_coverage": 0.7529825884105626,
-   "n_rows": 87,
+   "weight_coverage": 0.7916237306529958,
+   "n_rows": 96,
    "error_causes": {
-    "none": 68,
+    "none": 74,
     "timeout": 11,
-    "context_overflow": 8
+    "context_overflow": 11
    },
    "cost_basis": "local: 0 marginal API cost",
    "source_files": [
@@ -186,21 +186,21 @@
    "runtime": "ollama_default",
    "model": "qwen3-32b",
    "config_id": "evo-x2:ollama_default:qwen3-32b",
-   "quality": 0.8745923317687789,
-   "quality_n": 89,
+   "quality": 0.8713834797667792,
+   "quality_n": 97,
    "usd_per_1k_steps": 0.0,
-   "latency_p50_ms": 98780.99999998813,
-   "latency_p90_ms": 313054.5000000275,
+   "latency_p50_ms": 89078.00000000861,
+   "latency_p90_ms": 308379.30000001803,
    "stub": false,
    "template_source": "ollama_library",
    "flags": [
     "errors:other=3"
    ],
-   "weight_coverage": 0.8582763393273883,
-   "n_rows": 89,
+   "weight_coverage": 0.8916090614436663,
+   "n_rows": 97,
    "error_causes": {
     "other": 3,
-    "none": 86
+    "none": 94
    },
    "cost_basis": "local: 0 marginal API cost",
    "source_files": [
@@ -240,19 +240,19 @@
    "model": "qwen3-4b-2507",
    "config_id": "evo-x2:ollama_default:qwen3-4b-2507",
    "quality": 1.0,
-   "quality_n": 97,
+   "quality_n": 111,
    "usd_per_1k_steps": 0.0,
    "latency_p50_ms": 18734.99999998603,
-   "latency_p90_ms": 115668.80000003148,
+   "latency_p90_ms": 119297.00000002049,
    "stub": false,
    "template_source": "bare_gguf_ollama_create",
    "flags": [
     "bare_template"
    ],
-   "weight_coverage": 0.9023690773067333,
-   "n_rows": 97,
+   "weight_coverage": 0.9555816341499195,
+   "n_rows": 111,
    "error_causes": {
-    "none": 97
+    "none": 111
    },
    "cost_basis": "local: 0 marginal API cost",
    "source_files": [
@@ -264,21 +264,21 @@
    "runtime": "llama_server",
    "model": "qwen3-8b",
    "config_id": "evo-x2:llama_server:qwen3-8b",
-   "quality": 0.9348772843827587,
-   "quality_n": 95,
+   "quality": 0.9212913143735587,
+   "quality_n": 109,
    "usd_per_1k_steps": 0.0,
-   "latency_p50_ms": 24046.999999991385,
-   "latency_p90_ms": 203863.49999998932,
+   "latency_p50_ms": 24000.0,
+   "latency_p90_ms": 199827.9999999795,
    "stub": false,
    "template_source": "gguf_embedded_llama_server",
    "flags": [
-    "errors:context_overflow=11"
+    "errors:context_overflow=18"
    ],
-   "weight_coverage": 0.9010195100484085,
-   "n_rows": 95,
+   "weight_coverage": 0.9542320668915947,
+   "n_rows": 109,
    "error_causes": {
-    "none": 84,
-    "context_overflow": 11
+    "none": 91,
+    "context_overflow": 18
    },
    "cost_basis": "local: 0 marginal API cost",
    "source_files": [
@@ -290,18 +290,18 @@
    "runtime": "ollama_default",
    "model": "qwen3-8b",
    "config_id": "evo-x2:ollama_default:qwen3-8b",
-   "quality": 0.9689474543695905,
-   "quality_n": 97,
+   "quality": 0.9534834389766691,
+   "quality_n": 111,
    "usd_per_1k_steps": 0.0,
    "latency_p50_ms": 21608.99999999674,
-   "latency_p90_ms": 63078.19999998901,
+   "latency_p90_ms": 44657.00000000652,
    "stub": false,
    "template_source": "ollama_library",
    "flags": [],
-   "weight_coverage": 0.9023690773067333,
-   "n_rows": 97,
+   "weight_coverage": 0.9555816341499195,
+   "n_rows": 111,
    "error_causes": {
-    "none": 97
+    "none": 111
    },
    "cost_basis": "local: 0 marginal API cost",
    "source_files": [
