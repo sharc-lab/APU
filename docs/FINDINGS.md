@@ -2538,3 +2538,72 @@ model, confirm from the API's own `cached_tokens` usage field that the prefix is
 must stay identical across calls, or the prefix breaks). Sensitivity (row cloud-budget-sensitivity): 5x output
 tokens for hidden reasoning gives 27.30 / 90.18; R2 prompts left at the chars/4 estimate give 24.77 / 113.31.
 The failure scenario count, 1, is from DEMO_SPEC section 4 (row cloud-budget-inputs).
+
+## T2S outcome table: the 37 allocation failures are time-ordered, not a prompt-length boundary (2026-10-07)
+
+**Question.** Register row `t2s-outcome-error-causes` counts 37 non-200 rows in the synced evo-t2s outcome table
+(`results/t2s_outcome_table_full.jsonl`, llama3.1:8b, run of 2026-10-02): 18 ollama_default, 19
+ollama_igpu_enable, all "other/oom". Which configuration fails to allocate, and at what prompt length?
+
+**Data.** Register row `t2s-outcome-allocation-failures`, computed from that file only. Verbatim error text, one
+string per configuration, identical on every failing row of that configuration:
+
+| Config | Failing rows | Verbatim error (HTTP 500) |
+|---|---|---|
+| ollama_default | 18 of 40 | `llama-server process has terminated: exit status 1: ggml_backend_cpu_buffer_type_alloc_buffer: failed to allocate buffer of size 3359637504` / `alloc_tensor_range: failed to allocate CPU_REPACK buffer of size 3359637504` / `error loading model: unable to allocate CPU_REPACK buffer` |
+| ollama_igpu_enable | 19 of 40 | 18 rows: `llama-server process has terminated: exit status 1: alloc_tensor_range: failed to allocate Vulkan0 buffer of size 1047199744` / `error loading model: unable to allocate Vulkan0 buffer`; 1 row (longdoc_24000_06, the first): `llama-server reported out-of-memory during startup: alloc_tensor_range: failed to allocate Vulkan0 buffer of size 1047199744` / `error loading model: unable to allocate Vulkan0 buffer` |
+| llama_server_vulkan | 0 recorded | none recorded; see below |
+
+Failing items and their prompt length (sent_tokens), model llama3.1:8b in every row, in run order:
+
+| Item | Prompt tokens | ollama_default | ollama_igpu_enable |
+|---|---|---|---|
+| longdoc_24000_06 | 24,007 | 200 | alloc fail (Vulkan0) |
+| longdoc_24000_07 | 24,011 | alloc fail (CPU_REPACK) | alloc fail (Vulkan0) |
+| longdoc_24000_08 | 24,003 | alloc fail | alloc fail |
+| longdoc_24000_09 | 24,002 | alloc fail | alloc fail |
+| trace_mix_051 | 20,096 | alloc fail | alloc fail |
+| longdoc_12000_00 to _09 | 12,001 to 12,013 | alloc fail (10) | alloc fail (10) |
+| trace_mix_000 | 14,317 | alloc fail | alloc fail |
+| trace_mix_028 | 12,374 | alloc fail | alloc fail |
+| trace_mix_039 | 14,256 | alloc fail | alloc fail |
+| trace_mix_007 | 4,735 | alloc fail | alloc fail |
+
+Boundary by prompt length, per configuration (row timestamps are the start of each row, UTC):
+
+| Config | Shortest failing | Longest succeeding | Succeeding range | Last success | First failure | Successes after first failure |
+|---|---|---|---|---|---|---|
+| ollama_default | 4,735 | 24,007 | 9,112 to 24,007 | 07:28:54 | 07:44:54 (longdoc_24000_07) | 0 |
+| ollama_igpu_enable | 4,735 | 24,006 | 9,112 to 24,006 | 07:10:36 | 07:29:46 (longdoc_24000_06) | 0 |
+| llama_server_vulkan | none recorded | 24,006 (n_ctx 24,320) | 9,112 to 24,006 | 07:06:13 (longdoc_24000_04) | not recorded | not recorded |
+
+**Result.** Both Ollama configurations fail to allocate (ollama_default a 3,359,637,504-byte CPU_REPACK buffer,
+ollama_igpu_enable a 1,047,199,744-byte Vulkan0 buffer), and neither has a prompt-length boundary: the shortest
+failing prompt (4,735 tokens) is shorter than every prompt that succeeded earlier in the same run (9,112 to
+24,007), and the failing and succeeding ranges overlap. The split is by time: every row before the onset
+succeeded and every Ollama row after it failed. Three further facts from the file point the same way: the
+buffer size in each configuration's error is the same on every failing row, independent of prompt length; both
+Ollama configurations ran at a fixed context in every successful row (effective_context 4096 for
+ollama_default, 32768 for ollama_igpu_enable), so prompt length does not change what they ask to allocate; and
+longdoc_24000_00 to _04 (24,000-token prompts, same family) succeeded on all three configurations right before
+the onset.
+
+**llama_server_vulkan left no row for 20 items**, starting at longdoc_24000_05 and covering every later item.
+The pre-2026-10-07 harness returned its two load-failure paths ("server did not open its port in time",
+"server never left 'loading' state") without writing a row. The time each of those attempts took (19
+measurable, from the end of the item's last row to the next heartbeat) is 904 to 907 s, median 905 s, which
+matches the 900 s loading wait (call_timeout_s) and not the 180 s port wait: llama-server opened its port but
+never finished loading on every item from longdoc_24000_05 on. Its own load logs
+(`t2s_outcome_table_llamaserver_<item>.log`) are not in this branch's results, so why it did not load is not
+determined here. The Ollama failures begin right after that first unrecorded llama-server attempt (which ran
+from about 07:13:48 to 07:28:53; the first Ollama allocation failure is at 07:29:46). Memory held from that
+point on would fit all of this, but no row records memory state, so that is an untested hypothesis, not a
+finding.
+
+**Conclusion.** Supported: on evo-t2s, from 07:29 UTC on 2026-10-02 every Ollama start of llama3.1:8b failed to
+allocate its model buffers, in both Ollama configurations, at every prompt length tried (4,735 to 24,011
+tokens), and llama-server stopped finishing its load from about 07:13 UTC; before that, all three
+configurations succeeded up to 24,007 tokens. Not supported: a prompt-length (context) allocation boundary in
+any configuration. Fix landed with this section: `harness/t2s_outcome_table.py` now writes a row for both
+llama-server load-failure paths. Next step: read the llama-server logs for longdoc_24000_05 onward before
+attributing a cause.
