@@ -1004,19 +1004,19 @@ def _vfile(tmp_path, name, models, **kw):
 class TestPerModelPreflight:
     def test_each_model_checked_against_its_own_file(self, tmp_path):
         _, v2 = _vfile(tmp_path, "v2.jsonl", ["llama3.1:8b", "qwen3:14b"])
-        _, v2b = _vfile(tmp_path, "v2b.jsonl", ["qwen3-4b-2507", "qwen3:8b"])
+        _, v2b = _vfile(tmp_path, "v2b.jsonl", ["qwen3-4b-2507-tools", "qwen3:8b"])
         pf = ag.validation_preflight_per_model([("v2.jsonl", v2), ("v2b.jsonl", v2b)], "off", list(ag.STRONG_MODELS))
         assert pf["ok"] and pf["models_ok"] == list(ag.STRONG_MODELS) and pf["refused"] == {}
-        assert pf["source"] == {"llama3.1:8b": "v2.jsonl", "qwen3:14b": "v2.jsonl", "qwen3-4b-2507": "v2b.jsonl",
+        assert pf["source"] == {"llama3.1:8b": "v2.jsonl", "qwen3:14b": "v2.jsonl", "qwen3-4b-2507-tools": "v2b.jsonl",
                                 "qwen3:8b": "v2b.jsonl"}
 
     def test_failing_new_model_refused_alone(self, tmp_path):
         _, v2 = _vfile(tmp_path, "v2.jsonl", ["llama3.1:8b", "qwen3:14b"])
-        rows = _validation_rows_mode("off", models=["qwen3-4b-2507"])
+        rows = _validation_rows_mode("off", models=["qwen3-4b-2507-tools"])
         rows = rows[:-1] + _validation_rows_mode("off", models=["qwen3:8b"], pos_factory=good_policy)[1:]
         pf = ag.validation_preflight_per_model([("v2.jsonl", v2), ("v2b.jsonl", rows)], "off",
                                                list(ag.STRONG_MODELS))
-        assert pf["ok"] and "qwen3:8b" not in pf["models_ok"] and "qwen3-4b-2507" in pf["models_ok"]
+        assert pf["ok"] and "qwen3:8b" not in pf["models_ok"] and "qwen3-4b-2507-tools" in pf["models_ok"]
         assert any("positive control" in r for r in pf["refused"]["qwen3:8b"])
         assert "qwen3:8b" not in pf["rules_in_use"]
 
@@ -1050,7 +1050,7 @@ def _patch_real_main(monkeypatch, plan):
             self.server_env = self.server_log = None
 
         def available_models(self):
-            return ["llama3.1:8b", "qwen3:14b", "qwen3-4b-2507:latest", "qwen3:8b"]
+            return ["llama3.1:8b", "qwen3:14b", "qwen3-4b-2507-tools:latest", "qwen3:8b"]
 
         def version(self):
             return "0.34.4"
@@ -1062,7 +1062,7 @@ def _patch_real_main(monkeypatch, plan):
 class TestStrongMain:
     def test_refuses_failing_model_runs_rest_and_skips_v1(self, tmp_path, monkeypatch):
         v2p, _ = _vfile(tmp_path, "v2.jsonl", ["llama3.1:8b", "qwen3:14b"])
-        rows = _validation_rows_mode("off", models=["qwen3-4b-2507"])
+        rows = _validation_rows_mode("off", models=["qwen3-4b-2507-tools"])
         rows = rows[:-1] + _validation_rows_mode("off", models=["qwen3:8b"], pos_factory=good_policy)[1:]
         v2bp = tmp_path / "v2b.jsonl"
         v2bp.write_text("\n".join(json.dumps(r, default=str) for r in rows) + "\n", encoding="utf-8")
@@ -1081,17 +1081,17 @@ class TestStrongMain:
         assert state["started"] == 1
         assert len(state["notes"]) == 1 and state["notes"][0].startswith("completed; refused models")
         recs = ag.read_rows(out)
-        assert recs[0]["record"] == "run_start" and recs[0]["models"] == ["llama3.1:8b", "qwen3:14b", "qwen3-4b-2507"]
+        assert recs[0]["record"] == "run_start" and recs[0]["models"] == ["llama3.1:8b", "qwen3:14b", "qwen3-4b-2507-tools"]
         assert [r["model_id"] for r in recs if r["record"] == "refused_model"] == ["qwen3:8b"]
         done = {(s["model_id"], s["seed"]) for s in ag.completed_sessions(recs)}
         assert ("llama3.1:8b", ag.SEEDS_STRONG[0]) not in done  # v1 cell reused, not rerun
         assert done == {("llama3.1:8b", ag.SEEDS_STRONG[3]), ("qwen3:14b", ag.SEEDS_STRONG[0]),
-                        ("qwen3:14b", ag.SEEDS_STRONG[3]), ("qwen3-4b-2507", ag.SEEDS_STRONG[0]),
-                        ("qwen3-4b-2507", ag.SEEDS_STRONG[3])}
+                        ("qwen3:14b", ag.SEEDS_STRONG[3]), ("qwen3-4b-2507-tools", ag.SEEDS_STRONG[0]),
+                        ("qwen3-4b-2507-tools", ag.SEEDS_STRONG[3])}
         assert recs[-1]["record"] == "run_end"
         assert all(r.get("call2_mode") == "off" for r in recs if r["record"] not in ("run_start",))
         rep = json.loads(Path(str(out) + ".report.json").read_text(encoding="utf-8"))
-        assert set(rep["rules_in_use"]) == {"llama3.1:8b", "qwen3:14b", "qwen3-4b-2507"}
+        assert set(rep["rules_in_use"]) == {"llama3.1:8b", "qwen3:14b", "qwen3-4b-2507-tools"}
 
     def test_refuses_whole_job_when_no_model_passes(self, tmp_path, monkeypatch):
         rows = _validation_rows_mode("off", models=["qwen3:8b"], pos_factory=good_policy)
@@ -1111,3 +1111,71 @@ class TestCall2ModeEverywhere:
         ags = ag.build_agent_session(ag.SEEDS[0], ag.TC_TURNS)
         ag.run_toolchoice_check(FakeTCRuntime(_call2_tool_caller(ags)), ["llama3.1:8b"], rows.append, lambda m: None)
         assert rows and all(r.get("call2_mode") in ag.CALL2_MODES for r in rows)
+
+
+# ── task-tool gate (2026-10-08) ──────────────────────────────────────────────────────────────────────
+
+def _break_task_tool(rows, model, n_bad):
+    """Mark the first n_bad baseline turns of `model` as task tool not called correctly."""
+    k = 0
+    for r in rows:
+        if (r.get("record") == "r2a_turn" and r["model_id"] == model and r["arm_id"] == "ollama_ctx_131072_call2_notools"
+                and k < n_bad):
+            r["task_tool_ok"] = False
+            k += 1
+    return rows
+
+
+class TestTaskToolGate:
+    def test_exactly_90_percent_passes(self):
+        rows = _break_task_tool(_validation_rows_mode("off"), "llama3.1:8b", 3)   # 27/30
+        g = ag.evaluate_gates(rows, call2_tools="off")["gates"]["task_tool"]["llama3.1:8b"]
+        assert g["pass"] and g["n_ok"] == 27 and g["n"] == 30
+        assert ag.validation_preflight(rows, "off", ["llama3.1:8b", "qwen3:14b"])["ok"]
+
+    def test_below_90_percent_refuses_model(self):
+        rows = _break_task_tool(_validation_rows_mode("off"), "qwen3:14b", 4)     # 26/30
+        g = ag.evaluate_gates(rows, call2_tools="off")["gates"]["task_tool"]["qwen3:14b"]
+        assert not g["pass"] and g["n_ok"] == 26
+        pf = ag.validation_preflight(rows, "off", ["llama3.1:8b", "qwen3:14b"])
+        assert not pf["ok"] and pf["reasons"] == ["qwen3:14b: task tool called correctly on 26/30 baseline turns "
+                                                  "(< 90%, task-tool gate)"]
+
+    def test_per_model_refusal_drops_only_that_model(self, tmp_path):
+        _, v2 = _vfile(tmp_path, "v2.jsonl", ["llama3.1:8b", "qwen3:14b"])
+        v2c = _break_task_tool(_validation_rows_mode("off", models=["qwen3-4b-2507-tools"]), "qwen3-4b-2507-tools", 25)
+        pf = ag.validation_preflight_per_model([("v2.jsonl", v2), ("v2c.jsonl", v2c)], "off",
+                                               ["llama3.1:8b", "qwen3:14b", "qwen3-4b-2507-tools"])
+        assert pf["models_ok"] == ["llama3.1:8b", "qwen3:14b"]
+        assert "task-tool gate" in pf["refused"]["qwen3-4b-2507-tools"][0]
+
+    @pytest.mark.parametrize("fname,model,n_ok,passes", [
+        ("x2_r2_validation_v2.jsonl", "llama3.1:8b", 27, True),
+        ("x2_r2_validation_v2.jsonl", "qwen3:14b", 30, True),
+        ("x2_r2_validation_v2b.jsonl", "qwen3:8b", 30, True),
+        ("x2_r2_validation_v2b.jsonl", "qwen3-4b-2507", 5, False),
+    ])
+    def test_real_validation_files(self, fname, model, n_ok, passes):
+        p = Path(__file__).resolve().parents[1] / "results" / fname
+        if not p.exists():
+            pytest.skip(f"{fname} not present")
+        rows = ag.read_rows(p)
+        g = ag.evaluate_gates(rows, call2_tools="off")["gates"]["task_tool"][model]
+        assert (g["n_ok"], g["n"], g["pass"]) == (n_ok, 30, passes)
+        # the gate does not change the verdict for the models that passed before it existed
+        if passes:
+            assert ag.validation_preflight(rows, "off", [model])["ok"]
+
+    def test_main_returns_note_and_can_skip_advance(self, tmp_path, monkeypatch):
+        state = _patch_real_main(monkeypatch, [("ollama_ctx_4096_call2_notools", (1,), 2)])
+        rows = _validation_rows_mode("off", models=["qwen3:8b"], pos_factory=good_policy)
+        p = tmp_path / "v.jsonl"
+        p.write_text("\n".join(json.dumps(r, default=str) for r in rows) + "\n", encoding="utf-8")
+        note = ag.main(["--mode", "real", "--plan", "strong", "--call2-tools", "off", "--models", "qwen3:8b",
+                        "--rules-from", str(p), "--require-validation-gates", "--per-model-refusal",
+                        "--out", str(tmp_path / "o.jsonl")], advance=False)
+        assert note.startswith("stopped: refused to start") and state["notes"] == []
+
+    def test_strong_models_use_tools_tag(self):
+        assert "qwen3-4b-2507-tools" in ag.STRONG_MODELS and "qwen3-4b-2507" not in ag.STRONG_MODELS
+        assert ag.MODELS["qwen3-4b-2507-tools"] is False

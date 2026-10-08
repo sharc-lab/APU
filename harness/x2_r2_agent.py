@@ -100,7 +100,12 @@ import t2s_r2_session_growth as r2  # noqa: E402
 # capabilities include thinking, which for a template-less GGUF are read from the GGUF chat template's text
 # (server/images.go chatTemplateCapabilities), and only think=true is rejected for a model without the capability.
 # Every row records thinking_present / think_tag_in_content and a thinking answer fails its turn (see run_turn).
-MODELS = {"llama3.1:8b": None, "qwen3:14b": False, "qwen3:8b": False, "qwen3-4b-2507": False}
+# qwen3-4b-2507-tools (added 2026-10-08, created by the queued job x2_r2_4b_tools_validate,
+# harness/x2_r2_4b_tools_validate.py): the SAME GGUF blob as qwen3-4b-2507 with the Ollama library Qwen3 TEMPLATE
+# (copied verbatim from qwen3:8b) and its stop parameters. qwen3-4b-2507 wrote its tool calls as text inside its
+# JSON answer in x2_r2_validation_v2b (register R2-validation-v2b-runinfo); this tag isolates the install path.
+MODELS = {"llama3.1:8b": None, "qwen3:14b": False, "qwen3:8b": False, "qwen3-4b-2507": False,
+          "qwen3-4b-2507-tools": False}
 
 _BASE_ARMS = {
     "ollama_ctx_131072": 131072,                 # arm b, the no-truncation control (validation, negative control)
@@ -199,7 +204,9 @@ def real_plan(call2_tools):
 SEEDS_STRONG = tuple(SEEDS) + (20260904, 20260905)
 STRONG_TIERS = ("ollama_default", "ollama_ctx_32768", "ollama_ctx_16384", "ollama_ctx_8192", "ollama_ctx_4096")
 STRONG_TURNS = 40
-STRONG_MODELS = ("llama3.1:8b", "qwen3:14b", "qwen3-4b-2507", "qwen3:8b")
+# 2026-10-08 (operator): the 4B runs as qwen3-4b-2507-tools (library template), validated in
+# x2_r2_validation_v2c.jsonl; the bare-GGUF qwen3-4b-2507 failed the task-tool gate in v2b (tool calls as text).
+STRONG_MODELS = ("llama3.1:8b", "qwen3:14b", "qwen3-4b-2507-tools", "qwen3:8b")
 # Operator decision 2026-10-08: every Ollama and llama-server R2 run uses call-2 mode "off" (v1, tools withheld on a
 # turn's second call); a cloud (OpenAI) R2 session, if one runs, uses "forced_none" (identical tools, tool_choice
 # "none" on call 2), which that API enforces. See R2_DESIGN.md "Call-2 mode per runtime".
@@ -229,6 +236,11 @@ KEEP_ALIVE = "30m"          # hc.start_ollama_server sets OLLAMA_KEEP_ALIVE=0; k
                             # loaded across a session's calls, then unload explicitly at the session boundary
 CALL_TIMEOUT_S = 900
 BASELINE_THRESHOLD = 0.90
+# Task-tool gate (2026-10-08): the turn's own task tool (lookup_fact with the right key, or log_event with the right
+# rack/length) called validly with correct arguments on at least this share of baseline-arm turns. Uniform for every
+# model; a model below it is refused for the real run (validation_preflight). Added after qwen3-4b-2507 passed the
+# rule gates in x2_r2_validation_v2b with the task tool correct on only 5 of 30 baseline turns.
+TASK_TOOL_THRESHOLD = BASELINE_THRESHOLD
 CALIB_RATIO_BOUNDS = (0.5, 2.5)
 PER_MESSAGE_OVERHEAD_TOKENS = 4
 
@@ -1108,8 +1120,13 @@ def evaluate_gates(rows: list[dict], threshold=BASELINE_THRESHOLD, call2_tools=T
     table = baseline_table(rows, arm=NEG_ARM + sfx, threshold=threshold)
     ctrl = control_results(rows, sfx)
     gates = {"baseline": {}, "negative_control": {}, "positive_control": {}, "content_nonempty": {},
-             "thinking_off": {}}
+             "thinking_off": {}, "task_tool": {}}
     for model, e in table.items():
+        tt_rate, tt_n = e["task_tool_ok"]["rate"], e["task_tool_ok"]["n"]
+        tt_ok = round(tt_rate * tt_n) if tt_rate is not None else 0
+        # integer comparison (27/30 at a 0.90 threshold passes exactly, no float edge)
+        gates["task_tool"][model] = {"pass": tt_n > 0 and tt_ok * 100 >= round(TASK_TOOL_THRESHOLD * 100) * tt_n,
+                                     "rate": tt_rate, "n": tt_n, "n_ok": tt_ok, "threshold": TASK_TOOL_THRESHOLD}
         failing = [r for r, v in e["rules"].items() if v["status"] == "fail"]
         gates["baseline"][model] = {"pass": not failing, "failing_rules": failing,
                                     "rules_in_use": [r for r, v in e["rules"].items() if v["status"] == "pass"]}
@@ -1141,7 +1158,8 @@ def validation_preflight(validation_rows: list[dict], call2_tools, models, thres
     passes; no manual step). For every model: the validation file finished (run_end) under the same call-2 mode, the
     plan's negative-control (3 sessions) and positive-control (1 session) arms completed, the model has at least one
     rule in use and every rule in use is at or above the threshold, the negative control had no canary miss, and
-    the positive control fired on every session. Returns {"ok", "reasons", "rules_in_use", "gates"}."""
+    the positive control fired on every session, no thinking, and (2026-10-08) the task-tool gate: the turn's task
+    tool called correctly on >= TASK_TOOL_THRESHOLD of baseline turns. Returns {"ok", "reasons", "rules_in_use", "gates"}."""
     mode = as_mode(call2_tools)
     reasons = []
     if not any(r.get("record") == "run_end" for r in validation_rows):
@@ -1179,6 +1197,10 @@ def validation_preflight(validation_rows: list[dict], call2_tools, models, thres
         th = g.get("thinking_off", {}).get(m)
         if th is not None and not th["pass"]:
             reasons.append(f"{m}: thinking present on {th['thinking_present_calls']} validation calls")
+        tt = g.get("task_tool", {}).get(m)
+        if tt is not None and not tt["pass"]:
+            reasons.append(f"{m}: task tool called correctly on {tt['n_ok']}/{tt['n']} baseline turns "
+                           f"(< {tt['threshold']:.0%}, task-tool gate)")
     return {"ok": not reasons, "reasons": reasons, "rules_in_use": riu, "gates": g}
 
 
@@ -1487,7 +1509,9 @@ def _default_models(mode, plan_name):
     return DEFAULT_MODELS
 
 
-def main(argv=None):
+def main(argv=None, advance=True):
+    """advance=False: do not call t2s_queue.advance() on exit (a wrapper job such as x2_r2_4b_tools_validate calls
+    it once itself); the exit note is returned either way."""
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--mode", choices=("validation", "real", "toolchoice_check", "mechanism"), required=True)
     ap.add_argument("--out", required=True)
@@ -1590,7 +1614,7 @@ def main(argv=None):
             note = ("stopped: refused to start, validation gates failed in "
                     f"{','.join(Path(p).name for p in rule_files)}: " + "; ".join(reasons))[:400]
             log(note)
-            return
+            return note
         server_env = server_log = None
         if args.mode == "mechanism":
             import x2_r2_mechanism as mech
@@ -1622,7 +1646,7 @@ def main(argv=None):
                                                             encoding="utf-8")
             emit({"record": "run_end", "call2_mode": c2, "ts_utc": utc_iso()})
             log(json.dumps(report, default=str))
-            return
+            return note
         if args.mode == "mechanism":
             head = mech.read_log(server_log, 0)
             if not mech.debug_enabled(head):
@@ -1635,7 +1659,7 @@ def main(argv=None):
             rep = mech.write_report(out_path, read_rows(out_path))
             emit({"record": "run_end", "call2_mode": c2, "ts_utc": utc_iso()})
             log(json.dumps(rep["verdict"], default=str))
-            return
+            return note
         run_plan(runtime, plan, models, args.mode, out_path, log=log, emit=emit, skip_done=skip_done,
                  order=args.order)
         rows = read_rows(out_path)
@@ -1663,11 +1687,13 @@ def main(argv=None):
                 hc.stop_ollama_server()
             except Exception as e:
                 log(f"ollama stop failed: {e!r}")
-        try:
-            import t2s_queue as tq
-            tq.advance(note)
-        except Exception as e:
-            log(f"queue advance failed: {e!r}")
+        if advance:
+            try:
+                import t2s_queue as tq
+                tq.advance(note)
+            except Exception as e:
+                log(f"queue advance failed: {e!r}")
+    return note
 
 
 if __name__ == "__main__":
