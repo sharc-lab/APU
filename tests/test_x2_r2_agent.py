@@ -1179,3 +1179,12 @@ class TestTaskToolGate:
     def test_strong_models_use_tools_tag(self):
         assert "qwen3-4b-2507-tools" in ag.STRONG_MODELS and "qwen3-4b-2507" not in ag.STRONG_MODELS
         assert ag.MODELS["qwen3-4b-2507-tools"] is False
+
+
+def test_refusal_category_missing_errored_failed():
+    """2026-10-08: the real run records why a model was refused: missing, errored or failed."""
+    f = ag.refusal_category
+    assert f(["m: no validation rows in any of ['v2c']"], {"v2c": False}, {"v2c": False}) == "missing"
+    assert f(["m: no validation rows in any of ['v2c']"], {"v2c": True}, {"v2c": False}) == "errored"
+    assert f(["validation file has no run_end record (validation did not finish)"], {"v2c": True}, {"v2c": False}) == "errored"
+    assert f(["m: rule2 below 90%"], {"v2c": True}, {"v2c": True}) == "failed"

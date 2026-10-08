@@ -1204,6 +1204,19 @@ def validation_preflight(validation_rows: list[dict], call2_tools, models, thres
     return {"ok": not reasons, "reasons": reasons, "rules_in_use": riu, "gates": g}
 
 
+def refusal_category(reasons: list[str], files_present: dict[str, bool], files_finished: dict[str, bool]) -> str:
+    """Why a model was refused, as one word (operator 2026-10-08): "missing" (its validation file does not exist or
+    holds no validation rows for it while no file is unfinished), "errored" (a validation file exists but never
+    finished, i.e. no run_end, or the model's own rows say the validation did not finish), or "failed" (validation
+    finished and a gate failed)."""
+    if any("did not finish" in r for r in reasons):
+        return "errored"
+    if any("no validation rows" in r for r in reasons):
+        unfinished = [n for n, ok in files_present.items() if ok and not files_finished.get(n)]
+        return "errored" if unfinished else "missing"
+    return "failed"
+
+
 def validation_preflight_per_model(files: list[tuple[str, list[dict]]], call2_tools, models,
                                    threshold=BASELINE_THRESHOLD) -> dict:
     """The strengthened real run's start check (2026-10-08). files: [(name, rows)], e.g. x2_r2_validation_v2.jsonl
@@ -1603,9 +1616,12 @@ def main(argv=None, advance=True):
               "skip_done_from": args.skip_done_from, "n_skip_done": len(skip_done),
               "validation_preflight": preflight, "ts_utc": utc_iso(),
               "max_tokens_per_call": MAX_TOKENS_PER_CALL, "keep_alive": KEEP_ALIVE})
+        present = {Path(p).name: Path(p).exists() for p in rule_files}
+        finished = {name: any(r.get("record") == "run_end" for r in vrows) for name, vrows in
+                    ((Path(p).name, read_rows(Path(p))) for p in rule_files)}
         for m, reasons in refused_models.items():
             emit({"record": "refused_model", "model_id": m, "reasons": reasons, "call2_mode": c2,
-                  "ts_utc": utc_iso()})
+                  "refusal_category": refusal_category(reasons, present, finished), "ts_utc": utc_iso()})
             log(f"refused model {m}: {'; '.join(reasons)}")
         if preflight is not None and not preflight["ok"]:
             reasons = (preflight["reasons"] if "reasons" in preflight
@@ -1675,7 +1691,8 @@ def main(argv=None, advance=True):
             log("\n" + format_baseline_markdown(report))
             log(json.dumps(report["gates"], default=str))
         if refused_models:
-            note = f"completed; refused models (validation gates): {sorted(refused_models)}"
+            note = "completed; refused models (validation gates): " + ", ".join(
+                f"{m} ({refusal_category(rs, present, finished)})" for m, rs in sorted(refused_models.items()))
     except Exception as e:
         import traceback
         note = f"stopped: {e!r}"[:400]
