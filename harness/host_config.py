@@ -44,6 +44,24 @@ HOSTS = {
         "ollama_exe": r"AppData\Local\Programs\Ollama\ollama.exe",
         "ollama_models": r".ollama\models",
     },
+    # The Razer Blade 14 (RTX 4070 Laptop, 8 GB VRAM, CUDA): the NVIDIA platform. It is also the controller laptop, so
+    # its jobs run locally (no ssh_host) under scripts/blade_night.py and harness/blade_queue.py, never from the evo-x2
+    # queue. Its Ollama is started by harness/blade_common.LocalOllama (a hidden child process, not the WMI launch
+    # start_ollama_server uses: a WMI-created cmd.exe on the local desktop would open a visible console window).
+    "RITZLAPTOP": {
+        "hw_id": "blade",
+        "user": "rithw",
+        "python_exe": r"%USERPROFILE%\AppData\Local\Programs\Python\Python312\python.exe",
+        "deploy_dir": None,
+        "models_dir": r"C:\apu\models",
+        "gpu_vendor": "nvidia",
+        "ssh_host": None,
+        "interactive_guard": False,
+        # None: the Blade's jobs use blade_common.PINNED["ollama_exe"] (the side-by-side 0.34.4), never the tray
+        # install, so nothing here should resolve to it.
+        "ollama_exe": None,
+        "ollama_models": r".ollama\models",
+    },
 }
 
 # Controller-side alias -> HOSTS key, for scripts/deploy_evo.py's --host flag (a short name is easier to type than the
@@ -151,7 +169,8 @@ def _this_host_entry() -> dict:
     if h:
         home = os.path.join(os.environ.get("SystemDrive", "C:") + os.sep, "Users", h["user"])
         for k in ("ollama_exe", "ollama_models"):
-            h[k] = os.path.join(home, h[k])
+            if h.get(k):
+                h[k] = os.path.join(home, h[k])
     return h
 
 

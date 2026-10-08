@@ -1,0 +1,136 @@
+{
+ "night": 2,
+ "summary": {
+  "night": 2,
+  "started_utc": "2026-10-08T21:00:53.120141+00:00",
+  "refused": null,
+  "power": {
+   "log": "C:\\Users\\rithw\\AppData\\Local\\Temp\\blade_night_stub_dtk1mdlt\\logs\\night2_power_20261008T210053Z.json",
+   "original": {
+    "SUB_SLEEP/STANDBYIDLE": {
+     "ac": 1800,
+     "dc": 1800
+    },
+    "SUB_SLEEP/HIBERNATEIDLE": {
+     "ac": 10800,
+     "dc": 10800
+    },
+    "SUB_BUTTONS/LIDACTION": {
+     "ac": 1,
+     "dc": 1
+    }
+   },
+   "night_values": {
+    "SUB_SLEEP/STANDBYIDLE": {
+     "ac": 0,
+     "dc": 0
+    },
+    "SUB_SLEEP/HIBERNATEIDLE": {
+     "ac": 0,
+     "dc": 0
+    },
+    "SUB_BUTTONS/LIDACTION": {
+     "ac": 0,
+     "dc": 0
+    }
+   },
+   "restored_values": {
+    "SUB_SLEEP/STANDBYIDLE": {
+     "ac": 1800,
+     "dc": 1800
+    },
+    "SUB_SLEEP/HIBERNATEIDLE": {
+     "ac": 10800,
+     "dc": 10800
+    },
+    "SUB_BUTTONS/LIDACTION": {
+     "ac": 1,
+     "dc": 1
+    }
+   },
+   "restored": true,
+   "errors": []
+  },
+  "queue": {
+   "night": 2,
+   "jobs": [
+    {
+     "id": "blade_c3_sysmem_fallback_v1",
+     "status": "done",
+     "rc": 0,
+     "outputs": [
+      "results/blade_c3_sysmem_fallback_v1.jsonl"
+     ],
+     "log": "C:\\apu\\blade\\logs\\blade_c3_sysmem_fallback_v1.log"
+    },
+    {
+     "id": "blade_r2_mechanism_v1",
+     "status": "done",
+     "rc": 0,
+     "outputs": [
+      "results/blade_r2_mechanism_v1.jsonl"
+     ],
+     "log": "C:\\apu\\blade\\logs\\blade_r2_mechanism_v1.log"
+    }
+   ],
+   "stopped_early": null
+  },
+  "ended_utc": "2026-10-08T21:00:53.599488+00:00",
+  "summary_file": "C:\\Users\\rithw\\AppData\\Local\\Temp\\blade_night_stub_dtk1mdlt\\results\\blade_night2_summary_20261008T210053Z.json"
+ },
+ "power_call_order": [
+  "/setacvalueindex SUB_SLEEP STANDBYIDLE 0",
+  "/setacvalueindex SUB_SLEEP HIBERNATEIDLE 0",
+  "/setacvalueindex SUB_BUTTONS LIDACTION 0",
+  "/setactive",
+  "/setacvalueindex SUB_SLEEP STANDBYIDLE 1800",
+  "/setacvalueindex SUB_SLEEP HIBERNATEIDLE 10800",
+  "/setacvalueindex SUB_BUTTONS LIDACTION 1",
+  "/setactive"
+ ],
+ "jobs": [
+  {
+   "event": "job",
+   "id": "blade_c3_sysmem_fallback_v1",
+   "module": "blade_c3",
+   "parsed": {
+    "out": "results/blade_c3_sysmem_fallback_v1.jsonl",
+    "flag_dir": "C:\\apu\\blade",
+    "dry_run_gate": false
+   },
+   "outputs": [
+    "results/blade_c3_sysmem_fallback_v1.jsonl"
+   ],
+   "outputs_prefixed_blade": true
+  },
+  {
+   "event": "job",
+   "id": "blade_r2_mechanism_v1",
+   "module": "blade_r2",
+   "parsed": {
+    "mode": "mechanism",
+    "out": "results/blade_r2_mechanism_v1.jsonl",
+    "models": "llama3.1:8b",
+    "models_if_fit": "",
+    "k1_summary": null,
+    "tiers": "default,32768,16384,8192,4096",
+    "seeds": null,
+    "turns": null,
+    "rules_from": null,
+    "require_validation_gates": false,
+    "order": "seed_major",
+    "ollama_exe": null,
+    "dry_run_seconds": null,
+    "allow_version_mismatch": false
+   },
+   "outputs": [
+    "results/blade_r2_mechanism_v1.jsonl"
+   ],
+   "outputs_prefixed_blade": true
+  }
+ ],
+ "set_before_first_job": true,
+ "restore_after_last_job": true,
+ "final_values_equal_original": true,
+ "all_outputs_prefixed_blade": true
+}
