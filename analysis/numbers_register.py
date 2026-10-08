@@ -2707,6 +2707,30 @@ def compute_x2_chat_template_source(repo):
                          f"(v3 rows: {rows_s or 'none'})")
     return {"value": "; ".join(parts), "n": len(rows)}
 
+def compute_r2_mechanism_lowlevel(repo):
+    """R2 mechanism job, per tier: calls with message-level truncation, llama.cpp context-shift events (n_keep,
+    n_discard, how many on the final-answer call), and Ollama token-level prompt cuts (limit/keep/new)."""
+    import json as _json
+    rows = [_json.loads(x) for x in (repo / "results/x2_r2_mechanism.jsonl").read_text(encoding="utf-8").splitlines()
+            if x.strip()]
+    by = {}
+    for r in rows:
+        if r.get("record") == "r2m_call":
+            by.setdefault(r["arm_id"].replace("_call2_notools", ""), []).append(r)
+    parts = []
+    for arm, rs in by.items():
+        cs = [(r["call_idx"], s) for r in rs for s in (r.get("context_shifts") or [])]
+        tc = [r["token_cut"] for r in rs if r.get("token_level_cut")]
+        first = next(((r["turn_idx"], r["call_idx"]) for r in rs if r.get("context_shifts")), None)
+        cs_txt = (f"{len(cs)} context shifts (first turn/call {first}, n_keep {sorted({s['n_keep'] for _, s in cs})}, "
+                  f"n_discard {sorted({s['n_discard'] for _, s in cs})}, {sum(1 for c, _ in cs if c == 2)} on the "
+                  f"final-answer call)") if cs else "0 context shifts"
+        tc_txt = "; ".join(f"token cut limit {t['limit']} keep {t['keep']} prompt {t['prompt']} -> {t['new']}" for t in tc)
+        parts.append(f"{arm}: {sum(1 for r in rs if r.get('message_level_truncation'))}/{len(rs)} calls message-truncated; "
+                     f"{cs_txt}; {len(tc)} token cuts" + (f" ({tc_txt})" if tc else ""))
+    return {"value": " / ".join(parts), "n": sum(len(v) for v in by.values())}
+
+
 NUMBER_ENTRIES = [
     {"claim_id": "PX2-TTFT-gap", "description": "PX2 B4-vs-S4 TTFT gap range across 5 models",
      "compute": compute_px2_ttft_gap, "data_files": ["results/t2s_night2_20260930T135145Z.jsonl"],
@@ -3093,6 +3117,10 @@ NUMBER_ENTRIES = [
                     "(evo-x2 probe facts; v3 rows recorded vs derived)",
      "compute": compute_x2_chat_template_source, "data_files": [X2_TEMPLATE_FACTS, X2_OUTCOME_V3],
      "script_function": "analysis/numbers_register.py::compute_x2_chat_template_source"},
+    {"claim_id": "R2-mechanism-lowlevel", "description": "R2 mechanism job: message truncation, llama.cpp context "
+                    "shifts and Ollama token cuts per tier",
+     "compute": compute_r2_mechanism_lowlevel, "data_files": ["results/x2_r2_mechanism.jsonl"],
+     "script_function": "analysis/numbers_register.py::compute_r2_mechanism_lowlevel"},
 ]
 
 

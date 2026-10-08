@@ -102,6 +102,9 @@ def test_creates_tag_and_records_modelfile(tmp_path, monkeypatch, lib_template):
     assert rec["stops"] == ["<|im_start|>", "<|im_end|>"]
     assert rec["modelfile"] == Path(rec["modelfile_path"]).read_text(encoding="utf-8")
     assert f'TEMPLATE """{lib_template}"""' in rec["modelfile"]
+    # 2026-10-08: the Modelfile on disk must keep LF line ends (CRLF would end up inside the created TEMPLATE).
+    on_disk = Path(rec["modelfile_path"]).read_bytes()
+    assert b"\r" not in on_disk and on_disk == rec["modelfile"].encode("utf-8")
     assert rows == [rec]
 
 

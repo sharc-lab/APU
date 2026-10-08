@@ -167,7 +167,10 @@ def ensure_tools_tag(emit, out_path: Path, log=print, hc=None, models_dir=None) 
         raise RuntimeError(f"{TEMPLATE_FROM} has no stop parameters: {lib.get('parameters')!r}")
     modelfile = build_modelfile(gguf, template, stops)
     mf_path = out_path.parent / (out_path.stem + ".Modelfile")
-    mf_path.write_text(modelfile, encoding="utf-8")
+    # newline="\n": in text mode Windows turns "\n" into "\r\n", and Ollama keeps those CRs inside the TEMPLATE
+    # (2026-10-08: the first run created a template with CRLF line ends, sha c9d0f733 vs library ae370d88; caught by
+    # verify_after, so the job stopped before validating).
+    mf_path.write_text(modelfile, encoding="utf-8", newline="\n")
     rec.update({"modelfile": modelfile, "modelfile_sha256": sha256_text(modelfile), "modelfile_path": str(mf_path)})
     man, _ = _read_manifest(models_dir, TOOLS_TAG)
     before = verify_tag(man, _show_or_none(TOOLS_TAG) if man else None, src_digest, stops)
