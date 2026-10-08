@@ -347,7 +347,7 @@ def test_out_path_rules():
 
 def test_local_ollama_stop_kills_server_tray_and_runners_only(monkeypatch):
     procs = [{"pid": 1, "name": "ollama.exe", "path": ""}, {"pid": 2, "name": "ollama app.exe", "path": ""},
-             {"pid": 3, "name": "llama-server.exe", "path": r"C:\Users\u\AppData\Local\Programs\Ollama\lib\x.exe"},
+             {"pid": 3, "name": "llama-server.exe", "path": r"D:\apps\Ollama\lib\ollama\llama-server.exe"},
              {"pid": 4, "name": "llama-server.exe", "path": r"C:\apu\bin\llama-b10970-cuda\llama-server.exe"}]
     killed = []
     monkeypatch.setattr(bc, "kill_pid", lambda pid, run=None: killed.append(pid))

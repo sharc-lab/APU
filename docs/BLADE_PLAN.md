@@ -180,10 +180,10 @@ accepted, no timeout of its own over 48 simulated hours).
 **60-second live dry runs (operator request of 2026-10-08): NOT RUN.** The first one (K1 on llama3.2) was refused by
 the session's permission classifier before it started, so no model was loaded, no Ollama was started and nothing was
 cleaned up because nothing ran. The tray Ollama (0.34.1, no model loaded, VRAM 0 MiB) was left as it was. The exact
-refused command:
+refused command (worktree root written as `<worktree>`, the LOCALAPPDATA path spelled out in the original):
 
 ```
-cd /c/Users/rithw/OneDrive/Documents/GitHub/APU/.claude/worktrees/agent-a157f2a5e65aba071 && date -u +%FT%TZ && timeout 600 py -3.12 harness/blade_k1.py --out results/blade_dryrun/blade_dryrun_k1.jsonl --models llama3.2 --dry-run-seconds 60 --allow-version-mismatch --ollama-exe "C:/Users/rithw/AppData/Local/Programs/Ollama/ollama.exe" 2>&1 | tail -30; echo "rc=$?"; date -u +%FT%TZ; tasklist | grep -i -E "ollama|llama"
+cd <worktree> && date -u +%FT%TZ && timeout 600 py -3.12 harness/blade_k1.py --out results/blade_dryrun/blade_dryrun_k1.jsonl --models llama3.2 --dry-run-seconds 60 --allow-version-mismatch --ollama-exe "%LOCALAPPDATA%/Programs/Ollama/ollama.exe" 2>&1 | tail -30; echo "rc=$?"; date -u +%FT%TZ; tasklist | grep -i -E "ollama|llama"
 ```
 
 To run them, one at a time, from the repo root (each stops itself at the first result row after 60 s, stops every
