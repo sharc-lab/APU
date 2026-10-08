@@ -2538,3 +2538,38 @@ model, confirm from the API's own `cached_tokens` usage field that the prefix is
 must stay identical across calls, or the prefix breaks). Sensitivity (row cloud-budget-sensitivity): 5x output
 tokens for hidden reasoning gives 27.30 / 90.18; R2 prompts left at the chars/4 estimate give 24.77 / 113.31.
 The failure scenario count, 1, is from DEMO_SPEC section 4 (row cloud-budget-inputs).
+
+## R2 real run x2_r2_real_v1, evo-x2: truncation is silent at every tier, rules break only at 4096 (2026-10-07)
+
+**Run.** `harness/x2_r2_agent.py --mode real`, Ollama default vs num_ctx 32768 vs num_ctx 4096, llama3.1:8b and
+qwen3:14b, 3 seeds x 40 turns, tools withheld on each turn's second call (the validation-v2 protocol), rules in use
+from the validation-v2 gate (llama3.1:8b rules 1/3/4, qwen3:14b rules 1-5). Validity: every rule in use was at
+100% baseline and both controls passed (register `R2-validation-v2-baseline`). Report:
+`analysis/r2_real_report.py`. All numbers below are register rows `R2-real-v1-*`.
+
+**First events per session** (`R2-real-v1-first-events`, seeds in order, `-` = never in 40 turns):
+- Canary misses (history truncation) come a few turns after the prompt first exceeds the loaded window, at every
+  tier where that happens: 4096 at turn 5 (window first exceeded at turn 3), 32768 at turn 30 (llama) and 25
+  (qwen), and Ollama default for qwen3:14b at turn 30 (Ollama loaded 40960 for it). llama3.1:8b at Ollama
+  default loaded 131072, never exceeded it, and has one within-window canary miss (turn 35, seed 20260901): a
+  recall miss at about 58K tokens, not truncation.
+- No HTTP error or error field was surfaced in any of the 720 turns.
+- Rule failures appear only at num_ctx 4096 (llama rule 1 from turn 3 or 5; qwen rule 5 at turn 5, rule 3 at turn
+  20). At 32768 and default, the history canary is lost but every rule in use holds: Ollama keeps the system message
+  when it truncates chat history (see `docs/R2_DESIGN.md`), so the rules survive while the conversation does not.
+
+**Kill criterion.** Pre-registered (`R2-real-v1-kill-criterion`): not killed; every tier shows silent failures. That
+count also includes qwen3:14b tool-argument and recall misses from turn 4 on, inside the window, which were already
+below 90% in its baseline. The stricter variant (`R2-real-v1-gated-kill`, only metrics at >=90% baseline count)
+keeps the verdict but narrows it: at 4096, 6/6 sessions fail silently, all after the window was exceeded; at 32768
+and default, 1/6 each, neither after the window was exceeded (a llama recall miss at turn 20). So the evidence for
+"lost rules with no error" is the 4096 tier; at the larger tiers the silent loss is of conversation history
+(canaries), not of rules.
+
+**Survival** (`R2-real-v1-survival`, intact = no gated failure and no canary miss). At 4096, 0 of 3 sessions per
+model are intact by turn 5. At 32768 and at default for qwen3:14b, all are intact through turn 20 and none at turn
+30. At default, llama3.1:8b has 1 of 3 intact at turn 40.
+
+**Limits.** Tools were withheld on call 2 in this run. The protocol from 2026-10-07 on is identical system prompt
+and tool definitions on every call, with the text answer forced by tool_choice "none" or the runtime equivalent;
+later R2 runs use that, so this run's numbers are not pooled with them. 3 seeds per cell.

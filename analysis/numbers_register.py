@@ -2102,6 +2102,60 @@ def compute_cloud_budget_sensitivity(repo):
             "n": "3 variants"}
 
 
+# ───────────────────────────────────────────────── R2 real run x2_r2_real_v1 (2026-10-07)
+R2_REAL_V1_FILE = "results/x2_r2_real_v1.jsonl"
+
+
+def _r2_real_report(repo):
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "analysis"))
+    import r2_real_report as rr
+    return rr, rr.build(repo / R2_REAL_V1_FILE)
+
+
+def compute_r2_real_v1_first_events(repo):
+    """Per tier x model, per seed (seeds 20260901/02/03 in order, '-' = never in 40 turns): first canary miss, first
+    failure per rule in use, first invalid tool call, first surfaced error."""
+    rr, rep = _r2_real_report(repo)
+    f = rr._fmt
+    parts = []
+    for key, c in rep["table"].items():
+        s = c["sessions"]
+        rules = ", ".join(f"{r.split('_')[0]} {f(e[f'first_fail_{r}'] for e in s)}" for r in c["rules_in_use"])
+        parts.append(f"{key.replace('|', ' ')}: canary miss {f(e['first_canary_miss'] for e in s)} "
+                     f"(over loaded window: {f(e['first_canary_miss_over_window'] for e in s)}); {rules}; "
+                     f"invalid tool call {f(e['first_invalid_tool_call'] for e in s)}; "
+                     f"first error {f(e['first_error'] for e in s)}; first over window {f(e['first_over_window'] for e in s)}")
+    return {"value": " / ".join(parts), "n": f"{rep['n_sessions']} sessions, {rep['n_turn_rows']} turns"}
+
+
+def compute_r2_real_v1_survival(repo):
+    """Sessions intact (no gated failure and no canary miss so far) at turns 5/10/20/30/40, per tier x model."""
+    rr, rep = _r2_real_report(repo)
+    return {"value": "; ".join(f"{k.replace('|', ' ')} " + "/".join(str(c["survival"][t]) for t in rr.CHECKPOINTS)
+                               + f" of {c['n']}" for k, c in rep["table"].items()),
+            "n": rep["n_sessions"]}
+
+
+def compute_r2_real_v1_kill_criterion(repo):
+    """Pre-registered kill criterion (x2_r2_agent.kill_criterion, rules in use; tool args and recall always count)."""
+    _rr, rep = _r2_real_report(repo)
+    k = rep["kill"]
+    arms = "; ".join(f"{a.replace('_call2_notools', '')} {v['n_silent_failures']}/{v['n_sessions']} silent"
+                     for a, v in k["per_arm"].items())
+    return {"value": f"killed={k['killed']}; {arms}", "n": rep["n_sessions"]}
+
+
+def compute_r2_real_v1_gated_kill(repo):
+    """Stricter variant: only rules in use plus metrics at >=90% validation-v2 baseline count; also whether the
+    first silent failure came at or after the first turn whose prompt exceeded the loaded window."""
+    _rr, rep = _r2_real_report(repo)
+    excl = "; ".join(f"{m} excludes {', '.join(v['excluded']) or 'nothing'}" for m, v in rep["gated_metrics"].items())
+    arms = "; ".join(f"{t} {g['silent']}/{g['n_sessions']} silent, {g['silent_after_window_exceeded']} after window "
+                     f"exceeded" for t, g in rep["gated_kill"].items())
+    return {"value": f"{arms} ({excl})", "n": rep["n_sessions"]}
+
+
 NUMBER_ENTRIES = [
     {"claim_id": "PX2-TTFT-gap", "description": "PX2 B4-vs-S4 TTFT gap range across 5 models",
      "compute": compute_px2_ttft_gap, "data_files": ["results/t2s_night2_20260930T135145Z.jsonl"],
@@ -2393,6 +2447,21 @@ NUMBER_ENTRIES = [
     {"claim_id": "cloud-budget-sensitivity", "description": "cloud budget totals (forecast / pessimistic) under flat demo weighting, 5x output, R2 chars/4 tokens",
      "compute": compute_cloud_budget_sensitivity, "data_files": _CLOUD_DATA_FILES,
      "script_function": "analysis/cloud_budget_forecast.py::forecast"},
+    {"claim_id": "R2-real-v1-first-events",
+     "description": "R2 real run: per tier x model first canary miss, first failure per rule in use, first invalid "
+                    "tool call, first error",
+     "compute": compute_r2_real_v1_first_events, "data_files": [R2_REAL_V1_FILE],
+     "script_function": "analysis/numbers_register.py::compute_r2_real_v1_first_events"},
+    {"claim_id": "R2-real-v1-survival", "description": "R2 real run: sessions intact at turns 5/10/20/30/40",
+     "compute": compute_r2_real_v1_survival, "data_files": [R2_REAL_V1_FILE, "results/x2_r2_validation_v2.jsonl"],
+     "script_function": "analysis/numbers_register.py::compute_r2_real_v1_survival"},
+    {"claim_id": "R2-real-v1-kill-criterion", "description": "R2 real run: pre-registered kill criterion verdict",
+     "compute": compute_r2_real_v1_kill_criterion, "data_files": [R2_REAL_V1_FILE],
+     "script_function": "analysis/numbers_register.py::compute_r2_real_v1_kill_criterion"},
+    {"claim_id": "R2-real-v1-gated-kill", "description": "R2 real run: kill criterion restricted to 90%-baseline "
+                    "metrics, and silent failures after the loaded window was exceeded",
+     "compute": compute_r2_real_v1_gated_kill, "data_files": [R2_REAL_V1_FILE, "results/x2_r2_validation_v2.jsonl"],
+     "script_function": "analysis/numbers_register.py::compute_r2_real_v1_gated_kill"},
 ]
 
 
