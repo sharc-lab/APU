@@ -3,252 +3,439 @@
   "results/x2_outcome_table_v3.jsonl",
   "results/t2s_outcome_table_full.jsonl"
  ],
- "backend": "fake: demo/dashboard/fakes.py (src/dse module not on main yet)",
+ "backend": "real: src/dse/pareto.py",
  "points": [
   {
-   "machine": "evo-t2s",
+   "machine": "evo-x2",
    "runtime": "llama_server",
+   "model": "llama3.1:8b",
+   "config_id": "evo-x2:llama_server:llama3.1:8b",
+   "quality": 0.9694589348538154,
+   "quality_n": 121,
+   "usd_per_1k_steps": 0.0,
+   "latency_p50_ms": 22601.999999998952,
+   "latency_p90_ms": 470365.399999991,
+   "stub": false,
+   "template_source": "gguf_embedded_llama_server",
+   "flags": [
+    "errors:timeout=19"
+   ],
+   "weight_coverage": 0.9673463400322724,
+   "n_rows": 121,
+   "error_causes": {
+    "none": 102,
+    "timeout": 19
+   },
+   "cost_basis": "local: 0 marginal API cost",
+   "source_files": [
+    "C:\\Users\\rithw\\OneDrive\\Documents\\GitHub\\APU\\results\\x2_outcome_table_v3.jsonl"
+   ]
+  },
+  {
+   "machine": "evo-x2",
+   "runtime": "ollama_default",
+   "model": "llama3.1:8b",
+   "config_id": "evo-x2:ollama_default:llama3.1:8b",
+   "quality": 1.0,
+   "quality_n": 84,
+   "usd_per_1k_steps": 0.0,
+   "latency_p50_ms": 28413.999999989755,
+   "latency_p90_ms": 138881.4000000013,
+   "stub": false,
+   "template_source": "ollama_library",
+   "flags": [],
+   "weight_coverage": 0.8333337778548283,
+   "n_rows": 84,
+   "error_causes": {
+    "none": 84
+   },
+   "cost_basis": "local: 0 marginal API cost",
+   "source_files": [
+    "C:\\Users\\rithw\\OneDrive\\Documents\\GitHub\\APU\\results\\x2_outcome_table_v3.jsonl"
+   ]
+  },
+  {
+   "machine": "evo-x2",
+   "runtime": "llama_server",
+   "model": "qwen3-14b",
+   "config_id": "evo-x2:llama_server:qwen3-14b",
+   "quality": 0.9358851061101494,
+   "quality_n": 82,
+   "usd_per_1k_steps": 0.0,
+   "latency_p50_ms": 47874.49999997625,
+   "latency_p90_ms": 297110.8999999997,
+   "stub": false,
+   "template_source": "gguf_embedded_llama_server",
+   "flags": [
+    "errors:context_overflow=10"
+   ],
+   "weight_coverage": 0.8319842105965035,
+   "n_rows": 82,
+   "error_causes": {
+    "none": 72,
+    "context_overflow": 10
+   },
+   "cost_basis": "local: 0 marginal API cost",
+   "source_files": [
+    "C:\\Users\\rithw\\OneDrive\\Documents\\GitHub\\APU\\results\\x2_outcome_table_v3.jsonl"
+   ]
+  },
+  {
+   "machine": "evo-x2",
+   "runtime": "ollama_default",
+   "model": "qwen3-14b",
+   "config_id": "evo-x2:ollama_default:qwen3-14b",
+   "quality": 0.9735644296957331,
+   "quality_n": 83,
+   "usd_per_1k_steps": 0.0,
+   "latency_p50_ms": 50843.99999998277,
+   "latency_p90_ms": 155906.80000000866,
+   "stub": false,
+   "template_source": "ollama_library",
+   "flags": [],
+   "weight_coverage": 0.8326589942256659,
+   "n_rows": 83,
+   "error_causes": {
+    "none": 83
+   },
+   "cost_basis": "local: 0 marginal API cost",
+   "source_files": [
+    "C:\\Users\\rithw\\OneDrive\\Documents\\GitHub\\APU\\results\\x2_outcome_table_v3.jsonl"
+   ]
+  },
+  {
+   "machine": "evo-x2",
+   "runtime": "llama_server",
+   "model": "qwen3-30b-a3b",
+   "config_id": "evo-x2:llama_server:qwen3-30b-a3b",
+   "quality": 1.0,
+   "quality_n": 120,
+   "usd_per_1k_steps": 0.0,
+   "latency_p50_ms": 25257.500000006985,
+   "latency_p90_ms": 315129.69999999914,
+   "stub": false,
+   "template_source": "gguf_embedded_llama_server",
+   "flags": [],
+   "weight_coverage": 0.96667155640311,
+   "n_rows": 120,
+   "error_causes": {
+    "none": 120
+   },
+   "cost_basis": "local: 0 marginal API cost",
+   "source_files": [
+    "C:\\Users\\rithw\\OneDrive\\Documents\\GitHub\\APU\\results\\x2_outcome_table_v3.jsonl"
+   ]
+  },
+  {
+   "machine": "evo-x2",
+   "runtime": "ollama_default",
+   "model": "qwen3-30b-a3b",
+   "config_id": "evo-x2:ollama_default:qwen3-30b-a3b",
+   "quality": 1.0,
+   "quality_n": 82,
+   "usd_per_1k_steps": 0.0,
+   "latency_p50_ms": 29077.99999997951,
+   "latency_p90_ms": 93678.9999999921,
+   "stub": false,
+   "template_source": "bare_gguf_ollama_create",
+   "flags": [
+    "bare_template"
+   ],
+   "weight_coverage": 0.8319842105965035,
+   "n_rows": 82,
+   "error_causes": {
+    "none": 82
+   },
+   "cost_basis": "local: 0 marginal API cost",
+   "source_files": [
+    "C:\\Users\\rithw\\OneDrive\\Documents\\GitHub\\APU\\results\\x2_outcome_table_v3.jsonl"
+   ]
+  },
+  {
+   "machine": "evo-x2",
+   "runtime": "llama_server",
+   "model": "qwen3-32b",
+   "config_id": "evo-x2:llama_server:qwen3-32b",
+   "quality": 0.8235157888355722,
+   "quality_n": 78,
+   "usd_per_1k_steps": 0.0,
+   "latency_p50_ms": 123108.99999999674,
+   "latency_p90_ms": 510806.0000000289,
+   "stub": false,
+   "template_source": "gguf_embedded_llama_server",
+   "flags": [
+    "errors:context_overflow=8",
+    "errors:timeout=11"
+   ],
+   "weight_coverage": 0.8045173544366739,
+   "n_rows": 78,
+   "error_causes": {
+    "none": 59,
+    "timeout": 11,
+    "context_overflow": 8
+   },
+   "cost_basis": "local: 0 marginal API cost",
+   "source_files": [
+    "C:\\Users\\rithw\\OneDrive\\Documents\\GitHub\\APU\\results\\x2_outcome_table_v3.jsonl"
+   ]
+  },
+  {
+   "machine": "evo-x2",
+   "runtime": "ollama_default",
+   "model": "qwen3-32b",
+   "config_id": "evo-x2:ollama_default:qwen3-32b",
+   "quality": 0.8663245338291228,
+   "quality_n": 79,
+   "usd_per_1k_steps": 0.0,
+   "latency_p50_ms": 106538.99999998976,
+   "latency_p90_ms": 314805.0000000221,
+   "stub": false,
+   "template_source": "ollama_library",
+   "flags": [
+    "errors:other=3"
+   ],
+   "weight_coverage": 0.8051921380658362,
+   "n_rows": 79,
+   "error_causes": {
+    "other": 3,
+    "none": 76
+   },
+   "cost_basis": "local: 0 marginal API cost",
+   "source_files": [
+    "C:\\Users\\rithw\\OneDrive\\Documents\\GitHub\\APU\\results\\x2_outcome_table_v3.jsonl"
+   ]
+  },
+  {
+   "machine": "evo-x2",
+   "runtime": "llama_server",
+   "model": "qwen3-4b-2507",
+   "config_id": "evo-x2:llama_server:qwen3-4b-2507",
+   "quality": 0.970135664208322,
+   "quality_n": 120,
+   "usd_per_1k_steps": 0.0,
+   "latency_p50_ms": 19023.50000000297,
+   "latency_p90_ms": 531047.9000000012,
+   "stub": false,
+   "template_source": "gguf_embedded_llama_server",
+   "flags": [
+    "errors:timeout=18"
+   ],
+   "weight_coverage": 0.96667155640311,
+   "n_rows": 120,
+   "error_causes": {
+    "none": 102,
+    "timeout": 18
+   },
+   "cost_basis": "local: 0 marginal API cost",
+   "source_files": [
+    "C:\\Users\\rithw\\OneDrive\\Documents\\GitHub\\APU\\results\\x2_outcome_table_v3.jsonl"
+   ]
+  },
+  {
+   "machine": "evo-x2",
+   "runtime": "ollama_default",
+   "model": "qwen3-4b-2507",
+   "config_id": "evo-x2:ollama_default:qwen3-4b-2507",
+   "quality": 1.0,
+   "quality_n": 84,
+   "usd_per_1k_steps": 0.0,
+   "latency_p50_ms": 19780.999999988126,
+   "latency_p90_ms": 115724.90000002435,
+   "stub": false,
+   "template_source": "bare_gguf_ollama_create",
+   "flags": [
+    "bare_template"
+   ],
+   "weight_coverage": 0.8333337778548283,
+   "n_rows": 84,
+   "error_causes": {
+    "none": 84
+   },
+   "cost_basis": "local: 0 marginal API cost",
+   "source_files": [
+    "C:\\Users\\rithw\\OneDrive\\Documents\\GitHub\\APU\\results\\x2_outcome_table_v3.jsonl"
+   ]
+  },
+  {
+   "machine": "evo-x2",
+   "runtime": "llama_server",
+   "model": "qwen3-8b",
+   "config_id": "evo-x2:llama_server:qwen3-8b",
+   "quality": 0.9358851061101494,
+   "quality_n": 82,
+   "usd_per_1k_steps": 0.0,
+   "latency_p50_ms": 28969.000000011874,
+   "latency_p90_ms": 207323.70000000228,
+   "stub": false,
+   "template_source": "gguf_embedded_llama_server",
+   "flags": [
+    "errors:context_overflow=10"
+   ],
+   "weight_coverage": 0.8319842105965035,
+   "n_rows": 82,
+   "error_causes": {
+    "none": 72,
+    "context_overflow": 10
+   },
+   "cost_basis": "local: 0 marginal API cost",
+   "source_files": [
+    "C:\\Users\\rithw\\OneDrive\\Documents\\GitHub\\APU\\results\\x2_outcome_table_v3.jsonl"
+   ]
+  },
+  {
+   "machine": "evo-x2",
+   "runtime": "ollama_default",
+   "model": "qwen3-8b",
+   "config_id": "evo-x2:ollama_default:qwen3-8b",
+   "quality": 0.9727760957093385,
+   "quality_n": 84,
+   "usd_per_1k_steps": 0.0,
+   "latency_p50_ms": 24883.00000000163,
+   "latency_p90_ms": 63298.199999984354,
+   "stub": false,
+   "template_source": "ollama_library",
+   "flags": [],
+   "weight_coverage": 0.8333337778548283,
+   "n_rows": 84,
+   "error_causes": {
+    "none": 84
+   },
+   "cost_basis": "local: 0 marginal API cost",
+   "source_files": [
+    "C:\\Users\\rithw\\OneDrive\\Documents\\GitHub\\APU\\results\\x2_outcome_table_v3.jsonl"
+   ]
+  },
+  {
+   "machine": "evo-t2s",
+   "runtime": "llama_server_vulkan",
    "model": "llama3.1-8b-gguf",
-   "config_id": "llama_server_vulkan",
+   "config_id": "evo-t2s:llama_server_vulkan:llama3.1-8b-gguf",
    "quality": 1.0,
    "quality_n": 20,
    "usd_per_1k_steps": 0.0,
    "latency_p50_ms": 80624.50000003446,
-   "latency_p90_ms": 197968.99999992456,
+   "latency_p90_ms": 183723.79999994303,
    "stub": false,
    "template_source": null,
-   "flags": []
+   "flags": [
+    "template_unknown",
+    "small_n",
+    "low_weight_coverage"
+   ],
+   "weight_coverage": 0.3622227852827824,
+   "n_rows": 20,
+   "error_causes": {
+    "none": 20
+   },
+   "cost_basis": "local: 0 marginal API cost",
+   "source_files": [
+    "C:\\Users\\rithw\\OneDrive\\Documents\\GitHub\\APU\\results\\t2s_outcome_table_full.jsonl"
+   ]
   },
   {
    "machine": "evo-t2s",
-   "runtime": "ollama",
+   "runtime": "ollama_default",
    "model": "llama3.1:8b",
-   "config_id": "ollama_default",
-   "quality": 0.025,
+   "config_id": "evo-t2s:ollama_default:llama3.1:8b",
+   "quality": 0.06948235644448857,
    "quality_n": 40,
    "usd_per_1k_steps": 0.0,
    "latency_p50_ms": 49273.999999975786,
-   "latency_p90_ms": 50108.99999993853,
+   "latency_p90_ms": 50084.09999994328,
    "stub": false,
    "template_source": null,
-   "flags": []
+   "flags": [
+    "template_unknown",
+    "errors:other=18"
+   ],
+   "weight_coverage": 0.5911397975649113,
+   "n_rows": 40,
+   "error_causes": {
+    "none": 22,
+    "other": 18
+   },
+   "cost_basis": "local: 0 marginal API cost",
+   "source_files": [
+    "C:\\Users\\rithw\\OneDrive\\Documents\\GitHub\\APU\\results\\t2s_outcome_table_full.jsonl"
+   ]
   },
   {
    "machine": "evo-t2s",
-   "runtime": "ollama",
+   "runtime": "ollama_igpu_enable",
    "model": "llama3.1:8b",
-   "config_id": "ollama_igpu_enable",
-   "quality": 0.525,
+   "config_id": "evo-t2s:ollama_igpu_enable:llama3.1:8b",
+   "quality": 0.6361921863931889,
    "quality_n": 40,
    "usd_per_1k_steps": 0.0,
    "latency_p50_ms": 96093.99999992456,
    "latency_p90_ms": 192734.00000005495,
    "stub": false,
    "template_source": null,
-   "flags": []
-  },
-  {
-   "machine": "evo-x2",
-   "runtime": "llama_server",
-   "model": "llama3.1:8b",
-   "config_id": "llama_server",
-   "quality": 0.8181818181818182,
-   "quality_n": 121,
-   "usd_per_1k_steps": 0.0,
-   "latency_p50_ms": 22601.999999998952,
-   "latency_p90_ms": 500530.9999999881,
-   "stub": false,
-   "template_source": "gguf_embedded_llama_server",
-   "flags": []
-  },
-  {
-   "machine": "evo-x2",
-   "runtime": "llama_server",
-   "model": "qwen3-14b",
-   "config_id": "llama_server",
-   "quality": 0.8658536585365854,
-   "quality_n": 82,
-   "usd_per_1k_steps": 0.0,
-   "latency_p50_ms": 47874.49999997625,
-   "latency_p90_ms": 297375.0,
-   "stub": false,
-   "template_source": "gguf_embedded_llama_server",
-   "flags": []
-  },
-  {
-   "machine": "evo-x2",
-   "runtime": "llama_server",
-   "model": "qwen3-30b-a3b",
-   "config_id": "llama_server",
-   "quality": 0.9916666666666667,
-   "quality_n": 120,
-   "usd_per_1k_steps": 0.0,
-   "latency_p50_ms": 25257.500000006985,
-   "latency_p90_ms": 315171.9999999914,
-   "stub": false,
-   "template_source": "gguf_embedded_llama_server",
-   "flags": []
-  },
-  {
-   "machine": "evo-x2",
-   "runtime": "llama_server",
-   "model": "qwen3-32b",
-   "config_id": "llama_server",
-   "quality": 0.7307692307692307,
-   "quality_n": 78,
-   "usd_per_1k_steps": 0.0,
-   "latency_p50_ms": 123108.99999999674,
-   "latency_p90_ms": 513782.0000000065,
-   "stub": false,
-   "template_source": "gguf_embedded_llama_server",
-   "flags": []
-  },
-  {
-   "machine": "evo-x2",
-   "runtime": "llama_server",
-   "model": "qwen3-4b-2507",
-   "config_id": "llama_server",
-   "quality": 0.8166666666666667,
-   "quality_n": 120,
-   "usd_per_1k_steps": 0.0,
-   "latency_p50_ms": 19023.50000000297,
-   "latency_p90_ms": 566014.9999999994,
-   "stub": false,
-   "template_source": "gguf_embedded_llama_server",
-   "flags": []
-  },
-  {
-   "machine": "evo-x2",
-   "runtime": "llama_server",
-   "model": "qwen3-8b",
-   "config_id": "llama_server",
-   "quality": 0.8780487804878049,
-   "quality_n": 82,
-   "usd_per_1k_steps": 0.0,
-   "latency_p50_ms": 28969.000000011874,
-   "latency_p90_ms": 207516.00000000326,
-   "stub": false,
-   "template_source": "gguf_embedded_llama_server",
-   "flags": []
-  },
-  {
-   "machine": "evo-x2",
-   "runtime": "ollama",
-   "model": "llama3.1:8b",
-   "config_id": "ollama_default",
-   "quality": 0.898876404494382,
-   "quality_n": 89,
-   "usd_per_1k_steps": 0.0,
-   "latency_p50_ms": 27547.00000002049,
-   "latency_p90_ms": 140016.00000000326,
-   "stub": false,
-   "template_source": "ollama_library",
-   "flags": []
-  },
-  {
-   "machine": "evo-x2",
-   "runtime": "ollama",
-   "model": "qwen3-14b",
-   "config_id": "ollama_default",
-   "quality": 0.927710843373494,
-   "quality_n": 83,
-   "usd_per_1k_steps": 0.0,
-   "latency_p50_ms": 50843.99999998277,
-   "latency_p90_ms": 155907.00000000652,
-   "stub": false,
-   "template_source": "ollama_library",
-   "flags": []
-  },
-  {
-   "machine": "evo-x2",
-   "runtime": "ollama",
-   "model": "qwen3-30b-a3b",
-   "config_id": "ollama_default",
-   "quality": 0.8556701030927835,
-   "quality_n": 97,
-   "usd_per_1k_steps": 0.0,
-   "latency_p50_ms": 25172.00000002049,
-   "latency_p90_ms": 93967.99999999348,
-   "stub": false,
-   "template_source": "bare_gguf_ollama_create",
    "flags": [
-    "bare template"
+    "template_unknown",
+    "errors:other=19"
+   ],
+   "weight_coverage": 0.5911397975649113,
+   "n_rows": 40,
+   "error_causes": {
+    "none": 21,
+    "other": 19
+   },
+   "cost_basis": "local: 0 marginal API cost",
+   "source_files": [
+    "C:\\Users\\rithw\\OneDrive\\Documents\\GitHub\\APU\\results\\t2s_outcome_table_full.jsonl"
    ]
-  },
-  {
-   "machine": "evo-x2",
-   "runtime": "ollama",
-   "model": "qwen3-32b",
-   "config_id": "ollama_default",
-   "quality": 0.9113924050632911,
-   "quality_n": 79,
-   "usd_per_1k_steps": 0.0,
-   "latency_p50_ms": 106538.99999998976,
-   "latency_p90_ms": 315063.00000002375,
-   "stub": false,
-   "template_source": "ollama_library",
-   "flags": []
-  },
-  {
-   "machine": "evo-x2",
-   "runtime": "ollama",
-   "model": "qwen3-4b-2507",
-   "config_id": "ollama_default",
-   "quality": 0.9642857142857143,
-   "quality_n": 84,
-   "usd_per_1k_steps": 0.0,
-   "latency_p50_ms": 19780.999999988126,
-   "latency_p90_ms": 115781.00000001723,
-   "stub": false,
-   "template_source": "bare_gguf_ollama_create",
-   "flags": [
-    "bare template"
-   ]
-  },
-  {
-   "machine": "evo-x2",
-   "runtime": "ollama",
-   "model": "qwen3-8b",
-   "config_id": "ollama_default",
-   "quality": 0.9166666666666666,
-   "quality_n": 84,
-   "usd_per_1k_steps": 0.0,
-   "latency_p50_ms": 24883.00000000163,
-   "latency_p90_ms": 63311.99999997625,
-   "stub": false,
-   "template_source": "ollama_library",
-   "flags": []
   },
   {
    "machine": "cloud",
-   "runtime": "cloud",
-   "model": "gpt-4o-mini",
-   "config_id": "cloud_cheap",
+   "runtime": "api_standard",
+   "model": "gpt-6-luna",
+   "config_id": "cloud:STUB:gpt-6-luna:standard",
    "quality": null,
    "quality_n": 0,
-   "usd_per_1k_steps": 2.9688000000000003,
+   "usd_per_1k_steps": 1.8514021780606806,
    "latency_p50_ms": null,
    "latency_p90_ms": null,
    "stub": true,
    "template_source": null,
    "flags": [
-    "STUB"
+    "STUB",
+    "stub_quality_unmeasured",
+    "stub_latency_unmeasured"
+   ],
+   "weight_coverage": null,
+   "n_rows": 0,
+   "error_causes": {},
+   "cost_basis": "STUB: results/cloud_prices_20261008.json standard rates x o200k token counts (analysis/cloud_budget_forecast.py) over 340 step items",
+   "source_files": [
+    "results/cloud_prices_20261008.json",
+    "results/workload_pack/item_weights_trace_weighted.json"
    ]
   },
   {
    "machine": "cloud",
-   "runtime": "cloud",
-   "model": "claude-sonnet-4-5",
-   "config_id": "cloud_strong",
+   "runtime": "api_standard",
+   "model": "gpt-6.1-sol",
+   "config_id": "cloud:STUB:gpt-6.1-sol:standard",
    "quality": null,
    "quality_n": 0,
-   "usd_per_1k_steps": 60.528000000000006,
+   "usd_per_1k_steps": 37.028043561213615,
    "latency_p50_ms": null,
    "latency_p90_ms": null,
    "stub": true,
    "template_source": null,
    "flags": [
-    "STUB"
+    "STUB",
+    "stub_quality_unmeasured",
+    "stub_latency_unmeasured"
+   ],
+   "weight_coverage": null,
+   "n_rows": 0,
+   "error_causes": {},
+   "cost_basis": "STUB: results/cloud_prices_20261008.json standard rates x o200k token counts (analysis/cloud_budget_forecast.py) over 340 step items",
+   "source_files": [
+    "results/cloud_prices_20261008.json",
+    "results/workload_pack/item_weights_trace_weighted.json"
    ]
   }
  ]

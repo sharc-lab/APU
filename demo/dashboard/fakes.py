@@ -158,6 +158,11 @@ class Recommendation:
 _MACHINE_BY_FILE_PREFIX = {"x2_": "evo-x2", "t2s_": "evo-t2s"}
 
 
+def machine_for_file(f) -> str:
+    f = Path(f)
+    return next((m for p, m in _MACHINE_BY_FILE_PREFIX.items() if f.name.startswith(p)), f.stem)
+
+
 def _f(v) -> Optional[float]:
     try:
         x = float(v)
@@ -186,8 +191,11 @@ def load_points(files, cloud_source="stub") -> list[Point]:
     templates = _template_sources()
     groups: dict[tuple, list[dict]] = {}
     for f in files:
-        f = Path(f)
-        machine = next((m for p, m in _MACHINE_BY_FILE_PREFIX.items() if f.name.startswith(p)), f.stem)
+        if isinstance(f, (tuple, list)):  # the agreed (machine, path) form, as src/dse/pareto.load_points takes
+            machine, f = f[0], Path(f[1])
+        else:
+            f = Path(f)
+            machine = machine_for_file(f)
         for line in f.read_text(encoding="utf-8").splitlines():
             r = json.loads(line)
             if r.get("record") != "outcome_row":

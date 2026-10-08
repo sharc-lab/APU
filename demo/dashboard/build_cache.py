@@ -186,7 +186,9 @@ def mitigation(register: dict) -> dict:
 
 def points(backend) -> dict:
     files = [REPO / f for f in OUTCOME_FILES if (REPO / f).exists()]
-    pts = backend.pareto.load_points(files, cloud_source="stub")
+    # The agreed load_points interface takes (machine, path) pairs; the machine comes from the file-name prefix.
+    from demo.dashboard.fakes import machine_for_file
+    pts = backend.pareto.load_points([(machine_for_file(f), f) for f in files], cloud_source="stub")
     as_dict = [dataclasses.asdict(p) if dataclasses.is_dataclass(p) else dict(vars(p)) for p in pts]
     return {"files": [f.relative_to(REPO).as_posix() for f in files], "backend": backend.pareto_source,
             "points": as_dict}
