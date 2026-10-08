@@ -114,3 +114,75 @@ the baseline table says otherwise).
 - Per-turn token accounting across both calls.
 - The validation harness itself (baseline table, negative control, positive control) as a distinct,
   runnable mode before any real-run data is collected.
+
+## Implementation notes (2026-10-06, `harness/x2_r2_agent.py`)
+
+Written with the harness, before its validation run. These pin down choices the sections above leave open; where
+one extends the spec it says so.
+
+- **Two canaries (extension).** Ollama's `/api/chat` history truncation keeps every system message and drops the
+  oldest non-system messages first, so a canary that lives only in the system prompt can survive a real truncation,
+  and the positive control could then never fire. The system-prompt canary (`generate_canary`, unchanged) is kept
+  and scored, and a second canary (a "history tag", `generate_history_canary`) is placed in the first user message
+  of the session, which is what Ollama drops first. Every canary turn asks for both; both are scored separately; a
+  miss of either while over the loaded window is truncation. Which one survives is recorded.
+- **Truncation comparator.** "Cumulative token count" is the transcript the window has to hold: the prompt of the
+  call that produced the final answer (system prompt, every earlier turn's user message, call-1 tool-call message,
+  tool results and call-2 answer, plus the tool schema), estimated at chars/4 and scaled by a per-session
+  calibration ratio. The ratio is the turn-1 call-1 `prompt_eval_count` over the estimate, taken right after an
+  explicit model unload (nothing cached, far below any window), bounded to [0.5, 2.5], and otherwise unused.
+  `prompt_eval_count` is never the truncation signal. The loaded context is `GET /api/ps` `context_length`, read
+  after every turn; unknown means no truncation verdict.
+- **Both calls' tokens.** The transcript keeps the whole tool round trip of every turn (not only the final answer),
+  so later turns pay for earlier turns' tool calls. Each turn row also records the sum of both calls' prompt and
+  completion tokens, and the session's running sum of that (a cost figure, not the truncation comparator).
+- **No tool call in call 1.** There is nothing to simulate, so there is no call 2: call 1's content is the final
+  answer, rule 2 fails, and the row records `n_calls = 1`.
+- **Tool calls in call 2.** Scored for validity and arguments and counted for rule 2; their simulated results are
+  appended so the transcript stays well formed; no third call is made.
+- **Text-embedded calls.** Only when the native `tool_calls` field is empty: the whole content (one markdown code
+  fence allowed) is a bare `{"name", "arguments"|"parameters"}` object, a list of them, or a `{"tool_calls": [...]}`
+  object without an `"answer"` key. An answer-shaped JSON's optional `"tool_calls"` key is a report, never a call.
+- **Tool validity:** known tool, arguments an object with exactly the schema's keys, string values. **Tool
+  arguments** (valid calls only): `lookup_fact` is correct only on a lookup turn with exactly that turn's key;
+  `log_event` on a length turn must mention the turn's rack id and its length (cm figure, or the same length in
+  metres); `log_event` on other turns needs a non-empty event.
+- **Simulated `lookup_fact` store** holds one deterministic value per lookup key a turn asks for. The three
+  system-prompt recall facts are not in it (looking one up returns "fact not found"), so recall can only come from
+  context. Whether the model tried to look a recall key up is recorded.
+- **Rule scoring details.** Rule 1: the whole content (one code fence allowed) parses as a JSON object with
+  `answer` (string) and `source`, and no keys beyond `answer`/`source`/`tool_calls`. Rule 4 applies to length turns
+  only (other turns are excluded from its denominator, not counted as passes) and is scored on the answer field, or
+  the raw text if the JSON did not parse, so a rule-1 failure does not cascade into rule 4. Rule 5 needs a parsed
+  answer field by definition. Canaries and recall are verbatim substrings of the raw final text.
+- **think.** `"think": false` is sent on every qwen3 call and omitted for llama3.1 (no thinking mode); the value is
+  recorded per row, and empty final answers are counted per model.
+- **Call-2 tools diagnostic.** Step 4 keeps tools available on call 2. Validation also runs arm b with tools
+  withheld on call 2 only (`ollama_ctx_131072_call2_notools`, same seeds and turns). Gates are computed on the spec
+  arm only; the diagnostic exists so that, if a model loops on tool calls in call 2 instead of answering, the
+  alternative's baseline is already measured in the same job.
+- **Kill criterion** (pre-registered 2026-09-29, `docs/FINDINGS.md`) is evaluated with
+  `t2s_r2_session_growth.evaluate_kill_criterion`. A session's first failure is its first turn with a failed rule
+  among the rules in use (those that passed the validation gate), a tool-validity failure, a tool-argument failure,
+  or a recall failure; an error is any call with a non-200 status, a transport error, or an error field.
+
+### Changes after the first validation run (2026-10-07, `results/x2_r2_validation.jsonl`)
+
+- **One canary pair per check, never reused.** The first run asked for the same two canaries at every check.
+  qwen3:14b's positive control (num_ctx 8192) reproduced both at turn 10 although its final-call prompt (about
+  15.5K estimated tokens) was far past the window: the model copied them from its own turn-5 answer, which was still
+  inside the retained tail. The system prompt now lists C1..C8 (replacing the single-canary paragraph) and the
+  first user message lists H1..H8; turn 5k asks for Ck and Hk only, so no earlier answer can carry the requested
+  canary forward. An answer that contains a different check's canary is recorded (`other_canaries_in_answer`).
+- **Tools withheld on call 2 for the real run (deviation from step 4).** With tools available on call 2,
+  llama3.1:8b answered call 2 with another tool call on 20 of 30 turns in the first run, sometimes stuffing its
+  JSON answer into the tool arguments, leaving those 20 final answers empty, so the text rules failed for a harness
+  reason, not a context reason. With tools withheld on call 2 only (the diagnostic arm, same seeds) all 30 final
+  answers were non-empty. (In the second run, whose prompts differ by the numbered canaries, the spec-variant
+  diagnostic arm made no call-2 tool calls, but llama3.1:8b's rule 5 fell to 0% there against 60% with tools
+  withheld; qwen3:14b passed every rule under both variants.) Both models therefore run the `_call2_notools` arms
+  (`--call2-tools off`), validated again under that variant before the real run. Rule 2 is still a turn-level OR,
+  now in practice satisfied only by call 1.
+- **Per-model rules in use.** A rule that misses the 90% gate for one model is dropped for that model only;
+  `--rules-from <validation file>` makes the real run's kill criterion use each model's gate-passing rules.
+- **Positive control** runs 15 turns (two checks past the 8192 window instead of one).

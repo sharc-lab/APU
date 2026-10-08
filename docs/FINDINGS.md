@@ -2022,3 +2022,72 @@ the queued resume starts.
 gsm8k canaries are scored strictly on the `#### <number>` format the prompt asks for; llama3.1:8b and
 qwen3-4b-2507 lose points by answering "The final answer is 187." with the right number. That is a
 format-compliance outcome, not an infra error, and is reported as scored.
+
+---
+
+## R2 two-step agent harness: validation baseline (2026-10-07, evo-x2)
+
+**Status:** validation complete; the first real run (`x2_r2_real_v1`) is queued, not yet run. Harness:
+`harness/x2_r2_agent.py` (spec: `docs/R2_DESIGN.md`, including its implementation notes and the changes made after
+the first validation run). Every number below is pasted from `docs/NUMBERS_REGISTER.md` rows
+`R2-validation-baseline`, `R2-validation-call2-notools`, `R2-validation-v2-baseline` and
+`R2-validation-v2-spec-diag`.
+
+**Design in one paragraph.** Each turn is two Ollama calls: call 1 with the 2-tool schema (the model emits tool
+calls), simulated tool results, then call 2 for the final answer. Tool validity and tool arguments are scored per
+call; rules 1/3/4/5, canaries and recall on the final answer; rule 2 (log_event) as a turn-level OR over both
+calls. Truncation is a canary miss while the final call's prompt exceeds the context Ollama reports loaded
+(`/api/ps`), never `prompt_eval_count`. llama3.1:8b and qwen3:14b (`"think": false` sent for qwen3, recorded per
+row), temperature 0, seeds 20260901-20260903.
+
+### First validation run (`results/x2_r2_validation.jsonl`): two harness problems, not model results
+
+- **Canary echo.** One canary pair was asked at every check. The qwen3:14b positive control (num_ctx 8192)
+  reproduced it at turn 10 although the prompt was far past the window, so no truncation was detected (register:
+  positive-control truncation turn [None]): the model copied the canaries from its own turn-5 answer, still in the
+  retained tail. Fixed by a fresh canary pair per check (C1..C8 in the system prompt, H1..H8 in the first user
+  message, turn 5k asks for Ck and Hk only).
+- **Call-2 tool calls (spec variant).** With tools available on call 2, llama3.1:8b's final answer was empty on 20
+  of its 30 turns (register: empty final answers 20), which drove its negative-control canary misses (8/12) and its
+  rule 1 (33.3%) and rule 5 (0.0%) rates. With tools withheld on call 2 only (diagnostic arm, same seeds): rule1
+  100.0%, rule2 63.3%, rule3 100.0%, rule4 100.0%, rule5 93.3%, empty final answers 0. qwen3:14b passed every rule
+  in both variants. Decision: the real run withholds tools on call 2 for both models (a recorded deviation from
+  R2_DESIGN step 4).
+
+### Baseline table (second validation run, `results/x2_r2_validation_v2.jsonl`; the gate for the real run)
+
+Tools withheld on call 2, per-check canaries. Arm b (num_ctx 131072), 3 sessions x 10 turns per model; positive
+control num_ctx 8192, 1 session x 15 turns per model. Loaded context reported by Ollama: 131072 for llama3.1:8b,
+40960 for qwen3:14b (Ollama clamps the request to qwen3:14b's trained length; 10 turns stay well inside it).
+
+| metric | llama3.1:8b | qwen3:14b |
+|---|---|---|
+| rule 1, JSON keys (final answer) | 100.0% (n=30) | 100.0% (n=30) |
+| rule 2, log_event called (either call) | 60.0% (n=30), **fails gate** | 100.0% (n=30) |
+| rule 3, no "ZEBRA-7" | 100.0% (n=30) | 100.0% (n=30) |
+| rule 4, metres (length turns only) | 100.0% (n=15) | 100.0% (n=15) |
+| rule 5, session code suffix | 60.0% (n=30), **fails gate** | 100.0% (n=30) |
+| tool validity (per call) | 100.0% of 30 calls | 100.0% of 51 calls |
+| tool arguments (per valid call) | 100.0% | 88.2% |
+| fact recall (recall turns) | 100.0% (n=6) | 66.7% (n=6) |
+| canary C (system prompt) / H (first user message) | 100.0% / 100.0% (n=6) | 100.0% / 100.0% (n=6) |
+| empty final answers | 0 | 0 |
+| negative control: canary misses at 131072 | 0/12 | 0/12 |
+| positive control: truncation detected at 8192 | turn 10 | turn 10 |
+
+**Gates.**
+- Baseline (every rule used >= 90%): qwen3:14b passes with all 5 rules. llama3.1:8b passes only with rules 1, 3
+  and 4; **rules 2 and 5 are dropped for llama3.1:8b** (not fixed: the failures are real model behavior, not scorer
+  artifacts. On lookup turns llama3.1:8b calls only `lookup_fact` and never `log_event`; in one of the three
+  sessions it omits the session code on every turn). The real run's kill criterion uses these per-model rule sets
+  (`--rules-from`).
+- Negative control: pass for both models (0 canary misses).
+- Positive control: pass for both models (truncation detected at turn 10). In both, only the history tags (H) were
+  missed; every system-prompt canary (C) survived. That is consistent with Ollama's chat truncation keeping the
+  system message and dropping the oldest other messages, and it confirms the first-user-message canary is the one
+  that can detect truncation on Ollama.
+- Content non-empty: pass for both models.
+
+**Not yet established.** These are 10-turn baselines at a context that is never exceeded (plus one 15-turn
+positive control per model). They say the harness measures what it claims and which rules each model follows
+when nothing is truncated; they say nothing yet about behavior under the real run's context tiers.
