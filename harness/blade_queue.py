@@ -50,9 +50,10 @@ NIGHTS = {
          "outputs": ["results/blade_r2_real_v1.jsonl"]},
         {"id": "blade_r2_mitigation_v1",
          "argv": ["harness/blade_r2.py", "--mode", "mitigation", "--out", "results/blade_r2_mitigation_v1.jsonl",
-                  *_R2_MODELS, "--tiers", "default,4096,8192", "--rules-from", R2_VALIDATION,
+                  *_R2_MODELS, "--tiers", "default,4096,8192", "--client-trim", "margin=0.05",
+                  "--rules-from", R2_VALIDATION,
                   "--require-validation-gates"],
-         "outputs": ["results/blade_r2_mitigation_v1.jsonl"], "depends_on_merge": "x2_r2_mitigation_v1"},
+         "outputs": ["results/blade_r2_mitigation_v1.jsonl"]},
     ],
     2: [
         {"id": "blade_c3_sysmem_fallback_v1",

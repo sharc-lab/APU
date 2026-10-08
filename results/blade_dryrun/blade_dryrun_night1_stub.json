@@ -2,10 +2,10 @@
  "night": 1,
  "summary": {
   "night": 1,
-  "started_utc": "2026-10-08T21:00:51.457128+00:00",
+  "started_utc": "2026-10-08T21:21:31.952501+00:00",
   "refused": null,
   "power": {
-   "log": "C:\\Users\\rithw\\AppData\\Local\\Temp\\blade_night_stub_7i9imepm\\logs\\night1_power_20261008T210051Z.json",
+   "log": "C:\\Users\\rithw\\AppData\\Local\\Temp\\blade_night_stub_uwt58j_m\\logs\\night1_power_20261008T212131Z.json",
    "original": {
     "SUB_SLEEP/STANDBYIDLE": {
      "ac": 1800,
@@ -94,8 +94,8 @@
    ],
    "stopped_early": null
   },
-  "ended_utc": "2026-10-08T21:00:52.320466+00:00",
-  "summary_file": "C:\\Users\\rithw\\AppData\\Local\\Temp\\blade_night_stub_7i9imepm\\results\\blade_night1_summary_20261008T210051Z.json"
+  "ended_utc": "2026-10-08T21:21:32.300368+00:00",
+  "summary_file": "C:\\Users\\rithw\\AppData\\Local\\Temp\\blade_night_stub_uwt58j_m\\results\\blade_night1_summary_20261008T212131Z.json"
  },
  "power_call_order": [
   "/setacvalueindex SUB_SLEEP STANDBYIDLE 0",
@@ -140,6 +140,7 @@
     "tiers": null,
     "seeds": null,
     "turns": null,
+    "client_trim": null,
     "rules_from": null,
     "require_validation_gates": false,
     "order": "seed_major",
@@ -165,6 +166,7 @@
     "tiers": "default,4096,32768",
     "seeds": null,
     "turns": null,
+    "client_trim": null,
     "rules_from": "results/blade_r2_validation_v1.jsonl",
     "require_validation_gates": true,
     "order": "seed_major",
@@ -190,6 +192,7 @@
     "tiers": "default,4096,8192",
     "seeds": null,
     "turns": null,
+    "client_trim": "margin=0.05",
     "rules_from": "results/blade_r2_validation_v1.jsonl",
     "require_validation_gates": true,
     "order": "seed_major",
@@ -200,7 +203,28 @@
    "outputs": [
     "results/blade_r2_mitigation_v1.jsonl"
    ],
-   "outputs_prefixed_blade": true
+   "outputs_prefixed_blade": true,
+   "x2_r2_agent_argv": [
+    "--mode",
+    "mitigation",
+    "--client-trim",
+    "margin=0.05",
+    "--call2-tools",
+    "off",
+    "--out",
+    "results/blade_r2_mitigation_v1.jsonl",
+    "--models",
+    "llama3.1:8b",
+    "--order",
+    "seed_major",
+    "--rules-from",
+    "results/blade_r2_validation_v1.jsonl",
+    "--require-validation-gates",
+    "--per-model-refusal"
+   ],
+   "client_trim": {
+    "margin": 0.05
+   }
   }
  ],
  "set_before_first_job": true,

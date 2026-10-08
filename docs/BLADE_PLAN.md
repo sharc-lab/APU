@@ -66,7 +66,7 @@ and tokenize). The factors are assumptions; K1 measures the offload they stand f
 | 1 | (b) R2 validation and controls, llama3.1:8b (+ qwen3:8b if it fits) | `blade_r2_validation_v1` / `results/blade_r2_validation_v1.jsonl` | 0.58 | scaled |
 | 1 | (b) R2 native, tiers default, 4096, 32768, 5 seeds x 40 turns, llama3.1:8b | `blade_r2_real_v1` / `results/blade_r2_real_v1.jsonl` | 6.90 | scaled |
 | 1 | (b) the same for qwen3:8b, only if K1 says it fits | (same job and file) | +9.0 | scaled |
-| 1 | (c) mitigation, x2_r2_mitigation_v1 design, Blade default (resolved from K1), 4096, 8192, 3 seeds | `blade_r2_mitigation_v1` / `results/blade_r2_mitigation_v1.jsonl` | 1.50 | scaled; depends on mitigation merge |
+| 1 | (c) mitigation, x2_r2_mitigation_v1 design, Blade default (resolved from K1), 4096, 8192, 3 seeds | `blade_r2_mitigation_v1` / `results/blade_r2_mitigation_v1.jsonl` | 1.50 | scaled |
 | 2 | (d) C3 half A: Prefer No Sysmem Fallback, ctx 36864/38912/40960/43008, 1+5 calls | `blade_c3_sysmem_fallback_v1` / `results/blade_c3_sysmem_fallback_v1.jsonl` | up to 2.29 | measured (C1 segments); minutes if the spilled points fail at load |
 | 2 | (d) C3 half B: Driver Default restored, ctx 40960/43008, 1+3 calls | (same) | 0.80 | measured (C1 segments, scaled by call count) |
 | 2 | (e) mechanism: render-only validity, message-drop and context-shift logging, llama3.1:8b, one session per tier (default, 32768, 16384, 8192, 4096) | `blade_r2_mechanism_v1` / `results/blade_r2_mechanism_v1.jsonl` | 2.71 | scaled |
@@ -91,11 +91,16 @@ keyboard for the two gates.
   at its default context; the decision and its reason are a `run_start` field. The real run refuses per model unless
   the Blade's own validation file passes `validation_preflight_per_model`. Validation keeps evo-x2's design exactly
   (arm b num_ctx 131072), which on 8 GB means Ollama runs most layers on the CPU (see open questions).
-- **Mitigation**: depends on mitigation merge. `blade_r2.py --mode mitigation` needs `x2_r2_agent.run_mitigation`
-  (being built on another branch for x2_r2_mitigation_v1, pre-registered in FINDINGS 2026-10-08, flags
-  `--mode mitigation --client-trim margin=0.05`). Until that is on main the job writes `blocked_dependency` and exits
-  3, the queue marks it `blocked_dependency` and the night moves on. After the merge: confirm the entry point name and
-  keyword arguments in `blade_r2.main` (one call), and reset the job to `pending` in the queue state.
+- **Mitigation** (x2_r2_mitigation_v1's design, pre-registered in FINDINGS 2026-10-08, on main):
+  `blade_r2.py --mode mitigation --client-trim margin=0.05`, tiers default (resolved to K1's measured num_ctx for
+  llama3.1:8b), 4096 and 8192, seeds 20260901..20260903, 40 turns, v1 call-2 mode, Ollama under OLLAMA_DEBUG=1 with the
+  mechanism log parsing. The body is `x2_r2_agent.run_mitigation`, the same function `x2_r2_agent.main --mode
+  mitigation` runs on evo-x2 (extracted from main unchanged, with `x2_r2_agent.build_arg_parser()`, so both machines run
+  one code path). The job builds the equivalent x2_r2_agent argv, parses it with x2_r2_agent's own parser and
+  `x2_r2_client_trim.parse_client_trim`, and records it in `run_start` (`x2_r2_agent_equivalent_argv`); the stub night
+  runs the same parse. Only the server differs: the Blade's hidden local Ollama with its own log instead of the WMI
+  launch. A K1 default other than x2_r2_agent's fixed tiers (e.g. 40960) is registered as an arm at run time with the
+  same fields.
 - **C3** (`blade_c3.py`): C1's harness per call (qwen3-4b-instruct, f16 KV, `-fa on -ngl 99 -np 1 -t 4`, 90% fill,
   thermal gate, stale-server guard, nvidia-smi, dmon and per-PID Shared Usage), every ctx attempted (no skip after a
   failure), half A order shuffled with seed 20261008. Each half waits for its confirmation flag; no timeout.
@@ -195,12 +200,12 @@ lets the installed 0.34.1 stand in for the pin and is refused outside a dry run)
 py -3.12 harness\blade_k1.py --out results\blade_dryrun\blade_dryrun_k1.jsonl --models llama3.2 --skip-llamacpp --dry-run-seconds 60 --allow-version-mismatch --ollama-exe %LOCALAPPDATA%\Programs\Ollama\ollama.exe
 py -3.12 harness\blade_r2.py --mode validation --out results\blade_dryrun\blade_dryrun_r2_validation.jsonl --models llama3.2 --seeds 20260901 --turns 3 --dry-run-seconds 60 --allow-version-mismatch --ollama-exe %LOCALAPPDATA%\Programs\Ollama\ollama.exe
 py -3.12 harness\blade_r2.py --mode real --out results\blade_dryrun\blade_dryrun_r2_real.jsonl --models llama3.2 --tiers 4096 --seeds 20260901 --dry-run-seconds 60 --allow-version-mismatch --ollama-exe %LOCALAPPDATA%\Programs\Ollama\ollama.exe
-py -3.12 harness\blade_r2.py --mode mitigation --out results\blade_dryrun\blade_dryrun_r2_mitigation.jsonl --models llama3.2 --tiers 4096 --seeds 20260901 --dry-run-seconds 60 --allow-version-mismatch --ollama-exe %LOCALAPPDATA%\Programs\Ollama\ollama.exe
+py -3.12 harness\blade_r2.py --mode mitigation --client-trim margin=0.05 --out results\blade_dryrun\blade_dryrun_r2_mitigation.jsonl --models llama3.2 --tiers 4096 --seeds 20260901 --dry-run-seconds 60 --allow-version-mismatch --ollama-exe %LOCALAPPDATA%\Programs\Ollama\ollama.exe
 py -3.12 harness\blade_c3.py --out results\blade_dryrun\blade_dryrun_c3_gate.jsonl --dry-run-gate
 py -3.12 harness\blade_r2.py --mode mechanism --out results\blade_dryrun\blade_dryrun_r2_mechanism.jsonl --models llama3.2 --tiers 4096 --dry-run-seconds 60 --allow-version-mismatch --ollama-exe %LOCALAPPDATA%\Programs\Ollama\ollama.exe
 ```
 
-The mitigation one is expected to exit 3 (blocked_dependency) until the merge. The C3 one runs the gate logic with a
+The C3 one runs the gate logic with a
 fake operator only (no server, no NVIDIA setting). After the last one, restart the tray Ollama from the Start menu if
 it is wanted; the dry runs stop it.
 
@@ -226,8 +231,8 @@ it is wanted; the dry runs stop it.
    asked (it tests the request path, not a different window).
 4. The 32768 tier and the mechanism's 16384 and 32768 tiers run with layers on the CPU on 8 GB; their time cost is a
    guess until K1 reports size_vram at those windows.
-5. The mitigation entry point name (`run_mitigation`) and keywords are this plan's assumption; adjust the one call
-   in `blade_r2.main` when x2_r2_mitigation_v1 merges.
+5. Mitigation needs the llama-tokenize exe at `C:\apu\bin\llama-b10970\llama-tokenize.exe`
+   (`prompt_token_check.TOKENIZE_EXE`); it is present on the Blade (Vulkan build dir, tokenizing is CPU-only).
 6. C3 sets the policy globally (as asked). A per-program setting for `llama-server.exe` would avoid touching other
    CUDA programs; the operator can choose either, the gate text is the same.
 7. llama3.1:8b on the Blade: manifest model digest 667b0c19...6a29; whether it equals evo-x2's digest has not been

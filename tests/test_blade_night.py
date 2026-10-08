@@ -275,19 +275,69 @@ def test_r2_fit_decision_and_default_tier(tmp_path):
     assert tiers == ["4096"] and "dropped" in note
 
 
-def test_mitigation_blocks_without_merge(monkeypatch, tmp_path):
-    out = bc.DRYRUN_DIR / "blade_dryrun_test_mitigation_block.jsonl"
+def _mitigation_job_args():
+    job = next(j for j in bq.NIGHTS[1] if j["id"] == "blade_r2_mitigation_v1")
+    return blade_r2.build_arg_parser().parse_args(job["argv"][1:])
+
+
+def test_mitigation_job_argv_parses_with_x2_r2_agent_parser():
+    args = _mitigation_job_args()
+    argv, spec = blade_r2.check_mitigation_args(args, ["llama3.1:8b"])
+    parsed = blade_r2.agent.build_arg_parser().parse_args(argv)
+    assert parsed.mode == "mitigation" and parsed.client_trim == "margin=0.05" and parsed.call2_tools == "off"
+    assert spec == {"margin": 0.05}
+    assert args.tiers == "default,4096,8192"
+
+
+def test_mitigation_requires_client_trim_and_rejects_bad_spec():
+    args = _mitigation_job_args()
+    args.client_trim = None
+    with pytest.raises(SystemExit):
+        blade_r2.check_mitigation_args(args, ["llama3.1:8b"])
+    args.client_trim = "margin=0.9"
+    with pytest.raises(ValueError):
+        blade_r2.check_mitigation_args(args, ["llama3.1:8b"])
+
+
+def test_mitigation_plan_is_x2_design_on_blade_tiers(tmp_path):
+    p = tmp_path / "k1.summary.json"
+    p.write_text(json.dumps({"models": {"llama3.1:8b": {"default_ctx": 40960}}}))
+    tiers, _ = blade_r2.resolve_default_tier(["default", "4096", "8192"], p, "llama3.1:8b")
+    plan = blade_r2.plan_for("mitigation", tiers)
+    assert [a for a, _, _ in plan] == ["ollama_ctx_40960_call2_notools", "ollama_ctx_4096_call2_notools",
+                                       "ollama_ctx_8192_call2_notools"]
+    assert all(s == tuple(blade_r2.agent.SEEDS) and t == 40 for _, s, t in plan)
+    assert blade_r2.agent.ARMS["ollama_ctx_40960_call2_notools"] == {"num_ctx": 40960, "call2_tools": False,
+                                                                    "call2_mode": "off"}
+    x2 = blade_r2.agent.mitigation_plan("off")
+    assert [a for a, _, _ in x2] == [a for a, _, _ in plan[1:]]   # same arms as evo-x2's run at 4096/8192
+
+
+def test_mitigation_calls_x2_run_mitigation_with_blade_server(monkeypatch):
+    out = bc.DRYRUN_DIR / "blade_dryrun_test_mitigation_wiring.jsonl"
+    calls = {}
     monkeypatch.setattr(bc, "require_blade", lambda *a: {})
     monkeypatch.setattr(bc, "versions_record", lambda *a, **k: {})
     monkeypatch.setattr(bc, "version_problems", lambda rec: [])
+    monkeypatch.setattr(bc, "gpu_memory", lambda *a: {})
+    monkeypatch.setattr(bc.LocalOllama, "start", lambda self: calls.setdefault("env", dict(self.env)))
+    monkeypatch.setattr(bc.LocalOllama, "wait_ready", lambda self, **k: True)
     monkeypatch.setattr(bc.LocalOllama, "stop", lambda self, **k: [])
-    if hasattr(blade_r2.agent, blade_r2.MITIGATION_ENTRY):
-        pytest.skip("mitigation merged; the block path no longer applies")
+    monkeypatch.setattr(blade_r2.BladeOllamaRuntime, "available_models", lambda self: ["llama3.1:8b"])
+    monkeypatch.setattr(blade_r2.BladeOllamaRuntime, "version", lambda self: "0.34.4")
+
+    def fake_run_mitigation(runtime, server_log, plan, models, out_path, emit, log, order, client_trim, rules):
+        calls.update(server_log=server_log, plan=plan, models=models, client_trim=client_trim, order=order)
+        return {"trim_summary": {}}
+    monkeypatch.setattr(blade_r2.agent, "run_mitigation", fake_run_mitigation)
     try:
-        rc = blade_r2.main(["--mode", "mitigation", "--out", str(out), "--dry-run-seconds", "60"])
-        assert rc == blade_r2.EXIT_BLOCKED
-        recs = [json.loads(l)["record"] for l in out.read_text().splitlines()]
-        assert "blocked_dependency" in recs and recs[-1] == "run_stopped"
+        rc = blade_r2.main(["--mode", "mitigation", "--out", str(out), "--tiers", "4096,8192",
+                            "--client-trim", "margin=0.05", "--dry-run-seconds", "60"])
+        assert rc == 0
+        assert calls["env"] == {"OLLAMA_DEBUG": "1"} and calls["client_trim"] == {"margin": 0.05}
+        assert calls["server_log"].endswith(".ollama_serve.log") and calls["models"] == ["llama3.1:8b"]
+        start = json.loads(out.read_text().splitlines()[0])
+        assert start["x2_r2_agent_equivalent_argv"][:4] == ["--mode", "mitigation", "--client-trim", "margin=0.05"]
     finally:
         out.unlink(missing_ok=True)
 
