@@ -15,7 +15,7 @@ RouteLLM and RouterBench do not do.
 | Input | Type | Example | Backing data |
 |---|---|---|---|
 | Workload description | Free-text + category tag (RAG / agentic search / multi-turn chat / tool-chain) | "Customer support agent that retrieves order records from a ~15k-token knowledge snippet and answers a follow-up question" | Maps to the closest probe category in `evaluation/probes/*.jsonl` (art_*, rag_*, sea_*, cha_*, lon_*) so the tool can look up a measured outcome rather than guess |
-| Cloud budget | USD / month | $50 | Enforced by `src/cloud/client.py`'s spend cap (see B2); default $50 for Oct 2026 |
+| Cloud budget | USD total | $50 | Enforced by `src/cloud/client.py`'s hard spend cap (see B2): USD 50 total over the whole ledger, not per month; a real-key client cannot raise it; alerts at 50%, 75% and 90% (2026-10-07) |
 | Quality floor | 0.0-1.0 (exact-match score threshold) | 0.90 | Compared against per-probe-category score curves from `results/outcome_table_*.json` (docs/PLAN_PAPER1_DEMO.md Oct 14 deliverable) |
 | Latency target | ms, p50 or p99 | p50 <= 3000ms | Compared against `http_client_ns` / TTFT fields recorded per-call (Claim B-04) |
 | Hardware options | Multi-select from `configs/hardware/*.yaml` | 16gb_no_npu, 32gb_npu, evox2_strix_halo_128gb, evo_t2s | Each option's feasibility is read from its own measured envelope, not a shared assumption |
@@ -127,7 +127,7 @@ settings — a plausible SME setup, not a strawman.
    verify the exception clause's position without either a bigger context or
    a span-aware retrieval step, it does **not** silently truncate and guess.
 3. The router escalates: either (a) routes to the cloud model (within the
-   stated $50/month cap, logging the call to `results/cloud_ledger.jsonl`),
+   stated $50 total cap, logging the call to `results/cloud_ledger.jsonl`),
    or (b) if the budget is exhausted, returns a labeled refusal —
    **"silent_truncation risk: escalation clause may be outside the surviving
    context window at this budget_ratio; answer withheld rather than guessed"**

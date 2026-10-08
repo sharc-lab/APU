@@ -128,8 +128,8 @@ def collect_alerts(jsonl_paths, limit=20):
 
 
 def _format_alert(row):
-    detail = ", ".join(f"{k}={row[k]}" for k in ("model_id", "config", "error_rate", "mean_score", "rate", "n", "failed")
-                       if k in row)
+    detail = ", ".join(f"{k}={row[k]}" for k in ("model_id", "config", "error_rate", "mean_score", "rate", "n", "failed",
+                                                 "running_total_usd", "cap_usd") if k in row)
     return (f"**ALERT: {row.get('source') or row['_file']}: {row.get('reason')} ({detail}) at "
             f"{row.get('ts_utc')} [{row['_file']}]**")
 

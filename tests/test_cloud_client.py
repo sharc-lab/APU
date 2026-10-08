@@ -363,8 +363,11 @@ def test_spend_cap_accumulates_across_calls(tmp_path):
             messages=[{"role": "user", "content": "c"}],
             expected_output_tokens=output_tokens_per_call,
         )
-    rows = ledger_path.read_text().splitlines()
-    assert len(rows) == 2  # refused third call never appended
+    rows = [json.loads(r) for r in ledger_path.read_text().splitlines()]
+    calls = [r for r in rows if r.get("record") != "alert"]
+    assert len(calls) == 2  # refused third call never appended
+    # ~$0.30 of a $0.40 cap crossed 50% and 75% (spend alerts, 2026-10-07); 90% was never reached
+    assert sorted(r["threshold_fraction"] for r in rows if r.get("record") == "alert") == [0.5, 0.75]
 
 
 # ---------------------------------------------------------------------------

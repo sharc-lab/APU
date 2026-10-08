@@ -28,3 +28,18 @@ Notes:
 - No real call has been made against either endpoint from this repo. All
   testing of `src/cloud/client.py` uses the stub provider or an injected fake
   `completion_fn` — see `tests/test_cloud_client.py`.
+
+## Spend cap and alerts (2026-10-07)
+
+- Hard cap: USD 50 total (`HARD_SPEND_CAP_USD`), summed over every call row in
+  `results/cloud_ledger.jsonl`, whenever a real key is set. A real-mode client
+  may lower it but not raise it (`ValueError`). A request whose projected cost
+  would take the total past the cap is refused before anything is sent.
+- Alerts at 50%, 75% and 90% of the cap, each fired exactly once per ledger: an
+  `{"record": "alert", "source": "cloud_client"}` row in the ledger (surfaced by
+  `analysis/results_digest.py`) plus a printed `ALERT:` line. Tests:
+  `tests/test_cloud_spend_alerts.py` (fake provider only).
+- The client's real-mode key is `CLOUD_API_KEY`. Scripts that read
+  `OPENAI_API_KEY` directly (`harness/adapters/sdk_direct.py`,
+  `harness/tail_latency_instrument.py`, `harness/backends/cloud_openai.py`) do
+  not go through this client, so this cap does not apply to them.
