@@ -330,6 +330,9 @@ class MechanismRuntime:
         self.session_calls = []
         self.session_start = 0
         self._saved_rendered = False
+        # set per call by a wrapper (x2_r2_client_trim.ClientTrimRuntime): fields merged into this call's r2m_call row
+        # last, e.g. the session turn index when the messages sent were trimmed by the client
+        self.call_meta = None
         self._reset_checks()
 
     def _reset_checks(self):
@@ -395,6 +398,9 @@ class MechanismRuntime:
         row.update({k: v for k, v in ev.items() if k != "excerpt"})
         row.update(call_verdict(ra, ev, snap))
         row["log_excerpt"] = ev["excerpt"]
+        if self.call_meta:
+            row.update(self.call_meta)
+            turn_idx = row["turn_idx"]
         if row["message_level_truncation"] and rendered is not None and not self._saved_rendered:
             self.raw_dir.mkdir(parents=True, exist_ok=True)
             p = self.raw_dir / (f"{_safe(self.ctx.get('model_id', model))}_{_safe(str(self.ctx.get('arm_id')))}_"

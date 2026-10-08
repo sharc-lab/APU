@@ -2841,6 +2841,95 @@ def compute_r2_orphan_rates(repo):
     return {"value": " / ".join(parts), "n": sum(d["calls"] for d in o.values())}
 
 
+# ───────────────────────────────────────────────── R2 mitigation x2_r2_mitigation_v1 (pre-registered 2026-10-08)
+# Client-side trimming at num_ctx 4096 / 8192 (harness/x2_r2_client_trim.py) vs the real runs' same cells. PENDING until
+# results/x2_r2_mitigation_v1.jsonl is synced (and, for the 8192 comparison, results/x2_r2_real_v1b.jsonl).
+R2_MITIGATION_FILE = "results/x2_r2_mitigation_v1.jsonl"
+
+
+def _r2_mitigation_report(repo, tiers=None):
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "analysis"))
+    _sys.path.insert(0, str(REPO / "analysis"))
+    import r2_mitigation_report as mr
+    if not (repo / R2_MITIGATION_FILE).exists():
+        raise FileNotFoundError(repo / R2_MITIGATION_FILE)
+    return mr, mr.build(repo / R2_MITIGATION_FILE,
+                        real_paths={"num_ctx_4096": repo / R2_REAL_V1_FILE, "num_ctx_8192": repo / R2_REAL_V1B_FILE},
+                        validation_path=repo / R2_VALIDATION_V2_FILE, tiers=tiers)
+
+
+def _r2_mitigation_metrics_str(mr, m):
+    return (f"{mr.rule_summary(m)}; first rule failure {mr._f(m['first_rule_failure_per_seed'])}; canary misses C "
+            f"{m['canary_sys_misses']}, H {m['canary_hist_misses']} of {m['canary_checks']}; error turns "
+            f"{m['error_turns']}; thinking turns {m['thinking_turns']}; think sent {','.join(m['think_sent'])} "
+            f"(seeds {mr._f(m['seeds'])})")
+
+
+def compute_r2_mitigation_v1_verdict(repo):
+    """Pre-registered verdict (docs/FINDINGS.md, 2026-10-08): per model at num_ctx 4096 recovered / not_recovered /
+    invalid (with reasons), the overall verdict, and the same rule at 8192 as a control."""
+    _mr, rep = _r2_mitigation_report(repo)
+    parts = []
+    for key, c in rep["cells"].items():
+        tier, model = key.split("|")
+        v = c["verdict"]
+        extra = (f" (rules below 90%: {', '.join(v['rules_below_threshold'])})" if v.get("rules_below_threshold")
+                 else f" ({'; '.join(v['reasons'])})" if v["reasons"] else "")
+        parts.append(f"{tier} {model} {v['verdict']}{extra}")
+    return {"value": f"pre-registered verdict at {rep['verdict_tier']}: {rep['overall_verdict']}; " + "; ".join(parts),
+            "n": f"{rep['n_sessions']} sessions, {rep['n_turns']} turns"}
+
+
+def _r2_mitigation_tier(repo, tier):
+    mr, rep = _r2_mitigation_report(repo, tiers=(tier,))
+    if tier == "num_ctx_8192" and not (repo / R2_REAL_V1B_FILE).exists():
+        raise FileNotFoundError(repo / R2_REAL_V1B_FILE)
+    parts = []
+    for key, c in rep["cells"].items():
+        model = key.split("|")[1]
+        s = f"{model} mitigation: {_r2_mitigation_metrics_str(mr, c['mitigation'])}"
+        if c["real"]["available"]:
+            s += f" / {model} real ({c['real']['file']}): {_r2_mitigation_metrics_str(mr, c['real']['metrics'])}"
+        else:
+            s += f" / {model} real: not available"
+        parts.append(s)
+    if not parts:
+        raise ValueError(f"no {tier} cells in {R2_MITIGATION_FILE}")
+    return {"value": " // ".join(parts), "n": f"{rep['n_sessions']} mitigation sessions"}
+
+
+def compute_r2_mitigation_v1_4096(repo):
+    """Mitigation vs x2_r2_real_v1 at num_ctx 4096, same models and seeds: rule survival per rule in use (rate, n,
+    first failure per seed), first rule failure, canary C/H misses, surfaced errors, thinking."""
+    return _r2_mitigation_tier(repo, "num_ctx_4096")
+
+
+def compute_r2_mitigation_v1_8192(repo):
+    """Mitigation vs x2_r2_real_v1b at num_ctx 8192, same models and seeds (as compute_r2_mitigation_v1_4096)."""
+    return _r2_mitigation_tier(repo, "num_ctx_8192")
+
+
+def compute_r2_mitigation_v1_observed(repo):
+    """Mitigation run, observed from the OLLAMA_DEBUG log per tier x model: context shifts, Ollama token-level cuts,
+    calls on which Ollama still dropped messages, exceed-context errors, the client's counting method, over-budget
+    calls, turns kept, client exact count vs llama-server's prompt token count."""
+    _mr, rep = _r2_mitigation_report(repo)
+    parts = []
+    for key, c in rep["cells"].items():
+        o = c["observed"]
+        parts.append(f"{key.replace('|', ' ')}: {o['n_calls']} calls ({o['n_calls_trimmed']} trimmed), "
+                     f"{o['context_shift_events']} context shifts, {o['token_cut_calls']} token cuts, "
+                     f"{o['ollama_message_drop_calls']} Ollama message drops, {o['exceed_context_error_calls']} "
+                     f"exceed-context errors, {o['log_slice_incomplete_calls']} incomplete log slices; count method "
+                     f"{o['count_method']}; over budget {o['over_budget_calls']}; budget {o['budget_prompt_tokens']}, "
+                     f"num_predict {o['num_predict']}, max kept prompt {o['max_kept_prompt_tokens_exact']}; turns kept "
+                     f"{o['min_turns_kept']}-{o['max_turns_kept']}; client = server prompt tokens "
+                     f"{o['client_vs_server_tokens_equal']}/{o['client_vs_server_tokens_compared']} (max abs diff "
+                     f"{o['client_vs_server_max_abs_diff']})")
+    return {"value": " / ".join(parts), "n": f"{sum(c['observed']['n_calls'] for c in rep['cells'].values())} calls"}
+
+
 NUMBER_ENTRIES = [
     {"claim_id": "PX2-TTFT-gap", "description": "PX2 B4-vs-S4 TTFT gap range across 5 models",
      "compute": compute_px2_ttft_gap, "data_files": ["results/t2s_night2_20260930T135145Z.jsonl"],
@@ -3251,6 +3340,25 @@ NUMBER_ENTRIES = [
                     "result after Ollama's message trim, per tier",
      "compute": compute_r2_orphan_rates, "data_files": ["results/x2_r2_mechanism.jsonl"],
      "script_function": "analysis/r2_shift_predictor.py::orphan_summary"},
+    {"claim_id": "R2-mitigation-v1-verdict", "description": "R2 mitigation (client-side trimming): pre-registered "
+                    "verdict per model at num_ctx 4096 (8192 as control) and overall",
+     "compute": compute_r2_mitigation_v1_verdict,
+     "data_files": [R2_MITIGATION_FILE, R2_REAL_V1_FILE, R2_VALIDATION_V2_FILE], "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_r2_mitigation_v1_verdict"},
+    {"claim_id": "R2-mitigation-v1-4096", "description": "R2 mitigation vs real run v1 at num_ctx 4096: rule survival "
+                    "per rule in use, first rule failure, canary misses, errors",
+     "compute": compute_r2_mitigation_v1_4096,
+     "data_files": [R2_MITIGATION_FILE, R2_REAL_V1_FILE, R2_VALIDATION_V2_FILE], "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_r2_mitigation_v1_4096"},
+    {"claim_id": "R2-mitigation-v1-8192", "description": "R2 mitigation vs real run v1b at num_ctx 8192: rule survival "
+                    "per rule in use, first rule failure, canary misses, errors",
+     "compute": compute_r2_mitigation_v1_8192,
+     "data_files": [R2_MITIGATION_FILE, R2_REAL_V1B_FILE, R2_VALIDATION_V2_FILE], "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_r2_mitigation_v1_8192"},
+    {"claim_id": "R2-mitigation-v1-observed", "description": "R2 mitigation: observed context shifts, token cuts, "
+                    "Ollama message drops and client token counting per tier x model",
+     "compute": compute_r2_mitigation_v1_observed, "data_files": [R2_MITIGATION_FILE], "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_r2_mitigation_v1_observed"},
 ]
 
 

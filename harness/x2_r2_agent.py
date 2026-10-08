@@ -55,6 +55,13 @@ system prompt and of its tools JSON and the tool_choice it sent, so "identical o
   --mode mechanism        : one 40-turn session per STRONG_TIERS tier of MECH_MODEL with the Ollama server started
                             under OLLAMA_DEBUG=1, its log captured per call and per session, and a render-only
                             request before every call (harness/x2_r2_mechanism.py has the source evidence).
+  --mode mitigation --client-trim margin=0.05 : the R2 mitigation run (2026-10-08, pre-registered in docs/FINDINGS.md,
+                            results/x2_r2_mitigation_v1.jsonl): MITIGATION_TIERS x SEEDS x 40 turns, both DEFAULT_MODELS,
+                            v1 call-2 mode; before every call the harness trims the history it sends so that prompt +
+                            num_predict fits num_ctx minus the margin (harness/x2_r2_client_trim.py: system prompt
+                            always kept, whole turns dropped oldest first, exact render-and-count token counting), and
+                            the mechanism job's debug server and per-call log parsing record what Ollama and llama.cpp
+                            still did (message drops, token cuts, context shifts), observed rather than assumed.
 
 Thinking: "think": false is sent for every qwen3 model (MODELS); every call records thinking_present (non-empty
 message.thinking) and think_tag_in_content, and a turn with either fails ("thinking_present" in turn_failures,
@@ -230,6 +237,17 @@ MECH_TURNS = 40
 def mechanism_plan(call2_tools="off", tiers=STRONG_TIERS, seed=SEEDS[0], turns=MECH_TURNS):
     sfx = MODE_SUFFIX[as_mode(call2_tools)]
     return [(a + sfx, (seed,), turns) for a in tiers]
+
+
+# Mitigation run (2026-10-08, results/x2_r2_mitigation_v1.jsonl): client-side trimming at the two tiers where the
+# comparison exists for the real run's seeds (4096 in x2_r2_real_v1, 8192 in x2_r2_real_v1b), 3 seeds, 40 turns.
+MITIGATION_TIERS = ("ollama_ctx_4096", "ollama_ctx_8192")
+MITIGATION_TURNS = 40
+
+
+def mitigation_plan(call2_tools="off", tiers=MITIGATION_TIERS, seeds=SEEDS, turns=MITIGATION_TURNS):
+    sfx = MODE_SUFFIX[as_mode(call2_tools)]
+    return [(a + sfx, tuple(seeds), turns) for a in tiers]
 
 MAX_TOKENS_PER_CALL = 384
 KEEP_ALIVE = "30m"          # hc.start_ollama_server sets OLLAMA_KEEP_ALIVE=0; keep the model (and its KV cache)
@@ -783,6 +801,10 @@ def _call_record(resp: dict, messages, tools, extra=None) -> dict:
         "load_duration_s": (raw.get("load_duration") or 0) / 1e9 if raw.get("load_duration") else None,
         "prompt_eval_duration_s": (raw.get("prompt_eval_duration") or 0) / 1e9 if raw.get("prompt_eval_duration") else None,
         "eval_duration_s": (raw.get("eval_duration") or 0) / 1e9 if raw.get("eval_duration") else None,
+        "num_predict_sent": MAX_TOKENS_PER_CALL,
+        # mitigation mode only (x2_r2_client_trim.ClientTrimRuntime): what was trimmed before this call, the exact
+        # token count of what was sent, and what Ollama / llama.cpp still did to it (from the debug log)
+        "client_trim": resp.get("client_trim"),
     }
 
 
@@ -1517,6 +1539,8 @@ DEFAULT_MODELS = ("llama3.1:8b", "qwen3:14b")   # validation / real / toolchoice
 def _default_models(mode, plan_name):
     if mode == "mechanism":
         return (MECH_MODEL,)
+    if mode == "mitigation":
+        return DEFAULT_MODELS
     if mode == "real" and plan_name == "strong":
         return STRONG_MODELS
     return DEFAULT_MODELS
@@ -1526,7 +1550,11 @@ def main(argv=None, advance=True):
     """advance=False: do not call t2s_queue.advance() on exit (a wrapper job such as x2_r2_4b_tools_validate calls
     it once itself); the exit note is returned either way."""
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--mode", choices=("validation", "real", "toolchoice_check", "mechanism"), required=True)
+    ap.add_argument("--mode", choices=("validation", "real", "toolchoice_check", "mechanism", "mitigation"),
+                    required=True)
+    ap.add_argument("--client-trim", default=None,
+                    help="mitigation mode (required there): client-side history trimming, 'margin=<fraction>' "
+                         "(e.g. margin=0.05: prompt + num_predict <= num_ctx x 0.95); see x2_r2_client_trim.py")
     ap.add_argument("--out", required=True)
     ap.add_argument("--models", default=None,
                     help="comma-separated Ollama tags (default: llama3.1:8b,qwen3:14b; --plan strong: STRONG_MODELS; "
@@ -1557,6 +1585,15 @@ def main(argv=None, advance=True):
     args = ap.parse_args(argv)
     if args.require_validation_gates and not args.rules_from:
         ap.error("--require-validation-gates needs --rules-from")
+    import x2_r2_client_trim as ct
+    try:
+        client_trim = ct.parse_client_trim(args.client_trim)
+    except ValueError as e:
+        ap.error(str(e))
+    if args.mode == "mitigation" and client_trim is None:
+        ap.error("--mode mitigation needs --client-trim margin=<fraction>")
+    if args.mode != "mitigation" and client_trim is not None:
+        ap.error("--client-trim is only used with --mode mitigation")
     rule_files = [p for p in (args.rules_from or "").split(",") if p]
     if len(rule_files) > 1 and args.require_validation_gates and not args.per_model_refusal:
         ap.error("several --rules-from files need --per-model-refusal")
@@ -1586,6 +1623,8 @@ def main(argv=None, advance=True):
             plan = strong_plan(c2) if args.plan == "strong" else real_plan(c2)
         elif args.mode == "mechanism":
             plan = mechanism_plan(c2)
+        elif args.mode == "mitigation":
+            plan = mitigation_plan(c2)
         else:
             plan = []
         rules_in_use = tuple(args.rules_in_use.split(","))
@@ -1615,7 +1654,7 @@ def main(argv=None, advance=True):
               "call2_extra": call2_extra(c2), "rules_from": args.rules_from,
               "skip_done_from": args.skip_done_from, "n_skip_done": len(skip_done),
               "validation_preflight": preflight, "ts_utc": utc_iso(),
-              "max_tokens_per_call": MAX_TOKENS_PER_CALL, "keep_alive": KEEP_ALIVE})
+              "max_tokens_per_call": MAX_TOKENS_PER_CALL, "keep_alive": KEEP_ALIVE, "client_trim": client_trim})
         present = {Path(p).name: Path(p).exists() for p in rule_files}
         finished = {name: any(r.get("record") == "run_end" for r in vrows) for name, vrows in
                     ((Path(p).name, read_rows(Path(p))) for p in rule_files)}
@@ -1632,7 +1671,7 @@ def main(argv=None, advance=True):
             log(note)
             return note
         server_env = server_log = None
-        if args.mode == "mechanism":
+        if args.mode in ("mechanism", "mitigation"):
             import x2_r2_mechanism as mech
             server_env, server_log = dict(mech.OLLAMA_DEBUG_ENV), mech.MECH_SERVE_LOG
             hc.stop_ollama_server()   # start_ollama_server is a no-op while any Ollama runs; env must take effect
@@ -1662,6 +1701,31 @@ def main(argv=None, advance=True):
                                                             encoding="utf-8")
             emit({"record": "run_end", "call2_mode": c2, "ts_utc": utc_iso()})
             log(json.dumps(report, default=str))
+            return note
+        if args.mode == "mitigation":
+            head = mech.read_log(server_log, 0)
+            if not mech.debug_enabled(head):
+                raise RuntimeError(f"OLLAMA_DEBUG not active: no OLLAMA_DEBUG:DEBUG / level=DEBUG in {server_log}")
+            counter = ct.RenderTokenCounter(runtime)
+            selfcheck = counter.self_check(models)
+            emit({"record": "client_trim_selfcheck", "models": selfcheck, "count_method": ct.COUNT_RENDER,
+                  "tokenize_exe": counter.exe, "ts_utc": utc_iso()})
+            log(f"client-trim tokenizer self-check: {json.dumps(selfcheck, default=str)}")
+            mrt = mech.MechanismRuntime(runtime, server_log, emit, out_path.parent / (out_path.stem + "_logs"))
+            trt = ct.ClientTrimRuntime(mrt, counter, margin=client_trim["margin"])
+
+            def _start(m, a, s):
+                mrt.begin_session(m, a, s, mode="mitigation", call2_mode=ARMS[a]["call2_mode"])
+                trt.begin_session()
+            run_plan(trt, plan, models, "mitigation", out_path, log=log, emit=emit, order=args.order,
+                     on_session_start=_start, on_session_end=mrt.end_session)
+            rows = read_rows(out_path)
+            rep = {"rules_in_use": rules_in_use, "client_trim": client_trim,
+                   "trim_summary": ct.summarize(rows), "mechanism": mech.report(rows)}
+            Path(str(out_path) + ".report.json").write_text(json.dumps(rep, indent=1, default=str),
+                                                            encoding="utf-8")
+            emit({"record": "run_end", "call2_mode": c2, "ts_utc": utc_iso()})
+            log(json.dumps(rep["trim_summary"], default=str)[:4000])
             return note
         if args.mode == "mechanism":
             head = mech.read_log(server_log, 0)
