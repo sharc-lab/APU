@@ -263,3 +263,9 @@ each branch's FINDINGS section and register rows (not repeated here until merged
   citable only if all match) was merged and deployed (e96a5cb), then released. Watchdog Ready, no pause.
   Open risk: llama-tokenize's output format is assumed from its help text; a mismatch shows up as error rows and a
   not-citable tier, never a silent pass.
+- 2026-10-08: merged 2f10f03 (install-path finding, task-tool gate, chat template source per row). Queued
+  x2_r2_4b_tools_validate after x2_r2_mechanism_v1 (creates qwen3-4b-2507-tools from the same GGUF with the library
+  Qwen3 template, verified by digest and template sha, then validates it alone into x2_r2_validation_v2c.jsonl).
+  x2_r2_real_v1b now runs llama3.1:8b, qwen3:14b, qwen3-4b-2507-tools, qwen3:8b (projected ~51.6 h, partly
+  unmeasured), gated on that job; a failing 4B is refused per model. Both bare-GGUF Ollama legs in the outcome
+  table (qwen3-4b-2507 and qwen3-30b-a3b-2507) are marked "[bare template]" in the register tables.
