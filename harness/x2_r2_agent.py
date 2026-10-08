@@ -48,6 +48,17 @@ system prompt and of its tools JSON and the tool_choice it sent, so "identical o
                             --require-validation-gates makes the job refuse to start unless validation_preflight
                             passes on that file.
   --mode toolchoice_check : short live check of what forces a text answer on call 2 (run_toolchoice_check).
+  --mode real --plan strong : the strengthened run (2026-10-08): STRONG_TIERS (default, 32768, 16384, 8192, 4096) x
+                            SEEDS_STRONG (5) x 40 turns x STRONG_MODELS, v1 call-2 mode; --skip-done-from
+                            results/x2_r2_real_v1.jsonl keeps v1's completed cells; --rules-from takes the v2 and v2b
+                            validation files and --per-model-refusal refuses only a model whose own controls failed.
+  --mode mechanism        : one 40-turn session per STRONG_TIERS tier of MECH_MODEL with the Ollama server started
+                            under OLLAMA_DEBUG=1, its log captured per call and per session, and a render-only
+                            request before every call (harness/x2_r2_mechanism.py has the source evidence).
+
+Thinking: "think": false is sent for every qwen3 model (MODELS); every call records thinking_present (non-empty
+message.thinking) and think_tag_in_content, and a turn with either fails ("thinking_present" in turn_failures,
+logged with "!!! THINKING PRESENT"). Validation has a thinking_off gate, and the real-run preflight refuses on it.
 
 Queue job: calls t2s_queue.advance() exactly once on exit (finally). Never run it as a bare process on evo-x2 while
 another queued job is running (see the WARNING at the top of t2s_r2_session_growth.py; advance() also refuses to act
@@ -83,13 +94,21 @@ import t2s_r2_session_growth as r2  # noqa: E402
 # Ollama tag -> the "think" value sent on every call (None = field omitted). qwen3 is a hybrid-reasoning model
 # whose thinking default leaves message.content empty (see OllamaClient.chat's think= docstring); llama3.1 has no
 # thinking mode, so the field is omitted for it rather than sent.
-MODELS = {"llama3.1:8b": None, "qwen3:14b": False}
+# qwen3-4b-2507 (added 2026-10-08) is the Instruct-2507 release, non-thinking, created on evo-x2 from a bare GGUF
+# (no Ollama template, so Ollama 0.34.4 serves it through llama-server's own jinja chat template). "think": false is
+# still sent: Ollama 0.34.4's ChatHandler (server/routes.go) turns an omitted think into true for any model whose
+# capabilities include thinking, which for a template-less GGUF are read from the GGUF chat template's text
+# (server/images.go chatTemplateCapabilities), and only think=true is rejected for a model without the capability.
+# Every row records thinking_present / think_tag_in_content and a thinking answer fails its turn (see run_turn).
+MODELS = {"llama3.1:8b": None, "qwen3:14b": False, "qwen3:8b": False, "qwen3-4b-2507": False}
 
 _BASE_ARMS = {
     "ollama_ctx_131072": 131072,                 # arm b, the no-truncation control (validation, negative control)
     "ollama_ctx_8192_positive_control": 8192,    # validation positive control
     "ollama_default": None,                      # real run: no num_ctx sent, the runtime picks
     "ollama_ctx_32768": 32768,
+    "ollama_ctx_16384": 16384,                   # strengthened run (2026-10-08) and mechanism job
+    "ollama_ctx_8192": 8192,                     # strengthened run (2026-10-08) and mechanism job
     "ollama_ctx_4096": 4096,
 }
 # Call-2 modes (what a turn's second call sends; call 1 is the same in every mode):
@@ -172,6 +191,38 @@ REAL_PLAN = [
 def real_plan(call2_tools):
     sfx = MODE_SUFFIX[as_mode(call2_tools)]
     return [(a + sfx, s, t) for a, s, t in REAL_PLAN]
+
+
+# Strengthened real run (2026-10-08, results/x2_r2_real_v1b.jsonl): 5 seeds (v1's 3 plus 2 new), 5 tiers, 40 turns,
+# v1 call-2 mode. The v1 cells (3 seeds x {default, 32768, 4096} x {llama3.1:8b, qwen3:14b}) are not rerun: main()'s
+# --skip-done-from treats sessions completed in results/x2_r2_real_v1.jsonl as done, keyed by (model, arm, seed).
+SEEDS_STRONG = tuple(SEEDS) + (20260904, 20260905)
+STRONG_TIERS = ("ollama_default", "ollama_ctx_32768", "ollama_ctx_16384", "ollama_ctx_8192", "ollama_ctx_4096")
+STRONG_TURNS = 40
+STRONG_MODELS = ("llama3.1:8b", "qwen3:14b", "qwen3-4b-2507", "qwen3:8b")
+# Operator decision 2026-10-08: every Ollama and llama-server R2 run uses call-2 mode "off" (v1, tools withheld on a
+# turn's second call); a cloud (OpenAI) R2 session, if one runs, uses "forced_none" (identical tools, tool_choice
+# "none" on call 2), which that API enforces. See R2_DESIGN.md "Call-2 mode per runtime".
+CALL2_MODE_BY_RUNTIME = {"ollama": "off", "llama_server": "off", "openai": "forced_none"}
+
+
+def strong_plan(call2_tools="off", tiers=STRONG_TIERS, seeds=SEEDS_STRONG, turns=STRONG_TURNS):
+    sfx = MODE_SUFFIX[as_mode(call2_tools)]
+    return [(a + sfx, tuple(seeds), turns) for a in tiers]
+
+
+# Mechanism job (2026-10-08, results/x2_r2_mechanism.jsonl): one 40-turn session per tier, one model, with the Ollama
+# server started under OLLAMA_DEBUG=1 and its log captured per call. MECH_MODEL is llama3.1:8b: at the four
+# num_ctx tiers it exceeds the window by turn 3 (4096) to turn 23 (32768) in x2_r2_real_v1, its 40-turn sessions are
+# the shortest measured (7 to 43 min), and it is the model the single-prompt half-window finding was measured with.
+# At Ollama default it loaded 131072 and never exceeded it in v1, so that session is the no-overflow reference.
+MECH_MODEL = "llama3.1:8b"
+MECH_TURNS = 40
+
+
+def mechanism_plan(call2_tools="off", tiers=STRONG_TIERS, seed=SEEDS[0], turns=MECH_TURNS):
+    sfx = MODE_SUFFIX[as_mode(call2_tools)]
+    return [(a + sfx, (seed,), turns) for a in tiers]
 
 MAX_TOKENS_PER_CALL = 384
 KEEP_ALIVE = "30m"          # hc.start_ollama_server sets OLLAMA_KEEP_ALIVE=0; keep the model (and its KV cache)
@@ -634,7 +685,7 @@ class OllamaRuntime:
     def loaded_context(self, model):
         ps = self.client.get_ps()
         for m in ps.get("models", []):
-            if (m.get("name") or m.get("model")) == model:
+            if same_tag(m.get("name") or m.get("model"), model):
                 ctx = m.get("context_length")
                 return int(ctx) if ctx is not None else None
         return None
@@ -651,7 +702,7 @@ class OllamaRuntime:
         deadline = time.monotonic() + wait_s
         while time.monotonic() < deadline:
             names = [(m.get("name") or m.get("model")) for m in self.client.get_ps().get("models", [])]
-            if model not in names:
+            if not any(same_tag(n, model) for n in names):
                 return True
             time.sleep(0.5)
         return False
@@ -664,13 +715,37 @@ class OllamaRuntime:
             return []
 
     def recover(self):
-        """A connection-level failure (no HTTP status): wait for the server, restart it once if needed."""
+        """A connection-level failure (no HTTP status): wait for the server, restart it once if needed (with the
+        same env and log path the job started it with)."""
         import host_config as hc
         if hc.wait_for_ollama_ready(timeout_s=60):
             return True
         hc.stop_ollama_server()
-        hc.start_ollama_server()
+        _start_server(hc, self.server_env, self.server_log)
         return hc.wait_for_ollama_ready(timeout_s=90)
+
+    server_env = None   # set by main() for the mechanism job (OLLAMA_DEBUG)
+    server_log = None
+
+
+def norm_tag(tag) -> str | None:
+    """Ollama reports a tagless model with an explicit ":latest" (/api/tags and /api/ps list "qwen3-4b-2507" as
+    "qwen3-4b-2507:latest", see x2_model_pulls._normalize_tag); requests and rows use the bare form."""
+    if not tag:
+        return tag
+    return tag if ":" in tag else tag + ":latest"
+
+
+def same_tag(a, b) -> bool:
+    return a is not None and b is not None and norm_tag(a) == norm_tag(b)
+
+
+def _start_server(hc, env=None, log_path=None):
+    """hc.start_ollama_server with env/log_path only when set, so the plain call (and test fakes without those
+    parameters) are unchanged for every job except the mechanism job."""
+    if env or log_path:
+        return hc.start_ollama_server(env=env, log_path=log_path)
+    return hc.start_ollama_server()
 
 
 # ── driver ──────────────────────────────────────────────────────────────────────────────────────────
@@ -692,10 +767,19 @@ def _call_record(resp: dict, messages, tools, extra=None) -> dict:
         "prompt_eval_count_info_only": resp.get("prompt_eval_count"),
         "duration_s": resp.get("duration_s"), "done_reason": raw.get("done_reason"),
         "thinking_present": bool(msg.get("thinking")),
+        "think_tag_in_content": has_think_tag(resp.get("message")),
         "load_duration_s": (raw.get("load_duration") or 0) / 1e9 if raw.get("load_duration") else None,
         "prompt_eval_duration_s": (raw.get("prompt_eval_duration") or 0) / 1e9 if raw.get("prompt_eval_duration") else None,
         "eval_duration_s": (raw.get("eval_duration") or 0) / 1e9 if raw.get("eval_duration") else None,
     }
+
+
+_THINK_TAG_RE = re.compile(r"</?think>", re.IGNORECASE)
+
+
+def has_think_tag(text) -> bool:
+    """A <think> or </think> tag anywhere in a call's content (thinking that leaked into the answer text)."""
+    return bool(text) and bool(_THINK_TAG_RE.search(text))
 
 
 def _call_tokens(rec: dict) -> int:
@@ -788,6 +872,11 @@ def run_turn(runtime, model, num_ctx, think, ags: AgentSession, turn, messages: 
     row["transcript_tokens_est"] = transcript_tokens(messages)
     row["any_http_error"] = any((r["http_status"] not in (200, None)) or r["outcome"] != "ok" or r["error"]
                                 for r in recs)
+    # thinking must be off on every call (think false sent where the model supports it): a non-empty
+    # message.thinking or a <think> tag in any call's content fails the turn (turn_failures "thinking_present")
+    row["thinking_present"] = any(r.get("thinking_present") or r.get("think_tag_in_content") for r in recs)
+    if row["thinking_present"]:
+        log(f"  !!! THINKING PRESENT: {model} turn {turn.idx} (think sent: {think!r}); turn scored as failed")
     return row
 
 
@@ -861,6 +950,8 @@ def turn_failures(row: dict, rules_in_use=RULE_IDS) -> list[str]:
         fails.append("recall")
     if row.get("call2_protocol_violation") is True:
         fails.append("call2_protocol_violation")
+    if row.get("thinking_present") is True:
+        fails.append("thinking_present")
     return fails
 
 
@@ -901,6 +992,7 @@ def summarize_session(rows: list[dict], rules_in_use=RULE_IDS) -> dict:
         "max_transcript_tokens_calibrated": max((r.get("transcript_tokens_calibrated") or 0) for r in rows) if rows else 0,
         "session_tokens_billed": rows[-1].get("session_tokens_billed_cumulative") if rows else 0,
         "call2_protocol_violations": sum(1 for r in rows if r.get("call2_protocol_violation") is True),
+        "thinking_present_turns": sum(1 for r in rows if r.get("thinking_present") is True),
         "prompt_or_tools_changed_within_turn": sum(
             1 for r in rows if r.get("system_prompt_identical_across_calls") is False
             or r.get("tools_identical_across_calls") is False),
@@ -964,7 +1056,8 @@ def baseline_table(rows: list[dict], arm="ollama_ctx_131072", threshold=BASELINE
         entry["final_content_empty"] = sum(1 for r in mt if r.get("final_content_empty"))
         entry["any_content_empty_calls"] = sum(1 for c in calls if not (c.get("content") or "").strip()
                                                and not c.get("tool_calls_parsed"))
-        entry["thinking_present_calls"] = sum(1 for c in calls if c.get("thinking_present"))
+        entry["thinking_present_calls"] = sum(1 for c in calls if c.get("thinking_present")
+                                              or c.get("think_tag_in_content"))
         entry["text_fallback_calls"] = sum(1 for c in calls if c.get("tool_detection_method") == "text_fallback")
         entry["http_error_turns"] = sum(1 for r in mt if r.get("any_http_error"))
         entry["call2_modes"] = sorted({str(r.get("call2_mode", "on" if r.get("call2_tools", True) else "off"))
@@ -1014,13 +1107,16 @@ def evaluate_gates(rows: list[dict], threshold=BASELINE_THRESHOLD, call2_tools=T
     sfx = MODE_SUFFIX[mode]
     table = baseline_table(rows, arm=NEG_ARM + sfx, threshold=threshold)
     ctrl = control_results(rows, sfx)
-    gates = {"baseline": {}, "negative_control": {}, "positive_control": {}, "content_nonempty": {}}
+    gates = {"baseline": {}, "negative_control": {}, "positive_control": {}, "content_nonempty": {},
+             "thinking_off": {}}
     for model, e in table.items():
         failing = [r for r, v in e["rules"].items() if v["status"] == "fail"]
         gates["baseline"][model] = {"pass": not failing, "failing_rules": failing,
                                     "rules_in_use": [r for r, v in e["rules"].items() if v["status"] == "pass"]}
         gates["content_nonempty"][model] = {"pass": e["final_content_empty"] == 0,
                                             "final_content_empty": e["final_content_empty"]}
+        gates["thinking_off"][model] = {"pass": e["thinking_present_calls"] == 0,
+                                        "thinking_present_calls": e["thinking_present_calls"]}
     for model, n in ctrl["negative"].items():
         gates["negative_control"][model] = {"pass": n["n_sessions"] > 0 and n["canary_misses"] == 0, **n}
     for model, p in ctrl["positive"].items():
@@ -1080,7 +1176,47 @@ def validation_preflight(validation_rows: list[dict], call2_tools, models, thres
         if not pos or pos["n_sessions"] < need_pos or not pos["pass"]:
             reasons.append(f"{m}: positive control did not fire (truncation turns "
                            f"{pos['truncation_detected_turns'] if pos else 'n/a'} at num_ctx 8192)")
+        th = g.get("thinking_off", {}).get(m)
+        if th is not None and not th["pass"]:
+            reasons.append(f"{m}: thinking present on {th['thinking_present_calls']} validation calls")
     return {"ok": not reasons, "reasons": reasons, "rules_in_use": riu, "gates": g}
+
+
+def validation_preflight_per_model(files: list[tuple[str, list[dict]]], call2_tools, models,
+                                   threshold=BASELINE_THRESHOLD) -> dict:
+    """The strengthened real run's start check (2026-10-08). files: [(name, rows)], e.g. x2_r2_validation_v2.jsonl
+    for llama3.1:8b and qwen3:14b and x2_r2_validation_v2b.jsonl for the new models. Each model is checked against
+    the LAST file that holds validation turn rows for it, with validation_preflight's full set of checks (file
+    finished, same call-2 mode, both control arms complete, rules in use at or above the threshold, negative
+    control clean, positive control fired, no thinking). A model that fails is refused alone; the others run.
+    Returns {"ok" (at least one model passes), "models_ok", "refused": {model: reasons}, "rules_in_use",
+    "source": {model: file name}, "per_file": {name: validation_preflight result}}."""
+    source = {}
+    for name, rows in files:
+        have = {r.get("model_id") for r in rows if r.get("record") == "r2a_turn" and r.get("mode") == "validation"}
+        for m in models:
+            if m in have:
+                source[m] = name
+    refused, riu, per_file = {}, {}, {}
+    for m in models:
+        if m not in source:
+            refused[m] = [f"{m}: no validation rows in any of {[n for n, _ in files]}"]
+    for name, rows in files:
+        ms = [m for m in models if source.get(m) == name]
+        if not ms:
+            continue
+        pf = validation_preflight(rows, call2_tools, ms, threshold=threshold)
+        per_file[name] = {k: pf[k] for k in ("ok", "reasons", "rules_in_use")}
+        file_level = [r for r in pf["reasons"] if not any(r.startswith(f"{m}:") for m in ms)]
+        for m in ms:
+            mine = file_level + [r for r in pf["reasons"] if r.startswith(f"{m}:")]
+            if mine:
+                refused[m] = mine
+            else:
+                riu[m] = pf["rules_in_use"][m]
+    models_ok = [m for m in models if m not in refused]
+    return {"ok": bool(models_ok), "models_ok": models_ok, "refused": refused, "rules_in_use": riu,
+            "source": source, "per_file": per_file}
 
 
 def format_baseline_markdown(report: dict) -> str:
@@ -1144,9 +1280,17 @@ TC_EXTRA = {"on": {}, "on_repeat": {}, "tool_choice_none": {"tool_choice": "none
             "format_schema": {"tool_choice": "none", "format": ANSWER_FORMAT_SCHEMA}}
 
 
+# the call-2 mode each toolchoice-check variant corresponds to (every row carries call2_mode); call 1 and the
+# transcript continuation belong to the forced_none session the check is built on
+TC_VARIANT_MODE = {"call1": "forced_none", "on": "on", "on_repeat": "on", "tool_choice_none": "forced_none",
+                   "format_schema": "forced_none_format", "render_on": "on", "render_tool_choice_none": "forced_none",
+                   "v1_on": "on", "v1_tool_choice_none": "forced_none"}
+
+
 def _tc_row(model, turn_idx, variant, endpoint, resp, extra_fields=None):
     calls, method = extract_tool_calls(resp.get("message"), resp.get("tool_calls"))
     row = {"record": "r2tc_call", "model_id": model, "turn_idx": turn_idx, "variant": variant, "endpoint": endpoint,
+           "call2_mode": TC_VARIANT_MODE.get(variant),
            "outcome": resp.get("outcome"), "http_status": resp.get("status"), "error": resp.get("error"),
            "content": (resp.get("message") or "")[:4000], "native_tool_calls": resp.get("tool_calls"),
            "n_tool_calls": len(calls), "tool_detection_method": method,
@@ -1184,6 +1328,7 @@ def run_toolchoice_check(runtime, models, emit, log, turns=TC_TURNS):
                 text, err = runtime.render_only(model, ctx, NEG_NUM_CTX, tools, think, ex)
                 renders[v] = text
                 emit({"record": "r2tc_render", "model_id": model, "turn_idx": turn.idx, "variant": v,
+                      "call2_mode": TC_VARIANT_MODE[v],
                       "rendered_sha256": sha256_text(text), "rendered_len": len(text) if text else None,
                       "error": err, "ts_utc": utc_iso()})
             cont = None
@@ -1283,51 +1428,110 @@ def read_rows(path: Path) -> list[dict]:
     return rows
 
 
-def run_plan(runtime, plan, models, mode, out_path: Path, log=print, emit=None):
+def done_keys_from(rows: list[dict], mode: str | None = None) -> set:
+    """(model, arm, seed) of every session completed in rows (optionally only rows of one mode). Used by
+    --skip-done-from so the strengthened run never reruns a cell already completed in x2_r2_real_v1.jsonl."""
+    return {(s["model_id"], s["arm_id"], s["seed"]) for s in completed_sessions(rows)
+            if mode is None or s.get("mode") == mode}
+
+
+def session_order(plan, models, order="model_major"):
+    """[(model, arm, seed, turns)] in run order. model_major: model, then arm, then seed (the original order).
+    seed_major: seed position first, then model, then arm, so an interrupted run leaves every (model, tier) cell
+    with as many seeds as possible rather than some cells complete and others empty."""
+    items = [(m, a, s, t, i, mi, ai) for mi, m in enumerate(models) for ai, (a, seeds, t) in enumerate(plan)
+             for i, s in enumerate(seeds)]
+    if order == "seed_major":
+        items.sort(key=lambda x: (x[4], x[5], x[6]))
+    elif order != "model_major":
+        raise ValueError(f"unknown order {order!r}")
+    return [(m, a, s, t) for m, a, s, t, *_ in items]
+
+
+def run_plan(runtime, plan, models, mode, out_path: Path, log=print, emit=None, skip_done=(), order="model_major",
+             on_session_start=None, on_session_end=None):
     if emit is None:
         def emit(row):
             with open(out_path, "a", encoding="utf-8") as f:
                 f.write(json.dumps(row, default=str) + "\n")
     done = {(s["mode"], s["model_id"], s["arm_id"], s["seed"]) for s in completed_sessions(read_rows(out_path))}
-    for model in models:
-        for arm, seeds, turns in plan:
-            for seed in seeds:
-                if (mode, model, arm, seed) in done:
-                    log(f"skip (done): {model} {arm} seed={seed}")
-                    continue
-                emit({"record": "heartbeat", "mode": mode, "model_id": model, "arm_id": arm, "seed": seed,
-                      "ts_utc": utc_iso()})
-                log(f"session: {model} {arm} seed={seed} turns={turns}")
-                s = run_session(runtime, model, arm, seed, turns, emit, log, mode)
-                log(f"session done: first_failure={s['first_failure_turn']} {s['first_failure_reasons']} "
-                    f"truncation={s['truncation_detected_turn']} canary_misses="
-                    f"{s['canary_sys_misses']}+{s['canary_hist_misses']}")
+    skip_done = set(skip_done)
+    for model, arm, seed, turns in session_order(plan, models, order):
+        if (mode, model, arm, seed) in done:
+            log(f"skip (done): {model} {arm} seed={seed}")
+            continue
+        if (model, arm, seed) in skip_done:
+            log(f"skip (done in --skip-done-from): {model} {arm} seed={seed}")
+            continue
+        emit({"record": "heartbeat", "mode": mode, "model_id": model, "arm_id": arm, "seed": seed,
+              "call2_mode": ARMS[arm]["call2_mode"], "ts_utc": utc_iso()})
+        log(f"session: {model} {arm} seed={seed} turns={turns}")
+        if on_session_start:
+            on_session_start(model, arm, seed)
+        s = run_session(runtime, model, arm, seed, turns, emit, log, mode)
+        if on_session_end:
+            on_session_end()
+        log(f"session done: first_failure={s['first_failure_turn']} {s['first_failure_reasons']} "
+            f"truncation={s['truncation_detected_turn']} canary_misses="
+            f"{s['canary_sys_misses']}+{s['canary_hist_misses']}")
+
+
+DEFAULT_MODELS = ("llama3.1:8b", "qwen3:14b")   # validation / real / toolchoice_check unless --models or --plan
+
+
+def _default_models(mode, plan_name):
+    if mode == "mechanism":
+        return (MECH_MODEL,)
+    if mode == "real" and plan_name == "strong":
+        return STRONG_MODELS
+    return DEFAULT_MODELS
 
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--mode", choices=("validation", "real", "toolchoice_check"), required=True)
+    ap.add_argument("--mode", choices=("validation", "real", "toolchoice_check", "mechanism"), required=True)
     ap.add_argument("--out", required=True)
-    ap.add_argument("--models", default=",".join(MODELS))
+    ap.add_argument("--models", default=None,
+                    help="comma-separated Ollama tags (default: llama3.1:8b,qwen3:14b; --plan strong: STRONG_MODELS; "
+                         "--mode mechanism: MECH_MODEL)")
+    ap.add_argument("--plan", choices=("default", "strong"), default="default",
+                    help="real mode: default = the v1 plan (3 tiers x 3 seeds); strong = STRONG_TIERS x SEEDS_STRONG "
+                         "x 40 turns (2026-10-08)")
     ap.add_argument("--call2-tools", choices=CALL2_MODES, default="on",
                     help="call-2 mode: on (tools, nothing forced), off (tools withheld on call 2, v1/v2), "
                          "forced_none (tools kept, tool_choice none on call 2), forced_none_format (plus an answer "
                          "JSON-schema format on call 2)")
     ap.add_argument("--rules-from", default=None,
-                    help="real mode: a validation JSONL; per-model rules in use = that model's gate-passing rules")
+                    help="real mode: validation JSONL file(s), comma-separated; per-model rules in use = that "
+                         "model's gate-passing rules in the last file holding validation rows for it")
     ap.add_argument("--rules-in-use", default=",".join(RULE_IDS),
                     help="real mode: rules that count toward first-failure / kill criterion (gate-passing rules)")
     ap.add_argument("--require-validation-gates", action="store_true",
                     help="real mode: refuse to start (no Ollama call, queue advanced with a note) unless "
                          "validation_preflight passes on --rules-from")
+    ap.add_argument("--per-model-refusal", action="store_true",
+                    help="with --require-validation-gates: check each model against its own validation file "
+                         "(validation_preflight_per_model), refuse only the models that fail, run the rest; the job "
+                         "refuses as a whole only if no model passes")
+    ap.add_argument("--skip-done-from", default=None,
+                    help="real mode: comma-separated result files; a (model, arm, seed) session completed in any of "
+                         "them is not run again (the strengthened run reuses x2_r2_real_v1.jsonl's cells)")
+    ap.add_argument("--order", choices=("model_major", "seed_major"), default="model_major")
     args = ap.parse_args(argv)
     if args.require_validation_gates and not args.rules_from:
         ap.error("--require-validation-gates needs --rules-from")
+    rule_files = [p for p in (args.rules_from or "").split(",") if p]
+    if len(rule_files) > 1 and args.require_validation_gates and not args.per_model_refusal:
+        ap.error("several --rules-from files need --per-model-refusal")
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     def log(msg):
         print(f"[{utc_iso()}] {msg}", flush=True)
+
+    def emit(row):
+        with open(out_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(row, default=str) + "\n")
 
     note = "completed"
     import host_config as hc
@@ -1336,75 +1540,118 @@ def main(argv=None):
         import socket
         if socket.gethostname().upper() != "EVO-X2":
             raise RuntimeError(f"x2_r2_agent runs on EVO-X2 only, this is {socket.gethostname()!r}")
-        models = [m for m in args.models.split(",") if m]
+        models = [m for m in (args.models.split(",") if args.models else _default_models(args.mode, args.plan)) if m]
+        models_requested = list(models)
         c2 = args.call2_tools
-        plan = (validation_plan(c2) if args.mode == "validation" else real_plan(c2) if args.mode == "real"
-                else [])
+        if args.mode == "validation":
+            plan = validation_plan(c2)
+        elif args.mode == "real":
+            plan = strong_plan(c2) if args.plan == "strong" else real_plan(c2)
+        elif args.mode == "mechanism":
+            plan = mechanism_plan(c2)
+        else:
+            plan = []
         rules_in_use = tuple(args.rules_in_use.split(","))
         preflight = None
-        if args.rules_from:
-            vrows = read_rows(Path(args.rules_from))
-            rules_in_use = rules_in_use_from(vrows, c2)
-            if args.require_validation_gates:
-                preflight = validation_preflight(vrows, c2, models)
+        refused_models = {}
+        if rule_files:
+            vfiles = [(Path(p).name, read_rows(Path(p))) for p in rule_files]
+            if args.require_validation_gates and args.per_model_refusal:
+                preflight = validation_preflight_per_model(vfiles, c2, models)
                 rules_in_use = preflight["rules_in_use"]
-        with open(out_path, "a", encoding="utf-8") as f:
-            f.write(json.dumps({"record": "run_start", "mode": args.mode, "models": models, "plan": plan,
-                                "rules_in_use": rules_in_use, "call2_tools": c2 != "off", "call2_mode": c2,
-                                "call2_extra": call2_extra(c2), "rules_from": args.rules_from,
-                                "validation_preflight": preflight, "ts_utc": utc_iso(),
-                                "max_tokens_per_call": MAX_TOKENS_PER_CALL, "keep_alive": KEEP_ALIVE},
-                               default=str) + "\n")
+                refused_models = preflight["refused"]
+                models = list(preflight["models_ok"])
+            else:
+                merged = {}
+                for _name, vrows in vfiles:
+                    merged.update(rules_in_use_from(vrows, c2))
+                rules_in_use = merged
+                if args.require_validation_gates:
+                    preflight = validation_preflight(vfiles[-1][1], c2, models)
+                    rules_in_use = preflight["rules_in_use"]
+        skip_done = set()
+        for p in [p for p in (args.skip_done_from or "").split(",") if p]:
+            skip_done |= done_keys_from(read_rows(Path(p)), mode="real")
+        emit({"record": "run_start", "mode": args.mode, "plan_name": args.plan, "models": models,
+              "models_requested": models_requested, "plan": plan, "order": args.order,
+              "rules_in_use": rules_in_use, "call2_tools": c2 != "off", "call2_mode": c2,
+              "call2_extra": call2_extra(c2), "rules_from": args.rules_from,
+              "skip_done_from": args.skip_done_from, "n_skip_done": len(skip_done),
+              "validation_preflight": preflight, "ts_utc": utc_iso(),
+              "max_tokens_per_call": MAX_TOKENS_PER_CALL, "keep_alive": KEEP_ALIVE})
+        for m, reasons in refused_models.items():
+            emit({"record": "refused_model", "model_id": m, "reasons": reasons, "call2_mode": c2,
+                  "ts_utc": utc_iso()})
+            log(f"refused model {m}: {'; '.join(reasons)}")
         if preflight is not None and not preflight["ok"]:
-            with open(out_path, "a", encoding="utf-8") as f:
-                f.write(json.dumps({"record": "refused", "reasons": preflight["reasons"], "ts_utc": utc_iso()},
-                                   default=str) + "\n")
+            reasons = (preflight["reasons"] if "reasons" in preflight
+                       else [r for rs in preflight["refused"].values() for r in rs])
+            emit({"record": "refused", "reasons": reasons, "call2_mode": c2, "ts_utc": utc_iso()})
             note = ("stopped: refused to start, validation gates failed in "
-                    f"{Path(args.rules_from).name}: " + "; ".join(preflight["reasons"]))[:400]
+                    f"{','.join(Path(p).name for p in rule_files)}: " + "; ".join(reasons))[:400]
             log(note)
             return
-        hc.start_ollama_server()
+        server_env = server_log = None
+        if args.mode == "mechanism":
+            import x2_r2_mechanism as mech
+            server_env, server_log = dict(mech.OLLAMA_DEBUG_ENV), mech.MECH_SERVE_LOG
+            hc.stop_ollama_server()   # start_ollama_server is a no-op while any Ollama runs; env must take effect
+        _start_server(hc, server_env, server_log)
         started = True
         if not hc.wait_for_ollama_ready(timeout_s=60):
             hc.stop_ollama_server()
-            hc.start_ollama_server()
+            _start_server(hc, server_env, server_log)
             if not hc.wait_for_ollama_ready(timeout_s=90):
                 raise RuntimeError("ollama did not become ready")
         runtime = OllamaRuntime()
+        runtime.server_env, runtime.server_log = server_env, server_log
         avail = runtime.available_models()
-        missing = [m for m in models if m not in avail]
+        missing = [m for m in models if not any(same_tag(m, a) for a in avail)]
         if missing:
             raise RuntimeError(f"models not present in this Ollama store: {missing} (have {avail})")
         version = runtime.version()
-        with open(out_path, "a", encoding="utf-8") as f:
-            f.write(json.dumps({"record": "runtime", "ollama_version": version, "ts_utc": utc_iso()}) + "\n")
-        log(f"x2_r2_agent mode={args.mode} call2={c2} models={models} ollama={version} out={out_path}")
+        emit({"record": "runtime", "ollama_version": version, "call2_mode": c2, "server_env": server_env,
+              "server_log": server_log, "ts_utc": utc_iso()})
+        log(f"x2_r2_agent mode={args.mode} plan={args.plan} call2={c2} models={models} ollama={version} "
+            f"out={out_path}")
         if args.mode == "toolchoice_check":
-            def emit(row):
-                with open(out_path, "a", encoding="utf-8") as f:
-                    f.write(json.dumps(row, default=str) + "\n")
             run_toolchoice_check(runtime, models, emit, log)
             rows = read_rows(out_path)
             report = {"ollama_version": version, "per_model": summarize_toolchoice_check(rows)}
             Path(str(out_path) + ".report.json").write_text(json.dumps(report, indent=1, default=str),
                                                             encoding="utf-8")
-            with open(out_path, "a", encoding="utf-8") as f:
-                f.write(json.dumps({"record": "run_end", "ts_utc": utc_iso()}) + "\n")
+            emit({"record": "run_end", "call2_mode": c2, "ts_utc": utc_iso()})
             log(json.dumps(report, default=str))
             return
-        run_plan(runtime, plan, models, args.mode, out_path, log=log)
+        if args.mode == "mechanism":
+            head = mech.read_log(server_log, 0)
+            if not mech.debug_enabled(head):
+                raise RuntimeError(f"OLLAMA_DEBUG not active: no OLLAMA_DEBUG:DEBUG / level=DEBUG in {server_log}")
+            mrt = mech.MechanismRuntime(runtime, server_log, emit, out_path.parent / (out_path.stem + "_logs"))
+            run_plan(mrt, plan, models, "mechanism", out_path, log=log, emit=emit,
+                     on_session_start=lambda m, a, s: mrt.begin_session(m, a, s,
+                                                                        call2_mode=ARMS[a]["call2_mode"]),
+                     on_session_end=mrt.end_session)
+            rep = mech.write_report(out_path, read_rows(out_path))
+            emit({"record": "run_end", "call2_mode": c2, "ts_utc": utc_iso()})
+            log(json.dumps(rep["verdict"], default=str))
+            return
+        run_plan(runtime, plan, models, args.mode, out_path, log=log, emit=emit, skip_done=skip_done,
+                 order=args.order)
         rows = read_rows(out_path)
         if args.mode == "validation":
             report = evaluate_gates(rows, call2_tools=c2)
         else:
             sessions = [s for s in completed_sessions(rows) if s["mode"] == "real"]
-            report = {"rules_in_use": rules_in_use, "kill_criterion": kill_criterion(sessions, rules_in_use, rows)}
+            report = {"rules_in_use": rules_in_use, "refused_models": refused_models,
+                      "kill_criterion": kill_criterion(sessions, rules_in_use, rows)}
         Path(str(out_path) + ".report.json").write_text(json.dumps(report, indent=1, default=str), encoding="utf-8")
-        with open(out_path, "a", encoding="utf-8") as f:
-            f.write(json.dumps({"record": "run_end", "ts_utc": utc_iso()}) + "\n")
+        emit({"record": "run_end", "call2_mode": c2, "ts_utc": utc_iso()})
         if args.mode == "validation":
             log("\n" + format_baseline_markdown(report))
             log(json.dumps(report["gates"], default=str))
+        if refused_models:
+            note = f"completed; refused models (validation gates): {sorted(refused_models)}"
     except Exception as e:
         import traceback
         note = f"stopped: {e!r}"[:400]

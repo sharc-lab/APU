@@ -886,3 +886,228 @@ class TestToolChoiceCheck:
     def test_rendered_template_lookup(self):
         assert ag.rendered_template_of({"_debug_info": {"rendered_template": "abc"}}) == "abc"
         assert ag.rendered_template_of({"message": {}}) is None
+
+
+# ── strengthened run (2026-10-08): thinking verification, plans, resume from v1, per-model preflight ────────────
+
+class TestThinking:
+    def _thinking_factory(self, kind):
+        def factory(ags):
+            base = good_policy(ags)
+
+            def policy(call_no, messages, turn_idx):
+                content, native = base(call_no, messages, turn_idx)
+                if call_no == 2 and turn_idx == 2 and kind == "tag":
+                    content = "<think>hmm</think>" + content
+                return content, native
+            return policy
+        return factory
+
+    def test_think_tag_in_content_fails_turn_loudly(self):
+        logs = []
+        ags = _session(3)
+        rt = FakeRuntime(self._thinking_factory("tag")(ags))
+        rows = []
+        s = ag.run_session(rt, "qwen3:8b", "ollama_ctx_131072_call2_notools", SEED, 3, rows.append, logs.append,
+                           "validation")
+        turns = [r for r in rows if r["record"] == "r2a_turn"]
+        assert [r["thinking_present"] for r in turns] == [False, True, False]
+        assert "thinking_present" in ag.turn_failures(turns[1])
+        assert turns[1]["calls"][1]["think_tag_in_content"] is True
+        assert s["thinking_present_turns"] == 1 and any("THINKING PRESENT" in m for m in logs)
+        assert rt.calls[0]["think"] is False  # think false sent for qwen3:8b
+
+    def test_message_thinking_field_fails_turn(self):
+        class ThinkingRT(FakeRuntime):
+            def chat(self, *a, **k):
+                r = super().chat(*a, **k)
+                r["raw"] = {**r["raw"], "message": {"content": r["message"], "thinking": "let me think"}}
+                return r
+        ags = _session(1)
+        rows = []
+        ag.run_session(ThinkingRT(good_policy(ags)), "qwen3-4b-2507", "ollama_ctx_131072_call2_notools", SEED, 1,
+                       rows.append, lambda m: None, "validation")
+        t = next(r for r in rows if r["record"] == "r2a_turn")
+        assert t["thinking_present"] is True and t["calls"][0]["thinking_present"] is True
+
+    def test_thinking_gate_and_preflight(self):
+        rows = _validation_rows_mode("off")
+        for r in rows:
+            if r.get("record") == "r2a_turn" and r["model_id"] == "qwen3:14b":
+                r["calls"][0]["think_tag_in_content"] = True
+                break
+        rep = ag.evaluate_gates(rows, call2_tools="off")
+        assert not rep["gates"]["thinking_off"]["qwen3:14b"]["pass"]
+        assert rep["gates"]["thinking_off"]["llama3.1:8b"]["pass"]
+        pf = ag.validation_preflight(rows, "off", ["llama3.1:8b", "qwen3:14b"])
+        assert not pf["ok"] and any(r.startswith("qwen3:14b: thinking present") for r in pf["reasons"])
+
+    def test_new_models_send_think_false(self):
+        assert ag.MODELS["qwen3:8b"] is False and ag.MODELS["qwen3-4b-2507"] is False
+        assert ag.MODELS["llama3.1:8b"] is None
+
+
+class TestTags:
+    def test_latest_normalization(self):
+        assert ag.same_tag("qwen3-4b-2507", "qwen3-4b-2507:latest")
+        assert ag.same_tag("qwen3:8b", "qwen3:8b") and not ag.same_tag("qwen3:8b", "qwen3:14b")
+        assert not ag.same_tag(None, "x")
+
+
+class TestStrongPlan:
+    def test_plan_shape(self):
+        plan = ag.strong_plan("off")
+        assert [a for a, _, _ in plan] == ["ollama_default_call2_notools", "ollama_ctx_32768_call2_notools",
+                                           "ollama_ctx_16384_call2_notools", "ollama_ctx_8192_call2_notools",
+                                           "ollama_ctx_4096_call2_notools"]
+        assert all(s == ag.SEEDS_STRONG and t == 40 for _, s, t in plan)
+        assert ag.SEEDS_STRONG[:3] == tuple(ag.SEEDS) and len(set(ag.SEEDS_STRONG)) == 5
+        assert all(ag.ARMS[a]["call2_mode"] == "off" for a, _, _ in plan)
+        assert ag.CALL2_MODE_BY_RUNTIME == {"ollama": "off", "llama_server": "off", "openai": "forced_none"}
+
+    def test_new_seeds_build_40_turn_sessions(self):
+        for seed in ag.SEEDS_STRONG[3:]:
+            ags = ag.build_agent_session(seed, 40)
+            assert len(ags.spec.turns) == 40 and ag.canary_index(ags.spec.turns[39]) == 8
+
+    def test_seed_major_order(self):
+        plan = [("A", (1, 2), 3), ("B", (1, 2), 3)]
+        got = ag.session_order(plan, ["m1", "m2"], "seed_major")
+        assert got[:4] == [("m1", "A", 1, 3), ("m1", "B", 1, 3), ("m2", "A", 1, 3), ("m2", "B", 1, 3)]
+        assert ag.session_order(plan, ["m1"], "model_major") == [("m1", "A", 1, 3), ("m1", "A", 2, 3),
+                                                                 ("m1", "B", 1, 3), ("m1", "B", 2, 3)]
+
+    def test_skip_done_from_v1_cells(self, tmp_path):
+        v1 = []
+        ags = _session(2)
+        ag.run_session(FakeRuntime(good_policy(ags)), "llama3.1:8b", "ollama_ctx_4096_call2_notools", ag.SEEDS[0], 2,
+                       v1.append, lambda m: None, "real")
+        skip = ag.done_keys_from(v1, mode="real")
+        assert skip == {("llama3.1:8b", "ollama_ctx_4096_call2_notools", ag.SEEDS[0])}
+        out = tmp_path / "v1b.jsonl"
+        rt = FakeRuntime(lambda c, m, t: (_answer("x", "SC"), None))
+        plan = [("ollama_ctx_4096_call2_notools", ag.SEEDS[:2], 2)]
+        ag.run_plan(rt, plan, ["llama3.1:8b"], "real", out, log=lambda m: None, skip_done=skip)
+        done = ag.completed_sessions(ag.read_rows(out))
+        assert [(s["seed"]) for s in done] == [ag.SEEDS[1]]
+        hb = [r for r in ag.read_rows(out) if r["record"] == "heartbeat"]
+        assert hb and all(r["call2_mode"] == "off" for r in hb)
+
+
+def _vfile(tmp_path, name, models, **kw):
+    rows = _validation_rows_mode("off", models=models, **kw)
+    p = tmp_path / name
+    p.write_text("\n".join(json.dumps(r, default=str) for r in rows) + "\n", encoding="utf-8")
+    return p, rows
+
+
+class TestPerModelPreflight:
+    def test_each_model_checked_against_its_own_file(self, tmp_path):
+        _, v2 = _vfile(tmp_path, "v2.jsonl", ["llama3.1:8b", "qwen3:14b"])
+        _, v2b = _vfile(tmp_path, "v2b.jsonl", ["qwen3-4b-2507", "qwen3:8b"])
+        pf = ag.validation_preflight_per_model([("v2.jsonl", v2), ("v2b.jsonl", v2b)], "off", list(ag.STRONG_MODELS))
+        assert pf["ok"] and pf["models_ok"] == list(ag.STRONG_MODELS) and pf["refused"] == {}
+        assert pf["source"] == {"llama3.1:8b": "v2.jsonl", "qwen3:14b": "v2.jsonl", "qwen3-4b-2507": "v2b.jsonl",
+                                "qwen3:8b": "v2b.jsonl"}
+
+    def test_failing_new_model_refused_alone(self, tmp_path):
+        _, v2 = _vfile(tmp_path, "v2.jsonl", ["llama3.1:8b", "qwen3:14b"])
+        rows = _validation_rows_mode("off", models=["qwen3-4b-2507"])
+        rows = rows[:-1] + _validation_rows_mode("off", models=["qwen3:8b"], pos_factory=good_policy)[1:]
+        pf = ag.validation_preflight_per_model([("v2.jsonl", v2), ("v2b.jsonl", rows)], "off",
+                                               list(ag.STRONG_MODELS))
+        assert pf["ok"] and "qwen3:8b" not in pf["models_ok"] and "qwen3-4b-2507" in pf["models_ok"]
+        assert any("positive control" in r for r in pf["refused"]["qwen3:8b"])
+        assert "qwen3:8b" not in pf["rules_in_use"]
+
+    def test_missing_validation_refuses_model(self, tmp_path):
+        _, v2 = _vfile(tmp_path, "v2.jsonl", ["llama3.1:8b", "qwen3:14b"])
+        pf = ag.validation_preflight_per_model([("v2.jsonl", v2)], "off", ["llama3.1:8b", "qwen3:8b"])
+        assert pf["models_ok"] == ["llama3.1:8b"] and "no validation rows" in pf["refused"]["qwen3:8b"][0]
+
+    def test_unfinished_file_refuses_its_models_only(self, tmp_path):
+        _, v2 = _vfile(tmp_path, "v2.jsonl", ["llama3.1:8b"])
+        v2b = _validation_rows_mode("off", models=["qwen3:8b"], run_end=False)
+        pf = ag.validation_preflight_per_model([("v2.jsonl", v2), ("v2b.jsonl", v2b)], "off",
+                                               ["llama3.1:8b", "qwen3:8b"])
+        assert pf["models_ok"] == ["llama3.1:8b"] and any("run_end" in r for r in pf["refused"]["qwen3:8b"])
+
+
+def _patch_real_main(monkeypatch, plan):
+    import socket
+    import types
+    monkeypatch.setattr(socket, "gethostname", lambda: "EVO-X2")
+    state = {"started": 0, "notes": []}
+    monkeypatch.setitem(sys.modules, "host_config", types.SimpleNamespace(
+        start_ollama_server=lambda: state.__setitem__("started", state["started"] + 1),
+        stop_ollama_server=lambda: None, wait_for_ollama_ready=lambda timeout_s=0: True))
+    monkeypatch.setitem(sys.modules, "t2s_queue", types.SimpleNamespace(advance=state["notes"].append))
+
+    class RT(FakeRuntime):
+        def __init__(self):
+            super().__init__(lambda c, m, t: ("", [_native("log_event", event="e")]) if c == 1
+                             else (_answer("ok", "SC"), None))
+            self.server_env = self.server_log = None
+
+        def available_models(self):
+            return ["llama3.1:8b", "qwen3:14b", "qwen3-4b-2507:latest", "qwen3:8b"]
+
+        def version(self):
+            return "0.34.4"
+    monkeypatch.setattr(ag, "OllamaRuntime", RT)
+    monkeypatch.setattr(ag, "strong_plan", lambda c2: plan)
+    return state
+
+
+class TestStrongMain:
+    def test_refuses_failing_model_runs_rest_and_skips_v1(self, tmp_path, monkeypatch):
+        v2p, _ = _vfile(tmp_path, "v2.jsonl", ["llama3.1:8b", "qwen3:14b"])
+        rows = _validation_rows_mode("off", models=["qwen3-4b-2507"])
+        rows = rows[:-1] + _validation_rows_mode("off", models=["qwen3:8b"], pos_factory=good_policy)[1:]
+        v2bp = tmp_path / "v2b.jsonl"
+        v2bp.write_text("\n".join(json.dumps(r, default=str) for r in rows) + "\n", encoding="utf-8")
+        plan = [("ollama_ctx_4096_call2_notools", ag.SEEDS_STRONG[:1] + ag.SEEDS_STRONG[3:4], 2)]
+        v1 = tmp_path / "v1.jsonl"
+        v1rows = [{"record": "run_start", "mode": "real", "call2_tools": False}]
+        ags = _session(2)
+        ag.run_session(FakeRuntime(good_policy(ags)), "llama3.1:8b", plan[0][0], ag.SEEDS_STRONG[0], 2,
+                       v1rows.append, lambda m: None, "real")
+        v1.write_text("\n".join(json.dumps(r, default=str) for r in v1rows) + "\n", encoding="utf-8")
+        state = _patch_real_main(monkeypatch, plan)
+        out = tmp_path / "v1b.jsonl"
+        ag.main(["--mode", "real", "--plan", "strong", "--call2-tools", "off", "--rules-from", f"{v2p},{v2bp}",
+                 "--require-validation-gates", "--per-model-refusal", "--skip-done-from", str(v1),
+                 "--order", "seed_major", "--out", str(out)])
+        assert state["started"] == 1
+        assert len(state["notes"]) == 1 and state["notes"][0].startswith("completed; refused models")
+        recs = ag.read_rows(out)
+        assert recs[0]["record"] == "run_start" and recs[0]["models"] == ["llama3.1:8b", "qwen3:14b", "qwen3-4b-2507"]
+        assert [r["model_id"] for r in recs if r["record"] == "refused_model"] == ["qwen3:8b"]
+        done = {(s["model_id"], s["seed"]) for s in ag.completed_sessions(recs)}
+        assert ("llama3.1:8b", ag.SEEDS_STRONG[0]) not in done  # v1 cell reused, not rerun
+        assert done == {("llama3.1:8b", ag.SEEDS_STRONG[3]), ("qwen3:14b", ag.SEEDS_STRONG[0]),
+                        ("qwen3:14b", ag.SEEDS_STRONG[3]), ("qwen3-4b-2507", ag.SEEDS_STRONG[0]),
+                        ("qwen3-4b-2507", ag.SEEDS_STRONG[3])}
+        assert recs[-1]["record"] == "run_end"
+        assert all(r.get("call2_mode") == "off" for r in recs if r["record"] not in ("run_start",))
+        rep = json.loads(Path(str(out) + ".report.json").read_text(encoding="utf-8"))
+        assert set(rep["rules_in_use"]) == {"llama3.1:8b", "qwen3:14b", "qwen3-4b-2507"}
+
+    def test_refuses_whole_job_when_no_model_passes(self, tmp_path, monkeypatch):
+        rows = _validation_rows_mode("off", models=["qwen3:8b"], pos_factory=good_policy)
+        p = tmp_path / "v2b.jsonl"
+        p.write_text("\n".join(json.dumps(r, default=str) for r in rows) + "\n", encoding="utf-8")
+        state = _patch_real_main(monkeypatch, [("ollama_ctx_4096_call2_notools", (1,), 2)])
+        out = tmp_path / "v1b.jsonl"
+        ag.main(["--mode", "real", "--plan", "strong", "--call2-tools", "off", "--models", "qwen3:8b",
+                 "--rules-from", str(p), "--require-validation-gates", "--per-model-refusal", "--out", str(out)])
+        assert state["started"] == 0 and state["notes"][0].startswith("stopped: refused to start")
+        assert [r["record"] for r in ag.read_rows(out)] == ["run_start", "refused_model", "refused"]
+
+
+class TestCall2ModeEverywhere:
+    def test_toolchoice_rows_carry_call2_mode(self):
+        rows = []
+        ags = ag.build_agent_session(ag.SEEDS[0], ag.TC_TURNS)
+        ag.run_toolchoice_check(FakeTCRuntime(_call2_tool_caller(ags)), ["llama3.1:8b"], rows.append, lambda m: None)
+        assert rows and all(r.get("call2_mode") in ag.CALL2_MODES for r in rows)

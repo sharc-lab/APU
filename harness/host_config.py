@@ -189,21 +189,55 @@ def _resolve_ollama_exe_for_serve():
     return "ollama"
 
 
-def start_ollama_server(ps_fn=None):
+DEFAULT_OLLAMA_SERVE_LOG = r"C:\apu\ovn\ollama_serve.log"
+_ENV_KEY_RE = re.compile(r"^[A-Z_][A-Z0-9_]*$")
+_ENV_VALUE_FORBIDDEN = set("\"'&|<>^%\r\n")  # cmd.exe metacharacters, and ' would end the PowerShell string
+
+
+def _extra_env_sets(env) -> str:
+    """cmd.exe `set "K=V"&& ` prefixes for start_ollama_server's optional env. Quoted assignment, so no trailing
+    space ends up in the value (the t2s_queue 2026-09-30 bug). Raises ValueError on a key that is not an
+    upper-case identifier, on a value containing a cmd.exe metacharacter or a single quote, and on the two
+    variables start_ollama_server sets itself."""
+    out = ""
+    for k, v in (env or {}).items():
+        v = str(v)
+        if not _ENV_KEY_RE.match(k):
+            raise ValueError(f"start_ollama_server env: bad variable name {k!r}")
+        if any(c in _ENV_VALUE_FORBIDDEN for c in v):
+            raise ValueError(f"start_ollama_server env: value for {k} contains a forbidden character: {v!r}")
+        if k in ("OLLAMA_KEEP_ALIVE", "OLLAMA_MODELS"):
+            raise ValueError(f"start_ollama_server env: {k} is set by start_ollama_server itself")
+        out += f'set "{k}={v}"&& '
+    return out
+
+
+def start_ollama_server(ps_fn=None, env=None, log_path=None):
     """Starts `ollama serve` headless via WMI Win32_Process Create -- a plain Start-Job does not survive past the SSH
     session that launched it (discovered 2026-09-28 the hard way, see docs/T2S_CHANGELOG.md) -- with
     OLLAMA_KEEP_ALIVE=0 so a model never lingers in GPU memory once a call finishes. Idempotent: no-ops (returns None)
     if ollama_process_running() already reports a process. Returns the launched PID as an int, or None if the launch
     output could not be parsed. Called by K1/K2's own job lifecycle, which are the only phases allowed to run Ollama
-    at all (see docs/RESULT_PROVENANCE.md, 2026-09-29 contamination check)."""
+    at all (see docs/RESULT_PROVENANCE.md, 2026-09-29 contamination check).
+
+    env (optional, 2026-10-08): extra environment variables for the server process only, e.g. {"OLLAMA_DEBUG": "1"}
+    for x2_r2_agent's mechanism job. Because of the idempotency above, a caller that needs env to take effect must
+    make sure no Ollama process is running first (stop_ollama_server) and should confirm it from the server log's
+    own "server config" line. log_path (optional): where the server's stdout+stderr go, default
+    DEFAULT_OLLAMA_SERVE_LOG; cmd.exe `>` truncates it at each start. With env=None and log_path=None the launched
+    command line is exactly what it was before these parameters existed."""
     if ollama_process_running(ps_fn=ps_fn):
         return None
     import os
+    extra = _extra_env_sets(env)
+    log = log_path or DEFAULT_OLLAMA_SERVE_LOG
+    if any(c in _ENV_VALUE_FORBIDDEN or c == " " for c in log):
+        raise ValueError(f"start_ollama_server log_path contains a forbidden character: {log!r}")
     exe = _resolve_ollama_exe_for_serve()
     # Under SYSTEM, Ollama's default models dir is the system profile's (empty); point it at the host's own store.
     models = os.environ.get("OLLAMA_MODELS") or _this_host_entry().get("ollama_models")
     models_set = f"set OLLAMA_MODELS={models}&& " if models else ""
-    cmd = (f"$cmd = 'cmd.exe /c set OLLAMA_KEEP_ALIVE=0 && {models_set}\"{exe}\" serve > C:\\apu\\ovn\\ollama_serve.log 2>&1'; "
+    cmd = (f"$cmd = 'cmd.exe /c set OLLAMA_KEEP_ALIVE=0 && {models_set}{extra}\"{exe}\" serve > {log} 2>&1'; "
            "$r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{CommandLine=$cmd}; "
            "'pid=' + $r.ProcessId")
     if ps_fn is None:
