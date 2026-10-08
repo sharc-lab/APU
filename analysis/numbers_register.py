@@ -1748,18 +1748,23 @@ def compute_t2s_outcome_error_causes(repo):
 
 
 # ───────────────────────────────────────────────── GSM8K strict vs lenient, T2S allocation failures (2026-10-07)
-def _x2_v3_gsm8k_rows(repo):
+def _x2_v3_gsm8k_rows(repo, exclude_timeout_latency=True):
     """Last valid gsm8k row per (item, model, config) in the v3 file (the row the latest canary gate read), with
     score (the recorded strict score), format_ok and score_lenient. Rows written with the lenient columns carry
     them. For older rows they are recomputed from output_text, which holds only the first 500 chars: when
     content_chars > 500 the last sentence was not stored, so score_lenient is None, and format_ok is None unless
-    the strict score is 1 (which implies a `#### N`) or the stored head already contains one."""
+    the strict score is 1 (which implies a `#### N`) or the stored head already contains one.
+    exclude_timeout_latency (default True): timeout_latency rows (x2_outcome_table.analysis_outcome) are left out of
+    these accuracy rows. The canary gate lenient row passes False, since it adjusts the gate's own recorded mean,
+    whose n the harness fixed with every canary row in it."""
     x2 = _x2_harness()
     g = x2.load_graders()
     items = {it["item_id"]: it for it in x2.load_items_trace_weighted(repo)}
     out = []
     for (iid, model, config), r in sorted(x2.valid_cached_rows(repo / X2_OUTCOME_V3).items()):
         if r.get("family") != "gsm8k":
+            continue
+        if exclude_timeout_latency and not x2.counts_toward_accuracy(r):
             continue
         score = r.get("score") or 0.0
         if "score_lenient" in r:
@@ -1780,7 +1785,8 @@ def _x2_v3_gsm8k_rows(repo):
 
 def compute_x2_v3_gsm8k_strict_vs_lenient(repo):
     """Per (model, config): gsm8k rows, strict score (the recorded score), format_ok (a `#### N` in the stored
-    text), and the lenient last-sentence score over the rows whose stored text is the whole response."""
+    text), and the lenient last-sentence score over the rows whose stored text is the whole response.
+    timeout_latency rows are excluded from these denominators (_x2_v3_gsm8k_rows default)."""
     by = {}
     for r in _x2_v3_gsm8k_rows(repo):
         b = by.setdefault((r["model_id"], r["config"]), {"n": 0, "strict": 0.0, "fmt": 0, "len_n": 0, "len": 0.0,
@@ -1810,7 +1816,7 @@ def compute_x2_v3_canary_gate_lenient(repo):
         if r.get("record") == "canary_gate":
             gates[(r["model_id"], r["config"])] = r
     gsm = {}
-    for r in _x2_v3_gsm8k_rows(repo):
+    for r in _x2_v3_gsm8k_rows(repo, exclude_timeout_latency=False):
         gsm.setdefault((r["model_id"], r["config"]), []).append(r)
     bare = _x2_bare_cells(repo)
     parts = []
@@ -2385,12 +2391,18 @@ def compute_x2_v3_scores(repo):
     config, over done items only. The run visits items in descending trace weight, so done items are the heaviest.
     Cells measured through an Ollama tag created from a bare GGUF (chat_template_source bare_gguf_ollama_create:
     qwen3-4b-2507 and qwen3-30b-a3b on ollama_default) carry "[bare template]" on their function_calling score: an
-    install-path result, not model capability (docs/FINDINGS.md 2026-10-08, install path)."""
-    _x2, cells, plan, plan_all, w = _x2_v3_cells(repo)
+    install-path result, not model capability (docs/FINDINGS.md 2026-10-08, install path).
+    timeout_latency rows (harness/x2_outcome_table.py::analysis_outcome, cause timeout) are EXCLUDED from every
+    denominator here (family means and the trace-weighted mean): a call that hit the per-call timeout is a usability
+    outcome (x2-v3-usability), not a wrong answer. Each cell with any says how many were excluded; x2-v3-progress
+    and x2-v3-error-causes still count them."""
+    x2, cells, plan, plan_all, w = _x2_v3_cells(repo)
     bare = _x2_bare_cells(repo, [r for v in cells.values() for r in v.values()])  # the latest valid rows
     parts = []
     for (m, c) in sorted(cells):
-        rs = {iid: r for iid, r in cells[(m, c)].items() if iid in plan.get(m, set())}
+        done = {iid: r for iid, r in cells[(m, c)].items() if iid in plan.get(m, set())}
+        rs = {iid: r for iid, r in done.items() if x2.counts_toward_accuracy(r)}
+        n_tl = len(done) - len(rs)
         fam = {}
         for iid, r in rs.items():
             fam.setdefault(plan_all[iid], []).append(r.get("score") or 0.0)
@@ -2401,8 +2413,61 @@ def compute_x2_v3_scores(repo):
                        + (f" {BARE_TEMPLATE_MARK}" if is_bare and f == "function_calling" else "")
                        for f, v in sorted(fam.items()))
         parts.append(f"{m}/{c}: {fs}; trace-weighted {'n/a' if tw is None else f'{tw:.2f}'}"
-                     + (" (includes bare-template function_calling)" if is_bare and "function_calling" in fam else ""))
+                     + (" (includes bare-template function_calling)" if is_bare and "function_calling" in fam else "")
+                     + (f"; {n_tl} timeout_latency excluded" if n_tl else ""))
     return {"value": " / ".join(parts), "n": sum(len(v) for v in cells.values())}
+
+
+def _x2_v3_timeout_latency(repo):
+    """{(model, config): (done rows in plan, [timeout_latency rows in plan])} over the latest valid v3 rows, plus the
+    item lookup (family, prompt_tokens) used for context tiers, and the overall progress (done, planned)."""
+    x2, cells, plan, plan_all, _w = _x2_v3_cells(repo)
+    items = {it["item_id"]: it for it in x2.load_items_trace_weighted(repo)}
+    out = {}
+    for (m, c) in sorted(cells):
+        done = {iid: r for iid, r in cells[(m, c)].items() if iid in plan.get(m, set())}
+        tl = [r for _iid, r in sorted(done.items()) if x2.analysis_outcome(r) == x2.TIMEOUT_LATENCY]
+        out[(m, c)] = (len(done), tl)
+    total_done = sum(len(set(v) & plan.get(m, set())) for (m, _c), v in cells.items())
+    total_plan = sum(len(plan[m]) for m in plan) * len(x2.CONFIGS)
+    return x2, out, items, total_done, total_plan
+
+
+def compute_x2_v3_usability(repo):
+    """Usability table per model x config: n timeout_latency rows (harness/x2_outcome_table.py::analysis_outcome),
+    their share of the cell's done items, the context tier (item family + prompt-length bucket,
+    x2_outcome_table.context_tier) of each timed-out item, and the per-call timeout in seconds read from the
+    harness constant DEFAULT_CALL_TIMEOUT_S (the run used the default; rows do not record it). These rows are
+    excluded from x2-v3-scores and kept in x2-v3-progress / x2-v3-error-causes."""
+    x2, cells, items, _td, _tp = _x2_v3_timeout_latency(repo)
+    parts = []
+    total_tl = 0
+    for (m, c), (n_done, tl) in cells.items():
+        total_tl += len(tl)
+        tiers = {}
+        for r in tl:
+            it = items.get(r["item_id"], {})
+            t = x2.context_tier(it.get("family", r.get("family")), it.get("prompt_tokens"))
+            tiers[t] = tiers.get(t, 0) + 1
+        share = f"{len(tl) / n_done:.1%}" if n_done else "n/a"
+        tier_s = (" [" + ", ".join(f"{t} x{k}" for t, k in sorted(tiers.items())) + "]") if tiers else ""
+        parts.append(f"{m}/{c} {len(tl)}/{n_done} ({share}){tier_s}")
+    return {"value": f"per-call timeout {x2.DEFAULT_CALL_TIMEOUT_S} s (harness DEFAULT_CALL_TIMEOUT_S); "
+                     f"timeout_latency/done (share) [context tiers]: " + "; ".join(parts), "n": total_tl}
+
+
+def compute_qwen3_32b_timeout_count(repo):
+    """qwen3-32b timeout_latency rows (harness/x2_outcome_table.py::analysis_outcome) per config in the v3 outcome
+    table. Flagged "provisional: outcome table v3 not finished" while the v3 progress (latest valid rows in plan,
+    all models x configs) is below the plan; the flag turns to "final" by itself once progress reaches the plan."""
+    _x2, cells, _items, total_done, total_plan = _x2_v3_timeout_latency(repo)
+    per = {c: (n_done, tl) for (m, c), (n_done, tl) in cells.items() if m == "qwen3-32b"}
+    if not per:
+        raise FileNotFoundError("no qwen3-32b rows in the v3 outcome table")
+    status = (f"provisional: outcome table v3 not finished ({total_done}/{total_plan} done)"
+              if total_done < total_plan else f"final: outcome table v3 finished ({total_done}/{total_plan} done)")
+    body = ", ".join(f"{c} {len(tl)}/{n_done}" for c, (n_done, tl) in sorted(per.items()))
+    return {"value": f"{body} (timeout_latency/done); {status}", "n": sum(len(tl) for _n, tl in per.values())}
 
 
 def compute_x2_v3_error_causes(repo):
@@ -3400,6 +3465,14 @@ NUMBER_ENTRIES = [
     {"claim_id": "x2-v3-error-causes", "description": "X2 outcome table v3: error causes per model x config",
      "compute": compute_x2_v3_error_causes, "data_files": [X2_OUTCOME_V3],
      "script_function": "analysis/numbers_register.py::compute_x2_v3_error_causes"},
+    {"claim_id": "x2-v3-usability", "description": "X2 outcome table v3 usability: timeout_latency rows per model x "
+                    "config (excluded from x2-v3-scores), share, context tiers, per-call timeout",
+     "compute": compute_x2_v3_usability, "data_files": [X2_OUTCOME_V3],
+     "script_function": "analysis/numbers_register.py::compute_x2_v3_usability"},
+    {"claim_id": "qwen3-32b-timeout-count", "description": "X2 outcome table v3: qwen3-32b timeout_latency rows per "
+                    "config, provisional until v3 progress reaches its plan",
+     "compute": compute_qwen3_32b_timeout_count, "data_files": [X2_OUTCOME_V3],
+     "script_function": "analysis/numbers_register.py::compute_qwen3_32b_timeout_count"},
     {"claim_id": "t2s-llamaserver-load-failures", "description": "T2S outcome table llama-server load logs: "
                     "served vs out-of-device-memory (logs synced, gitignored)",
      "compute": compute_t2s_llamaserver_load_failures, "data_files": [T2S_LLAMASERVER_LOG_GLOB],
