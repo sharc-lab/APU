@@ -275,3 +275,24 @@ each branch's FINDINGS section and register rows (not repeated here until merged
   by CR characters; fixed (ecf1b66, LF), deployed, requeued as x2_r2_4b_tools_validate_r2 ahead of the outcome table via
   the yield. The old qwen3-4b-2507 tag is untouched. evo-x2 SSH briefly reset connections during the mechanism run
   (no reboot; uptime since 2026-10-04).
+
+## Demo milestones (freeze 2026-10-28)
+
+| Checkpoint | Due | Contents | Status 2026-10-08 |
+|---|---|---|---|
+| Router + Pareto on stub data | 2026-10-14 | src/dse/router.py with the context-shift guard rule; src/dse/pareto.py frontier + recommendation on current outcome rows, cloud rows STUB | in progress (subagents) |
+| Dashboard with real local data | 2026-10-21 | demo/dashboard: form, frontier per hardware, recommendation with savings vs all-cloud, live-run view, naive-vs-ours 4096 scenario from R2 data | in progress (subagent) |
+| Cloud rows + live validation + freeze | 2026-10-28 | real cloud rows through the USD 50 capped client once the key exists; live validation; freeze | not started (needs key) |
+
+Every report states status against these three checkpoints.
+
+### 2026-10-08, 4B revalidation and new workstreams
+
+- qwen3-4b-2507-tools (same GGUF, library Qwen3 template, LF Modelfile after the ecf1b66 fix) failed its validation
+  (register `R2-validation-v2c-baseline`, `R2-install-path-4b-comparison`): native tool calls on call 1 fell from
+  11/30 (bare) to 2/30, rules 1, 2 and 5 at 0.0%, negative control 2/12 canary misses, task tool 5/30. The real
+  run's start check refuses it (category "failed"); x2_r2_real_v1b runs llama3.1:8b, qwen3:14b, qwen3:8b.
+- Started (subagents): context-shift predictor; x2_r2_mitigation_v1 (pre-registered, queued after x2_r2_real_v1b);
+  demo router, Pareto, dashboard; docs/T2S_WEEK_PLAN.md (T2S back about 2026-10-15, no SSH until the operator says);
+  docs/PAPER1_DRAFT.md (ISPASS skeleton); docs/BLADE_PLAN.md (overnight only; nothing starts before the operator says
+  "start Blade night 1"; all local work paused during Blade runs).
