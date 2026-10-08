@@ -226,3 +226,16 @@ each branch's FINDINGS section and register rows (not repeated here until merged
 - Outcome table v3 resume3: all 12 canary gates pass (qwen3-30b-a3b Ollama leg 0.9 after the model fix). The two
   ALERTs in the digest are from the first v3 start (2026-10-07 05:49Z), before that fix.
 - Still running (subagent): T2S GSM8K fix and rescoring, lenient GSM8K column, T2S allocation breakdown, cloud cap.
+- Item 4 merged (251954e), full suite 1421 passed, 32 skipped, pushed. Deployed `x2_outcome_table.py` and
+  `results_digest.py` to evo-x2; all 43 deployed files verify against 251954e. The running resume3 process keeps the
+  code it started with until its next restart/yield (SCORER_VERSION unchanged, so its cache stays valid).
+  - T2S GSM8K fix ported; the synced T2S rows contain 0 gsm8k rows and no output text, so nothing needed rescoring.
+  - Both outcome harnesses now record score_strict, format_ok, score_lenient, output_tail (register
+    `x2-v3-gsm8k-strict-vs-lenient`, `x2-v3-canary-gate-lenient`). Lenient is computable only for v3 rows whose full
+    response was stored (first 500 chars only before this change).
+  - T2S allocation failures (register `t2s-outcome-allocation-failures`): both Ollama configs, time-ordered (all
+    after about 07:29Z 2026-10-02, right after llama-server's first stuck 900 s load), not a prompt-length boundary.
+    Cause open: needs the llama-server load logs `results/t2s_outcome_table_llamaserver_<item>.log`.
+  - Cloud client: hard USD 50 total cap, alerts at 50/75/90% (once each, ledger + digest + print). Real mode keys on
+    CLOUD_API_KEY; scripts that read OPENAI_API_KEY directly (harness/adapters/sdk_direct.py,
+    harness/tail_latency_instrument.py, harness/backends/cloud_openai.py) bypass the cap. Operator decision pending.
