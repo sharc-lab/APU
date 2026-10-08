@@ -78,11 +78,14 @@ def x2_file(tmp_path):
 def test_quality_latency_and_validity(x2_file, tmp_path):
     pts = by_id(load([("evo-x2", str(x2_file))], tmp=tmp_path))
     a = pts["evo-x2:llama_server:model-a"]
-    assert a.quality_n == 3
-    assert a.quality == pytest.approx((0.5 * 1 + 0.3 * 1 + 0.2 * 0) / 1.0)
+    # the timed-out item c is timeout_latency: out of the quality denominator, still in n_rows and error_causes
+    assert a.quality_n == 2 and a.n_rows == 3
+    assert a.quality == pytest.approx((0.5 * 1 + 0.3 * 1) / 0.8)
+    assert a.weight_coverage == pytest.approx(0.8)
     assert a.latency_p50_ms == pytest.approx(20_000)  # completed rows only: 10 s and 30 s
     assert a.latency_p90_ms == pytest.approx(28_000)
     assert "errors:timeout=1" in a.flags and a.error_causes == {"none": 2, "timeout": 1}
+    assert "timeout_latency_excluded=1" in a.flags
     assert a.usd_per_1k_steps == 0.0 and not a.stub
     b = pts["evo-x2:ollama_default:model-b"]
     assert b.quality_n == 2 and b.quality == pytest.approx(1.0)  # connection row dropped, weights renormalized
@@ -156,7 +159,8 @@ def test_rerun_with_an_added_machine_file(x2_file, tmp_path):
     # a second file for the same machine supersedes the first per (item, model, config)
     newer = write(tmp_path / "results" / "x2_new.jsonl", [row("a", "model-a", "llama_server", 0.0, 10.0)])
     p3 = by_id(load([("evo-x2", str(x2_file)), ("evo-x2", str(newer))], tmp=tmp_path))
-    assert p3["evo-x2:llama_server:model-a"].quality == pytest.approx(0.3)
+    # a=0 (superseded), b=1, c timeout_latency (excluded): weights renormalized over a and b
+    assert p3["evo-x2:llama_server:model-a"].quality == pytest.approx(0.3 / 0.8)
 
 
 def test_real_cloud_rows_replace_the_stub(x2_file, tmp_path):

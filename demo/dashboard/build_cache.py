@@ -184,12 +184,22 @@ def mitigation(register: dict) -> dict:
             "label": None if measured else "projected, pending mitigation run (x2_r2_mitigation_v1)"}
 
 
+def _repo_rel(path: str) -> str:
+    try:
+        return Path(path).resolve().relative_to(REPO.resolve()).as_posix()
+    except ValueError:
+        return str(path)
+
+
 def points(backend) -> dict:
     files = [REPO / f for f in OUTCOME_FILES if (REPO / f).exists()]
     # The agreed load_points interface takes (machine, path) pairs; the machine comes from the file-name prefix.
     from demo.dashboard.fakes import machine_for_file
     pts = backend.pareto.load_points([(machine_for_file(f), f) for f in files], cloud_source="stub")
     as_dict = [dataclasses.asdict(p) if dataclasses.is_dataclass(p) else dict(vars(p)) for p in pts]
+    for d in as_dict:  # repo-relative, so the committed cache carries no local user path
+        if d.get("source_files"):
+            d["source_files"] = [_repo_rel(s) for s in d["source_files"]]
     return {"files": [f.relative_to(REPO).as_posix() for f in files], "backend": backend.pareto_source,
             "points": as_dict}
 

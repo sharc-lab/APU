@@ -128,6 +128,10 @@ LLAMA_SERVER_PORT = 58299
 DEFAULT_MODELS = ["llama3.1:8b", "qwen3-4b-2507", "qwen3-8b", "qwen3-14b", "qwen3-30b-a3b", "qwen3-32b"]
 CONFIGS = ("ollama_default", "llama_server")
 MAX_TOKENS = 256
+# Per-call timeout (seconds) for both configs (llama_server chat request and server start, ollama chat), unless
+# --call-timeout-s overrides it. Operator decision 2026-10-08: kept as is; calls that hit it are tagged
+# timeout_latency in analysis (analysis_outcome), not re-run with a longer timeout.
+DEFAULT_CALL_TIMEOUT_S = 900
 
 # ------------------------------------------------------------------------------------------------ THINKING
 # Server flag + per-request kwarg, both applied (belt and braces): harness/x2_thinking_verify.py records which
@@ -194,6 +198,43 @@ def classify_error_cause(row):
     if "timed out" in error or "timeout" in error:
         return "timeout"
     return "other"
+
+
+# Analysis-only outcome label (2026-10-08 operator decision). Never written to the result file and never read by the
+# running harness: run(), row_is_valid, the canary gate, the rolling alarm and SCORER_VERSION are unchanged.
+TIMEOUT_LATENCY = "timeout_latency"
+# Prompt-length bucket ladder for context tiers: the workload pack's longdoc target lengths (item ids
+# longdoc_<target>_<n>), so a longdoc item's tier matches its id prefix, plus 0 for the short families.
+CONTEXT_TIER_BUCKETS = (0, 2000, 4000, 8000, 12000, 16000, 24000, 32000, 48000, 64000, 80000, 96000, 120000)
+_TIER_FAMILY_ALIAS = {"longdoc_qa": "longdoc", "trace_length_mix": "trace_mix"}
+
+
+def analysis_outcome(row):
+    """'timeout_latency' when the row's cause is timeout (classify_error_cause(row) == 'timeout': the call did not
+    finish within the per-call timeout, DEFAULT_CALL_TIMEOUT_S unless overridden), else None. Applies to every model
+    and config alike. Pure: reads the row, never mutates it.
+    A timeout_latency row is a usability outcome (the config is too slow for that context tier at this timeout),
+    not a wrong answer, so accuracy/quality denominators leave it out (counts_toward_accuracy); progress and
+    error-cause counts keep it."""
+    return TIMEOUT_LATENCY if classify_error_cause(row) == "timeout" else None
+
+
+def counts_toward_accuracy(row):
+    """False for a timeout_latency row (analysis_outcome), True otherwise. Every quality/accuracy mean over outcome
+    rows (register x2-v3-scores, src/dse/pareto.py quality) filters with this; context_overflow and other error
+    rows stay in and score 0."""
+    return analysis_outcome(row) != TIMEOUT_LATENCY
+
+
+def context_tier(family, prompt_tokens):
+    """Context tier label '<family>_<bucket>': family shortened as in the item ids (longdoc_qa -> longdoc,
+    trace_length_mix -> trace_mix), bucket = the largest CONTEXT_TIER_BUCKETS value <= prompt_tokens (so
+    longdoc_32000_03 at 32001 tokens is longdoc_32000). Unknown prompt_tokens gives '<family>_unknown'."""
+    fam = _TIER_FAMILY_ALIAS.get(family, family)
+    if prompt_tokens is None:
+        return f"{fam}_unknown"
+    bucket = max(b for b in CONTEXT_TIER_BUCKETS if b <= max(int(prompt_tokens), 0))
+    return f"{fam}_{bucket}"
 
 
 def error_subcause(row):
@@ -878,7 +919,7 @@ class Yielded(Exception):
     pass
 
 
-def run(out_path, models, smoke_n=None, deadline_h=24.0, call_timeout_s=900, reuse_from=None,
+def run(out_path, models, smoke_n=None, deadline_h=24.0, call_timeout_s=DEFAULT_CALL_TIMEOUT_S, reuse_from=None,
         verify_thinking=False, runners=None, yield_hook=None, items=None, weights=None):
     """runners / yield_hook / items / weights are injection points for tests. Returns a status string."""
     runners = runners or {"ollama_default": run_one_ollama, "llama_server": run_one_llama_server}
@@ -999,7 +1040,7 @@ def main(argv=None):
     ap.add_argument("--models", default=",".join(DEFAULT_MODELS))
     ap.add_argument("--smoke-n", type=int, default=None)
     ap.add_argument("--deadline-h", type=float, default=24.0)
-    ap.add_argument("--call-timeout-s", type=int, default=900)
+    ap.add_argument("--call-timeout-s", type=int, default=DEFAULT_CALL_TIMEOUT_S)
     ap.add_argument("--reuse-from", default=None, help="earlier run's jsonl: tag its invalid rows, reuse valid ones")
     ap.add_argument("--verify-thinking", action="store_true",
                     help="run harness/x2_thinking_verify.py's live check first (once; skipped if already recorded)")

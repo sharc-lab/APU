@@ -15,9 +15,13 @@ ONE POINT = one (machine, runtime, model) cell:
     same machine in the order given (so a later file supersedes an earlier one).
   * quality: trace-weighted mean score, weights from results/workload_pack/item_weights_trace_weighted.json
     renormalized over the items present in that cell (same rule as the register's x2-v3-scores row). Error rows
-    that row_is_valid keeps (context_overflow, timeout, other) are real outcomes and count as score 0.
-    quality_n = number of items; weight_coverage = sum of the present items' weights (share of the trace-weighted
-    pack the cell has measured). If no present item has a weight, the plain mean is used and flagged "unweighted".
+    that row_is_valid keeps (context_overflow, other) are real outcomes and count as score 0. timeout_latency rows
+    (harness/x2_outcome_table.py::analysis_outcome, cause timeout; 2026-10-08 operator decision) are EXCLUDED from
+    the quality denominator: a call that hit the per-call timeout is a usability outcome, not a wrong answer. They
+    stay in n_rows and error_causes, and the point carries the flag "timeout_latency_excluded=<n>".
+    quality_n = number of scored items (timeout_latency excluded); weight_coverage = sum of those items' weights
+    (share of the trace-weighted pack the cell has a quality measurement for). If no scored item has a weight, the
+    plain mean is used and flagged "unweighted".
   * latency_p50_ms / latency_p90_ms: over the cell's rows that completed (classify_error_cause == "none"), from
     the rows' latency_s (end-to-end call time). Linear-interpolated percentiles.
   * usd_per_1k_steps: one step = one workload-pack item call. Local cells: 0 marginal API cost, plus an optional
@@ -356,9 +360,11 @@ def load_points(files: list[tuple[str, str]], cloud_source: str = "stub", *, rep
         for (iid, m, c), r in rows.items():
             cells.setdefault((m, c), {})[iid] = r
         for (m, c), items in sorted(cells.items()):
-            scores = {i: float(r.get("score") or 0.0) for i, r in items.items()}
+            scored = {i: r for i, r in items.items() if x2.counts_toward_accuracy(r)}
+            n_timeout_latency = len(items) - len(scored)
+            scores = {i: float(r.get("score") or 0.0) for i, r in scored.items()}
             quality, weighted = _weighted_mean(scores, weights)
-            coverage = sum(weights.get(i, 0.0) for i in items)
+            coverage = sum(weights.get(i, 0.0) for i in scored)
             causes: dict[str, int] = {}
             lat = []
             for r in items.values():
@@ -379,8 +385,10 @@ def load_points(files: list[tuple[str, str]], cloud_source: str = "stub", *, rep
                 flags.append("template_mixed")
             if not weighted:
                 flags.append("unweighted")
-            if len(items) < SMALL_N:
+            if len(scored) < SMALL_N:
                 flags.append("small_n")
+            if n_timeout_latency:
+                flags.append(f"timeout_latency_excluded={n_timeout_latency}")
             if weighted and coverage < LOW_COVERAGE:
                 flags.append("low_weight_coverage")
             for k, v in sorted(causes.items()):
@@ -404,7 +412,7 @@ def load_points(files: list[tuple[str, str]], cloud_source: str = "stub", *, rep
                 if rate:
                     flags.append("amortized_hw_cost")
             points.append(Point(machine=machine, runtime=c, model=m, config_id=f"{machine}:{c}:{m}",
-                                quality=quality, quality_n=len(items), usd_per_1k_steps=usd,
+                                quality=quality, quality_n=len(scored), usd_per_1k_steps=usd,
                                 latency_p50_ms=p50, latency_p90_ms=p90, stub=False, template_source=template,
                                 flags=flags, weight_coverage=coverage if weighted else None, n_rows=len(items),
                                 error_causes=causes, cost_basis=basis, source_files=list(sources[machine])))

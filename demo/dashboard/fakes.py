@@ -186,8 +186,14 @@ def _template_sources() -> dict:
 
 def load_points(files, cloud_source="stub") -> list[Point]:
     """One local point per (machine, config, model) from outcome_row records: quality = mean score with
-    non-200 rows counted as 0, latency percentiles over 200 rows. Cloud points carry no quality (stub has no
-    measured quality) and a stub cost from the published pricing table at the local rows' mean token count."""
+    non-200 rows counted as 0, except timeout_latency rows (harness/x2_outcome_table.py::counts_toward_accuracy
+    is False), which are left out of the quality denominator as in src/dse/pareto.py; latency percentiles over 200
+    rows. Cloud points carry no quality (stub has no measured quality) and a stub cost from the published pricing
+    table at the local rows' mean token count."""
+    import sys
+    if str(REPO / "harness") not in sys.path:
+        sys.path.insert(0, str(REPO / "harness"))
+    from x2_outcome_table import counts_toward_accuracy
     templates = _template_sources()
     groups: dict[tuple, list[dict]] = {}
     for f in files:
@@ -203,7 +209,8 @@ def load_points(files, cloud_source="stub") -> list[Point]:
             groups.setdefault((machine, r["config"], r["model_id"]), []).append(r)
     pts, all_sent = [], []
     for (machine, config, model), rows in sorted(groups.items()):
-        scores = [(_f(r.get("score")) or 0.0) if str(r.get("http_status")) == "200" else 0.0 for r in rows]
+        scores = [(_f(r.get("score")) or 0.0) if str(r.get("http_status")) == "200" else 0.0 for r in rows
+                  if counts_toward_accuracy(r)]
         lat = sorted(_f(r.get("latency_s")) * 1000 for r in rows
                      if str(r.get("http_status")) == "200" and _f(r.get("latency_s")) is not None)
         all_sent += [_f(r.get("sent_tokens")) for r in rows if _f(r.get("sent_tokens")) is not None]
