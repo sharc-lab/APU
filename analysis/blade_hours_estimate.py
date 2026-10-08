@@ -1,14 +1,23 @@
 """Hour estimates for the Blade nights (docs/BLADE_PLAN.md), computed from result files, never typed in.
 
-Every job's estimate is either "measured" (the same work was timed on the Blade, e.g. C1's per-ctx segments for C3)
-or "scaled" (timed on evo-x2 for the same design and multiplied by a stated factor). The factors are assumptions,
-stated in FACTORS with the reason; nothing in this file is a Blade measurement unless its source is a blade_* file.
+Each job is a list of cells (model, Blade num_ctx, number of sessions, the evo-x2 source of the same session design).
+Per cell, in order of preference:
 
-Usage: py -3.12 analysis/blade_hours_estimate.py   (prints JSON; --markdown prints the plan table)
+  measured   C3 only: the Blade's own C1 segments at the same ctx (load, calls and thermal waits included).
+  rates      the Blade's measured prefill and decode tok/s for that (model, num_ctx), from the 60-second dry-run files
+             (results/blade_dryrun/blade_dryrun_*.jsonl), applied to the token workload of the evo-x2 sessions of the
+             same design: sum over calls of prompt_eval_count / prefill + completion tokens / decode. Model load and
+             harness time are not in it (a lower bound on wall time for that cell).
+  scaled     no Blade rate for that (model, num_ctx): evo-x2's wall minutes for the same sessions times a FACTORS entry,
+             labelled "scaled (no Blade rate for <model> at <ctx>)". The factors are assumptions.
+
+The Blade "default" tier is estimated as num_ctx 4096 (K1 measures the real value; Ollama sizes its default context by
+VRAM). Usage: py -3.12 analysis/blade_hours_estimate.py [--markdown]
 """
 from __future__ import annotations
 
 import json
+import statistics as st
 import sys
 from collections import defaultdict
 from datetime import datetime
@@ -16,46 +25,116 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 RES = REPO / "results"
-X2_REAL = RES / "x2_r2_real_v1.jsonl"
-X2_VALID = RES / "x2_r2_validation_v2.jsonl"
-X2_MECH = RES / "x2_r2_mechanism.jsonl"
-C1 = RES / "blade_c1_spill_sweep_20260925T053651Z.jsonl"
-MODEL = "llama3.1:8b"
+DRYRUN_DIR = RES / "blade_dryrun"
+X2_REAL = "results/x2_r2_real_v1.jsonl"
+X2_VALID = "results/x2_r2_validation_v2.jsonl"
+X2_VALID_B = "results/x2_r2_validation_v2b.jsonl"
+X2_MECH = "results/x2_r2_mechanism.jsonl"
+C1 = "results/blade_c1_spill_sweep_20260925T053651Z.jsonl"
 SFX = "_call2_notools"
+DEFAULT_CTX_ASSUMED = 4096
+DRYRUN_FILES = ["results/blade_dryrun/blade_dryrun_k1.jsonl", "results/blade_dryrun/blade_dryrun_r2_validation.jsonl",
+                "results/blade_dryrun/blade_dryrun_r2_real.jsonl", "results/blade_dryrun/blade_dryrun_r2_mitigation.jsonl",
+                "results/blade_dryrun/blade_dryrun_r2_mechanism.jsonl"]
+MIN_PROMPT_FOR_RATE, MIN_GEN_FOR_RATE = 64, 8
 
 FACTORS = {
-    # Blade tier fully in 8 GB VRAM (weights 4.9 GB + KV at 4096/8192): decode is bandwidth-bound on both machines
-    # (RTX 4070 Laptop 256 GB/s, Strix Halo LPDDR5X about 256 GB/s), so evo-x2's time is used as is.
+    # Blade tier fully in 8 GB VRAM: decode is bandwidth-bound on both machines (RTX 4070 Laptop 256 GB/s, Strix Halo
+    # LPDDR5X about 256 GB/s), so evo-x2's time is used as is.
     "gpu_resident": 1.0,
-    # num_ctx 16384: 4.9 GB weights + 2 GiB f16 KV + buffers is at the 8 GB edge; Ollama may move a few layers.
+    # num_ctx 16384: 4.9 GB of llama3.1:8b weights + 2 GiB f16 KV + buffers is at the 8 GB edge.
     "edge_16384": 1.5,
-    # num_ctx 32768: + 4 GiB KV, does not fit; Ollama offloads layers to the CPU. Unmeasured; K1 measures it.
+    # num_ctx 32768: + 4 GiB KV does not fit; Ollama puts layers on the CPU. Unmeasured until K1 / the dry runs.
     "offload_32768": 3.0,
-    # validation arm b, num_ctx 131072: 16 GiB KV, most layers on the CPU. Unmeasured.
-    "offload_131072": 5.0,
-    # qwen3:8b relative to llama3.1:8b (not timed on the same design anywhere in these files).
-    "qwen3_8b_vs_llama": 1.2,
-    # mitigation: a render-only request plus llama-tokenize before every call.
+    # mitigation: a render-only request plus llama-tokenize before every call (applied to rate-based cells too).
     "mitigation_overhead": 1.5,
 }
+CTX_FACTOR = {4096: "gpu_resident", 8192: "gpu_resident", 16384: "edge_16384", 32768: "offload_32768"}
 
 
-def rows(path: Path) -> list[dict]:
-    if not path.exists():
+def rows(path) -> list[dict]:
+    p = REPO / path if not Path(path).is_absolute() else Path(path)
+    if not p.exists():
         return []
-    return [json.loads(l) for l in path.read_text(encoding="utf-8").splitlines() if l.strip()]
+    out = []
+    for l in p.read_text(encoding="utf-8").splitlines():
+        l = l.strip()
+        if l:
+            try:
+                out.append(json.loads(l))
+            except json.JSONDecodeError:
+                pass
+    return out
 
 
-def session_minutes(rs: list[dict], model=MODEL) -> dict:
-    """{arm: mean minutes per completed session} from r2a_turn turn_wall_s."""
-    per = defaultdict(float)
+# ── Blade rates from the dry-run files ──────────────────────────────────────────────────────────────
+
+def call_rate_samples(rs: list[dict]):
+    """(model, ctx, prefill_tps|None, decode_tps|None) per call: r2a_turn calls (x2_r2_agent rows) and blade_k1 rows."""
     for r in rs:
-        if r.get("record") == "r2a_turn" and r.get("model_id") == model:
-            per[(r["arm_id"], r["seed"])] += r.get("turn_wall_s") or 0.0
-    by_arm = defaultdict(list)
-    for (arm, _), s in per.items():
-        by_arm[arm].append(s / 60)
-    return {a: sum(v) / len(v) for a, v in by_arm.items()}
+        if r.get("record") == "r2a_turn":
+            ctx = r.get("num_ctx_requested") or r.get("loaded_context")
+            for c in r.get("calls", []):
+                pe, ped = c.get("prompt_eval_count_info_only"), c.get("prompt_eval_duration_s")
+                ec, ed = c.get("completion_tokens"), c.get("eval_duration_s")
+                yield (r.get("model_id"), ctx,
+                       pe / ped if pe and ped and pe >= MIN_PROMPT_FOR_RATE else None,
+                       ec / ed if ec and ed and ec >= MIN_GEN_FOR_RATE else None)
+        elif str(r.get("record", "")).startswith("blade_k1_") and ("prefill_tps" in r or "decode_tps" in r):
+            ctx = r.get("num_ctx") or r.get("context_length")
+            pe, ec = r.get("prompt_eval_count") or 0, r.get("eval_count") or 0
+            yield (r.get("model_tag"), ctx,
+                   r.get("prefill_tps") if pe >= MIN_PROMPT_FOR_RATE else None,
+                   r.get("decode_tps") if ec >= MIN_GEN_FOR_RATE else None)
+
+
+def dryrun_rates(files=None) -> dict:
+    """{file name: {f"{model}@{ctx}": {"prefill_tps", "decode_tps", "n_prefill", "n_decode"}}} (medians)."""
+    out = {}
+    for f in files or DRYRUN_FILES:
+        acc = defaultdict(lambda: ([], []))
+        for model, ctx, pf, dc in call_rate_samples(rows(f)):
+            if model is None or ctx is None:
+                continue
+            a = acc[f"{model}@{int(ctx)}"]
+            if pf:
+                a[0].append(pf)
+            if dc:
+                a[1].append(dc)
+        out[Path(f).name] = {k: {"prefill_tps": st.median(p) if p else None, "decode_tps": st.median(d) if d else None,
+                                 "n_prefill": len(p), "n_decode": len(d)} for k, (p, d) in acc.items()}
+    return out
+
+
+def rate_index(rates_by_file: dict) -> dict:
+    """{(model, ctx): {"prefill_tps", "decode_tps", "source"}} merged over files (medians of the per-file medians)."""
+    acc = defaultdict(lambda: ([], [], []))
+    for fname, d in rates_by_file.items():
+        for key, v in d.items():
+            model, ctx = key.rsplit("@", 1)
+            a = acc[(model, int(ctx))]
+            if v["prefill_tps"]:
+                a[0].append(v["prefill_tps"])
+            if v["decode_tps"]:
+                a[1].append(v["decode_tps"])
+            a[2].append(fname)
+    return {k: {"prefill_tps": st.median(p) if p else None, "decode_tps": st.median(d) if d else None,
+                "source": sorted(set(s))} for k, (p, d, s) in acc.items()}
+
+
+# ── evo-x2 session workloads ────────────────────────────────────────────────────────────────────────
+
+def x2_sessions(path, model, arm) -> list[dict]:
+    """[{"minutes", "prompt_tokens", "gen_tokens"}] per completed (model, arm, seed) session."""
+    per = defaultdict(lambda: {"minutes": 0.0, "prompt_tokens": 0, "gen_tokens": 0})
+    for r in rows(path):
+        if r.get("record") == "r2a_turn" and r.get("model_id") == model and r.get("arm_id") == arm:
+            s = per[r["seed"]]
+            s["minutes"] += (r.get("turn_wall_s") or 0.0) / 60
+            for c in r.get("calls", []):
+                s["prompt_tokens"] += c.get("prompt_eval_count_info_only") or 0
+                s["gen_tokens"] += c.get("completion_tokens") or 0
+    return list(per.values())
 
 
 def _t(s):
@@ -63,11 +142,9 @@ def _t(s):
 
 
 def c1_segments_minutes(rs: list[dict]) -> dict:
-    """{ctx: {"minutes": wall from the previous segment's end to this server's end (load + calls + thermal waits),
-    "n_calls": calls in it}} from C1's own rows; for repeated anchors the mean."""
     out = defaultdict(list)
-    prev_end = None
-    seg_start, ncalls = None, 0
+    prev_end = seg_start = None
+    ncalls = 0
     for r in rs:
         rec = r.get("record")
         if rec == "server_start":
@@ -81,67 +158,89 @@ def c1_segments_minutes(rs: list[dict]) -> dict:
     return {c: {"minutes": sum(m for m, _ in v) / len(v), "n_calls": v[0][1]} for c, v in out.items()}
 
 
-def estimate() -> dict:
-    real = session_minutes(rows(X2_REAL))
-    valid = session_minutes(rows(X2_VALID))
-    mech = session_minutes(rows(X2_MECH))
-    c1 = c1_segments_minutes(rows(C1))
-    F = FACTORS
+# ── cells and jobs ──────────────────────────────────────────────────────────────────────────────────
+
+def cell_hours(model, ctx, n_sessions, x2_path, x2_model, x2_arm, rates, extra_factor=1.0, model_factor=1.0):
+    """One cell: rate-based if the Blade has prefill and decode rates for (model, ctx), else scaled."""
+    sess = x2_sessions(x2_path, x2_model, x2_arm)
+    if not sess:
+        return {"hours": None, "kind": "unknown", "label": f"no evo-x2 sessions for {x2_model} {x2_arm} in {x2_path}"}
+    mean = lambda k: sum(s[k] for s in sess) / len(sess)  # noqa: E731
+    r = rates.get((model, int(ctx)))
+    if r and r.get("prefill_tps") and r.get("decode_tps"):
+        sec = mean("prompt_tokens") / r["prefill_tps"] + mean("gen_tokens") / r["decode_tps"]
+        return {"hours": n_sessions * sec * extra_factor / 3600, "kind": "rates",
+                "label": f"Blade rates {model}@{ctx}: prefill {r['prefill_tps']:.0f}, decode {r['decode_tps']:.1f} tok/s "
+                         f"on {x2_arm} token workload ({mean('prompt_tokens'):.0f} prompt + {mean('gen_tokens'):.0f} gen"
+                         f" tokens per session)"}
+    f = FACTORS[CTX_FACTOR.get(int(ctx), "offload_32768")]
+    return {"hours": n_sessions * mean("minutes") * f * extra_factor * model_factor / 60, "kind": "scaled",
+            "label": f"scaled (no Blade rate for {model} at {ctx}): evo-x2 {x2_arm} {mean('minutes'):.1f} min/session"
+                     f" x{f}" + (f" x{model_factor} (model)" if model_factor != 1.0 else "")
+                     + (f" x{extra_factor}" if extra_factor != 1.0 else "")}
+
+
+def _job(night, name, cells, note=""):
+    hs = [c["hours"] for c in cells]
+    kinds = sorted({c["kind"] for c in cells})
+    return {"night": night, "job": name, "hours": round(sum(h for h in hs if h is not None), 2),
+            "kind": kinds[0] if len(kinds) == 1 else "mixed (" + ", ".join(kinds) + ")",
+            "basis": "; ".join(c["label"] for c in cells), "note": note}
+
+
+def estimate(rates_files=None) -> dict:
+    rates_by_file = dryrun_rates(rates_files)
+    rates = rate_index(rates_by_file)
+    D = DEFAULT_CTX_ASSUMED
+    L, Q = "llama3.1:8b", "qwen3:8b"
     jobs = []
+    c1 = c1_segments_minutes(rows(C1))
 
-    def add(night, job, hours, basis, kind, note=""):
-        jobs.append({"night": night, "job": job, "hours": round(hours, 2), "kind": kind, "basis": basis,
-                     "note": note})
+    def validation(model, x2_file, x2_model, model_factor=1.0):
+        return [cell_hours(model, 32768, 3, x2_file, x2_model, f"ollama_ctx_131072{SFX}", rates, model_factor=model_factor),
+                cell_hours(model, 32768, 3, x2_file, x2_model, "ollama_ctx_131072", rates, model_factor=model_factor),
+                cell_hours(model, 8192, 1, x2_file, x2_model, f"ollama_ctx_8192_positive_control{SFX}", rates,
+                           model_factor=model_factor)]
 
-    # K1: no timed equivalent; itemized from Blade C1 (4B prefill) and call counts. Reported as scaled.
-    pf_4b = c1.get(32768)
-    add(1, "blade_k1_v1", 0.5, "per model: 10 Ollama calls with prompts up to 49K tokens (truncated to the window) "
-        "plus one llama-server load; C1's ctx 32768 segment (4B, 6 calls) took "
-        f"{pf_4b['minutes']:.1f} min" if pf_4b else "itemized", "scaled",
-        "3 models if present; qwen3:8b and the 4B tools tag are not in the Blade store yet")
-    v = (3 * valid[f"ollama_ctx_131072{SFX}"] * F["offload_131072"]
-         + valid[f"ollama_ctx_8192_positive_control{SFX}"] * F["gpu_resident"]
-         + 3 * valid["ollama_ctx_131072"] * F["offload_131072"])
-    add(1, "blade_r2_validation_v1 (llama3.1:8b)", v / 60,
-        f"x2_r2_validation_v2 llama3.1:8b session minutes: arm b {valid[f'ollama_ctx_131072{SFX}']:.1f}, diagnostic "
-        f"{valid['ollama_ctx_131072']:.1f}, positive control {valid[f'ollama_ctx_8192_positive_control{SFX}']:.1f}; "
-        f"arm b x{F['offload_131072']}", "scaled")
-    d4096 = real[f"ollama_ctx_4096{SFX}"]
-    r = 5 * (d4096 * F["gpu_resident"] + d4096 * F["gpu_resident"]
-             + real[f"ollama_ctx_32768{SFX}"] * F["offload_32768"])
-    add(1, "blade_r2_real_v1 (llama3.1:8b, default/4096/32768 x 5 seeds)", r / 60,
-        f"x2_r2_real_v1 llama3.1:8b session minutes: 4096 {d4096:.1f}, 32768 {real[f'ollama_ctx_32768{SFX}']:.1f}; "
-        f"Blade default assumed 4096 for the estimate (K1 measures it); 32768 "
-        f"x{F['offload_32768']}", "scaled",
-        f"if K1 says qwen3:8b fits: + {(v + r) * F['qwen3_8b_vs_llama'] / 60:.1f} h (validation + real, scaled)")
-    m = 3 * (d4096 + mech[f"ollama_ctx_8192{SFX}"]) * F["mitigation_overhead"]
-    add(1, "blade_r2_mitigation_v1 (llama3.1:8b, 4096/8192 x 3 seeds)", m / 60,
-        f"x2_r2_real_v1 4096 {d4096:.1f} min and x2_r2_mechanism 8192 {mech[f'ollama_ctx_8192{SFX}']:.1f} min per "
-        f"session, x{F['mitigation_overhead']} for render + tokenize per call", "scaled",
-        "plus one more tier if the K1 default is not 4096 or 8192 (it folds into an existing tier otherwise)")
-    a = sum(c1[c]["minutes"] for c in (36864, 38912, 40960, 43008))
-    b = sum(c1[c]["minutes"] * 4 / c1[c]["n_calls"] for c in (40960, 43008))
-    add(2, "blade_c3_sysmem_fallback_v1 half A (upper bound)", a / 60,
-        "C1 measured segments (load + 6 calls + thermal waits) at ctx 36864/38912/40960/43008: "
-        + ", ".join(f"{c} {c1[c]['minutes']:.1f} min" for c in (36864, 38912, 40960, 43008)), "measured",
-        "upper bound: if the policy makes the spilled points fail at load, half A is minutes")
-    add(2, "blade_c3_sysmem_fallback_v1 half B (4 of 6 calls)", b / 60,
-        "C1 measured segments at 40960/43008 scaled to 1 warm-up + 3 calls", "measured (scaled by call count)",
-        "plus operator time at each gate (about 2 min each)")
-    mm = (mech[f"ollama_ctx_4096{SFX}"] * 2 + mech[f"ollama_ctx_8192{SFX}"]
-          + mech[f"ollama_ctx_16384{SFX}"] * F["edge_16384"] + mech[f"ollama_ctx_32768{SFX}"] * F["offload_32768"])
-    add(2, "blade_r2_mechanism_v1 (llama3.1:8b, 5 tiers x 1 session)", mm / 60,
-        "x2_r2_mechanism session minutes: " + ", ".join(f"{k.replace(SFX, '')} {v:.1f}" for k, v in sorted(mech.items()))
-        + f"; Blade default as 4096, 16384 x{F['edge_16384']}, 32768 x{F['offload_32768']}", "scaled")
+    def real(model, model_factor=1.0):
+        # the qwen3:8b real-run sessions (x2_r2_real_v1b) are not synced: llama3.1:8b's workload x model factor
+        return [cell_hours(model, D, 5, X2_REAL, L, f"ollama_ctx_4096{SFX}", rates, model_factor=model_factor),
+                cell_hours(model, 4096, 5, X2_REAL, L, f"ollama_ctx_4096{SFX}", rates, model_factor=model_factor),
+                cell_hours(model, 32768, 5, X2_REAL, L, f"ollama_ctx_32768{SFX}", rates, model_factor=model_factor)]
+
+    jobs.append({"night": 1, "job": "blade_k1_v1", "hours": 0.5, "kind": "scaled (itemized)",
+                 "basis": "per model 10 Ollama calls with prompts up to 49K tokens (cut to the window) plus one "
+                          "llama-server load", "note": ""})
+    jobs.append(_job(1, "blade_r2_validation_v1 (llama3.1:8b, arm b at 32768)", validation(L, X2_VALID, L)))
+    jobs.append(_job(1, "blade_r2_real_v1 (llama3.1:8b, default/4096/32768 x 5 seeds)", real(L)))
+    jobs.append(_job(1, "blade_r2_mitigation_v1 (llama3.1:8b, 4096/8192 x 3 seeds)",
+                     [cell_hours(L, 4096, 3, X2_REAL, L, f"ollama_ctx_4096{SFX}", rates,
+                                 extra_factor=FACTORS["mitigation_overhead"]),
+                      cell_hours(L, 8192, 3, X2_MECH, L, f"ollama_ctx_8192{SFX}", rates,
+                                 extra_factor=FACTORS["mitigation_overhead"])],
+                     "plus one tier if K1's default is not 4096 or 8192"))
+    a = sum(c1[c]["minutes"] for c in (36864, 38912, 40960, 43008)) / 60
+    b = sum(c1[c]["minutes"] * 4 / c1[c]["n_calls"] for c in (40960, 43008)) / 60
+    jobs.append({"night": 2, "job": "blade_c3_sysmem_fallback_v1 (half A upper bound + half B)", "hours": round(a + b, 2),
+                 "kind": "measured", "basis": "C1 segments at 36864/38912/40960/43008 (half A, 1+5 calls) and "
+                 "40960/43008 scaled to 1+3 calls (half B)", "note": "plus operator time at the two gates"})
+    jobs.append(_job(2, "blade_r2_mechanism_v1 (llama3.1:8b, 5 tiers x 1 session)",
+                     [cell_hours(L, ctx, 1, X2_MECH, L, f"{arm}{SFX}", rates) for ctx, arm in
+                      ((D, "ollama_ctx_4096"), (4096, "ollama_ctx_4096"), (8192, "ollama_ctx_8192"),
+                       (16384, "ollama_ctx_16384"), (32768, "ollama_ctx_32768"))]))
+    jobs.append(_job(3, "blade_r2_validation_qwen3_8b_v1 (only if it fits)", validation(Q, X2_VALID_B, Q)))
+    jobs.append(_job(3, "blade_r2_real_qwen3_8b_v1 (only if it fits)", real(Q, model_factor=1.2),
+                     "workload: llama3.1:8b sessions x1.2 (x2_r2_real_v1b, with qwen3:8b, is not synced)"))
     totals = defaultdict(float)
     for j in jobs:
         totals[j["night"]] += j["hours"]
-    return {"factors": FACTORS, "jobs": jobs, "night_totals_h": {k: round(v, 2) for k, v in totals.items()},
-            "sources": [str(p.relative_to(REPO)) for p in (X2_REAL, X2_VALID, X2_MECH, C1)]}
+    return {"factors": FACTORS, "default_ctx_assumed": D, "rates_by_dryrun_file": rates_by_file,
+            "rates_used": {f"{m}@{c}": v for (m, c), v in rates.items()}, "jobs": jobs,
+            "night_totals_h": {k: round(v, 2) for k, v in sorted(totals.items())}}
 
 
 def markdown(est: dict) -> str:
-    lines = ["| night | job | hours | measured/scaled | basis |", "|---|---|---|---|---|"]
+    lines = ["| night | job | hours | measured/rates/scaled | basis |", "|---|---|---|---|---|"]
     for j in est["jobs"]:
         lines.append(f"| {j['night']} | {j['job']} | {j['hours']:.2f} | {j['kind']} | {j['basis']}"
                      + (f" ({j['note']})" if j["note"] else "") + " |")
@@ -150,6 +249,9 @@ def markdown(est: dict) -> str:
 
 if __name__ == "__main__":
     e = estimate()
-    print(markdown(e) if "--markdown" in sys.argv else json.dumps(e, indent=1))
     if "--markdown" in sys.argv:
+        print(markdown(e))
         print("\nnight totals (h):", e["night_totals_h"])
+        print("Blade dry-run rates found:", e["rates_used"] or "none (all R2 cells scaled)")
+    else:
+        print(json.dumps(e, indent=1, default=str))

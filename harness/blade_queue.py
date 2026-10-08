@@ -35,34 +35,51 @@ EXIT_BLOCKED = 3
 
 K1_SUMMARY = "results/blade_k1_v1.summary.json"
 R2_VALIDATION = "results/blade_r2_validation_v1.jsonl"
-_R2_MODELS = ["--models", "llama3.1:8b", "--models-if-fit", "qwen3:8b", "--k1-summary", K1_SUMMARY]
+R2_VALIDATION_QWEN = "results/blade_r2_validation_qwen3_8b_v1.jsonl"
+# Every measurement job names the side-by-side Ollama 0.34.4 explicitly (never the tray install); no real job carries
+# --allow-version-mismatch (that flag is for dry runs only, and the jobs refuse it outside one).
+OLLAMA = ["--ollama-exe", bc.PINNED["ollama_exe"]]
+_LLAMA = ["--models", "llama3.1:8b", *OLLAMA]
+_QWEN = ["--models", "", "--models-if-fit", "qwen3:8b", "--k1-summary", K1_SUMMARY, *OLLAMA]
 
 NIGHTS = {
+    # night 1: K1, then llama3.1:8b R2 (validation and controls, the three tiers), then the mitigation
     1: [
-        {"id": "blade_k1_v1", "argv": ["harness/blade_k1.py", "--out", "results/blade_k1_v1.jsonl"],
+        {"id": "blade_k1_v1", "argv": ["harness/blade_k1.py", "--out", "results/blade_k1_v1.jsonl", *OLLAMA],
          "outputs": ["results/blade_k1_v1.jsonl", K1_SUMMARY]},
         {"id": "blade_r2_validation_v1",
-         "argv": ["harness/blade_r2.py", "--mode", "validation", "--out", R2_VALIDATION, *_R2_MODELS],
+         "argv": ["harness/blade_r2.py", "--mode", "validation", "--out", R2_VALIDATION, *_LLAMA],
          "outputs": [R2_VALIDATION]},
         {"id": "blade_r2_real_v1",
-         "argv": ["harness/blade_r2.py", "--mode", "real", "--out", "results/blade_r2_real_v1.jsonl", *_R2_MODELS,
+         "argv": ["harness/blade_r2.py", "--mode", "real", "--out", "results/blade_r2_real_v1.jsonl", *_LLAMA,
                   "--tiers", "default,4096,32768", "--rules-from", R2_VALIDATION, "--require-validation-gates"],
          "outputs": ["results/blade_r2_real_v1.jsonl"]},
         {"id": "blade_r2_mitigation_v1",
          "argv": ["harness/blade_r2.py", "--mode", "mitigation", "--out", "results/blade_r2_mitigation_v1.jsonl",
-                  *_R2_MODELS, "--tiers", "default,4096,8192", "--client-trim", "margin=0.05",
-                  "--rules-from", R2_VALIDATION,
-                  "--require-validation-gates"],
+                  *_LLAMA, "--k1-summary", K1_SUMMARY, "--tiers", "default,4096,8192", "--client-trim", "margin=0.05",
+                  "--rules-from", R2_VALIDATION, "--require-validation-gates"],
          "outputs": ["results/blade_r2_mitigation_v1.jsonl"]},
     ],
+    # night 2: C3 (both halves, operator-gated, half B always) then the mechanism run
     2: [
         {"id": "blade_c3_sysmem_fallback_v1",
          "argv": ["harness/blade_c3.py", "--out", "results/blade_c3_sysmem_fallback_v1.jsonl"],
          "outputs": ["results/blade_c3_sysmem_fallback_v1.jsonl"], "operator_gated": True},
         {"id": "blade_r2_mechanism_v1",
          "argv": ["harness/blade_r2.py", "--mode", "mechanism", "--out", "results/blade_r2_mechanism_v1.jsonl",
-                  "--models", "llama3.1:8b", "--tiers", "default,32768,16384,8192,4096"],
+                  *_LLAMA, "--tiers", "default,32768,16384,8192,4096"],
          "outputs": ["results/blade_r2_mechanism_v1.jsonl"]},
+    ],
+    # night 3: qwen3:8b R2, only if K1 shows it fully on the GPU at every context the job uses; otherwise each job
+    # writes "skipped: does not fit" and exits 0
+    3: [
+        {"id": "blade_r2_validation_qwen3_8b_v1",
+         "argv": ["harness/blade_r2.py", "--mode", "validation", "--out", R2_VALIDATION_QWEN, *_QWEN],
+         "outputs": [R2_VALIDATION_QWEN]},
+        {"id": "blade_r2_real_qwen3_8b_v1",
+         "argv": ["harness/blade_r2.py", "--mode", "real", "--out", "results/blade_r2_real_qwen3_8b_v1.jsonl", *_QWEN,
+                  "--tiers", "default,4096,32768", "--rules-from", R2_VALIDATION_QWEN, "--require-validation-gates"],
+         "outputs": ["results/blade_r2_real_qwen3_8b_v1.jsonl"]},
     ],
 }
 

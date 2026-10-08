@@ -201,20 +201,73 @@ def main(argv=None) -> int:
         log(f"refused (versions): {problems}")
         return 2
     rows = [json.loads(l) for l in out.read_text(encoding="utf-8").splitlines() if l.strip()]
-    done = halves_done(rows)
-    try:
-        for half in HALVES:
-            if half["half"] in done:
-                log(f"C3 half {half['half']} already done, skipped")
-                continue
-            run_half(half, out, emit, log, Path(args.flag_dir))
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        emit({"record": "run_stopped", "note": f"stopped: {e!r}"[:400]})
+    errors = run_halves(halves_done(rows), lambda h: run_half(h, out, emit, log, Path(args.flag_dir)), emit, log)
+    write_readback_request(Path(args.flag_dir))
+    if errors:
+        emit({"record": "run_stopped", "note": "stopped: " + "; ".join(errors)[:400]})
         return 2
     emit({"record": "run_end", "note": "completed"})
     return 0
+
+
+READBACK_FLAG = "c3_readback.flag"
+READBACK_WAITING = "c3_WAITING_READBACK.txt"
+
+
+def run_halves(done: set, run_one, emit, log) -> list[str]:
+    """Half A, then half B in a finally: the Driver Default half (with its own confirmation gate) runs even when half
+    A fails, so the global setting is always put back by the operator. Returns the error strings (empty = ok)."""
+    errors = []
+    a, b = HALVES
+    try:
+        if a["half"] in done:
+            log("C3 half A already done, skipped")
+        else:
+            try:
+                run_one(a)
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                errors.append(f"half A: {e!r}"[:300])
+                emit({"record": "c3_half_failed", "half": "A", "error": repr(e)[:400],
+                      "next": "half B (Driver Default) runs anyway"})
+    finally:
+        if b["half"] in done:
+            log("C3 half B already done, skipped")
+        else:
+            try:
+                run_one(b)
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                errors.append(f"half B: {e!r}"[:300])
+                emit({"record": "c3_half_failed", "half": "B", "error": repr(e)[:400]})
+    return errors
+
+
+def write_readback_request(flag_dir: Path):
+    """After both halves: ask the operator to read the setting back (nvidia-smi cannot). blade_night.py reads the
+    answer (read_readback) into the night summary; nothing waits on it, so the mechanism job still runs."""
+    flag_dir.mkdir(parents=True, exist_ok=True)
+    (flag_dir / READBACK_WAITING).write_text(
+        "Blade C3 is done. Read the setting back: NVIDIA Control Panel > 3D Settings > Manage 3D settings > Global\n"
+        "Settings > 'CUDA - Sysmem Fallback Policy'. Create " + str(flag_dir / READBACK_FLAG) + "\nwith its current "
+        "text as the first line (expected: Driver Default). The night summary reports it.\n", encoding="utf-8")
+
+
+def read_readback(flag_dir: Path, since_epoch: float) -> dict:
+    """The operator's read-back of the global setting, for the night summary. ok only when the flag exists, was written
+    after since_epoch (the night's start) and its first line is "Driver Default"."""
+    f = Path(flag_dir) / READBACK_FLAG
+    if not f.exists() or f.stat().st_mtime < since_epoch:
+        return {"read_back": False, "ok": False,
+                "status": "!!! SETTING NOT READ BACK: CUDA - Sysmem Fallback Policy was not confirmed after night 2 "
+                          f"(no {f} written during the night). Check NVIDIA Control Panel by hand. !!!"}
+    first = (f.read_text(encoding="utf-8", errors="replace").splitlines() or [""])[0].strip()
+    ok = first == HALVES[1]["policy"]
+    return {"read_back": True, "ok": ok, "setting_text": first, "flag_mtime_epoch": f.stat().st_mtime,
+            "status": ("read back: Driver Default" if ok else
+                       f"!!! SETTING READ BACK AS {first!r}, NOT 'Driver Default': restore it by hand !!!")}
 
 
 if __name__ == "__main__":

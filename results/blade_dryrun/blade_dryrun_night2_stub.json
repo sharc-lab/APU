@@ -2,10 +2,10 @@
  "night": 2,
  "summary": {
   "night": 2,
-  "started_utc": "2026-10-08T21:21:32.734273+00:00",
+  "started_utc": "2026-10-08T21:41:51.759898+00:00",
   "refused": null,
   "power": {
-   "log": "C:\\Users\\rithw\\AppData\\Local\\Temp\\blade_night_stub_myq94owb\\logs\\night2_power_20261008T212132Z.json",
+   "log": "C:\\Users\\rithw\\AppData\\Local\\Temp\\blade_night_stub_0xjqhj96\\logs\\night2_power_20261008T214151Z.json",
    "original": {
     "SUB_SLEEP/STANDBYIDLE": {
      "ac": 1800,
@@ -75,8 +75,13 @@
    ],
    "stopped_early": null
   },
-  "ended_utc": "2026-10-08T21:21:33.043165+00:00",
-  "summary_file": "C:\\Users\\rithw\\AppData\\Local\\Temp\\blade_night_stub_myq94owb\\results\\blade_night2_summary_20261008T212132Z.json"
+  "c3_setting_readback": {
+   "read_back": false,
+   "ok": false,
+   "status": "!!! SETTING NOT READ BACK: CUDA - Sysmem Fallback Policy was not confirmed after night 2 (no C:\\Users\\rithw\\AppData\\Local\\Temp\\blade_night_stub_0xjqhj96\\c3_readback.flag written during the night). Check NVIDIA Control Panel by hand. !!!"
+  },
+  "ended_utc": "2026-10-08T21:41:52.071003+00:00",
+  "summary_file": "C:\\Users\\rithw\\AppData\\Local\\Temp\\blade_night_stub_0xjqhj96\\results\\blade_night2_summary_20261008T214151Z.json"
  },
  "power_call_order": [
   "/setacvalueindex SUB_SLEEP STANDBYIDLE 0",
@@ -120,7 +125,7 @@
     "rules_from": null,
     "require_validation_gates": false,
     "order": "seed_major",
-    "ollama_exe": null,
+    "ollama_exe": "C:\\apu\\bin\\ollama-0.34.4\\ollama.exe",
     "dry_run_seconds": null,
     "allow_version_mismatch": false
    },
