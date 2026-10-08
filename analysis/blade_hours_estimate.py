@@ -91,7 +91,7 @@ def call_rate_samples(rs: list[dict]):
 def dryrun_rates(files=None) -> dict:
     """{file name: {f"{model}@{ctx}": {"prefill_tps", "decode_tps", "n_prefill", "n_decode"}}} (medians)."""
     out = {}
-    for f in files or DRYRUN_FILES:
+    for f in (DRYRUN_FILES if files is None else files):  # None = the committed dry-run files; [] = none
         acc = defaultdict(lambda: ([], []))
         for model, ctx, pf, dc in call_rate_samples(rows(f)):
             if model is None or ctx is None:

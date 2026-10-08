@@ -545,7 +545,7 @@ def _write_dryrun(path, model, ctx, pe, ped, ec, ed):
 def test_estimator_uses_dryrun_rates_when_present(tmp_path, monkeypatch):
     sys.path.insert(0, str(REPO / "analysis"))
     import blade_hours_estimate as est
-    base = est.estimate()
+    base = est.estimate([])  # explicitly no dry-run files (the committed ones now exist)
     real = next(j for j in base["jobs"] if j["job"].startswith("blade_r2_real_v1"))
     assert real["kind"] == "scaled" and "no Blade rate for llama3.1:8b at 4096" in real["basis"]
     f = tmp_path / "blade_dryrun_r2_real.jsonl"
