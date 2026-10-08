@@ -108,6 +108,7 @@ def run_night(night: int, *, power: Power, ac_fn, paused_fn, runner, blade_dir: 
     log_dir = blade_dir / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
     ts = utc_stamp()
+    night_start_epoch = time.time()
     summary = {"night": night, "started_utc": bc.utc_iso(), "refused": None, "power": None, "queue": None}
     flag = start_flag(night, blade_dir)
     if not flag.exists():
@@ -170,6 +171,10 @@ def run_night(night: int, *, power: Power, ac_fn, paused_fn, runner, blade_dir: 
         summary["power"] = {"log": str(power_log), "original": rec["original"],
                             "night_values": rec.get("night_values"), "restored_values": rec.get("restored_values"),
                             "restored": rec["restored"], "errors": errors}
+        if night == 2:
+            import blade_c3
+            summary["c3_setting_readback"] = rb = blade_c3.read_readback(blade_dir, night_start_epoch)
+            log(rb["status"])
         summary["ended_utc"] = bc.utc_iso()
         results_dir.mkdir(parents=True, exist_ok=True)
         out = results_dir / f"blade_night{night}_summary_{ts}.json"
@@ -215,6 +220,10 @@ def stub_runner_factory(events: list, tmp_results: Path):
         bad = [o for o in outs if not o.startswith("blade_")]
         ev = {"event": "job", "id": job["id"], "module": mod.__name__, "parsed": vars(args),
               "outputs": job["outputs"], "outputs_prefixed_blade": not bad}
+        if mod.__name__ == "blade_r2" and args.models_if_fit:
+            # the automatic fit decision against whatever K1 summary exists (none in a stub: "do not run")
+            ev["fit_decision"] = mod.fit_decision(args.models_if_fit.split(","), args.k1_summary,
+                                                  mod.fit_ctxs(args.mode, (args.tiers or "default").split(",")))
         if mod.__name__ == "blade_r2" and args.mode == "mitigation":
             # the equivalent x2_r2_agent argv, parsed by x2_r2_agent's own parser (raises SystemExit if it does not)
             ev["x2_r2_agent_argv"], ev["client_trim"] = mod.check_mitigation_args(args, args.models.split(","))

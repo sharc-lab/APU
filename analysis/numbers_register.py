@@ -3027,6 +3027,50 @@ def compute_decode_rate_per_machine(repo):
     return {"value": value, "n": sum(d["n"] for ms in detail.values() for d in ms.values()), "detail": detail}
 
 
+# Blade 60-second dry runs (docs/BLADE_PLAN.md): PENDING until the operator's dry runs have written their files.
+BLADE_DRYRUN_FILES = ["results/blade_dryrun/blade_dryrun_k1.jsonl", "results/blade_dryrun/blade_dryrun_r2_validation.jsonl",
+                      "results/blade_dryrun/blade_dryrun_r2_real.jsonl",
+                      "results/blade_dryrun/blade_dryrun_r2_mitigation.jsonl",
+                      "results/blade_dryrun/blade_dryrun_r2_mechanism.jsonl"]
+
+
+def _blade_estimator(repo):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("blade_hours_estimate", REPO / "analysis" / "blade_hours_estimate.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    mod.REPO = repo
+    return mod
+
+
+def compute_blade_dryrun_rates(repo):
+    """Per Blade dry-run file: median prefill tok/s (prompt_eval_count / prompt_eval_duration) and decode tok/s
+    (eval_count / eval_duration) per (model, num_ctx), over calls with >= 64 prompt / >= 8 generated tokens."""
+    est = _blade_estimator(repo)
+    rates = est.dryrun_rates(BLADE_DRYRUN_FILES)
+    parts, n = [], 0
+    for fname, d in rates.items():
+        if not d:
+            parts.append(f"{fname}: no rated calls")
+            continue
+        for key, v in sorted(d.items()):
+            n += 1
+            pf = "n/a" if v["prefill_tps"] is None else f"{v['prefill_tps']:.0f}"
+            dc = "n/a" if v["decode_tps"] is None else f"{v['decode_tps']:.1f}"
+            parts.append(f"{fname} {key}: prefill {pf} tok/s (n={v['n_prefill']}), decode {dc} tok/s (n={v['n_decode']})")
+    return {"value": "; ".join(parts), "n": n}
+
+
+def compute_blade_night_hours(repo):
+    """Blade per-night hour estimates (analysis/blade_hours_estimate.py): Blade dry-run rates where they exist for the
+    job's (model, num_ctx), scaled evo-x2 times otherwise; each job labelled measured / rates / scaled / mixed."""
+    est = _blade_estimator(repo)
+    e = est.estimate(BLADE_DRYRUN_FILES)
+    jobs = "; ".join(f"night {j['night']} {j['job'].split(' ')[0]} {j['hours']:.2f} h ({j['kind']})" for j in e["jobs"])
+    totals = ", ".join(f"night {k} {v:.2f} h" for k, v in e["night_totals_h"].items())
+    return {"value": f"{totals}; {jobs}", "n": len(e["jobs"])}
+
+
 NUMBER_ENTRIES = [
     {"claim_id": "PX2-TTFT-gap", "description": "PX2 B4-vs-S4 TTFT gap range across 5 models",
      "compute": compute_px2_ttft_gap, "data_files": ["results/t2s_night2_20260930T135145Z.jsonl"],
@@ -3474,6 +3518,18 @@ NUMBER_ENTRIES = [
                     "pooled over the TTFT-fit files",
      "compute": compute_decode_rate_per_machine, "data_files": _TTFT_FIT_RESULT_FILES,
      "script_function": "analysis/numbers_register.py::compute_decode_rate_per_machine"},
+
+    {"claim_id": "blade-dryrun-rates", "description": "Blade 60 s dry runs: prefill and decode tok/s per (model, "
+                    "num_ctx), from each dry run's own per-call counters",
+     "compute": compute_blade_dryrun_rates, "data_files": BLADE_DRYRUN_FILES, "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_blade_dryrun_rates"},
+    {"claim_id": "blade-night-hours", "description": "Blade per-night hour estimates (dry-run rates where present, "
+                    "scaled evo-x2 times otherwise, labelled per job)",
+     "compute": compute_blade_night_hours,
+     "data_files": BLADE_DRYRUN_FILES + ["results/x2_r2_real_v1.jsonl", "results/x2_r2_validation_v2.jsonl",
+                                         "results/x2_r2_validation_v2b.jsonl", "results/x2_r2_mechanism.jsonl",
+                                         "results/blade_c1_spill_sweep_20260925T053651Z.jsonl"],
+     "pending_ok": True, "script_function": "analysis/numbers_register.py::compute_blade_night_hours"},
 ]
 
 

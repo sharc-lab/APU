@@ -121,6 +121,30 @@ def fully_on_gpu(ps_entry: dict | None) -> bool | None:
     return (ps_entry.get("size_vram") or 0) >= FULLY_ON_GPU_FRAC * ps_entry["size"]
 
 
+def call_rates(res: dict) -> dict:
+    """Prefill and decode rates of one Ollama /api/chat call, from its own counters (durations in ns)."""
+    raw = res.get("raw") or {}
+    pe, ped = raw.get("prompt_eval_count"), raw.get("prompt_eval_duration")
+    ec, ed = raw.get("eval_count"), raw.get("eval_duration")
+    return {"prompt_eval_count": pe, "prompt_eval_duration_s": ped / 1e9 if ped else None,
+            "eval_count": ec, "eval_duration_s": ed / 1e9 if ed else None,
+            "prefill_tps": pe / (ped / 1e9) if pe and ped else None,
+            "decode_tps": ec / (ed / 1e9) if ec and ed else None}
+
+
+def fits_at(model_summary: dict, ctxs) -> dict:
+    """{ctx: fully_on_gpu} for each ctx in ctxs ("default" or an int), from summarize()'s per-model entry. A ctx
+    K1 did not measure maps to None (unknown counts as not fitting)."""
+    out = {}
+    by = model_summary.get("fully_on_gpu_by_ctx") or {}
+    for c in ctxs:
+        if c == "default":
+            out["default"] = model_summary.get("fully_on_gpu")
+        else:
+            out[str(int(c))] = by.get(str(int(c)))
+    return out
+
+
 def half_window(num_ctx: int) -> int:
     return num_ctx // 2 + 2
 
@@ -150,6 +174,8 @@ def summarize(rows: list[dict]) -> dict:
                 k: r.get(k) for k in ("started", "props_n_ctx", "log")}
     for tag, m in out["models"].items():
         m["fits_8gb_at_default"] = bool(m.get("fully_on_gpu")) and not m.get("missing")
+        m["fully_on_gpu_by_ctx"] = {str(w["num_ctx"]): fully_on_gpu(w) for w in m.get("overflow_window", [])
+                                    if w.get("num_ctx")}
     return out
 
 
@@ -192,7 +218,7 @@ class K1Job:
         e({"record": "blade_k1_default_ctx", "model_tag": tag, "chat_outcome": res.get("outcome"),
            "http_status": res.get("status"), "error": res.get("error"),
            "context_length": ps.get("context_length"), "size": ps.get("size"), "size_vram": ps.get("size_vram"),
-           "fully_on_gpu": fully_on_gpu(ps), "ps_raw": ps, **bc.gpu_memory(self.run)})
+           "fully_on_gpu": fully_on_gpu(ps), "ps_raw": ps, **call_rates(res), **bc.gpu_memory(self.run)})
         log(f"{tag}: default ctx {ps.get('context_length')} size {ps.get('size')} vram {ps.get('size_vram')}")
         self.unload(tag)
         cal_prompt, _, _ = self.build_prompt(CALIB_TARGET, SEED)
@@ -215,7 +241,7 @@ class K1Job:
                "token_truncated": (pec is not None and sent is not None and pec < 0.99 * sent),
                "marker_found": bool(r.get("message")) and str(expected) in (r.get("message") or ""),
                "context_length": ps.get("context_length"), "size": ps.get("size"), "size_vram": ps.get("size_vram"),
-               "duration_s": r.get("duration_s"), **bc.gpu_memory(self.run)})
+               "duration_s": r.get("duration_s"), **call_rates(r), **bc.gpu_memory(self.run)})
         self.unload(tag)
         for n in WINDOW_PROBES:
             target = round(OVERFLOW_FACTOR * n / ratio) if ratio else round(OVERFLOW_FACTOR * n)
@@ -229,7 +255,7 @@ class K1Job:
                "half_window_rule": half_window(n), "matches_half_window": pec == half_window(n),
                "marker_found": bool(r.get("message")) and str(expected) in (r.get("message") or ""),
                "context_length": ps.get("context_length"), "size": ps.get("size"), "size_vram": ps.get("size_vram"),
-               "duration_s": r.get("duration_s"), **bc.gpu_memory(self.run)})
+               "duration_s": r.get("duration_s"), **call_rates(r), **bc.gpu_memory(self.run)})
             self.unload(tag)
 
     def llamacpp_defaults(self, tag, blob, popen=None):

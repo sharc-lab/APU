@@ -2,10 +2,10 @@
  "night": 1,
  "summary": {
   "night": 1,
-  "started_utc": "2026-10-08T21:21:31.952501+00:00",
+  "started_utc": "2026-10-08T21:41:50.918972+00:00",
   "refused": null,
   "power": {
-   "log": "C:\\Users\\rithw\\AppData\\Local\\Temp\\blade_night_stub_uwt58j_m\\logs\\night1_power_20261008T212131Z.json",
+   "log": "C:\\Users\\rithw\\AppData\\Local\\Temp\\blade_night_stub_jxb72_q8\\logs\\night1_power_20261008T214150Z.json",
    "original": {
     "SUB_SLEEP/STANDBYIDLE": {
      "ac": 1800,
@@ -94,8 +94,8 @@
    ],
    "stopped_early": null
   },
-  "ended_utc": "2026-10-08T21:21:32.300368+00:00",
-  "summary_file": "C:\\Users\\rithw\\AppData\\Local\\Temp\\blade_night_stub_uwt58j_m\\results\\blade_night1_summary_20261008T212131Z.json"
+  "ended_utc": "2026-10-08T21:41:51.267033+00:00",
+  "summary_file": "C:\\Users\\rithw\\AppData\\Local\\Temp\\blade_night_stub_jxb72_q8\\results\\blade_night1_summary_20261008T214150Z.json"
  },
  "power_call_order": [
   "/setacvalueindex SUB_SLEEP STANDBYIDLE 0",
@@ -115,7 +115,7 @@
    "parsed": {
     "out": "results/blade_k1_v1.jsonl",
     "models": "llama3.1:8b,qwen3:8b,qwen3-4b-2507-tools",
-    "ollama_exe": null,
+    "ollama_exe": "C:\\apu\\bin\\ollama-0.34.4\\ollama.exe",
     "llama_server_exe": null,
     "skip_llamacpp": false,
     "dry_run_seconds": null,
@@ -135,8 +135,8 @@
     "mode": "validation",
     "out": "results/blade_r2_validation_v1.jsonl",
     "models": "llama3.1:8b",
-    "models_if_fit": "qwen3:8b",
-    "k1_summary": "results/blade_k1_v1.summary.json",
+    "models_if_fit": "",
+    "k1_summary": null,
     "tiers": null,
     "seeds": null,
     "turns": null,
@@ -144,7 +144,7 @@
     "rules_from": null,
     "require_validation_gates": false,
     "order": "seed_major",
-    "ollama_exe": null,
+    "ollama_exe": "C:\\apu\\bin\\ollama-0.34.4\\ollama.exe",
     "dry_run_seconds": null,
     "allow_version_mismatch": false
    },
@@ -161,8 +161,8 @@
     "mode": "real",
     "out": "results/blade_r2_real_v1.jsonl",
     "models": "llama3.1:8b",
-    "models_if_fit": "qwen3:8b",
-    "k1_summary": "results/blade_k1_v1.summary.json",
+    "models_if_fit": "",
+    "k1_summary": null,
     "tiers": "default,4096,32768",
     "seeds": null,
     "turns": null,
@@ -170,7 +170,7 @@
     "rules_from": "results/blade_r2_validation_v1.jsonl",
     "require_validation_gates": true,
     "order": "seed_major",
-    "ollama_exe": null,
+    "ollama_exe": "C:\\apu\\bin\\ollama-0.34.4\\ollama.exe",
     "dry_run_seconds": null,
     "allow_version_mismatch": false
    },
@@ -187,7 +187,7 @@
     "mode": "mitigation",
     "out": "results/blade_r2_mitigation_v1.jsonl",
     "models": "llama3.1:8b",
-    "models_if_fit": "qwen3:8b",
+    "models_if_fit": "",
     "k1_summary": "results/blade_k1_v1.summary.json",
     "tiers": "default,4096,8192",
     "seeds": null,
@@ -196,7 +196,7 @@
     "rules_from": "results/blade_r2_validation_v1.jsonl",
     "require_validation_gates": true,
     "order": "seed_major",
-    "ollama_exe": null,
+    "ollama_exe": "C:\\apu\\bin\\ollama-0.34.4\\ollama.exe",
     "dry_run_seconds": null,
     "allow_version_mismatch": false
    },

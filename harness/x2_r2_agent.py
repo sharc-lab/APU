@@ -183,15 +183,17 @@ NEG_NUM_CTX = _BASE_ARMS[NEG_ARM]
 DIAGNOSTIC_MODE = {"on": "off", "off": "on", "forced_none": "on", "forced_none_format": "forced_none"}
 
 
-def validation_plan(call2_tools, with_diagnostic: bool = True):
+def validation_plan(call2_tools, with_diagnostic: bool = True, neg_arm=NEG_ARM):
     """Validation for the chosen call-2 mode: negative control/baseline (3 seeds x 10 turns) and positive
     control (1 seed x 15 turns, so two canary checks fall past the 8192 window). DIAGNOSTIC_MODE's arm b is
-    added as a diagnostic if with_diagnostic (for forced_none that is "on": the same request minus tool_choice)."""
+    added as a diagnostic if with_diagnostic (for forced_none that is "on": the same request minus tool_choice).
+    neg_arm: the negative-control/baseline arm (base name, no suffix); NEG_ARM (131072) on evo-x2, the Blade passes its
+    own capped arm (harness/blade_r2.py, register row blade-validation-ctx-cap)."""
     mode = as_mode(call2_tools)
     sfx = MODE_SUFFIX[mode]
-    plan = [(NEG_ARM + sfx, SEEDS, 10), (POS_ARM + sfx, SEEDS[:1], 15)]
+    plan = [(neg_arm + sfx, SEEDS, 10), (POS_ARM + sfx, SEEDS[:1], 15)]
     if with_diagnostic:
-        plan.append((NEG_ARM + MODE_SUFFIX[DIAGNOSTIC_MODE[mode]], SEEDS, 10))
+        plan.append((neg_arm + MODE_SUFFIX[DIAGNOSTIC_MODE[mode]], SEEDS, 10))
     return plan
 REAL_PLAN = [
     ("ollama_default", SEEDS, 40),
@@ -1109,9 +1111,9 @@ def baseline_table(rows: list[dict], arm="ollama_ctx_131072", threshold=BASELINE
     return out
 
 
-def control_results(rows: list[dict], sfx: str = "") -> dict:
+def control_results(rows: list[dict], sfx: str = "", neg_arm=NEG_ARM) -> dict:
     sessions = completed_sessions(rows)
-    neg = [s for s in sessions if s["arm_id"] == NEG_ARM + sfx]
+    neg = [s for s in sessions if s["arm_id"] == neg_arm + sfx]
     pos = [s for s in sessions if s["arm_id"] == POS_ARM + sfx]
     res = {"negative": {}, "positive": {}}
     for model in sorted({s["model_id"] for s in neg + pos}):
@@ -1134,13 +1136,13 @@ def control_results(rows: list[dict], sfx: str = "") -> dict:
     return res
 
 
-def evaluate_gates(rows: list[dict], threshold=BASELINE_THRESHOLD, call2_tools=True) -> dict:
+def evaluate_gates(rows: list[dict], threshold=BASELINE_THRESHOLD, call2_tools=True, neg_arm=NEG_ARM) -> dict:
     """Gates on the chosen call-2 mode's arms; DIAGNOSTIC_MODE's arm b (if present) as a diagnostic table.
     call2_tools: a call-2 mode or the old bool (True = "on", False = "off")."""
     mode = as_mode(call2_tools)
     sfx = MODE_SUFFIX[mode]
-    table = baseline_table(rows, arm=NEG_ARM + sfx, threshold=threshold)
-    ctrl = control_results(rows, sfx)
+    table = baseline_table(rows, arm=neg_arm + sfx, threshold=threshold)
+    ctrl = control_results(rows, sfx, neg_arm=neg_arm)
     gates = {"baseline": {}, "negative_control": {}, "positive_control": {}, "content_nonempty": {},
              "thinking_off": {}, "task_tool": {}}
     for model, e in table.items():
@@ -1162,20 +1164,21 @@ def evaluate_gates(rows: list[dict], threshold=BASELINE_THRESHOLD, call2_tools=T
         gates["positive_control"][model] = {
             "pass": p["n_sessions"] > 0 and all(t is not None for t in p["truncation_detected_turns"]), **p}
     diag_mode = DIAGNOSTIC_MODE[mode]
-    diag = baseline_table(rows, arm=NEG_ARM + MODE_SUFFIX[diag_mode], threshold=threshold)
+    diag = baseline_table(rows, arm=neg_arm + MODE_SUFFIX[diag_mode], threshold=threshold)
     return {"call2_tools": mode != "off", "call2_mode": mode, "baseline_table": table, "controls": ctrl,
             "gates": gates, "diagnostic_mode": diag_mode,
             "diagnostic_other_call2_variant_table": diag,
             "diagnostic_call2_notools_table": diag if diag_mode == "off" else None}
 
 
-def rules_in_use_from(validation_rows: list[dict], call2_tools) -> dict:
+def rules_in_use_from(validation_rows: list[dict], call2_tools, neg_arm=NEG_ARM) -> dict:
     """Per-model gate-passing rules from a validation file: {model: [rule ids]}."""
-    gates = evaluate_gates(validation_rows, call2_tools=call2_tools)["gates"]["baseline"]
+    gates = evaluate_gates(validation_rows, call2_tools=call2_tools, neg_arm=neg_arm)["gates"]["baseline"]
     return {m: g["rules_in_use"] for m, g in gates.items()}
 
 
-def validation_preflight(validation_rows: list[dict], call2_tools, models, threshold=BASELINE_THRESHOLD) -> dict:
+def validation_preflight(validation_rows: list[dict], call2_tools, models, threshold=BASELINE_THRESHOLD,
+                         neg_arm=NEG_ARM) -> dict:
     """The real run's own start check against its validation file (x2_r2_real_v2 refuses to start unless this
     passes; no manual step). For every model: the validation file finished (run_end) under the same call-2 mode, the
     plan's negative-control (3 sessions) and positive-control (1 session) arms completed, the model has at least one
@@ -1190,10 +1193,10 @@ def validation_preflight(validation_rows: list[dict], call2_tools, models, thres
     start_modes = {str(r.get("call2_mode", "on" if r.get("call2_tools", True) else "off")) for r in starts}
     if start_modes != {mode}:
         reasons.append(f"validation file call-2 mode {sorted(start_modes)} != real run's {mode!r}")
-    rep = evaluate_gates(validation_rows, threshold=threshold, call2_tools=mode)
+    rep = evaluate_gates(validation_rows, threshold=threshold, call2_tools=mode, neg_arm=neg_arm)
     g, t = rep["gates"], rep["baseline_table"]
-    need = {a: len(s) for a, s, _ in validation_plan(mode, with_diagnostic=False)}
-    need_neg, need_pos = need[NEG_ARM + MODE_SUFFIX[mode]], need[POS_ARM + MODE_SUFFIX[mode]]
+    need = {a: len(s) for a, s, _ in validation_plan(mode, with_diagnostic=False, neg_arm=neg_arm)}
+    need_neg, need_pos = need[neg_arm + MODE_SUFFIX[mode]], need[POS_ARM + MODE_SUFFIX[mode]]
     riu = {}
     for m in models:
         e = t.get(m)
@@ -1211,7 +1214,7 @@ def validation_preflight(validation_rows: list[dict], call2_tools, models, thres
         neg = g["negative_control"].get(m)
         if not neg or not neg["pass"]:
             reasons.append(f"{m}: negative control failed (canary misses "
-                           f"{neg['canary_misses'] if neg else 'n/a'} at num_ctx 131072)")
+                           f"{neg['canary_misses'] if neg else 'n/a'} at num_ctx {ARMS[neg_arm]['num_ctx']})")
         pos = g["positive_control"].get(m)
         if not pos or pos["n_sessions"] < need_pos or not pos["pass"]:
             reasons.append(f"{m}: positive control did not fire (truncation turns "
@@ -1240,7 +1243,7 @@ def refusal_category(reasons: list[str], files_present: dict[str, bool], files_f
 
 
 def validation_preflight_per_model(files: list[tuple[str, list[dict]]], call2_tools, models,
-                                   threshold=BASELINE_THRESHOLD) -> dict:
+                                   threshold=BASELINE_THRESHOLD, neg_arm=NEG_ARM) -> dict:
     """The strengthened real run's start check (2026-10-08). files: [(name, rows)], e.g. x2_r2_validation_v2.jsonl
     for llama3.1:8b and qwen3:14b and x2_r2_validation_v2b.jsonl for the new models. Each model is checked against
     the LAST file that holds validation turn rows for it, with validation_preflight's full set of checks (file
@@ -1262,7 +1265,7 @@ def validation_preflight_per_model(files: list[tuple[str, list[dict]]], call2_to
         ms = [m for m in models if source.get(m) == name]
         if not ms:
             continue
-        pf = validation_preflight(rows, call2_tools, ms, threshold=threshold)
+        pf = validation_preflight(rows, call2_tools, ms, threshold=threshold, neg_arm=neg_arm)
         per_file[name] = {k: pf[k] for k in ("ok", "reasons", "rules_in_use")}
         file_level = [r for r in pf["reasons"] if not any(r.startswith(f"{m}:") for m in ms)]
         for m in ms:

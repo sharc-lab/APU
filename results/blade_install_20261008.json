@@ -1,0 +1,10 @@
+{"record": "blade_install", "date": "2026-10-08",
+ "ollama_0_34_4": {"zip": "C:\apu\bin\ollama-windows-amd64-v0.34.4.zip", "bytes": 1461155106,
+   "sha256": "535193f38f3344e5b08f5d1c171c31ce11aa17f0124ff69ae26d8ec7fe06fa62",
+   "sha256_expected": "535193f38f3344e5b08f5d1c171c31ce11aa17f0124ff69ae26d8ec7fe06fa62", "sha256_match": true,
+   "extracted_to": "C:\apu\bin\ollama-0.34.4", "client_version": "0.34.4",
+   "tray_install_untouched": "0.34.1 at %LOCALAPPDATA%\Programs\Ollama"},
+ "qwen3_8b": {"pulled_via": "tray Ollama 0.34.1 server, default models dir", "model_layer_digest_blade":
+   "sha256:a3de86cd1c132c822487ededd47a324c50491393e6565cd14bafa40d0b8e686f",
+   "model_layer_digest_evo_x2": "sha256:a3de86cd1c132c822487ededd47a324c50491393e6565cd14bafa40d0b8e686f",
+   "match": true}}

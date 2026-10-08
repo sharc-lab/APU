@@ -121,7 +121,7 @@ def test_unrestored_earlier_log_supplies_originals(tmp_path):
 
 
 def test_stub_night_passes_both_nights():
-    for n in (1, 2):
+    for n in (1, 2, 3):
         rep = bn.stub_night(n, log=lambda m: None)
         assert rep["set_before_first_job"] and rep["restore_after_last_job"]
         assert rep["final_values_equal_original"] and rep["all_outputs_prefixed_blade"]
@@ -259,16 +259,28 @@ def test_r2_tiers_and_plans():
     mech = blade_r2.plan_for("mechanism", ["default", "4096"])
     assert all(len(s) == 1 for _, s, _ in mech)
     val = blade_r2.plan_for("validation", [])
-    assert val[0][0] == "ollama_ctx_131072_call2_notools"
+    assert [a for a, _, _ in val] == ["ollama_ctx_32768_negative_control_call2_notools",
+                                      "ollama_ctx_8192_positive_control_call2_notools",
+                                      "ollama_ctx_32768_negative_control"]
+    assert blade_r2.agent.ARMS[val[0][0]]["num_ctx"] == 32768
+    assert blade_r2.agent.ARMS[val[1][0]]["num_ctx"] == 8192
+    # evo-x2's own validation plan is unchanged
+    assert blade_r2.agent.validation_plan("off")[0][0] == "ollama_ctx_131072_call2_notools"
 
 
 def test_r2_fit_decision_and_default_tier(tmp_path):
     p = tmp_path / "k1.summary.json"
-    p.write_text(json.dumps({"models": {"qwen3:8b": {"default_ctx": 4096, "fits_8gb_at_default": True, "size": 1,
-                                                     "size_vram": 1},
-                                        "llama3.1:8b": {"default_ctx": 4096, "fits_8gb_at_default": True}}}))
-    assert blade_r2.fit_decision(["qwen3:8b"], p)["qwen3:8b"]["run"] is True
+    p.write_text(json.dumps({"models": {
+        "qwen3:8b": {"default_ctx": 4096, "fully_on_gpu": True,
+                     "fully_on_gpu_by_ctx": {"4096": True, "8192": True, "16384": True, "32768": False}},
+        "llama3.1:8b": {"default_ctx": 4096, "fully_on_gpu": True}}}))
+    assert blade_r2.fit_decision(["qwen3:8b"], p, ["default", 4096, 8192])["qwen3:8b"]["run"] is True
+    d = blade_r2.fit_decision(["qwen3:8b"], p, ["default", 4096, 32768])["qwen3:8b"]
+    assert d["run"] is False and "does not fit" in d["reason"] and d["fits"]["32768"] is False
+    assert blade_r2.fit_decision(["qwen3:8b"], p, ["default", 65536])["qwen3:8b"]["run"] is False   # unmeasured
     assert blade_r2.fit_decision(["qwen3:8b"], tmp_path / "none.json")["qwen3:8b"]["run"] is False
+    assert blade_r2.fit_ctxs("validation", []) == ["default", 32768, 8192]
+    assert blade_r2.fit_ctxs("real", ["default", "4096", "32768"]) == ["default", 4096, 32768]
     tiers, note = blade_r2.resolve_default_tier(["default", "4096", "8192"], p, "llama3.1:8b")
     assert tiers == ["4096", "8192"] and "4096" in note
     tiers, note = blade_r2.resolve_default_tier(["default", "4096"], None, "llama3.1:8b")
@@ -417,3 +429,144 @@ def test_blade_host_entry():
     assert h["hw_id"] == "blade" and h["gpu_vendor"] == "nvidia" and h["ssh_host"] is None
     assert h["models_dir"] == "C:\\apu\\models"
     assert "blade" not in hc.ALIASES       # never an SSH target for deploy/sync
+
+
+# ── 2026-10-08 operator decisions ───────────────────────────────────────────────────────────────────
+
+def test_real_jobs_use_pinned_ollama_and_never_allow_mismatch():
+    for n, jobs in bq.NIGHTS.items():
+        for j in jobs:
+            assert "--allow-version-mismatch" not in j["argv"], j["id"]
+            if j["argv"][0] in ("harness/blade_k1.py", "harness/blade_r2.py"):
+                i = j["argv"].index("--ollama-exe")
+                assert j["argv"][i + 1] == bc.PINNED["ollama_exe"] == "C:\\apu\\bin\\ollama-0.34.4\\ollama.exe"
+
+
+def test_three_nights_and_their_jobs():
+    assert [j["id"] for j in bq.NIGHTS[1]] == ["blade_k1_v1", "blade_r2_validation_v1", "blade_r2_real_v1",
+                                              "blade_r2_mitigation_v1"]
+    assert [j["id"] for j in bq.NIGHTS[2]] == ["blade_c3_sysmem_fallback_v1", "blade_r2_mechanism_v1"]
+    assert [j["id"] for j in bq.NIGHTS[3]] == ["blade_r2_validation_qwen3_8b_v1", "blade_r2_real_qwen3_8b_v1"]
+    for j in bq.NIGHTS[1] + bq.NIGHTS[2]:
+        assert "qwen3:8b" not in j["argv"]
+    for j in bq.NIGHTS[3]:
+        a = blade_r2.build_arg_parser().parse_args(j["argv"][1:])
+        assert a.models == "" and a.models_if_fit == "qwen3:8b" and a.k1_summary == bq.K1_SUMMARY
+
+
+def _no_server(monkeypatch, calls):
+    monkeypatch.setattr(bc, "require_blade", lambda *a: {})
+    monkeypatch.setattr(bc, "versions_record", lambda *a, **k: {})
+    monkeypatch.setattr(bc, "version_problems", lambda rec: [])
+    monkeypatch.setattr(bc.LocalOllama, "start", lambda self: calls.append("start"))
+    monkeypatch.setattr(bc.LocalOllama, "stop", lambda self, **k: [])
+
+
+def test_night3_job_skips_when_qwen_does_not_fit(monkeypatch, tmp_path):
+    k1 = tmp_path / "k1.summary.json"
+    k1.write_text(json.dumps({"models": {"qwen3:8b": {"default_ctx": 4096, "fully_on_gpu": True,
+                                                      "fully_on_gpu_by_ctx": {"8192": True, "32768": False}}}}))
+    calls = []
+    _no_server(monkeypatch, calls)
+    out = bc.DRYRUN_DIR / "blade_dryrun_test_night3_skip.jsonl"
+    try:
+        rc = blade_r2.main(["--mode", "validation", "--out", str(out), "--models", "", "--models-if-fit", "qwen3:8b",
+                            "--k1-summary", str(k1), "--dry-run-seconds", "60"])
+        recs = [json.loads(l) for l in out.read_text().splitlines()]
+        assert rc == 0 and calls == []
+        skipped = [r for r in recs if r["record"] == "skipped"]
+        assert skipped and skipped[0]["reason"].startswith("skipped: does not fit")
+    finally:
+        out.unlink(missing_ok=True)
+
+
+def test_c3_half_b_runs_even_if_half_a_fails():
+    ran, rows = [], []
+
+    def run_one(h):
+        ran.append(h["half"])
+        if h["half"] == "A":
+            raise RuntimeError("server crashed at 43008")
+    errors = blade_c3.run_halves(set(), run_one, rows.append, lambda m: None)
+    assert ran == ["A", "B"] and len(errors) == 1 and "half A" in errors[0]
+    assert any(r["record"] == "c3_half_failed" and r["half"] == "A" for r in rows)
+    ran.clear()
+    with pytest.raises(KeyboardInterrupt):
+        blade_c3.run_halves(set(), lambda h: (ran.append(h["half"]), (_ for _ in ()).throw(KeyboardInterrupt))
+                            if h["half"] == "A" else ran.append(h["half"]), rows.append, lambda m: None)
+    assert ran == ["A", "B"]
+    ran.clear()
+    blade_c3.run_halves({"A"}, lambda h: ran.append(h["half"]), rows.append, lambda m: None)
+    assert ran == ["B"]
+
+
+def test_c3_readback(tmp_path):
+    rb = blade_c3.read_readback(tmp_path, 0)
+    assert rb["ok"] is False and "SETTING NOT READ BACK" in rb["status"]
+    (tmp_path / blade_c3.READBACK_FLAG).write_text("Prefer No Sysmem Fallback\n")
+    rb = blade_c3.read_readback(tmp_path, 0)
+    assert rb["read_back"] and not rb["ok"] and "NOT 'Driver Default'" in rb["status"]
+    (tmp_path / blade_c3.READBACK_FLAG).write_text("Driver Default\n")
+    assert blade_c3.read_readback(tmp_path, 0)["ok"] is True
+    import time as _t
+    assert blade_c3.read_readback(tmp_path, _t.time() + 3600)["read_back"] is False    # older than the night
+
+
+def test_night2_summary_carries_readback(tmp_path):
+    ev = []
+    summ, _ = night(tmp_path, ev, recording_runner(ev), n=2)
+    assert "SETTING NOT READ BACK" in summ["c3_setting_readback"]["status"]
+    on_disk = json.loads(Path(summ["summary_file"]).read_text())
+    assert on_disk["c3_setting_readback"]["ok"] is False
+
+
+def test_k1_rates_and_fits_at():
+    r = blade_k1.call_rates({"raw": {"prompt_eval_count": 2000, "prompt_eval_duration": 1e9, "eval_count": 64,
+                                     "eval_duration": 2e9}})
+    assert r["prefill_tps"] == 2000 and r["decode_tps"] == 32
+    assert blade_k1.call_rates({})["prefill_tps"] is None
+    s = blade_k1.summarize([{"record": "blade_k1_default_ctx", "model_tag": "q", "context_length": 4096,
+                             "size": 100, "size_vram": 100, "fully_on_gpu": True},
+                            {"record": "blade_k1_overflow_window", "model_tag": "q", "num_ctx": 32768, "size": 100,
+                             "size_vram": 70}])
+    assert s["models"]["q"]["fully_on_gpu_by_ctx"] == {"32768": False}
+    assert blade_k1.fits_at(s["models"]["q"], ["default", 32768, 8192]) == {"default": True, "32768": False,
+                                                                           "8192": None}
+
+
+def _write_dryrun(path, model, ctx, pe, ped, ec, ed):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    row = {"record": "r2a_turn", "model_id": model, "num_ctx_requested": ctx, "loaded_context": ctx,
+           "calls": [{"prompt_eval_count_info_only": pe, "prompt_eval_duration_s": ped, "completion_tokens": ec,
+                      "eval_duration_s": ed}]}
+    path.write_text(json.dumps(row) + "\n")
+
+
+def test_estimator_uses_dryrun_rates_when_present(tmp_path, monkeypatch):
+    sys.path.insert(0, str(REPO / "analysis"))
+    import blade_hours_estimate as est
+    base = est.estimate()
+    real = next(j for j in base["jobs"] if j["job"].startswith("blade_r2_real_v1"))
+    assert real["kind"] == "scaled" and "no Blade rate for llama3.1:8b at 4096" in real["basis"]
+    f = tmp_path / "blade_dryrun_r2_real.jsonl"
+    _write_dryrun(f, "llama3.1:8b", 4096, 2000, 1.0, 100, 2.0)       # prefill 2000, decode 50 tok/s
+    e = est.estimate([str(f)])
+    assert e["rates_used"]["llama3.1:8b@4096"]["decode_tps"] == 50
+    real = next(j for j in e["jobs"] if j["job"].startswith("blade_r2_real_v1"))
+    assert real["kind"] == "mixed (rates, scaled)" and "Blade rates llama3.1:8b@4096" in real["basis"]
+    assert "no Blade rate for llama3.1:8b at 32768" in real["basis"]
+
+
+def test_register_blade_rows_compute_on_fixture(tmp_path):
+    import shutil
+    sys.path.insert(0, str(REPO))
+    import analysis.numbers_register as nr
+    for f in nr.BLADE_DRYRUN_FILES:
+        _write_dryrun(tmp_path / f, "llama3.2", 4096, 1000, 0.5, 40, 0.5)
+    for f in ("results/x2_r2_real_v1.jsonl", "results/x2_r2_validation_v2.jsonl", "results/x2_r2_validation_v2b.jsonl",
+              "results/x2_r2_mechanism.jsonl", "results/blade_c1_spill_sweep_20260925T053651Z.jsonl"):
+        shutil.copy(REPO / f, tmp_path / f)
+    v = nr.compute_blade_dryrun_rates(tmp_path)
+    assert "llama3.2@4096: prefill 2000 tok/s (n=1), decode 80.0 tok/s (n=1)" in v["value"]
+    h = nr.compute_blade_night_hours(tmp_path)
+    assert h["value"].startswith("night 1 ") and "(scaled)" in h["value"]

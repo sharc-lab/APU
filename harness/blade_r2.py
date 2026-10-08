@@ -1,13 +1,17 @@
-"""Blade R2 jobs (night 1: validation, real, mitigation; night 2: mechanism). docs/BLADE_PLAN.md is the plan.
+"""Blade R2 jobs (night 1: llama3.1:8b validation, real, mitigation; night 2: mechanism; night 3: qwen3:8b validation
+and real, only if it fits). docs/BLADE_PLAN.md is the plan.
 
 The session driver, scoring, gates and reports are x2_r2_agent's and x2_r2_mechanism's, imported unchanged; this
 file only replaces the evo-x2 specifics: the host check, the Ollama lifecycle (harness/blade_common.LocalOllama, a
 hidden local child with the pinned 0.34.4 exe, instead of the WMI launch), the version pin, the qwen3:8b fit decision
 and the dry-run budget. The protocol is v1 (call-2 mode "off": tools withheld on a turn's second call), as on evo-x2.
 
-  --mode validation   x2_r2_agent.validation_plan("off"): arm b num_ctx 131072 (3 seeds x 10 turns, negative control
-                      and baseline), positive control num_ctx 8192 (1 seed x 15 turns), diagnostic arm b with tools on
-                      call 2. Gates by x2_r2_agent.evaluate_gates.
+  --mode validation   x2_r2_agent.validation_plan("off", neg_arm=BLADE_NEG_ARM): arm b (negative control and
+                      baseline, 3 seeds x 10 turns) at num_ctx BLADE_VALIDATION_CTX = 32768 instead of evo-x2's 131072
+                      (operator decision 2026-10-08, register row blade-validation-ctx-cap: the largest prompt+generated
+                      call in evo-x2's validation sessions is 17567 tokens, under 30000, so 32768 holds every session
+                      untruncated and fits the 8 GB GPU far better); positive control num_ctx 8192 (1 seed x 15 turns);
+                      diagnostic arm b with tools on call 2. Gates by x2_r2_agent.evaluate_gates with the same arm.
   --mode real         --tiers (default: default,4096,32768) x SEEDS_STRONG (5) x 40 turns; refuses per model unless
                       the Blade validation file passes validation_preflight_per_model (--require-validation-gates).
   --mode mitigation   x2_r2_mitigation_v1's design: --client-trim margin=0.05 (x2_r2_client_trim), OLLAMA_DEBUG=1 and
@@ -20,7 +24,9 @@ and the dry-run budget. The protocol is v1 (call-2 mode "off": tools withheld on
                       llama-tokenize prompt checks (x2_r2_mechanism.MechanismRuntime).
 
 Models: --models (always run) plus --models-if-fit (run only if the K1 summary says the model is fully on the GPU at
-its default context: blade_k1.summarize()'s fits_8gb_at_default). The decision is a record in the output.
+every context this job uses: the default context and each num_ctx in FIT_CTXS[mode]; blade_k1.fits_at). The decision
+is a record in the output. A job left with no model writes {"record": "skipped", "reason": "does not fit ..."} and
+exits 0 (night 3's qwen3:8b jobs when K1 says it does not fit).
 
 Tiers other than x2_r2_agent's fixed ones (e.g. a K1 default of 40960) are registered in x2_r2_agent.ARMS at run time
 with the same fields (num_ctx, call-2 mode off).
@@ -44,6 +50,21 @@ from x2_r2_agent import native_chat_body  # noqa: E402,F401  (x2_r2_mechanism.de
 CALL2 = "off"
 DEFAULT_TIERS = {"real": "default,4096,32768", "mitigation": "default,4096,8192", "mechanism": "default,32768,16384,8192,4096"}
 DEFAULT_CLIENT_TRIM = "margin=0.05"
+BLADE_VALIDATION_CTX = 32768          # register row blade-validation-ctx-cap
+BLADE_NEG_ARM = f"ollama_ctx_{BLADE_VALIDATION_CTX}_negative_control"
+# contexts a model must be fully on the GPU at (K1) to join a job through --models-if-fit
+FIT_CTXS = {"validation": ("default", BLADE_VALIDATION_CTX, 8192), "real": None, "mitigation": None, "mechanism": None}
+
+
+def register_blade_arms():
+    """The Blade negative-control arm, in every call-2 mode, with its num_ctx (every r2a_turn row records it as
+    num_ctx_requested, plus the loaded context Ollama reports)."""
+    for m, sfx in agent.MODE_SUFFIX.items():
+        agent.ARMS.setdefault(BLADE_NEG_ARM + sfx, {"num_ctx": BLADE_VALIDATION_CTX, "call2_tools": m != "off",
+                                                    "call2_mode": m})
+
+
+register_blade_arms()
 EXIT_OK, EXIT_ERR = 0, 2
 
 
@@ -65,7 +86,7 @@ def tier_arm(tier: str) -> str:
 
 def plan_for(mode: str, tiers: list[str], seeds=None, turns=None):
     if mode == "validation":
-        return agent.validation_plan(CALL2)
+        return agent.validation_plan(CALL2, neg_arm=BLADE_NEG_ARM)
     if mode == "real":
         return [(tier_arm(t), tuple(seeds or agent.SEEDS_STRONG), turns or agent.STRONG_TURNS) for t in tiers]
     if mode == "mechanism":
@@ -76,8 +97,17 @@ def plan_for(mode: str, tiers: list[str], seeds=None, turns=None):
     raise ValueError(mode)
 
 
-def fit_decision(models_if_fit: list[str], k1_summary_path) -> dict:
-    """{model: {"run": bool, "reason": str}} from the K1 summary; a missing summary or model means "do not run"."""
+def fit_ctxs(mode: str, tiers: list[str]) -> list:
+    """The contexts a model must fit at for this job: FIT_CTXS[mode], or the job's own tiers."""
+    fixed = FIT_CTXS.get(mode)
+    return list(fixed) if fixed else [t if t == "default" else int(t) for t in tiers]
+
+
+def fit_decision(models_if_fit: list[str], k1_summary_path, ctxs=("default",)) -> dict:
+    """{model: {"run": bool, "reason": str, "fits": {ctx: bool|None}}} from the K1 summary: run only if the model is
+    fully on the GPU (size_vram >= 99% of size) at every ctx in ctxs. A missing summary, model or ctx means "do not
+    run" (unknown is never taken as fitting)."""
+    import blade_k1
     out = {}
     summ = None
     if k1_summary_path and Path(k1_summary_path).exists():
@@ -85,15 +115,20 @@ def fit_decision(models_if_fit: list[str], k1_summary_path) -> dict:
     for m in models_if_fit:
         e = ((summ or {}).get("models") or {}).get(m)
         if summ is None:
-            out[m] = {"run": False, "reason": f"no K1 summary at {k1_summary_path}"}
-        elif e is None or e.get("missing"):
-            out[m] = {"run": False, "reason": "model not measured by K1 (missing from the store)"}
-        elif e.get("fits_8gb_at_default"):
-            out[m] = {"run": True, "reason": f"K1: fully on GPU at default ctx {e.get('default_ctx')} "
-                                             f"(size_vram {e.get('size_vram')} of {e.get('size')})"}
+            out[m] = {"run": False, "reason": f"no K1 summary at {k1_summary_path}", "fits": {}}
+            continue
+        if e is None or e.get("missing"):
+            out[m] = {"run": False, "reason": "model not measured by K1 (missing from the store)", "fits": {}}
+            continue
+        fits = blade_k1.fits_at(e, ctxs)
+        bad = [c for c, v in fits.items() if v is not True]
+        if bad:
+            out[m] = {"run": False, "fits": fits,
+                      "reason": f"does not fit: K1 shows {m} not fully on the GPU (or not measured) at ctx {bad} "
+                                f"(default ctx {e.get('default_ctx')})"}
         else:
-            out[m] = {"run": False, "reason": f"K1: not fully on GPU at default ctx {e.get('default_ctx')} "
-                                              f"(size_vram {e.get('size_vram')} of {e.get('size')})"}
+            out[m] = {"run": True, "fits": fits,
+                      "reason": f"K1: fully on the GPU at {list(fits)} (default ctx {e.get('default_ctx')})"}
     return out
 
 
@@ -197,7 +232,7 @@ def main(argv=None) -> int:
     if dry and args.mode == "validation" and (seeds or args.turns):
         plan = [(a, tuple(seeds or s), args.turns or t) for a, s, t in plan]
     models = [m for m in args.models.split(",") if m]
-    fit = fit_decision([m for m in args.models_if_fit.split(",") if m], args.k1_summary)
+    fit = fit_decision([m for m in args.models_if_fit.split(",") if m], args.k1_summary, fit_ctxs(args.mode, tiers))
     models += [m for m, d in fit.items() if d["run"]]
     mit_argv = client_trim = None
     if args.mode == "mitigation":
@@ -218,6 +253,13 @@ def main(argv=None) -> int:
               "host": "blade", "client_trim": client_trim, "x2_r2_agent_equivalent_argv": mit_argv})
         for m, d in fit.items():
             log(f"fit decision {m}: run={d['run']} ({d['reason']})")
+        if not models:
+            reason = "; ".join(f"{m}: {d['reason']}" for m, d in fit.items()) or "no models given"
+            emit({"record": "skipped", "reason": reason if reason.startswith("no models") else
+                  f"skipped: does not fit ({reason})"})
+            log(f"SKIPPED: {reason}")
+            note = "skipped"
+            return EXIT_OK
         if problems and not args.allow_version_mismatch:
             emit({"record": "refused", "reasons": problems})
             log(f"refused (versions): {problems}")
@@ -226,7 +268,8 @@ def main(argv=None) -> int:
         refused = {}
         if args.mode in ("real", "mitigation") and args.rules_from:
             vrows = agent.read_rows(Path(args.rules_from))
-            pf = agent.validation_preflight_per_model([(Path(args.rules_from).name, vrows)], CALL2, models)
+            pf = agent.validation_preflight_per_model([(Path(args.rules_from).name, vrows)], CALL2, models,
+                                                      neg_arm=BLADE_NEG_ARM)
             rules_in_use, refused = pf["rules_in_use"], pf["refused"]
             for m, reasons in refused.items():
                 emit({"record": "refused_model", "model_id": m, "reasons": reasons})
@@ -266,7 +309,7 @@ def main(argv=None) -> int:
             agent.run_plan(runtime, plan, models, args.mode, out, log=log, emit=emit, order=args.order)
             rows = agent.read_rows(out)
             if args.mode == "validation":
-                report = agent.evaluate_gates(rows, call2_tools=CALL2)
+                report = agent.evaluate_gates(rows, call2_tools=CALL2, neg_arm=BLADE_NEG_ARM)
                 log("\n" + agent.format_baseline_markdown(report))
             else:
                 sessions = [s for s in agent.completed_sessions(rows) if s["mode"] == "real"]
