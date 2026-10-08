@@ -2731,6 +2731,61 @@ def compute_r2_mechanism_lowlevel(repo):
     return {"value": " / ".join(parts), "n": sum(len(v) for v in by.values())}
 
 
+def _r2_shift_module(repo):
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "analysis"))
+    import r2_shift_predictor as sp
+    return sp
+
+
+def compute_r2_shift_predictor_confusion(repo):
+    """Context-shift predictor (P + C > n_ctx, from llama.cpp b11081 pre_decode) vs the observed shifts of the R2
+    mechanism job, per tier: confusion counts, precision/recall, events, closest margins; misses; refinements tried."""
+    sp = _r2_shift_module(repo)
+    ms = sp.mechanism_summary(sp.read_rows(repo / sp.MECH_FILE))
+    pct = lambda x: "n/a" if x is None else f"{100 * x:.1f}%"
+    tiers = "; ".join(f"{t} TP {c['tp']} FP {c['fp']} FN {c['fn']} TN {c['tn']} precision {pct(c['precision'])} "
+                      f"recall {pct(c['recall'])} events obs/pred {c['events_observed']}/{c['events_predicted']} "
+                      f"closest margin shift/no-shift {c['closest_margin_shifted']}/{c['closest_margin_not_shifted']}"
+                      for t, c in ms["per_tier"].items())
+    var = "; ".join(f"{n}: TP {c['tp']} FP {c['fp']} FN {c['fn']}" for n, c in ms["variants"].items())
+    d = ms["decoded_tokens_check"]
+    return {"value": f"{tiers} / misses {len(ms['misses'])} / decoded C-1 check {d['ok']}/{d['n']}; P sources "
+                     f"{ms['P_sources']} / variants: {var}",
+            "n": ms["n_calls"]}
+
+
+def compute_r2_shift_predicted_real_v1(repo):
+    """PREDICTED (not observed) context shifts in the R2 real run v1 per tier x model, with Ollama token-cut
+    signatures (prompt_eval_count == num_ctx - (num_ctx - 4) / 2) and, per seed, first predicted shift vs first
+    rule failure (rules in use)."""
+    sp = _r2_shift_module(repo)
+    rs = sp.real_summary(sp.read_rows(repo / sp.REAL_FILE))
+    parts = []
+    for (tier, model), c in rs["cells"].items():
+        sess = ", ".join(f"{seed} shift {s['first_pred_shift'] or '-'} cut {s['first_cut_signature'] or '-'} "
+                         f"rule fail {s['first_rule_failure'] or '-'}" for seed, s in c["sessions"].items())
+        parts.append(f"{tier} {model}: predicted {c['pred_calls']}/{c['calls']} calls (call1 {c['pred_call1']}, "
+                     f"call2 {c['pred_call2']}), {c['pred_events']} events, {c['sessions_with_pred_shift']} sessions, "
+                     f"{c['cut_sig_calls']} cut-signature calls, max P+C-n_ctx {c['max_margin']} ({sess})")
+    return {"value": " / ".join(parts), "n": f"{rs['n_calls']} calls"}
+
+
+def compute_r2_orphan_rates(repo):
+    """R2 mechanism job, per tier over message-truncated calls: first kept non-system message by kind (user,
+    assistant tool-call, assistant final, tool), orphaned (no user message before it in the kept window) and
+    orphaned tool results (tool message whose assistant tool call was dropped)."""
+    sp = _r2_shift_module(repo)
+    o = sp.orphan_summary(sp.read_rows(repo / sp.MECH_FILE))
+    pct = lambda x: "n/a" if x is None else f"{100 * x:.1f}%"
+    parts = [f"{t}: {d['truncated']}/{d['calls']} truncated; first kept user {d['first_user']}, assistant tool-call "
+             f"{d['first_assistant_toolcall']}, assistant final {d['first_assistant_final']}, tool {d['first_tool']}; "
+             f"orphaned {d['orphan_first_kept']}/{d['truncated']} ({pct(d['orphan_rate'])}); orphaned tool result "
+             f"{d['first_tool']}/{d['truncated']} ({pct(d['orphan_tool_rate'])}); rebuilt-role check "
+             f"{d['role_check_ok']}/{d['truncated']}" for t, d in o.items()]
+    return {"value": " / ".join(parts), "n": sum(d["calls"] for d in o.values())}
+
+
 NUMBER_ENTRIES = [
     {"claim_id": "PX2-TTFT-gap", "description": "PX2 B4-vs-S4 TTFT gap range across 5 models",
      "compute": compute_px2_ttft_gap, "data_files": ["results/t2s_night2_20260930T135145Z.jsonl"],
@@ -3121,6 +3176,18 @@ NUMBER_ENTRIES = [
                     "shifts and Ollama token cuts per tier",
      "compute": compute_r2_mechanism_lowlevel, "data_files": ["results/x2_r2_mechanism.jsonl"],
      "script_function": "analysis/numbers_register.py::compute_r2_mechanism_lowlevel"},
+    {"claim_id": "R2-shift-predictor-confusion", "description": "R2 context-shift predictor (P + C > n_ctx) vs observed "
+                    "llama.cpp shifts per tier, mechanism job",
+     "compute": compute_r2_shift_predictor_confusion, "data_files": ["results/x2_r2_mechanism.jsonl"],
+     "script_function": "analysis/r2_shift_predictor.py::mechanism_summary"},
+    {"claim_id": "R2-shift-predicted-real-v1", "description": "R2 real run v1: PREDICTED context shifts and token-cut "
+                    "signatures per tier x model, first predicted shift vs first rule failure",
+     "compute": compute_r2_shift_predicted_real_v1, "data_files": ["results/x2_r2_real_v1.jsonl"],
+     "script_function": "analysis/r2_shift_predictor.py::real_summary"},
+    {"claim_id": "R2-orphan-rates", "description": "R2 mechanism job: orphaned first kept message and orphaned tool "
+                    "result after Ollama's message trim, per tier",
+     "compute": compute_r2_orphan_rates, "data_files": ["results/x2_r2_mechanism.jsonl"],
+     "script_function": "analysis/r2_shift_predictor.py::orphan_summary"},
 ]
 
 

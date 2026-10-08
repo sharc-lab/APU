@@ -2754,3 +2754,70 @@ history is lost silently but the rules hold, because the system message is kept;
 after Ollama's message-level trimming leaves too little room, llama.cpp's context shift and Ollama's token cut remove
 the start of the prompt, system prompt included. All of it with HTTP 200 and no error field. One model, one seed per
 tier: the strengthened run (`x2_r2_real_v1b`) covers 4 models x 5 seeds at the same tiers.
+
+## R2 context-shift predictor and orphaned messages, evo-x2 (2026-10-08)
+
+**Trigger.** From llama.cpp b11081 (bundled with Ollama 0.34.4), `tools/server/server-context.cpp` `pre_decode`:
+a shift fires when `slot.state == SLOT_STATE_GENERATING && slot.prompt.n_tokens() + 1 >= slot.n_ctx`. The check
+runs before the previously sampled token is appended, and the last generated token (EOS or the num_predict limit)
+is never decoded, so a call with a P-token prompt and C generated tokens (Ollama's eval_count) is checked at
+n_tokens = P ... P + C - 2. The predictor is therefore **shift iff P + C > n_ctx**. n_keep does not enter the
+trigger; it only sets n_left = n_tokens - n_keep and n_discard = n_left / 2 (n_keep = Ollama's --keep 4, plus 1 for
+llama3.1's BOS), which at 4096 and 32768 is far larger than the 384-token per-call budget, so at most one shift per
+call. Code: `analysis/r2_shift_predictor.py`; tests: `tests/test_r2_shift_predictor.py`.
+
+**Inputs (mechanism job, `results/x2_r2_mechanism.jsonl`).** P is the fresh-check prompt_eval_count where a matching
+render check exists, otherwise llama.cpp's own `new prompt ... task.n_tokens` from the call's log slice; C is the
+call's completion_tokens; n_ctx is n_ctx_slot from the same log line. The decoded count C - 1 is checked on every call:
+llama.cpp's `stop processing: n_tokens` equals P + C - 1 minus the discarded tokens (`R2-shift-predictor-confusion`:
+decoded C-1 check 400/400).
+
+**Result** (`R2-shift-predictor-confusion`, llama3.1:8b, one session per tier): 32768 TP 10 FP 0 FN 0 TN 70; 4096
+TP 34 FP 0 FN 0 TN 46; default, 16384 and 8192 TN 80 each with no shift observed or predicted. Precision and recall
+100.0% in both tiers that shift; observed and predicted shift events agree (10/10, 34/34). No misses. The closest
+calls are 1 token over (shift) and 4 tokens under (no shift) at 32768, 7 over and 3 under at 4096.
+
+**Refinements tried** (fixed alternatives, none fitted; same register row): P + C >= n_ctx (the off-by-one the other
+way, equivalently one extra BOS token) also scores TP 44 FP 0 FN 0, because no call landed exactly on P + C = n_ctx,
+so the data cannot separate it from the derived rule; the source does. P + C > n_ctx + 1 loses the 1-token-over call
+(FN 1). Using the generation budget instead of the actual count, P + num_predict > n_ctx, gives FP 22. A prompt-only
+rule (P >= n_ctx - 1) predicts none (FN 44). So the actual generated count, not the budget, is what decides.
+
+**Real run, PREDICTED only** (`R2-shift-predicted-real-v1`, `results/x2_r2_real_v1.jsonl`, no server log, so nothing
+here is observed). P is prompt_eval_count_info_only (in the mechanism job it equals llama.cpp's task.n_tokens on every
+call, so it is the post-trim prompt; the calibrated transcript estimate is the pre-trim size and is not used), C is
+completion_tokens, n_ctx is loaded_context. A prompt_eval_count exactly equal to num_ctx - (num_ctx - 4) / 2 (2050 at
+4096) is flagged as the signature of Ollama's token-level cut; in the mechanism job that signature and the logged cut
+coincide on its single cut. Per tier x model (3 seeds, 240 calls each):
+- 4096 llama3.1:8b: 102/240 calls predicted to shift (call 1: 25, call 2: 77), all 3 sessions, 6 cut-signature calls.
+- 4096 qwen3:14b: 0/240 predicted, 0 cut signatures.
+- 32768 llama3.1:8b: 21/240 (2 sessions, 1 cut-signature call); 32768 qwen3:14b: 19/240 (2 sessions).
+- Ollama default, both models: 0.
+
+**Do predicted shifts line up with the first rule failures at 4096?** Only partly (`R2-shift-predicted-real-v1`, per
+seed: first predicted shift turn, first cut-signature turn, first rule failure turn, rules in use).
+- llama3.1:8b: seed 20260903 first shift turn 3, first rule failure turn 5 (failure after the first shift). Seed
+  20260902 first rule failure turn 3, first shift turn 4, but a cut signature on turn 3: the failure lines up with the
+  token cut, not with a shift. Seed 20260901 has its first shift on turn 4 and no rule failure in 40 turns, so a shift
+  does not always break a rule.
+- qwen3:14b: rule failures on turns 5, 20 and 5 with no predicted shift and no cut signature in any session; its 4096
+  calls stay below the window (largest P + C - n_ctx: -248). Its 4096 failures are not explained
+  by context shift or the token cut; they happen with the system message in place, per the mechanism job's
+  message-level result (measured on llama3.1:8b only; qwen3:14b's own trim was not observed).
+
+**Orphans after Ollama's message-level trim** (`R2-orphan-rates`, mechanism job, over message-truncated calls; the
+message list of each call is rebuilt from the turn rows as `x2_r2_agent.run_turn` builds it, and the rebuilt role at
+the logged index matched the logged role on every truncated call):
+- 32768: 25/80 calls truncated; first kept message an assistant tool call 19, final assistant 1, tool 5, user 0.
+  Orphaned 25/25 (100.0%); orphaned tool result 5/25 (20.0%).
+- 16384: 54/80 truncated; assistant tool call 54. Orphaned 54/54 (100.0%); orphaned tool result 0/54 (0.0%).
+- 8192: 68/80 truncated; assistant tool call 68. Orphaned 68/68 (100.0%); orphaned tool result 0/68 (0.0%).
+- 4096: 76/80 truncated; user 15, assistant tool call 47, final assistant 6, tool 8. Orphaned 61/76 (80.3%);
+  orphaned tool result 8/76 (10.5%).
+- Ollama default: no truncation.
+
+**Reading.** On the mechanism data the shift is fully determined by prompt plus actual generated tokens against the
+slot context; once Ollama's trim fills the window to within a call's output length, the next call shifts. Ollama's
+message-level trim almost never lands on a user message: the kept window usually opens with an assistant tool call
+whose user request is gone, and sometimes with a bare tool result. One model and one seed per tier for the observed
+part; the real-run counts are predictions from token counts, not observations.
