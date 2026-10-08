@@ -104,6 +104,25 @@ MODEL_MAP = {
 OLLAMA_CREATE_FROM_GGUF = {"qwen3-30b-a3b-2507": r"C:\apu\models\Qwen3-30B-A3B-Instruct-2507-Q4_K_M.gguf"}
 # Ollama tag a row was measured with, for rows written before rows recorded it (all weekend/early-v3 rows).
 LEGACY_OLLAMA_TAG = {"qwen3-30b-a3b": "qwen3:30b-a3b"}
+
+# CHAT TEMPLATE SOURCE (2026-10-08). Every outcome row records chat_template_source and chat_template_sha256
+# (harness/chat_template_source.py; values ollama_library / bare_gguf_ollama_create / gguf_embedded_llama_server).
+# Facts on evo-x2 (results/x2_chat_template_sources.jsonl): the Ollama legs of qwen3-4b-2507 and qwen3-30b-a3b
+# (qwen3-30b-a3b-2507, OLLAMA_CREATE_FROM_GGUF) are bare GGUF creates (no template layer, Modelfile
+# "TEMPLATE {{ .Prompt }}"); llama3.1:8b, qwen3:8b/14b/32b are library tags; every llama_server row renders the
+# GGUF's own tokenizer.chat_template. The fields are informational only: row_is_valid ignores them, SCORER_VERSION is
+# unchanged, and rows written before them stay valid cached rows (analysis derives the source by model/config).
+def chat_template_fields(config, target):
+    """{chat_template_source, chat_template_sha256} for an Ollama tag (config ollama_default) or a GGUF path
+    (llama_server); never raises (a failure records None and the reason)."""
+    try:
+        import chat_template_source as cts
+        info = cts.ollama_tag_template(target) if config == "ollama_default" else cts.llama_server_template(target)
+        return {"chat_template_source": info["chat_template_source"],
+                "chat_template_sha256": info["chat_template_sha256"]}
+    except Exception as e:
+        return {"chat_template_source": None, "chat_template_sha256": None,
+                "chat_template_error": repr(e)[:200]}
 LLAMA_SERVER_EXE = r"C:\apu\bin\llama-b10970\llama-server.exe"
 LLAMA_SERVER_PORT = 58299
 DEFAULT_MODELS = ["llama3.1:8b", "qwen3-4b-2507", "qwen3-8b", "qwen3-14b", "qwen3-30b-a3b", "qwen3-32b"]
@@ -573,6 +592,7 @@ def run_one_ollama(item, model_key, ollama_tag, out_path, call_timeout_s, canary
            "config": "ollama_default", "model_id": model_key, "ts_utc": utc_iso(),
            "thinking_setting": THINKING_SETTING_OLLAMA, "canary": canary, "scorer_version": SCORER_VERSION,
            "ollama_tag": ollama_tag}
+    row.update(chat_template_fields("ollama_default", ollama_tag))
     try:
         # 2026-10-06: a server that never came up must be recorded as infra_not_ready, not scored as a model
         # outcome. One forced restart-and-rewait before giving up.
@@ -734,6 +754,7 @@ def run_one_llama_server(item, model_key, gguf_path, out_path, call_timeout_s, c
     row = {"record": "outcome_row", "item_id": item["item_id"], "family": item["family"],
            "config": "llama_server", "model_id": model_key, "ts_utc": utc_iso(), "requested_n_ctx": n_ctx,
            "thinking_setting": THINKING_SETTING_LLAMA, "canary": canary, "scorer_version": SCORER_VERSION}
+    row.update(chat_template_fields("llama_server", gguf_path))
     try:
         err = srv.start(call_timeout_s=call_timeout_s)
         if srv.guard_record:

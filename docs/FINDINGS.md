@@ -2655,3 +2655,67 @@ configs failing in the same window, the likeliest reading is device memory held 
 session, orphaned Ollama runners after `stop_ollama_server` were found and fixed in cd5c5bf), but that is not
 verified for evo-t2s and waits until the machine is back. Since commit 5fff514 the T2S harness writes a row on a
 llama-server load failure.
+
+## Install path changes agent behaviour: same weights, bare GGUF template vs library template (2026-10-08)
+
+**What differs between the tags.** On evo-x2, qwen3-4b-2507 is an Ollama tag created locally with a Modelfile that
+holds only `FROM <gguf>`: its manifest has a model layer and no template layer, `/api/show` reports the GGUF's own
+jinja chat template and the Modelfile line `TEMPLATE {{ .Prompt }}`, and it has no stop parameters. The library tags
+(llama3.1:8b, qwen3:8b, qwen3:14b, qwen3:32b) carry an Ollama Go template layer and stop parameters. Source: a
+read-only probe of manifests, `/api/show` and GGUF metadata, `results/x2_chat_template_sources.jsonl`
+(`harness/chat_template_source.py --probe`). Register `x2-chat-template-source` holds the template source and
+template sha256 per (model, config) of the outcome table.
+
+**The bare-template half (measured).** In `results/x2_r2_validation_v2b.jsonl`, register `R2-install-path-4b-bare`:
+
+> qwen3-4b-2507 (bare_gguf_ollama_create, template sha256 40c21f34cf67): baseline 30 turns, call-1 native tool call
+> 11/30, tool call written as text in call-1 content 30/30, task tool correct 5/30 (task-tool gate fail); rules rule1
+> 96.7%, rule2 36.7%, rule3 100.0%, rule4 100.0%, rule5 96.7%; negative-control canary misses 0/12; positive-control
+> truncation turn [10]; thinking-present calls 0; real-run preflight refuse
+
+The controls behaved (no canary miss inside the window, the positive control fired), so the harness measured this
+tag correctly; what failed is the tool-call protocol. The model wrote its calls as JSON text inside the answer, which
+the harness does not count as a call (an answer-shaped JSON's "tool_calls" key is a report, see
+`extract_tool_calls`), so rule 2 (log_event called) and the turn's task tool mostly fail. qwen3:8b with the library
+template made native calls on the same plan (register `R2-validation-v2b-runinfo`).
+
+**Task-tool gate.** The rule gates alone let this through: before this change the real-run preflight passed
+qwen3-4b-2507 on v2b. A uniform gate now requires the turn's task tool called correctly on at least 90% of baseline
+turns (`harness/x2_r2_agent.py` `TASK_TOOL_THRESHOLD`, enforced in `validation_preflight`). Register
+`R2-task-tool-gate`:
+
+> llama3.1:8b (x2_r2_validation_v2.jsonl) 27/30 pass; preflight without the gate pass, with it pass; qwen3:14b
+> (x2_r2_validation_v2.jsonl) 30/30 pass; preflight without the gate pass, with it pass; qwen3-4b-2507
+> (x2_r2_validation_v2b.jsonl) 5/30 fail; preflight without the gate pass, with it refuse; qwen3:8b
+> (x2_r2_validation_v2b.jsonl) 30/30 pass; preflight without the gate pass, with it pass
+
+The gate changes the verdict only for qwen3-4b-2507; llama3.1:8b sits exactly at the threshold.
+
+**The library-template half (queued, not yet measured).** Queue job `x2_r2_4b_tools_validate`
+(`harness/x2_r2_4b_tools_validate.py`) creates qwen3-4b-2507-tools from the same GGUF (its sha256 checked against
+qwen3-4b-2507's model layer) with the library Qwen3 TEMPLATE copied verbatim from qwen3:8b (sha256 pinned) and that
+template's stop parameters, records the Modelfile and template sha256 in the result file, leaves qwen3-4b-2507
+untouched, then runs v2b's validation plan for that tag alone into `results/x2_r2_validation_v2c.jsonl`. The
+comparison per tag (call-1 native tool calls, tool calls written as text, task tool correct, per-rule compliance,
+controls) is register `R2-install-path-4b-comparison`, PENDING until that file is synced; no number for the
+library-template tag is stated here until that row computes. The strengthened real run (`x2_r2_real_v1b`) now runs
+qwen3-4b-2507-tools instead of qwen3-4b-2507 and checks it against v2c; if v2c fails any gate, that run refuses the
+4B alone and records it (`refused_model`).
+
+**Relation to the K1 finding.** This is the second behaviour that follows the Ollama creation path rather than the
+weights. K1 v3 (section "K1 v3, evo-t2s: the 4096 default context is Ollama's own integrated-GPU policy", item 1b,
+engine/source mechanism): `ollama create` from a bare GGUF hard-errors with HTTP 400 on context overflow, while the
+library-pulled model silently truncates, for the same llama3.1:8b file. Here the same bare creation path changes how
+the model emits tool calls. Both mean a result measured through a bare-GGUF Ollama tag describes that install path,
+not the model.
+
+**Consequence for the outcome table.** Every outcome row now records `chat_template_source` and
+`chat_template_sha256` (`harness/x2_outcome_table.py`, `harness/t2s_outcome_table.py`); rows written before carry
+neither, get it derived by (model, config) in analysis (the file is never rewritten), and stay valid cached rows
+(SCORER_VERSION unchanged). Two X2 Ollama legs are bare GGUF creates: qwen3-4b-2507 and qwen3-30b-a3b (tag
+qwen3-30b-a3b-2507, `OLLAMA_CREATE_FROM_GGUF`). Their function_calling scores in `x2-v3-scores`, and their
+canary-gate means in `x2-v3-canary-gates` and `x2-v3-canary-gate-lenient` (which include function_calling canaries),
+carry "[bare template]" and are not model capability. The llama_server legs render each GGUF's embedded template (the
+model's published chat template) and are not marked. Not verified here: whether Ollama 0.34.4 renders a bare tag's
+single-turn outcome-table prompt through the GGUF jinja template or through `{{ .Prompt }}`; that needs a render-only
+request, which is a chat call and was not made by hand.

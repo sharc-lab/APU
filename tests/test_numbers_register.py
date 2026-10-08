@@ -331,3 +331,53 @@ def test_r2_strengthened_rows_are_pending_ok_and_raise_without_data(tmp_path):
         except Exception:
             raised = True
         assert raised, f"{e['claim_id']} computed without data"
+
+
+# ── install path / task-tool gate / chat template source (2026-10-08) ─────────────────────────────────
+
+def _install_path_repo(tmp_path, with_v2c):
+    import shutil
+    from tests.test_x2_r2_agent import _validation_rows_mode
+    real = Path(__file__).resolve().parents[1]
+    (tmp_path / "results").mkdir()
+    for f in (nr.R2_VALIDATION_V2B_FILE, nr.X2_TEMPLATE_FACTS):
+        shutil.copy(real / f, tmp_path / f)
+    if with_v2c:
+        rows = [{"record": "r2t_create", "template_sha256": "ae370d884f108d16", "action": "created"}]
+        rows += _validation_rows_mode("off", models=[nr.R2_4B_TOOLS])
+        (tmp_path / nr.R2_VALIDATION_V2C_FILE).write_text("\n".join(json.dumps(r, default=str) for r in rows),
+                                                         encoding="utf-8")
+    return tmp_path
+
+
+def test_install_path_comparison_pending_until_v2c_synced(tmp_path):
+    repo = _install_path_repo(tmp_path, with_v2c=False)
+    e = next(x for x in nr.NUMBER_ENTRIES if x["claim_id"] == "R2-install-path-4b-comparison")
+    assert e["pending_ok"] and nr._pending(e, repo) == [nr.R2_VALIDATION_V2C_FILE]
+    bare = nr.compute_r2_install_path_4b_bare(repo)["value"]
+    assert bare.startswith("qwen3-4b-2507 (bare_gguf_ollama_create, template sha256 40c21f34cf67)")
+    assert "call-1 native tool call 11/30" in bare and "task tool correct 5/30 (task-tool gate fail)" in bare
+
+
+def test_install_path_comparison_computes_once_v2c_present(tmp_path):
+    repo = _install_path_repo(tmp_path, with_v2c=True)
+    e = next(x for x in nr.NUMBER_ENTRIES if x["claim_id"] == "R2-install-path-4b-comparison")
+    assert nr._pending(e, repo) == []
+    v = nr.compute_r2_install_path_4b_comparison(repo)["value"]
+    assert "qwen3-4b-2507-tools (ollama_create_library_template, template sha256 ae370d884f10 (created))" in v
+    assert "call-1 native 11/30 -> 30/30" in v and "task tool correct 5/30 -> 30/30" in v
+
+
+def test_task_tool_gate_row_on_real_files():
+    v = nr.compute_r2_task_tool_gate(nr.REPO)["value"]
+    assert "llama3.1:8b (x2_r2_validation_v2.jsonl) 27/30 pass; preflight without the gate pass, with it pass" in v
+    assert "qwen3-4b-2507 (x2_r2_validation_v2b.jsonl) 5/30 fail; preflight without the gate pass, with it refuse" in v
+
+
+def test_x2_scores_mark_bare_template_function_calling():
+    v = nr.compute_x2_v3_scores(nr.REPO)["value"]
+    cells = dict(p.split(": ", 1) for p in v.split(" / "))
+    assert "[bare template]" in cells["qwen3-4b-2507/ollama_default"]
+    assert "[bare template]" in cells["qwen3-30b-a3b/ollama_default"]
+    assert "[bare template]" not in cells["qwen3-4b-2507/llama_server"]
+    assert "[bare template]" not in cells["qwen3-8b/ollama_default"]

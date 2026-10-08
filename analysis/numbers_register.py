@@ -1677,6 +1677,39 @@ def compute_x2_thinking_verify(repo):
 
 
 X2_OUTCOME_V3 = "results/x2_outcome_table_v3.jsonl"
+# Chat template source facts read on evo-x2 2026-10-08 (harness/chat_template_source.py --probe: manifests, /api/show,
+# GGUF tokenizer.chat_template). Rows of the v3 file written before outcome rows recorded chat_template_source get it
+# derived here by (model, config); the result file is never rewritten.
+X2_TEMPLATE_FACTS = "results/x2_chat_template_sources.jsonl"
+BARE_TEMPLATE_MARK = "[bare template]"
+
+
+def _cts_module():
+    import sys
+    sys.path.insert(0, str(REPO / "harness"))
+    import chat_template_source as cts
+    return cts
+
+
+def _x2_template_source_fn(repo):
+    """row -> {chat_template_source, chat_template_sha256, derived} for X2 outcome rows (recorded field, else derived
+    from MODEL_MAP / LEGACY_OLLAMA_TAG and the probe facts)."""
+    x2, cts = _x2_harness(), _cts_module()
+    facts_path = repo / X2_TEMPLATE_FACTS
+    if not facts_path.exists():
+        raise FileNotFoundError(facts_path)
+    facts = cts.facts_from_probe(_read_jsonl(facts_path))
+    return lambda r: cts.source_for_row(r, x2.MODEL_MAP, facts, x2.LEGACY_OLLAMA_TAG)
+
+
+def _x2_bare_cells(repo, rows=None):
+    """{(model, config)} with a row measured through an Ollama tag created from a bare GGUF. rows defaults to the
+    valid (reusable) outcome rows of the v3 file, i.e. the rows every v3 score and canary gate is computed from."""
+    src = _x2_template_source_fn(repo)
+    if rows is None:
+        rows = list(_x2_harness().valid_cached_rows(repo / X2_OUTCOME_V3).values())
+    return {(r["model_id"], r["config"]) for r in rows
+            if src(r)["chat_template_source"] == "bare_gguf_ollama_create"}
 
 
 def compute_x2_v3_canary_gates(repo):
@@ -1686,8 +1719,11 @@ def compute_x2_v3_canary_gates(repo):
     for r in x2.read_rows(repo / X2_OUTCOME_V3):
         if r.get("record") == "canary_gate":
             gates[(r["model_id"], r["config"])] = r
+    bare = _x2_bare_cells(repo)
     parts = [f"{m}/{c} {'PASS' if g['passed'] else 'FAIL'} err={g['error_rate']:.2f} mean={g['mean_score']:.2f} "
-             f"leaks={g.get('thinking_leaks')}" for (m, c), g in sorted(gates.items())]
+             f"leaks={g.get('thinking_leaks')}"
+             + (f" {BARE_TEMPLATE_MARK} (mean includes function_calling canaries)" if (m, c) in bare else "")
+             for (m, c), g in sorted(gates.items())]
     return {"value": "; ".join(parts), "n": len(gates)}
 
 
@@ -1776,6 +1812,7 @@ def compute_x2_v3_canary_gate_lenient(repo):
     gsm = {}
     for r in _x2_v3_gsm8k_rows(repo):
         gsm.setdefault((r["model_id"], r["config"]), []).append(r)
+    bare = _x2_bare_cells(repo)
     parts = []
     for key, gate in sorted(gates.items()):
         rows = gsm.get(key, [])
@@ -1790,7 +1827,9 @@ def compute_x2_v3_canary_gate_lenient(repo):
             lo = gate["mean_score"] + (known - sum(r["score"] for r in unk)) / n
             hi = gate["mean_score"] + (known + sum(1 - r["score"] for r in unk)) / n
             lenient = f"{lo:.2f} to {hi:.2f} ({len(unk)}/{len(rows)} gsm8k canaries over 500 chars, bounded)"
-        parts.append(f"{key[0]}/{key[1]} strict mean {gate['mean_score']:.2f}, lenient mean {lenient}")
+        mark = (f" {BARE_TEMPLATE_MARK} (mean includes function_calling canaries)"
+                if key in bare else "")
+        parts.append(f"{key[0]}/{key[1]} strict mean {gate['mean_score']:.2f}, lenient mean {lenient}{mark}")
     return {"value": "; ".join(parts), "n": len(gates)}
 
 
@@ -2343,8 +2382,12 @@ def compute_x2_v3_progress(repo):
 
 def compute_x2_v3_scores(repo):
     """Mean score per family and trace-weighted mean (item weights renormalized over the done items), per model x
-    config, over done items only. The run visits items in descending trace weight, so done items are the heaviest."""
+    config, over done items only. The run visits items in descending trace weight, so done items are the heaviest.
+    Cells measured through an Ollama tag created from a bare GGUF (chat_template_source bare_gguf_ollama_create:
+    qwen3-4b-2507 and qwen3-30b-a3b on ollama_default) carry "[bare template]" on their function_calling score: an
+    install-path result, not model capability (docs/FINDINGS.md 2026-10-08, install path)."""
     _x2, cells, plan, plan_all, w = _x2_v3_cells(repo)
+    bare = _x2_bare_cells(repo, [r for v in cells.values() for r in v.values()])  # the latest valid rows
     parts = []
     for (m, c) in sorted(cells):
         rs = {iid: r for iid, r in cells[(m, c)].items() if iid in plan.get(m, set())}
@@ -2353,8 +2396,12 @@ def compute_x2_v3_scores(repo):
             fam.setdefault(plan_all[iid], []).append(r.get("score") or 0.0)
         wsum = sum(w.get(i, 0.0) for i in rs)
         tw = (sum(w.get(i, 0.0) * (r.get("score") or 0.0) for i, r in rs.items()) / wsum) if wsum > 0 else None
-        fs = ", ".join(f"{f} {sum(v) / len(v):.2f} (n={len(v)})" for f, v in sorted(fam.items()))
-        parts.append(f"{m}/{c}: {fs}; trace-weighted {'n/a' if tw is None else f'{tw:.2f}'}")
+        is_bare = (m, c) in bare
+        fs = ", ".join(f"{f} {sum(v) / len(v):.2f} (n={len(v)})"
+                       + (f" {BARE_TEMPLATE_MARK}" if is_bare and f == "function_calling" else "")
+                       for f, v in sorted(fam.items()))
+        parts.append(f"{m}/{c}: {fs}; trace-weighted {'n/a' if tw is None else f'{tw:.2f}'}"
+                     + (" (includes bare-template function_calling)" if is_bare and "function_calling" in fam else ""))
     return {"value": " / ".join(parts), "n": sum(len(v) for v in cells.values())}
 
 
@@ -2540,6 +2587,125 @@ def compute_r2_validation_v2b_runinfo(repo):
                    f"in content {txt}/{len(base)}")
     return {"value": " / ".join(out), "n": sum(1 for r in rows if r.get("record") == "r2a_turn")}
 
+
+
+# ───────────────────────────────────────────────── install path (2026-10-08): same 4B weights, bare vs library template
+R2_VALIDATION_V2C_FILE = "results/x2_r2_validation_v2c.jsonl"   # qwen3-4b-2507-tools alone, v2b's plan
+R2_BASE_ARM_OFF = "ollama_ctx_131072_call2_notools"
+R2_4B_BARE, R2_4B_TOOLS = "qwen3-4b-2507", "qwen3-4b-2507-tools"
+
+
+def _r2_install_path_half(repo, rel, model):
+    """One tag's numbers for the install-path comparison, from a validation file: template source, then on the
+    baseline arm (num_ctx 131072, tools withheld on call 2, completed sessions) call-1 native tool calls, tool calls
+    written as text in call-1 content ('"name"' inside the content, R2-validation-v2b-runinfo's definition), task tool
+    correct and the task-tool gate, per-rule compliance, controls, thinking."""
+    ag = _r2_agent_module()
+    rows = ag.read_rows(repo / rel)
+    if not rows:
+        raise FileNotFoundError(repo / rel)
+    rep = ag.evaluate_gates(rows, call2_tools="off")
+    e = rep["baseline_table"].get(model)
+    if e is None:
+        raise ValueError(f"no completed baseline sessions for {model} in {rel}")
+    attempts = {s["attempt_id"] for s in ag.completed_sessions(rows) if s["arm_id"] == R2_BASE_ARM_OFF
+                and s["model_id"] == model}
+    base = [r for r in rows if r.get("record") == "r2a_turn" and r.get("attempt_id") in attempts]
+    nat = sum(1 for r in base if r["calls"][0].get("native_tool_calls"))
+    txt = sum(1 for r in base if '"name"' in (r["calls"][0].get("content") or ""))
+    g = rep["gates"]
+    tt = g["task_tool"][model]
+    if model == R2_4B_TOOLS:
+        cr = [r for r in rows if r.get("record") == "r2t_create"]
+        src = (f"ollama_create_library_template, template sha256 {cr[-1]['template_sha256'][:12]} "
+               f"({cr[-1].get('action')})") if cr else "ollama_create_library_template (no r2t_create record)"
+    else:
+        cts = _cts_module()
+        facts = cts.facts_from_probe(_read_jsonl(repo / X2_TEMPLATE_FACTS))
+        f = facts.get(("ollama", model)) or {}
+        src = f"{f.get('chat_template_source')}, template sha256 {str(f.get('chat_template_sha256'))[:12]}"
+    neg, pos = rep["controls"]["negative"].get(model, {}), rep["controls"]["positive"].get(model, {})
+    rules = ", ".join(f"{r.split('_')[0]} {_pct(v['rate'])}" for r, v in e["rules"].items())
+    pf = ag.validation_preflight(rows, "off", [model])
+    return {"text": (f"{model} ({src}): baseline {len(base)} turns, call-1 native tool call {nat}/{len(base)}, tool "
+                     f"call written as text in call-1 content {txt}/{len(base)}, task tool correct "
+                     f"{tt['n_ok']}/{tt['n']} (task-tool gate {'pass' if tt['pass'] else 'fail'}); rules {rules}; "
+                     f"negative-control canary misses {neg.get('canary_misses')}/{2 * neg.get('canary_checks', 0)}; "
+                     f"positive-control truncation turn {pos.get('truncation_detected_turns')}; thinking-present calls "
+                     f"{e['thinking_present_calls']}; real-run preflight {'pass' if pf['ok'] else 'refuse'}"),
+            "nat": nat, "txt": txt, "tt": tt["n_ok"], "n": len(base)}
+
+
+def compute_r2_install_path_4b_bare(repo):
+    """Install path, bare half (computes now): qwen3-4b-2507, an Ollama tag created from a bare GGUF (no TEMPLATE), in
+    x2_r2_validation_v2b."""
+    h = _r2_install_path_half(repo, R2_VALIDATION_V2B_FILE, R2_4B_BARE)
+    return {"value": h["text"], "n": f"{h['n']} baseline turns"}
+
+
+def compute_r2_install_path_4b_comparison(repo):
+    """Install path comparison (PENDING until x2_r2_validation_v2c.jsonl is synced): the same GGUF as qwen3-4b-2507
+    (bare, v2b) vs qwen3-4b-2507-tools (library Qwen3 template copied verbatim from qwen3:8b, v2c)."""
+    a = _r2_install_path_half(repo, R2_VALIDATION_V2B_FILE, R2_4B_BARE)
+    b = _r2_install_path_half(repo, R2_VALIDATION_V2C_FILE, R2_4B_TOOLS)
+    return {"value": (f"{a['text']} // {b['text']} // change bare -> library template: call-1 native "
+                      f"{a['nat']}/{a['n']} -> {b['nat']}/{b['n']}, text tool calls {a['txt']}/{a['n']} -> "
+                      f"{b['txt']}/{b['n']}, task tool correct {a['tt']}/{a['n']} -> {b['tt']}/{b['n']}"),
+            "n": f"{a['n']} + {b['n']} baseline turns"}
+
+
+def compute_r2_validation_v2c_baseline(repo):
+    """R2 validation v2c (gate for qwen3-4b-2507-tools in the strengthened run): v2b's plan for that tag alone."""
+    return _r2_gates_summary(repo, R2_VALIDATION_V2C_FILE, False)
+
+
+def compute_r2_task_tool_gate(repo):
+    """The uniform task-tool gate (task tool correct on >= 90% of baseline turns) on the validation files the real
+    run reads, per model, and whether the full real-run preflight verdict per model changes with it (verdict without
+    the gate = preflight reasons other than the task-tool one)."""
+    ag = _r2_agent_module()
+    parts, n = [], 0
+    for rel in (R2_VALIDATION_V2_FILE, R2_VALIDATION_V2B_FILE):
+        rows = ag.read_rows(repo / rel)
+        if not rows:
+            raise FileNotFoundError(repo / rel)
+        g = ag.evaluate_gates(rows, call2_tools="off")["gates"]["task_tool"]
+        for m in sorted(g):
+            t = g[m]
+            n += t["n"]
+            reasons = ag.validation_preflight(rows, "off", [m])["reasons"]
+            without = not [r for r in reasons if "task-tool gate" not in r]
+            parts.append(f"{m} ({Path(rel).name}) {t['n_ok']}/{t['n']} {'pass' if t['pass'] else 'fail'}; preflight "
+                         f"without the gate {'pass' if without else 'refuse'}, with it "
+                         f"{'pass' if not reasons else 'refuse'}")
+    return {"value": "; ".join(parts), "n": f"{n} baseline turns"}
+
+
+def compute_x2_chat_template_source(repo):
+    """Chat template source per (model, config) of the X2 outcome table, from the evo-x2 probe facts, with how many
+    v3 rows recorded the field themselves vs had it derived by (model, config)."""
+    x2 = _x2_harness()
+    src = _x2_template_source_fn(repo)
+    rows = [r for r in x2.read_rows(repo / X2_OUTCOME_V3) if r.get("record") == "outcome_row"]
+    parts = []
+    for m in x2.DEFAULT_MODELS:
+        tag, _gguf = x2.MODEL_MAP[m]
+        for c in x2.CONFIGS:
+            cur = {"model_id": m, "config": c}
+            if c == "ollama_default":
+                cur["ollama_tag"] = tag
+            info = src(cur)
+            label = f"{m}/{c}" + (f" (tag {tag})" if c == "ollama_default" else "")
+            mine = [r for r in rows if r.get("model_id") == m and r.get("config") == c]
+            by = {}
+            for r in mine:
+                k = (src(r)["chat_template_source"], "valid" if x2.row_is_valid(r) else "not valid",
+                     "recorded" if r.get("chat_template_source") else "derived")
+                by[k] = by.get(k, 0) + 1
+            rows_s = ", ".join(f"{v} {a} {b} {d}" for (a, b, d), v in sorted(by.items()))
+            parts.append(f"{label} {info['chat_template_source']} sha256 {str(info['chat_template_sha256'])[:12]} "
+                         f"(v3 rows: {rows_s or 'none'})")
+    return {"value": "; ".join(parts), "n": len(rows)}
 
 NUMBER_ENTRIES = [
     {"claim_id": "PX2-TTFT-gap", "description": "PX2 B4-vs-S4 TTFT gap range across 5 models",
@@ -2752,7 +2918,7 @@ NUMBER_ENTRIES = [
      "compute": compute_x2_thinking_verify, "data_files": [X2_THINKING_VERIFY],
      "script_function": "analysis/numbers_register.py::compute_x2_thinking_verify"},
     {"claim_id": "x2-v3-canary-gates", "description": "X2 outcome table v3 canary gate per (model, config), latest record",
-     "compute": compute_x2_v3_canary_gates, "data_files": [X2_OUTCOME_V3],
+     "compute": compute_x2_v3_canary_gates, "data_files": [X2_OUTCOME_V3, X2_TEMPLATE_FACTS],
      "script_function": "analysis/numbers_register.py::compute_x2_v3_canary_gates"},
     {"claim_id": "t2s-outcome-error-causes", "description": "T2S outcome table (synced full file) rows by error cause, and race-signature count",
      "compute": compute_t2s_outcome_error_causes, "data_files": [T2S_OUTCOME_FULL],
@@ -2768,7 +2934,7 @@ NUMBER_ENTRIES = [
      "compute": compute_x2_v3_gsm8k_strict_vs_lenient, "data_files": [X2_OUTCOME_V3],
      "script_function": "analysis/numbers_register.py::compute_x2_v3_gsm8k_strict_vs_lenient"},
     {"claim_id": "x2-v3-canary-gate-lenient", "description": "X2 v3 canary gate mean score, strict (recorded) vs lenient gsm8k substituted",
-     "compute": compute_x2_v3_canary_gate_lenient, "data_files": [X2_OUTCOME_V3],
+     "compute": compute_x2_v3_canary_gate_lenient, "data_files": [X2_OUTCOME_V3, X2_TEMPLATE_FACTS],
      "script_function": "analysis/numbers_register.py::compute_x2_v3_canary_gate_lenient"},
     {"claim_id": "R2-validation-baseline",
      "description": "R2 two-step harness validation (evo-x2, arm b 131072, 3x10 turns): per model rule/tool/recall "
@@ -2864,7 +3030,8 @@ NUMBER_ENTRIES = [
      "compute": compute_x2_v3_progress, "data_files": [X2_OUTCOME_V3],
      "script_function": "analysis/numbers_register.py::compute_x2_v3_progress"},
     {"claim_id": "x2-v3-scores", "description": "X2 outcome table v3: mean score per family and trace-weighted",
-     "compute": compute_x2_v3_scores, "data_files": [X2_OUTCOME_V3, "results/workload_pack/item_weights_trace_weighted.json"],
+     "compute": compute_x2_v3_scores, "data_files": [X2_OUTCOME_V3, "results/workload_pack/item_weights_trace_weighted.json",
+                                                     X2_TEMPLATE_FACTS],
      "script_function": "analysis/numbers_register.py::compute_x2_v3_scores"},
     {"claim_id": "x2-v3-error-causes", "description": "X2 outcome table v3: error causes per model x config",
      "compute": compute_x2_v3_error_causes, "data_files": [X2_OUTCOME_V3],
@@ -2905,6 +3072,27 @@ NUMBER_ENTRIES = [
                     "text tool calls per model",
      "compute": compute_r2_validation_v2b_runinfo, "data_files": ["results/x2_r2_validation_v2b.jsonl"],
      "script_function": "analysis/numbers_register.py::compute_r2_validation_v2b_runinfo"},
+    {"claim_id": "R2-task-tool-gate", "description": "Uniform task-tool gate (task tool correct on >=90% of baseline "
+                    "turns) per model on v2/v2b, and the preflight verdict with and without it",
+     "compute": compute_r2_task_tool_gate, "data_files": [R2_VALIDATION_V2_FILE, R2_VALIDATION_V2B_FILE],
+     "script_function": "analysis/numbers_register.py::compute_r2_task_tool_gate"},
+    {"claim_id": "R2-install-path-4b-bare", "description": "Install path, bare half: qwen3-4b-2507 (Ollama tag from a "
+                    "bare GGUF) native vs text tool calls, task tool, rules, controls (v2b)",
+     "compute": compute_r2_install_path_4b_bare, "data_files": [R2_VALIDATION_V2B_FILE, X2_TEMPLATE_FACTS],
+     "script_function": "analysis/numbers_register.py::compute_r2_install_path_4b_bare"},
+    {"claim_id": "R2-install-path-4b-comparison", "description": "Install path: same GGUF, qwen3-4b-2507 (bare, v2b) "
+                    "vs qwen3-4b-2507-tools (library template, v2c)",
+     "compute": compute_r2_install_path_4b_comparison,
+     "data_files": [R2_VALIDATION_V2B_FILE, R2_VALIDATION_V2C_FILE, X2_TEMPLATE_FACTS], "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_r2_install_path_4b_comparison"},
+    {"claim_id": "R2-validation-v2c-baseline", "description": "R2 validation v2c (gate for qwen3-4b-2507-tools): rule/"
+                    "tool/recall/canary baseline and controls",
+     "compute": compute_r2_validation_v2c_baseline, "data_files": [R2_VALIDATION_V2C_FILE], "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_r2_validation_v2c_baseline"},
+    {"claim_id": "x2-chat-template-source", "description": "X2 outcome table chat template source per (model, config) "
+                    "(evo-x2 probe facts; v3 rows recorded vs derived)",
+     "compute": compute_x2_chat_template_source, "data_files": [X2_TEMPLATE_FACTS, X2_OUTCOME_V3],
+     "script_function": "analysis/numbers_register.py::compute_x2_chat_template_source"},
 ]
 
 

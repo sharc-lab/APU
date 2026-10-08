@@ -59,6 +59,19 @@ LLAMA_SERVER_PORT = 58199
 CONFIGS = ("ollama_default", "ollama_igpu_enable", "llama_server_vulkan")
 
 
+def chat_template_fields(ollama_tag=None, gguf=None):
+    """chat_template_source / chat_template_sha256 (harness/chat_template_source.py) for the Ollama tag or the
+    llama-server GGUF of a row (2026-10-08). Informational only; never raises; rows without it stay reusable."""
+    try:
+        import chat_template_source as cts
+        info = cts.ollama_tag_template(ollama_tag) if ollama_tag else cts.llama_server_template(gguf)
+        return {"chat_template_source": info["chat_template_source"],
+                "chat_template_sha256": info["chat_template_sha256"]}
+    except Exception as e:
+        return {"chat_template_source": None, "chat_template_sha256": None,
+                "chat_template_error": repr(e)[:200]}
+
+
 def utc_iso():
     import datetime
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
@@ -237,6 +250,7 @@ def run_one_item_ollama(item, config_label, igpu_enable, out_path, call_timeout_
         hc.start_ollama_server()
     row = {"record": "outcome_row", "item_id": item["item_id"], "family": item["family"],
           "config": config_label, "model_id": MODEL_TAG_OLLAMA, "ts_utc": utc_iso()}
+    row.update(chat_template_fields(ollama_tag=MODEL_TAG_OLLAMA))
     try:
         hc.wait_for_ollama_ready(timeout_s=60)
         ollama = k1.OllamaClient()
@@ -270,6 +284,7 @@ def run_one_item_llama_server(item, out_path, call_timeout_s):
     row = {"record": "outcome_row", "item_id": item["item_id"], "family": item["family"],
           "config": "llama_server_vulkan", "model_id": "llama3.1-8b-gguf", "ts_utc": utc_iso(),
           "requested_n_ctx": n_ctx}
+    row.update(chat_template_fields(gguf=GGUF_PATH))
     proc = None
     try:
         with open(log_path, "w", encoding="utf-8") as logfh:

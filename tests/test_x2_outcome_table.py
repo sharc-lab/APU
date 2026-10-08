@@ -99,3 +99,45 @@ def test_run_one_ollama_retries_once_then_succeeds(monkeypatch, tmp_path):
     assert calls["wait_n"] == 2  # one retry happened
     assert row["chat_outcome"] == "ok"
     assert row["score"] == 1.0
+
+
+# -------------------------------------------------------------------------------------------- chat template source
+def test_ollama_row_records_chat_template_source(monkeypatch, tmp_path):
+    import chat_template_source as cts
+    import host_config as hc
+    monkeypatch.setattr(hc, "start_ollama_server", lambda: None)
+    monkeypatch.setattr(hc, "stop_ollama_server", lambda: None)
+    monkeypatch.setattr(hc, "wait_for_ollama_ready", lambda timeout_s=60: False)
+    monkeypatch.setattr(cts, "ollama_tag_template", lambda tag: {"chat_template_source": "bare_gguf_ollama_create",
+                                                                 "chat_template_sha256": "abc"})
+    item = {"item_id": "x", "family": "f", "prompt": "hi", "prompt_tokens": 10}
+    row = x2.run_one_ollama(item, "qwen3-4b-2507", "qwen3-4b-2507", tmp_path / "out.jsonl", call_timeout_s=30)
+    assert row["chat_template_source"] == "bare_gguf_ollama_create" and row["chat_template_sha256"] == "abc"
+
+
+def test_chat_template_fields_never_raise(monkeypatch):
+    import chat_template_source as cts
+
+    def boom(*a):
+        raise RuntimeError("no store")
+    monkeypatch.setattr(cts, "ollama_tag_template", boom)
+    f = x2.chat_template_fields("ollama_default", "qwen3:8b")
+    assert f["chat_template_source"] is None and "no store" in f["chat_template_error"]
+    g = x2.chat_template_fields("llama_server", r"C:\does\not\exist.gguf")
+    assert g == {"chat_template_source": "gguf_embedded_llama_server", "chat_template_sha256": None}
+
+
+def test_rows_without_chat_template_fields_stay_valid_cache():
+    """Backward compatibility with the running v3 resume: the new fields are informational only."""
+    old = {"record": "outcome_row", "config": "ollama_default", "model_id": "qwen3-4b-2507", "ollama_tag": "qwen3-4b-2507",
+           "http_status": 200, "score": 1.0, "family": "function_calling", "scorer_version": x2.SCORER_VERSION}
+    assert x2.row_is_valid(old) and x2.SCORER_VERSION == 2
+
+
+def test_t2s_rows_record_chat_template_source(monkeypatch):
+    import chat_template_source as cts
+    import t2s_outcome_table as t2s
+    monkeypatch.setattr(cts, "ollama_tag_template", lambda tag: {"chat_template_source": "ollama_library",
+                                                                 "chat_template_sha256": "x"})
+    assert t2s.chat_template_fields(ollama_tag="llama3.1:8b")["chat_template_source"] == "ollama_library"
+    assert t2s.chat_template_fields(gguf=t2s.GGUF_PATH)["chat_template_source"] == "gguf_embedded_llama_server"
