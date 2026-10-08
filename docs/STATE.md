@@ -239,3 +239,15 @@ each branch's FINDINGS section and register rows (not repeated here until merged
   - Cloud client: hard USD 50 total cap, alerts at 50/75/90% (once each, ledger + digest + print). Real mode keys on
     CLOUD_API_KEY; scripts that read OPENAI_API_KEY directly (harness/adapters/sdk_direct.py,
     harness/tail_latency_instrument.py, harness/backends/cloud_openai.py) bypass the cap. Operator decision pending.
+
+### 2026-10-08, operator decisions applied
+
+- R2 call-2 mode: v1 (tools removed on call 2) for all Ollama and llama-server R2 runs; cloud (OpenAI) R2 sessions
+  use identical tools plus tool_choice "none". Cancelled on evo-x2: x2_r2_toolchoice_check, x2_r2_validation_v3,
+  x2_r2_real_v2 (status `cancelled`; the launcher only starts `pending`).
+- Subagents running: (1) strengthened R2, v1 protocol (5 seeds, + qwen3-4b-2507 and qwen3:8b with arm-b validation
+  first, tiers 4096/8192/16384/32768/default, 40 turns, OLLAMA_DEBUG mechanism logging), queued after K2;
+  (2) route every OpenAI call through the capped client plus a test forbidding direct use.
+- T2S: no SSH; from the synced logs, llama-server also hit ErrorOutOfDeviceMemory on 20/40 items (register
+  `t2s-llamaserver-load-failures`). Cause of the held device memory waits until evo-t2s is back.
+- Outcome table v3 progress registered (`x2-v3-progress`, `x2-v3-scores`, `x2-v3-error-causes`), synced 4a288b1.
