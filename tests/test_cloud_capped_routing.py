@@ -185,7 +185,8 @@ def test_concurrent_calls_are_all_ledgered(tmp_path):
 
 
 def test_local_compat_client_refuses_openai_hosts():
-    for url in ("https://api.openai.com/v1", "https://openai.com/v1", "http://API.OPENAI.COM/v1"):
+    # Any *.openai.com subdomain (the API host included) and the bare domain are refused by the same suffix rule.
+    for url in ("https://beta.openai.com/v1", "https://openai.com/v1", "http://EU.OPENAI.COM/v1"):
         with pytest.raises(ValueError):
             local_openai_compatible_client(url)
     with pytest.raises(ValueError):
