@@ -34,10 +34,10 @@ Every input is a number recomputed from a committed result file (`py -3.12 scrip
 | 2d | R2 native, iGPU 32768 default, 2 models x 5 seeds x 40 turns | t2s_wk_r2_real_igpu | 35.4 | scaled | 57.4 |
 | 3 | R2 mitigation (client-side trim) at the native 4096 | t2s_wk_r2_mitigation_cpu | 12.0 | scaled | 69.4 |
 | 4 | Intel bandwidth hog PX2I, N0/B4/e8/N1, Level Zero | t2s_wk_px2i | 1.1 | scaled | 70.5 |
-| 5 | R2 mechanism logging at the 4096 default | t2s_wk_r2_mechanism_cpu | 1.4 | scaled | 71.9 |
+| 5 | R2 mechanism logging at the 4096 default | t2s_wk_r2_mechanism_cpu | 1.4 | scaled | 72.0 (71.96 exact) |
 | deferred | outcome-table subset, 100 items, 2 models, 3 configs | (not queued) | 34.3 | measured | |
 
-**Operator cut (2026-10-08): steps 1 to 4 plus the mechanism run, 71.9 h of the 72 h line.** The outcome-table subset
+**Operator cut (2026-10-08): steps 1 to 4 plus the mechanism run, 72.0 h (71.96 exact, from the queue builder) of the 72 h line.** The outcome-table subset
 is DEFERRED (reason: the evo-x2 outcome table covers quality; the T2S subset would add a second platform's quality
 numbers, not a new finding). It is not in the queue file; its job and harness path stay in the repo for later.
 
@@ -117,7 +117,7 @@ Do these in order. Nothing is queued or enabled until all pass.
    ```
    C:\Windows\System32\OpenSSH\ssh.exe sharc@100.72.40.24 "<profile>\AppData\Local\Programs\Python\Python312\python.exe C:\apu\ovn\t2s_week_queue.py load C:\apu\ovn\t2s_week_queue.json"
    ```
-   It appends the 9 entries as pending after whatever is in `queue_state.json`, refuses (writes nothing) if any
+   It appends the 8 entries as pending after whatever is in `queue_state.json`, refuses (writes nothing) if any
    `t2s_wk_` id is already there, and never edits an existing entry. Then re-enable (not re-register) the watchdog
    that the handover disabled: `Enable-ScheduledTask -TaskName APU-QueueWatchdog`. Its next tick (at most 10 min)
    launches `t2s_wk_preflight`; every job's own exit advances to the next. No pause flag is set at any point, so
@@ -172,7 +172,7 @@ must run the same version.
 **Revert:** Remove-Item -Recurse -Force C:\apu\bin\ollama-0.34.4, C:\apu\ovn\ollama_pin.json
 ```
 
-## Changes needed in harness/x2_r2_agent.py
+## Changes needed in harness/x2_r2_agent.py (DONE 2026-10-08, commit 7ce6df1; run_start also records interactive_session)
 
 `harness/x2_r2_agent.py` (as of 62c0f8b) cannot run on evo-t2s. Not changed here; these are the exact changes for its
 owner. Until they are on main and deployed, every R2 entry of the queue refuses with a `stopped:` note that names what
@@ -290,7 +290,7 @@ default under OLLAMA_DEBUG=1, per-call log slices and render checks (`harness/x2
 
 ## Queue file
 
-`queues/t2s_week_queue.json`: 9 entries, ids `t2s_wk_*`, status pending, `gate.requires_done` (t2s_queue's gate)
+`queues/t2s_week_queue.json`: 8 entries (outcome subset deferred, not queued), ids `t2s_wk_*`, status pending, `gate.requires_done` (t2s_queue's gate)
 as in the plan table: every job waits for `t2s_wk_preflight`; the real and mitigation runs wait for their own
 configuration's validation entry. Each entry's `note` carries its estimate, basis and cumulative hours (overwritten by
 the job's exit note when it finishes); `est_hours`, `est_basis`, `cum_hours`, `beyond_budget`, `expected_out` and
@@ -310,8 +310,8 @@ preflight's deployed-file list, no evo-x2 user/host in the command, `t2s_`-prefi
 `results/x2_*` name and do not already exist, and parses the argv with the harness's own parser
 (`harness/argparse_probe.py`; for R2 entries the forwarded argv against the real x2_r2_agent parser, with the flags it
 does not have yet reported as pending), night2 phase names, outcome-table model keys; then the total hours.
-Result at this commit: all 9 entries pass, total 106.2 h, 70.5 h within the 72 h line; the 6 R2 entries are
-reported blocked until the x2_r2_agent changes above.
+Result after the operator cut and the x2_r2_agent changes (2026-10-08, commit 7ce6df1): all 8 entries pass, none
+blocked, total 71.96 h (printed 72.0) within the 72 h line; `t2s_wk_outcome_subset` listed as deferred.
 
 ## Budget and cut options
 
