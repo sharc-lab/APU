@@ -342,7 +342,7 @@ gaps with the job that fills each.
 
 - **Claim (pending):** the runtime and its defaults change task-level outcomes for the same model on the same
   machine.
-- **Evidence so far:** "total 1069/3600" `[x2-v3-progress]`; partial per-cell scores `[x2-v3-scores]` and error causes
+- **Evidence so far:** "total 1078/3600" `[x2-v3-progress]` (moving value; re-paste at each register regeneration); partial per-cell scores `[x2-v3-scores]` and error causes
   `[x2-v3-error-causes]`. File: `results/x2_outcome_table_v3.jsonl`. Not citable as a result until complete.
 - **Figure:** none until complete (candidate replacement for F6 if R2 v1b slips).
 - **Gaps:** x2_outcome_table_v3 completion; T2S week item 5 (outcome-table subset).
