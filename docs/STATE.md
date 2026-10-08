@@ -251,3 +251,8 @@ each branch's FINDINGS section and register rows (not repeated here until merged
 - T2S: no SSH; from the synced logs, llama-server also hit ErrorOutOfDeviceMemory on 20/40 items (register
   `t2s-llamaserver-load-failures`). Cause of the held device memory waits until evo-t2s is back.
 - Outcome table v3 progress registered (`x2-v3-progress`, `x2-v3-scores`, `x2-v3-error-causes`), synced 4a288b1.
+- Merged: cloud-cap routing (79fe2a2; every OpenAI call goes through the USD 50 capped client, test forbids direct
+  use) and strengthened R2 (f5e5dd2). Queued on evo-x2 after K2: x2_r2_validation_v2b (qwen3-4b-2507, qwen3:8b,
+  ~0.6 h), x2_r2_mechanism_v1 (OLLAMA_DEBUG render + log per tier, ~1.9 h), x2_r2_real_v1b (82 new sessions, gated
+  on v2b, per-model refusal, ~46.5 h of which ~24.5 h is scaled not measured). Register rows for these are PENDING
+  until synced. Machine order as instructed: outcome table v3, 70B edge reps, K2 pause-resume, then R2.
