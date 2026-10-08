@@ -212,3 +212,17 @@ each branch's FINDINGS section and register rows (not repeated here until merged
 - In progress (subagents, branches to be merged by the parent): GSM8K bug in t2s_outcome_table.py plus T2S
   rescoring, lenient GSM8K column, T2S allocation-failure breakdown, cloud cap USD 50 with 50/75/90% alerts;
   offline cloud budget forecast.
+
+### 2026-10-07/08, R2 real run analysed; protocol change queued
+
+- `x2_r2_real_v1` analysed (`analysis/r2_real_report.py`, register rows `R2-real-v1-*`, FINDINGS section of
+  2026-10-07). Pre-registered kill criterion: not killed. Stricter 90%-baseline-gated variant: rules are lost
+  silently only at num_ctx 4096 (6/6 sessions, all after the window was exceeded); at 32768 and default, history
+  is lost silently (canary misses, no error in 720 turns) but rules in use hold, consistent with Ollama keeping
+  the system message.
+- New operator protocol for all R2 runs: identical system prompt and tool definitions on every call, text answer
+  forced on call 2 with tool_choice "none" or the runtime equivalent. A subagent is implementing it, with a queued
+  check of what Ollama honours, validation v3 queued after K2, and `x2_r2_real_v2` gated on v3 passing.
+- Outcome table v3 resume3: all 12 canary gates pass (qwen3-30b-a3b Ollama leg 0.9 after the model fix). The two
+  ALERTs in the digest are from the first v3 start (2026-10-07 05:49Z), before that fix.
+- Still running (subagent): T2S GSM8K fix and rescoring, lenient GSM8K column, T2S allocation breakdown, cloud cap.
