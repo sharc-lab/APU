@@ -570,3 +570,34 @@ def test_register_blade_rows_compute_on_fixture(tmp_path):
     assert "llama3.2@4096: prefill 2000 tok/s (n=1), decode 80.0 tok/s (n=1)" in v["value"]
     h = nr.compute_blade_night_hours(tmp_path)
     assert h["value"].startswith("night 1 ") and "(scaled)" in h["value"]
+
+
+def test_run_night_waits_out_a_transient_heavy_process(tmp_path):
+    """2026-10-08: a short-lived pythonw at a job boundary must not stop the night (manual-resume risk)."""
+    import blade_queue as bq
+    calls, sleeps = [], []
+    seq = [{"ok": False, "reasons": ["other heavy processes running: pythonw.exe(1)"], "heavy": [{"pid": 1}]}] * 2
+    def paused():
+        calls.append(1)
+        return seq.pop(0) if seq else {"ok": True, "reasons": [], "heavy": []}
+    out = bq.run_night(1, runner=lambda job, log_path: 0, state_path=tmp_path / "s.json", paused_fn=paused,
+                       log=lambda m: None, sleep_fn=sleeps.append)
+    assert out["stopped_early"] is None and len(sleeps) == 2
+
+
+def test_run_night_stops_at_once_without_the_paused_flag(tmp_path):
+    import blade_queue as bq
+    sleeps = []
+    out = bq.run_night(1, runner=lambda job, log_path: 0, state_path=tmp_path / "s.json",
+                       paused_fn=lambda: {"ok": False, "reasons": ["no flag"], "heavy": []},
+                       log=lambda m: None, sleep_fn=sleeps.append)
+    assert out["stopped_early"] is not None and sleeps == []
+
+
+def test_run_night_gives_up_after_the_busy_wait(tmp_path):
+    import blade_queue as bq
+    sleeps = []
+    busy = {"ok": False, "reasons": ["other heavy processes running: python.exe(2)"], "heavy": [{"pid": 2}]}
+    out = bq.run_night(1, runner=lambda job, log_path: 0, state_path=tmp_path / "s.json", paused_fn=lambda: busy,
+                       log=lambda m: None, sleep_fn=sleeps.append)
+    assert out["stopped_early"] is not None and sum(sleeps) >= bq.BUSY_WAIT_S

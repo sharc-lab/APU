@@ -167,7 +167,12 @@ def run_job_subprocess(job: dict, log_path: Path, python=None, popen=None) -> in
         return p.wait()
 
 
-def run_night(night: int, runner=None, state_path=None, paused_fn=None, log=print, now=bc.utc_iso) -> dict:
+BUSY_WAIT_S = 900
+BUSY_POLL_S = 30
+
+
+def run_night(night: int, runner=None, state_path=None, paused_fn=None, log=print, now=bc.utc_iso,
+              sleep_fn=time.sleep) -> dict:
     """Runs the night's jobs in order with resume. runner(job, log_path) -> return code. Returns the summary."""
     runner = runner or run_job_subprocess
     paused_fn = paused_fn or paused_condition
@@ -182,6 +187,16 @@ def run_night(night: int, runner=None, state_path=None, paused_fn=None, log=prin
             summary["jobs"].append({"id": job["id"], "status": js["status"], "skipped": True})
             continue
         cond = paused_fn()
+        # 2026-10-08: a short-lived process (e.g. the 2-hourly results sync, pythonw) at a job boundary must not end
+        # the night and leave it needing a manual resume. Re-check every BUSY_POLL_S for up to BUSY_WAIT_S while the
+        # only reason is other heavy processes; a missing paused flag stops at once.
+        waited = 0.0
+        while not cond["ok"] and cond.get("heavy") and all("heavy" in r for r in cond["reasons"]) \
+                and waited < BUSY_WAIT_S:
+            log(f"waiting before {job['id']}: {cond['reasons']} ({int(waited)} s of {BUSY_WAIT_S} s)")
+            sleep_fn(BUSY_POLL_S)
+            waited += BUSY_POLL_S
+            cond = paused_fn()
         if not cond["ok"]:
             summary["stopped_early"] = {"before": job["id"], "reasons": cond["reasons"]}
             log(f"queue stopped before {job['id']}: {cond['reasons']}")
