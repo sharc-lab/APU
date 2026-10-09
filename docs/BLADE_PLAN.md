@@ -282,7 +282,7 @@ INFO level) shows `n_ctx_slot = 32768` on every negative-control request (8192 o
 tokens grow with the transcript on every call and peak far below the window (largest value in the session's own rows,
 turn 10), so no message trimming or token cut was possible. Message-level trimming is logged only at DEBUG, which this
 job does not enable; the window margin, not a log line, is the evidence that none occurred. The client's own estimate
-is about 19% above Ollama's count (the session's calibration ratio), which is an estimate difference, not truncation.
+is above Ollama's count by the session's calibration ratio (`token_calib_ratio` on each row), an estimate difference, not truncation.
 
 **b. The missed canaries.** The negative control's "2 canary misses" are ONE turn (seed 20260903, turn 5, canary pair
 k=1) in which both the system-prompt canary and the history canary were absent. The model's entire final-answer
