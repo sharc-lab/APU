@@ -80,9 +80,11 @@ def test_recommend(app):
 
 
 def test_recommend_moves_with_floor(app):
-    lo = get(app, "/api/recommend?floor=0.5&latency=200000&hardware=evo-x2").json()["chosen"]["id"]
-    hi = get(app, "/api/recommend?floor=0.5&latency=20000&hardware=evo-x2").json()["chosen"]["id"]
-    assert lo != hi  # the recommender is a live function of the inputs
+    # Data-independent (2026-10-08: new synced rows made one config meet both earlier targets): a generous target
+    # yields a config, an impossible one (1 ms) cannot, so the answer must change with the input.
+    lo = (get(app, "/api/recommend?floor=0.5&latency=200000&hardware=evo-x2").json().get("chosen") or {}).get("id")
+    hi = (get(app, "/api/recommend?floor=0.5&latency=1&hardware=evo-x2").json().get("chosen") or {}).get("id")
+    assert lo is not None and lo != hi  # the recommender is a live function of the inputs
 
 
 def test_scenario(app):

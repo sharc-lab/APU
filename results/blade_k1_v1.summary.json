@@ -1,0 +1,46 @@
+{
+ "models": {},
+ "device": null,
+ "note": "completed",
+ "dry_run": false,
+ "versions": {
+  "captured_utc": "2026-10-09T03:57:59.276513+00:00",
+  "pinned": {
+   "ollama_version": "0.34.4",
+   "ollama_exe": "C:\\apu\\bin\\ollama-0.34.4\\ollama.exe",
+   "ollama_asset": "https://github.com/ollama/ollama/releases/download/v0.34.4/ollama-windows-amd64.zip",
+   "ollama_asset_bytes": 1461155106,
+   "ollama_asset_sha256": "535193f38f3344e5b08f5d1c171c31ce11aa17f0124ff69ae26d8ec7fe06fa62",
+   "llama_cpp_build": "b10970",
+   "llama_cpp_commit": "bfdc32183",
+   "llama_cpp_asset": "llama-b10970-bin-win-cuda-12.4-x64.zip",
+   "llama_cpp_asset_sha256": "78c878ae30622a9e4be09e3831066454668ca70398114f23bf74ac814e52dad8",
+   "cudart_asset": "cudart-llama-bin-win-cuda-12.4-x64.zip",
+   "cudart_asset_sha256": "8c79a9b226de4b3cacfd1f83d24f962d0773be79f1e7b75c6af4ded7e32ae1d6",
+   "llama_server_exe": "C:\\apu\\bin\\llama-b10970-cuda\\llama-server.exe",
+   "llama_tokenize_exe": "C:\\apu\\bin\\llama-b10970-cuda\\llama-tokenize.exe",
+   "llama_cuda_runtime": "12.4",
+   "nvidia_driver": "610.88"
+  },
+  "gpu_query": "NVIDIA GeForce RTX 4070 Laptop GPU, 610.88, 8188 MiB, 95.06.34.00.cd",
+  "nvidia_driver": "610.88",
+  "vram_total_mib": 8188,
+  "cuda_driver_api": "13.3",
+  "nvidia_driver_from_header": "610.88",
+  "ollama_exe": "C:\\apu\\bin\\ollama-0.34.4\\ollama.exe",
+  "ollama_version_raw": "ollama version is 0.34.1\nWarning: client version is 0.34.4",
+  "ollama_version": "0.34.1",
+  "ollama_bundled_cuda_runners": [
+   "cuda_v12",
+   "cuda_v13"
+  ],
+  "llama_server_version": {
+   "version": "0.4.1-dev",
+   "build": "10970",
+   "commit": "bfdc32183"
+  },
+  "llama_cuda_runtime_dlls": [
+   "cudart64_12.dll"
+  ]
+ }
+}

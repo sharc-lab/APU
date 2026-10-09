@@ -1,0 +1,98 @@
+{
+ "night": 1,
+ "started_utc": "2026-10-09T03:57:54.092448+00:00",
+ "refused": null,
+ "power": {
+  "log": "C:\\apu\\blade\\logs\\night1_power_20261009T035754Z.json",
+  "original": {
+   "SUB_SLEEP/STANDBYIDLE": {
+    "ac": 3600,
+    "dc": 180
+   },
+   "SUB_SLEEP/HIBERNATEIDLE": {
+    "ac": 0,
+    "dc": 10800
+   },
+   "SUB_BUTTONS/LIDACTION": {
+    "ac": null,
+    "dc": null
+   }
+  },
+  "night_values": {
+   "SUB_SLEEP/STANDBYIDLE": {
+    "ac": 0,
+    "dc": 180
+   },
+   "SUB_SLEEP/HIBERNATEIDLE": {
+    "ac": 0,
+    "dc": 10800
+   },
+   "SUB_BUTTONS/LIDACTION": {
+    "ac": null,
+    "dc": null
+   }
+  },
+  "restored_values": {
+   "SUB_SLEEP/STANDBYIDLE": {
+    "ac": 3600,
+    "dc": 180
+   },
+   "SUB_SLEEP/HIBERNATEIDLE": {
+    "ac": 0,
+    "dc": 10800
+   },
+   "SUB_BUTTONS/LIDACTION": {
+    "ac": null,
+    "dc": null
+   }
+  },
+  "restored": false,
+  "errors": [
+   "SUB_BUTTONS/LIDACTION: no original value recorded"
+  ]
+ },
+ "queue": {
+  "night": 1,
+  "jobs": [
+   {
+    "id": "blade_k1_v1",
+    "status": "error",
+    "rc": 2,
+    "outputs": [
+     "results/blade_k1_v1.jsonl",
+     "results/blade_k1_v1.summary.json"
+    ],
+    "log": "C:\\apu\\blade\\logs\\blade_k1_v1.log"
+   },
+   {
+    "id": "blade_r2_validation_v1",
+    "status": "done",
+    "rc": 0,
+    "outputs": [
+     "results/blade_r2_validation_v1.jsonl"
+    ],
+    "log": "C:\\apu\\blade\\logs\\blade_r2_validation_v1.log"
+   },
+   {
+    "id": "blade_r2_real_v1",
+    "status": "error",
+    "rc": 2,
+    "outputs": [
+     "results/blade_r2_real_v1.jsonl"
+    ],
+    "log": "C:\\apu\\blade\\logs\\blade_r2_real_v1.log"
+   },
+   {
+    "id": "blade_r2_mitigation_v1",
+    "status": "error",
+    "rc": 2,
+    "outputs": [
+     "results/blade_r2_mitigation_v1.jsonl"
+    ],
+    "log": "C:\\apu\\blade\\logs\\blade_r2_mitigation_v1.log"
+   }
+  ],
+  "stopped_early": null
+ },
+ "ended_utc": "2026-10-09T04:16:11.413885+00:00"
+}

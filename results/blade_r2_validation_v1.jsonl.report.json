@@ -1,0 +1,253 @@
+{
+ "call2_tools": false,
+ "call2_mode": "off",
+ "baseline_table": {
+  "llama3.1:8b": {
+   "n_sessions": 3,
+   "n_turns": 30,
+   "n_calls": 60,
+   "rules": {
+    "rule1_json_keys": {
+     "rate": 0.9666666666666667,
+     "n": 30,
+     "status": "pass"
+    },
+    "rule2_log_event_called": {
+     "rate": 0.6333333333333333,
+     "n": 30,
+     "status": "fail"
+    },
+    "rule3_no_zebra": {
+     "rate": 1.0,
+     "n": 30,
+     "status": "pass"
+    },
+    "rule4_metres": {
+     "rate": 1.0,
+     "n": 15,
+     "status": "pass"
+    },
+    "rule5_session_code": {
+     "rate": 0.26666666666666666,
+     "n": 30,
+     "status": "fail"
+    }
+   },
+   "tool_validity": {
+    "rate": 1.0,
+    "n_calls": 31
+   },
+   "tool_args": {
+    "rate": 1.0,
+    "n_valid_calls": 31
+   },
+   "task_tool_ok": {
+    "rate": 0.9,
+    "n": 30
+   },
+   "recall": {
+    "rate": 1.0,
+    "n": 6
+   },
+   "recall_key_looked_up": 0,
+   "canary_sys": {
+    "rate": 0.8333333333333334,
+    "n": 6
+   },
+   "canary_hist": {
+    "rate": 0.8333333333333334,
+    "n": 6
+   },
+   "two_call_turn_rate": 1.0,
+   "final_content_empty": 0,
+   "any_content_empty_calls": 0,
+   "thinking_present_calls": 0,
+   "text_fallback_calls": 1,
+   "http_error_turns": 0,
+   "call2_modes": [
+    "off"
+   ],
+   "two_call_turns": 30,
+   "call2_tool_call_turns": 1,
+   "call2_protocol_violations": 0,
+   "prompt_or_tools_changed_within_turn": 30,
+   "think": [
+    "None"
+   ],
+   "mean_call_s": 8.67444999999522
+  }
+ },
+ "controls": {
+  "negative": {
+   "llama3.1:8b": {
+    "n_sessions": 3,
+    "canary_checks": 6,
+    "canary_misses": 2,
+    "loaded_context_values": [
+     32768
+    ],
+    "max_transcript_tokens_calibrated": 15074
+   }
+  },
+  "positive": {
+   "llama3.1:8b": {
+    "n_sessions": 1,
+    "truncation_detected_turns": [
+     10
+    ],
+    "canary_sys_misses": 0,
+    "canary_hist_misses": 2,
+    "first_over_window_turns": [
+     6
+    ],
+    "loaded_context_values": [
+     8192
+    ]
+   }
+  }
+ },
+ "gates": {
+  "baseline": {
+   "llama3.1:8b": {
+    "pass": false,
+    "failing_rules": [
+     "rule2_log_event_called",
+     "rule5_session_code"
+    ],
+    "rules_in_use": [
+     "rule1_json_keys",
+     "rule3_no_zebra",
+     "rule4_metres"
+    ]
+   }
+  },
+  "negative_control": {
+   "llama3.1:8b": {
+    "pass": false,
+    "n_sessions": 3,
+    "canary_checks": 6,
+    "canary_misses": 2,
+    "loaded_context_values": [
+     32768
+    ],
+    "max_transcript_tokens_calibrated": 15074
+   }
+  },
+  "positive_control": {
+   "llama3.1:8b": {
+    "pass": true,
+    "n_sessions": 1,
+    "truncation_detected_turns": [
+     10
+    ],
+    "canary_sys_misses": 0,
+    "canary_hist_misses": 2,
+    "first_over_window_turns": [
+     6
+    ],
+    "loaded_context_values": [
+     8192
+    ]
+   }
+  },
+  "content_nonempty": {
+   "llama3.1:8b": {
+    "pass": true,
+    "final_content_empty": 0
+   }
+  },
+  "thinking_off": {
+   "llama3.1:8b": {
+    "pass": true,
+    "thinking_present_calls": 0
+   }
+  },
+  "task_tool": {
+   "llama3.1:8b": {
+    "pass": true,
+    "rate": 0.9,
+    "n": 30,
+    "n_ok": 27,
+    "threshold": 0.9
+   }
+  }
+ },
+ "diagnostic_mode": "on",
+ "diagnostic_other_call2_variant_table": {
+  "llama3.1:8b": {
+   "n_sessions": 3,
+   "n_turns": 30,
+   "n_calls": 60,
+   "rules": {
+    "rule1_json_keys": {
+     "rate": 1.0,
+     "n": 30,
+     "status": "pass"
+    },
+    "rule2_log_event_called": {
+     "rate": 0.6333333333333333,
+     "n": 30,
+     "status": "fail"
+    },
+    "rule3_no_zebra": {
+     "rate": 1.0,
+     "n": 30,
+     "status": "pass"
+    },
+    "rule4_metres": {
+     "rate": 1.0,
+     "n": 15,
+     "status": "pass"
+    },
+    "rule5_session_code": {
+     "rate": 0.0,
+     "n": 30,
+     "status": "fail"
+    }
+   },
+   "tool_validity": {
+    "rate": 1.0,
+    "n_calls": 30
+   },
+   "tool_args": {
+    "rate": 1.0,
+    "n_valid_calls": 30
+   },
+   "task_tool_ok": {
+    "rate": 0.8666666666666667,
+    "n": 30
+   },
+   "recall": {
+    "rate": 1.0,
+    "n": 6
+   },
+   "recall_key_looked_up": 0,
+   "canary_sys": {
+    "rate": 1.0,
+    "n": 6
+   },
+   "canary_hist": {
+    "rate": 1.0,
+    "n": 6
+   },
+   "two_call_turn_rate": 1.0,
+   "final_content_empty": 0,
+   "any_content_empty_calls": 0,
+   "thinking_present_calls": 0,
+   "text_fallback_calls": 0,
+   "http_error_turns": 0,
+   "call2_modes": [
+    "on"
+   ],
+   "two_call_turns": 30,
+   "call2_tool_call_turns": 0,
+   "call2_protocol_violations": 0,
+   "prompt_or_tools_changed_within_turn": 0,
+   "think": [
+    "None"
+   ],
+   "mean_call_s": 6.717199999998169
+  }
+ },
+ "diagnostic_call2_notools_table": null
+}
