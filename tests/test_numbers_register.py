@@ -228,6 +228,7 @@ def test_every_entry_script_function_names_a_real_function():
             assert full_path.exists(), f"{entry['claim_id']} cites {module_path}, which does not exist"
             spec = importlib.util.spec_from_file_location(full_path.stem, full_path)
             mod = importlib.util.module_from_spec(spec)
+            sys.modules.setdefault(spec.name, mod)  # @dataclass looks its module up in sys.modules (src/dse/pareto.py)
             sys.path.insert(0, str(full_path.parent))
             spec.loader.exec_module(mod)
         assert hasattr(mod, func_name), f"{entry['claim_id']} cites {func_name}, not found in {module_path}"
