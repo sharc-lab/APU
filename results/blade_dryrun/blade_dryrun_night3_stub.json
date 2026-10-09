@@ -2,22 +2,22 @@
  "night": 3,
  "summary": {
   "night": 3,
-  "started_utc": "2026-10-08T21:41:52.507511+00:00",
+  "started_utc": "2026-10-09T06:07:56.644528+00:00",
   "refused": null,
   "power": {
-   "log": "%USERPROFILE%\\AppData\\Local\\Temp\\blade_night_stub_okt127z_\\logs\\night3_power_20261008T214152Z.json",
+   "log": "%USERPROFILE%\\AppData\\Local\\Temp\\blade_night_stub_zfkly_51\\logs\\night3_power_20261009T060756Z.json",
    "original": {
     "SUB_SLEEP/STANDBYIDLE": {
-     "ac": 1800,
-     "dc": 1800
+     "ac": 3600,
+     "dc": 3600
     },
     "SUB_SLEEP/HIBERNATEIDLE": {
-     "ac": 10800,
-     "dc": 10800
+     "ac": 0,
+     "dc": 0
     },
     "SUB_BUTTONS/LIDACTION": {
-     "ac": 1,
-     "dc": 1
+     "ac": null,
+     "dc": null
     }
    },
    "night_values": {
@@ -30,26 +30,30 @@
      "dc": 0
     },
     "SUB_BUTTONS/LIDACTION": {
-     "ac": 0,
-     "dc": 0
+     "ac": null,
+     "dc": null
     }
    },
    "restored_values": {
     "SUB_SLEEP/STANDBYIDLE": {
-     "ac": 1800,
-     "dc": 1800
+     "ac": 3600,
+     "dc": 3600
     },
     "SUB_SLEEP/HIBERNATEIDLE": {
-     "ac": 10800,
-     "dc": 10800
+     "ac": 0,
+     "dc": 0
     },
     "SUB_BUTTONS/LIDACTION": {
-     "ac": 1,
-     "dc": 1
+     "ac": null,
+     "dc": null
     }
    },
    "restored": true,
-   "errors": []
+   "errors": [],
+   "mismatched": [],
+   "not_applicable": [
+    "SUB_BUTTONS/LIDACTION"
+   ]
   },
   "queue": {
    "night": 3,
@@ -73,19 +77,18 @@
      "log": "C:\\apu\\blade\\logs\\blade_r2_real_qwen3_8b_v1.log"
     }
    ],
-   "stopped_early": null
+   "stopped_early": null,
+   "gate_decisions": {}
   },
-  "ended_utc": "2026-10-08T21:41:52.842798+00:00",
-  "summary_file": "%USERPROFILE%\\AppData\\Local\\Temp\\blade_night_stub_okt127z_\\results\\blade_night3_summary_20261008T214152Z.json"
+  "ended_utc": "2026-10-09T06:07:56.951632+00:00",
+  "summary_file": "%USERPROFILE%\\AppData\\Local\\Temp\\blade_night_stub_zfkly_51\\results\\blade_night3_summary_20261009T060756Z.json"
  },
  "power_call_order": [
   "/setacvalueindex SUB_SLEEP STANDBYIDLE 0",
   "/setacvalueindex SUB_SLEEP HIBERNATEIDLE 0",
-  "/setacvalueindex SUB_BUTTONS LIDACTION 0",
   "/setactive",
-  "/setacvalueindex SUB_SLEEP STANDBYIDLE 1800",
-  "/setacvalueindex SUB_SLEEP HIBERNATEIDLE 10800",
-  "/setacvalueindex SUB_BUTTONS LIDACTION 1",
+  "/setacvalueindex SUB_SLEEP STANDBYIDLE 3600",
+  "/setacvalueindex SUB_SLEEP HIBERNATEIDLE 0",
   "/setactive"
  ],
  "jobs": [
@@ -98,10 +101,11 @@
     "out": "results/blade_r2_validation_qwen3_8b_v1.jsonl",
     "models": "",
     "models_if_fit": "qwen3:8b",
-    "k1_summary": "results/blade_k1_v1.summary.json",
+    "k1_summary": "results/blade_k1_v2.summary.json",
     "tiers": null,
     "seeds": null,
     "turns": null,
+    "neg_sessions": null,
     "client_trim": null,
     "rules_from": null,
     "require_validation_gates": false,
@@ -117,10 +121,37 @@
    "fit_decision": {
     "qwen3:8b": {
      "run": false,
-     "reason": "no K1 summary at results/blade_k1_v1.summary.json",
+     "reason": "no K1 summary at results/blade_k1_v2.summary.json",
      "fits": {}
     }
-   }
+   },
+   "plan": [
+    [
+     "ollama_ctx_32768_negative_control_call2_notools",
+     [
+      20260901,
+      20260902,
+      20260903
+     ],
+     10
+    ],
+    [
+     "ollama_ctx_8192_positive_control_call2_notools",
+     [
+      20260901
+     ],
+     15
+    ],
+    [
+     "ollama_ctx_32768_negative_control",
+     [
+      20260901,
+      20260902,
+      20260903
+     ],
+     10
+    ]
+   ]
   },
   {
    "event": "job",
@@ -131,10 +162,11 @@
     "out": "results/blade_r2_real_qwen3_8b_v1.jsonl",
     "models": "",
     "models_if_fit": "qwen3:8b",
-    "k1_summary": "results/blade_k1_v1.summary.json",
+    "k1_summary": "results/blade_k1_v2.summary.json",
     "tiers": "default,4096,32768",
     "seeds": null,
     "turns": null,
+    "neg_sessions": null,
     "client_trim": null,
     "rules_from": "results/blade_r2_validation_qwen3_8b_v1.jsonl",
     "require_validation_gates": true,
@@ -150,7 +182,7 @@
    "fit_decision": {
     "qwen3:8b": {
      "run": false,
-     "reason": "no K1 summary at results/blade_k1_v1.summary.json",
+     "reason": "no K1 summary at results/blade_k1_v2.summary.json",
      "fits": {}
     }
    }
@@ -159,5 +191,14 @@
  "set_before_first_job": true,
  "restore_after_last_job": true,
  "final_values_equal_original": true,
- "all_outputs_prefixed_blade": true
+ "power_restored": true,
+ "all_outputs_prefixed_blade": true,
+ "gate_misses": 0,
+ "gate_decisions": {},
+ "ran": [
+  "blade_r2_validation_qwen3_8b_v1",
+  "blade_r2_real_qwen3_8b_v1"
+ ],
+ "skipped": {},
+ "branch_ok": true
 }

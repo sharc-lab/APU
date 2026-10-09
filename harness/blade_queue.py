@@ -7,6 +7,13 @@ State: C:\\apu\\blade\\blade_queue_state.json, {"nights": {"1": {"jobs": {job_id
 sessions / halves are skipped), so a rerun never repeats finished work. done and blocked_dependency are not rerun;
 error is rerun on the next start of that night.
 
+Gate and conditional jobs (night 1, 2026-10-08): a job with "gate": {"decision": <json>} writes a decision file; once it
+exits 0 the queue reads that file and stores it in the job's state entry ("decision") and in the summary
+("gate_decisions"). A job with "when": {"gate": <gate job id>, "branch": <name>} runs only if that stored decision's
+"branch" matches; otherwise it is marked "skipped" with the decision's "skipped_reason" (terminal, like done). While
+the gate has no stored decision (not run yet, or errored) the conditional job stays pending and is reported as
+"waiting", so the next start of the night picks it up after the gate reruns.
+
 Paused condition (checked before the night and again before every job): the operator's flag
 C:\\apu\\blade\\CLAUDE_CODE_PAUSED.flag exists (all local Claude Code work paused), and no other heavy process runs
 (python / pytest / git / llama-server outside this process tree). Deleting the flag mid-night stops the queue before
@@ -33,8 +40,13 @@ PAUSED_FLAG = bc.BLADE_DIR / "CLAUDE_CODE_PAUSED.flag"
 HEAVY_NAMES = {"python.exe", "pythonw.exe", "py.exe", "pytest.exe", "git.exe", "llama-server.exe"}
 EXIT_BLOCKED = 3
 
-K1_SUMMARY = "results/blade_k1_v1.summary.json"
-R2_VALIDATION = "results/blade_r2_validation_v1.jsonl"
+# Night 1 was rerun with new job ids and _v2 outputs (2026-10-08): the first run (2026-10-09 03:57Z) left K1 refused
+# (its version check read the tray's 0.34.1 server) and the validation's negative control with 2 canary misses, and
+# its state entries stay in the state file untouched; distinct ids mean resume never skips the rerun's jobs.
+K1_SUMMARY = "results/blade_k1_v2.summary.json"
+R2_VALIDATION = "results/blade_r2_validation_v2.jsonl"
+R2_GATE = "results/blade_r2_gate_v2.json"
+NEG_SESSIONS = 5
 R2_VALIDATION_QWEN = "results/blade_r2_validation_qwen3_8b_v1.jsonl"
 # Every measurement job names the side-by-side Ollama 0.34.4 explicitly (never the tray install); no real job carries
 # --allow-version-mismatch (that flag is for dry runs only, and the jobs refuse it outside one).
@@ -43,22 +55,34 @@ _LLAMA = ["--models", "llama3.1:8b", *OLLAMA]
 _QWEN = ["--models", "", "--models-if-fit", "qwen3:8b", "--k1-summary", K1_SUMMARY, *OLLAMA]
 
 NIGHTS = {
-    # night 1: K1, then llama3.1:8b R2 (validation and controls, the three tiers), then the mitigation
+    # night 1 (rerun): K1, the llama3.1:8b validation at the 32768 cap with the negative control at 5 sessions, then
+    # the gate (harness/blade_r2_gate.py): 0 negative-control canary misses -> real tiers + mitigation; any miss ->
+    # both skipped ("skipped: negative-control canary misses N") and the 4096 mechanism run instead.
     1: [
-        {"id": "blade_k1_v1", "argv": ["harness/blade_k1.py", "--out", "results/blade_k1_v1.jsonl", *OLLAMA],
-         "outputs": ["results/blade_k1_v1.jsonl", K1_SUMMARY]},
-        {"id": "blade_r2_validation_v1",
-         "argv": ["harness/blade_r2.py", "--mode", "validation", "--out", R2_VALIDATION, *_LLAMA],
+        {"id": "blade_k1_v2", "argv": ["harness/blade_k1.py", "--out", "results/blade_k1_v2.jsonl", *OLLAMA],
+         "outputs": ["results/blade_k1_v2.jsonl", K1_SUMMARY]},
+        {"id": "blade_r2_validation_v2",
+         "argv": ["harness/blade_r2.py", "--mode", "validation", "--out", R2_VALIDATION, *_LLAMA,
+                  "--neg-sessions", str(NEG_SESSIONS)],
          "outputs": [R2_VALIDATION]},
-        {"id": "blade_r2_real_v1",
-         "argv": ["harness/blade_r2.py", "--mode", "real", "--out", "results/blade_r2_real_v1.jsonl", *_LLAMA,
+        {"id": "blade_r2_gate_v2",
+         "argv": ["harness/blade_r2_gate.py", "--validation", R2_VALIDATION, "--out", R2_GATE,
+                  "--model", "llama3.1:8b", "--neg-sessions", str(NEG_SESSIONS)],
+         "outputs": [R2_GATE], "gate": {"decision": R2_GATE}},
+        {"id": "blade_r2_real_v2",
+         "argv": ["harness/blade_r2.py", "--mode", "real", "--out", "results/blade_r2_real_v2.jsonl", *_LLAMA,
                   "--tiers", "default,4096,32768", "--rules-from", R2_VALIDATION, "--require-validation-gates"],
-         "outputs": ["results/blade_r2_real_v1.jsonl"]},
-        {"id": "blade_r2_mitigation_v1",
-         "argv": ["harness/blade_r2.py", "--mode", "mitigation", "--out", "results/blade_r2_mitigation_v1.jsonl",
+         "outputs": ["results/blade_r2_real_v2.jsonl"], "when": {"gate": "blade_r2_gate_v2", "branch": "real"}},
+        {"id": "blade_r2_mitigation_v2",
+         "argv": ["harness/blade_r2.py", "--mode", "mitigation", "--out", "results/blade_r2_mitigation_v2.jsonl",
                   *_LLAMA, "--k1-summary", K1_SUMMARY, "--tiers", "default,4096,8192", "--client-trim", "margin=0.05",
                   "--rules-from", R2_VALIDATION, "--require-validation-gates"],
-         "outputs": ["results/blade_r2_mitigation_v1.jsonl"]},
+         "outputs": ["results/blade_r2_mitigation_v2.jsonl"], "when": {"gate": "blade_r2_gate_v2", "branch": "real"}},
+        {"id": "blade_r2_mechanism_4096_v2",
+         "argv": ["harness/blade_r2.py", "--mode", "mechanism", "--out", "results/blade_r2_mechanism_4096_v2.jsonl",
+                  *_LLAMA, "--tiers", "4096"],
+         "outputs": ["results/blade_r2_mechanism_4096_v2.jsonl"],
+         "when": {"gate": "blade_r2_gate_v2", "branch": "mechanism"}},
     ],
     # night 2: C3 (both halves, operator-gated, half B always) then the mechanism run
     2: [
@@ -171,21 +195,50 @@ BUSY_WAIT_S = 900
 BUSY_POLL_S = 30
 
 
+def read_decision_file(job: dict) -> dict | None:
+    """The gate job's decision json (path relative to the repo), or None if missing or unreadable."""
+    p = bc.REPO / job["gate"]["decision"]
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
 def run_night(night: int, runner=None, state_path=None, paused_fn=None, log=print, now=bc.utc_iso,
-              sleep_fn=time.sleep) -> dict:
-    """Runs the night's jobs in order with resume. runner(job, log_path) -> return code. Returns the summary."""
+              sleep_fn=time.sleep, read_decision=None) -> dict:
+    """Runs the night's jobs in order with resume. runner(job, log_path) -> return code. read_decision(job) -> the
+    gate job's decision dict (default: its decision file). Returns the summary."""
     runner = runner or run_job_subprocess
     paused_fn = paused_fn or paused_condition
+    read_decision = read_decision or read_decision_file
     state = init_night(load_state(state_path), night)
     save_state(state, state_path)
     jobs_state = state["nights"][str(night)]["jobs"]
-    summary = {"night": night, "jobs": [], "stopped_early": None}
+    summary = {"night": night, "jobs": [], "stopped_early": None, "gate_decisions": {}}
     for job in NIGHTS[night]:
         js = jobs_state[job["id"]]
-        if js["status"] in ("done", "blocked_dependency"):
+        if job.get("gate") and js["status"] == "done" and js.get("decision"):
+            summary["gate_decisions"][job["id"]] = js["decision"]
+        if js["status"] in ("done", "blocked_dependency", "skipped"):
             log(f"{job['id']}: {js['status']} earlier, skipped")
-            summary["jobs"].append({"id": job["id"], "status": js["status"], "skipped": True})
+            summary["jobs"].append({"id": job["id"], "status": js["status"], "skipped": True,
+                                    **({"reason": js["reason"]} if js.get("reason") else {})})
             continue
+        when = job.get("when")
+        if when:
+            gs = jobs_state.get(when["gate"]) or {}
+            dec = gs.get("decision") if gs.get("status") == "done" else None
+            if not dec:
+                log(f"{job['id']}: waiting, gate {when['gate']} has no decision (status {gs.get('status')})")
+                summary["jobs"].append({"id": job["id"], "status": js["status"], "waiting": when["gate"]})
+                continue
+            if dec.get("branch") != when["branch"]:
+                reason = dec.get("skipped_reason") or f"skipped: gate branch {dec.get('branch')}"
+                js.update({"status": "skipped", "reason": reason, "ended_utc": now()})
+                save_state(state, state_path)
+                log(f"{job['id']}: {reason}")
+                summary["jobs"].append({"id": job["id"], "status": "skipped", "reason": reason})
+                continue
         cond = paused_fn()
         # 2026-10-08: a short-lived process (e.g. the 2-hourly results sync, pythonw) at a job boundary must not end
         # the night and leave it needing a manual resume. Re-check every BUSY_POLL_S for up to BUSY_WAIT_S while the
@@ -213,8 +266,17 @@ def run_night(night: int, runner=None, state_path=None, paused_fn=None, log=prin
         js["rc"] = rc
         js["status"] = "done" if rc == 0 else ("blocked_dependency" if rc == EXIT_BLOCKED else "error")
         js["ended_utc"] = now()
+        if job.get("gate") and js["status"] == "done":
+            dec = read_decision(job)
+            if not dec or not dec.get("branch"):
+                js["status"], js["rc"] = "error", f"rc 0 but no readable decision in {job['gate']['decision']}"
+            else:
+                js["decision"] = {k: dec.get(k) for k in ("branch", "canary_misses", "n_neg_sessions", "per_session",
+                                                          "skipped_reason", "open_finding", "rules_in_use")}
+                summary["gate_decisions"][job["id"]] = js["decision"]
         save_state(state, state_path)
-        log(f"{job['id']}: {js['status']} (rc {rc})")
-        summary["jobs"].append({"id": job["id"], "status": js["status"], "rc": rc, "outputs": job["outputs"],
+        log(f"{job['id']}: {js['status']} (rc {js['rc']})" + (f" branch {js['decision']['branch']}"
+                                                              if js.get("decision") else ""))
+        summary["jobs"].append({"id": job["id"], "status": js["status"], "rc": js["rc"], "outputs": job["outputs"],
                                 "log": str(log_path)})
     return summary

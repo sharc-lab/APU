@@ -325,8 +325,9 @@ def main(argv=None) -> int:
 
     bc.require_blade()
     exe = args.ollama_exe or bc.PINNED["ollama_exe"]
-    versions = bc.versions_record(exe)
-    problems = bc.version_problems(versions)
+    # every Ollama process (tray app, servers, runners) is stopped and confirmed gone BEFORE the version check, so
+    # `<exe> --version` reports the pinned binary itself, never a server that was already running (night 1)
+    versions, problems = bc.pinned_versions(exe)
     server = bc.LocalOllama(exe=exe, log_path=bc.LOG_DIR / f"{out.stem}.ollama_serve.log")
     rc, note = 0, "completed"
     try:
@@ -340,6 +341,13 @@ def main(argv=None) -> int:
         server.start()
         if not server.wait_ready():
             raise RuntimeError("ollama did not become ready")
+        served = server.server_version()
+        sproblems = bc.server_version_problems(served)
+        emit({"record": "blade_k1_server_version", "version": served, "problems": sproblems})
+        if sproblems and not args.allow_version_mismatch:
+            emit({"record": "refused", "reasons": sproblems})
+            log(f"refused: {sproblems}")
+            return 2
         client = k1.OllamaClient(timeout=CALL_TIMEOUT_S)
         job = K1Job(args, emit, log, client, server)
         time.sleep(2)

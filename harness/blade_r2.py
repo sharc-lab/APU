@@ -12,6 +12,8 @@ and the dry-run budget. The protocol is v1 (call-2 mode "off": tools withheld on
                       call in evo-x2's validation sessions is 17567 tokens, under 30000, so 32768 holds every session
                       untruncated and fits the 8 GB GPU far better); positive control num_ctx 8192 (1 seed x 15 turns);
                       diagnostic arm b with tools on call 2. Gates by x2_r2_agent.evaluate_gates with the same arm.
+                      --neg-sessions N runs the negative-control arm on the first N of SEEDS_STRONG instead of 3
+                      (night 1 rerun, 2026-10-08: 5 sessions, seeds 20260901-05; harness/blade_r2_gate.py reads it).
   --mode real         --tiers (default: default,4096,32768) x SEEDS_STRONG (5) x 40 turns; refuses per model unless
                       the Blade validation file passes validation_preflight_per_model (--require-validation-gates).
   --mode mitigation   x2_r2_mitigation_v1's design: --client-trim margin=0.05 (x2_r2_client_trim), OLLAMA_DEBUG=1 and
@@ -84,9 +86,21 @@ def tier_arm(tier: str) -> str:
     return tier_base(tier) + agent.MODE_SUFFIX[CALL2]
 
 
-def plan_for(mode: str, tiers: list[str], seeds=None, turns=None):
+def neg_seeds(n: int) -> tuple:
+    """The first n of x2_r2_agent.SEEDS_STRONG (20260901..20260905): 3 = evo-x2's validation seeds."""
+    if not 1 <= n <= len(agent.SEEDS_STRONG):
+        raise SystemExit(f"--neg-sessions must be 1..{len(agent.SEEDS_STRONG)}, got {n}")
+    return tuple(agent.SEEDS_STRONG[:n])
+
+
+def plan_for(mode: str, tiers: list[str], seeds=None, turns=None, neg_sessions=None):
     if mode == "validation":
-        return agent.validation_plan(CALL2, neg_arm=BLADE_NEG_ARM)
+        plan = agent.validation_plan(CALL2, neg_arm=BLADE_NEG_ARM)
+        if neg_sessions:
+            # only the gate arm (negative control and baseline) grows; positive control and the diagnostic arm as is
+            gate_arm = BLADE_NEG_ARM + agent.MODE_SUFFIX[CALL2]
+            plan = [(a, neg_seeds(neg_sessions) if a == gate_arm else s, t) for a, s, t in plan]
+        return plan
     if mode == "real":
         return [(tier_arm(t), tuple(seeds or agent.SEEDS_STRONG), turns or agent.STRONG_TURNS) for t in tiers]
     if mode == "mechanism":
@@ -173,6 +187,8 @@ def build_arg_parser():
     ap.add_argument("--tiers", default=None, help="comma-separated: default or a num_ctx (real/mitigation/mechanism)")
     ap.add_argument("--seeds", default=None, help="comma-separated override (dry runs)")
     ap.add_argument("--turns", type=int, default=None, help="override (dry runs)")
+    ap.add_argument("--neg-sessions", type=int, default=None,
+                    help="validation mode: sessions on the negative-control arm (seeds 20260901.., max 5; default 3)")
     ap.add_argument("--client-trim", default=None,
                     help=f"mitigation mode (required there), as x2_r2_agent: e.g. {DEFAULT_CLIENT_TRIM}")
     ap.add_argument("--rules-from", default=None)
@@ -228,7 +244,9 @@ def main(argv=None) -> int:
     tier_note = None
     if args.mode == "mitigation":
         tiers, tier_note = resolve_default_tier(tiers, args.k1_summary, args.models.split(",")[0])
-    plan = plan_for(args.mode, tiers, seeds, args.turns)
+    if args.neg_sessions is not None and args.mode != "validation":
+        raise SystemExit("--neg-sessions is only used with --mode validation")
+    plan = plan_for(args.mode, tiers, seeds, args.turns, neg_sessions=args.neg_sessions)
     if dry and args.mode == "validation" and (seeds or args.turns):
         plan = [(a, tuple(seeds or s), args.turns or t) for a, s, t in plan]
     models = [m for m in args.models.split(",") if m]
@@ -238,8 +256,8 @@ def main(argv=None) -> int:
     if args.mode == "mitigation":
         mit_argv, client_trim = check_mitigation_args(args, models)
     exe = args.ollama_exe or bc.PINNED["ollama_exe"]
-    versions = bc.versions_record(exe)
-    problems = bc.version_problems(versions)
+    # every Ollama process stopped (confirmed) before the version check: the pinned binary, never a running server
+    versions, problems = bc.pinned_versions(exe)
     debug = args.mode in ("mechanism", "mitigation")
     import x2_r2_mechanism as mech
     server = bc.LocalOllama(exe=exe, env=dict(mech.OLLAMA_DEBUG_ENV) if debug else None,
@@ -282,6 +300,11 @@ def main(argv=None) -> int:
         server.start()
         if not server.wait_ready():
             raise RuntimeError("ollama did not become ready")
+        sproblems = bc.server_version_problems(server.server_version())
+        if sproblems and not args.allow_version_mismatch:
+            emit({"record": "refused", "reasons": sproblems})
+            log(f"refused (server version): {sproblems}")
+            return EXIT_ERR
         runtime = BladeOllamaRuntime()
         runtime.local_server = server
         avail = runtime.available_models()

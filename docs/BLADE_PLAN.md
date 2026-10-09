@@ -84,17 +84,62 @@ until K1 measures it.
 
 | night | job | queue id / output | hours | measured / scaled |
 |---|---|---|---|---|
-| 1 | (a) K1: default context per model, device and VRAM, overflow at 4K/8K/16K/32K, llama.cpp CUDA defaults | `blade_k1_v1` / `results/blade_k1_v1.jsonl`, `.summary.json` | 0.50 | scaled (itemized) |
-| 1 | (b) R2 validation and controls, llama3.1:8b, arm b at 32768, positive control 8192 | `blade_r2_validation_v1` / `results/blade_r2_validation_v1.jsonl` | 0.37 | scaled |
-| 1 | (b) R2 tiers default, 4096, 32768, 5 seeds x 40 turns, llama3.1:8b | `blade_r2_real_v1` / `results/blade_r2_real_v1.jsonl` | 6.90 | scaled |
-| 1 | (c) mitigation, x2_r2_mitigation_v1 design, Blade default (from K1), 4096, 8192, 3 seeds | `blade_r2_mitigation_v1` / `results/blade_r2_mitigation_v1.jsonl` | 1.50 | scaled |
+| 1 | (a) K1: default context per model, device and VRAM, overflow at 4K/8K/16K/32K, llama.cpp CUDA defaults; every Ollama process stopped before the version check | `blade_k1_v2` / `results/blade_k1_v2.jsonl`, `.summary.json` | 0.50 | scaled (itemized) |
+| 1 | (b) R2 validation and controls, llama3.1:8b, arm b at 32768 with the negative control at 5 sessions (seeds 20260901-05), positive control 8192 (1 session), diagnostic arm as before | `blade_r2_validation_v2` / `results/blade_r2_validation_v2.jsonl` | 0.32 | mixed (rates, scaled) |
+| 1 | (b) gate: negative-control canary misses over the 5 sessions, 0 -> branch real, any -> branch mechanism | `blade_r2_gate_v2` / `results/blade_r2_gate_v2.json` | 0.00 | measured (no model) |
+| 1 | (b) branch real: R2 tiers default, 4096, 32768, 5 seeds x 40 turns, llama3.1:8b, rules in use from the gate (1, 3, 4 as on evo-x2 if 2 and 5 fail again) | `blade_r2_real_v2` / `results/blade_r2_real_v2.jsonl` | 1.75 | rates |
+| 1 | (c) branch real: mitigation, x2_r2_mitigation_v1 design, Blade default (from K1), 4096, 8192, 3 seeds | `blade_r2_mitigation_v2` / `results/blade_r2_mitigation_v2.jsonl` | 1.18 | mixed (rates, scaled) |
+| 1 | branch mechanism: mechanism run, llama3.1:8b, 4096 tier, one session | `blade_r2_mechanism_4096_v2` / `results/blade_r2_mechanism_4096_v2.jsonl` | 0.05 | rates |
 | 2 | (d) C3 half A (Prefer No Sysmem Fallback, ctx 36864/38912/40960/43008, 1+5 calls) and half B (Driver Default, ctx 40960/43008, 1+3 calls) | `blade_c3_sysmem_fallback_v1` / `results/blade_c3_sysmem_fallback_v1.jsonl` | 3.09 | measured (C1 segments); half A is minutes if the spilled points fail at load |
 | 2 | (e) mechanism: render-only validity, message-drop and context-shift logging, llama3.1:8b, one session per tier (default, 32768, 16384, 8192, 4096) | `blade_r2_mechanism_v1` / `results/blade_r2_mechanism_v1.jsonl` | 2.71 | scaled |
 | 3 | qwen3:8b R2 validation and controls (same design as night 1), only if it fits | `blade_r2_validation_qwen3_8b_v1` / `results/blade_r2_validation_qwen3_8b_v1.jsonl` | 0.53 | scaled |
 | 3 | qwen3:8b R2 tiers default, 4096, 32768, 5 seeds x 40 turns, only if it fits | `blade_r2_real_qwen3_8b_v1` / `results/blade_r2_real_qwen3_8b_v1.jsonl` | 8.29 | scaled (llama3.1:8b workload x1.2; qwen3:8b's own evo-x2 real-run file is not synced) |
 
-Night totals: night 1 9.27 h (target under 10 h), night 2 5.80 h (the operator at the keyboard for C3's two gates),
+Night totals: night 1 3.75 h on the real branch, 0.87 h on the mechanism branch (register `blade-night-hours`, the
+night-1 rows above from the same row), night 2 5.80 h (the operator at the keyboard for C3's two gates),
 night 3 8.82 h if qwen3:8b fits, minutes if it does not.
+
+### Night 1 rerun (operator 2026-10-08)
+
+Night 1's first run (2026-10-09 03:57Z, `results/blade_night1_summary_20261009T035754Z.json`) left: K1 refused (its
+version check ran `ollama --version` while the tray's Ollama 0.34.1 server was up, and that command reports the running
+server's version, not the binary's); the validation finished, but its negative control at 32768 had canary misses
+(register `blade-r2-validation-run1`), so the real and mitigation jobs were refused by their own validation gates; and
+the power log said `restored: false` only because SUB_BUTTONS/LIDACTION is not exposed on this machine.
+
+What changed for the rerun:
+
+- **K1 and R2 version check.** `blade_common.pinned_versions` stops every Ollama process first (tray app
+  `ollama app.exe` first, then `ollama.exe` and Ollama's runners, hidden taskkill, re-listed until none is left) and
+  only then runs `<pinned exe> --version`; the binary's own "client version" line is the version checked. A process
+  that survives the stop, or a server still answering, is a refusal. After the job starts its own server, the server's
+  `/api/version` must also equal the pin.
+- **Power restore.** A setting the machine does not expose (powercfg prints no AC index, original `None`) is "not
+  applicable": never set, never restored, not an error, listed under `not_applicable` in the power log. `restored` is
+  false only if an exposed setting failed to restore or read back different from its original.
+- **Order.** K1, then the validation rerun at the 32768 cap with the negative control at 5 sessions instead of 3
+  (`--neg-sessions 5`, seeds 20260901-05; positive control and diagnostic arm unchanged), then the gate job
+  `harness/blade_r2_gate.py`. The gate reads the validation file with `x2_r2_agent.evaluate_gates` and the Blade
+  negative-control arm and writes `results/blade_r2_gate_v2.json`. 0 misses across the 5 sessions: branch "real", the
+  R2 tiers (default, 4096, 32768; 5 seeds; 40 turns) and the mitigation run for llama3.1:8b, scoring the rules in use
+  from the same validation file (rules 1, 3 and 4 if rules 2 and 5 fail the baseline again, as on evo-x2). Any miss:
+  branch "mechanism", the real and mitigation jobs are marked `skipped: negative-control canary misses N`, the
+  mechanism run at the 4096 tier runs instead (one session, as in night 2's mechanism job), and the decision file
+  carries the Blade recall result as an open finding.
+- **Mechanical and resumable.** The queue stores the gate's decision in its state entry and in the night summary
+  (`gate_decisions`). A conditional job whose branch does not match is `skipped` (terminal, with the reason); while the
+  gate has no decision (not run, or errored) the conditional jobs stay pending and run after the gate on the next
+  start. The gate exits 2 and writes nothing if the validation did not finish or has fewer than 5 negative-control
+  sessions.
+- **Clean start.** New ids (`blade_k1_v2`, `blade_r2_validation_v2`, `blade_r2_gate_v2`, `blade_r2_real_v2`,
+  `blade_r2_mitigation_v2`, `blade_r2_mechanism_4096_v2`) and `_v2` outputs: the first run's entries in
+  `C:\apu\blade\blade_queue_state.json` and its result files stay as they are and are never skipped into or overwritten.
+  Night 3 now reads `results/blade_k1_v2.summary.json`.
+- **Stub.** `py -3.12 scripts/blade_night.py --night 1 --stub` runs night 1 once per gate branch (0 misses and 2
+  misses, through the gate's real decision code on synthetic rows) with the Blade's power layout (LIDACTION not
+  exposed): PASS on both branches, power restored on both.
+- Register row `blade-r2-validation-run2` reports the rerun once `results/blade_r2_validation_v2.jsonl` is synced
+  (PENDING until then).
 
 ### Job details
 

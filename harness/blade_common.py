@@ -6,6 +6,11 @@ console window; CLAUDE.md "No visible windows on the controller").
   PINNED            the versions every Blade job records in its run_start row and checks before measuring
   versions_record   reads the installed versions (nvidia-smi, ollama --version, llama-server --version, the CUDA
                     runtime DLLs the llama.cpp build ships, the CUDA runner dirs Ollama bundles)
+  stop_all_ollama   stops every Ollama process (tray app first, then ollama.exe and Ollama's runners), hidden, and
+                    confirms none is left
+  pinned_versions   stop_all_ollama, then versions_record against the pinned binary: the version check never talks to
+                    a server that was running before the job (night 1, 2026-10-09: the tray's 0.34.1 server answered
+                    `ollama --version` and K1 refused although the pinned binary is 0.34.4)
   version_problems  pinned vs installed; a real (non dry-run) job refuses to measure on any problem
   LocalOllama       starts `ollama serve` as a hidden child with its own env and log file, waits for /api/tags,
                     and stops every Ollama process plus Ollama's own llama-server runners (path under an Ollama dir),
@@ -93,6 +98,8 @@ def require_blade(hostname=None) -> dict:
 
 _CUDA_UMD = re.compile(r"CUDA (?:UMD )?Version:\s*([\d.]+)")
 _OLLAMA_VER = re.compile(r"(?:client )?version is (\d+\.\d+\.\d+\S*)")
+_OLLAMA_CLIENT_VER = re.compile(r"client version is (\d+\.\d+\.\d+\S*)")
+_OLLAMA_SERVER_VER = re.compile(r"ollama version is (\d+\.\d+\.\d+\S*)")
 _LLAMA_VER = re.compile(r"version:\s*(\S+)\s*\(build (\d+), commit (\w+)\)")
 
 
@@ -104,9 +111,20 @@ def parse_nvidia_smi_header(text: str) -> dict:
 
 
 def parse_ollama_version(text: str) -> str | None:
-    """`ollama --version` prints 'ollama version is X' (and 'Warning: client version is Y' when no server runs)."""
+    """The version of the binary that was run. `ollama --version` prints 'ollama version is X' where X is the RUNNING
+    SERVER's version when one answers, plus 'Warning: client version is Y' (the binary's own) when there is no server
+    or the two differ. So the client line wins; 'ollama version is X' alone means server and binary agree."""
+    m = _OLLAMA_CLIENT_VER.search(text or "")
+    if m:
+        return m.group(1)
     vals = _OLLAMA_VER.findall(text or "")
     return vals[0] if vals else None
+
+
+def parse_ollama_server_reported(text: str) -> str | None:
+    """The 'ollama version is X' value of `ollama --version` (a running server's version), or None."""
+    m = _OLLAMA_SERVER_VER.search(text or "")
+    return m.group(1) if m else None
 
 
 def parse_llama_version(text: str) -> dict:
@@ -130,6 +148,7 @@ def versions_record(ollama_exe=None, run=None) -> dict:
     rec["ollama_exe"] = ollama_exe
     rec["ollama_version_raw"] = (out + err).strip()[:300]
     rec["ollama_version"] = parse_ollama_version(out + err)
+    rec["ollama_version_server_reported"] = parse_ollama_server_reported(out + err)
     lib = Path(ollama_exe).parent / "lib" / "ollama"
     rec["ollama_bundled_cuda_runners"] = sorted(p.name for p in lib.glob("cuda_v*")) if lib.is_dir() else []
     rc, out, err = _run([PINNED["llama_server_exe"], "--version"], 60, run)
@@ -200,6 +219,51 @@ def kill_pid(pid: int, run=None):
     _run(["taskkill", "/F", "/T", "/PID", str(pid)], 30, run)
 
 
+def stop_all_ollama(procs_fn=None, run=None, wait_s=20, sleep=time.sleep, clock=time.monotonic) -> dict:
+    """Kills every Ollama process: the tray app ("ollama app.exe", which would otherwise respawn the server) first,
+    then ollama.exe servers and Ollama's own llama-server runners; never the harness's own llama-server. taskkill runs
+    hidden (proc_util). Re-lists until none is left or wait_s passes. Returns {"killed": [{pid, name}],
+    "remaining": [{pid, name}], "confirmed": bool} (confirmed = none listed at the end)."""
+    procs_fn = procs_fn or (lambda: list_processes(run))
+    killed = []
+    deadline = clock() + wait_s
+    while True:
+        left = ollama_processes(procs_fn())
+        if not left:
+            return {"killed": killed, "remaining": [], "confirmed": True}
+        if clock() > deadline:
+            return {"killed": killed, "remaining": [{"pid": p["pid"], "name": p["name"]} for p in left],
+                    "confirmed": False}
+        for p in sorted(left, key=lambda p: p["name"].lower() != "ollama app.exe"):
+            kill_pid(p["pid"], run)
+            killed.append({"pid": p["pid"], "name": p["name"]})
+        sleep(1)
+
+
+def pinned_versions(ollama_exe=None, procs_fn=None, run=None) -> tuple[dict, list[str]]:
+    """The version check every Blade Ollama job makes before measuring: stop every Ollama process (confirmed), then
+    versions_record against the pinned binary (`<exe> --version` with no server running reports the binary's own
+    version). Returns (versions record with "ollama_stop_before_check", problems)."""
+    stop = stop_all_ollama(procs_fn=procs_fn, run=run)
+    rec = versions_record(ollama_exe, run=run)
+    rec["ollama_stop_before_check"] = stop
+    problems = version_problems(rec)
+    if not stop["confirmed"]:
+        problems.append(f"Ollama processes still running after the stop: {stop['remaining']}")
+    srv = rec.get("ollama_version_server_reported")
+    if srv and srv != rec.get("ollama_version"):
+        problems.append(f"a server answered `ollama --version` with {srv} (binary {rec.get('ollama_version')}): "
+                        "a pre-existing Ollama is still running")
+    return rec, problems
+
+
+def server_version_problems(version: str | None) -> list[str]:
+    """The started server's own GET /api/version against the pin."""
+    if version != PINNED["ollama_version"]:
+        return [f"started Ollama server reports {version!r} != pinned {PINNED['ollama_version']}"]
+    return []
+
+
 # ── local Ollama ────────────────────────────────────────────────────────────────────────────────────
 
 class LocalOllama:
@@ -250,20 +314,17 @@ class LocalOllama:
             time.sleep(poll_s)
         return False
 
+    def server_version(self, timeout=10) -> str | None:
+        """GET /api/version of the server on self.base (the one this object started)."""
+        try:
+            with urllib.request.urlopen(f"{self.base}/api/version", timeout=timeout) as r:
+                return json.loads(r.read()).get("version")
+        except Exception:
+            return None
+
     def stop(self, wait_s=20) -> list[dict]:
         """Kills every Ollama process (server, tray app, Ollama's own runners) and waits until none is listed."""
-        killed = []
-        deadline = time.monotonic() + wait_s
-        while True:
-            left = ollama_processes(self.procs_fn())
-            if not left:
-                break
-            for p in left:
-                kill_pid(p["pid"], self.run)
-                killed.append({"pid": p["pid"], "name": p["name"]})
-            if time.monotonic() > deadline:
-                break
-            time.sleep(1)
+        killed = stop_all_ollama(procs_fn=self.procs_fn, run=self.run, wait_s=wait_s)["killed"]
         if self._log_fh is not None:
             try:
                 self._log_fh.close()

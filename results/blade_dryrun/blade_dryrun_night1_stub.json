@@ -1,234 +1,902 @@
-{
- "night": 1,
- "summary": {
+[
+ {
   "night": 1,
-  "started_utc": "2026-10-08T21:41:50.918972+00:00",
-  "refused": null,
-  "power": {
-   "log": "%USERPROFILE%\\AppData\\Local\\Temp\\blade_night_stub_jxb72_q8\\logs\\night1_power_20261008T214150Z.json",
-   "original": {
-    "SUB_SLEEP/STANDBYIDLE": {
-     "ac": 1800,
-     "dc": 1800
-    },
-    "SUB_SLEEP/HIBERNATEIDLE": {
-     "ac": 10800,
-     "dc": 10800
-    },
-    "SUB_BUTTONS/LIDACTION": {
-     "ac": 1,
-     "dc": 1
-    }
-   },
-   "night_values": {
-    "SUB_SLEEP/STANDBYIDLE": {
-     "ac": 0,
-     "dc": 0
-    },
-    "SUB_SLEEP/HIBERNATEIDLE": {
-     "ac": 0,
-     "dc": 0
-    },
-    "SUB_BUTTONS/LIDACTION": {
-     "ac": 0,
-     "dc": 0
-    }
-   },
-   "restored_values": {
-    "SUB_SLEEP/STANDBYIDLE": {
-     "ac": 1800,
-     "dc": 1800
-    },
-    "SUB_SLEEP/HIBERNATEIDLE": {
-     "ac": 10800,
-     "dc": 10800
-    },
-    "SUB_BUTTONS/LIDACTION": {
-     "ac": 1,
-     "dc": 1
-    }
-   },
-   "restored": true,
-   "errors": []
-  },
-  "queue": {
+  "summary": {
    "night": 1,
-   "jobs": [
-    {
-     "id": "blade_k1_v1",
-     "status": "done",
-     "rc": 0,
-     "outputs": [
-      "results/blade_k1_v1.jsonl",
-      "results/blade_k1_v1.summary.json"
-     ],
-     "log": "C:\\apu\\blade\\logs\\blade_k1_v1.log"
+   "started_utc": "2026-10-09T06:07:54.834235+00:00",
+   "refused": null,
+   "power": {
+    "log": "%USERPROFILE%\\AppData\\Local\\Temp\\blade_night_stub_wluctkgt\\logs\\night1_power_20261009T060754Z.json",
+    "original": {
+     "SUB_SLEEP/STANDBYIDLE": {
+      "ac": 3600,
+      "dc": 3600
+     },
+     "SUB_SLEEP/HIBERNATEIDLE": {
+      "ac": 0,
+      "dc": 0
+     },
+     "SUB_BUTTONS/LIDACTION": {
+      "ac": null,
+      "dc": null
+     }
     },
-    {
-     "id": "blade_r2_validation_v1",
-     "status": "done",
-     "rc": 0,
-     "outputs": [
-      "results/blade_r2_validation_v1.jsonl"
-     ],
-     "log": "C:\\apu\\blade\\logs\\blade_r2_validation_v1.log"
+    "night_values": {
+     "SUB_SLEEP/STANDBYIDLE": {
+      "ac": 0,
+      "dc": 0
+     },
+     "SUB_SLEEP/HIBERNATEIDLE": {
+      "ac": 0,
+      "dc": 0
+     },
+     "SUB_BUTTONS/LIDACTION": {
+      "ac": null,
+      "dc": null
+     }
     },
-    {
-     "id": "blade_r2_real_v1",
-     "status": "done",
-     "rc": 0,
-     "outputs": [
-      "results/blade_r2_real_v1.jsonl"
-     ],
-     "log": "C:\\apu\\blade\\logs\\blade_r2_real_v1.log"
+    "restored_values": {
+     "SUB_SLEEP/STANDBYIDLE": {
+      "ac": 3600,
+      "dc": 3600
+     },
+     "SUB_SLEEP/HIBERNATEIDLE": {
+      "ac": 0,
+      "dc": 0
+     },
+     "SUB_BUTTONS/LIDACTION": {
+      "ac": null,
+      "dc": null
+     }
     },
-    {
-     "id": "blade_r2_mitigation_v1",
-     "status": "done",
-     "rc": 0,
-     "outputs": [
-      "results/blade_r2_mitigation_v1.jsonl"
-     ],
-     "log": "C:\\apu\\blade\\logs\\blade_r2_mitigation_v1.log"
+    "restored": true,
+    "errors": [],
+    "mismatched": [],
+    "not_applicable": [
+     "SUB_BUTTONS/LIDACTION"
+    ]
+   },
+   "queue": {
+    "night": 1,
+    "jobs": [
+     {
+      "id": "blade_k1_v2",
+      "status": "done",
+      "rc": 0,
+      "outputs": [
+       "results/blade_k1_v2.jsonl",
+       "results/blade_k1_v2.summary.json"
+      ],
+      "log": "C:\\apu\\blade\\logs\\blade_k1_v2.log"
+     },
+     {
+      "id": "blade_r2_validation_v2",
+      "status": "done",
+      "rc": 0,
+      "outputs": [
+       "results/blade_r2_validation_v2.jsonl"
+      ],
+      "log": "C:\\apu\\blade\\logs\\blade_r2_validation_v2.log"
+     },
+     {
+      "id": "blade_r2_gate_v2",
+      "status": "done",
+      "rc": 0,
+      "outputs": [
+       "results/blade_r2_gate_v2.json"
+      ],
+      "log": "C:\\apu\\blade\\logs\\blade_r2_gate_v2.log"
+     },
+     {
+      "id": "blade_r2_real_v2",
+      "status": "done",
+      "rc": 0,
+      "outputs": [
+       "results/blade_r2_real_v2.jsonl"
+      ],
+      "log": "C:\\apu\\blade\\logs\\blade_r2_real_v2.log"
+     },
+     {
+      "id": "blade_r2_mitigation_v2",
+      "status": "done",
+      "rc": 0,
+      "outputs": [
+       "results/blade_r2_mitigation_v2.jsonl"
+      ],
+      "log": "C:\\apu\\blade\\logs\\blade_r2_mitigation_v2.log"
+     },
+     {
+      "id": "blade_r2_mechanism_4096_v2",
+      "status": "skipped",
+      "reason": "skipped: negative control clean (0 canary misses); real and mitigation run instead"
+     }
+    ],
+    "stopped_early": null,
+    "gate_decisions": {
+     "blade_r2_gate_v2": {
+      "branch": "real",
+      "canary_misses": 0,
+      "n_neg_sessions": 5,
+      "per_session": [
+       {
+        "seed": 20260901,
+        "canary_checks": 2,
+        "canary_sys_misses": 0,
+        "canary_hist_misses": 0,
+        "canary_misses": 0
+       },
+       {
+        "seed": 20260902,
+        "canary_checks": 2,
+        "canary_sys_misses": 0,
+        "canary_hist_misses": 0,
+        "canary_misses": 0
+       },
+       {
+        "seed": 20260903,
+        "canary_checks": 2,
+        "canary_sys_misses": 0,
+        "canary_hist_misses": 0,
+        "canary_misses": 0
+       },
+       {
+        "seed": 20260904,
+        "canary_checks": 2,
+        "canary_sys_misses": 0,
+        "canary_hist_misses": 0,
+        "canary_misses": 0
+       },
+       {
+        "seed": 20260905,
+        "canary_checks": 2,
+        "canary_sys_misses": 0,
+        "canary_hist_misses": 0,
+        "canary_misses": 0
+       }
+      ],
+      "skipped_reason": "skipped: negative control clean (0 canary misses); real and mitigation run instead",
+      "open_finding": null,
+      "rules_in_use": null
+     }
     }
-   ],
-   "stopped_early": null
-  },
-  "ended_utc": "2026-10-08T21:41:51.267033+00:00",
-  "summary_file": "%USERPROFILE%\\AppData\\Local\\Temp\\blade_night_stub_jxb72_q8\\results\\blade_night1_summary_20261008T214150Z.json"
- },
- "power_call_order": [
-  "/setacvalueindex SUB_SLEEP STANDBYIDLE 0",
-  "/setacvalueindex SUB_SLEEP HIBERNATEIDLE 0",
-  "/setacvalueindex SUB_BUTTONS LIDACTION 0",
-  "/setactive",
-  "/setacvalueindex SUB_SLEEP STANDBYIDLE 1800",
-  "/setacvalueindex SUB_SLEEP HIBERNATEIDLE 10800",
-  "/setacvalueindex SUB_BUTTONS LIDACTION 1",
-  "/setactive"
- ],
- "jobs": [
-  {
-   "event": "job",
-   "id": "blade_k1_v1",
-   "module": "blade_k1",
-   "parsed": {
-    "out": "results/blade_k1_v1.jsonl",
-    "models": "llama3.1:8b,qwen3:8b,qwen3-4b-2507-tools",
-    "ollama_exe": "C:\\apu\\bin\\ollama-0.34.4\\ollama.exe",
-    "llama_server_exe": null,
-    "skip_llamacpp": false,
-    "dry_run_seconds": null,
-    "allow_version_mismatch": false
    },
-   "outputs": [
-    "results/blade_k1_v1.jsonl",
-    "results/blade_k1_v1.summary.json"
-   ],
-   "outputs_prefixed_blade": true
+   "ended_utc": "2026-10-09T06:07:55.196223+00:00",
+   "summary_file": "%USERPROFILE%\\AppData\\Local\\Temp\\blade_night_stub_wluctkgt\\results\\blade_night1_summary_20261009T060754Z.json"
   },
-  {
-   "event": "job",
-   "id": "blade_r2_validation_v1",
-   "module": "blade_r2",
-   "parsed": {
-    "mode": "validation",
-    "out": "results/blade_r2_validation_v1.jsonl",
-    "models": "llama3.1:8b",
-    "models_if_fit": "",
-    "k1_summary": null,
-    "tiers": null,
-    "seeds": null,
-    "turns": null,
-    "client_trim": null,
-    "rules_from": null,
-    "require_validation_gates": false,
-    "order": "seed_major",
-    "ollama_exe": "C:\\apu\\bin\\ollama-0.34.4\\ollama.exe",
-    "dry_run_seconds": null,
-    "allow_version_mismatch": false
+  "power_call_order": [
+   "/setacvalueindex SUB_SLEEP STANDBYIDLE 0",
+   "/setacvalueindex SUB_SLEEP HIBERNATEIDLE 0",
+   "/setactive",
+   "/setacvalueindex SUB_SLEEP STANDBYIDLE 3600",
+   "/setacvalueindex SUB_SLEEP HIBERNATEIDLE 0",
+   "/setactive"
+  ],
+  "jobs": [
+   {
+    "event": "job",
+    "id": "blade_k1_v2",
+    "module": "blade_k1",
+    "parsed": {
+     "out": "results/blade_k1_v2.jsonl",
+     "models": "llama3.1:8b,qwen3:8b,qwen3-4b-2507-tools",
+     "ollama_exe": "C:\\apu\\bin\\ollama-0.34.4\\ollama.exe",
+     "llama_server_exe": null,
+     "skip_llamacpp": false,
+     "dry_run_seconds": null,
+     "allow_version_mismatch": false
+    },
+    "outputs": [
+     "results/blade_k1_v2.jsonl",
+     "results/blade_k1_v2.summary.json"
+    ],
+    "outputs_prefixed_blade": true
    },
-   "outputs": [
-    "results/blade_r2_validation_v1.jsonl"
-   ],
-   "outputs_prefixed_blade": true
-  },
-  {
-   "event": "job",
-   "id": "blade_r2_real_v1",
-   "module": "blade_r2",
-   "parsed": {
-    "mode": "real",
-    "out": "results/blade_r2_real_v1.jsonl",
-    "models": "llama3.1:8b",
-    "models_if_fit": "",
-    "k1_summary": null,
-    "tiers": "default,4096,32768",
-    "seeds": null,
-    "turns": null,
-    "client_trim": null,
-    "rules_from": "results/blade_r2_validation_v1.jsonl",
-    "require_validation_gates": true,
-    "order": "seed_major",
-    "ollama_exe": "C:\\apu\\bin\\ollama-0.34.4\\ollama.exe",
-    "dry_run_seconds": null,
-    "allow_version_mismatch": false
+   {
+    "event": "job",
+    "id": "blade_r2_validation_v2",
+    "module": "blade_r2",
+    "parsed": {
+     "mode": "validation",
+     "out": "results/blade_r2_validation_v2.jsonl",
+     "models": "llama3.1:8b",
+     "models_if_fit": "",
+     "k1_summary": null,
+     "tiers": null,
+     "seeds": null,
+     "turns": null,
+     "neg_sessions": 5,
+     "client_trim": null,
+     "rules_from": null,
+     "require_validation_gates": false,
+     "order": "seed_major",
+     "ollama_exe": "C:\\apu\\bin\\ollama-0.34.4\\ollama.exe",
+     "dry_run_seconds": null,
+     "allow_version_mismatch": false
+    },
+    "outputs": [
+     "results/blade_r2_validation_v2.jsonl"
+    ],
+    "outputs_prefixed_blade": true,
+    "plan": [
+     [
+      "ollama_ctx_32768_negative_control_call2_notools",
+      [
+       20260901,
+       20260902,
+       20260903,
+       20260904,
+       20260905
+      ],
+      10
+     ],
+     [
+      "ollama_ctx_8192_positive_control_call2_notools",
+      [
+       20260901
+      ],
+      15
+     ],
+     [
+      "ollama_ctx_32768_negative_control",
+      [
+       20260901,
+       20260902,
+       20260903
+      ],
+      10
+     ]
+    ]
    },
-   "outputs": [
-    "results/blade_r2_real_v1.jsonl"
-   ],
-   "outputs_prefixed_blade": true
-  },
-  {
-   "event": "job",
-   "id": "blade_r2_mitigation_v1",
-   "module": "blade_r2",
-   "parsed": {
-    "mode": "mitigation",
-    "out": "results/blade_r2_mitigation_v1.jsonl",
-    "models": "llama3.1:8b",
-    "models_if_fit": "",
-    "k1_summary": "results/blade_k1_v1.summary.json",
-    "tiers": "default,4096,8192",
-    "seeds": null,
-    "turns": null,
-    "client_trim": "margin=0.05",
-    "rules_from": "results/blade_r2_validation_v1.jsonl",
-    "require_validation_gates": true,
-    "order": "seed_major",
-    "ollama_exe": "C:\\apu\\bin\\ollama-0.34.4\\ollama.exe",
-    "dry_run_seconds": null,
-    "allow_version_mismatch": false
+   {
+    "event": "job",
+    "id": "blade_r2_gate_v2",
+    "module": "blade_r2_gate",
+    "parsed": {
+     "validation": "results/blade_r2_validation_v2.jsonl",
+     "out": "results/blade_r2_gate_v2.json",
+     "model": "llama3.1:8b",
+     "neg_sessions": 5
+    },
+    "outputs": [
+     "results/blade_r2_gate_v2.json"
+    ],
+    "outputs_prefixed_blade": true,
+    "decision": {
+     "ok": true,
+     "record": "blade_r2_gate",
+     "validation": "results/blade_r2_validation_v2.jsonl",
+     "model": "llama3.1:8b",
+     "neg_arm": "ollama_ctx_32768_negative_control",
+     "num_ctx": 32768,
+     "call2_mode": "off",
+     "n_neg_sessions": 5,
+     "neg_sessions_required": 5,
+     "per_session": [
+      {
+       "seed": 20260901,
+       "canary_checks": 2,
+       "canary_sys_misses": 0,
+       "canary_hist_misses": 0,
+       "canary_misses": 0
+      },
+      {
+       "seed": 20260902,
+       "canary_checks": 2,
+       "canary_sys_misses": 0,
+       "canary_hist_misses": 0,
+       "canary_misses": 0
+      },
+      {
+       "seed": 20260903,
+       "canary_checks": 2,
+       "canary_sys_misses": 0,
+       "canary_hist_misses": 0,
+       "canary_misses": 0
+      },
+      {
+       "seed": 20260904,
+       "canary_checks": 2,
+       "canary_sys_misses": 0,
+       "canary_hist_misses": 0,
+       "canary_misses": 0
+      },
+      {
+       "seed": 20260905,
+       "canary_checks": 2,
+       "canary_sys_misses": 0,
+       "canary_hist_misses": 0,
+       "canary_misses": 0
+      }
+     ],
+     "canary_misses": 0,
+     "canary_checks": 10,
+     "branch": "real",
+     "rules_in_use": null,
+     "failing_rules": null,
+     "positive_control": {
+      "pass": true,
+      "n_sessions": 1,
+      "truncation_detected_turns": [
+       10
+      ],
+      "canary_sys_misses": 0,
+      "canary_hist_misses": 0,
+      "first_over_window_turns": [
+       6
+      ],
+      "loaded_context_values": [
+       8192
+      ]
+     },
+     "recall": null,
+     "skipped_reason": "skipped: negative control clean (0 canary misses); real and mitigation run instead",
+     "open_finding": null,
+     "decided_utc": "2026-10-09T06:07:55.178569+00:00"
+    }
    },
-   "outputs": [
-    "results/blade_r2_mitigation_v1.jsonl"
-   ],
-   "outputs_prefixed_blade": true,
-   "x2_r2_agent_argv": [
-    "--mode",
-    "mitigation",
-    "--client-trim",
-    "margin=0.05",
-    "--call2-tools",
-    "off",
-    "--out",
-    "results/blade_r2_mitigation_v1.jsonl",
-    "--models",
-    "llama3.1:8b",
-    "--order",
-    "seed_major",
-    "--rules-from",
-    "results/blade_r2_validation_v1.jsonl",
-    "--require-validation-gates",
-    "--per-model-refusal"
-   ],
-   "client_trim": {
-    "margin": 0.05
+   {
+    "event": "job",
+    "id": "blade_r2_real_v2",
+    "module": "blade_r2",
+    "parsed": {
+     "mode": "real",
+     "out": "results/blade_r2_real_v2.jsonl",
+     "models": "llama3.1:8b",
+     "models_if_fit": "",
+     "k1_summary": null,
+     "tiers": "default,4096,32768",
+     "seeds": null,
+     "turns": null,
+     "neg_sessions": null,
+     "client_trim": null,
+     "rules_from": "results/blade_r2_validation_v2.jsonl",
+     "require_validation_gates": true,
+     "order": "seed_major",
+     "ollama_exe": "C:\\apu\\bin\\ollama-0.34.4\\ollama.exe",
+     "dry_run_seconds": null,
+     "allow_version_mismatch": false
+    },
+    "outputs": [
+     "results/blade_r2_real_v2.jsonl"
+    ],
+    "outputs_prefixed_blade": true
+   },
+   {
+    "event": "job",
+    "id": "blade_r2_mitigation_v2",
+    "module": "blade_r2",
+    "parsed": {
+     "mode": "mitigation",
+     "out": "results/blade_r2_mitigation_v2.jsonl",
+     "models": "llama3.1:8b",
+     "models_if_fit": "",
+     "k1_summary": "results/blade_k1_v2.summary.json",
+     "tiers": "default,4096,8192",
+     "seeds": null,
+     "turns": null,
+     "neg_sessions": null,
+     "client_trim": "margin=0.05",
+     "rules_from": "results/blade_r2_validation_v2.jsonl",
+     "require_validation_gates": true,
+     "order": "seed_major",
+     "ollama_exe": "C:\\apu\\bin\\ollama-0.34.4\\ollama.exe",
+     "dry_run_seconds": null,
+     "allow_version_mismatch": false
+    },
+    "outputs": [
+     "results/blade_r2_mitigation_v2.jsonl"
+    ],
+    "outputs_prefixed_blade": true,
+    "x2_r2_agent_argv": [
+     "--mode",
+     "mitigation",
+     "--client-trim",
+     "margin=0.05",
+     "--call2-tools",
+     "off",
+     "--out",
+     "results/blade_r2_mitigation_v2.jsonl",
+     "--models",
+     "llama3.1:8b",
+     "--order",
+     "seed_major",
+     "--rules-from",
+     "results/blade_r2_validation_v2.jsonl",
+     "--require-validation-gates",
+     "--per-model-refusal"
+    ],
+    "client_trim": {
+     "margin": 0.05
+    }
    }
-  }
- ],
- "set_before_first_job": true,
- "restore_after_last_job": true,
- "final_values_equal_original": true,
- "all_outputs_prefixed_blade": true
-}
+  ],
+  "set_before_first_job": true,
+  "restore_after_last_job": true,
+  "final_values_equal_original": true,
+  "power_restored": true,
+  "all_outputs_prefixed_blade": true,
+  "gate_misses": 0,
+  "gate_decisions": {
+   "blade_r2_gate_v2": {
+    "branch": "real",
+    "canary_misses": 0,
+    "n_neg_sessions": 5,
+    "per_session": [
+     {
+      "seed": 20260901,
+      "canary_checks": 2,
+      "canary_sys_misses": 0,
+      "canary_hist_misses": 0,
+      "canary_misses": 0
+     },
+     {
+      "seed": 20260902,
+      "canary_checks": 2,
+      "canary_sys_misses": 0,
+      "canary_hist_misses": 0,
+      "canary_misses": 0
+     },
+     {
+      "seed": 20260903,
+      "canary_checks": 2,
+      "canary_sys_misses": 0,
+      "canary_hist_misses": 0,
+      "canary_misses": 0
+     },
+     {
+      "seed": 20260904,
+      "canary_checks": 2,
+      "canary_sys_misses": 0,
+      "canary_hist_misses": 0,
+      "canary_misses": 0
+     },
+     {
+      "seed": 20260905,
+      "canary_checks": 2,
+      "canary_sys_misses": 0,
+      "canary_hist_misses": 0,
+      "canary_misses": 0
+     }
+    ],
+    "skipped_reason": "skipped: negative control clean (0 canary misses); real and mitigation run instead",
+    "open_finding": null,
+    "rules_in_use": null
+   }
+  },
+  "ran": [
+   "blade_k1_v2",
+   "blade_r2_validation_v2",
+   "blade_r2_gate_v2",
+   "blade_r2_real_v2",
+   "blade_r2_mitigation_v2"
+  ],
+  "skipped": {
+   "blade_r2_mechanism_4096_v2": "skipped: negative control clean (0 canary misses); real and mitigation run instead"
+  },
+  "branch_ok": true
+ },
+ {
+  "night": 1,
+  "summary": {
+   "night": 1,
+   "started_utc": "2026-10-09T06:07:55.201223+00:00",
+   "refused": null,
+   "power": {
+    "log": "%USERPROFILE%\\AppData\\Local\\Temp\\blade_night_stub_1p6rs_f6\\logs\\night1_power_20261009T060755Z.json",
+    "original": {
+     "SUB_SLEEP/STANDBYIDLE": {
+      "ac": 3600,
+      "dc": 3600
+     },
+     "SUB_SLEEP/HIBERNATEIDLE": {
+      "ac": 0,
+      "dc": 0
+     },
+     "SUB_BUTTONS/LIDACTION": {
+      "ac": null,
+      "dc": null
+     }
+    },
+    "night_values": {
+     "SUB_SLEEP/STANDBYIDLE": {
+      "ac": 0,
+      "dc": 0
+     },
+     "SUB_SLEEP/HIBERNATEIDLE": {
+      "ac": 0,
+      "dc": 0
+     },
+     "SUB_BUTTONS/LIDACTION": {
+      "ac": null,
+      "dc": null
+     }
+    },
+    "restored_values": {
+     "SUB_SLEEP/STANDBYIDLE": {
+      "ac": 3600,
+      "dc": 3600
+     },
+     "SUB_SLEEP/HIBERNATEIDLE": {
+      "ac": 0,
+      "dc": 0
+     },
+     "SUB_BUTTONS/LIDACTION": {
+      "ac": null,
+      "dc": null
+     }
+    },
+    "restored": true,
+    "errors": [],
+    "mismatched": [],
+    "not_applicable": [
+     "SUB_BUTTONS/LIDACTION"
+    ]
+   },
+   "queue": {
+    "night": 1,
+    "jobs": [
+     {
+      "id": "blade_k1_v2",
+      "status": "done",
+      "rc": 0,
+      "outputs": [
+       "results/blade_k1_v2.jsonl",
+       "results/blade_k1_v2.summary.json"
+      ],
+      "log": "C:\\apu\\blade\\logs\\blade_k1_v2.log"
+     },
+     {
+      "id": "blade_r2_validation_v2",
+      "status": "done",
+      "rc": 0,
+      "outputs": [
+       "results/blade_r2_validation_v2.jsonl"
+      ],
+      "log": "C:\\apu\\blade\\logs\\blade_r2_validation_v2.log"
+     },
+     {
+      "id": "blade_r2_gate_v2",
+      "status": "done",
+      "rc": 0,
+      "outputs": [
+       "results/blade_r2_gate_v2.json"
+      ],
+      "log": "C:\\apu\\blade\\logs\\blade_r2_gate_v2.log"
+     },
+     {
+      "id": "blade_r2_real_v2",
+      "status": "skipped",
+      "reason": "skipped: negative-control canary misses 2"
+     },
+     {
+      "id": "blade_r2_mitigation_v2",
+      "status": "skipped",
+      "reason": "skipped: negative-control canary misses 2"
+     },
+     {
+      "id": "blade_r2_mechanism_4096_v2",
+      "status": "done",
+      "rc": 0,
+      "outputs": [
+       "results/blade_r2_mechanism_4096_v2.jsonl"
+      ],
+      "log": "C:\\apu\\blade\\logs\\blade_r2_mechanism_4096_v2.log"
+     }
+    ],
+    "stopped_early": null,
+    "gate_decisions": {
+     "blade_r2_gate_v2": {
+      "branch": "mechanism",
+      "canary_misses": 2,
+      "n_neg_sessions": 5,
+      "per_session": [
+       {
+        "seed": 20260901,
+        "canary_checks": 2,
+        "canary_sys_misses": 0,
+        "canary_hist_misses": 0,
+        "canary_misses": 0
+       },
+       {
+        "seed": 20260902,
+        "canary_checks": 2,
+        "canary_sys_misses": 0,
+        "canary_hist_misses": 0,
+        "canary_misses": 0
+       },
+       {
+        "seed": 20260903,
+        "canary_checks": 2,
+        "canary_sys_misses": 0,
+        "canary_hist_misses": 0,
+        "canary_misses": 0
+       },
+       {
+        "seed": 20260904,
+        "canary_checks": 2,
+        "canary_sys_misses": 0,
+        "canary_hist_misses": 0,
+        "canary_misses": 0
+       },
+       {
+        "seed": 20260905,
+        "canary_checks": 2,
+        "canary_sys_misses": 0,
+        "canary_hist_misses": 2,
+        "canary_misses": 2
+       }
+      ],
+      "skipped_reason": "skipped: negative-control canary misses 2",
+      "open_finding": "Blade llama3.1:8b negative control at num_ctx 32768: 2 canary misses in 5 sessions (recall rate None over None turns), with no truncation expected at that window; real and mitigation not run, mechanism run at 4096 instead. Open: why the canaries are lost on the Blade.",
+      "rules_in_use": null
+     }
+    }
+   },
+   "ended_utc": "2026-10-09T06:07:55.233694+00:00",
+   "summary_file": "%USERPROFILE%\\AppData\\Local\\Temp\\blade_night_stub_1p6rs_f6\\results\\blade_night1_summary_20261009T060755Z.json"
+  },
+  "power_call_order": [
+   "/setacvalueindex SUB_SLEEP STANDBYIDLE 0",
+   "/setacvalueindex SUB_SLEEP HIBERNATEIDLE 0",
+   "/setactive",
+   "/setacvalueindex SUB_SLEEP STANDBYIDLE 3600",
+   "/setacvalueindex SUB_SLEEP HIBERNATEIDLE 0",
+   "/setactive"
+  ],
+  "jobs": [
+   {
+    "event": "job",
+    "id": "blade_k1_v2",
+    "module": "blade_k1",
+    "parsed": {
+     "out": "results/blade_k1_v2.jsonl",
+     "models": "llama3.1:8b,qwen3:8b,qwen3-4b-2507-tools",
+     "ollama_exe": "C:\\apu\\bin\\ollama-0.34.4\\ollama.exe",
+     "llama_server_exe": null,
+     "skip_llamacpp": false,
+     "dry_run_seconds": null,
+     "allow_version_mismatch": false
+    },
+    "outputs": [
+     "results/blade_k1_v2.jsonl",
+     "results/blade_k1_v2.summary.json"
+    ],
+    "outputs_prefixed_blade": true
+   },
+   {
+    "event": "job",
+    "id": "blade_r2_validation_v2",
+    "module": "blade_r2",
+    "parsed": {
+     "mode": "validation",
+     "out": "results/blade_r2_validation_v2.jsonl",
+     "models": "llama3.1:8b",
+     "models_if_fit": "",
+     "k1_summary": null,
+     "tiers": null,
+     "seeds": null,
+     "turns": null,
+     "neg_sessions": 5,
+     "client_trim": null,
+     "rules_from": null,
+     "require_validation_gates": false,
+     "order": "seed_major",
+     "ollama_exe": "C:\\apu\\bin\\ollama-0.34.4\\ollama.exe",
+     "dry_run_seconds": null,
+     "allow_version_mismatch": false
+    },
+    "outputs": [
+     "results/blade_r2_validation_v2.jsonl"
+    ],
+    "outputs_prefixed_blade": true,
+    "plan": [
+     [
+      "ollama_ctx_32768_negative_control_call2_notools",
+      [
+       20260901,
+       20260902,
+       20260903,
+       20260904,
+       20260905
+      ],
+      10
+     ],
+     [
+      "ollama_ctx_8192_positive_control_call2_notools",
+      [
+       20260901
+      ],
+      15
+     ],
+     [
+      "ollama_ctx_32768_negative_control",
+      [
+       20260901,
+       20260902,
+       20260903
+      ],
+      10
+     ]
+    ]
+   },
+   {
+    "event": "job",
+    "id": "blade_r2_gate_v2",
+    "module": "blade_r2_gate",
+    "parsed": {
+     "validation": "results/blade_r2_validation_v2.jsonl",
+     "out": "results/blade_r2_gate_v2.json",
+     "model": "llama3.1:8b",
+     "neg_sessions": 5
+    },
+    "outputs": [
+     "results/blade_r2_gate_v2.json"
+    ],
+    "outputs_prefixed_blade": true,
+    "decision": {
+     "ok": true,
+     "record": "blade_r2_gate",
+     "validation": "results/blade_r2_validation_v2.jsonl",
+     "model": "llama3.1:8b",
+     "neg_arm": "ollama_ctx_32768_negative_control",
+     "num_ctx": 32768,
+     "call2_mode": "off",
+     "n_neg_sessions": 5,
+     "neg_sessions_required": 5,
+     "per_session": [
+      {
+       "seed": 20260901,
+       "canary_checks": 2,
+       "canary_sys_misses": 0,
+       "canary_hist_misses": 0,
+       "canary_misses": 0
+      },
+      {
+       "seed": 20260902,
+       "canary_checks": 2,
+       "canary_sys_misses": 0,
+       "canary_hist_misses": 0,
+       "canary_misses": 0
+      },
+      {
+       "seed": 20260903,
+       "canary_checks": 2,
+       "canary_sys_misses": 0,
+       "canary_hist_misses": 0,
+       "canary_misses": 0
+      },
+      {
+       "seed": 20260904,
+       "canary_checks": 2,
+       "canary_sys_misses": 0,
+       "canary_hist_misses": 0,
+       "canary_misses": 0
+      },
+      {
+       "seed": 20260905,
+       "canary_checks": 2,
+       "canary_sys_misses": 0,
+       "canary_hist_misses": 2,
+       "canary_misses": 2
+      }
+     ],
+     "canary_misses": 2,
+     "canary_checks": 10,
+     "branch": "mechanism",
+     "rules_in_use": null,
+     "failing_rules": null,
+     "positive_control": {
+      "pass": true,
+      "n_sessions": 1,
+      "truncation_detected_turns": [
+       10
+      ],
+      "canary_sys_misses": 0,
+      "canary_hist_misses": 0,
+      "first_over_window_turns": [
+       6
+      ],
+      "loaded_context_values": [
+       8192
+      ]
+     },
+     "recall": null,
+     "skipped_reason": "skipped: negative-control canary misses 2",
+     "open_finding": "Blade llama3.1:8b negative control at num_ctx 32768: 2 canary misses in 5 sessions (recall rate None over None turns), with no truncation expected at that window; real and mitigation not run, mechanism run at 4096 instead. Open: why the canaries are lost on the Blade.",
+     "decided_utc": "2026-10-09T06:07:55.219708+00:00"
+    }
+   },
+   {
+    "event": "job",
+    "id": "blade_r2_mechanism_4096_v2",
+    "module": "blade_r2",
+    "parsed": {
+     "mode": "mechanism",
+     "out": "results/blade_r2_mechanism_4096_v2.jsonl",
+     "models": "llama3.1:8b",
+     "models_if_fit": "",
+     "k1_summary": null,
+     "tiers": "4096",
+     "seeds": null,
+     "turns": null,
+     "neg_sessions": null,
+     "client_trim": null,
+     "rules_from": null,
+     "require_validation_gates": false,
+     "order": "seed_major",
+     "ollama_exe": "C:\\apu\\bin\\ollama-0.34.4\\ollama.exe",
+     "dry_run_seconds": null,
+     "allow_version_mismatch": false
+    },
+    "outputs": [
+     "results/blade_r2_mechanism_4096_v2.jsonl"
+    ],
+    "outputs_prefixed_blade": true
+   }
+  ],
+  "set_before_first_job": true,
+  "restore_after_last_job": true,
+  "final_values_equal_original": true,
+  "power_restored": true,
+  "all_outputs_prefixed_blade": true,
+  "gate_misses": 2,
+  "gate_decisions": {
+   "blade_r2_gate_v2": {
+    "branch": "mechanism",
+    "canary_misses": 2,
+    "n_neg_sessions": 5,
+    "per_session": [
+     {
+      "seed": 20260901,
+      "canary_checks": 2,
+      "canary_sys_misses": 0,
+      "canary_hist_misses": 0,
+      "canary_misses": 0
+     },
+     {
+      "seed": 20260902,
+      "canary_checks": 2,
+      "canary_sys_misses": 0,
+      "canary_hist_misses": 0,
+      "canary_misses": 0
+     },
+     {
+      "seed": 20260903,
+      "canary_checks": 2,
+      "canary_sys_misses": 0,
+      "canary_hist_misses": 0,
+      "canary_misses": 0
+     },
+     {
+      "seed": 20260904,
+      "canary_checks": 2,
+      "canary_sys_misses": 0,
+      "canary_hist_misses": 0,
+      "canary_misses": 0
+     },
+     {
+      "seed": 20260905,
+      "canary_checks": 2,
+      "canary_sys_misses": 0,
+      "canary_hist_misses": 2,
+      "canary_misses": 2
+     }
+    ],
+    "skipped_reason": "skipped: negative-control canary misses 2",
+    "open_finding": "Blade llama3.1:8b negative control at num_ctx 32768: 2 canary misses in 5 sessions (recall rate None over None turns), with no truncation expected at that window; real and mitigation not run, mechanism run at 4096 instead. Open: why the canaries are lost on the Blade.",
+    "rules_in_use": null
+   }
+  },
+  "ran": [
+   "blade_k1_v2",
+   "blade_r2_validation_v2",
+   "blade_r2_gate_v2",
+   "blade_r2_mechanism_4096_v2"
+  ],
+  "skipped": {
+   "blade_r2_real_v2": "skipped: negative-control canary misses 2",
+   "blade_r2_mitigation_v2": "skipped: negative-control canary misses 2"
+  },
+  "branch_ok": true
+ }
+]

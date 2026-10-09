@@ -122,23 +122,106 @@ def test_unrestored_earlier_log_supplies_originals(tmp_path):
 
 def test_stub_night_passes_both_nights():
     for n in (1, 2, 3):
-        rep = bn.stub_night(n, log=lambda m: None)
-        assert rep["set_before_first_job"] and rep["restore_after_last_job"]
-        assert rep["final_values_equal_original"] and rep["all_outputs_prefixed_blade"]
-        assert len(rep["jobs"]) == len(bq.NIGHTS[n])
+        for misses in ((0, 2) if n == 1 else (0,)):
+            for layout in (None, bn.BLADE_POWER_LAYOUT):
+                rep = bn.stub_night(n, log=lambda m: None, gate_misses=misses, power_values=layout)
+                assert bn.stub_ok(rep), (n, misses, layout)
+                assert len(rep["ran"]) + len(rep["skipped"]) == len(bq.NIGHTS[n])
+
+
+def test_stub_night1_both_gate_branches():
+    real = bn.stub_night(1, log=lambda m: None, gate_misses=0)
+    assert real["ran"] == ["blade_k1_v2", "blade_r2_validation_v2", "blade_r2_gate_v2", "blade_r2_real_v2",
+                           "blade_r2_mitigation_v2"]
+    assert list(real["skipped"]) == ["blade_r2_mechanism_4096_v2"]
+    mech = bn.stub_night(1, log=lambda m: None, gate_misses=2)
+    assert mech["ran"] == ["blade_k1_v2", "blade_r2_validation_v2", "blade_r2_gate_v2", "blade_r2_mechanism_4096_v2"]
+    assert mech["skipped"] == {"blade_r2_real_v2": "skipped: negative-control canary misses 2",
+                               "blade_r2_mitigation_v2": "skipped: negative-control canary misses 2"}
+    d = mech["gate_decisions"]["blade_r2_gate_v2"]
+    assert d["branch"] == "mechanism" and d["canary_misses"] == 2 and "open" in d["open_finding"].lower()
+    val = next(j for j in mech["jobs"] if j["id"] == "blade_r2_validation_v2")
+    assert [len(s) for _, s, _ in val["plan"]] == [5, 1, 3]
 
 
 # ── queue ───────────────────────────────────────────────────────────────────────────────────────────
 
+def _decision(branch, misses=0):
+    return {"branch": branch, "canary_misses": misses,
+            "skipped_reason": f"skipped: negative-control canary misses {misses}" if misses else "skipped: clean"}
+
+
 def test_queue_resume_and_statuses(tmp_path):
     ev = []
-    codes = {"blade_r2_real_v1": 2, "blade_r2_mitigation_v1": 3}
+    codes = {"blade_r2_real_v2": 2, "blade_r2_mitigation_v2": 3}
+    rd = lambda job: _decision("real")  # noqa: E731
     s1 = bq.run_night(1, runner=recording_runner(ev, lambda j: codes.get(j["id"], 0)), state_path=tmp_path / "s.json",
-                      paused_fn=ok_paused, log=lambda m: None)
-    assert [j["status"] for j in s1["jobs"]] == ["done", "done", "error", "blocked_dependency"]
+                      paused_fn=ok_paused, log=lambda m: None, read_decision=rd)
+    assert [j["status"] for j in s1["jobs"]] == ["done", "done", "done", "error", "blocked_dependency", "skipped"]
+    assert s1["gate_decisions"]["blade_r2_gate_v2"]["branch"] == "real"
     ev.clear()
-    bq.run_night(1, runner=recording_runner(ev), state_path=tmp_path / "s.json", paused_fn=ok_paused, log=lambda m: None)
-    assert ev == [("job", "blade_r2_real_v1")]    # only the errored job reruns
+    s2 = bq.run_night(1, runner=recording_runner(ev), state_path=tmp_path / "s.json", paused_fn=ok_paused,
+                      log=lambda m: None, read_decision=rd)
+    assert ev == [("job", "blade_r2_real_v2")]    # only the errored job reruns
+    assert s2["gate_decisions"]["blade_r2_gate_v2"]["branch"] == "real"   # read back from the state on resume
+
+
+def test_queue_gate_branches_and_resume(tmp_path):
+    ev = []
+    s = bq.run_night(1, runner=recording_runner(ev), state_path=tmp_path / "s.json", paused_fn=ok_paused,
+                     log=lambda m: None, read_decision=lambda job: _decision("mechanism", 2))
+    assert [e[1] for e in ev] == ["blade_k1_v2", "blade_r2_validation_v2", "blade_r2_gate_v2",
+                                  "blade_r2_mechanism_4096_v2"]
+    st = bq.load_state(tmp_path / "s.json")["nights"]["1"]["jobs"]
+    assert st["blade_r2_real_v2"] == {**st["blade_r2_real_v2"], "status": "skipped",
+                                      "reason": "skipped: negative-control canary misses 2"}
+    assert st["blade_r2_gate_v2"]["decision"]["canary_misses"] == 2
+    assert {j["id"]: j["status"] for j in s["jobs"]}["blade_r2_mitigation_v2"] == "skipped"
+    ev.clear()
+    bq.run_night(1, runner=recording_runner(ev), state_path=tmp_path / "s.json", paused_fn=ok_paused,
+                 log=lambda m: None, read_decision=lambda job: _decision("real"))
+    assert ev == []          # gate done, skipped jobs terminal: a rerun repeats nothing and keeps the decision
+
+
+def test_queue_conditional_jobs_wait_while_gate_has_no_decision(tmp_path):
+    ev = []
+    codes = {"blade_r2_gate_v2": 2}
+    s = bq.run_night(1, runner=recording_runner(ev, lambda j: codes.get(j["id"], 0)), state_path=tmp_path / "s.json",
+                     paused_fn=ok_paused, log=lambda m: None, read_decision=lambda job: _decision("real"))
+    assert [e[1] for e in ev] == ["blade_k1_v2", "blade_r2_validation_v2", "blade_r2_gate_v2"]
+    assert [j.get("waiting") for j in s["jobs"][3:]] == ["blade_r2_gate_v2"] * 3
+    st = bq.load_state(tmp_path / "s.json")["nights"]["1"]["jobs"]
+    assert all(st[i]["status"] == "pending" for i in ("blade_r2_real_v2", "blade_r2_mitigation_v2",
+                                                       "blade_r2_mechanism_4096_v2"))
+    ev.clear()
+    bq.run_night(1, runner=recording_runner(ev), state_path=tmp_path / "s.json", paused_fn=ok_paused,
+                 log=lambda m: None, read_decision=lambda job: _decision("real"))
+    assert [e[1] for e in ev] == ["blade_r2_gate_v2", "blade_r2_real_v2", "blade_r2_mitigation_v2"]
+
+
+def test_queue_gate_rc0_without_decision_is_an_error(tmp_path):
+    ev = []
+    s = bq.run_night(1, runner=recording_runner(ev), state_path=tmp_path / "s.json", paused_fn=ok_paused,
+                     log=lambda m: None, read_decision=lambda job: None)
+    assert {j["id"]: j["status"] for j in s["jobs"]}["blade_r2_gate_v2"] == "error"
+    assert "blade_r2_real_v2" not in [e[1] for e in ev] and "blade_r2_mechanism_4096_v2" not in [e[1] for e in ev]
+
+
+def test_night1_job_ids_distinct_from_first_run_state():
+    """The live state file holds night 1's first-run entries (k1 error, validation done, real/mitigation error);
+    the rerun's ids and outputs must not collide with them, so resume skips nothing of the rerun."""
+    first = {"blade_k1_v1", "blade_r2_validation_v1", "blade_r2_real_v1", "blade_r2_mitigation_v1"}
+    first_out = {"results/blade_k1_v1.jsonl", "results/blade_k1_v1.summary.json", "results/blade_r2_validation_v1.jsonl",
+                 "results/blade_r2_real_v1.jsonl", "results/blade_r2_mitigation_v1.jsonl"}
+    st = {"nights": {"1": {"jobs": {"blade_k1_v1": {"status": "error"}, "blade_r2_validation_v1": {"status": "done"},
+                                    "blade_r2_real_v1": {"status": "error"},
+                                    "blade_r2_mitigation_v1": {"status": "error"}}}}}
+    st = bq.init_night(st, 1)
+    for j in bq.NIGHTS[1]:
+        assert j["id"] not in first and not set(j["outputs"]) & first_out
+        assert st["nights"]["1"]["jobs"][j["id"]]["status"] == "pending"
+    outs = [o for n in bq.NIGHTS.values() for j in n for o in j["outputs"]]
+    assert len(outs) == len(set(outs))
 
 
 def test_queue_reruns_a_job_left_running(tmp_path):
@@ -159,7 +242,7 @@ def test_queue_stops_when_paused_flag_removed(tmp_path):
         calls.append(1)
         return {"ok": len(calls) < 2, "reasons": ["flag removed"]}
     s = bq.run_night(1, runner=recording_runner(ev), state_path=tmp_path / "s.json", paused_fn=paused, log=lambda m: None)
-    assert ev == [("job", "blade_k1_v1")] and s["stopped_early"]["before"] == "blade_r2_validation_v1"
+    assert ev == [("job", "blade_k1_v2")] and s["stopped_early"]["before"] == "blade_r2_validation_v2"
 
 
 def test_heavy_processes_excludes_own_tree_and_ollama():
@@ -288,7 +371,7 @@ def test_r2_fit_decision_and_default_tier(tmp_path):
 
 
 def _mitigation_job_args():
-    job = next(j for j in bq.NIGHTS[1] if j["id"] == "blade_r2_mitigation_v1")
+    job = next(j for j in bq.NIGHTS[1] if j["id"] == "blade_r2_mitigation_v2")
     return blade_r2.build_arg_parser().parse_args(job["argv"][1:])
 
 
@@ -329,12 +412,13 @@ def test_mitigation_calls_x2_run_mitigation_with_blade_server(monkeypatch):
     out = bc.DRYRUN_DIR / "blade_dryrun_test_mitigation_wiring.jsonl"
     calls = {}
     monkeypatch.setattr(bc, "require_blade", lambda *a: {})
-    monkeypatch.setattr(bc, "versions_record", lambda *a, **k: {})
+    monkeypatch.setattr(bc, "pinned_versions", lambda *a, **k: ({}, []))
     monkeypatch.setattr(bc, "version_problems", lambda rec: [])
     monkeypatch.setattr(bc, "gpu_memory", lambda *a: {})
     monkeypatch.setattr(bc.LocalOllama, "start", lambda self: calls.setdefault("env", dict(self.env)))
     monkeypatch.setattr(bc.LocalOllama, "wait_ready", lambda self, **k: True)
     monkeypatch.setattr(bc.LocalOllama, "stop", lambda self, **k: [])
+    monkeypatch.setattr(bc.LocalOllama, "server_version", lambda self, **k: "0.34.4")
     monkeypatch.setattr(blade_r2.BladeOllamaRuntime, "available_models", lambda self: ["llama3.1:8b"])
     monkeypatch.setattr(blade_r2.BladeOllamaRuntime, "version", lambda self: "0.34.4")
 
@@ -443,8 +527,9 @@ def test_real_jobs_use_pinned_ollama_and_never_allow_mismatch():
 
 
 def test_three_nights_and_their_jobs():
-    assert [j["id"] for j in bq.NIGHTS[1]] == ["blade_k1_v1", "blade_r2_validation_v1", "blade_r2_real_v1",
-                                              "blade_r2_mitigation_v1"]
+    assert [j["id"] for j in bq.NIGHTS[1]] == ["blade_k1_v2", "blade_r2_validation_v2", "blade_r2_gate_v2",
+                                              "blade_r2_real_v2", "blade_r2_mitigation_v2",
+                                              "blade_r2_mechanism_4096_v2"]
     assert [j["id"] for j in bq.NIGHTS[2]] == ["blade_c3_sysmem_fallback_v1", "blade_r2_mechanism_v1"]
     assert [j["id"] for j in bq.NIGHTS[3]] == ["blade_r2_validation_qwen3_8b_v1", "blade_r2_real_qwen3_8b_v1"]
     for j in bq.NIGHTS[1] + bq.NIGHTS[2]:
@@ -456,7 +541,7 @@ def test_three_nights_and_their_jobs():
 
 def _no_server(monkeypatch, calls):
     monkeypatch.setattr(bc, "require_blade", lambda *a: {})
-    monkeypatch.setattr(bc, "versions_record", lambda *a, **k: {})
+    monkeypatch.setattr(bc, "pinned_versions", lambda *a, **k: ({}, []))
     monkeypatch.setattr(bc, "version_problems", lambda rec: [])
     monkeypatch.setattr(bc.LocalOllama, "start", lambda self: calls.append("start"))
     monkeypatch.setattr(bc.LocalOllama, "stop", lambda self, **k: [])
@@ -546,13 +631,13 @@ def test_estimator_uses_dryrun_rates_when_present(tmp_path, monkeypatch):
     sys.path.insert(0, str(REPO / "analysis"))
     import blade_hours_estimate as est
     base = est.estimate([])  # explicitly no dry-run files (the committed ones now exist)
-    real = next(j for j in base["jobs"] if j["job"].startswith("blade_r2_real_v1"))
+    real = next(j for j in base["jobs"] if j["job"].startswith("blade_r2_real_v2"))
     assert real["kind"] == "scaled" and "no Blade rate for llama3.1:8b at 4096" in real["basis"]
     f = tmp_path / "blade_dryrun_r2_real.jsonl"
     _write_dryrun(f, "llama3.1:8b", 4096, 2000, 1.0, 100, 2.0)       # prefill 2000, decode 50 tok/s
     e = est.estimate([str(f)])
     assert e["rates_used"]["llama3.1:8b@4096"]["decode_tps"] == 50
-    real = next(j for j in e["jobs"] if j["job"].startswith("blade_r2_real_v1"))
+    real = next(j for j in e["jobs"] if j["job"].startswith("blade_r2_real_v2"))
     assert real["kind"] == "mixed (rates, scaled)" and "Blade rates llama3.1:8b@4096" in real["basis"]
     assert "no Blade rate for llama3.1:8b at 32768" in real["basis"]
 
@@ -601,3 +686,181 @@ def test_run_night_gives_up_after_the_busy_wait(tmp_path):
     out = bq.run_night(1, runner=lambda job, log_path: 0, state_path=tmp_path / "s.json", paused_fn=lambda: busy,
                        log=lambda m: None, sleep_fn=sleeps.append)
     assert out["stopped_early"] is not None and sum(sleeps) >= bq.BUSY_WAIT_S
+
+
+# ── 2026-10-08 night 1 fixes (K1 version check, power not-applicable, validation rerun gate) ─────────
+
+def test_ollama_version_parse_prefers_binary_over_running_server():
+    raw = "ollama version is 0.34.1\nWarning: client version is 0.34.4"      # night 1, tray server running
+    assert bc.parse_ollama_version(raw) == "0.34.4"
+    assert bc.parse_ollama_server_reported(raw) == "0.34.1"
+    alone = "Warning: could not connect to a running Ollama instance\nWarning: client version is 0.34.4"
+    assert bc.parse_ollama_version(alone) == "0.34.4" and bc.parse_ollama_server_reported(alone) is None
+    assert bc.parse_ollama_version("ollama version is 0.34.4\n") == "0.34.4"
+
+
+def test_stop_all_ollama_kills_tray_first_and_confirms(monkeypatch):
+    procs = [{"pid": 1, "name": "ollama.exe", "path": ""}, {"pid": 2, "name": "ollama app.exe", "path": ""},
+             {"pid": 3, "name": "llama-server.exe", "path": r"D:\apps\Ollama\lib\ollama\llama-server.exe"},
+             {"pid": 4, "name": "llama-server.exe", "path": r"C:\apu\bin\llama-b10970-cuda\llama-server.exe"}]
+    killed, lists = [], []
+    monkeypatch.setattr(bc, "kill_pid", lambda pid, run=None: killed.append(pid))
+
+    def procs_fn():
+        lists.append(1)
+        return procs if len(lists) == 1 else [procs[3]]
+    r = bc.stop_all_ollama(procs_fn=procs_fn, sleep=lambda s: None)
+    assert killed[0] == 2 and sorted(killed) == [1, 2, 3] and r["confirmed"] and r["remaining"] == []
+    t = {"v": 0.0}
+
+    def clock():
+        t["v"] += 10
+        return t["v"]
+    r = bc.stop_all_ollama(procs_fn=lambda: [procs[0]], sleep=lambda s: None, clock=clock, wait_s=20)
+    assert not r["confirmed"] and r["remaining"] == [{"pid": 1, "name": "ollama.exe"}]
+
+
+class FakeRun:
+    """run_hidden stand-in: `ollama --version` answers like the real binary, depending on whether a server runs."""
+
+    def __init__(self, procs):
+        self.procs, self.calls = procs, []
+
+    def __call__(self, argv, **kw):
+        import types
+        self.calls.append(list(argv))
+        out = ""
+        if argv[0] == "taskkill":
+            pid = int(argv[-1])
+            self.procs[:] = [p for p in self.procs if p["pid"] != pid]
+        elif argv[0].endswith("ollama.exe") and argv[1:] == ["--version"]:
+            server = any(p["name"] == "ollama.exe" for p in self.procs)
+            out = ("ollama version is 0.34.1\nWarning: client version is 0.34.4" if server
+                   else "Warning: could not connect to a running Ollama instance\nWarning: client version is 0.34.4")
+        elif argv[0] == "nvidia-smi" and len(argv) > 1:
+            out = "NVIDIA GeForce RTX 4070 Laptop GPU, 610.88, 8188 MiB, 95.06.34.00.cd"
+        elif argv[0].endswith("llama-server.exe"):
+            out = "version: 1 (build 10970, commit bfdc32183)"
+        return types.SimpleNamespace(returncode=0, stdout=out, stderr="")
+
+
+def test_pinned_versions_stops_every_ollama_before_the_version_check(monkeypatch):
+    procs = [{"pid": 7, "ppid": 1, "name": "ollama app.exe", "path": ""},
+             {"pid": 8, "ppid": 7, "name": "ollama.exe", "path": r"C:\x\Ollama\ollama.exe"}]
+    run = FakeRun(procs)
+    rec, problems = bc.pinned_versions(bc.PINNED["ollama_exe"], procs_fn=lambda: list(procs), run=run)
+    kinds = [c[0] for c in run.calls]
+    first_version = next(i for i, c in enumerate(run.calls) if c[1:] == ["--version"] and "ollama" in c[0])
+    assert kinds.index("taskkill") < first_version and procs == []
+    assert run.calls[0][-1] == "7"                 # the tray app first
+    assert run.calls[first_version][0] == bc.PINNED["ollama_exe"]
+    assert rec["ollama_version"] == "0.34.4" and rec["ollama_version_server_reported"] is None
+    assert rec["ollama_stop_before_check"]["confirmed"] is True
+    assert not [p for p in problems if p.startswith("ollama") or "Ollama" in p]
+
+
+def test_pinned_versions_refuses_when_an_ollama_survives(monkeypatch):
+    survivor = [{"pid": 9, "ppid": 1, "name": "ollama.exe", "path": ""}]
+    monkeypatch.setattr(bc, "stop_all_ollama", lambda **k: {"killed": [], "remaining": [{"pid": 9}],
+                                                            "confirmed": False})
+    rec, problems = bc.pinned_versions(bc.PINNED["ollama_exe"], procs_fn=lambda: survivor, run=FakeRun(survivor))
+    assert any("still running after the stop" in p for p in problems)
+    assert any("pre-existing Ollama" in p for p in problems)      # the 0.34.1 server answered --version
+
+
+def test_k1_stops_ollama_before_version_check_and_checks_started_server(monkeypatch):
+    order = []
+    out = bc.DRYRUN_DIR / "blade_dryrun_test_k1_order.jsonl"
+    monkeypatch.setattr(bc, "require_blade", lambda *a: {})
+    monkeypatch.setattr(bc, "stop_all_ollama", lambda **k: (order.append("stop_all"),
+                                                             {"killed": [], "remaining": [], "confirmed": True})[1])
+    monkeypatch.setattr(bc, "versions_record", lambda *a, **k: (order.append("version"), {})[1])
+    monkeypatch.setattr(bc, "version_problems", lambda rec: [])
+    monkeypatch.setattr(bc.LocalOllama, "start", lambda self: order.append("start"))
+    monkeypatch.setattr(bc.LocalOllama, "wait_ready", lambda self, **k: True)
+    monkeypatch.setattr(bc.LocalOllama, "stop", lambda self, **k: [])
+    monkeypatch.setattr(bc.LocalOllama, "server_version", lambda self, **k: "0.34.1")
+    monkeypatch.setattr(bc, "list_processes", lambda *a: [])
+    try:
+        rc = blade_k1.main(["--out", str(out), "--models", "llama3.2", "--dry-run-seconds", "60"])
+        recs = [json.loads(l) for l in out.read_text().splitlines()]
+        assert order == ["stop_all", "version", "start"]
+        assert rc == 2 and any(r["record"] == "refused" and "0.34.1" in r["reasons"][0] for r in recs)
+    finally:
+        out.unlink(missing_ok=True)
+        Path(str(out.with_suffix("")) + ".summary.json").unlink(missing_ok=True)
+
+
+def test_power_not_exposed_setting_is_not_applicable(tmp_path):
+    ev = []
+    summ, fake = night(tmp_path, ev, recording_runner(ev), values=dict(bn.BLADE_POWER_LAYOUT))
+    p = summ["power"]
+    assert p["restored"] is True and p["errors"] == [] and p["not_applicable"] == ["SUB_BUTTONS/LIDACTION"]
+    assert not [e for e in ev if e[0] == "power" and e[1] == "/setacvalueindex" and e[2][1] == "LIDACTION"]
+    assert fake.values == bn.BLADE_POWER_LAYOUT
+
+
+def test_power_restored_false_only_for_an_exposed_failure(tmp_path):
+    ev = []
+    fake = bn.FakePowercfg(dict(bn.BLADE_POWER_LAYOUT))
+
+    def run(argv):
+        if argv[1] == "/setacvalueindex" and argv[4] == "STANDBYIDLE" and argv[5] != "0":
+            return ""                              # the restore of an exposed setting silently does not stick
+        return fake(argv)
+    (tmp_path / "START_BLADE_NIGHT_1.flag").write_text("go\n")
+    summ = bn.run_night(1, power=bn.Power(run=run, log=lambda m: None), ac_fn=lambda: True, paused_fn=ok_paused,
+                        runner=recording_runner(ev), blade_dir=tmp_path, results_dir=tmp_path / "r",
+                        state_path=tmp_path / "s.json", log=lambda m: None)
+    assert summ["power"]["restored"] is False and summ["power"]["mismatched"] == ["SUB_SLEEP/STANDBYIDLE"]
+    assert summ["power"]["not_applicable"] == ["SUB_BUTTONS/LIDACTION"] and summ["power"]["errors"] == []
+
+
+def test_validation_neg_sessions_plan():
+    plan = blade_r2.plan_for("validation", [], neg_sessions=5)
+    assert plan[0] == ("ollama_ctx_32768_negative_control_call2_notools",
+                       (20260901, 20260902, 20260903, 20260904, 20260905), 10)
+    assert plan[1] == ("ollama_ctx_8192_positive_control_call2_notools", (20260901,), 15)
+    assert plan[2] == ("ollama_ctx_32768_negative_control", (20260901, 20260902, 20260903), 10)
+    assert blade_r2.plan_for("validation", []) == blade_r2.agent.validation_plan("off", neg_arm=blade_r2.BLADE_NEG_ARM)
+    with pytest.raises(SystemExit):
+        blade_r2.plan_for("validation", [], neg_sessions=6)
+    job = next(j for j in bq.NIGHTS[1] if j["id"] == "blade_r2_validation_v2")
+    a = blade_r2.build_arg_parser().parse_args(job["argv"][1:])
+    assert a.neg_sessions == 5 and a.out == "results/blade_r2_validation_v2.jsonl"
+
+
+def test_gate_decide_both_branches_and_no_decision():
+    import blade_r2_gate as gate
+    d = gate.decide(gate.synthetic_validation_rows(misses=0))
+    assert d["ok"] and d["branch"] == "real" and d["canary_misses"] == 0 and d["n_neg_sessions"] == 5
+    d = gate.decide(gate.synthetic_validation_rows(misses=2))
+    assert d["branch"] == "mechanism" and d["skipped_reason"] == "skipped: negative-control canary misses 2"
+    assert [p["canary_misses"] for p in d["per_session"]] == [0, 0, 0, 0, 2] and d["open_finding"]
+    assert not gate.decide(gate.synthetic_validation_rows(finished=False))["ok"]
+    assert not gate.decide(gate.synthetic_validation_rows(neg_sessions=3))["ok"]      # 3 of 5 sessions
+
+
+def test_gate_main_writes_decision_or_nothing(tmp_path, monkeypatch):
+    import blade_r2_gate as gate
+    v = tmp_path / "blade_val.jsonl"
+    out = tmp_path / "blade_gate.json"
+    v.write_text("\n".join(json.dumps(r) for r in gate.synthetic_validation_rows(misses=1)) + "\n")
+    assert gate.main(["--validation", str(v), "--out", str(out)]) == 0
+    assert json.loads(out.read_text())["branch"] == "mechanism"
+    out.unlink()
+    v.write_text("\n".join(json.dumps(r) for r in gate.synthetic_validation_rows(finished=False)) + "\n")
+    assert gate.main(["--validation", str(v), "--out", str(out)]) == 2 and not out.exists()
+
+
+def test_gate_on_night1_first_run_file_if_present():
+    """results/blade_r2_validation_v1.jsonl (3 negative-control sessions): no decision at 5 required, and the
+    mechanism branch at 3 (its 2 canary misses)."""
+    import blade_r2_gate as gate
+    p = REPO / "results" / "blade_r2_validation_v1.jsonl"
+    if not p.exists():
+        pytest.skip("night 1 first-run validation file not synced")
+    rows = blade_r2.agent.read_rows(p)
+    assert not gate.decide(rows, neg_sessions=5)["ok"]
+    d = gate.decide(rows, neg_sessions=3)
+    assert d["branch"] == "mechanism" and d["canary_misses"] == 2

@@ -2,22 +2,22 @@
  "night": 2,
  "summary": {
   "night": 2,
-  "started_utc": "2026-10-08T21:41:51.759898+00:00",
+  "started_utc": "2026-10-09T06:07:55.777868+00:00",
   "refused": null,
   "power": {
-   "log": "%USERPROFILE%\\AppData\\Local\\Temp\\blade_night_stub_0xjqhj96\\logs\\night2_power_20261008T214151Z.json",
+   "log": "%USERPROFILE%\\AppData\\Local\\Temp\\blade_night_stub_qgr3ae6y\\logs\\night2_power_20261009T060755Z.json",
    "original": {
     "SUB_SLEEP/STANDBYIDLE": {
-     "ac": 1800,
-     "dc": 1800
+     "ac": 3600,
+     "dc": 3600
     },
     "SUB_SLEEP/HIBERNATEIDLE": {
-     "ac": 10800,
-     "dc": 10800
+     "ac": 0,
+     "dc": 0
     },
     "SUB_BUTTONS/LIDACTION": {
-     "ac": 1,
-     "dc": 1
+     "ac": null,
+     "dc": null
     }
    },
    "night_values": {
@@ -30,26 +30,30 @@
      "dc": 0
     },
     "SUB_BUTTONS/LIDACTION": {
-     "ac": 0,
-     "dc": 0
+     "ac": null,
+     "dc": null
     }
    },
    "restored_values": {
     "SUB_SLEEP/STANDBYIDLE": {
-     "ac": 1800,
-     "dc": 1800
+     "ac": 3600,
+     "dc": 3600
     },
     "SUB_SLEEP/HIBERNATEIDLE": {
-     "ac": 10800,
-     "dc": 10800
+     "ac": 0,
+     "dc": 0
     },
     "SUB_BUTTONS/LIDACTION": {
-     "ac": 1,
-     "dc": 1
+     "ac": null,
+     "dc": null
     }
    },
    "restored": true,
-   "errors": []
+   "errors": [],
+   "mismatched": [],
+   "not_applicable": [
+    "SUB_BUTTONS/LIDACTION"
+   ]
   },
   "queue": {
    "night": 2,
@@ -73,24 +77,23 @@
      "log": "C:\\apu\\blade\\logs\\blade_r2_mechanism_v1.log"
     }
    ],
-   "stopped_early": null
+   "stopped_early": null,
+   "gate_decisions": {}
   },
   "c3_setting_readback": {
    "read_back": false,
    "ok": false,
-   "status": "!!! SETTING NOT READ BACK: CUDA - Sysmem Fallback Policy was not confirmed after night 2 (no %USERPROFILE%\\AppData\\Local\\Temp\\blade_night_stub_0xjqhj96\\c3_readback.flag written during the night). Check NVIDIA Control Panel by hand. !!!"
+   "status": "!!! SETTING NOT READ BACK: CUDA - Sysmem Fallback Policy was not confirmed after night 2 (no %USERPROFILE%\\AppData\\Local\\Temp\\blade_night_stub_qgr3ae6y\\c3_readback.flag written during the night). Check NVIDIA Control Panel by hand. !!!"
   },
-  "ended_utc": "2026-10-08T21:41:52.071003+00:00",
-  "summary_file": "%USERPROFILE%\\AppData\\Local\\Temp\\blade_night_stub_0xjqhj96\\results\\blade_night2_summary_20261008T214151Z.json"
+  "ended_utc": "2026-10-09T06:07:56.141182+00:00",
+  "summary_file": "%USERPROFILE%\\AppData\\Local\\Temp\\blade_night_stub_qgr3ae6y\\results\\blade_night2_summary_20261009T060755Z.json"
  },
  "power_call_order": [
   "/setacvalueindex SUB_SLEEP STANDBYIDLE 0",
   "/setacvalueindex SUB_SLEEP HIBERNATEIDLE 0",
-  "/setacvalueindex SUB_BUTTONS LIDACTION 0",
   "/setactive",
-  "/setacvalueindex SUB_SLEEP STANDBYIDLE 1800",
-  "/setacvalueindex SUB_SLEEP HIBERNATEIDLE 10800",
-  "/setacvalueindex SUB_BUTTONS LIDACTION 1",
+  "/setacvalueindex SUB_SLEEP STANDBYIDLE 3600",
+  "/setacvalueindex SUB_SLEEP HIBERNATEIDLE 0",
   "/setactive"
  ],
  "jobs": [
@@ -121,6 +124,7 @@
     "tiers": "default,32768,16384,8192,4096",
     "seeds": null,
     "turns": null,
+    "neg_sessions": null,
     "client_trim": null,
     "rules_from": null,
     "require_validation_gates": false,
@@ -138,5 +142,14 @@
  "set_before_first_job": true,
  "restore_after_last_job": true,
  "final_values_equal_original": true,
- "all_outputs_prefixed_blade": true
+ "power_restored": true,
+ "all_outputs_prefixed_blade": true,
+ "gate_misses": 0,
+ "gate_decisions": {},
+ "ran": [
+  "blade_c3_sysmem_fallback_v1",
+  "blade_r2_mechanism_v1"
+ ],
+ "skipped": {},
+ "branch_ok": true
 }

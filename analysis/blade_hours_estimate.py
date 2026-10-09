@@ -196,8 +196,9 @@ def estimate(rates_files=None) -> dict:
     jobs = []
     c1 = c1_segments_minutes(rows(C1))
 
-    def validation(model, x2_file, x2_model, model_factor=1.0):
-        return [cell_hours(model, 32768, 3, x2_file, x2_model, f"ollama_ctx_131072{SFX}", rates, model_factor=model_factor),
+    def validation(model, x2_file, x2_model, model_factor=1.0, neg_sessions=3):
+        return [cell_hours(model, 32768, neg_sessions, x2_file, x2_model, f"ollama_ctx_131072{SFX}", rates,
+                           model_factor=model_factor),
                 cell_hours(model, 32768, 3, x2_file, x2_model, "ollama_ctx_131072", rates, model_factor=model_factor),
                 cell_hours(model, 8192, 1, x2_file, x2_model, f"ollama_ctx_8192_positive_control{SFX}", rates,
                            model_factor=model_factor)]
@@ -208,17 +209,26 @@ def estimate(rates_files=None) -> dict:
                 cell_hours(model, 4096, 5, X2_REAL, L, f"ollama_ctx_4096{SFX}", rates, model_factor=model_factor),
                 cell_hours(model, 32768, 5, X2_REAL, L, f"ollama_ctx_32768{SFX}", rates, model_factor=model_factor)]
 
-    jobs.append({"night": 1, "job": "blade_k1_v1", "hours": 0.5, "kind": "scaled (itemized)",
+    # night 1 (rerun 2026-10-08): K1, validation with the negative control at 5 sessions, the gate, then EITHER real +
+    # mitigation (branch "real") OR the 4096 mechanism session (branch "mechanism"); the night total counts the
+    # longer branch, night_totals_by_branch_h has both.
+    jobs.append({"night": 1, "job": "blade_k1_v2", "hours": 0.5, "kind": "scaled (itemized)",
                  "basis": "per model 10 Ollama calls with prompts up to 49K tokens (cut to the window) plus one "
                           "llama-server load", "note": ""})
-    jobs.append(_job(1, "blade_r2_validation_v1 (llama3.1:8b, arm b at 32768)", validation(L, X2_VALID, L)))
-    jobs.append(_job(1, "blade_r2_real_v1 (llama3.1:8b, default/4096/32768 x 5 seeds)", real(L)))
-    jobs.append(_job(1, "blade_r2_mitigation_v1 (llama3.1:8b, 4096/8192 x 3 seeds)",
-                     [cell_hours(L, 4096, 3, X2_REAL, L, f"ollama_ctx_4096{SFX}", rates,
-                                 extra_factor=FACTORS["mitigation_overhead"]),
-                      cell_hours(L, 8192, 3, X2_MECH, L, f"ollama_ctx_8192{SFX}", rates,
-                                 extra_factor=FACTORS["mitigation_overhead"])],
-                     "plus one tier if K1's default is not 4096 or 8192"))
+    jobs.append(_job(1, "blade_r2_validation_v2 (llama3.1:8b, arm b at 32768, negative control 5 sessions)",
+                     validation(L, X2_VALID, L, neg_sessions=5)))
+    jobs.append({"night": 1, "job": "blade_r2_gate_v2", "hours": 0.0, "kind": "measured",
+                 "basis": "reads one jsonl, no model", "note": ""})
+    jobs.append({**_job(1, "blade_r2_real_v2 (llama3.1:8b, default/4096/32768 x 5 seeds)", real(L)),
+                 "branch": "real"})
+    jobs.append({**_job(1, "blade_r2_mitigation_v2 (llama3.1:8b, 4096/8192 x 3 seeds)",
+                        [cell_hours(L, 4096, 3, X2_REAL, L, f"ollama_ctx_4096{SFX}", rates,
+                                    extra_factor=FACTORS["mitigation_overhead"]),
+                         cell_hours(L, 8192, 3, X2_MECH, L, f"ollama_ctx_8192{SFX}", rates,
+                                    extra_factor=FACTORS["mitigation_overhead"])],
+                        "plus one tier if K1's default is not 4096 or 8192"), "branch": "real"})
+    jobs.append({**_job(1, "blade_r2_mechanism_4096_v2 (llama3.1:8b, 4096 x 1 session)",
+                        [cell_hours(L, 4096, 1, X2_MECH, L, f"ollama_ctx_4096{SFX}", rates)]), "branch": "mechanism"})
     a = sum(c1[c]["minutes"] for c in (36864, 38912, 40960, 43008)) / 60
     b = sum(c1[c]["minutes"] * 4 / c1[c]["n_calls"] for c in (40960, 43008)) / 60
     jobs.append({"night": 2, "job": "blade_c3_sysmem_fallback_v1 (half A upper bound + half B)", "hours": round(a + b, 2),
@@ -231,18 +241,27 @@ def estimate(rates_files=None) -> dict:
     jobs.append(_job(3, "blade_r2_validation_qwen3_8b_v1 (only if it fits)", validation(Q, X2_VALID_B, Q)))
     jobs.append(_job(3, "blade_r2_real_qwen3_8b_v1 (only if it fits)", real(Q, model_factor=1.2),
                      "workload: llama3.1:8b sessions x1.2 (x2_r2_real_v1b, with qwen3:8b, is not synced)"))
-    totals = defaultdict(float)
+    by_branch = defaultdict(lambda: defaultdict(float))     # {night: {branch or "": hours}}
     for j in jobs:
-        totals[j["night"]] += j["hours"]
+        by_branch[j["night"]][j.get("branch", "")] += j["hours"]
+    totals, branch_totals = {}, {}
+    for n, d in sorted(by_branch.items()):
+        common = d.pop("", 0.0)
+        if d:
+            branch_totals[n] = {b: round(common + h, 2) for b, h in sorted(d.items())}
+            totals[n] = round(common + max(d.values()), 2)
+        else:
+            totals[n] = round(common, 2)
     return {"factors": FACTORS, "default_ctx_assumed": D, "rates_by_dryrun_file": rates_by_file,
             "rates_used": {f"{m}@{c}": v for (m, c), v in rates.items()}, "jobs": jobs,
-            "night_totals_h": {k: round(v, 2) for k, v in sorted(totals.items())}}
+            "night_totals_h": totals, "night_totals_by_branch_h": branch_totals}
 
 
 def markdown(est: dict) -> str:
     lines = ["| night | job | hours | measured/rates/scaled | basis |", "|---|---|---|---|---|"]
     for j in est["jobs"]:
-        lines.append(f"| {j['night']} | {j['job']} | {j['hours']:.2f} | {j['kind']} | {j['basis']}"
+        br = f" [gate branch {j['branch']}]" if j.get("branch") else ""
+        lines.append(f"| {j['night']} | {j['job']}{br} | {j['hours']:.2f} | {j['kind']} | {j['basis']}"
                      + (f" ({j['note']})" if j["note"] else "") + " |")
     return "\n".join(lines)
 
@@ -251,7 +270,8 @@ if __name__ == "__main__":
     e = estimate()
     if "--markdown" in sys.argv:
         print(markdown(e))
-        print("\nnight totals (h):", e["night_totals_h"])
+        print("\nnight totals (h, longer gate branch):", e["night_totals_h"])
+        print("night totals by gate branch (h):", e["night_totals_by_branch_h"])
         print("Blade dry-run rates found:", e["rates_used"] or "none (all R2 cells scaled)")
     else:
         print(json.dumps(e, indent=1, default=str))

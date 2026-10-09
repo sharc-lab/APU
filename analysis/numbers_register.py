@@ -3131,9 +3131,68 @@ def compute_blade_night_hours(repo):
     job's (model, num_ctx), scaled evo-x2 times otherwise; each job labelled measured / rates / scaled / mixed."""
     est = _blade_estimator(repo)
     e = est.estimate(BLADE_DRYRUN_FILES)
-    jobs = "; ".join(f"night {j['night']} {j['job'].split(' ')[0]} {j['hours']:.2f} h ({j['kind']})" for j in e["jobs"])
-    totals = ", ".join(f"night {k} {v:.2f} h" for k, v in e["night_totals_h"].items())
+    jobs = "; ".join(f"night {j['night']} {j['job'].split(' ')[0]} {j['hours']:.2f} h ({j['kind']})"
+                     + (f" [branch {j['branch']}]" if j.get("branch") else "") for j in e["jobs"])
+    by_branch = e.get("night_totals_by_branch_h") or {}
+
+    def total(k, v):
+        if k not in by_branch:
+            return f"night {k} {v:.2f} h"
+        return f"night {k} {v:.2f} h (gate branches: " + ", ".join(
+            f"{b} {h:.2f} h" for b, h in by_branch[k].items()) + ")"
+    totals = ", ".join(total(k, v) for k, v in e["night_totals_h"].items())
     return {"value": f"{totals}; {jobs}", "n": len(e["jobs"])}
+
+
+# Blade R2 validation runs (llama3.1:8b, arm b at the 32768 cap, call-2 mode off), scored by x2_r2_agent.evaluate_gates
+# with the Blade negative-control arm. run1 = night 1's first run (2026-10-09, 3 negative-control sessions); run2 = the
+# night 1 rerun with the negative control at 5 sessions (PENDING until its file is synced).
+BLADE_R2_VALIDATION_V1 = "results/blade_r2_validation_v1.jsonl"
+BLADE_R2_VALIDATION_V2 = "results/blade_r2_validation_v2.jsonl"
+BLADE_NEG_ARM = "ollama_ctx_32768_negative_control"
+
+
+def _blade_r2_validation_summary(repo, rel):
+    ag = _r2_agent_module()
+    rows = ag.read_rows(repo / rel)
+    if not rows:
+        raise FileNotFoundError(repo / rel)
+    sfx = ag.MODE_SUFFIX["off"]
+    rep = ag.evaluate_gates(rows, call2_tools="off", neg_arm=BLADE_NEG_ARM)
+    sessions = ag.completed_sessions(rows)
+    parts, n_total = [], 0
+    for model, e in sorted(rep["baseline_table"].items()):
+        n_total += e["n_turns"]
+        g = rep["gates"]
+        neg = rep["controls"]["negative"].get(model, {})
+        pos = rep["controls"]["positive"].get(model, {})
+        per = sorted((s["seed"], s["canary_sys_misses"] + s["canary_hist_misses"]) for s in sessions
+                     if s["model_id"] == model and s["arm_id"] == BLADE_NEG_ARM + sfx)
+        bl = g["baseline"].get(model, {})
+        parts.append(
+            f"{model}: {_r2_table_str(e)}; rules in use {bl.get('rules_in_use')}, failing {bl.get('failing_rules')}; "
+            f"negative control (num_ctx 32768) canary misses {neg.get('canary_misses')} of "
+            f"{2 * (neg.get('canary_checks') or 0)} canaries ({neg.get('canary_checks')} checks x 2) over "
+            f"{neg.get('n_sessions')} sessions, per session (seed: misses) "
+            + ", ".join(f"{s}: {m}" for s, m in per)
+            + f" -> {'pass' if (g['negative_control'].get(model) or {}).get('pass') else 'fail'}; positive control "
+            f"(8192) truncation turns {pos.get('truncation_detected_turns')}, canary misses "
+            f"{pos.get('canary_sys_misses')}+{pos.get('canary_hist_misses')} -> "
+            f"{'pass' if (g['positive_control'].get(model) or {}).get('pass') else 'fail'}; task tool "
+            f"{(g['task_tool'].get(model) or {}).get('n_ok')}/{(g['task_tool'].get(model) or {}).get('n')}")
+    return {"value": " / ".join(parts), "n": f"{n_total} turns", "detail": rep}
+
+
+def compute_blade_r2_validation_run1(repo):
+    """Blade R2 validation, night 1 first run (results/blade_r2_validation_v1.jsonl): per-rule rates on the gate arm,
+    negative-control canary misses per session at num_ctx 32768, positive control at 8192."""
+    return _blade_r2_validation_summary(repo, BLADE_R2_VALIDATION_V1)
+
+
+def compute_blade_r2_validation_run2(repo):
+    """Blade R2 validation, night 1 rerun (results/blade_r2_validation_v2.jsonl, negative control at 5 sessions,
+    seeds 20260901-05): same fields as run1."""
+    return _blade_r2_validation_summary(repo, BLADE_R2_VALIDATION_V2)
 
 
 NUMBER_ENTRIES = [
@@ -3603,6 +3662,14 @@ NUMBER_ENTRIES = [
                                          "results/x2_r2_validation_v2b.jsonl", "results/x2_r2_mechanism.jsonl",
                                          "results/blade_c1_spill_sweep_20260925T053651Z.jsonl"],
      "pending_ok": True, "script_function": "analysis/numbers_register.py::compute_blade_night_hours"},
+    {"claim_id": "blade-r2-validation-run1", "description": "Blade R2 validation night 1 first run (llama3.1:8b, "
+                    "32768 cap): per-rule rates, negative-control canary misses per session, positive control",
+     "compute": compute_blade_r2_validation_run1, "data_files": [BLADE_R2_VALIDATION_V1], "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_blade_r2_validation_run1"},
+    {"claim_id": "blade-r2-validation-run2", "description": "Blade R2 validation night 1 rerun (llama3.1:8b, 32768 "
+                    "cap, negative control 5 sessions): per-rule rates, canary misses per session, positive control",
+     "compute": compute_blade_r2_validation_run2, "data_files": [BLADE_R2_VALIDATION_V2], "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_blade_r2_validation_run2"},
 ]
 
 
