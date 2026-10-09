@@ -3195,6 +3195,47 @@ def compute_blade_r2_validation_run2(repo):
     return _blade_r2_validation_summary(repo, BLADE_R2_VALIDATION_V2)
 
 
+def compute_blade_k1_layer_split(repo):
+    """Blade K1 (night 1 rerun, results/blade_k1_v2.summary.json): Ollama default context per model, and per tested
+    num_ctx the share of the loaded model resident in VRAM (size_vram / size from /api/ps) and whether it is fully on
+    the GPU; plus the overflow behaviour at the default (prompt_eval_count after an over-length prompt, HTTP status)."""
+    import json as _json
+    s = _json.loads((repo / "results/blade_k1_v2.summary.json").read_text(encoding="utf-8"))
+    parts = []
+    for m, v in s["models"].items():
+        if not v.get("default_ctx"):
+            parts.append(f"{m}: not measured (model not present)")
+            continue
+        split = ", ".join(f"{o['num_ctx']}: {o['size_vram'] / o['size']:.3f}" for o in v.get("overflow_window", []) if o.get("size"))
+        ov = "; ".join(f"{o['target_tokens']} tok -> HTTP {o['http_status']}, evaluated {o['prompt_eval_count']}"
+                       for o in v.get("overflow_default", []))
+        parts.append(f"{m}: default ctx {v['default_ctx']}, fully on GPU at default {v['fully_on_gpu']}; VRAM share by num_ctx "
+                     f"{split}; overflow at default: {ov}")
+    return {"value": " / ".join(parts) + f"; device VRAM {s['device'].get('vram_total_mib')} MiB", "n": len(s["models"])}
+
+
+def compute_blade_r2_gate_v2(repo):
+    """Blade night 1 rerun gate (results/blade_r2_gate_v2.json): negative-control canary misses per session and branch."""
+    import json as _json
+    g = _json.loads((repo / "results/blade_r2_gate_v2.json").read_text(encoding="utf-8"))
+    per = ", ".join(f"{x['seed']}: {x['canary_misses']}" for x in g["per_session"])
+    return {"value": f"{g['model']} negative control num_ctx {g['num_ctx']}, {g['n_neg_sessions']} sessions, canary misses per "
+                     f"session {per}; branch {g.get('branch') or g.get('decision')}", "n": g["n_neg_sessions"]}
+
+
+def compute_blade_mechanism_4096(repo):
+    """Blade mechanism run at num_ctx 4096 (results/blade_r2_mechanism_4096_v2.jsonl.report.json), llama3.1:8b, 1 session."""
+    import json as _json
+    rep = _json.loads((repo / "results/blade_r2_mechanism_4096_v2.jsonl.report.json").read_text(encoding="utf-8"))
+    s = rep["sessions"][0]; pc = s["prompt_check"]
+    return {"value": (f"prompt check {pc['n_match']}/{pc['n_checks']} within 1% (citable {pc['mechanism_citable']}); "
+                      f"{s['n_calls_message_truncated']}/{s['n_calls']} calls message-truncated from turn {s['first_truncated_turn']}, "
+                      f"system kept on every truncated call {s['system_kept_on_every_truncated_call']}, cut mid-turn "
+                      f"{s['cut_mid_turn_calls']}, token-level cuts {s['token_level_cut_calls']}, context shifts "
+                      f"{s['context_shift_events']}, exceed-context errors {s['exceed_context_error_calls']}; verdict "
+                      f"{rep['verdict']['drop_old_turns_keep_system']}"), "n": s["n_calls"]}
+
+
 NUMBER_ENTRIES = [
     {"claim_id": "PX2-TTFT-gap", "description": "PX2 B4-vs-S4 TTFT gap range across 5 models",
      "compute": compute_px2_ttft_gap, "data_files": ["results/t2s_night2_20260930T135145Z.jsonl"],
@@ -3670,6 +3711,15 @@ NUMBER_ENTRIES = [
                     "cap, negative control 5 sessions): per-rule rates, canary misses per session, positive control",
      "compute": compute_blade_r2_validation_run2, "data_files": [BLADE_R2_VALIDATION_V2], "pending_ok": True,
      "script_function": "analysis/numbers_register.py::compute_blade_r2_validation_run2"},
+    {"claim_id": "blade-k1-layer-split", "description": "Blade K1: default ctx, VRAM share per num_ctx, overflow at default",
+     "compute": compute_blade_k1_layer_split, "data_files": ["results/blade_k1_v2.summary.json"],
+     "script_function": "analysis/numbers_register.py::compute_blade_k1_layer_split"},
+    {"claim_id": "blade-r2-gate-v2", "description": "Blade night 1 rerun: negative-control gate per session and branch",
+     "compute": compute_blade_r2_gate_v2, "data_files": ["results/blade_r2_gate_v2.json"],
+     "script_function": "analysis/numbers_register.py::compute_blade_r2_gate_v2"},
+    {"claim_id": "blade-mechanism-4096", "description": "Blade mechanism at num_ctx 4096: message drops, shifts, cuts",
+     "compute": compute_blade_mechanism_4096, "data_files": ["results/blade_r2_mechanism_4096_v2.jsonl.report.json"],
+     "script_function": "analysis/numbers_register.py::compute_blade_mechanism_4096"},
 ]
 
 

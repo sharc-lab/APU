@@ -1,0 +1,82 @@
+{
+ "ok": true,
+ "record": "blade_r2_gate",
+ "validation": "results/blade_r2_validation_v2.jsonl",
+ "model": "llama3.1:8b",
+ "neg_arm": "ollama_ctx_32768_negative_control",
+ "num_ctx": 32768,
+ "call2_mode": "off",
+ "n_neg_sessions": 5,
+ "neg_sessions_required": 5,
+ "per_session": [
+  {
+   "seed": 20260901,
+   "canary_checks": 2,
+   "canary_sys_misses": 0,
+   "canary_hist_misses": 0,
+   "canary_misses": 0
+  },
+  {
+   "seed": 20260902,
+   "canary_checks": 2,
+   "canary_sys_misses": 0,
+   "canary_hist_misses": 0,
+   "canary_misses": 0
+  },
+  {
+   "seed": 20260903,
+   "canary_checks": 2,
+   "canary_sys_misses": 1,
+   "canary_hist_misses": 1,
+   "canary_misses": 2
+  },
+  {
+   "seed": 20260904,
+   "canary_checks": 2,
+   "canary_sys_misses": 0,
+   "canary_hist_misses": 0,
+   "canary_misses": 0
+  },
+  {
+   "seed": 20260905,
+   "canary_checks": 2,
+   "canary_sys_misses": 1,
+   "canary_hist_misses": 1,
+   "canary_misses": 2
+  }
+ ],
+ "canary_misses": 4,
+ "canary_checks": 10,
+ "branch": "mechanism",
+ "rules_in_use": [
+  "rule1_json_keys",
+  "rule3_no_zebra",
+  "rule4_metres"
+ ],
+ "failing_rules": [
+  "rule2_log_event_called",
+  "rule5_session_code"
+ ],
+ "positive_control": {
+  "pass": true,
+  "n_sessions": 1,
+  "truncation_detected_turns": [
+   10
+  ],
+  "canary_sys_misses": 0,
+  "canary_hist_misses": 2,
+  "first_over_window_turns": [
+   6
+  ],
+  "loaded_context_values": [
+   8192
+  ]
+ },
+ "recall": {
+  "rate": 0.8,
+  "n": 10
+ },
+ "skipped_reason": "skipped: negative-control canary misses 4",
+ "open_finding": "Blade llama3.1:8b negative control at num_ctx 32768: 4 canary misses in 5 sessions (recall rate 0.8 over 10 turns), with no truncation expected at that window; real and mitigation not run, mechanism run at 4096 instead. Open: why the canaries are lost on the Blade.",
+ "decided_utc": "2026-10-09T07:38:00.262600+00:00"
+}

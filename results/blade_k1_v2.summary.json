@@ -1,0 +1,333 @@
+{
+ "models": {
+  "llama3.1:8b": {
+   "default_ctx": 4096,
+   "size": 5271715839,
+   "size_vram": 5271715839,
+   "fully_on_gpu": true,
+   "chat_outcome": "ok",
+   "overflow_default": [
+    {
+     "target_tokens": 4096,
+     "num_ctx": null,
+     "http_status": 200,
+     "prompt_eval_count": 3337,
+     "sent_tokens_real": 3337,
+     "token_truncated": false,
+     "marker_found": true,
+     "half_window_rule": null,
+     "context_length": 4096,
+     "size_vram": 5271715839,
+     "size": 5271715839
+    },
+    {
+     "target_tokens": 8192,
+     "num_ctx": null,
+     "http_status": 200,
+     "prompt_eval_count": 2050,
+     "sent_tokens_real": 6674,
+     "token_truncated": true,
+     "marker_found": false,
+     "half_window_rule": null,
+     "context_length": 4096,
+     "size_vram": 5271715839,
+     "size": 5271715839
+    },
+    {
+     "target_tokens": 16384,
+     "num_ctx": null,
+     "http_status": 200,
+     "prompt_eval_count": 2050,
+     "sent_tokens_real": 13349,
+     "token_truncated": true,
+     "marker_found": false,
+     "half_window_rule": null,
+     "context_length": 4096,
+     "size_vram": 5271715839,
+     "size": 5271715839
+    },
+    {
+     "target_tokens": 32768,
+     "num_ctx": null,
+     "http_status": 200,
+     "prompt_eval_count": 2050,
+     "sent_tokens_real": 26698,
+     "token_truncated": true,
+     "marker_found": false,
+     "half_window_rule": null,
+     "context_length": 4096,
+     "size_vram": 5271715839,
+     "size": 5271715839
+    }
+   ],
+   "overflow_window": [
+    {
+     "target_tokens": 7541,
+     "num_ctx": 4096,
+     "http_status": 200,
+     "prompt_eval_count": 2050,
+     "sent_tokens_real": 6144,
+     "token_truncated": null,
+     "marker_found": false,
+     "half_window_rule": 2050,
+     "context_length": 4096,
+     "size_vram": 5271715839,
+     "size": 5271715839
+    },
+    {
+     "target_tokens": 15082,
+     "num_ctx": 8192,
+     "http_status": 200,
+     "prompt_eval_count": 4098,
+     "sent_tokens_real": 12288,
+     "token_truncated": null,
+     "marker_found": true,
+     "half_window_rule": 4098,
+     "context_length": 8192,
+     "size_vram": 5812781055,
+     "size": 5812781055
+    },
+    {
+     "target_tokens": 30164,
+     "num_ctx": 16384,
+     "http_status": 200,
+     "prompt_eval_count": 8194,
+     "sent_tokens_real": 24576,
+     "token_truncated": null,
+     "marker_found": true,
+     "half_window_rule": 8194,
+     "context_length": 16384,
+     "size_vram": 6314514186,
+     "size": 7262227659
+    },
+    {
+     "target_tokens": 60328,
+     "num_ctx": 32768,
+     "http_status": 200,
+     "prompt_eval_count": 16386,
+     "sent_tokens_real": 49152,
+     "token_truncated": null,
+     "marker_found": false,
+     "half_window_rule": 16386,
+     "context_length": 32768,
+     "size_vram": 6248820899,
+     "size": 9518773696
+    }
+   ],
+   "llamacpp_defaults": {
+    "started": true,
+    "props_n_ctx": 12032,
+    "log": {
+     "n_ctx": null,
+     "offloaded": null,
+     "kv_buffers_mib": {},
+     "model_buffers_mib": {},
+     "fit_lines": []
+    }
+   },
+   "fits_8gb_at_default": true,
+   "fully_on_gpu_by_ctx": {
+    "4096": true,
+    "8192": true,
+    "16384": false,
+    "32768": false
+   }
+  },
+  "qwen3:8b": {
+   "default_ctx": 4096,
+   "size": 5578204118,
+   "size_vram": 5578204118,
+   "fully_on_gpu": true,
+   "chat_outcome": "ok",
+   "overflow_default": [
+    {
+     "target_tokens": 4096,
+     "num_ctx": null,
+     "http_status": 200,
+     "prompt_eval_count": 4082,
+     "sent_tokens_real": 4080,
+     "token_truncated": false,
+     "marker_found": true,
+     "half_window_rule": null,
+     "context_length": 4096,
+     "size_vram": 5578204118,
+     "size": 5578204118
+    },
+    {
+     "target_tokens": 8192,
+     "num_ctx": null,
+     "http_status": 200,
+     "prompt_eval_count": 2050,
+     "sent_tokens_real": 8159,
+     "token_truncated": true,
+     "marker_found": false,
+     "half_window_rule": null,
+     "context_length": 4096,
+     "size_vram": 5578204118,
+     "size": 5578204118
+    },
+    {
+     "target_tokens": 16384,
+     "num_ctx": null,
+     "http_status": 200,
+     "prompt_eval_count": 2050,
+     "sent_tokens_real": 16318,
+     "token_truncated": true,
+     "marker_found": false,
+     "half_window_rule": null,
+     "context_length": 4096,
+     "size_vram": 5578204118,
+     "size": 5578204118
+    },
+    {
+     "target_tokens": 32768,
+     "num_ctx": null,
+     "http_status": 200,
+     "prompt_eval_count": 2050,
+     "sent_tokens_real": 32637,
+     "token_truncated": true,
+     "marker_found": false,
+     "half_window_rule": null,
+     "context_length": 4096,
+     "size_vram": 5578204118,
+     "size": 5578204118
+    }
+   ],
+   "overflow_window": [
+    {
+     "target_tokens": 6169,
+     "num_ctx": 4096,
+     "http_status": 200,
+     "prompt_eval_count": 2050,
+     "sent_tokens_real": 6144,
+     "token_truncated": null,
+     "marker_found": false,
+     "half_window_rule": 2050,
+     "context_length": 4096,
+     "size_vram": 5578204118,
+     "size": 5578204118
+    },
+    {
+     "target_tokens": 12337,
+     "num_ctx": 8192,
+     "http_status": 200,
+     "prompt_eval_count": 4098,
+     "sent_tokens_real": 12288,
+     "token_truncated": null,
+     "marker_found": true,
+     "half_window_rule": 4098,
+     "context_length": 8192,
+     "size_vram": 6186378198,
+     "size": 6186378198
+    },
+    {
+     "target_tokens": 24675,
+     "num_ctx": 16384,
+     "http_status": 200,
+     "prompt_eval_count": 8194,
+     "sent_tokens_real": 24576,
+     "token_truncated": null,
+     "marker_found": true,
+     "half_window_rule": 8194,
+     "context_length": 16384,
+     "size_vram": 6285783203,
+     "size": 7812121885
+    },
+    {
+     "target_tokens": 49349,
+     "num_ctx": 32768,
+     "http_status": 200,
+     "prompt_eval_count": 16386,
+     "sent_tokens_real": 49152,
+     "token_truncated": null,
+     "marker_found": false,
+     "half_window_rule": 16386,
+     "context_length": 32768,
+     "size_vram": 6138280017,
+     "size": 10362248231
+    }
+   ],
+   "llamacpp_defaults": {
+    "started": true,
+    "props_n_ctx": 8960,
+    "log": {
+     "n_ctx": null,
+     "offloaded": null,
+     "kv_buffers_mib": {},
+     "model_buffers_mib": {},
+     "fit_lines": []
+    }
+   },
+   "fits_8gb_at_default": true,
+   "fully_on_gpu_by_ctx": {
+    "4096": true,
+    "8192": true,
+    "16384": false,
+    "32768": false
+   }
+  },
+  "qwen3-4b-2507-tools": {
+   "missing": true,
+   "fits_8gb_at_default": false,
+   "fully_on_gpu_by_ctx": {}
+  }
+ },
+ "device": {
+  "vram_total_mib": 8188,
+  "vram_free_mib": 7948,
+  "vram_default_ctx": 4096,
+  "total_vram": "8.0 GiB",
+  "libraries": [
+   "CUDA"
+  ],
+  "device_guess": "gpu"
+ },
+ "note": "completed",
+ "dry_run": false,
+ "versions": {
+  "captured_utc": "2026-10-09T07:06:39.859266+00:00",
+  "pinned": {
+   "ollama_version": "0.34.4",
+   "ollama_exe": "C:\\apu\\bin\\ollama-0.34.4\\ollama.exe",
+   "ollama_asset": "https://github.com/ollama/ollama/releases/download/v0.34.4/ollama-windows-amd64.zip",
+   "ollama_asset_bytes": 1461155106,
+   "ollama_asset_sha256": "535193f38f3344e5b08f5d1c171c31ce11aa17f0124ff69ae26d8ec7fe06fa62",
+   "llama_cpp_build": "b10970",
+   "llama_cpp_commit": "bfdc32183",
+   "llama_cpp_asset": "llama-b10970-bin-win-cuda-12.4-x64.zip",
+   "llama_cpp_asset_sha256": "78c878ae30622a9e4be09e3831066454668ca70398114f23bf74ac814e52dad8",
+   "cudart_asset": "cudart-llama-bin-win-cuda-12.4-x64.zip",
+   "cudart_asset_sha256": "8c79a9b226de4b3cacfd1f83d24f962d0773be79f1e7b75c6af4ded7e32ae1d6",
+   "llama_server_exe": "C:\\apu\\bin\\llama-b10970-cuda\\llama-server.exe",
+   "llama_tokenize_exe": "C:\\apu\\bin\\llama-b10970-cuda\\llama-tokenize.exe",
+   "llama_cuda_runtime": "12.4",
+   "nvidia_driver": "610.88"
+  },
+  "gpu_query": "NVIDIA GeForce RTX 4070 Laptop GPU, 610.88, 8188 MiB, 95.06.34.00.cd",
+  "nvidia_driver": "610.88",
+  "vram_total_mib": 8188,
+  "cuda_driver_api": "13.3",
+  "nvidia_driver_from_header": "610.88",
+  "ollama_exe": "C:\\apu\\bin\\ollama-0.34.4\\ollama.exe",
+  "ollama_version_raw": "Warning: could not connect to a running Ollama instance\nWarning: client version is 0.34.4",
+  "ollama_version": "0.34.4",
+  "ollama_version_server_reported": null,
+  "ollama_bundled_cuda_runners": [
+   "cuda_v12",
+   "cuda_v13"
+  ],
+  "llama_server_version": {
+   "version": "0.4.1-dev",
+   "build": "10970",
+   "commit": "bfdc32183"
+  },
+  "llama_cuda_runtime_dlls": [
+   "cudart64_12.dll"
+  ],
+  "ollama_stop_before_check": {
+   "killed": [],
+   "remaining": [],
+   "confirmed": true
+  }
+ }
+}

@@ -1,0 +1,132 @@
+{
+ "sessions": [
+  {
+   "record": "r2m_session",
+   "mode": "mechanism",
+   "model_id": "llama3.1:8b",
+   "arm_id": "ollama_ctx_4096_call2_notools",
+   "seed": 20260901,
+   "call2_mode": "off",
+   "n_calls": 80,
+   "chat_paths": [
+    "rendered"
+   ],
+   "n_calls_message_truncated": 75,
+   "first_truncated_turn": 3,
+   "first_truncated_call": [
+    3,
+    1
+   ],
+   "dropped_turns_at_first_truncation": [
+    1
+   ],
+   "dropped_turns_at_last_call": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37
+   ],
+   "system_kept_on_every_truncated_call": true,
+   "kept_contiguous_tail_on_every_truncated_call": true,
+   "current_message_kept_on_every_call": true,
+   "cut_at_turn_boundary_calls": 15,
+   "cut_mid_turn_calls": 60,
+   "token_level_cut_calls": 0,
+   "context_shift_calls": 33,
+   "context_shift_events": 33,
+   "exceed_context_error_calls": 0,
+   "render_log_disagreements": 0,
+   "render_failures": 0,
+   "log_slices_incomplete": 0,
+   "max_new_prompt_tokens": 4095,
+   "n_ctx_slot_values": [
+    4096
+   ],
+   "prompt_check": {
+    "n_checks": 9,
+    "n_match": 9,
+    "match_rate": 1.0,
+    "n_post_overflow": 8,
+    "n_pre_overflow": 1,
+    "n_errors": 0,
+    "max_abs_rel_diff": 0.0,
+    "mechanism_citable": true,
+    "statement": null
+   },
+   "raw_log_file": "llama3.1_8b_ollama_ctx_4096_call2_notools_20260901.ollama_log.txt",
+   "log_bytes": [
+    10748,
+    945897
+   ],
+   "ts_utc": "2026-10-09T07:49:26.937336+00:00"
+  }
+ ],
+ "prompt_check": {
+  "ollama_ctx_4096_call2_notools": {
+   "n_checks": 9,
+   "n_match": 9,
+   "match_rate": 1.0,
+   "n_post_overflow": 8,
+   "n_pre_overflow": 1,
+   "n_errors": 0,
+   "max_abs_rel_diff": 0.0,
+   "mechanism_citable": true,
+   "statement": null
+  }
+ },
+ "verdict": {
+  "drop_old_turns_keep_system": "confirmed",
+  "sessions_with_truncation": 1,
+  "sessions": 1,
+  "token_level_cut_seen": false,
+  "context_shift_seen": true,
+  "exceed_context_error_seen": false,
+  "render_log_disagreements": 0,
+  "log_slices_incomplete": 0,
+  "per_tier": {
+   "ollama_ctx_4096_call2_notools": {
+    "hypothesis": "confirmed",
+    "match_rate": 1.0,
+    "n_checks": 9,
+    "n_match": 9,
+    "mechanism_citable": true,
+    "statement": null
+   }
+  },
+  "mechanism_citable": true,
+  "not_citable_statements": []
+ }
+}

@@ -1,0 +1,161 @@
+{
+ "night": 1,
+ "started_utc": "2026-10-09T07:06:32.624269+00:00",
+ "refused": null,
+ "power": {
+  "log": "C:\\apu\\blade\\logs\\night1_power_20261009T070632Z.json",
+  "original": {
+   "SUB_SLEEP/STANDBYIDLE": {
+    "ac": 3600,
+    "dc": 180
+   },
+   "SUB_SLEEP/HIBERNATEIDLE": {
+    "ac": 0,
+    "dc": 10800
+   },
+   "SUB_BUTTONS/LIDACTION": {
+    "ac": null,
+    "dc": null
+   }
+  },
+  "night_values": {
+   "SUB_SLEEP/STANDBYIDLE": {
+    "ac": 0,
+    "dc": 180
+   },
+   "SUB_SLEEP/HIBERNATEIDLE": {
+    "ac": 0,
+    "dc": 10800
+   },
+   "SUB_BUTTONS/LIDACTION": {
+    "ac": null,
+    "dc": null
+   }
+  },
+  "restored_values": {
+   "SUB_SLEEP/STANDBYIDLE": {
+    "ac": 3600,
+    "dc": 180
+   },
+   "SUB_SLEEP/HIBERNATEIDLE": {
+    "ac": 0,
+    "dc": 10800
+   },
+   "SUB_BUTTONS/LIDACTION": {
+    "ac": null,
+    "dc": null
+   }
+  },
+  "restored": true,
+  "errors": [],
+  "mismatched": [],
+  "not_applicable": [
+   "SUB_BUTTONS/LIDACTION"
+  ]
+ },
+ "queue": {
+  "night": 1,
+  "jobs": [
+   {
+    "id": "blade_k1_v2",
+    "status": "done",
+    "rc": 0,
+    "outputs": [
+     "results/blade_k1_v2.jsonl",
+     "results/blade_k1_v2.summary.json"
+    ],
+    "log": "C:\\apu\\blade\\logs\\blade_k1_v2.log"
+   },
+   {
+    "id": "blade_r2_validation_v2",
+    "status": "done",
+    "rc": 0,
+    "outputs": [
+     "results/blade_r2_validation_v2.jsonl"
+    ],
+    "log": "C:\\apu\\blade\\logs\\blade_r2_validation_v2.log"
+   },
+   {
+    "id": "blade_r2_gate_v2",
+    "status": "done",
+    "rc": 0,
+    "outputs": [
+     "results/blade_r2_gate_v2.json"
+    ],
+    "log": "C:\\apu\\blade\\logs\\blade_r2_gate_v2.log"
+   },
+   {
+    "id": "blade_r2_real_v2",
+    "status": "skipped",
+    "reason": "skipped: negative-control canary misses 4"
+   },
+   {
+    "id": "blade_r2_mitigation_v2",
+    "status": "skipped",
+    "reason": "skipped: negative-control canary misses 4"
+   },
+   {
+    "id": "blade_r2_mechanism_4096_v2",
+    "status": "done",
+    "rc": 0,
+    "outputs": [
+     "results/blade_r2_mechanism_4096_v2.jsonl"
+    ],
+    "log": "C:\\apu\\blade\\logs\\blade_r2_mechanism_4096_v2.log"
+   }
+  ],
+  "stopped_early": null,
+  "gate_decisions": {
+   "blade_r2_gate_v2": {
+    "branch": "mechanism",
+    "canary_misses": 4,
+    "n_neg_sessions": 5,
+    "per_session": [
+     {
+      "seed": 20260901,
+      "canary_checks": 2,
+      "canary_sys_misses": 0,
+      "canary_hist_misses": 0,
+      "canary_misses": 0
+     },
+     {
+      "seed": 20260902,
+      "canary_checks": 2,
+      "canary_sys_misses": 0,
+      "canary_hist_misses": 0,
+      "canary_misses": 0
+     },
+     {
+      "seed": 20260903,
+      "canary_checks": 2,
+      "canary_sys_misses": 1,
+      "canary_hist_misses": 1,
+      "canary_misses": 2
+     },
+     {
+      "seed": 20260904,
+      "canary_checks": 2,
+      "canary_sys_misses": 0,
+      "canary_hist_misses": 0,
+      "canary_misses": 0
+     },
+     {
+      "seed": 20260905,
+      "canary_checks": 2,
+      "canary_sys_misses": 1,
+      "canary_hist_misses": 1,
+      "canary_misses": 2
+     }
+    ],
+    "skipped_reason": "skipped: negative-control canary misses 4",
+    "open_finding": "Blade llama3.1:8b negative control at num_ctx 32768: 4 canary misses in 5 sessions (recall rate 0.8 over 10 turns), with no truncation expected at that window; real and mitigation not run, mechanism run at 4096 instead. Open: why the canaries are lost on the Blade.",
+    "rules_in_use": [
+     "rule1_json_keys",
+     "rule3_no_zebra",
+     "rule4_metres"
+    ]
+   }
+  }
+ },
+ "ended_utc": "2026-10-09T07:49:34.190588+00:00"
+}

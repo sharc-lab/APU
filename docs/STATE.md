@@ -333,3 +333,10 @@ Every report states status against these three checkpoints.
 - Local Claude Code work paused: C:\apu\blade\CLAUDE_CODE_PAUSED.flag created. Blade night 1 waits only for the
   operator's "start Blade night 1" (C:\apu\blade\START_BLADE_NIGHT_1.flag). To resume local work, delete the paused
   flag (and make sure no Blade night is running).
+
+### 2026-10-09, Blade night 1 (rerun) done
+
+- K1, validation (5 negative-control sessions), gate, mechanism at 4096 ran; power restored (lid not applicable);
+  tray app restarted hidden afterwards; paused flag left in place. Gate: negative-control canary misses in 2 of 5
+  sessions (`blade-r2-gate-v2`), so R2 real tiers and mitigation were skipped by design and the Blade validation result
+  is recorded as an open finding (FINDINGS 2026-10-09). Night 3 (qwen3:8b R2) decision pending the operator.

@@ -2912,3 +2912,27 @@ loss of the system prompt to the context shift is not the (whole) explanation.
 and few or no earlier turns, so the model answers each turn with almost no history, unlike the arm-b baseline, where
 the full history is in context; "recovered" therefore means the rules hold with the system prompt intact, not that
 the session is otherwise equivalent. Three seeds per cell. One runtime (Ollama 0.34.4 on evo-x2).
+
+## Blade (NVIDIA RTX 4070 Laptop, 8 GB) night 1: K1, R2 validation (open finding), mechanism at 4096 (2026-10-09)
+
+Ollama 0.34.4 (pinned, side by side), llama3.1:8b and qwen3:8b with model layers identical to evo-x2's. Register rows
+`blade-k1-layer-split`, `blade-r2-validation-run1`, `blade-r2-validation-run2`, `blade-r2-gate-v2`,
+`blade-mechanism-4096`; diagnosis in docs/BLADE_PLAN.md "Validation diagnosis 2026-10-08".
+
+**K1.** Ollama picks a 4096 default context on this 8 GB GPU for both models; over-length prompts at the default
+return HTTP 200 with the half-window evaluation seen on the other platforms; both models are fully in VRAM at 4096 and
+8192 and partly on the CPU at 16384 and 32768 (VRAM shares in `blade-k1-layer-split`).
+
+**R2 validation: open finding, not a claim.** The negative control at the 32768 cap failed in both runs: the
+model, on the final-answer call (tools withheld, v1 protocol), sometimes emits a tool call as plain text instead of an
+answer, so neither canary appears. In run 2 this happened on the same turn (turn 5, the REC-0005 lookup) of two of
+five seeds (`blade-r2-gate-v2`). It is not truncation (the window was never exceeded) and not a scorer bug. evo-x2's
+negative control for the same model files at 131072 had none (`R2-validation-v2-baseline`). Differences that could
+explain it: the backend (CUDA vs ROCm), the window (32768, partly CPU-offloaded per `blade-k1-layer-split`, vs 131072)
+and therefore greedy-decoding numerics. Per the operator's pre-set gate, the R2 real tiers and the mitigation did not
+run on the Blade.
+
+**Mechanism at 4096 (citable, one session).** The render-only prompt check matched every check
+(`blade-mechanism-4096`). Ollama drops whole messages and keeps the system message, as on evo-x2; at 4096 llama.cpp's
+context shift fires repeatedly, and no Ollama token cut occurred in this session (on evo-x2 one did,
+`R2-mechanism-lowlevel`).
