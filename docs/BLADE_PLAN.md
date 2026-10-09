@@ -270,3 +270,38 @@ are register rows `blade-dryrun-rates` and `blade-night-hours`; user paths in th
 
 The first validation dry run ran at 131072 because the cap commit had not reached main yet; that file is kept as
 `blade_dryrun_r2_validation_precap131072.jsonl` and is not used for rates.
+
+## Validation diagnosis 2026-10-08
+
+Run: `results/blade_r2_validation_v1.jsonl` (night 1, 2026-10-09 03:57Z), llama3.1:8b, Ollama 0.34.4, negative control
+at the 32768 cap (3 sessions x 10 turns), positive control at 8192. Register: `blade-r2-validation-run1`.
+
+**a. Effective context and truncation.** The server log (`C:\apu\blade\logs\blade_r2_validation_v1.ollama_serve.log`,
+INFO level) shows `n_ctx_slot = 32768` on every negative-control request (8192 only for the positive control), 0
+"truncating input" warnings and 0 context shifts. In the failed session (seed 20260903) Ollama's evaluated prompt
+tokens grow with the transcript on every call and peak far below the window (largest value in the session's own rows,
+turn 10), so no message trimming or token cut was possible. Message-level trimming is logged only at DEBUG, which this
+job does not enable; the window margin, not a log line, is the evidence that none occurred. The client's own estimate
+is about 19% above Ollama's count (the session's calibration ratio), which is an estimate difference, not truncation.
+
+**b. The missed canaries.** The negative control's "2 canary misses" are ONE turn (seed 20260903, turn 5, canary pair
+k=1) in which both the system-prompt canary and the history canary were absent. The model's entire final-answer
+output on that call was a tool call written as text, not an answer:
+`{"name": "lookup_fact", "parameters": {"key":"REC-0005"}}`.
+Expected: the k=1 system canary and history tag in a JSON answer (as in the other 29 negative-control turns).
+Verdict: **not a recall failure and not a scorer bug.** The model did not attempt the answer on the call where tools are
+withheld (v1 protocol) and emitted another tool call as plain text, so no canary could appear; the scorer correctly
+reports both canaries absent and counts them as 2 (system + history). The scorer is NOT changed: changing the gate
+after seeing this run would make the gate in-sample. The two positive-control misses (turns 10 and 15, over the 8192
+window) are the expected truncation detections.
+
+**c. Sampling and model identity.** Every request sets temperature 0, seed 42, num_predict 384 (harness constant,
+identical code on evo-x2); top_p and other sampling parameters are not set, so the model's own parameters layer applies.
+That layer is identical on both machines: llama3.1:8b model, params and template layer digests on the Blade equal
+evo-x2's (model `sha256:667b0c19...6a29`, params `sha256:56bb8bd4...4dcb`, template `sha256:948af274...cf85`), and both
+run Ollama 0.34.4. Remaining differences: the backend (CUDA on the Blade, ROCm on evo-x2), the negative-control window
+(32768 vs 131072) and therefore the numerics of greedy decoding, which can diverge on a borderline turn.
+
+**Consequence for night 1 (operator plan):** rerun validation with the negative control at 5 sessions; if it has 0
+canary misses, run the real tiers and mitigation scoring rules 1, 3 and 4; if not, run the mechanism instead and record
+the Blade result (text tool calls on the final-answer call) as an open finding.
