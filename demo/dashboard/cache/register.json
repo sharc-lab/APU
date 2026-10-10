@@ -10,8 +10,8 @@
    "results/t2s_night2_20260929T034014Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_a24_budget_boundary",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "A-24-budget-boundary-first-principles": {
   "id": "A-24-budget-boundary-first-principles",
@@ -27,8 +27,8 @@
    "results/t2s_night2_20260929T034014Z_srv_bis_a70_23552_2.txt"
   ],
   "script": "analysis/numbers_register.py::compute_a24_budget_boundary_first_principles",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "A-24-effective-heap-limit": {
   "id": "A-24-effective-heap-limit",
@@ -42,8 +42,8 @@
    "results/t2s_night2_20260929T034014Z_srv_bis_a70_*.txt"
   ],
   "script": "analysis/numbers_register.py::compute_a24_effective_heap_limit",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "A-24-flip-point-inputs": {
   "id": "A-24-flip-point-inputs",
@@ -56,8 +56,8 @@
    "results/t2s_night2_20260929T034014Z_srv_bis_a70_*.txt"
   ],
   "script": "analysis/numbers_register.py::compute_a24_flip_point_inputs",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "A-24-flip-point-per-model": {
   "id": "A-24-flip-point-per-model",
@@ -72,8 +72,8 @@
    "results/t2s_night2_20260929T034014Z_srv_bis_a70_*.txt"
   ],
   "script": "analysis/numbers_register.py::compute_a24_flip_point_per_model",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "A-24-flip-point-prediction": {
   "id": "A-24-flip-point-prediction",
@@ -88,8 +88,8 @@
    "results/t2s_night2_20260929T034014Z_srv_bis_a70_*.txt"
   ],
   "script": "analysis/numbers_register.py::compute_a24_flip_point_prediction",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "B3-corunner-6model": {
   "id": "B3-corunner-6model",
@@ -101,8 +101,8 @@
    "results/t2s_night2_20260928T004924Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_b3_corunner_6model",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "K1v3-X2-table": {
   "id": "K1v3-X2-table",
@@ -114,8 +114,8 @@
    "results/t2s_k1_ollama_evo-x2_20260930T205515Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k1_v3_x2_table",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "K2-x2-call-timing": {
   "id": "K2-x2-call-timing",
@@ -127,8 +127,8 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_call_timing",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "K2-x2-clean-failures": {
   "id": "K2-x2-clean-failures",
@@ -140,8 +140,8 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_clean_failures",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "K2-x2-decode-by-arm": {
   "id": "K2-x2-decode-by-arm",
@@ -153,8 +153,8 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_decode_by_pressure_arm",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "K2-x2-kill-criterion": {
   "id": "K2-x2-kill-criterion",
@@ -166,8 +166,8 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_kill_criterion_table",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "K2-x2-responsiveness-resolution": {
   "id": "K2-x2-responsiveness-resolution",
@@ -179,8 +179,8 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_responsiveness_resolution",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "K2-x2-score-ceiling": {
   "id": "K2-x2-score-ceiling",
@@ -192,8 +192,8 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_score_ceiling",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "K2-x2-unreached-levels": {
   "id": "K2-x2-unreached-levels",
@@ -205,8 +205,8 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_unreached_pressure_levels",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "P70-TTFT-ratio": {
   "id": "P70-TTFT-ratio",
@@ -218,8 +218,8 @@
    "results/t2s_night2_20260929T034014Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_p70_ttft_ratio",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "PX2-TTFT-gap": {
   "id": "PX2-TTFT-gap",
@@ -231,8 +231,8 @@
    "results/t2s_night2_20260930T135145Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_px2_ttft_gap",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "PX2-decode-ratio": {
   "id": "PX2-decode-ratio",
@@ -244,8 +244,8 @@
    "results/t2s_night2_20260930T135145Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_px2_decode_ratios",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "PX2-full-ratio-table": {
   "id": "PX2-full-ratio-table",
@@ -257,8 +257,8 @@
    "results/t2s_night2_20260930T135145Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_px2_full_ratio_table",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "PX2-power": {
   "id": "PX2-power",
@@ -270,8 +270,8 @@
    "results/t2s_night2_20260930T135145Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_px2_package_power",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "PX2-thermal": {
   "id": "PX2-thermal",
@@ -284,8 +284,8 @@
    "results/t2s_night2_20260930T135145Z_lhm.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_px2_thermal_ceiling",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "R1-check-agreement": {
   "id": "R1-check-agreement",
@@ -297,8 +297,8 @@
    "results/t2s_night2_20260929T034014Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r1_check_agreement",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "R2-install-path-4b-bare": {
   "id": "R2-install-path-4b-bare",
@@ -311,8 +311,8 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_install_path_4b_bare",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "R2-install-path-4b-comparison": {
   "id": "R2-install-path-4b-comparison",
@@ -326,8 +326,8 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_install_path_4b_comparison",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "R2-mechanism-lowlevel": {
   "id": "R2-mechanism-lowlevel",
@@ -339,8 +339,8 @@
    "results/x2_r2_mechanism.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_mechanism_lowlevel",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "R2-mechanism-verdict": {
   "id": "R2-mechanism-verdict",
@@ -352,8 +352,8 @@
    "results/x2_r2_mechanism.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_mechanism_verdict",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "R2-mitigation-v1-4096": {
   "id": "R2-mitigation-v1-4096",
@@ -367,8 +367,8 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_mitigation_v1_4096",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "R2-mitigation-v1-8192": {
   "id": "R2-mitigation-v1-8192",
@@ -382,8 +382,8 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_mitigation_v1_8192",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "R2-mitigation-v1-observed": {
   "id": "R2-mitigation-v1-observed",
@@ -395,8 +395,8 @@
    "results/x2_r2_mitigation_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_mitigation_v1_observed",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "R2-mitigation-v1-verdict": {
   "id": "R2-mitigation-v1-verdict",
@@ -410,8 +410,8 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_mitigation_v1_verdict",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "R2-orphan-rates": {
   "id": "R2-orphan-rates",
@@ -423,8 +423,8 @@
    "results/x2_r2_mechanism.jsonl"
   ],
   "script": "analysis/r2_shift_predictor.py::orphan_summary",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "R2-real-v1-first-events": {
   "id": "R2-real-v1-first-events",
@@ -436,8 +436,8 @@
    "results/x2_r2_real_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1_first_events",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "R2-real-v1-gated-kill": {
   "id": "R2-real-v1-gated-kill",
@@ -450,8 +450,8 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1_gated_kill",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "R2-real-v1-kill-criterion": {
   "id": "R2-real-v1-kill-criterion",
@@ -463,8 +463,8 @@
    "results/x2_r2_real_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1_kill_criterion",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "R2-real-v1-loaded-ctx": {
   "id": "R2-real-v1-loaded-ctx",
@@ -476,8 +476,8 @@
    "results/x2_r2_real_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1_loaded_ctx",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "R2-real-v1-survival": {
   "id": "R2-real-v1-survival",
@@ -490,8 +490,8 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1_survival",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "R2-real-v1-token-calib": {
   "id": "R2-real-v1-token-calib",
@@ -503,8 +503,8 @@
    "results/x2_r2_real_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1_token_calib",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "R2-real-v1b-first-events": {
   "id": "R2-real-v1b-first-events",
@@ -519,8 +519,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1b_first_events",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "R2-real-v1b-gated-kill": {
   "id": "R2-real-v1b-gated-kill",
@@ -535,8 +535,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1b_gated_kill",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "R2-real-v1b-kill-criterion": {
   "id": "R2-real-v1b-kill-criterion",
@@ -551,8 +551,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1b_kill_criterion",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "R2-real-v1b-survival": {
   "id": "R2-real-v1b-survival",
@@ -567,8 +567,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1b_survival",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "R2-shift-predicted-real-v1": {
   "id": "R2-shift-predicted-real-v1",
@@ -580,8 +580,8 @@
    "results/x2_r2_real_v1.jsonl"
   ],
   "script": "analysis/r2_shift_predictor.py::real_summary",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "R2-shift-predictor-confusion": {
   "id": "R2-shift-predictor-confusion",
@@ -593,8 +593,8 @@
    "results/x2_r2_mechanism.jsonl"
   ],
   "script": "analysis/r2_shift_predictor.py::mechanism_summary",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "R2-task-tool-gate": {
   "id": "R2-task-tool-gate",
@@ -607,8 +607,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_task_tool_gate",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "R2-validation-baseline": {
   "id": "R2-validation-baseline",
@@ -620,8 +620,8 @@
    "results/x2_r2_validation.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_baseline",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "R2-validation-call2-notools": {
   "id": "R2-validation-call2-notools",
@@ -633,8 +633,8 @@
    "results/x2_r2_validation.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_call2_notools",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "R2-validation-v2-baseline": {
   "id": "R2-validation-v2-baseline",
@@ -646,8 +646,8 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_v2_baseline",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "R2-validation-v2-spec-diag": {
   "id": "R2-validation-v2-spec-diag",
@@ -659,8 +659,8 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_v2_spec_diag",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "R2-validation-v2b-baseline": {
   "id": "R2-validation-v2b-baseline",
@@ -672,8 +672,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_v2b_baseline",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "R2-validation-v2b-runinfo": {
   "id": "R2-validation-v2b-runinfo",
@@ -685,8 +685,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_v2b_runinfo",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "R2-validation-v2c-baseline": {
   "id": "R2-validation-v2c-baseline",
@@ -698,8 +698,8 @@
    "results/x2_r2_validation_v2c.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_v2c_baseline",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "T2S-vs-X2-default-ctx": {
   "id": "T2S-vs-X2-default-ctx",
@@ -712,8 +712,8 @@
    "results/t2s_k1_ollama_evo-x2_20260930T205515Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_t2s_x2_default_ctx_table",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "b4_32b-dose-response": {
   "id": "b4_32b-dose-response",
@@ -725,8 +725,8 @@
    "results/t2s_night2_20260929T034014Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_b4_32b_dose_response",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "blade-dryrun-rates": {
   "id": "blade-dryrun-rates",
@@ -742,14 +742,40 @@
    "results/blade_dryrun/blade_dryrun_r2_mechanism.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_blade_dryrun_rates",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
+ },
+ "blade-k1-layer-split": {
+  "id": "blade-k1-layer-split",
+  "status": "VERIFIED",
+  "value": "llama3.1:8b: default ctx 4096, fully on GPU at default True; VRAM share by num_ctx 4096: 1.000, 8192: 1.000, 16384: 0.870, 32768: 0.656; overflow at default: 4096 tok -> HTTP 200, evaluated 3337; 8192 tok -> HTTP 200, evaluated 2050; 16384 tok -> HTTP 200, evaluated 2050; 32768 tok -> HTTP 200, evaluated 2050 / qwen3:8b: default ctx 4096, fully on GPU at default True; VRAM share by num_ctx 4096: 1.000, 8192: 1.000, 16384: 0.805, 32768: 0.592; overflow at default: 4096 tok -> HTTP 200, evaluated 4082; 8192 tok -> HTTP 200, evaluated 2050; 16384 tok -> HTTP 200, evaluated 2050; 32768 tok -> HTTP 200, evaluated 2050 / qwen3-4b-2507-tools: not measured (model not present); device VRAM 8188 MiB",
+  "n": "3",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/blade_k1_v2.summary.json"
+  ],
+  "script": "analysis/numbers_register.py::compute_blade_k1_layer_split",
+  "commit": "c7893de",
+  "date": "2026-10-10"
+ },
+ "blade-mechanism-4096": {
+  "id": "blade-mechanism-4096",
+  "status": "VERIFIED",
+  "value": "prompt check 9/9 within 1% (citable True); 75/80 calls message-truncated from turn 3, system kept on every truncated call True, cut mid-turn 60, token-level cuts 0, context shifts 33, exceed-context errors 0; verdict confirmed",
+  "n": "80",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/blade_r2_mechanism_4096_v2.jsonl.report.json"
+  ],
+  "script": "analysis/numbers_register.py::compute_blade_mechanism_4096",
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "blade-night-hours": {
   "id": "blade-night-hours",
   "status": "VERIFIED",
-  "value": "night 1 3.68 h, night 2 4.22 h, night 3 8.82 h; night 1 blade_k1_v1 0.50 h (scaled (itemized)); night 1 blade_r2_validation_v1 0.25 h (mixed (rates, scaled)); night 1 blade_r2_real_v1 1.75 h (rates); night 1 blade_r2_mitigation_v1 1.18 h (mixed (rates, scaled)); night 2 blade_c3_sysmem_fallback_v1 3.09 h (measured); night 2 blade_r2_mechanism_v1 1.13 h (mixed (rates, scaled)); night 3 blade_r2_validation_qwen3_8b_v1 0.53 h (scaled); night 3 blade_r2_real_qwen3_8b_v1 8.29 h (scaled)",
-  "n": "8",
+  "value": "night 1 3.75 h (gate branches: mechanism 0.87 h, real 3.75 h), night 2 4.22 h, night 3 8.82 h; night 1 blade_k1_v2 0.50 h (scaled (itemized)); night 1 blade_r2_validation_v2 0.32 h (mixed (rates, scaled)); night 1 blade_r2_gate_v2 0.00 h (measured); night 1 blade_r2_real_v2 1.75 h (rates) [branch real]; night 1 blade_r2_mitigation_v2 1.18 h (mixed (rates, scaled)) [branch real]; night 1 blade_r2_mechanism_4096_v2 0.05 h (rates) [branch mechanism]; night 2 blade_c3_sysmem_fallback_v1 3.09 h (measured); night 2 blade_r2_mechanism_v1 1.13 h (mixed (rates, scaled)); night 3 blade_r2_validation_qwen3_8b_v1 0.53 h (scaled); night 3 blade_r2_real_qwen3_8b_v1 8.29 h (scaled)",
+  "n": "10",
   "reported": "(none previously reported)",
   "files": [
    "results/blade_dryrun/blade_dryrun_k1.jsonl",
@@ -764,8 +790,47 @@
    "results/blade_c1_spill_sweep_20260925T053651Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_blade_night_hours",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
+ },
+ "blade-r2-gate-v2": {
+  "id": "blade-r2-gate-v2",
+  "status": "VERIFIED",
+  "value": "llama3.1:8b negative control num_ctx 32768, 5 sessions, canary misses per session 20260901: 0, 20260902: 0, 20260903: 2, 20260904: 0, 20260905: 2; branch mechanism",
+  "n": "5",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/blade_r2_gate_v2.json"
+  ],
+  "script": "analysis/numbers_register.py::compute_blade_r2_gate_v2",
+  "commit": "c7893de",
+  "date": "2026-10-10"
+ },
+ "blade-r2-validation-run1": {
+  "id": "blade-r2-validation-run1",
+  "status": "VERIFIED",
+  "value": "llama3.1:8b: rule1 96.7%, rule2 63.3%, rule3 100.0%, rule4 100.0%, rule5 26.7%; tool validity 100.0% of 31 calls; tool args 100.0%; recall 100.0% (n=6); canary C 83.3%, H 83.3% (n=6); empty final answers 0; rules in use ['rule1_json_keys', 'rule3_no_zebra', 'rule4_metres'], failing ['rule2_log_event_called', 'rule5_session_code']; negative control (num_ctx 32768) canary misses 2 of 12 canaries (6 checks x 2) over 3 sessions, per session (seed: misses) 20260901: 0, 20260902: 0, 20260903: 2 -> fail; positive control (8192) truncation turns [10], canary misses 0+2 -> pass; task tool 27/30",
+  "n": "30 turns",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/blade_r2_validation_v1.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_blade_r2_validation_run1",
+  "commit": "c7893de",
+  "date": "2026-10-10"
+ },
+ "blade-r2-validation-run2": {
+  "id": "blade-r2-validation-run2",
+  "status": "VERIFIED",
+  "value": "llama3.1:8b: rule1 96.0%, rule2 64.0%, rule3 100.0%, rule4 100.0%, rule5 34.0%; tool validity 100.0% of 52 calls; tool args 100.0%; recall 80.0% (n=10); canary C 80.0%, H 80.0% (n=10); empty final answers 0; rules in use ['rule1_json_keys', 'rule3_no_zebra', 'rule4_metres'], failing ['rule2_log_event_called', 'rule5_session_code']; negative control (num_ctx 32768) canary misses 4 of 20 canaries (10 checks x 2) over 5 sessions, per session (seed: misses) 20260901: 0, 20260902: 0, 20260903: 2, 20260904: 0, 20260905: 2 -> fail; positive control (8192) truncation turns [10], canary misses 0+2 -> pass; task tool 45/50",
+  "n": "50 turns",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/blade_r2_validation_v2.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_blade_r2_validation_run2",
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "blade-validation-ctx-cap": {
   "id": "blade-validation-ctx-cap",
@@ -778,8 +843,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_blade_validation_ctx_cap",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "c1b-stall-clean-cells": {
   "id": "c1b-stall-clean-cells",
@@ -791,13 +856,13 @@
    "results/t2s_night2_20260930T215303Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_c1b_stall_clean_cells",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "cloud-budget-inputs": {
   "id": "cloud-budget-inputs",
   "status": "VERIFIED",
-  "value": "12 sessions x 40 turns; demo 100 + 5x50 items at 50% cloud = 175 cloud items; failure scenarios 1 (6 cloud calls); rerun allowance 30%; output medians (o200k) gsm8k 125.5, function_calling 53.0, trace_length_mix 4.0, longdoc_qa 4, r2_sessions_per_turn 54.0; prices USD/1M in/cached/out (gpt-6-luna std 0.1/0.01/0.5 batch 0.05/0.25; gpt-6.1-sol std 2.0/0.1/10.0 batch 1.0/5.0); fetched 2026-10-08T03:33Z",
+  "value": "12 sessions x 40 turns; demo 100 + 5x50 items at 50% cloud = 175 cloud items; failure scenarios 1 (6 cloud calls); rerun allowance 30%; output medians (o200k) gsm8k 125.5, function_calling 53.0, trace_length_mix 4.0, longdoc_qa 4.0, r2_sessions_per_turn 54.0; prices USD/1M in/cached/out (gpt-6-luna std 0.1/0.01/0.5 batch 0.05/0.25; gpt-6.1-sol std 2.0/0.1/10.0 batch 1.0/5.0); fetched 2026-10-08T03:33Z",
   "n": "400 items",
   "reported": "(none previously reported)",
   "files": [
@@ -809,8 +874,8 @@
    "docs/DEMO_SPEC.md"
   ],
   "script": "analysis/cloud_budget_forecast.py::load_prices",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "cloud-budget-lines": {
   "id": "cloud-budget-lines",
@@ -827,8 +892,8 @@
    "docs/DEMO_SPEC.md"
   ],
   "script": "analysis/cloud_budget_forecast.py::forecast",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "cloud-budget-sensitivity": {
   "id": "cloud-budget-sensitivity",
@@ -845,8 +910,8 @@
    "docs/DEMO_SPEC.md"
   ],
   "script": "analysis/cloud_budget_forecast.py::forecast",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "cloud-budget-tokens": {
   "id": "cloud-budget-tokens",
@@ -863,8 +928,8 @@
    "docs/DEMO_SPEC.md"
   ],
   "script": "analysis/cloud_budget_forecast.py::r2_sessions",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "cloud-budget-totals": {
   "id": "cloud-budget-totals",
@@ -881,8 +946,8 @@
    "docs/DEMO_SPEC.md"
   ],
   "script": "analysis/cloud_budget_forecast.py::forecast",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "decode-rate-per-machine": {
   "id": "decode-rate-per-machine",
@@ -913,8 +978,8 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_decode_rate_per_machine",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "kappa-heldout": {
   "id": "kappa-heldout",
@@ -927,8 +992,8 @@
    "results/labeling/kappa_heldout_annotator_claude.csv"
   ],
   "script": "analysis/kappa_agreement.py::heldout_stats",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "kappa-heldout-disagreements": {
   "id": "kappa-heldout-disagreements",
@@ -942,8 +1007,8 @@
    "results/labeling/kappa_heldout_annotator_claude.csv"
   ],
   "script": "analysis/numbers_register.py::compute_kappa_heldout_disagreement_read",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "kappa-heldout-fn-annotator": {
   "id": "kappa-heldout-fn-annotator",
@@ -956,8 +1021,8 @@
    "results/labeling/kappa_heldout_annotator_claude.csv"
   ],
   "script": "analysis/kappa_agreement.py::heldout_stats",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "kappa-heldout-sample": {
   "id": "kappa-heldout-sample",
@@ -972,8 +1037,8 @@
    "results/labeling/ritz_spotcheck_30.csv"
   ],
   "script": "analysis/build_kappa_heldout_sample.py::round_robin_sample",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "ollama-overflow-keeps-half": {
   "id": "ollama-overflow-keeps-half",
@@ -988,8 +1053,8 @@
    "results/x2_template_mechanism_test.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ollama_overflow_keeps_half",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "pack-trace-weighted-stats": {
   "id": "pack-trace-weighted-stats",
@@ -1002,13 +1067,13 @@
    "results/traces/agent_step_lengths.parquet"
   ],
   "script": "analysis/numbers_register.py::compute_pack_trace_weighted_stats",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "pareto-frontier-x2": {
   "id": "pareto-frontier-x2",
   "status": "VERIFIED",
-  "value": "12 local configs; cloud frontier: none (no measured quality) / evo-x2 frontier: qwen3-4b-2507 llama_server q 1.000 (n=102) USD 0.00/1k steps p50/p90 19.0/531.0 s / bare template, off frontier: qwen3-30b-a3b ollama_default [bare template] q 1.000 (n=109) USD 0.00/1k steps p50/p90 25.0/97.9 s; qwen3-4b-2507 ollama_default [bare template] q 1.000 (n=111) USD 0.00/1k steps p50/p90 18.7/119.3 s / STUB cloud (quality not measured): gpt-6-luna USD 1.85/1k steps; gpt-6.1-sol USD 37.03/1k steps",
+  "value": "12 local configs; cloud frontier: none (no measured quality) / evo-x2 frontier: qwen3-4b-2507 llama_server q 1.000 (n=150) USD 0.00/1k steps p50/p90 8.5/212.7 s / bare template, off frontier: qwen3-30b-a3b ollama_default [bare template] q 1.000 (n=176) USD 0.00/1k steps p50/p90 20.2/148.9 s; qwen3-4b-2507 ollama_default [bare template] q 1.000 (n=176) USD 0.00/1k steps p50/p90 10.1/221.7 s / STUB cloud (quality not measured): gpt-6-luna USD 1.85/1k steps; gpt-6.1-sol USD 37.03/1k steps",
   "n": "12",
   "reported": "(none previously reported)",
   "files": [
@@ -1018,13 +1083,13 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "src/dse/pareto.py::frontier",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "pareto-sample-recommendation": {
   "id": "pareto-sample-recommendation",
   "status": "VERIFIED",
-  "value": "evo-x2 qwen3-4b-2507 llama_server: cheapest of 6 configs meeting quality >= 0.9 (has 1.000, n=102) and p50 <= 30000 ms (has 19024 ms) at USD 0.00/1k steps; vs all-cloud gpt-6-luna USD 1.85/1k steps [STUB]; savings vs all-cloud USD 1.85/1k steps [STUB]",
+  "value": "evo-x2 qwen3-4b-2507 llama_server: cheapest of 8 configs meeting quality >= 0.9 (has 1.000, n=150) and p50 <= 30000 ms (has 8516 ms) at USD 0.00/1k steps; vs all-cloud gpt-6-luna USD 1.85/1k steps [STUB]; savings vs all-cloud USD 1.85/1k steps [STUB]",
   "n": "14",
   "reported": "(none previously reported)",
   "files": [
@@ -1034,21 +1099,50 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "src/dse/pareto.py::recommend",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
+ },
+ "pareto-sample-recommendation-v2": {
+  "id": "pareto-sample-recommendation-v2",
+  "status": "VERIFIED",
+  "value": "max_timeout_share 0.05: evo-x2 qwen3-30b-a3b llama_server: cheapest of 6 configs meeting quality >= 0.9 (has 1.000, n=175) and p50 <= 30000 ms (has 9609 ms), timeout_latency share <= 0.05 (has 0.000) at USD 0.00/1k steps; vs all-cloud gpt-6-luna USD 1.85/1k steps [STUB]; 3 excluded by usability: evo-x2 llama3.1:8b llama_server excluded: timeout_latency share 0.148 > 0.05 (26/176 done rows); evo-x2 qwen3-32b llama_server excluded: timeout_latency share 0.100 > 0.05 (11/110 done rows); evo-x2 qwen3-4b-2507 llama_server excluded: timeout_latency share 0.148 > 0.05 (26/176 done rows); savings vs all-cloud USD 1.85/1k steps [STUB]",
+  "n": "3",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_outcome_table_v3.jsonl",
+   "results/workload_pack/item_weights_trace_weighted.json",
+   "results/cloud_prices_20261008.json",
+   "results/x2_chat_template_sources.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_pareto_sample_recommendation_v2",
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "qwen3-32b-timeout-count": {
   "id": "qwen3-32b-timeout-count",
   "status": "VERIFIED",
-  "value": "llama_server 11/86, ollama_default 0/86 (timeout_latency/done); provisional: outcome table v3 not finished (1303/3600 done)",
+  "value": "llama_server 11/100, ollama_default 0/100 (timeout_latency/done); provisional: outcome table v3 not finished (1959/3600 done)",
   "n": "11",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_qwen3_32b_timeout_count",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
+ },
+ "qwen3-32b-truncation-vs-latency": {
+  "id": "qwen3-32b-truncation-vs-latency",
+  "status": "VERIFIED",
+  "value": "truncated = HTTP 200, no error, processed_tokens < sent_tokens - max(32, 1% of sent_tokens). llama_server: silently truncated 0/74 HTTP-200 rows (0.0%); truncated n=0; full score 1.00 (74/74, Wilson 95% CI 0.95-1.00), latency median 87 s (range 18-528); not HTTP 200 (outside both groups; timeout = timeout_latency, excluded from accuracy; context_overflow scores 0): context_overflow 15, timeout 11; harness silently_truncated agrees on 74/74 / ollama_default: silently truncated 15/97 HTTP-200 rows (15.5%) (evaluated tokens 20482); truncated score 0.40 (6/15, Wilson 95% CI 0.20-0.64), latency median 146 s (range 136-168); full score 1.00 (82/82, Wilson 95% CI 0.96-1.00), latency median 76 s (range 27-357); not HTTP 200 (outside both groups; timeout = timeout_latency, excluded from accuracy; context_overflow scores 0): other 3; harness silently_truncated agrees on 97/97 / pairing: items served in full by both configs: ollama_default/llama_server latency ratio median 0.78 (range 0.35-1.58, n=71); llama_server context_overflow items on ollama_default: truncated 15 (of 15); llama_server timeout_latency items on ollama_default: full 11 (of 11); provisional: outcome table v3 not finished (1959/3600 done)",
+  "n": "200",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_outcome_table_v3.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_qwen3_32b_truncation_vs_latency",
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "qwen32b-refusal": {
   "id": "qwen32b-refusal",
@@ -1060,8 +1154,8 @@
    "results/t2s_night2_20260929T205109Z.jsonl"
   ],
   "script": "analysis/r1b_wrong_answer_audit.py::refusal_share_by_model",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "qwen4b-2507-metadata-consistency": {
   "id": "qwen4b-2507-metadata-consistency",
@@ -1073,8 +1167,8 @@
    "results/x2_template_mechanism_test.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_qwen4b_2507_metadata_consistency",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "self-report-truncation-awareness": {
   "id": "self-report-truncation-awareness",
@@ -1087,8 +1181,8 @@
    "results/t2s_night2_20260929T205109Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_self_report_truncation_awareness",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "t2s-llamaserver-load-failures": {
   "id": "t2s-llamaserver-load-failures",
@@ -1100,8 +1194,8 @@
    "results/t2s_outcome_table_llamaserver_*.log"
   ],
   "script": "analysis/numbers_register.py::compute_t2s_llamaserver_load_failures",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "f448111",
+  "date": "2026-10-09"
  },
  "t2s-outcome-allocation-failures": {
   "id": "t2s-outcome-allocation-failures",
@@ -1113,8 +1207,8 @@
    "results/t2s_outcome_table_full.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_t2s_allocation_failures",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "t2s-outcome-error-causes": {
   "id": "t2s-outcome-error-causes",
@@ -1126,8 +1220,8 @@
    "results/t2s_outcome_table_full.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_t2s_outcome_error_causes",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "t2s-outcome-gsm8k-rescore": {
   "id": "t2s-outcome-gsm8k-rescore",
@@ -1140,8 +1234,8 @@
    "results/t2s_outcome_table_smoke.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_t2s_outcome_gsm8k_rescore",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "trace-32k-crossing": {
   "id": "trace-32k-crossing",
@@ -1153,8 +1247,8 @@
    "results/traces/agent_step_lengths.parquet"
   ],
   "script": "analysis/numbers_register.py::compute_trace_cdf_crossing_fractions",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "trace-context-exit-rate": {
   "id": "trace-context-exit-rate",
@@ -1166,8 +1260,8 @@
    "results/traces/exit_status_sample.parquet"
   ],
   "script": "analysis/numbers_register.py::compute_trace_context_exit_rate",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "trace-fraction-exceeds-4096": {
   "id": "trace-fraction-exceeds-4096",
@@ -1179,8 +1273,8 @@
    "results/traces/agent_step_lengths.parquet"
   ],
   "script": "analysis/numbers_register.py::compute_trace_fraction_exceeds_4096",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "ttft-cross-machine-transfer": {
   "id": "ttft-cross-machine-transfer",
@@ -1211,8 +1305,8 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_cross_machine_transfer",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "ttft-few-point-calibration": {
   "id": "ttft-few-point-calibration",
@@ -1243,8 +1337,8 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_few_point_calibration",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "ttft-first-call-stall": {
   "id": "ttft-first-call-stall",
@@ -1261,8 +1355,8 @@
    "results/t2s_night2_20260929T202603Z_srv_R1*_start.txt"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_first_call_stall",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "ttft-first-call-stall-per-cell": {
   "id": "ttft-first-call-stall-per-cell",
@@ -1279,8 +1373,8 @@
    "results/t2s_night2_20260929T202603Z_srv_R1*_start.txt"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_first_call_stall_per_cell",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "ttft-physical-fit-per-machine": {
   "id": "ttft-physical-fit-per-machine",
@@ -1311,8 +1405,8 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_physical_fit_per_machine",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "ttft-t2s-restricted-to-x2-range": {
   "id": "ttft-t2s-restricted-to-x2-range",
@@ -1343,8 +1437,8 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_t2s_restricted_to_x2_range",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "ttft-x2-length-spread": {
   "id": "ttft-x2-length-spread",
@@ -1375,8 +1469,8 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_x2_length_spread",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "ttft-x2-refit-per-model": {
   "id": "ttft-x2-refit-per-model",
@@ -1407,8 +1501,8 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_x2_refit_per_model",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "ttft-x2-section0-stall-check": {
   "id": "ttft-x2-section0-stall-check",
@@ -1440,8 +1534,8 @@
    "results/t2s_night2_20260929T205109Z_srv_R1*_start.txt"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_x2_section0_stall_check",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "uncensored-trace-32k-crossing": {
   "id": "uncensored-trace-32k-crossing",
@@ -1453,22 +1547,22 @@
    "results/traces/agent_step_lengths.parquet"
   ],
   "script": "analysis/numbers_register.py::compute_uncensored_trace_32k_crossing",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "x2-chat-template-source": {
   "id": "x2-chat-template-source",
   "status": "VERIFIED",
-  "value": "llama3.1:8b/ollama_default (tag llama3.1:8b) ollama_library sha256 948af2743fc7 (v3 rows: 5 ollama_library not valid derived, 30 ollama_library valid derived, 81 ollama_library valid recorded); llama3.1:8b/llama_server gguf_embedded_llama_server sha256 e10ca381b1cc (v3 rows: 121 gguf_embedded_llama_server valid derived); qwen3-4b-2507/ollama_default (tag qwen3-4b-2507) bare_gguf_ollama_create sha256 40c21f34cf67 (v3 rows: 30 bare_gguf_ollama_create valid derived, 81 bare_gguf_ollama_create valid recorded); qwen3-4b-2507/llama_server gguf_embedded_llama_server sha256 40c21f34cf67 (v3 rows: 120 gguf_embedded_llama_server valid derived); qwen3-8b/ollama_default (tag qwen3:8b) ollama_library sha256 ae370d884f10 (v3 rows: 30 ollama_library valid derived, 81 ollama_library valid recorded); qwen3-8b/llama_server gguf_embedded_llama_server sha256 57f1fd00f001 (v3 rows: 28 gguf_embedded_llama_server valid derived, 81 gguf_embedded_llama_server valid recorded); qwen3-14b/ollama_default (tag qwen3:14b) ollama_library sha256 ae370d884f10 (v3 rows: 29 ollama_library valid derived, 81 ollama_library valid recorded); qwen3-14b/llama_server gguf_embedded_llama_server sha256 57f1fd00f001 (v3 rows: 28 gguf_embedded_llama_server valid derived, 81 gguf_embedded_llama_server valid recorded); qwen3-30b-a3b/ollama_default (tag qwen3-30b-a3b-2507) bare_gguf_ollama_create sha256 40c21f34cf67 (v3 rows: 28 bare_gguf_ollama_create valid derived, 81 bare_gguf_ollama_create valid recorded, 15 ollama_library not valid derived); qwen3-30b-a3b/llama_server gguf_embedded_llama_server sha256 40c21f34cf67 (v3 rows: 120 gguf_embedded_llama_server valid derived); qwen3-32b/ollama_default (tag qwen3:32b) ollama_library sha256 ae370d884f10 (v3 rows: 29 ollama_library valid derived, 68 ollama_library valid recorded); qwen3-32b/llama_server gguf_embedded_llama_server sha256 57f1fd00f001 (v3 rows: 28 gguf_embedded_llama_server valid derived, 68 gguf_embedded_llama_server valid recorded)",
-  "n": "1344",
+  "value": "llama3.1:8b/ollama_default (tag llama3.1:8b) ollama_library sha256 948af2743fc7 (v3 rows: 5 ollama_library not valid derived, 30 ollama_library valid derived, 146 ollama_library valid recorded); llama3.1:8b/llama_server gguf_embedded_llama_server sha256 e10ca381b1cc (v3 rows: 121 gguf_embedded_llama_server valid derived, 55 gguf_embedded_llama_server valid recorded); qwen3-4b-2507/ollama_default (tag qwen3-4b-2507) bare_gguf_ollama_create sha256 40c21f34cf67 (v3 rows: 30 bare_gguf_ollama_create valid derived, 146 bare_gguf_ollama_create valid recorded); qwen3-4b-2507/llama_server gguf_embedded_llama_server sha256 40c21f34cf67 (v3 rows: 120 gguf_embedded_llama_server valid derived, 56 gguf_embedded_llama_server valid recorded); qwen3-8b/ollama_default (tag qwen3:8b) ollama_library sha256 ae370d884f10 (v3 rows: 30 ollama_library valid derived, 146 ollama_library valid recorded); qwen3-8b/llama_server gguf_embedded_llama_server sha256 57f1fd00f001 (v3 rows: 28 gguf_embedded_llama_server valid derived, 148 gguf_embedded_llama_server valid recorded); qwen3-14b/ollama_default (tag qwen3:14b) ollama_library sha256 ae370d884f10 (v3 rows: 29 ollama_library valid derived, 147 ollama_library valid recorded); qwen3-14b/llama_server gguf_embedded_llama_server sha256 57f1fd00f001 (v3 rows: 28 gguf_embedded_llama_server valid derived, 148 gguf_embedded_llama_server valid recorded); qwen3-30b-a3b/ollama_default (tag qwen3-30b-a3b-2507) bare_gguf_ollama_create sha256 40c21f34cf67 (v3 rows: 28 bare_gguf_ollama_create valid derived, 148 bare_gguf_ollama_create valid recorded, 15 ollama_library not valid derived); qwen3-30b-a3b/llama_server gguf_embedded_llama_server sha256 40c21f34cf67 (v3 rows: 120 gguf_embedded_llama_server valid derived, 55 gguf_embedded_llama_server valid recorded); qwen3-32b/ollama_default (tag qwen3:32b) ollama_library sha256 ae370d884f10 (v3 rows: 29 ollama_library valid derived, 82 ollama_library valid recorded); qwen3-32b/llama_server gguf_embedded_llama_server sha256 57f1fd00f001 (v3 rows: 28 gguf_embedded_llama_server valid derived, 82 gguf_embedded_llama_server valid recorded)",
+  "n": "2000",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_chat_template_sources.jsonl",
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_chat_template_source",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "x2-device-detect-mechanism": {
   "id": "x2-device-detect-mechanism",
@@ -1480,8 +1574,8 @@
    "results/x2_template_mechanism_test.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_device_detect_mechanism",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "x2-thinking-verify": {
   "id": "x2-thinking-verify",
@@ -1493,8 +1587,8 @@
    "results/x2_thinking_verify.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_thinking_verify",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "x2-truncation-cliff-qwen3-8b": {
   "id": "x2-truncation-cliff-qwen3-8b",
@@ -1506,8 +1600,8 @@
    "results/traces/agent_step_lengths.parquet"
   ],
   "script": "analysis/numbers_register.py::compute_x2_truncation_cliff",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "x2-v3-canary-gate-lenient": {
   "id": "x2-v3-canary-gate-lenient",
@@ -1520,8 +1614,8 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_canary_gate_lenient",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "x2-v3-canary-gates": {
   "id": "x2-v3-canary-gates",
@@ -1534,21 +1628,21 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_canary_gates",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "x2-v3-error-causes": {
   "id": "x2-v3-error-causes",
   "status": "VERIFIED",
-  "value": "order none/context_overflow/timeout/connection/other; llama3.1:8b/llama_server 102/0/19/0/0; llama3.1:8b/ollama_default 111/0/0/0/0; qwen3-14b/llama_server 91/18/0/0/0; qwen3-14b/ollama_default 110/0/0/0/0; qwen3-30b-a3b/llama_server 120/0/0/0/0; qwen3-30b-a3b/ollama_default 109/0/0/0/0; qwen3-32b/llama_server 64/11/11/0/0; qwen3-32b/ollama_default 83/0/0/0/3; qwen3-4b-2507/llama_server 102/0/18/0/0; qwen3-4b-2507/ollama_default 111/0/0/0/0; qwen3-8b/llama_server 91/18/0/0/0; qwen3-8b/ollama_default 111/0/0/0/0",
-  "n": "1324",
+  "value": "order none/context_overflow/timeout/connection/other; llama3.1:8b/llama_server 150/0/26/0/0; llama3.1:8b/ollama_default 176/0/0/0/0; qwen3-14b/llama_server 139/37/0/0/0; qwen3-14b/ollama_default 176/0/0/0/0; qwen3-30b-a3b/llama_server 175/0/0/0/0; qwen3-30b-a3b/ollama_default 176/0/0/0/0; qwen3-32b/llama_server 74/15/11/0/0; qwen3-32b/ollama_default 97/0/0/0/3; qwen3-4b-2507/llama_server 150/0/26/0/0; qwen3-4b-2507/ollama_default 176/0/0/0/0; qwen3-8b/llama_server 139/37/0/0/0; qwen3-8b/ollama_default 176/0/0/0/0",
+  "n": "1980",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_error_causes",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "x2-v3-gsm8k-strict-vs-lenient": {
   "id": "x2-v3-gsm8k-strict-vs-lenient",
@@ -1560,27 +1654,27 @@
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_gsm8k_strict_vs_lenient",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "x2-v3-progress": {
   "id": "x2-v3-progress",
   "status": "VERIFIED",
-  "value": "total 1303/3600; llama3.1:8b/llama_server 121/340; llama3.1:8b/ollama_default 111/340; qwen3-14b/llama_server 109/340; qwen3-14b/ollama_default 110/340; qwen3-30b-a3b/llama_server 120/340; qwen3-30b-a3b/ollama_default 109/340; qwen3-32b/llama_server 86/100; qwen3-32b/ollama_default 86/100; qwen3-4b-2507/llama_server 120/340; qwen3-4b-2507/ollama_default 111/340; qwen3-8b/llama_server 109/340; qwen3-8b/ollama_default 111/340",
-  "n": "1303",
+  "value": "total 1959/3600; llama3.1:8b/llama_server 176/340; llama3.1:8b/ollama_default 176/340; qwen3-14b/llama_server 176/340; qwen3-14b/ollama_default 176/340; qwen3-30b-a3b/llama_server 175/340; qwen3-30b-a3b/ollama_default 176/340; qwen3-32b/llama_server 100/100; qwen3-32b/ollama_default 100/100; qwen3-4b-2507/llama_server 176/340; qwen3-4b-2507/ollama_default 176/340; qwen3-8b/llama_server 176/340; qwen3-8b/ollama_default 176/340",
+  "n": "1959",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_progress",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "x2-v3-scores": {
   "id": "x2-v3-scores",
   "status": "VERIFIED",
-  "value": "llama3.1:8b/llama_server: function_calling 1.00 (n=5), gsm8k 0.40 (n=5), longdoc_qa 1.00 (n=61), trace_length_mix 1.00 (n=31); trace-weighted 1.00; 19 timeout_latency excluded / llama3.1:8b/ollama_default: function_calling 1.00 (n=5), gsm8k 0.20 (n=5), longdoc_qa 1.00 (n=70), trace_length_mix 1.00 (n=31); trace-weighted 1.00 / qwen3-14b/llama_server: function_calling 1.00 (n=5), gsm8k 0.80 (n=5), longdoc_qa 0.75 (n=68), trace_length_mix 0.97 (n=31); trace-weighted 0.92 / qwen3-14b/ollama_default: function_calling 1.00 (n=5), gsm8k 0.80 (n=5), longdoc_qa 0.83 (n=69), trace_length_mix 0.97 (n=31); trace-weighted 0.95 / qwen3-30b-a3b/llama_server: function_calling 1.00 (n=5), gsm8k 0.80 (n=5), longdoc_qa 1.00 (n=79), trace_length_mix 1.00 (n=31); trace-weighted 1.00 / qwen3-30b-a3b/ollama_default: function_calling 1.00 (n=5) [bare template], gsm8k 0.80 (n=5), longdoc_qa 1.00 (n=68), trace_length_mix 1.00 (n=31); trace-weighted 1.00 (includes bare-template function_calling) / qwen3-32b/llama_server: longdoc_qa 0.78 (n=49), trace_length_mix 1.00 (n=26); trace-weighted 0.94; 11 timeout_latency excluded / qwen3-32b/ollama_default: longdoc_qa 0.90 (n=59), trace_length_mix 0.93 (n=27); trace-weighted 0.87 / qwen3-4b-2507/llama_server: function_calling 1.00 (n=5), gsm8k 0.20 (n=5), longdoc_qa 1.00 (n=61), trace_length_mix 1.00 (n=31); trace-weighted 1.00; 18 timeout_latency excluded / qwen3-4b-2507/ollama_default: function_calling 1.00 (n=5) [bare template], gsm8k 0.40 (n=5), longdoc_qa 1.00 (n=70), trace_length_mix 1.00 (n=31); trace-weighted 1.00 (includes bare-template function_calling) / qwen3-8b/llama_server: function_calling 1.00 (n=5), gsm8k 1.00 (n=5), longdoc_qa 0.75 (n=68), trace_length_mix 0.97 (n=31); trace-weighted 0.92 / qwen3-8b/ollama_default: function_calling 1.00 (n=5), gsm8k 0.80 (n=5), longdoc_qa 0.81 (n=70), trace_length_mix 0.97 (n=31); trace-weighted 0.95",
-  "n": "1324",
+  "value": "llama3.1:8b/llama_server: function_calling 1.00 (n=5), gsm8k 0.40 (n=5), longdoc_qa 1.00 (n=80), trace_length_mix 1.00 (n=60); trace-weighted 1.00; 26 timeout_latency excluded / llama3.1:8b/ollama_default: function_calling 1.00 (n=5), gsm8k 0.20 (n=5), longdoc_qa 1.00 (n=106), trace_length_mix 1.00 (n=60); trace-weighted 1.00 / qwen3-14b/llama_server: function_calling 1.00 (n=5), gsm8k 0.80 (n=5), longdoc_qa 0.66 (n=106), trace_length_mix 0.98 (n=60); trace-weighted 0.91 / qwen3-14b/ollama_default: function_calling 1.00 (n=5), gsm8k 0.80 (n=5), longdoc_qa 0.74 (n=106), trace_length_mix 0.98 (n=60); trace-weighted 0.94 / qwen3-30b-a3b/llama_server: function_calling 1.00 (n=5), gsm8k 0.80 (n=5), longdoc_qa 1.00 (n=105), trace_length_mix 1.00 (n=60); trace-weighted 1.00 / qwen3-30b-a3b/ollama_default: function_calling 1.00 (n=5) [bare template], gsm8k 0.80 (n=5), longdoc_qa 1.00 (n=106), trace_length_mix 1.00 (n=60); trace-weighted 1.00 (includes bare-template function_calling) / qwen3-32b/llama_server: longdoc_qa 0.74 (n=57), trace_length_mix 1.00 (n=32); trace-weighted 0.93; 11 timeout_latency excluded / qwen3-32b/ollama_default: longdoc_qa 0.85 (n=67), trace_length_mix 0.94 (n=33); trace-weighted 0.87 / qwen3-4b-2507/llama_server: function_calling 1.00 (n=5), gsm8k 0.20 (n=5), longdoc_qa 1.00 (n=80), trace_length_mix 1.00 (n=60); trace-weighted 1.00; 26 timeout_latency excluded / qwen3-4b-2507/ollama_default: function_calling 1.00 (n=5) [bare template], gsm8k 0.40 (n=5), longdoc_qa 1.00 (n=106), trace_length_mix 1.00 (n=60); trace-weighted 1.00 (includes bare-template function_calling) / qwen3-8b/llama_server: function_calling 1.00 (n=5), gsm8k 1.00 (n=5), longdoc_qa 0.66 (n=106), trace_length_mix 0.98 (n=60); trace-weighted 0.91 / qwen3-8b/ollama_default: function_calling 1.00 (n=5), gsm8k 0.80 (n=5), longdoc_qa 0.74 (n=106), trace_length_mix 0.98 (n=60); trace-weighted 0.94",
+  "n": "1980",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_outcome_table_v3.jsonl",
@@ -1588,21 +1682,34 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_scores",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
+ },
+ "x2-v3-truncation-all-models": {
+  "id": "x2-v3-truncation-all-models",
+  "status": "VERIFIED",
+  "value": "truncated = HTTP 200, no error, processed_tokens < sent_tokens - max(32, 1% of sent_tokens); silently truncated/HTTP-200: llama3.1:8b/llama_server 0/150, score full 0.98 (n=150); llama3.1:8b/ollama_default 0/176, score full 0.98 (n=176); qwen3-14b/llama_server 0/139, score full 0.99 (n=139); qwen3-14b/ollama_default 37/176, score truncated 0.22 (n=37) vs full 0.99 (n=139); qwen3-30b-a3b/llama_server 0/175, score full 0.99 (n=175); qwen3-30b-a3b/ollama_default 0/176, score full 0.99 (n=176); qwen3-32b/llama_server 0/74, score full 1.00 (n=74); qwen3-32b/ollama_default 15/97, score truncated 0.40 (n=15) vs full 1.00 (n=82); qwen3-4b-2507/llama_server 0/150, score full 0.97 (n=150); qwen3-4b-2507/ollama_default 0/176, score full 0.98 (n=176); qwen3-8b/llama_server 0/139, score full 1.00 (n=139); qwen3-8b/ollama_default 37/176, score truncated 0.22 (n=37) vs full 0.99 (n=139); provisional: outcome table v3 not finished (1959/3600 done)",
+  "n": "1959",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_outcome_table_v3.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_x2_v3_truncation_all_models",
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "x2-v3-usability": {
   "id": "x2-v3-usability",
   "status": "VERIFIED",
-  "value": "per-call timeout 900 s (harness DEFAULT_CALL_TIMEOUT_S); timeout_latency/done (share) [context tiers]: llama3.1:8b/llama_server 19/121 (15.7%) [longdoc_64000 x10, longdoc_80000 x9]; llama3.1:8b/ollama_default 0/111 (0.0%); qwen3-14b/llama_server 0/109 (0.0%); qwen3-14b/ollama_default 0/110 (0.0%); qwen3-30b-a3b/llama_server 0/120 (0.0%); qwen3-30b-a3b/ollama_default 0/109 (0.0%); qwen3-32b/llama_server 11/86 (12.8%) [longdoc_32000 x10, trace_mix_24000 x1]; qwen3-32b/ollama_default 0/86 (0.0%); qwen3-4b-2507/llama_server 18/120 (15.0%) [longdoc_64000 x10, longdoc_80000 x8]; qwen3-4b-2507/ollama_default 0/111 (0.0%); qwen3-8b/llama_server 0/109 (0.0%); qwen3-8b/ollama_default 0/111 (0.0%)",
-  "n": "48",
+  "value": "per-call timeout 900 s (harness DEFAULT_CALL_TIMEOUT_S); timeout_latency/done (share) [context tiers]: llama3.1:8b/llama_server 26/176 (14.8%) [longdoc_64000 x10, longdoc_80000 x10, longdoc_96000 x6]; llama3.1:8b/ollama_default 0/176 (0.0%); qwen3-14b/llama_server 0/176 (0.0%); qwen3-14b/ollama_default 0/176 (0.0%); qwen3-30b-a3b/llama_server 0/175 (0.0%); qwen3-30b-a3b/ollama_default 0/176 (0.0%); qwen3-32b/llama_server 11/100 (11.0%) [longdoc_32000 x10, trace_mix_24000 x1]; qwen3-32b/ollama_default 0/100 (0.0%); qwen3-4b-2507/llama_server 26/176 (14.8%) [longdoc_64000 x10, longdoc_80000 x10, longdoc_96000 x6]; qwen3-4b-2507/ollama_default 0/176 (0.0%); qwen3-8b/llama_server 0/176 (0.0%); qwen3-8b/ollama_default 0/176 (0.0%)",
+  "n": "63",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_usability",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "x2-weekend-error-causes": {
   "id": "x2-weekend-error-causes",
@@ -1614,8 +1721,8 @@
    "results/x2_outcome_table_weekend.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_weekend_error_causes",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "x2-weekend-error-causes-by-cell": {
   "id": "x2-weekend-error-causes-by-cell",
@@ -1627,8 +1734,8 @@
    "results/x2_outcome_table_weekend.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_weekend_error_causes_by_cell",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "x2-weekend-ngen-budget": {
   "id": "x2-weekend-ngen-budget",
@@ -1640,8 +1747,8 @@
    "results/x2_weekend_llamaserver_log_scan.json"
   ],
   "script": "analysis/numbers_register.py::compute_x2_weekend_ngen_budget",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "x2-weekend-refused-block": {
   "id": "x2-weekend-refused-block",
@@ -1653,8 +1760,8 @@
    "results/x2_outcome_table_weekend.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_weekend_refused_block",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "x2-weekend-tag-counts": {
   "id": "x2-weekend-tag-counts",
@@ -1666,8 +1773,8 @@
    "results/x2_outcome_table_weekend.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_weekend_tag_counts",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  },
  "x2-weekend-thinking-scores": {
   "id": "x2-weekend-thinking-scores",
@@ -1679,7 +1786,7 @@
    "results/x2_outcome_table_weekend.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_weekend_thinking_scores",
-  "commit": "dde73e5",
-  "date": "2026-10-08"
+  "commit": "c7893de",
+  "date": "2026-10-10"
  }
 }

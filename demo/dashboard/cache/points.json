@@ -11,26 +11,28 @@
    "model": "llama3.1:8b",
    "config_id": "evo-x2:llama_server:llama3.1:8b",
    "quality": 1.0,
-   "quality_n": 102,
+   "quality_n": 150,
    "usd_per_1k_steps": 0.0,
-   "latency_p50_ms": 22601.999999998952,
-   "latency_p90_ms": 470365.399999991,
+   "latency_p50_ms": 11304.500000012922,
+   "latency_p90_ms": 195653.60000000946,
    "stub": false,
    "template_source": "gguf_embedded_llama_server",
    "flags": [
-    "timeout_latency_excluded=19",
-    "errors:timeout=19"
+    "timeout_latency_excluded=26",
+    "errors:timeout=26"
    ],
-   "weight_coverage": 0.9378025524424235,
-   "n_rows": 121,
+   "weight_coverage": 0.9697814287809888,
+   "n_rows": 176,
    "error_causes": {
-    "none": 102,
-    "timeout": 19
+    "none": 150,
+    "timeout": 26
    },
    "cost_basis": "local: 0 marginal API cost",
    "source_files": [
     "results/x2_outcome_table_v3.jsonl"
-   ]
+   ],
+   "n_timeout_latency": 26,
+   "timeout_latency_share": 0.14772727272727273
   },
   {
    "machine": "evo-x2",
@@ -38,71 +40,77 @@
    "model": "llama3.1:8b",
    "config_id": "evo-x2:ollama_default:llama3.1:8b",
    "quality": 1.0,
-   "quality_n": 111,
+   "quality_n": 176,
    "usd_per_1k_steps": 0.0,
-   "latency_p50_ms": 25219.000000011874,
-   "latency_p90_ms": 156578.00000003772,
+   "latency_p50_ms": 18085.99999998114,
+   "latency_p90_ms": 293624.49999997625,
    "stub": false,
    "template_source": "ollama_library",
    "flags": [],
-   "weight_coverage": 0.9555816341499195,
-   "n_rows": 111,
+   "weight_coverage": 1.0000000000000002,
+   "n_rows": 176,
    "error_causes": {
-    "none": 111
+    "none": 176
    },
    "cost_basis": "local: 0 marginal API cost",
    "source_files": [
     "results/x2_outcome_table_v3.jsonl"
-   ]
+   ],
+   "n_timeout_latency": 0,
+   "timeout_latency_share": 0.0
   },
   {
    "machine": "evo-x2",
    "runtime": "llama_server",
    "model": "qwen3-14b",
    "config_id": "evo-x2:llama_server:qwen3-14b",
-   "quality": 0.9212913143735587,
-   "quality_n": 109,
+   "quality": 0.9111045914625201,
+   "quality_n": 176,
    "usd_per_1k_steps": 0.0,
-   "latency_p50_ms": 39954.00000002701,
-   "latency_p90_ms": 285467.9999999935,
+   "latency_p50_ms": 15375.0,
+   "latency_p90_ms": 156784.4000000041,
    "stub": false,
    "template_source": "gguf_embedded_llama_server",
    "flags": [
-    "errors:context_overflow=18"
+    "errors:context_overflow=37"
    ],
-   "weight_coverage": 0.9542320668915947,
-   "n_rows": 109,
+   "weight_coverage": 1.0000000000000002,
+   "n_rows": 176,
    "error_causes": {
-    "none": 91,
-    "context_overflow": 18
+    "none": 139,
+    "context_overflow": 37
    },
    "cost_basis": "local: 0 marginal API cost",
    "source_files": [
     "results/x2_outcome_table_v3.jsonl"
-   ]
+   ],
+   "n_timeout_latency": 0,
+   "timeout_latency_share": 0.0
   },
   {
    "machine": "evo-x2",
    "runtime": "ollama_default",
    "model": "qwen3-14b",
    "config_id": "evo-x2:ollama_default:qwen3-14b",
-   "quality": 0.9541572167539968,
-   "quality_n": 110,
+   "quality": 0.9431101390907757,
+   "quality_n": 176,
    "usd_per_1k_steps": 0.0,
-   "latency_p50_ms": 48781.49999998277,
-   "latency_p90_ms": 144864.10000000027,
+   "latency_p50_ms": 26625.0,
+   "latency_p90_ms": 92155.99999998813,
    "stub": false,
    "template_source": "ollama_library",
    "flags": [],
-   "weight_coverage": 0.9549068505207571,
-   "n_rows": 110,
+   "weight_coverage": 1.0000000000000002,
+   "n_rows": 176,
    "error_causes": {
-    "none": 110
+    "none": 176
    },
    "cost_basis": "local: 0 marginal API cost",
    "source_files": [
     "results/x2_outcome_table_v3.jsonl"
-   ]
+   ],
+   "n_timeout_latency": 0,
+   "timeout_latency_share": 0.0
   },
   {
    "machine": "evo-x2",
@@ -110,22 +118,24 @@
    "model": "qwen3-30b-a3b",
    "config_id": "evo-x2:llama_server:qwen3-30b-a3b",
    "quality": 1.0,
-   "quality_n": 120,
+   "quality_n": 175,
    "usd_per_1k_steps": 0.0,
-   "latency_p50_ms": 25257.500000006985,
-   "latency_p90_ms": 315129.69999999914,
+   "latency_p50_ms": 9608.99999999674,
+   "latency_p90_ms": 315321.9999999914,
    "stub": false,
    "template_source": "gguf_embedded_llama_server",
    "flags": [],
-   "weight_coverage": 0.96667155640311,
-   "n_rows": 120,
+   "weight_coverage": 1.0000000000000002,
+   "n_rows": 175,
    "error_causes": {
-    "none": 120
+    "none": 175
    },
    "cost_basis": "local: 0 marginal API cost",
    "source_files": [
     "results/x2_outcome_table_v3.jsonl"
-   ]
+   ],
+   "n_timeout_latency": 0,
+   "timeout_latency_share": 0.0
   },
   {
    "machine": "evo-x2",
@@ -133,79 +143,85 @@
    "model": "qwen3-30b-a3b",
    "config_id": "evo-x2:ollama_default:qwen3-30b-a3b",
    "quality": 1.0,
-   "quality_n": 109,
+   "quality_n": 176,
    "usd_per_1k_steps": 0.0,
-   "latency_p50_ms": 24952.99999997951,
-   "latency_p90_ms": 97863.2000000216,
+   "latency_p50_ms": 20210.499999986496,
+   "latency_p90_ms": 148937.4999999709,
    "stub": false,
    "template_source": "bare_gguf_ollama_create",
    "flags": [
     "bare_template"
    ],
-   "weight_coverage": 0.9542320668915947,
-   "n_rows": 109,
+   "weight_coverage": 1.0000000000000002,
+   "n_rows": 176,
    "error_causes": {
-    "none": 109
+    "none": 176
    },
    "cost_basis": "local: 0 marginal API cost",
    "source_files": [
     "results/x2_outcome_table_v3.jsonl"
-   ]
+   ],
+   "n_timeout_latency": 0,
+   "timeout_latency_share": 0.0
   },
   {
    "machine": "evo-x2",
    "runtime": "llama_server",
    "model": "qwen3-32b",
    "config_id": "evo-x2:llama_server:qwen3-32b",
-   "quality": 0.9371983405025671,
-   "quality_n": 85,
+   "quality": 0.9326154509359204,
+   "quality_n": 99,
    "usd_per_1k_steps": 0.0,
-   "latency_p50_ms": 86656.49999998277,
-   "latency_p90_ms": 507411.0999999859,
+   "latency_p50_ms": 62999.999999970896,
+   "latency_p90_ms": 493915.8000000288,
    "stub": false,
    "template_source": "gguf_embedded_llama_server",
    "flags": [
     "timeout_latency_excluded=11",
-    "errors:context_overflow=11",
+    "errors:context_overflow=15",
     "errors:timeout=11"
    ],
-   "weight_coverage": 0.7916237306529958,
-   "n_rows": 96,
+   "weight_coverage": 0.8026574209370896,
+   "n_rows": 110,
    "error_causes": {
-    "none": 74,
+    "none": 84,
     "timeout": 11,
-    "context_overflow": 11
+    "context_overflow": 15
    },
    "cost_basis": "local: 0 marginal API cost",
    "source_files": [
     "results/x2_outcome_table_v3.jsonl"
-   ]
+   ],
+   "n_timeout_latency": 11,
+   "timeout_latency_share": 0.1
   },
   {
    "machine": "evo-x2",
    "runtime": "ollama_default",
    "model": "qwen3-32b",
    "config_id": "evo-x2:ollama_default:qwen3-32b",
-   "quality": 0.8713834797667792,
-   "quality_n": 97,
+   "quality": 0.8681127400140879,
+   "quality_n": 111,
    "usd_per_1k_steps": 0.0,
-   "latency_p50_ms": 89078.00000000861,
-   "latency_p90_ms": 308379.30000001803,
+   "latency_p50_ms": 78883.00000000163,
+   "latency_p90_ms": 231499.69999999128,
    "stub": false,
    "template_source": "ollama_library",
    "flags": [
     "errors:other=3"
    ],
-   "weight_coverage": 0.8916090614436663,
-   "n_rows": 97,
+   "weight_coverage": 0.9026427517277599,
+   "n_rows": 111,
    "error_causes": {
     "other": 3,
-    "none": 94
+    "none": 108
    },
    "cost_basis": "local: 0 marginal API cost",
    "source_files": [
     "results/x2_outcome_table_v3.jsonl"
-   ]
+   ],
+   "n_timeout_latency": 0,
+   "timeout_latency_share": 0.0
   },
   {
    "machine": "evo-x2",
@@ -213,26 +229,28 @@
    "model": "qwen3-4b-2507",
    "config_id": "evo-x2:llama_server:qwen3-4b-2507",
    "quality": 1.0,
-   "quality_n": 102,
+   "quality_n": 150,
    "usd_per_1k_steps": 0.0,
-   "latency_p50_ms": 19023.50000000297,
-   "latency_p90_ms": 531047.9000000012,
+   "latency_p50_ms": 8516.00000000326,
+   "latency_p90_ms": 212705.09999999485,
    "stub": false,
    "template_source": "gguf_embedded_llama_server",
    "flags": [
-    "timeout_latency_excluded=18",
-    "errors:timeout=18"
+    "timeout_latency_excluded=26",
+    "errors:timeout=26"
    ],
-   "weight_coverage": 0.9378025524424235,
-   "n_rows": 120,
+   "weight_coverage": 0.9697814287809888,
+   "n_rows": 176,
    "error_causes": {
-    "none": 102,
-    "timeout": 18
+    "none": 150,
+    "timeout": 26
    },
    "cost_basis": "local: 0 marginal API cost",
    "source_files": [
     "results/x2_outcome_table_v3.jsonl"
-   ]
+   ],
+   "n_timeout_latency": 26,
+   "timeout_latency_share": 0.14772727272727273
   },
   {
    "machine": "evo-x2",
@@ -240,73 +258,79 @@
    "model": "qwen3-4b-2507",
    "config_id": "evo-x2:ollama_default:qwen3-4b-2507",
    "quality": 1.0,
-   "quality_n": 111,
+   "quality_n": 176,
    "usd_per_1k_steps": 0.0,
-   "latency_p50_ms": 18734.99999998603,
-   "latency_p90_ms": 119297.00000002049,
+   "latency_p50_ms": 10078.50000000326,
+   "latency_p90_ms": 221672.0000000205,
    "stub": false,
    "template_source": "bare_gguf_ollama_create",
    "flags": [
     "bare_template"
    ],
-   "weight_coverage": 0.9555816341499195,
-   "n_rows": 111,
+   "weight_coverage": 1.0000000000000002,
+   "n_rows": 176,
    "error_causes": {
-    "none": 111
+    "none": 176
    },
    "cost_basis": "local: 0 marginal API cost",
    "source_files": [
     "results/x2_outcome_table_v3.jsonl"
-   ]
+   ],
+   "n_timeout_latency": 0,
+   "timeout_latency_share": 0.0
   },
   {
    "machine": "evo-x2",
    "runtime": "llama_server",
    "model": "qwen3-8b",
    "config_id": "evo-x2:llama_server:qwen3-8b",
-   "quality": 0.9212913143735587,
-   "quality_n": 109,
+   "quality": 0.9111045914625201,
+   "quality_n": 176,
    "usd_per_1k_steps": 0.0,
-   "latency_p50_ms": 24000.0,
-   "latency_p90_ms": 199827.9999999795,
+   "latency_p50_ms": 8577.99999997951,
+   "latency_p90_ms": 106240.39999999804,
    "stub": false,
    "template_source": "gguf_embedded_llama_server",
    "flags": [
-    "errors:context_overflow=18"
+    "errors:context_overflow=37"
    ],
-   "weight_coverage": 0.9542320668915947,
-   "n_rows": 109,
+   "weight_coverage": 1.0000000000000002,
+   "n_rows": 176,
    "error_causes": {
-    "none": 91,
-    "context_overflow": 18
+    "none": 139,
+    "context_overflow": 37
    },
    "cost_basis": "local: 0 marginal API cost",
    "source_files": [
     "results/x2_outcome_table_v3.jsonl"
-   ]
+   ],
+   "n_timeout_latency": 0,
+   "timeout_latency_share": 0.0
   },
   {
    "machine": "evo-x2",
    "runtime": "ollama_default",
    "model": "qwen3-8b",
    "config_id": "evo-x2:ollama_default:qwen3-8b",
-   "quality": 0.9534834389766691,
-   "quality_n": 111,
+   "quality": 0.9431101390907757,
+   "quality_n": 176,
    "usd_per_1k_steps": 0.0,
-   "latency_p50_ms": 21608.99999999674,
-   "latency_p90_ms": 44657.00000000652,
+   "latency_p50_ms": 13601.50000001886,
+   "latency_p90_ms": 41000.499999994645,
    "stub": false,
    "template_source": "ollama_library",
    "flags": [],
-   "weight_coverage": 0.9555816341499195,
-   "n_rows": 111,
+   "weight_coverage": 1.0000000000000002,
+   "n_rows": 176,
    "error_causes": {
-    "none": 111
+    "none": 176
    },
    "cost_basis": "local: 0 marginal API cost",
    "source_files": [
     "results/x2_outcome_table_v3.jsonl"
-   ]
+   ],
+   "n_timeout_latency": 0,
+   "timeout_latency_share": 0.0
   },
   {
    "machine": "evo-t2s",
@@ -333,7 +357,9 @@
    "cost_basis": "local: 0 marginal API cost",
    "source_files": [
     "results/t2s_outcome_table_full.jsonl"
-   ]
+   ],
+   "n_timeout_latency": 0,
+   "timeout_latency_share": 0.0
   },
   {
    "machine": "evo-t2s",
@@ -360,7 +386,9 @@
    "cost_basis": "local: 0 marginal API cost",
    "source_files": [
     "results/t2s_outcome_table_full.jsonl"
-   ]
+   ],
+   "n_timeout_latency": 0,
+   "timeout_latency_share": 0.0
   },
   {
    "machine": "evo-t2s",
@@ -387,7 +415,9 @@
    "cost_basis": "local: 0 marginal API cost",
    "source_files": [
     "results/t2s_outcome_table_full.jsonl"
-   ]
+   ],
+   "n_timeout_latency": 0,
+   "timeout_latency_share": 0.0
   },
   {
    "machine": "cloud",
@@ -413,7 +443,9 @@
    "source_files": [
     "results/cloud_prices_20261008.json",
     "results/workload_pack/item_weights_trace_weighted.json"
-   ]
+   ],
+   "n_timeout_latency": 0,
+   "timeout_latency_share": null
   },
   {
    "machine": "cloud",
@@ -439,7 +471,9 @@
    "source_files": [
     "results/cloud_prices_20261008.json",
     "results/workload_pack/item_weights_trace_weighted.json"
-   ]
+   ],
+   "n_timeout_latency": 0,
+   "timeout_latency_share": null
   }
  ]
 }
