@@ -537,6 +537,130 @@ def test_three_nights_and_their_jobs():
     for j in bq.NIGHTS[3]:
         a = blade_r2.build_arg_parser().parse_args(j["argv"][1:])
         assert a.models == "" and a.models_if_fit == "qwen3:8b" and a.k1_summary == bq.K1_SUMMARY
+        assert a.record_vram_share is True
+    val = blade_r2.build_arg_parser().parse_args(bq.NIGHTS[3][0]["argv"][1:])
+    assert val.mode == "validation" and val.neg_sessions == bq.NEG_SESSIONS == 5   # as night 1's rerun
+    assert [len(s) for _, s, _ in blade_r2.plan_for("validation", [], neg_sessions=val.neg_sessions)] == [5, 1, 3]
+
+
+def _k1_fixture(tmp_path, by_ctx, model="qwen3:8b"):
+    p = tmp_path / f"k1_{model.replace(':', '_')}.summary.json"
+    p.write_text(json.dumps({"models": {model: {
+        "default_ctx": 4096, "fully_on_gpu": True, "fully_on_gpu_by_ctx": by_ctx,
+        "overflow_window": [{"num_ctx": 32768, "size": 1000, "size_vram": 592}]}}}))
+    return p
+
+
+def test_fit_rule_partial_offload_only_for_qwen3_8b_at_32768_in_validation_and_real(tmp_path):
+    k1 = _k1_fixture(tmp_path, {"4096": True, "8192": True, "16384": False, "32768": False})
+    val = blade_r2.fit_ctxs("validation", [])
+    real = blade_r2.fit_ctxs("real", ["default", "4096", "32768"])
+    d = blade_r2.fit_decision(["qwen3:8b"], k1, val, mode="validation")["qwen3:8b"]
+    assert d["run"] is True and d["partial"] == ["32768"] and d["k1_vram_share"]["32768"] == pytest.approx(0.592)
+    assert "partial offload at ['32768']" in d["reason"]
+    d = blade_r2.fit_decision(["qwen3:8b"], k1, real, mode="real")["qwen3:8b"]
+    assert d["run"] is True and d["partial"] == ["32768"]
+    # nothing else relaxed: other modes, other contexts, other models, no mode
+    for mode in ("mechanism", "mitigation", None):
+        assert blade_r2.fit_decision(["qwen3:8b"], k1, real, mode=mode)["qwen3:8b"]["run"] is False
+    assert blade_r2.fit_decision(["qwen3:8b"], k1, ["default", 4096, 16384, 32768], mode="real")["qwen3:8b"][
+        "run"] is False
+    llama = _k1_fixture(tmp_path, {"4096": True, "8192": True, "32768": False}, model="llama3.1:8b")
+    assert blade_r2.fit_decision(["llama3.1:8b"], llama, val, mode="validation")["llama3.1:8b"]["run"] is False
+    # the positive control's 8192 and the real 4096 tier still need fully on the GPU
+    k1b = _k1_fixture(tmp_path, {"4096": False, "8192": False, "32768": False})
+    assert blade_r2.fit_decision(["qwen3:8b"], k1b, val, mode="validation")["qwen3:8b"]["run"] is False
+    assert blade_r2.fit_decision(["qwen3:8b"], k1b, real, mode="real")["qwen3:8b"]["run"] is False
+    # an unmeasured 32768 is never taken as fitting, even where partial offload is allowed
+    k1c = _k1_fixture(tmp_path, {"4096": True, "8192": True})
+    assert blade_r2.fit_decision(["qwen3:8b"], k1c, val, mode="validation")["qwen3:8b"]["run"] is False
+    # fully on the GPU at 32768 is fine too (no partial context then)
+    k1d = _k1_fixture(tmp_path, {"4096": True, "8192": True, "32768": True})
+    d = blade_r2.fit_decision(["qwen3:8b"], k1d, val, mode="validation")["qwen3:8b"]
+    assert d["run"] is True and d["partial"] == []
+
+
+def test_night3_fit_decision_runs_on_committed_k1_summary():
+    k1 = REPO / bq.K1_SUMMARY
+    if not k1.exists():
+        pytest.skip("K1 v2 summary not synced")
+    for j in bq.NIGHTS[3]:
+        a = blade_r2.build_arg_parser().parse_args(j["argv"][1:])
+        tiers = [t for t in (a.tiers or blade_r2.DEFAULT_TIERS.get(a.mode, "default")).split(",") if t]
+        d = blade_r2.fit_decision(["qwen3:8b"], k1, blade_r2.fit_ctxs(a.mode, tiers), mode=a.mode)["qwen3:8b"]
+        assert d["run"] is True and d["partial"] == ["32768"], (j["id"], d)
+        assert 0 < d["k1_vram_share"]["32768"] < 0.99
+
+
+def test_night3_stub_fit_decision_is_run():
+    rep = bn.stub_night(3, log=lambda m: None, power_values=bn.BLADE_POWER_LAYOUT)
+    assert rep["fit_ok"] and bn.stub_ok(rep)
+    assert set(rep["fit_decisions"]) == {j["id"] for j in bq.NIGHTS[3]}
+    assert all(d["qwen3:8b"]["run"] and d["qwen3:8b"]["partial"] == ["32768"] for d in rep["fit_decisions"].values())
+
+
+class _VramRT:
+    """Fake Ollama runtime: chat loads the model at its num_ctx, unload drops it; ps() is GET /api/ps."""
+    SIZES = {32768: (10000, 5920), 4096: (5000, 5000)}
+
+    def __init__(self):
+        self.loaded = None
+        self.calls = 0
+
+    def chat(self, model, messages, num_ctx, tools, think, extra=None):
+        self.calls += 1
+        self.loaded = (model, num_ctx)
+        return {"outcome": "ok", "status": 200, "message": "done", "tool_calls": None, "prompt_eval_count": 100,
+                "eval_count": 5, "duration_s": 0.1, "raw": {"done_reason": "stop"}}
+
+    def ps(self):
+        if not self.loaded:
+            return []
+        m, ctx = self.loaded
+        size, vram = self.SIZES[ctx]
+        return [{"name": m, "size": size, "size_vram": vram, "context_length": ctx}]
+
+    def loaded_context(self, model):
+        return self.loaded[1] if self.loaded else None
+
+    def unload(self, model):
+        self.loaded = None
+        return True
+
+    def recover(self):
+        return True
+
+
+def test_vram_share_recorded_on_every_r2_row(tmp_path):
+    agent = blade_r2.agent
+    rt = _VramRT()
+    rec = blade_r2.VramShareRecorder(rt.ps)
+    rows = []
+    out = tmp_path / "r.jsonl"
+    plan = [(blade_r2.tier_arm("32768"), (agent.SEEDS[0],), 2), (blade_r2.tier_arm("4096"), (agent.SEEDS[0],), 2)]
+    agent.run_plan(rec.runtime(rt), plan, ["qwen3:8b"], "real", out, log=lambda m: None, emit=rec.emit(rows.append),
+                   on_session_start=rec.begin_session, on_session_end=rec.end_session)
+    r2 = [r for r in rows if r["record"] in ("r2a_turn", "r2a_session")]
+    assert r2 and len([r for r in r2 if r["record"] == "r2a_session"]) == 2
+    for r in r2:
+        assert r["vram_num_ctx"] == r["num_ctx_requested"]
+        assert r["vram_session_start"]["loaded"] is False          # every session starts from an unload
+        first = r["vram_after_first_call"]
+        assert first["loaded"] is True and first["context_length"] == r["num_ctx_requested"]
+        assert r["vram_share"] == first["vram_share"] and r["fully_on_gpu"] == first["fully_on_gpu"]
+    by_ctx = {r["num_ctx_requested"]: r for r in r2}
+    assert by_ctx[32768]["vram_share"] == pytest.approx(0.592) and by_ctx[32768]["fully_on_gpu"] is False
+    assert by_ctx[4096]["vram_share"] == 1.0 and by_ctx[4096]["fully_on_gpu"] is True
+    assert all("vram_share" not in r for r in rows if r["record"] == "heartbeat")
+
+
+def test_vram_share_flag_only_for_validation_and_real(monkeypatch):
+    calls = []
+    _no_server(monkeypatch, calls)
+    with pytest.raises(SystemExit):
+        blade_r2.main(["--mode", "mechanism", "--out", str(bc.DRYRUN_DIR / "blade_dryrun_test_x.jsonl"),
+                       "--record-vram-share", "--dry-run-seconds", "60"])
+    assert calls == []
 
 
 def _no_server(monkeypatch, calls):
@@ -549,8 +673,9 @@ def _no_server(monkeypatch, calls):
 
 def test_night3_job_skips_when_qwen_does_not_fit(monkeypatch, tmp_path):
     k1 = tmp_path / "k1.summary.json"
+    # 32768 partial is allowed for the validation, but the positive control's 8192 must be fully on the GPU
     k1.write_text(json.dumps({"models": {"qwen3:8b": {"default_ctx": 4096, "fully_on_gpu": True,
-                                                      "fully_on_gpu_by_ctx": {"8192": True, "32768": False}}}}))
+                                                      "fully_on_gpu_by_ctx": {"8192": False, "32768": False}}}}))
     calls = []
     _no_server(monkeypatch, calls)
     out = bc.DRYRUN_DIR / "blade_dryrun_test_night3_skip.jsonl"

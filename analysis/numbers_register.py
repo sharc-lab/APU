@@ -3925,7 +3925,8 @@ NUMBER_ENTRIES = [
      "compute": compute_blade_night_hours,
      "data_files": BLADE_DRYRUN_FILES + ["results/x2_r2_real_v1.jsonl", "results/x2_r2_validation_v2.jsonl",
                                          "results/x2_r2_validation_v2b.jsonl", "results/x2_r2_mechanism.jsonl",
-                                         "results/blade_c1_spill_sweep_20260925T053651Z.jsonl"],
+                                         "results/blade_c1_spill_sweep_20260925T053651Z.jsonl",
+                                         "results/blade_k1_v2.summary.json"],
      "pending_ok": True, "script_function": "analysis/numbers_register.py::compute_blade_night_hours"},
     {"claim_id": "blade-r2-validation-run1", "description": "Blade R2 validation night 1 first run (llama3.1:8b, "
                     "32768 cap): per-rule rates, negative-control canary misses per session, positive control",

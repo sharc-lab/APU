@@ -25,10 +25,27 @@ and the dry-run budget. The protocol is v1 (call-2 mode "off": tools withheld on
   --mode mechanism    x2_r2_agent.mechanism_plan over --tiers, one session per tier, OLLAMA_DEBUG=1, render-only and
                       llama-tokenize prompt checks (x2_r2_mechanism.MechanismRuntime).
 
-Models: --models (always run) plus --models-if-fit (run only if the K1 summary says the model is fully on the GPU at
-every context this job uses: the default context and each num_ctx in FIT_CTXS[mode]; blade_k1.fits_at). The decision
-is a record in the output. A job left with no model writes {"record": "skipped", "reason": "does not fit ..."} and
-exits 0 (night 3's qwen3:8b jobs when K1 says it does not fit).
+Models: --models (always run) plus --models-if-fit (run only if the K1 summary passes the fit rule below at every
+context this job uses: the default context and each num_ctx in FIT_CTXS[mode], or the job's tiers; blade_k1.fits_at).
+The decision is a record in the output. A job left with no model writes {"record": "skipped", "reason": "does not
+fit ..."} and exits 0.
+
+Fit rule (operator 2026-10-10, night 3; fit_decision):
+  A --models-if-fit model runs only if K1 shows it fully on the GPU (size_vram >= 99% of size) at EVERY context the
+  job uses, with one exception, PARTIAL_OFFLOAD_OK: qwen3:8b at num_ctx 32768 in --mode validation (the negative
+  control arm at the 32768 cap) and in --mode real (the 32768 tier) may be partially offloaded, provided K1 measured
+  it there (a K1 entry of True or False; an unmeasured context never counts as fitting). Nothing else is relaxed: the
+  default context, 4096, 8192 (the positive control) and every other model, mode and context still need fully on the
+  GPU. Data: register row blade-k1-layer-split (results/blade_k1_v2.summary.json): qwen3:8b fully on the GPU at 4096
+  and 8192, partial at 16384 and 32768. The partial contexts and their K1 VRAM share are in the fit decision record.
+
+VRAM share per row (--record-vram-share, validation and real modes; night 3's jobs set it): the K1 split method,
+size_vram / size from Ollama's GET /api/ps for the loaded model, read twice per session: at session start (before the
+session's first call; every session starts from an explicit unload, so this read normally finds the model not loaded
+and records loaded false) and right after the session's first /api/chat call (the model loaded at the session's
+num_ctx). Every r2a_turn and r2a_session row carries both reads (vram_session_start, vram_after_first_call: loaded,
+size, size_vram, vram_share, context_length, fully_on_gpu), the num_ctx they belong to (vram_num_ctx), and top-level
+vram_share and fully_on_gpu from the after-first-call read (VramShareRecorder).
 
 Tiers other than x2_r2_agent's fixed ones (e.g. a K1 default of 40960) are registered in x2_r2_agent.ARMS at run time
 with the same fields (num_ctx, call-2 mode off).
@@ -54,8 +71,11 @@ DEFAULT_TIERS = {"real": "default,4096,32768", "mitigation": "default,4096,8192"
 DEFAULT_CLIENT_TRIM = "margin=0.05"
 BLADE_VALIDATION_CTX = 32768          # register row blade-validation-ctx-cap
 BLADE_NEG_ARM = f"ollama_ctx_{BLADE_VALIDATION_CTX}_negative_control"
-# contexts a model must be fully on the GPU at (K1) to join a job through --models-if-fit
+# contexts a model must fit at (K1) to join a job through --models-if-fit (None: the job's own tiers)
 FIT_CTXS = {"validation": ("default", BLADE_VALIDATION_CTX, 8192), "real": None, "mitigation": None, "mechanism": None}
+# the only exceptions to "fully on the GPU at every context" (operator 2026-10-10, night 3): {model: {mode: (num_ctx,)}}.
+# At these contexts a measured partial offload is allowed; nowhere else.
+PARTIAL_OFFLOAD_OK = {"qwen3:8b": {"validation": (BLADE_VALIDATION_CTX,), "real": (32768,)}}
 
 
 def register_blade_arms():
@@ -117,10 +137,27 @@ def fit_ctxs(mode: str, tiers: list[str]) -> list:
     return list(fixed) if fixed else [t if t == "default" else int(t) for t in tiers]
 
 
-def fit_decision(models_if_fit: list[str], k1_summary_path, ctxs=("default",)) -> dict:
-    """{model: {"run": bool, "reason": str, "fits": {ctx: bool|None}}} from the K1 summary: run only if the model is
-    fully on the GPU (size_vram >= 99% of size) at every ctx in ctxs. A missing summary, model or ctx means "do not
-    run" (unknown is never taken as fitting)."""
+def partial_ok_ctxs(model: str, mode: str | None) -> set:
+    """The contexts (str num_ctx) at which `model` may be partially offloaded in `mode` (PARTIAL_OFFLOAD_OK)."""
+    return {str(int(c)) for c in (PARTIAL_OFFLOAD_OK.get(model) or {}).get(mode or "", ())}
+
+
+def k1_vram_share(model_summary: dict, ctx) -> float | None:
+    """size_vram / size K1 recorded at num_ctx ctx (its overflow_window call), or None if not measured."""
+    for o in model_summary.get("overflow_window") or []:
+        if o.get("num_ctx") is not None and str(o["num_ctx"]) == str(ctx) and o.get("size"):
+            return (o.get("size_vram") or 0) / o["size"]
+    return None
+
+
+def fit_decision(models_if_fit: list[str], k1_summary_path, ctxs=("default",), mode: str | None = None) -> dict:
+    """{model: {"run": bool, "reason": str, "fits": {ctx: bool|None}, "partial_ok": [ctx], "partial": [ctx],
+    "k1_vram_share": {ctx: share}}} from the K1 summary.
+
+    Rule: run only if the model is fully on the GPU (size_vram >= 99% of size) at every ctx in ctxs, EXCEPT a ctx in
+    PARTIAL_OFFLOAD_OK[model][mode] (qwen3:8b at 32768 in validation and real), where a partial offload K1 measured
+    (False) is allowed too. A missing summary, model or ctx means "do not run" (unknown is never taken as fitting,
+    also at an exception ctx)."""
     import blade_k1
     out = {}
     summ = None
@@ -135,14 +172,25 @@ def fit_decision(models_if_fit: list[str], k1_summary_path, ctxs=("default",)) -
             out[m] = {"run": False, "reason": "model not measured by K1 (missing from the store)", "fits": {}}
             continue
         fits = blade_k1.fits_at(e, ctxs)
-        bad = [c for c, v in fits.items() if v is not True]
+        allowed = partial_ok_ctxs(m, mode)
+        partial = [c for c, v in fits.items() if v is False and c in allowed]
+        bad = [c for c, v in fits.items() if v is not True and c not in partial]
+        share = {c: k1_vram_share(e, c) for c in fits if c != "default"}
+        rec = {"fits": fits, "partial_ok": sorted(allowed, key=int), "partial": partial, "k1_vram_share": share}
         if bad:
-            out[m] = {"run": False, "fits": fits,
+            out[m] = {"run": False, **rec,
                       "reason": f"does not fit: K1 shows {m} not fully on the GPU (or not measured) at ctx {bad} "
-                                f"(default ctx {e.get('default_ctx')})"}
+                                f"(default ctx {e.get('default_ctx')}; partial offload allowed only at "
+                                f"{sorted(allowed, key=int) or 'none'} in mode {mode})"}
         else:
-            out[m] = {"run": True, "fits": fits,
-                      "reason": f"K1: fully on the GPU at {list(fits)} (default ctx {e.get('default_ctx')})"}
+            full = [c for c in fits if c not in partial]
+            part = ""
+            if partial:
+                shares = ", ".join(f"{c}: {share[c]:.3f}" if share.get(c) is not None else f"{c}: n/a"
+                                   for c in partial)
+                part = f", partial offload at {partial} (allowed for {m} in mode {mode}; K1 VRAM share {shares})"
+            out[m] = {"run": True, **rec,
+                      "reason": f"K1: fully on the GPU at {full}{part} (default ctx {e.get('default_ctx')})"}
     return out
 
 
@@ -166,6 +214,84 @@ def resolve_default_tier(tiers: list[str], k1_summary_path, model: str):
     return out, note
 
 
+def ps_point(entries, model: str) -> dict:
+    """One /api/ps reading for `model` (K1's split method): loaded, size, size_vram, vram_share = size_vram / size,
+    context_length, fully_on_gpu (blade_k1.fully_on_gpu, size_vram >= 99% of size)."""
+    import blade_k1
+    e = next((x for x in entries or [] if agent.same_tag(x.get("name") or x.get("model"), model)), None)
+    if e is None:
+        return {"loaded": False, "size": None, "size_vram": None, "vram_share": None, "context_length": None,
+                "fully_on_gpu": None}
+    size, vram = e.get("size"), e.get("size_vram")
+    return {"loaded": True, "size": size, "size_vram": vram,
+            "vram_share": (vram or 0) / size if size else None, "context_length": e.get("context_length"),
+            "fully_on_gpu": blade_k1.fully_on_gpu(e)}
+
+
+class VramShareRecorder:
+    """Records the VRAM share of the loaded model on every R2 row (module docstring, "VRAM share per row").
+
+    begin_session(model, arm, seed) reads /api/ps at session start; runtime(rt) wraps the runtime so the session's
+    first chat call is followed by a second read; emit(base_emit) adds the fields to r2a_turn and r2a_session rows."""
+    ROWS = ("r2a_turn", "r2a_session")
+
+    def __init__(self, ps_fn):
+        self.ps_fn = ps_fn          # () -> list of /api/ps model entries
+        self.session = None
+
+    def _read(self, model):
+        try:
+            return ps_point(self.ps_fn(), model)
+        except Exception as ex:
+            return {**ps_point([], model), "error": repr(ex)[:200]}
+
+    def begin_session(self, model, arm, seed):
+        self.session = {"model": model, "num_ctx": agent.ARMS[arm]["num_ctx"], "start": self._read(model),
+                        "first": None}
+
+    def end_session(self):
+        self.session = None
+
+    def after_call(self, model):
+        s = self.session
+        if s is not None and s["first"] is None and agent.same_tag(model, s["model"]):
+            s["first"] = self._read(model)
+
+    def fields(self) -> dict:
+        s = self.session
+        if s is None:
+            return {}
+        main = s["first"] or {}
+        return {"vram_num_ctx": s["num_ctx"], "vram_session_start": s["start"], "vram_after_first_call": s["first"],
+                "vram_share": main.get("vram_share"), "fully_on_gpu": main.get("fully_on_gpu"),
+                "vram_method": "K1 split: size_vram / size from GET /api/ps"}
+
+    def emit(self, base_emit):
+        def emit(row):
+            if row.get("record") in self.ROWS and self.session is not None:
+                row = {**row, **self.fields()}
+            return base_emit(row)
+        return emit
+
+    def runtime(self, rt):
+        return _VramShareRuntime(rt, self)
+
+
+class _VramShareRuntime:
+    """Delegates everything to the wrapped runtime; chat() also tells the recorder a call finished."""
+
+    def __init__(self, rt, rec):
+        self._rt, self._rec = rt, rec
+
+    def __getattr__(self, name):
+        return getattr(self._rt, name)
+
+    def chat(self, model, *a, **kw):
+        r = self._rt.chat(model, *a, **kw)
+        self._rec.after_call(model)
+        return r
+
+
 class BladeOllamaRuntime(agent.OllamaRuntime):
     """x2_r2_agent's runtime with recover() restarting the Blade's own local server."""
     local_server = None
@@ -187,6 +313,9 @@ def build_arg_parser():
     ap.add_argument("--tiers", default=None, help="comma-separated: default or a num_ctx (real/mitigation/mechanism)")
     ap.add_argument("--seeds", default=None, help="comma-separated override (dry runs)")
     ap.add_argument("--turns", type=int, default=None, help="override (dry runs)")
+    ap.add_argument("--record-vram-share", action="store_true",
+                    help="validation/real: add the /api/ps VRAM share (session start and after the first call) to "
+                         "every r2a row")
     ap.add_argument("--neg-sessions", type=int, default=None,
                     help="validation mode: sessions on the negative-control arm (seeds 20260901.., max 5; default 3)")
     ap.add_argument("--client-trim", default=None,
@@ -250,7 +379,10 @@ def main(argv=None) -> int:
     if dry and args.mode == "validation" and (seeds or args.turns):
         plan = [(a, tuple(seeds or s), args.turns or t) for a, s, t in plan]
     models = [m for m in args.models.split(",") if m]
-    fit = fit_decision([m for m in args.models_if_fit.split(",") if m], args.k1_summary, fit_ctxs(args.mode, tiers))
+    if args.record_vram_share and args.mode not in ("validation", "real"):
+        raise SystemExit("--record-vram-share is only used with --mode validation or real")
+    fit = fit_decision([m for m in args.models_if_fit.split(",") if m], args.k1_summary, fit_ctxs(args.mode, tiers),
+                       mode=args.mode)
     models += [m for m, d in fit.items() if d["run"]]
     mit_argv = client_trim = None
     if args.mode == "mitigation":
@@ -268,7 +400,8 @@ def main(argv=None) -> int:
               "dry_run": dry, "versions": versions, "version_problems": problems, "models": models,
               "fit_decision": fit, "tiers": tiers, "tier_note": tier_note, "plan": plan, "call2_mode": CALL2, "call2_tools": False,
               "order": args.order, "max_tokens_per_call": agent.MAX_TOKENS_PER_CALL, "keep_alive": agent.KEEP_ALIVE,
-              "host": "blade", "client_trim": client_trim, "x2_r2_agent_equivalent_argv": mit_argv})
+              "host": "blade", "client_trim": client_trim, "x2_r2_agent_equivalent_argv": mit_argv,
+              "record_vram_share": args.record_vram_share, "partial_offload_ok": PARTIAL_OFFLOAD_OK})
         for m, d in fit.items():
             log(f"fit decision {m}: run={d['run']} ({d['reason']})")
         if not models:
@@ -329,7 +462,12 @@ def main(argv=None) -> int:
                                        client_trim, rules_in_use)
             log(json.dumps(rep["trim_summary"], default=str)[:2000])
         else:
-            agent.run_plan(runtime, plan, models, args.mode, out, log=log, emit=emit, order=args.order)
+            if args.record_vram_share:
+                rec = VramShareRecorder(lambda: runtime.client.get_ps().get("models") or [])
+                agent.run_plan(rec.runtime(runtime), plan, models, args.mode, out, log=log, emit=rec.emit(emit),
+                               order=args.order, on_session_start=rec.begin_session, on_session_end=rec.end_session)
+            else:
+                agent.run_plan(runtime, plan, models, args.mode, out, log=log, emit=emit, order=args.order)
             rows = agent.read_rows(out)
             if args.mode == "validation":
                 report = agent.evaluate_gates(rows, call2_tools=CALL2, neg_arm=BLADE_NEG_ARM)

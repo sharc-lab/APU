@@ -2,10 +2,10 @@
  "night": 3,
  "summary": {
   "night": 3,
-  "started_utc": "2026-10-09T06:07:56.644528+00:00",
+  "started_utc": "2026-10-10T17:24:55.812953+00:00",
   "refused": null,
   "power": {
-   "log": "%USERPROFILE%\\AppData\\Local\\Temp\\blade_night_stub_zfkly_51\\logs\\night3_power_20261009T060756Z.json",
+   "log": "%USERPROFILE%\\AppData\\Local\\Temp\\blade_night_stub_g9it48li\\logs\\night3_power_20261010T172455Z.json",
    "original": {
     "SUB_SLEEP/STANDBYIDLE": {
      "ac": 3600,
@@ -80,8 +80,8 @@
    "stopped_early": null,
    "gate_decisions": {}
   },
-  "ended_utc": "2026-10-09T06:07:56.951632+00:00",
-  "summary_file": "%USERPROFILE%\\AppData\\Local\\Temp\\blade_night_stub_zfkly_51\\results\\blade_night3_summary_20261009T060756Z.json"
+  "ended_utc": "2026-10-10T17:24:56.452622+00:00",
+  "summary_file": "%USERPROFILE%\\AppData\\Local\\Temp\\blade_night_stub_g9it48li\\results\\blade_night3_summary_20261010T172455Z.json"
  },
  "power_call_order": [
   "/setacvalueindex SUB_SLEEP STANDBYIDLE 0",
@@ -105,7 +105,8 @@
     "tiers": null,
     "seeds": null,
     "turns": null,
-    "neg_sessions": null,
+    "record_vram_share": true,
+    "neg_sessions": 5,
     "client_trim": null,
     "rules_from": null,
     "require_validation_gates": false,
@@ -120,9 +121,23 @@
    "outputs_prefixed_blade": true,
    "fit_decision": {
     "qwen3:8b": {
-     "run": false,
-     "reason": "no K1 summary at results/blade_k1_v2.summary.json",
-     "fits": {}
+     "run": true,
+     "fits": {
+      "default": true,
+      "32768": false,
+      "8192": true
+     },
+     "partial_ok": [
+      "32768"
+     ],
+     "partial": [
+      "32768"
+     ],
+     "k1_vram_share": {
+      "32768": 0.5923695206062083,
+      "8192": 1.0
+     },
+     "reason": "K1: fully on the GPU at ['default', '8192'], partial offload at ['32768'] (allowed for qwen3:8b in mode validation; K1 VRAM share 32768: 0.592) (default ctx 4096)"
     }
    },
    "plan": [
@@ -131,7 +146,9 @@
      [
       20260901,
       20260902,
-      20260903
+      20260903,
+      20260904,
+      20260905
      ],
      10
     ],
@@ -166,6 +183,7 @@
     "tiers": "default,4096,32768",
     "seeds": null,
     "turns": null,
+    "record_vram_share": true,
     "neg_sessions": null,
     "client_trim": null,
     "rules_from": "results/blade_r2_validation_qwen3_8b_v1.jsonl",
@@ -181,9 +199,23 @@
    "outputs_prefixed_blade": true,
    "fit_decision": {
     "qwen3:8b": {
-     "run": false,
-     "reason": "no K1 summary at results/blade_k1_v2.summary.json",
-     "fits": {}
+     "run": true,
+     "fits": {
+      "default": true,
+      "4096": true,
+      "32768": false
+     },
+     "partial_ok": [
+      "32768"
+     ],
+     "partial": [
+      "32768"
+     ],
+     "k1_vram_share": {
+      "4096": 1.0,
+      "32768": 0.5923695206062083
+     },
+     "reason": "K1: fully on the GPU at ['default', '4096'], partial offload at ['32768'] (allowed for qwen3:8b in mode real; K1 VRAM share 32768: 0.592) (default ctx 4096)"
     }
    }
   }
@@ -200,5 +232,36 @@
   "blade_r2_real_qwen3_8b_v1"
  ],
  "skipped": {},
- "branch_ok": true
+ "branch_ok": true,
+ "fit_decisions": {
+  "blade_r2_validation_qwen3_8b_v1": {
+   "qwen3:8b": {
+    "run": true,
+    "reason": "K1: fully on the GPU at ['default', '8192'], partial offload at ['32768'] (allowed for qwen3:8b in mode validation; K1 VRAM share 32768: 0.592) (default ctx 4096)",
+    "fits": {
+     "default": true,
+     "32768": false,
+     "8192": true
+    },
+    "partial": [
+     "32768"
+    ]
+   }
+  },
+  "blade_r2_real_qwen3_8b_v1": {
+   "qwen3:8b": {
+    "run": true,
+    "reason": "K1: fully on the GPU at ['default', '4096'], partial offload at ['32768'] (allowed for qwen3:8b in mode real; K1 VRAM share 32768: 0.592) (default ctx 4096)",
+    "fits": {
+     "default": true,
+     "4096": true,
+     "32768": false
+    },
+    "partial": [
+     "32768"
+    ]
+   }
+  }
+ },
+ "fit_ok": true
 }
