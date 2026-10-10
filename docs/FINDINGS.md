@@ -2980,3 +2980,90 @@ so truncation is confounded with item length and family; the comparison shows th
 truncated answers are worse, not by how much truncation alone costs at a fixed length. Three ollama_default rows are
 HTTP 404 "model not found" (counted as "other 3", outside both groups). llama-server logs were not used:
 `usage.prompt_tokens` is recorded in every HTTP 200 row.
+
+## PRE-REGISTRATION: Blade open finding confound check, x2_r2_llama_val_32k on evo-x2 (2026-10-10, NOT YET RUN)
+
+**Status:** PRE-REGISTRATION, written and committed before any code for this job is deployed and before the queue is
+edited. No data for this job exists. Operator request of 2026-10-10.
+
+**The finding being checked** (section "Blade (NVIDIA RTX 4070 Laptop, 8 GB) night 1" above, register rows
+`blade-r2-validation-run2`, `blade-r2-gate-v2`, docs/BLADE_PLAN.md "Validation diagnosis 2026-10-08"). On the Blade,
+llama3.1:8b's negative control at num_ctx 32768 missed canaries in 2 of 5 sessions; `blade-r2-gate-v2`, pasted:
+"llama3.1:8b negative control num_ctx 32768, 5 sessions, canary misses per session 20260901: 0, 20260902: 0,
+20260903: 2, 20260904: 0, 20260905: 2; branch mechanism". In each failed session the model's final-answer call (tools
+withheld, v1 protocol) on turn 5 (the REC-0005 lookup) emitted a tool call as plain text instead of an answer, so
+neither canary appeared. evo-x2's negative control for the same model layers at num_ctx 131072 had none
+(`R2-validation-v2-baseline`, pasted: "negative-control canary misses 0/12"). Two differences remain between those
+runs: the backend and offload (CUDA on the Blade, partly CPU-offloaded at 32768 per `blade-k1-layer-split`; evo-x2's
+own backend with the whole model in its unified memory) and the window (32768 vs 131072).
+
+**Design: change only the window.** Run the Blade's run-2 validation on evo-x2 at the Blade's window. If evo-x2 at
+32768 reproduces the turn-5 text tool calls, the window (32768 vs 131072, including the greedy-decoding numerics that
+follow from it on one backend) explains the Blade finding; if it does not, what differs is the Blade's backend or
+offload.
+
+**Job.** Queue id `x2_r2_llama_val_32k` on evo-x2, output `results/x2_r2_llama_val_32k.jsonl`. llama3.1:8b only.
+The same harness code path as Blade run 2: `x2_r2_agent.validation_plan("off", neg_arm=...)` with the Blade's
+negative-control arm name `ollama_ctx_32768_negative_control` (num_ctx 32768), the gate arm's seeds widened to the
+first 5 of `SEEDS_STRONG` exactly as `harness/blade_r2.py --neg-sessions 5` does, `x2_r2_agent.run_plan` for the
+sessions and `x2_r2_agent.evaluate_gates(rows, call2_tools="off", neg_arm=...)` for the gates. On evo-x2 these are
+reached through `x2_r2_agent.py --mode validation --call2-tools off --models llama3.1:8b --neg-ctx 32768
+--neg-sessions 5`, two new validation-mode flags that default to the old behaviour (131072, 3 seeds). evo-x2's own
+Ollama lifecycle and runtime (`x2_r2_agent.OllamaRuntime`, Ollama 0.34.4) replace the Blade's local server; nothing
+else differs.
+
+- Negative control and baseline (gate arm, v1 call-2 mode, tools withheld on call 2): num_ctx 32768, seeds
+  20260901, 20260902, 20260903, 20260904, 20260905, 10 turns each (as Blade run 2).
+- Positive control: num_ctx 8192, seed 20260901, 15 turns (as Blade run 2).
+- Diagnostic arm (tools available on call 2): num_ctx 32768, seeds 20260901-03, 10 turns each (as Blade run 2).
+- Sampling: temperature 0, seed 42, num_predict 384 on every request (harness constants, the same code as the
+  Blade); top_p and every other sampling parameter not sent, so the model's own params layer applies. The model,
+  params and template layer digests of llama3.1:8b on evo-x2 are the Blade's (docs/BLADE_PLAN.md "Validation
+  diagnosis 2026-10-08", c.); the deploy step re-reads evo-x2's manifest from disk (no server call) and records the
+  three digests in the queue note.
+- Statistics convention: as in the compared validation runs, no warm-up call; every session's turns are scored.
+
+**Deploy constraint (operator rule).** `C:\apu\ovn\x2_r2_agent.py` must not be replaced until x2_r2_real_v1b and
+x2_r2_mitigation_v1 have finished. This job's agent goes into its own directory `C:\apu\ovn\r2v32k\` with a small
+committed launcher (`harness/x2_r2_sidecar.py`) that puts that directory first and `C:\apu\ovn` second on sys.path and
+runs the side copy of x2_r2_agent.py as `__main__`; every other module is imported from `C:\apu\ovn`, and only modules
+whose deployed git blob differs from this branch are copied into the side directory. An import-only check on evo-x2
+(no model call, no server start) confirms the launcher loads the side copy and parses the job's argv.
+
+**Queue position.** The operator asked for this job directly after the running outcome-table item and before
+x2_r2_real_v1b. When this was written, x2_outcome_table_v3_resume5 had already finished (2026-10-10 13:25:57Z) and
+x2_r2_real_v1b had started from the queue (same second). The running job is not interrupted, so the job is placed
+directly after the running x2_r2_real_v1b, as the next pending entry, ahead of x2_r2_mitigation_v1. The mitigation
+job's design is unchanged; it starts after this job instead of directly after x2_r2_real_v1b.
+
+**Interpretation, fixed now.** Computed mechanically by register row `x2-r2-llama-val-32k`
+(`analysis/numbers_register.py::compute_x2_r2_llama_val_32k`) from the negative-control (gate) arm only:
+- Valid only if the run finished (run_end), all 5 negative-control sessions completed with 10 turns each, every
+  negative-control row requested num_ctx 32768 and no negative-control turn was over the loaded window. Otherwise the
+  verdict is "inconclusive (incomplete)" with what is missing.
+- **backend or offload effect**: valid, and 0 negative-control canary misses (0 of 20 canaries, 10 checks x 2). The
+  window alone does not reproduce the Blade finding on evo-x2; the difference is the Blade's backend (CUDA) or its
+  partial CPU offload at 32768 (this job cannot separate those two).
+- **window effect**: valid, at least one canary miss, and every negative-control turn with a canary miss is a turn-5
+  turn whose final answer is a text tool call (the final text, after leading whitespace, starts with a JSON object
+  whose first key is "name", the pattern `{"name": ...}`).
+- **inconclusive**: any other pattern (a miss on another turn, or a miss whose final answer is not a text tool call),
+  reported with the exact pattern: per miss, the seed, the turn, which canaries were missed, whether the final text
+  is a text tool call.
+
+**Outcome measures reported by the register row** (whatever the verdict): per-rule rates on the gate arm (rules 1 to
+5), tool validity, task tool, canary C and H rates; negative-control canary misses per session; for every missed
+canary turn, the seed, the turn, system or history canary, whether the final text is a text tool call and the tool
+name it names; positive-control truncation turns and canary misses; the diagnostic arm's canary misses (not part of
+the verdict).
+
+**Known limits, stated before the run.** Five sessions; a 0 does not show the event cannot occur on evo-x2, only that
+it did not in the Blade's 5 seeds (the Blade had it in 2 of 5). "Window effect" includes any change of greedy
+decoding numerics that the window size causes on one backend; it does not separate the window's effect on attention
+from its effect on the numerics. One runtime (Ollama 0.34.4). The Blade's run-2 per-session canary pattern is the
+comparison; the seeds match, so a window effect is expected (not required) on seeds 20260903 and 20260905.
+
+**Projected duration.** About 0.3 h: llama3.1:8b turn wall times in `results/x2_r2_validation_v2.jsonl` (evo-x2,
+131072) give 1.20 min per negative-control session (5 sessions, 6.0 min), 0.92 min per diagnostic session (3, 2.8
+min) and 3.06 min for the positive control, 11.8 min in all, plus server start and one model load per session; Blade
+run 2 took 23.0 min from run_start to run_end. Calls tq.advance() on exit; sets no pause.
