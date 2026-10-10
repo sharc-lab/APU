@@ -1,6 +1,7 @@
 # Paper 1 Draft Skeleton (ISPASS 2027 target, anonymized)
 
-Status: outline for advisor review, 2026-10-08. Not a submission. Double-blind is assumed: this file names no
+Status: outline for advisor review, 2026-10-08; updated 2026-10-10 (NVIDIA-dGPU default context, overflow and
+mechanism rows; predictor result; open finding O1). Not a submission. Double-blind is assumed: this file names no
 author, affiliation, machine owner or repository. Author and internal labels are in `docs/PAPER1_COVER_NOTE.md`.
 
 Rules this draft follows:
@@ -50,14 +51,17 @@ Claims behind each abstract sentence (status in brackets):
   (verified, INTEL-iGPU only).
 - Discrete overflow is a silent spill: NO register row yet (pending; Gap G4). The sentence must be cut if G4 does not
   land.
-- Device-detection policy sets the default window: `[T2S-vs-X2-default-ctx]`, `[x2-device-detect-mechanism]`
-  (verified, INTEL-iGPU and AMD-iGPU).
-- Silent overflow truncation: `[ollama-overflow-keeps-half]` (verified).
-- History lost without error; system prompt discarded at the smallest window: `[R2-real-v1-gated-kill]`,
-  `[R2-mechanism-lowlevel]` (verified on AMD-iGPU only; cross-platform pending x2_r2_real_v1b, T2S week item 2,
-  Blade night 1 (b)).
-- Predictor: no data yet (at risk; Gap G6). Mitigation: pre-registered, not run (pending x2_r2_mitigation_v1,
-  T2S week item 3, Blade night 1 (c)). The last abstract sentence is contingent on both.
+- Device-detection policy sets the default window: `[T2S-vs-X2-default-ctx]`, `[x2-device-detect-mechanism]`,
+  `[blade-k1-layer-split]` (verified, INTEL-iGPU, AMD-iGPU and NVIDIA-dGPU).
+- Silent overflow truncation: `[ollama-overflow-keeps-half]`, `[blade-k1-layer-split]` (verified, all three
+  platforms).
+- History lost without error: `[R2-real-v1-gated-kill]` (verified on AMD-iGPU only; cross-platform pending
+  x2_r2_real_v1b and T2S week item 2; the NVIDIA-dGPU real run is held by open finding O1). System prompt discarded at
+  the smallest window: `[R2-mechanism-lowlevel]` (AMD-iGPU); the message-level step and the context shift replicate on
+  NVIDIA-dGPU `[blade-mechanism-4096]`, the token cut does not (one session per tier on each).
+- Predictor: verified on AMD-iGPU, one session per tier `[R2-shift-predictor-confusion]`. Mitigation: pre-registered,
+  not run (pending x2_r2_mitigation_v1, T2S week item 3; the NVIDIA-dGPU mitigation is held by open finding O1). The
+  last abstract sentence is contingent on the mitigation.
 
 ---
 
@@ -77,21 +81,26 @@ Each item is tagged **verified now**, **pending run** (with the job that fills i
    chooses a small default on INTEL-iGPU and model-native defaults on AMD-iGPU because of device detection
    `[T2S-vs-X2-default-ctx]` `[x2-device-detect-mechanism]`; overflow keeps "num_ctx/2 + 2" tokens with no error
    `[ollama-overflow-keeps-half]`; the install path of the same weights changes tool-call behaviour
-   `[R2-install-path-4b-comparison]`.
+   `[R2-install-path-4b-comparison]`. On the NVIDIA-dGPU ("device VRAM 8188 MiB" `[blade-k1-layer-split]`) the same
+   runtime picks a small default for both measured models and answers over-length prompts with HTTP 200 and the half-window evaluation
+   `[blade-k1-layer-split]`.
    - INTEL-iGPU and AMD-iGPU: **verified now.**
-   - NVIDIA-dGPU default context: **pending run** Blade night 1 (a) (K1).
+   - NVIDIA-dGPU default context and overflow: **verified now** (Blade night 1 (a), K1).
 3. **These defaults reach agents, silently, and we explain the mechanism.** In real tool-using sessions history is
    lost with no error at every truncating window, and rules are lost only at the smallest one
    `[R2-real-v1-gated-kill]`; message-level trimming keeps the system prompt, and llama.cpp context shift plus a
-   token-level cut discard it at the smallest window `[R2-mechanism-lowlevel]`.
-   - AMD-iGPU, small model set and seed count: **verified now.**
+   token-level cut discard it at the smallest window `[R2-mechanism-lowlevel]`. The message-level step and the context
+   shift at the smallest window replicate on NVIDIA-dGPU; the token cut was not seen there `[blade-mechanism-4096]`.
+   - Real-run result on AMD-iGPU, small model set and seed count: **verified now.**
+   - Mechanism on AMD-iGPU (all tiers) and NVIDIA-dGPU (smallest window), one session per tier: **verified now.**
    - More models and seeds: **pending run** x2_r2_real_v1b. INTEL-iGPU: **pending run** T2S week item 2 (R2 native
-     Intel) and T2S week item 6 (mechanism run). NVIDIA-dGPU: **pending run** Blade night 1 (b) (R2 native) and
-     Blade night 2 (e) (mechanism).
+     Intel) and T2S week item 6 (mechanism run). NVIDIA-dGPU real run: **held** by open finding O1 (Blade night 1 (b)
+     did not run: the validation gate failed); other NVIDIA-dGPU mechanism tiers: **pending run** Blade night 2 (e).
 4. **A predictor for system-prompt loss and a pre-registered mitigation.**
-   - Context-shift predictor: being built, no result file: **at risk.**
+   - Context-shift predictor: **verified now** on AMD-iGPU, one session per tier `[R2-shift-predictor-confusion]`;
+     applied as a prediction (not an observation) to the real run `[R2-shift-predicted-real-v1]`.
    - Mitigation: **pending run** x2_r2_mitigation_v1 (queued after x2_r2_real_v1b), T2S week item 3 (mitigation at
-     4096), Blade night 1 (c) (mitigation).
+     4096). NVIDIA-dGPU: **held** by open finding O1 (Blade night 1 (c) did not run).
 
 ---
 
@@ -106,7 +115,7 @@ row yet; Gap G13 adds a `platform-config` row so the paper can cite them the sam
 | memory architecture | unified, one Vulkan heap that all memory types map to (`[A-24-effective-heap-limit]`: "4 memory types all on heap 0") | unified, with a firmware-reserved dedicated GPU block plus a driver-shared extension (`docs/HARDWARE.md`) | discrete VRAM; driver may spill to system RAM (`docs/FINDINGS.md`, C1) |
 | GPU driver | 32.0.101.8509 (`docs/T2S_OVERNIGHT_REPORT.md`) | 32.0.31007.1017 (`docs/HARDWARE.md`, `docs/X2_CHANGELOG.md`) | 610.88 (`docs/FINDINGS.md`) |
 | llama-server (direct runs) | b10970, Vulkan (`docs/FINDINGS.md`) | b10970, commit bfdc32183, Vulkan (`docs/HARDWARE.md`) | b10970, CUDA (`docs/FINDINGS.md`) |
-| Ollama | 0.33.2 (`docs/T2S_CHANGELOG.md`; K1 v3 run) | 0.34.4, bundled llama.cpp b11081 (`docs/R2_DESIGN.md`, `docs/X2_CHANGELOG.md`) | 0.34.0, earlier 0.32.9 (`docs/THREATS.md` section 18) |
+| Ollama | 0.33.2 (`docs/T2S_CHANGELOG.md`; K1 v3 run) | 0.34.4, bundled llama.cpp b11081 (`docs/R2_DESIGN.md`, `docs/X2_CHANGELOG.md`) | 0.34.4 pinned side by side for Blade night 1 (K1, R2 validation, mechanism; `docs/FINDINGS.md`, Blade night 1); earlier 0.34.0 and 0.32.9 (`docs/THREATS.md` section 18) |
 | Ollama GPU backend actually used | none: iGPU dropped by policy, CPU fallback, unless `OLLAMA_IGPU_ENABLE=1` (`[x2-device-detect-mechanism]`) | ROCm (`[x2-device-detect-mechanism]`) | CUDA (assumed; not recorded) |
 | OS | Windows 11 (build MISSING) | Windows build 10.0.26100 (`docs/HARDWARE.md`) | Windows 11 Home 10.0.26200 (`docs/FINDINGS.md`) |
 
@@ -115,8 +124,9 @@ Missing and must be recorded before submission (Gap G13):
 - INTEL-iGPU Windows build; the llama.cpp build bundled in Ollama 0.33.2.
 - NVIDIA-dGPU: the CUDA Sysmem Fallback Policy value during C1/C2 ("UNKNOWN" in `docs/FINDINGS.md`); the Ollama
   backend actually used; whether Ollama 0.34.0 there passes the same context-shift flags.
-- Version skew: INTEL-iGPU Ollama results are 0.33.2 and AMD-iGPU results are 0.34.4. The cross-platform default
-  context comparison (`[T2S-vs-X2-default-ctx]`) therefore crosses an Ollama version as well as a device. T2S week
+- Version skew: INTEL-iGPU Ollama results are 0.33.2; AMD-iGPU and the NVIDIA-dGPU night 1 results are 0.34.4. The
+  cross-platform default context comparison (`[T2S-vs-X2-default-ctx]`) therefore crosses an Ollama version as well as
+  a device for INTEL-iGPU only; the AMD-iGPU vs NVIDIA-dGPU comparison is on one version. T2S week
   item 1 (re-enable checks) should record the current version; a re-run on a matched version closes it.
 
 ---
@@ -198,8 +208,14 @@ x axis (requested context as a fraction of the platform's memory boundary), y ax
   number is stated here.
 - **INTEL-iGPU (unified, budget wall):** no gradual cost; the server either starts or refuses at one shared-heap limit
   (hard fail). Data: `[A-24-effective-heap-limit]`, `[A-24-flip-point-per-model]`.
-- **NVIDIA-dGPU (discrete):** decode slowdown proportional to the spilled fraction past VRAM. Data: Blade C1 files
-  (no register row yet, G4) plus the night-1 K1 layer split; **pending until Blade night 1 registers it**.
+- **NVIDIA-dGPU (discrete):** decode slowdown proportional to the spilled fraction past VRAM. Data: the x axis
+  placement is now registered: the Ollama layer split puts both measured models fully in VRAM at the two smallest
+  windows and partly on the CPU above them, "VRAM share by num_ctx 4096: 1.000, 8192: 1.000, 16384: 0.870, 32768:
+  0.656" (llama3.1:8b) and "VRAM share by num_ctx 4096: 1.000, 8192: 1.000, 16384: 0.805, 32768: 0.592" (qwen3:8b)
+  `[blade-k1-layer-split]`. The y axis (decode slowdown) is still the Blade C1 files with no register row (G4), so
+  this panel stays **pending G4**. Caveat: the K1 split is Ollama moving layers to the CPU, a different
+  overflow path from the driver's system-memory spill measured in C1 (llama-server direct); the
+  panel must label which path each point is.
 The claim the figure carries: the same "context exceeds memory" event has three different cost shapes depending on the
 memory architecture (near-free spill, hard wall, proportional slowdown), so a hardware-blind router or sizing rule is
 wrong on at least two of the three. If space is short, FH1 replaces F2 and F3 (their detail moves to the supplement).
@@ -273,7 +289,21 @@ wrong on at least two of the three. If space is short, FH1 replaces F2 and F3 (t
 **4.5a Default context selection per device (K1 v3).**
 
 - **Claim:** the same runtime selects the default context window from its own device-detection policy, so two
-  integrated GPUs get very different windows for the same model.
+  integrated GPUs get very different windows for the same model, and the discrete GPU gets a small one.
+- **H1 cross-vendor default-context and truncation table** (all cells pasted from the register; one runtime, Ollama;
+  the per-platform version is in Section 3):
+
+| platform | default context per model | GPU placement at the default and above | overflow at the default | register rows |
+|---|---|---|---|---|
+| INTEL-iGPU | "qwen3-4b-2507": {"t2s_default_ctx": 4096, ...}, "llama3.1:8b": {"t2s_default_ctx": 4096, ...}, "qwen3:8b": {"t2s_default_ctx": 4096, ...} | "evo-t2s (no ROCm path for Intel) falls through to CPU once Vulkan drops it" | "processed = num_ctx/2 + 2 in all 4 checked cases: 4096->2050; 32768->16386; 40960->20482; 8192->4098" (cases pooled over INTEL-iGPU and AMD-iGPU files) | T2S-vs-X2-default-ctx, x2-device-detect-mechanism, ollama-overflow-keeps-half |
+| AMD-iGPU | {"qwen3-4b-2507": {"capped": false, "native_ctx": 262144, "ollama_default_ctx": 262144}, "llama3.1:8b": {"capped": false, "native_ctx": 131072, "ollama_default_ctx": 131072}, "qwen3:8b": {"capped": true, "native_ctx": 40960, "ollama_default_ctx": 40960}} | "evo-x2 uses the iGPU via ROCm" | as the INTEL-iGPU row (pooled) | K1v3-X2-table, T2S-vs-X2-default-ctx, x2-device-detect-mechanism, ollama-overflow-keeps-half |
+| NVIDIA-dGPU | "llama3.1:8b: default ctx 4096"; "qwen3:8b: default ctx 4096"; "qwen3-4b-2507-tools: not measured (model not present)" | "fully on GPU at default True" (both models); llama3.1:8b "VRAM share by num_ctx 4096: 1.000, 8192: 1.000, 16384: 0.870, 32768: 0.656"; qwen3:8b "VRAM share by num_ctx 4096: 1.000, 8192: 1.000, 16384: 0.805, 32768: 0.592"; "device VRAM 8188 MiB" | llama3.1:8b "4096 tok -> HTTP 200, evaluated 3337; 8192 tok -> HTTP 200, evaluated 2050; 16384 tok -> HTTP 200, evaluated 2050; 32768 tok -> HTTP 200, evaluated 2050"; qwen3:8b "4096 tok -> HTTP 200, evaluated 4082; 8192 tok -> HTTP 200, evaluated 2050; 16384 tok -> HTTP 200, evaluated 2050; 32768 tok -> HTTP 200, evaluated 2050" | blade-k1-layer-split |
+
+  Reading: on all three platforms an over-length prompt returns success and is evaluated at the half-window value
+  ("4096->2050" `[ollama-overflow-keeps-half]`; "evaluated 2050" at the default `[blade-k1-layer-split]`). The
+  NVIDIA-dGPU probe at the window size itself ("4096 tok") is evaluated below the window and is not an overflow case;
+  the probe length is the harness's target token count (`target_tokens` in `results/blade_k1_v2.summary.json`), not
+  the model's own count, so it is not read as a truncation.
 - **Evidence:** `[T2S-vs-X2-default-ctx]`: {"qwen3-4b-2507": {"t2s_default_ctx": 4096, "x2_default_ctx": 262144},
   "llama3.1:8b": {"t2s_default_ctx": 4096, "x2_default_ctx": 131072}, "qwen3:8b": {"t2s_default_ctx": 4096,
   "x2_default_ctx": 40960}}; mechanism `[x2-device-detect-mechanism]`: "Vulkan backend drops the AMD iGPU by the same
@@ -283,16 +313,20 @@ wrong on at least two of the three. If space is short, FH1 replaces F2 and F3 (t
   `results/t2s_k1_ollama_evo-x2_20260930T205515Z.jsonl`, `results/x2_template_mechanism_test.jsonl`.
 - **Figure:** F5: default window per (platform, model) overlaid on the CDF of real agent step lengths
   (`figures/fig_trace_cdf.png` exists for the CDF; the overlay is new).
-- **Gaps:** NVIDIA-dGPU default: Blade night 1 (a) (K1). Ollama version differs between the two iGPU platforms
-  (Section 3). The `OLLAMA_IGPU_ENABLE=1` control on INTEL-iGPU has no register row (G12).
+- **Gaps:** NVIDIA-dGPU default: landed (Blade night 1 (a), K1, `[blade-k1-layer-split]`); two models there, the
+  third not present on that machine. The NVIDIA-dGPU row shows the small default but not why (device detection vs a
+  VRAM-size rule); no register row separates the two, so the device-detection mechanism is claimed for the two iGPUs
+  only. Ollama version differs between INTEL-iGPU and the other two platforms (Section 3). The `OLLAMA_IGPU_ENABLE=1` control on INTEL-iGPU has no register row (G12).
 
 **4.5b Overflow behaviour.**
 
 - **Claim:** when a prompt exceeds the loaded window, the runtime returns success and silently keeps half the window.
 - **Evidence:** "processed = num_ctx/2 + 2 in all 4 checked cases: 4096->2050; 32768->16386; 40960->20482;
   8192->4098. Mechanism: Ollama's own '--context-shift --keep 4' llama-server flag" `[ollama-overflow-keeps-half]`.
+  NVIDIA-dGPU, both measured models at the default: "8192 tok -> HTTP 200, evaluated 2050; 16384 tok -> HTTP 200,
+  evaluated 2050; 32768 tok -> HTTP 200, evaluated 2050" `[blade-k1-layer-split]` (full row in the 4.5a table).
 - **Figure:** folded into F7.
-- **Gaps:** NVIDIA-dGPU: Blade night 1 (a).
+- **Gaps:** NVIDIA-dGPU: landed (Blade night 1 (a)); the overflow probes there ran at the default window only.
 
 **4.5c Install-path effects.**
 
@@ -335,21 +369,35 @@ wrong on at least two of the three. If space is short, FH1 replaces F2 and F3 (t
 - **Figure:** F6: per-tier session survival curve (intact sessions vs turn), v1 now, v1b when synced.
 - **Gaps:** AMD-iGPU only, models llama3.1:8b and qwen3:14b, sessions "of 3" per cell `[R2-real-v1-survival]`.
   Fill: x2_r2_real_v1b (rows `R2-real-v1b-*` PENDING), T2S week
-  item 2 (R2 native Intel), Blade night 1 (b) (R2 native).
+  item 2 (R2 native Intel). Blade night 1 (b) (R2 native) did not run: the validation gate failed (open finding O1,
+  Section 5b).
 
 **4.6b Mechanism.**
 
-- **Claim:** the runtime trims whole messages and keeps the system prompt; at the smallest window llama.cpp context
-  shift and a token-level cut then discard the start of the prompt, system prompt included, still with success
-  status.
-- **Evidence:** `[R2-mechanism-lowlevel]`: "ollama_ctx_16384: 54/80 calls message-truncated; 0 context shifts; 0 token
+- **Claim:** the runtime trims whole messages and keeps the system prompt (AMD-iGPU and NVIDIA-dGPU); at the
+  smallest window llama.cpp context shift fires on both platforms, and on AMD-iGPU the shift and a token-level cut
+  discard the start of the prompt, system prompt included, still with success status.
+- **Evidence, NVIDIA-dGPU** (smallest window only, one session): `[blade-mechanism-4096]`: "prompt check 9/9 within 1%
+  (citable True); 75/80 calls message-truncated from turn 3, system kept on every truncated call True, cut mid-turn
+  60, token-level cuts 0, context shifts 33, exceed-context errors 0; verdict confirmed". The verdict here is the
+  report's drop-old-turns-keep-system verdict; on AMD-iGPU the same tier reads "tier verdict refuted"
+  `[R2-mechanism-verdict]` because of its token cut. Side by side at 4096: message-level drop with the system message
+  kept on both ("system kept on all True" `[R2-mechanism-verdict]`; "system kept on every truncated call True"
+  `[blade-mechanism-4096]`); context shifts on both ("34 context shifts" `[R2-mechanism-lowlevel]`; "context shifts
+  33" `[blade-mechanism-4096]`); token cut on AMD-iGPU only ("1 token cuts" `[R2-mechanism-lowlevel]`; "token-level
+  cuts 0" `[blade-mechanism-4096]`). The NVIDIA-dGPU row does not report n_keep, so "the shift discards the system
+  prompt" is stated for AMD-iGPU only ("n_keep [5]" `[R2-mechanism-lowlevel]`).
+- **Evidence, AMD-iGPU:** `[R2-mechanism-lowlevel]`: "ollama_ctx_16384: 54/80 calls message-truncated; 0 context shifts; 0 token
   cuts" and "ollama_ctx_4096: 76/80 calls message-truncated; 34 context shifts (first turn/call (4, 2), n_keep [5],
   n_discard [2045], 29 on the final-answer call); 1 token cuts (token cut limit 2050 keep 4 prompt 4097 -> 2050)";
   `[R2-mechanism-verdict]`: "token-level cut seen True, context shift seen True, render/log disagreements 0".
-  File: `results/x2_r2_mechanism.jsonl`.
-- **Figure:** F7: per-turn event raster per tier (message drops, context shifts, token cut), one row per tier.
-- **Gaps:** one model, one session per tier (`[R2-mechanism-verdict]` n column: "5 sessions"), AMD-iGPU. Fill: T2S week item 6 (mechanism run), Blade night 2 (e)
-  (mechanism); more seeds through x2_r2_real_v1b's mechanism logging.
+  Files: `results/x2_r2_mechanism.jsonl`, `results/blade_r2_mechanism_4096_v2.jsonl.report.json`.
+- **Figure:** F7: per-turn event raster per tier (message drops, context shifts, token cut), one row per tier, with
+  the NVIDIA-dGPU 4096 session as an extra row next to the AMD-iGPU 4096 row.
+- **Gaps:** one model (llama3.1:8b), one session per tier on each platform (`[R2-mechanism-verdict]` n column: "5
+  sessions"; `[blade-mechanism-4096]` n column: "80" calls, one session), so no CI; whether the token cut occurs on
+  NVIDIA-dGPU at all is open after one session. Fill: T2S week item 6 (mechanism run, INTEL-iGPU), Blade night 2 (e)
+  (other NVIDIA-dGPU tiers); more seeds through x2_r2_real_v1b's mechanism logging.
 
 **4.6c Outcome table.**
 
@@ -362,14 +410,30 @@ wrong on at least two of the three. If space is short, FH1 replaces F2 and F3 (t
 
 ### 4.7 Predictor and mitigation (1.00 page)
 
-- **Claim (at risk):** a predictor from the loaded window, the per-turn prompt growth and the runtime's trimming rule
-  flags the turn at which the system prompt will be lost, before it happens.
-- **Evidence:** none yet. Inputs exist: `[R2-mechanism-lowlevel]`, `[ollama-overflow-keeps-half]`.
+- **Claim (verified on AMD-iGPU, one session per tier):** a context shift, the step that discards the system prompt
+  at the smallest window, happens on a call exactly when the post-trim prompt plus the generated tokens exceed the
+  loaded window; the rule is taken from the llama.cpp source, not fitted. Using the generation budget in place of the
+  generated count gives a before-the-call flag that misses no shift at the cost of false alarms.
+- **Evidence:** `[R2-shift-predictor-confusion]`: "num_ctx_4096 TP 34 FP 0 FN 0 TN 46 precision 100.0% recall
+  100.0%", "num_ctx_32768 TP 10 FP 0 FN 0 TN 70 precision 100.0% recall 100.0%", "misses 0"; variants "exact
+  P+C>n_ctx: TP 44 FP 0 FN 0", "budget P+num_predict>n_ctx: TP 44 FP 22 FN 0", "prompt only P>=n_ctx-1: TP 0 FP 0 FN
+  44". Applied to the real run as a prediction only (no server log there, nothing observed):
+  `[R2-shift-predicted-real-v1]`: "num_ctx_4096 llama3.1:8b: predicted 102/240 calls" and "num_ctx_4096 qwen3:14b:
+  predicted 0/240 calls"; predicted shifts line up with the first rule failure only partly, and the qwen3:14b rule
+  failures at 4096 happen with no predicted shift (`docs/FINDINGS.md`, "R2 context-shift predictor and orphaned messages"). What the message-level trim
+  leaves at the front of the window: `[R2-orphan-rates]`: "num_ctx_4096: 76/80 truncated; first kept user 15,
+  assistant tool-call 47, assistant final 6, tool 8; orphaned 61/76 (80.3%)". File: `results/x2_r2_mechanism.jsonl`
+  (observed part), `results/x2_r2_real_v1.jsonl` (predicted part).
+- **Scope of the claim:** it predicts the context shift (where the system prompt goes on AMD-iGPU), not rule
+  failure: the real-run qwen3:14b failures are not explained by it. Built and scored on the same mechanism sessions;
+  no tunable parameter, but no held-out observed sessions yet.
 - **Claim (pending):** the pre-registered mitigation keeps rule compliance at the smallest window.
 - **Evidence:** none yet; pre-registration in `docs/FINDINGS.md` / the job's own docstring.
 - **Figure:** F8: rule-compliant session survival at the smallest window, with vs without mitigation.
-- **Gaps:** predictor build and its validation against x2_r2_real_v1b (G6); x2_r2_mitigation_v1; T2S week item 3
-  (mitigation at 4096); Blade night 1 (c) (mitigation).
+- **Gaps:** predictor scored on observed shifts outside the sessions it was checked on (G6): the NVIDIA-dGPU 4096
+  session (`[blade-mechanism-4096]`, its shift count is registered but the per-call confusion is not) and any later
+  mechanism-logged run; x2_r2_mitigation_v1; T2S week item 3 (mitigation at 4096). Blade night 1 (c) (mitigation) did
+  not run (open finding O1).
 
 ### 4.8 Threats to validity (0.50 page)
 
@@ -416,22 +480,51 @@ Platforms: I = INTEL-iGPU, A = AMD-iGPU, N = NVIDIA-dGPU. Status: verified / pen
 | P1-04 | CPU co-runner slows INTEL-iGPU inference, graded by E-core count | B3-corunner-6model, P70-TTFT-ratio, b4_32b-dose-response | I | small n per condition, one run; bootstrap CIs narrow because n is small | "Thermal or power throttling, trivial." | Package power alone does not explain it (Section B, no register row yet); mechanism stated as open | verified (magnitude); mechanism open |
 | P1-05 | On AMD-iGPU the co-runner TTFT cost is smaller and bandwidth vs compute separate only on decode | PX2-full-ratio-table, PX2-TTFT-gap, PX2-decode-ratio, PX2-power, PX2-thermal | A | small n per condition, one run; n column "5" models `[PX2-decode-ratio]` | "Different metrics per vendor is not a comparison." | Agreed; T2S week item 4 adds the Intel bandwidth hog on the same metrics | verified (A); cross-vendor pending T2S week item 4 |
 | P1-06 | First call on a new prompt stalls at a fixed per-machine rate set by displaced KV state | ttft-first-call-stall, ttft-first-call-stall-per-cell, ttft-x2-refit-by-hypothesis, ttft-x2-section0-stall-check | I, A | many calls; out-of-sample check on held-out section; no control run | "Prompt-cache behaviour is a configuration detail." | It explains the TTFT model error on one platform; but the mechanism needs the control | at risk (no queued `--cache-ram 0` control) |
-| P1-07 | Runtime device policy sets the default window: small on INTEL-iGPU, model-native on AMD-iGPU | T2S-vs-X2-default-ctx, x2-device-detect-mechanism, K1v3-X2-table | I, A | deterministic configuration reads; n column "3" models `[T2S-vs-X2-default-ctx]` | "Documented Ollama behaviour, bug report level." | Issue trackers document the tiering; nobody traced it through device detection to agent loss across vendors | verified (I, A); N pending Blade night 1 (a) |
-| P1-08 | Overflow is silent: success status, half the window kept | ollama-overflow-keeps-half | I, A | "all 4 checked cases" `[ollama-overflow-keeps-half]`; deterministic | "Context shift is a llama.cpp feature." | Yes; the finding is that the shipped default applies it silently and what it removes | verified |
+| P1-07 | Runtime device policy sets the default window: small on INTEL-iGPU, model-native on AMD-iGPU, small on NVIDIA-dGPU | T2S-vs-X2-default-ctx, x2-device-detect-mechanism, K1v3-X2-table, blade-k1-layer-split | I, A, N | deterministic configuration reads; n column "3" models `[T2S-vs-X2-default-ctx]`; N: two of three models present ("qwen3-4b-2507-tools: not measured (model not present)" `[blade-k1-layer-split]`) | "Documented Ollama behaviour, bug report level." | Issue trackers document the tiering; nobody traced it through device detection to agent loss across vendors | verified (I, A, N); device-detection mechanism traced on I and A only |
+| P1-08 | Overflow is silent: success status, half the window kept | ollama-overflow-keeps-half, blade-k1-layer-split | I, A, N | "all 4 checked cases" `[ollama-overflow-keeps-half]`; N: "HTTP 200, evaluated 2050" on every over-length probe at the default, both models `[blade-k1-layer-split]`; deterministic | "Context shift is a llama.cpp feature." | Yes; the finding is that the shipped default applies it silently and what it removes, on all three vendors | verified (I, A, N) |
 | P1-09 | Install path of identical weights changes tool-call behaviour | R2-install-path-4b-comparison, R2-install-path-4b-bare, x2-chat-template-source | A | "30 + 30 baseline turns" `[R2-install-path-4b-comparison]`; one model | "You used the wrong template." | That is the finding: the install path picks the template silently; both paths fail the gate | verified (narrow, one model) |
 | P1-10 | Models do not report that context was lost | self-report-truncation-awareness | I, A | "0/960" `[self-report-truncation-awareness]` | "Models can't know what they don't see." | Agreed; it is why the failure is silent end to end | verified |
-| P1-11 | Real agent sessions lose history silently at every truncating window; rules lost only at the smallest | R2-real-v1-kill-criterion, R2-real-v1-gated-kill, R2-real-v1-survival, R2-real-v1-first-events | A | llama3.1:8b and qwen3:14b, sessions "of 3" per cell `[R2-real-v1-survival]`, no CI | "Few models, one machine." | x2_r2_real_v1b adds models and seeds; T2S and Blade replicate | verified (A); generalization pending x2_r2_real_v1b, T2S week item 2, Blade night 1 (b) |
-| P1-12 | Mechanism: message trimming keeps the system prompt; context shift and token cut discard it at the smallest window | R2-mechanism-verdict, R2-mechanism-lowlevel | A | one model, one session per tier (n column "5 sessions" `[R2-mechanism-verdict]`); render/log check passed | "Single seed." | The mechanism is deterministic given the prompt sizes; replication across platforms is queued | verified (A); pending T2S week item 6, Blade night 2 (e) |
+| P1-11 | Real agent sessions lose history silently at every truncating window; rules lost only at the smallest | R2-real-v1-kill-criterion, R2-real-v1-gated-kill, R2-real-v1-survival, R2-real-v1-first-events | A | llama3.1:8b and qwen3:14b, sessions "of 3" per cell `[R2-real-v1-survival]`, no CI | "Few models, one machine." | x2_r2_real_v1b adds models and seeds; T2S replicates; the NVIDIA-dGPU real run waits on open finding O1 | verified (A); generalization pending x2_r2_real_v1b, T2S week item 2; N held by O1 (Blade night 1 (b) not run) |
+| P1-12 | Mechanism: message trimming keeps the system prompt (A, N); context shift fires at the smallest window (A, N); context shift and token cut discard the system prompt there (A) | R2-mechanism-verdict, R2-mechanism-lowlevel, blade-mechanism-4096 | A, N | one model, one session per tier on each platform, no CI (n column "5 sessions" `[R2-mechanism-verdict]`; N one session at 4096, n column "80" calls `[blade-mechanism-4096]`); render/log check passed on both ("render/log disagreements 0"; "prompt check 9/9 within 1% (citable True)"); token cut seen on A once ("1 token cuts"), not on N ("token-level cuts 0") | "Single seed." | The mechanism is deterministic given the prompt sizes, and the message-level step and the shift now replicate on a second vendor | verified (A, N; one session per tier); I pending T2S week item 6; other N tiers pending Blade night 2 (e) |
 | P1-13 | Real agent workloads exceed small defaults | trace-fraction-exceeds-4096, trace-context-exit-rate, uncensored-trace-32k-crossing, pack-trace-weighted-stats | n/a (trace data) | full trace sets | "Synthetic agents." | Public real trajectories, censoring handled | verified |
 | P1-14 | Runtime choice changes task outcomes for the same model and machine | x2-v3-progress, x2-v3-scores, x2-v3-error-causes | A (I subset pending) | incomplete | "Incomplete table." | Report only when complete | pending (x2_outcome_table_v3; T2S week item 5) |
 | P1-15 | Co-running app memory pressure does not degrade quality before a loud failure | K2-x2-kill-criterion, K2-x2-score-ceiling, K2-x2-responsiveness-resolution, K2-x2-clean-failures | A | measures at ceiling | "Your test could not detect degradation." | Correct; reported as a weak null only | at risk (x2_k2_pause_resume_v1; harder task set unplanned) |
-| P1-16 | A predictor flags the turn at which the system prompt will be lost | none yet | (A first) | no data | "Post hoc." | Validate on x2_r2_real_v1b sessions not used to build it | at risk (being built) |
-| P1-17 | Pre-registered mitigation keeps rule compliance at the smallest window | none yet | A, I, N planned | pre-registered | "Mitigation is just a bigger window." | Pre-registration fixes the comparison before data | pending (x2_r2_mitigation_v1; T2S week item 3; Blade night 1 (c)) |
+| P1-16 | A predictor flags the call on which the context shift (system-prompt loss on A) happens: prompt plus generated tokens over the loaded window | R2-shift-predictor-confusion, R2-shift-predicted-real-v1, R2-orphan-rates | A | one model, one session per tier, no CI; "num_ctx_4096 TP 34 FP 0 FN 0 TN 46" and "num_ctx_32768 TP 10 FP 0 FN 0 TN 70" `[R2-shift-predictor-confusion]`; real-run counts are predictions only `[R2-shift-predicted-real-v1]` | "Post hoc." | The rule comes from the llama.cpp source with no fitted parameter; the before-the-call budget variant gives "TP 44 FP 22 FN 0"; held-out observed sessions still needed (G6) | verified (A, one session per tier) |
+| P1-17 | Pre-registered mitigation keeps rule compliance at the smallest window | none yet | A, I planned; N held | pre-registered | "Mitigation is just a bigger window." | Pre-registration fixes the comparison before data | pending (x2_r2_mitigation_v1; T2S week item 3); N held by open finding O1 (Blade night 1 (c) not run) |
 | P1-18 | A single TTFT fit does not transfer across machines | ttft-cross-machine-transfer, ttft-few-point-calibration | I, A | pooled rows include the stall | "Confounded by the stall." | Must recompute on rep>=1 rows before citing | at risk (recompute, G11) |
 
-Tally: verified 10 (P1-01, 04, 05, 07, 08, 09, 10, 11, 12, 13), pending 4 (P1-02, 03, 14, 17), at risk 4 (P1-06,
-15, 16, 18). Of the 10 verified, P1-05, 07, 11 and 12 are verified on fewer platforms than the paper claims and need
-the named runs to support the cross-vendor wording.
+Tally (2026-10-10): verified 11 (P1-01, 04, 05, 07, 08, 09, 10, 11, 12, 13, 16), pending 4 (P1-02, 03, 14, 17), at
+risk 3 (P1-06, 15, 18). Changes since 2026-10-08: P1-16 at risk -> verified (A); P1-07 and P1-08 now cover all three
+vendors; P1-12 now covers A and N. Of the 11 verified, P1-05, 11, 12 and 16 are verified on fewer platforms than the
+paper claims and need the named runs to support the cross-vendor wording. Open findings are not claims and are not
+counted (Section 5b).
+
+## 5b. Open findings (not claims)
+
+These are results with register rows that are not yet interpretable. They are not stated as claims anywhere in the
+paper until the named check lands.
+
+**O1. NVIDIA-dGPU: text tool call on the final-answer call at a non-truncating window.** In the NVIDIA-dGPU R2
+validation, llama3.1:8b's negative control (a window large enough that nothing is truncated) failed in both runs: on
+the final-answer call (tools withheld, v1 protocol) the model sometimes writes a tool call as plain text instead of an
+answer, so neither canary appears. Register: `[blade-r2-gate-v2]`: "llama3.1:8b negative control num_ctx 32768, 5
+sessions, canary misses per session 20260901: 0, 20260902: 0, 20260903: 2, 20260904: 0, 20260905: 2; branch
+mechanism"; `[blade-r2-validation-run2]`: "negative control (num_ctx 32768) canary misses 4 of 20 canaries (10 checks
+x 2) over 5 sessions"; first run `[blade-r2-validation-run1]`. In run 2 both failing sessions fail on the same turn
+(`docs/FINDINGS.md`, "Blade (NVIDIA RTX 4070 Laptop, 8 GB) night 1", 2026-10-09). It is not truncation (the window was
+never exceeded) and not a scorer bug. The AMD-iGPU negative control for the same model files at the model-native
+default had no misses (`[R2-validation-v2-baseline]`: "negative-control canary misses 0/12"). Candidate explanations:
+backend (CUDA vs ROCm) and the window itself (32768, partly CPU-offloaded on NVIDIA-dGPU per `[blade-k1-layer-split]`,
+vs the native default on AMD-iGPU), and with them greedy-decoding numerics.
+- **Consequence:** per the pre-set gate, the NVIDIA-dGPU R2 real tiers and mitigation (Blade night 1 (b), (c)) did not
+  run; the gate took the mechanism branch (`[blade-r2-gate-v2]`: "branch mechanism").
+- **Pending check:** x2-r2-llama-val-32k, an AMD-iGPU confound check of the same model and protocol at num_ctx 32768.
+  Decision rule as pre-registered (operator, 2026-10-10): no canary misses on AMD-iGPU at 32768 means the NVIDIA-dGPU
+  result is a backend/offload effect; text tool calls on the same turn as on NVIDIA-dGPU mean it is a window effect.
+  Note: that pre-registration section was not yet present in `docs/FINDINGS.md` at the commit this draft was edited
+  on; it must be in FINDINGS, committed, before the job's data is synced.
+- **Paper status:** not a claim; mentioned, if at all, in threats to validity as an unresolved cross-backend
+  difference until x2-r2-llama-val-32k lands.
 
 ---
 
@@ -468,15 +561,15 @@ citing (G14).
 
 | fig | content | data source | data exists? |
 |---|---|---|---|
-| FH1 (headline, H1) | Cross-vendor spill cost: AMD-iGPU unified near-zero cost, INTEL-iGPU budget wall (hard fail), NVIDIA-dGPU discrete decode slowdown, on a shared normalized x axis | `results/mx2_spill_stats.jsonl` (register row pending, G5); `[A-24-effective-heap-limit]`, `[A-24-flip-point-per-model]`; Blade C1 files (register row pending, G4) and Blade night 1 (a) K1 layer split | partly: INTEL yes; AMD data exists, register row pending; NVIDIA pending Blade night 1 |
+| FH1 (headline, H1) | Cross-vendor spill cost: AMD-iGPU unified near-zero cost, INTEL-iGPU budget wall (hard fail), NVIDIA-dGPU discrete decode slowdown, on a shared normalized x axis | `results/mx2_spill_stats.jsonl` (register row pending, G5); `[A-24-effective-heap-limit]`, `[A-24-flip-point-per-model]`; Blade C1 files (register row pending, G4) and the K1 layer split `[blade-k1-layer-split]` | partly: INTEL yes; AMD data exists, register row pending; NVIDIA placement (VRAM share per num_ctx) registered, decode slowdown pending G4 |
 | F1 | Platform and memory-architecture diagram: three platforms, where KV, weights and host-visible buffers live, which runtime backend is used | `docs/HARDWARE.md`, Section 3 of this file | yes (drawing only) |
 | F2 | INTEL-iGPU flip point: measured (last_ok, first_fail] vs accountings A/B/C, all models in `[A-24-budget-boundary]` | `[A-24-flip-point-per-model]`, `[A-24-effective-heap-limit]` | yes; existing `figures/fig_a24_budget_boundary.png` needs regeneration |
 | F3 | NVIDIA-dGPU spill onset: TTFT and decode slowdown vs context with spilled fraction; C3 point | C1/C2 files (no register row); Blade night 2 (d) | partly: C1/C2 yes, C3 no; existing `figures/fig_blade_c1_spill.png` is the M1 ladder |
 | F4 | Co-runner effects by vendor: TTFT and decode ratio per condition, INTEL-iGPU vs AMD-iGPU | `[B3-corunner-6model]`, `[b4_32b-dose-response]`, `[PX2-full-ratio-table]`, `[PX2-decode-ratio]`; T2S week item 4 | partly: Intel decode under a bandwidth hog missing |
-| F5 | Default window per platform and model over the agent step-length CDF | `[T2S-vs-X2-default-ctx]`, `[trace-fraction-exceeds-4096]`; Blade night 1 (a) | partly: I and A yes, N no; `figures/fig_trace_cdf.png` exists |
+| F5 | Default window per platform and model over the agent step-length CDF | `[T2S-vs-X2-default-ctx]`, `[blade-k1-layer-split]`, `[trace-fraction-exceeds-4096]` | yes: I, A and N (N two models); `figures/fig_trace_cdf.png` exists, overlay new |
 | F6 | R2 session survival by tier | `[R2-real-v1-survival]`; x2_r2_real_v1b; T2S week item 2; Blade night 1 (b) | partly: v1 yes, v1b and other platforms no |
-| F7 | Per-turn truncation-event raster by tier (message drop, context shift, token cut) | `[R2-mechanism-lowlevel]`; T2S week item 6; Blade night 2 (e) | yes for A, one session per tier |
-| F8 | Mitigation: rule-compliant survival at the smallest window, with vs without | x2_r2_mitigation_v1; T2S week item 3; Blade night 1 (c) | no |
+| F7 | Per-turn truncation-event raster by tier (message drop, context shift, token cut), A all tiers plus an N row at 4096 | `[R2-mechanism-lowlevel]`, `[R2-mechanism-verdict]` (`results/x2_r2_mechanism.jsonl`); `[blade-mechanism-4096]` (`results/blade_r2_mechanism_4096_v2.jsonl.report.json` and its jsonl); T2S week item 6; Blade night 2 (e) | yes for A (all tiers) and N (4096 only), one session per tier; I and other N tiers no |
+| F8 | Mitigation: rule-compliant survival at the smallest window, with vs without | x2_r2_mitigation_v1; T2S week item 3 (Blade night 1 (c) held by O1) | no |
 
 Backup figure if one slips: first-call TTFT stall per cell (`[ttft-first-call-stall-per-cell]`, data exists).
 
@@ -485,21 +578,27 @@ Backup figure if one slips: first-call TTFT stall per cell (`[ttft-first-call-st
 ## 8. Gaps: what must land before 2026-11-01, ordered by impact on acceptance
 
 1. **G1. Agent result on more than one platform and more seeds.** Without it the headline is one AMD machine and
-   two models (llama3.1:8b, qwen3:14b). Fill: x2_r2_real_v1b (rows `R2-real-v1b-*` PENDING); T2S week item 2 (R2 native Intel); Blade night 1 (b)
-   (R2 native). Prerequisite for the Intel runs: T2S week item 1 (re-enable checks).
-2. **G2. Mechanism on more than one platform and seed.** Fill: T2S week item 6 (mechanism run); Blade night 2 (e)
-   (mechanism).
-3. **G3. Mitigation result.** Contribution 4 is empty without it. Fill: x2_r2_mitigation_v1 (after x2_r2_real_v1b);
-   T2S week item 3 (mitigation at 4096); Blade night 1 (c) (mitigation).
+   two models (llama3.1:8b, qwen3:14b). Fill: x2_r2_real_v1b (rows `R2-real-v1b-*` PENDING); T2S week item 2 (R2 native Intel). Blade night 1 (b)
+   (R2 native) did not run; it waits on open finding O1 and x2-r2-llama-val-32k. Prerequisite for the Intel runs: T2S
+   week item 1 (re-enable checks).
+2. **G2. Mechanism on more than one platform and seed.** Second platform: landed for the smallest window
+   (`[blade-mechanism-4096]`, one session). Still open: more than one session per tier on any platform; INTEL-iGPU
+   (T2S week item 6, mechanism run); other NVIDIA-dGPU tiers (Blade night 2 (e)).
+3. **G3. Mitigation result.** Contribution 4's second half is empty without it. Fill: x2_r2_mitigation_v1 (after
+   x2_r2_real_v1b); T2S week item 3 (mitigation at 4096). Blade night 1 (c) (mitigation) did not run (O1).
 4. **G4. Discrete-memory half of the architecture claim.** Register rows for existing C1/C2 files (analysis only),
    plus Blade night 2 (d) (C3 sysmem fallback). Without it, "three vendors, two memory architectures" is not
    supported in the text and the abstract sentence on discrete spill is cut.
 5. **G5. AMD-iGPU boundary rows.** Register rows for `results/mx2_validation.jsonl` and `results/mx2_spill_stats.jsonl`
    (analysis only), plus x2_70b_edge_reps for the non-deterministic 70B boundary.
-6. **G6. Predictor built and validated** on sessions not used to build it (x2_r2_real_v1b). No queue job; analysis
-   work. At risk on time.
+6. **G6. Predictor held-out check.** Built and scored on AMD-iGPU (`[R2-shift-predictor-confusion]`, verified).
+   Still open: score it on observed shifts from sessions it was not checked on (the NVIDIA-dGPU 4096 session, any
+   later mechanism-logged run); x2_r2_real_v1b has no server log, so it gives predictions, not observations. Analysis
+   work only.
 7. **G7. Outcome table.** x2_outcome_table_v3 completion; T2S week item 5 (outcome-table subset).
-8. **G8. NVIDIA-dGPU default context and overflow.** Blade night 1 (a) (K1).
+8. **G8. NVIDIA-dGPU default context and overflow.** Closed by Blade night 1 (a) (K1), `[blade-k1-layer-split]`.
+   New: **G8b. Open finding O1** (Section 5b) resolved by x2-r2-llama-val-32k before any NVIDIA-dGPU R2 real or
+   mitigation run.
 9. **G9. Same-metric co-runner comparison.** T2S week item 4 (Intel bandwidth hog).
 10. **G10. Second human rater** for the held-out kappa subset (labels pending), and a decision on the proposed scorer
     fixes (needs a third fresh sample if applied).
@@ -528,15 +627,16 @@ Not resolved here: the submission deadline (Dec 2 vs mid-December estimate) and 
 | P1-04 Intel co-runner | 4.4d | B3-corunner-6model, P70-TTFT-ratio, b4_32b-dose-response | F4 | supported (magnitude) | mechanism rows (G12) |
 | P1-05 AMD co-runner by metric | 4.4d | PX2-full-ratio-table, PX2-TTFT-gap, PX2-decode-ratio, PX2-power, PX2-thermal | F4 | supported (A) | T2S week item 4 (G9) |
 | P1-06 first-call stall | 4.5d | ttft-first-call-stall, ttft-first-call-stall-per-cell, ttft-x2-refit-by-hypothesis, ttft-x2-section0-stall-check | backup | partial | G11 |
-| P1-07 default window by device policy | 4.5a | T2S-vs-X2-default-ctx, x2-device-detect-mechanism, K1v3-X2-table | F5 | supported (I, A) | Blade night 1 (a) (G8), version skew (G13) |
-| P1-08 silent overflow | 4.5b | ollama-overflow-keeps-half | F7 | supported | Blade night 1 (a) |
+| P1-07 default window by device policy | 4.5a | T2S-vs-X2-default-ctx, x2-device-detect-mechanism, K1v3-X2-table, blade-k1-layer-split | F5 | supported (I, A, N) | version skew, INTEL-iGPU only (G13) |
+| P1-08 silent overflow | 4.5b | ollama-overflow-keeps-half, blade-k1-layer-split | F7 | supported (I, A, N) | none |
 | P1-09 install path | 4.5c | R2-install-path-4b-comparison, R2-install-path-4b-bare, x2-chat-template-source | none | supported (one model) | K1 1b row (G12) |
 | P1-10 no self-report | 4.1 | self-report-truncation-awareness | none | supported | none |
-| P1-11 R2 silent loss | 4.6a | R2-real-v1-kill-criterion, R2-real-v1-gated-kill, R2-real-v1-survival, R2-real-v1-first-events | F6 | partial (A only) | G1 |
-| P1-12 mechanism | 4.6b | R2-mechanism-verdict, R2-mechanism-lowlevel | F7 | partial (A, one seed) | G2 |
+| P1-11 R2 silent loss | 4.6a | R2-real-v1-kill-criterion, R2-real-v1-gated-kill, R2-real-v1-survival, R2-real-v1-first-events | F6 | partial (A only) | G1, G8b (O1) |
+| P1-12 mechanism | 4.6b | R2-mechanism-verdict, R2-mechanism-lowlevel, blade-mechanism-4096 | F7 | partial (A, N; one session per tier) | G2 |
 | P1-13 workload relevance | 4.1 | trace-fraction-exceeds-4096, trace-context-exit-rate, uncensored-trace-32k-crossing, pack-trace-weighted-stats | F5 | supported | none |
 | P1-14 outcome table | 4.6c | x2-v3-progress, x2-v3-scores, x2-v3-error-causes | none | pending x2_outcome_table_v3 | G7 |
 | P1-15 app memory pressure | 4.8 | K2-x2-kill-criterion, K2-x2-score-ceiling, K2-x2-responsiveness-resolution, K2-x2-clean-failures | none | partial (weak null) | G15 |
-| P1-16 predictor | 4.7 | none | F8 (shared) | pending (being built) | G6 |
-| P1-17 mitigation | 4.7 | none | F8 | pending x2_r2_mitigation_v1 | G3 |
+| P1-16 predictor | 4.7 | R2-shift-predictor-confusion, R2-shift-predicted-real-v1, R2-orphan-rates | F7 (shift rows) | supported (A, one session per tier) | G6 |
+| P1-17 mitigation | 4.7 | none | F8 | pending x2_r2_mitigation_v1 | G3, G8b (O1) |
+| O1 open finding (not a claim) | 5b | blade-r2-gate-v2, blade-r2-validation-run2, blade-r2-validation-run1 | none | open, pending x2-r2-llama-val-32k | G8b |
 | P1-18 TTFT transfer | 4.5d | ttft-cross-machine-transfer, ttft-few-point-calibration | none | partial | G11 |
