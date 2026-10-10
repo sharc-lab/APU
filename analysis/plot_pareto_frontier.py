@@ -11,6 +11,9 @@ points), and quality vs p50 latency (the constraint the recommender applies). Co
 llama-server, cloud). Hollow markers = bare-template cells (Ollama tag created from a bare GGUF: install-path
 result, kept off the frontier). STUB cloud models have a priced cost but no measured quality or latency, so they
 are drawn as dashed vertical lines labelled STUB in the cost panel, never as points.
+Usability constraint (2026-10-10): configs whose timeout_latency share is above --max-timeout-share (default
+src/dse/pareto.py DEFAULT_MAX_TIMEOUT_SHARE, 0.05) are kept off the frontier and the sample recommendation, drawn
+with a red cross and labelled with their share in the latency panel; the JSON lists them with their reason.
 
 Usage:
   py -3.12 analysis/plot_pareto_frontier.py                                   # evo-x2 v3 table, stub cloud
@@ -72,16 +75,22 @@ def _style(ax):
     ax.tick_params(colors=INK_2, labelsize=8)
 
 
-def _scatter(ax, p, x, on_frontier):
+EXCLUDED_COLOR = "#d03b3b"
+
+
+def _scatter(ax, p, x, on_frontier, excluded=False):
     color = RUNTIME_COLORS[runtime_family(p)]
     hollow = p.bare_template
     ax.scatter([x], [p.quality], s=64, marker="o", facecolors="none" if hollow else color,
                edgecolors=color if hollow else SURFACE, linewidths=2 if hollow else 1.5, zorder=3)
+    if excluded:
+        ax.scatter([x], [p.quality], s=150, marker="x", color=EXCLUDED_COLOR, linewidths=2, zorder=4)
     if on_frontier:
         ax.scatter([x], [p.quality], s=200, marker="o", facecolors="none", edgecolors=INK, linewidths=1.2, zorder=4)
 
 
-def plot(points, out_png, out_svg, title_note="", latency_target_s=None):
+def plot(points, out_png, out_svg, title_note="", latency_target_s=None,
+         max_timeout_share=P.DEFAULT_MAX_TIMEOUT_SHARE):
     machines = sorted({p.machine for p in points if not p.is_cloud and p.quality is not None})
     real_cloud = [p for p in points if p.is_cloud and p.quality is not None]
     stub_cloud = [p for p in points if p.is_cloud and p.quality is None]
@@ -93,14 +102,15 @@ def plot(points, out_png, out_svg, title_note="", latency_target_s=None):
     xmax = max([p.usd_per_1k_steps for p in points] + [1.0])
     for col, m in enumerate(machines):
         mine = [p for p in points if p.machine == m and p.quality is not None] + real_cloud
-        front = P.frontier(mine)
+        front = P.frontier(mine, max_timeout_share=max_timeout_share)
         on = {p.config_id for p in front}
+        excl = {p.config_id for p in mine if P.usability_exclusion(p, max_timeout_share)}
         ax, axl = axes[0][col], axes[1][col]
         _style(ax), _style(axl)
         for p in mine:
-            _scatter(ax, p, p.usd_per_1k_steps, p.config_id in on)
+            _scatter(ax, p, p.usd_per_1k_steps, p.config_id in on, p.config_id in excl)
             if p.latency_p50_ms is not None:
-                _scatter(axl, p, p.latency_p50_ms / 1000, p.config_id in on)
+                _scatter(axl, p, p.latency_p50_ms / 1000, p.config_id in on, p.config_id in excl)
         if front:
             xs, ys = [], []
             for p in front:
@@ -125,6 +135,15 @@ def plot(points, out_png, out_svg, title_note="", latency_target_s=None):
             axl.annotate(f"{short_model(p.model)} {p.runtime} [bare template]", (p.latency_p50_ms / 1000, p.quality),
                          xytext=(6, -14 - 11 * i), textcoords="offset points", fontsize=7, color=INK_2,
                          arrowprops={"arrowstyle": "-", "color": INK_MUTED, "linewidth": 0.6})
+        ex_pts = sorted((p for p in mine if p.config_id in excl and p.latency_p50_ms is not None),
+                        key=lambda p: p.latency_p50_ms)
+        for i, p in enumerate(ex_pts):
+            axl.annotate(f"{short_model(p.model)} {p.runtime} excluded: timeout share "
+                         f"{p.timeout_latency_share:.3f} > {max_timeout_share:g}",
+                         (p.latency_p50_ms / 1000, p.quality), xytext=(0.03, 0.24 - 0.045 * i),
+                         textcoords="axes fraction",
+                         fontsize=7, color=EXCLUDED_COLOR,
+                         arrowprops={"arrowstyle": "-", "color": EXCLUDED_COLOR, "linewidth": 0.6})
         if latency_target_s is not None:
             axl.axvline(latency_target_s, color=INK_MUTED, linestyle=(0, (2, 2)), linewidth=1.2, zorder=1)
             axl.text(latency_target_s, ylo + 0.004, f" sample latency target {latency_target_s:.0f} s",
@@ -164,6 +183,9 @@ def plot(points, out_png, out_svg, title_note="", latency_target_s=None):
                 Line2D([], [], marker="o", linestyle="", markerfacecolor="none", markeredgecolor=INK,
                        markersize=13, label="on frontier"),
                 Line2D([], [], color=RUNTIME_COLORS["cloud"], linestyle=(0, (4, 3)), label=f"cloud {P.STUB} cost")]
+    if max_timeout_share is not None and P.usability_excluded(points, max_timeout_share):
+        handles.append(Line2D([], [], marker="x", linestyle="", color=EXCLUDED_COLOR, markeredgewidth=2,
+                              markersize=9, label=f"excluded: timeout_latency share > {max_timeout_share:g}"))
     fig.legend(handles=handles, loc="lower center", ncol=min(len(handles), 3 * n), frameon=False, fontsize=8.5,
                labelcolor=INK_2)
     fig.suptitle("Quality vs cost frontier per machine" + (f"  ({title_note})" if title_note else ""),
@@ -186,23 +208,25 @@ def main(argv=None):
     ap.add_argument("--cloud-source", default="stub")
     ap.add_argument("--hw-usd-per-hour", action="append", type=_kv, default=[], help="machine=USD per hour")
     ap.add_argument("--tag", default="x2")
+    ap.add_argument("--max-timeout-share", type=float, default=P.DEFAULT_MAX_TIMEOUT_SHARE,
+                    help="usability constraint for the frontier and the sample recommendation (default %(default)s)")
     ap.add_argument("--date", default=datetime.date.today().strftime("%Y%m%d"))
     a = ap.parse_args(argv)
     files = a.file or DEFAULT_FILES
     hw = {k: float(v) for k, v in a.hw_usd_per_hour}
     points = P.load_points(files, cloud_source=a.cloud_source, hw_usd_per_hour=hw)
-    rec = P.recommend(points, **SAMPLE)
+    rec = P.recommend(points, **SAMPLE, max_timeout_share=a.max_timeout_share)
     png = REPO / "figs" / f"pareto_frontier_{a.tag}_{a.date}.png"
     plot(points, png, png.with_suffix(".svg"),
          title_note="cloud points are STUB" if any(p.stub for p in points) else "",
-         latency_target_s=SAMPLE["latency_target_ms"] / 1000)
-    table = P.points_table(points)
+         latency_target_s=SAMPLE["latency_target_ms"] / 1000, max_timeout_share=a.max_timeout_share)
+    table = P.points_table(points, max_timeout_share=a.max_timeout_share)
     table.update({"inputs": {"files": [list(f) for f in files], "cloud_source": a.cloud_source,
                              "hw_usd_per_hour": hw, "weights": P.WEIGHTS_FILE, "prices": P.PRICES_FILE},
                   "sample_recommendation": rec.to_dict(), "figure": str(png.relative_to(REPO)).replace("\\", "/")})
     out = REPO / "results" / f"pareto_points_{a.date}.json"
     out.write_text(json.dumps(table, indent=1) + "\n", encoding="utf-8")
-    print("\n".join(P.format_table(points)))
+    print("\n".join(P.format_table(points, max_timeout_share=a.max_timeout_share)))
     print(f"\nsample {SAMPLE}: {rec.reason}; savings vs all-cloud USD/1k steps "
           f"{rec.savings_vs_all_cloud_usd_per_1k if rec.savings_vs_all_cloud_usd_per_1k is None else round(rec.savings_vs_all_cloud_usd_per_1k, 2)}"
           + (f" [{P.STUB}]" if rec.stub else ""))

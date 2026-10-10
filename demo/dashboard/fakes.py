@@ -13,6 +13,9 @@ Agreed interfaces (from the task brief; the real modules are built in parallel):
   load_points(files, cloud_source="stub") -> list[Point]
   frontier(points, machine=None) -> list[Point]
   recommend(points, budget_usd, quality_floor, latency_target_ms, hardware) -> Recommendation
+  plus, as src/dse/pareto.py (2026-10-10): keyword max_timeout_share on frontier (default None) and recommend
+  (default DEFAULT_MAX_TIMEOUT_SHARE); a config whose timeout_latency share is above it is excluded, with its
+  reason in Recommendation.excluded.
 """
 from __future__ import annotations
 
@@ -145,6 +148,9 @@ class Point:
     stub: bool
     template_source: Optional[str]
     flags: list = field(default_factory=list)
+    n_rows: int = 0
+    n_timeout_latency: int = 0
+    timeout_latency_share: Optional[float] = None
 
 
 @dataclass
@@ -153,6 +159,20 @@ class Recommendation:
     reason: str
     savings_vs_all_cloud_usd_per_1k: Optional[float]
     alternatives: list = field(default_factory=list)
+    excluded: list = field(default_factory=list)
+
+
+DEFAULT_MAX_TIMEOUT_SHARE = 0.05
+
+
+def usability_exclusion(p, max_timeout_share=DEFAULT_MAX_TIMEOUT_SHARE) -> Optional[str]:
+    """Same rule and wording as src/dse/pareto.py::usability_exclusion (inclusive boundary)."""
+    share = getattr(p, "timeout_latency_share", None)
+    if max_timeout_share is None or share is None or share <= max_timeout_share + 1e-12:
+        return None
+    n = getattr(p, "n_rows", 0)
+    counts = f" ({getattr(p, 'n_timeout_latency', 0)}/{n} done rows)" if n else ""
+    return f"excluded: timeout_latency share {share:.3f} > {max_timeout_share:g}{counts}"
 
 
 _MACHINE_BY_FILE_PREFIX = {"x2_": "evo-x2", "t2s_": "evo-t2s"}
@@ -217,9 +237,11 @@ def load_points(files, cloud_source="stub") -> list[Point]:
         runtime = "llama_server" if config.startswith("llama_server") else "ollama"
         tsrc = templates.get((model, config)) if machine == "evo-x2" else None
         flags = ["bare template"] if tsrc and tsrc.startswith("bare") else []
+        n_tl = sum(1 for r in rows if not counts_toward_accuracy(r))
         pts.append(Point(machine, runtime, model, config, statistics.fmean(scores) if scores else None,
                          len(scores), 0.0, statistics.median(lat) if lat else None,
-                         lat[min(len(lat) - 1, int(0.9 * len(lat)))] if lat else None, False, tsrc, flags))
+                         lat[min(len(lat) - 1, int(0.9 * len(lat)))] if lat else None, False, tsrc, flags,
+                         len(rows), n_tl, n_tl / len(rows) if rows else None))
     if cloud_source == "stub" and all_sent:
         from src.cloud.client import CLOUD_MODELS, estimate_cost_usd
         mean_in = statistics.fmean(all_sent)
@@ -229,28 +251,36 @@ def load_points(files, cloud_source="stub") -> list[Point]:
     return pts
 
 
-def frontier(points, machine=None) -> list[Point]:
+def frontier(points, machine=None, max_timeout_share=None) -> list[Point]:
     """Non-dominated local points (higher quality, lower p50 latency) for one machine or all."""
     cand = [p for p in points if not p.stub and p.quality is not None and p.latency_p50_ms is not None
-            and (machine is None or p.machine == machine)]
+            and (machine is None or p.machine == machine) and usability_exclusion(p, max_timeout_share) is None]
     out = [p for p in cand if not any(
         (q.quality >= p.quality and q.latency_p50_ms <= p.latency_p50_ms)
         and (q.quality > p.quality or q.latency_p50_ms < p.latency_p50_ms) for q in cand)]
     return sorted(out, key=lambda p: p.latency_p50_ms)
 
 
-def recommend(points, budget_usd, quality_floor, latency_target_ms, hardware) -> Recommendation:
+def recommend(points, budget_usd, quality_floor, latency_target_ms, hardware,
+              max_timeout_share=DEFAULT_MAX_TIMEOUT_SHARE) -> Recommendation:
     hw = set(hardware or [])
+    excluded = [{"config_id": p.config_id, "machine": p.machine, "runtime": p.runtime, "model": p.model,
+                 "label": f"{p.model} {p.runtime}",
+                 "timeout_latency_share": p.timeout_latency_share, "n_timeout_latency": p.n_timeout_latency,
+                 "n_rows": p.n_rows, "reason": usability_exclusion(p, max_timeout_share)}
+                for p in points if p.machine in hw and usability_exclusion(p, max_timeout_share)]
     ok = [p for p in points if not p.stub and p.machine in hw and p.quality is not None
+          and usability_exclusion(p, max_timeout_share) is None
           and p.quality >= quality_floor and p.latency_p50_ms is not None
           and p.latency_p50_ms <= latency_target_ms]
     cloud = [p for p in points if p.stub and p.usd_per_1k_steps is not None]
     cloud_cost = min((p.usd_per_1k_steps for p in cloud), default=None)
     if not ok:
         return Recommendation(None, "no local config on the selected hardware meets the quality floor and "
-                                    "latency target; route to cloud (STUB cost)", 0.0 if cloud else None, [])
+                                    "latency target; route to cloud (STUB cost)", 0.0 if cloud else None, [],
+                              excluded)
     ok.sort(key=lambda p: (-p.quality, p.latency_p50_ms))
     best = ok[0]
     sav = None if cloud_cost is None else cloud_cost - (best.usd_per_1k_steps or 0.0)
     return Recommendation(best, f"highest quality local config meeting floor {quality_floor} and p50 <= "
-                                f"{latency_target_ms} ms on {', '.join(sorted(hw))}", sav, ok[1:4])
+                                f"{latency_target_ms} ms on {', '.join(sorted(hw))}", sav, ok[1:4], excluded)

@@ -23,6 +23,7 @@ const fmt = {
   ms: (v) => (v == null ? "n/a" : Math.round(v).toLocaleString() + " ms"),
   usd: (v) => (v == null ? "n/a" : "$" + v.toFixed(v < 1 ? 4 : 2)),
   int: (v) => (v == null ? "n/a" : Math.round(v).toLocaleString()),
+  share: (v) => (v == null ? "n/a" : v.toFixed(3)),
 };
 
 async function openSource(src) {
@@ -59,7 +60,7 @@ document.addEventListener("click", (ev) => {
 function inputs() {
   const f = $("#form");
   return {
-    budget: +f.budget.value, floor: +f.floor.value, latency: +f.latency.value,
+    budget: +f.budget.value, floor: +f.floor.value, latency: +f.latency.value, maxtimeout: +f.maxtimeout.value,
     hardware: [...document.querySelectorAll("#hw input:checked")].map((i) => i.value),
   };
 }
@@ -72,6 +73,7 @@ function renderMeta(m) {
   $("#banners").innerHTML = b.join("");
   const f = $("#form");
   f.budget.value = m.defaults.budget_usd; f.floor.value = m.defaults.quality_floor; f.latency.value = m.defaults.latency_target_ms;
+  f.maxtimeout.value = m.defaults.max_timeout_share;
   $("#hw").innerHTML = m.hardware.map((h) => {
     const on = h.machine && m.machines.includes(h.machine);
     return `<label class="${on ? "" : "off"}"><input type="checkbox" value="${esc(h.machine || h.name)}" ${on ? "checked" : "disabled"}> ${esc(h.name)}${h.machine ? ` (${esc(h.machine)})` : ""}${h.memory_gb ? `, ${num(h.memory_gb + " GB", { file: h.src })}` : ""}${on ? "" : " <span class='muted'>no measured envelope</span>"}</label>`;
@@ -107,7 +109,8 @@ function chart(machine, pts, inp, chosenId) {
   for (const p of plotted) {
     const cx = x(p.latency_p50_ms), cy = y(p.quality), col = RUNTIME_COLOR[runtimeOf(p)] || "var(--muted)";
     if (p.stub) g += `<circle class="dot" cx="${cx}" cy="${cy}" r="5" fill="var(--surface)" stroke="${col}" style="stroke:${col}"/><text class="lbl" x="${cx + 8}" y="${cy + 4}">STUB</text>`;
-    else g += `<circle class="dot ${p.on_frontier ? "" : "dominated"}" cx="${cx}" cy="${cy}" r="5" fill="${col}"/>`;
+    else g += `<circle class="dot ${p.excluded_reason ? "excluded" : p.on_frontier ? "" : "dominated"}" cx="${cx}" cy="${cy}" r="5" fill="${col}"/>`;
+    if (p.excluded_reason) g += `<path class="xmark" d="M${cx - 7},${cy - 7}L${cx + 7},${cy + 7}M${cx + 7},${cy - 7}L${cx - 7},${cy + 7}"/><text class="lbl" x="${cx + 10}" y="${cy + 14}">excluded</text>`;
     if ((p.flags || []).includes("bare template")) g += `<circle class="ring" cx="${cx}" cy="${cy}" r="9"/><text class="lbl" x="${cx + 12}" y="${cy - 6}">bare template</text>`;
     if (p.id === chosenId) g += `<path class="star" d="${starPath(cx, cy, 13, 6)}"/>`;
     g += `<circle class="hit" cx="${cx}" cy="${cy}" r="12" data-id="${esc(p.id)}"/>`;
@@ -125,17 +128,18 @@ function starPath(cx, cy, ro, ri) {
 function pointRow(p) {
   const badges = (p.stub ? '<span class="badge stub">STUB</span> ' : "") +
     ((p.flags || []).includes("bare template") ? '<span class="badge bare">bare template</span> ' : "") +
+    (p.excluded_reason ? `<span class="badge excl">${esc(p.excluded_reason)}</span> ` : "") +
     (p.on_frontier ? '<span class="badge">frontier</span>' : "");
-  return `<tr><td>${esc(p.model)}</td><td>${esc(p.config_id)}</td><td class="n">${num(fmt.q(p.quality), p.src)}</td><td class="n">${num(fmt.int(p.quality_n), p.src)}</td><td class="n">${num(fmt.ms(p.latency_p50_ms), p.src)}</td><td class="n">${num(fmt.ms(p.latency_p90_ms), p.src)}</td><td class="n">${num(fmt.usd(p.usd_per_1k_steps), p.src)}</td><td>${badges}</td></tr>`;
+  return `<tr><td>${esc(p.model)}</td><td>${esc(p.config_id)}</td><td class="n">${num(fmt.q(p.quality), p.src)}</td><td class="n">${num(fmt.int(p.quality_n), p.src)}</td><td class="n">${num(fmt.ms(p.latency_p50_ms), p.src)}</td><td class="n">${num(fmt.ms(p.latency_p90_ms), p.src)}</td><td class="n">${num(fmt.share(p.timeout_latency_share), p.src)}</td><td class="n">${num(fmt.usd(p.usd_per_1k_steps), p.src)}</td><td>${badges}</td></tr>`;
 }
-const TABLE_HEAD = "<tr><th>model</th><th>config</th><th>quality</th><th>n</th><th>p50</th><th>p90</th><th>USD / 1k steps</th><th></th></tr>";
+const TABLE_HEAD = "<tr><th>model</th><th>config</th><th>quality</th><th>n</th><th>p50</th><th>p90</th><th>timeout share</th><th>USD / 1k steps</th><th></th></tr>";
 
 function renderFrontier() {
   const fr = state.frontier, inp = inputs(), chosen = state.rec && state.rec.chosen ? state.rec.chosen.id : null;
   state.byId = {};
   $("#legend").innerHTML = [["ollama", "Ollama"], ["llama_server", "llama-server"]].map(([k, n]) =>
     `<span><svg width="10" height="10"><circle cx="5" cy="5" r="4" fill="${RUNTIME_COLOR[k]}"/></svg>${n}</span>`).join("") +
-    `<span>line: frontier</span><span>star: recommended</span><span class="small">source files: ${fr.files.map((f) => num(f, { file: f })).join(", ")}</span>`;
+    `<span>line: frontier</span><span>star: recommended</span><span>cross: excluded (timeout share &gt; ${esc(fr.max_timeout_share)})</span><span class="small">source files: ${fr.files.map((f) => num(f, { file: f })).join(", ")}</span>`;
   $("#charts").innerHTML = Object.entries(fr.machines).map(([m, v]) => {
     v.points.forEach((p) => (state.byId[p.id] = p));
     const rows = v.points.slice().sort((a, b) => (b.quality || 0) - (a.quality || 0)).map(pointRow).join("");
@@ -148,7 +152,7 @@ document.addEventListener("mousemove", (ev) => {
   const t = ev.target.closest && ev.target.closest("circle.hit"), tip = $("#tip");
   if (!t) { tip.hidden = true; return; }
   const p = state.byId[t.dataset.id];
-  tip.innerHTML = `<b>${esc(p.model)}</b> ${esc(p.config_id)}<br>quality ${fmt.q(p.quality)} (n ${p.quality_n})<br>p50 ${fmt.ms(p.latency_p50_ms)}, p90 ${fmt.ms(p.latency_p90_ms)}<br>${fmt.usd(p.usd_per_1k_steps)} per 1k steps${p.stub ? "<br>STUB" : ""}${(p.flags || []).length ? "<br>" + esc(p.flags.join(", ")) : ""}<br><span class="muted">click for source</span>`;
+  tip.innerHTML = `<b>${esc(p.model)}</b> ${esc(p.config_id)}<br>quality ${fmt.q(p.quality)} (n ${p.quality_n})<br>p50 ${fmt.ms(p.latency_p50_ms)}, p90 ${fmt.ms(p.latency_p90_ms)}<br>${fmt.usd(p.usd_per_1k_steps)} per 1k steps${p.stub ? "<br>STUB" : ""}${(p.flags || []).length ? "<br>" + esc(p.flags.join(", ")) : ""}${p.excluded_reason ? "<br><b>" + esc(p.excluded_reason) + "</b>" : ""}<br><span class="muted">click for source</span>`;
   tip.hidden = false;
   tip.style.left = Math.min(ev.clientX + 14, innerWidth - 310) + "px";
   tip.style.top = ev.clientY + 14 + "px";
@@ -176,6 +180,9 @@ function renderRec() {
   }
   h += `<p>${esc(r.reason)}</p>`;
   if (r.alternatives.length) h += `<details open><summary>Next alternatives</summary><div class="scroll"><table>${TABLE_HEAD}${r.alternatives.map(pointRow).join("")}</table></div></details>`;
+  const ex = r.excluded || [];
+  h += `<h3>Excluded <span class="muted small">(usability: timeout_latency share above ${esc(r.inputs.max_timeout_share)})</span></h3>`;
+  h += ex.length ? `<ul class="excluded">${ex.map((e) => `<li>${esc(e.machine)} / ${esc(e.label)} <span class="muted small">(${esc(e.config_id)})</span>: ${num(e.reason, e.src)}</li>`).join("")}</ul>` : `<p class="muted small">none</p>`;
   h += `<p class="muted small">Backend: ${esc(r.backend)}. All-cloud comparison uses STUB cloud rows until real cloud rows exist.</p>`;
   $("#rec-body").innerHTML = h;
 }
@@ -185,8 +192,8 @@ async function refresh() {
   const hw = encodeURIComponent(inp.hardware.join(","));
   try {
     [state.frontier, state.rec] = await Promise.all([
-      api(`/api/frontier?hardware=${hw}`),
-      api(`/api/recommend?budget=${inp.budget}&floor=${inp.floor}&latency=${inp.latency}&hardware=${hw}`),
+      api(`/api/frontier?hardware=${hw}&max_timeout_share=${inp.maxtimeout}`),
+      api(`/api/recommend?budget=${inp.budget}&floor=${inp.floor}&latency=${inp.latency}&hardware=${hw}&max_timeout_share=${inp.maxtimeout}`),
     ]);
     renderRec(); renderFrontier();
   } catch (e) { $("#rec-body").textContent = "Error: " + e.message; }

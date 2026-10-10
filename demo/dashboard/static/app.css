@@ -77,6 +77,9 @@ a.num:hover { background: var(--wash); }
 .chart .dot { stroke: var(--surface); stroke-width: 2; cursor: pointer; }
 .chart .dot.dominated { opacity: 0.45; }
 .chart .ring { fill: none; stroke: var(--critical); stroke-width: 2; }
+.chart .xmark { stroke: var(--critical); stroke-width: 2; stroke-linecap: round; }
+.chart .dot.excluded { opacity: 0.35; }
+.badge.excl { border-color: var(--critical); }
 .chart .star { fill: none; stroke: var(--ink); stroke-width: 2; }
 .chart .hit { fill: transparent; cursor: pointer; }
 table { border-collapse: collapse; width: 100%; font-size: 13px; }

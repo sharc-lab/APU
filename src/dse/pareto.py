@@ -4,6 +4,7 @@ Public API (the demo dashboard builds against exactly this; do not rename):
   load_points(files, cloud_source="stub") -> list[Point]
   frontier(points, machine=None) -> list[Point]
   recommend(points, budget_usd, quality_floor, latency_target_ms, hardware) -> Recommendation
+  (recommend() also takes keyword max_timeout_share, default DEFAULT_MAX_TIMEOUT_SHARE; see USABILITY below)
 
 INPUTS ARE DISCOVERED, NEVER COUNTED IN ADVANCE. `files` is a list of (machine_label, path) pairs. Every
 (machine, runtime/config, model) group found in the rows becomes one Point, so more models, more configs, a T2S
@@ -19,6 +20,8 @@ ONE POINT = one (machine, runtime, model) cell:
     (harness/x2_outcome_table.py::analysis_outcome, cause timeout; 2026-10-08 operator decision) are EXCLUDED from
     the quality denominator: a call that hit the per-call timeout is a usability outcome, not a wrong answer. They
     stay in n_rows and error_causes, and the point carries the flag "timeout_latency_excluded=<n>".
+    n_timeout_latency = that count; timeout_latency_share = n_timeout_latency / n_rows (timeout_latency rows over
+    the cell's done rows; None when the cell has no rows, e.g. STUB or ledger cloud points).
     quality_n = number of scored items (timeout_latency excluded); weight_coverage = sum of those items' weights
     (share of the trace-weighted pack the cell has a quality measurement for). If no scored item has a weight, the
     plain mean is used and flagged "unweighted".
@@ -58,6 +61,16 @@ quality_floor, a measured latency (p50 by default) <= latency_target_ms, and pro
 1000) <= budget_usd. Chosen = cheapest, then highest quality, then lowest latency. savings_vs_all_cloud_usd_per_1k =
 all-cloud reference cost - chosen cost, where the reference is the cheapest cloud point that meets the floor, or,
 when no cloud quality is measured (stub), the cheapest cloud point (the smallest, i.e. most conservative, saving).
+
+USABILITY (2026-10-10 operator decision). A config whose timeout_latency share is above max_timeout_share (default
+DEFAULT_MAX_TIMEOUT_SHARE = 0.05) is not eligible for recommend() nor for a frontier built with that parameter: it
+answers well when it answers, but too many calls hit the per-call timeout to deploy it (register x2-v3-usability).
+The boundary is inclusive (a share of exactly 0.05 is eligible). An excluded config is never silently dropped:
+recommend() returns it in Recommendation.excluded with its reason, e.g. "excluded: timeout_latency share 0.150 >
+0.05 (21/140 done rows)", and points_table() lists it under "usability_excluded". max_timeout_share=None turns the
+constraint off (the pre-2026-10-10 behaviour; register pareto-sample-recommendation v1 is computed that way).
+frontier() keeps None as its default so existing frontier rows are unchanged; pass the parameter to get the
+frontier the recommendation uses.
 """
 from __future__ import annotations
 
@@ -84,6 +97,8 @@ TEMPLATE_FACTS_GLOB = "*chat_template_sources*.jsonl"
 SMALL_N = 30            # quality_n below this is flagged "small_n"
 LOW_COVERAGE = 0.5      # weight_coverage below this is flagged "low_weight_coverage"
 STUB_TIER = "standard"
+DEFAULT_MAX_TIMEOUT_SHARE = 0.05  # recommend()/points_table() usability constraint, operator 2026-10-10
+_SHARE_EPS = 1e-12  # so a share equal to the limit up to float rounding counts as eligible
 
 
 # ------------------------------------------------------------------------------------------------- data types
@@ -107,6 +122,8 @@ class Point:
     error_causes: dict[str, int] = field(default_factory=dict)
     cost_basis: str = ""
     source_files: list[str] = field(default_factory=list)
+    n_timeout_latency: int = 0
+    timeout_latency_share: Optional[float] = None  # n_timeout_latency / n_rows; None without rows
 
     @property
     def is_cloud(self) -> bool:
@@ -139,13 +156,16 @@ class Recommendation:
     all_cloud_reference: Optional[Point] = None
     stub: bool = False  # True when any number in this recommendation comes from a STUB point
     inputs: dict[str, Any] = field(default_factory=dict)
+    # configs left out by the usability constraint: [{config_id, machine, label, timeout_latency_share,
+    # n_timeout_latency, n_rows, reason}], never silently dropped
+    excluded: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {"chosen": self.chosen.to_dict() if self.chosen else None, "reason": self.reason,
                 "savings_vs_all_cloud_usd_per_1k": self.savings_vs_all_cloud_usd_per_1k,
                 "alternatives": [p.to_dict() for p in self.alternatives],
                 "all_cloud_reference": self.all_cloud_reference.to_dict() if self.all_cloud_reference else None,
-                "stub": self.stub, "inputs": self.inputs}
+                "stub": self.stub, "inputs": self.inputs, "excluded": list(self.excluded)}
 
 
 # ------------------------------------------------------------------------------------------------- helpers
@@ -415,7 +435,9 @@ def load_points(files: list[tuple[str, str]], cloud_source: str = "stub", *, rep
                                 quality=quality, quality_n=len(scored), usd_per_1k_steps=usd,
                                 latency_p50_ms=p50, latency_p90_ms=p90, stub=False, template_source=template,
                                 flags=flags, weight_coverage=coverage if weighted else None, n_rows=len(items),
-                                error_causes=causes, cost_basis=basis, source_files=list(sources[machine])))
+                                error_causes=causes, cost_basis=basis, source_files=list(sources[machine]),
+                                n_timeout_latency=n_timeout_latency,
+                                timeout_latency_share=(n_timeout_latency / len(items)) if items else None))
 
     real_cloud = {p.model: p for p in points if p.is_cloud}
     use_ledger = None
@@ -434,9 +456,36 @@ def load_points(files: list[tuple[str, str]], cloud_source: str = "stub", *, rep
     return points
 
 
+# ------------------------------------------------------------------------------------------------- usability
+def usability_exclusion(p: Point, max_timeout_share: Optional[float] = DEFAULT_MAX_TIMEOUT_SHARE) -> Optional[str]:
+    """None when the point is usable (share <= max_timeout_share, inclusive; or no share; or the constraint is off
+    with None), else the exclusion reason, e.g. "excluded: timeout_latency share 0.150 > 0.05 (21/140 done rows)"."""
+    share = getattr(p, "timeout_latency_share", None)
+    if max_timeout_share is None or share is None or share <= max_timeout_share + _SHARE_EPS:
+        return None
+    n_rows = getattr(p, "n_rows", 0)
+    counts = f" ({getattr(p, 'n_timeout_latency', 0)}/{n_rows} done rows)" if n_rows else ""
+    return f"excluded: timeout_latency share {share:.3f} > {max_timeout_share:g}{counts}"
+
+
+def usability_excluded(points: list[Point], max_timeout_share: Optional[float] = DEFAULT_MAX_TIMEOUT_SHARE
+                       ) -> list[dict[str, Any]]:
+    """Every point the usability constraint leaves out, with its reason, in input order."""
+    out = []
+    for p in points:
+        why = usability_exclusion(p, max_timeout_share)
+        if why is not None:
+            out.append({"config_id": p.config_id, "machine": p.machine, "runtime": p.runtime, "model": p.model,
+                        "label": p.label(),
+                        "timeout_latency_share": p.timeout_latency_share, "n_timeout_latency": p.n_timeout_latency,
+                        "n_rows": p.n_rows, "reason": why})
+    return out
+
+
 # ------------------------------------------------------------------------------------------------- frontier
-def _eligible(p: Point, include_flagged: bool) -> bool:
-    return p.quality is not None and (include_flagged or not p.bare_template)
+def _eligible(p: Point, include_flagged: bool, max_timeout_share: Optional[float] = None) -> bool:
+    return (p.quality is not None and (include_flagged or not p.bare_template)
+            and usability_exclusion(p, max_timeout_share) is None)
 
 
 def _lat(p: Point, stat: str) -> Optional[float]:
@@ -444,13 +493,16 @@ def _lat(p: Point, stat: str) -> Optional[float]:
 
 
 def frontier(points: list[Point], machine: Optional[str] = None, *, include_flagged: bool = False,
-             latency_target_ms: Optional[float] = None, latency_stat: str = "p50") -> list[Point]:
+             latency_target_ms: Optional[float] = None, latency_stat: str = "p50",
+             max_timeout_share: Optional[float] = None) -> list[Point]:
     """Pareto-optimal points (min usd_per_1k_steps, max quality), cheapest first. machine=None: across all points;
     a machine label: that machine's points only (use "cloud" for cloud points). Points with no measured quality
     (STUB cloud) and bare-template cells (unless include_flagged) are never on a frontier. With latency_target_ms,
     points whose latency is unmeasured or above the target are dropped first. Ties (same cost and quality) keep
-    the lower-latency point."""
-    cand = [p for p in points if _eligible(p, include_flagged) and (machine is None or p.machine == machine)]
+    the lower-latency point. With max_timeout_share, configs above that timeout_latency share are left out (the
+    frontier recommend() uses; default None keeps every config, see USABILITY in the module doc)."""
+    cand = [p for p in points if _eligible(p, include_flagged, max_timeout_share)
+            and (machine is None or p.machine == machine)]
     if latency_target_ms is not None:
         cand = [p for p in cand if _lat(p, latency_stat) is not None and _lat(p, latency_stat) <= latency_target_ms]
     big = float("inf")
@@ -475,18 +527,25 @@ def all_cloud_reference(points: list[Point], quality_floor: float) -> Optional[P
 
 def recommend(points: list[Point], budget_usd: float, quality_floor: float, latency_target_ms: float,
               hardware: list[str], *, n_steps: int = 1000, latency_stat: str = "p50",
-              include_flagged: bool = False, n_alternatives: int = 5) -> Recommendation:
-    """Cheapest point meeting the quality floor, the latency target and the budget for n_steps; see module doc."""
+              include_flagged: bool = False, n_alternatives: int = 5,
+              max_timeout_share: Optional[float] = DEFAULT_MAX_TIMEOUT_SHARE) -> Recommendation:
+    """Cheapest point meeting the quality floor, the latency target and the budget for n_steps, among configs whose
+    timeout_latency share is <= max_timeout_share (None: no usability constraint); see module doc. Configs left out
+    by the usability constraint are returned in Recommendation.excluded with their reason."""
     inputs = {"budget_usd": budget_usd, "quality_floor": quality_floor, "latency_target_ms": latency_target_ms,
               "hardware": list(hardware), "n_steps": n_steps, "latency_stat": latency_stat,
-              "include_flagged": include_flagged}
+              "include_flagged": include_flagged, "max_timeout_share": max_timeout_share}
     allowed = [p for p in points if p.is_cloud or any(machine_matches(p.machine, h) for h in hardware)]
     ref = all_cloud_reference(points, quality_floor)
-    rejected = {"no_quality": 0, "bare_template": 0, "below_floor": 0, "latency": 0, "budget": 0}
+    rejected = {"usability": 0, "no_quality": 0, "bare_template": 0, "below_floor": 0, "latency": 0, "budget": 0}
+    excluded = usability_excluded(allowed, max_timeout_share)
+    excluded_ids = {e["config_id"] for e in excluded}
     ok = []
     for p in allowed:
         lat = _lat(p, latency_stat)
-        if p.quality is None:
+        if p.config_id in excluded_ids:
+            rejected["usability"] += 1
+        elif p.quality is None:
             rejected["no_quality"] += 1
         elif p.bare_template and not include_flagged:
             rejected["bare_template"] += 1
@@ -508,37 +567,60 @@ def recommend(points: list[Point], budget_usd: float, quality_floor: float, late
     ref_s = "none" if ref is None else (f"{ref.model} USD {ref.usd_per_1k_steps:.2f}/1k steps"
                                         + (f" [{STUB}]" if ref.stub else ""))
     rej_s = ", ".join(f"{k} {v}" for k, v in rejected.items() if v)
+    use = max_timeout_share is not None  # with None the reason text is exactly the pre-constraint one
     if chosen is None:
         reason = (f"no config meets quality >= {quality_floor}, {latency_stat} latency <= {latency_target_ms:.0f} ms "
-                  f"and budget USD {budget_usd} on {', '.join(hardware) or 'no hardware'} (rejected: {rej_s or 'none'})"
-                  f"; all-cloud reference {ref_s}")
+                  + (f", timeout_latency share <= {max_timeout_share:g} " if use else "")
+                  + f"and budget USD {budget_usd} on {', '.join(hardware) or 'no hardware'} "
+                  f"(rejected: {rej_s or 'none'}); all-cloud reference {ref_s}")
     else:
+        share_s = ""
+        if use:
+            sh = chosen.timeout_latency_share
+            share_s = (f", timeout_latency share <= {max_timeout_share:g} (has "
+                       f"{'n/a' if sh is None else f'{sh:.3f}'})")
         reason = (f"{chosen.machine} {chosen.label()}: cheapest of {len(ok)} configs meeting quality >= "
                   f"{quality_floor} (has {chosen.quality:.3f}, n={chosen.quality_n}) and {latency_stat} "
-                  f"<= {latency_target_ms:.0f} ms (has {_lat(chosen, latency_stat):.0f} ms) at USD "
+                  f"<= {latency_target_ms:.0f} ms (has {_lat(chosen, latency_stat):.0f} ms){share_s} at USD "
                   f"{chosen.usd_per_1k_steps:.2f}/1k steps; vs all-cloud {ref_s}")
+    if use and excluded:
+        reason += f"; {len(excluded)} excluded by usability: " + "; ".join(
+            f"{e['machine']} {e['label']} {e['reason']}" for e in excluded)
     return Recommendation(chosen=chosen, reason=reason, savings_vs_all_cloud_usd_per_1k=savings,
-                          alternatives=ok[1:1 + n_alternatives], all_cloud_reference=ref, stub=stub, inputs=inputs)
+                          alternatives=ok[1:1 + n_alternatives], all_cloud_reference=ref, stub=stub, inputs=inputs,
+                          excluded=excluded)
 
 
 # ------------------------------------------------------------------------------------------------- serialization
-def points_table(points: list[Point]) -> dict[str, Any]:
-    """JSON-ready table: every point, the frontier per machine (config_ids), and the frontier rule."""
+def points_table(points: list[Point], max_timeout_share: Optional[float] = DEFAULT_MAX_TIMEOUT_SHARE
+                 ) -> dict[str, Any]:
+    """JSON-ready table: every point (with its timeout_latency_share), the frontier per machine (config_ids) under
+    the usability constraint, the configs that constraint excludes with their reason, and the frontier rule."""
     machines = sorted({p.machine for p in points})
     return {"points": [p.to_dict() for p in points],
-            "frontier_by_machine": {m: [p.config_id for p in frontier(points, m)] for m in machines},
+            "frontier_by_machine": {m: [p.config_id for p in frontier(points, m, max_timeout_share=max_timeout_share)]
+                                    for m in machines},
             "frontier_rule": "min usd_per_1k_steps, max quality; STUB (quality unmeasured) and bare-template "
-                             "points excluded",
+                             "points excluded"
+                             + ("" if max_timeout_share is None else
+                                f"; configs with timeout_latency share > {max_timeout_share:g} excluded"),
+            "max_timeout_share": max_timeout_share,
+            "usability_excluded": usability_excluded(points, max_timeout_share),
             "stub_points": [p.config_id for p in points if p.stub]}
 
 
-def format_table(points: list[Point]) -> list[str]:
-    on = {p.config_id for m in {q.machine for q in points} for p in frontier(points, m)}
-    out = ["| machine | config | quality | n | USD/1k steps | p50 ms | p90 ms | template | frontier | flags |",
-           "|---|---|---:|---:|---:|---:|---:|---|---|---|"]
+def format_table(points: list[Point], max_timeout_share: Optional[float] = DEFAULT_MAX_TIMEOUT_SHARE
+                 ) -> list[str]:
+    on = {p.config_id for m in {q.machine for q in points}
+          for p in frontier(points, m, max_timeout_share=max_timeout_share)}
+    out = ["| machine | config | quality | n | USD/1k steps | p50 ms | p90 ms | timeout share | template | frontier "
+           "| flags |",
+           "|---|---|---:|---:|---:|---:|---:|---:|---|---|---|"]
     f = lambda v, fmt: "n/a" if v is None else format(v, fmt)  # noqa: E731
     for p in sorted(points, key=lambda p: (p.machine, p.usd_per_1k_steps, -(p.quality or -1), p.config_id)):
         out.append(f"| {p.machine} | {p.label()} | {f(p.quality, '.3f')} | {p.quality_n} | "
                    f"{p.usd_per_1k_steps:.2f} | {f(p.latency_p50_ms, '.0f')} | {f(p.latency_p90_ms, '.0f')} | "
-                   f"{p.template_source or 'n/a'} | {'yes' if p.config_id in on else ''} | {', '.join(p.flags)} |")
+                   f"{f(p.timeout_latency_share, '.3f')} | {p.template_source or 'n/a'} | "
+                   f"{'yes' if p.config_id in on else (usability_exclusion(p, max_timeout_share) or '')} | "
+                   f"{', '.join(p.flags)} |")
     return out

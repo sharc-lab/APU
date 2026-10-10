@@ -87,6 +87,41 @@ def test_recommend_moves_with_floor(app):
     assert lo is not None and lo != hi  # the recommender is a live function of the inputs
 
 
+def test_recommend_lists_usability_excluded_configs(app):
+    m = get(app, "/api/meta").json()
+    assert m["defaults"]["max_timeout_share"] == 0.05
+    pts = [p for p in app.cache.points["points"] if p["machine"] == "evo-x2"]
+    shares = {data.point_id(p): p.get("timeout_latency_share") for p in pts}
+    assert any(s for s in shares.values()), "fixture data has no timeout_latency rows"
+    for limit in (0.05, 0.0):
+        r = get(app, f"/api/recommend?floor=0.5&latency=200000&hardware=evo-x2&max_timeout_share={limit}").json()
+        assert r["inputs"]["max_timeout_share"] == limit
+        want = sorted(c for c, s in shares.items() if s is not None and s > limit + 1e-12)
+        assert sorted(e["id"] for e in r["excluded"]) == want
+        for e in r["excluded"]:
+            assert e["reason"].startswith("excluded: timeout_latency share ") and f"> {limit:g}" in e["reason"]
+            assert e["src"]["file"].startswith("results/")
+        if r["chosen"]:
+            assert r["chosen"]["id"] not in want
+    # the default (no parameter) is 0.05
+    d = get(app, "/api/recommend?floor=0.5&latency=200000&hardware=evo-x2").json()
+    assert d["inputs"]["max_timeout_share"] == 0.05
+    get(app, "/api/recommend?max_timeout_share=2", 400)
+
+
+def test_frontier_marks_usability_excluded_configs(app):
+    f = get(app, "/api/frontier?hardware=evo-x2&max_timeout_share=0").json()
+    m = f["machines"]["evo-x2"]
+    assert f["max_timeout_share"] == 0.0 and m["excluded"]
+    ex = {e["id"] for e in m["excluded"]}
+    for p in m["points"]:
+        assert (p["excluded_reason"] is not None) == (p["id"] in ex)
+        if p["excluded_reason"]:
+            assert not p["on_frontier"] and p["id"] not in m["frontier_ids"]
+    loose = get(app, "/api/frontier?hardware=evo-x2&max_timeout_share=1").json()["machines"]["evo-x2"]
+    assert loose["excluded"] == []
+
+
 def test_scenario(app):
     s = get(app, "/api/scenario").json()
     assert s["arm"] == "ollama_ctx_4096_call2_notools"

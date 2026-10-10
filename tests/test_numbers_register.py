@@ -375,6 +375,25 @@ def test_task_tool_gate_row_on_real_files():
     assert "qwen3-4b-2507 (x2_r2_validation_v2b.jsonl) 5/30 fail; preflight without the gate pass, with it refuse" in v
 
 
+def test_pareto_sample_recommendation_v2_row_computes():
+    """v2 = v1's inputs plus the usability constraint (timeout_latency share <= 0.05); v1 keeps no constraint."""
+    from src.dse import pareto as P
+    r = nr.compute_pareto_sample_recommendation_v2(nr.REPO)
+    v = r["value"]
+    assert v.startswith("max_timeout_share 0.05: ") and "\n" not in v
+    _P, pts = nr._pareto_points(nr.REPO)
+    rec = P.recommend(pts, **nr.PARETO_SAMPLE, max_timeout_share=0.05)
+    assert r["n"] == len(rec.excluded)
+    for e in rec.excluded:
+        assert e["reason"] in v and e["timeout_latency_share"] > 0.05
+    if rec.chosen is not None:
+        assert rec.chosen.timeout_latency_share <= 0.05 and "timeout_latency share <= 0.05" in v
+    v1 = nr.compute_pareto_sample_recommendation(nr.REPO)["value"]
+    assert "timeout_latency" not in v1 and "excluded" not in v1
+    ids = [e["claim_id"] for e in nr.NUMBER_ENTRIES]
+    assert "pareto-sample-recommendation" in ids and "pareto-sample-recommendation-v2" in ids
+
+
 def test_x2_scores_mark_bare_template_function_calling():
     v = nr.compute_x2_v3_scores(nr.REPO)["value"]
     cells = dict(p.split(": ", 1) for p in v.split(" / "))

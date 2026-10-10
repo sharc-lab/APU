@@ -23,6 +23,7 @@ from typing import Any
 from demo.dashboard import fakes, naive
 
 REPO = Path(__file__).resolve().parents[2]
+DEFAULT_MAX_TIMEOUT_SHARE = 0.05  # same default as src/dse/pareto.py (operator 2026-10-10)
 CACHE_DIR = Path(__file__).resolve().parent / "cache"
 FAKE_SRC = "fake: demo/dashboard/fakes.py (src/dse module not on main yet)"
 
@@ -141,35 +142,60 @@ def machines(cache: Cache) -> list[str]:
     return sorted({p["machine"] for p in cache.points["points"] if not p.get("stub")})
 
 
-def frontier_view(cache: Cache, backend: Backend, selected: list[str] | None = None) -> dict:
+def _exclusion(backend: Backend, obj, max_timeout_share: float) -> str | None:
+    """The backend's usability exclusion reason for one point (None: eligible)."""
+    fn = getattr(backend.pareto, "usability_exclusion", None) or fakes.usability_exclusion
+    return fn(obj, max_timeout_share)
+
+
+def frontier_view(cache: Cache, backend: Backend, selected: list[str] | None = None,
+                  max_timeout_share: float = DEFAULT_MAX_TIMEOUT_SHARE) -> dict:
+    """Points and frontier per machine under the usability constraint: a config whose timeout_latency share is
+    above max_timeout_share is off the frontier and carries excluded_reason; each machine lists them under
+    "excluded"."""
     objs, dicts = _points(cache, backend)
     sel = selected or machines(cache)
+    reasons = {d["id"]: _exclusion(backend, o, max_timeout_share) for o, d in zip(objs, dicts)}
     per = {}
     for m in sel:
-        fr = {point_id(to_dict(p)) for p in backend.pareto.frontier(objs, machine=m)}
-        pts = [dict(d, on_frontier=d["id"] in fr) for d in dicts if d["machine"] == m]
-        per[m] = {"points": pts, "frontier_ids": sorted(fr)}
+        fr = {point_id(to_dict(p)) for p in backend.pareto.frontier(objs, machine=m,
+                                                                    max_timeout_share=max_timeout_share)}
+        pts = [dict(d, on_frontier=d["id"] in fr, excluded_reason=reasons[d["id"]]) for d in dicts
+               if d["machine"] == m]
+        per[m] = {"points": pts, "frontier_ids": sorted(fr),
+                  "excluded": [{"id": p["id"], "config_id": p["config_id"], "model": p["model"],
+                                "runtime": p["runtime"], "timeout_latency_share": p.get("timeout_latency_share"),
+                                "reason": p["excluded_reason"], "src": p["src"]} for p in pts if p["excluded_reason"]]}
     return {"machines": per, "cloud": [d for d in dicts if d.get("stub")], "files": cache.points["files"],
-            "backend": cache.points["backend"]}
+            "backend": cache.points["backend"], "max_timeout_share": max_timeout_share}
 
 
 def recommendation(cache: Cache, backend: Backend, budget_usd: float, quality_floor: float,
-                   latency_target_ms: float, hardware: list[str]) -> dict:
+                   latency_target_ms: float, hardware: list[str],
+                   max_timeout_share: float = DEFAULT_MAX_TIMEOUT_SHARE) -> dict:
     objs, dicts = _points(cache, backend)
     by_id = {d["id"]: d for d in dicts}
-    rec = to_dict(backend.pareto.recommend(objs, budget_usd, quality_floor, latency_target_ms, hardware))
+    by_cfg = {d["config_id"]: d for d in dicts}
+    rec = to_dict(backend.pareto.recommend(objs, budget_usd, quality_floor, latency_target_ms, hardware,
+                                           max_timeout_share=max_timeout_share))
 
     def deco(p):
         return None if p is None else by_id.get(point_id(p), dict(p, id=point_id(p)))
+
+    excluded = []
+    for e in rec.get("excluded") or []:
+        d = by_id.get(point_id(e)) or by_cfg.get(e.get("config_id"), {})
+        excluded.append({**e, "id": d.get("id"), "src": d.get("src")})
 
     cloud = [d for d in dicts if d.get("stub")]
     return {"chosen": deco(rec.get("chosen")), "reason": rec.get("reason"),
             "savings_vs_all_cloud_usd_per_1k": rec.get("savings_vs_all_cloud_usd_per_1k"),
             "savings_stub": True,  # all-cloud side is the stub pricing until real cloud rows exist
             "savings_src": {"file": "src/cloud/client.py", "note": "STUB cloud cost from the pricing table"},
-            "alternatives": [deco(a) for a in rec.get("alternatives") or []],
+            "alternatives": [deco(a) for a in rec.get("alternatives") or []], "excluded": excluded,
             "all_cloud": cloud, "inputs": {"budget_usd": budget_usd, "quality_floor": quality_floor,
-                                           "latency_target_ms": latency_target_ms, "hardware": hardware},
+                                           "latency_target_ms": latency_target_ms, "hardware": hardware,
+                                           "max_timeout_share": max_timeout_share},
             "backend": backend.pareto_source}
 
 

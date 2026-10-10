@@ -25,6 +25,7 @@
         <label>Cloud budget (USD total)<input type="number" name="budget" min="0" step="1"></label>
         <label>Quality floor (0 to 1)<input type="number" name="floor" min="0" max="1" step="0.01"></label>
         <label>Latency target, p50 (ms)<input type="number" name="latency" min="0" step="500"></label>
+        <label>Max timeout share (0 to 1)<input type="number" name="maxtimeout" min="0" max="1" step="0.01"></label>
       </div>
       <fieldset><legend>Hardware</legend><div id="hw"></div></fieldset>
       <div class="example">
@@ -38,7 +39,8 @@
   <section id="frontier" class="card">
     <h2>2. Frontier per hardware</h2>
     <p class="muted">Quality (y) against p50 latency (x) per local config. The line joins the non-dominated configs.
-      Hollow markers are STUB cloud points; a ring marks a bare-template Ollama tag (install path, not model capability).</p>
+      Hollow markers are STUB cloud points; a ring marks a bare-template Ollama tag (install path, not model capability);
+      a cross marks a config excluded by the usability constraint (timeout_latency share above the max timeout share).</p>
     <div id="legend" class="legend"></div>
     <div id="charts" class="charts"></div>
     <div id="cloud"></div>

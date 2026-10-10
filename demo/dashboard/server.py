@@ -9,8 +9,9 @@ Endpoints (all GET):
   /                         the single-page UI (static/index.html)
   /static/<name>            app.js, app.css (vendored, no CDN)
   /api/meta                 manifest, backend in use, hardware options, workload examples, defaults
-  /api/frontier?hardware=   points and frontier per machine, stub cloud points separate
-  /api/recommend?budget=&floor=&latency=&hardware=
+  /api/frontier?hardware=&max_timeout_share=   points and frontier per machine, stub cloud points separate,
+                            configs above the timeout_latency share listed as excluded with their reason
+  /api/recommend?budget=&floor=&latency=&hardware=&max_timeout_share=   (max_timeout_share default 0.05)
   /api/scenario             the 4096 sessions available for the side-by-side, register rows cited
   /api/replay?session=&budget=&floor=&latency=          every step at once (polling clients)
   /api/replay/stream?session=&delay_ms=&...             the same steps as server-sent events
@@ -33,7 +34,8 @@ from demo.dashboard import data
 
 STATIC = Path(__file__).resolve().parent / "static"
 STATIC_FILES = {"index.html", "app.js", "app.css"}
-DEFAULTS = {"budget_usd": 50.0, "quality_floor": 0.9, "latency_target_ms": 30000.0}
+DEFAULTS = {"budget_usd": 50.0, "quality_floor": 0.9, "latency_target_ms": 30000.0,
+            "max_timeout_share": data.DEFAULT_MAX_TIMEOUT_SHARE}
 
 
 @dataclass
@@ -58,6 +60,13 @@ def _num(q, key, default):
         return float(q[key][0]) if key in q and q[key][0] != "" else float(default)
     except ValueError:
         raise ValueError(f"{key} must be a number")
+
+
+def _share(q):
+    v = _num(q, "max_timeout_share", DEFAULTS["max_timeout_share"])
+    if not 0.0 <= v <= 1.0:
+        raise ValueError("max_timeout_share must be between 0 and 1")
+    return v
 
 
 def _list(q, key):
@@ -119,13 +128,13 @@ class App:
                       "mitigation": c.mitigation})
 
     def frontier(self, q) -> Response:
-        return _json(data.frontier_view(self.cache, self.backend, _list(q, "hardware")))
+        return _json(data.frontier_view(self.cache, self.backend, _list(q, "hardware"), _share(q)))
 
     def recommend(self, q) -> Response:
         hw = _list(q, "hardware") or data.machines(self.cache)
         return _json(data.recommendation(self.cache, self.backend, _num(q, "budget", DEFAULTS["budget_usd"]),
                                          _num(q, "floor", DEFAULTS["quality_floor"]),
-                                         _num(q, "latency", DEFAULTS["latency_target_ms"]), hw))
+                                         _num(q, "latency", DEFAULTS["latency_target_ms"]), hw, _share(q)))
 
     def scenario(self, q) -> Response:
         return _json(data.scenario_list(self.cache))

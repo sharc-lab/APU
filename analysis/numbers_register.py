@@ -3010,13 +3010,31 @@ def compute_pareto_frontier_x2(repo):
 
 def compute_pareto_sample_recommendation(repo):
     """src/dse/pareto.py::recommend for budget USD 50, quality floor 0.9, p50 latency target 30 s, hardware
-    [evo-x2]; savings are vs the cheapest cloud point (STUB until a real cloud ledger or outcome file exists)."""
+    [evo-x2]; savings are vs the cheapest cloud point (STUB until a real cloud ledger or outcome file exists).
+    v1: no usability constraint (max_timeout_share=None, the recommender as of 2026-10-08); kept unchanged, v2 below
+    adds the constraint."""
     P, pts = _pareto_points(repo)
-    rec = P.recommend(pts, **PARETO_SAMPLE)
+    rec = P.recommend(pts, **PARETO_SAMPLE, max_timeout_share=None)
     sav = rec.savings_vs_all_cloud_usd_per_1k
     return {"value": f"{rec.reason}; savings vs all-cloud "
                      f"{'n/a' if sav is None else f'USD {sav:.2f}/1k steps'}" + (f" [{P.STUB}]" if rec.stub else ""),
             "n": len(pts)}
+
+
+PARETO_SAMPLE_MAX_TIMEOUT_SHARE = 0.05  # operator 2026-10-10, src/dse/pareto.py DEFAULT_MAX_TIMEOUT_SHARE
+
+
+def compute_pareto_sample_recommendation_v2(repo):
+    """Same inputs as pareto-sample-recommendation plus the usability constraint (operator 2026-10-10): a config is
+    eligible only if its timeout_latency share (timeout_latency rows / done rows, src/dse/pareto.py Point
+    timeout_latency_share) is <= 0.05. The reason names the chosen config and lists every excluded config with its
+    share; n = number of configs excluded by the constraint."""
+    P, pts = _pareto_points(repo)
+    rec = P.recommend(pts, **PARETO_SAMPLE, max_timeout_share=PARETO_SAMPLE_MAX_TIMEOUT_SHARE)
+    sav = rec.savings_vs_all_cloud_usd_per_1k
+    return {"value": f"max_timeout_share {PARETO_SAMPLE_MAX_TIMEOUT_SHARE:g}: {rec.reason}; savings vs all-cloud "
+                     f"{'n/a' if sav is None else f'USD {sav:.2f}/1k steps'}" + (f" [{P.STUB}]" if rec.stub else ""),
+            "n": len(rec.excluded)}
 
 
 def compute_r2_mechanism_lowlevel(repo):
@@ -3839,6 +3857,11 @@ NUMBER_ENTRIES = [
                     "floor 0.9, p50 latency 30 s, hardware evo-x2; savings vs all-cloud (STUB)",
      "compute": compute_pareto_sample_recommendation, "data_files": _PARETO_DATA,
      "script_function": "src/dse/pareto.py::recommend"},
+    {"claim_id": "pareto-sample-recommendation-v2", "description": "Recommender output for the same inputs as "
+                    "pareto-sample-recommendation with the usability constraint timeout_latency share <= 0.05; "
+                    "excluded configs with reasons; n = configs excluded",
+     "compute": compute_pareto_sample_recommendation_v2, "data_files": _PARETO_DATA,
+     "script_function": "analysis/numbers_register.py::compute_pareto_sample_recommendation_v2"},
     {"claim_id": "R2-mechanism-lowlevel", "description": "R2 mechanism job: message truncation, llama.cpp context "
                     "shifts and Ollama token cuts per tier",
      "compute": compute_r2_mechanism_lowlevel, "data_files": ["results/x2_r2_mechanism.jsonl"],

@@ -232,3 +232,74 @@ def test_percentile_matches_linear_interpolation():
     assert P.percentile([1, 2, 3, 4], 50) == pytest.approx(2.5)
     assert P.percentile([10], 90) == 10
     assert P.percentile([], 50) is None
+
+
+# ── usability constraint: timeout_latency share (operator 2026-10-10) ──
+
+def _pt(cid, share, n_rows=20, quality=1.0, p50=10_000.0, machine="evo-x2"):
+    n_tl = round(share * n_rows) if share is not None else 0
+    return P.Point(machine=machine, runtime=cid, model="m", config_id=f"{machine}:{cid}:m", quality=quality,
+                   quality_n=n_rows - n_tl, usd_per_1k_steps=0.0, latency_p50_ms=p50, latency_p90_ms=p50,
+                   stub=False, template_source=None, n_rows=n_rows, n_timeout_latency=n_tl,
+                   timeout_latency_share=share)
+
+
+def test_timeout_latency_share_is_on_the_point(x2_file, tmp_path):
+    pts = by_id(load([("evo-x2", str(x2_file))], tmp=tmp_path))
+    a = pts["evo-x2:llama_server:model-a"]
+    assert a.n_timeout_latency == 1 and a.timeout_latency_share == pytest.approx(1 / 3)
+    assert pts["evo-x2:ollama_default:model-b"].timeout_latency_share == 0.0
+    assert all(p.timeout_latency_share is None for p in pts.values() if p.stub)  # no rows, no share
+    assert "timeout_latency_share" in a.to_dict()
+
+
+def test_default_max_timeout_share_is_0_05():
+    import inspect
+    assert P.DEFAULT_MAX_TIMEOUT_SHARE == 0.05
+    assert inspect.signature(P.recommend).parameters["max_timeout_share"].default == 0.05
+    assert inspect.signature(P.points_table).parameters["max_timeout_share"].default == 0.05
+    # without the argument recommend() applies 0.05: a 0.10 config is excluded even though it is the fastest
+    rec = P.recommend([_pt("fast", 0.10, p50=1_000.0), _pt("slow", 0.0)], 50, 0.9, 30_000, ["evo-x2"])
+    assert rec.chosen.runtime == "slow" and [e["config_id"] for e in rec.excluded] == ["evo-x2:fast:m"]
+    assert rec.inputs["max_timeout_share"] == 0.05
+
+
+def test_share_exactly_at_the_limit_is_eligible():
+    at = _pt("at", 0.05)  # 1 of 20 done rows
+    assert at.timeout_latency_share == 0.05 and P.usability_exclusion(at, 0.05) is None
+    above = _pt("above", 0.10)
+    assert P.usability_exclusion(above, 0.05) is not None
+    rec = P.recommend([at, above], 50, 0.9, 30_000, ["evo-x2"], max_timeout_share=0.05)
+    assert rec.chosen is at and [e["config_id"] for e in rec.excluded] == [above.config_id]
+    # the same share computed from rows (1 timeout in 20) is exactly the boundary too
+    assert P.usability_exclusion(_pt("r", 1 / 20), 0.05) is None
+    assert P.frontier([at, above], "evo-x2", max_timeout_share=0.05) == [at]
+
+
+def test_exclusion_reason_is_returned_not_silently_dropped():
+    bad = _pt("bad", 0.15)  # 3 of 20
+    rec = P.recommend([bad], 50, 0.9, 30_000, ["evo-x2"])
+    assert rec.chosen is None and "usability 1" in rec.reason
+    (e,) = rec.excluded
+    assert e["reason"] == "excluded: timeout_latency share 0.150 > 0.05 (3/20 done rows)"
+    assert e["timeout_latency_share"] == pytest.approx(0.15) and e["config_id"] == bad.config_id
+    assert rec.to_dict()["excluded"] == rec.excluded
+    assert e["reason"] in P.recommend([bad, _pt("ok", 0.0)], 50, 0.9, 30_000, ["evo-x2"]).reason
+    # constraint off: the config is a candidate again and nothing is excluded
+    off = P.recommend([bad], 50, 0.9, 30_000, ["evo-x2"], max_timeout_share=None)
+    assert off.chosen is bad and off.excluded == [] and "timeout_latency" not in off.reason
+    # frontier() keeps every config by default (existing frontier rows unchanged)
+    assert P.frontier([bad], "evo-x2") == [bad] and P.frontier([bad], "evo-x2", max_timeout_share=0.05) == []
+
+
+def test_points_table_carries_share_and_exclusions(x2_file, tmp_path):
+    pts = load([("evo-x2", str(x2_file))], tmp=tmp_path)
+    t = P.points_table(pts)
+    json.dumps(t)
+    a = next(d for d in t["points"] if d["config_id"] == "evo-x2:llama_server:model-a")
+    assert a["timeout_latency_share"] == pytest.approx(1 / 3)
+    assert t["max_timeout_share"] == 0.05
+    assert [e["config_id"] for e in t["usability_excluded"]] == ["evo-x2:llama_server:model-a"]
+    assert t["usability_excluded"][0]["reason"].startswith("excluded: timeout_latency share 0.333 > 0.05")
+    assert "evo-x2:llama_server:model-a" not in t["frontier_by_machine"]["evo-x2"]
+    assert any("excluded: timeout_latency share" in line for line in P.format_table(pts))
