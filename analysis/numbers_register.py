@@ -2470,6 +2470,198 @@ def compute_qwen3_32b_timeout_count(repo):
     return {"value": f"{body} (timeout_latency/done); {status}", "n": sum(len(tl) for _n, tl in per.values())}
 
 
+# ───────────────────────────────────────────────── X2 outcome table v3: silent truncation vs latency (2026-10-10)
+# Tolerance for "evaluated fewer tokens than sent": the chat template adds a constant number of tokens on top of the
+# pack's prompt_tokens (processed_tokens is ABOVE sent_tokens on a full prompt), so only a shortfall bigger than
+# max(TRUNC_ABS_TOL, TRUNC_REL_TOL * sent) counts. The harness's own silently_truncated field is the strict
+# processed < sent test; truncation_vs_latency reports how often the two agree.
+TRUNC_REL_TOL = 0.01
+TRUNC_ABS_TOL = 32
+TRUNC_DEFINITION = (f"truncated = HTTP 200, no error, processed_tokens < sent_tokens - max({TRUNC_ABS_TOL}, "
+                    f"{TRUNC_REL_TOL:.0%} of sent_tokens)")
+
+
+def wilson_ci(successes, n, z=1.96):
+    """Wilson score 95% interval for a proportion (successes/n); (0.0, 0.0) for n == 0."""
+    if n <= 0:
+        return 0.0, 0.0
+    p = successes / n
+    denom = 1.0 + z * z / n
+    center = (p + z * z / (2 * n)) / denom
+    margin = (z / denom) * ((p * (1 - p) / n + z * z / (4 * n * n)) ** 0.5)
+    return max(0.0, center - margin), min(1.0, center + margin)
+
+
+def _score_ci(scores, seed=42, n_boot=2000):
+    """(mean, lo, hi, method). Wilson on the share of 1.0 scores when every score is 0 or 1, else a seeded percentile
+    bootstrap of the mean (n_boot resamples)."""
+    import random
+    if not scores:
+        return None, None, None, "n/a"
+    mean = sum(scores) / len(scores)
+    if all(s in (0, 1) for s in scores):
+        lo, hi = wilson_ci(sum(1 for s in scores if s == 1), len(scores))
+        return mean, lo, hi, "Wilson"
+    rng = random.Random(seed)
+    boots = sorted(sum(rng.choice(scores) for _ in scores) / len(scores) for _ in range(n_boot))
+    return mean, boots[int(0.025 * n_boot)], boots[int(0.975 * n_boot) - 1], "bootstrap"
+
+
+def truncation_status(row, sent=None, x2=None, rel_tol=TRUNC_REL_TOL, abs_tol=TRUNC_ABS_TOL):
+    """One of 'truncated' / 'full' / 'unmeasured' for an HTTP 200 row with no error (unmeasured: no
+    processed_tokens recorded), else the row's error cause (x2_outcome_table.classify_error_cause: context_overflow,
+    timeout, connection, other). sent defaults to the row's sent_tokens. Pure."""
+    x2 = x2 or _x2_harness()
+    cause = x2.classify_error_cause(row)
+    if cause != "none" or row.get("error"):
+        return cause if cause != "none" else "other"
+    sent = row.get("sent_tokens") if row.get("sent_tokens") is not None else sent
+    processed = row.get("processed_tokens")
+    if sent is None or processed is None:
+        return "unmeasured"
+    return "truncated" if processed < sent - max(abs_tol, rel_tol * sent) else "full"
+
+
+def truncation_vs_latency(x2, cells, plan, items, model):
+    """Per config of `model` over the latest valid v3 rows in plan: truncation_status counts, harness
+    silently_truncated agreement on HTTP 200 rows, and per group (truncated / full) mean score with 95% CI
+    (_score_ci; only rows that count_toward_accuracy, which every HTTP 200 row does) and latency (median, min, max).
+    Plus the pairing across configs: llama_server context_overflow / timeout_latency items and what the other
+    config did with the same item."""
+    out = {}
+    status_by = {}
+    for (m, c), d in sorted(cells.items()):
+        if m != model:
+            continue
+        done = {iid: r for iid, r in d.items() if iid in plan.get(m, set())}
+        st = {iid: truncation_status(r, (items.get(iid) or {}).get("prompt_tokens"), x2) for iid, r in done.items()}
+        status_by[c] = st
+        counts = {}
+        for s in st.values():
+            counts[s] = counts.get(s, 0) + 1
+        ok = [iid for iid, s in st.items() if s in ("truncated", "full", "unmeasured")]
+        agree = sum(1 for iid in ok if bool(done[iid].get("silently_truncated")) == (st[iid] == "truncated"))
+        groups = {}
+        for g in ("truncated", "full"):
+            rs = [done[iid] for iid, s in st.items() if s == g and x2.counts_toward_accuracy(done[iid])]
+            scores = [float(r.get("score") or 0.0) for r in rs]
+            lats = sorted(r["latency_s"] for r in rs if r.get("latency_s") is not None)
+            mean, lo, hi, method = _score_ci(scores)
+            groups[g] = {"n": len(rs), "n_correct": sum(1 for s in scores if s == 1), "mean": mean, "lo": lo,
+                         "hi": hi, "method": method,
+                         "lat_median": statistics.median(lats) if lats else None,
+                         "lat_min": lats[0] if lats else None, "lat_max": lats[-1] if lats else None,
+                         "evaluated": sorted({r.get("processed_tokens") for r in rs}) if g == "truncated" else None}
+        out[c] = {"n_done": len(done), "n_200": len(ok), "counts": counts, "harness_agree": agree, "groups": groups}
+    pairing = {}
+    if "llama_server" in status_by:
+        other = {c: s for c, s in status_by.items() if c != "llama_server"}
+        for cause in ("context_overflow", "timeout"):
+            ids = [iid for iid, s in status_by["llama_server"].items() if s == cause]
+            for c, s in other.items():
+                fate = {}
+                for iid in ids:
+                    k = s.get(iid, "not done")
+                    fate[k] = fate.get(k, 0) + 1
+                pairing[(cause, c)] = (len(ids), fate)
+        # same item served in full by both configs: per-item latency ratio other / llama_server
+        ls_rows = {iid: r for (m, c), d in cells.items() if m == model and c == "llama_server" for iid, r in d.items()}
+        for c, s in other.items():
+            o_rows = cells.get((model, c), {})
+            both = [iid for iid, st in s.items() if st == "full" and status_by["llama_server"].get(iid) == "full"
+                    and o_rows[iid].get("latency_s") and ls_rows[iid].get("latency_s")]
+            ratios = sorted(o_rows[iid]["latency_s"] / ls_rows[iid]["latency_s"] for iid in both)
+            pairing[("both_full", c)] = (len(both), {"median_ratio": statistics.median(ratios) if ratios else None,
+                                                     "min_ratio": ratios[0] if ratios else None,
+                                                     "max_ratio": ratios[-1] if ratios else None})
+    return out, pairing
+
+
+def _fmt_trunc_cell(c, v):
+    g_t, g_f = v["groups"]["truncated"], v["groups"]["full"]
+
+    def grp(name, g):
+        if not g["n"]:
+            return f"{name} n=0"
+        return (f"{name} score {g['mean']:.2f} ({g['n_correct']}/{g['n']}, {g['method']} 95% CI "
+                f"{g['lo']:.2f}-{g['hi']:.2f}), latency median {g['lat_median']:.0f} s "
+                f"(range {g['lat_min']:.0f}-{g['lat_max']:.0f})")
+    cnt = v["counts"]
+    n_tr = cnt.get("truncated", 0)
+    share = f"{n_tr / v['n_200']:.1%}" if v["n_200"] else "n/a"
+    errs = ", ".join(f"{k} {cnt[k]}" for k in ("context_overflow", "timeout", "connection", "other") if cnt.get(k))
+    ev = (f" (evaluated tokens {'/'.join(str(e) for e in g_t['evaluated'])})" if g_t["evaluated"] else "")
+    s = (f"{c}: silently truncated {n_tr}/{v['n_200']} HTTP-200 rows ({share}){ev}; {grp('truncated', g_t)}; "
+         f"{grp('full', g_f)}")
+    if cnt.get("unmeasured"):
+        s += f"; unmeasured (no processed_tokens) {cnt['unmeasured']}"
+    s += (f"; not HTTP 200 (outside both groups; timeout = timeout_latency, excluded from accuracy; context_overflow "
+          f"scores 0): {errs or 'none'}; harness silently_truncated agrees on {v['harness_agree']}/{v['n_200']}")
+    return s
+
+
+def _fmt_pairing(pairing):
+    parts = []
+    for (cause, c), (n, fate) in sorted(pairing.items()):
+        if cause == "both_full":
+            if n:
+                parts.append(f"items served in full by both configs: {c}/llama_server latency ratio median "
+                             f"{fate['median_ratio']:.2f} (range {fate['min_ratio']:.2f}-{fate['max_ratio']:.2f}, "
+                             f"n={n})")
+            continue
+        if n:
+            label = "timeout_latency" if cause == "timeout" else cause
+            parts.append(f"llama_server {label} items on {c}: " + ", ".join(f"{k} {v}" for k, v in sorted(fate.items()))
+                         + f" (of {n})")
+    return "; ".join(parts)
+
+
+def compute_truncation_vs_latency(repo, model):
+    """Silent truncation vs latency for one model in the v3 outcome table (TRUNC_DEFINITION), per config, with the
+    cross-config pairing for llama_server's context_overflow and timeout_latency items. Provisional while v3 progress
+    is below its plan (same flag as qwen3-32b-timeout-count)."""
+    x2, cells, plan, _pa, _w = _x2_v3_cells(repo)
+    items = {it["item_id"]: it for it in x2.load_items_trace_weighted(repo)}
+    per, pairing = truncation_vs_latency(x2, cells, plan, items, model)
+    if not per:
+        raise FileNotFoundError(f"no {model} rows in the v3 outcome table")
+    total_done = sum(len(set(v) & plan.get(m, set())) for (m, _c), v in cells.items())
+    total_plan = sum(len(plan[m]) for m in plan) * len(x2.CONFIGS)
+    status = (f"provisional: outcome table v3 not finished ({total_done}/{total_plan} done)"
+              if total_done < total_plan else f"final: outcome table v3 finished ({total_done}/{total_plan} done)")
+    body = " / ".join(_fmt_trunc_cell(c, v) for c, v in sorted(per.items()))
+    pair = _fmt_pairing(pairing)
+    return {"value": f"{TRUNC_DEFINITION}. {body}" + (f" / pairing: {pair}" if pair else "") + f"; {status}",
+            "n": sum(v["n_done"] for v in per.values()), "detail": {"per": per, "pairing": pairing}}
+
+
+def compute_qwen3_32b_truncation_vs_latency(repo):
+    """compute_truncation_vs_latency for qwen3-32b (operator 2026-10-10: does the Ollama leg complete / look faster
+    because it silently truncates long prompts?)."""
+    return compute_truncation_vs_latency(repo, "qwen3-32b")
+
+
+def compute_x2_v3_truncation_all_models(repo):
+    """Silently truncated HTTP-200 rows per model x config in the v3 outcome table (TRUNC_DEFINITION), with mean
+    score on truncated vs full rows; the per-model detail is compute_truncation_vs_latency."""
+    x2, cells, plan, _pa, _w = _x2_v3_cells(repo)
+    items = {it["item_id"]: it for it in x2.load_items_trace_weighted(repo)}
+    parts, n = [], 0
+    for model in sorted({m for (m, _c) in cells}):
+        per, _p = truncation_vs_latency(x2, cells, plan, items, model)
+        for c, v in sorted(per.items()):
+            n += v["n_done"]
+            gt, gf = v["groups"]["truncated"], v["groups"]["full"]
+            sc = (f"score truncated {gt['mean']:.2f} (n={gt['n']}) vs full {gf['mean']:.2f} (n={gf['n']})"
+                  if gt["n"] else f"score full {gf['mean']:.2f} (n={gf['n']})" if gf["n"] else "no scored rows")
+            parts.append(f"{model}/{c} {v['counts'].get('truncated', 0)}/{v['n_200']}, {sc}")
+    total_done = sum(len(set(v) & plan.get(m, set())) for (m, _c), v in cells.items())
+    total_plan = sum(len(plan[m]) for m in plan) * len(x2.CONFIGS)
+    status = ("provisional: outcome table v3 not finished" if total_done < total_plan else "final")
+    return {"value": f"{TRUNC_DEFINITION}; silently truncated/HTTP-200: " + "; ".join(parts)
+                     + f"; {status} ({total_done}/{total_plan} done)", "n": n}
+
+
 def compute_x2_v3_error_causes(repo):
     """Error cause counts (none/context_overflow/timeout/connection/other) per model x config, done items."""
     x2, cells, plan, _pa, _w = _x2_v3_cells(repo)
@@ -3573,6 +3765,15 @@ NUMBER_ENTRIES = [
                     "config, provisional until v3 progress reaches its plan",
      "compute": compute_qwen3_32b_timeout_count, "data_files": [X2_OUTCOME_V3],
      "script_function": "analysis/numbers_register.py::compute_qwen3_32b_timeout_count"},
+    {"claim_id": "qwen3-32b-truncation-vs-latency", "description": "X2 outcome table v3: qwen3-32b silently "
+                    "truncated rows per config, score and latency on truncated vs full rows, cross-config pairing; "
+                    "provisional until v3 progress reaches its plan",
+     "compute": compute_qwen3_32b_truncation_vs_latency, "data_files": [X2_OUTCOME_V3],
+     "script_function": "analysis/numbers_register.py::compute_qwen3_32b_truncation_vs_latency"},
+    {"claim_id": "x2-v3-truncation-all-models", "description": "X2 outcome table v3: silently truncated rows per "
+                    "model x config, score on truncated vs full rows",
+     "compute": compute_x2_v3_truncation_all_models, "data_files": [X2_OUTCOME_V3],
+     "script_function": "analysis/numbers_register.py::compute_x2_v3_truncation_all_models"},
     {"claim_id": "t2s-llamaserver-load-failures", "description": "T2S outcome table llama-server load logs: "
                     "served vs out-of-device-memory (logs synced, gitignored)",
      "compute": compute_t2s_llamaserver_load_failures, "data_files": [T2S_LLAMASERVER_LOG_GLOB],

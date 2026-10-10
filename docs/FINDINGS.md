@@ -2936,3 +2936,47 @@ run on the Blade.
 (`blade-mechanism-4096`). Ollama drops whole messages and keeps the system message, as on evo-x2; at 4096 llama.cpp's
 context shift fires repeatedly, and no Ollama token cut occurred in this session (on evo-x2 one did,
 `R2-mechanism-lowlevel`).
+
+## X2 outcome table v3, qwen3-32b: Ollama completes the over-length items by silent truncation; it is not faster because of it (2026-10-10, provisional)
+
+Register rows `qwen3-32b-truncation-vs-latency` (provisional until outcome v3 finishes) and
+`x2-v3-truncation-all-models`; analysis only, from the synced `results/x2_outcome_table_v3.jsonl` at c7893de.
+
+**Question (operator 2026-10-10).** Does the Ollama leg look faster and complete more items because it silently
+truncates long prompts (`ollama-overflow-keeps-half`), while llama-server either evaluates the full prompt (slow,
+`x2-v3-usability` timeouts) or refuses items longer than the trained context (context_overflow)?
+
+**Definition.** A row is silently truncated when it is HTTP 200 with no error and the server's evaluated prompt
+tokens (Ollama `prompt_eval_count`, llama-server `usage.prompt_tokens`, both recorded as `processed_tokens`) fall
+short of the item's `sent_tokens` (the workload pack's `prompt_tokens`) by more than max(32 tokens, 1%). The tolerance
+covers the chat template, which puts evaluated tokens slightly above sent tokens on a full prompt. The harness's own
+strict `silently_truncated` flag agrees with this definition on every HTTP 200 row ("agrees on 97/97" for
+ollama_default, "agrees on 74/74" for llama_server `[qwen3-32b-truncation-vs-latency]`). Accuracy groups hold HTTP 200
+rows only; timeout_latency and context_overflow rows are counted separately. CIs are Wilson 95% (all scores are 0 or
+1 in these groups).
+
+**Truncation half: holds.** ollama_default "silently truncated 15/97 HTTP-200 rows (15.5%) (evaluated tokens
+20482)", the keep-half value for qwen3's 40960 window. These are exactly the items llama-server refused: "llama_server
+context_overflow items on ollama_default: truncated 15 (of 15)". Accuracy on them is lower with non-overlapping CIs:
+"truncated score 0.40 (6/15, Wilson 95% CI 0.20-0.64)" vs "full score 1.00 (82/82, Wilson 95% CI 0.96-1.00)"
+`[qwen3-32b-truncation-vs-latency]`. So Ollama's apparent completion of the longest items is HTTP 200 on a prompt
+cut to under half, and more than half of those answers are wrong; llama-server "silently truncated 0/74".
+
+**Speed half: does not hold.** The 11 llama-server timeouts are not items Ollama shortened: "llama_server
+timeout_latency items on ollama_default: full 11 (of 11)", i.e. Ollama evaluated the full prompt and answered
+inside the per-call timeout. On the items both servers evaluated in full, Ollama was faster per item: "latency ratio
+median 0.78 (range 0.35-1.58, n=71)" `[qwen3-32b-truncation-vs-latency]`. Ollama's speed lead on long prompts is a
+prompt-processing difference between the two configs, not truncation; truncation only explains its completions above
+the 40960 window. (The truncated group's latency, "median 146 s (range 136-168)", reflects the 20482-token evaluated
+prompt, not the sent length.)
+
+**Other models (same function).** Silent truncation appears only on the two other qwen3 library tags with a 40960
+window: qwen3-14b/ollama_default and qwen3-8b/ollama_default each "37/176, score truncated 0.22 (n=37) vs full 0.99
+(n=139)"; every llama_server cell and the other ollama_default cells have 0 truncated rows
+`[x2-v3-truncation-all-models]`.
+
+**Limits.** Provisional: outcome v3 is "1959/3600 done". qwen3-32b truncated n is 15 (the longest longdoc items only),
+so truncation is confounded with item length and family; the comparison shows the
+truncated answers are worse, not by how much truncation alone costs at a fixed length. Three ollama_default rows are
+HTTP 404 "model not found" (counted as "other 3", outside both groups). llama-server logs were not used:
+`usage.prompt_tokens` is recorded in every HTTP 200 row.

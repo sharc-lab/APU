@@ -433,6 +433,14 @@ Tally: verified 10 (P1-01, 04, 05, 07, 08, 09, 10, 11, 12, 13), pending 4 (P1-02
 15, 16, 18). Of the 10 verified, P1-05, 07, 11 and 12 are verified on fewer platforms than the paper claims and need
 the named runs to support the cross-vendor wording.
 
+Candidate claims (not in the table or tally yet; claim | register row | status):
+
+- On qwen3-32b, Ollama completes the items llama-server refuses as over-length only by silent truncation to the
+  keep-half window, with lower accuracy on those items ("truncated score 0.40 (6/15, Wilson 95% CI 0.20-0.64)" vs
+  "full score 1.00 (82/82, Wilson 95% CI 0.96-1.00)"); its speed lead on the llama-server timeouts is not truncation
+  ("full 11 (of 11)") | qwen3-32b-truncation-vs-latency (also x2-v3-truncation-all-models) | provisional (outcome
+  table v3 not finished; FINDINGS 2026-10-10)
+
 ---
 
 ## 6. "Obvious?" defense
