@@ -2,10 +2,10 @@
  "night": 2,
  "summary": {
   "night": 2,
-  "started_utc": "2026-10-09T06:07:55.777868+00:00",
+  "started_utc": "2026-10-10T17:24:57.655448+00:00",
   "refused": null,
   "power": {
-   "log": "%USERPROFILE%\\AppData\\Local\\Temp\\blade_night_stub_qgr3ae6y\\logs\\night2_power_20261009T060755Z.json",
+   "log": "%USERPROFILE%\\AppData\\Local\\Temp\\blade_night_stub_uza2q1iw\\logs\\night2_power_20261010T172457Z.json",
    "original": {
     "SUB_SLEEP/STANDBYIDLE": {
      "ac": 3600,
@@ -83,10 +83,10 @@
   "c3_setting_readback": {
    "read_back": false,
    "ok": false,
-   "status": "!!! SETTING NOT READ BACK: CUDA - Sysmem Fallback Policy was not confirmed after night 2 (no %USERPROFILE%\\AppData\\Local\\Temp\\blade_night_stub_qgr3ae6y\\c3_readback.flag written during the night). Check NVIDIA Control Panel by hand. !!!"
+   "status": "!!! SETTING NOT READ BACK: CUDA - Sysmem Fallback Policy was not confirmed after night 2 (no %USERPROFILE%\\AppData\\Local\\Temp\\blade_night_stub_uza2q1iw\\c3_readback.flag written during the night). Check NVIDIA Control Panel by hand. !!!"
   },
-  "ended_utc": "2026-10-09T06:07:56.141182+00:00",
-  "summary_file": "%USERPROFILE%\\AppData\\Local\\Temp\\blade_night_stub_qgr3ae6y\\results\\blade_night2_summary_20261009T060755Z.json"
+  "ended_utc": "2026-10-10T17:24:58.057545+00:00",
+  "summary_file": "%USERPROFILE%\\AppData\\Local\\Temp\\blade_night_stub_uza2q1iw\\results\\blade_night2_summary_20261010T172457Z.json"
  },
  "power_call_order": [
   "/setacvalueindex SUB_SLEEP STANDBYIDLE 0",
@@ -124,6 +124,7 @@
     "tiers": "default,32768,16384,8192,4096",
     "seeds": null,
     "turns": null,
+    "record_vram_share": false,
     "neg_sessions": null,
     "client_trim": null,
     "rules_from": null,
@@ -151,5 +152,7 @@
   "blade_r2_mechanism_v1"
  ],
  "skipped": {},
- "branch_ok": true
+ "branch_ok": true,
+ "fit_decisions": {},
+ "fit_ok": true
 }

@@ -92,12 +92,12 @@ until K1 measures it.
 | 1 | branch mechanism: mechanism run, llama3.1:8b, 4096 tier, one session | `blade_r2_mechanism_4096_v2` / `results/blade_r2_mechanism_4096_v2.jsonl` | 0.05 | rates |
 | 2 | (d) C3 half A (Prefer No Sysmem Fallback, ctx 36864/38912/40960/43008, 1+5 calls) and half B (Driver Default, ctx 40960/43008, 1+3 calls) | `blade_c3_sysmem_fallback_v1` / `results/blade_c3_sysmem_fallback_v1.jsonl` | 3.09 | measured (C1 segments); half A is minutes if the spilled points fail at load |
 | 2 | (e) mechanism: render-only validity, message-drop and context-shift logging, llama3.1:8b, one session per tier (default, 32768, 16384, 8192, 4096) | `blade_r2_mechanism_v1` / `results/blade_r2_mechanism_v1.jsonl` | 2.71 | scaled |
-| 3 | qwen3:8b R2 validation and controls (same design as night 1), only if it fits | `blade_r2_validation_qwen3_8b_v1` / `results/blade_r2_validation_qwen3_8b_v1.jsonl` | 0.53 | scaled |
-| 3 | qwen3:8b R2 tiers default, 4096, 32768, 5 seeds x 40 turns, only if it fits | `blade_r2_real_qwen3_8b_v1` / `results/blade_r2_real_qwen3_8b_v1.jsonl` | 8.29 | scaled (llama3.1:8b workload x1.2; qwen3:8b's own evo-x2 real-run file is not synced) |
+| 3 | qwen3:8b R2 validation and controls (same design as night 1's rerun: negative control at 32768, 5 sessions, seeds 20260901-05; positive control 8192; diagnostic arm), under the night-3 fit rule (partial offload allowed at 32768 only); VRAM share recorded on every row | `blade_r2_validation_qwen3_8b_v1` / `results/blade_r2_validation_qwen3_8b_v1.jsonl` | 0.71 | scaled (no Blade rate for qwen3:8b; K1 VRAM share noted per cell) |
+| 3 | qwen3:8b R2 tiers default, 4096, 32768, 5 seeds x 40 turns, under the night-3 fit rule (32768 partially offloaded); VRAM share recorded on every row | `blade_r2_real_qwen3_8b_v1` / `results/blade_r2_real_qwen3_8b_v1.jsonl` | 8.29 | scaled (llama3.1:8b workload x1.2; qwen3:8b's own evo-x2 real-run file is not synced; K1 VRAM share noted per cell) |
 
 Night totals: night 1 3.75 h on the real branch, 0.87 h on the mechanism branch (register `blade-night-hours`, the
 night-1 rows above from the same row), night 2 5.80 h (the operator at the keyboard for C3's two gates),
-night 3 8.82 h if qwen3:8b fits, minutes if it does not.
+night 3 9.00 h (register `blade-night-hours`; K1 v2 passes the night-3 fit rule, so both jobs run).
 
 ### Night 1 rerun (operator 2026-10-08)
 
@@ -170,11 +170,15 @@ What changed for the rerun:
   `C:\apu\blade\c3_WAITING_READBACK.txt` (see the read-back step below).
 - **Mechanism**: `x2_r2_mechanism.MechanismRuntime` under OLLAMA_DEBUG=1, prompt checks with llama-tokenize against a
   fresh-load prompt_eval_count, a tier citable only with at least 5 checks all within 1%.
-- **Night 3 fit decision (automatic):** each night-3 job runs qwen3:8b only if `blade_k1_v1.summary.json` shows it
-  fully on the GPU at every context that job uses (validation: the default context, 32768 and 8192; tiers: the default
-  context, 4096 and 32768). A missing summary, model or context counts as not fitting. Otherwise the job writes
-  `{"record": "skipped", "reason": "skipped: does not fit (...)"}` with the per-context K1 values and exits 0, so night
-  3 completes in minutes. qwen3:8b at 32768 is the most likely point to fail this check; K1 decides.
+- **Night 3 fit decision (automatic, rule of 2026-10-10):** each night-3 job runs qwen3:8b only if
+  `blade_k1_v2.summary.json` shows it fully on the GPU at every context that job uses (validation: the default
+  context, 32768 and 8192; tiers: the default context, 4096 and 32768) EXCEPT num_ctx 32768, where a partial offload
+  K1 measured is allowed for the validation (the negative control at the 32768 cap) and for the 32768 tier
+  (`blade_r2.PARTIAL_OFFLOAD_OK`). Nothing else is relaxed: the default context, 4096 and 8192 still need fully on the
+  GPU, the exception is for qwen3:8b in validation and real mode only, and a missing summary, model or context
+  (32768 included) counts as not fitting. A job that fails the rule writes
+  `{"record": "skipped", "reason": "skipped: does not fit (...)"}` with the per-context K1 values and exits 0. On K1 v2
+  both jobs run (see "Night 3 fit rule" at the end).
 
 ## C3 operator steps (about two minutes per gate)
 
@@ -234,7 +238,8 @@ The wrapper never touches NVIDIA settings.
 
 `harness/blade_queue.py`: its own state file `C:\apu\blade\blade_queue_state.json`, not evo-x2's `queue_state.json`
 and not a Windows scheduled task; the wrapper runs it in-process. Nights: 1 = K1, llama3.1:8b validation, tiers,
-mitigation; 2 = C3, mechanism; 3 = qwen3:8b validation and tiers (each skipping itself if it does not fit). Each job
+mitigation; 2 = C3, mechanism; 3 = qwen3:8b validation and tiers (each skipping itself if it fails the night-3 fit
+rule). Each job
 runs as a hidden child (`proc_util.popen_hidden`) from the repo root, log `C:\apu\blade\logs\<job_id>.log`. A job left
 "running" and an errored job run again on the next start of that night; done jobs do not. Each job resumes inside its
 own output file, so a rerun never repeats finished work. Before every job the queue checks the paused condition again.
@@ -247,8 +252,8 @@ by the operator's design wait for a person and say so in `c3_WAITING_<half>.txt`
 **Stub nights (fakes, no model, no setting changed): PASS for all three nights.** `py -3.12 scripts/blade_night.py
 --night <N> --stub` runs the wrapper with a fake powercfg, fake AC, fake paused condition and a fake job runner that
 parses each job's argv with that job's own parser (and, for the mitigation job, its equivalent x2_r2_agent argv with
-x2_r2_agent's parser; for night 3, the automatic fit decision against the K1 summary that exists, none in a stub, so
-"do not run"). Recorded in `results/blade_dryrun/blade_dryrun_night{1,2,3}_stub.json`: the three no-sleep sets and
+x2_r2_agent's parser; for night 3, the automatic fit decision against the committed K1 v2 summary, which must come
+out "run" for both jobs). Recorded in `results/blade_dryrun/blade_dryrun_night{1,2,3}_stub.json`: the three no-sleep sets and
 the setactive come before the first job, the restores after the last, the final values equal the originals, every
 output path is prefixed `blade_`; night 2's summary carries the loud "SETTING NOT READ BACK" line (no read-back flag
 in a stub). Unit tests (`tests/test_blade_night.py`) cover power restore on a crashed queue and on an interrupted job,
@@ -283,9 +288,8 @@ model was loaded then.
 
 ## Open questions
 
-1. qwen3:8b on 8 GB at 32768 (validation arm b and the 32768 tier) is the likely failure point of the night-3 fit
-   check; if it fails, night 3 is skipped as a whole by design. Dropping 32768 from night 3 would need an operator
-   decision.
+1. qwen3:8b on 8 GB at 32768 (validation arm b and the 32768 tier) is partially offloaded (K1 v2); resolved by the
+   operator on 2026-10-10: partial offload is allowed there and only there (see "Night 3 fit rule" at the end).
 2. If K1 shows the Blade default is 4096, the default tier repeats the 4096 tier with no num_ctx sent; kept as asked.
 3. The 32768 tier and the mechanism's 16384 and 32768 tiers run with layers on the CPU on 8 GB; their time cost stays
    a scaled guess until a dry run on llama3.1:8b at those windows gives rates.
@@ -350,3 +354,38 @@ run Ollama 0.34.4. Remaining differences: the backend (CUDA on the Blade, ROCm o
 **Consequence for night 1 (operator plan):** rerun validation with the negative control at 5 sessions; if it has 0
 canary misses, run the real tiers and mitigation scoring rules 1, 3 and 4; if not, run the mechanism instead and record
 the Blade result (text tool calls on the final-answer call) as an open finding.
+
+## Night 3 fit rule (operator 2026-10-10)
+
+**Rule** (`harness/blade_r2.py`, `fit_decision` and `PARTIAL_OFFLOAD_OK`): a `--models-if-fit` model runs only if K1
+shows it fully on the GPU (size_vram >= 99% of size) at every context the job uses, except qwen3:8b at num_ctx 32768
+in validation mode (the negative control at the 32768 cap) and in real mode (the 32768 tier), where a partial offload
+K1 measured is allowed. Nothing else is relaxed: the default context, 4096, 8192 (positive control), the mechanism and
+mitigation modes, and every other model still need fully on the GPU, and an unmeasured context never counts as
+fitting.
+
+**Data** (register row `blade-k1-layer-split`, `results/blade_k1_v2.summary.json`): qwen3:8b VRAM share by num_ctx
+4096: 1.000, 8192: 1.000, 16384: 0.805, 32768: 0.592; default ctx 4096, fully on GPU at default True. So the
+validation's contexts (default, 8192 full; 32768 partial) and the tiers' contexts (default, 4096 full; 32768 partial)
+both pass: fit decision = run for both night-3 jobs. The decision record in each job's `run_start` lists `partial`
+(the contexts run partially offloaded) and `k1_vram_share` per context.
+
+**VRAM share on every row** (`--record-vram-share`, set on both night-3 jobs; `blade_r2.VramShareRecorder`): the K1
+split method, size_vram / size from Ollama's GET /api/ps for the loaded model, read at session start and right after
+the session's first /api/chat call. Every r2a_turn and r2a_session row carries both reads (`vram_session_start`,
+`vram_after_first_call`: loaded, size, size_vram, vram_share, context_length, fully_on_gpu), the num_ctx they belong to
+(`vram_num_ctx`), and top-level `vram_share` and `fully_on_gpu` from the after-first-call read. Each session starts
+from an explicit unload, so the session-start read normally records the model as not loaded; the after-first-call read
+is the one taken with the model loaded at the session's num_ctx.
+
+**Validation gate:** unchanged code (x2_r2_agent.evaluate_gates with the Blade negative-control arm, and the real job's
+`--require-validation-gates` preflight). Night 3's validation previously ran the negative control at the default 3
+sessions; it now runs 5 (`--neg-sessions 5`, seeds 20260901-05) to match night 1's rerun.
+
+**Hours** (register row `blade-night-hours`): night 3 9.00 h; validation 0.71 h (scaled), tiers 8.29 h (scaled).
+The Blade has no prefill and decode rate for qwen3:8b, so both jobs are scaled evo-x2 times (32768 factor 3.0, model
+factor 1.2 on the tiers); each cell's label in `analysis/blade_hours_estimate.py --markdown` notes K1's VRAM share at
+that num_ctx (noted, not used as a factor).
+
+**Stub:** `py -3.12 scripts/blade_night.py --night 3 --stub` PASS with fit decision run for both jobs
+(`results/blade_dryrun/blade_dryrun_night3_stub.json`); nights 1 and 2 stubs still PASS.

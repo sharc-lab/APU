@@ -94,14 +94,21 @@ NIGHTS = {
                   *_LLAMA, "--tiers", "default,32768,16384,8192,4096"],
          "outputs": ["results/blade_r2_mechanism_v1.jsonl"]},
     ],
-    # night 3: qwen3:8b R2, only if K1 shows it fully on the GPU at every context the job uses; otherwise each job
-    # writes "skipped: does not fit" and exits 0
+    # night 3: qwen3:8b R2 under blade_r2's fit rule (operator 2026-10-10): K1 must show it fully on the GPU at every
+    # context the job uses EXCEPT num_ctx 32768 (the validation's negative control at the cap, and the real 32768 tier),
+    # where a measured partial offload is allowed (blade_r2.PARTIAL_OFFLOAD_OK); otherwise each job writes "skipped:
+    # does not fit" and exits 0. Every r2a row records the /api/ps VRAM share (--record-vram-share). The validation's
+    # negative control runs 5 sessions (--neg-sessions NEG_SESSIONS), as night 1's rerun; before 2026-10-10 night 3
+    # used the default 3. The gate itself is unchanged: x2_r2_agent.evaluate_gates in the validation job and the real
+    # job's --require-validation-gates preflight.
     3: [
         {"id": "blade_r2_validation_qwen3_8b_v1",
-         "argv": ["harness/blade_r2.py", "--mode", "validation", "--out", R2_VALIDATION_QWEN, *_QWEN],
+         "argv": ["harness/blade_r2.py", "--mode", "validation", "--out", R2_VALIDATION_QWEN, *_QWEN,
+                  "--neg-sessions", str(NEG_SESSIONS), "--record-vram-share"],
          "outputs": [R2_VALIDATION_QWEN]},
         {"id": "blade_r2_real_qwen3_8b_v1",
          "argv": ["harness/blade_r2.py", "--mode", "real", "--out", "results/blade_r2_real_qwen3_8b_v1.jsonl", *_QWEN,
+                  "--record-vram-share",
                   "--tiers", "default,4096,32768", "--rules-from", R2_VALIDATION_QWEN, "--require-validation-gates"],
          "outputs": ["results/blade_r2_real_qwen3_8b_v1.jsonl"]},
     ],

@@ -251,9 +251,14 @@ def stub_runner_factory(events: list, tmp_results: Path, gate_misses: int = 0, d
         ev = {"event": "job", "id": job["id"], "module": mod.__name__, "parsed": vars(args),
               "outputs": job["outputs"], "outputs_prefixed_blade": not bad}
         if mod.__name__ == "blade_r2" and args.models_if_fit:
-            # the automatic fit decision against whatever K1 summary exists (none in a stub: "do not run")
-            ev["fit_decision"] = mod.fit_decision(args.models_if_fit.split(","), args.k1_summary,
-                                                  mod.fit_ctxs(args.mode, (args.tiers or "default").split(",")))
+            # the automatic fit decision (blade_r2's rule, with the job's mode) against the committed K1 summary the
+            # job names, resolved against the repo as the queue's cwd would (a missing summary: "do not run")
+            k1 = args.k1_summary
+            if k1 and not Path(k1).is_absolute():
+                k1 = str(REPO / k1)
+            tiers = [t for t in (args.tiers or mod.DEFAULT_TIERS.get(args.mode, "default")).split(",") if t]
+            ev["fit_decision"] = mod.fit_decision(args.models_if_fit.split(","), k1, mod.fit_ctxs(args.mode, tiers),
+                                                  mode=args.mode)
         if mod.__name__ == "blade_r2" and args.mode == "mitigation":
             # the equivalent x2_r2_agent argv, parsed by x2_r2_agent's own parser (raises SystemExit if it does not)
             ev["x2_r2_agent_argv"], ev["client_trim"] = mod.check_mitigation_args(args, args.models.split(","))
@@ -312,16 +317,33 @@ def stub_night(night: int, log=print, gate_misses: int = 0, power_values=None) -
               "skipped": {j["id"]: j.get("reason") for j in (summ.get("queue") or {}).get("jobs", [])
                           if j["status"] == "skipped"}}
     report["branch_ok"] = branch_ok(night, report)
+    report["fit_decisions"] = {j["id"]: {m: {k: d.get(k) for k in ("run", "reason", "fits", "partial")}
+                                         for m, d in j["fit_decision"].items()} for j in jobs if "fit_decision" in j}
+    report["fit_ok"] = fit_ok(night, report)
     return report
 
 
 BLADE_POWER_LAYOUT = {"SUB_SLEEP/STANDBYIDLE": 3600, "SUB_SLEEP/HIBERNATEIDLE": 0, "SUB_BUTTONS/LIDACTION": None}
 
 
+# nights whose --models-if-fit jobs must come out "run" against the committed K1 summary (night 3: qwen3:8b under
+# blade_r2's fit rule, operator 2026-10-10)
+EXPECT_FIT_RUN = {3}
+
+
+def fit_ok(night: int, rep: dict) -> bool:
+    """For a night in EXPECT_FIT_RUN: every --models-if-fit job has a fit decision and every model in it runs."""
+    if night not in EXPECT_FIT_RUN:
+        return True
+    want = [j["id"] for j in bq.NIGHTS[night] if "--models-if-fit" in j["argv"]]
+    decs = rep.get("fit_decisions") or {}
+    return bool(want) and all(decs.get(i) and all(d["run"] for d in decs[i].values()) for i in want)
+
+
 def stub_ok(rep: dict) -> bool:
     return bool(rep["set_before_first_job"] and rep["restore_after_last_job"] and rep["final_values_equal_original"]
                 and rep["power_restored"] and rep["all_outputs_prefixed_blade"] and rep["branch_ok"]
-                and not rep["summary"]["refused"])
+                and rep.get("fit_ok", True) and not rep["summary"]["refused"])
 
 
 def branch_ok(night: int, rep: dict) -> bool:
@@ -359,6 +381,9 @@ def main(argv=None) -> int:
             br = ", ".join(f"{g}: {d.get('branch')}" for g, d in (r["gate_decisions"] or {}).items()) or "no gate"
             print(f"STUB NIGHT {args.night} (gate misses {r['gate_misses']}; {br}): {'PASS' if ok else 'FAIL'}; "
                   f"ran {r['ran']}; skipped {r['skipped']}")
+            for jid, fd in (r.get("fit_decisions") or {}).items():
+                for m, d in fd.items():
+                    print(f"  fit decision {jid} {m}: run={d['run']} ({d['reason']})")
         print(f"STUB NIGHT {args.night}: {'PASS' if all(oks) else 'FAIL'} -> {out}")
         return 0 if all(oks) else 1
     bc.require_blade()

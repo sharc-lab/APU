@@ -13,6 +13,12 @@ Per cell, in order of preference:
 
 The Blade "default" tier is estimated as num_ctx 4096 (K1 measures the real value; Ollama sizes its default context by
 VRAM). Usage: py -3.12 analysis/blade_hours_estimate.py [--markdown]
+
+Night 3 (qwen3:8b, fit rule of 2026-10-10: partial offload allowed at num_ctx 32768 only): the Blade has no prefill and
+decode rate for qwen3:8b in the rate files, so every night-3 cell is "scaled". Each cell's label also carries K1's
+measured VRAM share for qwen3:8b at that num_ctx (size_vram / size, results/blade_k1_v2.summary.json, register row
+blade-k1-layer-split) so the partial offload behind the 32768 cells is visible; the share is noted, not used as a factor
+(the 32768 factor stays FACTORS["offload_32768"]). The validation counts 5 negative-control sessions, as night 1's rerun.
 """
 from __future__ import annotations
 
@@ -31,6 +37,7 @@ X2_VALID = "results/x2_r2_validation_v2.jsonl"
 X2_VALID_B = "results/x2_r2_validation_v2b.jsonl"
 X2_MECH = "results/x2_r2_mechanism.jsonl"
 C1 = "results/blade_c1_spill_sweep_20260925T053651Z.jsonl"
+K1_SUMMARY = "results/blade_k1_v2.summary.json"
 SFX = "_call2_notools"
 DEFAULT_CTX_ASSUMED = 4096
 DRYRUN_FILES = ["results/blade_dryrun/blade_dryrun_k1.jsonl", "results/blade_dryrun/blade_dryrun_r2_validation.jsonl",
@@ -122,6 +129,25 @@ def rate_index(rates_by_file: dict) -> dict:
                 "source": sorted(set(s))} for k, (p, d, s) in acc.items()}
 
 
+def k1_vram_share(model, ctx, path=K1_SUMMARY):
+    """size_vram / size K1 measured for (model, num_ctx) (its overflow_window call), or None."""
+    p = REPO / path
+    if not p.exists():
+        return None
+    e = (json.loads(p.read_text(encoding="utf-8")).get("models") or {}).get(model) or {}
+    for o in e.get("overflow_window") or []:
+        if o.get("num_ctx") is not None and int(o["num_ctx"]) == int(ctx) and o.get("size"):
+            return (o.get("size_vram") or 0) / o["size"]
+    return None
+
+
+def share_note(model, ctx):
+    v = k1_vram_share(model, ctx)
+    if v is None:
+        return f"; K1 VRAM share {model}@{ctx}: not measured"
+    return f"; K1 VRAM share {model}@{ctx}: {v:.3f}" + (" (partial offload)" if v < 0.99 else " (fully on GPU)")
+
+
 # ── evo-x2 session workloads ────────────────────────────────────────────────────────────────────────
 
 def x2_sessions(path, model, arm) -> list[dict]:
@@ -160,8 +186,10 @@ def c1_segments_minutes(rs: list[dict]) -> dict:
 
 # ── cells and jobs ──────────────────────────────────────────────────────────────────────────────────
 
-def cell_hours(model, ctx, n_sessions, x2_path, x2_model, x2_arm, rates, extra_factor=1.0, model_factor=1.0):
-    """One cell: rate-based if the Blade has prefill and decode rates for (model, ctx), else scaled."""
+def cell_hours(model, ctx, n_sessions, x2_path, x2_model, x2_arm, rates, extra_factor=1.0, model_factor=1.0,
+               note=""):
+    """One cell: rate-based if the Blade has prefill and decode rates for (model, ctx), else scaled. note is appended
+    to the label."""
     sess = x2_sessions(x2_path, x2_model, x2_arm)
     if not sess:
         return {"hours": None, "kind": "unknown", "label": f"no evo-x2 sessions for {x2_model} {x2_arm} in {x2_path}"}
@@ -172,12 +200,12 @@ def cell_hours(model, ctx, n_sessions, x2_path, x2_model, x2_arm, rates, extra_f
         return {"hours": n_sessions * sec * extra_factor / 3600, "kind": "rates",
                 "label": f"Blade rates {model}@{ctx}: prefill {r['prefill_tps']:.0f}, decode {r['decode_tps']:.1f} tok/s "
                          f"on {x2_arm} token workload ({mean('prompt_tokens'):.0f} prompt + {mean('gen_tokens'):.0f} gen"
-                         f" tokens per session)"}
+                         f" tokens per session)" + note}
     f = FACTORS[CTX_FACTOR.get(int(ctx), "offload_32768")]
     return {"hours": n_sessions * mean("minutes") * f * extra_factor * model_factor / 60, "kind": "scaled",
             "label": f"scaled (no Blade rate for {model} at {ctx}): evo-x2 {x2_arm} {mean('minutes'):.1f} min/session"
                      f" x{f}" + (f" x{model_factor} (model)" if model_factor != 1.0 else "")
-                     + (f" x{extra_factor}" if extra_factor != 1.0 else "")}
+                     + (f" x{extra_factor}" if extra_factor != 1.0 else "") + note}
 
 
 def _job(night, name, cells, note=""):
@@ -196,18 +224,24 @@ def estimate(rates_files=None) -> dict:
     jobs = []
     c1 = c1_segments_minutes(rows(C1))
 
-    def validation(model, x2_file, x2_model, model_factor=1.0, neg_sessions=3):
+    def validation(model, x2_file, x2_model, model_factor=1.0, neg_sessions=3, shares=False):
+        n = (lambda c: share_note(model, c)) if shares else (lambda c: "")
         return [cell_hours(model, 32768, neg_sessions, x2_file, x2_model, f"ollama_ctx_131072{SFX}", rates,
-                           model_factor=model_factor),
-                cell_hours(model, 32768, 3, x2_file, x2_model, "ollama_ctx_131072", rates, model_factor=model_factor),
+                           model_factor=model_factor, note=n(32768)),
+                cell_hours(model, 32768, 3, x2_file, x2_model, "ollama_ctx_131072", rates, model_factor=model_factor,
+                           note=n(32768)),
                 cell_hours(model, 8192, 1, x2_file, x2_model, f"ollama_ctx_8192_positive_control{SFX}", rates,
-                           model_factor=model_factor)]
+                           model_factor=model_factor, note=n(8192))]
 
-    def real(model, model_factor=1.0):
+    def real(model, model_factor=1.0, shares=False):
         # the qwen3:8b real-run sessions (x2_r2_real_v1b) are not synced: llama3.1:8b's workload x model factor
-        return [cell_hours(model, D, 5, X2_REAL, L, f"ollama_ctx_4096{SFX}", rates, model_factor=model_factor),
-                cell_hours(model, 4096, 5, X2_REAL, L, f"ollama_ctx_4096{SFX}", rates, model_factor=model_factor),
-                cell_hours(model, 32768, 5, X2_REAL, L, f"ollama_ctx_32768{SFX}", rates, model_factor=model_factor)]
+        n = (lambda c: share_note(model, c)) if shares else (lambda c: "")
+        return [cell_hours(model, D, 5, X2_REAL, L, f"ollama_ctx_4096{SFX}", rates, model_factor=model_factor,
+                           note=n(D)),
+                cell_hours(model, 4096, 5, X2_REAL, L, f"ollama_ctx_4096{SFX}", rates, model_factor=model_factor,
+                           note=n(4096)),
+                cell_hours(model, 32768, 5, X2_REAL, L, f"ollama_ctx_32768{SFX}", rates, model_factor=model_factor,
+                           note=n(32768))]
 
     # night 1 (rerun 2026-10-08): K1, validation with the negative control at 5 sessions, the gate, then EITHER real +
     # mitigation (branch "real") OR the 4096 mechanism session (branch "mechanism"); the night total counts the
@@ -238,9 +272,15 @@ def estimate(rates_files=None) -> dict:
                      [cell_hours(L, ctx, 1, X2_MECH, L, f"{arm}{SFX}", rates) for ctx, arm in
                       ((D, "ollama_ctx_4096"), (4096, "ollama_ctx_4096"), (8192, "ollama_ctx_8192"),
                        (16384, "ollama_ctx_16384"), (32768, "ollama_ctx_32768"))]))
-    jobs.append(_job(3, "blade_r2_validation_qwen3_8b_v1 (only if it fits)", validation(Q, X2_VALID_B, Q)))
-    jobs.append(_job(3, "blade_r2_real_qwen3_8b_v1 (only if it fits)", real(Q, model_factor=1.2),
-                     "workload: llama3.1:8b sessions x1.2 (x2_r2_real_v1b, with qwen3:8b, is not synced)"))
+    # night 3 (fit rule 2026-10-10): qwen3:8b runs with a partial offload allowed at 32768 (validation negative
+    # control and the real 32768 tier); no Blade rate for qwen3:8b, so scaled, with K1's VRAM share in each label
+    jobs.append(_job(3, "blade_r2_validation_qwen3_8b_v1 (qwen3:8b, arm b at 32768 partial offload, negative control "
+                        "5 sessions)", validation(Q, X2_VALID_B, Q, neg_sessions=5, shares=True),
+                     "no Blade rate for qwen3:8b: scaled evo-x2 times, K1 VRAM share noted per cell"))
+    jobs.append(_job(3, "blade_r2_real_qwen3_8b_v1 (qwen3:8b, default/4096/32768 x 5 seeds, 32768 partial offload)",
+                     real(Q, model_factor=1.2, shares=True),
+                     "no Blade rate for qwen3:8b: scaled; workload: llama3.1:8b sessions x1.2 (x2_r2_real_v1b, with "
+                     "qwen3:8b, is not synced); K1 VRAM share noted per cell"))
     by_branch = defaultdict(lambda: defaultdict(float))     # {night: {branch or "": hours}}
     for j in jobs:
         by_branch[j["night"]][j.get("branch", "")] += j["hours"]

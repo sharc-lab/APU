@@ -3,10 +3,10 @@
   "night": 1,
   "summary": {
    "night": 1,
-   "started_utc": "2026-10-09T06:07:54.834235+00:00",
+   "started_utc": "2026-10-10T17:24:56.892920+00:00",
    "refused": null,
    "power": {
-    "log": "%USERPROFILE%\\AppData\\Local\\Temp\\blade_night_stub_wluctkgt\\logs\\night1_power_20261009T060754Z.json",
+    "log": "%USERPROFILE%\\AppData\\Local\\Temp\\blade_night_stub_euml2guv\\logs\\night1_power_20261010T172456Z.json",
     "original": {
      "SUB_SLEEP/STANDBYIDLE": {
       "ac": 3600,
@@ -160,8 +160,8 @@
      }
     }
    },
-   "ended_utc": "2026-10-09T06:07:55.196223+00:00",
-   "summary_file": "%USERPROFILE%\\AppData\\Local\\Temp\\blade_night_stub_wluctkgt\\results\\blade_night1_summary_20261009T060754Z.json"
+   "ended_utc": "2026-10-10T17:24:57.299716+00:00",
+   "summary_file": "%USERPROFILE%\\AppData\\Local\\Temp\\blade_night_stub_euml2guv\\results\\blade_night1_summary_20261010T172456Z.json"
   },
   "power_call_order": [
    "/setacvalueindex SUB_SLEEP STANDBYIDLE 0",
@@ -204,6 +204,7 @@
      "tiers": null,
      "seeds": null,
      "turns": null,
+     "record_vram_share": false,
      "neg_sessions": 5,
      "client_trim": null,
      "rules_from": null,
@@ -331,7 +332,7 @@
      "recall": null,
      "skipped_reason": "skipped: negative control clean (0 canary misses); real and mitigation run instead",
      "open_finding": null,
-     "decided_utc": "2026-10-09T06:07:55.178569+00:00"
+     "decided_utc": "2026-10-10T17:24:57.262917+00:00"
     }
    },
    {
@@ -347,6 +348,7 @@
      "tiers": "default,4096,32768",
      "seeds": null,
      "turns": null,
+     "record_vram_share": false,
      "neg_sessions": null,
      "client_trim": null,
      "rules_from": "results/blade_r2_validation_v2.jsonl",
@@ -374,6 +376,7 @@
      "tiers": "default,4096,8192",
      "seeds": null,
      "turns": null,
+     "record_vram_share": false,
      "neg_sessions": null,
      "client_trim": "margin=0.05",
      "rules_from": "results/blade_r2_validation_v2.jsonl",
@@ -473,16 +476,18 @@
   "skipped": {
    "blade_r2_mechanism_4096_v2": "skipped: negative control clean (0 canary misses); real and mitigation run instead"
   },
-  "branch_ok": true
+  "branch_ok": true,
+  "fit_decisions": {},
+  "fit_ok": true
  },
  {
   "night": 1,
   "summary": {
    "night": 1,
-   "started_utc": "2026-10-09T06:07:55.201223+00:00",
+   "started_utc": "2026-10-10T17:24:57.302944+00:00",
    "refused": null,
    "power": {
-    "log": "%USERPROFILE%\\AppData\\Local\\Temp\\blade_night_stub_1p6rs_f6\\logs\\night1_power_20261009T060755Z.json",
+    "log": "%USERPROFILE%\\AppData\\Local\\Temp\\blade_night_stub_5jonsbkk\\logs\\night1_power_20261010T172457Z.json",
     "original": {
      "SUB_SLEEP/STANDBYIDLE": {
       "ac": 3600,
@@ -632,8 +637,8 @@
      }
     }
    },
-   "ended_utc": "2026-10-09T06:07:55.233694+00:00",
-   "summary_file": "%USERPROFILE%\\AppData\\Local\\Temp\\blade_night_stub_1p6rs_f6\\results\\blade_night1_summary_20261009T060755Z.json"
+   "ended_utc": "2026-10-10T17:24:57.331627+00:00",
+   "summary_file": "%USERPROFILE%\\AppData\\Local\\Temp\\blade_night_stub_5jonsbkk\\results\\blade_night1_summary_20261010T172457Z.json"
   },
   "power_call_order": [
    "/setacvalueindex SUB_SLEEP STANDBYIDLE 0",
@@ -676,6 +681,7 @@
      "tiers": null,
      "seeds": null,
      "turns": null,
+     "record_vram_share": false,
      "neg_sessions": 5,
      "client_trim": null,
      "rules_from": null,
@@ -803,7 +809,7 @@
      "recall": null,
      "skipped_reason": "skipped: negative-control canary misses 2",
      "open_finding": "Blade llama3.1:8b negative control at num_ctx 32768: 2 canary misses in 5 sessions (recall rate None over None turns), with no truncation expected at that window; real and mitigation not run, mechanism run at 4096 instead. Open: why the canaries are lost on the Blade.",
-     "decided_utc": "2026-10-09T06:07:55.219708+00:00"
+     "decided_utc": "2026-10-10T17:24:57.321000+00:00"
     }
    },
    {
@@ -819,6 +825,7 @@
      "tiers": "4096",
      "seeds": null,
      "turns": null,
+     "record_vram_share": false,
      "neg_sessions": null,
      "client_trim": null,
      "rules_from": null,
@@ -897,6 +904,8 @@
    "blade_r2_real_v2": "skipped: negative-control canary misses 2",
    "blade_r2_mitigation_v2": "skipped: negative-control canary misses 2"
   },
-  "branch_ok": true
+  "branch_ok": true,
+  "fit_decisions": {},
+  "fit_ok": true
  }
 ]
