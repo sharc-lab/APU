@@ -3067,3 +3067,14 @@ comparison; the seeds match, so a window effect is expected (not required) on se
 131072) give 1.20 min per negative-control session (5 sessions, 6.0 min), 0.92 min per diagnostic session (3, 2.8
 min) and 3.06 min for the positive control, 11.8 min in all, plus server start and one model load per session; Blade
 run 2 took 23.0 min from run_start to run_end. Calls tq.advance() on exit; sets no pause.
+
+**Deployed and queued (2026-10-10, after the pre-registration commit).** Side directory `C:\apu\ovn\r2v32k\` holds
+`x2_r2_agent.py` (blob b48cbc6, adds --neg-ctx / --neg-sessions) and `x2_r2_sidecar.py` (blob 8ff9d4a); every other
+module the agent imports was compared by blob hash and is identical in `C:\apu\ovn`, so it is imported from there.
+`C:\apu\ovn\x2_r2_agent.py` (blob a4c4a92) was not touched. The import-only check on evo-x2 (no server, no model call)
+loaded the side copy, took the other modules from `C:\apu\ovn`, parsed the job's argv and printed the plan above. The
+llama3.1:8b manifest on evo-x2's disk lists model `sha256:667b0c19...6a29`, params `sha256:56bb8bd4...4dcb`, template
+`sha256:948af274...cf85`, the Blade's digests. Queue entry `x2_r2_llama_val_32k`, command `python
+r2v32k\x2_r2_sidecar.py --mode validation --call2-tools off --models llama3.1:8b --neg-ctx 32768 --neg-sessions 5
+--out C:\apu\ovn\results\x2_r2_llama_val_32k.jsonl`, inserted directly after the running x2_r2_real_v1b and ahead of
+x2_r2_mitigation_v1 in one read-modify-write under a pause that the same script cleared in its finally block.
