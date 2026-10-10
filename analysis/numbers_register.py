@@ -3446,6 +3446,112 @@ def compute_blade_mechanism_4096(repo):
                       f"{rep['verdict']['drop_old_turns_keep_system']}"), "n": s["n_calls"]}
 
 
+# Blade open-finding confound check on evo-x2 (pre-registered in docs/FINDINGS.md 2026-10-10, queue id
+# x2_r2_llama_val_32k): Blade run 2's validation (llama3.1:8b, negative control at num_ctx 32768, 5 sessions, seeds
+# 20260901-05, v1 call-2 mode) on evo-x2. PENDING until its file is synced. The verdict rule is the pre-registered one.
+X2_R2_LLAMA_VAL_32K = "results/x2_r2_llama_val_32k.jsonl"
+X2_VAL32K_NEG_ARM = "ollama_ctx_32768_negative_control"
+X2_VAL32K_NUM_CTX = 32768
+X2_VAL32K_SEEDS = (20260901, 20260902, 20260903, 20260904, 20260905)
+X2_VAL32K_TURNS = 10
+X2_VAL32K_BLADE_TURN = 5   # the turn of the Blade's text tool calls (REC-0005 lookup), blade-r2-gate-v2
+
+
+def text_tool_call_name(text):
+    """The pre-registered text-tool-call pattern: the final text, after leading whitespace, starts with a JSON object
+    whose first key is "name" ({"name": ...}). Returns the named tool (or "" if "name" is not a plain string), or None
+    when the text does not match."""
+    import re
+    m = re.match(r'\s*\{\s*"name"\s*:\s*(?:"([^"]*)")?', text or "")
+    return None if m is None else (m.group(1) or "")
+
+
+def x2_r2_llama_val_32k_verdict(rows, ag, model="llama3.1:8b") -> dict:
+    """Mechanical verdict for x2_r2_llama_val_32k from the negative-control (gate) arm only, as pre-registered:
+    valid only with run_end, all 5 sessions (seeds 20260901-05) completed with 10 turns, every row at num_ctx 32768
+    and no turn over the loaded window (else "inconclusive (incomplete: ...)"); then 0 canary misses -> "backend or
+    offload effect"; at least one miss and every missed canary turn a turn-5 text tool call -> "window effect"; any
+    other pattern -> "inconclusive". `ag` is x2_r2_agent (completed_sessions, MODE_SUFFIX)."""
+    arm = X2_VAL32K_NEG_ARM + ag.MODE_SUFFIX["off"]
+    sessions = [s for s in ag.completed_sessions(rows)
+                if s["arm_id"] == arm and s["model_id"] == model and s.get("mode") == "validation"]
+    by_attempt = {s["attempt_id"]: s for s in sessions}
+    turns = sorted((r for r in rows if r.get("record") == "r2a_turn" and r.get("attempt_id") in by_attempt),
+                   key=lambda r: (r["seed"], r["turn_idx"]))
+    problems = []
+    if not any(r.get("record") == "run_end" for r in rows):
+        problems.append("no run_end")
+    seeds = sorted(s["seed"] for s in sessions)
+    if seeds != list(X2_VAL32K_SEEDS):
+        problems.append(f"negative-control sessions completed for seeds {seeds}, expected {list(X2_VAL32K_SEEDS)}")
+    for s in sorted(sessions, key=lambda s: s["seed"]):
+        n = sum(1 for r in turns if r["attempt_id"] == s["attempt_id"])
+        if n != X2_VAL32K_TURNS:
+            problems.append(f"seed {s['seed']}: {n} turns, expected {X2_VAL32K_TURNS}")
+    bad_ctx = sorted({r.get("num_ctx_requested") for r in turns} - {X2_VAL32K_NUM_CTX}, key=str)
+    if bad_ctx:
+        problems.append(f"num_ctx_requested {bad_ctx} on negative-control rows")
+    over = [(r["seed"], r["turn_idx"]) for r in turns if r.get("over_loaded_window")]
+    if over:
+        problems.append(f"turns over the loaded window {over}")
+    per_session = {s["seed"]: s["canary_sys_misses"] + s["canary_hist_misses"]
+                   for s in sorted(sessions, key=lambda s: s["seed"])}
+    misses = []
+    for r in turns:
+        if r.get("canary_check") and not (r.get("canary_sys_ok") and r.get("canary_hist_ok")):
+            name = text_tool_call_name(r.get("final_text"))
+            misses.append({"seed": r["seed"], "turn": r["turn_idx"], "sys_missed": not r.get("canary_sys_ok"),
+                           "hist_missed": not r.get("canary_hist_ok"), "text_tool_call": name is not None,
+                           "tool_name": name})
+    n_missed = sum(per_session.values())
+
+    def fmt(m):
+        which = "+".join(k for k, v in (("C", m["sys_missed"]), ("H", m["hist_missed"])) if v)
+        tc = f"text tool call {m['tool_name'] or '(unnamed)'}" if m["text_tool_call"] else "not a text tool call"
+        return f"seed {m['seed']} turn {m['turn']} {which} missed, {tc}"
+
+    pattern = "; ".join(fmt(m) for m in misses) or "no missed canary turn"
+    if problems:
+        verdict = "inconclusive (incomplete: " + "; ".join(problems) + ")"
+    elif n_missed == 0 and not misses:
+        verdict = "backend or offload effect"
+    elif misses and all(m["text_tool_call"] and m["turn"] == X2_VAL32K_BLADE_TURN for m in misses):
+        verdict = "window effect"
+    else:
+        verdict = "inconclusive"
+    return {"verdict": verdict, "valid": not problems, "problems": problems, "per_session": per_session,
+            "n_missed_canaries": n_missed, "n_canaries": 2 * sum(s["canary_checks"] for s in sessions),
+            "misses": misses, "pattern": pattern}
+
+
+def compute_x2_r2_llama_val_32k(repo):
+    """x2_r2_llama_val_32k (results/x2_r2_llama_val_32k.jsonl, evo-x2): per-rule rates on the gate arm, negative-
+    control canary misses per session at num_ctx 32768, each missed canary turn (seed, turn, text tool call or not),
+    positive control, diagnostic arm misses, and the pre-registered verdict (x2_r2_llama_val_32k_verdict)."""
+    ag = _r2_agent_module()
+    rows = ag.read_rows(repo / X2_R2_LLAMA_VAL_32K)
+    if not rows:
+        raise FileNotFoundError(repo / X2_R2_LLAMA_VAL_32K)
+    ag.neg_arm_for_ctx(X2_VAL32K_NUM_CTX)   # registers the arm in ARMS (gates read its num_ctx)
+    model = "llama3.1:8b"
+    rep = ag.evaluate_gates(rows, call2_tools="off", neg_arm=X2_VAL32K_NEG_ARM)
+    v = x2_r2_llama_val_32k_verdict(rows, ag, model)
+    e = rep["baseline_table"].get(model)
+    pos = rep["controls"]["positive"].get(model, {})
+    diag_arm = X2_VAL32K_NEG_ARM + ag.MODE_SUFFIX["on"]
+    diag = [s for s in ag.completed_sessions(rows) if s["arm_id"] == diag_arm and s["model_id"] == model]
+    diag_m = sum(s["canary_sys_misses"] + s["canary_hist_misses"] for s in diag)
+    tt = rep["gates"]["task_tool"].get(model) or {}
+    value = (f"{model}: {_r2_table_str(e) if e else 'no gate-arm turns'}; negative control (num_ctx 32768) canary "
+             f"misses {v['n_missed_canaries']} of {v['n_canaries']} canaries over {len(v['per_session'])} sessions, "
+             f"per session (seed: misses) " + ", ".join(f"{s}: {m}" for s, m in v["per_session"].items())
+             + f"; missed turns: {v['pattern']}; positive control (8192) truncation turns "
+             f"{pos.get('truncation_detected_turns')}, canary misses {pos.get('canary_sys_misses')}+"
+             f"{pos.get('canary_hist_misses')}; diagnostic arm (tools on call 2) canary misses {diag_m} over "
+             f"{len(diag)} sessions; task tool {tt.get('n_ok')}/{tt.get('n')}; verdict: {v['verdict']}")
+    return {"value": value, "n": f"{e['n_turns'] if e else 0} turns", "detail": {"verdict": v, "gates": rep}}
+
+
 NUMBER_ENTRIES = [
     {"claim_id": "PX2-TTFT-gap", "description": "PX2 B4-vs-S4 TTFT gap range across 5 models",
      "compute": compute_px2_ttft_gap, "data_files": ["results/t2s_night2_20260930T135145Z.jsonl"],
@@ -3945,6 +4051,11 @@ NUMBER_ENTRIES = [
     {"claim_id": "blade-mechanism-4096", "description": "Blade mechanism at num_ctx 4096: message drops, shifts, cuts",
      "compute": compute_blade_mechanism_4096, "data_files": ["results/blade_r2_mechanism_4096_v2.jsonl.report.json"],
      "script_function": "analysis/numbers_register.py::compute_blade_mechanism_4096"},
+    {"claim_id": "x2-r2-llama-val-32k", "description": "Blade confound check on evo-x2 (llama3.1:8b, negative control "
+                    "num_ctx 32768, 5 sessions): per-rule rates, canary misses per session, text tool calls per miss, "
+                    "pre-registered verdict (backend/offload vs window)",
+     "compute": compute_x2_r2_llama_val_32k, "data_files": [X2_R2_LLAMA_VAL_32K], "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_x2_r2_llama_val_32k"},
 ]
 
 

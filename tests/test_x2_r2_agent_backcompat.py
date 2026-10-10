@@ -55,8 +55,10 @@ CASES = {
 CONSOLE_STATE = {"console_session_state": "Active", "console_idle_s": 12.0, "user_active": True}
 # run_start fields added by the change, with their value when no new flag is given (on EVO-X2).
 NEW_RUN_START_FIELDS = {"hw_id": "evo-x2", "interactive_session": CONSOLE_STATE, "server_env_extra": None,
-                        "tiers": None, "seeds": None, "allow_new_seeds": None}
-NEW_ARGS = {"server_env": None, "tiers": None, "seeds": None, "allow_new_seeds": False}
+                        "tiers": None, "seeds": None, "allow_new_seeds": None,
+                        "neg_ctx": None, "neg_sessions": None}  # validation options of 2026-10-10
+NEW_ARGS = {"server_env": None, "tiers": None, "seeds": None, "allow_new_seeds": False,
+            "neg_ctx": None, "neg_sessions": None}
 
 
 class _Stop(Exception):

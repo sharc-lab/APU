@@ -72,6 +72,11 @@ the evo-t2s week (docs/T2S_WEEK_PLAN.md, harness/t2s_r2_agent.py), all off by de
   --seeds s1,s2           keep only these seeds (a subset of the plan's unless --allow-new-seeds).
 Without them every mode's plan, argv, server start and run_start are those of 087e790 plus the run_start fields hw_id,
 interactive_session, server_env_extra, tiers, seeds and allow_new_seeds (tests/test_x2_r2_agent_backcompat.py).
+Validation-mode options (2026-10-10, x2_r2_llama_val_32k, the Blade confound check pre-registered in docs/FINDINGS.md),
+off by default, recorded in run_start as neg_ctx and neg_sessions (the arm names are in the plan):
+  --neg-ctx N             the negative-control/baseline arm at num_ctx N (arm ollama_ctx_N_negative_control, the
+                          Blade's arm name) instead of 131072; gates use the same arm;
+  --neg-sessions N        the negative-control arm on the first N of SEEDS_STRONG (validation_plan_neg).
 
 Thinking: "think": false is sent for every qwen3 model (MODELS); every call records thinking_present (non-empty
 message.thinking) and think_tag_in_content, and a turn with either fails ("thinking_present" in turn_failures,
@@ -205,6 +210,37 @@ def validation_plan(call2_tools, with_diagnostic: bool = True, neg_arm=NEG_ARM):
     if with_diagnostic:
         plan.append((neg_arm + MODE_SUFFIX[DIAGNOSTIC_MODE[mode]], SEEDS, 10))
     return plan
+
+
+def neg_arm_for_ctx(num_ctx=None) -> str:
+    """--neg-ctx (2026-10-10, x2_r2_llama_val_32k): the negative-control arm (base name) for a validation run at a
+    window other than NEG_NUM_CTX. None or NEG_NUM_CTX -> NEG_ARM unchanged; any other n -> "ollama_ctx_<n>_negative_
+    control", the name harness/blade_r2.py gives the Blade's capped arm (BLADE_NEG_ARM), registered in ARMS for every
+    call-2 mode with the same fields as the fixed arms."""
+    if num_ctx is None or int(num_ctx) == NEG_NUM_CTX:
+        return NEG_ARM
+    n = int(num_ctx)
+    if n <= 0:
+        raise ValueError(f"--neg-ctx must be positive, got {n}")
+    base = f"ollama_ctx_{n}_negative_control"
+    for m, sfx in MODE_SUFFIX.items():
+        ARMS.setdefault(base + sfx, {"num_ctx": n, "call2_tools": m != "off", "call2_mode": m})
+    return base
+
+
+def validation_plan_neg(call2_tools, neg_ctx=None, neg_sessions=None):
+    """validation_plan with --neg-ctx / --neg-sessions, built the way harness/blade_r2.plan_for builds the Blade's
+    validation plan: validation_plan(mode, neg_arm=neg_arm_for_ctx(neg_ctx)), then only the gate arm (negative control
+    and baseline) runs on the first neg_sessions of SEEDS_STRONG; positive control and the diagnostic arm as is.
+    Returns (plan, neg_arm). Both None: validation_plan(mode) and NEG_ARM, unchanged."""
+    neg_arm = neg_arm_for_ctx(neg_ctx)
+    plan = validation_plan(call2_tools, neg_arm=neg_arm)
+    if neg_sessions:
+        if not 1 <= int(neg_sessions) <= len(SEEDS_STRONG):
+            raise ValueError(f"--neg-sessions must be 1..{len(SEEDS_STRONG)}, got {neg_sessions}")
+        gate_arm = neg_arm + MODE_SUFFIX[as_mode(call2_tools)]
+        plan = [(a, tuple(SEEDS_STRONG[:int(neg_sessions)]) if a == gate_arm else s, t) for a, s, t in plan]
+    return plan, neg_arm
 REAL_PLAN = [
     ("ollama_default", SEEDS, 40),
     ("ollama_ctx_32768", SEEDS, 40),
@@ -1742,6 +1778,13 @@ def build_arg_parser():
                          "the plan's seeds unless --allow-new-seeds")
     ap.add_argument("--allow-new-seeds", action="store_true",
                     help="with --seeds: run exactly the named seeds on every remaining arm, even ones not in the plan")
+    # 2026-10-10, x2_r2_llama_val_32k (pre-registered in docs/FINDINGS.md): the Blade's validation plan on evo-x2.
+    ap.add_argument("--neg-ctx", type=int, default=None,
+                    help="validation mode: the negative-control/baseline arm's num_ctx (default 131072, NEG_ARM); "
+                         "another value runs arm ollama_ctx_<n>_negative_control, as harness/blade_r2.py does")
+    ap.add_argument("--neg-sessions", type=int, default=None,
+                    help="validation mode: sessions on the negative-control arm, the first N of SEEDS_STRONG "
+                         "(20260901..20260905; default 3 = SEEDS), as harness/blade_r2.py --neg-sessions")
     return ap
 
 
@@ -1779,8 +1822,14 @@ def main(argv=None, advance=True):
         if clash:
             ap.error(f"--server-env {clash} conflicts with this mode's own server env {mech.OLLAMA_DEBUG_ENV}")
     c2 = args.call2_tools
+    if (args.neg_ctx is not None or args.neg_sessions is not None) and args.mode != "validation":
+        ap.error("--neg-ctx / --neg-sessions apply to --mode validation only")
+    neg_arm = NEG_ARM
     if args.mode == "validation":
-        plan = validation_plan(c2)
+        try:
+            plan, neg_arm = validation_plan_neg(c2, args.neg_ctx, args.neg_sessions)
+        except ValueError as e:
+            ap.error(str(e))
     elif args.mode == "real":
         plan = strong_plan(c2) if args.plan == "strong" else real_plan(c2)
     elif args.mode == "mechanism":
@@ -1853,7 +1902,8 @@ def main(argv=None, advance=True):
               "validation_preflight": preflight, "ts_utc": utc_iso(),
               "max_tokens_per_call": MAX_TOKENS_PER_CALL, "keep_alive": KEEP_ALIVE, "client_trim": client_trim,
               "hw_id": host_cfg.get("hw_id"), "interactive_session": interactive, "server_env_extra": extra_env,
-              "tiers": tiers, "seeds": seeds, "allow_new_seeds": args.allow_new_seeds if seeds is not None else None})
+              "tiers": tiers, "seeds": seeds, "allow_new_seeds": args.allow_new_seeds if seeds is not None else None,
+              "neg_ctx": args.neg_ctx, "neg_sessions": args.neg_sessions})
         present = {Path(p).name: Path(p).exists() for p in rule_files}
         finished = {name: any(r.get("record") == "run_end" for r in vrows) for name, vrows in
                     ((Path(p).name, read_rows(Path(p))) for p in rule_files)}
@@ -1928,7 +1978,7 @@ def main(argv=None, advance=True):
                  order=args.order)
         rows = read_rows(out_path)
         if args.mode == "validation":
-            report = evaluate_gates(rows, call2_tools=c2)
+            report = evaluate_gates(rows, call2_tools=c2, neg_arm=neg_arm)
         else:
             sessions = [s for s in completed_sessions(rows) if s["mode"] == "real"]
             report = {"rules_in_use": rules_in_use, "refused_models": refused_models,
