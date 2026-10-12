@@ -1,0 +1,16 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>pressure page 38</title></head>
+<body>
+<script>
+  // Deterministic ~150MB allocation: one Float64Array (8 bytes/element) sized to hit the target byte
+  // count, filled with a cheap deterministic pattern so the engine cannot elide the allocation as dead code, and
+  // kept referenced on window so the GC cannot collect it while the page stays open.
+  (function() {
+    var targetBytes = 157286400;
+    var arr = new Float64Array(Math.floor(targetBytes / 8));
+    for (var i = 0; i < arr.length; i += 4096) { arr[i] = i; }
+    window.__pressure_arr_38 = arr;
+  })();
+</script>
+<p>pressure page 38</p>
+</body></html>

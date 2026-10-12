@@ -1,0 +1,58 @@
+{
+ "rules_in_use": {
+  "llama3.1:8b": [
+   "rule1_json_keys",
+   "rule3_no_zebra",
+   "rule4_metres"
+  ],
+  "qwen3:14b": [
+   "rule1_json_keys",
+   "rule2_log_event_called",
+   "rule3_no_zebra",
+   "rule4_metres",
+   "rule5_session_code"
+  ],
+  "qwen3:8b": [
+   "rule1_json_keys",
+   "rule2_log_event_called",
+   "rule3_no_zebra",
+   "rule4_metres"
+  ]
+ },
+ "refused_models": {
+  "qwen3-4b-2507-tools": [
+   "qwen3-4b-2507-tools: negative control failed (canary misses 2 at num_ctx 131072)",
+   "qwen3-4b-2507-tools: task tool called correctly on 5/30 baseline turns (< 90%, task-tool gate)"
+  ]
+ },
+ "kill_criterion": {
+  "killed": false,
+  "per_arm": {
+   "ollama_ctx_16384_call2_notools": {
+    "n_sessions": 15,
+    "n_silent_failures": 9,
+    "shows_silent_failure": true
+   },
+   "ollama_ctx_8192_call2_notools": {
+    "n_sessions": 15,
+    "n_silent_failures": 11,
+    "shows_silent_failure": true
+   },
+   "ollama_default_call2_notools": {
+    "n_sessions": 9,
+    "n_silent_failures": 7,
+    "shows_silent_failure": true
+   },
+   "ollama_ctx_32768_call2_notools": {
+    "n_sessions": 9,
+    "n_silent_failures": 6,
+    "shows_silent_failure": true
+   },
+   "ollama_ctx_4096_call2_notools": {
+    "n_sessions": 9,
+    "n_silent_failures": 9,
+    "shows_silent_failure": true
+   }
+  }
+ }
+}
