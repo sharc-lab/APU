@@ -1,0 +1,42 @@
+{
+  "purpose": "Customer profile for analysis/impact_model.py. hour_value is a cited public figure; every field under assumptions is an ASSUMPTION (a modelling choice, not a measurement) and is labelled as such wherever it is used.",
+  "hour_value": {
+    "usd_per_hour": 64.44,
+    "figure_quoted": "$64.44 per hour",
+    "table": "Quick Facts: Software Developers, Quality Assurance Analysts, and Testers, row \"2025 Median Pay\"",
+    "occupation": "Software Developers, Quality Assurance Analysts, and Testers (BLS Occupational Outlook Handbook group)",
+    "reference_period": "May 2025 (the page's pay data is labelled May 2025; the Pay tab says the data are from the Occupational Employment and Wage Statistics program)",
+    "publisher": "U.S. Bureau of Labor Statistics, Occupational Outlook Handbook",
+    "source_url": "https://www.bls.gov/ooh/computer-and-information-technology/software-developers.htm",
+    "page_title": "Software Developers, Quality Assurance Analysts, and Testers : Occupational Outlook Handbook: : U.S. Bureau of Labor Statistics",
+    "page_last_modified": "August 27, 2026",
+    "fetched_utc": "2026-10-14",
+    "fetch_method": "WebFetch (page converted to text and read back); figure transcribed from that text",
+    "also_on_page": "Pay tab: \"The median annual wage for software developers was $135,980 in May 2025.\" (annual only; no hourly figure for software developers alone is given, so the group's stated hourly median is used)",
+    "not_used": "https://www.bls.gov/oes/current/oes151252.htm and https://www.bls.gov/oes/current/oes_nat.htm returned the OEWS index page, not the occupation table, on the fetch date; no third-party source was used",
+    "meaning": "median hourly wage, not a loaded labour cost; no overhead multiplier is applied"
+  },
+  "assumptions": {
+    "team_size": 10,
+    "agent_sessions_per_dev_per_day": 4,
+    "turns_per_session": 40,
+    "single_shot_calls_per_dev_per_day": 10,
+    "workdays_per_month": 21,
+    "co_runner_share": 0.25,
+    "cloud_session_share": 0.5,
+    "device": "evo-x2",
+    "model": "llama3.1:8b",
+    "runtime": "ollama_default",
+    "scenario_runtime": "ollama_ctx_4096",
+    "cloud_model": "gpt-6.1-sol",
+    "cloud_tier": "standard",
+    "notes": {
+      "turns_per_session": "the R2 session length (40 turns); used to scale a per-turn time delta to a session",
+      "single_shot_calls_per_dev_per_day": "calls shaped like the workload pack (one prompt, one answer), outside agent sessions",
+      "co_runner_share": "share of sessions that run next to a heavy co-running job",
+      "cloud_session_share": "share of agent sessions sent to a cloud model",
+      "device/model/runtime": "the status-quo configuration the profile is priced at; scenario_runtime is the one-flag alternative priced next to it",
+      "cloud_model/cloud_tier": "escalation target: the mid-tier model of results/cloud_prices_20261008.json's selection, Standard tier"
+    }
+  }
+}
