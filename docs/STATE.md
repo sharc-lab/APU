@@ -340,3 +340,20 @@ Every report states status against these three checkpoints.
   tray app restarted hidden afterwards; paused flag left in place. Gate: negative-control canary misses in 2 of 5
   sessions (`blade-r2-gate-v2`), so R2 real tiers and mitigation were skipped by design and the Blade validation result
   is recorded as an open finding (FINDINGS 2026-10-09). Night 3 (qwen3:8b R2) decision pending the operator.
+
+### 2026-10-13, post-meeting plan v2 started
+
+- evo-x2 queue finished everything (x2_outcome_table_v3 3600/3600, x2_r2_real_v1b, x2_r2_llama_val_32k,
+  x2_r2_mitigation_v1, x2_k2_pause_resume_v1, x2_70b_edge_reps) and sat idle with queue_empty.flag; results synced.
+  x2_r2_agent.py redeployed to evo-x2 from main (b3bc741) now that v1b and mitigation are done; all 49 deployed files
+  verify. A sync_results.py run started 2026-10-10 hung for two days on an scp child; stopped; no data lost (the
+  scheduled sync kept committing). A stale .git/index.lock (from OneDrive) blocked one merge on 2026-10-10; removed
+  after confirming no git process; the sync guard correctly skipped that cycle.
+- The 2026-10-10 18:30 deadline for recreating the Blade paused flag was missed (session ended); the flag is still
+  absent; no Blade night is armed.
+- docs/MEETINGS.md created (2026-10-13 meeting with Prof. Hao, Zach's update as reported).
+- Plan v2 subagents: A1+A2 (cost and info-loss rows), A3+A6 (impact model, Zach data), A4+A5 (num_keep flag test,
+  window override methods; evo-x2 jobs), B1+B2 (larger models, model family), B3 (eval suite), B4+B5+B6 (policy
+  comparison, KV precision, T2S staging). C track starts after A3 lands.
+- "X2 ask-first list" is not recorded in the repo or memory; treated as: reboots, deleting files, system-wide env or
+  driver changes, tray app; model pulls authorized for B2 by the operator.
