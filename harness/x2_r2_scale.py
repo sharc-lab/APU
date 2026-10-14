@@ -459,7 +459,9 @@ def insert_jobs(items: list[dict], new_items: list[dict]) -> list[dict]:
     return items
 
 
-PYTHON_EXE = r"C:\Users\Ritz\AppData\Local\Programs\Python\Python312\python.exe"
+# The interpreter running --queue-insert on evo-x2 (the same Python 3.12 every queue entry there uses), so no user
+# path is written into source.
+PYTHON_EXE = sys.executable
 
 
 def queue_entries(results_dir=r"C:\apu\ovn\results") -> list[dict]:
