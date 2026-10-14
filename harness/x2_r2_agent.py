@@ -77,6 +77,11 @@ off by default, recorded in run_start as neg_ctx and neg_sessions (the arm names
   --neg-ctx N             the negative-control/baseline arm at num_ctx N (arm ollama_ctx_N_negative_control, the
                           Blade's arm name) instead of 131072; gates use the same arm;
   --neg-sessions N        the negative-control arm on the first N of SEEDS_STRONG (validation_plan_neg).
+Real-mode option (2026-10-13, x2_num_keep_guardrail_test, pre-registered in docs/FINDINGS.md), off by default, recorded
+in run_start as num_keep:
+  --num-keep system       per session, measure the system prompt's token length S (render and count with the model's
+                          tokenizer) and send options.num_keep = S on every request; Ollama runs with OLLAMA_DEBUG=1 and
+                          each call records the observed context-shift n_keep (harness/x2_num_keep.py).
 
 Thinking: "think": false is sent for every qwen3 model (MODELS); every call records thinking_present (non-empty
 message.thinking) and think_tag_in_content, and a turn with either fails ("thinking_present" in turn_failures,
@@ -720,11 +725,13 @@ def prompt_tokens_est(messages: list[dict], tools) -> int:
 
 # ── request construction and protocol bookkeeping (pure) ───────────────────────────────────────────
 
-def native_chat_body(model, messages, num_ctx, tools, think, extra=None) -> dict:
-    """The /api/chat body, field for field what OllamaClient.chat sends, plus `extra` top-level fields."""
+def native_chat_body(model, messages, num_ctx, tools, think, extra=None, options_extra=None) -> dict:
+    """The /api/chat body, field for field what OllamaClient.chat sends, plus `extra` top-level fields and
+    `options_extra` merged into options (--num-keep system: {"num_keep": S}; None = options exactly as before)."""
     options = {"num_predict": MAX_TOKENS_PER_CALL, "temperature": 0, "seed": 42}
     if num_ctx is not None:
         options["num_ctx"] = num_ctx
+    options.update(options_extra or {})
     body = {"model": model, "messages": messages, "stream": False, "options": options, "keep_alive": KEEP_ALIVE}
     if tools is not None:
         body["tools"] = tools
@@ -802,14 +809,18 @@ class OllamaRuntime:
         self.base = base
         self.client = k1.OllamaClient(timeout=CALL_TIMEOUT_S)
 
+    # --num-keep system (x2_num_keep.NumKeepRuntime): extra request options, e.g. {"num_keep": S}, merged into every
+    # /api/chat body this runtime sends (real calls and render-only requests). None: requests exactly as before.
+    options_extra = None
+
     def chat(self, model, messages, num_ctx, tools, think, extra=None):
-        """extra: top-level request fields added on call 2 by the forced modes (call2_extra). Without it, the
-        request goes through OllamaClient.chat exactly as in x2_r2_validation_v2 / x2_r2_real_v1."""
-        if not extra:
+        """extra: top-level request fields added on call 2 by the forced modes (call2_extra). Without it (and without
+        options_extra), the request goes through OllamaClient.chat exactly as in x2_r2_validation_v2 / x2_r2_real_v1."""
+        if not extra and not self.options_extra:
             return self.client.chat(model, "", num_ctx=num_ctx, max_tokens=MAX_TOKENS_PER_CALL,
                                     keep_alive=KEEP_ALIVE, messages=messages, tools=tools, think=think,
                                     timeout=CALL_TIMEOUT_S)
-        body = native_chat_body(model, messages, num_ctx, tools, think, extra)
+        body = native_chat_body(model, messages, num_ctx, tools, think, extra, options_extra=self.options_extra)
         return self._post_native(body)
 
     def _post(self, path, body):
@@ -837,7 +848,7 @@ class OllamaRuntime:
 
     def render_only(self, model, messages, num_ctx, tools, think, extra=None):
         """/api/chat with _debug_render_only: the prompt text the template renders (no generation). None on error."""
-        body = native_chat_body(model, messages, num_ctx, tools, think, extra)
+        body = native_chat_body(model, messages, num_ctx, tools, think, extra, options_extra=self.options_extra)
         body["_debug_render_only"] = True
         status, data, err, _ = self._post("/api/chat", body)
         return rendered_template_of(data), (None if data is not None else f"{status} {err}")
@@ -938,7 +949,7 @@ def _call_record(resp: dict, messages, tools, extra=None) -> dict:
     raw = resp.get("raw") or {}
     msg = raw.get("message") or {}
     extra = extra or {}
-    return {
+    rec = {
         # what this call sent, so "identical system prompt and tools on every call" is checkable from the data
         "system_prompt_sha256": system_prompt_sha256(messages), "tools_sha256": tools_sha256(tools),
         "tools_sent": tools is not None, "tool_choice_sent": extra.get("tool_choice"),
@@ -960,6 +971,9 @@ def _call_record(resp: dict, messages, tools, extra=None) -> dict:
         # token count of what was sent, and what Ollama / llama.cpp still did to it (from the debug log)
         "client_trim": resp.get("client_trim"),
     }
+    if resp.get("num_keep") is not None:   # --num-keep system only (x2_num_keep.NumKeepRuntime): S, sent, observed
+        rec["num_keep"] = resp["num_keep"]
+    return rec
 
 
 _THINK_TAG_RE = re.compile(r"</?think>", re.IGNORECASE)
@@ -1730,6 +1744,10 @@ def run_mitigation(runtime, server_log, plan, models, out_path: Path, emit, log,
     return rep
 
 
+NUM_KEEP_CHOICES = ("system",)
+NUM_KEEP_SERVE_LOG = r"C:\apu\ovn\ollama_serve_num_keep.log"
+
+
 def build_arg_parser():
     """main()'s argument parser, also used by harness/blade_r2.py to check the Blade mitigation job's argv."""
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -1785,6 +1803,11 @@ def build_arg_parser():
     ap.add_argument("--neg-sessions", type=int, default=None,
                     help="validation mode: sessions on the negative-control arm, the first N of SEEDS_STRONG "
                          "(20260901..20260905; default 3 = SEEDS), as harness/blade_r2.py --neg-sessions")
+    # 2026-10-13, x2_num_keep_guardrail_test (pre-registered in docs/FINDINGS.md): harness/x2_num_keep.py.
+    ap.add_argument("--num-keep", choices=NUM_KEEP_CHOICES, default=None,
+                    help="real mode: 'system' = measure the system prompt's token length S per session (render and "
+                         "count with the model's tokenizer) and send options.num_keep = S on every request; runs the "
+                         "Ollama server with OLLAMA_DEBUG=1 and records the observed context-shift n_keep per call")
     return ap
 
 
@@ -1824,6 +1847,10 @@ def main(argv=None, advance=True):
     c2 = args.call2_tools
     if (args.neg_ctx is not None or args.neg_sessions is not None) and args.mode != "validation":
         ap.error("--neg-ctx / --neg-sessions apply to --mode validation only")
+    if args.num_keep and args.mode != "real":
+        ap.error("--num-keep applies to --mode real only")
+    if args.num_keep and extra_env and extra_env.get("OLLAMA_DEBUG", "1") != "1":
+        ap.error("--num-keep runs the server with OLLAMA_DEBUG=1; --server-env must not override it")
     neg_arm = NEG_ARM
     if args.mode == "validation":
         try:
@@ -1903,7 +1930,7 @@ def main(argv=None, advance=True):
               "max_tokens_per_call": MAX_TOKENS_PER_CALL, "keep_alive": KEEP_ALIVE, "client_trim": client_trim,
               "hw_id": host_cfg.get("hw_id"), "interactive_session": interactive, "server_env_extra": extra_env,
               "tiers": tiers, "seeds": seeds, "allow_new_seeds": args.allow_new_seeds if seeds is not None else None,
-              "neg_ctx": args.neg_ctx, "neg_sessions": args.neg_sessions})
+              "neg_ctx": args.neg_ctx, "neg_sessions": args.neg_sessions, "num_keep": args.num_keep})
         present = {Path(p).name: Path(p).exists() for p in rule_files}
         finished = {name: any(r.get("record") == "run_end" for r in vrows) for name, vrows in
                     ((Path(p).name, read_rows(Path(p))) for p in rule_files)}
@@ -1924,6 +1951,14 @@ def main(argv=None, advance=True):
             import x2_r2_mechanism as mech
             server_env, server_log = dict(mech.OLLAMA_DEBUG_ENV), mech.MECH_SERVE_LOG
             hc.stop_ollama_server()   # start_ollama_server is a no-op while any Ollama runs; env must take effect
+        if args.num_keep:
+            import x2_num_keep as nk
+            import x2_r2_mechanism as mech
+            if nk.tray_app_running():   # operator rule: never touch the Ollama tray app; refuse instead of stopping it
+                raise RuntimeError("the Ollama tray app is running; --num-keep needs the job's own debug server and "
+                                   "does not stop the tray app")
+            server_env, server_log = dict(mech.OLLAMA_DEBUG_ENV), NUM_KEEP_SERVE_LOG
+            hc.stop_ollama_server()   # as for mechanism: the debug env must take effect
         if extra_env:   # --server-env: merged over the mode's own env; kept on runtime.server_env for recover()
             if server_env is None:
                 hc.stop_ollama_server()   # as above: the extra env must take effect
@@ -1960,6 +1995,15 @@ def main(argv=None, advance=True):
                                  rules_in_use)
             emit({"record": "run_end", "call2_mode": c2, "ts_utc": utc_iso()})
             log(json.dumps(rep["trim_summary"], default=str)[:4000])
+            return note
+        if args.num_keep:
+            rep = nk.run_num_keep(runtime, server_log, plan, models, out_path, emit, log, args.order, rules_in_use,
+                                  skip_done)
+            emit({"record": "run_end", "call2_mode": c2, "num_keep": args.num_keep, "ts_utc": utc_iso()})
+            log(json.dumps(rep["mechanism"]["verdict"], default=str)[:4000])
+            if refused_models:
+                note = "completed; refused models (validation gates): " + ", ".join(
+                    f"{m} ({refusal_category(rs, present, finished)})" for m, rs in sorted(refused_models.items()))
             return note
         if args.mode == "mechanism":
             head = mech.read_log(server_log, 0)
