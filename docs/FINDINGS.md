@@ -3156,3 +3156,43 @@ Statistics convention: as in the compared real run, no warm-up call; each sessio
 4096 with a render-only request before each call, scaled from the mechanism job's 4096 session in
 `results/x2_r2_mechanism.jsonl` (`scripts/t2s_week_queue.py` ESTIMATE_INPUTS `x2_mech_4096_min`), which also made
 fresh-reload prompt checks this job does not make. Calls tq.advance() on exit; sets no pause.
+
+## Context-window override methods on Ollama 0.34.4: design (2026-10-13, NOT YET RUN)
+
+**Status:** design, written before the job is deployed or queued. No data exists. Operator plan v2 of 2026-10-13, Part
+A5. Register row `window-override-methods` (PENDING until `results/x2_window_override_methods_v1.jsonl` is synced).
+
+**Question.** For llama3.1:8b on Ollama 0.34.4, which of three ways of setting the context window actually changes
+the loaded context, and which survives a restart of the server?
+1. per-request `options.num_ctx` (12288);
+2. a Modelfile `PARAMETER num_ctx` (10240) on a newly created derived tag `apu-wom-llama3.1:numctx10240` (`FROM
+   llama3.1:8b`; the job refuses if the tag already exists, never modifies an existing tag, and deletes only this tag
+   at the end, with a retry in a finally block);
+3. `OLLAMA_CONTEXT_LENGTH=6144` in the environment of the job's own server process.
+A plain request on a plain server comes first (the host's own default). The three values differ from each other and
+from the defaults seen so far, so a loaded value names its method.
+
+**Measured per step** (`harness/window_override_methods.py`, one short chat request on a freshly unloaded model): the
+loaded context from GET /api/ps `context_length` and from the server's own log (llama.cpp `n_ctx_slot`, with the other
+context lines recorded), HTTP status, and per server start the "server config" OLLAMA_CONTEXT_LENGTH value and
+Ollama's "inference compute" / "vram-based default context" lines. Restarts: method 1, a plain request after restarting
+the same server; method 2, the derived tag again after a restart, plus the base tag as a control; method 3, a restart
+with the same environment and a restart without it.
+
+**The server.** `ollama serve` started by the job as a hidden child process on its own port 11500, OLLAMA_DEBUG=1,
+OLLAMA_MODELS the host's store, every inherited OLLAMA_* variable removed (names recorded); stopped with taskkill on
+its own process tree only. The tray app and any other Ollama are not touched; the job refuses if port 11500 is taken or
+if a server on 11434 holds a model.
+
+**Hosts.** evo-x2: queue id `x2_window_override_methods` (calls tq.advance() on exit). Blade: staged as night 4 in
+`harness/blade_queue.py` (`blade_window_override_methods_v1`, pinned Ollama 0.34.4), runs only when the operator says
+"start Blade night 4". evo-t2s: staged as an optional entry (`queues/t2s_week_optional.json`, not in the week queue).
+
+**Read-only GPU memory record.** Each run also writes one `gpu_readonly` row (no setting read from or written to the
+BIOS or a vendor tool); which setting sizes GPU memory per machine is documented in docs/HARDWARE.md ("GPU memory size",
+register row `gpu-memory-readonly`).
+
+**Reported mechanically** by `window-override-methods`: per host and method, loaded context (/api/ps and log),
+applied (loaded == value), persists across the restart, base tag unchanged, tag deleted, log agrees with /api/ps,
+validity (baseline differs from every value, every request HTTP 200, tag deleted, run_end). One request per step: a
+configuration read, not a timing, so no warm-up and no repeats.

@@ -3645,6 +3645,123 @@ def compute_impact_total(repo):
                      f"{', '.join(st['excluded_not_measured']) or 'none'})", "n": 7}
 
 
+# ───────────────────────────────────────────────── operator plan v2 (2026-10-13), Parts A4 and A5
+# A4, num_keep guardrail flag test (pre-registered in docs/FINDINGS.md 2026-10-13, queue id x2_num_keep_guardrail_test):
+# llama3.1:8b, num_ctx 4096, 3 seeds x 40 turns, options.num_keep = the system prompt's token length. PENDING until
+# synced. The verdict is the pre-registered one, harness/x2_num_keep.verdict.
+NUM_KEEP_FILE = "results/x2_num_keep_guardrail_test.jsonl"
+# A5, context-window override methods on Ollama 0.34.4 (harness/window_override_methods.py). The evo-x2 file decides
+# PENDING; the Blade and evo-t2s files are added to the value when they exist (staged jobs, run later).
+WOM_FILE_X2 = "results/x2_window_override_methods_v1.jsonl"
+WOM_FILES_OTHER = {"blade": "results/blade_window_override_methods_v1.jsonl",
+                   "evo-t2s": "results/t2s_window_override_methods_v1.jsonl"}
+
+
+def _harness_module(name):
+    import importlib
+    import sys
+    sys.path.insert(0, str(REPO / "harness"))
+    return importlib.import_module(name)
+
+
+def compute_num_keep_guardrail_test(repo):
+    """x2_num_keep_guardrail_test (results/x2_num_keep_guardrail_test.jsonl, evo-x2): S per seed, num_keep observed in
+    the server log (context-shift n_keep, task n_keep, token-cut keep, --keep), shift / cut / message-drop counts, per
+    rule in use the rate and first failure per seed, canary misses, surfaced errors, and the pre-registered verdict."""
+    ag = _r2_agent_module()
+    nk = _harness_module("x2_num_keep")
+    rows = ag.read_rows(repo / NUM_KEEP_FILE)
+    if not rows:
+        raise FileNotFoundError(repo / NUM_KEEP_FILE)
+    v = nk.verdict(rows)
+
+    def ff(d):
+        return "/".join("-" if t is None else str(t) for t in d.values())
+    rules = "; ".join(f"{r.split('_')[0]} {_pct(d['rate'])} (n={d['n']}, first failure {ff(d['first_failure_per_seed'])})"
+                      for r, d in v["rule_rates"].items())
+    value = (f"llama3.1:8b num_ctx 4096 num_keep=system: S per seed {v['system_prompt_tokens_per_seed']}; observed "
+             f"context shifts {v['context_shift_events']} with n_keep {v['shift_n_keep_values']}, task n_keep "
+             f"{v['task_n_keep_values']}, token cuts {v['token_cuts']} with keep {v['token_cut_keep_values']}, --keep "
+             f"{v['keep_arg_values']}, Ollama message-drop calls {v['message_drop_calls']} of {v['n_calls']}; rules in "
+             f"use: {rules}; canary misses C {v['canary_sys_misses']}, H {v['canary_hist_misses']} of "
+             f"{v['canary_checks']} checks; error turns {v['error_turns']}; verdict: {v['verdict']}"
+             + (f" ({'; '.join(v['problems'])})" if v["problems"] and not v["verdict"].startswith("inconclusive (inc")
+                else ""))
+    return {"value": value, "n": f"{v['n_turns']} turns", "detail": v}
+
+
+def _wom_host_str(wom, rows):
+    s = wom.summarize(rows)
+
+    def c(d):
+        return "n/a" if not d else f"{d['ps']} (log {d['log']})"
+    r, m, e = s["request"], s["modelfile"], s["env"]
+    return (f"baseline {c(s['baseline'])}; request num_ctx {r['value']}: loaded {c(r['apply'])}, after restart "
+            f"(plain request) {c(r['after_restart'])}, applied {r['applied']}, persists {r['persists_across_restart']}; "
+            f"Modelfile PARAMETER num_ctx {m['value']} on {m['tag']}: loaded {c(m['apply'])}, after restart "
+            f"{c(m['after_restart'])}, applied {m['applied']}, persists {m['persists_across_restart']}, base tag after "
+            f"restart {c(m['base_control_after_restart'])}, tag deleted {m['tag_deleted']}; OLLAMA_CONTEXT_LENGTH "
+            f"{e['value']}: loaded {c(e['apply'])}, restart with env {c(e['after_restart_same_env'])}, restart without "
+            f"env {c(e['after_restart_without_env'])}, applied {e['applied']}; GPU per Ollama "
+            f"{[(g.get('description'), g.get('total'), g.get('available')) for g in s['inference_compute']]}; "
+            f"valid {s['valid']}" + (f" ({'; '.join(s['problems'])})" if s["problems"] else ""))
+
+
+def compute_window_override_methods(repo):
+    """Context-window override methods on Ollama 0.34.4, llama3.1:8b, per host: per-request num_ctx, Modelfile
+    PARAMETER num_ctx on a derived tag, OLLAMA_CONTEXT_LENGTH on the job's own server; loaded context from /api/ps and
+    the server log, applied, and persistence across a restart of the job's own server (window_override_methods.summarize).
+    evo-x2 always; the Blade and evo-t2s when their files exist."""
+    ag = _r2_agent_module()
+    wom = _harness_module("window_override_methods")
+    rows = ag.read_rows(repo / WOM_FILE_X2)
+    if not rows:
+        raise FileNotFoundError(repo / WOM_FILE_X2)
+    parts = [f"evo-x2: {_wom_host_str(wom, rows)}"]
+    for host, f in WOM_FILES_OTHER.items():
+        other = ag.read_rows(repo / f)
+        parts.append(f"{host}: {_wom_host_str(wom, other)}" if other else f"{host}: not run yet")
+    return {"value": " / ".join(parts), "n": f"{1 + sum(1 for f in WOM_FILES_OTHER.values() if (repo / f).exists())} hosts"}
+
+
+GPU_MEM_FILES = ["results/x2_70b_edge_reps.jsonl", "results/t2s_night2_20261001T151340Z.jsonl",
+                 "results/t2s_amech_20260926T181456Z.jsonl", "results/t2s_k1_igpu_enable_sweep.jsonl",
+                 "results/blade_k1_v2.jsonl"]
+
+
+def compute_gpu_memory_readonly(repo):
+    """GPU memory as each machine already reported it in synced result files (read-only observations, nothing set):
+    evo-x2 Vulkan heaps (x2_70b_edge_reps pre_launch.vulkan_heaps, latest row; mx2_baseline heaps in the 2026-10-01
+    night2 file), evo-t2s Vulkan heaps (t2s_amech vulkan_limits) and Ollama's inference-compute and vram-based default
+    lines (t2s_k1_igpu_enable_sweep), Blade Ollama inference-compute line, nvidia-smi total and vram default ctx
+    (blade_k1_v2 blade_k1_device)."""
+    wom = _harness_module("window_override_methods")
+
+    def heaps_str(heaps):
+        return ", ".join(f"heap {h['index']} {h['size_mib']:.0f} MiB (budget {h['budget_mib']:.0f}, "
+                         f"{'device-local' if 'DEVICE_LOCAL' in (h.get('flags') or '') else 'host'})" for h in heaps)
+    rows = _read_jsonl(repo / GPU_MEM_FILES[0])
+    x2 = [r["pre_launch"]["vulkan_heaps"]["heaps"] for r in rows
+          if (r.get("pre_launch") or {}).get("vulkan_heaps", {}).get("heaps")]
+    mx2 = next(r["heaps"] for r in _read_jsonl(repo / GPU_MEM_FILES[1]) if r.get("record") == "mx2_baseline"
+               and r.get("heaps"))
+    t2s = next(r["heaps"] for r in _read_jsonl(repo / GPU_MEM_FILES[2]) if r.get("record") == "vulkan_limits")
+    t2s_dev = next(r["gpu_lines"] for r in _read_jsonl(repo / GPU_MEM_FILES[3])
+                   if r.get("record") == "igpu_sweep_device_detect")
+    t2s_log = wom.parse_server_log("\n".join(t2s_dev))
+    blade = next(r for r in _read_jsonl(repo / GPU_MEM_FILES[4]) if r.get("record") == "blade_k1_device")
+    b_log = wom.parse_server_log("\n".join(blade.get("inference_compute") or []))
+
+    def gpus(p):
+        return "; ".join(f"{g['description']} {g['type']} total {g['total']} available {g['available']}"
+                         for g in p["inference_compute"])
+    value = (f"evo-x2 Vulkan: {heaps_str(x2[-1])} ({len(x2)} rows, all equal {all(h == x2[-1] for h in x2)}); "
+             f"evo-x2 mx2_baseline 2026-10-01: {heaps_str(mx2)} / evo-t2s Vulkan: {heaps_str(t2s)}; Ollama: "
+             f"{gpus(t2s_log)}, vram-based default {t2s_log['vram_based_default']} / Blade Ollama: {gpus(b_log)}; "
+             f"nvidia-smi total {blade.get('vram_total_mib')} MiB; vram default ctx {blade.get('vram_default_ctx')}")
+    return {"value": value, "n": f"{len(x2) + 4} records"}
+
+
 NUMBER_ENTRIES = [
     {"claim_id": "PX2-TTFT-gap", "description": "PX2 B4-vs-S4 TTFT gap range across 5 models",
      "compute": compute_px2_ttft_gap, "data_files": ["results/t2s_night2_20260930T135145Z.jsonl"],
@@ -4179,6 +4296,22 @@ NUMBER_ENTRIES = [
                     "scenario total",
      "compute": compute_impact_total, "data_files": sorted({f for v in _IMPACT_FILES.values() for f in v}),
      "script_function": "analysis/impact_model.py::total"},
+
+
+    {"claim_id": "num-keep-guardrail-test", "description": "A4 flag test on evo-x2 (llama3.1:8b, num_ctx 4096, 3 "
+                    "seeds x 40 turns, options.num_keep = system prompt tokens): observed n_keep, rule rates, "
+                    "pre-registered verdict (one-line fix or not)",
+     "compute": compute_num_keep_guardrail_test, "data_files": [NUM_KEEP_FILE], "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_num_keep_guardrail_test"},
+    {"claim_id": "window-override-methods", "description": "A5 context-window override methods on Ollama 0.34.4 "
+                    "(llama3.1:8b): request num_ctx, Modelfile num_ctx on a derived tag, OLLAMA_CONTEXT_LENGTH; loaded "
+                    "context (/api/ps, log) and persistence across a restart, per host",
+     "compute": compute_window_override_methods, "data_files": [WOM_FILE_X2], "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_window_override_methods"},
+    {"claim_id": "gpu-memory-readonly", "description": "GPU memory per machine as already recorded read-only in result "
+                    "files (Vulkan heaps, Ollama inference-compute lines, nvidia-smi)",
+     "compute": compute_gpu_memory_readonly, "data_files": GPU_MEM_FILES,
+     "script_function": "analysis/numbers_register.py::compute_gpu_memory_readonly"},
 ]
 
 
