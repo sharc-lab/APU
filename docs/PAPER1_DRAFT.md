@@ -165,6 +165,51 @@ gaps with the job that fills each.
 - **Figure:** F1 (platform diagram) only.
 - **Gaps:** none beyond those of the sections it previews.
 
+#### 4.1a Motivation draft: what each failure mode costs per session (draft, 2026-10-14)
+
+Draft text for the introduction's motivation paragraph, built from the impact model's cost table (docs/IMPACT.md,
+plan item A3). Only the measured per-session or per-call inputs of each cost row are used; the per-team dollar
+figures are left out because they multiply these inputs by an assumed team size and workload (list below). Values
+are pasted verbatim from the register; the internal host label in them (evo-x2) is AMD-iGPU.
+
+> Each failure mode in this paper has a measurable per-session cost on AMD-iGPU. Re-sending a 40-turn agent
+> history to a cloud model without prefix caching costs "overspend USD 3.3944/session (uncached 3.7302, cached
+> 0.3358, n=5)" `[impact-P3]`. Running at the runtime's oversized default window costs a "median per-turn delta
+> 0.81 s vs num_ctx_32768 (n=110 paired turns)" on turns that fit both windows `[impact-P2]`. A co-running job
+> multiplies time to first token and decode rate by "TTFT x1.111, decode x0.928" `[impact-P5]`. Single-shot calls at
+> the default runtime time out at "timeouts 0.029 x 900 s" `[impact-P6]`. Shrinking the window removes the time cost
+> but loses history silently: "num_ctx_4096 10/15 silent, 10 after window exceeded" `[R2-real-v1b-gated-kill]`,
+> against "rate 0/5 sessions" at the default `[impact-P1]`. No single setting removes all of these costs at once,
+> which is why the rest of the paper characterizes where each one starts.
+
+Cost table used (A3 rows, measured inputs only, AMD-iGPU, llama3.1:8b, runtime default unless stated):
+
+| row | failure mode | measured input (verbatim) | register row |
+|---|---|---|---|
+| P1 | silent wrong results from context loss | "rate 0/5 sessions" at the default; "num_ctx_4096 10/15 silent, 10 after window exceeded" (three models) | impact-P1, R2-real-v1b-gated-kill |
+| P2 | oversized-window time | "median per-turn delta 0.81 s vs num_ctx_32768 (n=110 paired turns)" | impact-P2 |
+| P3 | cloud overspend from re-sent history | "overspend USD 3.3944/session (uncached 3.7302, cached 0.3358, n=5)" | impact-P3 |
+| P4 | hardware mismatch | "decode 45.55 tok/s vs best 46.40" | impact-P4 |
+| P5 | co-runner slowdown | "TTFT x1.111, decode x0.928 (PX2-full-ratio-table)" | impact-P5 |
+| P6 | failed starts and timeouts | "timeouts 0.029 x 900 s, allocation failures 0.000 (n=340)" | impact-P6 |
+| P7 | guardrail removal | "rate 0/5 sessions" at the default | impact-P7 |
+
+Business numbers that stay out of the paper because they rest on assumptions:
+
+- every USD/day and USD/month figure in `[impact-P1]` to `[impact-P7]` and `[impact-total]`, including the one-flag
+  comparison (assumed team size, sessions per developer per day, turns per session, single-shot volume, workdays,
+  co-runner share and cloud share);
+- every figure in `[business-small-team]`, `[business-mid-team]`, `[business-mid-team-qwen3-14b]` and
+  `[business-sensitivity]` (assumed profiles; router savings rest on the unmeasured residual-failure credit, and the
+  small-team profile also on a transfer of session outcomes from AMD-iGPU to NVIDIA-dGPU);
+- the hour value and its range, `[impact-hour-value]` and `[business-hour-range]` (a wage, not a measurement of
+  this system);
+- the router's share of steps kept local and its escalation cost per session (a replay of recorded sessions through
+  our router, with an upper-bound price; plan item B5, the end-to-end policy comparison, has not run);
+- the all-cloud vs router cloud-spend ranges (they depend on whether the provider's prefix caching applies);
+- the single-shot saving per 1k steps in `[pareto-sample-recommendation-v2]` (its cloud reference is a STUB point
+  with unmeasured quality).
+
 ### 4.2 Background and related work (0.75 page)
 
 - **Claim:** prior work characterizes either serving efficiency at fixed memory, or single-vendor out-of-memory
