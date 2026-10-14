@@ -3199,3 +3199,18 @@ after the first over-window turn at all, silent or not. As first written, a mode
 with an error surfaced first (so R4096 = 0) would have read as "resists"; such a model now reads as "mixed" at 4096.
 No R2 run so far has surfaced an error before a failure (`R2-real-v1-first-events`, `R2-real-v1b-first-events`), so the
 change is expected to have no effect; it closes a wrong reading. Everything else is unchanged.
+
+**Deployed and queued (2026-10-14, after the pre-registration commit and the code commit).** `C:\apu\ovn\x2_r2_scale.py`
+is a new file (nothing replaced); it imports `C:\apu\ovn\x2_r2_agent.py`, blob b48cbc6, the same blob as this branch
+and as main. Every other module it uses was compared by git blob hash with this branch and is identical on evo-x2. The
+import-only check on evo-x2 (`--import-check`: no server, no model call, no queue access) loaded that agent, printed
+the think values (qwen3:32b false, qwen3-30b-a3b-2507 false, llama3.3:70b omitted), the probe arms, the validation plan
+and the three queue commands. The reference files the probe reads (`x2_r2_real_v1.jsonl`, `x2_r2_real_v1b.jsonl`,
+`x2_r2_validation_v2.jsonl`) are present in `C:\apu\ovn\results`; no output file of these jobs existed. Queue entries
+`x2_scale_timing_probe`, `x2_r2_scale_validation`, `x2_r2_scale_real` (commands `python x2_r2_scale.py --mode
+probe|validation|real --out C:\apu\ovn\results\<file>`, no queue gate: the real job's own per-model preflight is the
+gate) were appended at positions 55, 56, 57, after the pending `x2_evalset_replay_val_v1` (no entry named in the
+operator's queue order list was pending), in one read-modify-write under `t2s_queue.set_pause` whose reason names its
+release; the same script cleared the pause in its finally block, and the pause flag was confirmed absent afterwards.
+llama3.3:70b is not in the store, so all three jobs record it as missing unless the proposed library pull is approved
+and queued ahead of the probe. Hours: register row `x2-scale-probe-hours` (PENDING until the probe file is synced).
