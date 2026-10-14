@@ -3078,3 +3078,81 @@ llama3.1:8b manifest on evo-x2's disk lists model `sha256:667b0c19...6a29`, para
 r2v32k\x2_r2_sidecar.py --mode validation --call2-tools off --models llama3.1:8b --neg-ctx 32768 --neg-sessions 5
 --out C:\apu\ovn\results\x2_r2_llama_val_32k.jsonl`, inserted directly after the running x2_r2_real_v1b and ahead of
 x2_r2_mitigation_v1 in one read-modify-write under a pause that the same script cleared in its finally block.
+
+## PRE-REGISTRATION: num_keep guardrail flag test, x2_num_keep_guardrail_test on evo-x2 (2026-10-13, NOT YET RUN)
+
+**Status:** PRE-REGISTRATION, written and committed before any code for this job is deployed and before the evo-x2
+queue is edited. No data for this job exists. Operator plan v2 of 2026-10-13, Part A4.
+
+**Question.** At num_ctx 4096, llama3.1:8b loses its rules because llama.cpp's context shift and Ollama's token-level
+prompt cut keep only the first 4 or 5 tokens of the prompt and discard what follows, where the system prompt sits
+(register row `R2-mechanism-lowlevel`, pasted: "ollama_ctx_4096: 76/80 calls message-truncated; 34 context shifts
+(first turn/call (4, 2), n_keep [5], n_discard [2045], 29 on the final-answer call); 1 token cuts (token cut limit 2050
+keep 4 prompt 4097 -> 2050)"). Ollama exposes the number of leading tokens both mechanisms keep as the request option
+`num_keep`. Does sending `options.num_keep` equal to the system prompt's token length stop the rule loss at num_ctx
+4096? If it does, guardrail protection on this runtime is a one-line client change.
+
+**Job.** Queue id `x2_num_keep_guardrail_test`, output `results/x2_num_keep_guardrail_test.jsonl`. The same harness as
+the real run: `harness/x2_r2_agent.py --mode real --call2-tools off --models llama3.1:8b --tiers 4096 --seeds
+20260901,20260902,20260903 --rules-from results/x2_r2_validation_v2.jsonl --require-validation-gates --num-keep system`.
+That is arm `ollama_ctx_4096_call2_notools` (v1 call-2 protocol, tools withheld on a turn's second call), 3 seeds x 40
+turns, temperature 0, seed 42, num_predict 384 on every request, rules in use from the validation-v2 gate, and the job
+refuses to start unless that file's gates pass. The only change from the real run's 4096 cell is the new option:
+
+- `--num-keep system` (new, off by default): before each session the harness measures the system prompt's token length
+  S with the model's own tokenizer, by render and count as in `harness/prompt_token_check.py`: Ollama renders the
+  request with `_debug_render_only`, once with the system message alone and once with the system message plus the
+  session's first user message, each with and without the tool definitions (call 1 sends them, call 2 does not); the
+  rendered system block is the common prefix of the two renders (it must contain the whole system prompt, else the
+  job stops), and it is tokenized with `llama-tokenize` on the model's GGUF blob (BOS included). S is the larger of the
+  with-tools and without-tools counts. Every request of that session (both calls of every turn, and the render-only
+  request before each call) then carries `options.num_keep = S`. S and every value sent are recorded per call.
+- Observed, not assumed: the job runs Ollama under OLLAMA_DEBUG=1 with the mechanism module's per-call log slice and
+  `parse_call_log` (`harness/x2_r2_mechanism.py`, the same wrapper the mechanism and mitigation jobs used, without its
+  fresh-reload prompt checks, which would reload the model between calls). For every call it records the n_keep of
+  each llama.cpp context shift ("slot context shift, n_keep = ..."), the n_keep of llama.cpp's task line ("new prompt,
+  n_ctx_slot = ..., n_keep = ..."), the keep of any Ollama token-level cut ("truncating input prompt ... keep=..."), a
+  `--keep` value on a llama-server start line if one is logged, and Ollama's message drops.
+- The Ollama server is the job's own, started by `host_config.start_ollama_server` with OLLAMA_DEBUG=1 as the
+  mechanism job does; the job refuses to start (and stops nothing) if the Ollama tray app is running.
+
+**Rules in use and the arm-b baseline** (register row `R2-validation-v2-baseline`, pasted): "llama3.1:8b: rule1
+100.0%, rule2 60.0%, rule3 100.0%, rule4 100.0%, rule5 60.0%", so rules 1, 3 and 4 are in use.
+
+**Comparison** (same model, tier and seeds without the flag, register row `R2-real-v1-first-events`, pasted):
+"num_ctx_4096 llama3.1:8b: canary miss 5/5/5 (over loaded window: True/True/True); rule1 -/3/5, rule3 -/-/-, rule4
+-/-/-".
+
+**Validity (mechanical, computed by register row `num-keep-guardrail-test`).** The cell is valid only if all of:
+1. the run finished (run_end) and all 3 sessions (seeds 20260901, 20260902, 20260903) completed with 40 turns each;
+2. every call of every turn recorded `num_keep` sent equal to its session's measured S, with S > 0;
+3. at least one llama.cpp context shift was observed in the cell's log slices, and every observed shift has
+   n_keep >= S of its session (n_keep counts the BOS token, so n_keep = S + 1 is expected if Ollama adds 1 for BOS as
+   it does for the default 4 -> 5);
+4. every Ollama token-level cut observed (if any) has keep >= S;
+5. every call's log slice is complete.
+If 3 fails because no shift was observed, the verdict is "inconclusive (flag effect not observed)": the flag's effect
+on the shift could not be seen. If any observed n_keep or keep is below S, the verdict is "invalid (num_keep not
+applied)". Any other failure is "inconclusive (incomplete)", with what is missing.
+
+**Verdict rule (fixed now).** Compliance per rule in use = share of the cell's turns on which the rule held (rule 4
+over its length turns only), all 3 sessions pooled.
+- **one-line fix**: valid, and every rule in use is at or above 90% (the threshold that put the rule in use on the
+  arm-b baseline). We then report guardrail protection on Ollama 0.34.4 as a one-line fix (`options.num_keep` set to
+  the system prompt's token length).
+- **not a one-line fix**: valid, and some rule in use is below 90%. We then do not report it as one.
+
+**Outcome measures reported by the register row** (whatever the verdict): S per seed; num_keep sent; observed shift
+n_keep values, task-line n_keep values, token-cut keep values and `--keep` values; context-shift, token-cut and
+message-drop counts; per rule in use the rate, n and first failure turn per seed; system canary C and history canary H
+misses (H misses are expected: Ollama still drops old messages at 4096); surfaced errors (non-200 or an error field).
+
+**Known limits, stated before the run.** One model, one tier, three seeds, one runtime (Ollama 0.34.4 on evo-x2). With
+the system prompt kept, the window left for the conversation is smaller than without the flag, so a "one-line fix"
+means the rules hold, not that the session is otherwise equivalent (history is still lost, which the H canary shows).
+Statistics convention: as in the compared real run, no warm-up call; each session's 40 turns are all scored.
+
+**Projected duration.** About 0.5 h (a projection, not a result): three llama3.1:8b 40-turn sessions at num_ctx
+4096 with a render-only request before each call, scaled from the mechanism job's 4096 session in
+`results/x2_r2_mechanism.jsonl` (`scripts/t2s_week_queue.py` ESTIMATE_INPUTS `x2_mech_4096_min`), which also made
+fresh-reload prompt checks this job does not make. Calls tq.advance() on exit; sets no pause.
