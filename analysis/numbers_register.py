@@ -3929,6 +3929,70 @@ def compute_gpu_memory_readonly(repo):
     return {"value": value, "n": f"{len(x2) + 4} records"}
 
 
+# ───────────────────────────────────────────────── business metrics (plan v2 C1, 2026-10-14)
+# analysis/business_metrics.py: router vs all-cloud / naive local default / today's mix per customer profile
+# (results/business_profiles_20261014.json; every profile field an assumption). docs/BUSINESS_METRICS.md is these rows.
+BUSINESS_PROFILES = "results/business_profiles_20261014.json"
+_BUSINESS_FILES = sorted(set(_IMPACT_FILES["P4"] + _IMPACT_FILES["P5"] + _IMPACT_FILES["P6"] + [
+    BUSINESS_PROFILES, "results/x2_r2_mitigation_v1.jsonl", "results/x2_r2_real_v1.jsonl"] + _PARETO_DATA))
+
+
+def _business():
+    import sys as _sys
+    _sys.path.insert(0, str(REPO / "analysis"))
+    import business_metrics as bm
+    return bm
+
+
+_BUSINESS_CACHE = {}
+
+
+def _business_all(repo):
+    key = str(repo)
+    if key not in _BUSINESS_CACHE:
+        _BUSINESS_CACHE[key] = _business().compute_all(repo)
+    return _BUSINESS_CACHE[key]
+
+
+def compute_business_hour_range(repo):
+    """Hour-value range for the business sensitivity: BLS annual p10/p90 (software developers) converted at the hours
+    per year implied by the page's own median pair; the median is impact-hour-value."""
+    bm = _business()
+    doc = bm.load_profiles(repo)
+    h = bm.hour_values(doc, repo)
+    r = doc["hour_value"]["range"]
+    return {"value": f"p10 USD {h['p10']:.2f}/h, median USD {h['median']:.2f}/h, p90 USD {h['p90']:.2f}/h (annual p10 "
+                     f"USD {r['p10_annual_usd']:,}, p90 USD {r['p90_annual_usd']:,}, {r['reference_period']}, divided by "
+                     f"{h['hours_per_year']:.1f} h/year = USD {r['group_median_annual_usd']:,} / "
+                     f"{r['group_median_hourly_usd']}; {r['source_url']}; fetched {r['fetched_utc']})", "n": 3}
+
+
+def _business_profile(repo, name):
+    bm = _business()
+    res = _business_all(repo)
+    return {"value": bm.profile_value(name, res["profiles"][name]),
+            "n": f"{res['profiles'][name]['router']['escalation']['n']} replayed sessions per window"}
+
+
+def compute_business_small_team(repo):
+    return _business_profile(repo, "small_team")
+
+
+def compute_business_mid_team(repo):
+    return _business_profile(repo, "mid_team")
+
+
+def compute_business_mid_team_qwen3_14b(repo):
+    return _business_profile(repo, "mid_team_qwen3_14b")
+
+
+def compute_business_sensitivity(repo):
+    bm = _business()
+    res = _business_all(repo)
+    return {"value": f"base {res['doc']['sensitivity']['base_profile']}, USD/month (projection): "
+                     + bm.sensitivity_value(res["sensitivity"]), "n": len(res["sensitivity"])}
+
+
 NUMBER_ENTRIES = [
     {"claim_id": "PX2-TTFT-gap", "description": "PX2 B4-vs-S4 TTFT gap range across 5 models",
      "compute": compute_px2_ttft_gap, "data_files": ["results/t2s_night2_20260930T135145Z.jsonl"],
@@ -4509,6 +4573,24 @@ NUMBER_ENTRIES = [
                     "files (Vulkan heaps, Ollama inference-compute lines, nvidia-smi)",
      "compute": compute_gpu_memory_readonly, "data_files": GPU_MEM_FILES,
      "script_function": "analysis/numbers_register.py::compute_gpu_memory_readonly"},
+    {"claim_id": "business-hour-range", "description": "Business sensitivity: hour-value p10/median/p90 (BLS annual "
+     "percentiles converted at the page's own implied hours per year)",
+     "compute": compute_business_hour_range, "data_files": [BUSINESS_PROFILES, IMPACT_PROFILE],
+     "script_function": "analysis/business_metrics.py::hour_values"},
+    {"claim_id": "business-small-team", "description": "Business metrics, small-team profile: router vs all-cloud, "
+     "naive default and today's mix (USD/month, projection), steps kept local, hardware recommendation",
+     "compute": compute_business_small_team, "data_files": _BUSINESS_FILES,
+     "script_function": "analysis/business_metrics.py::profile_metrics"},
+    {"claim_id": "business-mid-team", "description": "Business metrics, mid-size team on evo-x2 with llama3.1:8b",
+     "compute": compute_business_mid_team, "data_files": _BUSINESS_FILES,
+     "script_function": "analysis/business_metrics.py::profile_metrics"},
+    {"claim_id": "business-mid-team-qwen3-14b", "description": "Business metrics, mid-size team on evo-x2 with "
+     "qwen3:14b", "compute": compute_business_mid_team_qwen3_14b, "data_files": _BUSINESS_FILES,
+     "script_function": "analysis/business_metrics.py::profile_metrics"},
+    {"claim_id": "business-sensitivity", "description": "Business metrics sensitivity over team size, sessions per "
+     "developer per day, cloud share and hour value",
+     "compute": compute_business_sensitivity, "data_files": _BUSINESS_FILES,
+     "script_function": "analysis/business_metrics.py::sensitivity"},
 ]
 
 
