@@ -3078,3 +3078,139 @@ llama3.1:8b manifest on evo-x2's disk lists model `sha256:667b0c19...6a29`, para
 r2v32k\x2_r2_sidecar.py --mode validation --call2-tools off --models llama3.1:8b --neg-ctx 32768 --neg-sessions 5
 --out C:\apu\ovn\results\x2_r2_llama_val_32k.jsonl`, inserted directly after the running x2_r2_real_v1b and ahead of
 x2_r2_mitigation_v1 in one read-modify-write under a pause that the same script cleared in its finally block.
+
+## PRE-REGISTRATION: H-scale, R2 at 30B to 70B on evo-x2 (2026-10-14, NOT YET RUN)
+
+**Status:** PRE-REGISTRATION, written and committed before any code for these jobs is written or deployed and before
+evo-x2's queue is edited. No data for these jobs exists. Operator plan v2 of 2026-10-13, Part B1.
+
+**Hypothesis H-scale.** The two R2 findings measured on 8B and 14B models hold at 30B to 70B: (1) at num_ctx 4096 the
+rules in use are lost silently (no error surfaced) once the prompt exceeds the loaded window; (2) at num_ctx 32768 the
+conversation history is lost (canary misses after the window is exceeded) while every rule in use holds. The 8B/14B
+evidence is register row `R2-real-v1-gated-kill`, pasted: "num_ctx_32768 1/6 silent, 0 after window exceeded;
+num_ctx_4096 6/6 silent, 6 after window exceeded; ollama_default 1/6 silent, 0 after window exceeded (llama3.1:8b
+excludes nothing; qwen3:14b excludes tool_args, recall)". **Alternative:** larger models resist rule loss at 4096.
+
+**Models and digests** (read from the manifests on evo-x2's disk, `%USERPROFILE%\.ollama\models\manifests`, no server
+call; GGUF sha256 from `C:\apu\models\sha256.txt`):
+- `qwen3:32b` (Ollama library tag): model layer
+  `sha256:3291abe70f16ee9682de7bfae08db5373ea9d6497e614aaad63340ad421d6312` (20201240160 bytes), template
+  `sha256:ae370d884f108d16e7cc8fd5259ebc5773a0afa6e078b11f4ed7e39a27e0dfc4` (the library Qwen3 template, the same
+  template blob as qwen3:8b and qwen3:14b), params `sha256:cff3f395ef3756ab63e58b0ad1b32bb6f802905cae1472e6a12034e4246fbbdb`,
+  config `sha256:afdf5c7585b363536f93782f1e44f1b81db4237847cd8b4bd2c5c33b0d76c94b`. "think": false is sent.
+- `qwen3-30b-a3b-2507` (local tag): the manifest has ONE layer, model
+  `sha256:6c997b8af17debdfb01d890214400ccbab00db6acc0ba8da5de1cc906c4774d0` ("from":
+  `Qwen3-30B-A3B-Instruct-2507-Q4_K_M.gguf`, whose sha256 in `C:\apu\models\sha256.txt` is the same digest), config
+  `sha256:e4c3b1e9657038ee8d43328a4f824b0cb4a5004dd8938d788710e45d17c53d35`. No template layer and no params layer: a
+  bare GGUF create, as register row `x2-chat-template-source` records ("qwen3-30b-a3b/ollama_default (tag
+  qwen3-30b-a3b-2507) bare_gguf_ollama_create sha256 40c21f34cf67"). That install path broke native tool calling for
+  the 4B (section "Install path changes agent behaviour" above, register `R2-install-path-4b-bare`). It is measured
+  as installed; if its validation fails the task-tool gate or any other gate, the real job refuses it and the failure
+  is reported. It is not re-created with another template inside this plan. "think": false is sent. It is a
+  mixture-of-experts model (30B total, about 3B active per token); a result for it is a result for that architecture,
+  not for a 30B dense model.
+- `llama3.3:70b`: **no Ollama tag for Llama 3.3 70B exists on evo-x2's disk.** Only
+  `C:\apu\models\Llama-3.3-70B-Instruct-Q4_K_M.gguf` exists (sha256
+  `32df3baccb556f9840059b2528b2dee4d3d516b24afdfb9d0c56ff5f63e3a664`, 42520398816 bytes). Creating a tag from that
+  GGUF would be a bare GGUF create, the install path that broke tool calling for the 4B. Proposal (not done in this
+  plan; it needs the operator's approval): pull the library tag `llama3.3:70b` (library template and params) with a
+  queued self-checking pull job in the `harness/x2_model_pulls.py` pattern, queued ahead of the probe. Until that tag is
+  present, every job below records llama3.3:70b as "missing" (a row with the reason, no model call) and runs the other
+  models; the jobs need no edit when the tag appears. The "think" field is omitted for it (no thinking mode), as for
+  llama3.1:8b.
+
+**Jobs (evo-x2 queue, all call-2 mode "off", the protocol of every Ollama R2 run since 2026-10-08; sampling, scoring
+and canaries are `harness/x2_r2_agent.py` unchanged).** One new module `harness/x2_r2_scale.py` with three modes; it
+imports `x2_r2_agent` and the other modules from `C:\apu\ovn` (their deployed git blobs equal this branch's at the
+time of writing, compared by hash) and records the git blob of the `x2_r2_agent.py` it imported in run_start. Each
+job calls `t2s_queue.advance()` exactly once on exit and sets no pause.
+1. `x2_scale_timing_probe` -> `results/x2_scale_timing_probe.jsonl`. For each model present in the store and each tier
+   (num_ctx 4096, num_ctx 32768, Ollama default), one 2-turn session (seed 20260901, the R2 session plan, the R2 turn
+   code), recording every call's prompt-eval, eval and load durations, the loaded context and thinking. Then a
+   mechanical projection per model and tier of the minutes for one 40-turn session: the completed 40-turn sessions of a
+   reference model at the same tier in `x2_r2_real_v1.jsonl` and `x2_r2_real_v1b.jsonl` (qwen3:14b for the Qwen models,
+   llama3.1:8b for Llama), with every reference call's prompt-eval duration scaled by (reference prompt-eval rate /
+   probe prompt-eval rate) and its eval duration by (reference eval rate / probe eval rate), the rates taken as total
+   tokens over total seconds on turns 1 and 2 of the probe and of the reference sessions; everything else in the
+   reference turn wall time is kept, and the reference model load is replaced by the probe's turn-1 load. The mean over
+   the reference seeds is the projection. The same method on the reference models' `x2_r2_validation_v2.jsonl`
+   sessions (default-tier probe rates) projects the validation job.
+2. `x2_r2_scale_validation` -> `results/x2_r2_scale_validation.jsonl`. `x2_r2_agent.validation_plan("off")` exactly as
+   v2/v2b: negative control and baseline at num_ctx 131072 (seeds 20260901-03, 10 turns), positive control at num_ctx
+   8192 (seed 20260901, 15 turns), the diagnostic arm (tools on call 2, 131072, 3 x 10). Gates
+   (`x2_r2_agent.evaluate_gates` / `validation_preflight`): every rule in use at or above 90% on the baseline and at
+   least one rule in use, negative control 0 canary misses, positive control fires (a truncation turn) on its session,
+   task tool called correctly on at least 90% of baseline turns, thinking-present calls 0 (thinking off verified per
+   call: empty message.thinking and no think tag in content).
+3. `x2_r2_scale_real` -> `results/x2_r2_scale_real.jsonl`. Refuses each model alone unless
+   `x2_r2_agent.validation_preflight_per_model` passes it on `x2_r2_scale_validation.jsonl` (a refused model gets a
+   `refused_model` row with the category missing / errored / failed; the job refuses as a whole only if no model
+   passes). Tiers num_ctx 4096 and num_ctx 32768 for every passing model, seeds 20260901, 20260902, 20260903, 40 turns;
+   Ollama default (3 seeds, 40 turns) for qwen3:32b and qwen3-30b-a3b-2507; Ollama default for llama3.3:70b only if the
+   probe file's projection for its 3 default sessions is at most 24.0 h (`DEFAULT_TIER_CAP_H`), decided by the job from
+   the probe file at start and recorded in run_start; no probe projection for it means skipped. Run order: every 4096
+   and 32768 session first (seed-major across models and those two tiers, so an interrupted run leaves the deciding
+   cells as even as possible), then the default sessions. Rules in use per model are the validation's gate-passing
+   rules.
+
+Statistics convention: as in every R2 run, no warm-up call; every turn of every session is scored (the R2 design
+scores a session from its first turn).
+
+**Deciding numbers, fixed now** (register row `H-scale-verdict`, `analysis/numbers_register.py`, from
+`x2_r2_scale_real.jsonl` and `x2_r2_scale_validation.jsonl`). Per model that passed validation:
+- **R4096** = the number of its 3 sessions at num_ctx 4096 with a silent rule-in-use failure at or after the first turn
+  whose final-call prompt exceeded the loaded window. Silent: no HTTP error or error field surfaced before that turn
+  (as `R2-real-v1-gated-kill`). Rule-in-use failure: a rule in the model's validation rules in use is False on a turn
+  (the gated variant of `R2-real-v1-gated-kill` restricted to rules; the full gated count, rules in use plus tool
+  validity, tool arguments and recall where their baseline reached 90%, is reported next to it, not decisive).
+- **H32768** = the number of its 3 sessions at num_ctx 32768 with at least one canary miss (system canary or history
+  tag) on a canary turn whose final-call prompt exceeded the loaded window, and no rule-in-use failure on any of the 40
+  turns. A session whose prompt never exceeded the window at 32768 is "not exercised" for H32768.
+- Per model: **rule loss holds** if R4096 >= 2 of 3; **resists rule loss** if R4096 = 0 of 3 and all 3 sessions
+  exceeded the window; otherwise **mixed** at 4096. **History loss with rules holding holds** if H32768 >= 2 of 3;
+  **inconclusive** at 32768 if fewer than 2 sessions exceeded the window; otherwise **does not hold**.
+- Per-model verdict: **H-scale holds** when rule loss holds at 4096 and history loss with rules holding holds at 32768;
+  **alternative (resists rule loss)** when it resists rule loss at 4096 (whatever 32768 shows, reported); **mixed**
+  otherwise. A model with fewer than 3 completed 40-turn sessions at 4096 or 32768, or a file without run_end, is
+  **inconclusive (incomplete)** with what is missing; a model refused by its validation is **refused (not tested)**
+  with its reasons; a model absent from the store is **missing**.
+- Overall: **H-scale holds** if every tested model's verdict is "H-scale holds" (at least one tested model);
+  **alternative supported** if every tested model resists rule loss; otherwise **mixed**, with the per-model list. The
+  overall statement names the sizes actually tested; with llama3.3:70b missing or refused it covers 30B to 32B only and
+  says so.
+- Also reported (not decisive): per tier and model the first over-window turn, first canary miss and first rule-in-use
+  failure per seed, the default-tier sessions, and the pre-registered R2 kill criterion (`x2_r2_agent.kill_criterion`).
+
+**Projected duration.** Estimated, not measured: the operator's estimates are about 26 / 210 / 420 min per 40-turn
+session for qwen3:32b at 4096 / 32768 / default and about 50 / 420 min for llama3.3:70b at 4096 / 32768. These are
+replaced by the probe's measured projections (register row `x2-scale-probe-hours`, PENDING until the probe file is
+synced); no hour figure for these jobs is cited from anywhere else.
+
+**Known limits, stated before the run.** Three seeds per cell. The probe measures rates on turns 1 and 2 only; the
+projection carries the reference model's growth of per-call time with context depth over to the new model, which is
+an assumption. The per-call timeout is 900 s (`CALL_TIMEOUT_S`); a 70B call that needs a long re-prefill after a
+context shift could exceed it, which surfaces as an error row and is reported as such, never dropped. One runtime
+(Ollama 0.34.4). qwen3-30b-a3b-2507 is measured through its bare GGUF install path. Rules in use differ per model
+(each model's own validation), as in every R2 run.
+
+**Amendment (2026-10-14, written while coding the register row, before any job is deployed or queued and before any
+data exists).** "Resists rule loss" at 4096 also requires that none of the 3 sessions has a rule-in-use failure at or
+after the first over-window turn at all, silent or not. As first written, a model whose rules failed after the window
+with an error surfaced first (so R4096 = 0) would have read as "resists"; such a model now reads as "mixed" at 4096.
+No R2 run so far has surfaced an error before a failure (`R2-real-v1-first-events`, `R2-real-v1b-first-events`), so the
+change is expected to have no effect; it closes a wrong reading. Everything else is unchanged.
+
+**Deployed and queued (2026-10-14, after the pre-registration commit and the code commit).** `C:\apu\ovn\x2_r2_scale.py`
+is a new file (nothing replaced); it imports `C:\apu\ovn\x2_r2_agent.py`, blob b48cbc6, the same blob as this branch
+and as main. Every other module it uses was compared by git blob hash with this branch and is identical on evo-x2. The
+import-only check on evo-x2 (`--import-check`: no server, no model call, no queue access) loaded that agent, printed
+the think values (qwen3:32b false, qwen3-30b-a3b-2507 false, llama3.3:70b omitted), the probe arms, the validation plan
+and the three queue commands. The reference files the probe reads (`x2_r2_real_v1.jsonl`, `x2_r2_real_v1b.jsonl`,
+`x2_r2_validation_v2.jsonl`) are present in `C:\apu\ovn\results`; no output file of these jobs existed. Queue entries
+`x2_scale_timing_probe`, `x2_r2_scale_validation`, `x2_r2_scale_real` (commands `python x2_r2_scale.py --mode
+probe|validation|real --out C:\apu\ovn\results\<file>`, no queue gate: the real job's own per-model preflight is the
+gate) were appended at positions 55, 56, 57, after the pending `x2_evalset_replay_val_v1` (no entry named in the
+operator's queue order list was pending), in one read-modify-write under `t2s_queue.set_pause` whose reason names its
+release; the same script cleared the pause in its finally block, and the pause flag was confirmed absent afterwards.
+llama3.3:70b is not in the store, so all three jobs record it as missing unless the proposed library pull is approved
+and queued ahead of the probe. Hours: register row `x2-scale-probe-hours` (PENDING until the probe file is synced).
