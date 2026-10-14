@@ -3196,3 +3196,17 @@ register row `gpu-memory-readonly`).
 applied (loaded == value), persists across the restart, base tag unchanged, tag deleted, log agrees with /api/ps,
 validity (baseline differs from every value, every request HTTP 200, tag deleted, run_end). One request per step: a
 configuration read, not a timing, so no warm-up and no repeats.
+
+**Deployed and queued, A4 and A5 (2026-10-13, after the pre-registration commit fc5d00a).** A4: side directory
+`C:\apu\ovn\numkeep\` holds `x2_r2_agent.py` (adds --num-keep), `x2_num_keep.py` (new) and the launcher
+`x2_r2_sidecar.py`; `C:\apu\ovn\x2_r2_agent.py` was not touched. Every other module the job imports
+(t2s_r2_session_growth, t2s_k1_ollama, host_config, t2s_queue, x2_r2_mechanism, prompt_token_check, x2_r2_client_trim,
+proc_util) was compared by git blob hash and is identical in `C:\apu\ovn`. The import-only check on evo-x2 (no server,
+no model call) loaded the side copy and parsed the job's argv. Queue entry `x2_num_keep_guardrail_test`: `python
+numkeep\x2_r2_sidecar.py --mode real --call2-tools off --models llama3.1:8b --tiers 4096 --seeds
+20260901,20260902,20260903 --rules-from C:\apu\ovn\results\x2_r2_validation_v2.jsonl --require-validation-gates
+--num-keep system --out C:\apu\ovn\results\x2_num_keep_guardrail_test.jsonl`. A5: `window_override_methods.py`
+deployed to `C:\apu\ovn` (new file); queue entry `x2_window_override_methods`: `python window_override_methods.py --out
+C:\apu\ovn\results\x2_window_override_methods_v1.jsonl --queue`. Both inserted in one read-modify-write under a pause
+cleared in the same script's finally block, after the running x2_evalset_guard_val_v1 and the pending
+x2_evalset_replay_val_v1 and directly before x2_scale_timing_probe, per the operator's order for the night.
