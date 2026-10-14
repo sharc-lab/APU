@@ -27,17 +27,23 @@ Modes:
                       validation_preflight_ext passes on --rules-from (per model; failing models are refused alone).
   --check-plan      : print the parsed plan and the session shape, then exit (no server, no model call, no queue).
 
-Ready-to-queue validation commands (evo-x2; deploy the four new files and main's x2_r2_agent.py to a side directory
-C:\\apu\\ovn\\evalset\\, scripts/deploy_evo.py C:\\apu\\ovn\\evalset <paths> --host evo-x2; the side directory is
-put first on sys.path and C:\\apu\\ovn second, as harness/x2_r2_sidecar.py does). NOT queued by this commit.
-  (a) tasks      python evalset\\x2_r2_evalset.py --mode validation --workload evalset --guardrails off
+Ready-to-queue validation commands (evo-x2). Deploy the four new files next to the deployed x2_r2_agent.py (main's
+b3bc741 blob, redeployed 2026-10-13; it and the modules it imports are unchanged since):
+  py -3.12 scripts/deploy_evo.py C:\\apu\\ovn harness/x2_r2_evalset.py harness/evalset_env.py
+      harness/agent_trace_replay.py harness/agent_trace_steps_uncensored.json --host evo-x2
+then, each as its own queue entry, after the --check-plan form of the same command has printed the plan on the machine.
+NOT queued by this commit.
+  (a) tasks      python x2_r2_evalset.py --mode validation --workload evalset --guardrails off
                  --out C:\\apu\\ovn\\results\\x2_evalset_tasks_val_v1.jsonl
-  (b) guardrails python evalset\\x2_r2_evalset.py --mode validation --workload evalset --guardrails on
+  (b) guardrails python x2_r2_evalset.py --mode validation --workload evalset --guardrails on
                  --out C:\\apu\\ovn\\results\\x2_evalset_guard_val_v1.jsonl
-  (c) replay     python evalset\\x2_r2_evalset.py --mode validation --workload replay
+  (c) replay     python x2_r2_evalset.py --mode validation --workload replay
                  --out C:\\apu\\ovn\\results\\x2_evalset_replay_val_v1.jsonl
+If x2_r2_agent.py on the machine is ever older than this file needs, run from a side directory instead: the harness
+puts its own directory first and, when no t2s_queue.py sits next to it, the parent directory second.
 Duration, ESTIMATE ONLY (not measured on evo-x2): scaled from register row blade-night-hours (night 1
-blade_r2_validation_v2: 0.32 h for that job's 95 llama3.1:8b turns, about 12 s per turn), x1.5 for the longer
+blade_r2_validation_v2: 0.32 h, itself a rates-and-scaling forecast in that row, for that job's 95 llama3.1:8b turns:
+5x10 negative control, 1x15 positive control, 3x10 diagnostic; about 12 s per turn), x1.5 for the longer
 contexts here, both default models: (a) 210 turns, about 1.0 to 2.0 h; (b) 270 turns, about 1.3 to 2.6 h; (c) about
 210 turns (trajectory lengths vary), about 1.0 to 2.0 h. qwen3:14b is slower per turn than llama3.1:8b, hence the
 upper ends.
@@ -57,14 +63,10 @@ import uuid
 from pathlib import Path
 
 _here = Path(__file__).resolve().parent
-# side directory first, the deployed directory second (harness/x2_r2_sidecar.py's layout); in the repo the parent is
-# the repo root, which holds no module of the same name
-for _p in (str(_here.parent), str(_here)):
-    if _p in sys.path:
-        sys.path.remove(_p)
-    sys.path.insert(0, _p)
-if (_here.parent / "harness").is_dir():
-    sys.path.insert(1, str(_here.parent / "harness"))
+sys.path.insert(0, str(_here))
+if not (_here / "t2s_queue.py").exists():
+    # a side directory (harness/x2_r2_sidecar.py's layout): the deployed directory, its parent, second
+    sys.path.insert(1, str(_here.parent))
 
 import agent_trace_replay as R  # noqa: E402
 import evalset_env as E  # noqa: E402
