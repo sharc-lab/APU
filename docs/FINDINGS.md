@@ -3197,7 +3197,7 @@ applied (loaded == value), persists across the restart, base tag unchanged, tag 
 validity (baseline differs from every value, every request HTTP 200, tag deleted, run_end). One request per step: a
 configuration read, not a timing, so no warm-up and no repeats.
 
-**Deployed and queued, A4 and A5 (2026-10-13, after the pre-registration commit fc5d00a).** A4: side directory
+**Deployed and queued, A4 and A5 (2026-10-13, after the pre-registration commit, fc5d00a when deployed, 656ac35 after the rebase onto main).** A4: side directory
 `C:\apu\ovn\numkeep\` holds `x2_r2_agent.py` (adds --num-keep), `x2_num_keep.py` (new) and the launcher
 `x2_r2_sidecar.py`; `C:\apu\ovn\x2_r2_agent.py` was not touched. Every other module the job imports
 (t2s_r2_session_growth, t2s_k1_ollama, host_config, t2s_queue, x2_r2_mechanism, prompt_token_check, x2_r2_client_trim,
