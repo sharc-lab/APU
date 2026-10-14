@@ -3192,3 +3192,10 @@ an assumption. The per-call timeout is 900 s (`CALL_TIMEOUT_S`); a 70B call that
 context shift could exceed it, which surfaces as an error row and is reported as such, never dropped. One runtime
 (Ollama 0.34.4). qwen3-30b-a3b-2507 is measured through its bare GGUF install path. Rules in use differ per model
 (each model's own validation), as in every R2 run.
+
+**Amendment (2026-10-14, written while coding the register row, before any job is deployed or queued and before any
+data exists).** "Resists rule loss" at 4096 also requires that none of the 3 sessions has a rule-in-use failure at or
+after the first over-window turn at all, silent or not. As first written, a model whose rules failed after the window
+with an error surfaced first (so R4096 = 0) would have read as "resists"; such a model now reads as "mixed" at 4096.
+No R2 run so far has surfaced an error before a failure (`R2-real-v1-first-events`, `R2-real-v1b-first-events`), so the
+change is expected to have no effect; it closes a wrong reading. Everything else is unchanged.

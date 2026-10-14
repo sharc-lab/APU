@@ -3552,6 +3552,101 @@ def compute_x2_r2_llama_val_32k(repo):
     return {"value": value, "n": f"{e['n_turns'] if e else 0} turns", "detail": {"verdict": v, "gates": rep}}
 
 
+# ───────────────────────────────────────────────── H-scale, R2 at 30B to 70B (pre-registered 2026-10-14)
+X2_SCALE_PROBE = "results/x2_scale_timing_probe.jsonl"
+X2_SCALE_VALIDATION = "results/x2_r2_scale_validation.jsonl"
+X2_SCALE_REAL = "results/x2_r2_scale_real.jsonl"
+
+
+def _x2_scale_module():
+    import sys
+    sys.path.insert(0, str(REPO / "harness"))
+    import x2_r2_scale
+    return x2_r2_scale
+
+
+def _fmt_num(x, spec=".1f"):
+    return "n/a" if x is None else format(x, spec)
+
+
+def compute_x2_scale_probe_hours(repo):
+    """H-scale timing probe: per model and tier the measured probe rates (prompt-eval / eval tok/s), the projected
+    minutes per 40-turn session (reference sessions rescaled by the probe rates, x2_r2_scale.project_all), hours for 3
+    seeds, the validation job's projected hours, the llama3.3:70b default-tier decision, the real job's hours."""
+    sc = _x2_scale_module()
+    ag = _r2_agent_module()
+    probe = ag.read_rows(repo / X2_SCALE_PROBE)
+    if not probe:
+        raise FileNotFoundError(repo / X2_SCALE_PROBE)
+    ref = [r for f in (R2_REAL_V1_FILE, R2_REAL_V1B_FILE) for r in ag.read_rows(repo / f)]
+    p = sc.project_all(probe, ref, ag.read_rows(repo / R2_VALIDATION_V2_FILE))
+    missing = [r["model_id"] for r in probe if r.get("record") == "missing_model"]
+    parts = []
+    for model, m in p["models"].items():
+        tiers = []
+        for tier, e in m["tiers"].items():
+            pr = e["probe_rates"]
+            tiers.append(f"{tier.replace('ollama_', '')} probe pe {_fmt_num(pr['pe_rate'])} / ev "
+                         f"{_fmt_num(pr['ev_rate'])} tok/s, loaded {e['probe_loaded_context']}, "
+                         f"{_fmt_num(e.get('minutes_per_session'))} min/session, "
+                         f"{_fmt_num(e.get('hours_for_seeds'))} h for 3 seeds")
+        vm = m.get("validation_minutes")
+        parts.append(f"{model} (ref {m['reference_model']}): " + "; ".join(tiers)
+                     + f"; validation {_fmt_num(None if vm is None else vm / 60)} h; default tier "
+                     f"{'run' if m['default_tier']['include'] else 'skipped'} ({m['default_tier']['reason']})")
+    rh = p["real_hours_if_all_pass"]
+    value = (" / ".join(parts) + f" / validation job {p['validation_hours']:.1f} h; real job "
+             f"{rh['total_known']:.1f} h if every probed model passes"
+             + ("" if rh["complete"] else " (some cells without a projection)")
+             + (f"; missing from the store: {missing}" if missing else ""))
+    return {"value": value, "n": f"{len(p['models'])} models probed", "detail": p}
+
+
+def compute_x2_scale_validation(repo):
+    """H-scale validation (results/x2_r2_scale_validation.jsonl): per model the R2 baseline table and each gate
+    (rules in use >= 90%, negative control, positive control, task tool, thinking off), and the real-run preflight."""
+    ag = _r2_agent_module()
+    rows = ag.read_rows(repo / X2_SCALE_VALIDATION)
+    if not rows:
+        raise FileNotFoundError(repo / X2_SCALE_VALIDATION)
+    rep = ag.evaluate_gates(rows, call2_tools="off")
+    g = rep["gates"]
+    missing = [r["model_id"] for r in rows if r.get("record") == "missing_model"]
+    parts = []
+    for model, e in rep["baseline_table"].items():
+        pf = ag.validation_preflight(rows, "off", [model])
+        tt = g["task_tool"][model]
+        parts.append(f"{model}: {_r2_table_str(e)}; task tool {tt['n_ok']}/{tt['n']}; thinking-present calls "
+                     f"{g['thinking_off'][model]['thinking_present_calls']}; preflight "
+                     f"{'pass' if pf['ok'] else 'refuse: ' + '; '.join(pf['reasons'])}")
+    value = " / ".join(parts) + (f" / missing from the store: {missing}" if missing else "")
+    return {"value": value, "n": f"{sum(e['n_turns'] for e in rep['baseline_table'].values())} baseline turns"}
+
+
+def compute_h_scale_verdict(repo):
+    """The pre-registered H-scale verdict (x2_r2_scale.h_scale_verdict): per model R4096 (silent rule-in-use failures
+    after the window at 4096, of 3), H32768 (history lost over the window with rules held at 32768, of 3), the full
+    gated count, the per-model and overall verdicts."""
+    sc = _x2_scale_module()
+    ag = _r2_agent_module()
+    rows = ag.read_rows(repo / X2_SCALE_REAL)
+    if not rows:
+        raise FileNotFoundError(repo / X2_SCALE_REAL)
+    v = sc.h_scale_verdict(rows, ag.read_rows(repo / X2_SCALE_VALIDATION))
+    parts = []
+    for model, e in v["per_model"].items():
+        if "R4096" in e:
+            c4, c32 = e["tiers"][sc.TIER_4096]["counts"], e["tiers"][sc.TIER_32768]["counts"]
+            parts.append(f"{model}: R4096 {e['R4096']}/3 (window exceeded {c4['exceeded_window']}/3, gated "
+                         f"{c4['silent_gated_after_window']}/3), H32768 {e['H32768']}/3 (window exceeded "
+                         f"{c32['exceeded_window']}/3); {e['at_4096']}; {e['at_32768']}; verdict {e['verdict']}")
+        else:
+            why = e.get("problems") or e.get("reasons") or e.get("reason")
+            parts.append(f"{model}: {e['verdict']} ({why})")
+    return {"value": f"overall {v['overall']} (tested: {v['tested']}); " + " / ".join(parts),
+            "n": f"{len(v['tested'])} models tested", "detail": v}
+
+
 NUMBER_ENTRIES = [
     {"claim_id": "PX2-TTFT-gap", "description": "PX2 B4-vs-S4 TTFT gap range across 5 models",
      "compute": compute_px2_ttft_gap, "data_files": ["results/t2s_night2_20260930T135145Z.jsonl"],
@@ -4056,6 +4151,19 @@ NUMBER_ENTRIES = [
                     "pre-registered verdict (backend/offload vs window)",
      "compute": compute_x2_r2_llama_val_32k, "data_files": [X2_R2_LLAMA_VAL_32K], "pending_ok": True,
      "script_function": "analysis/numbers_register.py::compute_x2_r2_llama_val_32k"},
+    {"claim_id": "x2-scale-probe-hours", "description": "H-scale timing probe: measured rates and projected hours per "
+                    "model and tier, validation and real job hours, llama3.3:70b default-tier decision",
+     "compute": compute_x2_scale_probe_hours,
+     "data_files": [X2_SCALE_PROBE, R2_REAL_V1_FILE, R2_REAL_V1B_FILE, R2_VALIDATION_V2_FILE], "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_x2_scale_probe_hours"},
+    {"claim_id": "x2-scale-validation", "description": "H-scale R2 validation gates per model (qwen3:32b, "
+                    "qwen3-30b-a3b-2507, llama3.3:70b)",
+     "compute": compute_x2_scale_validation, "data_files": [X2_SCALE_VALIDATION], "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_x2_scale_validation"},
+    {"claim_id": "H-scale-verdict", "description": "Pre-registered H-scale verdict: silent rule loss at 4096 and "
+                    "history loss with rules holding at 32768, per model at 30B to 70B",
+     "compute": compute_h_scale_verdict, "data_files": [X2_SCALE_REAL, X2_SCALE_VALIDATION], "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_h_scale_verdict"},
 ]
 
 
