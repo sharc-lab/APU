@@ -3552,6 +3552,99 @@ def compute_x2_r2_llama_val_32k(repo):
     return {"value": value, "n": f"{e['n_turns'] if e else 0} turns", "detail": {"verdict": v, "gates": rep}}
 
 
+# ───────────────────────────────────────────────── impact model (plan v2 A3, 2026-10-14)
+# analysis/impact_model.py prices each problem for the customer profile in results/impact_profile_20261014.json
+# (hour value cited from BLS; every other field an assumption). docs/IMPACT.md's profile table is these rows.
+IMPACT_PROFILE = "results/impact_profile_20261014.json"
+_IMPACT_DATA = [IMPACT_PROFILE, "results/cloud_prices_20261008.json", "results/x2_r2_real*.jsonl",
+                "results/blade_r2_real*.jsonl", "results/x2_r2_validation_v2.jsonl", "results/x2_r2_validation_v2b.jsonl"]
+_IMPACT_FILES = {
+    "P1": _IMPACT_DATA,
+    "P2": _IMPACT_DATA,
+    "P3": _IMPACT_DATA,
+    "P4": _IMPACT_DATA + _TTFT_FIT_RESULT_FILES + BLADE_DRYRUN_FILES,
+    "P5": _IMPACT_DATA + ["src/dse/envelope_data.json"],
+    "P6": _IMPACT_DATA + ["results/x2_outcome_table_v3.jsonl", "results/t2s_outcome_table_full.jsonl",
+                          "results/workload_pack/items/*.jsonl"],
+    "P7": _IMPACT_DATA,
+}
+
+
+def _impact():
+    import sys as _sys
+    _sys.path.insert(0, str(REPO / "analysis"))
+    import impact_model as im
+    return im
+
+
+_IMPACT_CACHE = {}
+
+
+def _impact_all(repo):
+    key = str(repo)
+    if key not in _IMPACT_CACHE:
+        _IMPACT_CACHE[key] = _impact().compute_all(repo)
+    return _IMPACT_CACHE[key]
+
+
+def compute_impact_hour_value(repo):
+    """Value of one developer hour for the impact profile: the cited BLS figure stored in the profile JSON."""
+    im = _impact()
+    hv = im.load_profile(repo)["hour_value"]
+    return {"value": f"USD {hv['usd_per_hour']:.2f}/h ({hv['figure_quoted']}; {hv['table']}; {hv['reference_period'].split(' (')[0]}; "
+                     f"{hv['source_url']}; fetched {hv['fetched_utc']})", "n": 1}
+
+
+def _impact_row(repo, k):
+    im = _impact()
+    res = _impact_all(repo)
+    return {"value": im.row_value(res["base"][k], res["profile"]), "n": len(res["base"][k]["grid"])}
+
+
+def compute_impact_p1(repo):
+    return _impact_row(repo, "P1")
+
+
+def compute_impact_p2(repo):
+    return _impact_row(repo, "P2")
+
+
+def compute_impact_p3(repo):
+    return _impact_row(repo, "P3")
+
+
+def compute_impact_p4(repo):
+    return _impact_row(repo, "P4")
+
+
+def compute_impact_p5(repo):
+    return _impact_row(repo, "P5")
+
+
+def compute_impact_p6(repo):
+    return _impact_row(repo, "P6")
+
+
+def compute_impact_p7(repo):
+    return _impact_row(repo, "P7")
+
+
+def compute_impact_total(repo):
+    """Sum of the measured profile rows (not-measured rows listed, never filled in), the ranking, and the same total
+    for the profile's one-flag scenario runtime."""
+    im = _impact()
+    res = _impact_all(repo)
+    p = res["profile"]
+    t, st = res["total"], res["scenario_total"]
+    fmt = im._fmt_usd
+    return {"value": f"status quo {p['assumptions']['runtime']}: USD/day {fmt(t['usd_day'])}, USD/month "
+                     f"{fmt(im.per_month(t['usd_day'], p))} over {', '.join(t['included'])} (not measured: "
+                     f"{', '.join(t['excluded_not_measured']) or 'none'}); ranking {' > '.join(res['ranking'])}; "
+                     f"one flag {p['assumptions']['scenario_runtime']}: USD/day {fmt(st['usd_day'])}, USD/month "
+                     f"{fmt(im.per_month(st['usd_day'], p))} over {', '.join(st['included'])} (not measured: "
+                     f"{', '.join(st['excluded_not_measured']) or 'none'})", "n": 7}
+
+
 NUMBER_ENTRIES = [
     {"claim_id": "PX2-TTFT-gap", "description": "PX2 B4-vs-S4 TTFT gap range across 5 models",
      "compute": compute_px2_ttft_gap, "data_files": ["results/t2s_night2_20260930T135145Z.jsonl"],
@@ -4056,6 +4149,36 @@ NUMBER_ENTRIES = [
                     "pre-registered verdict (backend/offload vs window)",
      "compute": compute_x2_r2_llama_val_32k, "data_files": [X2_R2_LLAMA_VAL_32K], "pending_ok": True,
      "script_function": "analysis/numbers_register.py::compute_x2_r2_llama_val_32k"},
+
+    {"claim_id": "impact-hour-value", "description": "Impact profile: value of one developer hour (BLS median hourly "
+                    "wage, cited source in the profile JSON)",
+     "compute": compute_impact_hour_value, "data_files": [IMPACT_PROFILE],
+     "script_function": "analysis/impact_model.py::hour_value"},
+    {"claim_id": "impact-P1", "description": "Impact P1 silent wrong results from context loss: profile USD/day and "
+                    "USD/month (lower bound), rate, confidence",
+     "compute": compute_impact_p1, "data_files": _IMPACT_FILES["P1"], "script_function": "analysis/impact_model.py::p1"},
+    {"claim_id": "impact-P2", "description": "Impact P2 oversized-window time cost: profile USD/day and USD/month, "
+                    "paired per-turn delta, confidence",
+     "compute": compute_impact_p2, "data_files": _IMPACT_FILES["P2"], "script_function": "analysis/impact_model.py::p2"},
+    {"claim_id": "impact-P3", "description": "Impact P3 cloud overspend from re-sent history: profile USD/day and "
+                    "USD/month, per-session overspend, confidence",
+     "compute": compute_impact_p3, "data_files": _IMPACT_FILES["P3"], "script_function": "analysis/impact_model.py::p3"},
+    {"claim_id": "impact-P4", "description": "Impact P4 hardware mismatch (decode-time penalty vs the best measured "
+                    "device): profile USD/day and USD/month, confidence",
+     "compute": compute_impact_p4, "data_files": _IMPACT_FILES["P4"], "script_function": "analysis/impact_model.py::p4"},
+    {"claim_id": "impact-P5", "description": "Impact P5 co-runner slowdown: profile USD/day and USD/month, ratios, "
+                    "confidence",
+     "compute": compute_impact_p5, "data_files": _IMPACT_FILES["P5"], "script_function": "analysis/impact_model.py::p5"},
+    {"claim_id": "impact-P6", "description": "Impact P6 failed starts and retries (timeouts, allocation failures): "
+                    "profile USD/day and USD/month, escalation cost, confidence",
+     "compute": compute_impact_p6, "data_files": _IMPACT_FILES["P6"], "script_function": "analysis/impact_model.py::p6"},
+    {"claim_id": "impact-P7", "description": "Impact P7 guardrail removal: profile USD/day and USD/month (not measured "
+                    "when the rate is nonzero), rate, confidence",
+     "compute": compute_impact_p7, "data_files": _IMPACT_FILES["P7"], "script_function": "analysis/impact_model.py::p7"},
+    {"claim_id": "impact-total", "description": "Impact total over the measured rows, ranking, and the one-flag "
+                    "scenario total",
+     "compute": compute_impact_total, "data_files": sorted({f for v in _IMPACT_FILES.values() for f in v}),
+     "script_function": "analysis/impact_model.py::total"},
 ]
 
 
