@@ -323,6 +323,18 @@ blocked, total 71.96 h (printed 72.0) within the 72 h line; `t2s_wk_outcome_subs
 The CPU estimates (2a, 2c, 3, 6) use one measured CPU per-call time and are the least certain; the first CPU
 validation entry's own wall clock should replace them before deciding a cut.
 
+## Optional entry: context-window override methods (staged 2026-10-13, operator plan v2 Part A5)
+
+Not in `queues/t2s_week_queue.json` (the week's queue, estimates and dry run are unchanged). `py -3.12
+scripts/t2s_week_queue.py build-optional` writes `queues/t2s_week_optional.json` with one entry,
+`t2s_wk_window_override_methods`: `window_override_methods.py --out results/t2s_window_override_methods_v1.jsonl
+--queue`, gated on `t2s_wk_preflight`, nominal 0.3 h. The same job as evo-x2's `x2_window_override_methods`
+(docs/FINDINGS.md "Context-window override methods on Ollama 0.34.4"): llama3.1:8b on the pinned 0.34.4 (via
+`ollama_pin.json`), its own server on port 11500, request num_ctx / Modelfile num_ctx on a derived tag (created and
+deleted by the job) / OLLAMA_CONTEXT_LENGTH, persistence across restarts, and a read-only GPU memory record. The
+interactive-session guard applies (refuses while anyone is logged in). To use it, only if time remains: deploy
+`window_override_methods.py` flat to C:\apu\ovn and `python t2s_week_queue.py load t2s_week_optional.json` on evo-t2s.
+
 ## Open questions for the operator
 
 1. Which cut (above), if any, for a 3-day window.

@@ -129,6 +129,18 @@ def test_stub_night_passes_both_nights():
                 assert len(rep["ran"]) + len(rep["skipped"]) == len(bq.NIGHTS[n])
 
 
+def test_night4_staged_window_override_methods():
+    """Operator plan v2 Part A5 (2026-10-13): staged only; the night runs when the operator says "start Blade night 4"."""
+    assert [j["id"] for j in bq.NIGHTS[4]] == ["blade_window_override_methods_v1"]
+    job = bq.NIGHTS[4][0]
+    import window_override_methods as wom
+    a = wom.build_arg_parser().parse_args(job["argv"][1:])
+    assert a.out == "results/blade_window_override_methods_v1.jsonl" and a.queue is False
+    assert a.ollama_exe == bc.PINNED["ollama_exe"] and a.port == wom.PORT != 11434
+    rep = bn.stub_night(4, log=lambda m: None)
+    assert bn.stub_ok(rep) and rep["ran"] == ["blade_window_override_methods_v1"]
+
+
 def test_stub_night1_both_gate_branches():
     real = bn.stub_night(1, log=lambda m: None, gate_misses=0)
     assert real["ran"] == ["blade_k1_v2", "blade_r2_validation_v2", "blade_r2_gate_v2", "blade_r2_real_v2",

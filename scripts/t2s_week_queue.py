@@ -3,6 +3,7 @@
   py -3.12 scripts/t2s_week_queue.py build      # controller: (re)writes queues/t2s_week_queue.json from build_queue()
   py -3.12 scripts/t2s_week_queue.py dry-run    # controller: walks every entry with fakes, no SSH, no machine
   py -3.12 scripts/t2s_week_queue.py inputs     # controller: recomputes every estimate input from results/ files
+  py -3.12 scripts/t2s_week_queue.py build-optional   # controller: writes queues/t2s_week_optional.json (OPTIONAL)
   python t2s_week_queue.py load t2s_week_queue.json   # ON evo-t2s (deployed flat to C:\\apu\\ovn): appends the
                                                        # entries to queue_state.json as pending
 
@@ -184,6 +185,30 @@ def _all_specs() -> list[dict]:
          "out": "results/t2s_r2_mechanism_cpu_v1.jsonl",
          "depends": [X2_HOST, X2_TIERS]},
     ]
+
+
+# OPTIONAL entries (2026-10-13, operator plan v2 Part A5): staged, never part of queues/t2s_week_queue.json (so the
+# week's queue, its estimates and its dry run are unchanged). `build-optional` writes them to OPTIONAL_PATH; the operator
+# loads that file on evo-t2s with `load` only if time remains (after deploying window_override_methods.py flat to
+# C:\apu\ovn). key -> why it is optional.
+OPTIONAL_PATH = REPO / "queues" / "t2s_week_optional.json"
+OPTIONAL = {"window_override_methods": "optional (operator plan v2 Part A5, 2026-10-13): context-window override "
+                                       "methods on Ollama 0.34.4, the same job as evo-x2's x2_window_override_methods"}
+OPTIONAL_EST_HOURS = 0.3   # nominal: 9 short requests and 6 server starts, one llama3.1:8b load each
+
+
+def optional_specs() -> list[dict]:
+    return [{"key": "window_override_methods", "step": None, "gate": "preflight",
+             "cmd": [T2S_PY, "window_override_methods.py", "--out", "results/t2s_window_override_methods_v1.jsonl",
+                     "--queue"],
+             "out": "results/t2s_window_override_methods_v1.jsonl"}]
+
+
+def build_optional() -> list[dict]:
+    return [{"id": ID_PREFIX + s["key"], "cmd": s["cmd"], "status": "pending",
+             "note": f"T2S week OPTIONAL: est {OPTIONAL_EST_HOURS} h (nominal); {OPTIONAL[s['key']]}",
+             "plan_step": None, "est_hours": OPTIONAL_EST_HOURS, "est_basis": "nominal", "optional": True,
+             "expected_out": s["out"], "gate": {"requires_done": ID_PREFIX + s["gate"]}} for s in optional_specs()]
 
 
 def job_specs() -> list[dict]:
@@ -421,6 +446,9 @@ def main(argv=None):
         QUEUE_PATH.parent.mkdir(parents=True, exist_ok=True)
         QUEUE_PATH.write_text(json.dumps(build_queue(), indent=1) + "\n", encoding="utf-8")
         print(f"wrote {QUEUE_PATH}")
+    elif cmd == "build-optional":
+        OPTIONAL_PATH.write_text(json.dumps(build_optional(), indent=1) + "\n", encoding="utf-8")
+        print(f"wrote {OPTIONAL_PATH}")
     elif cmd == "dry-run":
         rep = dry_run()
         print(json.dumps(rep, indent=1))

@@ -112,6 +112,16 @@ NIGHTS = {
                   "--tiers", "default,4096,32768", "--rules-from", R2_VALIDATION_QWEN, "--require-validation-gates"],
          "outputs": ["results/blade_r2_real_qwen3_8b_v1.jsonl"]},
     ],
+    # night 4 (STAGED 2026-10-13, operator plan v2 Part A5; runs only when the operator says "start Blade night 4"):
+    # context-window override methods on the pinned Ollama 0.34.4 (harness/window_override_methods.py, the same script
+    # as evo-x2's x2_window_override_methods). Its server is its own child on port 11500 and it stops only that process
+    # tree; it refuses if a server on 11434 holds a model. Creates and then deletes only its own derived tag.
+    4: [
+        {"id": "blade_window_override_methods_v1",
+         "argv": ["harness/window_override_methods.py", "--out", "results/blade_window_override_methods_v1.jsonl",
+                  "--ollama-exe", bc.PINNED["ollama_exe"]],
+         "outputs": ["results/blade_window_override_methods_v1.jsonl"]},
+    ],
 }
 
 

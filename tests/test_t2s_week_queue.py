@@ -21,6 +21,22 @@ def test_committed_queue_file_is_exactly_build_queue():
     assert json.loads(wq.QUEUE_PATH.read_text(encoding="utf-8")) == wq.build_queue()
 
 
+def test_optional_window_override_entry_is_staged_outside_the_week_queue():
+    """Operator plan v2 Part A5 (2026-10-13): optional, its own file, never in queues/t2s_week_queue.json."""
+    import window_override_methods as wom
+    opt = wq.build_optional()
+    assert json.loads(wq.OPTIONAL_PATH.read_text(encoding="utf-8")) == opt
+    assert [it["id"] for it in opt] == ["t2s_wk_window_override_methods"] and opt[0]["optional"] is True
+    assert opt[0]["id"] not in {it["id"] for it in wq.build_queue()}
+    assert opt[0]["gate"] == {"requires_done": "t2s_wk_preflight"}
+    cmd = opt[0]["cmd"]
+    assert cmd[0] == wq.T2S_PY and cmd[1] == "window_override_methods.py" and (REPO / "harness" / cmd[1]).exists()
+    a = wom.build_arg_parser().parse_args(cmd[2:])
+    assert a.queue is True and Path(a.out).name.startswith("t2s_") and not (REPO / a.out).exists()
+    joined = " ".join(cmd).lower()
+    assert not any(bad in joined for bad in ("ritz", "evo-x2", "100.118.33.76"))
+
+
 def test_queue_order_ids_and_gates():
     q = wq.build_queue()
     keys = [it["id"][len(wq.ID_PREFIX):] for it in q]

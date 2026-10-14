@@ -95,6 +95,11 @@ until K1 measures it.
 | 3 | qwen3:8b R2 validation and controls (same design as night 1's rerun: negative control at 32768, 5 sessions, seeds 20260901-05; positive control 8192; diagnostic arm), under the night-3 fit rule (partial offload allowed at 32768 only); VRAM share recorded on every row | `blade_r2_validation_qwen3_8b_v1` / `results/blade_r2_validation_qwen3_8b_v1.jsonl` | 0.71 | scaled (no Blade rate for qwen3:8b; K1 VRAM share noted per cell) |
 | 3 | qwen3:8b R2 tiers default, 4096, 32768, 5 seeds x 40 turns, under the night-3 fit rule (32768 partially offloaded); VRAM share recorded on every row | `blade_r2_real_qwen3_8b_v1` / `results/blade_r2_real_qwen3_8b_v1.jsonl` | 8.29 | scaled (llama3.1:8b workload x1.2; qwen3:8b's own evo-x2 real-run file is not synced; K1 VRAM share noted per cell) |
 
+| 4 | STAGED 2026-10-13 (operator plan v2 Part A5): context-window override methods, llama3.1:8b, pinned Ollama 0.34.4 on its own port 11500 (request num_ctx, Modelfile num_ctx on a derived tag created and deleted by the job, OLLAMA_CONTEXT_LENGTH on the job's own server; loaded context from /api/ps and the log, persistence across restarts), plus a read-only GPU memory record; refuses if a server on 11434 holds a model and stops only its own server | `blade_window_override_methods_v1` / `results/blade_window_override_methods_v1.jsonl` | about 0.3 | nominal (no timing; 9 short requests, 6 server starts) |
+
+Night 4 runs only when the operator says "start Blade night 4" (design: docs/FINDINGS.md "Context-window override
+methods on Ollama 0.34.4"; register row `window-override-methods`).
+
 Night totals: night 1 3.75 h on the real branch, 0.87 h on the mechanism branch (register `blade-night-hours`, the
 night-1 rows above from the same row), night 2 5.80 h (the operator at the keyboard for C3's two gates),
 night 3 9.00 h (register `blade-night-hours`; K1 v2 passes the night-3 fit rule, so both jobs run).

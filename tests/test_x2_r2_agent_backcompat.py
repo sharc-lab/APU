@@ -56,9 +56,10 @@ CONSOLE_STATE = {"console_session_state": "Active", "console_idle_s": 12.0, "use
 # run_start fields added by the change, with their value when no new flag is given (on EVO-X2).
 NEW_RUN_START_FIELDS = {"hw_id": "evo-x2", "interactive_session": CONSOLE_STATE, "server_env_extra": None,
                         "tiers": None, "seeds": None, "allow_new_seeds": None,
-                        "neg_ctx": None, "neg_sessions": None}  # validation options of 2026-10-10
+                        "neg_ctx": None, "neg_sessions": None,  # validation options of 2026-10-10
+                        "num_keep": None}  # real-mode option of 2026-10-13 (x2_num_keep_guardrail_test)
 NEW_ARGS = {"server_env": None, "tiers": None, "seeds": None, "allow_new_seeds": False,
-            "neg_ctx": None, "neg_sessions": None}
+            "neg_ctx": None, "neg_sessions": None, "num_keep": None}
 
 
 class _Stop(Exception):

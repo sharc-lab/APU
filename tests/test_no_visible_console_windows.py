@@ -33,6 +33,7 @@ CONTROLLER_SCRIPTS = [
     REPO / "harness" / "blade_k1.py",
     REPO / "harness" / "blade_telemetry.py",
     REPO / "harness" / "blade_spill_sweep.py",
+    REPO / "harness" / "window_override_methods.py",   # Blade night 4 job (also evo-x2 / evo-t2s)
 ]
 
 BARE_FUNCS = {"run", "Popen", "check_output", "call"}  # the subprocess functions that can spawn a visible console

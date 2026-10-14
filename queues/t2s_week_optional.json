@@ -1,0 +1,22 @@
+[
+ {
+  "id": "t2s_wk_window_override_methods",
+  "cmd": [
+   "C:\\Users\\sharc\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+   "window_override_methods.py",
+   "--out",
+   "results/t2s_window_override_methods_v1.jsonl",
+   "--queue"
+  ],
+  "status": "pending",
+  "note": "T2S week OPTIONAL: est 0.3 h (nominal); optional (operator plan v2 Part A5, 2026-10-13): context-window override methods on Ollama 0.34.4, the same job as evo-x2's x2_window_override_methods",
+  "plan_step": null,
+  "est_hours": 0.3,
+  "est_basis": "nominal",
+  "optional": true,
+  "expected_out": "results/t2s_window_override_methods_v1.jsonl",
+  "gate": {
+   "requires_done": "t2s_wk_preflight"
+  }
+ }
+]
