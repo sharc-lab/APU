@@ -1,0 +1,4 @@
+{"record": "run_start", "job_id": "x2_model_pulls_scale", "host": "EVO-X2", "tags": ["llama3.3:70b", "mistral-small3.2:24b"], "disk_factor": 1.1, "disk_margin_bytes": 100000000000, "models_dir_set": true, "free_bytes_at_start": 1566897238016, "evidence": "results/ollama_library_evidence_20261014.json", "ts_utc": "2026-10-15T05:07:12.858935+00:00"}
+{"record": "heartbeat", "model_tag": "llama3.3:70b", "elapsed_s": 60.0, "ts_utc": "2026-10-15T05:08:15.328236+00:00"}
+{"record": "heartbeat", "model_tag": "llama3.3:70b", "elapsed_s": 120.0, "ts_utc": "2026-10-15T05:09:15.330222+00:00"}
+{"record": "heartbeat", "model_tag": "llama3.3:70b", "elapsed_s": 180.0, "ts_utc": "2026-10-15T05:10:15.341861+00:00"}
