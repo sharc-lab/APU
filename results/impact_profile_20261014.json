@@ -28,15 +28,25 @@
     "model": "llama3.1:8b",
     "runtime": "ollama_default",
     "scenario_runtime": "ollama_ctx_4096",
-    "cloud_model": "gpt-6.1-sol",
+    "cloud_model": "claude-sonnet-5-5",
     "cloud_tier": "standard",
+    "cloud_price_file": "results/cloud_prices_anthropic_20261014.json",
+    "cloud_caching": "on",
+    "waiting_time_valuation": {"lower": 0.0, "upper": 1.0},
+    "previous_basis": {
+      "cloud_model": "gpt-6.1-sol",
+      "cloud_price_file": "results/cloud_prices_20261008.json",
+      "note": "the basis of the first impact model (before the 2026-10-14 audit): OpenAI mid-tier, P3 = uncached minus cached session cost. Kept only to show where the earlier USD 1,933.63/day one-flag figure came from (register row impact-scenario-one-flag); no current figure uses it."
+    },
     "notes": {
+      "cloud_model/cloud_price_file/cloud_caching": "operator decision 2026-10-14 (A, B): escalation target is the mid-tier model of the shared Anthropic table, priced with provider prompt caching on as the main case (cache-read price for re-sent history); no-caching is shown only as the upper bound",
+      "waiting_time_valuation": "operator decision 2026-10-14 (C): compute time is valued at the full hour value only as an upper bound (someone waits for it); the lower bound is 0 (nobody waits). ASSUMPTION either way: who waits was not measured",
       "turns_per_session": "the R2 session length (40 turns); used to scale a per-turn time delta to a session",
       "single_shot_calls_per_dev_per_day": "calls shaped like the workload pack (one prompt, one answer), outside agent sessions",
       "co_runner_share": "share of sessions that run next to a heavy co-running job",
       "cloud_session_share": "share of agent sessions sent to a cloud model",
       "device/model/runtime": "the status-quo configuration the profile is priced at; scenario_runtime is the one-flag alternative priced next to it",
-      "cloud_model/cloud_tier": "escalation target: the mid-tier model of results/cloud_prices_20261008.json's selection, Standard tier"
+      "cloud_tier": "Standard tier (not Batch)"
     }
   }
 }

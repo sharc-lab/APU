@@ -86,8 +86,27 @@ def load_prices(repo=REPO):
 
 
 def _rate(prices, model, tier, prompt_tokens):
-    ctx = "long" if prompt_tokens > LONG_CONTEXT_ABOVE else "short"
+    # a price file may set its own long-context threshold per model (the Anthropic table does, for Haiku 5.5);
+    # the OpenAI table has none, so its 272K split is unchanged
+    above = prices["models"][model].get("long_context_above", LONG_CONTEXT_ABOVE)
+    ctx = "long" if prompt_tokens > above else "short"
     return prices["models"][model][tier][ctx]
+
+
+def min_cacheable(prices, model) -> int:
+    """Minimum cacheable prefix for the model: the price file's per-model value if it has one, else the OpenAI
+    page's 1,024 tokens."""
+    return int(prices["models"][model].get("min_cacheable_tokens", MIN_CACHEABLE))
+
+
+def resent_tokens(calls, min_prefix=MIN_CACHEABLE) -> list:
+    """Per call, the prompt tokens that repeat the previous call's prompt (the re-sent history): min(prev, cur) when
+    the previous prompt reaches the minimum cacheable prefix, else 0. Same rule session_cost uses for cache hits."""
+    out, prev = [], 0
+    for p, _o in calls:
+        out.append(min(prev, p) if prev >= min_prefix else 0)
+        prev = p
+    return out
 
 
 def call_cost(prices, model, tier, prompt, output, cached=0, write=0):
@@ -198,10 +217,11 @@ def r2_sessions(repo=REPO, token_basis="o200k"):
 
 def session_cost(prices, calls, model, tier, caching):
     total, prev = 0.0, 0
+    mc = min_cacheable(prices, model)
     for p, o in calls:
         if caching:
-            cached = min(prev, p) if prev >= MIN_CACHEABLE else 0
-            write = (p - cached) if p >= MIN_CACHEABLE else 0
+            cached = min(prev, p) if prev >= mc else 0
+            write = (p - cached) if p >= mc else 0
             total += call_cost(prices, model, tier, p, o, cached=cached, write=write)
         else:
             total += call_cost(prices, model, tier, p, o)

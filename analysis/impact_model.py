@@ -6,8 +6,20 @@ No machine time, no API call. Every input is a committed file, read fresh by the
   - customer profile: results/impact_profile_20261014.json. hour_value is the BLS median hourly wage (source URL,
     table, reference period and fetch date are inside the file; register row impact-hour-value). Every other field
     is an ASSUMPTION and is labelled so wherever it is used.
-  - cloud prices: results/cloud_prices_20261008.json through analysis/cloud_budget_forecast.py (the same table and
-    the same call_cost function as the cloud budget and the Pareto frontier).
+  - cloud prices: the shared Anthropic table results/cloud_prices_anthropic_20261014.json (transcribed from
+    Anthropic's official pricing page; URL and fetch time inside), escalation model claude-sonnet-5-5, read through
+    analysis/cloud_budget_forecast.py's call_cost / session_cost. Provider prompt caching is ON in the main case
+    (cache-read price for re-sent history); no caching is printed only as the upper bound (operator decision B,
+    2026-10-14). The profile's previous_basis (OpenAI table) is used only to show where the first model's one-flag
+    figure came from (impact-scenario-one-flag).
+
+Impact audit (operator decision C, 2026-10-14): every row's USD/day is split into a measured part and an assumed
+part, with each assumption listed (value, source) and a status: "measured" (USD follows from measured per-session
+quantities and cited prices at the profile volumes), "mixed" (a measured quantity whose USD also needs an assumption
+beyond volume, e.g. that someone waits for the compute), "assumed" (the per-event cost itself is not measured).
+Compute time is valued at the full hour value only as an upper bound; its lower bound is 0 (nobody waits). P1 prints
+"not measured" until B3 task runs (end-state checked tool tasks) exist under at least two window settings: a
+silent rule or recall failure is not converted into a wrong task result.
   - escalation definitions: src/dse/router.py (Router.decide), listed in ESCALATIONS below. Escalated steps are
     found by replaying R2 sessions through that Router and repriced with the price table above (the Router's own
     estimate uses src/cloud/client.py's older table; see docs/IMPACT.md "Price table").
@@ -43,7 +55,12 @@ for _p in (REPO, REPO / "analysis", REPO / "harness"):
         sys.path.insert(0, str(_p))
 
 PROFILE_FILE = "results/impact_profile_20261014.json"
-PRICES_FILE = "results/cloud_prices_20261008.json"
+PRICES_FILE = "results/cloud_prices_anthropic_20261014.json"   # shared Anthropic table (operator decision A)
+OPENAI_PRICES_FILE = "results/cloud_prices_20261008.json"       # previous basis only
+B3_TASK_GLOB = "results/x2_evalset_tasks*.jsonl"                # B3 tool tasks with end-state checks
+B3_MIN_WINDOWS = 2
+CACHE_TTL_S = 300   # Anthropic default cache lifetime ("By default, the cache has a 5-minute lifetime")
+TIME_ROWS = ("P2", "P4", "P5", "P6")
 R2_GLOBS = {"evo-x2": "results/x2_r2_real*.jsonl", "blade": "results/blade_r2_real*.jsonl"}
 R2_VALIDATION_FILES = ["results/x2_r2_validation_v2.jsonl", "results/x2_r2_validation_v2b.jsonl"]
 X2_OUTCOME_V3 = "results/x2_outcome_table_v3.jsonl"
@@ -316,8 +333,13 @@ def _cbf():
     return cbf
 
 
-def prices(repo=REPO):
-    return _cbf().load_prices(repo)
+def price_file(profile=None) -> str:
+    return ((profile or {}).get("assumptions") or {}).get("cloud_price_file") or PRICES_FILE
+
+
+def prices(repo=REPO, profile=None):
+    """The price table named by the profile (default: the shared Anthropic table)."""
+    return json.loads((Path(repo) / price_file(profile)).read_text(encoding="utf-8"))
 
 
 def session_cloud_cost(calls, model, tier, prices_, caching) -> float:
@@ -325,14 +347,28 @@ def session_cloud_cost(calls, model, tier, prices_, caching) -> float:
     return _cbf().session_cost(prices_, calls, model, tier, caching)
 
 
+def resent_history_cost(calls, model, tier, prices_) -> dict:
+    """The re-sent history of one session (per call, the tokens repeating the previous call's prompt, by
+    cloud_budget_forecast.resent_tokens with the model's minimum cacheable prefix), priced at the cache-read rate
+    (caching on, main case) and at the uncached input rate (no caching, upper bound)."""
+    cbf = _cbf()
+    rs = cbf.resent_tokens(calls, cbf.min_cacheable(prices_, model))
+    cached = sum(t * cbf._rate(prices_, model, tier, p)["cached_input"] for t, (p, _o) in zip(rs, calls)) / 1e6
+    unc = sum(t * cbf._rate(prices_, model, tier, p)["input"] for t, (p, _o) in zip(rs, calls)) / 1e6
+    return {"tokens": sum(rs), "cached": cached, "uncached": unc}
+
+
 def r2_cloud_overspend(repo=REPO, profile=None) -> dict:
-    """{model: {"uncached", "cached", "overspend", "n"}} USD per session for the ollama_default R2 sessions of each
-    model, prompts converted to o200k_base with cloud_budget_forecast's per-seed ratio, outputs re-tokenized from the
-    recorded replies. Input of register row r2-session-cloud-cost (parallel plan item)."""
+    """{model: {...}} USD per session for the ollama_default R2 sessions of each model sent whole to the profile's
+    cloud model, prompts converted to o200k_base with cloud_budget_forecast's per-seed ratio, outputs re-tokenized from
+    the recorded replies: "cached" / "uncached" = the whole session with provider caching on / off; "resent_cached" /
+    "resent_uncached" = the re-sent history alone (P3) at the cache-read / uncached input price; "overspend" = uncached
+    minus cached (the first model's P3 definition, kept for the previous-basis figure). Input of register row
+    r2-session-cloud-cost (parallel plan item)."""
     profile = profile or load_profile(repo)
     a = profile["assumptions"]
     cbf = _cbf()
-    pr = prices(repo)
+    pr = prices(repo, profile)
     by = {}
     for dev, d in r2_data(repo).items():
         for s in d["sessions"]:
@@ -341,46 +377,82 @@ def r2_cloud_overspend(repo=REPO, profile=None) -> dict:
             ratio = cbf.o200k_per_est_ratio(s["seed"])
             calls = [(round(c["prompt_tokens_est"] * ratio), cbf.r2_call_output_tokens(c))
                      for r in s["turns"] for c in r["calls"]]
+            rh = resent_history_cost(calls, a["cloud_model"], a["cloud_tier"], pr)
             by.setdefault(s["model"], []).append(
                 (session_cloud_cost(calls, a["cloud_model"], a["cloud_tier"], pr, False),
-                 session_cloud_cost(calls, a["cloud_model"], a["cloud_tier"], pr, True)))
-    return {m: {"uncached": statistics.mean(u for u, _ in v), "cached": statistics.mean(c for _, c in v),
-                "overspend": statistics.mean(u - c for u, c in v), "n": len(v)} for m, v in by.items()}
+                 session_cloud_cost(calls, a["cloud_model"], a["cloud_tier"], pr, True), rh))
+    m_ = statistics.mean
+    return {m: {"uncached": m_(u for u, _, _ in v), "cached": m_(c for _, c, _ in v),
+                "overspend": m_(u - c for u, c, _ in v), "resent_cached": m_(r["cached"] for _, _, r in v),
+                "resent_uncached": m_(r["uncached"] for _, _, r in v), "resent_tokens": m_(r["tokens"] for _, _, r in v),
+                "n": len(v)} for m, v in by.items()}
+
+
+def escalated_cost(esc_calls, model, tier, prices_, ttl_s=CACHE_TTL_S) -> dict:
+    """USD for one session's escalated steps [(prompt_tokens, output_tokens, t_start_s)] with caching on and off.
+    Caching on: a step reads from cache the previous escalated step's prompt (min(prev, cur) tokens) when that prompt
+    reached the model's minimum cacheable prefix and the previous escalated step started at most ttl_s earlier in the
+    recorded local session (the cloud's own latency would change this timing; not measured); the rest of a cacheable
+    prompt is a 5-minute cache write. Caching off: every prompt token at the input price."""
+    cbf = _cbf()
+    mc = cbf.min_cacheable(prices_, model)
+    on = off = 0.0
+    hits = 0
+    prev_p, prev_t = 0, None
+    for p, o, t in esc_calls:
+        off += cbf.call_cost(prices_, model, tier, p, o)
+        hit = prev_p >= mc and prev_t is not None and (t - prev_t) <= ttl_s
+        cached = min(prev_p, p) if hit else 0
+        write = (p - cached) if p >= mc else 0
+        hits += bool(hit)
+        on += cbf.call_cost(prices_, model, tier, p, o, cached=cached, write=write)
+        prev_p, prev_t = p, t
+    return {"cached": on, "uncached": off, "hits": hits, "n": len(esc_calls)}
 
 
 def router_escalation(repo=REPO, model=None, tier=None, profile=None, quality_floor=0.9, max_sessions=None) -> dict:
     """Replay the evo-x2 R2 sessions of (model, tier) through src/dse/router.py's Router (definitions E1-E4) and
-    price each cloud decision with the price table: input = system + full history, output = the step's num_predict
-    (the Router's own answer budget, an upper bound), no caching. Token counts are the R2 harness's calibrated
-    local-tokenizer estimate. Returns {"cloud_steps_per_session", "usd_per_session", "steps_per_session", "n"}."""
+    price each cloud decision with the profile's price table: input = system + full history, output = the step's
+    num_predict (the Router's own answer budget, an upper bound on output). "usd_per_session" is the main case,
+    provider caching on between the session's escalated steps (escalated_cost); "usd_per_session_uncached" the
+    no-caching upper bound. Token counts are the R2 harness's calibrated local-tokenizer estimate."""
     profile = profile or load_profile(repo)
     a = profile["assumptions"]
     from src.dse import r2_replay as rp
-    pr = prices(repo)
-    cbf = _cbf()
+    pr = prices(repo, profile)
     d = r2_data(repo).get("evo-x2")
     sess = [s for s in (d["sessions"] if d else []) if s["model"] == model and s["tier"] == tier]
     if max_sessions:
         sess = sess[:max_sessions]
     if not sess:
-        return {"cloud_steps_per_session": None, "usd_per_session": None, "steps_per_session": None, "n": 0}
-    clouds, usds, steps = [], [], []
+        return {"cloud_steps_per_session": None, "usd_per_session": None, "usd_per_session_uncached": None,
+                "steps_per_session": None, "cache_hit_share": None, "n": 0, "cloud_steps_values": [],
+                "steps_values": []}
+    clouds, on, off, steps, hits, n_esc = [], [], [], [], 0, 0
     for s in sess:
+        start, acc = {}, 0.0
+        for r in s["turns"]:                      # recorded local start time of each turn
+            start[r["turn_idx"]] = acc
+            acc += r.get("turn_wall_s") or 0.0
         router = rp.router_for_session(s["turns"], budget_usd=1e6, quality_floor=quality_floor)
-        n_cloud, usd, n = 0, 0.0, 0
+        esc, n = [], 0
         for step in rp.session_steps(s["turns"]):
             dec = router.decide(step)
             n += 1
             if dec.target == "cloud":
-                n_cloud += 1
                 t = dec.tokens
-                usd += cbf.call_cost(pr, a["cloud_model"], a["cloud_tier"], t["full_total"] - t["answer_budget"],
-                                     t["answer_budget"])
-        clouds.append(n_cloud)
-        usds.append(usd)
+                esc.append((t["full_total"] - t["answer_budget"], t["answer_budget"], start.get(step["turn_idx"], 0.0)))
+        c = escalated_cost(esc, a["cloud_model"], a["cloud_tier"], pr)
+        clouds.append(len(esc))
+        on.append(c["cached"])
+        off.append(c["uncached"])
         steps.append(n)
-    return {"cloud_steps_per_session": statistics.mean(clouds), "usd_per_session": statistics.mean(usds),
-            "steps_per_session": statistics.mean(steps), "n": len(sess)}
+        hits += c["hits"]
+        n_esc += c["n"]
+    return {"cloud_steps_per_session": statistics.mean(clouds), "usd_per_session": statistics.mean(on),
+            "usd_per_session_uncached": statistics.mean(off), "steps_per_session": statistics.mean(steps),
+            "cache_hit_share": (hits / n_esc) if n_esc else None, "n": len(sess),
+            "cloud_steps_values": sorted(set(clouds)), "steps_values": sorted(set(steps))}
 
 
 # ── rates and ratios (P4, P5, P6) ───────────────────────────────────────────────────────────────────────────────
@@ -423,7 +495,7 @@ def single_shot_failures(repo=REPO, profile=None) -> dict:
     profile = profile or load_profile(repo)
     a = profile["assumptions"]
     import numbers_register as nr
-    pr = prices(repo)
+    pr = prices(repo, profile)
     cbf = _cbf()
     out = {}
     x2, cells, items, _td, _tp = nr._x2_v3_timeout_latency(repo)
@@ -459,22 +531,46 @@ def _cfg(profile, runtime=None):
     return a["device"], a["model"], tier_of(runtime or a["runtime"])
 
 
+def b3_task_windows(repo=REPO) -> dict:
+    """B3 task runs (harness/x2_r2_evalset.py, tool tasks with an end-state check) per window. Validation files
+    ('_val_' in the name) are the gate check before a real run, not a measurement, and do not count.
+    Returns {"files", "windows", "met"}: met = at least B3_MIN_WINDOWS windows with end-state-checked task turns."""
+    files, windows = [], set()
+    for p in sorted(Path(repo).glob(B3_TASK_GLOB)):
+        if "_val_" in p.name or not p.name.endswith(".jsonl"):
+            continue
+        files.append(p.name)
+        with open(p, encoding="utf-8") as f:
+            for line in f:
+                if '"r2a_turn"' not in line:
+                    continue
+                r = json.loads(line)
+                if r.get("record") == "r2a_turn" and r.get("end_state_ok") is not None:
+                    windows.add(tier_of(r.get("arm_id", "")))
+    return {"files": files, "windows": sorted(windows), "met": len(windows) >= B3_MIN_WINDOWS}
+
+
 def p1(repo=REPO, profile=None, runtime=None, inputs=None):
+    """P1 USD is NOT MEASURED until B3 task runs exist under >= 2 windows (operator decision C): the R2 rate below is
+    a silent rule/recall failure rate, not a wrong-task rate, and is not converted into one. cell["scenario_usd_day"]
+    keeps the first model's formula (each silent failure = one wrong result costing one full session rerun at the
+    full hour value), labelled ASSUMED, for the scenario section only."""
     profile = profile or load_profile(repo)
     dev, model, tier = _cfg(profile, runtime)
     inputs = inputs or {}
     rates = inputs.get("rates") or context_loss_rates(repo)
     wall = inputs.get("wall") or session_wallclock(repo)
+    b3 = inputs.get("b3") or b3_task_windows(repo)
     hv, spd = hour_value(profile), sessions_per_day(profile)
     grid = {}
     for (m, t), v in sorted(rates.items()):
         w = wall.get(("evo-x2", m, DEFAULT_TIER))
         p = v["silent_ctx"] / v["n"] if v["n"] else None
-        grid[f"{m}@{t}"] = {"p": p, "k": v["silent_ctx"], "n": v["n"],
-                            "redo_h": None if not w else w["median_wall_s"] / 3600.0,
-                            "usd_day": cost_p1(spd, p, None if not w else w["median_wall_s"] / 3600.0, hv)}
+        redo = None if not w else w["median_wall_s"] / 3600.0
+        grid[f"{m}@{t}"] = {"p": p, "k": v["silent_ctx"], "n": v["n"], "redo_h": redo, "usd_day": None,
+                            "scenario_usd_day": cost_p1(spd, p, redo, hv)}
     cell = grid.get(f"{model}@{tier}") if dev == "evo-x2" else None
-    return {"id": "P1", "usd_day": None if cell is None else cell["usd_day"], "cell": cell, "grid": grid,
+    return {"id": "P1", "usd_day": None, "cell": cell, "grid": grid, "b3": b3,
             "config": f"{dev} {model} {tier}"}
 
 
@@ -496,10 +592,13 @@ def p3(repo=REPO, profile=None, runtime=None, inputs=None):
     inputs = inputs or {}
     over = inputs.get("overspend") or r2_cloud_overspend(repo, profile)
     spd = sessions_per_day(profile)
-    grid = {m: dict(v, usd_day=cost_p3(spd, a["cloud_session_share"], v["overspend"])) for m, v in sorted(over.items())}
+    sh = a["cloud_session_share"]
+    grid = {m: dict(v, usd_day=cost_p3(spd, sh, v.get("resent_cached")),
+                    usd_day_upper=cost_p3(spd, sh, v.get("resent_uncached"))) for m, v in sorted(over.items())}
     cell = grid.get(a["model"])
-    return {"id": "P3", "usd_day": None if cell is None else cell["usd_day"], "cell": cell, "grid": grid,
-            "config": f"{a['cloud_model']} {a['cloud_tier']}, sessions shaped like {a['model']}'s"}
+    return {"id": "P3", "usd_day": None if cell is None else cell["usd_day"],
+            "usd_day_upper": None if cell is None else cell["usd_day_upper"], "cell": cell, "grid": grid,
+            "config": f"{a['cloud_model']} {a['cloud_tier']} caching on, sessions shaped like {a['model']}'s"}
 
 
 def p4(repo=REPO, profile=None, runtime=None, inputs=None):
@@ -589,8 +688,11 @@ ROW_FUNCS = {"P1": p1, "P2": p2, "P3": p3, "P4": p4, "P5": p5, "P6": p6, "P7": p
 
 # Static parts of each row: formula, measured inputs (register ids), missing inputs, fix, escalation.
 ROWS = {
-    "P1": {"formula": "sessions/day x P(gated silent failure at/after the first over-window turn) x redo hours (median "
-                      "session wall time at Ollama's default window) x USD/h; lower bound",
+    "P1": {"formula": "NOT MEASURED until B3 task runs (end-state checked tool tasks) exist under >= 2 windows; then "
+                      "sessions/day x P(wrong task end state after the window is exceeded) x rework hours x USD/h. "
+                      "Scenario only (ASSUMED): the first model's sessions/day x P(gated silent rule/recall failure "
+                      "at/after the first over-window turn) x one full session rerun (median session wall at Ollama's "
+                      "default window) x USD/h",
            "measured": ["R2-real-v1b-gated-kill", "R2-real-v1b-survival", "R2-mechanism-verdict",
                         "x2-v3-truncation-all-models", "r2-session-wallclock (PENDING on main; same files read here)",
                         "info-loss-by-window (PENDING on main)"],
@@ -609,13 +711,15 @@ ROWS = {
            "fix": "set num_ctx to the session's need, not the runtime default; combined with the P1 fix so a smaller "
                   "window cannot silently cut history",
            "escalation": "no for the window change itself; E4 escalations of the P1 fix apply at the smaller window"},
-    "P3": {"formula": "sessions/day x cloud share x mean(session cost uncached - session cost with implicit caching), "
-                      "price table cloud_prices_20261008, R2 session token counts",
+    "P3": {"formula": "sessions/day x cloud share x mean(re-sent history tokens per session x cache-read price) with "
+                      "provider caching on (main case); the same tokens x uncached input price is the no-caching upper "
+                      "bound; shared Anthropic table cloud_prices_anthropic_20261014 (claude-sonnet-5-5), R2 session "
+                      "token counts (o200k_base)",
            "measured": ["cloud-budget-tokens", "cloud-budget-inputs",
                         "r2-session-cloud-cost (PENDING on main; same computation here)"],
            "missing": "how much of a real customer's cloud history is a stable cacheable prefix (R2 sessions are "
-                      "append-only, the best case for caching)",
-           "fix": "keep the history an append-only prefix so implicit caching applies; trim history client-side",
+                      "append-only, the best case for caching); Anthropic tokenizer counts (o200k_base used)",
+           "fix": "keep the history an append-only prefix and turn provider caching on; trim history client-side",
            "escalation": "no (the fix lowers cloud spend)"},
     "P4": {"formula": "sessions/day x output tokens/session x (1/decode rate on this device - 1/best measured rate for "
                       "the model) x USD/h; decode only (prefill excluded), lower bound",
@@ -651,11 +755,12 @@ ROWS = {
 }
 
 CONFIDENCE = {
-    "P1": ("low", "the per-session rate is measured on few sessions per cell (n in the grid), but the cost per event is "
-                  "a rerun-time lower bound; detection and rework time are not measured"),
+    "P1": ("none", "USD not measured: no B3 task run yet, so no wrong-task rate; the R2 silent rule/recall rate (n in "
+                   "the grid) is not a wrong-task rate, and rework time is not measured"),
     "P2": ("medium", "paired same-seed turns that fit both windows isolate the window size, but the per-turn delta is "
                      "scaled to a whole session by assumption and the right-sized window was not run"),
-    "P3": ("high", "token counts and public prices only; the daily figure scales linearly with the assumed cloud share"),
+    "P3": ("high", "token counts and the official price page only; the daily figure scales linearly with the assumed "
+                   "cloud share"),
     "P4": ("medium", "decode rates are measured per machine, but on different workloads (the Blade's from short dry "
                      "runs), and prefill is excluded, so it is a lower bound"),
     "P5": ("low", "co-runner ratios come from single-shot microbenchmarks applied to session timings, and the co-runner "
@@ -665,14 +770,103 @@ CONFIDENCE = {
 }
 
 DECISIVE_MEASUREMENT = (
-    "Developer time lost per silent wrong result (time to notice plus rework, and how often it is never noticed), "
-    "measured on real agent sessions. It is the one input P1 and P7 lack: today P1 is priced at a rerun-time lower "
-    "bound and P7 is not priced at all, and at any small window both rates are high (R2-real-v1b-gated-kill), so a "
-    "measured per-event cost decides whether context loss ranks first or last.")
+    "Two inputs P1 lacks: (1) a wrong-task rate per window, from B3 task runs with end-state checks under at least two "
+    "window settings (not yet run), and (2) developer time lost per wrong result (time to notice plus rework, and how "
+    "often it is never noticed). P7 lacks the cost of one guardrail violation. At any small window the silent "
+    "rule/recall rates are high (R2-real-v1b-gated-kill), so these inputs decide whether context loss ranks first or "
+    "last; until then it is not ranked.")
+
+
+def _time_note(profile):
+    v = profile["assumptions"].get("waiting_time_valuation") or {"lower": 0.0, "upper": 1.0}
+    return v
+
+
+def bounds(k, r, profile) -> tuple:
+    """(low, high) USD/day. Time rows: low = lower x full value (0: nobody waits), high = upper x full value (someone
+    waits for every second). P3: low = caching on, high = no caching. Others: the row value."""
+    u = r["usd_day"]
+    if u is None:
+        return None, None
+    if k in TIME_ROWS:
+        v = _time_note(profile)
+        return u * v["lower"], u * v["upper"]
+    if k == "P3":
+        return u, r.get("usd_day_upper")
+    return u, u
+
+
+def audit_row(k, r, profile) -> dict:
+    """Operator decision C: split the row's USD/day into measured and assumed parts, list each assumption with its
+    value and source, and mark the row measured / mixed / assumed."""
+    a = profile["assumptions"]
+    vol = [("team size", a["team_size"], "assumption (profile JSON)"),
+           ("agent sessions per developer per day", a["agent_sessions_per_dev_per_day"], "assumption (profile JSON)")]
+    wait = ("developer waits for this compute", "upper bound values it at the full hour value "
+            f"USD {hour_value(profile):.2f}/h (impact-hour-value); lower bound 0 (nobody waits)",
+            "assumption: who waits was not measured")
+    c = r.get("cell") or {}
+    lo, hi = bounds(k, r, profile)
+    if k == "P1":
+        sc = c.get("scenario_usd_day")
+        b3 = r.get("b3") or {}
+        return {"measured": None, "assumed": sc, "status": "assumed", "low": None, "high": None, "assumptions": vol + [
+            ("a silent rule/recall failure is a wrong task result", f"{c.get('k')}/{c.get('n')} sessions treated as wrong",
+             "not measured: B3 task runs under >= 2 windows needed; found "
+             f"{', '.join(b3.get('windows') or []) or 'none'} (validation files excluded)"),
+            ("rework per wrong result", "one full session rerun = median session wall at the default window "
+             f"({'n/a' if c.get('redo_h') is None else f'{c['redo_h']:.2f} h'})", "assumption (not measured)"),
+            wait]}
+    if k == "P7":
+        if r["usd_day"] == 0.0:
+            return {"measured": 0.0, "assumed": 0.0, "status": "measured", "low": 0.0, "high": 0.0, "assumptions": vol + [
+                ("cost per guardrail violation", "not needed: measured rate "
+                 f"{c.get('k')}/{c.get('n')} sessions", "measured zero rate")]}
+        return {"measured": None, "assumed": None, "status": "not measured", "low": None, "high": None,
+                "assumptions": vol + [("cost per guardrail violation", "none assumed", "not measured")]}
+    if k == "P3" and r["usd_day"] is None:
+        return {"measured": None, "assumed": None, "status": "not measured", "low": None, "high": None,
+                "assumptions": vol}
+    if k == "P3":
+        return {"measured": r["usd_day"], "assumed": 0.0, "status": "measured", "low": lo, "high": hi,
+                "assumptions": vol + [
+                    ("cloud session share", a["cloud_session_share"], "assumption (profile JSON)"),
+                    ("cloud model", f"{a['cloud_model']} {a['cloud_tier']}, caching on",
+                     f"{price_file(profile)} (official Anthropic pricing page)"),
+                    ("token basis", "o200k_base counts", "assumption: Anthropic tokenizer counts not measured"),
+                    ("re-sent history is a cacheable prefix", "R2 sessions are append-only",
+                     "best case for caching; real histories not measured")]}
+    extra = {"P2": [("turns per session", a["turns_per_session"], "R2 session length (scales a per-turn delta)")],
+             "P4": [("decode only", "prefill excluded", "lower bound on the time itself")],
+             "P5": [("co-runner share", a["co_runner_share"], "assumption (profile JSON)")],
+             "P6": [("single-shot calls per developer per day", a["single_shot_calls_per_dev_per_day"],
+                     "assumption (profile JSON)")]}[k]
+    if r["usd_day"] is None:
+        return {"measured": None, "assumed": None, "status": "not measured", "low": None, "high": None,
+                "assumptions": vol + extra + [wait]}
+    return {"measured": lo, "assumed": hi - lo, "status": "mixed", "low": lo, "high": hi,
+            "assumptions": vol + extra + [wait], "hours_day": r["usd_day"] / hour_value(profile)}
+
+
+def audit_total(rows: dict, audits: dict) -> dict:
+    """Measured-only total (the measured column) plus a range: low = measured-only total; high = every row that is
+    measured or mixed at its upper bound (time at the full hour value, cloud without caching). Assumed rows (P1, a
+    nonzero-rate P7) are listed, never added."""
+    meas = {k: v["measured"] for k, v in audits.items() if v["measured"] is not None}
+    rng_rows = {k: v for k, v in audits.items() if v["status"] in ("measured", "mixed") and v["high"] is not None}
+    return {"measured_usd_day": sum(meas.values()), "low": sum(v["low"] for v in rng_rows.values()),
+            "high": sum(v["high"] for v in rng_rows.values()), "in_range": sorted(rng_rows),
+            "excluded_assumed": sorted(k for k, v in audits.items() if v["status"] in ("assumed", "not measured"))}
 
 
 def _fmt_usd(v):
     return NOT_MEASURED if v is None else f"{v:,.2f}"
+
+
+def _rng(lo, hi):
+    if lo is None or hi is None:
+        return NOT_MEASURED
+    return _fmt_usd(lo) if abs(hi - lo) < 0.005 else f"{_fmt_usd(lo)} to {_fmt_usd(hi)}"
 
 
 def model_rows(repo=REPO, profile=None, runtime=None, inputs=None) -> dict:
@@ -682,29 +876,44 @@ def model_rows(repo=REPO, profile=None, runtime=None, inputs=None) -> dict:
         r = f(repo, profile, runtime, (inputs or {}).get(k))
         r["usd_month"] = per_month(r["usd_day"], profile)
         r["confidence"] = CONFIDENCE[k]
+        r["audit"] = audit_row(k, r, profile)
         out[k] = r
     return out
 
 
 def total(rows: dict) -> dict:
+    """Plain sum of the rows' main-case USD/day (caching on, time at the full hour value); rows without a number are
+    listed. The audited figure is audit_total."""
     known = {k: r["usd_day"] for k, r in rows.items() if r["usd_day"] is not None}
     return {"usd_day": sum(known.values()), "included": sorted(known),
             "excluded_not_measured": sorted(k for k, r in rows.items() if r["usd_day"] is None)}
 
 
+def _assumption_text(au) -> str:
+    return "; ".join(f"{n} = {v} ({s})" for n, v, s in au["assumptions"])
+
+
 def row_value(r: dict, profile) -> str:
-    """One register value string for a problem row (profile config)."""
+    """One register value string for a problem row (profile config): the audit split first, then the measured
+    per-session inputs, then the assumptions."""
     k = r["id"]
-    measured = "measured" if r["usd_day"] is not None else NOT_MEASURED
+    au = r.get("audit") or audit_row(k, r, profile)
     c = r["cell"] or {}
     detail = ""
-    if k in ("P1", "P7") and c:
+    if k == "P1" and c:
+        b3 = r.get("b3") or {}
+        detail = (f"; R2 silent rule/recall failures after the window {c['k']}/{c['n']} sessions (measured, not a "
+                  f"wrong-task rate); B3 task-run windows {', '.join(b3.get('windows') or []) or 'none'} (needs "
+                  f">= {B3_MIN_WINDOWS})")
+    elif k == "P7" and c:
         detail = f"; rate {c['k']}/{c['n']} sessions"
     elif k == "P2" and c:
         detail = (f"; median per-turn delta {c['median_delta_s']:.2f} s vs {c['vs']} (n={c['n_turns']} paired turns)"
                   if c.get("vs") else "; smallest measured window")
     elif k == "P3" and c:
-        detail = f"; overspend USD {c['overspend']:.4f}/session (uncached {c['uncached']:.4f}, cached {c['cached']:.4f}, n={c['n']})"
+        detail = (f"; per session: re-sent history {c['resent_tokens']:,.0f} tok, USD {c['resent_cached']:.4f} caching "
+                  f"on, {c['resent_uncached']:.4f} no caching; whole session to the cloud USD {c['cached']:.4f} "
+                  f"caching on, {c['uncached']:.4f} no caching (n={c['n']})")
     elif k == "P4" and c:
         detail = f"; decode {c['rate']:.2f} tok/s vs best {c['best_rate']:.2f}"
     elif k == "P5" and c and c.get("ttft_ratio"):
@@ -712,8 +921,43 @@ def row_value(r: dict, profile) -> str:
     elif k == "P6" and c:
         detail = (f"; timeouts {c['p_timeout']:.3f} x {c['timeout_s']} s, allocation failures {c['p_fail']:.3f} "
                   f"(n={c['n']}); escalation USD {c['escalation_usd_day']:.2f}/day")
-    return (f"{r['config']}: USD/day {_fmt_usd(r['usd_day'])}, USD/month {_fmt_usd(r['usd_month'])} ({measured}){detail}; "
-            f"confidence {r['confidence'][0]}")
+    if au.get("hours_day") is not None:
+        detail += f"; compute time {au['hours_day']:.2f} h/day"
+    return (f"{r['config']}: status {au['status']}; measured USD/day {_fmt_usd(au['measured'])}, assumed USD/day "
+            f"{_fmt_usd(au['assumed'])}, range USD/day {_rng(au['low'], au['high'])}{detail}; assumptions: "
+            f"{_assumption_text(au)}; confidence {r['confidence'][0]}")
+
+
+def session_time_by_window(repo=REPO) -> dict:
+    """{(model, tier): {"median_wall_s", "n"}} per-session wall time on evo-x2 from the R2 sessions (same helper as
+    session_wallclock)."""
+    return {(m, t): {"median_wall_s": v["median_wall_s"], "n": v["n"]}
+            for (d, m, t), v in session_wallclock(repo).items() if d == "evo-x2"}
+
+
+def previous_basis(repo, profile, scen) -> dict | None:
+    """Where the first model's one-flag figure came from: the scenario rows recomputed on the previous basis (OpenAI
+    table, P3 = uncached minus cached session cost, P1 = rerun proxy, time at the full hour value)."""
+    import copy
+    a = profile["assumptions"]
+    pb = a.get("previous_basis")
+    if not pb:
+        return None
+    prof2 = copy.deepcopy(profile)
+    prof2["assumptions"].update(cloud_model=pb["cloud_model"], cloud_price_file=pb["cloud_price_file"])
+    over = r2_cloud_overspend(repo, prof2).get(a["model"]) or {}
+    spd = sessions_per_day(profile)
+    c1 = scen["P1"]["cell"] or {}
+    terms = {"P1": c1.get("scenario_usd_day"), "P2": scen["P2"]["usd_day"],
+             "P3": cost_p3(spd, a["cloud_session_share"], over.get("overspend")),
+             "P4": scen["P4"]["usd_day"], "P5": scen["P5"]["usd_day"], "P6": scen["P6"]["usd_day"],
+             "P7": scen["P7"]["usd_day"]}
+    tot = sum(v for v in terms.values() if v is not None)
+    return {"terms": terms, "usd_day": tot, "usd_month": per_month(tot, profile),
+            "excluded": sorted(k for k, v in terms.items() if v is None), "sessions_day": spd,
+            "p1_k": c1.get("k"), "p1_n": c1.get("n"), "redo_h": c1.get("redo_h"),
+            "overspend_per_session": over.get("overspend"), "cloud_model": pb["cloud_model"],
+            "price_file": pb["cloud_price_file"]}
 
 
 def compute_all(repo=REPO, profile=None) -> dict:
@@ -721,7 +965,51 @@ def compute_all(repo=REPO, profile=None) -> dict:
     base = model_rows(repo, profile)
     scen = model_rows(repo, profile, runtime=profile["assumptions"]["scenario_runtime"])
     return {"profile": profile, "base": base, "scenario": scen, "total": total(base), "scenario_total": total(scen),
-            "ranking": rank(base), "scenario_ranking": rank(scen)}
+            "audit_total": audit_total(base, {k: r["audit"] for k, r in base.items()}),
+            "scenario_audit_total": audit_total(scen, {k: r["audit"] for k, r in scen.items()}),
+            "ranking": rank(base), "scenario_ranking": rank(scen),
+            "previous_basis": previous_basis(repo, profile, scen), "session_time": session_time_by_window(repo)}
+
+
+def scenario_value(res) -> str:
+    """Register value for impact-scenario-one-flag: the previous-basis figure term by term, and the same scenario on
+    the current basis split into measured and assumed."""
+    p = res["profile"]
+    a = p["assumptions"]
+    pb = res["previous_basis"]
+    st = res["scenario_audit_total"]
+    sc = res["scenario"]
+    f = _fmt_usd
+    prev = "no previous basis in the profile"
+    if pb:
+        t = pb["terms"]
+        prev = (f"previous basis (first impact model, before the 2026-10-14 audit): USD/day {f(pb['usd_day'])} (USD/month "
+                f"{f(pb['usd_month'])}) = P1 {f(t['P1'])} (ASSUMED: {pb['p1_k']}/{pb['p1_n']} silent rule/recall "
+                f"failures treated as wrong results x {pb['sessions_day']:.0f} sessions/day x one rerun "
+                f"{pb['redo_h']:.4f} h x USD {hour_value(p):.2f}/h) + P2 {f(t['P2'])} + P3 {f(t['P3'])} ({pb['cloud_model']}, "
+                f"uncached minus cached USD {pb['overspend_per_session']:.4f}/session x {pb['sessions_day']:.0f} x "
+                f"cloud share {a['cloud_session_share']}) + P4 {f(t['P4'])} + P5 {f(t['P5'])} (time at the full hour "
+                f"value); not included: {', '.join(pb['excluded'])}")
+    parts = "; ".join(f"{k} {f(r['audit']['measured'])} measured / {f(r['audit']['assumed'])} assumed "
+                      f"({r['audit']['status']})" for k, r in sc.items())
+    return (f"SCENARIO, depends on assumed rework time per silent wrong result (not measured). One flag "
+            f"{a['scenario_runtime']} on {a['device']} {a['model']}: {prev}. Current basis ({a['cloud_model']} caching "
+            f"on, P1 not measured): measured-only USD/day {f(st['measured_usd_day'])}, range {_rng(st['low'], st['high'])} "
+            f"over {', '.join(st['in_range'])}; assumed-only P1 {f((sc['P1']['cell'] or {}).get('scenario_usd_day'))}; "
+            f"per row: {parts}")
+
+
+def session_time_value(res) -> str:
+    st = res["session_time"]
+    models = sorted({m for m, _t in st})
+    out = []
+    for m in models:
+        d, s = st.get((m, DEFAULT_TIER)), st.get((m, "num_ctx_4096"))
+        if not d or not s:
+            continue
+        out.append(f"{m}: ollama_default median {d['median_wall_s'] / 60:.1f} min/session (n={d['n']}), num_ctx_4096 "
+                   f"median {s['median_wall_s'] / 60:.1f} min/session (n={s['n']}), ratio {s['median_wall_s'] / d['median_wall_s']:.2f}")
+    return "evo-x2 R2 sessions (40 turns), median wall time per session: " + "; ".join(out)
 
 
 # ── docs/IMPACT.md generated block ──────────────────────────────────────────────────────────────────────────────
@@ -729,20 +1017,25 @@ def compute_all(repo=REPO, profile=None) -> dict:
 BEGIN, END = "<!-- impact_model:begin -->", "<!-- impact_model:end -->"
 
 
-def _grid_lines(k, r):
+def _grid_lines(k, r, profile):
     lines = []
     for key, v in r["grid"].items():
         u = _fmt_usd(v.get("usd_day"))
         extra = ""
-        if k in ("P1", "P7"):
+        if k == "P1":
+            u = NOT_MEASURED
+            extra = (f"{v['k']}/{v['n']} sessions silent rule/recall failure after the window; scenario (ASSUMED rerun "
+                     f"{'n/a' if v['redo_h'] is None else f'{v['redo_h']:.2f} h'}): USD {_fmt_usd(v['scenario_usd_day'])}")
+        elif k == "P7":
             extra = f"{v['k']}/{v['n']} sessions"
-            if k == "P1":
-                extra += f", redo {'n/a' if v['redo_h'] is None else f'{v['redo_h']:.2f} h'}"
         elif k == "P2":
             extra = (f"vs {v['vs']}: {v['median_delta_s']:.2f} s/turn (n={v['n_turns']})" if v.get("vs") and
                      v.get("median_delta_s") is not None else "smallest measured window")
         elif k == "P3":
-            extra = f"uncached {v['uncached']:.4f}, cached {v['cached']:.4f} USD/session (n={v['n']})"
+            u = _rng(v.get("usd_day"), v.get("usd_day_upper"))
+            extra = (f"re-sent {v['resent_tokens']:,.0f} tok/session: USD {v['resent_cached']:.4f} caching on, "
+                     f"{v['resent_uncached']:.4f} no caching; whole session {v['cached']:.4f} / {v['uncached']:.4f} "
+                     f"(n={v['n']})")
         elif k == "P4":
             extra = (f"{v['rate']:.2f} tok/s vs best {v['best_rate']:.2f}; output "
                      f"{'n/a (no R2 session)' if v['output_tokens'] is None else f'{v['output_tokens']:.0f}'} tok/session")
@@ -751,40 +1044,83 @@ def _grid_lines(k, r):
         elif k == "P6":
             extra = (f"timeouts {v['n_events'] if v['p_timeout'] else 0}, allocation failures "
                      f"{v['n_events'] if v['p_fail'] else 0} of {v['n']}; escalation USD {v['escalation_usd_day']:.2f}/day")
+        if k in TIME_ROWS and v.get("usd_day") is not None:
+            u = f"0.00 to {u}"
         lines.append(f"| {k} | {key} | {u} | {extra} |")
     return lines
+
+
+def _audit_table(rows, out, with_assumptions=True):
+    hdr = "| row | problem | measured USD/day | assumed USD/day | range USD/day | status |"
+    sep = "|---|---|---:|---:|---|---|"
+    if with_assumptions:
+        hdr += " assumptions (value; source) | register row |"
+        sep += "---|---|"
+    out += [hdr, sep]
+    for k in ROW_FUNCS:
+        au = rows[k]["audit"]
+        line = (f"| {k} | {PROBLEMS[k]} | {_fmt_usd(au['measured'])} | {_fmt_usd(au['assumed'])} | "
+                f"{_rng(au['low'], au['high'])} | {au['status']} |")
+        if with_assumptions:
+            line += f" {_assumption_text(au)} | impact-{k} |"
+        out.append(line)
 
 
 def render_block(res: dict, escalation: dict) -> str:
     p = res["profile"]
     a = p["assumptions"]
+    at, st = res["audit_total"], res["scenario_audit_total"]
     out = [BEGIN, "",
            f"Generated by `analysis/impact_model.py --write`. Profile: hour value USD {hour_value(p):.2f} "
            f"(impact-hour-value); ASSUMPTIONS: team {a['team_size']}, {a['agent_sessions_per_dev_per_day']} agent "
            f"sessions per developer per day, {a['turns_per_session']} turns per session, "
            f"{a['single_shot_calls_per_dev_per_day']} single-shot calls per developer per day, "
            f"{a['workdays_per_month']} workdays per month, co-runner share {a['co_runner_share']}, cloud session share "
-           f"{a['cloud_session_share']}, configuration {a['device']} {a['model']} {a['runtime']}, escalation model "
-           f"{a['cloud_model']} ({a['cloud_tier']}).", "",
-           "### Profile table (status quo: Ollama default window)", "",
-           "| row | problem | USD/day | USD/month | measured | confidence | register row |", "|---|---|---:|---:|---|---|---|"]
-    for k in ROW_FUNCS:
+           f"{a['cloud_session_share']}, configuration {a['device']} {a['model']} {a['runtime']}. Cloud: "
+           f"{a['cloud_model']} ({a['cloud_tier']}) from {price_file(p)}, provider prompt caching ON (main case); "
+           "no caching is the upper bound only. Compute time: lower bound 0 (nobody waits), upper bound at the full "
+           "hour value (someone waits).", "",
+           "### Impact audit (status quo: Ollama default window)", "",
+           "Status: measured = USD follows from measured per-session quantities and cited prices at the profile "
+           "volumes; mixed = a measured quantity whose USD also rests on an assumption beyond volume (who waits, "
+           "co-runner share); assumed = the per-event cost itself is not measured; not measured = no number. "
+           "Every USD/day is a projection: it scales with the assumed team size and sessions per day.", ""]
+    _audit_table(res["base"], out)
+    out += ["", f"impact-total: measured-only total USD/day {_fmt_usd(at['measured_usd_day'])} (USD/month "
+            f"{_fmt_usd(per_month(at['measured_usd_day'], p))}); range USD/day {_rng(at['low'], at['high'])} (USD/month "
+            f"{_rng(per_month(at['low'], p), per_month(at['high'], p))}) over {', '.join(at['in_range'])}; not added "
+            f"(assumed or not measured): {', '.join(at['excluded_assumed']) or 'none'}.", "",
+            "### Ranking (status quo profile, caching on, time at its upper bound)", ""]
+    for i, k in enumerate(res["ranking"], 1):
         r = res["base"][k]
-        out.append(f"| {k} | {PROBLEMS[k]} | {_fmt_usd(r['usd_day'])} | {_fmt_usd(r['usd_month'])} | "
-                   f"{'measured' if r['usd_day'] is not None else NOT_MEASURED} | {r['confidence'][0]} | impact-{k} |")
-    t = res["total"]
-    out.append(f"| total | measured rows only ({', '.join(t['included'])}) | {_fmt_usd(t['usd_day'])} | "
-               f"{_fmt_usd(per_month(t['usd_day'], p))} | excluded: {', '.join(t['excluded_not_measured']) or 'none'} | "
-               f"| impact-total |")
-    out += ["", f"### Same team after one flag: `{a['scenario_runtime']}`", "",
-            "| row | USD/day | USD/month | measured |", "|---|---:|---:|---|"]
-    for k in ROW_FUNCS:
-        r = res["scenario"][k]
-        out.append(f"| {k} | {_fmt_usd(r['usd_day'])} | {_fmt_usd(r['usd_month'])} | "
-                   f"{'measured' if r['usd_day'] is not None else NOT_MEASURED} |")
-    st = res["scenario_total"]
-    out.append(f"| total (measured rows) | {_fmt_usd(st['usd_day'])} | {_fmt_usd(per_month(st['usd_day'], p))} | "
-               f"excluded: {', '.join(st['excluded_not_measured']) or 'none'} |")
+        au = r["audit"]
+        out.append(f"{i}. {k} {PROBLEMS[k]}: USD/day {_fmt_usd(r['usd_day'])} (range {_rng(au['low'], au['high'])}, "
+                   f"{au['status']}); confidence {r['confidence'][0]} ({r['confidence'][1]})")
+    out += ["", f"Single most decisive missing measurement: {DECISIVE_MEASUREMENT}"]
+    out += ["", f"### Scenario: the same team after one flag, `{a['scenario_runtime']}` (register row "
+            "impact-scenario-one-flag)", "",
+            "SCENARIO, depends on assumed rework time per silent wrong result (not measured). Not a lower bound.", ""]
+    _audit_table(res["scenario"], out, with_assumptions=False)
+    out += ["", f"Measured-only USD/day {_fmt_usd(st['measured_usd_day'])}; range {_rng(st['low'], st['high'])} over "
+            f"{', '.join(st['in_range'])}; not added: {', '.join(st['excluded_assumed']) or 'none'}.", ""]
+    pb = res["previous_basis"]
+    if pb:
+        t = pb["terms"]
+        out += [f"Where the earlier USD {_fmt_usd(pb['usd_day'])}/day (USD {_fmt_usd(pb['usd_month'])}/month) came "
+                "from (first impact model, before the 2026-10-14 audit; recomputed here from the same files):", "",
+                "| term | USD/day | inputs | status under the audit |", "|---|---:|---|---|",
+                f"| P1 | {_fmt_usd(t['P1'])} | {pb['p1_k']}/{pb['p1_n']} sessions with a silent rule/recall failure "
+                f"after the window, each treated as a wrong result, x {pb['sessions_day']:.0f} sessions/day x one full "
+                f"rerun {pb['redo_h']:.4f} h (median session wall at the default window) x USD {hour_value(p):.2f}/h | "
+                "assumed (rework per wrong result not measured; rule breaks are not wrong tasks) |",
+                f"| P2 | {_fmt_usd(t['P2'])} | smallest measured window | measured |",
+                f"| P3 | {_fmt_usd(t['P3'])} | {pb['cloud_model']} ({pb['price_file']}): uncached minus cached USD "
+                f"{pb['overspend_per_session']:.4f}/session x {pb['sessions_day']:.0f} sessions/day x cloud share "
+                f"{a['cloud_session_share']} | replaced: caching on is now the main case (P3 row above) |",
+                f"| P4 | {_fmt_usd(t['P4'])} | decode-rate gap at the full hour value | mixed (time) |",
+                f"| P5 | {_fmt_usd(t['P5'])} | co-runner slowdown at the full hour value, co-runner share "
+                f"{a['co_runner_share']} | mixed (time) |",
+                f"| not included | | {', '.join(pb['excluded'])} not measured at this window | |"]
     out += ["", "### Rows: formula, measured inputs, missing inputs, fix, escalation", "",
             "| row | formula | measured inputs (register ids) | missing inputs | fix | needs cloud escalation? |",
             "|---|---|---|---|---|---|"]
@@ -793,22 +1129,22 @@ def render_block(res: dict, escalation: dict) -> str:
                    f"{d['escalation']} |")
     out += ["", "### Escalation definitions (src/dse/router.py Router.decide, in decision order)", ""]
     out += [f"- {k}: {v}" for k, v in ESCALATIONS.items()]
-    out += ["", "### Ranking (status quo profile)", ""]
-    for i, k in enumerate(res["ranking"], 1):
-        r = res["base"][k]
-        out.append(f"{i}. {k} {PROBLEMS[k]}: USD/day {_fmt_usd(r['usd_day'])}; confidence {r['confidence'][0]} "
-                   f"({r['confidence'][1]})")
-    out += ["", f"Single most decisive missing measurement: {DECISIVE_MEASUREMENT}"]
-    out += ["", "### Escalation cost of the P1 fix (Router replay, E1-E4, priced at the price table)", "",
-            "| model | window | cloud steps / session | steps / session | USD / session | sessions |", "|---|---|---:|---:|---:|---:|"]
+    out += ["", f"### Escalation cost of the P1 fix (Router replay, E1-E4, {a['cloud_model']})", "",
+            "Caching on: an escalated step reads the previous escalated step's prompt from cache when that step started "
+            f"at most {CACHE_TTL_S} s earlier in the recorded local session (the default cache lifetime). Output is "
+            "priced at the step's full answer budget, an upper bound.", "",
+            "| model | window | cloud steps / session | steps / session | USD / session caching on | USD / session no caching | cache-hit share | sessions |",
+            "|---|---|---:|---:|---:|---:|---:|---:|"]
     for (m, t), e in sorted(escalation.items()):
+        f4 = lambda v: NOT_MEASURED if v is None else f"{v:.4f}"  # noqa: E731
         out.append(f"| {m} | {t} | {'n/a' if e['cloud_steps_per_session'] is None else f'{e['cloud_steps_per_session']:.1f}'} | "
                    f"{'n/a' if e['steps_per_session'] is None else f'{e['steps_per_session']:.1f}'} | "
-                   f"{_fmt_usd(e['usd_per_session']) if e['usd_per_session'] is None else f'{e['usd_per_session']:.4f}'} | {e['n']} |")
-    out += ["", "### Per model and device grid (USD/day at the profile volumes)", "",
+                   f"{f4(e['usd_per_session'])} | {f4(e['usd_per_session_uncached'])} | "
+                   f"{'n/a' if e['cache_hit_share'] is None else f'{e['cache_hit_share']:.0%}'} | {e['n']} |")
+    out += ["", "### Per model and device grid (USD/day at the profile volumes; time rows 0 to the full hour value)", "",
             "| row | model@device/window | USD/day | inputs |", "|---|---|---:|---|"]
     for k in ROW_FUNCS:
-        out += _grid_lines(k, res["base"][k])
+        out += _grid_lines(k, res["base"][k], p)
     out += ["", END]
     return "\n".join(out)
 
@@ -834,8 +1170,12 @@ def main(argv=None):
     p = res["profile"]
     for k in ROW_FUNCS:
         print(f"{k} {PROBLEMS[k]}: {row_value(res['base'][k], p)}")
-    print(f"total: USD/day {_fmt_usd(res['total']['usd_day'])} (excluded {res['total']['excluded_not_measured']})")
+    at = res["audit_total"]
+    print(f"total: measured-only USD/day {_fmt_usd(at['measured_usd_day'])}, range {_rng(at['low'], at['high'])} "
+          f"(not added {at['excluded_assumed']})")
     print("ranking:", " > ".join(res["ranking"]))
+    print("scenario:", scenario_value(res))
+    print("session time:", session_time_value(res))
     if "--write" in argv:
         write_doc(block=render_block(res, escalation_table()))
         print("wrote docs/IMPACT.md generated block")
