@@ -462,6 +462,11 @@ when no t2s_queue.py sits next to it). The deployed `x2_r2_agent.py` blob is the
                                   --out C:\apu\ovn\results\x2_evalset_replay_val_v2.jsonl
 
 `x2_evalset_replay_val_v1` (never run) is superseded by (c): the replay workload uses the same turn, tasks and tools.
+Queued 2026-10-14 (one read-modify-write under `tq.set_pause`, cleared in the script's finally block; pause flag
+confirmed absent afterwards) at positions 57, 58, 59, directly after the running `x2_r2_llama_val_32k_offload` (56);
+`x2_evalset_replay_val_v1` marked superseded. Deployed blobs: x2_r2_evalset.py 8a2f8f5, evalset_env.py 4eae225;
+`--check-plan` of all three printed on evo-x2 before queueing (negative-control projections 23,080, 29,612, 23,101
+against the 30,720 budget).
 
 Duration, ESTIMATE ONLY: v1 negative-control seconds per call in the prompt range v2 stays in (register row
 `x2-evalset-val-v1-call-times`: llama3.1:8b 4.3, 4.9, 5.8 s/call at 0-10k, 10-20k, 20-30k; qwen3:14b 10.0, 11.9, 17.9),
