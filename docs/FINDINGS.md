@@ -3845,3 +3845,25 @@ model's minimum cacheable prefix and the previous cloud step started at most 300
 cache lifetime, row timestamps); the rest of a cacheable input is a 5-minute cache write. Sensitivities: no caching
 (upper bound) and claude-haiku-5-5. Input and output tokens are defined as above; the token basis (the local
 tokenizer's estimate, not Anthropic's tokenizer) is an assumption, as the price file itself notes. Nothing else changes.
+
+**Deployed and queued, B5 (2026-10-14, after the pre-registration commit and the code commit, deployed from 399a131).**
+Side directory `C:\apu\ovn\b5\`: `policy_compare.py` (new), this branch's `x2_r2_agent.py` (adds think values for the
+B1 models; has `options_extra`, which policy (f) needs) and `x2_num_keep.py`; the router stack under it (`src\`,
+`src\dse\` router.py and envelope_data.json, `src\cloud\` client.py and prices.py, `analysis\envelope_model.py` and
+`make_failure_map.py`, `results\` with the two price files the cloud client reads at import). `C:\apu\ovn\x2_r2_agent.py`
+was not touched. Every other module the job imports from `C:\apu\ovn` (t2s_r2_session_growth, t2s_k1_ollama,
+host_config, t2s_queue, x2_r2_client_trim, prompt_token_check, proc_util, llama_server, server_guard, run_provenance)
+was compared by SHA-256 with this branch and is identical. The import-only check on evo-x2 (`--import-check`: no
+server, no model call, no queue access) resolved the side copies and the router. Queue entry `x2_policy_compare`
+(`python b5\policy_compare.py --platform evo-x2 --out C:\apu\ovn\results\x2_policy_compare.jsonl`, no queue gate: the
+job's own per-model preflight is the gate) was inserted at position 64, after `x2_r2_family_mistral_small32_real` and
+`x2_evalset_replay_val_v1` and immediately before `x2_window_override_methods`, as docs/X2_QUEUE_PLAN.md orders (item
+13 of 14), in one read-modify-write under `t2s_queue.set_pause` whose reason names its release; the same script
+cleared the pause in its finally block and the pause flag was confirmed absent afterwards. Estimated hours, register row
+`b5-plan-hours`, pasted: "evo-x2 ESTIMATE 76.1 h: llama3.1:8b 14.2 h (sessions 13.0, recall 0.26, probes 1.00; distinct
+policies a,c,d,f,g,h; aliases {'b': 'a', 'e': 'a'}); qwen3:14b 61.9 h (sessions 60.7, recall 0.16, probes 1.00;
+distinct policies a,c,d,f,g,h; aliases {'b': 'a', 'e': 'a'}) / evo-t2s ESTIMATE 38.4 h: llama3.1:8b 38.4 h (sessions
+36.5, recall 0.88, probes 1.00; distinct policies a,b,c,d,f,g,h; aliases {'e': 'b'}) / blade ESTIMATE 36.3 h: qwen3:8b
+36.3 h (sessions 35.0, recall 0.26, probes 1.00; distinct policies a,b,c,d,e,f,g,h); within the 3.0 h night-3 cap: 5 of
+24 sessions". B1 models add hours only if the probe projection admits them. The evo-t2s entries are staged in
+`queues/t2s_window_20261026_staged.json` (not loaded) and the Blade job in night 3 of `harness/blade_queue.py` (not run).
