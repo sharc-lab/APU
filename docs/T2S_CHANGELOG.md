@@ -99,7 +99,9 @@ must run the same version.
 
 ## 2026-10-15 -- T2S week queue loaded, watchdog re-enabled, handover deadline armed
 
-**What:** deployed the week's files (scripts/deploy_evo.py, HEAD f74a00f) including the new `t2s_deadline.py` and
+**What:** deployed the week's files (scripts/deploy_evo.py; the per-file blob and source commit are in
+`C:\apu\ovn\expected_blobs.json`), later also the fixed `t2s_week_preflight.py` (the first preflight run parsed the
+b10970 version line as build 0; requeued with `t2s_week_queue.py requeue`, passed 2026-10-15T05:03Z), including the new `t2s_deadline.py` and
 `t2s_model_pull.py`; loaded `t2s_week_pulls.json` (qwen3:14b pull, missing from the store) and
 `t2s_week_queue.json` as one read-modify-write (`t2s_week_queue.py load-window`); that command's own pause replaced the
 2026-10-02 handover pause flag and its finally block cleared it. `C:\apu\ovn\queue_deadline.json` armed: no launch
