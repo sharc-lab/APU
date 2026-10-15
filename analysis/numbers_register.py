@@ -4494,6 +4494,68 @@ def compute_business_sensitivity(repo):
                      + bm.sensitivity_value(res["sensitivity"]), "n": len(res["sensitivity"])}
 
 
+EVALSET_V1_FILES = ["results/x2_evalset_tasks_val_v1.jsonl", "results/x2_evalset_guard_val_v1.jsonl"]
+
+
+def compute_x2_evalset_val_v1_diagnosis(repo):
+    """Row-level classes of every negative-control canary miss, failed task turn, task-tool failure and rule 6-8
+    violation in the two v1 evalset validations (analysis/evalset_val_diagnosis.py; docs/EVALSET_DESIGN.md 2026-10-14)."""
+    import sys as _sys
+    p = str(repo / "analysis")
+    if p not in _sys.path:
+        _sys.path.insert(0, p)
+    import evalset_val_diagnosis as D
+    return D.register_value(repo)
+
+
+def compute_x2_evalset_val_v1_call_times(repo):
+    """Seconds per model call by final-prompt size bucket in the v1 evalset negative controls (the input of the v2
+    duration estimate in docs/EVALSET_DESIGN.md 2026-10-14)."""
+    import sys as _sys
+    p = str(repo / "analysis")
+    if p not in _sys.path:
+        _sys.path.insert(0, p)
+    import evalset_val_diagnosis as D
+    return D.call_time_value(repo)
+
+
+def compute_x2_evalset_val_v1_gates(repo):
+    """Every gate of both v1 evalset validations per model, as harness/x2_r2_evalset.evaluate_gates_ext computes it on
+    the committed files (the guard file has no run_end: its qwen3:14b third session and positive control are missing)."""
+    _r2_agent_module()
+    import x2_r2_evalset as ev
+    parts, n = [], 0
+    for fn, guard in ((EVALSET_V1_FILES[0], False), (EVALSET_V1_FILES[1], True)):
+        rows = ev.ag.read_rows(repo / fn)
+        if not rows:
+            raise FileNotFoundError(repo / fn)
+        rep = ev.evaluate_gates_ext(rows, "evalset", guard, "off")
+        g, t = rep["gates"], rep["baseline_table"]
+        name = "tasks" if not guard else "guard"
+        n += sum(1 for r in rows if r.get("record") == "r2a_turn")
+        for m in sorted(t):
+            rules = ", ".join(f"{k.split('_')[0]} {v['rate']:.3f}" for k, v in t[m]["rules"].items()
+                              if v["rate"] is not None)
+            tt, nc, pc = g["task_tool"][m], g["negative_control"][m], g["positive_control"][m]
+            r678 = rep["rules678_table"][m]
+            s = (f"{name} {m}: baseline {'pass' if g['baseline'][m]['pass'] else 'FAIL'} ({rules}); negative control "
+                 f"{'pass' if nc['pass'] else 'FAIL'} (canary misses {nc['canary_misses']} over {nc['canary_checks']} "
+                 f"checks, {nc['n_sessions']} sessions, loaded {nc['loaded_context_values']}, max transcript "
+                 f"{nc['max_transcript_tokens_calibrated']}); positive control {'pass' if pc['pass'] else 'FAIL'} "
+                 f"({pc['n_sessions']} sessions); task tool {'pass' if tt['pass'] else 'FAIL'} "
+                 f"{tt['n_ok']}/{tt['n']} ({tt['rate']:.3f})")
+            if guard:
+                s += "; rules 6-8 " + ("pass" if g["rules678"][m]["pass"] else "FAIL") + " (" + ", ".join(
+                    f"{k.split('_')[0]} {v['rate']:.3f} of {v['n']} bait turns" for k, v in r678.items()
+                    if v["rate"] is not None) + ")"
+            tk = rep["task_table"][m]
+            s += f"; tasks in use {len(tk['tasks_in_use'])}"
+            parts.append(s)
+        if not any(r.get("record") == "run_end" for r in rows):
+            parts.append(f"{name}: file has no run_end (unfinished)")
+    return {"value": " / ".join(parts), "n": n}
+
+
 NUMBER_ENTRIES = [
     {"claim_id": "PX2-TTFT-gap", "description": "PX2 B4-vs-S4 TTFT gap range across 5 models",
      "compute": compute_px2_ttft_gap, "data_files": ["results/t2s_night2_20260930T135145Z.jsonl"],
@@ -5180,6 +5242,20 @@ NUMBER_ENTRIES = [
      "sessions per developer per day, cloud share and hour value",
      "compute": compute_business_sensitivity, "data_files": _BUSINESS_FILES,
      "script_function": "analysis/business_metrics.py::sensitivity"},
+    {"claim_id": "x2-evalset-val-v1-gates", "description": "B3 evalset validations v1 (tasks, guardrails) on evo-x2: "
+     "every gate per model as the harness computes it on the committed files",
+     "compute": compute_x2_evalset_val_v1_gates, "data_files": EVALSET_V1_FILES,
+     "script_function": "harness/x2_r2_evalset.py::evaluate_gates_ext"},
+    {"claim_id": "x2-evalset-val-v1-diagnosis", "description": "B3 evalset validations v1: row-level classes of every "
+     "negative-control canary miss (truncation / format / tool call as text / wrong value / omitted), failed task turn "
+     "(schema or prompt mismatch / grader bug / task too hard / model failure, with subtypes), task-tool failure and "
+     "rule 6-8 violation (executed vs text only)",
+     "compute": compute_x2_evalset_val_v1_diagnosis, "data_files": EVALSET_V1_FILES,
+     "script_function": "analysis/evalset_val_diagnosis.py::register_value"},
+    {"claim_id": "x2-evalset-val-v1-call-times", "description": "B3 evalset validations v1, negative control: seconds "
+     "per model call by final-prompt size (10k-token buckets), per model, over-window turns apart",
+     "compute": compute_x2_evalset_val_v1_call_times, "data_files": EVALSET_V1_FILES,
+     "script_function": "analysis/evalset_val_diagnosis.py::call_time_buckets"},
 ]
 
 

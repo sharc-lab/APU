@@ -3910,3 +3910,58 @@ distinct policies a,c,d,f,g,h; aliases {'b': 'a', 'e': 'a'}) / evo-t2s ESTIMATE 
 36.3 h (sessions 35.0, recall 0.26, probes 1.00; distinct policies a,b,c,d,e,f,g,h); within the 3.0 h night-3 cap: 5 of
 24 sessions". B1 models add hours only if the probe projection admits them. The evo-t2s entries are staged in
 `queues/t2s_window_20261026_staged.json` (not loaded) and the Blade job in night 3 of `harness/blade_queue.py` (not run).
+## B3 evalset validations v1: row-level diagnosis and design v2 (2026-10-14)
+
+**Status:** diagnosis of two finished validation files and a design change that is not yet validated. Full write-up: docs/EVALSET_DESIGN.md, "Validation v1 diagnosis and design v2"
+(2026-10-14). Register rows: `x2-evalset-val-v1-gates`, `x2-evalset-val-v1-diagnosis`, `x2-evalset-val-v1-call-times`.
+
+**Result.** Both validations failed mainly for harness reasons, not model reasons. Pasted from
+`x2-evalset-val-v1-diagnosis`: tasks llama3.1:8b "canary misses 13 (tool_call_as_text 10, omitted 3); canary checks
+over the loaded window 0/18; task failures 41/90 (schema_or_prompt_mismatch 27, task_too_hard 8, model_failure 4,
+grader_bug 2 ...)"; tasks qwen3:14b "canary misses 15 (tool_call_as_text 8, truncation 7); canary checks over the
+loaded window 6/18; task failures 49/90 (schema_or_prompt_mismatch 45, grader_bug 2, model_failure 1, task_too_hard 1
+...)"; guard llama3.1:8b "canary misses 22 (tool_call_as_text 16, omitted 4, wrong_value 2) ... rule 6-8 violations 25
+(bait 24; rule7:real_executed 10, rule6:real_executed 7, rule8:real_executed 7, rule8:detector_text_only 1)"; guard
+qwen3:14b "canary misses 10 (truncation 10); canary checks over the loaded window 12/24 ... rule 6-8 violations 28
+(bait 24; rule7:real_executed 10, rule6:real_executed 9, rule8:real_executed 9)".
+
+**Causes.** (1) The negative control was not a no-truncation control for qwen3:14b: it loads 40960 when 131072 is
+requested, and the v1 session went over that window at turn 21 of every qwen3:14b session. (2) The v1 turn gives one
+tool round and withholds tools on the final call; neither model batches its calls, so the next call was written as
+text in place of the answer (canaries, rule 1, rule 5 and the task lost together). (3) Numbers sent as strings were
+rejected by the strict schema check (llama3.1:8b). (4) The length checker rejected correct centimetre answers. (5) Six
+computation or aggregation tasks fail on valid attempts at full context. (6) Rules 6-8 are violated at full context by
+both models with executed calls; the detectors are sound (one text-only false positive in the 53 guard-file
+violations).
+
+**Design v2** (`harness/x2_r2_evalset.py --design v2`, `harness/evalset_env.py`): tool-loop turn (tools on every call,
+up to 4 tool rounds; a text call on a tools-withheld final call is never executed), numeric-string coercion, 150 filler
+tokens a turn with a projected-size refusal at 0.75 x 40960 and a new `negative_control_window` gate, 30-turn positive
+control, clearer tool descriptions (rule 8 on the destructive tools), six tasks replaced by single-step tasks, a
+centimetre-tolerant length check, and a new `task_end_state` gate (>= 90% of negative-control task turns). Expected,
+not claimed: the window gate passes by construction; the canary, task-tool and baseline gates improve because their
+dominant v1 failure classes are removed; llama3.1:8b may still miss canaries inside the window; rules 6-8 are not
+expected to pass. Fresh validations `x2_evalset_tasks_val_v2`, `x2_evalset_guard_val_v2` and `x2_evalset_replay_val_v2`
+go on evo-x2's queue after `x2_r2_llama_val_32k_offload` (estimate 3.2 to 7.8 h together; basis in the design doc).
+
+## AMENDMENT (2026-10-14, before any real-run data): pre-registration of x2_evalset_tasks_real_v1
+
+This note amends the pre-registration "B3 task real runs, x2_evalset_tasks_real_v1 on evo-x2 (2026-10-14, NOT YET RUN)"
+(commit 4b8504d, earlier in this file). Its original text is not edited. Written before any data for that job exists: the job was never queued and has no result file.
+
+1. **Removed from the plan** (operator decision 2026-10-14 22:30 PT) until the fixed validations pass. The validation it
+   rests on, `x2_evalset_tasks_val_v1`, failed for harness reasons (section above): its negative control was not a
+   no-truncation control for qwen3:14b (over the loaded 40960 window from turn 21), and its "correct in the negative
+   control" sets, the pre-registration's primary and secondary tasks in use, came from the v1 one-round turn, which
+   mostly measured whether a model writes its second call as text, plus a strict numeric type check and a
+   length-checker bug. Those sets are not a usable reference, and the `--preflight end_state` relaxation argued there no
+   longer applies.
+2. **If the job is reinstated** it runs on design v2 (`--design v2`), with `x2_evalset_tasks_val_v2.jsonl` as its
+   validation file, the v2 task catalogue (six tasks replaced; docs/EVALSET_DESIGN.md), the standard v2 preflight
+   (including the new `task_end_state` and `negative_control_window` gates) in place of `--preflight end_state`, and
+   tasks in use recomputed from that file. Windows, seeds, models, the outcome measures (wrong-task rate, excess at 4096
+   with the task-cluster bootstrap, silent vs surfaced) and the validity checks stay as pre-registered. The v2 session
+   is shorter (150 filler tokens a turn), so the default window is truncation-free for both models by construction and
+   num_ctx 4096 is still exceeded from the first turns; this change of workload is stated here before any data.
+3. The B3 guardrail real run is removed from the plan on the same terms; rules 6-8 are not expected to pass at full
+   context with these two models.
