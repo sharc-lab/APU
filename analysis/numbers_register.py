@@ -3694,13 +3694,13 @@ def compute_x2_scale_probe_hours(repo):
     return {"value": value, "n": f"{len(p['models'])} models probed", "detail": p}
 
 
-def compute_x2_scale_validation(repo):
+def compute_x2_scale_validation(repo, vfile=X2_SCALE_VALIDATION):
     """H-scale validation (results/x2_r2_scale_validation.jsonl): per model the R2 baseline table and each gate
     (rules in use >= 90%, negative control, positive control, task tool, thinking off), and the real-run preflight."""
     ag = _r2_agent_module()
-    rows = ag.read_rows(repo / X2_SCALE_VALIDATION)
+    rows = ag.read_rows(repo / vfile)
     if not rows:
-        raise FileNotFoundError(repo / X2_SCALE_VALIDATION)
+        raise FileNotFoundError(repo / vfile)
     rep = ag.evaluate_gates(rows, call2_tools="off")
     g = rep["gates"]
     missing = [r["model_id"] for r in rows if r.get("record") == "missing_model"]
@@ -3715,16 +3715,16 @@ def compute_x2_scale_validation(repo):
     return {"value": value, "n": f"{sum(e['n_turns'] for e in rep['baseline_table'].values())} baseline turns"}
 
 
-def compute_h_scale_verdict(repo):
+def compute_h_scale_verdict(repo, real_file=X2_SCALE_REAL, vfile=X2_SCALE_VALIDATION, models=None):
     """The pre-registered H-scale verdict (x2_r2_scale.h_scale_verdict): per model R4096 (silent rule-in-use failures
     after the window at 4096, of 3), H32768 (history lost over the window with rules held at 32768, of 3), the full
     gated count, the per-model and overall verdicts."""
     sc = _x2_scale_module()
     ag = _r2_agent_module()
-    rows = ag.read_rows(repo / X2_SCALE_REAL)
+    rows = ag.read_rows(repo / real_file)
     if not rows:
-        raise FileNotFoundError(repo / X2_SCALE_REAL)
-    v = sc.h_scale_verdict(rows, ag.read_rows(repo / X2_SCALE_VALIDATION))
+        raise FileNotFoundError(repo / real_file)
+    v = sc.h_scale_verdict(rows, ag.read_rows(repo / vfile), *([models] if models else []))
     parts = []
     for model, e in v["per_model"].items():
         if "R4096" in e:
@@ -3737,6 +3737,79 @@ def compute_h_scale_verdict(repo):
             parts.append(f"{model}: {e['verdict']} ({why})")
     return {"value": f"overall {v['overall']} (tested: {v['tested']}); " + " / ".join(parts),
             "n": f"{len(v['tested'])} models tested", "detail": v}
+
+
+# ───────────────── llama3.3:70b library pull and the B2 model family (pre-registered 2026-10-14)
+X2_MODEL_PULLS_SCALE = "results/x2_model_pulls_scale.jsonl"
+X2_FAMILY_SMOKE = "results/x2_family_smoke_mistral_small32.jsonl"
+X2_FAMILY_VALIDATION = "results/x2_r2_family_mistral_small32_validation.jsonl"
+X2_FAMILY_REAL = "results/x2_r2_family_mistral_small32_real.jsonl"
+X2_FAMILY_MODEL = "mistral-small3.2:24b"
+
+
+def _short(d, n=12):
+    if not d:
+        return "none"
+    return d.split(":", 1)[-1][:n]
+
+
+def compute_x2_model_pulls_scale(repo):
+    """x2_model_pulls_scale: per tag pulled or already present, blob digests verified against the manifest, the
+    manifest id and the model / params / template layer digests (first 12 hex), the chat template source, the load
+    check (latest result row per tag)."""
+    import json
+    rows = [json.loads(l) for l in (repo / X2_MODEL_PULLS_SCALE).read_text(encoding="utf-8").splitlines() if l.strip()]
+    latest = {}
+    for r in rows:
+        if r.get("record") == "model_pull_result":
+            latest[r["model_tag"]] = r
+    if not latest:
+        raise ValueError("no model_pull_result rows")
+    parts = []
+    for tag, r in latest.items():
+        how = "already present" if r.get("already_present") else ("pulled" if r.get("pulled") else
+                                                                  f"not pulled ({r.get('pull_error')})")
+        parts.append(f"{tag}: {how}; digests {'verified' if r.get('digests_ok') else 'NOT verified'}; manifest id "
+                     f"{_short(r.get('manifest_sha256'))}; model {_short(r.get('model_digest'))}, params "
+                     f"{_short(r.get('params_digest'))}, template {_short(r.get('template_digest'))}; template source "
+                     f"{r.get('chat_template_source')}; load check {'ok' if r.get('verify_ok') else 'failed'}")
+    return {"value": " / ".join(parts), "n": f"{len(latest)} tags"}
+
+
+def compute_x2_family_smoke(repo):
+    """B2 smoke test: native valid tool calls of the 5 call-1 requests (pre-registered pass: >= 4 of 5), from the
+    family_smoke_result row, cross-checked by recomputing x2_family_smoke.smoke_summary from the turn rows."""
+    import sys
+    sys.path.insert(0, str(REPO / "harness"))
+    import x2_family_smoke as fs
+    ag = _r2_agent_module()
+    rows = ag.read_rows(repo / X2_FAMILY_SMOKE)
+    res = [r for r in rows if r.get("record") == "family_smoke_result" and r.get("model_id") == X2_FAMILY_MODEL]
+    if not res:
+        raise ValueError("no family_smoke_result row")
+    r = res[-1]
+    s = fs.smoke_summary(rows, X2_FAMILY_MODEL)
+    if r.get("n_calls") and (s["n_native_valid"], s["n_calls"]) != (r["n_native_valid"], r["n_calls"]):
+        raise ValueError(f"smoke result row {r['n_native_valid']}/{r['n_calls']} != recomputed "
+                         f"{s['n_native_valid']}/{s['n_calls']}")
+    tpl = next((t.get("chat_template_source") for t in rows if t.get("record") == "r2a_turn"
+                and t.get("model_id") == X2_FAMILY_MODEL), None)
+    calls = ", ".join(f"t{p['turn_idx']} {'native' if p['native_tool_call'] else p['detection_method']}"
+                      f"{' valid' if p['valid'] else ' invalid' if p['native_tool_call'] else ''}"
+                      for p in r.get("per_call") or [])
+    value = (f"{X2_FAMILY_MODEL}: {r['n_native_valid']}/{r['n_calls']} native valid tool calls (pass needs "
+             f"{r['pass_min']}): {'pass' if r['passed'] else 'fail'}" + (f" ({r['reason']})" if r.get("reason") else "")
+             + (f"; {calls}" if calls else "") + f"; template source {tpl}")
+    return {"value": value, "n": f"{r['n_calls']} calls"}
+
+
+def compute_x2_family_validation(repo):
+    return compute_x2_scale_validation(repo, X2_FAMILY_VALIDATION)
+
+
+def compute_h_scale_family_verdict(repo):
+    """The H-scale per-model rules applied to the B2 family model (separate from H-scale-verdict)."""
+    return compute_h_scale_verdict(repo, X2_FAMILY_REAL, X2_FAMILY_VALIDATION, (X2_FAMILY_MODEL,))
 
 
 # ───────────────────────────────────────────────── operator plan v2 (2026-10-13), Parts A4 and A5
@@ -4404,6 +4477,22 @@ NUMBER_ENTRIES = [
                     "history loss with rules holding at 32768, per model at 30B to 70B",
      "compute": compute_h_scale_verdict, "data_files": [X2_SCALE_REAL, X2_SCALE_VALIDATION], "pending_ok": True,
      "script_function": "analysis/numbers_register.py::compute_h_scale_verdict"},
+    {"claim_id": "x2-model-pulls-scale", "description": "x2_model_pulls_scale: llama3.3:70b and mistral-small3.2:24b "
+                    "library tags, blob digests verified, manifest / model / params / template digests, template source",
+     "compute": compute_x2_model_pulls_scale, "data_files": [X2_MODEL_PULLS_SCALE], "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_x2_model_pulls_scale"},
+    {"claim_id": "x2-family-smoke", "description": "B2 family smoke test, mistral-small3.2:24b: native valid tool calls "
+                    "of 5 call-1 requests (pre-registered pass >= 4 of 5)",
+     "compute": compute_x2_family_smoke, "data_files": [X2_FAMILY_SMOKE], "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_x2_family_smoke"},
+    {"claim_id": "x2-family-validation", "description": "B2 family R2 validation gates, mistral-small3.2:24b (same "
+                    "gates as H-scale)",
+     "compute": compute_x2_family_validation, "data_files": [X2_FAMILY_VALIDATION], "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_x2_family_validation"},
+    {"claim_id": "H-scale-family-verdict", "description": "H-scale per-model rules applied to the B2 family model "
+                    "mistral-small3.2:24b (separate from H-scale-verdict)",
+     "compute": compute_h_scale_family_verdict, "data_files": [X2_FAMILY_REAL, X2_FAMILY_VALIDATION],
+     "pending_ok": True, "script_function": "analysis/numbers_register.py::compute_h_scale_family_verdict"},
 
 
     {"claim_id": "num-keep-guardrail-test", "description": "A4 flag test on evo-x2 (llama3.1:8b, num_ctx 4096, 3 "

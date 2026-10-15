@@ -28,10 +28,27 @@ Every mode calls t2s_queue.advance() exactly once on exit (finally) and sets no 
 while a queued job runs (advance() refuses a caller the queue did not launch). Modules are imported from this file's
 directory (C:\\apu\\ovn when deployed); run_start records the git blob of the x2_r2_agent.py actually imported.
 
-Two operator utilities (no model call, no server start):
+B2 model family (pre-registered in docs/FINDINGS.md, "llama3.3:70b library pull and the B2 model family", 2026-10-14):
+the same validation and real modes run mistral-small3.2:24b (FAMILY_MODEL) on their own files, job ids
+x2_r2_family_mistral_small32_validation / x2_r2_family_mistral_small32_real:
+  --mode validation --models mistral-small3.2:24b --out <family validation file>
+  --mode real --models mistral-small3.2:24b --validation-file <family validation file name> --smoke-file <smoke file
+              name> --out <family real file>
+--validation-file (default x2_r2_scale_validation.jsonl) is the file the real mode's per-model preflight and verdict read;
+--smoke-file (default none) adds the smoke preflight (x2_family_smoke.smoke_ok): a model without a passing smoke result
+is refused like a model that failed validation. The family model has no default tier (default_tier_decision: "not
+planned"). Its verdict is a separate register row (H-scale-family-verdict); SCALE_MODELS is unchanged.
+
+Every row with a model id carries chat_template_source / chat_template_sha256 from the tag's manifest
+(chat_template_source.ollama_tag_template; metadata only, never raises).
+
+Operator utilities (no model call, no server start):
   --import-check     import, parse, print the plan of every mode and the models' expected think values; exit.
   --queue-insert     the one read-modify-write of evo-x2's queue for these three jobs (insert_jobs, QUEUE_ORDER) under
                      t2s_queue.set_pause with a reason naming its release, clear_pause() in a finally block.
+  --queue-insert-b2  the same pause discipline for x2_model_pulls_scale + x2_family_smoke_mistral_small32 (immediately
+                     before x2_scale_timing_probe) and the two family jobs (immediately after x2_r2_scale_real),
+                     insert_b2_anchored.
 """
 from __future__ import annotations
 
@@ -56,6 +73,11 @@ SCALE_MODELS = ("qwen3:32b", "qwen3-30b-a3b-2507", "llama3.3:70b")
 SCALE_THINK = {"qwen3:32b": False, "qwen3-30b-a3b-2507": False, "llama3.3:70b": None}
 for _m, _t in SCALE_THINK.items():
     ag.MODELS.setdefault(_m, _t)
+# B2 model family (one model from another family, Mistral, 24B dense). Not part of H-scale's pre-registered models.
+FAMILY_MODEL = "mistral-small3.2:24b"
+FAMILY_THINK = {FAMILY_MODEL: None}   # no thinking mode: the "think" field is omitted
+for _m, _t in FAMILY_THINK.items():
+    ag.MODELS.setdefault(_m, _t)
 REFERENCE_MODEL = {"qwen3:32b": "qwen3:14b", "qwen3-30b-a3b-2507": "qwen3:14b", "llama3.3:70b": "llama3.1:8b"}
 CALL2 = "off"
 SFX = ag.MODE_SUFFIX[CALL2]
@@ -78,13 +100,51 @@ REAL_FILE = "x2_r2_scale_real.jsonl"
 JOB_IDS = {"probe": "x2_scale_timing_probe", "validation": "x2_r2_scale_validation", "real": "x2_r2_scale_real"}
 # Queue order on evo-x2 (operator, 2026-10-13; several agents insert): a job goes immediately before the first pending
 # entry that comes later in this list, otherwise at the end. A trailing "*" matches any id with that prefix.
-QUEUE_ORDER = ("x2_num_keep_guardrail_test", "x2_window_override_methods", "x2_scale_timing_probe",
-               "x2_r2_scale_validation", "x2_r2_scale_real", "x2_r2_family_*", "x2_policy_compare")
+# 2026-10-14 (B1 70B tag, B2 family): x2_model_pulls_scale and the family smoke test go immediately before the probe.
+QUEUE_ORDER = ("x2_num_keep_guardrail_test", "x2_window_override_methods", "x2_model_pulls_scale",
+               "x2_family_smoke_*", "x2_scale_timing_probe", "x2_r2_scale_validation", "x2_r2_scale_real",
+               "x2_r2_family_*", "x2_policy_compare")
+PULLS_JOB_ID, PULLS_FILE = "x2_model_pulls_scale", "x2_model_pulls_scale.jsonl"
+SMOKE_JOB_ID, SMOKE_FILE = "x2_family_smoke_mistral_small32", "x2_family_smoke_mistral_small32.jsonl"
+FAMILY_JOB_IDS = {"validation": "x2_r2_family_mistral_small32_validation", "real": "x2_r2_family_mistral_small32_real"}
+FAMILY_FILES = {k: v + ".jsonl" for k, v in FAMILY_JOB_IDS.items()}
 METRIC_FIELD = {"tool_validity": "tool_validity_all", "tool_args": "tool_args_all", "recall": "recall_ok"}
 
 
 def arm(tier: str) -> str:
     return tier + SFX
+
+
+_TEMPLATE_CACHE = {}
+
+
+def template_fields(model) -> dict:
+    """chat_template_source / chat_template_sha256 of an Ollama tag from its manifest on disk (cached per process once
+    found; never raises, a failure gives None values)."""
+    if model in _TEMPLATE_CACHE:
+        return _TEMPLATE_CACHE[model]
+    try:
+        import chat_template_source as cts
+        fn = getattr(cts.ollama_tag_template, "__wrapped__", cts.ollama_tag_template)   # bypass its lru_cache
+        t = fn(model)
+        out = {"chat_template_source": t.get("chat_template_source"),
+               "chat_template_sha256": t.get("chat_template_sha256")}
+    except Exception:
+        out = {"chat_template_source": None, "chat_template_sha256": None}
+    if out["chat_template_source"]:
+        _TEMPLATE_CACHE[model] = out
+    return out
+
+
+def row_emitter(out_path: Path):
+    """emit(row) appending JSON lines to out_path; a row with a model_id gets template_fields(model_id) unless it
+    already has a chat_template_source."""
+    def emit(row):
+        if row.get("model_id") and "chat_template_source" not in row:
+            row = dict(row, **template_fields(row["model_id"]))
+        with open(out_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(row, default=str) + "\n")
+    return emit
 
 
 def git_blob_sha1(path) -> str | None:
@@ -428,6 +488,15 @@ def h_scale_verdict(real_rows, validation_rows, models=SCALE_MODELS) -> dict:
     return {"overall": overall, "tested": tested, "per_model": per, "finished": finished}
 
 
+def refusal_category_with_smoke(model, reasons, present, fin) -> str:
+    """ag.refusal_category for validation reasons; a model refused only by the smoke preflight is "smoke_missing" (no
+    smoke result) or "smoke_failed"."""
+    val = [r for r in reasons if not r.startswith(f"{model}: smoke test")]
+    if val:
+        return ag.refusal_category(val, present, fin)
+    return "smoke_missing" if any("no smoke result" in r for r in reasons) else "smoke_failed"
+
+
 # ── queue insertion (pure part tested; the CLI runs it on evo-x2) ──────────────────────────────────
 
 def _order_index(job_id: str):
@@ -484,6 +553,74 @@ def queue_entries(results_dir=r"C:\apu\ovn\results") -> list[dict]:
     ]
 
 
+def queue_entries_b2(results_dir=r"C:\apu\ovn\results") -> list[dict]:
+    """The four B1/B2 entries (pull, smoke, family validation, family real), in run order."""
+    common = ("pre-registered in docs/FINDINGS.md 2026-10-14 (llama3.3:70b library pull and the B2 model family). "
+              "Releases itself via tq.advance() on exit; sets no pause.")
+    fv, fr = FAMILY_FILES["validation"], FAMILY_FILES["real"]
+    return [
+        {"id": PULLS_JOB_ID, "status": "pending", "projected_duration_h": None,
+         "cmd": [PYTHON_EXE, "x2_model_pulls_scale.py", "--out", f"{results_dir}\\{PULLS_FILE}"],
+         "note": f"pull llama3.3:70b and mistral-small3.2:24b (library tags), disk check before each pull, blob sha256 "
+                 f"verified against the manifest, digests and template source recorded, never deletes. {common}"},
+        {"id": SMOKE_JOB_ID, "status": "pending", "projected_duration_h": None,
+         "cmd": [PYTHON_EXE, "x2_family_smoke.py", "--out", f"{results_dir}\\{SMOKE_FILE}"],
+         "note": f"B2 smoke: {FAMILY_MODEL} 5 R2 turns (32768, call-2 off), pass = >= 4 of 5 native valid tool calls. "
+                 f"{common}"},
+        {"id": FAMILY_JOB_IDS["validation"], "status": "pending", "projected_duration_h": None,
+         "cmd": [PYTHON_EXE, "x2_r2_scale.py", "--mode", "validation", "--models", FAMILY_MODEL, "--out",
+                 f"{results_dir}\\{fv}"],
+         "note": f"B2 family R2 validation (v2 plan, call-2 off) for {FAMILY_MODEL}; same gates as H-scale. Hours not "
+                 f"projected. {common}"},
+        {"id": FAMILY_JOB_IDS["real"], "status": "pending", "projected_duration_h": None,
+         "cmd": [PYTHON_EXE, "x2_r2_scale.py", "--mode", "real", "--models", FAMILY_MODEL, "--validation-file", fv,
+                 "--smoke-file", SMOKE_FILE, "--out", f"{results_dir}\\{fr}"],
+         "note": f"B2 family R2 real 4096/32768 x 3 seeds x 40 turns for {FAMILY_MODEL}; refused unless the smoke test "
+                 f"and {fv} pass it. Hours not projected. {common}"},
+    ]
+
+
+B2_BEFORE_ANCHOR = JOB_IDS["probe"]   # pull + smoke go immediately before this id (operator, 2026-10-14)
+B2_AFTER_ANCHOR = JOB_IDS["real"]     # family validation + real go immediately after this id
+
+
+def insert_b2_anchored(items: list[dict], entries: list[dict]) -> list[dict]:
+    """Operator rule of 2026-10-14 (another agent reorders the queue): the pull and smoke entries go immediately before
+    x2_scale_timing_probe, the family entries immediately after x2_r2_scale_real, whatever else is around them. A
+    missing anchor or an id already present is a ValueError (nothing is guessed)."""
+    items = list(items)
+    ids = [it["id"] for it in items]
+    for e in entries:
+        if e["id"] in ids:
+            raise ValueError(f"{e['id']} is already in the queue")
+    for a in (B2_BEFORE_ANCHOR, B2_AFTER_ANCHOR):
+        if a not in ids:
+            raise ValueError(f"anchor {a} is not in the queue")
+    before = [e for e in entries if e["id"] in (PULLS_JOB_ID, SMOKE_JOB_ID)]
+    after = [e for e in entries if e not in before]
+    i = ids.index(B2_BEFORE_ANCHOR)
+    items[i:i] = before
+    j = [it["id"] for it in items].index(B2_AFTER_ANCHOR) + 1
+    items[j:j] = after
+    return items
+
+
+def queue_insert_b2(log=print) -> list[dict]:
+    import t2s_queue as tq
+    tq.set_pause("x2_r2_scale --queue-insert-b2: one read-modify-write inserting x2_model_pulls_scale, "
+                 "x2_family_smoke_mistral_small32, x2_r2_family_mistral_small32_validation/_real; released by "
+                 "clear_pause() in this same script's finally block within seconds")
+    try:
+        items = tq.read_queue()
+        new = insert_b2_anchored(items, queue_entries_b2())
+        tq.write_queue(new)
+        ids = [it["id"] for it in new]
+        log(json.dumps({e["id"]: ids.index(e["id"]) for e in queue_entries_b2()}))
+        return new
+    finally:
+        tq.clear_pause()
+
+
 def queue_insert(log=print) -> list[dict]:
     import t2s_queue as tq
     tq.set_pause("x2_r2_scale --queue-insert: one read-modify-write inserting x2_scale_timing_probe, "
@@ -509,8 +646,14 @@ def build_arg_parser():
     ap.add_argument("--results-dir", default=None,
                     help="where the reference, probe and validation files are read (default: --out's directory)")
     ap.add_argument("--models", default=",".join(SCALE_MODELS))
+    ap.add_argument("--validation-file", default=VALIDATION_FILE,
+                    help="real mode: validation file name (in --results-dir) for the per-model preflight and verdict")
+    ap.add_argument("--smoke-file", default=None,
+                    help="real mode: smoke file name (in --results-dir); a model without a passing smoke result is "
+                         "refused (B2 family job)")
     ap.add_argument("--import-check", action="store_true")
     ap.add_argument("--queue-insert", action="store_true")
+    ap.add_argument("--queue-insert-b2", action="store_true")
     return ap
 
 
@@ -521,7 +664,8 @@ def import_check() -> dict:
             "think": {m: ag.MODELS.get(m) for m in SCALE_MODELS},
             "probe_arms": [arm(t) for t in PROBE_TIERS], "validation_plan": ag.validation_plan(CALL2),
             "real_items_all_default": real_items(list(SCALE_MODELS), {m: True for m in SCALE_MODELS})[:8],
-            "queue_entries": [e["cmd"] for e in queue_entries()]}
+            "queue_entries": [e["cmd"] for e in queue_entries()],
+            "queue_entries_b2": [e["cmd"] for e in queue_entries_b2()], "family_think": ag.MODELS.get(FAMILY_MODEL)}
 
 
 def main(argv=None, advance=True):
@@ -533,6 +677,9 @@ def main(argv=None, advance=True):
     if args.queue_insert:
         queue_insert()
         return "queue-insert"
+    if args.queue_insert_b2:
+        queue_insert_b2()
+        return "queue-insert-b2"
     if not args.mode or not args.out:
         ap.error("--mode and --out are required for a job")
     out_path = Path(args.out)
@@ -543,9 +690,8 @@ def main(argv=None, advance=True):
     def log(msg):
         print(f"[{ag.utc_iso()}] {msg}", flush=True)
 
-    def emit(row):
-        with open(out_path, "a", encoding="utf-8") as f:
-            f.write(json.dumps(row, default=str) + "\n")
+    emit = row_emitter(out_path)
+    vfile = args.validation_file
 
     note = "completed"
     import host_config as hc
@@ -563,9 +709,19 @@ def main(argv=None, advance=True):
         preflight, refused, include_default, projection = None, {}, {}, None
         rules_in_use = None
         if args.mode == "real":
-            vrows = ag.read_rows(rdir / VALIDATION_FILE)
-            preflight = ag.validation_preflight_per_model([(VALIDATION_FILE, vrows)], CALL2, models)
-            refused, rules_in_use = preflight["refused"], preflight["rules_in_use"]
+            vrows = ag.read_rows(rdir / vfile)
+            preflight = ag.validation_preflight_per_model([(vfile, vrows)], CALL2, models)
+            refused, rules_in_use = dict(preflight["refused"]), preflight["rules_in_use"]
+            if args.smoke_file:
+                import x2_family_smoke as fs
+                srows = ag.read_rows(rdir / args.smoke_file)
+                smoke = {}
+                for m in models:
+                    ok, why = fs.smoke_ok(srows, m)
+                    smoke[m] = {"ok": ok, "reasons": why}
+                    if not ok:
+                        refused[m] = list(refused.get(m, [])) + why
+                preflight = dict(preflight, smoke_file=args.smoke_file, smoke=smoke)
             prows = ag.read_rows(rdir / PROBE_FILE)
             projection = (next((r["projection"] for r in reversed(prows) if r.get("record") == "scale_projection"),
                                None) if prows else None)
@@ -574,16 +730,18 @@ def main(argv=None, advance=True):
               "agent_file": str(Path(ag.__file__).resolve()), "agent_blob": git_blob_sha1(ag.__file__),
               "think": {m: ag.MODELS.get(m) for m in models}, "rules_in_use": rules_in_use,
               "validation_preflight": preflight, "default_tier": include_default, "probe_projection": projection,
+              "validation_file": vfile if args.mode == "real" else None, "smoke_file": args.smoke_file,
               "hw_id": host_cfg.get("hw_id"), "interactive_session": interactive,
               "max_tokens_per_call": ag.MAX_TOKENS_PER_CALL, "keep_alive": ag.KEEP_ALIVE, "ts_utc": ag.utc_iso()})
-        present = {VALIDATION_FILE: (rdir / VALIDATION_FILE).exists()}
-        fin = {VALIDATION_FILE: any(r.get("record") == "run_end" for r in ag.read_rows(rdir / VALIDATION_FILE))}
+        present = {vfile: (rdir / vfile).exists()}
+        fin = {vfile: any(r.get("record") == "run_end" for r in ag.read_rows(rdir / vfile))}
         for m, reasons in refused.items():
             emit({"record": "refused_model", "model_id": m, "reasons": reasons, "call2_mode": CALL2,
-                  "refusal_category": ag.refusal_category(reasons, present, fin), "ts_utc": ag.utc_iso()})
+                  "refusal_category": refusal_category_with_smoke(m, reasons, present, fin), "ts_utc": ag.utc_iso()})
             log(f"refused model {m}: {'; '.join(reasons)}")
-        if preflight is not None and not preflight["ok"]:
-            note = ("completed; refused to start, no model passed validation in " + VALIDATION_FILE + ": "
+        if preflight is not None and not [m for m in models if m not in refused]:
+            note = ("completed; refused to start, no model passed validation in " + vfile
+                    + (" and the smoke test" if args.smoke_file else "") + ": "
                     + "; ".join(r for rs in refused.values() for r in rs))[:400]
             emit({"record": "refused", "reasons": refused, "ts_utc": ag.utc_iso()})
             emit({"record": "run_end", "note": note, "ts_utc": ag.utc_iso()})
@@ -632,7 +790,7 @@ def main(argv=None, advance=True):
                       "default_tier": include_default,
                       "kill_criterion": ag.kill_criterion(sessions, rules_in_use, rows),
                       "h_scale": h_scale_verdict(rows + [{"record": "run_end"}],
-                                                 ag.read_rows(rdir / VALIDATION_FILE), models)}
+                                                 ag.read_rows(rdir / vfile), models)}
             if refused or missing:
                 note = (f"completed; refused: {sorted(refused)}; missing: {missing}")[:400]
         Path(str(out_path) + ".report.json").write_text(json.dumps(report, indent=1, default=str), encoding="utf-8")
