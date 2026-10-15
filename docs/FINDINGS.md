@@ -3346,3 +3346,58 @@ deployed to `C:\apu\ovn` (new file); queue entry `x2_window_override_methods`: `
 C:\apu\ovn\results\x2_window_override_methods_v1.jsonl --queue`. Both inserted in one read-modify-write under a pause
 cleared in the same script's finally block, after the running x2_evalset_guard_val_v1 and the pending
 x2_evalset_replay_val_v1 and directly before x2_scale_timing_probe, per the operator's order for the night.
+
+## PRE-REGISTRATION: llama3.3:70b library pull and the B2 model family (mistral-small3.2:24b) on evo-x2 (2026-10-14, NOT YET RUN)
+
+**Status:** PRE-REGISTRATION, written and committed before any code for these jobs is written or deployed and before
+evo-x2's queue is edited. No data for these jobs exists. Operator plan v2, B1 (the 70B tag) and B2 (one model from
+another family). The library pages read for the choice are committed as `results/ollama_library_evidence_20261014.json`
+(URL, fetch date, quoted text): `mistral-small3.2` "vision tools 24b", tag `mistral-small3.2:24b` 15GB, 128K context
+window; `llama3.3` "tools 70b", tag `llama3.3:70b` 43GB, 128K context window; `granite3.3` "tools 2b 8b", not chosen
+(8B max). Free space on evo-x2's C: on 2026-10-14: 1568026238976 bytes (same file).
+
+**Job 1, `x2_model_pulls_scale`** (`harness/x2_model_pulls_scale.py`, the `harness/x2_model_pulls.py` pattern), queued
+immediately before `x2_scale_timing_probe`, so the probe, the H-scale validation and the H-scale real job find
+`llama3.3:70b` in the store (the H-scale section above already lists it, "missing until pulled"; the tag name the jobs
+look for is exactly `llama3.3:70b`, so no H-scale code or model list changes). For each of `llama3.3:70b` and
+`mistral-small3.2:24b`: already present (GET /api/tags) means no pull; otherwise a free-disk check on the drive of the
+Ollama model store before the pull (free bytes must be at least 1.1 x the library size plus a 100 GB margin, else no
+pull and a failed row), then `ollama pull` (one retry; the pull resumes partial blobs). Then, pulled or present: the
+manifest on disk is read and every layer's blob is checked for existence, size and sha256 against the manifest digest;
+the row records the manifest's sha256, config digest, and the model, params, template and license layer digests and
+sizes, the chat template source (`chat_template_source.classify_manifest`: a template layer means `ollama_library`),
+the /api/show capabilities, and a 1-token chat call as the load check. Never deletes anything (a digest mismatch is a
+failed row, nothing is removed). Idempotent: a re-run pulls nothing that is present and re-verifies. Output
+`results/x2_model_pulls_scale.jsonl`; register row `x2-model-pulls-scale` (PENDING until synced).
+
+**Job 2, `x2_family_smoke_mistral_small32`** (`harness/x2_family_smoke.py`), queued immediately after the pull job. One
+R2 session of 5 turns for `mistral-small3.2:24b` through `x2_r2_agent.run_session` unchanged: seed 20260901, num_ctx
+32768, call-2 mode "off" (arm `ollama_ctx_32768_call2_notools`), the R2 tool schema (`r2.ollama_tools_payload()`), the
+"think" field omitted (the model has no thinking mode; "think not applicable"). The 5 measured calls are the 5 call-1
+requests (the tools-on call of each turn). Per call it records whether a native tool call came back (message.tool_calls
+non-empty, detection method "native") and whether it was valid (`x2_r2_agent.tool_call_valid` on every call in it: known
+tool, exact parameter keys, string values). **Mechanical pass: at least 4 of the 5 call-1 requests return a native,
+valid tool call.** A text-embedded call (`text_fallback`) counts as not native. No warm-up call (the smoke test is a
+capability check, not a timing measurement). Output `results/x2_family_smoke_mistral_small32.jsonl`; register row
+`x2-family-smoke` (PENDING until synced).
+
+**Jobs 3 and 4, `x2_r2_family_mistral_small32_validation` and `x2_r2_family_mistral_small32_real`**
+(`harness/x2_r2_scale.py`, the H-scale modes with `--models mistral-small3.2:24b` and their own files), queued after
+`x2_r2_scale_real`. Validation: `x2_r2_agent.validation_plan("off")` exactly as for the H-scale models, same gates
+(`validation_preflight`: rules in use at or above 90%, negative control clean, positive control fires, task tool at least
+90%, no thinking). Real: num_ctx 4096 and 32768, seeds 20260901-03, 40 turns, seed-major; no Ollama default tier. The
+real job refuses the model (a `refused_model` row with its reasons, no model call) unless both the smoke file holds a
+passing smoke result for it and `validation_preflight_per_model` passes it on the family validation file (per-model
+preflight). Template source per row: every row these jobs write with a model id carries `chat_template_source` and
+`chat_template_sha256` read from the tag's manifest (the same fields are added to the H-scale jobs' rows; metadata only,
+no change to any measurement or verdict).
+
+**Family verdict, a separate row; H-scale's model list is not changed.** The family model is reported in its own
+register rows `x2-family-validation` and `H-scale-family-verdict`, computed with the same pre-registered per-model rules
+as H-scale (R4096, H32768, "rule loss holds" / "resists rule loss" / "mixed", "history loss with rules holding holds" /
+"inconclusive" / "does not hold", per-model verdict) from `x2_r2_family_mistral_small32_real.jsonl` and its validation
+file. It does not enter `H-scale-verdict` or its overall statement, which keep the three pre-registered models.
+
+**Known limits, stated before the run.** One model from one other family (Mistral) at one size; a result is a statement
+about that model through its Ollama library template. The smoke test's 5 calls are one seed's first 5 turns. The family
+jobs' durations are not projected (the timing probe covers the H-scale models only); no hour figure is cited for them.

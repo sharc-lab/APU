@@ -1,0 +1,46 @@
+{
+  "purpose": "Ollama library pages read before choosing the tags pulled by x2_model_pulls_scale (operator plan v2, B1 70B tag and B2 model family). Text quoted from the pages as fetched.",
+  "fetch_date": "2026-10-14",
+  "fetch_method": "WebFetch (controller session)",
+  "pages": [
+    {
+      "url": "https://ollama.com/library/mistral-small3.2",
+      "fetched": "2026-10-14",
+      "quoted": {
+        "badges": "vision tools 24b",
+        "tags": ["mistral-small3.2:latest", "mistral-small3.2:24b"],
+        "size": "15GB",
+        "context_window": "128K context window",
+        "input": "text and image input",
+        "parameters": "24B parameters"
+      },
+      "chosen_tag": "mistral-small3.2:24b"
+    },
+    {
+      "url": "https://ollama.com/library/llama3.3",
+      "fetched": "2026-10-14",
+      "quoted": {
+        "badges": "tools 70b",
+        "tags": ["llama3.3:70b", "llama3.3:latest"],
+        "size": "43GB",
+        "context_window": "128K context window"
+      },
+      "chosen_tag": "llama3.3:70b"
+    },
+    {
+      "url": "https://ollama.com/library/granite3.3",
+      "fetched": "2026-10-14",
+      "quoted": {
+        "badges": "tools 2b 8b"
+      },
+      "chosen_tag": null,
+      "not_chosen_reason": "8B max"
+    }
+  ],
+  "evo_x2_disk": {
+    "drive": "C:",
+    "free_bytes": 1568026238976,
+    "read_on": "2026-10-14",
+    "source": "B1 agent session on evo-x2"
+  }
+}
