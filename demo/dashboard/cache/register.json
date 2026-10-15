@@ -10,7 +10,7 @@
    "results/t2s_night2_20260929T034014Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_a24_budget_boundary",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "A-24-budget-boundary-first-principles": {
@@ -27,7 +27,7 @@
    "results/t2s_night2_20260929T034014Z_srv_bis_a70_23552_2.txt"
   ],
   "script": "analysis/numbers_register.py::compute_a24_budget_boundary_first_principles",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "A-24-effective-heap-limit": {
@@ -42,7 +42,7 @@
    "results/t2s_night2_20260929T034014Z_srv_bis_a70_*.txt"
   ],
   "script": "analysis/numbers_register.py::compute_a24_effective_heap_limit",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "A-24-flip-point-inputs": {
@@ -56,7 +56,7 @@
    "results/t2s_night2_20260929T034014Z_srv_bis_a70_*.txt"
   ],
   "script": "analysis/numbers_register.py::compute_a24_flip_point_inputs",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "A-24-flip-point-per-model": {
@@ -72,7 +72,7 @@
    "results/t2s_night2_20260929T034014Z_srv_bis_a70_*.txt"
   ],
   "script": "analysis/numbers_register.py::compute_a24_flip_point_per_model",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "A-24-flip-point-prediction": {
@@ -88,7 +88,7 @@
    "results/t2s_night2_20260929T034014Z_srv_bis_a70_*.txt"
   ],
   "script": "analysis/numbers_register.py::compute_a24_flip_point_prediction",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "B3-corunner-6model": {
@@ -101,7 +101,7 @@
    "results/t2s_night2_20260928T004924Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_b3_corunner_6model",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "H-scale-family-verdict": {
@@ -115,7 +115,7 @@
    "results/x2_r2_family_mistral_small32_validation.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_h_scale_family_verdict",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "H-scale-verdict": {
@@ -129,7 +129,7 @@
    "results/x2_r2_scale_validation.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_h_scale_verdict",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "K1v3-X2-table": {
@@ -142,7 +142,7 @@
    "results/t2s_k1_ollama_evo-x2_20260930T205515Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k1_v3_x2_table",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "K2-x2-call-timing": {
@@ -155,7 +155,7 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_call_timing",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "K2-x2-clean-failures": {
@@ -168,7 +168,7 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_clean_failures",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "K2-x2-decode-by-arm": {
@@ -181,7 +181,7 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_decode_by_pressure_arm",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "K2-x2-kill-criterion": {
@@ -194,7 +194,7 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_kill_criterion_table",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "K2-x2-responsiveness-resolution": {
@@ -207,7 +207,7 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_responsiveness_resolution",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "K2-x2-score-ceiling": {
@@ -220,7 +220,7 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_score_ceiling",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "K2-x2-unreached-levels": {
@@ -233,7 +233,7 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_unreached_pressure_levels",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "P70-TTFT-ratio": {
@@ -246,7 +246,7 @@
    "results/t2s_night2_20260929T034014Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_p70_ttft_ratio",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "PX2-TTFT-gap": {
@@ -259,7 +259,7 @@
    "results/t2s_night2_20260930T135145Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_px2_ttft_gap",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "PX2-decode-ratio": {
@@ -272,7 +272,7 @@
    "results/t2s_night2_20260930T135145Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_px2_decode_ratios",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "PX2-full-ratio-table": {
@@ -285,7 +285,7 @@
    "results/t2s_night2_20260930T135145Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_px2_full_ratio_table",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "PX2-power": {
@@ -298,7 +298,7 @@
    "results/t2s_night2_20260930T135145Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_px2_package_power",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "PX2-thermal": {
@@ -312,7 +312,7 @@
    "results/t2s_night2_20260930T135145Z_lhm.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_px2_thermal_ceiling",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "R1-check-agreement": {
@@ -325,7 +325,7 @@
    "results/t2s_night2_20260929T034014Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r1_check_agreement",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "R2-install-path-4b-bare": {
@@ -339,7 +339,7 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_install_path_4b_bare",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "R2-install-path-4b-comparison": {
@@ -354,7 +354,7 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_install_path_4b_comparison",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "R2-mechanism-lowlevel": {
@@ -367,7 +367,7 @@
    "results/x2_r2_mechanism.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_mechanism_lowlevel",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "R2-mechanism-verdict": {
@@ -380,7 +380,7 @@
    "results/x2_r2_mechanism.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_mechanism_verdict",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "R2-mitigation-v1-4096": {
@@ -395,7 +395,7 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_mitigation_v1_4096",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "R2-mitigation-v1-8192": {
@@ -410,7 +410,7 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_mitigation_v1_8192",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "R2-mitigation-v1-observed": {
@@ -423,7 +423,7 @@
    "results/x2_r2_mitigation_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_mitigation_v1_observed",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "R2-mitigation-v1-verdict": {
@@ -438,7 +438,7 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_mitigation_v1_verdict",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "R2-orphan-rates": {
@@ -451,7 +451,7 @@
    "results/x2_r2_mechanism.jsonl"
   ],
   "script": "analysis/r2_shift_predictor.py::orphan_summary",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "R2-real-v1-first-events": {
@@ -464,7 +464,7 @@
    "results/x2_r2_real_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1_first_events",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "R2-real-v1-gated-kill": {
@@ -478,7 +478,7 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1_gated_kill",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "R2-real-v1-kill-criterion": {
@@ -491,7 +491,7 @@
    "results/x2_r2_real_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1_kill_criterion",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "R2-real-v1-loaded-ctx": {
@@ -504,7 +504,7 @@
    "results/x2_r2_real_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1_loaded_ctx",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "R2-real-v1-survival": {
@@ -518,7 +518,7 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1_survival",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "R2-real-v1-token-calib": {
@@ -531,7 +531,7 @@
    "results/x2_r2_real_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1_token_calib",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "R2-real-v1b-first-events": {
@@ -547,7 +547,7 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1b_first_events",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "R2-real-v1b-gated-kill": {
@@ -563,7 +563,7 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1b_gated_kill",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "R2-real-v1b-kill-criterion": {
@@ -579,7 +579,7 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1b_kill_criterion",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "R2-real-v1b-survival": {
@@ -595,7 +595,7 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1b_survival",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "R2-shift-predicted-real-v1": {
@@ -608,7 +608,7 @@
    "results/x2_r2_real_v1.jsonl"
   ],
   "script": "analysis/r2_shift_predictor.py::real_summary",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "R2-shift-predictor-confusion": {
@@ -621,7 +621,7 @@
    "results/x2_r2_mechanism.jsonl"
   ],
   "script": "analysis/r2_shift_predictor.py::mechanism_summary",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "R2-task-tool-gate": {
@@ -635,7 +635,7 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_task_tool_gate",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "R2-v1b-default-baseline-type": {
@@ -651,7 +651,7 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_v1b_default_baseline_type",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "R2-v1b-excess-over-default": {
@@ -667,7 +667,7 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_v1b_excess_over_default",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "R2-v1b-gated-per-model": {
@@ -683,7 +683,7 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_v1b_gated_per_model",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "R2-validation-baseline": {
@@ -696,7 +696,7 @@
    "results/x2_r2_validation.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_baseline",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "R2-validation-call2-notools": {
@@ -709,7 +709,7 @@
    "results/x2_r2_validation.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_call2_notools",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "R2-validation-v2-baseline": {
@@ -722,7 +722,7 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_v2_baseline",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "R2-validation-v2-spec-diag": {
@@ -735,7 +735,7 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_v2_spec_diag",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "R2-validation-v2b-baseline": {
@@ -748,7 +748,7 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_v2b_baseline",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "R2-validation-v2b-runinfo": {
@@ -761,7 +761,7 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_v2b_runinfo",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "R2-validation-v2c-baseline": {
@@ -774,7 +774,7 @@
    "results/x2_r2_validation_v2c.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_v2c_baseline",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "T2S-vs-X2-default-ctx": {
@@ -788,7 +788,7 @@
    "results/t2s_k1_ollama_evo-x2_20260930T205515Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_t2s_x2_default_ctx_table",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "b4_32b-dose-response": {
@@ -801,7 +801,7 @@
    "results/t2s_night2_20260929T034014Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_b4_32b_dose_response",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "blade-dryrun-rates": {
@@ -818,7 +818,7 @@
    "results/blade_dryrun/blade_dryrun_r2_mechanism.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_blade_dryrun_rates",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "blade-k1-layer-split": {
@@ -831,7 +831,7 @@
    "results/blade_k1_v2.summary.json"
   ],
   "script": "analysis/numbers_register.py::compute_blade_k1_layer_split",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "blade-mechanism-4096": {
@@ -844,7 +844,7 @@
    "results/blade_r2_mechanism_4096_v2.jsonl.report.json"
   ],
   "script": "analysis/numbers_register.py::compute_blade_mechanism_4096",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "blade-night-hours": {
@@ -867,7 +867,7 @@
    "results/blade_k1_v2.summary.json"
   ],
   "script": "analysis/numbers_register.py::compute_blade_night_hours",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "blade-r2-gate-v2": {
@@ -880,7 +880,7 @@
    "results/blade_r2_gate_v2.json"
   ],
   "script": "analysis/numbers_register.py::compute_blade_r2_gate_v2",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "blade-r2-validation-run1": {
@@ -893,7 +893,7 @@
    "results/blade_r2_validation_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_blade_r2_validation_run1",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "blade-r2-validation-run2": {
@@ -906,7 +906,7 @@
    "results/blade_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_blade_r2_validation_run2",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "blade-validation-ctx-cap": {
@@ -920,7 +920,7 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_blade_validation_ctx_cap",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "business-hour-range": {
@@ -934,7 +934,7 @@
    "results/impact_profile_20261014.json"
   ],
   "script": "analysis/business_metrics.py::hour_values",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "business-mid-team": {
@@ -987,7 +987,7 @@
    "src/dse/envelope_data.json"
   ],
   "script": "analysis/business_metrics.py::profile_metrics",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "business-mid-team-qwen3-14b": {
@@ -1040,7 +1040,7 @@
    "src/dse/envelope_data.json"
   ],
   "script": "analysis/business_metrics.py::profile_metrics",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "business-scenario-plus-a": {
@@ -1093,7 +1093,7 @@
    "src/dse/envelope_data.json"
   ],
   "script": "analysis/business_metrics.py::scenario_metrics",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "business-sensitivity": {
@@ -1146,7 +1146,7 @@
    "src/dse/envelope_data.json"
   ],
   "script": "analysis/business_metrics.py::sensitivity",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "c1b-stall-clean-cells": {
@@ -1159,7 +1159,7 @@
    "results/t2s_night2_20260930T215303Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_c1b_stall_clean_cells",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "cloud-budget-inputs": {
@@ -1177,7 +1177,7 @@
    "docs/DEMO_SPEC.md"
   ],
   "script": "analysis/cloud_budget_forecast.py::load_prices",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "cloud-budget-lines": {
@@ -1195,7 +1195,7 @@
    "docs/DEMO_SPEC.md"
   ],
   "script": "analysis/cloud_budget_forecast.py::forecast",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "cloud-budget-sensitivity": {
@@ -1213,7 +1213,7 @@
    "docs/DEMO_SPEC.md"
   ],
   "script": "analysis/cloud_budget_forecast.py::forecast",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "cloud-budget-tokens": {
@@ -1231,7 +1231,7 @@
    "docs/DEMO_SPEC.md"
   ],
   "script": "analysis/cloud_budget_forecast.py::r2_sessions",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "cloud-budget-totals": {
@@ -1249,7 +1249,7 @@
    "docs/DEMO_SPEC.md"
   ],
   "script": "analysis/cloud_budget_forecast.py::forecast",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "cloud-prices-anthropic": {
@@ -1262,7 +1262,7 @@
    "results/cloud_prices_anthropic_20261014.json"
   ],
   "script": "analysis/numbers_register.py::compute_cloud_prices_anthropic",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "decode-rate-per-machine": {
@@ -1294,7 +1294,7 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_decode_rate_per_machine",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "gpu-memory-readonly": {
@@ -1311,7 +1311,7 @@
    "results/blade_k1_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_gpu_memory_readonly",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "impact-P1": {
@@ -1329,7 +1329,7 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/impact_model.py::p1",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "impact-P2": {
@@ -1347,7 +1347,7 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/impact_model.py::p2",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "impact-P3": {
@@ -1365,7 +1365,7 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/impact_model.py::p3",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "impact-P4": {
@@ -1408,7 +1408,7 @@
    "results/blade_dryrun/blade_dryrun_r2_mechanism.jsonl"
   ],
   "script": "analysis/impact_model.py::p4",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "impact-P5": {
@@ -1427,7 +1427,7 @@
    "src/dse/envelope_data.json"
   ],
   "script": "analysis/impact_model.py::p5",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "impact-P6": {
@@ -1448,7 +1448,7 @@
    "results/workload_pack/items/*.jsonl"
   ],
   "script": "analysis/impact_model.py::p6",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "impact-P7": {
@@ -1466,7 +1466,7 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/impact_model.py::p7",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "impact-hour-value": {
@@ -1479,7 +1479,7 @@
    "results/impact_profile_20261014.json"
   ],
   "script": "analysis/impact_model.py::hour_value",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "impact-scenario-one-flag": {
@@ -1527,7 +1527,7 @@
    "src/dse/envelope_data.json"
   ],
   "script": "analysis/impact_model.py::previous_basis",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "impact-session-time-by-window": {
@@ -1545,7 +1545,7 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/impact_model.py::session_time_by_window",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "impact-total": {
@@ -1592,7 +1592,7 @@
    "src/dse/envelope_data.json"
   ],
   "script": "analysis/impact_model.py::audit_total",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "info-loss-by-window": {
@@ -1608,7 +1608,7 @@
    "results/x2_r2_real_v1b.jsonl"
   ],
   "script": "analysis/r2_info_loss.py::info_loss_str",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "kappa-heldout": {
@@ -1622,7 +1622,7 @@
    "results/labeling/kappa_heldout_annotator_claude.csv"
   ],
   "script": "analysis/kappa_agreement.py::heldout_stats",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "kappa-heldout-disagreements": {
@@ -1637,7 +1637,7 @@
    "results/labeling/kappa_heldout_annotator_claude.csv"
   ],
   "script": "analysis/numbers_register.py::compute_kappa_heldout_disagreement_read",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "kappa-heldout-fn-annotator": {
@@ -1651,7 +1651,7 @@
    "results/labeling/kappa_heldout_annotator_claude.csv"
   ],
   "script": "analysis/kappa_agreement.py::heldout_stats",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "kappa-heldout-sample": {
@@ -1667,7 +1667,7 @@
    "results/labeling/ritz_spotcheck_30.csv"
   ],
   "script": "analysis/build_kappa_heldout_sample.py::round_robin_sample",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "num-keep-guardrail-test": {
@@ -1680,7 +1680,7 @@
    "results/x2_num_keep_guardrail_test.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_num_keep_guardrail_test",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "ollama-overflow-keeps-half": {
@@ -1696,7 +1696,7 @@
    "results/x2_template_mechanism_test.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ollama_overflow_keeps_half",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "pack-trace-weighted-stats": {
@@ -1710,7 +1710,7 @@
    "results/traces/agent_step_lengths.parquet"
   ],
   "script": "analysis/numbers_register.py::compute_pack_trace_weighted_stats",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "pareto-frontier-x2": {
@@ -1726,7 +1726,7 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "src/dse/pareto.py::frontier",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "pareto-sample-recommendation": {
@@ -1742,7 +1742,7 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "src/dse/pareto.py::recommend",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "pareto-sample-recommendation-v2": {
@@ -1758,7 +1758,7 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_pareto_sample_recommendation_v2",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "qwen3-32b-timeout-count": {
@@ -1771,7 +1771,7 @@
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_qwen3_32b_timeout_count",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "qwen3-32b-truncation-vs-latency": {
@@ -1784,7 +1784,7 @@
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_qwen3_32b_truncation_vs_latency",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "qwen32b-refusal": {
@@ -1797,7 +1797,7 @@
    "results/t2s_night2_20260929T205109Z.jsonl"
   ],
   "script": "analysis/r1b_wrong_answer_audit.py::refusal_share_by_model",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "qwen4b-2507-metadata-consistency": {
@@ -1810,7 +1810,7 @@
    "results/x2_template_mechanism_test.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_qwen4b_2507_metadata_consistency",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "r2-session-cloud-cost": {
@@ -1825,7 +1825,7 @@
    "results/cloud_prices_*.json"
   ],
   "script": "analysis/r2_session_cost.py::cost_str",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "r2-session-wallclock": {
@@ -1840,7 +1840,7 @@
    "results/cloud_prices_*.json"
   ],
   "script": "analysis/r2_session_cost.py::wallclock_str",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "reliability-after-guardrail-loss": {
@@ -1856,7 +1856,7 @@
    "results/x2_r2_real_v1b.jsonl"
   ],
   "script": "analysis/r2_info_loss.py::reliability_str",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "self-report-truncation-awareness": {
@@ -1870,7 +1870,7 @@
    "results/t2s_night2_20260929T205109Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_self_report_truncation_awareness",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "t2s-llamaserver-load-failures": {
@@ -1883,7 +1883,7 @@
    "results/t2s_outcome_table_llamaserver_*.log"
   ],
   "script": "analysis/numbers_register.py::compute_t2s_llamaserver_load_failures",
-  "commit": "0a890de",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "t2s-outcome-allocation-failures": {
@@ -1896,7 +1896,7 @@
    "results/t2s_outcome_table_full.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_t2s_allocation_failures",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "t2s-outcome-error-causes": {
@@ -1909,7 +1909,7 @@
    "results/t2s_outcome_table_full.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_t2s_outcome_error_causes",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "t2s-outcome-gsm8k-rescore": {
@@ -1923,7 +1923,7 @@
    "results/t2s_outcome_table_smoke.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_t2s_outcome_gsm8k_rescore",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "trace-32k-crossing": {
@@ -1936,7 +1936,7 @@
    "results/traces/agent_step_lengths.parquet"
   ],
   "script": "analysis/numbers_register.py::compute_trace_cdf_crossing_fractions",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "trace-context-exit-rate": {
@@ -1949,7 +1949,7 @@
    "results/traces/exit_status_sample.parquet"
   ],
   "script": "analysis/numbers_register.py::compute_trace_context_exit_rate",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "trace-fraction-exceeds-4096": {
@@ -1962,7 +1962,7 @@
    "results/traces/agent_step_lengths.parquet"
   ],
   "script": "analysis/numbers_register.py::compute_trace_fraction_exceeds_4096",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "ttft-cross-machine-transfer": {
@@ -1994,7 +1994,7 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_cross_machine_transfer",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "ttft-few-point-calibration": {
@@ -2026,7 +2026,7 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_few_point_calibration",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "ttft-first-call-stall": {
@@ -2044,7 +2044,7 @@
    "results/t2s_night2_20260929T202603Z_srv_R1*_start.txt"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_first_call_stall",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "ttft-first-call-stall-per-cell": {
@@ -2062,7 +2062,7 @@
    "results/t2s_night2_20260929T202603Z_srv_R1*_start.txt"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_first_call_stall_per_cell",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "ttft-physical-fit-per-machine": {
@@ -2094,7 +2094,7 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_physical_fit_per_machine",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "ttft-t2s-restricted-to-x2-range": {
@@ -2126,7 +2126,7 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_t2s_restricted_to_x2_range",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "ttft-x2-length-spread": {
@@ -2158,7 +2158,7 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_x2_length_spread",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "ttft-x2-refit-per-model": {
@@ -2190,7 +2190,7 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_x2_refit_per_model",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "ttft-x2-section0-stall-check": {
@@ -2223,7 +2223,7 @@
    "results/t2s_night2_20260929T205109Z_srv_R1*_start.txt"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_x2_section0_stall_check",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "uncensored-trace-32k-crossing": {
@@ -2236,7 +2236,7 @@
    "results/traces/agent_step_lengths.parquet"
   ],
   "script": "analysis/numbers_register.py::compute_uncensored_trace_32k_crossing",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "window-override-methods": {
@@ -2249,7 +2249,7 @@
    "results/x2_window_override_methods_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_window_override_methods",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "x2-chat-template-source": {
@@ -2263,7 +2263,7 @@
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_chat_template_source",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "x2-device-detect-mechanism": {
@@ -2276,7 +2276,7 @@
    "results/x2_template_mechanism_test.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_device_detect_mechanism",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "x2-family-smoke": {
@@ -2289,7 +2289,7 @@
    "results/x2_family_smoke_mistral_small32.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_family_smoke",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "x2-family-validation": {
@@ -2302,7 +2302,7 @@
    "results/x2_r2_family_mistral_small32_validation.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_family_validation",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "x2-model-pulls-scale": {
@@ -2315,7 +2315,7 @@
    "results/x2_model_pulls_scale.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_model_pulls_scale",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "x2-r2-llama-val-32k": {
@@ -2328,7 +2328,7 @@
    "results/x2_r2_llama_val_32k.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_r2_llama_val_32k",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "x2-scale-probe-hours": {
@@ -2344,7 +2344,7 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_scale_probe_hours",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "x2-scale-validation": {
@@ -2357,7 +2357,7 @@
    "results/x2_r2_scale_validation.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_scale_validation",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "x2-thinking-verify": {
@@ -2370,7 +2370,7 @@
    "results/x2_thinking_verify.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_thinking_verify",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "x2-truncation-cliff-qwen3-8b": {
@@ -2383,7 +2383,7 @@
    "results/traces/agent_step_lengths.parquet"
   ],
   "script": "analysis/numbers_register.py::compute_x2_truncation_cliff",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "x2-v3-canary-gate-lenient": {
@@ -2397,7 +2397,7 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_canary_gate_lenient",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "x2-v3-canary-gates": {
@@ -2411,7 +2411,7 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_canary_gates",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "x2-v3-error-causes": {
@@ -2424,7 +2424,7 @@
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_error_causes",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "x2-v3-gsm8k-strict-vs-lenient": {
@@ -2437,7 +2437,7 @@
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_gsm8k_strict_vs_lenient",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "x2-v3-progress": {
@@ -2450,7 +2450,7 @@
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_progress",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "x2-v3-scores": {
@@ -2465,7 +2465,7 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_scores",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "x2-v3-truncation-all-models": {
@@ -2478,7 +2478,7 @@
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_truncation_all_models",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "x2-v3-usability": {
@@ -2491,7 +2491,7 @@
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_usability",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "x2-weekend-error-causes": {
@@ -2504,7 +2504,7 @@
    "results/x2_outcome_table_weekend.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_weekend_error_causes",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "x2-weekend-error-causes-by-cell": {
@@ -2517,7 +2517,7 @@
    "results/x2_outcome_table_weekend.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_weekend_error_causes_by_cell",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "x2-weekend-ngen-budget": {
@@ -2530,7 +2530,7 @@
    "results/x2_weekend_llamaserver_log_scan.json"
   ],
   "script": "analysis/numbers_register.py::compute_x2_weekend_ngen_budget",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "x2-weekend-refused-block": {
@@ -2543,7 +2543,7 @@
    "results/x2_outcome_table_weekend.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_weekend_refused_block",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "x2-weekend-tag-counts": {
@@ -2556,7 +2556,7 @@
    "results/x2_outcome_table_weekend.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_weekend_tag_counts",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  },
  "x2-weekend-thinking-scores": {
@@ -2569,7 +2569,7 @@
    "results/x2_outcome_table_weekend.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_weekend_thinking_scores",
-  "commit": "7144683",
+  "commit": "5b3ff5c",
   "date": "2026-10-14"
  }
 }
