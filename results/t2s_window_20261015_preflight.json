@@ -1,0 +1,155 @@
+{
+ "record": "t2s_window_preflight",
+ "window": {
+  "start_utc": "2026-10-15T04:00:00Z",
+  "end_utc": "2026-10-19T03:59:00Z",
+  "handover_deadline_utc": "2026-10-19T03:00:00Z (no launch), 03:30Z hard"
+ },
+ "host_confirmed": "EVO-T2S",
+ "facts_ts_utc": "2026-10-15T04:33:14.6880750Z",
+ "os": {
+  "ver": "Microsoft Windows [Version 10.0.26200.9711]",
+  "current_build": "26200",
+  "ubr": 9711,
+  "build_full": "26200.9711",
+  "os_build_number_get_computerinfo": "26200",
+  "display_version": "25H2",
+  "edition_id": "Professional",
+  "registry_product_name": "Windows 10 Pro",
+  "note": "registry ProductName still reads 'Windows 10 Pro' on Windows 11 builds; build 26200 is 25H2"
+ },
+ "gpu_display_drivers": [
+  {
+   "device": "Intel(R) Arc(TM) B390 GPU",
+   "driver_version": "32.0.101.8509",
+   "driver_date": "2026-02-05",
+   "provider": "Intel Corporation",
+   "inf": "oem12.inf",
+   "device_id": "PCI\\VEN_8086&DEV_B080&SUBSYS_00008086&REV_04\\3&11583659&0&10"
+  }
+ ],
+ "npu_drivers": [
+  {
+   "device": "Intel(R) NPU",
+   "driver_version": "32.0.100.4512",
+   "driver_date": "2025-12-09",
+   "provider": "Intel Corporation",
+   "inf": "oem27.inf",
+   "device_id": "PCI\\VEN_8086&DEV_B03E&SUBSYS_80868086&REV_04\\3&11583659&0&58"
+  }
+ ],
+ "tailscale_read_only": {
+  "status": {
+   "BackendState": "Running",
+   "Version": "1.102.3-t9329c3677-ga522f65e9",
+   "SelfHostName": "EVO-T2S",
+   "SelfOnline": true,
+   "SelfTailscaleIPs": [
+    "100.72.40.24",
+    "fd7a:115c:a1e0::5233:2819"
+   ]
+  },
+  "prefs": {
+   "ForceDaemon": true,
+   "WantRunning": true,
+   "LoggedOut": false,
+   "RunSSH": false,
+   "NoStatefulFiltering": true
+  },
+  "service": {
+   "Name": "Tailscale",
+   "State": "Running",
+   "StartMode": "Auto",
+   "StartName": "LocalSystem"
+  },
+  "unattended": true,
+  "note": "ForceDaemon is the Windows 'Run unattended' preference; read with 'tailscale debug prefs'; nothing changed"
+ },
+ "windows_update_pause": {
+  "method": "HKLM\\SOFTWARE\\Microsoft\\WindowsUpdate\\UX\\Settings Pause*StartTime / PauseUpdatesExpiryTime / PauseQualityUpdatesEndTime / PauseFeatureUpdatesEndTime; policy HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate ExcludeWUDriversInQualityUpdate",
+  "written_ts_utc": "2026-10-15T04:39:56Z",
+  "before": {
+   "PauseUpdatesStartTime": null,
+   "PauseUpdatesExpiryTime": null,
+   "PauseQualityUpdatesStartTime": null,
+   "PauseQualityUpdatesEndTime": null,
+   "PauseFeatureUpdatesStartTime": null,
+   "PauseFeatureUpdatesEndTime": null,
+   "ExcludeWUDriversInQualityUpdate": 1,
+   "ux_settings_other_values": {
+    "ActiveHoursStart": 15,
+    "ActiveHoursEnd": 21
+   }
+  },
+  "after": {
+   "PauseUpdatesStartTime": "2026-10-15T04:39:56Z",
+   "PauseUpdatesExpiryTime": "2026-11-10T23:59:59Z",
+   "PauseQualityUpdatesStartTime": "2026-10-15T04:39:56Z",
+   "PauseQualityUpdatesEndTime": "2026-11-10T23:59:59Z",
+   "PauseFeatureUpdatesStartTime": "2026-10-15T04:39:56Z",
+   "PauseFeatureUpdatesEndTime": "2026-11-10T23:59:59Z",
+   "ExcludeWUDriversInQualityUpdate": 1
+  },
+  "restart": "none",
+  "reboot_pending_before": {
+   "cbs_RebootPending": false,
+   "wu_RebootRequired": false
+  },
+  "last_hotfixes": [
+   {
+    "id": "KB5127648",
+    "installed": "Wednesday, October 14, 2026 12:00:00 AM",
+    "kind": "Security Update"
+   },
+   {
+    "id": "KB5127647",
+    "installed": "Wednesday, October 14, 2026 12:00:00 AM",
+    "kind": "Security Update"
+   },
+   {
+    "id": "KB5127690",
+    "installed": "Wednesday, October 14, 2026 12:00:00 AM",
+    "kind": "Update"
+   }
+  ]
+ },
+ "machine_state_at_start": {
+  "query_user": "No User exists for *",
+  "handover_file": "C:\\apu\\ovn\\HANDOVER_DONE.json present, ts 2026-10-02T12:40:00Z, watchdog Disabled, no Ollama left running",
+  "pause_flag_found": "{\r\n \"ts_utc_epoch\": 1790944200.4960501,\r\n \"reason\": \"T2S handover to Zach, 2026-10-02\"\r\n}",
+  "pause_flag_disposition": "replaced and cleared by t2s_week_queue load-window (one read-modify-write under its own pause, clear_pause in finally); its reason was the 2026-10-02 handover that this window reverses",
+  "queue_entries_pending_or_running_before_load": [],
+  "ollama_like_processes": [],
+  "python_processes": [],
+  "watchdog_task_state_before": "Disabled",
+  "free_disk_c_gb": 690.4
+ },
+ "versions": {
+  "ollama_per_user_install": "0.33.2 (client version; untouched)",
+  "ollama_pinned": {
+   "path": "C:\\apu\\bin\\ollama-0.34.4\\ollama.exe",
+   "version": "0.34.4",
+   "zip": "ollama-windows-amd64.zip from the v0.34.4 GitHub release, 1461155106 bytes",
+   "zip_sha256": "535193F38F3344E5B08F5D1C171C31CE11AA17F0124FF69AE26D8EC7FE06FA62",
+   "exe_sha256": "D571E4CF0AD4456FCCD33D5B985B6D63BA5669C6E5A812391704083952AAE3D5",
+   "pin_file": "C:\\apu\\ovn\\ollama_pin.json",
+   "note": "exe SHA-256 equals the Blade's pinned 0.34.4 (harness/blade_common.py)"
+  },
+  "llama_cpp": {
+   "version": "0.4.1-dev",
+   "build": "10970",
+   "commit": "bfdc32183"
+  }
+ },
+ "ollama_store_at_start": {
+  "present": [
+   "llama3.1:8b",
+   "qwen3:8b",
+   "qwen3-4b-2507"
+  ],
+  "missing_needed": [
+   "qwen3:14b"
+  ],
+  "action": "queued t2s_wk_model_pull ahead of t2s_wk_preflight"
+ }
+}
