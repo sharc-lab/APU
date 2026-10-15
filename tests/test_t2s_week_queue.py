@@ -115,7 +115,11 @@ def test_cpu_factor_is_the_measured_per_call_ratio():
 # ------------------------------------------------------------------ dry run
 def test_dry_run_passes_with_no_blocked_r2_entries():
     rep = wq.dry_run()
-    assert rep["ok"], [e for e in rep["entries"] if not e["ok"]]
+    # The week queue launched on evo-t2s on 2026-10-15 and its results now sync into results/, so the pre-launch
+    # "output already exists" check fires on jobs that have run. Tolerate that problem alone; any other still fails.
+    bad = [e for e in rep["entries"] if not e["ok"]
+           and not all("already exists in results/" in p for p in e.get("problems", []))]
+    assert not bad, bad
     assert rep["fresh_build_matches_file"]
     assert rep["total_hours"] == pytest.approx(sum(it["est_hours"] for it in wq.build_queue()), abs=0.1)
     assert rep["total_hours"] == rep["hours_within_budget"] <= wq.BUDGET_H
