@@ -2,6 +2,7 @@
 harness/t2s_week_preflight.py. Fakes only: no SSH, no machine, no Ollama."""
 import inspect
 import json
+import re
 import sys
 import types
 from pathlib import Path
@@ -14,6 +15,9 @@ sys.path.insert(0, str(REPO / "scripts"))
 
 import t2s_week_preflight as pf  # noqa: E402
 import t2s_week_queue as wq  # noqa: E402
+
+# t2s_wk_preflight passed and the week queue started on evo-t2s at this time (results/t2s_week_preflight.jsonl).
+WEEK_QUEUE_LAUNCH_UTC = "2026-10-15T05:03"
 
 
 # ------------------------------------------------------------------ queue file
@@ -115,10 +119,19 @@ def test_cpu_factor_is_the_measured_per_call_ratio():
 # ------------------------------------------------------------------ dry run
 def test_dry_run_passes_with_no_blocked_r2_entries():
     rep = wq.dry_run()
-    # The week queue launched on evo-t2s on 2026-10-15 and its results now sync into results/, so the pre-launch
-    # "output already exists" check fires on jobs that have run. Tolerate that problem alone; any other still fails.
-    bad = [e for e in rep["entries"] if not e["ok"]
-           and not all("already exists in results/" in p for p in e.get("problems", []))]
+    # The week queue launched on evo-t2s on 2026-10-15 and its results sync into results/ while jobs run, so the
+    # pre-launch "output already exists" check fires on jobs that have started. Accept that problem only when the
+    # existing file is this queue's own output (run_start on evo-t2s at or after the launch); a stale file from an
+    # earlier run, or any other problem, still fails.
+    def own_synced_output(problem):
+        m = re.match(r"output '([^']+)' already exists in results/", problem)
+        if not m:
+            return False
+        p = wq.REPO / m.group(1)
+        first = json.loads(p.read_text(encoding="utf-8").splitlines()[0])
+        return (first.get("record") == "run_start" and first.get("hw_id") == "evo-t2s"
+                and first.get("ts_utc", "") >= WEEK_QUEUE_LAUNCH_UTC)
+    bad = [e for e in rep["entries"] if not e["ok"] and not all(own_synced_output(p) for p in e.get("problems", []))]
     assert not bad, bad
     assert rep["fresh_build_matches_file"]
     assert rep["total_hours"] == pytest.approx(sum(it["est_hours"] for it in wq.build_queue()), abs=0.1)
