@@ -3401,3 +3401,19 @@ file. It does not enter `H-scale-verdict` or its overall statement, which keep t
 **Known limits, stated before the run.** One model from one other family (Mistral) at one size; a result is a statement
 about that model through its Ollama library template. The smoke test's 5 calls are one seed's first 5 turns. The family
 jobs' durations are not projected (the timing probe covers the H-scale models only); no hour figure is cited for them.
+
+**Deployed and queued (2026-10-14, after the pre-registration commit 1656134 and the code commit 1670e91).** Free disk on
+evo-x2 read (read-only, `shutil.disk_usage` on the Ollama model store) before queueing: 1566882885632 bytes free of
+2047026917376; the pull job's disk rule needs 147300000000 bytes for llama3.3:70b and 116500000000 for
+mistral-small3.2:24b, and the job logs the free bytes again at its own start (`free_bytes_at_start` in run_start).
+Neither tag's manifest was on disk and no output file of these jobs existed. Deployed to `C:\apu\ovn`:
+`x2_model_pulls_scale.py` (new, blob a49ebcf), `x2_family_smoke.py` (new, blob 6dada8e), `x2_r2_scale.py` (replaced;
+git blob 3992dce, the queued H-scale commands are unchanged and their rows only gain the template fields). It imports
+the deployed `x2_r2_agent.py` (blob b48cbc6, unchanged); `chat_template_source.py` and `x2_model_pulls.py` on evo-x2
+have the same blobs as this branch. The import-only check on evo-x2 (`--import-check`, no server, no model call, no
+queue access) printed the plans, think omitted for mistral-small3.2:24b, and the four new queue commands. Queue entries
+inserted in one read-modify-write (`x2_r2_scale.py --queue-insert-b2`) under `t2s_queue.set_pause` whose reason names its
+release, cleared in the same script's finally block (pause flag confirmed absent afterwards), anchored by the operator's
+rule rather than the order list: `x2_model_pulls_scale` (position 55) and `x2_family_smoke_mistral_small32` (56)
+immediately before `x2_scale_timing_probe` (57); `x2_r2_family_mistral_small32_validation` (60) and
+`x2_r2_family_mistral_small32_real` (61) immediately after `x2_r2_scale_real` (59).
