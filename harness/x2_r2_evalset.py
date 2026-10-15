@@ -27,6 +27,17 @@ Modes:
                       validation_preflight_ext passes on --rules-from (per model; failing models are refused alone).
   --check-plan      : print the parsed plan and the session shape, then exit (no server, no model call, no queue).
 
+B3 task real run (2026-10-14, x2_evalset_tasks_real_v1, pre-registered in docs/FINDINGS.md):
+  python x2_r2_evalset.py --mode real --workload evalset --guardrails off --plan tasks_v1 --preflight end_state
+      --rules-from C:\\apu\\ovn\\results\\x2_evalset_tasks_val_v1.jsonl --out C:\\apu\\ovn\\results\\x2_evalset_tasks_real_v1.jsonl
+  --plan tasks_v1      : TASKS_TIERS (Ollama default, num_ctx 4096) x TASKS_SEEDS (SEEDS) x 30 task turns.
+  --preflight end_state: end_state_preflight instead of validation_preflight_ext (the R2 rule/canary/task-tool gates are
+                         recorded, not required; the outcome is the end state only). The report adds
+                         tasks_real_outcome (wrong-task rate per window, excess at 4096 with a task-cluster bootstrap
+                         CI, silent vs surfaced), which register rows x2-evalset-tasks-real-* compute from the file.
+  --queue-insert-b3    : (evo-x2) inserts x2_r2_llama_val_32k_offload and x2_evalset_tasks_real_v1 directly after
+                         x2_num_keep_guardrail_test, one read-modify-write under a pause cleared in finally.
+
 Ready-to-queue validation commands (evo-x2). Deploy the four new files next to the deployed x2_r2_agent.py (main's
 b3bc741 blob, redeployed 2026-10-13; it and the modules it imports are unchanged since):
   py -3.12 scripts/deploy_evo.py C:\\apu\\ovn harness/x2_r2_evalset.py harness/evalset_env.py
@@ -432,6 +443,21 @@ def real_plan(workload="evalset", guardrails=True, call2_mode="off", tiers=None,
                           turns=session_turns(workload, guardrails))
 
 
+# B3 task real run (2026-10-14, x2_evalset_tasks_real_v1, pre-registered in docs/FINDINGS.md): --plan tasks_v1 = the
+# Ollama default and num_ctx 4096, the validation's three negative-control seeds, the 30-task session (guardrails off).
+TASKS_PLAN = "tasks_v1"
+TASKS_TIERS = ("ollama_default", "ollama_ctx_4096")
+TASKS_SEEDS = tuple(ag.SEEDS)
+TASKS_WINDOWS = {"default": "ollama_default", "4096": "ollama_ctx_4096"}
+BOOT_N = 10000
+BOOT_SEED = 20261014
+
+
+def tasks_plan(call2_mode="off"):
+    """[(arm, seeds, turns)] of --plan tasks_v1: TASKS_TIERS x TASKS_SEEDS x 30 task turns."""
+    return real_plan("evalset", False, call2_mode, tiers=TASKS_TIERS, seeds=TASKS_SEEDS)
+
+
 def _neg_turn_rows(rows, arm):
     att = {s["attempt_id"] for s in ag.completed_sessions(rows) if s["arm_id"] == arm}
     return [r for r in rows if r.get("record") == "r2a_turn" and r.get("attempt_id") in att]
@@ -532,22 +558,218 @@ def validation_preflight_ext(rows, models, workload="evalset", guardrails=True, 
             "tasks_in_use": tiu}
 
 
+# ── B3 task real run: end-state preflight and outcome (pure) ────────────────────────────────────────
+
+def tasks_correct_per_seed(rows, arm) -> dict:
+    """{model: {seed: sorted task ids whose end state was correct in that seed's completed negative-control session}}
+    (every completed session appears, with an empty list when no task was correct)."""
+    out = {}
+    for r in _neg_turn_rows(rows, arm):
+        if r.get("item_kind") != "task":
+            continue
+        d = out.setdefault(r["model_id"], {}).setdefault(r["seed"], set())
+        if r.get("end_state_ok"):
+            d.add(r["task_id"])
+    return {m: {s: sorted(v) for s, v in sorted(per.items())} for m, per in sorted(out.items())}
+
+
+def end_state_preflight(rows, models, call2_mode="off") -> dict:
+    """--preflight end_state (x2_evalset_tasks_real_v1): per model, refuse unless the validation file finished, the
+    negative control completed all of SEEDS with the full 30-task session, the positive control passed, thinking off
+    and content non-empty passed, and at least one task was correct in some negative-control session. The R2 rule,
+    canary and task-tool gates are recorded (r2_gates) but not required: this run's outcome is the end state only."""
+    sfx = ag.MODE_SUFFIX[ag.as_mode(call2_mode)]
+    arm = ag.NEG_ARM + sfx
+    rep = evaluate_gates_ext(rows, "evalset", False, call2_mode)
+    g = rep["gates"]
+    finished = any(r.get("record") == "run_end" for r in rows)
+    per_seed = tasks_correct_per_seed(rows, arm)
+    full = session_turns("evalset", False)
+    refused, r2_gates = {}, {}
+    for m in models:
+        reasons = []
+        if not finished:
+            reasons.append(f"{m}: validation file has no run_end")
+        neg = [s for s in ag.completed_sessions(rows) if s.get("arm_id") == arm and s.get("model_id") == m]
+        if sorted(s["seed"] for s in neg) != sorted(ag.SEEDS):
+            reasons.append(f"{m}: negative-control sessions completed for seeds {sorted(s['seed'] for s in neg)}, "
+                           f"expected {sorted(ag.SEEDS)}")
+        short = [s["seed"] for s in neg if s.get("n_task_turns") != full]
+        if short:
+            reasons.append(f"{m}: negative-control sessions without {full} task turns: seeds {short}")
+        for gate in ("positive_control", "thinking_off", "content_nonempty"):
+            if not (g.get(gate, {}).get(m) or {}).get("pass"):
+                reasons.append(f"{m}: {gate} gate did not pass")
+        if not any(per_seed.get(m, {}).values()):
+            reasons.append(f"{m}: no task correct in any negative-control session")
+        if reasons:
+            refused[m] = reasons
+        r2_gates[m] = {k: (g.get(k, {}).get(m) or {}).get("pass")
+                       for k in ("baseline", "negative_control", "task_tool")}
+    ok_models = [m for m in models if m not in refused]
+    return {"ok": bool(ok_models), "models_ok": ok_models, "refused": refused, "preflight": "end_state",
+            "tasks_in_use": {m: rep["task_table"].get(m, {}).get("tasks_in_use", []) for m in models},
+            "tasks_in_use_per_seed": {m: per_seed.get(m, {}) for m in models}, "r2_gates_not_required": r2_gates}
+
+
+def _quantile(sorted_vals, q):
+    if not sorted_vals:
+        return None
+    pos = q * (len(sorted_vals) - 1)
+    lo = int(pos)
+    hi = min(lo + 1, len(sorted_vals) - 1)
+    return sorted_vals[lo] + (sorted_vals[hi] - sorted_vals[lo]) * (pos - lo)
+
+
+def cluster_bootstrap_excess(per_task: dict, n_boot=BOOT_N, seed=BOOT_SEED) -> dict:
+    """per_task: {task: (wrong_default, n_default, wrong_4096, n_4096)}. Resamples tasks with replacement (a task's
+    cells at both windows together) and returns the 95% percentile CI of rate_4096 - rate_default; resamples with an
+    empty window are skipped and counted."""
+    tasks = sorted(per_task)
+    if not tasks:
+        return {"lo": None, "hi": None, "n_boot": n_boot, "n_skipped": None, "unit": "task", "n_tasks": 0}
+    rng = random.Random(seed)
+    vals, skipped = [], 0
+    for _ in range(n_boot):
+        wd = nd = w4 = n4 = 0
+        for _k in range(len(tasks)):
+            a, b, c, d = per_task[tasks[rng.randrange(len(tasks))]]
+            wd += a
+            nd += b
+            w4 += c
+            n4 += d
+        if nd == 0 or n4 == 0:
+            skipped += 1
+            continue
+        vals.append(w4 / n4 - wd / nd)
+    vals.sort()
+    return {"lo": _quantile(vals, 0.025), "hi": _quantile(vals, 0.975), "n_boot": n_boot, "n_skipped": skipped,
+            "unit": "task", "n_tasks": len(tasks), "rng_seed": seed}
+
+
+def excess_reading(ci) -> str | None:
+    if ci.get("lo") is None:
+        return None
+    if ci["lo"] > 0:
+        return "4096 raises the wrong-task rate"
+    if ci["hi"] < 0:
+        return "lower at 4096"
+    return "no excess shown"
+
+
+def tasks_real_outcome(real_rows, val_rows, call2_mode="off", n_boot=BOOT_N, seed=BOOT_SEED) -> dict:
+    """The pre-registered outcome of x2_evalset_tasks_real_v1 (docs/FINDINGS.md 2026-10-14), per model: validity, and
+    for the primary (tasks in use, correct on every negative-control session) and the secondary (per-seed: task correct
+    in the same seed's negative-control session) cell sets, per window the wrong-task rate (end_state_ok false), the
+    state-only wrong count, silent (HTTP 200, no error) and surfaced wrong counts; the excess at 4096 over the default
+    with a task-cluster bootstrap CI and its reading; loaded context and over-window task turns per window; first
+    end-state failure turn per session; the wrong-task rate on the cells not in use."""
+    sfx = ag.MODE_SUFFIX[ag.as_mode(call2_mode)]
+    val_arm = ag.NEG_ARM + sfx
+    strict = {m: v.get("tasks_in_use", []) for m, v in task_table(val_rows, val_arm).items()}
+    per_seed = tasks_correct_per_seed(val_rows, val_arm)
+    arms = {w: a + sfx for w, a in TASKS_WINDOWS.items()}
+    num_ctx_expected = {"default": None, "4096": 4096}
+    full = session_turns("evalset", False)
+    finished = any(r.get("record") == "run_end" for r in real_rows)
+    refused = {r["model_id"]: r.get("reasons") for r in real_rows if r.get("record") == "refused_model"}
+    sessions = [s for s in ag.completed_sessions(real_rows) if s.get("mode") == "real"]
+    att = {s["attempt_id"]: s for s in sessions}
+    turns = [r for r in real_rows if r.get("record") == "r2a_turn" and r.get("attempt_id") in att
+             and r.get("item_kind") == "task"]
+    models = sorted({r["model_id"] for r in turns} | set(refused))
+    out = {"run_finished": finished, "refused": refused, "models": {}}
+    for m in models:
+        if m in refused:
+            out["models"][m] = {"refused": True, "reasons": refused[m]}
+            continue
+        problems = [] if finished else ["no run_end"]
+        cell_row = {}
+        info = {}
+        for w, arm in arms.items():
+            ss = [s for s in sessions if s["model_id"] == m and s["arm_id"] == arm]
+            if sorted(s["seed"] for s in ss) != sorted(TASKS_SEEDS):
+                problems.append(f"{w}: sessions completed for seeds {sorted(s['seed'] for s in ss)}, expected "
+                                f"{sorted(TASKS_SEEDS)}")
+            wt = [r for r in turns if r["model_id"] == m and r["arm_id"] == arm]
+            for s in ss:
+                n = sum(1 for r in wt if r["attempt_id"] == s["attempt_id"])
+                if n != full:
+                    problems.append(f"{w} seed {s['seed']}: {n} task turns, expected {full}")
+            bad = sorted({r.get("num_ctx_requested") for r in wt} - {num_ctx_expected[w]}, key=str)
+            if bad:
+                problems.append(f"{w}: num_ctx_requested {bad}")
+            for r in wt:
+                cell_row[(w, r["task_id"], r["seed"])] = r
+            info[w] = {"loaded_context_values": sorted({r.get("loaded_context") for r in wt}, key=str),
+                       "task_turns_over_window": sum(1 for r in wt if r.get("over_loaded_window")),
+                       "n_task_turns": len(wt),
+                       "first_end_state_failure_turn": {s["seed"]: s.get("first_end_state_failure_turn")
+                                                        for s in sorted(ss, key=lambda s: s["seed"])}}
+        all_cells = {(t, s) for (_w, t, s) in cell_row}
+        defs = {"primary": sorted((t, s) for t in strict.get(m, []) for s in TASKS_SEEDS),
+                "secondary": sorted((t, s) for s, ts in per_seed.get(m, {}).items() for t in ts)}
+        res = {}
+        for name, cells in defs.items():
+            cs = set(cells)
+            d = {"n_tasks": len({t for t, _ in cells}), "n_cells_in_use": len(cells)}
+            per_task = {}
+            for w in arms:
+                rows_w = [cell_row[(w, t, s)] for t, s in cells if (w, t, s) in cell_row]
+                wrong = [r for r in rows_w if r.get("end_state_ok") is False]
+                silent = [r for r in wrong if not r.get("any_http_error")]
+                rest = [cell_row[(w, t, s)] for t, s in sorted(all_cells - cs) if (w, t, s) in cell_row]
+                d[w] = {"n": len(rows_w), "n_missing": len(cells) - len(rows_w), "wrong": len(wrong),
+                        "rate": (len(wrong) / len(rows_w)) if rows_w else None,
+                        "state_wrong": sum(1 for r in rows_w if r.get("state_ok") is False),
+                        "silent_wrong": len(silent), "surfaced_wrong": len(wrong) - len(silent),
+                        "silent_share": (len(silent) / len(wrong)) if wrong else None,
+                        "not_in_use_n": len(rest),
+                        "not_in_use_rate": (sum(1 for r in rest if r.get("end_state_ok") is False) / len(rest))
+                        if rest else None}
+                for t, s in cells:
+                    r = cell_row.get((w, t, s))
+                    if r is None:
+                        continue
+                    e = per_task.setdefault(t, [0, 0, 0, 0])
+                    k = 0 if w == "default" else 2
+                    e[k] += r.get("end_state_ok") is False
+                    e[k + 1] += 1
+            rd, r4 = d["default"]["rate"], d["4096"]["rate"]
+            d["excess"] = (r4 - rd) if rd is not None and r4 is not None else None
+            d["excess_ci95"] = cluster_bootstrap_excess({t: tuple(v) for t, v in per_task.items()}, n_boot, seed)
+            d["reading"] = excess_reading(d["excess_ci95"]) if d["excess"] is not None else None
+            res[name] = d
+        out["models"][m] = {"refused": False, "valid": not problems, "problems": problems, "windows": info, **res}
+    return out
+
+
 # ── CLI / queue entry ───────────────────────────────────────────────────────────────────────────────
 
 def build_arg_parser():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--mode", choices=("validation", "real"), required=True)
+    ap.add_argument("--mode", choices=("validation", "real"), default=None, help="required unless --queue-insert-b3")
     ap.add_argument("--workload", choices=WORKLOADS, default="evalset")
     ap.add_argument("--guardrails", choices=("on", "off"), default="on",
                     help="evalset workload: on = 40-turn session with rules 6-8 bait turns; off = 30 task turns")
     ap.add_argument("--call2-tools", choices=ag.CALL2_MODES, default="off")
     ap.add_argument("--models", default=None, help="comma-separated Ollama tags (default: llama3.1:8b,qwen3:14b)")
-    ap.add_argument("--out", required=True)
+    ap.add_argument("--out", default=None, help="required unless --queue-insert-b3")
     ap.add_argument("--rules-from", default=None, help="real mode: this workload's validation JSONL file")
     ap.add_argument("--tiers", default=None, help="real mode: comma-separated tiers (x2_r2_agent.parse_tiers)")
     ap.add_argument("--seeds", default=None, help="real mode: comma-separated seeds (default SEEDS)")
     ap.add_argument("--check-plan", action="store_true",
                     help="print the plan and session shape, then exit (no server, no model call, no queue)")
+    ap.add_argument("--plan", choices=("default", TASKS_PLAN), default="default",
+                    help="real mode: default = --tiers/--seeds or STRONG_TIERS x SEEDS; tasks_v1 = the B3 task real "
+                         "run (Ollama default and 4096, SEEDS, 30 task turns; needs --workload evalset --guardrails off)")
+    ap.add_argument("--preflight", choices=("full", "end_state"), default="full",
+                    help="real mode: full = validation_preflight_ext (R2 rule/canary/task-tool gates plus rules 6-8); "
+                         "end_state = end_state_preflight (finished, controls complete, positive control, thinking "
+                         "off, content non-empty, at least one task correct; for --plan tasks_v1)")
+    ap.add_argument("--queue-insert-b3", action="store_true",
+                    help="on evo-x2: insert x2_r2_llama_val_32k_offload and x2_evalset_tasks_real_v1 directly after "
+                         "x2_num_keep_guardrail_test in one read-modify-write under a pause cleared in finally")
     return ap
 
 
@@ -555,7 +777,69 @@ def plan_for(args, schedule=None):
     guard = args.guardrails == "on"
     if args.mode == "validation":
         return validation_plan(args.workload, guard, args.call2_tools, schedule)
+    if args.plan == TASKS_PLAN:
+        return tasks_plan(args.call2_tools)
     return real_plan(args.workload, guard, args.call2_tools, ag.parse_tiers(args.tiers), ag.parse_seeds(args.seeds))
+
+
+# ── queue insertion for B3 (pure part tested; --queue-insert-b3 runs it on evo-x2) ─────────────────
+
+B3_ANCHOR = "x2_num_keep_guardrail_test"   # both entries go directly after it, B first (operator, 2026-10-14 21:40 PT)
+OFFLOAD_JOB_ID = "x2_r2_llama_val_32k_offload"
+TASKS_REAL_JOB_ID = "x2_evalset_tasks_real_v1"
+OFFLOAD_SIDE_DIR = "r2v32koff"
+OFFLOAD_NUM_GPU = 22   # round(0.656 x 33), blade-k1-layer-split at 32768, pre-registered in docs/FINDINGS.md
+
+
+def queue_entries_b3(python_exe=None, results_dir=r"C:\apu\ovn\results") -> list[dict]:
+    py = python_exe or sys.executable
+    common = "Releases itself via tq.advance() on exit; sets no pause."
+    return [
+        {"id": OFFLOAD_JOB_ID, "status": "pending", "projected_duration_h": None,
+         "cmd": [py, f"{OFFLOAD_SIDE_DIR}\\x2_r2_sidecar.py", "--mode", "validation", "--call2-tools", "off",
+                 "--models", "llama3.1:8b", "--neg-ctx", "32768", "--neg-sessions", "5", "--num-gpu",
+                 str(OFFLOAD_NUM_GPU), "--out", f"{results_dir}\\x2_r2_llama_val_32k_offload.jsonl"],
+         "note": f"Blade confound follow-up, pre-registered in docs/FINDINGS.md 2026-10-14: the x2_r2_llama_val_32k "
+                 f"validation with options.num_gpu {OFFLOAD_NUM_GPU} (about 34% of layers on the CPU), offload lines "
+                 f"recorded per session; verdict offload / backend / inconclusive. {common}"},
+        {"id": TASKS_REAL_JOB_ID, "status": "pending", "projected_duration_h": None,
+         "cmd": [py, "x2_r2_evalset.py", "--mode", "real", "--workload", "evalset", "--guardrails", "off", "--plan",
+                 TASKS_PLAN, "--preflight", "end_state", "--rules-from",
+                 f"{results_dir}\\x2_evalset_tasks_val_v1.jsonl", "--out",
+                 f"{results_dir}\\x2_evalset_tasks_real_v1.jsonl"],
+         "note": f"B3 task real runs, pre-registered in docs/FINDINGS.md 2026-10-14: llama3.1:8b and qwen3:14b at the "
+                 f"Ollama default and num_ctx 4096, 3 seeds, 30 tasks, graded by end state; end-state preflight on "
+                 f"x2_evalset_tasks_val_v1. {common}"},
+    ]
+
+
+def insert_b3_anchored(items: list[dict], entries: list[dict], anchor=B3_ANCHOR) -> list[dict]:
+    """The entries, in order, directly after `anchor`. A missing anchor or an id already present is a ValueError."""
+    items = list(items)
+    ids = [it["id"] for it in items]
+    for e in entries:
+        if e["id"] in ids:
+            raise ValueError(f"{e['id']} is already in the queue")
+    if anchor not in ids:
+        raise ValueError(f"anchor {anchor} is not in the queue")
+    i = ids.index(anchor) + 1
+    items[i:i] = entries
+    return items
+
+
+def queue_insert_b3(log=print) -> list[dict]:
+    import t2s_queue as tq
+    tq.set_pause("x2_r2_evalset --queue-insert-b3: one read-modify-write inserting x2_r2_llama_val_32k_offload and "
+                 "x2_evalset_tasks_real_v1 after x2_num_keep_guardrail_test; released by clear_pause() in this same "
+                 "script's finally block within seconds")
+    try:
+        new = insert_b3_anchored(tq.read_queue(), queue_entries_b3())
+        tq.write_queue(new)
+        ids = [it["id"] for it in new]
+        log(json.dumps({k: ids.index(k) for k in (B3_ANCHOR, OFFLOAD_JOB_ID, TASKS_REAL_JOB_ID)}))
+        return new
+    finally:
+        tq.clear_pause()
 
 
 def check_plan(args) -> dict:
@@ -574,8 +858,21 @@ def check_plan(args) -> dict:
 def main(argv=None, advance=True):
     ap = build_arg_parser()
     args = ap.parse_args(argv)
+    if args.queue_insert_b3:
+        queue_insert_b3()
+        return "queue-insert-b3"
+    if args.mode is None or args.out is None:
+        ap.error("--mode and --out are required")
     if args.mode == "real" and not args.rules_from:
         ap.error("--mode real needs --rules-from (the validation file of the same workload)")
+    if args.plan == TASKS_PLAN:
+        if args.mode != "real" or args.workload != "evalset" or args.guardrails != "off":
+            ap.error("--plan tasks_v1 needs --mode real --workload evalset --guardrails off")
+        if args.tiers or args.seeds:
+            ap.error("--plan tasks_v1 fixes the tiers and seeds; do not pass --tiers / --seeds")
+    if args.preflight == "end_state" and (args.mode != "real" or args.workload != "evalset"
+                                          or args.guardrails != "off"):
+        ap.error("--preflight end_state needs --mode real --workload evalset --guardrails off")
     if args.workload == "replay" and args.guardrails == "off":
         ap.error("the replay workload always runs with guardrails on")
     if args.check_plan:
@@ -617,12 +914,16 @@ def main(argv=None, advance=True):
         preflight = None
         if args.mode == "real":
             vrows = ag.read_rows(Path(args.rules_from))
-            preflight = validation_preflight_ext(vrows, models, args.workload, guard, c2)
+            if args.preflight == "end_state":
+                preflight = end_state_preflight(vrows, models, c2)
+            else:
+                preflight = validation_preflight_ext(vrows, models, args.workload, guard, c2)
             for m, reasons in preflight["refused"].items():
                 emit({"record": "refused_model", "model_id": m, "reasons": reasons, "ts_utc": ag.utc_iso()})
             models = preflight["models_ok"]
         emit({"record": "run_start", "harness": HARNESS, "mode": args.mode, "workload": args.workload,
-              "guardrails": guard, "models": models, "plan": plan, "call2_tools": c2 != "off", "call2_mode": c2,
+              "guardrails": guard, "models": models, "plan": plan, "plan_name": args.plan,
+              "preflight_kind": args.preflight, "call2_tools": c2 != "off", "call2_mode": c2,
               "call2_extra": ag.call2_extra(c2), "rules_ext": list(RULE_IDS_EXT), "rules_from": args.rules_from,
               "validation_preflight": preflight, "max_tokens_per_call": ag.MAX_TOKENS_PER_CALL,
               "keep_alive": ag.KEEP_ALIVE, "hw_id": host_cfg.get("hw_id"), "interactive_session": interactive,
@@ -664,6 +965,8 @@ def main(argv=None, advance=True):
                 {k: s.get(k) for k in ("model_id", "arm_id", "seed", "first_failure_turn", "first_end_state_failure_turn",
                                        "truncation_detected_turn", "n_end_state_ok", "n_task_turns")}
                 for s in sessions]}
+            if args.preflight == "end_state":
+                report["tasks_real_outcome"] = tasks_real_outcome(rows, vrows, c2)
         Path(str(out_path) + ".report.json").write_text(json.dumps(report, indent=1, default=str), encoding="utf-8")
         emit({"record": "run_end", "call2_mode": c2, "ts_utc": ag.utc_iso()})
         if args.mode == "validation":

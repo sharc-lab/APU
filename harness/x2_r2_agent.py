@@ -82,6 +82,12 @@ in run_start as num_keep:
   --num-keep system       per session, measure the system prompt's token length S (render and count with the model's
                           tokenizer) and send options.num_keep = S on every request; Ollama runs with OLLAMA_DEBUG=1 and
                           each call records the observed context-shift n_keep (harness/x2_num_keep.py).
+Validation/real-mode option (2026-10-14, x2_r2_llama_val_32k_offload, pre-registered in docs/FINDINGS.md), off by
+default, recorded in run_start as num_gpu:
+  --num-gpu N             send options.num_gpu = N (layers on the GPU) on every request; the job starts its own Ollama
+                          server with its log next to --out (<stem>_serve.log), refuses if the Ollama tray app is
+                          running, and writes one num_gpu_offload row per session with the "offloaded N/M layers to
+                          GPU" lines of that session's log slice and the /api/ps VRAM share (harness/x2_num_gpu.py).
 
 Thinking: "think": false is sent for every qwen3 model (MODELS); every call records thinking_present (non-empty
 message.thinking) and think_tag_in_content, and a turn with either fails ("thinking_present" in turn_failures,
@@ -1808,6 +1814,10 @@ def build_arg_parser():
                     help="real mode: 'system' = measure the system prompt's token length S per session (render and "
                          "count with the model's tokenizer) and send options.num_keep = S on every request; runs the "
                          "Ollama server with OLLAMA_DEBUG=1 and records the observed context-shift n_keep per call")
+    # 2026-10-14, x2_r2_llama_val_32k_offload (pre-registered in docs/FINDINGS.md): harness/x2_num_gpu.py.
+    ap.add_argument("--num-gpu", type=int, default=None,
+                    help="validation/real mode: send options.num_gpu = N (model layers on the GPU) on every request; "
+                         "own server log next to --out, one num_gpu_offload row per session (offload lines, VRAM share)")
     return ap
 
 
@@ -1851,6 +1861,13 @@ def main(argv=None, advance=True):
         ap.error("--num-keep applies to --mode real only")
     if args.num_keep and extra_env and extra_env.get("OLLAMA_DEBUG", "1") != "1":
         ap.error("--num-keep runs the server with OLLAMA_DEBUG=1; --server-env must not override it")
+    if args.num_gpu is not None:
+        if args.mode not in ("validation", "real"):
+            ap.error("--num-gpu applies to --mode validation and --mode real only")
+        if args.num_keep:
+            ap.error("--num-gpu and --num-keep are not combined")
+        if args.num_gpu < 0:
+            ap.error(f"--num-gpu must be >= 0, got {args.num_gpu}")
     neg_arm = NEG_ARM
     if args.mode == "validation":
         try:
@@ -1930,7 +1947,8 @@ def main(argv=None, advance=True):
               "max_tokens_per_call": MAX_TOKENS_PER_CALL, "keep_alive": KEEP_ALIVE, "client_trim": client_trim,
               "hw_id": host_cfg.get("hw_id"), "interactive_session": interactive, "server_env_extra": extra_env,
               "tiers": tiers, "seeds": seeds, "allow_new_seeds": args.allow_new_seeds if seeds is not None else None,
-              "neg_ctx": args.neg_ctx, "neg_sessions": args.neg_sessions, "num_keep": args.num_keep})
+              "neg_ctx": args.neg_ctx, "neg_sessions": args.neg_sessions, "num_keep": args.num_keep,
+              **({"num_gpu": args.num_gpu} if args.num_gpu is not None else {})})
         present = {Path(p).name: Path(p).exists() for p in rule_files}
         finished = {name: any(r.get("record") == "run_end" for r in vrows) for name, vrows in
                     ((Path(p).name, read_rows(Path(p))) for p in rule_files)}
@@ -1959,6 +1977,13 @@ def main(argv=None, advance=True):
                                    "does not stop the tray app")
             server_env, server_log = dict(mech.OLLAMA_DEBUG_ENV), NUM_KEEP_SERVE_LOG
             hc.stop_ollama_server()   # as for mechanism: the debug env must take effect
+        if args.num_gpu is not None:
+            import x2_num_gpu as ng
+            if ng.tray_app_running():   # operator rule: never touch the Ollama tray app; refuse instead of stopping it
+                raise RuntimeError("the Ollama tray app is running; --num-gpu needs the job's own server and log and "
+                                   "does not stop the tray app")
+            server_log = ng.server_log_for(out_path)
+            hc.stop_ollama_server()   # start_ollama_server is a no-op while any Ollama runs; the log path must apply
         if extra_env:   # --server-env: merged over the mode's own env; kept on runtime.server_env for recover()
             if server_env is None:
                 hc.stop_ollama_server()   # as above: the extra env must take effect
@@ -1972,6 +1997,14 @@ def main(argv=None, advance=True):
                 raise RuntimeError("ollama did not become ready")
         runtime = OllamaRuntime()
         runtime.server_env, runtime.server_log = server_env, server_log
+        session_hooks = {}
+        if args.num_gpu is not None:
+            runtime = ng.NumGpuRuntime(runtime, args.num_gpu)
+            head, _ = ng.read_from(server_log, 0)
+            emit({"record": "num_gpu_server", "num_gpu": args.num_gpu, "server_log": server_log,
+                  "libraries": ng.parse_libraries(head), "ts_utc": utc_iso()})
+            rec = ng.OffloadRecorder(runtime, server_log, emit, log)
+            session_hooks = {"on_session_start": rec.start, "on_session_end": rec.end}
         avail = runtime.available_models()
         missing = [m for m in models if not any(same_tag(m, a) for a in avail)]
         if missing:
@@ -2019,7 +2052,7 @@ def main(argv=None, advance=True):
             log(json.dumps(rep["verdict"], default=str))
             return note
         run_plan(runtime, plan, models, args.mode, out_path, log=log, emit=emit, skip_done=skip_done,
-                 order=args.order)
+                 order=args.order, **session_hooks)
         rows = read_rows(out_path)
         if args.mode == "validation":
             report = evaluate_gates(rows, call2_tools=c2, neg_arm=neg_arm)

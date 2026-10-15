@@ -3522,3 +3522,173 @@ The obvious fix works for one model and fails for another at the smallest window
 "rule2 100.0% (n=120, first fail -/-/-)" in the unmitigated real run (`R2-mitigation-v1-4096`). The pre-registered
 refutation clause applies to qwen3:14b at 4096: the system prompt was sent on every call and a rule still broke, so the
 context shift's loss of the system prompt is not the whole explanation there.
+
+## PRE-REGISTRATION: B3 task real runs, x2_evalset_tasks_real_v1 on evo-x2 (2026-10-14, NOT YET RUN)
+
+**Status:** PRE-REGISTRATION, written and committed before the real-mode code for this job is written or deployed and
+before evo-x2's queue is edited. No data for this job exists. Operator decision of 2026-10-14 21:40 PT, item (A): the
+input for impact problem P1 (silent wrong results).
+
+**Question.** On the 30 evalset tasks (docs/EVALSET_DESIGN.md (a), `harness/evalset_env.py`), how often does a task end
+in a wrong state at num_ctx 4096 compared with the Ollama default window, and is the wrong result silent (HTTP 200, no
+error) or surfaced?
+
+**Job.** Queue id `x2_evalset_tasks_real_v1`, output `results/x2_evalset_tasks_real_v1.jsonl`, harness
+`harness/x2_r2_evalset.py --mode real --workload evalset --guardrails off`, the same session builder, environment,
+checkers and two-step turn as the validation `x2_evalset_tasks_val_v1`. Models llama3.1:8b and qwen3:14b. Arms
+`ollama_default_call2_notools` (no num_ctx sent; the runtime picks) and `ollama_ctx_4096_call2_notools` (num_ctx 4096);
+seeds 20260901, 20260902, 20260903 (the validation's negative-control seeds, so each real session has the same
+environment, task texts and task order as the negative-control session of the same seed); 30 task turns per session
+(guardrails off: no bait turns, destructive tasks carry their confirmation inline); 12 sessions, 360 task turns. v1
+call-2 mode (tools withheld on a turn's second call), temperature 0, seed 42, num_predict 384 on every request, "think":
+false for qwen3:14b. The real-mode plan is a new named plan (`--plan tasks_v1`: these two tiers, these three seeds, 30
+turns), with tests on fakes. Statistics convention: as in the validation, no warm-up call; every turn of every session
+is scored (the outcome is a per-task end state, not a timing).
+
+**The validation it rests on** (register row `x2-evalset-tasks-val-gates`, added for this job, pasted): llama3.1:8b
+"baseline gate fail (failing ['rule1_json_keys', 'rule2_log_event_called', 'rule5_session_code']); negative control
+(num_ctx 131072 requested) gate fail, canary misses 13 of 36 canaries (18 checks) over 3 sessions, loaded context
+[131072], task turns over the loaded window 0/90; positive control pass; task tool 56/81 (fail); thinking off pass;
+content non-empty pass"; qwen3:14b "baseline gate fail (failing ['rule1_json_keys', 'rule5_session_code']); negative
+control (num_ctx 131072 requested) gate fail, canary misses 15 of 36 canaries (18 checks) over 3 sessions, loaded
+context [40960], task turns over the loaded window 30/90; positive control pass; task tool 41/81 (fail); thinking off
+pass; content non-empty pass".
+
+**Preflight (a choice the operator should see).** The existing real-mode preflight (`validation_preflight_ext`) applies
+the R2 rule and canary gates and would refuse both models on this validation (baseline, negative-control and task-tool
+gates fail above). Those gates protect the R2 rule and canary outcomes; this job's outcome is the end state only, so it
+runs with a new `--preflight end_state`, which refuses a model unless: the validation file finished (run_end); the
+model's negative control completed all 3 sessions with 30 task turns each; its positive control passed; thinking off
+and content non-empty passed; and at least one task was correct in some negative-control session. The R2 gates' status
+is recorded in run_start. Consequence: no rule or canary result from this run is reported or cited; only end-state
+outcomes are.
+
+**Tasks in use.**
+- **Primary (the design rule, docs/EVALSET_DESIGN.md):** per model, the tasks whose end state was correct on every
+  negative-control session. Pasted from `x2-evalset-tasks-val-gates`: llama3.1:8b "tasks in use (correct on every
+  negative-control session) 11: cal_cancel, cal_move, cal_rename, cust_upgrade, eml_internal, file_delete, file_write,
+  inv_price, led_close, tkt_close_id, tkt_priority"; qwen3:14b "tasks in use (correct on every negative-control session)
+  0: none". The primary outcome is therefore not estimable for qwen3:14b; it is reported as such, not replaced.
+- **Secondary (added here, after reading the validation file, because the strict set for qwen3:14b is empty; stated as
+  such):** per model, the (task, seed) cells whose end state was correct in the negative-control session of the same
+  seed. Pasted: llama3.1:8b "tasks correct per seed 20260901: 15/30, 20260902: 20/30, 20260903: 14/30"; qwen3:14b
+  "tasks correct per seed 20260901: 0/30, 20260902: 21/30, 20260903: 20/30".
+A cell is a (task, seed) pair for one model; the primary set uses all 3 seeds of each task in use.
+
+**Outcome measures, fixed now** (register rows `x2-evalset-tasks-real-wrong-rate` and `x2-evalset-tasks-real-silent`,
+computed by `x2_r2_evalset.tasks_real_outcome`, PENDING until the file is synced), per model, per window, separately
+for the primary and the secondary set:
+1. **Wrong-task rate**: wrong cells / cells in use, where a cell is wrong when its task turn has `end_state_ok` false:
+   the environment after the turn's tool calls differs from the reference end state, or (information tasks) the answer
+   lacks a reference value. The state-only part (`state_ok` false) is reported next to it.
+2. **Excess at 4096 over the default**: wrong-task rate at 4096 minus wrong-task rate at the default, with a 95%
+   percentile bootstrap CI. Unit of resampling: the task (cluster bootstrap: a task's in-use cells at both windows are
+   drawn together), 10000 resamples, `random.Random(20261014)`. The number of tasks and of cells per window is reported.
+   Reading, fixed now: CI lower bound above 0, "4096 raises the wrong-task rate for <model>"; CI containing 0, "no
+   excess shown"; CI upper bound below 0, "lower at 4096".
+3. **Silent vs surfaced wrong results**: a wrong cell is silent when every call of its turn returned HTTP 200 with
+   outcome ok and no error field (`any_http_error` false), surfaced otherwise. Counts per window and the silent share of
+   the wrong cells.
+Also reported (not part of the reading): loaded context per window, task turns over the loaded window per window,
+first end-state failure turn per session, and the wrong-task rate on the tasks not in use.
+
+**Validity (mechanical).** Per model that was not refused: run finished (run_end), all 6 sessions (2 windows x 3 seeds)
+completed with 30 task turns, every 4096 row requested num_ctx 4096 and every default row requested none. A failing
+model is reported "incomplete" with what is missing, and its rates are not read. A refused model is reported with the
+preflight's reasons.
+
+**Known limits, stated before the run.** Three seeds; the primary set is 11 tasks for one model and none for the other.
+Selecting tasks on negative-control success makes the selected cells look worse on any rerun (regression to the mean);
+the default window is the comparison partly for that reason, since it is a rerun too. qwen3:14b's negative control
+loaded 40960, not 131072, and was over that window on 30 of its 90 task turns (pasted above), so its "correct in the
+negative control" is not a truncation-free reference, and its default window is expected to be the same 40960; the
+loaded value per window is reported, not assumed. The R2 rule and canary gates failed in the validation, so this run
+says nothing about rules or canaries. One runtime (Ollama 0.34.4 on evo-x2). Duration is not projected here; the job
+calls tq.advance() on exit and sets no pause.
+
+## PRE-REGISTRATION: Blade confound follow-up, backend vs CPU offload, x2_r2_llama_val_32k_offload on evo-x2 (2026-10-14, NOT YET RUN)
+
+**Status:** PRE-REGISTRATION, written and committed before the `--num-gpu` code is written or deployed and before
+evo-x2's queue is edited. No data for this job exists. Operator decision of 2026-10-14 21:40 PT, item (B).
+
+**Where the confound check left it.** On the Blade, llama3.1:8b's negative control at num_ctx 32768 missed canaries in
+2 of 5 sessions, each a turn-5 (REC-0005 lookup) final answer written as a text tool call (`blade-r2-gate-v2`, pasted
+in the confound-check section above: "20260903: 2, ... 20260905: 2; branch mechanism"). The same validation on evo-x2 at
+the same window had none: register row `x2-r2-llama-val-32k`, pasted: "negative control (num_ctx 32768) canary misses 0
+of 20 canaries over 5 sessions"; "verdict: backend or offload effect". So the window alone does not reproduce it; what
+remains is the Blade's backend (CUDA) or its partial CPU offload at 32768. This job separates the two by putting the
+offload on evo-x2.
+
+**Design: add only the offload.** Rerun exactly the `x2_r2_llama_val_32k` validation on evo-x2 (`harness/x2_r2_sidecar.py`
++ `x2_r2_agent.py --mode validation --call2-tools off --models llama3.1:8b --neg-ctx 32768 --neg-sessions 5`: negative
+control and baseline at num_ctx 32768 on seeds 20260901-05, 10 turns each; positive control num_ctx 8192, seed
+20260901, 15 turns; diagnostic arm, tools on call 2, num_ctx 32768, seeds 20260901-03, 10 turns; temperature 0, seed 42,
+num_predict 384; v1 call-2 mode), with one change: every request carries Ollama's `options.num_gpu` (the number of
+layers placed on the GPU), through a new `--num-gpu N` option (off by default, per request, recorded in run_start and
+per session), with tests on fakes. The option applies to every arm of the run; the verdict reads the negative-control
+arm only.
+
+**num_gpu value, computed now.** Target: the Blade's split at 32768, register row `blade-k1-layer-split`, pasted:
+"llama3.1:8b: ... VRAM share by num_ctx ... 32768: 0.656". llama3.1:8b has 33 offloadable layers (32 transformer
+blocks plus the output layer; Ollama's load line reads "offloaded N/33 layers to GPU"). 0.656 x 33 = 21.6, rounded to
+**num_gpu = 22**: 22 layers on the GPU and 11 on the CPU, a CPU share of 11/33 = 33.3% against the target's 34.4%
+(1 - 0.656). The Blade's VRAM share is a byte share (size_vram / size from /api/ps, KV cache included), so a layer count
+matches it only approximately; 22 is the nearest whole layer count.
+
+**Verification that the split took effect (fixed now).** The job starts its own Ollama server (refusing, and stopping
+nothing, if the Ollama tray app is running) with the server log written to
+`results/x2_r2_llama_val_32k_offload_serve.log`, and for every session parses that session's slice of the log for
+Ollama's "offloaded N/M layers to GPU" lines (the model is unloaded before each session, so each session loads it
+once). Each session writes a `num_gpu_offload` row: num_gpu sent, every (N, M) seen, the number of chat calls and how
+many carried num_gpu, and the last /api/ps size and size_vram while the model was loaded. The backend library is read
+from the log's "inference compute" line and recorded. For every negative-control session the split is **as intended**
+when at least one offload line is present, every line has M = 33 and |N - 22| <= 2, and every chat call carried
+num_gpu 22. Otherwise the run is **flagged** and the verdict is "inconclusive (offload split not as intended)", with the
+observed values; a session with no offload line gives "inconclusive (offload split not verified)".
+
+**Interpretation, fixed now** (register row `x2-r2-llama-val-32k-offload`, `analysis/numbers_register.py`, PENDING until
+`results/x2_r2_llama_val_32k_offload.jsonl` is synced), from the negative-control (gate) arm only, with the validity
+rules of `x2-r2-llama-val-32k` (run_end; all 5 sessions completed with 10 turns; every row at num_ctx 32768; no turn
+over the loaded window) plus the split check above:
+- **offload effect**: valid, split as intended, at least one canary miss, and every missed canary turn is a turn-5 turn
+  whose final answer is a text tool call (the final text, after leading whitespace, starts with `{"name": ...}`, the
+  same test as `x2-r2-llama-val-32k`).
+- **backend effect (CUDA vs evo-x2's backend)**: valid, split as intended, 0 negative-control canary misses.
+- **inconclusive**: anything else (a miss on another turn, or a miss that is not a text tool call), reported with the
+  pattern per miss (seed, turn, which canary, text tool call or not); or invalid or flagged as above.
+The register row also reports, whatever the verdict: per-rule rates on the gate arm, per-session canary misses, the
+offload lines and VRAM share per session, the backend library, positive-control truncation turns and the diagnostic
+arm's misses.
+
+**Known limits, stated before the run.** Five sessions: a 0 says the event did not occur in these 5 seeds with the
+offload, not that it cannot. Offload on evo-x2 is placement within one unified memory (CPU vs GPU compute of 11 layers),
+not the Blade's PCIe-attached split, so "offload effect" means the CPU computing part of the model reproduces the
+finding; "backend effect" means that, with the CPU part matched, it is not reproduced, leaving CUDA (or anything else
+that differs between the machines besides the split and the window) as the explanation. Model, params and template
+digests are those of `x2_r2_llama_val_32k` (same tag on the same machine). One runtime (Ollama 0.34.4). Statistics
+convention as in `x2_r2_llama_val_32k`: no warm-up call, every session's turns scored. Duration is not projected; with
+a third of the layers on the CPU it is expected to take longer than `x2_r2_llama_val_32k`. Calls tq.advance() on exit;
+sets no pause.
+
+**Queue position.** Directly after `x2_num_keep_guardrail_test` and before `x2_evalset_tasks_real_v1` (item A), which
+goes before `x2_model_pulls_scale`, per the operator's order of 2026-10-14 21:40 PT.
+
+**Deployed and queued, B3 follow-ups (2026-10-14, after the pre-registration commits 4b8504d and 418fe8e (be493b1 and c3189f8 after the rebase onto main); code f459aa9
+and 405055d (abbf4db and 91ffd0d after the rebase)).** Item (B): side directory `C:\apu\ovn\r2v32koff\` holds `x2_r2_agent.py` (adds --num-gpu),
+`x2_num_gpu.py` (new) and the launcher `x2_r2_sidecar.py` (unchanged); `C:\apu\ovn\x2_r2_agent.py` was not touched.
+Every other module the job imports (t2s_r2_session_growth, t2s_queue, host_config, x2_r2_client_trim, x2_r2_mechanism,
+proc_util) is taken from `C:\apu\ovn`. The import-only check on evo-x2 (no server, no model call, no queue access)
+loaded the side copies, parsed the job's argv with num_gpu 22, printed the pre-registered plan and the server log path
+`C:\apu\ovn\results\x2_r2_llama_val_32k_offload_serve.log`, and found the Ollama tray app not running. Queue entry
+`x2_r2_llama_val_32k_offload`: `python r2v32koff\x2_r2_sidecar.py --mode validation --call2-tools off --models
+llama3.1:8b --neg-ctx 32768 --neg-sessions 5 --num-gpu 22 --out C:\apu\ovn\results\x2_r2_llama_val_32k_offload.jsonl`,
+inserted per the operator's decision of 2026-10-14 22:30 PT directly after the running `x2_model_pulls_scale`, ahead of
+`x2_family_smoke_mistral_small32`, in one read-modify-write under a pause whose reason names its release, cleared in the
+same script's finally block (pause flag confirmed absent afterwards).
+
+Item (A): `x2_r2_evalset.py` with `--plan tasks_v1` and `--preflight end_state` is deployed to `C:\apu\ovn` (backward
+compatible with the queued replay validation), and the import check on evo-x2 printed the plan and ran the end-state
+preflight on the machine's validation file. **The job `x2_evalset_tasks_real_v1` is HELD and not queued** (operator
+decision of 2026-10-14 22:30 PT): both B3 validations, `x2_evalset_tasks_val_v1` and `x2_evalset_guard_val_v1`, failed
+their gates, and the evalset is being redesigned; the task and guardrail real runs come back only after fixed
+validations pass. The pre-registration above stands unedited; its register rows stay PENDING.
