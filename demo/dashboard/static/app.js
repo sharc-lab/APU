@@ -206,9 +206,12 @@ function renderScenario(s) {
   $("#session").innerHTML = s.sessions.map((x) => `<option value="${esc(x.key)}">${esc(x.model)}, seed ${x.seed}</option>`).join("");
   const reg = s.register;
   const cite = (id) => (reg[id] ? `${num(id, { register: id })}: ${esc(reg[id].value)}` : `${esc(id)}: not in register`);
-  $("#evidence").innerHTML = `<p><b>Recorded outcome, all six sessions at 4096</b> (register, verbatim): ${cite("R2-real-v1-gated-kill")}</p>
+  $("#evidence").innerHTML = `<p><b>Recorded outcome, all tiers, 3 models x 5 seeds (strengthened run v1 + v1b; the six sessions replayed here are its v1 part)</b> (register, verbatim): ${cite("R2-real-v1b-gated-kill")}</p>
+    <p><b>Excess over the Ollama default tier</b> (after-window silent failure rate minus the default's, 95% bootstrap CI over sessions; register, verbatim): ${cite("R2-v1b-excess-over-default")}</p>
     <p><b>Mechanism</b>: ${num("R2-mechanism-verdict", { register: "R2-mechanism-verdict" })}, ${num("R2-mechanism-lowlevel", { register: "R2-mechanism-lowlevel" })} (Ollama keeps the system message; llama.cpp context shift then discards the start of the prompt at 4096).</p>
-    <p><b>Our side's quality</b>: <span class="badge proj">PROJECTED</span> ${esc(s.mitigation.label || "measured")}${s.mitigation.register_ids.length ? " (" + s.mitigation.register_ids.map((i) => num(i, { register: i })).join(", ") + ")" : ""}. Until ${esc(s.mitigation.file)} is synced and its register rows compute, the screen shows our router's decisions, not a measured outcome.</p>`;
+    ${s.mitigation.measured
+      ? `<p><b>The obvious fix (client-side trimming that keeps the system prompt)</b> (register, verbatim): ${cite("R2-mitigation-v1-verdict")}. It works for one model and fails for another at the smallest window. The live replay below still shows our router's decisions, not a measured outcome of our side.</p>`
+      : `<p><b>Our side's quality</b>: <span class="badge proj">PROJECTED</span> ${esc(s.mitigation.label || "measured")}${s.mitigation.register_ids.length ? " (" + s.mitigation.register_ids.map((i) => num(i, { register: i })).join(", ") + ")" : ""}. Until ${esc(s.mitigation.file)} is synced and its register rows compute, the screen shows our router's decisions, not a measured outcome.</p>`}`;
   $("#live-intro").textContent = `Both sides replay the same recorded session from ${s.source} (arm ${s.arm}). The naive side's outcome per step is the recorded turn; our side shows what the router would send instead.`;
 }
 function meter(k, v) { return `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div></div>`; }
