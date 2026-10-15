@@ -36,28 +36,33 @@ touches the network and is always safe to run anywhere, including evo-t2s,
 specifically so the rest of the pipeline can be developed and tested without
 tripping the host restriction.
 
-KEY AND MODE RULE (2026-10-08)
--------------------------------
-This module is the ONLY place in the repo allowed to talk to OpenAI
-(tests/test_no_direct_openai_clients.py enforces it). The constructor's
-`mode` argument decides stub vs real, and environment variables are read
-ONLY when a caller explicitly asks for real mode:
+KEY AND MODE RULE (2026-10-08, Anthropic key added 2026-10-14)
+----------------------------------------------------------------
+This module is the ONLY place in the repo allowed to talk to OpenAI or
+Anthropic (tests/test_no_direct_openai_clients.py enforces it). The
+constructor's `mode` argument decides stub vs real, and environment
+variables are read ONLY when a caller explicitly asks for real mode:
 
   mode="auto" (the default):
       real iff the caller passes a non-empty `api_key` argument; otherwise
       STUB. No environment variable is consulted, so CloudClient(api_key=None)
-      stays a stub even with OPENAI_API_KEY or CLOUD_API_KEY exported in the
-      shell. This is what the Pareto sweep, src/dse and the tests use, and
-      it is why setting a key can never make a sweep spend money by accident.
+      stays a stub even with ANTHROPIC_API_KEY, OPENAI_API_KEY or
+      CLOUD_API_KEY exported in the shell. This is what the Pareto sweep,
+      src/dse and the tests use, and it is why setting a key can never make a
+      sweep spend money by accident.
   mode="stub":
       always stub, even if an api_key is passed.
-  mode="real" (or the CloudClient.real(...) factory):
-      key precedence: explicit `api_key` argument, then OPENAI_API_KEY, then
-      CLOUD_API_KEY (legacy fallback). If none is set (or all are empty),
-      MissingApiKeyError is raised at construction: real mode never silently
-      degrades to a stub. A key taken from OPENAI_API_KEY is only used for
-      OpenAI models (MODEL_PRICING provider "openai"); asking it for another
-      provider's model raises ValueError before anything is sent.
+  mode="real" (or the CloudClient.real(...) factory, the explicit opt-in):
+      key precedence: explicit `api_key` argument, then ANTHROPIC_API_KEY
+      (the real-mode provider key, operator 2026-10-14), then OPENAI_API_KEY
+      (the 2026-10-08 OpenAI path, unchanged), then CLOUD_API_KEY (legacy
+      fallback). If none is set (or all are empty), MissingApiKeyError is
+      raised at construction: real mode never silently degrades to a stub.
+      A key taken from ANTHROPIC_API_KEY is only sent to Anthropic models and
+      one from OPENAI_API_KEY only to OpenAI models (MODEL_PRICING
+      "provider"); asking it for another provider's model raises ValueError
+      before anything is sent. Keys are never read on a stub path and never
+      printed (redact_key below).
 
 In stub mode the deterministic STUB PROVIDER answers instead, so the router,
 Pareto sweep, and demo can all be exercised end to end without a real key.
@@ -86,7 +91,8 @@ equals it. A caller may pass a LOWER spend_cap_usd; a real-mode client asking
 for a higher one raises ValueError at construction (stub mode spends nothing,
 so any cap is accepted there, e.g. for the Pareto sweep).
 Before every REAL (non-stub) call, the projected cost is computed from the
-model's published per-token price and the call's token counts. If
+model's list price in the shared price files and the call's token counts
+(every input token at the uncached rate: an upper bound). If
 `running_total + projected_cost` would exceed the cap, the call is refused
 before any request is sent, and the refusal (with its full reasoning) is
 returned via `SpendCapExceeded`, never silently retried or downgraded. The
@@ -119,24 +125,25 @@ CLIENT LIBRARY
 Real calls to an OpenAI model (provider "openai" in MODEL_PRICING) go
 through the official `openai` SDK (a project dependency), one SDK client per
 CloudClient, created in prepare() and reused. Real calls to any other model
-go through the `litellm` package (https://github.com/BerriAI/
-litellm). As of 2026-09-30, litellm is NOT a dependency of this project
-(checked: absent from pyproject.toml's `dependencies` list and not installed
-in this environment -- `python -c "import litellm"` raises ModuleNotFoundError).
-It must be added to pyproject.toml before the real-call path can run. The
-import is deferred to inside `_default_completion_fn` specifically so that
-stub-mode usage and all of this module's unit tests work without litellm
-installed at all.
+(Anthropic included) go through the `litellm` package
+(https://github.com/BerriAI/litellm), listed in pyproject.toml but not
+installed on the controller as of 2026-10-14 (`import litellm` raises
+ModuleNotFoundError there), so it must be installed before an Anthropic real
+call can run. The import is deferred to inside `_default_completion_fn`
+specifically so that stub-mode usage and all of this module's unit tests work
+without litellm installed at all.
 
-MODELS AND PRICING (fetched 2026-09-30, official vendor pages -- see
-docs/CLOUD_MODELS.md for the full citation)
+MODELS AND PRICING (2026-10-14: shared price files, nothing hard-coded)
 -----------------------------------------------------------------------
-  cheap  : gpt-4o-mini        $0.15 / $0.60  per 1M input/output tokens
-           source: https://developers.openai.com/api/docs/pricing
-  strong : claude-sonnet-4-5  $3.00 / $15.00 per 1M input/output tokens
-           source: https://claude.com/pricing
-Prices change without notice; re-verify against the source URLs before
-trusting these numbers past their fetch date.
+MODEL_PRICING and CLOUD_MODELS are built at import from the shared price
+tables results/cloud_prices_*.json, the latest file per provider
+(src/cloud/prices.py; the same loader analysis/r2_session_cost.py uses).
+Each file carries its vendor source URL and fetch time; every row of MODEL_PRICING
+names its price_file. CLOUD_MODELS {"cheap", "strong"} is the preferred
+provider's "selection" (Anthropic once results/cloud_prices_anthropic_<date>.json
+exists, OpenAI before that: gpt-6-luna / gpt-6.1-sol from
+results/cloud_prices_20261008.json). A model in no price file is refused with
+UnknownModelError, never estimated at $0. See docs/CLOUD_MODELS.md.
 
 TOOLS AND TOOL_CHOICE
 ----------------------
@@ -164,14 +171,22 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
+try:
+    from . import prices as _prices
+except ImportError:  # run as a script (py src/cloud/client.py): this directory is sys.path[0]
+    import prices as _prices  # type: ignore[no-redef]
+
 # --------------------------------------------------------------------------
 # Constants
 # --------------------------------------------------------------------------
 
 ENV_VAR_API_KEY = "CLOUD_API_KEY"          # legacy real-mode key, lowest precedence
-ENV_VAR_OPENAI_API_KEY = "OPENAI_API_KEY"  # primary real-mode key (operator decision 2026-10-08)
+ENV_VAR_ANTHROPIC_API_KEY = "ANTHROPIC_API_KEY"  # real-mode provider key (operator decision 2026-10-14)
+ENV_VAR_OPENAI_API_KEY = "OPENAI_API_KEY"  # real-mode key for OpenAI models (operator decision 2026-10-08)
 # Real-mode key lookup order after an explicit api_key argument. Only read when mode="real".
-REAL_MODE_KEY_ENV_VARS = (ENV_VAR_OPENAI_API_KEY, ENV_VAR_API_KEY)
+REAL_MODE_KEY_ENV_VARS = (ENV_VAR_ANTHROPIC_API_KEY, ENV_VAR_OPENAI_API_KEY, ENV_VAR_API_KEY)
+# A key read from one of these variables is only ever sent to that provider's models.
+KEY_ENV_PROVIDER = {ENV_VAR_ANTHROPIC_API_KEY: "anthropic", ENV_VAR_OPENAI_API_KEY: "openai"}
 CLIENT_MODES = ("auto", "stub", "real")
 ENV_VAR_ALLOWED_HOSTS = "CLOUD_ALLOWED_HOSTS"
 ENV_VAR_HOST_ROLE = "CLOUD_CLIENT_HOST_ROLE"
@@ -184,27 +199,41 @@ DEFAULT_SPEND_CAP_USD = HARD_SPEND_CAP_USD
 SPEND_ALERT_FRACTIONS = (0.50, 0.75, 0.90)
 DEFAULT_LEDGER_PATH = Path("results/cloud_ledger.jsonl")
 
-# model_id -> pricing, fetched 2026-09-30 from official vendor pages (see module docstring)
-MODEL_PRICING: dict[str, dict[str, Any]] = {
-    "gpt-4o-mini": {
-        "tier": "cheap",
-        "provider": "openai",
-        "input_per_1m_usd": 0.15,
-        "output_per_1m_usd": 0.60,
-        "fetch_date": "2026-09-30",
-        "source_url": "https://developers.openai.com/api/docs/pricing",
-    },
-    "claude-sonnet-4-5": {
-        "tier": "strong",
-        "provider": "anthropic",
-        "input_per_1m_usd": 3.00,
-        "output_per_1m_usd": 15.00,
-        "fetch_date": "2026-09-30",
-        "source_url": "https://claude.com/pricing",
-    },
-}
+def load_model_pricing(repo: str | Path | None = None) -> tuple[dict[str, dict[str, Any]], dict[str, str]]:
+    """(MODEL_PRICING, CLOUD_MODELS) from the shared price files (src/cloud/prices.py: results/cloud_prices_*.json,
+    the latest file per provider). No price is hard-coded in this module.
 
-CLOUD_MODELS = {"cheap": "gpt-4o-mini", "strong": "claude-sonnet-4-5"}
+    MODEL_PRICING[model_id] = {"provider", "input_per_1m_usd", "output_per_1m_usd", "cached_input_per_1m_usd",
+    "cache_write_per_1m_usd", "rates" (short / long context), "fetch_date", "source_url", "price_file", and "tier"
+    for the two tier models}. CLOUD_MODELS = {"cheap", "strong"} from the preferred provider's file "selection"
+    (Anthropic when its price file exists, else OpenAI). No price file at all gives two empty dicts: every real call
+    is then refused with UnknownModelError (fail closed)."""
+    root = Path(repo) if repo is not None else _prices.REPO
+    pricing: dict[str, dict[str, Any]] = {}
+    for model_id, e in _prices.pricing_index(root).items():
+        short = e["rates"]["short"]
+        pricing[model_id] = {
+            "provider": e["provider"],
+            "input_per_1m_usd": short["input"],
+            "output_per_1m_usd": short["output"],
+            "cached_input_per_1m_usd": short["cached_input"],
+            "cache_write_per_1m_usd": short["cache_write"],
+            "rates": e["rates"],
+            "fetch_date": e["fetched_utc"],
+            "source_url": e["source_url"],
+            "price_file": e["price_file"],
+        }
+    tiers: dict[str, str] = {}
+    provider = _prices.preferred_provider(root)
+    if provider is not None:
+        tables = _prices.load_tables(root)
+        tiers = {t: m for t, m in _prices.tier_models(tables[provider]["table"]).items() if m in pricing}
+        for tier, model_id in tiers.items():
+            pricing[model_id]["tier"] = tier
+    return pricing, tiers
+
+
+MODEL_PRICING, CLOUD_MODELS = load_model_pricing()
 
 
 # --------------------------------------------------------------------------
@@ -300,13 +329,21 @@ def _approx_token_count(messages: list[dict[str, Any]]) -> int:
 
 
 def estimate_cost_usd(model_id: str, input_tokens: int, output_tokens: int) -> float:
-    """Project the USD cost of a call from published per-token pricing."""
+    """Project the USD cost of a call from the shared price files (Standard list prices; long-context rates above
+    the table's boundary). Every input token is charged at the uncached input rate: cache-read discounts are never
+    credited, so the cap check and the ledger are an upper bound on real spend."""
     if model_id not in MODEL_PRICING:
-        raise UnknownModelError(f"no pricing entry for model '{model_id}'; known models: {list(MODEL_PRICING)}")
-    pricing = MODEL_PRICING[model_id]
-    return (input_tokens / 1_000_000) * pricing["input_per_1m_usd"] + (
-        output_tokens / 1_000_000
-    ) * pricing["output_per_1m_usd"]
+        raise UnknownModelError(
+            f"no pricing entry for model '{model_id}' in the shared price files "
+            f"(results/{_prices.PRICE_GLOB}); known models: {sorted(MODEL_PRICING)}"
+        )
+    rates = MODEL_PRICING[model_id].get("rates")
+    if rates is not None:
+        r = _prices.rate_for(rates, input_tokens)
+        inp, outp = r["input"], r["output"]
+    else:  # an entry built by hand (tests) with only the flat per-1M fields
+        inp, outp = MODEL_PRICING[model_id]["input_per_1m_usd"], MODEL_PRICING[model_id]["output_per_1m_usd"]
+    return (input_tokens / 1_000_000) * inp + (output_tokens / 1_000_000) * outp
 
 
 # --------------------------------------------------------------------------
@@ -658,12 +695,16 @@ class CloudClient:
         check_host_allowed(self._hostname, self._role_override)
 
         if model_id not in MODEL_PRICING:
-            raise UnknownModelError(f"no pricing entry for model '{model_id}'; known models: {list(MODEL_PRICING)}")
+            raise UnknownModelError(
+                f"no pricing entry for model '{model_id}' in the shared price files "
+                f"(results/{_prices.PRICE_GLOB}); known models: {sorted(MODEL_PRICING)}"
+            )
         provider = MODEL_PRICING[model_id].get("provider")
-        if self.api_key_source == ENV_VAR_OPENAI_API_KEY and provider != "openai":
+        key_provider = KEY_ENV_PROVIDER.get(self.api_key_source or "")
+        if key_provider is not None and provider != key_provider:
             raise ValueError(
                 f"model '{model_id}' is a {provider} model but this client's key came from "
-                f"{ENV_VAR_OPENAI_API_KEY}; pass that provider's key explicitly"
+                f"{self.api_key_source} ({key_provider}); pass that provider's key explicitly"
             )
 
         if kwargs.get("tools"):

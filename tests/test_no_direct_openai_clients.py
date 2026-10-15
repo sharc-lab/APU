@@ -12,6 +12,8 @@ spell the patterns out). Flagged:
   - `OpenAI(` / `AsyncOpenAI(` (constructing an SDK client)
   - `api.openai.com` (raw HTTP to OpenAI via requests/httpx/urllib)
   - os.environ[...] / os.environ.get(...) / os.getenv(...) / .pop / .setdefault of "OPENAI_API_KEY"
+The same forms are flagged for Anthropic (`import anthropic`, `Anthropic(` / `AsyncAnthropic(`, `api.anthropic.com`,
+an env read of "ANTHROPIC_API_KEY") since 2026-10-14, when ANTHROPIC_API_KEY became the real-mode provider key.
 A local OpenAI-compatible server (Ollama, llama-server) is reached through
 src.cloud.client.local_openai_compatible_client, which refuses openai.com hosts.
 
@@ -40,6 +42,15 @@ PATTERNS = {
     "api.openai.com": re.compile(r"api\.openai\.com", re.IGNORECASE),
     "OPENAI_API_KEY env read": re.compile(
         r"os\.(?:environ\s*(?:\[|\.get\s*\(|\.pop\s*\(|\.setdefault\s*\()|getenv\s*\()\s*[\"']OPENAI_API_KEY[\"']"
+    ),
+    # 2026-10-14: ANTHROPIC_API_KEY is the real-mode provider key, so direct Anthropic use is held to the same rule.
+    "import anthropic": re.compile(r"^\s*import\s+anthropic\b", re.MULTILINE),
+    "from anthropic": re.compile(r"^\s*from\s+anthropic\b", re.MULTILINE),
+    "dynamic import of anthropic": re.compile(r"(?:import_module|__import__)\s*\(\s*[\"']anthropic[\"']"),
+    "Anthropic( / AsyncAnthropic(": re.compile(r"(?<![A-Za-z0-9_])(?:Async)?Anthropic\s*\("),
+    "api.anthropic.com": re.compile(r"api\.anthropic\.com", re.IGNORECASE),
+    "ANTHROPIC_API_KEY env read": re.compile(
+        r"os\.(?:environ\s*(?:\[|\.get\s*\(|\.pop\s*\(|\.setdefault\s*\()|getenv\s*\()\s*[\"']ANTHROPIC_API_KEY[\"']"
     ),
 }
 
@@ -76,11 +87,21 @@ def test_patterns_catch_known_bypasses():
         'k = os.environ.get("OPENAI_API_KEY")\n',
         'k = os.getenv("OPENAI_API_KEY")\n',
         'm = importlib.import_module("openai")\n',
+        "import anthropic\n",
+        "from anthropic import Anthropic\n",
+        "client = Anthropic(api_key=k)\n",
+        "client = anthropic.AsyncAnthropic()\n",
+        "requests.post('https://api.anthropic.com/v1/messages')\n",
+        'k = os.environ["ANTHROPIC_API_KEY"]\n',
+        'k = os.getenv("ANTHROPIC_API_KEY")\n',
+        'm = __import__("anthropic")\n',
     ]
     for s in samples:
         assert _scan(s), f"pattern scan missed: {s!r}"
     for s in ["backend = CloudOpenAIBackend(model=m)\n", "def to_openai_messages(x):\n",
-              "# talks to /v1/chat/completions on the local llama-server\n"]:
+              "# talks to /v1/chat/completions on the local llama-server\n",
+              "backend = CloudAnthropicBackend(model=m)\n",
+              "# the child inherits OPENAI_API_KEY / ANTHROPIC_API_KEY\n"]:
         assert not _scan(s), f"false positive on: {s!r}"
 
 

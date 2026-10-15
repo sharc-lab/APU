@@ -1,8 +1,9 @@
 """Hard USD 50 total spend cap and the 50% / 75% / 90% spend alerts in src/cloud/client.py (2026-10-07).
 
 Only a fake provider (an injected completion_fn) is used: no real API, no litellm, no network. Costs are steered
-exactly by the fake's reported usage: claude-sonnet-4-5 output tokens at $15.00 / 1M, with a 1-word message
-(1 input token, $0.000003) so each call costs 15e-6 * out + 3e-6 USD."""
+exactly by the fake's reported usage: the strong tier model's output tokens at its list price from the shared price
+files (2026-10-14; before that claude-sonnet-4-5 from a hard-coded table), with a 1-word message (1 input token) so
+each call costs OUT_RATE * out + IN_RATE USD."""
 from __future__ import annotations
 
 import json
@@ -12,8 +13,10 @@ from pathlib import Path
 import pytest
 
 from src.cloud.client import (
+    CLOUD_MODELS,
     DEFAULT_SPEND_CAP_USD,
     HARD_SPEND_CAP_USD,
+    MODEL_PRICING,
     SPEND_ALERT_FRACTIONS,
     CloudClient,
     SpendCapExceeded,
@@ -23,12 +26,14 @@ from src.cloud.client import (
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "analysis"))
 import results_digest  # noqa: E402
 
-MODEL = "claude-sonnet-4-5"
+MODEL = CLOUD_MODELS["strong"]
+IN_RATE = MODEL_PRICING[MODEL]["input_per_1m_usd"] / 1e6
+OUT_RATE = MODEL_PRICING[MODEL]["output_per_1m_usd"] / 1e6
 
 
 def _out_tokens_for(usd):
     """Output tokens whose call cost (with the 1 input token) is as close to usd as possible from below."""
-    return int((usd - 3e-6) / 15e-6)
+    return int((usd - IN_RATE) / OUT_RATE)
 
 
 class FakeProvider:
@@ -137,4 +142,4 @@ def test_alerts_surface_in_results_digest(tmp_path):
 
 def test_cost_helper_matches_fake_steering():
     out = _out_tokens_for(10.0)
-    assert estimate_cost_usd(MODEL, 1, out) == pytest.approx(10.0, abs=2e-5)
+    assert estimate_cost_usd(MODEL, 1, out) == pytest.approx(10.0, abs=2 * OUT_RATE)

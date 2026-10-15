@@ -15,7 +15,7 @@ import pytest
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "analysis"))
-from src.cloud.client import CloudClient  # noqa: E402
+from src.cloud.client import CLOUD_MODELS, CloudClient  # noqa: E402
 from src.dse import r2_replay  # noqa: E402
 from src.dse.router import (CONTEXT_MARGIN, ENVELOPE_DATA_PATH, Envelope, RouteDecision, Router,  # noqa: E402
                             norm_model, parse_runtime, r2_message_tokens_raw, split_turns)
@@ -149,7 +149,7 @@ def test_over_window_trims_whole_oldest_turns_and_fits(tmp_path):
 def test_needed_turn_dropped_goes_to_cloud_within_budget(tmp_path):
     r = _router(tmp_path)
     d = r.decide(_step(_conv(5), per_msg=90, needs_turns=[1]))
-    assert d.target == "cloud" and d.machine == "cloud" and d.model == "gpt-4o-mini"
+    assert d.target == "cloud" and d.machine == "cloud" and d.model == CLOUD_MODELS["cheap"]  # shared price file tier map
     assert d.est_cost_usd > 0 and d.budget_remaining_usd == pytest.approx(5.0 - d.est_cost_usd)
     assert "needs" in d.reason
     # budget is state: a second cloud decision lowers it again

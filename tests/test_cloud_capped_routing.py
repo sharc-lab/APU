@@ -22,7 +22,7 @@ MSG = [{"role": "user", "content": "hello"}]
 
 @pytest.fixture
 def clean_env(monkeypatch):
-    for var in ("OPENAI_API_KEY", "CLOUD_API_KEY", "CLOUD_ALLOWED_HOSTS", "CLOUD_CLIENT_HOST_ROLE"):
+    for var in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "CLOUD_API_KEY", "CLOUD_ALLOWED_HOSTS", "CLOUD_CLIENT_HOST_ROLE"):
         monkeypatch.delenv(var, raising=False)
     return monkeypatch
 
@@ -46,7 +46,7 @@ class FakeProvider:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("var", ["OPENAI_API_KEY", "CLOUD_API_KEY"])
+@pytest.mark.parametrize("var", ["ANTHROPIC_API_KEY", "OPENAI_API_KEY", "CLOUD_API_KEY"])
 def test_default_mode_ignores_env_keys_so_stub_callers_stay_stubs(clean_env, tmp_path, var):
     """CloudClient(api_key=None) is how pareto.py and src/dse build a stub; an exported key must not flip it."""
     clean_env.setenv(var, "sk-env-key")
@@ -94,13 +94,44 @@ def test_bad_mode_rejected(tmp_path):
         CloudClient(mode="live", ledger_path=tmp_path / "l.jsonl")
 
 
+def _synthetic_anthropic_model(monkeypatch):
+    """An Anthropic price row in MODEL_PRICING (the shared Anthropic price file may not exist yet)."""
+    import src.cloud.client as cc
+    monkeypatch.setitem(cc.MODEL_PRICING, "claude-test", {"provider": "anthropic", "input_per_1m_usd": 3.0,
+                                                          "output_per_1m_usd": 15.0, "fetch_date": "t",
+                                                          "source_url": "https://claude.com/pricing"})
+    return "claude-test"
+
+
 def test_openai_key_is_not_sent_to_another_provider(clean_env, tmp_path):
+    model = _synthetic_anthropic_model(clean_env)
     clean_env.setenv("OPENAI_API_KEY", "sk-openai")
     fake = FakeProvider()
     client = CloudClient.real(ledger_path=tmp_path / "l.jsonl", role_override="controller", completion_fn=fake)
     with pytest.raises(ValueError, match="anthropic"):
-        client.call(model_id="claude-sonnet-4-5", messages=MSG)
+        client.call(model_id=model, messages=MSG)
     assert fake.calls == []
+
+
+def test_real_mode_prefers_anthropic_key(clean_env, tmp_path):
+    clean_env.setenv("ANTHROPIC_API_KEY", "sk-ant")
+    clean_env.setenv("OPENAI_API_KEY", "sk-openai")
+    clean_env.setenv("CLOUD_API_KEY", "sk-cloud")
+    client = CloudClient.real(ledger_path=tmp_path / "l.jsonl")
+    assert client.stub_mode is False
+    assert client.api_key == "sk-ant" and client.api_key_source == "ANTHROPIC_API_KEY"
+
+
+def test_anthropic_key_is_only_sent_to_anthropic_models(clean_env, tmp_path):
+    model = _synthetic_anthropic_model(clean_env)
+    clean_env.setenv("ANTHROPIC_API_KEY", "sk-ant")
+    fake = FakeProvider()
+    client = CloudClient.real(ledger_path=tmp_path / "l.jsonl", role_override="controller", completion_fn=fake)
+    with pytest.raises(ValueError, match="openai"):
+        client.call(model_id="gpt-4o-mini", messages=MSG)
+    assert fake.calls == []
+    res = client.call(model_id=model, messages=MSG)
+    assert res.stub is False and fake.calls[0]["api_key"] == "sk-ant"
 
 
 def test_real_mode_still_cannot_raise_the_cap(clean_env, tmp_path):

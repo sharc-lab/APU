@@ -21,7 +21,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
-from src.cloud.client import CloudClient  # noqa: E402
+from src.cloud.client import CLOUD_MODELS, MODEL_PRICING, CloudClient  # noqa: E402
 from src.dse import r2_replay  # noqa: E402
 
 R2_FILE = REPO / "results" / "x2_r2_real_v1.jsonl"
@@ -61,7 +61,8 @@ def run() -> str:
         "Router sample decisions on R2 real run steps (results/x2_r2_real_v1.jsonl, seed "
         f"{SEED}), written by analysis/router_sample_decisions.py",
         f"Router settings: hardware evo-x2, runtime = the session's arm, quality_floor {QUALITY_FLOOR}, "
-        f"latency_target_ms {LATENCY_TARGET_MS}, cloud model gpt-4o-mini, stub cloud client on an empty ledger, "
+        f"latency_target_ms {LATENCY_TARGET_MS}, cloud model {CLOUD_MODELS['cheap']} (cheap tier, shared price "
+        f"file {MODEL_PRICING[CLOUD_MODELS['cheap']]['price_file']}), stub cloud client on an empty ledger, "
         "context margin 5%, answer budget 384 (the harness's num_predict). Canary turns need turn 1 (history tags).",
         "",
     ]

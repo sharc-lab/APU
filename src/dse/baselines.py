@@ -85,12 +85,13 @@ def _all_cloud(tasks: list[dict[str, Any]], client: CloudClient, tier: str) -> l
 
 
 def all_cloud_cheap(tasks: list[dict[str, Any]], client: CloudClient) -> list[BaselineResult]:
-    """Baseline 2a: every task routed to the cheap cloud tier (gpt-4o-mini, src/cloud/client.CLOUD_MODELS)."""
+    """Baseline 2a: every task routed to the cheap cloud tier (src/cloud/client.CLOUD_MODELS["cheap"], from the
+    shared price files)."""
     return _all_cloud(tasks, client, "cheap")
 
 
 def all_cloud_strong(tasks: list[dict[str, Any]], client: CloudClient) -> list[BaselineResult]:
-    """Baseline 2b: every task routed to the strong cloud tier (claude-sonnet-4-5)."""
+    """Baseline 2b: every task routed to the strong cloud tier (src/cloud/client.CLOUD_MODELS["strong"])."""
     return _all_cloud(tasks, client, "strong")
 
 
