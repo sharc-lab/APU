@@ -3501,3 +3501,70 @@ negative control" is not a truncation-free reference, and its default window is 
 loaded value per window is reported, not assumed. The R2 rule and canary gates failed in the validation, so this run
 says nothing about rules or canaries. One runtime (Ollama 0.34.4 on evo-x2). Duration is not projected here; the job
 calls tq.advance() on exit and sets no pause.
+
+## PRE-REGISTRATION: Blade confound follow-up, backend vs CPU offload, x2_r2_llama_val_32k_offload on evo-x2 (2026-10-14, NOT YET RUN)
+
+**Status:** PRE-REGISTRATION, written and committed before the `--num-gpu` code is written or deployed and before
+evo-x2's queue is edited. No data for this job exists. Operator decision of 2026-10-14 21:40 PT, item (B).
+
+**Where the confound check left it.** On the Blade, llama3.1:8b's negative control at num_ctx 32768 missed canaries in
+2 of 5 sessions, each a turn-5 (REC-0005 lookup) final answer written as a text tool call (`blade-r2-gate-v2`, pasted
+in the confound-check section above: "20260903: 2, ... 20260905: 2; branch mechanism"). The same validation on evo-x2 at
+the same window had none: register row `x2-r2-llama-val-32k`, pasted: "negative control (num_ctx 32768) canary misses 0
+of 20 canaries over 5 sessions"; "verdict: backend or offload effect". So the window alone does not reproduce it; what
+remains is the Blade's backend (CUDA) or its partial CPU offload at 32768. This job separates the two by putting the
+offload on evo-x2.
+
+**Design: add only the offload.** Rerun exactly the `x2_r2_llama_val_32k` validation on evo-x2 (`harness/x2_r2_sidecar.py`
++ `x2_r2_agent.py --mode validation --call2-tools off --models llama3.1:8b --neg-ctx 32768 --neg-sessions 5`: negative
+control and baseline at num_ctx 32768 on seeds 20260901-05, 10 turns each; positive control num_ctx 8192, seed
+20260901, 15 turns; diagnostic arm, tools on call 2, num_ctx 32768, seeds 20260901-03, 10 turns; temperature 0, seed 42,
+num_predict 384; v1 call-2 mode), with one change: every request carries Ollama's `options.num_gpu` (the number of
+layers placed on the GPU), through a new `--num-gpu N` option (off by default, per request, recorded in run_start and
+per session), with tests on fakes. The option applies to every arm of the run; the verdict reads the negative-control
+arm only.
+
+**num_gpu value, computed now.** Target: the Blade's split at 32768, register row `blade-k1-layer-split`, pasted:
+"llama3.1:8b: ... VRAM share by num_ctx ... 32768: 0.656". llama3.1:8b has 33 offloadable layers (32 transformer
+blocks plus the output layer; Ollama's load line reads "offloaded N/33 layers to GPU"). 0.656 x 33 = 21.6, rounded to
+**num_gpu = 22**: 22 layers on the GPU and 11 on the CPU, a CPU share of 11/33 = 33.3% against the target's 34.4%
+(1 - 0.656). The Blade's VRAM share is a byte share (size_vram / size from /api/ps, KV cache included), so a layer count
+matches it only approximately; 22 is the nearest whole layer count.
+
+**Verification that the split took effect (fixed now).** The job starts its own Ollama server (refusing, and stopping
+nothing, if the Ollama tray app is running) with the server log written to
+`results/x2_r2_llama_val_32k_offload_serve.log`, and for every session parses that session's slice of the log for
+Ollama's "offloaded N/M layers to GPU" lines (the model is unloaded before each session, so each session loads it
+once). Each session writes a `num_gpu_offload` row: num_gpu sent, every (N, M) seen, the number of chat calls and how
+many carried num_gpu, and the last /api/ps size and size_vram while the model was loaded. The backend library is read
+from the log's "inference compute" line and recorded. For every negative-control session the split is **as intended**
+when at least one offload line is present, every line has M = 33 and |N - 22| <= 2, and every chat call carried
+num_gpu 22. Otherwise the run is **flagged** and the verdict is "inconclusive (offload split not as intended)", with the
+observed values; a session with no offload line gives "inconclusive (offload split not verified)".
+
+**Interpretation, fixed now** (register row `x2-r2-llama-val-32k-offload`, `analysis/numbers_register.py`, PENDING until
+`results/x2_r2_llama_val_32k_offload.jsonl` is synced), from the negative-control (gate) arm only, with the validity
+rules of `x2-r2-llama-val-32k` (run_end; all 5 sessions completed with 10 turns; every row at num_ctx 32768; no turn
+over the loaded window) plus the split check above:
+- **offload effect**: valid, split as intended, at least one canary miss, and every missed canary turn is a turn-5 turn
+  whose final answer is a text tool call (the final text, after leading whitespace, starts with `{"name": ...}`, the
+  same test as `x2-r2-llama-val-32k`).
+- **backend effect (CUDA vs evo-x2's backend)**: valid, split as intended, 0 negative-control canary misses.
+- **inconclusive**: anything else (a miss on another turn, or a miss that is not a text tool call), reported with the
+  pattern per miss (seed, turn, which canary, text tool call or not); or invalid or flagged as above.
+The register row also reports, whatever the verdict: per-rule rates on the gate arm, per-session canary misses, the
+offload lines and VRAM share per session, the backend library, positive-control truncation turns and the diagnostic
+arm's misses.
+
+**Known limits, stated before the run.** Five sessions: a 0 says the event did not occur in these 5 seeds with the
+offload, not that it cannot. Offload on evo-x2 is placement within one unified memory (CPU vs GPU compute of 11 layers),
+not the Blade's PCIe-attached split, so "offload effect" means the CPU computing part of the model reproduces the
+finding; "backend effect" means that, with the CPU part matched, it is not reproduced, leaving CUDA (or anything else
+that differs between the machines besides the split and the window) as the explanation. Model, params and template
+digests are those of `x2_r2_llama_val_32k` (same tag on the same machine). One runtime (Ollama 0.34.4). Statistics
+convention as in `x2_r2_llama_val_32k`: no warm-up call, every session's turns scored. Duration is not projected; with
+a third of the layers on the CPU it is expected to take longer than `x2_r2_llama_val_32k`. Calls tq.advance() on exit;
+sets no pause.
+
+**Queue position.** Directly after `x2_num_keep_guardrail_test` and before `x2_evalset_tasks_real_v1` (item A), which
+goes before `x2_model_pulls_scale`, per the operator's order of 2026-10-14 21:40 PT.
