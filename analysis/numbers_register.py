@@ -2822,6 +2822,60 @@ def compute_r2_real_v1b_gated_kill(repo):
     return {"value": f"gated killed={rep['gated_killed']}; {arms} ({excl})", "n": rep["n_sessions"]}
 
 
+def compute_r2_v1b_gated_per_model(repo):
+    """Strengthened R2, gated variant per tier x model: silent gated failures (rules in use plus metrics at >=90%
+    validation baseline, no error surfaced first), how many came at or after the first over-window turn, how many are
+    baseline-type (no window exceeded yet), and sessions intact at turns 5/10/15/20/25/30/35/40."""
+    rr, rep = _r2_real_v1b_report(repo)
+    g = rr.gated_per_model(rep)
+    parts = [f"{k.replace('|', ' ')}: {v['silent']}/{v['n']} silent, {v['silent_after_window_exceeded']} after window "
+             f"exceeded, {v['silent_baseline_type']} baseline-type; intact "
+             + "/".join(str(v["survival"][t]) for t in rep["checkpoints"]) for k, v in g.items()]
+    return {"value": "; ".join(parts), "n": rep["n_sessions"]}
+
+
+def compute_r2_v1b_default_baseline_type(repo):
+    """Default tier (Ollama default context): of the pre-registered kill criterion's silent sessions, how many are
+    baseline-type (no window exceeded, or the first failure came before the first over-window turn); and the gated
+    silent sessions with what failed first."""
+    rr, rep = _r2_real_v1b_report(repo)
+    k = rr.kill_baseline_type(rep, rr.DEFAULT_TIER)
+    gd = rr.silent_session_detail(rep, rr.DEFAULT_TIER, gated=True)
+
+    def fmt(d):
+        return ", ".join(f"{x['model']} seed {x['seed']} turn {x['first_failure']} ({'+'.join(x['what_failed'])}; "
+                         f"first over window {'-' if x['first_over_window'] is None else x['first_over_window']})"
+                         for x in d)
+    return {"value": f"kill criterion {k['n_silent']}/{k['n_sessions']} silent, {k['n_baseline_type']} baseline-type "
+                     f"({k['n_never_over_window']} never over window, {k['n_before_first_over_window']} before the "
+                     f"first over-window turn), {k['n_after_window']} at or after it: {fmt(k['sessions'])}; gated "
+                     f"{len(gd)}/{k['n_sessions']} silent, {sum(x['baseline_type'] for x in gd)} baseline-type: "
+                     f"{fmt(gd)}",
+            "n": k["n_sessions"]}
+
+
+def compute_r2_v1b_excess_over_default(repo):
+    """Strengthened R2: per tier, the after-window gated silent failure rate minus the Ollama-default tier's rate,
+    overall and per model, with a 95% percentile bootstrap CI (r2_real_report.excess_over_default: resampling unit
+    the session, stratified by tier x model, seeded)."""
+    rr, rep = _r2_real_v1b_report(repo)
+    x = rr.excess_over_default(rep)
+    parts = []
+    for tier, per in x["per_tier"].items():
+        items = []
+        for m in ["overall"] + sorted(k for k in per if k != "overall"):
+            v = per[m]
+            lo, hi = v["ci95"]
+            items.append(f"{m} {round(v['rate'] * v['n_tier'])}/{v['n_tier']} vs default "
+                         f"{round(v['default_rate'] * v['n_default'])}/{v['n_default']}, excess {v['excess']:+.3f} "
+                         f"(95% CI {lo:+.3f} to {hi:+.3f})")
+        parts.append(f"{tier}: " + ", ".join(items))
+    return {"value": "; ".join(parts) + f" (bootstrap {x['n_resamples']} resamples, unit {x['unit']}, stratified by "
+                                        f"{x['strata']}, seed {x['seed']}, percentile CI; a 0/n or n/n cell has no "
+                                        f"bootstrap variance)",
+            "n": rep["n_sessions"]}
+
+
 def compute_r2_validation_v2b_runinfo(repo):
     """R2 validation v2b run details per model: sessions and turns completed, calls with an HTTP error or error field,
     task tool called correctly, and on the baseline arm how many call-1 replies carried a native tool call vs a tool
@@ -4472,6 +4526,21 @@ NUMBER_ENTRIES = [
                     "window was exceeded",
      "compute": compute_r2_real_v1b_gated_kill, "data_files": R2_V1B_DATA, "pending_ok": True,
      "script_function": "analysis/numbers_register.py::compute_r2_real_v1b_gated_kill"},
+    {"claim_id": "R2-v1b-gated-per-model",
+     "description": "Strengthened R2, gated variant per tier x model: silent failures, after window exceeded, "
+                    "baseline-type, sessions intact per checkpoint",
+     "compute": compute_r2_v1b_gated_per_model, "data_files": R2_V1B_DATA, "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_r2_v1b_gated_per_model"},
+    {"claim_id": "R2-v1b-default-baseline-type",
+     "description": "Strengthened R2, default tier: kill-criterion and gated silent sessions that are baseline-type "
+                    "(no window exceeded yet), with what failed first",
+     "compute": compute_r2_v1b_default_baseline_type, "data_files": R2_V1B_DATA, "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_r2_v1b_default_baseline_type"},
+    {"claim_id": "R2-v1b-excess-over-default",
+     "description": "Strengthened R2: after-window gated silent failure rate minus the default tier's, per tier, "
+                    "overall and per model, 95% bootstrap CI over sessions",
+     "compute": compute_r2_v1b_excess_over_default, "data_files": R2_V1B_DATA, "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_r2_v1b_excess_over_default"},
     {"claim_id": "R2-validation-v2b-runinfo", "description": "R2 validation v2b: sessions/turns, errors, native vs "
                     "text tool calls per model",
      "compute": compute_r2_validation_v2b_runinfo, "data_files": ["results/x2_r2_validation_v2b.jsonl"],

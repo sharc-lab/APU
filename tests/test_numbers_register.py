@@ -334,6 +334,35 @@ def test_r2_strengthened_rows_are_pending_ok_and_raise_without_data(tmp_path):
         assert raised, f"{e['claim_id']} computed without data"
 
 
+def test_r2_v1b_excess_and_per_model_rows_on_synthetic_files(tmp_path):
+    """R2-v1b-gated-per-model, R2-v1b-default-baseline-type and R2-v1b-excess-over-default on synthetic v1/v1b files:
+    pending_ok, and their strings carry the counts, the baseline-type split and the bootstrap description."""
+    from tests.test_r2_real_report import _session_rows, _write
+    ids = {"R2-v1b-gated-per-model", "R2-v1b-default-baseline-type", "R2-v1b-excess-over-default"}
+    entries = {e["claim_id"]: e for e in nr.NUMBER_ENTRIES if e["claim_id"] in ids}
+    assert set(entries) == ids and all(e.get("pending_ok") for e in entries.values())
+    (tmp_path / "results").mkdir()
+    rules = {"llama3.1:8b": ["rule1_json_keys"]}
+    v1, v1b = [], []
+    for seed in (1, 2):
+        v1 += _session_rows("llama3.1:8b", "ollama_default_call2_notools", seed,
+                            events={4: {"rule1_json_keys": False}} if seed == 1 else {})
+        ev = {i: {"over_loaded_window": True} for i in range(3, 41)}
+        ev[6] = {"over_loaded_window": True, "rule1_json_keys": False}
+        v1b += _session_rows("llama3.1:8b", "ollama_ctx_4096_call2_notools", seed, call2_mode="off", events=ev)
+    _write(tmp_path / nr.R2_REAL_V1_FILE, v1, rules)
+    _write(tmp_path / nr.R2_REAL_V1B_FILE, v1b, rules)
+    pm = entries["R2-v1b-gated-per-model"]["compute"](tmp_path)
+    assert "ollama_default llama3.1:8b: 1/2 silent, 0 after window exceeded, 1 baseline-type" in pm["value"]
+    assert "num_ctx_4096 llama3.1:8b: 2/2 silent, 2 after window exceeded, 0 baseline-type" in pm["value"]
+    bt = entries["R2-v1b-default-baseline-type"]["compute"](tmp_path)["value"]
+    assert bt.startswith("kill criterion 1/2 silent, 1 baseline-type (1 never over window, 0 before")
+    assert "llama3.1:8b seed 1 turn 4 (rule1_json_keys; first over window -)" in bt
+    ex = entries["R2-v1b-excess-over-default"]["compute"](tmp_path)["value"]
+    assert "num_ctx_4096: overall 2/2 vs default 0/2, excess +1.000 (95% CI +1.000 to +1.000)" in ex
+    assert "resamples, unit session, stratified by tier x model, seed" in ex
+
+
 # ── install path / task-tool gate / chat template source (2026-10-08) ─────────────────────────────────
 
 def _install_path_repo(tmp_path, with_v2c):
