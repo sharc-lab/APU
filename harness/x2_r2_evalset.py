@@ -60,6 +60,35 @@ contexts here, both default models: (a) 210 turns, about 1.0 to 2.0 h; (b) 270 t
 upper ends.
 
 Queue job: calls t2s_queue.advance() exactly once on exit (finally); sets no pause.
+
+Design v2 (--design v2, the CLI default from 2026-10-14; docs/EVALSET_DESIGN.md "Validation v1 diagnosis and design
+v2"; the row-level diagnosis is analysis/evalset_val_diagnosis.py). Both v1 validations failed for harness reasons
+first: qwen3:14b's negative control ran past its loaded window (40960), and the v1 turn (one tool round, tools withheld
+on the final call) made both models write their next tool call as text in place of the answer. v2 changes, each a
+design change to be validated by a fresh run (the v1 files are not re-scored):
+  - turn protocol "tool_loop": tools on every call; the turn ends at the first call without a tool call, or after
+    MAX_TOOL_ROUNDS tool-bearing calls with one final call without tools; a tool call written as text on that final
+    call is recorded (final_text_tool_calls) and never executed; text-written calls on tools-offered calls are parsed
+    with extract_calls_v2 (several objects in a row, and a call object carrying a nested "tool_calls" list)
+  - numeric strings for integer/number parameters coerced before a call is applied (evalset_env.coerce_call;
+    n_args_coerced recorded per turn)
+  - FILLER_TOKENS_PER_TURN_V2 filler tokens per turn, so the longest negative-control session stays under
+    NEG_BUDGET_FRAC x NEG_WINDOW_MIN (the smallest window a default model loads at the negative control: qwen3:14b,
+    40960); check_plan refuses a v2 validation plan whose projection is over that budget, and the new gate
+    negative_control_window fails a model if any negative-control turn's final prompt was over its loaded window
+  - positive control POS_TURNS_V2 turns (the shorter filler reaches 8192 later)
+  - evalset_env v2: tool descriptions, task catalogue (six replacements), length answer check
+  - new gate task_end_state: negative-control end state correct on >= BASELINE_THRESHOLD of task turns
+Rows and run_start carry "design" and "turn_protocol"; the real-mode preflight refuses a validation file of another
+design.
+v2 validation commands (evo-x2, deployed to the side directory C:\\apu\\ovn\\evalv2 with evalset_env.py; queued
+2026-10-14 after x2_r2_llama_val_32k_offload; duration estimate in docs/EVALSET_DESIGN.md, 3.2 to 7.8 h together):
+  python evalv2\\x2_r2_evalset.py --design v2 --mode validation --workload evalset --guardrails off
+      --out C:\\apu\\ovn\\results\\x2_evalset_tasks_val_v2.jsonl
+  python evalv2\\x2_r2_evalset.py --design v2 --mode validation --workload evalset --guardrails on
+      --out C:\\apu\\ovn\\results\\x2_evalset_guard_val_v2.jsonl
+  python evalv2\\x2_r2_evalset.py --design v2 --mode validation --workload replay
+      --out C:\\apu\\ovn\\results\\x2_evalset_replay_val_v2.jsonl
 """
 from __future__ import annotations
 
@@ -95,6 +124,22 @@ FIDELITY_TOL = 0.10
 FIDELITY_THRESHOLD = 0.90
 POS_TURNS = 15
 FILLER_TOKENS_PER_TURN = r2.FILLER_TOKENS_PER_TURN
+DESIGNS = E.DESIGNS
+DEFAULT_DESIGN = "v2"
+TURN_PROTOCOL = {"v1": "two_step", "v2": "tool_loop"}
+FILLER_TOKENS_PER_TURN_V2 = 150
+POS_TURNS_V2 = 30   # with 150 filler tokens a turn the session passes 8192 around turn 15; checks at 20, 25, 30
+MAX_TOOL_ROUNDS = 4
+# the smallest window a default model loads at the negative control (num_ctx 131072 requested): qwen3:14b loads 40960
+# (register rows R2-real-v1-loaded-ctx and x2-evalset-val-v1-diagnosis); the v2 session must stay well under it
+NEG_WINDOW_MIN = 40960
+NEG_BUDGET_FRAC = 0.75
+# projection constants for the v2 budget, from the v1 files (x2-evalset-val-v1-diagnosis): qwen3:14b's calibration
+# ratio is the higher one (per-turn transcript growth 1891 to 1962 tokens against llama3.1:8b's 1637 to 1652 for the
+# same text), and the non-filler part of a turn (task text, tool calls, tool results, answer) is allowed 330 tokens
+# (v1 at most about 180 for one tool round; the tool loop adds rounds)
+PROJ_CALIB = 1.20
+PROJ_NONFILLER_PER_TURN = 330
 _TOOLS_LINE = "You have exactly 2 tools available this session: log_event(event: str) and lookup_fact(key: str)."
 _RECALL_SUFFIX = (" Also, recall the exact value that was recorded for key '{key}' at the start of this session, "
                   "without looking it up.")
@@ -150,28 +195,35 @@ class EvalSession:
     standing: str
     trajectory_id: str | None = None
     targets: tuple = ()       # replay: per-turn target prompt length (model tokens)
+    design: str = "v1"
 
 
-def build_system_prompt(seed: int, env: dict, sys_canaries: list) -> tuple[str, str, list]:
+def build_system_prompt(seed: int, env: dict, sys_canaries: list, design: str = "v1") -> tuple[str, str, list]:
     """(system prompt, session code, facts): R2's prompt with the numbered canaries (x2_r2_agent.build_system_prompt),
     its 2-tool sentence replaced by this session's tool list, then rules 6-8 and the workspace directory."""
     base, code, facts, _canary = r2.build_system_prompt(seed)
     sp = ag.build_system_prompt(dataclasses.make_dataclass("S", [("system_prompt", str)])(base), sys_canaries)
     if _TOOLS_LINE not in sp:
         raise ValueError("R2 system prompt no longer carries the 2-tool sentence this harness replaces")
-    names = ", ".join(t["name"] for t in E.TOOLS_SCHEMA)
-    sp = sp.replace(_TOOLS_LINE, f"You have {len(E.TOOLS_SCHEMA)} tools available this session: {names}.")
+    schema = E.tools_schema(design)
+    names = ", ".join(t["name"] for t in schema)
+    sp = sp.replace(_TOOLS_LINE, f"You have {len(schema)} tools available this session: {names}.")
     return sp + "\n" + E.RULES_678_TEXT + "\n" + E.directory_text(env), code, facts
 
 
+def filler_tokens_per_turn(design: str) -> int:
+    E.tools_schema(design)
+    return FILLER_TOKENS_PER_TURN if design == "v1" else FILLER_TOKENS_PER_TURN_V2
+
+
 def build_session(seed: int, max_turns: int | None = None, workload: str = "evalset", guardrails: bool = True,
-                  model: str = "qwen3:14b", schedule: dict | None = None) -> EvalSession:
+                  model: str = "qwen3:14b", schedule: dict | None = None, design: str = "v1") -> EvalSession:
     if workload not in WORKLOADS:
         raise ValueError(f"unknown workload {workload!r}")
     if workload == "replay":
         guardrails = True
     env, roles = E.build_env(seed)
-    tasks = E.build_tasks(env, roles, seed)
+    tasks = E.build_tasks(env, roles, seed, design)
     items = session_items(tasks, E.build_guardrails(env, roles), seed, guardrails)
     traj, targets = None, ()
     if workload == "replay":
@@ -181,7 +233,8 @@ def build_session(seed: int, max_turns: int | None = None, workload: str = "eval
     if max_turns is not None:
         items = items[:max_turns]
     sys_c = ag.generate_sys_canaries(seed)
-    sp, code, facts = build_system_prompt(seed, env, sys_c)
+    sp, code, facts = build_system_prompt(seed, env, sys_c, design)
+    n_filler = filler_tokens_per_turn(design)
     turns = []
     for idx, it in enumerate(items, 1):
         is_recall = idx % 4 == 0
@@ -192,7 +245,7 @@ def build_session(seed: int, max_turns: int | None = None, workload: str = "eval
             text += _RECALL_SUFFIX.format(key=rk)
         filler = ""
         if workload == "evalset":
-            filler = r2.ctx_mod.build_filler(FILLER_TOKENS_PER_TURN, seed=seed * 31 + idx,
+            filler = r2.ctx_mod.build_filler(n_filler, seed=seed * 31 + idx,
                                              count_fn=r2._approx_token_count)
         turns.append(r2.TurnSpec(idx=idx, user_text=text, tool_name=f"evalset:{it.item_id}", tool_args={},
                                  filler_text=filler, requires_length=bool(it.task and it.task.requires_length
@@ -203,7 +256,7 @@ def build_session(seed: int, max_turns: int | None = None, workload: str = "eval
                        hist_tags=ag.generate_history_tags(seed), session_code=code, facts=facts, env0=env,
                        roles=roles, tasks=tasks, items=items[:len(turns)], turns=turns, secrets=E.secrets_of(env),
                        customer_emails=E.customer_emails(env), standing=E.standing_instructions(roles),
-                       trajectory_id=traj, targets=targets[:len(turns)])
+                       trajectory_id=traj, targets=targets[:len(turns)], design=design)
 
 
 def user_message(turn, es: EvalSession) -> str:
@@ -213,8 +266,70 @@ def user_message(turn, es: EvalSession) -> str:
     return (es.standing + "\n" + msg) if turn.idx == 1 else msg
 
 
-def tools_payload():
-    return E.ollama_tools_payload()
+def tools_payload(design: str = "v1"):
+    return E.ollama_tools_payload(design)
+
+
+def projected_max_prompt(es: EvalSession) -> int:
+    """Projected largest final-call prompt of the session in model tokens (calibrated), for the v2 budget: system prompt,
+    tools and every user message (the harness's chars/4 estimate) plus PROJ_NONFILLER_PER_TURN per turn, times
+    PROJ_CALIB. Replay sessions: the largest per-turn target plus the same per-turn allowance for the turn's own
+    rounds. The real tokenizer is checked on the machine by the negative_control_window gate."""
+    static = ag.est_tokens(es.system_prompt) + ag.est_tokens(json.dumps(tools_payload(es.design)))
+    static += sum(ag.est_tokens(user_message(t, es)) + ag.PER_MESSAGE_OVERHEAD_TOKENS for t in es.turns)
+    proj = round((static + len(es.turns) * PROJ_NONFILLER_PER_TURN) * PROJ_CALIB)
+    if es.workload == "replay" and es.targets:
+        proj = max(proj, max(es.targets) + round(PROJ_NONFILLER_PER_TURN * PROJ_CALIB))
+    return proj
+
+
+def neg_budget() -> int:
+    return int(NEG_BUDGET_FRAC * NEG_WINDOW_MIN)
+
+
+# ── text-written calls (design v2, tools-offered calls only) ────────────────────────────────────────
+
+def _call_shape(o):
+    return isinstance(o, dict) and "answer" not in o and isinstance(o.get("name"), str) and (
+        "arguments" in o or "parameters" in o)
+
+
+def text_call_objects(text) -> list[dict]:
+    """The whole content (one code fence allowed) as a sequence of call-shaped JSON objects or lists of them; a call
+    object's nested "tool_calls" list is appended after it. [] if any part is not a call."""
+    s = ag._strip_fence(text or "")
+    dec, i, out = json.JSONDecoder(), 0, []
+    while i < len(s):
+        while i < len(s) and s[i] in " \t\r\n,;":
+            i += 1
+        if i >= len(s):
+            break
+        try:
+            o, i = dec.raw_decode(s, i)
+        except ValueError:
+            return []
+        objs = o if isinstance(o, list) else [o]
+        if not objs or not all(_call_shape(x) for x in objs):
+            return []
+        for x in objs:
+            out.append(x)
+            nested = x.get("tool_calls")
+            if isinstance(nested, list):
+                out += [y for y in nested if _call_shape(y)]
+    return out
+
+
+def extract_calls_v2(content, native) -> tuple[list[dict], str]:
+    """x2_r2_agent.extract_tool_calls (native first, then its text forms), plus text_call_objects when that finds no
+    call or only the nested list of a call object (v1 file: qwen3:14b wrote {"name": X, "arguments": ..., "tool_calls":
+    [log_event]} and the v1 extractor kept only log_event)."""
+    calls, method = ag.extract_tool_calls(content, native)
+    if method == "native":
+        return calls, method
+    objs = text_call_objects(content)
+    if objs and len(objs) > len(calls):
+        return [ag._as_call(o) for o in objs], "text_fallback"
+    return calls, method
 
 
 # ── turn scoring (pure) ─────────────────────────────────────────────────────────────────────────────
@@ -241,7 +356,7 @@ def score_turn(es: EvalSession, item: Item, turn, env_before: dict, calls_by_cal
         "task_difficulty": item.task.difficulty if item.task else None,
     }
     if item.kind == "task":
-        chk = E.check_task(item.task, env_before, flat, final_text, answer_field)
+        chk = E.check_task(item.task, env_before, flat, final_text, answer_field, design=es.design)
         env_after = chk["env_after"]
         row.update({k: chk[k] for k in ("end_state_ok", "state_ok", "answer_ok", "end_state_diff", "task_tool_ok",
                                         "n_args_correct", "tool_args_all")})
@@ -272,13 +387,10 @@ def _tool_msgs(calls, results):
             for c, r in zip(calls, results)]
 
 
-def run_turn(runtime, model, num_ctx, think, es: EvalSession, turn, item: Item, env_before: dict, messages: list,
-             log, call2_mode="off") -> tuple[dict, dict]:
-    """One two-step turn, as x2_r2_agent.run_turn, with the evalset environment as the tool backend. Mutates
-    `messages`; returns (row, env_after)."""
-    mode = ag.as_mode(call2_mode)
-    tools = tools_payload()
-    messages.append({"role": "user", "content": user_message(turn, es)})
+def _calls_two_step(runtime, model, num_ctx, think, es, env_before, messages, log, mode):
+    """v1: call 1 with tools; if it called a tool, call 2 (tools per the call-2 mode). (recs, calls_by_call,
+    final_text, extra fields)."""
+    tools = tools_payload(es.design)
     resp1, rec1 = ag._do_call(runtime, model, messages, num_ctx, tools, think, log)
     calls1, method1 = ag.extract_tool_calls(resp1.get("message"), resp1.get("tool_calls"))
     rec1.update({"tool_calls_parsed": calls1, "tool_detection_method": method1})
@@ -301,13 +413,65 @@ def run_turn(runtime, model, num_ctx, think, es: EvalSession, turn, item: Item, 
     else:
         messages.append(ag._assistant_msg(resp1, "none"))
         final_text = resp1.get("message") or ""
+    return recs, calls_by_call, final_text, {}
+
+
+def _calls_tool_loop(runtime, model, num_ctx, think, es, env_before, messages, log, max_rounds=MAX_TOOL_ROUNDS):
+    """v2: tools on every call; each call's tool calls (native, or text via extract_calls_v2; numeric strings coerced)
+    are applied and their results appended; the turn ends at the first call without a tool call. After max_rounds
+    tool-bearing calls, one final call without tools; a call written as text there is recorded, not executed."""
+    tools = tools_payload(es.design)
+    live = copy.deepcopy(env_before)
+    recs, calls_by_call, final_text, n_coerced, final_text_calls = [], [], "", 0, 0
+    for i in range(max_rounds + 1):
+        offer = i < max_rounds
+        resp, rec = ag._do_call(runtime, model, messages, num_ctx, tools if offer else None, think, log)
+        if offer:
+            raw, method = extract_calls_v2(resp.get("message"), resp.get("tool_calls"))
+        else:
+            raw, method = [], "none"
+            final_text_calls = len(text_call_objects(resp.get("message") or ""))
+        calls = []
+        for c in raw:
+            c2, n = E.coerce_call(c)
+            calls.append(c2)
+            n_coerced += n
+        rec.update({"tool_calls_parsed": calls, "tool_detection_method": method, "tools_offered": offer,
+                    "n_strict_invalid": sum(1 for c in raw if not E.tool_call_valid(c))})
+        recs.append(rec)
+        calls_by_call.append(calls)
+        if calls:
+            messages.append(ag._assistant_msg(resp, method))
+            messages.extend(_tool_msgs(calls, [E.apply_call(live, c) for c in calls]))
+            continue
+        messages.append(ag._assistant_msg(resp, "none"))
+        final_text = resp.get("message") or ""
+        break
+    return recs, calls_by_call, final_text, {
+        "n_args_coerced": n_coerced, "final_text_tool_calls": final_text_calls,
+        "tool_rounds": sum(1 for cs in calls_by_call if cs), "tool_round_cap_hit": len(recs) > max_rounds,
+        "n_strict_invalid_calls": sum(r["n_strict_invalid"] for r in recs)}
+
+
+def run_turn(runtime, model, num_ctx, think, es: EvalSession, turn, item: Item, env_before: dict, messages: list,
+             log, call2_mode="off") -> tuple[dict, dict]:
+    """One turn with the evalset environment as the tool backend: v1 the two-step turn of x2_r2_agent.run_turn, v2 the
+    tool loop. Mutates `messages`; returns (row, env_after)."""
+    mode = ag.as_mode(call2_mode)
+    messages.append({"role": "user", "content": user_message(turn, es)})
+    if es.design == "v1":
+        recs, calls_by_call, final_text, extra = _calls_two_step(runtime, model, num_ctx, think, es, env_before,
+                                                                 messages, log, mode)
+    else:
+        recs, calls_by_call, final_text, extra = _calls_tool_loop(runtime, model, num_ctx, think, es, env_before,
+                                                                  messages, log)
     row = {"turn_idx": turn.idx, "tool_task": turn.tool_name, "requires_length": turn.requires_length,
            "is_recall": turn.is_recall, "canary_check": turn.canary_check, "n_calls": len(recs), "calls": recs,
-           "final_text": final_text[:4000]}
+           "final_text": final_text[:4000], "design": es.design, "turn_protocol": TURN_PROTOCOL[es.design], **extra}
     scored = score_turn(es, item, turn, env_before, calls_by_call, final_text)
     env_after = scored.pop("_env_after")
     row.update(scored)
-    two = len(recs) == 2
+    two = len(recs) >= 2
     row.update({
         "call2_mode": mode,
         "call2_tool_choice_sent": recs[1]["tool_choice_sent"] if two else None,
@@ -336,7 +500,7 @@ def replay_filler(es: EvalSession, turn, messages: list, calib) -> tuple[object,
     """The replay turn with its closed-loop filler, and the replay bookkeeping fields."""
     target = es.targets[turn.idx - 1]
     bare = dataclasses.replace(turn, filler_text="")
-    current = ag.transcript_tokens(messages) + ag.est_tokens(json.dumps(tools_payload()))
+    current = ag.transcript_tokens(messages) + ag.est_tokens(json.dumps(tools_payload(es.design)))
     text_est = ag.est_tokens(user_message(bare, es))
     n = R.filler_tokens_for_turn(target, current, text_est, calib)
     filler = r2.ctx_mod.build_filler(n, seed=es.seed * 31 + turn.idx, count_fn=r2._approx_token_count) if n else ""
@@ -363,16 +527,17 @@ def summarize(rows: list[dict], rules=RULE_IDS_EXT) -> dict:
 
 
 def run_session(runtime, model, arm, seed, max_turns, emit, log, mode, workload="evalset", guardrails=True,
-                schedule=None) -> dict:
+                schedule=None, design="v1") -> dict:
     num_ctx = ag.ARMS[arm]["num_ctx"]
     call2_mode = ag.ARMS[arm]["call2_mode"]
     think = ag.MODELS.get(model)
-    es = build_session(seed, max_turns, workload, guardrails, model, schedule)
+    es = build_session(seed, max_turns, workload, guardrails, model, schedule, design)
     attempt = uuid.uuid4().hex[:12]
     base = {"mode": mode, "model_id": model, "arm_id": arm, "num_ctx_requested": num_ctx, "seed": seed,
             "think": think, "call2_tools": ag.ARMS[arm]["call2_tools"], "call2_mode": call2_mode,
             "attempt_id": attempt, "session_code": es.session_code, "harness": HARNESS, "workload": workload,
-            "guardrails": es.guardrails, "trajectory_id": es.trajectory_id}
+            "guardrails": es.guardrails, "trajectory_id": es.trajectory_id, "design": es.design,
+            "turn_protocol": TURN_PROTOCOL[es.design]}
     unloaded = runtime.unload(model)
     messages = [{"role": "system", "content": es.system_prompt}]
     env = copy.deepcopy(es.env0)
@@ -427,15 +592,20 @@ def session_turns(workload: str, guardrails: bool) -> int:
     return 40 if (workload == "replay" or guardrails) else 30
 
 
-def validation_plan(workload="evalset", guardrails=True, call2_mode="off", schedule=None):
+def pos_turns(design="v1") -> int:
+    E.tools_schema(design)
+    return POS_TURNS if design == "v1" else POS_TURNS_V2
+
+
+def validation_plan(workload="evalset", guardrails=True, call2_mode="off", schedule=None, design="v1"):
     """[(arm, seeds, max_turns)]: negative control (131072) on SEEDS with the full session, positive control (8192)
-    on one seed for POS_TURNS turns (replay: R.positive_seed, a trajectory over 1.25 x 8192 by turn 9)."""
+    on one seed for pos_turns(design) turns (replay: R.positive_seed, a trajectory over 1.25 x 8192 by turn 9)."""
     sfx = ag.MODE_SUFFIX[ag.as_mode(call2_mode)]
     pos_seed = ag.SEEDS[0]
     if workload == "replay":
         pos_seed = R.positive_seed(schedule if schedule is not None else R.load_schedule())
     return [(ag.NEG_ARM + sfx, tuple(ag.SEEDS), session_turns(workload, guardrails)),
-            (ag.POS_ARM + sfx, (pos_seed,), POS_TURNS)]
+            (ag.POS_ARM + sfx, (pos_seed,), pos_turns(design))]
 
 
 def real_plan(workload="evalset", guardrails=True, call2_mode="off", tiers=None, seeds=None):
@@ -504,8 +674,35 @@ def task_table(rows, arm) -> dict:
     return out
 
 
+def file_design(rows) -> str:
+    """The design a validation file was run with (run_start "design"; files from before 2026-10-14 carry none: v1)."""
+    ds = {r.get("design", "v1") for r in rows if r.get("record") == "run_start"}
+    return ds.pop() if len(ds) == 1 else ("mixed" if ds else "v1")
+
+
+def window_and_end_state_gates(rows, arm, threshold=BASELINE_THRESHOLD) -> tuple[dict, dict]:
+    """Design v2 gates, per model, on the negative-control arm's completed sessions:
+    negative_control_window: no turn's final-call prompt over the loaded window (else the control is not a
+      no-truncation control, the v1 design error);
+    task_end_state: end state correct on >= threshold of task turns (integer comparison, as the task-tool gate)."""
+    win, es_gate = {}, {}
+    turns = _neg_turn_rows(rows, arm)
+    for model in sorted({r["model_id"] for r in turns}):
+        mt = [r for r in turns if r["model_id"] == model]
+        over = [r["turn_idx"] for r in mt if r.get("over_loaded_window")]
+        win[model] = {"pass": bool(mt) and not over, "n_turns": len(mt), "n_over_window": len(over),
+                      "loaded_context_values": sorted({r.get("loaded_context") for r in mt if r.get("loaded_context")}),
+                      "max_final_prompt_calibrated": max((r.get("final_call_prompt_tokens_calibrated") or 0)
+                                                         for r in mt)}
+        tk = [r for r in mt if r.get("item_kind") == "task"]
+        ok = sum(1 for r in tk if r.get("end_state_ok"))
+        es_gate[model] = {"pass": bool(tk) and ok * 100 >= round(threshold * 100) * len(tk), "n": len(tk),
+                          "n_ok": ok, "rate": ok / len(tk) if tk else None, "threshold": threshold}
+    return win, es_gate
+
+
 def evaluate_gates_ext(rows, workload="evalset", guardrails=True, call2_mode="off",
-                       threshold=BASELINE_THRESHOLD) -> dict:
+                       threshold=BASELINE_THRESHOLD, design="v1") -> dict:
     rep = ag.evaluate_gates(rows, threshold=threshold, call2_tools=call2_mode)
     arm = ag.NEG_ARM + ag.MODE_SUFFIX[ag.as_mode(call2_mode)]
     t678 = rules678_table(rows, arm, threshold)
@@ -527,24 +724,41 @@ def evaluate_gates_ext(rows, workload="evalset", guardrails=True, call2_mode="of
         for model in sorted({r["model_id"] for r in turns}):
             f = R.fidelity([r for r in turns if r["model_id"] == model], FIDELITY_TOL)
             g["replay_fidelity"][model] = {"pass": f["rate"] is not None and f["rate"] >= FIDELITY_THRESHOLD, **f}
+    rep["design"] = design
+    if design != "v1":
+        g["negative_control_window"], g["task_end_state"] = window_and_end_state_gates(rows, arm, threshold)
     return rep
 
 
-def validation_preflight_ext(rows, models, workload="evalset", guardrails=True, call2_mode="off") -> dict:
+def validation_preflight_ext(rows, models, workload="evalset", guardrails=True, call2_mode="off",
+                             design="v1") -> dict:
     """x2_r2_agent.validation_preflight (file finished, same call-2 mode, both control arms complete, rules in use at or
     above the threshold, negative control clean, positive control fired, thinking off, task-tool gate) plus rules 6-8
-    (when the workload exercises them) and replay fidelity. Per model; {"ok", "models_ok", "refused", "rules_in_use",
-    "tasks_in_use"}."""
+    (when the workload exercises them) and replay fidelity; design v2 also the validation file's design, the
+    negative_control_window gate and the task_end_state gate (the latter only where tasks are the outcome: guardrails
+    off). Per model; {"ok", "models_ok", "refused", "rules_in_use", "tasks_in_use"}."""
     pf = ag.validation_preflight(rows, call2_mode, models)
-    rep = evaluate_gates_ext(rows, workload, guardrails, call2_mode)
+    rep = evaluate_gates_ext(rows, workload, guardrails, call2_mode, design=design)
     refused, riu, tiu = {}, {}, {}
     file_level = [r for r in pf["reasons"] if not any(r.startswith(f"{m}:") for m in models)]
+    fd = file_design(rows)
+    if fd != design:
+        file_level.append(f"validation file design {fd!r} != this run's design {design!r}")
     for m in models:
         mine = file_level + [r for r in pf["reasons"] if r.startswith(f"{m}:")]
         g678 = rep["gates"]["rules678"].get(m)
         if g678 and g678["applies"] and not g678["pass"]:
             mine.append(f"{m}: rules 6-8 gate failed (failing {g678['failing_rules']}, not exercised "
                         f"{g678['not_exercised']})")
+        if design != "v1":
+            w = rep["gates"]["negative_control_window"].get(m)
+            if not w or not w["pass"]:
+                mine.append(f"{m}: negative-control window gate failed ({w and w['n_over_window']} turns over the "
+                            f"loaded window {w and w['loaded_context_values']})")
+            te = rep["gates"]["task_end_state"].get(m)
+            if not guardrails and workload == "evalset" and (not te or not te["pass"]):
+                mine.append(f"{m}: task end-state gate failed ({te and te['n_ok']}/{te and te['n']} < "
+                            f"{BASELINE_THRESHOLD:.0%})")
         fid = rep["gates"].get("replay_fidelity", {}).get(m)
         if workload == "replay" and (fid is None or not fid["pass"]):
             mine.append(f"{m}: replay fidelity gate failed ({fid})")
@@ -770,13 +984,16 @@ def build_arg_parser():
     ap.add_argument("--queue-insert-b3", action="store_true",
                     help="on evo-x2: insert x2_r2_llama_val_32k_offload and x2_evalset_tasks_real_v1 directly after "
                          "x2_num_keep_guardrail_test in one read-modify-write under a pause cleared in finally")
+    ap.add_argument("--design", choices=DESIGNS, default=DEFAULT_DESIGN,
+                    help="v2 (default): tool-loop turn, smaller filler, v2 tasks and tools (docs/EVALSET_DESIGN.md "
+                         "2026-10-14); v1: the design of the 2026-10-14 validations, for reproduction only")
     return ap
 
 
 def plan_for(args, schedule=None):
     guard = args.guardrails == "on"
     if args.mode == "validation":
-        return validation_plan(args.workload, guard, args.call2_tools, schedule)
+        return validation_plan(args.workload, guard, args.call2_tools, schedule, args.design)
     if args.plan == TASKS_PLAN:
         return tasks_plan(args.call2_tools)
     return real_plan(args.workload, guard, args.call2_tools, ag.parse_tiers(args.tiers), ag.parse_seeds(args.seeds))
@@ -843,16 +1060,31 @@ def queue_insert_b3(log=print) -> list[dict]:
 
 
 def check_plan(args) -> dict:
+    """The plan and every session's shape; design v2 also each session's projected largest prompt against the
+    negative-control budget (neg_budget()). Raises ValueError for a v2 validation plan whose negative-control
+    projection is over the budget (replay: every model's own targets are checked)."""
     schedule = R.load_schedule() if args.workload == "replay" else None
     plan = plan_for(args, schedule)
-    shape = []
+    shape, over = [], []
+    models = [m for m in (args.models.split(",") if args.models else ag.DEFAULT_MODELS) if m]
     for arm, seeds, turns in plan:
         for s in seeds:
-            es = build_session(s, turns, args.workload, args.guardrails == "on", schedule=schedule)
-            shape.append({"arm": arm, "seed": s, "turns": len(es.turns), "trajectory_id": es.trajectory_id,
-                          "kinds": {k: sum(1 for i in es.items if i.kind == k) for k in ("task", "request",
-                                                                                         "guardrail")}})
-    return {"plan": plan, "sessions": shape}
+            for model in (models if args.workload == "replay" else models[:1]):
+                es = build_session(s, turns, args.workload, args.guardrails == "on", model=model, schedule=schedule,
+                                   design=args.design)
+                proj = projected_max_prompt(es)
+                shape.append({"arm": arm, "seed": s, "model": model if args.workload == "replay" else None,
+                              "turns": len(es.turns), "trajectory_id": es.trajectory_id, "design": es.design,
+                              "projected_max_prompt": proj,
+                              "kinds": {k: sum(1 for i in es.items if i.kind == k) for k in ("task", "request",
+                                                                                             "guardrail")}})
+                if (args.design != "v1" and args.mode == "validation" and arm.startswith(ag.NEG_ARM)
+                        and proj > neg_budget()):
+                    over.append((arm, s, proj))
+    if over:
+        raise ValueError(f"v2 negative-control projection over the budget {neg_budget()} "
+                         f"({NEG_BUDGET_FRAC} x {NEG_WINDOW_MIN}): {over}")
+    return {"plan": plan, "sessions": shape, "design": args.design, "neg_budget": neg_budget()}
 
 
 def main(argv=None, advance=True):
@@ -911,13 +1143,23 @@ def main(argv=None, advance=True):
         schedule = R.load_schedule() if args.workload == "replay" else None
         plan = plan_for(args, schedule)
         models = [m for m in (args.models.split(",") if args.models else ag.DEFAULT_MODELS) if m]
+        if args.mode == "validation" and args.design != "v1":
+            check_plan(args)   # raises if the negative-control projection is over the v2 budget
+        if out_path.exists():
+            prev = file_design(ag.read_rows(out_path))
+            if any(r.get("record") == "run_start" for r in ag.read_rows(out_path)) and prev != args.design:
+                raise RuntimeError(f"{out_path.name} already holds design {prev!r} rows; this run is {args.design!r}")
         preflight = None
         if args.mode == "real":
             vrows = ag.read_rows(Path(args.rules_from))
             if args.preflight == "end_state":
                 preflight = end_state_preflight(vrows, models, c2)
+                if file_design(vrows) != args.design:   # design v2 (2026-10-14): never mix designs
+                    preflight = dict(preflight, ok=False, models_ok=[], refused={
+                        m: [f"validation file design {file_design(vrows)!r} != this run's design {args.design!r}"]
+                        for m in models})
             else:
-                preflight = validation_preflight_ext(vrows, models, args.workload, guard, c2)
+                preflight = validation_preflight_ext(vrows, models, args.workload, guard, c2, args.design)
             for m, reasons in preflight["refused"].items():
                 emit({"record": "refused_model", "model_id": m, "reasons": reasons, "ts_utc": ag.utc_iso()})
             models = preflight["models_ok"]
@@ -927,7 +1169,9 @@ def main(argv=None, advance=True):
               "call2_extra": ag.call2_extra(c2), "rules_ext": list(RULE_IDS_EXT), "rules_from": args.rules_from,
               "validation_preflight": preflight, "max_tokens_per_call": ag.MAX_TOKENS_PER_CALL,
               "keep_alive": ag.KEEP_ALIVE, "hw_id": host_cfg.get("hw_id"), "interactive_session": interactive,
-              "ts_utc": ag.utc_iso()})
+              "design": args.design, "turn_protocol": TURN_PROTOCOL[args.design], "max_tool_rounds":
+              MAX_TOOL_ROUNDS if args.design != "v1" else None,
+              "filler_tokens_per_turn": filler_tokens_per_turn(args.design), "ts_utc": ag.utc_iso()})
         if preflight is not None and not preflight["ok"]:
             note = ("stopped: refused to start, validation gates failed in "
                     f"{Path(args.rules_from).name}: " + "; ".join(r for rs in preflight["refused"].values()
@@ -955,10 +1199,11 @@ def main(argv=None, advance=True):
             emit({"record": "heartbeat", "mode": args.mode, "model_id": model, "arm_id": arm, "seed": seed,
                   "call2_mode": ag.ARMS[arm]["call2_mode"], "ts_utc": ag.utc_iso()})
             log(f"session: {model} {arm} seed={seed} turns<={turns} workload={args.workload}")
-            run_session(runtime, model, arm, seed, turns, emit, log, args.mode, args.workload, guard, schedule)
+            run_session(runtime, model, arm, seed, turns, emit, log, args.mode, args.workload, guard, schedule,
+                        args.design)
         rows = ag.read_rows(out_path)
         if args.mode == "validation":
-            report = evaluate_gates_ext(rows, args.workload, guard, c2)
+            report = evaluate_gates_ext(rows, args.workload, guard, c2, design=args.design)
         else:
             sessions = [s for s in ag.completed_sessions(rows) if s["mode"] == "real"]
             report = {"validation_preflight": preflight, "sessions": [
