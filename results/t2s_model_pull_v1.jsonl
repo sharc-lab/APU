@@ -1,0 +1,6 @@
+{"record": "run_start", "tags": ["qwen3:14b"], "pin": {"pinned": true, "ollama_bin": "C:\\apu\\bin\\ollama-0.34.4\\ollama.exe", "pin": {"ollama_bin": "C:\\apu\\bin\\ollama-0.34.4\\ollama.exe", "version": "0.34.4"}}, "ollama_exe": "C:\\apu\\bin\\ollama-0.34.4\\ollama.exe", "ts_utc": "2026-10-15T04:48:34.379132+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:14b", "elapsed_s": 60.0, "ts_utc": "2026-10-15T04:49:38.662088+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:14b", "elapsed_s": 120.0, "ts_utc": "2026-10-15T04:50:38.680893+00:00"}
+{"record": "heartbeat", "model_tag": "qwen3:14b", "elapsed_s": 180.0, "ts_utc": "2026-10-15T04:51:38.703425+00:00"}
+{"record": "model_pull_result", "model_tag": "qwen3:14b", "already_present": false, "pull_exit_code": 0, "pull_s": 232.1, "pull_error": null, "verify_ok": true, "verify_error": null, "ts_utc": "2026-10-15T04:52:37.097350+00:00"}
+{"record": "run_end", "all_verified": true, "ts_utc": "2026-10-15T04:52:37.097866+00:00"}
