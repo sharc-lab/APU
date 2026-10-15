@@ -3569,8 +3569,8 @@ sets no pause.
 **Queue position.** Directly after `x2_num_keep_guardrail_test` and before `x2_evalset_tasks_real_v1` (item A), which
 goes before `x2_model_pulls_scale`, per the operator's order of 2026-10-14 21:40 PT.
 
-**Deployed and queued, B3 follow-ups (2026-10-14, after the pre-registration commits 4b8504d and 418fe8e; code f459aa9
-and 405055d).** Item (B): side directory `C:\apu\ovn\r2v32koff\` holds `x2_r2_agent.py` (adds --num-gpu),
+**Deployed and queued, B3 follow-ups (2026-10-14, after the pre-registration commits 4b8504d and 418fe8e (be493b1 and c3189f8 after the rebase onto main); code f459aa9
+and 405055d (abbf4db and 91ffd0d after the rebase)).** Item (B): side directory `C:\apu\ovn\r2v32koff\` holds `x2_r2_agent.py` (adds --num-gpu),
 `x2_num_gpu.py` (new) and the launcher `x2_r2_sidecar.py` (unchanged); `C:\apu\ovn\x2_r2_agent.py` was not touched.
 Every other module the job imports (t2s_r2_session_growth, t2s_queue, host_config, x2_r2_client_trim, x2_r2_mechanism,
 proc_util) is taken from `C:\apu\ovn`. The import-only check on evo-x2 (no server, no model call, no queue access)
