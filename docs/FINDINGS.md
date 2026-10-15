@@ -3568,3 +3568,23 @@ sets no pause.
 
 **Queue position.** Directly after `x2_num_keep_guardrail_test` and before `x2_evalset_tasks_real_v1` (item A), which
 goes before `x2_model_pulls_scale`, per the operator's order of 2026-10-14 21:40 PT.
+
+**Deployed and queued, B3 follow-ups (2026-10-14, after the pre-registration commits 4b8504d and 418fe8e; code f459aa9
+and 405055d).** Item (B): side directory `C:\apu\ovn\r2v32koff\` holds `x2_r2_agent.py` (adds --num-gpu),
+`x2_num_gpu.py` (new) and the launcher `x2_r2_sidecar.py` (unchanged); `C:\apu\ovn\x2_r2_agent.py` was not touched.
+Every other module the job imports (t2s_r2_session_growth, t2s_queue, host_config, x2_r2_client_trim, x2_r2_mechanism,
+proc_util) is taken from `C:\apu\ovn`. The import-only check on evo-x2 (no server, no model call, no queue access)
+loaded the side copies, parsed the job's argv with num_gpu 22, printed the pre-registered plan and the server log path
+`C:\apu\ovn\results\x2_r2_llama_val_32k_offload_serve.log`, and found the Ollama tray app not running. Queue entry
+`x2_r2_llama_val_32k_offload`: `python r2v32koff\x2_r2_sidecar.py --mode validation --call2-tools off --models
+llama3.1:8b --neg-ctx 32768 --neg-sessions 5 --num-gpu 22 --out C:\apu\ovn\results\x2_r2_llama_val_32k_offload.jsonl`,
+inserted per the operator's decision of 2026-10-14 22:30 PT directly after the running `x2_model_pulls_scale`, ahead of
+`x2_family_smoke_mistral_small32`, in one read-modify-write under a pause whose reason names its release, cleared in the
+same script's finally block (pause flag confirmed absent afterwards).
+
+Item (A): `x2_r2_evalset.py` with `--plan tasks_v1` and `--preflight end_state` is deployed to `C:\apu\ovn` (backward
+compatible with the queued replay validation), and the import check on evo-x2 printed the plan and ran the end-state
+preflight on the machine's validation file. **The job `x2_evalset_tasks_real_v1` is HELD and not queued** (operator
+decision of 2026-10-14 22:30 PT): both B3 validations, `x2_evalset_tasks_val_v1` and `x2_evalset_guard_val_v1`, failed
+their gates, and the evalset is being redesigned; the task and guardrail real runs come back only after fixed
+validations pass. The pre-registration above stands unedited; its register rows stay PENDING.
