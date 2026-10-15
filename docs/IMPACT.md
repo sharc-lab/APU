@@ -173,7 +173,7 @@ SCENARIO, depends on assumed rework time per silent wrong result (not measured).
 
 Measured-only USD/day 3.60; range 3.60 to 79.22 over P2, P3, P4, P5; not added: P1, P6, P7.
 
-Where the earlier USD 1,933.63/day (USD 40,606.25/month) came from (first model, commit 669aee9; recomputed here from the same files):
+Where the earlier USD 1,933.63/day (USD 40,606.25/month) came from (first impact model, before the 2026-10-14 audit; recomputed here from the same files):
 
 | term | USD/day | inputs | status under the audit |
 |---|---:|---|---|
