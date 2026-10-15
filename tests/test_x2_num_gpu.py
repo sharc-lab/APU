@@ -14,7 +14,6 @@ sys.path.insert(0, str(REPO / "harness"))
 sys.path.insert(0, str(REPO / "tests"))
 
 import x2_num_gpu as ng  # noqa: E402
-import x2_num_keep as nk  # noqa: E402
 import x2_r2_agent as ag  # noqa: E402
 from test_x2_r2_agent import FakeRuntime, good_policy, _answer, _native  # noqa: E402
 
@@ -35,6 +34,12 @@ def test_parse_offload_and_library_lines():
     assert ng.parse_offloaded(text) == [[22, 33], [33, 33]]
     assert ng.parse_libraries(text) == ["ROCm"]
     assert ng.parse_offloaded("") == [] and ng.parse_libraries(None) == []
+
+
+def test_tray_app_running_reads_the_process_count():
+    assert ng.tray_app_running(run=lambda *a, **k: types.SimpleNamespace(stdout="1\n")) is True
+    assert ng.tray_app_running(run=lambda *a, **k: types.SimpleNamespace(stdout="0\n")) is False
+    assert ng.tray_app_running(run=lambda *a, **k: (_ for _ in ()).throw(OSError("x"))) is False
 
 
 def test_server_log_sits_next_to_out():
@@ -139,7 +144,7 @@ def _patch_main(monkeypatch, tmp_path, tray=False, offloaded=22):
         require_host=lambda h: {"hw_id": "evo-x2", "interactive_guard": False},
         enforce_or_record_interactive_session=lambda cfg: {}))
     monkeypatch.setitem(sys.modules, "t2s_queue", types.SimpleNamespace(advance=calls["notes"].append))
-    monkeypatch.setattr(nk, "tray_app_running", lambda run=None: tray)
+    monkeypatch.setattr(ng, "tray_app_running", lambda run=None: tray)
 
     class RT(FakeRuntime):
         def __init__(self):

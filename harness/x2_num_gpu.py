@@ -124,6 +124,21 @@ class OffloadRecorder:
         return row
 
 
+def tray_app_running(run=None) -> bool:
+    """True if Ollama's tray app ("ollama app.exe") is running; read-only process listing in a hidden child process.
+    The same check as x2_num_keep.tray_app_running, kept here so this job needs no module outside its side directory
+    and C:\\apu\\ovn (x2_num_keep.py is deployed only in its own side directory)."""
+    if run is None:
+        from proc_util import run_hidden as run
+    try:
+        p = run(["powershell", "-NoProfile", "-NonInteractive", "-Command",
+                 "(Get-Process 'ollama app' -ErrorAction SilentlyContinue | Measure-Object).Count"],
+                capture_output=True, text=True, timeout=30)
+        return (p.stdout or "").strip() not in ("", "0")
+    except Exception:
+        return False
+
+
 def split_as_intended(offloaded, num_gpu: int, n_layers: int, tol: int) -> bool:
     """The pre-registered check for one session: at least one offload line, every line N/M with M == n_layers and
     |N - num_gpu| <= tol."""

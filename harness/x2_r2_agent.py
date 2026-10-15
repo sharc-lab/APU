@@ -1979,8 +1979,7 @@ def main(argv=None, advance=True):
             hc.stop_ollama_server()   # as for mechanism: the debug env must take effect
         if args.num_gpu is not None:
             import x2_num_gpu as ng
-            import x2_num_keep as nk
-            if nk.tray_app_running():   # operator rule: never touch the Ollama tray app; refuse instead of stopping it
+            if ng.tray_app_running():   # operator rule: never touch the Ollama tray app; refuse instead of stopping it
                 raise RuntimeError("the Ollama tray app is running; --num-gpu needs the job's own server and log and "
                                    "does not stop the tray app")
             server_log = ng.server_log_for(out_path)
