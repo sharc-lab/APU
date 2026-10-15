@@ -3116,6 +3116,68 @@ def compute_r2_orphan_rates(repo):
     return {"value": " / ".join(parts), "n": sum(d["calls"] for d in o.values())}
 
 
+# ───────────────────────────────────────────────── R2 session cost and information loss (operator plan v2, 2026-10-13)
+# A1: analysis/r2_session_cost.py (wall-clock, tokens, cloud cost per session; priced from the latest
+# results/cloud_prices_*.json per provider, so an Anthropic price file is picked up with no code change);
+# A2: analysis/r2_info_loss.py (share of transcript and system prompt never seen, rule violations before vs after the
+# first system-prompt loss). Both are pure functions of the committed result files below.
+R2_SESSION_COST_FILES = ["results/x2_r2_real_v1.jsonl", "results/x2_r2_real_v1b.jsonl", "results/cloud_prices_*.json"]
+R2_INFO_LOSS_FILES = ["results/x2_r2_mechanism.jsonl", "results/blade_r2_mechanism_4096_v2.jsonl",
+                      "results/x2_r2_real_v1.jsonl", "results/x2_r2_real_v1b.jsonl"]
+_R2_A_CACHE = {}
+
+
+def _analysis_module(repo, name):
+    import importlib
+    import sys as _sys
+    p = str(REPO / "analysis")
+    if p not in _sys.path:
+        _sys.path.insert(0, p)
+    return importlib.import_module(name)
+
+
+def _r2_a_report(repo, name):
+    mod = _analysis_module(repo, name)
+    key = (name, str(repo))
+    if key not in _R2_A_CACHE:
+        _R2_A_CACHE[key] = mod.build(repo)
+    return mod, _R2_A_CACHE[key]
+
+
+def compute_r2_session_wallclock(repo):
+    """Per file (x2_r2_real_v1, x2_r2_real_v1b) and combined, per model x tier: session wall-clock minutes (sum of
+    turn_wall_s; mean and per seed), billed tokens (max session_tokens_billed_cumulative, input + output as the harness
+    counts them), input (billed - output) and output tokens (sum of completion tokens); then the operator's
+    expectations compared (never adjusted)."""
+    sc, rep = _r2_a_report(repo, "r2_session_cost")
+    return {"value": sc.wallclock_str(rep) + " / operator expectations: " + sc.expectation_str(rep, "wallclock"),
+            "n": f"{len(rep['combined'])} cells, {sum(c['n'] for c in rep['combined'].values())} sessions"}
+
+
+def compute_r2_session_cloud_cost(repo):
+    """Per file and combined, per model x tier: USD per session at each provider's selected models' Standard list
+    prices (latest price file per provider), best-case caching to no caching (mean), with the per-seed extremes;
+    then the operator's expectations compared (never adjusted)."""
+    sc, rep = _r2_a_report(repo, "r2_session_cost")
+    return {"value": sc.cost_str(rep) + " / operator expectations: " + sc.expectation_str(rep, "cost"),
+            "n": f"{sum(c['n'] for c in rep['combined'].values())} sessions"}
+
+
+def compute_info_loss_by_window(repo):
+    """Per machine x model x window: share of transcript tokens and of system-prompt tokens never seen at turns
+    5/10/20/30/40, turns with system-prompt loss and the first loss turn; observed (mechanism, one session per tier)
+    vs predicted (R2 real runs, analysis/r2_shift_predictor.py)."""
+    il, rep = _r2_a_report(repo, "r2_info_loss")
+    return {"value": il.info_loss_str(rep), "n": f"{sum(len(v) for v in rep['cells'].values())} sessions"}
+
+
+def compute_reliability_after_guardrail_loss(repo):
+    """Per machine x model x window: violation rate before vs from the first system-prompt loss, turns from that loss
+    to the first violation, violations by rule type before -> after (observed one session per tier; predicted)."""
+    il, rep = _r2_a_report(repo, "r2_info_loss")
+    return {"value": il.reliability_str(rep), "n": f"{sum(len(v) for v in rep['cells'].values())} sessions"}
+
+
 # ───────────────────────────────────────────────── R2 mitigation x2_r2_mitigation_v1 (pre-registered 2026-10-08)
 # Client-side trimming at num_ctx 4096 / 8192 (harness/x2_r2_client_trim.py) vs the real runs' same cells. PENDING until
 # results/x2_r2_mitigation_v1.jsonl is synced (and, for the 8192 comparison, results/x2_r2_real_v1b.jsonl).
@@ -4361,6 +4423,23 @@ NUMBER_ENTRIES = [
                     "result after Ollama's message trim, per tier",
      "compute": compute_r2_orphan_rates, "data_files": ["results/x2_r2_mechanism.jsonl"],
      "script_function": "analysis/r2_shift_predictor.py::orphan_summary"},
+    {"claim_id": "r2-session-wallclock", "description": "R2 real runs (v1, v1b, combined): session wall-clock minutes "
+                    "per model x tier (mean, per seed), billed / input / output tokens per session",
+     "compute": compute_r2_session_wallclock, "data_files": R2_SESSION_COST_FILES,
+     "script_function": "analysis/r2_session_cost.py::wallclock_str"},
+    {"claim_id": "r2-session-cloud-cost", "description": "R2 real runs (v1, v1b, combined): cloud USD per session at "
+                    "list prices (latest price file per provider), best-case caching to no caching",
+     "compute": compute_r2_session_cloud_cost, "data_files": R2_SESSION_COST_FILES,
+     "script_function": "analysis/r2_session_cost.py::cost_str"},
+    {"claim_id": "info-loss-by-window", "description": "R2: share of transcript and system-prompt tokens never seen per "
+                    "machine x model x window x turn (observed mechanism sessions, one per tier; predicted real runs)",
+     "compute": compute_info_loss_by_window, "data_files": R2_INFO_LOSS_FILES,
+     "script_function": "analysis/r2_info_loss.py::info_loss_str"},
+    {"claim_id": "reliability-after-guardrail-loss", "description": "R2: rule violation rate before vs after the first "
+                    "system-prompt loss, turns to first violation, violations by rule type (observed one session per "
+                    "tier; predicted real runs)",
+     "compute": compute_reliability_after_guardrail_loss, "data_files": R2_INFO_LOSS_FILES,
+     "script_function": "analysis/r2_info_loss.py::reliability_str"},
     {"claim_id": "R2-mitigation-v1-verdict", "description": "R2 mitigation (client-side trimming): pre-registered "
                     "verdict per model at num_ctx 4096 (8192 as control) and overall",
      "compute": compute_r2_mitigation_v1_verdict,

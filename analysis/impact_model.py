@@ -227,18 +227,20 @@ def r2_data(repo=REPO) -> dict:
 
 
 def session_stats(turns: list) -> dict:
-    calls = [c for r in turns for c in r["calls"]]
-    return {"wall_s": sum(r.get("turn_wall_s") or 0.0 for r in turns),
-            "prefill_s": sum(c.get("prompt_eval_duration_s") or 0.0 for c in calls),
-            "decode_s": sum(c.get("eval_duration_s") or 0.0 for c in calls),
-            "output_tokens": sum(c.get("completion_tokens") or 0 for c in calls),
-            "n_turns": len(turns)}
+    """One session's wall, prefill and decode seconds and output tokens, from analysis/r2_session_cost.session_metrics
+    (the per-session function behind register row r2-session-wallclock: wall = sum of turn_wall_s, output = sum of
+    completion tokens, chars/4 of the reply when a call's completion_tokens is null)."""
+    import r2_session_cost as sc
+    m = sc.session_metrics(turns)
+    return {"wall_s": m["wall_s"], "prefill_s": m["prefill_s"], "decode_s": m["decode_s"],
+            "output_tokens": m["output"], "n_turns": m["n_turns"]}
 
 
 def session_wallclock(repo=REPO) -> dict:
     """{(device, model, tier): {"median_wall_s", "mean_prefill_s", "mean_decode_s", "mean_output_tokens", "n"}}.
-    Input of register row r2-session-wallclock (registered by a parallel plan item; computed here from the same
-    files so this model does not wait on it)."""
+    Per-session numbers are register row r2-session-wallclock's (session_stats above); the sessions are this model's
+    own R2 set (r2_data: every R2 file of every device, r2_real_report's dedup), and the cell statistic is the median
+    wall (the register row reports the mean)."""
     out = {}
     for dev, d in r2_data(repo).items():
         by = {}
@@ -592,8 +594,8 @@ ROWS = {
     "P1": {"formula": "sessions/day x P(gated silent failure at/after the first over-window turn) x redo hours (median "
                       "session wall time at Ollama's default window) x USD/h; lower bound",
            "measured": ["R2-real-v1b-gated-kill", "R2-real-v1b-survival", "R2-mechanism-verdict",
-                        "x2-v3-truncation-all-models", "r2-session-wallclock (PENDING on main; same files read here)",
-                        "info-loss-by-window (PENDING on main)"],
+                        "x2-v3-truncation-all-models", "r2-session-wallclock",
+                        "info-loss-by-window"],
            "missing": "developer time to notice a silent wrong result and redo it, and the cost of one that is not "
                       "noticed (not measured; the redo-time lower bound assumes the developer waits for one rerun); "
                       "R2 sessions on evo-t2s and the Blade",
@@ -602,7 +604,7 @@ ROWS = {
            "escalation": "yes when a needed turn would be trimmed (E4); cost = Router replay, see the escalation table"},
     "P2": {"formula": "sessions/day x max(0, median per-turn wall delta between the configured window and the next smaller "
                       "measured window, on turns that fit both) x turns/session x USD/h",
-           "measured": ["r2-session-wallclock (PENDING on main; same files read here)", "R2-real-v1-loaded-ctx",
+           "measured": ["r2-session-wallclock", "R2-real-v1-loaded-ctx",
                         "R2-real-v1b-first-events"],
            "missing": "a right-sized window for a full R2 session (every smaller R2 tier is outgrown before the last "
                       "turn, R2-real-v1b-first-events); session timings on evo-t2s and the Blade",
@@ -612,7 +614,7 @@ ROWS = {
     "P3": {"formula": "sessions/day x cloud share x mean(session cost uncached - session cost with implicit caching), "
                       "price table cloud_prices_20261008, R2 session token counts",
            "measured": ["cloud-budget-tokens", "cloud-budget-inputs",
-                        "r2-session-cloud-cost (PENDING on main; same computation here)"],
+                        "r2-session-cloud-cost (chars/4 basis, caching floor; this row: o200k, implicit caching)"],
            "missing": "how much of a real customer's cloud history is a stable cacheable prefix (R2 sessions are "
                       "append-only, the best case for caching)",
            "fix": "keep the history an append-only prefix so implicit caching applies; trim history client-side",
@@ -620,14 +622,14 @@ ROWS = {
     "P4": {"formula": "sessions/day x output tokens/session x (1/decode rate on this device - 1/best measured rate for "
                       "the model) x USD/h; decode only (prefill excluded), lower bound",
            "measured": ["decode-rate-per-machine", "blade-dryrun-rates", "blade-k1-layer-split",
-                        "r2-session-wallclock (output tokens; PENDING on main)"],
+                        "r2-session-wallclock (output tokens)"],
            "missing": "session prefill time on evo-t2s and the Blade; the XPS (Zach's) rates are not in this repo",
            "fix": "route each model to the device whose envelope fits it (src/dse/pareto.py recommend)",
            "escalation": "no between local devices; E1/E2 only when no local device fits"},
     "P5": {"formula": "sessions/day x co-runner share x (session prefill s x (TTFT ratio - 1) + session decode s x "
                       "(1/decode ratio - 1)) x USD/h",
            "measured": ["PX2-full-ratio-table", "B3-corunner-6model", "PX2-decode-ratio",
-                        "r2-session-wallclock (PENDING on main)"],
+                        "r2-session-wallclock"],
            "missing": "R2 session timings on evo-t2s (B3 is TTFT only); how often customers run a heavy co-runner "
                       "(assumed share)",
            "fix": "co-runner-aware latency prediction in the router (co_runner flag)",
@@ -644,7 +646,7 @@ ROWS = {
     "P7": {"formula": "sessions/day x P(a rule in use first broken at/after the first over-window turn) x cost per "
                       "violation",
            "measured": ["R2-real-v1b-first-events", "R2-mechanism-lowlevel", "R2-orphan-rates",
-                        "R2-mitigation-v1-verdict", "reliability-after-guardrail-loss (PENDING on main)"],
+                        "R2-mitigation-v1-verdict", "reliability-after-guardrail-loss"],
            "missing": "cost of one guardrail violation (not measured; depends on what the rule protects)",
            "fix": "never send an overflowing request (the system prompt is always kept by client-side trimming)",
            "escalation": "no for system-prompt rules (the router never trims the system prompt)"},
