@@ -3501,6 +3501,49 @@ the 4096 and 32768 rows of `R2-v1b-gated-per-model` above.
 **Limits.** One machine (evo-x2), one runtime (Ollama 0.34.4), five seeds per cell, three models. The CI is over
 sessions with seeds as the only replication; it does not cover machine, runtime or model sampling.
 
+### qwen3:8b at 8192 vs 4096: the non-monotonic cell (2026-10-14, analysis only, no rerun)
+
+**Question.** `R2-v1b-gated-per-model` has qwen3:8b with 4/5 gated silent sessions at num_ctx 8192 and 1/5 at 4096,
+the reverse of the ordering in every other model. Is that noise (n = 5), an artifact of the gate, or real?
+
+**Data** (register row `R2-v1b-qwen3-8b-reversal`, same files and functions as above, quoted from the row):
+- Gate exclusions: "qwen3:8b gate excludes tool_args, recall". The same two metrics are excluded at every tier, so
+  the gate cannot treat 8192 and 4096 differently. What it counts for qwen3:8b is the four rules in use plus tool
+  validity.
+- 8192, per session: "seed 20260901: gated none ... seed 20260902: gated 15 rule1_json_keys ... seed 20260903: gated 25
+  rule1_json_keys ... seed 20260904: gated 25 rule2_log_event_called ... seed 20260905: gated 29
+  rule2_log_event_called". Each session is "over window from 5, 40 turns, first error -".
+- 4096, per session: "seed 20260903: gated 10 rule2_log_event_called"; the other four seeds read "gated none". Each
+  session is "over window from 3, 40 turns, first error -".
+- How the 4096 sessions ended: every one ran all 40 turns with no HTTP error or error field. Each was over the loaded
+  window from turn 3 and lost its history: "history canary missed 40/40" checks. The system prompt mostly survived:
+  "system canary missed 3/40 checks". Four of five sessions reached turn 40 with no rule failure, and "rule failure
+  turns 3" of 200 all came from seed 20260903.
+- Ungated failures at 4096 (the pre-registered kill criterion, which counts every metric): every session fails first
+  on tool arguments, at turn 4 ("ungated 4 tool_args+recall" for seeds 01, 02, 04 and 05; seed 03 "ungated 2
+  tool_args"). Over the tier, "tool args failed 74/200 turns, recall failed 33/50". The 8192 figures are "tool args
+  failed 60/200 turns, recall failed 37/50". Ungated, both tiers are 5/5 silent, and the default tier is too
+  (`R2-v1b-default-baseline-type`), so the ungated view saturates and carries no ordering.
+- Turn-level counts at 8192: "rule failure turns 18, system canary missed 10/40 checks, history canary missed 37/40".
+- Test: "Fisher exact two-sided p (silent sessions, num_ctx_8192 vs num_ctx_4096) = 0.206".
+
+**Verdict: noise at n = 5. Not a gating artifact. A real effect is not ruled out.**
+1. **Not a gating artifact.** The gate excludes the same metrics at both tiers. The two excluded metrics do not hide
+   a 4096 excess either: tool arguments fail more often at 4096 (74/200 turns vs 60/200) and recall a little less
+   (33/50 vs 37/50). Both are below their 90% baseline at every tier, including the default.
+2. **Noise.** Session-level, 4/5 vs 1/5 is not distinguishable from equal rates at this n (Fisher p = 0.206). The
+   per-model excess CI at 4096 already includes 0 (`R2-v1b-excess-over-default`: "qwen3:8b 1/5 vs default 0/5,
+   excess +0.200 (95% CI +0.000 to +0.600)"). So the reversal is no evidence against the pooled trend.
+3. **Possibly real.** The turn-level counts point the same way as the session counts. Rule failure turns are 18 at
+   8192 vs 3 at 4096, and system canary misses are 10/40 vs 3/40. That is consistent with a real effect for this
+   model: at 4096 the kept context is little more than the system prompt and the newest turns (history canary 40/40
+   missed), while at 8192 more old history stays in context alongside the instructions. Turns within a session are not
+   independent and these counts come from 5 sessions per tier, so this is a hypothesis for a later run with more
+   seeds, not a finding.
+
+**Consequence for the paper.** Report the pooled excess curve with per-model CIs and name this cell as within noise.
+Do not claim the 4096 tier is safer for qwen3:8b. No rerun was made for this check.
+
 ## Results of two pre-registered checks: the Blade confound check and the R2 mitigation (2026-10-14, as stated in the paper draft)
 
 **x2_r2_llama_val_32k (pre-registration 2026-10-10 above).** Register row `x2-r2-llama-val-32k`, pasted: "negative

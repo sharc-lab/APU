@@ -2876,6 +2876,44 @@ def compute_r2_v1b_excess_over_default(repo):
             "n": rep["n_sessions"]}
 
 
+def compute_r2_v1b_qwen3_8b_reversal(repo):
+    """Strengthened R2, qwen3:8b at num_ctx 8192 vs 4096 (the gated non-monotonic cell): metrics the gate excludes,
+    per session the first gated failure and what failed, the first over-window turn, turns completed and the first
+    error, the pre-registered (ungated) first failure; per tier the turn-level counts of rule failures, system and
+    history canary misses, tool-argument and recall failures; and a two-sided Fisher exact p on silent sessions."""
+    from math import comb
+    rr, rep = _r2_real_v1b_report(repo)
+    model, tiers = "qwen3:8b", ("num_ctx_8192", "num_ctx_4096")
+    rows, rules_in_use, sessions, _iss = rr._collect([repo / R2_REAL_V1_FILE, repo / R2_REAL_V1B_FILE])
+    rules = rules_in_use[model]
+    tier_of = {s["attempt_id"]: rr.tier_of(s["arm_id"]) for s in sessions if s["model_id"] == model}
+    parts = [f"{model} gate excludes {', '.join(rep['gated_metrics'][model]['excluded']) or 'nothing'}"]
+    silent = {}
+    for tier in tiers:
+        c = rep["table"][f"{tier}|{model}"]
+        silent[tier] = (sum(e["silent"] for e in c["sessions"]), c["n"])
+        sess = ", ".join(
+            f"seed {e['seed']}: gated {'none' if e['first_gated_failure'] is None else str(e['first_gated_failure']) + ' ' + '+'.join(e['first_gated_failure_fields'])}"
+            f", over window from {e['first_over_window']}, {e['n_turns']} turns, first error "
+            f"{'-' if e['first_error'] is None else e['first_error']}, ungated {e['kill_first_failure']} "
+            f"{'+'.join(e['kill_first_failure_reasons'])}" for e in c["sessions"])
+        t = [r for r in rows if r.get("record") == "r2a_turn" and tier_of.get(r.get("attempt_id")) == tier]
+        chk = [r for r in t if r.get("canary_check")]
+        rec = [r for r in t if r.get("recall_ok") is not None]
+        parts.append(f"{tier}: {silent[tier][0]}/{silent[tier][1]} gated silent ({sess}); turns {len(t)}, rule "
+                     f"failure turns {sum(1 for r in t if any(r.get(x) is False for x in rules))}, system canary "
+                     f"missed {sum(1 for r in chk if r.get('canary_sys_ok') is False)}/{len(chk)} checks, history "
+                     f"canary missed {sum(1 for r in chk if r.get('canary_hist_ok') is False)}/{len(chk)}, tool args "
+                     f"failed {sum(1 for r in t if r.get('tool_args_all') is False)}/{len(t)} turns, recall failed "
+                     f"{sum(1 for r in rec if r.get('recall_ok') is False)}/{len(rec)}")
+    (a, n1), (b, n2) = silent[tiers[0]], silent[tiers[1]]
+    k, N = a + b, n1 + n2
+    pmf = {x: comb(n1, x) * comb(n2, k - x) / comb(N, k) for x in range(max(0, k - n2), min(k, n1) + 1)}
+    p = sum(v for v in pmf.values() if v <= pmf[a] * (1 + 1e-9))
+    parts.append(f"Fisher exact two-sided p (silent sessions, {tiers[0]} vs {tiers[1]}) = {p:.3f}")
+    return {"value": "; ".join(parts), "n": f"{silent[tiers[0]][1] + silent[tiers[1]][1]} sessions"}
+
+
 def compute_r2_validation_v2b_runinfo(repo):
     """R2 validation v2b run details per model: sessions and turns completed, calls with an HTTP error or error field,
     task tool called correctly, and on the baseline arm how many call-1 replies carried a native tool call vs a tool
@@ -4849,6 +4887,11 @@ NUMBER_ENTRIES = [
                     "overall and per model, 95% bootstrap CI over sessions",
      "compute": compute_r2_v1b_excess_over_default, "data_files": R2_V1B_DATA, "pending_ok": True,
      "script_function": "analysis/numbers_register.py::compute_r2_v1b_excess_over_default"},
+    {"claim_id": "R2-v1b-qwen3-8b-reversal",
+     "description": "Strengthened R2, qwen3:8b num_ctx 8192 vs 4096: per-session first gated failure, gate "
+                    "exclusions, how each session ended, ungated failures, turn-level counts, Fisher exact p",
+     "compute": compute_r2_v1b_qwen3_8b_reversal, "data_files": R2_V1B_DATA, "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_r2_v1b_qwen3_8b_reversal"},
     {"claim_id": "R2-validation-v2b-runinfo", "description": "R2 validation v2b: sessions/turns, errors, native vs "
                     "text tool calls per model",
      "compute": compute_r2_validation_v2b_runinfo, "data_files": ["results/x2_r2_validation_v2b.jsonl"],
