@@ -3744,16 +3744,13 @@ the reason recorded.
   - **Cloud step wall time, ASSUMPTION A-B5-cloud-latency.** 1.0 s + output tokens / 50 tok/s, replacing the proxy
     call's measured time in the session wall-clock; the session wall-clock with the proxy's measured time is reported
     next to it as a sensitivity.
-  - **Cloud cost.** The shared price table (operator decision A, 2026-10-14: `results/cloud_prices_anthropic_20261014.json`,
-    the default of `analysis/impact_model.py`), list prices, claude-sonnet-5-5 (the table's escalation mid tier),
-    Standard, priced by `analysis/impact_model.escalated_cost` (the impact model's own escalation pricing, through
-    `analysis/cloud_budget_forecast.call_cost`). Input tokens = the router's calibrated estimate of system prompt +
-    tools + full history; output = the proxy reply's eval_count. **Caching on is the main case**: a cloud step reads
-    from cache the previous cloud step's input (min(previous, this) tokens) when that input reached the model's minimum
-    cacheable prefix and the previous cloud step started at most 300 s earlier (Anthropic's default 5-minute cache
-    lifetime, row timestamps); the rest of a cacheable input is a 5-minute cache write. Sensitivities: no caching (upper
-    bound); claude-haiku-5-5. The token basis (the local tokenizer's estimate, not Anthropic's tokenizer) is an
-    assumption, as the price file itself notes.
+  - **Cloud cost.** The shared price table `results/cloud_prices_20261008.json` through
+    `analysis/cloud_budget_forecast.call_cost`, list prices, gpt-6.1-sol (the forecast's mid-tier), Standard, short
+    context. Input tokens = the router's calibrated estimate of system prompt + tools + full history; output = the proxy
+    reply's eval_count. **Caching on is the main case**, as the forecast's implicit caching: cached = min(previous cloud
+    input of the session, this input) when the previous was at least 1024 tokens and at most 30 min earlier (row
+    timestamps), the rest of an input of at least 1024 tokens is a cache write (1.25x input). Sensitivities: no caching;
+    gpt-6-luna.
 - (e) **auto-sized window**: num_ctx = G (largest fully in GPU memory, base env).
 - (f) **num_keep = system prompt length**: no num_ctx sent (as (a)); per session S is measured as
   `harness/x2_num_keep.measure_system_tokens` does (render and count with the model's tokenizer, max with and without
@@ -3836,3 +3833,15 @@ what else the machine does (one job at a time on each queue).
 num_ctx 4096 and at the iGPU-enabled default window, 3 seeds x 40 turns, call-2 off, under OLLAMA_IGPU_ENABLE=1) as
 separate entries in the same staged file, through `harness/t2s_r2_agent.py`. B6 tests H-scale (pre-registered above) on
 the Intel platform with that pre-registration's deciding numbers; it adds no new criterion.
+
+**Amendment (2026-10-14, after rebasing onto main, before any B5 file is deployed or queued and before any data
+exists): the cloud price basis.** Main switched "the shared price table" to the Anthropic table while B5 was being
+written (operator decision A, 2026-10-14: `results/cloud_prices_anthropic_20261014.json`, the default of
+`analysis/impact_model.py`). B5's cloud cost therefore uses that table instead of the OpenAI file named above:
+claude-sonnet-5-5 (the table's escalation mid tier), Standard, priced by `analysis/impact_model.escalated_cost` (the
+impact model's own escalation pricing, through `cloud_budget_forecast.call_cost`). Caching on stays the main case: a
+cloud step reads from cache the previous cloud step's input (min(previous, this) tokens) when that input reached the
+model's minimum cacheable prefix and the previous cloud step started at most 300 s earlier (Anthropic's default 5-minute
+cache lifetime, row timestamps); the rest of a cacheable input is a 5-minute cache write. Sensitivities: no caching
+(upper bound) and claude-haiku-5-5. Input and output tokens are defined as above; the token basis (the local
+tokenizer's estimate, not Anthropic's tokenizer) is an assumption, as the price file itself notes. Nothing else changes.
