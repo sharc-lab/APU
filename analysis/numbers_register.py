@@ -3681,6 +3681,155 @@ def compute_x2_evalset_tasks_val_gates(repo):
             "detail": {"gates": g, "per_seed": per_seed, "task_table": rep["task_table"]}}
 
 
+# B3 task real run (pre-registered in docs/FINDINGS.md 2026-10-14, queue id x2_evalset_tasks_real_v1): wrong-task rate
+# per window, excess at 4096 over the Ollama default with a task-cluster bootstrap CI, silent vs surfaced wrong results,
+# all from x2_r2_evalset.tasks_real_outcome. PENDING until the file is synced.
+X2_EVALSET_TASKS_REAL = "results/x2_evalset_tasks_real_v1.jsonl"
+
+
+def _evalset_tasks_real(repo):
+    ag, ev = _r2_agent_module(), _evalset_module()
+    rows = ag.read_rows(repo / X2_EVALSET_TASKS_REAL)
+    if not rows:
+        raise FileNotFoundError(repo / X2_EVALSET_TASKS_REAL)
+    return ev.tasks_real_outcome(rows, ag.read_rows(repo / X2_EVALSET_TASKS_VAL), "off")
+
+
+def _frac(a, b):
+    return f"{a}/{b}" + (f" ({100 * a / b:.1f}%)" if b else "")
+
+
+def compute_x2_evalset_tasks_real_wrong_rate(repo):
+    """Per model: validity, and for the primary (strict tasks in use) and secondary (per-seed) cell sets the wrong-task
+    rate at the default and at 4096, the excess with its 95% task-cluster bootstrap CI and the pre-registered reading."""
+    o = _evalset_tasks_real(repo)
+    parts, n = [], 0
+    for m, d in o["models"].items():
+        if d.get("refused"):
+            parts.append(f"{m}: refused ({'; '.join(d['reasons'] or [])})")
+            continue
+        segs = [f"valid {d['valid']}" + (f" ({'; '.join(d['problems'])})" if d["problems"] else "")]
+        for w, i in d["windows"].items():
+            segs.append(f"{w}: loaded context {i['loaded_context_values']}, task turns over the window "
+                        f"{i['task_turns_over_window']}/{i['n_task_turns']}")
+        for name in ("primary", "secondary"):
+            e = d[name]
+            if not e["n_cells_in_use"]:
+                segs.append(f"{name}: no cells in use (not estimable)")
+                continue
+            ci = e["excess_ci95"]
+            segs.append(
+                f"{name} ({e['n_tasks']} tasks, {e['n_cells_in_use']} cells): wrong default "
+                f"{_frac(e['default']['wrong'], e['default']['n'])}, wrong 4096 {_frac(e['4096']['wrong'], e['4096']['n'])}"
+                f" (state-only wrong {e['default']['state_wrong']} / {e['4096']['state_wrong']}); excess "
+                + (f"{100 * e['excess']:+.1f} points, 95% CI {100 * ci['lo']:+.1f} to {100 * ci['hi']:+.1f} "
+                   f"(task-cluster bootstrap, {ci['n_boot']} resamples); reading: {e['reading']}"
+                   if e["excess"] is not None and ci["lo"] is not None else "n/a")
+                + f"; not in use wrong rate default {_pct(e['default']['not_in_use_rate'])}, 4096 "
+                  f"{_pct(e['4096']['not_in_use_rate'])}")
+            n += e["default"]["n"] + e["4096"]["n"] if name == "secondary" else 0
+        parts.append(f"{m}: " + "; ".join(segs))
+    return {"value": f"run finished {o['run_finished']}; " + " / ".join(parts), "n": f"{n} secondary cells",
+            "detail": o}
+
+
+def compute_x2_evalset_tasks_real_silent(repo):
+    """Per model, cell set and window: wrong cells split into silent (every call HTTP 200, outcome ok, no error) and
+    surfaced, and the silent share of the wrong cells."""
+    o = _evalset_tasks_real(repo)
+    parts = []
+    for m, d in o["models"].items():
+        if d.get("refused"):
+            parts.append(f"{m}: refused")
+            continue
+        segs = []
+        for name in ("primary", "secondary"):
+            e = d[name]
+            if not e["n_cells_in_use"]:
+                segs.append(f"{name}: no cells in use")
+                continue
+            segs.append(f"{name}: " + ", ".join(
+                f"{w} wrong {e[w]['wrong']} = silent {e[w]['silent_wrong']} + surfaced {e[w]['surfaced_wrong']}"
+                f" (silent share {_pct(e[w]['silent_share'])})" for w in ("default", "4096")))
+        parts.append(f"{m} (valid {d['valid']}): " + "; ".join(segs))
+    return {"value": " / ".join(parts), "n": f"{len(o['models'])} models", "detail": o}
+
+
+# Blade confound follow-up (pre-registered in docs/FINDINGS.md 2026-10-14, queue id x2_r2_llama_val_32k_offload): the
+# x2_r2_llama_val_32k validation with options.num_gpu 22. PENDING until its file is synced. Verdict rule pre-registered.
+X2_R2_LLAMA_VAL_32K_OFFLOAD = "results/x2_r2_llama_val_32k_offload.jsonl"
+X2_OFFLOAD_NUM_GPU = 22
+X2_OFFLOAD_N_LAYERS = 33
+X2_OFFLOAD_TOL = 2
+
+
+def x2_r2_llama_val_32k_offload_verdict(rows, ag, model="llama3.1:8b") -> dict:
+    """Pre-registered: the x2_r2_llama_val_32k validity and miss pattern (x2_r2_llama_val_32k_verdict) plus the split
+    check per negative-control session (a num_gpu_offload row with at least one offload line, every line N/33 with
+    |N - 22| <= 2, every chat call carrying num_gpu 22). Labels: "offload effect" (turn-5 text-tool-call misses only),
+    "backend effect (CUDA vs evo-x2's backend)" (0 misses), else "inconclusive (...)"."""
+    import x2_num_gpu as ng
+    base = x2_r2_llama_val_32k_verdict(rows, ag, model)
+    arm = X2_VAL32K_NEG_ARM + ag.MODE_SUFFIX["off"]
+    off = {r["seed"]: r for r in rows if r.get("record") == "num_gpu_offload" and r.get("arm_id") == arm
+           and r.get("model_id") == model}
+    split_problems, unverified = [], []
+    for s in X2_VAL32K_SEEDS:
+        r = off.get(s)
+        if r is None or not r.get("offloaded"):
+            unverified.append(s)
+            continue
+        if not ng.split_as_intended(r["offloaded"], X2_OFFLOAD_NUM_GPU, X2_OFFLOAD_N_LAYERS, X2_OFFLOAD_TOL):
+            split_problems.append(f"seed {s}: offloaded {r['offloaded']}")
+        if r.get("num_gpu_sent") != X2_OFFLOAD_NUM_GPU or r.get("n_chat_calls_num_gpu") != r.get("n_chat_calls"):
+            split_problems.append(f"seed {s}: num_gpu sent {r.get('num_gpu_sent')} on {r.get('n_chat_calls_num_gpu')}"
+                                  f"/{r.get('n_chat_calls')} calls")
+    if not base["valid"]:
+        verdict = base["verdict"]
+    elif split_problems:
+        verdict = "inconclusive (offload split not as intended: " + "; ".join(split_problems) + ")"
+    elif unverified:
+        verdict = f"inconclusive (offload split not verified: no offload line for seeds {unverified})"
+    elif base["verdict"] == "backend or offload effect":
+        verdict = "backend effect (CUDA vs evo-x2's backend)"
+    elif base["verdict"] == "window effect":
+        verdict = "offload effect"
+    else:
+        verdict = base["verdict"]
+    return {**base, "verdict": verdict, "split_problems": split_problems, "split_unverified": unverified,
+            "offload": {s: {k: r.get(k) for k in ("offloaded", "ps_vram_share", "n_chat_calls", "n_chat_calls_num_gpu")}
+                        for s, r in sorted(off.items())}}
+
+
+def compute_x2_r2_llama_val_32k_offload(repo):
+    """x2_r2_llama_val_32k_offload: the x2-r2-llama-val-32k measures plus offload lines, VRAM share and backend library
+    per session, and the pre-registered offload / backend verdict."""
+    import sys as _sys
+    ag = _r2_agent_module()
+    _sys.path.insert(0, str(REPO / "harness"))
+    rows = ag.read_rows(repo / X2_R2_LLAMA_VAL_32K_OFFLOAD)
+    if not rows:
+        raise FileNotFoundError(repo / X2_R2_LLAMA_VAL_32K_OFFLOAD)
+    ag.neg_arm_for_ctx(X2_VAL32K_NUM_CTX)
+    model = "llama3.1:8b"
+    rep = ag.evaluate_gates(rows, call2_tools="off", neg_arm=X2_VAL32K_NEG_ARM)
+    v = x2_r2_llama_val_32k_offload_verdict(rows, ag, model)
+    e = rep["baseline_table"].get(model)
+    pos = rep["controls"]["positive"].get(model, {})
+    libs = sorted({lib for r in rows if r.get("record") == "num_gpu_server" for lib in r.get("libraries") or []})
+    offl = ", ".join(f"{s}: {o['offloaded']} VRAM share "
+                     + (f"{o['ps_vram_share']:.3f}" if o["ps_vram_share"] is not None else "n/a")
+                     for s, o in v["offload"].items())
+    value = (f"{model} num_gpu {X2_OFFLOAD_NUM_GPU}: {_r2_table_str(e) if e else 'no gate-arm turns'}; backend library "
+             f"{libs or 'not logged'}; offload per negative-control session (seed: [GPU layers, total]) {offl or 'none'}; "
+             f"negative control (num_ctx 32768) canary misses {v['n_missed_canaries']} of {v['n_canaries']} canaries "
+             f"over {len(v['per_session'])} sessions, per session " + ", ".join(f"{s}: {m}" for s, m in
+                                                                                  v["per_session"].items())
+             + f"; missed turns: {v['pattern']}; positive control (8192) truncation turns "
+             f"{pos.get('truncation_detected_turns')}; verdict: {v['verdict']}")
+    return {"value": value, "n": f"{e['n_turns'] if e else 0} turns", "detail": {"verdict": v, "gates": rep}}
+
+
 # ───────────────────────────────────────────────── impact model (plan v2 A3, 2026-10-14)
 # analysis/impact_model.py prices each problem for the customer profile in results/impact_profile_20261014.json
 # (hour value cited from BLS; every other field an assumption). docs/IMPACT.md's profile table is these rows.
@@ -4687,6 +4836,20 @@ NUMBER_ENTRIES = [
                     "seed; the input of x2_evalset_tasks_real_v1",
      "compute": compute_x2_evalset_tasks_val_gates, "data_files": [X2_EVALSET_TASKS_VAL],
      "script_function": "analysis/numbers_register.py::compute_x2_evalset_tasks_val_gates"},
+    {"claim_id": "x2-evalset-tasks-real-wrong-rate", "description": "B3 task real run on evo-x2 (llama3.1:8b, "
+                    "qwen3:14b; Ollama default vs num_ctx 4096; 3 seeds; 30 tasks): wrong-task rate per window, excess "
+                    "at 4096 with a 95% task-cluster bootstrap CI, pre-registered reading, primary and per-seed sets",
+     "compute": compute_x2_evalset_tasks_real_wrong_rate, "data_files": [X2_EVALSET_TASKS_REAL, X2_EVALSET_TASKS_VAL],
+     "pending_ok": True, "script_function": "analysis/numbers_register.py::compute_x2_evalset_tasks_real_wrong_rate"},
+    {"claim_id": "x2-evalset-tasks-real-silent", "description": "B3 task real run: wrong cells split into silent "
+                    "(HTTP 200, no error) and surfaced, per model, cell set and window",
+     "compute": compute_x2_evalset_tasks_real_silent, "data_files": [X2_EVALSET_TASKS_REAL, X2_EVALSET_TASKS_VAL],
+     "pending_ok": True, "script_function": "analysis/numbers_register.py::compute_x2_evalset_tasks_real_silent"},
+    {"claim_id": "x2-r2-llama-val-32k-offload", "description": "Blade confound follow-up on evo-x2 (llama3.1:8b, "
+                    "negative control num_ctx 32768, 5 sessions, options.num_gpu 22 of 33 layers): offload lines per "
+                    "session, canary misses, pre-registered verdict (offload vs backend)",
+     "compute": compute_x2_r2_llama_val_32k_offload, "data_files": [X2_R2_LLAMA_VAL_32K_OFFLOAD], "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_x2_r2_llama_val_32k_offload"},
 
     {"claim_id": "impact-hour-value", "description": "Impact profile: value of one developer hour (BLS median hourly "
                     "wage, cited source in the profile JSON)",
