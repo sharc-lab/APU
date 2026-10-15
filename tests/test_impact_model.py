@@ -72,10 +72,15 @@ def test_p1_and_p7_rows_on_synthetic_rates():
     rates = {("m:8b", "ollama_default"): {"n": 4, "silent_ctx": 0, "rule_after_window": 0},
              ("m:8b", "num_ctx_4096"): {"n": 4, "silent_ctx": 2, "rule_after_window": 1}}
     wall = {("evo-x2", "m:8b", "ollama_default"): {"median_wall_s": 3600.0}}
-    r = im.p1(REPO, prof, inputs={"rates": rates, "wall": wall})
-    assert r["usd_day"] == 0.0
-    r4 = im.p1(REPO, prof, runtime="ollama_ctx_4096", inputs={"rates": rates, "wall": wall})
-    assert r4["usd_day"] == pytest.approx(10 * 0.5 * 1.0 * 100.0)
+    b3 = {"files": [], "windows": [], "met": False}
+    r = im.p1(REPO, prof, inputs={"rates": rates, "wall": wall, "b3": b3})
+    assert r["usd_day"] is None                       # P1 not measured until B3 task runs exist
+    assert r["cell"]["scenario_usd_day"] == 0.0
+    r4 = im.p1(REPO, prof, runtime="ollama_ctx_4096", inputs={"rates": rates, "wall": wall, "b3": b3})
+    assert r4["usd_day"] is None
+    assert r4["cell"]["scenario_usd_day"] == pytest.approx(10 * 0.5 * 1.0 * 100.0)   # ASSUMED, scenario only
+    au = im.audit_row("P1", r4, prof)
+    assert au["status"] == "assumed" and au["measured"] is None and au["assumed"] == pytest.approx(500.0)
     assert im.p7(REPO, prof, inputs={"rates": rates})["usd_day"] == 0.0
     assert im.p7(REPO, prof, runtime="ollama_ctx_4096", inputs={"rates": rates})["usd_day"] is None
 
@@ -91,12 +96,19 @@ def test_p2_p3_p6_rows_on_synthetic_inputs():
     prof = _profile()
     d = {("m:8b", "ollama_default"): {"vs": "num_ctx_32768", "median_delta_s": 3.6, "n_turns": 9}}
     assert im.p2(REPO, prof, inputs={"deltas": d})["usd_day"] == pytest.approx(10 * 3.6 * 10 / 3600 * 100)
-    over = {"m:8b": {"uncached": 3.0, "cached": 1.0, "overspend": 2.0, "n": 2}}
-    assert im.p3(REPO, prof, inputs={"overspend": over})["usd_day"] == pytest.approx(10 * 0.5 * 2.0)
+    over = {"m:8b": {"uncached": 3.0, "cached": 1.0, "overspend": 2.0, "resent_cached": 0.1, "resent_uncached": 2.0,
+                     "resent_tokens": 1000, "n": 2}}
+    r3 = im.p3(REPO, prof, inputs={"overspend": over})
+    assert r3["usd_day"] == pytest.approx(10 * 0.5 * 0.1)          # caching on: main case
+    assert r3["usd_day_upper"] == pytest.approx(10 * 0.5 * 2.0)    # no caching: upper bound only
+    au = im.audit_row("P3", r3, prof)
+    assert au["status"] == "measured" and au["low"] == pytest.approx(0.5) and au["high"] == pytest.approx(10.0)
     ss = {("evo-x2", "m-8b", "ollama_default"): {"p_timeout": 0.1, "timeout_s": 900, "p_fail": 0.0, "fail_s": None,
                                                  "n": 10, "n_events": 1, "escalation_usd_per_call": 0.01}}
     r = im.p6(REPO, prof, inputs={"single_shot": ss})
     assert r["usd_day"] == pytest.approx(6 * 0.1 * 900 / 3600 * 100)
+    au = im.audit_row("P6", r, prof)        # time: 0 (nobody waits) to the full hour value
+    assert au["status"] == "mixed" and au["measured"] == 0.0 and au["assumed"] == pytest.approx(r["usd_day"])
     assert r["cell"]["escalation_usd_day"] == pytest.approx(0.06)
     assert im.p6(REPO, prof, runtime="ollama_ctx_4096", inputs={"single_shot": ss})["usd_day"] is None
 
@@ -123,8 +135,10 @@ def test_model_rows_and_render_block_print_not_measured(monkeypatch):
         monkeypatch.setitem(im.ROW_FUNCS, k, lambda repo, profile, runtime=None, inputs=None, k=k: dict(stub, id=k))
     rows = im.model_rows(REPO, prof)
     assert all(r["usd_day"] is None and r["usd_month"] is None for r in rows.values())
+    audits = {k: r["audit"] for k, r in rows.items()}
     res = {"profile": prof, "base": rows, "scenario": rows, "total": im.total(rows), "scenario_total": im.total(rows),
-           "ranking": im.rank(rows)}
+           "audit_total": im.audit_total(rows, audits), "scenario_audit_total": im.audit_total(rows, audits),
+           "ranking": im.rank(rows), "previous_basis": None}
     block = im.render_block(res, {})
     assert block.startswith(im.BEGIN) and block.endswith(im.END)
     assert "| P1 | silent wrong results from context loss | not measured | not measured | not measured |" in block
@@ -179,10 +193,50 @@ def test_profile_hour_value_is_cited_and_other_fields_are_assumptions():
 
 def test_escalation_ids_and_price_file_are_shared():
     assert list(im.ESCALATIONS) == ["E1", "E2", "E3", "E4"]
+    prof = im.load_profile(REPO)
+    assert im.price_file(prof) == im.PRICES_FILE == "results/cloud_prices_anthropic_20261014.json"
+    prices = im.prices(REPO, prof)
+    assert prof["assumptions"]["cloud_model"] in prices["models"]
+    assert prices["source_url"].startswith("https://platform.claude.com/") and prices["fetched_utc"]
+    s = prices["models"]["claude-sonnet-5-5"]["standard"]["short"]
+    assert (s["input"], s["cache_write"], s["cached_input"], s["output"]) == (2.00, 2.50, 0.10, 10.00)
+
+
+def test_resent_history_and_escalation_caching_rules():
     import cloud_budget_forecast as cbf
-    assert im.PRICES_FILE == cbf.PRICES_FILE
-    prices = im.prices(REPO)
-    assert im.load_profile(REPO)["assumptions"]["cloud_model"] in prices["models"]
+    pr = {"models": {"m": {"min_cacheable_tokens": 512, "standard": {
+        "short": {"input": 2.0, "cached_input": 0.1, "cache_write": 2.5, "output": 10.0}}}}}
+    calls = [(600, 10), (1000, 10), (400, 10)]
+    assert cbf.resent_tokens(calls, 512) == [0, 600, 400]
+    rh = im.resent_history_cost(calls, "m", "standard", pr)
+    assert rh["tokens"] == 1000 and rh["cached"] == pytest.approx(1000 * 0.1 / 1e6)
+    assert rh["uncached"] == pytest.approx(1000 * 2.0 / 1e6)
+    # second step within the cache lifetime hits, third one (400 s later) does not
+    e = im.escalated_cost([(600, 0, 0.0), (1000, 0, 100.0), (1200, 0, 500.0)], "m", "standard", pr)
+    assert e["hits"] == 1
+    on = (600 * 2.5 + (600 * 0.1 + 400 * 2.5) + 1200 * 2.5) / 1e6
+    assert e["cached"] == pytest.approx(on) and e["uncached"] == pytest.approx(2800 * 2.0 / 1e6)
+
+
+def test_b3_gate_ignores_validation_files(tmp_path):
+    (tmp_path / "results").mkdir()
+    row = {"record": "r2a_turn", "arm_id": "ollama_ctx_8192_call2_notools", "end_state_ok": True}
+    (tmp_path / "results" / "x2_evalset_tasks_val_v1.jsonl").write_text(json.dumps(row) + "\n", encoding="utf-8")
+    assert im.b3_task_windows(tmp_path)["met"] is False
+    rows = [row, dict(row, arm_id="ollama_ctx_4096_call2_notools")]
+    (tmp_path / "results" / "x2_evalset_tasks_real_v1.jsonl").write_text(
+        "".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8")
+    g = im.b3_task_windows(tmp_path)
+    assert g["met"] is True and g["windows"] == ["num_ctx_4096", "num_ctx_8192"]
+
+
+def test_audit_total_adds_measured_only_and_lists_assumed():
+    audits = {"P1": {"measured": None, "assumed": 9.0, "status": "assumed", "low": None, "high": None},
+              "P2": {"measured": 0.0, "assumed": 5.0, "status": "mixed", "low": 0.0, "high": 5.0},
+              "P3": {"measured": 1.0, "assumed": 0.0, "status": "measured", "low": 1.0, "high": 20.0}}
+    t = im.audit_total({}, audits)
+    assert t["measured_usd_day"] == 1.0 and t["low"] == 1.0 and t["high"] == 25.0
+    assert t["excluded_assumed"] == ["P1"]
 
 
 def test_register_has_impact_rows():

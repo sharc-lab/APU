@@ -1,0 +1,118 @@
+{
+  "purpose": "Customer profiles for analysis/business_metrics.py (plan v2 Part C1). The hour value is the cited BLS figure of results/impact_profile_20261014.json (register row impact-hour-value); the hour-value range below is derived from the same BLS page's percentiles. Every field under a profile's assumptions, and every value in sensitivity, is an ASSUMPTION (a modelling choice, not a measurement) and is labelled so wherever it is used.",
+  "hour_value": {
+    "median_source": "results/impact_profile_20261014.json hour_value (register row impact-hour-value): USD 64.44/h, BLS OOH Quick Facts 2025 Median Pay for Software Developers, Quality Assurance Analysts, and Testers",
+    "range": {
+      "source_url": "https://www.bls.gov/ooh/computer-and-information-technology/software-developers.htm",
+      "publisher": "U.S. Bureau of Labor Statistics, Occupational Outlook Handbook",
+      "fetched_utc": "2026-10-14",
+      "fetch_method": "WebFetch (page converted to text and read back); figures transcribed from that text",
+      "reference_period": "May 2025",
+      "quoted": [
+        "The median annual wage for software developers was $135,980 in May 2025.",
+        "The lowest 10 percent earned less than $82,460, and the highest 10 percent earned more than $214,670.",
+        "Quick Facts, 2025 Median Pay: \"$134,040 per year\" and \"$64.44 per hour\""
+      ],
+      "p10_annual_usd": 82460,
+      "p90_annual_usd": 214670,
+      "group_median_annual_usd": 134040,
+      "group_median_hourly_usd": 64.44,
+      "hours_per_year_derivation": "the page gives percentiles as annual wages only (no hourly percentiles). The hourly figures are DERIVED: annual / (group median annual / group median hourly), i.e. the hours per year implied by the page's own Quick Facts pair (134040 / 64.44 = 2080.1).",
+      "caveat": "the percentiles are for software developers alone; the median hour value is the wider group's. Wages, not loaded labour cost; no overhead multiplier."
+    }
+  },
+  "profiles": {
+    "mid_team": {
+      "label": "mid-size team on evo-x2-class workstations, llama3.1:8b",
+      "assumptions": {
+        "team_size": 25,
+        "agent_sessions_per_dev_per_day": 4,
+        "turns_per_session": 40,
+        "single_shot_calls_per_dev_per_day": 10,
+        "workdays_per_month": 21,
+        "co_runner_share": 0.25,
+        "cloud_session_share": 0.5,
+        "device": "evo-x2",
+        "model": "llama3.1:8b",
+        "default_tier": "ollama_default",
+        "router_tiers": [
+          "num_ctx_4096",
+          "num_ctx_8192",
+          "num_ctx_16384",
+          "num_ctx_32768",
+          "ollama_default"
+        ],
+        "alternatives": {},
+        "cloud_model": "claude-sonnet-5-5",
+        "cloud_tier": "standard",
+        "cloud_price_file": "results/cloud_prices_anthropic_20261014.json"
+      },
+      "notes": {
+        "default_tier": "Ollama's default window on evo-x2 loads 131072 for llama3.1:8b (register row R2-real-v1-loaded-ctx)"
+      }
+    },
+    "mid_team_qwen3_14b": {
+      "label": "mid-size team on evo-x2-class workstations, qwen3:14b",
+      "assumptions": {
+        "team_size": 25,
+        "agent_sessions_per_dev_per_day": 4,
+        "turns_per_session": 40,
+        "single_shot_calls_per_dev_per_day": 10,
+        "workdays_per_month": 21,
+        "co_runner_share": 0.25,
+        "cloud_session_share": 0.5,
+        "device": "evo-x2",
+        "model": "qwen3:14b",
+        "default_tier": "ollama_default",
+        "router_tiers": [
+          "num_ctx_4096",
+          "num_ctx_8192",
+          "num_ctx_16384",
+          "num_ctx_32768",
+          "ollama_default"
+        ],
+        "alternatives": {},
+        "cloud_model": "claude-sonnet-5-5",
+        "cloud_tier": "standard",
+        "cloud_price_file": "results/cloud_prices_anthropic_20261014.json"
+      },
+      "notes": {
+        "default_tier": "Ollama's default window on evo-x2 loads 40960 for qwen3:14b (register row R2-real-v1-loaded-ctx)"
+      }
+    }
+  },
+  "sensitivity": {
+    "base_profile": "mid_team",
+    "team_size": [
+      3,
+      10,
+      25,
+      50
+    ],
+    "agent_sessions_per_dev_per_day": [
+      2,
+      4,
+      8
+    ],
+    "cloud_session_share": [
+      0.25,
+      0.5,
+      0.75
+    ],
+    "hour_value": [
+      "p10",
+      "median",
+      "p90"
+    ],
+    "notes": "ASSUMPTION grid: one parameter varied at a time around the base profile"
+  },
+  "common_notes": {
+    "contention": "ASSUMPTION: every session runs at single-user speed on a machine of its class (no queueing between developers); how many machines a team needs is not modelled",
+    "single_shot": "single-shot calls are priced only through register row pareto-sample-recommendation-v2 (evo-x2 configurations; its cloud reference is a STUB point: priced from token counts, cloud quality not measured)",
+    "cloud": "operator decisions A and B (2026-10-14): cloud fees use the shared Anthropic table (results/cloud_prices_anthropic_20261014.json, official pricing page), escalation model claude-sonnet-5-5, provider prompt caching on as the main case; no caching is shown only as the upper bound.",
+    "waiting_time": "operator decision C: local compute time is valued from 0 (nobody waits) up to the full hour value (someone waits); the upper end is an ASSUMPTION, not a measurement."
+  },
+  "dropped_profiles": {
+    "small_team": "operator decision F (2026-10-14): the 8 GB laptop profile is dropped. No R2 session completed on that laptop, so every session outcome in it was transferred from the workstation (evo-x2) at the same window; nothing measured on the laptop supported the profile's totals. Its measured laptop facts stay in their own register rows (blade-k1-layer-split, blade-dryrun-rates)."
+  }
+}
