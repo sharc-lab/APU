@@ -191,6 +191,19 @@ def dry_run(args, passthrough, x2mod) -> dict:
             "runtime_config": args.runtime_config, "server_env": RUNTIME_CONFIGS[args.runtime_config]["server_env"]}
 
 
+# think value per model x2_r2_agent.MODELS lacks (2026-10-15, staged B6 for the 2026-10-26 window): the same values
+# harness/x2_r2_scale.py's SCALE_THINK uses on evo-x2 (qwen3 hybrid: false; Llama has no thinking mode: omitted).
+# Without them MODELS.get() returns None and qwen3:32b would run with thinking on.
+EXTRA_MODEL_THINK = {"qwen3:32b": False, "llama3.3:70b": None}
+
+
+def register_extra_models(x2mod):
+    models = getattr(x2mod, "MODELS", None)
+    if isinstance(models, dict):
+        for m, t in EXTRA_MODEL_THINK.items():
+            models.setdefault(m, t)
+
+
 def _import_x2():
     import x2_r2_agent as x2
     return x2
@@ -220,6 +233,7 @@ def main(argv=None, x2mod=None, hc=None, tq=None, hostname=None):
             note = f"stopped: {e}"[:400]
             return note
         x2mod = x2mod or _import_x2()
+        register_extra_models(x2mod)
         fwd = forwarded_argv(args, passthrough)
         missing = missing_capabilities(x2_capabilities(x2mod), fwd)
         if missing:
