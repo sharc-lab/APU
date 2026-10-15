@@ -1,0 +1,19 @@
+[
+ {
+  "id": "t2s_wk_model_pull",
+  "status": "pending",
+  "cmd": [
+   "C:\\Users\\sharc\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+   "t2s_model_pull.py",
+   "--tags",
+   "qwen3:14b",
+   "--out",
+   "results/t2s_model_pull_v1.jsonl"
+  ],
+  "note": "T2S week pre-step: est 0.5 h (nominal); pulls qwen3:14b (missing from the evo-t2s store on 2026-10-15) with the pinned Ollama 0.34.4, verifies a 1-token load",
+  "plan_step": 0,
+  "est_hours": 0.5,
+  "est_basis": "nominal",
+  "expected_out": "results/t2s_model_pull_v1.jsonl"
+ }
+]

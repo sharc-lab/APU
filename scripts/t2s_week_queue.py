@@ -211,6 +211,22 @@ def build_optional() -> list[dict]:
              "expected_out": s["out"], "gate": {"requires_done": ID_PREFIX + s["gate"]}} for s in optional_specs()]
 
 
+# PULLS (2026-10-15, found at the window's start): the evo-t2s Ollama store had no qwen3:14b, which every R2 entry
+# uses and the preflight hard-checks. One job, its own file, loaded BEFORE queues/t2s_week_queue.json so it is the
+# first pending entry; t2s_wk_preflight (no gate) runs after it and checks the model is there. Nominal hours.
+PULLS_PATH = REPO / "queues" / "t2s_week_pulls.json"
+PULLS_EST_HOURS = 0.5   # nominal: one ~9 GB library pull plus a 1-token load check
+
+
+def build_pulls() -> list[dict]:
+    return [{"id": ID_PREFIX + "model_pull", "status": "pending",
+             "cmd": [T2S_PY, "t2s_model_pull.py", "--tags", "qwen3:14b", "--out", "results/t2s_model_pull_v1.jsonl"],
+             "note": f"T2S week pre-step: est {PULLS_EST_HOURS} h (nominal); pulls qwen3:14b (missing from the evo-t2s "
+                     f"store on 2026-10-15) with the pinned Ollama 0.34.4, verifies a 1-token load",
+             "plan_step": 0, "est_hours": PULLS_EST_HOURS, "est_basis": "nominal",
+             "expected_out": "results/t2s_model_pull_v1.jsonl"}]
+
+
 def job_specs() -> list[dict]:
     """The queued jobs in queue order (every spec not in DEFERRED)."""
     return [s for s in _all_specs() if s["key"] not in DEFERRED]
@@ -326,6 +342,7 @@ ADVANCING_SCRIPTS = {  # script -> the test that proves one tq.advance() on exit
     "t2s_r2_agent.py": "tests/test_t2s_r2_agent.py::test_main_advances_exactly_once_*",
     "t2s_night2.py": "tests/test_t2s_week_queue.py::test_night2_main_advances_once",
     "t2s_outcome_table.py": "tests/test_t2s_outcome_subset.py::test_main_advances_once_when_queued",
+    "t2s_model_pull.py": "tests/test_t2s_model_pull.py::test_main_advances_exactly_once_*",
 }
 
 
@@ -397,6 +414,12 @@ def check_entry(item, earlier_ids, x2_result_names) -> dict:
             for ph in res["namespace"]["phases"].split(","):
                 if ph not in n2.PHASE_FN:
                     problems.append(f"unknown night2 phase {ph!r}")
+    elif script == "t2s_model_pull.py":
+        import t2s_model_pull as mp
+        res = argparse_probe.probe(mp.main, argv)
+        info["parse_ok"] = res["ok"]
+        if not res["ok"]:
+            problems.append(f"t2s_model_pull rejects argv: {res['error']}")
     elif script == "t2s_week_preflight.py":
         info["parse_ok"] = not argv
         if argv:
@@ -439,6 +462,37 @@ def load(queue_json, tq=None) -> list[str]:
     return [it["id"] for it in new]
 
 
+LOAD_PAUSE_REASON = ("t2s_week_queue load-window: one read-modify-write of queue_state.json; released by the same "
+                     "command's finally block (t2s_queue.clear_pause), no person needed")
+
+
+def load_window(queue_jsons, tq=None) -> list[str]:
+    """Appends the entries of several queue files, in order, as ONE read-modify-write of queue_state.json under the
+    queue pause (set_pause with a reason naming its release, clear_pause in a finally block). Refuses (writes nothing)
+    if an existing entry is pending or running (an old job would launch) or if any id is already present."""
+    if tq is None:
+        import t2s_queue as tq
+    new = []
+    for p in queue_jsons:
+        new += json.loads(Path(p).read_text(encoding="utf-8-sig"))
+    tq.set_pause(LOAD_PAUSE_REASON)
+    try:
+        cur = tq.read_queue()
+        live = [f"{it['id']}={it.get('status')}" for it in cur if it.get("status") in ("pending", "running")]
+        if live:
+            raise SystemExit(f"refusing to load: existing entries are pending or running: {live}")
+        ids = [it["id"] for it in new]
+        clash = sorted(set(ids) & {it["id"] for it in cur})
+        if clash or len(set(ids)) != len(ids):
+            raise SystemExit(f"refusing to load: duplicate or existing ids: {clash or ids}")
+        for it in new:
+            it["status"] = "pending"
+        tq.write_queue(cur + new)
+        return ids
+    finally:
+        tq.clear_pause()
+
+
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     cmd = argv[0] if argv else "dry-run"
@@ -446,6 +500,15 @@ def main(argv=None):
         QUEUE_PATH.parent.mkdir(parents=True, exist_ok=True)
         QUEUE_PATH.write_text(json.dumps(build_queue(), indent=1) + "\n", encoding="utf-8")
         print(f"wrote {QUEUE_PATH}")
+    elif cmd == "build-pulls":
+        PULLS_PATH.write_text(json.dumps(build_pulls(), indent=1) + "\n", encoding="utf-8")
+        print(f"wrote {PULLS_PATH}")
+    elif cmd == "dry-run-pulls":
+        items = json.loads(PULLS_PATH.read_text(encoding="utf-8"))
+        rep = dry_run(items)
+        rep["fresh_build_matches_file"] = items == build_pulls()
+        print(json.dumps(rep, indent=1))
+        return 0 if rep["ok"] and rep["fresh_build_matches_file"] else 1
     elif cmd == "build-optional":
         OPTIONAL_PATH.write_text(json.dumps(build_optional(), indent=1) + "\n", encoding="utf-8")
         print(f"wrote {OPTIONAL_PATH}")
@@ -460,6 +523,9 @@ def main(argv=None):
     elif cmd == "load":
         ids = load(argv[1])
         print(f"loaded {len(ids)} pending entries: {ids}")
+    elif cmd == "load-window":
+        ids = load_window(argv[1:])
+        print(f"loaded {len(ids)} pending entries under the queue pause (cleared): {ids}")
     else:
         raise SystemExit(f"unknown command {cmd!r}")
     return 0
