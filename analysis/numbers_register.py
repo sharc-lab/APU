@@ -4260,17 +4260,11 @@ def compute_window_override_methods(repo):
 # ───────────────────────────────────────────────── B5 policy comparison (pre-registered 2026-10-14)
 # harness/policy_compare.py. The plan-hours row is an ESTIMATE computed from committed result files now; the result rows
 # are PENDING until results/x2_policy_compare.jsonl is synced (the evo-t2s and Blade files join when they exist).
+B5_PRICES = "results/cloud_prices_anthropic_20261014.json"   # the shared price table (impact_model.PRICES_FILE)
 B5_FILES = {"evo-x2": "results/x2_policy_compare.jsonl", "evo-t2s": "results/t2s_policy_compare.jsonl",
             "blade": "results/blade_policy_compare_qwen3_8b_v1.jsonl"}
 B5_PLAN_INPUTS = ["results/x2_r2_real_v1.jsonl", "results/x2_r2_real_v1b.jsonl", "results/x2_r2_mitigation_v1.jsonl",
                   "results/blade_k1_v2.summary.json", "src/dse/envelope_data.json"]
-
-
-def _cbf():
-    import sys as _sys
-    _sys.path.insert(0, str(REPO / "analysis"))
-    import cloud_budget_forecast
-    return cloud_budget_forecast
 
 
 def _b5_rows(repo):
@@ -4299,9 +4293,9 @@ def compute_b5_plan_hours(repo):
 
 def compute_b5_policy_metrics(repo):
     """B5 per platform and model: rule pass rate (rules in use), history recall, session wall-clock (cloud steps
-    re-timed per A-B5-cloud-latency), cloud USD per session (gpt-6.1-sol, caching on), per policy; the Pareto frontier."""
+    re-timed per A-B5-cloud-latency), cloud USD per session (the shared price table, claude-sonnet-5-5, caching on), per policy; the Pareto frontier."""
     pc = _harness_module("policy_compare")
-    prices = _cbf().load_prices(repo)
+    prices = pc.load_cloud_prices(repo)
     rows = _b5_rows(repo)
     if not rows["evo-x2"]:
         raise FileNotFoundError(repo / B5_FILES["evo-x2"])
@@ -4327,7 +4321,7 @@ def compute_b5_verdict(repo):
     rows = _b5_rows(repo)
     if not rows["evo-x2"]:
         raise FileNotFoundError(repo / B5_FILES["evo-x2"])
-    v = pc.b5_verdict(rows, _cbf().load_prices(repo))
+    v = pc.b5_verdict(rows, pc.load_cloud_prices(repo))
     per = "; ".join(f"{p} {e['status']} (router on frontier in every complete cell: "
                     f"{e.get('router_on_frontier_all_cells')}, fixed on frontier in every cell: "
                     f"{e.get('fixed_on_frontier_all_cells')})" for p, e in v["platforms"].items())
@@ -5109,11 +5103,11 @@ NUMBER_ENTRIES = [
      "script_function": "analysis/numbers_register.py::compute_b5_plan_hours"},
     {"claim_id": "b5-policy-metrics", "description": "B5 per platform/model/policy: rule pass rate, history recall, "
                     "session wall-clock, cloud USD per session; Pareto frontier",
-     "compute": compute_b5_policy_metrics, "data_files": [B5_FILES["evo-x2"]], "pending_ok": True,
+     "compute": compute_b5_policy_metrics, "data_files": [B5_FILES["evo-x2"], B5_PRICES], "pending_ok": True,
      "script_function": "analysis/numbers_register.py::compute_b5_policy_metrics"},
     {"claim_id": "b5-verdict", "description": "Pre-registered B5 verdict: router on the 4-metric Pareto frontier on every "
                     "platform and no single fixed setting on the frontier on all platforms",
-     "compute": compute_b5_verdict, "data_files": [B5_FILES["evo-x2"]], "pending_ok": True,
+     "compute": compute_b5_verdict, "data_files": [B5_FILES["evo-x2"], B5_PRICES], "pending_ok": True,
      "script_function": "analysis/numbers_register.py::compute_b5_verdict"},
     {"claim_id": "b5-kv-recall", "description": "B5 (g)/(h): long-context recall at the largest window per KV precision "
                     "and the server-log KV-type check",

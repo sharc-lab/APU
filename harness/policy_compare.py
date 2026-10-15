@@ -10,7 +10,7 @@ seeds 20260901-03; 40 turns) are run under eight context policies, one arm per p
                   (harness/x2_r2_client_trim.ClientTrimRuntime, margin 0.05, render and count), as --mode mitigation
   (d) router      src/dse/router.Router per call at window D, cloud in stub mode; a cloud step is executed by the same
                   local model with the full history at window L (the full-history proxy, ASSUMPTION A-B5-cloud) and
-                  costed from the shared price table (analysis/cloud_budget_forecast.py, caching on as the main case)
+                  costed at the shared price table by analysis/impact_model.escalated_cost (caching on, main case)
   (e) autosize    num_ctx = G, the largest window fully in GPU memory (K1 rule: size_vram >= 99% of size)
   (f) num_keep    no num_ctx (as (a)) + options.num_keep = S, S measured per session by
                   harness/x2_num_keep.measure_system_tokens (render and count), as --num-keep system
@@ -106,12 +106,12 @@ ROUTER_BUDGET_USD = 5.0                 # per session; the router's own affordab
 # ASSUMPTION A-B5-cloud-latency (labelled in every report): the wall time of a cloud step.
 CLOUD_TTFT_S_ASSUMED = 1.0
 CLOUD_DECODE_TOK_S_ASSUMED = 50.0
-# Cloud costing: the shared price table (results/cloud_prices_20261008.json via analysis/cloud_budget_forecast.py).
-CLOUD_PRICE_MODEL = "gpt-6.1-sol"       # the forecast's mid-tier
+# Cloud costing: the shared price table (operator decision A, 2026-10-14: results/cloud_prices_anthropic_20261014.json,
+# analysis/impact_model.PRICES_FILE), priced by analysis/impact_model.escalated_cost (caching on between escalated
+# steps within the model's cache lifetime, impact_model.CACHE_TTL_S; no caching as the upper bound).
+CLOUD_PRICE_MODEL = "claude-sonnet-5-5"            # the table's escalation mid tier
 CLOUD_PRICE_TIER = "standard"
-CLOUD_PRICE_SENSITIVITY_MODEL = "gpt-6-luna"
-CACHE_MIN_TOKENS = 1024
-CACHE_RETENTION_S = 30 * 60
+CLOUD_PRICE_SENSITIVITY_MODEL = "claude-haiku-5-5"  # the table's cheap tier
 
 # long-context recall probe
 RECALL_NEEDLES = 8
@@ -137,10 +137,12 @@ PLATFORMS = {
 }
 VERDICT_PLATFORMS = ("evo-x2", "evo-t2s", "blade")
 JOB_ID = "x2_policy_compare"
-# Queue position on evo-x2 (operator 2026-10-14): after B1 and the family jobs. Placed at the end of the queue, so no
-# pending entry of another job is moved; the check below refuses if any of these is pending AFTER the insert point.
+# Queue position on evo-x2 (operator order of 2026-10-14 21:40 PT, docs/X2_QUEUE_PLAN.md): item 13, after B1, the
+# family jobs and the B3 runs, before x2_window_override_methods (item 14, last). Inserted immediately before the first
+# pending BEFORE_IDS entry, otherwise at the end; nothing else moves.
 AFTER_IDS = ("x2_r2_family_mistral_small32_real", "x2_r2_scale_real", "x2_r2_scale_validation",
              "x2_scale_timing_probe")
+BEFORE_IDS = ("x2_window_override_methods",)
 PYTHON_EXE = sys.executable
 SIDE_DIR = "b5"      # evo-x2: C:\apu\ovn\b5 holds policy_compare.py and this branch's x2_r2_agent.py
 
@@ -549,31 +551,39 @@ def _ts(s):
         return None
 
 
+def _impact_model():
+    sys.path.insert(0, str(REPO / "analysis"))
+    import impact_model
+    return impact_model
+
+
+def load_cloud_prices(repo=REPO):
+    """The shared price table (impact_model.prices: results/cloud_prices_anthropic_20261014.json)."""
+    return _impact_model().prices(repo)
+
+
+def escalated_steps(route_rows: list[dict]) -> list[tuple]:
+    """[(input_tokens, output_tokens, t_start_s)] of a session's cloud steps. Input = the router's calibrated estimate
+    of system + tools + full history (tokens["system"] + tokens["full_history"]); output = the proxy reply's eval_count;
+    t = the route row's timestamp (a step without one never reads from cache)."""
+    out = []
+    for i, r in enumerate(x for x in route_rows if x.get("target") == "cloud"):
+        tok = r.get("tokens") or {}
+        t = _ts(r.get("ts_utc"))
+        out.append((int((tok.get("system") or 0) + (tok.get("full_history") or 0)), int(r.get("eval_count") or 0),
+                    t if t is not None else 1e12 * (i + 1)))
+    return out
+
+
 def cloud_session_cost(route_rows: list[dict], prices, model=CLOUD_PRICE_MODEL, tier=CLOUD_PRICE_TIER,
                        caching=True) -> dict:
-    """USD of one session's cloud steps from the shared price table (cloud_budget_forecast.call_cost). Input tokens =
-    the router's calibrated estimate of system + tools + full history (tokens["system"] + tokens["full_history"]);
-    output = the proxy reply's eval_count. Caching (main case, as the forecast's implicit caching): cached = min(previous
-    cloud input of this session, this input) when the previous was >= 1024 tokens and at most 30 min earlier; the rest
-    of an input >= 1024 tokens is a cache write."""
-    import cloud_budget_forecast as cbf
-    total, prev_in, prev_t, n = 0.0, 0, None, 0
-    for r in route_rows:
-        if r.get("target") != "cloud":
-            continue
-        tok = r.get("tokens") or {}
-        p = int((tok.get("system") or 0) + (tok.get("full_history") or 0))
-        o = int(r.get("eval_count") or 0)
-        t = _ts(r.get("ts_utc"))
-        if caching:
-            fresh = prev_t is not None and t is not None and t - prev_t <= CACHE_RETENTION_S
-            cached = min(prev_in, p) if (fresh and prev_in >= CACHE_MIN_TOKENS) else 0
-            write = (p - cached) if p >= CACHE_MIN_TOKENS else 0
-            total += cbf.call_cost(prices, model, tier, p, o, cached=cached, write=write)
-        else:
-            total += cbf.call_cost(prices, model, tier, p, o)
-        prev_in, prev_t, n = p, t, n + 1
-    return {"usd": total, "n_cloud_calls": n}
+    """USD of one session's cloud steps at the shared price table, priced by impact_model.escalated_cost: caching on
+    (main case) reads from cache the previous cloud step's input when it reached the model's minimum cacheable prefix
+    and started at most impact_model.CACHE_TTL_S earlier, the rest of a cacheable input is a cache write; caching off
+    prices every input token at the input rate."""
+    esc = escalated_steps(route_rows)
+    c = _impact_model().escalated_cost(esc, model, tier, prices)
+    return {"usd": c["cached"] if caching else c["uncached"], "n_cloud_calls": c["n"], "cache_hits": c["hits"]}
 
 
 def session_metrics(turns: list[dict], rules: list[str], route_rows=None, prices=None) -> dict:
@@ -753,7 +763,8 @@ def b5_verdict(platform_rows: dict, prices=None, required=VERDICT_PLATFORMS, see
             "assumptions": {"A-B5-cloud": "a cloud step = the same local model with the full history at window L",
                             "A-B5-cloud-latency": f"{CLOUD_TTFT_S_ASSUMED} s + output tokens / "
                                                   f"{CLOUD_DECODE_TOK_S_ASSUMED} tok/s",
-                            "price": f"{CLOUD_PRICE_MODEL} {CLOUD_PRICE_TIER}, implicit caching (main)"}}
+                            "price": f"{CLOUD_PRICE_MODEL} {CLOUD_PRICE_TIER}, shared price table, caching on "
+                                     f"between cloud steps (main)"}}
 
 
 def recall_summary(rows: list[dict]) -> dict:
@@ -1138,16 +1149,23 @@ def queue_entry(results_dir=r"C:\apu\ovn\results") -> dict:
 
 
 def insert_position(items: list[dict]) -> int:
-    """At the end of the queue, after every listed predecessor (AFTER_IDS). Raises if the id is already queued."""
+    """Immediately before the first pending BEFORE_IDS entry, else at the end. Raises if the id is already queued or if
+    a listed predecessor (AFTER_IDS) would come after the insert point."""
     if any(it["id"] == JOB_ID for it in items):
         raise ValueError(f"{JOB_ID} is already in the queue")
-    return len(items)
+    pos = next((i for i, it in enumerate(items) if it["id"] in BEFORE_IDS and it.get("status") == "pending"),
+               len(items))
+    late = [it["id"] for it in items[pos:] if it["id"] in AFTER_IDS]
+    if late:
+        raise ValueError(f"predecessors {late} would run after {JOB_ID}")
+    return pos
 
 
 def queue_insert(log=print) -> list[dict]:
     import t2s_queue as tq
-    tq.set_pause("policy_compare --queue-insert: one read-modify-write appending x2_policy_compare at the end of the "
-                 "queue; released by clear_pause() in this same script's finally block within seconds")
+    tq.set_pause("policy_compare --queue-insert: one read-modify-write inserting x2_policy_compare before "
+                 "x2_window_override_methods (else at the end); released by clear_pause() in this same script's "
+                 "finally block within seconds")
     try:
         items = tq.read_queue()
         pos = insert_position(items)
@@ -1377,9 +1395,7 @@ def main(argv=None, advance=True, deps=None):
         # the report is a convenience (the register recomputes everything on the controller); it never fails the job
         try:
             if prices is None:
-                sys.path.insert(0, str(REPO / "analysis"))
-                import cloud_budget_forecast as cbf
-                prices = cbf.load_prices(REPO)
+                prices = load_cloud_prices(REPO)
         except Exception:
             prices = None
         try:

@@ -202,13 +202,16 @@ def test_router_factory_builds_a_router_for_every_platform(tmp_path):
 
 def test_cloud_cost_caching_matches_the_shared_price_table():
     import cloud_budget_forecast as cbf
-    prices = cbf.load_prices()
+    import impact_model as im
+    prices = pc.load_cloud_prices()
+    assert prices["source_url"] == im.prices()["source_url"] and pc.CLOUD_PRICE_MODEL in prices["models"]
     r1 = {"target": "cloud", "tokens": {"system": 1000, "full_history": 3000}, "eval_count": 100,
           "ts_utc": "2026-10-20T00:00:00+00:00"}
-    r2 = dict(r1, tokens={"system": 1000, "full_history": 5000}, ts_utc="2026-10-20T00:10:00+00:00")
-    r3 = dict(r1, tokens={"system": 1000, "full_history": 6000}, ts_utc="2026-10-20T01:00:00+00:00")  # > 30 min
+    r2 = dict(r1, tokens={"system": 1000, "full_history": 5000}, ts_utc="2026-10-20T00:04:00+00:00")
+    r3 = dict(r1, tokens={"system": 1000, "full_history": 6000}, ts_utc="2026-10-20T00:20:00+00:00")  # > TTL
     got = pc.cloud_session_cost([r1, {"target": "local"}, r2, r3], prices)
     m, t = pc.CLOUD_PRICE_MODEL, pc.CLOUD_PRICE_TIER
+    assert got["cache_hits"] == 1
     exp = (cbf.call_cost(prices, m, t, 4000, 100, cached=0, write=4000)
            + cbf.call_cost(prices, m, t, 6000, 100, cached=4000, write=2000)
            + cbf.call_cost(prices, m, t, 7000, 100, cached=0, write=7000))
@@ -285,8 +288,7 @@ def test_metrics_balanced_seeds_and_alias():
 
 
 def test_verdict_supported_refuted_inconclusive():
-    import cloud_budget_forecast as cbf
-    prices = cbf.load_prices()
+    prices = pc.load_cloud_prices()
     # router: best history at some USD; the fixed settings trade wall clock differently per platform
     x2 = _rows(_pol(a=(True, False, 5.0), d=(True, True, 12.0), b=(True, True, 30.0)), cloud=True)
     t2s = _rows(_pol(c=(True, False, 4.0), a=(True, False, 9.0), d=(True, True, 12.0), b=(True, True, 30.0)),
@@ -364,6 +366,18 @@ def test_queue_insert_appends_and_refuses_twice(monkeypatch):
     with pytest.raises(ValueError):
         pc.queue_insert(log=lambda m: None)
     assert state["pause"][-1] == ("clear",)                   # cleared even when the insert refuses
+
+
+def test_insert_position_before_window_override_and_after_predecessors():
+    items = [{"id": "x2_r2_family_mistral_small32_real", "status": "pending"},
+             {"id": "x2_evalset_replay_val_v1", "status": "pending"},
+             {"id": "x2_window_override_methods", "status": "pending"}]
+    assert pc.insert_position(items) == 2
+    assert pc.insert_position(items[:2]) == 2
+    bad = [{"id": "x2_window_override_methods", "status": "pending"},
+           {"id": "x2_r2_family_mistral_small32_real", "status": "pending"}]
+    with pytest.raises(ValueError):
+        pc.insert_position(bad)
 
 
 # ── the job with fakes ──────────────────────────────────────────────────────────────────────────────
@@ -552,7 +566,7 @@ def test_register_rows_pending_until_synced_then_compute(tmp_path):
         assert entries[cid]["pending_ok"] and nr._pending(entries[cid], repo=tmp_path)
     assert not entries["b5-plan-hours"].get("pending_ok")
     (tmp_path / "results").mkdir()
-    shutil.copy(REPO / "results" / "cloud_prices_20261008.json", tmp_path / "results")
+    shutil.copy(REPO / "results" / "cloud_prices_anthropic_20261014.json", tmp_path / "results")
     rows = _rows(_pol(d=(True, True, 12.0)), seeds=pc.SEEDS, turns=pc.TURNS, cloud=True)
     rows.insert(-1, {"record": "b5_recall", "model_id": "m", "precision": "q8_0", "num_ctx": 8192, "warmup": False,
                      "outcome": "ok", "score": {"recall": 1.0}})
