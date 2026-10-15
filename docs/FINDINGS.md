@@ -3692,3 +3692,178 @@ preflight on the machine's validation file. **The job `x2_evalset_tasks_real_v1`
 decision of 2026-10-14 22:30 PT): both B3 validations, `x2_evalset_tasks_val_v1` and `x2_evalset_guard_val_v1`, failed
 their gates, and the evalset is being redesigned; the task and guardrail real runs come back only after fixed
 validations pass. The pre-registration above stands unedited; its register rows stay PENDING.
+
+## PRE-REGISTRATION: B5 policy comparison, context policies (a) to (h) with KV q8_0 / q4_0 as (g) / (h), x2_policy_compare on evo-x2, staged for evo-t2s and the Blade (2026-10-14, NOT YET RUN)
+
+**Status:** PRE-REGISTRATION, committed on its own before any B5 file is deployed and before any queue is edited. No
+data for B5 exists. Operator task of 2026-10-14. The operator said a B5 pre-registration was already written; it was
+searched for and not found (docs/FINDINGS.md, every file under docs/, and a history search for "x2_policy_compare" on
+every branch, whose only hit is x2_r2_scale.py's queue-order list), so it is written here. **B4 is not a separate
+track:** KV cache precision q8_0 and q4_0 are policies (g) and (h) of B5.
+
+**Hypothesis H-B5.** Across platforms, no single fixed context setting is best, and a router that escalates to the
+cloud only when needed is always worth having: (d) is on the Pareto frontier of the four metrics below on every
+platform, and no single fixed setting is on the frontier on all platforms.
+
+**Sessions (the same R2 sessions as every R2 run).** `harness/x2_r2_agent.py` unchanged in what it sends and scores:
+the R2 session plan, two calls per turn, call-2 mode "off" (tools withheld on a turn's second call, the protocol of
+every Ollama R2 run since 2026-10-08), seeds 20260901, 20260902, 20260903, 40 turns, temperature 0, seed 42,
+num_predict 384. Models on evo-x2: llama3.1:8b and qwen3:14b (rules in use from `x2_r2_validation_v2.jsonl`), plus each
+B1 model (qwen3:32b, qwen3-30b-a3b-2507, llama3.3:70b) only if, read at job start, it passes its own validation in
+`x2_r2_scale_validation.jsonl` (`validation_preflight_per_model`) and the H-scale probe projection of its default tier
+gives at most 24.0 h for 6 distinct policies x 3 seeds (`B1_MODEL_CAP_H`). A model that fails validation is refused
+alone and recorded; a model absent from the store is recorded as missing. Rules in use per model are that model's
+validation gate-passing rules, as in every R2 run. One output file per platform: `results/x2_policy_compare.jsonl`,
+`results/t2s_policy_compare.jsonl`, `results/blade_policy_compare_qwen3_8b_v1.jsonl`.
+
+**Windows, measured by the job at start (per model and per server env).** D = the loaded context (`/api/ps`
+context_length) after a load with no num_ctx sent. A descending ladder of num_ctx candidates (the model's native
+context from `/api/show`, then 262144, 131072, 65536, 40960, 32768, 16384, 8192, 4096 at or below it), one load each (a
+one-token generation): a candidate **starts** when the request returns HTTP 200 and `/api/ps` context_length equals the
+candidate; it is **fully in GPU memory** when also size_vram >= 99% of size (K1's rule). L = the largest that starts;
+G = the largest fully in GPU memory. Under the base env the descent stops at the first candidate fully in GPU memory;
+under each KV env it stops at the first that starts. A window that cannot be measured leaves its policy not run, with
+the reason recorded.
+
+**Policies (one arm each, `b5_<letter>_<name>_call2_notools`).**
+- (a) **runtime default**: no num_ctx sent, the platform's base server env, no client wrapper.
+- (b) **largest window that starts**: num_ctx = L (base env).
+- (c) **client-side trimming**: num_ctx = D sent explicitly, and `x2_r2_client_trim.ClientTrimRuntime` with margin 0.05
+  (render and count; system prompt always kept, whole turns dropped oldest first), i.e. `--mode mitigation
+  --client-trim margin=0.05` at the default window.
+- (d) **router with cloud escalation**: `src/dse/router.Router` decides every call at window D (runtime
+  `ollama_ctx_<D>`), quality floor 0.9, no latency target, budget 5.00 USD per session (its own affordability check;
+  never binding for R2-sized sessions), cloud client in stub mode (no cloud call is made); canary-check turns mark turn 1
+  as needed, as `src/dse/r2_replay.py` does. local: sent untrimmed at D; local_trimmed: the router's kept turns at D;
+  refuse: no call (the call reads as an error and the turn is scored as usual); cloud: a **cloud step**, defined next.
+  - **Cloud step scoring, ASSUMPTION A-B5-cloud (labelled in every report).** The step is executed by the same local
+    model with the full untrimmed history at window L (the largest window that starts), and that reply continues the
+    session and is scored by the unchanged R2 scorer. This assumes the cloud model answers at least as well as the
+    same local model given the whole history; for a frontier cloud model it is conservative. If the full history
+    exceeds L as well, the step runs as is and its route row shows it.
+  - **Cloud step wall time, ASSUMPTION A-B5-cloud-latency.** 1.0 s + output tokens / 50 tok/s, replacing the proxy
+    call's measured time in the session wall-clock; the session wall-clock with the proxy's measured time is reported
+    next to it as a sensitivity.
+  - **Cloud cost.** The shared price table `results/cloud_prices_20261008.json` through
+    `analysis/cloud_budget_forecast.call_cost`, list prices, gpt-6.1-sol (the forecast's mid-tier), Standard, short
+    context. Input tokens = the router's calibrated estimate of system prompt + tools + full history; output = the proxy
+    reply's eval_count. **Caching on is the main case**, as the forecast's implicit caching: cached = min(previous cloud
+    input of the session, this input) when the previous was at least 1024 tokens and at most 30 min earlier (row
+    timestamps), the rest of an input of at least 1024 tokens is a cache write (1.25x input). Sensitivities: no caching;
+    gpt-6-luna.
+- (e) **auto-sized window**: num_ctx = G (largest fully in GPU memory, base env).
+- (f) **num_keep = system prompt length**: no num_ctx sent (as (a)); per session S is measured as
+  `harness/x2_num_keep.measure_system_tokens` does (render and count with the model's tokenizer, max with and without
+  tools) and every request carries options.num_keep = S (the `--num-keep system` option). No debug server: whether
+  Ollama applies the value is the A4 flag test's question; here the policy is evaluated as a user would deploy it.
+- (g) **KV q8_0**: the job's own server with OLLAMA_KV_CACHE_TYPE=q8_0 and OLLAMA_FLASH_ATTENTION=1 (never system-wide,
+  never the tray app); num_ctx = L under that env.
+- (h) **KV q4_0**: the same with q4_0.
+  - KV check: after loads under (g)/(h) the server log is read; the env must appear in Ollama's "server config" line,
+    and any KV type llama.cpp reports must equal the request. Otherwise that policy's sessions are not run (recorded
+    "KV type not applied"). No reported type = unverified, recorded as such.
+  - **Long-context recall** at the largest window each precision admits (f16 with flash attention at L(base), q8_0 at
+    L(q8_0), q4_0 at L(q4_0)): 8 needles (vault codes) at evenly spaced depths in a filler document filled to 85% of the
+    window, one question asking for all 8; 1 warm-up + 3 measured calls (needle seeds 1-3), score = needles recovered /
+    8, mean over the 3. A call with prompt_eval_count under 95% of the target or a loaded context under the window is
+    flagged truncated, never dropped. Reported (register row `b5-kv-recall`), not part of the verdict.
+
+**Identical configurations.** Policies that resolve to the identical configuration on a platform (same effective
+window, same server env, no client wrapper; only (a), (b), (e) can) share sessions: the later policy is recorded as an
+alias and carries the earlier one's metrics. On evo-x2 this is expected for (b) and (e), since Ollama there sizes the
+default to the native context; it is decided from the measured windows, not assumed.
+
+**Run order.** Windows first, then sessions seed-major (seed, then model, then a, c, f, d, e, g, h, b, the largest
+window last), the server restarted only when the env changes; recall last. Resumable: a completed session in the output
+file is not rerun. Statistics convention: no warm-up for sessions (every R2 turn is scored from turn 1, as in every R2
+run); 1 warm-up + 3 measured calls for the recall probe.
+
+**Metrics, per (platform, model, policy)**, over the seeds completed (40 turns) for every distinct policy of that model
+(balanced seeds):
+1. **Rule pass rate**: passing (turn, rule in use) pairs / all such pairs over every turn of those sessions.
+2. **History recall**: canary-check turns (every 5th turn, 8 per session) whose answer contains the expected history
+   tag Hk (canary_hist_ok) / canary-check turns. The history tags live only in the first user message.
+3. **Session wall-clock**: mean over sessions of the summed turn wall time (minutes), cloud steps re-timed per
+   A-B5-cloud-latency.
+4. **Cloud USD per session**: mean over sessions (0 for every policy but (d)).
+
+**Pareto frontier and verdict (mechanical, `harness/policy_compare.b5_verdict`, register row `b5-verdict`).** X
+dominates Y when X is at least as good on all four metrics (higher rates, lower minutes and USD) and strictly better on
+at least one; the frontier of a cell is the set of policies no other policy dominates (equal vectors do not dominate
+each other). A cell (platform, model) is **complete** when the file has run_end, every distinct policy has all 3 seeds
+complete, (d) ran, and the model has rules in use. A platform is complete when every model cell it ran is complete.
+Fixed settings: (a), (b), (c), (e), (f), (g), (h). Platforms in the verdict: evo-x2, evo-t2s, Blade.
+- **Supported**: all three platforms complete, (d) on the frontier in every complete cell of every platform, and no
+  fixed setting on the frontier in every cell of every platform.
+- **Refuted**: (d) dominated in any complete cell of any platform (the router is not worth having there); or, with all
+  three platforms complete, some fixed setting on the frontier in every cell of every platform (one fixed setting
+  suffices).
+- **Inconclusive** otherwise (a platform not run or not complete), with the per-platform state.
+- Not refuting: (d) sending no step to the cloud (USD 0), and ties.
+- **Stated before the data: the frontier test is weak.** A policy with the uniquely lowest wall-clock at zero USD is on
+  the frontier by construction, so the second condition is demanding; if one fast fixed setting is the fastest on every
+  platform, H-B5 is refuted on that condition alone. The criterion is kept as the operator wrote it.
+
+**Platforms.**
+- **evo-x2**: queue id `x2_policy_compare`, after B1 and the family jobs (`x2_r2_family_mistral_small32_real` is in the
+  queue, so after it). Base env: none (stock Ollama 0.34.4, ROCm). Deployed to a side directory (`C:\apu\ovn\b5`) so the
+  `x2_r2_agent.py` other queued jobs use is not replaced.
+- **evo-t2s**: staged for the 2026-10-26 to 2026-11-08 window as a separate entry file (not loaded here), llama3.1:8b,
+  base env OLLAMA_IGPU_ENABLE=1 for this job's own server (the iGPU is the platform under test; stock Ollama drops it
+  and runs on the CPU at 4096, which the week plan's CPU arm covers), rules in use from
+  `t2s_r2_validation_igpu_v1.jsonl`. Policy (a) there is the same arm as the week plan's iGPU default tier on 3 of its
+  5 seeds.
+- **Blade**: night 3, after the qwen3:8b validation and real jobs, qwen3:8b, rules in use from that night's
+  validation; it refuses cleanly if qwen3:8b did not pass. No new session starts after 3.0 h, so the Blade cell
+  completes only if the sessions fit; otherwise the Blade is incomplete and the verdict inconclusive until a dedicated
+  Blade night runs the rest (the job resumes).
+
+**Hours.** Estimated, not measured: register row `b5-plan-hours` (evo-x2 session minutes at the same window from
+`x2_r2_real_v1`/`v1b`, scaled per platform; every assumption is in the row and in `policy_compare.ESTIMATE_ASSUMPTIONS`).
+
+**Known limits, stated before the run.** Three seeds per cell, and the verdict uses point means (no tolerance). One
+runtime (Ollama 0.34.4). (g)/(h) run with flash attention on while (a) runs the runtime default, so (g)/(h) measure
+the deployable policy "quantized KV cache with flash attention", not precision alone; the recall probe compares
+precisions with flash attention on in all three. A-B5-cloud scores cloud steps with the local model, so (d)'s quality
+is bounded by the local model's full-history quality, and its cost uses the router's token estimate, not a cloud
+tokenizer. The router and (c) count tokens differently (calibrated chars/4 vs render and count). Wall-clock depends on
+what else the machine does (one job at a time on each queue).
+
+**Also staged with this (no data, no claim): B6 on evo-t2s.** qwen3:32b and llama3.3:70b R2 (validation, then real at
+num_ctx 4096 and at the iGPU-enabled default window, 3 seeds x 40 turns, call-2 off, under OLLAMA_IGPU_ENABLE=1) as
+separate entries in the same staged file, through `harness/t2s_r2_agent.py`. B6 tests H-scale (pre-registered above) on
+the Intel platform with that pre-registration's deciding numbers; it adds no new criterion.
+
+**Amendment (2026-10-14, after rebasing onto main, before any B5 file is deployed or queued and before any data
+exists): the cloud price basis.** Main switched "the shared price table" to the Anthropic table while B5 was being
+written (operator decision A, 2026-10-14: `results/cloud_prices_anthropic_20261014.json`, the default of
+`analysis/impact_model.py`). B5's cloud cost therefore uses that table instead of the OpenAI file named above:
+claude-sonnet-5-5 (the table's escalation mid tier), Standard, priced by `analysis/impact_model.escalated_cost` (the
+impact model's own escalation pricing, through `cloud_budget_forecast.call_cost`). Caching on stays the main case: a
+cloud step reads from cache the previous cloud step's input (min(previous, this) tokens) when that input reached the
+model's minimum cacheable prefix and the previous cloud step started at most 300 s earlier (Anthropic's default 5-minute
+cache lifetime, row timestamps); the rest of a cacheable input is a 5-minute cache write. Sensitivities: no caching
+(upper bound) and claude-haiku-5-5. Input and output tokens are defined as above; the token basis (the local
+tokenizer's estimate, not Anthropic's tokenizer) is an assumption, as the price file itself notes. Nothing else changes.
+
+**Deployed and queued, B5 (2026-10-14, after the pre-registration commit and the code commit, deployed from 399a131).**
+Side directory `C:\apu\ovn\b5\`: `policy_compare.py` (new), this branch's `x2_r2_agent.py` (adds think values for the
+B1 models; has `options_extra`, which policy (f) needs) and `x2_num_keep.py`; the router stack under it (`src\`,
+`src\dse\` router.py and envelope_data.json, `src\cloud\` client.py and prices.py, `analysis\envelope_model.py` and
+`make_failure_map.py`, `results\` with the two price files the cloud client reads at import). `C:\apu\ovn\x2_r2_agent.py`
+was not touched. Every other module the job imports from `C:\apu\ovn` (t2s_r2_session_growth, t2s_k1_ollama,
+host_config, t2s_queue, x2_r2_client_trim, prompt_token_check, proc_util, llama_server, server_guard, run_provenance)
+was compared by SHA-256 with this branch and is identical. The import-only check on evo-x2 (`--import-check`: no
+server, no model call, no queue access) resolved the side copies and the router. Queue entry `x2_policy_compare`
+(`python b5\policy_compare.py --platform evo-x2 --out C:\apu\ovn\results\x2_policy_compare.jsonl`, no queue gate: the
+job's own per-model preflight is the gate) was inserted at position 64, after `x2_r2_family_mistral_small32_real` and
+`x2_evalset_replay_val_v1` and immediately before `x2_window_override_methods`, as docs/X2_QUEUE_PLAN.md orders (item
+13 of 14), in one read-modify-write under `t2s_queue.set_pause` whose reason names its release; the same script
+cleared the pause in its finally block and the pause flag was confirmed absent afterwards. Estimated hours, register row
+`b5-plan-hours`, pasted: "evo-x2 ESTIMATE 76.1 h: llama3.1:8b 14.2 h (sessions 13.0, recall 0.26, probes 1.00; distinct
+policies a,c,d,f,g,h; aliases {'b': 'a', 'e': 'a'}); qwen3:14b 61.9 h (sessions 60.7, recall 0.16, probes 1.00;
+distinct policies a,c,d,f,g,h; aliases {'b': 'a', 'e': 'a'}) / evo-t2s ESTIMATE 38.4 h: llama3.1:8b 38.4 h (sessions
+36.5, recall 0.88, probes 1.00; distinct policies a,b,c,d,f,g,h; aliases {'e': 'b'}) / blade ESTIMATE 36.3 h: qwen3:8b
+36.3 h (sessions 35.0, recall 0.26, probes 1.00; distinct policies a,b,c,d,e,f,g,h); within the 3.0 h night-3 cap: 5 of
+24 sessions". B1 models add hours only if the probe projection admits them. The evo-t2s entries are staged in
+`queues/t2s_window_20261026_staged.json` (not loaded) and the Blade job in night 3 of `harness/blade_queue.py` (not run).

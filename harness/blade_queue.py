@@ -48,6 +48,8 @@ R2_VALIDATION = "results/blade_r2_validation_v2.jsonl"
 R2_GATE = "results/blade_r2_gate_v2.json"
 NEG_SESSIONS = 5
 R2_VALIDATION_QWEN = "results/blade_r2_validation_qwen3_8b_v1.jsonl"
+BLADE_B5_OUT = "results/blade_policy_compare_qwen3_8b_v1.jsonl"
+BLADE_B5_DEADLINE_H = 3.0     # B5 on night 3: no new session after this (night 3 then about 12 h by the estimate)
 # Every measurement job names the side-by-side Ollama 0.34.4 explicitly (never the tray install); no real job carries
 # --allow-version-mismatch (that flag is for dry runs only, and the jobs refuse it outside one).
 OLLAMA = ["--ollama-exe", bc.PINNED["ollama_exe"]]
@@ -111,6 +113,15 @@ NIGHTS = {
                   "--record-vram-share",
                   "--tiers", "default,4096,32768", "--rules-from", R2_VALIDATION_QWEN, "--require-validation-gates"],
          "outputs": ["results/blade_r2_real_qwen3_8b_v1.jsonl"]},
+        # B5 policy comparison (STAGED 2026-10-14, pre-registered in docs/FINDINGS.md; not run until the operator
+        # starts night 3): qwen3:8b under policies a-h (harness/policy_compare.py --platform blade, its own LocalOllama
+        # server with the pinned 0.34.4). Refuses cleanly (exit 0) unless qwen3:8b passed this night's validation.
+        # Fits night 3 only partly: no new session starts after BLADE_B5_DEADLINE_H; a dedicated night is needed for
+        # the full Blade cell (policy_compare.estimate_platform("blade"), an estimate).
+        {"id": "blade_policy_compare_qwen3_8b_v1",
+         "argv": ["harness/policy_compare.py", "--platform", "blade", "--out", BLADE_B5_OUT, "--models", "qwen3:8b",
+                  "--rules-from", R2_VALIDATION_QWEN, "--deadline-h", str(BLADE_B5_DEADLINE_H), *OLLAMA],
+         "outputs": [BLADE_B5_OUT]},
     ],
     # night 4 (STAGED 2026-10-13, operator plan v2 Part A5; runs only when the operator says "start Blade night 4"):
     # context-window override methods on the pinned Ollama 0.34.4 (harness/window_override_methods.py, the same script
