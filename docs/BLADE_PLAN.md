@@ -394,3 +394,16 @@ that num_ctx (noted, not used as a factor).
 
 **Stub:** `py -3.12 scripts/blade_night.py --night 3 --stub` PASS with fit decision run for both jobs
 (`results/blade_dryrun/blade_dryrun_night3_stub.json`); nights 1 and 2 stubs still PASS.
+
+## Night 3, B5 policy comparison (STAGED 2026-10-14, not run)
+
+Pre-registered in docs/FINDINGS.md ("PRE-REGISTRATION: B5 policy comparison", 2026-10-14). Third job of night 3:
+`blade_policy_compare_qwen3_8b_v1` runs `harness/policy_compare.py --platform blade --models qwen3:8b --rules-from
+results/blade_r2_validation_qwen3_8b_v1.jsonl --deadline-h 3.0` with the pinned 0.34.4 (the job's own LocalOllama
+server; KV q8_0 / q4_0 and flash attention are set on that server only). It refuses cleanly (exit 0) unless qwen3:8b
+passed that night's validation. No new session starts after 3.0 h (`BLADE_B5_DEADLINE_H`), so night 3 is about 12 h by
+the estimate (register row `blade-night-hours`). By the estimate (register row `b5-plan-hours`) the full Blade B5 cell
+does not fit in that cap; the job resumes, so a dedicated Blade night can finish it.
+
+**Stub:** `py -3.12 scripts/blade_night.py --night 3 --stub` PASS with the three jobs
+(`results/blade_dryrun/blade_dryrun_night3_stub.json`).

@@ -35,6 +35,19 @@ CONTROLLER_SCRIPTS = [
     REPO / "harness" / "blade_spill_sweep.py",
     REPO / "harness" / "window_override_methods.py",   # Blade night 4 job (also evo-x2 / evo-t2s)
 ]
+# Controller-side scripts that start no process at all (checked: no subprocess use of their own); listed so the bare-
+# call grep still covers them if one is ever added. The Blade night 3 B5 job starts Ollama only through
+# blade_common.LocalOllama (covered above) and llama-tokenize only through prompt_token_check (proc_util).
+NO_SUBPROCESS_SCRIPTS = [
+    REPO / "harness" / "policy_compare.py",
+    REPO / "scripts" / "t2s_window_stage.py",
+]
+
+
+def test_no_subprocess_scripts_have_no_bare_calls_and_no_subprocess_import():
+    for path in NO_SUBPROCESS_SCRIPTS:
+        assert _find_bare_subprocess_calls(path) == [], path
+        assert "import subprocess" not in path.read_text(encoding="utf-8"), path
 
 BARE_FUNCS = {"run", "Popen", "check_output", "call"}  # the subprocess functions that can spawn a visible console
 

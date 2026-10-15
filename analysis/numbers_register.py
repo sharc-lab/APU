@@ -4257,6 +4257,104 @@ def compute_window_override_methods(repo):
     return {"value": " / ".join(parts), "n": f"{1 + sum(1 for f in WOM_FILES_OTHER.values() if (repo / f).exists())} hosts"}
 
 
+# ───────────────────────────────────────────────── B5 policy comparison (pre-registered 2026-10-14)
+# harness/policy_compare.py. The plan-hours row is an ESTIMATE computed from committed result files now; the result rows
+# are PENDING until results/x2_policy_compare.jsonl is synced (the evo-t2s and Blade files join when they exist).
+B5_FILES = {"evo-x2": "results/x2_policy_compare.jsonl", "evo-t2s": "results/t2s_policy_compare.jsonl",
+            "blade": "results/blade_policy_compare_qwen3_8b_v1.jsonl"}
+B5_PLAN_INPUTS = ["results/x2_r2_real_v1.jsonl", "results/x2_r2_real_v1b.jsonl", "results/x2_r2_mitigation_v1.jsonl",
+                  "results/blade_k1_v2.summary.json", "src/dse/envelope_data.json"]
+
+
+def _cbf():
+    import sys as _sys
+    _sys.path.insert(0, str(REPO / "analysis"))
+    import cloud_budget_forecast
+    return cloud_budget_forecast
+
+
+def _b5_rows(repo):
+    ag = _r2_agent_module()
+    return {p: (ag.read_rows(repo / f) or None) for p, f in B5_FILES.items()}
+
+
+def compute_b5_plan_hours(repo):
+    """B5 estimated hours per platform and model (policy_compare.estimate_platform: assumed windows, aliases, evo-x2
+    session minutes at the same window x the platform factor, recall and probe allowances). An ESTIMATE, not a
+    measurement; the Blade line also gives what fits inside night 3's deadline cap."""
+    pc = _harness_module("policy_compare")
+    bq = _harness_module("blade_queue")
+    parts = []
+    for plat in pc.PLATFORMS:
+        e = pc.estimate_platform(plat, deadline_h=bq.BLADE_B5_DEADLINE_H if plat == "blade" else None)
+        ms = "; ".join(f"{m} {v['total_h']:.1f} h (sessions {v['sessions_h']:.1f}, recall {v['recall_h']:.2f}, probes "
+                       f"{v['probe_h']:.2f}; distinct policies {','.join(v['policies'])}"
+                       + (f"; aliases {v['aliases']}" if v["aliases"] else "") + ")"
+                       for m, v in e["models"].items())
+        fit = (f"; within the {e['deadline_h']} h night-3 cap: {len(e['sessions_within_deadline'])} of "
+               f"{e['sessions_total']} sessions" if "deadline_h" in e else "")
+        parts.append(f"{plat} ESTIMATE {e['total_h']:.1f} h: {ms}{fit}")
+    return {"value": " / ".join(parts), "n": f"{len(pc.PLATFORMS)} platforms (estimate)"}
+
+
+def compute_b5_policy_metrics(repo):
+    """B5 per platform and model: rule pass rate (rules in use), history recall, session wall-clock (cloud steps
+    re-timed per A-B5-cloud-latency), cloud USD per session (gpt-6.1-sol, caching on), per policy; the Pareto frontier."""
+    pc = _harness_module("policy_compare")
+    prices = _cbf().load_prices(repo)
+    rows = _b5_rows(repo)
+    if not rows["evo-x2"]:
+        raise FileNotFoundError(repo / B5_FILES["evo-x2"])
+    parts = []
+    for plat, rs in rows.items():
+        if not rs:
+            parts.append(f"{plat}: not run yet")
+            continue
+        for m, c in pc.metrics_for_platform(rs, prices).items():
+            pol = "; ".join(f"{p} rule {_pct(v['rule_pass_rate'])} hist {_pct(v['history_recall'])} "
+                            f"{_fmt_num(v['wall_min'])} min ${v['cloud_usd']:.4f}" + (f" (={v['alias_of']})"
+                                                                                       if v.get("alias_of") else "")
+                            for p, v in sorted(c["policies"].items()))
+            fr = pc.pareto_frontier(c["policies"]) if c["policies"] else []
+            parts.append(f"{plat} {m}: {pol}; frontier {fr}; complete {c['complete']}"
+                         + (f" ({'; '.join(c['problems'])})" if c["problems"] else ""))
+    return {"value": " / ".join(parts), "n": f"{sum(1 for r in rows.values() if r)} platform files"}
+
+
+def compute_b5_verdict(repo):
+    """The pre-registered B5 verdict (policy_compare.b5_verdict) over every platform file present."""
+    pc = _harness_module("policy_compare")
+    rows = _b5_rows(repo)
+    if not rows["evo-x2"]:
+        raise FileNotFoundError(repo / B5_FILES["evo-x2"])
+    v = pc.b5_verdict(rows, _cbf().load_prices(repo))
+    per = "; ".join(f"{p} {e['status']} (router on frontier in every complete cell: "
+                    f"{e.get('router_on_frontier_all_cells')}, fixed on frontier in every cell: "
+                    f"{e.get('fixed_on_frontier_all_cells')})" for p, e in v["platforms"].items())
+    return {"value": f"{v['verdict']}; {per}", "n": f"{len(v['platforms'])} platforms", "detail": v}
+
+
+def compute_b5_kv_recall(repo):
+    """B5 long-context recall at the largest window each KV precision admits (f16 with flash attention, q8_0, q4_0;
+    1 warm-up + 3 measured calls) and the KV-type check of the server log, per platform and model."""
+    pc = _harness_module("policy_compare")
+    rows = _b5_rows(repo)
+    if not rows["evo-x2"]:
+        raise FileNotFoundError(repo / B5_FILES["evo-x2"])
+    parts = []
+    for plat, rs in rows.items():
+        if not rs:
+            parts.append(f"{plat}: not run yet")
+            continue
+        kv = {(r["model_id"], r["env"]): r["check"] for r in rs if r.get("record") == "b5_kv_check"}
+        for m, d in pc.recall_summary(rs).items():
+            parts.append(f"{plat} {m}: " + "; ".join(
+                f"{p} ctx {e['window']} recall {_pct(e['recall_mean'])} ({e['calls']} calls, truncated "
+                f"{e['truncated']}, errors {e['errors']}; KV check "
+                f"{(kv.get((m, p)) or {}).get('valid', 'n/a') if p != 'f16' else 'n/a'})" for p, e in sorted(d.items())))
+    return {"value": " / ".join(parts), "n": f"{sum(1 for r in rows.values() if r)} platform files"}
+
+
 GPU_MEM_FILES = ["results/x2_70b_edge_reps.jsonl", "results/t2s_night2_20261001T151340Z.jsonl",
                  "results/t2s_amech_20260926T181456Z.jsonl", "results/t2s_k1_igpu_enable_sweep.jsonl",
                  "results/blade_k1_v2.jsonl"]
@@ -5005,6 +5103,22 @@ NUMBER_ENTRIES = [
                     "context (/api/ps, log) and persistence across a restart, per host",
      "compute": compute_window_override_methods, "data_files": [WOM_FILE_X2], "pending_ok": True,
      "script_function": "analysis/numbers_register.py::compute_window_override_methods"},
+    {"claim_id": "b5-plan-hours", "description": "B5 policy comparison: ESTIMATED hours per platform and model "
+                    "(assumed windows, aliases, evo-x2 minutes x platform factor), Blade night-3 cap fit",
+     "compute": compute_b5_plan_hours, "data_files": B5_PLAN_INPUTS,
+     "script_function": "analysis/numbers_register.py::compute_b5_plan_hours"},
+    {"claim_id": "b5-policy-metrics", "description": "B5 per platform/model/policy: rule pass rate, history recall, "
+                    "session wall-clock, cloud USD per session; Pareto frontier",
+     "compute": compute_b5_policy_metrics, "data_files": [B5_FILES["evo-x2"]], "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_b5_policy_metrics"},
+    {"claim_id": "b5-verdict", "description": "Pre-registered B5 verdict: router on the 4-metric Pareto frontier on every "
+                    "platform and no single fixed setting on the frontier on all platforms",
+     "compute": compute_b5_verdict, "data_files": [B5_FILES["evo-x2"]], "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_b5_verdict"},
+    {"claim_id": "b5-kv-recall", "description": "B5 (g)/(h): long-context recall at the largest window per KV precision "
+                    "and the server-log KV-type check",
+     "compute": compute_b5_kv_recall, "data_files": [B5_FILES["evo-x2"]], "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_b5_kv_recall"},
     {"claim_id": "gpu-memory-readonly", "description": "GPU memory per machine as already recorded read-only in result "
                     "files (Vulkan heaps, Ollama inference-compute lines, nvidia-smi)",
      "compute": compute_gpu_memory_readonly, "data_files": GPU_MEM_FILES,

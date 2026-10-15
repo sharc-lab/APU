@@ -2,10 +2,10 @@
  "night": 3,
  "summary": {
   "night": 3,
-  "started_utc": "2026-10-10T17:24:55.812953+00:00",
+  "started_utc": "2026-10-15T05:09:37.521548+00:00",
   "refused": null,
   "power": {
-   "log": "%USERPROFILE%\\AppData\\Local\\Temp\\blade_night_stub_g9it48li\\logs\\night3_power_20261010T172455Z.json",
+   "log": "%USERPROFILE%\\AppData\\Local\\Temp\\blade_night_stub_xccgpid5\\logs\\night3_power_20261015T050937Z.json",
    "original": {
     "SUB_SLEEP/STANDBYIDLE": {
      "ac": 3600,
@@ -75,13 +75,22 @@
       "results/blade_r2_real_qwen3_8b_v1.jsonl"
      ],
      "log": "C:\\apu\\blade\\logs\\blade_r2_real_qwen3_8b_v1.log"
+    },
+    {
+     "id": "blade_policy_compare_qwen3_8b_v1",
+     "status": "done",
+     "rc": 0,
+     "outputs": [
+      "results/blade_policy_compare_qwen3_8b_v1.jsonl"
+     ],
+     "log": "C:\\apu\\blade\\logs\\blade_policy_compare_qwen3_8b_v1.log"
     }
    ],
    "stopped_early": null,
    "gate_decisions": {}
   },
-  "ended_utc": "2026-10-10T17:24:56.452622+00:00",
-  "summary_file": "%USERPROFILE%\\AppData\\Local\\Temp\\blade_night_stub_g9it48li\\results\\blade_night3_summary_20261010T172455Z.json"
+  "ended_utc": "2026-10-15T05:09:37.956677+00:00",
+  "summary_file": "%USERPROFILE%\\AppData\\Local\\Temp\\blade_night_stub_xccgpid5\\results\\blade_night3_summary_20261015T050937Z.json"
  },
  "power_call_order": [
   "/setacvalueindex SUB_SLEEP STANDBYIDLE 0",
@@ -218,6 +227,30 @@
      "reason": "K1: fully on the GPU at ['default', '4096'], partial offload at ['32768'] (allowed for qwen3:8b in mode real; K1 VRAM share 32768: 0.592) (default ctx 4096)"
     }
    }
+  },
+  {
+   "event": "job",
+   "id": "blade_policy_compare_qwen3_8b_v1",
+   "module": "policy_compare",
+   "parsed": {
+    "platform": "blade",
+    "out": "results/blade_policy_compare_qwen3_8b_v1.jsonl",
+    "results_dir": null,
+    "models": "qwen3:8b",
+    "b1_models": null,
+    "rules_from": "results/blade_r2_validation_qwen3_8b_v1.jsonl",
+    "seeds": null,
+    "deadline_h": 3.0,
+    "no_recall": false,
+    "ollama_exe": "C:\\apu\\bin\\ollama-0.34.4\\ollama.exe",
+    "dry_run": false,
+    "import_check": false,
+    "queue_insert": false
+   },
+   "outputs": [
+    "results/blade_policy_compare_qwen3_8b_v1.jsonl"
+   ],
+   "outputs_prefixed_blade": true
   }
  ],
  "set_before_first_job": true,
@@ -229,7 +262,8 @@
  "gate_decisions": {},
  "ran": [
   "blade_r2_validation_qwen3_8b_v1",
-  "blade_r2_real_qwen3_8b_v1"
+  "blade_r2_real_qwen3_8b_v1",
+  "blade_policy_compare_qwen3_8b_v1"
  ],
  "skipped": {},
  "branch_ok": true,

@@ -538,15 +538,31 @@ def test_real_jobs_use_pinned_ollama_and_never_allow_mismatch():
                 assert j["argv"][i + 1] == bc.PINNED["ollama_exe"] == "C:\\apu\\bin\\ollama-0.34.4\\ollama.exe"
 
 
+def _night3_r2_jobs():
+    """Night 3's blade_r2 jobs (the B5 policy_compare job, staged 2026-10-14, has no fit decision of its own: it
+    refuses unless qwen3:8b passed this night's validation)."""
+    return [j for j in bq.NIGHTS[3] if j["argv"][0] == "harness/blade_r2.py"]
+
+
+def test_night3_b5_policy_compare_job_is_staged_with_a_deadline():
+    import policy_compare as pc
+    job = bq.NIGHTS[3][-1]
+    a = pc.build_arg_parser().parse_args(job["argv"][1:])
+    assert a.platform == "blade" and a.models == "qwen3:8b" and a.rules_from == bq.R2_VALIDATION_QWEN
+    assert a.deadline_h == bq.BLADE_B5_DEADLINE_H and a.ollama_exe == bc.PINNED["ollama_exe"]
+    assert job["outputs"] == [a.out] and Path(a.out).name.startswith("blade_")
+
+
 def test_three_nights_and_their_jobs():
     assert [j["id"] for j in bq.NIGHTS[1]] == ["blade_k1_v2", "blade_r2_validation_v2", "blade_r2_gate_v2",
                                               "blade_r2_real_v2", "blade_r2_mitigation_v2",
                                               "blade_r2_mechanism_4096_v2"]
     assert [j["id"] for j in bq.NIGHTS[2]] == ["blade_c3_sysmem_fallback_v1", "blade_r2_mechanism_v1"]
-    assert [j["id"] for j in bq.NIGHTS[3]] == ["blade_r2_validation_qwen3_8b_v1", "blade_r2_real_qwen3_8b_v1"]
+    assert [j["id"] for j in bq.NIGHTS[3]] == ["blade_r2_validation_qwen3_8b_v1", "blade_r2_real_qwen3_8b_v1",
+                                              "blade_policy_compare_qwen3_8b_v1"]
     for j in bq.NIGHTS[1] + bq.NIGHTS[2]:
         assert "qwen3:8b" not in j["argv"]
-    for j in bq.NIGHTS[3]:
+    for j in _night3_r2_jobs():
         a = blade_r2.build_arg_parser().parse_args(j["argv"][1:])
         assert a.models == "" and a.models_if_fit == "qwen3:8b" and a.k1_summary == bq.K1_SUMMARY
         assert a.record_vram_share is True
@@ -596,7 +612,7 @@ def test_night3_fit_decision_runs_on_committed_k1_summary():
     k1 = REPO / bq.K1_SUMMARY
     if not k1.exists():
         pytest.skip("K1 v2 summary not synced")
-    for j in bq.NIGHTS[3]:
+    for j in _night3_r2_jobs():
         a = blade_r2.build_arg_parser().parse_args(j["argv"][1:])
         tiers = [t for t in (a.tiers or blade_r2.DEFAULT_TIERS.get(a.mode, "default")).split(",") if t]
         d = blade_r2.fit_decision(["qwen3:8b"], k1, blade_r2.fit_ctxs(a.mode, tiers), mode=a.mode)["qwen3:8b"]
@@ -607,7 +623,7 @@ def test_night3_fit_decision_runs_on_committed_k1_summary():
 def test_night3_stub_fit_decision_is_run():
     rep = bn.stub_night(3, log=lambda m: None, power_values=bn.BLADE_POWER_LAYOUT)
     assert rep["fit_ok"] and bn.stub_ok(rep)
-    assert set(rep["fit_decisions"]) == {j["id"] for j in bq.NIGHTS[3]}
+    assert set(rep["fit_decisions"]) == {j["id"] for j in _night3_r2_jobs()}
     assert all(d["qwen3:8b"]["run"] and d["qwen3:8b"]["partial"] == ["32768"] for d in rep["fit_decisions"].values())
 
 

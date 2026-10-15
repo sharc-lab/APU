@@ -139,6 +139,9 @@ import t2s_r2_session_growth as r2  # noqa: E402
 # JSON answer in x2_r2_validation_v2b (register R2-validation-v2b-runinfo); this tag isolates the install path.
 MODELS = {"llama3.1:8b": None, "qwen3:14b": False, "qwen3:8b": False, "qwen3-4b-2507": False,
           "qwen3-4b-2507-tools": False}
+# B6 (2026-10-14, staged for evo-t2s through t2s_r2_agent.py, which has no model table of its own): the H-scale
+# models with the same think values harness/x2_r2_scale.py sets (qwen3 hybrid: false; Llama: omitted).
+MODELS.update({"qwen3:32b": False, "qwen3-30b-a3b-2507": False, "llama3.3:70b": None})
 
 _BASE_ARMS = {
     "ollama_ctx_131072": 131072,                 # arm b, the no-truncation control (validation, negative control)

@@ -44,6 +44,7 @@ DRYRUN_FILES = ["results/blade_dryrun/blade_dryrun_k1.jsonl", "results/blade_dry
                 "results/blade_dryrun/blade_dryrun_r2_real.jsonl", "results/blade_dryrun/blade_dryrun_r2_mitigation.jsonl",
                 "results/blade_dryrun/blade_dryrun_r2_mechanism.jsonl"]
 MIN_PROMPT_FOR_RATE, MIN_GEN_FOR_RATE = 64, 8
+B5_DEADLINE_H = 3.0   # harness/blade_queue.BLADE_B5_DEADLINE_H (tests/test_policy_compare.py checks they agree)
 
 FACTORS = {
     # Blade tier fully in 8 GB VRAM: decode is bandwidth-bound on both machines (RTX 4070 Laptop 256 GB/s, Strix Halo
@@ -281,6 +282,11 @@ def estimate(rates_files=None) -> dict:
                      real(Q, model_factor=1.2, shares=True),
                      "no Blade rate for qwen3:8b: scaled; workload: llama3.1:8b sessions x1.2 (x2_r2_real_v1b, with "
                      "qwen3:8b, is not synced); K1 VRAM share noted per cell"))
+    # night 3, B5 (staged 2026-10-14): policy_compare --deadline-h caps it; what fits inside the cap is
+    # harness/policy_compare.estimate_platform("blade", deadline_h=...), itself an estimate
+    jobs.append({"night": 3, "job": "blade_policy_compare_qwen3_8b_v1 (B5, qwen3:8b, policies a-h, deadline cap)",
+                 "hours": B5_DEADLINE_H, "kind": "cap", "basis": f"--deadline-h {B5_DEADLINE_H}: no new session "
+                 "starts after it (the running session finishes)", "note": ""})
     by_branch = defaultdict(lambda: defaultdict(float))     # {night: {branch or "": hours}}
     for j in jobs:
         by_branch[j["night"]][j.get("branch", "")] += j["hours"]
