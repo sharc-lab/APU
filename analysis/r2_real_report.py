@@ -145,8 +145,17 @@ def gated_session(turns: list[dict], fields: list[str]) -> dict:
     first_err = _first(turns, lambda r: r.get("any_http_error"))
     first_over = _first(turns, lambda r: r.get("over_loaded_window"))
     silent = first_fail is not None and not (first_err is not None and first_err < first_fail)
+    fail_row = next((r for r in turns if r["turn_idx"] == first_fail), None)
     return {"first_gated_failure": first_fail, "silent": silent,
+            "first_gated_failure_fields": [f for f in fields if fail_row is not None and fail_row.get(f) is False],
             "after_window_exceeded": silent and first_over is not None and first_fail >= first_over}
+
+
+def _baseline_type(first_failure, first_over) -> bool:
+    """A failure that happened with no window exceeded yet: the session never went over the loaded window, or the
+    failure came before the first over-window turn. Such a failure is not context loss; it is the model's own
+    baseline error rate."""
+    return first_failure is not None and (first_over is None or first_failure < first_over)
 
 
 def _intact_end(e):
@@ -203,6 +212,10 @@ def build_combined(paths=None, checkpoints=CHECKPOINTS_FULL, validation_paths=No
         rules = rules_in_use.get(s["model_id"], list(ra.RULE_IDS))
         ev = session_events(st, rules)
         ev.update(gated_session(st, gm.get(s["model_id"], {"fields": rules})["fields"]))
+        ks = ra.summarize_session(st, rules_in_use)   # what the pre-registered kill criterion sees for this session
+        ev["kill_first_failure"] = ks["first_failure_turn"]
+        ev["kill_first_failure_reasons"] = ks["first_failure_reasons"]
+        ev["kill_silent"] = ks["first_failure_turn"] is not None and not ks["error_surfaced_before_failure"]
         ev["seed"] = s["seed"]
         cells.setdefault((tier_of(s["arm_id"]), s["model_id"]), []).append(ev)
     order = {t: i for i, t in enumerate(TIER_ORDER)} if tier_order else {}
@@ -230,6 +243,128 @@ def build_combined(paths=None, checkpoints=CHECKPOINTS_FULL, validation_paths=No
     return {"table": table, "kill": kill, "gated_kill": gated, "gated_killed": gated_killed, "gated_metrics": gm,
             "n_sessions": len(sessions), "n_turn_rows": len(turn_rows), "rules_in_use": rules_in_use,
             "files": [p.name for p in paths], "checkpoints": list(checkpoints), "issues": issues}
+
+
+# ── per tier x model gated table, baseline-type failures, excess over the default tier (2026-10-14) ──────────────
+DEFAULT_TIER = "ollama_default"
+BOOTSTRAP_RESAMPLES = 10000
+BOOTSTRAP_SEED = 20261014
+
+
+def gated_per_model(rep: dict) -> dict:
+    """Per tier|model: sessions, gated silent failures (rules in use plus metrics at >=90% validation baseline; no
+    error surfaced before the failure), how many of them came at or after the first over-window turn, how many are
+    baseline-type (no window exceeded yet), and survival per checkpoint (as rep["table"])."""
+    out = {}
+    for key, c in rep["table"].items():
+        s = c["sessions"]
+        silent = [e for e in s if e["silent"]]
+        out[key] = {"n": c["n"], "silent": len(silent),
+                    "silent_after_window_exceeded": sum(e["after_window_exceeded"] for e in s),
+                    "silent_baseline_type": sum(_baseline_type(e["first_gated_failure"], e["first_over_window"])
+                                                for e in silent),
+                    "survival": c["survival"]}
+    return out
+
+
+def silent_session_detail(rep: dict, tier: str, gated: bool = True) -> list[dict]:
+    """The silent sessions of one tier, gated (gated=True) or under the pre-registered kill criterion (False), with
+    the first failure turn, what failed there, the first over-window turn, and whether it is baseline-type."""
+    out = []
+    for key, c in rep["table"].items():
+        t, model = key.split("|")
+        if t != tier:
+            continue
+        for e in c["sessions"]:
+            if not e["silent" if gated else "kill_silent"]:
+                continue
+            ff = e["first_gated_failure" if gated else "kill_first_failure"]
+            out.append({"model": model, "seed": e["seed"], "first_failure": ff,
+                        "what_failed": e["first_gated_failure_fields" if gated else "kill_first_failure_reasons"],
+                        "first_over_window": e["first_over_window"],
+                        "baseline_type": _baseline_type(ff, e["first_over_window"])})
+    return out
+
+
+def kill_baseline_type(rep: dict, tier: str = DEFAULT_TIER) -> dict:
+    """Of the pre-registered kill criterion's silent sessions in one tier: how many are baseline-type (no window
+    exceeded, or the failure came before the first over-window turn) and how many came at or after it."""
+    d = silent_session_detail(rep, tier, gated=False)
+    n = sum(c["n"] for k, c in rep["table"].items() if k.split("|")[0] == tier)
+    bt = [x for x in d if x["baseline_type"]]
+    return {"n_sessions": n, "n_silent": len(d), "n_baseline_type": len(bt),
+            "n_never_over_window": sum(1 for x in bt if x["first_over_window"] is None),
+            "n_before_first_over_window": sum(1 for x in bt if x["first_over_window"] is not None),
+            "n_after_window": len(d) - len(bt), "sessions": d}
+
+
+def _percentile(sorted_vals, q):
+    """Linear-interpolated percentile of an already sorted list (q in [0, 1])."""
+    if not sorted_vals:
+        return None
+    pos = q * (len(sorted_vals) - 1)
+    lo = int(pos)
+    hi = min(lo + 1, len(sorted_vals) - 1)
+    return sorted_vals[lo] + (sorted_vals[hi] - sorted_vals[lo]) * (pos - lo)
+
+
+def excess_over_default(rep: dict, n_resamples: int = BOOTSTRAP_RESAMPLES, seed: int = BOOTSTRAP_SEED,
+                        default_tier: str = DEFAULT_TIER) -> dict:
+    """Per tier (overall and per model): the after-window gated silent failure rate minus the default tier's rate,
+    with a 95% percentile bootstrap CI. Resampling unit: the session. Each resample draws, with replacement, the same
+    number of sessions from every tier|model cell (stratified by tier and model, so the model mix of each tier is
+    fixed); the per-model excess uses that model's default-tier cell as its reference. One random.Random(seed) drives
+    all resamples, so the result is reproducible. A cell whose count is 0 or n has no bootstrap variance: its CI is a
+    point, which understates uncertainty for small n."""
+    import random
+    cells = {}
+    for key, c in rep["table"].items():
+        tier, model = key.split("|")
+        cells[(tier, model)] = [1 if e["after_window_exceeded"] else 0 for e in c["sessions"]]
+    tiers = [t for t in dict.fromkeys(k[0] for k in cells)]
+    models = sorted({k[1] for k in cells})
+    if default_tier not in tiers:
+        return {"error": f"no {default_tier} sessions", "per_tier": {}}
+
+    def rates(sample):
+        """{(tier, None): pooled rate, (tier, model): cell rate}."""
+        r = {}
+        for t in tiers:
+            vals = [v for (tt, _m), xs in sample.items() if tt == t for v in xs]
+            r[(t, None)] = sum(vals) / len(vals) if vals else None
+            for m in models:
+                xs = sample.get((t, m))
+                if xs:
+                    r[(t, m)] = sum(xs) / len(xs)
+        return r
+
+    def excess(r):
+        out = {}
+        for (t, m), v in r.items():
+            ref = r.get((default_tier, m))
+            if t != default_tier and v is not None and ref is not None:
+                out[(t, m)] = v - ref
+        return out
+
+    point = excess(rates(cells))
+    rng = random.Random(seed)
+    draws = {k: [] for k in point}
+    for _ in range(n_resamples):
+        sample = {k: [xs[rng.randrange(len(xs))] for _ in xs] for k, xs in cells.items()}
+        for k, v in excess(rates(sample)).items():
+            if k in draws:
+                draws[k].append(v)
+    base = rates(cells)
+    per_tier = {}
+    for (t, m), v in point.items():
+        d = sorted(draws[(t, m)])
+        n_t = sum(len(xs) for (tt, mm), xs in cells.items() if tt == t and (m is None or mm == m))
+        n_d = sum(len(xs) for (tt, mm), xs in cells.items() if tt == default_tier and (m is None or mm == m))
+        per_tier.setdefault(t, {})["overall" if m is None else m] = {
+            "rate": base[(t, m)], "default_rate": base[(default_tier, m)], "excess": v,
+            "ci95": (_percentile(d, 0.025), _percentile(d, 0.975)), "n_tier": n_t, "n_default": n_d}
+    return {"per_tier": per_tier, "n_resamples": n_resamples, "seed": seed, "unit": "session",
+            "strata": "tier x model", "default_tier": default_tier}
 
 
 def build(path: Path = REPO / DEFAULT_FILE) -> dict:

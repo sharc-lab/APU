@@ -26,7 +26,8 @@ def test_session_events_first_turns():
 def test_gated_session_ignores_excluded_metric_and_flags_after_window():
     turns = [_t(1, tool_args_all=False), _t(2, over_loaded_window=True), _t(4, rule1_json_keys=False, over_loaded_window=True)]
     g = rr.gated_session(turns, ["rule1_json_keys", "tool_validity_all"])  # tool_args excluded
-    assert g == {"first_gated_failure": 4, "silent": True, "after_window_exceeded": True}
+    assert g == {"first_gated_failure": 4, "silent": True, "first_gated_failure_fields": ["rule1_json_keys"],
+                 "after_window_exceeded": True}
 
 
 def test_gated_session_error_before_failure_is_not_silent():
@@ -144,3 +145,90 @@ def test_v1_build_keeps_its_checkpoints_and_order(tmp_path):
     rep = rr.build(files[0])
     assert rep["checkpoints"] == [5, 10, 20, 30, 40]
     assert list(rep["table"]) == ["num_ctx_4096|llama3.1:8b"]
+
+
+# ── per tier x model gated table, baseline-type failures, excess over default (2026-10-14) ──────────────────
+
+def _excess_files(tmp_path):
+    """Default tier: llama fails rule1 at turn 4 with no window ever exceeded (gated, baseline-type) in seeds 1-2;
+    qwen3:8b fails tool args (not a gated field without a validation baseline) at turn 4, before the first over-window
+    turn 25, in every seed (kill-criterion silent, baseline-type). 4096 tier: llama fails rule1 at turn 6 after the
+    window is exceeded at turn 3 in seeds 1-4 and not at all in seed 5; qwen3:8b fails rule1 at turn 2 (before turn 3,
+    baseline-type) in seed 1 only."""
+    rows = []
+    for seed in (1, 2, 3, 4, 5):
+        rows += _session_rows("llama3.1:8b", "ollama_default_call2_notools", seed, call2_mode="off",
+                              events={4: {"rule1_json_keys": False}} if seed <= 2 else {})
+        rows += _session_rows("qwen3:8b", "ollama_default_call2_notools", seed, call2_mode="off",
+                              events={4: {"tool_args_all": False}, 25: {"over_loaded_window": True}})
+        ev = {i: {"over_loaded_window": True} for i in range(3, 41)}
+        if seed <= 4:
+            ev[6] = {"over_loaded_window": True, "rule1_json_keys": False}
+        rows += _session_rows("llama3.1:8b", "ollama_ctx_4096_call2_notools", seed, call2_mode="off", events=ev)
+        ev = {i: {"over_loaded_window": True} for i in range(3, 41)}
+        if seed == 1:
+            ev[2] = {"rule1_json_keys": False}
+        rows += _session_rows("qwen3:8b", "ollama_ctx_4096_call2_notools", seed, call2_mode="off", events=ev)
+    _write(tmp_path / "x.jsonl", rows, RULES)
+    return rr.build_combined([tmp_path / "x.jsonl"], validation_paths=[tmp_path / "none.jsonl"])
+
+
+def test_gated_per_model_and_baseline_type(tmp_path):
+    rep = _excess_files(tmp_path)
+    g = rr.gated_per_model(rep)
+    assert g["ollama_default|llama3.1:8b"]["silent"] == 2
+    assert g["ollama_default|llama3.1:8b"]["silent_after_window_exceeded"] == 0
+    assert g["ollama_default|llama3.1:8b"]["silent_baseline_type"] == 2
+    assert g["ollama_default|qwen3:8b"]["silent"] == 0          # tool args is not gated here
+    ll = g["num_ctx_4096|llama3.1:8b"]
+    assert (ll["n"], ll["silent"], ll["silent_after_window_exceeded"], ll["silent_baseline_type"]) == (5, 4, 4, 0)
+    assert g["num_ctx_4096|qwen3:8b"]["silent"] == 1 and g["num_ctx_4096|qwen3:8b"]["silent_baseline_type"] == 1
+    assert g["num_ctx_4096|qwen3:8b"]["silent_after_window_exceeded"] == 0
+    d = rr.silent_session_detail(rep, "ollama_default")
+    assert [(x["model"], x["seed"], x["first_failure"], x["what_failed"], x["first_over_window"]) for x in d] == \
+        [("llama3.1:8b", 1, 4, ["rule1_json_keys"], None), ("llama3.1:8b", 2, 4, ["rule1_json_keys"], None)]
+    k = rr.kill_baseline_type(rep, "ollama_default")
+    assert k["n_sessions"] == 10 and k["n_silent"] == 7 and k["n_baseline_type"] == 7 and k["n_after_window"] == 0
+    assert k["n_never_over_window"] == 2 and k["n_before_first_over_window"] == 5
+    assert {x["model"]: x["what_failed"] for x in k["sessions"]}["qwen3:8b"] == ["tool_args"]
+    # the kill-criterion silent count per tier agrees with the pre-registered evaluation
+    assert rep["kill"]["per_arm"]["ollama_default_call2_notools"]["n_silent_failures"] == 7
+
+
+def test_excess_over_default_point_and_bootstrap(tmp_path):
+    rep = _excess_files(tmp_path)
+    x = rr.excess_over_default(rep, n_resamples=500, seed=7)
+    assert x["unit"] == "session" and x["n_resamples"] == 500 and x["default_tier"] == "ollama_default"
+    t = x["per_tier"]["num_ctx_4096"]
+    assert "ollama_default" not in x["per_tier"]
+    assert t["overall"]["rate"] == 0.4 and t["overall"]["default_rate"] == 0.0 and t["overall"]["excess"] == 0.4
+    assert t["llama3.1:8b"]["excess"] == 0.8 and t["qwen3:8b"]["excess"] == 0.0   # baseline-type is not after-window
+    lo, hi = t["overall"]["ci95"]
+    assert 0.0 <= lo <= 0.4 <= hi <= 0.8
+    assert t["qwen3:8b"]["ci95"] == (0.0, 0.0)                                   # 0/n cell: no bootstrap variance
+    # seeded: the same seed gives the same CI
+    assert rr.excess_over_default(rep, n_resamples=500, seed=7)["per_tier"] == x["per_tier"]
+
+
+def test_excess_over_default_nonzero_default_rate(tmp_path):
+    """If the default tier itself has after-window failures, they are subtracted."""
+    rows = []
+    for seed in (1, 2, 3, 4):
+        ev = {i: {"over_loaded_window": True} for i in range(10, 41)}
+        if seed == 1:
+            ev[12] = {"over_loaded_window": True, "rule1_json_keys": False}
+        rows += _session_rows("llama3.1:8b", "ollama_default_call2_notools", seed, call2_mode="off", events=ev)
+        ev = {i: {"over_loaded_window": True} for i in range(3, 41)}
+        if seed <= 3:
+            ev[5] = {"over_loaded_window": True, "rule1_json_keys": False}
+        rows += _session_rows("llama3.1:8b", "ollama_ctx_4096_call2_notools", seed, call2_mode="off", events=ev)
+    _write(tmp_path / "y.jsonl", rows, RULES)
+    rep = rr.build_combined([tmp_path / "y.jsonl"], validation_paths=[tmp_path / "none.jsonl"])
+    v = rr.excess_over_default(rep, n_resamples=200, seed=1)["per_tier"]["num_ctx_4096"]["llama3.1:8b"]
+    assert v["rate"] == 0.75 and v["default_rate"] == 0.25 and v["excess"] == 0.5
+    assert -0.25 <= v["ci95"][0] <= 0.5 <= v["ci95"][1] <= 1.0
+
+
+def test_percentile_interpolates():
+    assert rr._percentile([0.0, 1.0], 0.5) == 0.5 and rr._percentile([3.0], 0.975) == 3.0
+    assert rr._percentile([], 0.5) is None

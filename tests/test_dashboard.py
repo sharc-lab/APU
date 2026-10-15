@@ -128,6 +128,8 @@ def test_scenario(app):
     assert len(s["sessions"]) == 6 and all(x["num_ctx"] == 4096 for x in s["sessions"])
     assert "R2-real-v1-gated-kill" in s["register"]
     assert s["register"]["R2-real-v1-gated-kill"]["status"] == "VERIFIED"
+    for rid in ("R2-real-v1b-gated-kill", "R2-v1b-excess-over-default"):   # the evidence text cites v1b
+        assert s["register"][rid]["status"] == "VERIFIED", rid
 
 
 def test_replay(app):

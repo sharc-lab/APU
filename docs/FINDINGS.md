@@ -2564,7 +2564,9 @@ below 90% in its baseline. The stricter variant (`R2-real-v1-gated-kill`, only m
 keeps the verdict but narrows it: at 4096, 6/6 sessions fail silently, all after the window was exceeded; at 32768
 and default, 1/6 each, neither after the window was exceeded (a llama recall miss at turn 20). So the evidence for
 "lost rules with no error" is the 4096 tier; at the larger tiers the silent loss is of conversation history
-(canaries), not of rules.
+(canaries), not of rules. (Superseded for citation 2026-10-14: these v1-only counts are history; cite the strengthened
+run, section "R2 strengthened run v1 + v1b: gated failures per tier and model, baseline-type failures at the default
+tier, excess over the default" below.)
 
 **Survival** (`R2-real-v1-survival`, intact = no gated failure and no canary miss). At 4096, 0 of 3 sessions per
 model are intact by turn 5. At 32768 and at default for qwen3:14b, all are intact through turn 20 and none at turn
@@ -2749,7 +2751,8 @@ citable. The tokenizer parser was also checked on two known strings before use w
   the first 4 or 5 tokens and discard what follows, which is where the system prompt sits.
 - Ollama default (131072 loaded): no truncation in 40 turns.
 
-**Reading.** This explains the R2 real-run pattern (`R2-real-v1-gated-kill`): at 32768 and default the conversation
+**Reading.** This explains the R2 real-run pattern (`R2-real-v1-gated-kill`; on the strengthened run, rule failures
+also appear at 8192, `R2-real-v1b-first-events`, see the v1 + v1b section below): at 32768 and default the conversation
 history is lost silently but the rules hold, because the system message is kept; at 4096 the rules break, because
 after Ollama's message-level trimming leaves too little room, llama.cpp's context shift and Ollama's token cut remove
 the start of the prompt, system prompt included. All of it with HTTP 200 and no error field. One model, one seed per
@@ -3418,3 +3421,104 @@ release, cleared in the same script's finally block (pause flag confirmed absent
 rule rather than the order list: `x2_model_pulls_scale` (position 55) and `x2_family_smoke_mistral_small32` (56)
 immediately before `x2_scale_timing_probe` (57); `x2_r2_family_mistral_small32_validation` (60) and
 `x2_r2_family_mistral_small32_real` (61) immediately after `x2_r2_scale_real` (59).
+
+## R2 strengthened run v1 + v1b: gated failures per tier and model, baseline-type failures at the default tier, excess over the default (2026-10-14, analysis only)
+
+**Data and method.** `results/x2_r2_real_v1.jsonl` plus `results/x2_r2_real_v1b.jsonl` through
+`analysis/r2_real_report.py::build_combined` (3 models: llama3.1:8b, qwen3:14b, qwen3:8b; 5 tiers; 5 seeds per cell;
+40 turns; qwen3-4b-2507 was refused by its validation gate, `R2-task-tool-gate`). New functions in the same module:
+`gated_per_model`, `silent_session_detail`, `kill_baseline_type`, `excess_over_default`. Definitions:
+- Gated silent failure: the first turn on which a gated metric failed (the model's rules in use plus tool validity,
+  tool arguments and recall where their validation baseline reached 90%, as in `R2-real-v1b-gated-kill`) with no HTTP
+  error or error field on an earlier turn.
+- After window: that failure is at or after the first turn whose prompt exceeded the loaded window.
+- Baseline-type: a silent failure with no window exceeded yet (the session never went over the window, or the failure
+  came before the first over-window turn). Such a failure is the model's own error rate, not context loss.
+- Excess over default: per tier, the after-window gated silent failure rate minus the Ollama-default tier's rate,
+  overall and per model, with a 95% percentile bootstrap CI: 10000 resamples, resampling unit the session, drawn with
+  replacement within each tier x model cell (so each tier keeps its model mix), random.Random(20261014). A 0/n or n/n
+  cell has no bootstrap variance and its CI is a point, which understates uncertainty at n = 5.
+
+**Per tier x model** (register row `R2-v1b-gated-per-model`, pasted): "ollama_default llama3.1:8b: 3/5 silent, 0 after
+window exceeded, 3 baseline-type; intact 4/4/4/2/2/2/1/1; ollama_default qwen3:14b: 0/5 silent, 0 after window
+exceeded, 0 baseline-type; intact 5/5/5/5/5/0/0/0; ollama_default qwen3:8b: 0/5 silent, 0 after window exceeded, 0
+baseline-type; intact 5/5/5/4/4/0/0/0; num_ctx_32768 llama3.1:8b: 1/5 silent, 0 after window exceeded, 1
+baseline-type; intact 5/5/5/3/3/0/0/0; num_ctx_32768 qwen3:14b: 0/5 silent, 0 after window exceeded, 0 baseline-type;
+intact 5/5/5/5/0/0/0/0; num_ctx_32768 qwen3:8b: 0/5 silent, 0 after window exceeded, 0 baseline-type; intact
+5/5/5/4/0/0/0/0; num_ctx_16384 llama3.1:8b: 2/5 silent, 2 after window exceeded, 0 baseline-type; intact
+5/5/0/0/0/0/0/0; num_ctx_16384 qwen3:14b: 0/5 silent, 0 after window exceeded, 0 baseline-type; intact
+5/5/0/0/0/0/0/0; num_ctx_16384 qwen3:8b: 0/5 silent, 0 after window exceeded, 0 baseline-type; intact
+5/5/0/0/0/0/0/0; num_ctx_8192 llama3.1:8b: 4/5 silent, 4 after window exceeded, 0 baseline-type; intact
+5/0/0/0/0/0/0/0; num_ctx_8192 qwen3:14b: 0/5 silent, 0 after window exceeded, 0 baseline-type; intact
+5/0/0/0/0/0/0/0; num_ctx_8192 qwen3:8b: 4/5 silent, 4 after window exceeded, 0 baseline-type; intact
+3/0/0/0/0/0/0/0; num_ctx_4096 llama3.1:8b: 5/5 silent, 5 after window exceeded, 0 baseline-type; intact
+0/0/0/0/0/0/0/0; num_ctx_4096 qwen3:14b: 4/5 silent, 4 after window exceeded, 0 baseline-type; intact
+0/0/0/0/0/0/0/0; num_ctx_4096 qwen3:8b: 1/5 silent, 1 after window exceeded, 0 baseline-type; intact 0/0/0/0/0/0/0/0".
+Intact is the survival definition of `R2-real-v1b-survival` (no gated failure and no canary miss so far) at turns
+5/10/15/20/25/30/35/40.
+
+**The default tier.** `R2-real-v1b-gated-kill` reads "ollama_default 3/15 silent, 0 after window exceeded". Is that
+"near 0"? Under the after-window definition it is exactly 0 of 15. The 3 (register row `R2-v1b-default-baseline-type`,
+pasted): "gated 3/15 silent, 3 baseline-type: llama3.1:8b seed 20260903 turn 20 (recall_ok; first over window -),
+llama3.1:8b seed 20260904 turn 20 (recall_ok; first over window -), llama3.1:8b seed 20260905 turn 4 (recall_ok; first
+over window -)": three llama3.1:8b recall misses in sessions that never exceeded the window. The pre-registered kill
+criterion's default-tier count ("ollama_default 10/15 silent", `R2-real-v1b-kill-criterion`) is all baseline-type, same
+row: "kill criterion 10/15 silent, 10 baseline-type (3 never over window, 7 before the first over-window turn), 0 at or
+after it". The 7 are qwen3:14b and qwen3:8b tool-argument and recall misses at turn 4, metrics below 90% in those
+models' baselines (`R2-real-v1b-gated-kill`: "qwen3:14b excludes tool_args, recall; qwen3:8b excludes tool_args,
+recall"), which the pre-registered criterion counts and the gated variant does not. So the pre-registered criterion is
+not killed, but at the default tier nothing it counts is context loss.
+
+**Excess over the default tier** (register row `R2-v1b-excess-over-default`, pasted): "num_ctx_32768: overall 0/15 vs
+default 0/15, excess +0.000 (95% CI +0.000 to +0.000), llama3.1:8b 0/5 vs default 0/5, excess +0.000 (95% CI +0.000 to
++0.000), qwen3:14b 0/5 vs default 0/5, excess +0.000 (95% CI +0.000 to +0.000), qwen3:8b 0/5 vs default 0/5, excess
++0.000 (95% CI +0.000 to +0.000); num_ctx_16384: overall 2/15 vs default 0/15, excess +0.133 (95% CI +0.000 to +0.267),
+llama3.1:8b 2/5 vs default 0/5, excess +0.400 (95% CI +0.000 to +0.800), qwen3:14b 0/5 vs default 0/5, excess +0.000
+(95% CI +0.000 to +0.000), qwen3:8b 0/5 vs default 0/5, excess +0.000 (95% CI +0.000 to +0.000); num_ctx_8192: overall
+8/15 vs default 0/15, excess +0.533 (95% CI +0.333 to +0.667), llama3.1:8b 4/5 vs default 0/5, excess +0.800 (95% CI
++0.400 to +1.000), qwen3:14b 0/5 vs default 0/5, excess +0.000 (95% CI +0.000 to +0.000), qwen3:8b 4/5 vs default 0/5,
+excess +0.800 (95% CI +0.400 to +1.000); num_ctx_4096: overall 10/15 vs default 0/15, excess +0.667 (95% CI +0.533 to
++0.800), llama3.1:8b 5/5 vs default 0/5, excess +1.000 (95% CI +1.000 to +1.000), qwen3:14b 4/5 vs default 0/5, excess
++0.800 (95% CI +0.400 to +1.000), qwen3:8b 1/5 vs default 0/5, excess +0.200 (95% CI +0.000 to +0.600) (bootstrap 10000
+resamples, unit session, stratified by tier x model, seed 20261014, percentile CI; a 0/n or n/n cell has no bootstrap
+variance)".
+
+**Reading.** Silent context-loss failures rise as the window shrinks: none after the window at 32768, a few at 16384
+(llama3.1:8b only), about half the sessions at 8192 and two thirds at 4096, over a default tier with none. The overall
+CI excludes 0 at 8192 and 4096 and touches 0 at 16384. Models differ: qwen3:14b has no after-window failure above
+4096; qwen3:8b has 4 of 5 at 8192 but 1 of 5 at 4096. Rule failures themselves (rather than recall) appear at 8192
+and 4096 only (`R2-real-v1b-first-events`: "num_ctx_8192 llama3.1:8b ... rule1 -/-/14/-/-", "num_ctx_8192 qwen3:8b
+... rule1 -/15/25/-/-, rule2 -/-/-/25/29"; no rule failure at 16384 or above), so the v1 reading "rules break only at
+4096" does not hold on the strengthened run: they also break at 8192.
+
+**Citations replaced.** The v1-only gated counts (`R2-real-v1-gated-kill`, "1/6 ... 6/6") are history from this date.
+Replaced in docs/PAPER1_DRAFT.md (abstract claims list, contributions 3 and 4, Section 4.6a, claim P1-11, figure F6,
+gap G1, appendix), docs/CALLIE_OUTLINE_1PAGER.md (claims table) and the dashboard scenario text
+(demo/dashboard/static/app.js, cache rebuilt). Not edited: the H-scale pre-registration above, which cites
+`R2-real-v1-gated-kill` as its 8B/14B evidence; a pre-registration is frozen at its commit. Its v1b counterpart is
+the 4096 and 32768 rows of `R2-v1b-gated-per-model` above.
+
+**Limits.** One machine (evo-x2), one runtime (Ollama 0.34.4), five seeds per cell, three models. The CI is over
+sessions with seeds as the only replication; it does not cover machine, runtime or model sampling.
+
+## Results of two pre-registered checks: the Blade confound check and the R2 mitigation (2026-10-14, as stated in the paper draft)
+
+**x2_r2_llama_val_32k (pre-registration 2026-10-10 above).** Register row `x2-r2-llama-val-32k`, pasted: "negative
+control (num_ctx 32768) canary misses 0 of 20 canaries over 5 sessions, per session (seed: misses) 20260901: 0,
+20260902: 0, 20260903: 0, 20260904: 0, 20260905: 0; missed turns: no missed canary turn" and "verdict: backend or
+offload effect". On evo-x2 at 32768, the same model, seeds and settings had no canary misses, including seeds 20260903
+and 20260905, which missed on the Blade (`blade-r2-gate-v2`). Per the pre-registered rule the Blade misses are a
+backend (CUDA) or partial-CPU-offload effect, not a window effect. This job cannot separate backend from offload (its
+own pre-registration says so); a follow-up that does is pending and not yet designed or queued. The Blade R2 real
+tiers and mitigation stay held until then.
+
+**x2_r2_mitigation_v1 (pre-registration 2026-10-08 above).** Register row `R2-mitigation-v1-verdict`, pasted:
+"pre-registered verdict at num_ctx_4096: refuted; num_ctx_8192 llama3.1:8b recovered; num_ctx_8192 qwen3:14b
+recovered; num_ctx_4096 llama3.1:8b recovered; num_ctx_4096 qwen3:14b not_recovered (rules below 90%:
+rule2_log_event_called)". Every cell was valid by the pre-registered conditions (`R2-mitigation-v1-observed`: "0 context
+shifts, 0 token cuts, 0 Ollama message drops, 0 exceed-context errors, 0 incomplete log slices" in all four cells).
+The obvious fix works for one model and fails for another at the smallest window: llama3.1:8b recovered at 4096 and
+8192; qwen3:14b recovered at 8192, not at 4096, where rule 2 fell to "rule2 61.7% (n=120, first fail 3/3/3)" from
+"rule2 100.0% (n=120, first fail -/-/-)" in the unmitigated real run (`R2-mitigation-v1-4096`). The pre-registered
+refutation clause applies to qwen3:14b at 4096: the system prompt was sent on every call and a rule still broke, so the
+context shift's loss of the system prompt is not the whole explanation there.

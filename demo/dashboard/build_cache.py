@@ -32,8 +32,11 @@ WORKLOAD_DIR = "results/workload_pack/items"
 SCENARIO_ARM = "ollama_ctx_4096_call2_notools"
 DEFAULT_ARM = "ollama_default_call2_notools"
 # Register rows the scenario screen cites. Read verbatim from the register at build time.
+# The replayed sessions are v1's (R2_FILE); the evidence text cites the strengthened run (v1 + v1b) for the counts.
 SCENARIO_REGISTER_IDS = ["R2-real-v1-first-events", "R2-real-v1-gated-kill", "R2-real-v1-kill-criterion",
-                         "R2-real-v1-survival", "R2-mechanism-verdict", "R2-mechanism-lowlevel"]
+                         "R2-real-v1-survival", "R2-real-v1b-gated-kill", "R2-v1b-gated-per-model",
+                         "R2-v1b-excess-over-default", "R2-mitigation-v1-verdict", "R2-mechanism-verdict",
+                         "R2-mechanism-lowlevel"]
 
 # configs/hardware/<name>.yaml -> the hw_id that result files use. evo-x2 is the 128 GB Strix Halo
 # (docs/HARDWARE.md: 64 GB BIOS-reserved for the iGPU + 63.6 GB Windows-visible).
