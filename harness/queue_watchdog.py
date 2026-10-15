@@ -257,7 +257,7 @@ def _circuit_breaker_check(running, elapsed_s, log_dir=QUEUE_LOG_DIR, read_text=
 
 def tick(pid_alive_fn=pid_alive, heartbeat_age_fn=heartbeat_age_s, cleanup_fn=None, sleep_fn=time.sleep,
         now_fn=time.time, ownership_fn=None, load_circuit_state_fn=None, save_circuit_state_fn=None,
-        tail_signature_fn=None):
+        tail_signature_fn=None, handover_fn=None):
     """One watchdog decision cycle. Injectable pid_alive_fn/heartbeat_age_fn for tests; production defaults hit the
     real machine. Returns a dict describing what happened, for logging and for tests to assert on.
 
@@ -269,6 +269,26 @@ def tick(pid_alive_fn=pid_alive, heartbeat_age_fn=heartbeat_age_s, cleanup_fn=No
     pause = q.is_paused()
     if pause is not None:
         return {"action": "paused", "reason": pause}
+
+    # Handover deadline (2026-10-14, harness/t2s_deadline.py): once no_launch_after_utc has passed nothing is
+    # launched or requeued; a live running job is left to stop at its own item boundary until the kill threshold
+    # (hard deadline minus one tick), then t2s_deadline.handover() kills it, stops our processes, sets the pause
+    # (released only by the next window's operator) and writes the handover record.
+    deadline = q.deadline_reached(now_fn())
+    if deadline is not None:
+        items = q.read_queue()
+        running = next((it for it in items if it["status"] == "running"), None)
+        import t2s_deadline as tdl  # noqa: WPS433  (lazy: only needed once a deadline is armed and due)
+        kill_at = tdl.kill_threshold(deadline) if "hard_deadline_utc" in deadline else 0.0
+        if (running is not None and running.get("pid") is not None and now_fn() < kill_at
+                and pid_alive_fn(running.get("pid"))):
+            return {"action": "deadline_draining",
+                    "reason": f"handover deadline passed; {running['id']} (pid {running.get('pid')}) may finish "
+                              f"its current item; killed at the first tick after {tdl.utc_iso(kill_at)}"}
+        record = (handover_fn or tdl.handover)()
+        return {"action": "deadline_handover", "stopped": record.get("stopped_queue_entries"),
+                "processes_stopped": len(record.get("processes_stopped") or []),
+                "pause_reason": record.get("pause_reason")}
 
     # Resolved once, up front, so both the crash branch (circuit-breaker cleanup) and the pending branch
     # (t2s_queue.launch_next's own pre-launch cleanup, X1 2026-10-02) share the same injected test doubles --
