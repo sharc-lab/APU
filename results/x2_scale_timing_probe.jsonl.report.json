@@ -1,0 +1,376 @@
+{
+ "models": {
+  "qwen3:32b": {
+   "reference_model": "qwen3:14b",
+   "tiers": {
+    "ollama_ctx_4096": {
+     "probe_rates": {
+      "pe_tok": 11257.0,
+      "pe_s": 24.325372,
+      "ev_tok": 194.0,
+      "ev_s": 18.566575,
+      "pe_rate": 462.7678458524704,
+      "ev_rate": 10.448884621961778,
+      "load_s": 15.3968146
+     },
+     "probe_loaded_context": 4096,
+     "probe_thinking_turns": 0,
+     "probe_turn_wall_s": [
+      39.23399999993853,
+      19.875
+     ],
+     "n_reference_sessions": 5,
+     "reference_rates": {
+      "pe_tok": 56417.0,
+      "pe_s": 56.187482,
+      "ev_tok": 1095.0,
+      "ev_s": 52.229836000000006,
+      "pe_rate": 1004.0848600405335,
+      "ev_rate": 20.965028494441373,
+      "load_s": 5.67058822
+     },
+     "reference_loaded_context": [
+      4096
+     ],
+     "k_pe": 2.169737740077633,
+     "k_ev": 2.00643697896486,
+     "minutes_per_session": 24.63061578544805,
+     "hours_for_seeds": 1.2315307892724026
+    },
+    "ollama_ctx_32768": {
+     "probe_rates": {
+      "pe_tok": 11419.0,
+      "pe_s": 24.485817,
+      "ev_tok": 321.0,
+      "ev_s": 30.843066999999998,
+      "pe_rate": 466.35160264409393,
+      "ev_rate": 10.407525295717187,
+      "load_s": 8.6349756
+     },
+     "probe_loaded_context": 32768,
+     "probe_thinking_turns": 0,
+     "probe_turn_wall_s": [
+      36.60999999998603,
+      28.01500000001397
+     ],
+     "n_reference_sessions": 5,
+     "reference_rates": {
+      "pe_tok": 56537.0,
+      "pe_s": 53.13061999999999,
+      "ev_tok": 1194.0,
+      "ev_s": 57.040881999999996,
+      "pe_rate": 1064.1133116835454,
+      "ev_rate": 20.932355148365343,
+      "load_s": 5.94218854
+     },
+     "reference_loaded_context": [
+      32768
+     ],
+     "k_pe": 2.2817833275371973,
+     "k_ev": 2.0112711286879352,
+     "minutes_per_session": 222.21080498388923,
+     "hours_for_seeds": 11.110540249194461
+    },
+    "ollama_default": {
+     "probe_rates": {
+      "pe_tok": 11419.0,
+      "pe_s": 25.923699,
+      "ev_tok": 321.0,
+      "ev_s": 30.869882000000004,
+      "pe_rate": 440.48497862901434,
+      "ev_rate": 10.398484840337257,
+      "load_s": 8.871026
+     },
+     "probe_loaded_context": 40960,
+     "probe_thinking_turns": 0,
+     "probe_turn_wall_s": [
+      36.65599999995902,
+      29.65700000000652
+     ],
+     "n_reference_sessions": 5,
+     "reference_rates": {
+      "pe_tok": 56417.0,
+      "pe_s": 57.727225,
+      "ev_tok": 1071.0,
+      "ev_s": 51.133373,
+      "pe_rate": 977.3031702112825,
+      "ev_rate": 20.945224951227058,
+      "load_s": 5.5284292200000005
+     },
+     "reference_loaded_context": [
+      40960
+     ],
+     "k_pe": 2.21869806605684,
+     "k_ev": 2.014257391613193,
+     "minutes_per_session": 452.8043969359941,
+     "hours_for_seeds": 22.640219846799702
+    }
+   },
+   "validation_minutes": 53.706567161819535,
+   "n_validation_reference_sessions": 7,
+   "default_tier": {
+    "include": true,
+    "reason": "planned default tier (operator)"
+   }
+  },
+  "qwen3-30b-a3b-2507": {
+   "reference_model": "qwen3:14b",
+   "tiers": {
+    "ollama_ctx_4096": {
+     "probe_rates": {
+      "pe_tok": 11345.0,
+      "pe_s": 4.5322890000000005,
+      "ev_tok": 268.0,
+      "ev_s": 3.884835,
+      "pe_rate": 2503.150174227636,
+      "ev_rate": 68.98619889905234,
+      "load_s": 12.3643748
+     },
+     "probe_loaded_context": 4096,
+     "probe_thinking_turns": 0,
+     "probe_turn_wall_s": [
+      16.93799999996554,
+      4.297000000020489
+     ],
+     "n_reference_sessions": 5,
+     "reference_rates": {
+      "pe_tok": 56417.0,
+      "pe_s": 56.187482,
+      "ev_tok": 1095.0,
+      "ev_s": 52.229836000000006,
+      "pe_rate": 1004.0848600405335,
+      "ev_rate": 20.965028494441373,
+      "load_s": 5.67058822
+     },
+     "reference_loaded_context": [
+      4096
+     ],
+     "k_pe": 0.401128494158506,
+     "k_ev": 0.3039017778776237,
+     "minutes_per_session": 6.604616643767416,
+     "hours_for_seeds": 0.33023083218837085
+    },
+    "ollama_ctx_32768": {
+     "probe_rates": {
+      "pe_tok": 11345.0,
+      "pe_s": 4.682526,
+      "ev_tok": 268.0,
+      "ev_s": 3.8779250000000003,
+      "pe_rate": 2422.8375880881385,
+      "ev_rate": 69.10912408053275,
+      "load_s": 7.8512314
+     },
+     "probe_loaded_context": 32768,
+     "probe_thinking_turns": 0,
+     "probe_turn_wall_s": [
+      12.39000000001397,
+      4.469000000040978
+     ],
+     "n_reference_sessions": 5,
+     "reference_rates": {
+      "pe_tok": 56537.0,
+      "pe_s": 53.13061999999999,
+      "ev_tok": 1194.0,
+      "ev_s": 57.040881999999996,
+      "pe_rate": 1064.1133116835454,
+      "ev_rate": 20.932355148365343,
+      "load_s": 5.94218854
+     },
+     "reference_loaded_context": [
+      32768
+     ],
+     "k_pe": 0.4392012559633588,
+     "k_ev": 0.3028884452937488,
+     "minutes_per_session": 43.72589682346001,
+     "hours_for_seeds": 2.1862948411730008
+    },
+    "ollama_default": {
+     "probe_rates": {
+      "pe_tok": 11345.0,
+      "pe_s": 4.580287,
+      "ev_tok": 268.0,
+      "ev_s": 3.893297,
+      "pe_rate": 2476.9190227599274,
+      "ev_rate": 68.83625883152506,
+      "load_s": 9.1205414
+     },
+     "probe_loaded_context": 262144,
+     "probe_thinking_turns": 0,
+     "probe_turn_wall_s": [
+      13.875,
+      4.217999999993481
+     ],
+     "n_reference_sessions": 5,
+     "reference_rates": {
+      "pe_tok": 56417.0,
+      "pe_s": 57.727225,
+      "ev_tok": 1071.0,
+      "ev_s": 51.133373,
+      "pe_rate": 977.3031702112825,
+      "ev_rate": 20.945224951227058,
+      "load_s": 5.5284292200000005
+     },
+     "reference_loaded_context": [
+      40960
+     ],
+     "k_pe": 0.39456403751234237,
+     "k_ev": 0.3042760502497666,
+     "minutes_per_session": 81.52739239908128,
+     "hours_for_seeds": 4.076369619954064
+    }
+   },
+   "validation_minutes": 10.458381765600425,
+   "n_validation_reference_sessions": 7,
+   "default_tier": {
+    "include": true,
+    "reason": "planned default tier (operator)"
+   }
+  },
+  "llama3.3:70b": {
+   "reference_model": "llama3.1:8b",
+   "tiers": {
+    "ollama_ctx_4096": {
+     "probe_rates": {
+      "pe_tok": 9795.0,
+      "pe_s": 63.011962,
+      "ev_tok": 302.0,
+      "ev_s": 58.979666998999996,
+      "pe_rate": 155.44667534713489,
+      "ev_rate": 5.120408699579813,
+      "load_s": 29.7592704
+     },
+     "probe_loaded_context": 4096,
+     "probe_thinking_turns": 0,
+     "probe_turn_wall_s": [
+      97.17200000002049,
+      55.43700000003446
+     ],
+     "n_reference_sessions": 5,
+     "reference_rates": {
+      "pe_tok": 48565.0,
+      "pe_s": 32.389212,
+      "ev_tok": 1012.0,
+      "ev_s": 26.748714,
+      "pe_rate": 1499.4190040807414,
+      "ev_rate": 37.83359454215257,
+      "load_s": 3.32150034
+     },
+     "reference_loaded_context": [
+      4096
+     ],
+     "k_pe": 9.6458737424414,
+     "k_ev": 7.3887841306998085,
+     "minutes_per_session": 54.50193903688911,
+     "hours_for_seeds": 2.725096951844456
+    },
+    "ollama_ctx_32768": {
+     "probe_rates": {
+      "pe_tok": 9795.0,
+      "pe_s": 56.107516000000004,
+      "ev_tok": 302.0,
+      "ev_s": 58.97138199999999,
+      "pe_rate": 174.57554171530245,
+      "ev_rate": 5.121128075309479,
+      "load_s": 16.6687673
+     },
+     "probe_loaded_context": 32768,
+     "probe_thinking_turns": 0,
+     "probe_turn_wall_s": [
+      82.375,
+      49.93799999996554
+     ],
+     "n_reference_sessions": 5,
+     "reference_rates": {
+      "pe_tok": 48564.0,
+      "pe_s": 30.264017,
+      "ev_tok": 892.0,
+      "ev_s": 23.325032,
+      "pe_rate": 1604.6779249430108,
+      "ev_rate": 38.242176902479706,
+      "load_s": 4.10938364
+     },
+     "reference_loaded_context": [
+      32768
+     ],
+     "k_pe": 9.191882832933821,
+     "k_ev": 7.467529876250685,
+     "minutes_per_session": 202.30945005984378,
+     "hours_for_seeds": 10.115472502992189
+    },
+    "ollama_default": {
+     "probe_rates": {
+      "pe_tok": 9795.0,
+      "pe_s": 77.026627,
+      "ev_tok": 302.0,
+      "ev_s": 59.646969999999996,
+      "pe_rate": 127.1638182988332,
+      "ev_rate": 5.0631239105691375,
+      "load_s": 24.9735101
+     },
+     "probe_loaded_context": 131072,
+     "probe_thinking_turns": 0,
+     "probe_turn_wall_s": [
+      101.98400000005495,
+      60.45299999997951
+     ],
+     "n_reference_sessions": 5,
+     "reference_rates": {
+      "pe_tok": 48635.0,
+      "pe_s": 31.700845,
+      "ev_tok": 882.0,
+      "ev_s": 23.111503,
+      "pe_rate": 1534.1862338369845,
+      "ev_rate": 38.162814421891994,
+      "load_s": 4.679608159999999
+     },
+     "reference_loaded_context": [
+      131072
+     ],
+     "k_pe": 12.064644286094557,
+     "k_ev": 7.537404791185956,
+     "minutes_per_session": 499.1693494903112,
+     "hours_for_seeds": 24.95846747451556
+    }
+   },
+   "validation_minutes": 99.44330822227874,
+   "n_validation_reference_sessions": 7,
+   "default_tier": {
+    "include": false,
+    "projected_hours": 24.95846747451556,
+    "reason": "projected 25.0 h for 3 default sessions > cap 24.0 h"
+   }
+  }
+ },
+ "method": "reference sessions rescaled by probe rates (docs/FINDINGS.md H-scale)",
+ "default_tier_cap_h": 24.0,
+ "real_hours_if_all_pass": {
+  "per_model": {
+   "qwen3:32b": {
+    "tiers": [
+     "ollama_ctx_4096",
+     "ollama_ctx_32768",
+     "ollama_default"
+    ],
+    "hours": 34.982290885266565
+   },
+   "qwen3-30b-a3b-2507": {
+    "tiers": [
+     "ollama_ctx_4096",
+     "ollama_ctx_32768",
+     "ollama_default"
+    ],
+    "hours": 6.5928952933154354
+   },
+   "llama3.3:70b": {
+    "tiers": [
+     "ollama_ctx_4096",
+     "ollama_ctx_32768"
+    ],
+    "hours": 12.840569454836645
+   }
+  },
+  "total_known": 54.41575563341865,
+  "complete": true
+ },
+ "validation_hours": 2.726804285828312
+}

@@ -1,0 +1,75 @@
+{
+ "mistral-small3.2:24b": {
+  "model_id": "mistral-small3.2:24b",
+  "n_calls": 5,
+  "n_native_valid": 4,
+  "n_native": 5,
+  "pass_min": 4,
+  "passed": true,
+  "per_call": [
+   {
+    "turn_idx": 1,
+    "tool_task": "lookup_fact",
+    "native_tool_call": true,
+    "detection_method": "native",
+    "n_tool_calls": 1,
+    "tool_names": [
+     "log_event"
+    ],
+    "valid": false,
+    "http_error": false
+   },
+   {
+    "turn_idx": 2,
+    "tool_task": "log_event",
+    "native_tool_call": true,
+    "detection_method": "native",
+    "n_tool_calls": 1,
+    "tool_names": [
+     "log_event"
+    ],
+    "valid": true,
+    "http_error": false
+   },
+   {
+    "turn_idx": 3,
+    "tool_task": "lookup_fact",
+    "native_tool_call": true,
+    "detection_method": "native",
+    "n_tool_calls": 2,
+    "tool_names": [
+     "log_event",
+     "lookup_fact"
+    ],
+    "valid": true,
+    "http_error": false
+   },
+   {
+    "turn_idx": 4,
+    "tool_task": "log_event",
+    "native_tool_call": true,
+    "detection_method": "native",
+    "n_tool_calls": 1,
+    "tool_names": [
+     "log_event"
+    ],
+    "valid": true,
+    "http_error": false
+   },
+   {
+    "turn_idx": 5,
+    "tool_task": "lookup_fact",
+    "native_tool_call": true,
+    "detection_method": "native",
+    "n_tool_calls": 2,
+    "tool_names": [
+     "log_event",
+     "lookup_fact"
+    ],
+    "valid": true,
+    "http_error": false
+   }
+  ],
+  "attempt_id": "c031d929f7c6"
+ }
+}
