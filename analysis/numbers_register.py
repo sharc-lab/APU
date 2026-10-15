@@ -3556,7 +3556,7 @@ def compute_x2_r2_llama_val_32k(repo):
 # analysis/impact_model.py prices each problem for the customer profile in results/impact_profile_20261014.json
 # (hour value cited from BLS; every other field an assumption). docs/IMPACT.md's profile table is these rows.
 IMPACT_PROFILE = "results/impact_profile_20261014.json"
-_IMPACT_DATA = [IMPACT_PROFILE, "results/cloud_prices_20261008.json", "results/x2_r2_real*.jsonl",
+_IMPACT_DATA = [IMPACT_PROFILE, "results/cloud_prices_anthropic_20261014.json", "results/x2_r2_real*.jsonl",
                 "results/blade_r2_real*.jsonl", "results/x2_r2_validation_v2.jsonl", "results/x2_r2_validation_v2b.jsonl"]
 _IMPACT_FILES = {
     "P1": _IMPACT_DATA,
@@ -3635,14 +3635,48 @@ def compute_impact_total(repo):
     im = _impact()
     res = _impact_all(repo)
     p = res["profile"]
-    t, st = res["total"], res["scenario_total"]
-    fmt = im._fmt_usd
-    return {"value": f"status quo {p['assumptions']['runtime']}: USD/day {fmt(t['usd_day'])}, USD/month "
-                     f"{fmt(im.per_month(t['usd_day'], p))} over {', '.join(t['included'])} (not measured: "
-                     f"{', '.join(t['excluded_not_measured']) or 'none'}); ranking {' > '.join(res['ranking'])}; "
-                     f"one flag {p['assumptions']['scenario_runtime']}: USD/day {fmt(st['usd_day'])}, USD/month "
-                     f"{fmt(im.per_month(st['usd_day'], p))} over {', '.join(st['included'])} (not measured: "
-                     f"{', '.join(st['excluded_not_measured']) or 'none'})", "n": 7}
+    at = res["audit_total"]
+    fmt, rng = im._fmt_usd, im._rng
+    pm = lambda v: im.per_month(v, p)  # noqa: E731
+    return {"value": f"status quo {p['assumptions']['runtime']}, {p['assumptions']['cloud_model']} caching on: "
+                     f"measured-only USD/day {fmt(at['measured_usd_day'])} (USD/month {fmt(pm(at['measured_usd_day']))}); "
+                     f"range USD/day {rng(at['low'], at['high'])} (USD/month {rng(pm(at['low']), pm(at['high']))}; low = "
+                     f"measured only, nobody waits for compute; high = compute time at the full hour value and cloud "
+                     f"without caching) over {', '.join(at['in_range'])}; not added (assumed or not measured): "
+                     f"{', '.join(at['excluded_assumed']) or 'none'}; ranking (caching on, time at its upper bound) "
+                     f"{' > '.join(res['ranking'])}; per row status "
+                     + ", ".join(f"{k} {r['audit']['status']}" for k, r in res["base"].items()), "n": 7}
+
+
+ANTHROPIC_PRICES = "results/cloud_prices_anthropic_20261014.json"
+
+
+def compute_cloud_prices_anthropic(repo):
+    """The shared Anthropic price table: source, fetch time and the escalation model's rates (USD per MTok)."""
+    import json as _json
+    d = _json.loads((repo / ANTHROPIC_PRICES).read_text(encoding="utf-8"))
+    rows = []
+    for mid, m in d["models"].items():
+        s = m["standard"]["short"]
+        rows.append(f"{mid}: input {s['input']:g}, 5m cache write {s['cache_write']:g}, cache read {s['cached_input']:g}, "
+                    f"output {s['output']:g}")
+    return {"value": f"USD per MTok, Standard, prompts in the short tier: " + "; ".join(rows) + f"; escalation model "
+                     f"{d['selection']['escalation_mid_tier']}; source {d['source_url']}; fetched {d['fetched_utc']}",
+            "n": len(d["models"])}
+
+
+def compute_impact_scenario_one_flag(repo):
+    """The one-flag scenario (scenario_runtime) term by term on the previous basis (where the earlier
+    USD 1,933.63/day came from) and on the current basis, split into measured and assumed."""
+    im = _impact()
+    return {"value": im.scenario_value(_impact_all(repo)), "n": 7}
+
+
+def compute_impact_session_time_by_window(repo):
+    """Per-session wall time on evo-x2 at Ollama's default window vs num_ctx 4096, from the R2 sessions."""
+    im = _impact()
+    res = _impact_all(repo)
+    return {"value": im.session_time_value(res), "n": sum(v["n"] for v in res["session_time"].values())}
 
 # ───────────────────────────────────────────────── H-scale, R2 at 30B to 70B (pre-registered 2026-10-14)
 X2_SCALE_PROBE = "results/x2_scale_timing_probe.jsonl"
@@ -3970,12 +4004,17 @@ def compute_business_hour_range(repo):
 def _business_profile(repo, name):
     bm = _business()
     res = _business_all(repo)
-    return {"value": bm.profile_value(name, res["profiles"][name]),
-            "n": f"{res['profiles'][name]['router']['escalation']['n']} replayed sessions per window"}
+    r = res["profiles"][name]
+    return {"value": bm.profile_value(name, r),
+            "n": f"{max(c['escalation']['n'] for c in r['windows'])} replayed sessions per window"}
 
 
-def compute_business_small_team(repo):
-    return _business_profile(repo, "small_team")
+def compute_business_scenario_plus_a(repo):
+    """SCENARIO only: router savings per profile under the +A credit, the P1 rerun proxy and time at the full hour
+    value (kept out of every headline; operator decision D)."""
+    bm = _business()
+    res = _business_all(repo)
+    return {"value": bm.scenario_value(res), "n": len(res["scenario"])}
 
 
 def compute_business_mid_team(repo):
@@ -3989,7 +4028,7 @@ def compute_business_mid_team_qwen3_14b(repo):
 def compute_business_sensitivity(repo):
     bm = _business()
     res = _business_all(repo)
-    return {"value": f"base {res['doc']['sensitivity']['base_profile']}, USD/month (projection): "
+    return {"value": f"base {res['doc']['sensitivity']['base_profile']}, USD/month: "
                      + bm.sensitivity_value(res["sensitivity"]), "n": len(res["sensitivity"])}
 
 
@@ -4526,7 +4565,21 @@ NUMBER_ENTRIES = [
     {"claim_id": "impact-total", "description": "Impact total over the measured rows, ranking, and the one-flag "
                     "scenario total",
      "compute": compute_impact_total, "data_files": sorted({f for v in _IMPACT_FILES.values() for f in v}),
-     "script_function": "analysis/impact_model.py::total"},
+     "script_function": "analysis/impact_model.py::audit_total"},
+    {"claim_id": "cloud-prices-anthropic", "description": "Shared Anthropic price table (official pricing page): "
+                    "input, cache write, cache read and output per model",
+     "compute": compute_cloud_prices_anthropic, "data_files": [ANTHROPIC_PRICES],
+     "script_function": "analysis/numbers_register.py::compute_cloud_prices_anthropic"},
+    {"claim_id": "impact-scenario-one-flag", "description": "Impact one-flag scenario (num_ctx 4096): where the "
+                    "earlier USD 1,933.63/day came from, term by term, and the same scenario split into measured and "
+                    "assumed (SCENARIO: depends on assumed rework time per silent wrong result)",
+     "compute": compute_impact_scenario_one_flag,
+     "data_files": sorted({f for v in _IMPACT_FILES.values() for f in v} | {"results/cloud_prices_20261008.json"}),
+     "script_function": "analysis/impact_model.py::previous_basis"},
+    {"claim_id": "impact-session-time-by-window", "description": "Median wall time per 40-turn R2 session on evo-x2 "
+                    "at Ollama's default window vs num_ctx 4096, per model",
+     "compute": compute_impact_session_time_by_window, "data_files": _IMPACT_DATA,
+     "script_function": "analysis/impact_model.py::session_time_by_window"},
 
     {"claim_id": "x2-scale-probe-hours", "description": "H-scale timing probe: measured rates and projected hours per "
                     "model and tier, validation and real job hours, llama3.3:70b default-tier decision",
@@ -4577,18 +4630,20 @@ NUMBER_ENTRIES = [
      "percentiles converted at the page's own implied hours per year)",
      "compute": compute_business_hour_range, "data_files": [BUSINESS_PROFILES, IMPACT_PROFILE],
      "script_function": "analysis/business_metrics.py::hour_values"},
-    {"claim_id": "business-small-team", "description": "Business metrics, small-team profile: router vs all-cloud, "
-     "naive default and today's mix (USD/month, projection), steps kept local, hardware recommendation",
-     "compute": compute_business_small_team, "data_files": _BUSINESS_FILES,
-     "script_function": "analysis/business_metrics.py::profile_metrics"},
-    {"claim_id": "business-mid-team", "description": "Business metrics, mid-size team on evo-x2 with llama3.1:8b",
+    {"claim_id": "business-mid-team", "description": "Business metrics, mid-size team on evo-x2 with llama3.1:8b: "
+     "measured per-session cloud cost (caching on / off), projected spend and local compute time, router replay per "
+     "window; router savings pending B5",
      "compute": compute_business_mid_team, "data_files": _BUSINESS_FILES,
      "script_function": "analysis/business_metrics.py::profile_metrics"},
     {"claim_id": "business-mid-team-qwen3-14b", "description": "Business metrics, mid-size team on evo-x2 with "
      "qwen3:14b", "compute": compute_business_mid_team_qwen3_14b, "data_files": _BUSINESS_FILES,
      "script_function": "analysis/business_metrics.py::profile_metrics"},
-    {"claim_id": "business-sensitivity", "description": "Business metrics sensitivity over team size, sessions per "
-     "developer per day, cloud share and hour value",
+    {"claim_id": "business-scenario-plus-a", "description": "SCENARIO (not a measurement): router savings per "
+     "profile under the +A residual-failure credit, the P1 rerun proxy and time at the full hour value",
+     "compute": compute_business_scenario_plus_a, "data_files": _BUSINESS_FILES,
+     "script_function": "analysis/business_metrics.py::scenario_metrics"},
+    {"claim_id": "business-sensitivity", "description": "SCENARIO sensitivity of the +A router saving over team size, "
+     "sessions per developer per day, cloud share and hour value",
      "compute": compute_business_sensitivity, "data_files": _BUSINESS_FILES,
      "script_function": "analysis/business_metrics.py::sensitivity"},
 ]

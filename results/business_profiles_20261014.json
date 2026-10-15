@@ -22,32 +22,6 @@
     }
   },
   "profiles": {
-    "small_team": {
-      "label": "small team on laptop-class discrete-GPU machines (8 GB VRAM)",
-      "assumptions": {
-        "team_size": 3,
-        "agent_sessions_per_dev_per_day": 4,
-        "turns_per_session": 40,
-        "single_shot_calls_per_dev_per_day": 10,
-        "workdays_per_month": 21,
-        "co_runner_share": 0.25,
-        "cloud_session_share": 0.5,
-        "device": "blade",
-        "model": "llama3.1:8b",
-        "default_tier": "num_ctx_4096",
-        "router_tiers": ["num_ctx_4096", "num_ctx_32768"],
-        "session_proxy_device": "evo-x2",
-        "alternatives": {"evo-x2": ["num_ctx_4096", "num_ctx_8192", "num_ctx_16384", "num_ctx_32768", "ollama_default"]},
-        "cloud_model": "gpt-6.1-sol",
-        "cloud_tier": "standard"
-      },
-      "notes": {
-        "default_tier": "measured, not assumed: Ollama's default window on this laptop is 4096 for llama3.1:8b (register row blade-k1-layer-split)",
-        "router_tiers": "the windows with a measured decode rate on this laptop (register row blade-dryrun-rates)",
-        "session_proxy_device": "ASSUMPTION: no R2 session completed on this laptop (its real run is held by the validation gate), so session outcomes (silent-failure rate, session time, Router escalations) are taken from evo-x2 R2 sessions at the same window. Supported in part by the laptop's own silent truncation at its default window (blade-k1-layer-split) and its equal decode rate at 4096 (blade-dryrun-rates). The co-runner slowdown (P5) is not transferred: it prints not measured on this laptop.",
-        "alternatives": "the same team on an evo-x2-class workstation, priced from evo-x2's own sessions; hardware purchase cost and power are not priced in this repo"
-      }
-    },
     "mid_team": {
       "label": "mid-size team on evo-x2-class workstations, llama3.1:8b",
       "assumptions": {
@@ -61,10 +35,17 @@
         "device": "evo-x2",
         "model": "llama3.1:8b",
         "default_tier": "ollama_default",
-        "router_tiers": ["num_ctx_4096", "num_ctx_8192", "num_ctx_16384", "num_ctx_32768", "ollama_default"],
+        "router_tiers": [
+          "num_ctx_4096",
+          "num_ctx_8192",
+          "num_ctx_16384",
+          "num_ctx_32768",
+          "ollama_default"
+        ],
         "alternatives": {},
-        "cloud_model": "gpt-6.1-sol",
-        "cloud_tier": "standard"
+        "cloud_model": "claude-sonnet-5-5",
+        "cloud_tier": "standard",
+        "cloud_price_file": "results/cloud_prices_anthropic_20261014.json"
       },
       "notes": {
         "default_tier": "Ollama's default window on evo-x2 loads 131072 for llama3.1:8b (register row R2-real-v1-loaded-ctx)"
@@ -83,10 +64,17 @@
         "device": "evo-x2",
         "model": "qwen3:14b",
         "default_tier": "ollama_default",
-        "router_tiers": ["num_ctx_4096", "num_ctx_8192", "num_ctx_16384", "num_ctx_32768", "ollama_default"],
+        "router_tiers": [
+          "num_ctx_4096",
+          "num_ctx_8192",
+          "num_ctx_16384",
+          "num_ctx_32768",
+          "ollama_default"
+        ],
         "alternatives": {},
-        "cloud_model": "gpt-6.1-sol",
-        "cloud_tier": "standard"
+        "cloud_model": "claude-sonnet-5-5",
+        "cloud_tier": "standard",
+        "cloud_price_file": "results/cloud_prices_anthropic_20261014.json"
       },
       "notes": {
         "default_tier": "Ollama's default window on evo-x2 loads 40960 for qwen3:14b (register row R2-real-v1-loaded-ctx)"
@@ -95,14 +83,36 @@
   },
   "sensitivity": {
     "base_profile": "mid_team",
-    "team_size": [3, 10, 25, 50],
-    "agent_sessions_per_dev_per_day": [2, 4, 8],
-    "cloud_session_share": [0.25, 0.5, 0.75],
-    "hour_value": ["p10", "median", "p90"],
+    "team_size": [
+      3,
+      10,
+      25,
+      50
+    ],
+    "agent_sessions_per_dev_per_day": [
+      2,
+      4,
+      8
+    ],
+    "cloud_session_share": [
+      0.25,
+      0.5,
+      0.75
+    ],
+    "hour_value": [
+      "p10",
+      "median",
+      "p90"
+    ],
     "notes": "ASSUMPTION grid: one parameter varied at a time around the base profile"
   },
   "common_notes": {
     "contention": "ASSUMPTION: every session runs at single-user speed on a machine of its class (no queueing between developers); how many machines a team needs is not modelled",
-    "single_shot": "single-shot calls are priced only through register row pareto-sample-recommendation-v2 (evo-x2 configurations; its cloud reference is a STUB point: priced from token counts, cloud quality not measured)"
+    "single_shot": "single-shot calls are priced only through register row pareto-sample-recommendation-v2 (evo-x2 configurations; its cloud reference is a STUB point: priced from token counts, cloud quality not measured)",
+    "cloud": "operator decisions A and B (2026-10-14): cloud fees use the shared Anthropic table (results/cloud_prices_anthropic_20261014.json, official pricing page), escalation model claude-sonnet-5-5, provider prompt caching on as the main case; no caching is shown only as the upper bound.",
+    "waiting_time": "operator decision C: local compute time is valued from 0 (nobody waits) up to the full hour value (someone waits); the upper end is an ASSUMPTION, not a measurement."
+  },
+  "dropped_profiles": {
+    "small_team": "operator decision F (2026-10-14): the 8 GB laptop profile is dropped. No R2 session completed on that laptop, so every session outcome in it was transferred from the workstation (evo-x2) at the same window; nothing measured on the laptop supported the profile's totals. Its measured laptop facts stay in their own register rows (blade-k1-layer-split, blade-dryrun-rates)."
   }
 }
