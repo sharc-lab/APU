@@ -3402,7 +3402,8 @@ file. It does not enter `H-scale-verdict` or its overall statement, which keep t
 about that model through its Ollama library template. The smoke test's 5 calls are one seed's first 5 turns. The family
 jobs' durations are not projected (the timing probe covers the H-scale models only); no hour figure is cited for them.
 
-**Deployed and queued (2026-10-14, after the pre-registration commit 1656134 and the code commit 1670e91).** Free disk on
+**Deployed and queued (2026-10-14, after the pre-registration commit 1656134 and the code commit 1670e91, d678700 and 0a16bed after the rebase onto
+main).** Free disk on
 evo-x2 read (read-only, `shutil.disk_usage` on the Ollama model store) before queueing: 1566882885632 bytes free of
 2047026917376; the pull job's disk rule needs 147300000000 bytes for llama3.3:70b and 116500000000 for
 mistral-small3.2:24b, and the job logs the free bytes again at its own start (`free_bytes_at_start` in run_start).
