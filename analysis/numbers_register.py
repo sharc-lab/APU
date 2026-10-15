@@ -3614,6 +3614,73 @@ def compute_x2_r2_llama_val_32k(repo):
     return {"value": value, "n": f"{e['n_turns'] if e else 0} turns", "detail": {"verdict": v, "gates": rep}}
 
 
+# Evalset (a) tasks validation (results/x2_evalset_tasks_val_v1.jsonl, evo-x2, harness/x2_r2_evalset.py --mode
+# validation --workload evalset --guardrails off): every gate of x2_r2_evalset.evaluate_gates_ext per model, the tasks in
+# use (end state correct on every negative-control session, docs/EVALSET_DESIGN.md) and, per negative-control seed, the
+# tasks whose end state was correct in that session. The input of the B3 task real run (x2_evalset_tasks_real_v1).
+X2_EVALSET_TASKS_VAL = "results/x2_evalset_tasks_val_v1.jsonl"
+
+
+def _evalset_module():
+    import sys
+    sys.path.insert(0, str(REPO / "harness"))
+    import x2_r2_evalset
+    return x2_r2_evalset
+
+
+def evalset_tasks_correct_per_seed(rows, ag, ev, arm) -> dict:
+    """{model: {seed: sorted task ids whose end state was correct in that seed's completed negative-control session}}."""
+    out = {}
+    for r in ev._neg_turn_rows(rows, arm):
+        if r.get("item_kind") != "task":
+            continue
+        d = out.setdefault(r["model_id"], {}).setdefault(r["seed"], set())
+        if r.get("end_state_ok"):
+            d.add(r["task_id"])
+    return {m: {s: sorted(v) for s, v in sorted(per.items())} for m, per in sorted(out.items())}
+
+
+def compute_x2_evalset_tasks_val_gates(repo):
+    """x2_evalset_tasks_val_v1 gates per model (pass/fail, with the failing rules and counts), negative-control loaded
+    context and over-window task turns, tasks in use (strict, every session) and tasks correct per seed, end state by
+    difficulty, silent wrong turns (end state wrong, HTTP 200, no error)."""
+    ag, ev = _r2_agent_module(), _evalset_module()
+    rows = ag.read_rows(repo / X2_EVALSET_TASKS_VAL)
+    if not rows:
+        raise FileNotFoundError(repo / X2_EVALSET_TASKS_VAL)
+    rep = ev.evaluate_gates_ext(rows, workload="evalset", guardrails=False, call2_mode="off")
+    arm = ag.NEG_ARM + ag.MODE_SUFFIX["off"]
+    per_seed = evalset_tasks_correct_per_seed(rows, ag, ev, arm)
+    task_turns = [r for r in ev._neg_turn_rows(rows, arm) if r.get("item_kind") == "task"]
+    g = rep["gates"]
+    finished = any(r.get("record") == "run_end" for r in rows)
+    parts = []
+    for m in sorted(rep["task_table"]):
+        tt = rep["task_table"][m]
+        neg, pos = g["negative_control"].get(m, {}), g["positive_control"].get(m, {})
+        base, task = g["baseline"].get(m, {}), g["task_tool"].get(m, {})
+        mt = [r for r in task_turns if r["model_id"] == m]
+        over = sum(1 for r in mt if r.get("over_loaded_window"))
+        diff = ", ".join(f"{k} {v['n_ok']}/{v['n']}" for k, v in sorted(tt["by_difficulty"].items()))
+        seeds = ", ".join(f"{s}: {len(v)}/30" for s, v in per_seed.get(m, {}).items())
+        parts.append(
+            f"{m}: baseline gate {'pass' if base.get('pass') else 'fail'} (failing {base.get('failing_rules')}); "
+            f"negative control (num_ctx 131072 requested) gate {'pass' if neg.get('pass') else 'fail'}, canary misses "
+            f"{neg.get('canary_misses')} of {2 * (neg.get('canary_checks') or 0)} canaries ({neg.get('canary_checks')} "
+            f"checks) over {neg.get('n_sessions')} sessions, loaded "
+            f"context {neg.get('loaded_context_values')}, task turns over the loaded window {over}/{len(mt)}; positive "
+            f"control {'pass' if pos.get('pass') else 'fail'}; task tool {task.get('n_ok')}/{task.get('n')} "
+            f"({'pass' if task.get('pass') else 'fail'}); thinking off "
+            f"{'pass' if g['thinking_off'].get(m, {}).get('pass') else 'fail'}; content non-empty "
+            f"{'pass' if g['content_nonempty'].get(m, {}).get('pass') else 'fail'}; end state by difficulty {diff}; "
+            f"silent wrong task turns {tt['silent_wrong_turns']}/{len(mt)}; tasks in use (correct on every "
+            f"negative-control session) {len(tt['tasks_in_use'])}: {', '.join(tt['tasks_in_use']) or 'none'}; tasks "
+            f"correct per seed {seeds}")
+    value = (f"run finished {finished}; " + " / ".join(parts))
+    return {"value": value, "n": f"{len(task_turns)} negative-control task turns",
+            "detail": {"gates": g, "per_seed": per_seed, "task_table": rep["task_table"]}}
+
+
 # ───────────────────────────────────────────────── impact model (plan v2 A3, 2026-10-14)
 # analysis/impact_model.py prices each problem for the customer profile in results/impact_profile_20261014.json
 # (hour value cited from BLS; every other field an assumption). docs/IMPACT.md's profile table is these rows.
@@ -4615,6 +4682,11 @@ NUMBER_ENTRIES = [
                     "pre-registered verdict (backend/offload vs window)",
      "compute": compute_x2_r2_llama_val_32k, "data_files": [X2_R2_LLAMA_VAL_32K], "pending_ok": True,
      "script_function": "analysis/numbers_register.py::compute_x2_r2_llama_val_32k"},
+    {"claim_id": "x2-evalset-tasks-val-gates", "description": "Evalset (a) tasks validation on evo-x2 (guardrails "
+                    "off, 30 tasks): every gate per model, tasks in use (strict) and tasks correct per negative-control "
+                    "seed; the input of x2_evalset_tasks_real_v1",
+     "compute": compute_x2_evalset_tasks_val_gates, "data_files": [X2_EVALSET_TASKS_VAL],
+     "script_function": "analysis/numbers_register.py::compute_x2_evalset_tasks_val_gates"},
 
     {"claim_id": "impact-hour-value", "description": "Impact profile: value of one developer hour (BLS median hourly "
                     "wage, cited source in the profile JSON)",
