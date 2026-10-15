@@ -274,6 +274,10 @@ def test_version_parsers():
     assert pf.parse_ollama_version("Warning: could not connect\nWarning: client version is 0.33.2") == "0.33.2"
     assert pf.parse_llama_build("ggml_vulkan: ...\nversion: 10970 (bfdc3218)\nbuilt with ...") == "10970"
     assert pf.parse_llama_build("") is None
+    # the real evo-t2s b10970 output (results/t2s_week_preflight.jsonl, 2026-10-15): must not parse as build "0"
+    real = "version: 0.4.1-dev (build 10970, commit bfdc32183)\nbuilt with Clang 20.1.8 for Windows x86_64"
+    assert pf.parse_llama_build(real) == "10970"
+    assert pf.parse_llama_build("version: 0.4.1-dev (build 10971, commit x)") != "10970"
 
 
 def test_apply_ollama_pin(tmp_path):

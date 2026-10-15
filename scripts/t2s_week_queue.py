@@ -553,6 +553,32 @@ def load_window(queue_jsons, tq=None) -> list[str]:
         tq.clear_pause()
 
 
+def requeue(entry_id, why, tq=None) -> dict:
+    """Sets one finished-with-error entry back to pending (same position), keeping its old note under
+    "previous_runs", as one read-modify-write under the queue pause (cleared in finally). Refuses while anything is
+    running or if the entry is not in error/crashed/failed_max_attempts."""
+    if tq is None:
+        import t2s_queue as tq
+    tq.set_pause(LOAD_PAUSE_REASON.replace("load-window", "requeue"))
+    try:
+        cur = tq.read_queue()
+        if any(it.get("status") == "running" for it in cur):
+            raise SystemExit("refusing to requeue: an entry is running")
+        it = next((x for x in cur if x["id"] == entry_id), None)
+        if it is None or it.get("status") not in ("error", "crashed", "failed_max_attempts"):
+            raise SystemExit(f"refusing to requeue {entry_id!r}: status {it and it.get('status')!r}")
+        it.setdefault("previous_runs", []).append({k: it.get(k) for k in ("status", "note", "started_ts",
+                                                                          "finished_ts", "pid")})
+        for k in ("pid", "started_ts", "finished_ts", "launch_result"):
+            it.pop(k, None)
+        it["status"] = "pending"
+        it["requeue_reason"] = why
+        tq.write_queue(cur)
+        return it
+    finally:
+        tq.clear_pause()
+
+
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     cmd = argv[0] if argv else "dry-run"
@@ -593,6 +619,9 @@ def main(argv=None):
     elif cmd == "load":
         ids = load(argv[1])
         print(f"loaded {len(ids)} pending entries: {ids}")
+    elif cmd == "requeue":
+        it = requeue(argv[1], " ".join(argv[2:]) or "requeued")
+        print(f"requeued {it['id']} as pending: {it['requeue_reason']}")
     elif cmd == "load-window":
         ids = load_window(argv[1:])
         print(f"loaded {len(ids)} pending entries under the queue pause (cleared): {ids}")

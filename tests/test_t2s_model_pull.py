@@ -131,6 +131,26 @@ def test_load_window_one_write_under_pause_in_order():
     assert "finally" in wq.LOAD_PAUSE_REASON
 
 
+def test_requeue_sets_an_error_entry_pending_under_pause_and_keeps_history():
+    fq = FakeQueue([{"id": "a", "status": "done"},
+                    {"id": "t2s_wk_preflight", "status": "error", "note": "stopped: preflight failed", "pid": 5},
+                    {"id": "b", "status": "pending"}])
+    it = wq.requeue("t2s_wk_preflight", "parser fix", tq=fq)
+    assert it["status"] == "pending" and "pid" not in it and it["previous_runs"][0]["note"].startswith("stopped")
+    assert fq.log == ["pause", "write", "clear"] and [x["id"] for x in fq.items] == ["a", "t2s_wk_preflight", "b"]
+
+
+def test_requeue_refuses_while_running_or_on_a_done_entry():
+    import pytest
+    fq = FakeQueue([{"id": "x", "status": "running"}, {"id": "y", "status": "error"}])
+    with pytest.raises(SystemExit):
+        wq.requeue("y", "", tq=fq)
+    fq2 = FakeQueue([{"id": "y", "status": "done"}])
+    with pytest.raises(SystemExit):
+        wq.requeue("y", "", tq=fq2)
+    assert fq.log == ["pause", "clear"] and fq2.log == ["pause", "clear"]
+
+
 def test_load_window_refuses_with_a_live_old_entry_and_still_clears():
     import pytest
     fq = FakeQueue([{"id": "old", "status": "pending"}])
