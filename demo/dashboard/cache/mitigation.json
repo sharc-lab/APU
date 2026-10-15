@@ -1,12 +1,12 @@
 {
  "file": "results/x2_r2_mitigation_v1.jsonl",
- "synced": false,
- "measured": false,
+ "synced": true,
+ "measured": true,
  "register_ids": [
   "R2-mitigation-v1-4096",
   "R2-mitigation-v1-8192",
   "R2-mitigation-v1-observed",
   "R2-mitigation-v1-verdict"
  ],
- "label": "projected, pending mitigation run (x2_r2_mitigation_v1)"
+ "label": null
 }

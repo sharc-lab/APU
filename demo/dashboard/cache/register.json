@@ -10,8 +10,8 @@
    "results/t2s_night2_20260929T034014Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_a24_budget_boundary",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "A-24-budget-boundary-first-principles": {
   "id": "A-24-budget-boundary-first-principles",
@@ -27,8 +27,8 @@
    "results/t2s_night2_20260929T034014Z_srv_bis_a70_23552_2.txt"
   ],
   "script": "analysis/numbers_register.py::compute_a24_budget_boundary_first_principles",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "A-24-effective-heap-limit": {
   "id": "A-24-effective-heap-limit",
@@ -42,8 +42,8 @@
    "results/t2s_night2_20260929T034014Z_srv_bis_a70_*.txt"
   ],
   "script": "analysis/numbers_register.py::compute_a24_effective_heap_limit",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "A-24-flip-point-inputs": {
   "id": "A-24-flip-point-inputs",
@@ -56,8 +56,8 @@
    "results/t2s_night2_20260929T034014Z_srv_bis_a70_*.txt"
   ],
   "script": "analysis/numbers_register.py::compute_a24_flip_point_inputs",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "A-24-flip-point-per-model": {
   "id": "A-24-flip-point-per-model",
@@ -72,8 +72,8 @@
    "results/t2s_night2_20260929T034014Z_srv_bis_a70_*.txt"
   ],
   "script": "analysis/numbers_register.py::compute_a24_flip_point_per_model",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "A-24-flip-point-prediction": {
   "id": "A-24-flip-point-prediction",
@@ -88,8 +88,8 @@
    "results/t2s_night2_20260929T034014Z_srv_bis_a70_*.txt"
   ],
   "script": "analysis/numbers_register.py::compute_a24_flip_point_prediction",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "B3-corunner-6model": {
   "id": "B3-corunner-6model",
@@ -101,8 +101,36 @@
    "results/t2s_night2_20260928T004924Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_b3_corunner_6model",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
+ },
+ "H-scale-family-verdict": {
+  "id": "H-scale-family-verdict",
+  "status": "PENDING",
+  "value": "not computed: data file(s) not synced yet: results/x2_r2_family_mistral_small32_real.jsonl, results/x2_r2_family_mistral_small32_validation.jsonl",
+  "n": "n/a",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_r2_family_mistral_small32_real.jsonl",
+   "results/x2_r2_family_mistral_small32_validation.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_h_scale_family_verdict",
+  "commit": "6b71650",
+  "date": "2026-10-14"
+ },
+ "H-scale-verdict": {
+  "id": "H-scale-verdict",
+  "status": "PENDING",
+  "value": "not computed: data file(s) not synced yet: results/x2_r2_scale_real.jsonl, results/x2_r2_scale_validation.jsonl",
+  "n": "n/a",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_r2_scale_real.jsonl",
+   "results/x2_r2_scale_validation.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_h_scale_verdict",
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "K1v3-X2-table": {
   "id": "K1v3-X2-table",
@@ -114,8 +142,8 @@
    "results/t2s_k1_ollama_evo-x2_20260930T205515Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k1_v3_x2_table",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "K2-x2-call-timing": {
   "id": "K2-x2-call-timing",
@@ -127,8 +155,8 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_call_timing",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "K2-x2-clean-failures": {
   "id": "K2-x2-clean-failures",
@@ -140,8 +168,8 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_clean_failures",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "K2-x2-decode-by-arm": {
   "id": "K2-x2-decode-by-arm",
@@ -153,8 +181,8 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_decode_by_pressure_arm",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "K2-x2-kill-criterion": {
   "id": "K2-x2-kill-criterion",
@@ -166,8 +194,8 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_kill_criterion_table",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "K2-x2-responsiveness-resolution": {
   "id": "K2-x2-responsiveness-resolution",
@@ -179,8 +207,8 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_responsiveness_resolution",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "K2-x2-score-ceiling": {
   "id": "K2-x2-score-ceiling",
@@ -192,8 +220,8 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_score_ceiling",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "K2-x2-unreached-levels": {
   "id": "K2-x2-unreached-levels",
@@ -205,8 +233,8 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_unreached_pressure_levels",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "P70-TTFT-ratio": {
   "id": "P70-TTFT-ratio",
@@ -218,8 +246,8 @@
    "results/t2s_night2_20260929T034014Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_p70_ttft_ratio",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "PX2-TTFT-gap": {
   "id": "PX2-TTFT-gap",
@@ -231,8 +259,8 @@
    "results/t2s_night2_20260930T135145Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_px2_ttft_gap",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "PX2-decode-ratio": {
   "id": "PX2-decode-ratio",
@@ -244,8 +272,8 @@
    "results/t2s_night2_20260930T135145Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_px2_decode_ratios",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "PX2-full-ratio-table": {
   "id": "PX2-full-ratio-table",
@@ -257,8 +285,8 @@
    "results/t2s_night2_20260930T135145Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_px2_full_ratio_table",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "PX2-power": {
   "id": "PX2-power",
@@ -270,8 +298,8 @@
    "results/t2s_night2_20260930T135145Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_px2_package_power",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "PX2-thermal": {
   "id": "PX2-thermal",
@@ -284,8 +312,8 @@
    "results/t2s_night2_20260930T135145Z_lhm.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_px2_thermal_ceiling",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "R1-check-agreement": {
   "id": "R1-check-agreement",
@@ -297,8 +325,8 @@
    "results/t2s_night2_20260929T034014Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r1_check_agreement",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "R2-install-path-4b-bare": {
   "id": "R2-install-path-4b-bare",
@@ -311,8 +339,8 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_install_path_4b_bare",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "R2-install-path-4b-comparison": {
   "id": "R2-install-path-4b-comparison",
@@ -326,8 +354,8 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_install_path_4b_comparison",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "R2-mechanism-lowlevel": {
   "id": "R2-mechanism-lowlevel",
@@ -339,8 +367,8 @@
    "results/x2_r2_mechanism.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_mechanism_lowlevel",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "R2-mechanism-verdict": {
   "id": "R2-mechanism-verdict",
@@ -352,14 +380,14 @@
    "results/x2_r2_mechanism.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_mechanism_verdict",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "R2-mitigation-v1-4096": {
   "id": "R2-mitigation-v1-4096",
-  "status": "PENDING",
-  "value": "not computed: data file(s) not synced yet: results/x2_r2_mitigation_v1.jsonl",
-  "n": "n/a",
+  "status": "VERIFIED",
+  "value": "llama3.1:8b mitigation: rule1 100.0% (n=120, first fail -/-/-), rule3 100.0% (n=120, first fail -/-/-), rule4 100.0% (n=60, first fail -/-/-); first rule failure -/-/-; canary misses C 5, H 24 of 24; error turns 0; thinking turns 0; think sent None (seeds 20260901/20260902/20260903) / llama3.1:8b real (x2_r2_real_v1.jsonl): rule1 93.3% (n=120, first fail -/3/5), rule3 100.0% (n=120, first fail -/-/-), rule4 100.0% (n=60, first fail -/-/-); first rule failure -/3/5; canary misses C 12, H 24 of 24; error turns 0; thinking turns 0; think sent None (seeds 20260901/20260902/20260903) // qwen3:14b mitigation: rule1 100.0% (n=120, first fail -/-/-), rule2 61.7% (n=120, first fail 3/3/3), rule3 99.2% (n=120, first fail -/-/20), rule4 100.0% (n=60, first fail -/-/-), rule5 98.3% (n=120, first fail 20/-/40); first rule failure 3/3/3; canary misses C 0, H 24 of 24; error turns 0; thinking turns 0; think sent False (seeds 20260901/20260902/20260903) / qwen3:14b real (x2_r2_real_v1.jsonl): rule1 100.0% (n=120, first fail -/-/-), rule2 100.0% (n=120, first fail -/-/-), rule3 95.8% (n=120, first fail -/20/20), rule4 100.0% (n=60, first fail -/-/-), rule5 98.3% (n=120, first fail 5/-/5); first rule failure 5/20/5; canary misses C 1, H 24 of 24; error turns 0; thinking turns 0; think sent False (seeds 20260901/20260902/20260903)",
+  "n": "6 mitigation sessions",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_r2_mitigation_v1.jsonl",
@@ -367,14 +395,14 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_mitigation_v1_4096",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "R2-mitigation-v1-8192": {
   "id": "R2-mitigation-v1-8192",
-  "status": "PENDING",
-  "value": "not computed: data file(s) not synced yet: results/x2_r2_mitigation_v1.jsonl, results/x2_r2_real_v1b.jsonl",
-  "n": "n/a",
+  "status": "VERIFIED",
+  "value": "llama3.1:8b mitigation: rule1 100.0% (n=120, first fail -/-/-), rule3 100.0% (n=120, first fail -/-/-), rule4 100.0% (n=60, first fail -/-/-); first rule failure -/-/-; canary misses C 2, H 21 of 24; error turns 0; thinking turns 0; think sent None (seeds 20260901/20260902/20260903) / llama3.1:8b real (x2_r2_real_v1b.jsonl): rule1 91.7% (n=120, first fail -/-/14), rule3 100.0% (n=120, first fail -/-/-), rule4 100.0% (n=60, first fail -/-/-); first rule failure -/-/14; canary misses C 1, H 21 of 24; error turns 0; thinking turns 0; think sent None (seeds 20260901/20260902/20260903) // qwen3:14b mitigation: rule1 100.0% (n=120, first fail -/-/-), rule2 100.0% (n=120, first fail -/-/-), rule3 98.3% (n=120, first fail 30/20/-), rule4 100.0% (n=60, first fail -/-/-), rule5 100.0% (n=120, first fail -/-/-); first rule failure 30/20/-; canary misses C 1, H 24 of 24; error turns 0; thinking turns 0; think sent False (seeds 20260901/20260902/20260903) / qwen3:14b real (x2_r2_real_v1b.jsonl): rule1 100.0% (n=120, first fail -/-/-), rule2 100.0% (n=120, first fail -/-/-), rule3 100.0% (n=120, first fail -/-/-), rule4 100.0% (n=60, first fail -/-/-), rule5 100.0% (n=120, first fail -/-/-); first rule failure -/-/-; canary misses C 1, H 21 of 24; error turns 0; thinking turns 0; think sent False (seeds 20260901/20260902/20260903)",
+  "n": "6 mitigation sessions",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_r2_mitigation_v1.jsonl",
@@ -382,27 +410,27 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_mitigation_v1_8192",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "R2-mitigation-v1-observed": {
   "id": "R2-mitigation-v1-observed",
-  "status": "PENDING",
-  "value": "not computed: data file(s) not synced yet: results/x2_r2_mitigation_v1.jsonl",
-  "n": "n/a",
+  "status": "VERIFIED",
+  "value": "num_ctx_8192 llama3.1:8b: 240 calls (210 trimmed), 0 context shifts, 0 token cuts, 0 Ollama message drops, 0 exceed-context errors, 0 incomplete log slices; count method {'render_tokenize': 240, 'estimate_fallback': 0}; over budget 0; budget [7398], num_predict [384], max kept prompt 7398; turns kept 1-6; client = server prompt tokens 240/240 (max abs diff 0) / num_ctx_8192 qwen3:14b: 240 calls (216 trimmed), 0 context shifts, 0 token cuts, 0 Ollama message drops, 0 exceed-context errors, 0 incomplete log slices; count method {'render_tokenize': 240, 'estimate_fallback': 0}; over budget 0; budget [7398], num_predict [384], max kept prompt 6619; turns kept 1-4; client = server prompt tokens 240/240 (max abs diff 0) / num_ctx_4096 llama3.1:8b: 240 calls (228 trimmed), 0 context shifts, 0 token cuts, 0 Ollama message drops, 0 exceed-context errors, 0 incomplete log slices; count method {'render_tokenize': 240, 'estimate_fallback': 0}; over budget 0; budget [3507], num_predict [384], max kept prompt 3117; turns kept 1-2; client = server prompt tokens 240/240 (max abs diff 0) / num_ctx_4096 qwen3:14b: 240 calls (231 trimmed), 0 context shifts, 0 token cuts, 0 Ollama message drops, 0 exceed-context errors, 0 incomplete log slices; count method {'render_tokenize': 240, 'estimate_fallback': 0}; over budget 0; budget [3507], num_predict [384], max kept prompt 3506; turns kept 1-2; client = server prompt tokens 240/240 (max abs diff 0)",
+  "n": "960 calls",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_r2_mitigation_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_mitigation_v1_observed",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "R2-mitigation-v1-verdict": {
   "id": "R2-mitigation-v1-verdict",
-  "status": "PENDING",
-  "value": "not computed: data file(s) not synced yet: results/x2_r2_mitigation_v1.jsonl",
-  "n": "n/a",
+  "status": "VERIFIED",
+  "value": "pre-registered verdict at num_ctx_4096: refuted; num_ctx_8192 llama3.1:8b recovered; num_ctx_8192 qwen3:14b recovered; num_ctx_4096 llama3.1:8b recovered; num_ctx_4096 qwen3:14b not_recovered (rules below 90%: rule2_log_event_called)",
+  "n": "12 sessions, 480 turns",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_r2_mitigation_v1.jsonl",
@@ -410,8 +438,8 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_mitigation_v1_verdict",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "R2-orphan-rates": {
   "id": "R2-orphan-rates",
@@ -423,8 +451,8 @@
    "results/x2_r2_mechanism.jsonl"
   ],
   "script": "analysis/r2_shift_predictor.py::orphan_summary",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "R2-real-v1-first-events": {
   "id": "R2-real-v1-first-events",
@@ -436,8 +464,8 @@
    "results/x2_r2_real_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1_first_events",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "R2-real-v1-gated-kill": {
   "id": "R2-real-v1-gated-kill",
@@ -450,8 +478,8 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1_gated_kill",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "R2-real-v1-kill-criterion": {
   "id": "R2-real-v1-kill-criterion",
@@ -463,8 +491,8 @@
    "results/x2_r2_real_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1_kill_criterion",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "R2-real-v1-loaded-ctx": {
   "id": "R2-real-v1-loaded-ctx",
@@ -476,8 +504,8 @@
    "results/x2_r2_real_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1_loaded_ctx",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "R2-real-v1-survival": {
   "id": "R2-real-v1-survival",
@@ -490,8 +518,8 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1_survival",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "R2-real-v1-token-calib": {
   "id": "R2-real-v1-token-calib",
@@ -503,14 +531,14 @@
    "results/x2_r2_real_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1_token_calib",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "R2-real-v1b-first-events": {
   "id": "R2-real-v1b-first-events",
-  "status": "PENDING",
-  "value": "not computed: data file(s) not synced yet: results/x2_r2_real_v1b.jsonl",
-  "n": "n/a",
+  "status": "VERIFIED",
+  "value": "ollama_default llama3.1:8b (seeds 20260901/20260902/20260903/20260904/20260905): over window -/-/-/-/-; canary miss 35/-/-/-/20; rule1 -/-/-/-/-, rule3 -/-/-/-/-, rule4 -/-/-/-/-; invalid tool call -/-/-/-/-; first error -/-/-/-/-; error before first failure n/-/-/-/n / ollama_default qwen3:14b (seeds 20260901/20260902/20260903/20260904/20260905): over window 25/25/26/26/26; canary miss 30/30/30/30/30; rule1 -/-/-/-/-, rule2 -/-/-/-/-, rule3 -/-/-/-/-, rule4 -/-/-/-/-, rule5 -/-/-/-/-; invalid tool call -/-/-/-/-; first error -/-/-/-/-; error before first failure n/n/n/n/n / ollama_default qwen3:8b (seeds 20260901/20260902/20260903/20260904/20260905): over window 25/24/25/24/25; canary miss 30/30/20/30/30; rule1 -/-/-/-/-, rule2 -/-/-/-/-, rule3 -/-/-/-/-, rule4 -/-/-/-/-; invalid tool call -/-/-/-/-; first error -/-/-/-/-; error before first failure n/n/n/n/n / num_ctx_32768 llama3.1:8b (seeds 20260901/20260902/20260903/20260904/20260905): over window 23/23/23/23/23; canary miss 30/30/30/30/20; rule1 -/-/-/-/-, rule3 -/-/-/-/-, rule4 -/-/-/-/-; invalid tool call -/-/-/-/-; first error -/-/-/-/-; error before first failure n/n/n/n/n / num_ctx_32768 qwen3:14b (seeds 20260901/20260902/20260903/20260904/20260905): over window 20/20/20/21/21; canary miss 25/25/25/25/25; rule1 -/-/-/-/-, rule2 -/-/-/-/-, rule3 -/-/-/-/-, rule4 -/-/-/-/-, rule5 -/-/-/-/-; invalid tool call -/-/-/-/-; first error -/-/-/-/-; error before first failure n/n/n/n/n / num_ctx_32768 qwen3:8b (seeds 20260901/20260902/20260903/20260904/20260905): over window 19/20/20/20/20; canary miss 25/25/20/25/25; rule1 -/-/-/-/-, rule2 -/-/-/-/-, rule3 -/-/-/-/-, rule4 -/-/-/-/-; invalid tool call -/-/-/-/-; first error -/-/-/-/-; error before first failure n/n/n/n/n / num_ctx_16384 llama3.1:8b (seeds 20260901/20260902/20260903/20260904/20260905): over window 12/12/12/12/12; canary miss 15/15/15/15/15; rule1 -/-/-/-/-, rule3 -/-/-/-/-, rule4 -/-/-/-/-; invalid tool call -/-/-/-/-; first error -/-/-/-/-; error before first failure n/n/n/n/n / num_ctx_16384 qwen3:14b (seeds 20260901/20260902/20260903/20260904/20260905): over window 10/10/10/10/10; canary miss 15/15/15/15/15; rule1 -/-/-/-/-, rule2 -/-/-/-/-, rule3 -/-/-/-/-, rule4 -/-/-/-/-, rule5 -/-/-/-/-; invalid tool call -/-/-/-/-; first error -/-/-/-/-; error before first failure n/n/n/n/n / num_ctx_16384 qwen3:8b (seeds 20260901/20260902/20260903/20260904/20260905): over window 10/10/10/10/10; canary miss 15/15/15/15/15; rule1 -/-/-/-/-, rule2 -/-/-/-/-, rule3 -/-/-/-/-, rule4 -/-/-/-/-; invalid tool call -/-/-/-/-; first error -/-/-/-/-; error before first failure n/n/n/n/n / num_ctx_8192 llama3.1:8b (seeds 20260901/20260902/20260903/20260904/20260905): over window 6/6/6/6/6; canary miss 10/10/10/10/10; rule1 -/-/14/-/-, rule3 -/-/-/-/-, rule4 -/-/-/-/-; invalid tool call -/-/-/-/-; first error -/-/-/-/-; error before first failure n/n/n/n/n / num_ctx_8192 qwen3:14b (seeds 20260901/20260902/20260903/20260904/20260905): over window 5/5/5/5/5; canary miss 10/10/10/10/10; rule1 -/-/-/-/-, rule2 -/-/-/-/-, rule3 -/-/-/-/-, rule4 -/-/-/-/-, rule5 -/-/-/-/-; invalid tool call -/-/-/-/-; first error -/-/-/-/-; error before first failure n/n/n/n/n / num_ctx_8192 qwen3:8b (seeds 20260901/20260902/20260903/20260904/20260905): over window 5/5/5/5/5; canary miss 5/10/10/10/5; rule1 -/15/25/-/-, rule2 -/-/-/25/29, rule3 -/-/-/-/-, rule4 -/-/-/-/-; invalid tool call -/-/-/-/-; first error -/-/-/-/-; error before first failure n/n/n/n/n / num_ctx_4096 llama3.1:8b (seeds 20260901/20260902/20260903/20260904/20260905): over window 3/3/3/3/3; canary miss 5/5/5/5/5; rule1 -/3/5/6/31, rule3 -/-/-/-/-, rule4 -/-/-/-/-; invalid tool call -/40/-/-/-; first error -/-/-/-/-; error before first failure n/n/n/n/n / num_ctx_4096 qwen3:14b (seeds 20260901/20260902/20260903/20260904/20260905): over window 3/3/3/3/3; canary miss 5/5/5/5/5; rule1 -/-/-/-/-, rule2 -/-/-/-/-, rule3 -/20/20/30/-, rule4 -/-/-/-/-, rule5 5/-/5/-/-; invalid tool call -/-/-/-/-; first error -/-/-/-/-; error before first failure n/n/n/n/n / num_ctx_4096 qwen3:8b (seeds 20260901/20260902/20260903/20260904/20260905): over window 3/3/3/3/3; canary miss 5/5/5/5/5; rule1 -/-/-/-/-, rule2 -/-/10/-/-, rule3 -/-/-/-/-, rule4 -/-/-/-/-; invalid tool call -/-/-/-/-; first error -/-/-/-/-; error before first failure n/n/n/n/n (duplicates 0, other call-2 mode excluded 0)",
+  "n": "75 sessions, 3000 turns",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_r2_real_v1.jsonl",
@@ -519,14 +547,14 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1b_first_events",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "R2-real-v1b-gated-kill": {
   "id": "R2-real-v1b-gated-kill",
-  "status": "PENDING",
-  "value": "not computed: data file(s) not synced yet: results/x2_r2_real_v1b.jsonl",
-  "n": "n/a",
+  "status": "VERIFIED",
+  "value": "gated killed=False; ollama_default 3/15 silent, 0 after window exceeded; num_ctx_32768 1/15 silent, 0 after window exceeded; num_ctx_16384 2/15 silent, 2 after window exceeded; num_ctx_8192 8/15 silent, 8 after window exceeded; num_ctx_4096 10/15 silent, 10 after window exceeded (llama3.1:8b excludes nothing; qwen3:14b excludes tool_args, recall; qwen3:8b excludes tool_args, recall)",
+  "n": "75",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_r2_real_v1.jsonl",
@@ -535,14 +563,14 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1b_gated_kill",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "R2-real-v1b-kill-criterion": {
   "id": "R2-real-v1b-kill-criterion",
-  "status": "PENDING",
-  "value": "not computed: data file(s) not synced yet: results/x2_r2_real_v1b.jsonl",
-  "n": "n/a",
+  "status": "VERIFIED",
+  "value": "killed=False; ollama_default 10/15 silent; ollama_ctx_32768 10/15 silent; ollama_ctx_4096 15/15 silent; ollama_ctx_16384 9/15 silent; ollama_ctx_8192 11/15 silent",
+  "n": "75",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_r2_real_v1.jsonl",
@@ -551,14 +579,14 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1b_kill_criterion",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "R2-real-v1b-survival": {
   "id": "R2-real-v1b-survival",
-  "status": "PENDING",
-  "value": "not computed: data file(s) not synced yet: results/x2_r2_real_v1b.jsonl",
-  "n": "n/a",
+  "status": "VERIFIED",
+  "value": "ollama_default llama3.1:8b 4/4/4/2/2/2/1/1 of 5; ollama_default qwen3:14b 5/5/5/5/5/0/0/0 of 5; ollama_default qwen3:8b 5/5/5/4/4/0/0/0 of 5; num_ctx_32768 llama3.1:8b 5/5/5/3/3/0/0/0 of 5; num_ctx_32768 qwen3:14b 5/5/5/5/0/0/0/0 of 5; num_ctx_32768 qwen3:8b 5/5/5/4/0/0/0/0 of 5; num_ctx_16384 llama3.1:8b 5/5/0/0/0/0/0/0 of 5; num_ctx_16384 qwen3:14b 5/5/0/0/0/0/0/0 of 5; num_ctx_16384 qwen3:8b 5/5/0/0/0/0/0/0 of 5; num_ctx_8192 llama3.1:8b 5/0/0/0/0/0/0/0 of 5; num_ctx_8192 qwen3:14b 5/0/0/0/0/0/0/0 of 5; num_ctx_8192 qwen3:8b 3/0/0/0/0/0/0/0 of 5; num_ctx_4096 llama3.1:8b 0/0/0/0/0/0/0/0 of 5; num_ctx_4096 qwen3:14b 0/0/0/0/0/0/0/0 of 5; num_ctx_4096 qwen3:8b 0/0/0/0/0/0/0/0 of 5",
+  "n": "75",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_r2_real_v1.jsonl",
@@ -567,8 +595,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1b_survival",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "R2-shift-predicted-real-v1": {
   "id": "R2-shift-predicted-real-v1",
@@ -580,8 +608,8 @@
    "results/x2_r2_real_v1.jsonl"
   ],
   "script": "analysis/r2_shift_predictor.py::real_summary",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "R2-shift-predictor-confusion": {
   "id": "R2-shift-predictor-confusion",
@@ -593,8 +621,8 @@
    "results/x2_r2_mechanism.jsonl"
   ],
   "script": "analysis/r2_shift_predictor.py::mechanism_summary",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "R2-task-tool-gate": {
   "id": "R2-task-tool-gate",
@@ -607,8 +635,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_task_tool_gate",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "R2-validation-baseline": {
   "id": "R2-validation-baseline",
@@ -620,8 +648,8 @@
    "results/x2_r2_validation.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_baseline",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "R2-validation-call2-notools": {
   "id": "R2-validation-call2-notools",
@@ -633,8 +661,8 @@
    "results/x2_r2_validation.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_call2_notools",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "R2-validation-v2-baseline": {
   "id": "R2-validation-v2-baseline",
@@ -646,8 +674,8 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_v2_baseline",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "R2-validation-v2-spec-diag": {
   "id": "R2-validation-v2-spec-diag",
@@ -659,8 +687,8 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_v2_spec_diag",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "R2-validation-v2b-baseline": {
   "id": "R2-validation-v2b-baseline",
@@ -672,8 +700,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_v2b_baseline",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "R2-validation-v2b-runinfo": {
   "id": "R2-validation-v2b-runinfo",
@@ -685,8 +713,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_v2b_runinfo",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "R2-validation-v2c-baseline": {
   "id": "R2-validation-v2c-baseline",
@@ -698,8 +726,8 @@
    "results/x2_r2_validation_v2c.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_v2c_baseline",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "T2S-vs-X2-default-ctx": {
   "id": "T2S-vs-X2-default-ctx",
@@ -712,8 +740,8 @@
    "results/t2s_k1_ollama_evo-x2_20260930T205515Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_t2s_x2_default_ctx_table",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "b4_32b-dose-response": {
   "id": "b4_32b-dose-response",
@@ -725,8 +753,8 @@
    "results/t2s_night2_20260929T034014Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_b4_32b_dose_response",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "blade-dryrun-rates": {
   "id": "blade-dryrun-rates",
@@ -742,8 +770,8 @@
    "results/blade_dryrun/blade_dryrun_r2_mechanism.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_blade_dryrun_rates",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "blade-k1-layer-split": {
   "id": "blade-k1-layer-split",
@@ -755,8 +783,8 @@
    "results/blade_k1_v2.summary.json"
   ],
   "script": "analysis/numbers_register.py::compute_blade_k1_layer_split",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "blade-mechanism-4096": {
   "id": "blade-mechanism-4096",
@@ -768,13 +796,13 @@
    "results/blade_r2_mechanism_4096_v2.jsonl.report.json"
   ],
   "script": "analysis/numbers_register.py::compute_blade_mechanism_4096",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "blade-night-hours": {
   "id": "blade-night-hours",
   "status": "VERIFIED",
-  "value": "night 1 3.75 h (gate branches: mechanism 0.87 h, real 3.75 h), night 2 4.22 h, night 3 8.82 h; night 1 blade_k1_v2 0.50 h (scaled (itemized)); night 1 blade_r2_validation_v2 0.32 h (mixed (rates, scaled)); night 1 blade_r2_gate_v2 0.00 h (measured); night 1 blade_r2_real_v2 1.75 h (rates) [branch real]; night 1 blade_r2_mitigation_v2 1.18 h (mixed (rates, scaled)) [branch real]; night 1 blade_r2_mechanism_4096_v2 0.05 h (rates) [branch mechanism]; night 2 blade_c3_sysmem_fallback_v1 3.09 h (measured); night 2 blade_r2_mechanism_v1 1.13 h (mixed (rates, scaled)); night 3 blade_r2_validation_qwen3_8b_v1 0.53 h (scaled); night 3 blade_r2_real_qwen3_8b_v1 8.29 h (scaled)",
+  "value": "night 1 3.75 h (gate branches: mechanism 0.87 h, real 3.75 h), night 2 4.22 h, night 3 9.00 h; night 1 blade_k1_v2 0.50 h (scaled (itemized)); night 1 blade_r2_validation_v2 0.32 h (mixed (rates, scaled)); night 1 blade_r2_gate_v2 0.00 h (measured); night 1 blade_r2_real_v2 1.75 h (rates) [branch real]; night 1 blade_r2_mitigation_v2 1.18 h (mixed (rates, scaled)) [branch real]; night 1 blade_r2_mechanism_4096_v2 0.05 h (rates) [branch mechanism]; night 2 blade_c3_sysmem_fallback_v1 3.09 h (measured); night 2 blade_r2_mechanism_v1 1.13 h (mixed (rates, scaled)); night 3 blade_r2_validation_qwen3_8b_v1 0.71 h (scaled); night 3 blade_r2_real_qwen3_8b_v1 8.29 h (scaled)",
   "n": "10",
   "reported": "(none previously reported)",
   "files": [
@@ -787,11 +815,12 @@
    "results/x2_r2_validation_v2.jsonl",
    "results/x2_r2_validation_v2b.jsonl",
    "results/x2_r2_mechanism.jsonl",
-   "results/blade_c1_spill_sweep_20260925T053651Z.jsonl"
+   "results/blade_c1_spill_sweep_20260925T053651Z.jsonl",
+   "results/blade_k1_v2.summary.json"
   ],
   "script": "analysis/numbers_register.py::compute_blade_night_hours",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "blade-r2-gate-v2": {
   "id": "blade-r2-gate-v2",
@@ -803,8 +832,8 @@
    "results/blade_r2_gate_v2.json"
   ],
   "script": "analysis/numbers_register.py::compute_blade_r2_gate_v2",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "blade-r2-validation-run1": {
   "id": "blade-r2-validation-run1",
@@ -816,8 +845,8 @@
    "results/blade_r2_validation_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_blade_r2_validation_run1",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "blade-r2-validation-run2": {
   "id": "blade-r2-validation-run2",
@@ -829,8 +858,8 @@
    "results/blade_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_blade_r2_validation_run2",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "blade-validation-ctx-cap": {
   "id": "blade-validation-ctx-cap",
@@ -843,8 +872,234 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_blade_validation_ctx_cap",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
+ },
+ "business-hour-range": {
+  "id": "business-hour-range",
+  "status": "VERIFIED",
+  "value": "p10 USD 39.64/h, median USD 64.44/h, p90 USD 103.20/h (annual p10 USD 82,460, p90 USD 214,670, May 2025, divided by 2080.1 h/year = USD 134,040 / 64.44; https://www.bls.gov/ooh/computer-and-information-technology/software-developers.htm; fetched 2026-10-14)",
+  "n": "3",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/business_profiles_20261014.json",
+   "results/impact_profile_20261014.json"
+  ],
+  "script": "analysis/business_metrics.py::hour_values",
+  "commit": "6b71650",
+  "date": "2026-10-14"
+ },
+ "business-mid-team": {
+  "id": "business-mid-team",
+  "status": "VERIFIED",
+  "value": "mid_team (ASSUMED team 25, 4 sessions/dev/day, cloud share 0.5; evo-x2 llama3.1:8b; cloud claude-sonnet-5-5): naive default ollama_default; all-cloud USD/session 0.336 caching on, 3.730 no caching (measured, n=5); USD/month (projection): all-cloud 705 caching on (no caching 7,833); naive local compute time 0 to 3,857 (0 = nobody waits, upper = full hour value; 59.9 h; P1 not measured, P7 0.00); router replay per window (measured): num_ctx_4096: 80.0% steps local (16 of 80 steps escalated in every one of 5 replayed sessions (same count each)), router cloud USD 0.256/session caching on, 1.122 no caching; num_ctx_8192: 80.0% steps local (16 of 80 steps escalated in every one of 5 replayed sessions (same count each)), router cloud USD 0.255/session caching on, 1.112 no caching; num_ctx_16384: 85.0% steps local (12 of 80 steps escalated in every one of 5 replayed sessions (same count each)), router cloud USD 0.234/session caching on, 1.003 no caching; num_ctx_32768: 90.0% steps local (8 of 80 steps escalated in every one of 5 replayed sessions (same count each)), router cloud USD 0.433/session caching on, 0.784 no caching; ollama_default: 100.0% steps local (no step escalated in any of 5 replayed sessions), router cloud USD 0.000/session caching on, 0.000 no caching; router savings vs naive, vs all-cloud, vs today's mix and the hardware recommendation: pending B5",
+  "n": "5 replayed sessions per window",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/blade_dryrun/blade_dryrun_k1.jsonl",
+   "results/blade_dryrun/blade_dryrun_r2_mechanism.jsonl",
+   "results/blade_dryrun/blade_dryrun_r2_mitigation.jsonl",
+   "results/blade_dryrun/blade_dryrun_r2_real.jsonl",
+   "results/blade_dryrun/blade_dryrun_r2_validation.jsonl",
+   "results/blade_r2_real*.jsonl",
+   "results/business_profiles_20261014.json",
+   "results/cloud_prices_20261008.json",
+   "results/cloud_prices_anthropic_20261014.json",
+   "results/impact_profile_20261014.json",
+   "results/t2s_amech_20260926T181456Z.jsonl",
+   "results/t2s_k2_pressure_20261001T001340Z.jsonl",
+   "results/t2s_night2_20260928T004924Z.jsonl",
+   "results/t2s_night2_20260928T200748Z.jsonl",
+   "results/t2s_night2_20260929T032407Z.jsonl",
+   "results/t2s_night2_20260929T034014Z.jsonl",
+   "results/t2s_night2_20260929T045127Z.jsonl",
+   "results/t2s_night2_20260929T103807Z.jsonl",
+   "results/t2s_night2_20260929T202603Z.jsonl",
+   "results/t2s_night2_20260929T205109Z.jsonl",
+   "results/t2s_night2_20260930T071225Z.jsonl",
+   "results/t2s_night2_20260930T135145Z.jsonl",
+   "results/t2s_night2_20260930T173804Z.jsonl",
+   "results/t2s_night2_20260930T215303Z.jsonl",
+   "results/t2s_night2_20261001T033124Z.jsonl",
+   "results/t2s_night2_20261001T081725Z.jsonl",
+   "results/t2s_night2_20261001T151340Z.jsonl",
+   "results/t2s_night2_20261001T195303Z.jsonl",
+   "results/t2s_outcome_table_full.jsonl",
+   "results/t2s_overnight_20260926T011744Z.jsonl",
+   "results/t2s_overnight_20260929T071343Z.jsonl",
+   "results/workload_pack/item_weights_trace_weighted.json",
+   "results/workload_pack/items/*.jsonl",
+   "results/x2_chat_template_sources.jsonl",
+   "results/x2_outcome_table_v3.jsonl",
+   "results/x2_r2_mitigation_v1.jsonl",
+   "results/x2_r2_real*.jsonl",
+   "results/x2_r2_real_v1.jsonl",
+   "results/x2_r2_validation_v2.jsonl",
+   "results/x2_r2_validation_v2b.jsonl",
+   "src/dse/envelope_data.json"
+  ],
+  "script": "analysis/business_metrics.py::profile_metrics",
+  "commit": "6b71650",
+  "date": "2026-10-14"
+ },
+ "business-mid-team-qwen3-14b": {
+  "id": "business-mid-team-qwen3-14b",
+  "status": "VERIFIED",
+  "value": "mid_team_qwen3_14b (ASSUMED team 25, 4 sessions/dev/day, cloud share 0.5; evo-x2 qwen3:14b; cloud claude-sonnet-5-5): naive default ollama_default; all-cloud USD/session 0.363 caching on, 3.859 no caching (measured, n=5); USD/month (projection): all-cloud 763 caching on (no caching 8,104); naive local compute time 0 to 15,759 (0 = nobody waits, upper = full hour value; 244.6 h; P1 not measured, P7 0.00); router replay per window (measured): num_ctx_4096: 80.0% steps local (16 of 80 steps escalated in every one of 5 replayed sessions (same count each)), router cloud USD 0.280/session caching on, 1.254 no caching; num_ctx_8192: 80.0% steps local (16 of 80 steps escalated in every one of 5 replayed sessions (same count each)), router cloud USD 0.281/session caching on, 1.259 no caching; num_ctx_16384: 82.5% steps local (14 of 80 steps escalated in every one of 5 replayed sessions (same count each)), router cloud USD 0.799/session caching on, 1.224 no caching; num_ctx_32768: 87.5% steps local (10 of 80 steps escalated in every one of 5 replayed sessions (same count each)), router cloud USD 0.689/session caching on, 1.039 no caching; ollama_default: 90.0% steps local (8 of 80 steps escalated in every one of 5 replayed sessions (same count each)), router cloud USD 0.590/session caching on, 0.891 no caching; router savings vs naive, vs all-cloud, vs today's mix and the hardware recommendation: pending B5",
+  "n": "5 replayed sessions per window",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/blade_dryrun/blade_dryrun_k1.jsonl",
+   "results/blade_dryrun/blade_dryrun_r2_mechanism.jsonl",
+   "results/blade_dryrun/blade_dryrun_r2_mitigation.jsonl",
+   "results/blade_dryrun/blade_dryrun_r2_real.jsonl",
+   "results/blade_dryrun/blade_dryrun_r2_validation.jsonl",
+   "results/blade_r2_real*.jsonl",
+   "results/business_profiles_20261014.json",
+   "results/cloud_prices_20261008.json",
+   "results/cloud_prices_anthropic_20261014.json",
+   "results/impact_profile_20261014.json",
+   "results/t2s_amech_20260926T181456Z.jsonl",
+   "results/t2s_k2_pressure_20261001T001340Z.jsonl",
+   "results/t2s_night2_20260928T004924Z.jsonl",
+   "results/t2s_night2_20260928T200748Z.jsonl",
+   "results/t2s_night2_20260929T032407Z.jsonl",
+   "results/t2s_night2_20260929T034014Z.jsonl",
+   "results/t2s_night2_20260929T045127Z.jsonl",
+   "results/t2s_night2_20260929T103807Z.jsonl",
+   "results/t2s_night2_20260929T202603Z.jsonl",
+   "results/t2s_night2_20260929T205109Z.jsonl",
+   "results/t2s_night2_20260930T071225Z.jsonl",
+   "results/t2s_night2_20260930T135145Z.jsonl",
+   "results/t2s_night2_20260930T173804Z.jsonl",
+   "results/t2s_night2_20260930T215303Z.jsonl",
+   "results/t2s_night2_20261001T033124Z.jsonl",
+   "results/t2s_night2_20261001T081725Z.jsonl",
+   "results/t2s_night2_20261001T151340Z.jsonl",
+   "results/t2s_night2_20261001T195303Z.jsonl",
+   "results/t2s_outcome_table_full.jsonl",
+   "results/t2s_overnight_20260926T011744Z.jsonl",
+   "results/t2s_overnight_20260929T071343Z.jsonl",
+   "results/workload_pack/item_weights_trace_weighted.json",
+   "results/workload_pack/items/*.jsonl",
+   "results/x2_chat_template_sources.jsonl",
+   "results/x2_outcome_table_v3.jsonl",
+   "results/x2_r2_mitigation_v1.jsonl",
+   "results/x2_r2_real*.jsonl",
+   "results/x2_r2_real_v1.jsonl",
+   "results/x2_r2_validation_v2.jsonl",
+   "results/x2_r2_validation_v2b.jsonl",
+   "src/dse/envelope_data.json"
+  ],
+  "script": "analysis/business_metrics.py::profile_metrics",
+  "commit": "6b71650",
+  "date": "2026-10-14"
+ },
+ "business-scenario-plus-a": {
+  "id": "business-scenario-plus-a",
+  "status": "VERIFIED",
+  "value": "SCENARIO, not a measurement (rests on the +A residual-P1/P7 = 0 credit, P1 at the assumed rerun proxy, and local time valued at the full hour value; plan item B5 has not run). USD/month: mid_team: router window num_ctx_4096, vs naive 2,938 (if nobody waits -538), hours 53.9, cloud avoided vs all-cloud 167 caching on (5,478 no caching), vs today's mix 1,362 caching on, recommended evo-x2 num_ctx_4096 saves 2,938, +A used yes; mid_team_qwen3_14b: router window num_ctx_8192, vs naive 13,976 (if nobody waits -590), hours 226.0, cloud avoided vs all-cloud 173 caching on (5,461 no caching), vs today's mix 6,478 caching on, recommended evo-x2 num_ctx_8192 saves 13,976, +A used no",
+  "n": "2",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/blade_dryrun/blade_dryrun_k1.jsonl",
+   "results/blade_dryrun/blade_dryrun_r2_mechanism.jsonl",
+   "results/blade_dryrun/blade_dryrun_r2_mitigation.jsonl",
+   "results/blade_dryrun/blade_dryrun_r2_real.jsonl",
+   "results/blade_dryrun/blade_dryrun_r2_validation.jsonl",
+   "results/blade_r2_real*.jsonl",
+   "results/business_profiles_20261014.json",
+   "results/cloud_prices_20261008.json",
+   "results/cloud_prices_anthropic_20261014.json",
+   "results/impact_profile_20261014.json",
+   "results/t2s_amech_20260926T181456Z.jsonl",
+   "results/t2s_k2_pressure_20261001T001340Z.jsonl",
+   "results/t2s_night2_20260928T004924Z.jsonl",
+   "results/t2s_night2_20260928T200748Z.jsonl",
+   "results/t2s_night2_20260929T032407Z.jsonl",
+   "results/t2s_night2_20260929T034014Z.jsonl",
+   "results/t2s_night2_20260929T045127Z.jsonl",
+   "results/t2s_night2_20260929T103807Z.jsonl",
+   "results/t2s_night2_20260929T202603Z.jsonl",
+   "results/t2s_night2_20260929T205109Z.jsonl",
+   "results/t2s_night2_20260930T071225Z.jsonl",
+   "results/t2s_night2_20260930T135145Z.jsonl",
+   "results/t2s_night2_20260930T173804Z.jsonl",
+   "results/t2s_night2_20260930T215303Z.jsonl",
+   "results/t2s_night2_20261001T033124Z.jsonl",
+   "results/t2s_night2_20261001T081725Z.jsonl",
+   "results/t2s_night2_20261001T151340Z.jsonl",
+   "results/t2s_night2_20261001T195303Z.jsonl",
+   "results/t2s_outcome_table_full.jsonl",
+   "results/t2s_overnight_20260926T011744Z.jsonl",
+   "results/t2s_overnight_20260929T071343Z.jsonl",
+   "results/workload_pack/item_weights_trace_weighted.json",
+   "results/workload_pack/items/*.jsonl",
+   "results/x2_chat_template_sources.jsonl",
+   "results/x2_outcome_table_v3.jsonl",
+   "results/x2_r2_mitigation_v1.jsonl",
+   "results/x2_r2_real*.jsonl",
+   "results/x2_r2_real_v1.jsonl",
+   "results/x2_r2_validation_v2.jsonl",
+   "results/x2_r2_validation_v2b.jsonl",
+   "src/dse/envelope_data.json"
+  ],
+  "script": "analysis/business_metrics.py::scenario_metrics",
+  "commit": "6b71650",
+  "date": "2026-10-14"
+ },
+ "business-sensitivity": {
+  "id": "business-sensitivity",
+  "status": "VERIFIED",
+  "value": "base mid_team, USD/month: SCENARIO (+A, full hour value): team_size=3: vs naive 353 (if nobody waits -65), cloud avoided 20 caching on (657 no caching), vs mix 163 (num_ctx_4096); team_size=10: vs naive 1,175 (if nobody waits -215), cloud avoided 67 caching on (2,191 no caching), vs mix 545 (num_ctx_4096); team_size=25: vs naive 2,938 (if nobody waits -538), cloud avoided 167 caching on (5,478 no caching), vs mix 1,362 (num_ctx_4096); team_size=50: vs naive 5,877 (if nobody waits -1,076), cloud avoided 335 caching on (10,955 no caching), vs mix 2,724 (num_ctx_4096); agent_sessions_per_dev_per_day=2: vs naive 1,469 (if nobody waits -269), cloud avoided 84 caching on (2,739 no caching), vs mix 681 (num_ctx_4096); agent_sessions_per_dev_per_day=4: vs naive 2,938 (if nobody waits -538), cloud avoided 167 caching on (5,478 no caching), vs mix 1,362 (num_ctx_4096); agent_sessions_per_dev_per_day=8: vs naive 5,877 (if nobody waits -1,076), cloud avoided 335 caching on (10,955 no caching), vs mix 2,724 (num_ctx_4096); cloud_session_share=0.25: vs naive 2,938 (if nobody waits -538), cloud avoided 167 caching on (5,478 no caching), vs mix 2,150 (num_ctx_4096); cloud_session_share=0.5: vs naive 2,938 (if nobody waits -538), cloud avoided 167 caching on (5,478 no caching), vs mix 1,362 (num_ctx_4096); cloud_session_share=0.75: vs naive 2,938 (if nobody waits -538), cloud avoided 167 caching on (5,478 no caching), vs mix 574 (num_ctx_4096); hour_value=p10 (USD 39.64/h): vs naive 1,601 (if nobody waits -538), cloud avoided 167 caching on (5,478 no caching), vs mix 767 (num_ctx_4096); hour_value=median (USD 64.44/h): vs naive 2,938 (if nobody waits -538), cloud avoided 167 caching on (5,478 no caching), vs mix 1,362 (num_ctx_4096); hour_value=p90 (USD 103.20/h): vs naive 5,029 (if nobody waits -538), cloud avoided 167 caching on (5,478 no caching), vs mix 2,293 (num_ctx_4096)",
+  "n": "13",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/blade_dryrun/blade_dryrun_k1.jsonl",
+   "results/blade_dryrun/blade_dryrun_r2_mechanism.jsonl",
+   "results/blade_dryrun/blade_dryrun_r2_mitigation.jsonl",
+   "results/blade_dryrun/blade_dryrun_r2_real.jsonl",
+   "results/blade_dryrun/blade_dryrun_r2_validation.jsonl",
+   "results/blade_r2_real*.jsonl",
+   "results/business_profiles_20261014.json",
+   "results/cloud_prices_20261008.json",
+   "results/cloud_prices_anthropic_20261014.json",
+   "results/impact_profile_20261014.json",
+   "results/t2s_amech_20260926T181456Z.jsonl",
+   "results/t2s_k2_pressure_20261001T001340Z.jsonl",
+   "results/t2s_night2_20260928T004924Z.jsonl",
+   "results/t2s_night2_20260928T200748Z.jsonl",
+   "results/t2s_night2_20260929T032407Z.jsonl",
+   "results/t2s_night2_20260929T034014Z.jsonl",
+   "results/t2s_night2_20260929T045127Z.jsonl",
+   "results/t2s_night2_20260929T103807Z.jsonl",
+   "results/t2s_night2_20260929T202603Z.jsonl",
+   "results/t2s_night2_20260929T205109Z.jsonl",
+   "results/t2s_night2_20260930T071225Z.jsonl",
+   "results/t2s_night2_20260930T135145Z.jsonl",
+   "results/t2s_night2_20260930T173804Z.jsonl",
+   "results/t2s_night2_20260930T215303Z.jsonl",
+   "results/t2s_night2_20261001T033124Z.jsonl",
+   "results/t2s_night2_20261001T081725Z.jsonl",
+   "results/t2s_night2_20261001T151340Z.jsonl",
+   "results/t2s_night2_20261001T195303Z.jsonl",
+   "results/t2s_outcome_table_full.jsonl",
+   "results/t2s_overnight_20260926T011744Z.jsonl",
+   "results/t2s_overnight_20260929T071343Z.jsonl",
+   "results/workload_pack/item_weights_trace_weighted.json",
+   "results/workload_pack/items/*.jsonl",
+   "results/x2_chat_template_sources.jsonl",
+   "results/x2_outcome_table_v3.jsonl",
+   "results/x2_r2_mitigation_v1.jsonl",
+   "results/x2_r2_real*.jsonl",
+   "results/x2_r2_real_v1.jsonl",
+   "results/x2_r2_validation_v2.jsonl",
+   "results/x2_r2_validation_v2b.jsonl",
+   "src/dse/envelope_data.json"
+  ],
+  "script": "analysis/business_metrics.py::sensitivity",
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "c1b-stall-clean-cells": {
   "id": "c1b-stall-clean-cells",
@@ -856,13 +1111,13 @@
    "results/t2s_night2_20260930T215303Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_c1b_stall_clean_cells",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "cloud-budget-inputs": {
   "id": "cloud-budget-inputs",
   "status": "VERIFIED",
-  "value": "12 sessions x 40 turns; demo 100 + 5x50 items at 50% cloud = 175 cloud items; failure scenarios 1 (6 cloud calls); rerun allowance 30%; output medians (o200k) gsm8k 125.5, function_calling 53.0, trace_length_mix 4.0, longdoc_qa 4.0, r2_sessions_per_turn 54.0; prices USD/1M in/cached/out (gpt-6-luna std 0.1/0.01/0.5 batch 0.05/0.25; gpt-6.1-sol std 2.0/0.1/10.0 batch 1.0/5.0); fetched 2026-10-08T03:33Z",
+  "value": "12 sessions x 40 turns; demo 100 + 5x50 items at 50% cloud = 175 cloud items; failure scenarios 1 (6 cloud calls); rerun allowance 30%; output medians (o200k) gsm8k 140, function_calling 35.0, trace_length_mix 4.0, longdoc_qa 4, r2_sessions_per_turn 54.0; prices USD/1M in/cached/out (gpt-6-luna std 0.1/0.01/0.5 batch 0.05/0.25; gpt-6.1-sol std 2.0/0.1/10.0 batch 1.0/5.0); fetched 2026-10-08T03:33Z",
   "n": "400 items",
   "reported": "(none previously reported)",
   "files": [
@@ -874,8 +1129,8 @@
    "docs/DEMO_SPEC.md"
   ],
   "script": "analysis/cloud_budget_forecast.py::load_prices",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "cloud-budget-lines": {
   "id": "cloud-budget-lines",
@@ -892,13 +1147,13 @@
    "docs/DEMO_SPEC.md"
   ],
   "script": "analysis/cloud_budget_forecast.py::forecast",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "cloud-budget-sensitivity": {
   "id": "cloud-budget-sensitivity",
   "status": "VERIFIED",
-  "value": "flat demo weighting: 20.53 / 82.09; output x5: 27.30 / 90.18; R2 at row chars/4 estimate: 24.77 / 113.31",
+  "value": "flat demo weighting: 20.53 / 82.08; output x5: 27.29 / 90.17; R2 at row chars/4 estimate: 24.77 / 113.31",
   "n": "3 variants",
   "reported": "(none previously reported)",
   "files": [
@@ -910,8 +1165,8 @@
    "docs/DEMO_SPEC.md"
   ],
   "script": "analysis/cloud_budget_forecast.py::forecast",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "cloud-budget-tokens": {
   "id": "cloud-budget-tokens",
@@ -928,8 +1183,8 @@
    "docs/DEMO_SPEC.md"
   ],
   "script": "analysis/cloud_budget_forecast.py::r2_sessions",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "cloud-budget-totals": {
   "id": "cloud-budget-totals",
@@ -946,8 +1201,21 @@
    "docs/DEMO_SPEC.md"
   ],
   "script": "analysis/cloud_budget_forecast.py::forecast",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
+ },
+ "cloud-prices-anthropic": {
+  "id": "cloud-prices-anthropic",
+  "status": "VERIFIED",
+  "value": "USD per MTok, Standard, prompts in the short tier: claude-fable-5-1: input 10, 5m cache write 12.5, cache read 0.25, output 50; claude-opus-5-5: input 4, 5m cache write 5, cache read 0.2, output 20; claude-sonnet-5-5: input 2, 5m cache write 2.5, cache read 0.1, output 10; claude-haiku-5-5: input 0.1, 5m cache write 0.125, cache read 0.01, output 0.5; claude-opus-5: input 5, 5m cache write 6.25, cache read 0.5, output 25; claude-sonnet-5: input 2, 5m cache write 2.5, cache read 0.2, output 10; claude-sonnet-4-6: input 3, 5m cache write 3.75, cache read 0.3, output 15; claude-haiku-4-5: input 1, 5m cache write 1.25, cache read 0.1, output 5; escalation model claude-sonnet-5-5; source https://platform.claude.com/docs/en/about-claude/pricing; fetched 2026-10-15T02:55Z",
+  "n": "8",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/cloud_prices_anthropic_20261014.json"
+  ],
+  "script": "analysis/numbers_register.py::compute_cloud_prices_anthropic",
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "decode-rate-per-machine": {
   "id": "decode-rate-per-machine",
@@ -978,8 +1246,322 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_decode_rate_per_machine",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
+ },
+ "gpu-memory-readonly": {
+  "id": "gpu-memory-readonly",
+  "status": "VERIFIED",
+  "value": "evo-x2 Vulkan: heap 0 38109 MiB (budget 36203, host), heap 1 76218 MiB (budget 72407, device-local) (10 rows, all equal True); evo-x2 mx2_baseline 2026-10-01: heap 0 38109 MiB (budget 36203, host), heap 1 76218 MiB (budget 72407, device-local) / evo-t2s Vulkan: heap 0 37060 MiB (budget 47866, device-local); Ollama: Intel(R) Arc(TM) B390 GPU iGPU total 36.2 GiB available 46.7 GiB, vram-based default [{'total_vram': '36.2 GiB', 'default_num_ctx': 32768}] / Blade Ollama: NVIDIA GeForce RTX 4070 Laptop GPU discrete total 8.0 GiB available 6.9 GiB; nvidia-smi total 8188 MiB; vram default ctx 4096",
+  "n": "14 records",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_70b_edge_reps.jsonl",
+   "results/t2s_night2_20261001T151340Z.jsonl",
+   "results/t2s_amech_20260926T181456Z.jsonl",
+   "results/t2s_k1_igpu_enable_sweep.jsonl",
+   "results/blade_k1_v2.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_gpu_memory_readonly",
+  "commit": "6b71650",
+  "date": "2026-10-14"
+ },
+ "impact-P1": {
+  "id": "impact-P1",
+  "status": "VERIFIED",
+  "value": "evo-x2 llama3.1:8b ollama_default: status assumed; measured USD/day not measured, assumed USD/day 0.00, range USD/day not measured; R2 silent rule/recall failures after the window 0/5 sessions (measured, not a wrong-task rate); B3 task-run windows none (needs >= 2); assumptions: team size = 10 (assumption (profile JSON)); agent sessions per developer per day = 4 (assumption (profile JSON)); a silent rule/recall failure is a wrong task result = 0/5 sessions treated as wrong (not measured: B3 task runs under >= 2 windows needed; found none (validation files excluded)); rework per wrong result = one full session rerun = median session wall at the default window (0.72 h) (assumption (not measured)); developer waits for this compute = upper bound values it at the full hour value USD 64.44/h (impact-hour-value); lower bound 0 (nobody waits) (assumption: who waits was not measured); confidence none",
+  "n": "15",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/impact_profile_20261014.json",
+   "results/cloud_prices_anthropic_20261014.json",
+   "results/x2_r2_real*.jsonl",
+   "results/blade_r2_real*.jsonl",
+   "results/x2_r2_validation_v2.jsonl",
+   "results/x2_r2_validation_v2b.jsonl"
+  ],
+  "script": "analysis/impact_model.py::p1",
+  "commit": "6b71650",
+  "date": "2026-10-14"
+ },
+ "impact-P2": {
+  "id": "impact-P2",
+  "status": "VERIFIED",
+  "value": "evo-x2 llama3.1:8b ollama_default: status mixed; measured USD/day 0.00, assumed USD/day 23.27, range USD/day 0.00 to 23.27; median per-turn delta 0.81 s vs num_ctx_32768 (n=110 paired turns); compute time 0.36 h/day; assumptions: team size = 10 (assumption (profile JSON)); agent sessions per developer per day = 4 (assumption (profile JSON)); turns per session = 40 (R2 session length (scales a per-turn delta)); developer waits for this compute = upper bound values it at the full hour value USD 64.44/h (impact-hour-value); lower bound 0 (nobody waits) (assumption: who waits was not measured); confidence medium",
+  "n": "15",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/impact_profile_20261014.json",
+   "results/cloud_prices_anthropic_20261014.json",
+   "results/x2_r2_real*.jsonl",
+   "results/blade_r2_real*.jsonl",
+   "results/x2_r2_validation_v2.jsonl",
+   "results/x2_r2_validation_v2b.jsonl"
+  ],
+  "script": "analysis/impact_model.py::p2",
+  "commit": "6b71650",
+  "date": "2026-10-14"
+ },
+ "impact-P3": {
+  "id": "impact-P3",
+  "status": "VERIFIED",
+  "value": "claude-sonnet-5-5 standard caching on, sessions shaped like llama3.1:8b's: status measured; measured USD/day 3.60, assumed USD/day 0.00, range USD/day 3.60 to 71.96; per session: re-sent history 1,798,884 tok, USD 0.1799 caching on, 3.5978 no caching; whole session to the cloud USD 0.3358 caching on, 3.7302 no caching (n=5); assumptions: team size = 10 (assumption (profile JSON)); agent sessions per developer per day = 4 (assumption (profile JSON)); cloud session share = 0.5 (assumption (profile JSON)); cloud model = claude-sonnet-5-5 standard, caching on (results/cloud_prices_anthropic_20261014.json (official Anthropic pricing page)); token basis = o200k_base counts (assumption: Anthropic tokenizer counts not measured); re-sent history is a cacheable prefix = R2 sessions are append-only (best case for caching; real histories not measured); confidence high",
+  "n": "3",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/impact_profile_20261014.json",
+   "results/cloud_prices_anthropic_20261014.json",
+   "results/x2_r2_real*.jsonl",
+   "results/blade_r2_real*.jsonl",
+   "results/x2_r2_validation_v2.jsonl",
+   "results/x2_r2_validation_v2b.jsonl"
+  ],
+  "script": "analysis/impact_model.py::p3",
+  "commit": "6b71650",
+  "date": "2026-10-14"
+ },
+ "impact-P4": {
+  "id": "impact-P4",
+  "status": "VERIFIED",
+  "value": "evo-x2 llama3.1:8b: status mixed; measured USD/day 0.00, assumed USD/day 0.87, range USD/day 0.00 to 0.87; decode 45.55 tok/s vs best 46.40; compute time 0.01 h/day; assumptions: team size = 10 (assumption (profile JSON)); agent sessions per developer per day = 4 (assumption (profile JSON)); decode only = prefill excluded (lower bound on the time itself); developer waits for this compute = upper bound values it at the full hour value USD 64.44/h (impact-hour-value); lower bound 0 (nobody waits) (assumption: who waits was not measured); confidence medium",
+  "n": "16",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/impact_profile_20261014.json",
+   "results/cloud_prices_anthropic_20261014.json",
+   "results/x2_r2_real*.jsonl",
+   "results/blade_r2_real*.jsonl",
+   "results/x2_r2_validation_v2.jsonl",
+   "results/x2_r2_validation_v2b.jsonl",
+   "results/t2s_amech_20260926T181456Z.jsonl",
+   "results/t2s_k2_pressure_20261001T001340Z.jsonl",
+   "results/t2s_night2_20260928T004924Z.jsonl",
+   "results/t2s_night2_20260928T200748Z.jsonl",
+   "results/t2s_night2_20260929T032407Z.jsonl",
+   "results/t2s_night2_20260929T034014Z.jsonl",
+   "results/t2s_night2_20260929T045127Z.jsonl",
+   "results/t2s_night2_20260929T103807Z.jsonl",
+   "results/t2s_night2_20260929T202603Z.jsonl",
+   "results/t2s_night2_20260929T205109Z.jsonl",
+   "results/t2s_night2_20260930T071225Z.jsonl",
+   "results/t2s_night2_20260930T135145Z.jsonl",
+   "results/t2s_night2_20260930T173804Z.jsonl",
+   "results/t2s_night2_20260930T215303Z.jsonl",
+   "results/t2s_night2_20261001T033124Z.jsonl",
+   "results/t2s_night2_20261001T081725Z.jsonl",
+   "results/t2s_night2_20261001T151340Z.jsonl",
+   "results/t2s_night2_20261001T195303Z.jsonl",
+   "results/t2s_overnight_20260926T011744Z.jsonl",
+   "results/t2s_overnight_20260929T071343Z.jsonl",
+   "results/blade_dryrun/blade_dryrun_k1.jsonl",
+   "results/blade_dryrun/blade_dryrun_r2_validation.jsonl",
+   "results/blade_dryrun/blade_dryrun_r2_real.jsonl",
+   "results/blade_dryrun/blade_dryrun_r2_mitigation.jsonl",
+   "results/blade_dryrun/blade_dryrun_r2_mechanism.jsonl"
+  ],
+  "script": "analysis/impact_model.py::p4",
+  "commit": "6b71650",
+  "date": "2026-10-14"
+ },
+ "impact-P5": {
+  "id": "impact-P5",
+  "status": "VERIFIED",
+  "value": "evo-x2 llama3.1:8b ollama_default: status mixed; measured USD/day 0.00, assumed USD/day 49.34, range USD/day 0.00 to 49.34; TTFT x1.111, decode x0.928 (PX2-full-ratio-table); compute time 0.77 h/day; assumptions: team size = 10 (assumption (profile JSON)); agent sessions per developer per day = 4 (assumption (profile JSON)); co-runner share = 0.25 (assumption (profile JSON)); developer waits for this compute = upper bound values it at the full hour value USD 64.44/h (impact-hour-value); lower bound 0 (nobody waits) (assumption: who waits was not measured); confidence low",
+  "n": "16",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/impact_profile_20261014.json",
+   "results/cloud_prices_anthropic_20261014.json",
+   "results/x2_r2_real*.jsonl",
+   "results/blade_r2_real*.jsonl",
+   "results/x2_r2_validation_v2.jsonl",
+   "results/x2_r2_validation_v2b.jsonl",
+   "src/dse/envelope_data.json"
+  ],
+  "script": "analysis/impact_model.py::p5",
+  "commit": "6b71650",
+  "date": "2026-10-14"
+ },
+ "impact-P6": {
+  "id": "impact-P6",
+  "status": "VERIFIED",
+  "value": "evo-x2 llama3.1:8b ollama_default: status mixed; measured USD/day 0.00, assumed USD/day 47.38, range USD/day 0.00 to 47.38; timeouts 0.029 x 900 s, allocation failures 0.000 (n=340); escalation USD 0.71/day; compute time 0.74 h/day; assumptions: team size = 10 (assumption (profile JSON)); agent sessions per developer per day = 4 (assumption (profile JSON)); single-shot calls per developer per day = 10 (assumption (profile JSON)); developer waits for this compute = upper bound values it at the full hour value USD 64.44/h (impact-hour-value); lower bound 0 (nobody waits) (assumption: who waits was not measured); confidence medium",
+  "n": "15",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/impact_profile_20261014.json",
+   "results/cloud_prices_anthropic_20261014.json",
+   "results/x2_r2_real*.jsonl",
+   "results/blade_r2_real*.jsonl",
+   "results/x2_r2_validation_v2.jsonl",
+   "results/x2_r2_validation_v2b.jsonl",
+   "results/x2_outcome_table_v3.jsonl",
+   "results/t2s_outcome_table_full.jsonl",
+   "results/workload_pack/items/*.jsonl"
+  ],
+  "script": "analysis/impact_model.py::p6",
+  "commit": "6b71650",
+  "date": "2026-10-14"
+ },
+ "impact-P7": {
+  "id": "impact-P7",
+  "status": "VERIFIED",
+  "value": "evo-x2 llama3.1:8b ollama_default: status measured; measured USD/day 0.00, assumed USD/day 0.00, range USD/day 0.00; rate 0/5 sessions; assumptions: team size = 10 (assumption (profile JSON)); agent sessions per developer per day = 4 (assumption (profile JSON)); cost per guardrail violation = not needed: measured rate 0/5 sessions (measured zero rate); confidence low",
+  "n": "15",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/impact_profile_20261014.json",
+   "results/cloud_prices_anthropic_20261014.json",
+   "results/x2_r2_real*.jsonl",
+   "results/blade_r2_real*.jsonl",
+   "results/x2_r2_validation_v2.jsonl",
+   "results/x2_r2_validation_v2b.jsonl"
+  ],
+  "script": "analysis/impact_model.py::p7",
+  "commit": "6b71650",
+  "date": "2026-10-14"
+ },
+ "impact-hour-value": {
+  "id": "impact-hour-value",
+  "status": "VERIFIED",
+  "value": "USD 64.44/h ($64.44 per hour; Quick Facts: Software Developers, Quality Assurance Analysts, and Testers, row \"2025 Median Pay\"; May 2025; https://www.bls.gov/ooh/computer-and-information-technology/software-developers.htm; fetched 2026-10-14)",
+  "n": "1",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/impact_profile_20261014.json"
+  ],
+  "script": "analysis/impact_model.py::hour_value",
+  "commit": "6b71650",
+  "date": "2026-10-14"
+ },
+ "impact-scenario-one-flag": {
+  "id": "impact-scenario-one-flag",
+  "status": "VERIFIED",
+  "value": "SCENARIO, depends on assumed rework time per silent wrong result (not measured). One flag ollama_ctx_4096 on evo-x2 llama3.1:8b: previous basis (first impact model, before the 2026-10-14 audit): USD/day 1,933.63 (USD/month 40,606.25) = P1 1,858.48 (ASSUMED: 5/5 silent rule/recall failures treated as wrong results x 40 sessions/day x one rerun 0.7210 h x USD 64.44/h) + P2 0.00 + P3 67.89 (gpt-6.1-sol, uncached minus cached USD 3.3944/session x 40 x cloud share 0.5) + P4 0.87 + P5 6.40 (time at the full hour value); not included: P6, P7. Current basis (claude-sonnet-5-5 caching on, P1 not measured): measured-only USD/day 3.60, range 3.60 to 79.22 over P2, P3, P4, P5; assumed-only P1 1,858.48; per row: P1 not measured measured / 1,858.48 assumed (assumed); P2 0.00 measured / 0.00 assumed (mixed); P3 3.60 measured / 0.00 assumed (measured); P4 0.00 measured / 0.87 assumed (mixed); P5 0.00 measured / 6.40 assumed (mixed); P6 not measured measured / not measured assumed (not measured); P7 not measured measured / not measured assumed (not measured)",
+  "n": "7",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/blade_dryrun/blade_dryrun_k1.jsonl",
+   "results/blade_dryrun/blade_dryrun_r2_mechanism.jsonl",
+   "results/blade_dryrun/blade_dryrun_r2_mitigation.jsonl",
+   "results/blade_dryrun/blade_dryrun_r2_real.jsonl",
+   "results/blade_dryrun/blade_dryrun_r2_validation.jsonl",
+   "results/blade_r2_real*.jsonl",
+   "results/cloud_prices_20261008.json",
+   "results/cloud_prices_anthropic_20261014.json",
+   "results/impact_profile_20261014.json",
+   "results/t2s_amech_20260926T181456Z.jsonl",
+   "results/t2s_k2_pressure_20261001T001340Z.jsonl",
+   "results/t2s_night2_20260928T004924Z.jsonl",
+   "results/t2s_night2_20260928T200748Z.jsonl",
+   "results/t2s_night2_20260929T032407Z.jsonl",
+   "results/t2s_night2_20260929T034014Z.jsonl",
+   "results/t2s_night2_20260929T045127Z.jsonl",
+   "results/t2s_night2_20260929T103807Z.jsonl",
+   "results/t2s_night2_20260929T202603Z.jsonl",
+   "results/t2s_night2_20260929T205109Z.jsonl",
+   "results/t2s_night2_20260930T071225Z.jsonl",
+   "results/t2s_night2_20260930T135145Z.jsonl",
+   "results/t2s_night2_20260930T173804Z.jsonl",
+   "results/t2s_night2_20260930T215303Z.jsonl",
+   "results/t2s_night2_20261001T033124Z.jsonl",
+   "results/t2s_night2_20261001T081725Z.jsonl",
+   "results/t2s_night2_20261001T151340Z.jsonl",
+   "results/t2s_night2_20261001T195303Z.jsonl",
+   "results/t2s_outcome_table_full.jsonl",
+   "results/t2s_overnight_20260926T011744Z.jsonl",
+   "results/t2s_overnight_20260929T071343Z.jsonl",
+   "results/workload_pack/items/*.jsonl",
+   "results/x2_outcome_table_v3.jsonl",
+   "results/x2_r2_real*.jsonl",
+   "results/x2_r2_validation_v2.jsonl",
+   "results/x2_r2_validation_v2b.jsonl",
+   "src/dse/envelope_data.json"
+  ],
+  "script": "analysis/impact_model.py::previous_basis",
+  "commit": "6b71650",
+  "date": "2026-10-14"
+ },
+ "impact-session-time-by-window": {
+  "id": "impact-session-time-by-window",
+  "status": "VERIFIED",
+  "value": "evo-x2 R2 sessions (40 turns), median wall time per session: llama3.1:8b: ollama_default median 43.3 min/session (n=5), num_ctx_4096 median 7.0 min/session (n=5), ratio 0.16; qwen3:14b: ollama_default median 202.3 min/session (n=5), num_ctx_4096 median 12.2 min/session (n=5), ratio 0.06; qwen3:8b: ollama_default median 71.3 min/session (n=5), num_ctx_4096 median 10.7 min/session (n=5), ratio 0.15",
+  "n": "75",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/impact_profile_20261014.json",
+   "results/cloud_prices_anthropic_20261014.json",
+   "results/x2_r2_real*.jsonl",
+   "results/blade_r2_real*.jsonl",
+   "results/x2_r2_validation_v2.jsonl",
+   "results/x2_r2_validation_v2b.jsonl"
+  ],
+  "script": "analysis/impact_model.py::session_time_by_window",
+  "commit": "6b71650",
+  "date": "2026-10-14"
+ },
+ "impact-total": {
+  "id": "impact-total",
+  "status": "VERIFIED",
+  "value": "status quo ollama_default, claude-sonnet-5-5 caching on: measured-only USD/day 3.60 (USD/month 75.55); range USD/day 3.60 to 192.81 (USD/month 75.55 to 4,049.08; low = measured only, nobody waits for compute; high = compute time at the full hour value and cloud without caching) over P2, P3, P4, P5, P6, P7; not added (assumed or not measured): P1; ranking (caching on, time at its upper bound) P5 > P6 > P2 > P3 > P4 > P7 > P1; per row status P1 assumed, P2 mixed, P3 measured, P4 mixed, P5 mixed, P6 mixed, P7 measured",
+  "n": "7",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/blade_dryrun/blade_dryrun_k1.jsonl",
+   "results/blade_dryrun/blade_dryrun_r2_mechanism.jsonl",
+   "results/blade_dryrun/blade_dryrun_r2_mitigation.jsonl",
+   "results/blade_dryrun/blade_dryrun_r2_real.jsonl",
+   "results/blade_dryrun/blade_dryrun_r2_validation.jsonl",
+   "results/blade_r2_real*.jsonl",
+   "results/cloud_prices_anthropic_20261014.json",
+   "results/impact_profile_20261014.json",
+   "results/t2s_amech_20260926T181456Z.jsonl",
+   "results/t2s_k2_pressure_20261001T001340Z.jsonl",
+   "results/t2s_night2_20260928T004924Z.jsonl",
+   "results/t2s_night2_20260928T200748Z.jsonl",
+   "results/t2s_night2_20260929T032407Z.jsonl",
+   "results/t2s_night2_20260929T034014Z.jsonl",
+   "results/t2s_night2_20260929T045127Z.jsonl",
+   "results/t2s_night2_20260929T103807Z.jsonl",
+   "results/t2s_night2_20260929T202603Z.jsonl",
+   "results/t2s_night2_20260929T205109Z.jsonl",
+   "results/t2s_night2_20260930T071225Z.jsonl",
+   "results/t2s_night2_20260930T135145Z.jsonl",
+   "results/t2s_night2_20260930T173804Z.jsonl",
+   "results/t2s_night2_20260930T215303Z.jsonl",
+   "results/t2s_night2_20261001T033124Z.jsonl",
+   "results/t2s_night2_20261001T081725Z.jsonl",
+   "results/t2s_night2_20261001T151340Z.jsonl",
+   "results/t2s_night2_20261001T195303Z.jsonl",
+   "results/t2s_outcome_table_full.jsonl",
+   "results/t2s_overnight_20260926T011744Z.jsonl",
+   "results/t2s_overnight_20260929T071343Z.jsonl",
+   "results/workload_pack/items/*.jsonl",
+   "results/x2_outcome_table_v3.jsonl",
+   "results/x2_r2_real*.jsonl",
+   "results/x2_r2_validation_v2.jsonl",
+   "results/x2_r2_validation_v2b.jsonl",
+   "src/dse/envelope_data.json"
+  ],
+  "script": "analysis/impact_model.py::audit_total",
+  "commit": "6b71650",
+  "date": "2026-10-14"
+ },
+ "info-loss-by-window": {
+  "id": "info-loss-by-window",
+  "status": "VERIFIED",
+  "value": "Blade llama3.1:8b num_ctx_4096 [observed, one session per tier, n 1]: transcript never seen at turns 5/10/20/30/40 36.2%/66.2%/82.8%/88.4%/91.3%; system prompt never seen 0.0%/100.0%/100.0%/100.0%/100.0%; turns with system-prompt loss 30/40; first loss turn per session 3; system prompt tokens (est) 410 / evo-x2 llama3.1:8b ollama_default [observed, one session per tier, n 1]: transcript never seen at turns 5/10/20/30/40 0.0%/0.0%/0.0%/0.0%/0.0%; system prompt never seen 0.0%/0.0%/0.0%/0.0%/0.0%; turns with system-prompt loss 0/40; first loss turn per session -; system prompt tokens (est) 410 / evo-x2 llama3.1:8b num_ctx_32768 [observed, one session per tier, n 1]: transcript never seen at turns 5/10/20/30/40 0.0%/0.0%/0.0%/7.1%/30.0%; system prompt never seen 0.0%/0.0%/0.0%/100.0%/100.0%; turns with system-prompt loss 10/40; first loss turn per session 30; system prompt tokens (est) 410 / evo-x2 llama3.1:8b num_ctx_16384 [observed, one session per tier, n 1]: transcript never seen at turns 5/10/20/30/40 0.0%/0.0%/34.3%/55.9%/66.7%; system prompt never seen 0.0%/0.0%/0.0%/0.0%/0.0%; turns with system-prompt loss 0/40; first loss turn per session -; system prompt tokens (est) 410 / evo-x2 llama3.1:8b num_ctx_8192 [observed, one session per tier, n 1]: transcript never seen at turns 5/10/20/30/40 0.0%/38.1%/68.2%/78.6%/83.8%; system prompt never seen 0.0%/0.0%/0.0%/0.0%/0.0%; turns with system-prompt loss 0/40; first loss turn per session -; system prompt tokens (est) 410 / evo-x2 llama3.1:8b num_ctx_4096 [observed, one session per tier, n 1]: transcript never seen at turns 5/10/20/30/40 37.5%/67.1%/82.9%/88.5%/91.3%; system prompt never seen 100.0%/100.0%/100.0%/100.0%/100.0%; turns with system-prompt loss 31/40; first loss turn per session 4; system prompt tokens (est) 410 / evo-x2 llama3.1:8b ollama_default [predicted, n 5]: transcript never seen at turns 5/10/20/30/40 0.0%/0.0%/0.0%/0.0%/0.0%; system prompt never seen 0.0%/0.0%/0.0%/0.0%/0.0%; turns with system-prompt loss 0/200; first loss turn per session -,-,-,-,-; system prompt tokens (est) 410,408,408,408,407 / evo-x2 llama3.1:8b num_ctx_32768 [predicted, n 5]: transcript never seen at turns 5/10/20/30/40 0.0%/0.0%/0.3%/7.5%/30.3%; system prompt never seen 0.0%/0.0%/0.0%/60.0%/60.0%; turns with system-prompt loss 34/200; first loss turn per session 30,29,-,28,-; system prompt tokens (est) 410,408,408,408,407 / evo-x2 llama3.1:8b num_ctx_16384 [predicted, n 5]: transcript never seen at turns 5/10/20/30/40 0.0%/0.3%/34.2%/55.8%/66.6%; system prompt never seen 0.0%/0.0%/0.0%/0.0%/0.0%; turns with system-prompt loss 0/200; first loss turn per session -,-,-,-,-; system prompt tokens (est) 410,408,408,408,407 / evo-x2 llama3.1:8b num_ctx_8192 [predicted, n 5]: transcript never seen at turns 5/10/20/30/40 0.1%/38.0%/67.6%/78.8%/84.0%; system prompt never seen 0.0%/0.0%/20.0%/0.0%/0.0%; turns with system-prompt loss 10/200; first loss turn per session -,-,19,-,-; system prompt tokens (est) 410,408,408,408,407 / evo-x2 llama3.1:8b num_ctx_4096 [predicted, n 5]: transcript never seen at turns 5/10/20/30/40 40.1%/68.4%/83.1%/89.1%/91.7%; system prompt never seen 60.0%/80.0%/100.0%/80.0%/80.0%; turns with system-prompt loss 150/200; first loss turn per session 4,3,3,3,3; system prompt tokens (est) 410,408,408,408,407 / evo-x2 qwen3:14b ollama_default [predicted, n 5]: transcript never seen at turns 5/10/20/30/40 0.0%/0.0%/0.4%/8.6%/31.3%; system prompt never seen 0.0%/0.0%/0.0%/0.0%/0.0%; turns with system-prompt loss 0/200; first loss turn per session -,-,-,-,-; system prompt tokens (est) 454,453,453,454,453 / evo-x2 qwen3:14b num_ctx_32768 [predicted, n 5]: transcript never seen at turns 5/10/20/30/40 0.0%/0.0%/0.2%/27.3%/45.3%; system prompt never seen 0.0%/0.0%/0.0%/20.0%/39.9%; turns with system-prompt loss 18/200; first loss turn per session 40,-,23,24,-; system prompt tokens (est) 454,453,453,454,453 / evo-x2 qwen3:14b num_ctx_16384 [predicted, n 5]: transcript never seen at turns 5/10/20/30/40 0.0%/0.2%/46.4%/64.0%/73.0%; system prompt never seen 0.0%/0.0%/0.0%/0.0%/0.0%; turns with system-prompt loss 0/200; first loss turn per session -,-,-,-,-; system prompt tokens (est) 454,453,453,454,453 / evo-x2 qwen3:14b num_ctx_8192 [predicted, n 5]: transcript never seen at turns 5/10/20/30/40 0.2%/47.7%/73.1%/82.1%/86.5%; system prompt never seen 0.0%/20.0%/20.0%/0.0%/0.0%; turns with system-prompt loss 11/200; first loss turn per session 6,8,8,-,-; system prompt tokens (est) 454,453,453,454,453 / evo-x2 qwen3:14b num_ctx_4096 [predicted, n 5]: transcript never seen at turns 5/10/20/30/40 53.9%/76.5%/87.9%/91.9%/93.9%; system prompt never seen 0.0%/0.0%/0.0%/0.0%/0.0%; turns with system-prompt loss 0/200; first loss turn per session -,-,-,-,-; system prompt tokens (est) 454,453,453,454,453 / evo-x2 qwen3:8b ollama_default [predicted, n 5]: transcript never seen at turns 5/10/20/30/40 0.0%/0.0%/0.4%/12.3%/34.2%; system prompt never seen 0.0%/0.0%/0.0%/20.0%/20.0%; turns with system-prompt loss 17/200; first loss turn per session 28,-,30,31,-; system prompt tokens (est) 454,453,453,454,453 / evo-x2 qwen3:8b num_ctx_32768 [predicted, n 5]: transcript never seen at turns 5/10/20/30/40 0.0%/0.0%/0.5%/30.4%/47.9%; system prompt never seen 0.0%/0.0%/0.0%/20.0%/20.0%; turns with system-prompt loss 21/200; first loss turn per session -,23,-,-,21; system prompt tokens (est) 454,453,453,454,453 / evo-x2 qwen3:8b num_ctx_16384 [predicted, n 5]: transcript never seen at turns 5/10/20/30/40 0.0%/0.2%/48.8%/65.7%/74.3%; system prompt never seen 0.0%/0.0%/20.0%/20.0%/0.0%; turns with system-prompt loss 16/200; first loss turn per session 12,-,-,-,-; system prompt tokens (est) 454,453,453,454,453 / evo-x2 qwen3:8b num_ctx_8192 [predicted, n 5]: transcript never seen at turns 5/10/20/30/40 3.4%/48.9%/74.7%/82.7%/87.2%; system prompt never seen 20.0%/99.8%/79.8%/59.9%/59.9%; turns with system-prompt loss 93/200; first loss turn per session 10,8,8,8,5; system prompt tokens (est) 454,453,453,454,453 / evo-x2 qwen3:8b num_ctx_4096 [predicted, n 5]: transcript never seen at turns 5/10/20/30/40 53.2%/75.5%/87.5%/91.7%/93.8%; system prompt never seen 0.0%/20.0%/20.0%/20.0%/39.9%; turns with system-prompt loss 34/200; first loss turn per session 16,-,7,-,22; system prompt tokens (est) 454,453,453,454,453 / labels: observed = observed, one session per tier (mechanism runs, Ollama debug log + render, llama3.1:8b; x2_r2_real_v1b has no mechanism logging, so nothing is added to the observed cells); predicted = predicted (shift predictor P + C > n_ctx, R2-shift-predictor-confusion; token cuts inferred from the cut signature; transcript share estimated) / full-transcript estimator leave-session-out error on untrimmed calls: llama3.1:8b median 0.2% max 2.9% (n 807); qwen3:14b median 0.2% max 1.9% (n 310); qwen3:8b median 0.2% max 0.8% (n 298) / system message kept on 298/298 observed message-trimmed calls",
+  "n": "81 sessions",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_r2_mechanism.jsonl",
+   "results/blade_r2_mechanism_4096_v2.jsonl",
+   "results/x2_r2_real_v1.jsonl",
+   "results/x2_r2_real_v1b.jsonl"
+  ],
+  "script": "analysis/r2_info_loss.py::info_loss_str",
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "kappa-heldout": {
   "id": "kappa-heldout",
@@ -992,8 +1574,8 @@
    "results/labeling/kappa_heldout_annotator_claude.csv"
   ],
   "script": "analysis/kappa_agreement.py::heldout_stats",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "kappa-heldout-disagreements": {
   "id": "kappa-heldout-disagreements",
@@ -1007,8 +1589,8 @@
    "results/labeling/kappa_heldout_annotator_claude.csv"
   ],
   "script": "analysis/numbers_register.py::compute_kappa_heldout_disagreement_read",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "kappa-heldout-fn-annotator": {
   "id": "kappa-heldout-fn-annotator",
@@ -1021,8 +1603,8 @@
    "results/labeling/kappa_heldout_annotator_claude.csv"
   ],
   "script": "analysis/kappa_agreement.py::heldout_stats",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "kappa-heldout-sample": {
   "id": "kappa-heldout-sample",
@@ -1037,8 +1619,21 @@
    "results/labeling/ritz_spotcheck_30.csv"
   ],
   "script": "analysis/build_kappa_heldout_sample.py::round_robin_sample",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
+ },
+ "num-keep-guardrail-test": {
+  "id": "num-keep-guardrail-test",
+  "status": "PENDING",
+  "value": "not computed: data file(s) not synced yet: results/x2_num_keep_guardrail_test.jsonl",
+  "n": "n/a",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_num_keep_guardrail_test.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_num_keep_guardrail_test",
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "ollama-overflow-keeps-half": {
   "id": "ollama-overflow-keeps-half",
@@ -1053,8 +1648,8 @@
    "results/x2_template_mechanism_test.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ollama_overflow_keeps_half",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "pack-trace-weighted-stats": {
   "id": "pack-trace-weighted-stats",
@@ -1067,13 +1662,13 @@
    "results/traces/agent_step_lengths.parquet"
   ],
   "script": "analysis/numbers_register.py::compute_pack_trace_weighted_stats",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "pareto-frontier-x2": {
   "id": "pareto-frontier-x2",
   "status": "VERIFIED",
-  "value": "12 local configs; cloud frontier: none (no measured quality) / evo-x2 frontier: qwen3-4b-2507 llama_server q 1.000 (n=150) USD 0.00/1k steps p50/p90 8.5/212.7 s / bare template, off frontier: qwen3-30b-a3b ollama_default [bare template] q 1.000 (n=176) USD 0.00/1k steps p50/p90 20.2/148.9 s; qwen3-4b-2507 ollama_default [bare template] q 1.000 (n=176) USD 0.00/1k steps p50/p90 10.1/221.7 s / STUB cloud (quality not measured): gpt-6-luna USD 1.85/1k steps; gpt-6.1-sol USD 37.03/1k steps",
+  "value": "12 local configs; cloud frontier: none (no measured quality) / evo-x2 frontier: qwen3-30b-a3b llama_server q 1.000 (n=330) USD 0.00/1k steps p50/p90 3.1/174.1 s / bare template, off frontier: qwen3-30b-a3b ollama_default [bare template] q 1.000 (n=340) USD 0.00/1k steps p50/p90 16.8/148.6 s; qwen3-4b-2507 ollama_default [bare template] q 1.000 (n=330) USD 0.00/1k steps p50/p90 7.9/116.3 s / STUB cloud (quality not measured): gpt-6-luna USD 1.85/1k steps; gpt-6.1-sol USD 37.03/1k steps",
   "n": "12",
   "reported": "(none previously reported)",
   "files": [
@@ -1083,13 +1678,13 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "src/dse/pareto.py::frontier",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "pareto-sample-recommendation": {
   "id": "pareto-sample-recommendation",
   "status": "VERIFIED",
-  "value": "evo-x2 qwen3-4b-2507 llama_server: cheapest of 8 configs meeting quality >= 0.9 (has 1.000, n=150) and p50 <= 30000 ms (has 8516 ms) at USD 0.00/1k steps; vs all-cloud gpt-6-luna USD 1.85/1k steps [STUB]; savings vs all-cloud USD 1.85/1k steps [STUB]",
+  "value": "evo-x2 qwen3-30b-a3b llama_server: cheapest of 8 configs meeting quality >= 0.9 (has 1.000, n=330) and p50 <= 30000 ms (has 3055 ms) at USD 0.00/1k steps; vs all-cloud gpt-6-luna USD 1.85/1k steps [STUB]; savings vs all-cloud USD 1.85/1k steps [STUB]",
   "n": "14",
   "reported": "(none previously reported)",
   "files": [
@@ -1099,13 +1694,13 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "src/dse/pareto.py::recommend",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "pareto-sample-recommendation-v2": {
   "id": "pareto-sample-recommendation-v2",
   "status": "VERIFIED",
-  "value": "max_timeout_share 0.05: evo-x2 qwen3-30b-a3b llama_server: cheapest of 6 configs meeting quality >= 0.9 (has 1.000, n=175) and p50 <= 30000 ms (has 9609 ms), timeout_latency share <= 0.05 (has 0.000) at USD 0.00/1k steps; vs all-cloud gpt-6-luna USD 1.85/1k steps [STUB]; 3 excluded by usability: evo-x2 llama3.1:8b llama_server excluded: timeout_latency share 0.148 > 0.05 (26/176 done rows); evo-x2 qwen3-32b llama_server excluded: timeout_latency share 0.100 > 0.05 (11/110 done rows); evo-x2 qwen3-4b-2507 llama_server excluded: timeout_latency share 0.148 > 0.05 (26/176 done rows); savings vs all-cloud USD 1.85/1k steps [STUB]",
+  "value": "max_timeout_share 0.05: evo-x2 qwen3-30b-a3b llama_server: cheapest of 6 configs meeting quality >= 0.9 (has 1.000, n=330) and p50 <= 30000 ms (has 3055 ms), timeout_latency share <= 0.05 (has 0.029) at USD 0.00/1k steps; vs all-cloud gpt-6-luna USD 1.85/1k steps [STUB]; 3 excluded by usability: evo-x2 llama3.1:8b llama_server excluded: timeout_latency share 0.118 > 0.05 (40/340 done rows); evo-x2 qwen3-32b llama_server excluded: timeout_latency share 0.100 > 0.05 (11/110 done rows); evo-x2 qwen3-4b-2507 llama_server excluded: timeout_latency share 0.118 > 0.05 (40/340 done rows); savings vs all-cloud USD 1.85/1k steps [STUB]",
   "n": "3",
   "reported": "(none previously reported)",
   "files": [
@@ -1115,34 +1710,34 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_pareto_sample_recommendation_v2",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "qwen3-32b-timeout-count": {
   "id": "qwen3-32b-timeout-count",
   "status": "VERIFIED",
-  "value": "llama_server 11/100, ollama_default 0/100 (timeout_latency/done); provisional: outcome table v3 not finished (1959/3600 done)",
+  "value": "llama_server 11/100, ollama_default 0/100 (timeout_latency/done); final: outcome table v3 finished (3600/3600 done)",
   "n": "11",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_qwen3_32b_timeout_count",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "qwen3-32b-truncation-vs-latency": {
   "id": "qwen3-32b-truncation-vs-latency",
   "status": "VERIFIED",
-  "value": "truncated = HTTP 200, no error, processed_tokens < sent_tokens - max(32, 1% of sent_tokens). llama_server: silently truncated 0/74 HTTP-200 rows (0.0%); truncated n=0; full score 1.00 (74/74, Wilson 95% CI 0.95-1.00), latency median 87 s (range 18-528); not HTTP 200 (outside both groups; timeout = timeout_latency, excluded from accuracy; context_overflow scores 0): context_overflow 15, timeout 11; harness silently_truncated agrees on 74/74 / ollama_default: silently truncated 15/97 HTTP-200 rows (15.5%) (evaluated tokens 20482); truncated score 0.40 (6/15, Wilson 95% CI 0.20-0.64), latency median 146 s (range 136-168); full score 1.00 (82/82, Wilson 95% CI 0.96-1.00), latency median 76 s (range 27-357); not HTTP 200 (outside both groups; timeout = timeout_latency, excluded from accuracy; context_overflow scores 0): other 3; harness silently_truncated agrees on 97/97 / pairing: items served in full by both configs: ollama_default/llama_server latency ratio median 0.78 (range 0.35-1.58, n=71); llama_server context_overflow items on ollama_default: truncated 15 (of 15); llama_server timeout_latency items on ollama_default: full 11 (of 11); provisional: outcome table v3 not finished (1959/3600 done)",
+  "value": "truncated = HTTP 200, no error, processed_tokens < sent_tokens - max(32, 1% of sent_tokens). llama_server: silently truncated 0/74 HTTP-200 rows (0.0%); truncated n=0; full score 1.00 (74/74, Wilson 95% CI 0.95-1.00), latency median 87 s (range 18-528); not HTTP 200 (outside both groups; timeout = timeout_latency, excluded from accuracy; context_overflow scores 0): context_overflow 15, timeout 11; harness silently_truncated agrees on 74/74 / ollama_default: silently truncated 15/97 HTTP-200 rows (15.5%) (evaluated tokens 20482); truncated score 0.40 (6/15, Wilson 95% CI 0.20-0.64), latency median 146 s (range 136-168); full score 1.00 (82/82, Wilson 95% CI 0.96-1.00), latency median 76 s (range 27-357); not HTTP 200 (outside both groups; timeout = timeout_latency, excluded from accuracy; context_overflow scores 0): other 3; harness silently_truncated agrees on 97/97 / pairing: items served in full by both configs: ollama_default/llama_server latency ratio median 0.78 (range 0.35-1.58, n=71); llama_server context_overflow items on ollama_default: truncated 15 (of 15); llama_server timeout_latency items on ollama_default: full 11 (of 11); final: outcome table v3 finished (3600/3600 done)",
   "n": "200",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_qwen3_32b_truncation_vs_latency",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "qwen32b-refusal": {
   "id": "qwen32b-refusal",
@@ -1154,8 +1749,8 @@
    "results/t2s_night2_20260929T205109Z.jsonl"
   ],
   "script": "analysis/r1b_wrong_answer_audit.py::refusal_share_by_model",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "qwen4b-2507-metadata-consistency": {
   "id": "qwen4b-2507-metadata-consistency",
@@ -1167,8 +1762,54 @@
    "results/x2_template_mechanism_test.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_qwen4b_2507_metadata_consistency",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
+ },
+ "r2-session-cloud-cost": {
+  "id": "r2-session-cloud-cost",
+  "status": "VERIFIED",
+  "value": "[x2_r2_real_v1] llama3.1:8b ollama_default (n 3): claude-fable-5-1 USD 1.51-27.92 (seed range 1.48-28.10), claude-haiku-5-5 USD 0.04-0.28 (seed range 0.04-0.28), gpt-6.1-sol USD 0.44-5.58 (seed range 0.43-5.62), gpt-6-luna USD 0.04-0.28 (seed range 0.04-0.28); llama3.1:8b num_ctx_32768 (n 3): claude-fable-5-1 USD 1.48-27.77 (seed range 1.47-27.90), claude-haiku-5-5 USD 0.04-0.28 (seed range 0.03-0.28), gpt-6.1-sol USD 0.43-5.55 (seed range 0.43-5.58), gpt-6-luna USD 0.04-0.28 (seed range 0.03-0.28); llama3.1:8b num_ctx_4096 (n 3): claude-fable-5-1 USD 1.53-28.03 (seed range 1.51-28.10), claude-haiku-5-5 USD 0.04-0.28 (seed range 0.04-0.28), gpt-6.1-sol USD 0.44-5.61 (seed range 0.44-5.62), gpt-6-luna USD 0.04-0.28 (seed range 0.04-0.28); qwen3:14b ollama_default (n 3): claude-fable-5-1 USD 1.69-29.07 (seed range 1.55-29.60), claude-haiku-5-5 USD 0.04-0.29 (seed range 0.04-0.30), gpt-6.1-sol USD 0.48-5.81 (seed range 0.45-5.92), gpt-6-luna USD 0.04-0.29 (seed range 0.04-0.30); qwen3:14b num_ctx_32768 (n 3): claude-fable-5-1 USD 1.76-29.46 (seed range 1.71-29.67), claude-haiku-5-5 USD 0.04-0.29 (seed range 0.04-0.30), gpt-6.1-sol USD 0.49-5.89 (seed range 0.48-5.93), gpt-6-luna USD 0.04-0.29 (seed range 0.04-0.30); qwen3:14b num_ctx_4096 (n 3): claude-fable-5-1 USD 1.62-28.62 (seed range 1.57-29.17), claude-haiku-5-5 USD 0.04-0.29 (seed range 0.04-0.29), gpt-6.1-sol USD 0.46-5.72 (seed range 0.45-5.83), gpt-6-luna USD 0.04-0.29 (seed range 0.04-0.29) / [x2_r2_real_v1b] llama3.1:8b ollama_default (n 2): claude-fable-5-1 USD 1.47-27.68 (seed range 1.47-27.68), claude-haiku-5-5 USD 0.03-0.28 (seed range 0.03-0.28), gpt-6.1-sol USD 0.43-5.54 (seed range 0.43-5.54), gpt-6-luna USD 0.03-0.28 (seed range 0.03-0.28); llama3.1:8b num_ctx_32768 (n 2): claude-fable-5-1 USD 1.52-27.96 (seed range 1.49-28.12), claude-haiku-5-5 USD 0.04-0.28 (seed range 0.04-0.28), gpt-6.1-sol USD 0.44-5.59 (seed range 0.43-5.62), gpt-6-luna USD 0.04-0.28 (seed range 0.04-0.28); llama3.1:8b num_ctx_16384 (n 5): claude-fable-5-1 USD 1.50-27.84 (seed range 1.47-28.12), claude-haiku-5-5 USD 0.04-0.28 (seed range 0.03-0.28), gpt-6.1-sol USD 0.43-5.57 (seed range 0.43-5.62), gpt-6-luna USD 0.04-0.28 (seed range 0.03-0.28); llama3.1:8b num_ctx_8192 (n 5): claude-fable-5-1 USD 1.54-27.95 (seed range 1.48-28.33), claude-haiku-5-5 USD 0.04-0.28 (seed range 0.03-0.28), gpt-6.1-sol USD 0.44-5.59 (seed range 0.43-5.67), gpt-6-luna USD 0.04-0.28 (seed range 0.03-0.28); llama3.1:8b num_ctx_4096 (n 2): claude-fable-5-1 USD 1.60-28.53 (seed range 1.53-29.03), claude-haiku-5-5 USD 0.04-0.29 (seed range 0.04-0.29), gpt-6.1-sol USD 0.46-5.71 (seed range 0.44-5.81), gpt-6-luna USD 0.04-0.29 (seed range 0.04-0.29); qwen3:14b ollama_default (n 2): claude-fable-5-1 USD 1.55-28.22 (seed range 1.55-28.22), claude-haiku-5-5 USD 0.04-0.28 (seed range 0.04-0.28), gpt-6.1-sol USD 0.45-5.64 (seed range 0.45-5.64), gpt-6-luna USD 0.04-0.28 (seed range 0.04-0.28); qwen3:14b num_ctx_32768 (n 2): claude-fable-5-1 USD 1.55-28.22 (seed range 1.55-28.22), claude-haiku-5-5 USD 0.04-0.28 (seed range 0.04-0.28), gpt-6.1-sol USD 0.45-5.64 (seed range 0.45-5.64), gpt-6-luna USD 0.04-0.28 (seed range 0.04-0.28); qwen3:14b num_ctx_16384 (n 5): claude-fable-5-1 USD 1.68-28.97 (seed range 1.55-29.67), claude-haiku-5-5 USD 0.04-0.29 (seed range 0.04-0.30), gpt-6.1-sol USD 0.48-5.79 (seed range 0.45-5.93), gpt-6-luna USD 0.04-0.29 (seed range 0.04-0.30); qwen3:14b num_ctx_8192 (n 5): claude-fable-5-1 USD 1.65-28.77 (seed range 1.55-29.18), claude-haiku-5-5 USD 0.04-0.29 (seed range 0.04-0.29), gpt-6.1-sol USD 0.47-5.75 (seed range 0.45-5.84), gpt-6-luna USD 0.04-0.29 (seed range 0.04-0.29); qwen3:14b num_ctx_4096 (n 2): claude-fable-5-1 USD 1.64-28.69 (seed range 1.56-29.10), claude-haiku-5-5 USD 0.04-0.29 (seed range 0.04-0.29), gpt-6.1-sol USD 0.47-5.74 (seed range 0.45-5.82), gpt-6-luna USD 0.04-0.29 (seed range 0.04-0.29); qwen3:8b ollama_default (n 5): claude-fable-5-1 USD 1.77-29.60 (seed range 1.73-29.88), claude-haiku-5-5 USD 0.04-0.30 (seed range 0.04-0.30), gpt-6.1-sol USD 0.50-5.92 (seed range 0.49-5.98), gpt-6-luna USD 0.04-0.30 (seed range 0.04-0.30); qwen3:8b num_ctx_32768 (n 5): claude-fable-5-1 USD 1.77-29.65 (seed range 1.70-30.59), claude-haiku-5-5 USD 0.04-0.30 (seed range 0.04-0.31), gpt-6.1-sol USD 0.50-5.93 (seed range 0.48-6.12), gpt-6-luna USD 0.04-0.30 (seed range 0.04-0.31); qwen3:8b num_ctx_16384 (n 5): claude-fable-5-1 USD 1.76-29.59 (seed range 1.70-30.52), claude-haiku-5-5 USD 0.04-0.30 (seed range 0.04-0.31), gpt-6.1-sol USD 0.50-5.92 (seed range 0.48-6.10), gpt-6-luna USD 0.04-0.30 (seed range 0.04-0.31); qwen3:8b num_ctx_8192 (n 5): claude-fable-5-1 USD 1.78-29.82 (seed range 1.67-30.66), claude-haiku-5-5 USD 0.04-0.30 (seed range 0.04-0.31), gpt-6.1-sol USD 0.50-5.96 (seed range 0.47-6.13), gpt-6-luna USD 0.04-0.30 (seed range 0.04-0.31); qwen3:8b num_ctx_4096 (n 5): claude-fable-5-1 USD 1.84-29.76 (seed range 1.76-30.15), claude-haiku-5-5 USD 0.04-0.30 (seed range 0.04-0.30), gpt-6.1-sol USD 0.51-5.95 (seed range 0.49-6.03), gpt-6-luna USD 0.04-0.30 (seed range 0.04-0.30) / [combined v1+v1b] llama3.1:8b ollama_default (n 5): claude-fable-5-1 USD 1.50-27.82 (seed range 1.47-28.10), claude-haiku-5-5 USD 0.04-0.28 (seed range 0.03-0.28), gpt-6.1-sol USD 0.43-5.56 (seed range 0.43-5.62), gpt-6-luna USD 0.04-0.28 (seed range 0.03-0.28); llama3.1:8b num_ctx_32768 (n 5): claude-fable-5-1 USD 1.50-27.85 (seed range 1.47-28.12), claude-haiku-5-5 USD 0.04-0.28 (seed range 0.03-0.28), gpt-6.1-sol USD 0.43-5.57 (seed range 0.43-5.62), gpt-6-luna USD 0.04-0.28 (seed range 0.03-0.28); llama3.1:8b num_ctx_16384 (n 5): claude-fable-5-1 USD 1.50-27.84 (seed range 1.47-28.12), claude-haiku-5-5 USD 0.04-0.28 (seed range 0.03-0.28), gpt-6.1-sol USD 0.43-5.57 (seed range 0.43-5.62), gpt-6-luna USD 0.04-0.28 (seed range 0.03-0.28); llama3.1:8b num_ctx_8192 (n 5): claude-fable-5-1 USD 1.54-27.95 (seed range 1.48-28.33), claude-haiku-5-5 USD 0.04-0.28 (seed range 0.03-0.28), gpt-6.1-sol USD 0.44-5.59 (seed range 0.43-5.67), gpt-6-luna USD 0.04-0.28 (seed range 0.03-0.28); llama3.1:8b num_ctx_4096 (n 5): claude-fable-5-1 USD 1.56-28.23 (seed range 1.51-29.03), claude-haiku-5-5 USD 0.04-0.28 (seed range 0.04-0.29), gpt-6.1-sol USD 0.45-5.65 (seed range 0.44-5.81), gpt-6-luna USD 0.04-0.28 (seed range 0.04-0.29); qwen3:14b ollama_default (n 5): claude-fable-5-1 USD 1.63-28.73 (seed range 1.55-29.60), claude-haiku-5-5 USD 0.04-0.29 (seed range 0.04-0.30), gpt-6.1-sol USD 0.47-5.75 (seed range 0.45-5.92), gpt-6-luna USD 0.04-0.29 (seed range 0.04-0.30); qwen3:14b num_ctx_32768 (n 5): claude-fable-5-1 USD 1.68-28.96 (seed range 1.55-29.67), claude-haiku-5-5 USD 0.04-0.29 (seed range 0.04-0.30), gpt-6.1-sol USD 0.48-5.79 (seed range 0.45-5.93), gpt-6-luna USD 0.04-0.29 (seed range 0.04-0.30); qwen3:14b num_ctx_16384 (n 5): claude-fable-5-1 USD 1.68-28.97 (seed range 1.55-29.67), claude-haiku-5-5 USD 0.04-0.29 (seed range 0.04-0.30), gpt-6.1-sol USD 0.48-5.79 (seed range 0.45-5.93), gpt-6-luna USD 0.04-0.29 (seed range 0.04-0.30); qwen3:14b num_ctx_8192 (n 5): claude-fable-5-1 USD 1.65-28.77 (seed range 1.55-29.18), claude-haiku-5-5 USD 0.04-0.29 (seed range 0.04-0.29), gpt-6.1-sol USD 0.47-5.75 (seed range 0.45-5.84), gpt-6-luna USD 0.04-0.29 (seed range 0.04-0.29); qwen3:14b num_ctx_4096 (n 5): claude-fable-5-1 USD 1.62-28.65 (seed range 1.56-29.17), claude-haiku-5-5 USD 0.04-0.29 (seed range 0.04-0.29), gpt-6.1-sol USD 0.46-5.73 (seed range 0.45-5.83), gpt-6-luna USD 0.04-0.29 (seed range 0.04-0.29); qwen3:8b ollama_default (n 5): claude-fable-5-1 USD 1.77-29.60 (seed range 1.73-29.88), claude-haiku-5-5 USD 0.04-0.30 (seed range 0.04-0.30), gpt-6.1-sol USD 0.50-5.92 (seed range 0.49-5.98), gpt-6-luna USD 0.04-0.30 (seed range 0.04-0.30); qwen3:8b num_ctx_32768 (n 5): claude-fable-5-1 USD 1.77-29.65 (seed range 1.70-30.59), claude-haiku-5-5 USD 0.04-0.30 (seed range 0.04-0.31), gpt-6.1-sol USD 0.50-5.93 (seed range 0.48-6.12), gpt-6-luna USD 0.04-0.30 (seed range 0.04-0.31); qwen3:8b num_ctx_16384 (n 5): claude-fable-5-1 USD 1.76-29.59 (seed range 1.70-30.52), claude-haiku-5-5 USD 0.04-0.30 (seed range 0.04-0.31), gpt-6.1-sol USD 0.50-5.92 (seed range 0.48-6.10), gpt-6-luna USD 0.04-0.30 (seed range 0.04-0.31); qwen3:8b num_ctx_8192 (n 5): claude-fable-5-1 USD 1.78-29.82 (seed range 1.67-30.66), claude-haiku-5-5 USD 0.04-0.30 (seed range 0.04-0.31), gpt-6.1-sol USD 0.50-5.96 (seed range 0.47-6.13), gpt-6-luna USD 0.04-0.30 (seed range 0.04-0.31); qwen3:8b num_ctx_4096 (n 5): claude-fable-5-1 USD 1.84-29.76 (seed range 1.76-30.15), claude-haiku-5-5 USD 0.04-0.30 (seed range 0.04-0.30), gpt-6.1-sol USD 0.51-5.95 (seed range 0.49-6.03), gpt-6-luna USD 0.04-0.30 (seed range 0.04-0.30) / basis: chars/4 row estimate, Standard list prices, latest price file per provider (anthropic: results/cloud_prices_anthropic_20261014.json (claude-fable-5-1, claude-haiku-5-5; fetched 2026-10-15T02:55Z); openai: results/cloud_prices_20261008.json (gpt-6.1-sol, gpt-6-luna; fetched 2026-10-08T03:33Z)); range = best-case caching (final prompt at input price, rest at cache-read price) to no caching; output at output price / operator expectations: gpt-6.1-sol best-caching USD per llama3.1:8b default session: expected 0.41, v1 0.44 [0.43-0.44, n 3] MISMATCH, combined 0.43 [0.43-0.44, n 5] MISMATCH; gpt-6.1-sol no-caching USD per llama3.1:8b default session: expected 5.63, v1 5.58 [5.55-5.62, n 3] MISMATCH, combined 5.56 [5.54-5.62, n 5] MISMATCH",
+  "n": "75 sessions",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_r2_real_v1.jsonl",
+   "results/x2_r2_real_v1b.jsonl",
+   "results/cloud_prices_*.json"
+  ],
+  "script": "analysis/r2_session_cost.py::cost_str",
+  "commit": "6b71650",
+  "date": "2026-10-14"
+ },
+ "r2-session-wallclock": {
+  "id": "r2-session-wallclock",
+  "status": "VERIFIED",
+  "value": "[x2_r2_real_v1] llama3.1:8b ollama_default: mean 43.3 min (43.3, 43.7, 43.0; n 3), billed in+out 2778478, input 2775215, output 3263; llama3.1:8b num_ctx_32768: mean 23.0 min (22.7, 23.8, 22.5; n 3), billed in+out 2765507, input 2762689, output 2818; llama3.1:8b num_ctx_4096: mean 6.9 min (6.7, 7.0, 7.0; n 3), billed in+out 2788662, input 2785111, output 3551; qwen3:14b ollama_default: mean 211.3 min (213.8, 218.5, 201.6; n 3), billed in+out 2883404, input 2877596, output 5809; qwen3:14b num_ctx_32768: mean 105.0 min (106.3, 105.6, 103.0; n 3), billed in+out 2917855, input 2910907, output 6948; qwen3:14b num_ctx_4096: mean 13.0 min (12.2, 14.4, 12.2; n 3), billed in+out 2842561, input 2837803, output 4758 / [x2_r2_real_v1b] llama3.1:8b ollama_default: mean 42.3 min (41.2, 43.4; n 2), billed in+out 2757150, input 2754465, output 2686; llama3.1:8b num_ctx_32768: mean 23.6 min (22.7, 24.4; n 2), billed in+out 2782416, input 2778995, output 3421; llama3.1:8b num_ctx_16384: mean 18.3 min (17.9, 18.3, 17.7, 18.6, 19.1; n 5), billed in+out 2771786, input 2768746, output 3040; llama3.1:8b num_ctx_8192: mean 11.0 min (10.5, 10.7, 12.5, 10.5, 10.8; n 5), billed in+out 2779940, input 2776155, output 3784; llama3.1:8b num_ctx_4096: mean 7.2 min (7.6, 6.8; n 2), billed in+out 2834694, input 2830106, output 4587; qwen3:14b ollama_default: mean 197.8 min (202.3, 193.2; n 2), billed in+out 2806670, input 2802894, output 3776; qwen3:14b num_ctx_32768: mean 91.8 min (89.7, 93.9; n 2), billed in+out 2806674, input 2802894, output 3780; qwen3:14b num_ctx_16384: mean 45.8 min (48.3, 48.5, 44.8, 44.1, 43.4; n 5), billed in+out 2874018, input 2868312, output 5706; qwen3:14b num_ctx_8192: mean 24.0 min (25.4, 25.3, 25.3, 22.1, 21.9; n 5), billed in+out 2855941, input 2850689, output 5251; qwen3:14b num_ctx_4096: mean 13.2 min (12.1, 14.3; n 2), billed in+out 2849116, input 2844047, output 5069; qwen3:8b ollama_default: mean 71.6 min (70.2, 71.4, 74.0, 71.3, 71.1; n 5), billed in+out 2932806, input 2925988, output 6819; qwen3:8b num_ctx_32768: mean 39.5 min (41.9, 38.3, 39.3, 37.7, 40.5; n 5), billed in+out 2937167, input 2930223, output 6944; qwen3:8b num_ctx_16384: mean 24.2 min (26.2, 23.1, 23.3, 23.1, 25.1; n 5), billed in+out 2932115, input 2925333, output 6782; qwen3:8b num_ctx_8192: mean 15.4 min (15.6, 16.2, 15.7, 14.4, 15.1; n 5), billed in+out 2954338, input 2947320, output 7018; qwen3:8b num_ctx_4096: mean 11.1 min (11.3, 10.2, 12.7, 10.5, 10.7; n 5), billed in+out 2944022, input 2935940, output 8082 / [combined v1+v1b] llama3.1:8b ollama_default: mean 42.9 min (43.3, 43.7, 43.0, 41.2, 43.4; n 5), billed in+out 2769947, input 2766915, output 3032; llama3.1:8b num_ctx_32768: mean 23.2 min (22.7, 23.8, 22.5, 22.7, 24.4; n 5), billed in+out 2772271, input 2769211, output 3059; llama3.1:8b num_ctx_16384: mean 18.3 min (17.9, 18.3, 17.7, 18.6, 19.1; n 5), billed in+out 2771786, input 2768746, output 3040; llama3.1:8b num_ctx_8192: mean 11.0 min (10.5, 10.7, 12.5, 10.5, 10.8; n 5), billed in+out 2779940, input 2776155, output 3784; llama3.1:8b num_ctx_4096: mean 7.0 min (6.7, 7.0, 7.0, 7.6, 6.8; n 5), billed in+out 2807074, input 2803109, output 3965; qwen3:14b ollama_default: mean 205.9 min (213.8, 218.5, 201.6, 202.3, 193.2; n 5), billed in+out 2852711, input 2847715, output 4996; qwen3:14b num_ctx_32768: mean 99.7 min (106.3, 105.6, 103.0, 89.7, 93.9; n 5), billed in+out 2873383, input 2867702, output 5681; qwen3:14b num_ctx_16384: mean 45.8 min (48.3, 48.5, 44.8, 44.1, 43.4; n 5), billed in+out 2874018, input 2868312, output 5706; qwen3:14b num_ctx_8192: mean 24.0 min (25.4, 25.3, 25.3, 22.1, 21.9; n 5), billed in+out 2855941, input 2850689, output 5251; qwen3:14b num_ctx_4096: mean 13.1 min (12.2, 14.4, 12.2, 12.1, 14.3; n 5), billed in+out 2845183, input 2840301, output 4882; qwen3:8b ollama_default: mean 71.6 min (70.2, 71.4, 74.0, 71.3, 71.1; n 5), billed in+out 2932806, input 2925988, output 6819; qwen3:8b num_ctx_32768: mean 39.5 min (41.9, 38.3, 39.3, 37.7, 40.5; n 5), billed in+out 2937167, input 2930223, output 6944; qwen3:8b num_ctx_16384: mean 24.2 min (26.2, 23.1, 23.3, 23.1, 25.1; n 5), billed in+out 2932115, input 2925333, output 6782; qwen3:8b num_ctx_8192: mean 15.4 min (15.6, 16.2, 15.7, 14.4, 15.1; n 5), billed in+out 2954338, input 2947320, output 7018; qwen3:8b num_ctx_4096: mean 11.1 min (11.3, 10.2, 12.7, 10.5, 10.7; n 5), billed in+out 2944022, input 2935940, output 8082 / operator expectations: llama3.1:8b default wall-clock min: expected 43, v1 43.33 [43.05-43.69, n 3] match, combined 42.94 [41.23-43.69, n 5] match; llama3.1:8b 4096 wall-clock min: expected 7, v1 6.89 [6.73-6.99, n 3] match, combined 7.00 [6.73-7.57, n 5] match; qwen3:14b default wall-clock min: expected 211, v1 211.31 [201.60-218.55, n 3] match, combined 205.90 [193.22-218.55, n 5] MISMATCH; qwen3:14b 4096 wall-clock min: expected 13, v1 12.95 [12.24-14.38, n 3] match, combined 13.06 [12.13-14.38, n 5] match",
+  "n": "15 cells, 75 sessions",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_r2_real_v1.jsonl",
+   "results/x2_r2_real_v1b.jsonl",
+   "results/cloud_prices_*.json"
+  ],
+  "script": "analysis/r2_session_cost.py::wallclock_str",
+  "commit": "6b71650",
+  "date": "2026-10-14"
+ },
+ "reliability-after-guardrail-loss": {
+  "id": "reliability-after-guardrail-loss",
+  "status": "VERIFIED",
+  "value": "Blade llama3.1:8b num_ctx_4096 [observed, one session per tier, n 1]: violation turns before loss 0/2 (0.0%), from loss on 10/38 (26.3%); per session L 3 lag 2; by rule before -> after: format 0/2 -> 10/38, audit action (not in use) 0/2 -> 15/38, banned content 0/2 -> 0/38, units 0/1 -> 0/19, session code (not in use) 1/2 -> 10/38 / evo-x2 llama3.1:8b ollama_default [observed, one session per tier, n 1]: violation turns before loss 0/40 (0.0%), from loss on 0/0 (n/a); per session L - lag -; by rule before -> after: format 0/40 -> 0/0, audit action (not in use) 19/40 -> 0/0, banned content 0/40 -> 0/0, units 0/20 -> 0/0, session code (not in use) 1/40 -> 0/0 / evo-x2 llama3.1:8b num_ctx_32768 [observed, one session per tier, n 1]: violation turns before loss 0/29 (0.0%), from loss on 0/11 (0.0%); per session L 30 lag -; by rule before -> after: format 0/29 -> 0/11, audit action (not in use) 14/29 -> 5/11, banned content 0/29 -> 0/11, units 0/14 -> 0/6, session code (not in use) 23/29 -> 9/11 / evo-x2 llama3.1:8b num_ctx_16384 [observed, one session per tier, n 1]: violation turns before loss 0/40 (0.0%), from loss on 0/0 (n/a); per session L - lag -; by rule before -> after: format 0/40 -> 0/0, audit action (not in use) 19/40 -> 0/0, banned content 0/40 -> 0/0, units 0/20 -> 0/0, session code (not in use) 31/40 -> 0/0 / evo-x2 llama3.1:8b num_ctx_8192 [observed, one session per tier, n 1]: violation turns before loss 0/40 (0.0%), from loss on 0/0 (n/a); per session L - lag -; by rule before -> after: format 0/40 -> 0/0, audit action (not in use) 19/40 -> 0/0, banned content 0/40 -> 0/0, units 0/20 -> 0/0, session code (not in use) 25/40 -> 0/0 / evo-x2 llama3.1:8b num_ctx_4096 [observed, one session per tier, n 1]: violation turns before loss 0/3 (0.0%), from loss on 3/37 (8.1%); per session L 4 lag 2; by rule before -> after: format 0/3 -> 3/37, audit action (not in use) 1/3 -> 16/37, banned content 0/3 -> 0/37, units 0/1 -> 1/19, session code (not in use) 3/3 -> 11/37 / evo-x2 llama3.1:8b ollama_default [predicted, n 5]: violation turns before loss 0/200 (0.0%), from loss on 0/0 (n/a); per session L - lag -,L - lag -,L - lag -,L - lag -,L - lag -; by rule before -> after: format 0/200 -> 0/0, audit action (not in use) 95/200 -> 0/0, banned content 0/200 -> 0/0, units 0/100 -> 0/0, session code (not in use) 83/200 -> 0/0 / evo-x2 llama3.1:8b num_ctx_32768 [predicted, n 5]: violation turns before loss 0/164 (0.0%), from loss on 0/36 (0.0%); per session L 30 lag -,L 29 lag -,L - lag -,L 28 lag -,L - lag -; by rule before -> after: format 0/164 -> 0/36, audit action (not in use) 78/164 -> 17/36, banned content 0/164 -> 0/36, units 0/81 -> 0/19, session code (not in use) 85/164 -> 21/36 / evo-x2 llama3.1:8b num_ctx_16384 [predicted, n 5]: violation turns before loss 0/200 (0.0%), from loss on 0/0 (n/a); per session L - lag -,L - lag -,L - lag -,L - lag -,L - lag -; by rule before -> after: format 0/200 -> 0/0, audit action (not in use) 95/200 -> 0/0, banned content 0/200 -> 0/0, units 0/100 -> 0/0, session code (not in use) 111/200 -> 0/0 / evo-x2 llama3.1:8b num_ctx_8192 [predicted, n 5]: violation turns before loss 2/178 (1.1%), from loss on 8/22 (36.4%); per session L - lag -,L - lag -,L 19 lag 3,L - lag -,L - lag -; by rule before -> after: format 2/178 -> 8/22, audit action (not in use) 83/178 -> 9/22, banned content 0/178 -> 0/22, units 0/89 -> 0/11, session code (not in use) 91/178 -> 8/22 / evo-x2 llama3.1:8b num_ctx_4096 [predicted, n 5]: violation turns before loss 0/11 (0.0%), from loss on 35/189 (18.5%); per session L 4 lag -,L 3 lag 0,L 3 lag 2,L 3 lag 3,L 3 lag 28; by rule before -> after: format 0/11 -> 35/189, audit action (not in use) 1/11 -> 87/189, banned content 0/11 -> 0/189, units 0/5 -> 0/95, session code (not in use) 10/11 -> 110/189 / evo-x2 qwen3:14b ollama_default [predicted, n 5]: violation turns before loss 0/200 (0.0%), from loss on 0/0 (n/a); per session L - lag -,L - lag -,L - lag -,L - lag -,L - lag -; by rule before -> after: format 0/200 -> 0/0, audit action 0/200 -> 0/0, banned content 0/200 -> 0/0, units 0/100 -> 0/0, session code 0/200 -> 0/0 / evo-x2 qwen3:14b num_ctx_32768 [predicted, n 5]: violation turns before loss 0/164 (0.0%), from loss on 0/36 (0.0%); per session L 40 lag -,L - lag -,L 23 lag -,L 24 lag -,L - lag -; by rule before -> after: format 0/164 -> 0/36, audit action 0/164 -> 0/36, banned content 0/164 -> 0/36, units 0/81 -> 0/19, session code 0/164 -> 0/36 / evo-x2 qwen3:14b num_ctx_16384 [predicted, n 5]: violation turns before loss 0/200 (0.0%), from loss on 0/0 (n/a); per session L - lag -,L - lag -,L - lag -,L - lag -,L - lag -; by rule before -> after: format 0/200 -> 0/0, audit action 0/200 -> 0/0, banned content 0/200 -> 0/0, units 0/100 -> 0/0, session code 0/200 -> 0/0 / evo-x2 qwen3:14b num_ctx_8192 [predicted, n 5]: violation turns before loss 0/99 (0.0%), from loss on 0/101 (0.0%); per session L 6 lag -,L 8 lag -,L 8 lag -,L - lag -,L - lag -; by rule before -> after: format 0/99 -> 0/101, audit action 0/99 -> 0/101, banned content 0/99 -> 0/101, units 0/48 -> 0/52, session code 0/99 -> 0/101 / evo-x2 qwen3:14b num_ctx_4096 [predicted, n 5]: violation turns before loss 8/200 (4.0%), from loss on 0/0 (n/a); per session L - lag -,L - lag -,L - lag -,L - lag -,L - lag -; by rule before -> after: format 0/200 -> 0/0, audit action 0/200 -> 0/0, banned content 6/200 -> 0/0, units 0/100 -> 0/0, session code 2/200 -> 0/0 / evo-x2 qwen3:8b ollama_default [predicted, n 5]: violation turns before loss 0/166 (0.0%), from loss on 0/34 (0.0%); per session L 28 lag -,L - lag -,L 30 lag -,L 31 lag -,L - lag -; by rule before -> after: format 0/166 -> 0/34, audit action 0/166 -> 0/34, banned content 0/166 -> 0/34, units 0/82 -> 0/18, session code (not in use) 19/166 -> 5/34 / evo-x2 qwen3:8b num_ctx_32768 [predicted, n 5]: violation turns before loss 0/162 (0.0%), from loss on 0/38 (0.0%); per session L - lag -,L 23 lag -,L - lag -,L - lag -,L 21 lag -; by rule before -> after: format 0/162 -> 0/38, audit action 0/162 -> 0/38, banned content 0/162 -> 0/38, units 0/81 -> 0/19, session code (not in use) 20/162 -> 4/38 / evo-x2 qwen3:8b num_ctx_16384 [predicted, n 5]: violation turns before loss 0/171 (0.0%), from loss on 0/29 (0.0%); per session L 12 lag -,L - lag -,L - lag -,L - lag -,L - lag -; by rule before -> after: format 0/171 -> 0/29, audit action 0/171 -> 0/29, banned content 0/171 -> 0/29, units 0/85 -> 0/15, session code (not in use) 24/171 -> 0/29 / evo-x2 qwen3:8b num_ctx_8192 [predicted, n 5]: violation turns before loss 0/34 (0.0%), from loss on 18/166 (10.8%); per session L 10 lag -,L 8 lag 7,L 8 lag 17,L 8 lag 17,L 5 lag 24; by rule before -> after: format 0/34 -> 4/166, audit action 0/34 -> 14/166, banned content 0/34 -> 0/166, units 0/15 -> 0/85, session code (not in use) 3/34 -> 33/166 / evo-x2 qwen3:8b num_ctx_4096 [predicted, n 5]: violation turns before loss 0/122 (0.0%), from loss on 3/78 (3.8%); per session L 16 lag -,L - lag -,L 7 lag 3,L - lag -,L 22 lag -; by rule before -> after: format 0/122 -> 0/78, audit action 0/122 -> 3/78, banned content 0/122 -> 0/78, units 0/60 -> 0/40, session code (not in use) 6/122 -> 3/78 / labels: observed = observed, one session per tier (mechanism runs, Ollama debug log + render, llama3.1:8b; x2_r2_real_v1b has no mechanism logging, so nothing is added to the observed cells); predicted = predicted (shift predictor P + C > n_ctx, R2-shift-predictor-confusion; token cuts inferred from the cut signature; transcript share estimated); L = first turn with system-prompt loss, lag = turns from L to the first violation (rules in use); rules in use llama3.1:8b rule1_json_keys,rule3_no_zebra,rule4_metres; qwen3:14b rule1_json_keys,rule2_log_event_called,rule3_no_zebra,rule4_metres,rule5_session_code; qwen3:8b rule1_json_keys,rule2_log_event_called,rule3_no_zebra,rule4_metres",
+  "n": "81 sessions",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_r2_mechanism.jsonl",
+   "results/blade_r2_mechanism_4096_v2.jsonl",
+   "results/x2_r2_real_v1.jsonl",
+   "results/x2_r2_real_v1b.jsonl"
+  ],
+  "script": "analysis/r2_info_loss.py::reliability_str",
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "self-report-truncation-awareness": {
   "id": "self-report-truncation-awareness",
@@ -1181,8 +1822,8 @@
    "results/t2s_night2_20260929T205109Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_self_report_truncation_awareness",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "t2s-llamaserver-load-failures": {
   "id": "t2s-llamaserver-load-failures",
@@ -1194,8 +1835,8 @@
    "results/t2s_outcome_table_llamaserver_*.log"
   ],
   "script": "analysis/numbers_register.py::compute_t2s_llamaserver_load_failures",
-  "commit": "f448111",
-  "date": "2026-10-09"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "t2s-outcome-allocation-failures": {
   "id": "t2s-outcome-allocation-failures",
@@ -1207,8 +1848,8 @@
    "results/t2s_outcome_table_full.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_t2s_allocation_failures",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "t2s-outcome-error-causes": {
   "id": "t2s-outcome-error-causes",
@@ -1220,8 +1861,8 @@
    "results/t2s_outcome_table_full.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_t2s_outcome_error_causes",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "t2s-outcome-gsm8k-rescore": {
   "id": "t2s-outcome-gsm8k-rescore",
@@ -1234,8 +1875,8 @@
    "results/t2s_outcome_table_smoke.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_t2s_outcome_gsm8k_rescore",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "trace-32k-crossing": {
   "id": "trace-32k-crossing",
@@ -1247,8 +1888,8 @@
    "results/traces/agent_step_lengths.parquet"
   ],
   "script": "analysis/numbers_register.py::compute_trace_cdf_crossing_fractions",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "trace-context-exit-rate": {
   "id": "trace-context-exit-rate",
@@ -1260,8 +1901,8 @@
    "results/traces/exit_status_sample.parquet"
   ],
   "script": "analysis/numbers_register.py::compute_trace_context_exit_rate",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "trace-fraction-exceeds-4096": {
   "id": "trace-fraction-exceeds-4096",
@@ -1273,8 +1914,8 @@
    "results/traces/agent_step_lengths.parquet"
   ],
   "script": "analysis/numbers_register.py::compute_trace_fraction_exceeds_4096",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "ttft-cross-machine-transfer": {
   "id": "ttft-cross-machine-transfer",
@@ -1305,8 +1946,8 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_cross_machine_transfer",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "ttft-few-point-calibration": {
   "id": "ttft-few-point-calibration",
@@ -1337,8 +1978,8 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_few_point_calibration",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "ttft-first-call-stall": {
   "id": "ttft-first-call-stall",
@@ -1355,8 +1996,8 @@
    "results/t2s_night2_20260929T202603Z_srv_R1*_start.txt"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_first_call_stall",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "ttft-first-call-stall-per-cell": {
   "id": "ttft-first-call-stall-per-cell",
@@ -1373,8 +2014,8 @@
    "results/t2s_night2_20260929T202603Z_srv_R1*_start.txt"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_first_call_stall_per_cell",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "ttft-physical-fit-per-machine": {
   "id": "ttft-physical-fit-per-machine",
@@ -1405,8 +2046,8 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_physical_fit_per_machine",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "ttft-t2s-restricted-to-x2-range": {
   "id": "ttft-t2s-restricted-to-x2-range",
@@ -1437,8 +2078,8 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_t2s_restricted_to_x2_range",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "ttft-x2-length-spread": {
   "id": "ttft-x2-length-spread",
@@ -1469,8 +2110,8 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_x2_length_spread",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "ttft-x2-refit-per-model": {
   "id": "ttft-x2-refit-per-model",
@@ -1501,8 +2142,8 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_x2_refit_per_model",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "ttft-x2-section0-stall-check": {
   "id": "ttft-x2-section0-stall-check",
@@ -1534,8 +2175,8 @@
    "results/t2s_night2_20260929T205109Z_srv_R1*_start.txt"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_x2_section0_stall_check",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "uncensored-trace-32k-crossing": {
   "id": "uncensored-trace-32k-crossing",
@@ -1547,22 +2188,35 @@
    "results/traces/agent_step_lengths.parquet"
   ],
   "script": "analysis/numbers_register.py::compute_uncensored_trace_32k_crossing",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
+ },
+ "window-override-methods": {
+  "id": "window-override-methods",
+  "status": "PENDING",
+  "value": "not computed: data file(s) not synced yet: results/x2_window_override_methods_v1.jsonl",
+  "n": "n/a",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_window_override_methods_v1.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_window_override_methods",
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "x2-chat-template-source": {
   "id": "x2-chat-template-source",
   "status": "VERIFIED",
-  "value": "llama3.1:8b/ollama_default (tag llama3.1:8b) ollama_library sha256 948af2743fc7 (v3 rows: 5 ollama_library not valid derived, 30 ollama_library valid derived, 146 ollama_library valid recorded); llama3.1:8b/llama_server gguf_embedded_llama_server sha256 e10ca381b1cc (v3 rows: 121 gguf_embedded_llama_server valid derived, 55 gguf_embedded_llama_server valid recorded); qwen3-4b-2507/ollama_default (tag qwen3-4b-2507) bare_gguf_ollama_create sha256 40c21f34cf67 (v3 rows: 30 bare_gguf_ollama_create valid derived, 146 bare_gguf_ollama_create valid recorded); qwen3-4b-2507/llama_server gguf_embedded_llama_server sha256 40c21f34cf67 (v3 rows: 120 gguf_embedded_llama_server valid derived, 56 gguf_embedded_llama_server valid recorded); qwen3-8b/ollama_default (tag qwen3:8b) ollama_library sha256 ae370d884f10 (v3 rows: 30 ollama_library valid derived, 146 ollama_library valid recorded); qwen3-8b/llama_server gguf_embedded_llama_server sha256 57f1fd00f001 (v3 rows: 28 gguf_embedded_llama_server valid derived, 148 gguf_embedded_llama_server valid recorded); qwen3-14b/ollama_default (tag qwen3:14b) ollama_library sha256 ae370d884f10 (v3 rows: 29 ollama_library valid derived, 147 ollama_library valid recorded); qwen3-14b/llama_server gguf_embedded_llama_server sha256 57f1fd00f001 (v3 rows: 28 gguf_embedded_llama_server valid derived, 148 gguf_embedded_llama_server valid recorded); qwen3-30b-a3b/ollama_default (tag qwen3-30b-a3b-2507) bare_gguf_ollama_create sha256 40c21f34cf67 (v3 rows: 28 bare_gguf_ollama_create valid derived, 148 bare_gguf_ollama_create valid recorded, 15 ollama_library not valid derived); qwen3-30b-a3b/llama_server gguf_embedded_llama_server sha256 40c21f34cf67 (v3 rows: 120 gguf_embedded_llama_server valid derived, 55 gguf_embedded_llama_server valid recorded); qwen3-32b/ollama_default (tag qwen3:32b) ollama_library sha256 ae370d884f10 (v3 rows: 29 ollama_library valid derived, 82 ollama_library valid recorded); qwen3-32b/llama_server gguf_embedded_llama_server sha256 57f1fd00f001 (v3 rows: 28 gguf_embedded_llama_server valid derived, 82 gguf_embedded_llama_server valid recorded)",
-  "n": "2000",
+  "value": "llama3.1:8b/ollama_default (tag llama3.1:8b) ollama_library sha256 948af2743fc7 (v3 rows: 5 ollama_library not valid derived, 30 ollama_library valid derived, 310 ollama_library valid recorded); llama3.1:8b/llama_server gguf_embedded_llama_server sha256 e10ca381b1cc (v3 rows: 121 gguf_embedded_llama_server valid derived, 219 gguf_embedded_llama_server valid recorded); qwen3-4b-2507/ollama_default (tag qwen3-4b-2507) bare_gguf_ollama_create sha256 40c21f34cf67 (v3 rows: 30 bare_gguf_ollama_create valid derived, 310 bare_gguf_ollama_create valid recorded); qwen3-4b-2507/llama_server gguf_embedded_llama_server sha256 40c21f34cf67 (v3 rows: 120 gguf_embedded_llama_server valid derived, 220 gguf_embedded_llama_server valid recorded); qwen3-8b/ollama_default (tag qwen3:8b) ollama_library sha256 ae370d884f10 (v3 rows: 30 ollama_library valid derived, 310 ollama_library valid recorded); qwen3-8b/llama_server gguf_embedded_llama_server sha256 57f1fd00f001 (v3 rows: 28 gguf_embedded_llama_server valid derived, 312 gguf_embedded_llama_server valid recorded); qwen3-14b/ollama_default (tag qwen3:14b) ollama_library sha256 ae370d884f10 (v3 rows: 29 ollama_library valid derived, 311 ollama_library valid recorded); qwen3-14b/llama_server gguf_embedded_llama_server sha256 57f1fd00f001 (v3 rows: 28 gguf_embedded_llama_server valid derived, 312 gguf_embedded_llama_server valid recorded); qwen3-30b-a3b/ollama_default (tag qwen3-30b-a3b-2507) bare_gguf_ollama_create sha256 40c21f34cf67 (v3 rows: 28 bare_gguf_ollama_create valid derived, 312 bare_gguf_ollama_create valid recorded, 15 ollama_library not valid derived); qwen3-30b-a3b/llama_server gguf_embedded_llama_server sha256 40c21f34cf67 (v3 rows: 120 gguf_embedded_llama_server valid derived, 220 gguf_embedded_llama_server valid recorded); qwen3-32b/ollama_default (tag qwen3:32b) ollama_library sha256 ae370d884f10 (v3 rows: 29 ollama_library valid derived, 82 ollama_library valid recorded); qwen3-32b/llama_server gguf_embedded_llama_server sha256 57f1fd00f001 (v3 rows: 28 gguf_embedded_llama_server valid derived, 82 gguf_embedded_llama_server valid recorded)",
+  "n": "3641",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_chat_template_sources.jsonl",
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_chat_template_source",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "x2-device-detect-mechanism": {
   "id": "x2-device-detect-mechanism",
@@ -1574,8 +2228,89 @@
    "results/x2_template_mechanism_test.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_device_detect_mechanism",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
+ },
+ "x2-family-smoke": {
+  "id": "x2-family-smoke",
+  "status": "PENDING",
+  "value": "not computed: data file(s) not synced yet: results/x2_family_smoke_mistral_small32.jsonl",
+  "n": "n/a",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_family_smoke_mistral_small32.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_x2_family_smoke",
+  "commit": "6b71650",
+  "date": "2026-10-14"
+ },
+ "x2-family-validation": {
+  "id": "x2-family-validation",
+  "status": "PENDING",
+  "value": "not computed: data file(s) not synced yet: results/x2_r2_family_mistral_small32_validation.jsonl",
+  "n": "n/a",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_r2_family_mistral_small32_validation.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_x2_family_validation",
+  "commit": "6b71650",
+  "date": "2026-10-14"
+ },
+ "x2-model-pulls-scale": {
+  "id": "x2-model-pulls-scale",
+  "status": "PENDING",
+  "value": "not computed: data file(s) not synced yet: results/x2_model_pulls_scale.jsonl",
+  "n": "n/a",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_model_pulls_scale.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_x2_model_pulls_scale",
+  "commit": "6b71650",
+  "date": "2026-10-14"
+ },
+ "x2-r2-llama-val-32k": {
+  "id": "x2-r2-llama-val-32k",
+  "status": "VERIFIED",
+  "value": "llama3.1:8b: rule1 100.0%, rule2 60.0%, rule3 100.0%, rule4 100.0%, rule5 44.0%; tool validity 100.0% of 50 calls; tool args 100.0%; recall 100.0% (n=10); canary C 100.0%, H 100.0% (n=10); empty final answers 0; negative control (num_ctx 32768) canary misses 0 of 20 canaries over 5 sessions, per session (seed: misses) 20260901: 0, 20260902: 0, 20260903: 0, 20260904: 0, 20260905: 0; missed turns: no missed canary turn; positive control (8192) truncation turns [10], canary misses 0+2; diagnostic arm (tools on call 2) canary misses 0 over 3 sessions; task tool 45/50; verdict: backend or offload effect",
+  "n": "50 turns",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_r2_llama_val_32k.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_x2_r2_llama_val_32k",
+  "commit": "6b71650",
+  "date": "2026-10-14"
+ },
+ "x2-scale-probe-hours": {
+  "id": "x2-scale-probe-hours",
+  "status": "PENDING",
+  "value": "not computed: data file(s) not synced yet: results/x2_scale_timing_probe.jsonl",
+  "n": "n/a",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_scale_timing_probe.jsonl",
+   "results/x2_r2_real_v1.jsonl",
+   "results/x2_r2_real_v1b.jsonl",
+   "results/x2_r2_validation_v2.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_x2_scale_probe_hours",
+  "commit": "6b71650",
+  "date": "2026-10-14"
+ },
+ "x2-scale-validation": {
+  "id": "x2-scale-validation",
+  "status": "PENDING",
+  "value": "not computed: data file(s) not synced yet: results/x2_r2_scale_validation.jsonl",
+  "n": "n/a",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_r2_scale_validation.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_x2_scale_validation",
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "x2-thinking-verify": {
   "id": "x2-thinking-verify",
@@ -1587,8 +2322,8 @@
    "results/x2_thinking_verify.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_thinking_verify",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "x2-truncation-cliff-qwen3-8b": {
   "id": "x2-truncation-cliff-qwen3-8b",
@@ -1600,13 +2335,13 @@
    "results/traces/agent_step_lengths.parquet"
   ],
   "script": "analysis/numbers_register.py::compute_x2_truncation_cliff",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "x2-v3-canary-gate-lenient": {
   "id": "x2-v3-canary-gate-lenient",
   "status": "VERIFIED",
-  "value": "llama3.1:8b/llama_server strict mean 0.70, lenient mean 0.80 to 1.00 (2/5 gsm8k canaries over 500 chars, bounded); llama3.1:8b/ollama_default strict mean 0.60, lenient mean 0.60 to 1.00 (4/5 gsm8k canaries over 500 chars, bounded); qwen3-14b/llama_server strict mean 0.90, lenient mean 0.90 to 1.00 (1/5 gsm8k canaries over 500 chars, bounded); qwen3-14b/ollama_default strict mean 0.90, lenient mean 0.90 to 1.00 (1/5 gsm8k canaries over 500 chars, bounded); qwen3-30b-a3b/llama_server strict mean 0.90, lenient mean 0.90 to 1.00 (1/5 gsm8k canaries over 500 chars, bounded); qwen3-30b-a3b/ollama_default strict mean 0.90, lenient mean 0.90 to 1.00 (1/5 gsm8k canaries over 500 chars, bounded) [bare template] (mean includes function_calling canaries); qwen3-32b/llama_server strict mean 0.80, lenient mean 0.90 to 1.00 (1/5 gsm8k canaries over 500 chars, bounded); qwen3-32b/ollama_default strict mean 0.90, lenient mean 0.80 to 1.00 (2/5 gsm8k canaries over 500 chars, bounded); qwen3-4b-2507/llama_server strict mean 0.60, lenient mean 0.80 to 1.00 (2/5 gsm8k canaries over 500 chars, bounded); qwen3-4b-2507/ollama_default strict mean 0.70, lenient mean 0.70 to 1.00 (3/5 gsm8k canaries over 500 chars, bounded) [bare template] (mean includes function_calling canaries); qwen3-8b/llama_server strict mean 1.00, lenient mean 0.70 to 1.00 (3/5 gsm8k canaries over 500 chars, bounded); qwen3-8b/ollama_default strict mean 0.90, lenient mean 0.80 to 1.00 (2/5 gsm8k canaries over 500 chars, bounded)",
+  "value": "llama3.1:8b/llama_server strict mean 0.70, lenient mean 3.10 to 3.30 (2/80 gsm8k canaries over 500 chars, bounded); llama3.1:8b/ollama_default strict mean 0.60, lenient mean 6.00 to 6.40 (4/80 gsm8k canaries over 500 chars, bounded); qwen3-14b/llama_server strict mean 0.90, lenient mean 1.00 to 1.10 (1/80 gsm8k canaries over 500 chars, bounded); qwen3-14b/ollama_default strict mean 0.90, lenient mean 1.00 to 1.10 (1/80 gsm8k canaries over 500 chars, bounded); qwen3-30b-a3b/llama_server strict mean 0.90, lenient mean 3.60 to 3.70 (1/80 gsm8k canaries over 500 chars, bounded); qwen3-30b-a3b/ollama_default strict mean 0.90, lenient mean 3.60 to 3.70 (1/80 gsm8k canaries over 500 chars, bounded) [bare template] (mean includes function_calling canaries); qwen3-32b/llama_server strict mean 0.80, lenient mean 0.90 to 1.00 (1/5 gsm8k canaries over 500 chars, bounded); qwen3-32b/ollama_default strict mean 0.90, lenient mean 0.80 to 1.00 (2/5 gsm8k canaries over 500 chars, bounded); qwen3-4b-2507/llama_server strict mean 0.60, lenient mean 3.10 to 3.30 (2/80 gsm8k canaries over 500 chars, bounded); qwen3-4b-2507/ollama_default strict mean 0.70, lenient mean 3.30 to 3.60 (3/80 gsm8k canaries over 500 chars, bounded) [bare template] (mean includes function_calling canaries); qwen3-8b/llama_server strict mean 1.00, lenient mean 0.70 to 1.00 (3/80 gsm8k canaries over 500 chars, bounded); qwen3-8b/ollama_default strict mean 0.90, lenient mean 0.90 to 1.10 (2/80 gsm8k canaries over 500 chars, bounded)",
   "n": "12",
   "reported": "(none previously reported)",
   "files": [
@@ -1614,8 +2349,8 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_canary_gate_lenient",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "x2-v3-canary-gates": {
   "id": "x2-v3-canary-gates",
@@ -1628,53 +2363,53 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_canary_gates",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "x2-v3-error-causes": {
   "id": "x2-v3-error-causes",
   "status": "VERIFIED",
-  "value": "order none/context_overflow/timeout/connection/other; llama3.1:8b/llama_server 150/0/26/0/0; llama3.1:8b/ollama_default 176/0/0/0/0; qwen3-14b/llama_server 139/37/0/0/0; qwen3-14b/ollama_default 176/0/0/0/0; qwen3-30b-a3b/llama_server 175/0/0/0/0; qwen3-30b-a3b/ollama_default 176/0/0/0/0; qwen3-32b/llama_server 74/15/11/0/0; qwen3-32b/ollama_default 97/0/0/0/3; qwen3-4b-2507/llama_server 150/0/26/0/0; qwen3-4b-2507/ollama_default 176/0/0/0/0; qwen3-8b/llama_server 139/37/0/0/0; qwen3-8b/ollama_default 176/0/0/0/0",
-  "n": "1980",
+  "value": "order none/context_overflow/timeout/connection/other; llama3.1:8b/llama_server 300/0/40/0/0; llama3.1:8b/ollama_default 330/0/10/0/0; qwen3-14b/llama_server 289/51/0/0/0; qwen3-14b/ollama_default 340/0/0/0/0; qwen3-30b-a3b/llama_server 330/0/10/0/0; qwen3-30b-a3b/ollama_default 340/0/0/0/0; qwen3-32b/llama_server 74/15/11/0/0; qwen3-32b/ollama_default 97/0/0/0/3; qwen3-4b-2507/llama_server 300/0/40/0/0; qwen3-4b-2507/ollama_default 330/0/10/0/0; qwen3-8b/llama_server 289/51/0/0/0; qwen3-8b/ollama_default 340/0/0/0/0",
+  "n": "3621",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_error_causes",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "x2-v3-gsm8k-strict-vs-lenient": {
   "id": "x2-v3-gsm8k-strict-vs-lenient",
   "status": "VERIFIED",
-  "value": "llama3.1:8b/llama_server strict 2/5, format_ok 2/5 (1 unknown), lenient 3/3 (strict on the same 3: 1; 2 rows over 500 chars, last sentence not stored); llama3.1:8b/ollama_default strict 1/5, format_ok 1/5 (4 unknown), lenient 1/1 (strict on the same 1: 1; 4 rows over 500 chars, last sentence not stored); qwen3-14b/llama_server strict 4/5, format_ok 4/5 (1 unknown), lenient 4/4 (strict on the same 4: 4; 1 rows over 500 chars, last sentence not stored); qwen3-14b/ollama_default strict 4/5, format_ok 4/5 (1 unknown), lenient 4/4 (strict on the same 4: 4; 1 rows over 500 chars, last sentence not stored); qwen3-30b-a3b/llama_server strict 4/5, format_ok 4/5 (0 unknown), lenient 4/4 (strict on the same 4: 3; 1 rows over 500 chars, last sentence not stored); qwen3-30b-a3b/ollama_default strict 4/5, format_ok 4/5 (0 unknown), lenient 4/4 (strict on the same 4: 3; 1 rows over 500 chars, last sentence not stored); qwen3-32b/llama_server strict 3/5, format_ok 3/5 (1 unknown), lenient 4/4 (strict on the same 4: 3; 1 rows over 500 chars, last sentence not stored); qwen3-32b/ollama_default strict 4/5, format_ok 4/5 (1 unknown), lenient 3/3 (strict on the same 3: 3; 2 rows over 500 chars, last sentence not stored); qwen3-4b-2507/llama_server strict 1/5, format_ok 1/5 (1 unknown), lenient 3/3 (strict on the same 3: 0; 2 rows over 500 chars, last sentence not stored); qwen3-4b-2507/ollama_default strict 2/5, format_ok 2/5 (1 unknown), lenient 2/2 (strict on the same 2: 0; 3 rows over 500 chars, last sentence not stored); qwen3-8b/llama_server strict 5/5, format_ok 5/5 (0 unknown), lenient 2/2 (strict on the same 2: 2; 3 rows over 500 chars, last sentence not stored); qwen3-8b/ollama_default strict 4/5, format_ok 4/5 (1 unknown), lenient 3/3 (strict on the same 3: 3; 2 rows over 500 chars, last sentence not stored)",
-  "n": "60",
+  "value": "llama3.1:8b/llama_server strict 32/80, format_ok 38/80 (1 unknown), lenient 56/78 (strict on the same 78: 31; 2 rows over 500 chars, last sentence not stored); llama3.1:8b/ollama_default strict 4/80, format_ok 5/80 (4 unknown), lenient 58/76 (strict on the same 76: 4; 4 rows over 500 chars, last sentence not stored); qwen3-14b/llama_server strict 61/80, format_ok 61/80 (1 unknown), lenient 62/79 (strict on the same 79: 61; 1 rows over 500 chars, last sentence not stored); qwen3-14b/ollama_default strict 61/80, format_ok 62/80 (1 unknown), lenient 62/79 (strict on the same 79: 61; 1 rows over 500 chars, last sentence not stored); qwen3-30b-a3b/llama_server strict 25/80, format_ok 25/80 (0 unknown), lenient 52/79 (strict on the same 79: 24; 1 rows over 500 chars, last sentence not stored); qwen3-30b-a3b/ollama_default strict 25/80, format_ok 25/80 (0 unknown), lenient 52/79 (strict on the same 79: 24; 1 rows over 500 chars, last sentence not stored); qwen3-32b/llama_server strict 3/5, format_ok 3/5 (1 unknown), lenient 4/4 (strict on the same 4: 3; 1 rows over 500 chars, last sentence not stored); qwen3-32b/ollama_default strict 4/5, format_ok 4/5 (1 unknown), lenient 3/3 (strict on the same 3: 3; 2 rows over 500 chars, last sentence not stored); qwen3-4b-2507/llama_server strict 14/80, format_ok 15/80 (1 unknown), lenient 39/78 (strict on the same 78: 13; 2 rows over 500 chars, last sentence not stored); qwen3-4b-2507/ollama_default strict 13/80, format_ok 13/80 (1 unknown), lenient 39/77 (strict on the same 77: 11; 3 rows over 500 chars, last sentence not stored); qwen3-8b/llama_server strict 40/80, format_ok 42/80 (0 unknown), lenient 37/77 (strict on the same 77: 37; 3 rows over 500 chars, last sentence not stored); qwen3-8b/ollama_default strict 47/80, format_ok 48/80 (1 unknown), lenient 47/78 (strict on the same 78: 46; 2 rows over 500 chars, last sentence not stored)",
+  "n": "810",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_gsm8k_strict_vs_lenient",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "x2-v3-progress": {
   "id": "x2-v3-progress",
   "status": "VERIFIED",
-  "value": "total 1959/3600; llama3.1:8b/llama_server 176/340; llama3.1:8b/ollama_default 176/340; qwen3-14b/llama_server 176/340; qwen3-14b/ollama_default 176/340; qwen3-30b-a3b/llama_server 175/340; qwen3-30b-a3b/ollama_default 176/340; qwen3-32b/llama_server 100/100; qwen3-32b/ollama_default 100/100; qwen3-4b-2507/llama_server 176/340; qwen3-4b-2507/ollama_default 176/340; qwen3-8b/llama_server 176/340; qwen3-8b/ollama_default 176/340",
-  "n": "1959",
+  "value": "total 3600/3600; llama3.1:8b/llama_server 340/340; llama3.1:8b/ollama_default 340/340; qwen3-14b/llama_server 340/340; qwen3-14b/ollama_default 340/340; qwen3-30b-a3b/llama_server 340/340; qwen3-30b-a3b/ollama_default 340/340; qwen3-32b/llama_server 100/100; qwen3-32b/ollama_default 100/100; qwen3-4b-2507/llama_server 340/340; qwen3-4b-2507/ollama_default 340/340; qwen3-8b/llama_server 340/340; qwen3-8b/ollama_default 340/340",
+  "n": "3600",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_progress",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "x2-v3-scores": {
   "id": "x2-v3-scores",
   "status": "VERIFIED",
-  "value": "llama3.1:8b/llama_server: function_calling 1.00 (n=5), gsm8k 0.40 (n=5), longdoc_qa 1.00 (n=80), trace_length_mix 1.00 (n=60); trace-weighted 1.00; 26 timeout_latency excluded / llama3.1:8b/ollama_default: function_calling 1.00 (n=5), gsm8k 0.20 (n=5), longdoc_qa 1.00 (n=106), trace_length_mix 1.00 (n=60); trace-weighted 1.00 / qwen3-14b/llama_server: function_calling 1.00 (n=5), gsm8k 0.80 (n=5), longdoc_qa 0.66 (n=106), trace_length_mix 0.98 (n=60); trace-weighted 0.91 / qwen3-14b/ollama_default: function_calling 1.00 (n=5), gsm8k 0.80 (n=5), longdoc_qa 0.74 (n=106), trace_length_mix 0.98 (n=60); trace-weighted 0.94 / qwen3-30b-a3b/llama_server: function_calling 1.00 (n=5), gsm8k 0.80 (n=5), longdoc_qa 1.00 (n=105), trace_length_mix 1.00 (n=60); trace-weighted 1.00 / qwen3-30b-a3b/ollama_default: function_calling 1.00 (n=5) [bare template], gsm8k 0.80 (n=5), longdoc_qa 1.00 (n=106), trace_length_mix 1.00 (n=60); trace-weighted 1.00 (includes bare-template function_calling) / qwen3-32b/llama_server: longdoc_qa 0.74 (n=57), trace_length_mix 1.00 (n=32); trace-weighted 0.93; 11 timeout_latency excluded / qwen3-32b/ollama_default: longdoc_qa 0.85 (n=67), trace_length_mix 0.94 (n=33); trace-weighted 0.87 / qwen3-4b-2507/llama_server: function_calling 1.00 (n=5), gsm8k 0.20 (n=5), longdoc_qa 1.00 (n=80), trace_length_mix 1.00 (n=60); trace-weighted 1.00; 26 timeout_latency excluded / qwen3-4b-2507/ollama_default: function_calling 1.00 (n=5) [bare template], gsm8k 0.40 (n=5), longdoc_qa 1.00 (n=106), trace_length_mix 1.00 (n=60); trace-weighted 1.00 (includes bare-template function_calling) / qwen3-8b/llama_server: function_calling 1.00 (n=5), gsm8k 1.00 (n=5), longdoc_qa 0.66 (n=106), trace_length_mix 0.98 (n=60); trace-weighted 0.91 / qwen3-8b/ollama_default: function_calling 1.00 (n=5), gsm8k 0.80 (n=5), longdoc_qa 0.74 (n=106), trace_length_mix 0.98 (n=60); trace-weighted 0.94",
-  "n": "1980",
+  "value": "llama3.1:8b/llama_server: function_calling 0.96 (n=80), gsm8k 0.40 (n=80), longdoc_qa 1.00 (n=80), trace_length_mix 1.00 (n=60); trace-weighted 1.00; 40 timeout_latency excluded / llama3.1:8b/ollama_default: function_calling 0.81 (n=80), gsm8k 0.05 (n=80), longdoc_qa 1.00 (n=110), trace_length_mix 1.00 (n=60); trace-weighted 1.00; 10 timeout_latency excluded / qwen3-14b/llama_server: function_calling 1.00 (n=80), gsm8k 0.76 (n=80), longdoc_qa 0.58 (n=120), trace_length_mix 0.98 (n=60); trace-weighted 0.91 / qwen3-14b/ollama_default: function_calling 0.99 (n=80), gsm8k 0.76 (n=80), longdoc_qa 0.65 (n=120), trace_length_mix 0.98 (n=60); trace-weighted 0.94 / qwen3-30b-a3b/llama_server: function_calling 0.90 (n=80), gsm8k 0.31 (n=80), longdoc_qa 1.00 (n=110), trace_length_mix 1.00 (n=60); trace-weighted 1.00; 10 timeout_latency excluded / qwen3-30b-a3b/ollama_default: function_calling 0.90 (n=80) [bare template], gsm8k 0.31 (n=80), longdoc_qa 1.00 (n=120), trace_length_mix 1.00 (n=60); trace-weighted 1.00 (includes bare-template function_calling) / qwen3-32b/llama_server: longdoc_qa 0.74 (n=57), trace_length_mix 1.00 (n=32); trace-weighted 0.93; 11 timeout_latency excluded / qwen3-32b/ollama_default: longdoc_qa 0.85 (n=67), trace_length_mix 0.94 (n=33); trace-weighted 0.87 / qwen3-4b-2507/llama_server: function_calling 0.91 (n=80), gsm8k 0.17 (n=80), longdoc_qa 1.00 (n=80), trace_length_mix 1.00 (n=60); trace-weighted 1.00; 40 timeout_latency excluded / qwen3-4b-2507/ollama_default: function_calling 0.91 (n=80) [bare template], gsm8k 0.16 (n=80), longdoc_qa 1.00 (n=110), trace_length_mix 1.00 (n=60); trace-weighted 1.00 (includes bare-template function_calling); 10 timeout_latency excluded / qwen3-8b/llama_server: function_calling 1.00 (n=80), gsm8k 0.50 (n=80), longdoc_qa 0.58 (n=120), trace_length_mix 0.98 (n=60); trace-weighted 0.91 / qwen3-8b/ollama_default: function_calling 1.00 (n=80), gsm8k 0.59 (n=80), longdoc_qa 0.65 (n=120), trace_length_mix 0.98 (n=60); trace-weighted 0.94",
+  "n": "3621",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_outcome_table_v3.jsonl",
@@ -1682,34 +2417,34 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_scores",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "x2-v3-truncation-all-models": {
   "id": "x2-v3-truncation-all-models",
   "status": "VERIFIED",
-  "value": "truncated = HTTP 200, no error, processed_tokens < sent_tokens - max(32, 1% of sent_tokens); silently truncated/HTTP-200: llama3.1:8b/llama_server 0/150, score full 0.98 (n=150); llama3.1:8b/ollama_default 0/176, score full 0.98 (n=176); qwen3-14b/llama_server 0/139, score full 0.99 (n=139); qwen3-14b/ollama_default 37/176, score truncated 0.22 (n=37) vs full 0.99 (n=139); qwen3-30b-a3b/llama_server 0/175, score full 0.99 (n=175); qwen3-30b-a3b/ollama_default 0/176, score full 0.99 (n=176); qwen3-32b/llama_server 0/74, score full 1.00 (n=74); qwen3-32b/ollama_default 15/97, score truncated 0.40 (n=15) vs full 1.00 (n=82); qwen3-4b-2507/llama_server 0/150, score full 0.97 (n=150); qwen3-4b-2507/ollama_default 0/176, score full 0.98 (n=176); qwen3-8b/llama_server 0/139, score full 1.00 (n=139); qwen3-8b/ollama_default 37/176, score truncated 0.22 (n=37) vs full 0.99 (n=139); provisional: outcome table v3 not finished (1959/3600 done)",
-  "n": "1959",
+  "value": "truncated = HTTP 200, no error, processed_tokens < sent_tokens - max(32, 1% of sent_tokens); silently truncated/HTTP-200: llama3.1:8b/llama_server 0/300, score full 0.83 (n=300); llama3.1:8b/ollama_default 0/330, score full 0.72 (n=330); qwen3-14b/llama_server 0/289, score full 0.93 (n=289); qwen3-14b/ollama_default 51/340, score truncated 0.16 (n=51) vs full 0.93 (n=289); qwen3-30b-a3b/llama_server 0/330, score full 0.81 (n=330); qwen3-30b-a3b/ollama_default 0/340, score full 0.81 (n=340); qwen3-32b/llama_server 0/74, score full 1.00 (n=74); qwen3-32b/ollama_default 15/97, score truncated 0.40 (n=15) vs full 1.00 (n=82); qwen3-4b-2507/llama_server 0/300, score full 0.76 (n=300); qwen3-4b-2507/ollama_default 0/330, score full 0.78 (n=330); qwen3-8b/llama_server 0/289, score full 0.86 (n=289); qwen3-8b/ollama_default 51/340, score truncated 0.16 (n=51) vs full 0.89 (n=289); final (3600/3600 done)",
+  "n": "3600",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_truncation_all_models",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "x2-v3-usability": {
   "id": "x2-v3-usability",
   "status": "VERIFIED",
-  "value": "per-call timeout 900 s (harness DEFAULT_CALL_TIMEOUT_S); timeout_latency/done (share) [context tiers]: llama3.1:8b/llama_server 26/176 (14.8%) [longdoc_64000 x10, longdoc_80000 x10, longdoc_96000 x6]; llama3.1:8b/ollama_default 0/176 (0.0%); qwen3-14b/llama_server 0/176 (0.0%); qwen3-14b/ollama_default 0/176 (0.0%); qwen3-30b-a3b/llama_server 0/175 (0.0%); qwen3-30b-a3b/ollama_default 0/176 (0.0%); qwen3-32b/llama_server 11/100 (11.0%) [longdoc_32000 x10, trace_mix_24000 x1]; qwen3-32b/ollama_default 0/100 (0.0%); qwen3-4b-2507/llama_server 26/176 (14.8%) [longdoc_64000 x10, longdoc_80000 x10, longdoc_96000 x6]; qwen3-4b-2507/ollama_default 0/176 (0.0%); qwen3-8b/llama_server 0/176 (0.0%); qwen3-8b/ollama_default 0/176 (0.0%)",
-  "n": "63",
+  "value": "per-call timeout 900 s (harness DEFAULT_CALL_TIMEOUT_S); timeout_latency/done (share) [context tiers]: llama3.1:8b/llama_server 40/340 (11.8%) [longdoc_120000 x10, longdoc_64000 x10, longdoc_80000 x10, longdoc_96000 x10]; llama3.1:8b/ollama_default 10/340 (2.9%) [longdoc_120000 x10]; qwen3-14b/llama_server 0/340 (0.0%); qwen3-14b/ollama_default 0/340 (0.0%); qwen3-30b-a3b/llama_server 10/340 (2.9%) [longdoc_120000 x10]; qwen3-30b-a3b/ollama_default 0/340 (0.0%); qwen3-32b/llama_server 11/100 (11.0%) [longdoc_32000 x10, trace_mix_24000 x1]; qwen3-32b/ollama_default 0/100 (0.0%); qwen3-4b-2507/llama_server 40/340 (11.8%) [longdoc_120000 x10, longdoc_64000 x10, longdoc_80000 x10, longdoc_96000 x10]; qwen3-4b-2507/ollama_default 10/340 (2.9%) [longdoc_120000 x10]; qwen3-8b/llama_server 0/340 (0.0%); qwen3-8b/ollama_default 0/340 (0.0%)",
+  "n": "121",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_usability",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "x2-weekend-error-causes": {
   "id": "x2-weekend-error-causes",
@@ -1721,8 +2456,8 @@
    "results/x2_outcome_table_weekend.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_weekend_error_causes",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "x2-weekend-error-causes-by-cell": {
   "id": "x2-weekend-error-causes-by-cell",
@@ -1734,8 +2469,8 @@
    "results/x2_outcome_table_weekend.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_weekend_error_causes_by_cell",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "x2-weekend-ngen-budget": {
   "id": "x2-weekend-ngen-budget",
@@ -1747,8 +2482,8 @@
    "results/x2_weekend_llamaserver_log_scan.json"
   ],
   "script": "analysis/numbers_register.py::compute_x2_weekend_ngen_budget",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "x2-weekend-refused-block": {
   "id": "x2-weekend-refused-block",
@@ -1760,8 +2495,8 @@
    "results/x2_outcome_table_weekend.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_weekend_refused_block",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "x2-weekend-tag-counts": {
   "id": "x2-weekend-tag-counts",
@@ -1773,8 +2508,8 @@
    "results/x2_outcome_table_weekend.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_weekend_tag_counts",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  },
  "x2-weekend-thinking-scores": {
   "id": "x2-weekend-thinking-scores",
@@ -1786,7 +2521,7 @@
    "results/x2_outcome_table_weekend.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_weekend_thinking_scores",
-  "commit": "c7893de",
-  "date": "2026-10-10"
+  "commit": "6b71650",
+  "date": "2026-10-14"
  }
 }
