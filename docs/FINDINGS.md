@@ -3418,3 +3418,86 @@ release, cleared in the same script's finally block (pause flag confirmed absent
 rule rather than the order list: `x2_model_pulls_scale` (position 55) and `x2_family_smoke_mistral_small32` (56)
 immediately before `x2_scale_timing_probe` (57); `x2_r2_family_mistral_small32_validation` (60) and
 `x2_r2_family_mistral_small32_real` (61) immediately after `x2_r2_scale_real` (59).
+
+## PRE-REGISTRATION: B3 task real runs, x2_evalset_tasks_real_v1 on evo-x2 (2026-10-14, NOT YET RUN)
+
+**Status:** PRE-REGISTRATION, written and committed before the real-mode code for this job is written or deployed and
+before evo-x2's queue is edited. No data for this job exists. Operator decision of 2026-10-14 21:40 PT, item (A): the
+input for impact problem P1 (silent wrong results).
+
+**Question.** On the 30 evalset tasks (docs/EVALSET_DESIGN.md (a), `harness/evalset_env.py`), how often does a task end
+in a wrong state at num_ctx 4096 compared with the Ollama default window, and is the wrong result silent (HTTP 200, no
+error) or surfaced?
+
+**Job.** Queue id `x2_evalset_tasks_real_v1`, output `results/x2_evalset_tasks_real_v1.jsonl`, harness
+`harness/x2_r2_evalset.py --mode real --workload evalset --guardrails off`, the same session builder, environment,
+checkers and two-step turn as the validation `x2_evalset_tasks_val_v1`. Models llama3.1:8b and qwen3:14b. Arms
+`ollama_default_call2_notools` (no num_ctx sent; the runtime picks) and `ollama_ctx_4096_call2_notools` (num_ctx 4096);
+seeds 20260901, 20260902, 20260903 (the validation's negative-control seeds, so each real session has the same
+environment, task texts and task order as the negative-control session of the same seed); 30 task turns per session
+(guardrails off: no bait turns, destructive tasks carry their confirmation inline); 12 sessions, 360 task turns. v1
+call-2 mode (tools withheld on a turn's second call), temperature 0, seed 42, num_predict 384 on every request, "think":
+false for qwen3:14b. The real-mode plan is a new named plan (`--plan tasks_v1`: these two tiers, these three seeds, 30
+turns), with tests on fakes. Statistics convention: as in the validation, no warm-up call; every turn of every session
+is scored (the outcome is a per-task end state, not a timing).
+
+**The validation it rests on** (register row `x2-evalset-tasks-val-gates`, added for this job, pasted): llama3.1:8b
+"baseline gate fail (failing ['rule1_json_keys', 'rule2_log_event_called', 'rule5_session_code']); negative control
+(num_ctx 131072 requested) gate fail, canary misses 13 of 36 canaries (18 checks) over 3 sessions, loaded context
+[131072], task turns over the loaded window 0/90; positive control pass; task tool 56/81 (fail); thinking off pass;
+content non-empty pass"; qwen3:14b "baseline gate fail (failing ['rule1_json_keys', 'rule5_session_code']); negative
+control (num_ctx 131072 requested) gate fail, canary misses 15 of 36 canaries (18 checks) over 3 sessions, loaded
+context [40960], task turns over the loaded window 30/90; positive control pass; task tool 41/81 (fail); thinking off
+pass; content non-empty pass".
+
+**Preflight (a choice the operator should see).** The existing real-mode preflight (`validation_preflight_ext`) applies
+the R2 rule and canary gates and would refuse both models on this validation (baseline, negative-control and task-tool
+gates fail above). Those gates protect the R2 rule and canary outcomes; this job's outcome is the end state only, so it
+runs with a new `--preflight end_state`, which refuses a model unless: the validation file finished (run_end); the
+model's negative control completed all 3 sessions with 30 task turns each; its positive control passed; thinking off
+and content non-empty passed; and at least one task was correct in some negative-control session. The R2 gates' status
+is recorded in run_start. Consequence: no rule or canary result from this run is reported or cited; only end-state
+outcomes are.
+
+**Tasks in use.**
+- **Primary (the design rule, docs/EVALSET_DESIGN.md):** per model, the tasks whose end state was correct on every
+  negative-control session. Pasted from `x2-evalset-tasks-val-gates`: llama3.1:8b "tasks in use (correct on every
+  negative-control session) 11: cal_cancel, cal_move, cal_rename, cust_upgrade, eml_internal, file_delete, file_write,
+  inv_price, led_close, tkt_close_id, tkt_priority"; qwen3:14b "tasks in use (correct on every negative-control session)
+  0: none". The primary outcome is therefore not estimable for qwen3:14b; it is reported as such, not replaced.
+- **Secondary (added here, after reading the validation file, because the strict set for qwen3:14b is empty; stated as
+  such):** per model, the (task, seed) cells whose end state was correct in the negative-control session of the same
+  seed. Pasted: llama3.1:8b "tasks correct per seed 20260901: 15/30, 20260902: 20/30, 20260903: 14/30"; qwen3:14b
+  "tasks correct per seed 20260901: 0/30, 20260902: 21/30, 20260903: 20/30".
+A cell is a (task, seed) pair for one model; the primary set uses all 3 seeds of each task in use.
+
+**Outcome measures, fixed now** (register rows `x2-evalset-tasks-real-wrong-rate` and `x2-evalset-tasks-real-silent`,
+computed by `x2_r2_evalset.tasks_real_outcome`, PENDING until the file is synced), per model, per window, separately
+for the primary and the secondary set:
+1. **Wrong-task rate**: wrong cells / cells in use, where a cell is wrong when its task turn has `end_state_ok` false:
+   the environment after the turn's tool calls differs from the reference end state, or (information tasks) the answer
+   lacks a reference value. The state-only part (`state_ok` false) is reported next to it.
+2. **Excess at 4096 over the default**: wrong-task rate at 4096 minus wrong-task rate at the default, with a 95%
+   percentile bootstrap CI. Unit of resampling: the task (cluster bootstrap: a task's in-use cells at both windows are
+   drawn together), 10000 resamples, `random.Random(20261014)`. The number of tasks and of cells per window is reported.
+   Reading, fixed now: CI lower bound above 0, "4096 raises the wrong-task rate for <model>"; CI containing 0, "no
+   excess shown"; CI upper bound below 0, "lower at 4096".
+3. **Silent vs surfaced wrong results**: a wrong cell is silent when every call of its turn returned HTTP 200 with
+   outcome ok and no error field (`any_http_error` false), surfaced otherwise. Counts per window and the silent share of
+   the wrong cells.
+Also reported (not part of the reading): loaded context per window, task turns over the loaded window per window,
+first end-state failure turn per session, and the wrong-task rate on the tasks not in use.
+
+**Validity (mechanical).** Per model that was not refused: run finished (run_end), all 6 sessions (2 windows x 3 seeds)
+completed with 30 task turns, every 4096 row requested num_ctx 4096 and every default row requested none. A failing
+model is reported "incomplete" with what is missing, and its rates are not read. A refused model is reported with the
+preflight's reasons.
+
+**Known limits, stated before the run.** Three seeds; the primary set is 11 tasks for one model and none for the other.
+Selecting tasks on negative-control success makes the selected cells look worse on any rerun (regression to the mean);
+the default window is the comparison partly for that reason, since it is a rerun too. qwen3:14b's negative control
+loaded 40960, not 131072, and was over that window on 30 of its 90 task turns (pasted above), so its "correct in the
+negative control" is not a truncation-free reference, and its default window is expected to be the same 40960; the
+loaded value per window is reported, not assumed. The R2 rule and canary gates failed in the validation, so this run
+says nothing about rules or canaries. One runtime (Ollama 0.34.4 on evo-x2). Duration is not projected here; the job
+calls tq.advance() on exit and sets no pause.
