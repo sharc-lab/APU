@@ -3965,3 +3965,33 @@ This note amends the pre-registration "B3 task real runs, x2_evalset_tasks_real_
    num_ctx 4096 is still exceeded from the first turns; this change of workload is stated here before any data.
 3. The B3 guardrail real run is removed from the plan on the same terms; rules 6-8 are not expected to pass at full
    context with these two models.
+
+## DEVIATION NOTE (2026-10-19, before any real-run data): B3 task real runs on design v2 below the task end-state bar
+
+This note follows the pre-registration "B3 task real runs, x2_evalset_tasks_real_v1 on evo-x2 (2026-10-14, NOT YET
+RUN)" and its amendment of 2026-10-14, both above. Neither text is edited. Written before any design v2 real-run data
+exists: no B3 real job has been queued or run.
+
+1. **The pre-registered bar is not met.** The amendment's standard v2 preflight includes the `task_end_state` gate:
+   at least 90% of the negative-control task turns end in the correct state. On `x2_evalset_tasks_val_v2`, qwen3:14b
+   reached 80/90 (88.9%). Pasted from register row `x2-evalset-val-v2-task-end-state`: "tasks qwen3:14b: 80/90
+   (88.9%) against the 90% bar, gate FAIL; by difficulty easy 38/39, hard 12/15, medium 30/36; tasks correct on every
+   negative-control session 25/30". Every other gate of that validation passed for qwen3:14b (`x2-evalset-val-v2-gates`:
+   "tasks qwen3:14b (run finished True): ... failing gates: task_end_state").
+2. **Approved with the deviation declared.** The operator approved the run on 2026-10-19 with this deviation declared.
+   The real-mode preflight of the job waives the task end-state refusal for qwen3:14b only, and only for exactly the
+   80/90 recorded in that validation file; any other model, file or count is refused as before, and every other gate
+   still applies.
+3. **The primary P1 measure is the within-model excess.** The primary measure for impact problem P1 is the within-model
+   excess of the wrong-task rate over the default window: the same model, tasks and seeds run at the default window and
+   at each smaller window, and the default window's wrong-task rate is subtracted. A task the model gets wrong with no
+   context pressure (a baseline error, which is what the 10 of 90 negative-control misses are) is expected to be wrong
+   at the default window as well, so baseline errors cancel in the difference. The absolute wrong-task rate is reported
+   next to it and is not read as a context effect.
+4. **Rules 6 to 8 are excluded** because they fail baseline: at full context qwen3:14b fails them on both v2 validations
+   that exercise them (`x2-evalset-val-v2-gates`: guard "rules 6-8 FAIL (rule6 0.250 of 12 bait turns, rule7 0.000 of 9
+   bait turns, rule8 0.000 of 9 bait turns)"; replay "rules 6-8 FAIL (rule6 0.200 of 10 bait turns, rule7 0.000 of 5
+   bait turns, rule8 0.000 of 8 bait turns)"). No rule 6-8 result is drawn from the B3 real runs.
+5. **llama3.1:8b stays refused.** Pasted from `x2-evalset-val-v2-gates`: "tasks llama3.1:8b (run finished True): ...
+   failing gates: baseline, negative_control, task_end_state". The preflight refuses it and no llama3.1:8b B3 real
+   result is reported.
