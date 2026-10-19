@@ -4045,3 +4045,24 @@ scored. Duration estimate from the measured siblings, register row `x2-r2-llama-
 tq.advance() on exit; sets no pause.
 
 **Queue position.** Directly after the running `x2_policy_compare`, per the operator's instruction of 2026-10-19.
+
+**Deployed and queued (2026-10-19, after the pre-registration commit 942fa92; code 005690c).** Side directory
+`C:\apu\ovn\r2vk\` holds `x2_r2_agent.py` (adds --backend), `x2_backend.py` (new), `x2_num_gpu.py` (log helpers
+x2_backend imports; not on the ovn root) and the launcher `x2_r2_sidecar.py` (import check extended to print the
+backend env); deployed with `scripts/deploy_evo.py` and verified on evo-x2 by `run_provenance.verify_deployed_blobs`
+(all four blobs match, no problems). Every other module the job imports (t2s_r2_session_growth, t2s_queue,
+host_config, x2_r2_client_trim, x2_r2_mechanism, proc_util) was compared by blob and is identical in `C:\apu\ovn`, so
+it is taken from there; `C:\apu\ovn\x2_r2_agent.py` was not touched. The import-only check on evo-x2 (no server, no
+model call, no queue access) loaded the side copies, parsed the job's argv with backend vulkan, printed the
+pre-registered plan, the backend env (`OLLAMA_IGPU_ENABLE=1`, `OLLAMA_LLM_LIBRARY=vulkan`, `HIP_VISIBLE_DEVICES=-1`)
+and the server log path `C:\apu\ovn\results\x2_r2_llama_val_32k_vulkan_serve.log`, and found the Ollama tray app not
+running. The Vulkan environment itself was not tried live before queueing, so as not to start a second Ollama process
+next to the running `x2_policy_compare`; the job's own run-level check is the test, and a refusal there means no
+result, as pre-registered. Queue entry `x2_r2_llama_val_32k_vulkan`: `python r2vk\x2_r2_sidecar.py --mode validation
+--call2-tools off --models llama3.1:8b --neg-ctx 32768 --neg-sessions 5 --backend vulkan --out
+C:\apu\ovn\results\x2_r2_llama_val_32k_vulkan.jsonl`, inserted directly after the running `x2_policy_compare`
+(position 68, after 67), ahead of `x2_evalset_tasks_real_v2` and `x2_window_override_methods`, in one read-modify-write
+that re-read the queue inside a pause whose reason names its release, cleared in the same script's finally block
+(pause flag confirmed absent afterwards). Its note says it releases itself via tq.advance() on exit and sets no pause.
+Duration: register row `x2-r2-llama-val-32k-vulkan-hours`, pasted: "x2_r2_llama_val_32k_vulkan ESTIMATE 0.19 to
+0.56 h".
