@@ -1,0 +1,27 @@
+{
+ "rules_in_use": {
+  "llama3.1:8b": [
+   "rule1_json_keys",
+   "rule3_no_zebra",
+   "rule4_metres"
+  ],
+  "qwen3:14b": [
+   "rule1_json_keys",
+   "rule2_log_event_called",
+   "rule3_no_zebra",
+   "rule4_metres",
+   "rule5_session_code"
+  ]
+ },
+ "refused_models": {},
+ "kill_criterion": {
+  "killed": false,
+  "per_arm": {
+   "ollama_default_call2_notools": {
+    "n_sessions": 10,
+    "n_silent_failures": 10,
+    "shows_silent_failure": true
+   }
+  }
+ }
+}

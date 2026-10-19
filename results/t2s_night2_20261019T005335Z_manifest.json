@@ -1,0 +1,245 @@
+{
+ "launch_utc": "2026-10-19T00:53:38.290732+00:00",
+ "script_provenance": {
+  "git_head": "ceae91e64cd5b24490a8d6ecbf4e48718a5a3fd7",
+  "committed": true,
+  "verified_by": "git blob sha1 of deployed bytes",
+  "problems": [],
+  "files": [
+   {
+    "path": "t2s_k1_ollama.py",
+    "expected_git_blob_sha": "5857352ac205e21dd283bbb6ce1805a6d6830b1b",
+    "actual_git_blob_sha": "5857352ac205e21dd283bbb6ce1805a6d6830b1b",
+    "sha256": "3182b71b7d057cb0927ad5f05443916f80cf8457a7fd5148d950feae133d19b8"
+   },
+   {
+    "path": "t2s_queue.py",
+    "expected_git_blob_sha": "21f7a8c94335be4927027e3f31a8d928ea989c80",
+    "actual_git_blob_sha": "21f7a8c94335be4927027e3f31a8d928ea989c80",
+    "sha256": "d5376875584d5e9685ba36cadeff6b3640e7313096612b731a289a4ea3187fde"
+   },
+   {
+    "path": "queue_watchdog.py",
+    "expected_git_blob_sha": "d4e37e232b5f58cc09a4256b0b875050e5d87ba9",
+    "actual_git_blob_sha": "d4e37e232b5f58cc09a4256b0b875050e5d87ba9",
+    "sha256": "7ccab3729c85ef2fbb81dfdb670553d2647c867b6e1dbafa87dbb2c22054a15d"
+   },
+   {
+    "path": "stale_server_cleanup.py",
+    "expected_git_blob_sha": "2679f0e7e370c33bb4fcaa7a34e9c1b5061ab99e",
+    "actual_git_blob_sha": "2679f0e7e370c33bb4fcaa7a34e9c1b5061ab99e",
+    "sha256": "c8175c77c6a64f9811f9bade30277053bfc4b90b167fd5d2ed845b1ca3abb6fb"
+   },
+   {
+    "path": "host_config.py",
+    "expected_git_blob_sha": "3e542ba8e270ced2a2fe8222c27402d9ceaa259c",
+    "actual_git_blob_sha": "3e542ba8e270ced2a2fe8222c27402d9ceaa259c",
+    "sha256": "429b02f367d3431cc0863eb4ae11c663cc73a01eff70c24913ffca5dc6575b70"
+   },
+   {
+    "path": "proc_util.py",
+    "expected_git_blob_sha": "74cfea98f47a3e8bf289cae4b8f6216d711b2751",
+    "actual_git_blob_sha": "74cfea98f47a3e8bf289cae4b8f6216d711b2751",
+    "sha256": "c617d29598b6355e40ef8ae34b012fd4fbb05f96f0354ffb1268459f5e301d0d"
+   },
+   {
+    "path": "argparse_probe.py",
+    "expected_git_blob_sha": "daa215cc74999b7f32646c75ffc6c609b309fb3f",
+    "actual_git_blob_sha": "daa215cc74999b7f32646c75ffc6c609b309fb3f",
+    "sha256": "3a87dcc0afc346c0733b3f5c0190b53a58e4c697e55846a96e315631ee3ef12c"
+   },
+   {
+    "path": "t2s_week_preflight.py",
+    "expected_git_blob_sha": "bbb649424f7d523cf2da7476f9ca5910fccb63a8",
+    "actual_git_blob_sha": "bbb649424f7d523cf2da7476f9ca5910fccb63a8",
+    "sha256": "b3ca99bc39c427d09ecf39b424ef61c80b0373f56cd75e55486374f777f851a5"
+   },
+   {
+    "path": "t2s_r2_agent.py",
+    "expected_git_blob_sha": "72d3d9363f4256d30a705d97852e27ca1020bf1f",
+    "actual_git_blob_sha": "72d3d9363f4256d30a705d97852e27ca1020bf1f",
+    "sha256": "70eb0c20b9e0f9c423a3e1b320ea575ba3d8c66f8248bacdbc6cc737087f2bbf"
+   },
+   {
+    "path": "x2_r2_agent.py",
+    "expected_git_blob_sha": "41ac4730ae4b1ebdbdb547d48a7f923fba70f289",
+    "actual_git_blob_sha": "41ac4730ae4b1ebdbdb547d48a7f923fba70f289",
+    "sha256": "ace63fb7bab1e547cebcdc74ef497249bf20df08c2066d1c37c5605ec7f5b46c"
+   },
+   {
+    "path": "t2s_r2_session_growth.py",
+    "expected_git_blob_sha": "878952c7d7d2e45fa602c25c34d7a09502b20262",
+    "actual_git_blob_sha": "878952c7d7d2e45fa602c25c34d7a09502b20262",
+    "sha256": "8cb566abf1d2f0b6143815f2a837155fdd7262148b1fd84a890b18cb54340298"
+   },
+   {
+    "path": "x2_r2_mechanism.py",
+    "expected_git_blob_sha": "a80926e3cce616caff2eda6e57d7520e4986ea2f",
+    "actual_git_blob_sha": "a80926e3cce616caff2eda6e57d7520e4986ea2f",
+    "sha256": "3e9c391fb40eaf410e99fe3ee86a8a9b199560e38450da81190aab4b63482856"
+   },
+   {
+    "path": "x2_r2_client_trim.py",
+    "expected_git_blob_sha": "c96930d7e1ea7f8fea83d53ad23b126623875dfa",
+    "actual_git_blob_sha": "c96930d7e1ea7f8fea83d53ad23b126623875dfa",
+    "sha256": "f9a38364df69f4b001a50bf9ca9d1de49ce3db60462ab2ed5ca1c66fcba6b40a"
+   },
+   {
+    "path": "prompt_token_check.py",
+    "expected_git_blob_sha": "edcc7edc47e25cfd2d48a16865da7aca20739152",
+    "actual_git_blob_sha": "edcc7edc47e25cfd2d48a16865da7aca20739152",
+    "sha256": "0967a35e81daa69eae6bc3ff7be2a078985e3581890eada3f50cdb5787014de6"
+   },
+   {
+    "path": "t2s_outcome_table.py",
+    "expected_git_blob_sha": "190bf00843a44037efe5085e08e3e9811711f9cb",
+    "actual_git_blob_sha": "190bf00843a44037efe5085e08e3e9811711f9cb",
+    "sha256": "9aee3116edb0e62514fc90bad51c006cda8b699c287b25dbce824f27cb339f45"
+   },
+   {
+    "path": "chat_template_source.py",
+    "expected_git_blob_sha": "ea9bc8c8d8efe0b065253214af9edd890ba4ad0c",
+    "actual_git_blob_sha": "ea9bc8c8d8efe0b065253214af9edd890ba4ad0c",
+    "sha256": "6c6407e487dbebea5280c5b8dcf933a2aa008b17d352a6c046d4041ea60860fd"
+   },
+   {
+    "path": "t2s_night2.py",
+    "expected_git_blob_sha": "e2a7b55a913ec5cdb0a8b4c33665f446a72e3c90",
+    "actual_git_blob_sha": "e2a7b55a913ec5cdb0a8b4c33665f446a72e3c90",
+    "sha256": "678d219c66cac98a20333ef5546accf0a29e73d6a32af0f20ee618d7094034f5"
+   },
+   {
+    "path": "t2s_lab.py",
+    "expected_git_blob_sha": "2ab141caff02f0e2784d01c7fe85fc97bb3be17d",
+    "actual_git_blob_sha": "2ab141caff02f0e2784d01c7fe85fc97bb3be17d",
+    "sha256": "92ff727562b24040ed5fd4c6b1023aee5ccbb5cd210e96bb69070436edbba789"
+   },
+   {
+    "path": "t2s_overnight.py",
+    "expected_git_blob_sha": "a3752fad704dd93be9c7242bc643c9a4a033a4b8",
+    "actual_git_blob_sha": "a3752fad704dd93be9c7242bc643c9a4a033a4b8",
+    "sha256": "8508467b7f7de9ea68952fbc0c13570efeb9cb59b7630ecd4cdeb924aabcb376"
+   },
+   {
+    "path": "t2s_amech.py",
+    "expected_git_blob_sha": "94428d24fde2412fd0b7873b95fb836d0e86e23f",
+    "actual_git_blob_sha": "94428d24fde2412fd0b7873b95fb836d0e86e23f",
+    "sha256": "d52829f081bda995ff27baa29f72fc0451a683a50863f19f9d9440833bc3790a"
+   },
+   {
+    "path": "level_zero_sysman.py",
+    "expected_git_blob_sha": "d30ce137ead16a52cd6e64a90609505bd800568c",
+    "actual_git_blob_sha": "d30ce137ead16a52cd6e64a90609505bd800568c",
+    "sha256": "f2858e5a02897c6144fdf855d8aed4927e46ee2dd218bcdcb050d3e076a86a7f"
+   },
+   {
+    "path": "win_cpu_topology.py",
+    "expected_git_blob_sha": "cddf46de9036b401ddaac59a3ee7550f39001a2e",
+    "actual_git_blob_sha": "cddf46de9036b401ddaac59a3ee7550f39001a2e",
+    "sha256": "f62b788da35b4a4129291c10f867ad68acd053432efe6bbf55eff4333e1c7224"
+   },
+   {
+    "path": "bw_hog.py",
+    "expected_git_blob_sha": "9cef61bfba393c0b0d183d0729f2d3910dbe7140",
+    "actual_git_blob_sha": "9cef61bfba393c0b0d183d0729f2d3910dbe7140",
+    "sha256": "ff61c501c16877999f2179058a1922e576e222ce0a24c3f28898ccbbcb2601bd"
+   },
+   {
+    "path": "spin_hog_affinity.py",
+    "expected_git_blob_sha": "b6db36c470fcdc03658fb91d94b720a9aa7bb88c",
+    "actual_git_blob_sha": "b6db36c470fcdc03658fb91d94b720a9aa7bb88c",
+    "sha256": "caabb3b0b4242c48b94cf07561342d6e409155777655e129936279d4284f78fa"
+   },
+   {
+    "path": "t2s_m3_power_coupling.py",
+    "expected_git_blob_sha": "4f056e0ce6e4a6177f19eabc3d13529412089347",
+    "actual_git_blob_sha": "4f056e0ce6e4a6177f19eabc3d13529412089347",
+    "sha256": "675ac2e25e78a40112475132f8425313fbbe78e6d3aefe0e558928c09ed3b69c"
+   },
+   {
+    "path": "run_provenance.py",
+    "expected_git_blob_sha": "082fa086f8ac492dc19b7d673466947503de00f2",
+    "actual_git_blob_sha": "082fa086f8ac492dc19b7d673466947503de00f2",
+    "sha256": "5c8c4333a21fbf8f0f4fcca6e22af313e8bc426cc412262aa276b12da28d535e"
+   },
+   {
+    "path": "server_guard.py",
+    "expected_git_blob_sha": "6fe68cbf7f3ddfd47437d42ef03d00a98827f7a1",
+    "actual_git_blob_sha": "6fe68cbf7f3ddfd47437d42ef03d00a98827f7a1",
+    "sha256": "bb9518df0a0de1ee994b94b30bf13d0e40dd4227db06f8f9e8c97ecefafcab03"
+   },
+   {
+    "path": "t2s_deadline.py",
+    "expected_git_blob_sha": "8c533771fbbc235930642cf0eea07d0a2ee435c0",
+    "actual_git_blob_sha": "8c533771fbbc235930642cf0eea07d0a2ee435c0",
+    "sha256": "672074f36bec426d18ad534be76f6116d900025a03c4c5926a7d07b0c91c5f2c"
+   },
+   {
+    "path": "t2s_week_queue.py",
+    "expected_git_blob_sha": "2abcecdb4951efc0ca8e7f40ea42c090e0979f71",
+    "actual_git_blob_sha": "2abcecdb4951efc0ca8e7f40ea42c090e0979f71",
+    "sha256": "68c7d114241228d6b92764a481f28c54266ef46d7a4da80f206dae774d213d63"
+   },
+   {
+    "path": "t2s_week_queue.json",
+    "expected_git_blob_sha": "1f10a46b566c7d5720d5250a837f5ccf9eacd032",
+    "actual_git_blob_sha": "1f10a46b566c7d5720d5250a837f5ccf9eacd032",
+    "sha256": "77cb88c7100d6558c64f2e62669398f01d99c6beeaeb616fb6242c56d07d95eb"
+   },
+   {
+    "path": "t2s_model_pull.py",
+    "expected_git_blob_sha": "d3cb66bae87c00c7f24015352961266a9f03707d",
+    "actual_git_blob_sha": "d3cb66bae87c00c7f24015352961266a9f03707d",
+    "sha256": "1608f53e11378db51ec6c4838dc3944edec4029b53d08fb21b148c9754411497"
+   },
+   {
+    "path": "t2s_week_pulls.json",
+    "expected_git_blob_sha": "366cabfcbba5d32c2838ee1d89e952d82bc0da52",
+    "actual_git_blob_sha": "366cabfcbba5d32c2838ee1d89e952d82bc0da52",
+    "sha256": "9f3c34082720c41ffd44cd4768dc273880b51203f33caa50c426d3b87e5236b0"
+   },
+   {
+    "path": "window_override_methods.py",
+    "expected_git_blob_sha": "685b4f657a6df9703eede729da9542219760a2ff",
+    "actual_git_blob_sha": "685b4f657a6df9703eede729da9542219760a2ff",
+    "sha256": "d8f99ef92f6a0ae746a885bafd64079ca3f0a285999f154edc94a40ce6b52bf9"
+   }
+  ]
+ },
+ "identity": {
+  "hw_id": "evo-t2s",
+  "cpu_name": "Intel(R) Core(TM) Ultra X7 358H",
+  "gpu_name": "Intel(R) Arc(TM) B390 GPU",
+  "gpu_driver_version": "32.0.101.8509"
+ },
+ "phases": [
+  "px2i"
+ ],
+ "phases_cut": [],
+ "estimated_hours": {
+  "b1": 1.6083333333333334,
+  "b2": 0.8083333333333333,
+  "b3": 1.6166666666666667,
+  "c1": 3.0,
+  "c1b": 2.6666666666666665,
+  "b4": 0.6344444444444445,
+  "b4_32b": 0.6344444444444445,
+  "b4_replicate": 0.6344444444444445,
+  "perfboost": 0.20416666666666666,
+  "r1_speed": 0.0,
+  "r1_check": 4.508333333333334,
+  "a70": 0.7708333333333334,
+  "p70": 0.3645833333333333,
+  "r1b": 6.008333333333334,
+  "r1b_controls": 15.008333333333333,
+  "r1d": 9.908333333333333,
+  "r1c": 9.008333333333333,
+  "mx2": 0.0,
+  "px2": 4.532777777777778,
+  "px2i": 0.8472222222222222
+ },
+ "estimate_source": "overnight-table fit (no --prior-results given or file unreadable)",
+ "seed": 20260927,
+ "overnight_table": null,
+ "prior_results": null
+}

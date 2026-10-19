@@ -1,0 +1,416 @@
+{
+ "rules_in_use": {
+  "llama3.1:8b": [
+   "rule1_json_keys",
+   "rule3_no_zebra",
+   "rule4_metres"
+  ],
+  "qwen3:14b": [
+   "rule1_json_keys",
+   "rule2_log_event_called",
+   "rule3_no_zebra",
+   "rule4_metres",
+   "rule5_session_code"
+  ]
+ },
+ "client_trim": {
+  "margin": 0.05
+ },
+ "trim_summary": {
+  "llama3.1:8b|ollama_ctx_4096_call2_notools": {
+   "n_calls": 240,
+   "n_calls_trimmed": 228,
+   "count_method": {
+    "render_tokenize": 240,
+    "estimate_fallback": 0
+   },
+   "over_budget_calls": 0,
+   "max_kept_prompt_tokens_exact": 3153,
+   "budget_prompt_tokens": [
+    3507
+   ],
+   "num_predict": [
+    384
+   ],
+   "max_turns_kept": 2,
+   "min_turns_kept": 1,
+   "observed_calls": 240,
+   "ollama_message_drop_calls": 0,
+   "token_cut_calls": 0,
+   "context_shift_events": 0,
+   "context_shift_calls": 0,
+   "exceed_context_error_calls": 0,
+   "log_slice_incomplete_calls": 0,
+   "client_vs_server_tokens_compared": 240,
+   "client_vs_server_tokens_equal": 240,
+   "client_vs_server_max_abs_diff": 0
+  },
+  "qwen3:14b|ollama_ctx_4096_call2_notools": {
+   "n_calls": 240,
+   "n_calls_trimmed": 232,
+   "count_method": {
+    "render_tokenize": 240,
+    "estimate_fallback": 0
+   },
+   "over_budget_calls": 0,
+   "max_kept_prompt_tokens_exact": 3506,
+   "budget_prompt_tokens": [
+    3507
+   ],
+   "num_predict": [
+    384
+   ],
+   "max_turns_kept": 2,
+   "min_turns_kept": 1,
+   "observed_calls": 240,
+   "ollama_message_drop_calls": 0,
+   "token_cut_calls": 0,
+   "context_shift_events": 0,
+   "context_shift_calls": 0,
+   "exceed_context_error_calls": 0,
+   "log_slice_incomplete_calls": 0,
+   "client_vs_server_tokens_compared": 240,
+   "client_vs_server_tokens_equal": 240,
+   "client_vs_server_max_abs_diff": 0
+  }
+ },
+ "mechanism": {
+  "sessions": [
+   {
+    "record": "r2m_session",
+    "mode": "mitigation",
+    "model_id": "llama3.1:8b",
+    "arm_id": "ollama_ctx_4096_call2_notools",
+    "seed": 20260901,
+    "call2_mode": "off",
+    "n_calls": 80,
+    "chat_paths": [
+     "rendered"
+    ],
+    "n_calls_message_truncated": 0,
+    "first_truncated_turn": null,
+    "first_truncated_call": null,
+    "dropped_turns_at_first_truncation": null,
+    "dropped_turns_at_last_call": [],
+    "system_kept_on_every_truncated_call": null,
+    "kept_contiguous_tail_on_every_truncated_call": null,
+    "current_message_kept_on_every_call": true,
+    "cut_at_turn_boundary_calls": 0,
+    "cut_mid_turn_calls": 0,
+    "token_level_cut_calls": 0,
+    "context_shift_calls": 0,
+    "context_shift_events": 0,
+    "exceed_context_error_calls": 0,
+    "render_log_disagreements": 0,
+    "render_failures": 0,
+    "log_slices_incomplete": 0,
+    "max_new_prompt_tokens": 3153,
+    "n_ctx_slot_values": [
+     4096
+    ],
+    "prompt_check": {
+     "n_checks": 5,
+     "n_match": 5,
+     "match_rate": 1.0,
+     "n_post_overflow": 0,
+     "n_pre_overflow": 5,
+     "n_errors": 0,
+     "max_abs_rel_diff": 0.0,
+     "mechanism_citable": true,
+     "statement": null
+    },
+    "raw_log_file": "llama3.1_8b_ollama_ctx_4096_call2_notools_20260901.ollama_log.txt",
+    "log_bytes": [
+     7786,
+     977197
+    ],
+    "ts_utc": "2026-10-18T14:07:32.986802+00:00"
+   },
+   {
+    "record": "r2m_session",
+    "mode": "mitigation",
+    "model_id": "llama3.1:8b",
+    "arm_id": "ollama_ctx_4096_call2_notools",
+    "seed": 20260902,
+    "call2_mode": "off",
+    "n_calls": 80,
+    "chat_paths": [
+     "rendered"
+    ],
+    "n_calls_message_truncated": 0,
+    "first_truncated_turn": null,
+    "first_truncated_call": null,
+    "dropped_turns_at_first_truncation": null,
+    "dropped_turns_at_last_call": [],
+    "system_kept_on_every_truncated_call": null,
+    "kept_contiguous_tail_on_every_truncated_call": null,
+    "current_message_kept_on_every_call": true,
+    "cut_at_turn_boundary_calls": 0,
+    "cut_mid_turn_calls": 0,
+    "token_level_cut_calls": 0,
+    "context_shift_calls": 0,
+    "context_shift_events": 0,
+    "exceed_context_error_calls": 0,
+    "render_log_disagreements": 0,
+    "render_failures": 0,
+    "log_slices_incomplete": 0,
+    "max_new_prompt_tokens": 3100,
+    "n_ctx_slot_values": [
+     4096
+    ],
+    "prompt_check": {
+     "n_checks": 5,
+     "n_match": 5,
+     "match_rate": 1.0,
+     "n_post_overflow": 0,
+     "n_pre_overflow": 5,
+     "n_errors": 0,
+     "max_abs_rel_diff": 0.0,
+     "mechanism_citable": true,
+     "statement": null
+    },
+    "raw_log_file": "llama3.1_8b_ollama_ctx_4096_call2_notools_20260902.ollama_log.txt",
+    "log_bytes": [
+     977197,
+     1946562
+    ],
+    "ts_utc": "2026-10-18T15:26:18.490274+00:00"
+   },
+   {
+    "record": "r2m_session",
+    "mode": "mitigation",
+    "model_id": "llama3.1:8b",
+    "arm_id": "ollama_ctx_4096_call2_notools",
+    "seed": 20260903,
+    "call2_mode": "off",
+    "n_calls": 80,
+    "chat_paths": [
+     "rendered"
+    ],
+    "n_calls_message_truncated": 0,
+    "first_truncated_turn": null,
+    "first_truncated_call": null,
+    "dropped_turns_at_first_truncation": null,
+    "dropped_turns_at_last_call": [],
+    "system_kept_on_every_truncated_call": null,
+    "kept_contiguous_tail_on_every_truncated_call": null,
+    "current_message_kept_on_every_call": true,
+    "cut_at_turn_boundary_calls": 0,
+    "cut_mid_turn_calls": 0,
+    "token_level_cut_calls": 0,
+    "context_shift_calls": 0,
+    "context_shift_events": 0,
+    "exceed_context_error_calls": 0,
+    "render_log_disagreements": 0,
+    "render_failures": 0,
+    "log_slices_incomplete": 0,
+    "max_new_prompt_tokens": 3068,
+    "n_ctx_slot_values": [
+     4096
+    ],
+    "prompt_check": {
+     "n_checks": 5,
+     "n_match": 5,
+     "match_rate": 1.0,
+     "n_post_overflow": 0,
+     "n_pre_overflow": 5,
+     "n_errors": 0,
+     "max_abs_rel_diff": 0.0,
+     "mechanism_citable": true,
+     "statement": null
+    },
+    "raw_log_file": "llama3.1_8b_ollama_ctx_4096_call2_notools_20260903.ollama_log.txt",
+    "log_bytes": [
+     1946562,
+     2914152
+    ],
+    "ts_utc": "2026-10-18T16:43:08.084336+00:00"
+   },
+   {
+    "record": "r2m_session",
+    "mode": "mitigation",
+    "model_id": "qwen3:14b",
+    "arm_id": "ollama_ctx_4096_call2_notools",
+    "seed": 20260901,
+    "call2_mode": "off",
+    "n_calls": 80,
+    "chat_paths": [
+     "rendered"
+    ],
+    "n_calls_message_truncated": 0,
+    "first_truncated_turn": null,
+    "first_truncated_call": null,
+    "dropped_turns_at_first_truncation": null,
+    "dropped_turns_at_last_call": [],
+    "system_kept_on_every_truncated_call": null,
+    "kept_contiguous_tail_on_every_truncated_call": null,
+    "current_message_kept_on_every_call": true,
+    "cut_at_turn_boundary_calls": 0,
+    "cut_mid_turn_calls": 0,
+    "token_level_cut_calls": 0,
+    "context_shift_calls": 0,
+    "context_shift_events": 0,
+    "exceed_context_error_calls": 0,
+    "render_log_disagreements": 0,
+    "render_failures": 0,
+    "log_slices_incomplete": 0,
+    "max_new_prompt_tokens": 3506,
+    "n_ctx_slot_values": [
+     4096
+    ],
+    "prompt_check": {
+     "n_checks": 5,
+     "n_match": 5,
+     "match_rate": 1.0,
+     "n_post_overflow": 0,
+     "n_pre_overflow": 5,
+     "n_errors": 0,
+     "max_abs_rel_diff": 0.0,
+     "mechanism_citable": true,
+     "statement": null
+    },
+    "raw_log_file": "qwen3_14b_ollama_ctx_4096_call2_notools_20260901.ollama_log.txt",
+    "log_bytes": [
+     2914152,
+     3876438
+    ],
+    "ts_utc": "2026-10-18T19:28:22.935406+00:00"
+   },
+   {
+    "record": "r2m_session",
+    "mode": "mitigation",
+    "model_id": "qwen3:14b",
+    "arm_id": "ollama_ctx_4096_call2_notools",
+    "seed": 20260902,
+    "call2_mode": "off",
+    "n_calls": 80,
+    "chat_paths": [
+     "rendered"
+    ],
+    "n_calls_message_truncated": 0,
+    "first_truncated_turn": null,
+    "first_truncated_call": null,
+    "dropped_turns_at_first_truncation": null,
+    "dropped_turns_at_last_call": [],
+    "system_kept_on_every_truncated_call": null,
+    "kept_contiguous_tail_on_every_truncated_call": null,
+    "current_message_kept_on_every_call": true,
+    "cut_at_turn_boundary_calls": 0,
+    "cut_mid_turn_calls": 0,
+    "token_level_cut_calls": 0,
+    "context_shift_calls": 0,
+    "context_shift_events": 0,
+    "exceed_context_error_calls": 0,
+    "render_log_disagreements": 0,
+    "render_failures": 0,
+    "log_slices_incomplete": 0,
+    "max_new_prompt_tokens": 3499,
+    "n_ctx_slot_values": [
+     4096
+    ],
+    "prompt_check": {
+     "n_checks": 5,
+     "n_match": 5,
+     "match_rate": 1.0,
+     "n_post_overflow": 0,
+     "n_pre_overflow": 5,
+     "n_errors": 0,
+     "max_abs_rel_diff": 0.0,
+     "mechanism_citable": true,
+     "statement": null
+    },
+    "raw_log_file": "qwen3_14b_ollama_ctx_4096_call2_notools_20260902.ollama_log.txt",
+    "log_bytes": [
+     3876438,
+     4837891
+    ],
+    "ts_utc": "2026-10-18T22:09:40.026040+00:00"
+   },
+   {
+    "record": "r2m_session",
+    "mode": "mitigation",
+    "model_id": "qwen3:14b",
+    "arm_id": "ollama_ctx_4096_call2_notools",
+    "seed": 20260903,
+    "call2_mode": "off",
+    "n_calls": 80,
+    "chat_paths": [
+     "rendered"
+    ],
+    "n_calls_message_truncated": 0,
+    "first_truncated_turn": null,
+    "first_truncated_call": null,
+    "dropped_turns_at_first_truncation": null,
+    "dropped_turns_at_last_call": [],
+    "system_kept_on_every_truncated_call": null,
+    "kept_contiguous_tail_on_every_truncated_call": null,
+    "current_message_kept_on_every_call": true,
+    "cut_at_turn_boundary_calls": 0,
+    "cut_mid_turn_calls": 0,
+    "token_level_cut_calls": 0,
+    "context_shift_calls": 0,
+    "context_shift_events": 0,
+    "exceed_context_error_calls": 0,
+    "render_log_disagreements": 0,
+    "render_failures": 0,
+    "log_slices_incomplete": 0,
+    "max_new_prompt_tokens": 3504,
+    "n_ctx_slot_values": [
+     4096
+    ],
+    "prompt_check": {
+     "n_checks": 5,
+     "n_match": 5,
+     "match_rate": 1.0,
+     "n_post_overflow": 0,
+     "n_pre_overflow": 5,
+     "n_errors": 0,
+     "max_abs_rel_diff": 0.0,
+     "mechanism_citable": true,
+     "statement": null
+    },
+    "raw_log_file": "qwen3_14b_ollama_ctx_4096_call2_notools_20260903.ollama_log.txt",
+    "log_bytes": [
+     4837891,
+     5803437
+    ],
+    "ts_utc": "2026-10-19T00:53:31.910395+00:00"
+   }
+  ],
+  "prompt_check": {
+   "ollama_ctx_4096_call2_notools": {
+    "n_checks": 15,
+    "n_match": 15,
+    "match_rate": 1.0,
+    "n_post_overflow": 0,
+    "n_pre_overflow": 15,
+    "n_errors": 0,
+    "max_abs_rel_diff": 0.0,
+    "mechanism_citable": true,
+    "statement": null
+   }
+  },
+  "verdict": {
+   "drop_old_turns_keep_system": "not_observed",
+   "sessions_with_truncation": 0,
+   "sessions": 6,
+   "token_level_cut_seen": false,
+   "context_shift_seen": false,
+   "exceed_context_error_seen": false,
+   "render_log_disagreements": 0,
+   "log_slices_incomplete": 0,
+   "per_tier": {
+    "ollama_ctx_4096_call2_notools": {
+     "hypothesis": "not_observed",
+     "match_rate": 1.0,
+     "n_checks": 15,
+     "n_match": 15,
+     "mechanism_citable": true,
+     "statement": null
+    }
+   },
+   "mechanism_citable": true,
+   "not_citable_statements": []
+  }
+ }
+}

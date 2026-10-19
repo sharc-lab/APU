@@ -1,0 +1,1 @@
+{"requested_mask": 240, "set_ok": true, "parent_mask": 240, "worker_masks": [240, 240, 240, 240], "n_procs": 4, "array_mib": 320.0, "array_bytes": 335544320, "bytes_per_iteration": 1006632960, "hog_kind": "bandwidth_triad"}
