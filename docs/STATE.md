@@ -357,3 +357,26 @@ Every report states status against these three checkpoints.
   comparison, KV precision, T2S staging). C track starts after A3 lands.
 - "X2 ask-first list" is not recorded in the repo or memory; treated as: reboots, deleting files, system-wide env or
   driver changes, tray app; model pulls authorized for B2 by the operator.
+
+### 2026-10-14 to 2026-10-19, evo-t2s window, merges, process deviation
+
+- evo-t2s window 2026-10-15 00:00 ET to 2026-10-18 23:59 ET (Zach has the machine 2026-10-19 to 2026-10-25; next
+  window requested 2026-10-26 to 2026-11-08). Ran, in order, from the synced files: t2s_wk_model_pull,
+  t2s_wk_preflight (failed once on missing llama.cpp binaries, passed on requeue), t2s_wk_r2_val_cpu, t2s_wk_r2_val_igpu,
+  t2s_wk_r2_real_cpu, t2s_wk_r2_real_igpu, t2s_wk_r2_mitigation_cpu, t2s_wk_px2i (results/t2s_night2_20261019T005335Z_*),
+  t2s_wk_r2_mechanism_cpu. All closed with run_end except the mechanism session: 38 of 40 turns, last turn
+  2026-10-19 03:20 UTC, no session summary (`t2s-r2-mechanism-cpu`), consistent with the handover deadline stopping it.
+  Nothing in the 72 h plan was left unlaunched.
+- Handover state NOT verified from here: the mechanical deadline (harness/t2s_deadline.py, queue_deadline.json; kills
+  a running job, stops our Ollama/llama-server/python, sets the pause naming the releaser, writes HANDOVER_DONE.json)
+  was built by the T2S window agent, whose session ended without a report. HANDOVER_DONE.json, the pause flag and the
+  process list live only on evo-t2s and are not synced. Check them first thing on 2026-10-26 before anything else.
+- The results sync task still targeted `--host both` after the window closed and SSHed to evo-t2s at 2026-10-19 16:09
+  UTC (pulled the final T2S files; read-only scp). Set back to `--host evo-x2` on 2026-10-19 at about 16:17 UTC.
+- Results registered: `t2s-r2-validation-cpu`, `t2s-r2-validation-igpu`, `t2s-r2-real-cpu`, `t2s-r2-real-igpu`,
+  `t2s-r2-mitigation-cpu`, `t2s-r2-mechanism-cpu` (FINDINGS 2026-10-19 section).
+- Process deviation (2026-10-14): the B5 build agent queued x2_policy_compare on evo-x2 before the deploy-verify check
+  it was told to wait for had finished. The check then came back clean (all directories with an expected-blob list
+  verify; the stale root x2_r2_agent.py and a CRLF copy of x2_r2_scale.py were redeployed byte-exact). Rule going
+  forward (operator, 2026-10-19): no job may be queued before a check it was told to wait for.
+- Merged: B5 (1cf0632), evalset v1 diagnosis and v2 (af5613d), T2S window branch (62593f3), rules 6-8 docs (1ed571d).

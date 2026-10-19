@@ -2914,6 +2914,101 @@ def compute_r2_v1b_qwen3_8b_reversal(repo):
     return {"value": "; ".join(parts), "n": f"{silent[tiers[0]][1] + silent[tiers[1]][1]} sessions"}
 
 
+# -- evo-t2s week window 2026-10-15 to 2026-10-18 (Ollama 0.34.4, Intel CPU and Intel iGPU) --
+T2S_VAL = {"cpu": "results/t2s_r2_validation_cpu_v1.jsonl", "igpu": "results/t2s_r2_validation_igpu_v1.jsonl"}
+T2S_REAL = {"cpu": "results/t2s_r2_real_cpu_v1.jsonl", "igpu": "results/t2s_r2_real_igpu_v1.jsonl"}
+T2S_MITIGATION_CPU = "results/t2s_r2_mitigation_cpu_v1.jsonl"
+T2S_MECHANISM_CPU = "results/t2s_r2_mechanism_cpu_v1.jsonl"
+
+
+def compute_t2s_r2_validation(repo, backend):
+    """evo-t2s R2 validation (same plan as x2_r2_validation_v2) on one backend: per model the baseline table, task
+    tool, thinking, the real-run preflight, and which gates failed."""
+    ag = _r2_agent_module()
+    rows = ag.read_rows(repo / T2S_VAL[backend])
+    if not rows:
+        raise FileNotFoundError(repo / T2S_VAL[backend])
+    base = compute_x2_scale_validation(repo, vfile=T2S_VAL[backend])
+    g = ag.evaluate_gates(rows, call2_tools="off")["gates"]
+    models = sorted({r["model_id"] for r in rows if r.get("record") == "r2a_session"})
+    failed = {m: sorted(k for k, v in g.items() if isinstance(v, dict) and isinstance(v.get(m), dict)
+                        and v[m].get("pass") is False) for m in models}
+    return {"value": base["value"] + "; failed gates: " + "; ".join(f"{m} {', '.join(f) or 'none'}"
+                                                                    for m, f in failed.items()),
+            "n": base["n"]}
+
+
+def compute_t2s_r2_real(repo, backend):
+    """evo-t2s R2 real run at the Ollama default window (no num_ctx sent), 5 seeds x 40 turns: per model the window
+    Ollama loaded, the first over-window turn, the pre-registered kill criterion, and the gated variant (rules in use
+    plus metrics at >=90% of this backend's own validation baseline) with after-window and baseline-type counts."""
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "analysis"))
+    import r2_real_report as rr
+    if not (repo / T2S_REAL[backend]).exists():
+        raise FileNotFoundError(repo / T2S_REAL[backend])
+    rep = rr.build_combined([repo / T2S_REAL[backend]], validation_paths=[repo / T2S_VAL[backend]])
+    rows = _r2_agent_module().read_rows(repo / T2S_REAL[backend])
+    sess = [r for r in rows if r.get("record") == "r2a_session"]
+    g = rr.gated_per_model(rep)
+    parts = []
+    for model in sorted({r["model_id"] for r in sess}):
+        ms = [r for r in sess if r["model_id"] == model]
+        loaded = sorted({c for r in ms for c in r.get("loaded_context_values") or []})
+        fo = sorted({r.get("first_over_window_turn") for r in ms}, key=lambda x: (x is None, x))
+        c = g[f"ollama_default|{model}"]
+        parts.append(f"{model}: loaded window {loaded}, first over window turn {fo}; gated {c['silent']}/{c['n']} "
+                     f"silent, {c['silent_after_window_exceeded']} after window exceeded, {c['silent_baseline_type']} "
+                     f"baseline-type (gate excludes {', '.join(rep['gated_metrics'][model]['excluded']) or 'nothing'}); "
+                     f"intact " + "/".join(str(c["survival"][t]) for t in rep["checkpoints"]))
+    k = rep["kill"]
+    arms = "; ".join(f"{a.replace('_call2_notools', '')} {v['n_silent_failures']}/{v['n_sessions']} silent"
+                     for a, v in k["per_arm"].items())
+    return {"value": " / ".join(parts) + f"; pre-registered kill criterion killed={k['killed']}, {arms}",
+            "n": f"{len(sess)} sessions"}
+
+
+def compute_t2s_r2_mitigation_cpu(repo):
+    """evo-t2s CPU: client-side trimming at num_ctx 4096 (margin 0.05), 3 seeds x 40 turns, the pre-registered
+    mitigation rule per model against the CPU validation baseline. No evo-t2s untrimmed real run at an explicit 4096
+    exists; the CPU default-window real run loaded 4096 (row t2s-r2-real-cpu)."""
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "analysis"))
+    import r2_mitigation_report as mr
+    if not (repo / T2S_MITIGATION_CPU).exists():
+        raise FileNotFoundError(repo / T2S_MITIGATION_CPU)
+    rep = mr.build(repo / T2S_MITIGATION_CPU, real_paths={}, validation_path=repo / T2S_VAL["cpu"])
+    parts = []
+    for key, c in rep["cells"].items():
+        tier, model = key.split("|")
+        v = c["verdict"]
+        extra = (f" (rules below 90%: {', '.join(v['rules_below_threshold'])})" if v.get("rules_below_threshold")
+                 else f" ({'; '.join(v['reasons'])})" if v["reasons"] else "")
+        parts.append(f"{tier} {model} {v['verdict']}{extra}")
+    return {"value": f"overall {rep['overall_verdict']}; " + "; ".join(parts),
+            "n": f"{rep['n_sessions']} sessions, {rep['n_turns']} turns"}
+
+
+def compute_t2s_r2_mechanism_cpu(repo):
+    """evo-t2s CPU mechanism session (llama3.1:8b, Ollama default window, one seed): turns completed, whether the
+    session closed (session summary and run_end written), turns over the loaded window, render-only prompt checks."""
+    rows = _r2_agent_module().read_rows(repo / T2S_MECHANISM_CPU)
+    if not rows:
+        raise FileNotFoundError(repo / T2S_MECHANISM_CPU)
+    turns = [r for r in rows if r.get("record") == "r2a_turn"]
+    start = next(r for r in rows if r.get("record") == "run_start")
+    planned = start["plan"][0][2]
+    loaded = sorted({str(r.get("loaded_context")) for r in turns})
+    checks = [r for r in rows if r.get("record") == "r2m_prompt_check"]
+    closed = any(r.get("record") == "r2a_session" for r in rows) and any(r.get("record") == "run_end" for r in rows)
+    over = sum(1 for r in turns if r.get("over_loaded_window"))
+    return {"value": f"{len(turns)}/{planned} turns completed, session closed {closed}, last turn at "
+                     f"{turns[-1]['ts_utc'][:16]}Z; loaded window {loaded}; {over} turns over the loaded window; "
+                     f"{len(checks)} render-only prompt checks; no session summary, so the mechanism verdict is not "
+                     f"computed",
+            "n": f"{len(turns)} turns"}
+
+
 def compute_r2_validation_v2b_runinfo(repo):
     """R2 validation v2b run details per model: sessions and turns completed, calls with an HTTP error or error field,
     task tool called correctly, and on the baseline arm how many call-1 replies carried a native tool call vs a tool
@@ -4954,6 +5049,27 @@ NUMBER_ENTRIES = [
                     "exclusions, how each session ended, ungated failures, turn-level counts, Fisher exact p",
      "compute": compute_r2_v1b_qwen3_8b_reversal, "data_files": R2_V1B_DATA, "pending_ok": True,
      "script_function": "analysis/numbers_register.py::compute_r2_v1b_qwen3_8b_reversal"},
+    {"claim_id": "t2s-r2-validation-cpu", "description": "evo-t2s Intel CPU R2 validation: baseline table, gates, "
+                    "preflight per model", "compute": lambda repo: compute_t2s_r2_validation(repo, "cpu"),
+     "data_files": [T2S_VAL["cpu"]], "script_function": "analysis/numbers_register.py::compute_t2s_r2_validation"},
+    {"claim_id": "t2s-r2-validation-igpu", "description": "evo-t2s Intel iGPU R2 validation: baseline table, gates, "
+                    "preflight per model", "compute": lambda repo: compute_t2s_r2_validation(repo, "igpu"),
+     "data_files": [T2S_VAL["igpu"]], "script_function": "analysis/numbers_register.py::compute_t2s_r2_validation"},
+    {"claim_id": "t2s-r2-real-cpu", "description": "evo-t2s Intel CPU R2 real at the Ollama default window: loaded "
+                    "window, kill criterion, gated silent failures per model",
+     "compute": lambda repo: compute_t2s_r2_real(repo, "cpu"), "data_files": [T2S_REAL["cpu"], T2S_VAL["cpu"]],
+     "script_function": "analysis/numbers_register.py::compute_t2s_r2_real"},
+    {"claim_id": "t2s-r2-real-igpu", "description": "evo-t2s Intel iGPU R2 real at the Ollama default window: loaded "
+                    "window, kill criterion, gated silent failures per model",
+     "compute": lambda repo: compute_t2s_r2_real(repo, "igpu"), "data_files": [T2S_REAL["igpu"], T2S_VAL["igpu"]],
+     "script_function": "analysis/numbers_register.py::compute_t2s_r2_real"},
+    {"claim_id": "t2s-r2-mitigation-cpu", "description": "evo-t2s Intel CPU client-side trimming at 4096: "
+                    "pre-registered mitigation verdict per model", "compute": compute_t2s_r2_mitigation_cpu,
+     "data_files": [T2S_MITIGATION_CPU, T2S_VAL["cpu"]],
+     "script_function": "analysis/numbers_register.py::compute_t2s_r2_mitigation_cpu"},
+    {"claim_id": "t2s-r2-mechanism-cpu", "description": "evo-t2s Intel CPU mechanism session: completion state at the "
+                    "handover deadline", "compute": compute_t2s_r2_mechanism_cpu, "data_files": [T2S_MECHANISM_CPU],
+     "script_function": "analysis/numbers_register.py::compute_t2s_r2_mechanism_cpu"},
     {"claim_id": "R2-validation-v2b-runinfo", "description": "R2 validation v2b: sessions/turns, errors, native vs "
                     "text tool calls per model",
      "compute": compute_r2_validation_v2b_runinfo, "data_files": ["results/x2_r2_validation_v2b.jsonl"],

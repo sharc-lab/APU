@@ -3544,6 +3544,46 @@ the reverse of the ordering in every other model. Is that noise (n = 5), an arti
 **Consequence for the paper.** Report the pooled excess curve with per-model CIs and name this cell as within noise.
 Do not claim the 4096 tier is safer for qwen3:8b. No rerun was made for this check.
 
+## evo-t2s week window results: R2 validation, real, mitigation and mechanism on Intel CPU and Intel iGPU (2026-10-19, results of the T2S week queue)
+
+**Runs.** Ollama 0.34.4 on evo-t2s, window 2026-10-15 to 2026-10-18, same R2 harness and seeds as evo-x2.
+- **Validation.** Both backends ran the same plan as x2_r2_validation_v2. llama3.1:8b fails only the baseline gate,
+  on rule2 and rule5. CPU: "rule2 56.7%, ... rule5 63.3%" (`t2s-r2-validation-cpu`). iGPU: "rule2 60.0%, ... rule5
+  30.0%" (`t2s-r2-validation-igpu`). Both rows read "failed gates: llama3.1:8b baseline; qwen3:14b none". Both models
+  passed preflight, and the real runs used llama3.1:8b with rules 1, 3 and 4 in use. Its negative control had no
+  canary miss on either backend ("canary C 100.0%, H 100.0% (n=6)").
+- **Real, at the Ollama default window** (no num_ctx sent), 5 seeds x 40 turns, both models:
+  - Intel CPU (`t2s-r2-real-cpu`): "llama3.1:8b: loaded window [4096], first over window turn [3]; gated 5/5 silent,
+    5 after window exceeded" and "qwen3:14b: loaded window [4096] ... gated 5/5 silent, 5 after window exceeded".
+  - Intel iGPU (`t2s-r2-real-igpu`): "llama3.1:8b: loaded window [32768], first over window turn [23]; gated 0/5
+    silent" and "qwen3:14b: loaded window [32768] ... gated 1/5 silent, 0 after window exceeded, 1 baseline-type".
+- **Mitigation**, client-side trimming at 4096 on CPU (`t2s-r2-mitigation-cpu`): "overall refuted; num_ctx_4096
+  llama3.1:8b recovered; num_ctx_4096 qwen3:14b not_recovered (rules below 90%: rule2_log_event_called)". This is the
+  same split as the evo-x2 mitigation (`R2-mitigation-v1-verdict`).
+- **Mechanism**, CPU (`t2s-r2-mechanism-cpu`): "38/40 turns completed, session closed False". The handover deadline
+  stopped the session, so no mechanism verdict is claimed.
+
+**Reading.**
+1. **The default window depends on the backend.** With no num_ctx sent, the same Ollama version and the same models
+   loaded a 4096 window on the Intel CPU and 32768 on the Intel iGPU. On the CPU every session went over the window at
+   turn 3 and failed silently after it (10/10). At 32768 on the iGPU, no failure came after the window was exceeded.
+   So a CPU-only user on the default setting is in the 4096 regime of `R2-v1b-excess-over-default` without choosing
+   it. This is a candidate headline for Paper 1: the silent-loss exposure is set by a backend-dependent default the
+   user never sees. It holds for one machine and two models, so cross-machine claims need the evo-x2 and Blade default
+   windows side by side. Each platform's loaded default is in its own register rows; this section does not combine
+   them.
+2. **The 4096 result on Intel CPU matches evo-x2 at 4096** in direction for both models. The rule sets are not
+   identical: llama3.1:8b's rules in use differ by backend because each backend gates on its own validation.
+3. **The mitigation split replicates on a second vendor and backend.** Trimming recovers llama3.1:8b and does not
+   recover qwen3:14b, which loses rule 2 in both places.
+4. **llama3.1:8b's baseline failure on evo-t2s** is in rule2 (log_event called) and rule5 (session code). Its
+   per-turn classification (tool call as text vs other causes) is a separate analysis in progress. A cross-backend
+   table will be added if the text-tool-call pattern holds.
+
+**Limits.** One Intel machine, Ollama 0.34.4, 5 seeds, two models. The iGPU default tier has no evo-t2s explicit-4096
+counterpart, so CPU vs iGPU differ in both backend and loaded window. The handover state (pause, processes) on evo-t2s
+was not verified from the synced files (docs/STATE.md 2026-10-19).
+
 ## Results of two pre-registered checks: the Blade confound check and the R2 mitigation (2026-10-14, as stated in the paper draft)
 
 **x2_r2_llama_val_32k (pre-registration 2026-10-10 above).** Register row `x2-r2-llama-val-32k`, pasted: "negative
