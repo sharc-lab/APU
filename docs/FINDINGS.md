@@ -3965,3 +3965,83 @@ This note amends the pre-registration "B3 task real runs, x2_evalset_tasks_real_
    num_ctx 4096 is still exceeded from the first turns; this change of workload is stated here before any data.
 3. The B3 guardrail real run is removed from the plan on the same terms; rules 6-8 are not expected to pass at full
    context with these two models.
+
+## PRE-REGISTRATION: backend numerics check, llama3.1:8b R2 validation at 32768 on evo-x2 via Vulkan (x2_r2_llama_val_32k_vulkan) (2026-10-19, NOT YET RUN)
+
+**Status:** PRE-REGISTRATION, written and committed on its own before the `--backend` code is written, before anything
+is deployed and before evo-x2's queue is edited. No data for this job exists.
+
+**Where the confound checks left it.** On the Blade (CUDA, NVIDIA), llama3.1:8b's negative control at num_ctx 32768
+missed canaries, each miss a turn-5 final answer written as a text tool call (`blade-r2-gate-v2`, pasted: "canary misses
+per session 20260901: 0, 20260902: 0, 20260903: 2, 20260904: 0, 20260905: 2"). On evo-x2 (AMD, ROCm) the same
+validation had none (`x2-r2-llama-val-32k`, pasted: "negative control (num_ctx 32768) canary misses 0 of 20 canaries
+over 5 sessions"), and the follow-up with the Blade's CPU offload split on evo-x2 (`x2-r2-llama-val-32k-offload`,
+PENDING in this branch's register until `results/x2_r2_llama_val_32k_offload.jsonl` is synced) is read by the operator
+as "backend effect (CUDA vs evo-x2's backend)". Two things differ between "CUDA on the Blade" and "ROCm on evo-x2": the
+GPU vendor (NVIDIA vs AMD) and the backend implementation (ggml-cuda vs ggml-hip kernels). This job moves only the
+second: the same AMD GPU, the same Ollama, the same model, but ggml's Vulkan backend instead of ROCm.
+
+**Design: change only the backend.** Rerun exactly the `x2_r2_llama_val_32k` / `x2_r2_llama_val_32k_offload`
+validation on evo-x2 (`harness/x2_r2_sidecar.py` + `x2_r2_agent.py --mode validation --call2-tools off --models
+llama3.1:8b --neg-ctx 32768 --neg-sessions 5`): negative control and baseline at num_ctx 32768 on seeds 20260901-05,
+10 turns each; positive control num_ctx 8192, seed 20260901, 15 turns; diagnostic arm, tools on call 2, num_ctx 32768,
+seeds 20260901-03, 10 turns; temperature 0, seed 42, num_predict 384; v1 call-2 mode; no `num_gpu` option (Ollama
+places the layers itself, as in `x2_r2_llama_val_32k`). Same tag on the same machine, so the same model, params and
+template digests as `x2_r2_llama_val_32k` (model `sha256:667b0c19...6a29`, params `sha256:56bb8bd4...4dcb`, template
+`sha256:948af274...cf85`, the Blade's). One change: a new `--backend vulkan` option (off by default, recorded in
+run_start and per session) that starts the job's own `ollama serve` process with a Vulkan environment and its own
+log, `results/x2_r2_llama_val_32k_vulkan_serve.log`. The option applies to every arm of the run; the verdict reads the
+negative-control arm only.
+
+**How Vulkan is selected (read-only inspection of evo-x2, 2026-10-19).** Ollama 0.34.4's install on evo-x2 ships
+`lib\ollama\vulkan\ggml-vulkan.dll` next to `rocm_v7_1`, `cuda_v12` and `cuda_v13`. The offload job's own server log
+shows Vulkan is enabled in this build (`OLLAMA_VULKAN:true` in its "server config" line) and that discovery found the
+8060S through Vulkan but dropped it ("dropping integrated GPU; to enable, set OLLAMA_IGPU_ENABLE=1" ... library=Vulkan
+... description="AMD Radeon(TM) 8060S Graphics"), keeping the ROCm device ("inference compute" ... library=ROCm
+compute=gfx1151). So the job's own server process gets, and only it (never a persistent or system-wide variable, never
+the tray app): `OLLAMA_IGPU_ENABLE=1` (keep the Vulkan iGPU), `OLLAMA_LLM_LIBRARY=vulkan` (load only the vulkan library
+directory) and `HIP_VISIBLE_DEVICES=-1` (hide the device from ROCm as a second guard). No driver, BIOS or install change
+is made. The job refuses, and stops nothing, if the Ollama tray app is running.
+
+**Backend verification (fixed now).** The backend in use is read from the job's own server log, never assumed:
+- *Run level, before any model call:* the server's "inference compute" lines must exist, every one must say
+  `library=Vulkan`, and at least one must name the 8060S in its description. Otherwise the job **refuses**: it writes a
+  `backend_refused` row with the lines it saw, stops its own server, calls tq.advance() with a "stopped: refused" note,
+  and no result is claimed (no verdict; the register row reads "refused (Vulkan not loaded)").
+- *Per session* (the model is unloaded before each session, so each session loads it once): a `backend_session` row
+  with that session's log slice's "offloaded N/M layers to GPU" lines, every `library=` value on the scheduler's
+  "gpu memory" lines, every device line of the Vulkan backend (`ggml_vulkan: N = <device>`), every `<device> model
+  buffer size` line, and any line naming ROCm or CUDA, plus the last /api/ps size and size_vram. A session's backend is
+  **verified** when it has at least one offload line, every offload line is 33/33, at least one line names Vulkan (a
+  `library=Vulkan` gpu-memory line or a `Vulkan0` buffer line) and no line names ROCm or CUDA.
+
+**What counts as a miss.** As in `x2-r2-llama-val-32k`: a negative-control turn with a canary check whose system
+canary (C) or history canary (H) is not reproduced. A miss is a **text-tool-call miss** when that turn's final text,
+after leading whitespace, starts with a JSON object with a `"name"` key (the same test as `x2-r2-llama-val-32k`).
+
+**Interpretation, fixed now** (register row `x2-r2-llama-val-32k-vulkan`, `analysis/numbers_register.py`, PENDING until
+`results/x2_r2_llama_val_32k_vulkan.jsonl` is synced), from the negative-control (gate) arm only, with the validity
+rules of `x2-r2-llama-val-32k` (run_end; all 5 sessions completed with 10 turns; every row at num_ctx 32768; no turn
+over the loaded window) plus the backend verification above, following the operator's rule:
+- **backend implementation, not the vendor**: valid, every negative-control session's backend verified as Vulkan, at
+  least one canary miss, and every missed canary turn is a text-tool-call miss (the turn of each is reported; turn 5
+  as on the Blade is not required).
+- **follows the vendor**: valid, backend verified, 0 negative-control canary misses.
+- **inconclusive**: anything else (a miss that is not a text tool call, an unverified or non-Vulkan session, an
+  invalid run), reported with the pattern per miss (seed, turn, which canary, text tool call or not, tool name).
+- **refused (Vulkan not loaded)**: the run-level check failed; no result.
+The register row also reports, whatever the verdict: per-rule rates on the gate arm, per-session canary misses, the
+backend evidence per session, positive-control truncation turns and the diagnostic arm's misses.
+
+**Known limits, stated before the run.** Five sessions: a 0 says the event did not occur in these 5 seeds on Vulkan,
+not that it cannot. "Backend implementation" here means a non-CUDA, non-ROCm ggml backend on AMD hardware reproduces
+the Blade's failure, so vendor hardware alone does not explain it; it does not identify which kernel differs. "Follows
+the vendor" means two different AMD backends both avoid it, leaving NVIDIA hardware with CUDA (or anything else that
+differs between the machines besides the backend, the split and the window) as the explanation; the Blade has no
+non-CUDA backend run to separate those further. The Vulkan runner may differ from ROCm in more than kernels (for
+example flash attention support or default batch sizes); the job records what the log says and does not tune it.
+One runtime (Ollama 0.34.4). Statistics convention as in `x2_r2_llama_val_32k`: no warm-up call, every session's turns
+scored. Duration estimate from the measured siblings, register row `x2-r2-llama-val-32k-vulkan-hours`. Calls
+tq.advance() on exit; sets no pause.
+
+**Queue position.** Directly after the running `x2_policy_compare`, per the operator's instruction of 2026-10-19.
