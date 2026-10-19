@@ -4088,3 +4088,28 @@ is reported "incomplete" with what is missing, and its rates are not read.
   (the num_keep test observed it applied, `num-keep-guardrail-test`).
 - The task end-state bar was not met (deviation note above); absolute wrong-task rates include baseline errors.
 Duration is estimated in a labelled register row before queueing; the job calls tq.advance() on exit and sets no pause.
+
+## AMENDMENT (2026-10-19, before any real-run data): x2_evalset_tasks_real_v2 deployed and queued
+
+This note follows the pre-registration "protocol consistency, B3 v2 task real runs x2_evalset_tasks_real_v2 on evo-x2
+(2026-10-19, NOT YET RUN)" above, whose text is not edited. No data for the job exists.
+
+- **Code** (commit 3d1c851): `harness/x2_r2_evalset.py` `--plan tasks_v2`, `--preflight v2_te_deviation`,
+  `NumKeepSessionRuntime` and `tasks_real_v2_outcome`, tests on fakes in `tests/test_x2_evalset_tasks_real_v2.py`.
+  Register rows `x2-evalset-tasks-real-v2-gated-excess` and `x2-evalset-tasks-real-v2-wrong-rate` are PENDING until the
+  file is synced.
+- **Deployed** with `scripts/deploy_evo.py` to the side directory `C:\apu\ovn\evalv2` (`x2_r2_evalset.py`, and
+  `x2_num_keep.py` at the same blob the num_keep guardrail test ran), next to the unchanged `evalset_env.py`;
+  `run_provenance.verify_deployed_blobs` on evo-x2 reported no problems for all three files. Import and plan check on
+  evo-x2, no model call: `--check-plan` printed the 5 tiers x 5 seeds x 30 task turns; the preflight on the machine's
+  `x2_evalset_tasks_val_v2.jsonl` admitted qwen3:14b with the task end-state waiver at 80/90 and refused llama3.1:8b
+  (negative control, not in the model list, task end state); the same preflight refused `x2_evalset_tasks_val_v1.jsonl`
+  as design v1; llama-tokenize and the qwen3:14b blob for measuring S were found.
+- **Queued** on evo-x2 in one read-modify-write under `tq.set_pause`, cleared in the same script's finally
+  (`--queue-insert-tasks-v2`); the pause flag was confirmed gone afterwards. Position: index 68 of
+  `C:\apu\ovn\queue_state.json`, directly after the running `x2_policy_compare` and directly before
+  `x2_window_override_methods`. Another session is inserting a job directly after `x2_policy_compare`; it lands ahead
+  of this one. The entry's note says it releases itself via tq.advance() and sets no pause.
+- **Estimated duration** (register row `x2-evalset-tasks-real-v2-hours`, an ESTIMATE, pasted): "ESTIMATE 4.6 h (range
+  2.0 to 5.2 h) for 25 qwen3:14b sessions of 30 task turns (5 at the default at the measured negative-control session
+  time, 20 at smaller windows at the measured num_ctx 8192 positive-control session time)".
