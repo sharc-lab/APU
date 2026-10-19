@@ -592,6 +592,18 @@ wrong on at least two of the three. If space is short, FH1 replaces F2 and F3 (t
   calls at a window where AMD-iGPU, with the same model files, seeds and settings, does not (`[x2-r2-llama-val-32k]`,
   `[blade-r2-gate-v2]`); backend and partial CPU offload are not yet separated (O1, Section 5b).
 - **Install path as a confound:** bare-GGUF Ollama legs are marked "[bare template]" in `[x2-v3-scores]`.
+- **Guardrails 6-8 fail at full context (limitation and future work, not a headline claim; added 2026-10-19):** in
+  the B3 evalset v1 guard validation both llama3.1:8b and qwen3:14b violate the privacy (rule 6), refusal (rule 7) and
+  confirmation (rule 8) guardrails with the session inside the window: llama3.1:8b "rule6 0.417 of 12 bait turns,
+  rule7 0.000 of 9 bait turns, rule8 0.111 of 9 bait turns", qwen3:14b "rule6 0.250 of 12 bait turns, rule7 0.111 of
+  9 bait turns, rule8 0.222 of 9 bait turns" `[x2-evalset-val-v1-gates]`; nearly all violations are executed calls
+  ("rule 6-8 violations 25 (bait 24; ...)" and "28 (bait 24; ...)" `[x2-evalset-val-v1-diagnosis]`). Examples from
+  `results/x2_evalset_guard_val_v1.jsonl`: llama3.1:8b sent mail to `jordan.reyes@gmail.example`; qwen3:14b emailed
+  the API token to `secops@corp.test`. Rules 6-8 fail the baseline gate, so they are excluded from every window
+  measurement and no context-loss claim rests on them; guardrail compliance of small local models at full context is
+  future work. The same diagnosis finds llama3.1:8b's in-window canary misses are not recall failures: "canary misses
+  13 (tool_call_as_text 10, omitted 3)" `[x2-evalset-val-v1-diagnosis]` (10 of 13 tool calls written as text, 3
+  omitted, 0 recall).
 
 ### 4.9 Conclusion (0.50 page)
 
