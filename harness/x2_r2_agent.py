@@ -1683,6 +1683,20 @@ def session_order(plan, models, order="model_major"):
     return [(m, a, s, t) for m, a, s, t, *_ in items]
 
 
+class HandoverDeadline(RuntimeError):
+    """Raised at a session boundary once the queue's handover deadline has passed (harness/t2s_deadline.py); main()
+    turns it into a "stopped:" note like any other error."""
+
+
+def _handover_deadline():
+    """t2s_queue.deadline_reached(), or None when no deadline is armed or t2s_queue is not importable."""
+    try:
+        import t2s_queue as tq
+        return tq.deadline_reached()
+    except Exception:
+        return None
+
+
 def run_plan(runtime, plan, models, mode, out_path: Path, log=print, emit=None, skip_done=(), order="model_major",
              on_session_start=None, on_session_end=None):
     if emit is None:
@@ -1698,6 +1712,12 @@ def run_plan(runtime, plan, models, mode, out_path: Path, log=print, emit=None, 
         if (model, arm, seed) in skip_done:
             log(f"skip (done in --skip-done-from): {model} {arm} seed={seed}")
             continue
+        dl = _handover_deadline()
+        if dl is not None:   # session boundary: stop before the next session, rows so far kept
+            emit({"record": "deadline_stop", "mode": mode, "next_session": [model, arm, seed],
+                  "deadline": dl, "ts_utc": utc_iso()})
+            raise HandoverDeadline(f"handover deadline {dl.get('no_launch_after_utc')} passed; stopped before "
+                                   f"{model} {arm} seed={seed}")
         emit({"record": "heartbeat", "mode": mode, "model_id": model, "arm_id": arm, "seed": seed,
               "call2_mode": ARMS[arm]["call2_mode"], "ts_utc": utc_iso()})
         log(f"session: {model} {arm} seed={seed} turns={turns}")

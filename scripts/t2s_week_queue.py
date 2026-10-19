@@ -211,6 +211,79 @@ def build_optional() -> list[dict]:
              "expected_out": s["out"], "gate": {"requires_done": ID_PREFIX + s["gate"]}} for s in optional_specs()]
 
 
+# PULLS (2026-10-15, found at the window's start): the evo-t2s Ollama store had no qwen3:14b, which every R2 entry
+# uses and the preflight hard-checks. One job, its own file, loaded BEFORE queues/t2s_week_queue.json so it is the
+# first pending entry; t2s_wk_preflight (no gate) runs after it and checks the model is there. Nominal hours.
+PULLS_PATH = REPO / "queues" / "t2s_week_pulls.json"
+PULLS_EST_HOURS = 0.5   # nominal: one ~9 GB library pull plus a 1-token load check
+
+
+def build_pulls() -> list[dict]:
+    return [{"id": ID_PREFIX + "model_pull", "status": "pending",
+             "cmd": [T2S_PY, "t2s_model_pull.py", "--tags", "qwen3:14b", "--out", "results/t2s_model_pull_v1.jsonl"],
+             "note": f"T2S week pre-step: est {PULLS_EST_HOURS} h (nominal); pulls qwen3:14b (missing from the evo-t2s "
+                     f"store on 2026-10-15) with the pinned Ollama 0.34.4, verifies a 1-token load",
+             "plan_step": 0, "est_hours": PULLS_EST_HOURS, "est_basis": "nominal",
+             "expected_out": "results/t2s_model_pull_v1.jsonl"}]
+
+
+# OCT26 (staged 2026-10-15 for the requested 2026-10-26 to 2026-11-08 evo-t2s window, pending Zach's confirmation):
+# NOT loaded anywhere. B6 = R2 on qwen3:32b and llama3.3:70b at num_ctx 4096 (CPU, stock Ollama) and at the
+# iGPU-enabled native window (OLLAMA_IGPU_ENABLE=1, ollama_default); A5 = the context-window override methods job
+# (same command as the optional t2s_wk_window_override_methods). Hours: no timing of these models exists on evo-t2s,
+# so est_hours is null (basis "none"); the first validation entry's wall clock is the first real number.
+OCT26_PATH = REPO / "queues" / "t2s_oct26_queue.json"
+OCT26_PREFIX = "t2s_o26_"
+OCT26_MODELS = "qwen3:32b,llama3.3:70b"
+OCT26_NEG_CTX = "32768"   # validation negative control: x2_r2_llama_val_32k's precedent; 131072 does not fit 70B here
+# key -> why it is not in the file yet
+OCT26_PENDING = {"b5_policy_comparison": "B5 policy comparison: another agent is building the job; add its entry to "
+                                         "oct26_specs() (gated on t2s_o26_preflight) when it lands on main"}
+
+
+def oct26_specs() -> list[dict]:
+    p = OCT26_PREFIX
+    vc, vg = "results/t2s_r2_b6_validation_cpu_v1.jsonl", "results/t2s_r2_b6_validation_igpu_v1.jsonl"
+    gates = ["--require-validation-gates", "--per-model-refusal"]
+    real = ["--plan", "strong", "--call2-tools", "off", "--order", "seed_major"]
+    return [
+        {"id": p + "preflight", "gate": None, "cmd": [T2S_PY, "t2s_week_preflight.py"],
+         "out": "results/t2s_week_preflight.jsonl", "what": "start check (host, handover file, versions, files)"},
+        {"id": p + "b6_model_pull", "gate": p + "preflight",
+         "cmd": [T2S_PY, "t2s_model_pull.py", "--tags", OCT26_MODELS, "--out", "results/t2s_model_pull_b6_v1.jsonl"],
+         "out": "results/t2s_model_pull_b6_v1.jsonl",
+         "what": "pull qwen3:32b (about 20 GB) and llama3.3:70b (about 43 GB) with the pinned 0.34.4, 1-token check"},
+        {"id": p + "window_override_methods", "gate": p + "preflight",
+         "cmd": [T2S_PY, "window_override_methods.py", "--out", "results/t2s_window_override_methods_v1.jsonl",
+                 "--queue"],
+         "out": "results/t2s_window_override_methods_v1.jsonl", "what": "A5 Ollama window override checks (0.3 h)"},
+        {"id": p + "b6_val_cpu", "gate": p + "b6_model_pull",
+         "cmd": _r2("validation", "cpu_default", vc, "--models", OCT26_MODELS, "--call2-tools", "off",
+                    "--neg-ctx", OCT26_NEG_CTX),
+         "out": vc, "what": "B6 validation + controls, CPU"},
+        {"id": p + "b6_val_igpu", "gate": p + "b6_model_pull",
+         "cmd": _r2("validation", "igpu_enable", vg, "--models", OCT26_MODELS, "--call2-tools", "off",
+                    "--neg-ctx", OCT26_NEG_CTX),
+         "out": vg, "what": "B6 validation + controls, OLLAMA_IGPU_ENABLE=1"},
+        {"id": p + "b6_real_cpu_4096", "gate": p + "b6_val_cpu",
+         "cmd": _r2("real", "cpu_default", "results/t2s_r2_b6_real_cpu_4096_v1.jsonl", "--models", OCT26_MODELS,
+                    *real, "--tiers", "ollama_ctx_4096", "--rules-from", vc, *gates),
+         "out": "results/t2s_r2_b6_real_cpu_4096_v1.jsonl", "what": "B6 real, num_ctx 4096, CPU, 5 seeds x 40 turns"},
+        {"id": p + "b6_real_igpu_default", "gate": p + "b6_val_igpu",
+         "cmd": _r2("real", "igpu_enable", "results/t2s_r2_b6_real_igpu_v1.jsonl", "--models", OCT26_MODELS,
+                    *real, "--tiers", "ollama_default", "--rules-from", vg, *gates),
+         "out": "results/t2s_r2_b6_real_igpu_v1.jsonl",
+         "what": "B6 real, iGPU-enabled native window (ollama_default), 5 seeds x 40 turns"},
+    ]
+
+
+def build_oct26() -> list[dict]:
+    return [{"id": s["id"], "cmd": s["cmd"], "status": "pending",
+             "note": f"STAGED for the 2026-10-26 window (not loaded): {s['what']}; est hours: none (no evo-t2s timing)",
+             "est_hours": None, "est_basis": "none", "expected_out": s["out"], "staged_for": "2026-10-26..2026-11-08",
+             **({"gate": {"requires_done": s["gate"]}} if s["gate"] else {})} for s in oct26_specs()]
+
+
 def job_specs() -> list[dict]:
     """The queued jobs in queue order (every spec not in DEFERRED)."""
     return [s for s in _all_specs() if s["key"] not in DEFERRED]
@@ -326,16 +399,19 @@ ADVANCING_SCRIPTS = {  # script -> the test that proves one tq.advance() on exit
     "t2s_r2_agent.py": "tests/test_t2s_r2_agent.py::test_main_advances_exactly_once_*",
     "t2s_night2.py": "tests/test_t2s_week_queue.py::test_night2_main_advances_once",
     "t2s_outcome_table.py": "tests/test_t2s_outcome_subset.py::test_main_advances_once_when_queued",
+    "t2s_model_pull.py": "tests/test_t2s_model_pull.py::test_main_advances_exactly_once_*",
+    "window_override_methods.py":
+        "tests/test_window_override_methods.py::test_main_queue_advances_once_and_writes_every_record",
 }
 
 
-def check_entry(item, earlier_ids, x2_result_names) -> dict:
+def check_entry(item, earlier_ids, x2_result_names, prefix=ID_PREFIX) -> dict:
     """Every check for one queue entry, with the harness's own parser and no side effects."""
     import argparse_probe
     problems, info = [], {}
     cmd = item["cmd"]
-    if not item["id"].startswith(ID_PREFIX):
-        problems.append(f"id {item['id']!r} lacks prefix {ID_PREFIX!r}")
+    if not item["id"].startswith(prefix):
+        problems.append(f"id {item['id']!r} lacks prefix {prefix!r}")
     gate = (item.get("gate") or {}).get("requires_done")
     if gate and gate not in earlier_ids:
         problems.append(f"gate {gate!r} is not an earlier entry")
@@ -397,6 +473,13 @@ def check_entry(item, earlier_ids, x2_result_names) -> dict:
             for ph in res["namespace"]["phases"].split(","):
                 if ph not in n2.PHASE_FN:
                     problems.append(f"unknown night2 phase {ph!r}")
+    elif script in ("t2s_model_pull.py", "window_override_methods.py"):
+        import importlib
+        mod = importlib.import_module(script[:-3])
+        res = argparse_probe.probe(mod.main, argv)
+        info["parse_ok"] = res["ok"]
+        if not res["ok"]:
+            problems.append(f"{script} rejects argv: {res['error']}")
     elif script == "t2s_week_preflight.py":
         info["parse_ok"] = not argv
         if argv:
@@ -404,17 +487,17 @@ def check_entry(item, earlier_ids, x2_result_names) -> dict:
     return {"id": item["id"], "ok": not problems, "problems": problems, **info}
 
 
-def dry_run(items=None) -> dict:
+def dry_run(items=None, prefix=ID_PREFIX) -> dict:
     items = items if items is not None else json.loads(QUEUE_PATH.read_text(encoding="utf-8"))
     x2_names = {p.name for p in (REPO / "results").glob("x2_*")}
     ids, results = [], []
     if len({it["id"] for it in items}) != len(items):
         results.append({"id": "<queue>", "ok": False, "problems": ["duplicate ids"]})
     for it in items:
-        results.append(check_entry(it, set(ids), x2_names))
+        results.append(check_entry(it, set(ids), x2_names, prefix=prefix))
         ids.append(it["id"])
-    total = sum(it.get("est_hours", 0) for it in items)
-    within = sum(it.get("est_hours", 0) for it in items if not it.get("beyond_budget"))
+    total = sum(it.get("est_hours") or 0 for it in items)
+    within = sum(it.get("est_hours") or 0 for it in items if not it.get("beyond_budget"))
     return {"ok": all(r["ok"] for r in results), "entries": results, "total_hours": round(total, 1),
             "hours_within_budget": round(within, 1), "budget_hours": BUDGET_H,
             "deferred": {ID_PREFIX + k: v for k, v in DEFERRED.items()},
@@ -439,6 +522,63 @@ def load(queue_json, tq=None) -> list[str]:
     return [it["id"] for it in new]
 
 
+LOAD_PAUSE_REASON = ("t2s_week_queue load-window: one read-modify-write of queue_state.json; released by the same "
+                     "command's finally block (t2s_queue.clear_pause), no person needed")
+
+
+def load_window(queue_jsons, tq=None) -> list[str]:
+    """Appends the entries of several queue files, in order, as ONE read-modify-write of queue_state.json under the
+    queue pause (set_pause with a reason naming its release, clear_pause in a finally block). Refuses (writes nothing)
+    if an existing entry is pending or running (an old job would launch) or if any id is already present."""
+    if tq is None:
+        import t2s_queue as tq
+    new = []
+    for p in queue_jsons:
+        new += json.loads(Path(p).read_text(encoding="utf-8-sig"))
+    tq.set_pause(LOAD_PAUSE_REASON)
+    try:
+        cur = tq.read_queue()
+        live = [f"{it['id']}={it.get('status')}" for it in cur if it.get("status") in ("pending", "running")]
+        if live:
+            raise SystemExit(f"refusing to load: existing entries are pending or running: {live}")
+        ids = [it["id"] for it in new]
+        clash = sorted(set(ids) & {it["id"] for it in cur})
+        if clash or len(set(ids)) != len(ids):
+            raise SystemExit(f"refusing to load: duplicate or existing ids: {clash or ids}")
+        for it in new:
+            it["status"] = "pending"
+        tq.write_queue(cur + new)
+        return ids
+    finally:
+        tq.clear_pause()
+
+
+def requeue(entry_id, why, tq=None) -> dict:
+    """Sets one finished-with-error entry back to pending (same position), keeping its old note under
+    "previous_runs", as one read-modify-write under the queue pause (cleared in finally). Refuses while anything is
+    running or if the entry is not in error/crashed/failed_max_attempts."""
+    if tq is None:
+        import t2s_queue as tq
+    tq.set_pause(LOAD_PAUSE_REASON.replace("load-window", "requeue"))
+    try:
+        cur = tq.read_queue()
+        if any(it.get("status") == "running" for it in cur):
+            raise SystemExit("refusing to requeue: an entry is running")
+        it = next((x for x in cur if x["id"] == entry_id), None)
+        if it is None or it.get("status") not in ("error", "crashed", "failed_max_attempts"):
+            raise SystemExit(f"refusing to requeue {entry_id!r}: status {it and it.get('status')!r}")
+        it.setdefault("previous_runs", []).append({k: it.get(k) for k in ("status", "note", "started_ts",
+                                                                          "finished_ts", "pid")})
+        for k in ("pid", "started_ts", "finished_ts", "launch_result"):
+            it.pop(k, None)
+        it["status"] = "pending"
+        it["requeue_reason"] = why
+        tq.write_queue(cur)
+        return it
+    finally:
+        tq.clear_pause()
+
+
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     cmd = argv[0] if argv else "dry-run"
@@ -446,6 +586,25 @@ def main(argv=None):
         QUEUE_PATH.parent.mkdir(parents=True, exist_ok=True)
         QUEUE_PATH.write_text(json.dumps(build_queue(), indent=1) + "\n", encoding="utf-8")
         print(f"wrote {QUEUE_PATH}")
+    elif cmd == "build-pulls":
+        PULLS_PATH.write_text(json.dumps(build_pulls(), indent=1) + "\n", encoding="utf-8")
+        print(f"wrote {PULLS_PATH}")
+    elif cmd == "dry-run-pulls":
+        items = json.loads(PULLS_PATH.read_text(encoding="utf-8"))
+        rep = dry_run(items)
+        rep["fresh_build_matches_file"] = items == build_pulls()
+        print(json.dumps(rep, indent=1))
+        return 0 if rep["ok"] and rep["fresh_build_matches_file"] else 1
+    elif cmd == "build-oct26":
+        OCT26_PATH.write_text(json.dumps(build_oct26(), indent=1) + "\n", encoding="utf-8")
+        print(f"wrote {OCT26_PATH} (staged, NOT loaded)")
+    elif cmd == "dry-run-oct26":
+        items = json.loads(OCT26_PATH.read_text(encoding="utf-8"))
+        rep = dry_run(items, prefix=OCT26_PREFIX)
+        rep["fresh_build_matches_file"] = items == build_oct26()
+        rep["pending_not_in_file"] = OCT26_PENDING
+        print(json.dumps(rep, indent=1))
+        return 0 if rep["ok"] and rep["fresh_build_matches_file"] else 1
     elif cmd == "build-optional":
         OPTIONAL_PATH.write_text(json.dumps(build_optional(), indent=1) + "\n", encoding="utf-8")
         print(f"wrote {OPTIONAL_PATH}")
@@ -460,6 +619,12 @@ def main(argv=None):
     elif cmd == "load":
         ids = load(argv[1])
         print(f"loaded {len(ids)} pending entries: {ids}")
+    elif cmd == "requeue":
+        it = requeue(argv[1], " ".join(argv[2:]) or "requeued")
+        print(f"requeued {it['id']} as pending: {it['requeue_reason']}")
+    elif cmd == "load-window":
+        ids = load_window(argv[1:])
+        print(f"loaded {len(ids)} pending entries under the queue pause (cleared): {ids}")
     else:
         raise SystemExit(f"unknown command {cmd!r}")
     return 0

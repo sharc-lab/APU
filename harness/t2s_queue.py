@@ -68,6 +68,49 @@ def is_paused() -> dict | None:
         return {"ts_utc_epoch": None, "reason": "unparseable pause flag content; treating as paused"}
 
 
+# Handover deadline (2026-10-14, evo-t2s window 2026-10-15 to 2026-10-18 ET). Written by harness/t2s_deadline.py arm.
+# While the file exists and its no_launch_after_utc has passed, launch_next() launches nothing (from advance() and
+# from the watchdog alike), queue jobs that call deadline_reached() stop at their next item boundary, and
+# queue_watchdog.tick() runs t2s_deadline.handover() once the running job has finished or the hard deadline is near.
+# No file = no deadline, behavior exactly as before.
+DEADLINE_FILE = Path(r"C:\apu\ovn\queue_deadline.json")
+
+
+def read_deadline(path=None) -> dict | None:
+    """The deadline record, or None if no deadline is armed. An unreadable file counts as a deadline that has
+    already passed (fail safe: block launches), the same rule is_paused() applies to a corrupt pause flag."""
+    path = Path(path) if path is not None else DEADLINE_FILE
+    if not path.exists():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8-sig"))
+    except Exception:
+        return {"no_launch_after_utc": "1970-01-01T00:00:00+00:00", "hard_deadline_utc": "1970-01-01T00:00:00+00:00",
+                "unparseable": True}
+
+
+def _epoch(iso):
+    from datetime import datetime, timezone
+    dt = datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.timestamp()
+
+
+def deadline_reached(now=None, path=None) -> dict | None:
+    """The deadline record if its no_launch_after_utc has passed (no new launch, stop at the next item boundary),
+    else None."""
+    d = read_deadline(path)
+    if d is None:
+        return None
+    now = time.time() if now is None else now
+    try:
+        due = _epoch(d["no_launch_after_utc"])
+    except Exception:
+        due = 0.0
+    return d if now >= due else None
+
+
 def read_queue():
     if not QUEUE_FILE.exists():
         return []
@@ -182,6 +225,10 @@ def launch_next(items, cleanup_fn=_default_pre_launch_cleanup):
     Shared by advance() (called from inside a finished run's own process) and queue_watchdog.py (called from an
     independent, always-on scheduled task) so the launch bookkeeping is identical either way. Returns the launched
     entry, or None if nothing eligible could be launched."""
+    dl = deadline_reached()
+    if dl is not None:
+        print(f"queue: handover deadline {dl.get('no_launch_after_utc')} has passed; launching nothing")
+        return None
     failed_this_call = set()
     max_attempts = sum(1 for it in items if it["status"] == "pending") or 1
     for _attempt in range(max_attempts):
@@ -315,6 +362,8 @@ def advance(note, cleanup_fn=_default_pre_launch_cleanup):
         still_pending = [it["id"] for it in items if it["status"] == "pending"]
         reason = (f"all {len(still_pending)} remaining pending entries are gate-blocked: {still_pending}"
                   if still_pending else "no pending entry left after the current run finished")
+        if deadline_reached() is not None:
+            reason = f"handover deadline passed, nothing launched; still pending: {still_pending}"
         write_empty_flag(items, reason)
 
 

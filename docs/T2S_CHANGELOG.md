@@ -66,3 +66,50 @@ going forward, not idle in the background between them.
 
 **Revert:** none needed (no persistent setting was changed; the server was only ever a plain foreground-launched
 process). To restart it for a K1/K2 run: the same WMI `Win32_Process Create` launch documented in the entry above.
+
+## 2026-10-15 -- window opened: preflight facts, Windows Update paused to 2026-11-10
+
+Window 2026-10-15 00:00 ET to 2026-10-18 23:59 ET (handover to Zach). Facts, all in
+`results/t2s_window_20261015_preflight.json`: OS build 26200.9711 (25H2), Intel Arc B390 GPU driver 32.0.101.8509,
+Intel NPU driver 32.0.100.4512, Tailscale 1.102.3 with ForceDaemon (run unattended) true and the service set to Auto
+(read only, nothing changed), nobody logged in, no pending reboot, the 2026-10-02 handover record present.
+
+**What:** Windows Update paused until 2026-11-10T23:59:59Z. Under
+`HKLM\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings`: PauseUpdatesStartTime, PauseQualityUpdatesStartTime,
+PauseFeatureUpdatesStartTime = 2026-10-15T04:39:56Z and PauseUpdatesExpiryTime, PauseQualityUpdatesEndTime,
+PauseFeatureUpdatesEndTime = 2026-11-10T23:59:59Z (all six were absent before). Policy
+`HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\ExcludeWUDriversInQualityUpdate` was already 1 and was
+rewritten as 1. No restart.
+**Why:** operator instruction 2026-10-14, so an update reboot cannot kill a running job during this window or the
+requested 2026-10-26 to 2026-11-08 window, and no driver changes under the measurements.
+**Revert:** `Remove-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings' -Name
+PauseUpdatesStartTime,PauseUpdatesExpiryTime,PauseQualityUpdatesStartTime,PauseQualityUpdatesEndTime,PauseFeatureUpdatesStartTime,PauseFeatureUpdatesEndTime`
+(leave ExcludeWUDriversInQualityUpdate, it predates this window).
+
+## 2026-10-15 -- Ollama 0.34.4 installed side by side (C:\apu\bin\ollama-0.34.4)
+
+**What:** the v0.34.4 Windows zip (`ollama-windows-amd64.zip`, 1461155106 bytes, SHA-256
+535193F38F3344E5B08F5D1C171C31CE11AA17F0124FF69AE26D8EC7FE06FA62) downloaded to `C:\apu\dl` and extracted to
+`C:\apu\bin\ollama-0.34.4` (ollama.exe SHA-256 D571E4CF0AD4456FCCD33D5B985B6D63BA5669C6E5A812391704083952AAE3D5, the
+same exe as the Blade's pinned 0.34.4), and `C:\apu\ovn\ollama_pin.json` pointing the queued jobs at it. The per-user
+install (`<profile>\AppData\Local\Programs\Ollama`, 0.33.2) is untouched.
+**Why:** every evo-x2 R2 and outcome-table row was measured with Ollama 0.34.4; the T2S week (docs/T2S_WEEK_PLAN.md)
+must run the same version.
+**Revert:** `Remove-Item -Recurse -Force C:\apu\bin\ollama-0.34.4, C:\apu\ovn\ollama_pin.json, C:\apu\dl`
+
+## 2026-10-15 -- T2S week queue loaded, watchdog re-enabled, handover deadline armed
+
+**What:** deployed the week's files (scripts/deploy_evo.py; the per-file blob and source commit are in
+`C:\apu\ovn\expected_blobs.json`), later also the fixed `t2s_week_preflight.py` (the first preflight run parsed the
+b10970 version line as build 0; requeued with `t2s_week_queue.py requeue`, passed 2026-10-15T05:03Z), including the new `t2s_deadline.py` and
+`t2s_model_pull.py`; loaded `t2s_week_pulls.json` (qwen3:14b pull, missing from the store) and
+`t2s_week_queue.json` as one read-modify-write (`t2s_week_queue.py load-window`); that command's own pause replaced the
+2026-10-02 handover pause flag and its finally block cleared it. `C:\apu\ovn\queue_deadline.json` armed: no launch
+after 2026-10-19T03:00Z, running job killed at the first watchdog tick after 03:20Z (before 03:30Z), then pause
+"handover to Zach 2026-10-18; resume only in the next confirmed window", our Ollama/llama-server/python stopped and
+`HANDOVER_DONE.json` written (harness/t2s_deadline.py). `Enable-ScheduledTask APU-QueueWatchdog` (the task the
+2026-10-02 handover disabled; not re-registered); first launch t2s_wk_model_pull at 2026-10-15T04:48:33Z. Two helper
+scripts used for the facts and the update pause are in `C:\apu\ovn` (t2s_facts.ps1, t2s_wu_pause.ps1).
+**Why:** operator instructions 2026-10-14, docs/T2S_WEEK_PLAN.md.
+**Revert:** at handover the deadline job pauses the queue by itself. To stop sooner: `Disable-ScheduledTask
+APU-QueueWatchdog`; `Remove-Item C:\apu\ovn\queue_deadline.json` removes the deadline (only with the watchdog stopped).

@@ -1,7 +1,7 @@
 # evo-t2s week plan (machine back about 2026-10-15)
 
-Status: staged, nothing run. evo-t2s is off limits (no SSH, no scp, no queue changes) until the operator says so.
-Every command below that touches evo-t2s is for that moment, not before. No evo-x2 time is used by this plan.
+Status (2026-10-15): RUNNING in the window 2026-10-15 00:00 ET to 2026-10-18 23:59 ET; see "Window 2026-10-15" at
+the end for what was done at the start and the handover deadline. No evo-x2 time is used by this plan.
 `<profile>` below is the evo-t2s user's profile directory (C: drive, Users, then `HOSTS["EVO-T2S"]["user"]` from
 `harness/host_config.py`); `scripts/t2s_week_queue.host_python()` builds the interpreter path from it.
 
@@ -346,3 +346,36 @@ interactive-session guard applies (refuses while anyone is logged in). To use it
 6. qwen3:14b at num_ctx 131072 (negative control) on the CPU and on the iGPU: about 20 GB of KV cache at f16 on a
    63.5 GB machine; the last T2S outcome run saw allocation failures at far smaller sizes. If the validation entry
    fails on memory, is a smaller negative-control context acceptable for evo-t2s?
+
+## Window 2026-10-15 (what was done at the start)
+
+Facts and changes: `results/t2s_window_20261015_preflight.json`, `docs/T2S_CHANGELOG.md` (2026-10-15 entries).
+- Step 0 findings: the handover record is the 2026-10-02 one (not 10-06); the 2026-10-02 handover pause flag was still
+  set and was replaced and cleared by the load below; Ollama per-user 0.33.2, so 0.34.4 was installed side by side and
+  pinned as in "Versions" above; llama.cpp b10970 confirmed; **qwen3:14b was missing from the Ollama store**.
+- Added job `t2s_wk_model_pull` (`harness/t2s_model_pull.py`, `queues/t2s_week_pulls.json`, nominal 0.5 h) ahead of
+  the preflight. Load command used, one read-modify-write under the queue pause cleared in its finally block (refuses
+  if an old entry is pending or running):
+  `python t2s_week_queue.py load-window t2s_week_pulls.json t2s_week_queue.json`.
+- Handover deadline (operator instruction 4): `C:\apu\ovn\queue_deadline.json`, armed with
+  `python t2s_deadline.py arm --no-launch-after 2026-10-19T03:00:00Z --hard-deadline 2026-10-19T03:30:00Z`. After
+  03:00Z (23:00 ET) nothing launches and R2 jobs stop at their next session boundary; a job still running is killed at
+  the first watchdog tick after 03:20Z (so before 03:30Z); then the watchdog sets the pause "handover to Zach
+  2026-10-18; resume only in the next confirmed window", stops our Ollama/llama-server/python and writes
+  HANDOVER_DONE.json (`harness/t2s_deadline.py`, tests `tests/test_t2s_deadline.py`). Released only by the next
+  window's operator (`t2s_queue.clear_pause()`).
+- Trim rule: re-estimate from the first jobs' wall clocks after 2a; projected end at start was about 72.5 h after the
+  first launch (2026-10-15T04:48Z), about 21 h before the deadline.
+
+## Staged for 2026-10-26 to 2026-11-08 (pending Zach's confirmation; NOT loaded)
+
+`queues/t2s_oct26_queue.json` (`py -3.12 scripts/t2s_week_queue.py build-oct26`, check with `dry-run-oct26`, all 7
+entries pass): t2s_o26_preflight; t2s_o26_b6_model_pull (qwen3:32b, llama3.3:70b); t2s_o26_window_override_methods
+(A5); B6 validation on CPU and with OLLAMA_IGPU_ENABLE=1 (negative control at num_ctx 32768, the
+x2_r2_llama_val_32k precedent, since 131072 cannot fit llama3.3:70b on this 63.5 GB machine); B6 real at num_ctx 4096
+on the CPU and at the iGPU-enabled native window (ollama_default), 5 seeds x 40 turns, gated per model on its own
+validation. No timing of these models exists on evo-t2s, so the entries carry no hour estimate. The B5 policy
+comparison job is not in the file yet (another agent is building it; `OCT26_PENDING` names where it goes). Deploy at
+that window: the week's file list plus `window_override_methods.py`, then
+`python t2s_week_queue.py load-window t2s_oct26_queue.json` and a new deadline. Open: whether llama3.3:70b on the CPU
+at 32768 (about 42 GB weights plus KV) fits next to the OS; the validation job will show it.

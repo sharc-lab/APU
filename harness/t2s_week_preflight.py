@@ -59,7 +59,8 @@ DEPLOYED_FILES = ("t2s_queue.py", "queue_watchdog.py", "stale_server_cleanup.py"
                   "t2s_k1_ollama.py",
                   "t2s_outcome_table.py", "chat_template_source.py", "t2s_night2.py", "t2s_lab.py", "t2s_overnight.py",
                   "t2s_amech.py", "level_zero_sysman.py", "win_cpu_topology.py", "bw_hog.py",
-                  "spin_hog_affinity.py", "t2s_m3_power_coupling.py", "run_provenance.py", "server_guard.py")
+                  "spin_hog_affinity.py", "t2s_m3_power_coupling.py", "run_provenance.py", "server_guard.py",
+                  "t2s_deadline.py", "t2s_model_pull.py", "window_override_methods.py")
 # t2s_outcome_table.py's flat layout reads these relative to C:\apu\ovn (analysis/ next to it marks that layout).
 DATA_FILES = (Path("results") / "workload_pack" / "item_weights_trace_weighted.json",
               Path("results") / "workload_pack" / "grade.py",
@@ -98,8 +99,10 @@ def parse_ollama_version(text) -> str | None:
 
 
 def parse_llama_build(text) -> str | None:
-    """llama.cpp --version prints 'version: 10970 (bfdc3218)'."""
-    m = re.search(r"version:\s*(\d+)", text or "")
+    """llama.cpp --version prints 'version: 10970 (bfdc3218)' on older builds and, on the b10970 binaries actually in
+    C:\\apu\\bin\\llama-b10970 on evo-t2s (found 2026-10-15, the first preflight failed on it),
+    'version: 0.4.1-dev (build 10970, commit bfdc32183)'. The explicit 'build N' form wins."""
+    m = re.search(r"\(build\s+(\d+)", text or "") or re.search(r"version:\s*(\d+)\s*\(", text or "")
     return m.group(1) if m else None
 
 
