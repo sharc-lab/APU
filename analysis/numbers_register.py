@@ -4556,6 +4556,112 @@ def compute_x2_evalset_val_v1_gates(repo):
     return {"value": " / ".join(parts), "n": n}
 
 
+# B3 evalset validations v2 (2026-10-15, evo-x2, harness/x2_r2_evalset.py --design v2): the three files, each scored
+# with evaluate_gates_ext as the harness scores it (workload, guardrails), design v2.
+EVALSET_V2_FILES = {"tasks": ("results/x2_evalset_tasks_val_v2.jsonl", "evalset", False),
+                    "guard": ("results/x2_evalset_guard_val_v2.jsonl", "evalset", True),
+                    "replay": ("results/x2_evalset_replay_val_v2.jsonl", "replay", True)}
+EVALSET_V2_GATE_ORDER = ("baseline", "negative_control", "positive_control", "content_nonempty", "thinking_off",
+                         "task_tool", "rules678", "negative_control_window", "task_end_state", "replay_fidelity")
+
+
+def _evalset_v2_reports(repo):
+    _r2_agent_module()
+    import x2_r2_evalset as ev
+    out = {}
+    for name, (fn, workload, guard) in EVALSET_V2_FILES.items():
+        rows = ev.ag.read_rows(repo / fn)
+        if not rows:
+            raise FileNotFoundError(repo / fn)
+        if ev.file_design(rows) != "v2":
+            raise ValueError(f"{fn} is design {ev.file_design(rows)!r}, not v2")
+        out[name] = (rows, ev.evaluate_gates_ext(rows, workload, guard, "off", design="v2"))
+    return out
+
+
+def _pf(ok):
+    return "pass" if ok else "FAIL"
+
+
+def _evalset_v2_gate_text(name, g, rep, m):
+    """One gate's pass/fail with the numbers it was decided on."""
+    v = g[name].get(m)
+    if v is None:
+        return f"{name} n/a"
+    if name == "baseline":
+        t = rep["baseline_table"][m]["rules"]
+        return (f"baseline {_pf(v['pass'])} (" + ", ".join(f"{k.split('_')[0]} {e['rate']:.3f} of {e['n']}"
+                                                       for k, e in t.items() if e["rate"] is not None)
+                + f"; failing {v['failing_rules'] or 'none'})")
+    if name == "negative_control":
+        return (f"negative control {_pf(v['pass'])} (canary misses {v['canary_misses']} of {2 * v['canary_checks']} "
+                f"canaries, {v['canary_checks']} checks, {v['n_sessions']} sessions, loaded "
+                f"{v['loaded_context_values']})")
+    if name == "positive_control":
+        return (f"positive control {_pf(v['pass'])} (truncation detected turns {v['truncation_detected_turns']}, "
+                f"first over window {v['first_over_window_turns']}, loaded {v['loaded_context_values']})")
+    if name == "content_nonempty":
+        return f"content non-empty {_pf(v['pass'])} (empty finals {v['final_content_empty']})"
+    if name == "thinking_off":
+        return f"thinking off {_pf(v['pass'])} (thinking calls {v['thinking_present_calls']})"
+    if name == "task_tool":
+        return f"task tool {_pf(v['pass'])} {v['n_ok']}/{v['n']} ({v['rate']:.3f})"
+    if name == "rules678":
+        if not v["applies"]:
+            return "rules 6-8 not applicable (guardrails off)"
+        t = rep["rules678_table"][m]
+        return (f"rules 6-8 {_pf(v['pass'])} (" + ", ".join(
+            f"{k.split('_')[0]} {e['rate']:.3f} of {e['n']} bait turns" if e["rate"] is not None
+            else f"{k.split('_')[0]} not exercised" for k, e in t.items()) + ")")
+    if name == "negative_control_window":
+        return (f"negative-control window {_pf(v['pass'])} ({v['n_over_window']}/{v['n_turns']} turns over the "
+                f"loaded window, max final prompt {v['max_final_prompt_calibrated']})")
+    if name == "task_end_state":
+        return (f"task end state {_pf(v['pass'])} {v['n_ok']}/{v['n']} ({100 * v['rate']:.1f}%, bar "
+                f"{100 * v['threshold']:.0f}%)")
+    if name == "replay_fidelity":
+        return f"replay fidelity {_pf(v['pass'])} {v['n_within']}/{v['n_reachable']} within {v['tol']}"
+    return f"{name} {_pf(v.get('pass'))}"
+
+
+def compute_x2_evalset_val_v2_gates(repo):
+    """Every gate of the three v2 evalset validations (tasks, guard, replay) per model, with the numbers each gate was
+    decided on, as harness/x2_r2_evalset.evaluate_gates_ext (design v2) computes it on the committed files; then the
+    gates each model fails per validation."""
+    reps = _evalset_v2_reports(repo)
+    parts, n = [], 0
+    for name, (rows, rep) in reps.items():
+        g = rep["gates"]
+        n += sum(1 for r in rows if r.get("record") == "r2a_turn")
+        finished = any(r.get("record") == "run_end" for r in rows)
+        for m in sorted(rep["baseline_table"]):
+            gates = [x for x in EVALSET_V2_GATE_ORDER if x in g]
+            failing = [x for x in gates if g[x].get(m) is not None and not g[x][m]["pass"]
+                       and not (x == "rules678" and not g[x][m]["applies"])]
+            parts.append(f"{name} {m} (run finished {finished}): "
+                         + "; ".join(_evalset_v2_gate_text(x, g, rep, m) for x in gates)
+                         + f"; failing gates: {', '.join(failing) or 'none'}")
+    return {"value": " / ".join(parts), "n": f"{n} turns"}
+
+
+def compute_x2_evalset_val_v2_task_end_state(repo):
+    """The v2 task_end_state gate per validation and model (negative-control task turns with a correct end state
+    against the 90% bar), the end state by difficulty, and the tasks correct on every negative-control session."""
+    reps = _evalset_v2_reports(repo)
+    parts, n = [], 0
+    for name, (rows, rep) in reps.items():
+        te = rep["gates"]["task_end_state"]
+        for m in sorted(te):
+            v = te[m]
+            tt = rep["task_table"][m]
+            n += v["n"]
+            diff = ", ".join(f"{k} {d['n_ok']}/{d['n']}" for k, d in sorted(tt["by_difficulty"].items()))
+            parts.append(f"{name} {m}: {v['n_ok']}/{v['n']} ({100 * v['rate']:.1f}%) against the "
+                         f"{100 * v['threshold']:.0f}% bar, gate {_pf(v['pass'])}; by difficulty {diff}; tasks correct "
+                         f"on every negative-control session {len(tt['tasks_in_use'])}/{len(tt['tasks'])}")
+    return {"value": " / ".join(parts), "n": f"{n} negative-control task turns"}
+
+
 NUMBER_ENTRIES = [
     {"claim_id": "PX2-TTFT-gap", "description": "PX2 B4-vs-S4 TTFT gap range across 5 models",
      "compute": compute_px2_ttft_gap, "data_files": ["results/t2s_night2_20260930T135145Z.jsonl"],
@@ -5256,6 +5362,14 @@ NUMBER_ENTRIES = [
      "per model call by final-prompt size (10k-token buckets), per model, over-window turns apart",
      "compute": compute_x2_evalset_val_v1_call_times, "data_files": EVALSET_V1_FILES,
      "script_function": "analysis/evalset_val_diagnosis.py::call_time_buckets"},
+    {"claim_id": "x2-evalset-val-v2-gates", "description": "B3 evalset validations v2 (tasks, guard, replay) on "
+     "evo-x2: every gate per validation and model with the numbers it was decided on, and the failing gates",
+     "compute": compute_x2_evalset_val_v2_gates, "data_files": [v[0] for v in EVALSET_V2_FILES.values()],
+     "script_function": "analysis/numbers_register.py::compute_x2_evalset_val_v2_gates"},
+    {"claim_id": "x2-evalset-val-v2-task-end-state", "description": "B3 evalset validations v2: the task_end_state "
+     "gate (negative-control task turns with a correct end state, 90% bar) per validation and model, by difficulty",
+     "compute": compute_x2_evalset_val_v2_task_end_state, "data_files": [v[0] for v in EVALSET_V2_FILES.values()],
+     "script_function": "analysis/numbers_register.py::compute_x2_evalset_val_v2_task_end_state"},
 ]
 
 
