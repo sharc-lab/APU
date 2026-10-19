@@ -88,6 +88,14 @@ default, recorded in run_start as num_gpu:
                           server with its log next to --out (<stem>_serve.log), refuses if the Ollama tray app is
                           running, and writes one num_gpu_offload row per session with the "offloaded N/M layers to
                           GPU" lines of that session's log slice and the /api/ps VRAM share (harness/x2_num_gpu.py).
+Validation/real-mode option (2026-10-19, x2_r2_llama_val_32k_vulkan, pre-registered in docs/FINDINGS.md), off by
+default, recorded in run_start as backend / backend_env:
+  --backend vulkan        the job starts its own Ollama server with x2_backend.BACKEND_ENVS["vulkan"] set for that
+                          process only (OLLAMA_IGPU_ENABLE=1, OLLAMA_LLM_LIBRARY=vulkan, HIP_VISIBLE_DEVICES=-1) and its
+                          log next to --out (<stem>_serve.log), refuses if the Ollama tray app is running, refuses
+                          before any model call (backend_refused row) unless every "inference compute" line of the log
+                          says library=Vulkan and one names the 8060S, and writes one backend_session row per session
+                          from that session's log slice (harness/x2_backend.py). Request bodies are unchanged.
 
 Thinking: "think": false is sent for every qwen3 model (MODELS); every call records thinking_present (non-empty
 message.thinking) and think_tag_in_content, and a turn with either fails ("thinking_present" in turn_failures,
@@ -1821,6 +1829,11 @@ def build_arg_parser():
     ap.add_argument("--num-gpu", type=int, default=None,
                     help="validation/real mode: send options.num_gpu = N (model layers on the GPU) on every request; "
                          "own server log next to --out, one num_gpu_offload row per session (offload lines, VRAM share)")
+    # 2026-10-19, x2_r2_llama_val_32k_vulkan (pre-registered in docs/FINDINGS.md): harness/x2_backend.py.
+    ap.add_argument("--backend", choices=("vulkan",), default=None,
+                    help="validation/real mode: run the job's own Ollama server on this ggml backend (env for that "
+                         "process only), assert it from the server log before any model call (refuse otherwise) and "
+                         "record the backend evidence per session (backend_session rows)")
     return ap
 
 
@@ -1871,6 +1884,17 @@ def main(argv=None, advance=True):
             ap.error("--num-gpu and --num-keep are not combined")
         if args.num_gpu < 0:
             ap.error(f"--num-gpu must be >= 0, got {args.num_gpu}")
+    backend_env = None
+    if args.backend is not None:
+        import x2_backend as xb
+        if args.mode not in ("validation", "real"):
+            ap.error("--backend applies to --mode validation and --mode real only")
+        if args.num_keep or args.num_gpu is not None:
+            ap.error("--backend is not combined with --num-keep or --num-gpu")
+        backend_env = dict(xb.BACKEND_ENVS[args.backend])
+        clash = sorted(k for k in (extra_env or {}) if k in backend_env and extra_env[k] != backend_env[k])
+        if clash:
+            ap.error(f"--server-env {clash} conflicts with --backend {args.backend}'s own server env {backend_env}")
     neg_arm = NEG_ARM
     if args.mode == "validation":
         try:
@@ -1951,7 +1975,8 @@ def main(argv=None, advance=True):
               "hw_id": host_cfg.get("hw_id"), "interactive_session": interactive, "server_env_extra": extra_env,
               "tiers": tiers, "seeds": seeds, "allow_new_seeds": args.allow_new_seeds if seeds is not None else None,
               "neg_ctx": args.neg_ctx, "neg_sessions": args.neg_sessions, "num_keep": args.num_keep,
-              **({"num_gpu": args.num_gpu} if args.num_gpu is not None else {})})
+              **({"num_gpu": args.num_gpu} if args.num_gpu is not None else {}),
+              **({"backend": args.backend, "backend_env": backend_env} if args.backend is not None else {})})
         present = {Path(p).name: Path(p).exists() for p in rule_files}
         finished = {name: any(r.get("record") == "run_end" for r in vrows) for name, vrows in
                     ((Path(p).name, read_rows(Path(p))) for p in rule_files)}
@@ -1987,6 +2012,12 @@ def main(argv=None, advance=True):
                                    "does not stop the tray app")
             server_log = ng.server_log_for(out_path)
             hc.stop_ollama_server()   # start_ollama_server is a no-op while any Ollama runs; the log path must apply
+        if args.backend is not None:
+            if xb.tray_app_running():   # operator rule: never touch the Ollama tray app; refuse instead of stopping it
+                raise RuntimeError(f"the Ollama tray app is running; --backend {args.backend} needs the job's own server "
+                                   "and log and does not stop the tray app")
+            server_env, server_log = dict(backend_env), xb.server_log_for(out_path)
+            hc.stop_ollama_server()   # start_ollama_server is a no-op while any Ollama runs; the env must take effect
         if extra_env:   # --server-env: merged over the mode's own env; kept on runtime.server_env for recover()
             if server_env is None:
                 hc.stop_ollama_server()   # as above: the extra env must take effect
@@ -2007,6 +2038,21 @@ def main(argv=None, advance=True):
             emit({"record": "num_gpu_server", "num_gpu": args.num_gpu, "server_log": server_log,
                   "libraries": ng.parse_libraries(head), "ts_utc": utc_iso()})
             rec = ng.OffloadRecorder(runtime, server_log, emit, log)
+            session_hooks = {"on_session_start": rec.start, "on_session_end": rec.end}
+        if args.backend is not None:
+            head = xb.wait_for_inference_compute(server_log)
+            chk = xb.check_server_backend(head, args.backend)
+            emit({"record": "backend_server", "backend": args.backend, "backend_env": backend_env,
+                  "server_log": server_log, **chk, "ts_utc": utc_iso()})
+            if not chk["ok"]:
+                emit({"record": "backend_refused", "backend": args.backend, "reasons": chk["reasons"],
+                      "inference_compute": chk["inference_compute"], "ts_utc": utc_iso()})
+                note = (f"stopped: refused, backend {args.backend} not loaded (no result claimed): "
+                        + "; ".join(chk["reasons"]))[:400]
+                log(note)
+                return note
+            runtime = xb.BackendRuntime(runtime, args.backend)
+            rec = xb.BackendRecorder(runtime, server_log, emit, log)
             session_hooks = {"on_session_start": rec.start, "on_session_end": rec.end}
         avail = runtime.available_models()
         missing = [m for m in models if not any(same_tag(m, a) for a in avail)]

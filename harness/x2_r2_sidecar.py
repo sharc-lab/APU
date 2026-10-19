@@ -16,7 +16,9 @@ t2s_queue.advance() on exit, exactly as when the queue runs x2_r2_agent.py direc
   --sidecar-import-check   (first argument; the rest is the job's argv) imports the side copy as a module, checks it
                            and the modules it pulled in resolve to the expected directories, parses the argv with the
                            agent's own build_arg_parser(), prints the parsed args and, for --mode validation, the plan;
-                           then exits 0. No server start, no model call, no queue access.
+                           with --backend also the backend env, the server log path and whether the Ollama tray app
+                           runs (read-only process listing); then exits 0. No server start, no model call, no queue
+                           access.
 """
 from __future__ import annotations
 
@@ -52,6 +54,13 @@ def import_check(argv: list[str], here: Path = HERE) -> dict:
     for name in ("t2s_r2_session_growth", "t2s_queue", "host_config", "x2_r2_client_trim", "x2_r2_mechanism"):
         mod = importlib.import_module(name)
         out["modules"][name] = str(Path(mod.__file__).resolve())
+    if getattr(args, "backend", None):   # 2026-10-19, x2_r2_llama_val_32k_vulkan: the backend env and log, no server
+        xb = importlib.import_module("x2_backend")
+        for name in ("x2_backend", "x2_num_gpu"):
+            out["modules"][name] = str(Path(importlib.import_module(name).__file__).resolve())
+        out["backend_env"] = xb.BACKEND_ENVS[args.backend]
+        out["server_log"] = xb.server_log_for(args.out)
+        out["tray_app_running"] = xb.tray_app_running()
     if args.mode == "validation":
         plan, neg_arm = ag.validation_plan_neg(args.call2_tools, args.neg_ctx, args.neg_sessions)
         out["plan"] = [(a, list(s), t, ag.ARMS[a]["num_ctx"]) for a, s, t in plan]

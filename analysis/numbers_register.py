@@ -3922,6 +3922,117 @@ def compute_x2_r2_llama_val_32k_offload(repo):
     return {"value": value, "n": f"{e['n_turns'] if e else 0} turns", "detail": {"verdict": v, "gates": rep}}
 
 
+# Backend numerics check (pre-registered in docs/FINDINGS.md 2026-10-19, queue id x2_r2_llama_val_32k_vulkan): the
+# x2_r2_llama_val_32k validation with the job's own Ollama server on ggml's Vulkan backend (x2_r2_agent --backend
+# vulkan, harness/x2_backend.py). PENDING until its file is synced. Verdict rule pre-registered.
+X2_R2_LLAMA_VAL_32K_VULKAN = "results/x2_r2_llama_val_32k_vulkan.jsonl"
+X2_VULKAN_HOURS_UPPER_FACTOR = 3   # ASSUMPTION for the estimate only: Vulkan up to 3x the slowest measured sibling
+
+
+def x2_r2_llama_val_32k_vulkan_verdict(rows, ag, model="llama3.1:8b") -> dict:
+    """Pre-registered: refused (backend_refused row) -> "refused (Vulkan not loaded)"; else the x2_r2_llama_val_32k
+    validity and miss list (x2_r2_llama_val_32k_verdict) plus a verified backend_session row (harness/x2_backend.py
+    session_verified) for every negative-control seed. Valid and verified: 0 misses -> "follows the vendor (0 misses on
+    Vulkan)"; at least one miss and every missed canary turn a text tool call (any turn) -> "backend implementation, not
+    the vendor (text-tool-call misses on Vulkan)"; else "inconclusive (...)"."""
+    if any(r.get("record") == "backend_refused" for r in rows):
+        reasons = [x for r in rows if r.get("record") == "backend_refused" for x in r.get("reasons") or []]
+        return {"verdict": "refused (Vulkan not loaded)", "valid": False, "problems": reasons, "per_session": {},
+                "n_missed_canaries": 0, "n_canaries": 0, "misses": [], "pattern": "no result (refused)",
+                "backend_unverified": list(X2_VAL32K_SEEDS), "backend": {}}
+    base = x2_r2_llama_val_32k_verdict(rows, ag, model)
+    arm = X2_VAL32K_NEG_ARM + ag.MODE_SUFFIX["off"]
+    ses = {r["seed"]: r for r in rows if r.get("record") == "backend_session" and r.get("arm_id") == arm
+           and r.get("model_id") == model}
+    unverified = [s for s in X2_VAL32K_SEEDS if not (ses.get(s) or {}).get("verified")]
+
+    def why(s):
+        if s not in ses:
+            return f"{s}: no backend_session row"
+        r = ses[s]
+        return (f"{s}: offloaded {r.get('offloaded')}, libraries {r.get('gpu_memory_libraries')}, buffers "
+                f"{r.get('buffer_devices')}, ROCm/CUDA lines {len(r.get('forbidden_lines') or [])}")
+    if not base["valid"]:
+        verdict = base["verdict"]
+    elif unverified:
+        verdict = (f"inconclusive (backend not verified as Vulkan for seeds {unverified}: "
+                   + "; ".join(why(s) for s in unverified) + ")")
+    elif base["n_missed_canaries"] == 0 and not base["misses"]:
+        verdict = "follows the vendor (0 misses on Vulkan)"
+    elif base["misses"] and all(m["text_tool_call"] for m in base["misses"]):
+        verdict = "backend implementation, not the vendor (text-tool-call misses on Vulkan)"
+    else:
+        verdict = "inconclusive"
+    return {**base, "verdict": verdict, "backend_unverified": unverified,
+            "backend": {s: {k: r.get(k) for k in ("verified", "offloaded", "gpu_memory_libraries", "buffer_devices",
+                                                  "vulkan_devices", "forbidden_lines")}
+                        for s, r in sorted(ses.items())}}
+
+
+def compute_x2_r2_llama_val_32k_vulkan(repo):
+    """x2_r2_llama_val_32k_vulkan: the x2-r2-llama-val-32k measures plus the backend evidence (server-level inference
+    compute lines, per-session verification) and the pre-registered vendor / backend-implementation verdict."""
+    ag = _r2_agent_module()
+    rows = ag.read_rows(repo / X2_R2_LLAMA_VAL_32K_VULKAN)
+    if not rows:
+        raise FileNotFoundError(repo / X2_R2_LLAMA_VAL_32K_VULKAN)
+    ag.neg_arm_for_ctx(X2_VAL32K_NUM_CTX)
+    model = "llama3.1:8b"
+    v = x2_r2_llama_val_32k_vulkan_verdict(rows, ag, model)
+    srv = [r for r in rows if r.get("record") == "backend_server"]
+    ic = sorted({f"{x.get('library')} {x.get('description')}" for r in srv for x in r.get("inference_compute") or []})
+    if v["verdict"].startswith("refused"):
+        return {"value": f"{model}: inference compute {ic or 'none'}; verdict: {v['verdict']} "
+                         f"({'; '.join(v['problems'])})", "n": "0 turns", "detail": {"verdict": v}}
+    rep = ag.evaluate_gates(rows, call2_tools="off", neg_arm=X2_VAL32K_NEG_ARM)
+    e = rep["baseline_table"].get(model)
+    pos = rep["controls"]["positive"].get(model, {})
+    n_ok = sum(1 for b in v["backend"].values() if b.get("verified"))
+    value = (f"{model} --backend vulkan: {_r2_table_str(e) if e else 'no gate-arm turns'}; inference compute "
+             f"{ic or 'not logged'}; backend verified per negative-control session {n_ok}/{len(X2_VAL32K_SEEDS)}; "
+             f"negative control (num_ctx 32768) canary misses {v['n_missed_canaries']} of {v['n_canaries']} canaries "
+             f"over {len(v['per_session'])} sessions, per session "
+             + ", ".join(f"{s}: {m}" for s, m in v["per_session"].items())
+             + f"; missed turns: {v['pattern']}; positive control (8192) truncation turns "
+             f"{pos.get('truncation_detected_turns')}; verdict: {v['verdict']}")
+    return {"value": value, "n": f"{e['n_turns'] if e else 0} turns", "detail": {"verdict": v, "gates": rep}}
+
+
+def _file_wall_hours(path):
+    """First to last ts_utc of a result file, in hours (None when the file is missing or has no timestamps)."""
+    import datetime as _dt
+    import json as _json
+    if not path.exists():
+        return None
+    ts = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        try:
+            t = _json.loads(line).get("ts_utc")
+        except ValueError:
+            continue
+        if t:
+            ts.append(_dt.datetime.fromisoformat(t.replace("Z", "+00:00")))
+    return (max(ts) - min(ts)).total_seconds() / 3600 if len(ts) >= 2 else None
+
+
+def compute_x2_r2_llama_val_32k_vulkan_hours(repo):
+    """Duration estimate for x2_r2_llama_val_32k_vulkan from its measured siblings (same plan, same model): file wall
+    clock (first to last ts_utc) of x2_r2_llama_val_32k and, once synced, x2_r2_llama_val_32k_offload. ESTIMATE: the
+    fastest measured sibling to X2_VULKAN_HOURS_UPPER_FACTOR x the slowest (the factor is an assumption)."""
+    sibs = {"x2_r2_llama_val_32k": X2_R2_LLAMA_VAL_32K, "x2_r2_llama_val_32k_offload": X2_R2_LLAMA_VAL_32K_OFFLOAD}
+    hrs = {k: _file_wall_hours(repo / f) for k, f in sibs.items()}
+    if hrs["x2_r2_llama_val_32k"] is None:
+        raise FileNotFoundError(repo / X2_R2_LLAMA_VAL_32K)
+    got = [h for h in hrs.values() if h is not None]
+    lo, hi = min(got), X2_VULKAN_HOURS_UPPER_FACTOR * max(got)
+    parts = [f"{k} {h:.2f} h (measured, file wall clock)" if h is not None
+             else f"{k.replace('x2_r2_llama_val_32k_', '')} not synced" for k, h in hrs.items()]
+    value = (", ".join(parts) + f"; x2_r2_llama_val_32k_vulkan ESTIMATE {lo:.2f} to {hi:.2f} h (fastest sibling to "
+             f"{X2_VULKAN_HOURS_UPPER_FACTOR}x the slowest; the factor is an assumption, Vulkan speed on evo-x2 not "
+             "measured)")
+    return {"value": value, "n": f"{len(got)} sibling runs", "detail": hrs}
+
+
 # ───────────────────────────────────────────────── impact model (plan v2 A3, 2026-10-14)
 # analysis/impact_model.py prices each problem for the customer profile in results/impact_profile_20261014.json
 # (hour value cited from BLS; every other field an assumption). docs/IMPACT.md's profile table is these rows.
@@ -5116,6 +5227,16 @@ NUMBER_ENTRIES = [
                     "session, canary misses, pre-registered verdict (offload vs backend)",
      "compute": compute_x2_r2_llama_val_32k_offload, "data_files": [X2_R2_LLAMA_VAL_32K_OFFLOAD], "pending_ok": True,
      "script_function": "analysis/numbers_register.py::compute_x2_r2_llama_val_32k_offload"},
+    {"claim_id": "x2-r2-llama-val-32k-vulkan", "description": "Backend numerics check on evo-x2 (llama3.1:8b, "
+                    "negative control num_ctx 32768, 5 sessions, the job's own Ollama server on ggml Vulkan): backend "
+                    "evidence per session, canary misses, pre-registered verdict (vendor vs backend implementation)",
+     "compute": compute_x2_r2_llama_val_32k_vulkan, "data_files": [X2_R2_LLAMA_VAL_32K_VULKAN], "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_x2_r2_llama_val_32k_vulkan"},
+    {"claim_id": "x2-r2-llama-val-32k-vulkan-hours", "description": "Duration estimate for x2_r2_llama_val_32k_vulkan "
+                    "from the measured file wall clock of its siblings x2_r2_llama_val_32k and (once synced) "
+                    "x2_r2_llama_val_32k_offload",
+     "compute": compute_x2_r2_llama_val_32k_vulkan_hours, "data_files": [X2_R2_LLAMA_VAL_32K],
+     "script_function": "analysis/numbers_register.py::compute_x2_r2_llama_val_32k_vulkan_hours"},
 
     {"claim_id": "impact-hour-value", "description": "Impact profile: value of one developer hour (BLS median hourly "
                     "wage, cited source in the profile JSON)",
