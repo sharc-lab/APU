@@ -60,7 +60,8 @@ NEW_RUN_START_FIELDS = {"hw_id": "evo-x2", "interactive_session": CONSOLE_STATE,
                         "num_keep": None}  # real-mode option of 2026-10-13 (x2_num_keep_guardrail_test)
 NEW_ARGS = {"server_env": None, "tiers": None, "seeds": None, "allow_new_seeds": False,
             "neg_ctx": None, "neg_sessions": None, "num_keep": None,
-            "num_gpu": None}  # validation/real option of 2026-10-14 (x2_r2_llama_val_32k_offload); run_start only if set
+            "num_gpu": None,  # validation/real option of 2026-10-14 (x2_r2_llama_val_32k_offload); run_start only if set
+            "backend": None}  # validation/real option of 2026-10-19 (x2_r2_llama_val_32k_vulkan); run_start only if set
 
 
 class _Stop(Exception):
