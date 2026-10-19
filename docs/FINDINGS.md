@@ -3566,6 +3566,63 @@ The obvious fix works for one model and fails for another at the smallest window
 refutation clause applies to qwen3:14b at 4096: the system prompt was sent on every call and a rule still broke, so the
 context shift's loss of the system prompt is not the whole explanation there.
 
+## T2S R2 validations, llama3.1:8b baseline gate: every failed rule is an omission, none is a text tool call (2026-10-19, analysis only)
+
+**Status:** row-level diagnosis of two finished validation files; no machine time. Register row
+`t2s-r2-val-llama-diagnosis` (`analysis/t2s_llama_val_diagnosis.py::register_value`; `tests/test_t2s_llama_val_diagnosis.py`
+checks that every failed rule on every baseline turn has exactly one class and that the per-rule counts equal the
+harness gate's own rates, recomputed and as in the committed `.report.json`).
+
+**Files and question.** `results/t2s_r2_validation_cpu_v1.jsonl` (evo-t2s, Intel CPU) and
+`results/t2s_r2_validation_igpu_v1.jsonl` (evo-t2s, Intel iGPU), `harness/x2_r2_agent.py` in call-2 mode off, so the
+baseline arm is `ollama_ctx_131072_call2_notools` (the same arm as the negative control). On both files the
+llama3.1:8b baseline gate failed on `rule2_log_event_called` and `rule5_session_code`, and the real runs dropped those
+two rules from llama's rules in use; qwen3:14b passed every gate. Question: what failed, per turn, using the classes of
+the evalset v1 diagnosis (tool call written as text, omitted, wrong value, scoring problem; definitions in the module
+docstring, text-call detector reused from `analysis/evalset_val_diagnosis.py`).
+
+**Result** (pasted from `t2s-r2-val-llama-diagnosis`):
+
+| backend | baseline rules passed | canary misses | failed rules by class | by rule |
+|---|---|---|---|---|
+| Intel CPU | "rule1 30/30; rule2 17/30; rule3 30/30; rule4 15/15; rule5 19/30" | "0" | "failed rules 24 (omitted 24)" | "rule2 omitted 13; rule5 omitted 11" |
+| Intel iGPU | "rule1 30/30; rule2 18/30; rule3 30/30; rule4 15/15; rule5 9/30" | "0" | "failed rules 33 (omitted 33)" | "rule2 omitted 12; rule5 omitted 21" |
+
+Dominant class: "dominant class llama3.1:8b both backends: omitted". **The dominant class is not tool call as text**,
+so the cross-backend table of llama3.1:8b R2 validation outcomes (ROCm, CUDA, Intel CPU, Intel iGPU), which was to be
+built only if text tool calls dominated, was not built. No failed rule fell in tool call as text, wrong value or
+scoring problem on either backend.
+
+**What the omissions are.**
+- Rule 2. Pasted: CPU "rule2 passed by turn task log_event 15/15, lookup_fact 2/15", iGPU "rule2 passed by turn task
+  log_event 15/15, lookup_fact 3/15". Every rule 2 failure is on a lookup_fact turn, where the rule needs two native
+  calls on call 1 (log_event and lookup_fact). llama3.1:8b makes one native call, lookup_fact, and does not write
+  log_event as a text call in either call's content. Subtypes, pasted: CPU "rule2:omitted/other_tool_only 8,
+  rule2:omitted/claimed_in_answer_report 5", iGPU "rule2:omitted/other_tool_only 12". The CPU
+  `claimed_in_answer_report` turns are final answers whose optional "tool_calls" field lists log_event by name with no
+  arguments: a report of a call that was never made, classed as omitted. Counting those five as text tool calls instead
+  would still leave omitted as the dominant class.
+- Rule 5. Pasted: CPU "rule5:omitted/no session code in the answer 11", iGPU "rule5:omitted/no session code in the
+  answer 21". Each failing answer is a well-formed answer object (rule 1 passed on every turn) that does not contain the
+  session code at all: no other SC- code, no code in the wrong place, no trailing punctuation after it.
+
+**CPU vs iGPU.** Pasted: "CPU vs iGPU same (seed, turn): identical final text 8/30, identical native call names 29/30,
+identical system prompts 30/30". The prompts are the same and the tool-call choices are nearly the same; the answer
+wording differs, and with it how often the session code is left out (rule 5 above). The failure kind is the same on
+both backends.
+
+**Model build, temperature, seeds.** Pasted, identical for both files: "hw_id evo-t2s, Ollama 0.34.4, model digest not
+recorded, temperature not recorded per row, session seeds 20260901/20260902/20260903, call2 mode off". Neither file
+records a model digest (no digest field in run_start, runtime or any row), so that the CPU and iGPU runs used the same
+llama3.1:8b build is not verified from the files. Temperature 0 and request seed 42 are constants in the harness's
+request options (`harness/x2_r2_agent.py`), not recorded per row. No mismatch is visible in what the files do record.
+
+**qwen3:14b,** for completeness, pasted: "qwen3:14b failed rules Intel CPU 1 (wrong_value 1); Intel iGPU 0 (none)".
+
+**Reading.** On the two Intel backends llama3.1:8b's dropped rules are a behaviour of the model under the v1 two-call
+turn (one native call per lookup turn; the session code left out of the answer), not a harness or grader artifact and
+not text tool calls. The gate decision to drop the two rules for llama stands; nothing here argues for re-scoring.
+
 ## PRE-REGISTRATION: B3 task real runs, x2_evalset_tasks_real_v1 on evo-x2 (2026-10-14, NOT YET RUN)
 
 **Status:** PRE-REGISTRATION, written and committed before the real-mode code for this job is written or deployed and

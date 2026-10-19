@@ -4508,6 +4508,21 @@ def compute_x2_evalset_val_v1_diagnosis(repo):
     return D.register_value(repo)
 
 
+T2S_R2_VAL_FILES = ["results/t2s_r2_validation_cpu_v1.jsonl", "results/t2s_r2_validation_igpu_v1.jsonl"]
+
+
+def compute_t2s_r2_val_llama_diagnosis(repo):
+    """evo-t2s R2 validations (Intel CPU, Intel iGPU): llama3.1:8b baseline rule rates, negative-control canary misses
+    and one class per failed rule on every baseline turn (analysis/t2s_llama_val_diagnosis.py; docs/FINDINGS.md
+    2026-10-19)."""
+    import sys as _sys
+    p = str(repo / "analysis")
+    if p not in _sys.path:
+        _sys.path.insert(0, p)
+    import t2s_llama_val_diagnosis as T
+    return T.register_value(repo)
+
+
 def compute_x2_evalset_val_v1_call_times(repo):
     """Seconds per model call by final-prompt size bucket in the v1 evalset negative controls (the input of the v2
     duration estimate in docs/EVALSET_DESIGN.md 2026-10-14)."""
@@ -5252,6 +5267,12 @@ NUMBER_ENTRIES = [
      "rule 6-8 violation (executed vs text only)",
      "compute": compute_x2_evalset_val_v1_diagnosis, "data_files": EVALSET_V1_FILES,
      "script_function": "analysis/evalset_val_diagnosis.py::register_value"},
+    {"claim_id": "t2s-r2-val-llama-diagnosis", "description": "evo-t2s R2 validations v1 (Intel CPU, Intel iGPU), "
+     "llama3.1:8b baseline arm (ollama_ctx_131072_call2_notools): rule pass counts, canary misses, one class per failed "
+     "rule (tool call as text / omitted / wrong value / scoring problem) with subtypes, rule 2 by turn task, recorded "
+     "digest / temperature / seeds, CPU vs iGPU identity of matched turns, qwen3:14b failed rules",
+     "compute": compute_t2s_r2_val_llama_diagnosis, "data_files": T2S_R2_VAL_FILES,
+     "script_function": "analysis/t2s_llama_val_diagnosis.py::register_value"},
     {"claim_id": "x2-evalset-val-v1-call-times", "description": "B3 evalset validations v1, negative control: seconds "
      "per model call by final-prompt size (10k-token buckets), per model, over-window turns apart",
      "compute": compute_x2_evalset_val_v1_call_times, "data_files": EVALSET_V1_FILES,
