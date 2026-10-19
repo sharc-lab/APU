@@ -1,0 +1,171 @@
+{
+ "rules_in_use": {
+  "mistral-small3.2:24b": [
+   "rule1_json_keys",
+   "rule2_log_event_called",
+   "rule3_no_zebra",
+   "rule4_metres",
+   "rule5_session_code"
+  ]
+ },
+ "refused_models": {},
+ "missing": [],
+ "default_tier": {
+  "mistral-small3.2:24b": {
+   "include": false,
+   "reason": "not planned"
+  }
+ },
+ "kill_criterion": {
+  "killed": false,
+  "per_arm": {
+   "ollama_ctx_4096_call2_notools": {
+    "n_sessions": 3,
+    "n_silent_failures": 1,
+    "shows_silent_failure": true
+   },
+   "ollama_ctx_32768_call2_notools": {
+    "n_sessions": 3,
+    "n_silent_failures": 1,
+    "shows_silent_failure": true
+   }
+  }
+ },
+ "h_scale": {
+  "overall": "alternative supported",
+  "tested": [
+   "mistral-small3.2:24b"
+  ],
+  "per_model": {
+   "mistral-small3.2:24b": {
+    "rules_in_use": [
+     "rule1_json_keys",
+     "rule2_log_event_called",
+     "rule3_no_zebra",
+     "rule4_metres",
+     "rule5_session_code"
+    ],
+    "gated_fields": [
+     "rule1_json_keys",
+     "rule2_log_event_called",
+     "rule3_no_zebra",
+     "rule4_metres",
+     "rule5_session_code",
+     "tool_validity_all",
+     "tool_args_all",
+     "recall_ok"
+    ],
+    "tiers": {
+     "ollama_ctx_4096": {
+      "counts": {
+       "n": 3,
+       "exceeded_window": 3,
+       "silent_rule_after_window": 0,
+       "any_rule_after_window": 0,
+       "silent_gated_after_window": 0,
+       "history_lost_rules_held": 2
+      },
+      "per_seed": {
+       "20260901": {
+        "n_turns": 40,
+        "first_over_window": 3,
+        "first_error": null,
+        "first_rule_failure": 1,
+        "rule_failures_within_window": 1,
+        "rule_failure_after_window": false,
+        "silent_rule_failure_after_window": false,
+        "silent_rule_failure_turn": null,
+        "silent_gated_failure_after_window": false,
+        "canary_miss_over_window": true,
+        "first_canary_miss": 5
+       },
+       "20260902": {
+        "n_turns": 40,
+        "first_over_window": 3,
+        "first_error": null,
+        "first_rule_failure": null,
+        "rule_failures_within_window": 0,
+        "rule_failure_after_window": false,
+        "silent_rule_failure_after_window": false,
+        "silent_rule_failure_turn": null,
+        "silent_gated_failure_after_window": false,
+        "canary_miss_over_window": true,
+        "first_canary_miss": 5
+       },
+       "20260903": {
+        "n_turns": 40,
+        "first_over_window": 3,
+        "first_error": null,
+        "first_rule_failure": null,
+        "rule_failures_within_window": 0,
+        "rule_failure_after_window": false,
+        "silent_rule_failure_after_window": false,
+        "silent_rule_failure_turn": null,
+        "silent_gated_failure_after_window": false,
+        "canary_miss_over_window": true,
+        "first_canary_miss": 5
+       }
+      }
+     },
+     "ollama_ctx_32768": {
+      "counts": {
+       "n": 3,
+       "exceeded_window": 3,
+       "silent_rule_after_window": 0,
+       "any_rule_after_window": 0,
+       "silent_gated_after_window": 0,
+       "history_lost_rules_held": 2
+      },
+      "per_seed": {
+       "20260901": {
+        "n_turns": 40,
+        "first_over_window": 21,
+        "first_error": null,
+        "first_rule_failure": 1,
+        "rule_failures_within_window": 1,
+        "rule_failure_after_window": false,
+        "silent_rule_failure_after_window": false,
+        "silent_rule_failure_turn": null,
+        "silent_gated_failure_after_window": false,
+        "canary_miss_over_window": true,
+        "first_canary_miss": 25
+       },
+       "20260902": {
+        "n_turns": 40,
+        "first_over_window": 21,
+        "first_error": null,
+        "first_rule_failure": null,
+        "rule_failures_within_window": 0,
+        "rule_failure_after_window": false,
+        "silent_rule_failure_after_window": false,
+        "silent_rule_failure_turn": null,
+        "silent_gated_failure_after_window": false,
+        "canary_miss_over_window": true,
+        "first_canary_miss": 25
+       },
+       "20260903": {
+        "n_turns": 40,
+        "first_over_window": 21,
+        "first_error": null,
+        "first_rule_failure": null,
+        "rule_failures_within_window": 0,
+        "rule_failure_after_window": false,
+        "silent_rule_failure_after_window": false,
+        "silent_rule_failure_turn": null,
+        "silent_gated_failure_after_window": false,
+        "canary_miss_over_window": true,
+        "first_canary_miss": 25
+       }
+      }
+     }
+    },
+    "verdict": "alternative (resists rule loss)",
+    "at_4096": "resists rule loss",
+    "at_32768": "history loss with rules holding holds",
+    "R4096": 0,
+    "H32768": 2
+   }
+  },
+  "finished": true
+ }
+}

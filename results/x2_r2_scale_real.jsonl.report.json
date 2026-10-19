@@ -1,0 +1,375 @@
+{
+ "rules_in_use": {
+  "qwen3:32b": [
+   "rule1_json_keys",
+   "rule2_log_event_called",
+   "rule3_no_zebra",
+   "rule4_metres",
+   "rule5_session_code"
+  ],
+  "llama3.3:70b": [
+   "rule3_no_zebra",
+   "rule4_metres"
+  ]
+ },
+ "refused_models": {
+  "qwen3-30b-a3b-2507": [
+   "qwen3-30b-a3b-2507: negative control failed (canary misses 2 at num_ctx 131072)",
+   "qwen3-30b-a3b-2507: task tool called correctly on 25/30 baseline turns (< 90%, task-tool gate)"
+  ]
+ },
+ "missing": [],
+ "default_tier": {
+  "qwen3:32b": {
+   "include": true,
+   "reason": "planned default tier (operator)"
+  },
+  "qwen3-30b-a3b-2507": {
+   "include": true,
+   "reason": "planned default tier (operator)"
+  },
+  "llama3.3:70b": {
+   "include": false,
+   "projected_hours": 24.95846747451556,
+   "reason": "projected 25.0 h for 3 default sessions > cap 24.0 h"
+  }
+ },
+ "kill_criterion": {
+  "killed": false,
+  "per_arm": {
+   "ollama_ctx_4096_call2_notools": {
+    "n_sessions": 6,
+    "n_silent_failures": 6,
+    "shows_silent_failure": true
+   },
+   "ollama_ctx_32768_call2_notools": {
+    "n_sessions": 6,
+    "n_silent_failures": 4,
+    "shows_silent_failure": true
+   },
+   "ollama_default_call2_notools": {
+    "n_sessions": 3,
+    "n_silent_failures": 3,
+    "shows_silent_failure": true
+   }
+  }
+ },
+ "h_scale": {
+  "overall": "mixed",
+  "tested": [
+   "qwen3:32b",
+   "llama3.3:70b"
+  ],
+  "per_model": {
+   "qwen3:32b": {
+    "rules_in_use": [
+     "rule1_json_keys",
+     "rule2_log_event_called",
+     "rule3_no_zebra",
+     "rule4_metres",
+     "rule5_session_code"
+    ],
+    "gated_fields": [
+     "rule1_json_keys",
+     "rule2_log_event_called",
+     "rule3_no_zebra",
+     "rule4_metres",
+     "rule5_session_code",
+     "tool_validity_all",
+     "recall_ok"
+    ],
+    "tiers": {
+     "ollama_ctx_4096": {
+      "counts": {
+       "n": 3,
+       "exceeded_window": 3,
+       "silent_rule_after_window": 2,
+       "any_rule_after_window": 2,
+       "silent_gated_after_window": 2,
+       "history_lost_rules_held": 1
+      },
+      "per_seed": {
+       "20260901": {
+        "n_turns": 40,
+        "first_over_window": 3,
+        "first_error": null,
+        "first_rule_failure": 5,
+        "rule_failures_within_window": 0,
+        "rule_failure_after_window": true,
+        "silent_rule_failure_after_window": true,
+        "silent_rule_failure_turn": 5,
+        "silent_gated_failure_after_window": true,
+        "canary_miss_over_window": true,
+        "first_canary_miss": 5
+       },
+       "20260902": {
+        "n_turns": 40,
+        "first_over_window": 3,
+        "first_error": null,
+        "first_rule_failure": 8,
+        "rule_failures_within_window": 0,
+        "rule_failure_after_window": true,
+        "silent_rule_failure_after_window": true,
+        "silent_rule_failure_turn": 8,
+        "silent_gated_failure_after_window": true,
+        "canary_miss_over_window": true,
+        "first_canary_miss": 5
+       },
+       "20260903": {
+        "n_turns": 40,
+        "first_over_window": 3,
+        "first_error": null,
+        "first_rule_failure": null,
+        "rule_failures_within_window": 0,
+        "rule_failure_after_window": false,
+        "silent_rule_failure_after_window": false,
+        "silent_rule_failure_turn": null,
+        "silent_gated_failure_after_window": false,
+        "canary_miss_over_window": true,
+        "first_canary_miss": 5
+       }
+      }
+     },
+     "ollama_ctx_32768": {
+      "counts": {
+       "n": 3,
+       "exceeded_window": 3,
+       "silent_rule_after_window": 2,
+       "any_rule_after_window": 2,
+       "silent_gated_after_window": 3,
+       "history_lost_rules_held": 1
+      },
+      "per_seed": {
+       "20260901": {
+        "n_turns": 40,
+        "first_over_window": 20,
+        "first_error": null,
+        "first_rule_failure": 4,
+        "rule_failures_within_window": 5,
+        "rule_failure_after_window": true,
+        "silent_rule_failure_after_window": true,
+        "silent_rule_failure_turn": 20,
+        "silent_gated_failure_after_window": true,
+        "canary_miss_over_window": true,
+        "first_canary_miss": 25
+       },
+       "20260902": {
+        "n_turns": 40,
+        "first_over_window": 20,
+        "first_error": null,
+        "first_rule_failure": null,
+        "rule_failures_within_window": 0,
+        "rule_failure_after_window": false,
+        "silent_rule_failure_after_window": false,
+        "silent_rule_failure_turn": null,
+        "silent_gated_failure_after_window": true,
+        "canary_miss_over_window": true,
+        "first_canary_miss": 25
+       },
+       "20260903": {
+        "n_turns": 40,
+        "first_over_window": 21,
+        "first_error": null,
+        "first_rule_failure": 4,
+        "rule_failures_within_window": 6,
+        "rule_failure_after_window": true,
+        "silent_rule_failure_after_window": true,
+        "silent_rule_failure_turn": 24,
+        "silent_gated_failure_after_window": true,
+        "canary_miss_over_window": true,
+        "first_canary_miss": 25
+       }
+      }
+     },
+     "ollama_default": {
+      "counts": {
+       "n": 3,
+       "exceeded_window": 3,
+       "silent_rule_after_window": 1,
+       "any_rule_after_window": 1,
+       "silent_gated_after_window": 1,
+       "history_lost_rules_held": 2
+      },
+      "per_seed": {
+       "20260901": {
+        "n_turns": 40,
+        "first_over_window": 24,
+        "first_error": null,
+        "first_rule_failure": null,
+        "rule_failures_within_window": 0,
+        "rule_failure_after_window": false,
+        "silent_rule_failure_after_window": false,
+        "silent_rule_failure_turn": null,
+        "silent_gated_failure_after_window": false,
+        "canary_miss_over_window": true,
+        "first_canary_miss": 30
+       },
+       "20260902": {
+        "n_turns": 40,
+        "first_over_window": 25,
+        "first_error": null,
+        "first_rule_failure": null,
+        "rule_failures_within_window": 0,
+        "rule_failure_after_window": false,
+        "silent_rule_failure_after_window": false,
+        "silent_rule_failure_turn": null,
+        "silent_gated_failure_after_window": false,
+        "canary_miss_over_window": true,
+        "first_canary_miss": 30
+       },
+       "20260903": {
+        "n_turns": 40,
+        "first_over_window": 26,
+        "first_error": null,
+        "first_rule_failure": 4,
+        "rule_failures_within_window": 7,
+        "rule_failure_after_window": true,
+        "silent_rule_failure_after_window": true,
+        "silent_rule_failure_turn": 28,
+        "silent_gated_failure_after_window": true,
+        "canary_miss_over_window": true,
+        "first_canary_miss": 30
+       }
+      }
+     }
+    },
+    "verdict": "mixed",
+    "at_4096": "rule loss holds",
+    "at_32768": "does not hold",
+    "R4096": 2,
+    "H32768": 1
+   },
+   "qwen3-30b-a3b-2507": {
+    "verdict": "refused (not tested)",
+    "category": "failed",
+    "reasons": [
+     "qwen3-30b-a3b-2507: negative control failed (canary misses 2 at num_ctx 131072)",
+     "qwen3-30b-a3b-2507: task tool called correctly on 25/30 baseline turns (< 90%, task-tool gate)"
+    ]
+   },
+   "llama3.3:70b": {
+    "rules_in_use": [
+     "rule3_no_zebra",
+     "rule4_metres"
+    ],
+    "gated_fields": [
+     "rule3_no_zebra",
+     "rule4_metres",
+     "tool_validity_all",
+     "tool_args_all",
+     "recall_ok"
+    ],
+    "tiers": {
+     "ollama_ctx_4096": {
+      "counts": {
+       "n": 3,
+       "exceeded_window": 3,
+       "silent_rule_after_window": 0,
+       "any_rule_after_window": 0,
+       "silent_gated_after_window": 3,
+       "history_lost_rules_held": 3
+      },
+      "per_seed": {
+       "20260901": {
+        "n_turns": 40,
+        "first_over_window": 3,
+        "first_error": null,
+        "first_rule_failure": null,
+        "rule_failures_within_window": 0,
+        "rule_failure_after_window": false,
+        "silent_rule_failure_after_window": false,
+        "silent_rule_failure_turn": null,
+        "silent_gated_failure_after_window": true,
+        "canary_miss_over_window": true,
+        "first_canary_miss": 5
+       },
+       "20260902": {
+        "n_turns": 40,
+        "first_over_window": 3,
+        "first_error": null,
+        "first_rule_failure": null,
+        "rule_failures_within_window": 0,
+        "rule_failure_after_window": false,
+        "silent_rule_failure_after_window": false,
+        "silent_rule_failure_turn": null,
+        "silent_gated_failure_after_window": true,
+        "canary_miss_over_window": true,
+        "first_canary_miss": 5
+       },
+       "20260903": {
+        "n_turns": 40,
+        "first_over_window": 3,
+        "first_error": null,
+        "first_rule_failure": null,
+        "rule_failures_within_window": 0,
+        "rule_failure_after_window": false,
+        "silent_rule_failure_after_window": false,
+        "silent_rule_failure_turn": null,
+        "silent_gated_failure_after_window": true,
+        "canary_miss_over_window": true,
+        "first_canary_miss": 5
+       }
+      }
+     },
+     "ollama_ctx_32768": {
+      "counts": {
+       "n": 3,
+       "exceeded_window": 3,
+       "silent_rule_after_window": 0,
+       "any_rule_after_window": 0,
+       "silent_gated_after_window": 0,
+       "history_lost_rules_held": 3
+      },
+      "per_seed": {
+       "20260901": {
+        "n_turns": 40,
+        "first_over_window": 23,
+        "first_error": null,
+        "first_rule_failure": null,
+        "rule_failures_within_window": 0,
+        "rule_failure_after_window": false,
+        "silent_rule_failure_after_window": false,
+        "silent_rule_failure_turn": null,
+        "silent_gated_failure_after_window": false,
+        "canary_miss_over_window": true,
+        "first_canary_miss": 25
+       },
+       "20260902": {
+        "n_turns": 40,
+        "first_over_window": 22,
+        "first_error": null,
+        "first_rule_failure": null,
+        "rule_failures_within_window": 0,
+        "rule_failure_after_window": false,
+        "silent_rule_failure_after_window": false,
+        "silent_rule_failure_turn": null,
+        "silent_gated_failure_after_window": false,
+        "canary_miss_over_window": true,
+        "first_canary_miss": 30
+       },
+       "20260903": {
+        "n_turns": 40,
+        "first_over_window": 23,
+        "first_error": null,
+        "first_rule_failure": null,
+        "rule_failures_within_window": 0,
+        "rule_failure_after_window": false,
+        "silent_rule_failure_after_window": false,
+        "silent_rule_failure_turn": null,
+        "silent_gated_failure_after_window": false,
+        "canary_miss_over_window": true,
+        "first_canary_miss": 30
+       }
+      }
+     }
+    },
+    "verdict": "alternative (resists rule loss)",
+    "at_4096": "resists rule loss",
+    "at_32768": "history loss with rules holding holds",
+    "R4096": 0,
+    "H32768": 3
+   }
+  },
+  "finished": true
+ }
+}
