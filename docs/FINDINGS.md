@@ -4100,3 +4100,151 @@ evalset or NVIDIA-dGPU (Blade) in-window misses (the Blade misses are already de
 finding O1 / P1-19 in docs/PAPER1_DRAFT.md). No long-session recall measurement or `b3-longsession-recall` row was
 planned anywhere in the repo; none is added: a B3 long-session recall measurement is dropped unless the v2 validations
 show recall misses (wrong values, not text calls or omissions) inside the loaded window.
+
+## DEVIATION NOTE (2026-10-19, before any real-run data): B3 task real runs on design v2 below the task end-state bar
+
+This note follows the pre-registration "B3 task real runs, x2_evalset_tasks_real_v1 on evo-x2 (2026-10-14, NOT YET
+RUN)" and its amendment of 2026-10-14, both above. Neither text is edited. Written before any design v2 real-run data
+exists: no B3 real job has been queued or run.
+
+1. **The pre-registered bar is not met.** The amendment's standard v2 preflight includes the `task_end_state` gate:
+   at least 90% of the negative-control task turns end in the correct state. On `x2_evalset_tasks_val_v2`, qwen3:14b
+   reached 80/90 (88.9%). Pasted from register row `x2-evalset-val-v2-task-end-state`: "tasks qwen3:14b: 80/90
+   (88.9%) against the 90% bar, gate FAIL; by difficulty easy 38/39, hard 12/15, medium 30/36; tasks correct on every
+   negative-control session 25/30". Every other gate of that validation passed for qwen3:14b (`x2-evalset-val-v2-gates`:
+   "tasks qwen3:14b (run finished True): ... failing gates: task_end_state").
+2. **Approved with the deviation declared.** The operator approved the run on 2026-10-19 with this deviation declared.
+   The real-mode preflight of the job waives the task end-state refusal for qwen3:14b only, and only for exactly the
+   80/90 recorded in that validation file; any other model, file or count is refused as before, and every other gate
+   still applies.
+3. **The primary P1 measure is the within-model excess.** The primary measure for impact problem P1 is the within-model
+   excess of the wrong-task rate over the default window: the same model, tasks and seeds run at the default window and
+   at each smaller window, and the default window's wrong-task rate is subtracted. A task the model gets wrong with no
+   context pressure (a baseline error, which is what the 10 of 90 negative-control misses are) is expected to be wrong
+   at the default window as well, so baseline errors cancel in the difference. The absolute wrong-task rate is reported
+   next to it and is not read as a context effect.
+4. **Rules 6 to 8 are excluded** because they fail baseline: at full context qwen3:14b fails them on both v2 validations
+   that exercise them (`x2-evalset-val-v2-gates`: guard "rules 6-8 FAIL (rule6 0.250 of 12 bait turns, rule7 0.000 of 9
+   bait turns, rule8 0.000 of 9 bait turns)"; replay "rules 6-8 FAIL (rule6 0.200 of 10 bait turns, rule7 0.000 of 5
+   bait turns, rule8 0.000 of 8 bait turns)"). No rule 6-8 result is drawn from the B3 real runs.
+5. **llama3.1:8b stays refused.** Pasted from `x2-evalset-val-v2-gates`: "tasks llama3.1:8b (run finished True): ...
+   failing gates: baseline, negative_control, task_end_state". The preflight refuses it and no llama3.1:8b B3 real
+   result is reported.
+
+## PRE-REGISTRATION: protocol consistency, B3 v2 task real runs x2_evalset_tasks_real_v2 on evo-x2 (2026-10-19, NOT YET RUN)
+
+**Status:** PRE-REGISTRATION, written and committed before the real-mode code for this job is written or deployed and
+before evo-x2's queue is edited. No data for this job exists. It sits after the deviation note above and replaces
+nothing in the 2026-10-14 pre-registration or its amendment; where it differs from them (tiers, seeds, preflight) it
+says so here.
+
+**Question.** The window effect in the R2 strengthened run v1b (register row `R2-v1b-excess-over-default`) was measured
+with the v1 call-2 protocol: tools withheld on a turn's final call. Does the same effect appear when tools are available
+on every call (the design v2 tool loop, `harness/x2_r2_evalset.py --design v2`)? And, the P1 question carried over from
+the 2026-10-14 pre-registration: how much does a smaller window raise the wrong-task rate over the default window for the
+same model?
+
+**Job.** Queue id `x2_evalset_tasks_real_v2`, output `results/x2_evalset_tasks_real_v2.jsonl`, harness
+`harness/x2_r2_evalset.py --design v2 --mode real --workload evalset --guardrails off --plan tasks_v2`, the session
+builder, environment, checkers, tool loop (tools on every call, up to 4 tool rounds) and scoring of the validation
+`x2_evalset_tasks_val_v2`. Model qwen3:14b only ("think": false, temperature 0, seed 42, num_predict 384 on every
+request). Tiers, the same as v1b's plus the num_keep variant:
+- `ollama_default` (no num_ctx sent; the runtime picks),
+- num_ctx 16384, num_ctx 8192, num_ctx 4096,
+- num_ctx 4096 with options.num_keep = S, where S is the session's system prompt length measured with the model's own
+  tokenizer (render and count, `harness/x2_num_keep.py::measure_system_tokens`, as in `x2_r2_agent --num-keep system`
+  and the num_keep guardrail test, register row `num-keep-guardrail-test`), measured once per session before its first
+  turn and sent on every request of that session.
+Seeds 20260901 to 20260905 (x2_r2_agent.SEEDS_STRONG, the five seeds per cell of v1b; the 2026-10-14 pre-registration
+fixed three, changed here so each cell has v1b's session count); 30 task turns per session (guardrails off); 25
+sessions, 750 task turns. Statistics convention: as in the validations, no warm-up call; every turn is scored (the
+outcomes are per-turn states, not timings).
+
+**Preflight.** `validation_preflight_ext` (design v2) on `x2_evalset_tasks_val_v2.jsonl`, with the one deviation
+declared above: the task end-state refusal is waived for qwen3:14b only and only at the recorded 80/90. The preflight
+refuses llama3.1:8b (baseline, negative control and task end-state gates; `x2-evalset-val-v2-gates`), refuses any model
+not in the job's model list (qwen3:14b), and refuses a validation file of another design. Rules in use are the
+preflight's (rules 1 to 5 for qwen3:14b on that file, `x2-evalset-val-v2-gates`: "failing none"), written to run_start.
+
+**Measures, fixed now** (register rows `x2-evalset-tasks-real-v2-gated-excess` and `x2-evalset-tasks-real-v2-wrong-rate`,
+PENDING until the file is synced), qwen3:14b, per tier:
+1. **Gated silent failures after the window was exceeded**, the v1b definition unchanged
+   (`analysis/r2_real_report.py::build_combined`, `gated_session`): a session counts when the first turn on which a gated
+   metric failed (the rules in use plus tool validity, tool arguments and recall where their baseline in the validation
+   file reached 90%) had no HTTP error or error field on an earlier turn, and came at or after the first turn whose final
+   prompt exceeded the loaded window.
+2. **Excess over the default**: measure 1's rate at the tier minus its rate at `ollama_default`, with the v1b bootstrap
+   unchanged (`r2_real_report.excess_over_default`): 95% percentile CI, 10000 resamples, resampling unit the session,
+   stratified by tier x model, `random.Random(20261014)`.
+3. **Wrong-task rate** (the primary P1 measure, deviation note item 3): task turns whose end state is wrong
+   (`end_state_ok` false) over all task turns of the tier (all 30 tasks, no tasks-in-use selection), and its **excess
+   over the default** with the same bootstrap (session unit, 10000 resamples, seed 20261014; one model, so the strata
+   are the tiers). Reading, fixed now: CI lower bound above 0, "<tier> raises the wrong-task rate"; CI containing 0, "no
+   excess shown"; CI upper bound below 0, "lower at <tier>". Silent (every call HTTP 200, outcome ok, no error) and
+   surfaced wrong turns are counted per tier.
+Also reported, not read: loaded context per tier, first over-window turn per session, S per num_keep session.
+
+**v1b values for qwen3:14b** (pasted from `R2-v1b-excess-over-default`): num_ctx_16384 "qwen3:14b 0/5 vs default 0/5,
+excess +0.000 (95% CI +0.000 to +0.000)"; num_ctx_8192 "qwen3:14b 0/5 vs default 0/5, excess +0.000 (95% CI +0.000 to
++0.000)"; num_ctx_4096 "qwen3:14b 4/5 vs default 0/5, excess +0.800 (95% CI +0.400 to +1.000)". v1b had no num_keep
+tier. So for this model the v1b effect to test is at 4096 only; at 16384 and 8192 v1b showed none.
+
+**Reading of the protocol question, fixed now** (measure 2, qwen3:14b, v2 against v1b, per tier):
+- **The v1b effect holds** at 4096 if the v2 excess CI lower bound is above 0.
+- **The v1b effect is a protocol artifact** at 4096 if the v2 excess CI includes 0 and its upper bound is below v1b's
+  point excess (+0.800): v2 is consistent with no excess and not with the v1b size.
+- **Inconclusive** at 4096 if the v2 CI includes both 0 and +0.800, or the run is not valid (below).
+- At 16384 and 8192 (v1b: no excess): a v2 CI lower bound above 0 reads "v2 shows an excess v1b did not"; otherwise
+  "no excess in either protocol".
+Worked out for the expected default of 0/5 (the default window, 40960 for qwen3:14b in the validation, is not expected
+to be exceeded by the 30-turn v2 session, so its after-window rate is 0 by construction): 3 or more of 5 sessions at
+4096 reads "holds", 2 of 5 "inconclusive", 0 or 1 "protocol artifact". These counts follow from the bootstrap; the rule
+above is what decides.
+- **num_keep** (secondary, no v1b counterpart): if the 4096 excess CI lower bound is above 0 and the 4096 + num_keep CI
+  includes 0, "num_keep removes the 4096 excess for qwen3:14b"; if both lower bounds are above 0, "num_keep does not
+  remove it"; otherwise "not shown either way". The num_keep test's "one-line fix" verdict (`num-keep-guardrail-test`)
+  was for llama3.1:8b on the R2 workload; whether it carries over is what this tier measures.
+
+**Validity (mechanical).** Run finished (run_end); qwen3:14b not refused; all 25 sessions completed with 30 task turns;
+every row requested its tier's num_ctx (none at the default); every request of every num_keep session carried
+options.num_keep = S with S > 0 recorded for that session; llama3.1:8b present only as a refused_model row. A failing run
+is reported "incomplete" with what is missing, and its rates are not read.
+
+**Known limits, stated before the run.**
+- The v2 workload is not the v1b workload: evalset tasks against the R2 tasks, 30 turns against 40, 150 filler tokens a
+  turn against 1500, and the tool loop against the two-step turn. A "protocol artifact" reading therefore says the v1b
+  effect does not appear under the v2 protocol and workload together; it cannot attribute the difference to the tools
+  on the final call alone.
+- The v2 session is short: the validation's largest negative-control final prompt for qwen3:14b was 18828 calibrated
+  tokens (`x2-evalset-val-v2-gates`), so 16384 is exceeded only in the last turns, and 8192 from about turn 10 (positive
+  control "first over window [10]", same row). Few turns remain after the window is exceeded at 16384.
+- Five sessions per cell; a 0/n or n/n cell has no bootstrap variance.
+- qwen3:14b only, one runtime (Ollama 0.34.4 on evo-x2). num_keep is verified as sent, not observed in the server log
+  (the num_keep test observed it applied, `num-keep-guardrail-test`).
+- The task end-state bar was not met (deviation note above); absolute wrong-task rates include baseline errors.
+Duration is estimated in a labelled register row before queueing; the job calls tq.advance() on exit and sets no pause.
+
+## AMENDMENT (2026-10-19, before any real-run data): x2_evalset_tasks_real_v2 deployed and queued
+
+This note follows the pre-registration "protocol consistency, B3 v2 task real runs x2_evalset_tasks_real_v2 on evo-x2
+(2026-10-19, NOT YET RUN)" above, whose text is not edited. No data for the job exists.
+
+- **Code** (commit 3d1c851): `harness/x2_r2_evalset.py` `--plan tasks_v2`, `--preflight v2_te_deviation`,
+  `NumKeepSessionRuntime` and `tasks_real_v2_outcome`, tests on fakes in `tests/test_x2_evalset_tasks_real_v2.py`.
+  Register rows `x2-evalset-tasks-real-v2-gated-excess` and `x2-evalset-tasks-real-v2-wrong-rate` are PENDING until the
+  file is synced.
+- **Deployed** with `scripts/deploy_evo.py` to the side directory `C:\apu\ovn\evalv2` (`x2_r2_evalset.py`, and
+  `x2_num_keep.py` at the same blob the num_keep guardrail test ran), next to the unchanged `evalset_env.py`;
+  `run_provenance.verify_deployed_blobs` on evo-x2 reported no problems for all three files. Import and plan check on
+  evo-x2, no model call: `--check-plan` printed the 5 tiers x 5 seeds x 30 task turns; the preflight on the machine's
+  `x2_evalset_tasks_val_v2.jsonl` admitted qwen3:14b with the task end-state waiver at 80/90 and refused llama3.1:8b
+  (negative control, not in the model list, task end state); the same preflight refused `x2_evalset_tasks_val_v1.jsonl`
+  as design v1; llama-tokenize and the qwen3:14b blob for measuring S were found.
+- **Queued** on evo-x2 in one read-modify-write under `tq.set_pause`, cleared in the same script's finally
+  (`--queue-insert-tasks-v2`); the pause flag was confirmed gone afterwards. Position: index 68 of
+  `C:\apu\ovn\queue_state.json`, directly after the running `x2_policy_compare` and directly before
+  `x2_window_override_methods`. Another session is inserting a job directly after `x2_policy_compare`; it lands ahead
+  of this one. The entry's note says it releases itself via tq.advance() and sets no pause.
+- **Estimated duration** (register row `x2-evalset-tasks-real-v2-hours`, an ESTIMATE, pasted): "ESTIMATE 4.6 h (range
+  2.0 to 5.2 h) for 25 qwen3:14b sessions of 30 task turns (5 at the default at the measured negative-control session
+  time, 20 at smaller windows at the measured num_ctx 8192 positive-control session time)".
