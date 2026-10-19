@@ -89,6 +89,23 @@ v2 validation commands (evo-x2, deployed to the side directory C:\\apu\\ovn\\eva
       --out C:\\apu\\ovn\\results\\x2_evalset_guard_val_v2.jsonl
   python evalv2\\x2_r2_evalset.py --design v2 --mode validation --workload replay
       --out C:\\apu\\ovn\\results\\x2_evalset_replay_val_v2.jsonl
+
+B3 v2 task real run (2026-10-19, x2_evalset_tasks_real_v2; docs/FINDINGS.md "DEVIATION NOTE (2026-10-19 ...)" and
+"PRE-REGISTRATION: protocol consistency ..."):
+  python evalv2\\x2_r2_evalset.py --design v2 --mode real --workload evalset --guardrails off --plan tasks_v2
+      --preflight v2_te_deviation --rules-from C:\\apu\\ovn\\results\\x2_evalset_tasks_val_v2.jsonl
+      --out C:\\apu\\ovn\\results\\x2_evalset_tasks_real_v2.jsonl
+  --plan tasks_v2              : TASKS_V2_TIERS (Ollama default, num_ctx 16384, 8192, 4096, and 4096 with options.num_keep
+                                 = S, the session's measured system prompt length) x TASKS_V2_SEEDS (SEEDS_STRONG) x 30
+                                 task turns, design v2.
+  --preflight v2_te_deviation  : validation_preflight_ext (design v2) with the declared deviation: the task end-state
+                                 refusal is waived for TE_DEVIATION's model at exactly its recorded count only, and any
+                                 model outside TASKS_V2_MODELS is refused. llama3.1:8b is refused (its own gates).
+  The num_keep tier measures S per session (x2_num_keep.measure_system_tokens: render and count with the model's
+  tokenizer) and sends {"num_keep": S} on every request of that session (NumKeepSessionRuntime); each call row records
+  num_keep {"sent", "system_prompt_tokens"} and a num_keep_session row holds S. The report adds tasks_real_v2_outcome.
+  --queue-insert-tasks-v2      : (evo-x2) inserts x2_evalset_tasks_real_v2 directly before x2_window_override_methods,
+                                 one read-modify-write under a pause cleared in finally.
 """
 from __future__ import annotations
 
@@ -538,6 +555,18 @@ def run_session(runtime, model, arm, seed, max_turns, emit, log, mode, workload=
             "attempt_id": attempt, "session_code": es.session_code, "harness": HARNESS, "workload": workload,
             "guardrails": es.guardrails, "trajectory_id": es.trajectory_id, "design": es.design,
             "turn_protocol": TURN_PROTOCOL[es.design]}
+    begin = getattr(runtime, "begin_session", None)   # NumKeepSessionRuntime (--plan tasks_v2) only
+    if begin is not None:
+        base["num_keep_sent"] = begin(model, arm, seed, es)
+    try:
+        return _run_session_body(runtime, model, arm, seed, emit, log, workload, es, base, num_ctx, think, call2_mode)
+    finally:
+        end = getattr(runtime, "end_session", None)
+        if end is not None:
+            end()
+
+
+def _run_session_body(runtime, model, arm, seed, emit, log, workload, es, base, num_ctx, think, call2_mode):
     unloaded = runtime.unload(model)
     messages = [{"role": "system", "content": es.system_prompt}]
     env = copy.deepcopy(es.env0)
@@ -586,6 +615,68 @@ def run_session(runtime, model, arm, seed, max_turns, emit, log, mode, workload=
     return summary
 
 
+# ── num_keep tier (--plan tasks_v2) ─────────────────────────────────────────────────────────────────
+
+class NumKeepSessionRuntime:
+    """Wraps x2_r2_agent.OllamaRuntime (`base`, with its options_extra attribute) for --plan tasks_v2. In a session of
+    a NUMKEEP_ARMS arm, begin_session(model, arm, seed, es) measures S with measure(model, arm, seed, es) (an
+    x2_num_keep.measure_system_tokens dict), refuses S <= 0, sets base.options_extra = {"num_keep": S} and emits a
+    num_keep_session row; chat() then annotates every response with num_keep {"sent", "system_prompt_tokens"}, which
+    x2_r2_agent._call_record copies into the call row. In any other arm options_extra stays None and requests are
+    exactly as without the wrapper. Every other attribute is the base runtime's."""
+
+    def __init__(self, base, measure, emit):
+        self.base, self.measure, self.emit = base, measure, emit
+        self.s = None
+
+    def __getattr__(self, name):
+        return getattr(self.base, name)
+
+    def begin_session(self, model, arm, seed, es):
+        self.base.options_extra = None   # the measuring renders, and every non-num_keep session, go without num_keep
+        self.s = None
+        if arm not in NUMKEEP_ARMS:
+            return None
+        m = self.measure(model, arm, seed, es)
+        s = int(m["system_prompt_tokens"])
+        if s <= 0:
+            raise ValueError(f"system prompt token count {s} is not positive")
+        self.s = s
+        self.base.options_extra = {"num_keep": s}
+        self.emit({"record": "num_keep_session", "model_id": model, "arm_id": arm, "seed": seed, "num_keep": s, **m,
+                   "ts_utc": ag.utc_iso()})
+        return s
+
+    def end_session(self):
+        self.base.options_extra = None
+        self.s = None
+
+    def chat(self, model, messages, num_ctx, tools, think, extra=None):
+        resp = (self.base.chat(model, messages, num_ctx, tools, think, extra=extra) if extra
+                else self.base.chat(model, messages, num_ctx, tools, think))
+        if self.s is not None:
+            resp = dict(resp)
+            resp["num_keep"] = {"sent": (self.base.options_extra or {}).get("num_keep"), "system_prompt_tokens": self.s}
+        return resp
+
+
+def host_measure(base, count_fn_for=None):
+    """measure(model, arm, seed, es) for a real host: x2_num_keep.measure_system_tokens on the session's system prompt
+    and first user message, rendered by Ollama (base.render_only) and counted with llama-tokenize on the model's GGUF
+    blob (x2_num_keep.tokenizer_count_fn), with and without the session's tool definitions."""
+    import x2_num_keep as nk
+    counters = {}
+    count_fn_for = count_fn_for or nk.tokenizer_count_fn
+
+    def measure(model, arm, seed, es):
+        if model not in counters:
+            counters[model] = count_fn_for(model)
+        return nk.measure_system_tokens(base.render_only, counters[model], model, es.system_prompt,
+                                        user_message(es.turns[0], es), ag.ARMS[arm]["num_ctx"], ag.MODELS.get(model),
+                                        tools_payload(es.design))
+    return measure
+
+
 # ── plans, gates, preflight (pure) ──────────────────────────────────────────────────────────────────
 
 def session_turns(workload: str, guardrails: bool) -> int:
@@ -626,6 +717,34 @@ BOOT_SEED = 20261014
 def tasks_plan(call2_mode="off"):
     """[(arm, seeds, turns)] of --plan tasks_v1: TASKS_TIERS x TASKS_SEEDS x 30 task turns."""
     return real_plan("evalset", False, call2_mode, tiers=TASKS_TIERS, seeds=TASKS_SEEDS)
+
+
+# B3 v2 task real run (2026-10-19, x2_evalset_tasks_real_v2, pre-registered in docs/FINDINGS.md "PRE-REGISTRATION:
+# protocol consistency"): the v1b tiers plus num_ctx 4096 with options.num_keep = S, five seeds, qwen3:14b only.
+TASKS_V2_PLAN = "tasks_v2"
+NUMKEEP_ARM = "ollama_ctx_4096_numkeep"
+NUMKEEP_NUM_CTX = 4096
+TASKS_V2_TIERS = ("ollama_default", "ollama_ctx_16384", "ollama_ctx_8192", "ollama_ctx_4096", NUMKEEP_ARM)
+TASKS_V2_SEEDS = tuple(ag.SEEDS_STRONG)
+TASKS_V2_MODELS = ("qwen3:14b",)
+TASKS_V2_DEFAULT_TIER = "ollama_default"
+PREFLIGHT_TE_DEVIATION = "v2_te_deviation"
+# docs/FINDINGS.md "DEVIATION NOTE (2026-10-19 ...)": approved by the operator on 2026-10-19; register row
+# x2-evalset-val-v2-task-end-state. Waived only at exactly this (n_ok, n) in the validation file.
+TE_DEVIATION = {"qwen3:14b": (80, 90)}
+NUMKEEP_ARMS = set()
+for _m, _sfx in ag.MODE_SUFFIX.items():
+    ag.ARMS.setdefault(NUMKEEP_ARM + _sfx, {"num_ctx": NUMKEEP_NUM_CTX, "call2_tools": _m != "off", "call2_mode": _m})
+    NUMKEEP_ARMS.add(NUMKEEP_ARM + _sfx)
+
+
+def tasks_v2_plan(call2_mode="off"):
+    """[(arm, seeds, turns)] of --plan tasks_v2: TASKS_V2_TIERS x TASKS_V2_SEEDS x 30 task turns."""
+    return real_plan("evalset", False, call2_mode, tiers=TASKS_V2_TIERS, seeds=TASKS_V2_SEEDS)
+
+
+def tier_num_ctx_expected(arm) -> int | None:
+    return ag.ARMS[arm]["num_ctx"]
 
 
 def _neg_turn_rows(rows, arm):
@@ -731,21 +850,26 @@ def evaluate_gates_ext(rows, workload="evalset", guardrails=True, call2_mode="of
 
 
 def validation_preflight_ext(rows, models, workload="evalset", guardrails=True, call2_mode="off",
-                             design="v1") -> dict:
+                             design="v1", waive_task_end_state=None, allowed_models=None) -> dict:
     """x2_r2_agent.validation_preflight (file finished, same call-2 mode, both control arms complete, rules in use at or
     above the threshold, negative control clean, positive control fired, thinking off, task-tool gate) plus rules 6-8
     (when the workload exercises them) and replay fidelity; design v2 also the validation file's design, the
     negative_control_window gate and the task_end_state gate (the latter only where tasks are the outcome: guardrails
-    off). Per model; {"ok", "models_ok", "refused", "rules_in_use", "tasks_in_use"}."""
+    off). Per model; {"ok", "models_ok", "refused", "rules_in_use", "tasks_in_use", "waived"}.
+    waive_task_end_state ({model: (n_ok, n)}, the declared deviation of 2026-10-19, TE_DEVIATION): a failed task
+    end-state gate is not a refusal for that model when the file's count is exactly (n_ok, n); recorded in "waived".
+    allowed_models: any other model is refused."""
     pf = ag.validation_preflight(rows, call2_mode, models)
     rep = evaluate_gates_ext(rows, workload, guardrails, call2_mode, design=design)
-    refused, riu, tiu = {}, {}, {}
+    refused, riu, tiu, waived = {}, {}, {}, {}
     file_level = [r for r in pf["reasons"] if not any(r.startswith(f"{m}:") for m in models)]
     fd = file_design(rows)
     if fd != design:
         file_level.append(f"validation file design {fd!r} != this run's design {design!r}")
     for m in models:
         mine = file_level + [r for r in pf["reasons"] if r.startswith(f"{m}:")]
+        if allowed_models is not None and m not in allowed_models:
+            mine.append(f"{m}: not in this plan's model list {list(allowed_models)}")
         g678 = rep["gates"]["rules678"].get(m)
         if g678 and g678["applies"] and not g678["pass"]:
             mine.append(f"{m}: rules 6-8 gate failed (failing {g678['failing_rules']}, not exercised "
@@ -757,19 +881,26 @@ def validation_preflight_ext(rows, models, workload="evalset", guardrails=True, 
                             f"loaded window {w and w['loaded_context_values']})")
             te = rep["gates"]["task_end_state"].get(m)
             if not guardrails and workload == "evalset" and (not te or not te["pass"]):
-                mine.append(f"{m}: task end-state gate failed ({te and te['n_ok']}/{te and te['n']} < "
-                            f"{BASELINE_THRESHOLD:.0%})")
+                want = (waive_task_end_state or {}).get(m)
+                if te and want is not None and (te["n_ok"], te["n"]) == tuple(want):
+                    waived[m] = {"gate": "task_end_state", "n_ok": te["n_ok"], "n": te["n"],
+                                 "threshold": te["threshold"],
+                                 "basis": "declared deviation, docs/FINDINGS.md DEVIATION NOTE (2026-10-19)"}
+                else:
+                    mine.append(f"{m}: task end-state gate failed ({te and te['n_ok']}/{te and te['n']} < "
+                                f"{BASELINE_THRESHOLD:.0%})")
         fid = rep["gates"].get("replay_fidelity", {}).get(m)
         if workload == "replay" and (fid is None or not fid["pass"]):
             mine.append(f"{m}: replay fidelity gate failed ({fid})")
         if mine:
             refused[m] = mine
+            waived.pop(m, None)
         else:
             riu[m] = list(pf["rules_in_use"].get(m, [])) + list(g678["rules_in_use"] if g678 else [])
             tiu[m] = rep["task_table"].get(m, {}).get("tasks_in_use", [])
     ok_models = [m for m in models if m not in refused]
     return {"ok": bool(ok_models), "models_ok": ok_models, "refused": refused, "rules_in_use": riu,
-            "tasks_in_use": tiu}
+            "tasks_in_use": tiu, "waived": waived}
 
 
 # ── B3 task real run: end-state preflight and outcome (pure) ────────────────────────────────────────
@@ -958,6 +1089,135 @@ def tasks_real_outcome(real_rows, val_rows, call2_mode="off", n_boot=BOOT_N, see
     return out
 
 
+# ── B3 v2 task real run outcome (pure) ──────────────────────────────────────────────────────────────
+
+def session_bootstrap_excess(cells: dict, default_key, n_boot=BOOT_N, seed=BOOT_SEED) -> dict:
+    """cells: {tier: [(wrong, n) per session]} for one model. Per non-default tier, the pooled rate (sum wrong / sum
+    n) minus the default tier's, with a 95% percentile CI: each resample draws, with replacement, as many sessions as
+    each tier has from that tier (stratified by tier), one random.Random(seed) driving all resamples, in the manner of
+    analysis/r2_real_report.excess_over_default (unit the session)."""
+    def rate(xs):
+        n = sum(b for _, b in xs)
+        return sum(a for a, _ in xs) / n if n else None
+    tiers = list(cells)
+    point = {}
+    if default_key not in cells or rate(cells[default_key]) is None:
+        return {"error": f"no {default_key} sessions", "per_tier": {}}
+    for t in tiers:
+        if t != default_key and rate(cells[t]) is not None:
+            point[t] = rate(cells[t]) - rate(cells[default_key])
+    rng = random.Random(seed)
+    draws = {t: [] for t in point}
+    for _ in range(n_boot):
+        sample = {t: [xs[rng.randrange(len(xs))] for _ in xs] for t, xs in cells.items() if xs}
+        rd = rate(sample.get(default_key, []))
+        for t in point:
+            rt = rate(sample.get(t, []))
+            if rd is not None and rt is not None:
+                draws[t].append(rt - rd)
+    per = {}
+    for t, v in point.items():
+        d = sorted(draws[t])
+        per[t] = {"rate": rate(cells[t]), "default_rate": rate(cells[default_key]), "excess": v,
+                  "ci95": (_quantile(d, 0.025), _quantile(d, 0.975)), "n_sessions": len(cells[t]),
+                  "n_default_sessions": len(cells[default_key]), "n_turns": sum(b for _, b in cells[t]),
+                  "n_default_turns": sum(b for _, b in cells[default_key])}
+    return {"per_tier": per, "n_resamples": n_boot, "seed": seed, "unit": "session", "strata": "tier"}
+
+
+def tier_reading(ci, tier_label) -> str | None:
+    """The pre-registered wrong-task reading (docs/FINDINGS.md, protocol consistency pre-registration)."""
+    lo, hi = ci
+    if lo is None:
+        return None
+    if lo > 0:
+        return f"{tier_label} raises the wrong-task rate"
+    if hi < 0:
+        return f"lower at {tier_label}"
+    return "no excess shown"
+
+
+def tasks_real_v2_outcome(real_rows, call2_mode="off", tiers=TASKS_V2_TIERS, seeds=TASKS_V2_SEEDS,
+                          models=TASKS_V2_MODELS, n_boot=BOOT_N, seed=BOOT_SEED) -> dict:
+    """The pre-registered wrong-task outcome of x2_evalset_tasks_real_v2, per model: validity (run_end; every tier x
+    seed session completed with 30 task turns; every row's num_ctx_requested is its tier's; every call of a num_keep
+    session sent num_keep = that session's S > 0, recorded in a num_keep_session row; no turn rows for a model outside
+    `models`), and per tier the wrong-task rate over all task turns (end_state_ok false), silent (no HTTP error or
+    error field on any call of the turn) and surfaced wrong turns, loaded context, first over-window turn and S per
+    seed; and per non-default tier the excess over the default with session_bootstrap_excess and its reading. The
+    gated after-window measure is computed from the same file by analysis/r2_real_report.py (register row
+    x2-evalset-tasks-real-v2-gated-excess)."""
+    sfx = ag.MODE_SUFFIX[ag.as_mode(call2_mode)]
+    arms = {t: t + sfx for t in tiers}
+    full = session_turns("evalset", False)
+    finished = any(r.get("record") == "run_end" for r in real_rows)
+    refused = {r["model_id"]: r.get("reasons") for r in real_rows if r.get("record") == "refused_model"}
+    sessions = [s for s in ag.completed_sessions(real_rows) if s.get("mode") == "real"]
+    att = {s["attempt_id"] for s in sessions}
+    turns = [r for r in real_rows if r.get("record") == "r2a_turn" and r.get("attempt_id") in att
+             and r.get("item_kind") == "task"]
+    s_rows = {(r["model_id"], r["arm_id"], r["seed"]): r.get("num_keep") for r in real_rows
+              if r.get("record") == "num_keep_session"}
+    outside = sorted({r["model_id"] for r in real_rows if r.get("record") == "r2a_turn"} - set(models))
+    out = {"run_finished": finished, "refused": refused, "models_outside_plan_with_turns": outside, "models": {}}
+    for m in sorted(set(models) | {r["model_id"] for r in turns} | set(refused)):
+        if m in refused:
+            out["models"][m] = {"refused": True, "reasons": refused[m]}
+            continue
+        problems = [] if finished else ["no run_end"]
+        if outside:
+            problems.append(f"turn rows for models outside the plan: {outside}")
+        info, cells = {}, {}
+        for t, arm in arms.items():
+            ss = sorted((s for s in sessions if s["model_id"] == m and s["arm_id"] == arm), key=lambda s: s["seed"])
+            if sorted(s["seed"] for s in ss) != sorted(seeds):
+                problems.append(f"{t}: sessions completed for seeds {[s['seed'] for s in ss]}, expected "
+                                f"{sorted(seeds)}")
+            wt = [r for r in turns if r["model_id"] == m and r["arm_id"] == arm]
+            want_ctx = ag.ARMS[arm]["num_ctx"]
+            bad = sorted({r.get("num_ctx_requested") for r in wt} - {want_ctx}, key=str)
+            if bad:
+                problems.append(f"{t}: num_ctx_requested {bad}, expected {want_ctx}")
+            per_session = []
+            s_by_seed = {}
+            for s in ss:
+                st = sorted((r for r in wt if r["attempt_id"] == s["attempt_id"]), key=lambda r: r["turn_idx"])
+                if len(st) != full:
+                    problems.append(f"{t} seed {s['seed']}: {len(st)} task turns, expected {full}")
+                per_session.append((sum(1 for r in st if r.get("end_state_ok") is False), len(st)))
+                if arm in NUMKEEP_ARMS:
+                    sv = s_rows.get((m, arm, s["seed"]))
+                    s_by_seed[s["seed"]] = sv
+                    if not isinstance(sv, int) or sv <= 0:
+                        problems.append(f"{t} seed {s['seed']}: no num_keep_session row with S > 0")
+                    unsent = [r["turn_idx"] for r in st for c in r.get("calls") or []
+                              if (c.get("num_keep") or {}).get("sent") != sv or not isinstance(sv, int)]
+                    if unsent:
+                        problems.append(f"{t} seed {s['seed']}: calls without num_keep = S on turns "
+                                        f"{sorted(set(unsent))[:5]}")
+                else:
+                    sent = [r["turn_idx"] for r in st for c in r.get("calls") or [] if c.get("num_keep") is not None]
+                    if sent:
+                        problems.append(f"{t} seed {s['seed']}: num_keep sent outside the num_keep tier")
+            cells[t] = per_session
+            wrong = [r for r in wt if r.get("end_state_ok") is False]
+            silent = [r for r in wrong if not r.get("any_http_error")]
+            info[t] = {"n_sessions": len(ss), "n_task_turns": len(wt), "wrong": len(wrong),
+                       "rate": len(wrong) / len(wt) if wt else None, "silent_wrong": len(silent),
+                       "surfaced_wrong": len(wrong) - len(silent),
+                       "loaded_context_values": sorted({r.get("loaded_context") for r in wt}, key=str),
+                       "first_over_window_turn": {s["seed"]: next((r["turn_idx"] for r in sorted(
+                           (x for x in wt if x["attempt_id"] == s["attempt_id"]), key=lambda x: x["turn_idx"])
+                           if r.get("over_loaded_window")), None) for s in ss},
+                       "num_keep_per_seed": s_by_seed or None}
+        boot = session_bootstrap_excess({t: c for t, c in cells.items() if c}, TASKS_V2_DEFAULT_TIER, n_boot, seed)
+        for t, e in boot.get("per_tier", {}).items():
+            e["reading"] = tier_reading(e["ci95"], t)
+        out["models"][m] = {"refused": False, "valid": not problems, "problems": problems, "tiers": info,
+                            "excess_over_default": boot}
+    return out
+
+
 # ── CLI / queue entry ───────────────────────────────────────────────────────────────────────────────
 
 def build_arg_parser():
@@ -974,13 +1234,20 @@ def build_arg_parser():
     ap.add_argument("--seeds", default=None, help="real mode: comma-separated seeds (default SEEDS)")
     ap.add_argument("--check-plan", action="store_true",
                     help="print the plan and session shape, then exit (no server, no model call, no queue)")
-    ap.add_argument("--plan", choices=("default", TASKS_PLAN), default="default",
+    ap.add_argument("--plan", choices=("default", TASKS_PLAN, TASKS_V2_PLAN), default="default",
                     help="real mode: default = --tiers/--seeds or STRONG_TIERS x SEEDS; tasks_v1 = the B3 task real "
-                         "run (Ollama default and 4096, SEEDS, 30 task turns; needs --workload evalset --guardrails off)")
-    ap.add_argument("--preflight", choices=("full", "end_state"), default="full",
+                         "run (Ollama default and 4096, SEEDS, 30 task turns; needs --workload evalset --guardrails off); "
+                         "tasks_v2 = the B3 v2 task real run (TASKS_V2_TIERS x SEEDS_STRONG, 30 task turns, design v2, "
+                         "--preflight v2_te_deviation)")
+    ap.add_argument("--preflight", choices=("full", "end_state", PREFLIGHT_TE_DEVIATION), default="full",
                     help="real mode: full = validation_preflight_ext (R2 rule/canary/task-tool gates plus rules 6-8); "
                          "end_state = end_state_preflight (finished, controls complete, positive control, thinking "
-                         "off, content non-empty, at least one task correct; for --plan tasks_v1)")
+                         "off, content non-empty, at least one task correct; for --plan tasks_v1); v2_te_deviation = "
+                         "validation_preflight_ext with the declared task end-state deviation (TE_DEVIATION) and only "
+                         "TASKS_V2_MODELS allowed (for --plan tasks_v2)")
+    ap.add_argument("--queue-insert-tasks-v2", action="store_true",
+                    help="on evo-x2: insert x2_evalset_tasks_real_v2 directly before x2_window_override_methods in one "
+                         "read-modify-write under a pause cleared in finally")
     ap.add_argument("--queue-insert-b3", action="store_true",
                     help="on evo-x2: insert x2_r2_llama_val_32k_offload and x2_evalset_tasks_real_v1 directly after "
                          "x2_num_keep_guardrail_test in one read-modify-write under a pause cleared in finally")
@@ -996,6 +1263,8 @@ def plan_for(args, schedule=None):
         return validation_plan(args.workload, guard, args.call2_tools, schedule, args.design)
     if args.plan == TASKS_PLAN:
         return tasks_plan(args.call2_tools)
+    if args.plan == TASKS_V2_PLAN:
+        return tasks_v2_plan(args.call2_tools)
     return real_plan(args.workload, guard, args.call2_tools, ag.parse_tiers(args.tiers), ag.parse_seeds(args.seeds))
 
 
@@ -1059,6 +1328,93 @@ def queue_insert_b3(log=print) -> list[dict]:
         tq.clear_pause()
 
 
+# ── queue insertion for the B3 v2 task real run (pure part tested; --queue-insert-tasks-v2 runs it on evo-x2) ──────
+
+TASKS_V2_JOB_ID = "x2_evalset_tasks_real_v2"
+TASKS_V2_BEFORE = "x2_window_override_methods"   # directly before it (operator, 2026-10-19)
+TASKS_V2_SIDE_DIR = "evalv2"
+# register row x2-evalset-tasks-real-v2-hours (ESTIMATE from the v2 validation's measured session times)
+TASKS_V2_PROJECTED_H = 4.6
+
+
+def tasks_v2_hours_estimate(val_rows, model="qwen3:14b", tiers=TASKS_V2_TIERS, seeds=TASKS_V2_SEEDS,
+                            default_tier=TASKS_V2_DEFAULT_TIER) -> dict:
+    """ESTIMATE of x2_evalset_tasks_real_v2's duration from the v2 tasks validation's measured session times
+    (sum of turn_wall_s per completed session, model loads included): the default tier at the negative control's
+    session time (the default window is not exceeded, as at the negative control), every smaller window at the
+    positive control's (num_ctx 8192, 30 turns, over the window from about turn 10). point = default sessions x mean
+    negative-control session + other sessions x mean positive-control session; low = every session at the fastest
+    negative-control session; high = every session at the slowest positive-control session."""
+    neg_arm = ag.NEG_ARM + ag.MODE_SUFFIX["off"]
+    pos_arm = ag.POS_ARM + ag.MODE_SUFFIX["off"]
+    walls = {}
+    done = {s["attempt_id"]: s for s in ag.completed_sessions(val_rows) if s.get("model_id") == model}
+    for r in val_rows:
+        if r.get("record") == "r2a_turn" and r.get("attempt_id") in done:
+            walls.setdefault((r["arm_id"], r["attempt_id"]), 0.0)
+            walls[(r["arm_id"], r["attempt_id"])] += r.get("turn_wall_s") or 0.0
+    neg = sorted(v for (a, _), v in walls.items() if a == neg_arm)
+    pos = sorted(v for (a, _), v in walls.items() if a == pos_arm)
+    if not neg or not pos:
+        raise ValueError(f"no completed negative- and positive-control sessions for {model}")
+    n_def = len(seeds) * sum(1 for t in tiers if t == default_tier)
+    n_win = len(seeds) * len(tiers) - n_def
+    point = n_def * sum(neg) / len(neg) + n_win * sum(pos) / len(pos)
+    return {"model": model, "n_sessions": n_def + n_win, "n_default_sessions": n_def, "n_window_sessions": n_win,
+            "neg_session_s": neg, "pos_session_s": pos, "point_h": point / 3600,
+            "low_h": (n_def + n_win) * neg[0] / 3600, "high_h": (n_def + n_win) * pos[-1] / 3600}
+
+
+def queue_entry_tasks_v2(python_exe=None, results_dir=r"C:\apu\ovn\results") -> dict:
+    py = python_exe or sys.executable
+    return {"id": TASKS_V2_JOB_ID, "status": "pending", "projected_duration_h": TASKS_V2_PROJECTED_H,
+            "cmd": [py, f"{TASKS_V2_SIDE_DIR}\\x2_r2_evalset.py", "--design", "v2", "--mode", "real", "--workload",
+                    "evalset", "--guardrails", "off", "--plan", TASKS_V2_PLAN, "--preflight", PREFLIGHT_TE_DEVIATION,
+                    "--rules-from", f"{results_dir}\\x2_evalset_tasks_val_v2.jsonl", "--out",
+                    f"{results_dir}\\x2_evalset_tasks_real_v2.jsonl"],
+            "note": "B3 v2 task real run, pre-registered in docs/FINDINGS.md 2026-10-19 (protocol consistency; deviation "
+                    "note: qwen3:14b task end state 80/90 waived, approved 2026-10-19): qwen3:14b at the Ollama "
+                    "default, num_ctx 16384, 8192, 4096 and 4096 with num_keep = S, 5 seeds, 30 tasks, tool loop; "
+                    "llama3.1:8b refused by the preflight. Estimate 4.6 h (register row x2-evalset-tasks-real-v2-hours). "
+                    "Releases itself via tq.advance() on exit; sets no pause."}
+
+
+def insert_before(items: list[dict], entry: dict, before=TASKS_V2_BEFORE) -> list[dict]:
+    """The entry directly before `before`, every other entry kept as it is. A missing anchor, an anchor that is not
+    pending, or an id already present is a ValueError."""
+    items = list(items)
+    ids = [it["id"] for it in items]
+    if entry["id"] in ids:
+        raise ValueError(f"{entry['id']} is already in the queue")
+    if before not in ids:
+        raise ValueError(f"anchor {before} is not in the queue")
+    i = ids.index(before)
+    if items[i].get("status") != "pending":
+        raise ValueError(f"anchor {before} is {items[i].get('status')!r}, not pending")
+    items[i:i] = [entry]
+    return items
+
+
+def queue_insert_tasks_v2(log=print) -> list[dict]:
+    """One read-modify-write of the queue under a pause cleared in this function's finally: the queue is read inside
+    the pause (so an entry another session added just before is kept) and only the new entry is added."""
+    import t2s_queue as tq
+    tq.set_pause("x2_r2_evalset --queue-insert-tasks-v2: one read-modify-write inserting x2_evalset_tasks_real_v2 "
+                 "before x2_window_override_methods; released by clear_pause() in this same script's finally block "
+                 "within seconds")
+    try:
+        new = insert_before(tq.read_queue(), queue_entry_tasks_v2())
+        tq.write_queue(new)
+        ids = [it["id"] for it in new]
+        i = ids.index(TASKS_V2_JOB_ID)
+        log(json.dumps({"position": i, "before": ids[i - 1] if i else None, "after": ids[i + 1],
+                        "pending_or_running": [(k, it["id"], it["status"]) for k, it in enumerate(new)
+                                               if it.get("status") in ("pending", "running")]}))
+        return new
+    finally:
+        tq.clear_pause()
+
+
 def check_plan(args) -> dict:
     """The plan and every session's shape; design v2 also each session's projected largest prompt against the
     negative-control budget (neg_budget()). Raises ValueError for a v2 validation plan whose negative-control
@@ -1093,6 +1449,9 @@ def main(argv=None, advance=True):
     if args.queue_insert_b3:
         queue_insert_b3()
         return "queue-insert-b3"
+    if args.queue_insert_tasks_v2:
+        queue_insert_tasks_v2()
+        return "queue-insert-tasks-v2"
     if args.mode is None or args.out is None:
         ap.error("--mode and --out are required")
     if args.mode == "real" and not args.rules_from:
@@ -1105,6 +1464,15 @@ def main(argv=None, advance=True):
     if args.preflight == "end_state" and (args.mode != "real" or args.workload != "evalset"
                                           or args.guardrails != "off"):
         ap.error("--preflight end_state needs --mode real --workload evalset --guardrails off")
+    if (args.plan == TASKS_V2_PLAN) != (args.preflight == PREFLIGHT_TE_DEVIATION) and args.mode == "real":
+        ap.error("--plan tasks_v2 and --preflight v2_te_deviation go together")
+    if args.plan == TASKS_V2_PLAN:
+        if args.mode != "real" or args.workload != "evalset" or args.guardrails != "off" or args.design != "v2":
+            ap.error("--plan tasks_v2 needs --mode real --workload evalset --guardrails off --design v2")
+        if args.tiers or args.seeds:
+            ap.error("--plan tasks_v2 fixes the tiers and seeds; do not pass --tiers / --seeds")
+    if args.preflight == PREFLIGHT_TE_DEVIATION and args.mode != "real":
+        ap.error("--preflight v2_te_deviation needs --mode real --plan tasks_v2")
     if args.workload == "replay" and args.guardrails == "off":
         ap.error("the replay workload always runs with guardrails on")
     if args.check_plan:
@@ -1158,6 +1526,10 @@ def main(argv=None, advance=True):
                     preflight = dict(preflight, ok=False, models_ok=[], refused={
                         m: [f"validation file design {file_design(vrows)!r} != this run's design {args.design!r}"]
                         for m in models})
+            elif args.preflight == PREFLIGHT_TE_DEVIATION:
+                preflight = validation_preflight_ext(vrows, models, args.workload, guard, c2, args.design,
+                                                     waive_task_end_state=TE_DEVIATION,
+                                                     allowed_models=TASKS_V2_MODELS)
             else:
                 preflight = validation_preflight_ext(vrows, models, args.workload, guard, c2, args.design)
             for m, reasons in preflight["refused"].items():
@@ -1167,7 +1539,10 @@ def main(argv=None, advance=True):
               "guardrails": guard, "models": models, "plan": plan, "plan_name": args.plan,
               "preflight_kind": args.preflight, "call2_tools": c2 != "off", "call2_mode": c2,
               "call2_extra": ag.call2_extra(c2), "rules_ext": list(RULE_IDS_EXT), "rules_from": args.rules_from,
-              "validation_preflight": preflight, "max_tokens_per_call": ag.MAX_TOKENS_PER_CALL,
+              "validation_preflight": preflight,
+              "rules_in_use": (preflight or {}).get("rules_in_use") if args.mode == "real" else None,
+              "num_keep_tiers": sorted(NUMKEEP_ARMS & {a for a, _, _ in plan}) or None,
+              "max_tokens_per_call": ag.MAX_TOKENS_PER_CALL,
               "keep_alive": ag.KEEP_ALIVE, "hw_id": host_cfg.get("hw_id"), "interactive_session": interactive,
               "design": args.design, "turn_protocol": TURN_PROTOCOL[args.design], "max_tool_rounds":
               MAX_TOOL_ROUNDS if args.design != "v1" else None,
@@ -1186,6 +1561,8 @@ def main(argv=None, advance=True):
             if not hc.wait_for_ollama_ready(timeout_s=90):
                 raise RuntimeError("ollama did not become ready")
         runtime = ag.OllamaRuntime()
+        if any(a in NUMKEEP_ARMS for a, _, _ in plan):
+            runtime = NumKeepSessionRuntime(runtime, host_measure(runtime), emit)
         avail = runtime.available_models()
         missing = [m for m in models if not any(ag.same_tag(m, a) for a in avail)]
         if missing:
@@ -1212,6 +1589,9 @@ def main(argv=None, advance=True):
                 for s in sessions]}
             if args.preflight == "end_state":
                 report["tasks_real_outcome"] = tasks_real_outcome(rows, vrows, c2)
+            if args.plan == TASKS_V2_PLAN:
+                # run_end is emitted right after this report is written; the outcome is computed as of that point
+                report["tasks_real_v2_outcome"] = tasks_real_v2_outcome(rows + [{"record": "run_end"}], c2)
         Path(str(out_path) + ".report.json").write_text(json.dumps(report, indent=1, default=str), encoding="utf-8")
         emit({"record": "run_end", "call2_mode": c2, "ts_utc": ag.utc_iso()})
         if args.mode == "validation":

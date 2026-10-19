@@ -4662,6 +4662,142 @@ def compute_x2_evalset_val_v2_task_end_state(repo):
     return {"value": " / ".join(parts), "n": f"{n} negative-control task turns"}
 
 
+# B3 v2 task real run (pre-registered in docs/FINDINGS.md 2026-10-19, "PRE-REGISTRATION: protocol consistency", queue
+# id x2_evalset_tasks_real_v2): the duration ESTIMATE before queueing, then (PENDING until the file is synced) the gated
+# after-window excess over default against v1b and the wrong-task rate excess.
+X2_EVALSET_TASKS_REAL_V2 = "results/x2_evalset_tasks_real_v2.jsonl"
+X2_EVALSET_TASKS_VAL_V2 = "results/x2_evalset_tasks_val_v2.jsonl"
+V2_PROTOCOL_MODEL = "qwen3:14b"
+
+
+def compute_x2_evalset_tasks_real_v2_hours(repo):
+    """ESTIMATE (not a measurement) of x2_evalset_tasks_real_v2's duration from the v2 tasks validation's measured
+    session times (harness/x2_r2_evalset.py::tasks_v2_hours_estimate)."""
+    _r2_agent_module()
+    import x2_r2_evalset as ev
+    rows = ev.ag.read_rows(repo / X2_EVALSET_TASKS_VAL_V2)
+    if not rows:
+        raise FileNotFoundError(repo / X2_EVALSET_TASKS_VAL_V2)
+    e = ev.tasks_v2_hours_estimate(rows)
+    return {"value": f"ESTIMATE {e['point_h']:.1f} h (range {e['low_h']:.1f} to {e['high_h']:.1f} h) for "
+                     f"{e['n_sessions']} {e['model']} sessions of 30 task turns ({e['n_default_sessions']} at the default "
+                     f"at the measured negative-control session time, {e['n_window_sessions']} at smaller windows at the "
+                     f"measured num_ctx 8192 positive-control session time); measured sessions (s): negative control "
+                     + ", ".join(f"{v:.0f}" for v in e["neg_session_s"]) + "; positive control "
+                     + ", ".join(f"{v:.0f}" for v in e["pos_session_s"]),
+            "n": f"{len(e['neg_session_s']) + len(e['pos_session_s'])} measured sessions (estimate)"}
+
+
+def protocol_reading(v2_ci, v1b_excess, v1b_ci) -> str:
+    """The pre-registered protocol-consistency reading for one tier (docs/FINDINGS.md 2026-10-19)."""
+    lo, hi = v2_ci
+    if lo is None:
+        return "inconclusive (no CI)"
+    if v1b_ci[0] is not None and v1b_ci[0] > 0:
+        if lo > 0:
+            return "the v1b effect holds"
+        if hi < v1b_excess:
+            return "the v1b effect is a protocol artifact"
+        return "inconclusive"
+    return "v2 shows an excess v1b did not" if lo > 0 else "no excess in either protocol"
+
+
+def num_keep_reading(ci_4096, ci_nk) -> str:
+    if ci_4096[0] is None or ci_nk[0] is None:
+        return "not shown either way (no CI)"
+    if ci_4096[0] > 0 and ci_nk[0] <= 0 <= ci_nk[1]:
+        return "num_keep removes the 4096 excess for qwen3:14b"
+    if ci_4096[0] > 0 and ci_nk[0] > 0:
+        return "num_keep does not remove it"
+    return "not shown either way"
+
+
+def compute_x2_evalset_tasks_real_v2_gated_excess(repo):
+    """qwen3:14b, per tier: gated silent failures after the window was exceeded and the excess over the default with
+    the v1b bootstrap (analysis/r2_real_report.py build_combined + excess_over_default on the v2 file, gated metrics
+    from the v2 tasks validation), next to v1b's per-model values (R2-v1b-excess-over-default), with the pre-registered
+    reading per tier and for num_keep; validity from x2_r2_evalset.tasks_real_v2_outcome."""
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "analysis"))
+    import r2_real_report as rr
+    _r2_agent_module()
+    import x2_r2_evalset as ev
+    rows = ev.ag.read_rows(repo / X2_EVALSET_TASKS_REAL_V2)
+    if not rows:
+        raise FileNotFoundError(repo / X2_EVALSET_TASKS_REAL_V2)
+    o = ev.tasks_real_v2_outcome(rows)
+    d = o["models"].get(V2_PROTOCOL_MODEL, {})
+    valid = bool(d.get("valid"))
+    rep = rr.build_combined([repo / X2_EVALSET_TASKS_REAL_V2], validation_paths=[repo / X2_EVALSET_TASKS_VAL_V2])
+    x = rr.excess_over_default(rep)
+    _rr, rep1 = _r2_real_v1b_report(repo)
+    x1 = rr.excess_over_default(rep1)
+    g = rr.gated_per_model(rep)
+    gm = rep["gated_metrics"].get(V2_PROTOCOL_MODEL, {})
+    parts = [f"{V2_PROTOCOL_MODEL}: valid {valid}" + (f" ({'; '.join(d.get('problems') or [])})" if not valid else "")
+             + f"; gated fields {', '.join(gm.get('fields', []))} (excluded {', '.join(gm.get('excluded', [])) or 'none'})"]
+    dflt = g.get(f"ollama_default|{V2_PROTOCOL_MODEL}")
+    if dflt:
+        parts.append(f"ollama_default {dflt['silent']}/{dflt['n']} silent, {dflt['silent_after_window_exceeded']} after "
+                     f"window exceeded")
+    cis = {}
+    for tier, per in x.get("per_tier", {}).items():
+        v = per.get(V2_PROTOCOL_MODEL)
+        if v is None:
+            continue
+        lo, hi = v["ci95"]
+        cis[tier] = (lo, hi)
+        s = (f"{tier}: v2 {round(v['rate'] * v['n_tier'])}/{v['n_tier']} vs default "
+             f"{round(v['default_rate'] * v['n_default'])}/{v['n_default']}, excess {v['excess']:+.3f} (95% CI "
+             f"{lo:+.3f} to {hi:+.3f})")
+        w = x1.get("per_tier", {}).get(tier, {}).get(V2_PROTOCOL_MODEL)
+        if w is not None:
+            s += (f"; v1b excess {w['excess']:+.3f} (95% CI {w['ci95'][0]:+.3f} to {w['ci95'][1]:+.3f}); reading: "
+                  + (protocol_reading((lo, hi), w["excess"], w["ci95"]) if valid else "inconclusive (run not valid)"))
+        parts.append(s)
+    nk = "num_ctx_4096_numkeep"
+    if "num_ctx_4096" in cis and nk in cis:
+        parts.append("num_keep reading: " + (num_keep_reading(cis["num_ctx_4096"], cis[nk]) if valid
+                                             else "inconclusive (run not valid)"))
+    return {"value": "; ".join(parts) + f" (bootstrap {x.get('n_resamples')} resamples, unit {x.get('unit')}, "
+                                        f"stratified by {x.get('strata')}, seed {x.get('seed')})",
+            "n": f"{rep['n_sessions']} sessions"}
+
+
+def compute_x2_evalset_tasks_real_v2_wrong_rate(repo):
+    """qwen3:14b, per tier: wrong-task rate over all task turns, silent and surfaced wrong turns, loaded context,
+    and the excess over the default with the session bootstrap and its pre-registered reading
+    (harness/x2_r2_evalset.py::tasks_real_v2_outcome); refused models with their reasons."""
+    _r2_agent_module()
+    import x2_r2_evalset as ev
+    rows = ev.ag.read_rows(repo / X2_EVALSET_TASKS_REAL_V2)
+    if not rows:
+        raise FileNotFoundError(repo / X2_EVALSET_TASKS_REAL_V2)
+    o = ev.tasks_real_v2_outcome(rows)
+    parts, n = [], 0
+    for m, d in o["models"].items():
+        if d.get("refused"):
+            parts.append(f"{m}: refused ({'; '.join(d['reasons'] or [])})")
+            continue
+        segs = [f"valid {d['valid']}" + (f" ({'; '.join(d['problems'])})" if d["problems"] else "")]
+        for t, i in d["tiers"].items():
+            n += i["n_task_turns"]
+            segs.append(f"{t}: wrong {_frac(i['wrong'], i['n_task_turns'])} (silent {i['silent_wrong']}, surfaced "
+                        f"{i['surfaced_wrong']}), loaded context {i['loaded_context_values']}"
+                        + (f", num_keep per seed {i['num_keep_per_seed']}" if i["num_keep_per_seed"] else ""))
+        for t, e in d["excess_over_default"].get("per_tier", {}).items():
+            lo, hi = e["ci95"]
+            segs.append(f"{t} excess over default {100 * e['excess']:+.1f} points (95% CI "
+                        + (f"{100 * lo:+.1f} to {100 * hi:+.1f}" if lo is not None else "n/a")
+                        + f", {e['n_sessions']} vs {e['n_default_sessions']} sessions); reading: "
+                        + (e["reading"] if d["valid"] else "not read (run not valid)"))
+        parts.append(f"{m}: " + "; ".join(segs))
+    return {"value": f"run finished {o['run_finished']}; " + " / ".join(parts)
+                     + f" (bootstrap {ev.BOOT_N} resamples, unit session, stratified by tier, seed {ev.BOOT_SEED})",
+            "n": f"{n} task turns"}
+
+
+
 NUMBER_ENTRIES = [
     {"claim_id": "PX2-TTFT-gap", "description": "PX2 B4-vs-S4 TTFT gap range across 5 models",
      "compute": compute_px2_ttft_gap, "data_files": ["results/t2s_night2_20260930T135145Z.jsonl"],
@@ -5370,6 +5506,22 @@ NUMBER_ENTRIES = [
      "gate (negative-control task turns with a correct end state, 90% bar) per validation and model, by difficulty",
      "compute": compute_x2_evalset_val_v2_task_end_state, "data_files": [v[0] for v in EVALSET_V2_FILES.values()],
      "script_function": "analysis/numbers_register.py::compute_x2_evalset_val_v2_task_end_state"},
+    {"claim_id": "x2-evalset-tasks-real-v2-hours", "description": "ESTIMATE, not a measurement: duration of "
+     "x2_evalset_tasks_real_v2 (qwen3:14b, 5 tiers x 5 seeds x 30 task turns) from the v2 tasks validation's measured "
+     "session times",
+     "compute": compute_x2_evalset_tasks_real_v2_hours, "data_files": [X2_EVALSET_TASKS_VAL_V2],
+     "script_function": "harness/x2_r2_evalset.py::tasks_v2_hours_estimate"},
+    {"claim_id": "x2-evalset-tasks-real-v2-gated-excess", "description": "B3 v2 task real run (tools on every call), "
+     "qwen3:14b: gated silent failures after the window was exceeded, excess over default with the v1b bootstrap, next "
+     "to v1b's values, with the pre-registered protocol-consistency and num_keep readings",
+     "compute": compute_x2_evalset_tasks_real_v2_gated_excess,
+     "data_files": [X2_EVALSET_TASKS_REAL_V2, X2_EVALSET_TASKS_VAL_V2] + R2_V1B_DATA, "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_x2_evalset_tasks_real_v2_gated_excess"},
+    {"claim_id": "x2-evalset-tasks-real-v2-wrong-rate", "description": "B3 v2 task real run, qwen3:14b: wrong-task "
+     "rate per tier (all task turns), silent vs surfaced, excess over default with a session bootstrap and its "
+     "pre-registered reading; refused models",
+     "compute": compute_x2_evalset_tasks_real_v2_wrong_rate, "data_files": [X2_EVALSET_TASKS_REAL_V2],
+     "pending_ok": True, "script_function": "harness/x2_r2_evalset.py::tasks_real_v2_outcome"},
 ]
 
 
