@@ -1,0 +1,314 @@
+time=2026-10-19T20:15:03.277-07:00 level=INFO source=routes.go:2005 msg="server config" env="map[CUDA_VISIBLE_DEVICES: GGML_VK_VISIBLE_DEVICES: GPU_DEVICE_ORDINAL: HIP_VISIBLE_DEVICES: HSA_OVERRIDE_GFX_VERSION: HTTPS_PROXY: HTTP_PROXY: LLAMA_ARG_FIT: LLAMA_ARG_FIT_TARGET: NO_PROXY: OLLAMA_CONTEXT_LENGTH:6144 OLLAMA_CREATE_REMOTE:false OLLAMA_DEBUG:DEBUG OLLAMA_DEBUG_LOG_REQUESTS:false OLLAMA_EDITOR: OLLAMA_FLASH_ATTENTION:false OLLAMA_GO_TEMPLATE:true OLLAMA_GPU_OVERHEAD:0 OLLAMA_HOST:http://127.0.0.1:11500 OLLAMA_IGPU_ENABLE: OLLAMA_KEEP_ALIVE:5m0s OLLAMA_KV_CACHE_TYPE: OLLAMA_LLM_LIBRARY: OLLAMA_LOAD_TIMEOUT:5m0s OLLAMA_MAX_LOADED_MODELS:0 OLLAMA_MAX_QUEUE:512 OLLAMA_MAX_TRANSFER_STREAMS:4 OLLAMA_MODELS:C:\\Users\\Ritz\\.ollama\\models OLLAMA_NOHISTORY:false OLLAMA_NOPRUNE:false OLLAMA_NO_CLOUD:false OLLAMA_NUM_PARALLEL:1 OLLAMA_ORIGINS:[http://localhost https://localhost http://localhost:* https://localhost:* http://127.0.0.1 https://127.0.0.1 http://127.0.0.1:* https://127.0.0.1:* http://0.0.0.0 https://0.0.0.0 http://0.0.0.0:* https://0.0.0.0:* app://* file://* tauri://* vscode-webview://* vscode-file://*] OLLAMA_REMOTES:[ollama.com] OLLAMA_SCHED_SPREAD:false OLLAMA_VULKAN:true ROCR_VISIBLE_DEVICES:]"
+time=2026-10-19T20:15:03.278-07:00 level=INFO source=routes.go:2007 msg="Ollama cloud disabled: false"
+time=2026-10-19T20:15:03.282-07:00 level=INFO source=images.go:922 msg="total blobs: 32"
+time=2026-10-19T20:15:03.283-07:00 level=INFO source=images.go:930 msg="total unused blobs removed: 0"
+time=2026-10-19T20:15:03.284-07:00 level=DEBUG source=model_recommendations.go:57 msg="starting model recommendations cache" default_recommendations=6 refresh_interval=4h0m0s fetch_timeout=3s
+time=2026-10-19T20:15:03.284-07:00 level=DEBUG source=model_show_cache.go:128 msg="starting model show cache"
+time=2026-10-19T20:15:03.284-07:00 level=INFO source=routes.go:2065 msg="Listening on 127.0.0.1:11500 (version 0.34.4)"
+time=2026-10-19T20:15:03.284-07:00 level=DEBUG source=sched.go:220 msg="starting llm scheduler"
+time=2026-10-19T20:15:03.285-07:00 level=DEBUG source=model_recommendations.go:265 msg="loaded model recommendations snapshot" path=C:\Users\Ritz\.ollama\cache\model-recommendations.json count=7
+time=2026-10-19T20:15:03.285-07:00 level=DEBUG source=model_recommendations.go:192 msg="refreshing model recommendations from remote" url=https://ollama.com/api/experimental/model-recommendations
+time=2026-10-19T20:15:03.285-07:00 level=INFO source=runner.go:60 msg="discovering available GPUs..."
+time=2026-10-19T20:15:03.329-07:00 level=DEBUG source=llama_server.go:121 msg="llama-server discovery: stopped subprocess after collecting GPU info" exit=1 libDirs="[C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\cuda_v12]"
+time=2026-10-19T20:15:03.421-07:00 level=DEBUG source=native_probe.go:259 msg="native GPU discovery failed" error="exit status 1" stderr="load_backend: failed to load C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\cuda_v12\\ggml-cuda.dll: \r\nError: failed to load nvcuda.dll: The specified module could not be found.\n" libDirs="[C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\cuda_v12]"
+time=2026-10-19T20:15:03.421-07:00 level=DEBUG source=llama_server.go:52 msg="llama-server device discovery took" duration=132.9924ms libDirs="[C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\cuda_v12]"
+time=2026-10-19T20:15:03.421-07:00 level=DEBUG source=runner.go:494 msg="bootstrap discovery took" duration=133.4959ms OLLAMA_LIBRARY_PATH="[C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\cuda_v12]" extra_envs=map[]
+time=2026-10-19T20:15:03.461-07:00 level=DEBUG source=model_recommendations.go:228 msg="model recommendations refreshed" count=7
+time=2026-10-19T20:15:03.468-07:00 level=DEBUG source=model_recommendations.go:305 msg="persisted model recommendations snapshot" path=C:\Users\Ritz\.ollama\cache\model-recommendations.json count=7
+time=2026-10-19T20:15:03.468-07:00 level=INFO source=model_recommendations.go:177 msg="model recommendations cache sleep scheduled" wait=4h8m40.255831617s consecutive_failures=0
+time=2026-10-19T20:15:03.541-07:00 level=DEBUG source=llama_server.go:121 msg="llama-server discovery: stopped subprocess after collecting GPU info" exit=1 libDirs="[C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\cuda_v13]"
+time=2026-10-19T20:15:03.797-07:00 level=DEBUG source=native_probe.go:259 msg="native GPU discovery failed" error="exit status 1" stderr="ggml_cuda_init: failed to initialize CUDA: (null)\r\nload_backend: loaded CUDA backend from C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\cuda_v13\\ggml-cuda.dll\r\nError: failed to load nvcuda.dll: The specified module could not be found.\n" libDirs="[C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\cuda_v13]"
+time=2026-10-19T20:15:03.797-07:00 level=DEBUG source=llama_server.go:52 msg="llama-server device discovery took" duration=376.1057ms libDirs="[C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\cuda_v13]"
+time=2026-10-19T20:15:03.797-07:00 level=DEBUG source=runner.go:494 msg="bootstrap discovery took" duration=376.1057ms OLLAMA_LIBRARY_PATH="[C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\cuda_v13]" extra_envs=map[]
+time=2026-10-19T20:15:03.802-07:00 level=DEBUG source=rocm_windows.go:174 msg="keeping bundled ROCm runtime because companion DLL version is unavailable" name=amd_comgr_3.dll bundled=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\amd_comgr_3.dll system=C:\windows\system32\amd_comgr_3.dll
+time=2026-10-19T20:15:03.802-07:00 level=DEBUG source=rocm_windows.go:76 msg="selected windows ROCm runtime" runtime_source=bundled name=amdhip64_7.dll path=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\amdhip64_7.dll bundled=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\amdhip64_7.dll bundled_version=10.0.3665.0 system=C:\windows\system32\amdhip64_7.dll system_version=10.0.3679.0
+time=2026-10-19T20:15:03.871-07:00 level=DEBUG source=llama_server.go:121 msg="llama-server discovery: stopped subprocess after collecting GPU info" exit=1 libDirs="[C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\rocm_v7_1]"
+time=2026-10-19T20:15:04.058-07:00 level=DEBUG source=rocm_windows.go:174 msg="keeping bundled ROCm runtime because companion DLL version is unavailable" name=amd_comgr_3.dll bundled=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\amd_comgr_3.dll system=C:\windows\system32\amd_comgr_3.dll
+time=2026-10-19T20:15:04.058-07:00 level=DEBUG source=rocm_windows.go:76 msg="selected windows ROCm runtime" runtime_source=bundled name=amdhip64_7.dll path=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\amdhip64_7.dll bundled=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\amdhip64_7.dll bundled_version=10.0.3665.0 system=C:\windows\system32\amdhip64_7.dll system_version=10.0.3679.0
+time=2026-10-19T20:15:04.244-07:00 level=DEBUG source=llama_server.go:52 msg="llama-server device discovery took" duration=446.238ms libDirs="[C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\rocm_v7_1]"
+time=2026-10-19T20:15:04.246-07:00 level=DEBUG source=runner.go:494 msg="bootstrap discovery took" duration=449.3764ms OLLAMA_LIBRARY_PATH="[C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\rocm_v7_1]" extra_envs=map[]
+time=2026-10-19T20:15:04.247-07:00 level=DEBUG source=vulkan_windows.go:37 msg="selected windows Vulkan loader" path=C:\windows\system32\vulkan-1.dll
+time=2026-10-19T20:15:04.328-07:00 level=DEBUG source=llama_server.go:121 msg="llama-server discovery: stopped subprocess after collecting GPU info" exit=1 libDirs="[C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\vulkan]"
+time=2026-10-19T20:15:04.419-07:00 level=DEBUG source=vulkan_windows.go:37 msg="selected windows Vulkan loader" path=C:\windows\system32\vulkan-1.dll
+time=2026-10-19T20:15:04.540-07:00 level=DEBUG source=vulkan.go:138 msg="windows vulkan device refinement applied" devices=1
+time=2026-10-19T20:15:04.541-07:00 level=DEBUG source=llama_server.go:52 msg="llama-server device discovery took" duration=294.4621ms libDirs="[C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\vulkan]"
+time=2026-10-19T20:15:04.541-07:00 level=DEBUG source=runner.go:494 msg="bootstrap discovery took" duration=294.4621ms OLLAMA_LIBRARY_PATH="[C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\vulkan]" extra_envs=map[]
+time=2026-10-19T20:15:04.541-07:00 level=INFO source=runner.go:405 msg="dropping integrated GPU; to enable, set OLLAMA_IGPU_ENABLE=1" id=0 library=Vulkan compute=0.0 name=Vulkan0 description="AMD Radeon(TM) 8060S Graphics" pci_id=""
+time=2026-10-19T20:15:04.541-07:00 level=DEBUG source=runner.go:131 msg="evaluating which, if any, devices to filter out" initial_count=1
+time=2026-10-19T20:15:04.541-07:00 level=DEBUG source=runner.go:153 msg="verifying if device is supported" library=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1 description="AMD Radeon(TM) 8060S Graphics" compute=gfx1151 id=0 pci_id=0000:c5:00.0
+time=2026-10-19T20:15:04.546-07:00 level=DEBUG source=rocm_windows.go:174 msg="keeping bundled ROCm runtime because companion DLL version is unavailable" name=amd_comgr_3.dll bundled=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\amd_comgr_3.dll system=C:\windows\system32\amd_comgr_3.dll
+time=2026-10-19T20:15:04.546-07:00 level=DEBUG source=rocm_windows.go:76 msg="selected windows ROCm runtime" runtime_source=bundled name=amdhip64_7.dll path=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\amdhip64_7.dll bundled=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\amdhip64_7.dll bundled_version=10.0.3665.0 system=C:\windows\system32\amdhip64_7.dll system_version=10.0.3679.0
+time=2026-10-19T20:15:04.608-07:00 level=DEBUG source=llama_server.go:121 msg="llama-server discovery: stopped subprocess after collecting GPU info" exit=1 libDirs="[C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\rocm_v7_1]"
+time=2026-10-19T20:15:04.773-07:00 level=DEBUG source=rocm_windows.go:174 msg="keeping bundled ROCm runtime because companion DLL version is unavailable" name=amd_comgr_3.dll bundled=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\amd_comgr_3.dll system=C:\windows\system32\amd_comgr_3.dll
+time=2026-10-19T20:15:04.774-07:00 level=DEBUG source=rocm_windows.go:76 msg="selected windows ROCm runtime" runtime_source=bundled name=amdhip64_7.dll path=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\amdhip64_7.dll bundled=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\amdhip64_7.dll bundled_version=10.0.3665.0 system=C:\windows\system32\amdhip64_7.dll system_version=10.0.3679.0
+time=2026-10-19T20:15:04.938-07:00 level=DEBUG source=llama_server.go:52 msg="llama-server device discovery took" duration=397.2602ms libDirs="[C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\rocm_v7_1]"
+time=2026-10-19T20:15:04.940-07:00 level=DEBUG source=runner.go:494 msg="bootstrap discovery took" duration=398.3094ms OLLAMA_LIBRARY_PATH="[C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\rocm_v7_1]" extra_envs="map[GGML_CUDA_INIT:1 HIP_VISIBLE_DEVICES:0]"
+time=2026-10-19T20:15:04.940-07:00 level=DEBUG source=runner.go:200 msg="adjusting filtering IDs" FilterID=0 new_ID=0
+time=2026-10-19T20:15:04.940-07:00 level=DEBUG source=runner.go:42 msg="GPU bootstrap discovery took" duration=1.6555396s
+time=2026-10-19T20:15:04.940-07:00 level=INFO source=types.go:32 msg="inference compute" id=0 filter_id=0 library=ROCm compute=gfx1151 name=ROCm0 description="AMD Radeon(TM) 8060S Graphics" libdirs=ollama,rocm_v7_1 driver=0.0 pci_id=0000:c5:00.0 type=iGPU total="99.7 GiB" available="99.6 GiB"
+time=2026-10-19T20:15:04.940-07:00 level=INFO source=routes.go:2115 msg="vram-based default context" total_vram="99.7 GiB" default_num_ctx=262144
+[GIN] 2026/10/19 - 20:15:04 | 200 |      6.2091ms |       127.0.0.1 | GET      "/api/tags"
+[GIN] 2026/10/19 - 20:15:04 | 200 |            0s |       127.0.0.1 | GET      "/api/version"
+[GIN] 2026/10/19 - 20:15:04 | 200 |            0s |       127.0.0.1 | GET      "/api/ps"
+[GIN] 2026/10/19 - 20:15:04 | 200 |            0s |       127.0.0.1 | GET      "/api/ps"
+time=2026-10-19T20:15:05.013-07:00 level=DEBUG source=runner.go:272 msg="refreshing free memory"
+time=2026-10-19T20:15:05.013-07:00 level=DEBUG source=runner.go:336 msg="unable to refresh all GPUs with existing runners, performing bootstrap discovery"
+time=2026-10-19T20:15:05.019-07:00 level=DEBUG source=rocm_windows.go:174 msg="keeping bundled ROCm runtime because companion DLL version is unavailable" name=amd_comgr_3.dll bundled=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\amd_comgr_3.dll system=C:\windows\system32\amd_comgr_3.dll
+time=2026-10-19T20:15:05.019-07:00 level=DEBUG source=rocm_windows.go:76 msg="selected windows ROCm runtime" runtime_source=bundled name=amdhip64_7.dll path=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\amdhip64_7.dll bundled=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\amdhip64_7.dll bundled_version=10.0.3665.0 system=C:\windows\system32\amdhip64_7.dll system_version=10.0.3679.0
+time=2026-10-19T20:15:05.078-07:00 level=DEBUG source=llama_server.go:121 msg="llama-server discovery: stopped subprocess after collecting GPU info" exit=1 libDirs="[C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\rocm_v7_1]"
+time=2026-10-19T20:15:05.246-07:00 level=DEBUG source=rocm_windows.go:174 msg="keeping bundled ROCm runtime because companion DLL version is unavailable" name=amd_comgr_3.dll bundled=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\amd_comgr_3.dll system=C:\windows\system32\amd_comgr_3.dll
+time=2026-10-19T20:15:05.246-07:00 level=DEBUG source=rocm_windows.go:76 msg="selected windows ROCm runtime" runtime_source=bundled name=amdhip64_7.dll path=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\amdhip64_7.dll bundled=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\amdhip64_7.dll bundled_version=10.0.3665.0 system=C:\windows\system32\amdhip64_7.dll system_version=10.0.3679.0
+time=2026-10-19T20:15:05.413-07:00 level=DEBUG source=llama_server.go:52 msg="llama-server device discovery took" duration=399.1755ms libDirs="[C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\rocm_v7_1]"
+time=2026-10-19T20:15:05.414-07:00 level=DEBUG source=runner.go:494 msg="bootstrap discovery took" duration=400.7464ms OLLAMA_LIBRARY_PATH="[C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\rocm_v7_1]" extra_envs=map[HIP_VISIBLE_DEVICES:0]
+time=2026-10-19T20:15:05.414-07:00 level=DEBUG source=runner.go:42 msg="overall device VRAM discovery took" duration=400.7464ms
+time=2026-10-19T20:15:05.414-07:00 level=DEBUG source=sched.go:295 msg="updating default concurrency" OLLAMA_MAX_LOADED_MODELS=3 gpu_count=1
+time=2026-10-19T20:15:05.414-07:00 level=DEBUG source=sched.go:304 msg="loading first model" model=C:\Users\Ritz\.ollama\models\blobs\sha256-667b0c1932bc6ffc593ed1d03f895bf2dc8dc6df21db3042284a6f4416b06a29
+time=2026-10-19T20:15:05.442-07:00 level=INFO source=server.go:100 msg="using llama-server for model" model=C:\Users\Ritz\.ollama\models\blobs\sha256-667b0c1932bc6ffc593ed1d03f895bf2dc8dc6df21db3042284a6f4416b06a29
+time=2026-10-19T20:15:05.448-07:00 level=DEBUG source=rocm_windows.go:174 msg="keeping bundled ROCm runtime because companion DLL version is unavailable" name=amd_comgr_3.dll bundled=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\amd_comgr_3.dll system=C:\windows\system32\amd_comgr_3.dll
+time=2026-10-19T20:15:05.448-07:00 level=DEBUG source=rocm_windows.go:76 msg="selected windows ROCm runtime" runtime_source=bundled name=amdhip64_7.dll path=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\amdhip64_7.dll bundled=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\amdhip64_7.dll bundled_version=10.0.3665.0 system=C:\windows\system32\amdhip64_7.dll system_version=10.0.3679.0
+time=2026-10-19T20:15:05.448-07:00 level=INFO source=llama_server.go:436 msg="starting llama-server" cmd="C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\llama-server.exe --model C:\\Users\\Ritz\\.ollama\\models\\blobs\\sha256-667b0c1932bc6ffc593ed1d03f895bf2dc8dc6df21db3042284a6f4416b06a29 --port 52283 --host 127.0.0.1 --no-webui --offline -c 6144 -np 1 --log-verbosity 4 --no-log-prefix --no-log-timestamps --no-jinja --chat-template chatml --flash-attn auto -b 1024 -ub 1024 --context-shift --keep 4"
+time=2026-10-19T20:15:05.448-07:00 level=DEBUG source=llama_server.go:437 msg=subprocess PATH="C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama;C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\rocm_v7_1;C:\\Program Files\\OpenSSH\\;C:\\windows\\system32;C:\\windows;C:\\windows\\System32\\Wbem;C:\\windows\\System32\\WindowsPowerShell\\v1.0\\;C:\\windows\\System32\\OpenSSH\\;C:\\Program Files\\Tailscale\\;C:\\Users\\Ritz\\AppData\\Local\\Programs\\Python\\Python312\\Scripts\\;C:\\Users\\Ritz\\AppData\\Local\\Programs\\Python\\Python312\\;C:\\Users\\Ritz\\AppData\\Local\\Programs\\Python\\Launcher\\;C:\\Users\\Ritz\\AppData\\Local\\Microsoft\\WindowsApps;C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama" HIP_VISIBLE_DEVICES=0 GGML_BACKEND_PATH=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\ggml-hip.dll
+time=2026-10-19T20:15:05.456-07:00 level=INFO source=sched.go:618 msg="system memory" total="63.6 GiB" free="55.0 GiB" free_swap="243.0 GiB"
+time=2026-10-19T20:15:05.456-07:00 level=INFO source=sched.go:625 msg="gpu memory" id=0 library=ROCm available="99.1 GiB" free="99.6 GiB" minimum="457.0 MiB" overhead="0 B"
+time=2026-10-19T20:15:05.456-07:00 level=INFO source=llama_server.go:1054 msg="loading model via llama-server" model=C:\Users\Ritz\.ollama\models\blobs\sha256-667b0c1932bc6ffc593ed1d03f895bf2dc8dc6df21db3042284a6f4416b06a29
+time=2026-10-19T20:15:05.456-07:00 level=INFO source=llama_server.go:1307 msg="waiting for llama-server to start responding"
+time=2026-10-19T20:15:05.457-07:00 level=INFO source=llama_server.go:1362 msg="waiting for llama-server to become available" status="llm server error"
+0.00.000.637 I srv  llama_server: initializing ...
+cmn  common_param: common_params_print_info: build 1 (161755f29) with Clang 18.1.8 for Windows AMD64
+cmn  common_param: common_params_print_info: verbosity = 4 (adjust with the `-lv N` CLI arg)
+cmn  common_param: device_info:
+cmn  common_param:   - CPU     : AMD RYZEN AI MAX+ 395 w/ Radeon 8060S           (65174 MiB, 56259 MiB free)
+cmn  common_param:   - ROCm0   : AMD Radeon(TM) 8060S Graphics (102129 MiB, 101974 MiB free)
+cmn  common_param: system_info: n_threads = 16 (n_threads_batch = 16) / 32 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | AVX512 = 1 | AVX512_VBMI = 1 | AVX512_VNNI = 1 | AVX512_BF16 = 1 | LLAMAFILE = 1 | OPENMP = 1 | REPACK = 1 | ROCm : NO_VMM = 1 | NO_PEER_COPY = 1 | FA_QUANTS = q4_0-q4_0,q8_0-q8_0,f16-f16,bf16-bf16 | 
+srv          init: using 31 threads for HTTP server
+srv          init: The UI is disabled
+srv          init: Use --ui/--no-ui (or deprecated --webui/--no-webui) to enable/disable
+srv  llama_server: security: no API key is set and CORS allows all origins (see https://github.com/ggml-org/llama.cpp/pull/25655)
+srv         start: binding port with default address family
+srv    load_model: loading model 'C:\Users\Ritz\.ollama\models\blobs\sha256-667b0c1932bc6ffc593ed1d03f895bf2dc8dc6df21db3042284a6f4416b06a29'
+srv    load_model: local path 'C:\Users\Ritz\.ollama\models\blobs\sha256-667b0c1932bc6ffc593ed1d03f895bf2dc8dc6df21db3042284a6f4416b06a29'
+cmn  common_init_: fitting params to device memory ...
+cmn  common_init_: (for bugs during this step try to reproduce them with -fit off, or provide --verbose logs if the bug only occurs with -fit on)
+common_params_fit_impl: getting device memory data for initial parameters:
+time=2026-10-19T20:15:05.709-07:00 level=INFO source=llama_server.go:1362 msg="waiting for llama-server to become available" status="llm server loading model"
+common_memory_breakdown_print: | memory breakdown [MiB]                |  total     free    self   model   context   compute    unaccounted |
+common_memory_breakdown_print: |   - ROCm0 (Radeon(TM) 8060S Graphics) | 102129 = 101832 + (5399 =  4403 +     768 +     228) +       -5102 |
+common_memory_breakdown_print: |   - Host                              |                     325 =   281 +       0 +      44                |
+common_params_fit_impl: projected to use 5399 MiB of device memory vs. 101832 MiB of free device memory
+common_params_fit_impl: will leave 96432 >= 1024 MiB of free device memory, no changes needed
+common_fit_params: successfully fit params to free device memory
+common_fit_params: fitting params to free memory took 0.24 seconds
+llama_model_loader: loaded meta data with 29 key-value pairs and 292 tensors from C:\Users\Ritz\.ollama\models\blobs\sha256-667b0c1932bc6ffc593ed1d03f895bf2dc8dc6df21db3042284a6f4416b06a29 (version GGUF V3 (latest))
+llama_model_loader: Dumping metadata keys/values. Note: KV overrides do not apply in this output.
+llama_model_loader: - kv   0:                       general.architecture str              = llama
+llama_model_loader: - kv   1:                               general.type str              = model
+llama_model_loader: - kv   2:                               general.name str              = Meta Llama 3.1 8B Instruct
+llama_model_loader: - kv   3:                           general.finetune str              = Instruct
+llama_model_loader: - kv   4:                           general.basename str              = Meta-Llama-3.1
+llama_model_loader: - kv   5:                         general.size_label str              = 8B
+llama_model_loader: - kv   6:                            general.license str              = llama3.1
+llama_model_loader: - kv   7:                               general.tags arr[str,6]       = ["facebook", "meta", "pytorch", "llam...
+llama_model_loader: - kv   8:                          general.languages arr[str,8]       = ["en", "de", "fr", "it", "pt", "hi", ...
+llama_model_loader: - kv   9:                          llama.block_count u32              = 32
+llama_model_loader: - kv  10:                       llama.context_length u32              = 131072
+llama_model_loader: - kv  11:                     llama.embedding_length u32              = 4096
+llama_model_loader: - kv  12:                  llama.feed_forward_length u32              = 14336
+llama_model_loader: - kv  13:                 llama.attention.head_count u32              = 32
+llama_model_loader: - kv  14:              llama.attention.head_count_kv u32              = 8
+llama_model_loader: - kv  15:                       llama.rope.freq_base f32              = 500000.000000
+llama_model_loader: - kv  16:     llama.attention.layer_norm_rms_epsilon f32              = 0.000010
+llama_model_loader: - kv  17:                          general.file_type u32              = 15
+llama_model_loader: - kv  18:                           llama.vocab_size u32              = 128256
+llama_model_loader: - kv  19:                 llama.rope.dimension_count u32              = 128
+llama_model_loader: - kv  20:                       tokenizer.ggml.model str              = gpt2
+llama_model_loader: - kv  21:                         tokenizer.ggml.pre str              = llama-bpe
+llama_model_loader: - kv  22:                      tokenizer.ggml.tokens arr[str,128256]  = ["!", "\"", "#", "$", "%", "&", "'", ...
+llama_model_loader: - kv  23:                  tokenizer.ggml.token_type arr[i32,128256]  = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, ...
+llama_model_loader: - kv  24:                      tokenizer.ggml.merges arr[str,280147]  = ["Ġ Ġ", "Ġ ĠĠĠ", "ĠĠ ĠĠ", "...
+llama_model_loader: - kv  25:                tokenizer.ggml.bos_token_id u32              = 128000
+llama_model_loader: - kv  26:                tokenizer.ggml.eos_token_id u32              = 128009
+llama_model_loader: - kv  27:                    tokenizer.chat_template str              = {{- bos_token }}\n{%- if custom_tools ...
+llama_model_loader: - kv  28:               general.quantization_version u32              = 2
+llama_model_loader: - type  f32:   66 tensors
+llama_model_loader: - type q4_K:  193 tensors
+llama_model_loader: - type q6_K:   33 tensors
+print_info: file format = GGUF V3 (latest)
+print_info: file type   = Q4_K - Medium
+print_info: file size   = 4.58 GiB (4.89 BPW) 
+llama_prepare_model_devices: using device ROCm0 (AMD Radeon(TM) 8060S Graphics) (0000:c5:00.0) - 101974 MiB free
+load: 0 unused tokens
+load: printing all EOG tokens:
+load:   - 128001 ('<|end_of_text|>')
+load:   - 128008 ('<|eom_id|>')
+load:   - 128009 ('<|eot_id|>')
+load: special tokens cache size = 256
+load: token to piece cache size = 0.7999 MB
+print_info: arch                  = llama
+print_info: vocab_only            = 0
+print_info: no_alloc              = 0
+print_info: n_ctx_train           = 131072
+print_info: n_embd_inp            = 4096
+print_info: n_embd                = 4096
+print_info: n_embd_out            = 4096
+print_info: n_layer               = 32
+print_info: n_layer_all           = 32
+print_info: n_head                = 32
+print_info: n_head_kv             = 8
+print_info: n_rot                 = 128
+print_info: n_swa                 = 0
+print_info: is_swa_any            = 0
+print_info: non_causal_type       = 0
+print_info: n_embd_head_k         = 128
+print_info: n_embd_head_v         = 128
+print_info: n_gqa                 = 4
+print_info: n_embd_k_gqa          = 1024
+print_info: n_embd_v_gqa          = 1024
+print_info: f_norm_eps            = 0.0e+00
+print_info: f_norm_rms_eps        = 1.0e-05
+print_info: f_clamp_kqv           = 0.0e+00
+print_info: f_max_alibi_bias      = 0.0e+00
+print_info: f_logit_scale         = 0.0e+00
+print_info: f_attn_scale          = 0.0e+00
+print_info: f_attn_value_scale    = 0.0000
+print_info: n_ff                  = 14336
+print_info: n_expert              = 0
+print_info: n_expert_used         = 0
+print_info: n_expert_groups       = 0
+print_info: n_group_used          = 0
+print_info: causal attn           = 1
+print_info: pooling type          = -1
+print_info: rope type             = 0
+print_info: rope scaling          = linear
+print_info: freq_base_train       = 500000.0
+print_info: freq_scale_train      = 1
+print_info: n_ctx_orig_yarn       = 131072
+print_info: rope_yarn_log_mul     = 0.0000
+print_info: rope_finetuned        = unknown
+print_info: model type            = 8B
+print_info: model params          = 8.03 B
+print_info: general.name          = Meta Llama 3.1 8B Instruct
+print_info: vocab type            = BPE
+print_info: n_vocab               = 128256
+print_info: n_merges              = 280147
+print_info: BOS token             = 128000 '<|begin_of_text|>'
+print_info: EOS token             = 128009 '<|eot_id|>'
+print_info: EOT token             = 128001 '<|end_of_text|>'
+print_info: EOM token             = 128008 '<|eom_id|>'
+print_info: LF token              = 198 'Ċ'
+print_info: EOG token             = 128001 '<|end_of_text|>'
+print_info: EOG token             = 128008 '<|eom_id|>'
+print_info: EOG token             = 128009 '<|eot_id|>'
+print_info: max token length      = 256
+load_tensors: loading model tensors, this can take a while... (load_mode = none)
+load_tensors: offloading output layer to GPU
+load_tensors: offloading 31 repeating layers to GPU
+load_tensors: offloaded 33/33 layers to GPU
+load_tensors:        ROCm0 model buffer size =  4403.49 MiB
+load_tensors:    ROCm_Host model buffer size =   281.81 MiB
+cmn  common_init_: added <|end_of_text|> logit bias = -inf
+cmn  common_init_: added <|eom_id|> logit bias = -inf
+cmn  common_init_: added <|eot_id|> logit bias = -inf
+llama_context: constructing llama_context
+llama_context: n_seq_max             = 1
+llama_context: n_ctx                 = 6144
+llama_context: n_ctx_seq             = 6144
+llama_context: n_batch               = 1024
+llama_context: n_ubatch              = 1024
+llama_context: causal_attn           = 1
+llama_context: flash_attn            = auto
+llama_context: kv_unified            = false
+llama_context: freq_base             = 500000.0
+llama_context: freq_scale            = 1
+llama_context: n_rs_seq              = 0
+llama_context: n_outputs_max         = 1
+llama_context: n_outputs_max_per_seq = 1
+llama_context: n_ctx_seq (6144) < n_ctx_train (131072) -- the full capacity of the model will not be utilized
+llama_context:  ROCm_Host  output buffer size =     0.49 MiB
+llama_kv_cache:      ROCm0 KV buffer size =   768.00 MiB
+llama_kv_cache: size =  768.00 MiB (  6144 cells,  32 layers,  1/1 seqs), K (f16):  384.00 MiB, V (f16):  384.00 MiB
+llama_kv_cache: attn_rot_k = 0, n_embd_head_k_all = 128
+llama_kv_cache: attn_rot_v = 0, n_embd_head_k_all = 128
+sched_reserve: reserving ...
+resolve_fused_ops: Flash Attention enabled
+resolve_fused_ops: resolving fused DeepSeek V4 HC support:
+resolve_fused_ops: fused DeepSeek V4 HC pre enabled
+resolve_fused_ops: fused DeepSeek V4 HC comb enabled
+resolve_fused_ops: fused DeepSeek V4 HC post enabled
+sched_reserve:      ROCm0 compute buffer size =   228.02 MiB
+sched_reserve:  ROCm_Host compute buffer size =    44.02 MiB
+sched_reserve: graph nodes  = 998
+sched_reserve: graph splits = 2
+sched_reserve: reserve took 24.30 ms, sched copies = 1
+cmn          init: llama threadpool init, n_threads = 16
+cmn  common_init_: warming up the model with an empty run - please wait ... (--no-warmup to disable)
+srv    load_model: initializing, n_slots = 1, n_ctx_slot = 6144, kv_unified = 'false'
+spec common_specu: no implementations specified for speculative decoding
+slot   load_model: id  0 | task -1 | new slot, n_ctx = 6144
+srv    load_model: prompt cache is enabled, size limit: 8192 MiB
+srv    load_model: use `--cache-ram 0` to disable the prompt cache
+srv    load_model: for more info see https://github.com/ggml-org/llama.cpp/pull/16391
+srv    load_model: context checkpoints enabled, max = 32, min spacing = 8192
+srv          init: idle slots will be saved to prompt cache upon starting a new task
+srv          init: init: chat template, example_format: '<|im_start|>system
+You are a helpful assistant<|im_end|>
+<|im_start|>user
+Hello<|im_end|>
+<|im_start|>assistant
+Hi there<|im_end|>
+<|im_start|>user
+How are you?<|im_end|>
+<|im_start|>assistant
+'
+srv          init: init: chat template, thinking = 0
+srv          init: preserve_reasoning kwarg: not supported by template
+srv  llama_server: model loaded
+srv  llama_server: listening on http://127.0.0.1:52283
+srv  update_slots: all slots are idle
+time=2026-10-19T20:15:08.225-07:00 level=INFO source=llama_server.go:1374 msg="llama-server started in 2.77 seconds"
+time=2026-10-19T20:15:08.225-07:00 level=INFO source=images.go:383 msg="template selection" model=registry.ollama.ai/library/llama3.1:8b selected=go_template renderer="" parser="" go_template="[completion tools]" chat_template="[tools completion]" harmony=null renderer_parser=null
+time=2026-10-19T20:15:08.225-07:00 level=INFO source=sched.go:733 msg="loaded runners" count=1
+time=2026-10-19T20:15:08.225-07:00 level=INFO source=llama_server.go:1307 msg="waiting for llama-server to start responding"
+time=2026-10-19T20:15:08.226-07:00 level=INFO source=llama_server.go:1374 msg="llama-server started in 2.77 seconds"
+time=2026-10-19T20:15:08.226-07:00 level=DEBUG source=sched.go:745 msg="finished setting up" runner.size="5.3 GiB" runner.vram="5.3 GiB" runner.parallel=1 runner.model=C:\Users\Ritz\.ollama\models\blobs\sha256-667b0c1932bc6ffc593ed1d03f895bf2dc8dc6df21db3042284a6f4416b06a29
+time=2026-10-19T20:15:08.227-07:00 level=DEBUG source=llama_server.go:1624 msg="llama-server completion request" media=0 prompt_len=129
+srv  server_strea: conv_id= (empty=1)
+slot get_availabl: id  0 | task -1 |  - skipping, slot is empty
+slot get_availabl: id  0 | task -1 | selected slot by LRU, t_last = -1
+srv  get_availabl: updating prompt cache
+srv          load:  - looking for better prompt, base f_keep = -1.000, f_sim = 0.000
+srv        update:  - cache state: 0 prompts, 0.000 MiB (limits: 8192.000 MiB, 6144 tokens, 8589934592 est)
+srv  get_availabl: prompt cache update took 0.01 ms
+slot launch_slot_: id  0 | task -1 | sampler chain: logits -> ?penalties -> ?dry -> ?top-n-sigma -> top-k -> ?typical -> top-p -> ?min-p -> ?xtc -> temp-ext -> dist 
+slot launch_slot_: id  0 | task -1 | sampler params: 
+	repeat_last_n = 64, repeat_penalty = 1.000, frequency_penalty = 0.000, presence_penalty = 0.000
+	dry_multiplier = 0.000, dry_base = 1.750, dry_allowed_length = 2, dry_penalty_last_n = 64
+	top_k = 40, top_p = 0.900, min_p = 0.000, xtc_probability = 0.000, xtc_threshold = 0.100, typical_p = 1.000, top_n_sigma = -1.000, temp = 0.000
+	mirostat = 0, mirostat_lr = 0.100, mirostat_ent = 5.000, adaptive_target = -1.000, adaptive_decay = 0.900
+slot launch_slot_: id  0 | task 0 | processing task, is_child = 0
+slot   operator(): id  0 | task 0 | new prompt, n_ctx_slot = 6144, n_keep = 4, task.n_tokens = 17
+slot   operator(): id  0 | task 0 | cached n_tokens = 0, memory_seq_rm [0, end)
+slot init_sampler: id  0 | task 0 | init sampler, took 0.00 ms, tokens: text = 17, total = 17
+slot print_timing: id  0 | task 0 | prompt eval time =      57.98 ms /    17 tokens (    3.41 ms per token,   293.23 tokens per second)
+slot print_timing: id  0 | task 0 |        eval time =      25.70 ms /     2 tokens (   25.70 ms per token,    38.91 tokens per second)
+slot print_timing: id  0 | task 0 |       total time =      83.68 ms /    19 tokens
+slot print_timing: id  0 | task 0 |    graphs reused =          1
+slot      release: id  0 | task 0 | stop processing: n_tokens = 18, truncated = 0
+srv  update_slots: all slots are idle
+[GIN] 2026/10/19 - 20:15:08 | 200 |    3.3025933s |       127.0.0.1 | POST     "/api/chat"
+time=2026-10-19T20:15:08.313-07:00 level=DEBUG source=sched.go:753 msg="context for request finished"
+time=2026-10-19T20:15:08.313-07:00 level=DEBUG source=sched.go:399 msg="runner with non-zero duration has gone idle, adding timer" runner.size="5.3 GiB" runner.vram="5.3 GiB" runner.parallel=1 runner.model=C:\Users\Ritz\.ollama\models\blobs\sha256-667b0c1932bc6ffc593ed1d03f895bf2dc8dc6df21db3042284a6f4416b06a29 duration=10m0s
+time=2026-10-19T20:15:08.313-07:00 level=DEBUG source=sched.go:417 msg="after processing request finished event" runner.size="5.3 GiB" runner.vram="5.3 GiB" runner.parallel=1 runner.model=C:\Users\Ritz\.ollama\models\blobs\sha256-667b0c1932bc6ffc593ed1d03f895bf2dc8dc6df21db3042284a6f4416b06a29 refCount=0
+[GIN] 2026/10/19 - 20:15:08 | 200 |            0s |       127.0.0.1 | GET      "/api/ps"
+[GIN] 2026/10/19 - 20:15:08 | 200 |            0s |       127.0.0.1 | GET      "/api/ps"
+[GIN] 2026/10/19 - 20:15:08 | 200 |      3.4253ms |       127.0.0.1 | POST     "/api/generate"
+time=2026-10-19T20:15:08.398-07:00 level=DEBUG source=sched.go:420 msg="runner expired event received" runner.name=registry.ollama.ai/library/llama3.1:8b runner.inference="[{ID:0 Library:ROCm}]" runner.pid=7480 runner.num_ctx=6144 runner.size="5.3 GiB" runner.vram="5.3 GiB" runner.parallel=1 runner.model=C:\Users\Ritz\.ollama\models\blobs\sha256-667b0c1932bc6ffc593ed1d03f895bf2dc8dc6df21db3042284a6f4416b06a29
+time=2026-10-19T20:15:08.398-07:00 level=DEBUG source=sched.go:435 msg="got lock to unload expired event" runner.size="5.3 GiB" runner.vram="5.3 GiB" runner.parallel=1 runner.model=C:\Users\Ritz\.ollama\models\blobs\sha256-667b0c1932bc6ffc593ed1d03f895bf2dc8dc6df21db3042284a6f4416b06a29
+time=2026-10-19T20:15:08.398-07:00 level=DEBUG source=sched.go:458 msg="starting background wait for VRAM recovery" runner.size="5.3 GiB" runner.vram="5.3 GiB" runner.parallel=1 runner.model=C:\Users\Ritz\.ollama\models\blobs\sha256-667b0c1932bc6ffc593ed1d03f895bf2dc8dc6df21db3042284a6f4416b06a29
+time=2026-10-19T20:15:08.398-07:00 level=DEBUG source=sched.go:1457 msg="no need to wait for VRAM recovery" runner.size="5.3 GiB" runner.vram="5.3 GiB" runner.parallel=1 runner.model=C:\Users\Ritz\.ollama\models\blobs\sha256-667b0c1932bc6ffc593ed1d03f895bf2dc8dc6df21db3042284a6f4416b06a29
+time=2026-10-19T20:15:08.398-07:00 level=DEBUG source=llama_server.go:2687 msg="stopping llama-server" pid=7480
+time=2026-10-19T20:15:08.398-07:00 level=DEBUG source=llama_server.go:2692 msg="waiting for llama-server to exit" pid=7480
+time=2026-10-19T20:15:08.457-07:00 level=DEBUG source=llama_server.go:2695 msg="llama-server stopped" pid=7480
+[GIN] 2026/10/19 - 20:15:08 | 200 |     59.2518ms |       127.0.0.1 | GET      "/api/ps"
+time=2026-10-19T20:15:08.457-07:00 level=DEBUG source=sched.go:467 msg="runner terminated and removed from list, blocking for VRAM recovery" runner.size="5.3 GiB" runner.vram="5.3 GiB" runner.parallel=1 runner.model=C:\Users\Ritz\.ollama\models\blobs\sha256-667b0c1932bc6ffc593ed1d03f895bf2dc8dc6df21db3042284a6f4416b06a29
+time=2026-10-19T20:15:08.457-07:00 level=DEBUG source=sched.go:470 msg="sending an unloaded event" runner.pid=7480 runner.size="5.3 GiB" runner.vram="5.3 GiB" runner.parallel=1 runner.model=C:\Users\Ritz\.ollama\models\blobs\sha256-667b0c1932bc6ffc593ed1d03f895bf2dc8dc6df21db3042284a6f4416b06a29
+time=2026-10-19T20:15:08.457-07:00 level=DEBUG source=sched.go:367 msg="ignoring unload event with no pending requests"

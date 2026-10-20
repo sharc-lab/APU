@@ -1,0 +1,549 @@
+{
+ "platform": "evo-x2",
+ "metrics": {
+  "llama3.1:8b": {
+   "configs": {
+    "a": {
+     "policy": "a",
+     "name": "default",
+     "arm_id": "b5_a_default_call2_notools",
+     "num_ctx_sent": null,
+     "effective_ctx": 131072,
+     "env": "base",
+     "wrapper": null,
+     "alias_of": null,
+     "skip": null
+    },
+    "b": {
+     "policy": "b",
+     "name": "largest",
+     "arm_id": "b5_b_largest_call2_notools",
+     "num_ctx_sent": 131072,
+     "effective_ctx": 131072,
+     "env": "base",
+     "wrapper": null,
+     "alias_of": "a",
+     "skip": null
+    },
+    "c": {
+     "policy": "c",
+     "name": "trim",
+     "arm_id": "b5_c_trim_call2_notools",
+     "num_ctx_sent": 131072,
+     "effective_ctx": 131072,
+     "env": "base",
+     "wrapper": "client_trim",
+     "alias_of": null,
+     "skip": null
+    },
+    "d": {
+     "policy": "d",
+     "name": "router",
+     "arm_id": "b5_d_router_call2_notools",
+     "num_ctx_sent": 131072,
+     "effective_ctx": 131072,
+     "env": "base",
+     "wrapper": "router",
+     "alias_of": null,
+     "skip": null,
+     "proxy_ctx": 131072
+    },
+    "e": {
+     "policy": "e",
+     "name": "autosize",
+     "arm_id": "b5_e_autosize_call2_notools",
+     "num_ctx_sent": 131072,
+     "effective_ctx": 131072,
+     "env": "base",
+     "wrapper": null,
+     "alias_of": "a",
+     "skip": null
+    },
+    "f": {
+     "policy": "f",
+     "name": "num_keep",
+     "arm_id": "b5_f_num_keep_call2_notools",
+     "num_ctx_sent": null,
+     "effective_ctx": 131072,
+     "env": "base",
+     "wrapper": "num_keep",
+     "alias_of": null,
+     "skip": null
+    },
+    "g": {
+     "policy": "g",
+     "name": "kv_q8_0",
+     "arm_id": "b5_g_kv_q8_0_call2_notools",
+     "num_ctx_sent": 131072,
+     "effective_ctx": 131072,
+     "env": "q8_0",
+     "wrapper": null,
+     "alias_of": null,
+     "skip": null
+    },
+    "h": {
+     "policy": "h",
+     "name": "kv_q4_0",
+     "arm_id": "b5_h_kv_q4_0_call2_notools",
+     "num_ctx_sent": 131072,
+     "effective_ctx": 131072,
+     "env": "q4_0",
+     "wrapper": null,
+     "alias_of": null,
+     "skip": null
+    }
+   },
+   "balanced_seeds": [
+    20260901,
+    20260902,
+    20260903
+   ],
+   "complete": true,
+   "policies": {
+    "a": {
+     "rule_pass_rate": 1.0,
+     "history_recall": 0.9583333333333334,
+     "wall_min": 43.65788333333718,
+     "wall_min_proxy_measured": 43.65788333333718,
+     "cloud_usd": 0.0,
+     "cloud_usd_no_cache": 0.0,
+     "cloud_usd_cheap_model": 0.0,
+     "n_sessions": 3,
+     "targets": {
+      "local": 0,
+      "local_trimmed": 0,
+      "cloud": 0,
+      "refuse": 0
+     },
+     "window": 131072
+    },
+    "c": {
+     "rule_pass_rate": 1.0,
+     "history_recall": 0.9583333333333334,
+     "wall_min": 43.61771111111286,
+     "wall_min_proxy_measured": 43.61771111111286,
+     "cloud_usd": 0.0,
+     "cloud_usd_no_cache": 0.0,
+     "cloud_usd_cheap_model": 0.0,
+     "n_sessions": 3,
+     "targets": {
+      "local": 0,
+      "local_trimmed": 0,
+      "cloud": 0,
+      "refuse": 0
+     },
+     "window": 131072
+    },
+    "d": {
+     "rule_pass_rate": 1.0,
+     "history_recall": 0.9583333333333334,
+     "wall_min": 43.45641666666424,
+     "wall_min_proxy_measured": 43.45641666666424,
+     "cloud_usd": 0.0,
+     "cloud_usd_no_cache": 0.0,
+     "cloud_usd_cheap_model": 0.0,
+     "n_sessions": 3,
+     "targets": {
+      "local": 240,
+      "local_trimmed": 0,
+      "cloud": 0,
+      "refuse": 0
+     },
+     "window": 131072
+    },
+    "f": {
+     "rule_pass_rate": 1.0,
+     "history_recall": 0.9583333333333334,
+     "wall_min": 42.5755333333315,
+     "wall_min_proxy_measured": 42.5755333333315,
+     "cloud_usd": 0.0,
+     "cloud_usd_no_cache": 0.0,
+     "cloud_usd_cheap_model": 0.0,
+     "n_sessions": 3,
+     "targets": {
+      "local": 0,
+      "local_trimmed": 0,
+      "cloud": 0,
+      "refuse": 0
+     },
+     "window": 131072
+    },
+    "g": {
+     "rule_pass_rate": 1.0,
+     "history_recall": 0.9583333333333334,
+     "wall_min": 6.946083333331626,
+     "wall_min_proxy_measured": 6.946083333331626,
+     "cloud_usd": 0.0,
+     "cloud_usd_no_cache": 0.0,
+     "cloud_usd_cheap_model": 0.0,
+     "n_sessions": 3,
+     "targets": {
+      "local": 0,
+      "local_trimmed": 0,
+      "cloud": 0,
+      "refuse": 0
+     },
+     "window": 131072
+    },
+    "h": {
+     "rule_pass_rate": 1.0,
+     "history_recall": 1.0,
+     "wall_min": 6.586544444444331,
+     "wall_min_proxy_measured": 6.586544444444331,
+     "cloud_usd": 0.0,
+     "cloud_usd_no_cache": 0.0,
+     "cloud_usd_cheap_model": 0.0,
+     "n_sessions": 3,
+     "targets": {
+      "local": 0,
+      "local_trimmed": 0,
+      "cloud": 0,
+      "refuse": 0
+     },
+     "window": 131072
+    },
+    "b": {
+     "rule_pass_rate": 1.0,
+     "history_recall": 0.9583333333333334,
+     "wall_min": 43.65788333333718,
+     "wall_min_proxy_measured": 43.65788333333718,
+     "cloud_usd": 0.0,
+     "cloud_usd_no_cache": 0.0,
+     "cloud_usd_cheap_model": 0.0,
+     "n_sessions": 3,
+     "targets": {
+      "local": 0,
+      "local_trimmed": 0,
+      "cloud": 0,
+      "refuse": 0
+     },
+     "window": 131072,
+     "alias_of": "a"
+    },
+    "e": {
+     "rule_pass_rate": 1.0,
+     "history_recall": 0.9583333333333334,
+     "wall_min": 43.65788333333718,
+     "wall_min_proxy_measured": 43.65788333333718,
+     "cloud_usd": 0.0,
+     "cloud_usd_no_cache": 0.0,
+     "cloud_usd_cheap_model": 0.0,
+     "n_sessions": 3,
+     "targets": {
+      "local": 0,
+      "local_trimmed": 0,
+      "cloud": 0,
+      "refuse": 0
+     },
+     "window": 131072,
+     "alias_of": "a"
+    }
+   },
+   "problems": [],
+   "rules_in_use": [
+    "rule1_json_keys",
+    "rule3_no_zebra",
+    "rule4_metres"
+   ]
+  },
+  "qwen3:14b": {
+   "configs": {
+    "a": {
+     "policy": "a",
+     "name": "default",
+     "arm_id": "b5_a_default_call2_notools",
+     "num_ctx_sent": null,
+     "effective_ctx": 40960,
+     "env": "base",
+     "wrapper": null,
+     "alias_of": null,
+     "skip": null
+    },
+    "b": {
+     "policy": "b",
+     "name": "largest",
+     "arm_id": "b5_b_largest_call2_notools",
+     "num_ctx_sent": 40960,
+     "effective_ctx": 40960,
+     "env": "base",
+     "wrapper": null,
+     "alias_of": "a",
+     "skip": null
+    },
+    "c": {
+     "policy": "c",
+     "name": "trim",
+     "arm_id": "b5_c_trim_call2_notools",
+     "num_ctx_sent": 40960,
+     "effective_ctx": 40960,
+     "env": "base",
+     "wrapper": "client_trim",
+     "alias_of": null,
+     "skip": null
+    },
+    "d": {
+     "policy": "d",
+     "name": "router",
+     "arm_id": "b5_d_router_call2_notools",
+     "num_ctx_sent": 40960,
+     "effective_ctx": 40960,
+     "env": "base",
+     "wrapper": "router",
+     "alias_of": null,
+     "skip": null,
+     "proxy_ctx": 40960
+    },
+    "e": {
+     "policy": "e",
+     "name": "autosize",
+     "arm_id": "b5_e_autosize_call2_notools",
+     "num_ctx_sent": 40960,
+     "effective_ctx": 40960,
+     "env": "base",
+     "wrapper": null,
+     "alias_of": "a",
+     "skip": null
+    },
+    "f": {
+     "policy": "f",
+     "name": "num_keep",
+     "arm_id": "b5_f_num_keep_call2_notools",
+     "num_ctx_sent": null,
+     "effective_ctx": 40960,
+     "env": "base",
+     "wrapper": "num_keep",
+     "alias_of": null,
+     "skip": null
+    },
+    "g": {
+     "policy": "g",
+     "name": "kv_q8_0",
+     "arm_id": "b5_g_kv_q8_0_call2_notools",
+     "num_ctx_sent": 40960,
+     "effective_ctx": 40960,
+     "env": "q8_0",
+     "wrapper": null,
+     "alias_of": null,
+     "skip": null
+    },
+    "h": {
+     "policy": "h",
+     "name": "kv_q4_0",
+     "arm_id": "b5_h_kv_q4_0_call2_notools",
+     "num_ctx_sent": 40960,
+     "effective_ctx": 40960,
+     "env": "q4_0",
+     "wrapper": null,
+     "alias_of": null,
+     "skip": null
+    }
+   },
+   "balanced_seeds": [
+    20260901,
+    20260902,
+    20260903
+   ],
+   "complete": true,
+   "policies": {
+    "a": {
+     "rule_pass_rate": 1.0,
+     "history_recall": 0.625,
+     "wall_min": 214.80156111111347,
+     "wall_min_proxy_measured": 214.80156111111347,
+     "cloud_usd": 0.0,
+     "cloud_usd_no_cache": 0.0,
+     "cloud_usd_cheap_model": 0.0,
+     "n_sessions": 3,
+     "targets": {
+      "local": 0,
+      "local_trimmed": 0,
+      "cloud": 0,
+      "refuse": 0
+     },
+     "window": 40960
+    },
+    "c": {
+     "rule_pass_rate": 1.0,
+     "history_recall": 0.625,
+     "wall_min": 178.69879444444345,
+     "wall_min_proxy_measured": 178.69879444444345,
+     "cloud_usd": 0.0,
+     "cloud_usd_no_cache": 0.0,
+     "cloud_usd_cheap_model": 0.0,
+     "n_sessions": 3,
+     "targets": {
+      "local": 0,
+      "local_trimmed": 0,
+      "cloud": 0,
+      "refuse": 0
+     },
+     "window": 40960
+    },
+    "d": {
+     "rule_pass_rate": 1.0,
+     "history_recall": 0.625,
+     "wall_min": 135.1099777777807,
+     "wall_min_proxy_measured": 173.6752611111112,
+     "cloud_usd": 0.0,
+     "cloud_usd_no_cache": 0.0,
+     "cloud_usd_cheap_model": 0.0,
+     "n_sessions": 3,
+     "targets": {
+      "local": 134,
+      "local_trimmed": 82,
+      "cloud": 24,
+      "refuse": 0
+     },
+     "window": 40960
+    },
+    "f": {
+     "rule_pass_rate": 1.0,
+     "history_recall": 0.625,
+     "wall_min": 207.786983333334,
+     "wall_min_proxy_measured": 207.786983333334,
+     "cloud_usd": 0.0,
+     "cloud_usd_no_cache": 0.0,
+     "cloud_usd_cheap_model": 0.0,
+     "n_sessions": 3,
+     "targets": {
+      "local": 0,
+      "local_trimmed": 0,
+      "cloud": 0,
+      "refuse": 0
+     },
+     "window": 40960
+    },
+    "g": {
+     "rule_pass_rate": 1.0,
+     "history_recall": 0.625,
+     "wall_min": 75.35824444444151,
+     "wall_min_proxy_measured": 75.35824444444151,
+     "cloud_usd": 0.0,
+     "cloud_usd_no_cache": 0.0,
+     "cloud_usd_cheap_model": 0.0,
+     "n_sessions": 3,
+     "targets": {
+      "local": 0,
+      "local_trimmed": 0,
+      "cloud": 0,
+      "refuse": 0
+     },
+     "window": 40960
+    },
+    "h": {
+     "rule_pass_rate": 1.0,
+     "history_recall": 0.625,
+     "wall_min": 75.36936666666426,
+     "wall_min_proxy_measured": 75.36936666666426,
+     "cloud_usd": 0.0,
+     "cloud_usd_no_cache": 0.0,
+     "cloud_usd_cheap_model": 0.0,
+     "n_sessions": 3,
+     "targets": {
+      "local": 0,
+      "local_trimmed": 0,
+      "cloud": 0,
+      "refuse": 0
+     },
+     "window": 40960
+    },
+    "b": {
+     "rule_pass_rate": 1.0,
+     "history_recall": 0.625,
+     "wall_min": 214.80156111111347,
+     "wall_min_proxy_measured": 214.80156111111347,
+     "cloud_usd": 0.0,
+     "cloud_usd_no_cache": 0.0,
+     "cloud_usd_cheap_model": 0.0,
+     "n_sessions": 3,
+     "targets": {
+      "local": 0,
+      "local_trimmed": 0,
+      "cloud": 0,
+      "refuse": 0
+     },
+     "window": 40960,
+     "alias_of": "a"
+    },
+    "e": {
+     "rule_pass_rate": 1.0,
+     "history_recall": 0.625,
+     "wall_min": 214.80156111111347,
+     "wall_min_proxy_measured": 214.80156111111347,
+     "cloud_usd": 0.0,
+     "cloud_usd_no_cache": 0.0,
+     "cloud_usd_cheap_model": 0.0,
+     "n_sessions": 3,
+     "targets": {
+      "local": 0,
+      "local_trimmed": 0,
+      "cloud": 0,
+      "refuse": 0
+     },
+     "window": 40960,
+     "alias_of": "a"
+    }
+   },
+   "problems": [],
+   "rules_in_use": [
+    "rule1_json_keys",
+    "rule2_log_event_called",
+    "rule3_no_zebra",
+    "rule4_metres",
+    "rule5_session_code"
+   ]
+  }
+ },
+ "recall": {
+  "llama3.1:8b": {
+   "f16": {
+    "window": 131072,
+    "truncated": 0,
+    "errors": 1,
+    "recall_mean": 0.5,
+    "calls": 2
+   },
+   "q8_0": {
+    "window": 131072,
+    "truncated": 0,
+    "errors": 0,
+    "recall_mean": 0.5416666666666666,
+    "calls": 3
+   },
+   "q4_0": {
+    "window": 131072,
+    "truncated": 0,
+    "errors": 0,
+    "recall_mean": 0.5833333333333334,
+    "calls": 3
+   }
+  },
+  "qwen3:14b": {
+   "f16": {
+    "window": 40960,
+    "truncated": 0,
+    "errors": 0,
+    "recall_mean": 1.0,
+    "calls": 3
+   },
+   "q8_0": {
+    "window": 40960,
+    "truncated": 0,
+    "errors": 0,
+    "recall_mean": 1.0,
+    "calls": 3
+   },
+   "q4_0": {
+    "window": 40960,
+    "truncated": 0,
+    "errors": 0,
+    "recall_mean": 1.0,
+    "calls": 3
+   }
+  }
+ },
+ "refused": {},
+ "missing": [],
+ "deadline_reached": false,
+ "prices_loaded": false
+}
