@@ -380,3 +380,17 @@ Every report states status against these three checkpoints.
   verify; the stale root x2_r2_agent.py and a CRLF copy of x2_r2_scale.py were redeployed byte-exact). Rule going
   forward (operator, 2026-10-19): no job may be queued before a check it was told to wait for.
 - Merged: B5 (1cf0632), evalset v1 diagnosis and v2 (af5613d), T2S window branch (62593f3), rules 6-8 docs (1ed571d).
+
+### 2026-10-20, process rule on temporary access; sync incident
+
+- Process rule (operator, 2026-10-20): any job or script that temporarily enables access to a machine (a sync host,
+  SSH, a queue pause) must disable it in the same job's finally block. A plan to revert it later does not count.
+- Incident: the APU-SyncResults scheduled task was switched to `--host both` for the evo-t2s window (2026-10-15 to
+  2026-10-18 23:59 ET) and nothing switched it back when the window closed. It pulled from evo-t2s at 2026-10-19 16:09
+  UTC, after the window (scp, read-only, final T2S result files). Fix: set back to `--host evo-x2` at about 16:17 UTC
+  2026-10-19. For the 2026-10-26 window, the switch to `--host both` must be done by the same job that arms the
+  handover deadline, which sets it back to `--host evo-x2` itself (in its finally, and at the deadline), so the sync
+  cannot outlive the window.
+- The evo-x2 queue ran dry about 2026-10-20 06:00 UTC (B5, Vulkan check, B3 v2 qwen3:14b real, window override all
+  done) and idled until new work was queued this session. The scheduled sync had not run since 2026-10-19 09:40 local;
+  synced by hand (52eeffa).

@@ -2553,6 +2553,11 @@ from the validation-v2 gate (llama3.1:8b rules 1/3/4, qwen3:14b rules 1-5). Vali
   (qwen), and Ollama default for qwen3:14b at turn 30 (Ollama loaded 40960 for it). llama3.1:8b at Ollama
   default loaded 131072, never exceeded it, and has one within-window canary miss (turn 35, seed 20260901): a
   recall miss at about 58K tokens, not truncation.
+  *Note (2026-10-20):* this miss was never diagnosed. "Recall miss" only says the canary was not in the answer
+  while inside the window; the turn was never classified. It ran under the v1 protocol (tools withheld on the final
+  call), where the B3 evalset and Blade in-window misses turned out to be tool calls written as text or omissions
+  (`x2-evalset-val-v1-diagnosis`, `x2-r2-llama-val-32k-vulkan`). It may be the same mechanism; there is no evidence
+  either way, so it is not cited as a recall failure.
 - No HTTP error or error field was surfaced in any of the 720 turns.
 - Rule failures appear only at num_ctx 4096 (llama rule 1 from turn 3 or 5; qwen rule 5 at turn 5, rule 3 at turn
   20). At 32768 and default, the history canary is lost but every rule in use holds: Ollama keeps the system message
