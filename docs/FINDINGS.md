@@ -4349,3 +4349,68 @@ that re-read the queue inside a pause whose reason names its release, cleared in
 (pause flag confirmed absent afterwards). Its note says it releases itself via tq.advance() on exit and sets no pause.
 Duration: register row `x2-r2-llama-val-32k-vulkan-hours`, pasted: "x2_r2_llama_val_32k_vulkan ESTIMATE 0.19 to
 0.56 h".
+
+## PRE-REGISTRATION: num_keep guardrail flag test for qwen3:14b, x2_num_keep_qwen3_14b on evo-x2 (2026-10-20, NOT YET RUN)
+
+**Status:** PRE-REGISTRATION, written and committed before anything for this job is deployed and before evo-x2's queue
+is edited. No data for this job exists. It follows the pre-registration "num_keep guardrail flag test,
+x2_num_keep_guardrail_test on evo-x2 (2026-10-13)" above, whose text is not edited; it reuses that test's design,
+validity rules and verdict rule unchanged and changes only the model.
+
+**Why.** The num_keep test ran llama3.1:8b only. Its result (register row `num-keep-guardrail-test`, pasted): "S per
+seed {20260901: 601, 20260902: 594, 20260903: 597}; observed context shifts 105 with n_keep [595, 598, 602], task n_keep
+[594, 597, 601], token cuts 7 with keep [594, 601] ... rules in use: rule1 94.2% (n=120, first failure 31/-/5); rule3
+100.0% (n=120, first failure -/-/-); rule4 100.0% (n=60, first failure -/-/-) ... verdict: one-line fix". qwen3:14b also
+loses rules at num_ctx 4096 without the flag on the same seeds (register row `R2-real-v1-first-events`, pasted:
+"num_ctx_4096 qwen3:14b: canary miss 5/5/5 (over loaded window: True/True/True); rule1 -/-/-, rule2 -/-/-, rule3
+-/20/20, rule4 -/-/-, rule5 5/-/5"). On the B3 v2 task workload the num_keep tier did not remove qwen3:14b's 4096 excess
+(register row `x2-evalset-tasks-real-v2-gated-excess`, pasted: "num_ctx_4096_numkeep: v2 5/5 vs default 0/5, excess
++1.000 (95% CI +1.000 to +1.000); num_keep reading: num_keep does not remove it"). This job is the R2-workload test of
+the same flag for qwen3:14b, so the "one-line fix" claim is either shown on a second model or bounded to llama3.1:8b.
+
+**Job.** Queue id `x2_num_keep_qwen3_14b`, output `results/x2_num_keep_qwen3_14b.jsonl`. The same command as the
+llama3.1:8b test with only `--models` and `--out` changed, run from the same side directory with the same deployed code:
+`numkeep\x2_r2_sidecar.py --mode real --call2-tools off --models qwen3:14b --tiers 4096 --seeds
+20260901,20260902,20260903 --rules-from C:\apu\ovn\results\x2_r2_validation_v2.jsonl --require-validation-gates
+--num-keep system`. Side directory `C:\apu\ovn\numkeep` as deployed for the llama3.1:8b test (its `expected_blobs.json`:
+`x2_r2_agent.py` blob 082a48dc, `x2_num_keep.py` blob c2bb7c2d, `x2_r2_sidecar.py` blob 8ff9d4aa, deploy head abb9e768),
+checked with `run_provenance.verify_deployed_blobs` before queueing; nothing is redeployed. So: arm
+`ollama_ctx_4096_call2_notools` (v1 call-2 protocol), seeds 20260901 to 20260903, 40 turns each, temperature 0, seed 42,
+num_predict 384, "think": false (qwen3), S measured per session by render and count with qwen3:14b's own tokenizer
+(`llama-tokenize` on its GGUF blob), `options.num_keep = S` on every request, Ollama's own server under OLLAMA_DEBUG=1
+with the per-call log slices parsed as in the llama3.1:8b test; the job refuses (and stops nothing) if the Ollama tray
+app is running. The job's server log path is fixed in that code (`C:\apu\ovn\ollama_serve_num_keep.log`, truncated at
+each server start), so the llama3.1:8b run's raw log is copied aside on evo-x2 before queueing; its per-session slices
+are already in `results/x2_num_keep_guardrail_test_logs/`.
+
+**Rules in use.** The preflight's, from `x2_r2_validation_v2.jsonl`, written to run_start. On that file qwen3:14b's
+baseline is (register row `R2-validation-v2-baseline`, pasted) "qwen3:14b: rule1 100.0%, rule2 100.0%, rule3 100.0%,
+rule4 100.0%, rule5 100.0%", so rules 1 to 5 are expected in use. The job refuses to start if the file's gates fail.
+
+**Validity and verdict (unchanged from the llama3.1:8b pre-registration, model qwen3:14b).** Computed by
+`harness/x2_num_keep.py::verdict(rows, model="qwen3:14b")` in register row `num-keep-qwen3-14b` (PENDING until
+`results/x2_num_keep_qwen3_14b.jsonl` is synced). Valid only if: the run finished and all 3 sessions completed with 40
+turns; every call sent `num_keep` equal to its session's S > 0; at least one llama.cpp context shift was observed and
+every observed shift has n_keep >= S; every token-level cut (if any) has keep >= S; every log slice is complete. If no
+shift was observed: "inconclusive (flag effect not observed)". Any observed n_keep or keep below S: "invalid (num_keep
+not applied)". Any other failure: "inconclusive (incomplete)". Compliance per rule in use = share of the cell's turns
+on which the rule held (rule 4 over its length turns only), 3 sessions pooled.
+- **one-line fix**: valid, and every rule in use is at or above 90%.
+- **not a one-line fix**: valid, and some rule in use is below 90%.
+
+**Reading across the two models, fixed now.** Both "one-line fix": report `options.num_keep` = system prompt length as
+a one-line fix on Ollama 0.34.4 for both models tested at num_ctx 4096 on the R2 workload. llama3.1:8b "one-line fix"
+and qwen3:14b "not a one-line fix": report it as model-dependent (holds for llama3.1:8b, not for qwen3:14b), and do not
+call it a one-line fix in general. qwen3:14b inconclusive or invalid: the llama3.1:8b claim stays bounded to that model.
+
+**Outcome measures** (reported whatever the verdict, as for llama3.1:8b): S per seed, num_keep sent, observed shift
+n_keep, task-line n_keep, token-cut keep and `--keep` values, shift, cut and message-drop counts, per rule in use the
+rate, n and first failure turn per seed, system canary C and history canary H misses (H misses are expected), surfaced
+errors.
+
+**Known limits, stated before the run.** One model, one tier, three seeds, one runtime (Ollama 0.34.4 on evo-x2). The
+code is the llama3.1:8b test's deployed side copy; modules it imports from `C:\apu\ovn` are whatever is deployed there
+when it runs (their blobs are recorded in the deployment amendment). A "one-line fix" means the rules hold, not that the
+session is otherwise equivalent (history is still dropped). Statistics convention as in the compared runs: no warm-up
+call, every turn scored. Duration: an ESTIMATE in register row `x2-queue-fill-1020-hours`, computed from measured
+session times before queueing. The job calls tq.advance() on exit and sets no pause.
