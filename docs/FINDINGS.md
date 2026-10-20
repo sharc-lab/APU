@@ -3549,6 +3549,55 @@ the reverse of the ordering in every other model. Is that noise (n = 5), an arti
 **Consequence for the paper.** Report the pooled excess curve with per-model CIs and name this cell as within noise.
 Do not claim the 4096 tier is safer for qwen3:8b. No rerun was made for this check.
 
+## Results of five pre-registered evo-x2 runs: Vulkan backend check, B3 v2 protocol consistency (qwen3:14b), B5 policy comparison, H-scale and the B2 family (2026-10-20)
+
+All values are quoted from the register rows named; each run was pre-registered before it started (sections cited).
+
+**Vulkan backend numerics check** (pre-registration "backend numerics check ... x2_r2_llama_val_32k_vulkan",
+2026-10-19). Row `x2-r2-llama-val-32k-vulkan`: "inference compute ['Vulkan AMD Radeon(TM) 8060S Graphics']; backend
+verified per negative-control session 5/5; negative control (num_ctx 32768) canary misses 2 of 20 canaries over 5
+sessions ... missed turns: seed 20260903 turn 5 C+H missed, text tool call lookup_fact; ... verdict: backend
+implementation, not the vendor (text-tool-call misses on Vulkan)". On the same AMD chip, ROCm gave 0 such misses with
+and without CPU offload (`x2-r2-llama-val-32k-offload`) and Vulkan gave a text tool call in place of the answer, the
+failure seen on CUDA on the Blade (`blade-r2-gate-v2`). By the pre-registered rule the in-window loss follows the
+backend implementation, not the GPU vendor. One miss event in one of five sessions is a small count; the rule was
+fixed in advance as "any text-tool-call miss".
+
+**B3 v2 real run, qwen3:14b, protocol consistency** (pre-registration "protocol consistency, B3 v2 task real runs
+x2_evalset_tasks_real_v2", deviation note of 2026-10-19 on the task end-state bar). With tools available on every
+call, row `x2-evalset-tasks-real-v2-gated-excess`: "num_ctx_4096: v2 5/5 vs default 0/5, excess +1.000 (95% CI +1.000
+to +1.000); v1b excess +0.800 (95% CI +0.400 to +1.000); reading: the v1b effect holds" and "num_ctx_4096_numkeep: v2
+5/5 vs default 0/5 ... num_keep reading: num_keep does not remove it". At 16384 and 8192 the reading is "no excess in
+either protocol" (v2 1/5 and 2/5, CIs touching 0). The P1 measure, row `x2-evalset-tasks-real-v2-wrong-rate`:
+"ollama_ctx_8192 excess over default +24.0 points (95% CI +18.7 to +29.3 ...)", "ollama_ctx_4096 excess over default
++30.7 points (95% CI +26.0 to +34.7 ...)", "ollama_ctx_4096_numkeep excess over default +18.7 points (95% CI +16.0 to
++21.3 ...)", and every wrong task was silent ("silent 63, surfaced 0" at 4096). Verdict per the pre-registration: the
+v1b window effect is not an artifact of withholding tools on the final call, for qwen3:14b. num_keep lowers the
+wrong-task excess at 4096 but does not remove it. Caveats stated in the pre-registration apply: the v2 workload
+also differs in task set, turn count and filler size, and the run used the declared 80/90 task end-state deviation.
+The default tier's "5/5 silent, 0 after window exceeded" are baseline-type failures (no window exceeded).
+
+**B5 policy comparison, evo-x2** (pre-registration "B5 policy comparison", 2026-10-14). Row `b5-verdict`: "refuted
+(router dominated in evo-x2/llama3.1:8b, evo-x2/qwen3:14b)". Row `b5-policy-metrics`: the Pareto frontier is "['h']"
+(KV q4_0) for llama3.1:8b and "['g']" (KV q8_0) for qwen3:14b. Every policy held "rule 100.0%"; quantized KV cut
+session time (qwen3:14b "a ... 214.8 min" vs "g ... 75.4 min") with the same history recall. The router (d) cost
+"$0.8419" per qwen3:14b session for no quality gain. evo-t2s and Blade cells are "not run yet". The refutation needs
+only one dominated cell, so it stands without them; the KV result is a single-platform observation. Row
+`b5-kv-recall` shows llama3.1:8b f16 recall "50.0% (2 calls, truncated 0, errors 1 ...)": one probe call errored,
+so the llama3.1:8b f16 vs q4_0/q8_0 recall comparison is not usable.
+
+**H-scale** (pre-registration "H-scale, R2 at 30B to 70B", 2026-10-14). Row `H-scale-verdict`: "overall mixed";
+"qwen3:32b: R4096 2/3 (window exceeded 3/3, gated 2/3) ... rule loss holds"; "llama3.3:70b: R4096 0/3 (window exceeded
+3/3, gated 3/3) ... resists rule loss; history loss with rules holding holds"; qwen3-30b-a3b-2507 "refused (not
+tested)". **B2 family** (row `H-scale-family-verdict`): "mistral-small3.2:24b: R4096 0/3 ... resists rule loss;
+history loss with rules holding holds". So rule loss at 4096 is model-dependent: it appears for the qwen3 family up to
+32B and for llama3.1:8b, not for llama3.3:70b or mistral-small3.2:24b, while history loss over the window appears in
+every tested model.
+
+**Window override methods** (row `window-override-methods`): on evo-x2 a per-request num_ctx applies but does not
+persist across a restart, a Modelfile PARAMETER num_ctx on a derived tag applies and persists, and
+OLLAMA_CONTEXT_LENGTH applies while set. Blade and evo-t2s are "not run yet".
+
 ## evo-t2s week window results: R2 validation, real, mitigation and mechanism on Intel CPU and Intel iGPU (2026-10-19, results of the T2S week queue)
 
 **Runs.** Ollama 0.34.4 on evo-t2s, window 2026-10-15 to 2026-10-18, same R2 harness and seeds as evo-x2.
