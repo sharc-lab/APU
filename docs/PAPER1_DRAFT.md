@@ -266,8 +266,10 @@ Numbers that stay out of the paper because they rest on assumptions:
 **Headline figure for H1 (planned, added 2026-10-08): cross-vendor spill cost, FH1.** One figure, three panels, same
 x axis (requested context as a fraction of the platform's memory boundary), y axis = cost of crossing it:
 - **AMD-iGPU (unified, evo-x2 class):** spill cost near zero, i.e. decode and TTFT nearly unchanged past the device-local
-  heap. Data: `results/mx2_spill_stats.jsonl` (5 n_ctx points x 5 reps); **pending a register row** (G5), so no
-  number is stated here.
+  heap. Data: `[fh1-amd-boundary-llama-3.3-70b]`, `[fh1-amd-boundary-qwen3-32b]` (registered 2026-10-21; FINDINGS
+  "FH1 AMD panel: what is measured and what is missing"). Gaps: qwen3-32b has no unclamped spill point (no spill
+  cost); the measured onset sits at the 65536 MiB dedicated carve-out, not the Vulkan device-local heap, so the x
+  axis normalizer must be stated; reps are 1 call per fresh start with no warm-up; launch flags differ between runs.
 - **INTEL-iGPU (unified, budget wall):** no gradual cost; the server either starts or refuses at one shared-heap limit
   (hard fail). Data: `[A-24-effective-heap-limit]`, `[A-24-flip-point-per-model]`.
 - **NVIDIA-dGPU (discrete):** decode slowdown proportional to the spilled fraction past VRAM. Data: the x axis
@@ -729,7 +731,7 @@ citing (G14).
 
 | fig | content | data source | data exists? |
 |---|---|---|---|
-| FH1 (headline, H1) | Cross-vendor spill cost: AMD-iGPU unified near-zero cost, INTEL-iGPU budget wall (hard fail), NVIDIA-dGPU discrete decode slowdown, on a shared normalized x axis | `results/mx2_spill_stats.jsonl` (register row pending, G5); `[A-24-effective-heap-limit]`, `[A-24-flip-point-per-model]`; Blade C1 files (register row pending, G4) and the K1 layer split `[blade-k1-layer-split]` | partly: INTEL yes; AMD data exists, register row pending; NVIDIA placement (VRAM share per num_ctx) registered, decode slowdown pending G4 |
+| FH1 (headline, H1) | Cross-vendor spill cost: AMD-iGPU unified near-zero cost, INTEL-iGPU budget wall (hard fail), NVIDIA-dGPU discrete decode slowdown, on a shared normalized x axis | `[fh1-amd-boundary-llama-3.3-70b]`, `[fh1-amd-boundary-qwen3-32b]`; `[A-24-effective-heap-limit]`, `[A-24-flip-point-per-model]`; Blade C1 files (register row pending, G4) and the K1 layer split `[blade-k1-layer-split]` | partly: INTEL yes; AMD registered for llama-3.3-70b (onset and cost), qwen3-32b fail side only (no unclamped spill point); NVIDIA decode slowdown needs Blade night 2 (operator at the keyboard), not yet run; NVIDIA placement (VRAM share per num_ctx) registered, decode slowdown pending G4 |
 | F1 | Platform and memory-architecture diagram: three platforms, where KV, weights and host-visible buffers live, which runtime backend is used | `docs/HARDWARE.md`, Section 3 of this file | yes (drawing only) |
 | F2 | INTEL-iGPU flip point: measured (last_ok, first_fail] vs accountings A/B/C, all models in `[A-24-budget-boundary]` | `[A-24-flip-point-per-model]`, `[A-24-effective-heap-limit]` | yes; existing `figures/fig_a24_budget_boundary.png` needs regeneration |
 | F3 | NVIDIA-dGPU spill onset: TTFT and decode slowdown vs context with spilled fraction; C3 point | C1/C2 files (no register row); Blade night 2 (d) | partly: C1/C2 yes, C3 no; existing `figures/fig_blade_c1_spill.png` is the M1 ladder |
