@@ -4504,3 +4504,64 @@ separately (the next pre-registration); a v2 reading for qwen3:8b at those tiers
 settle that question (different workload and protocol). If qwen3:8b's default window is exceeded in the v2 session its
 after-window default rate is not 0 by construction; the bootstrap handles it as for any tier. Durations: ESTIMATEs in
 register row `x2-queue-fill-1020-hours`. Both jobs call tq.advance() on exit and set no pause.
+
+## PRE-REGISTRATION: qwen3:8b at num_ctx 8192 vs 4096 with 10 seeds per tier, x2_r2_qwen3_8b_seeds_06_10 on evo-x2 (2026-10-21, NOT YET RUN)
+
+**Status:** PRE-REGISTRATION, written and committed before evo-x2's queue is edited for this job. No data for it
+exists. It follows the analysis section "qwen3:8b at 8192 vs 4096: the non-monotonic cell (2026-10-14)", which called a
+real effect "a hypothesis for a later run with more seeds"; that text is not edited.
+
+**Where it stands** (pasted): register row `R2-v1b-qwen3-8b-reversal` "num_ctx_8192: 4/5 gated silent ... num_ctx_4096:
+1/5 gated silent ... Fisher exact two-sided p (silent sessions, num_ctx_8192 vs num_ctx_4096) = 0.206"; register row
+`R2-v1b-excess-over-default` "num_ctx_8192: ... qwen3:8b 4/5 vs default 0/5, excess +0.800 (95% CI +0.400 to +1.000)"
+and "num_ctx_4096: ... qwen3:8b 1/5 vs default 0/5, excess +0.200 (95% CI +0.000 to +0.600)".
+
+**Job.** Queue id `x2_r2_qwen3_8b_seeds_06_10`, output `results/x2_r2_qwen3_8b_seeds_06_10.jsonl`, the R2 harness in
+real mode as v1b ran it, restricted to qwen3:8b, the two tiers and five new seeds: `x2_r2_agent.py --mode real --plan
+strong --call2-tools off --models qwen3:8b --tiers 8192,4096 --seeds 20260906,20260907,20260908,20260909,20260910
+--allow-new-seeds --rules-from C:\apu\ovn\results\x2_r2_validation_v2b.jsonl --require-validation-gates
+--per-model-refusal --order seed_major`. Arms `ollama_ctx_8192_call2_notools` and `ollama_ctx_4096_call2_notools` (v1
+call-2 protocol, tools withheld on a turn's second call), 40 turns, temperature 0, seed 42, num_predict 384, "think":
+false; 10 sessions. The harness is the `C:\apu\ovn\x2_r2_agent.py` already deployed (git blob 38882113, the copy that
+ran `x2_r2_scale_real`); v1b ran an earlier blob, and every option added since is off by default with its plan, argv,
+server start and run_start covered by `tests/test_x2_r2_agent_backcompat.py`. The blob is checked before queueing and
+recorded with an import and plan check (no model call).
+
+**Rules and gate.** Rules in use from the v2b validation as in v1b (register row `R2-validation-v2b-baseline`, pasted:
+"qwen3:8b: rule1 100.0%, rule2 100.0%, rule3 100.0%, rule4 100.0%, rule5 86.7%", so rules 1 to 4); the gated metrics
+are the v1b gate's for qwen3:8b (`analysis/r2_real_report.py::build_combined` with the v2b validation file: rules in use
+plus tool validity; tool arguments and recall excluded, as the reversal row states).
+
+**Pooling.** The five v1b sessions per tier (seeds 20260901 to 20260905, `results/x2_r2_real_v1b.jsonl`) plus the five
+new ones: 10 sessions at 8192 and 10 at 4096. The default tier stays at its five v1b sessions.
+
+**Primary test and verdict, fixed now** (register row `R2-qwen3-8b-reversal-10seed`, PENDING until the file is synced).
+Gated silent sessions per tier, the `silent` count of `R2-v1b-qwen3-8b-reversal` (a session counts when its first gated
+failure had no HTTP error or error field on an earlier turn). Two-sided Fisher exact test, 8192 vs 4096, 10 vs 10,
+alpha 0.05.
+- **reversal confirmed**: valid, p < 0.05, and the 8192 count is above the 4096 count.
+- **ordering of the other models**: valid, p < 0.05, and the 4096 count is above the 8192 count.
+- **resolved as noise**: valid and p >= 0.05. The paper then reports the cell as within noise at 10 sessions per tier,
+  with the pooled counts, and makes no claim that 4096 is safer for qwen3:8b.
+- **incomplete**: the validity rules below fail; nothing is read.
+Worked out (two-sided Fisher, 10 vs 10): p < 0.05 needs, for example, 7 vs 0 or 1, 8 vs 2 or fewer, 9 vs 3 or fewer;
+5 vs 0 and 6 vs 0 also reach it. From the current 4 vs 1, the new seeds would have to add at least 3 more at 8192 than
+at 4096 (for example 3 vs 0 or 4 vs 1). These follow from the test; the rule above decides.
+
+**Secondary, reported with fixed readings.** Excess over the default per tier for qwen3:8b (after-window gated silent
+rate at the tier, 10 sessions, minus the default's, 5 sessions) with the v1b bootstrap (95% percentile CI, 10000
+resamples, unit the session, stratified by tier x model, seed 20261014): CI lower bound above 0 reads "excess at
+<tier>", otherwise "no excess shown at <tier>". Also reported, not read: the new seeds alone per tier (a replication
+look, 5 vs 5), and per tier the turn-level counts of rule failure turns and system and history canary misses (turns
+within a session are not independent).
+
+**Validity (mechanical).** Run finished (run_end); qwen3:8b not refused; all 10 new sessions (2 tiers x seeds 20260906
+to 20260910) completed with 40 turns; every turn row of a new session requested its tier's num_ctx; the pooled v1b
+sessions are the 5 per tier with 40 turns that the reversal row reads.
+
+**Known limits, stated before the run.** Ten sessions per tier on one machine and runtime (Ollama 0.34.4 on evo-x2);
+the five new sessions per tier run about ten days after the v1b ones, on a later agent blob with the same defaults;
+seeds 20260906 to 20260910 generate new session content (facts, filler, tasks) with the same generator. A "resolved as
+noise" verdict says the difference is not shown at this n, not that the rates are equal. Statistics convention as in
+v1b: no warm-up call, every turn scored. Duration: an ESTIMATE in register row `x2-queue-fill-1020-hours`. The job
+calls tq.advance() on exit and sets no pause.
