@@ -25,7 +25,7 @@ _here = Path(__file__).resolve().parent
 if not (_here / "t2s_queue.py").exists():
     sys.path.insert(0, str(_here.parent))
 
-PY = r"C:\Users\Ritz\AppData\Local\Programs\Python\Python312\python.exe"
+PY = sys.executable   # the machine's own interpreter when run there (no user path in the source)
 RESULTS = r"C:\apu\ovn\results"
 RELEASE = "Releases itself via tq.advance() on exit; sets no pause."
 
