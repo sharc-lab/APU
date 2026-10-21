@@ -4414,3 +4414,93 @@ when it runs (their blobs are recorded in the deployment amendment). A "one-line
 session is otherwise equivalent (history is still dropped). Statistics convention as in the compared runs: no warm-up
 call, every turn scored. Duration: an ESTIMATE in register row `x2-queue-fill-1020-hours`, computed from measured
 session times before queueing. The job calls tq.advance() on exit and sets no pause.
+
+## PRE-REGISTRATION: protocol consistency extended to qwen3:8b, B3 v2 tasks validation and task real run (x2_evalset_tasks_val_v2_qwen3_8b, x2_evalset_tasks_real_v2_qwen3_8b) on evo-x2 (2026-10-21, NOT YET RUN)
+
+**Status:** PRE-REGISTRATION, written and committed before the code for these two jobs is written or deployed and
+before evo-x2's queue is edited for them. No data for either job exists. It extends "PRE-REGISTRATION: protocol
+consistency, B3 v2 task real runs x2_evalset_tasks_real_v2 on evo-x2 (2026-10-19)" and its amendment, whose texts are
+not edited, and applies the same measures and decision rules to a second model. The deviation note of 2026-10-19 (task
+end-state waiver) does not apply here: it is qwen3:14b-only at 80/90 and is not extended.
+
+**Why.** The protocol-consistency run tested one model. Its results (pasted): register row
+`x2-evalset-tasks-real-v2-gated-excess` "num_ctx_4096: v2 5/5 vs default 0/5, excess +1.000 (95% CI +1.000 to +1.000);
+v1b excess +0.800 (95% CI +0.400 to +1.000); reading: the v1b effect holds"; register row
+`x2-evalset-tasks-real-v2-wrong-rate` "ollama_ctx_8192 excess over default +24.0 points (95% CI +18.7 to +29.3, 5 vs 5
+sessions); reading: ollama_ctx_8192 raises the wrong-task rate; ollama_ctx_4096 excess over default +30.7 points (95% CI
++26.0 to +34.7, 5 vs 5 sessions); reading: ollama_ctx_4096 raises the wrong-task rate". So impact problem P1 rests on
+qwen3:14b alone. llama3.1:8b cannot be the second model: its v2 tasks validation failed (register row
+`x2-evalset-val-v2-gates`, pasted: "tasks llama3.1:8b (run finished True): ... failing gates: baseline,
+negative_control, task_end_state"). qwen3:8b is the other model that passed its R2 validation for v1b and has v1b values
+at every tier.
+
+**Job 1, validation.** Queue id `x2_evalset_tasks_val_v2_qwen3_8b`, output
+`results/x2_evalset_tasks_val_v2_qwen3_8b.jsonl`. The tasks validation exactly as `x2_evalset_tasks_val_v2` ran it
+(`harness/x2_r2_evalset.py --design v2 --mode validation --workload evalset --guardrails off`, docs/EVALSET_DESIGN.md
+design v2: tool loop with tools on every call and up to 4 tool rounds, FILLER_TOKENS_PER_TURN_V2 filler tokens a turn,
+negative control at num_ctx 131072 on seeds 20260901 to 20260903 with the 30-task session, positive control at num_ctx
+8192 on seed 20260901 for POS_TURNS_V2 turns, "think": false, temperature 0, seed 42, num_predict 384), with `--models
+qwen3:8b` only. Only the tasks validation runs: the real run below is the tasks workload, and the guardrail and replay
+validations gate other real runs. Gates: those of `x2-evalset-val-v2-gates` for a tasks validation (baseline rules 1 to
+5, negative control, positive control, content non-empty, thinking off, task tool, negative-control window, task end
+state; rules 6-8 do not apply with guardrails off). Register row `x2-evalset-tasks-val-v2-qwen3-8b-gates` (PENDING until
+the file is synced).
+
+**Job 2, real run.** Queue id `x2_evalset_tasks_real_v2_qwen3_8b`, output `results/x2_evalset_tasks_real_v2_qwen3_8b.jsonl`.
+The design of `x2_evalset_tasks_real_v2` unchanged except the model: tiers `ollama_default`, num_ctx 16384, 8192, 4096,
+and 4096 with options.num_keep = S (S measured per session with qwen3:8b's own tokenizer, render and count, sent on every
+request of that session); seeds 20260901 to 20260905; 30 task turns per session; 25 sessions; tool loop, think false,
+temperature 0, seed 42, num_predict 384. New harness options `--plan tasks_v2_qwen3_8b` (TASKS_V2_TIERS x
+TASKS_V2_SEEDS, model list qwen3:8b only) and `--preflight v2_strict`, which go together.
+
+**Gating, two independent locks.**
+1. Queue gate: the real-run entry carries `{"gate": {"requires_done": "x2_evalset_tasks_val_v2_qwen3_8b"}}` and sits
+   after the validation entry, so it cannot start before the validation has ended as "done".
+2. Preflight refusal (`v2_strict`), on the validation file named by `--rules-from`: qwen3:8b is admitted only if
+   `validation_preflight_ext` (design v2) admits it with no waiver (TE_DEVIATION is not consulted) and only qwen3:8b
+   allowed, AND every gate that `evaluate_gates_ext` reports for qwen3:8b passes: baseline (every rule 1 to 5 at or
+   above 90%), negative control, positive control, content non-empty, thinking off, task tool, negative-control window
+   and task end state (at least 90%). Any failing gate, a missing gate entry, a validation file that is not design v2 or
+   has no run_end, or any other model is a refusal. On refusal the job writes refused rows, ends with a "stopped:
+   refused" note, makes no model call and claims no result; the register rows then read "refused".
+This is stricter than the qwen3:14b preflight in one respect, stated now: a baseline rule below 90% refuses the model
+here, where the 2026-10-19 preflight only removed that rule from the rules in use. qwen3:14b passed every gate except
+task end state, so the two rules differ only by the waiver.
+
+**Measures, fixed now** (register rows `x2-evalset-tasks-real-v2-qwen3-8b-gated-excess` and
+`x2-evalset-tasks-real-v2-qwen3-8b-wrong-rate`, PENDING until the file is synced): measures 1 to 3 of the
+protocol-consistency pre-registration, computed the same way for qwen3:8b (gated after-window silent failures with the
+gated metrics from qwen3:8b's own v2 tasks validation, excess over the default with the v1b bootstrap, and the wrong-task
+rate over all task turns with its session-bootstrap excess over the default: 10000 resamples, seed 20261014).
+
+**v1b values for qwen3:8b** (pasted from `R2-v1b-excess-over-default`): num_ctx_16384 "qwen3:8b 0/5 vs default 0/5,
+excess +0.000 (95% CI +0.000 to +0.000)"; num_ctx_8192 "qwen3:8b 4/5 vs default 0/5, excess +0.800 (95% CI +0.400 to
++1.000)"; num_ctx_4096 "qwen3:8b 1/5 vs default 0/5, excess +0.200 (95% CI +0.000 to +0.600)".
+
+**Reading of the protocol question, fixed now** (the 2026-10-19 rule, `numbers_register.protocol_reading`, per tier):
+- 8192 (v1b CI lower bound above 0): "the v1b effect holds" if the v2 excess CI lower bound is above 0; "the v1b effect
+  is a protocol artifact" if the v2 CI includes 0 and its upper bound is below +0.800; "inconclusive" otherwise.
+- 16384 and 4096 (v1b CI lower bound not above 0): "v2 shows an excess v1b did not" if the v2 CI lower bound is above 0;
+  otherwise "no excess in either protocol".
+- num_keep: if the 4096 CI lower bound is above 0 and the 4096 + num_keep CI includes 0, "num_keep removes the 4096
+  excess for qwen3:8b"; if both lower bounds are above 0, "num_keep does not remove it"; otherwise "not shown either way".
+Worked out for a default of 0/5: at 8192, 3 or more of 5 sessions reads "holds", 2 of 5 "inconclusive", 0 or 1
+"protocol artifact". The rule above decides.
+
+**P1 on two models, fixed now.** Per tier, the wrong-task reading of each model ("<tier> raises the wrong-task rate",
+"no excess shown", "lower at <tier>") from its own register row. A tier where both qwen3:14b and qwen3:8b read "raises"
+is reported as a P1 effect on two models; a tier where only one does is reported as one model only, naming it. If
+qwen3:8b is refused or its run is invalid, P1 stays on one model and is reported so.
+
+**Validity (mechanical).** Run finished (run_end); qwen3:8b not refused; all 25 sessions completed with 30 task turns;
+every row requested its tier's num_ctx (none at the default); every request of every num_keep session carried
+options.num_keep = S with S > 0 recorded for that session; no turn rows for any other model. A failing run is reported
+"incomplete" with what is missing, and its rates are not read.
+
+**Known limits, stated before the run.** All limits of the 2026-10-19 pre-registration apply (v2 workload differs from
+v1b's; short sessions, so few turns remain after 16384 is exceeded; five sessions per cell; one runtime; num_keep
+verified as sent, not observed in the server log). qwen3:8b's own v1b ordering of 8192 against 4096 is under test
+separately (the next pre-registration); a v2 reading for qwen3:8b at those tiers is reported per tier and is not used to
+settle that question (different workload and protocol). If qwen3:8b's default window is exceeded in the v2 session its
+after-window default rate is not 0 by construction; the bootstrap handles it as for any tier. Durations: ESTIMATEs in
+register row `x2-queue-fill-1020-hours`. Both jobs call tq.advance() on exit and set no pause.
