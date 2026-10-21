@@ -106,6 +106,19 @@ B3 v2 task real run (2026-10-19, x2_evalset_tasks_real_v2; docs/FINDINGS.md "DEV
   num_keep {"sent", "system_prompt_tokens"} and a num_keep_session row holds S. The report adds tasks_real_v2_outcome.
   --queue-insert-tasks-v2      : (evo-x2) inserts x2_evalset_tasks_real_v2 directly before x2_window_override_methods,
                                  one read-modify-write under a pause cleared in finally.
+
+B3 v2 extended to qwen3:8b (2026-10-21; docs/FINDINGS.md "PRE-REGISTRATION: protocol consistency extended to qwen3:8b"),
+deployed to the side directory C:\\apu\\ovn\\evalv2q8 with evalset_env.py and x2_num_keep.py:
+  python evalv2q8\\x2_r2_evalset.py --design v2 --mode validation --workload evalset --guardrails off --models qwen3:8b
+      --out C:\\apu\\ovn\\results\\x2_evalset_tasks_val_v2_qwen3_8b.jsonl
+  python evalv2q8\\x2_r2_evalset.py --design v2 --mode real --workload evalset --guardrails off --models qwen3:8b
+      --plan tasks_v2_qwen3_8b --preflight v2_strict
+      --rules-from C:\\apu\\ovn\\results\\x2_evalset_tasks_val_v2_qwen3_8b.jsonl
+      --out C:\\apu\\ovn\\results\\x2_evalset_tasks_real_v2_qwen3_8b.jsonl
+  --plan tasks_v2_qwen3_8b : the tasks_v2 tiers, seeds and 30 task turns; model list TASKS_V2_Q8_MODELS (qwen3:8b).
+  --preflight v2_strict    : strict_preflight_v2: validation_preflight_ext with no waiver, only qwen3:8b allowed, and
+                             every STRICT_GATES gate of the validation passing for the model; otherwise the job refuses
+                             before any model call.
 """
 from __future__ import annotations
 
@@ -743,6 +756,43 @@ def tasks_v2_plan(call2_mode="off"):
     return real_plan("evalset", False, call2_mode, tiers=TASKS_V2_TIERS, seeds=TASKS_V2_SEEDS)
 
 
+# B3 v2 extended to qwen3:8b (2026-10-21, x2_evalset_tasks_real_v2_qwen3_8b, docs/FINDINGS.md "PRE-REGISTRATION:
+# protocol consistency extended to qwen3:8b"): the tasks_v2 tiers, seeds and turns, model qwen3:8b only, and the strict
+# preflight: no waiver (TE_DEVIATION is not consulted) and every gate of the validation must pass for the model.
+TASKS_V2_Q8_PLAN = "tasks_v2_qwen3_8b"
+TASKS_V2_Q8_MODELS = ("qwen3:8b",)
+PREFLIGHT_STRICT = "v2_strict"
+STRICT_GATES = ("baseline", "negative_control", "positive_control", "content_nonempty", "thinking_off", "task_tool",
+                "negative_control_window", "task_end_state")
+
+
+def tasks_v2_q8_plan(call2_mode="off"):
+    """[(arm, seeds, turns)] of --plan tasks_v2_qwen3_8b: the same as tasks_v2_plan."""
+    return tasks_v2_plan(call2_mode)
+
+
+def strict_preflight_v2(rows, models, call2_mode="off", allowed_models=TASKS_V2_Q8_MODELS) -> dict:
+    """--preflight v2_strict: validation_preflight_ext (design v2, tasks workload, guardrails off) with no waiver and
+    only `allowed_models`, AND every STRICT_GATES gate of evaluate_gates_ext passing for the model (a missing gate entry
+    is a failure). Same return shape as validation_preflight_ext, plus "strict_gates" {model: {gate: pass}}."""
+    pf = validation_preflight_ext(rows, models, "evalset", False, call2_mode, "v2", waive_task_end_state=None,
+                                  allowed_models=allowed_models)
+    rep = evaluate_gates_ext(rows, "evalset", False, call2_mode, design="v2")
+    g = rep["gates"]
+    refused = {m: list(r) for m, r in pf["refused"].items()}
+    strict = {}
+    for m in models:
+        strict[m] = {k: bool((g.get(k, {}).get(m) or {}).get("pass")) for k in STRICT_GATES}
+        failing = [k for k, ok in strict[m].items() if not ok]
+        if failing:
+            refused.setdefault(m, []).append(f"{m}: strict preflight, gates not passed: {failing}")
+    ok_models = [m for m in models if m not in refused]
+    return {"ok": bool(ok_models), "models_ok": ok_models, "refused": refused,
+            "rules_in_use": {m: v for m, v in pf["rules_in_use"].items() if m in ok_models},
+            "tasks_in_use": {m: v for m, v in pf["tasks_in_use"].items() if m in ok_models},
+            "waived": {}, "strict_gates": strict, "preflight": PREFLIGHT_STRICT}
+
+
 def tier_num_ctx_expected(arm) -> int | None:
     return ag.ARMS[arm]["num_ctx"]
 
@@ -1234,17 +1284,19 @@ def build_arg_parser():
     ap.add_argument("--seeds", default=None, help="real mode: comma-separated seeds (default SEEDS)")
     ap.add_argument("--check-plan", action="store_true",
                     help="print the plan and session shape, then exit (no server, no model call, no queue)")
-    ap.add_argument("--plan", choices=("default", TASKS_PLAN, TASKS_V2_PLAN), default="default",
+    ap.add_argument("--plan", choices=("default", TASKS_PLAN, TASKS_V2_PLAN, TASKS_V2_Q8_PLAN), default="default",
                     help="real mode: default = --tiers/--seeds or STRONG_TIERS x SEEDS; tasks_v1 = the B3 task real "
                          "run (Ollama default and 4096, SEEDS, 30 task turns; needs --workload evalset --guardrails off); "
                          "tasks_v2 = the B3 v2 task real run (TASKS_V2_TIERS x SEEDS_STRONG, 30 task turns, design v2, "
                          "--preflight v2_te_deviation)")
-    ap.add_argument("--preflight", choices=("full", "end_state", PREFLIGHT_TE_DEVIATION), default="full",
+    ap.add_argument("--preflight", choices=("full", "end_state", PREFLIGHT_TE_DEVIATION, PREFLIGHT_STRICT),
+                    default="full",
                     help="real mode: full = validation_preflight_ext (R2 rule/canary/task-tool gates plus rules 6-8); "
                          "end_state = end_state_preflight (finished, controls complete, positive control, thinking "
                          "off, content non-empty, at least one task correct; for --plan tasks_v1); v2_te_deviation = "
                          "validation_preflight_ext with the declared task end-state deviation (TE_DEVIATION) and only "
-                         "TASKS_V2_MODELS allowed (for --plan tasks_v2)")
+                         "TASKS_V2_MODELS allowed (for --plan tasks_v2); v2_strict = no waiver and every gate "
+                         "passing, only TASKS_V2_Q8_MODELS allowed (for --plan tasks_v2_qwen3_8b)")
     ap.add_argument("--queue-insert-tasks-v2", action="store_true",
                     help="on evo-x2: insert x2_evalset_tasks_real_v2 directly before x2_window_override_methods in one "
                          "read-modify-write under a pause cleared in finally")
@@ -1265,6 +1317,8 @@ def plan_for(args, schedule=None):
         return tasks_plan(args.call2_tools)
     if args.plan == TASKS_V2_PLAN:
         return tasks_v2_plan(args.call2_tools)
+    if args.plan == TASKS_V2_Q8_PLAN:
+        return tasks_v2_q8_plan(args.call2_tools)
     return real_plan(args.workload, guard, args.call2_tools, ag.parse_tiers(args.tiers), ag.parse_seeds(args.seeds))
 
 
@@ -1473,6 +1527,15 @@ def main(argv=None, advance=True):
             ap.error("--plan tasks_v2 fixes the tiers and seeds; do not pass --tiers / --seeds")
     if args.preflight == PREFLIGHT_TE_DEVIATION and args.mode != "real":
         ap.error("--preflight v2_te_deviation needs --mode real --plan tasks_v2")
+    if (args.plan == TASKS_V2_Q8_PLAN) != (args.preflight == PREFLIGHT_STRICT) and args.mode == "real":
+        ap.error("--plan tasks_v2_qwen3_8b and --preflight v2_strict go together")
+    if args.plan == TASKS_V2_Q8_PLAN:
+        if args.mode != "real" or args.workload != "evalset" or args.guardrails != "off" or args.design != "v2":
+            ap.error("--plan tasks_v2_qwen3_8b needs --mode real --workload evalset --guardrails off --design v2")
+        if args.tiers or args.seeds:
+            ap.error("--plan tasks_v2_qwen3_8b fixes the tiers and seeds; do not pass --tiers / --seeds")
+    if args.preflight == PREFLIGHT_STRICT and args.mode != "real":
+        ap.error("--preflight v2_strict needs --mode real --plan tasks_v2_qwen3_8b")
     if args.workload == "replay" and args.guardrails == "off":
         ap.error("the replay workload always runs with guardrails on")
     if args.check_plan:
@@ -1530,6 +1593,8 @@ def main(argv=None, advance=True):
                 preflight = validation_preflight_ext(vrows, models, args.workload, guard, c2, args.design,
                                                      waive_task_end_state=TE_DEVIATION,
                                                      allowed_models=TASKS_V2_MODELS)
+            elif args.preflight == PREFLIGHT_STRICT:
+                preflight = strict_preflight_v2(vrows, models, c2)
             else:
                 preflight = validation_preflight_ext(vrows, models, args.workload, guard, c2, args.design)
             for m, reasons in preflight["refused"].items():
@@ -1592,6 +1657,9 @@ def main(argv=None, advance=True):
             if args.plan == TASKS_V2_PLAN:
                 # run_end is emitted right after this report is written; the outcome is computed as of that point
                 report["tasks_real_v2_outcome"] = tasks_real_v2_outcome(rows + [{"record": "run_end"}], c2)
+            if args.plan == TASKS_V2_Q8_PLAN:
+                report["tasks_real_v2_outcome"] = tasks_real_v2_outcome(rows + [{"record": "run_end"}], c2,
+                                                                        models=TASKS_V2_Q8_MODELS)
         Path(str(out_path) + ".report.json").write_text(json.dumps(report, indent=1, default=str), encoding="utf-8")
         emit({"record": "run_end", "call2_mode": c2, "ts_utc": ag.utc_iso()})
         if args.mode == "validation":

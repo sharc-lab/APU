@@ -37,8 +37,39 @@ ENTRIES = {
                 "--out", f"{RESULTS}\\x2_num_keep_qwen3_14b.jsonl"],
         "note": "num_keep guardrail flag test for qwen3:14b, pre-registered in docs/FINDINGS.md 2026-10-20: the "
                 "llama3.1:8b test's command and side directory (numkeep) with --models qwen3:14b, num_ctx 4096, "
-                "3 seeds x 40 turns, verdict one-line fix or not. Hours: register row x2-queue-fill-1021-hours. "
+                "3 seeds x 40 turns, verdict one-line fix or not. Hours: register row x2-queue-fill-1020-hours. "
                 + RELEASE,
+    },    "x2_evalset_tasks_val_v2_qwen3_8b": {
+        "projected_duration_h": 0.22,
+        "cmd": [PY, "evalv2q8\\x2_r2_evalset.py", "--design", "v2", "--mode", "validation", "--workload", "evalset",
+                "--guardrails", "off", "--models", "qwen3:8b", "--out",
+                f"{RESULTS}\\x2_evalset_tasks_val_v2_qwen3_8b.jsonl"],
+        "note": "B3 v2 tasks validation for qwen3:8b, pre-registered in docs/FINDINGS.md 2026-10-21 (protocol "
+                "consistency extended to qwen3:8b): the x2_evalset_tasks_val_v2 plan with --models qwen3:8b. ESTIMATE "
+                "0.22 h (register row x2-queue-fill-1020-hours). " + RELEASE,
+    },
+    "x2_evalset_tasks_real_v2_qwen3_8b": {
+        "projected_duration_h": 2.11,
+        "gate": {"requires_done": "x2_evalset_tasks_val_v2_qwen3_8b"},
+        "cmd": [PY, "evalv2q8\\x2_r2_evalset.py", "--design", "v2", "--mode", "real", "--workload", "evalset",
+                "--guardrails", "off", "--models", "qwen3:8b", "--plan", "tasks_v2_qwen3_8b", "--preflight",
+                "v2_strict", "--rules-from", f"{RESULTS}\\x2_evalset_tasks_val_v2_qwen3_8b.jsonl", "--out",
+                f"{RESULTS}\\x2_evalset_tasks_real_v2_qwen3_8b.jsonl"],
+        "note": "B3 v2 task real run for qwen3:8b, pre-registered in docs/FINDINGS.md 2026-10-21: tasks_v2 tiers and "
+                "seeds; queue gate requires_done x2_evalset_tasks_val_v2_qwen3_8b, and the v2_strict preflight refuses "
+                "unless qwen3:8b passes every gate of that validation (no waiver). ESTIMATE 2.11 h (register row "
+                "x2-queue-fill-1020-hours). " + RELEASE,
+    },
+    "x2_r2_qwen3_8b_seeds_06_10": {
+        "projected_duration_h": 2.19,
+        "cmd": [PY, "x2_r2_agent.py", "--mode", "real", "--plan", "strong", "--call2-tools", "off", "--models",
+                "qwen3:8b", "--tiers", "8192,4096", "--seeds", "20260906,20260907,20260908,20260909,20260910",
+                "--allow-new-seeds", "--rules-from", f"{RESULTS}\\x2_r2_validation_v2b.jsonl",
+                "--require-validation-gates", "--per-model-refusal", "--order", "seed_major", "--out",
+                f"{RESULTS}\\x2_r2_qwen3_8b_seeds_06_10.jsonl"],
+        "note": "qwen3:8b at num_ctx 8192 vs 4096, seeds 20260906-10 (pooled with v1b's five), pre-registered in "
+                "docs/FINDINGS.md 2026-10-21: Fisher exact on 10 vs 10 gated silent sessions. ESTIMATE 2.19 h "
+                "(register row x2-queue-fill-1020-hours). " + RELEASE,
     },
 }
 

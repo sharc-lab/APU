@@ -4441,22 +4441,23 @@ def _harness_module(name):
     return importlib.import_module(name)
 
 
-def compute_num_keep_guardrail_test(repo):
+def compute_num_keep_guardrail_test(repo, nk_file=None, model="llama3.1:8b"):
     """x2_num_keep_guardrail_test (results/x2_num_keep_guardrail_test.jsonl, evo-x2): S per seed, num_keep observed in
     the server log (context-shift n_keep, task n_keep, token-cut keep, --keep), shift / cut / message-drop counts, per
     rule in use the rate and first failure per seed, canary misses, surfaced errors, and the pre-registered verdict."""
     ag = _r2_agent_module()
     nk = _harness_module("x2_num_keep")
-    rows = ag.read_rows(repo / NUM_KEEP_FILE)
+    nk_file = nk_file or NUM_KEEP_FILE
+    rows = ag.read_rows(repo / nk_file)
     if not rows:
-        raise FileNotFoundError(repo / NUM_KEEP_FILE)
-    v = nk.verdict(rows)
+        raise FileNotFoundError(repo / nk_file)
+    v = nk.verdict(rows, model=model)
 
     def ff(d):
         return "/".join("-" if t is None else str(t) for t in d.values())
     rules = "; ".join(f"{r.split('_')[0]} {_pct(d['rate'])} (n={d['n']}, first failure {ff(d['first_failure_per_seed'])})"
                       for r, d in v["rule_rates"].items())
-    value = (f"llama3.1:8b num_ctx 4096 num_keep=system: S per seed {v['system_prompt_tokens_per_seed']}; observed "
+    value = (f"{model} num_ctx 4096 num_keep=system: S per seed {v['system_prompt_tokens_per_seed']}; observed "
              f"context shifts {v['context_shift_events']} with n_keep {v['shift_n_keep_values']}, task n_keep "
              f"{v['task_n_keep_values']}, token cuts {v['token_cuts']} with keep {v['token_cut_keep_values']}, --keep "
              f"{v['keep_arg_values']}, Ollama message-drop calls {v['message_drop_calls']} of {v['n_calls']}; rules in "
@@ -4923,17 +4924,19 @@ def protocol_reading(v2_ci, v1b_excess, v1b_ci) -> str:
     return "v2 shows an excess v1b did not" if lo > 0 else "no excess in either protocol"
 
 
-def num_keep_reading(ci_4096, ci_nk) -> str:
+def num_keep_reading(ci_4096, ci_nk, model="qwen3:14b") -> str:
     if ci_4096[0] is None or ci_nk[0] is None:
         return "not shown either way (no CI)"
     if ci_4096[0] > 0 and ci_nk[0] <= 0 <= ci_nk[1]:
-        return "num_keep removes the 4096 excess for qwen3:14b"
+        return f"num_keep removes the 4096 excess for {model}"
     if ci_4096[0] > 0 and ci_nk[0] > 0:
         return "num_keep does not remove it"
     return "not shown either way"
 
 
-def compute_x2_evalset_tasks_real_v2_gated_excess(repo):
+def compute_x2_evalset_tasks_real_v2_gated_excess(repo, model=V2_PROTOCOL_MODEL,
+                                                  real_file=X2_EVALSET_TASKS_REAL_V2,
+                                                  val_file=X2_EVALSET_TASKS_VAL_V2):
     """qwen3:14b, per tier: gated silent failures after the window was exceeded and the excess over the default with
     the v1b bootstrap (analysis/r2_real_report.py build_combined + excess_over_default on the v2 file, gated metrics
     from the v2 tasks validation), next to v1b's per-model values (R2-v1b-excess-over-default), with the pre-registered
@@ -4943,27 +4946,27 @@ def compute_x2_evalset_tasks_real_v2_gated_excess(repo):
     import r2_real_report as rr
     _r2_agent_module()
     import x2_r2_evalset as ev
-    rows = ev.ag.read_rows(repo / X2_EVALSET_TASKS_REAL_V2)
+    rows = ev.ag.read_rows(repo / real_file)
     if not rows:
-        raise FileNotFoundError(repo / X2_EVALSET_TASKS_REAL_V2)
-    o = ev.tasks_real_v2_outcome(rows)
-    d = o["models"].get(V2_PROTOCOL_MODEL, {})
+        raise FileNotFoundError(repo / real_file)
+    o = ev.tasks_real_v2_outcome(rows, models=(model,))
+    d = o["models"].get(model, {})
     valid = bool(d.get("valid"))
-    rep = rr.build_combined([repo / X2_EVALSET_TASKS_REAL_V2], validation_paths=[repo / X2_EVALSET_TASKS_VAL_V2])
+    rep = rr.build_combined([repo / real_file], validation_paths=[repo / val_file])
     x = rr.excess_over_default(rep)
     _rr, rep1 = _r2_real_v1b_report(repo)
     x1 = rr.excess_over_default(rep1)
     g = rr.gated_per_model(rep)
-    gm = rep["gated_metrics"].get(V2_PROTOCOL_MODEL, {})
-    parts = [f"{V2_PROTOCOL_MODEL}: valid {valid}" + (f" ({'; '.join(d.get('problems') or [])})" if not valid else "")
+    gm = rep["gated_metrics"].get(model, {})
+    parts = [f"{model}: valid {valid}" + (f" ({'; '.join(d.get('problems') or [])})" if not valid else "")
              + f"; gated fields {', '.join(gm.get('fields', []))} (excluded {', '.join(gm.get('excluded', [])) or 'none'})"]
-    dflt = g.get(f"ollama_default|{V2_PROTOCOL_MODEL}")
+    dflt = g.get(f"ollama_default|{model}")
     if dflt:
         parts.append(f"ollama_default {dflt['silent']}/{dflt['n']} silent, {dflt['silent_after_window_exceeded']} after "
                      f"window exceeded")
     cis = {}
     for tier, per in x.get("per_tier", {}).items():
-        v = per.get(V2_PROTOCOL_MODEL)
+        v = per.get(model)
         if v is None:
             continue
         lo, hi = v["ci95"]
@@ -4971,30 +4974,31 @@ def compute_x2_evalset_tasks_real_v2_gated_excess(repo):
         s = (f"{tier}: v2 {round(v['rate'] * v['n_tier'])}/{v['n_tier']} vs default "
              f"{round(v['default_rate'] * v['n_default'])}/{v['n_default']}, excess {v['excess']:+.3f} (95% CI "
              f"{lo:+.3f} to {hi:+.3f})")
-        w = x1.get("per_tier", {}).get(tier, {}).get(V2_PROTOCOL_MODEL)
+        w = x1.get("per_tier", {}).get(tier, {}).get(model)
         if w is not None:
             s += (f"; v1b excess {w['excess']:+.3f} (95% CI {w['ci95'][0]:+.3f} to {w['ci95'][1]:+.3f}); reading: "
                   + (protocol_reading((lo, hi), w["excess"], w["ci95"]) if valid else "inconclusive (run not valid)"))
         parts.append(s)
     nk = "num_ctx_4096_numkeep"
     if "num_ctx_4096" in cis and nk in cis:
-        parts.append("num_keep reading: " + (num_keep_reading(cis["num_ctx_4096"], cis[nk]) if valid
+        parts.append("num_keep reading: " + (num_keep_reading(cis["num_ctx_4096"], cis[nk], model) if valid
                                              else "inconclusive (run not valid)"))
     return {"value": "; ".join(parts) + f" (bootstrap {x.get('n_resamples')} resamples, unit {x.get('unit')}, "
                                         f"stratified by {x.get('strata')}, seed {x.get('seed')})",
             "n": f"{rep['n_sessions']} sessions"}
 
 
-def compute_x2_evalset_tasks_real_v2_wrong_rate(repo):
+def compute_x2_evalset_tasks_real_v2_wrong_rate(repo, model=V2_PROTOCOL_MODEL,
+                                                real_file=X2_EVALSET_TASKS_REAL_V2):
     """qwen3:14b, per tier: wrong-task rate over all task turns, silent and surfaced wrong turns, loaded context,
     and the excess over the default with the session bootstrap and its pre-registered reading
     (harness/x2_r2_evalset.py::tasks_real_v2_outcome); refused models with their reasons."""
     _r2_agent_module()
     import x2_r2_evalset as ev
-    rows = ev.ag.read_rows(repo / X2_EVALSET_TASKS_REAL_V2)
+    rows = ev.ag.read_rows(repo / real_file)
     if not rows:
-        raise FileNotFoundError(repo / X2_EVALSET_TASKS_REAL_V2)
-    o = ev.tasks_real_v2_outcome(rows)
+        raise FileNotFoundError(repo / real_file)
+    o = ev.tasks_real_v2_outcome(rows, models=(model,))
     parts, n = [], 0
     for m, d in o["models"].items():
         if d.get("refused"):
@@ -5017,6 +5021,292 @@ def compute_x2_evalset_tasks_real_v2_wrong_rate(repo):
                      + f" (bootstrap {ev.BOOT_N} resamples, unit session, stratified by tier, seed {ev.BOOT_SEED})",
             "n": f"{n} task turns"}
 
+
+
+# ───────────────────────────────────────────────── evo-x2 queue fill of 2026-10-21 (docs/X2_QUEUE_PLAN.md)
+# Jobs pre-registered in docs/FINDINGS.md on 2026-10-20/21: num_keep for qwen3:14b, B3 v2 for qwen3:8b (tasks
+# validation + real run), qwen3:8b 8192 vs 4096 with 10 seeds. The hours row is an ESTIMATE from measured session times;
+# the result rows are PENDING until their files are synced. x2-scale-real-default-tier backs the decision not to queue a
+# qwen3:32b default-tier run (it already ran inside x2_r2_scale_real).
+NUM_KEEP_Q14_FILE = "results/x2_num_keep_qwen3_14b.jsonl"
+NUM_KEEP_Q14_MODEL = "qwen3:14b"
+X2_EVALSET_TASKS_VAL_V2_Q8 = "results/x2_evalset_tasks_val_v2_qwen3_8b.jsonl"
+X2_EVALSET_TASKS_REAL_V2_Q8 = "results/x2_evalset_tasks_real_v2_qwen3_8b.jsonl"
+Q8_MODEL = "qwen3:8b"
+R2_Q8_SEEDS_06_10_FILE = "results/x2_r2_qwen3_8b_seeds_06_10.jsonl"
+Q8_NEW_SEEDS = (20260906, 20260907, 20260908, 20260909, 20260910)
+Q8_REVERSAL_TIERS = ("num_ctx_8192", "num_ctx_4096")
+# The queue fill's schedule anchor: x2_num_keep_qwen3_14b was launched by the watchdog at this time (watchdog.log on
+# evo-x2, '{"action": "launched", "launched": "x2_num_keep_qwen3_14b"}'). Jobs are projected back to back from it.
+QUEUE_FILL_ANCHOR_UTC = "2026-10-21T18:03:40+00:00"
+QUEUE_FILL_DEADLINE_UTC = "2026-11-10T00:00:00+00:00"
+QUEUE_FILL_ORDER = ("x2_num_keep_qwen3_14b", "x2_evalset_tasks_val_v2_qwen3_8b", "x2_evalset_tasks_real_v2_qwen3_8b",
+                    "x2_r2_qwen3_8b_seeds_06_10")
+QUEUE_FILL_DATA = [NUM_KEEP_FILE, X2_EVALSET_TASKS_VAL_V2, X2_EVALSET_TASKS_REAL_V2, R2_REAL_V1_FILE,
+                   R2_REAL_V1B_FILE]
+
+
+def _session_walls_s(rows, model, arm, mode=None) -> list[float]:
+    """Per completed session of (model, arm): the sum of its turns' turn_wall_s (model loads included), sorted."""
+    ag = _r2_agent_module()
+    att = {s["attempt_id"] for s in ag.completed_sessions(rows) if s["model_id"] == model and s["arm_id"] == arm
+           and (mode is None or s.get("mode") == mode)}
+    walls = {}
+    for r in rows:
+        if r.get("record") == "r2a_turn" and r.get("attempt_id") in att:
+            walls[r["attempt_id"]] = walls.get(r["attempt_id"], 0.0) + (r.get("turn_wall_s") or 0.0)
+    return sorted(walls.values())
+
+
+def _r2_median_s(repo, model, tier) -> float:
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "analysis"))
+    import impact_model as im
+    return im.session_wallclock(repo)[("evo-x2", model, tier)]["median_wall_s"]
+
+
+def queue_fill_estimates(repo) -> dict:
+    """ESTIMATE per queued job (hours, point and high) from measured session times; see each job's basis string."""
+    import statistics
+    ag = _r2_agent_module()
+    import x2_r2_evalset as ev
+    sfx = "_call2_notools"
+    jobs = {}
+    # a) num_keep for qwen3:14b: the llama3.1:8b num_keep sessions' overhead over plain llama3.1:8b 4096 sessions,
+    # applied to the median plain qwen3:14b 4096 session, x 3 sessions.
+    nk_rows = ag.read_rows(repo / NUM_KEEP_FILE)
+    nk_walls = _session_walls_s(nk_rows, "llama3.1:8b", "ollama_ctx_4096" + sfx)
+    l4096 = _r2_median_s(repo, "llama3.1:8b", "num_ctx_4096")
+    q4096 = _r2_median_s(repo, "qwen3:14b", "num_ctx_4096")
+    ratio = statistics.mean(nk_walls) / l4096
+    jobs["x2_num_keep_qwen3_14b"] = {
+        "point_h": 3 * q4096 * ratio / 3600, "high_h": 3 * q4096 * max(ratio, max(nk_walls) / l4096) / 3600,
+        "basis": f"3 x qwen3:14b num_ctx 4096 R2 median {q4096 / 60:.1f} min x num_keep overhead {ratio:.2f} (llama3.1:8b "
+                 f"num_keep sessions mean {statistics.mean(nk_walls) / 60:.1f} min over its plain 4096 median "
+                 f"{l4096 / 60:.1f} min)"}
+    # per-tier qwen3:8b / qwen3:14b R2 session-time ratios
+    r = {t: _r2_median_s(repo, "qwen3:8b", t) / _r2_median_s(repo, "qwen3:14b", t)
+         for t in ("ollama_default", "num_ctx_16384", "num_ctx_8192", "num_ctx_4096")}
+    # b1) tasks validation for qwen3:8b: qwen3:14b's measured v2 tasks-validation sessions, scaled by the R2 ratios
+    vrows = ag.read_rows(repo / X2_EVALSET_TASKS_VAL_V2)
+    e = ev.tasks_v2_hours_estimate(vrows)
+    neg, pos = sum(e["neg_session_s"]), sum(e["pos_session_s"])
+    jobs["x2_evalset_tasks_val_v2_qwen3_8b"] = {
+        "point_h": (neg * r["ollama_default"] + pos * r["num_ctx_8192"]) / 3600, "high_h": (neg + pos) / 3600,
+        "basis": f"qwen3:14b v2 tasks validation sessions (negative control {neg / 60:.1f} min over "
+                 f"{len(e['neg_session_s'])}, positive control {pos / 60:.1f} min) x qwen3:8b/qwen3:14b R2 median ratio "
+                 f"(default {r['ollama_default']:.2f}, 8192 {r['num_ctx_8192']:.2f}); high = unscaled"}
+    # b2) real run for qwen3:8b: qwen3:14b's measured v2 real-run sessions per tier, scaled by the same ratios
+    rrows = ag.read_rows(repo / X2_EVALSET_TASKS_REAL_V2)
+    tier_ratio = {"ollama_default": "ollama_default", "ollama_ctx_16384": "num_ctx_16384",
+                  "ollama_ctx_8192": "num_ctx_8192", "ollama_ctx_4096": "num_ctx_4096",
+                  ev.NUMKEEP_ARM: "num_ctx_4096"}
+    pt = hi = 0.0
+    per = []
+    for t, rt in tier_ratio.items():
+        w = sum(_session_walls_s(rrows, "qwen3:14b", t + sfx, mode="real"))
+        pt += w * r[rt]
+        hi += w
+        per.append(f"{t} {w / 3600:.2f} h")
+    jobs["x2_evalset_tasks_real_v2_qwen3_8b"] = {
+        "point_h": pt / 3600, "high_h": hi / 3600,
+        "basis": "qwen3:14b x2_evalset_tasks_real_v2 measured per tier (" + ", ".join(per) + ") x the qwen3:8b/qwen3:14b "
+                 f"R2 median ratio of the tier (16384 {r['num_ctx_16384']:.2f}, 4096 {r['num_ctx_4096']:.2f}); high = "
+                 "unscaled (refusal at preflight would take minutes)"}
+    # c) qwen3:8b 8192 and 4096, 5 new seeds each, from its own v1b sessions at those tiers
+    m8, m4 = _r2_median_s(repo, "qwen3:8b", "num_ctx_8192"), _r2_median_s(repo, "qwen3:8b", "num_ctx_4096")
+    slow = 0.0
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "analysis"))
+    v1b = ag.read_rows(repo / R2_REAL_V1B_FILE)
+    s8 = _session_walls_s(v1b, "qwen3:8b", "ollama_ctx_8192" + sfx, mode="real")
+    s4 = _session_walls_s(v1b, "qwen3:8b", "ollama_ctx_4096" + sfx, mode="real")
+    slow = 5 * (max(s8) + max(s4))
+    jobs["x2_r2_qwen3_8b_seeds_06_10"] = {
+        "point_h": 5 * (m8 + m4) / 3600, "high_h": slow / 3600,
+        "basis": f"5 x qwen3:8b v1b median at 8192 ({m8 / 60:.1f} min) + 5 x at 4096 ({m4 / 60:.1f} min); high = 5 x the "
+                 "slowest v1b session of each tier"}
+    return jobs
+
+
+def compute_x2_queue_fill_1020_hours(repo):
+    """ESTIMATE (not a measurement) of each job of the 2026-10-21 evo-x2 queue fill, from measured session times in
+    committed files, and the back-to-back schedule from the first job's launch to the 2026-11-10 deadline."""
+    from datetime import datetime, timedelta
+    jobs = queue_fill_estimates(repo)
+    t0 = datetime.fromisoformat(QUEUE_FILL_ANCHOR_UTC)
+    dl = datetime.fromisoformat(QUEUE_FILL_DEADLINE_UTC)
+    t_pt = t_hi = t0
+    parts = []
+
+    def f(t):
+        return t.strftime("%m-%d %H:%MZ")
+    for j in QUEUE_FILL_ORDER:
+        e = jobs[j]
+        s_pt, s_hi = t_pt, t_hi
+        t_pt += timedelta(hours=e["point_h"])
+        t_hi += timedelta(hours=e["high_h"])
+        parts.append(f"{j} ESTIMATE {e['point_h']:.2f} h (high {e['high_h']:.2f} h; {e['basis']}); projected "
+                     f"{f(s_pt)} to {f(t_pt)} (high case {f(s_hi)} to {f(t_hi)})")
+    tot_pt = sum(e["point_h"] for e in jobs.values())
+    tot_hi = sum(e["high_h"] for e in jobs.values())
+    slack_pt = (dl - t_pt).total_seconds() / 3600
+    slack_hi = (dl - t_hi).total_seconds() / 3600
+    parts.append(f"total ESTIMATE {tot_pt:.1f} h (high {tot_hi:.1f} h) from {QUEUE_FILL_ANCHOR_UTC[:16]}Z; queue ends "
+                 f"{f(t_pt)} (high {f(t_hi)}); slack before {QUEUE_FILL_DEADLINE_UTC[:10]} 00:00Z {slack_pt:.1f} h "
+                 f"(high case {slack_hi:.1f} h); idle capacity left after the 24 h reserve {slack_pt - 24:.1f} h "
+                 f"(high case {slack_hi - 24:.1f} h)")
+    return {"value": "; ".join(parts), "n": f"{len(jobs)} jobs (estimate)"}
+
+
+def compute_num_keep_qwen3_14b(repo):
+    """x2_num_keep_qwen3_14b: the num_keep guardrail test's measures and pre-registered verdict for qwen3:14b
+    (harness/x2_num_keep.verdict with model qwen3:14b)."""
+    return compute_num_keep_guardrail_test(repo, NUM_KEEP_Q14_FILE, NUM_KEEP_Q14_MODEL)
+
+
+def compute_x2_evalset_tasks_val_v2_q8_gates(repo):
+    """qwen3:8b v2 tasks validation: every gate with the numbers it was decided on (evaluate_gates_ext, design v2),
+    the failing gates, and whether the real run's strict preflight (v2_strict) admits qwen3:8b."""
+    _r2_agent_module()
+    import x2_r2_evalset as ev
+    rows = ev.ag.read_rows(repo / X2_EVALSET_TASKS_VAL_V2_Q8)
+    if not rows:
+        raise FileNotFoundError(repo / X2_EVALSET_TASKS_VAL_V2_Q8)
+    rep = ev.evaluate_gates_ext(rows, "evalset", False, "off", design=ev.file_design(rows))
+    g = rep["gates"]
+    m = Q8_MODEL
+    gates = [x for x in EVALSET_V2_GATE_ORDER if x in g]
+    failing = [x for x in gates if g[x].get(m) is not None and not g[x][m]["pass"]
+               and not (x == "rules678" and not g[x][m]["applies"])]
+    pf = ev.strict_preflight_v2(rows, [m])
+    finished = any(r.get("record") == "run_end" for r in rows)
+    return {"value": f"tasks {m} (run finished {finished}, design {ev.file_design(rows)}): "
+                     + "; ".join(_evalset_v2_gate_text(x, g, rep, m) for x in gates)
+                     + f"; failing gates: {', '.join(failing) or 'none'}; strict preflight (v2_strict): "
+                     + ("admits " + m if pf["ok"] else "refuses (" + "; ".join(pf["refused"].get(m, [])) + ")"),
+            "n": f"{sum(1 for r in rows if r.get('record') == 'r2a_turn')} turns"}
+
+
+def compute_x2_evalset_tasks_real_v2_q8_gated_excess(repo):
+    return compute_x2_evalset_tasks_real_v2_gated_excess(repo, Q8_MODEL, X2_EVALSET_TASKS_REAL_V2_Q8,
+                                                         X2_EVALSET_TASKS_VAL_V2_Q8)
+
+
+def compute_x2_evalset_tasks_real_v2_q8_wrong_rate(repo):
+    return compute_x2_evalset_tasks_real_v2_wrong_rate(repo, Q8_MODEL, X2_EVALSET_TASKS_REAL_V2_Q8)
+
+
+def fisher_two_sided(a, n1, b, n2) -> float:
+    from math import comb
+    k, N = a + b, n1 + n2
+    pmf = {x: comb(n1, x) * comb(n2, k - x) / comb(N, k) for x in range(max(0, k - n2), min(k, n1) + 1)}
+    return sum(v for v in pmf.values() if v <= pmf[a] * (1 + 1e-9))
+
+
+def reversal_verdict(valid, a8, n8, a4, n4, alpha=0.05) -> str:
+    """The pre-registered verdict (docs/FINDINGS.md 2026-10-21, qwen3:8b 8192 vs 4096 with 10 seeds per tier)."""
+    if not valid:
+        return "incomplete"
+    p = fisher_two_sided(a8, n8, a4, n4)
+    if p < alpha and a8 > a4:
+        return "reversal confirmed"
+    if p < alpha and a4 > a8:
+        return "ordering of the other models"
+    return "resolved as noise"
+
+
+def compute_r2_qwen3_8b_reversal_10seed(repo):
+    """qwen3:8b at num_ctx 8192 vs 4096, v1b seeds 20260901-05 pooled with seeds 20260906-10: gated silent sessions per
+    tier (r2_real_report.build_combined, v1b gate), two-sided Fisher exact, the pre-registered verdict, the excess over
+    the default per tier with the v1b bootstrap, the new seeds alone, turn-level counts, and validity."""
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "analysis"))
+    import r2_real_report as rr
+    ag = _r2_agent_module()
+    new_rows = ag.read_rows(repo / R2_Q8_SEEDS_06_10_FILE)
+    if not new_rows:
+        raise FileNotFoundError(repo / R2_Q8_SEEDS_06_10_FILE)
+    rep = rr.build_combined([repo / R2_REAL_V1_FILE, repo / R2_REAL_V1B_FILE, repo / R2_Q8_SEEDS_06_10_FILE],
+                            validation_paths=[repo / R2_VALIDATION_V2_FILE, repo / R2_VALIDATION_V2B_FILE])
+    m = Q8_MODEL
+    problems = []
+    if not any(r.get("record") == "run_end" for r in new_rows):
+        problems.append("no run_end")
+    if any(r.get("record") == "refused_model" and r.get("model_id") == m for r in new_rows):
+        problems.append(f"{m} refused")
+    new_sess = [s for s in ag.completed_sessions(new_rows) if s["model_id"] == m and s.get("mode") == "real"]
+    want_ctx = {"num_ctx_8192": 8192, "num_ctx_4096": 4096}
+    for tier in Q8_REVERSAL_TIERS:
+        arm = f"ollama_ctx_{want_ctx[tier]}_call2_notools"
+        got = sorted(s["seed"] for s in new_sess if s["arm_id"] == arm)
+        if got != sorted(Q8_NEW_SEEDS):
+            problems.append(f"{tier}: new sessions completed for seeds {got}, expected {list(Q8_NEW_SEEDS)}")
+        att = {s["attempt_id"]: s["seed"] for s in new_sess if s["arm_id"] == arm}
+        for a, seed in att.items():
+            t = [r for r in new_rows if r.get("record") == "r2a_turn" and r.get("attempt_id") == a]
+            if len(t) != 40:
+                problems.append(f"{tier} seed {seed}: {len(t)} turns, expected 40")
+            bad = {r.get("num_ctx_requested") for r in t} - {want_ctx[tier]}
+            if bad:
+                problems.append(f"{tier} seed {seed}: num_ctx_requested {sorted(bad, key=str)}")
+    counts, parts = {}, []
+    for tier in Q8_REVERSAL_TIERS:
+        c = rep["table"].get(f"{tier}|{m}") or {"sessions": [], "n": 0}
+        old = [e for e in c["sessions"] if e["seed"] not in Q8_NEW_SEEDS]
+        new = [e for e in c["sessions"] if e["seed"] in Q8_NEW_SEEDS]
+        if len(old) != 5 or any(e["n_turns"] != 40 for e in old):
+            problems.append(f"{tier}: pooled v1b sessions {len(old)}, expected 5 with 40 turns")
+        counts[tier] = (sum(e["silent"] for e in c["sessions"]), len(c["sessions"]))
+        parts.append(f"{tier}: {counts[tier][0]}/{counts[tier][1]} gated silent (v1b seeds "
+                     f"{sum(e['silent'] for e in old)}/{len(old)}, new seeds {sum(e['silent'] for e in new)}/{len(new)}; "
+                     "new per seed " + ", ".join(
+                         f"{e['seed']}: {'none' if e['first_gated_failure'] is None else e['first_gated_failure']}"
+                         for e in sorted(new, key=lambda e: e['seed'])) + ")")
+    valid = not problems
+    (a8, n8), (a4, n4) = counts["num_ctx_8192"], counts["num_ctx_4096"]
+    p = fisher_two_sided(a8, n8, a4, n4) if n8 and n4 else None
+    parts.append(f"Fisher exact two-sided p (8192 vs 4096) = {p:.3f}" if p is not None else "Fisher p n/a")
+    x = rr.excess_over_default(rep)
+    for tier in Q8_REVERSAL_TIERS:
+        v = x["per_tier"].get(tier, {}).get(m)
+        if v:
+            lo, hi = v["ci95"]
+            parts.append(f"{tier} excess over default {round(v['rate'] * v['n_tier'])}/{v['n_tier']} vs "
+                         f"{round(v['default_rate'] * v['n_default'])}/{v['n_default']}, {v['excess']:+.3f} (95% CI "
+                         f"{lo:+.3f} to {hi:+.3f}); reading: "
+                         + (f"excess at {tier}" if lo is not None and lo > 0 else f"no excess shown at {tier}"))
+    parts.append(f"valid {valid}" + (f" ({'; '.join(problems)})" if problems else ""))
+    parts.append(f"verdict: {reversal_verdict(valid, a8, n8, a4, n4)}")
+    return {"value": f"{m} gate excludes {', '.join(rep['gated_metrics'][m]['excluded']) or 'nothing'}; "
+                     + "; ".join(parts) + " (bootstrap 10000 resamples, unit session, stratified by tier x model, seed "
+                     "20261014)", "n": f"{n8 + n4} sessions"}
+
+
+def compute_x2_scale_real_default_tier(repo):
+    """x2_r2_scale_real, Ollama default tier: per model the completed default-tier sessions (seed, turns, wall hours as
+    the sum of turn_wall_s, loaded context, first over-window turn), as run inside the H-scale real job."""
+    ag = _r2_agent_module()
+    rows = ag.read_rows(repo / X2_SCALE_REAL)
+    if not rows:
+        raise FileNotFoundError(repo / X2_SCALE_REAL)
+    arm = "ollama_default_call2_notools"
+    parts, n = [], 0
+    for m in sorted({s["model_id"] for s in ag.completed_sessions(rows)}):
+        ss = sorted((s for s in ag.completed_sessions(rows) if s["model_id"] == m and s["arm_id"] == arm),
+                    key=lambda s: s["seed"])
+        if not ss:
+            parts.append(f"{m}: no default-tier session")
+            continue
+        segs = []
+        for s in ss:
+            t = [r for r in rows if r.get("record") == "r2a_turn" and r.get("attempt_id") == s["attempt_id"]]
+            segs.append(f"seed {s['seed']}: {len(t)} turns, {sum(r.get('turn_wall_s') or 0 for r in t) / 3600:.2f} h, "
+                        f"loaded {s.get('loaded_context_values')}, first over window "
+                        f"{'-' if s.get('first_over_window_turn') is None else s['first_over_window_turn']}")
+            n += 1
+        parts.append(f"{m}: {len(ss)} default-tier sessions completed ({'; '.join(segs)})")
+    return {"value": " / ".join(parts), "n": f"{n} sessions"}
 
 
 NUMBER_ENTRIES = [
@@ -5780,6 +6070,38 @@ NUMBER_ENTRIES = [
      "pre-registered reading; refused models",
      "compute": compute_x2_evalset_tasks_real_v2_wrong_rate, "data_files": [X2_EVALSET_TASKS_REAL_V2],
      "pending_ok": True, "script_function": "harness/x2_r2_evalset.py::tasks_real_v2_outcome"},
+    {"claim_id": "x2-queue-fill-1020-hours", "description": "ESTIMATE, not a measurement: hours per job of the "
+     "2026-10-21 evo-x2 queue fill from measured session times, back-to-back projected dates from the first launch, "
+     "slack before 2026-11-10 and idle capacity",
+     "compute": compute_x2_queue_fill_1020_hours, "data_files": QUEUE_FILL_DATA,
+     "script_function": "analysis/numbers_register.py::compute_x2_queue_fill_1020_hours"},
+    {"claim_id": "x2-scale-real-default-tier", "description": "H-scale real job, Ollama default tier: completed "
+     "default-tier sessions per model (turns, wall hours, loaded context, first over-window turn)",
+     "compute": compute_x2_scale_real_default_tier, "data_files": [X2_SCALE_REAL],
+     "script_function": "analysis/numbers_register.py::compute_x2_scale_real_default_tier"},
+    {"claim_id": "num-keep-qwen3-14b", "description": "num_keep guardrail flag test for qwen3:14b (num_ctx 4096, 3 "
+     "seeds x 40 turns, options.num_keep = system prompt tokens): observed n_keep, rule rates, pre-registered verdict",
+     "compute": compute_num_keep_qwen3_14b, "data_files": [NUM_KEEP_Q14_FILE], "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_num_keep_qwen3_14b"},
+    {"claim_id": "x2-evalset-tasks-val-v2-qwen3-8b-gates", "description": "B3 v2 tasks validation for qwen3:8b: every "
+     "gate with its numbers, failing gates, and the strict preflight's decision for the real run",
+     "compute": compute_x2_evalset_tasks_val_v2_q8_gates, "data_files": [X2_EVALSET_TASKS_VAL_V2_Q8],
+     "pending_ok": True, "script_function": "analysis/numbers_register.py::compute_x2_evalset_tasks_val_v2_q8_gates"},
+    {"claim_id": "x2-evalset-tasks-real-v2-qwen3-8b-gated-excess", "description": "B3 v2 task real run, qwen3:8b: gated "
+     "silent failures after the window was exceeded, excess over default with the v1b bootstrap, next to v1b's values, "
+     "with the pre-registered protocol-consistency and num_keep readings",
+     "compute": compute_x2_evalset_tasks_real_v2_q8_gated_excess,
+     "data_files": [X2_EVALSET_TASKS_REAL_V2_Q8, X2_EVALSET_TASKS_VAL_V2_Q8] + R2_V1B_DATA, "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_x2_evalset_tasks_real_v2_gated_excess"},
+    {"claim_id": "x2-evalset-tasks-real-v2-qwen3-8b-wrong-rate", "description": "B3 v2 task real run, qwen3:8b: "
+     "wrong-task rate per tier, silent vs surfaced, excess over default with a session bootstrap and its reading",
+     "compute": compute_x2_evalset_tasks_real_v2_q8_wrong_rate, "data_files": [X2_EVALSET_TASKS_REAL_V2_Q8],
+     "pending_ok": True, "script_function": "harness/x2_r2_evalset.py::tasks_real_v2_outcome"},
+    {"claim_id": "R2-qwen3-8b-reversal-10seed", "description": "qwen3:8b num_ctx 8192 vs 4096 with 10 seeds per tier "
+     "(v1b seeds pooled with 20260906-10): gated silent sessions, Fisher exact, pre-registered verdict, excess over "
+     "default",
+     "compute": compute_r2_qwen3_8b_reversal_10seed, "data_files": [R2_Q8_SEEDS_06_10_FILE] + R2_V1B_DATA,
+     "pending_ok": True, "script_function": "analysis/numbers_register.py::compute_r2_qwen3_8b_reversal_10seed"},
 ]
 
 
