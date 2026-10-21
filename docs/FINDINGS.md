@@ -4565,3 +4565,51 @@ seeds 20260906 to 20260910 generate new session content (facts, filler, tasks) w
 noise" verdict says the difference is not shown at this n, not that the rates are equal. Statistics convention as in
 v1b: no warm-up call, every turn scored. Duration: an ESTIMATE in register row `x2-queue-fill-1020-hours`. The job
 calls tq.advance() on exit and sets no pause.
+
+## AMENDMENT (2026-10-21, before any data of these jobs): queue fill of 2026-10-21 deployed and queued on evo-x2
+
+This note follows the three pre-registrations above ("num_keep guardrail flag test for qwen3:14b", "protocol
+consistency extended to qwen3:8b", "qwen3:8b at num_ctx 8192 vs 4096 with 10 seeds per tier"), whose texts are not
+edited. No result data for these jobs existed when each was queued.
+
+- **Queue mechanics.** `harness/x2_queue_fill.py` (commits 872397d, 5960a69), deployed with `scripts/deploy_evo.py` to
+  the side directory `C:\apu\ovn\qfill` and verified with `run_provenance.verify_deployed_blobs`; `--append` makes one
+  read-modify-write of `C:\apu\ovn\queue_state.json` under `t2s_queue.set_pause` (reason names its release), cleared in
+  the same script's finally block, and checks the flag is gone. Both appends reported the pause flag absent afterwards.
+  Every entry's note says it releases itself via tq.advance() on exit and sets no pause. Nothing was launched by hand:
+  the watchdog (10-minute tick) launched the first entry, which cleared `queue_empty.flag`.
+- **x2_num_keep_qwen3_14b** (pre-registration 0c0c6e4): queue position 71, appended alone first so the idle machine
+  started working. No redeploy: `C:\apu\ovn\numkeep` verified (`x2_r2_agent.py` 082a48dc, `x2_num_keep.py` c2bb7c2d,
+  `x2_r2_sidecar.py` 8ff9d4aa, no problems); modules it takes from `C:\apu\ovn`: `t2s_r2_session_growth.py` 878952c7,
+  `t2s_queue.py` 22398580, `host_config.py` 3e542ba8, `x2_r2_client_trim.py` c96930d7, `x2_r2_mechanism.py` a80926e3,
+  `proc_util.py` 74cfea98. Import check on evo-x2 with no model call (`--sidecar-import-check`, plan
+  `ollama_ctx_4096_call2_notools` x seeds 20260901-03 x 40 turns, preflight on `x2_r2_validation_v2.jsonl` admits
+  qwen3:14b with rules 1 to 5 in use, qwen3:14b tokenizer found). The llama3.1:8b run's raw server log was copied to
+  `C:\apu\ovn\ollama_serve_num_keep_llama3.1_8b_20261015.log` before the job could truncate it. The watchdog launched it
+  at 2026-10-21 18:03:40Z (`watchdog.log`).
+- **x2_evalset_tasks_val_v2_qwen3_8b** and **x2_evalset_tasks_real_v2_qwen3_8b** (pre-registration e13ee1c; code
+  5960a69: `--plan tasks_v2_qwen3_8b`, `--preflight v2_strict`, tests on fakes and on the committed validation file in
+  `tests/test_x2_evalset_tasks_real_v2_qwen3_8b.py`): deployed to the new side directory `C:\apu\ovn\evalv2q8`
+  (`x2_r2_evalset.py` b263f0ed, `evalset_env.py` 4eae225f, `x2_num_keep.py` c2bb7c2d, verified, no problems);
+  `C:\apu\ovn\evalv2` and every root file untouched; `x2_r2_agent.py` comes from `C:\apu\ovn` (38882113), as for the
+  qwen3:14b v2 jobs. `--check-plan` on evo-x2 (no server, no model call): validation plan negative control 131072 x
+  seeds 20260901-03 x 30 turns and positive control 8192 x seed 20260901 x 30 turns, projection inside the v2 budget;
+  real plan the five tasks_v2 tiers x seeds 20260901-05 x 30 turns. The strict preflight run on the qwen3:14b file for
+  qwen3:8b refused it (no qwen3:8b sessions), as it must; the qwen3:8b tokenizer was found. Queue positions 72 and 73;
+  the real-run entry carries `{"gate": {"requires_done": "x2_evalset_tasks_val_v2_qwen3_8b"}}`.
+- **x2_r2_qwen3_8b_seeds_06_10** (pre-registration 8c2f686): no deploy; `C:\apu\ovn\x2_r2_agent.py` blob 38882113.
+  Import and plan check on evo-x2 (no model call): plan `ollama_ctx_8192_call2_notools` and `ollama_ctx_4096_call2_notools`
+  x seeds 20260906-10 x 40 turns, order seed_major; per-model preflight on `x2_r2_validation_v2b.jsonl` admits qwen3:8b
+  with rules 1 to 4. Queue position 74.
+- **Durations** (register row `x2-queue-fill-1020-hours`, an ESTIMATE, pasted): "x2_num_keep_qwen3_14b ESTIMATE 0.64 h
+  (high 0.65 h ...); projected 10-21 18:03Z to 10-21 18:42Z"; "x2_evalset_tasks_val_v2_qwen3_8b ESTIMATE 0.22 h (high
+  0.47 h ...); projected 10-21 18:42Z to 10-21 18:55Z"; "x2_evalset_tasks_real_v2_qwen3_8b ESTIMATE 2.11 h (high 3.16 h
+  ...); projected 10-21 18:55Z to 10-21 21:02Z"; "x2_r2_qwen3_8b_seeds_06_10 ESTIMATE 2.19 h (high 2.40 h ...);
+  projected 10-21 21:02Z to 10-21 23:13Z"; "total ESTIMATE 5.2 h (high 6.7 h) from 2026-10-21T18:03Z; queue ends 10-21
+  23:13Z (high 10-22 00:44Z); slack before 2026-11-10 00:00Z 456.8 h (high case 455.3 h)".
+- **H-scale default tier for qwen3:32b: not queued, already run.** The H-scale pre-registration (2026-10-14) fixed
+  "Ollama default (3 seeds, 40 turns) for qwen3:32b and qwen3-30b-a3b-2507", and `x2_r2_scale_real` ran it (register
+  row `x2-scale-real-default-tier`, pasted: "qwen3:32b: 3 default-tier sessions completed (seed 20260901: 40 turns,
+  6.18 h, loaded [40960], first over window 24; seed 20260902: 40 turns, 6.01 h, loaded [40960], first over window 25;
+  seed 20260903: 40 turns, 4.66 h, loaded [40960], first over window 26)"). A new run would duplicate pre-registered,
+  completed cells, so nothing was queued and no new pre-registration was written.
