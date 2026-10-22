@@ -25,11 +25,18 @@ How to read this page:
   register rows, and the two single-shot outcome tables. Plan v2 Part B results (R2 at 30B to 70B) enter by being
   written under those names; no code change is needed.
 
-## Impact v2: P1 from the measured wrong-task rate, one stated profile (2026-10-22)
+## Impact v2: P1 from the measured wrong-task rate, one stated profile (2026-10-22; P1 framing and P2 valuation 2026-10-21 operator decisions)
+
+**Fixing a wrong answer in the cloud costs about USD 0.03 (priced, not executed); the cost is that the failure is
+silent, so you do not know which answers to fix.** Row cloud-redo-cost-per-wrong-task: "USD per wrong task mean
+$0.0283" (stub mode, priced from the local run's token counts, no API call), and at the profile cell "ollama_ctx_4096:
+wrong 63/150 (42.0%) (silent 63, surfaced 0)" [x2-evalset-tasks-real-v2-wrong-rate]: every wrong task was silent.
+Detection, not the redo, is what is worth paying for (value-of-detection projection below).
 
 Operator priority override of 2026-10-21. This section supersedes the v1 P1 "not measured" and the v1 ranking for
 decisions; the v1 generated block below is kept unchanged for traceability. Code: `analysis/impact_model.py`
-(`p1_v2`, `v2_rows`, `compute_v2`); register rows impact-v2-P1 and impact-ranking-v2.
+(`p1_v2`, `p2_v2`, `p2_capacity`, `detection_projection`, `v2_rows`, `compute_v2`); register rows impact-v2-P1,
+impact-v2-P2, impact-v2-detection-value, impact-ref-machine-price and impact-ranking-v2.
 
 **Profile (one, stated).** evo-x2, qwen3:14b, Ollama at num_ctx 4096. Why: qwen3:14b is the model with a measured
 wrong-task rate (B3 v2 task real run), and 4096 is the window Ollama loads by default on a CPU-only machine
@@ -56,37 +63,84 @@ to 157.24 (CI 122.30 to 192.19); cloud redo USD/day 8.72"; "ollama_ctx_4096_numk
 (CI 41.87 to 55.82); cloud redo USD/day 6.03"; "ollama_ctx_16384: excess +1.3 points (session-level 95% CI -1.3 to
 +4.0) ... time USD/day 0.00 to 3.57 (CI 0.00 to 10.72); cloud redo USD/day 0.43".
 
-**P2 formula.** measured minutes saved per session by the fastest measured B5 setting for the profile model against
-the runtime default (register row cost-cut-config-time) x sessions/day (ASSUMED volume) / 60 x hour value x share of
-that time someone waits (0 to 1). Measured: the minutes; assumed: volumes and who waits; a profile session is the
-40-turn R2 session B5 timed. Caveat: the B5 default ran without flash attention, so the saving may be flash attention
-or KV precision; the flash-attention control (row b5-fa-control, PENDING) decides which, and regeneration picks it up
-when it lands. Pasted from [impact-ranking-v2]: "P2 5,990.48 (range 0.00 to 5,990.48; mixed; 139.4 min saved per
-session (MEASURED, cost-cut-config-time: qwen3:14b default (a) 214.8 min vs (g) kv_q8_0 75.4 min) x sessions/day
-(ASSUMED volume) x hour value". **P3** as in v1. **P4 to P7**: the v1 functions at the v2 profile.
+**Value of detection (PROJECTION, row impact-v2-detection-value).** Escalating every task step to the cloud vs
+escalating only the steps a detector flags, at the profile cell. Pasted: "1200 task steps/day (ASSUMED volume x
+measured task turns/session), measured wrong-task rate 42.0% (x2-evalset-tasks-real-v2-wrong-rate) = 504.0 wrong/day;
+cloud redo USD 0.0281 per step (priced, not executed, cloud-redo-cost-per-wrong-task); escalate every step: USD
+33.68/day; escalate only predicted-at-risk steps at the shift predictor's measured precision 100.0% and recall 100.0%
+(R2-shift-predictor-confusion: TP 44 FP 0 FN 0 TN 356): 504.0 steps/day escalated, USD 14.14/day, 504.0 wrong/day
+fixed and 0.0 missed; value of detection USD 19.53/day".
+- Where the predictor's precision and recall apply: "measured on evo-x2, Ollama 0.34.4 (bundled llama.cpp b11081),
+  llama3.1:8b, R2 mechanism job (400 calls; tiers ollama_default, num_ctx_32768, num_ctx_16384, num_ctx_8192,
+  num_ctx_4096); it predicts a llama.cpp context shift (P + C > n_ctx) from the rendered prompt and completion tokens,
+  not a wrong task". Using it as a wrong-task detector for qwen3:14b at num_ctx 4096 is an ASSUMPTION; that is why the
+  row is a projection, not a measurement. In that job shifts occurred only at num_ctx 4096 (34) and 32768 (10); the
+  predictor flags only steps where a shift is predicted, so a wrong task with no context shift is not flagged.
+- Also assumed: a redo of any step costs the mean redo of a wrong one; a fixed step is right after the redo (cloud
+  correctness is not measured in stub mode). When a live cloud redo file exists, the labels switch to measured
+  automatically (the same cloud_redo_data stub flag as P1).
 
-**Ranking and status split**, pasted from [impact-ranking-v2]: "ranking by main-case USD/day (time at the full hour
-value): P2 > P1 > P5 > P3 > P4; unranked: P6, P7"; "P1 137.18 (range 10.33 to 137.18; mixed, cloud part priced, not
-executed); P5 11.04 (range 0.00 to 11.04; mixed); P3 3.70 (range 3.70 to 74.10; measured); P4 0.00 (range 0.00;
-mixed); P6 not measured ...; P7 not measured"; "split: measured P3, mixed P1/P2/P4/P5, not measured P6/P7; PENDING
-inputs: none".
+**P2 valuation: machine capacity (operator decision 2026-10-21; row impact-v2-P2, PENDING).** The measured session
+minutes of the runtime default (B5 policy a) and the fastest measured B5 setting (row cost-cut-config-time; the
+flash-attention control joins once synced) give sessions per machine per day (24 h / session minutes, one session at
+a time: there is no measured concurrency row), the machines needed for the profile's 40 sessions/day (ceil), and the
+USD of machines saved, amortized per day over an ASSUMED 3-year life. Reference machine price: row
+impact-ref-machine-price, "ASSUMPTION, must be verified: USD 2,000 for evo-x2 class: AMD Ryzen AI Max+ 395, 128 GB
+LPDDR5X mini PC (GMKtec EVO-X2, 128 GB / 2 TB configuration)", a launch list price quoted by Liliputing (source in
+results/hardware_price_evox2_20261021.json), not a purchase record; the repo had no cited price
+(configs/hardware/evox2_strix_halo_128gb.yaml `bom_cost_usd: null`). Waiting time at the hour value is now only an
+UPPER BOUND, applied to an ASSUMED interactive-session share of 0.25.
+
+| qwen3:14b, 40 sessions/day | default (a) | fastest measured (g) kv_q8_0 |
+|---|---|---|
+| minutes per session (MEASURED) | 214.8 | 75.4 |
+| sessions per machine per day | 6.70 | 19.11 |
+| machines needed (ceil) | 6 | 3 |
+| machines saved x USD 2,000 / 3 years | | USD 5.48/day |
+| upper bound: waiting time x interactive share 0.25 | | USD 1,497.62/day on top |
+
+Pasted from [impact-v2-P2]: "PENDING (values computed, not ranked) until row b5-fa-control is VERIFIED; machine
+capacity: qwen3:14b default (a) 214.8 min per session = 6.70 sessions/machine/day vs (g) kv_q8_0 75.4 min = 19.11
+... 6 default vs 3 best (ceil), 3 saved x USD 2,000 ... = USD 5.48/day; upper bound: waiting time 139.4 min saved per
+session x hour value x interactive-session share 0.25 (ASSUMED) = USD 1,497.62/day on top". Status PENDING because
+the B5 default ran without flash attention, so the saving may be flash attention or KV precision; the flash-attention
+control (row b5-fa-control) decides which. Until that row is VERIFIED, P2 is shown with its computed values but is not
+ranked. **P3** as in v1. **P4 to P7**: the v1 functions at the v2 profile.
+
+**Ranking and status split**, pasted from [impact-ranking-v2]: "ranking by main-case USD/day (P2: machine capacity;
+the other rows: time at the full hour value; a PENDING row is not ranked): P1 > P5 > P3 > P4; unranked: P2, P6, P7";
+"P1 137.18 (range 10.33 to 137.18; mixed, cloud part priced, not executed); P5 11.04 (range 0.00 to 11.04; mixed); P3
+3.70 (range 3.70 to 74.10; measured); P4 0.00 (range 0.00; mixed); P2 PENDING (computed 5.48, not ranked) (range 5.48
+to 1,503.10; ...)"; "split: PENDING P2, measured P3, mixed P1/P4/P5, not measured P6/P7; PENDING inputs:
+b5-fa-control".
 
 | | v1 (impact-P1..P7, impact-total; llama3.1:8b, Ollama default) | v2 (impact-ranking-v2; qwen3:14b, num_ctx 4096) |
 |---|---|---|
 | P1 | not measured (status assumed) | 10.33 to 137.18 USD/day (cloud part priced, not executed) |
-| P2 | 0.00 to 23.27 USD/day (oversized-window time) | 0.00 to 5,990.48 USD/day (minutes saved by configuration) |
-| ranking | P5 > P6 > P2 > P3 > P4 > P7 > P1 (P1 unranked) | P2 > P1 > P5 > P3 > P4; P6, P7 unranked |
+| P2 | 0.00 to 23.27 USD/day (oversized-window time) | PENDING: 5.48 USD/day machine capacity, waiting upper bound to 1,503.10 |
+| ranking | P5 > P6 > P2 > P3 > P4 > P7 > P1 (P1 unranked) | P1 > P5 > P3 > P4; P2 (PENDING), P6, P7 unranked |
 | measured | P3, P7 | P3 |
-| mixed | P2, P4, P5, P6 | P1, P2, P4, P5 |
+| mixed | P2, P4, P5, P6 | P1, P4, P5 |
 | assumed | P1 | none |
-| PENDING / not measured | none | P6, P7 (not measured at 4096) |
+| PENDING / not measured | none | P2 PENDING (b5-fa-control); P6, P7 not measured at 4096 |
 
 Why P6 and P7 drop out: the single-shot failure table exists only at the Ollama default window, and at 4096 qwen3:14b
 breaks a rule after the window, so P7's nonzero rate needs a cost per violation that is not measured. P2 is a
-different quantity in v2 (configuration time saved, B5) than in v1 (oversized-window time), and it leads because it is
-time at the full hour value over every session; its low end is 0 (nobody waits). The v1 ranking (P5 first) was priced
-at a different profile (llama3.1:8b at the default window, where P1 had no number), so the two rankings are not a
-like-for-like change of one input.
+different quantity in v2 (machines saved by configuration, B5) than in v1 (oversized-window time). Valued as machine
+capacity it is small (USD 5.48/day at the assumed price and life); the earlier v2 figure that ranked it first priced
+every saved minute at the full hour value, which now survives only as the upper bound on the interactive share. The
+v1 ranking (P5 first) was priced at a different profile (llama3.1:8b at the default window, where P1 had no number),
+so the two rankings are not a like-for-like change of one input.
+
+**Text prepared for docs/OCT29_COST_SUMMARY.md (file not created).** "Fixing a wrong answer in the cloud costs about
+USD 0.03 (priced, not executed); the cost is that the failure is silent, so you do not know which answers to fix. At
+num_ctx 4096, qwen3:14b got 42.0% of tasks wrong and every one was silent [x2-evalset-tasks-real-v2-wrong-rate]. For
+a 10-developer team that is 504.0 wrong steps a day; sending every step to the cloud costs USD 33.68/day, sending only
+the steps a context-shift detector flags costs USD 14.14/day, a projection that assumes the detector's measured 100.0%
+precision and recall on llama3.1:8b context shifts carries over to qwen3:14b wrong tasks
+[impact-v2-detection-value]. The configuration saving is PENDING the flash-attention control: valued as machines, it
+is 3 of 6 machines (USD 5.48/day at an assumed USD 2,000 price and 3-year life), with waiting time an upper bound of
+USD 1,497.62/day if a quarter of sessions are interactive [impact-v2-P2]."
 
 ## Rows registered in parallel (not on main when this was written)
 

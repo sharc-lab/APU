@@ -5348,3 +5348,23 @@ evo-x2 by an assumed native-context L.
 **Known limits, stated before the run.** One Intel machine, Ollama 0.34.4. The CPU and iGPU platforms differ in both
 backend and default window. The A-B5-cloud proxy runs on the same slow local hardware, so (d)'s session wall-clock is
 re-timed per A-B5-cloud-latency, as on evo-x2. The plan rests on estimates; the first sessions' wall clocks replace them.
+
+## AMENDMENT 2026-10-21 to the B5-on-evo-t2s pre-registration (qwen3:14b on Intel moves to future work)
+
+The pre-registration "B5 on evo-t2s Intel CPU and Intel iGPU, qwen3:14b and llama3.1:8b, 5 seeds" above is frozen and
+is not edited; this dated amendment changes only what is staged for the 2026-10-26 to 2026-11-08 window, written
+before any B5 session on evo-t2s exists. Operator decision 2026-10-21: run the llama3.1:8b cells (Intel CPU, then
+Intel iGPU) at 5 seeds first; then qwen3:14b at 3 seeds at 4096 (the Intel CPU default window) only if the remaining
+hours allow. Pasted from [t2s-b5-plan-hours] (ESTIMATES from measured evo-t2s session minutes,
+[t2s-r2-session-minutes]): "after A5 0.3 h and the llama3.1:8b cells at 5 seeds (evo-t2s-cpu llama3.1:8b 197.0 h,
+evo-t2s llama3.1:8b 142.3 h), -4.6 h are left of 335.0 h; evo-t2s-cpu qwen3:14b at 3 seeds needs 498.1 h (164.9
+h/seed): does not fit, not staged". So:
+- qwen3:14b on Intel (both the CPU and the iGPU cell) is **future work**; neither entry is in
+  `queues/t2s_oct26_queue.json`. The queue entries named in the pre-registration's Design list for qwen3:14b do not
+  run in this window.
+- The success rule is unchanged and is applied to the cells that exist. H-B5-T2S is decided on the llama3.1:8b CPU
+  cell (the only CPU cell); the iGPU llama3.1:8b cell enters through the dominance clause as before. A verdict from
+  this window is stated as covering llama3.1:8b only.
+- The iGPU llama3.1:8b cell is expected to reach "4 of 5 seeds fit, cell counts yes (first 3 seeds)", which the
+  pre-registered 3-seed rule already covers.
+

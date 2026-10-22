@@ -5,7 +5,8 @@ on its own t2s_o26_preflight, loaded at the window with `python t2s_week_queue.p
 The earlier second file queues/t2s_window_20261026_staged.json (B5 for llama3.1:8b on the iGPU only, 3 seeds, and a
 3-seed iGPU-only B6, gated on the previous window's t2s_wk_* ids) was retired on 2026-10-22: two files for one window
 with different B6 designs and gates pointing at a finished queue invited loading the wrong one. B5 is now in the
-canonical file as four entries (t2s_week_queue.OCT26_B5_CELLS), and the B6 entries follow B5.
+canonical file (t2s_week_queue.oct26_b5_cells: since 2026-10-21 the two llama3.1:8b cells at 5 seeds, qwen3:14b on
+the CPU at 3 seeds only if qwen_decision says it fits), and the B6 entries follow B5.
 
   py -3.12 scripts/t2s_window_stage.py build      # rebuilds queues/t2s_oct26_queue.json (same as build-oct26)
   py -3.12 scripts/t2s_window_stage.py dry-run    # every entry through the week queue's checks; no machine, no SSH
@@ -21,7 +22,7 @@ Order of the window (docs/T2S_WEEK_PLAN.md "Staged for 2026-10-26"; process rule
      the sync and switches it back.
   2. Deploy the window's files, then `python t2s_week_queue.py load-window t2s_oct26_queue.json` (one read-modify-write
      under the queue pause, cleared in its finally block: this is the release of the handover pause).
-  3. The queue runs: preflight, A5, B5 (four cells), then B6. The B5 job stops at a session boundary at the deadline.
+  3. The queue runs: preflight, A5, B5 (the staged cells), then B6. The B5 job stops at a session boundary at the deadline.
 
 HOURS ARE ESTIMATES. B5: harness/policy_compare.estimate_t2s, from MEASURED evo-t2s session minutes
 (register row t2s-r2-session-minutes); B6: no timing of those models on evo-t2s, no estimate.
