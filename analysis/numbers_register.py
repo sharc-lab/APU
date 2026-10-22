@@ -4390,6 +4390,18 @@ def compute_impact_v2_detection_value(repo):
     return {"value": im.detection_value_text(d), "n": "1 cell" if d else "0"}
 
 
+def compute_impact_v3_detection_value_measured(repo):
+    """MEASURED detection (operator item 4): per tier of the B3 v2 real run, precision/recall (TP/FP/FN/TN) of "the task
+    turn's prompt exceeded the loaded window" for "the task ended wrong", wrong tasks missed, and cloud USD escalating
+    only flagged tasks vs all tasks at the tier's cloud redo USD per task (row cloud-redo-cost-per-wrong-task, labelled
+    by its mode). Replaces impact-v2-detection-value's borrowed precision/recall."""
+    im = _impact()
+    d = _impact_v2(repo)["rows"]["P1"].get("detection_measured")
+    if d is None:
+        return {"value": "PENDING: needs row cloud-redo-cost-per-wrong-task VERIFIED", "n": "0"}
+    return {"value": im.measured_detection_text(d), "n": f"{sum(c['n'] for c in d['tiers'].values())} task turns"}
+
+
 def compute_impact_p2(repo):
     return _impact_row(repo, "P2")
 
@@ -5442,6 +5454,19 @@ def compute_cloud_redo_cost_per_wrong_task(repo, path=CLOUD_REDO_V1):
                      f"{_frac(s['local_regrade_false'], s['n'])}; token basis is the harness estimate, not Anthropic's "
                      f"tokenizer{tail}",
             "n": f"{s['n']} wrong tasks"}
+
+
+def compute_cloud_cost_per_real_task(repo):
+    """Cloud USD per real agent task (trajectory), no machine time: billed input (every step re-sends its full prompt)
+    and output tokens per trajectory, median / p90 USD per trace set, tier (claude-haiku-5-5, claude-sonnet-5-5) and
+    caching case (none, realistic ASSUMPTION hit rate 0.7, best). Output per step is a labelled stand-in
+    (analysis/cloud_task_cost.py)."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("cloud_task_cost", repo / "analysis" / "cloud_task_cost.py")
+    ct = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ct)
+    res = ct.compute(repo)
+    return {"value": ct.value_text(res), "n": f"{sum(e['n_tasks'] for e in res['sets'].values())} trajectories"}
 
 
 # ───────────────────────────────────────────────── evo-x2 queue fill of 2026-10-21 (docs/X2_QUEUE_PLAN.md)
@@ -6900,12 +6925,21 @@ NUMBER_ENTRIES = [
                     "impact v2 P2 machine capacity",
      "compute": compute_impact_ref_machine_price, "data_files": ["results/hardware_price_evox2_20261021.json"],
      "script_function": "analysis/impact_model.py::ref_machine"},
-    {"claim_id": "impact-v2-detection-value", "description": "PROJECTION: value of detecting silent wrong tasks at "
+    {"claim_id": "impact-v2-detection-value", "description": "SUPERSEDED by impact-v3-detection-value-measured (kept "
+                    "computing for traceability, not used in docs/IMPACT.md). PROJECTION: value of detecting silent "
+                    "wrong tasks at "
                     "the v2 profile cell: cloud redo USD/day escalating every task step vs only predicted-at-risk "
                     "steps at the R2 shift predictor's measured precision/recall (and where it was measured)",
      "compute": compute_impact_v2_detection_value,
      "data_files": sorted(set(_IMPACT_V2_FILES) | {"results/x2_r2_mechanism.jsonl"}),
      "script_function": "analysis/impact_model.py::detection_projection"},
+    {"claim_id": "impact-v3-detection-value-measured", "description": "MEASURED detection on the B3 v2 real run "
+                    "(qwen3:14b, five tiers): precision, recall and TP/FP/FN/TN of 'the task turn's prompt exceeded the "
+                    "loaded window' for 'the task ended wrong', wrong tasks missed and their share, and cloud USD "
+                    "escalating only flagged tasks vs all tasks (cloud redo USD per task from "
+                    "cloud-redo-cost-per-wrong-task, labelled by its mode)",
+     "compute": compute_impact_v3_detection_value_measured, "data_files": _IMPACT_V2_FILES,
+     "script_function": "analysis/impact_model.py::measured_detection"},
     {"claim_id": "impact-v2-P2", "description": "Impact v2 P2 configuration: sessions per machine per day (default vs "
                     "fastest measured B5 setting), machines needed for the profile's sessions/day, USD/day of machines "
                     "saved (assumed 3-year life), waiting-time upper bound on the interactive share; PENDING until "
@@ -7075,6 +7109,14 @@ NUMBER_ENTRIES = [
      "tier, mode (priced, not executed vs executed) and n. In stub mode correctness and seconds are not measured",
      "compute": compute_cloud_redo_cost_per_wrong_task, "data_files": [CLOUD_REDO_V1, X2_EVALSET_TASKS_REAL_V2],
      "script_function": "scripts/cloud_redo.py::summarize"},
+    {"claim_id": "cloud-cost-per-real-task", "description": "Cloud cost per real agent task, priced, not executed: per "
+     "trajectory of the uncensored traces (nebius-rebench-openhands, SWE-Gym) the billed input (each step re-sends its "
+     "full prompt) and output tokens, USD median and p90 at claude-haiku-5-5 and claude-sonnet-5-5 for no caching, "
+     "realistic caching (ASSUMPTION hit rate 0.7) and best-case caching; output per step is a labelled stand-in",
+     "compute": compute_cloud_cost_per_real_task,
+     "data_files": ["results/traces/agent_step_lengths.parquet", "results/cloud_prices_anthropic_20261014.json",
+                    "results/x2_r2_real_v1.jsonl"],
+     "script_function": "analysis/cloud_task_cost.py::compute"},
     {"claim_id": "x2-queue-fill-1020-hours", "description": "ESTIMATE, not a measurement: hours per job of the "
      "2026-10-21 evo-x2 queue fill from measured session times, back-to-back projected dates from the first launch, "
      "slack before 2026-11-10 and idle capacity",
