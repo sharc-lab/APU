@@ -31,12 +31,13 @@ How to read this page:
 silent, so you do not know which answers to fix.** Row cloud-redo-cost-per-wrong-task: "USD per wrong task mean
 $0.0283" (stub mode, priced from the local run's token counts, no API call), and at the profile cell "ollama_ctx_4096:
 wrong 63/150 (42.0%) (silent 63, surfaced 0)" [x2-evalset-tasks-real-v2-wrong-rate]: every wrong task was silent.
-Detection, not the redo, is what is worth paying for (value-of-detection projection below).
+Detection, not the redo, is what is worth paying for (measured detector below).
 
 Operator priority override of 2026-10-21. This section supersedes the v1 P1 "not measured" and the v1 ranking for
 decisions; the v1 generated block below is kept unchanged for traceability. Code: `analysis/impact_model.py`
-(`p1_v2`, `p2_v2`, `p2_capacity`, `detection_projection`, `v2_rows`, `compute_v2`); register rows impact-v2-P1,
-impact-v2-P2, impact-v2-detection-value, impact-ref-machine-price and impact-ranking-v2.
+(`p1_v2`, `p2_v2`, `p2_capacity`, `measured_detection`, `v2_rows`, `compute_v2`); register rows impact-v2-P1,
+impact-v2-P2, impact-v3-detection-value-measured, impact-ref-machine-price and impact-ranking-v2
+(impact-v2-detection-value still computes but is superseded).
 
 **Profile (one, stated).** evo-x2, qwen3:14b, Ollama at num_ctx 4096. Why: qwen3:14b is the model with a measured
 wrong-task rate (B3 v2 task real run), and 4096 is the window Ollama loads by default on a CPU-only machine
@@ -63,22 +64,32 @@ to 157.24 (CI 122.30 to 192.19); cloud redo USD/day 8.72"; "ollama_ctx_4096_numk
 (CI 41.87 to 55.82); cloud redo USD/day 6.03"; "ollama_ctx_16384: excess +1.3 points (session-level 95% CI -1.3 to
 +4.0) ... time USD/day 0.00 to 3.57 (CI 0.00 to 10.72); cloud redo USD/day 0.43".
 
-**Value of detection (PROJECTION, row impact-v2-detection-value).** Escalating every task step to the cloud vs
-escalating only the steps a detector flags, at the profile cell. Pasted: "1200 task steps/day (ASSUMED volume x
-measured task turns/session), measured wrong-task rate 42.0% (x2-evalset-tasks-real-v2-wrong-rate) = 504.0 wrong/day;
-cloud redo USD 0.0281 per step (priced, not executed, cloud-redo-cost-per-wrong-task); escalate every step: USD
-33.68/day; escalate only predicted-at-risk steps at the shift predictor's measured precision 100.0% and recall 100.0%
-(R2-shift-predictor-confusion: TP 44 FP 0 FN 0 TN 356): 504.0 steps/day escalated, USD 14.14/day, 504.0 wrong/day
-fixed and 0.0 missed; value of detection USD 19.53/day".
-- Where the predictor's precision and recall apply: "measured on evo-x2, Ollama 0.34.4 (bundled llama.cpp b11081),
-  llama3.1:8b, R2 mechanism job (400 calls; tiers ollama_default, num_ctx_32768, num_ctx_16384, num_ctx_8192,
-  num_ctx_4096); it predicts a llama.cpp context shift (P + C > n_ctx) from the rendered prompt and completion tokens,
-  not a wrong task". Using it as a wrong-task detector for qwen3:14b at num_ctx 4096 is an ASSUMPTION; that is why the
-  row is a projection, not a measurement. In that job shifts occurred only at num_ctx 4096 (34) and 32768 (10); the
-  predictor flags only steps where a shift is predicted, so a wrong task with no context shift is not flagged.
-- Also assumed: a redo of any step costs the mean redo of a wrong one; a fixed step is right after the redo (cloud
-  correctness is not measured in stub mode). When a live cloud redo file exists, the labels switch to measured
-  automatically (the same cloud_redo_data stub flag as P1).
+**Value of detection (MEASURED detector, row impact-v3-detection-value-measured; operator item 4, 2026-10-22).** This
+replaces the earlier projection (row impact-v2-detection-value, now marked superseded), which borrowed a context-shift
+predictor's precision and recall from a different model and job. The detector is now scored on the B3 v2 real run
+itself (qwen3:14b, five tiers, 150 task turns per tier): flag a task when its turn's prompt exceeded the loaded window
+(over_loaded_window), and count it right when the task ended wrong (end_state_ok false). Cloud USD compares escalating
+every task with escalating only the flagged ones, at the tier's cloud redo USD per task (row
+cloud-redo-cost-per-wrong-task, priced, not executed). Pasted from [impact-v3-detection-value-measured]:
+- "ollama_ctx_4096: TP 63 FP 84 FN 0 TN 3, precision 42.9%, recall 100.0%, wrong tasks missed 0/63 (0.0%); escalate
+  all 150 USD 4.2098 vs flagged 147 USD 4.1256 (saves USD 0.0842 and leaves 0 wrong unfixed; USD 0.0281 per task)"
+- "ollama_ctx_4096_numkeep: TP 45 FP 102 FN 0 TN 3, precision 30.6%, recall 100.0%, wrong tasks missed 0/45 (0.0%);
+  escalate all 150 USD 4.0355 vs flagged 147 USD 3.9548 (saves USD 0.0807 and leaves 0 wrong unfixed; USD 0.0269 per
+  task)"
+- "ollama_ctx_8192: TP 48 FP 58 FN 5 TN 39, precision 45.3%, recall 90.6%, wrong tasks missed 5/53 (9.4%); escalate
+  all 150 USD 4.5423 vs flagged 106 USD 3.2099 (saves USD 1.3324 and leaves 5 wrong unfixed; USD 0.0303 per task)"
+- "ollama_ctx_16384: TP 4 FP 22 FN 15 TN 109, precision 15.4%, recall 21.1%, wrong tasks missed 15/19 (78.9%);
+  escalate all 150 USD 4.0764 vs flagged 26 USD 0.7066 (saves USD 3.3698 and leaves 15 wrong unfixed; USD 0.0272 per
+  task)"
+- "ollama_default: TP 0 FP 0 FN 17 TN 133, precision n/a, recall 0.0%, wrong tasks missed 17/17 (100.0%)"
+
+Reading: at the profile cell (num_ctx 4096) the window check catches every wrong task, but it flags 147 of 150 tasks,
+so it saves almost nothing over escalating everything; it is a "this whole configuration is unsafe" signal, not a
+per-task filter. At 8192 it is a useful filter (90.6% recall on 106 of 150 tasks). At 16384 and the default window
+most wrong tasks happen inside the window, so the check misses them (78.9% and 100.0%). Assumed: a redo of any task
+costs the tier's mean redo of a wrong one; a fixed task is right after the redo (cloud correctness is not measured in
+stub mode). When a live cloud redo file exists, the USD labels switch to measured automatically (the same
+cloud_redo_data stub flag as P1).
 
 **P2 valuation: machine capacity (operator decision 2026-10-21; row impact-v2-P2, PENDING).** The measured session
 minutes of the runtime default (B5 policy a) and the fastest measured B5 setting (row cost-cut-config-time; the
@@ -134,11 +145,10 @@ so the two rankings are not a like-for-like change of one input.
 
 **Text prepared for docs/OCT29_COST_SUMMARY.md (file not created).** "Fixing a wrong answer in the cloud costs about
 USD 0.03 (priced, not executed); the cost is that the failure is silent, so you do not know which answers to fix. At
-num_ctx 4096, qwen3:14b got 42.0% of tasks wrong and every one was silent [x2-evalset-tasks-real-v2-wrong-rate]. For
-a 10-developer team that is 504.0 wrong steps a day; sending every step to the cloud costs USD 33.68/day, sending only
-the steps a context-shift detector flags costs USD 14.14/day, a projection that assumes the detector's measured 100.0%
-precision and recall on llama3.1:8b context shifts carries over to qwen3:14b wrong tasks
-[impact-v2-detection-value]. The configuration saving is PENDING the flash-attention control: valued as machines, it
+num_ctx 4096, qwen3:14b got 42.0% of tasks wrong and every one was silent [x2-evalset-tasks-real-v2-wrong-rate]. In
+that cell, a check for "the prompt exceeded the loaded window" caught every wrong task (recall 100.0%) but flagged 147
+of 150 tasks (precision 42.9%), so escalating only flagged tasks costs about the same as escalating all of them (USD
+4.1256 vs 4.2098 for the run's 150 tasks); measured on the same run [impact-v3-detection-value-measured]. The configuration saving is PENDING the flash-attention control: valued as machines, it
 is 3 of 6 machines (USD 5.48/day at an assumed USD 2,000 price and 3-year life), with waiting time an upper bound of
 USD 1,497.62/day if a quarter of sessions are interactive [impact-v2-P2]."
 

@@ -85,5 +85,71 @@ def test_estimate_from_measured_t2s_sessions():
         for m in ("llama3.1:8b", "qwen3:14b"):
             assert e["models"][m]["D"] == D and e["models"][m]["measured_n"]["default"] == 5
             assert e["models"][m]["total_h"] > 0
-    assert "e" not in cpu["models"]["llama3.1:8b"]["aliases"] and igpu["models"]["llama3.1:8b"]["aliases"] == {"e": "b"}
+    # amendment 2026-10-21 22:30: evo-t2s runs a, c, d, e, f; (e) on the iGPU has its own sessions (no (b) to alias)
+    for e in (cpu, igpu):
+        assert e["policies"] == list(pc.T2S_POLICIES)
+        assert not {"b", "g", "h"} & set(e["models"]["llama3.1:8b"]["min_per_session"])
+    assert "e" not in cpu["models"]["llama3.1:8b"]["min_per_session"] and cpu["models"]["llama3.1:8b"]["aliases"] == {}
+    assert igpu["models"]["llama3.1:8b"]["aliases"] == {} and igpu["models"]["llama3.1:8b"]["min_per_session"]["e"] > 0
     assert pc.estimate_platform("evo-t2s-cpu")["total_h"] == pytest.approx(cpu["total_h"])
+    full = pc.estimate_t2s("evo-t2s", policies=tuple(pc.POLICIES))
+    assert full["models"]["llama3.1:8b"]["aliases"] == {"e": "b"} and full["total_h"] > igpu["total_h"]
+
+
+def test_t2s_policy_set_and_parse():
+    assert pc.T2S_POLICIES == ("a", "c", "d", "e", "f")
+    assert pc.platform_policies("evo-t2s") == pc.platform_policies("evo-t2s-cpu") == pc.T2S_POLICIES
+    assert pc.platform_policies("evo-x2") == tuple(pc.POLICIES) == pc.platform_policies("blade")
+    assert pc.parse_policy_set(None, "evo-t2s-cpu") == pc.T2S_POLICIES
+    assert pc.parse_policy_set("f,a,d", "evo-x2") == ("a", "d", "f")
+    with pytest.raises(ValueError):
+        pc.parse_policy_set("a,c", "evo-t2s")            # no router
+    with pytest.raises(ValueError):
+        pc.parse_policy_set("a,d,z", "evo-t2s")
+    assert pc.probe_envs(pc.T2S_POLICIES) == ["base"] and pc.recall_precisions(pc.T2S_POLICIES) == ["f16"]
+    assert pc.probe_envs(tuple(pc.POLICIES)) == ["base", "q8_0", "q4_0"]
+    assert pc.recall_precisions(tuple(pc.POLICIES)) == list(pc.RECALL_PRECISIONS)
+
+
+def test_resolve_with_the_t2s_set_skips_b_g_h_and_e_does_not_alias_b():
+    win = {"D": 32768, "L": {"base": 131072}, "G": 131072}
+    cfg = pc.resolve_policies(win, policies=pc.T2S_POLICIES)
+    for p in ("b", "g", "h"):
+        assert cfg[p]["skip"] == pc.NOT_IN_SET
+    assert cfg["e"]["skip"] is None and cfg["e"]["alias_of"] is None and cfg["e"]["effective_ctx"] == 131072
+    assert cfg["d"]["proxy_ctx"] == 131072                 # the router's full-history proxy still uses L(base)
+    assert pc.distinct_policies(cfg) == ["a", "c", "d", "e", "f"]
+    assert pc.resolve_policies(win)["e"]["alias_of"] == "b"   # evo-x2 / blade: unchanged
+    cpu = pc.resolve_policies({"D": 4096, "L": {"base": 131072}, "G": None}, policies=pc.T2S_POLICIES)
+    assert pc.distinct_policies(cpu) == ["a", "c", "d", "f"]  # no GPU: (e) has no window (2026-10-14 rule)
+
+
+def test_cpu_job_runs_only_the_t2s_set(tmp_path, monkeypatch):
+    notes = []
+    deps, _ = _job_fakes(monkeypatch, notes)
+    server = FakeServer()
+    deps.update(server=server, hostname="EVO-T2S", deadline_reached=lambda: None,
+                make_router=pc.make_router_factory("evo-t2s", 4096, ledger_dir=tmp_path))
+    deps["hc"].require_host = lambda h: {"hw_id": "evo-t2s"}
+    out = tmp_path / "t2s_policy_compare_cpu_llama31_8b_v1.jsonl"
+    note = pc.main(["--platform", "evo-t2s-cpu", "--out", str(out), "--seeds", "20260901", "--models", "llama3.1:8b"],
+                   deps=deps)
+    assert note == "completed" and notes == [note]
+    rows = ag.read_rows(out)
+    assert rows[0]["policy_set"] == list(pc.T2S_POLICIES)
+    res = next(r for r in rows if r["record"] == "b5_resolution")
+    assert set(res["windows"]["L"]) == {"base"} and all(res["configs"][p]["skip"] == pc.NOT_IN_SET for p in "bgh")
+    sess = sorted(pc.policy_of_arm(r["arm_id"]) for r in rows if r["record"] == "r2a_session")
+    assert sess == ["a", "c", "d", "f"]                 # (e) = G = D here, an alias of (a)
+    assert {s.get("OLLAMA_KV_CACHE_TYPE") for s in server.starts} == {None, "f16"}   # f16 only for the recall probe
+    assert not [r for r in rows if r["record"] == "b5_kv_check"]
+    assert {r["precision"] for r in rows if r["record"] == "b5_recall"} == {"f16"}
+    m = pc.metrics_for_platform(rows, seeds=(20260901,), turns=10)["llama3.1:8b"]
+    assert set(m["policies"]) == {"a", "c", "d", "e", "f"}
+
+
+def test_policies_flag_overrides_and_is_validated(tmp_path, monkeypatch):
+    notes = []
+    deps, _ = _job_fakes(monkeypatch, notes)
+    with pytest.raises(SystemExit):
+        pc.main(["--platform", "evo-t2s", "--out", str(tmp_path / "t2s_x.jsonl"), "--policies", "a,c"], deps=deps)

@@ -4390,6 +4390,18 @@ def compute_impact_v2_detection_value(repo):
     return {"value": im.detection_value_text(d), "n": "1 cell" if d else "0"}
 
 
+def compute_impact_v3_detection_value_measured(repo):
+    """MEASURED detection (operator item 4): per tier of the B3 v2 real run, precision/recall (TP/FP/FN/TN) of "the task
+    turn's prompt exceeded the loaded window" for "the task ended wrong", wrong tasks missed, and cloud USD escalating
+    only flagged tasks vs all tasks at the tier's cloud redo USD per task (row cloud-redo-cost-per-wrong-task, labelled
+    by its mode). Replaces impact-v2-detection-value's borrowed precision/recall."""
+    im = _impact()
+    d = _impact_v2(repo)["rows"]["P1"].get("detection_measured")
+    if d is None:
+        return {"value": "PENDING: needs row cloud-redo-cost-per-wrong-task VERIFIED", "n": "0"}
+    return {"value": im.measured_detection_text(d), "n": f"{sum(c['n'] for c in d['tiers'].values())} task turns"}
+
+
 def compute_impact_p2(repo):
     return _impact_row(repo, "P2")
 
@@ -5442,6 +5454,106 @@ def compute_cloud_redo_cost_per_wrong_task(repo, path=CLOUD_REDO_V1):
                      f"{_frac(s['local_regrade_false'], s['n'])}; token basis is the harness estimate, not Anthropic's "
                      f"tokenizer{tail}",
             "n": f"{s['n']} wrong tasks"}
+
+
+def compute_cloud_cost_per_real_task(repo):
+    """Cloud USD per real agent task (trajectory), no machine time: billed input (every step re-sends its full prompt)
+    and output tokens per trajectory, median / p90 USD per trace set, tier (claude-haiku-5-5, claude-sonnet-5-5) and
+    caching case (none, realistic ASSUMPTION hit rate 0.7, best). Output per step is a labelled stand-in
+    (analysis/cloud_task_cost.py)."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("cloud_task_cost", repo / "analysis" / "cloud_task_cost.py")
+    ct = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ct)
+    res = ct.compute(repo)
+    return {"value": ct.value_text(res), "n": f"{sum(e['n_tasks'] for e in res['sets'].values())} trajectories"}
+
+# All-cloud baseline on the B3 v2 tasks (scripts/all_cloud_b3.py, pre-registered in docs/FINDINGS.md 2026-10-21): the 30
+# tasks run fully on claude-haiku-5-5 and claude-sonnet-5-5, 3 seeds. The all-cloud reference quality and cost for the
+# hybrid savings model. PENDING until results/all_cloud_b3_v1.jsonl exists.
+ALL_CLOUD_B3_V1 = "results/all_cloud_b3_v1.jsonl"
+
+
+def _all_cloud_module(repo):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("all_cloud_b3", repo / "scripts" / "all_cloud_b3.py")
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    return m
+
+
+def all_cloud_b3_data(repo, path=ALL_CLOUD_B3_V1) -> dict:
+    """run_start, run_end and scripts/all_cloud_b3.py::summarize of the file (recomputed from its turn rows)."""
+    ac = _all_cloud_module(repo)
+    rows = ac.CR.load_rows(repo / path)
+    start = next(r for r in rows if r.get("record") == "run_start")
+    end = next((r for r in rows if r.get("record") == "run_end"), None)
+    return {"start": start, "end": end, "summary": ac.summarize(rows), "ac": ac}
+
+
+def _local_default_correct(repo, seeds=None) -> tuple[int, int]:
+    """qwen3:14b ollama_default task turns correct / graded in completed real sessions of x2_evalset_tasks_real_v2."""
+    _r2_agent_module()
+    import x2_r2_evalset as ev
+    rows = ev.ag.read_rows(repo / X2_EVALSET_TASKS_REAL_V2)
+    done = {s["attempt_id"] for s in ev.ag.completed_sessions(rows) if s.get("mode") == "real"}
+    t = [r for r in rows if r.get("record") == "r2a_turn" and r.get("attempt_id") in done
+         and r.get("arm_id") == "ollama_default_call2_notools" and r.get("model_id") == V2_PROTOCOL_MODEL
+         and r.get("item_kind") == "task" and r.get("end_state_ok") is not None
+         and (seeds is None or r.get("seed") in seeds)]
+    return sum(1 for r in t if r["end_state_ok"]), len(t)
+
+
+def compute_all_cloud_b3_quality(repo, path=ALL_CLOUD_B3_V1):
+    """Per model: correct / graded (end_state_ok), per seed and per task type; qwen3:14b local default as context."""
+    d = all_cloud_b3_data(repo, path)
+    s, start, end = d["summary"], d["start"], d["end"]
+    parts, n = [], 0
+    for m in start["models"]:
+        v = s.get(m)
+        if not v:
+            parts.append(f"{m}: no task turns")
+            continue
+        n += v["graded"]
+        seeds = ", ".join(f"{k} {a}/{b}" for k, (a, b) in v["per_seed"].items())
+        types = ", ".join(f"{k} {a}/{b}" for k, (a, b) in v["per_task_type"].items())
+        parts.append(f"{m}: correct {_frac(v['correct'], v['graded'])} (per seed {seeds}; per task type {types}; "
+                     f"turns with a provider error {v['any_http_error_turns']}; temperature "
+                     f"{start.get('temperature_per_model', {}).get(m, 'n/a')})")
+    l5 = _local_default_correct(repo)
+    l3 = _local_default_correct(repo, set(start["seeds"]))
+    stop = f"; stopped: {end['stopped']}" if end and end.get("stopped") else ""
+    return {"value": f"B3 v2 tasks fully on the cloud, seeds {start['seeds']}, same session, tools and end-state grader "
+                     f"as x2_evalset_tasks_real_v2; " + "; ".join(parts)
+                     + f"; context only (other model, runtime and window, not matched): qwen3:14b local "
+                     f"ollama_default correct {_frac(*l5)} on 5 seeds, {_frac(*l3)} on the same 3 seeds "
+                     f"(x2-evalset-tasks-real-v2-wrong-rate){stop}",
+            "n": f"{n} task turns"}
+
+
+def compute_all_cloud_b3_cost(repo, path=ALL_CLOUD_B3_V1):
+    """Per model: USD per task mean, median, p90 (cache-priced), totals, seconds mean, cache read/write totals."""
+    d = all_cloud_b3_data(repo, path)
+    s, start, end = d["summary"], d["start"], d["end"]
+    parts, n = [], 0
+    for m in start["models"]:
+        v = s.get(m)
+        if not v:
+            continue
+        u = v["usd"]
+        n += u["n"]
+        parts.append(f"{m}: USD per task mean ${u['mean']:.5f}, median ${u['median']:.5f}, p90 ${u['p90']:.5f}, "
+                     f"total ${u['total']:.4f} (ledger basis, all input at the input rate: "
+                     f"${v['usd_ledger_total']:.4f}); seconds per task mean {v['seconds_mean']:.2f}; calls per task "
+                     f"mean {v['n_calls_mean']:.2f}; tokens input {v['input_tokens_total']} (cache read "
+                     f"{v['cache_read_tokens_total']}, cache write {v['cache_write_tokens_total']}, uncached "
+                     f"{v['uncached_input_tokens_total']}), output {v['output_tokens_total']}")
+    tail = (f"; job spend ${end['job_spend_usd']:.4f} (ledger basis ${end['job_spend_usd_ledger']:.4f}, incl. "
+            f"warm-ups and pilots), ledger total at end ${end['ledger_total_usd']:.4f}" if end else "")
+    return {"value": f"prompt caching on ({start['cache_breakpoints']}), priced at {start['price_file']} Standard "
+                     f"rates (5-minute cache write, cache hit, output); token basis provider usage; "
+                     + "; ".join(parts) + tail,
+            "n": f"{n} task turns"}
 
 
 # ───────────────────────────────────────────────── evo-x2 queue fill of 2026-10-21 (docs/X2_QUEUE_PLAN.md)
@@ -6667,7 +6779,7 @@ NUMBER_ENTRIES = [
      "compute": compute_t2s_r2_session_minutes, "data_files": [T2S_REAL["cpu"], T2S_REAL["igpu"], T2S_MITIGATION_CPU],
      "script_function": "analysis/numbers_register.py::compute_t2s_r2_session_minutes"},
     {"claim_id": "t2s-b5-plan-hours", "description": "B5 on evo-t2s for the 2026-10-26 window (operator order "
-                    "2026-10-21: llama3.1:8b CPU and iGPU at 5 seeds first, then qwen3:14b on the CPU at 3 seeds only if "
+                    "2026-10-21 22:30, policies a, c, d, e, f: llama3.1:8b CPU and iGPU at 5 seeds first, then qwen3:14b on the CPU at 2 seeds only if "
                     "the hours left allow): ESTIMATED hours per staged entry from measured evo-t2s sessions, what fits, "
                     "and the qwen3:14b fit decision",
      "compute": compute_t2s_b5_plan_hours,
@@ -6900,12 +7012,21 @@ NUMBER_ENTRIES = [
                     "impact v2 P2 machine capacity",
      "compute": compute_impact_ref_machine_price, "data_files": ["results/hardware_price_evox2_20261021.json"],
      "script_function": "analysis/impact_model.py::ref_machine"},
-    {"claim_id": "impact-v2-detection-value", "description": "PROJECTION: value of detecting silent wrong tasks at "
+    {"claim_id": "impact-v2-detection-value", "description": "SUPERSEDED by impact-v3-detection-value-measured (kept "
+                    "computing for traceability, not used in docs/IMPACT.md). PROJECTION: value of detecting silent "
+                    "wrong tasks at "
                     "the v2 profile cell: cloud redo USD/day escalating every task step vs only predicted-at-risk "
                     "steps at the R2 shift predictor's measured precision/recall (and where it was measured)",
      "compute": compute_impact_v2_detection_value,
      "data_files": sorted(set(_IMPACT_V2_FILES) | {"results/x2_r2_mechanism.jsonl"}),
      "script_function": "analysis/impact_model.py::detection_projection"},
+    {"claim_id": "impact-v3-detection-value-measured", "description": "MEASURED detection on the B3 v2 real run "
+                    "(qwen3:14b, five tiers): precision, recall and TP/FP/FN/TN of 'the task turn's prompt exceeded the "
+                    "loaded window' for 'the task ended wrong', wrong tasks missed and their share, and cloud USD "
+                    "escalating only flagged tasks vs all tasks (cloud redo USD per task from "
+                    "cloud-redo-cost-per-wrong-task, labelled by its mode)",
+     "compute": compute_impact_v3_detection_value_measured, "data_files": _IMPACT_V2_FILES,
+     "script_function": "analysis/impact_model.py::measured_detection"},
     {"claim_id": "impact-v2-P2", "description": "Impact v2 P2 configuration: sessions per machine per day (default vs "
                     "fastest measured B5 setting), machines needed for the profile's sessions/day, USD/day of machines "
                     "saved (assumed 3-year life), waiting-time upper bound on the interactive share; PENDING until "
@@ -7075,6 +7196,26 @@ NUMBER_ENTRIES = [
      "tier, mode (priced, not executed vs executed) and n. In stub mode correctness and seconds are not measured",
      "compute": compute_cloud_redo_cost_per_wrong_task, "data_files": [CLOUD_REDO_V1, X2_EVALSET_TASKS_REAL_V2],
      "script_function": "scripts/cloud_redo.py::summarize"},
+    {"claim_id": "cloud-cost-per-real-task", "description": "Cloud cost per real agent task, priced, not executed: per "
+     "trajectory of the uncensored traces (nebius-rebench-openhands, SWE-Gym) the billed input (each step re-sends its "
+     "full prompt) and output tokens, USD median and p90 at claude-haiku-5-5 and claude-sonnet-5-5 for no caching, "
+     "realistic caching (ASSUMPTION hit rate 0.7) and best-case caching; output per step is a labelled stand-in",
+     "compute": compute_cloud_cost_per_real_task,
+     "data_files": ["results/traces/agent_step_lengths.parquet", "results/cloud_prices_anthropic_20261014.json",
+                    "results/x2_r2_real_v1.jsonl"],
+     "script_function": "analysis/cloud_task_cost.py::compute"},
+
+    {"claim_id": "all-cloud-b3-quality", "description": "All-cloud baseline: the 30 B3 v2 tasks run fully on "
+     "claude-haiku-5-5 and claude-sonnet-5-5, 3 seeds, same session and end-state grader; correct / graded per model, "
+     "per seed, per task type; qwen3:14b local default as context only. The all-cloud reference quality for the "
+     "hybrid savings model",
+     "compute": compute_all_cloud_b3_quality, "data_files": [ALL_CLOUD_B3_V1, X2_EVALSET_TASKS_REAL_V2],
+     "pending_ok": True, "script_function": "scripts/all_cloud_b3.py::summarize"},
+    {"claim_id": "all-cloud-b3-cost", "description": "All-cloud baseline cost: USD per task mean, median, p90 "
+     "(prompt caching on, real cache-write premium), totals, seconds per task, cache read and write tokens, per model. "
+     "The all-cloud reference cost for the hybrid savings model",
+     "compute": compute_all_cloud_b3_cost, "data_files": [ALL_CLOUD_B3_V1], "pending_ok": True,
+     "script_function": "scripts/all_cloud_b3.py::summarize"},
     {"claim_id": "x2-queue-fill-1020-hours", "description": "ESTIMATE, not a measurement: hours per job of the "
      "2026-10-21 evo-x2 queue fill from measured session times, back-to-back projected dates from the first launch, "
      "slack before 2026-11-10 and idle capacity",

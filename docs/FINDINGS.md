@@ -5368,3 +5368,145 @@ h/seed): does not fit, not staged". So:
 - The iGPU llama3.1:8b cell is expected to reach "4 of 5 seeds fit, cell counts yes (first 3 seeds)", which the
   pre-registered 3-seed rule already covers.
 
+
+## AMENDMENT 2026-10-21 (22:30) to the B5-on-evo-t2s pre-registration (reduced policy set on evo-t2s, order, qwen3:14b at 2 seeds)
+
+The pre-registration "B5 on evo-t2s Intel CPU and Intel iGPU, qwen3:14b and llama3.1:8b, 5 seeds" and the earlier
+2026-10-21 amendment above are frozen and are not edited. This dated amendment is written before any B5 session on
+evo-t2s exists and before any code, queue or plan file is changed for it (it is committed on its own first). Operator
+item 6, 2026-10-21 22:30. It changes only what runs on evo-t2s in the 2026-10-26 to 2026-11-08 window; evo-x2 keeps
+all policies (a) to (h), and the 2026-10-14 pre-registration's text and its evo-x2 verdict are unchanged.
+
+- **Reduced policy set on evo-t2s** (`--platform evo-t2s-cpu` and `--platform evo-t2s`): (a) runtime default,
+  (c) client-side trimming, (d) router with cloud escalation, (e) auto-sized window, (f) num_keep. Policies (b), (g)
+  and (h) (the largest-window and quantized-KV arms, the ones that dominated the estimated hours) are not run on
+  evo-t2s. Each policy that is run keeps its 2026-10-14 definition. The 2026-10-14 rule that a policy with no window
+  is not run still applies, so on the Intel CPU (no GPU) (e) is expected to have no window and not to run; the alias
+  rule ((e) resolving to the same configuration as (a)) also still applies.
+- **Order** in `queues/t2s_oct26_queue.json`, after the handover check and preflight as before: (1) llama3.1:8b on
+  the Intel CPU (`evo-t2s-cpu`), 5 seeds (20260901 to 20260905); (2) llama3.1:8b on the Intel iGPU (`evo-t2s`),
+  5 seeds; (3) qwen3:14b on the Intel CPU at its 4096 default window (`evo-t2s-cpu`), **2 seeds** (20260901,
+  20260902), staged only if it fits.
+- **qwen3:14b 2-seed rule.** The qwen3:14b CPU entry is staged only if register row `t2s-b5-plan-hours` (ESTIMATES
+  from measured evo-t2s session minutes, row `t2s-r2-session-minutes`), recomputed for the reduced set, shows the
+  three entries' hours within the available hours; otherwise it stays future work as the earlier amendment records,
+  and the qwen3:14b iGPU cell is future work in either case. At run time the handover deadline still stops any job at
+  a session boundary. A qwen3:14b cell with 2 seeds is below the pre-registration's 3-seed minimum for a complete cell,
+  so it is reported in full but does not count as a complete cell for H-B5-T2S; this amendment does not loosen that
+  rule.
+- **Success rule evaluated on the policies run.** The mechanical rule of the pre-registration
+  (`policy_compare.b5_t2s_verdict`) is unchanged except that its Pareto frontier, dominance test and "every distinct
+  policy has all seeds complete" test are taken over the policies actually run on evo-t2s under this amendment, not
+  over (a) to (h). A verdict from this window is stated as "on policies a, c, d, e, f (as resolved)"; it says nothing
+  about (b), (g) or (h) on evo-t2s, which become future work there.
+
+**Implementation note (2026-10-21, after the amendment above was committed, before any B5 session on evo-t2s).** Code:
+`harness/policy_compare.T2S_POLICIES` = a, c, d, e, f is the platform policy list of `evo-t2s` and `evo-t2s-cpu`, and
+each staged entry also passes `--policies a,c,d,e,f`; a policy outside the set resolves with skip "not in this
+platform's policy set", so it has no session and no alias, and `metrics_for_platform` and `b5_t2s_verdict` take the
+frontier over the policies run. Two consequences of dropping (b), (g), (h), stated here so they are not read as
+silent changes: (1) the window probes and recall calls under the q8_0 and q4_0 server envs exist only for (g) and (h),
+so they are not run on evo-t2s; the f16 recall probe at L (base) still runs, and L (base) is still probed because it is
+(d)'s full-history proxy window (A-B5-cloud). (2) On the Intel iGPU (e) can no longer be recorded as an alias of (b);
+if G equals D it is an alias of (a), otherwise it has its own sessions. Plan, pasted from [t2s-b5-plan-hours]
+(ESTIMATES from measured evo-t2s session minutes, [t2s-r2-session-minutes]): "available 335.0 h"; "B5 staged cells
+145.2 h"; "t2s_o26_b5_cpu_llama31_8b 34.0 h (yes; 6.4 h/seed, 5 of 5 seeds fit, cell counts yes (5 seeds))";
+"t2s_o26_b5_igpu_llama31_8b 85.9 h (yes; 16.9 h/seed, 5 of 5 seeds fit, cell counts yes (5 seeds))";
+"t2s_o26_b5_cpu_qwen3_14b 25.3 h (yes; 12.0 h/seed, 2 of 2 seeds fit, cell counts no (reported only, below 3
+seeds))". So the qwen3:14b CPU entry fits and is staged at 2 seeds; the qwen3:14b iGPU cell stays future work.
+
+## PRE-REGISTRATION: all-cloud baseline on the B3 v2 tasks, claude-haiku-5-5 and claude-sonnet-5-5, 3 seeds (all_cloud_b3_v1, controller laptop) (2026-10-21, NOT YET RUN)
+
+**Status:** PRE-REGISTRATION, committed before any live call of this job. Operator item 1 (2026-10-21 22:30). Frozen
+once committed; any change is a dated amendment below it.
+
+**Why.** The hybrid savings model needs the all-cloud reference: savings = all-cloud cost minus hybrid cost at matched
+quality. This job measures the all-cloud reference quality and cost on our own tasks: the 30 B3 v2 tasks, run fully on
+the cloud model, with the same task set, session structure, filler, tool protocol and end-state graders as the local B3
+v2 task real run (x2_evalset_tasks_real_v2, row `x2-evalset-tasks-real-v2-wrong-rate`). It is a reference measurement,
+not a test of a hypothesis; there is no pass/fail rule.
+
+**Design.** `scripts/all_cloud_b3.py --live`, run on the controller laptop (CLOUD_CLIENT_HOST_ROLE=controller), every
+call through `src/cloud/client.py` (litellm, custom_llm_provider "anthropic").
+- Sessions: `harness/x2_r2_evalset.py::build_session(seed, workload "evalset", guardrails off, design "v2")`, the
+  tasks plan session: 30 task turns per seed (destructive tasks confirmed inline), 150 filler tokens per turn
+  (FILLER_TOKENS_PER_TURN_V2), the same system prompt, standing instructions, recall suffixes and canary asks. One
+  session per (model, seed), the transcript carried across all 30 turns as in the local run.
+- Turn: `x2_r2_evalset.run_turn` unchanged (design v2 "tool_loop": tools on every call; the turn ends at the first call
+  without a tool call, or after MAX_TOOL_ROUNDS = 4 tool-bearing calls with one final call; tool results from
+  `harness/evalset_env.py::apply_call`). Scoring is `x2_r2_evalset.score_turn` unchanged, so "correct" is the same
+  end-state grader (`evalset_env.check_task`, end_state_ok). A cloud runtime adapter replaces the Ollama runtime: it
+  sends the same messages converted to the provider's tool-call shape (each assistant tool call gets a deterministic
+  id, its tool results follow it; a tool result with no native call before it, from a call written as text, is sent as
+  a user message), and returns native tool calls in the shape the harness already parses.
+- Two declared differences from the local protocol, both forced by the provider: (1) the final call after the tool
+  round cap keeps the tool definitions with tool_choice "none" (Anthropic needs the tools defined while the transcript
+  holds tool calls), as in `scripts/cloud_redo.py`; (2) no context window applies (the local run's num_ctx tiers do not
+  exist on the cloud). max_tokens 384 per call (MAX_TOKENS_PER_CALL, as local); temperature 0 (as local); no extended
+  thinking. If the provider rejects temperature for a model, the pilot shows it and that model runs with the provider
+  default, recorded in run_start.
+- Models: from the shared price file `results/cloud_prices_anthropic_20261014.json`: the cheapest, claude-haiku-5-5
+  ("cheap_small"), and the mid tier, claude-sonnet-5-5 ("escalation_mid_tier"). Seeds 20260901, 20260902, 20260903.
+  180 task turns in all (2 models x 3 seeds x 30).
+- Prompt caching on: cache breakpoints on the system prompt and on the last user message of every call (as
+  `scripts/cloud_redo.py`); tools are part of the cached prefix. USD per task is priced from the provider's usage at the
+  price file's Standard rates: uncached input at the input rate, cache writes at the 5-minute cache-write rate (the real
+  write premium), cache reads at the cache-hit rate, output at the output rate. Each row also carries the ledger cost
+  (client.py's estimate: every input token at the input rate, an upper side, the basis of the cap check).
+- Per task row: correct (end_state_ok), input / output / cache-read / cache-write tokens, USD, seconds (wall time of the
+  provider requests of the turn only), number of calls and tool calls, the running job spend and the ledger total.
+- Statistics convention: 1 warm-up call per model (excluded), then the measured turns.
+
+**Budget and stop rule.** Hard cap USD 15 for this job inside the USD 50 ledger: CloudClient is constructed with
+spend_cap_usd = (the main ledger's running total at job start) + 15.0, on the main ledger (the one the cloud redo
+writes). The job does not start while the cloud redo is running (it waits for a run_end with mode executed in
+results/cloud_redo_v1.jsonl). Before any measured turn the job runs a pilot, counted in the 15: turn 1 of seed 20260901
+per model (a fresh session; excluded from stats). Projection, ledger basis (all input at the input rate): the pilot's
+measured ratio of provider input tokens to the harness's own prompt estimate, applied to the summed prompt estimates
+and completion tokens of the local qwen3:14b ollama_default sessions of seeds 20260901 to 20260903 in
+results/x2_evalset_tasks_real_v2.jsonl, times a margin of 1.5 (the cloud model may take more calls per turn), plus the
+spend so far. If that projection for the full job is over USD 15 the job STOPS before any measured turn and reports
+what would fit; no reduced plan is run without the operator. Spend is logged after every task; the ledger total is
+reported at the end.
+
+**Output.** `results/all_cloud_b3_v1.jsonl`: run_start (script git blob, price file and its blob, models, seeds,
+ledger total at start, spend cap, projection), warmup and pilot rows (excluded), one `r2a_turn` row per task turn
+(the harness's turn row plus the cloud fields above), one session row per (model, seed), run_end.
+
+**Register rows (computed from the file only).**
+- `all-cloud-b3-quality`: per model, correct / graded (end_state_ok over the 180 task turns, 90 per model), per seed
+  and per task type; next to it, as context only (different model, runtime and window, not a matched comparison),
+  qwen3:14b local ollama_default from x2_evalset_tasks_real_v2 (row `x2-evalset-tasks-real-v2-wrong-rate`), on all 5
+  seeds and on seeds 20260901 to 20260903.
+- `all-cloud-b3-cost`: per model, USD per task mean, median and p90 (cache-priced), total, ledger-basis total, seconds
+  per task mean, cache read and cache write token totals, input and output token totals.
+
+**Use.** These rows are the all-cloud reference quality and cost for the hybrid savings model (savings = all-cloud cost
+minus hybrid cost at matched quality). The token basis is Anthropic's tokenizer (provider usage), not the harness
+estimate.
+
+## AMENDMENT (2026-10-21, before any measured turn): all_cloud_b3_v1 attempt 1 aborted, temperature fallback implemented as pre-registered
+
+Attempt 1 of `scripts/all_cloud_b3.py --live` sent the claude-haiku-5-5 warm-up (ledger USD 0.0000038) and then the
+pilot turn, whose calls litellm refused before any request ("claude-haiku-5-5 does not support temperature=0.0. Only
+temperature=1 is supported"); the script then crashed computing the projection from a pilot with no usage (no measured
+turn ran, nothing else billed). The file is kept as `results/all_cloud_b3_v1_attempt1_aborted.jsonl`. The pre-registered
+fallback ("that model runs with the provider default, recorded in run_start") was not yet in the code; it is now: the
+warm-up is sent with temperature 0 and, if the provider rejects temperature for the model, sent again without it, and
+run_start records `temperature_per_model`. A pilot with no usable ratio now projects as infinite (stop). Nothing else
+changes; the job reruns from the start under the same USD 15 job cap.
+
+## AMENDMENT (2026-10-21, before any kept measured turn): all_cloud_b3_v1 attempt 2 stopped by hand, thinking turned off as pre-registered
+
+Attempt 2 ran the warm-ups and pilots (projection USD 9.33 ledger basis, under the cap) and 19 measured claude-haiku-5-5
+turns of seed 20260901, then was stopped by hand: from turn 7 on most calls stopped at max_tokens (384) with no content
+and no tool call, so the turn was graded wrong with nothing for the grader to see. Cause: both models think by default
+and the thinking tokens count against max_tokens, so the pre-registered "no extended thinking" was not in force (the
+request sent no thinking parameter). The file is kept as `results/all_cloud_b3_v1_attempt2_aborted.jsonl` and none of
+its turns are counted. Fix, implementing the pre-registered protocol: every call (warm-up, pilot, measured) sends
+thinking off, claude-haiku-5-5 `{"type": "disabled"}` (accepted at its default effort) and claude-sonnet-5-5
+`{"type": "between_tools"}` (Sonnet 5.5 rejects "disabled"; "between_tools" is its thinking-off setting), recorded in
+run_start as `thinking_per_model`; temperature is the provider default for both (temperature 0 rejected, amendment
+above). The pilot now also stops the job if any pilot call ends at max_tokens with no content and no tool call. Budget:
+attempts 1 and 2 spent USD 0.0659 on the ledger (ledger total 14.0931 before attempt 1, 14.1590 after attempt 2), so
+the rerun runs with a job cap of USD 14.93, keeping the whole job inside the pre-registered USD 15. max_tokens stays 384.
