@@ -4828,3 +4828,78 @@ on a still earlier agent blob, as in every pooled v1b figure already reported. q
 long (Ollama loads 40960 for it); llama3.1:8b's default loads 131072 and is not expected to exceed it, so its
 after-window default rate is 0 by construction, as before. Duration: an ESTIMATE in register row
 `x2-queue-fill-1022-hours` from measured v1/v1b session times. The job calls tq.advance() on exit and sets no pause.
+
+## PRE-REGISTRATION: B5 flash-attention control, f16 KV with flash attention at the B5 window, and the llama3.1:8b f16 long-context recall rerun (x2_b5_fa_control on evo-x2) (2026-10-22, NOT YET RUN)
+
+**Status:** PRE-REGISTRATION, written and committed before the code for this job is written or deployed and before
+evo-x2's queue is edited for it. No data for this job exists. It follows "PRE-REGISTRATION: B5 policy comparison"
+(2026-10-14) and the B5 results (2026-10-20), whose texts are not edited. Operator decision of 2026-10-21 (later):
+this job runs first in the 2026-10-22 queue fill.
+
+**Question.** In B5 on evo-x2, the quantized-KV policies were much faster than the default (register row
+`b5-policy-metrics`, pasted: llama3.1:8b "a rule 100.0% hist 95.8% 43.7 min", "g rule 100.0% hist 95.8% 6.9 min", "h
+rule 100.0% hist 100.0% 6.6 min"; qwen3:14b "a rule 100.0% hist 62.5% 214.8 min", "g rule 100.0% hist 62.5% 75.4 min",
+"h rule 100.0% hist 62.5% 75.4 min"). Policies (g) and (h) changed two things at once: the KV type (q8_0 / q4_0) and
+`OLLAMA_FLASH_ATTENTION=1` (`harness/policy_compare.KV_ENV`); policy (a) had neither. Is the speedup flash attention
+or KV precision? Second, the f16 recall probe for llama3.1:8b errored on one of its three measured calls (row
+`b5-kv-recall`, pasted: "f16 ctx 131072 recall 50.0% (2 calls, truncated 0, errors 1; KV check n/a)"), so f16 against
+q8_0 and q4_0 was not compared on equal terms.
+
+**Job.** Queue id `x2_b5_fa_control`, output `results/x2_policy_compare_fa_control.jsonl`, harness
+`harness/policy_compare.py --platform evo-x2 --fa-control` (new mode, deployed to a new side directory
+`C:\apu\ovn\b5fa` with this branch's `x2_r2_agent.py`; every option added to the agent since the B5 run is off by
+default, covered by `tests/test_x2_r2_agent_backcompat.py`). Same models (llama3.1:8b, qwen3:14b), same validation
+preflight (`validation_preflight_per_model` on `x2_r2_validation_v2.jsonl`), same rules in use, same R2 session
+(`ag.run_session`, call-2 mode off, 40 turns, temperature 0, seed 42, num_predict 384), same seeds 20260901 to
+20260903, same Ollama (0.34.4) and the job's own server, as B5. One new arm per model:
+- **(i) kv_f16_fa**: the job's own server with `OLLAMA_KV_CACHE_TYPE=f16` and `OLLAMA_FLASH_ATTENTION=1` (the
+  existing `KV_ENV["f16"]`, the env B5's f16 recall probe used), num_ctx = L(f16), the largest ladder window that
+  starts under that env (`probe_windows` as in B5). B5 measured D = L = native for both models under every env
+  (`b5_resolution` rows of `results/x2_policy_compare.jsonl`: llama3.1:8b 131072, qwen3:14b 40960), so (i) is expected
+  to run at the same window as (a), (g) and (h). If L(f16) differs from the num_ctx that (g)/(h) used for that model,
+  the model's comparison is not read (validity below).
+- **KV and flash-attention check**: `kv_check` on the job's server log with requested type f16 must be valid and its
+  `config_flash_attention` true; otherwise that model is refused before any session (no data, no reading).
+- **Base-env flash-attention record** (reported, not read): one server start with B5's base env (no
+  `OLLAMA_FLASH_ATTENTION` set) and one one-token load per model; the server-config line's
+  `OLLAMA_FLASH_ATTENTION` value and any llama.cpp flash-attention line are recorded, to show what (a) ran with.
+Statistics convention as in B5: no warm-up session, every turn scored; session wall clock is the sum of the turns'
+`turn_wall_s`, as `policy_compare.session_metrics` computes it.
+
+**Decision rule, fixed now** (register row `b5-fa-control`, PENDING until the file is synced). Per model: m_i = mean
+session minutes of (i) over the three seeds; m_gh = the mean of (g)'s and (h)'s per-session means from
+`results/x2_policy_compare.jsonl` (`policy_compare.metrics_for_platform`); m_a = (a)'s per-session mean from the same
+file. Tolerance 10%, stated before the data:
+- **"the B5 speedup is flash attention, not KV precision"** if |m_i - m_gh| <= 0.10 x m_gh;
+- **"the B5 speedup is KV precision, not flash attention"** if |m_i - m_a| <= 0.10 x m_a;
+- **"both contribute"** if neither holds and m_gh < m_i < m_a; the share of the (a) to (g)/(h) gap that flash
+  attention closes, (m_a - m_i) / (m_a - m_gh), is reported;
+- **"neither reading"** otherwise (for example (i) more than 10% faster than (g)/(h), or more than 10% slower than
+  (a)); the values are reported as observed.
+If the two models read differently, each is reported for its own model and no pooled statement is made. Also
+reported, not read: (i)'s rule pass rate and history-tag recall against (a), (g), (h) (B5's metrics), and the
+per-seed minutes.
+
+**Recall rerun, fixed now** (register row `b5-kv-recall-f16-rerun`, PENDING). llama3.1:8b only, precision f16 with
+flash attention (the env B5's f16 probe used), num_ctx 131072 (B5's f16 window for llama3.1:8b; the job uses L(f16)
+and records it), `policy_compare.run_recall` unchanged: 1 warm-up (needle seed 0) + 3 measured calls (needle seeds 1,
+2, 3), needles at 85% of the window, 8 needles per call, num_predict 256. **One declared deviation:** the per-call HTTP
+timeout is 1800 s instead of B5's 900 s (`x2_r2_agent.CALL_TIMEOUT_S`, set for this phase only). B5's error was a
+timeout ("timed out" at 900.0 s on needle seed 1), and its two completed f16 calls took 673 s and 845 s, so a 900 s
+limit cuts the f16 arm alone. q8_0 and q4_0 are not rerun; the comparison uses B5's rows for them. Reading, fixed
+now: per precision, needles found over 24 (3 calls x 8); "f16 differs from <q>" only if a two-sided Fisher exact test
+on found vs not found (24 vs 24) gives p < 0.05, otherwise "no difference shown"; needles within one call are not
+independent, so the test is descriptive. A measured call that errors again is reported as an error with its
+duration and is not replaced.
+
+**Validity (mechanical).** run_end present; for each model: not refused, KV check valid with flash attention on, all
+3 seeds completed with 40 turns, (i)'s num_ctx equal to the num_ctx (g) and (h) used for that model in B5; the recall
+phase wrote 1 warm-up and 3 measured llama3.1:8b f16 rows. A model failing these is reported "incomplete" with what is
+missing, and its reading is not made.
+
+**Known limits, stated before the run.** Three seeds per model, as B5; the comparison is against B5's sessions run on
+2026-10-17 to 2026-10-19, not interleaved with them (the reconciliation of 2026-10-22, row
+`R2-qwen3-14b-4096-reconciliation`, found byte-identical outputs across runs days apart on this Ollama, so run-to-run
+drift is not expected, but timing can still vary with machine state). The tolerance is a point rule on means, as
+B5's verdict was. One machine and runtime. Duration: an ESTIMATE in register row `x2-queue-fill-1022-hours` from B5's
+measured session and recall times. The job calls tq.advance() on exit and sets no pause.
