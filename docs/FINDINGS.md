@@ -5414,3 +5414,39 @@ if G equals D it is an alias of (a), otherwise it has its own sessions. Plan, pa
 "t2s_o26_b5_igpu_llama31_8b 85.9 h (yes; 16.9 h/seed, 5 of 5 seeds fit, cell counts yes (5 seeds))";
 "t2s_o26_b5_cpu_qwen3_14b 25.3 h (yes; 12.0 h/seed, 2 of 2 seeds fit, cell counts no (reported only, below 3
 seeds))". So the qwen3:14b CPU entry fits and is staged at 2 seeds; the qwen3:14b iGPU cell stays future work.
+
+## AMENDMENT 2026-10-21 (later) to the B5-on-evo-t2s pre-registration and to the B6 staging note: (b) kept, qwen3:14b at 3 seeds if it fits, B6 fills the window with 24 h slack
+
+The pre-registration "B5 on evo-t2s Intel CPU and Intel iGPU, qwen3:14b and llama3.1:8b, 5 seeds", its two 2026-10-21
+amendments and implementation note above, and the B6 staging note ("Also staged with this (no data, no claim): B6 on
+evo-t2s", 2026-10-14) are frozen and are not edited. This dated amendment is written before any code, queue or plan
+file is changed for it and is committed on its own first. No B5 or B6 session on evo-t2s exists. Operator decisions,
+2026-10-21 (later). evo-x2 is not affected.
+
+- **Policy set on evo-t2s: (a), (b), (c), (d), (e), (f).** Policy (b) (largest window that starts) is kept; (g) and
+  (h) stay dropped on evo-t2s. This replaces the set a, c, d, e, f of the 22:30 amendment. The alias rule of
+  2026-10-14 applies again in full, so on the Intel iGPU (e) can be recorded as an alias of (b). Probes and recall
+  under q8_0 and q4_0 stay off on evo-t2s, as in the implementation note. The success rule is evaluated over the
+  policies run, as the 22:30 amendment states.
+- **qwen3:14b on the Intel CPU at its 4096 default window: 3 seeds (20260901 to 20260903)** instead of 2, so that a
+  completed cell meets the pre-registered 3-seed minimum and counts. The entry keeps the fit rule of the earlier
+  amendments, now with the slack below: it is staged after the two llama3.1:8b cells (5 seeds each, CPU then iGPU)
+  only if its estimated end is within the launch budget. Otherwise it is not staged and qwen3:14b on Intel stays
+  future work. The qwen3:14b iGPU cell stays future work in either case.
+- **Launch budget and slack.** The budget is the available hours of the window (window start to the no-launch time,
+  minus the assumed start allowance, as in `scripts/t2s_window_stage.py`) minus **24 h of slack** before the no-launch
+  time. Every staged entry with an estimate must be estimated to end within the budget.
+- **B6 fills what is left.** After B5, the B6 entries already staged (pull of qwen3:32b and llama3.3:70b; validation on
+  the CPU and with OLLAMA_IGPU_ENABLE=1; real at num_ctx 4096 on the CPU and at the iGPU-enabled default window) are
+  taken in that order. An entry with an estimate is staged if its gate entry is staged and its estimated end is within
+  the budget; an entry that does not fit is not staged and is future work, and later entries that fit are still
+  staged. An entry without an estimate is staged after every estimated entry, last.
+- **B6 hour estimates.** Where a measured rate exists, an entry's hours are evo-x2 measured minutes for the same
+  models (H-scale files `x2_r2_scale_real.jsonl` at num_ctx 4096 and 32768, `x2_r2_scale_validation.jsonl`) times a
+  stated evo-t2s over evo-x2 factor taken from measured R2 sessions of the same window on both machines, labelled
+  ESTIMATE with the factor named in the plan. The iGPU-enabled default window of qwen3:32b and llama3.3:70b on evo-t2s
+  is not measured; it is ASSUMED to be 32768 (the window llama3.1:8b and qwen3:14b load there) and labelled so. The
+  pull gets a nominal hour figure, labelled nominal. No other B6 design change: the B6 real entries run the 5 seeds of
+  `--plan strong` as staged in `queues/t2s_oct26_queue.json` since 2026-10-15 (the 2026-10-14 note's "3 seeds" was
+  written before that file existed), call-2 off, gated per model on their own validation, deciding numbers from the
+  H-scale pre-registration.
