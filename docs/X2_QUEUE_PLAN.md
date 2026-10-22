@@ -1,10 +1,53 @@
-# evo-x2 queue plan (2026-10-15)
+# evo-x2 queue plan
+
+## Queue fill of 2026-10-21 (to 2026-11-10)
+
+evo-x2's queue was empty (`queue_empty.flag`, every earlier job done) and the machine idle from about 2026-10-20 06:00Z
+until the first job below launched. Each job was pre-registered in its own docs/FINDINGS.md section, committed before
+it was deployed or queued; the deployment and queueing details are in "AMENDMENT (2026-10-21 ...): queue fill of
+2026-10-21 deployed and queued on evo-x2". Hours are ESTIMATEs from measured session times in committed files, register
+row `x2-queue-fill-1020-hours`; dates are back to back from the first launch (2026-10-21 18:03:40Z, watchdog log),
+ignoring handoff gaps (seconds through `advance()`, up to 10 minutes through the watchdog). All times UTC.
+
+| pos | queue id | pre-registration | ESTIMATE h (high) | projected start | projected finish (high case) |
+|---|---|---|---|---|---|
+| 71 | x2_num_keep_qwen3_14b (running) | 0c0c6e4 | 0.64 (0.65) | 10-21 18:03 | 10-21 18:42 (18:42) |
+| 72 | x2_evalset_tasks_val_v2_qwen3_8b | e13ee1c | 0.22 (0.47) | 10-21 18:42 | 10-21 18:55 (19:10) |
+| 73 | x2_evalset_tasks_real_v2_qwen3_8b (gate: requires_done 72; v2_strict preflight) | e13ee1c | 2.11 (3.16) | 10-21 18:55 | 10-21 21:02 (22:20) |
+| 74 | x2_r2_qwen3_8b_seeds_06_10 | 8c2f686 | 2.19 (2.40) | 10-21 21:02 | 10-21 23:13 (10-22 00:44) |
+
+Bases, pasted from `x2-queue-fill-1020-hours`: num_keep "3 x qwen3:14b num_ctx 4096 R2 median 12.2 min x num_keep
+overhead 1.05"; tasks validation "qwen3:14b v2 tasks validation sessions ... x qwen3:8b/qwen3:14b R2 median ratio
+(default 0.35, 8192 0.62); high = unscaled"; real run "qwen3:14b x2_evalset_tasks_real_v2 measured per tier ... x the
+qwen3:8b/qwen3:14b R2 median ratio of the tier ...; high = unscaled (refusal at preflight would take minutes)"; seeds
+06-10 "5 x qwen3:8b v1b median at 8192 (15.6 min) + 5 x at 4096 (10.7 min)".
+
+**Total, slack and idle capacity** (same row, pasted): "total ESTIMATE 5.2 h (high 6.7 h) from 2026-10-21T18:03Z; queue
+ends 10-21 23:13Z (high 10-22 00:44Z); slack before 2026-11-10 00:00Z 456.8 h (high case 455.3 h); idle capacity left
+after the 24 h reserve 432.8 h (high case 431.3 h)". The 24 h reserve before 2026-11-10 00:00Z holds by a wide margin;
+after about 2026-10-22 evo-x2 is idle again unless more work is queued.
+
+**Gates.** Job 73 cannot start before job 72 is done (queue gate), and its preflight refuses unless qwen3:8b passes
+every gate of job 72's validation with no waiver (the qwen3:14b 80/90 waiver does not extend). A refusal ends it in
+minutes with no result, and job 74 then starts that much earlier.
+
+**Decisions recorded here.**
+- **d. B5 extensions: none.** The B5 verdict is already refuted on evo-x2's complete cells (register row `b5-verdict`,
+  pasted: "refuted (router dominated in evo-x2/llama3.1:8b, evo-x2/qwen3:14b); evo-x2 complete (router on frontier in
+  every complete cell: False ...)"). More evo-x2 B5 cells cannot change a refutation, so none are queued.
+- **e. qwen3:32b default tier: not queued, already run.** It was pre-registered in H-scale (2026-10-14) and ran inside
+  `x2_r2_scale_real` (register row `x2-scale-real-default-tier`, pasted: "qwen3:32b: 3 default-tier sessions completed
+  (seed 20260901: 40 turns, 6.18 h, ...; seed 20260902: 40 turns, 6.01 h, ...; seed 20260903: 40 turns, 4.66 h, ...)").
+  A rerun would duplicate completed cells. llama3.3:70b resisted rule loss (`H-scale-verdict`), so no default-tier run
+  for it either.
+
+## Earlier plan (2026-10-15)
 
 Operator decisions of 2026-10-14 (the first set at about 02:45Z on 2026-10-15, revised at 21:40 PT = 04:40Z), applied
 by the queue steward. Hours come from committed result files where a measured rate exists; every other figure is
 labelled estimated and says what it is scaled from. All times UTC.
 
-## Applied order (operator decision of 21:40 PT)
+### Applied order (operator decision of 21:40 PT)
 
 Pending items were reordered in read-modify-writes of `C:\apu\ovn\queue_state.json` under `t2s_queue.set_pause`
 (each reason names its release: `clear_pause()` in the same script's finally block); the pause flag was confirmed
@@ -29,7 +72,7 @@ Items other agents add later should follow this order. At the last check (05:10Z
 queue. num_keep finished first, so the pulls launched; items 2 and 3 run right after the pulls once they are inserted
 ahead of the smoke test. Every item present matched this order.
 
-## Finished jobs
+### Finished jobs
 
 | job | queue status | queue note | result file | register rows |
 |---|---|---|---|---|
@@ -52,7 +95,7 @@ preflights on these files (`validation_preflight_ext`) is therefore expected to 
 `x2_evalset_tasks_real_v1` and the B3 guardrail real run. Such a refusal costs minutes, not the hours in the table
 below. This is for the operator to decide on; the queue was not changed because of it.
 
-## Measured rates used
+### Measured rates used
 
 Per-session wall clock is the heartbeat record to the `r2a_session` record in the committed files.
 
@@ -71,7 +114,7 @@ Per-session wall clock is the heartbeat record to the `r2a_session` record in th
 The timing probe has not run yet. Its `scale_projection` record replaces every estimated H-scale and family figure
 below once synced (register row `x2-scale-probe-hours`).
 
-## Hours table (through 2026-11-10)
+### Hours table (through 2026-11-10)
 
 Back to back from the pulls' launch at 2026-10-15 05:07Z, in the order the jobs will actually run (items 2 and 3 after
 the pulls, see above); queue handoff gaps (seconds through `advance()`, up to 10 minutes through the watchdog) are

@@ -4403,3 +4403,267 @@ that re-read the queue inside a pause whose reason names its release, cleared in
 (pause flag confirmed absent afterwards). Its note says it releases itself via tq.advance() on exit and sets no pause.
 Duration: register row `x2-r2-llama-val-32k-vulkan-hours`, pasted: "x2_r2_llama_val_32k_vulkan ESTIMATE 0.19 to
 0.56 h".
+
+## PRE-REGISTRATION: num_keep guardrail flag test for qwen3:14b, x2_num_keep_qwen3_14b on evo-x2 (2026-10-20, NOT YET RUN)
+
+**Status:** PRE-REGISTRATION, written and committed before anything for this job is deployed and before evo-x2's queue
+is edited. No data for this job exists. It follows the pre-registration "num_keep guardrail flag test,
+x2_num_keep_guardrail_test on evo-x2 (2026-10-13)" above, whose text is not edited; it reuses that test's design,
+validity rules and verdict rule unchanged and changes only the model.
+
+**Why.** The num_keep test ran llama3.1:8b only. Its result (register row `num-keep-guardrail-test`, pasted): "S per
+seed {20260901: 601, 20260902: 594, 20260903: 597}; observed context shifts 105 with n_keep [595, 598, 602], task n_keep
+[594, 597, 601], token cuts 7 with keep [594, 601] ... rules in use: rule1 94.2% (n=120, first failure 31/-/5); rule3
+100.0% (n=120, first failure -/-/-); rule4 100.0% (n=60, first failure -/-/-) ... verdict: one-line fix". qwen3:14b also
+loses rules at num_ctx 4096 without the flag on the same seeds (register row `R2-real-v1-first-events`, pasted:
+"num_ctx_4096 qwen3:14b: canary miss 5/5/5 (over loaded window: True/True/True); rule1 -/-/-, rule2 -/-/-, rule3
+-/20/20, rule4 -/-/-, rule5 5/-/5"). On the B3 v2 task workload the num_keep tier did not remove qwen3:14b's 4096 excess
+(register row `x2-evalset-tasks-real-v2-gated-excess`, pasted: "num_ctx_4096_numkeep: v2 5/5 vs default 0/5, excess
++1.000 (95% CI +1.000 to +1.000); num_keep reading: num_keep does not remove it"). This job is the R2-workload test of
+the same flag for qwen3:14b, so the "one-line fix" claim is either shown on a second model or bounded to llama3.1:8b.
+
+**Job.** Queue id `x2_num_keep_qwen3_14b`, output `results/x2_num_keep_qwen3_14b.jsonl`. The same command as the
+llama3.1:8b test with only `--models` and `--out` changed, run from the same side directory with the same deployed code:
+`numkeep\x2_r2_sidecar.py --mode real --call2-tools off --models qwen3:14b --tiers 4096 --seeds
+20260901,20260902,20260903 --rules-from C:\apu\ovn\results\x2_r2_validation_v2.jsonl --require-validation-gates
+--num-keep system`. Side directory `C:\apu\ovn\numkeep` as deployed for the llama3.1:8b test (its `expected_blobs.json`:
+`x2_r2_agent.py` blob 082a48dc, `x2_num_keep.py` blob c2bb7c2d, `x2_r2_sidecar.py` blob 8ff9d4aa, deploy head abb9e768),
+checked with `run_provenance.verify_deployed_blobs` before queueing; nothing is redeployed. So: arm
+`ollama_ctx_4096_call2_notools` (v1 call-2 protocol), seeds 20260901 to 20260903, 40 turns each, temperature 0, seed 42,
+num_predict 384, "think": false (qwen3), S measured per session by render and count with qwen3:14b's own tokenizer
+(`llama-tokenize` on its GGUF blob), `options.num_keep = S` on every request, Ollama's own server under OLLAMA_DEBUG=1
+with the per-call log slices parsed as in the llama3.1:8b test; the job refuses (and stops nothing) if the Ollama tray
+app is running. The job's server log path is fixed in that code (`C:\apu\ovn\ollama_serve_num_keep.log`, truncated at
+each server start), so the llama3.1:8b run's raw log is copied aside on evo-x2 before queueing; its per-session slices
+are already in `results/x2_num_keep_guardrail_test_logs/`.
+
+**Rules in use.** The preflight's, from `x2_r2_validation_v2.jsonl`, written to run_start. On that file qwen3:14b's
+baseline is (register row `R2-validation-v2-baseline`, pasted) "qwen3:14b: rule1 100.0%, rule2 100.0%, rule3 100.0%,
+rule4 100.0%, rule5 100.0%", so rules 1 to 5 are expected in use. The job refuses to start if the file's gates fail.
+
+**Validity and verdict (unchanged from the llama3.1:8b pre-registration, model qwen3:14b).** Computed by
+`harness/x2_num_keep.py::verdict(rows, model="qwen3:14b")` in register row `num-keep-qwen3-14b` (PENDING until
+`results/x2_num_keep_qwen3_14b.jsonl` is synced). Valid only if: the run finished and all 3 sessions completed with 40
+turns; every call sent `num_keep` equal to its session's S > 0; at least one llama.cpp context shift was observed and
+every observed shift has n_keep >= S; every token-level cut (if any) has keep >= S; every log slice is complete. If no
+shift was observed: "inconclusive (flag effect not observed)". Any observed n_keep or keep below S: "invalid (num_keep
+not applied)". Any other failure: "inconclusive (incomplete)". Compliance per rule in use = share of the cell's turns
+on which the rule held (rule 4 over its length turns only), 3 sessions pooled.
+- **one-line fix**: valid, and every rule in use is at or above 90%.
+- **not a one-line fix**: valid, and some rule in use is below 90%.
+
+**Reading across the two models, fixed now.** Both "one-line fix": report `options.num_keep` = system prompt length as
+a one-line fix on Ollama 0.34.4 for both models tested at num_ctx 4096 on the R2 workload. llama3.1:8b "one-line fix"
+and qwen3:14b "not a one-line fix": report it as model-dependent (holds for llama3.1:8b, not for qwen3:14b), and do not
+call it a one-line fix in general. qwen3:14b inconclusive or invalid: the llama3.1:8b claim stays bounded to that model.
+
+**Outcome measures** (reported whatever the verdict, as for llama3.1:8b): S per seed, num_keep sent, observed shift
+n_keep, task-line n_keep, token-cut keep and `--keep` values, shift, cut and message-drop counts, per rule in use the
+rate, n and first failure turn per seed, system canary C and history canary H misses (H misses are expected), surfaced
+errors.
+
+**Known limits, stated before the run.** One model, one tier, three seeds, one runtime (Ollama 0.34.4 on evo-x2). The
+code is the llama3.1:8b test's deployed side copy; modules it imports from `C:\apu\ovn` are whatever is deployed there
+when it runs (their blobs are recorded in the deployment amendment). A "one-line fix" means the rules hold, not that the
+session is otherwise equivalent (history is still dropped). Statistics convention as in the compared runs: no warm-up
+call, every turn scored. Duration: an ESTIMATE in register row `x2-queue-fill-1020-hours`, computed from measured
+session times before queueing. The job calls tq.advance() on exit and sets no pause.
+
+## PRE-REGISTRATION: protocol consistency extended to qwen3:8b, B3 v2 tasks validation and task real run (x2_evalset_tasks_val_v2_qwen3_8b, x2_evalset_tasks_real_v2_qwen3_8b) on evo-x2 (2026-10-21, NOT YET RUN)
+
+**Status:** PRE-REGISTRATION, written and committed before the code for these two jobs is written or deployed and
+before evo-x2's queue is edited for them. No data for either job exists. It extends "PRE-REGISTRATION: protocol
+consistency, B3 v2 task real runs x2_evalset_tasks_real_v2 on evo-x2 (2026-10-19)" and its amendment, whose texts are
+not edited, and applies the same measures and decision rules to a second model. The deviation note of 2026-10-19 (task
+end-state waiver) does not apply here: it is qwen3:14b-only at 80/90 and is not extended.
+
+**Why.** The protocol-consistency run tested one model. Its results (pasted): register row
+`x2-evalset-tasks-real-v2-gated-excess` "num_ctx_4096: v2 5/5 vs default 0/5, excess +1.000 (95% CI +1.000 to +1.000);
+v1b excess +0.800 (95% CI +0.400 to +1.000); reading: the v1b effect holds"; register row
+`x2-evalset-tasks-real-v2-wrong-rate` "ollama_ctx_8192 excess over default +24.0 points (95% CI +18.7 to +29.3, 5 vs 5
+sessions); reading: ollama_ctx_8192 raises the wrong-task rate; ollama_ctx_4096 excess over default +30.7 points (95% CI
++26.0 to +34.7, 5 vs 5 sessions); reading: ollama_ctx_4096 raises the wrong-task rate". So impact problem P1 rests on
+qwen3:14b alone. llama3.1:8b cannot be the second model: its v2 tasks validation failed (register row
+`x2-evalset-val-v2-gates`, pasted: "tasks llama3.1:8b (run finished True): ... failing gates: baseline,
+negative_control, task_end_state"). qwen3:8b is the other model that passed its R2 validation for v1b and has v1b values
+at every tier.
+
+**Job 1, validation.** Queue id `x2_evalset_tasks_val_v2_qwen3_8b`, output
+`results/x2_evalset_tasks_val_v2_qwen3_8b.jsonl`. The tasks validation exactly as `x2_evalset_tasks_val_v2` ran it
+(`harness/x2_r2_evalset.py --design v2 --mode validation --workload evalset --guardrails off`, docs/EVALSET_DESIGN.md
+design v2: tool loop with tools on every call and up to 4 tool rounds, FILLER_TOKENS_PER_TURN_V2 filler tokens a turn,
+negative control at num_ctx 131072 on seeds 20260901 to 20260903 with the 30-task session, positive control at num_ctx
+8192 on seed 20260901 for POS_TURNS_V2 turns, "think": false, temperature 0, seed 42, num_predict 384), with `--models
+qwen3:8b` only. Only the tasks validation runs: the real run below is the tasks workload, and the guardrail and replay
+validations gate other real runs. Gates: those of `x2-evalset-val-v2-gates` for a tasks validation (baseline rules 1 to
+5, negative control, positive control, content non-empty, thinking off, task tool, negative-control window, task end
+state; rules 6-8 do not apply with guardrails off). Register row `x2-evalset-tasks-val-v2-qwen3-8b-gates` (PENDING until
+the file is synced).
+
+**Job 2, real run.** Queue id `x2_evalset_tasks_real_v2_qwen3_8b`, output `results/x2_evalset_tasks_real_v2_qwen3_8b.jsonl`.
+The design of `x2_evalset_tasks_real_v2` unchanged except the model: tiers `ollama_default`, num_ctx 16384, 8192, 4096,
+and 4096 with options.num_keep = S (S measured per session with qwen3:8b's own tokenizer, render and count, sent on every
+request of that session); seeds 20260901 to 20260905; 30 task turns per session; 25 sessions; tool loop, think false,
+temperature 0, seed 42, num_predict 384. New harness options `--plan tasks_v2_qwen3_8b` (TASKS_V2_TIERS x
+TASKS_V2_SEEDS, model list qwen3:8b only) and `--preflight v2_strict`, which go together.
+
+**Gating, two independent locks.**
+1. Queue gate: the real-run entry carries `{"gate": {"requires_done": "x2_evalset_tasks_val_v2_qwen3_8b"}}` and sits
+   after the validation entry, so it cannot start before the validation has ended as "done".
+2. Preflight refusal (`v2_strict`), on the validation file named by `--rules-from`: qwen3:8b is admitted only if
+   `validation_preflight_ext` (design v2) admits it with no waiver (TE_DEVIATION is not consulted) and only qwen3:8b
+   allowed, AND every gate that `evaluate_gates_ext` reports for qwen3:8b passes: baseline (every rule 1 to 5 at or
+   above 90%), negative control, positive control, content non-empty, thinking off, task tool, negative-control window
+   and task end state (at least 90%). Any failing gate, a missing gate entry, a validation file that is not design v2 or
+   has no run_end, or any other model is a refusal. On refusal the job writes refused rows, ends with a "stopped:
+   refused" note, makes no model call and claims no result; the register rows then read "refused".
+This is stricter than the qwen3:14b preflight in one respect, stated now: a baseline rule below 90% refuses the model
+here, where the 2026-10-19 preflight only removed that rule from the rules in use. qwen3:14b passed every gate except
+task end state, so the two rules differ only by the waiver.
+
+**Measures, fixed now** (register rows `x2-evalset-tasks-real-v2-qwen3-8b-gated-excess` and
+`x2-evalset-tasks-real-v2-qwen3-8b-wrong-rate`, PENDING until the file is synced): measures 1 to 3 of the
+protocol-consistency pre-registration, computed the same way for qwen3:8b (gated after-window silent failures with the
+gated metrics from qwen3:8b's own v2 tasks validation, excess over the default with the v1b bootstrap, and the wrong-task
+rate over all task turns with its session-bootstrap excess over the default: 10000 resamples, seed 20261014).
+
+**v1b values for qwen3:8b** (pasted from `R2-v1b-excess-over-default`): num_ctx_16384 "qwen3:8b 0/5 vs default 0/5,
+excess +0.000 (95% CI +0.000 to +0.000)"; num_ctx_8192 "qwen3:8b 4/5 vs default 0/5, excess +0.800 (95% CI +0.400 to
++1.000)"; num_ctx_4096 "qwen3:8b 1/5 vs default 0/5, excess +0.200 (95% CI +0.000 to +0.600)".
+
+**Reading of the protocol question, fixed now** (the 2026-10-19 rule, `numbers_register.protocol_reading`, per tier):
+- 8192 (v1b CI lower bound above 0): "the v1b effect holds" if the v2 excess CI lower bound is above 0; "the v1b effect
+  is a protocol artifact" if the v2 CI includes 0 and its upper bound is below +0.800; "inconclusive" otherwise.
+- 16384 and 4096 (v1b CI lower bound not above 0): "v2 shows an excess v1b did not" if the v2 CI lower bound is above 0;
+  otherwise "no excess in either protocol".
+- num_keep: if the 4096 CI lower bound is above 0 and the 4096 + num_keep CI includes 0, "num_keep removes the 4096
+  excess for qwen3:8b"; if both lower bounds are above 0, "num_keep does not remove it"; otherwise "not shown either way".
+Worked out for a default of 0/5: at 8192, 3 or more of 5 sessions reads "holds", 2 of 5 "inconclusive", 0 or 1
+"protocol artifact". The rule above decides.
+
+**P1 on two models, fixed now.** Per tier, the wrong-task reading of each model ("<tier> raises the wrong-task rate",
+"no excess shown", "lower at <tier>") from its own register row. A tier where both qwen3:14b and qwen3:8b read "raises"
+is reported as a P1 effect on two models; a tier where only one does is reported as one model only, naming it. If
+qwen3:8b is refused or its run is invalid, P1 stays on one model and is reported so.
+
+**Validity (mechanical).** Run finished (run_end); qwen3:8b not refused; all 25 sessions completed with 30 task turns;
+every row requested its tier's num_ctx (none at the default); every request of every num_keep session carried
+options.num_keep = S with S > 0 recorded for that session; no turn rows for any other model. A failing run is reported
+"incomplete" with what is missing, and its rates are not read.
+
+**Known limits, stated before the run.** All limits of the 2026-10-19 pre-registration apply (v2 workload differs from
+v1b's; short sessions, so few turns remain after 16384 is exceeded; five sessions per cell; one runtime; num_keep
+verified as sent, not observed in the server log). qwen3:8b's own v1b ordering of 8192 against 4096 is under test
+separately (the next pre-registration); a v2 reading for qwen3:8b at those tiers is reported per tier and is not used to
+settle that question (different workload and protocol). If qwen3:8b's default window is exceeded in the v2 session its
+after-window default rate is not 0 by construction; the bootstrap handles it as for any tier. Durations: ESTIMATEs in
+register row `x2-queue-fill-1020-hours`. Both jobs call tq.advance() on exit and set no pause.
+
+## PRE-REGISTRATION: qwen3:8b at num_ctx 8192 vs 4096 with 10 seeds per tier, x2_r2_qwen3_8b_seeds_06_10 on evo-x2 (2026-10-21, NOT YET RUN)
+
+**Status:** PRE-REGISTRATION, written and committed before evo-x2's queue is edited for this job. No data for it
+exists. It follows the analysis section "qwen3:8b at 8192 vs 4096: the non-monotonic cell (2026-10-14)", which called a
+real effect "a hypothesis for a later run with more seeds"; that text is not edited.
+
+**Where it stands** (pasted): register row `R2-v1b-qwen3-8b-reversal` "num_ctx_8192: 4/5 gated silent ... num_ctx_4096:
+1/5 gated silent ... Fisher exact two-sided p (silent sessions, num_ctx_8192 vs num_ctx_4096) = 0.206"; register row
+`R2-v1b-excess-over-default` "num_ctx_8192: ... qwen3:8b 4/5 vs default 0/5, excess +0.800 (95% CI +0.400 to +1.000)"
+and "num_ctx_4096: ... qwen3:8b 1/5 vs default 0/5, excess +0.200 (95% CI +0.000 to +0.600)".
+
+**Job.** Queue id `x2_r2_qwen3_8b_seeds_06_10`, output `results/x2_r2_qwen3_8b_seeds_06_10.jsonl`, the R2 harness in
+real mode as v1b ran it, restricted to qwen3:8b, the two tiers and five new seeds: `x2_r2_agent.py --mode real --plan
+strong --call2-tools off --models qwen3:8b --tiers 8192,4096 --seeds 20260906,20260907,20260908,20260909,20260910
+--allow-new-seeds --rules-from C:\apu\ovn\results\x2_r2_validation_v2b.jsonl --require-validation-gates
+--per-model-refusal --order seed_major`. Arms `ollama_ctx_8192_call2_notools` and `ollama_ctx_4096_call2_notools` (v1
+call-2 protocol, tools withheld on a turn's second call), 40 turns, temperature 0, seed 42, num_predict 384, "think":
+false; 10 sessions. The harness is the `C:\apu\ovn\x2_r2_agent.py` already deployed (git blob 38882113, the copy that
+ran `x2_r2_scale_real`); v1b ran an earlier blob, and every option added since is off by default with its plan, argv,
+server start and run_start covered by `tests/test_x2_r2_agent_backcompat.py`. The blob is checked before queueing and
+recorded with an import and plan check (no model call).
+
+**Rules and gate.** Rules in use from the v2b validation as in v1b (register row `R2-validation-v2b-baseline`, pasted:
+"qwen3:8b: rule1 100.0%, rule2 100.0%, rule3 100.0%, rule4 100.0%, rule5 86.7%", so rules 1 to 4); the gated metrics
+are the v1b gate's for qwen3:8b (`analysis/r2_real_report.py::build_combined` with the v2b validation file: rules in use
+plus tool validity; tool arguments and recall excluded, as the reversal row states).
+
+**Pooling.** The five v1b sessions per tier (seeds 20260901 to 20260905, `results/x2_r2_real_v1b.jsonl`) plus the five
+new ones: 10 sessions at 8192 and 10 at 4096. The default tier stays at its five v1b sessions.
+
+**Primary test and verdict, fixed now** (register row `R2-qwen3-8b-reversal-10seed`, PENDING until the file is synced).
+Gated silent sessions per tier, the `silent` count of `R2-v1b-qwen3-8b-reversal` (a session counts when its first gated
+failure had no HTTP error or error field on an earlier turn). Two-sided Fisher exact test, 8192 vs 4096, 10 vs 10,
+alpha 0.05.
+- **reversal confirmed**: valid, p < 0.05, and the 8192 count is above the 4096 count.
+- **ordering of the other models**: valid, p < 0.05, and the 4096 count is above the 8192 count.
+- **resolved as noise**: valid and p >= 0.05. The paper then reports the cell as within noise at 10 sessions per tier,
+  with the pooled counts, and makes no claim that 4096 is safer for qwen3:8b.
+- **incomplete**: the validity rules below fail; nothing is read.
+Worked out (two-sided Fisher, 10 vs 10): p < 0.05 needs, for example, 7 vs 0 or 1, 8 vs 2 or fewer, 9 vs 3 or fewer;
+5 vs 0 and 6 vs 0 also reach it. From the current 4 vs 1, the new seeds would have to add at least 3 more at 8192 than
+at 4096 (for example 3 vs 0 or 4 vs 1). These follow from the test; the rule above decides.
+
+**Secondary, reported with fixed readings.** Excess over the default per tier for qwen3:8b (after-window gated silent
+rate at the tier, 10 sessions, minus the default's, 5 sessions) with the v1b bootstrap (95% percentile CI, 10000
+resamples, unit the session, stratified by tier x model, seed 20261014): CI lower bound above 0 reads "excess at
+<tier>", otherwise "no excess shown at <tier>". Also reported, not read: the new seeds alone per tier (a replication
+look, 5 vs 5), and per tier the turn-level counts of rule failure turns and system and history canary misses (turns
+within a session are not independent).
+
+**Validity (mechanical).** Run finished (run_end); qwen3:8b not refused; all 10 new sessions (2 tiers x seeds 20260906
+to 20260910) completed with 40 turns; every turn row of a new session requested its tier's num_ctx; the pooled v1b
+sessions are the 5 per tier with 40 turns that the reversal row reads.
+
+**Known limits, stated before the run.** Ten sessions per tier on one machine and runtime (Ollama 0.34.4 on evo-x2);
+the five new sessions per tier run about ten days after the v1b ones, on a later agent blob with the same defaults;
+seeds 20260906 to 20260910 generate new session content (facts, filler, tasks) with the same generator. A "resolved as
+noise" verdict says the difference is not shown at this n, not that the rates are equal. Statistics convention as in
+v1b: no warm-up call, every turn scored. Duration: an ESTIMATE in register row `x2-queue-fill-1020-hours`. The job
+calls tq.advance() on exit and sets no pause.
+
+## AMENDMENT (2026-10-21, before any data of these jobs): queue fill of 2026-10-21 deployed and queued on evo-x2
+
+This note follows the three pre-registrations above ("num_keep guardrail flag test for qwen3:14b", "protocol
+consistency extended to qwen3:8b", "qwen3:8b at num_ctx 8192 vs 4096 with 10 seeds per tier"), whose texts are not
+edited. No result data for these jobs existed when each was queued.
+
+- **Queue mechanics.** `harness/x2_queue_fill.py` (commits 872397d, 5960a69), deployed with `scripts/deploy_evo.py` to
+  the side directory `C:\apu\ovn\qfill` and verified with `run_provenance.verify_deployed_blobs`; `--append` makes one
+  read-modify-write of `C:\apu\ovn\queue_state.json` under `t2s_queue.set_pause` (reason names its release), cleared in
+  the same script's finally block, and checks the flag is gone. Both appends reported the pause flag absent afterwards.
+  Every entry's note says it releases itself via tq.advance() on exit and sets no pause. Nothing was launched by hand:
+  the watchdog (10-minute tick) launched the first entry, which cleared `queue_empty.flag`.
+- **x2_num_keep_qwen3_14b** (pre-registration 0c0c6e4): queue position 71, appended alone first so the idle machine
+  started working. No redeploy: `C:\apu\ovn\numkeep` verified (`x2_r2_agent.py` 082a48dc, `x2_num_keep.py` c2bb7c2d,
+  `x2_r2_sidecar.py` 8ff9d4aa, no problems); modules it takes from `C:\apu\ovn`: `t2s_r2_session_growth.py` 878952c7,
+  `t2s_queue.py` 22398580, `host_config.py` 3e542ba8, `x2_r2_client_trim.py` c96930d7, `x2_r2_mechanism.py` a80926e3,
+  `proc_util.py` 74cfea98. Import check on evo-x2 with no model call (`--sidecar-import-check`, plan
+  `ollama_ctx_4096_call2_notools` x seeds 20260901-03 x 40 turns, preflight on `x2_r2_validation_v2.jsonl` admits
+  qwen3:14b with rules 1 to 5 in use, qwen3:14b tokenizer found). The llama3.1:8b run's raw server log was copied to
+  `C:\apu\ovn\ollama_serve_num_keep_llama3.1_8b_20261015.log` before the job could truncate it. The watchdog launched it
+  at 2026-10-21 18:03:40Z (`watchdog.log`).
+- **x2_evalset_tasks_val_v2_qwen3_8b** and **x2_evalset_tasks_real_v2_qwen3_8b** (pre-registration e13ee1c; code
+  5960a69: `--plan tasks_v2_qwen3_8b`, `--preflight v2_strict`, tests on fakes and on the committed validation file in
+  `tests/test_x2_evalset_tasks_real_v2_qwen3_8b.py`): deployed to the new side directory `C:\apu\ovn\evalv2q8`
+  (`x2_r2_evalset.py` b263f0ed, `evalset_env.py` 4eae225f, `x2_num_keep.py` c2bb7c2d, verified, no problems);
+  `C:\apu\ovn\evalv2` and every root file untouched; `x2_r2_agent.py` comes from `C:\apu\ovn` (38882113), as for the
+  qwen3:14b v2 jobs. `--check-plan` on evo-x2 (no server, no model call): validation plan negative control 131072 x
+  seeds 20260901-03 x 30 turns and positive control 8192 x seed 20260901 x 30 turns, projection inside the v2 budget;
+  real plan the five tasks_v2 tiers x seeds 20260901-05 x 30 turns. The strict preflight run on the qwen3:14b file for
+  qwen3:8b refused it (no qwen3:8b sessions), as it must; the qwen3:8b tokenizer was found. Queue positions 72 and 73;
+  the real-run entry carries `{"gate": {"requires_done": "x2_evalset_tasks_val_v2_qwen3_8b"}}`.
+- **x2_r2_qwen3_8b_seeds_06_10** (pre-registration 8c2f686): no deploy; `C:\apu\ovn\x2_r2_agent.py` blob 38882113.
+  Import and plan check on evo-x2 (no model call): plan `ollama_ctx_8192_call2_notools` and `ollama_ctx_4096_call2_notools`
+  x seeds 20260906-10 x 40 turns, order seed_major; per-model preflight on `x2_r2_validation_v2b.jsonl` admits qwen3:8b
+  with rules 1 to 4. Queue position 74.
+- **Durations** (register row `x2-queue-fill-1020-hours`, an ESTIMATE, pasted): "x2_num_keep_qwen3_14b ESTIMATE 0.64 h
+  (high 0.65 h ...); projected 10-21 18:03Z to 10-21 18:42Z"; "x2_evalset_tasks_val_v2_qwen3_8b ESTIMATE 0.22 h (high
+  0.47 h ...); projected 10-21 18:42Z to 10-21 18:55Z"; "x2_evalset_tasks_real_v2_qwen3_8b ESTIMATE 2.11 h (high 3.16 h
+  ...); projected 10-21 18:55Z to 10-21 21:02Z"; "x2_r2_qwen3_8b_seeds_06_10 ESTIMATE 2.19 h (high 2.40 h ...);
+  projected 10-21 21:02Z to 10-21 23:13Z"; "total ESTIMATE 5.2 h (high 6.7 h) from 2026-10-21T18:03Z; queue ends 10-21
+  23:13Z (high 10-22 00:44Z); slack before 2026-11-10 00:00Z 456.8 h (high case 455.3 h)".
+- **H-scale default tier for qwen3:32b: not queued, already run.** The H-scale pre-registration (2026-10-14) fixed
+  "Ollama default (3 seeds, 40 turns) for qwen3:32b and qwen3-30b-a3b-2507", and `x2_r2_scale_real` ran it (register
+  row `x2-scale-real-default-tier`, pasted: "qwen3:32b: 3 default-tier sessions completed (seed 20260901: 40 turns,
+  6.18 h, loaded [40960], first over window 24; seed 20260902: 40 turns, 6.01 h, loaded [40960], first over window 25;
+  seed 20260903: 40 turns, 4.66 h, loaded [40960], first over window 26)"). A new run would duplicate pre-registered,
+  completed cells, so nothing was queued and no new pre-registration was written.
