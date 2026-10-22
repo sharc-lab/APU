@@ -1184,11 +1184,70 @@
   "num-keep-qwen3-14b": "VERIFIED",
   "x2-evalset-tasks-real-v2-qwen3-8b-wrong-rate": "VERIFIED",
   "x2-evalset-tasks-real-v2-mistral-small32-wrong-rate": "PENDING",
-  "T2S-vs-X2-default-ctx": "VERIFIED"
+  "T2S-vs-X2-default-ctx": "VERIFIED",
+  "t2s-config-comparison": "VERIFIED"
  },
- "fa_reading": null,
+ "fa_reading": "llama3.1:8b: the B5 speedup is KV precision, not flash attention; qwen3:14b: the B5 speedup is KV precision, not flash attention",
  "fa_control": {
-  "llama3.1:8b": null,
-  "qwen3:14b": null
+  "llama3.1:8b": {
+   "minutes_i": 43.4,
+   "window": 131072,
+   "valid": true,
+   "reading": "the B5 speedup is KV precision, not flash attention"
+  },
+  "qwen3:14b": {
+   "minutes_i": 206.6,
+   "window": 40960,
+   "valid": true,
+   "reading": "the B5 speedup is KV precision, not flash attention"
+  }
+ },
+ "t2s_config": {
+  "cpu|llama3.1:8b": {
+   "role": "naive",
+   "window": 4096,
+   "kept": 0,
+   "n": 5,
+   "saves_1000": {
+    "claude-haiku-5-5": 0.0,
+    "claude-sonnet-5-5": -374.93
+   }
+  },
+  "cpu|qwen3:14b": {
+   "role": "naive",
+   "window": 4096,
+   "kept": 0,
+   "n": 5,
+   "saves_1000": {
+    "claude-haiku-5-5": 0.0,
+    "claude-sonnet-5-5": -374.93
+   }
+  },
+  "igpu|llama3.1:8b": {
+   "role": "recommended",
+   "window": 32768,
+   "kept": 5,
+   "n": 5,
+   "saves_1000": {
+    "claude-haiku-5-5": 20.12,
+    "claude-sonnet-5-5": 306.1
+   }
+  },
+  "igpu|qwen3:14b": {
+   "role": "recommended",
+   "window": 32768,
+   "kept": 4,
+   "n": 5,
+   "saves_1000": {
+    "claude-haiku-5-5": 16.1,
+    "claude-sonnet-5-5": 169.89
+   }
+  }
+ },
+ "route_at_start": {
+  "text": "being measured",
+  "label": "being measured",
+  "src": null,
+  "present": false
  }
 }

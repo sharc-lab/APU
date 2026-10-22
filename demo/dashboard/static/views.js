@@ -79,7 +79,9 @@ function renderDevice(r) {
     const s = r.settings[k] || {};
     return `<div class="tile"><div class="k">${esc(name)} ${lab(s.label)}</div><div class="v small" style="font-size:16px">${num(s.value, s.src)}</div>${s.note ? `<div class="muted small">${esc(s.note)}</div>` : ""}</div>`;
   };
-  let h = `<p class="hero">${r.status !== "measured" ? lab(r.status) + " " : ""}${esc(r.basis)}</p>`;
+  const d = r.decision || {};
+  let h = d.text ? `<p class="lead">${esc(d.text)} ${lab(d.label)}${d.route_cost ? `<br><span class="small">Cost of routing the whole session at start: ${num(d.route_cost.text, d.route_cost.src)} ${lab(d.route_cost.label)}</span>` : ""}</p>` : "";
+  h += `<p class="hero">${r.status !== "measured" ? lab(r.status) + " " : ""}${esc(r.basis)}</p>`;
   h += `<div class="settings">${SETTING_NAMES.map(tile).join("")}</div>`;
   if (r.outcome.length) h += `<h3>Measured outcome</h3><ul>${r.outcome.map((o) => `<li>${lab(o.label)} ${num(o.text, o.src)}</li>`).join("")}</ul>`;
   if (r.excluded.length) h += `<h3>Excluded by the usability floor (timeout share above ${esc(r.max_timeout_share)})</h3><ul>${r.excluded.map((e) => `<li>${esc(e.config_id)}: ${num(e.reason, e.src)}</li>`).join("")}</ul>`;
@@ -128,8 +130,10 @@ function renderEscalationTask(e) {
         <p class="small">HTTP error: ${num(loc.any_http_error ? "yes" : "no", loc.src)}; graded end state: ${num(loc.end_state_ok ? "correct" : "wrong", loc.src)}; window ${num(loc.loaded_context, loc.src)}</p>
         <div class="answer">${esc(loc.tool_calls.length ? JSON.stringify(loc.tool_calls) : "(no tool call)")}\n${esc(loc.final_text)}</div>
         <p class="small muted">Expected: ${esc(JSON.stringify(t.expected_calls))}</p></div>
-      <div class="devcard"><h3>Cloud (${esc(t.cloud_model)}) ${lab(pr.label)}</h3>
-        <p class="lead">${esc(pr.text || "Cost to fix a wrong answer: being measured")}</p>
+      <div class="devcard"><h3>Cloud (${esc(t.cloud_model)}), recorded full-history redo of this task ${lab(pr.label)}</h3>
+        ${pr.usd != null
+          ? `<p><span class="big">${num("USD " + pr.usd.toFixed(4), pr.src)}</span>${pr.seconds != null ? ` in ${num(pr.seconds.toFixed(1) + " s", pr.src)}` : ""}</p>${pr.cloud_final_text ? `<div class="answer">${esc(pr.cloud_final_text)}</div>` : ""}`
+          : `<p class="lead">${esc(pr.text || "Cost to fix a wrong answer: being measured")}</p>`}
         <p class="small muted">${esc(pr.note || "")} Click "Send to the cloud" for one live call through the capped client.</p></div>
     </div>`;
   $("#esc-mode").innerHTML = escStatus(e.status);
@@ -137,13 +141,14 @@ function renderEscalationTask(e) {
 function renderEscalationResult(r) {
   const live = r.mode === "executed";
   $("#esc-result").innerHTML = `<div class="devcard">
-    <h3>${live ? "Cloud answer, live now" : "Not sent live"} ${lab(r.label)}</h3>
+    <h3>${live ? "Cloud answer, live now" : r.usd != null ? "Not sent live: recorded full-history redo of this task" : "Not sent live"} ${lab(r.label)}</h3>
     <p class="small">${esc(r.reason)}</p>
     <div class="settings">
-      <div class="tile"><div class="k">USD</div><div class="v">${r.usd == null ? "being measured" : "USD " + r.usd.toFixed(4)}</div><div class="muted small">${esc(live ? (r.usd_basis || "") : "")}</div></div>
+      <div class="tile"><div class="k">USD</div><div class="v">${r.usd == null ? "being measured" : num("USD " + r.usd.toFixed(4), live ? null : r.usd_src)}</div><div class="muted small">${esc(r.usd_basis || "")}</div></div>
       <div class="tile"><div class="k">Seconds</div><div class="v">${r.seconds == null ? "being measured" : r.seconds.toFixed(1) + " s"}</div></div>
     </div>
-    ${live ? `<div class="answer">${esc((r.tool_calls || []).length ? JSON.stringify(r.tool_calls) : "(no tool call)")}\n${esc(r.answer || "")}</div>` : ""}
+    ${live ? `<div class="answer">${esc((r.tool_calls || []).length ? JSON.stringify(r.tool_calls) : "(no tool call)")}\n${esc(r.answer || "")}</div>`
+      : r.answer ? `<div class="answer">${esc(r.answer)}</div>` : ""}
     <p class="muted small">${escStatus(r)}</p></div>`;
   $("#esc-mode").innerHTML = escStatus(r);
 }
@@ -179,6 +184,33 @@ function setStoryMode(on) {
   document.body.classList.toggle("story-on", on);
   if (!on) returnPanels();
 }
+// Step 4 trade-off: options as rows (savings per month at the stated volume, accuracy, silent wrong answers); the
+// ceiling is drawn only as a dotted line with its label, never as a row.
+function tradeoffHTML(t) {
+  if (!t || !t.featured) return `<p class="muted small">${lab("not measured")} trade-off row not parsed</p>`;
+  const v = String(t.volume);
+  const block = (r, title, label) => {
+    const opts = [["All-cloud", r.all_cloud], ["Naive local at the device default", r.naive_local], ["Hybrid, window-overflow flag", r.hybrid_flag]];
+    const vals = opts.map(([, o]) => o.saves[v]).concat([r.ceiling.saves[v], 0]);
+    const lo = Math.min(...vals), hi = Math.max(...vals), W = 560, L = 230, H = opts.length * 26 + 30;
+    const x = (u) => L + ((u - lo) / ((hi - lo) || 1)) * (W - L - 20);
+    let g = `<line class="ci" x1="${x(0)}" x2="${x(0)}" y1="4" y2="${H - 22}"/>`;
+    opts.forEach(([name, o], i) => {
+      const y = 8 + i * 26, x0 = x(Math.min(0, o.saves[v])), x1 = x(Math.max(0, o.saves[v]));
+      g += `<text x="${L - 8}" y="${y + 13}" text-anchor="end">${esc(name)}</text><rect class="bar${o.saves[v] < 0 ? " base" : ""}" x="${x0}" y="${y + 2}" width="${Math.max(1, x1 - x0)}" height="16" rx="2"/>`;
+    });
+    const cx = x(r.ceiling.saves[v]);
+    g += `<line x1="${cx}" x2="${cx}" y1="4" y2="${H - 22}" stroke="currentColor" stroke-dasharray="4 4"/><text x="${cx}" y="${H - 8}" text-anchor="middle">ceiling, no such detector</text>`;
+    const rows = opts.map(([name, o]) => `<tr><td>${esc(name)}</td><td class="n">${num("USD " + o.saves[v].toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }), t.src)}</td><td class="n">${num(`${o.correct}/${o.n} (${o.pct.toFixed(1)}%)`, t.src)}</td><td class="n">${o.silent == null ? "0" : num(o.silent, t.src)}${o.escalated != null ? `; escalated ${num(o.escalated, t.src)}` : ""}</td></tr>`).join("");
+    return `<h3>${esc(title)} ${lab(label)}</h3><svg class="bars" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(title)}">${g}</svg>
+      <div class="scroll"><table><tr><th>option</th><th>saves per month at ${Number(v).toLocaleString()} tasks/day</th><th>correct</th><th>wrong answers silent</th></tr>${rows}</table></div>
+      <p class="muted small">Side note, not an option: a detector for in-window wrong answers would save up to ${num("USD " + r.ceiling.saves[v].toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }), t.src)} at ${num(`${r.ceiling.correct}/${r.ceiling.n}`, t.src)} (ceiling, no such detector).</p>`;
+  };
+  const f = t.featured;
+  let h = block(f, `${f.device} at its default vs ${f.model}, B3 tasks`, f.device_label);
+  if (t.cpu) h += block(t.cpu, `${t.cpu.device} at 4096 vs ${t.cpu.model}, B3 tasks`, t.cpu.device_label);
+  return h;
+}
 function renderStory() {
   const steps = story.data.steps, st = steps[story.index], n = steps.length;
   $("#story-steps").innerHTML = steps.map((s, i) => `<li class="${i === story.index ? "cur" : i < story.index ? "done" : ""}"><button type="button" data-step="${i}">${s.n}</button></li>`).join("");
@@ -188,6 +220,7 @@ function renderStory() {
   $("#story-back").disabled = story.index === 0;
   $("#story-next").textContent = story.index === n - 1 ? "Finish: explore freely" : "Next";
   returnPanels();
+  $("#story-panel").innerHTML = st.panel === "tradeoff" ? tradeoffHTML(st.tradeoff) : "";
   const sel = STORY_PANELS[st.panel];
   if (sel && $(sel)) $("#story-panel").appendChild($(sel));
   if (st.panel === "device" && st.defaults && !story.deviceSet) {

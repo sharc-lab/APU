@@ -256,7 +256,7 @@ def build(out_dir: Path = CACHE, backend=None) -> dict:
     snap["cost.json"] = views.build_cost(reg)
     from demo.dashboard import escalate
     snap["escalation.json"] = escalate.build_escalation(REPO)
-    snap["story.json"] = views.build_story(reg, snap["silent.json"], snap["cost.json"], snap["escalation.json"])
+    snap["story.json"] = views.build_story(reg, snap["silent.json"], snap["cost.json"], snap["escalation.json"], REPO)
     sources = [REGISTER, *R2_FILES, *OUTCOME_FILES, "results/x2_chat_template_sources.jsonl"]
     sources += [h["src"] for h in snap["hardware.json"]] + [w["src"] for w in snap["workloads.json"]]
     if (REPO / MITIGATION_FILE).exists():

@@ -1,9 +1,32 @@
 {
  "lead": {
-  "text": "Cost to fix a wrong answer: being measured",
-  "label": "being measured",
-  "src": null,
-  "note": "The earlier cloud redo was a broken protocol run (thinking consumed the output budget); its figures are not shown. A corrected redo is running."
+  "text": "Fixing a wrong answer in the cloud costs about USD 0.02 (mean USD 0.0227, median USD 0.0169 per task, cache-priced); the cost is that the failure is silent.",
+  "label": "measured",
+  "src": {
+   "register": "cloud-redo-full-context"
+  },
+  "note": "Every wrong task of the qwen3:14b task run (197) re-run on claude-sonnet-5-5 with the full history and up to 2048 output tokens per call (the local run had 384): fixed 167/197 (84.8%, 95% Wilson CI 79.1% to 89.1%); of the 30 still wrong, 28 inherited the local model's earlier executed actions (the cloud also undid them, which the grader counts as wrong) and 2 are cloud model errors; mean 6.54 s per task.",
+  "full_redo": {
+   "fixed": 167,
+   "n": 197,
+   "pct": 84.8,
+   "ci_lo": 79.1,
+   "ci_hi": 89.1,
+   "mean_usd": 0.0227,
+   "median_usd": 0.0169,
+   "seconds_mean": 6.54,
+   "max_tokens": 2048,
+   "local_max_tokens": 384,
+   "model": "claude-sonnet-5-5",
+   "classes": {
+    "thinking_empty_at_cap": 0,
+    "earlier_state_repair": 28,
+    "tool_round_cap": 0,
+    "grader_issue": 0,
+    "missing_info": 0,
+    "cloud_model_error": 2
+   }
+  }
  },
  "items": [
   {
@@ -16,7 +39,7 @@
   },
   {
    "what": "Time saved by the measured setting, llama3.1:8b",
-   "text": "37.1 min per 40-turn session (85%): default 43.7 min vs kv_q4_0 6.6 min (flash attention and KV precision changed together; b5-fa-control has no reading yet)",
+   "text": "37.1 min per 40-turn session (85%): default 43.7 min vs kv_q4_0 6.6 min (b5-fa-control: llama3.1:8b: the B5 speedup is KV precision, not flash attention; qwen3:14b: the B5 speedup is KV precision, not flash attention)",
    "label": "measured",
    "src": {
     "register": "cost-cut-config-time"
@@ -24,7 +47,7 @@
   },
   {
    "what": "Time saved by the measured setting, qwen3:14b",
-   "text": "139.4 min per 40-turn session (65%): default 214.8 min vs kv_q8_0 75.4 min (flash attention and KV precision changed together; b5-fa-control has no reading yet)",
+   "text": "139.4 min per 40-turn session (65%): default 214.8 min vs kv_q8_0 75.4 min (b5-fa-control: llama3.1:8b: the B5 speedup is KV precision, not flash attention; qwen3:14b: the B5 speedup is KV precision, not flash attention)",
    "label": "measured",
    "src": {
     "register": "cost-cut-config-time"
@@ -48,7 +71,7 @@
   },
   {
    "what": "Wrong answers per day for one stated team (P1)",
-   "text": "being measured (it includes the cost to fix a wrong answer in the cloud)",
+   "text": "being measured (its register row still uses the earlier, broken redo's cost per wrong task; to be recomputed with the full-history redo)",
    "label": "being measured",
    "src": null
   }
@@ -62,6 +85,7 @@
   "text": "Router savings: not shown. Row b5-verdict is refuted on evo-x2 (the router policy was dominated); no register row supports a savings figure."
  },
  "register_ids": [
+  "cloud-redo-full-context",
   "x2-evalset-tasks-real-v2-wrong-rate",
   "cost-cut-config-time",
   "impact-P3",

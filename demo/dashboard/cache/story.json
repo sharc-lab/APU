@@ -97,12 +97,31 @@
   },
   {
    "n": 3,
-   "title": "The tool: pick a device and a model, get the measured setting",
+   "title": "The tool: decide at session start, per device and model",
    "minutes": 1,
    "items": [
     {
-     "text": "Each setting carries its label: measured, pending flash-attention control, or not measured. Where we have no data, it says so. Try evo-t2s Intel CPU next.",
+     "text": "For each device and model the tool decides at session start: run locally with the recommended setting, or send the whole session to the cloud from the start. Every setting carries its label; where we have no data it says not measured.",
      "label": null,
+     "src": null
+    },
+    {
+     "text": "evo-t2s Intel iGPU: kept local, measured by R2 session pass rate (not B3 task accuracy): llama3.1:8b 5/5, qwen3:14b 4/5 sessions",
+     "label": "measured",
+     "src": {
+      "register": "t2s-config-comparison"
+     }
+    },
+    {
+     "text": "evo-t2s Intel CPU: kept local, measured by R2 session pass rate (not B3 task accuracy): llama3.1:8b 0/5, qwen3:14b 0/5 sessions",
+     "label": "measured",
+     "src": {
+      "register": "t2s-config-comparison"
+     }
+    },
+    {
+     "text": "Cost of routing the whole session at start: being measured",
+     "label": "being measured",
      "src": null
     }
    ],
@@ -115,28 +134,159 @@
   },
   {
    "n": 4,
-   "title": "The money: a whole task in the cloud is not cheap, and the failure is silent",
+   "title": "The money: local saves the bill, and the screen shows what it costs",
    "minutes": 1,
    "items": [
     {
-     "text": "One long agent task (nebius-rebench-openhands, median 62 steps) sent whole to the cloud: USD 1.54 median, USD 2.63 p90 on claude-sonnet-5-5 at an assumed 70% cache hit rate; USD 0.08 on claude-haiku-5-5",
-     "label": "priced, not executed",
+     "text": "Local saves money, and the screen shows what it costs. Against claude-sonnet-5-5 at 1,000 tasks/day: all local on evo-x2 saves USD 306.10 a month at 80/90 (88.9%) correct versus 90/90 (100.0%) all-cloud, and 10 wrong answers are silent. The only measured detector, window overflow, escalates 0 tasks at this window. Catching in-window wrong answers needs a verifier we do not claim; the dotted line is that ceiling, no such detector.",
+     "label": "measured",
      "src": {
-      "register": "cloud-cost-per-real-task"
+      "register": "hybrid-savings-tradeoff"
      }
     },
     {
-     "text": "Cost to fix a wrong answer: being measured",
+     "text": "Fix after the fact: about 2 cents (mean USD 0.0227 per task, cache-priced), 84.8% fixed (95% Wilson CI 79.1% to 89.1%), but executed actions cannot be undone; decide up front instead. 28 of the 30 unfixed inherited the local model's earlier executed actions. (Full-history redo on claude-sonnet-5-5, up to 2048 output tokens per call; the local run had 384.)",
+     "label": "measured",
+     "src": {
+      "register": "cloud-redo-full-context"
+     }
+    },
+    {
+     "text": "evo-t2s Intel CPU at 4096 (projected, from evo-x2's 4096 tier): the window flag escalates 88 tasks and reaches 90/90, but the hybrid costs USD 359.80/month MORE than all-cloud against claude-sonnet-5-5 at 1,000 tasks/day: escalating with the full history costs more per task than a fresh cloud run",
+     "label": "projected",
+     "src": {
+      "register": "hybrid-savings-tradeoff"
+     }
+    },
+    {
+     "text": "Late full-history escalation versus a fresh cloud run: being measured",
      "label": "being measured",
      "src": null
     },
     {
-     "text": "Takeaway: sending every long task to the cloud is not cheap; escalating only the step that went wrong needs to know which step went wrong, and the failure is silent.",
+     "text": "Against claude-haiku-5-5 the escalation cost is interim (its all-cloud price): the full-history redo ran on claude-sonnet-5-5 only.",
      "label": null,
      "src": null
+    },
+    {
+     "text": "One long agent task (nebius-rebench-openhands, median 62 steps) sent whole to the cloud: USD 2.53 median on claude-sonnet-5-5 at an assumed 70% cache hit rate",
+     "label": "priced, not executed",
+     "src": {
+      "register": "cloud-cost-per-real-task"
+     }
     }
    ],
-   "panel": null
+   "panel": "tradeoff",
+   "tradeoff": {
+    "featured": {
+     "device": "evo-x2",
+     "setting": "ollama_default, default = best",
+     "device_label": "measured",
+     "model": "claude-sonnet-5-5",
+     "size": "B3 v2 tasks (30 tasks x 3 seeds), median",
+     "size_label": "measured; accuracy measured",
+     "all_cloud": {
+      "saves": {
+       "100": 0.0,
+       "1000": 0.0,
+       "10000": 0.0
+      },
+      "correct": 90,
+      "n": 90,
+      "pct": 100.0
+     },
+     "naive_local": {
+      "saves": {
+       "100": 30.61,
+       "1000": 306.1,
+       "10000": 3060.99
+      },
+      "correct": 80,
+      "n": 90,
+      "pct": 88.9,
+      "silent": 10
+     },
+     "hybrid_flag": {
+      "saves": {
+       "100": 30.61,
+       "1000": 306.1,
+       "10000": 3060.99
+      },
+      "correct": 80,
+      "n": 90,
+      "pct": 88.9,
+      "escalated": 0,
+      "silent": 10
+     },
+     "ceiling": {
+      "saves": {
+       "100": 23.04,
+       "1000": 230.43,
+       "10000": 2304.29
+      },
+      "correct": 90,
+      "n": 90,
+      "pct": 100.0
+     },
+     "escalation_interim": false
+    },
+    "cpu": {
+     "device": "evo-t2s Intel CPU",
+     "setting": "default, loaded window 4096",
+     "device_label": "projected",
+     "model": "claude-sonnet-5-5",
+     "size": "B3 v2 tasks (30 tasks x 3 seeds), median",
+     "size_label": "measured; accuracy projected from evo-x2's ollama_ctx_4096 tier",
+     "all_cloud": {
+      "saves": {
+       "100": 0.0,
+       "1000": 0.0,
+       "10000": 0.0
+      },
+      "correct": 90,
+      "n": 90,
+      "pct": 100.0
+     },
+     "naive_local": {
+      "saves": {
+       "100": 30.61,
+       "1000": 306.1,
+       "10000": 3060.99
+      },
+      "correct": 53,
+      "n": 90,
+      "pct": 58.9,
+      "silent": 37
+     },
+     "hybrid_flag": {
+      "saves": {
+       "100": -35.98,
+       "1000": -359.8,
+       "10000": -3597.97
+      },
+      "correct": 90,
+      "n": 90,
+      "pct": 100.0,
+      "escalated": 88,
+      "silent": 0
+     },
+     "ceiling": {
+      "saves": {
+       "100": 2.61,
+       "1000": 26.12,
+       "10000": 261.2
+      },
+      "correct": 90,
+      "n": 90,
+      "pct": 100.0
+     },
+     "escalation_interim": false
+    },
+    "volume": 1000,
+    "src": {
+     "register": "hybrid-savings-tradeoff"
+    }
+   }
   },
   {
    "n": 5,
@@ -152,12 +302,15 @@
      }
     },
     {
-     "text": "Cost to fix a wrong answer: being measured",
-     "label": "being measured",
-     "src": null
+     "text": "Recorded full-history cloud redo of this task: USD 0.0243, 4.2 s",
+     "label": "measured",
+     "src": {
+      "file": "results/cloud_redo_full_context_v1_part3.jsonl",
+      "line": 39
+     }
     },
     {
-     "text": "One click sends that turn to the cloud through the capped client (one call per demo run); without a network or key nothing is sent and the cost shows as being measured.",
+     "text": "One click sends that turn to the cloud through the capped client (one call per demo run); without a network or key the recorded full-history redo of the same task is shown.",
      "label": null,
      "src": null
     }
@@ -175,7 +328,12 @@
   "R2-v1b-gated-per-model",
   "cloud-cost-per-real-task",
   "b5-fa-control",
-  "b5-policy-metrics"
+  "b5-policy-metrics",
+  "cloud-redo-full-context",
+  "hybrid-savings-tradeoff",
+  "t2s-config-comparison",
+  "hybrid-route-at-start",
+  "late-escalation-cost-vs-fresh"
  ],
  "total_minutes": 5
 }

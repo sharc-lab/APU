@@ -340,7 +340,11 @@ def test_cost_docs_absent_then_present(tmp_path):
 
 def test_cost_endpoint_picks_up_summary_without_rebuild(app, tmp_path):
     c = get(app, "/api/cost")
-    assert c["lead"]["text"] == "Cost to fix a wrong answer: being measured"
+    # 2026-10-22 final pass: measured by the full-history redo, with the protocol difference, CI and caveat
+    assert c["lead"]["text"].startswith("Fixing a wrong answer in the cloud costs about USD 0.0")
+    assert c["lead"]["label"] == "measured" and c["lead"]["src"] == {"register": "cloud-redo-full-context"}
+    note = c["lead"]["note"]
+    assert "2048" in note and "384" in note and "Wilson CI" in note and "inherited" in note
     assert c["router"]["shown"] is False
     docs = {d["path"]: d for d in c["docs"]}
     assert docs[views.IMPACT_DOC]["present"] is True
@@ -385,12 +389,21 @@ def test_escalation_task_snapshot(app):
     assert t["available"] and t["tier"] == "ollama_ctx_4096" and t["local"]["end_state_ok"] is False
     assert t["local"]["any_http_error"] is False  # the wrong answer came back as a normal answer
     rd = t["redo"]
-    # 2026-10-22: nothing from the v1 redo: no cost, seconds, answer or source line, only "being measured"
-    assert rd == {"label": "being measured", "text": "Cost to fix a wrong answer: being measured", "note": rd["note"]}
-    assert "broken protocol" in rd["note"]
+    # the task's full-history redo (measured); never the v1 redo
+    assert rd["label"] == "measured" and rd["usd"] > 0 and rd["seconds"] > 0 and rd["cloud_final_text"]
+    assert rd["src"]["file"].startswith("results/cloud_redo_full_context_v1") and rd["src"]["line"]
+    assert "2048" in rd["note"] and "cloud_redo_v1" not in json.dumps(rd)
 
 
-STUB_MODES = ("being measured",)
+def test_full_redo_of_missing_task_is_being_measured(tmp_path):
+    from demo.dashboard import escalate
+    rd = escalate.full_redo_of(tmp_path, "nope", 1)
+    assert rd["label"] == "being measured" and "usd" not in rd
+    stub = escalate.Escalator({"available": True, "redo": rd}, ledger=tmp_path / "l.jsonl", env={}).run()
+    assert stub["mode"] == "being measured" and stub["usd"] is None and stub["answer"] is None
+
+
+STUB_MODES = ("recorded redo", "being measured")
 
 
 def v1_redo_figures() -> list[str]:
@@ -425,16 +438,29 @@ def test_no_v1_redo_figure_anywhere(app, tmp_path):
     for where, body in bodies.items():
         for f in figs:  # whole-figure match: "4.8 s" must not match inside "314.8 s"
             assert not re.search(r"(?<![\w.])" + re.escape(f), body), (where, f)
-    assert "Cost to fix a wrong answer: being measured" in bodies["/api/cost"]
-    assert "Cost to fix a wrong answer: being measured" in bodies["/api/story"]
+    assert "cloud-redo-full-context" in bodies["/api/cost"]  # the measured basis that replaced it
+
+
+def test_fix_rate_only_with_ci_and_inherited_caveat(app):
+    """Wherever a cloud fix rate is shown (story, cost panel), the same text carries its 95% Wilson CI and the
+    inherited-actions caveat."""
+    texts = [i["text"] for st in get(app, "/api/story")["steps"] for i in st["items"]]
+    c = get(app, "/api/cost")
+    texts += [c["lead"]["text"], c["lead"].get("note") or ""] + [i["text"] for i in c["items"]]
+    shown = [t for t in texts if re.search(r"\d% fixed|fixed \d+/\d+", t)]
+    assert shown, "the fix rate should now be shown"
+    for t in shown:
+        assert "Wilson CI" in t and "inherited the local model's earlier executed actions" in t, t
 
 
 def test_escalation_stub_when_live_off(app, tmp_path):
     rec = []
     e = make_escalator(app, tmp_path, fake_completion([], rec), env_live=False)
     r = e.run()
-    assert r["mode"] == "being measured" and r["label"] == "being measured" and "live calls are off" in r["reason"]
-    assert (r["usd"], r["seconds"], r["answer"], r["usd_src"]) == (None, None, None, None)
+    rd = app.cache.escalation["redo"]
+    assert r["mode"] == "recorded redo" and r["label"] == "measured" and "live calls are off" in r["reason"]
+    assert (r["usd"], r["seconds"], r["answer"], r["usd_src"]) == (rd["usd"], rd["seconds"], rd["cloud_final_text"],
+                                                                    rd["src"])
     assert rec == [] and not (tmp_path / "ledger.jsonl").exists()
 
 
@@ -514,7 +540,8 @@ def test_views_js_renders_every_view(app, tmp_path):
     assert "KV cache precision" in out["#device-body"]
     assert "USD 0.0174" in out["#esc-result"] and "14.0 s" in out["#esc-result"]
     for k in ("#cost-body", "#esc-task", "#esc-result"):  # no cloud fix rate or graded cloud result on screen
-        assert "40.1%" not in out[k] and "Graded end state" not in out[k] and "fixed" not in out[k].lower(), k
+        assert "40.1%" not in out[k] and "Graded end state" not in out[k], k  # never the v1 fix rate
+    assert "Wilson CI" in out["#cost-body"] and "inherited" in out["#cost-body"]
     # story mode: starts on step 1 in story mode, Next walks 1..5, Back steps back, Next past 5 leaves story mode
     w = out["story"]
     assert [s["indicator"].split(",")[0] for s in w[:5]] == [f"Step {i} of 5" for i in range(1, 6)]
@@ -523,8 +550,8 @@ def test_views_js_renders_every_view(app, tmp_path):
     assert w[0]["panel"] == "#silent-body" and w[2]["panel"] == "#device-wrap" and w[4]["panel"] == "#esc-wrap"
     assert w[6]["story_on"] is False  # free exploration after step 5
     assert "5/5" in w[0]["items"] and "42.0%" in w[0]["items"] and "30.0%" in w[1]["items"]
-    assert "Cost to fix a wrong answer: being measured" in w[3]["items"] and "40.1" not in w[3]["items"]
-    assert "USD 0.02" not in w[3]["items"]
+    assert "Fix after the fact: about 2 cents" in w[3]["items"] and "40.1" not in w[3]["items"]
+    assert "ceiling, no such detector" in w[3]["items"]
     assert out["nav"] == [{"index": 0, "explore": False}, {"index": 1, "explore": False},
                           {"index": 4, "explore": True}, {"index": 4, "explore": False}, {"index": 3, "explore": True}]
 
@@ -535,7 +562,7 @@ def test_story_steps_from_committed_files(app):
     s = get(app, "/api/story")
     steps = s["steps"]
     assert [st["n"] for st in steps] == [1, 2, 3, 4, 5] and s["total_minutes"] == 5
-    assert [st["panel"] for st in steps] == ["silent", None, "device", None, "escalate"]
+    assert [st["panel"] for st in steps] == ["silent", None, "device", "tradeoff", "escalate"]
     allowed = set(views.LABELS) | {None}
     for st in steps:
         assert st["items"], st["title"]
@@ -547,12 +574,78 @@ def test_story_steps_from_committed_files(app):
     assert "4096" in text and "32768" in text and "5/5" in text and "11.3%" in text and "42.0%" in text
     assert "30.0%" in text and "two-call pattern" in text and "resists rule loss" in text
     money = steps[3]["items"]
-    assert any(i["label"] == "priced, not executed" and "median 62 steps" in i["text"] for i in money)
-    assert any(i["text"] == "Cost to fix a wrong answer: being measured" and i["label"] == "being measured"
-               for i in money)
-    assert "fixed" not in text.lower() and "40.1" not in text and "savings" not in text.lower()
-    assert "USD 0.02" not in text and "recorded" not in text.lower()
-    assert any(i["text"] == "Cost to fix a wrong answer: being measured" for i in steps[4]["items"])
+    # step 4 leads with the measured trade-off (the prepared IMPACT.md text), then the fix-after-the-fact line
+    assert money[0]["label"] == "measured" and money[0]["src"] == {"register": "hybrid-savings-tradeoff"}
+    assert money[0]["text"].startswith("Local saves money")
+    fix = next(i for i in money if i["text"].startswith("Fix after the fact: about 2 cents"))
+    assert fix["label"] == "measured" and fix["src"] == {"register": "cloud-redo-full-context"}
+    assert "mean USD 0.0227" in fix["text"] and "84.8% fixed" in fix["text"] and "Wilson CI 79.1% to 89.1%" in fix["text"]
+    assert "28 of the 30 unfixed inherited" in fix["text"] and "decide up front instead" in fix["text"]
+    assert "2048" in fix["text"]
+    cpu = next(i for i in money if i["text"].startswith("evo-t2s Intel CPU at 4096"))
+    assert "MORE than all-cloud" in cpu["text"] and cpu["label"] == "projected"
+    assert any("interim" in i["text"] and "claude-haiku-5-5" in i["text"] for i in money)
+    assert any(i["label"] == "priced, not executed" and "USD 2.53 median" in i["text"] for i in money)
+    late = next(i for i in money if i["text"].startswith("Late full-history escalation"))
+    assert late["label"] in ("being measured", "measured")
+    # the ceiling is never a headline item and never an option in the trade-off table
+    assert not any(i["text"].lower().startswith("ceiling") for i in money)
+    t = steps[3]["tradeoff"]["featured"]
+    assert set(t) >= {"all_cloud", "naive_local", "hybrid_flag", "ceiling"} and t["model"] == "claude-sonnet-5-5"
+    assert t["naive_local"]["silent"] == 10 and t["device_label"] == "measured"
+    assert "40.1" not in text and "savings" not in text.lower()
+    # step 3: the decision at session start and the kept-local label; step 5: the recorded full-history redo
+    assert "decides at session start" in text and "measured by R2 session pass rate (not B3 task accuracy)" in text
+    assert any(i["text"].startswith("Recorded full-history cloud redo of this task") for i in steps[4]["items"])
+
+
+def test_story_tradeoff_parsers():
+    row = ("x / evo-x2 (ollama_default, default = best) [measured] vs claude-sonnet-5-5, B3 v2 tasks (30 tasks x 3 "
+           "seeds), median [measured; accuracy measured]: all-cloud saves 0, accuracy 90/90 (100.0%); naive local saves "
+           "30.61 / 306.10 / 3,060.99, accuracy 80/90 (88.9%), 10 wrong answers silent; hybrid flag saves 30.61 / 306.10 "
+           "/ 3,060.99, accuracy 80/90 (88.9%), escalated 0, 10 wrong answers silent; ceiling, no such detector: saves "
+           "23.04 / 230.43 / 2,304.29, accuracy 90/90 (100.0%) / evo-t2s Intel CPU (default, loaded window 4096) "
+           "[projected] vs claude-sonnet-5-5, B3 v2 tasks (30 tasks x 3 seeds), median [measured]: all-cloud saves 0, "
+           "accuracy 90/90 (100.0%); naive local saves 30.61 / 306.10 / 3,060.99, accuracy 53/90 (58.9%), 37 wrong "
+           "answers silent; hybrid flag saves -35.98 / -359.80 / -3,597.97, accuracy 90/90 (100.0%), escalated 88, 0 "
+           "wrong answers silent; ceiling, no such detector: saves 2.61 / 26.12 / 261.20, accuracy 90/90 (100.0%)")
+    t = views.parse_tradeoff("escalation cost interim for claude-haiku-5-5: x; " + row)
+    assert [r["device"] for r in t] == ["evo-x2", "evo-t2s Intel CPU"]
+    assert t[0]["naive_local"]["saves"][1000] == 306.10 and t[0]["ceiling"]["saves"][10000] == 2304.29
+    assert t[1]["hybrid_flag"]["saves"][1000] == -359.80 and t[1]["hybrid_flag"]["escalated"] == 88
+    assert not any(r["escalation_interim"] for r in t)  # interim applies to haiku only
+    fr = views.parse_full_redo("model claude-sonnet-5-5, x; part 2: max_tokens 2048 (max_tokens 2048 per cloud call vs "
+                               "the local run's 384); fixed 167/197 (84.8%) of the wrong tasks, 95% Wilson CI over tasks "
+                               "[79.1%, 89.1%] (x); USD per task (cache-priced) mean $0.0227, median $0.0169, total "
+                               "$4.4721; seconds per task mean 6.54, median 5.89; still wrong by class: "
+                               "thinking_empty_at_cap 0, earlier_state_repair 28, cloud_model_error 2")
+    assert (fr["fixed"], fr["n"], fr["ci_lo"], fr["ci_hi"], fr["mean_usd"], fr["max_tokens"]) == (
+        167, 197, 79.1, 89.1, 0.0227, 2048)
+    assert fr["classes"] == {"thinking_empty_at_cap": 0, "earlier_state_repair": 28, "cloud_model_error": 2}
+    line = views.fix_after_the_fact(fr)
+    assert line.startswith("Fix after the fact: about 2 cents (mean USD 0.0227 per task, cache-priced), 84.8% fixed "
+                           "(95% Wilson CI 79.1% to 89.1%), but executed actions cannot be undone; decide up front")
+    assert "28 of the 30 unfixed inherited" in line
+    assert views.optional_row({}, "hybrid-route-at-start")["label"] == "being measured"
+    cfg = views.parse_t2s_config("naive: Intel CPU, Ollama default qwen3:14b: loaded window 4096, gated silent 5/5 "
+                                 "sessions, kept local (measured by R2 session pass rate (not B3 task accuracy)) 0/5 = "
+                                 "0.00; vs claude-sonnet-5-5: saves USD -37.49 at 100/day, -374.93 at 1,000/day, x")
+    assert cfg["cpu|qwen3:14b"]["kept"] == 0 and cfg["cpu|qwen3:14b"]["saves_1000"]["claude-sonnet-5-5"] == -374.93
+
+
+def test_device_decision_and_kept_local_label(app):
+    x2 = get(app, "/api/device/recommend?device=evo-x2&model=qwen3:14b&workload=r2_agent")
+    assert x2["decision"]["route"] == "local" and x2["status"] == "measured"
+    # the verified flash-attention control reads KV precision: q8_0 measured, with that attribution
+    assert x2["settings"]["kv_precision"] ["value"] == "q8_0" and x2["settings"]["kv_precision"]["label"] == "measured"
+    assert any("KV precision, not flash attention" in c for c in x2["caveats"])
+    cpu = get(app, "/api/device/recommend?device=evo-t2s-cpu&model=qwen3:14b&workload=r2_agent")
+    assert cpu["decision"]["route"] == "cloud"
+    assert any("measured by R2 session pass rate (not B3 task accuracy)" in o["text"] for o in cpu["outcome"])
+    assert cpu["kept_local"]["label"] == "measured by R2 session pass rate (not B3 task accuracy)"
+    assert cpu["decision"]["route_cost"]["label"] in ("being measured", "measured")
+    blade = get(app, "/api/device/recommend?device=blade&model=qwen3:14b&workload=r2_agent")
+    assert blade["decision"]["label"] == "not measured"
 
 
 def test_story_parsers():

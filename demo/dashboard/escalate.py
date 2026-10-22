@@ -14,7 +14,8 @@ The call. Escalator.run() makes AT MOST ONE provider request per demo run (one E
   - one request with the task's tools offered (no tool round trips); the page shows its cost, seconds and answer, no
     graded result (the redo's fix rate is under diagnosis, operator 2026-10-21).
 Anything else (no flag, no key, host refused, cap reached, provider error, a second click) returns the stub: nothing
-is sent, no figure is shown, and the cost reads "Cost to fix a wrong answer: being measured", with the reason. The key is never printed,
+is sent; the page shows this task's recorded full-history redo (results/cloud_redo_full_context_v1*.jsonl, row
+cloud-redo-full-context: USD, seconds, answer, measured) or, without one, "being measured", with the reason. The key is never printed,
 logged, written or returned; error text is scrubbed of it before it reaches the page.
 
 CLI (development; one live call at most, same rules):
@@ -125,11 +126,42 @@ def build_escalation(repo: Path = REPO) -> dict:
                                                           and x.get("attempt_id") == r["attempt_id"]
                                                           and x.get("turn_idx") == r["turn_idx"])}},
         # No figure, answer or source line from the v1 redo (operator 2026-10-22: a broken protocol run, thinking
-        # consumed the output budget). The redo file only supplies the list of wrong tasks to pick from.
-        "redo": {"label": BEING_MEASURED, "text": FIX_COST_TEXT, "note": V1_NOTE},
+        # consumed the output budget); the v1 file only supplies the list of wrong tasks. The task's redo shown is the
+        # full-history redo (row cloud-redo-full-context), or "being measured" if it has no row for this task.
+        "redo": full_redo_of(repo, r["attempt_id"], r["turn_idx"]),
         "selection": f"tier {TIER}, state-changing task with a writes-only reference (one call is gradable), "
                      "smallest local prompt among the redo file's wrong tasks",
     }
+
+
+FULL_REDO_FILES = ("results/cloud_redo_full_context_v1.jsonl", "results/cloud_redo_full_context_v1_part2.jsonl",
+                   "results/cloud_redo_full_context_v1_part3.jsonl")
+FULL_REDO_NOTE = ("Full-history redo on the cloud model (row cloud-redo-full-context): the whole transcript, thinking "
+                  "between tools, up to 2048 output tokens per call (the local run had 384).")
+
+
+def full_redo_of(repo: Path, attempt_id: str, turn_idx: int) -> dict:
+    """This task's row in the full-history redo files (the last one wins: later parts supersede earlier rows):
+    USD (cache-priced), seconds and answer, labelled measured; 'being measured' if there is none."""
+    hit = None
+    for rel in FULL_REDO_FILES:
+        p = repo / rel
+        if not p.exists():
+            continue
+        with open(p, encoding="utf-8") as fh:
+            for i, line in enumerate(fh, 1):
+                if not line.strip():
+                    continue
+                r = json.loads(line)
+                if r.get("record") == "cloud_redo_task" and r.get("attempt_id") == attempt_id \
+                        and r.get("turn_idx") == turn_idx and r.get("mode") == "executed":
+                    hit = (rel, i, r)
+    if not hit:
+        return {"label": BEING_MEASURED, "text": FIX_COST_TEXT, "note": V1_NOTE}
+    rel, line, r = hit
+    return {"mode": "executed", "label": MEASURED, "usd": r.get("usd"), "seconds": r.get("seconds"),
+            "cloud_final_text": (r.get("cloud_final_text") or "")[:1500] or None, "model": r.get("model_id"),
+            "note": FULL_REDO_NOTE, "src": {"file": rel, "line": line}}
 
 
 def _scrub(text: str, env=None) -> str:
@@ -192,7 +224,14 @@ class Escalator:
             return p.name
 
     def stub(self, reason: str) -> dict:
-        """No live call: nothing is sent and nothing from the v1 redo is shown; the cost is 'being measured'."""
+        """No live call: the task's full-history redo (measured) if there is one, else 'being measured'. Nothing from
+        the v1 redo is ever shown."""
+        rd = self.task.get("redo") or {}
+        if rd.get("usd") is not None:
+            return {"mode": "recorded redo", "label": MEASURED,
+                    "reason": f"{reason}; showing this task's recorded full-history cloud redo",
+                    "answer": rd.get("cloud_final_text"), "tool_calls": None, "seconds": rd.get("seconds"),
+                    "usd": rd["usd"], "usd_src": rd.get("src"), "usd_basis": rd.get("note"), **self.status()}
         return {"mode": BEING_MEASURED, "label": BEING_MEASURED, "reason": f"{reason}; {FIX_COST_TEXT}",
                 "answer": None, "tool_calls": None, "seconds": None, "usd": None, "usd_src": None,
                 "usd_basis": FIX_COST_TEXT, **self.status()}

@@ -45,7 +45,9 @@ IMPACT_DOC = "docs/IMPACT.md"
 DEFAULT_MAX_TIMEOUT_SHARE = 0.05
 CLOUD_REDO_FILE = "results/cloud_redo_v1.jsonl"
 # Result files the views read at build time (added to the cache manifest with their sha256, and to the source viewer).
-VIEW_SOURCES = [*T2S_FILES.values(), B3_FILE, B5_FILE, CLOUD_REDO_FILE]
+FULL_REDO_FILES = ["results/cloud_redo_full_context_v1.jsonl", "results/cloud_redo_full_context_v1_part2.jsonl",
+                   "results/cloud_redo_full_context_v1_part3.jsonl"]
+VIEW_SOURCES = [*T2S_FILES.values(), B3_FILE, B5_FILE, CLOUD_REDO_FILE, *FULL_REDO_FILES, "docs/IMPACT.md"]
 
 SILENT_IDS = ["t2s-r2-real-cpu", "t2s-r2-real-igpu", "x2-evalset-tasks-real-v2-wrong-rate",
               "x2-evalset-tasks-real-v2-ci-units", "R2-v1b-gated-per-model", "R2-real-v1b-gated-kill"]
@@ -53,9 +55,9 @@ DEVICE_IDS = ["b5-policy-metrics", "b5-kv-recall", "b5-fa-control", "cost-cut-co
               "x2-evalset-tasks-real-v2-wrong-rate", "t2s-r2-real-cpu", "t2s-r2-real-igpu", "t2s-r2-mitigation-cpu",
               "R2-mitigation-v1-verdict", "x2-v3-usability", "H-scale-verdict", "x2-scale-real-default-tier",
               "num-keep-guardrail-test", "num-keep-qwen3-14b", "x2-evalset-tasks-real-v2-qwen3-8b-wrong-rate",
-              "x2-evalset-tasks-real-v2-mistral-small32-wrong-rate", "T2S-vs-X2-default-ctx"]
-COST_IDS = ["x2-evalset-tasks-real-v2-wrong-rate", "cost-cut-config-time", "impact-P3", "impact-total", "b5-verdict",
-            "b5-policy-metrics", "impact-hour-value"]
+              "x2-evalset-tasks-real-v2-mistral-small32-wrong-rate", "T2S-vs-X2-default-ctx", "t2s-config-comparison"]
+COST_IDS = ["cloud-redo-full-context", "x2-evalset-tasks-real-v2-wrong-rate", "cost-cut-config-time", "impact-P3",
+            "impact-total", "b5-verdict", "b5-policy-metrics", "impact-hour-value"]
 
 
 # Clauses of register rows the demo must not show, even in the click-through source dialog (operator 2026-10-21: the
@@ -449,6 +451,8 @@ def build_device(register: dict, repo: Path = REPO, r2_sessions: dict | None = N
         "status": {rid: (register[rid]["status"] if rid in register else "MISSING") for rid in DEVICE_IDS},
         "fa_reading": fa_control_reading(register),
         "fa_control": {m: fa_control_for(register, m) for m in parse_fa_control(val("b5-fa-control"))},
+        "t2s_config": parse_t2s_config(val("t2s-config-comparison")),
+        "route_at_start": optional_row(register, "hybrid-route-at-start"),
     }
 
 
@@ -614,7 +618,29 @@ def _rec_b3(dv: dict, model: str) -> dict:
             "alternatives": [{"tier": t["tier"], "pct": t["pct"], "wrong": t["wrong"], "n": t["n"]} for t in tiers]}
 
 
+KEPT_LOCAL_LABEL = "measured by R2 session pass rate (not B3 task accuracy)"
+
+
 def _rec_t2s(dv: dict, dev: str, model: str) -> dict | None:
+    """evo-t2s: the R2 recommendation plus the configuration comparison (row t2s-config-comparison): kept local is
+    measured by R2 session pass rate, not B3 task accuracy, and says so; savings are projected (R2 share stands for
+    the task share, an assumption of that row)."""
+    rec = _rec_t2s_core(dv, dev, model)
+    cfg = (dv.get("t2s_config") or {}).get(f"{dev}|{model}")
+    if rec and cfg:
+        src = reg_src("t2s-config-comparison")
+        rec["outcome"].append(_out(f"kept local, {KEPT_LOCAL_LABEL}: {cfg['kept']}/{cfg['n']} sessions", MEASURED,
+                                   src))
+        for cm, usd in sorted(cfg["saves_1000"].items()):
+            rec["outcome"].append(_out(f"saves USD {usd:,.2f}/month vs {cm} at 1,000 tasks/day "
+                                       f"({'costs more than all-cloud' if usd < 0 else 'kept local share x bill'})",
+                                       PROJECTED, src))
+        rec["register_ids"].append("t2s-config-comparison")
+        rec["kept_local"] = {"kept": cfg["kept"], "n": cfg["n"], "label": KEPT_LOCAL_LABEL}
+    return rec
+
+
+def _rec_t2s_core(dv: dict, dev: str, model: str) -> dict | None:
     rows = {m["model"]: m for m in dv["t2s"].get(dev, [])}
     m = rows.get(model)
     if not m:
@@ -712,7 +738,26 @@ def device_recommend(dv: dict, device: str, model: str, workload: str, points: l
                             "x2-scale-real-default-tier)")
             rec["register_ids"] = ["H-scale-verdict", "x2-scale-real-default-tier"]
     rec.setdefault("excluded", [])
+    rec["decision"] = session_start_decision(dv, rec, workload)
     return {"device": device, "model": model, "workload": workload, "max_timeout_share": max_timeout_share, **rec}
+
+
+def session_start_decision(dv: dict, rec: dict, workload: str) -> dict:
+    """The per-device decision at session start (operator 2026-10-22): local with the recommended setting where a
+    measured setting holds, otherwise the whole session to the cloud from the start. The route-at-start cost figures
+    come from row hybrid-route-at-start when it is on main, and read 'being measured' until then."""
+    if workload == "single_shot":
+        return {"route": None, "text": "per call (single-shot workload): no session to route", "label": None}
+    route_row = (dv.get("route_at_start") or {"text": "being measured", "label": BEING_MEASURED, "src": None})
+    if rec["status"] in (MEASURED, PENDING_FA):
+        route, text = "local", "Decide at session start: run locally with the recommended setting."
+    elif rec.get("outcome"):  # measured failure and no setting that holds it
+        route, text = "cloud", "Decide at session start: send the whole session to the cloud from the start."
+    else:
+        return {"route": None, "text": "Decide at session start: not measured for this device and model.",
+                "label": NOT_MEASURED, "route_cost": route_row}
+    return {"route": route, "text": text, "label": MEASURED, "basis": rec.get("register_ids", []),
+            "route_cost": route_row}
 
 
 # ── view 3: cost panel ─────────────────────────────────────────────────────────────────────────────────
@@ -735,17 +780,122 @@ def _num(s: str) -> float:
     return float(s.replace(",", ""))
 
 
+def parse_full_redo(value: str) -> dict | None:
+    """Row cloud-redo-full-context: fixed k/n with its 95% Wilson CI, USD per task mean / median (cache-priced),
+    seconds, the max_tokens protocol difference, and the still-wrong classes."""
+    m = re.search(r"fixed (\d+)/(\d+) \(([\d.]+)%\) of the wrong tasks, 95% Wilson CI over tasks \[([\d.]+)%, "
+                  r"([\d.]+)%\]", value or "")
+    u = re.search(r"USD per task \(cache-priced\) mean \$([\d.]+), median \$([\d.]+)", value or "")
+    if not m or not u:
+        return None
+    s = re.search(r"seconds per task mean ([\d.]+)", value)
+    mt = re.search(r"max_tokens (\d+) per cloud call vs the local run's (\d+)", value)
+    model = re.search(r"model ([\w.-]+)", value)
+    classes = {k: int(v) for k, v in re.findall(r"(\w+) (\d+)(?=,|$| \|)", (re.search(
+        r"still wrong by class: (.*)$", value) or [None, ""])[1])}
+    return {"fixed": int(m[1]), "n": int(m[2]), "pct": float(m[3]), "ci_lo": float(m[4]), "ci_hi": float(m[5]),
+            "mean_usd": float(u[1]), "median_usd": float(u[2]), "seconds_mean": float(s[1]) if s else None,
+            "max_tokens": int(mt[1]) if mt else None, "local_max_tokens": int(mt[2]) if mt else None,
+            "model": model[1] if model else None, "classes": classes}
+
+
+def fix_after_the_fact(fr: dict) -> str:
+    """The operator's step 4 line (2026-10-22), every number from row cloud-redo-full-context; the fix rate always
+    with its CI and the inherited-actions caveat."""
+    unfixed = fr["n"] - fr["fixed"]
+    inherited = fr["classes"].get("earlier_state_repair", 0)
+    return (f"Fix after the fact: about {round(fr['mean_usd'] * 100):.0f} cents (mean USD {fr['mean_usd']:.4f} per "
+            f"task, cache-priced), {fr['pct']:.1f}% fixed (95% Wilson CI {fr['ci_lo']:.1f}% to {fr['ci_hi']:.1f}%), "
+            f"but executed actions cannot be undone; decide up front instead. {inherited} of the {unfixed} unfixed "
+            f"inherited the local model's earlier executed actions. (Full-history redo on {fr['model']}, up to "
+            f"{fr['max_tokens']} output tokens per call; the local run had {fr['local_max_tokens']}.)")
+
+
+_TRADE_RE = re.compile(
+    r"(?P<device>evo-x2|evo-t2s Intel CPU) \((?P<setting>[^)]*)\) \[(?P<dev_label>\w+)\] vs (?P<model>claude-[\w.-]+), "
+    r"(?P<size>[^\[]+?) \[(?P<size_label>[^\]]*)\]: all-cloud saves 0, accuracy (?P<ac_k>\d+)/(?P<ac_n>\d+) "
+    r"\((?P<ac_p>[\d.]+)%\); naive local saves (?P<nl1>[-\d.,]+) / (?P<nl2>[-\d.,]+) / (?P<nl3>[-\d.,]+), accuracy "
+    r"(?P<nl_k>\d+)/(?P<nl_n>\d+) \((?P<nl_p>[\d.]+)%\), (?P<nl_silent>\d+) wrong answers silent; hybrid flag saves "
+    r"(?P<hf1>[-\d.,]+) / (?P<hf2>[-\d.,]+) / (?P<hf3>[-\d.,]+), accuracy (?P<hf_k>\d+)/(?P<hf_n>\d+) "
+    r"\((?P<hf_p>[\d.]+)%\), escalated (?P<hf_esc>\d+), (?P<hf_silent>\d+) wrong answers silent; ceiling, no such "
+    r"detector: saves (?P<ce1>[-\d.,]+) / (?P<ce2>[-\d.,]+) / (?P<ce3>[-\d.,]+), accuracy (?P<ce_k>\d+)/(?P<ce_n>\d+) "
+    r"\((?P<ce_p>[\d.]+)%\)")
+
+
+def parse_tradeoff(value: str) -> list[dict]:
+    """Row hybrid-savings-tradeoff: one dict per device x cloud model x task size, savings USD/month at 100 / 1,000 /
+    10,000 tasks/day and accuracy per option; the ceiling is kept apart (a field, never an option)."""
+    vols = (100, 1000, 10000)
+    out = []
+    for m in _TRADE_RE.finditer(value or ""):
+        g = m.groupdict()
+        opt = lambda p: {"saves": dict(zip(vols, (_num(g[p + "1"]), _num(g[p + "2"]), _num(g[p + "3"])))),  # noqa
+                         "correct": int(g[p + "_k"]), "n": int(g[p + "_n"]), "pct": float(g[p + "_p"])}
+        out.append({"device": g["device"], "setting": g["setting"], "device_label": g["dev_label"],
+                    "model": g["model"], "size": g["size"].strip(), "size_label": g["size_label"],
+                    "all_cloud": {"saves": dict.fromkeys(vols, 0.0), "correct": int(g["ac_k"]), "n": int(g["ac_n"]),
+                                  "pct": float(g["ac_p"])},
+                    "naive_local": {**opt("nl"), "silent": int(g["nl_silent"])},
+                    "hybrid_flag": {**opt("hf"), "escalated": int(g["hf_esc"]), "silent": int(g["hf_silent"])},
+                    "ceiling": opt("ce")})
+    interim = re.search(r"escalation cost interim for ([\w.-]+)", value or "")
+    for r in out:
+        r["escalation_interim"] = bool(interim) and r["model"] == interim[1]
+    return out
+
+
+def parse_t2s_config(value: str) -> dict:
+    """Row t2s-config-comparison: per (cpu|igpu, model) the kept-local share measured by R2 session pass rate and the
+    projected savings at 1,000 tasks/day per cloud model."""
+    out = {}
+    for part in (value or "").split(" / "):
+        m = re.search(r"(naive|recommended): Intel (CPU|iGPU), Ollama default ([\w.:-]+): loaded window (\d+), gated "
+                      r"silent (\d+)/(\d+) sessions, kept local \(measured by R2 session pass rate \(not B3 task "
+                      r"accuracy\)\) (\d+)/(\d+)", part)
+        if not m:
+            continue
+        saves = {mm[1]: _num(mm[2]) for mm in re.finditer(r"vs (claude-[\w.-]+): saves USD [-\d.,]+ at 100/day, "
+                                                          r"([-\d.,]+) at 1,000/day", part)}
+        out[f"{'cpu' if m[2] == 'CPU' else 'igpu'}|{m[3]}"] = {
+            "role": m[1], "window": int(m[4]), "kept": int(m[7]), "n": int(m[8]), "saves_1000": saves}
+    return out
+
+
+def optional_row(register: dict, rid: str) -> dict:
+    """A row that may not be on main yet (2026-10-22: hybrid-route-at-start, late-escalation-cost-vs-fresh): its first
+    clause, labelled measured, when VERIFIED; otherwise 'being measured'."""
+    r = _row(register, rid)
+    if r and r["status"] == "VERIFIED" and r["value"]:
+        return {"text": r["value"].split(";")[0].strip(), "label": MEASURED, "src": reg_src(rid), "present": True}
+    return {"text": "being measured", "label": BEING_MEASURED, "src": None, "present": False}
+
+
 def build_cost(register: dict) -> dict:
     def val(rid):
         r = _row(register, rid)
         return r["value"] if r else ""
 
     items = []
-    # 2026-10-22: no figure from the v1 cloud redo (results/cloud_redo_v1.jsonl, a broken protocol run). The lead says
-    # the cost is being measured; the full-history redo (row cloud-redo-full-context) replaces it in the final pass.
-    lead = {"text": FIX_COST_LEAD, "label": BEING_MEASURED, "src": None,
-            "note": "The earlier cloud redo was a broken protocol run (thinking consumed the output budget); its "
-                    "figures are not shown. A corrected redo is running."}
+    # The cost to fix a wrong answer is measured by the full-history redo (row cloud-redo-full-context). Nothing from
+    # the v1 redo (results/cloud_redo_v1.jsonl, a broken protocol run) is ever shown; that row stays withheld.
+    fr = parse_full_redo(val("cloud-redo-full-context"))
+    if fr:
+        lead = {"text": P1_LEAD.format(usd=f"{round(fr['mean_usd'], 2):.2f} (mean USD {fr['mean_usd']:.4f}, median "
+                                           f"USD {fr['median_usd']:.4f} per task, cache-priced)"),
+                "label": MEASURED, "src": reg_src("cloud-redo-full-context"),
+                "note": (f"Every wrong task of the qwen3:14b task run ({fr['n']}) re-run on {fr['model']} with the full "
+                         f"history and up to {fr['max_tokens']} output tokens per call (the local run had "
+                         f"{fr['local_max_tokens']}): fixed {fr['fixed']}/{fr['n']} ({fr['pct']:.1f}%, 95% Wilson CI "
+                         f"{fr['ci_lo']:.1f}% to {fr['ci_hi']:.1f}%); of the {fr['n'] - fr['fixed']} still wrong, "
+                         f"{fr['classes'].get('earlier_state_repair', 0)} inherited the local model's earlier executed "
+                         f"actions (the cloud also undid them, which the grader counts as wrong) and "
+                         f"{fr['classes'].get('cloud_model_error', 0)} are cloud model errors; mean "
+                         f"{fr['seconds_mean']:.2f} s per task."),
+                "full_redo": fr}
+    else:
+        lead = {"text": FIX_COST_LEAD, "label": BEING_MEASURED, "src": None,
+                "note": "The earlier cloud redo was a broken protocol run (thinking consumed the output budget); its "
+                        "figures are not shown. A corrected redo is running."}
     tiers = parse_wrong_rate(val("x2-evalset-tasks-real-v2-wrong-rate"))
     if tiers:
         lo, hi = min(tiers, key=lambda t: t["pct"]), max(tiers, key=lambda t: t["pct"])
@@ -770,7 +920,8 @@ def build_cost(register: dict) -> dict:
                       "label": PRICED, "src": reg_src("impact-P3")})
     # The P1 USD/day and the problem ranking both include the v1 redo cost, so they wait with it (2026-10-22).
     items.append({"what": "Wrong answers per day for one stated team (P1)",
-                  "text": "being measured (it includes the cost to fix a wrong answer in the cloud)",
+                  "text": "being measured (its register row still uses the earlier, broken redo's cost per wrong task; "
+                          "to be recomputed with the full-history redo)",
                   "label": BEING_MEASURED, "src": None})
     m = re.search(r"measured-only USD/day ([\d.]+)", val("impact-total"))
     if m:
@@ -830,7 +981,9 @@ def cost_view(cache, repo: Path = REPO) -> dict:
 
 STORY_IDS = ["t2s-r2-real-cpu", "t2s-r2-real-igpu", "x2-evalset-tasks-real-v2-wrong-rate",
              "R2-qwen3-14b-4096-reconciliation", "H-scale-verdict", "H-scale-family-verdict", "R2-v1b-gated-per-model",
-             "cloud-cost-per-real-task", "b5-fa-control", "b5-policy-metrics"]
+             "cloud-cost-per-real-task", "b5-fa-control", "b5-policy-metrics", "cloud-redo-full-context",
+             "hybrid-savings-tradeoff", "t2s-config-comparison", "hybrid-route-at-start",
+             "late-escalation-cost-vs-fresh"]
 
 
 def parse_reconciliation_rule2(value: str) -> dict:
@@ -881,7 +1034,22 @@ def _item(text, label, rid=None, src=None):
     return {"text": text, "label": label, "src": src or (reg_src(rid) if rid else None)}
 
 
-def build_story(register: dict, silent: dict, cost: dict, escalation: dict | None = None) -> dict:
+def impact_step4_text(repo: Path = REPO) -> str | None:
+    """The prepared story step 4 text from docs/IMPACT.md's <!-- oct29_demo_text --> block (generated there from
+    register row hybrid-savings-tradeoff): the quoted paragraph after 'Demo story step 4'."""
+    p = repo / IMPACT_DOC
+    if not p.exists():
+        return None
+    m = re.search(r"<!-- oct29_demo_text:begin -->(.*?)<!-- oct29_demo_text:end -->", p.read_text(encoding="utf-8"),
+                  re.S)
+    if not m:
+        return None
+    q = re.search(r"Demo story step 4[^\n]*\n+\s*\"(.+?)\"\s*$", m[1].strip(), re.S)
+    return " ".join(q[1].split()) if q else None
+
+
+def build_story(register: dict, silent: dict, cost: dict, escalation: dict | None = None,
+                repo: Path = REPO) -> dict:
     def val(rid):
         r = _row(register, rid)
         return r["value"] if r else ""
@@ -936,30 +1104,59 @@ def build_story(register: dict, silent: dict, cost: dict, escalation: dict | Non
             "H-scale-verdict"))
     steps.append({"n": 2, "title": "Why it is hard: the obvious fixes do not hold, and it depends on the model",
                   "minutes": 1, "items": s2, "panel": None})
-    # 3. the tool
-    steps.append({"n": 3, "title": "The tool: pick a device and a model, get the measured setting", "minutes": 1,
-                  "items": [_item("Each setting carries its label: measured, pending flash-attention control, or not "
-                                  "measured. Where we have no data, it says so. Try evo-t2s Intel CPU next.", None)],
-                  "panel": "device", "defaults": {"device": "evo-x2", "model": "qwen3:14b",
-                                                   "workload": "r2_agent"}})
-    # 4. the money
+    # 3. the tool: the per-device decision at session start
+    s3 = [_item("For each device and model the tool decides at session start: run locally with the recommended "
+                "setting, or send the whole session to the cloud from the start. Every setting carries its label; "
+                "where we have no data it says not measured.", None)]
+    cfg = parse_t2s_config(val("t2s-config-comparison"))
+    for key, name in (("igpu", "Intel iGPU"), ("cpu", "Intel CPU")):
+        rows = {k.split("|")[1]: v for k, v in cfg.items() if k.startswith(key + "|")}
+        if rows:
+            s3.append(_item(f"evo-t2s {name}: kept local, {KEPT_LOCAL_LABEL}: " + ", ".join(
+                f"{m} {v['kept']}/{v['n']}" for m, v in sorted(rows.items())) + " sessions", MEASURED,
+                "t2s-config-comparison"))
+    route = optional_row(register, "hybrid-route-at-start")
+    s3.append(_item(f"Cost of routing the whole session at start: {route['text']}", route["label"],
+                    src=route["src"]))
+    steps.append({"n": 3, "title": "The tool: decide at session start, per device and model", "minutes": 1,
+                  "items": s3, "panel": "device", "defaults": {"device": "evo-x2", "model": "qwen3:14b",
+                                                                "workload": "r2_agent"}})
+    # 4. the money: the measured trade-off first; the ceiling only as a side note
     s4 = []
+    trade = parse_tradeoff(val("hybrid-savings-tradeoff"))
+    pick = lambda dev, cm: next((r for r in trade if r["device"] == dev and r["model"] == cm  # noqa: E731
+                                 and r["size"].startswith("B3 v2 tasks")), None)
+    x2, cpu = pick("evo-x2", "claude-sonnet-5-5"), pick("evo-t2s Intel CPU", "claude-sonnet-5-5")
+    quote = impact_step4_text(repo)
+    if quote:
+        s4.append(_item(quote, MEASURED, "hybrid-savings-tradeoff"))
+    fr = parse_full_redo(val("cloud-redo-full-context"))
+    if fr:
+        s4.append(_item(fix_after_the_fact(fr), MEASURED, "cloud-redo-full-context"))
+    if cpu:
+        hf = cpu["hybrid_flag"]
+        s4.append(_item(f"evo-t2s Intel CPU at 4096 ({cpu['device_label']}, from evo-x2's 4096 tier): the window flag "
+                        f"escalates {hf['escalated']} tasks and reaches {hf['correct']}/{hf['n']}, but the hybrid "
+                        + (f"costs USD {abs(hf['saves'][1000]):,.2f}/month MORE than all-cloud against {cpu['model']} "
+                           f"at 1,000 tasks/day: escalating with the full history costs more per task than a fresh "
+                           f"cloud run" if hf["saves"][1000] < 0 else
+                           f"saves only USD {hf['saves'][1000]:,.2f}/month at 1,000 tasks/day"),
+                        PROJECTED, "hybrid-savings-tradeoff"))
+    late = optional_row(register, "late-escalation-cost-vs-fresh")
+    s4.append(_item("Late full-history escalation versus a fresh cloud run: " + late["text"], late["label"],
+                    src=late["src"]))
+    if any(r["escalation_interim"] for r in trade):
+        s4.append(_item("Against claude-haiku-5-5 the escalation cost is interim (its all-cloud price): the "
+                        "full-history redo ran on claude-sonnet-5-5 only.", None))
     tc = parse_task_cost(val("cloud-cost-per-real-task"))
     son = (tc.get("models") or {}).get("claude-sonnet-5-5")
-    hai = (tc.get("models") or {}).get("claude-haiku-5-5")
     if son:
         s4.append(_item(f"One long agent task ({tc['trace_set']}, median {tc['median_steps']} steps) sent whole to "
-                        f"the cloud: USD {son['realistic'][0]:.2f} median, USD {son['realistic'][1]:.2f} p90 on "
-                        f"claude-sonnet-5-5 at an assumed 70% cache hit rate" +
-                        (f"; USD {hai['realistic'][0]:.2f} on claude-haiku-5-5" if hai else ""),
-                        PRICED, "cloud-cost-per-real-task"))
-    lead = (cost or {}).get("lead")
-    if lead:
-        s4.append(_item(lead["text"], lead["label"], src=lead["src"]))
-    s4.append(_item("Takeaway: sending every long task to the cloud is not cheap; escalating only the step that went "
-                    "wrong needs to know which step went wrong, and the failure is silent.", None))
-    steps.append({"n": 4, "title": "The money: a whole task in the cloud is not cheap, and the failure is silent",
-                  "minutes": 1, "items": s4, "panel": None})
+                        f"the cloud: USD {son['realistic'][0]:.2f} median on claude-sonnet-5-5 at an assumed 70% "
+                        f"cache hit rate", PRICED, "cloud-cost-per-real-task"))
+    steps.append({"n": 4, "title": "The money: local saves the bill, and the screen shows what it costs",
+                  "minutes": 1, "items": s4, "panel": "tradeoff",
+                  "tradeoff": {"featured": x2, "cpu": cpu, "volume": 1000, "src": reg_src("hybrid-savings-tradeoff")}})
     # 5. one live escalation
     s5 = []
     esc = escalation or {}
@@ -974,9 +1171,15 @@ def build_story(register: dict, silent: dict, cost: dict, escalation: dict | Non
             s5.append(_item(f"The local model ({esc['local_model']}, {loc.get('loaded_context')} window) set {key} = "
                             f"{got[key]}; the standing instruction gives {want[key]}. HTTP error: "
                             f"{'yes' if loc.get('any_http_error') else 'no'}.", MEASURED, src=loc.get("src")))
-        s5.append(_item(FIX_COST_LEAD, BEING_MEASURED))
+        rd = esc.get("redo") or {}
+        if rd.get("usd") is not None:
+            s5.append(_item(f"Recorded full-history cloud redo of this task: USD {rd['usd']:.4f}" +
+                            (f", {rd['seconds']:.1f} s" if rd.get("seconds") is not None else ""),
+                            rd.get("label", MEASURED), src=rd.get("src")))
+        else:
+            s5.append(_item(FIX_COST_LEAD, BEING_MEASURED))
     s5.append(_item("One click sends that turn to the cloud through the capped client (one call per demo run); "
-                    "without a network or key nothing is sent and the cost shows as being measured.", None))
+                    "without a network or key the recorded full-history redo of the same task is shown.", None))
     steps.append({"n": 5, "title": "One live escalation: send the wrong task to the cloud", "minutes": 1,
                   "items": s5, "panel": "escalate"})
     return {"steps": steps, "register_ids": STORY_IDS, "total_minutes": sum(s["minutes"] for s in steps)}
