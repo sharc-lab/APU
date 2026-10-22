@@ -71,11 +71,14 @@ Click: Device "evo-x2", Model "qwen3:14b", Workload "Multi-turn agent session". 
 CPU" and Workload stays the same. Then "Blade 14".
 
 Say:
-- evo-x2 / qwen3:14b: "The measured best setting from the policy comparison: window 40960, KV cache q8_0, flash
+- evo-x2 / qwen3:14b: "The fastest measured setting from the policy comparison: window 40960, KV cache q8_0 with flash
   attention on, no num_keep, full history. Same rule and history scores as the default, 75.4 minutes per session
-  instead of 214.8." Measured, rows b5-policy-metrics and cost-cut-config-time.
-- Read the caveat line: "Flash attention was switched on together with q8_0; the control that separates them is still
-  open." Row b5-fa-control has no reading yet (its run is incomplete: "reading: not read (incomplete)").
+  instead of 214.8." The minutes are measured (rows b5-policy-metrics, cost-cut-config-time); the KV and flash
+  attention tiles are labelled "pending flash-attention control".
+- Read the caveat: "We switched flash attention on together with q8_0, so we do not yet know which of the two gives the
+  speedup. The control run that separates them has not read yet; when it does, this view recommends whichever one it
+  shows." Row b5-fa-control: VERIFIED, but its run is incomplete ("reading: not read (incomplete)"). Same for
+  llama3.1:8b (q4_0). Do not say "q8_0 makes it faster".
 - evo-t2s CPU / qwen3:14b: "Here nothing we measured holds the rules: the default loses them, and client-side trimming
   did not recover qwen3:14b. So the tool says not measured and does not invent a setting." Rows t2s-r2-real-cpu,
   t2s-r2-mitigation-cpu. (Switch the model to llama3.1:8b to show the one that trimming did recover.)
@@ -89,11 +92,11 @@ Click: nothing; scroll to C.
 
 Say:
 - Read the lead line exactly as the screen shows it. At commit time: "Fixing a wrong answer in the cloud costs about
-  USD 0.012 (median per wrong task; mean USD 0.020); the cost is that the failure is silent." Label: measured. Row
-  cloud-redo-cost-per-wrong-task: all 197 wrong tasks re-run on claude-sonnet-5-5 (mode executed), median USD 0.0122,
-  mean USD 0.0201, mean 6.89 s per task. Say "median" when you say the number.
-- Point at the tile beside it: "And the cloud fixed 79 of 197, 40.1%, graded by the same checker. Escalating is cheap,
-  but it is not a guaranteed fix." Measured, same row.
+  USD 0.02 (mean USD 0.0201, median USD 0.0122); the cost is that the failure is silent." Label: measured. Row
+  cloud-redo-cost-per-wrong-task: all 197 wrong tasks re-run on claude-sonnet-5-5 (mode executed), mean USD 0.0201,
+  median USD 0.0122, mean 6.89 s per task.
+- Cost only. Do not quote how many of the redone tasks the cloud got right: that figure is under diagnosis and is not
+  on screen (operator, 2026-10-21). If asked: "we are still checking the grading of the cloud redo".
 - "Measured first: how often it is wrong and silent, and the time the right setting saves (37.1 minutes per session for
   llama3.1:8b, 139.4 for qwen3:14b)." Measured, rows x2-evalset-tasks-real-v2-wrong-rate, cost-cut-config-time.
 - "Then the projections, which depend on an assumed team: USD 5.47 to 132.31 per day at 40 sessions a day." Label:
@@ -111,17 +114,16 @@ Say, before clicking:
 - "This is one real wrong answer from the qwen3:14b run at a 4096 window: book a meeting with the default length from
   the standing instructions. The local model booked 60 minutes; the instructions say 50. HTTP 200, no error." Measured,
   results/x2_evalset_tasks_real_v2.jsonl (the line is one click away).
-- Right card, before any click: "In the cloud redo run this exact task cost USD 0.0122, took 4.8 s, and was graded
-  correct: 50 minutes." Measured, results/cloud_redo_v1.jsonl (the line is one click away). Note that only 79 of 197
-  were fixed (view C); this one happens to be one of them.
+- Right card, before any click: "In the cloud redo run this exact task cost USD 0.0122 and took 4.8 s; here is its
+  answer." Measured, results/cloud_redo_v1.jsonl (the line is one click away). Read the answer; do not call it right or
+  wrong (no graded cloud result is shown while the redo's grading is under diagnosis).
 
-After clicking, read the three tiles:
-- Live (label measured): "The cloud answer, what it cost, how long it took, and whether the same grader marks it
-  correct." This is one call, n = 1, with tools offered and no tool round trips: say "one call", not "the cloud fixes
-  these".
+After clicking, read the two tiles and the answer:
+- Live (label measured): "What it cost, how long it took, and what the cloud answered." This is one call, n = 1, with
+  tools offered and no tool round trips: say "one call".
 - Not sent live (label measured, "recorded redo"): read the reason line ("live calls are off", "no key", or the
-  provider error); the tiles then show the recorded redo of this task (USD, seconds, graded result). That is the
-  expected fallback, not a failure of the demo.
+  provider error); the tiles then show the recorded redo of this task (USD, seconds, answer). That is the expected
+  fallback, not a failure of the demo.
 
 ## 4:45 to 5:00, close
 
@@ -138,14 +140,15 @@ show it only where we measured it, and fixing one answer in the cloud is cheap. 
 | qwen3:14b wrong-task rate 11.3% default to 42.0% at 4096, 0 surfaced | measured | x2-evalset-tasks-real-v2-wrong-rate |
 | Excess +30.7 points at 4096 (95% CI +26.0 to +34.7) | measured | x2-evalset-tasks-real-v2-ci-units |
 | Rule loss per model and window, evo-x2, 5 seeds | measured | R2-v1b-gated-per-model |
-| evo-x2 qwen3:14b: q8_0 + flash attention, 40960, 75.4 vs 214.8 min | measured | b5-policy-metrics, cost-cut-config-time |
+| evo-x2 qwen3:14b: 40960, 75.4 vs 214.8 min per session | measured | b5-policy-metrics, cost-cut-config-time |
+| evo-x2: q8_0 (qwen3:14b) / q4_0 (llama3.1:8b) with flash attention as the setting | pending flash-attention control | b5-fa-control (not read yet) |
 | Flash attention vs KV precision attribution | not measured (no reading yet) | b5-fa-control |
 | evo-t2s CPU qwen3:14b: no setting holds the rules | measured (what failed); setting not measured | t2s-r2-real-cpu, t2s-r2-mitigation-cpu |
 | Blade: every setting | not measured | none |
 | 5% timeout floor exclusions | measured | x2-v3-usability |
-| About USD 0.012 (median; mean USD 0.020) to fix a wrong answer in the cloud | measured (executed redo) | cloud-redo-cost-per-wrong-task |
-| The cloud fixed 79 of 197 (40.1%) of the wrong tasks | measured | cloud-redo-cost-per-wrong-task |
+| About USD 0.02 (mean USD 0.0201, median USD 0.0122) to fix a wrong answer in the cloud | measured (executed redo) | cloud-redo-cost-per-wrong-task |
+| How many redone tasks the cloud got right | not shown (under diagnosis) | cloud-redo-cost-per-wrong-task |
 | USD 5.47 to 132.31 per day for one team | projected (assumed volume; cloud part measured) | impact-v2-P1 |
 | Router savings | not shown (b5-verdict refuted) | b5-verdict |
-| View D live answer, USD, seconds, graded result | measured, n = 1, this run only | demo/ledger/cloud_ledger_demo.jsonl (not committed) |
-| View D recorded redo of the task (USD 0.0122, 4.8 s, correct) | measured | results/cloud_redo_v1.jsonl |
+| View D live answer, USD, seconds | measured, n = 1, this run only | demo/ledger/cloud_ledger_demo.jsonl (not committed) |
+| View D recorded redo of the task (USD 0.0122, 4.8 s, its answer) | measured | results/cloud_redo_v1.jsonl |

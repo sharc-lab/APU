@@ -157,7 +157,10 @@ def test_device_rules_on_fakes(tmp_path):
     dv = views.build_device(r, tmp_path, {"sessions": [{"model": "qwen3:8b", "advertised_ctx": {
         "ctx": 40960, "file": "f.jsonl", "line": 7}}]})
     b5 = views.device_recommend(dv, "evo-x2", "m1", "r2_agent")
-    assert b5["status"] == views.MEASURED
+    assert b5["status"] == views.PENDING_FA  # KV q8_0 + flash attention waits on the flash-attention control
+    assert b5["settings"]["kv_precision"]["label"] == views.PENDING_FA
+    assert b5["settings"]["flash_attention"]["label"] == views.PENDING_FA
+    assert b5["settings"]["window"]["label"] == views.MEASURED
     assert b5["settings"]["kv_precision"]["value"] == "q8_0"
     assert b5["settings"]["flash_attention"]["value"].startswith("on")
     assert "PENDING" in b5["settings"]["flash_attention"]["note"]
@@ -180,13 +183,48 @@ def test_device_rules_on_fakes(tmp_path):
         views.device_recommend(dv, "toaster", "m1", "r2_agent")
 
 
+def _fa_dv(tmp_path, fa_value, status="VERIFIED"):
+    fake_b5_file(tmp_path)
+    r = reg(**{"b5-policy-metrics": B5, "b5-kv-recall": KV, "b5-fa-control": fa_value})
+    r["b5-fa-control"]["status"] = status
+    return views.build_device(r, tmp_path, {"sessions": []})
+
+
+def test_device_follows_fa_control_reading(tmp_path):
+    tail = "(g)/(h) 10.0 min, (a) 40.0 min, window 8192; rule 1.0, hist 0.75; base-env x; valid True; reading: "
+    fa = _fa_dv(tmp_path, f"m1: (i) f16+FA 10.5 min per session (per seed 1: 10.5), {tail}{views.FA_READ_FA} "
+                          "(tolerance 10%)")
+    r = views.device_recommend(fa, "evo-x2", "m1", "r2_agent")
+    assert r["status"] == views.MEASURED and r["settings"]["kv_precision"]["value"] == "f16 (runtime default)"
+    assert r["settings"]["flash_attention"]["value"].startswith("on") and r["settings"]["window"]["value"] == 8192
+    assert any("10.5 min" in o["text"] for o in r["outcome"]) and "flash attention alone" in r["basis"]
+    kv = _fa_dv(tmp_path, f"m1: (i) f16+FA 39.0 min per session (per seed 1: 39.0), {tail}{views.FA_READ_KV}")
+    r = views.device_recommend(kv, "evo-x2", "m1", "r2_agent")
+    assert r["status"] == views.MEASURED and r["settings"]["kv_precision"] == {
+        **r["settings"]["kv_precision"], "value": "q8_0", "label": views.MEASURED}
+    assert any(views.FA_READ_KV in c for c in r["caveats"])
+    # VERIFIED but the run is incomplete (the 2026-10-21 state): still pending
+    unread = _fa_dv(tmp_path, "m1: (i) f16+FA 44.7 min per session (per seed 1: 44.7), (g)/(h) 6.8 min, (a) 43.7 "
+                              "min, window 8192; valid False (no run_end); reading: not read (incomplete)")
+    r = views.device_recommend(unread, "evo-x2", "m1", "r2_agent")
+    assert r["status"] == views.PENDING_FA and "not read yet" in r["settings"]["flash_attention"]["note"]
+    # PENDING row with a reading in it: still pending
+    pend = _fa_dv(tmp_path, f"m1: (i) f16+FA 10.5 min per session, {tail}{views.FA_READ_FA}", status="PENDING")
+    assert views.device_recommend(pend, "evo-x2", "m1", "r2_agent")["status"] == views.PENDING_FA
+
+
 def test_fa_control_reading_only_when_read():
     unread = reg(**{"b5-fa-control": "llama3.1:8b: (i) f16+FA 44.7 min; valid False (no run_end); reading: not read "
                                       "(incomplete) / qwen3:14b: reading: not read (incomplete)"})
     assert views.fa_control_reading(unread) is None  # VERIFIED row, but no reading: attribution stays open
-    read = reg(**{"b5-fa-control": "llama3.1:8b: valid True; reading: the B5 speedup is KV precision, not flash "
-                                    "attention; qwen3:14b: x"})
-    assert views.fa_control_reading(read) == "the B5 speedup is KV precision, not flash attention"
+    read = reg(**{"b5-fa-control": "llama3.1:8b: (i) f16+FA 43.0 min per session, (g)/(h) 6.8 min, (a) 43.7 min, "
+                                    "window 131072; valid True; reading: the B5 speedup is KV precision, not flash "
+                                    "attention / qwen3:14b: (i) f16+FA None min per session; valid False; reading: "
+                                    "not read (incomplete) (tolerance 10%)"})
+    assert views.fa_control_reading(read) == "llama3.1:8b: the B5 speedup is KV precision, not flash attention"
+    p = views.parse_fa_control(read["b5-fa-control"]["value"])
+    assert p["llama3.1:8b"] == {"minutes_i": 43.0, "window": 131072, "valid": True, "reading": views.FA_READ_KV}
+    assert p["qwen3:14b"]["minutes_i"] is None and views.fa_control_for(read, "qwen3:14b") is None
     pending = reg(**{"b5-fa-control": "the B5 speedup is flash attention"})
     pending["b5-fa-control"]["status"] = "PENDING"
     assert views.fa_control_reading(pending) is None
@@ -208,7 +246,10 @@ def test_device_endpoints_on_committed_files(app):
     assert {d["id"] for d in o["devices"]} == {"evo-x2", "evo-t2s-cpu", "evo-t2s-igpu", "blade"}
     assert o["default_max_timeout_share"] == 0.05
     r = get(app, "/api/device/recommend?device=evo-x2&model=qwen3:14b&workload=r2_agent")
-    assert r["status"] == "measured" and r["settings"]["window"]["label"] == "measured"
+    assert r["settings"]["window"]["label"] == "measured"
+    # pending until b5-fa-control reads for qwen3:14b (VERIFIED but incomplete on 2026-10-21)
+    expect = "measured" if views.fa_control_for(app.cache.register, "qwen3:14b") else views.PENDING_FA
+    assert r["status"] == expect
     assert "b5-policy-metrics" in r["register"]
     for k in ("window", "num_keep", "kv_precision", "flash_attention", "context_handling"):
         assert r["settings"][k]["label"] in views.LABELS
@@ -239,10 +280,9 @@ def test_cost_lead_order_and_router_gate():
                                "not executed; profile cell USD/day 10.33 to 137.18",
                "b5-verdict": "refuted (router dominated in evo-x2/llama3.1:8b)"})
     c = views.build_cost(r)
-    assert c["lead"]["text"] == ("Fixing a wrong answer in the cloud costs about USD 0.028 (median per wrong task; "
-                                 "mean USD 0.028); the cost is that the failure is silent.")
+    assert c["lead"]["text"] == ("Fixing a wrong answer in the cloud costs about USD 0.03 (mean USD 0.0283, median "
+                                 "USD 0.0283); the cost is that the failure is silent.")
     assert c["lead"]["label"] == views.PRICED and c["lead"]["src"] == {"register": "cloud-redo-cost-per-wrong-task"}
-    assert c["lead"]["cloud_correct"] is None  # the priced run graded nothing
     assert any("cloud part priced, not executed" in i["text"] for i in c["items"])
     labels = [i["label"] for i in c["items"]]
     assert labels == sorted(labels, key=lambda l: views._ORDER[l])  # measured parts first
@@ -272,12 +312,13 @@ RANK = ("one profile: x; ranking by main-case USD/day (P2: machine capacity; the
 def test_cost_lead_from_executed_redo():
     c = views.build_cost(reg(**{"cloud-redo-cost-per-wrong-task": REDO_LIVE, "impact-ranking-v2": RANK}))
     L = c["lead"]
-    assert L["text"] == ("Fixing a wrong answer in the cloud costs about USD 0.012 (median per wrong task; mean USD "
-                         "0.020); the cost is that the failure is silent.")
-    assert L["label"] == views.MEASURED and L["statistic"] == "median" and L["executed"] is True
-    assert (L["cloud_correct"], L["cloud_graded"], L["cloud_correct_pct"], L["seconds_mean"]) == (79, 197, 40.1, 6.89)
-    fixed = next(i for i in c["items"] if i["what"] == "Did the cloud fix them?")
-    assert "fixed 79 of 197 (40.1%)" in fixed["text"] and fixed["label"] == views.MEASURED
+    assert L["text"] == ("Fixing a wrong answer in the cloud costs about USD 0.02 (mean USD 0.0201, median USD "
+                         "0.0122); the cost is that the failure is silent.")
+    assert L["label"] == views.MEASURED and L["statistic"] == "mean" and L["executed"] is True
+    assert L["seconds_mean"] == 6.89
+    # no cloud fix rate anywhere in the panel (operator 2026-10-21: under diagnosis)
+    blob = json.dumps(c)
+    assert "79" not in blob and "40.1" not in blob and "cloud_correct" not in blob and "fixed" not in blob.lower()
     assert any(i["text"] == "P1 > P5 > P3 > P4" for i in c["items"])
 
 
@@ -345,7 +386,8 @@ def test_escalation_task_snapshot(app):
     # the label follows the redo file: measured once it ran on the cloud, priced before that
     assert rd["label"] == ("measured" if rd["mode"] == "executed" else "priced, not executed")
     if rd["mode"] == "executed":
-        assert rd["seconds"] is not None and rd["cloud_end_state_ok"] in (True, False)
+        assert rd["seconds"] is not None
+    assert "cloud_end_state_ok" not in rd  # no graded cloud result shown (fix rate under diagnosis)
 
 
 STUB_MODES = ("recorded redo", "priced, not executed")
@@ -359,7 +401,7 @@ def test_escalation_stub_when_live_off(app, tmp_path):
     assert r["mode"] in STUB_MODES and r["label"] == rd["label"] and "live calls are off" in r["reason"]
     assert r["usd"] == rd["usd"] and r["usd_src"] == rd["src"]
     if rd["mode"] == "executed":
-        assert r["seconds"] == rd["seconds"] and r["cloud_end_state_ok"] == rd["cloud_end_state_ok"]
+        assert r["seconds"] == rd["seconds"] and r["answer"] == rd["cloud_final_text"]
     else:
         assert r["seconds"] is None and r["answer"] is None
     assert rec == [] and not (tmp_path / "ledger.jsonl").exists()
@@ -371,13 +413,13 @@ def test_escalation_stub_priced_vs_executed_redo(app, tmp_path):
     priced = escalate.Escalator(dict(base, redo={"mode": "priced_not_executed", "label": "priced, not executed",
                                                  "usd": 0.01, "seconds": None, "src": {"file": "f", "line": 1}}),
                                 ledger=tmp_path / "l.jsonl", env={}).run()
-    assert priced["mode"] == "priced, not executed" and priced["seconds"] is None and priced["cloud_end_state_ok"] is None
+    assert priced["mode"] == "priced, not executed" and priced["seconds"] is None and priced["answer"] is None
     done = escalate.Escalator(dict(base, redo={"mode": "executed", "label": "measured", "usd": 0.012, "seconds": 4.8,
-                                               "cloud_end_state_ok": True, "cloud_final_text": "ok",
-                                               "src": {"file": "f", "line": 2}}),
+                                               "cloud_final_text": "ok", "src": {"file": "f", "line": 2}}),
                               ledger=tmp_path / "l.jsonl", env={}).run()
     assert done["mode"] == "recorded redo" and done["label"] == "measured"
-    assert (done["usd"], done["seconds"], done["cloud_end_state_ok"], done["answer"]) == (0.012, 4.8, True, "ok")
+    assert (done["usd"], done["seconds"], done["answer"]) == (0.012, 4.8, "ok")
+    assert "cloud_end_state_ok" not in done and "cloud_end_state_ok" not in priced
 
 
 def test_escalation_one_live_call_then_stub(app, tmp_path):
@@ -387,7 +429,9 @@ def test_escalation_one_live_call_then_stub(app, tmp_path):
     e = make_escalator(app, tmp_path, fake_completion(calls, rec))
     r = e.run()
     assert r["mode"] == "executed" and r["label"] == "measured", r.get("reason")
-    assert r["cloud_end_state_ok"] is True and r["usd"] > 0 and r["seconds"] >= 0
+    assert r["usd"] > 0 and r["seconds"] >= 0 and r["answer"] == '{"answer": "booked"}'
+    assert [c["name"] for c in r["tool_calls"]] == [c["name"] for c in calls]
+    assert "cloud_end_state_ok" not in r  # cost, seconds, answer; no graded result (fix rate under diagnosis)
     assert rec == [{"model_id": app.cache.escalation["cloud_model"], "n_messages": app.cache.escalation["n_messages"],
                     "tools": True, "provider": "anthropic"}]
     ledger = (tmp_path / "ledger.jsonl").read_text(encoding="utf-8")
@@ -437,7 +481,7 @@ def test_views_js_renders_every_view(app, tmp_path):
         "/api/cost", "/api/escalation")}
     dump["POST"] = {"mode": "executed", "label": "measured", "reason": "one live call", "answer": "",
                     "tool_calls": [{"name": "create_event"}], "seconds": 14.0, "usd": 0.0174, "usd_basis": "ledger",
-                    "cloud_end_state_ok": True, "live_requested": True, "key_present": True, "cap_usd": 10.0,
+                    "live_requested": True, "key_present": True, "cap_usd": 10.0,
                     "live_calls_used": 1, "live_calls_allowed": 1, "ledger": "demo/ledger/x.jsonl",
                     "ledger_total_usd": 0.0174}
     (tmp_path / "dump.json").write_text(json.dumps(dump), encoding="utf-8")
@@ -450,11 +494,11 @@ def test_views_js_renders_every_view(app, tmp_path):
     assert "4096" in out["#silent-body"] and "32768" in out["#silent-body"]
     lead = get(app, "/api/cost")["lead"]
     assert lead["text"] in out["#cost-body"]
-    if lead["cloud_correct"] is not None:
-        assert f"{lead['cloud_correct']} of {lead['cloud_graded']}" in out["#cost-body"]
     assert "not shown" in out["#cost-body"]
     assert "KV cache precision" in out["#device-body"]
     assert "USD 0.0174" in out["#esc-result"] and "14.0 s" in out["#esc-result"]
+    for k in ("#cost-body", "#esc-task", "#esc-result"):  # no cloud fix rate or graded cloud result on screen
+        assert "40.1%" not in out[k] and "Graded end state" not in out[k] and "fixed" not in out[k].lower(), k
 
 
 def test_recommendation_hides_router_savings(app):

@@ -11,9 +11,10 @@ The call. Escalator.run() makes AT MOST ONE provider request per demo run (one E
     host allowed by src/cloud/client.py, e.g. CLOUD_CLIENT_HOST_ROLE=controller);
   - through src/cloud/client.py's CloudClient(mode="real") with spend_cap_usd = DEMO_CLOUD_CAP_USD (default 10, never
     above 10) and its own ledger, demo/ledger/cloud_ledger_demo.jsonl (gitignored), not results/cloud_ledger.jsonl;
-  - one request with the task's tools offered (no tool round trips), graded on the end state its tool calls produce.
+  - one request with the task's tools offered (no tool round trips); the page shows its cost, seconds and answer, no
+    graded result (the redo's fix rate is under diagnosis, operator 2026-10-21).
 Anything else (no flag, no key, host refused, cap reached, provider error, a second click) returns the stub: this
-task's recorded redo from the redo file (USD, seconds, graded result; labelled measured when that run executed, "priced,
+task's recorded redo from the redo file (USD, seconds, answer; labelled measured when that run executed, "priced,
 not executed" when it was the stub run), with the reason. The key is never printed,
 logged, written or returned; error text is scrubbed of it before it reaches the page.
 
@@ -125,7 +126,7 @@ def build_escalation(repo: Path = REPO) -> dict:
         "redo": {"mode": r.get("mode"), "label": MEASURED if r.get("mode") == "executed" else PRICED,
                  "usd": r["usd"], "usd_all_uncached": r["usd_all_uncached"], "input_tokens": r["input_tokens"],
                  "output_tokens": r["output_tokens"], "seconds": r.get("seconds"), "n_calls": r.get("n_calls"),
-                 "cloud_end_state_ok": r.get("cloud_end_state_ok"),
+                 # no graded result: the redo's fix rate is under diagnosis (operator 2026-10-21)
                  "cloud_final_text": (r.get("cloud_final_text") or "")[:1500] or None,
                  "register_id": REGISTER_ID,
                  "src": {"file": REDO, "line": _line_of(repo / REDO, lambda x: x.get("record") == "cloud_redo_task"
@@ -206,8 +207,7 @@ class Escalator:
                 "answer": rd.get("cloud_final_text") if executed else None, "tool_calls": None,
                 "seconds": rd.get("seconds") if executed else None, "usd": rd.get("usd"), "usd_src": rd.get("src"),
                 "usd_basis": "recorded redo, prompt caching priced" if executed else PRICED,
-                "register_id": REGISTER_ID, "cloud_end_state_ok": rd.get("cloud_end_state_ok") if executed else None,
-                **self.status()}
+                "register_id": REGISTER_ID, **self.status()}
 
     def run(self) -> dict:
         if not self.task.get("available"):
@@ -243,7 +243,7 @@ class Escalator:
         res = prepared.settle(raw)
         resp = res.raw
         content, calls = cr._parse_reply(resp)
-        g = cr.grade(es, built["item"], built["env_before"], calls, content)
+        # Not graded on screen: the redo's fix rate is under diagnosis (operator 2026-10-21); cost, seconds, answer.
         u = cr._usage(resp)
         rates = cr.model_rates(cr.load_price_table(), t["cloud_model"])
         usd_cache = cr.call_cost(rates, u["uncached_input_tokens"], u["cache_write_tokens"], u["cache_read_tokens"],
@@ -251,8 +251,7 @@ class Escalator:
         return {"mode": "executed", "label": MEASURED, "reason": "one live call through src/cloud/client.py",
                 "answer": content, "tool_calls": calls, "seconds": seconds, "usd": res.cost_usd,
                 "usd_basis": "ledger cost (client.py estimate_cost on the provider's usage, input uncached)",
-                "usd_with_cache_pricing": usd_cache, "usage": u, "cloud_end_state_ok": g["end_state_ok"],
-                "cloud_end_state_diff": g["end_state_diff"], "register_id": REGISTER_ID,
+                "usd_with_cache_pricing": usd_cache, "usage": u, "register_id": REGISTER_ID,
                 "recorded_redo": t.get("redo"), **self.status()}
 
 
@@ -268,7 +267,7 @@ def main(argv=None) -> int:
     if not a.live:
         env.pop(ENV_LIVE, None)
     out = Escalator(task, env=env).run()
-    show = {k: out.get(k) for k in ("mode", "reason", "seconds", "usd", "usd_with_cache_pricing", "cloud_end_state_ok",
+    show = {k: out.get(k) for k in ("mode", "reason", "seconds", "usd", "usd_with_cache_pricing",
                                     "cap_usd", "ledger", "ledger_total_usd", "live_calls_used")}
     show["answer"] = (out.get("answer") or "")[:300]
     show["tool_calls"] = out.get("tool_calls")

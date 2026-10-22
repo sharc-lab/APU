@@ -27,7 +27,9 @@ PROJECTED = "projected"
 SIMULATED = "simulated"
 PRICED = "priced, not executed"
 NOT_MEASURED = "not measured"
-LABELS = (MEASURED, PROJECTED, SIMULATED, PRICED, NOT_MEASURED)
+# A measured configuration whose attribution waits on the flash-attention control (operator 2026-10-21).
+PENDING_FA = "pending flash-attention control"
+LABELS = (MEASURED, PROJECTED, SIMULATED, PRICED, NOT_MEASURED, PENDING_FA)
 
 CHECKPOINTS = (5, 10, 15, 20, 25, 30, 35, 40)  # analysis/r2_real_report.py CHECKPOINTS_FULL (8 intact counts)
 T2S_FILES = {"cpu": "results/t2s_r2_real_cpu_v1.jsonl", "igpu": "results/t2s_r2_real_igpu_v1.jsonl"}
@@ -182,14 +184,51 @@ def b5_verdict(register: dict) -> str | None:
     return m[1] if m else None
 
 
+FA_READ_FA = "the B5 speedup is flash attention, not KV precision"
+FA_READ_KV = "the B5 speedup is KV precision, not flash attention"
+
+
+def parse_fa_control(value: str) -> dict:
+    """Row b5-fa-control per model: (i) f16 + flash attention minutes per session, window, valid flag, reading
+    (harness/policy_compare.py fa_reading: flash attention / KV precision / both contribute / neither reading /
+    not read ...)."""
+    out = {}
+    for part in (value or "").split(" / "):
+        m = re.match(r"\s*([\w.:-]+): \(i\) f16\+FA (None|[\d.]+) min per session", part)
+        if not m:
+            continue
+        win = re.search(r"window (\d+)", part)
+        valid = re.search(r"valid (True|False)", part)
+        rd = re.search(r"reading: ([^;()]+?)(?:\s*\(tolerance [^)]*\))?\s*$", part)
+        out[m[1]] = {"minutes_i": None if m[2] == "None" else float(m[2]),
+                     "window": int(win[1]) if win else None, "valid": bool(valid) and valid[1] == "True",
+                     "reading": rd[1].strip() if rd else None}
+    return out
+
+
+def fa_control_for(register: dict, model: str) -> dict | None:
+    """The control's result for one model, only when the row is VERIFIED, the model's run is valid and it states a
+    reading (not 'not read ...'). None means the attribution is still pending."""
+    if not _verified(register, "b5-fa-control"):
+        return None
+    r = parse_fa_control(register["b5-fa-control"]["value"]).get(model)
+    if not r or not r["valid"] or not r["reading"] or r["reading"].startswith("not read"):
+        return None
+    return r
+
+
 def fa_control_reading(register: dict) -> str | None:
     """The flash-attention control's reading, only when row b5-fa-control is VERIFIED and states one (harness
     policy_compare.fa_control_summary: 'the B5 speedup is flash attention, not KV precision' or the reverse). A VERIFIED
-    row whose reading is 'not read (incomplete)' returns None: the attribution is still open."""
+    row whose reading is 'not read (incomplete)' returns None: the attribution is still open. Per model, joined."""
     if not _verified(register, "b5-fa-control"):
         return None
-    m = re.search(r"the B5 speedup is [^;/()]+", register["b5-fa-control"]["value"])
-    return m[0].strip() if m else None
+    parts = []
+    for model in parse_fa_control(register["b5-fa-control"]["value"]):
+        r = fa_control_for(register, model)
+        if r:
+            parts.append(f"{model}: {r['reading']}")
+    return "; ".join(parts) or None
 
 
 def router_savings_supported(register: dict) -> bool:
@@ -379,6 +418,7 @@ def build_device(register: dict, repo: Path = REPO, r2_sessions: dict | None = N
         "x2_default_window": x2_default,
         "status": {rid: (register[rid]["status"] if rid in register else "MISSING") for rid in DEVICE_IDS},
         "fa_reading": fa_control_reading(register),
+        "fa_control": {m: fa_control_for(register, m) for m in parse_fa_control(val("b5-fa-control"))},
     }
 
 
@@ -408,17 +448,22 @@ def _rec_b5(dv: dict, model: str) -> dict | None:
     env, wrapper = c.get("env"), c.get("wrapper")
     rsrc, msrc = cfg.get("resolution_src"), reg_src("b5-policy-metrics")
     kvc = (cfg.get("kv_check") or {}).get(env) or {}
-    fa_reading = dv.get("fa_reading")
-    fa_pending = fa_reading is None
+    fc = (dv.get("fa_control") or {}).get(model)  # None until b5-fa-control is VERIFIED, valid and read for model
+    kv_fa = env in ("q8_0", "q4_0") and bool(kvc.get("flash_attention"))
+    pending = kv_fa and fc is None
     fa_state = ("PENDING" if dv["status"].get("b5-fa-control") != "VERIFIED" else "not read yet (run incomplete)")
+    if kv_fa and fc and fc["reading"] == FA_READ_FA and fc.get("minutes_i") is not None:
+        return _rec_fa_alone(dv, model, m, fc, p, pol, base)
+    kv_lab = PENDING_FA if pending else MEASURED
     s = {"window": _set(c.get("effective_ctx"), MEASURED, rsrc,
                         "num_ctx sent" if c.get("num_ctx_sent") else "runtime default (no num_ctx sent)"),
-         "kv_precision": (_set(env, MEASURED, kvc.get("src"), "OLLAMA_KV_CACHE_TYPE, verified in the server log"
-                               if kvc.get("verified") else "OLLAMA_KV_CACHE_TYPE")
+         "kv_precision": (_set(env, kv_lab, kvc.get("src"), ("OLLAMA_KV_CACHE_TYPE, verified in the server log"
+                               if kvc.get("verified") else "OLLAMA_KV_CACHE_TYPE") +
+                               (f"; pending flash-attention control (b5-fa-control {fa_state})" if pending else ""))
                           if env in ("q8_0", "q4_0") else _set("f16 (runtime default)", MEASURED, rsrc)),
-         "flash_attention": (_set("on (OLLAMA_FLASH_ATTENTION=1)", MEASURED, kvc.get("src"),
-                                  f"not separated from KV precision: b5-fa-control {fa_state}" if fa_pending
-                                  else f"b5-fa-control: {fa_reading}")
+         "flash_attention": (_set("on (OLLAMA_FLASH_ATTENTION=1)", kv_lab, kvc.get("src"),
+                                  f"not separated from KV precision: b5-fa-control {fa_state}" if pending
+                                  else f"b5-fa-control: {fc['reading']}" if fc else None)
                              if kvc.get("flash_attention") else _set("not set (runtime default)", MEASURED, rsrc)),
          "num_keep": (_set("system prompt tokens, per seed " + ", ".join(
              str(v["num_keep"]) for v in (cfg.get("num_keep") or {}).values()), MEASURED,
@@ -437,15 +482,43 @@ def _rec_b5(dv: dict, model: str) -> dict | None:
                     MEASURED, reg_src("b5-kv-recall")) if kv else
                _out("long-context recall probe at this precision: not measured", NOT_MEASURED, reg_src("b5-kv-recall")))
     caveats = []
-    if fa_pending:
-        caveats.append("Flash attention was switched on together with the KV precision; the control that separates "
-                       f"them (b5-fa-control) is {fa_state}.")
-    else:
-        caveats.append(f"Flash-attention control (b5-fa-control): {fa_reading}.")
+    if pending:
+        caveats.append("Pending flash-attention control: flash attention was switched on together with the KV "
+                       f"precision, and the control that separates them (b5-fa-control) is {fa_state}. Once it reads, "
+                       "this view recommends whichever of the two it shows causes the speedup.")
+    elif fc:
+        caveats.append(f"Flash-attention control (b5-fa-control) for {model}: {fc['reading']}.")
     caveats.append("The router policy (d) did not make the frontier (row b5-verdict); no router saving is shown.")
-    return {"status": MEASURED, "basis": f"B5 policy comparison: frontier policy ({p}) {POLICY_NAMES.get(p, p)}, "
-                                         f"3 seeds x 40 turns", "settings": s, "outcome": out, "caveats": caveats,
+    return {"status": PENDING_FA if pending else MEASURED,
+            "basis": f"B5 policy comparison: frontier policy ({p}) {POLICY_NAMES.get(p, p)}, 3 seeds x 40 turns" +
+                     ("; pending flash-attention control" if pending else ""),
+            "settings": s, "outcome": out, "caveats": caveats,
             "register_ids": ["b5-policy-metrics", "b5-kv-recall", "b5-fa-control", "cost-cut-config-time"],
+            "alternatives": [{"policy": k, "name": POLICY_NAMES.get(k, k), **v} for k, v in m["policies"].items()
+                             if not v.get("alias_of")]}
+
+
+def _rec_fa_alone(dv: dict, model: str, m: dict, fc: dict, p: str, pol: dict, base: dict | None) -> dict:
+    """b5-fa-control read 'flash attention, not KV precision' for this model: recommend policy (i), f16 KV with flash
+    attention, at the control's own window, with the control's measured minutes."""
+    src = reg_src("b5-fa-control")
+    s = {"window": _set(fc.get("window"), MEASURED, src),
+         "kv_precision": _set("f16 (runtime default)", MEASURED, src),
+         "flash_attention": _set("on (OLLAMA_FLASH_ATTENTION=1)", MEASURED, src, f"b5-fa-control: {fc['reading']}"),
+         "num_keep": _set("not set", MEASURED, src),
+         "context_handling": _set("full history", MEASURED, src)}
+    out = [_out(f"(i) f16 + flash attention: {fc['minutes_i']:.1f} min per 40-turn session", MEASURED, src,
+                fc["minutes_i"]),
+           _out(f"({p}) {POLICY_NAMES.get(p, p)} with flash attention: {pol['minutes']:.1f} min", MEASURED,
+                reg_src("b5-policy-metrics"))]
+    if base:
+        out.append(_out(f"default (a): {base['minutes']:.1f} min; saves {base['minutes'] - fc['minutes_i']:.1f} min "
+                        f"per session", MEASURED, src, base["minutes"] - fc["minutes_i"]))
+    return {"status": MEASURED, "basis": "Flash-attention control: flash attention alone gives the B5 speedup "
+                                         "(within the pre-registered tolerance), so the KV cache stays f16",
+            "settings": s, "outcome": out,
+            "caveats": ["The router policy (d) did not make the frontier (row b5-verdict); no router saving is shown."],
+            "register_ids": ["b5-fa-control", "b5-policy-metrics", "cost-cut-config-time"],
             "alternatives": [{"policy": k, "name": POLICY_NAMES.get(k, k), **v} for k, v in m["policies"].items()
                              if not v.get("alias_of")]}
 
@@ -642,15 +715,14 @@ def build_cost(register: dict) -> dict:
     lead = None
     if redo:
         redo_label = PRICED if redo["mode_priced_not_executed"] else MEASURED
-        # The median per wrong task, with the mean beside it; both read from the row.
-        lead = {"text": P1_LEAD.format(usd=f"{redo['median_usd']:.3f} (median per wrong task; mean "
-                                           f"USD {redo['mean_usd']:.3f})"), "label": redo_label,
-                "statistic": "median", "src": reg_src("cloud-redo-cost-per-wrong-task"), "usd_mean": redo["mean_usd"],
+        # The mean per wrong task, rounded, with mean and median beside it; both read from the row (operator
+        # 2026-10-21). No cloud fix rate is shown anywhere: the redo's fix rate is under diagnosis.
+        lead = {"text": P1_LEAD.format(usd=f"{round(redo['mean_usd'], 2):.2f} (mean USD {redo['mean_usd']:.4f}, "
+                                           f"median USD {redo['median_usd']:.4f})"), "label": redo_label,
+                "statistic": "mean", "src": reg_src("cloud-redo-cost-per-wrong-task"), "usd_mean": redo["mean_usd"],
                 "usd_median": redo["median_usd"], "model": redo["model"], "per_tier": redo["per_tier"],
                 "n": sum(t["n"] for t in redo["per_tier"].values()), "total_usd": redo["total_usd"],
-                "executed": redo["executed"], "cloud_correct": redo["cloud_correct"],
-                "cloud_graded": redo["cloud_graded"], "cloud_correct_pct": redo["cloud_correct_pct"],
-                "seconds_mean": redo["seconds_mean"]}
+                "executed": redo["executed"], "seconds_mean": redo["seconds_mean"]}
     tiers = parse_wrong_rate(val("x2-evalset-tasks-real-v2-wrong-rate"))
     if tiers:
         lo, hi = min(tiers, key=lambda t: t["pct"]), max(tiers, key=lambda t: t["pct"])
@@ -670,15 +742,10 @@ def build_cost(register: dict) -> dict:
     if redo:
         items.append({"what": "Cloud redo of each wrong task",
                       "text": f"USD {redo['mean_usd']:.4f} mean, USD {redo['median_usd']:.4f} median per wrong task "
-                              f"on {redo['model']} ({lead['n']} tasks, USD {redo['total_usd']:.2f} in all)",
+                              f"on {redo['model']} ({lead['n']} tasks, USD {redo['total_usd']:.2f} in all" +
+                              (f"; mean {redo['seconds_mean']:.2f} s per task" if redo.get("seconds_mean") is not None
+                               else "") + ")",
                       "label": lead["label"], "src": reg_src("cloud-redo-cost-per-wrong-task")})
-        if redo.get("cloud_correct") is not None:
-            items.append({"what": "Did the cloud fix them?",
-                          "text": f"{redo['model']} fixed {redo['cloud_correct']} of {redo['cloud_graded']} "
-                                  f"({redo['cloud_correct_pct']:.1f}%) of these wrong tasks, graded by the same "
-                                  f"end-state checker" + (f"; mean {redo['seconds_mean']:.2f} s per task"
-                                                          if redo.get("seconds_mean") is not None else ""),
-                          "label": lead["label"], "src": reg_src("cloud-redo-cost-per-wrong-task")})
     m = re.search(r"per session: re-sent history ([\d,]+) tok, USD ([\d.]+) caching on, ([\d.]+) no caching",
                   val("impact-P3"))
     if m:

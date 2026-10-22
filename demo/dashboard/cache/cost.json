@@ -1,8 +1,8 @@
 {
  "lead": {
-  "text": "Fixing a wrong answer in the cloud costs about USD 0.012 (median per wrong task; mean USD 0.020); the cost is that the failure is silent.",
+  "text": "Fixing a wrong answer in the cloud costs about USD 0.02 (mean USD 0.0201, median USD 0.0122); the cost is that the failure is silent.",
   "label": "measured",
-  "statistic": "median",
+  "statistic": "mean",
   "src": {
    "register": "cloud-redo-cost-per-wrong-task"
   },
@@ -39,9 +39,6 @@
   "n": 197,
   "total_usd": 3.952,
   "executed": true,
-  "cloud_correct": 79,
-  "cloud_graded": 197,
-  "cloud_correct_pct": 40.1,
   "seconds_mean": 6.89
  },
  "items": [
@@ -71,15 +68,7 @@
   },
   {
    "what": "Cloud redo of each wrong task",
-   "text": "USD 0.0201 mean, USD 0.0122 median per wrong task on claude-sonnet-5-5 (197 tasks, USD 3.95 in all)",
-   "label": "measured",
-   "src": {
-    "register": "cloud-redo-cost-per-wrong-task"
-   }
-  },
-  {
-   "what": "Did the cloud fix them?",
-   "text": "claude-sonnet-5-5 fixed 79 of 197 (40.1%) of these wrong tasks, graded by the same end-state checker; mean 6.89 s per task",
+   "text": "USD 0.0201 mean, USD 0.0122 median per wrong task on claude-sonnet-5-5 (197 tasks, USD 3.95 in all; mean 6.89 s per task)",
    "label": "measured",
    "src": {
     "register": "cloud-redo-cost-per-wrong-task"

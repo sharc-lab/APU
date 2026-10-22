@@ -1186,5 +1186,9 @@
   "x2-evalset-tasks-real-v2-mistral-small32-wrong-rate": "PENDING",
   "T2S-vs-X2-default-ctx": "VERIFIED"
  },
- "fa_reading": null
+ "fa_reading": null,
+ "fa_control": {
+  "llama3.1:8b": null,
+  "qwen3:14b": null
+ }
 }

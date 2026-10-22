@@ -65,7 +65,6 @@
   "output_tokens": 342,
   "seconds": 4.821338200010359,
   "n_calls": 2,
-  "cloud_end_state_ok": true,
   "cloud_final_text": "{\"answer\": \"'Team retro' is booked for 2026-12-22 at 11:00 for 50 minutes, which is your default meeting length (event ID EV-909). The value recorded for ALPHA-CACHE is VAL-JNYZ3V. SC-LA3Y0M08\", \"source\": \"create_event result; ALPHA-CACHE recalled from the session start message\"}",
   "register_id": "cloud-redo-cost-per-wrong-task",
   "src": {
