@@ -45,11 +45,11 @@
    "--seeds",
    "20260901,20260902,20260903,20260904,20260905",
    "--policies",
-   "a,c,d,e,f"
+   "a,b,c,d,e,f"
   ],
   "status": "pending",
-  "note": "STAGED for the 2026-10-26 window (not loaded): B5 policies a, c, d, e, f, llama3.1:8b, Intel CPU (stock Ollama, default 4096), 5 seeds x 40 turns; est hours: 34.0 (measured evo-t2s sessions (ESTIMATE); scripts/t2s_window_stage.py plan)",
-  "est_hours": 34.0,
+  "note": "STAGED for the 2026-10-26 window (not loaded): B5 policies a, b, c, d, e, f, llama3.1:8b, Intel CPU (stock Ollama, default 4096), 5 seeds x 40 turns; est hours: 87.3 (measured evo-t2s sessions (ESTIMATE); scripts/t2s_window_stage.py plan)",
+  "est_hours": 87.3,
   "est_basis": "measured evo-t2s sessions (ESTIMATE)",
   "expected_out": "results/t2s_policy_compare_cpu_llama31_8b_v1.jsonl",
   "staged_for": "2026-10-26..2026-11-08",
@@ -71,39 +71,13 @@
    "--seeds",
    "20260901,20260902,20260903,20260904,20260905",
    "--policies",
-   "a,c,d,e,f"
+   "a,b,c,d,e,f"
   ],
   "status": "pending",
-  "note": "STAGED for the 2026-10-26 window (not loaded): B5 policies a, c, d, e, f, llama3.1:8b, Intel iGPU (OLLAMA_IGPU_ENABLE=1, default 32768), 5 seeds x 40 turns; est hours: 85.9 (measured evo-t2s sessions (ESTIMATE); scripts/t2s_window_stage.py plan)",
+  "note": "STAGED for the 2026-10-26 window (not loaded): B5 policies a, b, c, d, e, f, llama3.1:8b, Intel iGPU (OLLAMA_IGPU_ENABLE=1, default 32768), 5 seeds x 40 turns; est hours: 85.9 (measured evo-t2s sessions (ESTIMATE); scripts/t2s_window_stage.py plan)",
   "est_hours": 85.9,
   "est_basis": "measured evo-t2s sessions (ESTIMATE)",
   "expected_out": "results/t2s_policy_compare_igpu_llama31_8b_v1.jsonl",
-  "staged_for": "2026-10-26..2026-11-08",
-  "gate": {
-   "requires_done": "t2s_o26_preflight"
-  }
- },
- {
-  "id": "t2s_o26_b5_cpu_qwen3_14b",
-  "cmd": [
-   "C:\\Users\\sharc\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
-   "policy_compare.py",
-   "--platform",
-   "evo-t2s-cpu",
-   "--out",
-   "results/t2s_policy_compare_cpu_qwen3_14b_v1.jsonl",
-   "--models",
-   "qwen3:14b",
-   "--seeds",
-   "20260901,20260902",
-   "--policies",
-   "a,c,d,e,f"
-  ],
-  "status": "pending",
-  "note": "STAGED for the 2026-10-26 window (not loaded): B5 policies a, c, d, e, f, qwen3:14b, Intel CPU (stock Ollama, default 4096), 2 seeds x 40 turns; est hours: 25.3 (measured evo-t2s sessions (ESTIMATE); scripts/t2s_window_stage.py plan)",
-  "est_hours": 25.3,
-  "est_basis": "measured evo-t2s sessions (ESTIMATE)",
-  "expected_out": "results/t2s_policy_compare_cpu_qwen3_14b_v1.jsonl",
   "staged_for": "2026-10-26..2026-11-08",
   "gate": {
    "requires_done": "t2s_o26_preflight"
@@ -120,9 +94,9 @@
    "results/t2s_model_pull_b6_v1.jsonl"
   ],
   "status": "pending",
-  "note": "STAGED for the 2026-10-26 window (not loaded): pull qwen3:32b (about 20 GB) and llama3.3:70b (about 43 GB) with the pinned 0.34.4, 1-token check; est hours: none (no evo-t2s timing)",
-  "est_hours": null,
-  "est_basis": "none",
+  "note": "STAGED for the 2026-10-26 window (not loaded): pull qwen3:32b (about 20 GB) and llama3.3:70b (about 43 GB) with the pinned 0.34.4, 1-token check; est hours: 1.0 (nominal (not measured); scripts/t2s_window_stage.py plan)",
+  "est_hours": 1.0,
+  "est_basis": "nominal (not measured)",
   "expected_out": "results/t2s_model_pull_b6_v1.jsonl",
   "staged_for": "2026-10-26..2026-11-08",
   "gate": {
@@ -148,9 +122,9 @@
    "32768"
   ],
   "status": "pending",
-  "note": "STAGED for the 2026-10-26 window (not loaded): B6 validation + controls, CPU; est hours: none (no evo-t2s timing)",
-  "est_hours": null,
-  "est_basis": "none",
+  "note": "STAGED for the 2026-10-26 window (not loaded): B6 validation + controls, CPU; est hours: 34.6 (ESTIMATE: evo-x2 x2_r2_scale_validation.jsonl minutes per model (qwen3:32b 41.5, llama3.3:70b 95.7) x factor 15.12 = largest evo-t2s/evo-x2 R2 session ratio at the same window (llama3.1:8b 14.78 at 4096, qwen3:14b 15.12 at 4096); scripts/t2s_window_stage.py plan)",
+  "est_hours": 34.6,
+  "est_basis": "ESTIMATE: evo-x2 x2_r2_scale_validation.jsonl minutes per model (qwen3:32b 41.5, llama3.3:70b 95.7) x factor 15.12 = largest evo-t2s/evo-x2 R2 session ratio at the same window (llama3.1:8b 14.78 at 4096, qwen3:14b 15.12 at 4096)",
   "expected_out": "results/t2s_r2_b6_validation_cpu_v1.jsonl",
   "staged_for": "2026-10-26..2026-11-08",
   "gate": {
@@ -176,85 +150,13 @@
    "32768"
   ],
   "status": "pending",
-  "note": "STAGED for the 2026-10-26 window (not loaded): B6 validation + controls, OLLAMA_IGPU_ENABLE=1; est hours: none (no evo-t2s timing)",
-  "est_hours": null,
-  "est_basis": "none",
+  "note": "STAGED for the 2026-10-26 window (not loaded): B6 validation + controls, OLLAMA_IGPU_ENABLE=1; est hours: 17.3 (ESTIMATE: evo-x2 x2_r2_scale_validation.jsonl minutes per model (qwen3:32b 41.5, llama3.3:70b 95.7) x factor 7.57 = largest evo-t2s/evo-x2 R2 session ratio at the same window (llama3.1:8b 7.57 at 32768, qwen3:14b 3.73 at 32768); scripts/t2s_window_stage.py plan)",
+  "est_hours": 17.3,
+  "est_basis": "ESTIMATE: evo-x2 x2_r2_scale_validation.jsonl minutes per model (qwen3:32b 41.5, llama3.3:70b 95.7) x factor 7.57 = largest evo-t2s/evo-x2 R2 session ratio at the same window (llama3.1:8b 7.57 at 32768, qwen3:14b 3.73 at 32768)",
   "expected_out": "results/t2s_r2_b6_validation_igpu_v1.jsonl",
   "staged_for": "2026-10-26..2026-11-08",
   "gate": {
    "requires_done": "t2s_o26_b6_model_pull"
-  }
- },
- {
-  "id": "t2s_o26_b6_real_cpu_4096",
-  "cmd": [
-   "C:\\Users\\sharc\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
-   "t2s_r2_agent.py",
-   "--mode",
-   "real",
-   "--runtime-config",
-   "cpu_default",
-   "--out",
-   "results/t2s_r2_b6_real_cpu_4096_v1.jsonl",
-   "--models",
-   "qwen3:32b,llama3.3:70b",
-   "--plan",
-   "strong",
-   "--call2-tools",
-   "off",
-   "--order",
-   "seed_major",
-   "--tiers",
-   "ollama_ctx_4096",
-   "--rules-from",
-   "results/t2s_r2_b6_validation_cpu_v1.jsonl",
-   "--require-validation-gates",
-   "--per-model-refusal"
-  ],
-  "status": "pending",
-  "note": "STAGED for the 2026-10-26 window (not loaded): B6 real, num_ctx 4096, CPU, 5 seeds x 40 turns; est hours: none (no evo-t2s timing)",
-  "est_hours": null,
-  "est_basis": "none",
-  "expected_out": "results/t2s_r2_b6_real_cpu_4096_v1.jsonl",
-  "staged_for": "2026-10-26..2026-11-08",
-  "gate": {
-   "requires_done": "t2s_o26_b6_val_cpu"
-  }
- },
- {
-  "id": "t2s_o26_b6_real_igpu_default",
-  "cmd": [
-   "C:\\Users\\sharc\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
-   "t2s_r2_agent.py",
-   "--mode",
-   "real",
-   "--runtime-config",
-   "igpu_enable",
-   "--out",
-   "results/t2s_r2_b6_real_igpu_v1.jsonl",
-   "--models",
-   "qwen3:32b,llama3.3:70b",
-   "--plan",
-   "strong",
-   "--call2-tools",
-   "off",
-   "--order",
-   "seed_major",
-   "--tiers",
-   "ollama_default",
-   "--rules-from",
-   "results/t2s_r2_b6_validation_igpu_v1.jsonl",
-   "--require-validation-gates",
-   "--per-model-refusal"
-  ],
-  "status": "pending",
-  "note": "STAGED for the 2026-10-26 window (not loaded): B6 real, iGPU-enabled native window (ollama_default), 5 seeds x 40 turns; est hours: none (no evo-t2s timing)",
-  "est_hours": null,
-  "est_basis": "none",
-  "expected_out": "results/t2s_r2_b6_real_igpu_v1.jsonl",
-  "staged_for": "2026-10-26..2026-11-08",
-  "gate": {
-   "requires_done": "t2s_o26_b6_val_igpu"
   }
  }
 ]

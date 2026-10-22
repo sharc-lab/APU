@@ -29,12 +29,15 @@ def test_oct26_is_separate_from_the_week_and_gated_on_its_own_preflight():
     for it in o26:
         if "_b5_" in it["id"]:
             assert it["est_hours"] > 0 and it["est_basis"].endswith("(ESTIMATE)")
+        elif "_b6_" in it["id"]:   # amendment 2026-10-21 (later): measured-rate estimates, labelled, or nominal
+            assert it["est_hours"] is None or (it["est_hours"] > 0 and it["est_basis"].startswith(("ESTIMATE",
+                                                                                                   "nominal")))
         else:
             assert it["est_hours"] is None and it["est_basis"] == "none"
 
 
 def test_oct26_b6_covers_both_models_at_4096_and_the_igpu_window():
-    by = {it["id"]: it["cmd"] for it in wq.build_oct26()}
+    by = {it["id"]: it["cmd"] for it in wq.oct26_all_specs()}   # every B6 spec, staged or not
     cpu, igpu = by["t2s_o26_b6_real_cpu_4096"], by["t2s_o26_b6_real_igpu_default"]
     for cmd in (cpu, igpu):
         assert "qwen3:32b,llama3.3:70b" in cmd and "--require-validation-gates" in cmd
@@ -52,13 +55,13 @@ def test_oct26_b5_entries_cover_both_platforms_and_models_before_b6():
         c = it["cmd"]
         assert c[1] == "policy_compare.py" and it["gate"]["requires_done"] == "t2s_o26_preflight"
         cell = (c[c.index("--platform") + 1], c[c.index("--models") + 1])
-        want = ("20260901,20260902" if cell == ("evo-t2s-cpu", "qwen3:14b")
+        want = ("20260901,20260902,20260903" if cell == ("evo-t2s-cpu", "qwen3:14b")
                 else "20260901,20260902,20260903,20260904,20260905")
         assert c[c.index("--seeds") + 1] == want
-        assert c[c.index("--policies") + 1] == "a,c,d,e,f" == ",".join(pc.T2S_POLICIES)  # amendment 2026-10-21 22:30
+        assert c[c.index("--policies") + 1] == "a,b,c,d,e,f" == ",".join(pc.T2S_POLICIES)  # amendments 2026-10-21
         cells.add(cell)
-    # operator item 6 (2026-10-21 22:30): llama3.1:8b CPU then iGPU at 5 seeds first; qwen3:14b only on the CPU at 2 seeds
-    # and only when the hours left allow; never the iGPU qwen3:14b cell
+    # amendment 2026-10-21 (later): llama3.1:8b CPU then iGPU at 5 seeds first; qwen3:14b only on the CPU at 3 seeds
+    # and only when it fits the launch budget; never the iGPU qwen3:14b cell
     import t2s_window_stage as ws
     llama = [("evo-t2s-cpu", "llama3.1:8b"), ("evo-t2s", "llama3.1:8b")]
     assert [b["id"] for b in b5][:2] == ["t2s_o26_b5_cpu_llama31_8b", "t2s_o26_b5_igpu_llama31_8b"]
@@ -80,7 +83,48 @@ def test_t2s_r2_agent_registers_think_values_for_the_large_models():
 def test_oct26_qwen_decision_is_computed_from_the_hours_left():
     import t2s_window_stage as ws
     q = ws.qwen_decision()
-    assert q["qwen_seeds"] == 2 and q["policies"] == ["a", "c", "d", "e", "f"] and q["qwen_cell"] == "evo-t2s-cpu qwen3:14b"
-    assert q["left_h"] == round(q["available_h"] - q["before_qwen_h"], 1)
-    assert q["fits"] == (q["qwen_h"] <= q["available_h"] - q["before_qwen_h"])
+    assert q["qwen_seeds"] == 3 and q["policies"] == ["a", "b", "c", "d", "e", "f"]
+    assert q["qwen_cell"] == "evo-t2s-cpu qwen3:14b" and q["slack_h"] == 24.0
+    assert q["budget_h"] == round(q["available_h"] - 24.0, 1)
+    assert q["left_h"] == round(ws.budget_h() - q["before_qwen_h"], 1)
+    assert q["fits"] == (q["qwen_h"] <= ws.budget_h() - q["before_qwen_h"])
     assert set(q["llama_h"]) == {"evo-t2s-cpu llama3.1:8b", "evo-t2s llama3.1:8b"}
+
+
+def test_select_b6_fills_in_order_respects_gates_and_puts_unestimated_last(monkeypatch):
+    import t2s_window_stage as ws
+    monkeypatch.setattr(ws, "budget_h", lambda: 100.0)
+    specs = [{"id": "p", "gate": "pre", "est": 1.0}, {"id": "vc", "gate": "p", "est": 30.0},
+             {"id": "vg", "gate": "p", "est": None}, {"id": "rc", "gate": "vc", "est": 50.0},
+             {"id": "rg", "gate": "vg", "est": 10.0}, {"id": "big", "gate": "p", "est": 500.0}]
+    sel = ws.select_b6(specs, start_h=10.0)
+    assert sel["staged"] == ["p", "vc", "rc", "vg", "rg"] and set(sel["not_staged"]) == {"big"}
+    assert sel["not_staged"]["big"].startswith("does not fit")
+    # a failed gate drops its dependants
+    sel = ws.select_b6([{"id": "vc", "gate": "pre", "est": 95.0}, {"id": "rc", "gate": "vc", "est": 1.0}],
+                       start_h=10.0)
+    assert sel["staged"] == [] and sel["not_staged"]["rc"] == "gate vc not staged"
+
+
+def test_oct26_plan_every_estimated_entry_ends_within_the_slack_budget():
+    import t2s_window_stage as ws
+    p = ws.plan()
+    assert p["slack_h"] == 24.0 and p["budget_h"] == round(p["available_h"] - 24.0, 1)
+    for r in p["entries"]:
+        if r.get("end_h") is not None:
+            assert r["end_h"] <= p["budget_h"] and r["fits"] == "yes" and r["slack_h"] >= 24.0
+    staged = {r["id"] for r in p["entries"]}
+    assert not staged & {x["id"] for x in p["not_staged"]}
+    every_b6 = {s["id"] for s in wq.oct26_all_specs() if "_b6_" in s["id"]}
+    assert every_b6 == {r["id"] for r in p["entries"] if "_b6_" in r["id"]} | {x["id"] for x in p["not_staged"]}
+
+
+def test_b6_estimates_are_labelled_with_their_factor():
+    import t2s_window_stage as ws
+    est = ws.b6_estimates()
+    assert est["b6_model_pull"]["basis"].startswith("nominal")
+    for k in ("b6_val_cpu", "b6_val_igpu", "b6_real_cpu_4096", "b6_real_igpu_default"):
+        if est[k]["hours"] is not None:
+            assert est[k]["basis"].startswith("ESTIMATE") and "factor" in est[k]["basis"]
+    if est["b6_real_igpu_default"]["hours"] is not None:
+        assert "ASSUMED 32768" in est["b6_real_igpu_default"]["basis"]

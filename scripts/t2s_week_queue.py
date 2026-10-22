@@ -241,19 +241,19 @@ OCT26_PENDING = {}
 # B5 on evo-t2s (pre-registration "B5 on evo-t2s Intel CPU and Intel iGPU", docs/FINDINGS.md 2026-10-22): harness/
 # policy_compare.py, one entry per (platform, model) so each cell completes on its own and a cut by the handover
 # deadline leaves whole seeds (the job stops at a session boundary and resumes in a later window). Policy set on
-# evo-t2s (dated amendment 2026-10-21 22:30): a, c, d, e, f only (passed explicitly as --policies; (b), (g), (h) are
-# not run there, evo-x2 keeps all). Order (operator item 6, 2026-10-21 22:30): the llama3.1:8b cells first at 5 seeds,
-# CPU (the constrained platform, where the default fails) then iGPU; then qwen3:14b at 2 seeds on the Intel CPU (its
-# default window 4096) ONLY if the hours
-# left after the llama3.1:8b cells allow (scripts/t2s_window_stage.py qwen_decision, from measured evo-t2s session
-# minutes, row t2s-b5-plan-hours). When it does not fit, no qwen3:14b entry is in the file and qwen3:14b on Intel is
+# evo-t2s (dated amendments 2026-10-21 22:30 and 2026-10-21 later): a, b, c, d, e, f (passed explicitly as --policies;
+# (g), (h) are not run there, evo-x2 keeps all). Order: the llama3.1:8b cells first at 5 seeds, CPU (the constrained
+# platform, where the default fails) then iGPU; then qwen3:14b at 3 seeds on the Intel CPU (its default window 4096)
+# ONLY if its estimated end is within the launch budget (no-launch time minus 24 h slack; scripts/t2s_window_stage.py
+# qwen_decision, from measured evo-t2s session minutes, row t2s-b5-plan-hours). B6 then fills what is left of the
+# budget (t2s_window_stage.select_b6; B6 hours from evo-x2 H-scale minutes x a measured evo-t2s factor, b6_estimates). When it does not fit, no qwen3:14b entry is in the file and qwen3:14b on Intel is
 # future work (dated amendment to the B5-on-evo-t2s pre-registration, docs/FINDINGS.md). The iGPU qwen3:14b cell is
 # not staged in either case. Every entry is gated only on the preflight.
 OCT26_B5_SEEDS = "20260901,20260902,20260903,20260904,20260905"
 OCT26_B5_CELLS = (("evo-t2s-cpu", "llama3.1:8b"), ("evo-t2s", "llama3.1:8b"))
 OCT26_QWEN_CELL = ("evo-t2s-cpu", "qwen3:14b")
-OCT26_QWEN_SEEDS = "20260901,20260902"   # 2 seeds: below the 3-seed minimum, reported, not a complete cell
-OCT26_B5_POLICIES = "a,c,d,e,f"            # policy_compare.T2S_POLICIES (amendment 2026-10-21 22:30)
+OCT26_QWEN_SEEDS = "20260901,20260902,20260903"   # 3 seeds: the pre-registered minimum (amendment 2026-10-21 later)
+OCT26_B5_POLICIES = "a,b,c,d,e,f"                  # policy_compare.T2S_POLICIES (amendments 2026-10-21)
 
 
 def _b5_slug(platform, model):
@@ -262,7 +262,7 @@ def _b5_slug(platform, model):
 
 def oct26_b5_cells() -> list[tuple]:
     """(platform, model, seeds) of the staged B5 entries: the llama3.1:8b cells at 5 seeds, then the qwen3:14b CPU cell
-    at 2 seeds only when scripts/t2s_window_stage.py qwen_decision says it fits the hours left."""
+    at 3 seeds only when scripts/t2s_window_stage.py qwen_decision says it fits the launch budget."""
     import t2s_window_stage as ws
     cells = [(p, m, OCT26_B5_SEEDS) for p, m in OCT26_B5_CELLS]
     if ws.qwen_decision()["fits"]:
@@ -288,6 +288,21 @@ def oct26_b5_specs() -> list[dict]:
 
 
 def oct26_specs() -> list[dict]:
+    """Every spec of the window in queue order: preflight, A5, the staged B5 cells, then the B6 entries that
+    t2s_window_stage.select_b6 keeps (estimated entries that fit the launch budget, in order; unestimated last)."""
+    import t2s_window_stage as ws
+    specs = oct26_all_specs()
+    b6 = [s for s in specs if "_b6_" in s["id"]]
+    est = ws.b6_estimates()
+    for s in b6:
+        e = est.get(s["id"].removeprefix(OCT26_PREFIX))
+        if e and e["hours"] is not None:
+            s.update(est=round(e["hours"], 1), basis=e["basis"])
+    keep = ws.select_b6(b6)["staged"]
+    return [s for s in specs if "_b6_" not in s["id"]] + [s for s in b6 if s["id"] in keep]
+
+
+def oct26_all_specs() -> list[dict]:
     p = OCT26_PREFIX
     vc, vg = "results/t2s_r2_b6_validation_cpu_v1.jsonl", "results/t2s_r2_b6_validation_igpu_v1.jsonl"
     gates = ["--require-validation-gates", "--per-model-refusal"]
@@ -315,23 +330,25 @@ def oct26_specs() -> list[dict]:
         {"id": p + "b6_real_cpu_4096", "gate": p + "b6_val_cpu",
          "cmd": _r2("real", "cpu_default", "results/t2s_r2_b6_real_cpu_4096_v1.jsonl", "--models", OCT26_MODELS,
                     *real, "--tiers", "ollama_ctx_4096", "--rules-from", vc, *gates),
-         "out": "results/t2s_r2_b6_real_cpu_4096_v1.jsonl", "what": "B6 real, num_ctx 4096, CPU, 5 seeds x 40 turns"},
+         "out": "results/t2s_r2_b6_real_cpu_4096_v1.jsonl",
+         "what": "B6 real, num_ctx 4096, CPU, 5 seeds (--plan strong) x 40 turns"},
         {"id": p + "b6_real_igpu_default", "gate": p + "b6_val_igpu",
          "cmd": _r2("real", "igpu_enable", "results/t2s_r2_b6_real_igpu_v1.jsonl", "--models", OCT26_MODELS,
                     *real, "--tiers", "ollama_default", "--rules-from", vg, *gates),
          "out": "results/t2s_r2_b6_real_igpu_v1.jsonl",
-         "what": "B6 real, iGPU-enabled native window (ollama_default), 5 seeds x 40 turns"},
+         "what": "B6 real, iGPU-enabled native window (ollama_default), 5 seeds (--plan strong) x 40 turns"},
     ]
 
 
 def build_oct26() -> list[dict]:
+    specs = oct26_specs()
     return [{"id": s["id"], "cmd": s["cmd"], "status": "pending",
              "note": f"STAGED for the 2026-10-26 window (not loaded): {s['what']}; est hours: "
                      + (f"{s['est']} ({s['basis']}; scripts/t2s_window_stage.py plan)" if s.get("est") is not None
                         else "none (no evo-t2s timing)"),
              "est_hours": s.get("est"), "est_basis": s.get("basis", "none") if s.get("est") is not None else "none",
              "expected_out": s["out"], "staged_for": "2026-10-26..2026-11-08",
-             **({"gate": {"requires_done": s["gate"]}} if s["gate"] else {})} for s in oct26_specs()]
+             **({"gate": {"requires_done": s["gate"]}} if s["gate"] else {})} for s in specs]
 
 
 def job_specs() -> list[dict]:
