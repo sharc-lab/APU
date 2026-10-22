@@ -6692,12 +6692,14 @@ NUMBER_ENTRIES = [
      "compute": compute_t2s_r2_session_minutes, "data_files": [T2S_REAL["cpu"], T2S_REAL["igpu"], T2S_MITIGATION_CPU],
      "script_function": "analysis/numbers_register.py::compute_t2s_r2_session_minutes"},
     {"claim_id": "t2s-b5-plan-hours", "description": "B5 on evo-t2s for the 2026-10-26 window (operator order "
-                    "2026-10-21 22:30, policies a, c, d, e, f: llama3.1:8b CPU and iGPU at 5 seeds first, then qwen3:14b on the CPU at 2 seeds only if "
-                    "the hours left allow): ESTIMATED hours per staged entry from measured evo-t2s sessions, what fits, "
+                    "2026-10-21 later, policies a, b, c, d, e, f: llama3.1:8b CPU and iGPU at 5 seeds first, then qwen3:14b on the CPU at 3 seeds only if "
+                    "it fits the launch budget, 24 h slack before no-launch; B6 fills the rest): ESTIMATED hours per entry from "
+                    "measured evo-t2s sessions (B6: evo-x2 H-scale minutes x a measured evo-t2s factor), what fits, "
                     "and the qwen3:14b fit decision",
      "compute": compute_t2s_b5_plan_hours,
      "data_files": [T2S_REAL["cpu"], T2S_REAL["igpu"], T2S_MITIGATION_CPU, "results/x2_r2_real_v1.jsonl",
-                    "results/x2_r2_real_v1b.jsonl", "results/x2_r2_mitigation_v1.jsonl", "queues/t2s_oct26_queue.json"],
+                    "results/x2_r2_real_v1b.jsonl", "results/x2_r2_mitigation_v1.jsonl", "results/x2_r2_scale_real.jsonl",
+                    "results/x2_r2_scale_validation.jsonl", "queues/t2s_oct26_queue.json"],
      "script_function": "scripts/t2s_window_stage.py::plan"},
     {"claim_id": "t2s-r2-mitigation-cpu", "description": "evo-t2s Intel CPU client-side trimming at 4096: "
                     "pre-registered mitigation verdict per model", "compute": compute_t2s_r2_mitigation_cpu,
