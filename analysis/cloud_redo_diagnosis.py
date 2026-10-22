@@ -74,7 +74,10 @@ def _diff_record(key: str) -> str:
 
 def classify(row: dict, task, max_rounds: int, cap: int, maxc: int, trunc_chars: int, E) -> str:
     fin = row.get("cloud_final_text") or ""
-    if not fin and row["n_calls"] <= max_rounds:
+    if "cloud_calls" in row:   # runs that record finish_reason per call (cloud_redo.py --thinking-off)
+        if row.get("empty_at_cap"):
+            return "thinking_empty_at_cap"
+    elif not fin and row["n_calls"] <= max_rounds:
         return "thinking_empty_at_cap"
     diff = row.get("cloud_end_state_diff") or []
     refs = _ref_records(task)

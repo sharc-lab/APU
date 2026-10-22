@@ -5466,5 +5466,15 @@ claimed but not done). The cloud treats the local model's history as its own and
 The transcript was already the full history, so a rerun with "full context" alone would repeat v1. The rerun approved on
 2026-10-21 keeps the full history and mid tier, applies the all-cloud fix (thinking {"type": "between_tools"} for
 claude-sonnet-5-5, provider-default temperature, stop if a call ends at max_tokens with nothing visible) and records
-finish_reason per call: scripts/cloud_redo.py --thinking-off, results/cloud_redo_full_context_v1.jsonl, row
-`cloud-redo-full-context`.
+finish_reason per call: scripts/cloud_redo.py --thinking-off --job-cap 10 --ledger <main checkout>/results/cloud_ledger.jsonl,
+output results/cloud_redo_full_context_v1.jsonl, row `cloud-redo-full-context` (PENDING).
+
+**Projection, not run.** The approval set a USD 10 job cap and asked for an up-front refusal if the projection exceeds
+it. Projected from v1's measured per-call ledger cost (scripts/cloud_redo.py::projection_from_executed: each task's
+ledger USD per call times the larger of its v1 call count and 2.56, the mean call count of the 79 tasks v1 got right),
+the 197-task rerun is USD 21.00 on the ledger basis (every input token at the uncached rate, the basis client.py's cap
+enforces), USD 6.10 cache-priced, and USD 37.64 if every task used all 5 calls. The 118 v1 failures alone project to USD
+13.88 on the ledger basis. Both exceed USD 10, so the script refuses before sending anything; v1 itself charged USD 13.90
+to the ledger (USD 3.95 cache-priced). The ledger stood at USD 21.19 after the all-cloud job, so the point projection
+fits the USD 50 total (USD 28.81 left) but the all-rounds bound does not. The rerun waits for an operator decision on
+the job cap.

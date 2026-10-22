@@ -63,6 +63,13 @@ from cloud import client as cc  # noqa: E402
 
 SOURCE = REPO / "results" / "x2_evalset_tasks_real_v2.jsonl"
 OUT = REPO / "results" / "cloud_redo_v1.jsonl"
+OUT_FULL_CONTEXT = REPO / "results" / "cloud_redo_full_context_v1.jsonl"
+V1_EXECUTED = OUT
+# --thinking-off (2026-10-21, after analysis/cloud_redo_diagnosis.py): v1 sent no thinking parameter and max_tokens 384;
+# both models think by default and thinking counts against max_tokens, so 109 of v1's 118 failures were empty replies at
+# the cap. Same values as scripts/all_cloud_b3.py THINKING_OFF: Haiku 5.5 accepts "disabled"; Sonnet 5.5 rejects it and
+# turns thinking off with "between_tools". Temperature is never sent (provider default; temperature 0 is rejected).
+THINKING_OFF = {"claude-haiku-5-5": {"type": "disabled"}, "claude-sonnet-5-5": {"type": "between_tools"}}
 PRICE_FILE = REPO / "results" / "cloud_prices_anthropic_20261014.json"
 HARNESS = "cloud_redo"
 MODE_STUB = "priced_not_executed"
@@ -259,18 +266,27 @@ def _parse_reply(resp: dict) -> tuple[str, list[dict]]:
     return msg.get("content") or "", calls
 
 
-def live_turn(client, model_id: str, es, built: dict, rates: dict, max_tokens: int) -> dict:
+def empty_at_cap(call_rec: dict) -> bool:
+    """A call that stopped at max_tokens with no visible content and no tool call (output spent where the harness cannot
+    see it, e.g. thinking). Same test as scripts/all_cloud_b3.py::empty_at_cap; the run stops on it."""
+    return call_rec.get("finish_reason") in ("length", "max_tokens") and not call_rec.get("content_chars") \
+        and not call_rec.get("n_tool_calls")
+
+
+def live_turn(client, model_id: str, es, built: dict, rates: dict, max_tokens: int, thinking: dict | None = None) -> dict:
     tools = EV.tools_payload(es.design)
     messages = copy.deepcopy(built["messages"])
     live_env = copy.deepcopy(built["env_before"])
     flat, final_text, secs = [], "", 0.0
     tot = {"input_tokens": 0, "output_tokens": 0, "cache_write_tokens": 0, "cache_read_tokens": 0,
            "uncached_input_tokens": 0, "usd": 0.0, "usd_all_uncached": 0.0, "usd_ledger": 0.0}
-    n_calls = 0
+    n_calls, call_recs = 0, []
     for i in range(MAX_TOOL_ROUNDS + 1):
         offer = i < MAX_TOOL_ROUNDS
         # Anthropic needs tools defined when the transcript holds tool calls: the final call keeps them, choice none
         kw = {"tools": tools, "max_tokens": max_tokens, "custom_llm_provider": "anthropic"}
+        if thinking is not None:
+            kw["thinking"] = thinking
         if not offer:
             kw["tool_choice"] = "none"
         prepared = client.prepare(model_id=model_id, messages=with_cache_control(messages), **kw)
@@ -290,6 +306,13 @@ def live_turn(client, model_id: str, es, built: dict, rates: dict, max_tokens: i
         content, calls = _parse_reply(resp)
         if not offer:
             calls = []
+        call_recs.append({"finish_reason": ((resp.get("choices") or [{}])[0] or {}).get("finish_reason"),
+                          "output_tokens": u["output_tokens"], "input_tokens": u["input_tokens"],
+                          "content_chars": len(content), "n_tool_calls": len(calls),
+                          "tool_choice": kw.get("tool_choice")})
+        if empty_at_cap(call_recs[-1]):
+            final_text = content
+            break
         if calls:
             flat.extend(calls)
             _append_call(messages, live_env, content, calls, f"c{i}")
@@ -299,13 +322,15 @@ def live_turn(client, model_id: str, es, built: dict, rates: dict, max_tokens: i
     g = grade(es, built["item"], built["env_before"], flat, final_text)
     return {**tot, "seconds": secs, "n_calls": n_calls, "cloud_end_state_ok": g["end_state_ok"],
             "cloud_state_ok": g["state_ok"], "cloud_answer_ok": g["answer_ok"], "cloud_end_state_diff": g["end_state_diff"],
-            "cloud_final_text": final_text[:TRUNC_CHARS], "cloud_n_tool_calls": len(flat)}
+            "cloud_final_text": final_text[:TRUNC_CHARS], "cloud_n_tool_calls": len(flat), "cloud_calls": call_recs,
+            "empty_at_cap": any(empty_at_cap(c) for c in call_recs)}
 
 
-def warmup(client, model_id: str) -> dict:
+def warmup(client, model_id: str, thinking: dict | None = None) -> dict:
     t0 = time.perf_counter()
+    kw = {"thinking": thinking} if thinking is not None else {}
     res = client.call(model_id=model_id, messages=[{"role": "user", "content": "Reply with the single word OK."}],
-                      max_tokens=8, custom_llm_provider="anthropic")
+                      max_tokens=8, custom_llm_provider="anthropic", **kw)
     return {"record": "warmup", "excluded_from_stats": True, "seconds": time.perf_counter() - t0,
             "usd_ledger": res.cost_usd, "input_tokens": res.input_tokens, "output_tokens": res.output_tokens}
 
@@ -335,13 +360,44 @@ def summarize(rows: list[dict]) -> dict:
     return out
 
 
+
+# ── projection ──────────────────────────────────────────────────────────────────────────────────────
+
+def projection_from_executed(wrong: list[dict], executed_rows: list[dict]) -> dict | None:
+    """Ledger-basis (every input token uncached, as client.py's cap check charges) projection for a rerun, from an
+    executed run of the same tasks: per task, its measured ledger USD per call times max(its call count, the mean call
+    count of the tasks that run got right), since a turn that ended early on an empty reply will now run its tool loop.
+    Also the same with the cache-priced USD (usd). None when no executed row matches."""
+    ex = {(r["attempt_id"], r["turn_idx"]): r for r in executed_rows
+          if r.get("record") == "cloud_redo_task" and r.get("mode") == MODE_LIVE}
+    hit = [ex[k] for k in ((r["attempt_id"], r["turn_idx"]) for r in wrong) if k in ex]
+    if not hit:
+        return None
+    ok = [r["n_calls"] for r in hit if r.get("cloud_end_state_ok")]
+    mc = statistics.fmean(ok) if ok else float(MAX_TOOL_ROUNDS + 1)
+    led = sum(r["usd_ledger"] / r["n_calls"] * max(r["n_calls"], mc) for r in hit)
+    cached = sum(r["usd"] / r["n_calls"] * max(r["n_calls"], mc) for r in hit)
+    worst = sum(r["usd_ledger"] / r["n_calls"] * (MAX_TOOL_ROUNDS + 1) for r in hit)
+    return {"n_matched": len(hit), "n_tasks": len(wrong), "mean_calls_correct": mc, "ledger_usd": led,
+            "cached_usd": cached, "ledger_usd_worst_all_rounds": worst}
+
+
 # ── main ────────────────────────────────────────────────────────────────────────────────────────────
 
 def run(live: bool, source: Path = SOURCE, out: Path = OUT, price_file: Path = PRICE_FILE, limit: int | None = None,
-        client=None, max_tokens: int = ag.MAX_TOKENS_PER_CALL, emit_print=print) -> list[dict]:
+        client=None, max_tokens: int = ag.MAX_TOKENS_PER_CALL, emit_print=print, thinking_off: bool = False,
+        job_cap: float | None = None, ledger_total_at_start: float | None = None,
+        executed_file: Path | None = None) -> list[dict]:
+    """thinking_off: send THINKING_OFF[model] on every call and stop the run at the first call that ends at max_tokens
+    with nothing visible. job_cap (live): refuse up front when the projection (from executed_file if it holds an
+    executed run of these tasks, else from the local token counts; ledger basis) exceeds it. Rows are written as they
+    are made, so a stop or a cap leaves every finished task on disk."""
     table = load_price_table(price_file)
     model_id = escalation_model(table)
     rates = model_rates(table, model_id)
+    thinking = THINKING_OFF.get(model_id) if thinking_off else None
+    if thinking_off and thinking is None:
+        raise SystemExit(f"refused: no thinking-off setting known for {model_id}")
     src = load_rows(source)
     wrong = wrong_tasks(src)
     if limit is not None:
@@ -356,7 +412,11 @@ def run(live: bool, source: Path = SOURCE, out: Path = OUT, price_file: Path = P
     for r in wrong:
         t = tier_of(r["arm_id"], r.get("call2_mode", "off"))
         per_tier[t] = per_tier.get(t, 0) + 1
-    rows = [{
+    proj = None
+    if executed_file is not None and Path(executed_file).exists():
+        proj = projection_from_executed(wrong, load_rows(Path(executed_file)))
+    local_proj = sum(price_turn(local_call_tokens(r), rates)["usd_all_uncached"] for r in wrong)
+    start = {
         "record": "run_start", "harness": HARNESS, "ts_utc": utc_iso(), "mode": mode,
         "script": "scripts/cloud_redo.py", "script_git_blob": git_blob(Path(__file__)),
         "price_file": price_file.relative_to(REPO).as_posix() if price_file.is_relative_to(REPO) else price_file.name,
@@ -371,58 +431,105 @@ def run(live: bool, source: Path = SOURCE, out: Path = OUT, price_file: Path = P
         "output_basis": ("local completion_tokens used as a stand-in for the cloud output" if not live
                          else "provider usage"),
         "not_measured": list(NOT_MEASURED_STUB) if not live else [],
-    }]
+        "context": "full client-side history (rebuild), no trimming",
+        "max_tokens": max_tokens, "thinking_sent": thinking, "temperature_sent": None,
+        "stop_on_empty_at_cap": bool(thinking_off),
+        "job_cap_usd": job_cap, "ledger_total_at_start_usd": ledger_total_at_start,
+        "projection_local_tokens_ledger_usd": local_proj, "projection_from_executed": proj,
+    }
+    rows = [start]
     if live:
-        projected = sum(price_turn(local_call_tokens(r), rates)["usd_all_uncached"] for r in wrong)
+        projected = proj["ledger_usd"] if proj and proj["n_matched"] == len(wrong) else local_proj
+        if job_cap is not None and projected > job_cap:
+            raise SystemExit(f"refused: projected ${projected:.2f} (ledger basis, all input uncached) exceeds the job "
+                             f"cap ${job_cap:.2f}; nothing was sent")
         if projected > client.remaining_budget_usd:
             raise SystemExit(f"refused: projected ${projected:.2f} (all input uncached) exceeds the remaining budget "
                              f"${client.remaining_budget_usd:.2f} under the ${client.spend_cap_usd:.2f} cap")
-        rows.append(warmup(client, model_id))
-    cache: dict = {}
-    for r in wrong:
-        es = build_session_for(r, cache)
-        prior = [x for x in session_rows(src, r["attempt_id"]) if x["turn_idx"] < r["turn_idx"]]
-        built = rebuild(es, prior, r["turn_idx"])
-        if built["item"].task is None or built["item"].task.task_id != r["task_id"]:
-            raise RuntimeError(f"rebuilt item {built['item'].item_id} does not match row task {r['task_id']}")
-        base = {"record": "cloud_redo_task", "mode": mode, "model_id": model_id,
-                "tier": tier_of(r["arm_id"], r.get("call2_mode", "off")), "arm_id": r["arm_id"], "seed": r["seed"],
-                "turn_idx": r["turn_idx"], "task_id": r["task_id"], "attempt_id": r["attempt_id"],
-                "local_model_id": r["model_id"], "local_n_calls": len(r.get("calls") or []),
-                "local_any_http_error": r.get("any_http_error"),
-                "local_regrade_end_state_ok": local_regrade(es, built["item"], built["env_before"], r),
-                "history_truncated_messages": built["history_truncated_messages"],
-                "rebuilt_messages": len(built["messages"])}
-        if live:
-            res = live_turn(client, model_id, es, built, rates, max_tokens)
-        else:
-            res = {**price_turn(local_call_tokens(r), rates), "n_calls": len(r.get("calls") or []),
-                   "seconds": None, "cloud_end_state_ok": None, "not_measured": list(NOT_MEASURED_STUB)}
-        row = {**base, **res, "ts_utc": utc_iso()}
-        rows.append(row)
-    rows.append({"record": "run_end", "harness": HARNESS, "ts_utc": utc_iso(), "summary": summarize(rows)})
     out.parent.mkdir(parents=True, exist_ok=True)
+    stopped = None
     with open(out, "w", encoding="utf-8", newline="\n") as fh:
-        for row in rows:
+        def emit(row):
+            rows.append(row) if row is not start else None
             fh.write(json.dumps(row, sort_keys=True) + "\n")
+            fh.flush()
+
+        emit(start)
+        try:
+            if live:
+                emit(warmup(client, model_id, thinking))
+            cache: dict = {}
+            for r in wrong:
+                es = build_session_for(r, cache)
+                prior = [x for x in session_rows(src, r["attempt_id"]) if x["turn_idx"] < r["turn_idx"]]
+                built = rebuild(es, prior, r["turn_idx"])
+                if built["item"].task is None or built["item"].task.task_id != r["task_id"]:
+                    raise RuntimeError(f"rebuilt item {built['item'].item_id} does not match row task {r['task_id']}")
+                base = {"record": "cloud_redo_task", "mode": mode, "model_id": model_id,
+                        "tier": tier_of(r["arm_id"], r.get("call2_mode", "off")), "arm_id": r["arm_id"],
+                        "seed": r["seed"], "turn_idx": r["turn_idx"], "task_id": r["task_id"],
+                        "attempt_id": r["attempt_id"], "local_model_id": r["model_id"],
+                        "local_n_calls": len(r.get("calls") or []), "local_any_http_error": r.get("any_http_error"),
+                        "local_regrade_end_state_ok": local_regrade(es, built["item"], built["env_before"], r),
+                        "history_truncated_messages": built["history_truncated_messages"],
+                        "rebuilt_messages": len(built["messages"])}
+                if live:
+                    res = live_turn(client, model_id, es, built, rates, max_tokens, thinking)
+                else:
+                    res = {**price_turn(local_call_tokens(r), rates), "n_calls": len(r.get("calls") or []),
+                           "seconds": None, "cloud_end_state_ok": None, "not_measured": list(NOT_MEASURED_STUB)}
+                emit({**base, **res, "ts_utc": utc_iso()})
+                if thinking_off and res.get("empty_at_cap"):
+                    stopped = (f"call ended at max_tokens with nothing visible ({r['task_id']} seed {r['seed']} turn "
+                               f"{r['turn_idx']}); run stopped")
+                    break
+        except cc.SpendCapExceeded as e:
+            stopped = f"spend cap: {e}"
+        tasks = [x for x in rows if x.get("record") == "cloud_redo_task"]
+        summary = summarize(rows) if tasks else {"n": 0}
+        end = {"record": "run_end", "harness": HARNESS, "ts_utc": utc_iso(), "stopped": stopped, "summary": summary}
+        if live:
+            end["ledger_total_usd"] = getattr(client, "running_total_usd", None)
+        emit(end)
     s = rows[-1]["summary"]
-    emit_print(f"{mode}: n={s['n']} total ${s['total_usd']:.4f} mean ${s['mean_usd']:.5f} "
-               f"median ${s['median_usd']:.5f} -> {out.name}")
+    if s.get("n"):
+        emit_print(f"{mode}: n={s['n']} total ${s['total_usd']:.4f} mean ${s['mean_usd']:.5f} "
+                   f"median ${s['median_usd']:.5f} -> {out.name}" + (f"; STOPPED: {stopped}" if stopped else ""))
+    else:
+        emit_print(f"{mode}: no task row -> {out.name}" + (f"; STOPPED: {stopped}" if stopped else ""))
     return rows
 
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--live", action="store_true", help="execute on the cloud (needs ANTHROPIC_API_KEY)")
-    ap.add_argument("--out", type=Path, default=OUT)
+    ap.add_argument("--out", type=Path, default=None,
+                    help="default results/cloud_redo_v1.jsonl, or cloud_redo_full_context_v1.jsonl with --thinking-off")
     ap.add_argument("--source", type=Path, default=SOURCE)
     ap.add_argument("--limit", type=int, default=None)
+    ap.add_argument("--thinking-off", action="store_true",
+                    help="send THINKING_OFF[model] and stop at the first empty reply at max_tokens (the full-context "
+                         "rerun of 2026-10-21)")
+    ap.add_argument("--ledger", type=Path, default=cc.DEFAULT_LEDGER_PATH,
+                    help="the shared ledger (pass the main checkout's results/cloud_ledger.jsonl)")
+    ap.add_argument("--job-cap", type=float, default=None,
+                    help="this job's own cap in USD: client cap = ledger total at start + job cap; refuse up front if "
+                         "the projection exceeds it")
     a = ap.parse_args(argv)
+    out = a.out or (OUT_FULL_CONTEXT if a.thinking_off else OUT)
     if a.live and not os.environ.get(KEY_ENV):
         print(f"refused: --live needs {KEY_ENV} set in the environment; nothing was sent", file=sys.stderr)
         return 2
-    run(a.live, a.source, a.out, limit=a.limit)
-    return 0
+    client, total0 = None, None
+    if a.live and a.job_cap is not None:
+        total0 = cc.CloudClient(mode="stub", ledger_path=a.ledger)._read_running_total()
+        client = cc.CloudClient(mode="real", spend_cap_usd=total0 + a.job_cap, ledger_path=a.ledger)
+        print(f"ledger total at start ${total0:.4f}; job cap ${a.job_cap:.2f}; client cap ${client.spend_cap_usd:.4f}")
+    elif a.live:
+        client = cc.CloudClient(mode="real", ledger_path=a.ledger)
+    rows = run(a.live, a.source, out, limit=a.limit, client=client, thinking_off=a.thinking_off, job_cap=a.job_cap,
+               ledger_total_at_start=total0, executed_file=V1_EXECUTED if a.thinking_off else None)
+    return 0 if rows[-1].get("stopped") is None else 4
 
 
 if __name__ == "__main__":
