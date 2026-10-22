@@ -6667,7 +6667,7 @@ NUMBER_ENTRIES = [
      "compute": compute_t2s_r2_session_minutes, "data_files": [T2S_REAL["cpu"], T2S_REAL["igpu"], T2S_MITIGATION_CPU],
      "script_function": "analysis/numbers_register.py::compute_t2s_r2_session_minutes"},
     {"claim_id": "t2s-b5-plan-hours", "description": "B5 on evo-t2s for the 2026-10-26 window (operator order "
-                    "2026-10-21: llama3.1:8b CPU and iGPU at 5 seeds first, then qwen3:14b on the CPU at 3 seeds only if "
+                    "2026-10-21 22:30, policies a, c, d, e, f: llama3.1:8b CPU and iGPU at 5 seeds first, then qwen3:14b on the CPU at 2 seeds only if "
                     "the hours left allow): ESTIMATED hours per staged entry from measured evo-t2s sessions, what fits, "
                     "and the qwen3:14b fit decision",
      "compute": compute_t2s_b5_plan_hours,
