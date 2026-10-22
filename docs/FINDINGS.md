@@ -4903,3 +4903,74 @@ missing, and its reading is not made.
 drift is not expected, but timing can still vary with machine state). The tolerance is a point rule on means, as
 B5's verdict was. One machine and runtime. Duration: an ESTIMATE in register row `x2-queue-fill-1022-hours` from B5's
 measured session and recall times. The job calls tq.advance() on exit and sets no pause.
+
+## PRE-REGISTRATION: B5 under a simulated device window of 8192 and 4096, all policies, 5 seeds (x2_b5_simcap_8192, x2_b5_simcap_4096 on evo-x2) (2026-10-22, NOT YET RUN)
+
+**Status:** PRE-REGISTRATION, written and committed before evo-x2's queue is edited for these jobs. No data for them
+exists. The harness option (`policy_compare.py --window-cap`, commit 5898586, tests on fakes in
+`tests/test_b5_fa_control_simcap.py`) was written before this text was committed but has not run on evo-x2. It
+follows "PRE-REGISTRATION: B5 policy comparison" (2026-10-14), whose text is not edited, and runs second in the
+2026-10-22 queue fill (operator decisions of 2026-10-21 and 2026-10-21 18:30: results by 2026-10-28).
+
+**Why.** On evo-x2 every window B5 measured was the model's native context (`b5_resolution` rows of
+`results/x2_policy_compare.jsonl`: llama3.1:8b D = L = G = 131072, qwen3:14b 40960), so no policy ever ran short of
+window and the router (d) had nothing to rescue: B5 was refuted on evo-x2 (register row `b5-verdict`, pasted: "refuted
+(router dominated in evo-x2/llama3.1:8b, evo-x2/qwen3:14b)"). This run asks the same question where the window is
+small, the condition in which R2 found silent rule and history loss (`R2-v1b-excess-over-default`): does the router
+help where the fixed policies fail?
+
+**Label, fixed now: "simulated constraint".** evo-x2 is not memory bound at these windows. The cap is a stated device
+budget, imposed by the harness, not measured on a constrained device. Every row, register line and figure built on
+this run carries the label.
+
+**Jobs.** Queue ids `x2_b5_simcap_8192` then `x2_b5_simcap_4096`; outputs `results/x2_policy_compare_simcap8192.jsonl`
+and `results/x2_policy_compare_simcap4096.jsonl`; harness `C:\apu\ovn\b5fa\policy_compare.py --platform evo-x2
+--window-cap <N> --seeds 20260901,20260902,20260903,20260904,20260905` (the side directory deployed for the
+flash-attention control; agent blob cbb0ebbf, policy_compare blob 2c9f6a14, router stack and price table at the blobs
+B5 used, no change to them since B5's deploy). Models llama3.1:8b and qwen3:14b; the validation preflight, rules in
+use, R2 session (40 turns, call-2 mode off, temperature 0, seed 42, num_predict 384), the job's own Ollama 0.34.4
+server, the window probe, KV checks, router, cloud costing and recall probe are B5's. **Five seeds**, 20260901 to
+20260905 (operator, 2026-10-21 18:30; B5 had three). Policies (a) to (h), resolved from the probed windows with the cap
+N (`policy_compare.resolve_policies(win, cap=N)`):
+- every policy's effective window is min(its B5 window, N); with B5's windows that is N for every policy;
+- (a) default and (f) num_keep send num_ctx = N (sending none would load the native window and break the budget);
+  (b) largest and (e) autosize resolve to the same configuration as (a) and are recorded as aliases of it, as in B5;
+- (c) trim: client-side trimming at N (margin 0.05); (f) num_keep: options.num_keep = S at N;
+- (g) q8_0 and (h) q4_0: the job's own server with that KV type and flash attention, at N (the budget is a window, not
+  a memory amount; a larger window that quantized KV would fit in the same memory is not tested);
+- (d) router: `src/dse/router.Router` per call at window N; a cloud step is executed by the same local model with the
+  full history at the uncapped L (llama3.1:8b 131072, qwen3:14b 40960; the cloud is not bound by the device budget),
+  costed at the shared price table (ASSUMPTION A-B5-cloud and A-B5-cloud-latency unchanged).
+The recall probe runs at the capped windows (it is reported, not read, as in B5).
+
+**Measures, fixed now** (register row `b5-sim-constraint`, PENDING until both files are synced). Per cap, model and
+policy, B5's four metrics over the five seeds (`policy_compare.metrics_for_platform`): rule pass rate over the rules in
+use, history-tag recall on canary turns, mean session minutes (cloud steps re-timed per A-B5-cloud-latency), mean
+cloud USD per session. Rule pass rate is the R2 counterpart of a wrong-task rate (this workload has no task end
+state).
+
+**Success rule: B5's, unchanged** (2026-10-14 pre-registration, "Pareto frontier and verdict (mechanical, ...)"), with
+the two caps standing where B5 had platforms. Pasted: "X dominates Y when X is at least as good on all four metrics
+(higher rates, lower minutes and USD) and strictly better on at least one; the frontier of a cell is the set of
+policies no other policy dominates (equal vectors do not dominate each other)." Cells are (cap, model). A cell is
+complete when its file has run_end, every distinct policy has all 5 seeds complete, (d) ran, and the model has rules
+in use. Fixed settings: (a), (b), (c), (e), (f), (g), (h).
+- **Supported**: both caps complete, (d) on the frontier in every complete cell, and no fixed setting on the frontier
+  in every cell of both caps.
+- **Refuted**: (d) dominated in any complete cell; or, with both caps complete, some fixed setting on the frontier in
+  every cell of both caps.
+- **Inconclusive** otherwise, with the per-cap state. Not refuting: (d) sending no step to the cloud, and ties.
+Computed by `policy_compare.b5_verdict(platform_rows, required=("cap8192", "cap4096"), seeds=20260901 to 20260905)`.
+B5's own statement applies: the frontier test is weak (a uniquely fastest zero-USD policy is on the frontier by
+construction). This verdict is about the simulated constraint on evo-x2 only; it does not change `b5-verdict`.
+
+**Validity (mechanical).** As for the B5 verdict's completeness above; in addition every turn row of every session
+requested its policy's num_ctx (N for every policy but the router's cloud steps, which record their sent window in
+b5_route rows), and run_start records window_cap N, the label and the harness and agent blobs.
+
+**Known limits, stated before the run.** The budget is simulated; the time a policy takes at N on evo-x2 is not the
+time it would take on a device with only that much memory. The router's cloud proxy is the local model at the
+uncapped window (a conservative stand-in for a frontier cloud model, as in B5), and its sessions are slow for that
+reason (the proxy runs full-history calls). Five seeds per cell; point means, no tolerance (B5's rule). One machine and
+runtime. Duration: ESTIMATEs in register row `x2-queue-fill-1022-hours` (R2 v1/v1b session times at N, B5's router
+sessions). Each job calls tq.advance() on exit and sets no pause.
