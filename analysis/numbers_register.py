@@ -5483,13 +5483,27 @@ def compute_cloud_redo_full_context(repo, path=CLOUD_REDO_FULL_CONTEXT):
     spec.loader.exec_module(cd)
     d = cd.compute(repo, path)
     cls = ", ".join(f"{k} {v}" for k, v in d["counts"].items())
+    tasks = [r for r in rows if r.get("record") == "cloud_redo_task"]
+    n_all, ok = start["n_wrong_tasks"], sum(1 for r in tasks if r.get("cloud_end_state_ok"))
+    lo, hi = wilson_ci(ok, n_all)
+    secs = sorted(r["seconds"] for r in tasks if r.get("seconds") is not None)
+    tiers = []
+    for t, v in s["per_tier"].items():
+        tt = [r for r in tasks if r["tier"] == t]
+        tok = sum(1 for r in tt if r.get("cloud_end_state_ok"))
+        tl, th = wilson_ci(tok, len(tt))
+        tiers.append(f"{t} fixed {tok}/{len(tt)} [{tl:.1%}, {th:.1%}], USD mean ${v['mean_usd']:.4f} median "
+                     f"${v['median_usd']:.4f}")
     return {"value": f"model {s['model_id']}, thinking {start.get('thinking_sent')}, max_tokens {start.get('max_tokens')}, "
-                     f"full client-side history, caching on; fixed {_frac(s['cloud_correct'], start['n_wrong_tasks'])} "
-                     f"of the wrong tasks (graded {s['cloud_graded']}); USD per task mean ${s['mean_usd']:.4f}, median "
-                     f"${s['median_usd']:.4f}, total ${s['total_usd']:.4f} (ledger basis, all input uncached: "
-                     f"${s['total_usd_all_uncached']:.4f}); mean {s['seconds_mean']:.2f} s per task; stopped: "
-                     f"{end.get('stopped')}; still wrong by class: {cls}",
-            "n": f"{s['n']} tasks run"}
+                     f"full client-side history, caching on; fixed {_frac(ok, n_all)} of the wrong tasks, 95% Wilson "
+                     f"CI over tasks [{lo:.1%}, {hi:.1%}] (tasks not run count as not fixed; ran {len(tasks)}); USD "
+                     f"per task (cache-priced) mean ${s['mean_usd']:.4f}, median ${s['median_usd']:.4f}, total "
+                     f"${s['total_usd']:.4f} (ledger basis, all input uncached: ${s['total_usd_all_uncached']:.4f}); "
+                     f"seconds per task mean {s['seconds_mean']:.2f}, median {statistics.median(secs):.2f}; per tier: "
+                     f"{'; '.join(tiers)}; stopped: {end.get('stopped')}; ledger total at end "
+                     + (f"${end['ledger_total_usd']:.4f}" if end.get("ledger_total_usd") is not None else "n/a")
+                     + f"; still wrong by class: {cls}",
+            "n": f"{len(tasks)} tasks run of {n_all}"}
 
 
 def compute_cloud_cost_per_real_task(repo):
