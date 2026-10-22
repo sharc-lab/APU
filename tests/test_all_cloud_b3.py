@@ -224,5 +224,29 @@ def test_temperature_rejected_falls_back_to_provider_default(tmp_path, monkeypat
     assert sum(1 for _ in open(tmp_path / "ledger.jsonl")) == 2 + 4 + 12
 
 
+def test_thinking_off_sent_per_model(tmp_path):
+    seen = []
+    client = make_client(tmp_path, fake_provider(seen))
+    table = AC.CR.load_price_table()
+    for m, want in (("claude-haiku-5-5", {"type": "disabled"}), ("claude-sonnet-5-5", {"type": "between_tools"})):
+        rt = AC.CloudRuntime(client, m, AC.CR.model_rates(table, m))
+        rt.chat("m", [{"role": "system", "content": "s"}, {"role": "user", "content": "u"}], None, None, None)
+        assert seen[-1]["kw"]["thinking"] == want
+        w, _t = AC.warmup_probe(client, m)
+        assert seen[-1]["kw"]["thinking"] == want
+
+
+def test_pilot_empty_at_cap_stops(tmp_path, monkeypatch):
+    local = _local_file(tmp_path)
+    monkeypatch.setattr(AC.ag, "completed_sessions", lambda rows: [r for r in rows if r.get("record") == "r2a_session"])
+
+    def fn(*, model_id, messages, api_key, **kw):
+        return {"choices": [{"message": {"role": "assistant", "content": ""}, "finish_reason": "length"}],
+                "usage": {"prompt_tokens": 900, "completion_tokens": 384}}
+    client = make_client(tmp_path, fn)
+    res = AC.run(client, tmp_path / "o.jsonl", local_source=local, max_turns=2, log=lambda *_: None)
+    assert res["decision"] == "stop" and "empty at max_tokens" in res["stopped"]
+
+
 def test_project_nan_ratio_is_infinite():
     assert AC.project("claude-haiku-5-5", float("nan"), {1: [(10, 1)]}) == float("inf")

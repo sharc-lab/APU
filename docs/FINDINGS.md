@@ -5449,3 +5449,18 @@ fallback ("that model runs with the provider default, recorded in run_start") wa
 warm-up is sent with temperature 0 and, if the provider rejects temperature for the model, sent again without it, and
 run_start records `temperature_per_model`. A pilot with no usable ratio now projects as infinite (stop). Nothing else
 changes; the job reruns from the start under the same USD 15 job cap.
+
+## AMENDMENT (2026-10-21, before any kept measured turn): all_cloud_b3_v1 attempt 2 stopped by hand, thinking turned off as pre-registered
+
+Attempt 2 ran the warm-ups and pilots (projection USD 9.33 ledger basis, under the cap) and 19 measured claude-haiku-5-5
+turns of seed 20260901, then was stopped by hand: from turn 7 on most calls stopped at max_tokens (384) with no content
+and no tool call, so the turn was graded wrong with nothing for the grader to see. Cause: both models think by default
+and the thinking tokens count against max_tokens, so the pre-registered "no extended thinking" was not in force (the
+request sent no thinking parameter). The file is kept as `results/all_cloud_b3_v1_attempt2_aborted.jsonl` and none of
+its turns are counted. Fix, implementing the pre-registered protocol: every call (warm-up, pilot, measured) sends
+thinking off, claude-haiku-5-5 `{"type": "disabled"}` (accepted at its default effort) and claude-sonnet-5-5
+`{"type": "between_tools"}` (Sonnet 5.5 rejects "disabled"; "between_tools" is its thinking-off setting), recorded in
+run_start as `thinking_per_model`; temperature is the provider default for both (temperature 0 rejected, amendment
+above). The pilot now also stops the job if any pilot call ends at max_tokens with no content and no tool call. Budget:
+attempts 1 and 2 spent USD 0.0659 on the ledger (ledger total 14.0931 before attempt 1, 14.1590 after attempt 2), so
+the rerun runs with a job cap of USD 14.93, keeping the whole job inside the pre-registered USD 15. max_tokens stays 384.

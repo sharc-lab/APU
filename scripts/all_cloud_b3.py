@@ -66,6 +66,10 @@ LOCAL_REF_ARM = "ollama_default_call2_notools"
 DESIGN = "v2"
 ARM_ID = "cloud_all"
 KEY_ENV = cc.ENV_VAR_ANTHROPIC_API_KEY
+# "No extended thinking" (pre-registered; local qwen3:14b runs with think false). Both models think by default, and
+# thinking tokens count against max_tokens. Haiku 5.5 accepts {"type": "disabled"} at its default effort (medium);
+# Sonnet 5.5 rejects "disabled" and turns thinking off with {"type": "between_tools"} (effort high or below, its default).
+THINKING_OFF = {"claude-haiku-5-5": {"type": "disabled"}, "claude-sonnet-5-5": {"type": "between_tools"}}
 COST_KEYS = ("input_tokens", "uncached_input_tokens", "cache_read_tokens", "cache_write_tokens", "output_tokens",
              "usd", "usd_all_uncached", "usd_ledger", "seconds")
 
@@ -110,6 +114,12 @@ def to_provider_messages(messages: list[dict]) -> list[dict]:
     return out
 
 
+def empty_at_cap(rec: dict) -> bool:
+    """A call that stopped at max_tokens with no content and no tool call (output spent where the harness cannot see
+    it, e.g. thinking): the pilot treats it as an error."""
+    return rec.get("done_reason") == "length" and not (rec.get("content") or "") and not rec.get("native_tool_calls")
+
+
 def has_tool_calls(pmsgs: list[dict]) -> bool:
     return any(m.get("tool_calls") or m.get("role") == "tool" for m in pmsgs)
 
@@ -121,8 +131,9 @@ class CloudRuntime:
     settle; per-call usage, priced cost and send() seconds accumulate in self.calls until drain()."""
 
     def __init__(self, client, model_id: str, rates: dict, max_tokens: int = ag.MAX_TOKENS_PER_CALL,
-                 temperature: float | None = 0.0, log=print, retry_wait_s: float = 10.0):
+                 temperature: float | None = 0.0, log=print, retry_wait_s: float = 10.0, thinking: dict | None = None):
         self.client, self.model_id, self.rates = client, model_id, rates
+        self.thinking = thinking if thinking is not None else THINKING_OFF.get(model_id)
         self.max_tokens, self.temperature, self.log, self.retry_wait_s = max_tokens, temperature, log, retry_wait_s
         self.calls: list[dict] = []
 
@@ -151,6 +162,8 @@ class CloudRuntime:
         kw = {"max_tokens": self.max_tokens, "custom_llm_provider": "anthropic"}
         if self.temperature is not None:
             kw["temperature"] = self.temperature
+        if self.thinking is not None:
+            kw["thinking"] = self.thinking
         if tools is not None:
             kw["tools"] = tools
         elif has_tool_calls(pmsgs):   # final call after the round cap: tools stay defined, choice none
@@ -273,6 +286,8 @@ def warmup_probe(client, model_id: str) -> tuple[dict, float | None]:
     rejected = None
     for temp in (0.0, None):
         kw = {"max_tokens": 8, "custom_llm_provider": "anthropic"}
+        if THINKING_OFF.get(model_id) is not None:
+            kw["thinking"] = THINKING_OFF[model_id]
         if temp is not None:
             kw["temperature"] = temp
         t0 = time.perf_counter()
@@ -371,6 +386,7 @@ def run(client, out: Path = OUT, price_file: Path = PRICE_FILE, local_source: Pa
               "price_file_fetched_utc": table.get("fetched_utc"), "models": models, "seeds": list(seeds),
               "design": DESIGN, "workload": "evalset", "guardrails": False, "max_turns": max_turns,
               "max_tokens": ag.MAX_TOKENS_PER_CALL, "temperature_requested": 0.0, "temperature_per_model": temps,
+              "thinking_per_model": {m: THINKING_OFF.get(m) for m in models},
               "prompt_caching": True,
               "cache_breakpoints": "system prompt and last user message", "job_cap_usd": job_cap,
               "ledger_total_at_start_usd": ledger_total_at_start, "spend_cap_usd": client.spend_cap_usd,
@@ -398,6 +414,8 @@ def run(client, out: Path = OUT, price_file: Path = PRICE_FILE, local_source: Pa
                 log(f"pilot {m}: ratio {ratio:.3f}, projected ledger-basis ${proj[m]['projected_usd_ledger']:.4f}")
             total_proj = spend["usd_ledger"] + sum(p["projected_usd_ledger"] for p in proj.values())
             pilot_errors = sum(1 for r in rows if r.get("record") == "pilot_turn" and r.get("any_http_error"))
+            pilot_errors += sum(1 for r in rows if r.get("record") == "pilot_turn" for c in r["calls"]
+                                if empty_at_cap(c))
             decision = "run" if total_proj <= job_cap and not pilot_errors else "stop"
             emit({"record": "projection", "ts_utc": ag.utc_iso(), "per_model": proj, "spend_so_far_usd_ledger":
                   spend["usd_ledger"], "spend_so_far_usd": spend["usd"], "projected_total_usd_ledger": total_proj,
@@ -415,7 +433,7 @@ def run(client, out: Path = OUT, price_file: Path = PRICE_FILE, local_source: Pa
                     stopped = f"SpendCapExceeded: {e}"
                     log(stopped)
             else:
-                stopped = ("pilot turn had a provider error; no measured turn run" if pilot_errors
+                stopped = ("pilot had a provider error or a call empty at max_tokens; no measured turn run" if pilot_errors
                            else "projection over the job cap; no measured turn run")
         except cc.SpendCapExceeded as e:   # reached during warm-up or pilot
             stopped = f"SpendCapExceeded: {e}"
