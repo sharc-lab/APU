@@ -5120,3 +5120,74 @@ is 3 sessions at two tiers, so the protocol comparison is weaker than for qwen3:
 Ollama 0.34.4 on evo-x2 is not yet measured (its R2 run had no default tier); the real run records it. A 24B model is
 slower per token than qwen3:14b at small windows (R2 session times, register row `x2-queue-fill-1022-hours`). Both
 jobs call tq.advance() on exit and set no pause.
+
+## AMENDMENT (2026-10-22, before any data of these jobs): queue fill of 2026-10-22 deployed and queued on evo-x2
+
+This note follows the five pre-registrations of 2026-10-22 above (R2 at 10 seeds on the v1b blob, b19be61; B5
+flash-attention control, a307ca8; B5 under a simulated device window, 422b7d4; qwen3-32b spill sweep, 777ee78; protocol
+consistency extended to mistral-small3.2:24b, 80ce6f8), whose texts are not edited. Each was committed before its
+job was deployed or queued. Order is the operator's of 2026-10-21/22: flash-attention control, simulated-constraint
+B5 (results by 2026-10-28), R2 at 10 seeds and the spill sweep, then mistral. The qwen3:8b 20-seed extension was
+dropped by the operator and not queued.
+
+- **Run_start provenance (operator item, 2026-10-21).** `x2_r2_agent.py` now writes `agent_file` and `agent_blob`,
+  `x2_r2_evalset.py` writes `harness_blob` and `agent_blob`, `policy_compare.py` writes `harness_blob` (it already
+  wrote `agent_blob` and `self_blob`), the v1b launcher adds `harness_provenance` (agent, launcher and module blobs)
+  to both its files' run_start records, and the spill sweep writes its own and its modules' blobs (commits 86662b8,
+  5898586, ccd768d, 78e1612; tests in `tests/test_x2_r2_agent_backcompat.py`, `tests/test_b5_fa_control_simcap.py`,
+  `tests/test_x2_r2_v1b_seeds.py`).
+- **Queue mechanics.** `harness/x2_queue_fill.py` in `C:\apu\ovn\qfill`, one read-modify-write per `--append` under
+  `t2s_queue.set_pause` (reason names its release), cleared in the same script's finally block; every append reported
+  the pause flag absent afterwards. Every entry's note says it releases itself via tq.advance() on exit and sets no
+  pause. Nothing was launched by hand: `queue_empty.flag` was present, and the watchdog's next tick launched the first
+  entry (`{"action": "launched", "launched": "x2_b5_fa_control"}`, 2026-10-22 03:13:40Z), clearing the flag. Read-only
+  pre-queue checks with `harness/x2_deploy_check.py` (no server start, no model call).
+- **x2_b5_fa_control**, position 75. Side directory `C:\apu\ovn\b5fa`: `policy_compare.py` 2c9f6a14, `x2_r2_agent.py`
+  cbb0ebbf, `x2_num_keep.py` c2bb7c2d, and the router stack, envelope and price files under `src\`, `analysis\`,
+  `results\` from HEAD (unchanged since the B5 deploy at 399a131); `verify_deployed_blobs` reported no problems for
+  all seven directories. Check: import check resolves the router stack; preflight on the B5 validation files admits
+  llama3.1:8b (rules 1, 3, 4) and qwen3:14b (rules 1 to 5); B5's windows read back (llama3.1:8b 131072, qwen3:14b
+  40960 for D, L and G); f16 + flash-attention env, arm `b5_i_kv_f16_fa_call2_notools`, recall timeout 1800 s; tray app
+  not running. First rows on evo-x2: base-env server config `OLLAMA_FLASH_ATTENTION` false for both models; under the
+  f16 env the KV check is valid with flash attention on, and L(f16) equals the native window for both models.
+- **x2_b5_simcap_8192** and **x2_b5_simcap_4096**, positions 76 and 77, the same side directory. The check printed
+  the capped configs from B5's windows: every policy at N, (a) and (f) sending N, (b) and (e) aliases of (a), the
+  router's proxy at 131072 (llama3.1:8b) and 40960 (qwen3:14b).
+- **x2_r2_v1b_seeds_06_10**, position 78. Side directory `C:\apu\ovn\r2v1b`: the frozen agent `x2_r2_agent.py`
+  (blob a4c4a928) and the launcher `x2_r2_v1b_seeds.py` (cd0ca697), verified. `--check` on evo-x2: provenance clean
+  (agent a4c4a928; every module from `C:\apu\ovn` at its 2026-10-12 blob), reproduction plan
+  `ollama_ctx_4096_call2_notools` x seed 20260904 x 40 turns, new-seed plan default/16384/8192/4096 x seeds 20260906
+  to 20260910 x 40 turns, the v1b reference session found with turns 1 to 40, and the preflight on
+  `x2_r2_validation_v2.jsonl` giving the v1b rules in use (llama3.1:8b 1, 3, 4; qwen3:14b 1 to 5).
+- **x2_mx2_qwen3_32b_spill_sweep**, position 79. Side directory `C:\apu\ovn\spill32` (`mx2_qwen32b_spill_sweep.py`
+  f43b8480, verified). `--check`: llama-server b10970 and the qwen3-32b GGUF present, port 58411 free, the modules it
+  takes from `C:\apu\ovn` at HEAD's blobs (`mx2_validation.py` f582245d, `server_guard.py` 6fe68cbf,
+  `llama_server.py` 241a2684). The job refuses at start if Ollama has a model loaded.
+- **x2_evalset_tasks_val_v2_mistral_small32** and **x2_evalset_tasks_real_v2_mistral_small32**, positions 80 and 81;
+  the real-run entry carries `{"gate": {"requires_done": "x2_evalset_tasks_val_v2_mistral_small32"}}`. Side
+  directory `C:\apu\ovn\evalv2ms` (`x2_r2_evalset.py` 96d7634e, `evalset_env.py` 4eae225f, `x2_num_keep.py` c2bb7c2d,
+  verified). As for the qwen3:14b and qwen3:8b v2 jobs, `x2_r2_agent` is taken from `C:\apu\ovn` (38882113, recorded
+  in run_start); the copy deployed in the side directory is not imported. `--check-plan` on evo-x2 (no model call):
+  validation negative control 131072 x seeds 20260901-03 and positive control 8192 x seed 20260901, projections
+  inside the v2 budget; real plan the five tasks_v2 tiers x seeds 20260901-05. The strict preflight on the qwen3:14b
+  validation file refuses mistral (no mistral sessions), as it must; the mistral tokenizer for S was found.
+  **Native tool-call template (dry check):** the tag's template layer (library, sha256 706c4d11...) has `.Tools`,
+  `.ToolCalls` and a tool-result branch (`eq .Role "tool"` rendering `[TOOL_RESULTS]`), so the check passed. Stated
+  for the reading: this template renders `[AVAILABLE_TOOLS]` only when the last user message is within the final two
+  messages, so on a second or later tool round within one turn the tool list is sent in the request but not rendered
+  into the prompt; an assistant message with both text and tool calls renders only its text. The validation's
+  task-tool gate is the live test of whether this matters.
+- **Durations** (register row `x2-queue-fill-1022-hours`, an ESTIMATE, pasted): "x2_b5_fa_control ESTIMATE 4.85 h
+  (high 13.92 h"; "x2_b5_simcap_8192 ESTIMATE 33.08 h (high 33.90 h"; "x2_b5_simcap_4096 ESTIMATE 26.11 h (high 27.25
+  h"; "x2_r2_v1b_seeds_06_10 ESTIMATE 30.44 h (high 32.60 h"; "x2_mx2_qwen3_32b_spill_sweep ESTIMATE 0.36 h (high
+  1.03 h"; "x2_evalset_tasks_val_v2_mistral_small32 ESTIMATE 0.35 h (high 0.54 h"; "x2_evalset_tasks_real_v2_mistral_
+  small32 ESTIMATE 3.01 h (high 3.66 h"; "B5 jobs end 10-24 19:16Z (high 10-25 06:18Z), results-by 2026-10-28 met";
+  "total ESTIMATE 98.2 h (high 112.9 h) from 2026-10-22T03:13Z; queue ends 10-26 05:25Z (high 10-26 20:07Z); slack
+  before 2026-11-10 00:00Z 354.6 h (high case 339.9 h); unallocated beyond the 150 h reserve 204.6 h (high case 189.9
+  h)".
+- **Measured now, not a prediction** (register row `cost-cut-config-time`, pasted): "evo-x2 llama3.1:8b: default (a)
+  43.7 min per session ... fastest measured setting (h) kv_q4_0 6.6 min ... saved 37.1 min per session (85%)" and
+  "evo-x2 qwen3:14b: default (a) 214.8 min per session ... fastest measured setting (g) kv_q8_0 75.4 min ... saved
+  139.4 min per session (65%)"; it adds policy (i) once the control is synced.
+- **Gap stated:** register row `fh1-amd-boundary-qwen3-32b`, quoted in the spill-sweep pre-registration, exists only
+  on an unmerged branch (commit 2a9e338); it is not in main's register yet.
