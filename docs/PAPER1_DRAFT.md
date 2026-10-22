@@ -248,7 +248,7 @@ We make four contributions.
 
 Section 4.2 covers background, Section 4.3 the platforms and harness, Sections 4.4 to 4.7 the results, Section 4.8
 threats to validity, and Section 4.9 concludes.
-### 4.2 Background and related work (prose draft, 2026-10-21; 0.75 page)
+### 4.2 Background and related work (prose draft, 2026-10-21; revised 2026-10-22; 0.75 page)
 
 <!-- Every citation below is a placeholder to verify; see "References (to verify)" at the end of this file. -->
 
@@ -259,9 +259,11 @@ and continues. Ollama serves models through a bundled llama.cpp server and adds 
 the message list with the model's template and, when the result exceeds the window, drops whole messages from the
 front while keeping the system message <!-- R2-mechanism-verdict -->. It also starts the server with context shift
 enabled and a keep of 4 tokens, so an over-length prompt succeeds after keeping num_ctx/2 + 2 tokens
-<!-- ollama-overflow-keeps-half -->. The request option `num_keep` sets the kept prefix. If the client sends no
-`num_ctx`, Ollama chooses the window from the detected device: 4096 tokens for llama3.1:8b on our Intel laptop's CPU,
-131072 on the AMD APU <!-- T2S-vs-X2-default-ctx -->. None of these steps is reported to the client.
+<!-- ollama-overflow-keeps-half -->. The request option `num_keep` sets the kept prefix, which matters only on the shift
+and cut paths. If the client sends no `num_ctx`, Ollama chooses the window from the detected device: 4096 tokens for
+llama3.1:8b on our Intel laptop's CPU, 131072 on the AMD APU <!-- T2S-vs-X2-default-ctx -->. A per-request window
+does not survive a restart, while a model file or environment setting does <!-- window-override-methods -->. None of
+these steps is reported to the client.
 
 **Long-context behaviour.** Lost in the Middle [Liu et al. 2024, Lost in the Middle; to verify] shows that models use
 information in the middle of a long input worse than at its ends; RULER [Hsieh et al. 2024, RULER; to verify] and
@@ -269,27 +271,37 @@ LongBench [Bai et al. 2024, LongBench; to verify] find effective context shorter
 multi-turn [Laban et al. 2025, LLMs Get Lost in Multi-Turn Conversation; to verify] and rule-following benchmarks
 [Zhou et al. 2023, IFEval; to verify] [Mu et al. 2023, Can LLMs Follow Simple Rules?; to verify] measure how well a
 model uses or obeys what it is given. All assume the model receives the whole input. We study the step before: what
-the runtime removes, and whether anyone can tell.
+the runtime removes, whether anyone can tell, and which models keep their rules when it happens.
 
 **KV-cache management.** StreamingLLM [Xiao et al. 2024, StreamingLLM; to verify] keeps initial attention-sink tokens
 plus a recent window, much as a context shift keeps n_keep tokens; H2O [Zhang et al. 2023, H2O; to verify] and SnapKV
 [Li et al. 2024, SnapKV; to verify] evict by attention; KIVI [Liu et al. 2024, KIVI; to verify] and KVQuant [Hooper et
 al. 2024, KVQuant; to verify] quantize the cache; LLMLingua [Jiang et al. 2023, LLMLingua; to verify] compresses the
-prompt. These are designed policies evaluated at fixed memory. We measure what shipped runtimes discard by default and
-treat KV quantization as one context policy among several (Section 4.7).
+prompt. These are designed policies evaluated at fixed memory. We measure what shipped runtimes discard by default,
+and we treat the runtime's built-in KV quantization as one context policy among several, judged on session time as
+well as rules and recall (Section 4.7).
 
 **Agents and tool use.** AgentBench [Liu et al. 2024, AgentBench; to verify], tau-bench [Yao et al. 2024, tau-bench;
 to verify], function-calling evaluations [Patil et al. 2024, Gorilla; to verify] and SWE-bench [Jimenez et al. 2024,
 SWE-bench; to verify] score task success, usually with hosted models and large windows, where running out of context
-is at most an exit condition. Routers [Ong et al. 2025, RouteLLM; to verify] choose a model by cost and capability,
-not by the local runtime's effective context.
+is at most an exit condition. Our task workload scores end state in the same way, but varies the window under a fixed
+model, runtime and seed.
+
+**Routing, cascades and verification.** Routers [Ong et al. 2025, RouteLLM; to verify] [Ding et al. 2024, Hybrid
+LLM; to verify] send each query to a small or a large model from a learned estimate of difficulty, and cascades
+[Chen et al. 2023, FrugalGPT; to verify] escalate when a scorer judges the cheap answer unreliable. Self-verification
+[Weng et al. 2023, Self-Verification; to verify] and sampling-consistency checks [Manakul et al. 2023, SelfCheckGPT;
+to verify] let a model test its own answer. All of these need a signal that correlates with a wrong answer, and none
+uses the local runtime's effective context. We measure the one such signal a runtime could expose, prompt over the
+loaded window, and find it blind to wrong answers produced inside the window (Section 4.1), so a hybrid local and
+cloud deployment needs a general verifier, not a window flag.
 
 **Inference on edge hardware.** PagedAttention [Kwon et al. 2023, vLLM; to verify] manages KV memory on servers; MELT
 [Laskaridis et al. 2024, MELTing Point; to verify], PowerInfer [Song et al. 2024, PowerInfer; to verify] and LLM in a
 flash [Alizadeh et al. 2024, LLM in a Flash; to verify] characterize or accelerate inference on phones, consumer GPUs
 and flash-backed devices in terms of throughput, memory and energy. We add a cross-vendor characterization of
-behavioural correctness under each runtime's memory and context policy.
-
+behavioural correctness under each runtime's memory and context policy, including how the GPU backend alone changes
+an agent's output.
 ### 4.3 Platforms, harness and methodology (prose draft, 2026-10-20; updated 2026-10-22; 1.25 pages)
 
 <!-- Convention: measured numbers carry their register id; harness design constants carry "design: <source file>". -->
@@ -1131,6 +1143,49 @@ We make four contributions.
 Section 4.2 covers background, Section 4.3 the platforms and harness, Sections 4.4 to 4.7 the results, Section 4.8
 threats to validity, and Section 4.9 concludes.
 
+### 4.2 Background and related work (prose draft as of 2026-10-21; superseded 2026-10-22)
+
+
+<!-- Every citation below is a placeholder to verify; see "References (to verify)" at the end of this file. -->
+
+**Context windows in local runtimes.** llama.cpp allocates a KV cache for a fixed number of tokens, n_ctx, when a
+model loads. When a sequence would grow past it, the server can perform a *context shift*: it keeps the first n_keep
+tokens, discards a block of the tokens after them (2045 at a 4096 window in our logs <!-- R2-mechanism-lowlevel -->)
+and continues. Ollama serves models through a bundled llama.cpp server and adds two layers. Its chat endpoint renders
+the message list with the model's template and, when the result exceeds the window, drops whole messages from the
+front while keeping the system message <!-- R2-mechanism-verdict -->. It also starts the server with context shift
+enabled and a keep of 4 tokens, so an over-length prompt succeeds after keeping num_ctx/2 + 2 tokens
+<!-- ollama-overflow-keeps-half -->. The request option `num_keep` sets the kept prefix. If the client sends no
+`num_ctx`, Ollama chooses the window from the detected device: 4096 tokens for llama3.1:8b on our Intel laptop's CPU,
+131072 on the AMD APU <!-- T2S-vs-X2-default-ctx -->. None of these steps is reported to the client.
+
+**Long-context behaviour.** Lost in the Middle [Liu et al. 2024, Lost in the Middle; to verify] shows that models use
+information in the middle of a long input worse than at its ends; RULER [Hsieh et al. 2024, RULER; to verify] and
+LongBench [Bai et al. 2024, LongBench; to verify] find effective context shorter than the advertised window; and
+multi-turn [Laban et al. 2025, LLMs Get Lost in Multi-Turn Conversation; to verify] and rule-following benchmarks
+[Zhou et al. 2023, IFEval; to verify] [Mu et al. 2023, Can LLMs Follow Simple Rules?; to verify] measure how well a
+model uses or obeys what it is given. All assume the model receives the whole input. We study the step before: what
+the runtime removes, and whether anyone can tell.
+
+**KV-cache management.** StreamingLLM [Xiao et al. 2024, StreamingLLM; to verify] keeps initial attention-sink tokens
+plus a recent window, much as a context shift keeps n_keep tokens; H2O [Zhang et al. 2023, H2O; to verify] and SnapKV
+[Li et al. 2024, SnapKV; to verify] evict by attention; KIVI [Liu et al. 2024, KIVI; to verify] and KVQuant [Hooper et
+al. 2024, KVQuant; to verify] quantize the cache; LLMLingua [Jiang et al. 2023, LLMLingua; to verify] compresses the
+prompt. These are designed policies evaluated at fixed memory. We measure what shipped runtimes discard by default and
+treat KV quantization as one context policy among several (Section 4.7).
+
+**Agents and tool use.** AgentBench [Liu et al. 2024, AgentBench; to verify], tau-bench [Yao et al. 2024, tau-bench;
+to verify], function-calling evaluations [Patil et al. 2024, Gorilla; to verify] and SWE-bench [Jimenez et al. 2024,
+SWE-bench; to verify] score task success, usually with hosted models and large windows, where running out of context
+is at most an exit condition. Routers [Ong et al. 2025, RouteLLM; to verify] choose a model by cost and capability,
+not by the local runtime's effective context.
+
+**Inference on edge hardware.** PagedAttention [Kwon et al. 2023, vLLM; to verify] manages KV memory on servers; MELT
+[Laskaridis et al. 2024, MELTing Point; to verify], PowerInfer [Song et al. 2024, PowerInfer; to verify] and LLM in a
+flash [Alizadeh et al. 2024, LLM in a Flash; to verify] characterize or accelerate inference on phones, consumer GPUs
+and flash-backed devices in terms of throughput, memory and energy. We add a cross-vendor characterization of
+behavioural correctness under each runtime's memory and context policy.
+
 **Superseded 2026-10-21.** The outline text of 4.1 (with the 4.1a motivation draft), 4.2, 4.8 and 4.9, replaced by
 the prose drafts of 2026-10-21, is moved here verbatim below; the 2026-10-20 material follows it.
 
@@ -1407,6 +1462,10 @@ published paper before it enters `docs/references.bib`; no result of these paper
 - [Patil et al. 2024, Gorilla] S. G. Patil et al., "Gorilla: Large Language Model Connected with Massive APIs", NeurIPS 2024 (arXiv 2023); the Berkeley Function Calling Leaderboard may be the better citation. To verify.
 - [Jimenez et al. 2024, SWE-bench] C. E. Jimenez et al., "SWE-bench: Can Language Models Resolve Real-World GitHub Issues?", ICLR 2024. To verify.
 - [Ong et al. 2025, RouteLLM] I. Ong et al., "RouteLLM: Learning to Route LLMs with Preference Data", ICLR 2025 (`routellm` in `docs/references.bib`). To verify.
+- [Ding et al. 2024, Hybrid LLM] D. Ding et al., "Hybrid LLM: Cost-Efficient and Quality-Aware Query Routing", ICLR 2024. To verify (added 2026-10-22).
+- [Chen et al. 2023, FrugalGPT] L. Chen, M. Zaharia, J. Zou, "FrugalGPT: How to Use Large Language Models While Reducing Cost and Improving Performance", arXiv 2023 (TMLR 2024?). To verify (added 2026-10-22).
+- [Weng et al. 2023, Self-Verification] Y. Weng et al., "Large Language Models are Better Reasoners with Self-Verification", Findings of EMNLP 2023. To verify (added 2026-10-22).
+- [Manakul et al. 2023, SelfCheckGPT] P. Manakul, A. Liusie, M. J. F. Gales, "SelfCheckGPT: Zero-Resource Black-Box Hallucination Detection for Generative Large Language Models", EMNLP 2023. To verify (added 2026-10-22).
 - [Kwon et al. 2023, vLLM] W. Kwon et al., "Efficient Memory Management for Large Language Model Serving with PagedAttention", SOSP 2023. To verify.
 - [Laskaridis et al. 2024, MELTing Point] S. Laskaridis et al., "MELTing Point: Mobile Evaluation of Language Transformers", MobiCom 2024. To verify.
 - [Song et al. 2024, PowerInfer] Y. Song et al., "PowerInfer: Fast Large Language Model Serving with a Consumer-grade GPU", SOSP 2024. To verify.
