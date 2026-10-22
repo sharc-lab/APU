@@ -5621,3 +5621,25 @@ staged; qwen3:14b on Intel is future work"; B6 staged: pull "1.0 h", "t2s_o26_b6
 17.3 h"; B6 not staged: "t2s_o26_b6_real_cpu_4096 105.5 h (does not fit: 105.5 h from 226.4 h ends at 331.9 h, budget
 311.0 h)", "t2s_o26_b6_real_igpu_default 299.0 h (does not fit: 299.0 h from 226.4 h ends at 525.4 h, budget 311.0
 h)". So in this window H-B5-T2S rests on the llama3.1:8b cells, and B6 yields validation gates only.
+
+## AMENDMENT 2026-10-22 to the B5-on-evo-t2s pre-registration: per-cell policy sets, qwen3:14b on the Intel CPU at 3 seeds without (b)
+
+The pre-registration "B5 on evo-t2s Intel CPU and Intel iGPU, qwen3:14b and llama3.1:8b, 5 seeds" and its 2026-10-21
+amendments and implementation notes above are frozen and are not edited. This dated amendment is written before any
+code, queue or plan file is changed for it and is committed on its own first. No B5 session on evo-t2s exists.
+Operator decision, 2026-10-22. evo-x2 is not affected; the B6 rules of the 2026-10-21 (later) amendment are unchanged.
+
+- **Per-cell policy sets.** The llama3.1:8b cells (Intel CPU and Intel iGPU, 5 seeds each) keep the set a, b, c, d, e,
+  f. The qwen3:14b cell on the Intel CPU at its 4096 default window runs a, c, d, e, f: (b) is not run in that cell,
+  since (b) at qwen3:14b's native window is most of that cell's estimated hours (register row `t2s-b5-plan-hours`
+  of 2026-10-21 later). (g) and (h) stay dropped on evo-t2s. On the Intel CPU (e) has no window and is not run, by
+  the 2026-10-14 rule. Each staged entry passes its own set as `--policies`.
+- **qwen3:14b at 3 seeds (20260901 to 20260903)** is staged after the two llama3.1:8b cells, under the fit rule and
+  the 24 h slack of the 2026-10-21 (later) amendment, with its hours estimated for a, c, d, e, f. The qwen3:14b iGPU
+  cell stays future work.
+- **Success rule evaluated on the policies run, per cell.** `policy_compare.b5_t2s_verdict` is unchanged; in each cell
+  its frontier, dominance and "every distinct policy has all seeds complete" tests are taken over that cell's own
+  policies run. A completed qwen3:14b cell at 3 seeds counts as a complete CPU cell (the pre-registered 3-seed
+  minimum) with the label "policies a, c, d, e, f (no (b))"; a verdict that rests on it says nothing about (b) for
+  qwen3:14b on evo-t2s.
+- B6 then fills what is left of the launch budget, by the 2026-10-21 (later) rule.

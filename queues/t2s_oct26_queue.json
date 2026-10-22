@@ -84,6 +84,32 @@
   }
  },
  {
+  "id": "t2s_o26_b5_cpu_qwen3_14b",
+  "cmd": [
+   "C:\\Users\\sharc\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+   "policy_compare.py",
+   "--platform",
+   "evo-t2s-cpu",
+   "--out",
+   "results/t2s_policy_compare_cpu_qwen3_14b_v1.jsonl",
+   "--models",
+   "qwen3:14b",
+   "--seeds",
+   "20260901,20260902,20260903",
+   "--policies",
+   "a,c,d,e,f"
+  ],
+  "status": "pending",
+  "note": "STAGED for the 2026-10-26 window (not loaded): B5 policies a, c, d, e, f, qwen3:14b, Intel CPU (stock Ollama, default 4096), 3 seeds x 40 turns; est hours: 37.3 (measured evo-t2s sessions (ESTIMATE); scripts/t2s_window_stage.py plan)",
+  "est_hours": 37.3,
+  "est_basis": "measured evo-t2s sessions (ESTIMATE)",
+  "expected_out": "results/t2s_policy_compare_cpu_qwen3_14b_v1.jsonl",
+  "staged_for": "2026-10-26..2026-11-08",
+  "gate": {
+   "requires_done": "t2s_o26_preflight"
+  }
+ },
+ {
   "id": "t2s_o26_b6_model_pull",
   "cmd": [
    "C:\\Users\\sharc\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
