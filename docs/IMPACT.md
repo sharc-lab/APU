@@ -91,32 +91,36 @@ costs the tier's mean redo of a wrong one; a fixed task is right after the redo 
 stub mode). When a live cloud redo file exists, the USD labels switch to measured automatically (the same
 cloud_redo_data stub flag as P1).
 
-**P2 valuation: machine capacity (operator decision 2026-10-21; row impact-v2-P2, PENDING).** The measured session
-minutes of the runtime default (B5 policy a) and the fastest measured B5 setting (row cost-cut-config-time; the
-flash-attention control joins once synced) give sessions per machine per day (24 h / session minutes, one session at
-a time: there is no measured concurrency row), the machines needed for the profile's 40 sessions/day (ceil), and the
-USD of machines saved, amortized per day over an ASSUMED 3-year life. Reference machine price: row
-impact-ref-machine-price, "ASSUMPTION, must be verified: USD 2,000 for evo-x2 class: AMD Ryzen AI Max+ 395, 128 GB
-LPDDR5X mini PC (GMKtec EVO-X2, 128 GB / 2 TB configuration)", a launch list price quoted by Liliputing (source in
-results/hardware_price_evox2_20261021.json), not a purchase record; the repo had no cited price
-(configs/hardware/evox2_strix_halo_128gb.yaml `bom_cost_usd: null`). Waiting time at the hour value is now only an
-UPPER BOUND, applied to an ASSUMED interactive-session share of 0.25.
+**P2 valuation: machine capacity (operator decision 2026-10-21; row impact-v2-P2, status mixed since b5-fa-control
+is VERIFIED).** The measured session minutes of the runtime default (B5 policy a) and the fastest measured B5 setting
+(row cost-cut-config-time, flash-attention control included) give sessions per machine per day (24 h / session
+minutes, one session at a time: there is no measured concurrency row), the machines needed for the profile's 40
+sessions/day (ceil), and the USD of machines saved, amortized per day over an ASSUMED 3-year life. **The
+flash-attention control attributes the speedup to KV precision, not flash attention (b5-fa-control)**; rows
+cost-cut-config-time and impact-v2-P2 now say so in their own text. The configuration needs half the hardware (3 of 6
+machines at the profile). Reference machine price (operator decision 2026-10-22): row impact-ref-machine-price, "list
+price, Liliputing, 2025-04-15: USD 2,000 for evo-x2 class: AMD Ryzen AI Max+ 395, 128 GB LPDDR5X mini PC (GMKtec
+EVO-X2, 128 GB / 2 TB configuration)", the 128 GB launch list price quoted by Liliputing (source in
+results/hardware_price_evox2_20261021.json), not a purchase record or a current street price. A vendor listing checked
+2026-10-22 shows no 128 GB price (both 128 GB variants sold out; the price shown belongs to the 64 GB default), so it is
+not used; the repo has no purchase price (configs/hardware/evox2_strix_halo_128gb.yaml `bom_cost_usd: null`). Waiting
+time at the hour value is only an UPPER BOUND, applied to an ASSUMED interactive-session share of 0.25.
 
 | qwen3:14b, 40 sessions/day | default (a) | fastest measured (g) kv_q8_0 |
 |---|---|---|
 | minutes per session (MEASURED) | 214.8 | 75.4 |
 | sessions per machine per day | 6.70 | 19.11 |
 | machines needed (ceil) | 6 | 3 |
-| machines saved x USD 2,000 / 3 years | | USD 5.48/day |
+| machines saved x USD 2,000 (list price) / 3 years | | USD 5.48/day |
 | upper bound: waiting time x interactive share 0.25 | | USD 1,497.62/day on top |
 
-Pasted from [impact-v2-P2]: "PENDING (values computed, not ranked) until row b5-fa-control is VERIFIED; machine
-capacity: qwen3:14b default (a) 214.8 min per session = 6.70 sessions/machine/day vs (g) kv_q8_0 75.4 min = 19.11
-... 6 default vs 3 best (ceil), 3 saved x USD 2,000 ... = USD 5.48/day; upper bound: waiting time 139.4 min saved per
-session x hour value x interactive-session share 0.25 (ASSUMED) = USD 1,497.62/day on top". Status PENDING because
-the B5 default ran without flash attention, so the saving may be flash attention or KV precision; the flash-attention
-control (row b5-fa-control) decides which. Until that row is VERIFIED, P2 is shown with its computed values but is not
-ranked. **P3** as in v1. **P4 to P7**: the v1 functions at the v2 profile.
+Pasted from [impact-v2-P2]: "status mixed; machine capacity: qwen3:14b default (a) 214.8 min per session = 6.70
+sessions/machine/day vs (g) kv_q8_0 75.4 min = 19.11 ... 6 default vs 3 best (ceil, half the hardware), 3 saved x USD
+2,000 (impact-ref-machine-price, list price, Liliputing, 2025-04-15) / 3-year life (ASSUMED) = USD 5.48/day; upper
+bound: waiting time 139.4 min saved per session x hour value x interactive-session share 0.25 (ASSUMED) = USD
+1,497.62/day on top; the flash-attention control attributes the speedup to KV precision, not flash attention
+(b5-fa-control)". The status text and ranking quoted below were written while b5-fa-control was PENDING; the current
+ranking is in row impact-ranking-v2. **P3** as in v1. **P4 to P7**: the v1 functions at the v2 profile.
 
 **Ranking and status split**, pasted from [impact-ranking-v2]: "ranking by main-case USD/day (P2: machine capacity;
 the other rows: time at the full hour value; a PENDING row is not ranked): P1 > P5 > P3 > P4; unranked: P2, P6, P7";
@@ -148,9 +152,246 @@ USD 0.03 (priced, not executed); the cost is that the failure is silent, so you 
 num_ctx 4096, qwen3:14b got 42.0% of tasks wrong and every one was silent [x2-evalset-tasks-real-v2-wrong-rate]. In
 that cell, a check for "the prompt exceeded the loaded window" caught every wrong task (recall 100.0%) but flagged 147
 of 150 tasks (precision 42.9%), so escalating only flagged tasks costs about the same as escalating all of them (USD
-4.1256 vs 4.2098 for the run's 150 tasks); measured on the same run [impact-v3-detection-value-measured]. The configuration saving is PENDING the flash-attention control: valued as machines, it
-is 3 of 6 machines (USD 5.48/day at an assumed USD 2,000 price and 3-year life), with waiting time an upper bound of
+4.1256 vs 4.2098 for the run's 150 tasks); measured on the same run [impact-v3-detection-value-measured]. The configuration saving is KV precision, not flash attention, per
+the flash-attention control [b5-fa-control]: valued as machines, it is half the hardware, 3 of 6 machines (USD 5.48/day
+at the USD 2,000 list price, Liliputing, 2025-04-15, and an assumed 3-year life), with waiting time an upper bound of
 USD 1,497.62/day if a quarter of sessions are interactive [impact-v2-P2]."
+
+## Hybrid savings vs all-cloud at matched quality (2026-10-22; operator item 3, framing per the 2026-10-22 decisions)
+
+### Measured trade-off first (row hybrid-savings-tradeoff)
+
+Operator decision 2026-10-22: the savings section leads with the MEASURED trade-off, not the ceiling and not the
+matched-quality zero. Each option is shown as savings per month AND the accuracy it costs, per device, cloud tier,
+task-size point and volume:
+
+- all-cloud: saves 0, all-cloud accuracy (all-cloud-b3-quality);
+- naive local at the device default: saves the full cloud bill, at the measured local accuracy on the shared seeds
+  (x2-evalset-tasks-real-v2-wrong-rate, as hybrid-savings-v1 uses); its wrong answers are silent;
+- hybrid with the window-overflow flag: hybrid-savings-v1's flag policy, flagged tasks escalated at the escalation cost
+  input (interim until cloud-redo-full-context is VERIFIED and complete, then automatic);
+- escalating every wrong task appears only as a separate column labelled "ceiling, no such detector" (in a chart it
+  would be a dotted line). It is not an option: no detector for in-window wrong answers exists.
+
+Devices as hybrid-savings-v1: evo-x2 at its default (measured) and evo-t2s Intel CPU at its 4096 default (projected
+from evo-x2's 4096 tier). Projected task-size points carry "projected: local quality on long tasks not measured" and
+their accuracy is the B3 accuracy carried over, labelled in the table. This doc has no charts, so the trade-off is a
+table only.
+
+<!-- hybrid_tradeoff:begin -->
+
+Generated by `py -3.12 analysis/impact_model.py --write-hybrid` (register row hybrid-savings-tradeoff). Do not edit by hand.
+
+Savings in USD per 30-day month at 100 / 1,000 / 10,000 tasks/day (a stated range, not a claim about demand), and accuracy (correct tasks) per option, matched on the 3 shared seeds. Escalation cost: interim for claude-haiku-5-5: all-cloud per-task cost (the full-history redo ran on claude-sonnet-5-5 only); measured for claude-sonnet-5-5: cloud-redo-full-context mean USD per task. Projected task-size points apply each option's measured savings share of the all-cloud bill to the point's all-cloud USD per task (cloud-cost-per-real-task, realistic caching, ASSUMPTION hit rate 0.7); their accuracy is the B3 accuracy carried over. The last column is a ceiling, no such detector, not an option.
+
+| Device [label] | Cloud tier | Task size point [label] | Accuracy label | All-cloud: saves / accuracy | Naive local: saves at 100 / 1,000 / 10,000 / accuracy / wrong answers silent | Hybrid (window-overflow flag): saves at 100 / 1,000 / 10,000 / accuracy / escalated | Ceiling, no such detector: saves at 100 / 1,000 / 10,000 / accuracy |
+|---|---|---|---|---|---|---|---|
+| evo-x2 (ollama_default, default = best) [measured] | claude-haiku-5-5 | SWE-Gym median [projected: local quality on long tasks not measured] | B3 accuracy carried over | 0 / 87/90 (96.7%) | 4.12 / 41.24 / 412.41 / 80/90 (88.9%) / 10 | 4.12 / 41.24 / 412.41 / 80/90 (88.9%) / 0 | 3.42 / 34.23 / 342.29 / 90/90 (100.0%) |
+| evo-x2 (ollama_default, default = best) [measured] | claude-haiku-5-5 | B3 v2 tasks (30 tasks x 3 seeds), median [measured] | measured | 0 / 87/90 (96.7%) | 2.01 / 20.12 / 201.25 / 80/90 (88.9%) / 10 | 2.01 / 20.12 / 201.25 / 80/90 (88.9%) / 0 | 1.67 / 16.70 / 167.03 / 90/90 (100.0%) |
+| evo-x2 (ollama_default, default = best) [measured] | claude-haiku-5-5 | nebius-rebench-openhands median [projected: local quality on long tasks not measured] | B3 accuracy carried over | 0 / 87/90 (96.7%) | 406.08 / 4,060.84 / 40,608.41 / 80/90 (88.9%) / 10 | 406.08 / 4,060.84 / 40,608.41 / 80/90 (88.9%) / 0 | 337.04 / 3,370.42 / 33,704.17 / 90/90 (100.0%) |
+| evo-x2 (ollama_default, default = best) [measured] | claude-haiku-5-5 | nebius-rebench-openhands p90 [projected: local quality on long tasks not measured] | B3 accuracy carried over | 0 / 87/90 (96.7%) | 736.07 / 7,360.72 / 73,607.24 / 80/90 (88.9%) / 10 | 736.07 / 7,360.72 / 73,607.24 / 80/90 (88.9%) / 0 | 610.93 / 6,109.25 / 61,092.54 / 90/90 (100.0%) |
+| evo-x2 (ollama_default, default = best) [measured] | claude-sonnet-5-5 | SWE-Gym median [projected: local quality on long tasks not measured] | B3 accuracy carried over | 0 / 90/90 (100.0%) | 79.83 / 798.27 / 7,982.66 / 80/90 (88.9%) / 10 | 79.83 / 798.27 / 7,982.66 / 80/90 (88.9%) / 0 | 60.09 / 600.93 / 6,009.28 / 90/90 (100.0%) |
+| evo-x2 (ollama_default, default = best) [measured] | claude-sonnet-5-5 | B3 v2 tasks (30 tasks x 3 seeds), median [measured] | measured | 0 / 90/90 (100.0%) | 30.61 / 306.10 / 3,060.99 / 80/90 (88.9%) / 10 | 30.61 / 306.10 / 3,060.99 / 80/90 (88.9%) / 0 | 23.04 / 230.43 / 2,304.29 / 90/90 (100.0%) |
+| evo-x2 (ollama_default, default = best) [measured] | claude-sonnet-5-5 | nebius-rebench-openhands median [projected: local quality on long tasks not measured] | B3 accuracy carried over | 0 / 90/90 (100.0%) | 7,592.12 / 75,921.17 / 759,211.69 / 80/90 (88.9%) / 10 | 7,592.12 / 75,921.17 / 759,211.69 / 80/90 (88.9%) / 0 | 5,715.29 / 57,152.88 / 571,528.84 / 90/90 (100.0%) |
+| evo-x2 (ollama_default, default = best) [measured] | claude-sonnet-5-5 | nebius-rebench-openhands p90 [projected: local quality on long tasks not measured] | B3 accuracy carried over | 0 / 90/90 (100.0%) | 13,016.01 / 130,160.11 / 1,301,601.08 / 80/90 (88.9%) / 10 | 13,016.01 / 130,160.11 / 1,301,601.08 / 80/90 (88.9%) / 0 | 9,798.35 / 97,983.55 / 979,835.48 / 90/90 (100.0%) |
+| evo-t2s Intel CPU (default, loaded window 4096) [projected] | claude-haiku-5-5 | SWE-Gym median [projected: local quality on long tasks not measured] | B3 accuracy carried over, projected from evo-x2's ollama_ctx_4096 tier | 0 / 87/90 (96.7%) | 4.12 / 41.24 / 412.41 / 53/90 (58.9%) / 37 | 0.09 / 0.90 / 9.04 / 87/90 (96.7%) / 88 | 2.18 / 21.82 / 218.18 / 89/90 (98.9%) |
+| evo-t2s Intel CPU (default, loaded window 4096) [projected] | claude-haiku-5-5 | B3 v2 tasks (30 tasks x 3 seeds), median [measured] | projected from evo-x2's ollama_ctx_4096 tier | 0 / 87/90 (96.7%) | 2.01 / 20.12 / 201.25 / 53/90 (58.9%) / 37 | 0.04 / 0.44 / 4.41 / 87/90 (96.7%) / 88 | 1.06 / 10.65 / 106.47 / 89/90 (98.9%) |
+| evo-t2s Intel CPU (default, loaded window 4096) [projected] | claude-haiku-5-5 | nebius-rebench-openhands median [projected: local quality on long tasks not measured] | B3 accuracy carried over, projected from evo-x2's ollama_ctx_4096 tier | 0 / 87/90 (96.7%) | 406.08 / 4,060.84 / 40,608.41 / 53/90 (58.9%) / 37 | 8.90 / 89.05 / 890.49 / 87/90 (96.7%) / 88 | 214.84 / 2,148.37 / 21,483.73 / 89/90 (98.9%) |
+| evo-t2s Intel CPU (default, loaded window 4096) [projected] | claude-haiku-5-5 | nebius-rebench-openhands p90 [projected: local quality on long tasks not measured] | B3 accuracy carried over, projected from evo-x2's ollama_ctx_4096 tier | 0 / 87/90 (96.7%) | 736.07 / 7,360.72 / 73,607.24 / 53/90 (58.9%) / 37 | 16.14 / 161.41 / 1,614.12 / 87/90 (96.7%) / 88 | 389.42 / 3,894.16 / 38,941.63 / 89/90 (98.9%) |
+| evo-t2s Intel CPU (default, loaded window 4096) [projected] | claude-sonnet-5-5 | SWE-Gym median [projected: local quality on long tasks not measured] | B3 accuracy carried over, projected from evo-x2's ollama_ctx_4096 tier | 0 / 90/90 (100.0%) | 79.83 / 798.27 / 7,982.66 / 53/90 (58.9%) / 37 | -93.83 / -938.30 / -9,383.02 / 90/90 (100.0%) / 88 | 6.81 / 68.12 / 681.18 / 90/90 (100.0%) |
+| evo-t2s Intel CPU (default, loaded window 4096) [projected] | claude-sonnet-5-5 | B3 v2 tasks (30 tasks x 3 seeds), median [measured] | projected from evo-x2's ollama_ctx_4096 tier | 0 / 90/90 (100.0%) | 30.61 / 306.10 / 3,060.99 / 53/90 (58.9%) / 37 | -35.98 / -359.80 / -3,597.97 / 90/90 (100.0%) / 88 | 2.61 / 26.12 / 261.20 / 90/90 (100.0%) |
+| evo-t2s Intel CPU (default, loaded window 4096) [projected] | claude-sonnet-5-5 | nebius-rebench-openhands median [projected: local quality on long tasks not measured] | B3 accuracy carried over, projected from evo-x2's ollama_ctx_4096 tier | 0 / 90/90 (100.0%) | 7,592.12 / 75,921.17 / 759,211.69 / 53/90 (58.9%) / 37 | -8,923.97 / -89,239.74 / -892,397.43 / 90/90 (100.0%) / 88 | 647.85 / 6,478.51 / 64,785.13 / 90/90 (100.0%) |
+| evo-t2s Intel CPU (default, loaded window 4096) [projected] | claude-sonnet-5-5 | nebius-rebench-openhands p90 [projected: local quality on long tasks not measured] | B3 accuracy carried over, projected from evo-x2's ollama_ctx_4096 tier | 0 / 90/90 (100.0%) | 13,016.01 / 130,160.11 / 1,301,601.08 / 53/90 (58.9%) / 37 | -15,299.36 / -152,993.62 / -1,529,936.21 / 90/90 (100.0%) / 88 | 1,110.68 / 11,106.84 / 111,068.35 / 90/90 (100.0%) |
+
+<!-- hybrid_tradeoff:end -->
+
+#### Prepared text: Oct 29 summary and demo story step 4
+
+The block below is the text the Oct 29 summary and the demo's story step 4 should use. It is generated from register
+row hybrid-savings-tradeoff; copy it as is, and regenerate rather than edit numbers by hand.
+
+<!-- oct29_demo_text:begin -->
+
+Generated by `py -3.12 analysis/impact_model.py --write-hybrid` from register row hybrid-savings-tradeoff. Do not edit by hand. Prepared text for the Oct 29 summary and the demo's story step 4.
+
+**Oct 29 summary, savings paragraph:**
+
+We lead with the measured trade-off, not a ceiling: every option is shown as savings per month and the accuracy it costs (volumes 100 / 1,000 / 10,000 tasks/day are a stated range; escalation cost interim for claude-haiku-5-5: all-cloud per-task cost (the full-history redo ran on claude-sonnet-5-5 only); measured for claude-sonnet-5-5: cloud-redo-full-context mean USD per task).
+
+- **vs claude-haiku-5-5, measured on the 30 B3 tasks, 1,000 tasks/day:** all-cloud is 87/90 (96.7%) correct. Running everything on evo-x2 at its default saves the whole cloud bill, USD 20.12/month, at 80/90 (88.9%) correct, and the 10 wrong answers are silent. The window-overflow flag escalates 0 tasks there, so the hybrid saves USD 20.12/month at 80/90 (88.9%). On evo-t2s's Intel CPU default (projected from evo-x2's ollama_ctx_4096 tier) naive local is 53/90 (58.9%) correct; the flag escalates 88 tasks and reaches 87/90 (96.7%) (all-cloud 87/90 (96.7%)) but saves only USD 0.44/month. A detector for in-window wrong answers would save up to USD 16.70/month on evo-x2 at 90/90 (100.0%) (ceiling, no such detector).
+  At a real agent task size (nebius-rebench-openhands median, projected: local quality on long tasks not measured; accuracy B3 accuracy carried over) naive local saves USD 4,060.84/month at 80/90 (88.9%).
+- **vs claude-sonnet-5-5, measured on the 30 B3 tasks, 1,000 tasks/day:** all-cloud is 90/90 (100.0%) correct. Running everything on evo-x2 at its default saves the whole cloud bill, USD 306.10/month, at 80/90 (88.9%) correct, and the 10 wrong answers are silent. The window-overflow flag escalates 0 tasks there, so the hybrid saves USD 306.10/month at 80/90 (88.9%). On evo-t2s's Intel CPU default (projected from evo-x2's ollama_ctx_4096 tier) naive local is 53/90 (58.9%) correct; the flag escalates 88 tasks and reaches 90/90 (100.0%) (all-cloud 90/90 (100.0%)) but saves only USD -359.80/month. A detector for in-window wrong answers would save up to USD 230.43/month on evo-x2 at 90/90 (100.0%) (ceiling, no such detector).
+  At a real agent task size (nebius-rebench-openhands median, projected: local quality on long tasks not measured; accuracy B3 accuracy carried over) naive local saves USD 75,921.17/month at 80/90 (88.9%).
+
+**Demo story step 4 (one screen):**
+
+"Local saves money, and the screen shows what it costs. Against claude-sonnet-5-5 at 1,000 tasks/day: all local on evo-x2 saves USD 306.10 a month at 80/90 (88.9%) correct versus 90/90 (100.0%) all-cloud, and 10 wrong answers are silent. The only measured detector, window overflow, escalates 0 tasks at this window. Catching in-window wrong answers needs a verifier we do not claim; the dotted line is that ceiling, no such detector."
+
+<!-- oct29_demo_text:end -->
+
+### Per-device configuration: evo-t2s (row t2s-config-comparison)
+
+Configuration per device. On evo-t2s the naive setting is the Intel CPU backend at the
+Ollama default, which loaded a 4096 window; the recommended setting is the Intel iGPU backend at the Ollama default,
+which loaded 32768 [t2s-r2-real-cpu, t2s-r2-real-igpu]. The table is from the measured R2 real runs now and is to be
+replaced by the evo-t2s B5 results (access window 2026-10-26 to 2026-11-08) when they land. How the kept-local share and
+savings follow: kept local per device and model, measured by R2 session pass rate (not B3 task accuracy) = the share of
+R2 sessions with no gated silent failure, labelled so until the evo-t2s B5 results report task accuracy; savings
+per month = B x k - X with B the measured all-cloud B3 per-task cost of the tier (all-cloud-b3-cost), at the same
+volumes as below. The R2 session share standing for the task share is an ASSUMPTION. R2 sessions are not B3 tasks.
+
+<!-- t2s_config:begin -->
+
+Generated by `py -3.12 analysis/impact_model.py --write-hybrid` (register row t2s-config-comparison). Do not edit by hand.
+
+Label: measured R2 data (evo-t2s R2 real, 5 seeds x 40 turns); to be replaced by the evo-t2s B5 results (2026-10-26 to 2026-11-08) when they land. Kept local, measured by R2 session pass rate (not B3 task accuracy) = share of R2 sessions with no gated silent failure, until the evo-t2s B5 results report task accuracy. Savings per month = B x k - X, B = the measured all-cloud B3 per-task cost of the tier x tasks/day x 30, X = the escalation premium over the all-cloud price: 0 for a tier costed at its all-cloud price (interim), positive for a tier costed at the measured full-history redo price (ASSUMPTION: the R2 session share stands for the task share).
+
+| evo-t2s setting | Model | Loaded window | Gated silent failures | Kept local, measured by R2 session pass rate (not B3 task accuracy) | Saves USD/month vs claude-haiku-5-5 at 100 / 1,000 / 10,000 | Saves USD/month vs claude-sonnet-5-5 at 100 / 1,000 / 10,000 |
+|---|---|---|---|---|---|---|
+| naive: Intel CPU, Ollama default | llama3.1:8b | 4096 | 5/5 | 0/5 (0.00) | 0.00 / 0.00 / 0.00 | -37.49 / -374.93 / -3,749.31 |
+| naive: Intel CPU, Ollama default | qwen3:14b | 4096 | 5/5 | 0/5 (0.00) | 0.00 / 0.00 / 0.00 | -37.49 / -374.93 / -3,749.31 |
+| recommended: Intel iGPU, Ollama default | llama3.1:8b | 32768 | 0/5 | 5/5 (1.00) | 2.01 / 20.12 / 201.25 | 30.61 / 306.10 / 3,060.99 |
+| recommended: Intel iGPU, Ollama default | qwen3:14b | 32768 | 1/5 | 4/5 (0.80) | 1.61 / 16.10 / 161.00 | 16.99 / 169.89 / 1,698.93 |
+
+<!-- t2s_config:end -->
+
+### Savings as a formula over task size (row hybrid-savings-curve)
+
+savings per month = all-cloud bill x share kept local at matched quality - escalation cost, written B x k - X:
+
+- B = all-cloud USD per task x tasks/day x 30.
+- k = share kept local at matched quality: the local run is correct AND the all-cloud tier is correct on the same task
+  and seed (hybrid-savings-v1's "kept local at matched quality").
+- X = escalation cost beyond the all-cloud bill of the escalated share = (USD of the escalated tasks, per task - (1 - k)
+  x all-cloud USD per task) x tasks/day x 30. The escalated tasks' USD is the same input hybrid-savings-v1 uses:
+  INTERIM, their all-cloud cost, until cloud-redo-full-context is VERIFIED and complete, then the redo mean
+  automatically. X is nonzero today only because the escalated tasks cost more than the average task.
+
+Measured point: the 30 B3 v2 tasks on evo-x2 at the default (hybrid-savings-v1). Projected points: real agent task
+sizes from cloud-cost-per-real-task (SWE-Gym median, nebius-rebench-openhands median and p90, realistic caching),
+applying the measured k and X / B, labelled "projected: local quality on long tasks not measured". Volumes 100 / 1,000
+/ 10,000 tasks/day are a stated parameter range, not a claim about demand.
+
+**k is a ceiling, not a deployed number.** k assumes that every task outside the kept share is found and escalated. On
+evo-x2's default window the measured window-overflow flag finds none of them, so the share a measured detector keeps at
+matched quality there is 0 (shown beside k in each tier's line). In-window wrong answers need a general verifier, the
+subject of prior work on model routing and cascades and on answer verification; we do not claim such a verifier.
+
+<!-- hybrid_curve:begin -->
+
+Generated by `py -3.12 analysis/impact_model.py --write-hybrid` (register row hybrid-savings-curve). Do not edit by hand.
+
+savings/month = B x k - X. k and X / B measured on evo-x2 ollama_default (qwen3:14b, B3 v2 tasks, 3 shared seeds). Projected points are labelled "projected: local quality on long tasks not measured"; cloud cost per task from cloud-cost-per-real-task, realistic caching (ASSUMPTION hit rate 0.7). k assumes every other task is found and escalated (ceiling, no such detector).
+
+**claude-haiku-5-5**: k = 77/90 = 0.856; X / B = 0.053 (escalation cost interim for claude-haiku-5-5: all-cloud per-task cost (the full-history redo ran on claude-sonnet-5-5 only)); window-overflow flag at matched quality: does not reach all-cloud quality (k 0).
+
+| Task size point [label] | Billed input tokens per task | All-cloud USD per task | B / k x B / X / saves, USD/month at 100/day | B / k x B / X / saves, USD/month at 1,000/day | B / k x B / X / saves, USD/month at 10,000/day |
+|---|---|---|---|---|---|
+| SWE-Gym median [projected: local quality on long tasks not measured] | 14,404 | 0.00137 | 4.12 / 3.53 / 0.22 / 3.31 | 41.24 / 35.28 / 2.17 / 33.12 | 412.41 / 352.84 / 21.67 / 331.17 |
+| B3 v2 tasks (30 tasks x 3 seeds), median [measured] | 31,830 | 0.00067 | 2.01 / 1.72 / 0.11 / 1.62 | 20.12 / 17.22 / 1.06 / 16.16 | 201.25 / 172.18 / 10.57 / 161.61 |
+| nebius-rebench-openhands median [projected: local quality on long tasks not measured] | 2,622,936 | 0.13536 | 406.08 / 347.43 / 21.33 / 326.09 | 4,060.84 / 3,474.28 / 213.34 / 3,260.93 | 40,608.41 / 34,742.75 / 2,133.40 / 32,609.35 |
+| nebius-rebench-openhands p90 [projected: local quality on long tasks not measured] | 4,602,617 | 0.24536 | 736.07 / 629.75 / 38.67 / 591.08 | 7,360.72 / 6,297.51 / 386.70 / 5,910.81 | 73,607.24 / 62,975.09 / 3,867.03 / 59,108.05 |
+
+**claude-sonnet-5-5**: k = 80/90 = 0.889; X / B = 0.136 (escalation cost measured for claude-sonnet-5-5: cloud-redo-full-context mean USD per task); window-overflow flag at matched quality: does not reach all-cloud quality (k 0).
+
+| Task size point [label] | Billed input tokens per task | All-cloud USD per task | B / k x B / X / saves, USD/month at 100/day | B / k x B / X / saves, USD/month at 1,000/day | B / k x B / X / saves, USD/month at 10,000/day |
+|---|---|---|---|---|---|
+| SWE-Gym median [projected: local quality on long tasks not measured] | 14,404 | 0.02661 | 79.83 / 70.96 / 10.86 / 60.09 | 798.27 / 709.57 / 108.64 / 600.93 | 7,982.66 / 7,095.69 / 1,086.41 / 6,009.28 |
+| B3 v2 tasks (30 tasks x 3 seeds), median [measured] | 33,342 | 0.01020 | 30.61 / 27.21 / 4.17 / 23.04 | 306.10 / 272.09 / 41.66 / 230.43 | 3,060.99 / 2,720.88 / 416.59 / 2,304.29 |
+| nebius-rebench-openhands median [projected: local quality on long tasks not measured] | 2,622,936 | 2.53071 | 7,592.12 / 6,748.55 / 1,033.26 / 5,715.29 | 75,921.17 / 67,485.48 / 10,332.60 / 57,152.88 | 759,211.69 / 674,854.84 / 103,326.00 / 571,528.84 |
+| nebius-rebench-openhands p90 [projected: local quality on long tasks not measured] | 4,602,617 | 4.33867 | 13,016.01 / 11,569.79 / 1,771.43 / 9,798.35 | 130,160.11 / 115,697.87 / 17,714.33 / 97,983.55 | 1,301,601.08 / 1,156,978.74 / 177,143.26 / 979,835.48 |
+
+<!-- hybrid_curve:end -->
+
+### Policy table (row hybrid-savings-v1)
+
+Savings are measured against running every task on the cloud, at matched quality, per device and model, on the 30 B3
+v2 tasks. The all-cloud run has seeds 20260901 to 20260903 and the local run has 5 seeds, so the table uses only the 3
+shared seeds. Every number below is from register row hybrid-savings-v1 (analysis/impact_model.py::hybrid_savings).
+
+Policies per device: (1) all-cloud, the reference; (2) naive local: USD 0 cloud spend, every wrong task silent; (3)
+hybrid: escalate every task the window-overflow flag marks (the task turn's prompt exceeded the loaded window); (4)
+escalate every wrong task (ceiling, no such detector): it needs a detector that knows which local answers are wrong,
+which does not exist; it is shown as a ceiling only, never as a headline. An escalated task is assumed to take the
+all-cloud outcome of the same task and seed.
+
+**Window overflow is not a general wrong-answer detector.** It only sees tasks whose prompt outgrew the loaded window.
+It misses every wrong task that stays inside the window: at evo-x2's default window it flags nothing, so policy (3)
+there is the same as naive local, and every default-window wrong task stays silent [hybrid-savings-v1,
+impact-v3-detection-value-measured]. Where the window is small (4096) almost every task overflows, so the flag catches
+the wrong tasks but escalates nearly everything and saves little against all-cloud [hybrid-savings-v1]. Catching
+in-window wrong answers needs a general verifier (prior work on routing and verification), which we do not claim.
+
+Inputs and their labels:
+
+- All-cloud quality and USD per task, per task and seed: MEASURED, rows all-cloud-b3-quality and all-cloud-b3-cost
+  (results/all_cloud_b3_v1.jsonl; claude-haiku-5-5 and claude-sonnet-5-5, prompt caching on).
+- Local outcome per tier, task and seed (end_state_ok), qwen3:14b on evo-x2: MEASURED, row
+  x2-evalset-tasks-real-v2-wrong-rate (results/x2_evalset_tasks_real_v2.jsonl). The best evo-x2 setting is the tier
+  with the lowest local wrong rate on all 5 seeds, which is the default.
+- Window-overflow flag per task: MEASURED, row impact-v3-detection-value-measured (same file).
+- Escalation cost per escalated task: for claude-sonnet-5-5, MEASURED, the mean USD per task of row
+  cloud-redo-full-context (the full-history redo, complete across its three parts, 2026-10-22). For claude-haiku-5-5,
+  INTERIM: the all-cloud per-task cost of the same task at the same tier, because the full-history redo ran on
+  claude-sonnet-5-5 only. Row cloud-redo-cost-per-wrong-task and
+  results/cloud_redo_v1.jsonl are NOT used: that run is a broken-protocol run (see the cloud redo diagnosis in
+  docs/FINDINGS.md).
+- evo-t2s Intel CPU at its 4096 default: PROJECTED. There is no B3 v2 run on evo-t2s, so evo-x2's ollama_ctx_4096 tier
+  stands in for it (same model, same window, different backend); the loaded window is from row t2s-r2-real-cpu.
+- Blade: not measured.
+- Volume: ASSUMED parameter range of 100, 1,000 and 10,000 agent tasks/day, 30-day month; not a claim about demand.
+- P2 hardware capacity: session minutes MEASURED (impact-v2-P2, from cost-cut-config-time); the flash-attention control
+  attributes the speedup to KV precision, not flash attention (b5-fa-control); half the hardware (3 of 6 machines at
+  the P2 profile); machine price "list price, Liliputing, 2025-04-15" (impact-ref-machine-price); 3-year life ASSUMED;
+  one agent task = one turn of a 40-turn R2 session ASSUMED for the per-volume machine counts.
+
+<!-- hybrid_savings:begin -->
+
+Generated by `py -3.12 analysis/impact_model.py --write-hybrid` (register row hybrid-savings-v1). Do not edit by hand.
+
+Matched on the 3 seeds both runs share (20260901, 20260902, 20260903); the local run has 5 seeds and the other 2 are not used in the table. 90 tasks per cell. Escalated task cost: interim for claude-haiku-5-5: all-cloud per-task cost (the full-history redo ran on claude-sonnet-5-5 only); measured for claude-sonnet-5-5: cloud-redo-full-context mean USD per task. Monthly savings: 30-day month at 100, 1,000, 10,000 agent tasks/day (a stated parameter range, not a claim). Labels: measured = evo-x2 B3 v2 run; projected = evo-x2's ollama_ctx_4096 tier standing in for evo-t2s.
+
+| Device (setting) [label] | Cloud tier | Policy | Correct | vs all-cloud | USD/task | Saves USD/task | Saves USD/month at 100 / 1,000 / 10,000 tasks/day | Escalated | Matched quality |
+|---|---|---|---|---|---|---|---|---|---|
+| evo-x2 (ollama_default, default = best) [measured] | claude-haiku-5-5 | all-cloud (reference) | 87/90 (96.7%) | +0.0 pts | 0.00067 | 0.00000 | 0.00 / 0.00 / 0.00 | 90 | yes |
+| evo-x2 (ollama_default, default = best) [measured] | claude-haiku-5-5 | naive local | 80/90 (88.9%) | -7.8 pts | 0.00000 | 0.00067 | 2.01 / 20.12 / 201.25 | 0 | no |
+| evo-x2 (ollama_default, default = best) [measured] | claude-haiku-5-5 | hybrid: escalate window-overflow flagged tasks | 80/90 (88.9%) | -7.8 pts | 0.00000 | 0.00067 | 2.01 / 20.12 / 201.25 | 0 | no |
+| evo-x2 (ollama_default, default = best) [measured] | claude-haiku-5-5 | escalate every wrong task (ceiling, no such detector) | 90/90 (100.0%) | +3.3 pts | 0.00011 | 0.00056 | 1.67 / 16.70 / 167.03 | 10 | yes |
+| evo-x2 (ollama_default, default = best) [measured] | claude-sonnet-5-5 | all-cloud (reference) | 90/90 (100.0%) | +0.0 pts | 0.01020 | 0.00000 | 0.00 / 0.00 / 0.00 | 90 | yes |
+| evo-x2 (ollama_default, default = best) [measured] | claude-sonnet-5-5 | naive local | 80/90 (88.9%) | -11.1 pts | 0.00000 | 0.01020 | 30.61 / 306.10 / 3,060.99 | 0 | no |
+| evo-x2 (ollama_default, default = best) [measured] | claude-sonnet-5-5 | hybrid: escalate window-overflow flagged tasks | 80/90 (88.9%) | -11.1 pts | 0.00000 | 0.01020 | 30.61 / 306.10 / 3,060.99 | 0 | no |
+| evo-x2 (ollama_default, default = best) [measured] | claude-sonnet-5-5 | escalate every wrong task (ceiling, no such detector) | 90/90 (100.0%) | +0.0 pts | 0.00252 | 0.00768 | 23.04 / 230.43 / 2,304.29 | 10 | yes |
+| evo-t2s Intel CPU (default, loaded window 4096) [projected] | claude-haiku-5-5 | all-cloud (reference) | 87/90 (96.7%) | +0.0 pts | 0.00067 | 0.00000 | 0.00 / 0.00 / 0.00 | 90 | yes |
+| evo-t2s Intel CPU (default, loaded window 4096) [projected] | claude-haiku-5-5 | naive local | 53/90 (58.9%) | -37.8 pts | 0.00000 | 0.00067 | 2.01 / 20.12 / 201.25 | 0 | no |
+| evo-t2s Intel CPU (default, loaded window 4096) [projected] | claude-haiku-5-5 | hybrid: escalate window-overflow flagged tasks | 87/90 (96.7%) | +0.0 pts | 0.00066 | 0.00001 | 0.04 / 0.44 / 4.41 | 88 | yes |
+| evo-t2s Intel CPU (default, loaded window 4096) [projected] | claude-haiku-5-5 | escalate every wrong task (ceiling, no such detector) | 89/90 (98.9%) | +2.2 pts | 0.00032 | 0.00035 | 1.06 / 10.65 / 106.47 | 37 | yes |
+| evo-t2s Intel CPU (default, loaded window 4096) [projected] | claude-sonnet-5-5 | all-cloud (reference) | 90/90 (100.0%) | +0.0 pts | 0.01020 | 0.00000 | 0.00 / 0.00 / 0.00 | 90 | yes |
+| evo-t2s Intel CPU (default, loaded window 4096) [projected] | claude-sonnet-5-5 | naive local | 53/90 (58.9%) | -41.1 pts | 0.00000 | 0.01020 | 30.61 / 306.10 / 3,060.99 | 0 | no |
+| evo-t2s Intel CPU (default, loaded window 4096) [projected] | claude-sonnet-5-5 | hybrid: escalate window-overflow flagged tasks | 90/90 (100.0%) | +0.0 pts | 0.02220 | -0.01199 | -35.98 / -359.80 / -3,597.97 | 88 | yes |
+| evo-t2s Intel CPU (default, loaded window 4096) [projected] | claude-sonnet-5-5 | escalate every wrong task (ceiling, no such detector) | 90/90 (100.0%) | +0.0 pts | 0.00933 | 0.00087 | 2.61 / 26.12 / 261.20 | 37 | yes |
+| Blade | n/a | all | not measured (no B3 v2 run on the Blade) | | | | | | |
+
+Per cell: tasks kept local at matched quality (local correct and the all-cloud tier correct on the same task and seed), and what the window-overflow flag sees:
+
+- evo-x2 (ollama_default) vs claude-haiku-5-5: kept local at matched quality 77/90; local wrong 10; flagged 0 (of them wrong 0); wrong tasks inside the window, missed by the flag: 10.
+- evo-x2 (ollama_default) vs claude-sonnet-5-5: kept local at matched quality 80/90; local wrong 10; flagged 0 (of them wrong 0); wrong tasks inside the window, missed by the flag: 10.
+- evo-t2s Intel CPU (ollama_ctx_4096) vs claude-haiku-5-5: kept local at matched quality 51/90; local wrong 37; flagged 88 (of them wrong 37); wrong tasks inside the window, missed by the flag: 0.
+- evo-t2s Intel CPU (ollama_ctx_4096) vs claude-sonnet-5-5: kept local at matched quality 53/90; local wrong 37; flagged 88 (of them wrong 37); wrong tasks inside the window, missed by the flag: 0.
+
+Local wrong rate per evo-x2 tier on all 5 seeds (picks the best tier): ollama_default 11.3%, ollama_ctx_16384 12.7%, ollama_ctx_8192 35.3%, ollama_ctx_4096 42.0%, ollama_ctx_4096_numkeep 30.0%; best = ollama_default.
+
+P2 hardware capacity (impact-v2-P2). The flash-attention control attributes the speedup to KV precision, not flash attention (b5-fa-control). qwen3:14b default (a) 214.8 min per session vs (g) kv_q8_0 75.4 min (measured), one session at a time per machine.
+
+| Agent tasks/day (ASSUMED 1 task = 1 turn of a 40-turn session) | Machines, default | Machines, best | Upfront hardware avoided, USD (list price) | Amortized USD/day (secondary) |
+|---|---|---|---|---|
+| impact-v2-P2 profile | 6 | 3 | 6,000 | 5.48 |
+| 100 | 1 | 1 | 0 | 0.00 |
+| 1,000 | 4 | 2 | 4,000 | 3.65 |
+| 10,000 | 38 | 14 | 48,000 | 43.84 |
+
+Machine price USD 2,000 (impact-ref-machine-price: list price, Liliputing, 2025-04-15); 3-year life (ASSUMED) for the amortized column.
+
+<!-- hybrid_savings:end -->
 
 ## Rows registered in parallel (not on main when this was written)
 

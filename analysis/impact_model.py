@@ -39,6 +39,7 @@ and retries, P7 guardrail removal. A cost whose per-event input is not measured 
 
 Usage: py -3.12 analysis/impact_model.py            prints the profile table
        py -3.12 analysis/impact_model.py --write    also rewrites docs/IMPACT.md's generated block
+       py -3.12 analysis/impact_model.py --write-hybrid   rewrites only the hybrid savings block (row hybrid-savings-v1)
 """
 from __future__ import annotations
 
@@ -1022,7 +1023,7 @@ def session_time_value(res) -> str:
 # wall time of the wrong task turn, valued 0 to the full hour value). P2 (operator decision 2026-10-21) = machine
 # capacity: measured session minutes of the default and the fastest measured B5 setting for the profile model [row
 # cost-cut-config-time] give sessions per machine per day, machines needed for the profile's sessions/day (ceil) and
-# the machines saved x the reference machine price [row impact-ref-machine-price, an ASSUMPTION input to verify] /
+# the machines saved x the reference machine price [row impact-ref-machine-price, a cited public list price] /
 # an ASSUMED 3-year life; waiting time at the hour value is an UPPER BOUND on the interactive-session share only
 # (ASSUMED 0.25). P2 is PENDING (values shown, not ranked) until row b5-fa-control is VERIFIED. P3 as in
 # v1. P4 to P7: the v1 row functions at the same profile. Every row carries a status: measured / mixed / assumed /
@@ -1161,15 +1162,21 @@ def v2_rows(repo=REPO, base_profile=None, inputs=None) -> dict:
     return {"profile": prof, "rows": out}
 
 
-REF_MACHINE_FILE = "results/hardware_price_evox2_20261021.json"   # ASSUMPTION input, must be verified (row impact-ref-machine-price)
+REF_MACHINE_FILE = "results/hardware_price_evox2_20261021.json"   # cited public list price (row impact-ref-machine-price)
 MACHINE_LIFE_YEARS = 3.0    # ASSUMED amortization life of the reference machine
 INTERACTIVE_SHARE = 0.25    # ASSUMED share of sessions a person waits on (the waiting-time upper bound applies only here)
 MINUTES_PER_DAY = 24 * 60
 
 
 def ref_machine(repo=REPO) -> dict:
-    """The reference machine's price record (results/hardware_price_evox2_20261021.json): an ASSUMPTION input."""
+    """The reference machine's price record (results/hardware_price_evox2_20261021.json): a cited public list price
+    with its label ("list price, <source>, <date>", operator decision 2026-10-22)."""
     return json.loads((Path(repo) / REF_MACHINE_FILE).read_text(encoding="utf-8"))
+
+
+def price_label(machine) -> str:
+    """The machine price's label as recorded in its file; files without one are an unverified assumption."""
+    return (machine or {}).get("label") or "ASSUMPTION, must be verified"
 
 
 def p2_capacity(sessions_day, default_min, best_min, machine_usd, life_years=MACHINE_LIFE_YEARS, concurrency=1):
@@ -1190,7 +1197,7 @@ def p2_v2(profile, cc=None, machine=None, fa_verified=False, interactive_share=I
     """P2 at the v2 profile (operator decision 2026-10-21). Primary USD = machine capacity from the measured session
     minutes of the runtime default and the fastest measured B5 setting for the profile model (cost_cut_config_time_data
     shape: {"models": {model: {"default_min", "best_min", "saved_min", ...}}, "fa_included"}) at the profile's
-    sessions/day (ASSUMED), with the reference machine price (machine: {"usd", ...}, an ASSUMPTION input) amortized over
+    sessions/day (ASSUMED), with the reference machine price (machine: {"usd", "label", ...}, a cited list price) amortized over
     MACHINE_LIFE_YEARS (ASSUMED). Waiting time at the hour value is an UPPER BOUND on top, applied only to the
     interactive-session share (ASSUMED). Status PENDING (values still computed and shown) until row b5-fa-control is
     VERIFIED; the ranking does not place a PENDING row."""
@@ -1205,11 +1212,11 @@ def p2_v2(profile, cc=None, machine=None, fa_verified=False, interactive_share=I
     cap = p2_capacity(spd, x["default_min"], x["best_min"], float(machine["usd"]))
     wait_full = spd * max(0.0, x["saved_min"]) / 60.0 * hv
     wait_ub = wait_full * interactive_share
-    caveat = (P2_CAVEAT_FA_INCLUDED if cc.get("fa_included") else P2_CAVEAT_FA_PENDING)
+    caveat = ((cc.get("fa_attribution") or P2_CAVEAT_FA_INCLUDED) if cc.get("fa_included") else P2_CAVEAT_FA_PENDING)
     r.update(usd_day=cap["usd_day"], low=cap["usd_day"], high=cap["usd_day"] + wait_ub,
              status="mixed" if fa_verified else "PENDING", pending=[] if fa_verified else ["b5-fa-control"],
              cell=dict(x, model=model), caveat=caveat, fa_included=bool(cc.get("fa_included")), capacity=cap,
-             machine_usd=float(machine["usd"]), wait_upper_bound=wait_ub, wait_full_share=wait_full,
+             machine_usd=float(machine["usd"]), machine_label=price_label(machine), wait_upper_bound=wait_ub, wait_full_share=wait_full,
              interactive_share=interactive_share)
     return r
 
@@ -1388,8 +1395,10 @@ def p2_v2_value(r) -> str:
             f"{x['best_min']:.1f} min = {c['sessions_per_machine_day_best']:.2f} (MEASURED minutes, cost-cut-config-time; "
             f"24 h / session minutes, one session at a time, no measured concurrency row); machines for the profile's "
             f"sessions/day (ASSUMED volume): {c['machines_default']} default vs {c['machines_best']} "
-            f"best (ceil), {c['machines_saved']} saved x USD {r['machine_usd']:,.0f} (impact-ref-machine-price, "
-            f"ASSUMPTION, must be verified) / {c['life_years']:.0f}-year life (ASSUMED) = USD {c['usd_day']:.2f}/day; "
+            f"best (ceil{', half the hardware' if 2 * c['machines_best'] == c['machines_default'] else ''}), "
+            f"{c['machines_saved']} saved "
+            f"x USD {r['machine_usd']:,.0f} (impact-ref-machine-price, {r.get('machine_label', price_label(None))}) / "
+            f"{c['life_years']:.0f}-year life (ASSUMED) = USD {c['usd_day']:.2f}/day; "
             f"upper bound: waiting time {x['saved_min']:.1f} min saved per session x hour value x interactive-session "
             f"share {r['interactive_share']:.2f} (ASSUMED) = USD {r['wait_upper_bound']:,.2f}/day on top; {r['caveat']}")
 
@@ -1634,8 +1643,733 @@ def write_doc(repo=REPO, block=None):
     path.write_text(text[:i] + block + text[j:], encoding="utf-8")
 
 
+# ── Hybrid savings v1 (operator item 3, 2026-10-21 22:30; framing per later decisions) ─────────────────────────────
+# Savings are measured against ALL-CLOUD at matched quality, per device and model, on the 30 B3 v2 tasks. Inputs, each
+# read only when its register row is VERIFIED, from the same data functions the rows use:
+#   all-cloud quality and USD per (seed, task): all-cloud-b3-quality / all-cloud-b3-cost (results/all_cloud_b3_v1.jsonl)
+#   local outcome and the window-overflow flag per (tier, seed, task): x2-evalset-tasks-real-v2-wrong-rate and
+#     impact-v3-detection-value-measured (results/x2_evalset_tasks_real_v2.jsonl, qwen3:14b, evo-x2)
+#   escalation cost per escalated task: cloud-redo-full-context when VERIFIED and its run finished unstopped; else the
+#     all-cloud per-task cost of the same task at the same cloud tier, labelled INTERIM. results/cloud_redo_v1.jsonl
+#     (cloud-redo-cost-per-wrong-task) is never used here: that run is a broken-protocol run (cloud redo diagnosis).
+# Matching uses only the seeds both runs share (all-cloud has 3 seeds, the local run 5).
+HYBRID_ROW = "hybrid-savings-v1"
+HYBRID_VOLUMES = (100, 1000, 10000)     # agent tasks/day: a stated parameter range, not a claim
+DAYS_PER_MONTH = 30
+HYBRID_REQUIRED = ("all-cloud-b3-quality", "all-cloud-b3-cost", "x2-evalset-tasks-real-v2-wrong-rate",
+                   "impact-v3-detection-value-measured")
+HYBRID_POLICIES = (("all_cloud", "all-cloud (reference)"), ("naive_local", "naive local"),
+                   ("hybrid_flag", "hybrid: escalate window-overflow flagged tasks"),
+                   ("hybrid_perfect", "escalate every wrong task (ceiling, no such detector)"))
+CEILING_LABEL = "ceiling, no such detector"   # operator decision 2026-10-22, item 2: never a headline
+INTERIM_ESC = "interim: all-cloud per-task cost, full-history redo pending"
+HYBRID_ALL_TIERS = ("ollama_default",) + B3_V2_TIERS
+HYB_BEGIN, HYB_END = "<!-- hybrid_savings:begin -->", "<!-- hybrid_savings:end -->"
+
+
+def all_cloud_task_outcomes(repo=REPO) -> dict:
+    """{"seeds": [...], "models": {model: {(seed, task_id): (end_state_ok, usd)}}} from the all-cloud B3 run's graded
+    task turns (the turns scripts/all_cloud_b3.py::summarize counts)."""
+    import numbers_register as nr
+    d = nr.all_cloud_b3_data(Path(repo))
+    rows = d["ac"].CR.load_rows(Path(repo) / nr.ALL_CLOUD_B3_V1)
+    out = {}
+    for r in rows:
+        if r.get("record") == "r2a_turn" and r.get("item_kind") == "task" and r.get("end_state_ok") is not None:
+            k = (r["seed"], r["task_id"])
+            m = out.setdefault(r["model_id"], {})
+            if k in m:
+                raise ValueError(f"duplicate all-cloud task turn {r['model_id']} {k}")
+            m[k] = (bool(r["end_state_ok"]), float(r["usd"]))
+    return {"seeds": list(d["start"]["seeds"]), "models": out}
+
+
+def b3_v2_task_outcomes(repo=REPO) -> dict:
+    """{tier: {(seed, task_id): (over loaded window, ended wrong)}} over task turns of completed real qwen3:14b
+    sessions of the B3 v2 real run (the turns b3_v2_task_turns scores)."""
+    sys.path.insert(0, str(Path(repo) / "harness"))
+    import x2_r2_evalset as ev
+    rows = ev.ag.read_rows(Path(repo) / B3_V2_REAL_FILE)
+    if not rows:
+        raise FileNotFoundError(Path(repo) / B3_V2_REAL_FILE)
+    att = {s["attempt_id"] for s in ev.ag.completed_sessions(rows)
+           if s.get("mode") == "real" and s["model_id"] == B3_V2_MODEL}
+    out = {}
+    for r in rows:
+        if (r.get("record") == "r2a_turn" and r.get("attempt_id") in att and r.get("item_kind") == "task"
+                and r.get("end_state_ok") is not None):
+            t = out.setdefault(r["arm_id"].replace("_call2_notools", ""), {})
+            k = (r["seed"], r["task_id"])
+            if k in t:
+                raise ValueError(f"duplicate local task turn {r['arm_id']} {k}")
+            t[k] = (turn_over_window(r), r["end_state_ok"] is False)
+    return out
+
+
+def full_context_redo(repo=REPO) -> dict | None:
+    """The full-history redo's mean USD per task and its model, only when row cloud-redo-full-context is VERIFIED and
+    the run is complete across its parts (the first file plus every --resume continuation, superseded rows excluded):
+    every wrong task has a row and the last part ended with a run_end that did not stop. A stop or crash in an earlier
+    part does not count against completeness, because the next part resumed it. None otherwise (the caller then uses
+    the INTERIM stand-in)."""
+    import importlib.util
+    import numbers_register as nr
+    path = Path(repo) / nr.CLOUD_REDO_FULL_CONTEXT
+    if not register_has(repo, "cloud-redo-full-context") or not path.exists():
+        return None
+    spec = importlib.util.spec_from_file_location("cloud_redo", Path(repo) / "scripts" / "cloud_redo.py")
+    cr = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cr)
+    paths = cr.part_files(path)
+    tasks = cr.merged_rows(paths)
+    start = next(r for r in cr.load_rows(paths[0]) if r.get("record") == "run_start")
+    last_end = next((r for r in cr.load_rows(paths[-1]) if r.get("record") == "run_end"), None)
+    if last_end is None or last_end.get("stopped") or len(tasks) < start["n_wrong_tasks"]:
+        return None
+    s = cr.summarize(tasks)
+    return {"model": start.get("model_id"), "usd": s["mean_usd"], "n": s["n"]}
+
+
+
+def esc_label_all(cells) -> str:
+    """The escalation-cost labels of all cells, one per cloud tier, joined (a header must not show only the first)."""
+    seen = []
+    for c in cells:
+        if c["esc_label"] not in seen:
+            seen.append(c["esc_label"])
+    return "; ".join(seen)
+
+def t2s_loaded_window(repo=REPO, model=B3_V2_MODEL) -> list:
+    """The window Ollama loaded for model on evo-t2s Intel CPU at its default (row t2s-r2-real-cpu's file)."""
+    import numbers_register as nr
+    path = Path(repo) / nr.T2S_REAL["cpu"]
+    rows = [json.loads(x) for x in path.read_text(encoding="utf-8").splitlines() if x.strip()]
+    return sorted({c for r in rows if r.get("record") == "r2a_session" and r.get("model_id") == model
+                   for c in r.get("loaded_context_values") or []})
+
+
+def hybrid_policies(local: dict, cloud: dict, seeds, esc_usd=None) -> dict:
+    """Pure: local {(seed, task): (flag, wrong)}, cloud {(seed, task): (ok, usd)}; matched on the shared keys whose seed
+    is in seeds. esc_usd None = an escalated task costs that task's all-cloud USD (INTERIM); a float = that mean redo
+    USD per escalated task. An escalated task takes the all-cloud outcome of the same task and seed (ASSUMED)."""
+    seeds = set(seeds)
+    keys = sorted(k for k in local if k in cloud and k[0] in seeds)
+    n = len(keys)
+    if not n:
+        raise ValueError("no shared (seed, task) pairs")
+    ref_usd = sum(cloud[k][1] for k in keys) / n
+    ref_ok = {k: cloud[k][0] for k in keys}
+
+    def run(escalate, reference=False):
+        ok, usd, esc = {}, 0.0, 0
+        for k in keys:
+            flag, wrong = local[k]
+            if escalate(flag, wrong):
+                esc += 1
+                ok[k] = cloud[k][0]
+                usd += cloud[k][1] if (esc_usd is None or reference) else esc_usd
+            else:
+                ok[k] = not wrong
+        c, u = sum(ok.values()), usd / n
+        return {"correct": c, "n": n, "quality": c / n, "usd_task": u, "escalated": esc, "kept_local": n - esc,
+                "silent_wrong": sum(1 for k in keys if local[k][1] and not escalate(*local[k])),
+                "savings_task": ref_usd - u,
+                "savings_month": {v: (ref_usd - u) * v * DAYS_PER_MONTH for v in HYBRID_VOLUMES},
+                "matched": all(ok[k] >= ref_ok[k] for k in keys),
+                "worse_than_cloud": sum(1 for k in keys if ref_ok[k] and not ok[k])}
+
+    out = {"all_cloud": run(lambda f, w: True, reference=True), "naive_local": run(lambda f, w: False),
+           "hybrid_flag": run(lambda f, w: f), "hybrid_perfect": run(lambda f, w: w)}
+    for p in out.values():
+        p["delta_points"] = 100 * (p["quality"] - out["all_cloud"]["quality"])
+    wrong = [k for k in keys if local[k][1]]
+    return {"policies": out, "n": n, "ref_usd": ref_usd,
+            "matched_local": sum(1 for k in keys if not local[k][1] and cloud[k][0]),
+            "local_wrong": len(wrong), "flag_tp": sum(1 for k in wrong if local[k][0]),
+            "flagged": sum(1 for k in keys if local[k][0]),
+            "wrong_inside_window": sum(1 for k in wrong if not local[k][0])}
+
+
+def hybrid_p2(repo, p2_row) -> dict | None:
+    """Hardware capacity beside the hybrid table: the impact-v2-P2 row's machines at its profile, and at the hybrid
+    volumes under the ASSUMPTION that one agent task is one turn of a B5 R2 session (harness/policy_compare.TURNS)."""
+    if not p2_row or p2_row.get("capacity") is None:
+        return None
+    sys.path.insert(0, str(Path(repo) / "harness"))
+    import policy_compare as pc
+    x, usd = p2_row["cell"], p2_row["machine_usd"]
+    vol = {v: p2_capacity(v / pc.TURNS, x["default_min"], x["best_min"], usd) for v in HYBRID_VOLUMES}
+    return {"row": p2_row, "volumes": vol, "turns": pc.TURNS, "fa_verified": register_has(repo, "b5-fa-control")}
+
+
+def hybrid_savings(repo=REPO, p2_row=None) -> dict:
+    """Per device x cloud tier x policy (see the section comment). PENDING (with the missing rows named) until every
+    required register row is VERIFIED. p2_row: the impact v2 P2 row (compute_v2()["rows"]["P2"]) for hardware
+    capacity."""
+    missing = [c for c in HYBRID_REQUIRED if not register_has(repo, c)]
+    if missing:
+        return {"status": "PENDING", "pending": missing}
+    ac = all_cloud_task_outcomes(repo)
+    local = b3_v2_task_outcomes(repo)
+    redo = full_context_redo(repo)
+    seeds = ac["seeds"]
+    local_seeds = sorted({s for t in local.values() for s, _ in t})
+    rates = {t: sum(w for _, w in local[t].values()) / len(local[t]) for t in HYBRID_ALL_TIERS if t in local}
+    best = min(rates, key=lambda t: (rates[t], t != DEFAULT_TIER))
+    devices = [{"device": "evo-x2", "setting": f"{DEFAULT_TIER}, default" + (" = best" if best == DEFAULT_TIER else ""),
+                "tier": DEFAULT_TIER, "label": "measured"}]
+    if best != DEFAULT_TIER:
+        devices.append({"device": "evo-x2", "setting": f"{best}, best", "tier": best, "label": "measured"})
+    win = t2s_loaded_window(repo)
+    devices.append({"device": "evo-t2s Intel CPU", "setting": f"default, loaded window {'/'.join(map(str, win))}",
+                    "tier": "ollama_ctx_4096", "label": "projected"})
+    cells = []
+    for dv in devices:
+        for m in sorted(ac["models"]):
+            esc = redo["usd"] if redo and redo["model"] == m else None
+            res = hybrid_policies(local[dv["tier"]], ac["models"][m], seeds, esc)
+            if esc is not None:
+                lab = f"measured for {m}: cloud-redo-full-context mean USD per task"
+            elif redo:
+                lab = (f"interim for {m}: all-cloud per-task cost (the full-history redo ran on {redo['model']} "
+                       f"only)")
+            else:
+                lab = INTERIM_ESC
+            cells.append(dict(dv, model=m, esc_label=lab, **res))
+    return {"status": "VERIFIED", "cells": cells, "seeds": seeds, "local_seeds": local_seeds, "rates": rates,
+            "best": best, "redo": redo, "volumes": HYBRID_VOLUMES, "t2s_window": win,
+            "blade": "not measured (no B3 v2 run on the Blade)", "p2": hybrid_p2(repo, p2_row)}
+
+
+# Savings as a formula over task size (operator decision 2026-10-22, item 1; row hybrid-savings-curve):
+#   savings/month = B x k - X
+#   B = all-cloud bill/month = all-cloud USD per task x tasks/day x 30
+#   k = share kept local at matched quality (hybrid-savings-v1's "kept local at matched quality": local correct and the
+#       all-cloud tier correct on the same task and seed); realizing k needs every other task found and escalated, which
+#       needs a verifier for in-window wrong answers that we do not claim
+#   X = escalation cost/month beyond the all-cloud bill of the escalated share = (USD of the escalated tasks per task -
+#       (1 - k) x all-cloud USD per task) x tasks/day x 30; the escalated tasks' USD uses the same input
+#       hybrid-savings-v1 uses (INTERIM: their all-cloud cost; the full-history redo mean once cloud-redo-full-context
+#       is VERIFIED and finished unstopped), so X is nonzero today only because the escalated tasks are not average ones
+# Measured point: the 30 B3 v2 tasks (3 shared seeds), evo-x2 default. Projected points: real agent task sizes from
+# cloud-cost-per-real-task (SWE-Gym median, nebius-rebench-openhands median and p90, realistic caching), with k and
+# X / B taken from the measured point: "projected: local quality on long tasks not measured".
+CURVE_ROW = "hybrid-savings-curve"
+CURVE_CASE = "realistic"
+CURVE_POINTS = (("SWE-Gym", "median"), ("nebius-rebench-openhands", "median"), ("nebius-rebench-openhands", "p90"))
+CURVE_PROJ_LABEL = "projected: local quality on long tasks not measured"
+CURVE_REQUIRED = HYBRID_REQUIRED + ("cloud-cost-per-real-task",)
+
+
+def savings_formula(bill_task, k, x_ratio, volume, days=DAYS_PER_MONTH) -> dict:
+    """Pure: B = bill_task x volume x days; X = x_ratio x B; savings = B x k - X."""
+    b = bill_task * volume * days
+    return {"bill": b, "kept": b * k, "escalation": x_ratio * b, "savings": b * k - x_ratio * b}
+
+
+def curve_inputs(local: dict, cloud: dict, seeds, esc_usd=None) -> dict:
+    """Pure, same matching as hybrid_policies: k = kept local at matched quality / n; the escalated set is every other
+    task; x_ratio = X / B per task = (escalated USD per task - (1 - k) x all-cloud USD per task) / all-cloud USD per
+    task. esc_usd None = INTERIM (the escalated task's own all-cloud USD)."""
+    seeds = set(seeds)
+    keys = sorted(x for x in local if x in cloud and x[0] in seeds)
+    if not keys:
+        raise ValueError("no shared (seed, task) pairs")
+    n = len(keys)
+    kept = [x for x in keys if not local[x][1] and cloud[x][0]]
+    esc = [x for x in keys if x not in set(kept)]
+    c = sum(cloud[x][1] for x in keys) / n
+    esc_task = sum(cloud[x][1] if esc_usd is None else esc_usd for x in esc) / n
+    k = len(kept) / n
+    return {"n": n, "kept": len(kept), "k": k, "bill_task": c, "esc_task": esc_task,
+            "x_ratio": (esc_task - (1 - k) * c) / c}
+
+
+def all_cloud_task_input_tokens(repo=REPO) -> dict:
+    """{model: {(seed, task_id): billed input tokens (provider usage, cache reads and writes included)}}."""
+    import numbers_register as nr
+    d = nr.all_cloud_b3_data(Path(repo))
+    out = {}
+    for r in d["ac"].CR.load_rows(Path(repo) / nr.ALL_CLOUD_B3_V1):
+        if r.get("record") == "r2a_turn" and r.get("item_kind") == "task" and r.get("end_state_ok") is not None:
+            out.setdefault(r["model_id"], {})[(r["seed"], r["task_id"])] = int(r["input_tokens"])
+    return out
+
+
+def _cloud_task_cost_module(repo):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("cloud_task_cost", Path(repo) / "analysis" / "cloud_task_cost.py")
+    ct = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ct)
+    return ct
+
+
+def hybrid_curve(repo=REPO, h=None, real=None) -> dict:
+    """Per cloud tier: the measured B3 point and the projected real-task points with B, k x B, X and savings per month
+    at HYBRID_VOLUMES. h: hybrid_savings() output; real: cloud_task_cost.compute() output (read when None)."""
+    missing = [c for c in CURVE_REQUIRED if not register_has(repo, c)]
+    if missing:
+        return {"status": "PENDING", "pending": missing}
+    h = h or hybrid_savings(repo)
+    if h["status"] != "VERIFIED":
+        return {"status": "PENDING", "pending": h["pending"]}
+    real = real or _cloud_task_cost_module(repo).compute(Path(repo))
+    ac, local = all_cloud_task_outcomes(repo), b3_v2_task_outcomes(repo)
+    toks = all_cloud_task_input_tokens(repo)
+    redo = h["redo"]
+    tiers = []
+    for m in sorted(ac["models"]):
+        esc = redo["usd"] if redo and redo["model"] == m else None
+        ci = curve_inputs(local[DEFAULT_TIER], ac["models"][m], h["seeds"], esc)
+        cell = next(c for c in h["cells"] if c["model"] == m and c["tier"] == DEFAULT_TIER)
+        flag = cell["policies"]["hybrid_flag"]
+        keys = [x for x in local[DEFAULT_TIER] if x in ac["models"][m] and x[0] in set(h["seeds"])]
+        size = statistics.median(toks[m][x] for x in keys)
+        pts = [{"name": "B3 v2 tasks (30 tasks x 3 seeds), median", "size": size, "bill_task": ci["bill_task"],
+                "label": "measured", "steps": None}]
+        for label, q in CURVE_POINTS:
+            e = real["sets"][label]
+            pts.append({"name": f"{label} {q}", "size": e[f"input_{q}"], "steps": e["steps_median"] if q == "median"
+                        else None, "bill_task": e["usd"][(m, CURVE_CASE)][q], "label": CURVE_PROJ_LABEL})
+        pts.sort(key=lambda p: p["size"])   # a curve over task size
+        for p in pts:
+            p["volumes"] = {v: savings_formula(p["bill_task"], ci["k"], ci["x_ratio"], v) for v in HYBRID_VOLUMES}
+        tiers.append({"model": m, **ci, "points": pts, "redo_premium": esc / ci["bill_task"] - 1 if esc is not None
+                      else 0.0,
+                      "esc_label": (f"measured for {m}: cloud-redo-full-context mean USD per task" if esc is not None
+                                    else (f"interim for {m}: all-cloud per-task cost (the full-history redo ran on "
+                                          f"{redo['model']} only)" if redo else INTERIM_ESC)),
+                      "flag_matched": flag["matched"], "flag_kept": flag["kept_local"],
+                      "flag_k": flag["kept_local"] / flag["n"] if flag["matched"] else 0.0})
+    return {"status": "VERIFIED", "tiers": tiers, "device": f"evo-x2 {DEFAULT_TIER}", "seeds": h["seeds"],
+            "case": CURVE_CASE, "hit_rate": real["hit_rate"], "volumes": HYBRID_VOLUMES}
+
+
+def hybrid_curve_text(c) -> str:
+    if c["status"] != "VERIFIED":
+        return f"PENDING: rows {', '.join(c['pending'])} not VERIFIED"
+    parts = []
+    for t in c["tiers"]:
+        pts = []
+        for p in t["points"]:
+            pts.append(f"{p['name']} [{p['label']}]: billed input {p['size']:,.0f} tokens, all-cloud USD "
+                       f"{p['bill_task']:.5f}/task; " + ", ".join(
+                           f"{v:,}/day B {x['bill']:,.2f} x k = {x['kept']:,.2f} - X {x['escalation']:,.2f} = saves USD "
+                           f"{x['savings']:,.2f}/month" for v, x in p["volumes"].items()))
+        parts.append(f"{t['model']}: k = kept local at matched quality {t['kept']}/{t['n']} = {t['k']:.3f}; X / B = "
+                     f"{t['x_ratio']:.3f} (escalated tasks USD {t['esc_task']:.5f} per task over all tasks vs (1 - k) x "
+                     f"{t['bill_task']:.5f}; escalation cost {t['esc_label']}); window-overflow flag (the only measured "
+                     f"detector) at matched quality: "
+                     + (f"k {t['flag_k']:.3f}" if t["flag_matched"] else "does not reach all-cloud quality, k 0")
+                     + "; " + "; ".join(pts))
+    return (f"savings/month = B x k - X (B = all-cloud bill, k = share kept local at matched quality, X = escalation "
+            f"cost beyond the all-cloud bill of the escalated share); k and X / B measured on {c['device']} qwen3:14b, "
+            f"B3 v2 tasks, {len(c['seeds'])} shared seeds; projected points apply them to real agent task sizes "
+            f"(cloud-cost-per-real-task, {c['case']} caching, ASSUMPTION hit rate {c['hit_rate']}); k assumes every "
+            f"other task is found and escalated ({CEILING_LABEL}: in-window wrong answers need a general verifier, not "
+            f"claimed); the window-overflow flag column is what a measured detector reaches; 30-day month; "
+            + " / ".join(parts))
+
+
+# Per-device configuration (operator decision 2026-10-22, item 3; row t2s-config-comparison): evo-t2s naive Intel CPU
+# default (Ollama loaded 4096) vs the recommended setting (Intel iGPU, Ollama loaded 32768), from the measured R2 real
+# runs (rows t2s-r2-real-cpu, t2s-r2-real-igpu, gated variant). Kept-local share per device and model = share of R2
+# sessions with no gated silent failure. Savings per device: the same formula, B from the measured all-cloud B3
+# per-task cost (all-cloud-b3-cost) and X = (1 - k) x B x (escalation USD per escalated task / all-cloud USD per task -
+# 1), which is 0 while the escalation cost is INTERIM (an escalated task costs its all-cloud price) and switches to the
+# full-history redo mean automatically (ASSUMPTION: an R2 session's silent-failure share stands for the task share). To
+# be replaced by the evo-t2s B5 results (window 2026-10-26 to 2026-11-08).
+T2S_CONFIG_ROW = "t2s-config-comparison"
+T2S_CONFIGS = (("cpu", "naive: Intel CPU, Ollama default"), ("igpu", "recommended: Intel iGPU, Ollama default"))
+T2S_CONFIG_REQUIRED = ("t2s-r2-real-cpu", "t2s-r2-real-igpu")
+T2S_CONFIG_LABEL = ("measured R2 data (evo-t2s R2 real, 5 seeds x 40 turns); to be replaced by the evo-t2s B5 results "
+                    "(2026-10-26 to 2026-11-08) when they land")
+# Operator decision 2026-10-22 (trade-off lead): the evo-t2s share is relabelled until the evo-t2s B5 results report task
+# accuracy; it is an R2 session pass rate, not B3 task accuracy.
+T2S_KEPT_LABEL = "measured by R2 session pass rate (not B3 task accuracy)"
+
+
+def t2s_config_comparison(repo=REPO, curve=None, r2=None) -> dict:
+    """Per evo-t2s configuration and model: loaded window, gated silent sessions, kept-local share (sessions with no
+    silent failure) and savings per month per cloud tier at HYBRID_VOLUMES (needs the curve for B and X / B)."""
+    missing = [c for c in T2S_CONFIG_REQUIRED if not register_has(repo, c)]
+    if missing:
+        return {"status": "PENDING", "pending": missing}
+    import numbers_register as nr
+    r2 = r2 or {b: nr.t2s_r2_real_data(Path(repo), b) for b, _ in T2S_CONFIGS}
+    curve = curve if curve is not None else hybrid_curve(repo)
+    tiers = ({t["model"]: t for t in curve["tiers"]} if curve.get("status") == "VERIFIED" else {})
+    rows = []
+    for b, name in T2S_CONFIGS:
+        for model, d in sorted(r2[b].items()):
+            k = (d["n"] - d["silent"]) / d["n"]
+            sav = {m: {v: savings_formula(t["bill_task"], k, (1 - k) * t["redo_premium"], v) for v in HYBRID_VOLUMES}
+                   for m, t in tiers.items()}
+            rows.append({"backend": b, "config": name, "model": model, "loaded": d["loaded"], "silent": d["silent"],
+                         "n": d["n"], "k": k, "savings": sav})
+    return {"status": "VERIFIED", "rows": rows, "label": T2S_CONFIG_LABEL,
+            "savings_pending": None if tiers else curve.get("pending")}
+
+
+def t2s_config_text(t) -> str:
+    if t["status"] != "VERIFIED":
+        return f"PENDING: rows {', '.join(t['pending'])} not VERIFIED"
+    parts = []
+    for r in t["rows"]:
+        s = "; ".join(f"vs {m}: saves USD " + ", ".join(f"{x['savings']:,.2f} at {v:,}/day" for v, x in vols.items())
+                      + "/month" for m, vols in r["savings"].items()) or f"savings PENDING ({t['savings_pending']})"
+        parts.append(f"{r['config']} {r['model']}: loaded window {'/'.join(map(str, r['loaded']))}, gated silent "
+                     f"{r['silent']}/{r['n']} sessions, kept local ({T2S_KEPT_LABEL}) {r['n'] - r['silent']}/{r['n']} = "
+                     f"{r['k']:.2f}; "
+                     + s)
+    return (f"evo-t2s configuration, {t['label']}; kept local, {T2S_KEPT_LABEL} = share of R2 sessions with no gated "
+            f"silent failure "
+            f"(t2s-r2-real-cpu, t2s-r2-real-igpu); savings = B x k - X with B the measured all-cloud B3 per-task cost "
+            f"and X = (1 - k) x B x (escalation USD per escalated task / all-cloud USD per task - 1): 0 for a tier whose escalated task is costed at its all-cloud price (interim), positive for a tier "
+            f"costed at the measured full-history redo price (see hybrid-savings-tradeoff for which applies) "
+            f"(ASSUMPTION: R2 session share stands for the task share); 30-day month; " + " / ".join(parts))
+
+
+# Measured trade-off lead (operator decision 2026-10-22, savings curve lead; row hybrid-savings-tradeoff): per device,
+# cloud tier, task-size point and volume, each option's savings per month AND accuracy, so a reader sees what each
+# dollar of savings costs in correct answers:
+#   all-cloud: saves 0, all-cloud accuracy (all-cloud-b3-quality);
+#   naive local at the device default: saves the full all-cloud bill, measured local accuracy on the shared seeds
+#     (x2-evalset-tasks-real-v2-wrong-rate, as hybrid-savings-v1 uses), every wrong answer silent;
+#   hybrid with the window-overflow flag: hybrid-savings-v1's hybrid_flag policy (flagged tasks escalated at the
+#     escalation cost input: INTERIM until cloud-redo-full-context is VERIFIED and complete, then automatic);
+#   the perfect-detector policy only as a separate field labelled CEILING_LABEL.
+# Projected task-size points (cloud-cost-per-real-task, hybrid-savings-curve's points) apply each option's measured
+# savings share of the bill (savings per task / all-cloud USD per task) to the point's all-cloud USD per task; their
+# accuracy is the B3 accuracy carried over, labelled. Devices as hybrid-savings-v1: evo-x2 default (measured) and evo-t2s
+# Intel CPU at its 4096 default (projected from evo-x2's 4096 tier).
+TRADEOFF_ROW = "hybrid-savings-tradeoff"
+TRADEOFF_OPTIONS = (("all_cloud", "all-cloud"), ("naive_local", "naive local at the device default"),
+                    ("hybrid_flag", "hybrid: escalate window-overflow flagged tasks"))
+TRADEOFF_CEILING = "hybrid_perfect"
+TRADEOFF_SILENT = "wrong answers silent"
+TRADEOFF_ACC_CARRIED = "B3 accuracy carried over"
+TRADEOFF_DEVICE_PROJ = "projected from evo-x2's ollama_ctx_4096 tier"
+TB_BEGIN, TB_END = "<!-- hybrid_tradeoff:begin -->", "<!-- hybrid_tradeoff:end -->"
+OCT29_BEGIN, OCT29_END = "<!-- oct29_demo_text:begin -->", "<!-- oct29_demo_text:end -->"
+TRADEOFF_HEADLINE_VOLUME = 1000
+
+
+def tradeoff_option(pol, ref_usd, bill_task, volumes=HYBRID_VOLUMES, days=DAYS_PER_MONTH) -> dict:
+    """Pure: one option at one task-size point; savings/month = (policy savings per task / all-cloud USD per task) x
+    the point's all-cloud USD per task x volume x days (the measured point has bill_task == ref_usd)."""
+    frac = pol["savings_task"] / ref_usd
+    return {"correct": pol["correct"], "n": pol["n"], "quality": pol["quality"], "delta_points": pol["delta_points"],
+            "escalated": pol["escalated"], "silent_wrong": pol["silent_wrong"], "share": frac,
+            "savings_month": {v: frac * bill_task * v * days for v in volumes}}
+
+
+def hybrid_tradeoff(h, curve) -> dict:
+    """Per device x cloud tier x task-size point: the three options and the ceiling field (see the section comment).
+    h: hybrid_savings() output; curve: hybrid_curve() output (supplies the task-size points)."""
+    for x in (h, curve):
+        if x.get("status") != "VERIFIED":
+            return {"status": "PENDING", "pending": x["pending"]}
+    pts = {t["model"]: t["points"] for t in curve["tiers"]}
+    rows = []
+    for c in h["cells"]:
+        if c["device"] == "evo-x2" and c["tier"] != DEFAULT_TIER:
+            continue
+        for p in pts[c["model"]]:
+            measured = c["label"] == "measured" and p["label"] == "measured"
+            acc = ("measured" if measured else TRADEOFF_DEVICE_PROJ if p["label"] == "measured"
+                   else TRADEOFF_ACC_CARRIED + ("" if c["label"] == "measured" else f", {TRADEOFF_DEVICE_PROJ}"))
+            opts = {k: tradeoff_option(c["policies"][k], c["ref_usd"], p["bill_task"])
+                    for k in [o for o, _ in TRADEOFF_OPTIONS] + [TRADEOFF_CEILING]}
+            rows.append({"device": c["device"], "setting": c["setting"], "device_label": c["label"], "model": c["model"],
+                         "point": p["name"], "point_label": p["label"], "size": p["size"], "bill_task": p["bill_task"],
+                         "measured": measured, "acc_label": acc, "options": {k: opts[k] for k, _ in TRADEOFF_OPTIONS},
+                         "ceiling": opts[TRADEOFF_CEILING], "esc_label": c["esc_label"]})
+    return {"status": "VERIFIED", "rows": rows, "seeds": h["seeds"], "volumes": HYBRID_VOLUMES,
+            "esc_label": esc_label_all(h["cells"]), "case": curve["case"], "hit_rate": curve["hit_rate"]}
+
+
+def _acc(o):
+    return f"{o['correct']}/{o['n']} ({100 * o['quality']:.1f}%)"
+
+
+def _vols(o):
+    return " / ".join(f"{o['savings_month'][v]:,.2f}" for v in o["savings_month"])
+
+
+def hybrid_tradeoff_text(t) -> str:
+    """The register value of hybrid-savings-tradeoff."""
+    if t["status"] != "VERIFIED":
+        return f"PENDING: rows {', '.join(t['pending'])} not VERIFIED"
+    vol = " / ".join(f"{v:,}" for v in t["volumes"])
+    parts = []
+    for r in t["rows"]:
+        a, nv, hf, ce = (r["options"]["all_cloud"], r["options"]["naive_local"], r["options"]["hybrid_flag"],
+                         r["ceiling"])
+        parts.append(f"{r['device']} ({r['setting']}) [{r['device_label']}] vs {r['model']}, {r['point']} "
+                     f"[{r['point_label']}; accuracy {r['acc_label']}]: all-cloud saves 0, accuracy {_acc(a)}; naive "
+                     f"local saves {_vols(nv)}, accuracy {_acc(nv)}, {nv['silent_wrong']} {TRADEOFF_SILENT}; hybrid "
+                     f"flag saves {_vols(hf)}, accuracy {_acc(hf)}, escalated {hf['escalated']}, {hf['silent_wrong']} "
+                     f"{TRADEOFF_SILENT}; {CEILING_LABEL}: saves {_vols(ce)}, accuracy {_acc(ce)}")
+    return (f"measured trade-off, savings USD/month at {vol} tasks/day (30-day month, stated range) and accuracy per "
+            f"option; qwen3:14b B3 v2 tasks vs all-cloud on the {len(t['seeds'])} shared seeds; escalation cost "
+            f"{t['esc_label']}; projected task-size points from cloud-cost-per-real-task ({t['case']} caching, "
+            f"ASSUMPTION hit rate {t['hit_rate']}) apply each option's measured savings share; evo-t2s "
+            f"{TRADEOFF_DEVICE_PROJ}; the ceiling is a separate field, not an option / " + " / ".join(parts))
+
+
+def render_tradeoff_block(t) -> str:
+    """Markdown for docs/IMPACT.md between TB_BEGIN and TB_END."""
+    L = [TB_BEGIN, "", f"Generated by `py -3.12 analysis/impact_model.py --write-hybrid` (register row {TRADEOFF_ROW}). "
+         "Do not edit by hand.", ""]
+    if t["status"] != "VERIFIED":
+        return "\n".join(L + [f"PENDING: rows {', '.join(t['pending'])} not VERIFIED.", "", TB_END])
+    vol = " / ".join(f"{v:,}" for v in t["volumes"])
+    L += [f"Savings in USD per 30-day month at {vol} tasks/day (a stated range, not a claim about demand), and accuracy "
+          f"(correct tasks) per option, matched on the {len(t['seeds'])} shared seeds. Escalation cost: "
+          f"{t['esc_label']}. Projected task-size points apply each option's measured savings share of the all-cloud "
+          f"bill to the point's all-cloud USD per task (cloud-cost-per-real-task, {t['case']} caching, ASSUMPTION hit "
+          f"rate {t['hit_rate']}); their accuracy is the {TRADEOFF_ACC_CARRIED}. The last column is a {CEILING_LABEL}, "
+          "not an option.", "",
+          f"| Device [label] | Cloud tier | Task size point [label] | Accuracy label | All-cloud: saves / accuracy | "
+          f"Naive local: saves at {vol} / accuracy / {TRADEOFF_SILENT} | Hybrid (window-overflow flag): saves at {vol} / "
+          f"accuracy / escalated | {CEILING_LABEL[:1].upper() + CEILING_LABEL[1:]}: saves at {vol} / accuracy |",
+          "|---|---|---|---|---|---|---|---|"]
+    for r in t["rows"]:
+        a, nv, hf, ce = (r["options"]["all_cloud"], r["options"]["naive_local"], r["options"]["hybrid_flag"],
+                         r["ceiling"])
+        L.append(f"| {r['device']} ({r['setting']}) [{r['device_label']}] | {r['model']} | {r['point']} "
+                 f"[{r['point_label']}] | {r['acc_label']} | 0 / {_acc(a)} | {_vols(nv)} / {_acc(nv)} / "
+                 f"{nv['silent_wrong']} | {_vols(hf)} / {_acc(hf)} / {hf['escalated']} | {_vols(ce)} / {_acc(ce)} |")
+    return "\n".join(L + ["", TB_END])
+
+
+def _tb_row(t, device, model):
+    return next((r for r in t["rows"] if r["device"] == device and r["model"] == model
+                 and r["point_label"] == "measured"), None)
+
+
+def render_oct29_block(t) -> str:
+    """Prepared text for the Oct 29 summary and the demo's story step 4, from the trade-off row only."""
+    L = [OCT29_BEGIN, "", f"Generated by `py -3.12 analysis/impact_model.py --write-hybrid` from register row "
+         f"{TRADEOFF_ROW}. Do not edit by hand. Prepared text for the Oct 29 summary and the demo's story step 4.", ""]
+    if t["status"] != "VERIFIED":
+        return "\n".join(L + [f"PENDING: rows {', '.join(t['pending'])} not VERIFIED.", "", OCT29_END])
+    v = TRADEOFF_HEADLINE_VOLUME
+    vs = " / ".join(f"{x:,}" for x in t["volumes"])
+    models = sorted({r["model"] for r in t["rows"]})
+    t2s_dev = next(r["device"] for r in t["rows"] if r["device"] != "evo-x2")
+    out = []
+    for m in models:
+        x, y = _tb_row(t, "evo-x2", m), _tb_row(t, t2s_dev, m)
+        a, nv, hf = x["options"]["all_cloud"], x["options"]["naive_local"], x["options"]["hybrid_flag"]
+        ya, yn, yh = y["options"]["all_cloud"], y["options"]["naive_local"], y["options"]["hybrid_flag"]
+        out.append(
+            f"- **vs {m}, measured on the 30 B3 tasks, {v:,} tasks/day:** all-cloud is {_acc(a)} correct. Running "
+            f"everything on evo-x2 at its default saves the whole cloud bill, USD {nv['savings_month'][v]:,.2f}/month, "
+            f"at {_acc(nv)} correct, and the {nv['silent_wrong']} wrong answers are silent. The window-overflow flag "
+            f"escalates {hf['escalated']} tasks there, so the hybrid saves USD {hf['savings_month'][v]:,.2f}/month at "
+            f"{_acc(hf)}. On evo-t2s's Intel CPU default ({TRADEOFF_DEVICE_PROJ}) naive local is {_acc(yn)} correct; "
+            f"the flag escalates {yh['escalated']} tasks and reaches {_acc(yh)} (all-cloud {_acc(ya)}) but saves only "
+            f"USD {yh['savings_month'][v]:,.2f}/month. A detector for in-window wrong answers would save up to USD "
+            f"{x['ceiling']['savings_month'][v]:,.2f}/month on evo-x2 at {_acc(x['ceiling'])} ({CEILING_LABEL}).")
+        # the largest projected MEDIAN point (not a p90 tail) as the real-task illustration
+        big = [r for r in t["rows"] if r["device"] == "evo-x2" and r["model"] == m and r["point_label"] != "measured"
+               and r["point"].endswith("median")]
+        if big:
+            b = max(big, key=lambda r: r["size"])
+            bn = b["options"]["naive_local"]
+            out.append(f"  At a real agent task size ({b['point']}, {CURVE_PROJ_LABEL}; accuracy {b['acc_label']}) "
+                       f"naive local saves USD {bn['savings_month'][v]:,.2f}/month at {_acc(bn)}.")
+    L += ["**Oct 29 summary, savings paragraph:**", "",
+          f"We lead with the measured trade-off, not a ceiling: every option is shown as savings per month and the "
+          f"accuracy it costs (volumes {vs} tasks/day are a stated range; escalation cost {t['esc_label']}).", ""] + out
+    m = models[-1]
+    x = _tb_row(t, "evo-x2", m)
+    nv, hf = x["options"]["naive_local"], x["options"]["hybrid_flag"]
+    L += ["", "**Demo story step 4 (one screen):**", "",
+          f"\"Local saves money, and the screen shows what it costs. Against {m} at {v:,} tasks/day: all local on "
+          f"evo-x2 saves USD {nv['savings_month'][v]:,.2f} a month at {_acc(nv)} correct versus "
+          f"{_acc(x['options']['all_cloud'])} all-cloud, and {nv['silent_wrong']} wrong answers are silent. The only "
+          f"measured detector, window overflow, escalates {hf['escalated']} tasks at this window. Catching in-window "
+          f"wrong answers needs a verifier we do not claim; the dotted line is that {CEILING_LABEL}.\"", "", OCT29_END]
+    return "\n".join(L)
+
+
+def _usd(v, nd=5):
+    return f"{v:,.{nd}f}"
+
+
+def hybrid_savings_text(h) -> str:
+    """The register value of hybrid-savings-v1."""
+    if h["status"] != "VERIFIED":
+        return f"PENDING: rows {', '.join(h['pending'])} not VERIFIED"
+    parts = []
+    for c in h["cells"]:
+        ps = []
+        for k, _ in HYBRID_POLICIES:
+            p = c["policies"][k]
+            ps.append(f"{k}{' (' + CEILING_LABEL + ')' if k == 'hybrid_perfect' else ''} {p['correct']}/{p['n']}, USD {_usd(p['usd_task'])}/task, saves USD {_usd(p['savings_task'])}"
+                      f"/task (USD/month " + ", ".join(f"{p['savings_month'][v]:,.2f} at {v:,}/day"
+                                                     for v in HYBRID_VOLUMES)
+                      + f"), escalated {p['escalated']}, {'matched' if p['matched'] else 'below'} all-cloud quality")
+        parts.append(f"{c['device']} {c['setting']} [{c['label']}] vs {c['model']}: kept local at matched quality "
+                     f"{c['matched_local']}/{c['n']}; local wrong {c['local_wrong']}, flagged {c['flagged']} "
+                     f"(of them wrong {c['flag_tp']}), wrong inside the window {c['wrong_inside_window']}; "
+                     + "; ".join(ps))
+    p2t = ""
+    p2 = h.get("p2")
+    if p2:
+        r, cap = p2["row"], p2["row"]["capacity"]
+        p2t = (f"; P2 hardware capacity (impact-v2-P2; b5-fa-control {'VERIFIED' if p2['fa_verified'] else 'PENDING'}: "
+               f"{r.get('caveat')}): machines at the P2 profile {cap['machines_default']} "
+               f"default vs {cap['machines_best']} best; at the volumes (ASSUMED 1 task = 1 turn of a {p2['turns']}-turn "
+               f"session) " + ", ".join(f"{v:,}/day {c['machines_default']} vs {c['machines_best']} (USD "
+                                        f"{c['usd_saved']:,.0f} upfront avoided, USD {c['usd_day']:.2f}/day amortized)"
+                                        for v, c in p2["volumes"].items())
+               + f"; USD {r['machine_usd']:,.0f} per machine (impact-ref-machine-price, "
+               f"{r.get('machine_label', price_label(None))})")
+    return (f"qwen3:14b B3 v2 tasks vs all-cloud, matched on the {len(h['seeds'])} shared seeds "
+            f"{', '.join(map(str, h['seeds']))} (local run has {len(h['local_seeds'])}); escalated task cost: "
+            f"{esc_label_all(h['cells'])}; best evo-x2 tier {h['best']}; evo-t2s = PROJECTION from evo-x2 "
+            f"ollama_ctx_4096 (no B3 v2 run on evo-t2s; loaded window from t2s-r2-real-cpu); 30-day month, volumes a "
+            f"stated parameter range; " + " / ".join(parts) + f"; Blade: {h['blade']}" + p2t)
+
+
+def render_hybrid_block(h) -> str:
+    """Markdown for docs/IMPACT.md between HYB_BEGIN and HYB_END."""
+    L = [HYB_BEGIN, "", f"Generated by `py -3.12 analysis/impact_model.py --write-hybrid` (register row {HYBRID_ROW}). "
+         "Do not edit by hand.", ""]
+    if h["status"] != "VERIFIED":
+        return "\n".join(L + [f"PENDING: rows {', '.join(h['pending'])} not VERIFIED.", "", HYB_END])
+    n = h["cells"][0]["n"]
+    L += [f"Matched on the {len(h['seeds'])} seeds both runs share ({', '.join(map(str, h['seeds']))}); the local run "
+          f"has {len(h['local_seeds'])} seeds and the other {len(h['local_seeds']) - len(h['seeds'])} are not used in "
+          f"the table. {n} tasks per cell. Escalated task cost: {esc_label_all(h['cells'])}. Monthly savings: 30-day "
+          f"month at " + ", ".join(f"{v:,}" for v in HYBRID_VOLUMES)
+          + " agent tasks/day (a stated parameter range, not a claim). Labels: measured = evo-x2 B3 v2 run; projected "
+          "= evo-x2's ollama_ctx_4096 tier standing in for evo-t2s.", "",
+          "| Device (setting) [label] | Cloud tier | Policy | Correct | vs all-cloud | USD/task | Saves USD/task | "
+          "Saves USD/month at " + " / ".join(f"{v:,}" for v in HYBRID_VOLUMES) + " tasks/day | Escalated | "
+          "Matched quality |", "|---|---|---|---|---|---|---|---|---|---|"]
+    for c in h["cells"]:
+        for k, name in HYBRID_POLICIES:
+            p = c["policies"][k]
+            L.append(f"| {c['device']} ({c['setting']}) [{c['label']}] | {c['model']} | {name} | {p['correct']}/{p['n']}"
+                     f" ({100 * p['quality']:.1f}%) | {p['delta_points']:+.1f} pts | {_usd(p['usd_task'])} | "
+                     f"{_usd(p['savings_task'])} | " + " / ".join(f"{p['savings_month'][v]:,.2f}" for v in HYBRID_VOLUMES)
+                     + f" | {p['escalated']} | {'yes' if p['matched'] else 'no'} |")
+    L += [f"| Blade | n/a | all | {h['blade']} | | | | | | |", "",
+          "Per cell: tasks kept local at matched quality (local correct and the all-cloud tier correct on the same task "
+          "and seed), and what the window-overflow flag sees:", ""]
+    for c in h["cells"]:
+        L.append(f"- {c['device']} ({c['tier']}) vs {c['model']}: kept local at matched quality {c['matched_local']}/"
+                 f"{c['n']}; local wrong {c['local_wrong']}; flagged {c['flagged']} (of them wrong {c['flag_tp']}); "
+                 f"wrong tasks inside the window, missed by the flag: {c['wrong_inside_window']}.")
+    L += ["", f"Local wrong rate per evo-x2 tier on all {len(h['local_seeds'])} seeds (picks the best tier): "
+          + ", ".join(f"{t} {100 * r:.1f}%" for t, r in h["rates"].items()) + f"; best = {h['best']}.", ""]
+    p2 = h.get("p2")
+    if p2:
+        r, cap, x = p2["row"], p2["row"]["capacity"], p2["row"]["cell"]
+        cav = r.get("caveat") or ""
+        L += ["P2 hardware capacity (impact-v2-P2). " + cav[:1].upper() + cav[1:]
+              + ("" if p2["fa_verified"] else " (b5-fa-control still PENDING)") + f". {x['model']} default (a) {x['default_min']:.1f} "
+              f"min per session vs ({x['best']}) {x['best_name']} {x['best_min']:.1f} min (measured), one session at a "
+              "time per machine.", "",
+              f"| Agent tasks/day (ASSUMED 1 task = 1 turn of a {p2['turns']}-turn session) | Machines, default | "
+              "Machines, best | Upfront hardware avoided, USD (list price) | Amortized USD/day (secondary) |",
+              "|---|---|---|---|---|",
+              f"| impact-v2-P2 profile | {cap['machines_default']} | {cap['machines_best']} | {cap['usd_saved']:,.0f} | "
+              f"{cap['usd_day']:.2f} |"]
+        for v, c in p2["volumes"].items():
+            L.append(f"| {v:,} | {c['machines_default']} | {c['machines_best']} | {c['usd_saved']:,.0f} | "
+                     f"{c['usd_day']:.2f} |")
+        L += ["", f"Machine price USD {r['machine_usd']:,.0f} (impact-ref-machine-price: "
+              f"{r.get('machine_label', price_label(None))}); "
+              f"{cap['life_years']:.0f}-year life (ASSUMED) for the amortized column.", ""]
+    L.append(HYB_END)
+    return "\n".join(L)
+
+
+CFG_BEGIN, CFG_END = "<!-- t2s_config:begin -->", "<!-- t2s_config:end -->"
+CURVE_BEGIN, CURVE_END = "<!-- hybrid_curve:begin -->", "<!-- hybrid_curve:end -->"
+
+
+def render_t2s_config_block(t) -> str:
+    L = [CFG_BEGIN, "", f"Generated by `py -3.12 analysis/impact_model.py --write-hybrid` (register row {T2S_CONFIG_ROW}). "
+         "Do not edit by hand.", ""]
+    if t["status"] != "VERIFIED":
+        return "\n".join(L + [f"PENDING: rows {', '.join(t['pending'])} not VERIFIED.", "", CFG_END])
+    models = sorted({m for r in t["rows"] for m in r["savings"]})
+    L += [f"Label: {t['label']}. Kept local, {T2S_KEPT_LABEL} = share of R2 sessions with no gated silent failure, "
+          "until the evo-t2s B5 results report task accuracy. Savings per month "
+          "= B x k - X, B = the measured all-cloud B3 per-task cost of the tier x tasks/day x 30, X = the escalation premium "
+          "over the all-cloud price: 0 for a tier costed at its all-cloud price (interim), positive for a tier costed at "
+          "the measured full-history redo price (ASSUMPTION: the R2 session share stands for the task share).", "",
+          f"| evo-t2s setting | Model | Loaded window | Gated silent failures | Kept local, {T2S_KEPT_LABEL} | "
+          + " | ".join(f"Saves USD/month vs {m} at " + " / ".join(f"{v:,}" for v in HYBRID_VOLUMES) for m in models)
+          + " |", "|---|---|---|---|---|" + "---|" * len(models)]
+    for r in t["rows"]:
+        L.append(f"| {r['config']} | {r['model']} | {'/'.join(map(str, r['loaded']))} | {r['silent']}/{r['n']} | "
+                 f"{r['n'] - r['silent']}/{r['n']} ({r['k']:.2f}) | "
+                 + " | ".join(" / ".join(f"{r['savings'][m][v]['savings']:,.2f}" for v in HYBRID_VOLUMES)
+                              if m in r["savings"] else "PENDING" for m in models) + " |")
+    return "\n".join(L + ["", CFG_END])
+
+
+def render_curve_block(c) -> str:
+    L = [CURVE_BEGIN, "", f"Generated by `py -3.12 analysis/impact_model.py --write-hybrid` (register row {CURVE_ROW}). "
+         "Do not edit by hand.", ""]
+    if c["status"] != "VERIFIED":
+        return "\n".join(L + [f"PENDING: rows {', '.join(c['pending'])} not VERIFIED.", "", CURVE_END])
+    L += [f"savings/month = B x k - X. k and X / B measured on {c['device']} (qwen3:14b, B3 v2 tasks, "
+          f"{len(c['seeds'])} shared seeds). Projected points are labelled \"{CURVE_PROJ_LABEL}\"; cloud cost per task from "
+          f"cloud-cost-per-real-task, {c['case']} caching (ASSUMPTION hit rate {c['hit_rate']}). k assumes every other "
+          f"task is found and escalated ({CEILING_LABEL}).", ""]
+    for t in c["tiers"]:
+        L += [f"**{t['model']}**: k = {t['kept']}/{t['n']} = {t['k']:.3f}; X / B = {t['x_ratio']:.3f} (escalation cost "
+              f"{t['esc_label']}); window-overflow flag at matched quality: "
+              + (f"k {t['flag_k']:.3f}" if t["flag_matched"] else "does not reach all-cloud quality (k 0)") + ".", "",
+              "| Task size point [label] | Billed input tokens per task | All-cloud USD per task | "
+              + " | ".join(f"B / k x B / X / saves, USD/month at {v:,}/day" for v in HYBRID_VOLUMES) + " |",
+              "|---|---|---|" + "---|" * len(HYBRID_VOLUMES)]
+        for p in t["points"]:
+            L.append(f"| {p['name']} [{p['label']}] | {p['size']:,.0f} | {p['bill_task']:.5f} | "
+                     + " | ".join(f"{x['bill']:,.2f} / {x['kept']:,.2f} / {x['escalation']:,.2f} / {x['savings']:,.2f}"
+                                  for x in p["volumes"].values()) + " |")
+        L.append("")
+    return "\n".join(L + [CURVE_END])
+
+
+def _replace_block(text, begin, end, block):
+    i, j = text.index(begin), text.index(end) + len(end)
+    return text[:i] + block + text[j:]
+
+
+def write_hybrid_doc(repo=REPO, block=None, extra=()):
+    """Replace the hybrid block, and each (begin, end, block) in extra, in docs/IMPACT.md."""
+    path = Path(repo) / "docs" / "IMPACT.md"
+    text = _replace_block(path.read_text(encoding="utf-8"), HYB_BEGIN, HYB_END, block)
+    for b, e, blk in extra:
+        text = _replace_block(text, b, e, blk)
+    path.write_text(text, encoding="utf-8")
+
+
 def main(argv=None):
     argv = argv or sys.argv[1:]
+    if "--write-hybrid" in argv:
+        h = hybrid_savings(REPO, compute_v2(REPO)["rows"]["P2"])
+        print(hybrid_savings_text(h))
+        c = hybrid_curve(REPO, h) if h["status"] == "VERIFIED" else {"status": "PENDING", "pending": h["pending"]}
+        t = t2s_config_comparison(REPO, c)
+        tb = hybrid_tradeoff(h, c)
+        print(hybrid_tradeoff_text(tb))
+        write_hybrid_doc(block=render_hybrid_block(h), extra=((CFG_BEGIN, CFG_END, render_t2s_config_block(t)),
+                                                              (CURVE_BEGIN, CURVE_END, render_curve_block(c)),
+                                                              (TB_BEGIN, TB_END, render_tradeoff_block(tb)),
+                                                              (OCT29_BEGIN, OCT29_END, render_oct29_block(tb))))
+        print("wrote docs/IMPACT.md trade-off, Oct 29 text, hybrid savings, evo-t2s configuration and curve blocks")
+        return
     res = compute_all()
     p = res["profile"]
     for k in ROW_FUNCS:

@@ -34,8 +34,8 @@ returns an exit code to harness/blade_queue.py (0 done / refused cleanly, 2 erro
 estimated hours (labelled estimates, from result files) and touches nothing.
 
 Policy set per platform (PLATFORMS[...]["policies"], overridable with --policies): evo-x2 and the Blade run (a) to (h);
-evo-t2s and evo-t2s-cpu run T2S_POLICIES = (a), (c), (d), (e), (f) only (dated amendment of 2026-10-21 22:30 to the
-B5-on-evo-t2s pre-registration). A policy outside the set resolves with skip "not in this platform's policy set", so it
+evo-t2s and evo-t2s-cpu run T2S_POLICIES = (a), (b), (c), (d), (e), (f) (dated amendments of 2026-10-21 22:30 and
+2026-10-21 later to the B5-on-evo-t2s pre-registration: (g), (h) dropped there, (b) kept). A policy outside the set resolves with skip "not in this platform's policy set", so it
 has no session, no alias, and the metrics, frontier and verdict are taken over the policies run. Window probes and
 recall calls under the q8_0 / q4_0 server envs run only when (g) / (h) are in the set. --queue-insert is the one read-modify-write
 of evo-x2's queue (under t2s_queue.set_pause with a reason naming its release, clear_pause() in a finally block).
@@ -103,8 +103,9 @@ KV_ENV = {"q8_0": {"OLLAMA_KV_CACHE_TYPE": "q8_0", "OLLAMA_FLASH_ATTENTION": "1"
           "f16": {"OLLAMA_KV_CACHE_TYPE": "f16", "OLLAMA_FLASH_ATTENTION": "1"}}
 RECALL_PRECISIONS = ("f16", "q8_0", "q4_0")
 KV_POLICY_OF_ENV = {"q8_0": "g", "q4_0": "h"}   # the policy that needs probes / recall under that server env
-# B5 on evo-t2s, dated amendment 2026-10-21 22:30 (docs/FINDINGS.md): (b), (g), (h) are not run there; evo-x2 keeps all
-T2S_POLICIES = ("a", "c", "d", "e", "f")
+# B5 on evo-t2s, dated amendments 2026-10-21 22:30 and 2026-10-21 later (docs/FINDINGS.md): (g), (h) are not run there,
+# (b) is kept; evo-x2 keeps all
+T2S_POLICIES = ("a", "b", "c", "d", "e", "f")
 NOT_IN_SET = "not in this platform's policy set"
 
 # Flash-attention control (2026-10-22, docs/FINDINGS.md "PRE-REGISTRATION: B5 flash-attention control"): policy (i) =
@@ -945,7 +946,7 @@ T2S_ESTIMATE_ASSUMPTIONS = (
     "factor; (b), (g), (h) at L = native context (ASSUMED; probed at run time) = the default median x the evo-x2 ratio "
     "of session minutes at L over the default window (x2_r2_real_v1/v1b); (e): skipped on the CPU (no GPU), alias of "
     "(b) on the iGPU (G = L assumed), or its own sessions at G = L when (b) is not in the set; only the platform's "
-    "policy set is counted (evo-t2s: a, c, d, e, f, amendment 2026-10-21 22:30); recall and window probes as in "
+    "policy set is counted (evo-t2s: a, b, c, d, e, f, amendments 2026-10-21); recall and window probes as in "
     "estimate_platform, only for the server envs the set needs")
 
 
@@ -1500,7 +1501,7 @@ def build_arg_parser():
                     help="simulated device window: every policy's window capped at N (pre-registered 2026-10-22)")
     ap.add_argument("--policies", default=None,
                     help="comma-separated policy letters to run (default: the platform's set; evo-t2s / evo-t2s-cpu: "
-                         "a,c,d,e,f per the 2026-10-21 22:30 amendment; evo-x2 / blade: a-h); must include d")
+                         "a,b,c,d,e,f per the 2026-10-21 amendments; evo-x2 / blade: a-h); must include d")
     ap.add_argument("--import-check", action="store_true")
     ap.add_argument("--queue-insert", action="store_true")
     return ap

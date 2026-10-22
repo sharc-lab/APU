@@ -19,7 +19,8 @@ Table shape (the OpenAI file's; the Anthropic file is read the same way)
   RATES = {"input", "cached_input", "cache_write", "output"} in USD per 1M tokens.
 Tolerated variants, so a differently laid out file still loads: "standard" given as RATES directly (no short/long
 split), or the model entry given as RATES directly; the cache-read rate under "cached_input", "cache_read",
-"cache_read_input" or "cache_hit"; the cache-write rate under "cache_write", "cache_write_5m" or "cache_creation".
+"cache_read_input" or "cache_hit"; the cache-write rate under "cache_write", "cache_write_5m" or "cache_creation";
+the 1-hour cache-write rate (Anthropic) under "cache_write_1h" (None when the file has none).
 "other_rows_short_context": {"standard": {model_id: [input, cached_input or null, output]}} adds short-context rows.
 "long_context_above" (input tokens) sets the short/long boundary; without it the OpenAI page's 272,000 applies to a
 table that has long-context rates (cloud_budget_forecast.LONG_CONTEXT_ABOVE, quoted in the OpenAI file).
@@ -103,7 +104,8 @@ def _norm_rates(d: Any, where: str) -> dict:
         raise PriceTableError(f"{where}: expected a rates object with 'input' and 'output', got {d!r}")
     return {"input": float(d["input"]), "output": float(d["output"]),
             "cached_input": None if _pick(d, _CACHED_KEYS) is None else float(_pick(d, _CACHED_KEYS)),
-            "cache_write": None if _pick(d, _WRITE_KEYS) is None else float(_pick(d, _WRITE_KEYS))}
+            "cache_write": None if _pick(d, _WRITE_KEYS) is None else float(_pick(d, _WRITE_KEYS)),
+            "cache_write_1h": None if d.get("cache_write_1h") is None else float(d["cache_write_1h"])}
 
 
 def model_rates(table: dict, tier: str = "standard") -> dict[str, dict]:
@@ -125,7 +127,8 @@ def model_rates(table: dict, tier: str = "standard") -> dict[str, dict]:
             continue
         inp, cached, outp = row
         out[model] = {"short": {"input": float(inp), "output": float(outp),
-                                "cached_input": None if cached is None else float(cached), "cache_write": None},
+                                "cached_input": None if cached is None else float(cached), "cache_write": None,
+                                "cache_write_1h": None},
                       "long": None, "long_context_above": None}
     return out
 

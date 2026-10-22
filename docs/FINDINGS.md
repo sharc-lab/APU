@@ -5510,3 +5510,181 @@ run_start as `thinking_per_model`; temperature is the provider default for both 
 above). The pilot now also stops the job if any pilot call ends at max_tokens with no content and no tool call. Budget:
 attempts 1 and 2 spent USD 0.0659 on the ledger (ledger total 14.0931 before attempt 1, 14.1590 after attempt 2), so
 the rerun runs with a job cap of USD 14.93, keeping the whole job inside the pre-registered USD 15. max_tokens stays 384.
+
+## Cloud redo diagnosis: why the live redo fixed only 79 of 197 wrong tasks (2026-10-21, offline, no live call)
+
+Register row `cloud-redo-diagnosis` (analysis/cloud_redo_diagnosis.py::compute, over results/cloud_redo_v1.jsonl and
+results/x2_evalset_tasks_real_v2.jsonl). The executed redo (row `cloud-redo-cost-per-wrong-task`) graded 79 of 197 tasks
+correct. Before that figure is read as a cloud fix rate, this section says what was sent and why the other 118 failed.
+
+**(a) Transcript and environment sent.** scripts/cloud_redo.py::rebuild sends the local session's full client-side
+history: the system prompt, every prior user message rebuilt exactly, every prior call's assistant content and parsed
+tool calls from the source rows, every tool result recomputed, then the wrong turn's user message. This is the history
+the local harness built before Ollama truncated it server-side to num_ctx; the cloud received it untrimmed. The source
+rows keep assistant content up to 4000 characters, but no prior message reached that limit (longest 680 characters; 0 of
+197 rows with a truncated message). The rebuilt prompt's harness token estimate is 1.000 to 1.015 times the local run's
+own estimate of its untrimmed first-call prompt for that turn (the small excess is the tool-call ids and JSON of the
+provider message shape), over 2 to 178 messages. The environment is the state after the local model's earlier turns,
+its earlier wrong calls included, and before the wrong turn's own calls; it is not a clean state.
+
+**(b) Model and tier.** claude-sonnet-5-5, the price file's escalation_mid_tier (run_start model_id), max_tokens 384 per
+call (the local num_predict), prompt caching on, no thinking parameter, no temperature sent.
+
+**(c) The 118 failures, each in exactly one class (first match wins):**
+
+| Class | Count | What it is |
+|---|---|---|
+| thinking_empty_at_cap (redo protocol) | 109 | the turn ended on a tools-offered call with no visible text and no tool call: default thinking spent the 384-token output budget |
+| tool_round_cap (redo protocol) | 6 | all 4 tool rounds used, the final call (tool_choice none) did not finish the task |
+| earlier_state_repair (state left by the local model) | 3 | the cloud did the task and also undid an earlier local error; the checker counts the repair as a diff |
+| grader_issue | 0 | no failed answer holds the value in another form; every answer_ok false row has an empty final text |
+| missing_info | 0 | no prior message was truncated |
+| cloud_model_error | 0 | no failure left once the protocol classes are removed |
+| task ambiguity | 0 | not observed in any failure that produced a visible answer |
+
+Evidence for the largest class: 91 of the 109 are single-call turns whose output_tokens is exactly 384 with empty content
+and no tool call; the other 18 are multi-call turns with 561 to 1536 output tokens in total. v1 rows do not record
+finish_reason, so the cause rests on output tokens; the all-cloud B3 job (scripts/all_cloud_b3.py, THINKING_OFF) found
+that claude-sonnet-5-5 and claude-haiku-5-5 think by default and that thinking tokens count against max_tokens, which is
+the only output the harness cannot see. Examples: cust_phone_info, ollama_default seed 20260903 turn 28 (one call, 384
+output tokens, no answer text, answer_ok false); led_petty_transfer, ollama_ctx_8192 seed 20260901 turn 17 (one call,
+384 output tokens, no transfer made, so the ACC-4041 and ACC-8405 balances differ from the expected state). tool_round_cap examples:
+tkt_reassign_user, ollama_default seed 20260901 turn 20 (5 calls, T-150 and T-435 not reassigned, empty final); inv_price,
+ollama_ctx_8192 seed 20260903 turn 3, whose final text says its update_record calls failed because the value argument was
+left out (each of its 5 calls averaged about 340 output tokens, so a tool call cut by the same budget is likely; not
+confirmed per call). earlier_state_repair examples: led_close, ollama_ctx_4096 seed 20260903 turn 2 (closed ACC-6987 as
+asked, then restored closed ticket T-123 that the local model had reassigned in an earlier turn); file_write_standing,
+ollama_ctx_4096_numkeep seed 20260901 turn 11 (wrote the file correctly, then upgraded CU-314 that the local model had
+claimed but not done). The cloud treats the local model's history as its own and corrects it.
+
+**Reading.** 79 of 197 is a protocol result, not a cloud fix rate: 115 of 118 failures are redo-protocol failures
+(output budget and tool rounds) and none is attributable to missing context or to the cloud model with room to answer.
+The transcript was already the full history, so a rerun with "full context" alone would repeat v1. The rerun approved on
+2026-10-21 keeps the full history and mid tier, applies the all-cloud fix (thinking {"type": "between_tools"} for
+claude-sonnet-5-5, provider-default temperature, stop if a call ends at max_tokens with nothing visible) and records
+finish_reason per call: scripts/cloud_redo.py --thinking-off --job-cap 10 --ledger <main checkout>/results/cloud_ledger.jsonl,
+output results/cloud_redo_full_context_v1.jsonl, row `cloud-redo-full-context` (PENDING).
+
+**Projection, not run.** The approval set a USD 10 job cap and asked for an up-front refusal if the projection exceeds
+it. Projected from v1's measured per-call ledger cost (scripts/cloud_redo.py::projection_from_executed: each task's
+ledger USD per call times the larger of its v1 call count and 2.56, the mean call count of the 79 tasks v1 got right),
+the 197-task rerun is USD 21.00 on the ledger basis (every input token at the uncached rate, the basis client.py's cap
+enforces), USD 6.10 cache-priced, and USD 37.64 if every task used all 5 calls. The 118 v1 failures alone project to USD
+13.88 on the ledger basis. Both exceed USD 10, so the script refuses before sending anything; v1 itself charged USD 13.90
+to the ledger (USD 3.95 cache-priced). The ledger stood at USD 21.19 after the all-cloud job, so the point projection
+fits the USD 50 total (USD 28.81 left) but the all-rounds bound does not. The rerun waits for an operator decision on
+the job cap.
+
+## AMENDMENT 2026-10-21 (later) to the B5-on-evo-t2s pre-registration and to the B6 staging note: (b) kept, qwen3:14b at 3 seeds if it fits, B6 fills the window with 24 h slack
+
+The pre-registration "B5 on evo-t2s Intel CPU and Intel iGPU, qwen3:14b and llama3.1:8b, 5 seeds", its two 2026-10-21
+amendments and implementation note above, and the B6 staging note ("Also staged with this (no data, no claim): B6 on
+evo-t2s", 2026-10-14) are frozen and are not edited. This dated amendment is written before any code, queue or plan
+file is changed for it and is committed on its own first. No B5 or B6 session on evo-t2s exists. Operator decisions,
+2026-10-21 (later). evo-x2 is not affected.
+
+- **Policy set on evo-t2s: (a), (b), (c), (d), (e), (f).** Policy (b) (largest window that starts) is kept; (g) and
+  (h) stay dropped on evo-t2s. This replaces the set a, c, d, e, f of the 22:30 amendment. The alias rule of
+  2026-10-14 applies again in full, so on the Intel iGPU (e) can be recorded as an alias of (b). Probes and recall
+  under q8_0 and q4_0 stay off on evo-t2s, as in the implementation note. The success rule is evaluated over the
+  policies run, as the 22:30 amendment states.
+- **qwen3:14b on the Intel CPU at its 4096 default window: 3 seeds (20260901 to 20260903)** instead of 2, so that a
+  completed cell meets the pre-registered 3-seed minimum and counts. The entry keeps the fit rule of the earlier
+  amendments, now with the slack below: it is staged after the two llama3.1:8b cells (5 seeds each, CPU then iGPU)
+  only if its estimated end is within the launch budget. Otherwise it is not staged and qwen3:14b on Intel stays
+  future work. The qwen3:14b iGPU cell stays future work in either case.
+- **Launch budget and slack.** The budget is the available hours of the window (window start to the no-launch time,
+  minus the assumed start allowance, as in `scripts/t2s_window_stage.py`) minus **24 h of slack** before the no-launch
+  time. Every staged entry with an estimate must be estimated to end within the budget.
+- **B6 fills what is left.** After B5, the B6 entries already staged (pull of qwen3:32b and llama3.3:70b; validation on
+  the CPU and with OLLAMA_IGPU_ENABLE=1; real at num_ctx 4096 on the CPU and at the iGPU-enabled default window) are
+  taken in that order. An entry with an estimate is staged if its gate entry is staged and its estimated end is within
+  the budget; an entry that does not fit is not staged and is future work, and later entries that fit are still
+  staged. An entry without an estimate is staged after every estimated entry, last.
+- **B6 hour estimates.** Where a measured rate exists, an entry's hours are evo-x2 measured minutes for the same
+  models (H-scale files `x2_r2_scale_real.jsonl` at num_ctx 4096 and 32768, `x2_r2_scale_validation.jsonl`) times a
+  stated evo-t2s over evo-x2 factor taken from measured R2 sessions of the same window on both machines, labelled
+  ESTIMATE with the factor named in the plan. The iGPU-enabled default window of qwen3:32b and llama3.3:70b on evo-t2s
+  is not measured; it is ASSUMED to be 32768 (the window llama3.1:8b and qwen3:14b load there) and labelled so. The
+  pull gets a nominal hour figure, labelled nominal. No other B6 design change: the B6 real entries run the 5 seeds of
+  `--plan strong` as staged in `queues/t2s_oct26_queue.json` since 2026-10-15 (the 2026-10-14 note's "3 seeds" was
+  written before that file existed), call-2 off, gated per model on their own validation, deciding numbers from the
+  H-scale pre-registration.
+
+**Implementation note (2026-10-21 later, after the amendment above was committed, before any B5 or B6 session on
+evo-t2s).** `harness/policy_compare.T2S_POLICIES` = a, b, c, d, e, f; `scripts/t2s_week_queue.py` passes
+`--policies a,b,c,d,e,f` and seeds 20260901 to 20260903 for the qwen3:14b CPU entry; `scripts/t2s_window_stage.py`
+applies the budget (`budget_h`, `SLACK_H` = 24), the qwen3:14b fit rule (`qwen_decision`), the B6 estimates
+(`b6_estimates`) and the B6 fill (`select_b6`). Pasted from [t2s-b5-plan-hours] (ESTIMATES): "launch budget 311.0 h
+(24.0 h slack before no-launch)"; "evo-t2s-cpu qwen3:14b at 3 seeds needs 190.2 h (63.0 h/seed): does not fit, not
+staged; qwen3:14b on Intel is future work"; B6 staged: pull "1.0 h", "t2s_o26_b6_val_cpu 34.6 h", "t2s_o26_b6_val_igpu
+17.3 h"; B6 not staged: "t2s_o26_b6_real_cpu_4096 105.5 h (does not fit: 105.5 h from 226.4 h ends at 331.9 h, budget
+311.0 h)", "t2s_o26_b6_real_igpu_default 299.0 h (does not fit: 299.0 h from 226.4 h ends at 525.4 h, budget 311.0
+h)". So in this window H-B5-T2S rests on the llama3.1:8b cells, and B6 yields validation gates only.
+
+## AMENDMENT 2026-10-22 to the B5-on-evo-t2s pre-registration: per-cell policy sets, qwen3:14b on the Intel CPU at 3 seeds without (b)
+
+The pre-registration "B5 on evo-t2s Intel CPU and Intel iGPU, qwen3:14b and llama3.1:8b, 5 seeds" and its 2026-10-21
+amendments and implementation notes above are frozen and are not edited. This dated amendment is written before any
+code, queue or plan file is changed for it and is committed on its own first. No B5 session on evo-t2s exists.
+Operator decision, 2026-10-22. evo-x2 is not affected; the B6 rules of the 2026-10-21 (later) amendment are unchanged.
+
+- **Per-cell policy sets.** The llama3.1:8b cells (Intel CPU and Intel iGPU, 5 seeds each) keep the set a, b, c, d, e,
+  f. The qwen3:14b cell on the Intel CPU at its 4096 default window runs a, c, d, e, f: (b) is not run in that cell,
+  since (b) at qwen3:14b's native window is most of that cell's estimated hours (register row `t2s-b5-plan-hours`
+  of 2026-10-21 later). (g) and (h) stay dropped on evo-t2s. On the Intel CPU (e) has no window and is not run, by
+  the 2026-10-14 rule. Each staged entry passes its own set as `--policies`.
+- **qwen3:14b at 3 seeds (20260901 to 20260903)** is staged after the two llama3.1:8b cells, under the fit rule and
+  the 24 h slack of the 2026-10-21 (later) amendment, with its hours estimated for a, c, d, e, f. The qwen3:14b iGPU
+  cell stays future work.
+- **Success rule evaluated on the policies run, per cell.** `policy_compare.b5_t2s_verdict` is unchanged; in each cell
+  its frontier, dominance and "every distinct policy has all seeds complete" tests are taken over that cell's own
+  policies run. A completed qwen3:14b cell at 3 seeds counts as a complete CPU cell (the pre-registered 3-seed
+  minimum) with the label "policies a, c, d, e, f (no (b))"; a verdict that rests on it says nothing about (b) for
+  qwen3:14b on evo-t2s.
+- B6 then fills what is left of the launch budget, by the 2026-10-21 (later) rule.
+
+## RESULTS (2026-10-22): cloud redo with the full history and thinking off fixes 167 of 197 wrong tasks
+
+Register row `cloud-redo-full-context` (analysis/numbers_register.py::compute_cloud_redo_full_context over
+results/cloud_redo_full_context_v1.jsonl and its parts _part2 and _part3, superseded rows excluded). Protocol: every B3 v2
+wrong task of qwen3:14b re-run on claude-sonnet-5-5 with the full client-side history (as in v1, see the cloud redo
+diagnosis section), prompt caching on, thinking {"type": "between_tools"}, no temperature sent, the same tool loop and
+end-state grader, a stop on any call that ends at max_tokens with nothing visible, and finish_reason and output tokens
+recorded per call.
+
+**Declared protocol difference.** Part 1 ran at max_tokens 384 (the local num_predict) and stopped at task 41 on an
+empty reply at the limit (cust_phone_info seed 20260901 turn 15). Parts 2 and 3 ran at max_tokens 2048, a declared
+difference from the local 384. The 7 part-1 rows whose replies hit 384 or came back empty were superseded and rerun at
+2048; the other 34 part-1 rows are kept. Part 2 crashed on a transient provider error (server disconnect) after 19
+tasks; its finished rows are kept, and part 3 (with a bounded retry for transient errors) finished the remaining 144.
+
+**Result.** 167 of 197 fixed (84.8%), 95% Wilson CI over tasks [79.1%, 89.1%]. Per tier: ollama_default 15/17,
+ollama_ctx_16384 18/19, ollama_ctx_8192 45/53, ollama_ctx_4096 53/63, ollama_ctx_4096_numkeep 36/45. USD per task
+(cache-priced) mean 0.0227, median 0.0169, total 4.4721; on the ledger basis (all input uncached, what the cap counts)
+16.8614. Seconds per task mean 6.54, median 5.89. Ledger total at the last run_end USD 38.9145.
+
+**What is still wrong (30), classified as in the diagnosis section:**
+
+| Class | Count | Examples |
+|---|---|---|
+| earlier_state_repair | 28 | inv_price, ollama_ctx_4096 seed 20260902 turn 15: set the price as asked, then restored closed ticket T-311 that the local model had reassigned; tkt_close_title, ollama_ctx_8192 seed 20260901 turn 14: closed T-718 as asked, then made a payment, a file fix and an email the local model had missed in earlier turns |
+| cloud_model_error | 2 | file_write, ollama_default seed 20260904 turn 24: the file content differs from the expected one (cloud tool arguments are not recorded, so the exact difference is unknown); cal_default_len, ollama_ctx_4096 seed 20260904 turn 6: booked a new event EV-911 and changed EV-910, plus a ticket repair |
+| thinking_empty_at_cap, tool_round_cap, grader_issue, missing_info | 0 each | |
+
+The repair class is a grading effect of the redo design: the expected state is env_before plus the task's reference
+calls, so a cloud model that also undoes the local model's earlier mistakes (it reads the local history as its own) is
+scored wrong even when the task itself is done. The classifier now takes the records a task changes from the env_diff
+between env_before and env_before with the reference applied, so an information task (which changes nothing) with any
+diff counts as a repair; v1's counts are unchanged by this (row `cloud-redo-diagnosis`).
+
+**Against the all-cloud baseline.** Row `all-cloud-b3-quality`: claude-sonnet-5-5 run from a clean session on 3 seeds
+was correct on 90/90 task turns (100.0%). The redo is a different and harder setting: it starts each task from the state
+and history the local model left, including its earlier wrong actions and its own wrong answers in the transcript. The
+gap between 100.0% and 84.8% is almost all the repair class above, not tasks the cloud model failed to do; 2 of 197 redo
+tasks are cloud errors by this classifier. Neither row measures what an escalation should do with earlier local damage;
+the redo grader assumes it is left alone.
+
+**Spend.** The full-context job moved the main ledger from USD 21.1913 (its start) to USD 38.9145, inside its USD 22 cap
+(absolute client cap USD 43.1913) and the USD 50 hard cap. That includes superseded rows, warm-ups and any call billed
+before part 2 crashed, so it is above the merged rows' ledger-basis total.

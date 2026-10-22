@@ -85,7 +85,9 @@ def test_runtime_final_call_keeps_tools_with_choice_none(tmp_path):
     assert sent[1]["content"][0]["cache_control"] == {"type": "ephemeral"}
     c = rt.drain()[0]
     assert c["cache_read_tokens"] + c["cache_write_tokens"] + c["uncached_input_tokens"] == c["input_tokens"]
-    assert c["usd_ledger"] == pytest.approx(cc.estimate_cost_usd("claude-haiku-5-5", c["input_tokens"], 12))
+    assert c["usd_ledger_upper_bound"] == pytest.approx(cc.estimate_cost_usd("claude-haiku-5-5", c["input_tokens"], 12))
+    # the ledger now charges the billed cost, the same figure the harness computes from the usage fields
+    assert c["usd_ledger"] == pytest.approx(c["usd"])
 
 
 def test_runtime_returns_native_calls_in_harness_shape(tmp_path):

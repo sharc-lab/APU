@@ -369,6 +369,41 @@ Facts and changes: `results/t2s_window_20261015_preflight.json`, `docs/T2S_CHANG
 
 ## Staged for 2026-10-26 to 2026-11-08 (pending Zach's confirmation; NOT loaded)
 
+**Update 2026-10-22 (operator decision: per-cell policy sets, qwen3:14b staged without (b)).** The llama3.1:8b cells
+keep a, b, c, d, e, f; the qwen3:14b cell on the Intel CPU at 4096 runs a, c, d, e, f at 3 seeds. Each B5 entry passes
+its own `--policies` (`scripts/t2s_week_queue.oct26_cell_policies`). Pasted from [t2s-b5-plan-hours] (ESTIMATES; B5
+from measured evo-t2s session minutes, [t2s-r2-session-minutes]): "launch budget 311.0 h (24.0 h slack before
+no-launch)"; "t2s_o26_b5_cpu_llama31_8b [policies a,b,c,d,e,f] 87.3 h (yes; ends 87.6 h, 247.4 h before no-launch ...)";
+"t2s_o26_b5_igpu_llama31_8b [policies a,b,c,d,e,f] 85.9 h (yes; ends 173.5 h, 161.5 h before no-launch ...)";
+"t2s_o26_b5_cpu_qwen3_14b [policies a,c,d,e,f] 37.3 h (yes; ends 210.8 h, 124.2 h before no-launch; 12.0 h/seed, 3 of
+3 seeds fit, cell counts yes (first 3 seeds))"; "t2s_o26_b6_model_pull 1.0 h (yes; ends 211.8 h, 123.2 h before
+no-launch)"; "t2s_o26_b6_val_cpu 34.6 h (yes; ends 246.4 h, 88.6 h before no-launch)"; "t2s_o26_b6_val_igpu 17.3 h
+(yes; ends 263.7 h, 71.3 h before no-launch)"; B6 not staged: "t2s_o26_b6_real_cpu_4096 105.5 h (does not fit: 105.5 h
+from 263.7 h ends at 369.2 h, budget 311.0 h)" and "t2s_o26_b6_real_igpu_default 299.0 h (does not fit ...)". So the
+queue is preflight, A5, the three B5 cells, the B6 pull and the two B6 validations; the B6 real runs are future work
+for this window. Dated amendment: docs/FINDINGS.md "AMENDMENT 2026-10-22 to the B5-on-evo-t2s pre-registration". The
+updates below are superseded where they differ.
+
+**Update 2026-10-21 (later): (b) kept, qwen3:14b at 3 seeds if it fits, 24 h slack, B6 fills the rest.** The evo-t2s
+B5 policy set is a, b, c, d, e, f (each entry passes `--policies a,b,c,d,e,f`). Every estimated entry must end within
+the launch budget, which is the available hours minus 24 h before the no-launch time. Pasted from [t2s-b5-plan-hours]
+(ESTIMATES; B5 from measured evo-t2s session minutes, [t2s-r2-session-minutes]): "available 335.0 h"; "launch budget
+311.0 h (24.0 h slack before no-launch)"; "t2s_o26_b5_cpu_llama31_8b 87.3 h (yes; ends 87.6 h, 247.4 h before
+no-launch; 17.1 h/seed, 5 of 5 seeds fit, cell counts yes (5 seeds))"; "t2s_o26_b5_igpu_llama31_8b 85.9 h (yes; ends
+173.5 h, 161.5 h before no-launch; 16.9 h/seed, 5 of 5 seeds fit, cell counts yes (5 seeds))"; "137.5 h are left of
+the 311.0 h launch budget; evo-t2s-cpu qwen3:14b at 3 seeds needs 190.2 h (63.0 h/seed): does not fit, not staged".
+Most of the qwen3:14b time is (b) at its native window, estimated by the evo-x2 ratio (assumption stated in the row's
+basis). B6 then fills in order: "t2s_o26_b6_model_pull 1.0 h (yes; ends 174.5 h, 160.5 h before no-launch)";
+"t2s_o26_b6_val_cpu 34.6 h (yes; ends 209.1 h, 125.9 h before no-launch)"; "t2s_o26_b6_val_igpu 17.3 h (yes; ends
+226.4 h, 108.6 h before no-launch)"; not staged: "t2s_o26_b6_real_cpu_4096 105.5 h (does not fit: 105.5 h from 226.4 h
+ends at 331.9 h, budget 311.0 h)" and "t2s_o26_b6_real_igpu_default 299.0 h (does not fit ...)". B6 hours are evo-x2
+H-scale measured minutes times the largest measured evo-t2s / evo-x2 R2 session ratio at the same window ("factor
+15.12" on the CPU at 4096, "factor 7.57" on the iGPU at 32768); the iGPU window of these models is ASSUMED 32768 and
+the pull hour is nominal. So the queue is preflight, A5, the two llama3.1:8b cells, the B6 pull and the two B6
+validations. qwen3:14b on Intel and the B6 real runs are future work for this window. Dated amendment: docs/FINDINGS.md
+"AMENDMENT 2026-10-21 (later) to the B5-on-evo-t2s pre-registration and to the B6 staging note". The updates below
+are superseded where they differ.
+
 **Update 2026-10-21 22:30 (operator item 6: reduced policy set on evo-t2s; qwen3:14b back in at 2 seeds).** On evo-t2s
 B5 runs policies (a) default, (c) trim, (d) router, (e) auto-sized window, (f) num_keep only; (b), (g), (h) are not run
 there (evo-x2 keeps all). Each B5 entry passes `--policies a,c,d,e,f` (`harness/policy_compare.T2S_POLICIES`, also the

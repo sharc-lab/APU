@@ -3010,6 +3010,26 @@ def compute_t2s_r2_real(repo, backend):
             "n": f"{len(sess)} sessions"}
 
 
+def t2s_r2_real_data(repo, backend) -> dict:
+    """{model: {"loaded": [windows], "silent": gated silent sessions, "n": sessions}} from the same report the row
+    t2s-r2-real-<backend> reads (gated variant). Shared with analysis/impact_model.py::t2s_config_comparison."""
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "analysis"))
+    import r2_real_report as rr
+    if not (repo / T2S_REAL[backend]).exists():
+        raise FileNotFoundError(repo / T2S_REAL[backend])
+    rep = rr.build_combined([repo / T2S_REAL[backend]], validation_paths=[repo / T2S_VAL[backend]])
+    sess = [r for r in _r2_agent_module().read_rows(repo / T2S_REAL[backend]) if r.get("record") == "r2a_session"]
+    g = rr.gated_per_model(rep)
+    out = {}
+    for model in sorted({r["model_id"] for r in sess}):
+        c = g[f"ollama_default|{model}"]
+        out[model] = {"loaded": sorted({x for r in sess if r["model_id"] == model
+                                        for x in r.get("loaded_context_values") or []}),
+                      "silent": c["silent"], "n": c["n"]}
+    return out
+
+
 def compute_t2s_r2_mitigation_cpu(repo):
     """evo-t2s CPU: client-side trimming at num_ctx 4096 (margin 0.05), 3 seeds x 40 turns, the pre-registered
     mitigation rule per model against the CPU validation baseline. No evo-t2s untrimmed real run at an explicit 4096
@@ -4359,12 +4379,16 @@ def compute_impact_ranking_v2(repo):
 
 
 def compute_impact_ref_machine_price(repo):
-    """ASSUMPTION INPUT (must be verified): the reference machine's list price for impact v2 P2, with its source."""
-    m = _impact().ref_machine(repo)
-    return {"value": f"ASSUMPTION, must be verified: USD {m['usd']:,.0f} for {m['machine']}; quoted \"{m['figure_quoted']}\" "
+    """The reference machine's cited public list price for impact v2 P2 and hybrid savings, labelled "list price,
+    <source>, <date>" (operator decision 2026-10-22), with its source and the 2026-10-22 vendor check."""
+    im = _impact()
+    m = im.ref_machine(repo)
+    vc = m.get("vendor_check_20261022")
+    vct = (f"; vendor listing checked {vc['fetched_utc']} ({vc['url']}): {vc['finding']}" if vc else "")
+    return {"value": f"{im.price_label(m)}: USD {m['usd']:,.0f} for {m['machine']}; quoted \"{m['figure_quoted']}\" "
                      f"({m['publisher']}, {m['article_date']}, {m['source_url']}; fetched {m['fetched_utc']}); "
                      f"{m['meaning']}; not the repo's own purchase price (configs/hardware/evox2_strix_halo_128gb.yaml "
-                     f"bom_cost_usd is null)", "n": "1"}
+                     f"bom_cost_usd is null){vct}", "n": "1"}
 
 
 def compute_impact_v2_p2(repo):
@@ -4400,6 +4424,68 @@ def compute_impact_v3_detection_value_measured(repo):
     if d is None:
         return {"value": "PENDING: needs row cloud-redo-cost-per-wrong-task VERIFIED", "n": "0"}
     return {"value": im.measured_detection_text(d), "n": f"{sum(c['n'] for c in d['tiers'].values())} task turns"}
+
+
+HYBRID_SAVINGS_FILES = ["results/all_cloud_b3_v1.jsonl", "results/x2_evalset_tasks_real_v2.jsonl",
+                        "results/t2s_r2_real_cpu_v1.jsonl", "results/x2_policy_compare.jsonl",
+                        "results/x2_policy_compare_fa_control.jsonl", "results/hardware_price_evox2_20261021.json"]
+
+
+def compute_hybrid_savings_v1(repo):
+    """Hybrid savings vs all-cloud at matched quality (operator item 3): per device, cloud tier and policy, from the
+    all-cloud B3 run, the B3 v2 local run and its window-overflow flag, with the escalated task cost INTERIM (all-cloud
+    per-task cost) until cloud-redo-full-context is VERIFIED; P2 hardware capacity from the impact-v2-P2 row."""
+    im = _impact()
+    h = im.hybrid_savings(repo, _impact_v2(repo)["rows"]["P2"])
+    if h["status"] != "VERIFIED":
+        return {"value": im.hybrid_savings_text(h), "n": "0"}
+    return {"value": im.hybrid_savings_text(h), "n": f"{len(h['cells'])} cells x {h['cells'][0]['n']} tasks"}
+
+
+CURVE_FILES = sorted(set(HYBRID_SAVINGS_FILES) | {"results/traces/agent_step_lengths.parquet",
+                                                  "results/traces/agent_step_outputs.parquet",
+                                                  "results/anthropic_token_calibration_20261021.jsonl",
+                                                  "results/cloud_prices_anthropic_20261014.json"})
+_CURVE_CACHE = {}
+
+
+def _hybrid_curve(repo):
+    key = str(repo)
+    if key not in _CURVE_CACHE:
+        im = _impact()
+        h = im.hybrid_savings(repo, _impact_v2(repo)["rows"]["P2"])
+        _CURVE_CACHE[key] = im.hybrid_curve(repo, h) if h["status"] == "VERIFIED" else \
+            {"status": "PENDING", "pending": h["pending"]}
+    return _CURVE_CACHE[key]
+
+
+def compute_hybrid_savings_curve(repo):
+    """Savings as a formula over task size (operator decision 2026-10-22, item 1): savings/month = B x k - X at the
+    measured B3 point (evo-x2 default) and projected real agent task sizes, 100 / 1,000 / 10,000 tasks/day."""
+    im = _impact()
+    c = _hybrid_curve(repo)
+    n = f"{len(c['tiers'])} tiers x {len(c['tiers'][0]['points'])} points" if c["status"] == "VERIFIED" else "0"
+    return {"value": im.hybrid_curve_text(c), "n": n}
+
+
+def compute_hybrid_savings_tradeoff(repo):
+    """Measured trade-off lead (operator decision 2026-10-22, savings curve lead): per device, cloud tier, task-size
+    point and volume, savings per month and accuracy for all-cloud, naive local and the window-overflow-flag hybrid,
+    with the perfect-detector policy only as a separate ceiling field."""
+    im = _impact()
+    h = im.hybrid_savings(repo, _impact_v2(repo)["rows"]["P2"])
+    t = im.hybrid_tradeoff(h, _hybrid_curve(repo))
+    return {"value": im.hybrid_tradeoff_text(t), "n": f"{len(t['rows'])} device x tier x task-size rows"
+            if t["status"] == "VERIFIED" else "0"}
+
+
+def compute_t2s_config_comparison(repo):
+    """evo-t2s per-device configuration (operator decision 2026-10-22, item 3): naive Intel CPU default vs recommended
+    Intel iGPU, from the measured R2 real runs; kept-local share and savings per device."""
+    im = _impact()
+    t = im.t2s_config_comparison(repo, _hybrid_curve(repo))
+    return {"value": im.t2s_config_text(t), "n": f"{len(t['rows'])} device x model rows" if t["status"] == "VERIFIED"
+            else "0"}
 
 
 def compute_impact_p2(repo):
@@ -5456,11 +5542,91 @@ def compute_cloud_redo_cost_per_wrong_task(repo, path=CLOUD_REDO_V1):
             "n": f"{s['n']} wrong tasks"}
 
 
+def compute_cloud_redo_diagnosis(repo):
+    """Offline diagnosis of the live cloud redo: what transcript and environment it sent, the model and tier, and every
+    cloud failure in exactly one class (analysis/cloud_redo_diagnosis.py::compute)."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("cloud_redo_diagnosis", repo / "analysis" / "cloud_redo_diagnosis.py")
+    cd = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cd)
+    d = cd.compute(repo)
+    return {"value": cd.value_text(d), "n": f"{d['n_fail']} failed of {d['n_tasks']} redo tasks"}
+
+
+CLOUD_REDO_FULL_CONTEXT = "results/cloud_redo_full_context_v1.jsonl"
+CLOUD_REDO_FULL_CONTEXT_PART2 = "results/cloud_redo_full_context_v1_part2.jsonl"
+
+
+def compute_cloud_redo_full_context(repo, path=CLOUD_REDO_FULL_CONTEXT, part2=CLOUD_REDO_FULL_CONTEXT_PART2):
+    """The full-history redo with thinking off (scripts/cloud_redo.py --thinking-off), read with its --resume
+    continuation file when present (cloud_redo.merged_rows: superseded rows excluded, the rerun row counts): fix rate
+    with a 95% Wilson CI over all wrong tasks (tasks not run count as not fixed), USD mean / median / total, seconds,
+    per tier, whether the last part stopped, the ledger total at its end, the max_tokens per part (the 2048 continuation
+    is a declared protocol difference vs the local 384) and the cloud_redo_diagnosis classes for anything still wrong."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("cloud_redo", repo / "scripts" / "cloud_redo.py")
+    cr = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cr)
+    paths = cr.part_files(repo / path)   # the first file and every <stem>_partN.jsonl, in part order
+    tasks = cr.merged_rows(paths)
+    starts = [next(r for r in cr.load_rows(p) if r.get("record") == "run_start") for p in paths]
+    ends = [next((r for r in cr.load_rows(p) if r.get("record") == "run_end"), {}) for p in paths]
+    n_sup = len({(r["attempt_id"], r["turn_idx"]) for p in paths[1:] for r in cr.load_rows(p)
+                 if r.get("record") == "supersede"})
+    s = cr.summarize(tasks)
+    spec = importlib.util.spec_from_file_location("cloud_redo_diagnosis", repo / "analysis" / "cloud_redo_diagnosis.py")
+    cd = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cd)
+    d = cd.compute(repo, path, tuple(str(p.relative_to(repo).as_posix()) for p in paths[1:]))
+    cls = ", ".join(f"{k} {v}" for k, v in d["counts"].items())
+    n_all, ok = starts[0]["n_wrong_tasks"], sum(1 for r in tasks if r.get("cloud_end_state_ok"))
+    lo, hi = wilson_ci(ok, n_all)
+    secs = sorted(r["seconds"] for r in tasks if r.get("seconds") is not None)
+    tiers = []
+    for t, v in s["per_tier"].items():
+        tt = [r for r in tasks if r["tier"] == t]
+        tok = sum(1 for r in tt if r.get("cloud_end_state_ok"))
+        tl, th = wilson_ci(tok, len(tt))
+        tiers.append(f"{t} fixed {tok}/{len(tt)} [{tl:.1%}, {th:.1%}], USD mean ${v['mean_usd']:.4f} median "
+                     f"${v['median_usd']:.4f}")
+    first_keys = {(r["attempt_id"], r["turn_idx"]) for r in cr.load_rows(paths[0]) if r.get("record") == "cloud_redo_task"}
+    n_first = len(first_keys) - n_sup
+    parts = "; ".join(f"part {i + 1}: max_tokens {st.get('max_tokens')}"
+                      + (f" ({st['protocol_difference']})" if st.get("protocol_difference") else "")
+                      for i, st in enumerate(starts))
+    led = next((e["ledger_total_usd"] for e in reversed(ends) if e.get("ledger_total_usd") is not None), None)
+    stops = "; ".join(f"part {i + 1}: " + ((str(e["stopped"]) if e.get("stopped") else "completed") if e
+                                           else "no run_end (crashed; finished rows kept)")
+                      for i, e in enumerate(ends))
+    return {"value": f"model {starts[0]['model_id']}, thinking {starts[0].get('thinking_sent')}, full client-side "
+                     f"history, caching on; {parts}; {len(tasks)} tasks run ({n_first} kept from part 1, {n_sup} part-1 "
+                     f"rows superseded and rerun); fixed {_frac(ok, n_all)} of the wrong tasks, 95% Wilson CI over "
+                     f"tasks [{lo:.1%}, {hi:.1%}] (tasks not run count as not fixed); USD per task (cache-priced) mean "
+                     f"${s['mean_usd']:.4f}, median ${s['median_usd']:.4f}, total ${s['total_usd']:.4f} (ledger basis, "
+                     f"all input uncached: ${s['total_usd_all_uncached']:.4f}); seconds per task mean "
+                     f"{s['seconds_mean']:.2f}, median {statistics.median(secs):.2f}; per tier: {'; '.join(tiers)}; "
+                     f"stops: {stops}; ledger total at the last run_end "
+                     + (f"${led:.4f}" if led is not None else "n/a") + f"; still wrong by class: {cls}",
+            "n": f"{len(tasks)} tasks run of {n_all}"}
+
+
+def compute_cloud_spend_billed_vs_upper_bound(repo):
+    """Cloud spend so far, billed (provider usage fields: cache reads at the hit rate, 5m cache writes) vs the
+    upper bound the ledger recorded before 2026-10-22 (every input token uncached), per job; calls with no usage on
+    file are counted at the upper bound (analysis/cloud_spend_billed.py)."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("cloud_spend_billed", repo / "analysis" / "cloud_spend_billed.py")
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    res = m.compute([repo])
+    return {"value": m.summary_value(res), "n": f"{res['ledger_calls']} ledger calls, {len(res['jobs'])} job files"}
+
+
 def compute_cloud_cost_per_real_task(repo):
     """Cloud USD per real agent task (trajectory), no machine time: billed input (every step re-sends its full prompt)
     and output tokens per trajectory, median / p90 USD per trace set, tier (claude-haiku-5-5, claude-sonnet-5-5) and
-    caching case (none, realistic ASSUMPTION hit rate 0.7, best). Output per step is a labelled stand-in
-    (analysis/cloud_task_cost.py)."""
+    caching case (none, realistic ASSUMPTION hit rate 0.7, best). Output per step measured from the traces; counts
+    calibrated Anthropic/qwen per set from messages.count_tokens (analysis/cloud_task_cost.py)."""
     import importlib.util
     spec = importlib.util.spec_from_file_location("cloud_task_cost", repo / "analysis" / "cloud_task_cost.py")
     ct = importlib.util.module_from_spec(spec)
@@ -5906,7 +6072,23 @@ def cost_cut_config_time_data(repo) -> dict:
                       "best_name": pc.FA_POLICY_NAME if best == "i" else pc.POLICIES[best]["name"],
                       "best_min": b[0], "best_rule": b[1], "best_hist": b[2], "best_window": b[3],
                       "saved_min": a[0] - b[0], "seeds": c["balanced_seeds"] and len(c["balanced_seeds"])}
-    return {"models": out, "fa_included": bool(fa)}
+    readings = {model: x.get("reading") for model, x in fa.items()}
+    return {"models": out, "fa_included": bool(fa), "fa_readings": readings,
+            "fa_attribution": fa_attribution(readings)}
+
+
+FA_KV_READING = "the B5 speedup is KV precision, not flash attention"
+
+
+def fa_attribution(readings: dict) -> str | None:
+    """One sentence naming what the flash-attention control attributes the B5 speedup to (operator decision 2026-10-22,
+    item 4), or None when the control is missing or its per-model readings disagree."""
+    vals = set(readings.values())
+    if vals == {FA_KV_READING}:
+        return "the flash-attention control attributes the speedup to KV precision, not flash attention (b5-fa-control)"
+    if len(vals) == 1 and vals != {None}:
+        return f"the flash-attention control reads: {next(iter(vals))} (b5-fa-control)"
+    return None
 
 
 def compute_cost_cut_config_time(repo):
@@ -5921,8 +6103,9 @@ def compute_cost_cut_config_time(repo):
                      f"({x['best']}) {x['best_name']} {x['best_min']:.1f} min, rule {100 * x['best_rule']:.1f}% hist "
                      f"{100 * x['best_hist']:.1f}%, window {x['best_window']}; saved {x['saved_min']:.1f} min per "
                      f"session ({100 * x['saved_min'] / x['default_min']:.0f}%), over {x['seeds']} seeds")
-    return {"value": "MEASURED; " + " / ".join(parts) + ("; flash-attention control "
-                     + ("included" if d["fa_included"] else "not synced yet (policy i not in the comparison)")),
+    fa = ("included; " + (d["fa_attribution"] or "per-model readings differ (b5-fa-control)") if d["fa_included"]
+          else "not synced yet (policy i not in the comparison)")
+    return {"value": "MEASURED; " + " / ".join(parts) + "; flash-attention control " + fa,
             "n": f"{len(d['models'])} models"}
 
 
@@ -6779,12 +6962,14 @@ NUMBER_ENTRIES = [
      "compute": compute_t2s_r2_session_minutes, "data_files": [T2S_REAL["cpu"], T2S_REAL["igpu"], T2S_MITIGATION_CPU],
      "script_function": "analysis/numbers_register.py::compute_t2s_r2_session_minutes"},
     {"claim_id": "t2s-b5-plan-hours", "description": "B5 on evo-t2s for the 2026-10-26 window (operator order "
-                    "2026-10-21 22:30, policies a, c, d, e, f: llama3.1:8b CPU and iGPU at 5 seeds first, then qwen3:14b on the CPU at 2 seeds only if "
-                    "the hours left allow): ESTIMATED hours per staged entry from measured evo-t2s sessions, what fits, "
+                    "2026-10-21 later and 2026-10-22: llama3.1:8b CPU and iGPU at 5 seeds on a-f first, then qwen3:14b on the CPU at 3 seeds on a, c, d, e, f only if "
+                    "it fits the launch budget, 24 h slack before no-launch; B6 fills the rest): ESTIMATED hours per entry from "
+                    "measured evo-t2s sessions (B6: evo-x2 H-scale minutes x a measured evo-t2s factor), what fits, "
                     "and the qwen3:14b fit decision",
      "compute": compute_t2s_b5_plan_hours,
      "data_files": [T2S_REAL["cpu"], T2S_REAL["igpu"], T2S_MITIGATION_CPU, "results/x2_r2_real_v1.jsonl",
-                    "results/x2_r2_real_v1b.jsonl", "results/x2_r2_mitigation_v1.jsonl", "queues/t2s_oct26_queue.json"],
+                    "results/x2_r2_real_v1b.jsonl", "results/x2_r2_mitigation_v1.jsonl", "results/x2_r2_scale_real.jsonl",
+                    "results/x2_r2_scale_validation.jsonl", "queues/t2s_oct26_queue.json"],
      "script_function": "scripts/t2s_window_stage.py::plan"},
     {"claim_id": "t2s-r2-mitigation-cpu", "description": "evo-t2s Intel CPU client-side trimming at 4096: "
                     "pre-registered mitigation verdict per model", "compute": compute_t2s_r2_mitigation_cpu,
@@ -7007,9 +7192,9 @@ NUMBER_ENTRIES = [
                     "+ wrong-turn wall time), one profile",
      "compute": compute_impact_v2_p1, "data_files": _IMPACT_V2_FILES,
      "script_function": "analysis/impact_model.py::p1_v2"},
-    {"claim_id": "impact-ref-machine-price", "description": "ASSUMPTION INPUT, must be verified: reference "
-                    "machine (evo-x2 class, Ryzen AI Max+ 395 128 GB mini PC) list price with its public source, for "
-                    "impact v2 P2 machine capacity",
+    {"claim_id": "impact-ref-machine-price", "description": "Reference machine (evo-x2 class, Ryzen AI Max+ 395 "
+                    "128 GB mini PC) cited public list price, labelled list price, source, date, for impact v2 P2 "
+                    "machine capacity and hybrid savings",
      "compute": compute_impact_ref_machine_price, "data_files": ["results/hardware_price_evox2_20261021.json"],
      "script_function": "analysis/impact_model.py::ref_machine"},
     {"claim_id": "impact-v2-detection-value", "description": "SUPERSEDED by impact-v3-detection-value-measured (kept "
@@ -7027,7 +7212,43 @@ NUMBER_ENTRIES = [
                     "cloud-redo-cost-per-wrong-task, labelled by its mode)",
      "compute": compute_impact_v3_detection_value_measured, "data_files": _IMPACT_V2_FILES,
      "script_function": "analysis/impact_model.py::measured_detection"},
-    {"claim_id": "impact-v2-P2", "description": "Impact v2 P2 configuration: sessions per machine per day (default vs "
+    {"claim_id": "hybrid-savings-v1", "description": "Hybrid savings vs ALL-CLOUD at matched quality on the 30 B3 v2 "
+     "tasks (qwen3:14b local, 3 shared seeds): per device (evo-x2 default = best, measured; evo-t2s Intel CPU at its "
+     "4096 default, PROJECTED from evo-x2's 4096 tier; Blade not measured), cloud tier and policy (all-cloud, naive "
+     "local, escalate window-overflow flagged tasks, escalate every wrong task: ceiling, no such detector): "
+     "correct share, USD per task, savings per task and per 30-day month at 100 / 1,000 / 10,000 tasks/day (stated "
+     "range); escalated task cost INTERIM (all-cloud per-task cost) until cloud-redo-full-context is VERIFIED; P2 "
+     "hardware capacity beside it",
+     "compute": compute_hybrid_savings_v1, "data_files": HYBRID_SAVINGS_FILES,
+     "script_function": "analysis/impact_model.py::hybrid_savings"},
+    {"claim_id": "hybrid-savings-curve", "description": "Hybrid savings as a formula over task size: savings/month = "
+     "all-cloud bill x share kept local at matched quality - escalation cost, per cloud tier, at 100 / 1,000 / 10,000 "
+     "tasks/day; measured point = the B3 v2 tasks on evo-x2 default (hybrid-savings-v1 inputs); projected points = real "
+     "agent task sizes from cloud-cost-per-real-task (SWE-Gym median, OpenHands median and p90, realistic caching) "
+     "applying the measured share, labelled projected: local quality on long tasks not measured; escalation cost "
+     "INTERIM until cloud-redo-full-context is VERIFIED, then automatic",
+     "compute": compute_hybrid_savings_curve, "data_files": CURVE_FILES,
+     "script_function": "analysis/impact_model.py::hybrid_curve"},
+    {"claim_id": "hybrid-savings-tradeoff", "description": "Measured savings vs accuracy trade-off (operator decision "
+     "2026-10-22, the savings lead): per device (evo-x2 default measured; evo-t2s Intel CPU 4096 projected from evo-x2's "
+     "4096 tier), cloud tier, task-size point (B3 v2 tasks measured; SWE-Gym median, OpenHands median and p90 projected "
+     "from cloud-cost-per-real-task, realistic caching, accuracy = B3 accuracy carried over) and volume (100 / 1,000 / "
+     "10,000 tasks/day): savings per month and accuracy for all-cloud (0, all-cloud-b3-quality), naive local at the "
+     "device default (full bill, x2-evalset-tasks-real-v2-wrong-rate on the shared seeds, wrong answers silent) and the "
+     "window-overflow-flag hybrid (hybrid-savings-v1 hybrid_flag; escalation cost INTERIM until cloud-redo-full-context "
+     "is VERIFIED and complete, then automatic); the perfect-detector policy only as a separate field labelled "
+     "'ceiling, no such detector'",
+     "compute": compute_hybrid_savings_tradeoff, "data_files": CURVE_FILES,
+     "script_function": "analysis/impact_model.py::hybrid_tradeoff"},
+    {"claim_id": "t2s-config-comparison", "description": "evo-t2s per-device configuration: naive Intel CPU default "
+     "(Ollama loaded 4096) vs recommended Intel iGPU (Ollama loaded 32768) from measured R2 real data (t2s-r2-real-cpu, "
+     "t2s-r2-real-igpu): loaded window, gated silent failures, kept local measured by R2 session pass rate (not B3 task "
+     "accuracy; sessions with no silent failure) and "
+     "savings per month per cloud tier; to be replaced by the evo-t2s B5 results (2026-10-26 to 2026-11-08)",
+     "compute": compute_t2s_config_comparison,
+     "data_files": sorted(set(CURVE_FILES) | {T2S_REAL["cpu"], T2S_VAL["cpu"], T2S_REAL["igpu"], T2S_VAL["igpu"]}),
+     "script_function": "analysis/impact_model.py::t2s_config_comparison"},
+    {"claim_id": "impact-v2-P2", "description":"Impact v2 P2 configuration: sessions per machine per day (default vs "
                     "fastest measured B5 setting), machines needed for the profile's sessions/day, USD/day of machines "
                     "saved (assumed 3-year life), waiting-time upper bound on the interactive share; PENDING until "
                     "b5-fa-control is VERIFIED",
@@ -7196,13 +7417,37 @@ NUMBER_ENTRIES = [
      "tier, mode (priced, not executed vs executed) and n. In stub mode correctness and seconds are not measured",
      "compute": compute_cloud_redo_cost_per_wrong_task, "data_files": [CLOUD_REDO_V1, X2_EVALSET_TASKS_REAL_V2],
      "script_function": "scripts/cloud_redo.py::summarize"},
+    {"claim_id": "cloud-redo-diagnosis", "description": "Why the live cloud redo fixed only part of the wrong tasks, "
+     "offline: transcript sent (full client-side history vs truncated), environment it started from, model and tier, "
+     "and each cloud failure in exactly one class (output cap, earlier-state repair, tool-round cap, grader issue, "
+     "missing information, cloud model error)",
+     "compute": compute_cloud_redo_diagnosis, "data_files": [CLOUD_REDO_V1, X2_EVALSET_TASKS_REAL_V2],
+     "script_function": "analysis/cloud_redo_diagnosis.py::compute"},
+    {"claim_id": "cloud-redo-full-context", "description": "Cloud redo rerun with the full client-side history, "
+     "claude-sonnet-5-5, caching on, thinking off and a stop on any empty reply at max_tokens (the fix the "
+     "cloud-redo-diagnosis row calls for): fix rate, USD mean / median / total, seconds, and the failure classes of "
+     "anything still wrong",
+     "compute": compute_cloud_redo_full_context,
+     "data_files": [CLOUD_REDO_FULL_CONTEXT, CLOUD_REDO_FULL_CONTEXT_PART2,
+                    "results/cloud_redo_full_context_v1_part3.jsonl", X2_EVALSET_TASKS_REAL_V2],
+     "pending_ok": True, "script_function": "scripts/cloud_redo.py::run"},
+    {"claim_id": "cloud-spend-billed-vs-upper-bound", "description": "Cloud spend so far, billed cost from the "
+     "recorded provider usage (cache reads, 5m cache writes, each at its own rate in the shared price file) vs the "
+     "every-input-uncached upper bound the ledger recorded, per job; calls whose usage is not on file count at the "
+     "upper bound",
+     "compute": compute_cloud_spend_billed_vs_upper_bound,
+     "data_files": ["results/cloud_ledger.jsonl", CLOUD_REDO_V1, "results/cloud_redo_full_context_v1*.jsonl",
+                    "results/all_cloud_b3_v1*.jsonl", "results/cloud_prices_anthropic_20261014.json"],
+     "script_function": "analysis/cloud_spend_billed.py::compute"},
     {"claim_id": "cloud-cost-per-real-task", "description": "Cloud cost per real agent task, priced, not executed: per "
      "trajectory of the uncensored traces (nebius-rebench-openhands, SWE-Gym) the billed input (each step re-sends its "
      "full prompt) and output tokens, USD median and p90 at claude-haiku-5-5 and claude-sonnet-5-5 for no caching, "
-     "realistic caching (ASSUMPTION hit rate 0.7) and best-case caching; output per step is a labelled stand-in",
+     "realistic caching (ASSUMPTION hit rate 0.7) and best-case caching; output per step measured from the traces; "
+     "token counts calibrated to Anthropic's tokenizer (messages.count_tokens, 20 tasks per set)",
      "compute": compute_cloud_cost_per_real_task,
-     "data_files": ["results/traces/agent_step_lengths.parquet", "results/cloud_prices_anthropic_20261014.json",
-                    "results/x2_r2_real_v1.jsonl"],
+     "data_files": ["results/traces/agent_step_lengths.parquet", "results/traces/agent_step_outputs.parquet",
+                    "results/anthropic_token_calibration_20261021.jsonl",
+                    "results/cloud_prices_anthropic_20261014.json"],
      "script_function": "analysis/cloud_task_cost.py::compute"},
 
     {"claim_id": "all-cloud-b3-quality", "description": "All-cloud baseline: the 30 B3 v2 tasks run fully on "

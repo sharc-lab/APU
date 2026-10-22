@@ -25,9 +25,10 @@ docs/BUSINESS_METRICS.md.
   volume and waiting). Fixing one wrong answer in the cloud costs about USD 0.03 (priced, not executed); the cost is
   that the failure is silent. Ranking "P1 > P5 > P3 > P4; unranked: P2, P6, P7" [impact-ranking-v2]: the
   configuration saving (P2) is now valued as machine capacity, "3 saved x USD 2,000 (impact-ref-machine-price,
-  ASSUMPTION, must be verified) / 3-year life (ASSUMED) = USD 5.48/day" with waiting time only an upper bound
-  [impact-v2-P2], and stays PENDING and unranked until the flash-attention control (b5-fa-control) decides whether
-  that saving is flash attention or KV precision.
+  list price, Liliputing, 2025-04-15) / 3-year life (ASSUMED) = USD 5.48/day" with waiting time only an upper bound
+  [impact-v2-P2]: half the hardware, and "the flash-attention control attributes the speedup to KV precision, not
+  flash attention (b5-fa-control)" [impact-v2-P2]. (The ranking quoted above predates that control; the current one is
+  in row impact-ranking-v2.)
 - **At the smallest window the runtime cuts the system prompt.** "ollama_ctx_4096: 76/80 calls message-truncated; 34
   context shifts (first turn/call (4, 2), n_keep [5], n_discard [2045], 29 on the final-answer call); 1 token cuts
   (token cut limit 2050 keep 4 prompt 4097 -> 2050)" [R2-mechanism-lowlevel] (measured): on a context shift only the

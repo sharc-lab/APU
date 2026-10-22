@@ -1,0 +1,55 @@
+{
+ "fa_control": {
+  "llama3.1:8b": {
+   "m_i": 43.40190555555746,
+   "m_gh": 6.766313888887979,
+   "m_a": 43.65788333333718,
+   "m_g": 6.946083333331626,
+   "m_h": 6.586544444444331,
+   "per_seed_min": {
+    "20260901": 44.68591666667101,
+    "20260902": 42.89349999999783,
+    "20260903": 42.62630000000354
+   },
+   "rule_pass_rate": 1.0,
+   "history_recall": 0.9583333333333334,
+   "window": 131072,
+   "valid": true,
+   "problems": [],
+   "reading": "the B5 speedup is KV precision, not flash attention",
+   "fa_share": 0.006938652424781415
+  },
+  "qwen3:14b": {
+   "m_i": 206.57785555555407,
+   "m_gh": 75.36380555555289,
+   "m_a": 214.80156111111347,
+   "m_g": 75.35824444444151,
+   "m_h": 75.36936666666426,
+   "per_seed_min": {
+    "20260901": 215.25494999999646,
+    "20260902": 212.7432166666646,
+    "20260903": 191.73540000000114
+   },
+   "rule_pass_rate": 1.0,
+   "history_recall": 0.625,
+   "window": 40960,
+   "valid": true,
+   "problems": [],
+   "reading": "the B5 speedup is KV precision, not flash attention",
+   "fa_share": 0.058977609922031306
+  }
+ },
+ "recall": {
+  "llama3.1:8b": {
+   "f16": {
+    "window": 131072,
+    "truncated": 0,
+    "errors": 0,
+    "recall_mean": 0.4583333333333333,
+    "calls": 3
+   }
+  }
+ },
+ "refused": {},
+ "missing": []
+}
