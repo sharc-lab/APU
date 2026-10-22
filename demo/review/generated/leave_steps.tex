@@ -22,23 +22,25 @@
 \item For each device and model the tool decides at session start: run locally with the recommended setting, or send the whole session to the cloud from the start. Every setting carries its label; where we have no data it says not measured.
 \item \lab{measured} evo-t2s Intel iGPU: kept local, measured by R2 session pass rate (not B3 task accuracy): llama3.1:8b 5/5, qwen3:14b 4/5 sessions\textsuperscript{9}
 \item \lab{measured} evo-t2s Intel CPU: kept local, measured by R2 session pass rate (not B3 task accuracy): llama3.1:8b 0/5, qwen3:14b 0/5 sessions\textsuperscript{9}
-\item \lab{being measured} Cost of routing the whole session at start: being measured
+\item \lab{measured} The rule: route local if local accuracy at the recommended setting is at least all-cloud accuracy minus a tolerance (points), else send the whole session to the cloud from the start. At matched quality (tolerance 0) the measured answer for every measured device is cloud from the start.\textsuperscript{10}
+\item \lab{measured} evo-x2 (ollama\_default, default = best) would route local only at tolerance \textgreater{}= 7.8 points vs claude-haiku-5-5, 11.1 points vs claude-sonnet-5-5 (local 80/90 vs all-cloud 87/90, 90/90; measured, B3 task accuracy)\textsuperscript{10}
+\item \lab{measured} evo-t2s (Intel iGPU, Ollama default, loaded window 32768) would route local only at tolerance \textgreater{}= 16.7 points vs claude-haiku-5-5, 20.0 points vs claude-sonnet-5-5 (local 4/5 vs all-cloud 87/90, 90/90; measured by R2 session pass rate (not B3 task accuracy))\textsuperscript{10}
 \end{itemize}
 \end{minipage}\end{tabular}\par\medskip
 \storystep{4}{The money: local saves the bill, and the screen shows what it costs}{leave_step4}
 \begin{itemize}\setlength\itemsep{0pt}
-\item \lab{measured} Local saves money, and the screen shows what it costs. Against claude-sonnet-5-5 at 1,000 tasks/day: all local on evo-x2 saves USD 306.10 a month at 80/90 (88.9\%) correct versus 90/90 (100.0\%) all-cloud, and 10 wrong answers are silent. The only measured detector, window overflow, escalates 0 tasks at this window. Catching in-window wrong answers needs a verifier we do not claim; the dotted line is that ceiling, no such detector.\textsuperscript{10}
-\item \lab{measured} Fix after the fact: about 2 cents (mean USD 0.0227 per task, cache-priced), 84.8\% fixed (95\% Wilson CI 79.1\% to 89.1\%), but executed actions cannot be undone; decide up front instead. 28 of the 30 unfixed inherited the local model's earlier executed actions. (Full-history redo on claude-sonnet-5-5, up to 2048 output tokens per call; the local run had 384.)\textsuperscript{11}
-\item \lab{projected} evo-t2s Intel CPU at 4096 (projected, from evo-x2's 4096 tier): the window flag escalates 88 tasks and reaches 90/90, but the hybrid costs USD 359.80/month MORE than all-cloud against claude-sonnet-5-5 at 1,000 tasks/day: escalating with the full history costs more per task than a fresh cloud run\textsuperscript{10}
-\item \lab{being measured} Late full-history escalation versus a fresh cloud run: being measured
+\item \lab{measured} Local saves money, and the screen shows what it costs. Against claude-sonnet-5-5 at 1,000 tasks/day: all local on evo-x2 saves USD 306.10 a month at 80/90 (88.9\%) correct versus 90/90 (100.0\%) all-cloud, and 10 wrong answers are silent. The only measured detector, window overflow, escalates 0 tasks at this window. Catching in-window wrong answers needs a verifier we do not claim; the dotted line is that ceiling, no such detector.\textsuperscript{11}
+\item \lab{measured} Fix after the fact: about 2 cents (mean USD 0.0227 per task, cache-priced), 84.8\% fixed (95\% Wilson CI 79.1\% to 89.1\%), but executed actions cannot be undone; decide up front instead. 28 of the 30 unfixed inherited the local model's earlier executed actions. (Full-history redo on claude-sonnet-5-5, up to 2048 output tokens per call; the local run had 384.)\textsuperscript{12}
+\item \lab{projected} evo-t2s Intel CPU at 4096 (projected, from evo-x2's 4096 tier): the window flag escalates 88 tasks and reaches 90/90, but the hybrid costs USD 359.80/month MORE than all-cloud against claude-sonnet-5-5 at 1,000 tasks/day: escalating with the full history costs more per task than a fresh cloud run\textsuperscript{11}
+\item \lab{measured} Late full-history escalation costs 1.76x a fresh cloud run of the same task on the mean (1.64x on the median; matched over 119 rows, 53 tasks; 2.22x / 1.87x unmatched) on claude-sonnet-5-5\textsuperscript{13}
 \item Against claude-haiku-5-5 the escalation cost is interim (its all-cloud price): the full-history redo ran on claude-sonnet-5-5 only.
-\item \lab{priced, not executed} One long agent task (nebius-rebench-openhands, median 62 steps) sent whole to the cloud: USD 2.53 median on claude-sonnet-5-5 at an assumed 70\% cache hit rate\textsuperscript{12}
+\item \lab{priced, not executed} One long agent task (nebius-rebench-openhands, median 62 steps) sent whole to the cloud: USD 2.53 median on claude-sonnet-5-5 at an assumed 70\% cache hit rate\textsuperscript{14}
 \end{itemize}
 \end{minipage}\end{tabular}\par\medskip
 \storystep{5}{One live escalation: send the wrong task to the cloud}{leave_step5}
 \begin{itemize}\setlength\itemsep{0pt}
-\item \lab{measured} The local model (qwen3:14b, 4096 window) set duration\_min = 60; the standing instruction gives 50. HTTP error: no.\textsuperscript{13}
-\item \lab{measured} Recorded full-history cloud redo of this task: USD 0.0243, 4.2 s\textsuperscript{14}
+\item \lab{measured} The local model (qwen3:14b, 4096 window) set duration\_min = 60; the standing instruction gives 50. HTTP error: no.\textsuperscript{15}
+\item \lab{measured} Recorded full-history cloud redo of this task: USD 0.0243, 4.2 s\textsuperscript{16}
 \item One click sends that turn to the cloud through the capped client (one call per demo run); without a network or key the recorded full-history redo of the same task is shown.
 \end{itemize}
 \end{minipage}\end{tabular}\par\medskip
