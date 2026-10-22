@@ -167,91 +167,105 @@ and agent consequences, then predictor and mitigation.
 For each section below: the one-sentence claim, the evidence (register rows and result files), the figure, and the
 gaps with the job that fills each.
 
-### 4.1 Introduction (1.00 page)
+### 4.1 Introduction (prose draft, 2026-10-21; 1.00 page)
 
-- **Claim:** local agent stacks on AI PCs fail silently, and which failure a user gets is set by the memory
-  architecture and by runtime defaults, not by the model alone.
-- **Evidence for the motivation:** real agent trajectories run long enough to hit small defaults: "81.1% of steps
-  exceed evo-t2s's 4096 default; 0.0% exceed evo-x2's smallest model default (40,960)"
-  `[trace-fraction-exceeds-4096]`; "29.85%" of runs in one censored trace source end at their generator's own context
-  limit `[trace-context-exit-rate]`; the models themselves do not report the loss: "0/240 (T2S) + 0/720 (X2) = 0/960"
-  `[self-report-truncation-awareness]`. Files: `results/traces/agent_step_lengths.parquet`,
-  `results/traces/exit_status_sample.parquet`, the two `t2s_night2_20260929T20*` files.
-- **Figure:** F1 (platform diagram) only.
-- **Gaps:** none beyond those of the sections it previews.
+<!-- Convention as in 4.3: measured numbers carry their register id; design constants carry "design: <source file>". -->
 
-#### 4.1a Motivation draft: what each failure mode costs per session (draft, 2026-10-14)
+Runtimes such as Ollama and llama.cpp serve open-weight models of 8B to 70B parameters on laptops and small APU
+workstations, and local agents drive them for tens of turns, appending every tool result to a conversation that only
+grows inside a fixed context window. When the conversation outgrows it, the runtime, not the agent, decides what to
+remove, and it does so silently: the request still returns HTTP 200
+<!-- blade-k1-layer-split -->, the answer is well formed, and the model does not mention the loss (0/960
+<!-- self-report-truncation-awareness --> self-reports in our probes mentioned truncation).
 
-Draft text for the introduction's motivation paragraph, built from the impact model's cost table (docs/IMPACT.md,
-plan item A3). Only the measured per-session or per-call inputs of each cost row are used; the per-team dollar
-figures are left out because they multiply these inputs by an assumed team size and workload (list below). Values
-are pasted verbatim from the register; the internal host label in them (evo-x2) is AMD-iGPU.
+A motivating case shows how easily a user lands in this regime. On an Intel laptop, an unmodified Ollama install
+served two models with a 4096 <!-- t2s-r2-real-cpu --> token window, because device detection drops the integrated GPU
+and falls back to the CPU <!-- x2-device-detect-mechanism -->. Every agent session crossed that window at turn [3]
+<!-- t2s-r2-real-cpu --> and then failed silently, 5/5 <!-- t2s-r2-real-cpu --> sessions for each model. With the
+integrated GPU enabled, the same machine, runtime and models loaded 32768 <!-- t2s-r2-real-igpu --> tokens and no
+failure came after the window. Nobody chose 4096; the runtime did.
 
-Revised 2026-10-14 after the impact audit (docs/IMPACT.md, "Impact audit"): only measured inputs of rows whose
-status allows it are used; P1 has no dollar value and its R2 rate is a rule/recall failure rate, not a wrong-task
-rate; cloud costs are at Anthropic's published prices with prompt caching on, no caching shown only as the upper
-bound.
+This paper asks what a local agent loses when its conversation exceeds the context window, whether anything tells the
+user, and what decides how often it happens. We answer with pre-registered experiments on an AMD APU, an NVIDIA
+laptop GPU and an Intel laptop (CPU and integrated GPU), spanning unified and discrete memory. The answer has five
+parts. First, history loss is
+silent and appears in every model we tested, from 8B to 70B <!-- H-scale-verdict --> <!-- H-scale-family-verdict -->:
+at a 16384-token window no session of three 8B to 14B models kept its full history to turn 15 (intact
+5/5/0/0/0/0/0/0 of 5 for each model <!-- R2-real-v1b-survival -->). Second, rule loss is model-dependent: the 8B to
+32B models lose system-prompt rules once the window is exceeded, while llama3.3:70b and mistral-small3.2:24b kept
+them at 4096 in every session (0/3 <!-- H-scale-verdict --> and 0/3 <!-- H-scale-family-verdict --> with rule loss),
+so we do not claim rule loss in general. Third, the cost is concrete: qwen3:14b's share of tasks ending in a wrong
+state rises from 11.3% at the default window to 42.0% at 4096, every wrong task silent
+<!-- x2-evalset-tasks-real-v2-wrong-rate -->. Fourth, the obvious fixes are partial, and client-side trimming has a
+side effect: it removes the in-context examples the model imitates <!-- R2-qwen3-14b-4096-reconciliation -->. Fifth,
+the backend implementation is a fragile decision point: with identical model files, settings and seed, llama3.1:8b
+wrote a tool call as text in place of its answer at an untruncated window on CUDA and on Vulkan, and not on ROCm
+<!-- blade-r2-gate-v2 --> <!-- x2-r2-llama-val-32k-vulkan --> <!-- x2-r2-llama-val-32k-offload -->.
 
-> Each failure mode in this paper has a measurable per-session cost on AMD-iGPU. Shrinking the context window makes
-> a 40-turn agent session much faster, "ollama_default median 43.3 min/session (n=5), num_ctx_4096 median 7.0
-> min/session (n=5)" for llama3.1:8b `[impact-session-time-by-window]`, but loses history and rules silently:
-> "num_ctx_4096 10/15 silent, 10 after window exceeded", against "ollama_default 3/15 silent, 0 after window
-> exceeded" `[R2-real-v1b-gated-kill]`. At that window the runtime keeps "n_keep [5]" tokens on each context shift,
-> dropping the system prompt `[R2-mechanism-lowlevel]`. Keeping the oversized default window instead costs a "median
-> per-turn delta 0.81 s vs num_ctx_32768 (n=110 paired turns)" on turns that fit both windows `[impact-P2]`; a
-> co-running job multiplies time to first token and decode rate by "TTFT x1.111, decode x0.928" `[impact-P5]`; and
-> single-shot calls at the default runtime time out at "timeouts 0.029 x 900 s" `[impact-P6]`. Sending the whole
-> session to a cloud model costs "USD 0.3358 caching on, 3.7302 no caching (n=5)" `[impact-P3]`. No single setting
-> removes all of these costs at once, which is why the rest of the paper characterizes where each one starts.
+We make four contributions.
 
-Cost table used (A3 rows, measured inputs only, AMD-iGPU, llama3.1:8b, runtime default unless stated):
+1. **A cross-vendor map of where memory runs out and how it fails** (Section 4.4). On the Intel integrated GPU a model
+   start succeeds or fails at one shared-heap limit that also counts host-visible buffers, and a first-principles
+   accounting of weights, KV cache and compute predicts the measured flip point to within -257 to -26 tokens
+   <!-- A-24-flip-point-prediction -->.
+2. **Runtime policy, not hardware, sets the effective window, and overflow is silent** (Section 4.5). The same runtime
+   gives llama3.1:8b a default window of 4096 tokens on the Intel laptop and 131072 on the AMD APU
+   <!-- T2S-vs-X2-default-ctx -->, and answers an over-length prompt with success after keeping num_ctx/2 + 2 tokens
+   <!-- ollama-overflow-keeps-half -->.
+3. **The consequences for agents, with their mechanism** (Section 4.6). Silent failures after the window grow as the
+   window shrinks; Ollama drops whole old messages but keeps the system prompt, and at the smallest window llama.cpp's
+   context shift and a token cut discard it <!-- R2-mechanism-lowlevel -->.
+4. **Pre-registered fixes and a predictor, with their limits** (Section 4.7). Client-side trimming is refuted as a
+   general fix on two vendors <!-- R2-mitigation-v1-verdict --> <!-- t2s-r2-mitigation-cpu -->; `num_keep` lowers
+   qwen3:14b's wrong-task rate at 4096 to 30.0% without removing the excess
+   <!-- x2-evalset-tasks-real-v2-wrong-rate -->; a router to a cloud model is refuted on the AMD platform
+   <!-- b5-verdict -->, with the constrained platforms pending; and a context-shift rule taken from the llama.cpp source
+   predicts every observed shift in the sessions it was checked on (misses 0 <!-- R2-shift-predictor-confusion -->).
 
-| row | failure mode | measured input (verbatim) | audit status of the row's USD | register row |
-|---|---|---|---|---|
-| P1 | silent context loss | "R2 silent rule/recall failures after the window 0/5 sessions" at the default; "num_ctx_4096 10/15 silent, 10 after window exceeded" (three models) | assumed (USD not used) | impact-P1, R2-real-v1b-gated-kill |
-| P2 | oversized-window time | "median per-turn delta 0.81 s vs num_ctx_32768 (n=110 paired turns)" | mixed (input only) | impact-P2 |
-| P3 | cloud cost of re-sent history | "whole session to the cloud USD 0.3358 caching on, 3.7302 no caching (n=5)" | measured | impact-P3 |
-| P4 | hardware mismatch | "decode 45.55 tok/s vs best 46.40" | mixed (input only) | impact-P4 |
-| P5 | co-runner slowdown | "TTFT x1.111, decode x0.928 (PX2-full-ratio-table)" | mixed (input only) | impact-P5 |
-| P6 | failed starts and timeouts | "timeouts 0.029 x 900 s, allocation failures 0.000 (n=340)" | mixed (input only) | impact-P6 |
-| P7 | guardrail removal | "rate 0/5 sessions" at the default | measured | impact-P7 |
-| (session time) | window size vs time | "ollama_default median 43.3 min/session (n=5), num_ctx_4096 median 7.0 min/session (n=5)" | measured | impact-session-time-by-window |
+Section 4.2 covers background, Section 4.3 the platforms and harness, Sections 4.4 to 4.7 the results, Section 4.8
+threats to validity, and Section 4.9 concludes.
 
-Numbers that stay out of the paper because they rest on assumptions:
+### 4.2 Background and related work (prose draft, 2026-10-21; 0.75 page)
 
-- every USD/day and USD/month figure in `[impact-P1]` to `[impact-P7]`, `[impact-total]` and
-  `[impact-scenario-one-flag]` (assumed team size and workload; time valued at a wage only as an upper bound; the
-  one-flag scenario rests on an assumed rework time per silent wrong result);
-- every figure in `[business-mid-team]`, `[business-mid-team-qwen3-14b]`, `[business-scenario-plus-a]` and
-  `[business-sensitivity]` (assumed profiles; router savings are pending the policy comparison, plan item B5, and
-  the scenario rests on the unmeasured residual-failure credit);
-- the hour value and its range, `[impact-hour-value]` and `[business-hour-range]` (a wage, not a measurement of
-  this system);
-- the router's share of steps kept local (a replay of recorded sessions through our router; at num_ctx 4096 and 8192
-  it is a constant of the R2 session script's canary schedule, docs/BUSINESS_METRICS.md);
-- the single-shot saving per 1k steps in `[pareto-sample-recommendation-v2]` (its cloud reference is a STUB point
-  with unmeasured quality).
+<!-- Every citation below is a placeholder to verify; see "References (to verify)" at the end of this file. -->
 
-### 4.2 Background and related work (0.75 page)
+**Context windows in local runtimes.** llama.cpp allocates a KV cache for a fixed number of tokens, n_ctx, when a
+model loads. When a sequence would grow past it, the server can perform a *context shift*: it keeps the first n_keep
+tokens, discards a block of the tokens after them (2045 at a 4096 window in our logs <!-- R2-mechanism-lowlevel -->)
+and continues. Ollama serves models through a bundled llama.cpp server and adds two layers. Its chat endpoint renders
+the message list with the model's template and, when the result exceeds the window, drops whole messages from the
+front while keeping the system message <!-- R2-mechanism-verdict -->. It also starts the server with context shift
+enabled and a keep of 4 tokens, so an over-length prompt succeeds after keeping num_ctx/2 + 2 tokens
+<!-- ollama-overflow-keeps-half -->. The request option `num_keep` sets the kept prefix. If the client sends no
+`num_ctx`, Ollama chooses the window from the detected device: 4096 tokens for llama3.1:8b on our Intel laptop's CPU,
+131072 on the AMD APU <!-- T2S-vs-X2-default-ctx -->. None of these steps is reported to the client.
 
-- **Claim:** prior work characterizes either serving efficiency at fixed memory, or single-vendor out-of-memory
-  behaviour, or abstention under missing retrieval; none measures the chain from memory architecture through a
-  runtime's default to agent behaviour, across vendors.
-- **Positioning** (sources in `docs/RELATED_WORK.md`, `docs/PRIOR_ART.md`, `docs/references.bib`):
-  - LLM routing: RouteLLM (`routellm`), Martian (`martian`), NotDiamond (`notdiamond`), RouterBench (named in
-    `docs/DEMO_SPEC.md`, NOT yet in `references.bib`; Gap G14). They route on model capability and cost; none conditions
-    on a measured, hardware- and runtime-dependent effective context.
-  - Cloud-edge routing (`cloud_edge_survey`, `edge_llm_serving`): static placement or per-request offload.
-  - Memory-system DSE: MemExplorer (arXiv:2604.16007) sizes memory technology for throughput at fixed correctness.
-  - Apple-silicon serving: SiliconBench (arXiv:2609.19169), one memory architecture.
-  - KV eviction and compression (H2O, SnapKV, StreamingLLM, LLMLingua): choose what to keep at fixed memory, as a
-    designed policy. We measure what a shipped runtime actually discards by default.
-  - Missing context and abstention: Sufficient Context (arXiv:2411.06037), Lost in the Middle (arXiv:2307.03172).
-  - Runtime issue trackers (ollama #14073, #14116, #12353; llama.cpp #18946, #19745, #1866): the mechanisms exist as
-    anecdotes, one vendor and one bug at a time.
-- **Figure:** none.
-- **Gaps:** RouterBench bib entry (G14); StreamingLLM and Scissorhands are "not independently verified" in
-  `docs/PRIOR_ART.md` and need citation checks (G14).
+**Long-context behaviour.** Lost in the Middle [Liu et al. 2024, Lost in the Middle; to verify] shows that models use
+information in the middle of a long input worse than at its ends; RULER [Hsieh et al. 2024, RULER; to verify] and
+LongBench [Bai et al. 2024, LongBench; to verify] find effective context shorter than the advertised window; and
+multi-turn [Laban et al. 2025, LLMs Get Lost in Multi-Turn Conversation; to verify] and rule-following benchmarks
+[Zhou et al. 2023, IFEval; to verify] [Mu et al. 2023, Can LLMs Follow Simple Rules?; to verify] measure how well a
+model uses or obeys what it is given. All assume the model receives the whole input. We study the step before: what
+the runtime removes, and whether anyone can tell.
+
+**KV-cache management.** StreamingLLM [Xiao et al. 2024, StreamingLLM; to verify] keeps initial attention-sink tokens
+plus a recent window, much as a context shift keeps n_keep tokens; H2O [Zhang et al. 2023, H2O; to verify] and SnapKV
+[Li et al. 2024, SnapKV; to verify] evict by attention; KIVI [Liu et al. 2024, KIVI; to verify] and KVQuant [Hooper et
+al. 2024, KVQuant; to verify] quantize the cache; LLMLingua [Jiang et al. 2023, LLMLingua; to verify] compresses the
+prompt. These are designed policies evaluated at fixed memory. We measure what shipped runtimes discard by default and
+treat KV quantization as one context policy among several (Section 4.7).
+
+**Agents and tool use.** AgentBench [Liu et al. 2024, AgentBench; to verify], tau-bench [Yao et al. 2024, tau-bench;
+to verify], function-calling evaluations [Patil et al. 2024, Gorilla; to verify] and SWE-bench [Jimenez et al. 2024,
+SWE-bench; to verify] score task success, usually with hosted models and large windows, where running out of context
+is at most an exit condition. Routers [Ong et al. 2025, RouteLLM; to verify] choose a model by cost and capability,
+not by the local runtime's effective context.
+
+**Inference on edge hardware.** PagedAttention [Kwon et al. 2023, vLLM; to verify] manages KV memory on servers; MELT
+[Laskaridis et al. 2024, MELTing Point; to verify], PowerInfer [Song et al. 2024, PowerInfer; to verify] and LLM in a
+flash [Alizadeh et al. 2024, LLM in a Flash; to verify] characterize or accelerate inference on phones, consumer GPUs
+and flash-backed devices in terms of throughput, memory and energy. We add a cross-vendor characterization of
+behavioural correctness under each runtime's memory and context policy.
 
 ### 4.3 Platforms, harness and methodology (prose draft, 2026-10-20; updated 2026-10-22; 1.25 pages)
 
@@ -730,50 +744,58 @@ small-window regime where loss occurs; the constrained platforms are pending.
   (c) (mitigation) did not run (open finding O1). num_keep is tested for llama3.1:8b only in the prose; the qwen3:14b
   num_keep run is cited only through `[R2-qwen3-14b-4096-reconciliation]`, not its own row. B5 has run on AMD-iGPU only (`[b5-verdict]`: evo-t2s and blade "not run").
 
-### 4.8 Threats to validity (0.50 page)
+### 4.8 Threats to validity (prose draft, 2026-10-21; 0.50 page)
 
-- **Scorer validity:** held-out agreement "kappa 0.840 (analytic 95% CI 0.760-0.920, bootstrap 95% CI 0.755-0.915);
-  raw agreement 136/150" `[kappa-heldout]`. The earlier in-sample agreement after scorer fixes has no register row
-  and is not cited; it was partly correlated error between two raters: "scorer vs classify_human_label: kappa 0.988"
-  `[kappa-heldout-fn-annotator]`. Residual errors are one-directional: "14 disagreements: ambiguous 4, scorer_bug 10;
-  direction (scorer->annotator) FABRICATED->CORRECT 1, FABRICATED->REFUSED 13" `[kappa-heldout-disagreements]`.
-  Proposed scorer fixes are not applied (applying them makes this sample in-sample). One annotator channel; a second
-  human rater is pending (G10).
-- **Single seeds and small n:** R2 mechanism one seed per tier; co-runner runs one run per condition; K2 quality at
-  ceiling: "316/316 scored items = 1.0 (1 unscored)" `[K2-x2-score-ceiling]` and responsiveness resolution "max
-  step/+8GB ratio 1.937x (tolerance 2.0x)" `[K2-x2-responsiveness-resolution]`, so "13 kill-criterion evaluations, 13
-  passed, 0 violated" `[K2-x2-kill-criterion]` is a weak null.
-- **Thinking contamination, found and fixed:** reasoning models without suppression produced no answer:
-  "llama_server/qwen3-8b/baseline: works=False reasoning=[980, 774, 766] content=[0, 0, 0]" vs
-  "llama_server/qwen3-8b/production: works=True reasoning=[0, 0, 0]" `[x2-thinking-verify]`.
-- **Invalid-race tagging:** the invalidated weekend run is tagged, not deleted: "invalid_race 412
-  (system_ollama_exe_resolution 405, concurrent_job_contention_unverified 7); invalid_thinking 330; invalid_infra_oom
-  207; valid reusable 373 of 1327 outcome rows" `[x2-weekend-tag-counts]`.
-- **Infrastructure failures on INTEL-iGPU:** time-ordered allocation failures, not a prompt-length boundary
-  `[t2s-outcome-allocation-failures]`, `[t2s-llamaserver-load-failures]`; cause unverified until the machine is back.
-- **Version skew and backend numerics:** Ollama versions differ across platforms (Section 3); CUDA and Vulkan differ
-  on one borderline probe (`docs/THREATS.md` section 21, no register row). On NVIDIA-dGPU llama3.1:8b writes text tool
-  calls at a window where AMD-iGPU, with the same model files, seeds and settings, does not (`[x2-r2-llama-val-32k]`,
-  `[blade-r2-gate-v2]`); backend and partial CPU offload are not yet separated (O1, Section 5b).
-- **Install path as a confound:** bare-GGUF Ollama legs are marked "[bare template]" in `[x2-v3-scores]`.
-- **Guardrails 6-8 fail at full context (limitation and future work, not a headline claim; added 2026-10-19):** in
-  the B3 evalset v1 guard validation both llama3.1:8b and qwen3:14b violate the privacy (rule 6), refusal (rule 7) and
-  confirmation (rule 8) guardrails with the session inside the window: llama3.1:8b "rule6 0.417 of 12 bait turns,
-  rule7 0.000 of 9 bait turns, rule8 0.111 of 9 bait turns", qwen3:14b "rule6 0.250 of 12 bait turns, rule7 0.111 of
-  9 bait turns, rule8 0.222 of 9 bait turns" `[x2-evalset-val-v1-gates]`; nearly all violations are executed calls
-  ("rule 6-8 violations 25 (bait 24; ...)" and "28 (bait 24; ...)" `[x2-evalset-val-v1-diagnosis]`). Examples from
-  `results/x2_evalset_guard_val_v1.jsonl`: llama3.1:8b sent mail to `jordan.reyes@gmail.example`; qwen3:14b emailed
-  the API token to `secops@corp.test`. Rules 6-8 fail the baseline gate, so they are excluded from every window
-  measurement and no context-loss claim rests on them; guardrail compliance of small local models at full context is
-  future work. The same diagnosis finds llama3.1:8b's in-window canary misses are not recall failures: "canary misses
-  13 (tool_call_as_text 10, omitted 3)" `[x2-evalset-val-v1-diagnosis]` (10 of 13 tool calls written as text, 3
-  omitted, 0 recall).
+**Platforms and versions.** We measure one machine per vendor, so a platform effect cannot be separated from that
+machine's driver and memory configuration. Agent runs use Ollama 0.34.4 <!-- R2-qwen3-14b-4096-reconciliation --> and
+direct runs llama.cpp b10970 <!-- design: docs/HARDWARE.md (version record; no register row, gap G13) -->; default
+windows and trimming are runtime code and can change in any release. On the Intel laptop, CPU and iGPU differ in
+backend and loaded window together, so the motivating contrast is not a controlled test of either. The NVIDIA laptop
+contributes validation and mechanism sessions only, because its validation gate held back the real agent runs
+<!-- blade-r2-gate-v2 -->, and the router comparison ran on the AMD APU alone <!-- b5-verdict -->, whose default window
+is the model's native one.
 
-### 4.9 Conclusion (0.50 page)
+**Statistics.** Cells have three <!-- H-scale-verdict --> to five <!-- R2-v1b-gated-per-model --> seeds, ten for
+qwen3:8b <!-- R2-qwen3-8b-reversal-10seed -->. A 0/5 or 5/5 cell has a point bootstrap interval that understates
+uncertainty, and the scale and family results rest on three sessions per cell. qwen3:8b's lower failure count at 4096
+than at 8192 is within noise (p = 0.170 <!-- R2-qwen3-8b-reversal-10seed -->), and we claim nothing from it. Sampling
+uses temperature 0 <!-- design: harness/x2_r2_agent.py --> and a fixed request seed, so seeds vary the session
+script, not the sampling; nonzero temperatures are untested.
 
-- **Claim:** memory architecture sets where local inference stops, runtime defaults set what a long agent session
-  silently loses, and both are measurable and predictable before deployment.
-- **Gaps:** depends on 4.4b, 4.4c, 4.6 replication and 4.7.
+**Workload.** The R2 rules are synthetic and checkable; deployed system prompts differ. Guardrail rules 6 to 8
+(privacy, refusal, confirmation) already fail at full context for both models tested, for example rule 6 at 0.417 and
+0.250 of bait turns <!-- x2-evalset-val-v1-gates -->, so they are excluded from every window measurement and support no
+claim here. The tools-on-every-call protocol check rests on qwen3:14b alone, under a deviation declared before the
+data (task end state 80/90 <!-- x2-evalset-val-v2-gates --> at validation); qwen3:8b (65/90
+<!-- x2-evalset-tasks-val-v2-qwen3-8b-gates -->) and llama3.1:8b (72/90 <!-- x2-evalset-tasks-real-v2-wrong-rate -->)
+were refused by their gates.
+
+**Provenance.** Runs before 2026-10-14 did not record the harness file's hash ("harness blob not recorded"
+<!-- R2-qwen3-14b-4096-reconciliation -->). Their identity rests on reruns: the same seeds gave identical final text on
+120/120 <!-- R2-qwen3-14b-4096-reconciliation --> turns in runs days apart.
+
+### 4.9 Conclusion (prose draft, 2026-10-21; 0.50 page)
+
+Local LLM agents lose context without telling anyone. On every platform we measured, a conversation that outgrows the
+window is trimmed, shifted or cut, and the request still succeeds. History loss appeared in every model we tested,
+from 8B to 70B. Rule loss appeared in the 8B to 32B models and not in llama3.3:70b or mistral-small3.2:24b, so it
+depends on the model as well as the window, and we do not claim it in general. The window is often not the user's
+choice: the runtime picks it from the detected device, and an unmodified install on an Intel CPU ran agents at 4096
+tokens <!-- t2s-r2-real-cpu -->. That is the window at which, on the AMD APU, qwen3:14b ended 42.0% of tasks in a wrong
+state against 11.3% at its default, all silently <!-- x2-evalset-tasks-real-v2-wrong-rate -->.
+
+For practitioners, four lessons follow. Set the window explicitly and verify the loaded value, because a per-request
+setting does not survive a restart and any client that omits it silently gets the default back
+<!-- window-override-methods -->. Prefer an explicit window sized to the session over the runtime default, and log
+when the prompt exceeds it, since nothing else will. Treat trimming as a change to the prompt rather than a neutral
+fix: dropping old turns also drops the examples the model imitates <!-- R2-qwen3-14b-4096-reconciliation -->, and
+`num_keep` protects the prompt prefix only where the runtime shifts or cuts tokens. Finally, validate an agent on the
+backend it will run on, because identical model files and settings behaved differently on CUDA, Vulkan and ROCm.
+
+Future work follows from what is pending. The router and context-policy comparison, refuted on the unconstrained AMD
+platform <!-- b5-verdict -->, must run on the Intel and NVIDIA platforms, where default windows are small and loss
+occurs. More models per size and family, more seeds, further runtime versions and guardrail compliance at full context
+would turn the model-dependence of rule loss from an observation into a predictable property.
 
 ---
 
@@ -996,6 +1018,148 @@ Not resolved here: the submission deadline (Dec 2 vs mid-December estimate) and 
 Outline text replaced by the prose drafts of 2026-10-20, moved here verbatim. Register ids in square brackets
 follow the outline convention of this file.
 
+**Superseded 2026-10-21.** The outline text of 4.1 (with the 4.1a motivation draft), 4.2, 4.8 and 4.9, replaced by
+the prose drafts of 2026-10-21, is moved here verbatim below; the 2026-10-20 material follows it.
+
+### 4.1 Introduction and 4.1a motivation draft (outline as of 2026-10-20; superseded 2026-10-21)
+
+**4.1 Introduction (1.00 page)**
+
+- **Claim:** local agent stacks on AI PCs fail silently, and which failure a user gets is set by the memory
+  architecture and by runtime defaults, not by the model alone.
+- **Evidence for the motivation:** real agent trajectories run long enough to hit small defaults: "81.1% of steps
+  exceed evo-t2s's 4096 default; 0.0% exceed evo-x2's smallest model default (40,960)"
+  `[trace-fraction-exceeds-4096]`; "29.85%" of runs in one censored trace source end at their generator's own context
+  limit `[trace-context-exit-rate]`; the models themselves do not report the loss: "0/240 (T2S) + 0/720 (X2) = 0/960"
+  `[self-report-truncation-awareness]`. Files: `results/traces/agent_step_lengths.parquet`,
+  `results/traces/exit_status_sample.parquet`, the two `t2s_night2_20260929T20*` files.
+- **Figure:** F1 (platform diagram) only.
+- **Gaps:** none beyond those of the sections it previews.
+
+**4.1a Motivation draft: what each failure mode costs per session (draft, 2026-10-14)**
+
+Draft text for the introduction's motivation paragraph, built from the impact model's cost table (docs/IMPACT.md,
+plan item A3). Only the measured per-session or per-call inputs of each cost row are used; the per-team dollar
+figures are left out because they multiply these inputs by an assumed team size and workload (list below). Values
+are pasted verbatim from the register; the internal host label in them (evo-x2) is AMD-iGPU.
+
+Revised 2026-10-14 after the impact audit (docs/IMPACT.md, "Impact audit"): only measured inputs of rows whose
+status allows it are used; P1 has no dollar value and its R2 rate is a rule/recall failure rate, not a wrong-task
+rate; cloud costs are at Anthropic's published prices with prompt caching on, no caching shown only as the upper
+bound.
+
+> Each failure mode in this paper has a measurable per-session cost on AMD-iGPU. Shrinking the context window makes
+> a 40-turn agent session much faster, "ollama_default median 43.3 min/session (n=5), num_ctx_4096 median 7.0
+> min/session (n=5)" for llama3.1:8b `[impact-session-time-by-window]`, but loses history and rules silently:
+> "num_ctx_4096 10/15 silent, 10 after window exceeded", against "ollama_default 3/15 silent, 0 after window
+> exceeded" `[R2-real-v1b-gated-kill]`. At that window the runtime keeps "n_keep [5]" tokens on each context shift,
+> dropping the system prompt `[R2-mechanism-lowlevel]`. Keeping the oversized default window instead costs a "median
+> per-turn delta 0.81 s vs num_ctx_32768 (n=110 paired turns)" on turns that fit both windows `[impact-P2]`; a
+> co-running job multiplies time to first token and decode rate by "TTFT x1.111, decode x0.928" `[impact-P5]`; and
+> single-shot calls at the default runtime time out at "timeouts 0.029 x 900 s" `[impact-P6]`. Sending the whole
+> session to a cloud model costs "USD 0.3358 caching on, 3.7302 no caching (n=5)" `[impact-P3]`. No single setting
+> removes all of these costs at once, which is why the rest of the paper characterizes where each one starts.
+
+Cost table used (A3 rows, measured inputs only, AMD-iGPU, llama3.1:8b, runtime default unless stated):
+
+| row | failure mode | measured input (verbatim) | audit status of the row's USD | register row |
+|---|---|---|---|---|
+| P1 | silent context loss | "R2 silent rule/recall failures after the window 0/5 sessions" at the default; "num_ctx_4096 10/15 silent, 10 after window exceeded" (three models) | assumed (USD not used) | impact-P1, R2-real-v1b-gated-kill |
+| P2 | oversized-window time | "median per-turn delta 0.81 s vs num_ctx_32768 (n=110 paired turns)" | mixed (input only) | impact-P2 |
+| P3 | cloud cost of re-sent history | "whole session to the cloud USD 0.3358 caching on, 3.7302 no caching (n=5)" | measured | impact-P3 |
+| P4 | hardware mismatch | "decode 45.55 tok/s vs best 46.40" | mixed (input only) | impact-P4 |
+| P5 | co-runner slowdown | "TTFT x1.111, decode x0.928 (PX2-full-ratio-table)" | mixed (input only) | impact-P5 |
+| P6 | failed starts and timeouts | "timeouts 0.029 x 900 s, allocation failures 0.000 (n=340)" | mixed (input only) | impact-P6 |
+| P7 | guardrail removal | "rate 0/5 sessions" at the default | measured | impact-P7 |
+| (session time) | window size vs time | "ollama_default median 43.3 min/session (n=5), num_ctx_4096 median 7.0 min/session (n=5)" | measured | impact-session-time-by-window |
+
+Numbers that stay out of the paper because they rest on assumptions:
+
+- every USD/day and USD/month figure in `[impact-P1]` to `[impact-P7]`, `[impact-total]` and
+  `[impact-scenario-one-flag]` (assumed team size and workload; time valued at a wage only as an upper bound; the
+  one-flag scenario rests on an assumed rework time per silent wrong result);
+- every figure in `[business-mid-team]`, `[business-mid-team-qwen3-14b]`, `[business-scenario-plus-a]` and
+  `[business-sensitivity]` (assumed profiles; router savings are pending the policy comparison, plan item B5, and
+  the scenario rests on the unmeasured residual-failure credit);
+- the hour value and its range, `[impact-hour-value]` and `[business-hour-range]` (a wage, not a measurement of
+  this system);
+- the router's share of steps kept local (a replay of recorded sessions through our router; at num_ctx 4096 and 8192
+  it is a constant of the R2 session script's canary schedule, docs/BUSINESS_METRICS.md);
+- the single-shot saving per 1k steps in `[pareto-sample-recommendation-v2]` (its cloud reference is a STUB point
+  with unmeasured quality).
+
+### 4.2 Background and related work (outline as of 2026-10-20; superseded 2026-10-21)
+
+**4.2 Background and related work (0.75 page)**
+
+- **Claim:** prior work characterizes either serving efficiency at fixed memory, or single-vendor out-of-memory
+  behaviour, or abstention under missing retrieval; none measures the chain from memory architecture through a
+  runtime's default to agent behaviour, across vendors.
+- **Positioning** (sources in `docs/RELATED_WORK.md`, `docs/PRIOR_ART.md`, `docs/references.bib`):
+  - LLM routing: RouteLLM (`routellm`), Martian (`martian`), NotDiamond (`notdiamond`), RouterBench (named in
+    `docs/DEMO_SPEC.md`, NOT yet in `references.bib`; Gap G14). They route on model capability and cost; none conditions
+    on a measured, hardware- and runtime-dependent effective context.
+  - Cloud-edge routing (`cloud_edge_survey`, `edge_llm_serving`): static placement or per-request offload.
+  - Memory-system DSE: MemExplorer (arXiv:2604.16007) sizes memory technology for throughput at fixed correctness.
+  - Apple-silicon serving: SiliconBench (arXiv:2609.19169), one memory architecture.
+  - KV eviction and compression (H2O, SnapKV, StreamingLLM, LLMLingua): choose what to keep at fixed memory, as a
+    designed policy. We measure what a shipped runtime actually discards by default.
+  - Missing context and abstention: Sufficient Context (arXiv:2411.06037), Lost in the Middle (arXiv:2307.03172).
+  - Runtime issue trackers (ollama #14073, #14116, #12353; llama.cpp #18946, #19745, #1866): the mechanisms exist as
+    anecdotes, one vendor and one bug at a time.
+- **Figure:** none.
+- **Gaps:** RouterBench bib entry (G14); StreamingLLM and Scissorhands are "not independently verified" in
+  `docs/PRIOR_ART.md` and need citation checks (G14).
+
+### 4.8 Threats to validity (outline as of 2026-10-20; superseded 2026-10-21)
+
+**4.8 Threats to validity (0.50 page)**
+
+- **Scorer validity:** held-out agreement "kappa 0.840 (analytic 95% CI 0.760-0.920, bootstrap 95% CI 0.755-0.915);
+  raw agreement 136/150" `[kappa-heldout]`. The earlier in-sample agreement after scorer fixes has no register row
+  and is not cited; it was partly correlated error between two raters: "scorer vs classify_human_label: kappa 0.988"
+  `[kappa-heldout-fn-annotator]`. Residual errors are one-directional: "14 disagreements: ambiguous 4, scorer_bug 10;
+  direction (scorer->annotator) FABRICATED->CORRECT 1, FABRICATED->REFUSED 13" `[kappa-heldout-disagreements]`.
+  Proposed scorer fixes are not applied (applying them makes this sample in-sample). One annotator channel; a second
+  human rater is pending (G10).
+- **Single seeds and small n:** R2 mechanism one seed per tier; co-runner runs one run per condition; K2 quality at
+  ceiling: "316/316 scored items = 1.0 (1 unscored)" `[K2-x2-score-ceiling]` and responsiveness resolution "max
+  step/+8GB ratio 1.937x (tolerance 2.0x)" `[K2-x2-responsiveness-resolution]`, so "13 kill-criterion evaluations, 13
+  passed, 0 violated" `[K2-x2-kill-criterion]` is a weak null.
+- **Thinking contamination, found and fixed:** reasoning models without suppression produced no answer:
+  "llama_server/qwen3-8b/baseline: works=False reasoning=[980, 774, 766] content=[0, 0, 0]" vs
+  "llama_server/qwen3-8b/production: works=True reasoning=[0, 0, 0]" `[x2-thinking-verify]`.
+- **Invalid-race tagging:** the invalidated weekend run is tagged, not deleted: "invalid_race 412
+  (system_ollama_exe_resolution 405, concurrent_job_contention_unverified 7); invalid_thinking 330; invalid_infra_oom
+  207; valid reusable 373 of 1327 outcome rows" `[x2-weekend-tag-counts]`.
+- **Infrastructure failures on INTEL-iGPU:** time-ordered allocation failures, not a prompt-length boundary
+  `[t2s-outcome-allocation-failures]`, `[t2s-llamaserver-load-failures]`; cause unverified until the machine is back.
+- **Version skew and backend numerics:** Ollama versions differ across platforms (Section 3); CUDA and Vulkan differ
+  on one borderline probe (`docs/THREATS.md` section 21, no register row). On NVIDIA-dGPU llama3.1:8b writes text tool
+  calls at a window where AMD-iGPU, with the same model files, seeds and settings, does not (`[x2-r2-llama-val-32k]`,
+  `[blade-r2-gate-v2]`); backend and partial CPU offload are not yet separated (O1, Section 5b).
+- **Install path as a confound:** bare-GGUF Ollama legs are marked "[bare template]" in `[x2-v3-scores]`.
+- **Guardrails 6-8 fail at full context (limitation and future work, not a headline claim; added 2026-10-19):** in
+  the B3 evalset v1 guard validation both llama3.1:8b and qwen3:14b violate the privacy (rule 6), refusal (rule 7) and
+  confirmation (rule 8) guardrails with the session inside the window: llama3.1:8b "rule6 0.417 of 12 bait turns,
+  rule7 0.000 of 9 bait turns, rule8 0.111 of 9 bait turns", qwen3:14b "rule6 0.250 of 12 bait turns, rule7 0.111 of
+  9 bait turns, rule8 0.222 of 9 bait turns" `[x2-evalset-val-v1-gates]`; nearly all violations are executed calls
+  ("rule 6-8 violations 25 (bait 24; ...)" and "28 (bait 24; ...)" `[x2-evalset-val-v1-diagnosis]`). Examples from
+  `results/x2_evalset_guard_val_v1.jsonl`: llama3.1:8b sent mail to `jordan.reyes@gmail.example`; qwen3:14b emailed
+  the API token to `secops@corp.test`. Rules 6-8 fail the baseline gate, so they are excluded from every window
+  measurement and no context-loss claim rests on them; guardrail compliance of small local models at full context is
+  future work. The same diagnosis finds llama3.1:8b's in-window canary misses are not recall failures: "canary misses
+  13 (tool_call_as_text 10, omitted 3)" `[x2-evalset-val-v1-diagnosis]` (10 of 13 tool calls written as text, 3
+  omitted, 0 recall).
+
+### 4.9 Conclusion (outline as of 2026-10-20; superseded 2026-10-21)
+
+**4.9 Conclusion (0.50 page)**
+
+- **Claim:** memory architecture sets where local inference stops, runtime defaults set what a long agent session
+  silently loses, and both are measurable and predictable before deployment.
+- **Gaps:** depends on 4.4b, 4.4c, 4.6 replication and 4.7.
+
 ### 4.3 Platforms, harness and methodology (outline as of 2026-10-19)
 
 **4.3 Platforms, harness and methodology (1.25 pages), as outlined.**
@@ -1105,3 +1269,32 @@ follow the outline convention of this file.
   system prompt intact, not an equivalent session. The pre-registered refutation clause applies: losing the system
   prompt to the context shift is not the whole explanation of rule loss at 4096 for this model. The history is lost
   by design in every mitigated cell, so the fix trades rule loss for history loss even where it works.
+
+---
+
+## References (to verify)
+
+Placeholders cited in Sections 4.2 and later. Every entry is to verify (authors, year, venue, title) against the
+published paper before it enters `docs/references.bib`; no result of these papers is quoted in the draft.
+
+- [Liu et al. 2024, Lost in the Middle] N. F. Liu et al., "Lost in the Middle: How Language Models Use Long Contexts", TACL 2024 (arXiv:2307.03172). To verify.
+- [Hsieh et al. 2024, RULER] C.-P. Hsieh et al., "RULER: What's the Real Context Size of Your Long-Context Language Models?", COLM 2024. To verify.
+- [Bai et al. 2024, LongBench] Y. Bai et al., "LongBench: A Bilingual, Multitask Benchmark for Long Context Understanding", ACL 2024. To verify.
+- [Laban et al. 2025, LLMs Get Lost in Multi-Turn Conversation] P. Laban et al., arXiv 2025. To verify.
+- [Zhou et al. 2023, IFEval] J. Zhou et al., "Instruction-Following Evaluation for Large Language Models", arXiv 2023. To verify.
+- [Mu et al. 2023, Can LLMs Follow Simple Rules?] N. Mu et al., arXiv 2023 (RuLES). To verify.
+- [Xiao et al. 2024, StreamingLLM] G. Xiao et al., "Efficient Streaming Language Models with Attention Sinks", ICLR 2024. To verify (flagged "not independently verified" in `docs/PRIOR_ART.md`).
+- [Zhang et al. 2023, H2O] Z. Zhang et al., "H2O: Heavy-Hitter Oracle for Efficient Generative Inference of Large Language Models", NeurIPS 2023. To verify.
+- [Li et al. 2024, SnapKV] Y. Li et al., "SnapKV: LLM Knows What You Are Looking for Before Generation", NeurIPS 2024. To verify.
+- [Liu et al. 2024, KIVI] Z. Liu et al., "KIVI: A Tuning-Free Asymmetric 2bit Quantization for KV Cache", ICML 2024. To verify.
+- [Hooper et al. 2024, KVQuant] C. Hooper et al., "KVQuant: Towards 10 Million Context Length LLM Inference with KV Cache Quantization", NeurIPS 2024. To verify.
+- [Jiang et al. 2023, LLMLingua] H. Jiang et al., "LLMLingua: Compressing Prompts for Accelerated Inference of Large Language Models", EMNLP 2023. To verify.
+- [Liu et al. 2024, AgentBench] X. Liu et al., "AgentBench: Evaluating LLMs as Agents", ICLR 2024. To verify.
+- [Yao et al. 2024, tau-bench] S. Yao et al., "tau-bench: A Benchmark for Tool-Agent-User Interaction in Real-World Domains", arXiv 2024. To verify.
+- [Patil et al. 2024, Gorilla] S. G. Patil et al., "Gorilla: Large Language Model Connected with Massive APIs", NeurIPS 2024 (arXiv 2023); the Berkeley Function Calling Leaderboard may be the better citation. To verify.
+- [Jimenez et al. 2024, SWE-bench] C. E. Jimenez et al., "SWE-bench: Can Language Models Resolve Real-World GitHub Issues?", ICLR 2024. To verify.
+- [Ong et al. 2025, RouteLLM] I. Ong et al., "RouteLLM: Learning to Route LLMs with Preference Data", ICLR 2025 (`routellm` in `docs/references.bib`). To verify.
+- [Kwon et al. 2023, vLLM] W. Kwon et al., "Efficient Memory Management for Large Language Model Serving with PagedAttention", SOSP 2023. To verify.
+- [Laskaridis et al. 2024, MELTing Point] S. Laskaridis et al., "MELTing Point: Mobile Evaluation of Language Transformers", MobiCom 2024. To verify.
+- [Song et al. 2024, PowerInfer] Y. Song et al., "PowerInfer: Fast Large Language Model Serving with a Consumer-grade GPU", SOSP 2024. To verify.
+- [Alizadeh et al. 2024, LLM in a Flash] K. Alizadeh et al., "LLM in a Flash: Efficient Large Language Model Inference with Limited Memory", ACL 2024. To verify.
