@@ -130,3 +130,15 @@ def test_impact_doc_route_first_and_step4_lead():
         assert "executed actions cannot be undone; decide up front instead" in step4 and "95% CI" in step4
     assert "—" not in sec
     assert not (REPO / "docs" / "OCT29_COST_SUMMARY.md").exists()
+
+
+def test_detection_row_uses_full_history_redo_only():
+    import numbers_register as nr
+    c = next(x for x in nr.NUMBER_ENTRIES if x["claim_id"] == "impact-v3-detection-value-measured")
+    assert "results/cloud_redo_v1.jsonl" not in c["data_files"]
+    assert nr.CLOUD_REDO_FULL_CONTEXT in c["data_files"]
+    d = {"tiers": {"t": {"tp": 1, "fp": 1, "fn": 0, "tn": 2, "n": 4, "precision": 0.5, "recall": 1.0, "fn_share": 0.0,
+                         "redo_usd": 0.02, "flagged": 2, "every_usd": 0.08, "flagged_usd": 0.04, "saved_usd": 0.04}},
+         "redo_tag": "measured", "redo_source": "cloud redo USD per task: tier mean of the full-history redo"}
+    txt = im.measured_detection_text(d)
+    assert "full-history redo" in txt and "cloud-redo-cost-per-wrong-task (" not in txt

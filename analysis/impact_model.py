@@ -1370,9 +1370,37 @@ def measured_detection_text(d) -> str:
     return ("MEASURED on the B3 v2 real run (qwen3:14b, evo-x2, x2_evalset_tasks_real_v2): predictor = the task turn's "
             "prompt exceeded the loaded window (over_loaded_window), outcome = the task ended wrong (end_state_ok "
             "false); per tier: " + "; ".join(parts)
-            + f"; cloud redo USD per task: tier mean of cloud-redo-cost-per-wrong-task ({d['redo_tag']}); assumed: a "
-              f"redo of any task costs the tier's mean redo of a wrong one, a fixed task is right after the redo "
-              f"(cloud correctness not measured in stub mode); USD totals are for the run's own task turns")
+            + (f"; {d['redo_source']}" if d.get("redo_source") else
+               f"; cloud redo USD per task: tier mean of cloud-redo-cost-per-wrong-task ({d['redo_tag']}); assumed: a "
+               f"redo of any task costs the tier's mean redo of a wrong one, a fixed task is right after the redo "
+               f"(cloud correctness not measured in stub mode)")
+            + "; USD totals are for the run's own task turns")
+
+
+# Operator decision 2026-10-22 (row impact-v3-detection-value-measured): no value in the row comes from the first
+# (truncated-history) redo any more. The escalate-all vs escalate-flagged USD use the full-history redo's per-tier mean
+# USD per task (cloud-redo-full-context, measured); the confusion counts, precision and recall are unchanged (B3 v2
+# local run).
+def full_redo_detection(repo=REPO) -> dict | None:
+    """measured_detection with the full-history redo's per-tier mean USD; None until cloud-redo-full-context is
+    VERIFIED."""
+    if not register_has(repo, "cloud-redo-full-context"):
+        return None
+    tasks, model, n_wrong, _p = redo_rows_and_model(repo)
+    per = {}
+    for r in tasks:
+        per.setdefault(r["tier"], []).append(r["usd"])
+    usd = {t: statistics.fmean(v) for t, v in per.items()}
+    d = measured_detection(b3_v2_task_turns(repo), usd, CLOUD_TAG_LIVE)
+    fixed = sum(1 for r in tasks if r.get("cloud_end_state_ok"))
+    d["redo_source"] = (f"cloud redo USD per task: tier mean of the full-history redo (cloud-redo-full-context, "
+                        f"{model}, {CLOUD_TAG_LIVE}, cache-priced, per-tier n "
+                        + ", ".join(f"{t} {len(per[t])}" for t in d["tiers"] if t in per)
+                        + f"); no value from the first truncated-history redo (cloud-redo-cost-per-wrong-task); "
+                        f"assumed: a redo of any task, flagged or not, costs the tier's mean full-history redo of a "
+                        f"wrong one; the redo fixed {fixed}/{n_wrong} wrong tasks (cloud-redo-full-context), so an "
+                        f"escalated wrong task is not always fixed")
+    return d
 
 
 def v2_ranking(rows: dict) -> list:

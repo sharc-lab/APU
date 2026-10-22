@@ -4417,12 +4417,13 @@ def compute_impact_v2_detection_value(repo):
 def compute_impact_v3_detection_value_measured(repo):
     """MEASURED detection (operator item 4): per tier of the B3 v2 real run, precision/recall (TP/FP/FN/TN) of "the task
     turn's prompt exceeded the loaded window" for "the task ended wrong", wrong tasks missed, and cloud USD escalating
-    only flagged tasks vs all tasks at the tier's cloud redo USD per task (row cloud-redo-cost-per-wrong-task, labelled
-    by its mode). Replaces impact-v2-detection-value's borrowed precision/recall."""
+    only flagged tasks vs all tasks at the tier's mean full-history redo USD per task (row cloud-redo-full-context,
+    measured; operator decision 2026-10-22: nothing from the first redo, cloud-redo-cost-per-wrong-task). Replaces
+    impact-v2-detection-value's borrowed precision/recall."""
     im = _impact()
-    d = _impact_v2(repo)["rows"]["P1"].get("detection_measured")
+    d = im.full_redo_detection(repo)
     if d is None:
-        return {"value": "PENDING: needs row cloud-redo-cost-per-wrong-task VERIFIED", "n": "0"}
+        return {"value": "PENDING: needs row cloud-redo-full-context VERIFIED", "n": "0"}
     return {"value": im.measured_detection_text(d), "n": f"{sum(c['n'] for c in d['tiers'].values())} task turns"}
 
 
@@ -7237,9 +7238,11 @@ NUMBER_ENTRIES = [
     {"claim_id": "impact-v3-detection-value-measured", "description": "MEASURED detection on the B3 v2 real run "
                     "(qwen3:14b, five tiers): precision, recall and TP/FP/FN/TN of 'the task turn's prompt exceeded the "
                     "loaded window' for 'the task ended wrong', wrong tasks missed and their share, and cloud USD "
-                    "escalating only flagged tasks vs all tasks (cloud redo USD per task from "
-                    "cloud-redo-cost-per-wrong-task, labelled by its mode)",
-     "compute": compute_impact_v3_detection_value_measured, "data_files": _IMPACT_V2_FILES,
+                    "escalating only flagged tasks vs all tasks (cloud redo USD per task: per-tier mean of the "
+                    "full-history redo, cloud-redo-full-context, measured; nothing from the first redo)",
+     "compute": compute_impact_v3_detection_value_measured,
+     "data_files": [X2_EVALSET_TASKS_REAL_V2, CLOUD_REDO_FULL_CONTEXT, CLOUD_REDO_FULL_CONTEXT_PART2,
+                    "results/cloud_redo_full_context_v1_part3.jsonl"],
      "script_function": "analysis/impact_model.py::measured_detection"},
     {"claim_id": "hybrid-savings-v1", "description": "Hybrid savings vs ALL-CLOUD at matched quality on the 30 B3 v2 "
      "tasks (qwen3:14b local, 3 shared seeds): per device (evo-x2 default = best, measured; evo-t2s Intel CPU at its "

@@ -69,27 +69,28 @@ replaces the earlier projection (row impact-v2-detection-value, now marked super
 predictor's precision and recall from a different model and job. The detector is now scored on the B3 v2 real run
 itself (qwen3:14b, five tiers, 150 task turns per tier): flag a task when its turn's prompt exceeded the loaded window
 (over_loaded_window), and count it right when the task ended wrong (end_state_ok false). Cloud USD compares escalating
-every task with escalating only the flagged ones, at the tier's cloud redo USD per task (row
-cloud-redo-cost-per-wrong-task, priced, not executed). Pasted from [impact-v3-detection-value-measured]:
+every task with escalating only the flagged ones, at the tier's mean full-history redo USD per task (row
+cloud-redo-full-context, claude-sonnet-5-5, measured; operator decision 2026-10-22: no value in this row comes from the
+first, truncated-history redo, cloud-redo-cost-per-wrong-task). Pasted from [impact-v3-detection-value-measured]:
 - "ollama_ctx_4096: TP 63 FP 84 FN 0 TN 3, precision 42.9%, recall 100.0%, wrong tasks missed 0/63 (0.0%); escalate
-  all 150 USD 4.2098 vs flagged 147 USD 4.1256 (saves USD 0.0842 and leaves 0 wrong unfixed; USD 0.0281 per task)"
+  all 150 USD 2.5401 vs flagged 147 USD 2.4893 (saves USD 0.0508 and leaves 0 wrong unfixed; USD 0.0169 per task)"
 - "ollama_ctx_4096_numkeep: TP 45 FP 102 FN 0 TN 3, precision 30.6%, recall 100.0%, wrong tasks missed 0/45 (0.0%);
-  escalate all 150 USD 4.0355 vs flagged 147 USD 3.9548 (saves USD 0.0807 and leaves 0 wrong unfixed; USD 0.0269 per
+  escalate all 150 USD 3.1643 vs flagged 147 USD 3.1010 (saves USD 0.0633 and leaves 0 wrong unfixed; USD 0.0211 per
   task)"
 - "ollama_ctx_8192: TP 48 FP 58 FN 5 TN 39, precision 45.3%, recall 90.6%, wrong tasks missed 5/53 (9.4%); escalate
-  all 150 USD 4.5423 vs flagged 106 USD 3.2099 (saves USD 1.3324 and leaves 5 wrong unfixed; USD 0.0303 per task)"
+  all 150 USD 3.0725 vs flagged 106 USD 2.1712 (saves USD 0.9013 and leaves 5 wrong unfixed; USD 0.0205 per task)"
 - "ollama_ctx_16384: TP 4 FP 22 FN 15 TN 109, precision 15.4%, recall 21.1%, wrong tasks missed 15/19 (78.9%);
-  escalate all 150 USD 4.0764 vs flagged 26 USD 0.7066 (saves USD 3.3698 and leaves 15 wrong unfixed; USD 0.0272 per
+  escalate all 150 USD 5.3287 vs flagged 26 USD 0.9236 (saves USD 4.4051 and leaves 15 wrong unfixed; USD 0.0355 per
   task)"
-- "ollama_default: TP 0 FP 0 FN 17 TN 133, precision n/a, recall 0.0%, wrong tasks missed 17/17 (100.0%)"
+- "ollama_default: TP 0 FP 0 FN 17 TN 133, precision n/a, recall 0.0%, wrong tasks missed 17/17 (100.0%); escalate all
+  150 USD 6.1360 vs flagged 0 USD 0.0000 (saves USD 6.1360 and leaves 17 wrong unfixed; USD 0.0409 per task)"
 
 Reading: at the profile cell (num_ctx 4096) the window check catches every wrong task, but it flags 147 of 150 tasks,
 so it saves almost nothing over escalating everything; it is a "this whole configuration is unsafe" signal, not a
 per-task filter. At 8192 it is a useful filter (90.6% recall on 106 of 150 tasks). At 16384 and the default window
-most wrong tasks happen inside the window, so the check misses them (78.9% and 100.0%). Assumed: a redo of any task
-costs the tier's mean redo of a wrong one; a fixed task is right after the redo (cloud correctness is not measured in
-stub mode). When a live cloud redo file exists, the USD labels switch to measured automatically (the same
-cloud_redo_data stub flag as P1).
+most wrong tasks happen inside the window, so the check misses them (78.9% and 100.0%). Assumed: a redo of any task,
+flagged or not, costs the tier's mean full-history redo of a wrong one. The full-history redo fixed 167 of 197 wrong
+tasks [cloud-redo-full-context], so an escalated wrong task is not always fixed.
 
 **P2 valuation: machine capacity (operator decision 2026-10-21; row impact-v2-P2, status mixed since b5-fa-control
 is VERIFIED).** The measured session minutes of the runtime default (B5 policy a) and the fastest measured B5 setting
@@ -152,7 +153,8 @@ USD 0.03 (priced, not executed); the cost is that the failure is silent, so you 
 num_ctx 4096, qwen3:14b got 42.0% of tasks wrong and every one was silent [x2-evalset-tasks-real-v2-wrong-rate]. In
 that cell, a check for "the prompt exceeded the loaded window" caught every wrong task (recall 100.0%) but flagged 147
 of 150 tasks (precision 42.9%), so escalating only flagged tasks costs about the same as escalating all of them (USD
-4.1256 vs 4.2098 for the run's 150 tasks); measured on the same run [impact-v3-detection-value-measured]. The configuration saving is KV precision, not flash attention, per
+2.4893 vs 2.5401 for the run's 150 tasks, at the full-history redo cost); measured on the same run
+[impact-v3-detection-value-measured]. The configuration saving is KV precision, not flash attention, per
 the flash-attention control [b5-fa-control]: valued as machines, it is half the hardware, 3 of 6 machines (USD 5.48/day
 at the USD 2,000 list price, Liliputing, 2025-04-15, and an assumed 3-year life), with waiting time an upper bound of
 USD 1,497.62/day if a quarter of sessions are interactive [impact-v2-P2]."
