@@ -4468,6 +4468,17 @@ def compute_hybrid_savings_curve(repo):
     return {"value": im.hybrid_curve_text(c), "n": n}
 
 
+def compute_hybrid_savings_tradeoff(repo):
+    """Measured trade-off lead (operator decision 2026-10-22, savings curve lead): per device, cloud tier, task-size
+    point and volume, savings per month and accuracy for all-cloud, naive local and the window-overflow-flag hybrid,
+    with the perfect-detector policy only as a separate ceiling field."""
+    im = _impact()
+    h = im.hybrid_savings(repo, _impact_v2(repo)["rows"]["P2"])
+    t = im.hybrid_tradeoff(h, _hybrid_curve(repo))
+    return {"value": im.hybrid_tradeoff_text(t), "n": f"{len(t['rows'])} device x tier x task-size rows"
+            if t["status"] == "VERIFIED" else "0"}
+
+
 def compute_t2s_config_comparison(repo):
     """evo-t2s per-device configuration (operator decision 2026-10-22, item 3): naive Intel CPU default vs recommended
     Intel iGPU, from the measured R2 real runs; kept-local share and savings per device."""
@@ -7174,9 +7185,21 @@ NUMBER_ENTRIES = [
      "INTERIM until cloud-redo-full-context is VERIFIED, then automatic",
      "compute": compute_hybrid_savings_curve, "data_files": CURVE_FILES,
      "script_function": "analysis/impact_model.py::hybrid_curve"},
+    {"claim_id": "hybrid-savings-tradeoff", "description": "Measured savings vs accuracy trade-off (operator decision "
+     "2026-10-22, the savings lead): per device (evo-x2 default measured; evo-t2s Intel CPU 4096 projected from evo-x2's "
+     "4096 tier), cloud tier, task-size point (B3 v2 tasks measured; SWE-Gym median, OpenHands median and p90 projected "
+     "from cloud-cost-per-real-task, realistic caching, accuracy = B3 accuracy carried over) and volume (100 / 1,000 / "
+     "10,000 tasks/day): savings per month and accuracy for all-cloud (0, all-cloud-b3-quality), naive local at the "
+     "device default (full bill, x2-evalset-tasks-real-v2-wrong-rate on the shared seeds, wrong answers silent) and the "
+     "window-overflow-flag hybrid (hybrid-savings-v1 hybrid_flag; escalation cost INTERIM until cloud-redo-full-context "
+     "is VERIFIED and complete, then automatic); the perfect-detector policy only as a separate field labelled "
+     "'ceiling, no such detector'",
+     "compute": compute_hybrid_savings_tradeoff, "data_files": CURVE_FILES,
+     "script_function": "analysis/impact_model.py::hybrid_tradeoff"},
     {"claim_id": "t2s-config-comparison", "description": "evo-t2s per-device configuration: naive Intel CPU default "
      "(Ollama loaded 4096) vs recommended Intel iGPU (Ollama loaded 32768) from measured R2 real data (t2s-r2-real-cpu, "
-     "t2s-r2-real-igpu): loaded window, gated silent failures, kept-local share (sessions with no silent failure) and "
+     "t2s-r2-real-igpu): loaded window, gated silent failures, kept local measured by R2 session pass rate (not B3 task "
+     "accuracy; sessions with no silent failure) and "
      "savings per month per cloud tier; to be replaced by the evo-t2s B5 results (2026-10-26 to 2026-11-08)",
      "compute": compute_t2s_config_comparison,
      "data_files": sorted(set(CURVE_FILES) | {T2S_REAL["cpu"], T2S_VAL["cpu"], T2S_REAL["igpu"], T2S_VAL["igpu"]}),
