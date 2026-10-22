@@ -5456,6 +5456,42 @@ def compute_cloud_redo_cost_per_wrong_task(repo, path=CLOUD_REDO_V1):
             "n": f"{s['n']} wrong tasks"}
 
 
+def compute_cloud_redo_diagnosis(repo):
+    """Offline diagnosis of the live cloud redo: what transcript and environment it sent, the model and tier, and every
+    cloud failure in exactly one class (analysis/cloud_redo_diagnosis.py::compute)."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("cloud_redo_diagnosis", repo / "analysis" / "cloud_redo_diagnosis.py")
+    cd = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cd)
+    d = cd.compute(repo)
+    return {"value": cd.value_text(d), "n": f"{d['n_fail']} failed of {d['n_tasks']} redo tasks"}
+
+
+CLOUD_REDO_FULL_CONTEXT = "results/cloud_redo_full_context_v1.jsonl"
+
+
+def compute_cloud_redo_full_context(repo, path=CLOUD_REDO_FULL_CONTEXT):
+    """The full-history redo with thinking off (scripts/cloud_redo.py --thinking-off): fix rate, USD mean / median /
+    total, seconds, whether it stopped, and the cloud_redo_diagnosis classes for anything still wrong."""
+    import importlib.util
+    s = cloud_redo_data(repo, path)
+    rows = [json.loads(x) for x in (repo / path).read_text(encoding="utf-8").splitlines() if x.strip()]
+    end = next((r for r in rows if r.get("record") == "run_end"), {})
+    start = next(r for r in rows if r.get("record") == "run_start")
+    spec = importlib.util.spec_from_file_location("cloud_redo_diagnosis", repo / "analysis" / "cloud_redo_diagnosis.py")
+    cd = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cd)
+    d = cd.compute(repo, path)
+    cls = ", ".join(f"{k} {v}" for k, v in d["counts"].items())
+    return {"value": f"model {s['model_id']}, thinking {start.get('thinking_sent')}, max_tokens {start.get('max_tokens')}, "
+                     f"full client-side history, caching on; fixed {_frac(s['cloud_correct'], start['n_wrong_tasks'])} "
+                     f"of the wrong tasks (graded {s['cloud_graded']}); USD per task mean ${s['mean_usd']:.4f}, median "
+                     f"${s['median_usd']:.4f}, total ${s['total_usd']:.4f} (ledger basis, all input uncached: "
+                     f"${s['total_usd_all_uncached']:.4f}); mean {s['seconds_mean']:.2f} s per task; stopped: "
+                     f"{end.get('stopped')}; still wrong by class: {cls}",
+            "n": f"{s['n']} tasks run"}
+
+
 def compute_cloud_cost_per_real_task(repo):
     """Cloud USD per real agent task (trajectory), no machine time: billed input (every step re-sends its full prompt)
     and output tokens per trajectory, median / p90 USD per trace set, tier (claude-haiku-5-5, claude-sonnet-5-5) and
@@ -7196,6 +7232,18 @@ NUMBER_ENTRIES = [
      "tier, mode (priced, not executed vs executed) and n. In stub mode correctness and seconds are not measured",
      "compute": compute_cloud_redo_cost_per_wrong_task, "data_files": [CLOUD_REDO_V1, X2_EVALSET_TASKS_REAL_V2],
      "script_function": "scripts/cloud_redo.py::summarize"},
+    {"claim_id": "cloud-redo-diagnosis", "description": "Why the live cloud redo fixed only part of the wrong tasks, "
+     "offline: transcript sent (full client-side history vs truncated), environment it started from, model and tier, "
+     "and each cloud failure in exactly one class (output cap, earlier-state repair, tool-round cap, grader issue, "
+     "missing information, cloud model error)",
+     "compute": compute_cloud_redo_diagnosis, "data_files": [CLOUD_REDO_V1, X2_EVALSET_TASKS_REAL_V2],
+     "script_function": "analysis/cloud_redo_diagnosis.py::compute"},
+    {"claim_id": "cloud-redo-full-context", "description": "Cloud redo rerun with the full client-side history, "
+     "claude-sonnet-5-5, caching on, thinking off and a stop on any empty reply at max_tokens (the fix the "
+     "cloud-redo-diagnosis row calls for): fix rate, USD mean / median / total, seconds, and the failure classes of "
+     "anything still wrong",
+     "compute": compute_cloud_redo_full_context, "data_files": [CLOUD_REDO_FULL_CONTEXT, X2_EVALSET_TASKS_REAL_V2],
+     "pending_ok": True, "script_function": "scripts/cloud_redo.py::run"},
     {"claim_id": "cloud-cost-per-real-task", "description": "Cloud cost per real agent task, priced, not executed: per "
      "trajectory of the uncensored traces (nebius-rebench-openhands, SWE-Gym) the billed input (each step re-sends its "
      "full prompt) and output tokens, USD median and p90 at claude-haiku-5-5 and claude-sonnet-5-5 for no caching, "

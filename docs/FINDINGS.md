@@ -5510,3 +5510,67 @@ run_start as `thinking_per_model`; temperature is the provider default for both 
 above). The pilot now also stops the job if any pilot call ends at max_tokens with no content and no tool call. Budget:
 attempts 1 and 2 spent USD 0.0659 on the ledger (ledger total 14.0931 before attempt 1, 14.1590 after attempt 2), so
 the rerun runs with a job cap of USD 14.93, keeping the whole job inside the pre-registered USD 15. max_tokens stays 384.
+
+## Cloud redo diagnosis: why the live redo fixed only 79 of 197 wrong tasks (2026-10-21, offline, no live call)
+
+Register row `cloud-redo-diagnosis` (analysis/cloud_redo_diagnosis.py::compute, over results/cloud_redo_v1.jsonl and
+results/x2_evalset_tasks_real_v2.jsonl). The executed redo (row `cloud-redo-cost-per-wrong-task`) graded 79 of 197 tasks
+correct. Before that figure is read as a cloud fix rate, this section says what was sent and why the other 118 failed.
+
+**(a) Transcript and environment sent.** scripts/cloud_redo.py::rebuild sends the local session's full client-side
+history: the system prompt, every prior user message rebuilt exactly, every prior call's assistant content and parsed
+tool calls from the source rows, every tool result recomputed, then the wrong turn's user message. This is the history
+the local harness built before Ollama truncated it server-side to num_ctx; the cloud received it untrimmed. The source
+rows keep assistant content up to 4000 characters, but no prior message reached that limit (longest 680 characters; 0 of
+197 rows with a truncated message). The rebuilt prompt's harness token estimate is 1.000 to 1.015 times the local run's
+own estimate of its untrimmed first-call prompt for that turn (the small excess is the tool-call ids and JSON of the
+provider message shape), over 2 to 178 messages. The environment is the state after the local model's earlier turns,
+its earlier wrong calls included, and before the wrong turn's own calls; it is not a clean state.
+
+**(b) Model and tier.** claude-sonnet-5-5, the price file's escalation_mid_tier (run_start model_id), max_tokens 384 per
+call (the local num_predict), prompt caching on, no thinking parameter, no temperature sent.
+
+**(c) The 118 failures, each in exactly one class (first match wins):**
+
+| Class | Count | What it is |
+|---|---|---|
+| thinking_empty_at_cap (redo protocol) | 109 | the turn ended on a tools-offered call with no visible text and no tool call: default thinking spent the 384-token output budget |
+| tool_round_cap (redo protocol) | 6 | all 4 tool rounds used, the final call (tool_choice none) did not finish the task |
+| earlier_state_repair (state left by the local model) | 3 | the cloud did the task and also undid an earlier local error; the checker counts the repair as a diff |
+| grader_issue | 0 | no failed answer holds the value in another form; every answer_ok false row has an empty final text |
+| missing_info | 0 | no prior message was truncated |
+| cloud_model_error | 0 | no failure left once the protocol classes are removed |
+| task ambiguity | 0 | not observed in any failure that produced a visible answer |
+
+Evidence for the largest class: 91 of the 109 are single-call turns whose output_tokens is exactly 384 with empty content
+and no tool call; the other 18 are multi-call turns with 561 to 1536 output tokens in total. v1 rows do not record
+finish_reason, so the cause rests on output tokens; the all-cloud B3 job (scripts/all_cloud_b3.py, THINKING_OFF) found
+that claude-sonnet-5-5 and claude-haiku-5-5 think by default and that thinking tokens count against max_tokens, which is
+the only output the harness cannot see. Examples: cust_phone_info, ollama_default seed 20260903 turn 28 (one call, 384
+output tokens, no answer text, answer_ok false); led_petty_transfer, ollama_ctx_8192 seed 20260901 turn 17 (one call,
+384 output tokens, no transfer made, so the ACC-4041 and ACC-8405 balances differ from the expected state). tool_round_cap examples:
+tkt_reassign_user, ollama_default seed 20260901 turn 20 (5 calls, T-150 and T-435 not reassigned, empty final); inv_price,
+ollama_ctx_8192 seed 20260903 turn 3, whose final text says its update_record calls failed because the value argument was
+left out (each of its 5 calls averaged about 340 output tokens, so a tool call cut by the same budget is likely; not
+confirmed per call). earlier_state_repair examples: led_close, ollama_ctx_4096 seed 20260903 turn 2 (closed ACC-6987 as
+asked, then restored closed ticket T-123 that the local model had reassigned in an earlier turn); file_write_standing,
+ollama_ctx_4096_numkeep seed 20260901 turn 11 (wrote the file correctly, then upgraded CU-314 that the local model had
+claimed but not done). The cloud treats the local model's history as its own and corrects it.
+
+**Reading.** 79 of 197 is a protocol result, not a cloud fix rate: 115 of 118 failures are redo-protocol failures
+(output budget and tool rounds) and none is attributable to missing context or to the cloud model with room to answer.
+The transcript was already the full history, so a rerun with "full context" alone would repeat v1. The rerun approved on
+2026-10-21 keeps the full history and mid tier, applies the all-cloud fix (thinking {"type": "between_tools"} for
+claude-sonnet-5-5, provider-default temperature, stop if a call ends at max_tokens with nothing visible) and records
+finish_reason per call: scripts/cloud_redo.py --thinking-off --job-cap 10 --ledger <main checkout>/results/cloud_ledger.jsonl,
+output results/cloud_redo_full_context_v1.jsonl, row `cloud-redo-full-context` (PENDING).
+
+**Projection, not run.** The approval set a USD 10 job cap and asked for an up-front refusal if the projection exceeds
+it. Projected from v1's measured per-call ledger cost (scripts/cloud_redo.py::projection_from_executed: each task's
+ledger USD per call times the larger of its v1 call count and 2.56, the mean call count of the 79 tasks v1 got right),
+the 197-task rerun is USD 21.00 on the ledger basis (every input token at the uncached rate, the basis client.py's cap
+enforces), USD 6.10 cache-priced, and USD 37.64 if every task used all 5 calls. The 118 v1 failures alone project to USD
+13.88 on the ledger basis. Both exceed USD 10, so the script refuses before sending anything; v1 itself charged USD 13.90
+to the ledger (USD 3.95 cache-priced). The ledger stood at USD 21.19 after the all-cloud job, so the point projection
+fits the USD 50 total (USD 28.81 left) but the all-rounds bound does not. The rerun waits for an operator decision on
+the job cap.

@@ -154,3 +154,82 @@ def test_live_run_refuses_projection_over_budget(tmp_path):
     with pytest.raises(SystemExit):
         CR.run(True, out=tmp_path / "o.jsonl", limit=3, client=_client(tmp_path, fake, cap=0.001))
     assert not (tmp_path / "ledger.jsonl").exists()
+
+
+# ── --thinking-off (full-context rerun of 2026-10-21) ───────────────────────────────────────────────
+
+def _resp_fr(content="", calls=(), usage=(1000, 20, 0, 0), finish="stop"):
+    r = _resp(content, calls, usage)
+    r["choices"][0]["finish_reason"] = finish
+    return r
+
+
+def test_thinking_off_sends_setting_no_temperature_and_records_finish(tmp_path):
+    seen = []
+
+    def fake(*, model_id, messages, api_key, **kw):
+        seen.append(kw)
+        return _resp_fr('{"answer": "no idea"}')
+
+    rows = CR.run(True, out=tmp_path / "o.jsonl", limit=2, client=_client(tmp_path, fake), thinking_off=True)
+    assert rows[0]["thinking_sent"] == {"type": "between_tools"} and rows[0]["temperature_sent"] is None
+    assert all(kw.get("thinking") == {"type": "between_tools"} and "temperature" not in kw for kw in seen)
+    tasks = [r for r in rows if r["record"] == "cloud_redo_task"]
+    assert len(tasks) == 2 and tasks[0]["cloud_calls"][0]["finish_reason"] == "stop"
+    assert rows[-1]["stopped"] is None
+    # written incrementally, same rows on disk
+    assert len((tmp_path / "o.jsonl").read_text().splitlines()) == len(rows)
+
+
+def test_thinking_off_stops_on_empty_reply_at_cap(tmp_path):
+    def fake(*, model_id, messages, api_key, **kw):
+        if kw["max_tokens"] == 8:
+            return _resp_fr("OK")
+        return _resp_fr("", usage=(1000, 384, 0, 0), finish="length")
+
+    rows = CR.run(True, out=tmp_path / "o.jsonl", limit=3, client=_client(tmp_path, fake), thinking_off=True)
+    tasks = [r for r in rows if r["record"] == "cloud_redo_task"]
+    assert len(tasks) == 1 and tasks[0]["empty_at_cap"] is True and tasks[0]["n_calls"] == 1
+    assert rows[-1]["record"] == "run_end" and "max_tokens" in rows[-1]["stopped"]
+
+
+def test_job_cap_refuses_on_executed_projection(tmp_path):
+    def fake(**kw):
+        raise AssertionError("must not be sent")
+
+    src = CR.load_rows(CR.SOURCE)
+    w = CR.wrong_tasks(src)[:2]
+    ex = tmp_path / "ex.jsonl"
+    ex.write_text("\n".join(json.dumps({"record": "cloud_redo_task", "mode": CR.MODE_LIVE, "attempt_id": r["attempt_id"],
+                                        "turn_idx": r["turn_idx"], "n_calls": 1, "usd_ledger": 3.0, "usd": 1.0,
+                                        "cloud_end_state_ok": i == 0}) for i, r in enumerate(w)))
+    proj = CR.projection_from_executed(w, CR.load_rows(ex))
+    assert proj["n_matched"] == 2 and proj["ledger_usd"] == 6.0
+    with pytest.raises(SystemExit, match="job cap"):
+        CR.run(True, out=tmp_path / "o.jsonl", limit=2, client=_client(tmp_path, fake), thinking_off=True,
+               job_cap=5.0, executed_file=ex)
+    assert not (tmp_path / "ledger.jsonl").exists()
+
+
+def test_main_thinking_off_default_output_and_job_cap_client(monkeypatch, tmp_path):
+    got = {}
+    monkeypatch.setenv(CR.KEY_ENV, "test-not-a-key")
+    led = tmp_path / "ledger.jsonl"
+
+    def fake_run(live, source, out, **kw):
+        got.update(kw, out=out)
+        return [{"record": "run_end", "stopped": None}]
+
+    class FakeClient:
+        def __init__(self, mode, spend_cap_usd=None, ledger_path=None, **kw):
+            self.mode, self.spend_cap_usd, self.ledger_path = mode, spend_cap_usd, ledger_path
+
+        def _read_running_total(self):
+            return 21.0
+
+    monkeypatch.setattr(CR, "run", fake_run)
+    monkeypatch.setattr(CR.cc, "CloudClient", FakeClient)
+    assert CR.main(["--live", "--thinking-off", "--job-cap", "10", "--ledger", str(led)]) == 0
+    assert got["out"] == CR.OUT_FULL_CONTEXT and got["thinking_off"] is True and got["job_cap"] == 10.0
+    assert got["client"].spend_cap_usd == 31.0 and got["client"].ledger_path == led
+    assert got["ledger_total_at_start"] == 21.0 and got["executed_file"] == CR.V1_EXECUTED
