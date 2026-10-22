@@ -80,3 +80,6 @@ reports/*.pdf
 # OS
 .DS_Store
 Thumbs.db
+
+# Time-bounded sync window written by harness/t2s_deadline.py open-window (controller-local state)
+.sync_host_window.json

@@ -34,6 +34,7 @@ CONTROLLER_SCRIPTS = [
     REPO / "harness" / "blade_telemetry.py",
     REPO / "harness" / "blade_spill_sweep.py",
     REPO / "harness" / "window_override_methods.py",   # Blade night 4 job (also evo-x2 / evo-t2s)
+    REPO / "harness" / "t2s_deadline.py",              # open-window runs on the controller (ssh via run_hidden)
 ]
 # Controller-side scripts that start no process at all (checked: no subprocess use of their own); listed so the bare-
 # call grep still covers them if one is ever added. The Blade night 3 B5 job starts Ollama only through
