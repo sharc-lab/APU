@@ -5610,6 +5610,18 @@ def compute_cloud_redo_full_context(repo, path=CLOUD_REDO_FULL_CONTEXT, part2=CL
             "n": f"{len(tasks)} tasks run of {n_all}"}
 
 
+def compute_cloud_spend_billed_vs_upper_bound(repo):
+    """Cloud spend so far, billed (provider usage fields: cache reads at the hit rate, 5m cache writes) vs the
+    upper bound the ledger recorded before 2026-10-22 (every input token uncached), per job; calls with no usage on
+    file are counted at the upper bound (analysis/cloud_spend_billed.py)."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("cloud_spend_billed", repo / "analysis" / "cloud_spend_billed.py")
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    res = m.compute([repo])
+    return {"value": m.summary_value(res), "n": f"{res['ledger_calls']} ledger calls, {len(res['jobs'])} job files"}
+
+
 def compute_cloud_cost_per_real_task(repo):
     """Cloud USD per real agent task (trajectory), no machine time: billed input (every step re-sends its full prompt)
     and output tokens per trajectory, median / p90 USD per trace set, tier (claude-haiku-5-5, claude-sonnet-5-5) and
@@ -7419,6 +7431,14 @@ NUMBER_ENTRIES = [
      "data_files": [CLOUD_REDO_FULL_CONTEXT, CLOUD_REDO_FULL_CONTEXT_PART2,
                     "results/cloud_redo_full_context_v1_part3.jsonl", X2_EVALSET_TASKS_REAL_V2],
      "pending_ok": True, "script_function": "scripts/cloud_redo.py::run"},
+    {"claim_id": "cloud-spend-billed-vs-upper-bound", "description": "Cloud spend so far, billed cost from the "
+     "recorded provider usage (cache reads, 5m cache writes, each at its own rate in the shared price file) vs the "
+     "every-input-uncached upper bound the ledger recorded, per job; calls whose usage is not on file count at the "
+     "upper bound",
+     "compute": compute_cloud_spend_billed_vs_upper_bound,
+     "data_files": ["results/cloud_ledger.jsonl", CLOUD_REDO_V1, "results/cloud_redo_full_context_v1*.jsonl",
+                    "results/all_cloud_b3_v1*.jsonl", "results/cloud_prices_anthropic_20261014.json"],
+     "script_function": "analysis/cloud_spend_billed.py::compute"},
     {"claim_id": "cloud-cost-per-real-task", "description": "Cloud cost per real agent task, priced, not executed: per "
      "trajectory of the uncensored traces (nebius-rebench-openhands, SWE-Gym) the billed input (each step re-sends its "
      "full prompt) and output tokens, USD median and p90 at claude-haiku-5-5 and claude-sonnet-5-5 for no caching, "

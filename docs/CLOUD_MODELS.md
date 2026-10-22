@@ -18,8 +18,15 @@ cap, the ledger and the analysis all use one set of list prices.
   `MODEL_PRICING` row names its `price_file`.
 - Rates: Standard tier, short context (long-context rates above the file's
   boundary when it has them). `estimate_cost_usd()` charges every input token
-  at the uncached input rate, so the cap check and the ledger are an upper
-  bound on real spend: cache-read discounts are never credited.
+  at the uncached input rate (the upper bound). Since 2026-10-22 the ledger's
+  `cost_usd` and `running_total_usd`, the USD 50 cap and the spend alerts use
+  the BILLED cost from the call's usage fields (`billed_cost_usd()`: cache
+  reads at the hit rate, cache writes at the 5-minute rate unless the call used
+  the 1-hour TTL); `cost_usd_upper_bound` and `running_total_usd_upper_bound`
+  keep the upper bound on every new row. The pre-call cap check still reserves
+  the upper bound (cache hits are unknown before a call; a request with
+  `cache_control` reserves the all-cache-write price if that is higher). Rows
+  written before 2026-10-22 carry only the upper bound and count at it.
 - Tier map: `CLOUD_MODELS = {"cheap", "strong"}` is the preferred provider's
   `selection` block. Anthropic is preferred once its price file exists; until
   then the OpenAI file's selection applies: cheap `gpt-6-luna`, strong
