@@ -669,6 +669,24 @@ class CloudClient:
             return _openai_send
         return _default_completion_fn
 
+    def count_tokens(self, *, model_id: str, messages: list[dict[str, Any]], count_fn: Callable[..., int] | None = None) -> int:
+        """Anthropic messages.count_tokens for one request (input tokens on Anthropic's tokenizer). Not billed, so no
+        spend reservation and no ledger row; the caller records the call. Real mode only (a stub has no tokenizer to
+        ask), host check, Anthropic models only, key provider must match. count_fn (tests) replaces the SDK call."""
+        if self.stub_mode:
+            raise MissingApiKeyError("count_tokens needs a real-mode client (Anthropic's tokenizer is only remote)")
+        check_host_allowed(self._hostname, self._role_override)
+        if MODEL_PRICING.get(model_id, {}).get("provider") != "anthropic":
+            raise UnknownModelError(f"count_tokens is for Anthropic models in the shared price files, got '{model_id}'")
+        key_provider = KEY_ENV_PROVIDER.get(self.api_key_source or "")
+        if key_provider is not None and key_provider != "anthropic":
+            raise HostRestrictionError(f"key from {self.api_key_source} is not an Anthropic key")
+        if count_fn is not None:
+            return int(count_fn(model_id=model_id, messages=messages))
+        import anthropic  # deferred: only the real count path needs the SDK
+        sdk = anthropic.Anthropic(api_key=self.api_key)
+        return int(sdk.messages.count_tokens(model=model_id, messages=messages).input_tokens)
+
     def prepare(
         self,
         *,

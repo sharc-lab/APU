@@ -5495,8 +5495,8 @@ def compute_cloud_redo_full_context(repo, path=CLOUD_REDO_FULL_CONTEXT):
 def compute_cloud_cost_per_real_task(repo):
     """Cloud USD per real agent task (trajectory), no machine time: billed input (every step re-sends its full prompt)
     and output tokens per trajectory, median / p90 USD per trace set, tier (claude-haiku-5-5, claude-sonnet-5-5) and
-    caching case (none, realistic ASSUMPTION hit rate 0.7, best). Output per step is a labelled stand-in
-    (analysis/cloud_task_cost.py)."""
+    caching case (none, realistic ASSUMPTION hit rate 0.7, best). Output per step measured from the traces; counts
+    calibrated Anthropic/qwen per set from messages.count_tokens (analysis/cloud_task_cost.py)."""
     import importlib.util
     spec = importlib.util.spec_from_file_location("cloud_task_cost", repo / "analysis" / "cloud_task_cost.py")
     ct = importlib.util.module_from_spec(spec)
@@ -7249,10 +7249,12 @@ NUMBER_ENTRIES = [
     {"claim_id": "cloud-cost-per-real-task", "description": "Cloud cost per real agent task, priced, not executed: per "
      "trajectory of the uncensored traces (nebius-rebench-openhands, SWE-Gym) the billed input (each step re-sends its "
      "full prompt) and output tokens, USD median and p90 at claude-haiku-5-5 and claude-sonnet-5-5 for no caching, "
-     "realistic caching (ASSUMPTION hit rate 0.7) and best-case caching; output per step is a labelled stand-in",
+     "realistic caching (ASSUMPTION hit rate 0.7) and best-case caching; output per step measured from the traces; "
+     "token counts calibrated to Anthropic's tokenizer (messages.count_tokens, 20 tasks per set)",
      "compute": compute_cloud_cost_per_real_task,
-     "data_files": ["results/traces/agent_step_lengths.parquet", "results/cloud_prices_anthropic_20261014.json",
-                    "results/x2_r2_real_v1.jsonl"],
+     "data_files": ["results/traces/agent_step_lengths.parquet", "results/traces/agent_step_outputs.parquet",
+                    "results/anthropic_token_calibration_20261021.jsonl",
+                    "results/cloud_prices_anthropic_20261014.json"],
      "script_function": "analysis/cloud_task_cost.py::compute"},
 
     {"claim_id": "all-cloud-b3-quality", "description": "All-cloud baseline: the 30 B3 v2 tasks run fully on "
