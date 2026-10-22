@@ -369,6 +369,21 @@ Facts and changes: `results/t2s_window_20261015_preflight.json`, `docs/T2S_CHANG
 
 ## Staged for 2026-10-26 to 2026-11-08 (pending Zach's confirmation; NOT loaded)
 
+**Update 2026-10-22 (operator decision: per-cell policy sets, qwen3:14b staged without (b)).** The llama3.1:8b cells
+keep a, b, c, d, e, f; the qwen3:14b cell on the Intel CPU at 4096 runs a, c, d, e, f at 3 seeds. Each B5 entry passes
+its own `--policies` (`scripts/t2s_week_queue.oct26_cell_policies`). Pasted from [t2s-b5-plan-hours] (ESTIMATES; B5
+from measured evo-t2s session minutes, [t2s-r2-session-minutes]): "launch budget 311.0 h (24.0 h slack before
+no-launch)"; "t2s_o26_b5_cpu_llama31_8b [policies a,b,c,d,e,f] 87.3 h (yes; ends 87.6 h, 247.4 h before no-launch ...)";
+"t2s_o26_b5_igpu_llama31_8b [policies a,b,c,d,e,f] 85.9 h (yes; ends 173.5 h, 161.5 h before no-launch ...)";
+"t2s_o26_b5_cpu_qwen3_14b [policies a,c,d,e,f] 37.3 h (yes; ends 210.8 h, 124.2 h before no-launch; 12.0 h/seed, 3 of
+3 seeds fit, cell counts yes (first 3 seeds))"; "t2s_o26_b6_model_pull 1.0 h (yes; ends 211.8 h, 123.2 h before
+no-launch)"; "t2s_o26_b6_val_cpu 34.6 h (yes; ends 246.4 h, 88.6 h before no-launch)"; "t2s_o26_b6_val_igpu 17.3 h
+(yes; ends 263.7 h, 71.3 h before no-launch)"; B6 not staged: "t2s_o26_b6_real_cpu_4096 105.5 h (does not fit: 105.5 h
+from 263.7 h ends at 369.2 h, budget 311.0 h)" and "t2s_o26_b6_real_igpu_default 299.0 h (does not fit ...)". So the
+queue is preflight, A5, the three B5 cells, the B6 pull and the two B6 validations; the B6 real runs are future work
+for this window. Dated amendment: docs/FINDINGS.md "AMENDMENT 2026-10-22 to the B5-on-evo-t2s pre-registration". The
+updates below are superseded where they differ.
+
 **Update 2026-10-21 (later): (b) kept, qwen3:14b at 3 seeds if it fits, 24 h slack, B6 fills the rest.** The evo-t2s
 B5 policy set is a, b, c, d, e, f (each entry passes `--policies a,b,c,d,e,f`). Every estimated entry must end within
 the launch budget, which is the available hours minus 24 h before the no-launch time. Pasted from [t2s-b5-plan-hours]
