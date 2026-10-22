@@ -99,6 +99,14 @@ ENTRIES = {
                 "qwen3:14b, seeds 20260901-05, pre-registered in docs/FINDINGS.md 2026-10-22. ESTIMATE 26.11 h "
                 "(register row x2-queue-fill-1022-hours). " + RELEASE,
     },
+    "x2_r2_v1b_seeds_06_10": {
+        "projected_duration_h": 30.44,
+        "cmd": [PY, "r2v1b\\x2_r2_v1b_seeds.py"],
+        "note": "R2 at 10 seeds on the v1b harness blob (a4c4a928): reproduction check first (llama3.1:8b num_ctx 4096 "
+                "seed 20260904 vs x2_r2_real_v1b, identical final text on every turn, else stop), then llama3.1:8b and "
+                "qwen3:14b at default/16384/8192/4096, seeds 20260906-10; pre-registered in docs/FINDINGS.md "
+                "2026-10-22 (b19be61). ESTIMATE 30.44 h (register row x2-queue-fill-1022-hours). " + RELEASE,
+    },
 }
 
 

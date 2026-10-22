@@ -5522,6 +5522,91 @@ def compute_b5_sim_constraint(repo):
 
 
 
+R2_V1B_SEEDS_FILE = "results/x2_r2_v1b_seeds_06_10.jsonl"
+R2_V1B_REPRO_FILE = "results/x2_r2_v1b_repro_check.jsonl"
+V1B_AGENT_BLOB = "a4c4a928fc7a9b6ac985d473b789b41b9a4b1c12"
+V1B10_MODELS = ("llama3.1:8b", "qwen3:14b")
+V1B10_TIERS = ("num_ctx_16384", "num_ctx_8192", "num_ctx_4096")
+V1B10_NEW_SEEDS = (20260906, 20260907, 20260908, 20260909, 20260910)
+
+
+def excess_reading(lo, hi, tier) -> str:
+    """The pre-registered reading of an excess CI (docs/FINDINGS.md 2026-10-22, R2 at 10 seeds on the v1b blob)."""
+    if lo is not None and lo > 0:
+        return f"excess at {tier}"
+    if hi is not None and hi < 0:
+        return f"lower at {tier} than at the default"
+    return f"no excess shown at {tier}"
+
+
+def compute_r2_v1b_excess_10seed(repo):
+    """R2 window result pooled over 10 seeds (v1/v1b seeds 20260901-05 + seeds 20260906-10 run on the v1b blob):
+    per model and tier the gated after-window silent sessions, the excess over the default with the v1b bootstrap,
+    the pre-registered reading, a sign-reversal flag against the 5-seed excess, the new seeds alone, the CI width at 5
+    and 10 seeds, and validity (reproduction check, blob, sessions)."""
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "analysis"))
+    import r2_real_report as rr
+    ag = _r2_agent_module()
+    new = ag.read_rows(repo / R2_V1B_SEEDS_FILE)
+    if not new:
+        raise FileNotFoundError(repo / R2_V1B_SEEDS_FILE)
+    rep_rows = ag.read_rows(repo / R2_V1B_REPRO_FILE)
+    vpaths = [repo / R2_VALIDATION_V2_FILE, repo / R2_VALIDATION_V2B_FILE]
+    rep10 = rr.build_combined([repo / R2_REAL_V1_FILE, repo / R2_REAL_V1B_FILE, repo / R2_V1B_SEEDS_FILE],
+                              validation_paths=vpaths)
+    rep5 = rr.build_combined([repo / R2_REAL_V1_FILE, repo / R2_REAL_V1B_FILE], validation_paths=vpaths)
+    repn = rr.build_combined([repo / R2_V1B_SEEDS_FILE], validation_paths=vpaths)
+    x10, x5 = rr.excess_over_default(rep10), rr.excess_over_default(rep5)
+    problems = []
+    if not any(r.get("record") == "run_end" for r in new):
+        problems.append("no run_end")
+    chk = [r for r in rep_rows if r.get("record") == "repro_check"]
+    if not chk or not chk[-1].get("pass"):
+        problems.append("reproduction check " + ("missing" if not chk else f"failed ({chk[-1].get('reason')})"))
+    starts = [r for r in new if r.get("record") == "run_start"]
+    blob = ((starts[-1].get("harness_provenance") or {}).get("agent_blob") if starts else None)
+    if blob != V1B_AGENT_BLOB:
+        problems.append(f"run_start agent blob {blob} != {V1B_AGENT_BLOB}")
+    for m in V1B10_MODELS:
+        if any(r.get("record") == "refused_model" and r.get("model_id") == m for r in new):
+            problems.append(f"{m} refused")
+    sess = [s for s in ag.completed_sessions(new) if s.get("mode") == "real"]
+    turns = {}
+    for r in new:
+        if r.get("record") == "r2a_turn":
+            turns[r["attempt_id"]] = turns.get(r["attempt_id"], 0) + 1
+    for m in V1B10_MODELS:
+        for arm in ("ollama_default", "ollama_ctx_16384", "ollama_ctx_8192", "ollama_ctx_4096"):
+            got = sorted(s["seed"] for s in sess if s["model_id"] == m and s["arm_id"] == arm + "_call2_notools"
+                         and turns.get(s["attempt_id"]) == 40)
+            if got != list(V1B10_NEW_SEEDS):
+                problems.append(f"{m} {arm}: 40-turn sessions for seeds {got}")
+    valid = not problems
+    parts = [f"valid {valid}" + (f" ({'; '.join(problems)})" if problems else "")]
+    for m in V1B10_MODELS:
+        segs = []
+        for t in V1B10_TIERS:
+            v, v5 = x10["per_tier"][t][m], x5["per_tier"][t][m]
+            lo, hi = v["ci95"]
+            lo5, hi5 = v5["ci95"]
+            cn = repn["table"].get(f"{t}|{m}")
+            new_s = (f"{sum(1 for e in cn['sessions'] if e['after_window_exceeded'])}/{cn['n']}" if cn else "n/a")
+            rev = (t in ("num_ctx_8192", "num_ctx_4096") and v["excess"] < 0 < v5["excess"])
+            segs.append(f"{t} {round(v['rate'] * v['n_tier'])}/{v['n_tier']} vs default "
+                        f"{round(v['default_rate'] * v['n_default'])}/{v['n_default']}, excess {v['excess']:+.3f} "
+                        f"(95% CI {lo:+.3f} to {hi:+.3f}; 5-seed {v5['excess']:+.3f}, CI width {hi5 - lo5:.3f} -> "
+                        f"{hi - lo:.3f}); new seeds alone {new_s}; reading: "
+                        + (excess_reading(lo, hi, t) if valid else "not read (run not valid)")
+                        + (f"; sign reversed at {t} for {m}" if rev and valid else ""))
+        parts.append(f"{m}: " + "; ".join(segs))
+    return {"value": "; ".join(parts) + f" (bootstrap {x10['n_resamples']} resamples, unit {x10['unit']}, stratified "
+                                        f"by {x10['strata']}, seed {x10['seed']})",
+            "n": f"{rep10['n_sessions']} sessions pooled"}
+
+
+
+
 def compute_num_keep_qwen3_14b(repo):
     """x2_num_keep_qwen3_14b: the num_keep guardrail test's measures and pre-registered verdict for qwen3:14b
     (harness/x2_num_keep.verdict with model qwen3:14b)."""
@@ -6467,6 +6552,12 @@ NUMBER_ENTRIES = [
      "and cloud USD, the frontier, and B5's pre-registered verdict rule with the caps as platforms",
      "compute": compute_b5_sim_constraint, "data_files": list(B5_SIMCAP_FILES.values()), "pending_ok": True,
      "script_function": "harness/policy_compare.py::b5_verdict"},
+    {"claim_id": "R2-v1b-excess-10seed", "description": "R2 window result pooled over 10 seeds per cell (v1/v1b seeds "
+     "20260901-05 plus seeds 20260906-10 on the v1b harness blob after a passed reproduction check): llama3.1:8b and "
+     "qwen3:14b, excess over the default at 16384/8192/4096 with the v1b bootstrap, pre-registered readings, "
+     "sign-reversal flag, new seeds alone, CI widths, validity",
+     "compute": compute_r2_v1b_excess_10seed, "data_files": [R2_V1B_SEEDS_FILE, R2_V1B_REPRO_FILE] + R2_V1B_DATA,
+     "pending_ok": True, "script_function": "analysis/numbers_register.py::compute_r2_v1b_excess_10seed"},
     {"claim_id": "x2-scale-real-default-tier", "description": "H-scale real job, Ollama default tier: completed "
      "default-tier sessions per model (turns, wall hours, loaded context, first over-window turn)",
      "compute": compute_x2_scale_real_default_tier, "data_files": [X2_SCALE_REAL],
