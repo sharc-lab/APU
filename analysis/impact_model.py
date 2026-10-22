@@ -1017,11 +1017,14 @@ def session_time_value(res) -> str:
 # ── impact v2 (operator priority override, 2026-10-21 18:30) ───────────────────────────────────────────────────
 # One customer profile, stated explicitly (V2_PROFILE). P1 = measured excess wrong-task rate (B3 v2 task real run,
 # qwen3:14b, session-level bootstrap CI: register rows x2-evalset-tasks-real-v2-wrong-rate and
-# x2-evalset-tasks-real-v2-ci-units) x (cloud-redo cost per wrong task [row cloud-redo-cost-per-wrong-task, a named
-# PENDING input until it is in the register] + the measured wall time of the wrong task turn, valued 0 to the full
-# hour value). P2 = measured minutes saved per session by configuration [row cost-cut-config-time, PENDING]. P3 as
-# in v1. P4 to P7: the v1 row functions at the same profile. Every row carries a status: measured / mixed / assumed /
-# PENDING / not measured. A PENDING input is never replaced by a number.
+# x2-evalset-tasks-real-v2-ci-units) x (cloud-redo cost per wrong task, per tier [row cloud-redo-cost-per-wrong-task;
+# tagged "priced, not executed" while that row is in stub mode, "measured" once a live redo replaces it] + the measured
+# wall time of the wrong task turn, valued 0 to the full hour value). P2 = measured minutes saved per session by the
+# fastest measured B5 setting for the profile model [row cost-cut-config-time] x sessions/day x hour value. P3 as in
+# v1. P4 to P7: the v1 row functions at the same profile. Every row carries a status: measured / mixed / assumed /
+# PENDING / not measured. An input whose register row is not VERIFIED stays PENDING and is never replaced by a number;
+# compute_v2 reads both inputs from the same data functions as their register rows, so regeneration picks up a live
+# cloud redo or the flash-attention control (row b5-fa-control) without a code change.
 
 B3_V2_REAL_FILE = "results/x2_evalset_tasks_real_v2.jsonl"
 B3_V2_MODEL = "qwen3:14b"
@@ -1030,6 +1033,11 @@ V2_PENDING = {
     "cloud-redo-cost-per-wrong-task": "USD to redo one wrong task in the cloud (P1)",
     "cost-cut-config-time": "minutes saved per session by configuration, flash-attention control on evo-x2 (P2)",
 }
+CLOUD_TAG_STUB, CLOUD_TAG_LIVE = "priced, not executed", "measured"
+P2_CAVEAT_FA_PENDING = ("caveat: the B5 default ran without flash attention, so the saving may be flash attention or KV "
+                        "precision; the flash-attention control (row b5-fa-control, PENDING) decides which")
+P2_CAVEAT_FA_INCLUDED = ("the flash-attention control (row b5-fa-control) is in the comparison; its reading says whether "
+                         "the saving is flash attention or KV precision")
 V2_PROFILE = {
     "name": "impact-v2 profile",
     "device": "evo-x2", "model": B3_V2_MODEL, "runtime": "ollama_ctx_4096",
@@ -1098,25 +1106,29 @@ def p1_v2(repo=REPO, profile=None, inputs=None) -> dict:
     profile = profile or v2_profile(repo)
     inputs = inputs or {}
     wt = inputs.get("b3v2") or b3_v2_wrong_task(repo)
-    redo = inputs.get("redo_usd")   # USD per wrong task; None while cloud-redo-cost-per-wrong-task is PENDING
+    # USD per wrong task: a float (every tier) or {tier: USD}; None while cloud-redo-cost-per-wrong-task is PENDING.
+    redo = inputs.get("redo_usd")
+    cloud_tag = inputs.get("redo_tag", CLOUD_TAG_STUB) if redo is not None else None
     hv, spd = hour_value(profile), sessions_per_day(profile)
     grid = {}
     for t in B3_V2_TIERS:
         v = wt.get(t)
         if not v:
             continue
-        c, tm = cost_p1_v2(spd, v["tasks_per_session"], v["excess"], redo, v["wrong_turn_wall_s"], hv)
-        _c_lo, tm_lo = cost_p1_v2(spd, v["tasks_per_session"], v["ci95"][0], redo, v["wrong_turn_wall_s"], hv)
-        _c_hi, tm_hi = cost_p1_v2(spd, v["tasks_per_session"], v["ci95"][1], redo, v["wrong_turn_wall_s"], hv)
+        r_t = redo.get(t) if isinstance(redo, dict) else redo
+        c, tm = cost_p1_v2(spd, v["tasks_per_session"], v["excess"], r_t, v["wrong_turn_wall_s"], hv)
+        c_lo, tm_lo = cost_p1_v2(spd, v["tasks_per_session"], v["ci95"][0], r_t, v["wrong_turn_wall_s"], hv)
+        c_hi, tm_hi = cost_p1_v2(spd, v["tasks_per_session"], v["ci95"][1], r_t, v["wrong_turn_wall_s"], hv)
         grid[t] = dict(v, wrong_per_day=spd * v["tasks_per_session"] * max(0.0, v["excess"]), cloud_usd_day=c,
-                       time_usd_day=tm, time_usd_day_ci=(tm_lo, tm_hi))
+                       cloud_usd_day_ci=(c_lo, c_hi), redo_usd=r_t, time_usd_day=tm, time_usd_day_ci=(tm_lo, tm_hi))
     cell = grid.get(profile["assumptions"]["runtime"])
-    pending = [] if redo is not None else ["cloud-redo-cost-per-wrong-task"]
+    cloud = None if cell is None else cell["cloud_usd_day"]
+    pending = [] if cloud is not None else ["cloud-redo-cost-per-wrong-task"]
     time_hi = None if cell is None else cell["time_usd_day"]
-    usd = None if cell is None else (time_hi if redo is None else time_hi + cell["cloud_usd_day"])
+    usd = None if cell is None else (time_hi if cloud is None else time_hi + cloud)
     return {"id": "P1", "usd_day": usd, "lower_bound_only": bool(pending), "pending": pending, "cell": cell,
-            "grid": grid, "status": "mixed", "low": 0.0 if redo is None or cell is None else cell["cloud_usd_day"],
-            "high": usd}
+            "grid": grid, "status": "mixed", "cloud_tag": cloud_tag if cloud is not None else None,
+            "low": 0.0 if cloud is None else cloud, "high": usd}
 
 
 def v2_rows(repo=REPO, base_profile=None, inputs=None) -> dict:
@@ -1125,19 +1137,30 @@ def v2_rows(repo=REPO, base_profile=None, inputs=None) -> dict:
     inputs = inputs or {}
     prof = v2_profile(repo, base_profile)
     out = {"P1": p1_v2(repo, prof, inputs.get("P1"))}
-    p2pending = inputs.get("P2_minutes_saved") is None
-    out["P2"] = {"id": "P2", "usd_day": None, "low": None, "high": None, "status": "PENDING",
-                 "pending": ["cost-cut-config-time"] if p2pending else [], "cell": None}
-    if not p2pending:
-        m = inputs["P2_minutes_saved"]
-        u = sessions_per_day(prof) * max(0.0, m) / 60.0 * hour_value(prof)
-        out["P2"].update(usd_day=u, low=0.0, high=u, status="mixed", pending=[])
+    out["P2"] = p2_v2(prof, inputs.get("P2"))
     v1 = model_rows(repo, prof, inputs=inputs.get("v1"))
     for k in ("P3", "P4", "P5", "P6", "P7"):
         r, au = v1[k], v1[k]["audit"]
         out[k] = {"id": k, "usd_day": r["usd_day"], "low": au["low"], "high": au["high"], "status": au["status"],
                   "pending": [], "cell": r.get("cell"), "config": r.get("config")}
     return {"profile": prof, "rows": out}
+
+
+def p2_v2(profile, cc=None) -> dict:
+    """P2 at the v2 profile: measured minutes saved per session by the fastest measured B5 setting for the profile model
+    (cost_cut_config_time_data shape: {"models": {model: {"saved_min", ...}}, "fa_included"}) x sessions/day (ASSUMED)
+    / 60 x hour value; range 0 (nobody waits) to the full hour value. PENDING while the row or the model is missing."""
+    model = profile["assumptions"]["model"]
+    x = ((cc or {}).get("models") or {}).get(model)
+    r = {"id": "P2", "usd_day": None, "low": None, "high": None, "status": "PENDING",
+         "pending": ["cost-cut-config-time"], "cell": None}
+    if x is None:
+        return r
+    u = sessions_per_day(profile) * max(0.0, x["saved_min"]) / 60.0 * hour_value(profile)
+    caveat = (P2_CAVEAT_FA_INCLUDED if cc.get("fa_included") else P2_CAVEAT_FA_PENDING)
+    r.update(usd_day=u, low=0.0, high=u, status="mixed", pending=[], cell=dict(x, model=model), caveat=caveat,
+             fa_included=bool(cc.get("fa_included")))
+    return r
 
 
 def v2_ranking(rows: dict) -> list:
@@ -1149,6 +1172,14 @@ def v2_split(rows: dict) -> dict:
     for k, r in rows.items():
         s.setdefault(r["status"], []).append(k)
     return s
+
+
+def p2_v2_value(r) -> str:
+    """Text for P2 inside the ranking row."""
+    x = r["cell"]
+    return (f"{x['saved_min']:.1f} min saved per session (MEASURED, cost-cut-config-time: {x['model']} default (a) "
+            f"{x['default_min']:.1f} min vs ({x['best']}) {x['best_name']} {x['best_min']:.1f} min) x sessions/day "
+            f"(ASSUMED volume) x hour value; {r['caveat']}")
 
 
 def p1_v2_value(res) -> str:
@@ -1163,15 +1194,21 @@ def p1_v2_value(res) -> str:
                      f"excess wrong tasks/day, wrong-turn wall {v['wrong_turn_wall_s']:.1f} s; time USD/day 0.00 to "
                      f"{f(v['time_usd_day'])} (CI {f(v['time_usd_day_ci'][0])} to {f(v['time_usd_day_ci'][1])}); "
                      f"cloud redo USD/day "
-                     + ("PENDING (cloud-redo-cost-per-wrong-task)" if v["cloud_usd_day"] is None else f(v["cloud_usd_day"])))
+                     + ("PENDING (cloud-redo-cost-per-wrong-task)" if v["cloud_usd_day"] is None else
+                        f"{f(v['cloud_usd_day'])} (USD {v['redo_usd']:.4f} per wrong task, {r['cloud_tag']}; CI "
+                        f"{f(v['cloud_usd_day_ci'][0])} to {f(v['cloud_usd_day_ci'][1])})"))
     a = prof["assumptions"]
     return (f"profile {a['device']} {a['model']} {a['runtime']}, {sessions_per_day(prof):.0f} sessions/day (ASSUMED "
             f"volume), hour value USD {hour_value(prof):.2f} (impact-hour-value); status {r['status']}"
-            + (", lower bound only (cloud redo part PENDING)" if r["lower_bound_only"] else "")
+            + (", lower bound only (cloud redo part PENDING)" if r["lower_bound_only"] else
+               f", cloud part {r['cloud_tag']}")
             + f"; profile cell USD/day {_rng(r['low'], r['high'])}; " + "; ".join(parts)
             + "; measured: excess rate and its CI (x2-evalset-tasks-real-v2-wrong-rate, x2-evalset-tasks-real-v2-ci-"
-              "units), task turns per session, wrong-turn wall time; assumed: volume, who waits (0 to full hour "
-              "value), a wrong task costs one cloud redo plus the wasted turn (time to notice not counted)")
+              "units), task turns per session, wrong-turn wall time"
+            + ("" if r["lower_bound_only"] else
+               f"; {r['cloud_tag']}: cloud redo USD per wrong task, per tier (cloud-redo-cost-per-wrong-task)")
+            + "; assumed: volume, who waits (0 to full hour value), a wrong task costs one cloud redo plus the wasted "
+              "turn (time to notice not counted)")
 
 
 def ranking_v2_value(res) -> str:
@@ -1184,6 +1221,10 @@ def ranking_v2_value(res) -> str:
         tag = r["status"] + (f", PENDING inputs {', '.join(r['pending'])}" if r["pending"] else "")
         if r.get("lower_bound_only"):
             tag += ", lower bound"
+        if r.get("cloud_tag"):
+            tag += f", cloud part {r['cloud_tag']}"
+        if k == "P2" and r["usd_day"] is not None:
+            tag += "; " + p2_v2_value(r)
         lines.append(f"{k} {_fmt_usd(r['usd_day']) if r['usd_day'] is not None else ('PENDING' if r['status'] == 'PENDING' else NOT_MEASURED)}"
                      f" (range {_rng(r['low'], r['high']) if r['usd_day'] is not None else 'n/a'}; {tag})")
     split = v2_split(rows)
@@ -1198,12 +1239,22 @@ def ranking_v2_value(res) -> str:
 
 
 def compute_v2(repo=REPO) -> dict:
+    return v2_rows(repo, inputs=v2_inputs(repo))
+
+
+def v2_inputs(repo=REPO) -> dict:
+    """The two register-backed inputs, read only when their register row is VERIFIED (otherwise they stay PENDING),
+    from the same data functions the rows use: cloud redo USD per wrong task per tier (tagged by the row's mode) for
+    P1, minutes saved per session by configuration for P2."""
+    import numbers_register as nr
     inputs = {}
-    # A PENDING input stays None: no number is read for it until its register row exists and is wired here.
-    for cid in V2_PENDING:
-        if register_has(repo, cid):
-            pass  # present in the register: wire its value in here (not yet: the row's value format is not fixed)
-    return v2_rows(repo, inputs=inputs)
+    if register_has(repo, "cloud-redo-cost-per-wrong-task"):
+        d = nr.cloud_redo_data(Path(repo))
+        inputs["P1"] = {"redo_usd": {t: v["mean_usd"] for t, v in d["per_tier"].items() if v["mean_usd"] is not None},
+                        "redo_tag": CLOUD_TAG_STUB if d["stub"] else CLOUD_TAG_LIVE}
+    if register_has(repo, "cost-cut-config-time"):
+        inputs["P2"] = nr.cost_cut_config_time_data(Path(repo))
+    return inputs
 
 
 # ── docs/IMPACT.md generated block ──────────────────────────────────────────────────────────────────────────────
