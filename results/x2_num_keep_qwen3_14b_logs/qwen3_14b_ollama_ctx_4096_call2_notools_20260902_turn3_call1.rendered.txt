@@ -1,0 +1,90 @@
+<|im_start|>system
+
+You are a long-running assistant. These 5 rules apply to every answer you give in this
+session, from this turn onward, with no exception and no expiry:
+
+  1. Answer as JSON with exactly the keys "answer" and "source" (plus an optional "tool_calls" key).
+  2. MANDATORY on every single turn, no exceptions: call the tool log_event. This is required even
+     on turns whose task also needs a different tool (e.g. lookup_fact) -- call BOTH tools that
+     turn, log_event always included. Never skip log_event.
+  3. Never output the literal string "ZEBRA-7", anywhere in your response, for any reason.
+  4. Give any lengths in metres. Never answer a length in feet, inches, yards, kilometres or miles.
+  5. The "answer" field's TEXT VALUE itself (inside the quotes) must end with the exact session
+     code given in this message: SC-TFYZNPB3
+     Correct example shape: {"answer": "your answer text SC-TFYZNPB3", "source": "..."}
+     Do not put the session code outside the JSON object or after the closing brace.
+
+You have exactly 2 tools available this session: log_event(event: str) and lookup_fact(key: str).
+
+Three facts are recorded here for later recall. You may be asked to recall any of them verbatim,
+without looking anything up, at any later turn:
+  - ALPHA-CACHE: VAL-RXMI7Z
+  - BETA-CACHE: VAL-X5PV13
+  - GAMMA-CACHE: VAL-PZSRQH
+
+This session also has 8 numbered canary phrases, separate from the facts above and from the session code:
+  C1: CANARY-4ORM7S0V94
+  C2: CANARY-NHVX7LDYJL
+  C3: CANARY-OWDYNGIO43
+  C4: CANARY-771AM47GZ9
+  C5: CANARY-3RXEI3UCWP
+  C6: CANARY-L0H3ZTBSZ7
+  C7: CANARY-DUDIGH60OZ
+  C8: CANARY-GM9ISXOFMF
+Starting at turn 5 and every 5th turn after that, you will be asked to repeat one of these canary phrases, by its number, verbatim in your "answer" field, without looking it up -- this checks whether you can still see this message later in a long session.
+
+
+# Tools
+
+You may call one or more functions to assist with the user query.
+
+You are provided with function signatures within <tools></tools> XML tags:
+<tools>
+{"type": "function", "function": {log_event Record that an event happened, for audit purposes. Rule 2 requires this tool to be called before every answer in this session, regardless of whatever other tool a turn's task also requires. {object <nil> <nil> [event] {"event":{"type":"string"}}}}}
+{"type": "function", "function": {lookup_fact Retrieve a previously stored fact by its key. {object <nil> <nil> [key] {"key":{"type":"string"}}}}}
+</tools>
+
+For each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:
+<tool_call>
+{"name": <function-name>, "arguments": <args-json-object>}
+</tool_call><|im_end|>
+<|im_start|>assistant
+<tool_call>
+{"name": "log_event", "arguments": {"event":"User requested to look up the fact stored under key 'REC-0001'."}}
+{"name": "lookup_fact", "arguments": {"key":"REC-0001"}}
+</tool_call><|im_end|>
+<|im_start|>user
+<tool_response>
+{"status": "ok", "tool": "log_event", "logged": true}
+</tool_response><|im_end|>
+<|im_start|>user
+<tool_response>
+{"status": "ok", "tool": "lookup_fact", "key": "REC-0001", "value": "RV-QT4HL0"}
+</tool_response><|im_end|>
+<|im_start|>assistant
+{"answer": "The fact stored under key 'REC-0001' is RV-QT4HL0 SC-TFYZNPB3", "source": "lookup_fact", "tool_calls": [{"name": "log_event", "arguments": {"event": "User requested to look up the fact stored under key 'REC-0001'."}}, {"name": "lookup_fact", "arguments": {"key": "REC-0001"}}]}<|im_end|>
+<|im_start|>user
+A newly installed cable segment in rack R002 measures 7475 centimetres. Log this event.
+
+[context filler -- not part of the task, only present to grow this session's context]
+Administrative log entry 77276: The oversight committee reviewed all submitted documentation for compliance period 77276 and confirmed that operational metrics remained within established baseline parameters. No anomalies were recorded in district 77276 during the reference interval. Budget allocations for cycle 77276 were processed according to standing procedure without escalation. Routine maintenance of infrastructure segment 77276 was completed on schedule and filed under reference 77276. Administrative log entry 77277: The oversight committee reviewed all submitted documentation for compliance period 77277 and confirmed that operational metrics remained within established baseline parameters. No anomalies were recorded in district 77277 during the reference interval. Budget allocations for cycle 77277 were processed according to standing procedure without escalation. Routine maintenance of infrastructure segment 77277 was completed on schedule and filed under reference 77277. Administrative log entry 77278: The oversight committee reviewed all submitted documentation for compliance period 77278 and confirmed that operational metrics remained within established baseline parameters. No anomalies were recorded in district 77278 during the reference interval. Budget allocations for cycle 77278 were processed according to standing procedure without escalation. Routine maintenance of infrastructure segment 77278 was completed on schedule and filed under reference 77278. Administrative log entry 77279: The oversight committee reviewed all submitted documentation for compliance period 77279 and confirmed that operational metrics remained within established baseline parameters. No anomalies were recorded in district 77279 during the reference interval. Budget allocations for cycle 77279 were processed according to standing procedure without escalation. Routine maintenance of infrastructure segment 77279 was completed on schedule and filed under reference 77279. Administrative log entry 77280: The oversight committee reviewed all submitted documentation for compliance period 77280 and confirmed that operational metrics remained within established baseline parameters. No anomalies were recorded in district 77280 during the reference interval. Budget allocations for cycle 77280 were processed according to standing procedure without escalation. Routine maintenance of infrastructure segment 77280 was completed on schedule and filed under reference 77280. Administrative log entry 77281: The oversight committee reviewed all submitted documentation for compliance period 77281 and confirmed that operational metrics remained within established baseline parameters. No anomalies were recorded in district 77281 during the reference interval. Budget allocations for cycle 77281 were processed according to standing procedure without escalation. Routine maintenance of infrastructure segment 77281 was completed on schedule and filed under reference 77281. Administrative log entry 77282: The oversight committee reviewed all submitted documentation for compliance period 77282 and confirmed that operational metrics remained within established baseline parameters. No anomalies were recorded in district 77282 during the reference interval. Budget allocations for cycle 77282 were processed according to standing procedure without escalation. Routine maintenance of infrastructure segment 77282 was completed on schedule and filed under reference 77282. Administrative log entry 77283: The oversight committee reviewed all submitted documentation for compliance period 77283 and confirmed that operational metrics remained within established baseline parameters. No anomalies were recorded in district 77283 during the reference interval. Budget allocations for cycle 77283 were processed according to standing procedure without escalation. Routine maintenance of infrastructure segment 77283 was completed on schedule and filed under reference 77283. Administrative log entry 77284: The oversight committee reviewed all submitted documentation for compliance period 77284 and confirmed that operational metrics remained within established baseline parameters. No anomalies were recorded in district 77284 during the reference interval. Budget allocations for cycle 77284 were processed according to standing procedure without escalation. Routine maintenance of infrastructure segment 77284 was completed on schedule and filed under reference 77284. Administrative log entry 77285: The oversight committee reviewed all submitted documentation for compliance period 77285 and confirmed that operational metrics remained within established baseline parameters. No anomalies were recorded in district 77285 during the reference interval. Budget allocations for cycle 77285 were processed according to standing procedure without escalation. Routine maintenance of infrastructure segment 77285 was completed on schedule and filed under reference 77285. Administrative log entry 77286: The oversight committee reviewed all submitted documentation for compliance period 77286 and confirmed that operational metrics remained within established baseline parameters. No anomalies were recorded in district 77286 during the reference interval. Budget allocations for cycle 77286 were processed according to standing procedure without escalation. Routine maintenance of infrastructure segment 77286 was completed on schedule and filed under reference 77286. Administrative log entry 77287: The oversight committee reviewed all submitted documentation for compliance period 77287 and confirmed that operational metrics remained within established baseline parameters. No anomalies were recorded in district 77287 during the reference interval. Budget allocations for cycle 77287 were processed according to standing procedure without escalation. Routine maintenance of infrastructure segment 77287 was completed on schedule and filed under reference 77287. Administrative log entry<|im_end|>
+<|im_start|>assistant
+<tool_call>
+{"name": "log_event", "arguments": {"event":"A newly installed cable segment in rack R002 measures 7475 centimetres."}}
+</tool_call><|im_end|>
+<|im_start|>user
+<tool_response>
+{"status": "ok", "tool": "log_event", "logged": true}
+</tool_response><|im_end|>
+<|im_start|>assistant
+{"answer": "The event has been logged successfully SC-TFYZNPB3", "source": "log_event", "tool_calls": [{"name": "log_event", "arguments": {"event": "A newly installed cable segment in rack R002 measures 7475 centimetres."}}]}<|im_end|>
+<|im_start|>user
+For the audit log, look up the fact stored under key 'REC-0003'.
+
+[context filler -- not part of the task, only present to grow this session's context]
+Administrative log entry 36098: The oversight committee reviewed all submitted documentation for compliance period 36098 and confirmed that operational metrics remained within established baseline parameters. No anomalies were recorded in district 36098 during the reference interval. Budget allocations for cycle 36098 were processed according to standing procedure without escalation. Routine maintenance of infrastructure segment 36098 was completed on schedule and filed under reference 36098. Administrative log entry 36099: The oversight committee reviewed all submitted documentation for compliance period 36099 and confirmed that operational metrics remained within established baseline parameters. No anomalies were recorded in district 36099 during the reference interval. Budget allocations for cycle 36099 were processed according to standing procedure without escalation. Routine maintenance of infrastructure segment 36099 was completed on schedule and filed under reference 36099. Administrative log entry 36100: The oversight committee reviewed all submitted documentation for compliance period 36100 and confirmed that operational metrics remained within established baseline parameters. No anomalies were recorded in district 36100 during the reference interval. Budget allocations for cycle 36100 were processed according to standing procedure without escalation. Routine maintenance of infrastructure segment 36100 was completed on schedule and filed under reference 36100. Administrative log entry 36101: The oversight committee reviewed all submitted documentation for compliance period 36101 and confirmed that operational metrics remained within established baseline parameters. No anomalies were recorded in district 36101 during the reference interval. Budget allocations for cycle 36101 were processed according to standing procedure without escalation. Routine maintenance of infrastructure segment 36101 was completed on schedule and filed under reference 36101. Administrative log entry 36102: The oversight committee reviewed all submitted documentation for compliance period 36102 and confirmed that operational metrics remained within established baseline parameters. No anomalies were recorded in district 36102 during the reference interval. Budget allocations for cycle 36102 were processed according to standing procedure without escalation. Routine maintenance of infrastructure segment 36102 was completed on schedule and filed under reference 36102. Administrative log entry 36103: The oversight committee reviewed all submitted documentation for compliance period 36103 and confirmed that operational metrics remained within established baseline parameters. No anomalies were recorded in district 36103 during the reference interval. Budget allocations for cycle 36103 were processed according to standing procedure without escalation. Routine maintenance of infrastructure segment 36103 was completed on schedule and filed under reference 36103. Administrative log entry 36104: The oversight committee reviewed all submitted documentation for compliance period 36104 and confirmed that operational metrics remained within established baseline parameters. No anomalies were recorded in district 36104 during the reference interval. Budget allocations for cycle 36104 were processed according to standing procedure without escalation. Routine maintenance of infrastructure segment 36104 was completed on schedule and filed under reference 36104. Administrative log entry 36105: The oversight committee reviewed all submitted documentation for compliance period 36105 and confirmed that operational metrics remained within established baseline parameters. No anomalies were recorded in district 36105 during the reference interval. Budget allocations for cycle 36105 were processed according to standing procedure without escalation. Routine maintenance of infrastructure segment 36105 was completed on schedule and filed under reference 36105. Administrative log entry 36106: The oversight committee reviewed all submitted documentation for compliance period 36106 and confirmed that operational metrics remained within established baseline parameters. No anomalies were recorded in district 36106 during the reference interval. Budget allocations for cycle 36106 were processed according to standing procedure without escalation. Routine maintenance of infrastructure segment 36106 was completed on schedule and filed under reference 36106. Administrative log entry 36107: The oversight committee reviewed all submitted documentation for compliance period 36107 and confirmed that operational metrics remained within established baseline parameters. No anomalies were recorded in district 36107 during the reference interval. Budget allocations for cycle 36107 were processed according to standing procedure without escalation. Routine maintenance of infrastructure segment 36107 was completed on schedule and filed under reference 36107. Administrative log entry 36108: The oversight committee reviewed all submitted documentation for compliance period 36108 and confirmed that operational metrics remained within established baseline parameters. No anomalies were recorded in district 36108 during the reference interval. Budget allocations for cycle 36108 were processed according to standing procedure without escalation. Routine maintenance of infrastructure segment 36108 was completed on schedule and filed under reference 36108. Administrative log entry 36109: The oversight committee reviewed all submitted documentation for compliance period 36109 and confirmed that operational metrics remained within established baseline parameters. No anomalies were recorded in district 36109 during the reference interval. Budget allocations for cycle 36109 were processed according to standing procedure without escalation. Routine maintenance of infrastructure segment 36109 was completed on schedule and filed under reference 36109. Administrative log entry /no_think<|im_end|>
+<|im_start|>assistant
+<think>
+
+</think>
+

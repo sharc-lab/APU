@@ -1,0 +1,26 @@
+{
+ "rules_in_use": {
+  "qwen3:8b": [
+   "rule1_json_keys",
+   "rule2_log_event_called",
+   "rule3_no_zebra",
+   "rule4_metres"
+  ]
+ },
+ "refused_models": {},
+ "kill_criterion": {
+  "killed": false,
+  "per_arm": {
+   "ollama_ctx_8192_call2_notools": {
+    "n_sessions": 5,
+    "n_silent_failures": 5,
+    "shows_silent_failure": true
+   },
+   "ollama_ctx_4096_call2_notools": {
+    "n_sessions": 5,
+    "n_silent_failures": 5,
+    "shows_silent_failure": true
+   }
+  }
+ }
+}
