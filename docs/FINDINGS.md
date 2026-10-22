@@ -5368,3 +5368,34 @@ h/seed): does not fit, not staged". So:
 - The iGPU llama3.1:8b cell is expected to reach "4 of 5 seeds fit, cell counts yes (first 3 seeds)", which the
   pre-registered 3-seed rule already covers.
 
+
+## AMENDMENT 2026-10-21 (22:30) to the B5-on-evo-t2s pre-registration (reduced policy set on evo-t2s, order, qwen3:14b at 2 seeds)
+
+The pre-registration "B5 on evo-t2s Intel CPU and Intel iGPU, qwen3:14b and llama3.1:8b, 5 seeds" and the earlier
+2026-10-21 amendment above are frozen and are not edited. This dated amendment is written before any B5 session on
+evo-t2s exists and before any code, queue or plan file is changed for it (it is committed on its own first). Operator
+item 6, 2026-10-21 22:30. It changes only what runs on evo-t2s in the 2026-10-26 to 2026-11-08 window; evo-x2 keeps
+all policies (a) to (h), and the 2026-10-14 pre-registration's text and its evo-x2 verdict are unchanged.
+
+- **Reduced policy set on evo-t2s** (`--platform evo-t2s-cpu` and `--platform evo-t2s`): (a) runtime default,
+  (c) client-side trimming, (d) router with cloud escalation, (e) auto-sized window, (f) num_keep. Policies (b), (g)
+  and (h) (the largest-window and quantized-KV arms, the ones that dominated the estimated hours) are not run on
+  evo-t2s. Each policy that is run keeps its 2026-10-14 definition. The 2026-10-14 rule that a policy with no window
+  is not run still applies, so on the Intel CPU (no GPU) (e) is expected to have no window and not to run; the alias
+  rule ((e) resolving to the same configuration as (a)) also still applies.
+- **Order** in `queues/t2s_oct26_queue.json`, after the handover check and preflight as before: (1) llama3.1:8b on
+  the Intel CPU (`evo-t2s-cpu`), 5 seeds (20260901 to 20260905); (2) llama3.1:8b on the Intel iGPU (`evo-t2s`),
+  5 seeds; (3) qwen3:14b on the Intel CPU at its 4096 default window (`evo-t2s-cpu`), **2 seeds** (20260901,
+  20260902), staged only if it fits.
+- **qwen3:14b 2-seed rule.** The qwen3:14b CPU entry is staged only if register row `t2s-b5-plan-hours` (ESTIMATES
+  from measured evo-t2s session minutes, row `t2s-r2-session-minutes`), recomputed for the reduced set, shows the
+  three entries' hours within the available hours; otherwise it stays future work as the earlier amendment records,
+  and the qwen3:14b iGPU cell is future work in either case. At run time the handover deadline still stops any job at
+  a session boundary. A qwen3:14b cell with 2 seeds is below the pre-registration's 3-seed minimum for a complete cell,
+  so it is reported in full but does not count as a complete cell for H-B5-T2S; this amendment does not loosen that
+  rule.
+- **Success rule evaluated on the policies run.** The mechanical rule of the pre-registration
+  (`policy_compare.b5_t2s_verdict`) is unchanged except that its Pareto frontier, dominance test and "every distinct
+  policy has all seeds complete" test are taken over the policies actually run on evo-t2s under this amendment, not
+  over (a) to (h). A verdict from this window is stated as "on policies a, c, d, e, f (as resolved)"; it says nothing
+  about (b), (g) or (h) on evo-t2s, which become future work there.
