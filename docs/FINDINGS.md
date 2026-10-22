@@ -4737,3 +4737,64 @@ edited. No result data for these jobs existed when each was queued.
   6.18 h, loaded [40960], first over window 24; seed 20260902: 40 turns, 6.01 h, loaded [40960], first over window 25;
   seed 20260903: 40 turns, 4.66 h, loaded [40960], first over window 26)"). A new run would duplicate pre-registered,
   completed cells, so nothing was queued and no new pre-registration was written.
+
+## PRE-REGISTRATION: B5 on evo-t2s Intel CPU and Intel iGPU, qwen3:14b and llama3.1:8b, 5 seeds (2026-10-22, NOT YET RUN)
+
+**Status:** PRE-REGISTRATION, written before any B5 session on evo-t2s exists and before anything is loaded on
+evo-t2s (no SSH to evo-t2s; the window 2026-10-26 to 2026-11-08 is pending confirmation). It extends, and does not
+change, the frozen pre-registration "B5 policy comparison" of 2026-10-14 above: the sessions, policies (a) to (h),
+window probe, router, cloud assumptions A-B5-cloud and A-B5-cloud-latency, price basis (as amended), metrics and Pareto
+rule are that section's, unchanged. Operator item 4 (2026-10-21).
+
+**Why.** B5 on evo-x2 was refuted (row `b5-verdict`: "refuted (router dominated in evo-x2/llama3.1:8b,
+evo-x2/qwen3:14b)"), but every policy held "rule 100.0%" there (row `b5-policy-metrics`), so no policy failed and the
+router had nothing to rescue. Constrained hardware is where policies fail: on the evo-t2s Intel CPU, stock Ollama loads
+a 4096 default window and every default-window session failed silently after the window (row `t2s-r2-real-cpu`:
+"llama3.1:8b: loaded window [4096], first over window turn [3]; gated 5/5 silent, 5 after window exceeded" and
+"qwen3:14b: loaded window [4096] ... gated 5/5 silent, 5 after window exceeded"). The Intel iGPU loads 32768 (row
+`t2s-r2-real-igpu`).
+
+**Hypothesis H-B5-T2S.** Where the runtime default window fails, the router is worth having: on the evo-t2s Intel CPU
+(d) is on the Pareto frontier and beats the default (a) on quality.
+
+**Design.** `harness/policy_compare.py`, one job per (platform, model), 5 seeds (20260901 to 20260905), 40 turns,
+call-2 mode off, all policies (a) to (h) as resolved from the windows the job measures:
+- **Intel CPU**: `--platform evo-t2s-cpu` (stock Ollama 0.34.4, no OLLAMA_IGPU_ENABLE in the job's server env; rules
+  in use from `t2s_r2_validation_cpu_v1.jsonl`). Expected D = 4096; the cell is read only if the measured D is 4096
+  (otherwise the run's windows are reported and the cell is not counted for H-B5-T2S). With no GPU, (e) has no window
+  and is not run, by the 2026-10-14 rule.
+- **Intel iGPU**: `--platform evo-t2s` (OLLAMA_IGPU_ENABLE=1 for the job's own server; rules from
+  `t2s_r2_validation_igpu_v1.jsonl`). Expected D = 32768.
+- Models: llama3.1:8b and qwen3:14b (both passed preflight on both backends, rows `t2s-r2-validation-cpu`,
+  `t2s-r2-validation-igpu`). Outputs `results/t2s_policy_compare_{cpu,igpu}_{llama31_8b,qwen3_14b}_v1.jsonl`.
+- Queue: `queues/t2s_oct26_queue.json` entries `t2s_o26_b5_cpu_llama31_8b`, `t2s_o26_b5_igpu_llama31_8b`,
+  `t2s_o26_b5_igpu_qwen3_14b`, `t2s_o26_b5_cpu_qwen3_14b`, in that order, each gated on `t2s_o26_preflight`, after the
+  handover check that runs first at the window (`harness/t2s_deadline.py open-window`). B6 entries follow B5.
+- The job stops at a session boundary once the handover deadline is reached (`t2s_queue.deadline_reached`) and resumes
+  in a later window (completed sessions are not rerun). The recall probe runs last and is skipped if the deadline cut
+  the sessions.
+
+**Success rule (mechanical, `policy_compare.b5_t2s_verdict`, decided now).** A cell (platform, model) is complete when
+the file has run_end, every distinct policy has all 5 seeds complete, (d) ran, and rules are in use; a cell short of
+5 seeds counts only if complete on the first 3 seeds (20260901 to 20260903, the original B5 seed count), labelled as
+such. Quality for "beats the default": (d)'s rule pass rate and history recall each at least (a)'s and one strictly
+higher.
+- **Supported**: at least one complete CPU cell, and in every complete CPU cell (d) is on the frontier and beats (a).
+- **Refuted**: (d) dominated in any complete cell of either evo-t2s platform; or in no complete CPU cell does (d) beat
+  (a).
+- **Inconclusive**: otherwise (no complete CPU cell, or CPU cells that disagree), with the per-cell state.
+- iGPU cells enter only through the dominance clause; they are reported in full.
+- The frontier test's weakness stated in the 2026-10-14 section applies unchanged, and the 2026-10-14 verdict (all
+  three platforms) is computed separately; this rule does not replace it.
+
+**Hours (ESTIMATE, register row `t2s-b5-plan-hours`; inputs measured, row `t2s-r2-session-minutes`).** Pasted:
+"available 335.0 h"; "B5 all four cells 1485.6 h"; "t2s_o26_b5_cpu_llama31_8b 197.0 h (yes; 38.4 h/seed, 5 of 5 seeds
+fit, cell counts yes (5 seeds))"; "t2s_o26_b5_igpu_llama31_8b 142.3 h (partial; 27.9 h/seed, 4 of 5 seeds fit, cell
+counts yes (first 3 seeds))"; "t2s_o26_b5_igpu_qwen3_14b 318.4 h (not reached ...)"; "t2s_o26_b5_cpu_qwen3_14b 827.9 h
+(not reached ...)". So in this window only the two llama3.1:8b cells are expected to count; the qwen3:14b cells and B6
+are expected not to start. The large-window policies (b), (g), (h) dominate the time: their minutes are scaled from
+evo-x2 by an assumed native-context L.
+
+**Known limits, stated before the run.** One Intel machine, Ollama 0.34.4. The CPU and iGPU platforms differ in both
+backend and default window. The A-B5-cloud proxy runs on the same slow local hardware, so (d)'s session wall-clock is
+re-timed per A-B5-cloud-latency, as on evo-x2. The plan rests on estimates; the first sessions' wall clocks replace them.
