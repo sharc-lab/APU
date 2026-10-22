@@ -191,10 +191,7 @@ laptop GPU and an Intel laptop (CPU and integrated GPU), spanning unified and di
 parts. First, history loss is
 silent and appears in every model we tested, from 8B to 70B <!-- H-scale-verdict --> <!-- H-scale-family-verdict -->:
 at a 16384-token window no session of three 8B to 14B models kept its full history to turn 15 (intact
-5/5/0/0/0/0/0/0 of 5 for each model <!-- R2-real-v1b-survival -->). Second, rule loss is model-dependent: the 8B to
-32B models lose system-prompt rules once the window is exceeded, while llama3.3:70b and mistral-small3.2:24b kept
-them at 4096 in every session (0/3 <!-- H-scale-verdict --> and 0/3 <!-- H-scale-family-verdict --> with rule loss),
-so we do not claim rule loss in general. Third, the cost is concrete: qwen3:14b's share of tasks ending in a wrong
+5/5/0/0/0/0/0/0 of 5 for each model <!-- R2-real-v1b-survival -->). Second, rule loss is model-dependent. Rule loss appears in the 8B and 14B models (5 seeds) and in qwen3:32b (2 of 3 sessions at 4096) <!-- H-scale-verdict -->, and not in llama3.3:70b or mistral-small3.2:24b (0 of 3 each) <!-- H-scale-verdict --> <!-- H-scale-family-verdict -->. History loss appears in all of them <!-- H-scale-verdict --> <!-- H-scale-family-verdict -->. We do not claim rule loss in general. Third, the cost is concrete: qwen3:14b's share of tasks ending in a wrong
 state rises from 11.3% at the default window to 42.0% at 4096, every wrong task silent
 <!-- x2-evalset-tasks-real-v2-wrong-rate -->. Fourth, the obvious fixes are partial, and client-side trimming has a
 side effect: it removes the in-context examples the model imitates <!-- R2-qwen3-14b-4096-reconciliation -->. Fifth,
@@ -556,9 +553,7 @@ late, at turns 24, 25 and 26 <!-- x2-scale-real-default-tier -->. llama3.3:70b l
 <!-- H-scale-verdict -->, every session over the window) and lost history with rules intact in 3/3
 <!-- H-scale-verdict --> at 32768, the pre-registered alternative "resists rule loss" <!-- H-scale-verdict -->. Overall the verdict is mixed: H-scale is not supported
 <!-- H-scale-verdict -->. mistral-small3.2:24b, from another family, also resisted rule loss (0/3 at 4096
-<!-- H-scale-family-verdict -->, history loss 2/3 at 32768) <!-- H-scale-family-verdict -->. Within what we tested, silent
-history loss is universal, from 8B to 70B; rule loss is model-dependent, present from 8B to 32B and absent for the
-70B and 24B models at three seeds, and we do not claim it in general.
+<!-- H-scale-family-verdict -->, history loss 2/3 at 32768) <!-- H-scale-family-verdict -->. Within what we tested: Rule loss appears in the 8B and 14B models (5 seeds) and in qwen3:32b (2 of 3 sessions at 4096) <!-- H-scale-verdict -->, and not in llama3.3:70b or mistral-small3.2:24b (0 of 3 each) <!-- H-scale-verdict --> <!-- H-scale-family-verdict -->. History loss appears in all of them <!-- H-scale-verdict --> <!-- H-scale-family-verdict -->. We do not claim rule loss in general.
 
 **4.6a outline items kept (table, history, figure, gaps).**
 
@@ -779,9 +774,7 @@ were refused by their gates.
 ### 4.9 Conclusion (prose draft, 2026-10-21; 0.50 page)
 
 Local LLM agents lose context without telling anyone. On every platform we measured, a conversation that outgrows the
-window is trimmed, shifted or cut, and the request still succeeds. History loss appeared in every model we tested,
-from 8B to 70B. Rule loss appeared in the 8B to 32B models and not in llama3.3:70b or mistral-small3.2:24b, so it
-depends on the model as well as the window, and we do not claim it in general. The window is often not the user's
+window is trimmed, shifted or cut, and the request still succeeds. Rule loss appears in the 8B and 14B models (5 seeds) and in qwen3:32b (2 of 3 sessions at 4096) <!-- H-scale-verdict -->, and not in llama3.3:70b or mistral-small3.2:24b (0 of 3 each) <!-- H-scale-verdict --> <!-- H-scale-family-verdict -->. History loss appears in all of them <!-- H-scale-verdict --> <!-- H-scale-family-verdict -->. Rule loss depends on the model as well as the window, and we do not claim it in general. The window is often not the user's
 choice: the runtime picks it from the detected device, and an unmodified install on an Intel CPU ran agents at 4096
 tokens <!-- t2s-r2-real-cpu -->. That is the window at which, on the AMD APU, qwen3:14b ended 42.0% of tasks in a wrong
 state against 11.3% at its default, all silently <!-- x2-evalset-tasks-real-v2-wrong-rate -->.
