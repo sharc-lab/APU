@@ -4402,6 +4402,22 @@ def compute_impact_v3_detection_value_measured(repo):
     return {"value": im.measured_detection_text(d), "n": f"{sum(c['n'] for c in d['tiers'].values())} task turns"}
 
 
+HYBRID_SAVINGS_FILES = ["results/all_cloud_b3_v1.jsonl", "results/x2_evalset_tasks_real_v2.jsonl",
+                        "results/t2s_r2_real_cpu_v1.jsonl", "results/x2_policy_compare.jsonl",
+                        "results/x2_policy_compare_fa_control.jsonl", "results/hardware_price_evox2_20261021.json"]
+
+
+def compute_hybrid_savings_v1(repo):
+    """Hybrid savings vs all-cloud at matched quality (operator item 3): per device, cloud tier and policy, from the
+    all-cloud B3 run, the B3 v2 local run and its window-overflow flag, with the escalated task cost INTERIM (all-cloud
+    per-task cost) until cloud-redo-full-context is VERIFIED; P2 hardware capacity from the impact-v2-P2 row."""
+    im = _impact()
+    h = im.hybrid_savings(repo, _impact_v2(repo)["rows"]["P2"])
+    if h["status"] != "VERIFIED":
+        return {"value": im.hybrid_savings_text(h), "n": "0"}
+    return {"value": im.hybrid_savings_text(h), "n": f"{len(h['cells'])} cells x {h['cells'][0]['n']} tasks"}
+
+
 def compute_impact_p2(repo):
     return _impact_row(repo, "P2")
 
@@ -7065,7 +7081,16 @@ NUMBER_ENTRIES = [
                     "cloud-redo-cost-per-wrong-task, labelled by its mode)",
      "compute": compute_impact_v3_detection_value_measured, "data_files": _IMPACT_V2_FILES,
      "script_function": "analysis/impact_model.py::measured_detection"},
-    {"claim_id": "impact-v2-P2", "description": "Impact v2 P2 configuration: sessions per machine per day (default vs "
+    {"claim_id": "hybrid-savings-v1", "description": "Hybrid savings vs ALL-CLOUD at matched quality on the 30 B3 v2 "
+     "tasks (qwen3:14b local, 3 shared seeds): per device (evo-x2 default = best, measured; evo-t2s Intel CPU at its "
+     "4096 default, PROJECTED from evo-x2's 4096 tier; Blade not measured), cloud tier and policy (all-cloud, naive "
+     "local, escalate window-overflow flagged tasks, escalate every wrong task as a perfect-detector upper bound): "
+     "correct share, USD per task, savings per task and per 30-day month at 100 / 1,000 / 10,000 tasks/day (stated "
+     "range); escalated task cost INTERIM (all-cloud per-task cost) until cloud-redo-full-context is VERIFIED; P2 "
+     "hardware capacity beside it",
+     "compute": compute_hybrid_savings_v1, "data_files": HYBRID_SAVINGS_FILES,
+     "script_function": "analysis/impact_model.py::hybrid_savings"},
+    {"claim_id": "impact-v2-P2", "description":"Impact v2 P2 configuration: sessions per machine per day (default vs "
                     "fastest measured B5 setting), machines needed for the profile's sessions/day, USD/day of machines "
                     "saved (assumed 3-year life), waiting-time upper bound on the interactive share; PENDING until "
                     "b5-fa-control is VERIFIED",
