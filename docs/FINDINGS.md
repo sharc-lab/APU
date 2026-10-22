@@ -5574,3 +5574,50 @@ enforces), USD 6.10 cache-priced, and USD 37.64 if every task used all 5 calls. 
 to the ledger (USD 3.95 cache-priced). The ledger stood at USD 21.19 after the all-cloud job, so the point projection
 fits the USD 50 total (USD 28.81 left) but the all-rounds bound does not. The rerun waits for an operator decision on
 the job cap.
+
+## AMENDMENT 2026-10-21 (later) to the B5-on-evo-t2s pre-registration and to the B6 staging note: (b) kept, qwen3:14b at 3 seeds if it fits, B6 fills the window with 24 h slack
+
+The pre-registration "B5 on evo-t2s Intel CPU and Intel iGPU, qwen3:14b and llama3.1:8b, 5 seeds", its two 2026-10-21
+amendments and implementation note above, and the B6 staging note ("Also staged with this (no data, no claim): B6 on
+evo-t2s", 2026-10-14) are frozen and are not edited. This dated amendment is written before any code, queue or plan
+file is changed for it and is committed on its own first. No B5 or B6 session on evo-t2s exists. Operator decisions,
+2026-10-21 (later). evo-x2 is not affected.
+
+- **Policy set on evo-t2s: (a), (b), (c), (d), (e), (f).** Policy (b) (largest window that starts) is kept; (g) and
+  (h) stay dropped on evo-t2s. This replaces the set a, c, d, e, f of the 22:30 amendment. The alias rule of
+  2026-10-14 applies again in full, so on the Intel iGPU (e) can be recorded as an alias of (b). Probes and recall
+  under q8_0 and q4_0 stay off on evo-t2s, as in the implementation note. The success rule is evaluated over the
+  policies run, as the 22:30 amendment states.
+- **qwen3:14b on the Intel CPU at its 4096 default window: 3 seeds (20260901 to 20260903)** instead of 2, so that a
+  completed cell meets the pre-registered 3-seed minimum and counts. The entry keeps the fit rule of the earlier
+  amendments, now with the slack below: it is staged after the two llama3.1:8b cells (5 seeds each, CPU then iGPU)
+  only if its estimated end is within the launch budget. Otherwise it is not staged and qwen3:14b on Intel stays
+  future work. The qwen3:14b iGPU cell stays future work in either case.
+- **Launch budget and slack.** The budget is the available hours of the window (window start to the no-launch time,
+  minus the assumed start allowance, as in `scripts/t2s_window_stage.py`) minus **24 h of slack** before the no-launch
+  time. Every staged entry with an estimate must be estimated to end within the budget.
+- **B6 fills what is left.** After B5, the B6 entries already staged (pull of qwen3:32b and llama3.3:70b; validation on
+  the CPU and with OLLAMA_IGPU_ENABLE=1; real at num_ctx 4096 on the CPU and at the iGPU-enabled default window) are
+  taken in that order. An entry with an estimate is staged if its gate entry is staged and its estimated end is within
+  the budget; an entry that does not fit is not staged and is future work, and later entries that fit are still
+  staged. An entry without an estimate is staged after every estimated entry, last.
+- **B6 hour estimates.** Where a measured rate exists, an entry's hours are evo-x2 measured minutes for the same
+  models (H-scale files `x2_r2_scale_real.jsonl` at num_ctx 4096 and 32768, `x2_r2_scale_validation.jsonl`) times a
+  stated evo-t2s over evo-x2 factor taken from measured R2 sessions of the same window on both machines, labelled
+  ESTIMATE with the factor named in the plan. The iGPU-enabled default window of qwen3:32b and llama3.3:70b on evo-t2s
+  is not measured; it is ASSUMED to be 32768 (the window llama3.1:8b and qwen3:14b load there) and labelled so. The
+  pull gets a nominal hour figure, labelled nominal. No other B6 design change: the B6 real entries run the 5 seeds of
+  `--plan strong` as staged in `queues/t2s_oct26_queue.json` since 2026-10-15 (the 2026-10-14 note's "3 seeds" was
+  written before that file existed), call-2 off, gated per model on their own validation, deciding numbers from the
+  H-scale pre-registration.
+
+**Implementation note (2026-10-21 later, after the amendment above was committed, before any B5 or B6 session on
+evo-t2s).** `harness/policy_compare.T2S_POLICIES` = a, b, c, d, e, f; `scripts/t2s_week_queue.py` passes
+`--policies a,b,c,d,e,f` and seeds 20260901 to 20260903 for the qwen3:14b CPU entry; `scripts/t2s_window_stage.py`
+applies the budget (`budget_h`, `SLACK_H` = 24), the qwen3:14b fit rule (`qwen_decision`), the B6 estimates
+(`b6_estimates`) and the B6 fill (`select_b6`). Pasted from [t2s-b5-plan-hours] (ESTIMATES): "launch budget 311.0 h
+(24.0 h slack before no-launch)"; "evo-t2s-cpu qwen3:14b at 3 seeds needs 190.2 h (63.0 h/seed): does not fit, not
+staged; qwen3:14b on Intel is future work"; B6 staged: pull "1.0 h", "t2s_o26_b6_val_cpu 34.6 h", "t2s_o26_b6_val_igpu
+17.3 h"; B6 not staged: "t2s_o26_b6_real_cpu_4096 105.5 h (does not fit: 105.5 h from 226.4 h ends at 331.9 h, budget
+311.0 h)", "t2s_o26_b6_real_igpu_default 299.0 h (does not fit: 299.0 h from 226.4 h ends at 525.4 h, budget 311.0
+h)". So in this window H-B5-T2S rests on the llama3.1:8b cells, and B6 yields validation gates only.
