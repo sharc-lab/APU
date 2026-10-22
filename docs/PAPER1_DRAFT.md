@@ -779,36 +779,47 @@ small-window regime where loss occurs; the constrained platforms are pending.
   (c) (mitigation) did not run (open finding O1). num_keep is tested for llama3.1:8b only in the prose; the qwen3:14b
   num_keep run is cited only through `[R2-qwen3-14b-4096-reconciliation]`, not its own row. B5 has run on AMD-iGPU only (`[b5-verdict]`: evo-t2s and blade "not run").
 
-### 4.8 Threats to validity (prose draft, 2026-10-21; 0.50 page)
+### 4.8 Threats to validity (prose draft, 2026-10-21; revised 2026-10-22; 0.50 page)
 
 **Platforms and versions.** We measure one machine per vendor, so a platform effect cannot be separated from that
 machine's driver and memory configuration. Agent runs use Ollama 0.34.4 <!-- R2-qwen3-14b-4096-reconciliation --> and
 direct runs llama.cpp b10970 <!-- design: docs/HARDWARE.md (version record; no register row, gap G13) -->; default
 windows and trimming are runtime code and can change in any release. On the Intel laptop, CPU and iGPU differ in
-backend and loaded window together, so the motivating contrast is not a controlled test of either. The NVIDIA laptop
-contributes validation and mechanism sessions only, because its validation gate held back the real agent runs
-<!-- blade-r2-gate-v2 -->, and the router comparison ran on the AMD APU alone <!-- b5-verdict -->, whose default window
-is the model's native one.
+backend and loaded window together (4096 <!-- t2s-r2-real-cpu --> against 32768 <!-- t2s-r2-real-igpu -->), so the
+motivating contrast is not a controlled test of either. The NVIDIA laptop contributes validation and mechanism
+sessions only, because its validation gate held back the real agent runs <!-- blade-r2-gate-v2 -->, and the router
+and context-policy comparison ran on the AMD APU alone <!-- b5-verdict -->, whose default window is the model's
+native one.
 
 **Statistics.** Cells have three <!-- H-scale-verdict --> to five <!-- R2-v1b-gated-per-model --> seeds, ten for
 qwen3:8b <!-- R2-qwen3-8b-reversal-10seed -->. A 0/5 or 5/5 cell has a point bootstrap interval that understates
 uncertainty, and the scale and family results rest on three sessions per cell. qwen3:8b's lower failure count at 4096
 than at 8192 is within noise (p = 0.170 <!-- R2-qwen3-8b-reversal-10seed -->), and we claim nothing from it. Sampling
 uses temperature 0 <!-- design: harness/x2_r2_agent.py --> and a fixed request seed, so seeds vary the session
-script, not the sampling; nonzero temperatures are untested.
+script, not the sampling; nonzero temperatures are untested. Where a script times or scores repeated calls it follows
+one warm-up call plus N measured calls (N = 3 for the KV-precision recall check <!-- b5-kv-recall-f16-rerun -->, whose
+needles within a call are not independent, so that check is descriptive); session-time comparisons are over three
+seeds <!-- cost-cut-config-time -->.
 
 **Workload.** The R2 rules are synthetic and checkable; deployed system prompts differ. Guardrail rules 6 to 8
 (privacy, refusal, confirmation) already fail at full context for both models tested, for example rule 6 at 0.417 and
 0.250 of bait turns <!-- x2-evalset-val-v1-gates -->, so they are excluded from every window measurement and support no
-claim here. The tools-on-every-call protocol check rests on qwen3:14b alone, under a deviation declared before the
-data (task end state 80/90 <!-- x2-evalset-val-v2-gates --> at validation); qwen3:8b (65/90
-<!-- x2-evalset-tasks-val-v2-qwen3-8b-gates -->) and llama3.1:8b (72/90 <!-- x2-evalset-tasks-real-v2-wrong-rate -->)
-were refused by their gates.
+claim here. The tools-on-every-call task workload rests on qwen3:14b alone, under a deviation declared before the data:
+its task end state was 80/90 <!-- x2-evalset-val-v2-gates --> at validation, below the 90% bar, and we proceeded with
+that model only. qwen3:8b (65/90 <!-- x2-evalset-tasks-val-v2-qwen3-8b-gates -->) and llama3.1:8b (72/90
+<!-- x2-evalset-tasks-real-v2-wrong-rate -->) were refused by their gates. A second model, mistral-small3.2:24b, is in
+validation for this workload and has no result yet.
+
+**Cost figures.** Cloud cost per real agent task is priced from traces, not executed <!-- cloud-cost-per-real-task -->,
+and its caching case is an assumption. The hybrid comparison prices an escalated task at the all-cloud cost per task,
+an interim value <!-- hybrid-savings-v1 -->. Our first cloud redo of wrong local tasks was a broken protocol: 109
+<!-- cloud-redo-diagnosis --> of its 118 <!-- cloud-redo-diagnosis --> failures were turns where the model's default
+thinking spent the whole 384-token <!-- cloud-redo-diagnosis --> output budget and returned an empty answer, so its fix
+rate measured the token budget, not the cloud model. We cite no fix rate or cost from it; a corrected full-history redo is being measured.
 
 **Provenance.** Runs before 2026-10-14 did not record the harness file's hash ("harness blob not recorded"
 <!-- R2-qwen3-14b-4096-reconciliation -->). Their identity rests on reruns: the same seeds gave identical final text on
 120/120 <!-- R2-qwen3-14b-4096-reconciliation --> turns in runs days apart.
-
 ### 4.9 Conclusion (prose draft, 2026-10-21; 0.50 page)
 
 Local LLM agents lose context without telling anyone. On every platform we measured, a conversation that outgrows the
@@ -1185,6 +1196,37 @@ not by the local runtime's effective context.
 flash [Alizadeh et al. 2024, LLM in a Flash; to verify] characterize or accelerate inference on phones, consumer GPUs
 and flash-backed devices in terms of throughput, memory and energy. We add a cross-vendor characterization of
 behavioural correctness under each runtime's memory and context policy.
+
+### 4.8 Threats to validity (prose draft as of 2026-10-21; superseded 2026-10-22)
+
+
+**Platforms and versions.** We measure one machine per vendor, so a platform effect cannot be separated from that
+machine's driver and memory configuration. Agent runs use Ollama 0.34.4 <!-- R2-qwen3-14b-4096-reconciliation --> and
+direct runs llama.cpp b10970 <!-- design: docs/HARDWARE.md (version record; no register row, gap G13) -->; default
+windows and trimming are runtime code and can change in any release. On the Intel laptop, CPU and iGPU differ in
+backend and loaded window together, so the motivating contrast is not a controlled test of either. The NVIDIA laptop
+contributes validation and mechanism sessions only, because its validation gate held back the real agent runs
+<!-- blade-r2-gate-v2 -->, and the router comparison ran on the AMD APU alone <!-- b5-verdict -->, whose default window
+is the model's native one.
+
+**Statistics.** Cells have three <!-- H-scale-verdict --> to five <!-- R2-v1b-gated-per-model --> seeds, ten for
+qwen3:8b <!-- R2-qwen3-8b-reversal-10seed -->. A 0/5 or 5/5 cell has a point bootstrap interval that understates
+uncertainty, and the scale and family results rest on three sessions per cell. qwen3:8b's lower failure count at 4096
+than at 8192 is within noise (p = 0.170 <!-- R2-qwen3-8b-reversal-10seed -->), and we claim nothing from it. Sampling
+uses temperature 0 <!-- design: harness/x2_r2_agent.py --> and a fixed request seed, so seeds vary the session
+script, not the sampling; nonzero temperatures are untested.
+
+**Workload.** The R2 rules are synthetic and checkable; deployed system prompts differ. Guardrail rules 6 to 8
+(privacy, refusal, confirmation) already fail at full context for both models tested, for example rule 6 at 0.417 and
+0.250 of bait turns <!-- x2-evalset-val-v1-gates -->, so they are excluded from every window measurement and support no
+claim here. The tools-on-every-call protocol check rests on qwen3:14b alone, under a deviation declared before the
+data (task end state 80/90 <!-- x2-evalset-val-v2-gates --> at validation); qwen3:8b (65/90
+<!-- x2-evalset-tasks-val-v2-qwen3-8b-gates -->) and llama3.1:8b (72/90 <!-- x2-evalset-tasks-real-v2-wrong-rate -->)
+were refused by their gates.
+
+**Provenance.** Runs before 2026-10-14 did not record the harness file's hash ("harness blob not recorded"
+<!-- R2-qwen3-14b-4096-reconciliation -->). Their identity rests on reruns: the same seeds gave identical final text on
+120/120 <!-- R2-qwen3-14b-4096-reconciliation --> turns in runs days apart.
 
 **Superseded 2026-10-21.** The outline text of 4.1 (with the 4.1a motivation draft), 4.2, 4.8 and 4.9, replaced by
 the prose drafts of 2026-10-21, is moved here verbatim below; the 2026-10-20 material follows it.
