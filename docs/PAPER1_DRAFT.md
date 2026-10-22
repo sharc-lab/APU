@@ -757,27 +757,38 @@ router took 135.1 min and USD 0.8419 per session for no gain <!-- b5-policy-metr
 unconstrained AMD platform, whose default window is the model's native one, so no policy there faced the
 small-window regime where loss occurs; the constrained platforms are pending.
 
-#### 4.7p Predictor (outline, not yet prose)
+#### 4.7p Predictor (prose draft, 2026-10-22)
 
-- **Claim (verified on AMD-iGPU, one session per tier):** a context shift, the step that discards the system prompt
-  at the smallest window, happens on a call exactly when the post-trim prompt plus the generated tokens exceed the
-  loaded window; the rule is taken from the llama.cpp source, not fitted. Using the generation budget in place of the
-  generated count gives a before-the-call flag that misses no shift at the cost of false alarms.
-- **Evidence:** `[R2-shift-predictor-confusion]`: "num_ctx_4096 TP 34 FP 0 FN 0 TN 46 precision 100.0% recall
-  100.0%", "num_ctx_32768 TP 10 FP 0 FN 0 TN 70 precision 100.0% recall 100.0%", "misses 0"; variants "exact
-  P+C>n_ctx: TP 44 FP 0 FN 0", "budget P+num_predict>n_ctx: TP 44 FP 22 FN 0", "prompt only P>=n_ctx-1: TP 0 FP 0 FN
-  44". Applied to the real run as a prediction only (no server log there, nothing observed):
-  `[R2-shift-predicted-real-v1]`: "num_ctx_4096 llama3.1:8b: predicted 102/240 calls" and "num_ctx_4096 qwen3:14b:
-  predicted 0/240 calls"; predicted shifts line up with the first rule failure only partly, and the qwen3:14b rule
-  failures at 4096 happen with no predicted shift (`docs/FINDINGS.md`, "R2 context-shift predictor and orphaned messages"). What the message-level trim
-  leaves at the front of the window: `[R2-orphan-rates]`: "num_ctx_4096: 76/80 truncated; first kept user 15,
-  assistant tool-call 47, assistant final 6, tool 8; orphaned 61/76 (80.3%)". File: `results/x2_r2_mechanism.jsonl`
-  (observed part), `results/x2_r2_real_v1.jsonl` (predicted part).
-- **Scope of the claim:** it predicts the context shift (where the system prompt goes on AMD-iGPU), not rule
-  failure: the real-run qwen3:14b failures are not explained by it. Built and scored on the same mechanism sessions;
-  no tunable parameter, but no held-out observed sessions yet. (2026-10-22: the qwen3:14b 4096 statement above
-  is consistent with `[R2-qwen3-14b-4096-reconciliation]`: qwen3:14b's 4096 lapses are rule 3 and rule 5, and the
-  num_keep rerun reproduced v1 turn for turn ("identical final text 120/120").)
+**A context shift is predictable before the call.** The step that discards the system prompt at the smallest window
+is llama.cpp's context shift (Section 4.6b), and its trigger can be read from the llama.cpp source rather than fitted:
+a shift happens on a call when the prompt left after the message-level trim, plus the tokens generated, exceeds the
+loaded window. We scored that rule on the AMD mechanism sessions, one per tier, against the shifts the server log
+recorded. At 4096 it gave TP 34 FP 0 FN 0 TN 46, and at 32768 TP 10 FP 0 FN 0 TN 70, precision and recall 100.0% in
+both, with misses 0 over all tiers <!-- R2-shift-predictor-confusion -->. The exact form matters, which is evidence
+that the rule is the mechanism and not a correlate: P+C>n_ctx gives TP 44 FP 0 FN 0, while the prompt alone,
+P>=n_ctx-1, gives TP 0 FP 0 FN 44 <!-- R2-shift-predictor-confusion -->. The generated count is not known before the
+call, so a client substitutes the generation budget: P+num_predict>n_ctx gives TP 44 FP 22 FN 0
+<!-- R2-shift-predictor-confusion -->, a before-the-call flag that misses no shift at the cost of false alarms. The
+rule has no tunable parameter, but it was built and scored on the same sessions; no held-out observed sessions exist
+yet.
+
+**It predicts the shift, not the failure.** Applied to the real run as a prediction only, where no server log exists,
+the rule flags 102/240 calls for llama3.1:8b at 4096 and 0/240 for qwen3:14b <!-- R2-shift-predicted-real-v1 -->, yet
+qwen3:14b also loses rules at 4096. Its lapses there come with no predicted shift, consistent with the reconciliation
+in Section 4.7: for that model the loss runs through what the message-level trim removes, not through the shift
+<!-- R2-qwen3-14b-4096-reconciliation -->. What the trim leaves at the front of the window is usually a fragment: at
+4096, 61/76 (80.3%) of truncated calls began with an orphaned message <!-- R2-orphan-rates -->.
+
+**Window overflow is not a general wrong-answer detector.** A tempting use of the flag is to escalate exactly the
+steps that overflowed. We measured it as a detector of wrong task outcomes on the protocol-check task run of Section 4.6a
+(qwen3:14b, AMD APU), with the predictor "this task turn's prompt exceeded the loaded window" and the outcome "the task
+ended wrong" <!-- impact-v3-detection-value-measured -->. At the runtime default no turn overflowed, and the flag
+missed 17/17 wrong tasks (recall 0.0%). At 16384 it reached precision 15.4% and recall 21.1%; at 8192 precision 45.3%
+and recall 90.6%; at 4096 recall 100.0% but precision 42.9%, flagging 147 of 150 turns (TP 63 FP 84)
+<!-- impact-v3-detection-value-measured -->. Where the window is large, wrong answers have other causes that the flag
+cannot see; where it is small, nearly every step overflows and the flag no longer separates good steps from bad. The
+predictor is therefore a tool for explaining and anticipating system-prompt loss, not a cheap filter for which steps
+to send to a cloud model.
 
 **4.7 outline items kept (figure and gaps, mitigation and predictor).**
 
@@ -1429,6 +1440,28 @@ wrong on at least two of the three. If space is short, FH1 replaces F2 and F3 (t
 - **Gaps:** the mechanism (llama-server host-RAM prompt cache) is inferred, not confirmed: a `--cache-ram 0` control
   is needed and NO queue job exists for it (G11). `[ttft-cross-machine-transfer]` and `[ttft-few-point-calibration]`
   were computed on pooled rows and must be recomputed on rep>=1 rows before they are cited (G11).
+
+### 4.7p Predictor (outline, not yet prose) [superseded 2026-10-22]
+
+- **Claim (verified on AMD-iGPU, one session per tier):** a context shift, the step that discards the system prompt
+  at the smallest window, happens on a call exactly when the post-trim prompt plus the generated tokens exceed the
+  loaded window; the rule is taken from the llama.cpp source, not fitted. Using the generation budget in place of the
+  generated count gives a before-the-call flag that misses no shift at the cost of false alarms.
+- **Evidence:** `[R2-shift-predictor-confusion]`: "num_ctx_4096 TP 34 FP 0 FN 0 TN 46 precision 100.0% recall
+  100.0%", "num_ctx_32768 TP 10 FP 0 FN 0 TN 70 precision 100.0% recall 100.0%", "misses 0"; variants "exact
+  P+C>n_ctx: TP 44 FP 0 FN 0", "budget P+num_predict>n_ctx: TP 44 FP 22 FN 0", "prompt only P>=n_ctx-1: TP 0 FP 0 FN
+  44". Applied to the real run as a prediction only (no server log there, nothing observed):
+  `[R2-shift-predicted-real-v1]`: "num_ctx_4096 llama3.1:8b: predicted 102/240 calls" and "num_ctx_4096 qwen3:14b:
+  predicted 0/240 calls"; predicted shifts line up with the first rule failure only partly, and the qwen3:14b rule
+  failures at 4096 happen with no predicted shift (`docs/FINDINGS.md`, "R2 context-shift predictor and orphaned messages"). What the message-level trim
+  leaves at the front of the window: `[R2-orphan-rates]`: "num_ctx_4096: 76/80 truncated; first kept user 15,
+  assistant tool-call 47, assistant final 6, tool 8; orphaned 61/76 (80.3%)". File: `results/x2_r2_mechanism.jsonl`
+  (observed part), `results/x2_r2_real_v1.jsonl` (predicted part).
+- **Scope of the claim:** it predicts the context shift (where the system prompt goes on AMD-iGPU), not rule
+  failure: the real-run qwen3:14b failures are not explained by it. Built and scored on the same mechanism sessions;
+  no tunable parameter, but no held-out observed sessions yet. (2026-10-22: the qwen3:14b 4096 statement above
+  is consistent with `[R2-qwen3-14b-4096-reconciliation]`: qwen3:14b's 4096 lapses are rule 3 and rule 5, and the
+  num_keep rerun reproduced v1 turn for turn ("identical final text 120/120").)
 
 ### 4.1 Introduction and 4.1a motivation draft (outline as of 2026-10-20; superseded 2026-10-21)
 
