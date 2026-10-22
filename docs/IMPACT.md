@@ -170,7 +170,7 @@ task-size point and volume:
   (x2-evalset-tasks-real-v2-wrong-rate, as hybrid-savings-v1 uses); its wrong answers are silent;
 - hybrid with the window-overflow flag: hybrid-savings-v1's flag policy, flagged tasks escalated at the escalation cost
   input (interim until cloud-redo-full-context is VERIFIED and complete, then automatic);
-- the perfect-detector policy appears only as a separate column labelled "ceiling, no such detector" (in a chart it
+- escalating every wrong task appears only as a separate column labelled "ceiling, no such detector" (in a chart it
   would be a dotted line). It is not an option: no detector for in-window wrong answers exists.
 
 Devices as hybrid-savings-v1: evo-x2 at its default (measured) and evo-t2s Intel CPU at its 4096 default (projected

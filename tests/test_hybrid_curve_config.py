@@ -104,7 +104,7 @@ def test_price_file_carries_label_and_source():
 def test_impact_doc_order_and_labels():
     text = (REPO / "docs" / "IMPACT.md").read_text(encoding="utf-8")
     sec = text[text.index("## Hybrid savings vs all-cloud"):text.index(im.HYB_END)]
-    assert sec.index(im.CFG_BEGIN) < sec.index(im.CURVE_BEGIN) < sec.index(im.HYB_BEGIN)
+    assert sec.index(im.TB_BEGIN) < sec.index(im.CFG_BEGIN) < sec.index(im.CURVE_BEGIN) < sec.index(im.HYB_BEGIN)
     assert "ceiling, no such detector" in sec and "general verifier" in sec and "perfect detector" not in sec
     assert "UPPER BOUND, not" not in sec
     assert "ASSUMPTION, must be verified" not in text
@@ -127,3 +127,78 @@ def test_real_curve_if_available():
             assert t["redo_premium"] == 0.0
     txt = im.hybrid_curve_text(c)
     assert "ceiling, no such detector" in txt and "—" not in txt
+
+
+# Operator decision 2026-10-22, savings curve lead: the measured trade-off (row hybrid-savings-tradeoff) first.
+def _pol(correct, n, savings_task, escalated=0, silent=0, delta=0.0):
+    return {"correct": correct, "n": n, "quality": correct / n, "delta_points": delta, "escalated": escalated,
+            "silent_wrong": silent, "savings_task": savings_task}
+
+
+def _fake_h_curve():
+    pols = {"all_cloud": _pol(9, 10, 0.0, escalated=10), "naive_local": _pol(8, 10, 0.01, silent=2),
+            "hybrid_flag": _pol(9, 10, 0.004, escalated=6), "hybrid_perfect": _pol(10, 10, 0.008, escalated=2)}
+    cells = [{"device": "evo-x2", "setting": "d", "tier": im.DEFAULT_TIER, "label": "measured", "model": "cloud-x",
+              "ref_usd": 0.01, "policies": pols, "esc_label": im.INTERIM_ESC},
+             {"device": "evo-x2", "setting": "b", "tier": "other", "label": "measured", "model": "cloud-x",
+              "ref_usd": 0.01, "policies": pols, "esc_label": im.INTERIM_ESC},
+             {"device": "evo-t2s Intel CPU", "setting": "4096", "tier": "ollama_ctx_4096", "label": "projected",
+              "model": "cloud-x", "ref_usd": 0.01, "policies": pols, "esc_label": im.INTERIM_ESC}]
+    h = {"status": "VERIFIED", "cells": cells, "seeds": [1, 2, 3]}
+    curve = {"status": "VERIFIED", "case": "realistic", "hit_rate": 0.7, "tiers": [{"model": "cloud-x", "points": [
+        {"name": "B3", "label": "measured", "size": 10, "bill_task": 0.01},
+        {"name": "big median", "label": im.CURVE_PROJ_LABEL, "size": 1000, "bill_task": 1.0}]}]}
+    return h, curve
+
+
+def test_tradeoff_options_savings_and_accuracy():
+    h, curve = _fake_h_curve()
+    t = im.hybrid_tradeoff(h, curve)
+    assert t["status"] == "VERIFIED"
+    # evo-x2 non-default tier dropped; 2 devices x 2 points
+    assert len(t["rows"]) == 4 and {r["setting"] for r in t["rows"]} == {"d", "4096"}
+    m = next(r for r in t["rows"] if r["measured"])
+    o = m["options"]
+    assert list(o) == ["all_cloud", "naive_local", "hybrid_flag"] and "hybrid_perfect" not in o
+    assert o["all_cloud"]["savings_month"][1000] == 0
+    # naive local saves the full bill at the measured point
+    assert o["naive_local"]["savings_month"][1000] == pytest.approx(0.01 * 1000 * 30)
+    assert o["naive_local"]["silent_wrong"] == 2 and o["naive_local"]["correct"] == 8
+    assert o["hybrid_flag"]["savings_month"][100] == pytest.approx(0.004 * 100 * 30)
+    assert m["ceiling"]["savings_month"][1000] == pytest.approx(0.008 * 1000 * 30)
+    # a projected point scales by its bill, keeps the B3 accuracy, labelled
+    p = next(r for r in t["rows"] if r["device"] == "evo-x2" and r["point"] == "big median")
+    assert p["options"]["naive_local"]["savings_month"][1000] == pytest.approx(1.0 * 1000 * 30)
+    assert p["options"]["hybrid_flag"]["savings_month"][1000] == pytest.approx(0.4 * 1000 * 30)
+    assert p["options"]["naive_local"]["correct"] == 8 and p["acc_label"] == im.TRADEOFF_ACC_CARRIED
+    q = next(r for r in t["rows"] if r["device"] != "evo-x2" and r["point"] == "big median")
+    assert im.TRADEOFF_DEVICE_PROJ in q["acc_label"]
+    txt = im.hybrid_tradeoff_text(t)
+    assert "ceiling, no such detector" in txt and im.TRADEOFF_SILENT in txt and im.CURVE_PROJ_LABEL in txt
+    assert "—" not in txt
+    blk = im.render_tradeoff_block(t)
+    assert blk.startswith(im.TB_BEGIN) and blk.endswith(im.TB_END) and "Ceiling, no such detector" in blk
+    o29 = im.render_oct29_block(t)
+    assert "Oct 29" in o29 and "Demo story step 4" in o29 and "ceiling, no such detector" in o29
+    assert "big median" in o29 and "—" not in o29
+
+
+def test_tradeoff_pending():
+    t = im.hybrid_tradeoff({"status": "PENDING", "pending": ["x"]}, {"status": "VERIFIED"})
+    assert t["status"] == "PENDING" and im.hybrid_tradeoff_text(t).startswith("PENDING")
+    assert "PENDING" in im.render_tradeoff_block(t) and "PENDING" in im.render_oct29_block(t)
+
+
+def test_t2s_share_relabelled():
+    assert im.T2S_KEPT_LABEL == "measured by R2 session pass rate (not B3 task accuracy)"
+    text = (REPO / "docs" / "IMPACT.md").read_text(encoding="utf-8")
+    cfg = text[text.index(im.CFG_BEGIN):text.index(im.CFG_END)]
+    assert im.T2S_KEPT_LABEL in cfg and "Kept-local share" not in cfg
+
+
+def test_impact_doc_tradeoff_first():
+    text = (REPO / "docs" / "IMPACT.md").read_text(encoding="utf-8")
+    sec = text[text.index("## Hybrid savings vs all-cloud"):text.index(im.HYB_END)]
+    assert (sec.index(im.TB_BEGIN) < sec.index(im.OCT29_BEGIN) < sec.index(im.CFG_BEGIN) < sec.index(im.CURVE_BEGIN)
+            < sec.index(im.HYB_BEGIN))
+    assert not (REPO / "docs" / "OCT29_COST_SUMMARY.md").exists()
