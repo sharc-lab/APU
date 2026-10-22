@@ -585,7 +585,7 @@ run it held: 5/5 <!-- x2-evalset-tasks-real-v2-gated-excess --> against 0/5 at t
 16384, 35.3% <!-- x2-evalset-tasks-real-v2-wrong-rate --> at 8192 and 42.0% <!-- x2-evalset-tasks-real-v2-wrong-rate -->
 at 4096, every wrong turn silent <!-- x2-evalset-tasks-real-v2-wrong-rate -->: excess +24.0 points (95% CI +18.7 to
 +29.3) <!-- x2-evalset-tasks-real-v2-wrong-rate --> at 8192 and +30.7 points (95% CI +26.0 to +34.7) at 4096, none
-shown at 16384 <!-- x2-evalset-tasks-real-v2-wrong-rate --> <!-- TODO: session-level CI recompute pending for x2-evalset-tasks-real-v2 rows; update these CIs -->. A deviation was declared before the data: qwen3:14b
+shown at 16384 <!-- x2-evalset-tasks-real-v2-wrong-rate --> <!-- x2-evalset-tasks-real-v2-ci-units: these CIs are the session-level bootstrap (10000 resamples, sessions resampled within tier) -->. A deviation was declared before the data: qwen3:14b
 reached the task end state on 80/90 <!-- x2-evalset-val-v2-gates --> validation turns, below the bar, so absolute
 wrong rates include baseline errors.
 
@@ -732,7 +732,7 @@ prompt's measured token length (601, 594 and 597 per seed <!-- num-keep-guardrai
 checks. Nor does it remove the window effect in the protocol check: within that run the
 `num_keep` tier at 4096 lowered qwen3:14b's wrong-task rate from 42.0% <!-- x2-evalset-tasks-real-v2-wrong-rate --> to
 30.0% <!-- x2-evalset-tasks-real-v2-wrong-rate -->, but its excess over the default stayed at +18.7 points (95% CI
-+16.0 to +21.3) <!-- x2-evalset-tasks-real-v2-wrong-rate --> <!-- TODO: session-level CI recompute pending for x2-evalset-tasks-real-v2 rows; update these CIs --> and its gated excess at +1.000
++16.0 to +21.3) <!-- x2-evalset-tasks-real-v2-wrong-rate --> <!-- x2-evalset-tasks-real-v2-ci-units: these CIs are the session-level bootstrap (10000 resamples, sessions resampled within tier) --> and its gated excess at +1.000
 <!-- x2-evalset-tasks-real-v2-gated-excess -->; the pre-registered reading is that `num_keep` does not remove it
 <!-- x2-evalset-tasks-real-v2-gated-excess -->. In the R2 harness a num_keep run for qwen3:14b at 4096 reproduced the
 unflagged run turn for turn (identical final text 120/120 <!-- R2-qwen3-14b-4096-reconciliation -->), so for this model the flag changed nothing there,
