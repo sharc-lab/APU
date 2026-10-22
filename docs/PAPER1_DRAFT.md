@@ -225,26 +225,47 @@ We make four contributions.
 Section 4.2 covers background, Section 4.3 the platforms and harness, Sections 4.4 to 4.7 the results, Section 4.8
 threats to validity, and Section 4.9 concludes.
 
-### 4.2 Background and related work (0.75 page)
+### 4.2 Background and related work (prose draft, 2026-10-21; 0.75 page)
 
-- **Claim:** prior work characterizes either serving efficiency at fixed memory, or single-vendor out-of-memory
-  behaviour, or abstention under missing retrieval; none measures the chain from memory architecture through a
-  runtime's default to agent behaviour, across vendors.
-- **Positioning** (sources in `docs/RELATED_WORK.md`, `docs/PRIOR_ART.md`, `docs/references.bib`):
-  - LLM routing: RouteLLM (`routellm`), Martian (`martian`), NotDiamond (`notdiamond`), RouterBench (named in
-    `docs/DEMO_SPEC.md`, NOT yet in `references.bib`; Gap G14). They route on model capability and cost; none conditions
-    on a measured, hardware- and runtime-dependent effective context.
-  - Cloud-edge routing (`cloud_edge_survey`, `edge_llm_serving`): static placement or per-request offload.
-  - Memory-system DSE: MemExplorer (arXiv:2604.16007) sizes memory technology for throughput at fixed correctness.
-  - Apple-silicon serving: SiliconBench (arXiv:2609.19169), one memory architecture.
-  - KV eviction and compression (H2O, SnapKV, StreamingLLM, LLMLingua): choose what to keep at fixed memory, as a
-    designed policy. We measure what a shipped runtime actually discards by default.
-  - Missing context and abstention: Sufficient Context (arXiv:2411.06037), Lost in the Middle (arXiv:2307.03172).
-  - Runtime issue trackers (ollama #14073, #14116, #12353; llama.cpp #18946, #19745, #1866): the mechanisms exist as
-    anecdotes, one vendor and one bug at a time.
-- **Figure:** none.
-- **Gaps:** RouterBench bib entry (G14); StreamingLLM and Scissorhands are "not independently verified" in
-  `docs/PRIOR_ART.md` and need citation checks (G14).
+<!-- Every citation below is a placeholder to verify; see "References (to verify)" at the end of this file. -->
+
+**Context windows in local runtimes.** llama.cpp allocates a KV cache for a fixed number of tokens, n_ctx, when a
+model loads. When a sequence would grow past it, the server can perform a *context shift*: it keeps the first n_keep
+tokens, discards a block of the tokens after them (2045 at a 4096 window in our logs <!-- R2-mechanism-lowlevel -->)
+and continues. Ollama serves models through a bundled llama.cpp server and adds two layers. Its chat endpoint renders
+the message list with the model's template and, when the result exceeds the window, drops whole messages from the
+front while keeping the system message <!-- R2-mechanism-verdict -->. It also starts the server with context shift
+enabled and a keep of 4 tokens, so an over-length prompt succeeds after keeping num_ctx/2 + 2 tokens
+<!-- ollama-overflow-keeps-half -->. The request option `num_keep` sets the kept prefix. If the client sends no
+`num_ctx`, Ollama chooses the window from the detected device: 4096 tokens for llama3.1:8b on our Intel laptop's CPU,
+131072 on the AMD APU <!-- T2S-vs-X2-default-ctx -->. None of these steps is reported to the client.
+
+**Long-context behaviour.** Lost in the Middle [Liu et al. 2024, Lost in the Middle; to verify] shows that models use
+information in the middle of a long input worse than at its ends; RULER [Hsieh et al. 2024, RULER; to verify] and
+LongBench [Bai et al. 2024, LongBench; to verify] find effective context shorter than the advertised window; and
+multi-turn [Laban et al. 2025, LLMs Get Lost in Multi-Turn Conversation; to verify] and rule-following benchmarks
+[Zhou et al. 2023, IFEval; to verify] [Mu et al. 2023, Can LLMs Follow Simple Rules?; to verify] measure how well a
+model uses or obeys what it is given. All assume the model receives the whole input. We study the step before: what
+the runtime removes, and whether anyone can tell.
+
+**KV-cache management.** StreamingLLM [Xiao et al. 2024, StreamingLLM; to verify] keeps initial attention-sink tokens
+plus a recent window, much as a context shift keeps n_keep tokens; H2O [Zhang et al. 2023, H2O; to verify] and SnapKV
+[Li et al. 2024, SnapKV; to verify] evict by attention; KIVI [Liu et al. 2024, KIVI; to verify] and KVQuant [Hooper et
+al. 2024, KVQuant; to verify] quantize the cache; LLMLingua [Jiang et al. 2023, LLMLingua; to verify] compresses the
+prompt. These are designed policies evaluated at fixed memory. We measure what shipped runtimes discard by default and
+treat KV quantization as one context policy among several (Section 4.7).
+
+**Agents and tool use.** AgentBench [Liu et al. 2024, AgentBench; to verify], tau-bench [Yao et al. 2024, tau-bench;
+to verify], function-calling evaluations [Patil et al. 2024, Gorilla; to verify] and SWE-bench [Jimenez et al. 2024,
+SWE-bench; to verify] score task success, usually with hosted models and large windows, where running out of context
+is at most an exit condition. Routers [Ong et al. 2025, RouteLLM; to verify] choose a model by cost and capability,
+not by the local runtime's effective context.
+
+**Inference on edge hardware.** PagedAttention [Kwon et al. 2023, vLLM; to verify] manages KV memory on servers; MELT
+[Laskaridis et al. 2024, MELTing Point; to verify], PowerInfer [Song et al. 2024, PowerInfer; to verify] and LLM in a
+flash [Alizadeh et al. 2024, LLM in a Flash; to verify] characterize or accelerate inference on phones, consumer GPUs
+and flash-backed devices in terms of throughput, memory and energy. We add a cross-vendor characterization of
+behavioural correctness under each runtime's memory and context policy.
 
 ### 4.3 Platforms, harness and methodology (prose draft, 2026-10-20; updated 2026-10-22; 1.25 pages)
 
@@ -988,6 +1009,29 @@ Not resolved here: the submission deadline (Dec 2 vs mid-December estimate) and 
 
 Outline text replaced by the prose drafts of 2026-10-20, moved here verbatim. Register ids in square brackets
 follow the outline convention of this file.
+
+### 4.2 Background and related work (outline as of 2026-10-20; superseded 2026-10-21)
+
+**4.2 Background and related work (0.75 page)**
+
+- **Claim:** prior work characterizes either serving efficiency at fixed memory, or single-vendor out-of-memory
+  behaviour, or abstention under missing retrieval; none measures the chain from memory architecture through a
+  runtime's default to agent behaviour, across vendors.
+- **Positioning** (sources in `docs/RELATED_WORK.md`, `docs/PRIOR_ART.md`, `docs/references.bib`):
+  - LLM routing: RouteLLM (`routellm`), Martian (`martian`), NotDiamond (`notdiamond`), RouterBench (named in
+    `docs/DEMO_SPEC.md`, NOT yet in `references.bib`; Gap G14). They route on model capability and cost; none conditions
+    on a measured, hardware- and runtime-dependent effective context.
+  - Cloud-edge routing (`cloud_edge_survey`, `edge_llm_serving`): static placement or per-request offload.
+  - Memory-system DSE: MemExplorer (arXiv:2604.16007) sizes memory technology for throughput at fixed correctness.
+  - Apple-silicon serving: SiliconBench (arXiv:2609.19169), one memory architecture.
+  - KV eviction and compression (H2O, SnapKV, StreamingLLM, LLMLingua): choose what to keep at fixed memory, as a
+    designed policy. We measure what a shipped runtime actually discards by default.
+  - Missing context and abstention: Sufficient Context (arXiv:2411.06037), Lost in the Middle (arXiv:2307.03172).
+  - Runtime issue trackers (ollama #14073, #14116, #12353; llama.cpp #18946, #19745, #1866): the mechanisms exist as
+    anecdotes, one vendor and one bug at a time.
+- **Figure:** none.
+- **Gaps:** RouterBench bib entry (G14); StreamingLLM and Scissorhands are "not independently verified" in
+  `docs/PRIOR_ART.md` and need citation checks (G14).
 
 ### 4.1 Introduction and 4.1a motivation draft (outline as of 2026-10-20; superseded 2026-10-21)
 
