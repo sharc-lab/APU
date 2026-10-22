@@ -94,16 +94,20 @@ Click: Next. The picker opens on evo-x2 / qwen3:14b / multi-turn agent session. 
 CPU". If time allows, "Blade 14".
 
 Say:
-- "For each device and model the tool decides at session start: run locally with the recommended setting, or send the
-  whole session to the cloud from the start."
-- evo-x2 / qwen3:14b: "Run locally: window 40960, KV cache q8_0. Same rule and history scores as the default, 75.4
-  minutes per session instead of 214.8. The flash-attention control says the speedup is the KV precision, not flash
-  attention." Measured (b5-policy-metrics, cost-cut-config-time, b5-fa-control). Same for llama3.1:8b with q4_0.
+- "The rule: route local only if local accuracy at the recommended setting is at least all-cloud accuracy minus a
+  tolerance; otherwise the whole session goes to the cloud from the start. At matched quality, tolerance 0, the
+  measured answer for every measured device is cloud from the start." Measured (hybrid-route-at-start).
+- "evo-x2 would route local only if you accept 7.8 points less accuracy than claude-haiku-5-5, or 11.1 points less than
+  claude-sonnet-5-5 (B3 task accuracy). The evo-t2s iGPU: 16.7 and 20.0 points, measured by R2 session pass rate, not
+  B3 task accuracy." Measured (hybrid-route-at-start).
+- evo-x2 / qwen3:14b, the local setting if you do run locally: "Window 40960, KV cache q8_0. Same rule and history
+  scores as the default, 75.4 minutes per session instead of 214.8. The flash-attention control says the speedup is
+  the KV precision, not flash attention." Measured (b5-policy-metrics, cost-cut-config-time, b5-fa-control). Same for
+  llama3.1:8b with q4_0 (its route at start is not measured).
 - evo-t2s CPU / qwen3:14b: "Here nothing we measured holds the rules: the default loses them and trimming did not
   recover qwen3:14b, so the decision is the whole session to the cloud from the start." Point at "kept local, measured
   by R2 session pass rate (not B3 task accuracy): 0/5"; on the iGPU it is 5/5 (llama3.1:8b) and 4/5 (qwen3:14b).
   Measured (t2s-r2-real-cpu, t2s-r2-mitigation-cpu, t2s-config-comparison); the savings beside it are projected.
-- "The cost of routing the whole session at the start": being measured (row hybrid-route-at-start not on main yet).
 - Blade: "Not measured. Every field says so."
 
 ## Step 4 (3:00 to 4:00): the money
@@ -124,8 +128,8 @@ Say:
 - "On the Intel CPU at 4096 the window-flag hybrid escalates 88 of 90 tasks and costs more than all-cloud against
   claude-sonnet-5-5 (USD 359.80 a month more at 1,000 tasks/day): escalating with the full history costs more per task
   than a fresh cloud run." Projected (from evo-x2's 4096 tier).
-- "How much more a late full-history escalation costs than a fresh cloud run": being measured (row
-  late-escalation-cost-vs-fresh not on main yet).
+- "And escalating late, with the full history, costs 1.76 times a fresh cloud run of the same task (1.64 times on the
+  median; 2.22 and 1.87 unmatched)." Measured (late-escalation-cost-vs-fresh, claude-sonnet-5-5, 119 matched rows).
 - "Against claude-haiku-5-5 the escalation cost is interim: the full-history redo ran on Sonnet only."
 - "One long agent task sent whole to the cloud: USD 2.53 at the median on claude-sonnet-5-5." Priced, not executed
   (cloud-cost-per-real-task, recalibrated).
@@ -169,12 +173,12 @@ it." Then click "Finish: explore freely" for questions.
 | evo-x2: q8_0 (qwen3:14b) / q4_0 (llama3.1:8b); the speedup is KV precision, not flash attention | measured | b5-fa-control |
 | evo-t2s CPU qwen3:14b: no setting holds the rules; whole session to the cloud | measured (what failed); setting not measured | t2s-r2-real-cpu, t2s-r2-mitigation-cpu |
 | evo-t2s kept local, measured by R2 session pass rate (not B3 task accuracy) | measured | t2s-config-comparison |
-| Cost of routing the whole session at start | being measured | hybrid-route-at-start (not on main yet) |
+| At matched quality every measured device routes the whole session to the cloud from the start; local only at tolerance >= 7.8 / 11.1 points (evo-x2 vs Haiku / Sonnet) and 16.7 / 20.0 (evo-t2s iGPU, R2 session pass rate) | measured | hybrid-route-at-start |
 | Blade: every setting | not measured | none |
 | evo-x2 vs Sonnet at 1,000 tasks/day: local saves USD 306.10/month at 80/90, 10 wrong answers silent; flag escalates 0 | measured | hybrid-savings-tradeoff |
 | Detector ceiling | side note only: "ceiling, no such detector" | hybrid-savings-tradeoff |
 | Intel CPU at 4096: flag hybrid costs USD 359.80/month more than all-cloud vs Sonnet | projected | hybrid-savings-tradeoff |
-| Late full-history escalation vs a fresh cloud run | being measured | late-escalation-cost-vs-fresh (not on main yet) |
+| Late full-history escalation costs 1.76x a fresh cloud run of the same task (1.64x median; 2.22x / 1.87x unmatched) | measured | late-escalation-cost-vs-fresh |
 | Fix after the fact: about 2 cents (mean USD 0.0227), 84.8% fixed (95% Wilson CI 79.1% to 89.1%), 28 of 30 unfixed inherited earlier actions | measured (full history, max_tokens 2048 vs local 384) | cloud-redo-full-context |
 | One long agent task in the cloud: USD 2.53 median (Sonnet, 70% cache hits assumed) | priced, not executed | cloud-cost-per-real-task |
 | P1 cost per day for one team, and the problem ranking | being measured (rows still use the first redo) | none until re-computed |

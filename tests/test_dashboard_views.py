@@ -635,7 +635,16 @@ def test_story_tradeoff_parsers():
 
 def test_device_decision_and_kept_local_label(app):
     x2 = get(app, "/api/device/recommend?device=evo-x2&model=qwen3:14b&workload=r2_agent")
-    assert x2["decision"]["route"] == "local" and x2["status"] == "measured"
+    # the decision follows hybrid-route-at-start: at matched quality the measured answer is cloud from the start,
+    # with the tolerance at which the device would route local
+    assert x2["decision"]["route"] == "cloud" and x2["status"] == "measured"
+    assert x2["decision"]["src"] == {"register": "hybrid-route-at-start"}
+    tol = {t["model"]: t["tolerance_local"] for t in x2["decision"]["tolerances"]}
+    assert tol == {"claude-haiku-5-5": 7.8, "claude-sonnet-5-5": 11.1}
+    igpu = get(app, "/api/device/recommend?device=evo-t2s-igpu&model=qwen3:14b&workload=r2_agent")["decision"]
+    assert {t["model"]: t["tolerance_local"] for t in igpu["tolerances"]} == {"claude-haiku-5-5": 16.7,
+                                                                               "claude-sonnet-5-5": 20.0}
+    assert all("R2 session pass rate" in t["basis"] for t in igpu["tolerances"])
     # the verified flash-attention control reads KV precision: q8_0 measured, with that attribution
     assert x2["settings"]["kv_precision"] ["value"] == "q8_0" and x2["settings"]["kv_precision"]["label"] == "measured"
     assert any("KV precision, not flash attention" in c for c in x2["caveats"])
@@ -643,7 +652,37 @@ def test_device_decision_and_kept_local_label(app):
     assert cpu["decision"]["route"] == "cloud"
     assert any("measured by R2 session pass rate (not B3 task accuracy)" in o["text"] for o in cpu["outcome"])
     assert cpu["kept_local"]["label"] == "measured by R2 session pass rate (not B3 task accuracy)"
-    assert cpu["decision"]["route_cost"]["label"] in ("being measured", "measured")
+    assert cpu["decision"]["route_cost"]["label"] == "not measured"  # the route row covers the iGPU, not the CPU
+
+
+def test_route_and_late_escalation_parsers():
+    route = views.parse_route_at_start(
+        "rule x / evo-x2 vs claude-haiku-5-5: recommended ollama_default, default = best, local accuracy 80/90 (88.9%) "
+        "[measured, B3 task accuracy] vs all-cloud 87/90 (96.7%), gap 7.8 points (routes local at tolerance >= 7.8); "
+        "tolerance 0: cloud, saves 0.00 / evo-t2s vs claude-sonnet-5-5: recommended Intel iGPU, Ollama default, loaded "
+        "window 32768, local accuracy 4/5 (80.0%) [measured by R2 session pass rate (not B3 task accuracy)] vs "
+        "all-cloud 90/90 (100.0%), gap 20.0 points (routes local at tolerance >= 20.0); tolerance 0: cloud, saves 0")
+    assert [(r["device"], r["model"], r["tolerance_local"], r["at_matched"]) for r in route] == [
+        ("evo-x2", "claude-haiku-5-5", 7.8, "cloud"), ("evo-t2s", "claude-sonnet-5-5", 20.0, "cloud")]
+    le = views.parse_late_escalation(
+        "claude-sonnet-5-5, USD per task: x; ratio 2.22x on the mean, 1.87x on the median; matched on (seed, task_id) "
+        "where both exist: 119 redo rows over 53 distinct tasks, redo mean $0.0226 vs fresh mean $0.0129, ratio 1.76x "
+        "mean, 1.64x median; incomplete")
+    assert (le["matched_mean"], le["matched_median"], le["unmatched_mean"], le["unmatched_median"],
+            le["matched_rows"], le["matched_tasks"]) == (1.76, 1.64, 2.22, 1.87, 119, 53)
+    assert views.late_escalation_text(le).startswith("Late full-history escalation costs 1.76x a fresh cloud run")
+    assert views.parse_late_escalation("") is None and views.parse_route_at_start("") == []
+
+
+def test_story_step3_follows_route_at_start(app):
+    s3 = get(app, "/api/story")["steps"][2]["items"]
+    text = " ".join(i["text"] for i in s3)
+    assert "At matched quality (tolerance 0) the measured answer for every measured device is cloud from the start" in text
+    assert "7.8 points vs claude-haiku-5-5" in text and "11.1 points vs claude-sonnet-5-5" in text
+    assert "16.7 points vs claude-haiku-5-5" in text and "20.0 points vs claude-sonnet-5-5" in text
+    assert "being measured" not in text
+    s4 = " ".join(i["text"] for i in get(app, "/api/story")["steps"][3]["items"])
+    assert "1.76x" in s4 and "1.64x" in s4 and "2.22x" in s4 and "being measured" not in s4
     blade = get(app, "/api/device/recommend?device=blade&model=qwen3:14b&workload=r2_agent")
     assert blade["decision"]["label"] == "not measured"
 

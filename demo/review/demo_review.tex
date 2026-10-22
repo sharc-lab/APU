@@ -58,9 +58,10 @@ What the demo shows:
   wrong result returned as a normal answer (view A, Table~\ref{tab:a}).
 \item \textbf{The obvious fixes do not hold.} num\_keep reduces but does not remove the wrong-task excess; client-side
   trimming breaks a rule the untrimmed run kept; rule loss depends on the model (story step 2).
-\item \textbf{The tool decides at session start, per device and model}: run locally with the recommended setting
-  (window, num\_keep, KV precision, flash attention, each labelled) or send the whole session to the cloud from the
-  start. On evo-x2 the KV q8\_0 / q4\_0 settings are measured and attributed to KV precision by the verified
+\item \textbf{The tool decides at session start, per device and model}: route local only if local accuracy is at least
+  all-cloud accuracy minus a stated tolerance, else send the whole session to the cloud from the start; it shows the
+  recommended local setting (window, num\_keep, KV precision, flash attention, each labelled) and the tolerance at
+  which each device would route local. On evo-x2 the KV q8\_0 / q4\_0 settings are measured and attributed to KV precision by the verified
   flash-attention control; on evo-t2s ``kept local'' is measured by R2 session pass rate, not B3 task accuracy
   (view B, Table~\ref{tab:b}).
 \item \textbf{The money:} story step 4 leads with the measured trade-off per option (all-cloud, naive local at the
@@ -80,8 +81,10 @@ What it deliberately does not claim:
   and the screen says so.
 \item \textbf{No detector ceiling as a headline.} The perfect-detector figure appears only as a dotted line and a side
   note labelled ``ceiling, no such detector''.
-\item \textbf{Route-at-start and late-escalation figures} read ``being measured'' until their register rows
-  (hybrid-route-at-start, late-escalation-cost-vs-fresh) are on main.
+\item \textbf{No local route at matched quality.} The session-start decision follows row hybrid-route-at-start: at
+  matched quality (tolerance 0) every measured device routes the whole session to the cloud from the start; the
+  screen shows the tolerance at which each device would route local, and on evo-t2s that accuracy is the R2 session
+  pass rate, not B3 task accuracy.
 \end{itemize}
 
 \section{Story mode}
@@ -92,8 +95,9 @@ audio, no live call, recorded redo in step 5) is \texttt{demo/review/demo\_story
 \texttt{demo/review/LEAVE\_BEHIND.pdf}.
 \shot{story_step1}{Story step 1, the problem.}{fig:s1}
 \shot{story_step2}{Story step 2, why it is hard.}{fig:s2}
-\shot{story_step3}{Story step 3, the tool: the decision at session start on evo-x2 / qwen3:14b (run locally with KV
-q8\_0, attributed to KV precision).}{fig:s3}
+\shot{story_step3}{Story step 3, the tool: the decision at session start on evo-x2 / qwen3:14b (at matched quality,
+cloud from the start; the tolerance at which it would route local; the recommended local setting KV q8\_0,
+attributed to KV precision).}{fig:s3}
 \shot{story_step3_cpu}{Story step 3 after switching the device to the evo-t2s Intel CPU: the whole session goes to the
 cloud from the start.}{fig:s3b}
 \shot{story_step4}{Story step 4, the money: the measured trade-off first, the ceiling only as a dotted line.}{fig:s4}
@@ -139,9 +143,10 @@ measured.}{fig:d2}
 \begin{longtable}{>{\raggedright\arraybackslash}p{0.30\textwidth}>{\raggedright\arraybackslash}p{0.36\textwidth}>{\raggedright\arraybackslash}p{0.26\textwidth}}
 \toprule
 \textbf{Item} & \textbf{What resolves it} & \textbf{When}\\\midrule\endhead
-Route-at-start cost and late-escalation cost versus a fresh cloud run read ``being measured'' &
-Rows hybrid-route-at-start and late-escalation-cost-vs-fresh landing on main; the story and view B pick them up after
-a cache rebuild & When they land on main\\
+The route-at-start decision covers qwen3:14b on evo-x2 and the evo-t2s iGPU only; other device and model pairs show
+``not measured'' for it & Route-at-start rows for more models and devices & Not scheduled by this branch\\
+evo-t2s local accuracy in the route decision is the R2 session pass rate, not B3 task accuracy & The evo-t2s B5 task
+runs & Access window 2026-10-26 to 2026-11-08\\
 Hybrid escalation cost against claude-haiku-5-5 is interim (its all-cloud price) & A full-history redo on
 claude-haiku-5-5 & Not scheduled by this branch\\
 The P1 cost per day and the problem ranking stay ``being measured'' & Their register rows recomputed with the

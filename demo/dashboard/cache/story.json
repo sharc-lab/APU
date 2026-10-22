@@ -120,9 +120,25 @@
      }
     },
     {
-     "text": "Cost of routing the whole session at start: being measured",
-     "label": "being measured",
-     "src": null
+     "text": "The rule: route local if local accuracy at the recommended setting is at least all-cloud accuracy minus a tolerance (points), else send the whole session to the cloud from the start. At matched quality (tolerance 0) the measured answer for every measured device is cloud from the start.",
+     "label": "measured",
+     "src": {
+      "register": "hybrid-route-at-start"
+     }
+    },
+    {
+     "text": "evo-x2 (ollama_default, default = best) would route local only at tolerance >= 7.8 points vs claude-haiku-5-5, 11.1 points vs claude-sonnet-5-5 (local 80/90 vs all-cloud 87/90, 90/90; measured, B3 task accuracy)",
+     "label": "measured",
+     "src": {
+      "register": "hybrid-route-at-start"
+     }
+    },
+    {
+     "text": "evo-t2s (Intel iGPU, Ollama default, loaded window 32768) would route local only at tolerance >= 16.7 points vs claude-haiku-5-5, 20.0 points vs claude-sonnet-5-5 (local 4/5 vs all-cloud 87/90, 90/90; measured by R2 session pass rate (not B3 task accuracy))",
+     "label": "measured",
+     "src": {
+      "register": "hybrid-route-at-start"
+     }
     }
    ],
    "panel": "device",
@@ -159,9 +175,11 @@
      }
     },
     {
-     "text": "Late full-history escalation versus a fresh cloud run: being measured",
-     "label": "being measured",
-     "src": null
+     "text": "Late full-history escalation costs 1.76x a fresh cloud run of the same task on the mean (1.64x on the median; matched over 119 rows, 53 tasks; 2.22x / 1.87x unmatched) on claude-sonnet-5-5",
+     "label": "measured",
+     "src": {
+      "register": "late-escalation-cost-vs-fresh"
+     }
     },
     {
      "text": "Against claude-haiku-5-5 the escalation cost is interim (its all-cloud price): the full-history redo ran on claude-sonnet-5-5 only.",

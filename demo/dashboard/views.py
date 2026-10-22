@@ -452,7 +452,9 @@ def build_device(register: dict, repo: Path = REPO, r2_sessions: dict | None = N
         "fa_reading": fa_control_reading(register),
         "fa_control": {m: fa_control_for(register, m) for m in parse_fa_control(val("b5-fa-control"))},
         "t2s_config": parse_t2s_config(val("t2s-config-comparison")),
-        "route_at_start": optional_row(register, "hybrid-route-at-start"),
+        "route_at_start": {"text": "not measured for this device and model (row hybrid-route-at-start covers "
+                                   "qwen3:14b on evo-x2 and the evo-t2s iGPU)", "label": NOT_MEASURED, "src": None},
+        "routes": parse_route_at_start(val("hybrid-route-at-start")),
     }
 
 
@@ -738,7 +740,7 @@ def device_recommend(dv: dict, device: str, model: str, workload: str, points: l
                             "x2-scale-real-default-tier)")
             rec["register_ids"] = ["H-scale-verdict", "x2-scale-real-default-tier"]
     rec.setdefault("excluded", [])
-    rec["decision"] = session_start_decision(dv, rec, workload)
+    rec["decision"] = session_start_decision(dv, {**rec, "device": device, "model": model}, workload)
     return {"device": device, "model": model, "workload": workload, "max_timeout_share": max_timeout_share, **rec}
 
 
@@ -749,6 +751,20 @@ def session_start_decision(dv: dict, rec: dict, workload: str) -> dict:
     if workload == "single_shot":
         return {"route": None, "text": "per call (single-shot workload): no session to route", "label": None}
     route_row = (dv.get("route_at_start") or {"text": "being measured", "label": BEING_MEASURED, "src": None})
+    # Row hybrid-route-at-start covers qwen3:14b on evo-x2 (B3 task accuracy) and evo-t2s at its recommended iGPU
+    # setting (R2 session pass rate): the decision follows it, at matched quality (tolerance 0).
+    dev_key = {"evo-x2": "evo-x2", "evo-t2s-igpu": "evo-t2s"}.get(rec.get("device"))
+    rs = [r for r in dv.get("routes") or [] if r["device"] == dev_key] if rec.get("model") == "qwen3:14b" else []
+    if rs:
+        cloud = all(r["at_matched"] == "cloud" for r in rs)
+        return {"route": "cloud" if cloud else "local",
+                "text": ("Decide at session start: at matched quality (tolerance 0) the measured answer is the whole "
+                         "session to the cloud from the start." if cloud else
+                         "Decide at session start: at matched quality (tolerance 0) run locally."),
+                "label": MEASURED, "basis": ["hybrid-route-at-start"],
+                "tolerances": [{"model": r["model"], "tolerance_local": r["tolerance_local"], "local": r["local"],
+                                "cloud": r["cloud"], "basis": r["basis"]} for r in rs],
+                "src": reg_src("hybrid-route-at-start")}
     if rec["status"] in (MEASURED, PENDING_FA):
         route, text = "local", "Decide at session start: run locally with the recommended setting."
     elif rec.get("outcome"):  # measured failure and no setting that holds it
@@ -859,6 +875,42 @@ def parse_t2s_config(value: str) -> dict:
         out[f"{'cpu' if m[2] == 'CPU' else 'igpu'}|{m[3]}"] = {
             "role": m[1], "window": int(m[4]), "kept": int(m[7]), "n": int(m[8]), "saves_1000": saves}
     return out
+
+
+_ROUTE_RE = re.compile(
+    r"(?P<device>evo-x2|evo-t2s) vs (?P<model>claude-[\w.-]+): recommended (?P<setting>.*?), local accuracy "
+    r"(?P<lk>\d+)/(?P<ln>\d+) \((?P<lp>[\d.]+)%\) \[(?P<basis>[^\]]*)\] vs all-cloud (?P<ck>\d+)/(?P<cn>\d+) "
+    r"\((?P<cp>[\d.]+)%\), gap (?P<gap>[\d.]+) points \(routes local at tolerance >= (?P<tol>[\d.]+)\); tolerance 0: "
+    r"(?P<t0>cloud|local)")
+
+
+def parse_route_at_start(value: str) -> list[dict]:
+    """Row hybrid-route-at-start: per device and cloud model, local vs all-cloud accuracy, the gap, the tolerance at
+    which the device would route local, and the decision at tolerance 0 (matched quality)."""
+    return [{"device": m["device"], "model": m["model"], "setting": m["setting"], "local": f"{m['lk']}/{m['ln']}",
+             "local_pct": float(m["lp"]), "basis": m["basis"], "cloud": f"{m['ck']}/{m['cn']}",
+             "cloud_pct": float(m["cp"]), "gap": float(m["gap"]), "tolerance_local": float(m["tol"]),
+             "at_matched": m["t0"]} for m in _ROUTE_RE.finditer(value or "")]
+
+
+def parse_late_escalation(value: str) -> dict | None:
+    """Row late-escalation-cost-vs-fresh: late full-history escalation vs a fresh cloud run, unmatched and matched on
+    (seed, task_id)."""
+    un = re.search(r"ratio ([\d.]+)x on the mean, ([\d.]+)x on the median", value or "")
+    mt = re.search(r"(\d+) redo rows over (\d+) distinct tasks.*?ratio ([\d.]+)x mean, ([\d.]+)x median", value or "")
+    if not un or not mt:
+        return None
+    model = re.search(r"^(claude-[\w.-]+)", value)
+    return {"model": model[1] if model else None, "unmatched_mean": float(un[1]), "unmatched_median": float(un[2]),
+            "matched_rows": int(mt[1]), "matched_tasks": int(mt[2]), "matched_mean": float(mt[3]),
+            "matched_median": float(mt[4])}
+
+
+def late_escalation_text(le: dict) -> str:
+    return (f"Late full-history escalation costs {le['matched_mean']:.2f}x a fresh cloud run of the same task on the "
+            f"mean ({le['matched_median']:.2f}x on the median; matched over {le['matched_rows']} rows, "
+            f"{le['matched_tasks']} tasks; {le['unmatched_mean']:.2f}x / {le['unmatched_median']:.2f}x unmatched) on "
+            f"{le['model']}")
 
 
 def optional_row(register: dict, rid: str) -> dict:
@@ -1044,8 +1096,13 @@ def impact_step4_text(repo: Path = REPO) -> str | None:
                   re.S)
     if not m:
         return None
-    q = re.search(r"Demo story step 4[^\n]*\n+\s*\"(.+?)\"\s*$", m[1].strip(), re.S)
-    return " ".join(q[1].split()) if q else None
+    sec = m[1].split("Demo story step 4", 1)
+    if len(sec) < 2:
+        return None
+    # the trade-off paragraph: the last paragraph quoted whole on its own line (the block's fix-after-the-fact and
+    # route lines are built separately from their rows, with the CI and caveat wording the demo requires)
+    paras = re.findall(r'^"([^"\n]+)"\s*$', sec[1], re.M)
+    return " ".join(paras[-1].split()) if paras else None
 
 
 def build_story(register: dict, silent: dict, cost: dict, escalation: dict | None = None,
@@ -1115,9 +1172,25 @@ def build_story(register: dict, silent: dict, cost: dict, escalation: dict | Non
             s3.append(_item(f"evo-t2s {name}: kept local, {KEPT_LOCAL_LABEL}: " + ", ".join(
                 f"{m} {v['kept']}/{v['n']}" for m, v in sorted(rows.items())) + " sessions", MEASURED,
                 "t2s-config-comparison"))
-    route = optional_row(register, "hybrid-route-at-start")
-    s3.append(_item(f"Cost of routing the whole session at start: {route['text']}", route["label"],
-                    src=route["src"]))
+    routes = parse_route_at_start(val("hybrid-route-at-start"))
+    if routes:
+        matched_cloud = all(r["at_matched"] == "cloud" for r in routes)
+        s3.append(_item("The rule: route local if local accuracy at the recommended setting is at least all-cloud "
+                        "accuracy minus a tolerance (points), else send the whole session to the cloud from the "
+                        "start. " + ("At matched quality (tolerance 0) the measured answer for every measured device "
+                                     "is cloud from the start." if matched_cloud else
+                                     "At matched quality (tolerance 0) some devices route local."),
+                        MEASURED, "hybrid-route-at-start"))
+        by_dev: dict = {}
+        for r in routes:
+            by_dev.setdefault((r["device"], r["basis"], r["setting"]), []).append(r)
+        for (dev, basis, setting), rs in by_dev.items():
+            s3.append(_item(f"{dev} ({setting}) would route local only at tolerance >= " + ", ".join(
+                f"{r['tolerance_local']:.1f} points vs {r['model']}" for r in rs) +
+                f" (local {rs[0]['local']} vs all-cloud " + ", ".join(r["cloud"] for r in rs) + f"; {basis})",
+                MEASURED, "hybrid-route-at-start"))
+    else:
+        s3.append(_item("Routing at session start: being measured", BEING_MEASURED))
     steps.append({"n": 3, "title": "The tool: decide at session start, per device and model", "minutes": 1,
                   "items": s3, "panel": "device", "defaults": {"device": "evo-x2", "model": "qwen3:14b",
                                                                 "workload": "r2_agent"}})
@@ -1142,9 +1215,11 @@ def build_story(register: dict, silent: dict, cost: dict, escalation: dict | Non
                            f"cloud run" if hf["saves"][1000] < 0 else
                            f"saves only USD {hf['saves'][1000]:,.2f}/month at 1,000 tasks/day"),
                         PROJECTED, "hybrid-savings-tradeoff"))
-    late = optional_row(register, "late-escalation-cost-vs-fresh")
-    s4.append(_item("Late full-history escalation versus a fresh cloud run: " + late["text"], late["label"],
-                    src=late["src"]))
+    le = parse_late_escalation(val("late-escalation-cost-vs-fresh"))
+    if le:
+        s4.append(_item(late_escalation_text(le), MEASURED, "late-escalation-cost-vs-fresh"))
+    else:
+        s4.append(_item("Late full-history escalation versus a fresh cloud run: being measured", BEING_MEASURED))
     if any(r["escalation_interim"] for r in trade):
         s4.append(_item("Against claude-haiku-5-5 the escalation cost is interim (its all-cloud price): the "
                         "full-history redo ran on claude-sonnet-5-5 only.", None))

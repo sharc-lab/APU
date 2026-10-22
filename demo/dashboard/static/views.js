@@ -80,7 +80,9 @@ function renderDevice(r) {
     return `<div class="tile"><div class="k">${esc(name)} ${lab(s.label)}</div><div class="v small" style="font-size:16px">${num(s.value, s.src)}</div>${s.note ? `<div class="muted small">${esc(s.note)}</div>` : ""}</div>`;
   };
   const d = r.decision || {};
-  let h = d.text ? `<p class="lead">${esc(d.text)} ${lab(d.label)}${d.route_cost ? `<br><span class="small">Cost of routing the whole session at start: ${num(d.route_cost.text, d.route_cost.src)} ${lab(d.route_cost.label)}</span>` : ""}</p>` : "";
+  let h = d.text ? `<p class="lead">${num(d.text, d.src)} ${lab(d.label)}${(d.tolerances || []).length
+    ? `<br><span class="small">Would route local only at tolerance &gt;= ${d.tolerances.map((t) => `${num(t.tolerance_local.toFixed(1) + " points", d.src)} vs ${esc(t.model)} (local ${esc(t.local)} vs all-cloud ${esc(t.cloud)})`).join("; ")}; ${esc(d.tolerances[0].basis)}.</span>`
+    : d.route_cost ? `<br><span class="small">Route at start: ${num(d.route_cost.text, d.route_cost.src)} ${lab(d.route_cost.label)}</span>` : ""}</p>` : "";
   h += `<p class="hero">${r.status !== "measured" ? lab(r.status) + " " : ""}${esc(r.basis)}</p>`;
   h += `<div class="settings">${SETTING_NAMES.map(tile).join("")}</div>`;
   if (r.outcome.length) h += `<h3>Measured outcome</h3><ul>${r.outcome.map((o) => `<li>${lab(o.label)} ${num(o.text, o.src)}</li>`).join("")}</ul>`;

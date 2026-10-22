@@ -137,10 +137,13 @@ def view_b(app) -> tuple[list, dict]:
         if d.get("text"):
             rows.append((f"{head}: {d['text']}", ", ".join(d.get("basis") or []) or "none",
                          STATUS.get(d.get("label"), d.get("label")) or "context"))
+            for t in d.get("tolerances") or []:
+                rows.append((f"{head}: would route local only at tolerance >= {t['tolerance_local']:.1f} points vs "
+                             f"{t['model']} (local {t['local']} vs all-cloud {t['cloud']}; {t['basis']})",
+                             "hybrid-route-at-start", "measured"))
             rc = d.get("route_cost")
-            if rc:
-                rows.append((f"{head}: cost of routing the whole session at start: {rc['text']}",
-                             rid_of(rc.get("src")) or "hybrid-route-at-start (not on main yet)",
+            if rc and not d.get("tolerances"):
+                rows.append((f"{head}: route at start: {rc['text']}", rid_of(rc.get("src")) or "none",
                              STATUS.get(rc["label"], rc["label"])))
     return rows, recs
 
