@@ -55,6 +55,20 @@ COST_IDS = ["cloud-redo-cost-per-wrong-task", "x2-evalset-tasks-real-v2-wrong-ra
             "impact-hour-value"]
 
 
+# Clauses of register rows the demo must not show, even in the click-through source dialog (operator 2026-10-21: the
+# cloud redo's fix rate is under diagnosis). The redaction is marked in place, so the row is visibly not verbatim.
+REDACTIONS = [("cloud-redo-cost-per-wrong-task", re.compile(r"cloud correct \d+/\d+ \([\d.]+%\)"),
+               "[cloud fix rate withheld in the demo: under diagnosis]")]
+
+
+def redact_register(register: dict) -> dict:
+    out = dict(register)
+    for rid, pat, repl in REDACTIONS:
+        if rid in out and pat.search(out[rid].get("value") or ""):
+            out[rid] = dict(out[rid], value=pat.sub(repl, out[rid]["value"]), redacted=True)
+    return out
+
+
 def reg_src(rid: str) -> dict:
     return {"register": rid}
 

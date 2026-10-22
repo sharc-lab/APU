@@ -105,6 +105,8 @@ class Cache:
             if not p.exists():
                 raise FileNotFoundError(f"{p} missing: run `py -3.12 -m demo.dashboard.build_cache` first")
             setattr(self, n, json.loads(p.read_text(encoding="utf-8")))
+        from demo.dashboard import views
+        self.register = views.redact_register(self.register)
 
 
 # ── points / frontier / recommendation ─────────────────────────────────────────────────────────────

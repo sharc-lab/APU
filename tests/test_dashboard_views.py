@@ -6,6 +6,7 @@ completion function into src/cloud/client.py's CloudClient, and a guard fails an
 non-loopback address.
 """
 import json
+import re
 import socket
 from pathlib import Path
 
@@ -553,6 +554,18 @@ def test_story_parsers():
     assert tc["median_steps"] == 62 and tc["models"]["claude-sonnet-5-5"]["realistic"] == (1.5367, 2.6348)
     assert tc["priced"] is True
     assert views.parse_task_cost("") == {}
+
+
+def test_fix_rate_redacted_everywhere(app):
+    r = {"cloud-redo-cost-per-wrong-task": {"id": "x", "status": "VERIFIED", "value": "mean $0.0201; cloud correct "
+                                                                                        "79/197 (40.1%), mean 6.89 s"}}
+    red = views.redact_register(r)["cloud-redo-cost-per-wrong-task"]
+    assert "79/197" not in red["value"] and "withheld" in red["value"] and red["redacted"] is True
+    assert "6.89 s" in red["value"] and r["cloud-redo-cost-per-wrong-task"]["value"].count("79/197") == 1
+    for path in ("/api/register?id=cloud-redo-cost-per-wrong-task", "/api/cost", "/api/story", "/api/escalation",
+                 "/api/register"):
+        body = json.dumps(get(app, path))
+        assert not re.search(r"cloud correct \d+/\d+", body), path
 
 
 def test_register_row_with_pipe_in_value(tmp_path):
