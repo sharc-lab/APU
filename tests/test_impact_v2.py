@@ -56,3 +56,53 @@ def test_v2_profile_is_stated_and_register_has(tmp_path):
                                                            encoding="utf-8")
     assert im.register_has(tmp_path, "x-row") and not im.register_has(tmp_path, "y-row")
     assert not im.register_has(tmp_path, "z-row")
+
+
+def test_p1_v2_per_tier_cloud_part_is_tagged_and_not_lower_bound():
+    prof = _profile()
+    r = im.p1_v2(REPO, prof, {"b3v2": B3, "redo_usd": {"ollama_ctx_4096": 0.03}, "redo_tag": im.CLOUD_TAG_STUB})
+    cloud = 10 * 30 * 0.3 * 0.03
+    assert not r["lower_bound_only"] and not r["pending"]
+    assert r["cloud_tag"] == "priced, not executed" and r["status"] == "mixed"
+    assert r["low"] == pytest.approx(cloud)
+    assert r["usd_day"] == pytest.approx(cloud + 10 * 30 * 0.3 * 18.0 / 3600.0 * 100.0)
+    assert r["cell"]["cloud_usd_day_ci"] == pytest.approx((10 * 30 * 0.2 * 0.03, 10 * 30 * 0.4 * 0.03))
+    # a tier missing from the redo data keeps its cloud part PENDING
+    r2 = im.p1_v2(REPO, prof, {"b3v2": B3, "redo_usd": {"ollama_ctx_8192": 0.03}})
+    assert r2["lower_bound_only"] and r2["cloud_tag"] is None
+
+
+CC = {"models": {"qwen3:14b": {"default_min": 200.0, "best": "g", "best_name": "kv_q8_0", "best_min": 80.0,
+                               "saved_min": 120.0}}, "fa_included": False}
+
+
+def test_p2_v2_minutes_saved_times_volume_and_caveat():
+    prof = _profile()
+    r = im.p2_v2(prof, CC)
+    assert r["usd_day"] == pytest.approx(10 * 120.0 / 60.0 * 100.0) and r["low"] == 0.0
+    assert r["status"] == "mixed" and not r["pending"] and "b5-fa-control" in r["caveat"]
+    assert "without flash attention" in im.p2_v2_value(r)
+    assert im.p2_v2(prof, dict(CC, fa_included=True))["caveat"] == im.P2_CAVEAT_FA_INCLUDED
+    # PENDING without the row, or without the profile model in it
+    assert im.p2_v2(prof, None)["status"] == "PENDING"
+    assert im.p2_v2(_profile(model="qwen3:8b"), CC)["pending"] == ["cost-cut-config-time"]
+
+
+def test_v2_inputs_read_only_verified_rows(tmp_path, monkeypatch):
+    import numbers_register as nr
+    calls = []
+    monkeypatch.setattr(nr, "cloud_redo_data", lambda repo: calls.append("cr") or {
+        "stub": True, "per_tier": {"ollama_ctx_4096": {"mean_usd": 0.03}, "ollama_default": {"mean_usd": None}}})
+    monkeypatch.setattr(nr, "cost_cut_config_time_data", lambda repo: calls.append("cc") or CC)
+    (tmp_path / "docs").mkdir()
+    reg = tmp_path / "docs" / "NUMBERS_REGISTER.md"
+    reg.write_text("| cloud-redo-cost-per-wrong-task | PENDING | v |\n| cost-cut-config-time | PENDING | v |\n",
+                   encoding="utf-8")
+    assert im.v2_inputs(tmp_path) == {} and calls == []
+    reg.write_text("| cloud-redo-cost-per-wrong-task | VERIFIED | v |\n| cost-cut-config-time | VERIFIED | v |\n",
+                   encoding="utf-8")
+    got = im.v2_inputs(tmp_path)
+    assert got["P1"] == {"redo_usd": {"ollama_ctx_4096": 0.03}, "redo_tag": "priced, not executed"}
+    assert got["P2"] is CC
+    monkeypatch.setattr(nr, "cloud_redo_data", lambda repo: {"stub": False, "per_tier": {}})
+    assert im.v2_inputs(tmp_path)["P1"]["redo_tag"] == "measured"

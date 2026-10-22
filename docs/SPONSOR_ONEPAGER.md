@@ -19,9 +19,13 @@ docs/BUSINESS_METRICS.md.
   [R2-real-v1b-gated-kill] (measured); for llama3.1:8b at the default window, "R2 silent rule/recall failures after the
   window 0/5 sessions" [impact-P1] (measured). Every call returns normally; nothing tells the user. With tools
   on every call, qwen3:14b at num_ctx 4096 gets "excess +30.7 points (session-level 95% CI +26.0 to +34.7)" more
-  wrong tasks than at the default window; for the reference team that is "time USD/day 0.00 to 126.85" plus a cloud
-  redo cost per wrong task that is still PENDING [impact-v2-P1] (mixed: measured rate and wall time, assumed volume
-  and waiting), which puts P1 first in "P1 > P5 > P3 > P4" [impact-ranking-v2].
+  wrong tasks than at the default window; for the reference team that is "time USD/day 0.00 to 126.85" plus "cloud
+  redo USD/day 10.33 (USD 0.0281 per wrong task, priced, not executed ...)", "profile cell USD/day 10.33 to 137.18"
+  [impact-v2-P1] (mixed: measured rate and wall time, cloud redo priced from token counts but not executed, assumed
+  volume and waiting). Ranked with the configuration time saving, "P2 > P1 > P5 > P3 > P4" [impact-ranking-v2]: P2 is
+  "139.4 min saved per session (MEASURED ...)" for qwen3:14b by the fastest B5 setting, priced at the assumed volume
+  and the full hour value; the B5 default ran without flash attention, and the flash-attention control (still
+  PENDING) decides whether that saving is flash attention or KV precision.
 - **At the smallest window the runtime cuts the system prompt.** "ollama_ctx_4096: 76/80 calls message-truncated; 34
   context shifts (first turn/call (4, 2), n_keep [5], n_discard [2045], 29 on the final-answer call); 1 token cuts
   (token cut limit 2050 keep 4 prompt 4097 -> 2050)" [R2-mechanism-lowlevel] (measured): on a context shift only the

@@ -4327,7 +4327,11 @@ def compute_impact_p1(repo):
 
 
 _IMPACT_V2_CACHE = {}
-_IMPACT_V2_FILES = sorted({f for v in _IMPACT_FILES.values() for f in v} | {"results/x2_evalset_tasks_real_v2.jsonl"})
+# P1's cloud part reads results/cloud_redo_v1.jsonl (row cloud-redo-cost-per-wrong-task), P2 reads
+# results/x2_policy_compare.jsonl (row cost-cut-config-time; the flash-attention control file joins it once synced).
+_IMPACT_V2_FILES = sorted({f for v in _IMPACT_FILES.values() for f in v}
+                          | {"results/x2_evalset_tasks_real_v2.jsonl", "results/cloud_redo_v1.jsonl",
+                             "results/x2_policy_compare.jsonl"})
 
 
 def _impact_v2(repo):
@@ -4339,8 +4343,8 @@ def _impact_v2(repo):
 
 def compute_impact_v2_p1(repo):
     """Impact v2 P1 (operator override 2026-10-21): excess wrong-task rate per tier (B3 v2, qwen3:14b, session-level
-    CI) x (cloud redo cost per wrong task, PENDING until row cloud-redo-cost-per-wrong-task exists, + the measured
-    wall time of the wrong turn valued 0 to the full hour value), at the one stated v2 profile."""
+    CI) x (cloud redo cost per wrong task per tier from row cloud-redo-cost-per-wrong-task, tagged with that row's
+    mode, + the measured wall time of the wrong turn valued 0 to the full hour value), at the one stated v2 profile."""
     im = _impact()
     res = _impact_v2(repo)
     return {"value": im.p1_v2_value(res), "n": f"{len(res['rows']['P1']['grid'])} tiers"}
@@ -5375,8 +5379,9 @@ def compute_x2_evalset_tasks_real_v2_wrong_rate(repo, model=V2_PROTOCOL_MODEL,
 CLOUD_REDO_V1 = "results/cloud_redo_v1.jsonl"
 
 
-def compute_cloud_redo_cost_per_wrong_task(repo, path=CLOUD_REDO_V1):
-    """Mean, median and total USD per wrong task, per tier, mode and n (scripts/cloud_redo.py::summarize)."""
+def cloud_redo_data(repo, path=CLOUD_REDO_V1) -> dict:
+    """scripts/cloud_redo.py::summarize of the cloud redo file plus "stub" (True = priced, not executed), "model_id"
+    and "price_file" of its run_start. Shared by the register row and analysis/impact_model.py (impact v2 P1)."""
     import importlib.util
     spec = importlib.util.spec_from_file_location("cloud_redo", repo / "scripts" / "cloud_redo.py")
     cr = importlib.util.module_from_spec(spec)
@@ -5384,7 +5389,14 @@ def compute_cloud_redo_cost_per_wrong_task(repo, path=CLOUD_REDO_V1):
     rows = cr.load_rows(repo / path)
     start = next(r for r in rows if r.get("record") == "run_start")
     s = cr.summarize(rows)
-    stub = s["mode"] == cr.MODE_STUB
+    return dict(s, stub=s["mode"] == cr.MODE_STUB, model_id=start["model_id"], price_file=start["price_file"])
+
+
+def compute_cloud_redo_cost_per_wrong_task(repo, path=CLOUD_REDO_V1):
+    """Mean, median and total USD per wrong task, per tier, mode and n (scripts/cloud_redo.py::summarize)."""
+    s = cloud_redo_data(repo, path)
+    start = s
+    stub = s["stub"]
     mode_txt = ("priced, not executed (stub: no API call; input = the local run's prompt tokens per call, output = "
                 "the local run's completion tokens as a stand-in)" if stub else "executed")
     tiers = "; ".join(f"{t} n={v['n']} mean ${v['mean_usd']:.4f} median ${v['median_usd']:.4f} total "
@@ -5723,10 +5735,11 @@ def compute_x2_queue_fill_1022_hours(repo):
     return {"value": "; ".join(parts), "n": f"{len(jobs)} jobs (estimate)"}
 
 
-def compute_cost_cut_config_time(repo):
-    """MEASURED: per model, the session minutes saved per 40-turn R2 session by the fastest measured non-router setting
-    on evo-x2 (B5 policies b-h, and the flash-attention control's policy i once synced) against the runtime default
-    (B5 policy a), from the result files; rule pass rate and history recall of both settings beside it."""
+def cost_cut_config_time_data(repo) -> dict:
+    """Per model: the runtime default (B5 policy a) and the fastest measured non-router setting on evo-x2 (B5 policies
+    b-h, and the flash-attention control's policy i once synced and valid): {"models": {model: {"default_min",
+    "best", "best_name", "best_min", "saved_min", ...}}, "fa_included": bool}. Shared by the register row and
+    analysis/impact_model.py (impact v2 P2)."""
     import sys as _sys
     _sys.path.insert(0, str(repo / "harness"))
     import policy_compare as pc
@@ -5735,7 +5748,7 @@ def compute_cost_cut_config_time(repo):
     fa = {}
     if (repo / B5_FA_FILE).exists():
         fa = pc.fa_control_summary(pc.ag.read_rows(repo / B5_FA_FILE), rows)
-    parts = []
+    out = {}
     for model, c in sorted(m.items()):
         pol = {p: v for p, v in c["policies"].items() if p != pc.ROUTER_POLICY and not v.get("alias_of")}
         cand = {p: (v["wall_min"], v["rule_pass_rate"], v["history_recall"], v["window"]) for p, v in pol.items()}
@@ -5745,15 +5758,28 @@ def compute_cost_cut_config_time(repo):
         a = cand["a"]
         best = min((p for p in cand if p != "a"), key=lambda p: cand[p][0])
         b = cand[best]
-        name = pc.FA_POLICY_NAME if best == "i" else pc.POLICIES[best]["name"]
-        parts.append(f"evo-x2 {model}: default (a) {a[0]:.1f} min per session, rule {100 * a[1]:.1f}% hist "
-                     f"{100 * a[2]:.1f}%; fastest measured setting ({best}) {name} {b[0]:.1f} min, rule "
-                     f"{100 * b[1]:.1f}% hist {100 * b[2]:.1f}%, window {b[3]}; saved {a[0] - b[0]:.1f} min per session "
-                     f"({100 * (a[0] - b[0]) / a[0]:.0f}%), over {c['balanced_seeds'] and len(c['balanced_seeds'])} "
-                     f"seeds")
+        out[model] = {"default_min": a[0], "default_rule": a[1], "default_hist": a[2], "best": best,
+                      "best_name": pc.FA_POLICY_NAME if best == "i" else pc.POLICIES[best]["name"],
+                      "best_min": b[0], "best_rule": b[1], "best_hist": b[2], "best_window": b[3],
+                      "saved_min": a[0] - b[0], "seeds": c["balanced_seeds"] and len(c["balanced_seeds"])}
+    return {"models": out, "fa_included": bool(fa)}
+
+
+def compute_cost_cut_config_time(repo):
+    """MEASURED: per model, the session minutes saved per 40-turn R2 session by the fastest measured non-router setting
+    on evo-x2 (B5 policies b-h, and the flash-attention control's policy i once synced) against the runtime default
+    (B5 policy a), from the result files; rule pass rate and history recall of both settings beside it."""
+    d = cost_cut_config_time_data(repo)
+    parts = []
+    for model, x in d["models"].items():
+        parts.append(f"evo-x2 {model}: default (a) {x['default_min']:.1f} min per session, rule "
+                     f"{100 * x['default_rule']:.1f}% hist {100 * x['default_hist']:.1f}%; fastest measured setting "
+                     f"({x['best']}) {x['best_name']} {x['best_min']:.1f} min, rule {100 * x['best_rule']:.1f}% hist "
+                     f"{100 * x['best_hist']:.1f}%, window {x['best_window']}; saved {x['saved_min']:.1f} min per "
+                     f"session ({100 * x['saved_min'] / x['default_min']:.0f}%), over {x['seeds']} seeds")
     return {"value": "MEASURED; " + " / ".join(parts) + ("; flash-attention control "
-                     + ("included" if fa else "not synced yet (policy i not in the comparison)")),
-            "n": f"{len(m)} models"}
+                     + ("included" if d["fa_included"] else "not synced yet (policy i not in the comparison)")),
+            "n": f"{len(d['models'])} models"}
 
 
 def compute_b5_fa_control(repo):
@@ -6832,11 +6858,13 @@ NUMBER_ENTRIES = [
                     "when the rate is nonzero), rate, confidence",
      "compute": compute_impact_p7, "data_files": _IMPACT_FILES["P7"], "script_function": "analysis/impact_model.py::p7"},
     {"claim_id": "impact-v2-P1", "description": "Impact v2 P1 silent wrong tasks: measured excess wrong-task rate "
-                    "per tier x (cloud redo cost per wrong task, PENDING input, + wrong-turn wall time), one profile",
+                    "per tier x (cloud redo cost per wrong task per tier, tagged priced, not executed while the redo is a stub, "
+                    "+ wrong-turn wall time), one profile",
      "compute": compute_impact_v2_p1, "data_files": _IMPACT_V2_FILES,
      "script_function": "analysis/impact_model.py::p1_v2"},
     {"claim_id": "impact-ranking-v2", "description": "Impact v2 ranking at one stated profile, every row tagged "
-                    "measured / mixed / assumed / PENDING / not measured, PENDING inputs named",
+                    "measured / mixed / assumed / PENDING / not measured, PENDING inputs named; P2 = measured minutes saved "
+                    "per session by configuration (cost-cut-config-time) x assumed volume x hour value",
      "compute": compute_impact_ranking_v2, "data_files": _IMPACT_V2_FILES,
      "script_function": "analysis/impact_model.py::v2_rows"},
     {"claim_id": "impact-total", "description": "Impact total over the measured rows, ranking, and the one-flag "
