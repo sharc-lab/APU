@@ -774,11 +774,28 @@ were refused by their gates.
 <!-- R2-qwen3-14b-4096-reconciliation -->). Their identity rests on reruns: the same seeds gave identical final text on
 120/120 <!-- R2-qwen3-14b-4096-reconciliation --> turns in runs days apart.
 
-### 4.9 Conclusion (0.50 page)
+### 4.9 Conclusion (prose draft, 2026-10-21; 0.50 page)
 
-- **Claim:** memory architecture sets where local inference stops, runtime defaults set what a long agent session
-  silently loses, and both are measurable and predictable before deployment.
-- **Gaps:** depends on 4.4b, 4.4c, 4.6 replication and 4.7.
+Local LLM agents lose context without telling anyone. On every platform we measured, a conversation that outgrows the
+window is trimmed, shifted or cut, and the request still succeeds. History loss appeared in every model we tested,
+from 8B to 70B. Rule loss appeared in the 8B to 32B models and not in llama3.3:70b or mistral-small3.2:24b, so it
+depends on the model as well as the window, and we do not claim it in general. The window is often not the user's
+choice: the runtime picks it from the detected device, and an unmodified install on an Intel CPU ran agents at 4096
+tokens <!-- t2s-r2-real-cpu -->. That is the window at which, on the AMD APU, qwen3:14b ended 42.0% of tasks in a wrong
+state against 11.3% at its default, all silently <!-- x2-evalset-tasks-real-v2-wrong-rate -->.
+
+For practitioners, four lessons follow. Set the window explicitly and verify the loaded value, because a per-request
+setting does not survive a restart and any client that omits it silently gets the default back
+<!-- window-override-methods -->. Prefer an explicit window sized to the session over the runtime default, and log
+when the prompt exceeds it, since nothing else will. Treat trimming as a change to the prompt rather than a neutral
+fix: dropping old turns also drops the examples the model imitates <!-- R2-qwen3-14b-4096-reconciliation -->, and
+`num_keep` protects the prompt prefix only where the runtime shifts or cuts tokens. Finally, validate an agent on the
+backend it will run on, because identical model files and settings behaved differently on CUDA, Vulkan and ROCm.
+
+Future work follows from what is pending. The router and context-policy comparison, refuted on the unconstrained AMD
+platform <!-- b5-verdict -->, must run on the Intel and NVIDIA platforms, where default windows are small and loss
+occurs. More models per size and family, more seeds, further runtime versions and guardrail compliance at full context
+would turn the model-dependence of rule loss from an observation into a predictable property.
 
 ---
 
@@ -1001,69 +1018,8 @@ Not resolved here: the submission deadline (Dec 2 vs mid-December estimate) and 
 Outline text replaced by the prose drafts of 2026-10-20, moved here verbatim. Register ids in square brackets
 follow the outline convention of this file.
 
-### 4.8 Threats to validity (outline as of 2026-10-20; superseded 2026-10-21)
-
-**4.8 Threats to validity (0.50 page)**
-
-- **Scorer validity:** held-out agreement "kappa 0.840 (analytic 95% CI 0.760-0.920, bootstrap 95% CI 0.755-0.915);
-  raw agreement 136/150" `[kappa-heldout]`. The earlier in-sample agreement after scorer fixes has no register row
-  and is not cited; it was partly correlated error between two raters: "scorer vs classify_human_label: kappa 0.988"
-  `[kappa-heldout-fn-annotator]`. Residual errors are one-directional: "14 disagreements: ambiguous 4, scorer_bug 10;
-  direction (scorer->annotator) FABRICATED->CORRECT 1, FABRICATED->REFUSED 13" `[kappa-heldout-disagreements]`.
-  Proposed scorer fixes are not applied (applying them makes this sample in-sample). One annotator channel; a second
-  human rater is pending (G10).
-- **Single seeds and small n:** R2 mechanism one seed per tier; co-runner runs one run per condition; K2 quality at
-  ceiling: "316/316 scored items = 1.0 (1 unscored)" `[K2-x2-score-ceiling]` and responsiveness resolution "max
-  step/+8GB ratio 1.937x (tolerance 2.0x)" `[K2-x2-responsiveness-resolution]`, so "13 kill-criterion evaluations, 13
-  passed, 0 violated" `[K2-x2-kill-criterion]` is a weak null.
-- **Thinking contamination, found and fixed:** reasoning models without suppression produced no answer:
-  "llama_server/qwen3-8b/baseline: works=False reasoning=[980, 774, 766] content=[0, 0, 0]" vs
-  "llama_server/qwen3-8b/production: works=True reasoning=[0, 0, 0]" `[x2-thinking-verify]`.
-- **Invalid-race tagging:** the invalidated weekend run is tagged, not deleted: "invalid_race 412
-  (system_ollama_exe_resolution 405, concurrent_job_contention_unverified 7); invalid_thinking 330; invalid_infra_oom
-  207; valid reusable 373 of 1327 outcome rows" `[x2-weekend-tag-counts]`.
-- **Infrastructure failures on INTEL-iGPU:** time-ordered allocation failures, not a prompt-length boundary
-  `[t2s-outcome-allocation-failures]`, `[t2s-llamaserver-load-failures]`; cause unverified until the machine is back.
-- **Version skew and backend numerics:** Ollama versions differ across platforms (Section 3); CUDA and Vulkan differ
-  on one borderline probe (`docs/THREATS.md` section 21, no register row). On NVIDIA-dGPU llama3.1:8b writes text tool
-  calls at a window where AMD-iGPU, with the same model files, seeds and settings, does not (`[x2-r2-llama-val-32k]`,
-  `[blade-r2-gate-v2]`); backend and partial CPU offload are not yet separated (O1, Section 5b).
-- **Install path as a confound:** bare-GGUF Ollama legs are marked "[bare template]" in `[x2-v3-scores]`.
-- **Guardrails 6-8 fail at full context (limitation and future work, not a headline claim; added 2026-10-19):** in
-  the B3 evalset v1 guard validation both llama3.1:8b and qwen3:14b violate the privacy (rule 6), refusal (rule 7) and
-  confirmation (rule 8) guardrails with the session inside the window: llama3.1:8b "rule6 0.417 of 12 bait turns,
-  rule7 0.000 of 9 bait turns, rule8 0.111 of 9 bait turns", qwen3:14b "rule6 0.250 of 12 bait turns, rule7 0.111 of
-  9 bait turns, rule8 0.222 of 9 bait turns" `[x2-evalset-val-v1-gates]`; nearly all violations are executed calls
-  ("rule 6-8 violations 25 (bait 24; ...)" and "28 (bait 24; ...)" `[x2-evalset-val-v1-diagnosis]`). Examples from
-  `results/x2_evalset_guard_val_v1.jsonl`: llama3.1:8b sent mail to `jordan.reyes@gmail.example`; qwen3:14b emailed
-  the API token to `secops@corp.test`. Rules 6-8 fail the baseline gate, so they are excluded from every window
-  measurement and no context-loss claim rests on them; guardrail compliance of small local models at full context is
-  future work. The same diagnosis finds llama3.1:8b's in-window canary misses are not recall failures: "canary misses
-  13 (tool_call_as_text 10, omitted 3)" `[x2-evalset-val-v1-diagnosis]` (10 of 13 tool calls written as text, 3
-  omitted, 0 recall).
-
-### 4.2 Background and related work (outline as of 2026-10-20; superseded 2026-10-21)
-
-**4.2 Background and related work (0.75 page)**
-
-- **Claim:** prior work characterizes either serving efficiency at fixed memory, or single-vendor out-of-memory
-  behaviour, or abstention under missing retrieval; none measures the chain from memory architecture through a
-  runtime's default to agent behaviour, across vendors.
-- **Positioning** (sources in `docs/RELATED_WORK.md`, `docs/PRIOR_ART.md`, `docs/references.bib`):
-  - LLM routing: RouteLLM (`routellm`), Martian (`martian`), NotDiamond (`notdiamond`), RouterBench (named in
-    `docs/DEMO_SPEC.md`, NOT yet in `references.bib`; Gap G14). They route on model capability and cost; none conditions
-    on a measured, hardware- and runtime-dependent effective context.
-  - Cloud-edge routing (`cloud_edge_survey`, `edge_llm_serving`): static placement or per-request offload.
-  - Memory-system DSE: MemExplorer (arXiv:2604.16007) sizes memory technology for throughput at fixed correctness.
-  - Apple-silicon serving: SiliconBench (arXiv:2609.19169), one memory architecture.
-  - KV eviction and compression (H2O, SnapKV, StreamingLLM, LLMLingua): choose what to keep at fixed memory, as a
-    designed policy. We measure what a shipped runtime actually discards by default.
-  - Missing context and abstention: Sufficient Context (arXiv:2411.06037), Lost in the Middle (arXiv:2307.03172).
-  - Runtime issue trackers (ollama #14073, #14116, #12353; llama.cpp #18946, #19745, #1866): the mechanisms exist as
-    anecdotes, one vendor and one bug at a time.
-- **Figure:** none.
-- **Gaps:** RouterBench bib entry (G14); StreamingLLM and Scissorhands are "not independently verified" in
-  `docs/PRIOR_ART.md` and need citation checks (G14).
+**Superseded 2026-10-21.** The outline text of 4.1 (with the 4.1a motivation draft), 4.2, 4.8 and 4.9, replaced by
+the prose drafts of 2026-10-21, is moved here verbatim below; the 2026-10-20 material follows it.
 
 ### 4.1 Introduction and 4.1a motivation draft (outline as of 2026-10-20; superseded 2026-10-21)
 
@@ -1131,6 +1087,78 @@ Numbers that stay out of the paper because they rest on assumptions:
   it is a constant of the R2 session script's canary schedule, docs/BUSINESS_METRICS.md);
 - the single-shot saving per 1k steps in `[pareto-sample-recommendation-v2]` (its cloud reference is a STUB point
   with unmeasured quality).
+
+### 4.2 Background and related work (outline as of 2026-10-20; superseded 2026-10-21)
+
+**4.2 Background and related work (0.75 page)**
+
+- **Claim:** prior work characterizes either serving efficiency at fixed memory, or single-vendor out-of-memory
+  behaviour, or abstention under missing retrieval; none measures the chain from memory architecture through a
+  runtime's default to agent behaviour, across vendors.
+- **Positioning** (sources in `docs/RELATED_WORK.md`, `docs/PRIOR_ART.md`, `docs/references.bib`):
+  - LLM routing: RouteLLM (`routellm`), Martian (`martian`), NotDiamond (`notdiamond`), RouterBench (named in
+    `docs/DEMO_SPEC.md`, NOT yet in `references.bib`; Gap G14). They route on model capability and cost; none conditions
+    on a measured, hardware- and runtime-dependent effective context.
+  - Cloud-edge routing (`cloud_edge_survey`, `edge_llm_serving`): static placement or per-request offload.
+  - Memory-system DSE: MemExplorer (arXiv:2604.16007) sizes memory technology for throughput at fixed correctness.
+  - Apple-silicon serving: SiliconBench (arXiv:2609.19169), one memory architecture.
+  - KV eviction and compression (H2O, SnapKV, StreamingLLM, LLMLingua): choose what to keep at fixed memory, as a
+    designed policy. We measure what a shipped runtime actually discards by default.
+  - Missing context and abstention: Sufficient Context (arXiv:2411.06037), Lost in the Middle (arXiv:2307.03172).
+  - Runtime issue trackers (ollama #14073, #14116, #12353; llama.cpp #18946, #19745, #1866): the mechanisms exist as
+    anecdotes, one vendor and one bug at a time.
+- **Figure:** none.
+- **Gaps:** RouterBench bib entry (G14); StreamingLLM and Scissorhands are "not independently verified" in
+  `docs/PRIOR_ART.md` and need citation checks (G14).
+
+### 4.8 Threats to validity (outline as of 2026-10-20; superseded 2026-10-21)
+
+**4.8 Threats to validity (0.50 page)**
+
+- **Scorer validity:** held-out agreement "kappa 0.840 (analytic 95% CI 0.760-0.920, bootstrap 95% CI 0.755-0.915);
+  raw agreement 136/150" `[kappa-heldout]`. The earlier in-sample agreement after scorer fixes has no register row
+  and is not cited; it was partly correlated error between two raters: "scorer vs classify_human_label: kappa 0.988"
+  `[kappa-heldout-fn-annotator]`. Residual errors are one-directional: "14 disagreements: ambiguous 4, scorer_bug 10;
+  direction (scorer->annotator) FABRICATED->CORRECT 1, FABRICATED->REFUSED 13" `[kappa-heldout-disagreements]`.
+  Proposed scorer fixes are not applied (applying them makes this sample in-sample). One annotator channel; a second
+  human rater is pending (G10).
+- **Single seeds and small n:** R2 mechanism one seed per tier; co-runner runs one run per condition; K2 quality at
+  ceiling: "316/316 scored items = 1.0 (1 unscored)" `[K2-x2-score-ceiling]` and responsiveness resolution "max
+  step/+8GB ratio 1.937x (tolerance 2.0x)" `[K2-x2-responsiveness-resolution]`, so "13 kill-criterion evaluations, 13
+  passed, 0 violated" `[K2-x2-kill-criterion]` is a weak null.
+- **Thinking contamination, found and fixed:** reasoning models without suppression produced no answer:
+  "llama_server/qwen3-8b/baseline: works=False reasoning=[980, 774, 766] content=[0, 0, 0]" vs
+  "llama_server/qwen3-8b/production: works=True reasoning=[0, 0, 0]" `[x2-thinking-verify]`.
+- **Invalid-race tagging:** the invalidated weekend run is tagged, not deleted: "invalid_race 412
+  (system_ollama_exe_resolution 405, concurrent_job_contention_unverified 7); invalid_thinking 330; invalid_infra_oom
+  207; valid reusable 373 of 1327 outcome rows" `[x2-weekend-tag-counts]`.
+- **Infrastructure failures on INTEL-iGPU:** time-ordered allocation failures, not a prompt-length boundary
+  `[t2s-outcome-allocation-failures]`, `[t2s-llamaserver-load-failures]`; cause unverified until the machine is back.
+- **Version skew and backend numerics:** Ollama versions differ across platforms (Section 3); CUDA and Vulkan differ
+  on one borderline probe (`docs/THREATS.md` section 21, no register row). On NVIDIA-dGPU llama3.1:8b writes text tool
+  calls at a window where AMD-iGPU, with the same model files, seeds and settings, does not (`[x2-r2-llama-val-32k]`,
+  `[blade-r2-gate-v2]`); backend and partial CPU offload are not yet separated (O1, Section 5b).
+- **Install path as a confound:** bare-GGUF Ollama legs are marked "[bare template]" in `[x2-v3-scores]`.
+- **Guardrails 6-8 fail at full context (limitation and future work, not a headline claim; added 2026-10-19):** in
+  the B3 evalset v1 guard validation both llama3.1:8b and qwen3:14b violate the privacy (rule 6), refusal (rule 7) and
+  confirmation (rule 8) guardrails with the session inside the window: llama3.1:8b "rule6 0.417 of 12 bait turns,
+  rule7 0.000 of 9 bait turns, rule8 0.111 of 9 bait turns", qwen3:14b "rule6 0.250 of 12 bait turns, rule7 0.111 of
+  9 bait turns, rule8 0.222 of 9 bait turns" `[x2-evalset-val-v1-gates]`; nearly all violations are executed calls
+  ("rule 6-8 violations 25 (bait 24; ...)" and "28 (bait 24; ...)" `[x2-evalset-val-v1-diagnosis]`). Examples from
+  `results/x2_evalset_guard_val_v1.jsonl`: llama3.1:8b sent mail to `jordan.reyes@gmail.example`; qwen3:14b emailed
+  the API token to `secops@corp.test`. Rules 6-8 fail the baseline gate, so they are excluded from every window
+  measurement and no context-loss claim rests on them; guardrail compliance of small local models at full context is
+  future work. The same diagnosis finds llama3.1:8b's in-window canary misses are not recall failures: "canary misses
+  13 (tool_call_as_text 10, omitted 3)" `[x2-evalset-val-v1-diagnosis]` (10 of 13 tool calls written as text, 3
+  omitted, 0 recall).
+
+### 4.9 Conclusion (outline as of 2026-10-20; superseded 2026-10-21)
+
+**4.9 Conclusion (0.50 page)**
+
+- **Claim:** memory architecture sets where local inference stops, runtime defaults set what a long agent session
+  silently loses, and both are measurable and predictable before deployment.
+- **Gaps:** depends on 4.4b, 4.4c, 4.6 replication and 4.7.
 
 ### 4.3 Platforms, harness and methodology (outline as of 2026-10-19)
 
@@ -1241,3 +1269,32 @@ Numbers that stay out of the paper because they rest on assumptions:
   system prompt intact, not an equivalent session. The pre-registered refutation clause applies: losing the system
   prompt to the context shift is not the whole explanation of rule loss at 4096 for this model. The history is lost
   by design in every mitigated cell, so the fix trades rule loss for history loss even where it works.
+
+---
+
+## References (to verify)
+
+Placeholders cited in Sections 4.2 and later. Every entry is to verify (authors, year, venue, title) against the
+published paper before it enters `docs/references.bib`; no result of these papers is quoted in the draft.
+
+- [Liu et al. 2024, Lost in the Middle] N. F. Liu et al., "Lost in the Middle: How Language Models Use Long Contexts", TACL 2024 (arXiv:2307.03172). To verify.
+- [Hsieh et al. 2024, RULER] C.-P. Hsieh et al., "RULER: What's the Real Context Size of Your Long-Context Language Models?", COLM 2024. To verify.
+- [Bai et al. 2024, LongBench] Y. Bai et al., "LongBench: A Bilingual, Multitask Benchmark for Long Context Understanding", ACL 2024. To verify.
+- [Laban et al. 2025, LLMs Get Lost in Multi-Turn Conversation] P. Laban et al., arXiv 2025. To verify.
+- [Zhou et al. 2023, IFEval] J. Zhou et al., "Instruction-Following Evaluation for Large Language Models", arXiv 2023. To verify.
+- [Mu et al. 2023, Can LLMs Follow Simple Rules?] N. Mu et al., arXiv 2023 (RuLES). To verify.
+- [Xiao et al. 2024, StreamingLLM] G. Xiao et al., "Efficient Streaming Language Models with Attention Sinks", ICLR 2024. To verify (flagged "not independently verified" in `docs/PRIOR_ART.md`).
+- [Zhang et al. 2023, H2O] Z. Zhang et al., "H2O: Heavy-Hitter Oracle for Efficient Generative Inference of Large Language Models", NeurIPS 2023. To verify.
+- [Li et al. 2024, SnapKV] Y. Li et al., "SnapKV: LLM Knows What You Are Looking for Before Generation", NeurIPS 2024. To verify.
+- [Liu et al. 2024, KIVI] Z. Liu et al., "KIVI: A Tuning-Free Asymmetric 2bit Quantization for KV Cache", ICML 2024. To verify.
+- [Hooper et al. 2024, KVQuant] C. Hooper et al., "KVQuant: Towards 10 Million Context Length LLM Inference with KV Cache Quantization", NeurIPS 2024. To verify.
+- [Jiang et al. 2023, LLMLingua] H. Jiang et al., "LLMLingua: Compressing Prompts for Accelerated Inference of Large Language Models", EMNLP 2023. To verify.
+- [Liu et al. 2024, AgentBench] X. Liu et al., "AgentBench: Evaluating LLMs as Agents", ICLR 2024. To verify.
+- [Yao et al. 2024, tau-bench] S. Yao et al., "tau-bench: A Benchmark for Tool-Agent-User Interaction in Real-World Domains", arXiv 2024. To verify.
+- [Patil et al. 2024, Gorilla] S. G. Patil et al., "Gorilla: Large Language Model Connected with Massive APIs", NeurIPS 2024 (arXiv 2023); the Berkeley Function Calling Leaderboard may be the better citation. To verify.
+- [Jimenez et al. 2024, SWE-bench] C. E. Jimenez et al., "SWE-bench: Can Language Models Resolve Real-World GitHub Issues?", ICLR 2024. To verify.
+- [Ong et al. 2025, RouteLLM] I. Ong et al., "RouteLLM: Learning to Route LLMs with Preference Data", ICLR 2025 (`routellm` in `docs/references.bib`). To verify.
+- [Kwon et al. 2023, vLLM] W. Kwon et al., "Efficient Memory Management for Large Language Model Serving with PagedAttention", SOSP 2023. To verify.
+- [Laskaridis et al. 2024, MELTing Point] S. Laskaridis et al., "MELTing Point: Mobile Evaluation of Language Transformers", MobiCom 2024. To verify.
+- [Song et al. 2024, PowerInfer] Y. Song et al., "PowerInfer: Fast Large Language Model Serving with a Consumer-grade GPU", SOSP 2024. To verify.
+- [Alizadeh et al. 2024, LLM in a Flash] K. Alizadeh et al., "LLM in a Flash: Efficient Large Language Model Inference with Limited Memory", ACL 2024. To verify.
