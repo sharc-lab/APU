@@ -10,9 +10,9 @@
 \endhead
 \small evo-x2 / qwen3:14b / r2\_agent: window = 40960 & {\footnotesize \texttt{results/\allowbreak{}x2\_\allowbreak{}policy\_\allowbreak{}compare.\allowbreak{}jsonl:\allowbreak{}8}} & \small measured \\
 
-\small evo-x2 / qwen3:14b / r2\_agent: kv\_precision = q8\_0 & {\footnotesize \texttt{results/\allowbreak{}x2\_\allowbreak{}policy\_\allowbreak{}compare.\allowbreak{}jsonl:\allowbreak{}4}} & \small pending \\
+\small evo-x2 / qwen3:14b / r2\_agent: kv\_precision = q8\_0 & {\footnotesize \texttt{results/\allowbreak{}x2\_\allowbreak{}policy\_\allowbreak{}compare.\allowbreak{}jsonl:\allowbreak{}4}} & \small measured \\
 
-\small evo-x2 / qwen3:14b / r2\_agent: flash\_attention = on (OLLAMA\_FLASH\_ATTENTION=1) & {\footnotesize \texttt{results/\allowbreak{}x2\_\allowbreak{}policy\_\allowbreak{}compare.\allowbreak{}jsonl:\allowbreak{}4}} & \small pending \\
+\small evo-x2 / qwen3:14b / r2\_agent: flash\_attention = on (OLLAMA\_FLASH\_ATTENTION=1) & {\footnotesize \texttt{results/\allowbreak{}x2\_\allowbreak{}policy\_\allowbreak{}compare.\allowbreak{}jsonl:\allowbreak{}4}} & \small measured \\
 
 \small evo-x2 / qwen3:14b / r2\_agent: num\_keep = not set & {\footnotesize \texttt{results/\allowbreak{}x2\_\allowbreak{}policy\_\allowbreak{}compare.\allowbreak{}jsonl:\allowbreak{}8}} & \small measured \\
 
@@ -26,13 +26,15 @@
 
 \small evo-x2 / qwen3:14b / r2\_agent: long-context recall probe at this precision: 100.0\% at ctx 40960 & {\footnotesize \texttt{b5-\allowbreak{}kv-\allowbreak{}recall}} & \small measured \\
 
-\small evo-x2 / qwen3:14b / r2\_agent: overall status & {\footnotesize \texttt{b5-\allowbreak{}policy-\allowbreak{}metrics, b5-\allowbreak{}kv-\allowbreak{}recall, b5-\allowbreak{}fa-\allowbreak{}control, cost-\allowbreak{}cut-\allowbreak{}config-\allowbreak{}time}} & \small pending \\
+\small evo-x2 / qwen3:14b / r2\_agent: Decide at session start: run locally with the recommended setting. & {\footnotesize \texttt{b5-\allowbreak{}policy-\allowbreak{}metrics, b5-\allowbreak{}kv-\allowbreak{}recall, b5-\allowbreak{}fa-\allowbreak{}control, cost-\allowbreak{}cut-\allowbreak{}config-\allowbreak{}time}} & \small measured \\
+
+\small evo-x2 / qwen3:14b / r2\_agent: cost of routing the whole session at start: being measured & {\footnotesize \texttt{hybrid-\allowbreak{}route-\allowbreak{}at-\allowbreak{}start (not on main yet)}} & \small being measured \\
 
 \small evo-x2 / llama3.1:8b / r2\_agent: window = 131072 & {\footnotesize \texttt{results/\allowbreak{}x2\_\allowbreak{}policy\_\allowbreak{}compare.\allowbreak{}jsonl:\allowbreak{}7}} & \small measured \\
 
-\small evo-x2 / llama3.1:8b / r2\_agent: kv\_precision = q4\_0 & {\footnotesize \texttt{results/\allowbreak{}x2\_\allowbreak{}policy\_\allowbreak{}compare.\allowbreak{}jsonl:\allowbreak{}5}} & \small pending \\
+\small evo-x2 / llama3.1:8b / r2\_agent: kv\_precision = q4\_0 & {\footnotesize \texttt{results/\allowbreak{}x2\_\allowbreak{}policy\_\allowbreak{}compare.\allowbreak{}jsonl:\allowbreak{}5}} & \small measured \\
 
-\small evo-x2 / llama3.1:8b / r2\_agent: flash\_attention = on (OLLAMA\_FLASH\_ATTENTION=1) & {\footnotesize \texttt{results/\allowbreak{}x2\_\allowbreak{}policy\_\allowbreak{}compare.\allowbreak{}jsonl:\allowbreak{}5}} & \small pending \\
+\small evo-x2 / llama3.1:8b / r2\_agent: flash\_attention = on (OLLAMA\_FLASH\_ATTENTION=1) & {\footnotesize \texttt{results/\allowbreak{}x2\_\allowbreak{}policy\_\allowbreak{}compare.\allowbreak{}jsonl:\allowbreak{}5}} & \small measured \\
 
 \small evo-x2 / llama3.1:8b / r2\_agent: num\_keep = not set & {\footnotesize \texttt{results/\allowbreak{}x2\_\allowbreak{}policy\_\allowbreak{}compare.\allowbreak{}jsonl:\allowbreak{}7}} & \small measured \\
 
@@ -46,7 +48,9 @@
 
 \small evo-x2 / llama3.1:8b / r2\_agent: long-context recall probe at this precision: 58.3\% at ctx 131072 & {\footnotesize \texttt{b5-\allowbreak{}kv-\allowbreak{}recall}} & \small measured \\
 
-\small evo-x2 / llama3.1:8b / r2\_agent: overall status & {\footnotesize \texttt{b5-\allowbreak{}policy-\allowbreak{}metrics, b5-\allowbreak{}kv-\allowbreak{}recall, b5-\allowbreak{}fa-\allowbreak{}control, cost-\allowbreak{}cut-\allowbreak{}config-\allowbreak{}time}} & \small pending \\
+\small evo-x2 / llama3.1:8b / r2\_agent: Decide at session start: run locally with the recommended setting. & {\footnotesize \texttt{b5-\allowbreak{}policy-\allowbreak{}metrics, b5-\allowbreak{}kv-\allowbreak{}recall, b5-\allowbreak{}fa-\allowbreak{}control, cost-\allowbreak{}cut-\allowbreak{}config-\allowbreak{}time}} & \small measured \\
+
+\small evo-x2 / llama3.1:8b / r2\_agent: cost of routing the whole session at start: being measured & {\footnotesize \texttt{hybrid-\allowbreak{}route-\allowbreak{}at-\allowbreak{}start (not on main yet)}} & \small being measured \\
 
 \small evo-t2s-cpu / qwen3:14b / r2\_agent: window = not measured & {\footnotesize \texttt{none}} & \small not measured \\
 
@@ -54,7 +58,17 @@
 
 \small evo-t2s-cpu / qwen3:14b / r2\_agent: with client-side trimming: not recovered (pre-registered rule) & {\footnotesize \texttt{t2s-\allowbreak{}r2-\allowbreak{}mitigation-\allowbreak{}cpu}} & \small measured \\
 
-\small evo-t2s-cpu / qwen3:14b / r2\_agent: overall status & {\footnotesize \texttt{t2s-\allowbreak{}r2-\allowbreak{}real-\allowbreak{}cpu, t2s-\allowbreak{}r2-\allowbreak{}mitigation-\allowbreak{}cpu}} & \small not measured \\
+\small evo-t2s-cpu / qwen3:14b / r2\_agent: kept local, measured by R2 session pass rate (not B3 task accuracy): 0/5 sessions & {\footnotesize \texttt{t2s-\allowbreak{}config-\allowbreak{}comparison}} & \small measured \\
+
+\small evo-t2s-cpu / qwen3:14b / r2\_agent: saves USD 0.00/month vs claude-haiku-5-5 at 1,000 tasks/day (kept local share x bill) & {\footnotesize \texttt{t2s-\allowbreak{}config-\allowbreak{}comparison}} & \small projected \\
+
+\small evo-t2s-cpu / qwen3:14b / r2\_agent: saves USD -374.93/month vs claude-sonnet-5-5 at 1,000 tasks/day (costs more than all-cloud) & {\footnotesize \texttt{t2s-\allowbreak{}config-\allowbreak{}comparison}} & \small projected \\
+
+\small evo-t2s-cpu / qwen3:14b / r2\_agent: overall status & {\footnotesize \texttt{t2s-\allowbreak{}r2-\allowbreak{}real-\allowbreak{}cpu, t2s-\allowbreak{}r2-\allowbreak{}mitigation-\allowbreak{}cpu, t2s-\allowbreak{}config-\allowbreak{}comparison}} & \small not measured \\
+
+\small evo-t2s-cpu / qwen3:14b / r2\_agent: Decide at session start: send the whole session to the cloud from the start. & {\footnotesize \texttt{t2s-\allowbreak{}r2-\allowbreak{}real-\allowbreak{}cpu, t2s-\allowbreak{}r2-\allowbreak{}mitigation-\allowbreak{}cpu, t2s-\allowbreak{}config-\allowbreak{}comparison}} & \small measured \\
+
+\small evo-t2s-cpu / qwen3:14b / r2\_agent: cost of routing the whole session at start: being measured & {\footnotesize \texttt{hybrid-\allowbreak{}route-\allowbreak{}at-\allowbreak{}start (not on main yet)}} & \small being measured \\
 
 \small evo-t2s-cpu / llama3.1:8b / r2\_agent: window = 4096 & {\footnotesize \texttt{t2s-\allowbreak{}r2-\allowbreak{}real-\allowbreak{}cpu}} & \small measured \\
 
@@ -64,11 +78,31 @@
 
 \small evo-t2s-cpu / llama3.1:8b / r2\_agent: with client-side trimming: recovered (pre-registered rule) & {\footnotesize \texttt{t2s-\allowbreak{}r2-\allowbreak{}mitigation-\allowbreak{}cpu}} & \small measured \\
 
+\small evo-t2s-cpu / llama3.1:8b / r2\_agent: kept local, measured by R2 session pass rate (not B3 task accuracy): 0/5 sessions & {\footnotesize \texttt{t2s-\allowbreak{}config-\allowbreak{}comparison}} & \small measured \\
+
+\small evo-t2s-cpu / llama3.1:8b / r2\_agent: saves USD 0.00/month vs claude-haiku-5-5 at 1,000 tasks/day (kept local share x bill) & {\footnotesize \texttt{t2s-\allowbreak{}config-\allowbreak{}comparison}} & \small projected \\
+
+\small evo-t2s-cpu / llama3.1:8b / r2\_agent: saves USD -374.93/month vs claude-sonnet-5-5 at 1,000 tasks/day (costs more than all-cloud) & {\footnotesize \texttt{t2s-\allowbreak{}config-\allowbreak{}comparison}} & \small projected \\
+
+\small evo-t2s-cpu / llama3.1:8b / r2\_agent: Decide at session start: run locally with the recommended setting. & {\footnotesize \texttt{t2s-\allowbreak{}r2-\allowbreak{}real-\allowbreak{}cpu, t2s-\allowbreak{}r2-\allowbreak{}mitigation-\allowbreak{}cpu, t2s-\allowbreak{}config-\allowbreak{}comparison}} & \small measured \\
+
+\small evo-t2s-cpu / llama3.1:8b / r2\_agent: cost of routing the whole session at start: being measured & {\footnotesize \texttt{hybrid-\allowbreak{}route-\allowbreak{}at-\allowbreak{}start (not on main yet)}} & \small being measured \\
+
 \small evo-t2s-igpu / qwen3:14b / r2\_agent: window = 32768 & {\footnotesize \texttt{t2s-\allowbreak{}r2-\allowbreak{}real-\allowbreak{}igpu}} & \small measured \\
 
 \small evo-t2s-igpu / qwen3:14b / r2\_agent: context\_handling = full history & {\footnotesize \texttt{t2s-\allowbreak{}r2-\allowbreak{}real-\allowbreak{}igpu}} & \small measured \\
 
 \small evo-t2s-igpu / qwen3:14b / r2\_agent: Ollama default window 32768: 1/5 sessions silently lost a gated rule, 0 after the window filled & {\footnotesize \texttt{t2s-\allowbreak{}r2-\allowbreak{}real-\allowbreak{}igpu}} & \small measured \\
+
+\small evo-t2s-igpu / qwen3:14b / r2\_agent: kept local, measured by R2 session pass rate (not B3 task accuracy): 4/5 sessions & {\footnotesize \texttt{t2s-\allowbreak{}config-\allowbreak{}comparison}} & \small measured \\
+
+\small evo-t2s-igpu / qwen3:14b / r2\_agent: saves USD 16.10/month vs claude-haiku-5-5 at 1,000 tasks/day (kept local share x bill) & {\footnotesize \texttt{t2s-\allowbreak{}config-\allowbreak{}comparison}} & \small projected \\
+
+\small evo-t2s-igpu / qwen3:14b / r2\_agent: saves USD 169.89/month vs claude-sonnet-5-5 at 1,000 tasks/day (kept local share x bill) & {\footnotesize \texttt{t2s-\allowbreak{}config-\allowbreak{}comparison}} & \small projected \\
+
+\small evo-t2s-igpu / qwen3:14b / r2\_agent: Decide at session start: run locally with the recommended setting. & {\footnotesize \texttt{t2s-\allowbreak{}r2-\allowbreak{}real-\allowbreak{}igpu, t2s-\allowbreak{}config-\allowbreak{}comparison}} & \small measured \\
+
+\small evo-t2s-igpu / qwen3:14b / r2\_agent: cost of routing the whole session at start: being measured & {\footnotesize \texttt{hybrid-\allowbreak{}route-\allowbreak{}at-\allowbreak{}start (not on main yet)}} & \small being measured \\
 
 \small evo-x2 / qwen3:14b / b3\_tasks: window = 40960 & {\footnotesize \texttt{x2-\allowbreak{}evalset-\allowbreak{}tasks-\allowbreak{}real-\allowbreak{}v2-\allowbreak{}wrong-\allowbreak{}rate}} & \small measured \\
 
@@ -80,6 +114,10 @@
 
 \small evo-x2 / qwen3:14b / b3\_tasks: num\_keep at 4096: 30.0\% wrong vs 42.0\% without it; still above the best window's 11.3\% & {\footnotesize \texttt{x2-\allowbreak{}evalset-\allowbreak{}tasks-\allowbreak{}real-\allowbreak{}v2-\allowbreak{}wrong-\allowbreak{}rate}} & \small measured \\
 
+\small evo-x2 / qwen3:14b / b3\_tasks: Decide at session start: run locally with the recommended setting. & {\footnotesize \texttt{x2-\allowbreak{}evalset-\allowbreak{}tasks-\allowbreak{}real-\allowbreak{}v2-\allowbreak{}wrong-\allowbreak{}rate, x2-\allowbreak{}evalset-\allowbreak{}tasks-\allowbreak{}real-\allowbreak{}v2-\allowbreak{}ci-\allowbreak{}units}} & \small measured \\
+
+\small evo-x2 / qwen3:14b / b3\_tasks: cost of routing the whole session at start: being measured & {\footnotesize \texttt{hybrid-\allowbreak{}route-\allowbreak{}at-\allowbreak{}start (not on main yet)}} & \small being measured \\
+
 \small evo-x2 / llama3.1:8b / single\_shot: window = runtime default & {\footnotesize \texttt{results/\allowbreak{}x2\_\allowbreak{}outcome\_\allowbreak{}table\_\allowbreak{}v3.\allowbreak{}jsonl}} & \small measured \\
 
 \small evo-x2 / llama3.1:8b / single\_shot: context\_handling = runtime ollama\_default & {\footnotesize \texttt{results/\allowbreak{}x2\_\allowbreak{}outcome\_\allowbreak{}table\_\allowbreak{}v3.\allowbreak{}jsonl}} & \small measured \\
@@ -90,9 +128,15 @@
 
 \small evo-x2 / llama3.1:8b / single\_shot: timeout share 0.029 (floor 0.05) & {\footnotesize \texttt{results/\allowbreak{}x2\_\allowbreak{}outcome\_\allowbreak{}table\_\allowbreak{}v3.\allowbreak{}jsonl}} & \small measured \\
 
+\small evo-x2 / llama3.1:8b / single\_shot: per call (single-shot workload): no session to route & {\footnotesize \texttt{none}} & \small context \\
+
 \small blade / qwen3:14b / r2\_agent: window = not measured & {\footnotesize \texttt{none}} & \small not measured \\
 
 \small blade / qwen3:14b / r2\_agent: overall status & {\footnotesize \texttt{none}} & \small not measured \\
+
+\small blade / qwen3:14b / r2\_agent: Decide at session start: not measured for this device and model. & {\footnotesize \texttt{none}} & \small not measured \\
+
+\small blade / qwen3:14b / r2\_agent: cost of routing the whole session at start: being measured & {\footnotesize \texttt{hybrid-\allowbreak{}route-\allowbreak{}at-\allowbreak{}start (not on main yet)}} & \small being measured \\
 
 \bottomrule
 \end{longtable}

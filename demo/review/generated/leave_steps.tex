@@ -17,22 +17,28 @@
 \item \lab{measured} Larger models at 4096: qwen3:32b 2/3, llama3.3:70b 0/3 (resists rule loss), mistral-small3.2:24b 0/3 (resists rule loss) sessions\textsuperscript{8}
 \end{itemize}
 \end{minipage}\end{tabular}\par\medskip
-\storystep{3}{The tool: pick a device and a model, get the measured setting}{leave_step3}
+\storystep{3}{The tool: decide at session start, per device and model}{leave_step3}
 \begin{itemize}\setlength\itemsep{0pt}
-\item Each setting carries its label: measured, pending flash-attention control, or not measured. Where we have no data, it says so. Try evo-t2s Intel CPU next.
+\item For each device and model the tool decides at session start: run locally with the recommended setting, or send the whole session to the cloud from the start. Every setting carries its label; where we have no data it says not measured.
+\item \lab{measured} evo-t2s Intel iGPU: kept local, measured by R2 session pass rate (not B3 task accuracy): llama3.1:8b 5/5, qwen3:14b 4/5 sessions\textsuperscript{9}
+\item \lab{measured} evo-t2s Intel CPU: kept local, measured by R2 session pass rate (not B3 task accuracy): llama3.1:8b 0/5, qwen3:14b 0/5 sessions\textsuperscript{9}
+\item \lab{being measured} Cost of routing the whole session at start: being measured
 \end{itemize}
 \end{minipage}\end{tabular}\par\medskip
-\storystep{4}{The money: cheap to fix, if you know it broke}{leave_step4}
+\storystep{4}{The money: local saves the bill, and the screen shows what it costs}{leave_step4}
 \begin{itemize}\setlength\itemsep{0pt}
-\item \lab{priced, not executed} One long agent task (nebius-rebench-openhands, median 62 steps) sent whole to the cloud: USD 1.54 median, USD 2.63 p90 on claude-sonnet-5-5 at an assumed 70\% cache hit rate; USD 0.08 on claude-haiku-5-5\textsuperscript{9}
-\item \lab{measured} Fixing a wrong answer in the cloud costs about USD 0.02 (mean USD 0.0201, median USD 0.0122); the cost is that the failure is silent.\textsuperscript{10}
-\item Takeaway: escalating one wrong step is cheap; sending every long task to the cloud is not. The expensive part is not knowing which step went wrong.
+\item \lab{measured} Local saves money, and the screen shows what it costs. Against claude-sonnet-5-5 at 1,000 tasks/day: all local on evo-x2 saves USD 306.10 a month at 80/90 (88.9\%) correct versus 90/90 (100.0\%) all-cloud, and 10 wrong answers are silent. The only measured detector, window overflow, escalates 0 tasks at this window. Catching in-window wrong answers needs a verifier we do not claim; the dotted line is that ceiling, no such detector.\textsuperscript{10}
+\item \lab{measured} Fix after the fact: about 2 cents (mean USD 0.0227 per task, cache-priced), 84.8\% fixed (95\% Wilson CI 79.1\% to 89.1\%), but executed actions cannot be undone; decide up front instead. 28 of the 30 unfixed inherited the local model's earlier executed actions. (Full-history redo on claude-sonnet-5-5, up to 2048 output tokens per call; the local run had 384.)\textsuperscript{11}
+\item \lab{projected} evo-t2s Intel CPU at 4096 (projected, from evo-x2's 4096 tier): the window flag escalates 88 tasks and reaches 90/90, but the hybrid costs USD 359.80/month MORE than all-cloud against claude-sonnet-5-5 at 1,000 tasks/day: escalating with the full history costs more per task than a fresh cloud run\textsuperscript{10}
+\item \lab{being measured} Late full-history escalation versus a fresh cloud run: being measured
+\item Against claude-haiku-5-5 the escalation cost is interim (its all-cloud price): the full-history redo ran on claude-sonnet-5-5 only.
+\item \lab{priced, not executed} One long agent task (nebius-rebench-openhands, median 62 steps) sent whole to the cloud: USD 2.53 median on claude-sonnet-5-5 at an assumed 70\% cache hit rate\textsuperscript{12}
 \end{itemize}
 \end{minipage}\end{tabular}\par\medskip
 \storystep{5}{One live escalation: send the wrong task to the cloud}{leave_step5}
 \begin{itemize}\setlength\itemsep{0pt}
-\item \lab{measured} The local model (qwen3:14b, 4096 window) set duration\_min = 60; the standing instruction gives 50. HTTP error: no.\textsuperscript{11}
-\item \lab{measured} Recorded cloud redo of this task: USD 0.0122, 4.8 s\textsuperscript{12}
-\item One click sends that turn to the cloud through the capped client (one call per demo run); without a network or key the recorded redo is shown.
+\item \lab{measured} The local model (qwen3:14b, 4096 window) set duration\_min = 60; the standing instruction gives 50. HTTP error: no.\textsuperscript{13}
+\item \lab{measured} Recorded full-history cloud redo of this task: USD 0.0243, 4.2 s\textsuperscript{14}
+\item One click sends that turn to the cloud through the capped client (one call per demo run); without a network or key the recorded full-history redo of the same task is shown.
 \end{itemize}
 \end{minipage}\end{tabular}\par\medskip

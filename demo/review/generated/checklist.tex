@@ -6,23 +6,27 @@ Silent failure: 5/5 on the Intel CPU default (4096) for both models & \textbf{PA
 
 Silent failure: qwen3:14b wrong-task rate 11.3\% to 42.0\%, 0 surfaced & \textbf{PASS} & default 11.3\%, 4096 42.0\% \\
 
-"pending flash-attention control" shown on q8\_0 (qwen3:14b) and q4\_0 (llama3.1:8b) & \textbf{PASS} & qwen3:14b q8\_0: pending flash-attention control; llama3.1:8b q4\_0: pending flash-attention control \\
+Flash-attention rule: q8\_0 (qwen3:14b) / q4\_0 (llama3.1:8b) measured, attributed to KV precision by b5-fa-control & \textbf{PASS} & qwen3:14b q8\_0: measured; llama3.1:8b q4\_0: measured \\
 
 "not measured" where there is no data (Blade, every field) & \textbf{PASS} & status not measured \\
 
-Cost panel leads with the USD 0.02 line & \textbf{PASS} & Fixing a wrong answer in the cloud costs about USD 0.02 (mean USD 0.0201, median USD 0.0122); the cost is that the failure is silent. \\
+Cost panel leads with the measured cost to fix a wrong answer (full-history redo, 2048 stated) & \textbf{PASS} & Fixing a wrong answer in the cloud costs about USD 0.02 (mean USD 0.0227, median USD 0.0169 per task, cache-priced); the cost is that the failure is silent. \\
 
-Cost panel shows no cloud fix rate & \textbf{PASS} & no fix-rate field or text in the panel; the clause is withheld in the click-through register row \\
+Fix rate shown only with its 95\% Wilson CI and the inherited-actions caveat & \textbf{PASS} & 2 place(s) show a fix rate; each carries the CI and the caveat \\
+
+Story step 4 leads with the measured trade-off; the ceiling is never a headline & \textbf{PASS} & first item: Local saves money, and the screen shows what it costs. Against claude-sonnet-5-5 at 1,000 tasks/day: all local on evo-x2...; ceiling only as a dotted line / side note \\
+
+No figure or answer from the v1 cloud redo (results/cloud\_redo\_v1.jsonl) anywhere & \textbf{PASS} & 6 v1 figures checked against cost, story, escalation and the register dump \\
 
 Cost panel shows no router savings & \textbf{PASS} & Router savings: not shown. Row b5-verdict is refuted on evo-x2 (the router policy was dominated); no register row supports a savings figure. \\
 
-Live view shows the recorded redo when not sent live & \textbf{PASS} & mode recorded redo, USD 0.0122, label measured \\
+Live view fallback shows the task's recorded full-history redo (no live call) & \textbf{PASS} & mode recorded redo, USD 0.0243, 4.2 s, from results/cloud\_redo\_full\_context\_v1\_part3.jsonl \\
 
-Scope: every changed file vs main is in demo/, src/dse/ or the dashboard tests & \textbf{PASS} & 28 files changed \\
+Scope: every changed file vs main is in demo/, src/dse/ or the dashboard tests & \textbf{PASS} & 63 files changed \\
 
-Full test suite & \textbf{PASS} & 2471 passed, 14 skipped \\
+Full test suite & \textbf{FAIL} & pending \\
 
-Cloud spend so far (read-only ledgers) & \textbf{PASS} & main results/cloud\_ledger.jsonl USD 21.1913 over 817 rows; demo ledger USD 0.0174 over 1 call(s) \\
+Cloud spend so far (read-only ledgers) & \textbf{PASS} & main results/cloud\_ledger.jsonl USD 38.9145 over 1288 rows; demo ledger USD 0.0174 over 1 call(s) \\
 
 \bottomrule
 \end{longtable}

@@ -133,6 +133,15 @@ def view_b(app) -> tuple[list, dict]:
         if r["status"] != "measured":
             rows.append((f"{head}: overall status", ", ".join(r["register_ids"]) or "none",
                          STATUS.get(r["status"], r["status"])))
+        d = r.get("decision") or {}
+        if d.get("text"):
+            rows.append((f"{head}: {d['text']}", ", ".join(d.get("basis") or []) or "none",
+                         STATUS.get(d.get("label"), d.get("label")) or "context"))
+            rc = d.get("route_cost")
+            if rc:
+                rows.append((f"{head}: cost of routing the whole session at start: {rc['text']}",
+                             rid_of(rc.get("src")) or "hybrid-route-at-start (not on main yet)",
+                             STATUS.get(rc["label"], rc["label"])))
     return rows, recs
 
 
@@ -155,11 +164,30 @@ def view_d(app) -> tuple[list, dict]:
             (f"expected: {json.dumps(t['expected_calls'][0]['arguments'])}", rid_of(loc["src"]), "measured"),
             (f"local end state wrong: {loc['end_state_ok'] is False}; HTTP error: {loc['any_http_error']}",
              rid_of(loc["src"]), "measured"),
-            (rd.get("text") or "cost to fix: being measured", "none (v1 redo withheld)",
-             STATUS.get(rd.get("label"), rd.get("label"))),
             (f"spend cap for the live call: USD {e['status']['cap_usd']:.2f}; live calls per run "
              f"{e['status']['live_calls_allowed']}", "demo/dashboard/escalate.py", "configuration")]
+    if rd.get("usd") is not None:
+        rows.insert(4, (f"recorded full-history redo of this task ({rd.get('model')}): USD {rd['usd']:.4f}, "
+                        f"{rd['seconds']:.1f} s", rid_of(rd.get("src")), STATUS.get(rd.get("label"), rd.get("label"))))
+    else:
+        rows.insert(4, (rd.get("text") or "cost to fix: being measured", "none",
+                        STATUS.get(rd.get("label"), rd.get("label"))))
     return rows, e
+
+
+def v1_figures() -> list[str]:
+    """Strings only a v1 redo figure or answer would produce (same rule as tests/test_dashboard_views.py)."""
+    rows = [json.loads(l) for l in (REPO / "results" / "cloud_redo_v1.jsonl").read_text(encoding="utf-8").splitlines()
+            if l.strip()]
+    s = next(r for r in rows if r.get("record") == "run_end")["summary"]
+    out = [f"{s['mean_usd']:.4f}", f"{s['median_usd']:.4f}", f"{s['total_usd']:.4f}"]
+    esc = json.loads((REPO / "demo" / "dashboard" / "cache" / "escalation.json").read_text(encoding="utf-8"))
+    t = next((r for r in rows if r.get("record") == "cloud_redo_task" and r.get("attempt_id") == esc.get("attempt_id")
+              and r.get("turn_idx") == esc.get("turn_idx")), None)
+    if t:
+        out += [f"{t['usd']:.4f}", f"{t['input_tokens']:,}"] + ([t["cloud_final_text"][:60]]
+                                                             if t.get("cloud_final_text") else [])
+    return out
 
 
 def ledger_total(path: Path) -> tuple[float, int] | None:
@@ -194,30 +222,55 @@ def checklist(app, a, recs, c, tests: str, main_ledger, demo_ledger, scope_files
         t["surfaced"] == 0 for t in tiers.values()), f"default {tiers['ollama_default']['pct']}%, 4096 "
                                                      f"{tiers['ollama_ctx_4096']['pct']}%"))
     q14, l8 = recs[("evo-x2", "qwen3:14b", "r2_agent")], recs[("evo-x2", "llama3.1:8b", "r2_agent")]
-    ok = all(r["status"] == views.PENDING_FA and r["settings"]["kv_precision"]["label"] == views.PENDING_FA
-             for r in (q14, l8)) and (q14["settings"]["kv_precision"]["value"], l8["settings"]["kv_precision"][
-                 "value"]) == ("q8_0", "q4_0")
-    items.append(('"pending flash-attention control" shown on q8_0 (qwen3:14b) and q4_0 (llama3.1:8b)', ok,
+    # The flash-attention rule: pending until b5-fa-control reads; with the verified reading (KV precision, not flash
+    # attention) q8_0 / q4_0 are recommended as measured with that attribution.
+    read = all(views.fa_control_for(app.cache.register, m) for m in ("qwen3:14b", "llama3.1:8b"))
+    want = "measured" if read else views.PENDING_FA
+    ok = all(r["status"] == want and r["settings"]["kv_precision"]["label"] == want for r in (q14, l8)) and (
+        q14["settings"]["kv_precision"]["value"], l8["settings"]["kv_precision"]["value"]) == ("q8_0", "q4_0")
+    if read:
+        ok = ok and all(any("KV precision, not flash attention" in c for c in r["caveats"]) for r in (q14, l8))
+    items.append(("Flash-attention rule: q8_0 (qwen3:14b) / q4_0 (llama3.1:8b) " +
+                  ("measured, attributed to KV precision by b5-fa-control" if read else
+                   "labelled pending flash-attention control"), ok,
                   f"qwen3:14b {q14['settings']['kv_precision']['value']}: {q14['status']}; llama3.1:8b "
                   f"{l8['settings']['kv_precision']['value']}: {l8['status']}"))
     blade = recs[("blade", "qwen3:14b", "r2_agent")]
     ok = blade["status"] == "not measured" and all(s["value"] == "not measured" for s in blade["settings"].values())
     items.append(('"not measured" where there is no data (Blade, every field)', ok, f"status {blade['status']}"))
-    shown = json.dumps({"lead": c["lead"], "items": c["items"]})  # what the panel renders
-    # 2026-10-22: the lead is "being measured" until the full-history redo lands (row cloud-redo-full-context); the
-    # final pass replaces this check with the new figure's row.
-    ok_lead = c["lead"]["text"] == views.FIX_COST_LEAD and c["lead"]["label"] == views.BEING_MEASURED
-    no_fix = (not re.search(r"cloud_correct|\bfixed\b|\d+/\d+ \([\d.]+%\) of these", shown)
-              and not re.search(r"cloud correct \d+/\d+", json.dumps(c)))  # nor in the click-through register rows
-    items.append(("Cost panel leads with 'Cost to fix a wrong answer: being measured', no v1 redo figure", ok_lead,
-                  c["lead"]["text"]))
-    items.append(("Cost panel shows no cloud fix rate", no_fix,
-                  "no fix-rate field or text in the panel; the clause is withheld in the click-through register row"))
+    story = get(app, "/api/story")
+    ok_lead = (c["lead"]["label"] == "measured" and c["lead"]["src"] == {"register": "cloud-redo-full-context"}
+               and c["lead"]["text"].startswith("Fixing a wrong answer in the cloud costs about USD 0.02"))
+    items.append(("Cost panel leads with the measured cost to fix a wrong answer (full-history redo, 2048 stated)",
+                  ok_lead and "2048" in (c["lead"].get("note") or ""), c["lead"]["text"]))
+    texts = [c["lead"]["text"], c["lead"].get("note") or ""] + [i["text"] for i in c["items"]] + [
+        i["text"] for st in story["steps"] for i in st["items"]]
+    rates = [t for t in texts if re.search(r"\d% fixed|fixed \d+/\d+", t)]
+    ok = bool(rates) and all("Wilson CI" in t and "inherited the local model's earlier executed actions" in t
+                             for t in rates)
+    items.append(("Fix rate shown only with its 95% Wilson CI and the inherited-actions caveat", ok,
+                  f"{len(rates)} place(s) show a fix rate; each carries the CI and the caveat" if ok else
+                  "a fix rate without its CI or caveat"))
+    money = next(st for st in story["steps"] if st["n"] == 4)
+    ok = (not any(i["text"].lower().startswith("ceiling") for i in money["items"])
+          and money["items"][0]["src"] == {"register": "hybrid-savings-tradeoff"}
+          and set((money.get("tradeoff") or {}).get("featured") or {}) >= {"all_cloud", "naive_local", "hybrid_flag"})
+    items.append(("Story step 4 leads with the measured trade-off; the ceiling is never a headline", ok,
+                  "first item: " + money["items"][0]["text"][:120] + "...; ceiling only as a dotted line / side note"))
+    figs = v1_figures()
+    bodies = [json.dumps(get(app, p)) for p in ("/api/cost", "/api/story", "/api/escalation", "/api/register")]
+    leaks = [f for f in figs for b in bodies if re.search(r"(?<![\w.])" + re.escape(f), b)]
+    items.append(("No figure or answer from the v1 cloud redo (results/cloud_redo_v1.jsonl) anywhere", not leaks,
+                  f"{len(figs)} v1 figures checked against cost, story, escalation and the register dump" +
+                  (f"; found: {leaks}" if leaks else "")))
     items.append(("Cost panel shows no router savings", c["router"]["shown"] is False, c["router"]["text"]))
     stub = escalate.Escalator(app.cache.escalation, env={}, ledger=HERE / "generated" / "_unused_ledger.jsonl").run()
-    items.append(("Live view fallback shows 'being measured', no v1 redo cost or answer",
-                  stub["mode"] == views.BEING_MEASURED and stub["usd"] is None and stub["answer"] is None,
-                  f"mode {stub['mode']}, USD {stub['usd']}, answer {stub['answer']}"))
+    rd = app.cache.escalation.get("redo") or {}
+    items.append(("Live view fallback shows the task's recorded full-history redo (no live call)",
+                  stub["mode"] == "recorded redo" and stub["label"] == "measured"
+                  and str((rd.get("src") or {}).get("file", "")).startswith("results/cloud_redo_full_context"),
+                  f"mode {stub['mode']}, USD {stub['usd']:.4f}, {stub['seconds']:.1f} s, from "
+                  f"{(rd.get('src') or {}).get('file')}" if stub.get("usd") is not None else f"mode {stub['mode']}"))
     bad = [f for f in scope_files if not f.startswith(SCOPE_OK)]
     items.append(("Scope: every changed file vs main is in demo/, src/dse/ or the dashboard tests", not bad,
                   f"{len(scope_files)} files changed" + (f"; outside scope: {', '.join(bad)}" if bad else "")))

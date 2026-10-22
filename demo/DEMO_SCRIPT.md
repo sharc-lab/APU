@@ -6,21 +6,21 @@ views (A Silent failure, B Device setting, C Cost, D Live escalation) and the ol
 "Story mode" in the header starts the story again.
 
 Every number on screen is a link: click it to see the register row (docs/NUMBERS_REGISTER.md) or the result-file line
-it came from. Every claim carries a label: measured, priced, not executed, projected, pending flash-attention control,
-or not measured. Say the label out loud when you read a number.
+it came from. Every claim carries a label: measured, priced, not executed, projected, being measured, or not measured.
+Say the label out loud when you read a number.
 
 The numbers quoted below are the register values at commit time. Read them off the screen on the day: the screen is
 rebuilt from the register, this file is not. Steps 1 to 4 run entirely from the offline cache; only step 5 can use
-the network, and without it nothing is sent and the cost reads "being measured".
+the network, and without it the task's recorded full-history redo is shown.
 
-Cost to fix a wrong answer: being measured. The earlier cloud redo (results/cloud_redo_v1.jsonl) was a broken
-protocol run (thinking consumed the output budget; docs/FINDINGS.md, cloud redo diagnosis), so none of its figures or
-answers are shown or quoted anywhere (operator, 2026-10-22). The corrected full-history redo replaces it in the final
-pass.
+Never quote a figure from the first cloud redo (results/cloud_redo_v1.jsonl): it was a broken protocol run (thinking
+consumed the output budget; docs/FINDINGS.md, cloud redo diagnosis). The cost to fix a wrong answer now comes from the
+full-history redo (row cloud-redo-full-context), which ran with up to 2048 output tokens per call against the local
+run's 384; say so if asked. Quote its fix rate only with its 95% CI and the inherited-actions caveat.
 
-Backup: if the laptop or the browser fails, play demo/review/demo_story.webm (3 minutes, no audio) and talk over it
-with the same script. The two-page leave-behind is demo/review/LEAVE_BEHIND.pdf. Both still show the earlier redo
-figure and are regenerated in the final pass; until then do not use them in front of an audience.
+Backup: if the laptop or the browser fails, play demo/review/demo_story.webm (3 minutes, no audio, no live call,
+step 5 shows the recorded full-history redo) and talk over it with the same script. The two-page leave-behind is
+demo/review/LEAVE_BEHIND.pdf.
 
 ## Before the audience arrives (5 minutes, not part of the talk)
 
@@ -31,8 +31,8 @@ figure and are regenerated in the final pass; until then do not use them in fron
    py -3.12 -m pytest tests/test_dashboard.py tests/test_dashboard_views.py -q
    ```
 
-2. Start the server. Without a live call (step 5 shows the task and the local answer; the cloud cost reads "being
-   measured"):
+2. Start the server. Without a live call (step 5 shows the task, the local answer and the recorded full-history
+   redo of the same task):
 
    ```
    py -3.12 -m demo.dashboard
@@ -54,7 +54,7 @@ figure and are regenerated in the final pass; until then do not use them in fron
 Cloud spend rules for step 5: one provider request per server start (a second click sends nothing), through
 src/cloud/client.py with a USD 10 cap (DEMO_CLOUD_CAP_USD may lower it, never raise it) and its own ledger,
 demo/ledger/cloud_ledger_demo.jsonl (not committed). Any failure (no key, host refused, cap, provider error) shows
-"being measured" with the reason on screen. Do not restart the server to get a second live call during the demo.
+the recorded full-history redo with the reason on screen. Do not restart the server to get a second live call during the demo.
 
 ## Step 1 (0:00 to 1:00): the problem
 
@@ -88,21 +88,22 @@ Say:
   qwen3:32b 2 of 3; llama3.3:70b and mistral-small3.2:24b resisted rule loss, 0 of 3." Measured (R2-v1b-gated-per-model,
   H-scale-verdict, H-scale-family-verdict).
 
-## Step 3 (2:00 to 3:00): the tool
+## Step 3 (2:00 to 3:00): the tool, a decision at session start
 
 Click: Next. The picker opens on evo-x2 / qwen3:14b / multi-turn agent session. Then change Device to "evo-t2s, Intel
 CPU". If time allows, "Blade 14".
 
 Say:
-- evo-x2 / qwen3:14b: "Window 40960; KV cache q8_0 with flash attention. Same rule and history scores as the default,
-  75.4 minutes per session instead of 214.8." The minutes are measured (b5-policy-metrics, cost-cut-config-time).
-- Point at the yellow labels: "The KV and flash attention tiles say pending flash-attention control: we switched both
-  on together, so we do not yet know which one gives the speedup. When the control run reads, this view recommends
-  whichever one it shows." Row b5-fa-control is VERIFIED but its run is incomplete ("reading: not read
-  (incomplete)"). Same for llama3.1:8b (q4_0). Do not say "q8_0 makes it faster".
+- "For each device and model the tool decides at session start: run locally with the recommended setting, or send the
+  whole session to the cloud from the start."
+- evo-x2 / qwen3:14b: "Run locally: window 40960, KV cache q8_0. Same rule and history scores as the default, 75.4
+  minutes per session instead of 214.8. The flash-attention control says the speedup is the KV precision, not flash
+  attention." Measured (b5-policy-metrics, cost-cut-config-time, b5-fa-control). Same for llama3.1:8b with q4_0.
 - evo-t2s CPU / qwen3:14b: "Here nothing we measured holds the rules: the default loses them and trimming did not
-  recover qwen3:14b, so the tool says not measured instead of inventing a setting." (t2s-r2-real-cpu,
-  t2s-r2-mitigation-cpu). Switch the model to llama3.1:8b to show the case trimming did recover.
+  recover qwen3:14b, so the decision is the whole session to the cloud from the start." Point at "kept local, measured
+  by R2 session pass rate (not B3 task accuracy): 0/5"; on the iGPU it is 5/5 (llama3.1:8b) and 4/5 (qwen3:14b).
+  Measured (t2s-r2-real-cpu, t2s-r2-mitigation-cpu, t2s-config-comparison); the savings beside it are projected.
+- "The cost of routing the whole session at the start": being measured (row hybrid-route-at-start not on main yet).
 - Blade: "Not measured. Every field says so."
 
 ## Step 4 (3:00 to 4:00): the money
@@ -110,16 +111,26 @@ Say:
 Click: Next.
 
 Say:
-- "Sending one long agent task whole to the cloud, a 62-step agent task at the median (OpenHands traces): about USD 1.54 on
-  claude-sonnet-5-5, USD 2.63 at the 90th percentile, assuming a 70% cache hit rate; about USD 0.08 on
-  claude-haiku-5-5." Label: priced, not executed (cloud-cost-per-real-task; token counts from traces, prices from the
-  price file, no API call).
-- Read the line exactly as the screen shows it: "Cost to fix a wrong answer: being measured." Say: "Our first cloud
-  redo had a protocol fault, so we are re-measuring it; we show no figure until the corrected run is in."
-- "Sending every long task to the cloud is not cheap; escalating only the wrong step needs to know which step went
-  wrong, and the failure is silent."
-- Do not quote any figure from the earlier redo (cost, seconds, how many it got right) or the P1 cost per day built on
-  it. Do not quote a router saving: the router was dominated in our own comparison on evo-x2 (b5-verdict: refuted).
+- Read the first line as the screen shows it (the prepared text from docs/IMPACT.md, row hybrid-savings-tradeoff,
+  measured): "Against claude-sonnet-5-5 at 1,000 tasks/day: all local on evo-x2 saves USD 306.10 a month at 80/90
+  (88.9%) correct versus 90/90 (100.0%) all-cloud, and 10 wrong answers are silent. The only measured detector, window
+  overflow, escalates 0 tasks at this window."
+- Point at the chart: "The dotted line is a ceiling, no such detector: we do not claim a verifier for in-window wrong
+  answers." Never quote the ceiling figure as a saving.
+- "Fix after the fact: about 2 cents (mean USD 0.0227 per task), 84.8% fixed (95% Wilson CI 79.1% to 89.1%), but
+  executed actions cannot be undone; decide up front instead. 28 of the 30 unfixed inherited the local model's earlier
+  executed actions." Measured (cloud-redo-full-context; full history, up to 2048 output tokens per call against the
+  local run's 384).
+- "On the Intel CPU at 4096 the window-flag hybrid escalates 88 of 90 tasks and costs more than all-cloud against
+  claude-sonnet-5-5 (USD 359.80 a month more at 1,000 tasks/day): escalating with the full history costs more per task
+  than a fresh cloud run." Projected (from evo-x2's 4096 tier).
+- "How much more a late full-history escalation costs than a fresh cloud run": being measured (row
+  late-escalation-cost-vs-fresh not on main yet).
+- "Against claude-haiku-5-5 the escalation cost is interim: the full-history redo ran on Sonnet only."
+- "One long agent task sent whole to the cloud: USD 2.53 at the median on claude-sonnet-5-5." Priced, not executed
+  (cloud-cost-per-real-task, recalibrated).
+- Do not quote a router saving: the router was dominated in our own comparison on evo-x2 (b5-verdict: refuted). Do not
+  quote the P1 cost per day (still being measured).
 
 ## Step 5 (4:00 to 5:00): one live escalation
 
@@ -129,17 +140,18 @@ Say, before clicking:
 - "One real wrong answer from qwen3:14b at a 4096 window: book a meeting with the default length from the standing
   instructions. The local model set 60 minutes; the instruction gives 50. HTTP 200, no error." Measured
   (results/x2_evalset_tasks_real_v2.jsonl, one click away).
-- Right card: "Cost to fix a wrong answer: being measured." Do not quote the earlier redo of this task.
+- Right card: "In the full-history redo this exact task cost USD 0.0243 and took 4.2 s; here is its answer." Measured
+  (results/cloud_redo_full_context_v1_part3.jsonl, one click away).
 
 After clicking:
 - Live (label measured): "What it cost, how long it took, and what the cloud answered." One call, n = 1, tools offered,
   no tool round trips: say "one call", not "this is what fixing costs".
-- Not sent live (label "being measured"): read the reason line ("live calls are off", "no key", or the provider error);
-  the tiles read "being measured". That is the expected fallback.
+- Not sent live (label measured, "recorded redo"): read the reason line ("live calls are off", "no key", or the
+  provider error); the tiles show the recorded full-history redo of this task. That is the expected fallback.
 
-Close (10 seconds): "A wrong window is silent on every device we measured; the right setting depends on the device and
-the model, and we show it only where we measured it. The expensive part is not knowing." Then click "Finish: explore
-freely" for questions.
+Close (10 seconds): "A wrong window is silent on every device we measured. Fixing after the fact is cheap but cannot
+undo executed actions, so the tool decides at session start, per device, and shows the setting only where we measured
+it." Then click "Finish: explore freely" for questions.
 
 ## Which claims are measured
 
@@ -154,12 +166,19 @@ freely" for questions.
 | Trimming: logging tool 24/25/25 of 40 vs 40/40/40 | measured (interpretation from docs/FINDINGS.md) | R2-qwen3-14b-4096-reconciliation |
 | Rule loss at 4096 per model, 8B to 70B | measured | R2-v1b-gated-per-model, H-scale-verdict, H-scale-family-verdict |
 | evo-x2 qwen3:14b: 40960, 75.4 vs 214.8 min per session | measured | b5-policy-metrics, cost-cut-config-time |
-| evo-x2: q8_0 (qwen3:14b) / q4_0 (llama3.1:8b) with flash attention as the setting | pending flash-attention control | b5-fa-control (not read yet) |
-| evo-t2s CPU qwen3:14b: no setting holds the rules | measured (what failed); setting not measured | t2s-r2-real-cpu, t2s-r2-mitigation-cpu |
+| evo-x2: q8_0 (qwen3:14b) / q4_0 (llama3.1:8b); the speedup is KV precision, not flash attention | measured | b5-fa-control |
+| evo-t2s CPU qwen3:14b: no setting holds the rules; whole session to the cloud | measured (what failed); setting not measured | t2s-r2-real-cpu, t2s-r2-mitigation-cpu |
+| evo-t2s kept local, measured by R2 session pass rate (not B3 task accuracy) | measured | t2s-config-comparison |
+| Cost of routing the whole session at start | being measured | hybrid-route-at-start (not on main yet) |
 | Blade: every setting | not measured | none |
-| One long agent task in the cloud: USD 1.54 median, 2.63 p90 (sonnet, 70% cache hits assumed) | priced, not executed | cloud-cost-per-real-task |
-| Cost to fix a wrong answer in the cloud | being measured (no figure; the earlier redo was a broken protocol run) | none until cloud-redo-full-context |
-| P1 cost per day for one team, and the problem ranking | being measured (both include the redo cost) | none until re-computed |
+| evo-x2 vs Sonnet at 1,000 tasks/day: local saves USD 306.10/month at 80/90, 10 wrong answers silent; flag escalates 0 | measured | hybrid-savings-tradeoff |
+| Detector ceiling | side note only: "ceiling, no such detector" | hybrid-savings-tradeoff |
+| Intel CPU at 4096: flag hybrid costs USD 359.80/month more than all-cloud vs Sonnet | projected | hybrid-savings-tradeoff |
+| Late full-history escalation vs a fresh cloud run | being measured | late-escalation-cost-vs-fresh (not on main yet) |
+| Fix after the fact: about 2 cents (mean USD 0.0227), 84.8% fixed (95% Wilson CI 79.1% to 89.1%), 28 of 30 unfixed inherited earlier actions | measured (full history, max_tokens 2048 vs local 384) | cloud-redo-full-context |
+| One long agent task in the cloud: USD 2.53 median (Sonnet, 70% cache hits assumed) | priced, not executed | cloud-cost-per-real-task |
+| P1 cost per day for one team, and the problem ranking | being measured (rows still use the first redo) | none until re-computed |
+| Any figure from the first redo (results/cloud_redo_v1.jsonl) | never shown (broken protocol run) | withheld |
 | Router savings | not shown (b5-verdict refuted) | b5-verdict |
 | Step 5 live answer, USD, seconds | measured, n = 1, this run only | demo/ledger/cloud_ledger_demo.jsonl (not committed) |
-| Step 5 fallback when not sent live | being measured | none |
+| Step 5 recorded full-history redo of the task (USD 0.0243, 4.2 s, its answer) | measured | results/cloud_redo_full_context_v1_part3.jsonl |

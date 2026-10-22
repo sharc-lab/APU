@@ -21,18 +21,19 @@
 {\large What we measured, what it costs, and the tool that picks the setting}\\[3pt]
 {\small Rithwik Sharma \quad\textbullet\quad DSE demo, 28 October 2026 \quad\textbullet\quad labels:
 \lab{measured} run on our hardware \ \lab{priced, not executed} token counts at list prices, no API call \
-\lab{projected} assumed volume \ \lab{pending} waiting on a control run}
+\lab{projected} projected from another device or task size \ \lab{being measured} not yet measured}
 \end{center}
 \vspace{2pt}
 \input{generated/leave_steps.tex}
 
 \noindent\textbf{Still being measured.}
 \begin{itemize}
-\item Whether the speedup on evo-x2 comes from flash attention or from the KV cache precision: the control run has
-  started but has not completed; until it does, the KV q8\_0 / q4\_0 recommendation is labelled pending.
-\item How often the cloud model gets the redone tasks right: the grading of the cloud redo is under review, so only its
-  cost is shown.
-\item The same settings on the Blade and the B5 setting comparison on evo-t2s: not run yet; the tool says not measured.
+\item The cost of routing a whole session to the cloud at the start, and how much more a late full-history escalation
+  costs than a fresh cloud run: shown as being measured until those measurements are registered.
+\item The escalation cost against claude-haiku-5-5: interim (its all-cloud price); the full-history redo ran on
+  claude-sonnet-5-5 only.
+\item The evo-t2s Intel CPU trade-off is projected from evo-x2's 4096 tier, and the Blade is not measured; the evo-t2s
+  setting comparison runs in its next access window.
 \end{itemize}
 \input{generated/leave_sources.tex}
 \end{document}

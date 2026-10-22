@@ -58,37 +58,47 @@ What the demo shows:
   wrong result returned as a normal answer (view A, Table~\ref{tab:a}).
 \item \textbf{The obvious fixes do not hold.} num\_keep reduces but does not remove the wrong-task excess; client-side
   trimming breaks a rule the untrimmed run kept; rule loss depends on the model (story step 2).
-\item \textbf{The tool picks the setting per device and model}, and labels every field measured, pending
-  flash-attention control or not measured (view B, Table~\ref{tab:b}).
-\item \textbf{The money:} fixing a wrong answer in the cloud is cheap (measured redo of every wrong task), sending a
-  whole long agent task to the cloud is not (priced from traces); the cost of the failure is that it is silent
-  (view C, Table~\ref{tab:c}).
-\item \textbf{One live escalation} of a real wrong task through the capped client, with the recorded redo of the same
-  task as the fallback (view D, Table~\ref{tab:d}).
+\item \textbf{The tool decides at session start, per device and model}: run locally with the recommended setting
+  (window, num\_keep, KV precision, flash attention, each labelled) or send the whole session to the cloud from the
+  start. On evo-x2 the KV q8\_0 / q4\_0 settings are measured and attributed to KV precision by the verified
+  flash-attention control; on evo-t2s ``kept local'' is measured by R2 session pass rate, not B3 task accuracy
+  (view B, Table~\ref{tab:b}).
+\item \textbf{The money:} story step 4 leads with the measured trade-off per option (all-cloud, naive local at the
+  device default with its silent wrong answers, hybrid with the window-overflow flag), then ``fix after the fact'':
+  about 2 cents per wrong task with its fix rate, 95\% Wilson CI and the inherited-actions caveat, from the
+  full-history redo (view C, Table~\ref{tab:c}).
+\item \textbf{One live escalation} of a real wrong task through the capped client, with the task's recorded
+  full-history redo as the fallback (view D, Table~\ref{tab:d}).
 \end{itemize}
 What it deliberately does not claim:
 \begin{itemize}
 \item \textbf{No router savings.} The register row b5-verdict is refuted on evo-x2 (the router policy was dominated), so
   no savings figure is shown anywhere, including the older recommendation screen.
-\item \textbf{No cloud fix rate.} How many redone tasks the cloud got right is under diagnosis; it is not shown, and the
-  clause is withheld from the click-through register row.
-\item \textbf{Flash attention versus KV precision is pending.} The fastest measured evo-x2 settings switch flash
-  attention on together with q8\_0 / q4\_0; the control that separates them (b5-fa-control) has not read, so those
-  fields are labelled pending flash-attention control. Once it reads, view B follows the reading automatically.
+\item \textbf{No figure from the first cloud redo.} results/cloud\_redo\_v1.jsonl was a broken protocol run (thinking
+  consumed the output budget); its row and the impact rows built on it are withheld, and a test checks that none of
+  its figures appears. The full-history redo ran with up to 2048 output tokens per call against the local run's 384,
+  and the screen says so.
+\item \textbf{No detector ceiling as a headline.} The perfect-detector figure appears only as a dotted line and a side
+  note labelled ``ceiling, no such detector''.
+\item \textbf{Route-at-start and late-escalation figures} read ``being measured'' until their register rows
+  (hybrid-route-at-start, late-escalation-cost-vs-fresh) are on main.
 \end{itemize}
 
 \section{Story mode}
 The dashboard opens in story mode: five steps of about a minute each with Back and Next, a step indicator and
 ``Explore freely'' (Figures~\ref{fig:s1} to \ref{fig:s5}). Steps 1 to 4 run from the cache; step 5 alone can use the
-network, and falls back to the recorded redo. A three-minute backup recording of story mode (no audio, recorded redo
-in step 5) is \texttt{demo/review/demo\_story.webm}; the two-page leave-behind is
+network, and falls back to the task's recorded full-history redo. A three-minute backup recording of story mode (no
+audio, no live call, recorded redo in step 5) is \texttt{demo/review/demo\_story.webm}; the two-page leave-behind is
 \texttt{demo/review/LEAVE\_BEHIND.pdf}.
 \shot{story_step1}{Story step 1, the problem.}{fig:s1}
 \shot{story_step2}{Story step 2, why it is hard.}{fig:s2}
-\shot{story_step3}{Story step 3, the tool, opening on evo-x2 / qwen3:14b (KV and flash attention labelled pending).}{fig:s3}
-\shot{story_step3_cpu}{Story step 3 after switching the device to the evo-t2s Intel CPU.}{fig:s3b}
-\shot{story_step4}{Story step 4, the money.}{fig:s4}
-\shot{story_step5_sent}{Story step 5 after ``Send to the cloud'' with live calls off: the recorded redo of the task.}{fig:s5}
+\shot{story_step3}{Story step 3, the tool: the decision at session start on evo-x2 / qwen3:14b (run locally with KV
+q8\_0, attributed to KV precision).}{fig:s3}
+\shot{story_step3_cpu}{Story step 3 after switching the device to the evo-t2s Intel CPU: the whole session goes to the
+cloud from the start.}{fig:s3b}
+\shot{story_step4}{Story step 4, the money: the measured trade-off first, the ceiling only as a dotted line.}{fig:s4}
+\shot{story_step5_sent}{Story step 5 after ``Send to the cloud'' with live calls off: the task's recorded
+full-history redo.}{fig:s5}
 
 \section{View A: silent failure}
 \textbf{Takeaway.} The window is a device default nobody chose; when it is small, rules and task results fail, and no
@@ -98,26 +108,26 @@ call reports an error.
 \input{generated/view_a.tex}
 
 \section{View B: per-device recommendation}
-\textbf{Takeaway.} The recommended window, num\_keep, KV precision and flash attention come with their measured outcome,
-or say pending or not measured.
+\textbf{Takeaway.} The decision at session start, and the recommended window, num\_keep, KV precision and flash
+attention with their measured outcome, or ``not measured''.
 \shot{B_default}{View B, default state: evo-x2 / qwen3:14b / multi-turn agent session.}{fig:b1}
 \shot{B_cpu}{View B with the device switched to the evo-t2s Intel CPU: no measured setting holds the rules for
-qwen3:14b.}{fig:b2}
+qwen3:14b, so the whole session goes to the cloud; kept local is measured by R2 session pass rate.}{fig:b2}
 \shot{B_blade}{View B with the device switched to the Blade: every field not measured.}{fig:b3}
 \input{generated/view_b.tex}
 
 \section{View C: cost panel}
-\textbf{Takeaway.} Measured parts first; the lead is the measured cost of fixing a wrong answer in the cloud; no fix
-rate and no router savings.
+\textbf{Takeaway.} Measured parts first; the lead is the measured cost of fixing a wrong answer in the cloud, with the
+fix rate only alongside its CI and caveat; no router savings.
 \shot{C_default}{View C, default state.}{fig:c1}
-\shot{C_source}{View C after clicking the lead number: the register row, with the fix-rate clause withheld.}{fig:c2}
+\shot{C_source}{View C after clicking the lead number: register row cloud-redo-full-context.}{fig:c2}
 \input{generated/view_c.tex}
 
 \section{View D: live escalation}
-\textbf{Takeaway.} One real wrong task, its local answer, and its cloud redo: cost, seconds and answer, no graded
-result.
-\shot{D_default}{View D, default state: the task, the local answer and the recorded redo.}{fig:d1}
-\shot{D_sent}{View D after ``Send to the cloud'' with live calls off: the recorded redo, labelled measured.}{fig:d2}
+\textbf{Takeaway.} One real wrong task, its local answer, and its full-history cloud redo: cost, seconds and answer.
+\shot{D_default}{View D, default state: the task, the local answer and the recorded full-history redo.}{fig:d1}
+\shot{D_sent}{View D after ``Send to the cloud'' with live calls off: the recorded full-history redo, labelled
+measured.}{fig:d2}
 \input{generated/view_d.tex}
 
 \section{Review checklist}
@@ -129,17 +139,23 @@ result.
 \begin{longtable}{>{\raggedright\arraybackslash}p{0.30\textwidth}>{\raggedright\arraybackslash}p{0.36\textwidth}>{\raggedright\arraybackslash}p{0.26\textwidth}}
 \toprule
 \textbf{Item} & \textbf{What resolves it} & \textbf{When}\\\midrule\endhead
-Flash attention vs KV precision (b5-fa-control VERIFIED but its run incomplete, ``not read'') &
-The control run completing on evo-x2; view B then recommends whichever setting the reading names, with no code
-change & When the evo-x2 queue completes the control job (set by the queue, not by this branch)\\
-Cloud fix rate (under diagnosis) & The operator's review of the redo grading; the redaction in
-\texttt{views.REDACTIONS} is then removed & Operator decision\\
+Route-at-start cost and late-escalation cost versus a fresh cloud run read ``being measured'' &
+Rows hybrid-route-at-start and late-escalation-cost-vs-fresh landing on main; the story and view B pick them up after
+a cache rebuild & When they land on main\\
+Hybrid escalation cost against claude-haiku-5-5 is interim (its all-cloud price) & A full-history redo on
+claude-haiku-5-5 & Not scheduled by this branch\\
+The P1 cost per day and the problem ranking stay ``being measured'' & Their register rows recomputed with the
+full-history redo instead of the withheld first redo & When the impact rows are regenerated\\
+The fix rate counts 28 inherited-action tasks as not fixed & Stated beside every fix rate; a grader that separates
+repairs of earlier local actions would change the count & Not planned for the freeze\\
+evo-t2s Intel CPU figures in the trade-off are projected from evo-x2's 4096 tier & The evo-t2s B5 runs & Access
+window 2026-10-26 to 2026-11-08 (per row t2s-config-comparison)\\
 docs/OCT29\_COST\_\allowbreak SUMMARY.md not present & The file landing on main; the cost panel reads it at request time &
 When it lands on main\\
 Blade and evo-t2s B5 settings not measured & Runs on those machines; the views pick them up after a cache rebuild &
 Next access windows\\
 Live escalation is one call (n = 1) per demo run, tools offered, no tool round trips & By design (USD 10 cap, one call
-per run); the recorded redo of all wrong tasks is the measured basis & Not planned\\
+per run); the full-history redo of all wrong tasks is the measured basis & Not planned\\
 Token counts in priced figures use the harness estimate, not Anthropic's tokenizer & Re-pricing on provider usage &
 Not planned for the freeze\\
 The cache must be rebuilt after register changes & \texttt{py -3.12 -m demo.dashboard.build\_cache} before the demo &
@@ -155,8 +171,9 @@ The script as committed in \texttt{demo/DEMO\_SCRIPT.md}, typeset. Timings: five
 \input{generated/script.tex}
 
 \section{Register rows used}
-Current values from docs/NUMBERS\_REGISTER.md, verbatim except one marked redaction: in
-cloud-redo-cost-per-wrong-task the cloud fix-rate clause is withheld (under diagnosis), as it is in the demo.
+Current values from docs/NUMBERS\_REGISTER.md, verbatim. Not used and not listed: cloud-redo-cost-per-wrong-task (the
+first, broken redo run) and impact-v2-P1 and impact-ranking-v2 (built on its cost per wrong task); the demo withholds
+them in place.
 \input{generated/register.tex}
 
 \end{document}
