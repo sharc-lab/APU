@@ -84,4 +84,4 @@ def test_real_data_block_if_available():
         assert all(c["esc_label"] == im.INTERIM_ESC for c in h["cells"])
     block = im.render_hybrid_block(h)
     assert "Blade" in block and "not measured" in block and "UPPER BOUND" in block
-    assert "—" not in block and "—" not in im.hybrid_savings_text(h)
+    assert "\u2014" not in block and "\u2014" not in im.hybrid_savings_text(h)
