@@ -478,7 +478,7 @@ def test_views_js_renders_every_view(app, tmp_path):
     from proc_util import run_hidden
     dump = {p.split("?")[0]: get(app, p) for p in (
         "/api/silent", "/api/device", "/api/device/recommend?device=evo-x2&model=qwen3:14b&workload=r2_agent",
-        "/api/cost", "/api/escalation")}
+        "/api/cost", "/api/escalation", "/api/story")}
     dump["POST"] = {"mode": "executed", "label": "measured", "reason": "one live call", "answer": "",
                     "tool_calls": [{"name": "create_event"}], "seconds": 14.0, "usd": 0.0174, "usd_basis": "ledger",
                     "live_requested": True, "key_present": True, "cap_usd": 10.0,
@@ -490,7 +490,7 @@ def test_views_js_renders_every_view(app, tmp_path):
                    capture_output=True, text=True, timeout=60)
     assert r.returncode == 0, r.stderr
     out = json.loads(r.stdout.strip().splitlines()[-1])
-    assert all(not v.startswith("Error") and v for v in out.values()), out
+    assert all(not v.startswith("Error") and v for v in out.values() if isinstance(v, str)), out
     assert "4096" in out["#silent-body"] and "32768" in out["#silent-body"]
     lead = get(app, "/api/cost")["lead"]
     assert lead["text"] in out["#cost-body"]
@@ -499,6 +499,68 @@ def test_views_js_renders_every_view(app, tmp_path):
     assert "USD 0.0174" in out["#esc-result"] and "14.0 s" in out["#esc-result"]
     for k in ("#cost-body", "#esc-task", "#esc-result"):  # no cloud fix rate or graded cloud result on screen
         assert "40.1%" not in out[k] and "Graded end state" not in out[k] and "fixed" not in out[k].lower(), k
+    # story mode: starts on step 1 in story mode, Next walks 1..5, Back steps back, Next past 5 leaves story mode
+    w = out["story"]
+    assert [s["indicator"].split(",")[0] for s in w[:5]] == [f"Step {i} of 5" for i in range(1, 6)]
+    assert w[0]["story_on"] and w[0]["back_disabled"] and not w[1]["back_disabled"]
+    assert w[4]["next"].startswith("Finish") and w[5]["indicator"].startswith("Step 4 of 5")
+    assert w[0]["panel"] == "#silent-body" and w[2]["panel"] == "#device-wrap" and w[4]["panel"] == "#esc-wrap"
+    assert w[6]["story_on"] is False  # free exploration after step 5
+    assert "5/5" in w[0]["items"] and "42.0%" in w[0]["items"] and "30.0%" in w[1]["items"]
+    assert "USD 0.02" in w[3]["items"] and "40.1" not in w[3]["items"]
+    assert out["nav"] == [{"index": 0, "explore": False}, {"index": 1, "explore": False},
+                          {"index": 4, "explore": True}, {"index": 4, "explore": False}, {"index": 3, "explore": True}]
+
+
+# ── story mode (backend) ──
+
+def test_story_steps_from_committed_files(app):
+    s = get(app, "/api/story")
+    steps = s["steps"]
+    assert [st["n"] for st in steps] == [1, 2, 3, 4, 5] and s["total_minutes"] == 5
+    assert [st["panel"] for st in steps] == ["silent", None, "device", None, "escalate"]
+    allowed = set(views.LABELS) | {None}
+    for st in steps:
+        assert st["items"], st["title"]
+        for it in st["items"]:
+            assert it["label"] in allowed, it
+            if it["label"] not in (None,):
+                assert it["src"], it  # every labelled number links to its source
+    text = " ".join(it["text"] for st in steps for it in st["items"])
+    assert "4096" in text and "32768" in text and "5/5" in text and "11.3%" in text and "42.0%" in text
+    assert "30.0%" in text and "two-call pattern" in text and "resists rule loss" in text
+    money = steps[3]["items"]
+    assert any(i["label"] == "priced, not executed" and "median 62 steps" in i["text"] for i in money)
+    assert any(i["text"].startswith("Fixing a wrong answer in the cloud costs about USD 0.02") for i in money)
+    assert "fixed" not in text.lower() and "40.1" not in text and "savings" not in text.lower()
+    assert any("Recorded cloud redo" in i["text"] for i in steps[4]["items"])
+
+
+def test_story_parsers():
+    assert views.parse_scale("x; qwen3:32b: R4096 2/3 (window exceeded 3/3), H32768 1/3; verdict mixed / "
+                             "llama3.3:70b: R4096 0/3 (gated 3/3); resists rule loss; verdict alternative "
+                             "(resists rule loss)") == [
+        {"model": "qwen3:32b", "silent": 2, "n": 3, "verdict": "mixed", "note": None},
+        {"model": "llama3.3:70b", "silent": 0, "n": 3, "verdict": "alternative", "note": "resists rule loss"}]
+    rc = views.parse_reconciliation_rule2("v1: per seed 1 rule2 40/40 / 2 rule2 40/40 // mitigation: per seed 1 rule2 "
+                                          "24/40 / 2 rule2 25/40 // first trimmed rule2 failure seed 1 turn 3: call 1 "
+                                          "tools trimmed ['lookup_fact'], untrimmed v1 ['log_event', 'lookup_fact']")
+    assert rc["v1"] == [(40, 40), (40, 40)] and rc["trimmed"] == [(24, 40), (25, 40)]
+    assert rc["first_failure"]["turn"] == 3
+    tc = views.parse_task_cost("USD per real agent task, priced, not executed: long-set (n=36 tasks, median 62 steps; "
+                               "x): claude-sonnet-5-5: none $3.4761 / $6.0913, realistic $1.5367 / $2.6348, best "
+                               "$0.3378 / $0.5060 | short-set (n=600 tasks, median 6 steps)")
+    assert tc["median_steps"] == 62 and tc["models"]["claude-sonnet-5-5"]["realistic"] == (1.5367, 2.6348)
+    assert tc["priced"] is True
+    assert views.parse_task_cost("") == {}
+
+
+def test_register_row_with_pipe_in_value(tmp_path):
+    p = tmp_path / "r.md"
+    p.write_text("| claim id | status | value | n | reported | files | script | commit | date |\n"
+                 "| a | VERIFIED | left part | right part | 3 | x | f1; f2 | s | c | d |\n", encoding="utf-8")
+    r = build_cache.parse_register(p)
+    assert r["a"]["value"] == "left part | right part" and r["a"]["files"] == ["f1", "f2"]
 
 
 def test_recommendation_hides_router_savings(app):

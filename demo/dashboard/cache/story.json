@@ -1,0 +1,187 @@
+{
+ "steps": [
+  {
+   "n": 1,
+   "title": "The problem: a default nobody chose, a failure nobody sees",
+   "minutes": 1,
+   "items": [
+    {
+     "text": "Intel CPU, llama3.1:8b: Ollama loads 4096 tokens; 5/5 sessions silently lost a rule, 5 after the window filled",
+     "label": "measured",
+     "src": {
+      "register": "t2s-r2-real-cpu"
+     }
+    },
+    {
+     "text": "Intel CPU, qwen3:14b: Ollama loads 4096 tokens; 5/5 sessions silently lost a rule, 5 after the window filled",
+     "label": "measured",
+     "src": {
+      "register": "t2s-r2-real-cpu"
+     }
+    },
+    {
+     "text": "Intel CPU: 0 of 800 calls surfaced an error",
+     "label": "measured",
+     "src": {
+      "file": "results/t2s_r2_real_cpu_v1.jsonl",
+      "line": 44
+     }
+    },
+    {
+     "text": "Intel iGPU, llama3.1:8b: Ollama loads 32768 tokens; 0/5 sessions silently lost a rule, 0 after the window filled",
+     "label": "measured",
+     "src": {
+      "register": "t2s-r2-real-igpu"
+     }
+    },
+    {
+     "text": "Intel iGPU, qwen3:14b: Ollama loads 32768 tokens; 1/5 sessions silently lost a rule, 0 after the window filled",
+     "label": "measured",
+     "src": {
+      "register": "t2s-r2-real-igpu"
+     }
+    },
+    {
+     "text": "Intel iGPU: 0 of 800 calls surfaced an error",
+     "label": "measured",
+     "src": {
+      "file": "results/t2s_r2_real_igpu_v1.jsonl",
+      "line": 44
+     }
+    },
+    {
+     "text": "qwen3:14b task results: 11.3% wrong at the default window, 42.0% at 4096; 0 of 63 wrong results surfaced an error",
+     "label": "measured",
+     "src": {
+      "register": "x2-evalset-tasks-real-v2-wrong-rate"
+     }
+    }
+   ],
+   "panel": "silent"
+  },
+  {
+   "n": 2,
+   "title": "Why it is hard: the obvious fixes do not hold, and it depends on the model",
+   "minutes": 1,
+   "items": [
+    {
+     "text": "The one-line fix, num_keep (keep the system prompt) at 4096: 30.0% wrong, down from 42.0% but still above 11.3% at the default window",
+     "label": "measured",
+     "src": {
+      "register": "x2-evalset-tasks-real-v2-wrong-rate"
+     }
+    },
+    {
+     "text": "Client-side trimming has a side effect: qwen3:14b called the logging tool in 24/25/25 of 40 turns per seed with trimming, 40/40/40 of 40 without. Trimming removes the earlier turns that showed the two-call pattern the model imitates (interpretation in docs/FINDINGS.md)",
+     "label": "measured",
+     "src": {
+      "register": "R2-qwen3-14b-4096-reconciliation"
+     }
+    },
+    {
+     "text": "Rule loss at 4096 depends on the model: llama3.1:8b 5/5, qwen3:14b 4/5, qwen3:8b 1/5 sessions",
+     "label": "measured",
+     "src": {
+      "register": "R2-v1b-gated-per-model"
+     }
+    },
+    {
+     "text": "Larger models at 4096: qwen3:32b 2/3, llama3.3:70b 0/3 (resists rule loss), mistral-small3.2:24b 0/3 (resists rule loss) sessions",
+     "label": "measured",
+     "src": {
+      "register": "H-scale-verdict"
+     }
+    }
+   ],
+   "panel": null
+  },
+  {
+   "n": 3,
+   "title": "The tool: pick a device and a model, get the measured setting",
+   "minutes": 1,
+   "items": [
+    {
+     "text": "Each setting carries its label: measured, pending flash-attention control, or not measured. Where we have no data, it says so. Try evo-t2s Intel CPU next.",
+     "label": null,
+     "src": null
+    }
+   ],
+   "panel": "device",
+   "defaults": {
+    "device": "evo-x2",
+    "model": "qwen3:14b",
+    "workload": "r2_agent"
+   }
+  },
+  {
+   "n": 4,
+   "title": "The money: cheap to fix, if you know it broke",
+   "minutes": 1,
+   "items": [
+    {
+     "text": "One long agent task (nebius-rebench-openhands, median 62 steps) sent whole to the cloud: USD 1.54 median, USD 2.63 p90 on claude-sonnet-5-5 at an assumed 70% cache hit rate; USD 0.08 on claude-haiku-5-5",
+     "label": "priced, not executed",
+     "src": {
+      "register": "cloud-cost-per-real-task"
+     }
+    },
+    {
+     "text": "Fixing a wrong answer in the cloud costs about USD 0.02 (mean USD 0.0201, median USD 0.0122); the cost is that the failure is silent.",
+     "label": "measured",
+     "src": {
+      "register": "cloud-redo-cost-per-wrong-task"
+     }
+    },
+    {
+     "text": "Takeaway: escalating one wrong step is cheap; sending every long task to the cloud is not. The expensive part is not knowing which step went wrong.",
+     "label": null,
+     "src": null
+    }
+   ],
+   "panel": null
+  },
+  {
+   "n": 5,
+   "title": "One live escalation: send the wrong task to the cloud",
+   "minutes": 1,
+   "items": [
+    {
+     "text": "The local model (qwen3:14b, 4096 window) set duration_min = 60; the standing instruction gives 50. HTTP error: no.",
+     "label": "measured",
+     "src": {
+      "file": "results/x2_evalset_tasks_real_v2.jsonl",
+      "line": 488
+     }
+    },
+    {
+     "text": "Recorded cloud redo of this task: USD 0.0122, 4.8 s",
+     "label": "measured",
+     "src": {
+      "file": "results/cloud_redo_v1.jsonl",
+      "line": 92
+     }
+    },
+    {
+     "text": "One click sends that turn to the cloud through the capped client (one call per demo run); without a network or key the recorded redo is shown.",
+     "label": null,
+     "src": null
+    }
+   ],
+   "panel": "escalate"
+  }
+ ],
+ "register_ids": [
+  "t2s-r2-real-cpu",
+  "t2s-r2-real-igpu",
+  "x2-evalset-tasks-real-v2-wrong-rate",
+  "R2-qwen3-14b-4096-reconciliation",
+  "H-scale-verdict",
+  "H-scale-family-verdict",
+  "R2-v1b-gated-per-model",
+  "cloud-cost-per-real-task",
+  "cloud-redo-cost-per-wrong-task",
+  "b5-fa-control",
+  "b5-policy-metrics"
+ ],
+ "total_minutes": 5
+}

@@ -165,6 +165,68 @@ async function runEscalation() {
   $("#esc-run").disabled = false;
 }
 
+// ── story mode: five guided steps, Next/Back, then free exploration ──
+// Pure navigation (tested under node): index in [0, n-1]; "next" on the last step leaves story mode.
+function storyNav(index, n, action) {
+  if (action === "next") return index >= n - 1 ? { index, explore: true } : { index: index + 1, explore: false };
+  if (action === "back") return { index: Math.max(0, index - 1), explore: false };
+  if (action === "explore") return { index, explore: true };
+  if (typeof action === "number") return { index: Math.max(0, Math.min(n - 1, action)), explore: false };
+  return { index, explore: false };
+}
+const STORY_PANELS = { silent: "#silent-body", device: "#device-wrap", escalate: "#esc-wrap" };
+const story = { data: null, index: 0, on: false };
+function returnPanels() {
+  for (const [k, sel] of Object.entries(STORY_PANELS)) {
+    const node = $(sel), home = document.querySelector(`.home[data-home="${k}"]`);
+    if (node && home && node.parentNode !== home) home.appendChild(node);
+  }
+}
+function setStoryMode(on) {
+  story.on = on;
+  document.body.classList.toggle("story-on", on);
+  if (!on) returnPanels();
+}
+function renderStory() {
+  const steps = story.data.steps, st = steps[story.index], n = steps.length;
+  $("#story-steps").innerHTML = steps.map((s, i) => `<li class="${i === story.index ? "cur" : i < story.index ? "done" : ""}"><button type="button" data-step="${i}">${s.n}</button></li>`).join("");
+  $("#story-title").textContent = `${st.n}. ${st.title}`;
+  $("#story-items").innerHTML = st.items.map((i) => `<li>${lab(i.label)} ${i.src ? num(i.text, i.src) : esc(i.text)}</li>`).join("");
+  $("#story-indicator").textContent = `Step ${st.n} of ${n}, about ${st.minutes} min`;
+  $("#story-back").disabled = story.index === 0;
+  $("#story-next").textContent = story.index === n - 1 ? "Finish: explore freely" : "Next";
+  returnPanels();
+  const sel = STORY_PANELS[st.panel];
+  if (sel && $(sel)) $("#story-panel").appendChild($(sel));
+  if (st.panel === "device" && st.defaults && !story.deviceSet) {
+    const f = $("#devform");
+    for (const [k, v] of Object.entries(st.defaults)) if (f[k]) f[k].value = v;
+    story.deviceSet = true;
+    refreshDevice();
+  }
+}
+function storyGo(action) {
+  const r = storyNav(story.index, story.data.steps.length, action);
+  story.index = r.index;
+  if (r.explore) { setStoryMode(false); location.hash = "#silent"; return; }
+  renderStory();
+}
+async function initStory() {
+  story.data = await api("/api/story");
+  $("#story-next").addEventListener("click", () => storyGo("next"));
+  $("#story-back").addEventListener("click", () => storyGo("back"));
+  $("#story-explore").addEventListener("click", () => storyGo("explore"));
+  $("#story-steps").addEventListener("click", (ev) => { const b = ev.target.closest && ev.target.closest("button[data-step]"); if (b) storyGo(+b.dataset.step); });
+  $("#story-open").addEventListener("click", (ev) => { ev.preventDefault(); setStoryMode(true); storyGo(0); });
+  document.addEventListener("keydown", (ev) => {
+    if (!story.on || /INPUT|SELECT|TEXTAREA/.test((ev.target && ev.target.tagName) || "")) return;
+    if (ev.key === "ArrowRight") storyGo("next");
+    if (ev.key === "ArrowLeft") storyGo("back");
+  });
+  const params = new URLSearchParams(location.search);
+  if (params.get("explore") !== "1") { setStoryMode(true); storyGo(+(params.get("step") || 1) - 1); }
+}
+
 async function viewsMain() {
   try { renderSilent(await api("/api/silent")); } catch (e) { $("#silent-body").textContent = "Error: " + e.message; }
   try {
@@ -178,5 +240,6 @@ async function viewsMain() {
     renderEscalationTask(await api("/api/escalation"));
     $("#esc-run").addEventListener("click", runEscalation);
   } catch (e) { $("#esc-task").textContent = "Error: " + e.message; }
+  try { await initStory(); } catch (e) { $("#story-title").textContent = "Story mode unavailable: " + e.message; setStoryMode(false); }
 }
 viewsMain();

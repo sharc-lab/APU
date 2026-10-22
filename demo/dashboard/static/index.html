@@ -15,19 +15,34 @@
       <span class="lab priced">priced, not executed</span> <span class="lab notmeasured">not measured</span></p>
     <div id="banners"></div>
     <nav class="steps">
+      <a href="#story" id="story-open">Story mode</a>
       <a href="#silent">A Silent failure</a><a href="#device">B Device setting</a><a href="#cost">C Cost</a><a href="#escalate">D Live escalation</a>
       <a href="#inputs">1 Inputs</a><a href="#frontier">2 Frontier</a><a href="#rec">3 Recommendation</a><a href="#live">4 Replay</a>
     </nav>
   </div>
 </header>
 <main class="wrap">
+  <section id="story" class="card story" aria-live="polite">
+    <ol id="story-steps" class="story-steps"></ol>
+    <h2 id="story-title"></h2>
+    <ul id="story-items" class="story-items"></ul>
+    <div id="story-panel"></div>
+    <div class="controls story-nav">
+      <button type="button" id="story-back">Back</button>
+      <span id="story-indicator" class="muted small"></span>
+      <button type="button" id="story-next">Next</button>
+      <button type="button" id="story-explore" class="linkish">Explore freely</button>
+    </div>
+  </section>
+
   <section id="silent" class="card">
     <h2>A. Silent failure: the same model, a different default, and nothing reports it</h2>
-    <div id="silent-body"><p class="muted">loading</p></div>
+    <div class="home" data-home="silent"><div id="silent-body"><p class="muted">loading</p></div></div>
   </section>
 
   <section id="device" class="card">
     <h2>B. Recommended setting for a device, model and workload</h2>
+    <div class="home" data-home="device"><div id="device-wrap">
     <form id="devform" autocomplete="off" class="controls">
       <label>Device<select name="device"></select></label>
       <label>Model<select name="model"></select></label>
@@ -35,6 +50,7 @@
       <label>Max timeout share<input type="number" name="maxtimeout" min="0" max="1" step="0.01" value="0.05"></label>
     </form>
     <div id="device-body"></div>
+    </div></div>
   </section>
 
   <section id="cost" class="card">
@@ -44,9 +60,11 @@
 
   <section id="escalate" class="card">
     <h2>D. Live escalation: one wrong task, sent to the cloud</h2>
+    <div class="home" data-home="escalate"><div id="esc-wrap">
     <div id="esc-task"></div>
     <div class="controls"><button type="button" id="esc-run">Send to the cloud</button><span id="esc-mode" class="muted small"></span></div>
     <div id="esc-result"></div>
+    </div></div>
   </section>
 
   <section id="inputs" class="card">

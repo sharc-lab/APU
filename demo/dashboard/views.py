@@ -815,3 +815,169 @@ def cost_view(cache, repo: Path = REPO) -> dict:
     c["docs"] = [doc_summary(repo, d) for d in c.get("docs", [COST_SUMMARY_DOC, IMPACT_DOC])]
     c["register"] = {i: cache.register[i] for i in COST_IDS if i in cache.register}
     return c
+
+
+# ── story mode: five guided steps over the same numbers ────────────────────────────────────────────────
+
+STORY_IDS = ["t2s-r2-real-cpu", "t2s-r2-real-igpu", "x2-evalset-tasks-real-v2-wrong-rate",
+             "R2-qwen3-14b-4096-reconciliation", "H-scale-verdict", "H-scale-family-verdict", "R2-v1b-gated-per-model",
+             "cloud-cost-per-real-task", "cloud-redo-cost-per-wrong-task", "b5-fa-control", "b5-policy-metrics"]
+
+
+def parse_reconciliation_rule2(value: str) -> dict:
+    """Row R2-qwen3-14b-4096-reconciliation: rule2 (log_event called) per seed in the untrimmed v1 run and under
+    client-side trimming (mitigation), plus the first trimmed failure's tool lists."""
+    segs = {}
+    for part in (value or "").split(" // "):
+        m = re.match(r"\s*(v1b|v1|mitigation|num_keep):", part)
+        if m:
+            segs[m[1]] = [(int(a), int(b)) for a, b in re.findall(r"rule2 (\d+)/(\d+)", part)]
+    first = re.search(r"first trimmed rule2 failure seed (\d+) turn (\d+): call 1 tools trimmed \[([^\]]*)\], "
+                      r"untrimmed v1 \[([^\]]*)\]", value or "")
+    return {"v1": segs.get("v1", []), "trimmed": segs.get("mitigation", []),
+            "first_failure": {"seed": int(first[1]), "turn": int(first[2]), "trimmed_tools": first[3],
+                              "untrimmed_tools": first[4]} if first else None}
+
+
+def parse_scale(value: str) -> list[dict]:
+    """H-scale rows: 'qwen3:32b: R4096 2/3 (...)' plus the per-model verdict wording."""
+    out = []
+    for part in (value or "").split(" / "):
+        m = re.search(r"([\w.:-]+): R4096 (\d+)/(\d+)", part)
+        if not m:
+            continue
+        v = re.search(r"verdict (\w+)(?: \(([^)]*)\))?", part)
+        out.append({"model": m[1], "silent": int(m[2]), "n": int(m[3]), "verdict": v[1] if v else None,
+                    "note": "resists rule loss" if "resists rule loss" in part else (v[2] if v else None)})
+    return out
+
+
+def parse_task_cost(value: str) -> dict:
+    """Row cloud-cost-per-real-task, the long-task trace set (first segment): steps and median / p90 USD per task
+    for each model and caching case."""
+    seg = (value or "").split(" | ")[0]
+    m = re.search(r"([\w-]+) \(n=(\d+) tasks, median (\d+) steps", seg)
+    if not m:
+        return {}
+    models = {}
+    for mm in re.finditer(r"(claude-[\w.-]+): none \$([\d.]+) / \$([\d.]+), realistic \$([\d.]+) / \$([\d.]+), "
+                          r"best \$([\d.]+) / \$([\d.]+)", seg):
+        models[mm[1]] = {"none": (float(mm[2]), float(mm[3])), "realistic": (float(mm[4]), float(mm[5])),
+                         "best": (float(mm[6]), float(mm[7]))}
+    return {"trace_set": m[1], "n_tasks": int(m[2]), "median_steps": int(m[3]), "models": models,
+            "priced": "priced, not executed" in value}
+
+
+def _item(text, label, rid=None, src=None):
+    return {"text": text, "label": label, "src": src or (reg_src(rid) if rid else None)}
+
+
+def build_story(register: dict, silent: dict, cost: dict, escalation: dict | None = None) -> dict:
+    def val(rid):
+        r = _row(register, rid)
+        return r["value"] if r else ""
+
+    steps = []
+    # 1. the problem
+    s1 = []
+    pair = silent.get("device_pair", {})
+    for dev, name in (("cpu", "Intel CPU"), ("igpu", "Intel iGPU")):
+        d = pair.get(dev) or {}
+        for m in d.get("models", []):
+            s1.append(_item(f"{name}, {m['model']}: Ollama loads {', '.join(map(str, m['loaded_window']))} tokens; "
+                            f"{m['gated_silent']}/{m['n']} sessions silently lost a rule, {m['silent_after_window']} "
+                            f"after the window filled", MEASURED, d.get("register_id")))
+        tot = (d.get("evidence") or {}).get("totals")
+        if tot:
+            first = ((d.get("evidence") or {}).get("sessions") or [{}])[0].get("src")
+            s1.append(_item(f"{name}: {tot['calls_surfaced_error']} of {tot['calls']} calls surfaced an error",
+                            MEASURED, src=first))
+    tiers = {t["tier"]: t for t in (silent.get("wrong_rate") or {}).get("tiers", [])}
+    if "ollama_default" in tiers and "ollama_ctx_4096" in tiers:
+        a, b = tiers["ollama_default"], tiers["ollama_ctx_4096"]
+        s1.append(_item(f"qwen3:14b task results: {a['pct']:.1f}% wrong at the default window, {b['pct']:.1f}% at "
+                        f"4096; {b['surfaced']} of {b['wrong']} wrong results surfaced an error", MEASURED,
+                        "x2-evalset-tasks-real-v2-wrong-rate"))
+    steps.append({"n": 1, "title": "The problem: a default nobody chose, a failure nobody sees", "minutes": 1,
+                  "items": s1, "panel": "silent"})
+    # 2. why it is hard
+    s2 = []
+    nk = tiers.get("ollama_ctx_4096_numkeep")
+    if nk and "ollama_ctx_4096" in tiers:
+        s2.append(_item(f"The one-line fix, num_keep (keep the system prompt) at 4096: {nk['pct']:.1f}% wrong, down "
+                        f"from {tiers['ollama_ctx_4096']['pct']:.1f}% but still above {tiers['ollama_default']['pct']:.1f}%"
+                        f" at the default window", MEASURED, "x2-evalset-tasks-real-v2-wrong-rate"))
+    rc = parse_reconciliation_rule2(val("R2-qwen3-14b-4096-reconciliation"))
+    if rc["trimmed"] and rc["v1"]:
+        s2.append(_item("Client-side trimming has a side effect: qwen3:14b called the logging tool in "
+                        f"{'/'.join(str(a) for a, _ in rc['trimmed'])} of {rc['trimmed'][0][1]} turns per seed with "
+                        f"trimming, {'/'.join(str(a) for a, _ in rc['v1'])} of {rc['v1'][0][1]} without. Trimming "
+                        "removes the earlier turns that showed the two-call pattern the model imitates "
+                        "(interpretation in docs/FINDINGS.md)", MEASURED, "R2-qwen3-14b-4096-reconciliation"))
+    small = {c["model"]: c for c in parse_gated_per_model(val("R2-v1b-gated-per-model")) if c["tier"] == "num_ctx_4096"}
+    if small:
+        s2.append(_item("Rule loss at 4096 depends on the model: " + ", ".join(
+            f"{m} {c['gated_silent']}/{c['n']}" for m, c in sorted(small.items())) + " sessions", MEASURED,
+            "R2-v1b-gated-per-model"))
+    scale = parse_scale(val("H-scale-verdict")) + parse_scale(val("H-scale-family-verdict"))
+    if scale:
+        s2.append(_item("Larger models at 4096: " + ", ".join(
+            f"{s['model']} {s['silent']}/{s['n']}" + (" (resists rule loss)" if s["note"] and "resists" in s["note"]
+                                                       else "") for s in scale) + " sessions", MEASURED,
+            "H-scale-verdict"))
+    steps.append({"n": 2, "title": "Why it is hard: the obvious fixes do not hold, and it depends on the model",
+                  "minutes": 1, "items": s2, "panel": None})
+    # 3. the tool
+    steps.append({"n": 3, "title": "The tool: pick a device and a model, get the measured setting", "minutes": 1,
+                  "items": [_item("Each setting carries its label: measured, pending flash-attention control, or not "
+                                  "measured. Where we have no data, it says so. Try evo-t2s Intel CPU next.", None)],
+                  "panel": "device", "defaults": {"device": "evo-x2", "model": "qwen3:14b",
+                                                   "workload": "r2_agent"}})
+    # 4. the money
+    s4 = []
+    tc = parse_task_cost(val("cloud-cost-per-real-task"))
+    son = (tc.get("models") or {}).get("claude-sonnet-5-5")
+    hai = (tc.get("models") or {}).get("claude-haiku-5-5")
+    if son:
+        s4.append(_item(f"One long agent task ({tc['trace_set']}, median {tc['median_steps']} steps) sent whole to "
+                        f"the cloud: USD {son['realistic'][0]:.2f} median, USD {son['realistic'][1]:.2f} p90 on "
+                        f"claude-sonnet-5-5 at an assumed 70% cache hit rate" +
+                        (f"; USD {hai['realistic'][0]:.2f} on claude-haiku-5-5" if hai else ""),
+                        PRICED, "cloud-cost-per-real-task"))
+    lead = (cost or {}).get("lead")
+    if lead:
+        s4.append(_item(lead["text"], lead["label"], src=lead["src"]))
+    s4.append(_item("Takeaway: escalating one wrong step is cheap; sending every long task to the cloud is not. The "
+                    "expensive part is not knowing which step went wrong.", None))
+    steps.append({"n": 4, "title": "The money: cheap to fix, if you know it broke", "minutes": 1, "items": s4,
+                  "panel": None})
+    # 5. one live escalation
+    s5 = []
+    esc = escalation or {}
+    if esc.get("available"):
+        loc = esc["local"]
+        diff = ", ".join(loc.get("end_state_diff") or []) or "end state"
+        got = next((c["arguments"] for c in loc.get("tool_calls") or [] if c.get("name") ==
+                    (esc.get("expected_calls") or [{}])[0].get("name")), None)
+        want = (esc.get("expected_calls") or [{}])[0].get("arguments")
+        key = diff.rsplit("/", 1)[-1]
+        if isinstance(got, dict) and isinstance(want, dict) and key in got and key in want:
+            s5.append(_item(f"The local model ({esc['local_model']}, {loc.get('loaded_context')} window) set {key} = "
+                            f"{got[key]}; the standing instruction gives {want[key]}. HTTP error: "
+                            f"{'yes' if loc.get('any_http_error') else 'no'}.", MEASURED, src=loc.get("src")))
+        rd = esc.get("redo") or {}
+        if rd.get("usd") is not None:
+            s5.append(_item(f"Recorded cloud redo of this task: USD {rd['usd']:.4f}" +
+                            (f", {rd['seconds']:.1f} s" if rd.get("seconds") is not None else ""),
+                            rd.get("label", PRICED), src=rd.get("src")))
+    s5.append(_item("One click sends that turn to the cloud through the capped client (one call per demo run); "
+                    "without a network or key the recorded redo is shown.", None))
+    steps.append({"n": 5, "title": "One live escalation: send the wrong task to the cloud", "minutes": 1,
+                  "items": s5, "panel": "escalate"})
+    return {"steps": steps, "register_ids": STORY_IDS, "total_minutes": sum(s["minutes"] for s in steps)}
+
+
+def story_view(cache) -> dict:
+    s = dict(cache.story)
+    s["register"] = {i: cache.register[i] for i in STORY_IDS if i in cache.register}
+    return s

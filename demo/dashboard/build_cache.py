@@ -79,6 +79,8 @@ def parse_register(path: Path) -> dict:
         if not line.startswith("| ") or line.startswith("| claim id") or line.startswith("|---"):
             continue
         parts = [p.strip() for p in line.strip().strip("|").split(" | ")]
+        if len(parts) > len(cols):  # a value with " | " inside it (e.g. cloud-cost-per-real-task): rejoin the middle
+            parts = parts[:2] + [" | ".join(parts[2:len(parts) - 6])] + parts[-6:]
         if len(parts) != len(cols):
             continue
         row = dict(zip(cols, parts))
@@ -254,6 +256,7 @@ def build(out_dir: Path = CACHE, backend=None) -> dict:
     snap["cost.json"] = views.build_cost(reg)
     from demo.dashboard import escalate
     snap["escalation.json"] = escalate.build_escalation(REPO)
+    snap["story.json"] = views.build_story(reg, snap["silent.json"], snap["cost.json"], snap["escalation.json"])
     sources = [REGISTER, *R2_FILES, *OUTCOME_FILES, "results/x2_chat_template_sources.jsonl"]
     sources += [h["src"] for h in snap["hardware.json"]] + [w["src"] for w in snap["workloads.json"]]
     if (REPO / MITIGATION_FILE).exists():

@@ -96,7 +96,7 @@ def to_dict(obj) -> Any:
 
 class Cache:
     NAMES = ("manifest", "register", "hardware", "workloads", "r2_sessions", "points", "mitigation", "silent", "device", "cost",
-             "escalation")
+             "escalation", "story")
 
     def __init__(self, directory: Path = CACHE_DIR):
         self.dir = Path(directory)

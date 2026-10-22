@@ -25,6 +25,7 @@ Endpoints (all GET):
   /api/escalation           view D: the wrong task, its local answer, its priced cost, live-call status (never the key)
   POST /api/escalate        view D: one live call through src/cloud/client.py (USD 10 cap, demo ledger, at most one per
                             server process), or the stub "priced, not executed" with the reason
+  /api/story                story mode: five guided steps (problem, why it is hard, the tool, the money, escalation)
   /api/register[?id=]       register rows from the snapshot
   /api/source?file=&line=   one raw line of a whitelisted source file
   /api/source?file=&match=k:v,k:v   line numbers of rows matching every k:v
@@ -126,7 +127,7 @@ class App:
                      "/api/replay/stream": self.replay_stream, "/api/register": self.register,
                      "/api/source": self.source, "/api/silent": self.silent, "/api/device": self.device,
                      "/api/device/recommend": self.device_recommend, "/api/cost": self.cost,
-                     "/api/escalation": self.escalation}.get(path)
+                     "/api/escalation": self.escalation, "/api/story": self.story}.get(path)
             if route is None:
                 return _json({"error": f"no route {path}"}, 404)
             return route(q)
@@ -206,6 +207,9 @@ class App:
 
     def cost(self, q) -> Response:
         return _json(views.cost_view(self.cache, self.repo))
+
+    def story(self, q) -> Response:
+        return _json(views.story_view(self.cache))
 
     def escalation(self, q) -> Response:
         reg = self.cache.register.get("cloud-redo-cost-per-wrong-task")
