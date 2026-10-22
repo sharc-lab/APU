@@ -1,0 +1,98 @@
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.54\textwidth}>{\raggedright\arraybackslash}p{0.25\textwidth}>{\raggedright\arraybackslash}p{0.13\textwidth}}
+\caption{View B: every number shown, for the eight device / model / workload choices reviewed}\label{tab:b}\\
+\toprule
+\textbf{Value shown} & \textbf{Register id / file} & \textbf{Status} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Value shown} & \textbf{Register id / file} & \textbf{Status} \\
+\midrule
+\endhead
+\small evo-x2 / qwen3:14b / r2\_agent: window = 40960 & {\footnotesize \texttt{results/\allowbreak{}x2\_\allowbreak{}policy\_\allowbreak{}compare.\allowbreak{}jsonl:\allowbreak{}8}} & \small measured \\
+
+\small evo-x2 / qwen3:14b / r2\_agent: kv\_precision = q8\_0 & {\footnotesize \texttt{results/\allowbreak{}x2\_\allowbreak{}policy\_\allowbreak{}compare.\allowbreak{}jsonl:\allowbreak{}4}} & \small pending \\
+
+\small evo-x2 / qwen3:14b / r2\_agent: flash\_attention = on (OLLAMA\_FLASH\_ATTENTION=1) & {\footnotesize \texttt{results/\allowbreak{}x2\_\allowbreak{}policy\_\allowbreak{}compare.\allowbreak{}jsonl:\allowbreak{}4}} & \small pending \\
+
+\small evo-x2 / qwen3:14b / r2\_agent: num\_keep = not set & {\footnotesize \texttt{results/\allowbreak{}x2\_\allowbreak{}policy\_\allowbreak{}compare.\allowbreak{}jsonl:\allowbreak{}8}} & \small measured \\
+
+\small evo-x2 / qwen3:14b / r2\_agent: context\_handling = full history & {\footnotesize \texttt{results/\allowbreak{}x2\_\allowbreak{}policy\_\allowbreak{}compare.\allowbreak{}jsonl:\allowbreak{}8}} & \small measured \\
+
+\small evo-x2 / qwen3:14b / r2\_agent: rules held 100.0\%, history recalled 62.5\% & {\footnotesize \texttt{b5-\allowbreak{}policy-\allowbreak{}metrics}} & \small measured \\
+
+\small evo-x2 / qwen3:14b / r2\_agent: 75.4 min per 40-turn session & {\footnotesize \texttt{b5-\allowbreak{}policy-\allowbreak{}metrics}} & \small measured \\
+
+\small evo-x2 / qwen3:14b / r2\_agent: default (a): 214.8 min, rules 100.0\%, history 62.5\%; saves 139.4 min per session & {\footnotesize \texttt{b5-\allowbreak{}policy-\allowbreak{}metrics}} & \small measured \\
+
+\small evo-x2 / qwen3:14b / r2\_agent: long-context recall probe at this precision: 100.0\% at ctx 40960 & {\footnotesize \texttt{b5-\allowbreak{}kv-\allowbreak{}recall}} & \small measured \\
+
+\small evo-x2 / qwen3:14b / r2\_agent: overall status & {\footnotesize \texttt{b5-\allowbreak{}policy-\allowbreak{}metrics, b5-\allowbreak{}kv-\allowbreak{}recall, b5-\allowbreak{}fa-\allowbreak{}control, cost-\allowbreak{}cut-\allowbreak{}config-\allowbreak{}time}} & \small pending \\
+
+\small evo-x2 / llama3.1:8b / r2\_agent: window = 131072 & {\footnotesize \texttt{results/\allowbreak{}x2\_\allowbreak{}policy\_\allowbreak{}compare.\allowbreak{}jsonl:\allowbreak{}7}} & \small measured \\
+
+\small evo-x2 / llama3.1:8b / r2\_agent: kv\_precision = q4\_0 & {\footnotesize \texttt{results/\allowbreak{}x2\_\allowbreak{}policy\_\allowbreak{}compare.\allowbreak{}jsonl:\allowbreak{}5}} & \small pending \\
+
+\small evo-x2 / llama3.1:8b / r2\_agent: flash\_attention = on (OLLAMA\_FLASH\_ATTENTION=1) & {\footnotesize \texttt{results/\allowbreak{}x2\_\allowbreak{}policy\_\allowbreak{}compare.\allowbreak{}jsonl:\allowbreak{}5}} & \small pending \\
+
+\small evo-x2 / llama3.1:8b / r2\_agent: num\_keep = not set & {\footnotesize \texttt{results/\allowbreak{}x2\_\allowbreak{}policy\_\allowbreak{}compare.\allowbreak{}jsonl:\allowbreak{}7}} & \small measured \\
+
+\small evo-x2 / llama3.1:8b / r2\_agent: context\_handling = full history & {\footnotesize \texttt{results/\allowbreak{}x2\_\allowbreak{}policy\_\allowbreak{}compare.\allowbreak{}jsonl:\allowbreak{}7}} & \small measured \\
+
+\small evo-x2 / llama3.1:8b / r2\_agent: rules held 100.0\%, history recalled 100.0\% & {\footnotesize \texttt{b5-\allowbreak{}policy-\allowbreak{}metrics}} & \small measured \\
+
+\small evo-x2 / llama3.1:8b / r2\_agent: 6.6 min per 40-turn session & {\footnotesize \texttt{b5-\allowbreak{}policy-\allowbreak{}metrics}} & \small measured \\
+
+\small evo-x2 / llama3.1:8b / r2\_agent: default (a): 43.7 min, rules 100.0\%, history 95.8\%; saves 37.1 min per session & {\footnotesize \texttt{b5-\allowbreak{}policy-\allowbreak{}metrics}} & \small measured \\
+
+\small evo-x2 / llama3.1:8b / r2\_agent: long-context recall probe at this precision: 58.3\% at ctx 131072 & {\footnotesize \texttt{b5-\allowbreak{}kv-\allowbreak{}recall}} & \small measured \\
+
+\small evo-x2 / llama3.1:8b / r2\_agent: overall status & {\footnotesize \texttt{b5-\allowbreak{}policy-\allowbreak{}metrics, b5-\allowbreak{}kv-\allowbreak{}recall, b5-\allowbreak{}fa-\allowbreak{}control, cost-\allowbreak{}cut-\allowbreak{}config-\allowbreak{}time}} & \small pending \\
+
+\small evo-t2s-cpu / qwen3:14b / r2\_agent: window = not measured & {\footnotesize \texttt{none}} & \small not measured \\
+
+\small evo-t2s-cpu / qwen3:14b / r2\_agent: Ollama default window 4096: 5/5 sessions silently lost a gated rule, 5 after the window filled & {\footnotesize \texttt{t2s-\allowbreak{}r2-\allowbreak{}real-\allowbreak{}cpu}} & \small measured \\
+
+\small evo-t2s-cpu / qwen3:14b / r2\_agent: with client-side trimming: not recovered (pre-registered rule) & {\footnotesize \texttt{t2s-\allowbreak{}r2-\allowbreak{}mitigation-\allowbreak{}cpu}} & \small measured \\
+
+\small evo-t2s-cpu / qwen3:14b / r2\_agent: overall status & {\footnotesize \texttt{t2s-\allowbreak{}r2-\allowbreak{}real-\allowbreak{}cpu, t2s-\allowbreak{}r2-\allowbreak{}mitigation-\allowbreak{}cpu}} & \small not measured \\
+
+\small evo-t2s-cpu / llama3.1:8b / r2\_agent: window = 4096 & {\footnotesize \texttt{t2s-\allowbreak{}r2-\allowbreak{}real-\allowbreak{}cpu}} & \small measured \\
+
+\small evo-t2s-cpu / llama3.1:8b / r2\_agent: context\_handling = client-side trimming that keeps the system prompt & {\footnotesize \texttt{t2s-\allowbreak{}r2-\allowbreak{}mitigation-\allowbreak{}cpu}} & \small measured \\
+
+\small evo-t2s-cpu / llama3.1:8b / r2\_agent: Ollama default window 4096: 5/5 sessions silently lost a gated rule, 5 after the window filled & {\footnotesize \texttt{t2s-\allowbreak{}r2-\allowbreak{}real-\allowbreak{}cpu}} & \small measured \\
+
+\small evo-t2s-cpu / llama3.1:8b / r2\_agent: with client-side trimming: recovered (pre-registered rule) & {\footnotesize \texttt{t2s-\allowbreak{}r2-\allowbreak{}mitigation-\allowbreak{}cpu}} & \small measured \\
+
+\small evo-t2s-igpu / qwen3:14b / r2\_agent: window = 32768 & {\footnotesize \texttt{t2s-\allowbreak{}r2-\allowbreak{}real-\allowbreak{}igpu}} & \small measured \\
+
+\small evo-t2s-igpu / qwen3:14b / r2\_agent: context\_handling = full history & {\footnotesize \texttt{t2s-\allowbreak{}r2-\allowbreak{}real-\allowbreak{}igpu}} & \small measured \\
+
+\small evo-t2s-igpu / qwen3:14b / r2\_agent: Ollama default window 32768: 1/5 sessions silently lost a gated rule, 0 after the window filled & {\footnotesize \texttt{t2s-\allowbreak{}r2-\allowbreak{}real-\allowbreak{}igpu}} & \small measured \\
+
+\small evo-x2 / qwen3:14b / b3\_tasks: window = 40960 & {\footnotesize \texttt{x2-\allowbreak{}evalset-\allowbreak{}tasks-\allowbreak{}real-\allowbreak{}v2-\allowbreak{}wrong-\allowbreak{}rate}} & \small measured \\
+
+\small evo-x2 / qwen3:14b / b3\_tasks: num\_keep = not set & {\footnotesize \texttt{x2-\allowbreak{}evalset-\allowbreak{}tasks-\allowbreak{}real-\allowbreak{}v2-\allowbreak{}wrong-\allowbreak{}rate}} & \small measured \\
+
+\small evo-x2 / qwen3:14b / b3\_tasks: context\_handling = full history & {\footnotesize \texttt{x2-\allowbreak{}evalset-\allowbreak{}tasks-\allowbreak{}real-\allowbreak{}v2-\allowbreak{}wrong-\allowbreak{}rate}} & \small measured \\
+
+\small evo-x2 / qwen3:14b / b3\_tasks: wrong task results 17/150 (11.3\%), 0 surfaced an error & {\footnotesize \texttt{x2-\allowbreak{}evalset-\allowbreak{}tasks-\allowbreak{}real-\allowbreak{}v2-\allowbreak{}wrong-\allowbreak{}rate}} & \small measured \\
+
+\small evo-x2 / qwen3:14b / b3\_tasks: num\_keep at 4096: 30.0\% wrong vs 42.0\% without it; still above the best window's 11.3\% & {\footnotesize \texttt{x2-\allowbreak{}evalset-\allowbreak{}tasks-\allowbreak{}real-\allowbreak{}v2-\allowbreak{}wrong-\allowbreak{}rate}} & \small measured \\
+
+\small evo-x2 / llama3.1:8b / single\_shot: window = runtime default & {\footnotesize \texttt{results/\allowbreak{}x2\_\allowbreak{}outcome\_\allowbreak{}table\_\allowbreak{}v3.\allowbreak{}jsonl}} & \small measured \\
+
+\small evo-x2 / llama3.1:8b / single\_shot: context\_handling = runtime ollama\_default & {\footnotesize \texttt{results/\allowbreak{}x2\_\allowbreak{}outcome\_\allowbreak{}table\_\allowbreak{}v3.\allowbreak{}jsonl}} & \small measured \\
+
+\small evo-x2 / llama3.1:8b / single\_shot: quality 1.000 (n 330) & {\footnotesize \texttt{results/\allowbreak{}x2\_\allowbreak{}outcome\_\allowbreak{}table\_\allowbreak{}v3.\allowbreak{}jsonl}} & \small measured \\
+
+\small evo-x2 / llama3.1:8b / single\_shot: p50 latency 9.6 s & {\footnotesize \texttt{results/\allowbreak{}x2\_\allowbreak{}outcome\_\allowbreak{}table\_\allowbreak{}v3.\allowbreak{}jsonl}} & \small measured \\
+
+\small evo-x2 / llama3.1:8b / single\_shot: timeout share 0.029 (floor 0.05) & {\footnotesize \texttt{results/\allowbreak{}x2\_\allowbreak{}outcome\_\allowbreak{}table\_\allowbreak{}v3.\allowbreak{}jsonl}} & \small measured \\
+
+\small blade / qwen3:14b / r2\_agent: window = not measured & {\footnotesize \texttt{none}} & \small not measured \\
+
+\small blade / qwen3:14b / r2\_agent: overall status & {\footnotesize \texttt{none}} & \small not measured \\
+
+\bottomrule
+\end{longtable}

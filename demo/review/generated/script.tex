@@ -1,0 +1,173 @@
+
+The dashboard opens in story mode: five steps, about one minute each, with Next and Back buttons (or the arrow keys)
+and a step indicator. After step 5, "Finish: explore freely" (or "Explore freely" at any time) shows the four full
+views (A Silent failure, B Device setting, C Cost, D Live escalation) and the older frontier and replay screens.
+"Story mode" in the header starts the story again.
+
+Every number on screen is a link: click it to see the register row (docs/NUMBERS\_REGISTER.md) or the result-file line
+it came from. Every claim carries a label: measured, priced, not executed, projected, pending flash-attention control,
+or not measured. Say the label out loud when you read a number.
+
+The numbers quoted below are the register values at commit time. Read them off the screen on the day: the screen is
+rebuilt from the register, this file is not. Steps 1 to 4 run entirely from the offline cache; only step 5 can use
+the network, and without it the recorded redo is shown.
+
+Backup: if the laptop or the browser fails, play demo/review/demo\_story.webm (3 minutes, no audio, step 5 shows the
+recorded redo) and talk over it with the same script. The two-page leave-behind is demo/review/LEAVE\_BEHIND.pdf.
+
+\subsection*{Before the audience arrives (5 minutes, not part of the talk)}
+
+\par\noindent 1. From the repo root on the controller laptop, in the terminal you will present from:
+
+\begin{verbatim}
+py -3.12 -m demo.dashboard.build_cache
+py -3.12 -m pytest tests/test_dashboard.py tests/test_dashboard_views.py -q
+\end{verbatim}
+
+\par\noindent 2. Start the server. Without a live call (step 5 shows this task's recorded cloud redo from
+results/cloud\_redo\_v1.jsonl):
+
+\begin{verbatim}
+py -3.12 -m demo.dashboard
+\end{verbatim}
+
+With the one live call for step 5 (key loaded into this process only, never printed):
+
+\begin{verbatim}
+$env:ANTHROPIC_API_KEY = [Environment]::GetEnvironmentVariable('ANTHROPIC_API_KEY','User')
+$env:CLOUD_CLIENT_HOST_ROLE = 'controller'; $env:DEMO_CLOUD_LIVE = '1'
+py -3.12 -m demo.dashboard
+\end{verbatim}
+
+After the demo: Ctrl+C, then \texttt{Remove-\allowbreak{}Item Env:\allowbreak{}\textbackslash{}ANTHROPIC\_\allowbreak{}API\_\allowbreak{}KEY; Remove-\allowbreak{}Item Env:\allowbreak{}\textbackslash{}DEMO\_\allowbreak{}CLOUD\_\allowbreak{}LIVE}.
+
+\par\noindent 3. Open http://127.0.0.1:8765/ : step 1 of 5 shows, no "Error" text. (\texttt{?step=3} opens a given step; \texttt{?explore=1}
+skips the story.)
+
+Cloud spend rules for step 5: one provider request per server start (a second click shows the recorded redo), through
+src/cloud/client.py with a USD 10 cap (DEMO\_CLOUD\_CAP\_USD may lower it, never raise it) and its own ledger,
+demo/ledger/cloud\_ledger\_demo.jsonl (not committed). Any failure (no key, host refused, cap, provider error) falls back
+to the recorded redo with the reason on screen. Do not restart the server to get a second live call during the demo.
+
+\subsection*{Step 1 (0:00 to 1:00): the problem}
+
+Click: nothing; step 1 is the opening screen.
+
+Say:
+\begin{itemize}\setlength\itemsep{1pt}
+\item "Same machine, evo-t2s. Same two models, same 40-turn agent sessions, Ollama defaults, nothing configured. The only
+difference is which device Ollama picked."
+\item "On the Intel CPU Ollama loads a 4096-token window. Both models silently lost a rule in 5 of 5 sessions, all after
+the window filled. On the iGPU it loads 32768: llama3.1:8b lost nothing; qwen3:14b had 1 of 5, and that one also
+happens inside the window on its validation run, so 0 after the window filled." Measured (t2s-r2-real-cpu,
+t2s-r2-real-igpu).
+\item "Calls that surfaced an error to the client: 0 of 800 on each device." Measured (the two result files).
+\item "What it does to work: qwen3:14b task results go from 11.3\% wrong at the default window to 42.0\% at 4096, and none of
+the 63 wrong results surfaced an error." Measured (x2-evalset-tasks-real-v2-wrong-rate; excess +30.7 points,
+session-level 95\% CI +26.0 to +34.7, x2-evalset-tasks-real-v2-ci-units).
+\end{itemize}
+
+Do not say: "every model fails at 4096" (step 2 shows why).
+
+\subsection*{Step 2 (1:00 to 2:00): why it is hard}
+
+Click: Next.
+
+Say:
+\begin{itemize}\setlength\itemsep{1pt}
+\item "The one-line fix, num\_keep, which keeps the system prompt: 30.0\% wrong at 4096. Better than 42.0\%, still far from
+11.3\%." Measured (x2-evalset-tasks-real-v2-wrong-rate).
+\item "Client-side trimming has a side effect: with trimming, qwen3:14b called the logging tool in 24, 25 and 25 of 40
+turns per seed; without it, 40 of 40. Trimming removes the earlier turns that showed the two-call pattern the model
+imitates." Measured counts (R2-qwen3-14b-4096-reconciliation); the interpretation is the one in docs/FINDINGS.md.
+\item "And it depends on the model: at 4096, llama3.1:8b lost rules in 5 of 5 sessions, qwen3:14b 4 of 5, qwen3:8b 1 of 5;
+qwen3:32b 2 of 3; llama3.3:70b and mistral-small3.2:24b resisted rule loss, 0 of 3." Measured (R2-v1b-gated-per-model,
+H-scale-verdict, H-scale-family-verdict).
+\end{itemize}
+
+\subsection*{Step 3 (2:00 to 3:00): the tool}
+
+Click: Next. The picker opens on evo-x2 / qwen3:14b / multi-turn agent session. Then change Device to "evo-t2s, Intel
+CPU". If time allows, "Blade 14".
+
+Say:
+\begin{itemize}\setlength\itemsep{1pt}
+\item evo-x2 / qwen3:14b: "Window 40960; KV cache q8\_0 with flash attention. Same rule and history scores as the default,
+75.4 minutes per session instead of 214.8." The minutes are measured (b5-policy-metrics, cost-cut-config-time).
+\item Point at the yellow labels: "The KV and flash attention tiles say pending flash-attention control: we switched both
+on together, so we do not yet know which one gives the speedup. When the control run reads, this view recommends
+whichever one it shows." Row b5-fa-control is VERIFIED but its run is incomplete ("reading: not read
+(incomplete)"). Same for llama3.1:8b (q4\_0). Do not say "q8\_0 makes it faster".
+\item evo-t2s CPU / qwen3:14b: "Here nothing we measured holds the rules: the default loses them and trimming did not
+recover qwen3:14b, so the tool says not measured instead of inventing a setting." (t2s-r2-real-cpu,
+t2s-r2-mitigation-cpu). Switch the model to llama3.1:8b to show the case trimming did recover.
+\item Blade: "Not measured. Every field says so."
+\end{itemize}
+
+\subsection*{Step 4 (3:00 to 4:00): the money}
+
+Click: Next.
+
+Say:
+\begin{itemize}\setlength\itemsep{1pt}
+\item "Sending one long agent task whole to the cloud, a 62-step agent task at the median (OpenHands traces): about USD 1.54 on
+claude-sonnet-5-5, USD 2.63 at the 90th percentile, assuming a 70\% cache hit rate; about USD 0.08 on
+claude-haiku-5-5." Label: priced, not executed (cloud-cost-per-real-task; token counts from traces, prices from the
+price file, no API call).
+\item Read the lead line exactly as the screen shows it: "Fixing a wrong answer in the cloud costs about USD 0.02 (mean USD
+0.0201, median USD 0.0122); the cost is that the failure is silent." Label: measured (cloud-redo-cost-per-wrong-task:
+all 197 wrong tasks re-run on claude-sonnet-5-5).
+\item "So escalating one wrong step is cheap; the expensive part is not knowing which step went wrong."
+\item Do not quote how many of the redone tasks the cloud got right: that figure is under diagnosis and is not on screen.
+If asked: "we are still checking the grading of the cloud redo". Do not quote a router saving: the router was
+dominated in our own comparison on evo-x2 (b5-verdict: refuted).
+\end{itemize}
+
+\subsection*{Step 5 (4:00 to 5:00): one live escalation}
+
+Click: Next, then "Send to the cloud" once.
+
+Say, before clicking:
+\begin{itemize}\setlength\itemsep{1pt}
+\item "One real wrong answer from qwen3:14b at a 4096 window: book a meeting with the default length from the standing
+instructions. The local model set 60 minutes; the instruction gives 50. HTTP 200, no error." Measured
+(results/x2\_evalset\_tasks\_real\_v2.jsonl, one click away).
+\item "In the recorded cloud redo this exact task cost USD 0.0122 and took 4.8 s; here is its answer." Measured
+(results/cloud\_redo\_v1.jsonl). Read the answer; do not call it right or wrong.
+\end{itemize}
+
+After clicking:
+\begin{itemize}\setlength\itemsep{1pt}
+\item Live (label measured): "What it cost, how long it took, and what the cloud answered." One call, n = 1, tools offered,
+no tool round trips: say "one call".
+\item Not sent live (label measured, "recorded redo"): read the reason line ("live calls are off", "no key", or the
+provider error); the tiles show the recorded redo of this task. That is the expected fallback.
+\end{itemize}
+
+Close (10 seconds): "A wrong window is silent on every device we measured; the right setting depends on the device and
+the model, we show it only where we measured it, and fixing one answer in the cloud is cheap. The expensive part is
+not knowing." Then click "Finish: explore freely" for questions.
+
+\subsection*{Which claims are measured}
+
+\begin{longtable}{p{0.5\textwidth}p{0.18\textwidth}p{0.24\textwidth}}\toprule
+\textbf{Claim on screen} & \textbf{Label} & \textbf{Source} \\ \midrule
+CPU loads 4096, iGPU 32768, same models (evo-t2s, Ollama default) & measured & t2s-r2-real-cpu, t2s-r2-real-igpu \\
+CPU: 5/5 sessions per model silently lost a rule after the window filled & measured & t2s-r2-real-cpu \\
+0 of 800 calls surfaced an error, per device & measured & results/t2s\_r2\_real\_cpu\_v1.jsonl, results/t2s\_r2\_real\_igpu\_v1.jsonl \\
+qwen3:14b wrong-task rate 11.3\% default to 42.0\% at 4096, 0 surfaced & measured & x2-evalset-tasks-real-v2-wrong-rate \\
+Excess +30.7 points at 4096 (95\% CI +26.0 to +34.7) & measured & x2-evalset-tasks-real-v2-ci-units \\
+num\_keep at 4096: 30.0\% wrong & measured & x2-evalset-tasks-real-v2-wrong-rate \\
+Trimming: logging tool 24/25/25 of 40 vs 40/40/40 & measured (interpretation from docs/FINDINGS.md) & R2-qwen3-14b-4096-reconciliation \\
+Rule loss at 4096 per model, 8B to 70B & measured & R2-v1b-gated-per-model, H-scale-verdict, H-scale-family-verdict \\
+evo-x2 qwen3:14b: 40960, 75.4 vs 214.8 min per session & measured & b5-policy-metrics, cost-cut-config-time \\
+evo-x2: q8\_0 (qwen3:14b) / q4\_0 (llama3.1:8b) with flash attention as the setting & pending flash-attention control & b5-fa-control (not read yet) \\
+evo-t2s CPU qwen3:14b: no setting holds the rules & measured (what failed); setting not measured & t2s-r2-real-cpu, t2s-r2-mitigation-cpu \\
+Blade: every setting & not measured & none \\
+One long agent task in the cloud: USD 1.54 median, 2.63 p90 (sonnet, 70\% cache hits assumed) & priced, not executed & cloud-cost-per-real-task \\
+About USD 0.02 (mean USD 0.0201, median USD 0.0122) to fix a wrong answer in the cloud & measured (executed redo) & cloud-redo-cost-per-wrong-task \\
+How many redone tasks the cloud got right & not shown (under diagnosis) & cloud-redo-cost-per-wrong-task \\
+Router savings & not shown (b5-verdict refuted) & b5-verdict \\
+Step 5 live answer, USD, seconds & measured, n = 1, this run only & demo/ledger/cloud\_ledger\_demo.jsonl (not committed) \\
+Step 5 recorded redo of the task (USD 0.0122, 4.8 s, its answer) & measured & results/cloud\_redo\_v1.jsonl \\
+\bottomrule\end{longtable}

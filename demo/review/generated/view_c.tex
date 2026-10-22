@@ -1,0 +1,32 @@
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.54\textwidth}>{\raggedright\arraybackslash}p{0.25\textwidth}>{\raggedright\arraybackslash}p{0.13\textwidth}}
+\caption{View C: every number shown}\label{tab:c}\\
+\toprule
+\textbf{Value shown} & \textbf{Register id / file} & \textbf{Status} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Value shown} & \textbf{Register id / file} & \textbf{Status} \\
+\midrule
+\endhead
+\small Fixing a wrong answer in the cloud costs about USD 0.02 (mean USD 0.0201, median USD 0.0122); the cost is that the failure is silent. & {\footnotesize \texttt{cloud-\allowbreak{}redo-\allowbreak{}cost-\allowbreak{}per-\allowbreak{}wrong-\allowbreak{}task}} & \small measured \\
+
+\small How often the answer is wrong, and silent: qwen3:14b on evo-x2: 11.3\% wrong at ollama\_default to 42.0\% at ollama\_ctx\_4096; 0 of 197 wrong results surfaced an error & {\footnotesize \texttt{x2-\allowbreak{}evalset-\allowbreak{}tasks-\allowbreak{}real-\allowbreak{}v2-\allowbreak{}wrong-\allowbreak{}rate}} & \small measured \\
+
+\small Time saved by the measured setting, llama3.1:8b: 37.1 min per 40-turn session (85\%): default 43.7 min vs kv\_q4\_0 6.6 min (flash attention and KV precision changed together; b5-fa-control has no reading yet) & {\footnotesize \texttt{cost-\allowbreak{}cut-\allowbreak{}config-\allowbreak{}time}} & \small measured \\
+
+\small Time saved by the measured setting, qwen3:14b: 139.4 min per 40-turn session (65\%): default 214.8 min vs kv\_q8\_0 75.4 min (flash attention and KV precision changed together; b5-fa-control has no reading yet) & {\footnotesize \texttt{cost-\allowbreak{}cut-\allowbreak{}config-\allowbreak{}time}} & \small measured \\
+
+\small Cloud redo of each wrong task: USD 0.0201 mean, USD 0.0122 median per wrong task on claude-sonnet-5-5 (197 tasks, USD 3.95 in all; mean 6.89 s per task) & {\footnotesize \texttt{cloud-\allowbreak{}redo-\allowbreak{}cost-\allowbreak{}per-\allowbreak{}wrong-\allowbreak{}task}} & \small measured \\
+
+\small Re-sending the history to the cloud, per session: 1,798,884 tokens re-sent; USD 0.1799 with caching, USD 3.5978 without & {\footnotesize \texttt{impact-\allowbreak{}P3}} & \small priced, not executed \\
+
+\small Wrong answers per day for one stated team (P1): USD 5.47 to 132.31 per day at 40 sessions/day (assumed volume; time valued 0 to the full hour value; cloud part measured) & {\footnotesize \texttt{impact-\allowbreak{}v2-\allowbreak{}P1}} & \small projected \\
+
+\small Ranking of the problems by cost (one assumed profile): P1 \textgreater{} P5 \textgreater{} P2 \textgreater{} P3 \textgreater{} P4 & {\footnotesize \texttt{impact-\allowbreak{}ranking-\allowbreak{}v2}} & \small projected \\
+
+\small Today's cost for the reference team, measured parts only: USD 3.60 per day (measured token counts and list prices at the assumed team volume; the register calls this measured-only) & {\footnotesize \texttt{impact-\allowbreak{}total}} & \small projected \\
+
+\small Router savings: not shown. Row b5-verdict is refuted on evo-x2 (the router policy was dominated); no register row supports a savings figure. & {\footnotesize \texttt{b5-\allowbreak{}verdict}} & \small not shown \\
+
+\bottomrule
+\end{longtable}
