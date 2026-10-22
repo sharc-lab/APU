@@ -25,6 +25,58 @@ How to read this page:
   register rows, and the two single-shot outcome tables. Plan v2 Part B results (R2 at 30B to 70B) enter by being
   written under those names; no code change is needed.
 
+## Impact v2: P1 from the measured wrong-task rate, one stated profile (2026-10-22)
+
+Operator priority override of 2026-10-21. This section supersedes the v1 P1 "not measured" and the v1 ranking for
+decisions; the v1 generated block below is kept unchanged for traceability. Code: `analysis/impact_model.py`
+(`p1_v2`, `v2_rows`, `compute_v2`); register rows impact-v2-P1 and impact-ranking-v2.
+
+**Profile (one, stated).** evo-x2, qwen3:14b, Ollama at num_ctx 4096. Why: qwen3:14b is the model with a measured
+wrong-task rate (B3 v2 task real run), and 4096 is the window Ollama loads by default on a CPU-only machine
+([t2s-r2-real-cpu]: "loaded window [4096]"), so a CPU-only team is in this cell without choosing it. Volumes (team 10,
+4 agent sessions per developer per day, cloud share 0.5, co-runner share 0.25) are ASSUMPTIONS from
+results/impact_profile_20261014.json; the hour value is cited ([impact-hour-value]).
+
+**P1 formula.** sessions/day x task turns per session x excess wrong-task rate over the default window x (cloud redo
+USD per wrong task + wall time of the wrong task turn x hour value x share of that time someone waits, 0 to 1).
+- Measured: the excess rate per tier and its session-level 95% CI ([x2-evalset-tasks-real-v2-wrong-rate],
+  [x2-evalset-tasks-real-v2-ci-units]); task turns per session; the wall time of the wrong turns (same file).
+- PENDING input: cloud redo USD per wrong task, register row cloud-redo-cost-per-wrong-task. It is not in the
+  register on this branch's base, so the cloud part is PENDING and P1 below is a lower bound (time part only).
+- Assumed: volumes; who waits; that a wrong task costs one cloud redo plus the wasted turn (time to notice a wrong
+  result is not counted).
+
+Pasted from [impact-v2-P1]: "profile cell USD/day 0.00 to 126.85"; per tier: "ollama_ctx_4096: excess +30.7 points
+(session-level 95% CI +26.0 to +34.7), 30 task turns/session, 368.0 excess wrong tasks/day, wrong-turn wall 19.3 s;
+time USD/day 0.00 to 126.85 (CI 107.55 to 143.39); cloud redo USD/day PENDING (cloud-redo-cost-per-wrong-task)";
+"ollama_ctx_8192: ... time USD/day 0.00 to 157.24 (CI 122.30 to 192.19)"; "ollama_ctx_4096_numkeep: ... time USD/day
+0.00 to 48.84 (CI 41.87 to 55.82)"; "ollama_ctx_16384: excess +1.3 points (session-level 95% CI -1.3 to +4.0) ... time
+USD/day 0.00 to 3.57".
+
+**P2** is now the measured minutes saved per session by configuration, register row cost-cut-config-time (from the
+flash-attention control on evo-x2): PENDING, no number. **P3** as in v1. **P4 to P7**: the v1 functions at the v2
+profile.
+
+**Ranking and status split**, pasted from [impact-ranking-v2]: "ranking by main-case USD/day (time at the full hour
+value): P1 > P5 > P3 > P4; unranked: P2, P6, P7"; "P1 126.85 (range 0.00 to 126.85; mixed, PENDING inputs
+cloud-redo-cost-per-wrong-task, lower bound); P5 11.04 (range 0.00 to 11.04; mixed); P3 3.70 (range 3.70 to 74.10;
+measured); P4 0.00 (range 0.00; mixed); P2 PENDING ...; P6 not measured ...; P7 not measured"; "split: PENDING P2,
+measured P3, mixed P1/P4/P5, not measured P6/P7".
+
+| | v1 (impact-P1..P7, impact-total; llama3.1:8b, Ollama default) | v2 (impact-ranking-v2; qwen3:14b, num_ctx 4096) |
+|---|---|---|
+| P1 | not measured (status assumed) | 0.00 to 126.85 USD/day, lower bound (cloud redo PENDING) |
+| ranking | P5 > P6 > P2 > P3 > P4 > P7 > P1 (P1 unranked) | P1 > P5 > P3 > P4; P2, P6, P7 unranked |
+| measured | P3, P7 | P3 |
+| mixed | P2, P4, P5, P6 | P1, P4, P5 |
+| assumed | P1 | none |
+| PENDING / not measured | none | P2 (PENDING); P6, P7 (not measured at 4096) |
+
+Why P6 and P7 drop out: the single-shot failure table exists only at the Ollama default window, and at 4096 qwen3:14b
+breaks a rule after the window, so P7's nonzero rate needs a cost per violation that is not measured. P1 moves to the
+top even as a lower bound. The v1 ranking (P5 first) was priced at a different profile (llama3.1:8b at the default
+window, where P1 had no number), so the two rankings are not a like-for-like change of one input.
+
 ## Rows registered in parallel (not on main when this was written)
 
 Another plan item registers r2-session-wallclock, r2-session-cloud-cost, info-loss-by-window and

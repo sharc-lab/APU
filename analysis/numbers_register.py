@@ -4284,6 +4284,34 @@ def compute_impact_p1(repo):
     return _impact_row(repo, "P1")
 
 
+_IMPACT_V2_CACHE = {}
+_IMPACT_V2_FILES = sorted({f for v in _IMPACT_FILES.values() for f in v} | {"results/x2_evalset_tasks_real_v2.jsonl"})
+
+
+def _impact_v2(repo):
+    key = str(repo)
+    if key not in _IMPACT_V2_CACHE:
+        _IMPACT_V2_CACHE[key] = _impact().compute_v2(repo)
+    return _IMPACT_V2_CACHE[key]
+
+
+def compute_impact_v2_p1(repo):
+    """Impact v2 P1 (operator override 2026-10-21): excess wrong-task rate per tier (B3 v2, qwen3:14b, session-level
+    CI) x (cloud redo cost per wrong task, PENDING until row cloud-redo-cost-per-wrong-task exists, + the measured
+    wall time of the wrong turn valued 0 to the full hour value), at the one stated v2 profile."""
+    im = _impact()
+    res = _impact_v2(repo)
+    return {"value": im.p1_v2_value(res), "n": f"{len(res['rows']['P1']['grid'])} tiers"}
+
+
+def compute_impact_ranking_v2(repo):
+    """Impact v2 ranking at one stated profile: every row with its status (measured / mixed / assumed / PENDING / not
+    measured), PENDING inputs named, ranked by main-case USD/day."""
+    im = _impact()
+    res = _impact_v2(repo)
+    return {"value": im.ranking_v2_value(res), "n": "7 rows"}
+
+
 def compute_impact_p2(repo):
     return _impact_row(repo, "P2")
 
@@ -6040,6 +6068,14 @@ NUMBER_ENTRIES = [
     {"claim_id": "impact-P7", "description": "Impact P7 guardrail removal: profile USD/day and USD/month (not measured "
                     "when the rate is nonzero), rate, confidence",
      "compute": compute_impact_p7, "data_files": _IMPACT_FILES["P7"], "script_function": "analysis/impact_model.py::p7"},
+    {"claim_id": "impact-v2-P1", "description": "Impact v2 P1 silent wrong tasks: measured excess wrong-task rate "
+                    "per tier x (cloud redo cost per wrong task, PENDING input, + wrong-turn wall time), one profile",
+     "compute": compute_impact_v2_p1, "data_files": _IMPACT_V2_FILES,
+     "script_function": "analysis/impact_model.py::p1_v2"},
+    {"claim_id": "impact-ranking-v2", "description": "Impact v2 ranking at one stated profile, every row tagged "
+                    "measured / mixed / assumed / PENDING / not measured, PENDING inputs named",
+     "compute": compute_impact_ranking_v2, "data_files": _IMPACT_V2_FILES,
+     "script_function": "analysis/impact_model.py::v2_rows"},
     {"claim_id": "impact-total", "description": "Impact total over the measured rows, ranking, and the one-flag "
                     "scenario total",
      "compute": compute_impact_total, "data_files": sorted({f for v in _IMPACT_FILES.values() for f in v}),

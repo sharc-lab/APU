@@ -12,7 +12,7 @@ business-hour-range for the facts, and business-scenario-plus-a and business-sen
   model claude-sonnet-5-5, with provider prompt caching on as the main case, for all-cloud and for the router's
   escalated steps alike. No caching is shown only as the upper bound, in brackets.
 - **Waiting time (C).** Local compute time is shown as a range: 0 (nobody waits for it) to the full hour value
-  (someone waits for every second). P1 (silent wrong results) has no dollar value: no B3 task runs exist yet.
+  (someone waits for every second). P1 (silent wrong results) had no dollar value in this profile (v1, no B3 task runs then); impact v2 prices it for a qwen3:14b team at num_ctx 4096 as a lower bound, "profile cell USD/day 0.00 to 126.85" [impact-v2-P1] (mixed; cloud redo cost per wrong task PENDING), ranking "P1 > P5 > P3 > P4" [impact-ranking-v2] (docs/IMPACT.md).
 - **No +A in any headline (D).** Every router saving (vs the naive default, vs all-cloud, vs today's mix) and the
   hardware recommendation print "pending B5" in the main table. The +A numbers are kept only in the labelled
   SCENARIO section at the end of the generated block.
@@ -75,7 +75,7 @@ Hour values: median USD 64.44 (impact-hour-value); p10 USD 39.64 and p90 USD 103
 | all-cloud spend: caching on (no caching) | projection | 705 (7,833) | 763 (8,104) |
 | naive local: compute time cost (0 to full hour value) | projection | 0 to 3,857 | 0 to 15,759 |
 | naive local: compute hours / month | projection | 59.9 | 244.6 |
-| naive local: silent wrong results (P1) | not measured | not measured (no B3 task runs) | not measured (no B3 task runs) |
+| naive local: silent wrong results (P1) | not measured in this profile | not measured (v1 profile; v2 at qwen3:14b num_ctx 4096: USD/day 0.00 to 126.85, lower bound [impact-v2-P1]) | not measured (v1 profile) |
 | today's mix: cloud fees caching on (no caching); local time up to | projection | 353 (3,917); 1,929 | 382 (4,052); 7,879 |
 | router saving vs naive local default |  | pending B5 | pending B5 |
 | router saving vs all-cloud |  | pending B5 | pending B5 |
