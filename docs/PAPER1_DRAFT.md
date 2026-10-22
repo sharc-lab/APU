@@ -167,70 +167,63 @@ and agent consequences, then predictor and mitigation.
 For each section below: the one-sentence claim, the evidence (register rows and result files), the figure, and the
 gaps with the job that fills each.
 
-### 4.1 Introduction (1.00 page)
+### 4.1 Introduction (prose draft, 2026-10-21; 1.00 page)
 
-- **Claim:** local agent stacks on AI PCs fail silently, and which failure a user gets is set by the memory
-  architecture and by runtime defaults, not by the model alone.
-- **Evidence for the motivation:** real agent trajectories run long enough to hit small defaults: "81.1% of steps
-  exceed evo-t2s's 4096 default; 0.0% exceed evo-x2's smallest model default (40,960)"
-  `[trace-fraction-exceeds-4096]`; "29.85%" of runs in one censored trace source end at their generator's own context
-  limit `[trace-context-exit-rate]`; the models themselves do not report the loss: "0/240 (T2S) + 0/720 (X2) = 0/960"
-  `[self-report-truncation-awareness]`. Files: `results/traces/agent_step_lengths.parquet`,
-  `results/traces/exit_status_sample.parquet`, the two `t2s_night2_20260929T20*` files.
-- **Figure:** F1 (platform diagram) only.
-- **Gaps:** none beyond those of the sections it previews.
+<!-- Convention as in 4.3: measured numbers carry their register id; design constants carry "design: <source file>". -->
 
-#### 4.1a Motivation draft: what each failure mode costs per session (draft, 2026-10-14)
+Runtimes such as Ollama and llama.cpp serve open-weight models of 8B to 70B parameters on laptops and small APU
+workstations, and local agents drive them for tens of turns, appending every tool result to a conversation that only
+grows inside a fixed context window. When the conversation outgrows it, the runtime, not the agent, decides what to
+remove, and it does so silently: the request still returns HTTP 200
+<!-- blade-k1-layer-split -->, the answer is well formed, and the model does not mention the loss (0/960
+<!-- self-report-truncation-awareness --> self-reports in our probes mentioned truncation).
 
-Draft text for the introduction's motivation paragraph, built from the impact model's cost table (docs/IMPACT.md,
-plan item A3). Only the measured per-session or per-call inputs of each cost row are used; the per-team dollar
-figures are left out because they multiply these inputs by an assumed team size and workload (list below). Values
-are pasted verbatim from the register; the internal host label in them (evo-x2) is AMD-iGPU.
+A motivating case shows how easily a user lands in this regime. On an Intel laptop, an unmodified Ollama install
+served two models with a 4096 <!-- t2s-r2-real-cpu --> token window, because device detection drops the integrated GPU
+and falls back to the CPU <!-- x2-device-detect-mechanism -->. Every agent session crossed that window at turn [3]
+<!-- t2s-r2-real-cpu --> and then failed silently, 5/5 <!-- t2s-r2-real-cpu --> sessions for each model. With the
+integrated GPU enabled, the same machine, runtime and models loaded 32768 <!-- t2s-r2-real-igpu --> tokens and no
+failure came after the window. Nobody chose 4096; the runtime did.
 
-Revised 2026-10-14 after the impact audit (docs/IMPACT.md, "Impact audit"): only measured inputs of rows whose
-status allows it are used; P1 has no dollar value and its R2 rate is a rule/recall failure rate, not a wrong-task
-rate; cloud costs are at Anthropic's published prices with prompt caching on, no caching shown only as the upper
-bound.
+This paper asks what a local agent loses when its conversation exceeds the context window, whether anything tells the
+user, and what decides how often it happens. We answer with pre-registered experiments on an AMD APU, an NVIDIA
+laptop GPU and an Intel laptop (CPU and integrated GPU), spanning unified and discrete memory. The answer has five
+parts. First, history loss is
+silent and appears in every model we tested, from 8B to 70B <!-- H-scale-verdict --> <!-- H-scale-family-verdict -->:
+at a 16384-token window no session of three 8B to 14B models kept its full history to turn 15 (intact
+5/5/0/0/0/0/0/0 of 5 for each model <!-- R2-real-v1b-survival -->). Second, rule loss is model-dependent: the 8B to
+32B models lose system-prompt rules once the window is exceeded, while llama3.3:70b and mistral-small3.2:24b kept
+them at 4096 in every session (0/3 <!-- H-scale-verdict --> and 0/3 <!-- H-scale-family-verdict --> with rule loss),
+so we do not claim rule loss in general. Third, the cost is concrete: qwen3:14b's share of tasks ending in a wrong
+state rises from 11.3% at the default window to 42.0% at 4096, every wrong task silent
+<!-- x2-evalset-tasks-real-v2-wrong-rate -->. Fourth, the obvious fixes are partial, and client-side trimming has a
+side effect: it removes the in-context examples the model imitates <!-- R2-qwen3-14b-4096-reconciliation -->. Fifth,
+the backend implementation is a fragile decision point: with identical model files, settings and seed, llama3.1:8b
+wrote a tool call as text in place of its answer at an untruncated window on CUDA and on Vulkan, and not on ROCm
+<!-- blade-r2-gate-v2 --> <!-- x2-r2-llama-val-32k-vulkan --> <!-- x2-r2-llama-val-32k-offload -->.
 
-> Each failure mode in this paper has a measurable per-session cost on AMD-iGPU. Shrinking the context window makes
-> a 40-turn agent session much faster, "ollama_default median 43.3 min/session (n=5), num_ctx_4096 median 7.0
-> min/session (n=5)" for llama3.1:8b `[impact-session-time-by-window]`, but loses history and rules silently:
-> "num_ctx_4096 10/15 silent, 10 after window exceeded", against "ollama_default 3/15 silent, 0 after window
-> exceeded" `[R2-real-v1b-gated-kill]`. At that window the runtime keeps "n_keep [5]" tokens on each context shift,
-> dropping the system prompt `[R2-mechanism-lowlevel]`. Keeping the oversized default window instead costs a "median
-> per-turn delta 0.81 s vs num_ctx_32768 (n=110 paired turns)" on turns that fit both windows `[impact-P2]`; a
-> co-running job multiplies time to first token and decode rate by "TTFT x1.111, decode x0.928" `[impact-P5]`; and
-> single-shot calls at the default runtime time out at "timeouts 0.029 x 900 s" `[impact-P6]`. Sending the whole
-> session to a cloud model costs "USD 0.3358 caching on, 3.7302 no caching (n=5)" `[impact-P3]`. No single setting
-> removes all of these costs at once, which is why the rest of the paper characterizes where each one starts.
+We make four contributions.
 
-Cost table used (A3 rows, measured inputs only, AMD-iGPU, llama3.1:8b, runtime default unless stated):
+1. **A cross-vendor map of where memory runs out and how it fails** (Section 4.4). On the Intel integrated GPU a model
+   start succeeds or fails at one shared-heap limit that also counts host-visible buffers, and a first-principles
+   accounting of weights, KV cache and compute predicts the measured flip point to within -257 to -26 tokens
+   <!-- A-24-flip-point-prediction -->.
+2. **Runtime policy, not hardware, sets the effective window, and overflow is silent** (Section 4.5). The same runtime
+   gives llama3.1:8b a default window of 4096 tokens on the Intel laptop and 131072 on the AMD APU
+   <!-- T2S-vs-X2-default-ctx -->, and answers an over-length prompt with success after keeping num_ctx/2 + 2 tokens
+   <!-- ollama-overflow-keeps-half -->.
+3. **The consequences for agents, with their mechanism** (Section 4.6). Silent failures after the window grow as the
+   window shrinks; Ollama drops whole old messages but keeps the system prompt, and at the smallest window llama.cpp's
+   context shift and a token cut discard it <!-- R2-mechanism-lowlevel -->.
+4. **Pre-registered fixes and a predictor, with their limits** (Section 4.7). Client-side trimming is refuted as a
+   general fix on two vendors <!-- R2-mitigation-v1-verdict --> <!-- t2s-r2-mitigation-cpu -->; `num_keep` lowers
+   qwen3:14b's wrong-task rate at 4096 to 30.0% without removing the excess
+   <!-- x2-evalset-tasks-real-v2-wrong-rate -->; a router to a cloud model is refuted on the AMD platform
+   <!-- b5-verdict -->, with the constrained platforms pending; and a context-shift rule taken from the llama.cpp source
+   predicts every observed shift in the sessions it was checked on (misses 0 <!-- R2-shift-predictor-confusion -->).
 
-| row | failure mode | measured input (verbatim) | audit status of the row's USD | register row |
-|---|---|---|---|---|
-| P1 | silent context loss | "R2 silent rule/recall failures after the window 0/5 sessions" at the default; "num_ctx_4096 10/15 silent, 10 after window exceeded" (three models) | assumed (USD not used) | impact-P1, R2-real-v1b-gated-kill |
-| P2 | oversized-window time | "median per-turn delta 0.81 s vs num_ctx_32768 (n=110 paired turns)" | mixed (input only) | impact-P2 |
-| P3 | cloud cost of re-sent history | "whole session to the cloud USD 0.3358 caching on, 3.7302 no caching (n=5)" | measured | impact-P3 |
-| P4 | hardware mismatch | "decode 45.55 tok/s vs best 46.40" | mixed (input only) | impact-P4 |
-| P5 | co-runner slowdown | "TTFT x1.111, decode x0.928 (PX2-full-ratio-table)" | mixed (input only) | impact-P5 |
-| P6 | failed starts and timeouts | "timeouts 0.029 x 900 s, allocation failures 0.000 (n=340)" | mixed (input only) | impact-P6 |
-| P7 | guardrail removal | "rate 0/5 sessions" at the default | measured | impact-P7 |
-| (session time) | window size vs time | "ollama_default median 43.3 min/session (n=5), num_ctx_4096 median 7.0 min/session (n=5)" | measured | impact-session-time-by-window |
-
-Numbers that stay out of the paper because they rest on assumptions:
-
-- every USD/day and USD/month figure in `[impact-P1]` to `[impact-P7]`, `[impact-total]` and
-  `[impact-scenario-one-flag]` (assumed team size and workload; time valued at a wage only as an upper bound; the
-  one-flag scenario rests on an assumed rework time per silent wrong result);
-- every figure in `[business-mid-team]`, `[business-mid-team-qwen3-14b]`, `[business-scenario-plus-a]` and
-  `[business-sensitivity]` (assumed profiles; router savings are pending the policy comparison, plan item B5, and
-  the scenario rests on the unmeasured residual-failure credit);
-- the hour value and its range, `[impact-hour-value]` and `[business-hour-range]` (a wage, not a measurement of
-  this system);
-- the router's share of steps kept local (a replay of recorded sessions through our router; at num_ctx 4096 and 8192
-  it is a constant of the R2 session script's canary schedule, docs/BUSINESS_METRICS.md);
-- the single-shot saving per 1k steps in `[pareto-sample-recommendation-v2]` (its cloud reference is a STUB point
-  with unmeasured quality).
+Section 4.2 covers background, Section 4.3 the platforms and harness, Sections 4.4 to 4.7 the results, Section 4.8
+threats to validity, and Section 4.9 concludes.
 
 ### 4.2 Background and related work (0.75 page)
 
@@ -995,6 +988,73 @@ Not resolved here: the submission deadline (Dec 2 vs mid-December estimate) and 
 
 Outline text replaced by the prose drafts of 2026-10-20, moved here verbatim. Register ids in square brackets
 follow the outline convention of this file.
+
+### 4.1 Introduction and 4.1a motivation draft (outline as of 2026-10-20; superseded 2026-10-21)
+
+**4.1 Introduction (1.00 page)**
+
+- **Claim:** local agent stacks on AI PCs fail silently, and which failure a user gets is set by the memory
+  architecture and by runtime defaults, not by the model alone.
+- **Evidence for the motivation:** real agent trajectories run long enough to hit small defaults: "81.1% of steps
+  exceed evo-t2s's 4096 default; 0.0% exceed evo-x2's smallest model default (40,960)"
+  `[trace-fraction-exceeds-4096]`; "29.85%" of runs in one censored trace source end at their generator's own context
+  limit `[trace-context-exit-rate]`; the models themselves do not report the loss: "0/240 (T2S) + 0/720 (X2) = 0/960"
+  `[self-report-truncation-awareness]`. Files: `results/traces/agent_step_lengths.parquet`,
+  `results/traces/exit_status_sample.parquet`, the two `t2s_night2_20260929T20*` files.
+- **Figure:** F1 (platform diagram) only.
+- **Gaps:** none beyond those of the sections it previews.
+
+**4.1a Motivation draft: what each failure mode costs per session (draft, 2026-10-14)**
+
+Draft text for the introduction's motivation paragraph, built from the impact model's cost table (docs/IMPACT.md,
+plan item A3). Only the measured per-session or per-call inputs of each cost row are used; the per-team dollar
+figures are left out because they multiply these inputs by an assumed team size and workload (list below). Values
+are pasted verbatim from the register; the internal host label in them (evo-x2) is AMD-iGPU.
+
+Revised 2026-10-14 after the impact audit (docs/IMPACT.md, "Impact audit"): only measured inputs of rows whose
+status allows it are used; P1 has no dollar value and its R2 rate is a rule/recall failure rate, not a wrong-task
+rate; cloud costs are at Anthropic's published prices with prompt caching on, no caching shown only as the upper
+bound.
+
+> Each failure mode in this paper has a measurable per-session cost on AMD-iGPU. Shrinking the context window makes
+> a 40-turn agent session much faster, "ollama_default median 43.3 min/session (n=5), num_ctx_4096 median 7.0
+> min/session (n=5)" for llama3.1:8b `[impact-session-time-by-window]`, but loses history and rules silently:
+> "num_ctx_4096 10/15 silent, 10 after window exceeded", against "ollama_default 3/15 silent, 0 after window
+> exceeded" `[R2-real-v1b-gated-kill]`. At that window the runtime keeps "n_keep [5]" tokens on each context shift,
+> dropping the system prompt `[R2-mechanism-lowlevel]`. Keeping the oversized default window instead costs a "median
+> per-turn delta 0.81 s vs num_ctx_32768 (n=110 paired turns)" on turns that fit both windows `[impact-P2]`; a
+> co-running job multiplies time to first token and decode rate by "TTFT x1.111, decode x0.928" `[impact-P5]`; and
+> single-shot calls at the default runtime time out at "timeouts 0.029 x 900 s" `[impact-P6]`. Sending the whole
+> session to a cloud model costs "USD 0.3358 caching on, 3.7302 no caching (n=5)" `[impact-P3]`. No single setting
+> removes all of these costs at once, which is why the rest of the paper characterizes where each one starts.
+
+Cost table used (A3 rows, measured inputs only, AMD-iGPU, llama3.1:8b, runtime default unless stated):
+
+| row | failure mode | measured input (verbatim) | audit status of the row's USD | register row |
+|---|---|---|---|---|
+| P1 | silent context loss | "R2 silent rule/recall failures after the window 0/5 sessions" at the default; "num_ctx_4096 10/15 silent, 10 after window exceeded" (three models) | assumed (USD not used) | impact-P1, R2-real-v1b-gated-kill |
+| P2 | oversized-window time | "median per-turn delta 0.81 s vs num_ctx_32768 (n=110 paired turns)" | mixed (input only) | impact-P2 |
+| P3 | cloud cost of re-sent history | "whole session to the cloud USD 0.3358 caching on, 3.7302 no caching (n=5)" | measured | impact-P3 |
+| P4 | hardware mismatch | "decode 45.55 tok/s vs best 46.40" | mixed (input only) | impact-P4 |
+| P5 | co-runner slowdown | "TTFT x1.111, decode x0.928 (PX2-full-ratio-table)" | mixed (input only) | impact-P5 |
+| P6 | failed starts and timeouts | "timeouts 0.029 x 900 s, allocation failures 0.000 (n=340)" | mixed (input only) | impact-P6 |
+| P7 | guardrail removal | "rate 0/5 sessions" at the default | measured | impact-P7 |
+| (session time) | window size vs time | "ollama_default median 43.3 min/session (n=5), num_ctx_4096 median 7.0 min/session (n=5)" | measured | impact-session-time-by-window |
+
+Numbers that stay out of the paper because they rest on assumptions:
+
+- every USD/day and USD/month figure in `[impact-P1]` to `[impact-P7]`, `[impact-total]` and
+  `[impact-scenario-one-flag]` (assumed team size and workload; time valued at a wage only as an upper bound; the
+  one-flag scenario rests on an assumed rework time per silent wrong result);
+- every figure in `[business-mid-team]`, `[business-mid-team-qwen3-14b]`, `[business-scenario-plus-a]` and
+  `[business-sensitivity]` (assumed profiles; router savings are pending the policy comparison, plan item B5, and
+  the scenario rests on the unmeasured residual-failure credit);
+- the hour value and its range, `[impact-hour-value]` and `[business-hour-range]` (a wage, not a measurement of
+  this system);
+- the router's share of steps kept local (a replay of recorded sessions through our router; at num_ctx 4096 and 8192
+  it is a constant of the R2 session script's canary schedule, docs/BUSINESS_METRICS.md);
+- the single-shot saving per 1k steps in `[pareto-sample-recommendation-v2]` (its cloud reference is a STUB point
+  with unmeasured quality).
 
 ### 4.3 Platforms, harness and methodology (outline as of 2026-10-19)
 
