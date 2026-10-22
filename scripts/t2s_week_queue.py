@@ -236,9 +236,36 @@ OCT26_PATH = REPO / "queues" / "t2s_oct26_queue.json"
 OCT26_PREFIX = "t2s_o26_"
 OCT26_MODELS = "qwen3:32b,llama3.3:70b"
 OCT26_NEG_CTX = "32768"   # validation negative control: x2_r2_llama_val_32k's precedent; 131072 does not fit 70B here
-# key -> why it is not in the file yet
-OCT26_PENDING = {"b5_policy_comparison": "B5 policy comparison: another agent is building the job; add its entry to "
-                                         "oct26_specs() (gated on t2s_o26_preflight) when it lands on main"}
+# key -> why it is not in the file yet (B5 is in the file since 2026-10-22: oct26_b5_specs below)
+OCT26_PENDING = {}
+# B5 on evo-t2s (pre-registration "B5 on evo-t2s Intel CPU and Intel iGPU", docs/FINDINGS.md 2026-10-22): harness/
+# policy_compare.py, all policies a-h, 5 seeds, one entry per (platform, model) so each cell completes on its own and a
+# cut by the handover deadline leaves whole seeds (the job stops at a session boundary and resumes in a later window).
+# Order = what fits the window first (scripts/t2s_window_stage.py plan): CPU llama3.1:8b (the constrained platform,
+# where the default fails), iGPU llama3.1:8b, iGPU qwen3:14b, CPU qwen3:14b. Every entry is gated only on the preflight.
+OCT26_B5_SEEDS = "20260901,20260902,20260903,20260904,20260905"
+OCT26_B5_CELLS = (("evo-t2s-cpu", "llama3.1:8b"), ("evo-t2s", "llama3.1:8b"), ("evo-t2s", "qwen3:14b"),
+                  ("evo-t2s-cpu", "qwen3:14b"))
+
+
+def _b5_slug(platform, model):
+    return ("cpu" if platform == "evo-t2s-cpu" else "igpu") + "_" + model.replace(":", "_").replace(".", "")
+
+
+def oct26_b5_specs() -> list[dict]:
+    import policy_compare as pc
+    est = {plat: pc.estimate_t2s(plat, [m for p, m in OCT26_B5_CELLS if p == plat]) for plat, _m in OCT26_B5_CELLS}
+    out = []
+    for plat, m in OCT26_B5_CELLS:
+        s = _b5_slug(plat, m)
+        o = f"results/t2s_policy_compare_{s}_v1.jsonl"
+        h = est[plat]["models"][m]["total_h"]
+        out.append({"id": OCT26_PREFIX + "b5_" + s, "gate": OCT26_PREFIX + "preflight",
+                    "cmd": [T2S_PY, "policy_compare.py", "--platform", plat, "--out", o, "--models", m,
+                            "--seeds", OCT26_B5_SEEDS],
+                    "out": o, "est": None if h is None else round(h, 1), "basis": "measured evo-t2s sessions (ESTIMATE)",
+                    "what": f"B5 policies a-h, {m}, {'Intel CPU (stock Ollama, default 4096)' if plat == 'evo-t2s-cpu' else 'Intel iGPU (OLLAMA_IGPU_ENABLE=1, default 32768)'}, 5 seeds x 40 turns"})
+    return out
 
 
 def oct26_specs() -> list[dict]:
@@ -249,14 +276,15 @@ def oct26_specs() -> list[dict]:
     return [
         {"id": p + "preflight", "gate": None, "cmd": [T2S_PY, "t2s_week_preflight.py"],
          "out": "results/t2s_week_preflight.jsonl", "what": "start check (host, handover file, versions, files)"},
-        {"id": p + "b6_model_pull", "gate": p + "preflight",
-         "cmd": [T2S_PY, "t2s_model_pull.py", "--tags", OCT26_MODELS, "--out", "results/t2s_model_pull_b6_v1.jsonl"],
-         "out": "results/t2s_model_pull_b6_v1.jsonl",
-         "what": "pull qwen3:32b (about 20 GB) and llama3.3:70b (about 43 GB) with the pinned 0.34.4, 1-token check"},
         {"id": p + "window_override_methods", "gate": p + "preflight",
          "cmd": [T2S_PY, "window_override_methods.py", "--out", "results/t2s_window_override_methods_v1.jsonl",
                  "--queue"],
          "out": "results/t2s_window_override_methods_v1.jsonl", "what": "A5 Ollama window override checks (0.3 h)"},
+        *oct26_b5_specs(),
+        {"id": p + "b6_model_pull", "gate": p + "preflight",
+         "cmd": [T2S_PY, "t2s_model_pull.py", "--tags", OCT26_MODELS, "--out", "results/t2s_model_pull_b6_v1.jsonl"],
+         "out": "results/t2s_model_pull_b6_v1.jsonl",
+         "what": "pull qwen3:32b (about 20 GB) and llama3.3:70b (about 43 GB) with the pinned 0.34.4, 1-token check"},
         {"id": p + "b6_val_cpu", "gate": p + "b6_model_pull",
          "cmd": _r2("validation", "cpu_default", vc, "--models", OCT26_MODELS, "--call2-tools", "off",
                     "--neg-ctx", OCT26_NEG_CTX),
@@ -279,8 +307,11 @@ def oct26_specs() -> list[dict]:
 
 def build_oct26() -> list[dict]:
     return [{"id": s["id"], "cmd": s["cmd"], "status": "pending",
-             "note": f"STAGED for the 2026-10-26 window (not loaded): {s['what']}; est hours: none (no evo-t2s timing)",
-             "est_hours": None, "est_basis": "none", "expected_out": s["out"], "staged_for": "2026-10-26..2026-11-08",
+             "note": f"STAGED for the 2026-10-26 window (not loaded): {s['what']}; est hours: "
+                     + (f"{s['est']} ({s['basis']}; scripts/t2s_window_stage.py plan)" if s.get("est") is not None
+                        else "none (no evo-t2s timing)"),
+             "est_hours": s.get("est"), "est_basis": s.get("basis", "none") if s.get("est") is not None else "none",
+             "expected_out": s["out"], "staged_for": "2026-10-26..2026-11-08",
              **({"gate": {"requires_done": s["gate"]}} if s["gate"] else {})} for s in oct26_specs()]
 
 
@@ -396,6 +427,7 @@ def inputs_from_files(results=REPO / "results") -> dict:
 SCRIPT_DIR = REPO / "harness"
 ADVANCING_SCRIPTS = {  # script -> the test that proves one tq.advance() on exit
     "t2s_week_preflight.py": "tests/test_t2s_week_queue.py::test_preflight_advances_once",
+    "policy_compare.py": "tests/test_policy_compare_t2s.py::test_handover_deadline_stops_before_the_first_session",
     "t2s_r2_agent.py": "tests/test_t2s_r2_agent.py::test_main_advances_exactly_once_*",
     "t2s_night2.py": "tests/test_t2s_week_queue.py::test_night2_main_advances_once",
     "t2s_outcome_table.py": "tests/test_t2s_outcome_subset.py::test_main_advances_once_when_queued",
@@ -480,11 +512,29 @@ def check_entry(item, earlier_ids, x2_result_names, prefix=ID_PREFIX) -> dict:
         info["parse_ok"] = res["ok"]
         if not res["ok"]:
             problems.append(f"{script} rejects argv: {res['error']}")
+    elif script == "policy_compare.py":
+        import policy_compare as pc
+        res = argparse_probe.probe(lambda a: pc.build_arg_parser().parse_args(a), argv)
+        info["parse_ok"] = res["ok"]
+        if not res["ok"]:
+            problems.append(f"policy_compare rejects argv: {res['error']}")
+        else:
+            ns = res["namespace"]
+            if ns.get("platform") not in pc.T2S_PLATFORMS:
+                problems.append(f"policy_compare platform {ns.get('platform')!r} is not an evo-t2s platform")
+            for m in (ns.get("models") or "").split(","):
+                if m and m not in ag_models():
+                    problems.append(f"x2_r2_agent.MODELS has no think value for {m!r}")
     elif script == "t2s_week_preflight.py":
         info["parse_ok"] = not argv
         if argv:
             problems.append("t2s_week_preflight.py takes no arguments")
     return {"id": item["id"], "ok": not problems, "problems": problems, **info}
+
+
+def ag_models():
+    import x2_r2_agent as x2
+    return x2.MODELS
 
 
 def dry_run(items=None, prefix=ID_PREFIX) -> dict:

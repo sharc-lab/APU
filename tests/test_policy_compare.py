@@ -591,14 +591,15 @@ def test_blade_deadline_constants_agree():
 
 
 @needs_results
-def test_t2s_window_staging_file_is_fresh_and_passes_its_dry_run():
+def test_t2s_window_plan_uses_the_canonical_file_and_b5_comes_before_b6():
     sys.path.insert(0, str(REPO / "scripts"))
     import t2s_window_stage as ws
-    week = json.loads(ws.wq.QUEUE_PATH.read_text(encoding="utf-8"))
-    staged = json.loads(ws.STAGE_PATH.read_text(encoding="utf-8"))
-    rep = ws.check_staged(staged, [it["id"] for it in week])
-    assert rep["ok"] and rep["fresh_build_matches_file"], rep
-    assert {it["track"] for it in staged} == {"B5", "B6"}
-    d = ws.displacement(staged, week)
-    assert d["recommended_cut_h"] <= ws.BUDGET_H and set(ws.RECOMMENDED_CUT) <= {i["id"] for i in week + staged}
-    assert all(it["est_basis"].endswith("(ESTIMATE)") for it in staged)
+    assert not ws.RETIRED.exists()
+    p = ws.plan()
+    ids = [r["id"] for r in p["entries"]]
+    b5 = [i for i in ids if "_b5_" in i]
+    b6 = [i for i in ids if "_b6_" in i]
+    assert len(b5) == 4 and max(ids.index(i) for i in b5) < min(ids.index(i) for i in b6)
+    assert ids[0] == "t2s_o26_preflight"
+    assert p["label"].startswith("ESTIMATES") and p["available_h"] > 0
+    assert all(r["basis"].endswith("(ESTIMATE)") for r in p["entries"] if r["id"] in b5)

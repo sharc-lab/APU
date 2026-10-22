@@ -60,7 +60,8 @@ DEPLOYED_FILES = ("t2s_queue.py", "queue_watchdog.py", "stale_server_cleanup.py"
                   "t2s_outcome_table.py", "chat_template_source.py", "t2s_night2.py", "t2s_lab.py", "t2s_overnight.py",
                   "t2s_amech.py", "level_zero_sysman.py", "win_cpu_topology.py", "bw_hog.py",
                   "spin_hog_affinity.py", "t2s_m3_power_coupling.py", "run_provenance.py", "server_guard.py",
-                  "t2s_deadline.py", "t2s_model_pull.py", "window_override_methods.py")
+                  "t2s_deadline.py", "t2s_model_pull.py", "window_override_methods.py",
+                  "policy_compare.py")
 # t2s_outcome_table.py's flat layout reads these relative to C:\apu\ovn (analysis/ next to it marks that layout).
 DATA_FILES = (Path("results") / "workload_pack" / "item_weights_trace_weighted.json",
               Path("results") / "workload_pack" / "grade.py",
