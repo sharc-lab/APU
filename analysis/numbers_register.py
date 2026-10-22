@@ -3009,6 +3009,59 @@ def compute_t2s_r2_mechanism_cpu(repo):
             "n": f"{len(turns)} turns"}
 
 
+def compute_r2_qwen3_14b_4096_reconciliation(repo):
+    """qwen3:14b at num_ctx 4096 across R2 v1/v1b (untrimmed), the mitigation run (client-side trimming) and the
+    num_keep run: per run and seed, rules in use, per-rule pass counts, the gated first failure and what failed, the
+    Ollama version, whether a harness blob is recorded, the protocol knobs, and whether the num_keep run reproduces
+    v1 turn by turn (identical final text and first-call prompt token count on the same seeds); and, on the first
+    trimmed turn where rule 2 fails, which tools call 1 made in the trimmed vs the untrimmed run."""
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "analysis"))
+    import r2_real_report as rr
+    files = {"v1": R2_REAL_V1_FILE, "v1b": R2_REAL_V1B_FILE, "mitigation": R2_MITIGATION_FILE,
+             "num_keep": "results/x2_num_keep_qwen3_14b.jsonl"}
+    ag = _r2_agent_module()
+    rules = ["rule1_json_keys", "rule2_log_event_called", "rule3_no_zebra", "rule4_metres", "rule5_session_code"]
+    turns, parts = {}, []
+    vals = [repo / R2_VALIDATION_V2_FILE, repo / R2_VALIDATION_V2B_FILE]
+    for name, f in files.items():
+        rows = ag.read_rows(repo / f)
+        if not rows:
+            raise FileNotFoundError(repo / f)
+        rs = next(r for r in rows if r.get("record") == "run_start")
+        rt = next((r for r in rows if r.get("record") == "runtime"), {})
+        t = {(r["seed"], r["turn_idx"]): r for r in rows if r.get("record") == "r2a_turn"
+             and r.get("model_id") == "qwen3:14b" and "4096" in str(r.get("arm_id"))}
+        turns[name] = t
+        per_seed = []
+        for seed in sorted({k[0] for k in t}):
+            ts = [v for k, v in t.items() if k[0] == seed]
+            per_seed.append(f"{seed} " + ", ".join(
+                f"{r.split('_')[0]} {sum(1 for x in ts if x.get(r) is True)}/{sum(1 for x in ts if x.get(r) is not None)}"
+                for r in rules))
+        rep = rr.build_combined([repo / f], validation_paths=vals)
+        g = [e for k, c in rep["table"].items() if k.endswith("|qwen3:14b") and "4096" in k for e in c["sessions"]]
+        gated = "; ".join(f"{e['seed']} {e['first_gated_failure'] if e['first_gated_failure'] is not None else 'none'}"
+                          f" {'+'.join(e['first_gated_failure_fields'])}".rstrip() for e in g) or "n/a (not a real-mode run)"
+        parts.append(f"{name}: rules in use {len((rs.get('rules_in_use') or {}).get('qwen3:14b') or [])}, Ollama "
+                     f"{rt.get('ollama_version') or 'not recorded'}, harness blob "
+                     f"{rs.get('agent_blob') or 'not recorded'}, call2 {rs.get('call2_mode') or ('off' if rs.get('call2_tools') is False else rs.get('call2_tools'))}, "
+                     f"max tokens {rs.get('max_tokens_per_call')}, client trim {rs.get('client_trim')}, num_keep "
+                     f"{rs.get('num_keep')}; per seed {' / '.join(per_seed)}; gated first failure {gated}")
+    v1, nk, mi = turns["v1"], turns["num_keep"], turns["mitigation"]
+    common = [k for k in nk if k in v1]
+    same_text = sum(1 for k in common if v1[k].get("final_text") == nk[k].get("final_text"))
+    same_pe = sum(1 for k in common if (v1[k].get("calls") or [{}])[0].get("prompt_eval_count")
+                  == (nk[k].get("calls") or [{}])[0].get("prompt_eval_count"))
+    k = next(k for k in sorted(mi) if mi[k].get("rule2_log_event_called") is False)
+    names = lambda t: [c["function"]["name"] for c in ((t.get("calls") or [{}])[0].get("native_tool_calls") or [])]
+    return {"value": " // ".join(parts) + f" // num_keep vs v1 on the same seeds: identical final text {same_text}/"
+                     f"{len(common)}, identical first-call prompt tokens {same_pe}/{len(common)} // first trimmed "
+                     f"rule2 failure seed {k[0]} turn {k[1]}: call 1 tools trimmed {names(mi[k])}, untrimmed v1 "
+                     f"{names(v1.get(k, {}))}",
+            "n": f"{sum(len(t) for t in turns.values())} turns"}
+
+
 def compute_r2_validation_v2b_runinfo(repo):
     """R2 validation v2b run details per model: sessions and turns completed, calls with an HTTP error or error field,
     task tool called correctly, and on the baseline arm how many call-1 replies carried a native tool call vs a tool
@@ -5728,6 +5781,12 @@ NUMBER_ENTRIES = [
     {"claim_id": "t2s-r2-mechanism-cpu", "description": "evo-t2s Intel CPU mechanism session: completion state at the "
                     "handover deadline", "compute": compute_t2s_r2_mechanism_cpu, "data_files": [T2S_MECHANISM_CPU],
      "script_function": "analysis/numbers_register.py::compute_t2s_r2_mechanism_cpu"},
+    {"claim_id": "R2-qwen3-14b-4096-reconciliation", "description": "qwen3:14b at num_ctx 4096 across v1/v1b, "
+                    "mitigation (trimming) and num_keep: per-rule per-seed passes, gated first failures, versions, "
+                    "protocol, turn-by-turn identity of the num_keep run with v1",
+     "compute": compute_r2_qwen3_14b_4096_reconciliation,
+     "data_files": [R2_REAL_V1_FILE, R2_REAL_V1B_FILE, R2_MITIGATION_FILE, "results/x2_num_keep_qwen3_14b.jsonl"],
+     "script_function": "analysis/numbers_register.py::compute_r2_qwen3_14b_4096_reconciliation"},
     {"claim_id": "R2-validation-v2b-runinfo", "description": "R2 validation v2b: sessions/turns, errors, native vs "
                     "text tool calls per model",
      "compute": compute_r2_validation_v2b_runinfo, "data_files": ["results/x2_r2_validation_v2b.jsonl"],
