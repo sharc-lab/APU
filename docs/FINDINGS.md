@@ -3549,6 +3549,32 @@ the reverse of the ordering in every other model. Is that noise (n = 5), an arti
 **Consequence for the paper.** Report the pooled excess curve with per-model CIs and name this cell as within noise.
 Do not claim the 4096 tier is safer for qwen3:8b. No rerun was made for this check.
 
+## Results of the 2026-10-21 queue fill: qwen3:14b num_keep, qwen3:8b B3 v2 validation, qwen3:8b at 10 seeds (2026-10-22)
+
+All values quoted from the register rows named; each run was pre-registered before it started.
+
+| Run | Verdict (as registered) | Key numbers (quoted) | Row |
+|---|---|---|---|
+| qwen3:14b num_keep at 4096 | inconclusive (flag effect not observed) | "observed context shifts 0 ... token cuts 0 ... Ollama message-drop calls 228 of 240"; rules "rule1 100.0% ... rule3 95.8% ... rule5 98.3%" | `num-keep-qwen3-14b` |
+| qwen3:8b B3 v2 tasks validation | gates failed; real run refused as designed | "task tool FAIL 61/81 (0.753)"; "task end state FAIL 65/90 (72.2%, bar 90%)"; baseline "rule2 0.722" | `x2-evalset-tasks-val-v2-qwen3-8b-gates`, `x2-evalset-tasks-real-v2-qwen3-8b-wrong-rate` |
+| qwen3:8b R2 at 8192 and 4096, 10 seeds | resolved as noise | "num_ctx_8192: 6/10 gated silent"; "num_ctx_4096: 2/10 gated silent"; "Fisher exact two-sided p (8192 vs 4096) = 0.170"; 8192 excess "+0.600 (95% CI +0.300 to +0.900)"; 4096 excess "+0.200 (95% CI +0.000 to +0.500); reading: no excess shown" | `R2-qwen3-8b-reversal-10seed` |
+
+**Reading.**
+1. **num_keep is scoped to the token-cut path.** For qwen3:14b, Ollama never shifted or cut tokens at 4096: it
+   dropped whole messages and kept the system prompt, so the flag had nothing to protect and its effect could not be
+   observed. The llama3.1:8b "one-line fix" (`num-keep-guardrail-test`) applies where the context shift or token cut
+   happens. The B3 v2 4096+num_keep tier for qwen3:14b (`x2-evalset-tasks-real-v2-wrong-rate`) lowered the wrong-task
+   excess without removing it; this run says the rules part of that cannot be attributed to num_keep for qwen3:14b.
+2. **The B3 v2 protocol check rests on qwen3:14b alone.** qwen3:8b failed its own validation (task tool, task end
+   state, baseline rule 2) and was refused with no waiver; llama3.1:8b was refused earlier. A second model is being
+   validated (mistral-small3.2:24b, queued 2026-10-22).
+3. **qwen3:8b reversal: noise under the pre-registered rule, direction persists.** Pooled over 10 seeds the 8192 vs
+   4096 difference is not significant, but qwen3:8b still fails less at 4096 than at 8192, and shows no excess over
+   default at 4096 while it does at 8192. The paper reports this cell as within noise and does not claim 4096 is
+   safe for qwen3:8b. A 20-seed extension is queued.
+4. **qwen3:32b default tier** was already run inside the H-scale job ("3 default-tier sessions completed", loaded
+   40960, first over window turns 24 to 26, `x2-scale-real-default-tier`); not rerun.
+
 ## Results of five pre-registered evo-x2 runs: Vulkan backend check, B3 v2 protocol consistency (qwen3:14b), B5 policy comparison, H-scale and the B2 family (2026-10-20)
 
 All values are quoted from the register rows named; each run was pre-registered before it started (sections cited).
