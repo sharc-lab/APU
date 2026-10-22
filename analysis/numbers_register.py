@@ -4488,6 +4488,35 @@ def compute_t2s_config_comparison(repo):
             else "0"}
 
 
+def _tradeoff_parts(repo):
+    im = _impact()
+    h = im.hybrid_savings(repo, _impact_v2(repo)["rows"]["P2"])
+    c = _hybrid_curve(repo)
+    return im, h, c, im.hybrid_tradeoff(h, c)
+
+
+def compute_late_escalation_cost_vs_fresh(repo):
+    """Late full-history escalation cost per task (cloud-redo-full-context) vs a fresh all-cloud run of the same task
+    (all-cloud-b3-cost), same cloud tier, matched on (seed, task_id) where both exist; the ratio; the fix rate and why the
+    rest stayed wrong; the evo-t2s Intel CPU 4096 window-flag hybrid vs all-cloud from hybrid-savings-tradeoff (operator
+    decision 2026-10-22, item 1)."""
+    im, _h, _c, t = _tradeoff_parts(repo)
+    d = im.late_escalation_vs_fresh(repo, t)
+    return {"value": im.late_text(d), "n": (f"{d['redo']['n']} redo tasks, {d['fresh']['n']} fresh tasks, "
+                                            f"{d['m_redo']['n']} matched rows") if d["status"] == "VERIFIED" else "0"}
+
+
+def compute_hybrid_route_at_start(repo):
+    """Route at session start (operator decision 2026-10-22, item 3): per device and cloud tier, whole session local at
+    the recommended setting or whole session to the cloud, by a stated accuracy tolerance (0, 5, 10 points), vs late
+    escalation (window-flag hybrid, every wrong task as the ceiling) and naive local."""
+    im, h, c, t = _tradeoff_parts(repo)
+    cfg = im.t2s_config_comparison(repo, c)
+    r = im.route_at_start_full(repo, h, t, cfg)
+    return {"value": im.route_text(r), "n": f"{len(r['rows'])} device x tier rows" if r["status"] == "VERIFIED"
+            else "0"}
+
+
 def compute_impact_p2(repo):
     return _impact_row(repo, "P2")
 
@@ -7248,6 +7277,29 @@ NUMBER_ENTRIES = [
      "compute": compute_t2s_config_comparison,
      "data_files": sorted(set(CURVE_FILES) | {T2S_REAL["cpu"], T2S_VAL["cpu"], T2S_REAL["igpu"], T2S_VAL["igpu"]}),
      "script_function": "analysis/impact_model.py::t2s_config_comparison"},
+    {"claim_id": "late-escalation-cost-vs-fresh", "description": "Late full-history escalation of a wrong local "
+     "task (cloud-redo-full-context, claude-sonnet-5-5) vs a fresh all-cloud run of the same task (all-cloud-b3-cost, "
+     "same tier): USD per task mean and median each, the ratio, matched on (seed, task_id) where both exist (n reported), "
+     "the incompleteness (fixed share with its CI, unfixed by class: inherited executed actions, cloud model error) and "
+     "the evo-t2s Intel CPU 4096 window-flag hybrid vs all-cloud from hybrid-savings-tradeoff (operator decision "
+     "2026-10-22, item 1)",
+     "compute": compute_late_escalation_cost_vs_fresh,
+     "data_files": sorted(set(CURVE_FILES) | {CLOUD_REDO_FULL_CONTEXT, CLOUD_REDO_FULL_CONTEXT_PART2,
+                                              "results/cloud_redo_full_context_v1_part3.jsonl"}),
+     "script_function": "analysis/impact_model.py::late_escalation_vs_fresh"},
+    {"claim_id": "hybrid-route-at-start", "description": "Route at session start (operator decision 2026-10-22, item "
+     "3): per device and cloud tier the whole session runs local at the recommended setting (evo-x2 default = best, B3 "
+     "task accuracy; evo-t2s Intel iGPU 32K, kept local measured by R2 session pass rate (not B3 task accuracy)) or goes "
+     "to the cloud from the start (fresh all-cloud cost and accuracy), local if local accuracy >= all-cloud accuracy - "
+     "tolerance (0 default = matched quality; 5 and 10 points as a sensitivity); savings per month at 100 / 1,000 / "
+     "10,000 tasks/day and accuracy vs late escalation (window-flag hybrid; every wrong task at the measured redo cost, "
+     "'ceiling, no such detector') and naive local; Sonnet escalation measured, Haiku interim; projected task sizes "
+     "labelled",
+     "compute": compute_hybrid_route_at_start,
+     "data_files": sorted(set(CURVE_FILES) | {T2S_REAL["cpu"], T2S_VAL["cpu"], T2S_REAL["igpu"], T2S_VAL["igpu"],
+                                              CLOUD_REDO_FULL_CONTEXT, CLOUD_REDO_FULL_CONTEXT_PART2,
+                                              "results/cloud_redo_full_context_v1_part3.jsonl"}),
+     "script_function": "analysis/impact_model.py::route_at_start"},
     {"claim_id": "impact-v2-P2", "description":"Impact v2 P2 configuration: sessions per machine per day (default vs "
                     "fastest measured B5 setting), machines needed for the profile's sessions/day, USD/day of machines "
                     "saved (assumed 3-year life), waiting-time upper bound on the interactive share; PENDING until "
