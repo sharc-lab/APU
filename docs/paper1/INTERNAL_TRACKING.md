@@ -22,7 +22,11 @@ check on qwen3:14b alone, B5 detail, qwen3:32b default tier; qwen3:14b at 4096 e
 design constants commented with their source file); revised 2026-10-22 (abstract written as prose, 249 words; 4.1,
 4.2, 4.8 and 4.9 revised to the current story: cost trade-off motivation, model-dependent rule loss, KV-precision fix,
 routing and verification related work, cost-figure and cloud-redo threats; replaced text is in the superseded-outline
-appendix under "Superseded 2026-10-22"). Not a
+appendix under "Superseded 2026-10-22"); cleaned 2026-10-22 for the advisor version (this tracking material moved
+verbatim out of the draft into this file; the draft keeps title, abstract, Sections 4.1 to 4.9, figure and table specs
+and references; the AMD boundary rows `fh1-amd-boundary-llama-3.3-70b` and `fh1-amd-boundary-qwen3-32b` are VERIFIED
+and cited in 4.4, so G5 and the FH1 figure row below are brought current; F4 uses the recomputed values of the three
+CORRECTED co-runner rows; typeset version in `docs/paper1/paper1.tex`). Not a
 submission. Double-blind is assumed: this file names no
 author, affiliation, machine owner or repository. Author and internal labels are in `docs/PAPER1_COVER_NOTE.md`.
 
@@ -370,11 +374,11 @@ citing (G14).
 
 | fig | content | data source | data exists? |
 |---|---|---|---|
-| FH1 (headline, H1) | Cross-vendor spill cost: AMD-iGPU unified near-zero cost, INTEL-iGPU budget wall (hard fail), NVIDIA-dGPU discrete decode slowdown, on a shared normalized x axis | `[fh1-amd-boundary-llama-3.3-70b]`, `[fh1-amd-boundary-qwen3-32b]`; `[A-24-effective-heap-limit]`, `[A-24-flip-point-per-model]`; Blade C1 files (register row pending, G4) and the K1 layer split `[blade-k1-layer-split]` | partly: INTEL yes; AMD registered for llama-3.3-70b (onset and cost), qwen3-32b fail side only (no unclamped spill point); NVIDIA decode slowdown needs Blade night 2 (operator at the keyboard), not yet run; NVIDIA placement (VRAM share per num_ctx) registered, decode slowdown pending G4 |
+| FH1 (headline, H1) | Cross-vendor spill cost: AMD-iGPU unified near-zero cost, INTEL-iGPU budget wall (hard fail), NVIDIA-dGPU discrete decode slowdown, on a shared normalized x axis | `[fh1-amd-boundary-llama-3.3-70b]` (VERIFIED), `[fh1-amd-boundary-qwen3-32b]` (VERIFIED); `[A-24-effective-heap-limit]`, `[A-24-flip-point-per-model]`; Blade C1 files (register row pending, G4) and the K1 layer split `[blade-k1-layer-split]` | partly (updated 2026-10-22): INTEL yes; AMD yes, both rows VERIFIED and cited in 4.4: llama-3.3-70b onset, crossing cost and hard fail; qwen3-32b fail side and one clamped spill point only (no unclamped spill point), its onset waits on the PENDING `fh1-amd-qwen3-32b-spill-sweep` row; NVIDIA placement (VRAM share per num_ctx) registered; NVIDIA decode slowdown pending G4 rows and the forced-failure point needs a run on the discrete-GPU laptop with the operator present, not yet run |
 | F1 | Platform and memory-architecture diagram: three platforms, where KV, weights and host-visible buffers live, which runtime backend is used | `docs/HARDWARE.md`, Section 3 of this file | yes (drawing only) |
 | F2 | INTEL-iGPU flip point: measured (last_ok, first_fail] vs accountings A/B/C, all models in `[A-24-budget-boundary]` | `[A-24-flip-point-per-model]`, `[A-24-effective-heap-limit]` | yes; existing `figures/fig_a24_budget_boundary.png` needs regeneration |
 | F3 | NVIDIA-dGPU spill onset: TTFT and decode slowdown vs context with spilled fraction; C3 point | C1/C2 files (no register row); Blade night 2 (d) | partly: C1/C2 yes, C3 no; existing `figures/fig_blade_c1_spill.png` is the M1 ladder |
-| F4 | Co-runner effects by vendor: TTFT and decode ratio per condition, INTEL-iGPU vs AMD-iGPU | `[B3-corunner-6model]`, `[b4_32b-dose-response]`, `[PX2-full-ratio-table]`, `[PX2-decode-ratio]`; T2S week item 4 | partly: Intel decode under a bandwidth hog missing |
+| F4 | Co-runner effects by vendor: TTFT and decode ratio per condition, INTEL-iGPU vs AMD-iGPU | `[B3-corunner-6model]`, `[b4_32b-dose-response]`, `[PX2-TTFT-gap]`, `[PX2-full-ratio-table]`, `[PX2-decode-ratio]`; T2S week item 4 | partly: Intel decode under a bandwidth hog missing. Updated 2026-10-22: B3-corunner-6model, b4_32b-dose-response and PX2-TTFT-gap are CORRECTED rows; F4 uses their computed column (mean 1.429x, per model 1.417x to 1.437x; e2 +2.0%, lp4 +3.2%, e4_clusterA +5.7%, e4_clusterB +5.3%, e4_split +6.0%, e6 +14.3%, e8 +30.2%, e8_lp4 +41.4%; 2.1-2.6%), not the old reported values (1.43x; lp4 +3.1%, e4 +5.4-6.0%; 2-3%), and the figure note says so |
 | F5 | Default window per platform and model over the agent step-length CDF | `[T2S-vs-X2-default-ctx]`, `[blade-k1-layer-split]`, `[trace-fraction-exceeds-4096]` | yes: I, A and N (N two models); `figures/fig_trace_cdf.png` exists, overlay new |
 | F6 | R2 session survival by tier and model, plus the after-window excess over the default tier with 95% CI | `[R2-real-v1b-survival]`, `[R2-v1b-gated-per-model]`, `[R2-v1b-excess-over-default]`; T2S week item 2; Blade night 1 (b) | partly: A yes (v1 + v1b); other platforms no |
 | F7 | Per-turn truncation-event raster by tier (message drop, context shift, token cut), A all tiers plus an N row at 4096 | `[R2-mechanism-lowlevel]`, `[R2-mechanism-verdict]` (`results/x2_r2_mechanism.jsonl`); `[blade-mechanism-4096]` (`results/blade_r2_mechanism_4096_v2.jsonl.report.json` and its jsonl); T2S week item 6; Blade night 2 (e) | yes for A (all tiers) and N (4096 only), one session per tier; I and other N tiers no |
@@ -400,13 +404,14 @@ Backup figure if one slips: first-call TTFT stall per cell (`[ttft-first-call-st
 4. **G4. Discrete-memory half of the architecture claim.** Register rows for existing C1/C2 files (analysis only),
    plus Blade night 2 (d) (C3 sysmem fallback). Without it, "three vendors, two memory architectures" is not
    supported in the text and the abstract sentence on discrete spill is cut.
-5. **G5. AMD-iGPU boundary rows.** Register rows for `results/mx2_validation.jsonl` and `results/mx2_spill_stats.jsonl`
-   (analysis only), plus x2_70b_edge_reps for the non-deterministic 70B boundary. Note (2026-10-22): the rows
-   `fh1-amd-boundary-llama-3.3-70b` and `fh1-amd-boundary-qwen3-32b` were computed on a branch (commit 2a9e338) but
-   the merge into main (bfb4d80) kept only a regenerated register; their compute functions, test and FINDINGS section
-   are not on main and the rows are absent from the current register. They cannot be cited until restored. When
-   cited, the AMD boundary is reported as measured, last pass and first fail with no rounding (the llama3.3:70b first
-   spill is the served n_ctx, not the requested one).
+5. **G5. AMD-iGPU boundary rows. Mostly closed (updated 2026-10-22).** The rows `fh1-amd-boundary-llama-3.3-70b`
+   and `fh1-amd-boundary-qwen3-32b` (from `results/mx2_spill_stats.jsonl` and `results/mx2_validation.jsonl`) are
+   restored on main and VERIFIED in the current register, and Section 4.4 cites them: the AMD boundary is reported as
+   measured, last pass and first fail with no rounding (the llama3.3:70b first spill is the served n_ctx 100096, not
+   the requested 100000). Still open: the qwen3-32b unclamped spill onset (`fh1-amd-qwen3-32b-spill-sweep`, PENDING,
+   so 4.4 says "above 20480" only), and x2_70b_edge_reps if the 70B boundary is to be reported as a distribution.
+   (Superseded note, 2026-10-22 earlier: the rows had been computed on a branch, commit 2a9e338, and lost in the merge
+   bfb4d80; that is no longer the case.)
 6. **G6. Predictor held-out check.** Built and scored on AMD-iGPU (`[R2-shift-predictor-confusion]`, verified).
    Still open: score it on observed shifts from sessions it was not checked on (the NVIDIA-dGPU 4096 session, any
    later mechanism-logged run); x2_r2_real_v1b has no server log, so it gives predictions, not observations. Analysis
