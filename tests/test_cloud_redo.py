@@ -233,3 +233,120 @@ def test_main_thinking_off_default_output_and_job_cap_client(monkeypatch, tmp_pa
     assert got["out"] == CR.OUT_FULL_CONTEXT and got["thinking_off"] is True and got["job_cap"] == 10.0
     assert got["client"].spend_cap_usd == 31.0 and got["client"].ledger_path == led
     assert got["ledger_total_at_start"] == 21.0 and got["executed_file"] == CR.V1_EXECUTED
+
+
+# ── --max-tokens / --resume / --client-cap-total (2026-10-22) ───────────────────────────────────────
+
+def _call(fr="stop", out=100, chars=10, ntc=0):
+    return {"finish_reason": fr, "output_tokens": out, "content_chars": chars, "n_tool_calls": ntc}
+
+
+def test_hit_limit_rules():
+    assert CR.hit_limit({"cloud_calls": [_call("length", 384, 200, 2)]})
+    assert CR.hit_limit({"cloud_calls": [_call("tool_calls", 384, 50, 1)]})      # output at the old limit
+    assert CR.hit_limit({"cloud_calls": [_call("tool_calls", 100, 50, 1), _call("stop", 10, 0, 0)]})   # empty reply
+    assert not CR.hit_limit({"cloud_calls": [_call("tool_calls", 200, 50, 1), _call("stop", 150, 300, 0)]})
+
+
+def _prior_file(tmp_path, wrong, hit_idx):
+    rows = [{"record": "run_start", "mode": CR.MODE_LIVE}]
+    for i, r in enumerate(wrong):
+        calls = [_call("length", 384, 0, 0)] if i in hit_idx else [_call("stop", 120, 40, 0)]
+        rows.append({"record": "cloud_redo_task", "mode": CR.MODE_LIVE, "attempt_id": r["attempt_id"],
+                     "turn_idx": r["turn_idx"], "task_id": r["task_id"], "seed": r["seed"], "tier": "t",
+                     "cloud_calls": calls, "cloud_end_state_ok": i not in hit_idx, "usd_ledger": 0.05, "usd": 0.02,
+                     "n_calls": 1, "seconds": 1.0})
+    rows.append({"record": "run_end", "stopped": "x"})
+    p = tmp_path / "prior.jsonl"
+    p.write_text("\n".join(json.dumps(r) for r in rows) + "\n")
+    return p
+
+
+def test_resume_skips_done_reruns_hit_and_records_supersede(tmp_path):
+    w = CR.wrong_tasks(CR.load_rows(CR.SOURCE))[:4]
+    prior = _prior_file(tmp_path, w[:3], hit_idx={1})
+    seen = []
+
+    def fake(*, model_id, messages, api_key, **kw):
+        seen.append(kw)
+        return _resp_fr('{"answer": "no idea"}', usage=(1000, 30, 0, 0))
+
+    out = tmp_path / "part2.jsonl"
+    rows = CR.run(True, out=out, limit=4, client=_client(tmp_path, fake), thinking_off=True, max_tokens=2048,
+                  resume_from=prior)
+    start = rows[0]
+    assert start["max_tokens"] == 2048 and "2048" in start["protocol_difference"]
+    assert start["n_wrong_tasks"] == 4 and start["n_tasks_this_run"] == 2
+    assert start["resume_kept_tasks"] == 2 and start["resume_superseded_tasks"] == 1
+    sup = [r for r in rows if r["record"] == "supersede"]
+    assert len(sup) == 1 and (sup[0]["attempt_id"], sup[0]["turn_idx"]) == (w[1]["attempt_id"], w[1]["turn_idx"])
+    tasks = [r for r in rows if r["record"] == "cloud_redo_task"]
+    assert [(r["attempt_id"], r["turn_idx"]) for r in tasks] == [(x["attempt_id"], x["turn_idx"]) for x in (w[1], w[3])]
+    assert all(kw["max_tokens"] == 2048 for kw in seen if kw["max_tokens"] != 8)
+    assert tasks[0]["cloud_calls"][0]["finish_reason"] == "stop" and tasks[0]["cloud_calls"][0]["output_tokens"] == 30
+    merged = CR.merged_rows([prior, out])
+    keys = {(r["attempt_id"], r["turn_idx"]): r for r in merged}
+    assert len(merged) == 4 and keys[(w[1]["attempt_id"], w[1]["turn_idx"])]["mode"] == CR.MODE_LIVE
+    assert keys[(w[1]["attempt_id"], w[1]["turn_idx"])].get("cloud_n_tool_calls") is not None   # the new row
+    # the original file is untouched
+    assert len(prior.read_text().splitlines()) == 5
+
+
+def test_resume_stop_on_empty_at_2048_stays_on(tmp_path):
+    w = CR.wrong_tasks(CR.load_rows(CR.SOURCE))[:3]
+    prior = _prior_file(tmp_path, w[:1], hit_idx=set())
+
+    def fake(*, model_id, messages, api_key, **kw):
+        if kw["max_tokens"] == 8:
+            return _resp_fr("OK")
+        return _resp_fr("", usage=(1000, 2048, 0, 0), finish="length")
+
+    rows = CR.run(True, out=tmp_path / "p2.jsonl", limit=3, client=_client(tmp_path, fake), thinking_off=True,
+                  max_tokens=2048, resume_from=prior)
+    assert len([r for r in rows if r["record"] == "cloud_redo_task"]) == 1 and rows[-1]["stopped"]
+
+
+def test_resume_refuses_when_projection_passes_client_cap(tmp_path):
+    def fake(**kw):
+        raise AssertionError("must not be sent")
+
+    w = CR.wrong_tasks(CR.load_rows(CR.SOURCE))[:3]
+    prior = _prior_file(tmp_path, w[:1], hit_idx=set())
+    with pytest.raises(SystemExit, match="remaining budget"):
+        CR.run(True, out=tmp_path / "p2.jsonl", limit=3, client=_client(tmp_path, fake, cap=0.0001), thinking_off=True,
+               max_tokens=2048, resume_from=prior, executed_file=CR.V1_EXECUTED)
+    assert not (tmp_path / "ledger.jsonl").exists()
+
+
+def test_main_resume_client_cap_total(monkeypatch, tmp_path):
+    got = {}
+    monkeypatch.setenv(CR.KEY_ENV, "test-not-a-key")
+    prior = tmp_path / "prior.jsonl"
+    prior.write_text("{}\n")
+
+    def fake_run(live, source, out, **kw):
+        got.update(kw, out=out)
+        return [{"record": "run_end", "stopped": None}]
+
+    class FakeClient:
+        def __init__(self, mode, spend_cap_usd=None, ledger_path=None, **kw):
+            self.spend_cap_usd, self.ledger_path = spend_cap_usd, ledger_path
+
+        def _read_running_total(self):
+            return 25.0
+
+    monkeypatch.setattr(CR, "run", fake_run)
+    monkeypatch.setattr(CR.cc, "CloudClient", FakeClient)
+    out = tmp_path / "p2.jsonl"
+    assert CR.main(["--live", "--thinking-off", "--resume", "--resume-from", str(prior), "--out", str(out),
+                    "--max-tokens", "2048", "--client-cap-total", "43.1913", "--ledger", str(tmp_path / "l")]) == 0
+    assert got["client"].spend_cap_usd == 43.1913 and got["max_tokens"] == 2048 and got["resume_from"] == prior
+    assert got["out"] == out
+    # refusals: above the hard cap, both caps, writing over the resumed file, an existing continuation file
+    assert CR.main(["--live", "--resume", "--resume-from", str(prior), "--out", str(tmp_path / "x.jsonl"),
+                    "--client-cap-total", "51"]) == 2
+    assert CR.main(["--live", "--resume", "--resume-from", str(prior), "--out", str(tmp_path / "y.jsonl"),
+                    "--client-cap-total", "40", "--job-cap", "5"]) == 2
+    assert CR.main(["--live", "--resume", "--resume-from", str(prior), "--out", str(prior)]) == 2
+    out.write_text("x\n")
+    assert CR.main(["--live", "--resume", "--resume-from", str(prior), "--out", str(out)]) == 2

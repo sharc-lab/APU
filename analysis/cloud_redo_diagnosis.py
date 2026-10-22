@@ -95,12 +95,15 @@ def classify(row: dict, task, max_rounds: int, cap: int, maxc: int, trunc_chars:
     return "cloud_model_error"
 
 
-def compute(repo: Path = REPO, path: str = REDO) -> dict:
+def compute(repo: Path = REPO, path: str = REDO, extra_paths: tuple = ()) -> dict:
+    """extra_paths: continuation files (scripts/cloud_redo.py --resume); tasks are then the merged rows, superseded
+    rows excluded."""
     cr = _cloud_redo(repo)
     E, ag = cr.E, cr.ag
     rows = cr.load_rows(repo / path)
     start = next(r for r in rows if r.get("record") == "run_start")
-    tasks = [r for r in rows if r.get("record") == "cloud_redo_task"]
+    tasks = (cr.merged_rows([repo / path] + [repo / p for p in extra_paths]) if extra_paths
+             else [r for r in rows if r.get("record") == "cloud_redo_task"])
     src = cr.load_rows(repo / start["source"])
     wrong = {(r["attempt_id"], r["turn_idx"]): r for r in cr.wrong_tasks(src)}
     cap = ag.MAX_TOKENS_PER_CALL
