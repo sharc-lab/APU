@@ -1,45 +1,9 @@
 {
  "lead": {
-  "text": "Fixing a wrong answer in the cloud costs about USD 0.02 (mean USD 0.0201, median USD 0.0122); the cost is that the failure is silent.",
-  "label": "measured",
-  "statistic": "mean",
-  "src": {
-   "register": "cloud-redo-cost-per-wrong-task"
-  },
-  "usd_mean": 0.0201,
-  "usd_median": 0.0122,
-  "model": "claude-sonnet-5-5",
-  "per_tier": {
-   "ollama_default": {
-    "n": 17,
-    "mean_usd": 0.0364,
-    "median_usd": 0.0297
-   },
-   "ollama_ctx_16384": {
-    "n": 19,
-    "mean_usd": 0.0373,
-    "median_usd": 0.0356
-   },
-   "ollama_ctx_8192": {
-    "n": 53,
-    "mean_usd": 0.0151,
-    "median_usd": 0.0112
-   },
-   "ollama_ctx_4096": {
-    "n": 63,
-    "mean_usd": 0.0149,
-    "median_usd": 0.0117
-   },
-   "ollama_ctx_4096_numkeep": {
-    "n": 45,
-    "mean_usd": 0.0197,
-    "median_usd": 0.0102
-   }
-  },
-  "n": 197,
-  "total_usd": 3.952,
-  "executed": true,
-  "seconds_mean": 6.89
+  "text": "Cost to fix a wrong answer: being measured",
+  "label": "being measured",
+  "src": null,
+  "note": "The earlier cloud redo was a broken protocol run (thinking consumed the output budget); its figures are not shown. A corrected redo is running."
  },
  "items": [
   {
@@ -67,35 +31,11 @@
    }
   },
   {
-   "what": "Cloud redo of each wrong task",
-   "text": "USD 0.0201 mean, USD 0.0122 median per wrong task on claude-sonnet-5-5 (197 tasks, USD 3.95 in all; mean 6.89 s per task)",
-   "label": "measured",
-   "src": {
-    "register": "cloud-redo-cost-per-wrong-task"
-   }
-  },
-  {
    "what": "Re-sending the history to the cloud, per session",
    "text": "1,798,884 tokens re-sent; USD 0.1799 with caching, USD 3.5978 without",
    "label": "priced, not executed",
    "src": {
     "register": "impact-P3"
-   }
-  },
-  {
-   "what": "Wrong answers per day for one stated team (P1)",
-   "text": "USD 5.47 to 132.31 per day at 40 sessions/day (assumed volume; time valued 0 to the full hour value; cloud part measured)",
-   "label": "projected",
-   "src": {
-    "register": "impact-v2-P1"
-   }
-  },
-  {
-   "what": "Ranking of the problems by cost (one assumed profile)",
-   "text": "P1 > P5 > P2 > P3 > P4",
-   "label": "projected",
-   "src": {
-    "register": "impact-ranking-v2"
    }
   },
   {
@@ -105,6 +45,12 @@
    "src": {
     "register": "impact-total"
    }
+  },
+  {
+   "what": "Wrong answers per day for one stated team (P1)",
+   "text": "being measured (it includes the cost to fix a wrong answer in the cloud)",
+   "label": "being measured",
+   "src": null
   }
  ],
  "router": {
@@ -116,11 +62,8 @@
   "text": "Router savings: not shown. Row b5-verdict is refuted on evo-x2 (the router policy was dominated); no register row supports a savings figure."
  },
  "register_ids": [
-  "cloud-redo-cost-per-wrong-task",
   "x2-evalset-tasks-real-v2-wrong-rate",
   "cost-cut-config-time",
-  "impact-v2-P1",
-  "impact-ranking-v2",
   "impact-P3",
   "impact-total",
   "b5-verdict",

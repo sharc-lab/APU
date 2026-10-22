@@ -1,7 +1,7 @@
 // The four demo views (A to D). Uses $, esc, num, api, fmt from app.js (loaded first). Plain JS + inline SVG.
 "use strict";
 const LABEL_CLASS = { "measured": "measured", "projected": "projected", "simulated": "simulated",
-  "priced, not executed": "priced", "not measured": "notmeasured", "pending flash-attention control": "simulated" };
+  "priced, not executed": "priced", "not measured": "notmeasured", "pending flash-attention control": "simulated", "being measured": "notmeasured" };
 function lab(l) { return l ? `<span class="lab ${LABEL_CLASS[l] || ""}">${esc(l)}</span>` : ""; }
 const R = (id) => ({ register: id });
 function survival(intact, n, checkpoints) {
@@ -99,12 +99,7 @@ function renderCost(c) {
   let h = "";
   if (c.lead) {
     const L = c.lead;
-    h += `<p class="lead">${num(L.text, L.src)} ${lab(L.label)}</p>
-      <p class="muted small">Every wrong task of the qwen3:14b task run (${num(L.n, L.src)} tasks) re-run on ${esc(L.model)}: mean ${num("USD " + L.usd_mean.toFixed(4), L.src)}, median ${num("USD " + L.usd_median.toFixed(4), L.src)}${L.seconds_mean != null ? `, mean ${num(L.seconds_mean.toFixed(2) + " s", L.src)} per task` : ""}. ${L.executed
-        ? "Executed on the cloud; this panel shows the cost only."
-        : "Priced from the local run's own token counts; seconds were not measured in that run."}</p>`;
-  } else {
-    h += `<p class="lead">${lab("not measured")} cloud redo cost per wrong task: register row not parsed</p>`;
+    h += `<p class="lead">${num(L.text, L.src)} ${lab(L.label)}</p>${L.note ? `<p class="muted small">${esc(L.note)}</p>` : ""}`;
   }
   h += `<ul class="costlist">${c.items.map((i) => `<li><span class="what">${esc(i.what)}</span> ${lab(i.label)}<br>${num(i.text, i.src)}</li>`).join("")}
     <li><span class="what">Router savings</span><br>${num(c.router.text, c.router.src)}</li></ul>`;
@@ -124,7 +119,7 @@ function escStatus(s) {
 function renderEscalationTask(e) {
   const t = e.task;
   if (!t.available) { $("#esc-task").innerHTML = `${lab("not measured")} ${esc(t.reason)}`; $("#esc-run").disabled = true; return; }
-  const loc = t.local, pr = t.redo, ran = pr.mode === "executed";
+  const loc = t.local, pr = t.redo || {};
   $("#esc-task").innerHTML = `
     <p><b>The task</b> (${esc(t.task_id)}, ${esc(t.local_model)} at ${esc(tierName(t.tier))}, seed ${t.seed}, turn ${t.turn_idx}; ${esc(t.selection)}):</p>
     <div class="answer">${esc(t.user_message)}</div>
@@ -133,25 +128,22 @@ function renderEscalationTask(e) {
         <p class="small">HTTP error: ${num(loc.any_http_error ? "yes" : "no", loc.src)}; graded end state: ${num(loc.end_state_ok ? "correct" : "wrong", loc.src)}; window ${num(loc.loaded_context, loc.src)}</p>
         <div class="answer">${esc(loc.tool_calls.length ? JSON.stringify(loc.tool_calls) : "(no tool call)")}\n${esc(loc.final_text)}</div>
         <p class="small muted">Expected: ${esc(JSON.stringify(t.expected_calls))}</p></div>
-      <div class="devcard"><h3>Cloud (${esc(t.cloud_model)}), recorded redo of this task ${lab(pr.label)}</h3>
-        <p><span class="big">${num("USD " + pr.usd.toFixed(4), pr.src)}</span>${ran && pr.seconds != null ? ` in ${num(pr.seconds.toFixed(1) + " s", pr.src)}` : ""}<br>
-        <span class="small">${ran ? `executed in the cloud redo run, ${num(pr.input_tokens.toLocaleString(), pr.src)} input tokens, prompt caching priced (all input uncached: ${num("USD " + pr.usd_all_uncached.toFixed(4), pr.src)})`
-          : `priced from the local run's own ${num(pr.input_tokens.toLocaleString(), pr.src)} input tokens with caching (all input uncached: ${num("USD " + pr.usd_all_uncached.toFixed(4), pr.src)})`}; register ${num(pr.register_id, R(pr.register_id))}</span></p>
-        ${ran && pr.cloud_final_text ? `<div class="answer">${esc(pr.cloud_final_text)}</div>` : ""}</div>
+      <div class="devcard"><h3>Cloud (${esc(t.cloud_model)}) ${lab(pr.label)}</h3>
+        <p class="lead">${esc(pr.text || "Cost to fix a wrong answer: being measured")}</p>
+        <p class="small muted">${esc(pr.note || "")} Click "Send to the cloud" for one live call through the capped client.</p></div>
     </div>`;
   $("#esc-mode").innerHTML = escStatus(e.status);
 }
 function renderEscalationResult(r) {
   const live = r.mode === "executed";
   $("#esc-result").innerHTML = `<div class="devcard">
-    <h3>${live ? "Cloud answer, live now" : "Not sent live: recorded redo of this task"} ${lab(r.label)}</h3>
+    <h3>${live ? "Cloud answer, live now" : "Not sent live"} ${lab(r.label)}</h3>
     <p class="small">${esc(r.reason)}</p>
     <div class="settings">
-      <div class="tile"><div class="k">USD</div><div class="v">${r.usd == null ? "n/a" : num("USD " + r.usd.toFixed(4), live ? null : r.usd_src)}</div><div class="muted small">${esc(r.usd_basis || "")}</div></div>
-      <div class="tile"><div class="k">Seconds</div><div class="v">${r.seconds == null ? "not measured" : r.seconds.toFixed(1) + " s"}</div></div>
+      <div class="tile"><div class="k">USD</div><div class="v">${r.usd == null ? "being measured" : "USD " + r.usd.toFixed(4)}</div><div class="muted small">${esc(live ? (r.usd_basis || "") : "")}</div></div>
+      <div class="tile"><div class="k">Seconds</div><div class="v">${r.seconds == null ? "being measured" : r.seconds.toFixed(1) + " s"}</div></div>
     </div>
-    ${live ? `<div class="answer">${esc((r.tool_calls || []).length ? JSON.stringify(r.tool_calls) : "(no tool call)")}\n${esc(r.answer || "")}</div>`
-      : r.answer ? `<div class="answer">${esc(r.answer)}</div>` : ""}
+    ${live ? `<div class="answer">${esc((r.tool_calls || []).length ? JSON.stringify(r.tool_calls) : "(no tool call)")}\n${esc(r.answer || "")}</div>` : ""}
     <p class="muted small">${escStatus(r)}</p></div>`;
   $("#esc-mode").innerHTML = escStatus(r);
 }

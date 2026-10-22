@@ -57,20 +57,9 @@
   }
  },
  "redo": {
-  "mode": "executed",
-  "label": "measured",
-  "usd": 0.0121742,
-  "usd_all_uncached": 0.034673999999999996,
-  "input_tokens": 15627,
-  "output_tokens": 342,
-  "seconds": 4.821338200010359,
-  "n_calls": 2,
-  "cloud_final_text": "{\"answer\": \"'Team retro' is booked for 2026-12-22 at 11:00 for 50 minutes, which is your default meeting length (event ID EV-909). The value recorded for ALPHA-CACHE is VAL-JNYZ3V. SC-LA3Y0M08\", \"source\": \"create_event result; ALPHA-CACHE recalled from the session start message\"}",
-  "register_id": "cloud-redo-cost-per-wrong-task",
-  "src": {
-   "file": "results/cloud_redo_v1.jsonl",
-   "line": 92
-  }
+  "label": "being measured",
+  "text": "Cost to fix a wrong answer: being measured",
+  "note": "The earlier cloud redo (results/cloud_redo_v1.jsonl) was a broken protocol run: thinking consumed the output budget (docs/FINDINGS.md, cloud redo diagnosis). Its cost and answers are not shown."
  },
  "selection": "tier ollama_ctx_4096, state-changing task with a writes-only reference (one call is gradable), smallest local prompt among the redo file's wrong tasks"
 }

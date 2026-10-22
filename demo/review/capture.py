@@ -6,7 +6,7 @@
 Python 3.8 because that is the interpreter with Playwright 1.48 (chromium-1140) on the controller laptop; the
 dashboard itself runs under Python 3.12, started here as a hidden child process on 127.0.0.1 and always stopped in a
 finally block (no process is left running). The child gets no ANTHROPIC_API_KEY and no DEMO_CLOUD_LIVE, so the
-escalation step shows the recorded redo and no cloud call can happen. No audio.
+escalation step shows "being measured" and no cloud call can happen. No audio.
 """
 import os
 import sys

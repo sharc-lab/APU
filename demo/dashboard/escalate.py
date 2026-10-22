@@ -1,10 +1,10 @@
-"""View D: send one wrong task from the B3 v2 task run to the cloud through the capped client, or show its recorded redo.
+"""View D: send one wrong task from the B3 v2 task run to the cloud through the capped client.
 
-The task. build_escalation() (build time) picks one wrong task from results/cloud_redo_v1.jsonl (the cloud redo of
-every wrong task in results/x2_evalset_tasks_real_v2.jsonl, register row cloud-redo-cost-per-wrong-task; executed on
-the cloud since main b350e49, priced only before that): tier ollama_ctx_4096, a state-changing task whose reference is
-writes only (so one cloud call can be graded by the same end-state checker), smallest local prompt. The rebuild (transcript before the wrong turn, environment as the local model
-left it, grader) is scripts/cloud_redo.py's, reused unchanged.
+The task. build_escalation() (build time) picks one wrong task listed in results/cloud_redo_v1.jsonl (the wrong tasks
+of results/x2_evalset_tasks_real_v2.jsonl): tier ollama_ctx_4096, a state-changing task whose reference is writes only,
+smallest local prompt. Only the task list is used: the v1 redo itself was a broken protocol run (thinking consumed the
+output budget; operator 2026-10-22), so none of its costs, seconds or answers are shown. The rebuild (transcript before
+the wrong turn, environment as the local model left it) is scripts/cloud_redo.py's, reused unchanged.
 
 The call. Escalator.run() makes AT MOST ONE provider request per demo run (one Escalator per server process):
   - only when DEMO_CLOUD_LIVE=1 and a real-mode client can be built (ANTHROPIC_API_KEY in this process's environment,
@@ -13,9 +13,8 @@ The call. Escalator.run() makes AT MOST ONE provider request per demo run (one E
     above 10) and its own ledger, demo/ledger/cloud_ledger_demo.jsonl (gitignored), not results/cloud_ledger.jsonl;
   - one request with the task's tools offered (no tool round trips); the page shows its cost, seconds and answer, no
     graded result (the redo's fix rate is under diagnosis, operator 2026-10-21).
-Anything else (no flag, no key, host refused, cap reached, provider error, a second click) returns the stub: this
-task's recorded redo from the redo file (USD, seconds, answer; labelled measured when that run executed, "priced,
-not executed" when it was the stub run), with the reason. The key is never printed,
+Anything else (no flag, no key, host refused, cap reached, provider error, a second click) returns the stub: nothing
+is sent, no figure is shown, and the cost reads "Cost to fix a wrong answer: being measured", with the reason. The key is never printed,
 logged, written or returned; error text is scrubbed of it before it reaches the page.
 
 CLI (development; one live call at most, same rules):
@@ -45,6 +44,10 @@ ENV_CAP = "DEMO_CLOUD_CAP_USD"
 KEY_ENV = "ANTHROPIC_API_KEY"
 PRICED = "priced, not executed"
 MEASURED = "measured"
+BEING_MEASURED = "being measured"
+FIX_COST_TEXT = "Cost to fix a wrong answer: being measured"
+V1_NOTE = ("The earlier cloud redo (results/cloud_redo_v1.jsonl) was a broken protocol run: thinking consumed the "
+           "output budget (docs/FINDINGS.md, cloud redo diagnosis). Its cost and answers are not shown.")
 
 
 def cap_usd(env=None) -> float:
@@ -85,7 +88,7 @@ def _line_of(path: Path, pred) -> int | None:
 
 
 def build_escalation(repo: Path = REPO) -> dict:
-    """Pick the task and snapshot what the page shows before any call (task text, local wrong answer, recorded redo)."""
+    """Pick the task and snapshot what the page shows before any call (task text, local wrong answer)."""
     if not (repo / REDO).exists() or not (repo / SOURCE).exists():
         return {"available": False, "reason": f"{REDO} or {SOURCE} missing"}
     cr = _cloud_redo()
@@ -121,17 +124,9 @@ def build_escalation(repo: Path = REPO) -> dict:
                   "src": {"file": SOURCE, "line": _line_of(repo / SOURCE, lambda x: x.get("record") == "r2a_turn"
                                                           and x.get("attempt_id") == r["attempt_id"]
                                                           and x.get("turn_idx") == r["turn_idx"])}},
-        # The recorded redo of this task (results/cloud_redo_v1.jsonl): measured when that run executed on the cloud,
-        # priced, not executed when it was the stub run.
-        "redo": {"mode": r.get("mode"), "label": MEASURED if r.get("mode") == "executed" else PRICED,
-                 "usd": r["usd"], "usd_all_uncached": r["usd_all_uncached"], "input_tokens": r["input_tokens"],
-                 "output_tokens": r["output_tokens"], "seconds": r.get("seconds"), "n_calls": r.get("n_calls"),
-                 # no graded result: the redo's fix rate is under diagnosis (operator 2026-10-21)
-                 "cloud_final_text": (r.get("cloud_final_text") or "")[:1500] or None,
-                 "register_id": REGISTER_ID,
-                 "src": {"file": REDO, "line": _line_of(repo / REDO, lambda x: x.get("record") == "cloud_redo_task"
-                                                        and x.get("attempt_id") == r["attempt_id"]
-                                                        and x.get("turn_idx") == r["turn_idx"])}},
+        # No figure, answer or source line from the v1 redo (operator 2026-10-22: a broken protocol run, thinking
+        # consumed the output budget). The redo file only supplies the list of wrong tasks to pick from.
+        "redo": {"label": BEING_MEASURED, "text": FIX_COST_TEXT, "note": V1_NOTE},
         "selection": f"tier {TIER}, state-changing task with a writes-only reference (one call is gradable), "
                      "smallest local prompt among the redo file's wrong tasks",
     }
@@ -197,17 +192,10 @@ class Escalator:
             return p.name
 
     def stub(self, reason: str) -> dict:
-        """No live call: show the recorded redo of this task from results/cloud_redo_v1.jsonl, with its own label
-        (measured if that run executed, priced, not executed if it was the stub run)."""
-        rd = self.task.get("redo") or {}
-        executed = rd.get("mode") == "executed"
-        return {"mode": "recorded redo" if executed else PRICED, "label": rd.get("label", PRICED),
-                "reason": reason + ("; showing this task's recorded cloud redo" if executed else
-                                    "; showing this task's priced redo"),
-                "answer": rd.get("cloud_final_text") if executed else None, "tool_calls": None,
-                "seconds": rd.get("seconds") if executed else None, "usd": rd.get("usd"), "usd_src": rd.get("src"),
-                "usd_basis": "recorded redo, prompt caching priced" if executed else PRICED,
-                "register_id": REGISTER_ID, **self.status()}
+        """No live call: nothing is sent and nothing from the v1 redo is shown; the cost is 'being measured'."""
+        return {"mode": BEING_MEASURED, "label": BEING_MEASURED, "reason": f"{reason}; {FIX_COST_TEXT}",
+                "answer": None, "tool_calls": None, "seconds": None, "usd": None, "usd_src": None,
+                "usd_basis": FIX_COST_TEXT, **self.status()}
 
     def run(self) -> dict:
         if not self.task.get("available"):
@@ -251,8 +239,7 @@ class Escalator:
         return {"mode": "executed", "label": MEASURED, "reason": "one live call through src/cloud/client.py",
                 "answer": content, "tool_calls": calls, "seconds": seconds, "usd": res.cost_usd,
                 "usd_basis": "ledger cost (client.py estimate_cost on the provider's usage, input uncached)",
-                "usd_with_cache_pricing": usd_cache, "usage": u, "register_id": REGISTER_ID,
-                "recorded_redo": t.get("redo"), **self.status()}
+                "usd_with_cache_pricing": usd_cache, "usage": u, **self.status()}
 
 
 def main(argv=None) -> int:

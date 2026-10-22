@@ -29,7 +29,11 @@ PRICED = "priced, not executed"
 NOT_MEASURED = "not measured"
 # A measured configuration whose attribution waits on the flash-attention control (operator 2026-10-21).
 PENDING_FA = "pending flash-attention control"
-LABELS = (MEASURED, PROJECTED, SIMULATED, PRICED, NOT_MEASURED, PENDING_FA)
+# A figure that is being re-measured and is not shown (operator 2026-10-22: the v1 cloud redo was a broken protocol
+# run, thinking consumed the output budget; see docs/FINDINGS.md, cloud redo diagnosis).
+BEING_MEASURED = "being measured"
+LABELS = (MEASURED, PROJECTED, SIMULATED, PRICED, NOT_MEASURED, PENDING_FA, BEING_MEASURED)
+FIX_COST_LEAD = "Cost to fix a wrong answer: being measured"
 
 CHECKPOINTS = (5, 10, 15, 20, 25, 30, 35, 40)  # analysis/r2_real_report.py CHECKPOINTS_FULL (8 intact counts)
 T2S_FILES = {"cpu": "results/t2s_r2_real_cpu_v1.jsonl", "igpu": "results/t2s_r2_real_igpu_v1.jsonl"}
@@ -50,15 +54,24 @@ DEVICE_IDS = ["b5-policy-metrics", "b5-kv-recall", "b5-fa-control", "cost-cut-co
               "R2-mitigation-v1-verdict", "x2-v3-usability", "H-scale-verdict", "x2-scale-real-default-tier",
               "num-keep-guardrail-test", "num-keep-qwen3-14b", "x2-evalset-tasks-real-v2-qwen3-8b-wrong-rate",
               "x2-evalset-tasks-real-v2-mistral-small32-wrong-rate", "T2S-vs-X2-default-ctx"]
-COST_IDS = ["cloud-redo-cost-per-wrong-task", "x2-evalset-tasks-real-v2-wrong-rate", "cost-cut-config-time",
-            "impact-v2-P1", "impact-ranking-v2", "impact-P3", "impact-total", "b5-verdict", "b5-policy-metrics",
-            "impact-hour-value"]
+COST_IDS = ["x2-evalset-tasks-real-v2-wrong-rate", "cost-cut-config-time", "impact-P3", "impact-total", "b5-verdict",
+            "b5-policy-metrics", "impact-hour-value"]
 
 
 # Clauses of register rows the demo must not show, even in the click-through source dialog (operator 2026-10-21: the
 # cloud redo's fix rate is under diagnosis). The redaction is marked in place, so the row is visibly not verbatim.
 REDACTIONS = [("cloud-redo-cost-per-wrong-task", re.compile(r"cloud correct \d+/\d+ \([\d.]+%\)"),
                "[cloud fix rate withheld in the demo: under diagnosis]")]
+# Rows withheld whole (operator 2026-10-22): results/cloud_redo_v1.jsonl is a broken protocol run, so its row and the
+# two impact rows built on its cost per wrong task are not shown until the corrected redo lands.
+_V1_NOTE = ("the v1 cloud redo was a broken protocol run (thinking consumed the output budget; docs/FINDINGS.md, "
+            "cloud redo diagnosis)")
+WITHHELD_ROWS = {"cloud-redo-cost-per-wrong-task": f"[withheld in the demo: {_V1_NOTE}. Cost to fix a wrong answer: "
+                                                   "being measured.]",
+                 "impact-v2-P1": f"[withheld in the demo: it includes the cost per wrong task from the v1 cloud redo; "
+                                 f"{_V1_NOTE}. Being measured.]",
+                 "impact-ranking-v2": f"[withheld in the demo: its P1 row includes the v1 cloud redo cost; {_V1_NOTE}. "
+                                      "Being measured.]"}
 
 
 def redact_register(register: dict) -> dict:
@@ -66,6 +79,9 @@ def redact_register(register: dict) -> dict:
     for rid, pat, repl in REDACTIONS:
         if rid in out and pat.search(out[rid].get("value") or ""):
             out[rid] = dict(out[rid], value=pat.sub(repl, out[rid]["value"]), redacted=True)
+    for rid, text in WITHHELD_ROWS.items():
+        if rid in out:
+            out[rid] = dict(out[rid], value=text, redacted=True)
     return out
 
 
@@ -703,7 +719,7 @@ def device_recommend(dv: dict, device: str, model: str, workload: str, points: l
 
 P1_LEAD = "Fixing a wrong answer in the cloud costs about USD {usd}; the cost is that the failure is silent."
 # The figure in P1_LEAD is filled from register row cloud-redo-cost-per-wrong-task at build time, never typed here.
-_ORDER = {MEASURED: 0, PRICED: 1, SIMULATED: 2, PROJECTED: 3, NOT_MEASURED: 4}
+_ORDER = {MEASURED: 0, PRICED: 1, SIMULATED: 2, PROJECTED: 3, BEING_MEASURED: 4, NOT_MEASURED: 5}
 
 
 def parse_config_time(value: str) -> list[dict]:
@@ -725,18 +741,11 @@ def build_cost(register: dict) -> dict:
         return r["value"] if r else ""
 
     items = []
-    redo = parse_cloud_redo(val("cloud-redo-cost-per-wrong-task"))
-    lead = None
-    if redo:
-        redo_label = PRICED if redo["mode_priced_not_executed"] else MEASURED
-        # The mean per wrong task, rounded, with mean and median beside it; both read from the row (operator
-        # 2026-10-21). No cloud fix rate is shown anywhere: the redo's fix rate is under diagnosis.
-        lead = {"text": P1_LEAD.format(usd=f"{round(redo['mean_usd'], 2):.2f} (mean USD {redo['mean_usd']:.4f}, "
-                                           f"median USD {redo['median_usd']:.4f})"), "label": redo_label,
-                "statistic": "mean", "src": reg_src("cloud-redo-cost-per-wrong-task"), "usd_mean": redo["mean_usd"],
-                "usd_median": redo["median_usd"], "model": redo["model"], "per_tier": redo["per_tier"],
-                "n": sum(t["n"] for t in redo["per_tier"].values()), "total_usd": redo["total_usd"],
-                "executed": redo["executed"], "seconds_mean": redo["seconds_mean"]}
+    # 2026-10-22: no figure from the v1 cloud redo (results/cloud_redo_v1.jsonl, a broken protocol run). The lead says
+    # the cost is being measured; the full-history redo (row cloud-redo-full-context) replaces it in the final pass.
+    lead = {"text": FIX_COST_LEAD, "label": BEING_MEASURED, "src": None,
+            "note": "The earlier cloud redo was a broken protocol run (thinking consumed the output budget); its "
+                    "figures are not shown. A corrected redo is running."}
     tiers = parse_wrong_rate(val("x2-evalset-tasks-real-v2-wrong-rate"))
     if tiers:
         lo, hi = min(tiers, key=lambda t: t["pct"]), max(tiers, key=lambda t: t["pct"])
@@ -753,30 +762,16 @@ def build_cost(register: dict) -> dict:
                                else " (flash attention and KV precision changed together; b5-fa-control has no "
                                     "reading yet)"),
                       "label": MEASURED, "src": reg_src("cost-cut-config-time")})
-    if redo:
-        items.append({"what": "Cloud redo of each wrong task",
-                      "text": f"USD {redo['mean_usd']:.4f} mean, USD {redo['median_usd']:.4f} median per wrong task "
-                              f"on {redo['model']} ({lead['n']} tasks, USD {redo['total_usd']:.2f} in all" +
-                              (f"; mean {redo['seconds_mean']:.2f} s per task" if redo.get("seconds_mean") is not None
-                               else "") + ")",
-                      "label": lead["label"], "src": reg_src("cloud-redo-cost-per-wrong-task")})
     m = re.search(r"per session: re-sent history ([\d,]+) tok, USD ([\d.]+) caching on, ([\d.]+) no caching",
                   val("impact-P3"))
     if m:
         items.append({"what": "Re-sending the history to the cloud, per session",
                       "text": f"{m[1]} tokens re-sent; USD {m[2]} with caching, USD {m[3]} without",
                       "label": PRICED, "src": reg_src("impact-P3")})
-    m = re.search(r"(\d+) sessions/day \(ASSUMED volume\).*?cloud part ([a-z, ]+?); profile cell USD/day "
-                  r"([\d.,]+) to ([\d.,]+)", val("impact-v2-P1"))
-    if m:
-        items.append({"what": "Wrong answers per day for one stated team (P1)",
-                      "text": f"USD {m[3]} to {m[4]} per day at {m[1]} sessions/day (assumed volume; time valued "
-                              f"0 to the full hour value; cloud part {m[2]})",
-                      "label": PROJECTED, "src": reg_src("impact-v2-P1")})
-    m = re.search(r"ranking by main-case USD/day(?: \([^)]*\))?: ([P\d >]+);", val("impact-ranking-v2"))
-    if m:
-        items.append({"what": "Ranking of the problems by cost (one assumed profile)", "text": m[1].strip(),
-                      "label": PROJECTED, "src": reg_src("impact-ranking-v2")})
+    # The P1 USD/day and the problem ranking both include the v1 redo cost, so they wait with it (2026-10-22).
+    items.append({"what": "Wrong answers per day for one stated team (P1)",
+                  "text": "being measured (it includes the cost to fix a wrong answer in the cloud)",
+                  "label": BEING_MEASURED, "src": None})
     m = re.search(r"measured-only USD/day ([\d.]+)", val("impact-total"))
     if m:
         items.append({"what": "Today's cost for the reference team, measured parts only",
@@ -835,7 +830,7 @@ def cost_view(cache, repo: Path = REPO) -> dict:
 
 STORY_IDS = ["t2s-r2-real-cpu", "t2s-r2-real-igpu", "x2-evalset-tasks-real-v2-wrong-rate",
              "R2-qwen3-14b-4096-reconciliation", "H-scale-verdict", "H-scale-family-verdict", "R2-v1b-gated-per-model",
-             "cloud-cost-per-real-task", "cloud-redo-cost-per-wrong-task", "b5-fa-control", "b5-policy-metrics"]
+             "cloud-cost-per-real-task", "b5-fa-control", "b5-policy-metrics"]
 
 
 def parse_reconciliation_rule2(value: str) -> dict:
@@ -961,10 +956,10 @@ def build_story(register: dict, silent: dict, cost: dict, escalation: dict | Non
     lead = (cost or {}).get("lead")
     if lead:
         s4.append(_item(lead["text"], lead["label"], src=lead["src"]))
-    s4.append(_item("Takeaway: escalating one wrong step is cheap; sending every long task to the cloud is not. The "
-                    "expensive part is not knowing which step went wrong.", None))
-    steps.append({"n": 4, "title": "The money: cheap to fix, if you know it broke", "minutes": 1, "items": s4,
-                  "panel": None})
+    s4.append(_item("Takeaway: sending every long task to the cloud is not cheap; escalating only the step that went "
+                    "wrong needs to know which step went wrong, and the failure is silent.", None))
+    steps.append({"n": 4, "title": "The money: a whole task in the cloud is not cheap, and the failure is silent",
+                  "minutes": 1, "items": s4, "panel": None})
     # 5. one live escalation
     s5 = []
     esc = escalation or {}
@@ -979,13 +974,9 @@ def build_story(register: dict, silent: dict, cost: dict, escalation: dict | Non
             s5.append(_item(f"The local model ({esc['local_model']}, {loc.get('loaded_context')} window) set {key} = "
                             f"{got[key]}; the standing instruction gives {want[key]}. HTTP error: "
                             f"{'yes' if loc.get('any_http_error') else 'no'}.", MEASURED, src=loc.get("src")))
-        rd = esc.get("redo") or {}
-        if rd.get("usd") is not None:
-            s5.append(_item(f"Recorded cloud redo of this task: USD {rd['usd']:.4f}" +
-                            (f", {rd['seconds']:.1f} s" if rd.get("seconds") is not None else ""),
-                            rd.get("label", PRICED), src=rd.get("src")))
+        s5.append(_item(FIX_COST_LEAD, BEING_MEASURED))
     s5.append(_item("One click sends that turn to the cloud through the capped client (one call per demo run); "
-                    "without a network or key the recorded redo is shown.", None))
+                    "without a network or key nothing is sent and the cost shows as being measured.", None))
     steps.append({"n": 5, "title": "One live escalation: send the wrong task to the cloud", "minutes": 1,
                   "items": s5, "panel": "escalate"})
     return {"steps": steps, "register_ids": STORY_IDS, "total_minutes": sum(s["minutes"] for s in steps)}

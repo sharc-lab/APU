@@ -212,9 +212,7 @@ class App:
         return _json(views.story_view(self.cache))
 
     def escalation(self, q) -> Response:
-        reg = self.cache.register.get("cloud-redo-cost-per-wrong-task")
-        return _json({"task": self.cache.escalation, "status": self.escalator.status(),
-                      "register": {"cloud-redo-cost-per-wrong-task": reg} if reg else {}})
+        return _json({"task": self.cache.escalation, "status": self.escalator.status()})
 
     def register(self, q) -> Response:
         if "id" in q:

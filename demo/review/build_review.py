@@ -28,7 +28,7 @@ from proc_util import check_output_hidden  # noqa: E402
 GEN = HERE / "generated"
 STATUS = {"measured": "measured", "projected": "projected", "simulated": "simulated",
           "priced, not executed": "priced, not executed", "not measured": "not measured",
-          views.PENDING_FA: "pending", None: "context"}
+          views.PENDING_FA: "pending", views.BEING_MEASURED: "being measured", None: "context"}
 SCOPE_OK = ("demo/", "src/dse/", "tests/test_dashboard", "tests/dashboard_views_smoke.js")
 ASCII = {"\u2014": "-", "\u2013": "-", "\u2212": "-", "\u2265": ">=", "\u2264": "<=", "\u00d7": "x", "\u2192": "->",
          "\u2019": "'", "\u2018": "'", "\u201c": '"', "\u201d": '"', "\u2026": "...", "\u00b1": "+/-", "\u2248": "~",
@@ -155,10 +155,8 @@ def view_d(app) -> tuple[list, dict]:
             (f"expected: {json.dumps(t['expected_calls'][0]['arguments'])}", rid_of(loc["src"]), "measured"),
             (f"local end state wrong: {loc['end_state_ok'] is False}; HTTP error: {loc['any_http_error']}",
              rid_of(loc["src"]), "measured"),
-            (f"recorded cloud redo ({t['cloud_model']}): USD {rd['usd']:.4f}", rid_of(rd["src"]),
-             STATUS[rd["label"]]),
-            (f"recorded cloud redo seconds: {rd['seconds']:.1f} s" if rd.get("seconds") is not None else
-             "recorded cloud redo seconds: not measured", rid_of(rd["src"]), STATUS[rd["label"]]),
+            (rd.get("text") or "cost to fix: being measured", "none (v1 redo withheld)",
+             STATUS.get(rd.get("label"), rd.get("label"))),
             (f"spend cap for the live call: USD {e['status']['cap_usd']:.2f}; live calls per run "
              f"{e['status']['live_calls_allowed']}", "demo/dashboard/escalate.py", "configuration")]
     return rows, e
@@ -206,16 +204,20 @@ def checklist(app, a, recs, c, tests: str, main_ledger, demo_ledger, scope_files
     ok = blade["status"] == "not measured" and all(s["value"] == "not measured" for s in blade["settings"].values())
     items.append(('"not measured" where there is no data (Blade, every field)', ok, f"status {blade['status']}"))
     shown = json.dumps({"lead": c["lead"], "items": c["items"]})  # what the panel renders
-    ok_lead = c["lead"]["text"].startswith("Fixing a wrong answer in the cloud costs about USD 0.02")
+    # 2026-10-22: the lead is "being measured" until the full-history redo lands (row cloud-redo-full-context); the
+    # final pass replaces this check with the new figure's row.
+    ok_lead = c["lead"]["text"] == views.FIX_COST_LEAD and c["lead"]["label"] == views.BEING_MEASURED
     no_fix = (not re.search(r"cloud_correct|\bfixed\b|\d+/\d+ \([\d.]+%\) of these", shown)
               and not re.search(r"cloud correct \d+/\d+", json.dumps(c)))  # nor in the click-through register rows
-    items.append(("Cost panel leads with the USD 0.02 line", ok_lead, c["lead"]["text"]))
+    items.append(("Cost panel leads with 'Cost to fix a wrong answer: being measured', no v1 redo figure", ok_lead,
+                  c["lead"]["text"]))
     items.append(("Cost panel shows no cloud fix rate", no_fix,
                   "no fix-rate field or text in the panel; the clause is withheld in the click-through register row"))
     items.append(("Cost panel shows no router savings", c["router"]["shown"] is False, c["router"]["text"]))
     stub = escalate.Escalator(app.cache.escalation, env={}, ledger=HERE / "generated" / "_unused_ledger.jsonl").run()
-    items.append(("Live view shows the recorded redo when not sent live", stub["mode"] == "recorded redo" and
-                  stub["label"] == "measured", f"mode {stub['mode']}, USD {stub['usd']:.4f}, label {stub['label']}"))
+    items.append(("Live view fallback shows 'being measured', no v1 redo cost or answer",
+                  stub["mode"] == views.BEING_MEASURED and stub["usd"] is None and stub["answer"] is None,
+                  f"mode {stub['mode']}, USD {stub['usd']}, answer {stub['answer']}"))
     bad = [f for f in scope_files if not f.startswith(SCOPE_OK)]
     items.append(("Scope: every changed file vs main is in demo/, src/dse/ or the dashboard tests", not bad,
                   f"{len(scope_files)} files changed" + (f"; outside scope: {', '.join(bad)}" if bad else "")))

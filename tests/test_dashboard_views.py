@@ -281,13 +281,14 @@ def test_cost_lead_order_and_router_gate():
                                "not executed; profile cell USD/day 10.33 to 137.18",
                "b5-verdict": "refuted (router dominated in evo-x2/llama3.1:8b)"})
     c = views.build_cost(r)
-    assert c["lead"]["text"] == ("Fixing a wrong answer in the cloud costs about USD 0.03 (mean USD 0.0283, median "
-                                 "USD 0.0283); the cost is that the failure is silent.")
-    assert c["lead"]["label"] == views.PRICED and c["lead"]["src"] == {"register": "cloud-redo-cost-per-wrong-task"}
-    assert any("cloud part priced, not executed" in i["text"] for i in c["items"])
+    # 2026-10-22: the lead carries no figure from the v1 redo, whatever the redo row says
+    assert c["lead"]["text"] == "Cost to fix a wrong answer: being measured"
+    assert c["lead"]["label"] == views.BEING_MEASURED and c["lead"]["src"] is None
+    blob = json.dumps(c)
+    assert "0.0283" not in blob and "10.33" not in blob and "137.18" not in blob
     labels = [i["label"] for i in c["items"]]
     assert labels == sorted(labels, key=lambda l: views._ORDER[l])  # measured parts first
-    assert labels[0] == views.MEASURED and views.PROJECTED in labels
+    assert labels[0] == views.MEASURED and views.BEING_MEASURED in labels
     assert any("139.4 min" in i["text"] for i in c["items"])
     assert c["router"]["shown"] is False and "refuted" in c["router"]["text"]
     assert not any("saving" in i["what"].lower() and "router" in i["what"].lower() for i in c["items"])
@@ -297,9 +298,10 @@ def test_cost_lead_order_and_router_gate():
     pending = reg(**{"b5-verdict": "supported"})
     pending["b5-verdict"]["status"] = "PENDING"
     assert not views.router_savings_supported(pending)
-    # missing register rows: no lead number, no invented items
+    # missing register rows: no invented numbers (only the 'being measured' placeholders)
     empty = views.build_cost({})
-    assert empty["lead"] is None and empty["items"] == []
+    assert all(i["label"] == views.BEING_MEASURED for i in empty["items"])
+    assert not re.search(r"\d\.\d|USD \d", json.dumps(empty["items"]))
 
 
 REDO_LIVE = ("mode executed; model claude-sonnet-5-5 (prices.json), prompt caching on (cold cache per task); USD per wrong "
@@ -310,17 +312,17 @@ RANK = ("one profile: x; ranking by main-case USD/day (P2: machine capacity; the
         "value; a PENDING row is not ranked): P1 > P5 > P3 > P4; unranked: P2, P6, P7")
 
 
-def test_cost_lead_from_executed_redo():
+def test_cost_panel_shows_no_v1_redo_figure():
     c = views.build_cost(reg(**{"cloud-redo-cost-per-wrong-task": REDO_LIVE, "impact-ranking-v2": RANK}))
-    L = c["lead"]
-    assert L["text"] == ("Fixing a wrong answer in the cloud costs about USD 0.02 (mean USD 0.0201, median USD "
-                         "0.0122); the cost is that the failure is silent.")
-    assert L["label"] == views.MEASURED and L["statistic"] == "mean" and L["executed"] is True
-    assert L["seconds_mean"] == 6.89
-    # no cloud fix rate anywhere in the panel (operator 2026-10-21: under diagnosis)
+    assert c["lead"]["text"] == "Cost to fix a wrong answer: being measured"
     blob = json.dumps(c)
-    assert "79" not in blob and "40.1" not in blob and "cloud_correct" not in blob and "fixed" not in blob.lower()
-    assert any(i["text"] == "P1 > P5 > P3 > P4" for i in c["items"])
+    for fig in ("0.0201", "0.0122", "3.9520", "13.8989", "6.89", "79/197", "40.1", "P1 > P5"):
+        assert fig not in blob, fig  # neither the v1 redo nor the ranking built on it
+    # the register rows behind it are withheld whole in every API response
+    red = views.redact_register(reg(**{"cloud-redo-cost-per-wrong-task": REDO_LIVE, "impact-ranking-v2": RANK,
+                                       "impact-v2-P1": "cloud redo USD/day 5.47 (USD 0.0149 per wrong task)"}))
+    for rid in ("cloud-redo-cost-per-wrong-task", "impact-ranking-v2", "impact-v2-P1"):
+        assert red[rid]["redacted"] and "withheld" in red[rid]["value"] and not re.search(r"\d\.\d", red[rid]["value"])
 
 
 def test_cost_docs_absent_then_present(tmp_path):
@@ -338,7 +340,7 @@ def test_cost_docs_absent_then_present(tmp_path):
 
 def test_cost_endpoint_picks_up_summary_without_rebuild(app, tmp_path):
     c = get(app, "/api/cost")
-    assert c["lead"]["text"].startswith("Fixing a wrong answer in the cloud costs about USD 0.0")
+    assert c["lead"]["text"] == "Cost to fix a wrong answer: being measured"
     assert c["router"]["shown"] is False
     docs = {d["path"]: d for d in c["docs"]}
     assert docs[views.IMPACT_DOC]["present"] is True
@@ -383,44 +385,57 @@ def test_escalation_task_snapshot(app):
     assert t["available"] and t["tier"] == "ollama_ctx_4096" and t["local"]["end_state_ok"] is False
     assert t["local"]["any_http_error"] is False  # the wrong answer came back as a normal answer
     rd = t["redo"]
-    assert rd["usd"] > 0 and rd["src"]["file"] == "results/cloud_redo_v1.jsonl" and rd["src"]["line"]
-    # the label follows the redo file: measured once it ran on the cloud, priced before that
-    assert rd["label"] == ("measured" if rd["mode"] == "executed" else "priced, not executed")
-    if rd["mode"] == "executed":
-        assert rd["seconds"] is not None
-    assert "cloud_end_state_ok" not in rd  # no graded cloud result shown (fix rate under diagnosis)
+    # 2026-10-22: nothing from the v1 redo: no cost, seconds, answer or source line, only "being measured"
+    assert rd == {"label": "being measured", "text": "Cost to fix a wrong answer: being measured", "note": rd["note"]}
+    assert "broken protocol" in rd["note"]
 
 
-STUB_MODES = ("recorded redo", "priced, not executed")
+STUB_MODES = ("being measured",)
+
+
+def v1_redo_figures() -> list[str]:
+    """Strings that would only appear if a figure or answer from results/cloud_redo_v1.jsonl were shown: the run's
+    summary (mean, median, total, mean seconds) and the demo task's own row (USD, seconds, tokens, answer)."""
+    rows = [json.loads(l) for l in (REPO / "results" / "cloud_redo_v1.jsonl").read_text(encoding="utf-8").splitlines()
+            if l.strip()]
+    s = next(r for r in rows if r.get("record") == "run_end")["summary"]
+    out = [f"{s['mean_usd']:.4f}", f"{s['median_usd']:.4f}", f"{s['total_usd']:.4f}"]
+    if s.get("seconds_mean"):
+        out.append(f"{s['seconds_mean']:.2f} s")
+    esc = json.loads((REPO / "demo" / "dashboard" / "cache" / "escalation.json").read_text(encoding="utf-8"))
+    task = next(r for r in rows if r.get("record") == "cloud_redo_task" and r.get("attempt_id") == esc["attempt_id"]
+                and r.get("turn_idx") == esc["turn_idx"])
+    out += [f"{task['usd']:.4f}", f"{task['usd_all_uncached']:.4f}", f"{task['input_tokens']:,}"]
+    if task.get("seconds") is not None:
+        out.append(f"{task['seconds']:.1f} s")
+    if task.get("cloud_final_text"):
+        out.append(task["cloud_final_text"][:60])
+    return out
+
+
+def test_no_v1_redo_figure_anywhere(app, tmp_path):
+    figs = v1_redo_figures()
+    assert len(figs) >= 6
+    stub = make_escalator(app, tmp_path, fake_completion([], []), env_live=False).run()
+    bodies = {p: json.dumps(get(app, p)) for p in ("/api/cost", "/api/story", "/api/escalation", "/api/register",
+                                                   "/api/register?id=cloud-redo-cost-per-wrong-task")}
+    bodies["POST /api/escalate (stub)"] = json.dumps(stub)
+    for name in ("cost.json", "story.json", "escalation.json"):
+        bodies["cache/" + name] = (REPO / "demo" / "dashboard" / "cache" / name).read_text(encoding="utf-8")
+    for where, body in bodies.items():
+        for f in figs:  # whole-figure match: "4.8 s" must not match inside "314.8 s"
+            assert not re.search(r"(?<![\w.])" + re.escape(f), body), (where, f)
+    assert "Cost to fix a wrong answer: being measured" in bodies["/api/cost"]
+    assert "Cost to fix a wrong answer: being measured" in bodies["/api/story"]
 
 
 def test_escalation_stub_when_live_off(app, tmp_path):
     rec = []
     e = make_escalator(app, tmp_path, fake_completion([], rec), env_live=False)
     r = e.run()
-    rd = app.cache.escalation["redo"]
-    assert r["mode"] in STUB_MODES and r["label"] == rd["label"] and "live calls are off" in r["reason"]
-    assert r["usd"] == rd["usd"] and r["usd_src"] == rd["src"]
-    if rd["mode"] == "executed":
-        assert r["seconds"] == rd["seconds"] and r["answer"] == rd["cloud_final_text"]
-    else:
-        assert r["seconds"] is None and r["answer"] is None
+    assert r["mode"] == "being measured" and r["label"] == "being measured" and "live calls are off" in r["reason"]
+    assert (r["usd"], r["seconds"], r["answer"], r["usd_src"]) == (None, None, None, None)
     assert rec == [] and not (tmp_path / "ledger.jsonl").exists()
-
-
-def test_escalation_stub_priced_vs_executed_redo(app, tmp_path):
-    from demo.dashboard import escalate
-    base = dict(app.cache.escalation)
-    priced = escalate.Escalator(dict(base, redo={"mode": "priced_not_executed", "label": "priced, not executed",
-                                                 "usd": 0.01, "seconds": None, "src": {"file": "f", "line": 1}}),
-                                ledger=tmp_path / "l.jsonl", env={}).run()
-    assert priced["mode"] == "priced, not executed" and priced["seconds"] is None and priced["answer"] is None
-    done = escalate.Escalator(dict(base, redo={"mode": "executed", "label": "measured", "usd": 0.012, "seconds": 4.8,
-                                               "cloud_final_text": "ok", "src": {"file": "f", "line": 2}}),
-                              ledger=tmp_path / "l.jsonl", env={}).run()
-    assert done["mode"] == "recorded redo" and done["label"] == "measured"
-    assert (done["usd"], done["seconds"], done["answer"]) == (0.012, 4.8, "ok")
-    assert "cloud_end_state_ok" not in done and "cloud_end_state_ok" not in priced
 
 
 def test_escalation_one_live_call_then_stub(app, tmp_path):
@@ -508,7 +523,8 @@ def test_views_js_renders_every_view(app, tmp_path):
     assert w[0]["panel"] == "#silent-body" and w[2]["panel"] == "#device-wrap" and w[4]["panel"] == "#esc-wrap"
     assert w[6]["story_on"] is False  # free exploration after step 5
     assert "5/5" in w[0]["items"] and "42.0%" in w[0]["items"] and "30.0%" in w[1]["items"]
-    assert "USD 0.02" in w[3]["items"] and "40.1" not in w[3]["items"]
+    assert "Cost to fix a wrong answer: being measured" in w[3]["items"] and "40.1" not in w[3]["items"]
+    assert "USD 0.02" not in w[3]["items"]
     assert out["nav"] == [{"index": 0, "explore": False}, {"index": 1, "explore": False},
                           {"index": 4, "explore": True}, {"index": 4, "explore": False}, {"index": 3, "explore": True}]
 
@@ -525,16 +541,18 @@ def test_story_steps_from_committed_files(app):
         assert st["items"], st["title"]
         for it in st["items"]:
             assert it["label"] in allowed, it
-            if it["label"] not in (None,):
+            if it["label"] not in (None, views.BEING_MEASURED):
                 assert it["src"], it  # every labelled number links to its source
     text = " ".join(it["text"] for st in steps for it in st["items"])
     assert "4096" in text and "32768" in text and "5/5" in text and "11.3%" in text and "42.0%" in text
     assert "30.0%" in text and "two-call pattern" in text and "resists rule loss" in text
     money = steps[3]["items"]
     assert any(i["label"] == "priced, not executed" and "median 62 steps" in i["text"] for i in money)
-    assert any(i["text"].startswith("Fixing a wrong answer in the cloud costs about USD 0.02") for i in money)
+    assert any(i["text"] == "Cost to fix a wrong answer: being measured" and i["label"] == "being measured"
+               for i in money)
     assert "fixed" not in text.lower() and "40.1" not in text and "savings" not in text.lower()
-    assert any("Recorded cloud redo" in i["text"] for i in steps[4]["items"])
+    assert "USD 0.02" not in text and "recorded" not in text.lower()
+    assert any(i["text"] == "Cost to fix a wrong answer: being measured" for i in steps[4]["items"])
 
 
 def test_story_parsers():
@@ -561,7 +579,8 @@ def test_fix_rate_redacted_everywhere(app):
                                                                                         "79/197 (40.1%), mean 6.89 s"}}
     red = views.redact_register(r)["cloud-redo-cost-per-wrong-task"]
     assert "79/197" not in red["value"] and "withheld" in red["value"] and red["redacted"] is True
-    assert "6.89 s" in red["value"] and r["cloud-redo-cost-per-wrong-task"]["value"].count("79/197") == 1
+    assert "6.89" not in red["value"]  # 2026-10-22: the whole v1 redo row is withheld
+    assert r["cloud-redo-cost-per-wrong-task"]["value"].count("79/197") == 1  # the input is not mutated
     for path in ("/api/register?id=cloud-redo-cost-per-wrong-task", "/api/cost", "/api/story", "/api/escalation",
                  "/api/register"):
         body = json.dumps(get(app, path))

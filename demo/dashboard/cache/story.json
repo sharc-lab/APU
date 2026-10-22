@@ -115,7 +115,7 @@
   },
   {
    "n": 4,
-   "title": "The money: cheap to fix, if you know it broke",
+   "title": "The money: a whole task in the cloud is not cheap, and the failure is silent",
    "minutes": 1,
    "items": [
     {
@@ -126,14 +126,12 @@
      }
     },
     {
-     "text": "Fixing a wrong answer in the cloud costs about USD 0.02 (mean USD 0.0201, median USD 0.0122); the cost is that the failure is silent.",
-     "label": "measured",
-     "src": {
-      "register": "cloud-redo-cost-per-wrong-task"
-     }
+     "text": "Cost to fix a wrong answer: being measured",
+     "label": "being measured",
+     "src": null
     },
     {
-     "text": "Takeaway: escalating one wrong step is cheap; sending every long task to the cloud is not. The expensive part is not knowing which step went wrong.",
+     "text": "Takeaway: sending every long task to the cloud is not cheap; escalating only the step that went wrong needs to know which step went wrong, and the failure is silent.",
      "label": null,
      "src": null
     }
@@ -154,15 +152,12 @@
      }
     },
     {
-     "text": "Recorded cloud redo of this task: USD 0.0122, 4.8 s",
-     "label": "measured",
-     "src": {
-      "file": "results/cloud_redo_v1.jsonl",
-      "line": 92
-     }
+     "text": "Cost to fix a wrong answer: being measured",
+     "label": "being measured",
+     "src": null
     },
     {
-     "text": "One click sends that turn to the cloud through the capped client (one call per demo run); without a network or key the recorded redo is shown.",
+     "text": "One click sends that turn to the cloud through the capped client (one call per demo run); without a network or key nothing is sent and the cost shows as being measured.",
      "label": null,
      "src": null
     }
@@ -179,7 +174,6 @@
   "H-scale-family-verdict",
   "R2-v1b-gated-per-model",
   "cloud-cost-per-real-task",
-  "cloud-redo-cost-per-wrong-task",
   "b5-fa-control",
   "b5-policy-metrics"
  ],
