@@ -5221,9 +5221,9 @@ B5_FA_FILE = "results/x2_policy_compare_fa_control.jsonl"
 B5_SIMCAP_FILES = {8192: "results/x2_policy_compare_simcap8192.jsonl", 4096: "results/x2_policy_compare_simcap4096.jsonl"}
 B5_SIM_SEEDS = (20260901, 20260902, 20260903, 20260904, 20260905)
 MX2_VALIDATION_FILE = "results/mx2_validation.jsonl"
-# The schedule anchor: the watchdog launch of the first job of this fill (watchdog.log on evo-x2); until it is known,
-# the time the estimate was made. Jobs are projected back to back from it.
-FILL_1022_ANCHOR_UTC = "2026-10-22T03:30:00+00:00"
+# The schedule anchor: the watchdog launch of the first job of this fill (watchdog.log on evo-x2,
+# {"action": "launched", "launched": "x2_b5_fa_control"} at 2026-10-22T03:13:40Z). Jobs are projected back to back.
+FILL_1022_ANCHOR_UTC = "2026-10-22T03:13:40+00:00"
 FILL_1022_DEADLINE_UTC = "2026-11-10T00:00:00+00:00"
 FILL_1022_RESERVE_H = 150.0             # operator: about 150 h left unallocated before the deadline for reviewer reruns
 FILL_1022_RESULTS_BY_UTC = "2026-10-28T00:00:00+00:00"   # operator: the two B5 jobs must have results by then
@@ -5603,6 +5603,48 @@ def compute_r2_v1b_excess_10seed(repo):
     return {"value": "; ".join(parts) + f" (bootstrap {x10['n_resamples']} resamples, unit {x10['unit']}, stratified "
                                         f"by {x10['strata']}, seed {x10['seed']})",
             "n": f"{rep10['n_sessions']} sessions pooled"}
+
+
+
+
+SPILL32_FILE = "results/x2_mx2_qwen3_32b_spill_sweep.jsonl"
+
+
+def compute_fh1_amd_qwen3_32b_spill_sweep(repo):
+    """qwen3-32b spill sweep on evo-x2 (20480 to 40960): per point the served n_ctx, class, shared-usage delta and
+    decode/TTFT means; the spill point, the last no-spill point and the spill cost with the pre-registered readings
+    (harness/mx2_qwen32b_spill_sweep.summarize)."""
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "harness"))
+    import mx2_qwen32b_spill_sweep as sw
+    rows = sw.ag_rows(repo / SPILL32_FILE)
+    if not rows:
+        raise FileNotFoundError(repo / SPILL32_FILE)
+    rs = next((r for r in rows if r.get("record") == "run_start"), {})
+    s = sw.summarize(rows, rs.get("threshold_mib") or 1024.0)
+    finished = any(r.get("record") == "run_end" for r in rows)
+    b = s["points"].get(sw.BASELINE_CTX) or {}
+    valid = finished and b.get("class") == "no_spill" and b.get("n_measured") == sw.MEASURED_CALLS
+    pts = []
+    for n, p in s["points"].items():
+        d, t = p["decode"], p["ttft"]
+        pts.append(f"n_ctx {n} (served {p.get('served_n_ctx')}) {p['class']}"
+                   + (f" shared {p['shared_delta_mib']:+.0f} MiB vs 20480" if p.get("shared_delta_mib") is not None
+                      else "")
+                   + (f", decode {d[0]:.3f} +/- {d[1]:.3f} tok/s" if d[0] is not None and d[1] is not None else "")
+                   + (f", TTFT {t[0]:.0f} +/- {t[1]:.0f} ms" if t[0] is not None and t[1] is not None else "")
+                   + f" (n={p['n_measured']})")
+    c = s["cost"]
+    if not valid:
+        head = "not read (run not valid: " + ("no run_end" if not finished else "baseline point problem") + ")"
+    elif s["spill_point"] is None:
+        head = "no unclamped spill point up to 40960"
+    else:
+        head = (f"spill point n_ctx {s['spill_point']}, last no-spill {s['last_no_spill']}; decode ratio "
+                f"{c['decode_ratio']:.3f}, TTFT ratio {c['ttft_ratio']:.3f}; {c['decode_reading']}; {c['ttft_reading']}")
+    return {"value": f"evo-x2 qwen3-32b, llama-server b10970 Vulkan -ngl 99, 1 warm-up + {sw.MEASURED_CALLS} calls "
+                     f"per point; {head} // points: " + "; ".join(pts),
+            "n": f"{sum(p['n_measured'] for p in s['points'].values())} measured calls"}
 
 
 
@@ -6558,6 +6600,11 @@ NUMBER_ENTRIES = [
      "sign-reversal flag, new seeds alone, CI widths, validity",
      "compute": compute_r2_v1b_excess_10seed, "data_files": [R2_V1B_SEEDS_FILE, R2_V1B_REPRO_FILE] + R2_V1B_DATA,
      "pending_ok": True, "script_function": "analysis/numbers_register.py::compute_r2_v1b_excess_10seed"},
+    {"claim_id": "fh1-amd-qwen3-32b-spill-sweep", "description": "qwen3-32b on evo-x2 (llama-server b10970 Vulkan "
+     "-ngl 99), n_ctx 20480 to 40960 unclamped: spill point, last no-spill point and spill cost (decode, TTFT) with "
+     "the pre-registered readings, per-point shared-usage delta",
+     "compute": compute_fh1_amd_qwen3_32b_spill_sweep, "data_files": [SPILL32_FILE], "pending_ok": True,
+     "script_function": "harness/mx2_qwen32b_spill_sweep.py::summarize"},
     {"claim_id": "x2-scale-real-default-tier", "description": "H-scale real job, Ollama default tier: completed "
      "default-tier sessions per model (turns, wall hours, loaded context, first over-window turn)",
      "compute": compute_x2_scale_real_default_tier, "data_files": [X2_SCALE_REAL],

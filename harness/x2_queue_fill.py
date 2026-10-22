@@ -107,6 +107,15 @@ ENTRIES = {
                 "qwen3:14b at default/16384/8192/4096, seeds 20260906-10; pre-registered in docs/FINDINGS.md "
                 "2026-10-22 (b19be61). ESTIMATE 30.44 h (register row x2-queue-fill-1022-hours). " + RELEASE,
     },
+    "x2_mx2_qwen3_32b_spill_sweep": {
+        "projected_duration_h": 0.36,
+        "cmd": [PY, "spill32\\mx2_qwen32b_spill_sweep.py", "--out",
+                f"{RESULTS}\\x2_mx2_qwen3_32b_spill_sweep.jsonl"],
+        "note": "qwen3-32b spill point and spill cost on evo-x2, n_ctx 20480 to 40960 unclamped (llama-server b10970 "
+                "Vulkan -ngl 99, own port 58411, stale-server guard, 1 warm-up + 5 calls per point), pre-registered in "
+                "docs/FINDINGS.md 2026-10-22 (777ee78). ESTIMATE 0.36 h (high 1.03 h; register row "
+                "x2-queue-fill-1022-hours). " + RELEASE,
+    },
 }
 
 
