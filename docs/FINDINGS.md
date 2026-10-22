@@ -3549,6 +3549,37 @@ the reverse of the ordering in every other model. Is that noise (n = 5), an arti
 **Consequence for the paper.** Report the pooled excess curve with per-model CIs and name this cell as within noise.
 Do not claim the 4096 tier is safer for qwen3:8b. No rerun was made for this check.
 
+## Cost of a silent wrong answer: cloud redo of every B3 v2 wrong task, priced, not executed (2026-10-21, stub mode)
+
+**Question (operator, startup cost track).** What does it cost to redo, on the cloud escalation model, each task the
+local model got wrong without any error? Source: every task turn with end_state_ok false in
+results/x2_evalset_tasks_real_v2.jsonl (qwen3:14b, all five tiers; counts per tier as in
+`x2-evalset-tasks-real-v2-wrong-rate`). Script: scripts/cloud_redo.py; result file results/cloud_redo_v1.jsonl (its
+run_start records the script's git blob, the price file, the model id and the mode).
+
+**Method.** Each wrong task is rebuilt from the same task definition and environment: the session is rebuilt with
+x2_r2_evalset.build_session, the transcript before the wrong turn is rebuilt from the local run's own turn rows, and
+the environment is the one the local model left. The cloud answer would be graded by the same end-state checker
+(evalset_env.check_task). As a parity check the local turn's own calls were regraded on the rebuilt environment.
+ANTHROPIC_API_KEY is not set on this machine, so the run is in stub mode: no API call. Each task is priced from the
+shared Anthropic table (escalation model claude-sonnet-5-5) with the task's real prompt tokens per call as the local
+run sent them, and the local run's output tokens as a stand-in for the cloud output. Prompt caching on, cold cache
+per task (call 1 writes its prompt, later calls of the turn read the previous call's prompt).
+
+**Result.** Register row `cloud-redo-cost-per-wrong-task`: mode priced, not executed; USD per wrong task mean $0.0283,
+median $0.0283, total $5.5681 (all input uncached: $8.7552), n = 197 wrong tasks; the local regrade reproduces
+end_state_ok false for 197/197 (100.0%). Per-tier values are in the row.
+
+**Not measured.** Cloud correctness (would the escalation model get the task right) and seconds per task are NOT
+MEASURED: no call was made. The output tokens are the local model's, not the cloud model's. The token basis is the
+harness's estimate, not Anthropic's tokenizer (the price file notes Claude 4.7 and later produce about 30% more tokens
+for the same text). So this is a price for the redo attempt, not a measured cost of a correct answer.
+
+**To execute.** With the key set on the controller: `$env:CLOUD_CLIENT_HOST_ROLE = "controller"; py -3.12
+scripts/cloud_redo.py --live` (litellm must be installed). One warm-up call excluded from stats, then each task once,
+under client.py's USD 50 hard cap; the script refuses before any call if the all-uncached projection exceeds the
+remaining budget.
+
 ## qwen3:14b at num_ctx 4096: reconciliation of v1/v1b, the mitigation run and the num_keep run (2026-10-22, analysis only)
 
 **Question (operator, 2026-10-22).** Why did rules hold at 95.8 to 100% in the num_keep run (`num-keep-qwen3-14b`),

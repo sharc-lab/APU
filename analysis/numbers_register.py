@@ -5125,6 +5125,35 @@ def compute_x2_evalset_tasks_real_v2_wrong_rate(repo, model=V2_PROTOCOL_MODEL,
             "n": f"{n} task turns"}
 
 
+# Cloud redo of every B3 v2 wrong task (scripts/cloud_redo.py): USD per wrong task on the cloud escalation model. Stub
+# mode prices the local run's token counts ("priced, not executed"); a live run (--live, key set) executes each task.
+CLOUD_REDO_V1 = "results/cloud_redo_v1.jsonl"
+
+
+def compute_cloud_redo_cost_per_wrong_task(repo, path=CLOUD_REDO_V1):
+    """Mean, median and total USD per wrong task, per tier, mode and n (scripts/cloud_redo.py::summarize)."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("cloud_redo", repo / "scripts" / "cloud_redo.py")
+    cr = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cr)
+    rows = cr.load_rows(repo / path)
+    start = next(r for r in rows if r.get("record") == "run_start")
+    s = cr.summarize(rows)
+    stub = s["mode"] == cr.MODE_STUB
+    mode_txt = ("priced, not executed (stub: no API call; input = the local run's prompt tokens per call, output = "
+                "the local run's completion tokens as a stand-in)" if stub else "executed")
+    tiers = "; ".join(f"{t} n={v['n']} mean ${v['mean_usd']:.4f} median ${v['median_usd']:.4f} total "
+                      f"${v['total_usd']:.4f}" for t, v in s["per_tier"].items())
+    tail = ("; cloud correctness and seconds NOT MEASURED in stub mode" if stub else
+            f"; cloud correct {_frac(s['cloud_correct'], s['cloud_graded'])}, mean {s['seconds_mean']:.2f} s per task")
+    return {"value": f"mode {mode_txt}; model {start['model_id']} ({start['price_file']}), prompt caching on (cold "
+                     f"cache per task); USD per wrong task mean ${s['mean_usd']:.4f}, median ${s['median_usd']:.4f}, "
+                     f"total ${s['total_usd']:.4f} (all input uncached: ${s['total_usd_all_uncached']:.4f}); per tier: "
+                     f"{tiers}; local regrade on the rebuilt environment reproduces end_state_ok false for "
+                     f"{_frac(s['local_regrade_false'], s['n'])}; token basis is the harness estimate, not Anthropic's "
+                     f"tokenizer{tail}",
+            "n": f"{s['n']} wrong tasks"}
+
 
 # ───────────────────────────────────────────────── evo-x2 queue fill of 2026-10-21 (docs/X2_QUEUE_PLAN.md)
 # Jobs pre-registered in docs/FINDINGS.md on 2026-10-20/21: num_keep for qwen3:14b, B3 v2 for qwen3:8b (tasks
@@ -6690,6 +6719,11 @@ NUMBER_ENTRIES = [
      "pre-registered reading; refused models",
      "compute": compute_x2_evalset_tasks_real_v2_wrong_rate, "data_files": [X2_EVALSET_TASKS_REAL_V2],
      "pending_ok": True, "script_function": "harness/x2_r2_evalset.py::tasks_real_v2_outcome"},
+    {"claim_id": "cloud-redo-cost-per-wrong-task", "description": "Cost of a silent wrong answer: every B3 v2 wrong "
+     "task (qwen3:14b, all tiers) re-run on the cloud escalation model; mean, median and total USD per wrong task, per "
+     "tier, mode (priced, not executed vs executed) and n. In stub mode correctness and seconds are not measured",
+     "compute": compute_cloud_redo_cost_per_wrong_task, "data_files": [CLOUD_REDO_V1, X2_EVALSET_TASKS_REAL_V2],
+     "script_function": "scripts/cloud_redo.py::summarize"},
     {"claim_id": "x2-queue-fill-1020-hours", "description": "ESTIMATE, not a measurement: hours per job of the "
      "2026-10-21 evo-x2 queue fill from measured session times, back-to-back projected dates from the first launch, "
      "slack before 2026-11-10 and idle capacity",
