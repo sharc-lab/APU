@@ -369,6 +369,27 @@ Facts and changes: `results/t2s_window_20261015_preflight.json`, `docs/T2S_CHANG
 
 ## Staged for 2026-10-26 to 2026-11-08 (pending Zach's confirmation; NOT loaded)
 
+**Update 2026-10-22 (B5 is the T2S priority).** Canonical file: `queues/t2s_oct26_queue.json` (one builder,
+`scripts/t2s_week_queue.py build-oct26`; its gates point at its own preflight; it is the file `load-window` takes). The
+second file `queues/t2s_window_20261026_staged.json` was retired: it staged B5 for llama3.1:8b on the iGPU only at 3
+seeds and a different, iGPU-only B6, and its gates named the finished week's `t2s_wk_*` ids. Order of the window:
+1. On the controller, first: `py -3.12 harness/t2s_deadline.py open-window --no-launch-after 2026-11-09T04:00:00Z
+   --hard-deadline 2026-11-09T04:30:00Z --reason "handover to Zach 2026-11-08; resume only in the next confirmed
+   window"` (times are 23:00 and 23:30 EST on 2026-11-08; DST ends 2026-11-01). It runs the handover check on evo-t2s
+   (HANDOVER_DONE.json, the pause flag naming its releaser, no process of ours; refuses and changes nothing on a
+   failure), widens the results sync to both hosts with a window file that expires at the hard deadline (the
+   APU-SyncResults task keeps `--host evo-x2` and is not edited), arms the deadline, waits until the hard deadline, and
+   removes the window file in its finally block. So the job that arms the deadline is the job that switches the sync
+   and switches it back, and an expired file is ignored and deleted by `scripts/sync_results.py` even if that job died.
+2. Deploy (the week's file list plus `window_override_methods.py`, `policy_compare.py` and the router stack under
+   `C:\apu\ovn\src`, `C:\apu\ovn\analysis`), then `python t2s_week_queue.py load-window t2s_oct26_queue.json`.
+3. The queue: preflight, A5, B5 (four cells), then the B6 pull, validations and real runs.
+Plan (ESTIMATES, `py -3.12 scripts/t2s_window_stage.py plan`, register row `t2s-b5-plan-hours`): only the two
+llama3.1:8b B5 cells are expected to count in this window (CPU 5 seeds, iGPU first 3 or 4 seeds); the qwen3:14b cells
+and B6 are not expected to start. Pre-registration: docs/FINDINGS.md "B5 on evo-t2s Intel CPU and Intel iGPU".
+
+The original 2026-10-15 staging note follows (B5 was then pending):
+
 `queues/t2s_oct26_queue.json` (`py -3.12 scripts/t2s_week_queue.py build-oct26`, check with `dry-run-oct26`, all 7
 entries pass): t2s_o26_preflight; t2s_o26_b6_model_pull (qwen3:32b, llama3.3:70b); t2s_o26_window_override_methods
 (A5); B6 validation on CPU and with OLLAMA_IGPU_ENABLE=1 (negative control at num_ctx 32768, the
