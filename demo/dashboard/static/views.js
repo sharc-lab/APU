@@ -113,6 +113,52 @@ function renderCost(c) {
   $("#cost-body").innerHTML = h;
 }
 
+// ── D: live escalation ──
+function escStatus(s) {
+  return `live calls ${s.live_requested ? "on" : "off"}; key ${s.key_present ? "present" : "absent"}; cap ${num("USD " + s.cap_usd.toFixed(2), null)}; ` +
+    `demo ledger ${esc(s.ledger)}: ${num("USD " + s.ledger_total_usd.toFixed(4), null)} spent; live calls this run ${s.live_calls_used}/${s.live_calls_allowed}`;
+}
+function renderEscalationTask(e) {
+  const t = e.task;
+  if (!t.available) { $("#esc-task").innerHTML = `${lab("not measured")} ${esc(t.reason)}`; $("#esc-run").disabled = true; return; }
+  const loc = t.local, pr = t.priced;
+  $("#esc-task").innerHTML = `
+    <p><b>The task</b> (${esc(t.task_id)}, ${esc(t.local_model)} at ${esc(tierName(t.tier))}, seed ${t.seed}, turn ${t.turn_idx}; ${esc(t.selection)}):</p>
+    <div class="answer">${esc(t.user_message)}</div>
+    <div class="pair" style="margin-top:8px">
+      <div class="devcard bad"><h3>Local answer ${lab("measured")}</h3>
+        <p class="small">HTTP error: ${num(loc.any_http_error ? "yes" : "no", loc.src)}; graded end state: ${num(loc.end_state_ok ? "correct" : "wrong", loc.src)}; window ${num(loc.loaded_context, loc.src)}</p>
+        <div class="answer">${esc(loc.tool_calls.length ? JSON.stringify(loc.tool_calls) : "(no tool call)")}\n${esc(loc.final_text)}</div>
+        <p class="small muted">Expected: ${esc(JSON.stringify(t.expected_calls))}</p></div>
+      <div class="devcard"><h3>Cloud (${esc(t.cloud_model)}), before any call ${lab(pr.label)}</h3>
+        <p><span class="big">${num("USD " + pr.usd.toFixed(4), pr.src)}</span><br><span class="small">priced from the local run's own ${num(pr.input_tokens.toLocaleString(), pr.src)} input tokens with caching (all input uncached: ${num("USD " + pr.usd_all_uncached.toFixed(4), pr.src)}); register ${num(pr.register_id, R(pr.register_id))}</span></p></div>
+    </div>`;
+  $("#esc-mode").innerHTML = escStatus(e.status);
+}
+function renderEscalationResult(r) {
+  const live = r.mode === "executed";
+  $("#esc-result").innerHTML = `<div class="devcard ${live ? (r.cloud_end_state_ok ? "ok" : "bad") : ""}">
+    <h3>${live ? "Cloud answer" : "Not sent"} ${lab(r.label)}</h3>
+    <p class="small">${esc(r.reason)}</p>
+    <div class="settings">
+      <div class="tile"><div class="k">USD</div><div class="v">${r.usd == null ? "n/a" : num("USD " + r.usd.toFixed(4), live ? null : r.usd_src)}</div><div class="muted small">${live ? esc(r.usd_basis) : "priced, not executed"}</div></div>
+      <div class="tile"><div class="k">Seconds</div><div class="v">${r.seconds == null ? "not measured" : r.seconds.toFixed(1) + " s"}</div></div>
+      <div class="tile"><div class="k">Graded end state</div><div class="v">${r.cloud_end_state_ok == null ? "not measured" : r.cloud_end_state_ok ? "correct" : "wrong"}</div></div>
+    </div>
+    ${live ? `<div class="answer">${esc((r.tool_calls || []).length ? JSON.stringify(r.tool_calls) : "(no tool call)")}\n${esc(r.answer || "")}</div>` : ""}
+    <p class="muted small">${escStatus(r)}</p></div>`;
+  $("#esc-mode").innerHTML = escStatus(r);
+}
+async function runEscalation() {
+  $("#esc-run").disabled = true;
+  $("#esc-result").innerHTML = `<p class="muted">sending</p>`;
+  try {
+    const r = await fetch("/api/escalate", { method: "POST" });
+    renderEscalationResult(await r.json());
+  } catch (e) { $("#esc-result").textContent = "Error: " + e.message; }
+  $("#esc-run").disabled = false;
+}
+
 async function viewsMain() {
   try { renderSilent(await api("/api/silent")); } catch (e) { $("#silent-body").textContent = "Error: " + e.message; }
   try {
@@ -122,5 +168,9 @@ async function viewsMain() {
     await refreshDevice();
   } catch (e) { $("#device-body").textContent = "Error: " + e.message; }
   try { renderCost(await api("/api/cost")); } catch (e) { $("#cost-body").textContent = "Error: " + e.message; }
+  try {
+    renderEscalationTask(await api("/api/escalation"));
+    $("#esc-run").addEventListener("click", runEscalation);
+  } catch (e) { $("#esc-task").textContent = "Error: " + e.message; }
 }
 viewsMain();

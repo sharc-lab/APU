@@ -273,6 +273,94 @@ def test_cost_endpoint_picks_up_summary_without_rebuild(app, tmp_path):
     assert {d["path"]: d["present"] for d in get(other, "/api/cost")["docs"]}[views.COST_SUMMARY_DOC] is True
 
 
+# ── D: live escalation (fake provider; no network) ──
+
+FAKE_KEY = "sk-ant-test-0000-not-a-real-key-0000"
+
+
+def fake_completion(calls, record):
+    def fn(*, model_id, messages, api_key, **kw):
+        record.append({"model_id": model_id, "n_messages": len(messages), "tools": bool(kw.get("tools")),
+                       "provider": kw.get("custom_llm_provider")})
+        return {"choices": [{"message": {"content": '{"answer": "booked"}', "tool_calls": [
+            {"id": f"t{i}", "type": "function", "function": {"name": c["name"], "arguments": json.dumps(c["arguments"])}}
+            for i, c in enumerate(calls)]}}], "usage": {"prompt_tokens": 9000, "completion_tokens": 80}}
+    return fn
+
+
+def make_escalator(app, tmp_path, completion, env_live=True, **kw):
+    from demo.dashboard import escalate
+    from src.cloud import client as cc
+    env = {escalate.ENV_LIVE: "1"} if env_live else {}
+
+    def factory(cap, ledger):
+        return cc.CloudClient(mode="real", api_key=FAKE_KEY, spend_cap_usd=cap, ledger_path=ledger,
+                              role_override="controller", completion_fn=completion)
+
+    return escalate.Escalator(app.cache.escalation, ledger=tmp_path / "ledger.jsonl", env=env,
+                              client_factory=factory, **kw)
+
+
+def test_escalation_task_snapshot(app):
+    t = get(app, "/api/escalation")["task"]
+    assert t["available"] and t["tier"] == "ollama_ctx_4096" and t["local"]["end_state_ok"] is False
+    assert t["local"]["any_http_error"] is False  # the wrong answer came back as a normal answer
+    assert t["priced"]["label"] == "priced, not executed" and t["priced"]["usd"] > 0
+    assert t["priced"]["src"]["file"] == "results/cloud_redo_v1.jsonl" and t["priced"]["src"]["line"]
+
+
+def test_escalation_stub_when_live_off(app, tmp_path):
+    rec = []
+    e = make_escalator(app, tmp_path, fake_completion([], rec), env_live=False)
+    r = e.run()
+    assert r["mode"] == "priced, not executed" and r["label"] == "priced, not executed"
+    assert r["usd"] == app.cache.escalation["priced"]["usd"] and r["seconds"] is None and r["answer"] is None
+    assert rec == [] and not (tmp_path / "ledger.jsonl").exists()
+
+
+def test_escalation_one_live_call_then_stub(app, tmp_path):
+    rec = []
+    expected = app.cache.escalation["expected_calls"]
+    calls = [{"name": "log_event", "arguments": {"event": "booking"}}] + expected
+    e = make_escalator(app, tmp_path, fake_completion(calls, rec))
+    r = e.run()
+    assert r["mode"] == "executed" and r["label"] == "measured", r.get("reason")
+    assert r["cloud_end_state_ok"] is True and r["usd"] > 0 and r["seconds"] >= 0
+    assert rec == [{"model_id": app.cache.escalation["cloud_model"], "n_messages": app.cache.escalation["n_messages"],
+                    "tools": True, "provider": "anthropic"}]
+    ledger = (tmp_path / "ledger.jsonl").read_text(encoding="utf-8")
+    assert FAKE_KEY not in ledger and FAKE_KEY not in json.dumps(r)
+    assert r["ledger_total_usd"] == pytest.approx(r["usd"]) and r["cap_usd"] == 10.0
+    again = e.run()  # one live call per demo run
+    assert again["mode"] == "priced, not executed" and "used" in again["reason"] and len(rec) == 1
+
+
+def test_escalation_failure_falls_back_and_scrubs_key(app, tmp_path):
+    def boom(**kw):
+        raise RuntimeError(f"auth failed for key {kw['api_key']}")
+    from demo.dashboard import escalate
+    e = make_escalator(app, tmp_path, boom)
+    e.env = {escalate.ENV_LIVE: "1", "ANTHROPIC_API_KEY": FAKE_KEY}
+    r = e.run()
+    assert r["mode"] == "priced, not executed" and "live call failed" in r["reason"]
+    assert FAKE_KEY not in json.dumps(r) and "[redacted]" in r["reason"]
+
+
+def test_escalation_cap_and_endpoint(app, tmp_path):
+    from demo.dashboard import escalate
+    assert escalate.cap_usd({}) == 10.0
+    assert escalate.cap_usd({escalate.ENV_CAP: "50"}) == 10.0  # never above this agent's cap
+    assert escalate.cap_usd({escalate.ENV_CAP: "2.5"}) == 2.5
+    assert escalate.cap_usd({escalate.ENV_CAP: "junk"}) == 10.0
+    other = server.App(app.cache, app.backend, escalator=make_escalator(app, tmp_path, fake_completion([], []),
+                                                                         env_live=False))
+    assert other.handle("GET", "/api/escalate").status == 405
+    r = other.handle("POST", "/api/escalate")
+    assert r.status == 200 and r.json()["mode"] == "priced, not executed"
+    s = get(other, "/api/escalation")["status"]
+    assert s["live_requested"] is False and s["cap_usd"] == 10.0 and "key" not in json.dumps(s).replace("key_present", "")
+
+
 def test_recommendation_hides_router_savings(app):
     r = get(app, "/api/recommend")
     assert r["savings_shown"] is False and r["savings_vs_all_cloud_usd_per_1k"] is None

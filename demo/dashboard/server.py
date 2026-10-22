@@ -22,6 +22,9 @@ Endpoints (all GET):
                             precision, flash attention with the measured outcome, or "not measured"
   /api/cost                 view C: cost panel (measured parts first; P1 lead; router savings only with a register
                             row behind it; docs/OCT29_COST_SUMMARY.md and docs/IMPACT.md when present)
+  /api/escalation           view D: the wrong task, its local answer, its priced cost, live-call status (never the key)
+  POST /api/escalate        view D: one live call through src/cloud/client.py (USD 10 cap, demo ledger, at most one per
+                            server process), or the stub "priced, not executed" with the reason
   /api/register[?id=]       register rows from the snapshot
   /api/source?file=&line=   one raw line of a whitelisted source file
   /api/source?file=&match=k:v,k:v   line numbers of rows matching every k:v
@@ -92,15 +95,27 @@ class App:
         self.cache = cache or data.Cache()
         self.backend = backend or data.load_backend()
         self.repo = Path(repo) if repo else data.REPO  # where the cost view looks for its docs
-        self.escalator = escalator
+        self._escalator = escalator
+
+    @property
+    def escalator(self):
+        """View D's Escalator: one per App, so one live call per demo run (created on first use)."""
+        if self._escalator is None:
+            from demo.dashboard import escalate
+            self._escalator = escalate.Escalator(self.cache.escalation)
+        return self._escalator
 
     # one place for every route
     def handle(self, method: str, target: str) -> Response:
-        if method not in ("GET", "HEAD"):
-            return _json({"error": "method not allowed"}, 405)
         u = urlsplit(target)
         q = parse_qs(u.query)
         path = u.path.rstrip("/") or "/"
+        if path == "/api/escalate":  # the only POST: it may spend money, so never on a GET
+            if method != "POST":
+                return _json({"error": "POST only"}, 405)
+            return _json(self.escalator.run())
+        if method not in ("GET", "HEAD"):
+            return _json({"error": "method not allowed"}, 405)
         try:
             if path == "/":
                 return self._static("index.html")
@@ -110,7 +125,8 @@ class App:
                      "/api/scenario": self.scenario, "/api/replay": self.replay,
                      "/api/replay/stream": self.replay_stream, "/api/register": self.register,
                      "/api/source": self.source, "/api/silent": self.silent, "/api/device": self.device,
-                     "/api/device/recommend": self.device_recommend, "/api/cost": self.cost}.get(path)
+                     "/api/device/recommend": self.device_recommend, "/api/cost": self.cost,
+                     "/api/escalation": self.escalation}.get(path)
             if route is None:
                 return _json({"error": f"no route {path}"}, 404)
             return route(q)
@@ -190,6 +206,11 @@ class App:
 
     def cost(self, q) -> Response:
         return _json(views.cost_view(self.cache, self.repo))
+
+    def escalation(self, q) -> Response:
+        reg = self.cache.register.get("cloud-redo-cost-per-wrong-task")
+        return _json({"task": self.cache.escalation, "status": self.escalator.status(),
+                      "register": {"cloud-redo-cost-per-wrong-task": reg} if reg else {}})
 
     def register(self, q) -> Response:
         if "id" in q:
