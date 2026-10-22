@@ -340,7 +340,7 @@ def test_main_resume_client_cap_total(monkeypatch, tmp_path):
     out = tmp_path / "p2.jsonl"
     assert CR.main(["--live", "--thinking-off", "--resume", "--resume-from", str(prior), "--out", str(out),
                     "--max-tokens", "2048", "--client-cap-total", "43.1913", "--ledger", str(tmp_path / "l")]) == 0
-    assert got["client"].spend_cap_usd == 43.1913 and got["max_tokens"] == 2048 and got["resume_from"] == prior
+    assert got["client"].spend_cap_usd == 43.1913 and got["max_tokens"] == 2048 and got["resume_from"] == [prior]
     assert got["out"] == out
     # refusals: above the hard cap, both caps, writing over the resumed file, an existing continuation file
     assert CR.main(["--live", "--resume", "--resume-from", str(prior), "--out", str(tmp_path / "x.jsonl"),
@@ -350,3 +350,113 @@ def test_main_resume_client_cap_total(monkeypatch, tmp_path):
     assert CR.main(["--live", "--resume", "--resume-from", str(prior), "--out", str(prior)]) == 2
     out.write_text("x\n")
     assert CR.main(["--live", "--resume", "--resume-from", str(prior), "--out", str(out)]) == 2
+
+
+# ── transient retry and multi-part resume (2026-10-22) ──────────────────────────────────────────────
+
+class InternalServerError(Exception):   # same class name as litellm's
+    pass
+
+
+class BadRequestError(Exception):
+    pass
+
+
+def test_transient_error_retried_with_backoff_and_no_ledger_row(tmp_path, monkeypatch):
+    waits = []
+    monkeypatch.setattr(CR, "_sleep", waits.append)
+    state = {"n": 0}
+
+    def fake(*, model_id, messages, api_key, **kw):
+        state["n"] += 1
+        if kw["max_tokens"] != 8 and state["n"] in (2, 3):
+            raise InternalServerError("AnthropicException - Server disconnected without sending a response")
+        return _resp_fr('{"answer": "no idea"}')
+
+    client = _client(tmp_path, fake)
+    rows = CR.run(True, out=tmp_path / "o.jsonl", limit=1, client=client, thinking_off=True, max_tokens=2048)
+    task = [r for r in rows if r["record"] == "cloud_redo_task"][0]
+    assert waits == [10.0, 30.0] and task["retries"] == 2 and task["cloud_calls"][0]["retries"] == 2
+    assert rows[-1]["stopped"] is None
+    led = (tmp_path / "ledger.jsonl").read_text().splitlines()
+    assert len(led) == 2           # warm-up + the one billed task call; failed sends write nothing
+    assert client._reserved_usd == 0
+
+
+def test_transient_error_past_last_retry_stops_with_run_end(tmp_path, monkeypatch):
+    waits = []
+    monkeypatch.setattr(CR, "_sleep", waits.append)
+
+    def fake(*, model_id, messages, api_key, **kw):
+        if kw["max_tokens"] == 8:
+            return _resp_fr("OK")
+        raise InternalServerError("overloaded")
+
+    client = _client(tmp_path, fake)
+    rows = CR.run(True, out=tmp_path / "o.jsonl", limit=2, client=client, thinking_off=True, max_tokens=2048)
+    assert waits == [10.0, 30.0, 90.0]
+    assert rows[-1]["record"] == "run_end" and "InternalServerError" in rows[-1]["stopped"]
+    assert not [r for r in rows if r["record"] == "cloud_redo_task"] and client._reserved_usd == 0
+
+
+def test_non_transient_error_stops_without_retry(tmp_path, monkeypatch):
+    waits = []
+    monkeypatch.setattr(CR, "_sleep", waits.append)
+
+    def fake(*, model_id, messages, api_key, **kw):
+        if kw["max_tokens"] == 8:
+            return _resp_fr("OK")
+        raise BadRequestError("invalid request: tools malformed")
+
+    rows = CR.run(True, out=tmp_path / "o.jsonl", limit=2, client=_client(tmp_path, fake), thinking_off=True)
+    assert waits == [] and "BadRequestError" in rows[-1]["stopped"]
+    assert (tmp_path / "o.jsonl").read_text().splitlines()[-1].startswith('{"harness"')   # run_end on disk
+
+
+def test_is_transient_classes():
+    assert CR.is_transient(InternalServerError("x"))
+    assert CR.is_transient(ConnectionResetError("reset"))
+    assert CR.is_transient(Exception("Error code: 529 overloaded_error"))
+    assert not CR.is_transient(BadRequestError("bad"))
+    assert not CR.is_transient(cc.SpendCapExceeded("cap"))
+
+
+def test_multi_part_resume_and_merge(tmp_path):
+    w = CR.wrong_tasks(CR.load_rows(CR.SOURCE))[:5]
+    first = tmp_path / "run.jsonl"
+    key = lambda r: (r["attempt_id"], r["turn_idx"])
+
+    def task(r, calls, ts, ok=True):
+        return {"record": "cloud_redo_task", "mode": CR.MODE_LIVE, "attempt_id": r["attempt_id"],
+                "turn_idx": r["turn_idx"], "task_id": r["task_id"], "seed": r["seed"], "tier": "t", "ts_utc": ts,
+                "cloud_calls": calls, "cloud_end_state_ok": ok, "usd_ledger": 0.05, "usd": 0.02, "n_calls": 1,
+                "seconds": 1.0}
+
+    # part 1 (384): w0 fine, w1 hit, w2 hit
+    p1 = [{"record": "run_start", "max_tokens": 384}, task(w[0], [_call()], "a0"),
+          task(w[1], [_call("length", 384, 0, 0)], "a1", False), task(w[2], [_call("length", 384, 5, 1)], "a2", False)]
+    first.write_text("\n".join(json.dumps(r) for r in p1) + "\n")
+    # part 2 (2048), crashed (no run_end): supersedes w1 and w2, reran w1 (output 600, fine at 2048), did w3
+    sup = lambda r, ts: {"record": "supersede", "attempt_id": r["attempt_id"], "turn_idx": r["turn_idx"],
+                         "old_ts_utc": ts}
+    p2 = [{"record": "run_start", "max_tokens": 2048}, sup(w[1], "a1"), sup(w[2], "a2"),
+          task(w[1], [_call("stop", 600, 50, 0)], "b1"), task(w[3], [_call()], "b3")]
+    (tmp_path / "run_part2.jsonl").write_text("\n".join(json.dumps(r) for r in p2) + "\n")
+    parts = CR.part_files(first)
+    assert parts == [first, tmp_path / "run_part2.jsonl"] and CR.next_part_path(first) == tmp_path / "run_part3.jsonl"
+    skip, new_sup, kept = CR.resume_plan_parts(parts, 2048)
+    assert skip == {key(w[0]), key(w[1]), key(w[3])} and new_sup == [] and len(kept) == 3
+    merged = {key(r): r for r in CR.merged_rows(parts)}
+    assert set(merged) == {key(w[0]), key(w[1]), key(w[3])} and merged[key(w[1])]["ts_utc"] == "b1"
+
+    def fake(*, model_id, messages, api_key, **kw):
+        return _resp_fr('{"answer": "no idea"}')
+
+    out = CR.next_part_path(first)
+    rows = CR.run(True, out=out, limit=5, client=_client(tmp_path, fake), thinking_off=True, max_tokens=2048,
+                  resume_from=parts)
+    done = [key(r) for r in rows if r["record"] == "cloud_redo_task"]
+    assert done == [key(w[2]), key(w[4])] and rows[0]["resume_kept_tasks"] == 3
+    assert not [r for r in rows if r["record"] == "supersede"]     # w2 was already superseded in part 2
+    merged = CR.merged_rows(CR.part_files(first))
+    assert len(merged) == 5

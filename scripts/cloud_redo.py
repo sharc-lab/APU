@@ -266,6 +266,51 @@ def _parse_reply(resp: dict) -> tuple[str, list[dict]]:
     return msg.get("content") or "", calls
 
 
+# Bounded retry for transient provider errors only (2026-10-22: part 2 crashed on "Server disconnected without sending a
+# response"). A failed PreparedCall.send() releases its reservation and writes no ledger row (client.py), so only the
+# billed call counts toward the cap; each retry re-prepares (a fresh cap check).
+RETRY_BACKOFF_S = (10.0, 30.0, 90.0)
+_TRANSIENT_NAMES = {"InternalServerError", "ServiceUnavailableError", "RateLimitError", "APIConnectionError",
+                    "Timeout", "APITimeoutError", "ConnectionError", "ConnectionResetError",
+                    "RemoteProtocolError", "ServerDisconnectedError"}
+_TRANSIENT_TEXT = ("server disconnected", "connection reset", "connection aborted", "overloaded", "overloaded_error",
+                   "rate limit", "rate_limit", " 429", " 529", " 503", " 502", "status code 5")
+_sleep = time.sleep
+
+
+def is_transient(exc: BaseException) -> bool:
+    if isinstance(exc, cc.SpendCapExceeded):
+        return False
+    names = {t.__name__ for t in type(exc).__mro__}
+    if names & _TRANSIENT_NAMES:
+        return True
+    status = getattr(exc, "status_code", None)
+    if status in (429, 500, 502, 503, 504, 529):
+        return True
+    text = f" {exc}".lower()
+    return any(t in text for t in _TRANSIENT_TEXT)
+
+
+def send_with_retry(client, model_id: str, messages: list[dict], kw: dict):
+    """(prepared, raw, seconds of the successful send, retries). Transient errors: up to len(RETRY_BACKOFF_S) retries
+    with that backoff; anything else, or a transient error after the last retry, is raised."""
+    retries = 0
+    while True:
+        prepared = client.prepare(model_id=model_id, messages=messages, **kw)
+        t0 = time.perf_counter()
+        try:
+            raw = prepared.send()
+        except Exception as e:   # send() has already released the reservation; no ledger row was written
+            if is_transient(e) and retries < len(RETRY_BACKOFF_S):
+                print(f"  transient provider error ({type(e).__name__}); retry {retries + 1} in "
+                      f"{RETRY_BACKOFF_S[retries]:.0f} s", flush=True)
+                _sleep(RETRY_BACKOFF_S[retries])
+                retries += 1
+                continue
+            raise
+        return prepared, raw, time.perf_counter() - t0, retries
+
+
 def empty_at_cap(call_rec: dict) -> bool:
     """A call that stopped at max_tokens with no visible content and no tool call (output spent where the harness cannot
     see it, e.g. thinking). Same test as scripts/all_cloud_b3.py::empty_at_cap; the run stops on it."""
@@ -289,10 +334,8 @@ def live_turn(client, model_id: str, es, built: dict, rates: dict, max_tokens: i
             kw["thinking"] = thinking
         if not offer:
             kw["tool_choice"] = "none"
-        prepared = client.prepare(model_id=model_id, messages=with_cache_control(messages), **kw)
-        t0 = time.perf_counter()
-        raw = prepared.send()
-        secs += time.perf_counter() - t0
+        prepared, raw, dt, retries = send_with_retry(client, model_id, with_cache_control(messages), kw)
+        secs += dt
         res = prepared.settle(raw)
         n_calls += 1
         resp = res.raw
@@ -309,7 +352,7 @@ def live_turn(client, model_id: str, es, built: dict, rates: dict, max_tokens: i
         call_recs.append({"finish_reason": ((resp.get("choices") or [{}])[0] or {}).get("finish_reason"),
                           "output_tokens": u["output_tokens"], "input_tokens": u["input_tokens"],
                           "content_chars": len(content), "n_tool_calls": len(calls),
-                          "tool_choice": kw.get("tool_choice")})
+                          "tool_choice": kw.get("tool_choice"), "retries": retries})
         if empty_at_cap(call_recs[-1]):
             final_text = content
             break
@@ -323,6 +366,7 @@ def live_turn(client, model_id: str, es, built: dict, rates: dict, max_tokens: i
     return {**tot, "seconds": secs, "n_calls": n_calls, "cloud_end_state_ok": g["end_state_ok"],
             "cloud_state_ok": g["state_ok"], "cloud_answer_ok": g["answer_ok"], "cloud_end_state_diff": g["end_state_diff"],
             "cloud_final_text": final_text[:TRUNC_CHARS], "cloud_n_tool_calls": len(flat), "cloud_calls": call_recs,
+            "retries": sum(c.get("retries", 0) for c in call_recs),
             "empty_at_cap": any(empty_at_cap(c) for c in call_recs)}
 
 
@@ -417,22 +461,74 @@ def resume_plan(prior_rows: list[dict], old_limit: int = LOCAL_MAX_TOKENS) -> tu
     return skip, sup
 
 
-def merged_rows(paths: list[Path]) -> list[dict]:
-    """Task rows of a run and its continuation files, superseded rows excluded (the last row per task wins)."""
-    rows = [r for p in paths if Path(p).exists() for r in load_rows(Path(p))]
-    sup = {(r["attempt_id"], r["turn_idx"]) for r in rows if r.get("record") == "supersede"}
-    seen = {}
-    for p in paths:
-        if not Path(p).exists():
-            continue
-        is_first = p == paths[0]
-        for r in load_rows(Path(p)):
-            if r.get("record") != "cloud_redo_task":
+def part_files(first: Path) -> list[Path]:
+    """The run's first file and every existing continuation file <stem>_partN.jsonl, in part order."""
+    first = Path(first)
+    parts = []
+    for q in first.parent.glob(f"{first.stem}_part*.jsonl"):
+        tail = q.stem[len(first.stem) + len("_part"):]
+        if tail.isdigit():
+            parts.append((int(tail), q))
+    return [first] + [q for _n, q in sorted(parts)]
+
+
+def next_part_path(first: Path) -> Path:
+    first = Path(first)
+    ns = [int(q.stem.rsplit("_part", 1)[1]) for q in part_files(first)[1:]]
+    return first.parent / f"{first.stem}_part{max(ns) + 1 if ns else 2}.jsonl"
+
+
+def _superseded(rows: list[dict]) -> set:
+    return {(r["attempt_id"], r["turn_idx"], r.get("old_ts_utc")) for r in rows if r.get("record") == "supersede"}
+
+
+def resume_plan_parts(paths: list[Path], max_tokens: int) -> tuple[set, list[dict], list[dict]]:
+    """(keys to skip, new supersede records, kept rows) over a run's parts. Per task the latest row that no supersede
+    record names counts. It is rerun (and a supersede record written) only if its part ran with a smaller max_tokens
+    than this run and it hit that part's limit (hit_limit); a task whose rows are all superseded is rerun without a
+    new record. A part without run_end is fine: rows are written whole, one per finished task."""
+    per_part = [(load_rows(Path(q))) for q in paths]
+    sup_seen = _superseded([r for rows in per_part for r in rows])
+    latest, superseded_keys = {}, set()
+    for rows in per_part:
+        st = next((r for r in rows if r.get("record") == "run_start"), {})
+        limit = int(st.get("max_tokens") or LOCAL_MAX_TOKENS)
+        for r in rows:
+            if r.get("record") != "cloud_redo_task" or r.get("mode") != MODE_LIVE:
                 continue
             k = (r["attempt_id"], r["turn_idx"])
-            if is_first and k in sup:
+            if (k[0], k[1], r.get("ts_utc")) in sup_seen:
+                superseded_keys.add(k)
                 continue
-            seen[k] = r
+            latest[k] = (r, limit)
+    skip, sup, kept = set(), [], []
+    for k, (r, limit) in latest.items():
+        if limit < max_tokens and hit_limit(r, limit):
+            sup.append({"record": "supersede", "attempt_id": r["attempt_id"], "turn_idx": r["turn_idx"],
+                        "task_id": r["task_id"], "seed": r["seed"], "tier": r["tier"], "old_ts_utc": r.get("ts_utc"),
+                        "reason": f"a call hit the {limit}-token limit or came back empty; rerun",
+                        "old_calls": [{"finish_reason": c.get("finish_reason"), "output_tokens": c.get("output_tokens")}
+                                      for c in r.get("cloud_calls") or []]})
+        else:
+            skip.add(k)
+            kept.append(r)
+    return skip, sup, kept
+
+
+def merged_rows(paths: list[Path]) -> list[dict]:
+    """Task rows of a run and all its continuation parts: rows named by a supersede record (attempt, turn, ts) are
+    excluded; otherwise the last row per task wins."""
+    paths = [Path(q) for q in paths if Path(q).exists()]
+    per_part = [load_rows(q) for q in paths]
+    sup = _superseded([r for rows in per_part for r in rows])
+    seen = {}
+    for rows in per_part:
+        for r in rows:
+            if r.get("record") != "cloud_redo_task":
+                continue
+            if (r["attempt_id"], r["turn_idx"], r.get("ts_utc")) in sup:
+                continue
+            seen[(r["attempt_id"], r["turn_idx"])] = r
     return list(seen.values())
 
 
@@ -447,6 +543,11 @@ def calibration(kept_rows: list[dict], executed_rows: list[dict]) -> float:
 
 
 # ── main ────────────────────────────────────────────────────────────────────────────────────────────
+
+def _rel(q: Path) -> str:
+    q = Path(q).resolve()
+    return q.relative_to(REPO).as_posix() if q.is_relative_to(REPO) else q.name
+
 
 def run(live: bool, source: Path = SOURCE, out: Path = OUT, price_file: Path = PRICE_FILE, limit: int | None = None,
         client=None, max_tokens: int = ag.MAX_TOKENS_PER_CALL, emit_print=print, thinking_off: bool = False,
@@ -470,9 +571,8 @@ def run(live: bool, source: Path = SOURCE, out: Path = OUT, price_file: Path = P
     n_all = len(wrong)
     sup, calib, kept = [], 1.0, []
     if resume_from is not None:
-        prior_rows = load_rows(Path(resume_from))
-        skip, sup = resume_plan(prior_rows, old_limit)
-        kept = [r for r in prior_rows if r.get("record") == "cloud_redo_task" and (r["attempt_id"], r["turn_idx"]) in skip]
+        rpaths = [Path(q) for q in resume_from] if isinstance(resume_from, (list, tuple)) else [Path(resume_from)]
+        skip, sup, kept = resume_plan_parts(rpaths, max_tokens)
         wrong = [r for r in wrong if (r["attempt_id"], r["turn_idx"]) not in skip]
         if executed_file is not None and Path(executed_file).exists():
             calib = calibration(kept, load_rows(Path(executed_file)))
@@ -513,8 +613,7 @@ def run(live: bool, source: Path = SOURCE, out: Path = OUT, price_file: Path = P
         "projection_local_tokens_ledger_usd": local_proj, "projection_from_executed": proj,
         "protocol_difference": (None if max_tokens == LOCAL_MAX_TOKENS else
                                 f"max_tokens {max_tokens} per cloud call vs the local run's {LOCAL_MAX_TOKENS}"),
-        "resume_from": (Path(resume_from).relative_to(REPO).as_posix() if resume_from is not None
-                        and Path(resume_from).is_relative_to(REPO) else (str(resume_from) if resume_from else None)),
+        "resume_from": ([_rel(q) for q in rpaths] if resume_from is not None else None),
         "resume_kept_tasks": len(kept), "resume_superseded_tasks": len(sup), "resume_old_limit": old_limit,
         "projection_calibration": calib,
     }
@@ -570,6 +669,8 @@ def run(live: bool, source: Path = SOURCE, out: Path = OUT, price_file: Path = P
                     break
         except cc.SpendCapExceeded as e:
             stopped = f"spend cap: {e}"
+        except Exception as e:   # a non-transient provider error, or a transient one past the last retry
+            stopped = f"error, run stopped: {type(e).__name__}: {str(e)[:300]}"
         tasks = [x for x in rows if x.get("record") == "cloud_redo_task"]
         summary = summarize(rows) if tasks else {"n": 0}
         end = {"record": "run_end", "harness": HARNESS, "ts_utc": utc_iso(), "stopped": stopped, "summary": summary}
@@ -604,17 +705,17 @@ def main(argv=None) -> int:
                     help=f"max_tokens per cloud call (default {LOCAL_MAX_TOKENS}, the local num_predict, for v1 "
                          "reproducibility); any other value is recorded in run_start as a protocol difference")
     ap.add_argument("--resume", action="store_true",
-                    help="continue the full-context run: read results/cloud_redo_full_context_v1.jsonl, skip its "
-                         "finished tasks except those whose reply hit the old limit or came back empty (rerun, old row "
-                         "superseded), write results/cloud_redo_full_context_v1_part2.jsonl")
+                    help="continue the full-context run across parts: read results/cloud_redo_full_context_v1.jsonl "
+                         "and every existing <stem>_partN.jsonl, skip tasks finished in any part except rows that hit "
+                         "a smaller earlier limit or came back empty (rerun, old row superseded), write the next part")
     ap.add_argument("--resume-from", type=Path, default=OUT_FULL_CONTEXT)
     ap.add_argument("--client-cap-total", type=float, default=None,
                     help="absolute client cap in USD on the ledger total (e.g. 43.1913 = original start 21.1913 + "
                          "job cap 22); refuse up front if the projected ledger total would pass it")
     a = ap.parse_args(argv)
     if a.resume:
-        out = a.out or OUT_FULL_CONTEXT_PART2
-        if Path(out).resolve() == Path(a.resume_from).resolve():
+        out = a.out or next_part_path(a.resume_from)
+        if Path(out).resolve() in {q.resolve() for q in part_files(a.resume_from)}:
             print("refused: --resume writes a continuation file, not the run it resumes; nothing was sent",
                   file=sys.stderr)
             return 2
@@ -649,7 +750,7 @@ def main(argv=None) -> int:
         print(f"ledger total at start ${total0:.4f}; client cap ${client.spend_cap_usd:.4f}")
     rows = run(a.live, a.source, out, limit=a.limit, client=client, thinking_off=a.thinking_off, job_cap=a.job_cap,
                ledger_total_at_start=total0, executed_file=V1_EXECUTED if a.thinking_off else None,
-               max_tokens=a.max_tokens, resume_from=a.resume_from if a.resume else None)
+               max_tokens=a.max_tokens, resume_from=part_files(a.resume_from) if a.resume else None)
     return 0 if rows[-1].get("stopped") is None else 4
 
 

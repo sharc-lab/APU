@@ -5481,11 +5481,12 @@ def compute_cloud_redo_full_context(repo, path=CLOUD_REDO_FULL_CONTEXT, part2=CL
     spec = importlib.util.spec_from_file_location("cloud_redo", repo / "scripts" / "cloud_redo.py")
     cr = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(cr)
-    paths = [repo / path] + ([repo / part2] if (repo / part2).exists() else [])
+    paths = cr.part_files(repo / path)   # the first file and every <stem>_partN.jsonl, in part order
     tasks = cr.merged_rows(paths)
     starts = [next(r for r in cr.load_rows(p) if r.get("record") == "run_start") for p in paths]
     ends = [next((r for r in cr.load_rows(p) if r.get("record") == "run_end"), {}) for p in paths]
-    n_sup = sum(1 for p in paths[1:] for r in cr.load_rows(p) if r.get("record") == "supersede")
+    n_sup = len({(r["attempt_id"], r["turn_idx"]) for p in paths[1:] for r in cr.load_rows(p)
+                 if r.get("record") == "supersede"})
     s = cr.summarize(tasks)
     spec = importlib.util.spec_from_file_location("cloud_redo_diagnosis", repo / "analysis" / "cloud_redo_diagnosis.py")
     cd = importlib.util.module_from_spec(spec)
@@ -5507,7 +5508,9 @@ def compute_cloud_redo_full_context(repo, path=CLOUD_REDO_FULL_CONTEXT, part2=CL
     parts = "; ".join(f"part {i + 1}: max_tokens {st.get('max_tokens')}"
                       + (f" ({st['protocol_difference']})" if st.get("protocol_difference") else "")
                       for i, st in enumerate(starts))
-    led = ends[-1].get("ledger_total_usd")
+    led = next((e["ledger_total_usd"] for e in reversed(ends) if e.get("ledger_total_usd") is not None), None)
+    stops = "; ".join(f"part {i + 1}: " + (str(e.get("stopped")) if e else "no run_end (crashed; finished rows kept)")
+                      for i, e in enumerate(ends))
     return {"value": f"model {starts[0]['model_id']}, thinking {starts[0].get('thinking_sent')}, full client-side "
                      f"history, caching on; {parts}; {len(tasks)} tasks run ({n_first} kept from part 1, {n_sup} part-1 "
                      f"rows superseded and rerun); fixed {_frac(ok, n_all)} of the wrong tasks, 95% Wilson CI over "
@@ -5515,7 +5518,7 @@ def compute_cloud_redo_full_context(repo, path=CLOUD_REDO_FULL_CONTEXT, part2=CL
                      f"${s['mean_usd']:.4f}, median ${s['median_usd']:.4f}, total ${s['total_usd']:.4f} (ledger basis, "
                      f"all input uncached: ${s['total_usd_all_uncached']:.4f}); seconds per task mean "
                      f"{s['seconds_mean']:.2f}, median {statistics.median(secs):.2f}; per tier: {'; '.join(tiers)}; "
-                     f"last part stopped: {ends[-1].get('stopped')}; ledger total at end "
+                     f"stops: {stops}; ledger total at the last run_end "
                      + (f"${led:.4f}" if led is not None else "n/a") + f"; still wrong by class: {cls}",
             "n": f"{len(tasks)} tasks run of {n_all}"}
 
