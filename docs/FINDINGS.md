@@ -5688,3 +5688,50 @@ the redo grader assumes it is left alone.
 **Spend.** The full-context job moved the main ledger from USD 21.1913 (its start) to USD 38.9145, inside its USD 22 cap
 (absolute client cap USD 43.1913) and the USD 50 hard cap. That includes superseded rows, warm-ups and any call billed
 before part 2 crashed, so it is above the merged rows' ledger-basis total.
+
+## FINDING (2026-10-22): late escalation is costly and incomplete, so the product decides at session start
+
+Operator decision 2026-10-22. Offline, from existing result files; no live call. Rows
+`late-escalation-cost-vs-fresh` and `hybrid-route-at-start` (analysis/impact_model.py, regenerated into
+docs/NUMBERS_REGISTER.md), and `impact-v3-detection-value-measured`, now costed from the full-history redo only.
+
+**Late escalation costs about 2x a fresh cloud run.** Escalating a wrong local task with its full client-side history
+(cloud-redo-full-context, claude-sonnet-5-5, cache-priced) costs USD 0.0227 mean and 0.0169 median per task (n=197),
+against USD 0.0102 mean and 0.0090 median (n=90) for running the task fresh on the same tier (all-cloud-b3-cost):
+2.22x on the mean, 1.87x on the median. Matched on (seed, task_id) where both runs have the task (the 3 shared seeds),
+119 redo rows over 53 distinct tasks: redo mean USD 0.0226, median 0.0169 vs fresh of the same task mean USD 0.0129,
+median 0.0103, 1.76x on the mean and 1.64x on the median. The redo re-sends the whole local session; a fresh run does
+not.
+
+**Late escalation is incomplete.** It fixed 167 of 197 wrong tasks (84.8%, 95% Wilson CI 79.1% to 89.1%). Of the 30
+it did not fix, 28 inherited the local model's earlier executed actions (earlier_state_repair): a later cloud call
+cannot undo a write the local model already made. The other 2 were cloud model errors.
+
+**On a weak device the late-escalation hybrid costs more than all-cloud.** On evo-t2s's Intel CPU at its 4096 default
+(projected from evo-x2's ollama_ctx_4096 tier, no B3 run on evo-t2s) the window flag escalates 88 of 90 tasks, and
+against claude-sonnet-5-5 the window-flag hybrid saves USD -35.98 / -359.80 / -3,597.97 per month at 100 / 1,000 /
+10,000 tasks/day at 90/90 accuracy, the same as all-cloud (hybrid-savings-tradeoff, quoted in
+late-escalation-cost-vs-fresh).
+
+**Decision.** The product decides per device and per workload at session start: the whole session runs local at the
+device's recommended setting, or the whole session goes to the cloud from the start at the fresh all-cloud cost.
+Step-level escalation stays as a narrow middle case. Rule in `hybrid-route-at-start`: route local if local accuracy at
+the recommended setting >= all-cloud accuracy minus a tolerance, default 0 points (matched quality), with 5 and 10 as a
+sensitivity. With the measured rows today:
+
+- evo-x2 at its default window (best measured): 80/90 (88.9%) local vs 87/90 (96.7%) all-cloud on claude-haiku-5-5
+  (gap 7.8 points) and 90/90 (100.0%) on claude-sonnet-5-5 (gap 11.1 points). Cloud at tolerance 0 and 5 on both; at
+  tolerance 10 the Haiku workload routes local and saves USD 2.01 / 20.12 / 201.25 per month at 88.9%.
+- evo-t2s at the recommended Intel iGPU setting (Ollama loaded 32768): 4/5 (80.0%), measured by R2 session pass rate
+  (not B3 task accuracy), gap 16.7 points vs Haiku and 20.0 vs Sonnet: cloud at every tolerance shown.
+
+No device matches all-cloud quality at its recommended setting yet, so at matched quality every measured device and
+tier sends the whole session to the cloud. The late-escalation ceiling (escalate every wrong task at the measured redo
+cost, "ceiling, no such detector") reaches 89/90 (98.9%) on evo-x2 vs Sonnet, not 90/90, because the redo does not fix
+every task. The evo-t2s figure is 5 R2 sessions and is to be replaced by the evo-t2s B5 results (2026-10-26 to
+2026-11-08).
+
+**Detection row recomputed.** `impact-v3-detection-value-measured` keeps its TP/FP/FN/TN, precision and recall (B3 v2
+local run) and now prices escalate-all vs escalate-flagged at the full-history redo's per-tier mean USD per task; the
+first, truncated-history redo file (results/cloud_redo_v1.jsonl) is no longer an input. At num_ctx 4096: escalate all
+150 USD 2.5401 vs flagged 147 USD 2.4893, USD 0.0169 per task.

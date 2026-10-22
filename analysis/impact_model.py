@@ -1370,9 +1370,37 @@ def measured_detection_text(d) -> str:
     return ("MEASURED on the B3 v2 real run (qwen3:14b, evo-x2, x2_evalset_tasks_real_v2): predictor = the task turn's "
             "prompt exceeded the loaded window (over_loaded_window), outcome = the task ended wrong (end_state_ok "
             "false); per tier: " + "; ".join(parts)
-            + f"; cloud redo USD per task: tier mean of cloud-redo-cost-per-wrong-task ({d['redo_tag']}); assumed: a "
-              f"redo of any task costs the tier's mean redo of a wrong one, a fixed task is right after the redo "
-              f"(cloud correctness not measured in stub mode); USD totals are for the run's own task turns")
+            + (f"; {d['redo_source']}" if d.get("redo_source") else
+               f"; cloud redo USD per task: tier mean of cloud-redo-cost-per-wrong-task ({d['redo_tag']}); assumed: a "
+               f"redo of any task costs the tier's mean redo of a wrong one, a fixed task is right after the redo "
+               f"(cloud correctness not measured in stub mode)")
+            + "; USD totals are for the run's own task turns")
+
+
+# Operator decision 2026-10-22 (row impact-v3-detection-value-measured): no value in the row comes from the first
+# (truncated-history) redo any more. The escalate-all vs escalate-flagged USD use the full-history redo's per-tier mean
+# USD per task (cloud-redo-full-context, measured); the confusion counts, precision and recall are unchanged (B3 v2
+# local run).
+def full_redo_detection(repo=REPO) -> dict | None:
+    """measured_detection with the full-history redo's per-tier mean USD; None until cloud-redo-full-context is
+    VERIFIED."""
+    if not register_has(repo, "cloud-redo-full-context"):
+        return None
+    tasks, model, n_wrong, _p = redo_rows_and_model(repo)
+    per = {}
+    for r in tasks:
+        per.setdefault(r["tier"], []).append(r["usd"])
+    usd = {t: statistics.fmean(v) for t, v in per.items()}
+    d = measured_detection(b3_v2_task_turns(repo), usd, CLOUD_TAG_LIVE)
+    fixed = sum(1 for r in tasks if r.get("cloud_end_state_ok"))
+    d["redo_source"] = (f"cloud redo USD per task: tier mean of the full-history redo (cloud-redo-full-context, "
+                        f"{model}, {CLOUD_TAG_LIVE}, cache-priced, per-tier n "
+                        + ", ".join(f"{t} {len(per[t])}" for t in d["tiers"] if t in per)
+                        + f"); no value from the first truncated-history redo (cloud-redo-cost-per-wrong-task); "
+                        f"assumed: a redo of any task, flagged or not, costs the tier's mean full-history redo of a "
+                        f"wrong one; the redo fixed {fixed}/{n_wrong} wrong tasks (cloud-redo-full-context), so an "
+                        f"escalated wrong task is not always fixed")
+    return d
 
 
 def v2_ranking(rows: dict) -> list:
@@ -2118,6 +2146,303 @@ def hybrid_tradeoff_text(t) -> str:
             f"{TRADEOFF_DEVICE_PROJ}; the ceiling is a separate field, not an option / " + " / ".join(parts))
 
 
+
+# Late escalation vs a fresh all-cloud run (operator decision 2026-10-22, item 1; row late-escalation-cost-vs-fresh):
+# the full-history redo of a wrong local task (cloud-redo-full-context) costs more per task than running the same task
+# fresh on the same cloud tier (all-cloud-b3-cost), because the redo re-sends the whole local session history, and it is
+# incomplete because it cannot undo actions the local model already executed (cloud-redo-diagnosis class
+# earlier_state_repair). Matched on (seed, task_id) where both runs have the task: the redo rows are wrong local tasks
+# over 5 evo-x2 tiers and 5 seeds, the all-cloud run has all 30 tasks on 3 seeds; one task can be wrong at several
+# tiers, so matched redo rows and distinct matched tasks are both reported. Also carries the evo-t2s Intel CPU 4096
+# window-flag hybrid vs all-cloud from hybrid-savings-tradeoff (the redo model's tier, measured B3 point).
+LATE_ROW = "late-escalation-cost-vs-fresh"
+LATE_REQUIRED = ("cloud-redo-full-context", "all-cloud-b3-cost", "hybrid-savings-tradeoff")
+LATE_INHERITED = "earlier_state_repair"
+LATE_INHERITED_TEXT = "inherited the local model's earlier executed actions (earlier_state_repair)"
+
+
+def _load_module(repo, rel, name):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(name, Path(repo) / rel)
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    return m
+
+
+def late_vs_fresh_stats(redo_rows, fresh, n_wrong) -> dict:
+    """Pure: redo_rows [{seed, task_id, usd, cloud_end_state_ok}], fresh {(seed, task_id): (ok, usd)} on the same cloud
+    tier, n_wrong = wrong local tasks the redo set out to fix (tasks not run count as not fixed)."""
+    import numbers_register as nr
+    if not redo_rows or not fresh:
+        raise ValueError("need redo rows and fresh all-cloud tasks")
+    r_all = [r["usd"] for r in redo_rows]
+    f_all = [u for _, u in fresh.values()]
+    matched = [r for r in redo_rows if (r["seed"], r["task_id"]) in fresh]
+    r_m = [r["usd"] for r in matched]
+    f_m = [fresh[(r["seed"], r["task_id"])][1] for r in matched]
+    fixed = sum(1 for r in redo_rows if r.get("cloud_end_state_ok"))
+    lo, hi = nr.wilson_ci(fixed, n_wrong)
+
+    def st(xs):
+        return {"mean": statistics.fmean(xs), "median": statistics.median(xs), "n": len(xs)} if xs else None
+
+    out = {"redo": st(r_all), "fresh": st(f_all), "m_redo": st(r_m), "m_fresh": st(f_m),
+           "n_matched_keys": len({(r["seed"], r["task_id"]) for r in matched}),
+           "matched_seeds": sorted({r["seed"] for r in matched}),
+           "fixed": fixed, "n_wrong": n_wrong, "fix_rate": fixed / n_wrong, "ci": (lo, hi)}
+    for p, a, b in (("", "redo", "fresh"), ("m_", "m_redo", "m_fresh")):
+        if out[a] and out[b]:
+            out[p + "ratio_mean"] = out[a]["mean"] / out[b]["mean"]
+            out[p + "ratio_median"] = out[a]["median"] / out[b]["median"]
+    return out
+
+
+def redo_rows_and_model(repo=REPO):
+    """The merged full-history redo rows (superseded rows excluded), its model and the wrong-task count."""
+    import numbers_register as nr
+    cr = _load_module(repo, "scripts/cloud_redo.py", "cloud_redo")
+    paths = cr.part_files(Path(repo) / nr.CLOUD_REDO_FULL_CONTEXT)
+    start = next(r for r in cr.load_rows(paths[0]) if r.get("record") == "run_start")
+    return cr.merged_rows(paths), start["model_id"], start["n_wrong_tasks"], paths
+
+
+def redo_classes(repo, paths) -> dict:
+    """cloud_redo_diagnosis classes of every still-wrong redo task (the classes row cloud-redo-full-context reports)."""
+    import numbers_register as nr
+    cd = _load_module(repo, "analysis/cloud_redo_diagnosis.py", "cloud_redo_diagnosis")
+    return cd.compute(Path(repo), nr.CLOUD_REDO_FULL_CONTEXT,
+                      tuple(str(Path(p).relative_to(Path(repo)).as_posix()) for p in paths[1:]))["counts"]
+
+
+def late_escalation_vs_fresh(repo=REPO, tradeoff=None, classes=None) -> dict:
+    """Row late-escalation-cost-vs-fresh. tradeoff: hybrid_tradeoff() output (for the evo-t2s quote); classes: the
+    still-wrong classes (read from cloud_redo_diagnosis when None)."""
+    missing = [c for c in LATE_REQUIRED if not register_has(repo, c)]
+    if missing:
+        return {"status": "PENDING", "pending": missing}
+    tasks, model, n_wrong, paths = redo_rows_and_model(repo)
+    fresh = all_cloud_task_outcomes(repo)["models"][model]
+    s = late_vs_fresh_stats(tasks, fresh, n_wrong)
+    cls = classes if classes is not None else redo_classes(repo, paths)
+    t2s = None
+    if tradeoff and tradeoff.get("status") == "VERIFIED":
+        r = next((x for x in tradeoff["rows"] if x["device"] != "evo-x2" and x["model"] == model
+                  and x["point_label"] == "measured"), None)
+        if r:
+            t2s = {"device": r["device"], "setting": r["setting"], "label": r["device_label"],
+                   "flag": r["options"]["hybrid_flag"], "all_cloud": r["options"]["all_cloud"]}
+    return {"status": "VERIFIED", "model": model, **s, "classes": cls, "unfixed": n_wrong - s["fixed"], "t2s": t2s,
+            "volumes": HYBRID_VOLUMES}
+
+
+def _st(x):
+    return f"mean ${x['mean']:.4f}, median ${x['median']:.4f} (n={x['n']})"
+
+
+def late_text(d) -> str:
+    """The register value of late-escalation-cost-vs-fresh."""
+    if d["status"] != "VERIFIED":
+        return f"PENDING: rows {', '.join(d['pending'])} not VERIFIED"
+    cls = d["classes"]
+    other = ", ".join(f"{k} {v}" for k, v in cls.items() if v and k != LATE_INHERITED)
+    txt = (f"{d['model']}, USD per task (cache-priced): late full-history escalation of a wrong local task "
+           f"(cloud-redo-full-context) {_st(d['redo'])} vs a fresh all-cloud run (all-cloud-b3-cost) {_st(d['fresh'])}; "
+           f"ratio {d['ratio_mean']:.2f}x on the mean, {d['ratio_median']:.2f}x on the median; matched on (seed, "
+           f"task_id) where both exist (seeds {', '.join(map(str, d['matched_seeds']))}): {d['m_redo']['n']} redo rows "
+           f"over {d['n_matched_keys']} distinct tasks, redo {_st(d['m_redo'])} vs fresh of the same task "
+           f"{_st(d['m_fresh'])}, ratio {d['m_ratio_mean']:.2f}x mean, {d['m_ratio_median']:.2f}x median; incomplete: "
+           f"fixed {d['fixed']}/{d['n_wrong']} ({100 * d['fix_rate']:.1f}%), 95% Wilson CI {100 * d['ci'][0]:.1f}% to "
+           f"{100 * d['ci'][1]:.1f}%; of the {d['unfixed']} unfixed, {cls.get(LATE_INHERITED, 0)} {LATE_INHERITED_TEXT}"
+           + (f", {other}" if other else ""))
+    t = d["t2s"]
+    if t:
+        vs = " / ".join(f"{t['flag']['savings_month'][v]:,.2f}" for v in d["volumes"])
+        txt += (f"; {t['device']} ({t['setting']}) [{t['label']}, from evo-x2's ollama_ctx_4096 tier] vs {d['model']} "
+                f"(hybrid-savings-tradeoff, B3 v2 tasks): the window-flag hybrid escalates {t['flag']['escalated']} of "
+                f"{t['flag']['n']} tasks and saves USD {vs}/month at "
+                f"{' / '.join(f'{v:,}' for v in d['volumes'])} tasks/day, accuracy {_acc(t['flag'])} vs all-cloud "
+                f"{_acc(t['all_cloud'])}: "
+                + ("it costs more than all-cloud" if t["flag"]["savings_month"][d["volumes"][0]] < 0
+                   else "it does not cost more than all-cloud"))
+    return txt
+
+
+def ceiling_measured(local, cloud, seeds, redo_ok) -> dict:
+    """Pure: escalate every wrong local task (same matching as hybrid_policies) and take the MEASURED redo outcome of
+    that task at that tier (redo_ok {(seed, task_id): fixed}); a wrong task with no redo row counts as not fixed."""
+    keys = sorted(k for k in local if k in cloud and k[0] in set(seeds))
+    wrong = [k for k in keys if local[k][1]]
+    fixed = sum(1 for k in wrong if redo_ok.get(k))
+    return {"correct": len(keys) - len(wrong) + fixed, "n": len(keys), "quality": (len(keys) - len(wrong) + fixed)
+            / len(keys), "escalated": len(wrong), "no_row": sum(1 for k in wrong if k not in redo_ok)}
+
+
+# Route at session start (operator decision 2026-10-22, item 3; row hybrid-route-at-start): per device and workload the
+# whole session runs local at the device's recommended setting, or the whole session goes to the cloud from the start.
+# Rule: route local if local accuracy at the recommended setting >= all-cloud accuracy - tolerance (percentage points);
+# default tolerance 0 = matched quality, 5 and 10 as a sensitivity. Local: saves the whole all-cloud bill at the local
+# accuracy; cloud: saves 0 at the all-cloud accuracy (fresh all-cloud cost, no redo premium). Recommended setting:
+# evo-x2 the default window (best measured, B3 task accuracy); evo-t2s the Intel iGPU (Ollama loaded 32768,
+# t2s-config-comparison, qwen3:14b, labelled T2S_KEPT_LABEL), with naive = Intel CPU 4096. Compared per device and tier
+# with late escalation (the window-flag hybrid and escalating every wrong task, "ceiling, no such detector") and naive
+# local, from hybrid-savings-tradeoff at the measured B3 point; projected task sizes only as labelled projections.
+ROUTE_ROW = "hybrid-route-at-start"
+ROUTE_TOLERANCES = (0, 5, 10)
+ROUTE_DEFAULT_TOL = 0
+ROUTE_REQUIRED = ("hybrid-savings-tradeoff", "t2s-config-comparison", "cloud-redo-full-context")
+ROUTE_BEGIN, ROUTE_END = "<!-- route_at_start:begin -->", "<!-- route_at_start:end -->"
+ROUTE_X2_LABEL = "measured, B3 task accuracy"
+
+
+def route_decision(local_q, cloud_q, tol) -> str:
+    """Pure: 'local' if 100 x local_q >= 100 x cloud_q - tol (points), else 'cloud'."""
+    return "local" if 100 * local_q >= 100 * cloud_q - tol - 1e-9 else "cloud"
+
+
+def route_at_start(tradeoff, t2s_cfg, ceilings=None, tolerances=ROUTE_TOLERANCES) -> dict:
+    """Per device x cloud tier. tradeoff: hybrid_tradeoff(); t2s_cfg: t2s_config_comparison(); ceilings:
+    {(device, model): ceiling_measured() output} for the tier the redo measured (others use the trade-off ceiling)."""
+    for x in (tradeoff, t2s_cfg):
+        if x.get("status") != "VERIFIED":
+            return {"status": "PENDING", "pending": x["pending"]}
+    ceilings = ceilings or {}
+    rec_t2s = next(r for r in t2s_cfg["rows"] if r["backend"] == "igpu" and r["model"] == B3_V2_MODEL)
+    rows = []
+    for r in tradeoff["rows"]:
+        if r["point_label"] != "measured":
+            continue
+        o = r["options"]
+        ac, nv = o["all_cloud"], o["naive_local"]
+        proj = [p for p in tradeoff["rows"] if p["device"] == r["device"] and p["model"] == r["model"]
+                and p["point_label"] != "measured"]
+        bill = {v: r["bill_task"] * v * DAYS_PER_MONTH for v in tradeoff["volumes"]}
+        if r["device"] == "evo-x2":
+            dev, rec = "evo-x2", f"{r['setting']}"
+            loc = {"correct": nv["correct"], "n": nv["n"], "quality": nv["quality"], "label": ROUTE_X2_LABEL}
+            naive_name = r["setting"]
+        else:
+            dev = "evo-t2s"
+            rec = f"Intel iGPU, Ollama default, loaded window {'/'.join(map(str, rec_t2s['loaded']))}"
+            loc = {"correct": rec_t2s["n"] - rec_t2s["silent"], "n": rec_t2s["n"], "quality": rec_t2s["k"],
+                   "label": T2S_KEPT_LABEL}
+            naive_name = f"Intel CPU {r['setting']}, {TRADEOFF_DEVICE_PROJ}"
+        ce = ceilings.get((r["device"], r["model"]))
+        ceil = {"savings_month": r["ceiling"]["savings_month"],
+                **({"correct": ce["correct"], "n": ce["n"], "quality": ce["quality"],
+                    "label": "measured redo outcome per task and tier, mean redo USD"} if ce else
+                   {"correct": r["ceiling"]["correct"], "n": r["ceiling"]["n"], "quality": r["ceiling"]["quality"],
+                    "label": "all-cloud outcome and cost per escalated task (interim)"})}
+        if r["device"] != "evo-x2":
+            ceil["label"] += f", {TRADEOFF_DEVICE_PROJ}"
+        routes = {}
+        for tol in tolerances:
+            d = route_decision(loc["quality"], ac["quality"], tol)
+            routes[tol] = {"route": d, "savings_month": bill if d == "local" else {v: 0.0 for v in bill},
+                           "acc": loc if d == "local" else {"correct": ac["correct"], "n": ac["n"],
+                                                            "quality": ac["quality"]}}
+        rows.append({"device": dev, "recommended": rec, "naive": naive_name, "model": r["model"], "local": loc,
+                     "all_cloud": ac, "bill": bill, "gap": 100 * (ac["quality"] - loc["quality"]), "routes": routes,
+                     "flag": o["hybrid_flag"], "naive_local": nv, "ceiling": ceil, "esc_label": r["esc_label"],
+                     "projected": [{"point": p["point"], "label": p["point_label"],
+                                    "local_savings": p["options"]["naive_local"]["savings_month"]} for p in proj]})
+    return {"status": "VERIFIED", "rows": rows, "tolerances": tolerances, "volumes": tradeoff["volumes"],
+            "esc_label": tradeoff["esc_label"]}
+
+
+def route_ceilings(repo, h, redo_tasks, redo_model) -> dict:
+    """{(device, model): ceiling_measured()} for the redo's model: every wrong local task at the cell's tier gets the
+    redo outcome of that task at that tier."""
+    local = b3_v2_task_outcomes(repo)
+    cloud = all_cloud_task_outcomes(repo)["models"][redo_model]
+    out = {}
+    for c in h["cells"]:
+        if c["model"] != redo_model or (c["device"] == "evo-x2" and c["tier"] != DEFAULT_TIER):
+            continue
+        ok = {(r["seed"], r["task_id"]): bool(r.get("cloud_end_state_ok")) for r in redo_tasks if r["tier"] == c["tier"]}
+        out[(c["device"], c["model"])] = ceiling_measured(local[c["tier"]], cloud, h["seeds"], ok)
+    return out
+
+
+def route_at_start_full(repo, h, tradeoff, t2s_cfg) -> dict:
+    """route_at_start with the measured-redo ceilings for the redo's model (PENDING with the missing rows named)."""
+    missing = [c for c in ROUTE_REQUIRED if not register_has(repo, c)]
+    if missing:
+        return {"status": "PENDING", "pending": missing}
+    if h.get("status") != "VERIFIED":
+        return {"status": "PENDING", "pending": h["pending"]}
+    tasks, model, _n, _p = redo_rows_and_model(repo)
+    return route_at_start(tradeoff, t2s_cfg, route_ceilings(repo, h, tasks, model))
+
+
+def _accp(a):
+    return f"{a['correct']}/{a['n']} ({100 * a['quality']:.1f}%)"
+
+
+def route_text(t) -> str:
+    """The register value of hybrid-route-at-start."""
+    if t["status"] != "VERIFIED":
+        return f"PENDING: rows {', '.join(t['pending'])} not VERIFIED"
+    vol = " / ".join(f"{v:,}" for v in t["volumes"])
+    parts = []
+    for r in t["rows"]:
+        rt = "; ".join(f"tolerance {tol}: {x['route']}, saves {_vols(x)}, accuracy {_accp(x['acc'])}"
+                       for tol, x in r["routes"].items())
+        pj = ", ".join(f"{p['point']} {p['local_savings'][TRADEOFF_HEADLINE_VOLUME]:,.2f}" for p in r["projected"])
+        parts.append(
+            f"{r['device']} vs {r['model']}: recommended {r['recommended']}, local accuracy {_accp(r['local'])} "
+            f"[{r['local']['label']}] vs all-cloud {_accp(r['all_cloud'])}, gap {r['gap']:.1f} points (routes local at "
+            f"tolerance >= {max(r['gap'], 0):.1f}); {rt}; late escalation, window-flag hybrid: saves {_vols(r['flag'])}, "
+            f"accuracy {_accp(r['flag'])}, escalated {r['flag']['escalated']}; late escalation of every wrong task "
+            f"({CEILING_LABEL}; {r['ceiling']['label']}): saves {_vols(r['ceiling'])}, accuracy "
+            f"{_accp(r['ceiling'])}; naive local ({r['naive']}): saves {_vols(r['naive_local'])}, accuracy "
+            f"{_accp(r['naive_local'])}, {r['naive_local']['silent_wrong']} {TRADEOFF_SILENT}; if routed local, at "
+            f"projected task sizes [{CURVE_PROJ_LABEL}] saves at {TRADEOFF_HEADLINE_VOLUME:,}/day: {pj}")
+    return (f"route at session start: local if local accuracy at the recommended setting >= all-cloud accuracy - "
+            f"tolerance (points; default {ROUTE_DEFAULT_TOL} = matched quality, "
+            f"{', '.join(str(x) for x in t['tolerances'] if x != ROUTE_DEFAULT_TOL)} as a sensitivity), else the whole "
+            f"session to the cloud at the fresh all-cloud cost (all-cloud-b3-cost) and accuracy (all-cloud-b3-quality); "
+            f"savings USD/month at {vol} tasks/day (30-day month, stated range), measured B3 v2 point, 3 shared seeds; "
+            f"late-escalation and naive columns from hybrid-savings-tradeoff (escalation cost {t['esc_label']}); "
+            f"evo-t2s local accuracy {T2S_KEPT_LABEL} (t2s-config-comparison, qwen3:14b), its late-escalation and naive "
+            f"columns at the Intel CPU 4096 default, {TRADEOFF_DEVICE_PROJ} / " + " / ".join(parts))
+
+
+def render_route_block(t) -> str:
+    """Markdown for docs/IMPACT.md between ROUTE_BEGIN and ROUTE_END."""
+    L = [ROUTE_BEGIN, "", f"Generated by `py -3.12 analysis/impact_model.py --write-hybrid` (register row {ROUTE_ROW}). "
+         "Do not edit by hand.", ""]
+    if t["status"] != "VERIFIED":
+        return "\n".join(L + [f"PENDING: rows {', '.join(t['pending'])} not VERIFIED.", "", ROUTE_END])
+    vol = " / ".join(f"{v:,}" for v in t["volumes"])
+    tols = t["tolerances"]
+    L += [f"Rule: route the whole session local if local accuracy at the device's recommended setting >= all-cloud "
+          f"accuracy minus a tolerance (percentage points; default {ROUTE_DEFAULT_TOL} = matched quality), otherwise "
+          f"send the whole session to the cloud from the start at the fresh all-cloud cost. Savings in USD per 30-day "
+          f"month at {vol} tasks/day (a stated range), measured B3 v2 point, 3 shared seeds. evo-t2s local accuracy is "
+          f"{T2S_KEPT_LABEL}. evo-t2s late-escalation and naive columns are at its Intel CPU "
+          f"4096 default, {TRADEOFF_DEVICE_PROJ} (no B3 run on evo-t2s). Late-escalation and naive columns from "
+          f"hybrid-savings-tradeoff; escalation cost "
+          f"{t['esc_label']}. The \"every wrong task\" column is a {CEILING_LABEL}.", "",
+          "| Device vs cloud tier | Recommended setting: local accuracy [label] | All-cloud accuracy | Gap, points | "
+          + " | ".join(f"Route at start, tolerance {x}: route / saves at {vol} / accuracy" for x in tols)
+          + f" | Late escalation, window-flag hybrid: saves at {vol} / accuracy | Late escalation of every wrong task "
+          f"({CEILING_LABEL}): saves at {vol} / accuracy | Naive local: saves at {vol} / accuracy |",
+          "|---|---|---|---|" + "---|" * len(tols) + "---|---|---|"]
+    for r in t["rows"]:
+        L.append(f"| {r['device']} vs {r['model']} | {r['recommended']}: {_accp(r['local'])} [{r['local']['label']}] | "
+                 f"{_accp(r['all_cloud'])} | {r['gap']:.1f} | "
+                 + " | ".join(f"{x['route']} / {_vols(x)} / {_accp(x['acc'])}" for x in r["routes"].values())
+                 + f" | {_vols(r['flag'])} / {_accp(r['flag'])} | {_vols(r['ceiling'])} / {_accp(r['ceiling'])} "
+                 f"[{r['ceiling']['label']}] | {_vols(r['naive_local'])} / {_accp(r['naive_local'])} "
+                 f"[{r['naive']}] |")
+    L += ["", f"If routed local, savings at real agent task sizes ({CURVE_PROJ_LABEL}; cloud-cost-per-real-task, "
+          f"realistic caching), USD/month at {TRADEOFF_HEADLINE_VOLUME:,} tasks/day:", ""]
+    for r in t["rows"]:
+        L.append(f"- {r['device']} vs {r['model']}: " + "; ".join(
+            f"{p['point']} {p['local_savings'][TRADEOFF_HEADLINE_VOLUME]:,.2f}" for p in r["projected"]) + ".")
+    return "\n".join(L + ["", ROUTE_END])
+
+
 def render_tradeoff_block(t) -> str:
     """Markdown for docs/IMPACT.md between TB_BEGIN and TB_END."""
     L = [TB_BEGIN, "", f"Generated by `py -3.12 analysis/impact_model.py --write-hybrid` (register row {TRADEOFF_ROW}). "
@@ -2149,10 +2474,50 @@ def _tb_row(t, device, model):
                  and r["point_label"] == "measured"), None)
 
 
-def render_oct29_block(t) -> str:
-    """Prepared text for the Oct 29 summary and the demo's story step 4, from the trade-off row only."""
-    L = [OCT29_BEGIN, "", f"Generated by `py -3.12 analysis/impact_model.py --write-hybrid` from register row "
-         f"{TRADEOFF_ROW}. Do not edit by hand. Prepared text for the Oct 29 summary and the demo's story step 4.", ""]
+def step4_lead(late, route, model, v) -> list:
+    """The lead of demo step 4 (operator decision 2026-10-22, item 4): fixing after the fact is costly and incomplete,
+    so decide up front, then the per-device decision at session start against the given cloud tier."""
+    if not late or late.get("status") != "VERIFIED":
+        return []
+    cls = late["classes"]
+    inh = cls.get(LATE_INHERITED, 0)
+    rest = ", ".join(f"{n} {k.replace('_', ' ')}{'s' if n != 1 else ''}" for k, n in cls.items()
+                     if n and k != LATE_INHERITED)
+    out = [f"\"Fix after the fact: about {round(100 * late['redo']['mean'])} cents, "
+           f"{100 * late['fix_rate']:.1f}% fixed, but executed actions cannot be undone; decide up front instead.\" "
+           f"(Late full-history escalation on {late['model']}: USD {late['redo']['mean']:.4f} mean per task, "
+           f"{late['ratio_mean']:.2f}x a fresh all-cloud run ({late['m_ratio_mean']:.2f}x matched on the same task and "
+           f"seed, {late['m_redo']['n']} redo rows over {late['n_matched_keys']} tasks); fixed {late['fixed']}/"
+           f"{late['n_wrong']} ({100 * late['fix_rate']:.1f}%), 95% CI {100 * late['ci'][0]:.1f}% to "
+           f"{100 * late['ci'][1]:.1f}%; of the {late['unfixed']} not fixed, {inh} inherited actions the local model "
+           f"had already executed" + (f"; {rest}" if rest else "") + ".)"]
+    if route and route.get("status") == "VERIFIED":
+        tol = ROUTE_DEFAULT_TOL
+        for r in route["rows"]:
+            if r["model"] != model:
+                continue
+            d = r["routes"][tol]
+            out.append(f"- {r['device']}, recommended {r['recommended']}: local {_accp(r['local'])} "
+                       f"[{r['local']['label']}] vs all-cloud {_accp(r['all_cloud'])}, gap {r['gap']:.1f} points. At "
+                       f"matched quality the whole session goes {'local' if d['route'] == 'local' else 'to the cloud'} "
+                       f"from the start; a team that accepts that gap runs it local and saves "
+                       f"USD {r['bill'][v]:,.2f} a month at {v:,} tasks/day.")
+        t2 = next((r for r in route["rows"] if r["device"] != "evo-x2" and r["model"] == model), None)
+        if t2 and t2["flag"]["savings_month"][v] < 0:
+            out.append(f"- Late escalation by window flag on evo-t2s's Intel CPU 4096 default ({TRADEOFF_DEVICE_PROJ}) "
+                       f"escalates {t2['flag']['escalated']} of {t2['flag']['n']} tasks and costs USD "
+                       f"{-t2['flag']['savings_month'][v]:,.2f} a month more than all-cloud at {v:,} tasks/day.")
+    return out
+
+
+def render_oct29_block(t, late=None, route=None) -> str:
+    """Prepared text for the Oct 29 summary and the demo's story step 4, from the trade-off row; step 4 leads with the
+    late-escalation finding (row late-escalation-cost-vs-fresh) and the per-device decision at session start (row
+    hybrid-route-at-start) when those are given and VERIFIED."""
+    rows_used = ", ".join([TRADEOFF_ROW] + ([LATE_ROW] if late and late.get("status") == "VERIFIED" else [])
+                          + ([ROUTE_ROW] if route and route.get("status") == "VERIFIED" else []))
+    L = [OCT29_BEGIN, "", f"Generated by `py -3.12 analysis/impact_model.py --write-hybrid` from register rows "
+         f"{rows_used}. Do not edit by hand. Prepared text for the Oct 29 summary and the demo's story step 4.", ""]
     if t["status"] != "VERIFIED":
         return "\n".join(L + [f"PENDING: rows {', '.join(t['pending'])} not VERIFIED.", "", OCT29_END])
     v = TRADEOFF_HEADLINE_VOLUME
@@ -2187,8 +2552,11 @@ def render_oct29_block(t) -> str:
     m = models[-1]
     x = _tb_row(t, "evo-x2", m)
     nv, hf = x["options"]["naive_local"], x["options"]["hybrid_flag"]
-    L += ["", "**Demo story step 4 (one screen):**", "",
-          f"\"Local saves money, and the screen shows what it costs. Against {m} at {v:,} tasks/day: all local on "
+    L += ["", "**Demo story step 4 (one screen):**", ""]
+    lead = step4_lead(late, route, m, v)
+    if lead:
+        L += lead + [""]
+    L += [f"\"Local saves money, and the screen shows what it costs. Against {m} at {v:,} tasks/day: all local on "
           f"evo-x2 saves USD {nv['savings_month'][v]:,.2f} a month at {_acc(nv)} correct versus "
           f"{_acc(x['options']['all_cloud'])} all-cloud, and {nv['silent_wrong']} wrong answers are silent. The only "
           f"measured detector, window overflow, escalates {hf['escalated']} tasks at this window. Catching in-window "
@@ -2364,11 +2732,16 @@ def main(argv=None):
         t = t2s_config_comparison(REPO, c)
         tb = hybrid_tradeoff(h, c)
         print(hybrid_tradeoff_text(tb))
+        late = late_escalation_vs_fresh(REPO, tb)
+        rt = route_at_start_full(REPO, h, tb, t)
+        print(late_text(late))
+        print(route_text(rt))
         write_hybrid_doc(block=render_hybrid_block(h), extra=((CFG_BEGIN, CFG_END, render_t2s_config_block(t)),
                                                               (CURVE_BEGIN, CURVE_END, render_curve_block(c)),
                                                               (TB_BEGIN, TB_END, render_tradeoff_block(tb)),
-                                                              (OCT29_BEGIN, OCT29_END, render_oct29_block(tb))))
-        print("wrote docs/IMPACT.md trade-off, Oct 29 text, hybrid savings, evo-t2s configuration and curve blocks")
+                                                              (ROUTE_BEGIN, ROUTE_END, render_route_block(rt)),
+                                                              (OCT29_BEGIN, OCT29_END, render_oct29_block(tb, late, rt))))
+        print("wrote docs/IMPACT.md route at start, trade-off, Oct 29 text, hybrid savings, evo-t2s configuration and curve blocks")
         return
     res = compute_all()
     p = res["profile"]
