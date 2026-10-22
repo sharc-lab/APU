@@ -94,6 +94,25 @@ async function refreshDevice() {
   try { renderDevice(await api(`/api/device/recommend?${p}`)); } catch (e) { $("#device-body").textContent = "Error: " + e.message; }
 }
 
+// ── C: cost panel ──
+function renderCost(c) {
+  let h = "";
+  if (c.lead) {
+    h += `<p class="lead">${num(c.lead.text, c.lead.src)} ${lab(c.lead.label)}</p>
+      <p class="muted small">Every wrong task of the qwen3:14b task run (${num(c.lead.n, c.lead.src)} tasks) re-run on ${esc(c.lead.model)}: mean ${num("USD " + c.lead.usd_mean.toFixed(4), c.lead.src)}, median ${num("USD " + c.lead.usd_median.toFixed(4), c.lead.src)}. Priced from the local run's own token counts; the cloud answer's correctness and seconds were not measured in that run (view D sends one live).</p>`;
+  } else {
+    h += `<p class="lead">${lab("not measured")} cloud redo cost per wrong task: register row not parsed</p>`;
+  }
+  h += `<ul class="costlist">${c.items.map((i) => `<li><span class="what">${esc(i.what)}</span> ${lab(i.label)}<br>${num(i.text, i.src)}</li>`).join("")}
+    <li><span class="what">Router savings</span><br>${num(c.router.text, c.router.src)}</li></ul>`;
+  h += `<h3 style="margin-top:16px">Cost documents</h3>` + c.docs.map((d) => d.present
+    ? `<div class="docbox"><b>${num(d.path, { file: d.path, line: d.headline_line })}</b>${d.title ? ": " + esc(d.title) : ""}<br>
+       <span class="small">Quoted verbatim (each claim carries its own label in the doc):</span> ${esc(d.headline || "(no paragraph after the title)")}
+       ${d.sections.length ? `<details><summary>${d.sections.length} sections</summary><ul class="small">${d.sections.map((s) => `<li>${num(s.text, { file: d.path, line: s.line })}</li>`).join("")}</ul></details>` : ""}</div>`
+    : `<div class="docbox"><b>${esc(d.path)}</b>: not present yet. This panel picks it up when the file lands; no restart needed.</div>`).join("");
+  $("#cost-body").innerHTML = h;
+}
+
 async function viewsMain() {
   try { renderSilent(await api("/api/silent")); } catch (e) { $("#silent-body").textContent = "Error: " + e.message; }
   try {
@@ -102,5 +121,6 @@ async function viewsMain() {
     $("#devform").addEventListener("change", refreshDevice);
     await refreshDevice();
   } catch (e) { $("#device-body").textContent = "Error: " + e.message; }
+  try { renderCost(await api("/api/cost")); } catch (e) { $("#cost-body").textContent = "Error: " + e.message; }
 }
 viewsMain();

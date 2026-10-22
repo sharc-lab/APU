@@ -588,3 +588,127 @@ def device_recommend(dv: dict, device: str, model: str, workload: str, points: l
             rec["register_ids"] = ["H-scale-verdict", "x2-scale-real-default-tier"]
     rec.setdefault("excluded", [])
     return {"device": device, "model": model, "workload": workload, "max_timeout_share": max_timeout_share, **rec}
+
+
+# ── view 3: cost panel ─────────────────────────────────────────────────────────────────────────────────
+
+P1_LEAD = "Fixing a wrong answer in the cloud costs about USD {usd}; the cost is that the failure is silent."
+_ORDER = {MEASURED: 0, PRICED: 1, SIMULATED: 2, PROJECTED: 3, NOT_MEASURED: 4}
+
+
+def parse_config_time(value: str) -> list[dict]:
+    pat = re.compile(r"evo-x2 (?P<model>[\w.:-]+): default \(a\) (?P<d>[\d.]+) min per session.*?fastest measured "
+                     r"setting \((?P<p>\w)\) (?P<name>\w+) (?P<f>[\d.]+) min.*?saved (?P<s>[\d.]+) min per session "
+                     r"\((?P<pct>\d+)%\)")
+    return [{"model": m["model"], "default_min": float(m["d"]), "policy": m["p"], "setting": m["name"],
+             "fast_min": float(m["f"]), "saved_min": float(m["s"]), "saved_pct": int(m["pct"])}
+            for m in pat.finditer(value or "")]
+
+
+def _num(s: str) -> float:
+    return float(s.replace(",", ""))
+
+
+def build_cost(register: dict) -> dict:
+    def val(rid):
+        r = _row(register, rid)
+        return r["value"] if r else ""
+
+    items = []
+    redo = parse_cloud_redo(val("cloud-redo-cost-per-wrong-task"))
+    lead = None
+    if redo:
+        redo_label = PRICED if redo["mode_priced_not_executed"] else MEASURED
+        lead = {"text": P1_LEAD.format(usd=f"{round(redo['mean_usd'], 2):.2f}"), "label": redo_label,
+                "src": reg_src("cloud-redo-cost-per-wrong-task"), "usd_mean": redo["mean_usd"],
+                "usd_median": redo["median_usd"], "model": redo["model"], "per_tier": redo["per_tier"],
+                "n": sum(t["n"] for t in redo["per_tier"].values()), "total_usd": redo["total_usd"]}
+    tiers = parse_wrong_rate(val("x2-evalset-tasks-real-v2-wrong-rate"))
+    if tiers:
+        lo, hi = min(tiers, key=lambda t: t["pct"]), max(tiers, key=lambda t: t["pct"])
+        items.append({"what": "How often the answer is wrong, and silent",
+                      "text": f"qwen3:14b on evo-x2: {lo['pct']:.1f}% wrong at {lo['tier']} to {hi['pct']:.1f}% at "
+                              f"{hi['tier']}; {sum(t['surfaced'] for t in tiers)} of "
+                              f"{sum(t['wrong'] for t in tiers)} wrong results surfaced an error",
+                      "label": MEASURED, "src": reg_src("x2-evalset-tasks-real-v2-wrong-rate")})
+    for c in parse_config_time(val("cost-cut-config-time")):
+        items.append({"what": f"Time saved by the measured setting, {c['model']}",
+                      "text": f"{c['saved_min']:.1f} min per 40-turn session ({c['saved_pct']}%): default "
+                              f"{c['default_min']:.1f} min vs {c['setting']} {c['fast_min']:.1f} min" +
+                              ("" if _verified(register, "b5-fa-control") else
+                               " (flash attention and KV precision changed together; b5-fa-control PENDING)"),
+                      "label": MEASURED, "src": reg_src("cost-cut-config-time")})
+    if redo:
+        items.append({"what": "Cloud redo of each wrong task",
+                      "text": f"USD {redo['mean_usd']:.4f} mean, USD {redo['median_usd']:.4f} median per wrong task "
+                              f"on {redo['model']} ({lead['n']} tasks, USD {redo['total_usd']:.2f} in all)",
+                      "label": lead["label"], "src": reg_src("cloud-redo-cost-per-wrong-task")})
+    m = re.search(r"per session: re-sent history ([\d,]+) tok, USD ([\d.]+) caching on, ([\d.]+) no caching",
+                  val("impact-P3"))
+    if m:
+        items.append({"what": "Re-sending the history to the cloud, per session",
+                      "text": f"{m[1]} tokens re-sent; USD {m[2]} with caching, USD {m[3]} without",
+                      "label": PRICED, "src": reg_src("impact-P3")})
+    m = re.search(r"(\d+) sessions/day \(ASSUMED volume\).*?profile cell USD/day ([\d.,]+) to ([\d.,]+)",
+                  val("impact-v2-P1"))
+    if m:
+        items.append({"what": "Wrong answers per day for one stated team (P1)",
+                      "text": f"USD {m[2]} to {m[3]} per day at {m[1]} sessions/day (assumed volume; time valued "
+                              f"0 to the full hour value; cloud part priced, not executed)",
+                      "label": PROJECTED, "src": reg_src("impact-v2-P1")})
+    m = re.search(r"ranking by main-case USD/day[^:]*: ([P\d >]+);", val("impact-ranking-v2"))
+    if m:
+        items.append({"what": "Ranking of the problems by cost (one assumed profile)", "text": m[1].strip(),
+                      "label": PROJECTED, "src": reg_src("impact-ranking-v2")})
+    m = re.search(r"measured-only USD/day ([\d.]+)", val("impact-total"))
+    if m:
+        items.append({"what": "Today's cost for the reference team, measured parts only",
+                      "text": f"USD {m[1]} per day (measured token counts and list prices at the assumed team "
+                              f"volume; the register calls this measured-only)",
+                      "label": PROJECTED, "src": reg_src("impact-total")})
+    items.sort(key=lambda i: _ORDER.get(i["label"], 9))
+    verdict = b5_verdict(register)
+    router = {"shown": router_savings_supported(register), "verdict": verdict, "src": reg_src("b5-verdict"),
+              "text": ("Router savings: not shown. Row b5-verdict is " + (verdict or "missing") +
+                       " on evo-x2 (the router policy was dominated); no register row supports a savings figure.")
+              if not router_savings_supported(register) else "Router savings: see row b5-verdict."}
+    return {"lead": lead, "items": items, "router": router, "register_ids": COST_IDS,
+            "docs": [COST_SUMMARY_DOC, IMPACT_DOC]}
+
+
+def doc_summary(repo: Path, rel: str) -> dict:
+    """Present or not; if present its sha256, H1, first paragraph after the H1 (quoted verbatim) and its ## headings
+    with line numbers. Read at request time so a doc that lands after the cache build still shows."""
+    import hashlib
+    p = repo / rel
+    if not p.exists():
+        return {"path": rel, "present": False}
+    text = p.read_text(encoding="utf-8")
+    lines = text.splitlines()
+    title = next((l[2:].strip() for l in lines if l.startswith("# ")), None)
+    para, started, para_line = [], False, None
+    for i, l in enumerate(lines, 1):
+        if l.startswith("# ") and not started:
+            started = True
+            continue
+        if not started:
+            continue
+        if l.startswith("#"):
+            if para:
+                break
+            continue
+        if l.strip():
+            para_line = para_line or i
+            para.append(l.strip())
+        elif para:
+            break
+    heads = [{"line": i, "text": l.lstrip("#").strip()} for i, l in enumerate(lines, 1) if l.startswith("## ")]
+    return {"path": rel, "present": True, "sha256": hashlib.sha256(p.read_bytes()).hexdigest(), "title": title,
+            "headline": " ".join(para), "headline_line": para_line, "sections": heads[:20]}
+
+
+def cost_view(cache, repo: Path = REPO) -> dict:
+    c = dict(cache.cost)
+    c["docs"] = [doc_summary(repo, d) for d in c.get("docs", [COST_SUMMARY_DOC, IMPACT_DOC])]
+    c["register"] = {i: cache.register[i] for i in COST_IDS if i in cache.register}
+    return c

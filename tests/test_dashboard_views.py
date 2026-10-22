@@ -208,3 +208,72 @@ def test_device_endpoints_on_committed_files(app):
     assert get(app, "/api/device/recommend?device=blade&model=qwen3:14b&workload=b3_tasks")["status"] == "not measured"
     get(app, "/api/device/recommend?device=toaster", 404)
     get(app, "/api/device/recommend?max_timeout_share=7", 400)
+
+
+# ── C: cost panel ──
+
+REDO = ("mode priced, not executed (stub: no API call); model claude-sonnet-5-5 (prices.json), prompt caching on; USD per "
+        "wrong task mean $0.0283, median $0.0283, total $5.5681 (all input uncached: $8.7552); per tier: ollama_default "
+        "n=17 mean $0.0275 median $0.0299 total $0.4680; ollama_ctx_4096 n=63 mean $0.0281 median $0.0278 total $1.7681")
+CONFIG_TIME = ("MEASURED; evo-x2 qwen3:14b: default (a) 214.8 min per session, rule 100.0% hist 62.5%; fastest measured "
+               "setting (g) kv_q8_0 75.4 min, rule 100.0% hist 62.5%, window 40960; saved 139.4 min per session (65%), "
+               "over 3 seeds")
+
+
+def test_cost_lead_order_and_router_gate():
+    r = reg(**{"cloud-redo-cost-per-wrong-task": REDO, "x2-evalset-tasks-real-v2-wrong-rate": WRONG,
+               "cost-cut-config-time": CONFIG_TIME,
+               "impact-v2-P1": "profile evo-x2, 40 sessions/day (ASSUMED volume), x; profile cell USD/day 10.33 to 137.18",
+               "b5-verdict": "refuted (router dominated in evo-x2/llama3.1:8b)"})
+    c = views.build_cost(r)
+    assert c["lead"]["text"] == ("Fixing a wrong answer in the cloud costs about USD 0.03; the cost is that the "
+                                 "failure is silent.")
+    assert c["lead"]["label"] == views.PRICED and c["lead"]["src"] == {"register": "cloud-redo-cost-per-wrong-task"}
+    labels = [i["label"] for i in c["items"]]
+    assert labels == sorted(labels, key=lambda l: views._ORDER[l])  # measured parts first
+    assert labels[0] == views.MEASURED and views.PROJECTED in labels
+    assert any("139.4 min" in i["text"] for i in c["items"])
+    assert c["router"]["shown"] is False and "refuted" in c["router"]["text"]
+    assert not any("saving" in i["what"].lower() and "router" in i["what"].lower() for i in c["items"])
+    # a router savings figure appears only behind a VERIFIED non-refuted b5-verdict
+    assert views.router_savings_supported(reg(**{"b5-verdict": "supported (router on frontier)"}))
+    assert not views.router_savings_supported({})
+    pending = reg(**{"b5-verdict": "supported"})
+    pending["b5-verdict"]["status"] = "PENDING"
+    assert not views.router_savings_supported(pending)
+    # missing register rows: no lead number, no invented items
+    empty = views.build_cost({})
+    assert empty["lead"] is None and empty["items"] == []
+
+
+def test_cost_docs_absent_then_present(tmp_path):
+    absent = views.doc_summary(tmp_path, views.COST_SUMMARY_DOC)
+    assert absent == {"path": views.COST_SUMMARY_DOC, "present": False}
+    p = tmp_path / views.COST_SUMMARY_DOC
+    p.parent.mkdir(parents=True)
+    p.write_text("# Oct 29 cost summary\n\nMeasured: X. Priced: Y.\nSecond line.\n\n## Section one\n\ntext\n",
+                 encoding="utf-8")
+    d = views.doc_summary(tmp_path, views.COST_SUMMARY_DOC)
+    assert d["present"] and d["title"] == "Oct 29 cost summary"
+    assert d["headline"] == "Measured: X. Priced: Y. Second line." and d["headline_line"] == 3
+    assert d["sections"] == [{"line": 6, "text": "Section one"}]
+
+
+def test_cost_endpoint_picks_up_summary_without_rebuild(app, tmp_path):
+    c = get(app, "/api/cost")
+    assert c["lead"]["text"].startswith("Fixing a wrong answer in the cloud costs about USD 0.0")
+    assert c["router"]["shown"] is False
+    docs = {d["path"]: d for d in c["docs"]}
+    assert docs[views.IMPACT_DOC]["present"] is True
+    other = server.App(app.cache, app.backend, repo=tmp_path)
+    assert {d["path"]: d["present"] for d in get(other, "/api/cost")["docs"]} == {
+        views.COST_SUMMARY_DOC: False, views.IMPACT_DOC: False}
+    (tmp_path / "docs").mkdir()
+    (tmp_path / views.COST_SUMMARY_DOC).write_text("# S\n\nHello.\n", encoding="utf-8")
+    assert {d["path"]: d["present"] for d in get(other, "/api/cost")["docs"]}[views.COST_SUMMARY_DOC] is True
+
+
+def test_recommendation_hides_router_savings(app):
+    r = get(app, "/api/recommend")
+    assert r["savings_shown"] is False and r["savings_vs_all_cloud_usd_per_1k"] is None
+    assert "b5-verdict" in r["savings_note"]

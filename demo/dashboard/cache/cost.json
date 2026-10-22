@@ -1,0 +1,131 @@
+{
+ "lead": {
+  "text": "Fixing a wrong answer in the cloud costs about USD 0.03; the cost is that the failure is silent.",
+  "label": "priced, not executed",
+  "src": {
+   "register": "cloud-redo-cost-per-wrong-task"
+  },
+  "usd_mean": 0.0283,
+  "usd_median": 0.0283,
+  "model": "claude-sonnet-5-5",
+  "per_tier": {
+   "ollama_default": {
+    "n": 17,
+    "mean_usd": 0.0275,
+    "median_usd": 0.0299
+   },
+   "ollama_ctx_16384": {
+    "n": 19,
+    "mean_usd": 0.0272,
+    "median_usd": 0.0295
+   },
+   "ollama_ctx_8192": {
+    "n": 53,
+    "mean_usd": 0.0303,
+    "median_usd": 0.0317
+   },
+   "ollama_ctx_4096": {
+    "n": 63,
+    "mean_usd": 0.0281,
+    "median_usd": 0.0278
+   },
+   "ollama_ctx_4096_numkeep": {
+    "n": 45,
+    "mean_usd": 0.0269,
+    "median_usd": 0.0251
+   }
+  },
+  "n": 197,
+  "total_usd": 5.5681
+ },
+ "items": [
+  {
+   "what": "How often the answer is wrong, and silent",
+   "text": "qwen3:14b on evo-x2: 11.3% wrong at ollama_default to 42.0% at ollama_ctx_4096; 0 of 197 wrong results surfaced an error",
+   "label": "measured",
+   "src": {
+    "register": "x2-evalset-tasks-real-v2-wrong-rate"
+   }
+  },
+  {
+   "what": "Time saved by the measured setting, llama3.1:8b",
+   "text": "37.1 min per 40-turn session (85%): default 43.7 min vs kv_q4_0 6.6 min (flash attention and KV precision changed together; b5-fa-control PENDING)",
+   "label": "measured",
+   "src": {
+    "register": "cost-cut-config-time"
+   }
+  },
+  {
+   "what": "Time saved by the measured setting, qwen3:14b",
+   "text": "139.4 min per 40-turn session (65%): default 214.8 min vs kv_q8_0 75.4 min (flash attention and KV precision changed together; b5-fa-control PENDING)",
+   "label": "measured",
+   "src": {
+    "register": "cost-cut-config-time"
+   }
+  },
+  {
+   "what": "Cloud redo of each wrong task",
+   "text": "USD 0.0283 mean, USD 0.0283 median per wrong task on claude-sonnet-5-5 (197 tasks, USD 5.57 in all)",
+   "label": "priced, not executed",
+   "src": {
+    "register": "cloud-redo-cost-per-wrong-task"
+   }
+  },
+  {
+   "what": "Re-sending the history to the cloud, per session",
+   "text": "1,798,884 tokens re-sent; USD 0.1799 with caching, USD 3.5978 without",
+   "label": "priced, not executed",
+   "src": {
+    "register": "impact-P3"
+   }
+  },
+  {
+   "what": "Wrong answers per day for one stated team (P1)",
+   "text": "USD 10.33 to 137.18 per day at 40 sessions/day (assumed volume; time valued 0 to the full hour value; cloud part priced, not executed)",
+   "label": "projected",
+   "src": {
+    "register": "impact-v2-P1"
+   }
+  },
+  {
+   "what": "Ranking of the problems by cost (one assumed profile)",
+   "text": "P2 > P1 > P5 > P3 > P4",
+   "label": "projected",
+   "src": {
+    "register": "impact-ranking-v2"
+   }
+  },
+  {
+   "what": "Today's cost for the reference team, measured parts only",
+   "text": "USD 3.60 per day (measured token counts and list prices at the assumed team volume; the register calls this measured-only)",
+   "label": "projected",
+   "src": {
+    "register": "impact-total"
+   }
+  }
+ ],
+ "router": {
+  "shown": false,
+  "verdict": "refuted",
+  "src": {
+   "register": "b5-verdict"
+  },
+  "text": "Router savings: not shown. Row b5-verdict is refuted on evo-x2 (the router policy was dominated); no register row supports a savings figure."
+ },
+ "register_ids": [
+  "cloud-redo-cost-per-wrong-task",
+  "x2-evalset-tasks-real-v2-wrong-rate",
+  "cost-cut-config-time",
+  "impact-v2-P1",
+  "impact-ranking-v2",
+  "impact-P3",
+  "impact-total",
+  "b5-verdict",
+  "b5-policy-metrics",
+  "impact-hour-value"
+ ],
+ "docs": [
+  "docs/OCT29_COST_SUMMARY.md",
+  "docs/IMPACT.md"
+ ]
+}

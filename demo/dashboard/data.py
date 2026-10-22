@@ -95,7 +95,7 @@ def to_dict(obj) -> Any:
 
 
 class Cache:
-    NAMES = ("manifest", "register", "hardware", "workloads", "r2_sessions", "points", "mitigation", "silent", "device")
+    NAMES = ("manifest", "register", "hardware", "workloads", "r2_sessions", "points", "mitigation", "silent", "device", "cost")
 
     def __init__(self, directory: Path = CACHE_DIR):
         self.dir = Path(directory)
@@ -188,8 +188,14 @@ def recommendation(cache: Cache, backend: Backend, budget_usd: float, quality_fl
         excluded.append({**e, "id": d.get("id"), "src": d.get("src")})
 
     cloud = [d for d in dicts if d.get("stub")]
+    # No router savings figure unless a register row supports it (operator 2026-10-21; row b5-verdict).
+    from demo.dashboard import views
+    shown = views.router_savings_supported(cache.register)
     return {"chosen": deco(rec.get("chosen")), "reason": rec.get("reason"),
-            "savings_vs_all_cloud_usd_per_1k": rec.get("savings_vs_all_cloud_usd_per_1k"),
+            "savings_vs_all_cloud_usd_per_1k": rec.get("savings_vs_all_cloud_usd_per_1k") if shown else None,
+            "savings_shown": shown,
+            "savings_note": None if shown else (f"not shown: register row b5-verdict is "
+                                                f"{views.b5_verdict(cache.register) or 'missing'} on evo-x2"),
             "savings_stub": True,  # all-cloud side is the stub pricing until real cloud rows exist
             "savings_src": {"file": "src/cloud/client.py", "note": "STUB cloud cost from the pricing table"},
             "alternatives": [deco(a) for a in rec.get("alternatives") or []], "excluded": excluded,
@@ -300,7 +306,9 @@ def replay(cache: Cache, backend: Backend, key: str, budget_usd: float = 50.0, q
 
 
 def allowed_sources(cache: Cache) -> set[str]:
-    return set(cache.manifest["sources"]) | {"src/cloud/client.py"} | set(cache.points["files"])
+    from demo.dashboard import views
+    return (set(cache.manifest["sources"]) | {"src/cloud/client.py", views.COST_SUMMARY_DOC, views.IMPACT_DOC}
+            | set(cache.points["files"]))
 
 
 def source(cache: Cache, file: str, line: int | None = None, match: dict | None = None,

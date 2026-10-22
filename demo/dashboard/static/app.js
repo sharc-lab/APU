@@ -173,7 +173,8 @@ function renderRec() {
       <div class="tile"><div class="k">Quality (n ${num(fmt.int(c.quality_n), c.src)})</div><div class="v">${num(fmt.q(c.quality), c.src)}</div></div>
       <div class="tile"><div class="k">p50 latency</div><div class="v">${num(fmt.ms(c.latency_p50_ms), c.src)}</div></div>
       <div class="tile"><div class="k">Cost per 1k steps</div><div class="v">${num(fmt.usd(c.usd_per_1k_steps), c.src)}</div></div>
-      <div class="tile"><div class="k">Savings vs all-cloud per 1k steps ${stub}</div><div class="v">${num(fmt.usd(r.savings_vs_all_cloud_usd_per_1k), r.savings_src)}</div></div>
+      ${r.savings_shown ? `<div class="tile"><div class="k">Savings vs all-cloud per 1k steps ${stub}</div><div class="v">${num(fmt.usd(r.savings_vs_all_cloud_usd_per_1k), r.savings_src)}</div></div>`
+        : `<div class="tile"><div class="k">Router savings</div><div class="v small" style="font-size:14px">${num(r.savings_note, { register: "b5-verdict" })}</div></div>`}
     </div>`;
   } else {
     h += `<p class="hero">No local config meets these inputs</p>`;

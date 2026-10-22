@@ -20,6 +20,8 @@ Endpoints (all GET):
   /api/device               view B options (devices, models, workloads)
   /api/device/recommend?device=&model=&workload=&max_timeout_share=   view B: recommended window, num_keep, KV
                             precision, flash attention with the measured outcome, or "not measured"
+  /api/cost                 view C: cost panel (measured parts first; P1 lead; router savings only with a register
+                            row behind it; docs/OCT29_COST_SUMMARY.md and docs/IMPACT.md when present)
   /api/register[?id=]       register rows from the snapshot
   /api/source?file=&line=   one raw line of a whitelisted source file
   /api/source?file=&match=k:v,k:v   line numbers of rows matching every k:v
@@ -85,9 +87,12 @@ def _sse(event: str, obj) -> bytes:
 
 
 class App:
-    def __init__(self, cache: data.Cache | None = None, backend: data.Backend | None = None):
+    def __init__(self, cache: data.Cache | None = None, backend: data.Backend | None = None,
+                 repo: Path | None = None, escalator=None):
         self.cache = cache or data.Cache()
         self.backend = backend or data.load_backend()
+        self.repo = Path(repo) if repo else data.REPO  # where the cost view looks for its docs
+        self.escalator = escalator
 
     # one place for every route
     def handle(self, method: str, target: str) -> Response:
@@ -105,7 +110,7 @@ class App:
                      "/api/scenario": self.scenario, "/api/replay": self.replay,
                      "/api/replay/stream": self.replay_stream, "/api/register": self.register,
                      "/api/source": self.source, "/api/silent": self.silent, "/api/device": self.device,
-                     "/api/device/recommend": self.device_recommend}.get(path)
+                     "/api/device/recommend": self.device_recommend, "/api/cost": self.cost}.get(path)
             if route is None:
                 return _json({"error": f"no route {path}"}, 404)
             return route(q)
@@ -182,6 +187,9 @@ class App:
         one = lambda k, dflt: (q.get(k) or [dflt])[0]  # noqa: E731
         return _json(data.device_recommendation(self.cache, self.backend, one("device", "evo-x2"),
                                                 one("model", "qwen3:14b"), one("workload", "r2_agent"), _share(q)))
+
+    def cost(self, q) -> Response:
+        return _json(views.cost_view(self.cache, self.repo))
 
     def register(self, q) -> Response:
         if "id" in q:
