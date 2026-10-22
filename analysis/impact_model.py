@@ -1708,18 +1708,36 @@ def b3_v2_task_outcomes(repo=REPO) -> dict:
 
 def full_context_redo(repo=REPO) -> dict | None:
     """The full-history redo's mean USD per task and its model, only when row cloud-redo-full-context is VERIFIED and
-    its run finished without a stop; None otherwise (the caller then uses the INTERIM stand-in)."""
+    the run is complete across its parts (the first file plus every --resume continuation, superseded rows excluded):
+    every wrong task has a row and the last part ended with a run_end that did not stop. A stop or crash in an earlier
+    part does not count against completeness, because the next part resumed it. None otherwise (the caller then uses
+    the INTERIM stand-in)."""
+    import importlib.util
     import numbers_register as nr
     path = Path(repo) / nr.CLOUD_REDO_FULL_CONTEXT
     if not register_has(repo, "cloud-redo-full-context") or not path.exists():
         return None
-    rows = [json.loads(x) for x in path.read_text(encoding="utf-8").splitlines() if x.strip()]
-    end = next((r for r in rows if r.get("record") == "run_end"), None)
-    if end is None or end.get("stopped"):
+    spec = importlib.util.spec_from_file_location("cloud_redo", Path(repo) / "scripts" / "cloud_redo.py")
+    cr = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cr)
+    paths = cr.part_files(path)
+    tasks = cr.merged_rows(paths)
+    start = next(r for r in cr.load_rows(paths[0]) if r.get("record") == "run_start")
+    last_end = next((r for r in cr.load_rows(paths[-1]) if r.get("record") == "run_end"), None)
+    if last_end is None or last_end.get("stopped") or len(tasks) < start["n_wrong_tasks"]:
         return None
-    s = nr.cloud_redo_data(Path(repo), nr.CLOUD_REDO_FULL_CONTEXT)
-    return {"model": s["model_id"], "usd": s["mean_usd"], "n": s["n"]}
+    s = cr.summarize(tasks)
+    return {"model": start.get("model_id"), "usd": s["mean_usd"], "n": s["n"]}
 
+
+
+def esc_label_all(cells) -> str:
+    """The escalation-cost labels of all cells, one per cloud tier, joined (a header must not show only the first)."""
+    seen = []
+    for c in cells:
+        if c["esc_label"] not in seen:
+            seen.append(c["esc_label"])
+    return "; ".join(seen)
 
 def t2s_loaded_window(repo=REPO, model=B3_V2_MODEL) -> list:
     """The window Ollama loaded for model on evo-t2s Intel CPU at its default (row t2s-r2-real-cpu's file)."""
@@ -1810,8 +1828,14 @@ def hybrid_savings(repo=REPO, p2_row=None) -> dict:
         for m in sorted(ac["models"]):
             esc = redo["usd"] if redo and redo["model"] == m else None
             res = hybrid_policies(local[dv["tier"]], ac["models"][m], seeds, esc)
-            cells.append(dict(dv, model=m, esc_label=("measured: cloud-redo-full-context mean USD per task"
-                                                      if esc is not None else INTERIM_ESC), **res))
+            if esc is not None:
+                lab = f"measured for {m}: cloud-redo-full-context mean USD per task"
+            elif redo:
+                lab = (f"interim for {m}: all-cloud per-task cost (the full-history redo ran on {redo['model']} "
+                       f"only)")
+            else:
+                lab = INTERIM_ESC
+            cells.append(dict(dv, model=m, esc_label=lab, **res))
     return {"status": "VERIFIED", "cells": cells, "seeds": seeds, "local_seeds": local_seeds, "rates": rates,
             "best": best, "redo": redo, "volumes": HYBRID_VOLUMES, "t2s_window": win,
             "blade": "not measured (no B3 v2 run on the Blade)", "p2": hybrid_p2(repo, p2_row)}
@@ -1912,8 +1936,9 @@ def hybrid_curve(repo=REPO, h=None, real=None) -> dict:
             p["volumes"] = {v: savings_formula(p["bill_task"], ci["k"], ci["x_ratio"], v) for v in HYBRID_VOLUMES}
         tiers.append({"model": m, **ci, "points": pts, "redo_premium": esc / ci["bill_task"] - 1 if esc is not None
                       else 0.0,
-                      "esc_label": "measured: cloud-redo-full-context mean USD per task" if esc is not None
-                      else INTERIM_ESC,
+                      "esc_label": (f"measured for {m}: cloud-redo-full-context mean USD per task" if esc is not None
+                                    else (f"interim for {m}: all-cloud per-task cost (the full-history redo ran on "
+                                          f"{redo['model']} only)" if redo else INTERIM_ESC)),
                       "flag_matched": flag["matched"], "flag_kept": flag["kept_local"],
                       "flag_k": flag["kept_local"] / flag["n"] if flag["matched"] else 0.0})
     return {"status": "VERIFIED", "tiers": tiers, "device": f"evo-x2 {DEFAULT_TIER}", "seeds": h["seeds"],
@@ -2000,9 +2025,9 @@ def t2s_config_text(t) -> str:
     return (f"evo-t2s configuration, {t['label']}; kept local, {T2S_KEPT_LABEL} = share of R2 sessions with no gated "
             f"silent failure "
             f"(t2s-r2-real-cpu, t2s-r2-real-igpu); savings = B x k - X with B the measured all-cloud B3 per-task cost "
-            f"and X = (1 - k) x B x (escalation USD per escalated task / all-cloud USD per task - 1), 0 while the "
-            f"escalation cost is interim ({INTERIM_ESC}) (ASSUMPTION: R2 session share stands for the task "
-            f"share); 30-day month; " + " / ".join(parts))
+            f"and X = (1 - k) x B x (escalation USD per escalated task / all-cloud USD per task - 1): 0 for a tier whose escalated task is costed at its all-cloud price (interim), positive for a tier "
+            f"costed at the measured full-history redo price (see hybrid-savings-tradeoff for which applies) "
+            f"(ASSUMPTION: R2 session share stands for the task share); 30-day month; " + " / ".join(parts))
 
 
 # Measured trade-off lead (operator decision 2026-10-22, savings curve lead; row hybrid-savings-tradeoff): per device,
@@ -2061,7 +2086,7 @@ def hybrid_tradeoff(h, curve) -> dict:
                          "measured": measured, "acc_label": acc, "options": {k: opts[k] for k, _ in TRADEOFF_OPTIONS},
                          "ceiling": opts[TRADEOFF_CEILING], "esc_label": c["esc_label"]})
     return {"status": "VERIFIED", "rows": rows, "seeds": h["seeds"], "volumes": HYBRID_VOLUMES,
-            "esc_label": h["cells"][0]["esc_label"], "case": curve["case"], "hit_rate": curve["hit_rate"]}
+            "esc_label": esc_label_all(h["cells"]), "case": curve["case"], "hit_rate": curve["hit_rate"]}
 
 
 def _acc(o):
@@ -2206,7 +2231,7 @@ def hybrid_savings_text(h) -> str:
                f"{r.get('machine_label', price_label(None))})")
     return (f"qwen3:14b B3 v2 tasks vs all-cloud, matched on the {len(h['seeds'])} shared seeds "
             f"{', '.join(map(str, h['seeds']))} (local run has {len(h['local_seeds'])}); escalated task cost: "
-            f"{h['cells'][0]['esc_label']}; best evo-x2 tier {h['best']}; evo-t2s = PROJECTION from evo-x2 "
+            f"{esc_label_all(h['cells'])}; best evo-x2 tier {h['best']}; evo-t2s = PROJECTION from evo-x2 "
             f"ollama_ctx_4096 (no B3 v2 run on evo-t2s; loaded window from t2s-r2-real-cpu); 30-day month, volumes a "
             f"stated parameter range; " + " / ".join(parts) + f"; Blade: {h['blade']}" + p2t)
 
@@ -2220,7 +2245,7 @@ def render_hybrid_block(h) -> str:
     n = h["cells"][0]["n"]
     L += [f"Matched on the {len(h['seeds'])} seeds both runs share ({', '.join(map(str, h['seeds']))}); the local run "
           f"has {len(h['local_seeds'])} seeds and the other {len(h['local_seeds']) - len(h['seeds'])} are not used in "
-          f"the table. {n} tasks per cell. Escalated task cost: {h['cells'][0]['esc_label']}. Monthly savings: 30-day "
+          f"the table. {n} tasks per cell. Escalated task cost: {esc_label_all(h['cells'])}. Monthly savings: 30-day "
           f"month at " + ", ".join(f"{v:,}" for v in HYBRID_VOLUMES)
           + " agent tasks/day (a stated parameter range, not a claim). Labels: measured = evo-x2 B3 v2 run; projected "
           "= evo-x2's ollama_ctx_4096 tier standing in for evo-t2s.", "",
@@ -2278,8 +2303,9 @@ def render_t2s_config_block(t) -> str:
     models = sorted({m for r in t["rows"] for m in r["savings"]})
     L += [f"Label: {t['label']}. Kept local, {T2S_KEPT_LABEL} = share of R2 sessions with no gated silent failure, "
           "until the evo-t2s B5 results report task accuracy. Savings per month "
-          "= B x k - X, B = the measured all-cloud B3 per-task cost of the tier x tasks/day x 30, X = 0 while the "
-          "escalation cost is interim (ASSUMPTION: the R2 session share stands for the task share).", "",
+          "= B x k - X, B = the measured all-cloud B3 per-task cost of the tier x tasks/day x 30, X = the escalation premium "
+          "over the all-cloud price: 0 for a tier costed at its all-cloud price (interim), positive for a tier costed at "
+          "the measured full-history redo price (ASSUMPTION: the R2 session share stands for the task share).", "",
           f"| evo-t2s setting | Model | Loaded window | Gated silent failures | Kept local, {T2S_KEPT_LABEL} | "
           + " | ".join(f"Saves USD/month vs {m} at " + " / ".join(f"{v:,}" for v in HYBRID_VOLUMES) for m in models)
           + " |", "|---|---|---|---|---|" + "---|" * len(models)]
