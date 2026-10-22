@@ -71,6 +71,73 @@ ENTRIES = {
                 "docs/FINDINGS.md 2026-10-21: Fisher exact on 10 vs 10 gated silent sessions. ESTIMATE 2.19 h "
                 "(register row x2-queue-fill-1020-hours). " + RELEASE,
     },
+    # ── queue fill of 2026-10-22 (docs/X2_QUEUE_PLAN.md; hours: register row x2-queue-fill-1022-hours) ──
+    "x2_b5_fa_control": {
+        "projected_duration_h": 4.85,
+        "cmd": [PY, "b5fa\\policy_compare.py", "--platform", "evo-x2", "--fa-control", "--out",
+                f"{RESULTS}\\x2_policy_compare_fa_control.jsonl"],
+        "note": "B5 flash-attention control (policy i: f16 KV + flash attention at L(f16), llama3.1:8b and qwen3:14b, "
+                "seeds 20260901-03) and the llama3.1:8b f16 recall rerun (1800 s timeout), pre-registered in "
+                "docs/FINDINGS.md 2026-10-22 (a307ca8). ESTIMATE 4.85 h (high 13.92 h; register row "
+                "x2-queue-fill-1022-hours). " + RELEASE,
+    },
+    "x2_b5_simcap_8192": {
+        "projected_duration_h": 33.08,
+        "cmd": [PY, "b5fa\\policy_compare.py", "--platform", "evo-x2", "--window-cap", "8192", "--seeds",
+                "20260901,20260902,20260903,20260904,20260905", "--out",
+                f"{RESULTS}\\x2_policy_compare_simcap8192.jsonl"],
+        "note": "B5 under a simulated device window of 8192 (simulated constraint), all policies a-h, llama3.1:8b and "
+                "qwen3:14b, seeds 20260901-05, pre-registered in docs/FINDINGS.md 2026-10-22. ESTIMATE 33.08 h "
+                "(register row x2-queue-fill-1022-hours). " + RELEASE,
+    },
+    "x2_b5_simcap_4096": {
+        "projected_duration_h": 26.11,
+        "cmd": [PY, "b5fa\\policy_compare.py", "--platform", "evo-x2", "--window-cap", "4096", "--seeds",
+                "20260901,20260902,20260903,20260904,20260905", "--out",
+                f"{RESULTS}\\x2_policy_compare_simcap4096.jsonl"],
+        "note": "B5 under a simulated device window of 4096 (simulated constraint), all policies a-h, llama3.1:8b and "
+                "qwen3:14b, seeds 20260901-05, pre-registered in docs/FINDINGS.md 2026-10-22. ESTIMATE 26.11 h "
+                "(register row x2-queue-fill-1022-hours). " + RELEASE,
+    },
+    "x2_r2_v1b_seeds_06_10": {
+        "projected_duration_h": 30.44,
+        "cmd": [PY, "r2v1b\\x2_r2_v1b_seeds.py"],
+        "note": "R2 at 10 seeds on the v1b harness blob (a4c4a928): reproduction check first (llama3.1:8b num_ctx 4096 "
+                "seed 20260904 vs x2_r2_real_v1b, identical final text on every turn, else stop), then llama3.1:8b and "
+                "qwen3:14b at default/16384/8192/4096, seeds 20260906-10; pre-registered in docs/FINDINGS.md "
+                "2026-10-22 (b19be61). ESTIMATE 30.44 h (register row x2-queue-fill-1022-hours). " + RELEASE,
+    },
+    "x2_mx2_qwen3_32b_spill_sweep": {
+        "projected_duration_h": 0.36,
+        "cmd": [PY, "spill32\\mx2_qwen32b_spill_sweep.py", "--out",
+                f"{RESULTS}\\x2_mx2_qwen3_32b_spill_sweep.jsonl"],
+        "note": "qwen3-32b spill point and spill cost on evo-x2, n_ctx 20480 to 40960 unclamped (llama-server b10970 "
+                "Vulkan -ngl 99, own port 58411, stale-server guard, 1 warm-up + 5 calls per point), pre-registered in "
+                "docs/FINDINGS.md 2026-10-22 (777ee78). ESTIMATE 0.36 h (high 1.03 h; register row "
+                "x2-queue-fill-1022-hours). " + RELEASE,
+    },
+    "x2_evalset_tasks_val_v2_mistral_small32": {
+        "projected_duration_h": 0.35,
+        "cmd": [PY, "evalv2ms\\x2_r2_evalset.py", "--design", "v2", "--mode", "validation", "--workload", "evalset",
+                "--guardrails", "off", "--models", "mistral-small3.2:24b", "--out",
+                f"{RESULTS}\\x2_evalset_tasks_val_v2_mistral_small32.jsonl"],
+        "note": "B3 v2 tasks validation for mistral-small3.2:24b, pre-registered in docs/FINDINGS.md 2026-10-22 "
+                "(80ce6f8; protocol consistency extended to mistral-small3.2:24b). ESTIMATE 0.35 h (high 0.54 h; "
+                "register row x2-queue-fill-1022-hours). " + RELEASE,
+    },
+    "x2_evalset_tasks_real_v2_mistral_small32": {
+        "projected_duration_h": 3.01,
+        "gate": {"requires_done": "x2_evalset_tasks_val_v2_mistral_small32"},
+        "cmd": [PY, "evalv2ms\\x2_r2_evalset.py", "--design", "v2", "--mode", "real", "--workload", "evalset",
+                "--guardrails", "off", "--models", "mistral-small3.2:24b", "--plan", "tasks_v2_mistral_small32",
+                "--preflight", "v2_strict", "--rules-from",
+                f"{RESULTS}\\x2_evalset_tasks_val_v2_mistral_small32.jsonl", "--out",
+                f"{RESULTS}\\x2_evalset_tasks_real_v2_mistral_small32.jsonl"],
+        "note": "B3 v2 task real run for mistral-small3.2:24b, pre-registered in docs/FINDINGS.md 2026-10-22 (80ce6f8): "
+                "tasks_v2 tiers and seeds; queue gate requires_done x2_evalset_tasks_val_v2_mistral_small32, and the "
+                "v2_strict preflight refuses unless mistral passes every gate of that validation (no waiver). "
+                "ESTIMATE 3.01 h (high 3.66 h; register row x2-queue-fill-1022-hours). " + RELEASE,
+    },
 }
 
 

@@ -450,6 +450,22 @@ def utc_iso():
     return datetime.now(timezone.utc).isoformat()
 
 
+def git_blob_sha1(path) -> str | None:
+    """git's blob id of a file's bytes (sha1 of b"blob <len>\\0" + bytes); None if unreadable. Recorded in run_start
+    (operator item of 2026-10-21: every run records the blob of the harness file that produced it)."""
+    import hashlib
+    try:
+        b = Path(path).read_bytes()
+    except OSError:
+        return None
+    return hashlib.sha1(b"blob %d\0" % len(b) + b).hexdigest()
+
+
+def harness_provenance() -> dict:
+    """run_start fields naming this file and its git blob."""
+    return {"agent_file": str(Path(__file__).resolve()), "agent_blob": git_blob_sha1(__file__)}
+
+
 def est_tokens(text) -> int:
     """chars/4 estimate (r2._approx_token_count); 0 for empty/None."""
     if not text:
@@ -1995,6 +2011,7 @@ def main(argv=None, advance=True):
               "hw_id": host_cfg.get("hw_id"), "interactive_session": interactive, "server_env_extra": extra_env,
               "tiers": tiers, "seeds": seeds, "allow_new_seeds": args.allow_new_seeds if seeds is not None else None,
               "neg_ctx": args.neg_ctx, "neg_sessions": args.neg_sessions, "num_keep": args.num_keep,
+              **harness_provenance(),
               **({"num_gpu": args.num_gpu} if args.num_gpu is not None else {}),
               **({"backend": args.backend, "backend_env": backend_env} if args.backend is not None else {})})
         present = {Path(p).name: Path(p).exists() for p in rule_files}

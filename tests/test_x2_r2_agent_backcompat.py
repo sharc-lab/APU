@@ -58,6 +58,7 @@ NEW_RUN_START_FIELDS = {"hw_id": "evo-x2", "interactive_session": CONSOLE_STATE,
                         "tiers": None, "seeds": None, "allow_new_seeds": None,
                         "neg_ctx": None, "neg_sessions": None,  # validation options of 2026-10-10
                         "num_keep": None}  # real-mode option of 2026-10-13 (x2_num_keep_guardrail_test)
+BLOB_FIELDS = ("agent_file", "agent_blob")  # run_start provenance of 2026-10-21; the value depends on the file
 NEW_ARGS = {"server_env": None, "tiers": None, "seeds": None, "allow_new_seeds": False,
             "neg_ctx": None, "neg_sessions": None, "num_keep": None,
             "num_gpu": None,  # validation/real option of 2026-10-14 (x2_r2_llama_val_32k_offload); run_start only if set
@@ -214,8 +215,11 @@ def test_default_run_is_identical(case, golden, tmp_path, monkeypatch):
     assert new["records"] == old["records"]
     assert new["runtime"] == old["runtime"] and new["runtime_obj"] == old["runtime_obj"]
     rs_new, rs_old = new["run_start"], old["run_start"]
-    assert {k: v for k, v in rs_new.items() if k not in NEW_RUN_START_FIELDS} == rs_old
+    assert {k: v for k, v in rs_new.items() if k not in NEW_RUN_START_FIELDS and k not in BLOB_FIELDS} == rs_old
     assert {k: rs_new[k] for k in NEW_RUN_START_FIELDS} == NEW_RUN_START_FIELDS
+    # 2026-10-21 (operator): run_start names the agent file and its git blob
+    assert rs_new["agent_blob"] == ag.git_blob_sha1(ag.__file__) and len(rs_new["agent_blob"]) == 40
+    assert str(rs_new["agent_file"]).replace("\\", "/").endswith("harness/x2_r2_agent.py")
     assert rs_new["plan"] == rs_old["plan"]  # spelled out: the plan is the part the T2S flags change
 
 

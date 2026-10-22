@@ -1,1 +1,4 @@
 scripts/as_run/** -text
+
+# Frozen harness copies are compared by git blob of the working-tree bytes: never convert line endings.
+harness/frozen_v1b/** text eol=lf

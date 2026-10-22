@@ -5262,6 +5262,512 @@ def compute_x2_queue_fill_1020_hours(repo):
     return {"value": "; ".join(parts), "n": f"{len(jobs)} jobs (estimate)"}
 
 
+# ───────────────────────────────────────────────── evo-x2 queue fill of 2026-10-22 (docs/X2_QUEUE_PLAN.md)
+# Operator order of 2026-10-21/22: B5 flash-attention control first, then B5 under a simulated device window (8192,
+# 4096; 5 seeds), then R2 at 10 seeds on the v1b harness blob, the qwen3:32b spill sweep, and mistral-small3.2:24b B3 v2.
+# The hours row is an ESTIMATE from measured times in committed files; result rows are PENDING until synced.
+B5_X2_FILE = "results/x2_policy_compare.jsonl"
+B5_FA_FILE = "results/x2_policy_compare_fa_control.jsonl"
+B5_SIMCAP_FILES = {8192: "results/x2_policy_compare_simcap8192.jsonl", 4096: "results/x2_policy_compare_simcap4096.jsonl"}
+B5_SIM_SEEDS = (20260901, 20260902, 20260903, 20260904, 20260905)
+MX2_VALIDATION_FILE = "results/mx2_validation.jsonl"
+# The schedule anchor: the watchdog launch of the first job of this fill (watchdog.log on evo-x2,
+# {"action": "launched", "launched": "x2_b5_fa_control"} at 2026-10-22T03:13:40Z). Jobs are projected back to back.
+FILL_1022_ANCHOR_UTC = "2026-10-22T03:13:40+00:00"
+FILL_1022_DEADLINE_UTC = "2026-11-10T00:00:00+00:00"
+FILL_1022_RESERVE_H = 150.0             # operator: about 150 h left unallocated before the deadline for reviewer reruns
+FILL_1022_RESULTS_BY_UTC = "2026-10-28T00:00:00+00:00"   # operator: the two B5 jobs must have results by then
+FILL_1022_ORDER = ("x2_b5_fa_control", "x2_b5_simcap_8192", "x2_b5_simcap_4096", "x2_r2_v1b_seeds_06_10",
+                   "x2_mx2_qwen3_32b_spill_sweep", "x2_evalset_tasks_val_v2_mistral_small32",
+                   "x2_evalset_tasks_real_v2_mistral_small32")
+FILL_1022_DATA = [B5_X2_FILE, R2_REAL_V1_FILE, R2_REAL_V1B_FILE, MX2_VALIDATION_FILE, X2_FAMILY_REAL,
+                  X2_EVALSET_TASKS_VAL_V2, X2_EVALSET_TASKS_REAL_V2]
+SPILL_SWEEP_POINTS_MAX = 9              # 6 grid points + up to 3 refinement points (pre-registration)
+SPILL_SWEEP_MEASURED_CALLS = 5          # plus 1 warm-up call per point
+
+
+def _b5_policy_minutes(repo) -> dict:
+    """{model: {policy: per-session mean minutes}} on B5's evo-x2 file (wall_min_proxy_measured: measured time, the
+    router's proxy calls included)."""
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "harness"))
+    import policy_compare as pc
+    rows = pc.ag.read_rows(repo / B5_X2_FILE)
+    m = pc.metrics_for_platform(rows)
+    return {model: {p: v["wall_min_proxy_measured"] for p, v in c["policies"].items()} for model, c in m.items()}
+
+
+def queue_fill_1022_estimates(repo) -> dict:
+    """ESTIMATE per job (hours, point and high) from measured times; see each job's basis string."""
+    import statistics
+    import sys as _sys
+    from datetime import datetime
+    ag = _r2_agent_module()
+    import x2_r2_evalset as ev
+    sfx = "_call2_notools"
+    b5 = _b5_policy_minutes(repo)
+    jobs = {}
+    # 1) flash-attention control: 3 sessions per model at (g)/(h)'s mean (point: flash attention explains it) or at
+    # (a)'s mean (high); the llama3.1:8b f16 recall rerun at B5's measured f16 call times, the timed-out call at the
+    # new 1800 s limit in the high case; window probes and the base-env check at B5's measured probe time.
+    rows = ag.read_rows(repo / B5_X2_FILE)
+    rec = [r for r in rows if r.get("record") == "b5_recall" and r["model_id"] == "llama3.1:8b"
+           and r["precision"] == "f16"]
+    rec_s = sum(r.get("duration_s") or 0.0 for r in rec)
+    rec_hi = sum((1800.0 if r.get("outcome") != "ok" else (r.get("duration_s") or 0.0)) for r in rec)
+    ts = {r["record"]: r["ts_utc"] for r in rows if r.get("record") in ("runtime",)}
+    first_hb = next(r["ts_utc"] for r in rows if r.get("record") == "heartbeat")
+    probe_s = (datetime.fromisoformat(first_hb) - datetime.fromisoformat(ts["runtime"])).total_seconds()
+    gh = {m: (b5[m]["g"] + b5[m]["h"]) / 2 for m in b5}
+    pt = sum(3 * gh[m] for m in b5) / 60 + rec_s / 3600 + probe_s / 3 / 3600
+    hi = sum(3 * b5[m]["a"] for m in b5) / 60 + rec_hi / 3600 + probe_s / 3 / 3600
+    jobs["x2_b5_fa_control"] = {
+        "point_h": pt, "high_h": hi,
+        "basis": "3 sessions per model at the B5 (g)/(h) mean (" + ", ".join(f"{m} {gh[m]:.1f} min" for m in sorted(gh))
+                 + "); high at the (a) mean (" + ", ".join(f"{m} {b5[m]['a']:.1f} min" for m in sorted(b5))
+                 + f"); llama3.1:8b f16 recall {rec_s / 60:.1f} min as measured in B5 (high {rec_hi / 60:.1f} min, the "
+                 f"timed-out call at 1800 s); probes {probe_s / 3 / 60:.1f} min (B5's probe time for 3 envs / 3)"}
+    # 2) simulated constraint, 5 seeds per cap: (a)=(b)=(e), (c), (f), (g), (h) at the R2 v1/v1b median session of the
+    # capped num_ctx (high: the slowest); (d) at B5's measured router session (proxy calls at the uncapped window).
+    v1 = ag.read_rows(repo / R2_REAL_V1_FILE) + ag.read_rows(repo / R2_REAL_V1B_FILE)
+    for cap in (8192, 4096):
+        p_h = h_h = 0.0
+        parts = []
+        for m in ("llama3.1:8b", "qwen3:14b"):
+            med = _r2_median_s(repo, m, f"num_ctx_{cap}") / 60
+            slow = max(_session_walls_s(v1, m, f"ollama_ctx_{cap}" + sfx, mode="real")) / 60
+            d = b5[m]["d"]
+            p_h += len(B5_SIM_SEEDS) * (5 * med + d) / 60
+            h_h += len(B5_SIM_SEEDS) * (5 * slow + d) / 60
+            parts.append(f"{m} 5 policies x {med:.1f} min (slowest {slow:.1f}) + router {d:.1f} min")
+        p_h += probe_s / 3600
+        h_h += probe_s / 3600
+        jobs[f"x2_b5_simcap_{cap}"] = {
+            "point_h": p_h, "high_h": h_h,
+            "basis": f"5 seeds x ({'; '.join(parts)}) (R2 v1/v1b num_ctx {cap} sessions; router = B5's measured "
+                     f"router session); probes {probe_s / 60:.1f} min (B5's)"}
+    # 3) R2 at 10 seeds on the v1b blob: the reproduction session (its own v1b wall time) + 5 seeds x 4 tiers x 2 models
+    v1b =ag.read_rows(repo / R2_REAL_V1B_FILE)
+    att = [s["attempt_id"] for s in ag.completed_sessions(v1b) if s["model_id"] == "llama3.1:8b"
+           and s["arm_id"] == "ollama_ctx_4096" + sfx and s["seed"] == 20260904]
+    rep_s = sum(r.get("turn_wall_s") or 0.0 for r in v1b if r.get("record") == "r2a_turn" and r.get("attempt_id") in att)
+    p_h, h_h, parts = rep_s / 3600, rep_s / 3600, [f"reproduction session {rep_s / 60:.1f} min"]
+    tier_arm = {"ollama_default": "ollama_default", "num_ctx_16384": "ollama_ctx_16384",
+                "num_ctx_8192": "ollama_ctx_8192", "num_ctx_4096": "ollama_ctx_4096"}
+    for m in ("llama3.1:8b", "qwen3:14b"):
+        for t, a in tier_arm.items():
+            med = _r2_median_s(repo, m, t)
+            slow = max(_session_walls_s(v1, m, a + sfx, mode="real"))
+            p_h += 5 * med / 3600
+            h_h += 5 * slow / 3600
+            parts.append(f"{m} {t} {med / 60:.1f} min (slowest {slow / 60:.1f})")
+    jobs["x2_r2_v1b_seeds_06_10"] = {"point_h": p_h, "high_h": h_h,
+                                     "basis": "5 seeds x v1/v1b medians: " + "; ".join(parts)}
+    # 4) qwen3:32b spill sweep: per point, the measured MX2 qwen3-32b point time (start + 1 call + stop) + 5 more calls
+    # at the measured call latency, x the maximum number of points.
+    mx = [r for r in ag.read_rows(repo / MX2_VALIDATION_FILE) if r.get("model_id") == "qwen3-32b"]
+    hb = [(r["point_type"], r["rep"], datetime.fromisoformat(r["ts_utc"])) for r in mx if r.get("record") == "heartbeat"
+          and r.get("point_type") in ("deep_fits", "mid_spill")]
+    started = {(r["point_type"], r["rep"]): r for r in mx if r.get("record") == "mx2v_regime_point" and r.get("started")}
+    ivals = {}
+    for i in range(len(hb) - 1):
+        k = (hb[i][0], hb[i][1])
+        if k in started:
+            ivals[k] = (hb[i + 1][2] - hb[i][2]).total_seconds()
+    lat = [r["latency_ms"] / 1000 for r in started.values() if r.get("latency_ms")]
+    deep = [v for (p, _), v in ivals.items() if p == "deep_fits"]
+    per_pt = statistics.mean(deep) + SPILL_SWEEP_MEASURED_CALLS * statistics.mean(lat)
+    per_hi = max(ivals.values()) + SPILL_SWEEP_MEASURED_CALLS * max(lat)
+    jobs["x2_mx2_qwen3_32b_spill_sweep"] = {
+        "point_h": SPILL_SWEEP_POINTS_MAX * per_pt / 3600, "high_h": SPILL_SWEEP_POINTS_MAX * per_hi / 3600,
+        "basis": f"{SPILL_SWEEP_POINTS_MAX} points x (MX2 qwen3-32b point {statistics.mean(deep):.0f} s at 20480 + "
+                 f"{SPILL_SWEEP_MEASURED_CALLS} calls x {statistics.mean(lat):.1f} s); high: slowest point "
+                 f"{max(ivals.values()):.0f} s (clamped 40960) + {SPILL_SWEEP_MEASURED_CALLS} x {max(lat):.1f} s"}
+    # 5) mistral-small3.2:24b B3 v2: qwen3:14b's measured v2 validation and real-run sessions x the mistral/qwen3:14b R2
+    # session-time ratio (32768 for the large windows, 4096 for the small); high: the larger ratio everywhere.
+    fam = ag.read_rows(repo / X2_FAMILY_REAL)
+    r_big = statistics.median(_session_walls_s(fam, X2_FAMILY_MODEL, "ollama_ctx_32768" + sfx, mode="real")) / \
+        _r2_median_s(repo, "qwen3:14b", "num_ctx_32768")
+    r_small = statistics.median(_session_walls_s(fam, X2_FAMILY_MODEL, "ollama_ctx_4096" + sfx, mode="real")) / \
+        _r2_median_s(repo, "qwen3:14b", "num_ctx_4096")
+    rmax = max(r_big, r_small)
+    e = ev.tasks_v2_hours_estimate(ag.read_rows(repo / X2_EVALSET_TASKS_VAL_V2))
+    neg, pos = sum(e["neg_session_s"]), sum(e["pos_session_s"])
+    jobs["x2_evalset_tasks_val_v2_mistral_small32"] = {
+        "point_h": (neg * r_big + pos * r_small) / 3600, "high_h": (neg + pos) * rmax / 3600,
+        "basis": f"qwen3:14b v2 tasks validation (negative control {neg / 60:.1f} min, positive control "
+                 f"{pos / 60:.1f} min) x mistral/qwen3:14b R2 ratio (32768 {r_big:.2f}, 4096 {r_small:.2f}); high = "
+                 f"x {rmax:.2f} throughout"}
+    rr = ag.read_rows(repo / X2_EVALSET_TASKS_REAL_V2)
+    big = ("ollama_default", "ollama_ctx_16384")
+    pt = hi = 0.0
+    per = []
+    for t in ("ollama_default", "ollama_ctx_16384", "ollama_ctx_8192", "ollama_ctx_4096", ev.NUMKEEP_ARM):
+        w = sum(_session_walls_s(rr, "qwen3:14b", t + sfx, mode="real"))
+        pt += w * (r_big if t in big else r_small)
+        hi += w * rmax
+        per.append(f"{t} {w / 3600:.2f} h")
+    jobs["x2_evalset_tasks_real_v2_mistral_small32"] = {
+        "point_h": pt / 3600, "high_h": hi / 3600,
+        "basis": "qwen3:14b x2_evalset_tasks_real_v2 per tier (" + ", ".join(per) + f") x the ratio above; runs only if "
+                 "the validation passes every gate (a refusal takes minutes)"}
+    return jobs
+
+
+def compute_x2_queue_fill_1022_hours(repo):
+    """ESTIMATE (not a measurement) of each job of the 2026-10-22 evo-x2 queue fill, from measured times in committed
+    files, the back-to-back schedule from the anchor, the B5 results-by date, the 150 h reserve and idle capacity."""
+    from datetime import datetime, timedelta
+    jobs = queue_fill_1022_estimates(repo)
+    t0 = datetime.fromisoformat(FILL_1022_ANCHOR_UTC)
+    dl = datetime.fromisoformat(FILL_1022_DEADLINE_UTC)
+    by = datetime.fromisoformat(FILL_1022_RESULTS_BY_UTC)
+    t_pt = t_hi = t0
+    parts, ends = [], {}
+
+    def f(t):
+        return t.strftime("%m-%d %H:%MZ")
+    for j in FILL_1022_ORDER:
+        e = jobs[j]
+        s_pt, s_hi = t_pt, t_hi
+        t_pt += timedelta(hours=e["point_h"])
+        t_hi += timedelta(hours=e["high_h"])
+        ends[j] = (t_pt, t_hi)
+        parts.append(f"{j} ESTIMATE {e['point_h']:.2f} h (high {e['high_h']:.2f} h; {e['basis']}); projected "
+                     f"{f(s_pt)} to {f(t_pt)} (high case {f(s_hi)} to {f(t_hi)})")
+    b5_end = ends["x2_b5_simcap_4096"]
+    tot_pt = sum(e["point_h"] for e in jobs.values())
+    tot_hi = sum(e["high_h"] for e in jobs.values())
+    slack_pt = (dl - t_pt).total_seconds() / 3600
+    slack_hi = (dl - t_hi).total_seconds() / 3600
+    parts.append(f"B5 jobs end {f(b5_end[0])} (high {f(b5_end[1])}), results-by {FILL_1022_RESULTS_BY_UTC[:10]} "
+                 f"{'met' if b5_end[1] <= by else 'NOT met in the high case'}")
+    parts.append(f"total ESTIMATE {tot_pt:.1f} h (high {tot_hi:.1f} h) from {FILL_1022_ANCHOR_UTC[:16]}Z; queue ends "
+                 f"{f(t_pt)} (high {f(t_hi)}); slack before {FILL_1022_DEADLINE_UTC[:10]} 00:00Z {slack_pt:.1f} h "
+                 f"(high case {slack_hi:.1f} h); unallocated beyond the {FILL_1022_RESERVE_H:.0f} h reserve "
+                 f"{slack_pt - FILL_1022_RESERVE_H:.1f} h (high case {slack_hi - FILL_1022_RESERVE_H:.1f} h)")
+    return {"value": "; ".join(parts), "n": f"{len(jobs)} jobs (estimate)"}
+
+
+def compute_cost_cut_config_time(repo):
+    """MEASURED: per model, the session minutes saved per 40-turn R2 session by the fastest measured non-router setting
+    on evo-x2 (B5 policies b-h, and the flash-attention control's policy i once synced) against the runtime default
+    (B5 policy a), from the result files; rule pass rate and history recall of both settings beside it."""
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "harness"))
+    import policy_compare as pc
+    rows = pc.ag.read_rows(repo / B5_X2_FILE)
+    m = pc.metrics_for_platform(rows)
+    fa = {}
+    if (repo / B5_FA_FILE).exists():
+        fa = pc.fa_control_summary(pc.ag.read_rows(repo / B5_FA_FILE), rows)
+    parts = []
+    for model, c in sorted(m.items()):
+        pol = {p: v for p, v in c["policies"].items() if p != pc.ROUTER_POLICY and not v.get("alias_of")}
+        cand = {p: (v["wall_min"], v["rule_pass_rate"], v["history_recall"], v["window"]) for p, v in pol.items()}
+        if model in fa and fa[model].get("valid"):
+            x = fa[model]
+            cand["i"] = (x["m_i"], x["rule_pass_rate"], x["history_recall"], x["window"])
+        a = cand["a"]
+        best = min((p for p in cand if p != "a"), key=lambda p: cand[p][0])
+        b = cand[best]
+        name = pc.FA_POLICY_NAME if best == "i" else pc.POLICIES[best]["name"]
+        parts.append(f"evo-x2 {model}: default (a) {a[0]:.1f} min per session, rule {100 * a[1]:.1f}% hist "
+                     f"{100 * a[2]:.1f}%; fastest measured setting ({best}) {name} {b[0]:.1f} min, rule "
+                     f"{100 * b[1]:.1f}% hist {100 * b[2]:.1f}%, window {b[3]}; saved {a[0] - b[0]:.1f} min per session "
+                     f"({100 * (a[0] - b[0]) / a[0]:.0f}%), over {c['balanced_seeds'] and len(c['balanced_seeds'])} "
+                     f"seeds")
+    return {"value": "MEASURED; " + " / ".join(parts) + ("; flash-attention control "
+                     + ("included" if fa else "not synced yet (policy i not in the comparison)")),
+            "n": f"{len(m)} models"}
+
+
+def compute_b5_fa_control(repo):
+    """The flash-attention control's pre-registered reading per model (policy_compare.fa_control_summary)."""
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "harness"))
+    import policy_compare as pc
+    rows = pc.ag.read_rows(repo / B5_FA_FILE)
+    if not rows:
+        raise FileNotFoundError(repo / B5_FA_FILE)
+    s = pc.fa_control_summary(rows, pc.ag.read_rows(repo / B5_X2_FILE))
+    base = {r["model_id"]: r["check"]["config_flash_attention_values"] for r in rows
+            if r.get("record") == "b5_base_fa_check"}
+    parts = []
+    for model, e in s.items():
+        parts.append(f"{model}: (i) f16+FA {e['m_i'] if e['m_i'] is None else round(e['m_i'], 1)} min per session "
+                     f"(per seed {', '.join(f'{k}: {v:.1f}' for k, v in e['per_seed_min'].items())}), (g)/(h) "
+                     f"{e['m_gh'] if e['m_gh'] is None else round(e['m_gh'], 1)} min, (a) "
+                     f"{e['m_a'] if e['m_a'] is None else round(e['m_a'], 1)} min, window {e['window']}; rule "
+                     f"{e['rule_pass_rate']}, hist {e['history_recall']}; base-env OLLAMA_FLASH_ATTENTION "
+                     f"{base.get(model)}; valid {e['valid']}"
+                     + (f" ({'; '.join(e['problems'])})" if e["problems"] else "")
+                     + f"; reading: {e['reading']}"
+                     + (f" (flash-attention share of the gap {e['fa_share']:.2f})" if e.get("fa_share") is not None
+                        and e["reading"] == "both contribute" else ""))
+    return {"value": " / ".join(parts) + f" (tolerance {int(100 * pc.FA_TOLERANCE)}%)",
+            "n": f"{sum(len(e['per_seed_min']) for e in s.values())} sessions"}
+
+
+def compute_b5_kv_recall_f16_rerun(repo):
+    """llama3.1:8b f16 recall rerun (flash-attention control job) against B5's q8_0 and q4_0 rows: needles found of
+    24 per precision, two-sided Fisher exact per pair (descriptive), errors and durations."""
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "harness"))
+    import policy_compare as pc
+    new = pc.ag.read_rows(repo / B5_FA_FILE)
+    if not new:
+        raise FileNotFoundError(repo / B5_FA_FILE)
+    old = pc.ag.read_rows(repo / B5_X2_FILE)
+    m = "llama3.1:8b"
+
+    def found(rows, prec):
+        rs = [r for r in rows if r.get("record") == "b5_recall" and r["model_id"] == m and r["precision"] == prec
+              and not r.get("warmup")]
+        ok = [r for r in rs if r.get("outcome") == "ok"]
+        return (sum(r["score"]["found"] for r in ok), sum(r["score"]["n"] for r in ok), len(rs) - len(ok),
+                [round(r.get("duration_s") or 0) for r in rs], {r.get("num_ctx") for r in rs})
+    f16 = found(new, "f16")
+    parts = [f"f16 (rerun) {f16[0]}/{f16[1]} needles, errors {f16[2]}, call s {f16[3]}, ctx {sorted(f16[4])}"]
+    for q in ("q8_0", "q4_0"):
+        x = found(old, q)
+        p = fisher_two_sided(f16[0], f16[1], x[0], x[1]) if f16[1] and x[1] else None
+        parts.append(f"{q} (B5) {x[0]}/{x[1]} needles, errors {x[2]}; Fisher two-sided p (f16 vs {q}) = "
+                     + (f"{p:.3f}" if p is not None else "n/a") + "; reading: "
+                     + ("not read (missing calls)" if p is None else
+                        (f"f16 differs from {q}" if p < 0.05 else "no difference shown")))
+    return {"value": f"{m}: " + "; ".join(parts) + " (needles within a call are not independent; descriptive)",
+            "n": f"{len(f16[3])} measured calls"}
+
+
+def compute_b5_sim_constraint(repo):
+    """B5 under a simulated device window (8192 and 4096, 5 seeds, label "simulated constraint"): per cap, model and
+    policy the B5 metrics (rule pass rate, history recall, session minutes, cloud USD), the frontier and the B5 verdict
+    rule applied to the two caps as the platforms."""
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "harness"))
+    import policy_compare as pc
+    prows = {}
+    for cap, f in B5_SIMCAP_FILES.items():
+        r = pc.ag.read_rows(repo / f)
+        if not r:
+            raise FileNotFoundError(repo / f)
+        prows[f"cap{cap}"] = r
+    prices = pc.load_cloud_prices(repo)
+    parts = []
+    for plat, rows in prows.items():
+        mets = pc.metrics_for_platform(rows, prices, seeds=B5_SIM_SEEDS)
+        for model, c in sorted(mets.items()):
+            segs = [f"{p} rule {100 * v['rule_pass_rate']:.1f}% hist {100 * (v['history_recall'] or 0):.1f}% "
+                    f"{v['wall_min']:.1f} min ${v['cloud_usd']:.4f}" + (f" (={v['alias_of']})" if v.get("alias_of")
+                                                                         else "")
+                    for p, v in sorted(c["policies"].items())]
+            fr = pc.pareto_frontier(c["policies"]) if c["complete"] else None
+            parts.append(f"{plat} {model}: " + "; ".join(segs) + f"; frontier {fr}; complete {c['complete']}"
+                         + (f" ({'; '.join(c['problems'])})" if c["problems"] else ""))
+    v = pc.b5_verdict(prows, prices, required=tuple(prows), seeds=B5_SIM_SEEDS)
+    return {"value": "simulated constraint; " + " / ".join(parts) + f"; verdict (B5 rule, caps as platforms): "
+                     f"{v['verdict']}", "n": f"{len(prows)} cap files"}
+
+
+
+
+R2_V1B_SEEDS_FILE = "results/x2_r2_v1b_seeds_06_10.jsonl"
+R2_V1B_REPRO_FILE = "results/x2_r2_v1b_repro_check.jsonl"
+V1B_AGENT_BLOB = "a4c4a928fc7a9b6ac985d473b789b41b9a4b1c12"
+V1B10_MODELS = ("llama3.1:8b", "qwen3:14b")
+V1B10_TIERS = ("num_ctx_16384", "num_ctx_8192", "num_ctx_4096")
+V1B10_NEW_SEEDS = (20260906, 20260907, 20260908, 20260909, 20260910)
+
+
+def excess_reading(lo, hi, tier) -> str:
+    """The pre-registered reading of an excess CI (docs/FINDINGS.md 2026-10-22, R2 at 10 seeds on the v1b blob)."""
+    if lo is not None and lo > 0:
+        return f"excess at {tier}"
+    if hi is not None and hi < 0:
+        return f"lower at {tier} than at the default"
+    return f"no excess shown at {tier}"
+
+
+def compute_r2_v1b_excess_10seed(repo):
+    """R2 window result pooled over 10 seeds (v1/v1b seeds 20260901-05 + seeds 20260906-10 run on the v1b blob):
+    per model and tier the gated after-window silent sessions, the excess over the default with the v1b bootstrap,
+    the pre-registered reading, a sign-reversal flag against the 5-seed excess, the new seeds alone, the CI width at 5
+    and 10 seeds, and validity (reproduction check, blob, sessions)."""
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "analysis"))
+    import r2_real_report as rr
+    ag = _r2_agent_module()
+    new = ag.read_rows(repo / R2_V1B_SEEDS_FILE)
+    if not new:
+        raise FileNotFoundError(repo / R2_V1B_SEEDS_FILE)
+    rep_rows = ag.read_rows(repo / R2_V1B_REPRO_FILE)
+    vpaths = [repo / R2_VALIDATION_V2_FILE, repo / R2_VALIDATION_V2B_FILE]
+    rep10 = rr.build_combined([repo / R2_REAL_V1_FILE, repo / R2_REAL_V1B_FILE, repo / R2_V1B_SEEDS_FILE],
+                              validation_paths=vpaths)
+    rep5 = rr.build_combined([repo / R2_REAL_V1_FILE, repo / R2_REAL_V1B_FILE], validation_paths=vpaths)
+    repn = rr.build_combined([repo / R2_V1B_SEEDS_FILE], validation_paths=vpaths)
+    x10, x5 = rr.excess_over_default(rep10), rr.excess_over_default(rep5)
+    problems = []
+    if not any(r.get("record") == "run_end" for r in new):
+        problems.append("no run_end")
+    chk = [r for r in rep_rows if r.get("record") == "repro_check"]
+    if not chk or not chk[-1].get("pass"):
+        problems.append("reproduction check " + ("missing" if not chk else f"failed ({chk[-1].get('reason')})"))
+    starts = [r for r in new if r.get("record") == "run_start"]
+    blob = ((starts[-1].get("harness_provenance") or {}).get("agent_blob") if starts else None)
+    if blob != V1B_AGENT_BLOB:
+        problems.append(f"run_start agent blob {blob} != {V1B_AGENT_BLOB}")
+    for m in V1B10_MODELS:
+        if any(r.get("record") == "refused_model" and r.get("model_id") == m for r in new):
+            problems.append(f"{m} refused")
+    sess = [s for s in ag.completed_sessions(new) if s.get("mode") == "real"]
+    turns = {}
+    for r in new:
+        if r.get("record") == "r2a_turn":
+            turns[r["attempt_id"]] = turns.get(r["attempt_id"], 0) + 1
+    for m in V1B10_MODELS:
+        for arm in ("ollama_default", "ollama_ctx_16384", "ollama_ctx_8192", "ollama_ctx_4096"):
+            got = sorted(s["seed"] for s in sess if s["model_id"] == m and s["arm_id"] == arm + "_call2_notools"
+                         and turns.get(s["attempt_id"]) == 40)
+            if got != list(V1B10_NEW_SEEDS):
+                problems.append(f"{m} {arm}: 40-turn sessions for seeds {got}")
+    valid = not problems
+    parts = [f"valid {valid}" + (f" ({'; '.join(problems)})" if problems else "")]
+    for m in V1B10_MODELS:
+        segs = []
+        for t in V1B10_TIERS:
+            v, v5 = x10["per_tier"][t][m], x5["per_tier"][t][m]
+            lo, hi = v["ci95"]
+            lo5, hi5 = v5["ci95"]
+            cn = repn["table"].get(f"{t}|{m}")
+            new_s = (f"{sum(1 for e in cn['sessions'] if e['after_window_exceeded'])}/{cn['n']}" if cn else "n/a")
+            rev = (t in ("num_ctx_8192", "num_ctx_4096") and v["excess"] < 0 < v5["excess"])
+            segs.append(f"{t} {round(v['rate'] * v['n_tier'])}/{v['n_tier']} vs default "
+                        f"{round(v['default_rate'] * v['n_default'])}/{v['n_default']}, excess {v['excess']:+.3f} "
+                        f"(95% CI {lo:+.3f} to {hi:+.3f}; 5-seed {v5['excess']:+.3f}, CI width {hi5 - lo5:.3f} -> "
+                        f"{hi - lo:.3f}); new seeds alone {new_s}; reading: "
+                        + (excess_reading(lo, hi, t) if valid else "not read (run not valid)")
+                        + (f"; sign reversed at {t} for {m}" if rev and valid else ""))
+        parts.append(f"{m}: " + "; ".join(segs))
+    return {"value": "; ".join(parts) + f" (bootstrap {x10['n_resamples']} resamples, unit {x10['unit']}, stratified "
+                                        f"by {x10['strata']}, seed {x10['seed']})",
+            "n": f"{rep10['n_sessions']} sessions pooled"}
+
+
+
+
+SPILL32_FILE = "results/x2_mx2_qwen3_32b_spill_sweep.jsonl"
+
+
+def compute_fh1_amd_qwen3_32b_spill_sweep(repo):
+    """qwen3-32b spill sweep on evo-x2 (20480 to 40960): per point the served n_ctx, class, shared-usage delta and
+    decode/TTFT means; the spill point, the last no-spill point and the spill cost with the pre-registered readings
+    (harness/mx2_qwen32b_spill_sweep.summarize)."""
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "harness"))
+    import mx2_qwen32b_spill_sweep as sw
+    rows = sw.ag_rows(repo / SPILL32_FILE)
+    if not rows:
+        raise FileNotFoundError(repo / SPILL32_FILE)
+    rs = next((r for r in rows if r.get("record") == "run_start"), {})
+    s = sw.summarize(rows, rs.get("threshold_mib") or 1024.0)
+    finished = any(r.get("record") == "run_end" for r in rows)
+    b = s["points"].get(sw.BASELINE_CTX) or {}
+    valid = finished and b.get("class") == "no_spill" and b.get("n_measured") == sw.MEASURED_CALLS
+    pts = []
+    for n, p in s["points"].items():
+        d, t = p["decode"], p["ttft"]
+        pts.append(f"n_ctx {n} (served {p.get('served_n_ctx')}) {p['class']}"
+                   + (f" shared {p['shared_delta_mib']:+.0f} MiB vs 20480" if p.get("shared_delta_mib") is not None
+                      else "")
+                   + (f", decode {d[0]:.3f} +/- {d[1]:.3f} tok/s" if d[0] is not None and d[1] is not None else "")
+                   + (f", TTFT {t[0]:.0f} +/- {t[1]:.0f} ms" if t[0] is not None and t[1] is not None else "")
+                   + f" (n={p['n_measured']})")
+    c = s["cost"]
+    if not valid:
+        head = "not read (run not valid: " + ("no run_end" if not finished else "baseline point problem") + ")"
+    elif s["spill_point"] is None:
+        head = "no unclamped spill point up to 40960"
+    else:
+        head = (f"spill point n_ctx {s['spill_point']}, last no-spill {s['last_no_spill']}; decode ratio "
+                f"{c['decode_ratio']:.3f}, TTFT ratio {c['ttft_ratio']:.3f}; {c['decode_reading']}; {c['ttft_reading']}")
+    return {"value": f"evo-x2 qwen3-32b, llama-server b10970 Vulkan -ngl 99, 1 warm-up + {sw.MEASURED_CALLS} calls "
+                     f"per point; {head} // points: " + "; ".join(pts),
+            "n": f"{sum(p['n_measured'] for p in s['points'].values())} measured calls"}
+
+
+
+
+X2_EVALSET_TASKS_VAL_V2_MS = "results/x2_evalset_tasks_val_v2_mistral_small32.jsonl"
+X2_EVALSET_TASKS_REAL_V2_MS = "results/x2_evalset_tasks_real_v2_mistral_small32.jsonl"
+MS_MODEL = "mistral-small3.2:24b"
+
+
+def compute_x2_evalset_tasks_val_v2_ms_gates(repo):
+    """mistral-small3.2:24b v2 tasks validation: every gate with its numbers, the failing gates, and whether the real
+    run's strict preflight (v2_strict, mistral only) admits it."""
+    _r2_agent_module()
+    import x2_r2_evalset as ev
+    rows = ev.ag.read_rows(repo / X2_EVALSET_TASKS_VAL_V2_MS)
+    if not rows:
+        raise FileNotFoundError(repo / X2_EVALSET_TASKS_VAL_V2_MS)
+    rep = ev.evaluate_gates_ext(rows, "evalset", False, "off", design=ev.file_design(rows))
+    g = rep["gates"]
+    m = MS_MODEL
+    gates = [x for x in EVALSET_V2_GATE_ORDER if x in g]
+    failing = [x for x in gates if g[x].get(m) is not None and not g[x][m]["pass"]
+               and not (x == "rules678" and not g[x][m]["applies"])]
+    pf = ev.strict_preflight_v2(rows, [m], allowed_models=ev.TASKS_V2_MS_MODELS)
+    finished = any(r.get("record") == "run_end" for r in rows)
+    return {"value": f"tasks {m} (run finished {finished}, design {ev.file_design(rows)}): "
+                     + "; ".join(_evalset_v2_gate_text(x, g, rep, m) for x in gates)
+                     + f"; failing gates: {', '.join(failing) or 'none'}; strict preflight (v2_strict): "
+                     + ("admits " + m if pf["ok"] else "refuses (" + "; ".join(pf["refused"].get(m, [])) + ")"),
+            "n": f"{sum(1 for r in rows if r.get('record') == 'r2a_turn')} turns"}
+
+
+def ms_protocol_reading(tier, ci, valid) -> str:
+    """The 2026-10-22 rule for mistral (no v1b cells; R2 at 4096 had 0/3 gated after the window)."""
+    if not valid:
+        return "inconclusive (run not valid)"
+    if tier == "num_ctx_4096":
+        return "v2 shows an excess R2 did not" if ci[0] is not None and ci[0] > 0 else "no excess in either protocol"
+    return "no R2 counterpart"
+
+
+def compute_x2_evalset_tasks_real_v2_ms_gated_excess(repo):
+    """mistral-small3.2:24b B3 v2 real run: the gated excess per tier (as for qwen3:14b) with the mistral protocol
+    reading (R2 cells at 4096 and 32768 only, no default tier) and the num_keep reading."""
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "analysis"))
+    import r2_real_report as rr
+    _r2_agent_module()
+    import x2_r2_evalset as ev
+    rows = ev.ag.read_rows(repo / X2_EVALSET_TASKS_REAL_V2_MS)
+    if not rows:
+        raise FileNotFoundError(repo / X2_EVALSET_TASKS_REAL_V2_MS)
+    base = compute_x2_evalset_tasks_real_v2_gated_excess(repo, MS_MODEL, X2_EVALSET_TASKS_REAL_V2_MS,
+                                                         X2_EVALSET_TASKS_VAL_V2_MS)
+    d = ev.tasks_real_v2_outcome(rows, models=(MS_MODEL,))["models"].get(MS_MODEL, {})
+    valid = bool(d.get("valid"))
+    x = rr.excess_over_default(rr.build_combined([repo / X2_EVALSET_TASKS_REAL_V2_MS],
+                                                 validation_paths=[repo / X2_EVALSET_TASKS_VAL_V2_MS]))
+    reads = []
+    for tier in ("num_ctx_16384", "num_ctx_8192", "num_ctx_4096"):
+        v = x.get("per_tier", {}).get(tier, {}).get(MS_MODEL)
+        if v is not None:
+            reads.append(f"{tier}: {ms_protocol_reading(tier, v['ci95'], valid)}")
+    return {"value": base["value"] + "; mistral protocol readings (R2 4096 0/3 gated, no R2 default tier): "
+                     + "; ".join(reads), "n": base["n"]}
+
+
+def compute_x2_evalset_tasks_real_v2_ms_wrong_rate(repo):
+    return compute_x2_evalset_tasks_real_v2_wrong_rate(repo, MS_MODEL, X2_EVALSET_TASKS_REAL_V2_MS)
+
+
+
+
 def compute_num_keep_qwen3_14b(repo):
     """x2_num_keep_qwen3_14b: the num_keep guardrail test's measures and pre-registered verdict for qwen3:14b
     (harness/x2_num_keep.verdict with model qwen3:14b)."""
@@ -6189,6 +6695,54 @@ NUMBER_ENTRIES = [
      "slack before 2026-11-10 and idle capacity",
      "compute": compute_x2_queue_fill_1020_hours, "data_files": QUEUE_FILL_DATA,
      "script_function": "analysis/numbers_register.py::compute_x2_queue_fill_1020_hours"},
+    {"claim_id": "x2-queue-fill-1022-hours", "description": "ESTIMATE, not a measurement: hours per job of the "
+     "2026-10-22 evo-x2 queue fill from measured times, back-to-back projected dates from the anchor, the B5 "
+     "results-by date, slack before 2026-11-10 and the hours left beyond the 150 h reserve",
+     "compute": compute_x2_queue_fill_1022_hours, "data_files": FILL_1022_DATA,
+     "script_function": "analysis/numbers_register.py::compute_x2_queue_fill_1022_hours"},
+    {"claim_id": "cost-cut-config-time", "description": "MEASURED: per model, session minutes saved per 40-turn R2 "
+     "session on evo-x2 by the fastest measured non-router setting (B5 policies b-h, plus the flash-attention control "
+     "once synced) against the runtime default (B5 policy a), with both settings' rule pass rate and history recall",
+     "compute": compute_cost_cut_config_time, "data_files": [B5_X2_FILE],
+     "script_function": "analysis/numbers_register.py::compute_cost_cut_config_time"},
+    {"claim_id": "b5-fa-control", "description": "B5 flash-attention control (policy i, f16 KV + flash attention at "
+     "L(f16), 3 seeds) against B5's (g)/(h) and (a) session minutes: the pre-registered reading per model (10% "
+     "tolerance)", "compute": compute_b5_fa_control, "data_files": [B5_FA_FILE, B5_X2_FILE], "pending_ok": True,
+     "script_function": "harness/policy_compare.py::fa_control_summary"},
+    {"claim_id": "b5-kv-recall-f16-rerun", "description": "llama3.1:8b f16 long-context recall rerun (1 warm-up + 3 "
+     "measured calls, 1800 s timeout) against B5's q8_0 and q4_0 recall: needles found of 24, Fisher exact "
+     "(descriptive)", "compute": compute_b5_kv_recall_f16_rerun, "data_files": [B5_FA_FILE, B5_X2_FILE],
+     "pending_ok": True, "script_function": "analysis/numbers_register.py::compute_b5_kv_recall_f16_rerun"},
+    {"claim_id": "b5-sim-constraint", "description": "B5 under a simulated device window (8192 and 4096, 5 seeds, "
+     "labelled simulated constraint): per cap, model and policy the rule pass rate, history recall, session minutes "
+     "and cloud USD, the frontier, and B5's pre-registered verdict rule with the caps as platforms",
+     "compute": compute_b5_sim_constraint, "data_files": list(B5_SIMCAP_FILES.values()), "pending_ok": True,
+     "script_function": "harness/policy_compare.py::b5_verdict"},
+    {"claim_id": "R2-v1b-excess-10seed", "description": "R2 window result pooled over 10 seeds per cell (v1/v1b seeds "
+     "20260901-05 plus seeds 20260906-10 on the v1b harness blob after a passed reproduction check): llama3.1:8b and "
+     "qwen3:14b, excess over the default at 16384/8192/4096 with the v1b bootstrap, pre-registered readings, "
+     "sign-reversal flag, new seeds alone, CI widths, validity",
+     "compute": compute_r2_v1b_excess_10seed, "data_files": [R2_V1B_SEEDS_FILE, R2_V1B_REPRO_FILE] + R2_V1B_DATA,
+     "pending_ok": True, "script_function": "analysis/numbers_register.py::compute_r2_v1b_excess_10seed"},
+    {"claim_id": "fh1-amd-qwen3-32b-spill-sweep", "description": "qwen3-32b on evo-x2 (llama-server b10970 Vulkan "
+     "-ngl 99), n_ctx 20480 to 40960 unclamped: spill point, last no-spill point and spill cost (decode, TTFT) with "
+     "the pre-registered readings, per-point shared-usage delta",
+     "compute": compute_fh1_amd_qwen3_32b_spill_sweep, "data_files": [SPILL32_FILE], "pending_ok": True,
+     "script_function": "harness/mx2_qwen32b_spill_sweep.py::summarize"},
+    {"claim_id": "x2-evalset-tasks-val-v2-mistral-small32-gates", "description": "B3 v2 tasks validation for "
+     "mistral-small3.2:24b: every gate with its numbers, failing gates, and whether the strict preflight admits it",
+     "compute": compute_x2_evalset_tasks_val_v2_ms_gates, "data_files": [X2_EVALSET_TASKS_VAL_V2_MS],
+     "pending_ok": True, "script_function": "analysis/numbers_register.py::compute_x2_evalset_tasks_val_v2_ms_gates"},
+    {"claim_id": "x2-evalset-tasks-real-v2-mistral-small32-gated-excess", "description": "B3 v2 task real run, "
+     "mistral-small3.2:24b: gated after-window silent failures and excess over the default per tier with the mistral "
+     "protocol reading and the num_keep reading",
+     "compute": compute_x2_evalset_tasks_real_v2_ms_gated_excess,
+     "data_files": [X2_EVALSET_TASKS_REAL_V2_MS, X2_EVALSET_TASKS_VAL_V2_MS] + R2_V1B_DATA, "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_x2_evalset_tasks_real_v2_ms_gated_excess"},
+    {"claim_id": "x2-evalset-tasks-real-v2-mistral-small32-wrong-rate", "description": "B3 v2 task real run, "
+     "mistral-small3.2:24b: wrong-task rate per tier and its excess over the default with the pre-registered reading",
+     "compute": compute_x2_evalset_tasks_real_v2_ms_wrong_rate, "data_files": [X2_EVALSET_TASKS_REAL_V2_MS],
+     "pending_ok": True, "script_function": "harness/x2_r2_evalset.py::tasks_real_v2_outcome"},
     {"claim_id": "x2-scale-real-default-tier", "description": "H-scale real job, Ollama default tier: completed "
      "default-tier sessions per model (turns, wall hours, loaded context, first over-window turn)",
      "compute": compute_x2_scale_real_default_tier, "data_files": [X2_SCALE_REAL],

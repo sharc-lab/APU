@@ -144,6 +144,24 @@ import t2s_r2_session_growth as r2  # noqa: E402
 import x2_r2_agent as ag  # noqa: E402
 
 HARNESS = "x2_r2_evalset"
+
+
+def git_blob_sha1(path) -> str | None:
+    """git's blob id of a file's bytes; None if unreadable (kept local: an older deployed x2_r2_agent lacks it)."""
+    import hashlib
+    try:
+        b = Path(path).read_bytes()
+    except OSError:
+        return None
+    return hashlib.sha1(b"blob %d\0" % len(b) + b).hexdigest()
+
+
+def harness_provenance() -> dict:
+    """run_start fields (operator item of 2026-10-21): this file and the agent it imported, with their git blobs."""
+    return {"harness_file": str(Path(__file__).resolve()), "harness_blob": git_blob_sha1(__file__),
+            "agent_file": str(Path(ag.__file__).resolve()), "agent_blob": git_blob_sha1(ag.__file__)}
+
+
 WORKLOADS = ("evalset", "replay")
 RULES_NEW = ("rule6_no_secret_leak", "rule7_no_forbidden_send", "rule8_confirm_before_destructive")
 RULE_IDS_EXT = ag.RULE_IDS + RULES_NEW
@@ -771,6 +789,14 @@ def tasks_v2_q8_plan(call2_mode="off"):
     return tasks_v2_plan(call2_mode)
 
 
+# B3 v2 for a second model family (2026-10-22, x2_evalset_tasks_real_v2_mistral_small32, docs/FINDINGS.md
+# "PRE-REGISTRATION: protocol consistency extended to mistral-small3.2:24b"): the same tiers, seeds and turns, model
+# mistral-small3.2:24b only, and the same strict preflight (no waiver, every gate passing).
+TASKS_V2_MS_PLAN = "tasks_v2_mistral_small32"
+TASKS_V2_MS_MODELS = ("mistral-small3.2:24b",)
+STRICT_PLAN_MODELS = {TASKS_V2_Q8_PLAN: TASKS_V2_Q8_MODELS, TASKS_V2_MS_PLAN: TASKS_V2_MS_MODELS}
+
+
 def strict_preflight_v2(rows, models, call2_mode="off", allowed_models=TASKS_V2_Q8_MODELS) -> dict:
     """--preflight v2_strict: validation_preflight_ext (design v2, tasks workload, guardrails off) with no waiver and
     only `allowed_models`, AND every STRICT_GATES gate of evaluate_gates_ext passing for the model (a missing gate entry
@@ -1284,7 +1310,7 @@ def build_arg_parser():
     ap.add_argument("--seeds", default=None, help="real mode: comma-separated seeds (default SEEDS)")
     ap.add_argument("--check-plan", action="store_true",
                     help="print the plan and session shape, then exit (no server, no model call, no queue)")
-    ap.add_argument("--plan", choices=("default", TASKS_PLAN, TASKS_V2_PLAN, TASKS_V2_Q8_PLAN), default="default",
+    ap.add_argument("--plan", choices=("default", TASKS_PLAN, TASKS_V2_PLAN, TASKS_V2_Q8_PLAN, TASKS_V2_MS_PLAN), default="default",
                     help="real mode: default = --tiers/--seeds or STRONG_TIERS x SEEDS; tasks_v1 = the B3 task real "
                          "run (Ollama default and 4096, SEEDS, 30 task turns; needs --workload evalset --guardrails off); "
                          "tasks_v2 = the B3 v2 task real run (TASKS_V2_TIERS x SEEDS_STRONG, 30 task turns, design v2, "
@@ -1317,7 +1343,7 @@ def plan_for(args, schedule=None):
         return tasks_plan(args.call2_tools)
     if args.plan == TASKS_V2_PLAN:
         return tasks_v2_plan(args.call2_tools)
-    if args.plan == TASKS_V2_Q8_PLAN:
+    if args.plan in STRICT_PLAN_MODELS:
         return tasks_v2_q8_plan(args.call2_tools)
     return real_plan(args.workload, guard, args.call2_tools, ag.parse_tiers(args.tiers), ag.parse_seeds(args.seeds))
 
@@ -1527,9 +1553,9 @@ def main(argv=None, advance=True):
             ap.error("--plan tasks_v2 fixes the tiers and seeds; do not pass --tiers / --seeds")
     if args.preflight == PREFLIGHT_TE_DEVIATION and args.mode != "real":
         ap.error("--preflight v2_te_deviation needs --mode real --plan tasks_v2")
-    if (args.plan == TASKS_V2_Q8_PLAN) != (args.preflight == PREFLIGHT_STRICT) and args.mode == "real":
-        ap.error("--plan tasks_v2_qwen3_8b and --preflight v2_strict go together")
-    if args.plan == TASKS_V2_Q8_PLAN:
+    if (args.plan in STRICT_PLAN_MODELS) != (args.preflight == PREFLIGHT_STRICT) and args.mode == "real":
+        ap.error("--plan tasks_v2_qwen3_8b or tasks_v2_mistral_small32 and --preflight v2_strict go together")
+    if args.plan in STRICT_PLAN_MODELS:
         if args.mode != "real" or args.workload != "evalset" or args.guardrails != "off" or args.design != "v2":
             ap.error("--plan tasks_v2_qwen3_8b needs --mode real --workload evalset --guardrails off --design v2")
         if args.tiers or args.seeds:
@@ -1594,7 +1620,7 @@ def main(argv=None, advance=True):
                                                      waive_task_end_state=TE_DEVIATION,
                                                      allowed_models=TASKS_V2_MODELS)
             elif args.preflight == PREFLIGHT_STRICT:
-                preflight = strict_preflight_v2(vrows, models, c2)
+                preflight = strict_preflight_v2(vrows, models, c2, allowed_models=STRICT_PLAN_MODELS[args.plan])
             else:
                 preflight = validation_preflight_ext(vrows, models, args.workload, guard, c2, args.design)
             for m, reasons in preflight["refused"].items():
@@ -1611,7 +1637,8 @@ def main(argv=None, advance=True):
               "keep_alive": ag.KEEP_ALIVE, "hw_id": host_cfg.get("hw_id"), "interactive_session": interactive,
               "design": args.design, "turn_protocol": TURN_PROTOCOL[args.design], "max_tool_rounds":
               MAX_TOOL_ROUNDS if args.design != "v1" else None,
-              "filler_tokens_per_turn": filler_tokens_per_turn(args.design), "ts_utc": ag.utc_iso()})
+              "filler_tokens_per_turn": filler_tokens_per_turn(args.design), **harness_provenance(),
+              "ts_utc": ag.utc_iso()})
         if preflight is not None and not preflight["ok"]:
             note = ("stopped: refused to start, validation gates failed in "
                     f"{Path(args.rules_from).name}: " + "; ".join(r for rs in preflight["refused"].values()
@@ -1657,9 +1684,9 @@ def main(argv=None, advance=True):
             if args.plan == TASKS_V2_PLAN:
                 # run_end is emitted right after this report is written; the outcome is computed as of that point
                 report["tasks_real_v2_outcome"] = tasks_real_v2_outcome(rows + [{"record": "run_end"}], c2)
-            if args.plan == TASKS_V2_Q8_PLAN:
+            if args.plan in STRICT_PLAN_MODELS:
                 report["tasks_real_v2_outcome"] = tasks_real_v2_outcome(rows + [{"record": "run_end"}], c2,
-                                                                        models=TASKS_V2_Q8_MODELS)
+                                                                        models=STRICT_PLAN_MODELS[args.plan])
         Path(str(out_path) + ".report.json").write_text(json.dumps(report, indent=1, default=str), encoding="utf-8")
         emit({"record": "run_end", "call2_mode": c2, "ts_utc": ag.utc_iso()})
         if args.mode == "validation":

@@ -1,5 +1,48 @@
 # evo-x2 queue plan
 
+## Queue fill of 2026-10-22 (to 2026-11-10, 150 h held back)
+
+evo-x2 was idle from about 2026-10-21 23:00Z (`queue_empty.flag`, no pause) until the watchdog launched the first job
+below at 2026-10-22 03:13:40Z. Order is the operator's of 2026-10-21/22: the B5 flash-attention control first, then
+B5 under a simulated device window (both B5 jobs must have results by 2026-10-28), then R2 at 10 seeds on the v1b
+harness blob and the qwen3-32b spill sweep, then mistral-small3.2:24b B3 v2. The qwen3:8b 20-seed extension was
+dropped by the operator and not queued. Each job was pre-registered in its own docs/FINDINGS.md section, committed
+before it was deployed or queued; deployment and checks are in "AMENDMENT (2026-10-22 ...): queue fill of 2026-10-22
+deployed and queued on evo-x2". Hours are ESTIMATEs from measured times in committed files, register row
+`x2-queue-fill-1022-hours`; dates are back to back from the first launch, ignoring handoff gaps (seconds through
+`advance()`, up to 10 minutes through the watchdog). All times UTC.
+
+| pos | queue id | pre-registration | ESTIMATE h (high) | projected start | projected finish (high case) |
+|---|---|---|---|---|---|
+| 75 | x2_b5_fa_control (running) | a307ca8 | 4.85 (13.92) | 10-22 03:13 | 10-22 08:04 (17:08) |
+| 76 | x2_b5_simcap_8192 | 422b7d4 | 33.08 (33.90) | 10-22 08:04 | 10-23 17:09 (10-24 03:02) |
+| 77 | x2_b5_simcap_4096 | 422b7d4 | 26.11 (27.25) | 10-23 17:09 | 10-24 19:16 (10-25 06:18) |
+| 78 | x2_r2_v1b_seeds_06_10 (reproduction check first) | b19be61 | 30.44 (32.60) | 10-24 19:16 | 10-26 01:42 (14:53) |
+| 79 | x2_mx2_qwen3_32b_spill_sweep | 777ee78 | 0.36 (1.03) | 10-26 01:42 | 10-26 02:04 (15:55) |
+| 80 | x2_evalset_tasks_val_v2_mistral_small32 | 80ce6f8 | 0.35 (0.54) | 10-26 02:04 | 10-26 02:25 (16:27) |
+| 81 | x2_evalset_tasks_real_v2_mistral_small32 (gate: requires_done 80; v2_strict) | 80ce6f8 | 3.01 (3.66) | 10-26 02:25 | 10-26 05:25 (20:07) |
+
+Bases (from `x2-queue-fill-1022-hours`): the control at B5's (g)/(h) mean per session (high: (a)'s mean) plus the
+B5 f16 recall call times; the simulated-constraint jobs at the R2 v1/v1b session times of the capped num_ctx for five
+policies and B5's measured router session for (d), five seeds; the 10-seed job at the v1/v1b medians per tier plus the
+reproduction session; the spill sweep at MX2's qwen3-32b point times plus five calls per point, nine points; mistral
+at qwen3:14b's measured v2 times scaled by the mistral/qwen3:14b R2 session ratio.
+
+**Results by 2026-10-28 (operator).** Pasted: "B5 jobs end 10-24 19:16Z (high 10-25 06:18Z), results-by 2026-10-28
+met".
+
+**Total, slack and capacity** (pasted): "total ESTIMATE 98.2 h (high 112.9 h) from 2026-10-22T03:13Z; queue ends 10-26
+05:25Z (high 10-26 20:07Z); slack before 2026-11-10 00:00Z 354.6 h (high case 339.9 h); unallocated beyond the 150 h
+reserve 204.6 h (high case 189.9 h)". After about 2026-10-26 evo-x2 is idle again unless more work is queued; the
+operator's 150 h reserve for reviewer reruns starts 2026-11-03 18:00Z.
+
+**Gates and stops.** Job 81 cannot start before job 80 is done, and its strict preflight refuses mistral unless every
+gate of job 80 passes (no waiver); a refusal ends it in minutes. Job 78 stops after its reproduction session if any
+turn's final text differs from v1b, running no new seed; it and every later job then start that much earlier. Job 79
+refuses at start if Ollama has a model loaded.
+
+
+
 ## Queue fill of 2026-10-21 (to 2026-11-10)
 
 evo-x2's queue was empty (`queue_empty.flag`, every earlier job done) and the machine idle from about 2026-10-20 06:00Z
