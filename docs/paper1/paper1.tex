@@ -43,7 +43,9 @@ at a mean USD 0.00067 and USD 0.01020 per task% reg: all-cloud-b3-cost
 . Running the same tasks locally on qwen3:14b at its default window removes the bill but not the risk: 80/90 tasks were correct, and nothing marked the 10 that were not% reg: hybrid-savings-v1
 . The one signal a local runtime could raise, that the prompt exceeded the loaded window, does not find them. At the default window it missed all 17/17 wrong tasks; at 4096 it caught every wrong task only by flagging 147 of 150 tasks, at precision 42.9\%% reg: impact-v3-detection-value-measured
 . Window overflow is a symptom of one failure mode, not a general wrong-answer detector. A perfect detector would reach 90/90 by escalating 10 tasks% reg: hybrid-savings-v1
-, but that is a ceiling, and no such detector exists; the cloud cost of fixing a wrong answer is being measured. The trade-off a practitioner faces is therefore between a cloud bill and silent wrong answers, and how many wrong answers depends on settings the user rarely sees.
+, but that is a ceiling, and no such detector exists; fixing a wrong answer afterwards in the cloud fixed 167/197 (84.8\%) % reg: cloud-redo-full-context
+at a mean of USD 0.0227 per task% reg: cloud-redo-full-context
+, but it cannot undo actions already executed (Section~\ref{sec:4.7}). The trade-off a practitioner faces is therefore between a cloud bill and silent wrong answers, and how many wrong answers depends on settings the user rarely sees.
 
 A motivating case shows how easily a user lands in this regime. On an Intel laptop, an unmodified Ollama install served two models with a 4096 % reg: t2s-r2-real-cpu
 token window, because device detection drops the integrated GPU and falls back to the CPU% reg: x2-device-detect-mechanism
@@ -525,9 +527,11 @@ per session against the router's 95.8\% in 43.5 min% reg: b5-policy-metrics
 
 \textbf{Recovering after a silent failure is costly and incomplete.} The fallback for a session that has already failed is to hand the whole history to a cloud model late and let it finish the task. We measured that on every wrong task of the protocol-check task run (Section~\ref{sec:4.6a}): a cloud model with the full client-side history fixed 167/197 (84.8\%) of them, 95\% Wilson CI [79.1\%, 89.1\%]% reg: cloud-redo-full-context
 , at a mean of USD 0.0227 per task% reg: cloud-redo-full-context
-. The same cloud model running the same tasks from the start cost a mean of USD 0.01020 per task% reg: all-cloud-b3-cost
-, so late escalation cost more than twice a fresh cloud run (the two runs cover different task sets, wrong tasks over five tiers against three seeds of all tasks, so the comparison is of means, not matched pairs). It also cannot undo what the local model already did: of the 30 tasks still wrong, 28 needed a repair of state the local model's earlier actions had changed, and 2 were cloud-model errors% reg: cloud-redo-full-context
-. An agent's tool calls are executed, not drafted, so a late redo inherits them. The practical fix is to decide per device and workload at session start whether a session runs locally, which Sections~\ref{sec:4.4} and \ref{sec:4.5} make predictable from the platform and its default window, and to treat step-level escalation as a narrow middle case, since window overflow does not pick out the wrong steps (Section~\ref{sec:4.7p}). A measured comparison of routing at session start is not yet registered.
+. Matched on the same task and seed, the late redo cost 1.76x a fresh run of that task from the start (mean USD 0.0226 against USD 0.0129 over 119 matched rows)% reg: late-escalation-cost-vs-fresh
+. It also cannot undo what the local model already did: of the 30 tasks still wrong, 28 needed a repair of state the local model's earlier actions had changed, and 2 were cloud-model errors% reg: cloud-redo-full-context
+. An agent's tool calls are executed, not drafted, so a late redo inherits them. On the Intel CPU at its 4096 default (projected from the AMD run at the same window), escalating every step the window check flags reaches the cloud model's accuracy but costs more than running every session in the cloud from the start% reg: late-escalation-cost-vs-fresh
+. The alternative is to decide at session start, per device and workload, whether a whole session runs locally with the recommended setting or goes to the cloud. With the rule ``run locally if local accuracy at the recommended setting is within a tolerance of the cloud model's'', no measured device qualifies at matched quality: the AMD APU at its best setting is 7.8 points below the small cloud model and 11.1 below the mid-tier one, and the Intel iGPU, measured by session pass rate rather than task accuracy, is 16.7 and 20.0 points below% reg: hybrid-route-at-start
+. At matched quality the measured answer is therefore the cloud from the start. Local execution pays only where a user accepts a stated accuracy gap, or where configuration closes it, which the per-device settings of Sections~\ref{sec:4.4} and \ref{sec:4.5} address and the policy runs on the constrained platforms will test. Step-level escalation stays a narrow middle case, since window overflow does not pick out the wrong steps (Section~\ref{sec:4.7p}).
 
 \subsection{Predictor}\label{sec:4.7p}
 
@@ -580,11 +584,12 @@ at validation, below the 90\% bar, and we proceeded with that model only. qwen3:
 ) were refused by their gates. A second model, mistral-small3.2:24b, is in validation for this workload and has no result yet.
 
 \textbf{Cost figures.} Cloud cost per real agent task is priced from traces, not executed% reg: cloud-cost-per-real-task
-, and its caching case is an assumption. The hybrid comparison prices an escalated task at the all-cloud cost per task, an interim value% reg: hybrid-savings-v1
+, and its caching case is an assumption. The hybrid comparison prices an escalated task at the measured full-history redo cost for the mid-tier cloud model, and at the small model's all-cloud cost per task, an interim value, because the redo ran on the mid-tier model only% reg: hybrid-savings-tradeoff
 . Our first cloud redo of wrong local tasks was a broken protocol: 109 % reg: cloud-redo-diagnosis
 of its 118 % reg: cloud-redo-diagnosis
 failures were turns where the model's default thinking spent the whole 384-token % reg: cloud-redo-diagnosis
-output budget and returned an empty answer, so its fix rate measured the token budget, not the cloud model. We cite no fix rate or cost from it; a corrected full-history redo is being measured.
+output budget and returned an empty answer, so its fix rate measured the token budget, not the cloud model. We cite no fix rate or cost from it; the corrected full-history redo (thinking limited to between tool calls, 2048 output tokens per call against the local run's 384) is the one reported in Section~\ref{sec:4.7}% reg: cloud-redo-full-context
+.
 
 \textbf{Provenance.} Runs before 2026-10-14 did not record the harness file's hash (``harness blob not recorded''% reg: R2-qwen3-14b-4096-reconciliation
 ). Their identity rests on reruns: the same seeds gave identical final text on 120/120 % reg: R2-qwen3-14b-4096-reconciliation
@@ -607,7 +612,9 @@ For practitioners, five lessons follow. Set the window explicitly for each devic
 .
 
 Future work follows from what is pending. The router and context-policy comparison, refuted on the unconstrained AMD platform% reg: b5-verdict
-, must run on the Intel laptop, whose default window is small enough that loss occurs, and on the NVIDIA laptop. A hybrid local and cloud deployment needs a general verifier that catches wrong answers produced inside the window; we measured only the window flag, and the cloud cost of fixing a wrong answer is being measured. More models per size and family, more seeds, further runtime versions and guardrail compliance at full context would turn the model-dependence of rule loss from an observation into a predictable property.
+, must run on the Intel laptop, whose default window is small enough that loss occurs, and on the NVIDIA laptop. A hybrid local and cloud deployment needs a general verifier that catches wrong answers produced inside the window; we measured only the window flag; a late cloud redo with the full history fixed 84.8\% of wrong tasks % reg: cloud-redo-full-context
+at about twice the cost of a fresh cloud run % reg: late-escalation-cost-vs-fresh
+and could not undo executed actions. More models per size and family, more seeds, further runtime versions and guardrail compliance at full context would turn the model-dependence of rule loss from an observation into a predictable property.
 
 \typeout{BODYEND page \thepage}
 \bibliographystyle{IEEEtran}
