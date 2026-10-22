@@ -5509,7 +5509,8 @@ def compute_cloud_redo_full_context(repo, path=CLOUD_REDO_FULL_CONTEXT, part2=CL
                       + (f" ({st['protocol_difference']})" if st.get("protocol_difference") else "")
                       for i, st in enumerate(starts))
     led = next((e["ledger_total_usd"] for e in reversed(ends) if e.get("ledger_total_usd") is not None), None)
-    stops = "; ".join(f"part {i + 1}: " + (str(e.get("stopped")) if e else "no run_end (crashed; finished rows kept)")
+    stops = "; ".join(f"part {i + 1}: " + ((str(e["stopped"]) if e.get("stopped") else "completed") if e
+                                           else "no run_end (crashed; finished rows kept)")
                       for i, e in enumerate(ends))
     return {"value": f"model {starts[0]['model_id']}, thinking {starts[0].get('thinking_sent')}, full client-side "
                      f"history, caching on; {parts}; {len(tasks)} tasks run ({n_first} kept from part 1, {n_sup} part-1 "
@@ -7276,7 +7277,8 @@ NUMBER_ENTRIES = [
      "cloud-redo-diagnosis row calls for): fix rate, USD mean / median / total, seconds, and the failure classes of "
      "anything still wrong",
      "compute": compute_cloud_redo_full_context,
-     "data_files": [CLOUD_REDO_FULL_CONTEXT, CLOUD_REDO_FULL_CONTEXT_PART2, X2_EVALSET_TASKS_REAL_V2],
+     "data_files": [CLOUD_REDO_FULL_CONTEXT, CLOUD_REDO_FULL_CONTEXT_PART2,
+                    "results/cloud_redo_full_context_v1_part3.jsonl", X2_EVALSET_TASKS_REAL_V2],
      "pending_ok": True, "script_function": "scripts/cloud_redo.py::run"},
     {"claim_id": "cloud-cost-per-real-task", "description": "Cloud cost per real agent task, priced, not executed: per "
      "trajectory of the uncensored traces (nebius-rebench-openhands, SWE-Gym) the billed input (each step re-sends its "

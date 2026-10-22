@@ -5621,3 +5621,48 @@ staged; qwen3:14b on Intel is future work"; B6 staged: pull "1.0 h", "t2s_o26_b6
 17.3 h"; B6 not staged: "t2s_o26_b6_real_cpu_4096 105.5 h (does not fit: 105.5 h from 226.4 h ends at 331.9 h, budget
 311.0 h)", "t2s_o26_b6_real_igpu_default 299.0 h (does not fit: 299.0 h from 226.4 h ends at 525.4 h, budget 311.0
 h)". So in this window H-B5-T2S rests on the llama3.1:8b cells, and B6 yields validation gates only.
+
+## RESULTS (2026-10-22): cloud redo with the full history and thinking off fixes 167 of 197 wrong tasks
+
+Register row `cloud-redo-full-context` (analysis/numbers_register.py::compute_cloud_redo_full_context over
+results/cloud_redo_full_context_v1.jsonl and its parts _part2 and _part3, superseded rows excluded). Protocol: every B3 v2
+wrong task of qwen3:14b re-run on claude-sonnet-5-5 with the full client-side history (as in v1, see the cloud redo
+diagnosis section), prompt caching on, thinking {"type": "between_tools"}, no temperature sent, the same tool loop and
+end-state grader, a stop on any call that ends at max_tokens with nothing visible, and finish_reason and output tokens
+recorded per call.
+
+**Declared protocol difference.** Part 1 ran at max_tokens 384 (the local num_predict) and stopped at task 41 on an
+empty reply at the limit (cust_phone_info seed 20260901 turn 15). Parts 2 and 3 ran at max_tokens 2048, a declared
+difference from the local 384. The 7 part-1 rows whose replies hit 384 or came back empty were superseded and rerun at
+2048; the other 34 part-1 rows are kept. Part 2 crashed on a transient provider error (server disconnect) after 19
+tasks; its finished rows are kept, and part 3 (with a bounded retry for transient errors) finished the remaining 144.
+
+**Result.** 167 of 197 fixed (84.8%), 95% Wilson CI over tasks [79.1%, 89.1%]. Per tier: ollama_default 15/17,
+ollama_ctx_16384 18/19, ollama_ctx_8192 45/53, ollama_ctx_4096 53/63, ollama_ctx_4096_numkeep 36/45. USD per task
+(cache-priced) mean 0.0227, median 0.0169, total 4.4721; on the ledger basis (all input uncached, what the cap counts)
+16.8614. Seconds per task mean 6.54, median 5.89. Ledger total at the last run_end USD 38.9145.
+
+**What is still wrong (30), classified as in the diagnosis section:**
+
+| Class | Count | Examples |
+|---|---|---|
+| earlier_state_repair | 28 | inv_price, ollama_ctx_4096 seed 20260902 turn 15: set the price as asked, then restored closed ticket T-311 that the local model had reassigned; tkt_close_title, ollama_ctx_8192 seed 20260901 turn 14: closed T-718 as asked, then made a payment, a file fix and an email the local model had missed in earlier turns |
+| cloud_model_error | 2 | file_write, ollama_default seed 20260904 turn 24: the file content differs from the expected one (cloud tool arguments are not recorded, so the exact difference is unknown); cal_default_len, ollama_ctx_4096 seed 20260904 turn 6: booked a new event EV-911 and changed EV-910, plus a ticket repair |
+| thinking_empty_at_cap, tool_round_cap, grader_issue, missing_info | 0 each | |
+
+The repair class is a grading effect of the redo design: the expected state is env_before plus the task's reference
+calls, so a cloud model that also undoes the local model's earlier mistakes (it reads the local history as its own) is
+scored wrong even when the task itself is done. The classifier now takes the records a task changes from the env_diff
+between env_before and env_before with the reference applied, so an information task (which changes nothing) with any
+diff counts as a repair; v1's counts are unchanged by this (row `cloud-redo-diagnosis`).
+
+**Against the all-cloud baseline.** Row `all-cloud-b3-quality`: claude-sonnet-5-5 run from a clean session on 3 seeds
+was correct on 90/90 task turns (100.0%). The redo is a different and harder setting: it starts each task from the state
+and history the local model left, including its earlier wrong actions and its own wrong answers in the transcript. The
+gap between 100.0% and 84.8% is almost all the repair class above, not tasks the cloud model failed to do; 2 of 197 redo
+tasks are cloud errors by this classifier. Neither row measures what an escalation should do with earlier local damage;
+the redo grader assumes it is left alone.
+
+**Spend.** The full-context job moved the main ledger from USD 21.1913 (its start) to USD 38.9145, inside its USD 22 cap
+(absolute client cap USD 43.1913) and the USD 50 hard cap. That includes superseded rows, warm-ups and any call billed
+before part 2 crashed, so it is above the merged rows' ledger-basis total.

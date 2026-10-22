@@ -68,11 +68,18 @@ def _ref_records(task) -> set[str]:
 
 
 def _diff_record(key: str) -> str:
+    """The record id of an env_diff path (table/id[/field], or "outbox"). A file's id is its path (it holds slashes;
+    file names carry an extension, field names do not)."""
+    if key.startswith("files/"):
+        rest = key[len("files/"):]
+        head, _, last = rest.rpartition("/")
+        return head if head and "." not in last else rest
     parts = key.split("/")
     return parts[1] if len(parts) > 1 else key
 
 
-def classify(row: dict, task, max_rounds: int, cap: int, maxc: int, trunc_chars: int, E) -> str:
+def classify(row: dict, task, max_rounds: int, cap: int, maxc: int, trunc_chars: int, E,
+             task_recs: set | None = None) -> str:
     fin = row.get("cloud_final_text") or ""
     if "cloud_calls" in row:   # runs that record finish_reason per call (cloud_redo.py --thinking-off)
         if row.get("empty_at_cap"):
@@ -80,8 +87,10 @@ def classify(row: dict, task, max_rounds: int, cap: int, maxc: int, trunc_chars:
     elif not fin and row["n_calls"] <= max_rounds:
         return "thinking_empty_at_cap"
     diff = row.get("cloud_end_state_diff") or []
-    refs = _ref_records(task)
-    if diff and refs and not any(_diff_record(d) in refs for d in diff):
+    # records the task itself changes: env_diff(env_before, env_before + reference) when given (an information task
+    # changes none, so any diff there is outside the task); else the ids named in the reference calls
+    refs = task_recs if task_recs is not None else _ref_records(task)
+    if diff and (task_recs is not None or refs) and not any(_diff_record(d) in refs for d in diff):
         return "earlier_state_repair"
     if row["n_calls"] > max_rounds:
         return "tool_round_cap"
@@ -121,7 +130,9 @@ def compute(repo: Path = REPO, path: str = REDO, extra_paths: tuple = ()) -> dic
             n_msgs.append(len(b["messages"]))
             if t["cloud_end_state_ok"]:
                 continue
-            k = classify(t, b["item"].task, cr.MAX_TOOL_ROUNDS, cap, maxc, cr.TRUNC_CHARS, E)
+            exp, _res = E.apply_calls(b["env_before"], list(b["item"].task.reference))
+            task_recs = {_diff_record(x) for x in E.env_diff(b["env_before"], exp, 1000)}
+            k = classify(t, b["item"].task, cr.MAX_TOOL_ROUNDS, cap, maxc, cr.TRUNC_CHARS, E, task_recs)
             per.append({"cls": k, "task_id": t["task_id"], "tier": t["tier"], "seed": t["seed"],
                         "turn_idx": t["turn_idx"], "n_calls": t["n_calls"], "output_tokens": t["output_tokens"],
                         "diff": t["cloud_end_state_diff"], "final": (t["cloud_final_text"] or "")[:200]})
