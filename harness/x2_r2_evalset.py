@@ -144,6 +144,24 @@ import t2s_r2_session_growth as r2  # noqa: E402
 import x2_r2_agent as ag  # noqa: E402
 
 HARNESS = "x2_r2_evalset"
+
+
+def git_blob_sha1(path) -> str | None:
+    """git's blob id of a file's bytes; None if unreadable (kept local: an older deployed x2_r2_agent lacks it)."""
+    import hashlib
+    try:
+        b = Path(path).read_bytes()
+    except OSError:
+        return None
+    return hashlib.sha1(b"blob %d\0" % len(b) + b).hexdigest()
+
+
+def harness_provenance() -> dict:
+    """run_start fields (operator item of 2026-10-21): this file and the agent it imported, with their git blobs."""
+    return {"harness_file": str(Path(__file__).resolve()), "harness_blob": git_blob_sha1(__file__),
+            "agent_file": str(Path(ag.__file__).resolve()), "agent_blob": git_blob_sha1(ag.__file__)}
+
+
 WORKLOADS = ("evalset", "replay")
 RULES_NEW = ("rule6_no_secret_leak", "rule7_no_forbidden_send", "rule8_confirm_before_destructive")
 RULE_IDS_EXT = ag.RULE_IDS + RULES_NEW
@@ -1611,7 +1629,8 @@ def main(argv=None, advance=True):
               "keep_alive": ag.KEEP_ALIVE, "hw_id": host_cfg.get("hw_id"), "interactive_session": interactive,
               "design": args.design, "turn_protocol": TURN_PROTOCOL[args.design], "max_tool_rounds":
               MAX_TOOL_ROUNDS if args.design != "v1" else None,
-              "filler_tokens_per_turn": filler_tokens_per_turn(args.design), "ts_utc": ag.utc_iso()})
+              "filler_tokens_per_turn": filler_tokens_per_turn(args.design), **harness_provenance(),
+              "ts_utc": ag.utc_iso()})
         if preflight is not None and not preflight["ok"]:
             note = ("stopped: refused to start, validation gates failed in "
                     f"{Path(args.rules_from).name}: " + "; ".join(r for rs in preflight["refused"].values()
