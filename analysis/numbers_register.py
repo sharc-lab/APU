@@ -2938,6 +2938,48 @@ def compute_t2s_r2_validation(repo, backend):
             "n": base["n"]}
 
 
+def compute_t2s_r2_session_minutes(repo):
+    """Measured evo-t2s R2 session times (the input of the B5 window plan): per backend and model, the median minutes
+    of a completed 40-turn session (summed turn_wall_s) at the Ollama default window, the CPU trimming session median
+    at 4096, and each run's wall clock (run_start to run_end)."""
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "harness"))
+    import policy_compare as pc
+    from datetime import datetime as _dt
+    parts, n = [], 0
+    for plat, label in (("evo-t2s-cpu", "Intel CPU"), ("evo-t2s", "Intel iGPU")):
+        meas = pc._t2s_measured(repo, plat)
+        segs = []
+        for m, e in sorted(meas.items()):
+            n += sum(e["n"].values())
+            s = f"{m} default window {e['D']}: {e['default_min']:.1f} min/session (n={e['n'].get('default')})"
+            if e.get("trim_min"):
+                s += f", trimming at 4096 {e['trim_min']:.1f} min/session (n={e['n'].get('trim')})"
+            segs.append(s)
+        runs = []
+        for kind, name in pc.T2S_MEASURED_FILES[plat].items():
+            if not name:
+                continue
+            rows = _r2_agent_module().read_rows(repo / "results" / name)
+            st = [r["ts_utc"] for r in rows if r.get("record") == "run_start"]
+            en = [r["ts_utc"] for r in rows if r.get("record") == "run_end"]
+            if st and en:
+                runs.append(f"{name} run {(_dt.fromisoformat(en[-1]) - _dt.fromisoformat(st[0])).total_seconds() / 3600:.1f} h")
+        parts.append(f"{label}: " + "; ".join(segs) + (f" ({', '.join(runs)})" if runs else ""))
+    return {"value": " / ".join(parts), "n": f"{n} sessions"}
+
+
+def compute_t2s_b5_plan_hours(repo):
+    """B5 on evo-t2s, window 2026-10-26 to 2026-11-08: ESTIMATED hours per staged entry from measured evo-t2s session
+    minutes (policy_compare.estimate_t2s) and what fits before the no-launch time (scripts/t2s_window_stage.plan)."""
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "scripts"))
+    _sys.path.insert(0, str(repo / "harness"))
+    import t2s_window_stage as ws
+    p = ws.plan()
+    return {"value": ws.plan_value(p), "n": f"{len(p['entries'])} entries"}
+
+
 def compute_t2s_r2_real(repo, backend):
     """evo-t2s R2 real run at the Ollama default window (no num_ctx sent), 5 seeds x 40 turns: per model the window
     Ollama loaded, the first over-window turn, the pre-registered kill criterion, and the gated variant (rules in use
@@ -4656,6 +4698,8 @@ def compute_b5_plan_hours(repo):
     bq = _harness_module("blade_queue")
     parts = []
     for plat in pc.PLATFORMS:
+        if plat == "evo-t2s-cpu":   # added 2026-10-22; its plan from measured evo-t2s sessions is row t2s-b5-plan-hours
+            continue
         e = pc.estimate_platform(plat, deadline_h=bq.BLADE_B5_DEADLINE_H if plat == "blade" else None)
         ms = "; ".join(f"{m} {v['total_h']:.1f} h (sessions {v['sessions_h']:.1f}, recall {v['recall_h']:.2f}, probes "
                        f"{v['probe_h']:.2f}; distinct policies {','.join(v['policies'])}"
@@ -5852,6 +5896,17 @@ NUMBER_ENTRIES = [
                     "window, kill criterion, gated silent failures per model",
      "compute": lambda repo: compute_t2s_r2_real(repo, "igpu"), "data_files": [T2S_REAL["igpu"], T2S_VAL["igpu"]],
      "script_function": "analysis/numbers_register.py::compute_t2s_r2_real"},
+    {"claim_id": "t2s-r2-session-minutes", "description": "evo-t2s measured R2 session minutes per backend and model "
+                    "(default window; CPU trimming at 4096) and run wall clocks: the input of the B5 window plan",
+     "compute": compute_t2s_r2_session_minutes, "data_files": [T2S_REAL["cpu"], T2S_REAL["igpu"], T2S_MITIGATION_CPU],
+     "script_function": "analysis/numbers_register.py::compute_t2s_r2_session_minutes"},
+    {"claim_id": "t2s-b5-plan-hours", "description": "B5 on evo-t2s (CPU and iGPU, qwen3:14b and llama3.1:8b, 5 seeds): "
+                    "ESTIMATED hours per staged entry from measured evo-t2s sessions and what fits in the 2026-10-26 "
+                    "window",
+     "compute": compute_t2s_b5_plan_hours,
+     "data_files": [T2S_REAL["cpu"], T2S_REAL["igpu"], T2S_MITIGATION_CPU, "results/x2_r2_real_v1.jsonl",
+                    "results/x2_r2_real_v1b.jsonl", "results/x2_r2_mitigation_v1.jsonl", "queues/t2s_oct26_queue.json"],
+     "script_function": "scripts/t2s_window_stage.py::plan"},
     {"claim_id": "t2s-r2-mitigation-cpu", "description": "evo-t2s Intel CPU client-side trimming at 4096: "
                     "pre-registered mitigation verdict per model", "compute": compute_t2s_r2_mitigation_cpu,
      "data_files": [T2S_MITIGATION_CPU, T2S_VAL["cpu"]],
