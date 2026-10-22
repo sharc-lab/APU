@@ -241,30 +241,45 @@ OCT26_PENDING = {}
 # B5 on evo-t2s (pre-registration "B5 on evo-t2s Intel CPU and Intel iGPU", docs/FINDINGS.md 2026-10-22): harness/
 # policy_compare.py, all policies a-h, 5 seeds, one entry per (platform, model) so each cell completes on its own and a
 # cut by the handover deadline leaves whole seeds (the job stops at a session boundary and resumes in a later window).
-# Order = what fits the window first (scripts/t2s_window_stage.py plan): CPU llama3.1:8b (the constrained platform,
-# where the default fails), iGPU llama3.1:8b, iGPU qwen3:14b, CPU qwen3:14b. Every entry is gated only on the preflight.
+# Order (operator decision 2026-10-21): the llama3.1:8b cells first at 5 seeds, CPU (the constrained platform, where
+# the default fails) then iGPU; then qwen3:14b at 3 seeds on the Intel CPU (its default window 4096) ONLY if the hours
+# left after the llama3.1:8b cells allow (scripts/t2s_window_stage.py qwen_decision, from measured evo-t2s session
+# minutes, row t2s-b5-plan-hours). When it does not fit, no qwen3:14b entry is in the file and qwen3:14b on Intel is
+# future work (dated amendment to the B5-on-evo-t2s pre-registration, docs/FINDINGS.md). The iGPU qwen3:14b cell is
+# not staged in either case. Every entry is gated only on the preflight.
 OCT26_B5_SEEDS = "20260901,20260902,20260903,20260904,20260905"
-OCT26_B5_CELLS = (("evo-t2s-cpu", "llama3.1:8b"), ("evo-t2s", "llama3.1:8b"), ("evo-t2s", "qwen3:14b"),
-                  ("evo-t2s-cpu", "qwen3:14b"))
+OCT26_B5_CELLS = (("evo-t2s-cpu", "llama3.1:8b"), ("evo-t2s", "llama3.1:8b"))
+OCT26_QWEN_CELL = ("evo-t2s-cpu", "qwen3:14b")
+OCT26_QWEN_SEEDS = "20260901,20260902,20260903"
 
 
 def _b5_slug(platform, model):
     return ("cpu" if platform == "evo-t2s-cpu" else "igpu") + "_" + model.replace(":", "_").replace(".", "")
 
 
+def oct26_b5_cells() -> list[tuple]:
+    """(platform, model, seeds) of the staged B5 entries: the llama3.1:8b cells at 5 seeds, then the qwen3:14b CPU cell
+    at 3 seeds only when scripts/t2s_window_stage.py qwen_decision says it fits the hours left."""
+    import t2s_window_stage as ws
+    cells = [(p, m, OCT26_B5_SEEDS) for p, m in OCT26_B5_CELLS]
+    if ws.qwen_decision()["fits"]:
+        cells.append((*OCT26_QWEN_CELL, OCT26_QWEN_SEEDS))
+    return cells
+
+
 def oct26_b5_specs() -> list[dict]:
     import policy_compare as pc
-    est = {plat: pc.estimate_t2s(plat, [m for p, m in OCT26_B5_CELLS if p == plat]) for plat, _m in OCT26_B5_CELLS}
     out = []
-    for plat, m in OCT26_B5_CELLS:
+    for plat, m, seeds in oct26_b5_cells():
         s = _b5_slug(plat, m)
         o = f"results/t2s_policy_compare_{s}_v1.jsonl"
-        h = est[plat]["models"][m]["total_h"]
+        n = len(seeds.split(","))
+        h = pc.estimate_t2s(plat, [m], seeds=tuple(int(x) for x in seeds.split(",")))["models"][m]["total_h"]
         out.append({"id": OCT26_PREFIX + "b5_" + s, "gate": OCT26_PREFIX + "preflight",
                     "cmd": [T2S_PY, "policy_compare.py", "--platform", plat, "--out", o, "--models", m,
-                            "--seeds", OCT26_B5_SEEDS],
+                            "--seeds", seeds],
                     "out": o, "est": None if h is None else round(h, 1), "basis": "measured evo-t2s sessions (ESTIMATE)",
-                    "what": f"B5 policies a-h, {m}, {'Intel CPU (stock Ollama, default 4096)' if plat == 'evo-t2s-cpu' else 'Intel iGPU (OLLAMA_IGPU_ENABLE=1, default 32768)'}, 5 seeds x 40 turns"})
+                    "what": f"B5 policies a-h, {m}, {'Intel CPU (stock Ollama, default 4096)' if plat == 'evo-t2s-cpu' else 'Intel iGPU (OLLAMA_IGPU_ENABLE=1, default 32768)'}, {n} seeds x 40 turns"})
     return out
 
 

@@ -50,9 +50,17 @@ def test_oct26_b5_entries_cover_both_platforms_and_models_before_b6():
     for it in b5:
         c = it["cmd"]
         assert c[1] == "policy_compare.py" and it["gate"]["requires_done"] == "t2s_o26_preflight"
-        assert c[c.index("--seeds") + 1] == "20260901,20260902,20260903,20260904,20260905"
-        cells.add((c[c.index("--platform") + 1], c[c.index("--models") + 1]))
-    assert cells == {(p, m) for p in ("evo-t2s-cpu", "evo-t2s") for m in ("llama3.1:8b", "qwen3:14b")}
+        cell = (c[c.index("--platform") + 1], c[c.index("--models") + 1])
+        want = ("20260901,20260902,20260903" if cell == ("evo-t2s-cpu", "qwen3:14b")
+                else "20260901,20260902,20260903,20260904,20260905")
+        assert c[c.index("--seeds") + 1] == want
+        cells.add(cell)
+    # operator decision 2026-10-21: llama3.1:8b CPU then iGPU at 5 seeds first; qwen3:14b only on the CPU at 3 seeds
+    # and only when the hours left allow; never the iGPU qwen3:14b cell
+    import t2s_window_stage as ws
+    llama = [("evo-t2s-cpu", "llama3.1:8b"), ("evo-t2s", "llama3.1:8b")]
+    assert [b["id"] for b in b5][:2] == ["t2s_o26_b5_cpu_llama31_8b", "t2s_o26_b5_igpu_llama31_8b"]
+    assert cells == set(llama) | ({("evo-t2s-cpu", "qwen3:14b")} if ws.qwen_decision()["fits"] else set())
     assert max(ids.index(it["id"]) for it in b5) < min(i for i, x in enumerate(ids) if "_b6_" in x)
     assert ids[:2] == ["t2s_o26_preflight", "t2s_o26_window_override_methods"]
 
@@ -65,3 +73,12 @@ def test_t2s_r2_agent_registers_think_values_for_the_large_models():
     import x2_r2_scale as sc
     for m, t in w.EXTRA_MODEL_THINK.items():
         assert sc.SCALE_THINK[m] == t
+
+
+def test_oct26_qwen_decision_is_computed_from_the_hours_left():
+    import t2s_window_stage as ws
+    q = ws.qwen_decision()
+    assert q["qwen_seeds"] == 3 and q["qwen_cell"] == "evo-t2s-cpu qwen3:14b"
+    assert q["left_h"] == round(q["available_h"] - q["before_qwen_h"], 1)
+    assert q["fits"] == (q["qwen_h"] <= q["available_h"] - q["before_qwen_h"])
+    assert set(q["llama_h"]) == {"evo-t2s-cpu llama3.1:8b", "evo-t2s llama3.1:8b"}
