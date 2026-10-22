@@ -405,3 +405,18 @@ Every report states status against these three checkpoints.
   `t2s-b5-plan-hours`; pre-registration in docs/FINDINGS.md (2026-10-22).
 - Impact v2 (operator override 2026-10-21): rows `impact-v2-P1`, `impact-ranking-v2`; inputs
   cloud-redo-cost-per-wrong-task and cost-cut-config-time are PENDING (not in the register on this branch's base).
+
+### 2026-10-21/22, Anthropic API key, live-mode scope, spend caps
+
+- ANTHROPIC_API_KEY set by the operator on 2026-10-21 (user environment, controller laptop; set outside the chat, value
+  never printed or written). Expires 2026-11-20. Copied to evo-x2 as a user environment variable via ssh stdin (value
+  never on a command line, in output or in a file); confirmed by length and 7-character prefix only. Never on evo-t2s.
+- Live-mode scope (operator): only cloud-redo-cost-per-wrong-task (scripts/cloud_redo.py --live) and the demo's live
+  escalation view. Everything else stays in stub mode.
+- Caps: main work keeps the USD 50 hard cap in src/cloud/client.py (unchanged), ledger results/cloud_ledger.jsonl.
+  The demo agent uses its own USD 10 cap (spend_cap_usd=10 passed by demo code, its own ledger under demo/), so the
+  main ledger's cap is unaffected. Account-wide USD 60 limit set by the operator in the Console. Every status report
+  includes combined spend (main ledger + demo ledger).
+- Smoke test 2026-10-22 05:04 UTC through CloudClient: claude-haiku-5-5, 32 input / 4 output tokens, USD 0.0000052
+  (ledger), remaining USD 49.999995 of 50. Cap-refusal and cloud client tests pass (81). litellm 1.106.2 installed on
+  the controller (required by the live path; already in pyproject.toml).
