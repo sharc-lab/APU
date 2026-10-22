@@ -40,38 +40,42 @@ Alternatives:
 2. *The Runtime Picks Your Context Window: A Cross-Vendor Characterization of Local LLM Inference on AI PCs*
 3. *No Error, No Rules: Characterizing Silent Failure of Local LLM Agents Across Unified and Discrete Memory*
 
-**Abstract (150 words, counted with `wc -w` on the paragraph below; contains no numbers by design):**
+**Abstract (prose draft, 2026-10-22; word count by `wc -w` on the paragraph below with HTML comments removed):**
 
-Local agent stacks on consumer AI PCs fail in ways their users cannot see. We characterize three platforms from
-three GPU vendors spanning unified and discrete memory: an Intel integrated GPU, an AMD Strix Halo integrated GPU,
-and an NVIDIA laptop GPU. First, memory architecture sets hard boundaries: on the Intel integrated GPU a model start
-succeeds or fails at one shared-heap limit that also counts host-visible buffers, and a first-principles accounting
-predicts the measured flip point; on discrete memory, overflow becomes a silent spill. Second, runtime
-policy, not hardware, sets the effective context window: one runtime picks very different default windows on two
-integrated GPUs because of device detection, and truncates overflow silently. Third, these defaults reach
-agents: in tool-using sessions, history is lost without any error, and at the smallest window the system
-prompt is discarded. We give a predictor for that loss and evaluate a pre-registered mitigation.
+When a local agent's conversation outgrows the context window, runtimes such as Ollama and llama.cpp trim it and
+still report success. We measure what is lost
+with pre-registered experiments on an AMD APU, an NVIDIA laptop GPU and an Intel laptop. At windows of 16384 tokens
+and below, no session of three 8B to 14B models kept its full history <!-- R2-real-v1b-survival -->, and models
+up to 70B lose history once the window is exceeded <!-- H-scale-verdict --> <!-- H-scale-family-verdict -->. Rule loss
+appears in the 8B and 14B models (5 seeds) and in qwen3:32b (2 of 3 sessions at 4096) <!-- H-scale-verdict -->, and
+not in llama3.3:70b or mistral-small3.2:24b (0 of 3 each) <!-- H-scale-verdict --> <!-- H-scale-family-verdict -->.
+History loss appears in all of them. On a tool-using task workload, qwen3:14b's wrong-task rate rises from 11.3% at
+its default window to 42.0% at 4096, and every wrong task is silent <!-- x2-evalset-tasks-real-v2-wrong-rate -->.
+Runtime defaults decide how often this happens: an unmodified install loaded a 4096-token window on an Intel CPU
+<!-- t2s-r2-real-cpu --> and 32768 on the same laptop's integrated GPU <!-- t2s-r2-real-igpu -->. The backend matters
+too: with identical model files and settings, llama3.1:8b wrote tool calls as text at an untruncated window on Vulkan
+and CUDA but not on ROCm <!-- x2-r2-llama-val-32k-vulkan --> <!-- blade-r2-gate-v2 --> <!-- x2-r2-llama-val-32k-offload -->.
+The fixes are partial. Setting the window per device removes the hidden default; KV-cache quantization cut session
+time by 65% to 85% with no measured loss of rules or recall <!-- cost-cut-config-time --> <!-- b5-fa-control -->
+<!-- b5-kv-recall-f16-rerun -->; client-side trimming removes the in-context examples a model imitates; and
+`num_keep` protects the system prompt only where the runtime shifts or cuts tokens.
 
-Claims behind each abstract sentence (status in brackets):
+Claims behind each abstract sentence (register rows; all VERIFIED on 2026-10-22):
 
-- Shared-heap boundary and first-principles flip point: `[A-24-effective-heap-limit]`, `[A-24-flip-point-prediction]`
-  (verified, INTEL-iGPU only).
-- Discrete overflow is a silent spill: NO register row yet (pending; Gap G4). The sentence must be cut if G4 does not
-  land.
-- Device-detection policy sets the default window: `[T2S-vs-X2-default-ctx]`, `[x2-device-detect-mechanism]`,
-  `[blade-k1-layer-split]` (verified, INTEL-iGPU, AMD-iGPU and NVIDIA-dGPU).
-- Silent overflow truncation: `[ollama-overflow-keeps-half]`, `[blade-k1-layer-split]` (verified, all three
-  platforms).
-- History lost without error: `[R2-real-v1b-gated-kill]`, `[R2-v1b-excess-over-default]` (verified on AMD-iGPU only,
-  three models x five seeds per tier; cross-platform pending T2S week item 2; the NVIDIA-dGPU real run waits on the
-  backend-vs-offload follow-up of open finding O1, Section 5b). System prompt discarded at
-  the smallest window: `[R2-mechanism-lowlevel]` (AMD-iGPU); the message-level step and the context shift replicate on
-  NVIDIA-dGPU `[blade-mechanism-4096]`, the token cut does not (one session per tier on each).
-- Predictor: verified on AMD-iGPU, one session per tier `[R2-shift-predictor-confusion]`. Mitigation: run on AMD-iGPU,
-  pre-registered verdict refuted (`[R2-mitigation-v1-verdict]`, Section 4.7): the obvious fix works for one model and
-  fails for another at the smallest window. "Evaluate a pre-registered mitigation" stays true; the abstract must not
-  say or imply that the mitigation fixes the problem.
-
+- History lost at 16384 and below, 8B to 14B: `[R2-real-v1b-survival]` (AMD-iGPU, five seeds per cell). Larger models
+  lose history once the window is exceeded: `[H-scale-verdict]` (qwen3:32b, llama3.3:70b), `[H-scale-family-verdict]`
+  (mistral-small3.2:24b), three sessions per cell.
+- Rule loss model-dependent: operator wording, `[H-scale-verdict]`, `[H-scale-family-verdict]`; 8B and 14B at five
+  seeds from `[R2-v1b-gated-per-model]` (Section 4.6a).
+- Wrong-task rate and silence: `[x2-evalset-tasks-real-v2-wrong-rate]` (qwen3:14b alone; see Section 4.8).
+- Defaults decide: `[t2s-r2-real-cpu]` vs `[t2s-r2-real-igpu]`; this contrast changes backend and window together.
+- Backend: `[x2-r2-llama-val-32k-vulkan]` (Vulkan, 2 of 20 canaries missed), `[blade-r2-gate-v2]` (CUDA),
+  `[x2-r2-llama-val-32k-offload]` (ROCm with partial offload, 0 of 20).
+- Per-device window: `[window-override-methods]` (which settings persist), `[t2s-r2-real-igpu]`.
+- KV quantization: `[cost-cut-config-time]` (85% and 65%, three seeds), attributed to KV precision, not flash
+  attention, by `[b5-fa-control]`; recall check `[b5-kv-recall-f16-rerun]` (no difference shown, descriptive).
+- Trimming side effect: `[R2-qwen3-14b-4096-reconciliation]`, `[R2-mitigation-v1-verdict]`. num_keep scope:
+  `[num-keep-guardrail-test]`, `[x2-evalset-tasks-real-v2-gated-excess]`.
 ---
 
 ## 2. Contributions
@@ -1012,6 +1016,42 @@ Not resolved here: the submission deadline (Dec 2 vs mid-December estimate) and 
 
 Outline text replaced by the prose drafts of 2026-10-20, moved here verbatim. Register ids in square brackets
 follow the outline convention of this file.
+
+**Superseded 2026-10-22.** Text replaced by the prose revision of 2026-10-22 is moved here verbatim.
+
+### 1. Abstract and its claim list (skeleton as of 2026-10-21; superseded 2026-10-22)
+
+**Abstract (150 words, counted with `wc -w` on the paragraph below; contains no numbers by design):**
+
+Local agent stacks on consumer AI PCs fail in ways their users cannot see. We characterize three platforms from
+three GPU vendors spanning unified and discrete memory: an Intel integrated GPU, an AMD Strix Halo integrated GPU,
+and an NVIDIA laptop GPU. First, memory architecture sets hard boundaries: on the Intel integrated GPU a model start
+succeeds or fails at one shared-heap limit that also counts host-visible buffers, and a first-principles accounting
+predicts the measured flip point; on discrete memory, overflow becomes a silent spill. Second, runtime
+policy, not hardware, sets the effective context window: one runtime picks very different default windows on two
+integrated GPUs because of device detection, and truncates overflow silently. Third, these defaults reach
+agents: in tool-using sessions, history is lost without any error, and at the smallest window the system
+prompt is discarded. We give a predictor for that loss and evaluate a pre-registered mitigation.
+
+Claims behind each abstract sentence (status in brackets):
+
+- Shared-heap boundary and first-principles flip point: `[A-24-effective-heap-limit]`, `[A-24-flip-point-prediction]`
+  (verified, INTEL-iGPU only).
+- Discrete overflow is a silent spill: NO register row yet (pending; Gap G4). The sentence must be cut if G4 does not
+  land.
+- Device-detection policy sets the default window: `[T2S-vs-X2-default-ctx]`, `[x2-device-detect-mechanism]`,
+  `[blade-k1-layer-split]` (verified, INTEL-iGPU, AMD-iGPU and NVIDIA-dGPU).
+- Silent overflow truncation: `[ollama-overflow-keeps-half]`, `[blade-k1-layer-split]` (verified, all three
+  platforms).
+- History lost without error: `[R2-real-v1b-gated-kill]`, `[R2-v1b-excess-over-default]` (verified on AMD-iGPU only,
+  three models x five seeds per tier; cross-platform pending T2S week item 2; the NVIDIA-dGPU real run waits on the
+  backend-vs-offload follow-up of open finding O1, Section 5b). System prompt discarded at
+  the smallest window: `[R2-mechanism-lowlevel]` (AMD-iGPU); the message-level step and the context shift replicate on
+  NVIDIA-dGPU `[blade-mechanism-4096]`, the token cut does not (one session per tier on each).
+- Predictor: verified on AMD-iGPU, one session per tier `[R2-shift-predictor-confusion]`. Mitigation: run on AMD-iGPU,
+  pre-registered verdict refuted (`[R2-mitigation-v1-verdict]`, Section 4.7): the obvious fix works for one model and
+  fails for another at the smallest window. "Evaluate a pre-registered mitigation" stays true; the abstract must not
+  say or imply that the mitigation fixes the problem.
 
 **Superseded 2026-10-21.** The outline text of 4.1 (with the 4.1a motivation draft), 4.2, 4.8 and 4.9, replaced by
 the prose drafts of 2026-10-21, is moved here verbatim below; the 2026-10-20 material follows it.
