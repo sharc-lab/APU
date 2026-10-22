@@ -5222,3 +5222,68 @@ dropped by the operator and not queued.
   139.4 min per session (65%)"; it adds policy (i) once the control is synced.
 - **Gap stated:** register row `fh1-amd-boundary-qwen3-32b`, quoted in the spill-sweep pre-registration, exists only
   on an unmerged branch (commit 2a9e338); it is not in main's register yet.
+
+## FH1 AMD panel: what is measured and what is missing on the evo-x2 memory boundary (2026-10-21)
+
+Analysis only, from committed files; nothing was run. One register row per model:
+`[fh1-amd-boundary-llama-3.3-70b]` and `[fh1-amd-boundary-qwen3-32b]`, computed by
+`analysis/numbers_register.py::compute_fh1_amd_boundary_llama70b` / `compute_fh1_amd_boundary_qwen3_32b` from
+`results/mx2_spill_stats.jsonl`, `results/mx2_validation.jsonl`, `results/t2s_night2_20261001T151340Z.jsonl` (the MX2
+bisection; despite the file prefix it ran on evo-x2, its device line is the Radeon 8060S) and
+`results/x2_70b_edge_reps.jsonl`. All four use the same runtime, llama-server build 10970 on Vulkan with `-ngl 99`.
+No ROCm boundary data exists for this panel (the Ollama ROCm OOM rows in `[x2-weekend-error-causes]` are time-ordered
+failures, not a context sweep, and are not used).
+
+**How the boundary is defined in the rows.** "Spill" means the server process's own Windows GPU Shared Usage counter is
+more than 1024 MiB above that run's smallest-context point (the same threshold as
+`mx2_validation.SPILL_SHARED_DELTA_THRESHOLD_MIB`). A point is "clamped" when llama-server served a smaller n_ctx than
+requested; clamped points are listed but never used for the boundary (MX2 pre-registration criterion (c)). One
+deviation from that criterion, stated here: the spill-stats request of 100000 was served at 100096 (rounded up, not
+down); the row counts it as unclamped and reports it at 100096.
+
+**llama-3.3-70b (measured).** From `[fh1-amd-boundary-llama-3.3-70b]`, pasted: "last no-spill n_ctx 65536
+(spill_stats), first spill n_ctx 100096 (spill_stats); cost across it: decode ratio 0.983, TTFT ratio 1.004". Fail
+side: "first fail 221696 (exit 3221226505)" in the bisection, and "cold_purge CRASH STATUS_STACK_BUFFER_OVERRUN at
+warmup 5, warm_read CRASH STATUS_STACK_BUFFER_OVERRUN at warmup 5 (of 10; 127-348 s to exit)" in the fresh-process
+edge reps. That resolves the open question in the 2026-10-06 correction: at 221696 the 70B start fails 10 of 10 from
+a fresh process in both page-cache arms, with one signature, at the same load stage. The largest start below it is
+"last start 221440 (clamped to 131072)", so the context actually served on the start side of the fail point is 131072.
+
+Two things the row shows that the earlier text did not:
+- The measured spill onset is not the Vulkan device-local heap. The bisection's projected onset (logged buffers vs the
+  76218 MiB heap) is "projected first spill 111104", but per-process shared usage already rises at 100096, where the
+  process's GPU memory is "1.122 of dedicated / 0.965 of device-local heap". Dedicated usage stays at or below
+  "65043 MiB" in every row, which matches the 65536 MiB dedicated carve-out (registry `qwMemorySize`). On this machine
+  the counter-measured boundary is the dedicated carve-out, not the heap size vulkaninfo reports. Recommended FH1
+  x axis for this panel: process GPU memory as a fraction of the 65536 MiB dedicated size, which the row gives per
+  point.
+- The cost is small but not zero: decode 5.284 to 5.196 tok/s across the onset (ratio 0.983), and 5.176 at 131072
+  (row: "decode 5.176 +/- 0.015 tok/s"); the CIs at 65536 and 100096 do not overlap. TTFT changes by under 1%.
+
+**qwen3-32b (mostly missing).** From `[fh1-amd-boundary-qwen3-32b]`, pasted: "largest unclamped no-spill n_ctx 20480
+(validation); no unclamped spill point measured, so no spill cost". Its only spill measurement is clamped: "CLAMPED
+req 290000 served 40960 [validation, n=3]: SPILL (shared +28159 MiB ...), decode 11.190 +/- 0.011 tok/s" against
+"decode 11.451 +/- 0.005 tok/s" at 20480. Memory was placed past the carve-out, but the served context was 40960, so it
+is not a point at its nominal context. Every bisection point above 131072 was also clamped ("projected first spill
+225024 (clamped to 131072)"), so the bisection gives no usable spill boundary for this model. Fail side: "first fail
+367360 (exit 3221226505)" from one bisection start; the in-session repro rows are start timeouts inside the long
+validation process (confounded, see the 2026-10-06 correction). The fresh-process 3/3 exit-1 re-test described in that
+correction has no committed result file, so it is not in the row and cannot be cited.
+
+**What is missing for the AMD panel.**
+1. qwen3-32b: an unclamped spill point. Its validation runs passed no YaRN flags, so the server clamps at the trained
+   40960; a sweep between 20480 and 40960 (or with the bisection's YaRN flags, below 131072) would give a real
+   no-spill / spill pair. Not measured.
+2. qwen3-32b: a committed fresh-process fail-rep file (the 70B has one; the 32B result exists only as prose).
+3. Any third model; the AMD panel has two models, one of them without a spill cost.
+4. Reps below convention: every spill-stats and validation rep is one fresh server start plus one call, with no
+   warm-up call (n=5 spill-stats, n=3 validation). The 1 warm-up + N convention is not met; each value is a first
+   call on a fresh server.
+5. Mixed launch configurations within one runtime: the bisection and edge reps pass `-ctk f16 -ctv f16 -fa on -np 1
+   -t 4` (and YaRN flags for qwen3-32b in the bisection); validation and spill-stats use `LlamaServerConfig` defaults
+   with no YaRN flags. The two 70B runs at 115200 agree on spill (shared +15253 vs +13397 MiB) but differ in
+   dedicated usage (63062 vs 64910 MiB), so points from different runs should not share one curve without a label.
+6. No 70B point between 65536 and 100096, so the onset is bracketed only to that interval.
+
+**NVIDIA panel.** Not covered here and not estimated: its decode-slowdown axis needs Blade night 2, which needs the
+operator at the keyboard and has not been run. No NVIDIA number is stated in this section.

@@ -4735,6 +4735,179 @@ def compute_gpu_memory_readonly(repo):
     return {"value": value, "n": f"{len(x2) + 4} records"}
 
 
+# ───────────────────────────────────────────────── FH1 AMD boundary panel (2026-10-20, operator item 4)
+# One row per model: the evo-x2 memory boundary as measured so far (llama-server b10970 Vulkan, -ngl 99), from the MX2
+# bisection (projection-based regimes + real start/fail outcomes), MX2 validation and spill-stats (measured per-process
+# GPU dedicated/shared usage and throughput per n_ctx point; one fresh server start + one call per rep, no warm-up call)
+# and x2_70b_edge_reps (fresh-process outcomes at the 70B fail point).
+AMD_BOUNDARY_FILES = ["results/mx2_spill_stats.jsonl", "results/mx2_validation.jsonl",
+                      "results/t2s_night2_20261001T151340Z.jsonl", "results/x2_70b_edge_reps.jsonl"]
+AMD_SPILL_DELTA_MIB = 1024.0  # same threshold as harness/mx2_validation.py SPILL_SHARED_DELTA_THRESHOLD_MIB
+_T95 = {1: 12.706, 2: 4.303, 3: 3.182, 4: 2.776, 5: 2.571, 6: 2.447, 7: 2.365, 8: 2.306, 9: 2.262}
+
+
+def _mean_ci95(vals):
+    vals = [v for v in vals if v is not None]
+    if not vals:
+        return None, None
+    m = statistics.mean(vals)
+    if len(vals) < 2:
+        return m, None
+    return m, _T95.get(len(vals) - 1, 1.96) * statistics.stdev(vals) / len(vals) ** 0.5
+
+
+def amd_boundary_summary(model_id, sources, bisection_rows, edge_rows, threshold_mib=AMD_SPILL_DELTA_MIB):
+    """Pure. sources: {source_name: rows} of mx2v_regime_point files (spill_stats, validation). Per source, the
+    baseline GPU shared usage is that source's smallest unclamped started point for the model; a point is spill if its
+    shared usage exceeds the baseline by more than threshold_mib, clamped if actual n_ctx < requested n_ctx (clamped
+    points are kept, labeled, and never used for the boundary, per the MX2 pre-registration criterion (c); a point
+    served at a slightly LARGER n_ctx than requested, e.g. 100000 rounded up to 100096, counts as unclamped and is
+    reported at its actual n_ctx).
+    Returns points, the measured boundary (last unclamped no-spill / first unclamped spill actual n_ctx) with the
+    decode/TTFT ratio across it, the bisection's projected boundary and fail outcomes, and the edge-rep outcomes."""
+    base = next((r for r in bisection_rows if r.get("record") == "mx2_baseline"), {})
+    dedicated_mib = (base.get("registry_dedicated") or {}).get("qw_memory_size_mib")
+    lines = base.get("lines") or {}
+    points = []
+    for src, rows in sources.items():
+        pts = [r for r in rows if r.get("record") == "mx2v_regime_point" and r.get("model_id") == model_id
+               and r.get("started")]
+        unclamped = [r for r in pts if r.get("actual_n_ctx") >= r.get("requested_n_ctx")]
+        if not unclamped:
+            continue
+        b = min(unclamped, key=lambda r: r["actual_n_ctx"])
+        baseline_shared, baseline_ctx = b.get("gpu_shared_mib"), b["actual_n_ctx"]
+        groups = {}
+        for r in pts:
+            groups.setdefault((r["requested_n_ctx"], r["actual_n_ctx"]), []).append(r)
+        for (req, act), g in sorted(groups.items(), key=lambda kv: (kv[0][1], kv[0][0])):
+            ded = statistics.mean(r["gpu_dedicated_mib"] for r in g)
+            sh = statistics.mean(r["gpu_shared_mib"] for r in g)
+            d_m, d_ci = _mean_ci95([r.get("decode_tok_s") for r in g])
+            t_m, t_ci = _mean_ci95([r.get("ttft_ms") for r in g])
+            points.append({"source": src, "requested": req, "actual": act, "n": len(g), "clamped": act < req,
+                           "dedicated_mib": ded, "shared_mib": sh, "shared_delta_mib": sh - baseline_shared,
+                           "baseline_ctx": baseline_ctx,
+                           "spill": (sh - baseline_shared) > threshold_mib,
+                           "decode": d_m, "decode_ci": d_ci, "ttft_ms": t_m, "ttft_ci": t_ci,
+                           "frac_dedicated": (ded + sh) / dedicated_mib if dedicated_mib else None,
+                           "frac_device_local": (ded + sh) / lines["device_local_mib"]
+                           if lines.get("device_local_mib") else None})
+    unc = [p for p in points if not p["clamped"]]
+    spills = [p for p in unc if p["spill"]]
+    first_spill = min(spills, key=lambda p: (p["actual"], p["source"] != "spill_stats")) if spills else None
+    fits = [p for p in unc if not p["spill"] and (first_spill is None or p["actual"] < first_spill["actual"])]
+    last_fit = max(fits, key=lambda p: (p["actual"], p["source"] == "spill_stats")) if fits else None
+    cost = None
+    if last_fit and first_spill:
+        cost = {"decode_ratio": first_spill["decode"] / last_fit["decode"],
+                "ttft_ratio": first_spill["ttft_ms"] / last_fit["ttft_ms"],
+                "same_source": last_fit["source"] == first_spill["source"]}
+    two = next((r for r in bisection_rows if r.get("record") == "mx2_two_line_result"
+                and r.get("model_id") == model_id), None)
+    probes = {r["n_ctx"]: r for r in bisection_rows if r.get("record") == "mx2_probe" and r.get("model_id") == model_id}
+    bis = None
+    if two:
+        def probe(n):
+            p = probes.get(n) or {}
+            return {"n_ctx": n, "regime": p.get("regime"), "exit_code": p.get("exit_code"),
+                    "clamped": "guard: server does not match" in (p.get("error") or ""), "logged_mib": p.get("logged_mib")}
+        bis = {"proj_last_fit": probe(two["device_local_last_fit_n_ctx"]),
+               "proj_first_spill": probe(two["device_local_first_spill_n_ctx"]),
+               "last_start": probe(two["vulkan_total_last_start_n_ctx"]),
+               "first_fail": probe(two["vulkan_total_first_fail_n_ctx"]),
+               "max_ctx_native": two.get("max_ctx_native"), "yarn_factor": two.get("yarn_factor"),
+               "fail_points": sorted(n for n, p in probes.items() if p.get("regime") == "HARD_FAIL")}
+    edge = [r for r in edge_rows if r.get("record") == "x2_70b_edge_rep" and r.get("model_id") == model_id]
+    edge_sum = None
+    if edge:
+        outc = {}
+        for r in edge:
+            la = r.get("launch") or {}
+            k = (r.get("arm"), la.get("outcome"), la.get("exit_code_name"), la.get("crash_stage") or la.get("stall_stage"))
+            outc[k] = outc.get(k, 0) + 1
+        edge_sum = {"n": len(edge), "n_ctx": sorted({r.get("n_ctx") for r in edge}), "outcomes": outc,
+                    "elapsed_s": (min(r["launch"]["elapsed_s"] for r in edge), max(r["launch"]["elapsed_s"] for r in edge))}
+    repro = {}
+    for rows in sources.values():
+        for r in rows:
+            if r.get("record") == "mx2v_regime_point" and r.get("model_id") == model_id and not r.get("started"):
+                k = (r["requested_n_ctx"], False, None, "n/a (regime point, start timeout "
+                     + ("120 s" if "120.0s" in (r.get("error") or "") else "?") + ")")
+                repro[k] = repro.get(k, 0) + 1
+    for rows in sources.values():
+        for r in rows:
+            if r.get("record") == "mx2v_crash_repro" and r.get("model_id") == model_id:
+                k = (r["n_ctx"], r.get("started"), r.get("exit_code"), r.get("killed_by_probe"))
+                repro[k] = repro.get(k, 0) + 1
+    return {"model_id": model_id, "points": points, "last_fit": last_fit, "first_spill": first_spill, "cost": cost,
+            "bisection": bis, "edge": edge_sum, "crash_repro": repro, "dedicated_mib": dedicated_mib,
+            "device_local_mib": lines.get("device_local_mib"), "vulkan_total_mib": lines.get("vulkan_total_mib")}
+
+
+def format_amd_boundary(s):
+    def pt(p):
+        ci = f" +/- {p['decode_ci']:.3f}" if p["decode_ci"] is not None else ""
+        lab = (f"CLAMPED req {p['requested']} served {p['actual']}" if p["clamped"] else f"n_ctx {p['actual']}"
+               + (f" (req {p['requested']})" if p["actual"] != p["requested"] else ""))
+        return (f"{lab} [{p['source']}, n={p['n']}]: {'SPILL' if p['spill'] else 'no spill'} (shared "
+                f"{p['shared_delta_mib']:+.0f} MiB vs n_ctx {p['baseline_ctx']}, dedicated {p['dedicated_mib']:.0f} MiB, "
+                f"process GPU mem {p['frac_dedicated']:.3f} of dedicated / {p['frac_device_local']:.3f} of device-local "
+                f"heap), decode {p['decode']:.3f}{ci} tok/s, TTFT {p['ttft_ms']:.0f} ms")
+    parts = [f"evo-x2 {s['model_id']}, llama-server Vulkan -ngl 99; boundaries: dedicated {s['dedicated_mib']:.0f} MiB, "
+             f"Vulkan device-local heap {s['device_local_mib']:.0f} MiB, Vulkan total {s['vulkan_total_mib']:.0f} MiB"]
+    lf, fs, c = s["last_fit"], s["first_spill"], s["cost"]
+    if lf and fs:
+        parts.append(f"MEASURED spill boundary (GPU shared usage > +{AMD_SPILL_DELTA_MIB:.0f} MiB, unclamped): "
+                     f"last no-spill n_ctx {lf['actual']} ({lf['source']}), first spill n_ctx {fs['actual']} "
+                     f"({fs['source']}); cost across it: decode ratio {c['decode_ratio']:.3f}, TTFT ratio "
+                     f"{c['ttft_ratio']:.3f}{'' if c['same_source'] else ' (different runs)'}")
+    elif lf:
+        parts.append(f"MEASURED: largest unclamped no-spill n_ctx {lf['actual']} ({lf['source']}); no unclamped spill "
+                     f"point measured, so no spill cost")
+    parts.append("points: " + "; ".join(pt(p) for p in s["points"]))
+    b = s["bisection"]
+    if b:
+        def bp(p):
+            return f"{p['n_ctx']}{' (clamped to 131072)' if p['clamped'] else ''}"
+        parts.append(f"bisection (1 start per n_ctx, projection regimes from logged buffers vs device-local heap): "
+                     f"projected last fit {bp(b['proj_last_fit'])}, projected first spill {bp(b['proj_first_spill'])}; "
+                     f"last start {bp(b['last_start'])}, first fail {b['first_fail']['n_ctx']} (exit "
+                     f"{b['first_fail']['exit_code']}); HARD_FAIL points {b['fail_points']}; trained ctx "
+                     f"{b['max_ctx_native']} x yarn {b['yarn_factor']}")
+    e = s["edge"]
+    if e:
+        outs = ", ".join(f"{arm} {o} {name} at {stage} {k}" for (arm, o, name, stage), k in sorted(e["outcomes"].items()))
+        parts.append(f"fresh-process fail reps at n_ctx {e['n_ctx']}: {outs} (of {e['n']}; {e['elapsed_s'][0]:.0f}-"
+                     f"{e['elapsed_s'][1]:.0f} s to exit)")
+    if s["crash_repro"]:
+        parts.append("in-session start failures and crash repro (confounded, 2026-10-06 correction): " + ", ".join(
+            f"n_ctx {n} started={st} exit={ex} killed_by_probe={kp} x{k}"
+            for (n, st, ex, kp), k in sorted(s["crash_repro"].items(), key=lambda kv: str(kv[0]))))
+    return " // ".join(parts)  # never "|": the value sits in a markdown table cell
+
+
+def _amd_boundary(repo, model_id):
+    sources = {"spill_stats": _read_jsonl(repo / AMD_BOUNDARY_FILES[0]),
+               "validation": _read_jsonl(repo / AMD_BOUNDARY_FILES[1])}
+    s = amd_boundary_summary(model_id, sources, _read_jsonl(repo / AMD_BOUNDARY_FILES[2]),
+                             _read_jsonl(repo / AMD_BOUNDARY_FILES[3]))
+    n_calls = sum(p["n"] for p in s["points"])
+    n_fail = (s["edge"] or {}).get("n", 0)
+    return {"value": format_amd_boundary(s), "n": f"{n_calls} measured calls, {n_fail} fresh-process fail reps",
+            "detail": s}
+
+
+def compute_fh1_amd_boundary_llama70b(repo):
+    """FH1 AMD panel, llama-3.3-70b (see amd_boundary_summary)."""
+    return _amd_boundary(repo, "llama-3.3-70b")
+
+
+def compute_fh1_amd_boundary_qwen3_32b(repo):
+    """FH1 AMD panel, qwen3-32b (see amd_boundary_summary)."""
+    return _amd_boundary(repo, "qwen3-32b")
+
+
 # ───────────────────────────────────────────────── business metrics (plan v2 C1, 2026-10-14)
 # analysis/business_metrics.py: router vs all-cloud / naive local default / today's mix per customer profile
 # (results/business_profiles_20261014.json; every profile field an assumption). docs/BUSINESS_METRICS.md is these rows.
@@ -6655,6 +6828,15 @@ NUMBER_ENTRIES = [
                     "files (Vulkan heaps, Ollama inference-compute lines, nvidia-smi)",
      "compute": compute_gpu_memory_readonly, "data_files": GPU_MEM_FILES,
      "script_function": "analysis/numbers_register.py::compute_gpu_memory_readonly"},
+    {"claim_id": "fh1-amd-boundary-llama-3.3-70b", "description": "FH1 AMD panel, llama-3.3-70b on evo-x2 (llama-server "
+     "b10970 Vulkan): measured spill boundary from per-process GPU shared usage, decode/TTFT on each side, bisection "
+     "projection and fail points, fresh-process fail reps",
+     "compute": compute_fh1_amd_boundary_llama70b, "data_files": AMD_BOUNDARY_FILES,
+     "script_function": "analysis/numbers_register.py::compute_fh1_amd_boundary_llama70b"},
+    {"claim_id": "fh1-amd-boundary-qwen3-32b", "description": "FH1 AMD panel, qwen3-32b on evo-x2 (llama-server b10970 "
+     "Vulkan): same fields; no unclamped spill point exists",
+     "compute": compute_fh1_amd_boundary_qwen3_32b, "data_files": AMD_BOUNDARY_FILES,
+     "script_function": "analysis/numbers_register.py::compute_fh1_amd_boundary_qwen3_32b"},
     {"claim_id": "business-hour-range", "description": "Business sensitivity: hour-value p10/median/p90 (BLS annual "
      "percentiles converted at the page's own implied hours per year)",
      "compute": compute_business_hour_range, "data_files": [BUSINESS_PROFILES, IMPACT_PROFILE],
