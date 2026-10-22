@@ -24,7 +24,6 @@ REPO = Path(__file__).resolve().parents[1]
 CONTROLLER_SCRIPTS = [
     REPO / "scripts" / "sync_results.py",
     REPO / "scripts" / "deploy_evo.py",
-    REPO / "scripts" / "all_cloud_b3.py",
     REPO / "scripts" / "t2s_responsiveness_probe.py",
     REPO / "demo" / "dashboard" / "build_cache.py",
     # The Blade is the controller laptop: its night jobs run here, unattended (docs/BLADE_PLAN.md).
