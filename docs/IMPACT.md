@@ -34,6 +34,15 @@ and decode seconds, output tokens, session cloud cost) are computed here by smal
 cites one of those ids it is marked "PENDING on main". Once they land, the two computations should agree; if they do
 not, the register rows win and this model is the one to fix.
 
+## Inputs added later
+
+- **2026-10-21: cost of redoing a silent wrong task on the cloud** (register row cloud-redo-cost-per-wrong-task,
+  scripts/cloud_redo.py, results/cloud_redo_v1.jsonl). Every B3 v2 wrong task (qwen3:14b, all tiers) priced on the
+  escalation model with prompt caching on. Mode: priced, not executed (no API key on the controller): token counts are
+  the local run's, the output is a stand-in, and cloud correctness and seconds are not measured. Not yet wired into
+  analysis/impact_model.py; it is a candidate per-event cost for P1 (the redo price, not the cost of a correct answer)
+  once a live run measures whether the cloud answer is correct.
+
 ## Impact audit, 2026-10-14 (operator decisions A to C)
 
 Before any impact number leaves the repo, the model was audited. What changed:
