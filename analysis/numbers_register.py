@@ -3062,6 +3062,56 @@ def compute_r2_qwen3_14b_4096_reconciliation(repo):
             "n": f"{sum(len(t) for t in turns.values())} turns"}
 
 
+def compute_x2_evalset_tasks_real_v2_ci_units(repo):
+    """B3 v2 real run, qwen3:14b: the wrong-task excess over the default window per tier with two bootstrap units,
+    10000 resamples each, seed 20261014. Session level (the pre-registered one, used in the paper): whole sessions
+    resampled with replacement within each tier, all task turns of a session kept together
+    (x2_r2_evalset.session_bootstrap_excess). Turn level (for comparison only): task turns resampled independently
+    within each tier, which ignores within-session correlation and so gives narrower intervals."""
+    import random as _random
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "harness"))
+    import x2_r2_evalset as ev
+    ag = _r2_agent_module()
+    rows = ag.read_rows(repo / "results/x2_evalset_tasks_real_v2.jsonl")
+    if not rows:
+        raise FileNotFoundError(repo / "results/x2_evalset_tasks_real_v2.jsonl")
+    sessions = [x for x in ag.completed_sessions(rows) if x.get("mode") == "real" and x["model_id"] == "qwen3:14b"]
+    att = {x["attempt_id"]: x for x in sessions}
+    turns = [r for r in rows if r.get("record") == "r2a_turn" and r.get("attempt_id") in att
+             and r.get("item_kind") == "task"]
+    tier_of = lambda arm: arm.replace("_call2_notools", "")
+    cells, flat = {}, {}
+    for x in sessions:
+        t = tier_of(x["arm_id"])
+        st = [r for r in turns if r["attempt_id"] == x["attempt_id"]]
+        cells.setdefault(t, []).append((sum(1 for r in st if r.get("end_state_ok") is False), len(st)))
+        flat.setdefault(t, []).extend(1 if r.get("end_state_ok") is False else 0 for r in st)
+    default = "ollama_default"
+    sess = ev.session_bootstrap_excess(cells, default, n_boot=10000, seed=20261014)["per_tier"]
+    rng = _random.Random(20261014)
+    draws = {t: [] for t in flat if t != default}
+    for _ in range(10000):
+        d = flat[default]
+        rd = sum(d[rng.randrange(len(d))] for _ in d) / len(d)
+        for t in draws:
+            xs = flat[t]
+            draws[t].append(sum(xs[rng.randrange(len(xs))] for _ in xs) / len(xs) - rd)
+    order = ["ollama_ctx_16384", "ollama_ctx_8192", "ollama_ctx_4096", "ollama_ctx_4096_numkeep"]
+    parts = []
+    for t in [o for o in order if o in sess]:
+        v = sess[t]
+        dt = sorted(draws[t])
+        lo_s, hi_s = v["ci95"]
+        parts.append(f"{t}: excess {100 * v['excess']:+.1f} points; session-level 95% CI {100 * lo_s:+.1f} to "
+                     f"{100 * hi_s:+.1f} ({v['n_sessions']} vs {v['n_default_sessions']} sessions); turn-level 95% "
+                     f"CI {100 * ev._quantile(dt, 0.025):+.1f} to {100 * ev._quantile(dt, 0.975):+.1f} "
+                     f"({len(flat[t])} vs {len(flat[default])} task turns)")
+    return {"value": "qwen3:14b wrong-task excess over default; " + "; ".join(parts)
+                     + " (10000 resamples each, seed 20261014; the paper uses the session-level CI)",
+            "n": f"{len(sessions)} sessions, {len(turns)} task turns"}
+
+
 def compute_r2_validation_v2b_runinfo(repo):
     """R2 validation v2b run details per model: sessions and turns completed, calls with an HTTP error or error field,
     task tool called correctly, and on the baseline arm how many call-1 replies carried a native tool call vs a tool
@@ -5787,6 +5837,11 @@ NUMBER_ENTRIES = [
      "compute": compute_r2_qwen3_14b_4096_reconciliation,
      "data_files": [R2_REAL_V1_FILE, R2_REAL_V1B_FILE, R2_MITIGATION_FILE, "results/x2_num_keep_qwen3_14b.jsonl"],
      "script_function": "analysis/numbers_register.py::compute_r2_qwen3_14b_4096_reconciliation"},
+    {"claim_id": "x2-evalset-tasks-real-v2-ci-units", "description": "B3 v2 real run qwen3:14b: wrong-task excess "
+                    "CIs with the session-level bootstrap (paper) and a turn-level bootstrap (comparison)",
+     "compute": compute_x2_evalset_tasks_real_v2_ci_units,
+     "data_files": ["results/x2_evalset_tasks_real_v2.jsonl"],
+     "script_function": "analysis/numbers_register.py::compute_x2_evalset_tasks_real_v2_ci_units"},
     {"claim_id": "R2-validation-v2b-runinfo", "description": "R2 validation v2b: sessions/turns, errors, native vs "
                     "text tool calls per model",
      "compute": compute_r2_validation_v2b_runinfo, "data_files": ["results/x2_r2_validation_v2b.jsonl"],
