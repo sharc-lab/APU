@@ -22,10 +22,12 @@ docs/BUSINESS_METRICS.md.
   wrong tasks than at the default window; for the reference team that is "time USD/day 0.00 to 126.85" plus "cloud
   redo USD/day 10.33 (USD 0.0281 per wrong task, priced, not executed ...)", "profile cell USD/day 10.33 to 137.18"
   [impact-v2-P1] (mixed: measured rate and wall time, cloud redo priced from token counts but not executed, assumed
-  volume and waiting). Ranked with the configuration time saving, "P2 > P1 > P5 > P3 > P4" [impact-ranking-v2]: P2 is
-  "139.4 min saved per session (MEASURED ...)" for qwen3:14b by the fastest B5 setting, priced at the assumed volume
-  and the full hour value; the B5 default ran without flash attention, and the flash-attention control (still
-  PENDING) decides whether that saving is flash attention or KV precision.
+  volume and waiting). Fixing one wrong answer in the cloud costs about USD 0.03 (priced, not executed); the cost is
+  that the failure is silent. Ranking "P1 > P5 > P3 > P4; unranked: P2, P6, P7" [impact-ranking-v2]: the
+  configuration saving (P2) is now valued as machine capacity, "3 saved x USD 2,000 (impact-ref-machine-price,
+  ASSUMPTION, must be verified) / 3-year life (ASSUMED) = USD 5.48/day" with waiting time only an upper bound
+  [impact-v2-P2], and stays PENDING and unranked until the flash-attention control (b5-fa-control) decides whether
+  that saving is flash attention or KV precision.
 - **At the smallest window the runtime cuts the system prompt.** "ollama_ctx_4096: 76/80 calls message-truncated; 34
   context shifts (first turn/call (4, 2), n_keep [5], n_discard [2045], 29 on the final-answer call); 1 token cuts
   (token cut limit 2050 keep 4 prompt 4097 -> 2050)" [R2-mechanism-lowlevel] (measured): on a context shift only the

@@ -4331,7 +4331,7 @@ _IMPACT_V2_CACHE = {}
 # results/x2_policy_compare.jsonl (row cost-cut-config-time; the flash-attention control file joins it once synced).
 _IMPACT_V2_FILES = sorted({f for v in _IMPACT_FILES.values() for f in v}
                           | {"results/x2_evalset_tasks_real_v2.jsonl", "results/cloud_redo_v1.jsonl",
-                             "results/x2_policy_compare.jsonl"})
+                             "results/x2_policy_compare.jsonl", "results/hardware_price_evox2_20261021.json"})
 
 
 def _impact_v2(repo):
@@ -4356,6 +4356,38 @@ def compute_impact_ranking_v2(repo):
     im = _impact()
     res = _impact_v2(repo)
     return {"value": im.ranking_v2_value(res), "n": "7 rows"}
+
+
+def compute_impact_ref_machine_price(repo):
+    """ASSUMPTION INPUT (must be verified): the reference machine's list price for impact v2 P2, with its source."""
+    m = _impact().ref_machine(repo)
+    return {"value": f"ASSUMPTION, must be verified: USD {m['usd']:,.0f} for {m['machine']}; quoted \"{m['figure_quoted']}\" "
+                     f"({m['publisher']}, {m['article_date']}, {m['source_url']}; fetched {m['fetched_utc']}); "
+                     f"{m['meaning']}; not the repo's own purchase price (configs/hardware/evox2_strix_halo_128gb.yaml "
+                     f"bom_cost_usd is null)", "n": "1"}
+
+
+def compute_impact_v2_p2(repo):
+    """Impact v2 P2 (operator decision 2026-10-21): machine capacity from measured session minutes (default vs the
+    fastest measured B5 setting), machines needed for the profile's sessions/day, USD of machines saved per day over an
+    assumed 3-year life; waiting time as an upper bound on the interactive-session share; PENDING until b5-fa-control
+    is VERIFIED (values shown)."""
+    im = _impact()
+    r = _impact_v2(repo)["rows"]["P2"]
+    if r["usd_day"] is None:
+        return {"value": f"PENDING: inputs {', '.join(r['pending'])} not available", "n": "0"}
+    head = ("PENDING (values computed, not ranked) until row b5-fa-control is VERIFIED" if r["status"] == "PENDING"
+            else f"status {r['status']}")
+    return {"value": f"{head}; " + im.p2_v2_value(r), "n": "1 model"}
+
+
+def compute_impact_v2_detection_value(repo):
+    """PROJECTION (operator decision 2026-10-21): measured wrong-task rate x cloud redo cost when only the steps a
+    detector flags are escalated (R2 context-shift predictor's measured precision/recall, with where it was measured)
+    vs escalating every step, at the v2 profile cell. Labels follow the cloud redo row's mode."""
+    im = _impact()
+    d = _impact_v2(repo)["rows"]["P1"].get("detection")
+    return {"value": im.detection_value_text(d), "n": "1 cell" if d else "0"}
 
 
 def compute_impact_p2(repo):
@@ -6634,9 +6666,10 @@ NUMBER_ENTRIES = [
                     "(default window; CPU trimming at 4096) and run wall clocks: the input of the B5 window plan",
      "compute": compute_t2s_r2_session_minutes, "data_files": [T2S_REAL["cpu"], T2S_REAL["igpu"], T2S_MITIGATION_CPU],
      "script_function": "analysis/numbers_register.py::compute_t2s_r2_session_minutes"},
-    {"claim_id": "t2s-b5-plan-hours", "description": "B5 on evo-t2s (CPU and iGPU, qwen3:14b and llama3.1:8b, 5 seeds): "
-                    "ESTIMATED hours per staged entry from measured evo-t2s sessions and what fits in the 2026-10-26 "
-                    "window",
+    {"claim_id": "t2s-b5-plan-hours", "description": "B5 on evo-t2s for the 2026-10-26 window (operator order "
+                    "2026-10-21: llama3.1:8b CPU and iGPU at 5 seeds first, then qwen3:14b on the CPU at 3 seeds only if "
+                    "the hours left allow): ESTIMATED hours per staged entry from measured evo-t2s sessions, what fits, "
+                    "and the qwen3:14b fit decision",
      "compute": compute_t2s_b5_plan_hours,
      "data_files": [T2S_REAL["cpu"], T2S_REAL["igpu"], T2S_MITIGATION_CPU, "results/x2_r2_real_v1.jsonl",
                     "results/x2_r2_real_v1b.jsonl", "results/x2_r2_mitigation_v1.jsonl", "queues/t2s_oct26_queue.json"],
@@ -6862,9 +6895,26 @@ NUMBER_ENTRIES = [
                     "+ wrong-turn wall time), one profile",
      "compute": compute_impact_v2_p1, "data_files": _IMPACT_V2_FILES,
      "script_function": "analysis/impact_model.py::p1_v2"},
+    {"claim_id": "impact-ref-machine-price", "description": "ASSUMPTION INPUT, must be verified: reference "
+                    "machine (evo-x2 class, Ryzen AI Max+ 395 128 GB mini PC) list price with its public source, for "
+                    "impact v2 P2 machine capacity",
+     "compute": compute_impact_ref_machine_price, "data_files": ["results/hardware_price_evox2_20261021.json"],
+     "script_function": "analysis/impact_model.py::ref_machine"},
+    {"claim_id": "impact-v2-detection-value", "description": "PROJECTION: value of detecting silent wrong tasks at "
+                    "the v2 profile cell: cloud redo USD/day escalating every task step vs only predicted-at-risk "
+                    "steps at the R2 shift predictor's measured precision/recall (and where it was measured)",
+     "compute": compute_impact_v2_detection_value,
+     "data_files": sorted(set(_IMPACT_V2_FILES) | {"results/x2_r2_mechanism.jsonl"}),
+     "script_function": "analysis/impact_model.py::detection_projection"},
+    {"claim_id": "impact-v2-P2", "description": "Impact v2 P2 configuration: sessions per machine per day (default vs "
+                    "fastest measured B5 setting), machines needed for the profile's sessions/day, USD/day of machines "
+                    "saved (assumed 3-year life), waiting-time upper bound on the interactive share; PENDING until "
+                    "b5-fa-control is VERIFIED",
+     "compute": compute_impact_v2_p2, "data_files": _IMPACT_V2_FILES,
+     "script_function": "analysis/impact_model.py::p2_v2"},
     {"claim_id": "impact-ranking-v2", "description": "Impact v2 ranking at one stated profile, every row tagged "
-                    "measured / mixed / assumed / PENDING / not measured, PENDING inputs named; P2 = measured minutes saved "
-                    "per session by configuration (cost-cut-config-time) x assumed volume x hour value",
+                    "measured / mixed / assumed / PENDING / not measured, PENDING inputs named; P2 = machine capacity "
+                    "(impact-v2-P2), not ranked while PENDING",
      "compute": compute_impact_ranking_v2, "data_files": _IMPACT_V2_FILES,
      "script_function": "analysis/impact_model.py::v2_rows"},
     {"claim_id": "impact-total", "description": "Impact total over the measured rows, ranking, and the one-flag "

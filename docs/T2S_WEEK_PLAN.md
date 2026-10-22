@@ -369,6 +369,17 @@ Facts and changes: `results/t2s_window_20261015_preflight.json`, `docs/T2S_CHANG
 
 ## Staged for 2026-10-26 to 2026-11-08 (pending Zach's confirmation; NOT loaded)
 
+**Update 2026-10-21 (operator decision: B5 order and qwen3:14b).** B5 in this window is the two llama3.1:8b cells at 5
+seeds, Intel CPU first, then Intel iGPU; qwen3:14b was to follow at 3 seeds on the Intel CPU (its default window
+4096) only if the hours left allowed. Computed from measured evo-t2s session minutes ([t2s-r2-session-minutes]) by
+`scripts/t2s_window_stage.py qwen_decision`, pasted from [t2s-b5-plan-hours]: "after A5 0.3 h and the llama3.1:8b
+cells at 5 seeds (evo-t2s-cpu llama3.1:8b 197.0 h, evo-t2s llama3.1:8b 142.3 h), -4.6 h are left of 335.0 h;
+evo-t2s-cpu qwen3:14b at 3 seeds needs 498.1 h (164.9 h/seed): does not fit, not staged; qwen3:14b on Intel is future
+work". So both qwen3:14b entries (`t2s_o26_b5_igpu_qwen3_14b`, `t2s_o26_b5_cpu_qwen3_14b`) are dropped from
+`queues/t2s_oct26_queue.json` (dry-run passes, fresh build matches the file), and the iGPU llama3.1:8b cell itself is
+expected to reach only "4 of 5 seeds fit, cell counts yes (first 3 seeds)". All hours are ESTIMATES. Dated amendment
+to the frozen pre-registration: docs/FINDINGS.md "AMENDMENT 2026-10-21 to the B5-on-evo-t2s pre-registration".
+
 **Update 2026-10-22 (B5 is the T2S priority).** Canonical file: `queues/t2s_oct26_queue.json` (one builder,
 `scripts/t2s_week_queue.py build-oct26`; its gates point at its own preflight; it is the file `load-window` takes). The
 second file `queues/t2s_window_20261026_staged.json` was retired: it staged B5 for llama3.1:8b on the iGPU only at 3
@@ -383,7 +394,8 @@ seeds and a different, iGPU-only B6, and its gates named the finished week's `t2
    and switches it back, and an expired file is ignored and deleted by `scripts/sync_results.py` even if that job died.
 2. Deploy (the week's file list plus `window_override_methods.py`, `policy_compare.py` and the router stack under
    `C:\apu\ovn\src`, `C:\apu\ovn\analysis`), then `python t2s_week_queue.py load-window t2s_oct26_queue.json`.
-3. The queue: preflight, A5, B5 (four cells), then the B6 pull, validations and real runs.
+3. The queue: preflight, A5, B5 (two llama3.1:8b cells since 2026-10-21; four cells before), then the B6 pull,
+   validations and real runs.
 Plan (ESTIMATES, `py -3.12 scripts/t2s_window_stage.py plan`, register row `t2s-b5-plan-hours`): only the two
 llama3.1:8b B5 cells are expected to count in this window (CPU 5 seeds, iGPU first 3 or 4 seeds); the qwen3:14b cells
 and B6 are not expected to start. Pre-registration: docs/FINDINGS.md "B5 on evo-t2s Intel CPU and Intel iGPU".

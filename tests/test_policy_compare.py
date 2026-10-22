@@ -599,7 +599,8 @@ def test_t2s_window_plan_uses_the_canonical_file_and_b5_comes_before_b6():
     ids = [r["id"] for r in p["entries"]]
     b5 = [i for i in ids if "_b5_" in i]
     b6 = [i for i in ids if "_b6_" in i]
-    assert len(b5) == 4 and max(ids.index(i) for i in b5) < min(ids.index(i) for i in b6)
+    assert len(b5) == (3 if p["qwen_decision"]["fits"] else 2)
+    assert max(ids.index(i) for i in b5) < min(ids.index(i) for i in b6)
     assert ids[0] == "t2s_o26_preflight"
     assert p["label"].startswith("ESTIMATES") and p["available_h"] > 0
     assert all(r["basis"].endswith("(ESTIMATE)") for r in p["entries"] if r["id"] in b5)

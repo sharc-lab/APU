@@ -1019,8 +1019,12 @@ def session_time_value(res) -> str:
 # qwen3:14b, session-level bootstrap CI: register rows x2-evalset-tasks-real-v2-wrong-rate and
 # x2-evalset-tasks-real-v2-ci-units) x (cloud-redo cost per wrong task, per tier [row cloud-redo-cost-per-wrong-task;
 # tagged "priced, not executed" while that row is in stub mode, "measured" once a live redo replaces it] + the measured
-# wall time of the wrong task turn, valued 0 to the full hour value). P2 = measured minutes saved per session by the
-# fastest measured B5 setting for the profile model [row cost-cut-config-time] x sessions/day x hour value. P3 as in
+# wall time of the wrong task turn, valued 0 to the full hour value). P2 (operator decision 2026-10-21) = machine
+# capacity: measured session minutes of the default and the fastest measured B5 setting for the profile model [row
+# cost-cut-config-time] give sessions per machine per day, machines needed for the profile's sessions/day (ceil) and
+# the machines saved x the reference machine price [row impact-ref-machine-price, an ASSUMPTION input to verify] /
+# an ASSUMED 3-year life; waiting time at the hour value is an UPPER BOUND on the interactive-session share only
+# (ASSUMED 0.25). P2 is PENDING (values shown, not ranked) until row b5-fa-control is VERIFIED. P3 as in
 # v1. P4 to P7: the v1 row functions at the same profile. Every row carries a status: measured / mixed / assumed /
 # PENDING / not measured. An input whose register row is not VERIFIED stays PENDING and is never replaced by a number;
 # compute_v2 reads both inputs from the same data functions as their register rows, so regeneration picks up a live
@@ -1032,6 +1036,8 @@ B3_V2_TIERS = ("ollama_ctx_16384", "ollama_ctx_8192", "ollama_ctx_4096", "ollama
 V2_PENDING = {
     "cloud-redo-cost-per-wrong-task": "USD to redo one wrong task in the cloud (P1)",
     "cost-cut-config-time": "minutes saved per session by configuration, flash-attention control on evo-x2 (P2)",
+    "b5-fa-control": "flash-attention control on evo-x2: whether the P2 saving is flash attention or KV precision (P2)",
+    "impact-ref-machine-price": "reference machine price, an assumption input that must be verified (P2)",
 }
 CLOUD_TAG_STUB, CLOUD_TAG_LIVE = "priced, not executed", "measured"
 P2_CAVEAT_FA_PENDING = ("caveat: the B5 default ran without flash attention, so the saving may be flash attention or KV "
@@ -1137,7 +1143,10 @@ def v2_rows(repo=REPO, base_profile=None, inputs=None) -> dict:
     inputs = inputs or {}
     prof = v2_profile(repo, base_profile)
     out = {"P1": p1_v2(repo, prof, inputs.get("P1"))}
-    out["P2"] = p2_v2(prof, inputs.get("P2"))
+    out["P2"] = p2_v2(prof, inputs.get("P2"), inputs.get("P2_machine"), bool(inputs.get("P2_fa_verified")))
+    conf = inputs.get("shift_conf")
+    if conf is not None:
+        out["P1"]["detection"] = detection_projection(out["P1"], prof, conf)
     v1 = model_rows(repo, prof, inputs=inputs.get("v1"))
     for k in ("P3", "P4", "P5", "P6", "P7"):
         r, au = v1[k], v1[k]["audit"]
@@ -1146,25 +1155,135 @@ def v2_rows(repo=REPO, base_profile=None, inputs=None) -> dict:
     return {"profile": prof, "rows": out}
 
 
-def p2_v2(profile, cc=None) -> dict:
-    """P2 at the v2 profile: measured minutes saved per session by the fastest measured B5 setting for the profile model
-    (cost_cut_config_time_data shape: {"models": {model: {"saved_min", ...}}, "fa_included"}) x sessions/day (ASSUMED)
-    / 60 x hour value; range 0 (nobody waits) to the full hour value. PENDING while the row or the model is missing."""
+REF_MACHINE_FILE = "results/hardware_price_evox2_20261021.json"   # ASSUMPTION input, must be verified (row impact-ref-machine-price)
+MACHINE_LIFE_YEARS = 3.0    # ASSUMED amortization life of the reference machine
+INTERACTIVE_SHARE = 0.25    # ASSUMED share of sessions a person waits on (the waiting-time upper bound applies only here)
+MINUTES_PER_DAY = 24 * 60
+
+
+def ref_machine(repo=REPO) -> dict:
+    """The reference machine's price record (results/hardware_price_evox2_20261021.json): an ASSUMPTION input."""
+    return json.loads((Path(repo) / REF_MACHINE_FILE).read_text(encoding="utf-8"))
+
+
+def p2_capacity(sessions_day, default_min, best_min, machine_usd, life_years=MACHINE_LIFE_YEARS, concurrency=1):
+    """Machine capacity: sessions per machine per day per setting (24 h / session minutes x concurrency, one session at
+    a time unless a measured concurrency is given), machines needed for sessions_day (ceil) under the default and the
+    best setting, and the USD of machines saved amortized per day over life_years."""
+    per_default = MINUTES_PER_DAY / default_min * concurrency
+    per_best = MINUTES_PER_DAY / best_min * concurrency
+    n_default, n_best = math.ceil(sessions_day / per_default), math.ceil(sessions_day / per_best)
+    saved = max(0, n_default - n_best)
+    return {"sessions_per_machine_day_default": per_default, "sessions_per_machine_day_best": per_best,
+            "machines_default": n_default, "machines_best": n_best, "machines_saved": saved,
+            "usd_saved": saved * machine_usd, "usd_day": saved * machine_usd / (life_years * 365.0),
+            "life_years": life_years, "concurrency": concurrency}
+
+
+def p2_v2(profile, cc=None, machine=None, fa_verified=False, interactive_share=INTERACTIVE_SHARE) -> dict:
+    """P2 at the v2 profile (operator decision 2026-10-21). Primary USD = machine capacity from the measured session
+    minutes of the runtime default and the fastest measured B5 setting for the profile model (cost_cut_config_time_data
+    shape: {"models": {model: {"default_min", "best_min", "saved_min", ...}}, "fa_included"}) at the profile's
+    sessions/day (ASSUMED), with the reference machine price (machine: {"usd", ...}, an ASSUMPTION input) amortized over
+    MACHINE_LIFE_YEARS (ASSUMED). Waiting time at the hour value is an UPPER BOUND on top, applied only to the
+    interactive-session share (ASSUMED). Status PENDING (values still computed and shown) until row b5-fa-control is
+    VERIFIED; the ranking does not place a PENDING row."""
     model = profile["assumptions"]["model"]
     x = ((cc or {}).get("models") or {}).get(model)
     r = {"id": "P2", "usd_day": None, "low": None, "high": None, "status": "PENDING",
-         "pending": ["cost-cut-config-time"], "cell": None}
-    if x is None:
+         "pending": (["cost-cut-config-time"] if x is None else []) + (["impact-ref-machine-price"] if machine is None
+                                                                       else []), "cell": None}
+    if x is None or machine is None:
         return r
-    u = sessions_per_day(profile) * max(0.0, x["saved_min"]) / 60.0 * hour_value(profile)
+    spd, hv = sessions_per_day(profile), hour_value(profile)
+    cap = p2_capacity(spd, x["default_min"], x["best_min"], float(machine["usd"]))
+    wait_full = spd * max(0.0, x["saved_min"]) / 60.0 * hv
+    wait_ub = wait_full * interactive_share
     caveat = (P2_CAVEAT_FA_INCLUDED if cc.get("fa_included") else P2_CAVEAT_FA_PENDING)
-    r.update(usd_day=u, low=0.0, high=u, status="mixed", pending=[], cell=dict(x, model=model), caveat=caveat,
-             fa_included=bool(cc.get("fa_included")))
+    r.update(usd_day=cap["usd_day"], low=cap["usd_day"], high=cap["usd_day"] + wait_ub,
+             status="mixed" if fa_verified else "PENDING", pending=[] if fa_verified else ["b5-fa-control"],
+             cell=dict(x, model=model), caveat=caveat, fa_included=bool(cc.get("fa_included")), capacity=cap,
+             machine_usd=float(machine["usd"]), wait_upper_bound=wait_ub, wait_full_share=wait_full,
+             interactive_share=interactive_share)
     return r
 
 
+# Value of detection (operator decision 2026-10-21, P1 framing): fixing one wrong answer in the cloud is cheap (row
+# cloud-redo-cost-per-wrong-task); the cost is that the failure is silent, so nobody knows which answers to fix. The
+# projection compares escalating every task step to the cloud with escalating only the steps a detector flags,
+# using the R2 context-shift predictor's measured precision and recall (row R2-shift-predictor-confusion). That
+# predictor was measured on evo-x2, Ollama 0.34.4 (bundled llama.cpp b11081), llama3.1:8b, the R2 mechanism job, and it
+# predicts a llama.cpp context shift (P + C > n_ctx), NOT a wrong task: applying it to qwen3:14b wrong tasks at
+# num_ctx 4096 is an ASSUMPTION, so every number here is labelled projection.
+SHIFT_PREDICTOR_SCOPE = ("measured on evo-x2, Ollama 0.34.4 (bundled llama.cpp b11081), {model}, R2 mechanism job "
+                         "({n} calls; tiers {tiers}); it predicts a llama.cpp context shift (P + C > n_ctx) from the "
+                         "rendered prompt and completion tokens, not a wrong task; using its precision and recall for "
+                         "wrong tasks of another model and runtime cell is an ASSUMPTION")
+
+
+def shift_predictor_confusion(repo=REPO) -> dict:
+    """Overall precision/recall of the R2 context-shift predictor on the mechanism job (row
+    R2-shift-predictor-confusion) with the scope it was measured in."""
+    sys.path.insert(0, str(Path(repo) / "analysis"))
+    import r2_shift_predictor as sp
+    rows = sp.read_rows(Path(repo) / sp.MECH_FILE)
+    ms = sp.mechanism_summary(rows)
+    o = ms["overall"]
+    models = sorted({r["model_id"] for r in rows if r.get("record") == "r2m_call" and r.get("model_id")})
+    tiers = [t for t, c in ms["per_tier"].items() if c["tp"] + c["fn"] > 0]
+    return {"precision": o["precision"], "recall": o["recall"], "tp": o["tp"], "fp": o["fp"], "fn": o["fn"],
+            "tn": o["tn"], "n_calls": ms["n_calls"], "models": models, "tiers_with_shifts": tiers,
+            "scope": SHIFT_PREDICTOR_SCOPE.format(model=", ".join(models), n=ms["n_calls"],
+                                                  tiers=", ".join(ms["per_tier"]))}
+
+
+def detection_value(sessions_day, tasks_per_session, wrong_rate, redo_usd, precision, recall):
+    """Projection: cloud redo USD/day when every task step is escalated vs only the steps a detector flags.
+    flagged = recall x wrong / precision (true flags / precision); wrong steps the detector misses stay wrong."""
+    steps = sessions_day * tasks_per_session
+    wrong = steps * wrong_rate
+    every = steps * redo_usd
+    caught = None if recall is None else wrong * recall
+    flagged = caught / precision if (precision and caught is not None) else None
+    pred = None if flagged is None else flagged * redo_usd
+    return {"steps_day": steps, "wrong_day": wrong, "every_usd_day": every, "flagged_day": flagged,
+            "flagged_usd_day": pred, "caught_day": caught, "missed_day": None if caught is None else wrong - caught,
+            "saved_usd_day": None if pred is None else every - pred}
+
+
+def detection_projection(p1_row, profile, conf) -> dict | None:
+    """The detection projection at the v2 profile cell, from the P1 v2 row (measured wrong-task rate at the cell,
+    cloud redo USD per wrong task at the cell and its tag) and the shift predictor's confusion."""
+    cell = p1_row.get("cell")
+    if not cell or cell.get("redo_usd") is None or conf.get("precision") is None:
+        return None
+    d = detection_value(sessions_per_day(profile), cell["tasks_per_session"], cell["rate"], cell["redo_usd"],
+                        conf["precision"], conf["recall"])
+    return dict(d, rate=cell["rate"], redo_usd=cell["redo_usd"], cloud_tag=p1_row.get("cloud_tag"),
+                runtime=profile["assumptions"]["runtime"], model=profile["assumptions"]["model"], conf=conf,
+                label="projection")
+
+
+def detection_value_text(d) -> str:
+    if d is None:
+        return "PENDING: needs a cloud redo cost at the profile cell and a predictor with defined precision"
+    c, f = d["conf"], _fmt_usd
+    return (f"PROJECTION at {d['model']} {d['runtime']}: {d['steps_day']:.0f} task steps/day (ASSUMED volume x "
+            f"measured task turns/session), measured wrong-task rate {100 * d['rate']:.1f}% "
+            f"(x2-evalset-tasks-real-v2-wrong-rate) = {d['wrong_day']:.1f} wrong/day; cloud redo USD "
+            f"{d['redo_usd']:.4f} per step ({d['cloud_tag']}, cloud-redo-cost-per-wrong-task); escalate every step: "
+            f"USD {f(d['every_usd_day'])}/day; escalate only predicted-at-risk steps at the shift predictor's measured "
+            f"precision {100 * c['precision']:.1f}% and recall {100 * c['recall']:.1f}% (R2-shift-predictor-confusion: "
+            f"TP {c['tp']} FP {c['fp']} FN {c['fn']} TN {c['tn']}): {d['flagged_day']:.1f} steps/day escalated, USD "
+            f"{f(d['flagged_usd_day'])}/day, {d['caught_day']:.1f} wrong/day fixed and {d['missed_day']:.1f} missed; "
+            f"value of detection USD {f(d['saved_usd_day'])}/day; where the predictor applies: {c['scope']}; assumed: "
+            f"a redo of any step costs the mean redo of a wrong one, a fixed step is right after the redo (cloud "
+            f"correctness not measured in stub mode)")
+
+
 def v2_ranking(rows: dict) -> list:
-    return rank({k: {"usd_day": r["usd_day"]} for k, r in rows.items()})
+    """Rows ranked by main-case USD/day; a PENDING row (even with its values computed) sorts as unranked."""
+    return rank({k: {"usd_day": None if r["status"] == "PENDING" else r["usd_day"]} for k, r in rows.items()})
 
 
 def v2_split(rows: dict) -> dict:
@@ -1175,11 +1294,17 @@ def v2_split(rows: dict) -> dict:
 
 
 def p2_v2_value(r) -> str:
-    """Text for P2 inside the ranking row."""
-    x = r["cell"]
-    return (f"{x['saved_min']:.1f} min saved per session (MEASURED, cost-cut-config-time: {x['model']} default (a) "
-            f"{x['default_min']:.1f} min vs ({x['best']}) {x['best_name']} {x['best_min']:.1f} min) x sessions/day "
-            f"(ASSUMED volume) x hour value; {r['caveat']}")
+    """Text for P2 inside the ranking row: machine capacity first, the waiting-time upper bound second."""
+    x, c = r["cell"], r["capacity"]
+    return (f"machine capacity: {x['model']} default (a) {x['default_min']:.1f} min per session = "
+            f"{c['sessions_per_machine_day_default']:.2f} sessions/machine/day vs ({x['best']}) {x['best_name']} "
+            f"{x['best_min']:.1f} min = {c['sessions_per_machine_day_best']:.2f} (MEASURED minutes, cost-cut-config-time; "
+            f"24 h / session minutes, one session at a time, no measured concurrency row); machines for the profile's "
+            f"sessions/day (ASSUMED volume): {c['machines_default']} default vs {c['machines_best']} "
+            f"best (ceil), {c['machines_saved']} saved x USD {r['machine_usd']:,.0f} (impact-ref-machine-price, "
+            f"ASSUMPTION, must be verified) / {c['life_years']:.0f}-year life (ASSUMED) = USD {c['usd_day']:.2f}/day; "
+            f"upper bound: waiting time {x['saved_min']:.1f} min saved per session x hour value x interactive-session "
+            f"share {r['interactive_share']:.2f} (ASSUMED) = USD {r['wait_upper_bound']:,.2f}/day on top; {r['caveat']}")
 
 
 def p1_v2_value(res) -> str:
@@ -1225,14 +1350,20 @@ def ranking_v2_value(res) -> str:
             tag += f", cloud part {r['cloud_tag']}"
         if k == "P2" and r["usd_day"] is not None:
             tag += "; " + p2_v2_value(r)
-        lines.append(f"{k} {_fmt_usd(r['usd_day']) if r['usd_day'] is not None else ('PENDING' if r['status'] == 'PENDING' else NOT_MEASURED)}"
-                     f" (range {_rng(r['low'], r['high']) if r['usd_day'] is not None else 'n/a'}; {tag})")
+        if r["usd_day"] is None:
+            head = "PENDING" if r["status"] == "PENDING" else NOT_MEASURED
+        elif r["status"] == "PENDING":
+            head = f"PENDING (computed {_fmt_usd(r['usd_day'])}, not ranked)"
+        else:
+            head = _fmt_usd(r["usd_day"])
+        lines.append(f"{k} {head} (range {_rng(r['low'], r['high']) if r['usd_day'] is not None else 'n/a'}; {tag})")
     split = v2_split(rows)
-    known = [k for k in rk if rows[k]["usd_day"] is not None]
+    known = [k for k in rk if rows[k]["usd_day"] is not None and rows[k]["status"] != "PENDING"]
     pend = sorted(set(x for r in rows.values() for x in r["pending"]))
     return (f"one profile: {a['device']} {a['model']} {a['runtime']}, team {a['team_size']} x "
             f"{a['agent_sessions_per_dev_per_day']} sessions/day, cloud {a['cloud_model']} caching on (ASSUMED volumes; "
-            f"hour value cited); ranking by main-case USD/day (time at the full hour value): {' > '.join(known)}; "
+            f"hour value cited); ranking by main-case USD/day (P2: machine capacity; the other rows: time at the full "
+            f"hour value; a PENDING row is not ranked): {' > '.join(known)}; "
             f"unranked: {', '.join(k for k in rk if k not in known) or 'none'}; rows: " + "; ".join(lines)
             + "; split: " + ", ".join(f"{s} {'/'.join(ks)}" for s, ks in sorted(split.items()))
             + f"; PENDING inputs: {', '.join(f'{p} ({V2_PENDING[p]})' for p in pend) or 'none'}")
@@ -1243,9 +1374,10 @@ def compute_v2(repo=REPO) -> dict:
 
 
 def v2_inputs(repo=REPO) -> dict:
-    """The two register-backed inputs, read only when their register row is VERIFIED (otherwise they stay PENDING),
-    from the same data functions the rows use: cloud redo USD per wrong task per tier (tagged by the row's mode) for
-    P1, minutes saved per session by configuration for P2."""
+    """The register-backed inputs, read only when their register row is VERIFIED (otherwise they stay PENDING), from
+    the same data functions the rows use: cloud redo USD per wrong task per tier (tagged by the row's mode) for P1;
+    minutes saved per session by configuration, the reference machine price (an assumption input) and whether the
+    flash-attention control is VERIFIED (P2 stays PENDING until it is) for P2."""
     import numbers_register as nr
     inputs = {}
     if register_has(repo, "cloud-redo-cost-per-wrong-task"):
@@ -1254,6 +1386,12 @@ def v2_inputs(repo=REPO) -> dict:
                         "redo_tag": CLOUD_TAG_STUB if d["stub"] else CLOUD_TAG_LIVE}
     if register_has(repo, "cost-cut-config-time"):
         inputs["P2"] = nr.cost_cut_config_time_data(Path(repo))
+    if register_has(repo, "impact-ref-machine-price"):
+        inputs["P2_machine"] = ref_machine(repo)
+    if register_has(repo, "b5-fa-control"):
+        inputs["P2_fa_verified"] = True
+    if register_has(repo, "R2-shift-predictor-confusion"):
+        inputs["shift_conf"] = shift_predictor_confusion(repo)
     return inputs
 
 
