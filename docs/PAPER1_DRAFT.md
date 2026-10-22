@@ -744,44 +744,35 @@ small-window regime where loss occurs; the constrained platforms are pending.
   (c) (mitigation) did not run (open finding O1). num_keep is tested for llama3.1:8b only in the prose; the qwen3:14b
   num_keep run is cited only through `[R2-qwen3-14b-4096-reconciliation]`, not its own row. B5 has run on AMD-iGPU only (`[b5-verdict]`: evo-t2s and blade "not run").
 
-### 4.8 Threats to validity (0.50 page)
+### 4.8 Threats to validity (prose draft, 2026-10-21; 0.50 page)
 
-- **Scorer validity:** held-out agreement "kappa 0.840 (analytic 95% CI 0.760-0.920, bootstrap 95% CI 0.755-0.915);
-  raw agreement 136/150" `[kappa-heldout]`. The earlier in-sample agreement after scorer fixes has no register row
-  and is not cited; it was partly correlated error between two raters: "scorer vs classify_human_label: kappa 0.988"
-  `[kappa-heldout-fn-annotator]`. Residual errors are one-directional: "14 disagreements: ambiguous 4, scorer_bug 10;
-  direction (scorer->annotator) FABRICATED->CORRECT 1, FABRICATED->REFUSED 13" `[kappa-heldout-disagreements]`.
-  Proposed scorer fixes are not applied (applying them makes this sample in-sample). One annotator channel; a second
-  human rater is pending (G10).
-- **Single seeds and small n:** R2 mechanism one seed per tier; co-runner runs one run per condition; K2 quality at
-  ceiling: "316/316 scored items = 1.0 (1 unscored)" `[K2-x2-score-ceiling]` and responsiveness resolution "max
-  step/+8GB ratio 1.937x (tolerance 2.0x)" `[K2-x2-responsiveness-resolution]`, so "13 kill-criterion evaluations, 13
-  passed, 0 violated" `[K2-x2-kill-criterion]` is a weak null.
-- **Thinking contamination, found and fixed:** reasoning models without suppression produced no answer:
-  "llama_server/qwen3-8b/baseline: works=False reasoning=[980, 774, 766] content=[0, 0, 0]" vs
-  "llama_server/qwen3-8b/production: works=True reasoning=[0, 0, 0]" `[x2-thinking-verify]`.
-- **Invalid-race tagging:** the invalidated weekend run is tagged, not deleted: "invalid_race 412
-  (system_ollama_exe_resolution 405, concurrent_job_contention_unverified 7); invalid_thinking 330; invalid_infra_oom
-  207; valid reusable 373 of 1327 outcome rows" `[x2-weekend-tag-counts]`.
-- **Infrastructure failures on INTEL-iGPU:** time-ordered allocation failures, not a prompt-length boundary
-  `[t2s-outcome-allocation-failures]`, `[t2s-llamaserver-load-failures]`; cause unverified until the machine is back.
-- **Version skew and backend numerics:** Ollama versions differ across platforms (Section 3); CUDA and Vulkan differ
-  on one borderline probe (`docs/THREATS.md` section 21, no register row). On NVIDIA-dGPU llama3.1:8b writes text tool
-  calls at a window where AMD-iGPU, with the same model files, seeds and settings, does not (`[x2-r2-llama-val-32k]`,
-  `[blade-r2-gate-v2]`); backend and partial CPU offload are not yet separated (O1, Section 5b).
-- **Install path as a confound:** bare-GGUF Ollama legs are marked "[bare template]" in `[x2-v3-scores]`.
-- **Guardrails 6-8 fail at full context (limitation and future work, not a headline claim; added 2026-10-19):** in
-  the B3 evalset v1 guard validation both llama3.1:8b and qwen3:14b violate the privacy (rule 6), refusal (rule 7) and
-  confirmation (rule 8) guardrails with the session inside the window: llama3.1:8b "rule6 0.417 of 12 bait turns,
-  rule7 0.000 of 9 bait turns, rule8 0.111 of 9 bait turns", qwen3:14b "rule6 0.250 of 12 bait turns, rule7 0.111 of
-  9 bait turns, rule8 0.222 of 9 bait turns" `[x2-evalset-val-v1-gates]`; nearly all violations are executed calls
-  ("rule 6-8 violations 25 (bait 24; ...)" and "28 (bait 24; ...)" `[x2-evalset-val-v1-diagnosis]`). Examples from
-  `results/x2_evalset_guard_val_v1.jsonl`: llama3.1:8b sent mail to `jordan.reyes@gmail.example`; qwen3:14b emailed
-  the API token to `secops@corp.test`. Rules 6-8 fail the baseline gate, so they are excluded from every window
-  measurement and no context-loss claim rests on them; guardrail compliance of small local models at full context is
-  future work. The same diagnosis finds llama3.1:8b's in-window canary misses are not recall failures: "canary misses
-  13 (tool_call_as_text 10, omitted 3)" `[x2-evalset-val-v1-diagnosis]` (10 of 13 tool calls written as text, 3
-  omitted, 0 recall).
+**Platforms and versions.** We measure one machine per vendor, so a platform effect cannot be separated from that
+machine's driver and memory configuration. Agent runs use Ollama 0.34.4 <!-- R2-qwen3-14b-4096-reconciliation --> and
+direct runs llama.cpp b10970 <!-- design: docs/HARDWARE.md (version record; no register row, gap G13) -->; default
+windows and trimming are runtime code and can change in any release. On the Intel laptop, CPU and iGPU differ in
+backend and loaded window together, so the motivating contrast is not a controlled test of either. The NVIDIA laptop
+contributes validation and mechanism sessions only, because its validation gate held back the real agent runs
+<!-- blade-r2-gate-v2 -->, and the router comparison ran on the AMD APU alone <!-- b5-verdict -->, whose default window
+is the model's native one.
+
+**Statistics.** Cells have three <!-- H-scale-verdict --> to five <!-- R2-v1b-gated-per-model --> seeds, ten for
+qwen3:8b <!-- R2-qwen3-8b-reversal-10seed -->. A 0/5 or 5/5 cell has a point bootstrap interval that understates
+uncertainty, and the scale and family results rest on three sessions per cell. qwen3:8b's lower failure count at 4096
+than at 8192 is within noise (p = 0.170 <!-- R2-qwen3-8b-reversal-10seed -->), and we claim nothing from it. Sampling
+uses temperature 0 <!-- design: harness/x2_r2_agent.py --> and a fixed request seed, so seeds vary the session
+script, not the sampling; nonzero temperatures are untested.
+
+**Workload.** The R2 rules are synthetic and checkable; deployed system prompts differ. Guardrail rules 6 to 8
+(privacy, refusal, confirmation) already fail at full context for both models tested, for example rule 6 at 0.417 and
+0.250 of bait turns <!-- x2-evalset-val-v1-gates -->, so they are excluded from every window measurement and support no
+claim here. The tools-on-every-call protocol check rests on qwen3:14b alone, under a deviation declared before the
+data (task end state 80/90 <!-- x2-evalset-val-v2-gates --> at validation); qwen3:8b (65/90
+<!-- x2-evalset-tasks-val-v2-qwen3-8b-gates -->) and llama3.1:8b (72/90 <!-- x2-evalset-tasks-real-v2-wrong-rate -->)
+were refused by their gates.
+
+**Provenance.** Runs before 2026-10-14 did not record the harness file's hash ("harness blob not recorded"
+<!-- R2-qwen3-14b-4096-reconciliation -->). Their identity rests on reruns: the same seeds gave identical final text on
+120/120 <!-- R2-qwen3-14b-4096-reconciliation --> turns in runs days apart.
 
 ### 4.9 Conclusion (0.50 page)
 
@@ -1009,6 +1000,47 @@ Not resolved here: the submission deadline (Dec 2 vs mid-December estimate) and 
 
 Outline text replaced by the prose drafts of 2026-10-20, moved here verbatim. Register ids in square brackets
 follow the outline convention of this file.
+
+### 4.8 Threats to validity (outline as of 2026-10-20; superseded 2026-10-21)
+
+**4.8 Threats to validity (0.50 page)**
+
+- **Scorer validity:** held-out agreement "kappa 0.840 (analytic 95% CI 0.760-0.920, bootstrap 95% CI 0.755-0.915);
+  raw agreement 136/150" `[kappa-heldout]`. The earlier in-sample agreement after scorer fixes has no register row
+  and is not cited; it was partly correlated error between two raters: "scorer vs classify_human_label: kappa 0.988"
+  `[kappa-heldout-fn-annotator]`. Residual errors are one-directional: "14 disagreements: ambiguous 4, scorer_bug 10;
+  direction (scorer->annotator) FABRICATED->CORRECT 1, FABRICATED->REFUSED 13" `[kappa-heldout-disagreements]`.
+  Proposed scorer fixes are not applied (applying them makes this sample in-sample). One annotator channel; a second
+  human rater is pending (G10).
+- **Single seeds and small n:** R2 mechanism one seed per tier; co-runner runs one run per condition; K2 quality at
+  ceiling: "316/316 scored items = 1.0 (1 unscored)" `[K2-x2-score-ceiling]` and responsiveness resolution "max
+  step/+8GB ratio 1.937x (tolerance 2.0x)" `[K2-x2-responsiveness-resolution]`, so "13 kill-criterion evaluations, 13
+  passed, 0 violated" `[K2-x2-kill-criterion]` is a weak null.
+- **Thinking contamination, found and fixed:** reasoning models without suppression produced no answer:
+  "llama_server/qwen3-8b/baseline: works=False reasoning=[980, 774, 766] content=[0, 0, 0]" vs
+  "llama_server/qwen3-8b/production: works=True reasoning=[0, 0, 0]" `[x2-thinking-verify]`.
+- **Invalid-race tagging:** the invalidated weekend run is tagged, not deleted: "invalid_race 412
+  (system_ollama_exe_resolution 405, concurrent_job_contention_unverified 7); invalid_thinking 330; invalid_infra_oom
+  207; valid reusable 373 of 1327 outcome rows" `[x2-weekend-tag-counts]`.
+- **Infrastructure failures on INTEL-iGPU:** time-ordered allocation failures, not a prompt-length boundary
+  `[t2s-outcome-allocation-failures]`, `[t2s-llamaserver-load-failures]`; cause unverified until the machine is back.
+- **Version skew and backend numerics:** Ollama versions differ across platforms (Section 3); CUDA and Vulkan differ
+  on one borderline probe (`docs/THREATS.md` section 21, no register row). On NVIDIA-dGPU llama3.1:8b writes text tool
+  calls at a window where AMD-iGPU, with the same model files, seeds and settings, does not (`[x2-r2-llama-val-32k]`,
+  `[blade-r2-gate-v2]`); backend and partial CPU offload are not yet separated (O1, Section 5b).
+- **Install path as a confound:** bare-GGUF Ollama legs are marked "[bare template]" in `[x2-v3-scores]`.
+- **Guardrails 6-8 fail at full context (limitation and future work, not a headline claim; added 2026-10-19):** in
+  the B3 evalset v1 guard validation both llama3.1:8b and qwen3:14b violate the privacy (rule 6), refusal (rule 7) and
+  confirmation (rule 8) guardrails with the session inside the window: llama3.1:8b "rule6 0.417 of 12 bait turns,
+  rule7 0.000 of 9 bait turns, rule8 0.111 of 9 bait turns", qwen3:14b "rule6 0.250 of 12 bait turns, rule7 0.111 of
+  9 bait turns, rule8 0.222 of 9 bait turns" `[x2-evalset-val-v1-gates]`; nearly all violations are executed calls
+  ("rule 6-8 violations 25 (bait 24; ...)" and "28 (bait 24; ...)" `[x2-evalset-val-v1-diagnosis]`). Examples from
+  `results/x2_evalset_guard_val_v1.jsonl`: llama3.1:8b sent mail to `jordan.reyes@gmail.example`; qwen3:14b emailed
+  the API token to `secops@corp.test`. Rules 6-8 fail the baseline gate, so they are excluded from every window
+  measurement and no context-loss claim rests on them; guardrail compliance of small local models at full context is
+  future work. The same diagnosis finds llama3.1:8b's in-window canary misses are not recall failures: "canary misses
+  13 (tool_call_as_text 10, omitted 3)" `[x2-evalset-val-v1-diagnosis]` (10 of 13 tool calls written as text, 3
+  omitted, 0 recall).
 
 ### 4.2 Background and related work (outline as of 2026-10-20; superseded 2026-10-21)
 
