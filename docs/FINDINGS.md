@@ -5450,3 +5450,14 @@ file is changed for it and is committed on its own first. No B5 or B6 session on
   `--plan strong` as staged in `queues/t2s_oct26_queue.json` since 2026-10-15 (the 2026-10-14 note's "3 seeds" was
   written before that file existed), call-2 off, gated per model on their own validation, deciding numbers from the
   H-scale pre-registration.
+
+**Implementation note (2026-10-21 later, after the amendment above was committed, before any B5 or B6 session on
+evo-t2s).** `harness/policy_compare.T2S_POLICIES` = a, b, c, d, e, f; `scripts/t2s_week_queue.py` passes
+`--policies a,b,c,d,e,f` and seeds 20260901 to 20260903 for the qwen3:14b CPU entry; `scripts/t2s_window_stage.py`
+applies the budget (`budget_h`, `SLACK_H` = 24), the qwen3:14b fit rule (`qwen_decision`), the B6 estimates
+(`b6_estimates`) and the B6 fill (`select_b6`). Pasted from [t2s-b5-plan-hours] (ESTIMATES): "launch budget 311.0 h
+(24.0 h slack before no-launch)"; "evo-t2s-cpu qwen3:14b at 3 seeds needs 190.2 h (63.0 h/seed): does not fit, not
+staged; qwen3:14b on Intel is future work"; B6 staged: pull "1.0 h", "t2s_o26_b6_val_cpu 34.6 h", "t2s_o26_b6_val_igpu
+17.3 h"; B6 not staged: "t2s_o26_b6_real_cpu_4096 105.5 h (does not fit: 105.5 h from 226.4 h ends at 331.9 h, budget
+311.0 h)", "t2s_o26_b6_real_igpu_default 299.0 h (does not fit: 299.0 h from 226.4 h ends at 525.4 h, budget 311.0
+h)". So in this window H-B5-T2S rests on the llama3.1:8b cells, and B6 yields validation gates only.
