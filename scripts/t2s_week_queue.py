@@ -254,6 +254,12 @@ OCT26_B5_CELLS = (("evo-t2s-cpu", "llama3.1:8b"), ("evo-t2s", "llama3.1:8b"))
 OCT26_QWEN_CELL = ("evo-t2s-cpu", "qwen3:14b")
 OCT26_QWEN_SEEDS = "20260901,20260902,20260903"   # 3 seeds: the pre-registered minimum (amendment 2026-10-21 later)
 OCT26_B5_POLICIES = "a,b,c,d,e,f"                  # policy_compare.T2S_POLICIES (amendments 2026-10-21)
+OCT26_QWEN_POLICIES = "a,c,d,e,f"                  # the qwen3:14b CPU cell: no (b) (amendment 2026-10-22)
+
+
+def oct26_cell_policies(platform, model) -> str:
+    """Per-cell policy set (amendment 2026-10-22): the llama3.1:8b cells a-f, the qwen3:14b CPU cell without (b)."""
+    return OCT26_QWEN_POLICIES if (platform, model) == OCT26_QWEN_CELL else OCT26_B5_POLICIES
 
 
 def _b5_slug(platform, model):
@@ -277,13 +283,14 @@ def oct26_b5_specs() -> list[dict]:
         s = _b5_slug(plat, m)
         o = f"results/t2s_policy_compare_{s}_v1.jsonl"
         n = len(seeds.split(","))
-        pols = tuple(OCT26_B5_POLICIES.split(","))
+        cp = oct26_cell_policies(plat, m)
+        pols = tuple(cp.split(","))
         h = pc.estimate_t2s(plat, [m], seeds=tuple(int(x) for x in seeds.split(",")), policies=pols)["models"][m]["total_h"]
         out.append({"id": OCT26_PREFIX + "b5_" + s, "gate": OCT26_PREFIX + "preflight",
                     "cmd": [T2S_PY, "policy_compare.py", "--platform", plat, "--out", o, "--models", m,
-                            "--seeds", seeds, "--policies", OCT26_B5_POLICIES],
+                            "--seeds", seeds, "--policies", cp],
                     "out": o, "est": None if h is None else round(h, 1), "basis": "measured evo-t2s sessions (ESTIMATE)",
-                    "what": f"B5 policies {OCT26_B5_POLICIES.replace(',', ', ')}, {m}, {'Intel CPU (stock Ollama, default 4096)' if plat == 'evo-t2s-cpu' else 'Intel iGPU (OLLAMA_IGPU_ENABLE=1, default 32768)'}, {n} seeds x 40 turns"})
+                    "what": f"B5 policies {cp.replace(',', ', ')}, {m}, {'Intel CPU (stock Ollama, default 4096)' if plat == 'evo-t2s-cpu' else 'Intel iGPU (OLLAMA_IGPU_ENABLE=1, default 32768)'}, {n} seeds x 40 turns"})
     return out
 
 

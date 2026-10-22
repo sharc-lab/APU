@@ -58,7 +58,9 @@ def test_oct26_b5_entries_cover_both_platforms_and_models_before_b6():
         want = ("20260901,20260902,20260903" if cell == ("evo-t2s-cpu", "qwen3:14b")
                 else "20260901,20260902,20260903,20260904,20260905")
         assert c[c.index("--seeds") + 1] == want
-        assert c[c.index("--policies") + 1] == "a,b,c,d,e,f" == ",".join(pc.T2S_POLICIES)  # amendments 2026-10-21
+        # amendment 2026-10-22: per-cell sets, the llama3.1:8b cells a-f, the qwen3:14b CPU cell without (b)
+        want_p = "a,c,d,e,f" if cell == ("evo-t2s-cpu", "qwen3:14b") else ",".join(pc.T2S_POLICIES)
+        assert c[c.index("--policies") + 1] == want_p
         cells.add(cell)
     # amendment 2026-10-21 (later): llama3.1:8b CPU then iGPU at 5 seeds first; qwen3:14b only on the CPU at 3 seeds
     # and only when it fits the launch budget; never the iGPU qwen3:14b cell
@@ -83,7 +85,8 @@ def test_t2s_r2_agent_registers_think_values_for_the_large_models():
 def test_oct26_qwen_decision_is_computed_from_the_hours_left():
     import t2s_window_stage as ws
     q = ws.qwen_decision()
-    assert q["qwen_seeds"] == 3 and q["policies"] == ["a", "b", "c", "d", "e", "f"]
+    assert q["qwen_seeds"] == 3 and q["policies"] == ["a", "c", "d", "e", "f"]
+    assert q["llama_policies"] == ["a", "b", "c", "d", "e", "f"]
     assert q["qwen_cell"] == "evo-t2s-cpu qwen3:14b" and q["slack_h"] == 24.0
     assert q["budget_h"] == round(q["available_h"] - 24.0, 1)
     assert q["left_h"] == round(ws.budget_h() - q["before_qwen_h"], 1)
@@ -128,3 +131,17 @@ def test_b6_estimates_are_labelled_with_their_factor():
             assert est[k]["basis"].startswith("ESTIMATE") and "factor" in est[k]["basis"]
     if est["b6_real_igpu_default"]["hours"] is not None:
         assert "ASSUMED 32768" in est["b6_real_igpu_default"]["basis"]
+
+
+def test_oct26_per_cell_policy_sets_and_plan_labels():
+    import t2s_window_stage as ws
+    assert pc.T2S_POLICIES == ("a", "b", "c", "d", "e", "f")
+    assert wq.oct26_cell_policies("evo-t2s-cpu", "qwen3:14b") == "a,c,d,e,f"
+    assert wq.oct26_cell_policies("evo-t2s-cpu", "llama3.1:8b") == wq.oct26_cell_policies("evo-t2s", "llama3.1:8b") \
+        == "a,b,c,d,e,f"
+    p = ws.plan()
+    for r in p["entries"]:
+        if "_b5_" in r["id"]:
+            assert r["policies"] == ("a,c,d,e,f" if r["id"] == "t2s_o26_b5_cpu_qwen3_14b" else "a,b,c,d,e,f")
+    if ws.qwen_decision()["fits"]:
+        assert p["b5_policies"]["t2s_o26_b5_cpu_qwen3_14b"] == "a,c,d,e,f"
