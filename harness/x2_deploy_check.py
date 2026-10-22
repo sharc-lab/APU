@@ -93,12 +93,35 @@ def template_check(tag: str) -> dict:
     return out
 
 
+def evalset_check(side: Path, validation: Path, model: str) -> dict:
+    """x2_r2_evalset from <side>: the strict preflight (v2_strict, only `model` allowed) on a validation file, and the
+    model's tokenizer for measuring S (num_keep tier). No server, no model call."""
+    sys.path[:] = [str(side), str(side.parent)] + [p for p in sys.path if p not in (str(side), str(side.parent))]
+    for m in ("x2_r2_evalset", "x2_r2_agent", "x2_num_keep", "evalset_env"):
+        sys.modules.pop(m, None)
+    ev = importlib.import_module("x2_r2_evalset")
+    import x2_num_keep as nk
+    rows = ev.ag.read_rows(validation)
+    pf = ev.strict_preflight_v2(rows, [model], allowed_models=(model,))
+    try:
+        n = nk.tokenizer_count_fn(model)("hello world")
+        tok = {"ok": True, "tokens_hello_world": n}
+    except Exception as e:
+        tok = {"ok": False, "error": repr(e)[:300]}
+    return {"evalset_file": ev.__file__, "harness_blob": ev.git_blob_sha1(ev.__file__),
+            "agent_file": ev.ag.__file__, "agent_blob": ev.git_blob_sha1(ev.ag.__file__),
+            "validation": str(validation), "strict_preflight": {k: pf[k] for k in ("ok", "models_ok", "refused")},
+            "tokenizer": tok}
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--verify", nargs="+", default=None)
     ap.add_argument("--b5", default=None)
     ap.add_argument("--results", default=str(OVN / "results"))
     ap.add_argument("--template", default=None, help="an Ollama tag: its chat template's tool constructs")
+    ap.add_argument("--evalset", nargs=3, default=None, metavar=("SIDE_DIR", "VALIDATION_FILE", "MODEL"),
+                    help="x2_r2_evalset strict preflight and tokenizer check")
     args = ap.parse_args(argv)
     out = {}
     if args.verify:
@@ -107,6 +130,8 @@ def main(argv=None):
         out["b5"] = b5_check(Path(args.b5), Path(args.results))
     if args.template:
         out["template"] = template_check(args.template)
+    if args.evalset:
+        out["evalset"] = evalset_check(Path(args.evalset[0]), Path(args.evalset[1]), args.evalset[2])
     if not out:
         ap.error("nothing to do (--verify, --b5 and/or --template)")
     print(json.dumps(out, indent=1, default=str))
