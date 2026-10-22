@@ -41,41 +41,52 @@ results/impact_profile_20261014.json; the hour value is cited ([impact-hour-valu
 USD per wrong task + wall time of the wrong task turn x hour value x share of that time someone waits, 0 to 1).
 - Measured: the excess rate per tier and its session-level 95% CI ([x2-evalset-tasks-real-v2-wrong-rate],
   [x2-evalset-tasks-real-v2-ci-units]); task turns per session; the wall time of the wrong turns (same file).
-- PENDING input: cloud redo USD per wrong task, register row cloud-redo-cost-per-wrong-task. It is not in the
-  register on this branch's base, so the cloud part is PENDING and P1 below is a lower bound (time part only).
+- Priced, not executed: cloud redo USD per wrong task, per tier, register row cloud-redo-cost-per-wrong-task (stub
+  mode: the local run's token counts priced at the cloud escalation model; cloud correctness and seconds not
+  measured). P1's cloud part carries that label, so P1 is mixed, not measured; it is no longer a lower bound. When a
+  live redo replaces the stub file, regeneration relabels the cloud part measured with no code change.
 - Assumed: volumes; who waits; that a wrong task costs one cloud redo plus the wasted turn (time to notice a wrong
   result is not counted).
 
-Pasted from [impact-v2-P1]: "profile cell USD/day 0.00 to 126.85"; per tier: "ollama_ctx_4096: excess +30.7 points
-(session-level 95% CI +26.0 to +34.7), 30 task turns/session, 368.0 excess wrong tasks/day, wrong-turn wall 19.3 s;
-time USD/day 0.00 to 126.85 (CI 107.55 to 143.39); cloud redo USD/day PENDING (cloud-redo-cost-per-wrong-task)";
-"ollama_ctx_8192: ... time USD/day 0.00 to 157.24 (CI 122.30 to 192.19)"; "ollama_ctx_4096_numkeep: ... time USD/day
-0.00 to 48.84 (CI 41.87 to 55.82)"; "ollama_ctx_16384: excess +1.3 points (session-level 95% CI -1.3 to +4.0) ... time
-USD/day 0.00 to 3.57".
+Pasted from [impact-v2-P1]: "status mixed, cloud part priced, not executed; profile cell USD/day 10.33 to 137.18";
+per tier: "ollama_ctx_4096: excess +30.7 points (session-level 95% CI +26.0 to +34.7), 30 task turns/session, 368.0
+excess wrong tasks/day, wrong-turn wall 19.3 s; time USD/day 0.00 to 126.85 (CI 107.55 to 143.39); cloud redo USD/day
+10.33 (USD 0.0281 per wrong task, priced, not executed; CI 8.76 to 11.68)"; "ollama_ctx_8192: ... time USD/day 0.00
+to 157.24 (CI 122.30 to 192.19); cloud redo USD/day 8.72"; "ollama_ctx_4096_numkeep: ... time USD/day 0.00 to 48.84
+(CI 41.87 to 55.82); cloud redo USD/day 6.03"; "ollama_ctx_16384: excess +1.3 points (session-level 95% CI -1.3 to
++4.0) ... time USD/day 0.00 to 3.57 (CI 0.00 to 10.72); cloud redo USD/day 0.43".
 
-**P2** is now the measured minutes saved per session by configuration, register row cost-cut-config-time (from the
-flash-attention control on evo-x2): PENDING, no number. **P3** as in v1. **P4 to P7**: the v1 functions at the v2
-profile.
+**P2 formula.** measured minutes saved per session by the fastest measured B5 setting for the profile model against
+the runtime default (register row cost-cut-config-time) x sessions/day (ASSUMED volume) / 60 x hour value x share of
+that time someone waits (0 to 1). Measured: the minutes; assumed: volumes and who waits; a profile session is the
+40-turn R2 session B5 timed. Caveat: the B5 default ran without flash attention, so the saving may be flash attention
+or KV precision; the flash-attention control (row b5-fa-control, PENDING) decides which, and regeneration picks it up
+when it lands. Pasted from [impact-ranking-v2]: "P2 5,990.48 (range 0.00 to 5,990.48; mixed; 139.4 min saved per
+session (MEASURED, cost-cut-config-time: qwen3:14b default (a) 214.8 min vs (g) kv_q8_0 75.4 min) x sessions/day
+(ASSUMED volume) x hour value". **P3** as in v1. **P4 to P7**: the v1 functions at the v2 profile.
 
 **Ranking and status split**, pasted from [impact-ranking-v2]: "ranking by main-case USD/day (time at the full hour
-value): P1 > P5 > P3 > P4; unranked: P2, P6, P7"; "P1 126.85 (range 0.00 to 126.85; mixed, PENDING inputs
-cloud-redo-cost-per-wrong-task, lower bound); P5 11.04 (range 0.00 to 11.04; mixed); P3 3.70 (range 3.70 to 74.10;
-measured); P4 0.00 (range 0.00; mixed); P2 PENDING ...; P6 not measured ...; P7 not measured"; "split: PENDING P2,
-measured P3, mixed P1/P4/P5, not measured P6/P7".
+value): P2 > P1 > P5 > P3 > P4; unranked: P6, P7"; "P1 137.18 (range 10.33 to 137.18; mixed, cloud part priced, not
+executed); P5 11.04 (range 0.00 to 11.04; mixed); P3 3.70 (range 3.70 to 74.10; measured); P4 0.00 (range 0.00;
+mixed); P6 not measured ...; P7 not measured"; "split: measured P3, mixed P1/P2/P4/P5, not measured P6/P7; PENDING
+inputs: none".
 
 | | v1 (impact-P1..P7, impact-total; llama3.1:8b, Ollama default) | v2 (impact-ranking-v2; qwen3:14b, num_ctx 4096) |
 |---|---|---|
-| P1 | not measured (status assumed) | 0.00 to 126.85 USD/day, lower bound (cloud redo PENDING) |
-| ranking | P5 > P6 > P2 > P3 > P4 > P7 > P1 (P1 unranked) | P1 > P5 > P3 > P4; P2, P6, P7 unranked |
+| P1 | not measured (status assumed) | 10.33 to 137.18 USD/day (cloud part priced, not executed) |
+| P2 | 0.00 to 23.27 USD/day (oversized-window time) | 0.00 to 5,990.48 USD/day (minutes saved by configuration) |
+| ranking | P5 > P6 > P2 > P3 > P4 > P7 > P1 (P1 unranked) | P2 > P1 > P5 > P3 > P4; P6, P7 unranked |
 | measured | P3, P7 | P3 |
-| mixed | P2, P4, P5, P6 | P1, P4, P5 |
+| mixed | P2, P4, P5, P6 | P1, P2, P4, P5 |
 | assumed | P1 | none |
-| PENDING / not measured | none | P2 (PENDING); P6, P7 (not measured at 4096) |
+| PENDING / not measured | none | P6, P7 (not measured at 4096) |
 
 Why P6 and P7 drop out: the single-shot failure table exists only at the Ollama default window, and at 4096 qwen3:14b
-breaks a rule after the window, so P7's nonzero rate needs a cost per violation that is not measured. P1 moves to the
-top even as a lower bound. The v1 ranking (P5 first) was priced at a different profile (llama3.1:8b at the default
-window, where P1 had no number), so the two rankings are not a like-for-like change of one input.
+breaks a rule after the window, so P7's nonzero rate needs a cost per violation that is not measured. P2 is a
+different quantity in v2 (configuration time saved, B5) than in v1 (oversized-window time), and it leads because it is
+time at the full hour value over every session; its low end is 0 (nobody waits). The v1 ranking (P5 first) was priced
+at a different profile (llama3.1:8b at the default window, where P1 had no number), so the two rankings are not a
+like-for-like change of one input.
 
 ## Rows registered in parallel (not on main when this was written)
 
