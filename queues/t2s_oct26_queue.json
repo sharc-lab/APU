@@ -43,11 +43,13 @@
    "--models",
    "llama3.1:8b",
    "--seeds",
-   "20260901,20260902,20260903,20260904,20260905"
+   "20260901,20260902,20260903,20260904,20260905",
+   "--policies",
+   "a,c,d,e,f"
   ],
   "status": "pending",
-  "note": "STAGED for the 2026-10-26 window (not loaded): B5 policies a-h, llama3.1:8b, Intel CPU (stock Ollama, default 4096), 5 seeds x 40 turns; est hours: 197.0 (measured evo-t2s sessions (ESTIMATE); scripts/t2s_window_stage.py plan)",
-  "est_hours": 197.0,
+  "note": "STAGED for the 2026-10-26 window (not loaded): B5 policies a, c, d, e, f, llama3.1:8b, Intel CPU (stock Ollama, default 4096), 5 seeds x 40 turns; est hours: 34.0 (measured evo-t2s sessions (ESTIMATE); scripts/t2s_window_stage.py plan)",
+  "est_hours": 34.0,
   "est_basis": "measured evo-t2s sessions (ESTIMATE)",
   "expected_out": "results/t2s_policy_compare_cpu_llama31_8b_v1.jsonl",
   "staged_for": "2026-10-26..2026-11-08",
@@ -67,13 +69,41 @@
    "--models",
    "llama3.1:8b",
    "--seeds",
-   "20260901,20260902,20260903,20260904,20260905"
+   "20260901,20260902,20260903,20260904,20260905",
+   "--policies",
+   "a,c,d,e,f"
   ],
   "status": "pending",
-  "note": "STAGED for the 2026-10-26 window (not loaded): B5 policies a-h, llama3.1:8b, Intel iGPU (OLLAMA_IGPU_ENABLE=1, default 32768), 5 seeds x 40 turns; est hours: 142.3 (measured evo-t2s sessions (ESTIMATE); scripts/t2s_window_stage.py plan)",
-  "est_hours": 142.3,
+  "note": "STAGED for the 2026-10-26 window (not loaded): B5 policies a, c, d, e, f, llama3.1:8b, Intel iGPU (OLLAMA_IGPU_ENABLE=1, default 32768), 5 seeds x 40 turns; est hours: 85.9 (measured evo-t2s sessions (ESTIMATE); scripts/t2s_window_stage.py plan)",
+  "est_hours": 85.9,
   "est_basis": "measured evo-t2s sessions (ESTIMATE)",
   "expected_out": "results/t2s_policy_compare_igpu_llama31_8b_v1.jsonl",
+  "staged_for": "2026-10-26..2026-11-08",
+  "gate": {
+   "requires_done": "t2s_o26_preflight"
+  }
+ },
+ {
+  "id": "t2s_o26_b5_cpu_qwen3_14b",
+  "cmd": [
+   "C:\\Users\\sharc\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+   "policy_compare.py",
+   "--platform",
+   "evo-t2s-cpu",
+   "--out",
+   "results/t2s_policy_compare_cpu_qwen3_14b_v1.jsonl",
+   "--models",
+   "qwen3:14b",
+   "--seeds",
+   "20260901,20260902",
+   "--policies",
+   "a,c,d,e,f"
+  ],
+  "status": "pending",
+  "note": "STAGED for the 2026-10-26 window (not loaded): B5 policies a, c, d, e, f, qwen3:14b, Intel CPU (stock Ollama, default 4096), 2 seeds x 40 turns; est hours: 25.3 (measured evo-t2s sessions (ESTIMATE); scripts/t2s_window_stage.py plan)",
+  "est_hours": 25.3,
+  "est_basis": "measured evo-t2s sessions (ESTIMATE)",
+  "expected_out": "results/t2s_policy_compare_cpu_qwen3_14b_v1.jsonl",
   "staged_for": "2026-10-26..2026-11-08",
   "gate": {
    "requires_done": "t2s_o26_preflight"

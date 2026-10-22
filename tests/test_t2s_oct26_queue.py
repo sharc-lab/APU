@@ -10,6 +10,7 @@ sys.path.insert(0, str(REPO / "harness"))
 sys.path.insert(0, str(REPO / "scripts"))
 
 import t2s_week_queue as wq  # noqa: E402
+import policy_compare as pc  # noqa: E402
 
 
 def test_oct26_file_matches_builder_and_dry_run_passes():
@@ -51,11 +52,12 @@ def test_oct26_b5_entries_cover_both_platforms_and_models_before_b6():
         c = it["cmd"]
         assert c[1] == "policy_compare.py" and it["gate"]["requires_done"] == "t2s_o26_preflight"
         cell = (c[c.index("--platform") + 1], c[c.index("--models") + 1])
-        want = ("20260901,20260902,20260903" if cell == ("evo-t2s-cpu", "qwen3:14b")
+        want = ("20260901,20260902" if cell == ("evo-t2s-cpu", "qwen3:14b")
                 else "20260901,20260902,20260903,20260904,20260905")
         assert c[c.index("--seeds") + 1] == want
+        assert c[c.index("--policies") + 1] == "a,c,d,e,f" == ",".join(pc.T2S_POLICIES)  # amendment 2026-10-21 22:30
         cells.add(cell)
-    # operator decision 2026-10-21: llama3.1:8b CPU then iGPU at 5 seeds first; qwen3:14b only on the CPU at 3 seeds
+    # operator item 6 (2026-10-21 22:30): llama3.1:8b CPU then iGPU at 5 seeds first; qwen3:14b only on the CPU at 2 seeds
     # and only when the hours left allow; never the iGPU qwen3:14b cell
     import t2s_window_stage as ws
     llama = [("evo-t2s-cpu", "llama3.1:8b"), ("evo-t2s", "llama3.1:8b")]
@@ -78,7 +80,7 @@ def test_t2s_r2_agent_registers_think_values_for_the_large_models():
 def test_oct26_qwen_decision_is_computed_from_the_hours_left():
     import t2s_window_stage as ws
     q = ws.qwen_decision()
-    assert q["qwen_seeds"] == 3 and q["qwen_cell"] == "evo-t2s-cpu qwen3:14b"
+    assert q["qwen_seeds"] == 2 and q["policies"] == ["a", "c", "d", "e", "f"] and q["qwen_cell"] == "evo-t2s-cpu qwen3:14b"
     assert q["left_h"] == round(q["available_h"] - q["before_qwen_h"], 1)
     assert q["fits"] == (q["qwen_h"] <= q["available_h"] - q["before_qwen_h"])
     assert set(q["llama_h"]) == {"evo-t2s-cpu llama3.1:8b", "evo-t2s llama3.1:8b"}

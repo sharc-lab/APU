@@ -31,7 +31,13 @@ x2_ / t2s_ / blade_. Metrics, the Pareto frontier and the pre-registered verdict
 
 On evo-x2 / evo-t2s the job calls t2s_queue.advance() exactly once on exit (finally) and sets no pause; on the Blade it
 returns an exit code to harness/blade_queue.py (0 done / refused cleanly, 2 error). --dry-run prints the plan with
-estimated hours (labelled estimates, from result files) and touches nothing. --queue-insert is the one read-modify-write
+estimated hours (labelled estimates, from result files) and touches nothing.
+
+Policy set per platform (PLATFORMS[...]["policies"], overridable with --policies): evo-x2 and the Blade run (a) to (h);
+evo-t2s and evo-t2s-cpu run T2S_POLICIES = (a), (c), (d), (e), (f) only (dated amendment of 2026-10-21 22:30 to the
+B5-on-evo-t2s pre-registration). A policy outside the set resolves with skip "not in this platform's policy set", so it
+has no session, no alias, and the metrics, frontier and verdict are taken over the policies run. Window probes and
+recall calls under the q8_0 / q4_0 server envs run only when (g) / (h) are in the set. --queue-insert is the one read-modify-write
 of evo-x2's queue (under t2s_queue.set_pause with a reason naming its release, clear_pause() in a finally block).
 """
 from __future__ import annotations
@@ -96,6 +102,10 @@ KV_ENV = {"q8_0": {"OLLAMA_KV_CACHE_TYPE": "q8_0", "OLLAMA_FLASH_ATTENTION": "1"
           "q4_0": {"OLLAMA_KV_CACHE_TYPE": "q4_0", "OLLAMA_FLASH_ATTENTION": "1"},
           "f16": {"OLLAMA_KV_CACHE_TYPE": "f16", "OLLAMA_FLASH_ATTENTION": "1"}}
 RECALL_PRECISIONS = ("f16", "q8_0", "q4_0")
+KV_POLICY_OF_ENV = {"q8_0": "g", "q4_0": "h"}   # the policy that needs probes / recall under that server env
+# B5 on evo-t2s, dated amendment 2026-10-21 22:30 (docs/FINDINGS.md): (b), (g), (h) are not run there; evo-x2 keeps all
+T2S_POLICIES = ("a", "c", "d", "e", "f")
+NOT_IN_SET = "not in this platform's policy set"
 
 # Flash-attention control (2026-10-22, docs/FINDINGS.md "PRE-REGISTRATION: B5 flash-attention control"): policy (i) =
 # f16 KV with OLLAMA_FLASH_ATTENTION=1 (KV_ENV["f16"]) at num_ctx L(f16). Own output file; not part of POLICIES, so the
@@ -143,14 +153,14 @@ PLATFORMS = {
                "server_log": r"C:\apu\ovn\ollama_serve_b5.log", "out": "x2_policy_compare.jsonl"},
     "evo-t2s": {"host": "EVO-T2S", "prefix": "t2s_", "base_env": {"OLLAMA_IGPU_ENABLE": "1"}, "envelope_hw": "evo-t2s",
                 "queue": True, "models": ("llama3.1:8b",), "b1_models": (),
-                "rules_from": ("t2s_r2_validation_igpu_v1.jsonl",),
+                "rules_from": ("t2s_r2_validation_igpu_v1.jsonl",), "policies": T2S_POLICIES,
                 "server_log": r"C:\apu\ovn\ollama_serve_b5.log", "out": "t2s_policy_compare.jsonl"},
     # B5 on the evo-t2s Intel CPU (pre-registration "B5 on evo-t2s Intel CPU and Intel iGPU", 2026-10-22): stock
     # Ollama (no OLLAMA_IGPU_ENABLE in the job's server env), which on evo-t2s runs on the CPU and loads a 4096 default
     # window (t2s-r2-real-cpu). Same host and output prefix as "evo-t2s" (the iGPU platform).
     "evo-t2s-cpu": {"host": "EVO-T2S", "prefix": "t2s_", "base_env": {}, "envelope_hw": "evo-t2s", "queue": True,
                     "models": ("llama3.1:8b", "qwen3:14b"), "b1_models": (),
-                    "rules_from": ("t2s_r2_validation_cpu_v1.jsonl",),
+                    "rules_from": ("t2s_r2_validation_cpu_v1.jsonl",), "policies": T2S_POLICIES,
                     "server_log": r"C:\apu\ovn\ollama_serve_b5_cpu.log", "out": "t2s_policy_compare_cpu.jsonl"},
     "blade": {"host": "RITZLAPTOP", "prefix": "blade_", "base_env": {}, "envelope_hw": "blade", "queue": False,
               "models": ("qwen3:8b",), "b1_models": (),
@@ -234,7 +244,36 @@ def descend(probe_fn, candidates: list[int], need_full_gpu: bool = True) -> list
 
 # ── policy resolution (pure) ────────────────────────────────────────────────────────────────────────
 
-def resolve_policies(win: dict, cap: int | None = None) -> dict:
+def platform_policies(platform: str | None) -> tuple:
+    """The policies run on a platform (all of POLICIES unless the platform lists a subset)."""
+    return tuple((PLATFORMS.get(platform) or {}).get("policies") or POLICIES)
+
+
+def parse_policy_set(text: str | None, platform: str | None = None) -> tuple:
+    """--policies "a,c,d" (or None: the platform's set), validated: known letters, the router (d) included (every
+    verdict reads it). Returned in POLICIES order."""
+    if not text:
+        return platform_policies(platform)
+    want = {x.strip() for x in text.split(",") if x.strip()}
+    bad = sorted(want - set(POLICIES))
+    if bad:
+        raise ValueError(f"unknown policies {bad}; known {list(POLICIES)}")
+    if ROUTER_POLICY not in want:
+        raise ValueError(f"the policy set must include the router ({ROUTER_POLICY})")
+    return tuple(p for p in POLICIES if p in want)
+
+
+def probe_envs(policies) -> list[str]:
+    """Server envs whose windows the job probes: always base; q8_0 / q4_0 only if (g) / (h) are in the set."""
+    return ["base"] + [e for e, p in KV_POLICY_OF_ENV.items() if p in policies]
+
+
+def recall_precisions(policies) -> list[str]:
+    """Recall probe precisions: f16 always; q8_0 / q4_0 only if (g) / (h) are in the set."""
+    return [pr for pr in RECALL_PRECISIONS if pr == "f16" or KV_POLICY_OF_ENV.get(pr) in policies]
+
+
+def resolve_policies(win: dict, cap: int | None = None, policies=None) -> dict:
     """win: {"D": default window, "L": {env: largest that starts}, "G": largest full-GPU (base env)} with env keys
     "base", "q8_0", "q4_0". Returns {policy: config}. config: num_ctx_sent (None = not sent), effective_ctx, env
     ("base" / "q8_0" / "q4_0"), wrapper, proxy_ctx (router only), alias_of (None or an earlier policy), skip (None or
@@ -271,6 +310,8 @@ def resolve_policies(win: dict, cap: int | None = None) -> dict:
                 cfg["skip"] = "no full-history proxy window (no ladder window started)"
         if eff is None:
             cfg["skip"] = why[p]
+        if policies is not None and p not in policies:
+            cfg["skip"] = NOT_IN_SET
         out[p] = cfg
     for i, p in enumerate(ALIAS_ORDER):
         if out[p]["skip"]:
@@ -903,7 +944,9 @@ T2S_ESTIMATE_ASSUMPTIONS = (
     "added); (c) = CPU: the measured trimming session median at 4096, iGPU: the default median x the evo-x2 trim "
     "factor; (b), (g), (h) at L = native context (ASSUMED; probed at run time) = the default median x the evo-x2 ratio "
     "of session minutes at L over the default window (x2_r2_real_v1/v1b); (e): skipped on the CPU (no GPU), alias of "
-    "(b) on the iGPU (G = L assumed); recall and window probes as in estimate_platform")
+    "(b) on the iGPU (G = L assumed), or its own sessions at G = L when (b) is not in the set; only the platform's "
+    "policy set is counted (evo-t2s: a, c, d, e, f, amendment 2026-10-21 22:30); recall and window probes as in "
+    "estimate_platform, only for the server envs the set needs")
 
 
 def _t2s_measured(repo, platform) -> dict:
@@ -934,15 +977,17 @@ def _t2s_measured(repo, platform) -> dict:
     return out
 
 
-def estimate_t2s(platform, models=None, seeds=T2S_SEEDS, repo=REPO) -> dict:
-    """ESTIMATED hours of B5 on an evo-t2s platform from measured evo-t2s session minutes (T2S_ESTIMATE_ASSUMPTIONS)."""
+def estimate_t2s(platform, models=None, seeds=T2S_SEEDS, repo=REPO, policies=None) -> dict:
+    """ESTIMATED hours of B5 on an evo-t2s platform from measured evo-t2s session minutes (T2S_ESTIMATE_ASSUMPTIONS),
+    counting only the policies in the set (default: the platform's, T2S_POLICIES)."""
     models = list(models or PLATFORMS["evo-t2s-cpu"]["models"])
+    policies = tuple(policies or platform_policies(platform))
     meas = _t2s_measured(repo, platform)
     x2 = _x2_session_minutes(repo)
     mf = _mitigation_factor(repo)
     rates = _x2_rates(repo)
     out = {"platform": platform, "label": "ESTIMATE (not measured)", "assumptions": T2S_ESTIMATE_ASSUMPTIONS,
-           "seeds": list(seeds), "models": {}, "total_h": 0.0}
+           "seeds": list(seeds), "policies": list(policies), "models": {}, "total_h": 0.0}
     for m in models:
         e = meas.get(m)
         if not e or not e["default_min"] or not e["D"]:
@@ -954,18 +999,21 @@ def estimate_t2s(platform, models=None, seeds=T2S_SEEDS, repo=REPO) -> dict:
         big = dm * ratio_L if ratio_L else None
         per = {"a": dm, "d": dm, "f": dm, "c": e["trim_min"] if e.get("trim_min") else dm * mf,
                "b": big, "g": big, "h": big}
-        if platform == "evo-t2s":
-            aliases = {"e": "b"}
-        else:
-            aliases = {}
+        aliases = {}
+        if platform == "evo-t2s" and "e" in policies:   # G = L assumed on the iGPU; no GPU on the CPU, (e) skipped
+            if "b" in policies:
+                aliases = {"e": "b"}
+            else:
+                per["e"] = big
+        per = {p: v for p, v in per.items() if p in policies}
         sess_h = sum(v or 0.0 for v in per.values()) * len(seeds) / 60.0
         factor = dm / x2[(m, D)] if x2.get((m, D)) else 1.0
         rec_h = 0.0
         rate = rates.get(m) or {}
         if rate.get("pe_rate") and L:
             per_call = (RECALL_FILL * L) / rate["pe_rate"] + RECALL_NUM_PREDICT / (rate.get("ev_rate") or 20.0)
-            rec_h = len(RECALL_PRECISIONS) * (1 + len(RECALL_SEEDS)) * per_call / 3600.0 * factor
-        probe_h = PROBE_H_PER_MODEL_ENV * (3 + 1)
+            rec_h = len(recall_precisions(policies)) * (1 + len(RECALL_SEEDS)) * per_call / 3600.0 * factor
+        probe_h = PROBE_H_PER_MODEL_ENV * (len(probe_envs(policies)) + 1)
         tot = sess_h + rec_h + probe_h
         out["models"][m] = {"D": D, "L_assumed": L, "min_per_session": per, "aliases": aliases,
                             "x2_ratio_L_over_D": ratio_L, "measured_n": e["n"], "sessions_h": sess_h,
@@ -1255,16 +1303,17 @@ def estimate_platform(platform: str, models=None, seeds=SEEDS, repo=REPO, deadli
     measured evo-t2s session minutes (estimate_t2s)."""
     if platform == "evo-t2s-cpu":
         return estimate_t2s(platform, models, seeds if seeds != SEEDS else T2S_SEEDS, repo)
+    pset = platform_policies(platform)
     models = list(models or PLATFORMS[platform]["models"])
     mins = _x2_session_minutes(repo)
     rates = _x2_rates(repo)
     mf = _mitigation_factor(repo)
     out = {"platform": platform, "label": "ESTIMATE (not measured)", "assumptions": ESTIMATE_ASSUMPTIONS[platform],
-           "mitigation_factor": mf, "models": {}, "total_h": 0.0}
+           "mitigation_factor": mf, "policies": list(pset), "models": {}, "total_h": 0.0}
     order = []
     for model in models:
         win = _assumed_windows(platform, model, repo)
-        cfg = resolve_policies(win)
+        cfg = resolve_policies(win, policies=pset)
         per = {}
         for p in distinct_policies(cfg):
             m, basis = _minutes_at(platform, model, cfg[p]["effective_ctx"], mins, repo)
@@ -1276,11 +1325,11 @@ def estimate_platform(platform: str, models=None, seeds=SEEDS, repo=REPO, deadli
         rate = rates.get(model) or {}
         rec_h = 0.0
         if rate.get("pe_rate"):
-            for prec in RECALL_PRECISIONS:
+            for prec in recall_precisions(pset):
                 w = win["L"].get("base" if prec == "f16" else prec) or 0
                 per_call = (RECALL_FILL * w) / rate["pe_rate"] + RECALL_NUM_PREDICT / (rate.get("ev_rate") or 20.0)
                 rec_h += (1 + len(RECALL_SEEDS)) * per_call / 3600.0 * platform_factor(platform, w, repo)[0]
-        probe_h = PROBE_H_PER_MODEL_ENV * (3 + 1)
+        probe_h = PROBE_H_PER_MODEL_ENV * (len(probe_envs(pset)) + 1)
         total = sess_h + rec_h + probe_h
         out["models"][model] = {"windows": win, "aliases": {p: c["alias_of"] for p, c in cfg.items() if c["alias_of"]},
                                 "policies": per, "sessions_h": sess_h, "recall_h": rec_h, "probe_h": probe_h,
@@ -1449,6 +1498,9 @@ def build_arg_parser():
                          "llama3.1:8b f16 recall rerun, instead of policies a-h (pre-registered 2026-10-22)")
     ap.add_argument("--window-cap", type=int, default=None,
                     help="simulated device window: every policy's window capped at N (pre-registered 2026-10-22)")
+    ap.add_argument("--policies", default=None,
+                    help="comma-separated policy letters to run (default: the platform's set; evo-t2s / evo-t2s-cpu: "
+                         "a,c,d,e,f per the 2026-10-21 22:30 amendment; evo-x2 / blade: a-h); must include d")
     ap.add_argument("--import-check", action="store_true")
     ap.add_argument("--queue-insert", action="store_true")
     return ap
@@ -1570,6 +1622,12 @@ def main(argv=None, advance=True, deps=None):
         ap.error("--fa-control / --window-cap are evo-x2 jobs")
     if args.window_cap is not None and args.window_cap < 256:
         ap.error("--window-cap must be at least 256")
+    try:
+        policy_set = parse_policy_set(args.policies, args.platform)
+    except ValueError as e:
+        ap.error(str(e))
+    if args.fa_control and args.policies:
+        ap.error("--fa-control runs policy i only; --policies does not apply")
     deps = deps or {}
     plat = PLATFORMS[args.platform]
     out_path = Path(args.out)
@@ -1633,7 +1691,7 @@ def main(argv=None, advance=True, deps=None):
               "models_requested": args.models, "b1_decision": b1, "rules_from": rule_files, "rules_in_use": rules_in_use,
               "validation_preflight": {k: pf[k] for k in ("ok", "models_ok", "refused", "source")},
               "seeds": list(seeds), "turns": TURNS, "call2_mode": CALL2, "policies": {p: arm_id(p) for p in POLICIES},
-              "run_order": RUN_ORDER, "base_env": plat["base_env"], "agent_file": str(Path(ag.__file__).resolve()),
+              "policy_set": list(policy_set), "run_order": RUN_ORDER, "base_env": plat["base_env"], "agent_file": str(Path(ag.__file__).resolve()),
               "agent_blob": git_blob_sha1(ag.__file__), "self_blob": git_blob_sha1(__file__),
               "harness_file": str(Path(__file__).resolve()), "harness_blob": git_blob_sha1(__file__),
               "job_kind": "fa_control" if args.fa_control else ("window_cap" if args.window_cap else "b5"),
@@ -1704,7 +1762,7 @@ def main(argv=None, advance=True, deps=None):
         emit({"record": "runtime", "ollama_version": runtime.version(), "models_run": models, "ts_utc": utc_iso()})
         wins = {m: {"L": {}, "points": {}} for m in models}
         kv_ok = {}
-        for env_key in ("base", "q8_0", "q4_0"):
+        for env_key in probe_envs(policy_set):
             rt, _ = ensure_env(env_key)
             runtime = rt or runtime
             for m in models:
@@ -1728,7 +1786,7 @@ def main(argv=None, advance=True, deps=None):
                     f"D={wins[m].get('D')} G={wins[m].get('G')}")
         configs = {}
         for m in models:
-            configs[m] = resolve_policies(wins[m], cap=args.window_cap)
+            configs[m] = resolve_policies(wins[m], cap=args.window_cap, policies=policy_set)
             for env_key in ("q8_0", "q4_0"):
                 chk = kv_ok.get((m, env_key)) or {}
                 if not chk.get("valid", True):
@@ -1783,7 +1841,7 @@ def main(argv=None, advance=True, deps=None):
                 f"{s['canary_sys_misses']}+{s['canary_hist_misses']}")
         # ── 3. long-context recall
         if not args.no_recall and not stopped_by_deadline:
-            for prec in RECALL_PRECISIONS:
+            for prec in recall_precisions(policy_set):
                 env_key = "base" if prec == "f16" else prec
                 rt, _ = ensure_env(prec)
                 runtime = rt or runtime

@@ -369,6 +369,25 @@ Facts and changes: `results/t2s_window_20261015_preflight.json`, `docs/T2S_CHANG
 
 ## Staged for 2026-10-26 to 2026-11-08 (pending Zach's confirmation; NOT loaded)
 
+**Update 2026-10-21 22:30 (operator item 6: reduced policy set on evo-t2s; qwen3:14b back in at 2 seeds).** On evo-t2s
+B5 runs policies (a) default, (c) trim, (d) router, (e) auto-sized window, (f) num_keep only; (b), (g), (h) are not run
+there (evo-x2 keeps all). Each B5 entry passes `--policies a,c,d,e,f` (`harness/policy_compare.T2S_POLICIES`, also the
+platform default for `evo-t2s` and `evo-t2s-cpu`); window probes and recall calls under the q8_0 / q4_0 server envs
+are not run, since only (g) / (h) need them. On the CPU (e) has no window (no GPU) and is not run, by the 2026-10-14
+rule. Order: llama3.1:8b Intel CPU 5 seeds, llama3.1:8b Intel iGPU 5 seeds, then qwen3:14b on the Intel CPU at its
+4096 default window at 2 seeds, staged only if it fits. Plan, pasted from [t2s-b5-plan-hours] (ESTIMATES from measured
+evo-t2s session minutes, [t2s-r2-session-minutes]): "available 335.0 h"; "B5 staged cells 145.2 h";
+"t2s_o26_b5_cpu_llama31_8b 34.0 h (yes; 6.4 h/seed, 5 of 5 seeds fit, cell counts yes (5 seeds))";
+"t2s_o26_b5_igpu_llama31_8b 85.9 h (yes; 16.9 h/seed, 5 of 5 seeds fit, cell counts yes (5 seeds))";
+"t2s_o26_b5_cpu_qwen3_14b 25.3 h (yes; 12.0 h/seed, 2 of 2 seeds fit, cell counts no (reported only, below 3 seeds))";
+"evo-t2s-cpu qwen3:14b at 2 seeds needs 25.3 h (12.0 h/seed): fits, staged after the llama3.1:8b cells". So qwen3:14b
+on the Intel CPU goes back into `queues/t2s_oct26_queue.json` as `t2s_o26_b5_cpu_qwen3_14b` (dry-run passes, fresh
+build matches the file). At 2 seeds it is below the pre-registered 3-seed minimum, so it is reported, not a complete
+cell. The qwen3:14b iGPU cell stays future work. The B6 entries follow B5 and now have hours left to start in (they
+carry no estimate: no timing of those models on evo-t2s). Dated amendment: docs/FINDINGS.md "AMENDMENT 2026-10-21
+(22:30) to the B5-on-evo-t2s pre-registration". The two updates below are kept as written; their hours were for (a) to
+(h) and are superseded by this one.
+
 **Update 2026-10-21 (operator decision: B5 order and qwen3:14b).** B5 in this window is the two llama3.1:8b cells at 5
 seeds, Intel CPU first, then Intel iGPU; qwen3:14b was to follow at 3 seeds on the Intel CPU (its default window
 4096) only if the hours left allowed. Computed from measured evo-t2s session minutes ([t2s-r2-session-minutes]) by

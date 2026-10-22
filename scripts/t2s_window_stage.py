@@ -5,8 +5,10 @@ on its own t2s_o26_preflight, loaded at the window with `python t2s_week_queue.p
 The earlier second file queues/t2s_window_20261026_staged.json (B5 for llama3.1:8b on the iGPU only, 3 seeds, and a
 3-seed iGPU-only B6, gated on the previous window's t2s_wk_* ids) was retired on 2026-10-22: two files for one window
 with different B6 designs and gates pointing at a finished queue invited loading the wrong one. B5 is now in the
-canonical file (t2s_week_queue.oct26_b5_cells: since 2026-10-21 the two llama3.1:8b cells at 5 seeds, qwen3:14b on
-the CPU at 3 seeds only if qwen_decision says it fits), and the B6 entries follow B5.
+canonical file (t2s_week_queue.oct26_b5_cells: since 2026-10-21 the two llama3.1:8b cells at 5 seeds, then qwen3:14b
+on the CPU at 4096; since the 2026-10-21 22:30 amendment at 2 seeds and only if qwen_decision says it fits), and the B6
+entries follow B5. Policy set on evo-t2s since that amendment: a, c, d, e, f (t2s_week_queue.OCT26_B5_POLICIES); every
+B5 hour here is estimated for that set only.
 
   py -3.12 scripts/t2s_window_stage.py build      # rebuilds queues/t2s_oct26_queue.json (same as build-oct26)
   py -3.12 scripts/t2s_window_stage.py dry-run    # every entry through the week queue's checks; no machine, no SSH
@@ -60,23 +62,25 @@ def available_h() -> float:
 
 
 def qwen_decision() -> dict:
-    """Operator decision 2026-10-21: after the llama3.1:8b cells at 5 seeds (and A5 before them), do the hours left
-    before the no-launch time hold qwen3:14b at 3 seeds on the Intel CPU (default window 4096)? ESTIMATES from measured
-    evo-t2s session minutes (harness/policy_compare.estimate_t2s, row t2s-r2-session-minutes)."""
+    """Operator item 6 (2026-10-21 22:30): after the llama3.1:8b cells at 5 seeds (and A5 before them), do the hours
+    left before the no-launch time hold qwen3:14b at 2 seeds on the Intel CPU (default window 4096)? Policy set a, c, d,
+    e, f. ESTIMATES from measured evo-t2s session minutes (harness/policy_compare.estimate_t2s, row
+    t2s-r2-session-minutes)."""
     import policy_compare as pc
+    pols = tuple(wq.OCT26_B5_POLICIES.split(","))
     seeds5 = tuple(int(x) for x in wq.OCT26_B5_SEEDS.split(","))
     seeds3 = tuple(int(x) for x in wq.OCT26_QWEN_SEEDS.split(","))
-    llama = {f"{p} {m}": round(pc.estimate_t2s(p, [m], seeds=seeds5)["models"][m]["total_h"], 1)
+    llama = {f"{p} {m}": round(pc.estimate_t2s(p, [m], seeds=seeds5, policies=pols)["models"][m]["total_h"], 1)
              for p, m in wq.OCT26_B5_CELLS}
     before = sum(NOMINAL_H.values()) + sum(llama.values())
     plat, model = wq.OCT26_QWEN_CELL
-    q = pc.estimate_t2s(plat, [model], seeds=seeds3)["models"][model]
+    q = pc.estimate_t2s(plat, [model], seeds=seeds3, policies=pols)["models"][model]
     qwen_h = round(q["total_h"], 1)
     left = available_h() - before
     return {"label": "ESTIMATE (hours)", "available_h": round(available_h(), 1), "a5_h": sum(NOMINAL_H.values()),
             "llama_h": llama, "before_qwen_h": round(before, 1), "left_h": round(left, 1),
             "qwen_cell": f"{plat} {model}", "qwen_seeds": len(seeds3), "qwen_per_seed_h": round(q["per_seed_h"], 1),
-            "qwen_h": qwen_h, "fits": qwen_h <= left}
+            "qwen_h": qwen_h, "fits": qwen_h <= left, "policies": list(pols)}
 
 
 def plan(items=None) -> dict:
@@ -86,7 +90,8 @@ def plan(items=None) -> dict:
     import policy_compare as pc
     items = items if items is not None else json.loads(CANONICAL.read_text(encoding="utf-8"))
     cells = {wq.OCT26_PREFIX + "b5_" + wq._b5_slug(p, m): (p, m) for p, m in (*wq.OCT26_B5_CELLS, wq.OCT26_QWEN_CELL)}
-    est = {p: pc.estimate_t2s(p) for p in {p for p, _m in cells.values()}}
+    pols = tuple(wq.OCT26_B5_POLICIES.split(","))
+    est = {p: pc.estimate_t2s(p, policies=pols) for p in {p for p, _m in cells.values()}}
     avail, cum, rows = available_h(), 0.0, []
     for it in items:
         h = it.get("est_hours")
@@ -112,7 +117,8 @@ def plan(items=None) -> dict:
                 n = len(it["cmd"][it["cmd"].index("--seeds") + 1].split(","))
                 k = 0 if cum >= avail else min(n, max(0, math.floor((avail - cum - fixed) / e["per_seed_h"])))
                 r.update(per_seed_h=round(e["per_seed_h"], 1), seeds_that_fit=k, seeds_staged=n,
-                         cell_counts=("yes (5 seeds)" if k >= 5 else "yes (first 3 seeds)" if k >= 3 else "no"))
+                         cell_counts=("yes (5 seeds)" if k >= 5 else "yes (first 3 seeds)" if k >= 3 else
+                                      "no (reported only, below 3 seeds)" if k > 0 else "no"))
             cum = end
         rows.append(r)
     b5 = [r for r in rows if r["id"] in cells]
@@ -120,7 +126,8 @@ def plan(items=None) -> dict:
             "no_launch_after_utc": NO_LAUNCH_AFTER_UTC, "hard_deadline_utc": HARD_DEADLINE_UTC,
             "start_allowance_h": START_ALLOWANCE_H, "available_h": round(avail, 1), "entries": rows,
             "b5_total_h": round(sum(r["est_hours"] for r in b5), 1),
-            "b5_cells_counting": [r["id"] for r in b5 if r.get("cell_counts", "no") != "no"],
+            "b5_cells_counting": [r["id"] for r in b5 if str(r.get("cell_counts", "no")).startswith("yes")],
+            "b5_policies": list(pols),
             "qwen_decision": qwen_decision(),
             "estimate_basis": pc.T2S_ESTIMATE_ASSUMPTIONS}
 
@@ -136,13 +143,14 @@ def plan_value(p=None) -> str:
         parts.append(s + ")")
     return (f"evo-t2s window {p['window'][0]} to {p['window'][1]} ESTIMATE: available {p['available_h']} h "
             f"({p['window_start_utc']} to no-launch {p['no_launch_after_utc']} minus an assumed "
-            f"{p['start_allowance_h']} h start allowance); B5 staged cells {p['b5_total_h']} h; in queue order: "
+            f"{p['start_allowance_h']} h start allowance); B5 policies on evo-t2s {', '.join(p['b5_policies'])} "
+            f"(amendment 2026-10-21 22:30); B5 staged cells {p['b5_total_h']} h; in queue order: "
             + "; ".join(parts) + f"; B5 cells that count: {', '.join(p['b5_cells_counting']) or 'none'}; "
             + qwen_text(p["qwen_decision"]) + "; basis: " + p["estimate_basis"])
 
 
 def qwen_text(q) -> str:
-    return (f"qwen3:14b decision (operator 2026-10-21): after A5 {q['a5_h']} h and the llama3.1:8b cells at 5 seeds ("
+    return (f"qwen3:14b decision (operator 2026-10-21 22:30): after A5 {q['a5_h']} h and the llama3.1:8b cells at 5 seeds ("
             + ", ".join(f"{k} {v} h" for k, v in q["llama_h"].items()) + f"), {q['left_h']} h are left of "
             f"{q['available_h']} h; {q['qwen_cell']} at {q['qwen_seeds']} seeds needs {q['qwen_h']} h "
             f"({q['qwen_per_seed_h']} h/seed): " + ("fits, staged after the llama3.1:8b cells" if q["fits"] else
