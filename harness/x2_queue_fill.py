@@ -71,6 +71,34 @@ ENTRIES = {
                 "docs/FINDINGS.md 2026-10-21: Fisher exact on 10 vs 10 gated silent sessions. ESTIMATE 2.19 h "
                 "(register row x2-queue-fill-1020-hours). " + RELEASE,
     },
+    # ── queue fill of 2026-10-22 (docs/X2_QUEUE_PLAN.md; hours: register row x2-queue-fill-1022-hours) ──
+    "x2_b5_fa_control": {
+        "projected_duration_h": 4.85,
+        "cmd": [PY, "b5fa\\policy_compare.py", "--platform", "evo-x2", "--fa-control", "--out",
+                f"{RESULTS}\\x2_policy_compare_fa_control.jsonl"],
+        "note": "B5 flash-attention control (policy i: f16 KV + flash attention at L(f16), llama3.1:8b and qwen3:14b, "
+                "seeds 20260901-03) and the llama3.1:8b f16 recall rerun (1800 s timeout), pre-registered in "
+                "docs/FINDINGS.md 2026-10-22 (a307ca8). ESTIMATE 4.85 h (high 13.92 h; register row "
+                "x2-queue-fill-1022-hours). " + RELEASE,
+    },
+    "x2_b5_simcap_8192": {
+        "projected_duration_h": 33.08,
+        "cmd": [PY, "b5fa\\policy_compare.py", "--platform", "evo-x2", "--window-cap", "8192", "--seeds",
+                "20260901,20260902,20260903,20260904,20260905", "--out",
+                f"{RESULTS}\\x2_policy_compare_simcap8192.jsonl"],
+        "note": "B5 under a simulated device window of 8192 (simulated constraint), all policies a-h, llama3.1:8b and "
+                "qwen3:14b, seeds 20260901-05, pre-registered in docs/FINDINGS.md 2026-10-22. ESTIMATE 33.08 h "
+                "(register row x2-queue-fill-1022-hours). " + RELEASE,
+    },
+    "x2_b5_simcap_4096": {
+        "projected_duration_h": 26.11,
+        "cmd": [PY, "b5fa\\policy_compare.py", "--platform", "evo-x2", "--window-cap", "4096", "--seeds",
+                "20260901,20260902,20260903,20260904,20260905", "--out",
+                f"{RESULTS}\\x2_policy_compare_simcap4096.jsonl"],
+        "note": "B5 under a simulated device window of 4096 (simulated constraint), all policies a-h, llama3.1:8b and "
+                "qwen3:14b, seeds 20260901-05, pre-registered in docs/FINDINGS.md 2026-10-22. ESTIMATE 26.11 h "
+                "(register row x2-queue-fill-1022-hours). " + RELEASE,
+    },
 }
 
 

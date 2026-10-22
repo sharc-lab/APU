@@ -97,6 +97,21 @@ KV_ENV = {"q8_0": {"OLLAMA_KV_CACHE_TYPE": "q8_0", "OLLAMA_FLASH_ATTENTION": "1"
           "f16": {"OLLAMA_KV_CACHE_TYPE": "f16", "OLLAMA_FLASH_ATTENTION": "1"}}
 RECALL_PRECISIONS = ("f16", "q8_0", "q4_0")
 
+# Flash-attention control (2026-10-22, docs/FINDINGS.md "PRE-REGISTRATION: B5 flash-attention control"): policy (i) =
+# f16 KV with OLLAMA_FLASH_ATTENTION=1 (KV_ENV["f16"]) at num_ctx L(f16). Own output file; not part of POLICIES, so the
+# B5 resolution, metrics and verdict above are unchanged.
+FA_POLICY = "i"
+FA_POLICY_NAME = "kv_f16_fa"
+FA_ENV = "f16"
+FA_RECALL_MODELS = ("llama3.1:8b",)     # the model whose B5 f16 recall call timed out
+FA_RECALL_TIMEOUT_S = 1800              # declared deviation: B5's 900 s cut the f16 arm alone
+FA_TOLERANCE = 0.10
+
+# Simulated constraint (2026-10-22, docs/FINDINGS.md "PRE-REGISTRATION: B5 under a simulated device window"): every
+# policy's window is capped at --window-cap; (a) and (f) send num_ctx = the cap (sending none would exceed it); the
+# router's cloud proxy keeps the uncapped L (the cloud is not bound by the device). Label recorded in run_start.
+SIM_CONSTRAINT_LABEL = "simulated constraint"
+
 LADDER = (262144, 131072, 65536, 40960, 32768, 16384, 8192, 4096)
 FULL_GPU_SHARE = 0.99                   # K1's fits rule (harness/blade_k1.py)
 CLIENT_TRIM_MARGIN = 0.05
@@ -148,11 +163,13 @@ SIDE_DIR = "b5"      # evo-x2: C:\apu\ovn\b5 holds policy_compare.py and this br
 
 
 def arm_id(policy: str) -> str:
+    if policy == FA_POLICY:
+        return f"b5_{FA_POLICY}_{FA_POLICY_NAME}{SFX}"
     return f"b5_{policy}_{POLICIES[policy]['name']}{SFX}"
 
 
 def policy_of_arm(arm: str) -> str | None:
-    m = re.match(r"^b5_([a-h])_", arm or "")
+    m = re.match(r"^b5_([a-i])_", arm or "")
     return m.group(1) if m else None
 
 
@@ -210,16 +227,25 @@ def descend(probe_fn, candidates: list[int], need_full_gpu: bool = True) -> list
 
 # ── policy resolution (pure) ────────────────────────────────────────────────────────────────────────
 
-def resolve_policies(win: dict) -> dict:
+def resolve_policies(win: dict, cap: int | None = None) -> dict:
     """win: {"D": default window, "L": {env: largest that starts}, "G": largest full-GPU (base env)} with env keys
     "base", "q8_0", "q4_0". Returns {policy: config}. config: num_ctx_sent (None = not sent), effective_ctx, env
     ("base" / "q8_0" / "q4_0"), wrapper, proxy_ctx (router only), alias_of (None or an earlier policy), skip (None or
     the reason no session can run)."""
     D, L, G = win.get("D"), (win.get("L") or {}), win.get("G")
     lb = L.get("base")
+    proxy = lb
+    unsent = None                       # (a) and (f) send no num_ctx (runtime default)
+    if cap is not None:                 # simulated device window: every window capped, (a)/(f) must send it
+        def _cap(x):
+            return None if x is None else min(int(x), int(cap))
+        D, G = _cap(D), _cap(G)
+        L = {k: _cap(v) for k, v in L.items()}
+        lb = L.get("base")
+        unsent = D
     spec = {
-        "a": (None, D, "base"), "b": (lb, lb, "base"), "c": (D, D, "base"), "d": (D, D, "base"),
-        "e": (G, G, "base"), "f": (None, D, "base"), "g": (L.get("q8_0"), L.get("q8_0"), "q8_0"),
+        "a": (unsent, D, "base"), "b": (lb, lb, "base"), "c": (D, D, "base"), "d": (D, D, "base"),
+        "e": (G, G, "base"), "f": (unsent, D, "base"), "g": (L.get("q8_0"), L.get("q8_0"), "q8_0"),
         "h": (L.get("q4_0"), L.get("q4_0"), "q4_0"),
     }
     why = {"a": "default window not measured (load without num_ctx failed)",
@@ -233,8 +259,8 @@ def resolve_policies(win: dict) -> dict:
         cfg = {"policy": p, "name": POLICIES[p]["name"], "arm_id": arm_id(p), "num_ctx_sent": sent,
                "effective_ctx": eff, "env": env, "wrapper": POLICIES[p]["wrapper"], "alias_of": None, "skip": None}
         if p == "d":
-            cfg["proxy_ctx"] = lb
-            if lb is None and eff is not None:
+            cfg["proxy_ctx"] = proxy
+            if proxy is None and eff is not None:
                 cfg["skip"] = "no full-history proxy window (no ladder window started)"
         if eff is None:
             cfg["skip"] = why[p]
@@ -787,6 +813,159 @@ def recall_summary(rows: list[dict]) -> dict:
     return out
 
 
+# ── flash-attention control (pure readings; the runtime part is run_fa_control) ─────────────────────
+
+def fa_reading(m_i, m_gh, m_a, tol=FA_TOLERANCE) -> dict:
+    """The pre-registered reading (docs/FINDINGS.md 2026-10-22) for one model from per-session mean minutes of (i),
+    of (g)/(h) (mean of the two policy means) and of (a)."""
+    if None in (m_i, m_gh, m_a):
+        return {"reading": "not read (missing means)", "fa_share": None}
+    share = (m_a - m_i) / (m_a - m_gh) if m_a != m_gh else None
+    if abs(m_i - m_gh) <= tol * m_gh:
+        r = "the B5 speedup is flash attention, not KV precision"
+    elif abs(m_i - m_a) <= tol * m_a:
+        r = "the B5 speedup is KV precision, not flash attention"
+    elif m_gh < m_i < m_a:
+        r = "both contribute"
+    else:
+        r = "neither reading"
+    return {"reading": r, "fa_share": share}
+
+
+_FA_LINE_RES = (re.compile(r"flash_attn\s*=\s*(\w+)", re.I), re.compile(r"flash[ _]attention[^\n]{0,60}", re.I))
+
+
+def base_fa_check(log_text: str) -> dict:
+    """What the server log says about flash attention under an env: the OLLAMA_FLASH_ATTENTION value on the
+    server-config line(s) and every llama.cpp flash-attention line (recorded, not read)."""
+    text = log_text or ""
+    cfg = [l for l in text.splitlines() if "server config" in l]
+    vals = sorted({m.group(1) for l in cfg for m in re.finditer(r"OLLAMA_FLASH_ATTENTION:(\w+)", l)})
+    lines = sorted({m.group(0)[:120] for rx in _FA_LINE_RES for m in rx.finditer(text)})
+    return {"config_flash_attention_values": vals, "flash_attention_lines": lines[:20]}
+
+
+def fa_control_summary(rows: list[dict], b5_rows: list[dict], prices=None, seeds=SEEDS, turns=None) -> dict:
+    """{model: {"m_i", "m_gh", "m_a", reading, per-seed minutes, (i)'s rule rate and history recall, validity}} from
+    the control file's rows and B5's rows (results/x2_policy_compare.jsonl)."""
+    turns = TURNS if turns is None else turns
+    b5 = metrics_for_platform(b5_rows, prices, seeds=seeds, turns=turns)
+    tba = _turns_by_attempt(rows)
+    starts = [r for r in rows if r.get("record") == "run_start"]
+    riu = {}
+    for s in starts:
+        riu.update(s.get("rules_in_use") or {})
+    finished = any(r.get("record") == "run_end" for r in rows)
+    out = {}
+    res = {r["model_id"]: r for r in rows if r.get("record") == "b5_fa_resolution"}
+    for model in sorted(res):
+        cfg = res[model].get("config") or {}
+        problems = [] if finished else ["no run_end"]
+        if cfg.get("skip"):
+            problems.append(f"refused: {cfg['skip']}")
+        att = {}
+        for s in ag.completed_sessions(rows):
+            if s.get("mode") == MODE and s["model_id"] == model and s["arm_id"] == arm_id(FA_POLICY):
+                if len(tba.get(s["attempt_id"], [])) == turns:
+                    att[s["seed"]] = s["attempt_id"]
+        if sorted(att) != sorted(seeds):
+            problems.append(f"sessions completed for seeds {sorted(att)}, expected {list(seeds)}")
+        ms = {sd: session_metrics(tba[a], list(riu.get(model) or [])) for sd, a in att.items()}
+        bm = (b5.get(model) or {}).get("policies") or {}
+        g, h, a = bm.get("g"), bm.get("h"), bm.get("a")
+        m_gh = st.mean([g["wall_min"], h["wall_min"]]) if g and h else None
+        m_a = a["wall_min"] if a else None
+        win_gh = {(g or {}).get("window"), (h or {}).get("window")}
+        if cfg.get("num_ctx_sent") is not None and win_gh != {cfg.get("num_ctx_sent")}:
+            problems.append(f"(i) num_ctx {cfg.get('num_ctx_sent')} != (g)/(h) windows {sorted(win_gh, key=str)}")
+        m_i = st.mean(m["wall_min"] for m in ms.values()) if ms else None
+        rn = sum(m["rule_n"] for m in ms.values())
+        cn = sum(m["canary_turns"] for m in ms.values())
+        e = {"m_i": m_i, "m_gh": m_gh, "m_a": m_a, "m_g": (g or {}).get("wall_min"), "m_h": (h or {}).get("wall_min"),
+             "per_seed_min": {sd: m["wall_min"] for sd, m in sorted(ms.items())},
+             "rule_pass_rate": sum(m["rule_pass"] for m in ms.values()) / rn if rn else None,
+             "history_recall": sum(m["hist_ok"] for m in ms.values()) / cn if cn else None,
+             "window": cfg.get("num_ctx_sent"), "valid": not problems, "problems": problems}
+        e.update(fa_reading(m_i, m_gh, m_a) if not problems else {"reading": "not read (incomplete)",
+                                                                   "fa_share": None})
+        out[model] = e
+    return out
+
+
+def run_fa_control(models, ensure_env, server, emit, log, seeds, out_path, no_recall=False, runtime=None):
+    """The control job's phases after the preflight: base-env flash-attention record, the f16+FA window probe and KV
+    check per model, the (i) sessions, and the llama3.1:8b f16 recall rerun with FA_RECALL_TIMEOUT_S."""
+    rt, _ = ensure_env("base")
+    runtime = rt or runtime
+    avail = runtime.available_models()
+    missing = [m for m in models if not any(ag.same_tag(m, a) for a in avail)]
+    for m in missing:
+        emit({"record": "missing_model", "model_id": m, "available": avail, "ts_utc": utc_iso()})
+    models = [m for m in models if m not in missing]
+    emit({"record": "runtime", "ollama_version": runtime.version(), "models_run": models, "ts_utc": utc_iso()})
+    for m in models:
+        p = probe_load(runtime, m, None)
+        emit({"record": "b5_base_fa_check", "model_id": m, "probe": p, "check": base_fa_check(server.log_text()),
+              "server_env": server.env, "ts_utc": utc_iso()})
+    rt, _ = ensure_env(FA_ENV)
+    runtime = rt or runtime
+    configs = {}
+    for m in models:
+        native = native_context(runtime, m)
+        pts = descend(lambda c: probe_load(runtime, m, c), ladder_for(native), need_full_gpu=False)
+        L = windows_from_points(pts)["largest_starts"]
+        chk = kv_check(server.log_text(), FA_ENV)
+        emit({"record": "b5_kv_check", "model_id": m, "env": FA_ENV, "check": chk, "ts_utc": utc_iso()})
+        skip = None
+        if L is None:
+            skip = "no ladder window started under f16 + flash attention"
+        elif not chk.get("valid"):
+            skip = f"KV type not applied: {chk.get('reason')}"
+        elif not chk.get("config_flash_attention"):
+            skip = "flash attention not on in the server config line"
+        cfg = {"policy": FA_POLICY, "name": FA_POLICY_NAME, "arm_id": arm_id(FA_POLICY), "num_ctx_sent": L,
+               "effective_ctx": L, "env": FA_ENV, "wrapper": None, "alias_of": None, "skip": skip}
+        configs[m] = cfg
+        emit({"record": "b5_fa_resolution", "model_id": m, "native": native, "points": pts, "config": cfg,
+              "ts_utc": utc_iso()})
+        log(f"fa-control {m}: native={native} L(f16+FA)={L} kv_valid={chk.get('valid')} "
+            f"fa={chk.get('config_flash_attention')} skip={skip}")
+    done = {(s["model_id"], s["arm_id"], s["seed"]) for s in ag.completed_sessions(ag.read_rows(out_path))
+            if s.get("mode") == MODE}
+    for seed in seeds:
+        for m in models:
+            cfg = configs[m]
+            if cfg["skip"] or (m, cfg["arm_id"], seed) in done:
+                continue
+            ag.ARMS[cfg["arm_id"]] = {"num_ctx": cfg["num_ctx_sent"], "call2_tools": False, "call2_mode": CALL2}
+            wrt = PlainRuntime(runtime)
+            emit({"record": "heartbeat", "mode": MODE, "model_id": m, "arm_id": cfg["arm_id"], "seed": seed,
+                  "policy": FA_POLICY, "config": cfg, "server_env": server.env, "ts_utc": utc_iso()})
+            log(f"session: {m} policy i ({FA_POLICY_NAME}) ctx={cfg['effective_ctx']} seed={seed}")
+            wrt.begin_session(m, cfg["arm_id"], seed)
+            try:
+                s = ag.run_session(wrt, m, cfg["arm_id"], seed, TURNS, emit, log, MODE)
+            finally:
+                wrt.end_session()
+            log(f"session done: first_failure={s['first_failure_turn']}")
+    if not no_recall:
+        old = ag.CALL_TIMEOUT_S
+        ag.CALL_TIMEOUT_S = FA_RECALL_TIMEOUT_S
+        try:
+            for m in [x for x in FA_RECALL_MODELS if x in models]:
+                w = configs[m]["num_ctx_sent"]
+                if configs[m]["skip"] or w is None:
+                    emit({"record": "b5_recall_skipped", "model_id": m, "precision": FA_ENV,
+                          "reason": configs[m]["skip"] or "no window", "ts_utc": utc_iso()})
+                    continue
+                emit({"record": "b5_recall_timeout", "model_id": m, "timeout_s": FA_RECALL_TIMEOUT_S,
+                      "b5_timeout_s": old, "ts_utc": utc_iso()})
+                run_recall(runtime, m, w, FA_ENV, emit, log)
+        finally:
+            ag.CALL_TIMEOUT_S = old
+    return {"models": models, "missing": missing, "configs": configs}
+
+
 # ── hour estimates (labelled estimates; inputs from committed result files) ─────────────────────────
 
 def _x2_session_minutes(repo=REPO) -> dict:
@@ -1079,6 +1258,11 @@ def build_arg_parser():
     ap.add_argument("--no-recall", action="store_true", help="skip the long-context recall probe")
     ap.add_argument("--ollama-exe", default=None, help="blade: default the pinned 0.34.4")
     ap.add_argument("--dry-run", action="store_true", help="print the plan and estimated hours; no machine access")
+    ap.add_argument("--fa-control", action="store_true",
+                    help="evo-x2: the flash-attention control (policy i, f16 KV + flash attention at L(f16)) and the "
+                         "llama3.1:8b f16 recall rerun, instead of policies a-h (pre-registered 2026-10-22)")
+    ap.add_argument("--window-cap", type=int, default=None,
+                    help="simulated device window: every policy's window capped at N (pre-registered 2026-10-22)")
     ap.add_argument("--import-check", action="store_true")
     ap.add_argument("--queue-insert", action="store_true")
     return ap
@@ -1194,6 +1378,12 @@ def main(argv=None, advance=True, deps=None):
         return "queue-insert"
     if not args.platform or not args.out:
         ap.error("--platform and --out are required for a job")
+    if args.fa_control and args.window_cap is not None:
+        ap.error("--fa-control and --window-cap are separate jobs")
+    if (args.fa_control or args.window_cap is not None) and args.platform != "evo-x2":
+        ap.error("--fa-control / --window-cap are evo-x2 jobs")
+    if args.window_cap is not None and args.window_cap < 256:
+        ap.error("--window-cap must be at least 256")
     deps = deps or {}
     plat = PLATFORMS[args.platform]
     out_path = Path(args.out)
@@ -1237,8 +1427,9 @@ def main(argv=None, advance=True, deps=None):
                 return note
             neg_arm = ag.NEG_ARM
         models = [m for m in (args.models.split(",") if args.models else plat["models"]) if m]
-        b1 = b1_models_to_add(args.platform, [m for m in (args.b1_models.split(",") if args.b1_models is not None
-                                                          else plat["b1_models"]) if m], rdir)
+        b1 = {} if (args.fa_control or args.window_cap is not None) else b1_models_to_add(
+            args.platform, [m for m in (args.b1_models.split(",") if args.b1_models is not None
+                                        else plat["b1_models"]) if m], rdir)
         models += [m for m, d in b1.items() if d["add"]]
         rule_files = [p for p in (args.rules_from.split(",") if args.rules_from else plat["rules_from"]) if p]
         vfiles = [(Path(p).name, ag.read_rows(Path(p) if Path(p).is_absolute() or Path(p).exists() else rdir / p))
@@ -1258,6 +1449,11 @@ def main(argv=None, advance=True, deps=None):
               "seeds": list(seeds), "turns": TURNS, "call2_mode": CALL2, "policies": {p: arm_id(p) for p in POLICIES},
               "run_order": RUN_ORDER, "base_env": plat["base_env"], "agent_file": str(Path(ag.__file__).resolve()),
               "agent_blob": git_blob_sha1(ag.__file__), "self_blob": git_blob_sha1(__file__),
+              "harness_file": str(Path(__file__).resolve()), "harness_blob": git_blob_sha1(__file__),
+              "job_kind": "fa_control" if args.fa_control else ("window_cap" if args.window_cap else "b5"),
+              "window_cap": args.window_cap,
+              "label": SIM_CONSTRAINT_LABEL if args.window_cap is not None else None,
+              "fa_recall_timeout_s": FA_RECALL_TIMEOUT_S if args.fa_control else None,
               "interactive_session": interactive, "deadline_h": args.deadline_h,
               "max_tokens_per_call": ag.MAX_TOKENS_PER_CALL, "keep_alive": ag.KEEP_ALIVE,
               "assumptions": {"A-B5-cloud": "cloud step = same local model, full history, window L",
@@ -1296,6 +1492,22 @@ def main(argv=None, advance=True, deps=None):
                 return rt, True
             return None, False
 
+        if args.fa_control:
+            fa = run_fa_control(models, ensure_env, server, emit, log, seeds, out_path, no_recall=args.no_recall,
+                                runtime=deps.get("runtime"))
+            try:
+                b5_rows = ag.read_rows(rdir / PLATFORMS["evo-x2"]["out"])
+                rows = ag.read_rows(out_path) + [{"record": "run_end"}]
+                report = {"fa_control": fa_control_summary(rows, b5_rows, seeds=seeds),
+                          "recall": recall_summary(rows), "refused": refused, "missing": fa["missing"]}
+            except Exception as e:
+                report = {"report_error": repr(e)}
+            Path(str(out_path) + ".report.json").write_text(json.dumps(report, indent=1, default=str),
+                                                            encoding="utf-8")
+            if refused or fa["missing"]:
+                note = f"completed; refused: {sorted(refused)}; missing: {fa['missing']}"[:400]
+            emit({"record": "run_end", "note": note, "ts_utc": utc_iso()})
+            return note
         # ── 1. windows per model and env
         runtime, _ = ensure_env("base")
         avail = runtime.available_models()
@@ -1330,7 +1542,7 @@ def main(argv=None, advance=True, deps=None):
                     f"D={wins[m].get('D')} G={wins[m].get('G')}")
         configs = {}
         for m in models:
-            configs[m] = resolve_policies(wins[m])
+            configs[m] = resolve_policies(wins[m], cap=args.window_cap)
             for env_key in ("q8_0", "q4_0"):
                 chk = kv_ok.get((m, env_key)) or {}
                 if not chk.get("valid", True):
@@ -1387,6 +1599,8 @@ def main(argv=None, advance=True, deps=None):
                 runtime = rt or runtime
                 for m in models:
                     w = wins[m]["L"].get(env_key)
+                    if w is not None and args.window_cap is not None:
+                        w = min(w, args.window_cap)
                     if w is None:
                         emit({"record": "b5_recall_skipped", "model_id": m, "precision": prec,
                               "reason": "no window started", "ts_utc": utc_iso()})
@@ -1400,7 +1614,7 @@ def main(argv=None, advance=True, deps=None):
             prices = None
         try:
             rows = ag.read_rows(out_path) + [{"record": "run_end"}]
-            report = {"platform": args.platform, "metrics": metrics_for_platform(rows, prices),
+            report = {"platform": args.platform, "metrics": metrics_for_platform(rows, prices, seeds=seeds),
                       "recall": recall_summary(rows), "refused": refused, "missing": missing,
                       "deadline_reached": stopped_by_deadline, "prices_loaded": prices is not None}
         except Exception as e:

@@ -5212,6 +5212,316 @@ def compute_x2_queue_fill_1020_hours(repo):
     return {"value": "; ".join(parts), "n": f"{len(jobs)} jobs (estimate)"}
 
 
+# ───────────────────────────────────────────────── evo-x2 queue fill of 2026-10-22 (docs/X2_QUEUE_PLAN.md)
+# Operator order of 2026-10-21/22: B5 flash-attention control first, then B5 under a simulated device window (8192,
+# 4096; 5 seeds), then R2 at 10 seeds on the v1b harness blob, the qwen3:32b spill sweep, and mistral-small3.2:24b B3 v2.
+# The hours row is an ESTIMATE from measured times in committed files; result rows are PENDING until synced.
+B5_X2_FILE = "results/x2_policy_compare.jsonl"
+B5_FA_FILE = "results/x2_policy_compare_fa_control.jsonl"
+B5_SIMCAP_FILES = {8192: "results/x2_policy_compare_simcap8192.jsonl", 4096: "results/x2_policy_compare_simcap4096.jsonl"}
+B5_SIM_SEEDS = (20260901, 20260902, 20260903, 20260904, 20260905)
+MX2_VALIDATION_FILE = "results/mx2_validation.jsonl"
+# The schedule anchor: the watchdog launch of the first job of this fill (watchdog.log on evo-x2); until it is known,
+# the time the estimate was made. Jobs are projected back to back from it.
+FILL_1022_ANCHOR_UTC = "2026-10-22T03:30:00+00:00"
+FILL_1022_DEADLINE_UTC = "2026-11-10T00:00:00+00:00"
+FILL_1022_RESERVE_H = 150.0             # operator: about 150 h left unallocated before the deadline for reviewer reruns
+FILL_1022_RESULTS_BY_UTC = "2026-10-28T00:00:00+00:00"   # operator: the two B5 jobs must have results by then
+FILL_1022_ORDER = ("x2_b5_fa_control", "x2_b5_simcap_8192", "x2_b5_simcap_4096", "x2_r2_v1b_seeds_06_10",
+                   "x2_mx2_qwen3_32b_spill_sweep", "x2_evalset_tasks_val_v2_mistral_small32",
+                   "x2_evalset_tasks_real_v2_mistral_small32")
+FILL_1022_DATA = [B5_X2_FILE, R2_REAL_V1_FILE, R2_REAL_V1B_FILE, MX2_VALIDATION_FILE, X2_FAMILY_REAL,
+                  X2_EVALSET_TASKS_VAL_V2, X2_EVALSET_TASKS_REAL_V2]
+SPILL_SWEEP_POINTS_MAX = 9              # 6 grid points + up to 3 refinement points (pre-registration)
+SPILL_SWEEP_MEASURED_CALLS = 5          # plus 1 warm-up call per point
+
+
+def _b5_policy_minutes(repo) -> dict:
+    """{model: {policy: per-session mean minutes}} on B5's evo-x2 file (wall_min_proxy_measured: measured time, the
+    router's proxy calls included)."""
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "harness"))
+    import policy_compare as pc
+    rows = pc.ag.read_rows(repo / B5_X2_FILE)
+    m = pc.metrics_for_platform(rows)
+    return {model: {p: v["wall_min_proxy_measured"] for p, v in c["policies"].items()} for model, c in m.items()}
+
+
+def queue_fill_1022_estimates(repo) -> dict:
+    """ESTIMATE per job (hours, point and high) from measured times; see each job's basis string."""
+    import statistics
+    import sys as _sys
+    from datetime import datetime
+    ag = _r2_agent_module()
+    import x2_r2_evalset as ev
+    sfx = "_call2_notools"
+    b5 = _b5_policy_minutes(repo)
+    jobs = {}
+    # 1) flash-attention control: 3 sessions per model at (g)/(h)'s mean (point: flash attention explains it) or at
+    # (a)'s mean (high); the llama3.1:8b f16 recall rerun at B5's measured f16 call times, the timed-out call at the
+    # new 1800 s limit in the high case; window probes and the base-env check at B5's measured probe time.
+    rows = ag.read_rows(repo / B5_X2_FILE)
+    rec = [r for r in rows if r.get("record") == "b5_recall" and r["model_id"] == "llama3.1:8b"
+           and r["precision"] == "f16"]
+    rec_s = sum(r.get("duration_s") or 0.0 for r in rec)
+    rec_hi = sum((1800.0 if r.get("outcome") != "ok" else (r.get("duration_s") or 0.0)) for r in rec)
+    ts = {r["record"]: r["ts_utc"] for r in rows if r.get("record") in ("runtime",)}
+    first_hb = next(r["ts_utc"] for r in rows if r.get("record") == "heartbeat")
+    probe_s = (datetime.fromisoformat(first_hb) - datetime.fromisoformat(ts["runtime"])).total_seconds()
+    gh = {m: (b5[m]["g"] + b5[m]["h"]) / 2 for m in b5}
+    pt = sum(3 * gh[m] for m in b5) / 60 + rec_s / 3600 + probe_s / 3 / 3600
+    hi = sum(3 * b5[m]["a"] for m in b5) / 60 + rec_hi / 3600 + probe_s / 3 / 3600
+    jobs["x2_b5_fa_control"] = {
+        "point_h": pt, "high_h": hi,
+        "basis": "3 sessions per model at the B5 (g)/(h) mean (" + ", ".join(f"{m} {gh[m]:.1f} min" for m in sorted(gh))
+                 + "); high at the (a) mean (" + ", ".join(f"{m} {b5[m]['a']:.1f} min" for m in sorted(b5))
+                 + f"); llama3.1:8b f16 recall {rec_s / 60:.1f} min as measured in B5 (high {rec_hi / 60:.1f} min, the "
+                 f"timed-out call at 1800 s); probes {probe_s / 3 / 60:.1f} min (B5's probe time for 3 envs / 3)"}
+    # 2) simulated constraint, 5 seeds per cap: (a)=(b)=(e), (c), (f), (g), (h) at the R2 v1/v1b median session of the
+    # capped num_ctx (high: the slowest); (d) at B5's measured router session (proxy calls at the uncapped window).
+    v1 = ag.read_rows(repo / R2_REAL_V1_FILE) + ag.read_rows(repo / R2_REAL_V1B_FILE)
+    for cap in (8192, 4096):
+        p_h = h_h = 0.0
+        parts = []
+        for m in ("llama3.1:8b", "qwen3:14b"):
+            med = _r2_median_s(repo, m, f"num_ctx_{cap}") / 60
+            slow = max(_session_walls_s(v1, m, f"ollama_ctx_{cap}" + sfx, mode="real")) / 60
+            d = b5[m]["d"]
+            p_h += len(B5_SIM_SEEDS) * (5 * med + d) / 60
+            h_h += len(B5_SIM_SEEDS) * (5 * slow + d) / 60
+            parts.append(f"{m} 5 policies x {med:.1f} min (slowest {slow:.1f}) + router {d:.1f} min")
+        p_h += probe_s / 3600
+        h_h += probe_s / 3600
+        jobs[f"x2_b5_simcap_{cap}"] = {
+            "point_h": p_h, "high_h": h_h,
+            "basis": f"5 seeds x ({'; '.join(parts)}) (R2 v1/v1b num_ctx {cap} sessions; router = B5's measured "
+                     f"router session); probes {probe_s / 60:.1f} min (B5's)"}
+    # 3) R2 at 10 seeds on the v1b blob: the reproduction session (its own v1b wall time) + 5 seeds x 4 tiers x 2 models
+    v1b =ag.read_rows(repo / R2_REAL_V1B_FILE)
+    att = [s["attempt_id"] for s in ag.completed_sessions(v1b) if s["model_id"] == "llama3.1:8b"
+           and s["arm_id"] == "ollama_ctx_4096" + sfx and s["seed"] == 20260904]
+    rep_s = sum(r.get("turn_wall_s") or 0.0 for r in v1b if r.get("record") == "r2a_turn" and r.get("attempt_id") in att)
+    p_h, h_h, parts = rep_s / 3600, rep_s / 3600, [f"reproduction session {rep_s / 60:.1f} min"]
+    tier_arm = {"ollama_default": "ollama_default", "num_ctx_16384": "ollama_ctx_16384",
+                "num_ctx_8192": "ollama_ctx_8192", "num_ctx_4096": "ollama_ctx_4096"}
+    for m in ("llama3.1:8b", "qwen3:14b"):
+        for t, a in tier_arm.items():
+            med = _r2_median_s(repo, m, t)
+            slow = max(_session_walls_s(v1, m, a + sfx, mode="real"))
+            p_h += 5 * med / 3600
+            h_h += 5 * slow / 3600
+            parts.append(f"{m} {t} {med / 60:.1f} min (slowest {slow / 60:.1f})")
+    jobs["x2_r2_v1b_seeds_06_10"] = {"point_h": p_h, "high_h": h_h,
+                                     "basis": "5 seeds x v1/v1b medians: " + "; ".join(parts)}
+    # 4) qwen3:32b spill sweep: per point, the measured MX2 qwen3-32b point time (start + 1 call + stop) + 5 more calls
+    # at the measured call latency, x the maximum number of points.
+    mx = [r for r in ag.read_rows(repo / MX2_VALIDATION_FILE) if r.get("model_id") == "qwen3-32b"]
+    hb = [(r["point_type"], r["rep"], datetime.fromisoformat(r["ts_utc"])) for r in mx if r.get("record") == "heartbeat"
+          and r.get("point_type") in ("deep_fits", "mid_spill")]
+    started = {(r["point_type"], r["rep"]): r for r in mx if r.get("record") == "mx2v_regime_point" and r.get("started")}
+    ivals = {}
+    for i in range(len(hb) - 1):
+        k = (hb[i][0], hb[i][1])
+        if k in started:
+            ivals[k] = (hb[i + 1][2] - hb[i][2]).total_seconds()
+    lat = [r["latency_ms"] / 1000 for r in started.values() if r.get("latency_ms")]
+    deep = [v for (p, _), v in ivals.items() if p == "deep_fits"]
+    per_pt = statistics.mean(deep) + SPILL_SWEEP_MEASURED_CALLS * statistics.mean(lat)
+    per_hi = max(ivals.values()) + SPILL_SWEEP_MEASURED_CALLS * max(lat)
+    jobs["x2_mx2_qwen3_32b_spill_sweep"] = {
+        "point_h": SPILL_SWEEP_POINTS_MAX * per_pt / 3600, "high_h": SPILL_SWEEP_POINTS_MAX * per_hi / 3600,
+        "basis": f"{SPILL_SWEEP_POINTS_MAX} points x (MX2 qwen3-32b point {statistics.mean(deep):.0f} s at 20480 + "
+                 f"{SPILL_SWEEP_MEASURED_CALLS} calls x {statistics.mean(lat):.1f} s); high: slowest point "
+                 f"{max(ivals.values()):.0f} s (clamped 40960) + {SPILL_SWEEP_MEASURED_CALLS} x {max(lat):.1f} s"}
+    # 5) mistral-small3.2:24b B3 v2: qwen3:14b's measured v2 validation and real-run sessions x the mistral/qwen3:14b R2
+    # session-time ratio (32768 for the large windows, 4096 for the small); high: the larger ratio everywhere.
+    fam = ag.read_rows(repo / X2_FAMILY_REAL)
+    r_big = statistics.median(_session_walls_s(fam, X2_FAMILY_MODEL, "ollama_ctx_32768" + sfx, mode="real")) / \
+        _r2_median_s(repo, "qwen3:14b", "num_ctx_32768")
+    r_small = statistics.median(_session_walls_s(fam, X2_FAMILY_MODEL, "ollama_ctx_4096" + sfx, mode="real")) / \
+        _r2_median_s(repo, "qwen3:14b", "num_ctx_4096")
+    rmax = max(r_big, r_small)
+    e = ev.tasks_v2_hours_estimate(ag.read_rows(repo / X2_EVALSET_TASKS_VAL_V2))
+    neg, pos = sum(e["neg_session_s"]), sum(e["pos_session_s"])
+    jobs["x2_evalset_tasks_val_v2_mistral_small32"] = {
+        "point_h": (neg * r_big + pos * r_small) / 3600, "high_h": (neg + pos) * rmax / 3600,
+        "basis": f"qwen3:14b v2 tasks validation (negative control {neg / 60:.1f} min, positive control "
+                 f"{pos / 60:.1f} min) x mistral/qwen3:14b R2 ratio (32768 {r_big:.2f}, 4096 {r_small:.2f}); high = "
+                 f"x {rmax:.2f} throughout"}
+    rr = ag.read_rows(repo / X2_EVALSET_TASKS_REAL_V2)
+    big = ("ollama_default", "ollama_ctx_16384")
+    pt = hi = 0.0
+    per = []
+    for t in ("ollama_default", "ollama_ctx_16384", "ollama_ctx_8192", "ollama_ctx_4096", ev.NUMKEEP_ARM):
+        w = sum(_session_walls_s(rr, "qwen3:14b", t + sfx, mode="real"))
+        pt += w * (r_big if t in big else r_small)
+        hi += w * rmax
+        per.append(f"{t} {w / 3600:.2f} h")
+    jobs["x2_evalset_tasks_real_v2_mistral_small32"] = {
+        "point_h": pt / 3600, "high_h": hi / 3600,
+        "basis": "qwen3:14b x2_evalset_tasks_real_v2 per tier (" + ", ".join(per) + f") x the ratio above; runs only if "
+                 "the validation passes every gate (a refusal takes minutes)"}
+    return jobs
+
+
+def compute_x2_queue_fill_1022_hours(repo):
+    """ESTIMATE (not a measurement) of each job of the 2026-10-22 evo-x2 queue fill, from measured times in committed
+    files, the back-to-back schedule from the anchor, the B5 results-by date, the 150 h reserve and idle capacity."""
+    from datetime import datetime, timedelta
+    jobs = queue_fill_1022_estimates(repo)
+    t0 = datetime.fromisoformat(FILL_1022_ANCHOR_UTC)
+    dl = datetime.fromisoformat(FILL_1022_DEADLINE_UTC)
+    by = datetime.fromisoformat(FILL_1022_RESULTS_BY_UTC)
+    t_pt = t_hi = t0
+    parts, ends = [], {}
+
+    def f(t):
+        return t.strftime("%m-%d %H:%MZ")
+    for j in FILL_1022_ORDER:
+        e = jobs[j]
+        s_pt, s_hi = t_pt, t_hi
+        t_pt += timedelta(hours=e["point_h"])
+        t_hi += timedelta(hours=e["high_h"])
+        ends[j] = (t_pt, t_hi)
+        parts.append(f"{j} ESTIMATE {e['point_h']:.2f} h (high {e['high_h']:.2f} h; {e['basis']}); projected "
+                     f"{f(s_pt)} to {f(t_pt)} (high case {f(s_hi)} to {f(t_hi)})")
+    b5_end = ends["x2_b5_simcap_4096"]
+    tot_pt = sum(e["point_h"] for e in jobs.values())
+    tot_hi = sum(e["high_h"] for e in jobs.values())
+    slack_pt = (dl - t_pt).total_seconds() / 3600
+    slack_hi = (dl - t_hi).total_seconds() / 3600
+    parts.append(f"B5 jobs end {f(b5_end[0])} (high {f(b5_end[1])}), results-by {FILL_1022_RESULTS_BY_UTC[:10]} "
+                 f"{'met' if b5_end[1] <= by else 'NOT met in the high case'}")
+    parts.append(f"total ESTIMATE {tot_pt:.1f} h (high {tot_hi:.1f} h) from {FILL_1022_ANCHOR_UTC[:16]}Z; queue ends "
+                 f"{f(t_pt)} (high {f(t_hi)}); slack before {FILL_1022_DEADLINE_UTC[:10]} 00:00Z {slack_pt:.1f} h "
+                 f"(high case {slack_hi:.1f} h); unallocated beyond the {FILL_1022_RESERVE_H:.0f} h reserve "
+                 f"{slack_pt - FILL_1022_RESERVE_H:.1f} h (high case {slack_hi - FILL_1022_RESERVE_H:.1f} h)")
+    return {"value": "; ".join(parts), "n": f"{len(jobs)} jobs (estimate)"}
+
+
+def compute_cost_cut_config_time(repo):
+    """MEASURED: per model, the session minutes saved per 40-turn R2 session by the fastest measured non-router setting
+    on evo-x2 (B5 policies b-h, and the flash-attention control's policy i once synced) against the runtime default
+    (B5 policy a), from the result files; rule pass rate and history recall of both settings beside it."""
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "harness"))
+    import policy_compare as pc
+    rows = pc.ag.read_rows(repo / B5_X2_FILE)
+    m = pc.metrics_for_platform(rows)
+    fa = {}
+    if (repo / B5_FA_FILE).exists():
+        fa = pc.fa_control_summary(pc.ag.read_rows(repo / B5_FA_FILE), rows)
+    parts = []
+    for model, c in sorted(m.items()):
+        pol = {p: v for p, v in c["policies"].items() if p != pc.ROUTER_POLICY and not v.get("alias_of")}
+        cand = {p: (v["wall_min"], v["rule_pass_rate"], v["history_recall"], v["window"]) for p, v in pol.items()}
+        if model in fa and fa[model].get("valid"):
+            x = fa[model]
+            cand["i"] = (x["m_i"], x["rule_pass_rate"], x["history_recall"], x["window"])
+        a = cand["a"]
+        best = min((p for p in cand if p != "a"), key=lambda p: cand[p][0])
+        b = cand[best]
+        name = pc.FA_POLICY_NAME if best == "i" else pc.POLICIES[best]["name"]
+        parts.append(f"evo-x2 {model}: default (a) {a[0]:.1f} min per session, rule {100 * a[1]:.1f}% hist "
+                     f"{100 * a[2]:.1f}%; fastest measured setting ({best}) {name} {b[0]:.1f} min, rule "
+                     f"{100 * b[1]:.1f}% hist {100 * b[2]:.1f}%, window {b[3]}; saved {a[0] - b[0]:.1f} min per session "
+                     f"({100 * (a[0] - b[0]) / a[0]:.0f}%), over {c['balanced_seeds'] and len(c['balanced_seeds'])} "
+                     f"seeds")
+    return {"value": "MEASURED; " + " / ".join(parts) + ("; flash-attention control "
+                     + ("included" if fa else "not synced yet (policy i not in the comparison)")),
+            "n": f"{len(m)} models"}
+
+
+def compute_b5_fa_control(repo):
+    """The flash-attention control's pre-registered reading per model (policy_compare.fa_control_summary)."""
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "harness"))
+    import policy_compare as pc
+    rows = pc.ag.read_rows(repo / B5_FA_FILE)
+    if not rows:
+        raise FileNotFoundError(repo / B5_FA_FILE)
+    s = pc.fa_control_summary(rows, pc.ag.read_rows(repo / B5_X2_FILE))
+    base = {r["model_id"]: r["check"]["config_flash_attention_values"] for r in rows
+            if r.get("record") == "b5_base_fa_check"}
+    parts = []
+    for model, e in s.items():
+        parts.append(f"{model}: (i) f16+FA {e['m_i'] if e['m_i'] is None else round(e['m_i'], 1)} min per session "
+                     f"(per seed {', '.join(f'{k}: {v:.1f}' for k, v in e['per_seed_min'].items())}), (g)/(h) "
+                     f"{e['m_gh'] if e['m_gh'] is None else round(e['m_gh'], 1)} min, (a) "
+                     f"{e['m_a'] if e['m_a'] is None else round(e['m_a'], 1)} min, window {e['window']}; rule "
+                     f"{e['rule_pass_rate']}, hist {e['history_recall']}; base-env OLLAMA_FLASH_ATTENTION "
+                     f"{base.get(model)}; valid {e['valid']}"
+                     + (f" ({'; '.join(e['problems'])})" if e["problems"] else "")
+                     + f"; reading: {e['reading']}"
+                     + (f" (flash-attention share of the gap {e['fa_share']:.2f})" if e.get("fa_share") is not None
+                        and e["reading"] == "both contribute" else ""))
+    return {"value": " / ".join(parts) + f" (tolerance {int(100 * pc.FA_TOLERANCE)}%)",
+            "n": f"{sum(len(e['per_seed_min']) for e in s.values())} sessions"}
+
+
+def compute_b5_kv_recall_f16_rerun(repo):
+    """llama3.1:8b f16 recall rerun (flash-attention control job) against B5's q8_0 and q4_0 rows: needles found of
+    24 per precision, two-sided Fisher exact per pair (descriptive), errors and durations."""
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "harness"))
+    import policy_compare as pc
+    new = pc.ag.read_rows(repo / B5_FA_FILE)
+    if not new:
+        raise FileNotFoundError(repo / B5_FA_FILE)
+    old = pc.ag.read_rows(repo / B5_X2_FILE)
+    m = "llama3.1:8b"
+
+    def found(rows, prec):
+        rs = [r for r in rows if r.get("record") == "b5_recall" and r["model_id"] == m and r["precision"] == prec
+              and not r.get("warmup")]
+        ok = [r for r in rs if r.get("outcome") == "ok"]
+        return (sum(r["score"]["found"] for r in ok), sum(r["score"]["n"] for r in ok), len(rs) - len(ok),
+                [round(r.get("duration_s") or 0) for r in rs], {r.get("num_ctx") for r in rs})
+    f16 = found(new, "f16")
+    parts = [f"f16 (rerun) {f16[0]}/{f16[1]} needles, errors {f16[2]}, call s {f16[3]}, ctx {sorted(f16[4])}"]
+    for q in ("q8_0", "q4_0"):
+        x = found(old, q)
+        p = fisher_two_sided(f16[0], f16[1], x[0], x[1]) if f16[1] and x[1] else None
+        parts.append(f"{q} (B5) {x[0]}/{x[1]} needles, errors {x[2]}; Fisher two-sided p (f16 vs {q}) = "
+                     + (f"{p:.3f}" if p is not None else "n/a") + "; reading: "
+                     + ("not read (missing calls)" if p is None else
+                        (f"f16 differs from {q}" if p < 0.05 else "no difference shown")))
+    return {"value": f"{m}: " + "; ".join(parts) + " (needles within a call are not independent; descriptive)",
+            "n": f"{len(f16[3])} measured calls"}
+
+
+def compute_b5_sim_constraint(repo):
+    """B5 under a simulated device window (8192 and 4096, 5 seeds, label "simulated constraint"): per cap, model and
+    policy the B5 metrics (rule pass rate, history recall, session minutes, cloud USD), the frontier and the B5 verdict
+    rule applied to the two caps as the platforms."""
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "harness"))
+    import policy_compare as pc
+    prows = {}
+    for cap, f in B5_SIMCAP_FILES.items():
+        r = pc.ag.read_rows(repo / f)
+        if not r:
+            raise FileNotFoundError(repo / f)
+        prows[f"cap{cap}"] = r
+    prices = pc.load_cloud_prices(repo)
+    parts = []
+    for plat, rows in prows.items():
+        mets = pc.metrics_for_platform(rows, prices, seeds=B5_SIM_SEEDS)
+        for model, c in sorted(mets.items()):
+            segs = [f"{p} rule {100 * v['rule_pass_rate']:.1f}% hist {100 * (v['history_recall'] or 0):.1f}% "
+                    f"{v['wall_min']:.1f} min ${v['cloud_usd']:.4f}" + (f" (={v['alias_of']})" if v.get("alias_of")
+                                                                         else "")
+                    for p, v in sorted(c["policies"].items())]
+            fr = pc.pareto_frontier(c["policies"]) if c["complete"] else None
+            parts.append(f"{plat} {model}: " + "; ".join(segs) + f"; frontier {fr}; complete {c['complete']}"
+                         + (f" ({'; '.join(c['problems'])})" if c["problems"] else ""))
+    v = pc.b5_verdict(prows, prices, required=tuple(prows), seeds=B5_SIM_SEEDS)
+    return {"value": "simulated constraint; " + " / ".join(parts) + f"; verdict (B5 rule, caps as platforms): "
+                     f"{v['verdict']}", "n": f"{len(prows)} cap files"}
+
+
+
+
 def compute_num_keep_qwen3_14b(repo):
     """x2_num_keep_qwen3_14b: the num_keep guardrail test's measures and pre-registered verdict for qwen3:14b
     (harness/x2_num_keep.verdict with model qwen3:14b)."""
@@ -6134,6 +6444,29 @@ NUMBER_ENTRIES = [
      "slack before 2026-11-10 and idle capacity",
      "compute": compute_x2_queue_fill_1020_hours, "data_files": QUEUE_FILL_DATA,
      "script_function": "analysis/numbers_register.py::compute_x2_queue_fill_1020_hours"},
+    {"claim_id": "x2-queue-fill-1022-hours", "description": "ESTIMATE, not a measurement: hours per job of the "
+     "2026-10-22 evo-x2 queue fill from measured times, back-to-back projected dates from the anchor, the B5 "
+     "results-by date, slack before 2026-11-10 and the hours left beyond the 150 h reserve",
+     "compute": compute_x2_queue_fill_1022_hours, "data_files": FILL_1022_DATA,
+     "script_function": "analysis/numbers_register.py::compute_x2_queue_fill_1022_hours"},
+    {"claim_id": "cost-cut-config-time", "description": "MEASURED: per model, session minutes saved per 40-turn R2 "
+     "session on evo-x2 by the fastest measured non-router setting (B5 policies b-h, plus the flash-attention control "
+     "once synced) against the runtime default (B5 policy a), with both settings' rule pass rate and history recall",
+     "compute": compute_cost_cut_config_time, "data_files": [B5_X2_FILE],
+     "script_function": "analysis/numbers_register.py::compute_cost_cut_config_time"},
+    {"claim_id": "b5-fa-control", "description": "B5 flash-attention control (policy i, f16 KV + flash attention at "
+     "L(f16), 3 seeds) against B5's (g)/(h) and (a) session minutes: the pre-registered reading per model (10% "
+     "tolerance)", "compute": compute_b5_fa_control, "data_files": [B5_FA_FILE, B5_X2_FILE], "pending_ok": True,
+     "script_function": "harness/policy_compare.py::fa_control_summary"},
+    {"claim_id": "b5-kv-recall-f16-rerun", "description": "llama3.1:8b f16 long-context recall rerun (1 warm-up + 3 "
+     "measured calls, 1800 s timeout) against B5's q8_0 and q4_0 recall: needles found of 24, Fisher exact "
+     "(descriptive)", "compute": compute_b5_kv_recall_f16_rerun, "data_files": [B5_FA_FILE, B5_X2_FILE],
+     "pending_ok": True, "script_function": "analysis/numbers_register.py::compute_b5_kv_recall_f16_rerun"},
+    {"claim_id": "b5-sim-constraint", "description": "B5 under a simulated device window (8192 and 4096, 5 seeds, "
+     "labelled simulated constraint): per cap, model and policy the rule pass rate, history recall, session minutes "
+     "and cloud USD, the frontier, and B5's pre-registered verdict rule with the caps as platforms",
+     "compute": compute_b5_sim_constraint, "data_files": list(B5_SIMCAP_FILES.values()), "pending_ok": True,
+     "script_function": "harness/policy_compare.py::b5_verdict"},
     {"claim_id": "x2-scale-real-default-tier", "description": "H-scale real job, Ollama default tier: completed "
      "default-tier sessions per model (turns, wall hours, loaded context, first over-window turn)",
      "compute": compute_x2_scale_real_default_tier, "data_files": [X2_SCALE_REAL],
