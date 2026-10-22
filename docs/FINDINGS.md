@@ -5438,3 +5438,14 @@ ledger total at start, spend cap, projection), warmup and pilot rows (excluded),
 **Use.** These rows are the all-cloud reference quality and cost for the hybrid savings model (savings = all-cloud cost
 minus hybrid cost at matched quality). The token basis is Anthropic's tokenizer (provider usage), not the harness
 estimate.
+
+## AMENDMENT (2026-10-21, before any measured turn): all_cloud_b3_v1 attempt 1 aborted, temperature fallback implemented as pre-registered
+
+Attempt 1 of `scripts/all_cloud_b3.py --live` sent the claude-haiku-5-5 warm-up (ledger USD 0.0000038) and then the
+pilot turn, whose calls litellm refused before any request ("claude-haiku-5-5 does not support temperature=0.0. Only
+temperature=1 is supported"); the script then crashed computing the projection from a pilot with no usage (no measured
+turn ran, nothing else billed). The file is kept as `results/all_cloud_b3_v1_attempt1_aborted.jsonl`. The pre-registered
+fallback ("that model runs with the provider default, recorded in run_start") was not yet in the code; it is now: the
+warm-up is sent with temperature 0 and, if the provider rejects temperature for the model, sent again without it, and
+run_start records `temperature_per_model`. A pilot with no usable ratio now projects as infinite (stop). Nothing else
+changes; the job reruns from the start under the same USD 15 job cap.

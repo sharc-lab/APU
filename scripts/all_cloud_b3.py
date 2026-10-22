@@ -33,6 +33,7 @@ import argparse
 import copy
 import importlib.util
 import json
+import math
 import os
 import statistics
 import sys
@@ -259,8 +260,35 @@ def pilot_ratio(pilot_rows: list[dict]) -> float:
 def project(model_id: str, ratio: float, local: dict, margin: float = MARGIN) -> float:
     """Ledger-basis USD of the full job for one model: each local call's prompt estimate x ratio as input, its
     completion tokens as output, priced by client.py's estimate (all input at the input rate), x margin."""
+    if not math.isfinite(ratio):
+        return math.inf
     return margin * sum(cc.estimate_cost_usd(model_id, round(p * ratio), o) for calls in local.values()
                         for p, o in calls)
+
+
+def warmup_probe(client, model_id: str) -> tuple[dict, float | None]:
+    """The warm-up call (excluded from stats), sent with temperature 0 as the local run. If the provider rejects that
+    temperature for the model (litellm UnsupportedParamsError, raised before any request, so nothing is billed), the
+    warm-up is sent again without it and the model runs with the provider default (pre-registered fallback)."""
+    rejected = None
+    for temp in (0.0, None):
+        kw = {"max_tokens": 8, "custom_llm_provider": "anthropic"}
+        if temp is not None:
+            kw["temperature"] = temp
+        t0 = time.perf_counter()
+        try:
+            res = client.call(model_id=model_id, messages=[{"role": "user", "content": "Reply with the single word OK."}],
+                              **kw)
+        except Exception as e:
+            if temp is not None and type(e).__name__ == "UnsupportedParamsError" and "temperature" in str(e):
+                rejected = f"{type(e).__name__}: {str(e)[:300]}"
+                continue
+            raise
+        return ({"record": "warmup", "excluded_from_stats": True, "model_id": model_id,
+                 "seconds": time.perf_counter() - t0, "usd_ledger": res.cost_usd, "input_tokens": res.input_tokens,
+                 "output_tokens": res.output_tokens, "temperature_sent": temp, "temperature_rejected": rejected},
+                temp)
+    raise RuntimeError("unreachable")
 
 
 # ── summary ─────────────────────────────────────────────────────────────────────────────────────────
@@ -330,6 +358,11 @@ def run(client, out: Path = OUT, price_file: Path = PRICE_FILE, local_source: Pa
 
     try:
         local = local_sessions(CR.load_rows(local_source), tuple(seeds))
+        if sorted(local) != sorted(seeds):
+            raise SystemExit(f"refused: local reference sessions found for seeds {sorted(local)}, need {list(seeds)}")
+        warm, temps = {}, {}
+        for m in models:   # warm-up first: it also resolves the temperature each model accepts
+            warm[m], temps[m] = warmup_probe(client, m)
         emit({"record": "run_start", "harness": HARNESS, "ts_utc": ag.utc_iso(), "mode": "executed",
               "script": "scripts/all_cloud_b3.py", "script_git_blob": CR.git_blob(Path(__file__)),
               "harness_git_blob": CR.git_blob(REPO / "harness" / "x2_r2_evalset.py"),
@@ -337,26 +370,25 @@ def run(client, out: Path = OUT, price_file: Path = PRICE_FILE, local_source: Pa
               "price_file": _rel(price_file), "price_file_git_blob": CR.git_blob(price_file),
               "price_file_fetched_utc": table.get("fetched_utc"), "models": models, "seeds": list(seeds),
               "design": DESIGN, "workload": "evalset", "guardrails": False, "max_turns": max_turns,
-              "max_tokens": ag.MAX_TOKENS_PER_CALL, "temperature": 0.0, "prompt_caching": True,
+              "max_tokens": ag.MAX_TOKENS_PER_CALL, "temperature_requested": 0.0, "temperature_per_model": temps,
+              "prompt_caching": True,
               "cache_breakpoints": "system prompt and last user message", "job_cap_usd": job_cap,
               "ledger_total_at_start_usd": ledger_total_at_start, "spend_cap_usd": client.spend_cap_usd,
               "ledger": client.ledger_path.name, "projection_margin": margin,
               "local_reference": {"file": _rel(local_source), "arm": LOCAL_REF_ARM,
                                   "seeds_found": sorted(local)}})
-        if sorted(local) != sorted(seeds):
-            raise SystemExit(f"refused: local reference sessions found for seeds {sorted(local)}, need {list(seeds)}")
         spend = {"usd": 0.0, "usd_ledger": 0.0}
-        runtimes = {m: CloudRuntime(client, m, CR.model_rates(table, m), log=log, retry_wait_s=retry_wait_s)
-                    for m in models}
+        runtimes = {m: CloudRuntime(client, m, CR.model_rates(table, m), temperature=temps[m], log=log,
+                                    retry_wait_s=retry_wait_s) for m in models}
         # warm-up (excluded) and pilot (excluded), per model
         decision, stopped = "stop", None
         try:
             proj = {}
             for m in models:
-                w = CR.warmup(client, m)
+                w = warm[m]
                 spend["usd_ledger"] += w["usd_ledger"]
                 spend["usd"] += w["usd_ledger"]   # no cache on the warm-up call
-                emit({**w, "model_id": m, "ts_utc": ag.utc_iso()})
+                emit({**w, "ts_utc": ag.utc_iso()})
                 pilot_rows = []
                 run_cloud_session(runtimes[m], seeds[0], lambda r: (pilot_rows.append(r), emit(r)), log,
                                   max_turns=1, record="pilot_turn", spend=spend)

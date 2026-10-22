@@ -196,3 +196,33 @@ def test_redo_finished(tmp_path):
     p.write_text(json.dumps({"record": "run_start", "mode": "executed"}) + "\n" + json.dumps({"record": "run_end"})
                  + "\n", encoding="utf-8")
     assert AC.redo_finished(p)
+
+
+class UnsupportedParamsError(Exception):
+    pass
+
+
+def test_temperature_rejected_falls_back_to_provider_default(tmp_path, monkeypatch):
+    local = _local_file(tmp_path)
+    monkeypatch.setattr(AC.ag, "completed_sessions", lambda rows: [r for r in rows if r.get("record") == "r2a_session"])
+    inner = fake_provider([])
+
+    def fn(**kw):
+        if "temperature" in kw:
+            raise UnsupportedParamsError("claude-haiku-5-5 does not support temperature=0.0")
+        return inner(**kw)
+    client = make_client(tmp_path, fn)
+    out = tmp_path / "o.jsonl"
+    res = AC.run(client, out, local_source=local, max_turns=1, log=lambda *_: None)
+    assert res["decision"] == "run" and res["stopped"] is None
+    rows = [json.loads(x) for x in open(out, encoding="utf-8")]
+    assert rows[0]["temperature_per_model"] == {"claude-haiku-5-5": None, "claude-sonnet-5-5": None}
+    w = [r for r in rows if r["record"] == "warmup"]
+    assert all(r["temperature_sent"] is None and "UnsupportedParamsError" in r["temperature_rejected"] for r in w)
+    assert not any(r.get("any_http_error") for r in rows if r["record"] in ("r2a_turn", "pilot_turn"))
+    # no ledger row for the rejected attempts: 2 warm-ups + 2 pilot turns x 2 calls + 6 turns x 2 calls
+    assert sum(1 for _ in open(tmp_path / "ledger.jsonl")) == 2 + 4 + 12
+
+
+def test_project_nan_ratio_is_infinite():
+    assert AC.project("claude-haiku-5-5", float("nan"), {1: [(10, 1)]}) == float("inf")
