@@ -17,7 +17,11 @@ docs/BUSINESS_METRICS.md.
   [impact-session-time-by-window] (measured). At num_ctx 4096 sessions fail silently: "num_ctx_4096 10/15 silent,
   10 after window exceeded", against "ollama_default 3/15 silent, 0 after window exceeded" over three models
   [R2-real-v1b-gated-kill] (measured); for llama3.1:8b at the default window, "R2 silent rule/recall failures after the
-  window 0/5 sessions" [impact-P1] (measured). Every call returns normally; nothing tells the user.
+  window 0/5 sessions" [impact-P1] (measured). Every call returns normally; nothing tells the user. With tools
+  on every call, qwen3:14b at num_ctx 4096 gets "excess +30.7 points (session-level 95% CI +26.0 to +34.7)" more
+  wrong tasks than at the default window; for the reference team that is "time USD/day 0.00 to 126.85" plus a cloud
+  redo cost per wrong task that is still PENDING [impact-v2-P1] (mixed: measured rate and wall time, assumed volume
+  and waiting), which puts P1 first in "P1 > P5 > P3 > P4" [impact-ranking-v2].
 - **At the smallest window the runtime cuts the system prompt.** "ollama_ctx_4096: 76/80 calls message-truncated; 34
   context shifts (first turn/call (4, 2), n_keep [5], n_discard [2045], 29 on the final-answer call); 1 token cuts
   (token cut limit 2050 keep 4 prompt 4097 -> 2050)" [R2-mechanism-lowlevel] (measured): on a context shift only the

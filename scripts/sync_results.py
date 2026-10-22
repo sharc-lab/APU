@@ -408,12 +408,46 @@ def sync_host(alias, do_commit=True):
             "unchanged": len(unchanged), "commit": commit_sha}
 
 
+# Time-bounded sync window (process rule 2026-10-20, docs/STATE.md): the scheduled task keeps `--host evo-x2`; the job
+# that arms an evo-t2s handover deadline (harness/t2s_deadline.py open-window) writes this file to widen the sync to
+# both hosts until the window's hard deadline, and removes it in its finally block. The file carries its own expiry,
+# so the widening also ends at the deadline if that job died without reaching its finally: an expired file is
+# ignored and deleted here. The scheduled task definition is never changed for a window.
+SYNC_WINDOW_FILE = REPO / ".sync_host_window.json"
+
+
+def effective_host(requested: str, window_file=None, now=None) -> tuple[str, str]:
+    """(host to sync, why). Only widens evo-x2 to both, only while the window file is valid and unexpired."""
+    import time as _time
+    from datetime import datetime as _dt
+    path = Path(window_file) if window_file is not None else SYNC_WINDOW_FILE
+    now = _time.time() if now is None else now
+    if not path.exists():
+        return requested, "no sync window file"
+    try:
+        rec = json.loads(path.read_text(encoding="utf-8-sig"))
+        until = _dt.fromisoformat(rec["until_utc"].replace("Z", "+00:00")).timestamp()
+    except Exception as e:  # unreadable: never widen
+        return requested, f"sync window file unreadable ({e!r}); not widened"
+    if now >= until:
+        try:
+            path.unlink()
+        except OSError:
+            pass
+        return requested, f"sync window expired at {rec['until_utc']}; file removed; not widened"
+    if requested == "evo-x2" and rec.get("host") == "both":
+        return "both", f"sync window open until {rec['until_utc']} (armed by {rec.get('armed_by')})"
+    return requested, "sync window file present; requested host kept"
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--host", default="both", choices=["evo-t2s", "evo-x2", "both"])
     ap.add_argument("--no-commit", action="store_true")
     args = ap.parse_args(argv)
-    hosts = ["evo-t2s", "evo-x2"] if args.host == "both" else [args.host]
+    host, why = effective_host(args.host)
+    print(f"sync host {host} ({why})", flush=True)
+    hosts = ["evo-t2s", "evo-x2"] if host == "both" else [host]
     results = [sync_host(h, do_commit=not args.no_commit) for h in hosts]
     print(json.dumps({"results": [{k: v for k, v in r.items() if k != "too_large"} for r in results]}, indent=1))
     return results

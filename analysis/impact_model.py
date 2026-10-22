@@ -1014,6 +1014,198 @@ def session_time_value(res) -> str:
     return "evo-x2 R2 sessions (40 turns), median wall time per session: " + "; ".join(out)
 
 
+# ── impact v2 (operator priority override, 2026-10-21 18:30) ───────────────────────────────────────────────────
+# One customer profile, stated explicitly (V2_PROFILE). P1 = measured excess wrong-task rate (B3 v2 task real run,
+# qwen3:14b, session-level bootstrap CI: register rows x2-evalset-tasks-real-v2-wrong-rate and
+# x2-evalset-tasks-real-v2-ci-units) x (cloud-redo cost per wrong task [row cloud-redo-cost-per-wrong-task, a named
+# PENDING input until it is in the register] + the measured wall time of the wrong task turn, valued 0 to the full
+# hour value). P2 = measured minutes saved per session by configuration [row cost-cut-config-time, PENDING]. P3 as
+# in v1. P4 to P7: the v1 row functions at the same profile. Every row carries a status: measured / mixed / assumed /
+# PENDING / not measured. A PENDING input is never replaced by a number.
+
+B3_V2_REAL_FILE = "results/x2_evalset_tasks_real_v2.jsonl"
+B3_V2_MODEL = "qwen3:14b"
+B3_V2_TIERS = ("ollama_ctx_16384", "ollama_ctx_8192", "ollama_ctx_4096", "ollama_ctx_4096_numkeep")
+V2_PENDING = {
+    "cloud-redo-cost-per-wrong-task": "USD to redo one wrong task in the cloud (P1)",
+    "cost-cut-config-time": "minutes saved per session by configuration, flash-attention control on evo-x2 (P2)",
+}
+V2_PROFILE = {
+    "name": "impact-v2 profile",
+    "device": "evo-x2", "model": B3_V2_MODEL, "runtime": "ollama_ctx_4096",
+    "why": "qwen3:14b is the model with a measured wrong-task rate (B3 v2); num_ctx 4096 is the window Ollama loads "
+           "by default on a CPU-only machine (t2s-r2-real-cpu: loaded window [4096]), so a CPU-only team is in this "
+           "cell without choosing it; volumes (team size, sessions per day, cloud share, co-runner share, hour value) "
+           "are those of results/impact_profile_20261014.json (ASSUMPTIONS, except the cited hour value)",
+}
+
+
+def v2_profile(repo=REPO, base=None) -> dict:
+    import copy
+    p = copy.deepcopy(base or load_profile(repo))
+    p["assumptions"].update(device=V2_PROFILE["device"], model=V2_PROFILE["model"], runtime=V2_PROFILE["runtime"])
+    return p
+
+
+def register_has(repo, claim_id) -> bool:
+    """True when docs/NUMBERS_REGISTER.md has a VERIFIED row for claim_id."""
+    path = Path(repo) / "docs" / "NUMBERS_REGISTER.md"
+    if not path.exists():
+        return False
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.startswith(f"| {claim_id} |"):
+            return "| VERIFIED |" in line
+    return False
+
+
+def b3_v2_wrong_task(repo=REPO) -> dict:
+    """Per tier of the B3 v2 real run (qwen3:14b): excess wrong-task rate over the default with its session-level
+    95% CI (harness/x2_r2_evalset.tasks_real_v2_outcome, the pre-registered bootstrap), task turns per session, and
+    the mean wall time of a wrong task turn (seconds, turn_wall_s). Raises FileNotFoundError without the file."""
+    sys.path.insert(0, str(Path(repo) / "harness"))
+    import x2_r2_evalset as ev
+    rows = ev.ag.read_rows(Path(repo) / B3_V2_REAL_FILE)
+    if not rows:
+        raise FileNotFoundError(Path(repo) / B3_V2_REAL_FILE)
+    o = ev.tasks_real_v2_outcome(rows, models=(B3_V2_MODEL,))["models"][B3_V2_MODEL]
+    att = {s["attempt_id"] for s in ev.ag.completed_sessions(rows)
+           if s.get("mode") == "real" and s["model_id"] == B3_V2_MODEL}
+    walls = {}
+    for r in rows:
+        if (r.get("record") == "r2a_turn" and r.get("attempt_id") in att and r.get("item_kind") == "task"
+                and r.get("end_state_ok") is False and r.get("turn_wall_s") is not None):
+            walls.setdefault(r["arm_id"].replace("_call2_notools", ""), []).append(r["turn_wall_s"])
+    out = {}
+    for t, e in (o.get("excess_over_default") or {}).get("per_tier", {}).items():
+        ti = o["tiers"][t]
+        out[t] = {"excess": e["excess"], "ci95": tuple(e["ci95"]), "rate": e["rate"], "default_rate": e["default_rate"],
+                  "n_sessions": e["n_sessions"], "tasks_per_session": ti["n_task_turns"] / ti["n_sessions"],
+                  "wrong_turn_wall_s": statistics.mean(walls[t]) if walls.get(t) else None,
+                  "n_wrong": ti["wrong"], "silent_wrong": ti["silent_wrong"], "valid": o["valid"]}
+    return out
+
+
+def cost_p1_v2(sessions_day, tasks_per_session, excess, redo_usd, wall_s, hour, wait=1.0):
+    """sessions/day x task turns/session x excess wrong-task rate x (cloud redo USD per wrong task + wall s of the
+    wrong turn / 3600 x USD/h x wait share). Returns (cloud USD/day or None when redo_usd is PENDING, time USD/day)."""
+    wrong_day = sessions_day * tasks_per_session * max(0.0, excess)
+    cloud = None if redo_usd is None else wrong_day * redo_usd
+    time_usd = None if wall_s is None else wrong_day * wall_s / 3600.0 * hour * wait
+    return cloud, time_usd
+
+
+def p1_v2(repo=REPO, profile=None, inputs=None) -> dict:
+    profile = profile or v2_profile(repo)
+    inputs = inputs or {}
+    wt = inputs.get("b3v2") or b3_v2_wrong_task(repo)
+    redo = inputs.get("redo_usd")   # USD per wrong task; None while cloud-redo-cost-per-wrong-task is PENDING
+    hv, spd = hour_value(profile), sessions_per_day(profile)
+    grid = {}
+    for t in B3_V2_TIERS:
+        v = wt.get(t)
+        if not v:
+            continue
+        c, tm = cost_p1_v2(spd, v["tasks_per_session"], v["excess"], redo, v["wrong_turn_wall_s"], hv)
+        _c_lo, tm_lo = cost_p1_v2(spd, v["tasks_per_session"], v["ci95"][0], redo, v["wrong_turn_wall_s"], hv)
+        _c_hi, tm_hi = cost_p1_v2(spd, v["tasks_per_session"], v["ci95"][1], redo, v["wrong_turn_wall_s"], hv)
+        grid[t] = dict(v, wrong_per_day=spd * v["tasks_per_session"] * max(0.0, v["excess"]), cloud_usd_day=c,
+                       time_usd_day=tm, time_usd_day_ci=(tm_lo, tm_hi))
+    cell = grid.get(profile["assumptions"]["runtime"])
+    pending = [] if redo is not None else ["cloud-redo-cost-per-wrong-task"]
+    time_hi = None if cell is None else cell["time_usd_day"]
+    usd = None if cell is None else (time_hi if redo is None else time_hi + cell["cloud_usd_day"])
+    return {"id": "P1", "usd_day": usd, "lower_bound_only": bool(pending), "pending": pending, "cell": cell,
+            "grid": grid, "status": "mixed", "low": 0.0 if redo is None or cell is None else cell["cloud_usd_day"],
+            "high": usd}
+
+
+def v2_rows(repo=REPO, base_profile=None, inputs=None) -> dict:
+    """The seven rows at V2_PROFILE: {k: {"usd_day" (main case: time at the full hour value, caching on), "low",
+    "high", "status", "pending", "note"}}."""
+    inputs = inputs or {}
+    prof = v2_profile(repo, base_profile)
+    out = {"P1": p1_v2(repo, prof, inputs.get("P1"))}
+    p2pending = inputs.get("P2_minutes_saved") is None
+    out["P2"] = {"id": "P2", "usd_day": None, "low": None, "high": None, "status": "PENDING",
+                 "pending": ["cost-cut-config-time"] if p2pending else [], "cell": None}
+    if not p2pending:
+        m = inputs["P2_minutes_saved"]
+        u = sessions_per_day(prof) * max(0.0, m) / 60.0 * hour_value(prof)
+        out["P2"].update(usd_day=u, low=0.0, high=u, status="mixed", pending=[])
+    v1 = model_rows(repo, prof, inputs=inputs.get("v1"))
+    for k in ("P3", "P4", "P5", "P6", "P7"):
+        r, au = v1[k], v1[k]["audit"]
+        out[k] = {"id": k, "usd_day": r["usd_day"], "low": au["low"], "high": au["high"], "status": au["status"],
+                  "pending": [], "cell": r.get("cell"), "config": r.get("config")}
+    return {"profile": prof, "rows": out}
+
+
+def v2_ranking(rows: dict) -> list:
+    return rank({k: {"usd_day": r["usd_day"]} for k, r in rows.items()})
+
+
+def v2_split(rows: dict) -> dict:
+    s = {}
+    for k, r in rows.items():
+        s.setdefault(r["status"], []).append(k)
+    return s
+
+
+def p1_v2_value(res) -> str:
+    rows, prof = res["rows"], res["profile"]
+    r = rows["P1"]
+    f = _fmt_usd
+    parts = []
+    for t, v in r["grid"].items():
+        lo, hi = v["ci95"]
+        parts.append(f"{t}: excess {100 * v['excess']:+.1f} points (session-level 95% CI {100 * lo:+.1f} to "
+                     f"{100 * hi:+.1f}), {v['tasks_per_session']:.0f} task turns/session, {v['wrong_per_day']:.1f} "
+                     f"excess wrong tasks/day, wrong-turn wall {v['wrong_turn_wall_s']:.1f} s; time USD/day 0.00 to "
+                     f"{f(v['time_usd_day'])} (CI {f(v['time_usd_day_ci'][0])} to {f(v['time_usd_day_ci'][1])}); "
+                     f"cloud redo USD/day "
+                     + ("PENDING (cloud-redo-cost-per-wrong-task)" if v["cloud_usd_day"] is None else f(v["cloud_usd_day"])))
+    a = prof["assumptions"]
+    return (f"profile {a['device']} {a['model']} {a['runtime']}, {sessions_per_day(prof):.0f} sessions/day (ASSUMED "
+            f"volume), hour value USD {hour_value(prof):.2f} (impact-hour-value); status {r['status']}"
+            + (", lower bound only (cloud redo part PENDING)" if r["lower_bound_only"] else "")
+            + f"; profile cell USD/day {_rng(r['low'], r['high'])}; " + "; ".join(parts)
+            + "; measured: excess rate and its CI (x2-evalset-tasks-real-v2-wrong-rate, x2-evalset-tasks-real-v2-ci-"
+              "units), task turns per session, wrong-turn wall time; assumed: volume, who waits (0 to full hour "
+              "value), a wrong task costs one cloud redo plus the wasted turn (time to notice not counted)")
+
+
+def ranking_v2_value(res) -> str:
+    rows, prof = res["rows"], res["profile"]
+    a = prof["assumptions"]
+    rk = v2_ranking(rows)
+    lines = []
+    for k in rk:
+        r = rows[k]
+        tag = r["status"] + (f", PENDING inputs {', '.join(r['pending'])}" if r["pending"] else "")
+        if r.get("lower_bound_only"):
+            tag += ", lower bound"
+        lines.append(f"{k} {_fmt_usd(r['usd_day']) if r['usd_day'] is not None else ('PENDING' if r['status'] == 'PENDING' else NOT_MEASURED)}"
+                     f" (range {_rng(r['low'], r['high']) if r['usd_day'] is not None else 'n/a'}; {tag})")
+    split = v2_split(rows)
+    known = [k for k in rk if rows[k]["usd_day"] is not None]
+    pend = sorted(set(x for r in rows.values() for x in r["pending"]))
+    return (f"one profile: {a['device']} {a['model']} {a['runtime']}, team {a['team_size']} x "
+            f"{a['agent_sessions_per_dev_per_day']} sessions/day, cloud {a['cloud_model']} caching on (ASSUMED volumes; "
+            f"hour value cited); ranking by main-case USD/day (time at the full hour value): {' > '.join(known)}; "
+            f"unranked: {', '.join(k for k in rk if k not in known) or 'none'}; rows: " + "; ".join(lines)
+            + "; split: " + ", ".join(f"{s} {'/'.join(ks)}" for s, ks in sorted(split.items()))
+            + f"; PENDING inputs: {', '.join(f'{p} ({V2_PENDING[p]})' for p in pend) or 'none'}")
+
+
+def compute_v2(repo=REPO) -> dict:
+    inputs = {}
+    # A PENDING input stays None: no number is read for it until its register row exists and is wired here.
+    for cid in V2_PENDING:
+        if register_has(repo, cid):
+            pass  # present in the register: wire its value in here (not yet: the row's value format is not fixed)
+    return v2_rows(repo, inputs=inputs)
+
+
 # ── docs/IMPACT.md generated block ──────────────────────────────────────────────────────────────────────────────
 
 BEGIN, END = "<!-- impact_model:begin -->", "<!-- impact_model:end -->"

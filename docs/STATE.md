@@ -394,3 +394,14 @@ Every report states status against these three checkpoints.
 - The evo-x2 queue ran dry about 2026-10-20 06:00 UTC (B5, Vulkan check, B3 v2 qwen3:14b real, window override all
   done) and idled until new work was queued this session. The scheduled sync had not run since 2026-10-19 09:40 local;
   synced by hand (52eeffa).
+
+### 2026-10-22, T2S window staging (B5 first) and impact v2 (branch, not merged)
+
+- evo-t2s window 2026-10-26 to 2026-11-08 (pending confirmation), staged only, no SSH to evo-t2s: canonical file
+  `queues/t2s_oct26_queue.json` (preflight, A5, B5 four cells, then B6); `queues/t2s_window_20261026_staged.json`
+  retired. First action at the window, on the controller: `harness/t2s_deadline.py open-window` (handover check, sync
+  widened by an expiring window file, deadline armed, sync reverted in its finally block and at the deadline). The
+  APU-SyncResults task definition was not changed. Plan: docs/T2S_WEEK_PLAN.md (update 2026-10-22), row
+  `t2s-b5-plan-hours`; pre-registration in docs/FINDINGS.md (2026-10-22).
+- Impact v2 (operator override 2026-10-21): rows `impact-v2-P1`, `impact-ranking-v2`; inputs
+  cloud-redo-cost-per-wrong-task and cost-cut-config-time are PENDING (not in the register on this branch's base).

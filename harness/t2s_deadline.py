@@ -27,6 +27,12 @@ Usage (on evo-t2s, deployed flat to C:\\apu\\ovn):
   python t2s_deadline.py arm --no-launch-after 2026-10-19T03:00:00Z --hard-deadline 2026-10-19T03:30:00Z \\
       --reason "handover to Zach 2026-10-18; resume only in the next confirmed window"
   python t2s_deadline.py status
+  python t2s_deadline.py check-handover      (on evo-t2s; the first thing a window does, exit 3 on failure)
+Usage (on the CONTROLLER, from the 2026-10-26 window on; process rule 2026-10-20):
+  py -3.12 harness/t2s_deadline.py open-window --no-launch-after <Z> --hard-deadline <Z> --reason "<who resumes>"
+  runs check-handover on evo-t2s over ssh (refuses, changing nothing, if it fails), widens the results sync to both
+  hosts with a file that expires at the hard deadline, arms the deadline on evo-t2s, waits until the hard deadline,
+  and removes the sync window file in its finally block (see open_window).
 Never reboots, never touches a scheduled task definition, never edits a queue entry other than the running one.
 """
 from __future__ import annotations
@@ -216,6 +222,113 @@ def handover(*, list_processes=real_list_processes, kill_pid=scc.real_kill_pid, 
     return record
 
 
+# ---------------------------------------------------------------- start of a window: handover check (on evo-t2s)
+def check_handover(done_record, pause, procs, mine=()) -> dict:
+    """The check that must pass first at the start of a window (docs/STATE.md 2026-10-19): the last handover wrote
+    HANDOVER_DONE.json, the queue pause is set with a reason naming who releases it, and no process of ours runs.
+    Pure: done_record (dict or None), pause (t2s_queue.is_paused() result), procs (list_processes() shape)."""
+    problems = []
+    if not done_record:
+        problems.append("HANDOVER_DONE.json missing or unreadable: the last handover did not complete")
+    elif done_record.get("record") == "t2s_deadline_handover" and done_record.get("our_processes_remaining"):
+        problems.append(f"the handover recorded our processes still running: {done_record['our_processes_remaining']}")
+    reason = (pause or {}).get("reason") or ""
+    if not pause:
+        problems.append("queue pause flag absent: the handover pause is gone, so the queue may have launched")
+    elif "resume" not in reason.lower():
+        problems.append(f"queue pause reason does not name who releases it: {reason!r}")
+    ours = [{"pid": p["pid"], "name": p["name"]} for p in procs
+            if p["pid"] not in set(mine) and (scc.is_ours_shared_machine(p) or is_our_python(p))]
+    if ours:
+        problems.append(f"processes of ours are running: {ours}")
+    return {"record": "t2s_handover_check", "ok": not problems, "problems": problems,
+            "handover_ts_utc": (done_record or {}).get("ts_utc"), "pause_reason": reason or None,
+            "our_processes": ours, "ts_utc": utc_iso()}
+
+
+def real_handover_check(done_path=None) -> dict:
+    p = Path(done_path) if done_path is not None else HANDOVER_DONE_PATH
+    try:
+        rec = json.loads(p.read_text(encoding="utf-8-sig"))
+    except Exception:
+        rec = None
+    return check_handover(rec, tq.is_paused(), real_list_processes(), real_self_chain())
+
+
+# ---------------------------------------------------------------- open a window (on the CONTROLLER)
+# Process rule (operator, 2026-10-20; docs/STATE.md): whatever temporarily enables access to a machine must disable it
+# in the same job's finally block. For an evo-t2s window the sync to evo-t2s is widened by THIS job, the one that arms
+# the handover deadline: it writes the controller's sync window file (scripts/sync_results.py SYNC_WINDOW_FILE; the
+# APU-SyncResults task keeps `--host evo-x2` and is never edited) with the hard deadline as its expiry, arms the
+# deadline on evo-t2s, waits until the hard deadline, and removes the file in its finally block. If this job dies
+# without its finally, sync_results.effective_host ignores and deletes the expired file at the deadline anyway.
+SYNC_WINDOW_ARMED_BY = "harness/t2s_deadline.py open-window"
+REMOTE_DIR = r"C:\apu\ovn"
+
+
+def write_sync_window(path, hard_deadline_utc, armed_by=SYNC_WINDOW_ARMED_BY) -> dict:
+    rec = {"host": "both", "until_utc": hard_deadline_utc, "armed_by": armed_by, "armed_ts_utc": utc_iso(),
+           "pid": os.getpid(), "release": "removed by the arming job's finally block; ignored and deleted by "
+                                          "scripts/sync_results.py once until_utc has passed"}
+    Path(path).write_text(json.dumps(rec, indent=1), encoding="utf-8")
+    return rec
+
+
+def remove_sync_window(path) -> bool:
+    try:
+        Path(path).unlink()
+        return True
+    except FileNotFoundError:
+        return False
+
+
+def open_window(no_launch_after, hard_deadline, reason, *, remote, window_file, now_fn=time.time,
+                sleep_fn=time.sleep, log=print, poll_s=TICK_INTERVAL_S) -> dict:
+    """remote(argv_tail) -> (rc, stdout) runs `<evo-t2s python> <REMOTE_DIR>\\t2s_deadline.py <argv_tail>` on evo-t2s.
+    Order: handover check (refuse on failure, nothing changed) -> widen the sync (window file) -> arm the deadline ->
+    wait until the hard deadline. finally: the sync window file is removed whatever happened."""
+    rec = build_record(no_launch_after, hard_deadline, reason, armed_by=SYNC_WINDOW_ARMED_BY)  # validates first
+    rc, out = remote(["check-handover"])
+    try:
+        chk = json.loads(out)
+    except Exception:
+        chk = {"ok": False, "problems": [f"unparseable check output (rc {rc}): {out[:300]!r}"]}
+    if rc != 0 or not chk.get("ok"):
+        log(f"open-window: refused, handover check failed: {chk.get('problems')}")
+        return {"opened": False, "handover_check": chk, "sync_widened": False}
+    result = {"opened": False, "handover_check": chk, "sync_widened": False, "armed": None, "sync_reverted": None}
+    try:
+        write_sync_window(window_file, rec["hard_deadline_utc"])
+        result["sync_widened"] = True
+        log(f"open-window: sync widened to both until {rec['hard_deadline_utc']}")
+        rc, out = remote(["arm", "--no-launch-after", no_launch_after, "--hard-deadline", hard_deadline,
+                          "--reason", reason])
+        if rc != 0:
+            raise RuntimeError(f"arming the deadline on evo-t2s failed (rc {rc}): {out[:300]}")
+        result["armed"] = json.loads(out)
+        result["opened"] = True
+        hd = tq._epoch(rec["hard_deadline_utc"])
+        while now_fn() < hd:
+            sleep_fn(max(1.0, min(poll_s, hd - now_fn())))
+        log("open-window: hard deadline reached")
+        return result
+    finally:
+        result["sync_reverted"] = remove_sync_window(window_file)
+        log(f"open-window: sync window file removed ({result['sync_reverted']}); sync back to --host evo-x2")
+
+
+def real_remote(argv_tail, timeout=120):
+    """Controller side: one hidden ssh call to evo-t2s (harness/proc_util.run_hidden: no visible console)."""
+    from proc_util import run_hidden
+    import host_config as hc
+    h = hc.HOSTS["EVO-T2S"]
+    py = h["python_exe"].replace("%USERPROFILE%", "C:\\Users\\" + h["user"])
+    remote_cmd = " ".join([f'"{py}"', f'"{REMOTE_DIR}\\t2s_deadline.py"'] + [f'"{a}"' for a in argv_tail])
+    p = run_hidden([r"C:\Windows\System32\OpenSSH\ssh.exe", "-o", "BatchMode=yes", "-o", "ConnectTimeout=30",
+                    h["ssh_host"], remote_cmd], capture_output=True, text=True, timeout=timeout)
+    return p.returncode, p.stdout
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -224,9 +337,26 @@ def main(argv=None):
     a.add_argument("--hard-deadline", required=True)
     a.add_argument("--reason", default=DEFAULT_REASON)
     sub.add_parser("status")
+    sub.add_parser("check-handover", help="on evo-t2s: the start-of-window handover check (exit 3 on failure)")
+    o = sub.add_parser("open-window", help="on the CONTROLLER: handover check, widen sync, arm, wait, revert")
+    o.add_argument("--no-launch-after", required=True)
+    o.add_argument("--hard-deadline", required=True)
+    o.add_argument("--reason", required=True)
+    o.add_argument("--window-file", default=None, help="default: scripts/sync_results.py SYNC_WINDOW_FILE")
     args = ap.parse_args(argv)
     if args.cmd == "arm":
         print(json.dumps(arm(args.no_launch_after, args.hard_deadline, args.reason), indent=1))
+    elif args.cmd == "check-handover":
+        chk = real_handover_check()
+        print(json.dumps(chk, indent=1, default=str))
+        return 0 if chk["ok"] else 3
+    elif args.cmd == "open-window":
+        wf = args.window_file
+        if wf is None:
+            wf = Path(__file__).resolve().parents[1] / ".sync_host_window.json"   # sync_results.SYNC_WINDOW_FILE
+        res = open_window(args.no_launch_after, args.hard_deadline, args.reason, remote=real_remote, window_file=wf)
+        print(json.dumps(res, indent=1, default=str))
+        return 0 if res["opened"] else 3
     else:
         d = tq.read_deadline()
         print(json.dumps({"deadline": d, "reached": tq.deadline_reached() is not None,

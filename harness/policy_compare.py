@@ -145,6 +145,13 @@ PLATFORMS = {
                 "queue": True, "models": ("llama3.1:8b",), "b1_models": (),
                 "rules_from": ("t2s_r2_validation_igpu_v1.jsonl",),
                 "server_log": r"C:\apu\ovn\ollama_serve_b5.log", "out": "t2s_policy_compare.jsonl"},
+    # B5 on the evo-t2s Intel CPU (pre-registration "B5 on evo-t2s Intel CPU and Intel iGPU", 2026-10-22): stock
+    # Ollama (no OLLAMA_IGPU_ENABLE in the job's server env), which on evo-t2s runs on the CPU and loads a 4096 default
+    # window (t2s-r2-real-cpu). Same host and output prefix as "evo-t2s" (the iGPU platform).
+    "evo-t2s-cpu": {"host": "EVO-T2S", "prefix": "t2s_", "base_env": {}, "envelope_hw": "evo-t2s", "queue": True,
+                    "models": ("llama3.1:8b", "qwen3:14b"), "b1_models": (),
+                    "rules_from": ("t2s_r2_validation_cpu_v1.jsonl",),
+                    "server_log": r"C:\apu\ovn\ollama_serve_b5_cpu.log", "out": "t2s_policy_compare_cpu.jsonl"},
     "blade": {"host": "RITZLAPTOP", "prefix": "blade_", "base_env": {}, "envelope_hw": "blade", "queue": False,
               "models": ("qwen3:8b",), "b1_models": (),
               "rules_from": ("blade_r2_validation_qwen3_8b_v1.jsonl",),
@@ -793,6 +800,182 @@ def b5_verdict(platform_rows: dict, prices=None, required=VERDICT_PLATFORMS, see
                                      f"between cloud steps (main)"}}
 
 
+# ── B5 on evo-t2s Intel CPU and Intel iGPU (pre-registration 2026-10-22) ────────────────────────────────────────
+
+T2S_SEEDS = (20260901, 20260902, 20260903, 20260904, 20260905)
+T2S_MIN_SEEDS = SEEDS                  # a cell short of 5 seeds counts only if complete on the first 3 (B5's count)
+T2S_PLATFORMS = ("evo-t2s-cpu", "evo-t2s")
+T2S_CONSTRAINED = ("evo-t2s-cpu",)     # the platform whose default window fails (t2s-r2-real-cpu: gated 5/5 silent)
+
+
+def handover_deadline_reached(platform, deps=None) -> bool:
+    """evo-x2 / evo-t2s: True once t2s_queue.deadline_reached() (queue_deadline.json armed by harness/t2s_deadline.py);
+    checked at every session boundary so the job stops cleanly before the watchdog's kill. Never on the Blade."""
+    if platform == "blade":
+        return False
+    fn = (deps or {}).get("deadline_reached")
+    if fn is None:
+        try:
+            import t2s_queue as tq
+            fn = tq.deadline_reached
+        except Exception:
+            return False
+    try:
+        v = fn()
+    except Exception:
+        return False
+    return v is not None and v is not False
+
+
+def _t2s_cells(rows, prices=None) -> dict:
+    """{model: cell} at 5 seeds; a model not complete at 5 is re-read at the first 3 (labelled seeds_used)."""
+    five = metrics_for_platform(rows, prices, seeds=T2S_SEEDS)
+    three = metrics_for_platform(rows, prices, seeds=T2S_MIN_SEEDS)
+    out = {}
+    for m, c in five.items():
+        if c["complete"]:
+            out[m] = dict(c, seeds_used=list(T2S_SEEDS))
+        elif three.get(m, {}).get("complete"):
+            out[m] = dict(three[m], seeds_used=list(T2S_MIN_SEEDS))
+        else:
+            out[m] = dict(c, seeds_used=None)
+    return out
+
+
+def router_beats_default(pol: dict) -> bool:
+    """(d) at least as good as (a) on rule pass rate and history recall, strictly better on one."""
+    d, a = pol.get(ROUTER_POLICY), pol.get("a")
+    if not d or not a:
+        return False
+    keys = ("rule_pass_rate", "history_recall")
+    if any(d.get(k) is None or a.get(k) is None for k in keys):
+        return False
+    return all(d[k] >= a[k] for k in keys) and any(d[k] > a[k] for k in keys)
+
+
+def b5_t2s_verdict(platform_rows: dict, prices=None) -> dict:
+    """Pre-registered verdict of B5 on evo-t2s (FINDINGS 2026-10-22). H-B5-T2S: where the default window fails, the
+    router is worth having. Cells (platform, model) complete at 5 seeds, or at the first 3 (labelled).
+    Supported: at least one complete constrained (CPU) cell, and in EVERY complete CPU cell (d) is on the Pareto
+    frontier and beats (a) on quality (router_beats_default). Refuted: (d) dominated in any complete cell of either
+    evo-t2s platform; or every complete CPU cell has (d) not beating (a) on quality. Inconclusive otherwise."""
+    per = {}
+    for plat in T2S_PLATFORMS:
+        rows = platform_rows.get(plat)
+        if not rows:
+            per[plat] = {"status": "not run", "cells": {}}
+            continue
+        cells = _t2s_cells(rows, prices)
+        out = {}
+        for m, c in cells.items():
+            done = c.get("seeds_used") is not None
+            e = {"complete": done, "seeds_used": c.get("seeds_used"), "problems": c["problems"]}
+            if done:
+                fr = pareto_frontier(c["policies"])
+                e.update({"frontier": fr, "router_on_frontier": ROUTER_POLICY in fr,
+                          "router_beats_default": router_beats_default(c["policies"]),
+                          "router_dominated_by": [q for q, o in c["policies"].items() if q != ROUTER_POLICY
+                                                  and dominates(o, c["policies"][ROUTER_POLICY])],
+                          "metrics": c["policies"]})
+            out[m] = e
+        per[plat] = {"status": "complete" if out and all(e["complete"] for e in out.values()) else
+                     ("partial" if any(e["complete"] for e in out.values()) else "incomplete"), "cells": out}
+    dominated = [f"{p}/{m}" for p, e in per.items() for m, c in e["cells"].items()
+                 if c.get("complete") and not c["router_on_frontier"]]
+    cpu = [(p, m, c) for p in T2S_CONSTRAINED for m, c in per.get(p, {}).get("cells", {}).items() if c.get("complete")]
+    if dominated:
+        verdict = "refuted (router dominated in " + ", ".join(dominated) + ")"
+    elif cpu and not any(c["router_beats_default"] for _p, _m, c in cpu):
+        verdict = "refuted (router does not beat the default on quality in any complete CPU cell)"
+    elif cpu and all(c["router_on_frontier"] and c["router_beats_default"] for _p, _m, c in cpu):
+        verdict = "supported (" + ", ".join(f"{p}/{m}" for p, m, _c in cpu) + ")"
+    else:
+        verdict = "inconclusive (" + ("no complete CPU cell" if not cpu else "mixed CPU cells") + ")"
+    return {"verdict": verdict, "platforms": per, "router_dominated": dominated}
+
+
+T2S_MEASURED_FILES = {"evo-t2s-cpu": {"default": "t2s_r2_real_cpu_v1.jsonl", "trim": "t2s_r2_mitigation_cpu_v1.jsonl"},
+                      "evo-t2s": {"default": "t2s_r2_real_igpu_v1.jsonl", "trim": None}}
+T2S_ASSUMED_L = {"llama3.1:8b": 131072, "qwen3:14b": 40960}   # native context; L is probed at run time
+T2S_ESTIMATE_ASSUMPTIONS = (
+    "minutes per session from MEASURED evo-t2s R2 sessions (t2s-r2-real-cpu, t2s-r2-real-igpu; CPU trim from "
+    "t2s-r2-mitigation-cpu): (a), (d), (f) = the measured default-window session median (d's cloud-proxy steps not "
+    "added); (c) = CPU: the measured trimming session median at 4096, iGPU: the default median x the evo-x2 trim "
+    "factor; (b), (g), (h) at L = native context (ASSUMED; probed at run time) = the default median x the evo-x2 ratio "
+    "of session minutes at L over the default window (x2_r2_real_v1/v1b); (e): skipped on the CPU (no GPU), alias of "
+    "(b) on the iGPU (G = L assumed); recall and window probes as in estimate_platform")
+
+
+def _t2s_measured(repo, platform) -> dict:
+    """{model: {"D": loaded default window, "default_min": median, "trim_min": median or None}} from the files."""
+    out = {}
+    for kind, name in T2S_MEASURED_FILES[platform].items():
+        if not name:
+            continue
+        rows = ag.read_rows(repo / "results" / name)
+        acc, ctx = {}, {}
+        for r in rows:
+            if r.get("record") == "r2a_turn":
+                a = acc.setdefault((r["model_id"], r["attempt_id"]), [0.0, 0])
+                a[0] += r.get("turn_wall_s") or 0.0
+                a[1] += 1
+                if r.get("loaded_context"):
+                    ctx.setdefault(r["model_id"], set()).add(r["loaded_context"])
+        by = {}
+        for (m, _a), (sec, n) in acc.items():
+            if n == TURNS:
+                by.setdefault(m, []).append(sec / 60.0)
+        for m, v in by.items():
+            e = out.setdefault(m, {"D": None, "default_min": None, "trim_min": None, "n": {}})
+            e[f"{kind}_min"] = st.median(v)
+            e["n"][kind] = len(v)
+            if kind == "default":
+                e["D"] = min(ctx.get(m) or {None})
+    return out
+
+
+def estimate_t2s(platform, models=None, seeds=T2S_SEEDS, repo=REPO) -> dict:
+    """ESTIMATED hours of B5 on an evo-t2s platform from measured evo-t2s session minutes (T2S_ESTIMATE_ASSUMPTIONS)."""
+    models = list(models or PLATFORMS["evo-t2s-cpu"]["models"])
+    meas = _t2s_measured(repo, platform)
+    x2 = _x2_session_minutes(repo)
+    mf = _mitigation_factor(repo)
+    rates = _x2_rates(repo)
+    out = {"platform": platform, "label": "ESTIMATE (not measured)", "assumptions": T2S_ESTIMATE_ASSUMPTIONS,
+           "seeds": list(seeds), "models": {}, "total_h": 0.0}
+    for m in models:
+        e = meas.get(m)
+        if not e or not e["default_min"] or not e["D"]:
+            out["models"][m] = {"total_h": None, "missing": "no measured evo-t2s default session"}
+            continue
+        D, L = e["D"], T2S_ASSUMED_L.get(m)
+        dm = e["default_min"]
+        ratio_L = (x2.get((m, L)) or 0) / x2[(m, D)] if x2.get((m, D)) and x2.get((m, L)) else None
+        big = dm * ratio_L if ratio_L else None
+        per = {"a": dm, "d": dm, "f": dm, "c": e["trim_min"] if e.get("trim_min") else dm * mf,
+               "b": big, "g": big, "h": big}
+        if platform == "evo-t2s":
+            aliases = {"e": "b"}
+        else:
+            aliases = {}
+        sess_h = sum(v or 0.0 for v in per.values()) * len(seeds) / 60.0
+        factor = dm / x2[(m, D)] if x2.get((m, D)) else 1.0
+        rec_h = 0.0
+        rate = rates.get(m) or {}
+        if rate.get("pe_rate") and L:
+            per_call = (RECALL_FILL * L) / rate["pe_rate"] + RECALL_NUM_PREDICT / (rate.get("ev_rate") or 20.0)
+            rec_h = len(RECALL_PRECISIONS) * (1 + len(RECALL_SEEDS)) * per_call / 3600.0 * factor
+        probe_h = PROBE_H_PER_MODEL_ENV * (3 + 1)
+        tot = sess_h + rec_h + probe_h
+        out["models"][m] = {"D": D, "L_assumed": L, "min_per_session": per, "aliases": aliases,
+                            "x2_ratio_L_over_D": ratio_L, "measured_n": e["n"], "sessions_h": sess_h,
+                            "recall_h": rec_h, "probe_h": probe_h, "total_h": tot,
+                            "unknown_minutes": [p for p, v in per.items() if v is None],
+                            "per_seed_h": sum(v or 0.0 for v in per.values()) / 60.0}
+        out["total_h"] += tot
+    return out
+
+
 def recall_summary(rows: list[dict]) -> dict:
     """{model: {precision: {"window", "recall_mean", "calls", "truncated"}}} from the measured b5_recall rows."""
     out = {}
@@ -1068,7 +1251,10 @@ def _minutes_at(platform, model, window, mins, repo=REPO):
 
 def estimate_platform(platform: str, models=None, seeds=SEEDS, repo=REPO, deadline_h=None) -> dict:
     """Estimated hours of the B5 job on a platform (labelled estimate). Per model: the assumed windows, the resolved
-    policies (with aliases), minutes per session per distinct policy, probe and recall allowances."""
+    policies (with aliases), minutes per session per distinct policy, probe and recall allowances. evo-t2s-cpu: from
+    measured evo-t2s session minutes (estimate_t2s)."""
+    if platform == "evo-t2s-cpu":
+        return estimate_t2s(platform, models, seeds if seeds != SEEDS else T2S_SEEDS, repo)
     models = list(models or PLATFORMS[platform]["models"])
     mins = _x2_session_minutes(repo)
     rates = _x2_rates(repo)
@@ -1567,6 +1753,10 @@ def main(argv=None, advance=True, deps=None):
                 stopped_by_deadline = True
                 log(f"deadline {args.deadline_h} h reached; no new session")
                 break
+            if handover_deadline_reached(args.platform, deps):
+                stopped_by_deadline = True
+                log("handover deadline reached (t2s_queue.deadline_reached); no new session")
+                break
             rt, _ = ensure_env(cfg["env"])
             runtime = rt or runtime
             ag.ARMS[cfg["arm_id"]] = {"num_ctx": cfg["num_ctx_sent"], "call2_tools": False, "call2_mode": CALL2}
@@ -1621,7 +1811,9 @@ def main(argv=None, advance=True, deps=None):
             report = {"platform": args.platform, "report_error": repr(e)}
         Path(str(out_path) + ".report.json").write_text(json.dumps(report, indent=1, default=str), encoding="utf-8")
         if stopped_by_deadline:
-            note = f"completed; deadline {args.deadline_h} h reached before every session ran"
+            note = (f"completed; deadline {args.deadline_h} h reached before every session ran"
+                    if args.deadline_h is not None and (time.monotonic() - t_start) / 3600.0 >= args.deadline_h
+                    else "completed; handover deadline reached before every session ran (resumable)")
         elif refused or missing:
             note = f"completed; refused: {sorted(refused)}; missing: {missing}"[:400]
         emit({"record": "run_end", "note": note, "ts_utc": utc_iso()})

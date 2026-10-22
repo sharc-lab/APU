@@ -13,6 +13,121 @@
   "staged_for": "2026-10-26..2026-11-08"
  },
  {
+  "id": "t2s_o26_window_override_methods",
+  "cmd": [
+   "C:\\Users\\sharc\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+   "window_override_methods.py",
+   "--out",
+   "results/t2s_window_override_methods_v1.jsonl",
+   "--queue"
+  ],
+  "status": "pending",
+  "note": "STAGED for the 2026-10-26 window (not loaded): A5 Ollama window override checks (0.3 h); est hours: none (no evo-t2s timing)",
+  "est_hours": null,
+  "est_basis": "none",
+  "expected_out": "results/t2s_window_override_methods_v1.jsonl",
+  "staged_for": "2026-10-26..2026-11-08",
+  "gate": {
+   "requires_done": "t2s_o26_preflight"
+  }
+ },
+ {
+  "id": "t2s_o26_b5_cpu_llama31_8b",
+  "cmd": [
+   "C:\\Users\\sharc\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+   "policy_compare.py",
+   "--platform",
+   "evo-t2s-cpu",
+   "--out",
+   "results/t2s_policy_compare_cpu_llama31_8b_v1.jsonl",
+   "--models",
+   "llama3.1:8b",
+   "--seeds",
+   "20260901,20260902,20260903,20260904,20260905"
+  ],
+  "status": "pending",
+  "note": "STAGED for the 2026-10-26 window (not loaded): B5 policies a-h, llama3.1:8b, Intel CPU (stock Ollama, default 4096), 5 seeds x 40 turns; est hours: 197.0 (measured evo-t2s sessions (ESTIMATE); scripts/t2s_window_stage.py plan)",
+  "est_hours": 197.0,
+  "est_basis": "measured evo-t2s sessions (ESTIMATE)",
+  "expected_out": "results/t2s_policy_compare_cpu_llama31_8b_v1.jsonl",
+  "staged_for": "2026-10-26..2026-11-08",
+  "gate": {
+   "requires_done": "t2s_o26_preflight"
+  }
+ },
+ {
+  "id": "t2s_o26_b5_igpu_llama31_8b",
+  "cmd": [
+   "C:\\Users\\sharc\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+   "policy_compare.py",
+   "--platform",
+   "evo-t2s",
+   "--out",
+   "results/t2s_policy_compare_igpu_llama31_8b_v1.jsonl",
+   "--models",
+   "llama3.1:8b",
+   "--seeds",
+   "20260901,20260902,20260903,20260904,20260905"
+  ],
+  "status": "pending",
+  "note": "STAGED for the 2026-10-26 window (not loaded): B5 policies a-h, llama3.1:8b, Intel iGPU (OLLAMA_IGPU_ENABLE=1, default 32768), 5 seeds x 40 turns; est hours: 142.3 (measured evo-t2s sessions (ESTIMATE); scripts/t2s_window_stage.py plan)",
+  "est_hours": 142.3,
+  "est_basis": "measured evo-t2s sessions (ESTIMATE)",
+  "expected_out": "results/t2s_policy_compare_igpu_llama31_8b_v1.jsonl",
+  "staged_for": "2026-10-26..2026-11-08",
+  "gate": {
+   "requires_done": "t2s_o26_preflight"
+  }
+ },
+ {
+  "id": "t2s_o26_b5_igpu_qwen3_14b",
+  "cmd": [
+   "C:\\Users\\sharc\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+   "policy_compare.py",
+   "--platform",
+   "evo-t2s",
+   "--out",
+   "results/t2s_policy_compare_igpu_qwen3_14b_v1.jsonl",
+   "--models",
+   "qwen3:14b",
+   "--seeds",
+   "20260901,20260902,20260903,20260904,20260905"
+  ],
+  "status": "pending",
+  "note": "STAGED for the 2026-10-26 window (not loaded): B5 policies a-h, qwen3:14b, Intel iGPU (OLLAMA_IGPU_ENABLE=1, default 32768), 5 seeds x 40 turns; est hours: 318.4 (measured evo-t2s sessions (ESTIMATE); scripts/t2s_window_stage.py plan)",
+  "est_hours": 318.4,
+  "est_basis": "measured evo-t2s sessions (ESTIMATE)",
+  "expected_out": "results/t2s_policy_compare_igpu_qwen3_14b_v1.jsonl",
+  "staged_for": "2026-10-26..2026-11-08",
+  "gate": {
+   "requires_done": "t2s_o26_preflight"
+  }
+ },
+ {
+  "id": "t2s_o26_b5_cpu_qwen3_14b",
+  "cmd": [
+   "C:\\Users\\sharc\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+   "policy_compare.py",
+   "--platform",
+   "evo-t2s-cpu",
+   "--out",
+   "results/t2s_policy_compare_cpu_qwen3_14b_v1.jsonl",
+   "--models",
+   "qwen3:14b",
+   "--seeds",
+   "20260901,20260902,20260903,20260904,20260905"
+  ],
+  "status": "pending",
+  "note": "STAGED for the 2026-10-26 window (not loaded): B5 policies a-h, qwen3:14b, Intel CPU (stock Ollama, default 4096), 5 seeds x 40 turns; est hours: 827.9 (measured evo-t2s sessions (ESTIMATE); scripts/t2s_window_stage.py plan)",
+  "est_hours": 827.9,
+  "est_basis": "measured evo-t2s sessions (ESTIMATE)",
+  "expected_out": "results/t2s_policy_compare_cpu_qwen3_14b_v1.jsonl",
+  "staged_for": "2026-10-26..2026-11-08",
+  "gate": {
+   "requires_done": "t2s_o26_preflight"
+  }
+ },
+ {
   "id": "t2s_o26_b6_model_pull",
   "cmd": [
    "C:\\Users\\sharc\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
@@ -27,25 +142,6 @@
   "est_hours": null,
   "est_basis": "none",
   "expected_out": "results/t2s_model_pull_b6_v1.jsonl",
-  "staged_for": "2026-10-26..2026-11-08",
-  "gate": {
-   "requires_done": "t2s_o26_preflight"
-  }
- },
- {
-  "id": "t2s_o26_window_override_methods",
-  "cmd": [
-   "C:\\Users\\sharc\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
-   "window_override_methods.py",
-   "--out",
-   "results/t2s_window_override_methods_v1.jsonl",
-   "--queue"
-  ],
-  "status": "pending",
-  "note": "STAGED for the 2026-10-26 window (not loaded): A5 Ollama window override checks (0.3 h); est hours: none (no evo-t2s timing)",
-  "est_hours": null,
-  "est_basis": "none",
-  "expected_out": "results/t2s_window_override_methods_v1.jsonl",
   "staged_for": "2026-10-26..2026-11-08",
   "gate": {
    "requires_done": "t2s_o26_preflight"

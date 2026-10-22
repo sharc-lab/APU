@@ -1,4 +1,4 @@
-"""queues/t2s_oct26_queue.json: staged for the requested 2026-10-26 to 2026-11-08 evo-t2s window (B6 + A5; B5 pending),
+"""queues/t2s_oct26_queue.json: staged for the requested 2026-10-26 to 2026-11-08 evo-t2s window (A5, B5, B6),
 never part of the week's queue, file equal to its builder, dry run passing. No machine, no SSH."""
 import json
 import sys
@@ -25,7 +25,11 @@ def test_oct26_is_separate_from_the_week_and_gated_on_its_own_preflight():
     assert not {it["id"] for it in o26} & {it["id"] for it in week}
     assert all(it["id"].startswith("t2s_o26_") for it in o26)
     assert "gate" not in o26[0] and all(it["gate"]["requires_done"].startswith("t2s_o26_") for it in o26[1:])
-    assert all(it["est_hours"] is None and it["est_basis"] == "none" for it in o26)
+    for it in o26:
+        if "_b5_" in it["id"]:
+            assert it["est_hours"] > 0 and it["est_basis"].endswith("(ESTIMATE)")
+        else:
+            assert it["est_hours"] is None and it["est_basis"] == "none"
 
 
 def test_oct26_b6_covers_both_models_at_4096_and_the_igpu_window():
@@ -35,7 +39,22 @@ def test_oct26_b6_covers_both_models_at_4096_and_the_igpu_window():
         assert "qwen3:32b,llama3.3:70b" in cmd and "--require-validation-gates" in cmd
     assert cpu[cpu.index("--tiers") + 1] == "ollama_ctx_4096" and "cpu_default" in cpu
     assert igpu[igpu.index("--tiers") + 1] == "ollama_default" and "igpu_enable" in igpu
-    assert "b5_policy_comparison" in wq.OCT26_PENDING
+    assert wq.OCT26_PENDING == {}
+
+
+def test_oct26_b5_entries_cover_both_platforms_and_models_before_b6():
+    o26 = wq.build_oct26()
+    ids = [it["id"] for it in o26]
+    b5 = [it for it in o26 if "_b5_" in it["id"]]
+    cells = set()
+    for it in b5:
+        c = it["cmd"]
+        assert c[1] == "policy_compare.py" and it["gate"]["requires_done"] == "t2s_o26_preflight"
+        assert c[c.index("--seeds") + 1] == "20260901,20260902,20260903,20260904,20260905"
+        cells.add((c[c.index("--platform") + 1], c[c.index("--models") + 1]))
+    assert cells == {(p, m) for p in ("evo-t2s-cpu", "evo-t2s") for m in ("llama3.1:8b", "qwen3:14b")}
+    assert max(ids.index(it["id"]) for it in b5) < min(i for i, x in enumerate(ids) if "_b6_" in x)
+    assert ids[:2] == ["t2s_o26_preflight", "t2s_o26_window_override_methods"]
 
 
 def test_t2s_r2_agent_registers_think_values_for_the_large_models():
