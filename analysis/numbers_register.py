@@ -4390,6 +4390,18 @@ def compute_impact_v2_detection_value(repo):
     return {"value": im.detection_value_text(d), "n": "1 cell" if d else "0"}
 
 
+def compute_impact_v3_detection_value_measured(repo):
+    """MEASURED detection (operator item 4): per tier of the B3 v2 real run, precision/recall (TP/FP/FN/TN) of "the task
+    turn's prompt exceeded the loaded window" for "the task ended wrong", wrong tasks missed, and cloud USD escalating
+    only flagged tasks vs all tasks at the tier's cloud redo USD per task (row cloud-redo-cost-per-wrong-task, labelled
+    by its mode). Replaces impact-v2-detection-value's borrowed precision/recall."""
+    im = _impact()
+    d = _impact_v2(repo)["rows"]["P1"].get("detection_measured")
+    if d is None:
+        return {"value": "PENDING: needs row cloud-redo-cost-per-wrong-task VERIFIED", "n": "0"}
+    return {"value": im.measured_detection_text(d), "n": f"{sum(c['n'] for c in d['tiers'].values())} task turns"}
+
+
 def compute_impact_p2(repo):
     return _impact_row(repo, "P2")
 
@@ -6913,12 +6925,21 @@ NUMBER_ENTRIES = [
                     "impact v2 P2 machine capacity",
      "compute": compute_impact_ref_machine_price, "data_files": ["results/hardware_price_evox2_20261021.json"],
      "script_function": "analysis/impact_model.py::ref_machine"},
-    {"claim_id": "impact-v2-detection-value", "description": "PROJECTION: value of detecting silent wrong tasks at "
+    {"claim_id": "impact-v2-detection-value", "description": "SUPERSEDED by impact-v3-detection-value-measured (kept "
+                    "computing for traceability, not used in docs/IMPACT.md). PROJECTION: value of detecting silent "
+                    "wrong tasks at "
                     "the v2 profile cell: cloud redo USD/day escalating every task step vs only predicted-at-risk "
                     "steps at the R2 shift predictor's measured precision/recall (and where it was measured)",
      "compute": compute_impact_v2_detection_value,
      "data_files": sorted(set(_IMPACT_V2_FILES) | {"results/x2_r2_mechanism.jsonl"}),
      "script_function": "analysis/impact_model.py::detection_projection"},
+    {"claim_id": "impact-v3-detection-value-measured", "description": "MEASURED detection on the B3 v2 real run "
+                    "(qwen3:14b, five tiers): precision, recall and TP/FP/FN/TN of 'the task turn's prompt exceeded the "
+                    "loaded window' for 'the task ended wrong', wrong tasks missed and their share, and cloud USD "
+                    "escalating only flagged tasks vs all tasks (cloud redo USD per task from "
+                    "cloud-redo-cost-per-wrong-task, labelled by its mode)",
+     "compute": compute_impact_v3_detection_value_measured, "data_files": _IMPACT_V2_FILES,
+     "script_function": "analysis/impact_model.py::measured_detection"},
     {"claim_id": "impact-v2-P2", "description": "Impact v2 P2 configuration: sessions per machine per day (default vs "
                     "fastest measured B5 setting), machines needed for the profile's sessions/day, USD/day of machines "
                     "saved (assumed 3-year life), waiting-time upper bound on the interactive share; PENDING until "

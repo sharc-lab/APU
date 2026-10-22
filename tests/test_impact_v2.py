@@ -167,3 +167,37 @@ def test_detection_projection_is_labelled_and_needs_a_redo_cost():
     assert "(measured," in im.detection_value_text(im.detection_projection(p1_live, prof, conf))
     assert im.detection_projection(im.p1_v2(REPO, prof, {"b3v2": B3}), prof, conf) is None
     assert im.detection_value_text(None).startswith("PENDING")
+
+
+def test_turn_over_window_falls_back_to_prompt_vs_loaded_context():
+    assert im.turn_over_window({"over_loaded_window": True}) is True
+    assert im.turn_over_window({"over_loaded_window": None, "final_call_prompt_tokens_calibrated": 5000,
+                                "loaded_context": 4096}) is True
+    assert im.turn_over_window({"final_call_prompt_tokens_calibrated": 4000, "loaded_context": 4096}) is False
+    assert im.turn_over_window({}) is False
+
+
+def test_confusion_and_measured_detection_usd():
+    turns = [(True, True)] * 3 + [(True, False)] * 2 + [(False, True)] + [(False, False)] * 4
+    c = im.confusion_from_turns(turns)
+    assert (c["tp"], c["fp"], c["fn"], c["tn"]) == (3, 2, 1, 4)
+    assert c["precision"] == pytest.approx(0.6) and c["recall"] == pytest.approx(0.75)
+    assert c["fn_share"] == pytest.approx(0.25)
+    assert im.confusion_from_turns([(False, False)])["precision"] is None
+    d = im.measured_detection({"ollama_ctx_4096": turns}, {"ollama_ctx_4096": 0.03}, im.CLOUD_TAG_STUB)
+    t = d["tiers"]["ollama_ctx_4096"]
+    assert t["every_usd"] == pytest.approx(10 * 0.03) and t["flagged_usd"] == pytest.approx(5 * 0.03)
+    txt = im.measured_detection_text(d)
+    assert txt.startswith("MEASURED") and "priced, not executed" in txt and "TP 3 FP 2 FN 1 TN 4" in txt
+    none = im.measured_detection({"ollama_ctx_4096": turns}, {}, im.CLOUD_TAG_STUB)
+    assert none["tiers"]["ollama_ctx_4096"]["every_usd"] is None
+
+
+def test_measured_detection_on_real_run_counts_every_task_turn():
+    turns = im.b3_v2_task_turns(REPO)
+    assert set(turns) == set(im.DETECTION_TIERS)
+    d = im.measured_detection(turns, {t: 0.03 for t in im.DETECTION_TIERS}, im.CLOUD_TAG_LIVE)
+    for t, c in d["tiers"].items():
+        assert c["n"] == len(turns[t]) and c["tp"] + c["fp"] + c["fn"] + c["tn"] == c["n"]
+    # the default window never overflows, so the predictor flags nothing there
+    assert d["tiers"]["ollama_default"]["flagged"] == 0

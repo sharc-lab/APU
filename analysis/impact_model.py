@@ -1146,7 +1146,13 @@ def v2_rows(repo=REPO, base_profile=None, inputs=None) -> dict:
     out["P2"] = p2_v2(prof, inputs.get("P2"), inputs.get("P2_machine"), bool(inputs.get("P2_fa_verified")))
     conf = inputs.get("shift_conf")
     if conf is not None:
-        out["P1"]["detection"] = detection_projection(out["P1"], prof, conf)
+        out["P1"]["detection"] = detection_projection(out["P1"], prof, conf)  # superseded by detection_measured
+    p1_in = inputs.get("P1") or {}
+    if p1_in.get("redo_usd") is not None:
+        redo = p1_in["redo_usd"]
+        redo = redo if isinstance(redo, dict) else {t: redo for t in DETECTION_TIERS}
+        out["P1"]["detection_measured"] = measured_detection(
+            inputs.get("task_turns") or b3_v2_task_turns(repo), redo, p1_in.get("redo_tag", CLOUD_TAG_STUB))
     v1 = model_rows(repo, prof, inputs=inputs.get("v1"))
     for k in ("P3", "P4", "P5", "P6", "P7"):
         r, au = v1[k], v1[k]["audit"]
@@ -1279,6 +1285,87 @@ def detection_value_text(d) -> str:
             f"value of detection USD {f(d['saved_usd_day'])}/day; where the predictor applies: {c['scope']}; assumed: "
             f"a redo of any step costs the mean redo of a wrong one, a fixed step is right after the redo (cloud "
             f"correctness not measured in stub mode)")
+
+
+# Measured detection (operator item 4, 2026-10-22): replaces the borrowed shift-predictor figure above. On the B3 v2 real
+# run itself (qwen3:14b, five tiers), the predictor "the task turn's prompt exceeded the loaded window" (the turn's
+# over_loaded_window, else final_call_prompt_tokens_calibrated > loaded_context) is scored against "the task ended
+# wrong" (end_state_ok false). USD: escalate every task turn vs only the flagged ones, each at the tier's cloud redo USD
+# per wrong task (row cloud-redo-cost-per-wrong-task, via cloud_redo_data; labelled by that row's mode).
+DETECTION_TIERS = ("ollama_default",) + B3_V2_TIERS
+
+
+def turn_over_window(r) -> bool:
+    if r.get("over_loaded_window") is not None:
+        return bool(r["over_loaded_window"])
+    p, w = r.get("final_call_prompt_tokens_calibrated"), r.get("loaded_context")
+    return p is not None and w is not None and p > w
+
+
+def confusion_from_turns(turns) -> dict:
+    """turns: [(flagged, wrong)] -> TP/FP/FN/TN, precision (None if nothing flagged), recall (None if nothing wrong)."""
+    tp = sum(1 for f, w in turns if f and w)
+    fp = sum(1 for f, w in turns if f and not w)
+    fn = sum(1 for f, w in turns if not f and w)
+    tn = sum(1 for f, w in turns if not f and not w)
+    return {"tp": tp, "fp": fp, "fn": fn, "tn": tn, "n": tp + fp + fn + tn,
+            "precision": tp / (tp + fp) if tp + fp else None, "recall": tp / (tp + fn) if tp + fn else None,
+            "fn_share": fn / (tp + fn) if tp + fn else None}
+
+
+def b3_v2_task_turns(repo=REPO) -> dict:
+    """{tier: [(over loaded window, ended wrong)]} over task turns of completed real sessions of the B3 v2 real run."""
+    sys.path.insert(0, str(Path(repo) / "harness"))
+    import x2_r2_evalset as ev
+    rows = ev.ag.read_rows(Path(repo) / B3_V2_REAL_FILE)
+    if not rows:
+        raise FileNotFoundError(Path(repo) / B3_V2_REAL_FILE)
+    att = {s["attempt_id"] for s in ev.ag.completed_sessions(rows)
+           if s.get("mode") == "real" and s["model_id"] == B3_V2_MODEL}
+    out = {}
+    for r in rows:
+        if (r.get("record") == "r2a_turn" and r.get("attempt_id") in att and r.get("item_kind") == "task"
+                and r.get("end_state_ok") is not None):
+            out.setdefault(r["arm_id"].replace("_call2_notools", ""), []).append(
+                (turn_over_window(r), r["end_state_ok"] is False))
+    return out
+
+
+def measured_detection(turns_by_tier: dict, redo_usd: dict, redo_tag: str) -> dict:
+    """Per tier: confusion of the over-window predictor for wrong tasks, and cloud USD escalating every task turn vs
+    only flagged turns (tier redo USD per task; a tier with no redo figure stays None)."""
+    out = {}
+    for t in DETECTION_TIERS:
+        if t not in turns_by_tier:
+            continue
+        c = confusion_from_turns(turns_by_tier[t])
+        u = redo_usd.get(t) if redo_usd else None
+        flagged = c["tp"] + c["fp"]
+        out[t] = dict(c, redo_usd=u, flagged=flagged,
+                      every_usd=None if u is None else c["n"] * u,
+                      flagged_usd=None if u is None else flagged * u,
+                      saved_usd=None if u is None else (c["n"] - flagged) * u)
+    return {"tiers": out, "redo_tag": redo_tag, "label": "measured detection"}
+
+
+def measured_detection_text(d) -> str:
+    def pct(v):
+        return "n/a" if v is None else f"{100 * v:.1f}%"
+
+    parts = []
+    for t, c in d["tiers"].items():
+        usd = ("USD n/a (no redo figure for the tier)" if c["redo_usd"] is None else
+               f"escalate all {c['n']} USD {c['every_usd']:.4f} vs flagged {c['flagged']} USD {c['flagged_usd']:.4f} "
+               f"(saves USD {c['saved_usd']:.4f} and leaves {c['fn']} wrong unfixed; USD {c['redo_usd']:.4f} per task)")
+        parts.append(f"{t}: TP {c['tp']} FP {c['fp']} FN {c['fn']} TN {c['tn']}, precision {pct(c['precision'])}, "
+                     f"recall {pct(c['recall'])}, wrong tasks missed {c['fn']}/{c['tp'] + c['fn']} "
+                     f"({pct(c['fn_share'])}); {usd}")
+    return ("MEASURED on the B3 v2 real run (qwen3:14b, evo-x2, x2_evalset_tasks_real_v2): predictor = the task turn's "
+            "prompt exceeded the loaded window (over_loaded_window), outcome = the task ended wrong (end_state_ok "
+            "false); per tier: " + "; ".join(parts)
+            + f"; cloud redo USD per task: tier mean of cloud-redo-cost-per-wrong-task ({d['redo_tag']}); assumed: a "
+              f"redo of any task costs the tier's mean redo of a wrong one, a fixed task is right after the redo "
+              f"(cloud correctness not measured in stub mode); USD totals are for the run's own task turns")
 
 
 def v2_ranking(rows: dict) -> list:
