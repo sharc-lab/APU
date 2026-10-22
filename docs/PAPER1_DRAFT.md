@@ -704,7 +704,7 @@ default back. This check has not yet run on NVIDIA or Intel.
 - **Figure:** none until complete.
 - **Gaps:** x2_outcome_table_v3 completion; T2S week item 5 (outcome-table subset).
 
-### 4.7 Fixes (prose draft, 2026-10-20; updated 2026-10-22; with the predictor outline kept below; 1.00 page)
+### 4.7 Fixes (prose draft, 2026-10-20; updated 2026-10-22; with the predictor prose below; 1.00 page)
 
 **Client-side trimming splits by model, on two vendors.** A client that never sends an over-length prompt should keep
 the runtime from cutting the system prompt. We pre-registered that fix: before
@@ -756,6 +756,21 @@ session against the router's 95.8% in 43.5 min <!-- b5-policy-metrics -->. For q
 router took 135.1 min and USD 0.8419 per session for no gain <!-- b5-policy-metrics -->. The refutation holds on the
 unconstrained AMD platform, whose default window is the model's native one, so no policy there faced the
 small-window regime where loss occurs; the constrained platforms are pending.
+
+**Recovering after a silent failure is costly and incomplete.** The fallback for a session that has already failed is
+to hand the whole history to a cloud model late and let it finish the task. We measured that on every wrong task of
+the protocol-check task run (Section 4.6a): a cloud model with the full client-side history fixed 167/197 (84.8%) of
+them, 95% Wilson CI [79.1%, 89.1%] <!-- cloud-redo-full-context -->, at a mean of USD 0.0227 per task
+<!-- cloud-redo-full-context -->. The same cloud model running the same tasks from the start cost a mean of USD
+0.01020 per task <!-- all-cloud-b3-cost -->, so late escalation cost more than twice a fresh cloud run (the two runs
+cover different task sets, wrong tasks over five tiers against three seeds of all tasks, so the comparison is of means,
+not matched pairs). It also cannot undo what the local model already did: of the 30 tasks still wrong, 28 needed a
+repair of state the local model's earlier actions had changed, and 2 were cloud-model errors
+<!-- cloud-redo-full-context -->. An agent's tool calls are executed, not drafted, so a late redo inherits them. The
+practical fix is to decide per device and workload at session start whether a session runs locally, which Sections
+4.4 and 4.5 make predictable from the platform and its default window, and to treat step-level escalation as a
+narrow middle case, since window overflow does not pick out the wrong steps (Section 4.7p). A measured comparison of
+routing at session start is not yet registered.
 
 #### 4.7p Predictor (prose draft, 2026-10-22)
 
