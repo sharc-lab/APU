@@ -223,12 +223,15 @@ CONFIG_TIME = ("MEASURED; evo-x2 qwen3:14b: default (a) 214.8 min per session, r
 def test_cost_lead_order_and_router_gate():
     r = reg(**{"cloud-redo-cost-per-wrong-task": REDO, "x2-evalset-tasks-real-v2-wrong-rate": WRONG,
                "cost-cut-config-time": CONFIG_TIME,
-               "impact-v2-P1": "profile evo-x2, 40 sessions/day (ASSUMED volume), x; profile cell USD/day 10.33 to 137.18",
+               "impact-v2-P1": "profile evo-x2, 40 sessions/day (ASSUMED volume), x; status mixed, cloud part priced, "
+                               "not executed; profile cell USD/day 10.33 to 137.18",
                "b5-verdict": "refuted (router dominated in evo-x2/llama3.1:8b)"})
     c = views.build_cost(r)
-    assert c["lead"]["text"] == ("Fixing a wrong answer in the cloud costs about USD 0.03; the cost is that the "
-                                 "failure is silent.")
+    assert c["lead"]["text"] == ("Fixing a wrong answer in the cloud costs about USD 0.028 (median per wrong task; "
+                                 "mean USD 0.028); the cost is that the failure is silent.")
     assert c["lead"]["label"] == views.PRICED and c["lead"]["src"] == {"register": "cloud-redo-cost-per-wrong-task"}
+    assert c["lead"]["cloud_correct"] is None  # the priced run graded nothing
+    assert any("cloud part priced, not executed" in i["text"] for i in c["items"])
     labels = [i["label"] for i in c["items"]]
     assert labels == sorted(labels, key=lambda l: views._ORDER[l])  # measured parts first
     assert labels[0] == views.MEASURED and views.PROJECTED in labels
@@ -244,6 +247,26 @@ def test_cost_lead_order_and_router_gate():
     # missing register rows: no lead number, no invented items
     empty = views.build_cost({})
     assert empty["lead"] is None and empty["items"] == []
+
+
+REDO_LIVE = ("mode executed; model claude-sonnet-5-5 (prices.json), prompt caching on (cold cache per task); USD per wrong "
+             "task mean $0.0201, median $0.0122, total $3.9520 (all input uncached: $13.8989); per tier: ollama_default "
+             "n=17 mean $0.0364 median $0.0297 total $0.6193; local regrade reproduces end_state_ok false for 197/197 "
+             "(100.0%); cloud correct 79/197 (40.1%), mean 6.89 s per task")
+RANK = ("one profile: x; ranking by main-case USD/day (P2: machine capacity; the other rows: time at the full hour "
+        "value; a PENDING row is not ranked): P1 > P5 > P3 > P4; unranked: P2, P6, P7")
+
+
+def test_cost_lead_from_executed_redo():
+    c = views.build_cost(reg(**{"cloud-redo-cost-per-wrong-task": REDO_LIVE, "impact-ranking-v2": RANK}))
+    L = c["lead"]
+    assert L["text"] == ("Fixing a wrong answer in the cloud costs about USD 0.012 (median per wrong task; mean USD "
+                         "0.020); the cost is that the failure is silent.")
+    assert L["label"] == views.MEASURED and L["statistic"] == "median" and L["executed"] is True
+    assert (L["cloud_correct"], L["cloud_graded"], L["cloud_correct_pct"], L["seconds_mean"]) == (79, 197, 40.1, 6.89)
+    fixed = next(i for i in c["items"] if i["what"] == "Did the cloud fix them?")
+    assert "fixed 79 of 197 (40.1%)" in fixed["text"] and fixed["label"] == views.MEASURED
+    assert any(i["text"] == "P1 > P5 > P3 > P4" for i in c["items"])
 
 
 def test_cost_docs_absent_then_present(tmp_path):
@@ -305,17 +328,44 @@ def test_escalation_task_snapshot(app):
     t = get(app, "/api/escalation")["task"]
     assert t["available"] and t["tier"] == "ollama_ctx_4096" and t["local"]["end_state_ok"] is False
     assert t["local"]["any_http_error"] is False  # the wrong answer came back as a normal answer
-    assert t["priced"]["label"] == "priced, not executed" and t["priced"]["usd"] > 0
-    assert t["priced"]["src"]["file"] == "results/cloud_redo_v1.jsonl" and t["priced"]["src"]["line"]
+    rd = t["redo"]
+    assert rd["usd"] > 0 and rd["src"]["file"] == "results/cloud_redo_v1.jsonl" and rd["src"]["line"]
+    # the label follows the redo file: measured once it ran on the cloud, priced before that
+    assert rd["label"] == ("measured" if rd["mode"] == "executed" else "priced, not executed")
+    if rd["mode"] == "executed":
+        assert rd["seconds"] is not None and rd["cloud_end_state_ok"] in (True, False)
+
+
+STUB_MODES = ("recorded redo", "priced, not executed")
 
 
 def test_escalation_stub_when_live_off(app, tmp_path):
     rec = []
     e = make_escalator(app, tmp_path, fake_completion([], rec), env_live=False)
     r = e.run()
-    assert r["mode"] == "priced, not executed" and r["label"] == "priced, not executed"
-    assert r["usd"] == app.cache.escalation["priced"]["usd"] and r["seconds"] is None and r["answer"] is None
+    rd = app.cache.escalation["redo"]
+    assert r["mode"] in STUB_MODES and r["label"] == rd["label"] and "live calls are off" in r["reason"]
+    assert r["usd"] == rd["usd"] and r["usd_src"] == rd["src"]
+    if rd["mode"] == "executed":
+        assert r["seconds"] == rd["seconds"] and r["cloud_end_state_ok"] == rd["cloud_end_state_ok"]
+    else:
+        assert r["seconds"] is None and r["answer"] is None
     assert rec == [] and not (tmp_path / "ledger.jsonl").exists()
+
+
+def test_escalation_stub_priced_vs_executed_redo(app, tmp_path):
+    from demo.dashboard import escalate
+    base = dict(app.cache.escalation)
+    priced = escalate.Escalator(dict(base, redo={"mode": "priced_not_executed", "label": "priced, not executed",
+                                                 "usd": 0.01, "seconds": None, "src": {"file": "f", "line": 1}}),
+                                ledger=tmp_path / "l.jsonl", env={}).run()
+    assert priced["mode"] == "priced, not executed" and priced["seconds"] is None and priced["cloud_end_state_ok"] is None
+    done = escalate.Escalator(dict(base, redo={"mode": "executed", "label": "measured", "usd": 0.012, "seconds": 4.8,
+                                               "cloud_end_state_ok": True, "cloud_final_text": "ok",
+                                               "src": {"file": "f", "line": 2}}),
+                              ledger=tmp_path / "l.jsonl", env={}).run()
+    assert done["mode"] == "recorded redo" and done["label"] == "measured"
+    assert (done["usd"], done["seconds"], done["cloud_end_state_ok"], done["answer"]) == (0.012, 4.8, True, "ok")
 
 
 def test_escalation_one_live_call_then_stub(app, tmp_path):
@@ -332,7 +382,7 @@ def test_escalation_one_live_call_then_stub(app, tmp_path):
     assert FAKE_KEY not in ledger and FAKE_KEY not in json.dumps(r)
     assert r["ledger_total_usd"] == pytest.approx(r["usd"]) and r["cap_usd"] == 10.0
     again = e.run()  # one live call per demo run
-    assert again["mode"] == "priced, not executed" and "used" in again["reason"] and len(rec) == 1
+    assert again["mode"] in STUB_MODES and "used" in again["reason"] and len(rec) == 1
 
 
 def test_escalation_failure_falls_back_and_scrubs_key(app, tmp_path):
@@ -342,7 +392,7 @@ def test_escalation_failure_falls_back_and_scrubs_key(app, tmp_path):
     e = make_escalator(app, tmp_path, boom)
     e.env = {escalate.ENV_LIVE: "1", "ANTHROPIC_API_KEY": FAKE_KEY}
     r = e.run()
-    assert r["mode"] == "priced, not executed" and "live call failed" in r["reason"]
+    assert r["mode"] in STUB_MODES and "live call failed" in r["reason"]
     assert FAKE_KEY not in json.dumps(r) and "[redacted]" in r["reason"]
 
 
@@ -356,7 +406,7 @@ def test_escalation_cap_and_endpoint(app, tmp_path):
                                                                          env_live=False))
     assert other.handle("GET", "/api/escalate").status == 405
     r = other.handle("POST", "/api/escalate")
-    assert r.status == 200 and r.json()["mode"] == "priced, not executed"
+    assert r.status == 200 and r.json()["mode"] in STUB_MODES
     s = get(other, "/api/escalation")["status"]
     assert s["live_requested"] is False and s["cap_usd"] == 10.0 and "key" not in json.dumps(s).replace("key_present", "")
 
@@ -386,7 +436,10 @@ def test_views_js_renders_every_view(app, tmp_path):
     out = json.loads(r.stdout.strip().splitlines()[-1])
     assert all(not v.startswith("Error") and v for v in out.values()), out
     assert "4096" in out["#silent-body"] and "32768" in out["#silent-body"]
-    assert "Fixing a wrong answer in the cloud costs about USD 0.03" in out["#cost-body"]
+    lead = get(app, "/api/cost")["lead"]
+    assert lead["text"] in out["#cost-body"]
+    if lead["cloud_correct"] is not None:
+        assert f"{lead['cloud_correct']} of {lead['cloud_graded']}" in out["#cost-body"]
     assert "not shown" in out["#cost-body"]
     assert "KV cache precision" in out["#device-body"]
     assert "USD 0.0174" in out["#esc-result"] and "14.0 s" in out["#esc-result"]

@@ -56,17 +56,22 @@
    "line": 488
   }
  },
- "priced": {
-  "usd": 0.0137275,
-  "usd_all_uncached": 0.01972,
-  "input_tokens": 8895,
-  "output_tokens": 193,
-  "label": "priced, not executed",
+ "redo": {
+  "mode": "executed",
+  "label": "measured",
+  "usd": 0.0121742,
+  "usd_all_uncached": 0.034673999999999996,
+  "input_tokens": 15627,
+  "output_tokens": 342,
+  "seconds": 4.821338200010359,
+  "n_calls": 2,
+  "cloud_end_state_ok": true,
+  "cloud_final_text": "{\"answer\": \"'Team retro' is booked for 2026-12-22 at 11:00 for 50 minutes, which is your default meeting length (event ID EV-909). The value recorded for ALPHA-CACHE is VAL-JNYZ3V. SC-LA3Y0M08\", \"source\": \"create_event result; ALPHA-CACHE recalled from the session start message\"}",
   "register_id": "cloud-redo-cost-per-wrong-task",
   "src": {
    "file": "results/cloud_redo_v1.jsonl",
-   "line": 91
+   "line": 92
   }
  },
- "selection": "tier ollama_ctx_4096, state-changing task with a writes-only reference (one call is gradable), smallest prompt in the priced redo file"
+ "selection": "tier ollama_ctx_4096, state-changing task with a writes-only reference (one call is gradable), smallest local prompt among the redo file's wrong tasks"
 }

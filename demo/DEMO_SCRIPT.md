@@ -17,7 +17,8 @@ day: the screen is rebuilt from the register, this file is not.
    py -3.12 -m pytest tests/test_dashboard.py tests/test_dashboard_views.py -q
    ```
 
-2. Start the server. Stub only (no cloud call, view D shows "priced, not executed"):
+2. Start the server. Stub only (no cloud call; view D shows this task's recorded cloud redo from
+   results/cloud_redo_v1.jsonl, labelled measured since that run executed):
 
    ```
    py -3.12 -m demo.dashboard
@@ -87,14 +88,16 @@ Say:
 Click: nothing; scroll to C.
 
 Say:
-- Read the lead line exactly: "Fixing a wrong answer in the cloud costs about USD 0.03; the cost is that the failure is
-  silent." Label: priced, not executed. Row cloud-redo-cost-per-wrong-task (mean USD 0.0283 over 197 wrong tasks,
-  claude-sonnet-5-5, priced from the local run's own token counts; cloud correctness and seconds not measured in that
-  run).
+- Read the lead line exactly as the screen shows it. At commit time: "Fixing a wrong answer in the cloud costs about
+  USD 0.012 (median per wrong task; mean USD 0.020); the cost is that the failure is silent." Label: measured. Row
+  cloud-redo-cost-per-wrong-task: all 197 wrong tasks re-run on claude-sonnet-5-5 (mode executed), median USD 0.0122,
+  mean USD 0.0201, mean 6.89 s per task. Say "median" when you say the number.
+- Point at the tile beside it: "And the cloud fixed 79 of 197, 40.1%, graded by the same checker. Escalating is cheap,
+  but it is not a guaranteed fix." Measured, same row.
 - "Measured first: how often it is wrong and silent, and the time the right setting saves (37.1 minutes per session for
   llama3.1:8b, 139.4 for qwen3:14b)." Measured, rows x2-evalset-tasks-real-v2-wrong-rate, cost-cut-config-time.
-- "Then the projections, which depend on an assumed team: USD 10.33 to 137.18 per day at 40 sessions a day." Label:
-  projected, row impact-v2-P1. Say "assumed volume" every time.
+- "Then the projections, which depend on an assumed team: USD 5.47 to 132.31 per day at 40 sessions a day." Label:
+  projected (cloud part measured, volume assumed), row impact-v2-P1. Say "assumed volume" every time.
 - Router: "We do not show a router saving. Our own comparison found the router dominated on evo-x2." Row b5-verdict:
   refuted.
 - Cost documents: docs/IMPACT.md is quoted verbatim. docs/OCT29_COST_SUMMARY.md shows "not present yet" until it lands;
@@ -108,13 +111,17 @@ Say, before clicking:
 - "This is one real wrong answer from the qwen3:14b run at a 4096 window: book a meeting with the default length from
   the standing instructions. The local model booked 60 minutes; the instructions say 50. HTTP 200, no error." Measured,
   results/x2_evalset_tasks_real_v2.jsonl (the line is one click away).
-- "Priced before any call: USD 0.0137 for this task with caching." Priced, not executed, results/cloud_redo_v1.jsonl.
+- Right card, before any click: "In the cloud redo run this exact task cost USD 0.0122, took 4.8 s, and was graded
+  correct: 50 minutes." Measured, results/cloud_redo_v1.jsonl (the line is one click away). Note that only 79 of 197
+  were fixed (view C); this one happens to be one of them.
 
 After clicking, read the three tiles:
 - Live (label measured): "The cloud answer, what it cost, how long it took, and whether the same grader marks it
-  correct." This is one call, n = 1: say "one call", not "the cloud fixes these".
-- Stub (label priced, not executed): read the reason line ("live calls are off", "no key", or the provider error) and
-  the priced USD. Seconds and correctness show "not measured". That is the expected fallback, not a failure of the demo.
+  correct." This is one call, n = 1, with tools offered and no tool round trips: say "one call", not "the cloud fixes
+  these".
+- Not sent live (label measured, "recorded redo"): read the reason line ("live calls are off", "no key", or the
+  provider error); the tiles then show the recorded redo of this task (USD, seconds, graded result). That is the
+  expected fallback, not a failure of the demo.
 
 ## 4:45 to 5:00, close
 
@@ -136,8 +143,9 @@ show it only where we measured it, and fixing one answer in the cloud is cheap. 
 | evo-t2s CPU qwen3:14b: no setting holds the rules | measured (what failed); setting not measured | t2s-r2-real-cpu, t2s-r2-mitigation-cpu |
 | Blade: every setting | not measured | none |
 | 5% timeout floor exclusions | measured | x2-v3-usability |
-| About USD 0.03 to fix a wrong answer in the cloud | priced, not executed | cloud-redo-cost-per-wrong-task |
-| USD 10.33 to 137.18 per day for one team | projected (assumed volume) | impact-v2-P1 |
+| About USD 0.012 (median; mean USD 0.020) to fix a wrong answer in the cloud | measured (executed redo) | cloud-redo-cost-per-wrong-task |
+| The cloud fixed 79 of 197 (40.1%) of the wrong tasks | measured | cloud-redo-cost-per-wrong-task |
+| USD 5.47 to 132.31 per day for one team | projected (assumed volume; cloud part measured) | impact-v2-P1 |
 | Router savings | not shown (b5-verdict refuted) | b5-verdict |
 | View D live answer, USD, seconds, graded result | measured, n = 1, this run only | demo/ledger/cloud_ledger_demo.jsonl (not committed) |
-| View D stub USD | priced, not executed | results/cloud_redo_v1.jsonl |
+| View D recorded redo of the task (USD 0.0122, 4.8 s, correct) | measured | results/cloud_redo_v1.jsonl |

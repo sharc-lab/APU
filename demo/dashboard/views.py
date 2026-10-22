@@ -163,9 +163,15 @@ def parse_cloud_redo(value: str) -> dict | None:
     model = re.search(r"model ([\w.-]+)", value)
     tiers = {t[1]: {"n": int(t[2]), "mean_usd": float(t[3]), "median_usd": float(t[4])} for t in re.finditer(
         r"(ollama_default|ollama_ctx_\d+(?:_numkeep)?) n=(\d+) mean \$([\d.]+) median \$([\d.]+)", value)}
+    mode = re.search(r"mode (executed|priced, not executed)", value)
+    ok = re.search(r"cloud correct (\d+)/(\d+) \(([\d.]+)%\)", value)
+    secs = re.search(r"mean ([\d.]+) s per task", value)
+    executed = bool(mode) and mode[1] == "executed"
     return {"mean_usd": float(m["mean"]), "median_usd": float(m["med"]), "total_usd": float(m["tot"]),
-            "model": model[1] if model else None, "per_tier": tiers,
-            "mode_priced_not_executed": "priced, not executed" in value}
+            "model": model[1] if model else None, "per_tier": tiers, "executed": executed,
+            "mode_priced_not_executed": not executed,
+            "cloud_correct": int(ok[1]) if ok else None, "cloud_graded": int(ok[2]) if ok else None,
+            "cloud_correct_pct": float(ok[3]) if ok else None, "seconds_mean": float(secs[1]) if secs else None}
 
 
 def b5_verdict(register: dict) -> str | None:
@@ -593,6 +599,7 @@ def device_recommend(dv: dict, device: str, model: str, workload: str, points: l
 # ── view 3: cost panel ─────────────────────────────────────────────────────────────────────────────────
 
 P1_LEAD = "Fixing a wrong answer in the cloud costs about USD {usd}; the cost is that the failure is silent."
+# The figure in P1_LEAD is filled from register row cloud-redo-cost-per-wrong-task at build time, never typed here.
 _ORDER = {MEASURED: 0, PRICED: 1, SIMULATED: 2, PROJECTED: 3, NOT_MEASURED: 4}
 
 
@@ -619,10 +626,15 @@ def build_cost(register: dict) -> dict:
     lead = None
     if redo:
         redo_label = PRICED if redo["mode_priced_not_executed"] else MEASURED
-        lead = {"text": P1_LEAD.format(usd=f"{round(redo['mean_usd'], 2):.2f}"), "label": redo_label,
-                "src": reg_src("cloud-redo-cost-per-wrong-task"), "usd_mean": redo["mean_usd"],
+        # The median per wrong task, with the mean beside it; both read from the row.
+        lead = {"text": P1_LEAD.format(usd=f"{redo['median_usd']:.3f} (median per wrong task; mean "
+                                           f"USD {redo['mean_usd']:.3f})"), "label": redo_label,
+                "statistic": "median", "src": reg_src("cloud-redo-cost-per-wrong-task"), "usd_mean": redo["mean_usd"],
                 "usd_median": redo["median_usd"], "model": redo["model"], "per_tier": redo["per_tier"],
-                "n": sum(t["n"] for t in redo["per_tier"].values()), "total_usd": redo["total_usd"]}
+                "n": sum(t["n"] for t in redo["per_tier"].values()), "total_usd": redo["total_usd"],
+                "executed": redo["executed"], "cloud_correct": redo["cloud_correct"],
+                "cloud_graded": redo["cloud_graded"], "cloud_correct_pct": redo["cloud_correct_pct"],
+                "seconds_mean": redo["seconds_mean"]}
     tiers = parse_wrong_rate(val("x2-evalset-tasks-real-v2-wrong-rate"))
     if tiers:
         lo, hi = min(tiers, key=lambda t: t["pct"]), max(tiers, key=lambda t: t["pct"])
@@ -643,20 +655,27 @@ def build_cost(register: dict) -> dict:
                       "text": f"USD {redo['mean_usd']:.4f} mean, USD {redo['median_usd']:.4f} median per wrong task "
                               f"on {redo['model']} ({lead['n']} tasks, USD {redo['total_usd']:.2f} in all)",
                       "label": lead["label"], "src": reg_src("cloud-redo-cost-per-wrong-task")})
+        if redo.get("cloud_correct") is not None:
+            items.append({"what": "Did the cloud fix them?",
+                          "text": f"{redo['model']} fixed {redo['cloud_correct']} of {redo['cloud_graded']} "
+                                  f"({redo['cloud_correct_pct']:.1f}%) of these wrong tasks, graded by the same "
+                                  f"end-state checker" + (f"; mean {redo['seconds_mean']:.2f} s per task"
+                                                          if redo.get("seconds_mean") is not None else ""),
+                          "label": lead["label"], "src": reg_src("cloud-redo-cost-per-wrong-task")})
     m = re.search(r"per session: re-sent history ([\d,]+) tok, USD ([\d.]+) caching on, ([\d.]+) no caching",
                   val("impact-P3"))
     if m:
         items.append({"what": "Re-sending the history to the cloud, per session",
                       "text": f"{m[1]} tokens re-sent; USD {m[2]} with caching, USD {m[3]} without",
                       "label": PRICED, "src": reg_src("impact-P3")})
-    m = re.search(r"(\d+) sessions/day \(ASSUMED volume\).*?profile cell USD/day ([\d.,]+) to ([\d.,]+)",
-                  val("impact-v2-P1"))
+    m = re.search(r"(\d+) sessions/day \(ASSUMED volume\).*?cloud part ([a-z, ]+?); profile cell USD/day "
+                  r"([\d.,]+) to ([\d.,]+)", val("impact-v2-P1"))
     if m:
         items.append({"what": "Wrong answers per day for one stated team (P1)",
-                      "text": f"USD {m[2]} to {m[3]} per day at {m[1]} sessions/day (assumed volume; time valued "
-                              f"0 to the full hour value; cloud part priced, not executed)",
+                      "text": f"USD {m[3]} to {m[4]} per day at {m[1]} sessions/day (assumed volume; time valued "
+                              f"0 to the full hour value; cloud part {m[2]})",
                       "label": PROJECTED, "src": reg_src("impact-v2-P1")})
-    m = re.search(r"ranking by main-case USD/day[^:]*: ([P\d >]+);", val("impact-ranking-v2"))
+    m = re.search(r"ranking by main-case USD/day(?: \([^)]*\))?: ([P\d >]+);", val("impact-ranking-v2"))
     if m:
         items.append({"what": "Ranking of the problems by cost (one assumed profile)", "text": m[1].strip(),
                       "label": PROJECTED, "src": reg_src("impact-ranking-v2")})

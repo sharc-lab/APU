@@ -1169,7 +1169,7 @@
  "status": {
   "b5-policy-metrics": "VERIFIED",
   "b5-kv-recall": "VERIFIED",
-  "b5-fa-control": "PENDING",
+  "b5-fa-control": "VERIFIED",
   "cost-cut-config-time": "VERIFIED",
   "R2-v1b-gated-per-model": "VERIFIED",
   "x2-evalset-tasks-real-v2-wrong-rate": "VERIFIED",
