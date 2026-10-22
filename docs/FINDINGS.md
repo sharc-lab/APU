@@ -4974,3 +4974,63 @@ uncapped window (a conservative stand-in for a frontier cloud model, as in B5), 
 reason (the proxy runs full-history calls). Five seeds per cell; point means, no tolerance (B5's rule). One machine and
 runtime. Duration: ESTIMATEs in register row `x2-queue-fill-1022-hours` (R2 v1/v1b session times at N, B5's router
 sessions). Each job calls tq.advance() on exit and sets no pause.
+
+## PRE-REGISTRATION: qwen3-32b spill point and spill cost on evo-x2 between n_ctx 20480 and 40960 (x2_mx2_qwen3_32b_spill_sweep) (2026-10-22, NOT YET RUN)
+
+**Status:** PRE-REGISTRATION, written and committed before the job is deployed or queued. No data for it exists. The
+harness (`harness/mx2_qwen32b_spill_sweep.py`, tests on synthetic rows in `tests/test_mx2_qwen32b_spill_sweep.py`) is
+committed with this text. The MX2 pre-registration (2026-10-02) and its correction (2026-10-06) are not edited.
+
+**Gap.** Register row `fh1-amd-boundary-qwen3-32b` (commit 2a9e338 on a branch not yet merged into main, so the row is
+not in main's register at the time of writing; pasted from that commit): "MEASURED: largest unclamped no-spill n_ctx
+20480 (validation); no unclamped spill point measured, so no spill cost" and "CLAMPED req 290000 served 40960
+[validation, n=3]: SPILL". So for qwen3-32b on evo-x2 a spill exists at the served 40960 but its onset, and its cost
+against a no-spill point at an unclamped request, were never measured. The FH1 AMD panel needs both.
+
+**Job.** Queue id `x2_mx2_qwen3_32b_spill_sweep`, output `results/x2_mx2_qwen3_32b_spill_sweep.jsonl`, deployed to a
+side directory `C:\apu\ovn\spill32` and importing `mx2_validation`, `llama_server`, `server_guard` and `t2s_lab` from
+`C:\apu\ovn` (their blobs are recorded in run_start). Server path and flags as MX2's regime points and
+`mx2_spill_stats`: llama-server b10970 (`C:\apu\bin\llama-b10970\llama-server.exe`), Vulkan, the qwen3-32b Q4_K_M
+GGUF of `mx2_validation.GGUF_PATHS`, `LlamaServerConfig(n_gpu_layers=99, backend vulkan, reasoning_budget=0)` (so
+`-ngl 99 -np 1 --no-context-shift --reasoning-format deepseek --reasoning-budget 0`), the fixed MX2 prompt (about 2048
+tokens) and n_predict 128, the per-process GPU dedicated and shared usage counters after each call
+(`mx2_validation.query_gpu_process_memory`), and the MX2 spill threshold (`SPILL_SHARED_DELTA_THRESHOLD_MIB`, 1024 MiB).
+- **Points.** Grid 20480, 24576, 28672, 32768, 36864, 40960 (every request at or below 40960, the served value MX2
+  saw for a far larger request, so no request is expected to be clamped and no YaRN-scaled context beyond the
+  trained one is requested). Then, if the first spilling grid point G is above 20480, three refinement points
+  G - 3072, G - 2048, G - 1024, ascending. At most 9 points.
+- **Per point:** its own server start on its own port (58411; MX2 used 58399), the stale-server guard before the start
+  (`assert_port_free`; a listener stops the job), after the start (`assert_server_matches`: model path, n_ctx, one
+  slot, -ngl 99 from the command line) and before every request (`RequestGuard`: the listening PID must be the one
+  started, else the point is stopped); then **1 warm-up + 5 measured calls** (repo statistics convention). Each call
+  starts with a distinct line ("Request k.") so the server's prompt cache cannot reuse the previous call's prompt.
+- Before the first start the job refuses if Ollama reports any loaded model (GPU memory would not be free).
+- Statistics: means with 95% t intervals over the 5 measured calls of a point.
+
+**Definitions, fixed now** (register row `fh1-amd-qwen3-32b-spill-sweep`, PENDING until the file is synced).
+- **Served n_ctx** is `n_ctx_slot` from the server log, checked against `/props`. A point whose served value differs
+  from its request is **clamped**: reported, never counted as spill or no-spill.
+- **Baseline**: the median measured-call shared usage at 20480 in this run.
+- A point **spills** when it is not clamped and its median measured-call shared usage exceeds the baseline by more
+  than 1024 MiB (MX2's threshold); otherwise it is a **no-spill** point.
+- **Spill point**: the smallest unclamped requested n_ctx that spills (resolution 1024 after refinement). **Last
+  no-spill point**: the largest unclamped no-spill n_ctx below it.
+- **Spill cost**: decode tok/s and TTFT at the spill point against the last no-spill point: both means with 95% CIs,
+  their ratio, and a Welch 95% CI of the difference (spill minus no-spill). Reading per measure: "spill cost shown" if
+  that CI excludes 0 in the worse direction (decode lower, TTFT higher); "faster after the spill point" if it excludes
+  0 the other way; otherwise "no spill cost shown".
+- If no point spills, the row reads "no unclamped spill point up to 40960" and no cost is computed; if 20480 itself
+  shows any problem (not started, clamped), nothing is read.
+Also reported, not read: dedicated usage and the logged model, KV and compute buffers per point (the device-local
+heap line is MX2's), prefill tok/s, and the shared-usage delta per point.
+
+**Validity (mechanical).** run_end present; the baseline point started, unclamped, with 5 measured calls; every
+counted point has 5 measured calls with counter readings; no guard failure at a counted point.
+
+**Known limits, stated before the run.** One model, one machine, one build; KV type and flash attention at the server
+defaults (LlamaServerSession passes no -ctk or -fa; the MX2 regime points' configuration, not the MX2 crash-repro
+command line); five
+calls per point with a fixed 2048-token prompt, so the cost is for that request size; the shared-usage counter is
+Windows' per-process GPU counter (the 2026-10-02 MX2 note explains why vulkaninfo cannot see another process's
+spill). Duration: an ESTIMATE in register row `x2-queue-fill-1022-hours` from the MX2 qwen3-32b point times. The job
+calls tq.advance() on exit and sets no pause.
