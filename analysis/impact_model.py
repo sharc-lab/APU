@@ -39,6 +39,7 @@ and retries, P7 guardrail removal. A cost whose per-event input is not measured 
 
 Usage: py -3.12 analysis/impact_model.py            prints the profile table
        py -3.12 analysis/impact_model.py --write    also rewrites docs/IMPACT.md's generated block
+       py -3.12 analysis/impact_model.py --write-hybrid   rewrites only the hybrid savings block (row hybrid-savings-v1)
 """
 from __future__ import annotations
 
@@ -1634,8 +1635,286 @@ def write_doc(repo=REPO, block=None):
     path.write_text(text[:i] + block + text[j:], encoding="utf-8")
 
 
+# ── Hybrid savings v1 (operator item 3, 2026-10-21 22:30; framing per later decisions) ─────────────────────────────
+# Savings are measured against ALL-CLOUD at matched quality, per device and model, on the 30 B3 v2 tasks. Inputs, each
+# read only when its register row is VERIFIED, from the same data functions the rows use:
+#   all-cloud quality and USD per (seed, task): all-cloud-b3-quality / all-cloud-b3-cost (results/all_cloud_b3_v1.jsonl)
+#   local outcome and the window-overflow flag per (tier, seed, task): x2-evalset-tasks-real-v2-wrong-rate and
+#     impact-v3-detection-value-measured (results/x2_evalset_tasks_real_v2.jsonl, qwen3:14b, evo-x2)
+#   escalation cost per escalated task: cloud-redo-full-context when VERIFIED and its run finished unstopped; else the
+#     all-cloud per-task cost of the same task at the same cloud tier, labelled INTERIM. results/cloud_redo_v1.jsonl
+#     (cloud-redo-cost-per-wrong-task) is never used here: that run is a broken-protocol run (cloud redo diagnosis).
+# Matching uses only the seeds both runs share (all-cloud has 3 seeds, the local run 5).
+HYBRID_ROW = "hybrid-savings-v1"
+HYBRID_VOLUMES = (100, 1000, 10000)     # agent tasks/day: a stated parameter range, not a claim
+DAYS_PER_MONTH = 30
+HYBRID_REQUIRED = ("all-cloud-b3-quality", "all-cloud-b3-cost", "x2-evalset-tasks-real-v2-wrong-rate",
+                   "impact-v3-detection-value-measured")
+HYBRID_POLICIES = (("all_cloud", "all-cloud (reference)"), ("naive_local", "naive local"),
+                   ("hybrid_flag", "hybrid: escalate window-overflow flagged tasks"),
+                   ("hybrid_perfect", "hybrid: escalate every wrong task (perfect detector, UPPER BOUND)"))
+INTERIM_ESC = "interim: all-cloud per-task cost, full-history redo pending"
+HYBRID_ALL_TIERS = ("ollama_default",) + B3_V2_TIERS
+HYB_BEGIN, HYB_END = "<!-- hybrid_savings:begin -->", "<!-- hybrid_savings:end -->"
+
+
+def all_cloud_task_outcomes(repo=REPO) -> dict:
+    """{"seeds": [...], "models": {model: {(seed, task_id): (end_state_ok, usd)}}} from the all-cloud B3 run's graded
+    task turns (the turns scripts/all_cloud_b3.py::summarize counts)."""
+    import numbers_register as nr
+    d = nr.all_cloud_b3_data(Path(repo))
+    rows = d["ac"].CR.load_rows(Path(repo) / nr.ALL_CLOUD_B3_V1)
+    out = {}
+    for r in rows:
+        if r.get("record") == "r2a_turn" and r.get("item_kind") == "task" and r.get("end_state_ok") is not None:
+            k = (r["seed"], r["task_id"])
+            m = out.setdefault(r["model_id"], {})
+            if k in m:
+                raise ValueError(f"duplicate all-cloud task turn {r['model_id']} {k}")
+            m[k] = (bool(r["end_state_ok"]), float(r["usd"]))
+    return {"seeds": list(d["start"]["seeds"]), "models": out}
+
+
+def b3_v2_task_outcomes(repo=REPO) -> dict:
+    """{tier: {(seed, task_id): (over loaded window, ended wrong)}} over task turns of completed real qwen3:14b
+    sessions of the B3 v2 real run (the turns b3_v2_task_turns scores)."""
+    sys.path.insert(0, str(Path(repo) / "harness"))
+    import x2_r2_evalset as ev
+    rows = ev.ag.read_rows(Path(repo) / B3_V2_REAL_FILE)
+    if not rows:
+        raise FileNotFoundError(Path(repo) / B3_V2_REAL_FILE)
+    att = {s["attempt_id"] for s in ev.ag.completed_sessions(rows)
+           if s.get("mode") == "real" and s["model_id"] == B3_V2_MODEL}
+    out = {}
+    for r in rows:
+        if (r.get("record") == "r2a_turn" and r.get("attempt_id") in att and r.get("item_kind") == "task"
+                and r.get("end_state_ok") is not None):
+            t = out.setdefault(r["arm_id"].replace("_call2_notools", ""), {})
+            k = (r["seed"], r["task_id"])
+            if k in t:
+                raise ValueError(f"duplicate local task turn {r['arm_id']} {k}")
+            t[k] = (turn_over_window(r), r["end_state_ok"] is False)
+    return out
+
+
+def full_context_redo(repo=REPO) -> dict | None:
+    """The full-history redo's mean USD per task and its model, only when row cloud-redo-full-context is VERIFIED and
+    its run finished without a stop; None otherwise (the caller then uses the INTERIM stand-in)."""
+    import numbers_register as nr
+    path = Path(repo) / nr.CLOUD_REDO_FULL_CONTEXT
+    if not register_has(repo, "cloud-redo-full-context") or not path.exists():
+        return None
+    rows = [json.loads(x) for x in path.read_text(encoding="utf-8").splitlines() if x.strip()]
+    end = next((r for r in rows if r.get("record") == "run_end"), None)
+    if end is None or end.get("stopped"):
+        return None
+    s = nr.cloud_redo_data(Path(repo), nr.CLOUD_REDO_FULL_CONTEXT)
+    return {"model": s["model_id"], "usd": s["mean_usd"], "n": s["n"]}
+
+
+def t2s_loaded_window(repo=REPO, model=B3_V2_MODEL) -> list:
+    """The window Ollama loaded for model on evo-t2s Intel CPU at its default (row t2s-r2-real-cpu's file)."""
+    import numbers_register as nr
+    path = Path(repo) / nr.T2S_REAL["cpu"]
+    rows = [json.loads(x) for x in path.read_text(encoding="utf-8").splitlines() if x.strip()]
+    return sorted({c for r in rows if r.get("record") == "r2a_session" and r.get("model_id") == model
+                   for c in r.get("loaded_context_values") or []})
+
+
+def hybrid_policies(local: dict, cloud: dict, seeds, esc_usd=None) -> dict:
+    """Pure: local {(seed, task): (flag, wrong)}, cloud {(seed, task): (ok, usd)}; matched on the shared keys whose seed
+    is in seeds. esc_usd None = an escalated task costs that task's all-cloud USD (INTERIM); a float = that mean redo
+    USD per escalated task. An escalated task takes the all-cloud outcome of the same task and seed (ASSUMED)."""
+    seeds = set(seeds)
+    keys = sorted(k for k in local if k in cloud and k[0] in seeds)
+    n = len(keys)
+    if not n:
+        raise ValueError("no shared (seed, task) pairs")
+    ref_usd = sum(cloud[k][1] for k in keys) / n
+    ref_ok = {k: cloud[k][0] for k in keys}
+
+    def run(escalate, reference=False):
+        ok, usd, esc = {}, 0.0, 0
+        for k in keys:
+            flag, wrong = local[k]
+            if escalate(flag, wrong):
+                esc += 1
+                ok[k] = cloud[k][0]
+                usd += cloud[k][1] if (esc_usd is None or reference) else esc_usd
+            else:
+                ok[k] = not wrong
+        c, u = sum(ok.values()), usd / n
+        return {"correct": c, "n": n, "quality": c / n, "usd_task": u, "escalated": esc, "kept_local": n - esc,
+                "silent_wrong": sum(1 for k in keys if local[k][1] and not escalate(*local[k])),
+                "savings_task": ref_usd - u,
+                "savings_month": {v: (ref_usd - u) * v * DAYS_PER_MONTH for v in HYBRID_VOLUMES},
+                "matched": all(ok[k] >= ref_ok[k] for k in keys),
+                "worse_than_cloud": sum(1 for k in keys if ref_ok[k] and not ok[k])}
+
+    out = {"all_cloud": run(lambda f, w: True, reference=True), "naive_local": run(lambda f, w: False),
+           "hybrid_flag": run(lambda f, w: f), "hybrid_perfect": run(lambda f, w: w)}
+    for p in out.values():
+        p["delta_points"] = 100 * (p["quality"] - out["all_cloud"]["quality"])
+    wrong = [k for k in keys if local[k][1]]
+    return {"policies": out, "n": n, "ref_usd": ref_usd,
+            "matched_local": sum(1 for k in keys if not local[k][1] and cloud[k][0]),
+            "local_wrong": len(wrong), "flag_tp": sum(1 for k in wrong if local[k][0]),
+            "flagged": sum(1 for k in keys if local[k][0]),
+            "wrong_inside_window": sum(1 for k in wrong if not local[k][0])}
+
+
+def hybrid_p2(repo, p2_row) -> dict | None:
+    """Hardware capacity beside the hybrid table: the impact-v2-P2 row's machines at its profile, and at the hybrid
+    volumes under the ASSUMPTION that one agent task is one turn of a B5 R2 session (harness/policy_compare.TURNS)."""
+    if not p2_row or p2_row.get("capacity") is None:
+        return None
+    sys.path.insert(0, str(Path(repo) / "harness"))
+    import policy_compare as pc
+    x, usd = p2_row["cell"], p2_row["machine_usd"]
+    vol = {v: p2_capacity(v / pc.TURNS, x["default_min"], x["best_min"], usd) for v in HYBRID_VOLUMES}
+    return {"row": p2_row, "volumes": vol, "turns": pc.TURNS, "fa_verified": register_has(repo, "b5-fa-control")}
+
+
+def hybrid_savings(repo=REPO, p2_row=None) -> dict:
+    """Per device x cloud tier x policy (see the section comment). PENDING (with the missing rows named) until every
+    required register row is VERIFIED. p2_row: the impact v2 P2 row (compute_v2()["rows"]["P2"]) for hardware
+    capacity."""
+    missing = [c for c in HYBRID_REQUIRED if not register_has(repo, c)]
+    if missing:
+        return {"status": "PENDING", "pending": missing}
+    ac = all_cloud_task_outcomes(repo)
+    local = b3_v2_task_outcomes(repo)
+    redo = full_context_redo(repo)
+    seeds = ac["seeds"]
+    local_seeds = sorted({s for t in local.values() for s, _ in t})
+    rates = {t: sum(w for _, w in local[t].values()) / len(local[t]) for t in HYBRID_ALL_TIERS if t in local}
+    best = min(rates, key=lambda t: (rates[t], t != DEFAULT_TIER))
+    devices = [{"device": "evo-x2", "setting": f"{DEFAULT_TIER}, default" + (" = best" if best == DEFAULT_TIER else ""),
+                "tier": DEFAULT_TIER, "label": "measured"}]
+    if best != DEFAULT_TIER:
+        devices.append({"device": "evo-x2", "setting": f"{best}, best", "tier": best, "label": "measured"})
+    win = t2s_loaded_window(repo)
+    devices.append({"device": "evo-t2s Intel CPU", "setting": f"default, loaded window {'/'.join(map(str, win))}",
+                    "tier": "ollama_ctx_4096", "label": "projected"})
+    cells = []
+    for dv in devices:
+        for m in sorted(ac["models"]):
+            esc = redo["usd"] if redo and redo["model"] == m else None
+            res = hybrid_policies(local[dv["tier"]], ac["models"][m], seeds, esc)
+            cells.append(dict(dv, model=m, esc_label=("measured: cloud-redo-full-context mean USD per task"
+                                                      if esc is not None else INTERIM_ESC), **res))
+    return {"status": "VERIFIED", "cells": cells, "seeds": seeds, "local_seeds": local_seeds, "rates": rates,
+            "best": best, "redo": redo, "volumes": HYBRID_VOLUMES, "t2s_window": win,
+            "blade": "not measured (no B3 v2 run on the Blade)", "p2": hybrid_p2(repo, p2_row)}
+
+
+def _usd(v, nd=5):
+    return f"{v:,.{nd}f}"
+
+
+def hybrid_savings_text(h) -> str:
+    """The register value of hybrid-savings-v1."""
+    if h["status"] != "VERIFIED":
+        return f"PENDING: rows {', '.join(h['pending'])} not VERIFIED"
+    parts = []
+    for c in h["cells"]:
+        ps = []
+        for k, _ in HYBRID_POLICIES:
+            p = c["policies"][k]
+            ps.append(f"{k} {p['correct']}/{p['n']}, USD {_usd(p['usd_task'])}/task, saves USD {_usd(p['savings_task'])}"
+                      f"/task (USD/month " + ", ".join(f"{p['savings_month'][v]:,.2f} at {v:,}/day"
+                                                     for v in HYBRID_VOLUMES)
+                      + f"), escalated {p['escalated']}, {'matched' if p['matched'] else 'below'} all-cloud quality")
+        parts.append(f"{c['device']} {c['setting']} [{c['label']}] vs {c['model']}: kept local at matched quality "
+                     f"{c['matched_local']}/{c['n']}; local wrong {c['local_wrong']}, flagged {c['flagged']} "
+                     f"(of them wrong {c['flag_tp']}), wrong inside the window {c['wrong_inside_window']}; "
+                     + "; ".join(ps))
+    p2t = ""
+    p2 = h.get("p2")
+    if p2:
+        r, cap = p2["row"], p2["row"]["capacity"]
+        p2t = (f"; P2 hardware capacity (impact-v2-P2; b5-fa-control {'VERIFIED' if p2['fa_verified'] else 'PENDING'}: "
+               f"the speedup is KV precision, not flash attention): machines at the P2 profile {cap['machines_default']} "
+               f"default vs {cap['machines_best']} best; at the volumes (ASSUMED 1 task = 1 turn of a {p2['turns']}-turn "
+               f"session) " + ", ".join(f"{v:,}/day {c['machines_default']} vs {c['machines_best']} (USD "
+                                        f"{c['usd_saved']:,.0f} upfront avoided, USD {c['usd_day']:.2f}/day amortized)"
+                                        for v, c in p2["volumes"].items())
+               + f"; USD {r['machine_usd']:,.0f} per machine (impact-ref-machine-price, ASSUMPTION)")
+    return (f"qwen3:14b B3 v2 tasks vs all-cloud, matched on the {len(h['seeds'])} shared seeds "
+            f"{', '.join(map(str, h['seeds']))} (local run has {len(h['local_seeds'])}); escalated task cost: "
+            f"{h['cells'][0]['esc_label']}; best evo-x2 tier {h['best']}; evo-t2s = PROJECTION from evo-x2 "
+            f"ollama_ctx_4096 (no B3 v2 run on evo-t2s; loaded window from t2s-r2-real-cpu); 30-day month, volumes a "
+            f"stated parameter range; " + " / ".join(parts) + f"; Blade: {h['blade']}" + p2t)
+
+
+def render_hybrid_block(h) -> str:
+    """Markdown for docs/IMPACT.md between HYB_BEGIN and HYB_END."""
+    L = [HYB_BEGIN, "", f"Generated by `py -3.12 analysis/impact_model.py --write-hybrid` (register row {HYBRID_ROW}). "
+         "Do not edit by hand.", ""]
+    if h["status"] != "VERIFIED":
+        return "\n".join(L + [f"PENDING: rows {', '.join(h['pending'])} not VERIFIED.", "", HYB_END])
+    n = h["cells"][0]["n"]
+    L += [f"Matched on the {len(h['seeds'])} seeds both runs share ({', '.join(map(str, h['seeds']))}); the local run "
+          f"has {len(h['local_seeds'])} seeds and the other {len(h['local_seeds']) - len(h['seeds'])} are not used in "
+          f"the table. {n} tasks per cell. Escalated task cost: {h['cells'][0]['esc_label']}. Monthly savings: 30-day "
+          f"month at " + ", ".join(f"{v:,}" for v in HYBRID_VOLUMES)
+          + " agent tasks/day (a stated parameter range, not a claim). Labels: measured = evo-x2 B3 v2 run; projected "
+          "= evo-x2's ollama_ctx_4096 tier standing in for evo-t2s.", "",
+          "| Device (setting) [label] | Cloud tier | Policy | Correct | vs all-cloud | USD/task | Saves USD/task | "
+          "Saves USD/month at " + " / ".join(f"{v:,}" for v in HYBRID_VOLUMES) + " tasks/day | Escalated | "
+          "Matched quality |", "|---|---|---|---|---|---|---|---|---|---|"]
+    for c in h["cells"]:
+        for k, name in HYBRID_POLICIES:
+            p = c["policies"][k]
+            L.append(f"| {c['device']} ({c['setting']}) [{c['label']}] | {c['model']} | {name} | {p['correct']}/{p['n']}"
+                     f" ({100 * p['quality']:.1f}%) | {p['delta_points']:+.1f} pts | {_usd(p['usd_task'])} | "
+                     f"{_usd(p['savings_task'])} | " + " / ".join(f"{p['savings_month'][v]:,.2f}" for v in HYBRID_VOLUMES)
+                     + f" | {p['escalated']} | {'yes' if p['matched'] else 'no'} |")
+    L += [f"| Blade | n/a | all | {h['blade']} | | | | | | |", "",
+          "Per cell: tasks kept local at matched quality (local correct and the all-cloud tier correct on the same task "
+          "and seed), and what the window-overflow flag sees:", ""]
+    for c in h["cells"]:
+        L.append(f"- {c['device']} ({c['tier']}) vs {c['model']}: kept local at matched quality {c['matched_local']}/"
+                 f"{c['n']}; local wrong {c['local_wrong']}; flagged {c['flagged']} (of them wrong {c['flag_tp']}); "
+                 f"wrong tasks inside the window, missed by the flag: {c['wrong_inside_window']}.")
+    L += ["", f"Local wrong rate per evo-x2 tier on all {len(h['local_seeds'])} seeds (picks the best tier): "
+          + ", ".join(f"{t} {100 * r:.1f}%" for t, r in h["rates"].items()) + f"; best = {h['best']}.", ""]
+    p2 = h.get("p2")
+    if p2:
+        r, cap, x = p2["row"], p2["row"]["capacity"], p2["row"]["cell"]
+        L += ["P2 hardware capacity (impact-v2-P2). The speedup is KV precision, not flash attention (b5-fa-control"
+              + ("" if p2["fa_verified"] else ", still PENDING") + f"). {x['model']} default (a) {x['default_min']:.1f} "
+              f"min per session vs ({x['best']}) {x['best_name']} {x['best_min']:.1f} min (measured), one session at a "
+              "time per machine.", "",
+              f"| Agent tasks/day (ASSUMED 1 task = 1 turn of a {p2['turns']}-turn session) | Machines, default | "
+              "Machines, best | Upfront hardware avoided, USD (ASSUMPTION price) | Amortized USD/day (secondary) |",
+              "|---|---|---|---|---|",
+              f"| impact-v2-P2 profile | {cap['machines_default']} | {cap['machines_best']} | {cap['usd_saved']:,.0f} | "
+              f"{cap['usd_day']:.2f} |"]
+        for v, c in p2["volumes"].items():
+            L.append(f"| {v:,} | {c['machines_default']} | {c['machines_best']} | {c['usd_saved']:,.0f} | "
+                     f"{c['usd_day']:.2f} |")
+        L += ["", f"Machine price USD {r['machine_usd']:,.0f} (impact-ref-machine-price: ASSUMPTION, must be verified); "
+              f"{cap['life_years']:.0f}-year life (ASSUMED) for the amortized column.", ""]
+    L.append(HYB_END)
+    return "\n".join(L)
+
+
+def write_hybrid_doc(repo=REPO, block=None):
+    path = Path(repo) / "docs" / "IMPACT.md"
+    text = path.read_text(encoding="utf-8")
+    i, j = text.index(HYB_BEGIN), text.index(HYB_END) + len(HYB_END)
+    path.write_text(text[:i] + block + text[j:], encoding="utf-8")
+
+
 def main(argv=None):
     argv = argv or sys.argv[1:]
+    if "--write-hybrid" in argv:
+        h = hybrid_savings(REPO, compute_v2(REPO)["rows"]["P2"])
+        print(hybrid_savings_text(h))
+        write_hybrid_doc(block=render_hybrid_block(h))
+        print("wrote docs/IMPACT.md hybrid savings block")
+        return
     res = compute_all()
     p = res["profile"]
     for k in ROW_FUNCS:
