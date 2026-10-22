@@ -369,92 +369,95 @@ harness identity rests on byte-identical outputs across reruns (identical final 
 only when the runtime's log shows it applied: an earlier sweep passed a KV-cache precision setting that the runtime
 silently ignored.
 
-### 4.4 Memory-architecture boundaries (2.00 pages)
+### 4.4 Memory-architecture boundaries (prose draft, 2026-10-22; 2.00 pages)
 
-**Headline figure for H1 (planned, added 2026-10-08): cross-vendor spill cost, FH1.** One figure, three panels, same
-x axis (requested context as a fraction of the platform's memory boundary), y axis = cost of crossing it:
-- **AMD-iGPU (unified, evo-x2 class):** spill cost near zero, i.e. decode and TTFT nearly unchanged past the device-local
-  heap. Data: `[fh1-amd-boundary-llama-3.3-70b]`, `[fh1-amd-boundary-qwen3-32b]` (registered 2026-10-21; FINDINGS
-  "FH1 AMD panel: what is measured and what is missing"). Gaps: qwen3-32b has no unclamped spill point (no spill
-  cost); the measured onset sits at the 65536 MiB dedicated carve-out, not the Vulkan device-local heap, so the x
-  axis normalizer must be stated; reps are 1 call per fresh start with no warm-up; launch flags differ between runs.
-- **INTEL-iGPU (unified, budget wall):** no gradual cost; the server either starts or refuses at one shared-heap limit
-  (hard fail). Data: `[A-24-effective-heap-limit]`, `[A-24-flip-point-per-model]`.
-- **NVIDIA-dGPU (discrete):** decode slowdown proportional to the spilled fraction past VRAM. Data: the x axis
-  placement is now registered: the Ollama layer split puts both measured models fully in VRAM at the two smallest
-  windows and partly on the CPU above them, "VRAM share by num_ctx 4096: 1.000, 8192: 1.000, 16384: 0.870, 32768:
-  0.656" (llama3.1:8b) and "VRAM share by num_ctx 4096: 1.000, 8192: 1.000, 16384: 0.805, 32768: 0.592" (qwen3:8b)
-  `[blade-k1-layer-split]`. The y axis (decode slowdown) is still the Blade C1 files with no register row (G4), so
-  this panel stays **pending G4**. Caveat: the K1 split is Ollama moving layers to the CPU, a different
-  overflow path from the driver's system-memory spill measured in C1 (llama-server direct); the
-  panel must label which path each point is.
-The claim the figure carries: the same "context exceeds memory" event has three different cost shapes depending on the
-memory architecture (near-free spill, hard wall, proportional slowdown), so a hardware-blind router or sizing rule is
-wrong on at least two of the three. If space is short, FH1 replaces F2 and F3 (their detail moves to the supplement).
+**Claim.** The same event, a context window whose KV cache no longer fits the memory the GPU is meant to use, has a
+different cost shape on each memory architecture: on the AMD APU the server keeps running past the boundary at almost
+unchanged speed, on the Intel iGPU the server either starts or refuses at one shared-heap limit, and on the discrete
+GPU the cost is expected to grow with the share of the model pushed out of VRAM. A sizing rule or a router that
+ignores the architecture is wrong on at least two of the three. Figure FH1 carries this claim; the AMD and Intel
+panels are measured and the NVIDIA panel is not yet complete.
 
-**4.4a INTEL-iGPU shared-heap budget and first-principles flip point.**
+**AMD APU: a soft spill, then a hard crash far beyond it.** We ran llama-3.3-70b and qwen3-32b in llama-server with
+the Vulkan backend and every layer on the GPU (`-ngl 99` <!-- fh1-amd-boundary-llama-3.3-70b -->), stepping the
+window and recording per-process dedicated and shared GPU memory, decode rate and time to first token (TTFT). The
+platform offers three candidate boundaries: a firmware-reserved dedicated block of 65536 MiB, a Vulkan device-local
+heap of 76218 MiB, and a Vulkan total of 114327 MiB <!-- fh1-amd-boundary-llama-3.3-70b -->. We call a point a spill
+when shared GPU usage grows by more than 1024 MiB over the smallest window <!-- fh1-amd-boundary-llama-3.3-70b -->.
+For llama-3.3-70b the last window without spill is 65536 and the first window with spill is 100096, the window the
+server reported for a request of 100000 <!-- fh1-amd-boundary-llama-3.3-70b -->. At 100096 the process held 1.122 of
+the dedicated block but only 0.965 of the device-local heap <!-- fh1-amd-boundary-llama-3.3-70b -->: the onset
+follows the dedicated block, not the heap the Vulkan driver advertises, so FH1 normalizes the AMD x axis by the
+dedicated block and says so. Crossing the onset is nearly free. The decode ratio across it is 0.983 and the TTFT ratio
+1.004 <!-- fh1-amd-boundary-llama-3.3-70b -->; decode fell from 5.284 +/- 0.004 tok/s at 65536 to 5.196 +/- 0.010
+tok/s at 100096, and at 131072, with 18540 MiB more in shared memory than at the smallest window, it was still 5.176
++/- 0.015 tok/s <!-- fh1-amd-boundary-llama-3.3-70b -->. Nothing in the server's response tells the client it has
+spilled.
 
-- **Claim:** a model start on INTEL-iGPU succeeds or fails at one shared-heap limit that also counts host-visible
-  buffers, and weights + KV + compute accounting against that limit predicts the measured flip point.
-- **Evidence:** "budget boundary 47482-47969 MiB projected, 5 models" `[A-24-budget-boundary]`; "shared-heap L in
-  (48112.7, 48124.0] MiB, consistent across all 5 models (92 lower / 22 upper bounds), +247 MiB vs the 47866 MiB
-  budget; device-only accounting is inconsistent (max start 47945.2 > min refusal 47562.5 MiB)"
-  `[A-24-effective-heap-limit]`; prediction error "A file-size -2890 to -820 tokens (-3.48% to -0.60%); B device-only
-  -1092 to +968 tokens (-0.34% to +4.11%); C shared-heap LOO -257 to -26 tokens (-0.11% to -0.01%)"
-  `[A-24-flip-point-prediction]`; per-model inputs and results `[A-24-flip-point-inputs]`,
-  `[A-24-flip-point-per-model]`. Files: `results/t2s_amech_20260926T181456Z.jsonl`,
-  `results/t2s_night2_20260929T034014Z.jsonl` and their `_srv_bis_*` logs.
-- **Figure:** F2. Existing `figures/fig_a24_budget_boundary.png` predates the llama-3.3-70b bisection and shows
-  projected memory only; needs regeneration with all models of `[A-24-budget-boundary]` ("5 models") and the three
-  accountings (A/B/C) against the measured interval.
-- **Gaps:** start-only, and beyond the trained context for qwen3-8b, qwen3-30b-a3b-2507 and llama31-8b (the flip is
-  the memory flip, not usable context);
-  AMD-iGPU equivalent not measured (G5). One driver and boot state; the margin over the reported budget is not
-  claimed to transfer.
+The hard boundary sits much further out and is reached only through clamping. The model's trained context is 131072
+<!-- fh1-amd-boundary-llama-3.3-70b -->, and a request above it is served at that value: the last window that started
+was 221440, clamped to 131072, and the first that failed was 221696, with exit code 3221226505
+<!-- fh1-amd-boundary-llama-3.3-70b -->. At 221696, fresh server processes crashed with STATUS_STACK_BUFFER_OVERRUN at
+warm-up 5 whether the model file was read cold after a standby purge or warm from the file cache
+<!-- fh1-amd-boundary-llama-3.3-70b -->. So the AMD platform has three regimes for this model: it fits, it spills
+silently at almost no cost, and, for requests far above the trained context, it crashes.
 
-**4.4b AMD-iGPU spill and crash regimes (MX2).**
+qwen3-32b gives the fail side but not the spill side. The largest unclamped window without spill is 20480, and no
+unclamped spill point was measured, so the row has no spill cost <!-- fh1-amd-boundary-qwen3-32b -->. A request for
+290000 was served at 40960 and did spill (shared +28159 MiB), at 11.190 +/- 0.011 tok/s against 11.451 +/- 0.005
+tok/s at 20480 <!-- fh1-amd-boundary-qwen3-32b -->; because that point is clamped, it is plotted but not used as a
+boundary. In the start-only bisection the last start was 367104, clamped to 131072, and the first failure 367360,
+with exit code 3221226505 <!-- fh1-amd-boundary-qwen3-32b -->. The two qwen3-32b runs clamp to different values (40960
+and 131072 <!-- fh1-amd-boundary-qwen3-32b -->) because their launch flags differ; the panel labels each point with
+its launch. A dedicated qwen3-32b spill sweep between these points is registered but has not computed yet
+<!-- pending row: fh1-amd-qwen3-32b-spill-sweep, no number cited -->, so the qwen3-32b onset is reported as "above
+20480" only.
 
-- **Claim (not yet citable):** on AMD-iGPU, large contexts pass through a silent-spill regime before a hard failure,
-  and requests above the trained context are clamped without error.
-- **Evidence:** result files exist (`results/mx2_validation.jsonl`, `results/mx2_spill_stats.jsonl`), FINDINGS
-  sections "PRE-REGISTRATION: MX2 validation" and "CORRECTION (2026-10-06)", but NO register row. Nothing from MX2 is
-  stated numerically here.
-- **Figure:** needs figure: decode tok/s and TTFT with 95% CI versus n_ctx for llama-3.3-70b at the spill-stats
-  points, with per-process dedicated/shared GPU memory on a second axis; regime bands FITS / SILENT_SPILL / HARD_FAIL.
-- **Gaps:** register rows for MX2 regime boundaries and spill cost (G5); the llama-3.3-70b crash boundary is
-  non-deterministic and needs x2_70b_edge_reps (warm-read vs standby-purge, ABAB).
+**Intel iGPU: a hard wall that first-principles accounting predicts.** On the Intel iGPU there is no soft regime: a
+model either starts or the runtime refuses it. Across five models, the refusal point is consistent with one
+shared-heap limit L in (48112.7, 48124.0] MiB, 247 MiB above the 47866 MiB budget the driver reports, from 92 lower
+and 22 upper bounds <!-- A-24-effective-heap-limit -->. The limit counts host-visible buffers as well as device memory:
+accounting for device memory alone is inconsistent, because the largest start (47945.2 MiB) exceeds the smallest
+refusal (47562.5 MiB) <!-- A-24-effective-heap-limit -->. Counting weights, KV cache and compute buffers against the
+shared heap, with L fitted leave-one-model-out, predicts each model's flip point within -257 to -26 tokens (-0.11% to
+-0.01%), against -2890 to -820 tokens for model file size alone and -1092 to +968 tokens for device-only accounting
+<!-- A-24-flip-point-prediction -->. The flip points span an order of magnitude: (23296, 23552] tokens for
+llama-3.3-70b and (115712, 115968] for qwen3-32b <!-- A-24-flip-point-per-model -->. Two limits apply. These are
+start tests only, and for several models the flip point lies beyond the trained context, so it is a memory boundary,
+not a usable window. And the result is for one driver and boot state; we do not claim the 247 MiB margin transfers.
 
-**4.4c NVIDIA-dGPU discrete VRAM spill (C1/C2).**
+**NVIDIA discrete GPU: placement measured, cost pending.** On the discrete GPU the runtime itself decides how much of
+the model leaves VRAM. With 8188 MiB of VRAM <!-- blade-k1-layer-split -->, Ollama keeps llama3.1:8b fully on the GPU
+at windows of 4096 and 8192 and moves layers to the CPU above them, with VRAM shares of 0.870 at 16384 and 0.656 at
+32768; for qwen3:8b the shares are 0.805 and 0.592 <!-- blade-k1-layer-split -->. This places the NVIDIA points on the
+FH1 x axis. The y axis, decode slowdown as a function of the spilled share, comes from an earlier sweep with
+llama-server driving the driver's system-memory fallback directly; that sweep has no register row yet (gap G4), and the
+forced-failure point with the fallback disabled needs a run on the discrete-GPU laptop that has not been done. The
+NVIDIA panel is therefore pending, and the two overflow paths (the runtime moving layers to the CPU, and the driver
+spilling allocations into system memory) will be labelled separately when it lands.
 
-- **Claim (not yet citable):** on the discrete GPU with the default driver policy, exceeding VRAM causes a silent
-  slowdown with a sharp onset, no error and unchanged answers.
-- **Evidence:** result files exist (`results/blade_m1_vram_spill_20260925T041415Z.jsonl`,
-  `results/blade_c1_spill_sweep_20260925T053651Z.jsonl`, `results/blade_c2_spill_correctness_20260925T110739Z.jsonl`),
-  FINDINGS sections C1 and C2, but NO register row.
-- **Figure:** F3. Existing `figures/fig_blade_c1_spill.png` (M1 ladder); needs regeneration from the C1 sweep with
-  bootstrap CIs and the excess-shared-memory axis, plus the C3 forced-failure point.
-- **Gaps:** register rows for C1/C2 (G4); the driver Sysmem Fallback Policy value was not recorded; the
-  forced-failure half: Blade night 2 (d) (C3 sysmem fallback).
+**Co-running work on unified memory.** On both unified-memory platforms the GPU shares memory bandwidth with the CPU,
+so a CPU-side workload is part of the boundary. On the Intel platform a co-runner raised llama-3.3-70b's TTFT by a
+factor of 1.42x <!-- P70-TTFT-ratio -->. On the AMD APU the largest TTFT ratio under any co-runner was 1.129x
+<!-- PX2-full-ratio-table -->, and the decode rate separates a bandwidth hog from a compute hog (0.905x-0.928x against
+0.987x-1.000x of the no-load rate <!-- PX2-decode-ratio -->), while package power for the two large models stayed
+flat at about 83.6 W across every condition <!-- PX2-power -->. The Intel platform has no bandwidth-hog run, so the two
+vendors are not yet compared on the same metric.
 
-**4.4d Unified-memory co-runner effects (B3, PX2, M3).**
+**Figure specs (kept from the outline).**
 
-- **Claim:** on unified memory a CPU-side co-runner slows LLM inference, more on INTEL-iGPU than on AMD-iGPU, and the
-  metric where it shows differs by vendor.
-- **Evidence:**
-  - INTEL-iGPU TTFT under the 12-core co-runner: "mean 1.429x (+42.9%)" `[B3-corunner-6model]`; llama-3.3-70b "1.42x"
-    `[P70-TTFT-ratio]`; graded by E-core count, "e6:+14.3%, e8:+30.2%, e8_lp4:+41.4%" `[b4_32b-dose-response]`.
-  - AMD-iGPU: "max TTFT ratio on evo-x2: 1.129x (qwen3-8b/S28)" `[PX2-full-ratio-table]`; bandwidth versus compute hog
-    gap on TTFT only "2.1-2.6% (B4 vs S4 TTFT gap range across 5 models)" `[PX2-TTFT-gap]`, but separable on decode:
-    "B4 0.905x-0.928x of N0; S4 0.987x-1.000x of N0" `[PX2-decode-ratio]`; "qwen3-32b/llama-3.3-70b flat ~83.6W
-    across every condition" `[PX2-power]`.
-  - Files: `results/t2s_night2_20260928T004924Z.jsonl`, `results/t2s_night2_20260929T034014Z.jsonl`,
-    `results/t2s_night2_20260930T135145Z.jsonl`.
-- **Figure:** F4. Existing `figures/fig_power_effect_b1_b3.png` and `figures/fig_b4_ecore_threshold.png` (INTEL-iGPU
-  only); needs a combined cross-vendor panel: TTFT ratio and decode ratio per co-runner condition, INTEL-iGPU vs
-  AMD-iGPU.
-- **Gaps:** INTEL-iGPU mechanism is open (package power alone does not explain it; M3 and Section B have no register
-  row, so their numbers are not used); INTEL-iGPU has no bandwidth hog, so the two vendors are not measured on the
-  same metric: T2S week item 4 (Intel bandwidth hog). One run per condition, small n.
+- **FH1 (headline).** Three panels, shared x axis = requested or served window as a fraction of the platform's
+  boundary (AMD: the 65536 MiB dedicated block, stated in the caption; Intel: the shared-heap limit; NVIDIA: VRAM),
+  y axis = cost of crossing it (decode and TTFT ratio; for Intel, start or refuse). Clamped points are drawn but
+  marked; each point is labelled with its launch and its overflow path. Measurement note for the caption: each AMD
+  point is one call per fresh server start without a warm-up call (5 or 3 calls per point), which departs from this
+  paper's 1 warm-up + N convention. If space is short, FH1 replaces F2 and F3.
+- **F2.** Intel flip point: measured (last start, first refusal] per model against accountings A (file size), B
+  (device only) and C (shared heap), all five models; `figures/fig_a24_budget_boundary.png` must be regenerated.
+- **F3.** NVIDIA spill onset: TTFT and decode slowdown against window with the spilled share, plus the forced-failure
+  point; pending G4 and the forced-failure run.
+- **F4.** Co-runner effects by vendor: TTFT and decode ratio per condition, Intel against AMD; Intel decode under a
+  bandwidth hog is missing.
 
 ### 4.5 Runtime policy (1.50 pages)
 
@@ -1266,6 +1269,93 @@ would turn the model-dependence of rule loss from an observation into a predicta
 
 **Superseded 2026-10-21.** The outline text of 4.1 (with the 4.1a motivation draft), 4.2, 4.8 and 4.9, replaced by
 the prose drafts of 2026-10-21, is moved here verbatim below; the 2026-10-20 material follows it.
+
+### 4.4 Memory-architecture boundaries (2.00 pages) (outline as of 2026-10-21; superseded 2026-10-22)
+
+**Headline figure for H1 (planned, added 2026-10-08): cross-vendor spill cost, FH1.** One figure, three panels, same
+x axis (requested context as a fraction of the platform's memory boundary), y axis = cost of crossing it:
+- **AMD-iGPU (unified, evo-x2 class):** spill cost near zero, i.e. decode and TTFT nearly unchanged past the device-local
+  heap. Data: `[fh1-amd-boundary-llama-3.3-70b]`, `[fh1-amd-boundary-qwen3-32b]` (registered 2026-10-21; FINDINGS
+  "FH1 AMD panel: what is measured and what is missing"). Gaps: qwen3-32b has no unclamped spill point (no spill
+  cost); the measured onset sits at the 65536 MiB dedicated carve-out, not the Vulkan device-local heap, so the x
+  axis normalizer must be stated; reps are 1 call per fresh start with no warm-up; launch flags differ between runs.
+- **INTEL-iGPU (unified, budget wall):** no gradual cost; the server either starts or refuses at one shared-heap limit
+  (hard fail). Data: `[A-24-effective-heap-limit]`, `[A-24-flip-point-per-model]`.
+- **NVIDIA-dGPU (discrete):** decode slowdown proportional to the spilled fraction past VRAM. Data: the x axis
+  placement is now registered: the Ollama layer split puts both measured models fully in VRAM at the two smallest
+  windows and partly on the CPU above them, "VRAM share by num_ctx 4096: 1.000, 8192: 1.000, 16384: 0.870, 32768:
+  0.656" (llama3.1:8b) and "VRAM share by num_ctx 4096: 1.000, 8192: 1.000, 16384: 0.805, 32768: 0.592" (qwen3:8b)
+  `[blade-k1-layer-split]`. The y axis (decode slowdown) is still the Blade C1 files with no register row (G4), so
+  this panel stays **pending G4**. Caveat: the K1 split is Ollama moving layers to the CPU, a different
+  overflow path from the driver's system-memory spill measured in C1 (llama-server direct); the
+  panel must label which path each point is.
+The claim the figure carries: the same "context exceeds memory" event has three different cost shapes depending on the
+memory architecture (near-free spill, hard wall, proportional slowdown), so a hardware-blind router or sizing rule is
+wrong on at least two of the three. If space is short, FH1 replaces F2 and F3 (their detail moves to the supplement).
+
+**4.4a INTEL-iGPU shared-heap budget and first-principles flip point.**
+
+- **Claim:** a model start on INTEL-iGPU succeeds or fails at one shared-heap limit that also counts host-visible
+  buffers, and weights + KV + compute accounting against that limit predicts the measured flip point.
+- **Evidence:** "budget boundary 47482-47969 MiB projected, 5 models" `[A-24-budget-boundary]`; "shared-heap L in
+  (48112.7, 48124.0] MiB, consistent across all 5 models (92 lower / 22 upper bounds), +247 MiB vs the 47866 MiB
+  budget; device-only accounting is inconsistent (max start 47945.2 > min refusal 47562.5 MiB)"
+  `[A-24-effective-heap-limit]`; prediction error "A file-size -2890 to -820 tokens (-3.48% to -0.60%); B device-only
+  -1092 to +968 tokens (-0.34% to +4.11%); C shared-heap LOO -257 to -26 tokens (-0.11% to -0.01%)"
+  `[A-24-flip-point-prediction]`; per-model inputs and results `[A-24-flip-point-inputs]`,
+  `[A-24-flip-point-per-model]`. Files: `results/t2s_amech_20260926T181456Z.jsonl`,
+  `results/t2s_night2_20260929T034014Z.jsonl` and their `_srv_bis_*` logs.
+- **Figure:** F2. Existing `figures/fig_a24_budget_boundary.png` predates the llama-3.3-70b bisection and shows
+  projected memory only; needs regeneration with all models of `[A-24-budget-boundary]` ("5 models") and the three
+  accountings (A/B/C) against the measured interval.
+- **Gaps:** start-only, and beyond the trained context for qwen3-8b, qwen3-30b-a3b-2507 and llama31-8b (the flip is
+  the memory flip, not usable context);
+  AMD-iGPU equivalent not measured (G5). One driver and boot state; the margin over the reported budget is not
+  claimed to transfer.
+
+**4.4b AMD-iGPU spill and crash regimes (MX2).**
+
+- **Claim (not yet citable):** on AMD-iGPU, large contexts pass through a silent-spill regime before a hard failure,
+  and requests above the trained context are clamped without error.
+- **Evidence:** result files exist (`results/mx2_validation.jsonl`, `results/mx2_spill_stats.jsonl`), FINDINGS
+  sections "PRE-REGISTRATION: MX2 validation" and "CORRECTION (2026-10-06)", but NO register row. Nothing from MX2 is
+  stated numerically here.
+- **Figure:** needs figure: decode tok/s and TTFT with 95% CI versus n_ctx for llama-3.3-70b at the spill-stats
+  points, with per-process dedicated/shared GPU memory on a second axis; regime bands FITS / SILENT_SPILL / HARD_FAIL.
+- **Gaps:** register rows for MX2 regime boundaries and spill cost (G5); the llama-3.3-70b crash boundary is
+  non-deterministic and needs x2_70b_edge_reps (warm-read vs standby-purge, ABAB).
+
+**4.4c NVIDIA-dGPU discrete VRAM spill (C1/C2).**
+
+- **Claim (not yet citable):** on the discrete GPU with the default driver policy, exceeding VRAM causes a silent
+  slowdown with a sharp onset, no error and unchanged answers.
+- **Evidence:** result files exist (`results/blade_m1_vram_spill_20260925T041415Z.jsonl`,
+  `results/blade_c1_spill_sweep_20260925T053651Z.jsonl`, `results/blade_c2_spill_correctness_20260925T110739Z.jsonl`),
+  FINDINGS sections C1 and C2, but NO register row.
+- **Figure:** F3. Existing `figures/fig_blade_c1_spill.png` (M1 ladder); needs regeneration from the C1 sweep with
+  bootstrap CIs and the excess-shared-memory axis, plus the C3 forced-failure point.
+- **Gaps:** register rows for C1/C2 (G4); the driver Sysmem Fallback Policy value was not recorded; the
+  forced-failure half: Blade night 2 (d) (C3 sysmem fallback).
+
+**4.4d Unified-memory co-runner effects (B3, PX2, M3).**
+
+- **Claim:** on unified memory a CPU-side co-runner slows LLM inference, more on INTEL-iGPU than on AMD-iGPU, and the
+  metric where it shows differs by vendor.
+- **Evidence:**
+  - INTEL-iGPU TTFT under the 12-core co-runner: "mean 1.429x (+42.9%)" `[B3-corunner-6model]`; llama-3.3-70b "1.42x"
+    `[P70-TTFT-ratio]`; graded by E-core count, "e6:+14.3%, e8:+30.2%, e8_lp4:+41.4%" `[b4_32b-dose-response]`.
+  - AMD-iGPU: "max TTFT ratio on evo-x2: 1.129x (qwen3-8b/S28)" `[PX2-full-ratio-table]`; bandwidth versus compute hog
+    gap on TTFT only "2.1-2.6% (B4 vs S4 TTFT gap range across 5 models)" `[PX2-TTFT-gap]`, but separable on decode:
+    "B4 0.905x-0.928x of N0; S4 0.987x-1.000x of N0" `[PX2-decode-ratio]`; "qwen3-32b/llama-3.3-70b flat ~83.6W
+    across every condition" `[PX2-power]`.
+  - Files: `results/t2s_night2_20260928T004924Z.jsonl`, `results/t2s_night2_20260929T034014Z.jsonl`,
+    `results/t2s_night2_20260930T135145Z.jsonl`.
+- **Figure:** F4. Existing `figures/fig_power_effect_b1_b3.png` and `figures/fig_b4_ecore_threshold.png` (INTEL-iGPU
+  only); needs a combined cross-vendor panel: TTFT ratio and decode ratio per co-runner condition, INTEL-iGPU vs
+  AMD-iGPU.
+- **Gaps:** INTEL-iGPU mechanism is open (package power alone does not explain it; M3 and Section B have no register
+  row, so their numbers are not used); INTEL-iGPU has no bandwidth hog, so the two vendors are not measured on the
+  same metric: T2S week item 4 (Intel bandwidth hog). One run per condition, small n.
 
 ### 4.1 Introduction and 4.1a motivation draft (outline as of 2026-10-20; superseded 2026-10-21)
 
