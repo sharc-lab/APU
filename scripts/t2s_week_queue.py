@@ -239,10 +239,12 @@ OCT26_NEG_CTX = "32768"   # validation negative control: x2_r2_llama_val_32k's p
 # key -> why it is not in the file yet (B5 is in the file since 2026-10-22: oct26_b5_specs below)
 OCT26_PENDING = {}
 # B5 on evo-t2s (pre-registration "B5 on evo-t2s Intel CPU and Intel iGPU", docs/FINDINGS.md 2026-10-22): harness/
-# policy_compare.py, all policies a-h, 5 seeds, one entry per (platform, model) so each cell completes on its own and a
-# cut by the handover deadline leaves whole seeds (the job stops at a session boundary and resumes in a later window).
-# Order (operator decision 2026-10-21): the llama3.1:8b cells first at 5 seeds, CPU (the constrained platform, where
-# the default fails) then iGPU; then qwen3:14b at 3 seeds on the Intel CPU (its default window 4096) ONLY if the hours
+# policy_compare.py, one entry per (platform, model) so each cell completes on its own and a cut by the handover
+# deadline leaves whole seeds (the job stops at a session boundary and resumes in a later window). Policy set on
+# evo-t2s (dated amendment 2026-10-21 22:30): a, c, d, e, f only (passed explicitly as --policies; (b), (g), (h) are
+# not run there, evo-x2 keeps all). Order (operator item 6, 2026-10-21 22:30): the llama3.1:8b cells first at 5 seeds,
+# CPU (the constrained platform, where the default fails) then iGPU; then qwen3:14b at 2 seeds on the Intel CPU (its
+# default window 4096) ONLY if the hours
 # left after the llama3.1:8b cells allow (scripts/t2s_window_stage.py qwen_decision, from measured evo-t2s session
 # minutes, row t2s-b5-plan-hours). When it does not fit, no qwen3:14b entry is in the file and qwen3:14b on Intel is
 # future work (dated amendment to the B5-on-evo-t2s pre-registration, docs/FINDINGS.md). The iGPU qwen3:14b cell is
@@ -250,7 +252,8 @@ OCT26_PENDING = {}
 OCT26_B5_SEEDS = "20260901,20260902,20260903,20260904,20260905"
 OCT26_B5_CELLS = (("evo-t2s-cpu", "llama3.1:8b"), ("evo-t2s", "llama3.1:8b"))
 OCT26_QWEN_CELL = ("evo-t2s-cpu", "qwen3:14b")
-OCT26_QWEN_SEEDS = "20260901,20260902,20260903"
+OCT26_QWEN_SEEDS = "20260901,20260902"   # 2 seeds: below the 3-seed minimum, reported, not a complete cell
+OCT26_B5_POLICIES = "a,c,d,e,f"            # policy_compare.T2S_POLICIES (amendment 2026-10-21 22:30)
 
 
 def _b5_slug(platform, model):
@@ -259,7 +262,7 @@ def _b5_slug(platform, model):
 
 def oct26_b5_cells() -> list[tuple]:
     """(platform, model, seeds) of the staged B5 entries: the llama3.1:8b cells at 5 seeds, then the qwen3:14b CPU cell
-    at 3 seeds only when scripts/t2s_window_stage.py qwen_decision says it fits the hours left."""
+    at 2 seeds only when scripts/t2s_window_stage.py qwen_decision says it fits the hours left."""
     import t2s_window_stage as ws
     cells = [(p, m, OCT26_B5_SEEDS) for p, m in OCT26_B5_CELLS]
     if ws.qwen_decision()["fits"]:
@@ -274,12 +277,13 @@ def oct26_b5_specs() -> list[dict]:
         s = _b5_slug(plat, m)
         o = f"results/t2s_policy_compare_{s}_v1.jsonl"
         n = len(seeds.split(","))
-        h = pc.estimate_t2s(plat, [m], seeds=tuple(int(x) for x in seeds.split(",")))["models"][m]["total_h"]
+        pols = tuple(OCT26_B5_POLICIES.split(","))
+        h = pc.estimate_t2s(plat, [m], seeds=tuple(int(x) for x in seeds.split(",")), policies=pols)["models"][m]["total_h"]
         out.append({"id": OCT26_PREFIX + "b5_" + s, "gate": OCT26_PREFIX + "preflight",
                     "cmd": [T2S_PY, "policy_compare.py", "--platform", plat, "--out", o, "--models", m,
-                            "--seeds", seeds],
+                            "--seeds", seeds, "--policies", OCT26_B5_POLICIES],
                     "out": o, "est": None if h is None else round(h, 1), "basis": "measured evo-t2s sessions (ESTIMATE)",
-                    "what": f"B5 policies a-h, {m}, {'Intel CPU (stock Ollama, default 4096)' if plat == 'evo-t2s-cpu' else 'Intel iGPU (OLLAMA_IGPU_ENABLE=1, default 32768)'}, {n} seeds x 40 turns"})
+                    "what": f"B5 policies {OCT26_B5_POLICIES.replace(',', ', ')}, {m}, {'Intel CPU (stock Ollama, default 4096)' if plat == 'evo-t2s-cpu' else 'Intel iGPU (OLLAMA_IGPU_ENABLE=1, default 32768)'}, {n} seeds x 40 turns"})
     return out
 
 
