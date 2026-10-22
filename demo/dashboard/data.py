@@ -95,7 +95,7 @@ def to_dict(obj) -> Any:
 
 
 class Cache:
-    NAMES = ("manifest", "register", "hardware", "workloads", "r2_sessions", "points", "mitigation")
+    NAMES = ("manifest", "register", "hardware", "workloads", "r2_sessions", "points", "mitigation", "silent")
 
     def __init__(self, directory: Path = CACHE_DIR):
         self.dir = Path(directory)
@@ -211,7 +211,10 @@ def scenario_list(cache: Cache) -> dict:
                           "first_over_window_turn": s["summary"]["first_over_window_turn"],
                           "truncation_detected_turn": s["summary"]["truncation_detected_turn"],
                           "first_error_turn": s["summary"]["first_error_turn"],
-                          "src": {"file": r2["source"], "line": s["summary_line"]}} for s in r2["sessions"]],
+                          "source": s.get("source", r2["source"]),
+                          "src": {"file": s.get("source", r2["source"]), "line": s["summary_line"]}}
+                         for s in r2["sessions"]],
+            "sources": r2.get("sources", [r2["source"]]),
             "register": {i: reg[i] for i in cache.manifest["scenario_register_ids"] if i in reg},
             "mitigation": cache.mitigation}
 
@@ -226,7 +229,7 @@ def _session(cache: Cache, key: str) -> dict:
 def replay(cache: Cache, backend: Backend, key: str, budget_usd: float = 50.0, quality_floor: float = 0.9,
            latency_target_ms: float = 30000.0) -> dict:
     s = _session(cache, key)
-    src_file = cache.r2_sessions["source"]
+    src_file = s.get("source", cache.r2_sessions["source"])
     router = backend.router_cls(backend.envelope, budget_usd, quality_floor, latency_target_ms, "evo-x2",
                                 "ollama", s["model"], None)
     decisions = [to_dict(d) for d in router.replay_session([dict(t) for t in s["turns"]])]
@@ -250,7 +253,7 @@ def replay(cache: Cache, backend: Backend, key: str, budget_usd: float = 50.0, q
         row_src = {"file": src_file, "line": t["line"]}
         naive_side = {**nv, "running_cost_usd": n_cost, "src": row_src,
                       "advertised_ctx": adv.get("ctx"),
-                      "advertised_src": {"file": src_file, "line": adv.get("line")}}
+                      "advertised_src": {"file": adv.get("file", src_file), "line": adv.get("line")}}
         if nv["target"] == "local":
             naive_side["outcome"] = {
                 "recorded": True, "http_status": statuses, "errors": errors, "rules": rules,

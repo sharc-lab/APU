@@ -10,14 +10,45 @@
 <header class="top">
   <div class="wrap">
     <h1>Hybrid routing demo</h1>
-    <p class="sub">Measured hardware envelope, offline snapshot. Every number links to its register row or result file.</p>
+    <p class="sub">Measured hardware envelope, offline snapshot. Every number links to its register row or result file and carries a label:
+      <span class="lab measured">measured</span> <span class="lab projected">projected</span> <span class="lab simulated">simulated</span>
+      <span class="lab priced">priced, not executed</span> <span class="lab notmeasured">not measured</span></p>
     <div id="banners"></div>
     <nav class="steps">
-      <a href="#inputs">1 Inputs</a><a href="#frontier">2 Frontier</a><a href="#rec">3 Recommendation</a><a href="#live">4 Live run</a>
+      <a href="#silent">A Silent failure</a><a href="#device">B Device setting</a><a href="#cost">C Cost</a><a href="#escalate">D Live escalation</a>
+      <a href="#inputs">1 Inputs</a><a href="#frontier">2 Frontier</a><a href="#rec">3 Recommendation</a><a href="#live">4 Replay</a>
     </nav>
   </div>
 </header>
 <main class="wrap">
+  <section id="silent" class="card">
+    <h2>A. Silent failure: the same model, a different default, and nothing reports it</h2>
+    <div id="silent-body"><p class="muted">loading</p></div>
+  </section>
+
+  <section id="device" class="card">
+    <h2>B. Recommended setting for a device, model and workload</h2>
+    <form id="devform" autocomplete="off" class="controls">
+      <label>Device<select name="device"></select></label>
+      <label>Model<select name="model"></select></label>
+      <label>Workload<select name="workload"></select></label>
+      <label>Max timeout share<input type="number" name="maxtimeout" min="0" max="1" step="0.01" value="0.05"></label>
+    </form>
+    <div id="device-body"></div>
+  </section>
+
+  <section id="cost" class="card">
+    <h2>C. What it costs</h2>
+    <div id="cost-body"><p class="muted">loading</p></div>
+  </section>
+
+  <section id="escalate" class="card">
+    <h2>D. Live escalation: one wrong task, sent to the cloud</h2>
+    <div id="esc-task"></div>
+    <div class="controls"><button type="button" id="esc-run">Send to the cloud</button><span id="esc-mode" class="muted small"></span></div>
+    <div id="esc-result"></div>
+  </section>
+
   <section id="inputs" class="card">
     <h2>1. Inputs</h2>
     <form id="form" autocomplete="off">
@@ -80,5 +111,6 @@
 <dialog id="src-dialog"><form method="dialog"><button class="close" aria-label="Close">Close</button></form><h3 id="src-title"></h3><pre id="src-body"></pre></dialog>
 <div id="tip" class="tip" role="tooltip" hidden></div>
 <script src="/static/app.js"></script>
+<script src="/static/views.js"></script>
 </body>
 </html>

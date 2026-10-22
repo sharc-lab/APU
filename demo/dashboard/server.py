@@ -15,6 +15,8 @@ Endpoints (all GET):
   /api/scenario             the 4096 sessions available for the side-by-side, register rows cited
   /api/replay?session=&budget=&floor=&latency=          every step at once (polling clients)
   /api/replay/stream?session=&delay_ms=&...             the same steps as server-sent events
+  /api/silent               view A: silent failure (evo-t2s CPU 4096 vs iGPU 32768; qwen3:14b wrong-task rate by
+                            window; v1b per-model gated silent counts)
   /api/register[?id=]       register rows from the snapshot
   /api/source?file=&line=   one raw line of a whitelisted source file
   /api/source?file=&match=k:v,k:v   line numbers of rows matching every k:v
@@ -30,10 +32,10 @@ from pathlib import Path
 from typing import Iterable, Optional
 from urllib.parse import parse_qs, urlsplit
 
-from demo.dashboard import data
+from demo.dashboard import data, views
 
 STATIC = Path(__file__).resolve().parent / "static"
-STATIC_FILES = {"index.html", "app.js", "app.css"}
+STATIC_FILES = {"index.html", "app.js", "app.css", "views.js"}
 DEFAULTS = {"budget_usd": 50.0, "quality_floor": 0.9, "latency_target_ms": 30000.0,
             "max_timeout_share": data.DEFAULT_MAX_TIMEOUT_SHARE}
 
@@ -99,7 +101,7 @@ class App:
             route = {"/api/meta": self.meta, "/api/frontier": self.frontier, "/api/recommend": self.recommend,
                      "/api/scenario": self.scenario, "/api/replay": self.replay,
                      "/api/replay/stream": self.replay_stream, "/api/register": self.register,
-                     "/api/source": self.source}.get(path)
+                     "/api/source": self.source, "/api/silent": self.silent}.get(path)
             if route is None:
                 return _json({"error": f"no route {path}"}, 404)
             return route(q)
@@ -163,6 +165,9 @@ class App:
 
         return Response(200, "text/event-stream; charset=utf-8", stream=gen(),
                         headers={"Cache-Control": "no-cache"})
+
+    def silent(self, q) -> Response:
+        return _json(views.silent_view(self.cache))
 
     def register(self, q) -> Response:
         if "id" in q:

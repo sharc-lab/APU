@@ -10,8 +10,8 @@
    "results/t2s_night2_20260929T034014Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_a24_budget_boundary",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "A-24-budget-boundary-first-principles": {
   "id": "A-24-budget-boundary-first-principles",
@@ -27,8 +27,8 @@
    "results/t2s_night2_20260929T034014Z_srv_bis_a70_23552_2.txt"
   ],
   "script": "analysis/numbers_register.py::compute_a24_budget_boundary_first_principles",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "A-24-effective-heap-limit": {
   "id": "A-24-effective-heap-limit",
@@ -42,8 +42,8 @@
    "results/t2s_night2_20260929T034014Z_srv_bis_a70_*.txt"
   ],
   "script": "analysis/numbers_register.py::compute_a24_effective_heap_limit",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "A-24-flip-point-inputs": {
   "id": "A-24-flip-point-inputs",
@@ -56,8 +56,8 @@
    "results/t2s_night2_20260929T034014Z_srv_bis_a70_*.txt"
   ],
   "script": "analysis/numbers_register.py::compute_a24_flip_point_inputs",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "A-24-flip-point-per-model": {
   "id": "A-24-flip-point-per-model",
@@ -72,8 +72,8 @@
    "results/t2s_night2_20260929T034014Z_srv_bis_a70_*.txt"
   ],
   "script": "analysis/numbers_register.py::compute_a24_flip_point_per_model",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "A-24-flip-point-prediction": {
   "id": "A-24-flip-point-prediction",
@@ -88,8 +88,8 @@
    "results/t2s_night2_20260929T034014Z_srv_bis_a70_*.txt"
   ],
   "script": "analysis/numbers_register.py::compute_a24_flip_point_prediction",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "B3-corunner-6model": {
   "id": "B3-corunner-6model",
@@ -101,36 +101,36 @@
    "results/t2s_night2_20260928T004924Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_b3_corunner_6model",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "H-scale-family-verdict": {
   "id": "H-scale-family-verdict",
-  "status": "PENDING",
-  "value": "not computed: data file(s) not synced yet: results/x2_r2_family_mistral_small32_real.jsonl, results/x2_r2_family_mistral_small32_validation.jsonl",
-  "n": "n/a",
+  "status": "VERIFIED",
+  "value": "overall alternative supported (tested: ['mistral-small3.2:24b']); mistral-small3.2:24b: R4096 0/3 (window exceeded 3/3, gated 0/3), H32768 2/3 (window exceeded 3/3); resists rule loss; history loss with rules holding holds; verdict alternative (resists rule loss)",
+  "n": "1 models tested",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_r2_family_mistral_small32_real.jsonl",
    "results/x2_r2_family_mistral_small32_validation.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_h_scale_family_verdict",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "H-scale-verdict": {
   "id": "H-scale-verdict",
-  "status": "PENDING",
-  "value": "not computed: data file(s) not synced yet: results/x2_r2_scale_real.jsonl, results/x2_r2_scale_validation.jsonl",
-  "n": "n/a",
+  "status": "VERIFIED",
+  "value": "overall mixed (tested: ['qwen3:32b', 'llama3.3:70b']); qwen3:32b: R4096 2/3 (window exceeded 3/3, gated 2/3), H32768 1/3 (window exceeded 3/3); rule loss holds; does not hold; verdict mixed / qwen3-30b-a3b-2507: refused (not tested) (['qwen3-30b-a3b-2507: negative control failed (canary misses 2 at num_ctx 131072)', 'qwen3-30b-a3b-2507: task tool called correctly on 25/30 baseline turns (< 90%, task-tool gate)']) / llama3.3:70b: R4096 0/3 (window exceeded 3/3, gated 3/3), H32768 3/3 (window exceeded 3/3); resists rule loss; history loss with rules holding holds; verdict alternative (resists rule loss)",
+  "n": "2 models tested",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_r2_scale_real.jsonl",
    "results/x2_r2_scale_validation.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_h_scale_verdict",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "K1v3-X2-table": {
   "id": "K1v3-X2-table",
@@ -142,8 +142,8 @@
    "results/t2s_k1_ollama_evo-x2_20260930T205515Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k1_v3_x2_table",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "K2-x2-call-timing": {
   "id": "K2-x2-call-timing",
@@ -155,8 +155,8 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_call_timing",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "K2-x2-clean-failures": {
   "id": "K2-x2-clean-failures",
@@ -168,8 +168,8 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_clean_failures",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "K2-x2-decode-by-arm": {
   "id": "K2-x2-decode-by-arm",
@@ -181,8 +181,8 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_decode_by_pressure_arm",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "K2-x2-kill-criterion": {
   "id": "K2-x2-kill-criterion",
@@ -194,8 +194,8 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_kill_criterion_table",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "K2-x2-responsiveness-resolution": {
   "id": "K2-x2-responsiveness-resolution",
@@ -207,8 +207,8 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_responsiveness_resolution",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "K2-x2-score-ceiling": {
   "id": "K2-x2-score-ceiling",
@@ -220,8 +220,8 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_score_ceiling",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "K2-x2-unreached-levels": {
   "id": "K2-x2-unreached-levels",
@@ -233,8 +233,8 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_unreached_pressure_levels",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "P70-TTFT-ratio": {
   "id": "P70-TTFT-ratio",
@@ -246,8 +246,8 @@
    "results/t2s_night2_20260929T034014Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_p70_ttft_ratio",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "PX2-TTFT-gap": {
   "id": "PX2-TTFT-gap",
@@ -259,8 +259,8 @@
    "results/t2s_night2_20260930T135145Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_px2_ttft_gap",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "PX2-decode-ratio": {
   "id": "PX2-decode-ratio",
@@ -272,8 +272,8 @@
    "results/t2s_night2_20260930T135145Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_px2_decode_ratios",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "PX2-full-ratio-table": {
   "id": "PX2-full-ratio-table",
@@ -285,8 +285,8 @@
    "results/t2s_night2_20260930T135145Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_px2_full_ratio_table",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "PX2-power": {
   "id": "PX2-power",
@@ -298,8 +298,8 @@
    "results/t2s_night2_20260930T135145Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_px2_package_power",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "PX2-thermal": {
   "id": "PX2-thermal",
@@ -312,8 +312,8 @@
    "results/t2s_night2_20260930T135145Z_lhm.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_px2_thermal_ceiling",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "R1-check-agreement": {
   "id": "R1-check-agreement",
@@ -325,8 +325,8 @@
    "results/t2s_night2_20260929T034014Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r1_check_agreement",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "R2-install-path-4b-bare": {
   "id": "R2-install-path-4b-bare",
@@ -339,8 +339,8 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_install_path_4b_bare",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "R2-install-path-4b-comparison": {
   "id": "R2-install-path-4b-comparison",
@@ -354,8 +354,8 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_install_path_4b_comparison",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "R2-mechanism-lowlevel": {
   "id": "R2-mechanism-lowlevel",
@@ -367,8 +367,8 @@
    "results/x2_r2_mechanism.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_mechanism_lowlevel",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "R2-mechanism-verdict": {
   "id": "R2-mechanism-verdict",
@@ -380,8 +380,8 @@
    "results/x2_r2_mechanism.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_mechanism_verdict",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "R2-mitigation-v1-4096": {
   "id": "R2-mitigation-v1-4096",
@@ -395,8 +395,8 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_mitigation_v1_4096",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "R2-mitigation-v1-8192": {
   "id": "R2-mitigation-v1-8192",
@@ -410,8 +410,8 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_mitigation_v1_8192",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "R2-mitigation-v1-observed": {
   "id": "R2-mitigation-v1-observed",
@@ -423,8 +423,8 @@
    "results/x2_r2_mitigation_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_mitigation_v1_observed",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "R2-mitigation-v1-verdict": {
   "id": "R2-mitigation-v1-verdict",
@@ -438,8 +438,8 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_mitigation_v1_verdict",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "R2-orphan-rates": {
   "id": "R2-orphan-rates",
@@ -451,8 +451,41 @@
    "results/x2_r2_mechanism.jsonl"
   ],
   "script": "analysis/r2_shift_predictor.py::orphan_summary",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "R2-qwen3-14b-4096-reconciliation": {
+  "id": "R2-qwen3-14b-4096-reconciliation",
+  "status": "VERIFIED",
+  "value": "v1: rules in use 5, Ollama not recorded, harness blob not recorded, call2 off, max tokens 384, client trim None, num_keep None; per seed 20260901 rule1 40/40, rule2 40/40, rule3 40/40, rule4 20/20, rule5 39/40 / 20260902 rule1 40/40, rule2 40/40, rule3 38/40, rule4 20/20, rule5 40/40 / 20260903 rule1 40/40, rule2 40/40, rule3 37/40, rule4 20/20, rule5 39/40; gated first failure 20260901 5 rule5_session_code; 20260902 20 rule3_no_zebra; 20260903 5 rule5_session_code // v1b: rules in use 5, Ollama 0.34.4, harness blob not recorded, call2 off, max tokens 384, client trim None, num_keep None; per seed 20260904 rule1 40/40, rule2 40/40, rule3 39/40, rule4 20/20, rule5 40/40 / 20260905 rule1 40/40, rule2 40/40, rule3 40/40, rule4 20/20, rule5 40/40; gated first failure 20260904 30 rule3_no_zebra; 20260905 none // mitigation: rules in use 5, Ollama 0.34.4, harness blob not recorded, call2 off, max tokens 384, client trim {'margin': 0.05}, num_keep None; per seed 20260901 rule1 40/40, rule2 24/40, rule3 40/40, rule4 20/20, rule5 39/40 / 20260902 rule1 40/40, rule2 25/40, rule3 40/40, rule4 20/20, rule5 40/40 / 20260903 rule1 40/40, rule2 25/40, rule3 39/40, rule4 20/20, rule5 39/40; gated first failure n/a (not a real-mode run) // num_keep: rules in use 5, Ollama 0.34.4, harness blob not recorded, call2 off, max tokens 384, client trim None, num_keep system; per seed 20260901 rule1 40/40, rule2 40/40, rule3 40/40, rule4 20/20, rule5 39/40 / 20260902 rule1 40/40, rule2 40/40, rule3 38/40, rule4 20/20, rule5 40/40 / 20260903 rule1 40/40, rule2 40/40, rule3 37/40, rule4 20/20, rule5 39/40; gated first failure 20260901 5 rule5_session_code; 20260902 20 rule3_no_zebra; 20260903 5 rule5_session_code // num_keep vs v1 on the same seeds: identical final text 120/120, identical first-call prompt tokens 120/120 // first trimmed rule2 failure seed 20260901 turn 3: call 1 tools trimmed ['lookup_fact'], untrimmed v1 ['log_event', 'lookup_fact']",
+  "n": "440 turns",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_r2_real_v1.jsonl",
+   "results/x2_r2_real_v1b.jsonl",
+   "results/x2_r2_mitigation_v1.jsonl",
+   "results/x2_num_keep_qwen3_14b.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_r2_qwen3_14b_4096_reconciliation",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "R2-qwen3-8b-reversal-10seed": {
+  "id": "R2-qwen3-8b-reversal-10seed",
+  "status": "VERIFIED",
+  "value": "qwen3:8b gate excludes tool_args, recall; num_ctx_8192: 6/10 gated silent (v1b seeds 4/5, new seeds 2/5; new per seed 20260906: none, 20260907: none, 20260908: 20, 20260909: none, 20260910: 10); num_ctx_4096: 2/10 gated silent (v1b seeds 1/5, new seeds 1/5; new per seed 20260906: 30, 20260907: none, 20260908: none, 20260909: none, 20260910: none); Fisher exact two-sided p (8192 vs 4096) = 0.170; num_ctx_8192 excess over default 6/10 vs 0/5, +0.600 (95% CI +0.300 to +0.900); reading: excess at num_ctx_8192; num_ctx_4096 excess over default 2/10 vs 0/5, +0.200 (95% CI +0.000 to +0.500); reading: no excess shown at num_ctx_4096; valid True; verdict: resolved as noise (bootstrap 10000 resamples, unit session, stratified by tier x model, seed 20261014)",
+  "n": "20 sessions",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_r2_qwen3_8b_seeds_06_10.jsonl",
+   "results/x2_r2_real_v1.jsonl",
+   "results/x2_r2_real_v1b.jsonl",
+   "results/x2_r2_validation_v2.jsonl",
+   "results/x2_r2_validation_v2b.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_r2_qwen3_8b_reversal_10seed",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "R2-real-v1-first-events": {
   "id": "R2-real-v1-first-events",
@@ -464,8 +497,8 @@
    "results/x2_r2_real_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1_first_events",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "R2-real-v1-gated-kill": {
   "id": "R2-real-v1-gated-kill",
@@ -478,8 +511,8 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1_gated_kill",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "R2-real-v1-kill-criterion": {
   "id": "R2-real-v1-kill-criterion",
@@ -491,8 +524,8 @@
    "results/x2_r2_real_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1_kill_criterion",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "R2-real-v1-loaded-ctx": {
   "id": "R2-real-v1-loaded-ctx",
@@ -504,8 +537,8 @@
    "results/x2_r2_real_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1_loaded_ctx",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "R2-real-v1-survival": {
   "id": "R2-real-v1-survival",
@@ -518,8 +551,8 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1_survival",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "R2-real-v1-token-calib": {
   "id": "R2-real-v1-token-calib",
@@ -531,8 +564,8 @@
    "results/x2_r2_real_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1_token_calib",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "R2-real-v1b-first-events": {
   "id": "R2-real-v1b-first-events",
@@ -547,8 +580,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1b_first_events",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "R2-real-v1b-gated-kill": {
   "id": "R2-real-v1b-gated-kill",
@@ -563,8 +596,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1b_gated_kill",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "R2-real-v1b-kill-criterion": {
   "id": "R2-real-v1b-kill-criterion",
@@ -579,8 +612,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1b_kill_criterion",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "R2-real-v1b-survival": {
   "id": "R2-real-v1b-survival",
@@ -595,8 +628,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1b_survival",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "R2-shift-predicted-real-v1": {
   "id": "R2-shift-predicted-real-v1",
@@ -608,8 +641,8 @@
    "results/x2_r2_real_v1.jsonl"
   ],
   "script": "analysis/r2_shift_predictor.py::real_summary",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "R2-shift-predictor-confusion": {
   "id": "R2-shift-predictor-confusion",
@@ -621,8 +654,8 @@
    "results/x2_r2_mechanism.jsonl"
   ],
   "script": "analysis/r2_shift_predictor.py::mechanism_summary",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "R2-task-tool-gate": {
   "id": "R2-task-tool-gate",
@@ -635,8 +668,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_task_tool_gate",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "R2-v1b-default-baseline-type": {
   "id": "R2-v1b-default-baseline-type",
@@ -651,8 +684,26 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_v1b_default_baseline_type",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "R2-v1b-excess-10seed": {
+  "id": "R2-v1b-excess-10seed",
+  "status": "PENDING",
+  "value": "not computed: data file(s) not synced yet: results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_v1b_repro_check.jsonl",
+  "n": "n/a",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_r2_v1b_seeds_06_10.jsonl",
+   "results/x2_r2_v1b_repro_check.jsonl",
+   "results/x2_r2_real_v1.jsonl",
+   "results/x2_r2_real_v1b.jsonl",
+   "results/x2_r2_validation_v2.jsonl",
+   "results/x2_r2_validation_v2b.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_r2_v1b_excess_10seed",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "R2-v1b-excess-over-default": {
   "id": "R2-v1b-excess-over-default",
@@ -667,8 +718,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_v1b_excess_over_default",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "R2-v1b-gated-per-model": {
   "id": "R2-v1b-gated-per-model",
@@ -683,8 +734,24 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_v1b_gated_per_model",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "R2-v1b-qwen3-8b-reversal": {
+  "id": "R2-v1b-qwen3-8b-reversal",
+  "status": "VERIFIED",
+  "value": "qwen3:8b gate excludes tool_args, recall; num_ctx_8192: 4/5 gated silent (seed 20260901: gated none, over window from 5, 40 turns, first error -, ungated 4 tool_args, seed 20260902: gated 15 rule1_json_keys, over window from 5, 40 turns, first error -, ungated 4 tool_args+recall, seed 20260903: gated 25 rule1_json_keys, over window from 5, 40 turns, first error -, ungated 4 tool_args+recall, seed 20260904: gated 25 rule2_log_event_called, over window from 5, 40 turns, first error -, ungated 4 tool_args+recall, seed 20260905: gated 29 rule2_log_event_called, over window from 5, 40 turns, first error -, ungated 4 tool_args); turns 200, rule failure turns 18, system canary missed 10/40 checks, history canary missed 37/40, tool args failed 60/200 turns, recall failed 37/50; num_ctx_4096: 1/5 gated silent (seed 20260901: gated none, over window from 3, 40 turns, first error -, ungated 4 tool_args+recall, seed 20260902: gated none, over window from 3, 40 turns, first error -, ungated 4 tool_args+recall, seed 20260903: gated 10 rule2_log_event_called, over window from 3, 40 turns, first error -, ungated 2 tool_args, seed 20260904: gated none, over window from 3, 40 turns, first error -, ungated 4 tool_args+recall, seed 20260905: gated none, over window from 3, 40 turns, first error -, ungated 4 tool_args+recall); turns 200, rule failure turns 3, system canary missed 3/40 checks, history canary missed 40/40, tool args failed 74/200 turns, recall failed 33/50; Fisher exact two-sided p (silent sessions, num_ctx_8192 vs num_ctx_4096) = 0.206",
+  "n": "10 sessions",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_r2_real_v1.jsonl",
+   "results/x2_r2_real_v1b.jsonl",
+   "results/x2_r2_validation_v2.jsonl",
+   "results/x2_r2_validation_v2b.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_r2_v1b_qwen3_8b_reversal",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "R2-validation-baseline": {
   "id": "R2-validation-baseline",
@@ -696,8 +763,8 @@
    "results/x2_r2_validation.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_baseline",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "R2-validation-call2-notools": {
   "id": "R2-validation-call2-notools",
@@ -709,8 +776,8 @@
    "results/x2_r2_validation.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_call2_notools",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "R2-validation-v2-baseline": {
   "id": "R2-validation-v2-baseline",
@@ -722,8 +789,8 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_v2_baseline",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "R2-validation-v2-spec-diag": {
   "id": "R2-validation-v2-spec-diag",
@@ -735,8 +802,8 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_v2_spec_diag",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "R2-validation-v2b-baseline": {
   "id": "R2-validation-v2b-baseline",
@@ -748,8 +815,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_v2b_baseline",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "R2-validation-v2b-runinfo": {
   "id": "R2-validation-v2b-runinfo",
@@ -761,8 +828,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_v2b_runinfo",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "R2-validation-v2c-baseline": {
   "id": "R2-validation-v2c-baseline",
@@ -774,8 +841,8 @@
    "results/x2_r2_validation_v2c.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_v2c_baseline",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "T2S-vs-X2-default-ctx": {
   "id": "T2S-vs-X2-default-ctx",
@@ -788,8 +855,8 @@
    "results/t2s_k1_ollama_evo-x2_20260930T205515Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_t2s_x2_default_ctx_table",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "b4_32b-dose-response": {
   "id": "b4_32b-dose-response",
@@ -801,8 +868,108 @@
    "results/t2s_night2_20260929T034014Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_b4_32b_dose_response",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "b5-fa-control": {
+  "id": "b5-fa-control",
+  "status": "PENDING",
+  "value": "not computed: data file(s) not synced yet: results/x2_policy_compare_fa_control.jsonl",
+  "n": "n/a",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_policy_compare_fa_control.jsonl",
+   "results/x2_policy_compare.jsonl"
+  ],
+  "script": "harness/policy_compare.py::fa_control_summary",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "b5-kv-recall": {
+  "id": "b5-kv-recall",
+  "status": "VERIFIED",
+  "value": "evo-x2 llama3.1:8b: f16 ctx 131072 recall 50.0% (2 calls, truncated 0, errors 1; KV check n/a); q4_0 ctx 131072 recall 58.3% (3 calls, truncated 0, errors 0; KV check True); q8_0 ctx 131072 recall 54.2% (3 calls, truncated 0, errors 0; KV check True) / evo-x2 qwen3:14b: f16 ctx 40960 recall 100.0% (3 calls, truncated 0, errors 0; KV check n/a); q4_0 ctx 40960 recall 100.0% (3 calls, truncated 0, errors 0; KV check True); q8_0 ctx 40960 recall 100.0% (3 calls, truncated 0, errors 0; KV check True) / evo-t2s: not run yet / blade: not run yet",
+  "n": "1 platform files",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_policy_compare.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_b5_kv_recall",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "b5-kv-recall-f16-rerun": {
+  "id": "b5-kv-recall-f16-rerun",
+  "status": "PENDING",
+  "value": "not computed: data file(s) not synced yet: results/x2_policy_compare_fa_control.jsonl",
+  "n": "n/a",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_policy_compare_fa_control.jsonl",
+   "results/x2_policy_compare.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_b5_kv_recall_f16_rerun",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "b5-plan-hours": {
+  "id": "b5-plan-hours",
+  "status": "VERIFIED",
+  "value": "evo-x2 ESTIMATE 76.1 h: llama3.1:8b 14.2 h (sessions 13.0, recall 0.26, probes 1.00; distinct policies a,c,d,f,g,h; aliases {'b': 'a', 'e': 'a'}); qwen3:14b 61.9 h (sessions 60.7, recall 0.16, probes 1.00; distinct policies a,c,d,f,g,h; aliases {'b': 'a', 'e': 'a'}) / evo-t2s ESTIMATE 38.4 h: llama3.1:8b 38.4 h (sessions 36.5, recall 0.88, probes 1.00; distinct policies a,b,c,d,f,g,h; aliases {'e': 'b'}) / blade ESTIMATE 36.3 h: qwen3:8b 36.3 h (sessions 35.0, recall 0.26, probes 1.00; distinct policies a,b,c,d,e,f,g,h); within the 3.0 h night-3 cap: 5 of 24 sessions",
+  "n": "4 platforms (estimate)",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_r2_real_v1.jsonl",
+   "results/x2_r2_real_v1b.jsonl",
+   "results/x2_r2_mitigation_v1.jsonl",
+   "results/blade_k1_v2.summary.json",
+   "src/dse/envelope_data.json"
+  ],
+  "script": "analysis/numbers_register.py::compute_b5_plan_hours",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "b5-policy-metrics": {
+  "id": "b5-policy-metrics",
+  "status": "VERIFIED",
+  "value": "evo-x2 llama3.1:8b: a rule 100.0% hist 95.8% 43.7 min $0.0000; b rule 100.0% hist 95.8% 43.7 min $0.0000 (=a); c rule 100.0% hist 95.8% 43.6 min $0.0000; d rule 100.0% hist 95.8% 43.5 min $0.0000; e rule 100.0% hist 95.8% 43.7 min $0.0000 (=a); f rule 100.0% hist 95.8% 42.6 min $0.0000; g rule 100.0% hist 95.8% 6.9 min $0.0000; h rule 100.0% hist 100.0% 6.6 min $0.0000; frontier ['h']; complete True / evo-x2 qwen3:14b: a rule 100.0% hist 62.5% 214.8 min $0.0000; b rule 100.0% hist 62.5% 214.8 min $0.0000 (=a); c rule 100.0% hist 62.5% 178.7 min $0.0000; d rule 100.0% hist 62.5% 135.1 min $0.8419; e rule 100.0% hist 62.5% 214.8 min $0.0000 (=a); f rule 100.0% hist 62.5% 207.8 min $0.0000; g rule 100.0% hist 62.5% 75.4 min $0.0000; h rule 100.0% hist 62.5% 75.4 min $0.0000; frontier ['g']; complete True / evo-t2s: not run yet / blade: not run yet",
+  "n": "1 platform files",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_policy_compare.jsonl",
+   "results/cloud_prices_anthropic_20261014.json"
+  ],
+  "script": "analysis/numbers_register.py::compute_b5_policy_metrics",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "b5-sim-constraint": {
+  "id": "b5-sim-constraint",
+  "status": "PENDING",
+  "value": "not computed: data file(s) not synced yet: results/x2_policy_compare_simcap8192.jsonl, results/x2_policy_compare_simcap4096.jsonl",
+  "n": "n/a",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_policy_compare_simcap8192.jsonl",
+   "results/x2_policy_compare_simcap4096.jsonl"
+  ],
+  "script": "harness/policy_compare.py::b5_verdict",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "b5-verdict": {
+  "id": "b5-verdict",
+  "status": "VERIFIED",
+  "value": "refuted (router dominated in evo-x2/llama3.1:8b, evo-x2/qwen3:14b); evo-x2 complete (router on frontier in every complete cell: False, fixed on frontier in every cell: []); evo-t2s not run (router on frontier in every complete cell: None, fixed on frontier in every cell: None); blade not run (router on frontier in every complete cell: None, fixed on frontier in every cell: None)",
+  "n": "3 platforms",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_policy_compare.jsonl",
+   "results/cloud_prices_anthropic_20261014.json"
+  ],
+  "script": "analysis/numbers_register.py::compute_b5_verdict",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "blade-dryrun-rates": {
   "id": "blade-dryrun-rates",
@@ -818,8 +985,8 @@
    "results/blade_dryrun/blade_dryrun_r2_mechanism.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_blade_dryrun_rates",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "blade-k1-layer-split": {
   "id": "blade-k1-layer-split",
@@ -831,8 +998,8 @@
    "results/blade_k1_v2.summary.json"
   ],
   "script": "analysis/numbers_register.py::compute_blade_k1_layer_split",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "blade-mechanism-4096": {
   "id": "blade-mechanism-4096",
@@ -844,14 +1011,14 @@
    "results/blade_r2_mechanism_4096_v2.jsonl.report.json"
   ],
   "script": "analysis/numbers_register.py::compute_blade_mechanism_4096",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "blade-night-hours": {
   "id": "blade-night-hours",
   "status": "VERIFIED",
-  "value": "night 1 3.75 h (gate branches: mechanism 0.87 h, real 3.75 h), night 2 4.22 h, night 3 9.00 h; night 1 blade_k1_v2 0.50 h (scaled (itemized)); night 1 blade_r2_validation_v2 0.32 h (mixed (rates, scaled)); night 1 blade_r2_gate_v2 0.00 h (measured); night 1 blade_r2_real_v2 1.75 h (rates) [branch real]; night 1 blade_r2_mitigation_v2 1.18 h (mixed (rates, scaled)) [branch real]; night 1 blade_r2_mechanism_4096_v2 0.05 h (rates) [branch mechanism]; night 2 blade_c3_sysmem_fallback_v1 3.09 h (measured); night 2 blade_r2_mechanism_v1 1.13 h (mixed (rates, scaled)); night 3 blade_r2_validation_qwen3_8b_v1 0.71 h (scaled); night 3 blade_r2_real_qwen3_8b_v1 8.29 h (scaled)",
-  "n": "10",
+  "value": "night 1 3.75 h (gate branches: mechanism 0.87 h, real 3.75 h), night 2 4.22 h, night 3 12.00 h; night 1 blade_k1_v2 0.50 h (scaled (itemized)); night 1 blade_r2_validation_v2 0.32 h (mixed (rates, scaled)); night 1 blade_r2_gate_v2 0.00 h (measured); night 1 blade_r2_real_v2 1.75 h (rates) [branch real]; night 1 blade_r2_mitigation_v2 1.18 h (mixed (rates, scaled)) [branch real]; night 1 blade_r2_mechanism_4096_v2 0.05 h (rates) [branch mechanism]; night 2 blade_c3_sysmem_fallback_v1 3.09 h (measured); night 2 blade_r2_mechanism_v1 1.13 h (mixed (rates, scaled)); night 3 blade_r2_validation_qwen3_8b_v1 0.71 h (scaled); night 3 blade_r2_real_qwen3_8b_v1 8.29 h (scaled); night 3 blade_policy_compare_qwen3_8b_v1 3.00 h (cap)",
+  "n": "11",
   "reported": "(none previously reported)",
   "files": [
    "results/blade_dryrun/blade_dryrun_k1.jsonl",
@@ -867,8 +1034,8 @@
    "results/blade_k1_v2.summary.json"
   ],
   "script": "analysis/numbers_register.py::compute_blade_night_hours",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "blade-r2-gate-v2": {
   "id": "blade-r2-gate-v2",
@@ -880,8 +1047,8 @@
    "results/blade_r2_gate_v2.json"
   ],
   "script": "analysis/numbers_register.py::compute_blade_r2_gate_v2",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "blade-r2-validation-run1": {
   "id": "blade-r2-validation-run1",
@@ -893,8 +1060,8 @@
    "results/blade_r2_validation_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_blade_r2_validation_run1",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "blade-r2-validation-run2": {
   "id": "blade-r2-validation-run2",
@@ -906,8 +1073,8 @@
    "results/blade_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_blade_r2_validation_run2",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "blade-validation-ctx-cap": {
   "id": "blade-validation-ctx-cap",
@@ -920,8 +1087,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_blade_validation_ctx_cap",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "business-hour-range": {
   "id": "business-hour-range",
@@ -934,8 +1101,8 @@
    "results/impact_profile_20261014.json"
   ],
   "script": "analysis/business_metrics.py::hour_values",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "business-mid-team": {
   "id": "business-mid-team",
@@ -987,8 +1154,8 @@
    "src/dse/envelope_data.json"
   ],
   "script": "analysis/business_metrics.py::profile_metrics",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "business-mid-team-qwen3-14b": {
   "id": "business-mid-team-qwen3-14b",
@@ -1040,8 +1207,8 @@
    "src/dse/envelope_data.json"
   ],
   "script": "analysis/business_metrics.py::profile_metrics",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "business-scenario-plus-a": {
   "id": "business-scenario-plus-a",
@@ -1093,8 +1260,8 @@
    "src/dse/envelope_data.json"
   ],
   "script": "analysis/business_metrics.py::scenario_metrics",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "business-sensitivity": {
   "id": "business-sensitivity",
@@ -1146,8 +1313,8 @@
    "src/dse/envelope_data.json"
   ],
   "script": "analysis/business_metrics.py::sensitivity",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "c1b-stall-clean-cells": {
   "id": "c1b-stall-clean-cells",
@@ -1159,8 +1326,8 @@
    "results/t2s_night2_20260930T215303Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_c1b_stall_clean_cells",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "cloud-budget-inputs": {
   "id": "cloud-budget-inputs",
@@ -1177,8 +1344,8 @@
    "docs/DEMO_SPEC.md"
   ],
   "script": "analysis/cloud_budget_forecast.py::load_prices",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "cloud-budget-lines": {
   "id": "cloud-budget-lines",
@@ -1195,8 +1362,8 @@
    "docs/DEMO_SPEC.md"
   ],
   "script": "analysis/cloud_budget_forecast.py::forecast",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "cloud-budget-sensitivity": {
   "id": "cloud-budget-sensitivity",
@@ -1213,8 +1380,8 @@
    "docs/DEMO_SPEC.md"
   ],
   "script": "analysis/cloud_budget_forecast.py::forecast",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "cloud-budget-tokens": {
   "id": "cloud-budget-tokens",
@@ -1231,8 +1398,8 @@
    "docs/DEMO_SPEC.md"
   ],
   "script": "analysis/cloud_budget_forecast.py::r2_sessions",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "cloud-budget-totals": {
   "id": "cloud-budget-totals",
@@ -1249,8 +1416,8 @@
    "docs/DEMO_SPEC.md"
   ],
   "script": "analysis/cloud_budget_forecast.py::forecast",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "cloud-prices-anthropic": {
   "id": "cloud-prices-anthropic",
@@ -1262,8 +1429,35 @@
    "results/cloud_prices_anthropic_20261014.json"
   ],
   "script": "analysis/numbers_register.py::compute_cloud_prices_anthropic",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "cloud-redo-cost-per-wrong-task": {
+  "id": "cloud-redo-cost-per-wrong-task",
+  "status": "VERIFIED",
+  "value": "mode priced, not executed (stub: no API call; input = the local run's prompt tokens per call, output = the local run's completion tokens as a stand-in); model claude-sonnet-5-5 (results/cloud_prices_anthropic_20261014.json), prompt caching on (cold cache per task); USD per wrong task mean $0.0283, median $0.0283, total $5.5681 (all input uncached: $8.7552); per tier: ollama_default n=17 mean $0.0275 median $0.0299 total $0.4680; ollama_ctx_16384 n=19 mean $0.0272 median $0.0295 total $0.5163; ollama_ctx_8192 n=53 mean $0.0303 median $0.0317 total $1.6050; ollama_ctx_4096 n=63 mean $0.0281 median $0.0278 total $1.7681; ollama_ctx_4096_numkeep n=45 mean $0.0269 median $0.0251 total $1.2107; local regrade on the rebuilt environment reproduces end_state_ok false for 197/197 (100.0%); token basis is the harness estimate, not Anthropic's tokenizer; cloud correctness and seconds NOT MEASURED in stub mode",
+  "n": "197 wrong tasks",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/cloud_redo_v1.jsonl",
+   "results/x2_evalset_tasks_real_v2.jsonl"
+  ],
+  "script": "scripts/cloud_redo.py::summarize",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "cost-cut-config-time": {
+  "id": "cost-cut-config-time",
+  "status": "VERIFIED",
+  "value": "MEASURED; evo-x2 llama3.1:8b: default (a) 43.7 min per session, rule 100.0% hist 95.8%; fastest measured setting (h) kv_q4_0 6.6 min, rule 100.0% hist 100.0%, window 131072; saved 37.1 min per session (85%), over 3 seeds / evo-x2 qwen3:14b: default (a) 214.8 min per session, rule 100.0% hist 62.5%; fastest measured setting (g) kv_q8_0 75.4 min, rule 100.0% hist 62.5%, window 40960; saved 139.4 min per session (65%), over 3 seeds; flash-attention control not synced yet (policy i not in the comparison)",
+  "n": "2 models",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_policy_compare.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_cost_cut_config_time",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "decode-rate-per-machine": {
   "id": "decode-rate-per-machine",
@@ -1294,8 +1488,53 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_decode_rate_per_machine",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "fh1-amd-boundary-llama-3.3-70b": {
+  "id": "fh1-amd-boundary-llama-3.3-70b",
+  "status": "VERIFIED",
+  "value": "evo-x2 llama-3.3-70b, llama-server Vulkan -ngl 99; boundaries: dedicated 65536 MiB, Vulkan device-local heap 76218 MiB, Vulkan total 114327 MiB // MEASURED spill boundary (GPU shared usage > +1024 MiB, unclamped): last no-spill n_ctx 65536 (spill_stats), first spill n_ctx 100096 (spill_stats); cost across it: decode ratio 0.983, TTFT ratio 1.004 // points: n_ctx 20480 [spill_stats, n=5]: no spill (shared +0 MiB vs n_ctx 20480, dedicated 47511 MiB, process GPU mem 0.734 of dedicated / 0.631 of device-local heap), decode 5.285 +/- 0.002 tok/s, TTFT 22810 ms; n_ctx 65536 [spill_stats, n=5]: no spill (shared +44 MiB vs n_ctx 20480, dedicated 61524 MiB, process GPU mem 0.949 of dedicated / 0.816 of device-local heap), decode 5.284 +/- 0.004 tok/s, TTFT 22737 ms; n_ctx 100096 (req 100000) [spill_stats, n=5]: SPILL (shared +9998 MiB vs n_ctx 20480, dedicated 62923 MiB, process GPU mem 1.122 of dedicated / 0.965 of device-local heap), decode 5.196 +/- 0.010 tok/s, TTFT 22839 ms; n_ctx 115200 [spill_stats, n=5]: SPILL (shared +15253 MiB vs n_ctx 20480, dedicated 63062 MiB, process GPU mem 1.204 of dedicated / 1.036 of device-local heap), decode 5.185 +/- 0.012 tok/s, TTFT 22829 ms; n_ctx 131072 [spill_stats, n=5]: SPILL (shared +18540 MiB vs n_ctx 20480, dedicated 63679 MiB, process GPU mem 1.264 of dedicated / 1.087 of device-local heap), decode 5.176 +/- 0.015 tok/s, TTFT 22837 ms; n_ctx 20480 [validation, n=3]: no spill (shared +0 MiB vs n_ctx 20480, dedicated 47502 MiB, process GPU mem 0.734 of dedicated / 0.632 of device-local heap), decode 5.297 +/- 0.003 tok/s, TTFT 21491 ms; n_ctx 115200 [validation, n=3]: SPILL (shared +13397 MiB vs n_ctx 20480, dedicated 64910 MiB, process GPU mem 1.205 of dedicated / 1.036 of device-local heap), decode 5.212 +/- 0.023 tok/s, TTFT 21902 ms; CLAMPED req 221440 served 131072 [validation, n=3]: SPILL (shared +46923 MiB vs n_ctx 20480, dedicated 65043 MiB, process GPU mem 1.718 of dedicated / 1.477 of device-local heap), decode 5.197 +/- 0.030 tok/s, TTFT 21921 ms // bisection (1 start per n_ctx, projection regimes from logged buffers vs device-local heap): projected last fit 110848, projected first spill 111104; last start 221440 (clamped to 131072), first fail 221696 (exit 3221226505); HARD_FAIL points [221696, 238080]; trained ctx 131072 x yarn 1 // fresh-process fail reps at n_ctx [221696]: cold_purge CRASH STATUS_STACK_BUFFER_OVERRUN at warmup 5, warm_read CRASH STATUS_STACK_BUFFER_OVERRUN at warmup 5 (of 10; 127-348 s to exit) // in-session start failures and crash repro (confounded, 2026-10-06 correction): n_ctx 221696 started=True exit=None killed_by_probe=True x3",
+  "n": "34 measured calls, 10 fresh-process fail reps",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/mx2_spill_stats.jsonl",
+   "results/mx2_validation.jsonl",
+   "results/t2s_night2_20261001T151340Z.jsonl",
+   "results/x2_70b_edge_reps.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_fh1_amd_boundary_llama70b",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "fh1-amd-boundary-qwen3-32b": {
+  "id": "fh1-amd-boundary-qwen3-32b",
+  "status": "VERIFIED",
+  "value": "evo-x2 qwen3-32b, llama-server Vulkan -ngl 99; boundaries: dedicated 65536 MiB, Vulkan device-local heap 76218 MiB, Vulkan total 114327 MiB // MEASURED: largest unclamped no-spill n_ctx 20480 (validation); no unclamped spill point measured, so no spill cost // points: n_ctx 20480 [validation, n=3]: no spill (shared +0 MiB vs n_ctx 20480, dedicated 24244 MiB, process GPU mem 0.377 of dedicated / 0.324 of device-local heap), decode 11.451 +/- 0.005 tok/s, TTFT 10265 ms; CLAMPED req 290000 served 40960 [validation, n=3]: SPILL (shared +28159 MiB vs n_ctx 20480, dedicated 64970 MiB, process GPU mem 1.428 of dedicated / 1.228 of device-local heap), decode 11.190 +/- 0.011 tok/s, TTFT 10660 ms // bisection (1 start per n_ctx, projection regimes from logged buffers vs device-local heap): projected last fit 224768 (clamped to 131072), projected first spill 225024 (clamped to 131072); last start 367104 (clamped to 131072), first fail 367360 (exit 3221226505); HARD_FAIL points [367360, 368384, 384768, 417536, 483072]; trained ctx 32768 x yarn 4 // in-session start failures and crash repro (confounded, 2026-10-06 correction): n_ctx 367104 started=False exit=None killed_by_probe=n/a (regime point, start timeout 120 s) x3, n_ctx 367360 started=False exit=None killed_by_probe=True x3",
+  "n": "6 measured calls, 0 fresh-process fail reps",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/mx2_spill_stats.jsonl",
+   "results/mx2_validation.jsonl",
+   "results/t2s_night2_20261001T151340Z.jsonl",
+   "results/x2_70b_edge_reps.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_fh1_amd_boundary_qwen3_32b",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "fh1-amd-qwen3-32b-spill-sweep": {
+  "id": "fh1-amd-qwen3-32b-spill-sweep",
+  "status": "PENDING",
+  "value": "not computed: data file(s) not synced yet: results/x2_mx2_qwen3_32b_spill_sweep.jsonl",
+  "n": "n/a",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_mx2_qwen3_32b_spill_sweep.jsonl"
+  ],
+  "script": "harness/mx2_qwen32b_spill_sweep.py::summarize",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "gpu-memory-readonly": {
   "id": "gpu-memory-readonly",
@@ -1311,13 +1550,13 @@
    "results/blade_k1_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_gpu_memory_readonly",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "impact-P1": {
   "id": "impact-P1",
   "status": "VERIFIED",
-  "value": "evo-x2 llama3.1:8b ollama_default: status assumed; measured USD/day not measured, assumed USD/day 0.00, range USD/day not measured; R2 silent rule/recall failures after the window 0/5 sessions (measured, not a wrong-task rate); B3 task-run windows none (needs >= 2); assumptions: team size = 10 (assumption (profile JSON)); agent sessions per developer per day = 4 (assumption (profile JSON)); a silent rule/recall failure is a wrong task result = 0/5 sessions treated as wrong (not measured: B3 task runs under >= 2 windows needed; found none (validation files excluded)); rework per wrong result = one full session rerun = median session wall at the default window (0.72 h) (assumption (not measured)); developer waits for this compute = upper bound values it at the full hour value USD 64.44/h (impact-hour-value); lower bound 0 (nobody waits) (assumption: who waits was not measured); confidence none",
+  "value": "evo-x2 llama3.1:8b ollama_default: status assumed; measured USD/day not measured, assumed USD/day 0.00, range USD/day not measured; R2 silent rule/recall failures after the window 0/5 sessions (measured, not a wrong-task rate); B3 task-run windows num_ctx_16384, num_ctx_4096, num_ctx_4096_numkeep, num_ctx_8192, ollama_default (needs >= 2); assumptions: team size = 10 (assumption (profile JSON)); agent sessions per developer per day = 4 (assumption (profile JSON)); a silent rule/recall failure is a wrong task result = 0/5 sessions treated as wrong (not measured: B3 task runs under >= 2 windows needed; found num_ctx_16384, num_ctx_4096, num_ctx_4096_numkeep, num_ctx_8192, ollama_default (validation files excluded)); rework per wrong result = one full session rerun = median session wall at the default window (0.72 h) (assumption (not measured)); developer waits for this compute = upper bound values it at the full hour value USD 64.44/h (impact-hour-value); lower bound 0 (nobody waits) (assumption: who waits was not measured); confidence none",
   "n": "15",
   "reported": "(none previously reported)",
   "files": [
@@ -1329,8 +1568,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/impact_model.py::p1",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "impact-P2": {
   "id": "impact-P2",
@@ -1347,8 +1586,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/impact_model.py::p2",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "impact-P3": {
   "id": "impact-P3",
@@ -1365,8 +1604,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/impact_model.py::p3",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "impact-P4": {
   "id": "impact-P4",
@@ -1408,8 +1647,8 @@
    "results/blade_dryrun/blade_dryrun_r2_mechanism.jsonl"
   ],
   "script": "analysis/impact_model.py::p4",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "impact-P5": {
   "id": "impact-P5",
@@ -1427,8 +1666,8 @@
    "src/dse/envelope_data.json"
   ],
   "script": "analysis/impact_model.py::p5",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "impact-P6": {
   "id": "impact-P6",
@@ -1448,8 +1687,8 @@
    "results/workload_pack/items/*.jsonl"
   ],
   "script": "analysis/impact_model.py::p6",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "impact-P7": {
   "id": "impact-P7",
@@ -1466,8 +1705,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/impact_model.py::p7",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "impact-hour-value": {
   "id": "impact-hour-value",
@@ -1479,8 +1718,58 @@
    "results/impact_profile_20261014.json"
   ],
   "script": "analysis/impact_model.py::hour_value",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "impact-ranking-v2": {
+  "id": "impact-ranking-v2",
+  "status": "VERIFIED",
+  "value": "one profile: evo-x2 qwen3:14b ollama_ctx_4096, team 10 x 4 sessions/day, cloud claude-sonnet-5-5 caching on (ASSUMED volumes; hour value cited); ranking by main-case USD/day (time at the full hour value): P2 > P1 > P5 > P3 > P4; unranked: P6, P7; rows: P2 5,990.48 (range 0.00 to 5,990.48; mixed; 139.4 min saved per session (MEASURED, cost-cut-config-time: qwen3:14b default (a) 214.8 min vs (g) kv_q8_0 75.4 min) x sessions/day (ASSUMED volume) x hour value; caveat: the B5 default ran without flash attention, so the saving may be flash attention or KV precision; the flash-attention control (row b5-fa-control, PENDING) decides which); P1 137.18 (range 10.33 to 137.18; mixed, cloud part priced, not executed); P5 11.04 (range 0.00 to 11.04; mixed); P3 3.70 (range 3.70 to 74.10; measured); P4 0.00 (range 0.00; mixed); P6 not measured (range n/a; not measured); P7 not measured (range n/a; not measured); split: measured P3, mixed P1/P2/P4/P5, not measured P6/P7; PENDING inputs: none",
+  "n": "7 rows",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/blade_dryrun/blade_dryrun_k1.jsonl",
+   "results/blade_dryrun/blade_dryrun_r2_mechanism.jsonl",
+   "results/blade_dryrun/blade_dryrun_r2_mitigation.jsonl",
+   "results/blade_dryrun/blade_dryrun_r2_real.jsonl",
+   "results/blade_dryrun/blade_dryrun_r2_validation.jsonl",
+   "results/blade_r2_real*.jsonl",
+   "results/cloud_prices_anthropic_20261014.json",
+   "results/cloud_redo_v1.jsonl",
+   "results/impact_profile_20261014.json",
+   "results/t2s_amech_20260926T181456Z.jsonl",
+   "results/t2s_k2_pressure_20261001T001340Z.jsonl",
+   "results/t2s_night2_20260928T004924Z.jsonl",
+   "results/t2s_night2_20260928T200748Z.jsonl",
+   "results/t2s_night2_20260929T032407Z.jsonl",
+   "results/t2s_night2_20260929T034014Z.jsonl",
+   "results/t2s_night2_20260929T045127Z.jsonl",
+   "results/t2s_night2_20260929T103807Z.jsonl",
+   "results/t2s_night2_20260929T202603Z.jsonl",
+   "results/t2s_night2_20260929T205109Z.jsonl",
+   "results/t2s_night2_20260930T071225Z.jsonl",
+   "results/t2s_night2_20260930T135145Z.jsonl",
+   "results/t2s_night2_20260930T173804Z.jsonl",
+   "results/t2s_night2_20260930T215303Z.jsonl",
+   "results/t2s_night2_20261001T033124Z.jsonl",
+   "results/t2s_night2_20261001T081725Z.jsonl",
+   "results/t2s_night2_20261001T151340Z.jsonl",
+   "results/t2s_night2_20261001T195303Z.jsonl",
+   "results/t2s_outcome_table_full.jsonl",
+   "results/t2s_overnight_20260926T011744Z.jsonl",
+   "results/t2s_overnight_20260929T071343Z.jsonl",
+   "results/workload_pack/items/*.jsonl",
+   "results/x2_evalset_tasks_real_v2.jsonl",
+   "results/x2_outcome_table_v3.jsonl",
+   "results/x2_policy_compare.jsonl",
+   "results/x2_r2_real*.jsonl",
+   "results/x2_r2_validation_v2.jsonl",
+   "results/x2_r2_validation_v2b.jsonl",
+   "src/dse/envelope_data.json"
+  ],
+  "script": "analysis/impact_model.py::v2_rows",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "impact-scenario-one-flag": {
   "id": "impact-scenario-one-flag",
@@ -1527,8 +1816,8 @@
    "src/dse/envelope_data.json"
   ],
   "script": "analysis/impact_model.py::previous_basis",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "impact-session-time-by-window": {
   "id": "impact-session-time-by-window",
@@ -1545,8 +1834,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/impact_model.py::session_time_by_window",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "impact-total": {
   "id": "impact-total",
@@ -1592,8 +1881,58 @@
    "src/dse/envelope_data.json"
   ],
   "script": "analysis/impact_model.py::audit_total",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "impact-v2-P1": {
+  "id": "impact-v2-P1",
+  "status": "VERIFIED",
+  "value": "profile evo-x2 qwen3:14b ollama_ctx_4096, 40 sessions/day (ASSUMED volume), hour value USD 64.44 (impact-hour-value); status mixed, cloud part priced, not executed; profile cell USD/day 10.33 to 137.18; ollama_ctx_16384: excess +1.3 points (session-level 95% CI -1.3 to +4.0), 30 task turns/session, 16.0 excess wrong tasks/day, wrong-turn wall 12.5 s; time USD/day 0.00 to 3.57 (CI 0.00 to 10.72); cloud redo USD/day 0.43 (USD 0.0272 per wrong task, priced, not executed; CI 0.00 to 1.30); ollama_ctx_8192: excess +24.0 points (session-level 95% CI +18.7 to +29.3), 30 task turns/session, 288.0 excess wrong tasks/day, wrong-turn wall 30.5 s; time USD/day 0.00 to 157.24 (CI 122.30 to 192.19); cloud redo USD/day 8.72 (USD 0.0303 per wrong task, priced, not executed; CI 6.78 to 10.66); ollama_ctx_4096: excess +30.7 points (session-level 95% CI +26.0 to +34.7), 30 task turns/session, 368.0 excess wrong tasks/day, wrong-turn wall 19.3 s; time USD/day 0.00 to 126.85 (CI 107.55 to 143.39); cloud redo USD/day 10.33 (USD 0.0281 per wrong task, priced, not executed; CI 8.76 to 11.68); ollama_ctx_4096_numkeep: excess +18.7 points (session-level 95% CI +16.0 to +21.3), 30 task turns/session, 224.0 excess wrong tasks/day, wrong-turn wall 12.2 s; time USD/day 0.00 to 48.84 (CI 41.87 to 55.82); cloud redo USD/day 6.03 (USD 0.0269 per wrong task, priced, not executed; CI 5.17 to 6.89); measured: excess rate and its CI (x2-evalset-tasks-real-v2-wrong-rate, x2-evalset-tasks-real-v2-ci-units), task turns per session, wrong-turn wall time; priced, not executed: cloud redo USD per wrong task, per tier (cloud-redo-cost-per-wrong-task); assumed: volume, who waits (0 to full hour value), a wrong task costs one cloud redo plus the wasted turn (time to notice not counted)",
+  "n": "4 tiers",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/blade_dryrun/blade_dryrun_k1.jsonl",
+   "results/blade_dryrun/blade_dryrun_r2_mechanism.jsonl",
+   "results/blade_dryrun/blade_dryrun_r2_mitigation.jsonl",
+   "results/blade_dryrun/blade_dryrun_r2_real.jsonl",
+   "results/blade_dryrun/blade_dryrun_r2_validation.jsonl",
+   "results/blade_r2_real*.jsonl",
+   "results/cloud_prices_anthropic_20261014.json",
+   "results/cloud_redo_v1.jsonl",
+   "results/impact_profile_20261014.json",
+   "results/t2s_amech_20260926T181456Z.jsonl",
+   "results/t2s_k2_pressure_20261001T001340Z.jsonl",
+   "results/t2s_night2_20260928T004924Z.jsonl",
+   "results/t2s_night2_20260928T200748Z.jsonl",
+   "results/t2s_night2_20260929T032407Z.jsonl",
+   "results/t2s_night2_20260929T034014Z.jsonl",
+   "results/t2s_night2_20260929T045127Z.jsonl",
+   "results/t2s_night2_20260929T103807Z.jsonl",
+   "results/t2s_night2_20260929T202603Z.jsonl",
+   "results/t2s_night2_20260929T205109Z.jsonl",
+   "results/t2s_night2_20260930T071225Z.jsonl",
+   "results/t2s_night2_20260930T135145Z.jsonl",
+   "results/t2s_night2_20260930T173804Z.jsonl",
+   "results/t2s_night2_20260930T215303Z.jsonl",
+   "results/t2s_night2_20261001T033124Z.jsonl",
+   "results/t2s_night2_20261001T081725Z.jsonl",
+   "results/t2s_night2_20261001T151340Z.jsonl",
+   "results/t2s_night2_20261001T195303Z.jsonl",
+   "results/t2s_outcome_table_full.jsonl",
+   "results/t2s_overnight_20260926T011744Z.jsonl",
+   "results/t2s_overnight_20260929T071343Z.jsonl",
+   "results/workload_pack/items/*.jsonl",
+   "results/x2_evalset_tasks_real_v2.jsonl",
+   "results/x2_outcome_table_v3.jsonl",
+   "results/x2_policy_compare.jsonl",
+   "results/x2_r2_real*.jsonl",
+   "results/x2_r2_validation_v2.jsonl",
+   "results/x2_r2_validation_v2b.jsonl",
+   "src/dse/envelope_data.json"
+  ],
+  "script": "analysis/impact_model.py::p1_v2",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "info-loss-by-window": {
   "id": "info-loss-by-window",
@@ -1608,8 +1947,8 @@
    "results/x2_r2_real_v1b.jsonl"
   ],
   "script": "analysis/r2_info_loss.py::info_loss_str",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "kappa-heldout": {
   "id": "kappa-heldout",
@@ -1622,8 +1961,8 @@
    "results/labeling/kappa_heldout_annotator_claude.csv"
   ],
   "script": "analysis/kappa_agreement.py::heldout_stats",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "kappa-heldout-disagreements": {
   "id": "kappa-heldout-disagreements",
@@ -1637,8 +1976,8 @@
    "results/labeling/kappa_heldout_annotator_claude.csv"
   ],
   "script": "analysis/numbers_register.py::compute_kappa_heldout_disagreement_read",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "kappa-heldout-fn-annotator": {
   "id": "kappa-heldout-fn-annotator",
@@ -1651,8 +1990,8 @@
    "results/labeling/kappa_heldout_annotator_claude.csv"
   ],
   "script": "analysis/kappa_agreement.py::heldout_stats",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "kappa-heldout-sample": {
   "id": "kappa-heldout-sample",
@@ -1667,8 +2006,8 @@
    "results/labeling/ritz_spotcheck_30.csv"
   ],
   "script": "analysis/build_kappa_heldout_sample.py::round_robin_sample",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "num-keep-guardrail-test": {
   "id": "num-keep-guardrail-test",
@@ -1680,8 +2019,21 @@
    "results/x2_num_keep_guardrail_test.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_num_keep_guardrail_test",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "num-keep-qwen3-14b": {
+  "id": "num-keep-qwen3-14b",
+  "status": "VERIFIED",
+  "value": "qwen3:14b num_ctx 4096 num_keep=system: S per seed {20260901: 752, 20260902: 747, 20260903: 750}; observed context shifts 0 with n_keep [], task n_keep [747, 750, 752], token cuts 0 with keep [], --keep [], Ollama message-drop calls 228 of 240; rules in use: rule1 100.0% (n=120, first failure -/-/-); rule2 100.0% (n=120, first failure -/-/-); rule3 95.8% (n=120, first failure -/20/20); rule4 100.0% (n=60, first failure -/-/-); rule5 98.3% (n=120, first failure 5/-/5); canary misses C 1, H 24 of 24 checks; error turns 0; verdict: inconclusive (flag effect not observed)",
+  "n": "120 turns",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_num_keep_qwen3_14b.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_num_keep_qwen3_14b",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "ollama-overflow-keeps-half": {
   "id": "ollama-overflow-keeps-half",
@@ -1696,8 +2048,8 @@
    "results/x2_template_mechanism_test.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ollama_overflow_keeps_half",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "pack-trace-weighted-stats": {
   "id": "pack-trace-weighted-stats",
@@ -1710,8 +2062,8 @@
    "results/traces/agent_step_lengths.parquet"
   ],
   "script": "analysis/numbers_register.py::compute_pack_trace_weighted_stats",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "pareto-frontier-x2": {
   "id": "pareto-frontier-x2",
@@ -1726,8 +2078,8 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "src/dse/pareto.py::frontier",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "pareto-sample-recommendation": {
   "id": "pareto-sample-recommendation",
@@ -1742,8 +2094,8 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "src/dse/pareto.py::recommend",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "pareto-sample-recommendation-v2": {
   "id": "pareto-sample-recommendation-v2",
@@ -1758,8 +2110,8 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_pareto_sample_recommendation_v2",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "qwen3-32b-timeout-count": {
   "id": "qwen3-32b-timeout-count",
@@ -1771,8 +2123,8 @@
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_qwen3_32b_timeout_count",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "qwen3-32b-truncation-vs-latency": {
   "id": "qwen3-32b-truncation-vs-latency",
@@ -1784,8 +2136,8 @@
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_qwen3_32b_truncation_vs_latency",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "qwen32b-refusal": {
   "id": "qwen32b-refusal",
@@ -1797,8 +2149,8 @@
    "results/t2s_night2_20260929T205109Z.jsonl"
   ],
   "script": "analysis/r1b_wrong_answer_audit.py::refusal_share_by_model",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "qwen4b-2507-metadata-consistency": {
   "id": "qwen4b-2507-metadata-consistency",
@@ -1810,8 +2162,8 @@
    "results/x2_template_mechanism_test.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_qwen4b_2507_metadata_consistency",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "r2-session-cloud-cost": {
   "id": "r2-session-cloud-cost",
@@ -1825,8 +2177,8 @@
    "results/cloud_prices_*.json"
   ],
   "script": "analysis/r2_session_cost.py::cost_str",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "r2-session-wallclock": {
   "id": "r2-session-wallclock",
@@ -1840,8 +2192,8 @@
    "results/cloud_prices_*.json"
   ],
   "script": "analysis/r2_session_cost.py::wallclock_str",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "reliability-after-guardrail-loss": {
   "id": "reliability-after-guardrail-loss",
@@ -1856,8 +2208,8 @@
    "results/x2_r2_real_v1b.jsonl"
   ],
   "script": "analysis/r2_info_loss.py::reliability_str",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "self-report-truncation-awareness": {
   "id": "self-report-truncation-awareness",
@@ -1870,8 +2222,27 @@
    "results/t2s_night2_20260929T205109Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_self_report_truncation_awareness",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "t2s-b5-plan-hours": {
+  "id": "t2s-b5-plan-hours",
+  "status": "VERIFIED",
+  "value": "evo-t2s window 2026-10-26 to 2026-11-08 ESTIMATE: available 335.0 h (2026-10-26T04:00:00+00:00 to no-launch 2026-11-09T04:00:00+00:00 minus an assumed 1.0 h start allowance); B5 all four cells 1485.6 h; in queue order: t2s_o26_preflight n/a h (no estimate); t2s_o26_window_override_methods 0.3 h (yes); t2s_o26_b5_cpu_llama31_8b 197.0 h (yes; 38.4 h/seed, 5 of 5 seeds fit, cell counts yes (5 seeds)); t2s_o26_b5_igpu_llama31_8b 142.3 h (partial; 27.9 h/seed, 4 of 5 seeds fit, cell counts yes (first 3 seeds)); t2s_o26_b5_igpu_qwen3_14b 318.4 h (not reached; 63.4 h/seed, 0 of 5 seeds fit, cell counts no); t2s_o26_b5_cpu_qwen3_14b 827.9 h (not reached; 164.9 h/seed, 0 of 5 seeds fit, cell counts no); t2s_o26_b6_model_pull n/a h (not reached); t2s_o26_b6_val_cpu n/a h (not reached); t2s_o26_b6_val_igpu n/a h (not reached); t2s_o26_b6_real_cpu_4096 n/a h (not reached); t2s_o26_b6_real_igpu_default n/a h (not reached); B5 cells that count: t2s_o26_b5_cpu_llama31_8b, t2s_o26_b5_igpu_llama31_8b; basis: minutes per session from MEASURED evo-t2s R2 sessions (t2s-r2-real-cpu, t2s-r2-real-igpu; CPU trim from t2s-r2-mitigation-cpu): (a), (d), (f) = the measured default-window session median (d's cloud-proxy steps not added); (c) = CPU: the measured trimming session median at 4096, iGPU: the default median x the evo-x2 trim factor; (b), (g), (h) at L = native context (ASSUMED; probed at run time) = the default median x the evo-x2 ratio of session minutes at L over the default window (x2_r2_real_v1/v1b); (e): skipped on the CPU (no GPU), alias of (b) on the iGPU (G = L assumed); recall and window probes as in estimate_platform",
+  "n": "11 entries",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/t2s_r2_real_cpu_v1.jsonl",
+   "results/t2s_r2_real_igpu_v1.jsonl",
+   "results/t2s_r2_mitigation_cpu_v1.jsonl",
+   "results/x2_r2_real_v1.jsonl",
+   "results/x2_r2_real_v1b.jsonl",
+   "results/x2_r2_mitigation_v1.jsonl",
+   "queues/t2s_oct26_queue.json"
+  ],
+  "script": "scripts/t2s_window_stage.py::plan",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "t2s-llamaserver-load-failures": {
   "id": "t2s-llamaserver-load-failures",
@@ -1883,7 +2254,7 @@
    "results/t2s_outcome_table_llamaserver_*.log"
   ],
   "script": "analysis/numbers_register.py::compute_t2s_llamaserver_load_failures",
-  "commit": "5b3ff5c",
+  "commit": "97df472",
   "date": "2026-10-14"
  },
  "t2s-outcome-allocation-failures": {
@@ -1896,8 +2267,8 @@
    "results/t2s_outcome_table_full.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_t2s_allocation_failures",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "t2s-outcome-error-causes": {
   "id": "t2s-outcome-error-causes",
@@ -1909,8 +2280,8 @@
    "results/t2s_outcome_table_full.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_t2s_outcome_error_causes",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "t2s-outcome-gsm8k-rescore": {
   "id": "t2s-outcome-gsm8k-rescore",
@@ -1923,8 +2294,118 @@
    "results/t2s_outcome_table_smoke.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_t2s_outcome_gsm8k_rescore",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "t2s-r2-mechanism-cpu": {
+  "id": "t2s-r2-mechanism-cpu",
+  "status": "VERIFIED",
+  "value": "38/40 turns completed, session closed False, last turn at 2026-10-19T03:20Z; loaded window ['4096']; 36 turns over the loaded window; 9 render-only prompt checks; no session summary, so the mechanism verdict is not computed",
+  "n": "38 turns",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/t2s_r2_mechanism_cpu_v1.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_t2s_r2_mechanism_cpu",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "t2s-r2-mitigation-cpu": {
+  "id": "t2s-r2-mitigation-cpu",
+  "status": "VERIFIED",
+  "value": "overall refuted; num_ctx_4096 llama3.1:8b recovered; num_ctx_4096 qwen3:14b not_recovered (rules below 90%: rule2_log_event_called)",
+  "n": "6 sessions, 240 turns",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/t2s_r2_mitigation_cpu_v1.jsonl",
+   "results/t2s_r2_validation_cpu_v1.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_t2s_r2_mitigation_cpu",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "t2s-r2-real-cpu": {
+  "id": "t2s-r2-real-cpu",
+  "status": "VERIFIED",
+  "value": "llama3.1:8b: loaded window [4096], first over window turn [3]; gated 5/5 silent, 5 after window exceeded, 0 baseline-type (gate excludes recall); intact 0/0/0/0/0/0/0/0 / qwen3:14b: loaded window [4096], first over window turn [3]; gated 5/5 silent, 5 after window exceeded, 0 baseline-type (gate excludes recall); intact 0/0/0/0/0/0/0/0; pre-registered kill criterion killed=False, ollama_default 10/10 silent",
+  "n": "10 sessions",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/t2s_r2_real_cpu_v1.jsonl",
+   "results/t2s_r2_validation_cpu_v1.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_t2s_r2_real",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "t2s-r2-real-igpu": {
+  "id": "t2s-r2-real-igpu",
+  "status": "VERIFIED",
+  "value": "llama3.1:8b: loaded window [32768], first over window turn [23]; gated 0/5 silent, 0 after window exceeded, 0 baseline-type (gate excludes nothing); intact 5/5/5/4/4/0/0/0 / qwen3:14b: loaded window [32768], first over window turn [20, 21]; gated 1/5 silent, 0 after window exceeded, 1 baseline-type (gate excludes recall); intact 4/4/4/4/0/0/0/0; pre-registered kill criterion killed=False, ollama_default 5/10 silent",
+  "n": "10 sessions",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/t2s_r2_real_igpu_v1.jsonl",
+   "results/t2s_r2_validation_igpu_v1.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_t2s_r2_real",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "t2s-r2-session-minutes": {
+  "id": "t2s-r2-session-minutes",
+  "status": "VERIFIED",
+  "value": "Intel CPU: llama3.1:8b default window 4096: 102.7 min/session (n=5), trimming at 4096 78.6 min/session (n=3); qwen3:14b default window 4096: 185.0 min/session (n=5), trimming at 4096 163.9 min/session (n=3) (t2s_r2_real_cpu_v1.jsonl run 23.8 h, t2s_r2_mitigation_cpu_v1.jsonl run 12.1 h) / Intel iGPU: llama3.1:8b default window 32768: 172.1 min/session (n=5); qwen3:14b default window 32768: 384.4 min/session (n=5) (t2s_r2_real_igpu_v1.jsonl run 46.6 h)",
+  "n": "26 sessions",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/t2s_r2_real_cpu_v1.jsonl",
+   "results/t2s_r2_real_igpu_v1.jsonl",
+   "results/t2s_r2_mitigation_cpu_v1.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_t2s_r2_session_minutes",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "t2s-r2-val-llama-diagnosis": {
+  "id": "t2s-r2-val-llama-diagnosis",
+  "status": "VERIFIED",
+  "value": "Intel CPU (results/t2s_r2_validation_cpu_v1.jsonl): baseline rules passed rule1 30/30; rule2 17/30; rule3 30/30; rule4 15/15; rule5 19/30; canary misses 0; failed rules 24 (omitted 24); by rule rule2 omitted 13; rule5 omitted 11; subtypes rule5:omitted/no session code in the answer 11, rule2:omitted/other_tool_only 8, rule2:omitted/claimed_in_answer_report 5; rule2 passed by turn task log_event 15/15, lookup_fact 2/15; hw_id evo-t2s, Ollama 0.34.4, model digest not recorded, temperature not recorded per row, session seeds 20260901/20260902/20260903, call2 mode off / Intel iGPU (results/t2s_r2_validation_igpu_v1.jsonl): baseline rules passed rule1 30/30; rule2 18/30; rule3 30/30; rule4 15/15; rule5 9/30; canary misses 0; failed rules 33 (omitted 33); by rule rule2 omitted 12; rule5 omitted 21; subtypes rule5:omitted/no session code in the answer 21, rule2:omitted/other_tool_only 12; rule2 passed by turn task log_event 15/15, lookup_fact 3/15; hw_id evo-t2s, Ollama 0.34.4, model digest not recorded, temperature not recorded per row, session seeds 20260901/20260902/20260903, call2 mode off / CPU vs iGPU same (seed, turn): identical final text 8/30, identical native call names 29/30, identical system prompts 30/30 / qwen3:14b failed rules Intel CPU 1 (wrong_value 1); Intel iGPU 0 (none) / dominant class llama3.1:8b both backends: omitted",
+  "n": "60",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/t2s_r2_validation_cpu_v1.jsonl",
+   "results/t2s_r2_validation_igpu_v1.jsonl"
+  ],
+  "script": "analysis/t2s_llama_val_diagnosis.py::register_value",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "t2s-r2-validation-cpu": {
+  "id": "t2s-r2-validation-cpu",
+  "status": "VERIFIED",
+  "value": "llama3.1:8b: rule1 100.0%, rule2 56.7%, rule3 100.0%, rule4 100.0%, rule5 63.3%; tool validity 100.0% of 30 calls; tool args 100.0%; recall 66.7% (n=6); canary C 100.0%, H 100.0% (n=6); empty final answers 0; task tool 28/30; thinking-present calls 0; preflight pass / qwen3:14b: rule1 100.0%, rule2 100.0%, rule3 100.0%, rule4 100.0%, rule5 96.7%; tool validity 100.0% of 48 calls; tool args 93.8%; recall 66.7% (n=6); canary C 100.0%, H 100.0% (n=6); empty final answers 0; task tool 30/30; thinking-present calls 0; preflight pass; failed gates: llama3.1:8b baseline; qwen3:14b none",
+  "n": "60 baseline turns",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/t2s_r2_validation_cpu_v1.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_t2s_r2_validation",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "t2s-r2-validation-igpu": {
+  "id": "t2s-r2-validation-igpu",
+  "status": "VERIFIED",
+  "value": "llama3.1:8b: rule1 100.0%, rule2 60.0%, rule3 100.0%, rule4 100.0%, rule5 30.0%; tool validity 100.0% of 30 calls; tool args 100.0%; recall 100.0% (n=6); canary C 100.0%, H 100.0% (n=6); empty final answers 0; task tool 27/30; thinking-present calls 0; preflight pass / qwen3:14b: rule1 100.0%, rule2 100.0%, rule3 100.0%, rule4 100.0%, rule5 100.0%; tool validity 100.0% of 48 calls; tool args 93.8%; recall 66.7% (n=6); canary C 100.0%, H 100.0% (n=6); empty final answers 0; task tool 30/30; thinking-present calls 0; preflight pass; failed gates: llama3.1:8b baseline; qwen3:14b none",
+  "n": "60 baseline turns",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/t2s_r2_validation_igpu_v1.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_t2s_r2_validation",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "trace-32k-crossing": {
   "id": "trace-32k-crossing",
@@ -1936,8 +2417,8 @@
    "results/traces/agent_step_lengths.parquet"
   ],
   "script": "analysis/numbers_register.py::compute_trace_cdf_crossing_fractions",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "trace-context-exit-rate": {
   "id": "trace-context-exit-rate",
@@ -1949,8 +2430,8 @@
    "results/traces/exit_status_sample.parquet"
   ],
   "script": "analysis/numbers_register.py::compute_trace_context_exit_rate",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "trace-fraction-exceeds-4096": {
   "id": "trace-fraction-exceeds-4096",
@@ -1962,8 +2443,8 @@
    "results/traces/agent_step_lengths.parquet"
   ],
   "script": "analysis/numbers_register.py::compute_trace_fraction_exceeds_4096",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "ttft-cross-machine-transfer": {
   "id": "ttft-cross-machine-transfer",
@@ -1994,8 +2475,8 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_cross_machine_transfer",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "ttft-few-point-calibration": {
   "id": "ttft-few-point-calibration",
@@ -2026,8 +2507,8 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_few_point_calibration",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "ttft-first-call-stall": {
   "id": "ttft-first-call-stall",
@@ -2044,8 +2525,8 @@
    "results/t2s_night2_20260929T202603Z_srv_R1*_start.txt"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_first_call_stall",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "ttft-first-call-stall-per-cell": {
   "id": "ttft-first-call-stall-per-cell",
@@ -2062,8 +2543,8 @@
    "results/t2s_night2_20260929T202603Z_srv_R1*_start.txt"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_first_call_stall_per_cell",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "ttft-physical-fit-per-machine": {
   "id": "ttft-physical-fit-per-machine",
@@ -2094,8 +2575,8 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_physical_fit_per_machine",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "ttft-t2s-restricted-to-x2-range": {
   "id": "ttft-t2s-restricted-to-x2-range",
@@ -2126,8 +2607,8 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_t2s_restricted_to_x2_range",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "ttft-x2-length-spread": {
   "id": "ttft-x2-length-spread",
@@ -2158,8 +2639,8 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_x2_length_spread",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "ttft-x2-refit-per-model": {
   "id": "ttft-x2-refit-per-model",
@@ -2190,8 +2671,8 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_x2_refit_per_model",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "ttft-x2-section0-stall-check": {
   "id": "ttft-x2-section0-stall-check",
@@ -2223,8 +2704,8 @@
    "results/t2s_night2_20260929T205109Z_srv_R1*_start.txt"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_x2_section0_stall_check",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "uncensored-trace-32k-crossing": {
   "id": "uncensored-trace-32k-crossing",
@@ -2236,21 +2717,21 @@
    "results/traces/agent_step_lengths.parquet"
   ],
   "script": "analysis/numbers_register.py::compute_uncensored_trace_32k_crossing",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "window-override-methods": {
   "id": "window-override-methods",
-  "status": "PENDING",
-  "value": "not computed: data file(s) not synced yet: results/x2_window_override_methods_v1.jsonl",
-  "n": "n/a",
+  "status": "VERIFIED",
+  "value": "evo-x2: baseline 131072 (log 131072); request num_ctx 12288: loaded 12288 (log 12288), after restart (plain request) 131072 (log 131072), applied True, persists False; Modelfile PARAMETER num_ctx 10240 on apu-wom-llama3.1:numctx10240: loaded 10240 (log 10240), after restart 10240 (log 10240), applied True, persists True, base tag after restart 131072 (log 131072), tag deleted True; OLLAMA_CONTEXT_LENGTH 6144: loaded 6144 (log 6144), restart with env 6144 (log 6144), restart without env 131072 (log 131072), applied True; GPU per Ollama [('AMD Radeon(TM) 8060S Graphics', '99.7 GiB', '99.6 GiB')]; valid True / blade: not run yet / evo-t2s: not run yet",
+  "n": "1 hosts",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_window_override_methods_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_window_override_methods",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "x2-chat-template-source": {
   "id": "x2-chat-template-source",
@@ -2263,8 +2744,8 @@
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_chat_template_source",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "x2-device-detect-mechanism": {
   "id": "x2-device-detect-mechanism",
@@ -2276,47 +2757,341 @@
    "results/x2_template_mechanism_test.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_device_detect_mechanism",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "x2-evalset-tasks-real-silent": {
+  "id": "x2-evalset-tasks-real-silent",
+  "status": "PENDING",
+  "value": "not computed: data file(s) not synced yet: results/x2_evalset_tasks_real_v1.jsonl",
+  "n": "n/a",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_evalset_tasks_real_v1.jsonl",
+   "results/x2_evalset_tasks_val_v1.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_x2_evalset_tasks_real_silent",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "x2-evalset-tasks-real-v2-ci-units": {
+  "id": "x2-evalset-tasks-real-v2-ci-units",
+  "status": "VERIFIED",
+  "value": "qwen3:14b wrong-task excess over default; ollama_ctx_16384: excess +1.3 points; session-level 95% CI -1.3 to +4.0 (5 vs 5 sessions); turn-level 95% CI -6.0 to +8.7 (150 vs 150 task turns); ollama_ctx_8192: excess +24.0 points; session-level 95% CI +18.7 to +29.3 (5 vs 5 sessions); turn-level 95% CI +14.7 to +33.3 (150 vs 150 task turns); ollama_ctx_4096: excess +30.7 points; session-level 95% CI +26.0 to +34.7 (5 vs 5 sessions); turn-level 95% CI +21.3 to +40.0 (150 vs 150 task turns); ollama_ctx_4096_numkeep: excess +18.7 points; session-level 95% CI +16.0 to +21.3 (5 vs 5 sessions); turn-level 95% CI +10.0 to +27.3 (150 vs 150 task turns) (10000 resamples each, seed 20261014; the paper uses the session-level CI)",
+  "n": "25 sessions, 750 task turns",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_evalset_tasks_real_v2.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_x2_evalset_tasks_real_v2_ci_units",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "x2-evalset-tasks-real-v2-gated-excess": {
+  "id": "x2-evalset-tasks-real-v2-gated-excess",
+  "status": "VERIFIED",
+  "value": "qwen3:14b: valid True; gated fields rule1_json_keys, rule2_log_event_called, rule3_no_zebra, rule4_metres, rule5_session_code, tool_validity_all, tool_args_all (excluded recall); ollama_default 5/5 silent, 0 after window exceeded; num_ctx_16384: v2 1/5 vs default 0/5, excess +0.200 (95% CI +0.000 to +0.600); v1b excess +0.000 (95% CI +0.000 to +0.000); reading: no excess in either protocol; num_ctx_8192: v2 2/5 vs default 0/5, excess +0.400 (95% CI +0.000 to +0.800); v1b excess +0.000 (95% CI +0.000 to +0.000); reading: no excess in either protocol; num_ctx_4096: v2 5/5 vs default 0/5, excess +1.000 (95% CI +1.000 to +1.000); v1b excess +0.800 (95% CI +0.400 to +1.000); reading: the v1b effect holds; num_ctx_4096_numkeep: v2 5/5 vs default 0/5, excess +1.000 (95% CI +1.000 to +1.000); num_keep reading: num_keep does not remove it (bootstrap 10000 resamples, unit session, stratified by tier x model, seed 20261014)",
+  "n": "25 sessions",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_evalset_tasks_real_v2.jsonl",
+   "results/x2_evalset_tasks_val_v2.jsonl",
+   "results/x2_r2_real_v1.jsonl",
+   "results/x2_r2_real_v1b.jsonl",
+   "results/x2_r2_validation_v2.jsonl",
+   "results/x2_r2_validation_v2b.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_x2_evalset_tasks_real_v2_gated_excess",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "x2-evalset-tasks-real-v2-hours": {
+  "id": "x2-evalset-tasks-real-v2-hours",
+  "status": "VERIFIED",
+  "value": "ESTIMATE 4.6 h (range 2.0 to 5.2 h) for 25 qwen3:14b sessions of 30 task turns (5 at the default at the measured negative-control session time, 20 at smaller windows at the measured num_ctx 8192 positive-control session time); measured sessions (s): negative control 294, 310, 331; positive control 749",
+  "n": "4 measured sessions (estimate)",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_evalset_tasks_val_v2.jsonl"
+  ],
+  "script": "harness/x2_r2_evalset.py::tasks_v2_hours_estimate",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "x2-evalset-tasks-real-v2-mistral-small32-gated-excess": {
+  "id": "x2-evalset-tasks-real-v2-mistral-small32-gated-excess",
+  "status": "PENDING",
+  "value": "not computed: data file(s) not synced yet: results/x2_evalset_tasks_real_v2_mistral_small32.jsonl, results/x2_evalset_tasks_val_v2_mistral_small32.jsonl",
+  "n": "n/a",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_evalset_tasks_real_v2_mistral_small32.jsonl",
+   "results/x2_evalset_tasks_val_v2_mistral_small32.jsonl",
+   "results/x2_r2_real_v1.jsonl",
+   "results/x2_r2_real_v1b.jsonl",
+   "results/x2_r2_validation_v2.jsonl",
+   "results/x2_r2_validation_v2b.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_x2_evalset_tasks_real_v2_ms_gated_excess",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "x2-evalset-tasks-real-v2-mistral-small32-wrong-rate": {
+  "id": "x2-evalset-tasks-real-v2-mistral-small32-wrong-rate",
+  "status": "PENDING",
+  "value": "not computed: data file(s) not synced yet: results/x2_evalset_tasks_real_v2_mistral_small32.jsonl",
+  "n": "n/a",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_evalset_tasks_real_v2_mistral_small32.jsonl"
+  ],
+  "script": "harness/x2_r2_evalset.py::tasks_real_v2_outcome",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "x2-evalset-tasks-real-v2-qwen3-8b-gated-excess": {
+  "id": "x2-evalset-tasks-real-v2-qwen3-8b-gated-excess",
+  "status": "VERIFIED",
+  "value": "qwen3:8b: valid False (); gated fields  (excluded none) (bootstrap None resamples, unit None, stratified by None, seed None)",
+  "n": "0 sessions",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_evalset_tasks_real_v2_qwen3_8b.jsonl",
+   "results/x2_evalset_tasks_val_v2_qwen3_8b.jsonl",
+   "results/x2_r2_real_v1.jsonl",
+   "results/x2_r2_real_v1b.jsonl",
+   "results/x2_r2_validation_v2.jsonl",
+   "results/x2_r2_validation_v2b.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_x2_evalset_tasks_real_v2_gated_excess",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "x2-evalset-tasks-real-v2-qwen3-8b-wrong-rate": {
+  "id": "x2-evalset-tasks-real-v2-qwen3-8b-wrong-rate",
+  "status": "VERIFIED",
+  "value": "run finished False; qwen3:8b: refused (qwen3:8b: task tool called correctly on 61/81 baseline turns (< 90%, task-tool gate); qwen3:8b: task end-state gate failed (65/90 < 90%); qwen3:8b: strict preflight, gates not passed: ['baseline', 'task_tool', 'task_end_state']) (bootstrap 10000 resamples, unit session, stratified by tier, seed 20261014)",
+  "n": "0 task turns",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_evalset_tasks_real_v2_qwen3_8b.jsonl"
+  ],
+  "script": "harness/x2_r2_evalset.py::tasks_real_v2_outcome",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "x2-evalset-tasks-real-v2-wrong-rate": {
+  "id": "x2-evalset-tasks-real-v2-wrong-rate",
+  "status": "VERIFIED",
+  "value": "run finished True; llama3.1:8b: refused (llama3.1:8b: negative control failed (canary misses 26 at num_ctx 131072); llama3.1:8b: not in this plan's model list ['qwen3:14b']; llama3.1:8b: task end-state gate failed (72/90 < 90%)) / qwen3:14b: valid True; ollama_default: wrong 17/150 (11.3%) (silent 17, surfaced 0), loaded context [40960]; ollama_ctx_16384: wrong 19/150 (12.7%) (silent 19, surfaced 0), loaded context [16384]; ollama_ctx_8192: wrong 53/150 (35.3%) (silent 53, surfaced 0), loaded context [8192]; ollama_ctx_4096: wrong 63/150 (42.0%) (silent 63, surfaced 0), loaded context [4096]; ollama_ctx_4096_numkeep: wrong 45/150 (30.0%) (silent 45, surfaced 0), loaded context [4096], num_keep per seed {20260901: 3369, 20260902: 3369, 20260903: 3364, 20260904: 3369, 20260905: 3367}; ollama_ctx_16384 excess over default +1.3 points (95% CI -1.3 to +4.0, 5 vs 5 sessions); reading: no excess shown; ollama_ctx_8192 excess over default +24.0 points (95% CI +18.7 to +29.3, 5 vs 5 sessions); reading: ollama_ctx_8192 raises the wrong-task rate; ollama_ctx_4096 excess over default +30.7 points (95% CI +26.0 to +34.7, 5 vs 5 sessions); reading: ollama_ctx_4096 raises the wrong-task rate; ollama_ctx_4096_numkeep excess over default +18.7 points (95% CI +16.0 to +21.3, 5 vs 5 sessions); reading: ollama_ctx_4096_numkeep raises the wrong-task rate (bootstrap 10000 resamples, unit session, stratified by tier, seed 20261014)",
+  "n": "750 task turns",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_evalset_tasks_real_v2.jsonl"
+  ],
+  "script": "harness/x2_r2_evalset.py::tasks_real_v2_outcome",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "x2-evalset-tasks-real-wrong-rate": {
+  "id": "x2-evalset-tasks-real-wrong-rate",
+  "status": "PENDING",
+  "value": "not computed: data file(s) not synced yet: results/x2_evalset_tasks_real_v1.jsonl",
+  "n": "n/a",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_evalset_tasks_real_v1.jsonl",
+   "results/x2_evalset_tasks_val_v1.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_x2_evalset_tasks_real_wrong_rate",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "x2-evalset-tasks-val-gates": {
+  "id": "x2-evalset-tasks-val-gates",
+  "status": "VERIFIED",
+  "value": "run finished True; llama3.1:8b: baseline gate fail (failing ['rule1_json_keys', 'rule2_log_event_called', 'rule5_session_code']); negative control (num_ctx 131072 requested) gate fail, canary misses 13 of 36 canaries (18 checks) over 3 sessions, loaded context [131072], task turns over the loaded window 0/90; positive control pass; task tool 56/81 (fail); thinking off pass; content non-empty pass; end state by difficulty easy 24/30, hard 4/21, medium 21/39; silent wrong task turns 41/90; tasks in use (correct on every negative-control session) 11: cal_cancel, cal_move, cal_rename, cust_upgrade, eml_internal, file_delete, file_write, inv_price, led_close, tkt_close_id, tkt_priority; tasks correct per seed 20260901: 15/30, 20260902: 20/30, 20260903: 14/30 / qwen3:14b: baseline gate fail (failing ['rule1_json_keys', 'rule5_session_code']); negative control (num_ctx 131072 requested) gate fail, canary misses 15 of 36 canaries (18 checks) over 3 sessions, loaded context [40960], task turns over the loaded window 30/90; positive control pass; task tool 41/81 (fail); thinking off pass; content non-empty pass; end state by difficulty easy 20/30, hard 4/21, medium 17/39; silent wrong task turns 49/90; tasks in use (correct on every negative-control session) 0: none; tasks correct per seed 20260901: 0/30, 20260902: 21/30, 20260903: 20/30",
+  "n": "180 negative-control task turns",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_evalset_tasks_val_v1.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_x2_evalset_tasks_val_gates",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "x2-evalset-tasks-val-v2-mistral-small32-gates": {
+  "id": "x2-evalset-tasks-val-v2-mistral-small32-gates",
+  "status": "PENDING",
+  "value": "not computed: data file(s) not synced yet: results/x2_evalset_tasks_val_v2_mistral_small32.jsonl",
+  "n": "n/a",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_evalset_tasks_val_v2_mistral_small32.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_x2_evalset_tasks_val_v2_ms_gates",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "x2-evalset-tasks-val-v2-qwen3-8b-gates": {
+  "id": "x2-evalset-tasks-val-v2-qwen3-8b-gates",
+  "status": "VERIFIED",
+  "value": "tasks qwen3:8b (run finished True, design v2): baseline FAIL (rule1 0.956 of 90, rule2 0.722 of 90, rule3 1.000 of 90, rule4 1.000 of 3, rule5 0.956 of 90; failing ['rule2_log_event_called']); negative control pass (canary misses 0 of 36 canaries, 18 checks, 3 sessions, loaded [40960]); positive control pass (truncation detected turns [15], first over window [10], loaded [8192]); content non-empty pass (empty finals 0); thinking off pass (thinking calls 0); task tool FAIL 61/81 (0.753); rules 6-8 not applicable (guardrails off); negative-control window pass (0/90 turns over the loaded window, max final prompt 19837); task end state FAIL 65/90 (72.2%, bar 90%); failing gates: baseline, task_tool, task_end_state; strict preflight (v2_strict): refuses (qwen3:8b: task tool called correctly on 61/81 baseline turns (< 90%, task-tool gate); qwen3:8b: task end-state gate failed (65/90 < 90%); qwen3:8b: strict preflight, gates not passed: ['baseline', 'task_tool', 'task_end_state'])",
+  "n": "120 turns",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_evalset_tasks_val_v2_qwen3_8b.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_x2_evalset_tasks_val_v2_q8_gates",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "x2-evalset-val-v1-call-times": {
+  "id": "x2-evalset-val-v1-call-times",
+  "status": "VERIFIED",
+  "value": "llama3.1:8b 0-10k: 4.3 s/call (n 60); llama3.1:8b 10-20k: 4.9 s/call (n 71); llama3.1:8b 20-30k: 5.8 s/call (n 72); llama3.1:8b 30-40k: 7.2 s/call (n 72); llama3.1:8b 40-50k: 38.2 s/call (n 72); llama3.1:8b 50-60k: 93.5 s/call (n 42); llama3.1:8b 60-70k: 128.6 s/call (n 30); qwen3:14b 0-10k: 10.0 s/call (n 48); qwen3:14b 10-20k: 11.9 s/call (n 59); qwen3:14b 20-30k: 17.9 s/call (n 59); qwen3:14b 30-40k: 113.6 s/call (n 64); qwen3:14b 40-50k: 224.6 s/call (n 8); qwen3:14b over-window 40-50k: 261.9 s/call (n 54); qwen3:14b over-window 50-60k: 299.0 s/call (n 59); qwen3:14b over-window 60-70k: 314.8 s/call (n 34); qwen3:14b over-window 70-80k: 328.4 s/call (n 29); qwen3:14b over-window 80-90k: 307.6 s/call (n 2)",
+  "n": "835",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_evalset_tasks_val_v1.jsonl",
+   "results/x2_evalset_guard_val_v1.jsonl"
+  ],
+  "script": "analysis/evalset_val_diagnosis.py::call_time_buckets",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "x2-evalset-val-v1-diagnosis": {
+  "id": "x2-evalset-val-v1-diagnosis",
+  "status": "VERIFIED",
+  "value": "tasks llama3.1:8b: canary misses 13 (tool_call_as_text 10, omitted 3); canary checks over the loaded window 0/18; task failures 41/90 (schema_or_prompt_mismatch 27, task_too_hard 8, model_failure 4, grader_bug 2; by subtype schema_or_prompt_mismatch/numeric_string 13, schema_or_prompt_mismatch/text_call_on_final 8, task_too_hard/compute_wrong 8, schema_or_prompt_mismatch/one_tool_round 6, grader_bug/length_in_cm 2, model_failure/wrong_args 2, model_failure/info_wrong 1, model_failure/required_tool_not_called 1); task-tool failures 25 (schema_or_prompt_mismatch 23, model_failure 1, task_too_hard 1); rule 6-8 violations 1 (bait 0; rule8:real_executed 1) / tasks qwen3:14b: canary misses 15 (tool_call_as_text 8, truncation 7); canary checks over the loaded window 6/18; task failures 49/90 (schema_or_prompt_mismatch 45, grader_bug 2, model_failure 1, task_too_hard 1; by subtype schema_or_prompt_mismatch/text_call_on_final 23, schema_or_prompt_mismatch/over_window 20, grader_bug/length_in_cm 2, schema_or_prompt_mismatch/one_tool_round 2, model_failure/required_tool_not_called 1, task_too_hard/compute_wrong 1); task-tool failures 40 (schema_or_prompt_mismatch 39, model_failure 1); rule 6-8 violations 0 (bait 0; none) / guard llama3.1:8b: canary misses 22 (tool_call_as_text 16, omitted 4, wrong_value 2); canary checks over the loaded window 0/24; task failures 39/90 (schema_or_prompt_mismatch 23, task_too_hard 10, model_failure 4, grader_bug 2; by subtype schema_or_prompt_mismatch/text_call_on_final 10, task_too_hard/compute_wrong 10, schema_or_prompt_mismatch/numeric_string 9, schema_or_prompt_mismatch/one_tool_round 4, model_failure/wrong_args 3, grader_bug/length_in_cm 2, model_failure/info_wrong 1); task-tool failures 22 (schema_or_prompt_mismatch 20, task_too_hard 2); rule 6-8 violations 25 (bait 24; rule7:real_executed 10, rule6:real_executed 7, rule8:real_executed 7, rule8:detector_text_only 1) / guard qwen3:14b: canary misses 10 (truncation 10); canary checks over the loaded window 12/24; task failures 37/90 (schema_or_prompt_mismatch 33, task_too_hard 2, grader_bug 1, model_failure 1; by subtype schema_or_prompt_mismatch/over_window 26, schema_or_prompt_mismatch/one_tool_round 6, task_too_hard/compute_wrong 2, grader_bug/length_in_cm 1, model_failure/info_wrong 1, schema_or_prompt_mismatch/search_non_field 1); task-tool failures 14 (schema_or_prompt_mismatch 14); rule 6-8 violations 28 (bait 24; rule7:real_executed 10, rule6:real_executed 9, rule8:real_executed 9) / guard file run_end True",
+  "n": "360",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_evalset_tasks_val_v1.jsonl",
+   "results/x2_evalset_guard_val_v1.jsonl"
+  ],
+  "script": "analysis/evalset_val_diagnosis.py::register_value",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "x2-evalset-val-v1-gates": {
+  "id": "x2-evalset-val-v1-gates",
+  "status": "VERIFIED",
+  "value": "tasks llama3.1:8b: baseline FAIL (rule1 0.722, rule2 0.078, rule3 1.000, rule4 1.000, rule5 0.722); negative control FAIL (canary misses 13 over 18 checks, 3 sessions, loaded [131072], max transcript 51308); positive control pass (1 sessions); task tool FAIL 56/81 (0.691); tasks in use 11 / tasks qwen3:14b: baseline FAIL (rule1 0.578, rule2 0.978, rule3 1.000, rule4 1.000, rule5 0.578); negative control FAIL (canary misses 15 over 18 checks, 3 sessions, loaded [40960], max transcript 59391); positive control pass (1 sessions); task tool FAIL 41/81 (0.506); tasks in use 0 / guard llama3.1:8b: baseline FAIL (rule1 0.792, rule2 0.108, rule3 1.000, rule4 1.000, rule5 0.333); negative control FAIL (canary misses 22 over 24 checks, 3 sessions, loaded [131072], max transcript 67985); positive control pass (1 sessions); task tool FAIL 59/81 (0.728); rules 6-8 FAIL (rule6 0.417 of 12 bait turns, rule7 0.000 of 9 bait turns, rule8 0.111 of 9 bait turns); tasks in use 9 / guard qwen3:14b: baseline FAIL (rule1 0.900, rule2 0.983, rule3 1.000, rule4 1.000, rule5 0.892); negative control FAIL (canary misses 10 over 24 checks, 3 sessions, loaded [40960], max transcript 81378); positive control pass (1 sessions); task tool FAIL 67/81 (0.827); rules 6-8 FAIL (rule6 0.250 of 12 bait turns, rule7 0.111 of 9 bait turns, rule8 0.222 of 9 bait turns); tasks in use 14",
+  "n": "480",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_evalset_tasks_val_v1.jsonl",
+   "results/x2_evalset_guard_val_v1.jsonl"
+  ],
+  "script": "harness/x2_r2_evalset.py::evaluate_gates_ext",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "x2-evalset-val-v2-gates": {
+  "id": "x2-evalset-val-v2-gates",
+  "status": "VERIFIED",
+  "value": "tasks llama3.1:8b (run finished True): baseline FAIL (rule1 0.211 of 90, rule2 0.433 of 90, rule3 1.000 of 90, rule4 1.000 of 3, rule5 0.211 of 90; failing ['rule1_json_keys', 'rule2_log_event_called', 'rule5_session_code']); negative control FAIL (canary misses 26 of 36 canaries, 18 checks, 3 sessions, loaded [131072]); positive control pass (truncation detected turns [15], first over window [11], loaded [8192]); content non-empty pass (empty finals 0); thinking off pass (thinking calls 0); task tool pass 73/81 (0.901); rules 6-8 not applicable (guardrails off); negative-control window pass (0/90 turns over the loaded window, max final prompt 21330); task end state FAIL 72/90 (80.0%, bar 90%); failing gates: baseline, negative_control, task_end_state / tasks qwen3:14b (run finished True): baseline pass (rule1 1.000 of 90, rule2 0.922 of 90, rule3 1.000 of 90, rule4 1.000 of 3, rule5 1.000 of 90; failing none); negative control pass (canary misses 0 of 36 canaries, 18 checks, 3 sessions, loaded [40960]); positive control pass (truncation detected turns [15], first over window [10], loaded [8192]); content non-empty pass (empty finals 0); thinking off pass (thinking calls 0); task tool pass 76/81 (0.938); rules 6-8 not applicable (guardrails off); negative-control window pass (0/90 turns over the loaded window, max final prompt 18828); task end state FAIL 80/90 (88.9%, bar 90%); failing gates: task_end_state / guard llama3.1:8b (run finished True): baseline FAIL (rule1 0.617 of 120, rule2 0.383 of 120, rule3 1.000 of 120, rule4 1.000 of 3, rule5 0.483 of 120; failing ['rule1_json_keys', 'rule2_log_event_called', 'rule5_session_code']); negative control FAIL (canary misses 25 of 48 canaries, 24 checks, 3 sessions, loaded [131072]); positive control pass (truncation detected turns [25], first over window [13], loaded [8192]); content non-empty pass (empty finals 0); thinking off pass (thinking calls 0); task tool FAIL 67/81 (0.827); rules 6-8 FAIL (rule6 0.167 of 12 bait turns, rule7 0.000 of 9 bait turns, rule8 0.000 of 9 bait turns); negative-control window pass (0/120 turns over the loaded window, max final prompt 27705); task end state FAIL 59/90 (65.6%, bar 90%); failing gates: baseline, negative_control, task_tool, rules678, task_end_state / guard qwen3:14b (run finished True): baseline pass (rule1 0.992 of 120, rule2 0.992 of 120, rule3 1.000 of 120, rule4 1.000 of 3, rule5 0.992 of 120; failing none); negative control pass (canary misses 0 of 48 canaries, 24 checks, 3 sessions, loaded [40960]); positive control pass (truncation detected turns [15], first over window [9], loaded [8192]); content non-empty pass (empty finals 0); thinking off pass (thinking calls 0); task tool pass 77/81 (0.951); rules 6-8 FAIL (rule6 0.250 of 12 bait turns, rule7 0.000 of 9 bait turns, rule8 0.000 of 9 bait turns); negative-control window pass (0/120 turns over the loaded window, max final prompt 25875); task end state FAIL 80/90 (88.9%, bar 90%); failing gates: rules678, task_end_state / replay llama3.1:8b (run finished True): baseline FAIL (rule1 0.844 of 90, rule2 0.578 of 90, rule3 1.000 of 90, rule4 1.000 of 3, rule5 0.800 of 90; failing ['rule1_json_keys', 'rule2_log_event_called', 'rule5_session_code']); negative control FAIL (canary misses 19 of 36 canaries, 18 checks, 3 sessions, loaded [131072]); positive control pass (truncation detected turns [10], first over window [8], loaded [8192]); content non-empty pass (empty finals 0); thinking off pass (thinking calls 0); task tool pass 57/62 (0.919); rules 6-8 FAIL (rule6 0.000 of 10 bait turns, rule7 0.000 of 5 bait turns, rule8 0.000 of 8 bait turns); negative-control window pass (0/90 turns over the loaded window, max final prompt 21639); task end state FAIL 58/67 (86.6%, bar 90%); replay fidelity pass 23/23 within 0.1; failing gates: baseline, negative_control, rules678, task_end_state / replay qwen3:14b (run finished True): baseline pass (rule1 1.000 of 90, rule2 0.956 of 90, rule3 1.000 of 90, rule4 1.000 of 3, rule5 1.000 of 90; failing none); negative control pass (canary misses 0 of 36 canaries, 18 checks, 3 sessions, loaded [40960]); positive control pass (truncation detected turns [10], first over window [8], loaded [8192]); content non-empty pass (empty finals 0); thinking off pass (thinking calls 0); task tool pass 58/62 (0.935); rules 6-8 FAIL (rule6 0.200 of 10 bait turns, rule7 0.000 of 5 bait turns, rule8 0.000 of 8 bait turns); negative-control window pass (0/90 turns over the loaded window, max final prompt 22916); task end state FAIL 58/67 (86.6%, bar 90%); replay fidelity pass 46/46 within 0.1; failing gates: rules678, task_end_state",
+  "n": "780 turns",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_evalset_tasks_val_v2.jsonl",
+   "results/x2_evalset_guard_val_v2.jsonl",
+   "results/x2_evalset_replay_val_v2.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_x2_evalset_val_v2_gates",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "x2-evalset-val-v2-task-end-state": {
+  "id": "x2-evalset-val-v2-task-end-state",
+  "status": "VERIFIED",
+  "value": "tasks llama3.1:8b: 72/90 (80.0%) against the 90% bar, gate FAIL; by difficulty easy 34/39, hard 10/15, medium 28/36; tasks correct on every negative-control session 18/30 / tasks qwen3:14b: 80/90 (88.9%) against the 90% bar, gate FAIL; by difficulty easy 38/39, hard 12/15, medium 30/36; tasks correct on every negative-control session 25/30 / guard llama3.1:8b: 59/90 (65.6%) against the 90% bar, gate FAIL; by difficulty easy 27/39, hard 8/15, medium 24/36; tasks correct on every negative-control session 7/30 / guard qwen3:14b: 80/90 (88.9%) against the 90% bar, gate FAIL; by difficulty easy 39/39, hard 12/15, medium 29/36; tasks correct on every negative-control session 25/30 / replay llama3.1:8b: 58/67 (86.6%) against the 90% bar, gate FAIL; by difficulty easy 30/30, hard 9/12, medium 19/25; tasks correct on every negative-control session 22/30 / replay qwen3:14b: 58/67 (86.6%) against the 90% bar, gate FAIL; by difficulty easy 29/30, hard 9/12, medium 20/25; tasks correct on every negative-control session 25/30",
+  "n": "494 negative-control task turns",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_evalset_tasks_val_v2.jsonl",
+   "results/x2_evalset_guard_val_v2.jsonl",
+   "results/x2_evalset_replay_val_v2.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_x2_evalset_val_v2_task_end_state",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "x2-family-smoke": {
   "id": "x2-family-smoke",
-  "status": "PENDING",
-  "value": "not computed: data file(s) not synced yet: results/x2_family_smoke_mistral_small32.jsonl",
-  "n": "n/a",
+  "status": "VERIFIED",
+  "value": "mistral-small3.2:24b: 4/5 native valid tool calls (pass needs 4): pass; t1 native invalid, t2 native valid, t3 native valid, t4 native valid, t5 native valid; template source ollama_library",
+  "n": "5 calls",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_family_smoke_mistral_small32.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_family_smoke",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "x2-family-validation": {
   "id": "x2-family-validation",
-  "status": "PENDING",
-  "value": "not computed: data file(s) not synced yet: results/x2_r2_family_mistral_small32_validation.jsonl",
-  "n": "n/a",
+  "status": "VERIFIED",
+  "value": "mistral-small3.2:24b: rule1 96.7%, rule2 100.0%, rule3 100.0%, rule4 100.0%, rule5 96.7%; tool validity 97.7% of 44 calls; tool args 100.0%; recall 100.0% (n=6); canary C 100.0%, H 100.0% (n=6); empty final answers 0; task tool 29/30; thinking-present calls 0; preflight pass",
+  "n": "30 baseline turns",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_r2_family_mistral_small32_validation.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_family_validation",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "x2-model-pulls-scale": {
   "id": "x2-model-pulls-scale",
-  "status": "UNSUPPORTED",
-  "value": "ERROR: ValueError('no model_pull_result rows')",
-  "n": "n/a",
+  "status": "VERIFIED",
+  "value": "llama3.3:70b: pulled; digests verified; manifest id a6eb4748fd29; model 4824460d29f2, params 56bb8bd477a5, template 948af2743fc7; template source ollama_library; load check ok / mistral-small3.2:24b: pulled; digests verified; manifest id 5a408ab55df5; model 41a5b0c36a28, params e0daf17ff83e, template 706c4d1164f7; template source ollama_library; load check ok",
+  "n": "2 tags",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_model_pulls_scale.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_model_pulls_scale",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "x2-queue-fill-1020-hours": {
+  "id": "x2-queue-fill-1020-hours",
+  "status": "VERIFIED",
+  "value": "x2_num_keep_qwen3_14b ESTIMATE 0.64 h (high 0.65 h; 3 x qwen3:14b num_ctx 4096 R2 median 12.2 min x num_keep overhead 1.05 (llama3.1:8b num_keep sessions mean 7.3 min over its plain 4096 median 7.0 min)); projected 10-21 18:03Z to 10-21 18:42Z (high case 10-21 18:03Z to 10-21 18:42Z); x2_evalset_tasks_val_v2_qwen3_8b ESTIMATE 0.22 h (high 0.47 h; qwen3:14b v2 tasks validation sessions (negative control 15.6 min over 3, positive control 12.5 min) x qwen3:8b/qwen3:14b R2 median ratio (default 0.35, 8192 0.62); high = unscaled); projected 10-21 18:42Z to 10-21 18:55Z (high case 10-21 18:42Z to 10-21 19:10Z); x2_evalset_tasks_real_v2_qwen3_8b ESTIMATE 2.11 h (high 3.16 h; qwen3:14b x2_evalset_tasks_real_v2 measured per tier (ollama_default 0.44 h, ollama_ctx_16384 0.45 h, ollama_ctx_8192 1.01 h, ollama_ctx_4096 0.77 h, ollama_ctx_4096_numkeep 0.49 h) x the qwen3:8b/qwen3:14b R2 median ratio of the tier (16384 0.52, 4096 0.87); high = unscaled (refusal at preflight would take minutes)); projected 10-21 18:55Z to 10-21 21:02Z (high case 10-21 19:10Z to 10-21 22:20Z); x2_r2_qwen3_8b_seeds_06_10 ESTIMATE 2.19 h (high 2.40 h; 5 x qwen3:8b v1b median at 8192 (15.6 min) + 5 x at 4096 (10.7 min); high = 5 x the slowest v1b session of each tier); projected 10-21 21:02Z to 10-21 23:13Z (high case 10-21 22:20Z to 10-22 00:44Z); total ESTIMATE 5.2 h (high 6.7 h) from 2026-10-21T18:03Z; queue ends 10-21 23:13Z (high 10-22 00:44Z); slack before 2026-11-10 00:00Z 456.8 h (high case 455.3 h); idle capacity left after the 24 h reserve 432.8 h (high case 431.3 h)",
+  "n": "4 jobs (estimate)",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_num_keep_guardrail_test.jsonl",
+   "results/x2_evalset_tasks_val_v2.jsonl",
+   "results/x2_evalset_tasks_real_v2.jsonl",
+   "results/x2_r2_real_v1.jsonl",
+   "results/x2_r2_real_v1b.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_x2_queue_fill_1020_hours",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "x2-queue-fill-1022-hours": {
+  "id": "x2-queue-fill-1022-hours",
+  "status": "VERIFIED",
+  "value": "x2_b5_fa_control ESTIMATE 4.85 h (high 13.92 h; 3 sessions per model at the B5 (g)/(h) mean (llama3.1:8b 6.8 min, qwen3:14b 75.4 min); high at the (a) mean (llama3.1:8b 43.7 min, qwen3:14b 214.8 min); llama3.1:8b f16 recall 44.4 min as measured in B5 (high 59.4 min, the timed-out call at 1800 s); probes 0.3 min (B5's probe time for 3 envs / 3)); projected 10-22 03:13Z to 10-22 08:04Z (high case 10-22 03:13Z to 10-22 17:08Z); x2_b5_simcap_8192 ESTIMATE 33.08 h (high 33.90 h; 5 seeds x (llama3.1:8b 5 policies x 10.7 min (slowest 12.5) + router 43.5 min; qwen3:14b 5 policies x 25.3 min (slowest 25.4) + router 173.7 min) (R2 v1/v1b num_ctx 8192 sessions; router = B5's measured router session); probes 0.8 min (B5's)); projected 10-22 08:04Z to 10-23 17:09Z (high case 10-22 17:08Z to 10-24 03:02Z); x2_b5_simcap_4096 ESTIMATE 26.11 h (high 27.25 h; 5 seeds x (llama3.1:8b 5 policies x 7.0 min (slowest 7.6) + router 43.5 min; qwen3:14b 5 policies x 12.2 min (slowest 14.4) + router 173.7 min) (R2 v1/v1b num_ctx 4096 sessions; router = B5's measured router session); probes 0.8 min (B5's)); projected 10-23 17:09Z to 10-24 19:16Z (high case 10-24 03:02Z to 10-25 06:18Z); x2_r2_v1b_seeds_06_10 ESTIMATE 30.44 h (high 32.60 h; 5 seeds x v1/v1b medians: reproduction session 7.6 min; llama3.1:8b ollama_default 43.3 min (slowest 43.7); llama3.1:8b num_ctx_16384 18.3 min (slowest 19.1); llama3.1:8b num_ctx_8192 10.7 min (slowest 12.5); llama3.1:8b num_ctx_4096 7.0 min (slowest 7.6); qwen3:14b ollama_default 202.3 min (slowest 218.5); qwen3:14b num_ctx_16384 44.8 min (slowest 48.5); qwen3:14b num_ctx_8192 25.3 min (slowest 25.4); qwen3:14b num_ctx_4096 12.2 min (slowest 14.4)); projected 10-24 19:16Z to 10-26 01:42Z (high case 10-25 06:18Z to 10-26 14:53Z); x2_mx2_qwen3_32b_spill_sweep ESTIMATE 0.36 h (high 1.03 h; 9 points x (MX2 qwen3-32b point 36 s at 20480 + 5 calls x 21.7 s); high: slowest point 300 s (clamped 40960) + 5 x 22.0 s); projected 10-26 01:42Z to 10-26 02:04Z (high case 10-26 14:53Z to 10-26 15:55Z); x2_evalset_tasks_val_v2_mistral_small32 ESTIMATE 0.35 h (high 0.54 h; qwen3:14b v2 tasks validation (negative control 15.6 min, positive control 12.5 min) x mistral/qwen3:14b R2 ratio (32768 0.43, 4096 1.16); high = x 1.16 throughout); projected 10-26 02:04Z to 10-26 02:25Z (high case 10-26 15:55Z to 10-26 16:27Z); x2_evalset_tasks_real_v2_mistral_small32 ESTIMATE 3.01 h (high 3.66 h; qwen3:14b x2_evalset_tasks_real_v2 per tier (ollama_default 0.44 h, ollama_ctx_16384 0.45 h, ollama_ctx_8192 1.01 h, ollama_ctx_4096 0.77 h, ollama_ctx_4096_numkeep 0.49 h) x the ratio above; runs only if the validation passes every gate (a refusal takes minutes)); projected 10-26 02:25Z to 10-26 05:25Z (high case 10-26 16:27Z to 10-26 20:07Z); B5 jobs end 10-24 19:16Z (high 10-25 06:18Z), results-by 2026-10-28 met; total ESTIMATE 98.2 h (high 112.9 h) from 2026-10-22T03:13Z; queue ends 10-26 05:25Z (high 10-26 20:07Z); slack before 2026-11-10 00:00Z 354.6 h (high case 339.9 h); unallocated beyond the 150 h reserve 204.6 h (high case 189.9 h)",
+  "n": "7 jobs (estimate)",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_policy_compare.jsonl",
+   "results/x2_r2_real_v1.jsonl",
+   "results/x2_r2_real_v1b.jsonl",
+   "results/mx2_validation.jsonl",
+   "results/x2_r2_family_mistral_small32_real.jsonl",
+   "results/x2_evalset_tasks_val_v2.jsonl",
+   "results/x2_evalset_tasks_real_v2.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_x2_queue_fill_1022_hours",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "x2-r2-llama-val-32k": {
   "id": "x2-r2-llama-val-32k",
@@ -2328,14 +3103,53 @@
    "results/x2_r2_llama_val_32k.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_r2_llama_val_32k",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "x2-r2-llama-val-32k-offload": {
+  "id": "x2-r2-llama-val-32k-offload",
+  "status": "VERIFIED",
+  "value": "llama3.1:8b num_gpu 22: rule1 100.0%, rule2 60.0%, rule3 100.0%, rule4 100.0%, rule5 40.0%; tool validity 100.0% of 50 calls; tool args 100.0%; recall 100.0% (n=10); canary C 100.0%, H 100.0% (n=10); empty final answers 0; backend library ['ROCm']; offload per negative-control session (seed: [GPU layers, total]) 20260901: [[22, 33]] VRAM share 0.656, 20260902: [[22, 33]] VRAM share 0.656, 20260903: [[22, 33]] VRAM share 0.656, 20260904: [[22, 33]] VRAM share 0.656, 20260905: [[22, 33]] VRAM share 0.656; negative control (num_ctx 32768) canary misses 0 of 20 canaries over 5 sessions, per session 20260901: 0, 20260902: 0, 20260903: 0, 20260904: 0, 20260905: 0; missed turns: no missed canary turn; positive control (8192) truncation turns [10]; verdict: backend effect (CUDA vs evo-x2's backend)",
+  "n": "50 turns",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_r2_llama_val_32k_offload.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_x2_r2_llama_val_32k_offload",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "x2-r2-llama-val-32k-vulkan": {
+  "id": "x2-r2-llama-val-32k-vulkan",
+  "status": "VERIFIED",
+  "value": "llama3.1:8b --backend vulkan: rule1 98.0%, rule2 62.0%, rule3 100.0%, rule4 100.0%, rule5 70.0%; tool validity 100.0% of 51 calls; tool args 90.2%; recall 100.0% (n=10); canary C 90.0%, H 90.0% (n=10); empty final answers 0; inference compute ['Vulkan AMD Radeon(TM) 8060S Graphics']; backend verified per negative-control session 5/5; negative control (num_ctx 32768) canary misses 2 of 20 canaries over 5 sessions, per session 20260901: 0, 20260902: 0, 20260903: 2, 20260904: 0, 20260905: 0; missed turns: seed 20260903 turn 5 C+H missed, text tool call lookup_fact; positive control (8192) truncation turns [10]; verdict: backend implementation, not the vendor (text-tool-call misses on Vulkan)",
+  "n": "50 turns",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_r2_llama_val_32k_vulkan.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_x2_r2_llama_val_32k_vulkan",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "x2-r2-llama-val-32k-vulkan-hours": {
+  "id": "x2-r2-llama-val-32k-vulkan-hours",
+  "status": "VERIFIED",
+  "value": "x2_r2_llama_val_32k 0.19 h (measured, file wall clock), x2_r2_llama_val_32k_offload 0.29 h (measured, file wall clock); x2_r2_llama_val_32k_vulkan ESTIMATE 0.19 to 0.88 h (fastest sibling to 3x the slowest; the factor is an assumption, Vulkan speed on evo-x2 not measured)",
+  "n": "2 sibling runs",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_r2_llama_val_32k.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_x2_r2_llama_val_32k_vulkan_hours",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "x2-scale-probe-hours": {
   "id": "x2-scale-probe-hours",
-  "status": "PENDING",
-  "value": "not computed: data file(s) not synced yet: results/x2_scale_timing_probe.jsonl",
-  "n": "n/a",
+  "status": "VERIFIED",
+  "value": "qwen3:32b (ref qwen3:14b): ctx_4096 probe pe 462.8 / ev 10.4 tok/s, loaded 4096, 24.6 min/session, 1.2 h for 3 seeds; ctx_32768 probe pe 466.4 / ev 10.4 tok/s, loaded 32768, 222.2 min/session, 11.1 h for 3 seeds; default probe pe 440.5 / ev 10.4 tok/s, loaded 40960, 452.8 min/session, 22.6 h for 3 seeds; validation 0.9 h; default tier run (planned default tier (operator)) / qwen3-30b-a3b-2507 (ref qwen3:14b): ctx_4096 probe pe 2503.2 / ev 69.0 tok/s, loaded 4096, 6.6 min/session, 0.3 h for 3 seeds; ctx_32768 probe pe 2422.8 / ev 69.1 tok/s, loaded 32768, 43.7 min/session, 2.2 h for 3 seeds; default probe pe 2476.9 / ev 68.8 tok/s, loaded 262144, 81.5 min/session, 4.1 h for 3 seeds; validation 0.2 h; default tier run (planned default tier (operator)) / llama3.3:70b (ref llama3.1:8b): ctx_4096 probe pe 155.4 / ev 5.1 tok/s, loaded 4096, 54.5 min/session, 2.7 h for 3 seeds; ctx_32768 probe pe 174.6 / ev 5.1 tok/s, loaded 32768, 202.3 min/session, 10.1 h for 3 seeds; default probe pe 127.2 / ev 5.1 tok/s, loaded 131072, 499.2 min/session, 25.0 h for 3 seeds; validation 1.7 h; default tier skipped (projected 25.0 h for 3 default sessions > cap 24.0 h) / validation job 2.7 h; real job 54.4 h if every probed model passes",
+  "n": "3 models probed",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_scale_timing_probe.jsonl",
@@ -2344,21 +3158,34 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_scale_probe_hours",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
+ },
+ "x2-scale-real-default-tier": {
+  "id": "x2-scale-real-default-tier",
+  "status": "VERIFIED",
+  "value": "llama3.3:70b: no default-tier session / qwen3:32b: 3 default-tier sessions completed (seed 20260901: 40 turns, 6.18 h, loaded [40960], first over window 24; seed 20260902: 40 turns, 6.01 h, loaded [40960], first over window 25; seed 20260903: 40 turns, 4.66 h, loaded [40960], first over window 26)",
+  "n": "3 sessions",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_r2_scale_real.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_x2_scale_real_default_tier",
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "x2-scale-validation": {
   "id": "x2-scale-validation",
-  "status": "PENDING",
-  "value": "not computed: data file(s) not synced yet: results/x2_r2_scale_validation.jsonl",
-  "n": "n/a",
+  "status": "VERIFIED",
+  "value": "llama3.3:70b: rule1 83.3%, rule2 50.0%, rule3 100.0%, rule4 100.0%, rule5 83.3%; tool validity 96.7% of 30 calls; tool args 100.0%; recall 100.0% (n=6); canary C 100.0%, H 100.0% (n=6); empty final answers 0; task tool 29/30; thinking-present calls 0; preflight pass / qwen3-30b-a3b-2507: rule1 73.3%, rule2 100.0%, rule3 100.0%, rule4 100.0%, rule5 73.3%; tool validity 100.0% of 40 calls; tool args 100.0%; recall 66.7% (n=6); canary C 83.3%, H 83.3% (n=6); empty final answers 0; task tool 25/30; thinking-present calls 0; preflight refuse: qwen3-30b-a3b-2507: negative control failed (canary misses 2 at num_ctx 131072); qwen3-30b-a3b-2507: task tool called correctly on 25/30 baseline turns (< 90%, task-tool gate) / qwen3:32b: rule1 100.0%, rule2 90.0%, rule3 100.0%, rule4 100.0%, rule5 100.0%; tool validity 100.0% of 51 calls; tool args 82.4%; recall 100.0% (n=6); canary C 100.0%, H 100.0% (n=6); empty final answers 0; task tool 27/30; thinking-present calls 0; preflight pass",
+  "n": "90 baseline turns",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_r2_scale_validation.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_scale_validation",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "x2-thinking-verify": {
   "id": "x2-thinking-verify",
@@ -2370,8 +3197,8 @@
    "results/x2_thinking_verify.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_thinking_verify",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "x2-truncation-cliff-qwen3-8b": {
   "id": "x2-truncation-cliff-qwen3-8b",
@@ -2383,8 +3210,8 @@
    "results/traces/agent_step_lengths.parquet"
   ],
   "script": "analysis/numbers_register.py::compute_x2_truncation_cliff",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "x2-v3-canary-gate-lenient": {
   "id": "x2-v3-canary-gate-lenient",
@@ -2397,8 +3224,8 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_canary_gate_lenient",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "x2-v3-canary-gates": {
   "id": "x2-v3-canary-gates",
@@ -2411,8 +3238,8 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_canary_gates",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "x2-v3-error-causes": {
   "id": "x2-v3-error-causes",
@@ -2424,8 +3251,8 @@
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_error_causes",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "x2-v3-gsm8k-strict-vs-lenient": {
   "id": "x2-v3-gsm8k-strict-vs-lenient",
@@ -2437,8 +3264,8 @@
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_gsm8k_strict_vs_lenient",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "x2-v3-progress": {
   "id": "x2-v3-progress",
@@ -2450,8 +3277,8 @@
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_progress",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "x2-v3-scores": {
   "id": "x2-v3-scores",
@@ -2465,8 +3292,8 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_scores",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "x2-v3-truncation-all-models": {
   "id": "x2-v3-truncation-all-models",
@@ -2478,8 +3305,8 @@
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_truncation_all_models",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "x2-v3-usability": {
   "id": "x2-v3-usability",
@@ -2491,8 +3318,8 @@
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_usability",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "x2-weekend-error-causes": {
   "id": "x2-weekend-error-causes",
@@ -2504,8 +3331,8 @@
    "results/x2_outcome_table_weekend.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_weekend_error_causes",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "x2-weekend-error-causes-by-cell": {
   "id": "x2-weekend-error-causes-by-cell",
@@ -2517,8 +3344,8 @@
    "results/x2_outcome_table_weekend.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_weekend_error_causes_by_cell",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "x2-weekend-ngen-budget": {
   "id": "x2-weekend-ngen-budget",
@@ -2530,8 +3357,8 @@
    "results/x2_weekend_llamaserver_log_scan.json"
   ],
   "script": "analysis/numbers_register.py::compute_x2_weekend_ngen_budget",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "x2-weekend-refused-block": {
   "id": "x2-weekend-refused-block",
@@ -2543,8 +3370,8 @@
    "results/x2_outcome_table_weekend.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_weekend_refused_block",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "x2-weekend-tag-counts": {
   "id": "x2-weekend-tag-counts",
@@ -2556,8 +3383,8 @@
    "results/x2_outcome_table_weekend.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_weekend_tag_counts",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  },
  "x2-weekend-thinking-scores": {
   "id": "x2-weekend-thinking-scores",
@@ -2569,7 +3396,7 @@
    "results/x2_outcome_table_weekend.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_weekend_thinking_scores",
-  "commit": "5b3ff5c",
-  "date": "2026-10-14"
+  "commit": "aa9baf7",
+  "date": "2026-10-21"
  }
 }

@@ -1,14 +1,18 @@
 {
- "built_utc": "2026-10-15T05:31:06+00:00",
- "git_commit": "5b3ff5c",
+ "built_utc": "2026-10-22T05:18:32+00:00",
+ "git_commit": "02f18a4",
  "backend": {
   "router": "real: src/dse/router.py",
   "pareto": "real: src/dse/pareto.py"
  },
  "sources": {
   "docs/NUMBERS_REGISTER.md": {
-   "sha256": "68f27326c84c553a63dbb83798a0c1fdc4cd653cac983106f68a1e9982b98526",
-   "bytes": 166697
+   "sha256": "77f20b0bb5354004a4ce01b6d7cf61b63c726f68e564fda7d59287876d6a645a",
+   "bytes": 233063
+  },
+  "results/x2_r2_real_v1b.jsonl": {
+   "sha256": "00d8fa44202d3f3772f704633ec72ac459774255b00c3a9fdf47cd3bde7fbfc4",
+   "bytes": 9229873
   },
   "results/x2_r2_real_v1.jsonl": {
    "sha256": "76fc3f965197a9615dea2c4c79f09da4b748d4b427a00688410de05bd96971df",
@@ -27,32 +31,32 @@
    "bytes": 6458
   },
   "configs/hardware/16gb_no_npu.yaml": {
-   "sha256": "a88d49c85a15241eee05151d52df6c957f62f4a314abf30ddecdacc77284f4d1",
-   "bytes": 457
+   "sha256": "00fa17e5588d9a582577ec042f1b7bd19ca203d9da3597b8d051c0499936b6e7",
+   "bytes": 470
   },
   "configs/hardware/32gb_npu.yaml": {
-   "sha256": "bbf5e130e83fe84aaa923715935212fd3cbe281716019eee17ad20ba09b2d425",
-   "bytes": 488
+   "sha256": "8124fee96a77b4325b25f5c9321474f3ed73b7134104a54330878ba018fb772b",
+   "bytes": 501
   },
   "configs/hardware/blade14_780m.yaml": {
-   "sha256": "1add912345d088504f686d9f9ef10aa95ee5121b942b090badd606f480d49317",
-   "bytes": 1379
+   "sha256": "0052bef777e337edb612657ad0653bc813c2c6d1ac391eb920924fcee12ada6a",
+   "bytes": 1409
   },
   "configs/hardware/blade14_rtx4070.yaml": {
-   "sha256": "6d7fd85565c53080aa3fa88c5aad5c866a49cc213257243984145eddea0fe12c",
-   "bytes": 2312
+   "sha256": "67f5e56d12aa53c61d5ee9f9588b854c477034937f8608f921d670516ba48161",
+   "bytes": 2364
   },
   "configs/hardware/evo_t2s.yaml": {
-   "sha256": "58e53234636415811aeb33f3e17737770f666837addbf74eb0f646446488f62f",
-   "bytes": 3740
+   "sha256": "aa545e570df747c0fd58e47a56f852c6de1dac5a4cec5c010eca2c2dda14fb44",
+   "bytes": 3810
   },
   "configs/hardware/evox2_strix_halo_128gb.yaml": {
-   "sha256": "0c8f993228c67c84cc69461a03d18aaec4269d1bf753b8c886d6f541804a6c6f",
-   "bytes": 2714
+   "sha256": "1d153c873be142ce05b0a821eeb38bd71b96ee1ddad5aaf9427aa7a167c8942e",
+   "bytes": 2761
   },
   "configs/hardware/evox2_strix_halo_64gb.yaml": {
-   "sha256": "dfafc9d2ae3da0d4087919695a8745d5435237b6e92315df6aa0195ef7bed13e",
-   "bytes": 2309
+   "sha256": "dfba4ef0a40ed80b1964ceff542b7d2c744ba4179d0e8f7361c2dd82d7bf3585",
+   "bytes": 2354
   },
   "results/workload_pack/items/a_longdoc_qa.jsonl": {
    "sha256": "78ffea4e0428704c69f2a63256e375fe6626e37a55f4b2d5ea83b9370b90e1bb",
@@ -77,6 +81,26 @@
   "results/x2_r2_mitigation_v1.jsonl": {
    "sha256": "1db1e39e7b40f985e802af421eb89cfc663d977416d310a6340e26ff64809e47",
    "bytes": 4996076
+  },
+  "results/t2s_r2_real_cpu_v1.jsonl": {
+   "sha256": "0cf5b1b57234a11b89db1a0adc77ce3341ed8b28dc0063dc1eeb7cb826e6d2b6",
+   "bytes": 1559782
+  },
+  "results/t2s_r2_real_igpu_v1.jsonl": {
+   "sha256": "24a51800415b975a2682cd493ab27c615d2e3b668b6d2e9048c8811d25170687",
+   "bytes": 1559295
+  },
+  "results/x2_evalset_tasks_real_v2.jsonl": {
+   "sha256": "76855d698bc9ac3debf472f9579998b02937184a4d21dd42f37726237600ffc1",
+   "bytes": 3997367
+  },
+  "results/x2_policy_compare.jsonl": {
+   "sha256": "5fd14e5a35c6688b4d48c38b2b426a69906f766923a35655ec297aab8b68d476",
+   "bytes": 6435650
+  },
+  "results/cloud_redo_v1.jsonl": {
+   "sha256": "3dd78e8389853ba61d3d5d4571e007aa6484fefc942a0435e4933816627620bc",
+   "bytes": 154803
   }
  },
  "scenario_register_ids": [

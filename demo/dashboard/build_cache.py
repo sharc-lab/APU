@@ -26,13 +26,16 @@ CACHE = Path(__file__).resolve().parent / "cache"
 
 REGISTER = "docs/NUMBERS_REGISTER.md"
 R2_FILE = "results/x2_r2_real_v1.jsonl"
+R2_FILE_V1B = "results/x2_r2_real_v1b.jsonl"
+# v1b first: the screens replay the strengthened run's sessions where it has them (operator 2026-10-21).
+R2_FILES = [R2_FILE_V1B, R2_FILE]
 MITIGATION_FILE = "results/x2_r2_mitigation_v1.jsonl"
 OUTCOME_FILES = ["results/x2_outcome_table_v3.jsonl", "results/t2s_outcome_table_full.jsonl"]
 WORKLOAD_DIR = "results/workload_pack/items"
 SCENARIO_ARM = "ollama_ctx_4096_call2_notools"
 DEFAULT_ARM = "ollama_default_call2_notools"
 # Register rows the scenario screen cites. Read verbatim from the register at build time.
-# The replayed sessions are v1's (R2_FILE); the evidence text cites the strengthened run (v1 + v1b) for the counts.
+# The replayed sessions are the strengthened run's (v1b first, then v1), the same sessions the v1b rows count.
 SCENARIO_REGISTER_IDS = ["R2-real-v1-first-events", "R2-real-v1-gated-kill", "R2-real-v1-kill-criterion",
                          "R2-real-v1-survival", "R2-real-v1b-gated-kill", "R2-v1b-gated-per-model",
                          "R2-v1b-excess-over-default", "R2-mitigation-v1-verdict", "R2-mechanism-verdict",
@@ -136,15 +139,43 @@ def _trim_row(r: dict) -> dict:
 
 
 def r2_sessions() -> dict:
-    path = REPO / R2_FILE
+    """Every num_ctx 4096 session of the strengthened R2 run (v1b first, then v1): 3 models x 5 seeds, the same
+    sessions register rows R2-v1b-gated-per-model and R2-real-v1b-gated-kill count. Each session and turn carries
+    its own source file."""
+    a = _r2_harness()
+    sessions, rules, starts, advertised = [], {}, {}, {}
+    max_tok = None
+    for rel in R2_FILES:
+        if not (REPO / rel).exists():
+            continue
+        meta, ss = _r2_file_sessions(rel, a)
+        for m, v in meta["start"]["rules_in_use"].items():
+            rules.setdefault(m, v)
+        for m, v in meta["advertised"].items():
+            advertised.setdefault(m, v)
+        starts[rel] = meta["start_line"]
+        max_tok = max_tok or meta["start"].get("max_tokens_per_call")
+        seen = {s["key"] for s in sessions}
+        sessions.extend(s for s in ss if s["key"] not in seen)  # same model and seed twice: keep v1b's
+    for s in sessions:  # a model with no default-arm session in its own file takes the other file's
+        s["advertised_ctx"] = s["advertised_ctx"] or advertised.get(s["model"])
+    sessions.sort(key=lambda s: (R2_FILES.index(s["source"]), s["model"], s["seed"]))
+    present = [f for f in R2_FILES if (REPO / f).exists()]
+    return {"source": present[0], "sources": present, "arm": SCENARIO_ARM, "rules_in_use": rules,
+            "max_tokens_per_call": max_tok, "run_start_lines": starts, "sessions": sessions}
+
+
+def _r2_file_sessions(rel: str, a) -> tuple[dict, list[dict]]:
+    """The SCENARIO_ARM sessions of one R2 real file, each turn rebuilt with its task text."""
+    path = REPO / rel
     lines = path.read_text(encoding="utf-8").splitlines()
     rows = [(i + 1, json.loads(l)) for i, l in enumerate(lines)]
-    start = next(r for _, r in rows if r.get("record") == "run_start")
-    a = _r2_harness()
+    start_line, start = next((ln, r) for ln, r in rows if r.get("record") == "run_start")
     advertised = {}
     for ln, r in rows:
         if r.get("record") == "r2a_session" and r["arm_id"] == DEFAULT_ARM:
-            advertised.setdefault(r["model_id"], {"ctx": max(r["loaded_context_values"]), "line": ln})
+            advertised.setdefault(r["model_id"], {"ctx": max(r["loaded_context_values"]), "line": ln,
+                                                  "file": rel})
     sessions = []
     with contextlib.redirect_stdout(io.StringIO()):
         for ln, s in rows:
@@ -172,11 +203,9 @@ def r2_sessions() -> dict:
             turns.sort(key=lambda r: r["turn_idx"])
             sessions.append({"key": f"{s['model_id']}|{s['seed']}", "model": s["model_id"], "seed": s["seed"],
                              "arm_id": s["arm_id"], "num_ctx": s["num_ctx_requested"], "summary": s,
-                             "summary_line": ln, "turns": turns,
+                             "summary_line": ln, "turns": turns, "source": rel,
                              "advertised_ctx": advertised.get(s["model_id"])})
-    return {"source": R2_FILE, "arm": SCENARIO_ARM, "rules_in_use": start["rules_in_use"],
-            "max_tokens_per_call": start["max_tokens_per_call"], "run_start_line": next(
-                ln for ln, r in rows if r.get("record") == "run_start"), "sessions": sessions}
+    return {"start": start, "start_line": start_line, "advertised": advertised}, sessions
 
 
 def mitigation(register: dict) -> dict:
@@ -208,7 +237,7 @@ def points(backend) -> dict:
 
 
 def build(out_dir: Path = CACHE, backend=None) -> dict:
-    from demo.dashboard import data
+    from demo.dashboard import data, views
     backend = backend or data.load_backend()
     out_dir.mkdir(parents=True, exist_ok=True)
     reg = parse_register(REPO / REGISTER)
@@ -219,11 +248,13 @@ def build(out_dir: Path = CACHE, backend=None) -> dict:
         "r2_sessions.json": r2_sessions(),
         "points.json": points(backend),
         "mitigation.json": mitigation(reg),
+        "silent.json": views.build_silent(reg, REPO),
     }
-    sources = [REGISTER, R2_FILE, *OUTCOME_FILES, "results/x2_chat_template_sources.jsonl"]
+    sources = [REGISTER, *R2_FILES, *OUTCOME_FILES, "results/x2_chat_template_sources.jsonl"]
     sources += [h["src"] for h in snap["hardware.json"]] + [w["src"] for w in snap["workloads.json"]]
     if (REPO / MITIGATION_FILE).exists():
         sources.append(MITIGATION_FILE)
+    sources += views.VIEW_SOURCES
     manifest = {"built_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                 "git_commit": git_commit(),
                 "backend": {"router": backend.router_source, "pareto": backend.pareto_source},
