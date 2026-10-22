@@ -361,6 +361,37 @@ def test_escalation_cap_and_endpoint(app, tmp_path):
     assert s["live_requested"] is False and s["cap_usd"] == 10.0 and "key" not in json.dumps(s).replace("key_present", "")
 
 
+def test_views_js_renders_every_view(app, tmp_path):
+    """Run static/views.js under node with a stub DOM, fed by this App's own JSON (skipped without node)."""
+    import shutil
+    import sys
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node not installed")
+    sys.path.insert(0, str(REPO / "harness"))
+    from proc_util import run_hidden
+    dump = {p.split("?")[0]: get(app, p) for p in (
+        "/api/silent", "/api/device", "/api/device/recommend?device=evo-x2&model=qwen3:14b&workload=r2_agent",
+        "/api/cost", "/api/escalation")}
+    dump["POST"] = {"mode": "executed", "label": "measured", "reason": "one live call", "answer": "",
+                    "tool_calls": [{"name": "create_event"}], "seconds": 14.0, "usd": 0.0174, "usd_basis": "ledger",
+                    "cloud_end_state_ok": True, "live_requested": True, "key_present": True, "cap_usd": 10.0,
+                    "live_calls_used": 1, "live_calls_allowed": 1, "ledger": "demo/ledger/x.jsonl",
+                    "ledger_total_usd": 0.0174}
+    (tmp_path / "dump.json").write_text(json.dumps(dump), encoding="utf-8")
+    r = run_hidden([node, str(REPO / "tests" / "dashboard_views_smoke.js"),
+                    str(REPO / "demo" / "dashboard" / "static" / "views.js"), str(tmp_path / "dump.json")],
+                   capture_output=True, text=True, timeout=60)
+    assert r.returncode == 0, r.stderr
+    out = json.loads(r.stdout.strip().splitlines()[-1])
+    assert all(not v.startswith("Error") and v for v in out.values()), out
+    assert "4096" in out["#silent-body"] and "32768" in out["#silent-body"]
+    assert "Fixing a wrong answer in the cloud costs about USD 0.03" in out["#cost-body"]
+    assert "not shown" in out["#cost-body"]
+    assert "KV cache precision" in out["#device-body"]
+    assert "USD 0.0174" in out["#esc-result"] and "14.0 s" in out["#esc-result"]
+
+
 def test_recommendation_hides_router_savings(app):
     r = get(app, "/api/recommend")
     assert r["savings_shown"] is False and r["savings_vs_all_cloud_usd_per_1k"] is None
