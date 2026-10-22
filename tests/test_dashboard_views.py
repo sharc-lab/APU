@@ -129,3 +129,82 @@ def test_static_views_js_served(app):
     r = app.handle("GET", "/static/views.js")
     assert r.status == 200 and b"renderSilent" in r.body
     assert b"/static/views.js" in app.handle("GET", "/").body
+
+
+# ── B: per-device recommendation ──
+
+B5 = ("evo-x2 m1: a rule 100.0% hist 50.0% 40.0 min $0.0000; b rule 100.0% hist 50.0% 40.0 min $0.0000 (=a); "
+      "g rule 100.0% hist 75.0% 10.0 min $0.0000; frontier ['g']; complete True / evo-t2s: not run yet")
+KV = "evo-x2 m1: f16 ctx 8192 recall 50.0% (2 calls; KV check n/a); q8_0 ctx 8192 recall 60.0% (3 calls; KV check True)"
+
+
+def fake_b5_file(root: Path):
+    write_jsonl(root / views.B5_FILE, [
+        {"record": "b5_resolution", "model_id": "m1", "windows": {},
+         "configs": {"a": {"effective_ctx": 8192, "env": "base", "wrapper": None, "num_ctx_sent": None},
+                     "g": {"effective_ctx": 8192, "env": "q8_0", "wrapper": None, "num_ctx_sent": 8192}}},
+        {"record": "b5_kv_check", "model_id": "m1", "env": "q8_0",
+         "check": {"config_flash_attention": True, "observed": ["q8_0"], "verified": True}}])
+
+
+def test_device_rules_on_fakes(tmp_path):
+    fake_b5_file(tmp_path)
+    r = reg(**{"b5-policy-metrics": B5, "b5-kv-recall": KV, "R2-v1b-gated-per-model": GATED,
+               "x2-evalset-tasks-real-v2-wrong-rate": WRONG, "t2s-r2-real-cpu": T2S_CPU,
+               "t2s-r2-mitigation-cpu": "overall refuted; num_ctx_4096 llama3.1:8b recovered; num_ctx_4096 qwen3:14b "
+                                        "not_recovered"})
+    r["b5-fa-control"] = {"id": "b5-fa-control", "status": "PENDING", "value": "", "files": []}
+    dv = views.build_device(r, tmp_path, {"sessions": [{"model": "qwen3:8b", "advertised_ctx": {
+        "ctx": 40960, "file": "f.jsonl", "line": 7}}]})
+    b5 = views.device_recommend(dv, "evo-x2", "m1", "r2_agent")
+    assert b5["status"] == views.MEASURED
+    assert b5["settings"]["kv_precision"]["value"] == "q8_0"
+    assert b5["settings"]["flash_attention"]["value"].startswith("on")
+    assert "PENDING" in b5["settings"]["flash_attention"]["note"]
+    assert b5["settings"]["window"]["value"] == 8192
+    assert any("saves 30.0 min" in o["text"] for o in b5["outcome"])
+    assert any("60.0%" in o["text"] for o in b5["outcome"])  # recall at the chosen precision
+    q8 = views.device_recommend(dv, "evo-x2", "qwen3:8b", "r2_agent")  # no B5 row: the gated R2 windows
+    assert q8["settings"]["window"]["value"] == 40960 and q8["settings"]["kv_precision"]["label"] == views.NOT_MEASURED
+    b3 = views.device_recommend(dv, "evo-x2", "qwen3:14b", "b3_tasks")
+    assert b3["settings"]["window"]["value"] == 40960 and "11.3%" in b3["outcome"][0]["text"]
+    assert views.device_recommend(dv, "evo-x2", "llama3.1:8b", "b3_tasks")["status"] == views.NOT_MEASURED
+    cpu_l = views.device_recommend(dv, "evo-t2s-cpu", "llama3.1:8b", "r2_agent")
+    assert cpu_l["status"] == views.MEASURED and "trimming" in cpu_l["settings"]["context_handling"]["value"]
+    cpu_q = views.device_recommend(dv, "evo-t2s-cpu", "qwen3:14b", "r2_agent")
+    assert cpu_q["status"] == views.NOT_MEASURED and cpu_q["outcome"]  # shows what failed, recommends nothing
+    blade = views.device_recommend(dv, "blade", "qwen3:14b", "r2_agent")
+    assert blade["status"] == views.NOT_MEASURED
+    assert all(s["value"] == "not measured" for s in blade["settings"].values())
+    with pytest.raises(KeyError):
+        views.device_recommend(dv, "toaster", "m1", "r2_agent")
+
+
+def test_single_shot_timeout_floor():
+    pts = [{"machine": "evo-x2", "runtime": "llama_server", "model": "m-1", "config_id": "ls", "quality": 1.0,
+            "quality_n": 10, "latency_p50_ms": 1000, "timeout_latency_share": 0.11, "excluded_reason": "timeout 0.11"},
+           {"machine": "evo-x2", "runtime": "ollama_default", "model": "m:1", "config_id": "od", "quality": 0.9,
+            "quality_n": 10, "latency_p50_ms": 2000, "timeout_latency_share": 0.02, "excluded_reason": None}]
+    r = views.device_recommend({}, "evo-x2", "m:1", "single_shot", pts, 0.05)
+    assert r["outcome"][0]["text"].startswith("quality 0.900") and r["excluded"][0]["config_id"] == "ls"
+    none = views.device_recommend({}, "evo-x2", "m:1", "single_shot", [pts[0]], 0.05)
+    assert none["status"] == views.NOT_MEASURED and none["excluded"]
+
+
+def test_device_endpoints_on_committed_files(app):
+    o = get(app, "/api/device")
+    assert {d["id"] for d in o["devices"]} == {"evo-x2", "evo-t2s-cpu", "evo-t2s-igpu", "blade"}
+    assert o["default_max_timeout_share"] == 0.05
+    r = get(app, "/api/device/recommend?device=evo-x2&model=qwen3:14b&workload=r2_agent")
+    assert r["status"] == "measured" and r["settings"]["window"]["label"] == "measured"
+    assert "b5-policy-metrics" in r["register"]
+    for k in ("window", "num_keep", "kv_precision", "flash_attention", "context_handling"):
+        assert r["settings"][k]["label"] in views.LABELS
+    t2s = get(app, "/api/device/recommend?device=evo-t2s-igpu&model=llama3.1:8b&workload=r2_agent")
+    assert t2s["settings"]["window"]["value"] == 32768
+    tight = get(app, "/api/device/recommend?device=evo-x2&model=llama3.1:8b&workload=single_shot")
+    loose = get(app, "/api/device/recommend?device=evo-x2&model=llama3.1:8b&workload=single_shot&max_timeout_share=1")
+    assert tight["excluded"] and not loose["excluded"]
+    assert get(app, "/api/device/recommend?device=blade&model=qwen3:14b&workload=b3_tasks")["status"] == "not measured"
+    get(app, "/api/device/recommend?device=toaster", 404)
+    get(app, "/api/device/recommend?max_timeout_share=7", 400)

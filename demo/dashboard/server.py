@@ -17,6 +17,9 @@ Endpoints (all GET):
   /api/replay/stream?session=&delay_ms=&...             the same steps as server-sent events
   /api/silent               view A: silent failure (evo-t2s CPU 4096 vs iGPU 32768; qwen3:14b wrong-task rate by
                             window; v1b per-model gated silent counts)
+  /api/device               view B options (devices, models, workloads)
+  /api/device/recommend?device=&model=&workload=&max_timeout_share=   view B: recommended window, num_keep, KV
+                            precision, flash attention with the measured outcome, or "not measured"
   /api/register[?id=]       register rows from the snapshot
   /api/source?file=&line=   one raw line of a whitelisted source file
   /api/source?file=&match=k:v,k:v   line numbers of rows matching every k:v
@@ -101,7 +104,8 @@ class App:
             route = {"/api/meta": self.meta, "/api/frontier": self.frontier, "/api/recommend": self.recommend,
                      "/api/scenario": self.scenario, "/api/replay": self.replay,
                      "/api/replay/stream": self.replay_stream, "/api/register": self.register,
-                     "/api/source": self.source, "/api/silent": self.silent}.get(path)
+                     "/api/source": self.source, "/api/silent": self.silent, "/api/device": self.device,
+                     "/api/device/recommend": self.device_recommend}.get(path)
             if route is None:
                 return _json({"error": f"no route {path}"}, 404)
             return route(q)
@@ -168,6 +172,16 @@ class App:
 
     def silent(self, q) -> Response:
         return _json(views.silent_view(self.cache))
+
+    def device(self, q) -> Response:
+        d = self.cache.device
+        return _json({"devices": d["devices"], "models": d["models"], "workloads": d["workloads"],
+                      "default_max_timeout_share": views.DEFAULT_MAX_TIMEOUT_SHARE})
+
+    def device_recommend(self, q) -> Response:
+        one = lambda k, dflt: (q.get(k) or [dflt])[0]  # noqa: E731
+        return _json(data.device_recommendation(self.cache, self.backend, one("device", "evo-x2"),
+                                                one("model", "qwen3:14b"), one("workload", "r2_agent"), _share(q)))
 
     def register(self, q) -> Response:
         if "id" in q:

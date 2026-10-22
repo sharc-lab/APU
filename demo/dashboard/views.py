@@ -302,3 +302,289 @@ def silent_view(cache) -> dict:
     s = dict(cache.silent)
     s["register"] = {i: cache.register[i] for i in SILENT_IDS if i in cache.register}
     return s
+
+
+# ── view 2: per-device recommendation ──────────────────────────────────────────────────────────────────
+
+DEVICES = [
+    {"id": "evo-x2", "label": "evo-x2 (Strix Halo iGPU, 128 GB)", "machine": "evo-x2"},
+    {"id": "evo-t2s-cpu", "label": "evo-t2s, Intel CPU (Ollama default device)", "machine": "evo-t2s"},
+    {"id": "evo-t2s-igpu", "label": "evo-t2s, Intel iGPU", "machine": "evo-t2s"},
+    {"id": "blade", "label": "Blade 14 (discrete GPU)", "machine": "blade"},
+]
+MODELS = ["llama3.1:8b", "qwen3:8b", "qwen3:14b", "qwen3:32b", "llama3.3:70b"]
+WORKLOADS = [
+    {"id": "r2_agent", "label": "Multi-turn agent session, 40 turns (R2)"},
+    {"id": "b3_tasks", "label": "Agent task session, 30 graded task turns (B3)"},
+    {"id": "single_shot", "label": "Single-shot calls up to long documents (outcome table)"},
+]
+# Outcome-table runtimes per device (results/*_outcome_table*.jsonl runtime field).
+SINGLE_SHOT_RUNTIMES = {"evo-x2": ("ollama_default", "llama_server"), "evo-t2s-cpu": ("ollama_default",),
+                        "evo-t2s-igpu": ("ollama_igpu_enable", "llama_server_vulkan"), "blade": ()}
+POLICY_NAMES = {"a": "default", "b": "largest", "c": "trim", "d": "router", "e": "autosize", "f": "num_keep",
+                "g": "kv_q8_0", "h": "kv_q4_0", "i": "f16 + flash attention"}  # harness/policy_compare.py POLICIES
+
+
+def model_key(m: str | None) -> str:
+    """'qwen3-14b', 'qwen3:14b' -> 'qwen3 14b'; 'llama3.1-8b-gguf' -> 'llama3.1 8b'."""
+    s = (m or "").lower().replace("-gguf", "")
+    return re.sub(r"[:\-_]", " ", s)
+
+
+def build_device(register: dict, repo: Path = REPO, r2_sessions: dict | None = None) -> dict:
+    def val(rid):
+        r = _row(register, rid)
+        return r["value"] if r else ""
+
+    x2_default = {}
+    for s in (r2_sessions or {}).get("sessions", []):
+        adv = s.get("advertised_ctx")
+        if adv:
+            x2_default.setdefault(s["model"], {"ctx": adv["ctx"], "src": {"file": adv.get("file"),
+                                                                          "line": adv.get("line")}})
+    refused = {}
+    for rid, model in (("x2-evalset-tasks-real-v2-wrong-rate", "llama3.1:8b"),
+                       ("x2-evalset-tasks-real-v2-qwen3-8b-wrong-rate", "qwen3:8b")):
+        m = re.search(re.escape(model) + r": refused \((.*?)\)(?: / |\s*\(bootstrap|$)", val(rid))
+        if m:
+            refused[model] = {"reason": m[1], "register_id": rid}
+    return {
+        "devices": DEVICES, "models": MODELS, "workloads": WORKLOADS,
+        "b5_metrics": parse_b5_metrics(val("b5-policy-metrics")),
+        "b5_configs": b5_configs(repo),
+        "kv_recall": parse_kv_recall(val("b5-kv-recall")),
+        "gated": parse_gated_per_model(val("R2-v1b-gated-per-model")),
+        "wrong_rate": parse_wrong_rate(val("x2-evalset-tasks-real-v2-wrong-rate")),
+        "b3_refused": refused,
+        "t2s": {d: parse_t2s_real(val(T2S_ROWS[d])) for d in ("cpu", "igpu")},
+        "t2s_mitigation": parse_mitigation(val("t2s-r2-mitigation-cpu")),
+        "x2_mitigation": parse_mitigation(val("R2-mitigation-v1-verdict")),
+        "usability": parse_usability(val("x2-v3-usability")),
+        "x2_default_window": x2_default,
+        "status": {rid: (register[rid]["status"] if rid in register else "MISSING") for rid in DEVICE_IDS},
+    }
+
+
+def _set(value, label, src=None, note=None) -> dict:
+    return {"value": value, "label": label, "src": src, "note": note}
+
+
+def _nm(note=None) -> dict:
+    return _set("not measured", NOT_MEASURED, None, note)
+
+
+def _out(text, label, src, value=None) -> dict:
+    return {"text": text, "label": label, "src": src, "value": value}
+
+
+def _empty_settings(note=None) -> dict:
+    return {k: _nm(note) for k in ("window", "num_keep", "kv_precision", "flash_attention", "context_handling")}
+
+
+def _rec_b5(dv: dict, model: str) -> dict | None:
+    m, cfg = dv["b5_metrics"].get(model), dv["b5_configs"].get(model)
+    if not m or not cfg or not m.get("frontier"):
+        return None
+    p = m["frontier"][0]
+    pol, base = m["policies"].get(p), m["policies"].get("a")
+    c = (cfg.get("configs") or {}).get(p) or {}
+    env, wrapper = c.get("env"), c.get("wrapper")
+    rsrc, msrc = cfg.get("resolution_src"), reg_src("b5-policy-metrics")
+    kvc = (cfg.get("kv_check") or {}).get(env) or {}
+    fa_pending = dv["status"].get("b5-fa-control") != "VERIFIED"
+    s = {"window": _set(c.get("effective_ctx"), MEASURED, rsrc,
+                        "num_ctx sent" if c.get("num_ctx_sent") else "runtime default (no num_ctx sent)"),
+         "kv_precision": (_set(env, MEASURED, kvc.get("src"), "OLLAMA_KV_CACHE_TYPE, verified in the server log"
+                               if kvc.get("verified") else "OLLAMA_KV_CACHE_TYPE")
+                          if env in ("q8_0", "q4_0") else _set("f16 (runtime default)", MEASURED, rsrc)),
+         "flash_attention": (_set("on (OLLAMA_FLASH_ATTENTION=1)", MEASURED, kvc.get("src"),
+                                  "not separated from KV precision: b5-fa-control PENDING" if fa_pending else None)
+                             if kvc.get("flash_attention") else _set("not set (runtime default)", MEASURED, rsrc)),
+         "num_keep": (_set("system prompt tokens, per seed " + ", ".join(
+             str(v["num_keep"]) for v in (cfg.get("num_keep") or {}).values()), MEASURED,
+             next(iter((cfg.get("num_keep") or {}).values()), {}).get("src")) if wrapper == "num_keep"
+             else _set("not set", MEASURED, rsrc)),
+         "context_handling": _set({None: "full history", "client_trim": "client-side trimming",
+                                   "router": "router"}.get(wrapper, wrapper), MEASURED, rsrc)}
+    out = [_out(f"rules held {pol['rule_pct']:.1f}%, history recalled {pol['hist_pct']:.1f}%", MEASURED, msrc),
+           _out(f"{pol['minutes']:.1f} min per 40-turn session", MEASURED, msrc, pol["minutes"])]
+    if base and p != "a":
+        out.append(_out(f"default (a): {base['minutes']:.1f} min, rules {base['rule_pct']:.1f}%, history "
+                        f"{base['hist_pct']:.1f}%; saves {base['minutes'] - pol['minutes']:.1f} min per session",
+                        MEASURED, msrc, base["minutes"] - pol["minutes"]))
+    kv = (dv["kv_recall"].get(model) or {}).get(env if env in ("q8_0", "q4_0") else "f16")
+    out.append(_out(f"long-context recall probe at this precision: {kv['recall_pct']:.1f}% at ctx {kv['ctx']}",
+                    MEASURED, reg_src("b5-kv-recall")) if kv else
+               _out("long-context recall probe at this precision: not measured", NOT_MEASURED, reg_src("b5-kv-recall")))
+    caveats = []
+    if fa_pending:
+        caveats.append("Flash attention was switched on together with the KV precision; the control that separates "
+                       "them (b5-fa-control) is PENDING.")
+    caveats.append("The router policy (d) did not make the frontier (row b5-verdict); no router saving is shown.")
+    return {"status": MEASURED, "basis": f"B5 policy comparison: frontier policy ({p}) {POLICY_NAMES.get(p, p)}, "
+                                         f"3 seeds x 40 turns", "settings": s, "outcome": out, "caveats": caveats,
+            "register_ids": ["b5-policy-metrics", "b5-kv-recall", "b5-fa-control", "cost-cut-config-time"],
+            "alternatives": [{"policy": k, "name": POLICY_NAMES.get(k, k), **v} for k, v in m["policies"].items()
+                             if not v.get("alias_of")]}
+
+
+def _tier_window(tier: str, default: dict | None):
+    if tier == "ollama_default":
+        return (default or {}).get("ctx"), (default or {}).get("src"), "runtime default (no num_ctx sent)"
+    n = _ints(tier)
+    return (n[0] if n else None), reg_src("R2-v1b-gated-per-model"), "num_ctx sent"
+
+
+def _rec_gated(dv: dict, model: str) -> dict | None:
+    cells = [c for c in dv["gated"] if c["model"] == model]
+    if not cells:
+        return None
+    order = {"ollama_default": 0}
+    best = min(cells, key=lambda c: (c["gated_silent"], order.get(c["tier"], 1), -(_ints(c["tier"]) or [0])[0]))
+    win, wsrc, wnote = _tier_window(best["tier"], dv["x2_default_window"].get(model))
+    src = reg_src("R2-v1b-gated-per-model")
+    s = _empty_settings("not varied in this run (runtime default)")
+    s["window"] = _set(win, MEASURED, wsrc, wnote)
+    s["context_handling"] = _set("full history", MEASURED, src)
+    out = [_out(f"{best['gated_silent']}/{best['n']} sessions silently lost a gated rule, {best['silent_after_window']} "
+                f"after the window filled", MEASURED, src),
+           _out(f"sessions with every gated rule intact at turn 40: {best['intact'][-1]}/{best['n']}", MEASURED, src)]
+    return {"status": MEASURED, "basis": "R2 strengthened run (v1 + v1b), 5 seeds x 40 turns per window: the window "
+                                         "with the fewest silent rule losses", "settings": s, "outcome": out,
+            "caveats": [], "register_ids": ["R2-v1b-gated-per-model"],
+            "alternatives": [{"tier": c["tier"], "gated_silent": c["gated_silent"], "n": c["n"],
+                              "silent_after_window": c["silent_after_window"]} for c in cells]}
+
+
+def _rec_b3(dv: dict, model: str) -> dict:
+    tiers = dv["wrong_rate"] if model == "qwen3:14b" else []
+    if not tiers:
+        ref = dv["b3_refused"].get(model)
+        note = (f"task run refused for {model}: {ref['reason']}" if ref else
+                f"no B3 task run for {model} on evo-x2")
+        return {"status": NOT_MEASURED, "basis": note, "settings": _empty_settings(), "outcome": [],
+                "caveats": [], "register_ids": [ref["register_id"]] if ref else
+                ["x2-evalset-tasks-real-v2-wrong-rate"], "alternatives": []}
+    src = reg_src("x2-evalset-tasks-real-v2-wrong-rate")
+    best = min(tiers, key=lambda t: (t["pct"], t["tier"] != "ollama_default"))
+    win, wsrc, wnote = _tier_window(best["tier"], dv["x2_default_window"].get(model))
+    if best["tier"] == "ollama_default" and best["loaded_context"]:
+        win, wsrc = best["loaded_context"][0], src
+    s = _empty_settings("not varied in this run (runtime default)")
+    s["window"] = _set(win, MEASURED, wsrc, wnote)
+    nk = next((t for t in tiers if t["tier"].endswith("_numkeep")), None)
+    plain = next((t for t in tiers if nk and t["tier"] == nk["tier"].replace("_numkeep", "")), None)
+    s["num_keep"] = _set("system prompt tokens" if best["tier"].endswith("_numkeep") else "not set", MEASURED, src)
+    s["context_handling"] = _set("full history", MEASURED, src)
+    out = [_out(f"wrong task results {best['wrong']}/{best['n']} ({best['pct']:.1f}%), {best['surfaced']} surfaced an "
+                f"error", MEASURED, src)]
+    if nk and plain:
+        out.append(_out(f"num_keep at {plain['loaded_context'][0] if plain['loaded_context'] else '?'}: "
+                        f"{nk['pct']:.1f}% wrong vs {plain['pct']:.1f}% without it; still above the best window's "
+                        f"{best['pct']:.1f}%", MEASURED, src))
+    return {"status": MEASURED, "basis": "B3 v2 task run, qwen3:14b, 5 seeds x 30 task turns per window: the window "
+                                         "with the lowest wrong-task rate", "settings": s, "outcome": out,
+            "caveats": ["KV precision and flash attention were not varied in the task run."],
+            "register_ids": ["x2-evalset-tasks-real-v2-wrong-rate", "x2-evalset-tasks-real-v2-ci-units"],
+            "alternatives": [{"tier": t["tier"], "pct": t["pct"], "wrong": t["wrong"], "n": t["n"]} for t in tiers]}
+
+
+def _rec_t2s(dv: dict, dev: str, model: str) -> dict | None:
+    rows = {m["model"]: m for m in dv["t2s"].get(dev, [])}
+    m = rows.get(model)
+    if not m:
+        return None
+    rid = T2S_ROWS[dev]
+    src = reg_src(rid)
+    win = m["loaded_window"][0] if m["loaded_window"] else None
+    default_out = _out(f"Ollama default window {win}: {m['gated_silent']}/{m['n']} sessions silently lost a gated "
+                       f"rule, {m['silent_after_window']} after the window filled", MEASURED, src)
+    s = _empty_settings("not varied on evo-t2s")
+    if m["silent_after_window"] == 0:
+        s["window"] = _set(win, MEASURED, src, "runtime default (no num_ctx sent)")
+        s["context_handling"] = _set("full history", MEASURED, src)
+        return {"status": MEASURED, "basis": "evo-t2s R2 real run at the Ollama default, 5 seeds x 40 turns",
+                "settings": s, "outcome": [default_out], "caveats": [] if m["baseline_type"] == 0 else
+                [f"{m['baseline_type']} silent session(s) are baseline-type: the same loss happens inside the window "
+                 "on this model's validation runs."], "register_ids": [rid], "alternatives": []}
+    mit = dv["t2s_mitigation"].get(f"num_ctx_{win}|{model}") if dev == "cpu" else None
+    msrc = reg_src("t2s-r2-mitigation-cpu")
+    if mit == "recovered":
+        s["window"] = _set(win, MEASURED, src, "runtime default on this device")
+        s["context_handling"] = _set("client-side trimming that keeps the system prompt", MEASURED, msrc)
+        return {"status": MEASURED, "basis": "evo-t2s CPU: the default window loses rules; client-side trimming at the "
+                                             "same window recovered them (3 seeds x 40 turns)", "settings": s,
+                "outcome": [default_out, _out("with client-side trimming: recovered (pre-registered rule)", MEASURED,
+                                              msrc)],
+                "caveats": [], "register_ids": [rid, "t2s-r2-mitigation-cpu"], "alternatives": []}
+    outs = [default_out]
+    if mit:
+        outs.append(_out("with client-side trimming: not recovered (pre-registered rule)", MEASURED, msrc))
+    return {"status": NOT_MEASURED, "basis": "no measured setting on this device holds the rules for this model; a "
+                                             "larger window on the CPU was not run. Escalate long sessions or use "
+                                             "another device.", "settings": s, "outcome": outs, "caveats": [],
+            "register_ids": [rid] + (["t2s-r2-mitigation-cpu"] if mit else []), "alternatives": []}
+
+
+def _rec_single_shot(points: list[dict], dev: str, model: str, share: float) -> dict:
+    """points: decorated outcome-table points with excluded_reason already set for `share`."""
+    rts = SINGLE_SHOT_RUNTIMES.get(dev, ())
+    machine = next((d["machine"] for d in DEVICES if d["id"] == dev), None)
+    cand = [p for p in points if p.get("machine") == machine and p.get("runtime") in rts
+            and model_key(p.get("model")) == model_key(model) and not p.get("stub")]
+    if not cand:
+        return {"status": NOT_MEASURED, "basis": f"no outcome-table row for {model} on {dev}",
+                "settings": _empty_settings(), "outcome": [], "caveats": [], "register_ids": ["x2-v3-usability"],
+                "alternatives": [], "excluded": []}
+    ok = [p for p in cand if not p.get("excluded_reason") and p.get("quality") is not None]
+    excluded = [{"config_id": p["config_id"], "runtime": p["runtime"], "reason": p["excluded_reason"],
+                 "timeout_latency_share": p.get("timeout_latency_share"), "src": p.get("src")}
+                for p in cand if p.get("excluded_reason")]
+    if not ok:
+        return {"status": NOT_MEASURED, "basis": f"every measured config is above the {share:.0%} timeout floor",
+                "settings": _empty_settings(), "outcome": [], "caveats": [], "register_ids": ["x2-v3-usability"],
+                "alternatives": [], "excluded": excluded}
+    best = max(ok, key=lambda p: (p["quality"], -(p.get("latency_p50_ms") or 1e18)))
+    src = best.get("src")
+    s = _empty_settings("not varied in the outcome tables")
+    s["window"] = _set("runtime default", MEASURED, src, "the outcome table runs each context tier at the "
+                                                          "runtime's own window handling")
+    s["context_handling"] = _set(f"runtime {best['runtime']}", MEASURED, src)
+    ts = best.get("timeout_latency_share")
+    out = [_out(f"quality {best['quality']:.3f} (n {best.get('quality_n')})", MEASURED, src),
+           _out(f"p50 latency {best['latency_p50_ms'] / 1000:.1f} s" if best.get("latency_p50_ms") else
+                "p50 latency n/a", MEASURED, src),
+           _out(f"timeout share {ts:.3f} (floor {share:.2f})" if ts is not None else "timeout share n/a", MEASURED, src)]
+    caveats = [f"flags: {', '.join(best['flags'])}"] if best.get("flags") else []
+    return {"status": MEASURED, "basis": f"single-shot outcome table: highest quality config with timeout share at or "
+                                         f"below {share:.2f}", "settings": s, "outcome": out, "caveats": caveats,
+            "register_ids": ["x2-v3-usability"],
+            "alternatives": [{"config_id": p["config_id"], "quality": p["quality"],
+                              "timeout_latency_share": p.get("timeout_latency_share")} for p in ok if p is not best],
+            "excluded": excluded}
+
+
+def device_recommend(dv: dict, device: str, model: str, workload: str, points: list[dict] | None = None,
+                     max_timeout_share: float = DEFAULT_MAX_TIMEOUT_SHARE) -> dict:
+    """The recommended setting for (device, model, workload) with its measured outcome, or 'not measured'."""
+    if device not in {d["id"] for d in DEVICES} or workload not in {w["id"] for w in WORKLOADS}:
+        raise KeyError(f"{device}/{workload}")
+    rec = None
+    if workload == "single_shot":
+        rec = _rec_single_shot(points or [], device, model, max_timeout_share)
+    elif device == "evo-x2" and workload == "r2_agent":
+        rec = _rec_b5(dv, model) or _rec_gated(dv, model)
+    elif device == "evo-x2" and workload == "b3_tasks":
+        rec = _rec_b3(dv, model)
+    elif device.startswith("evo-t2s") and workload == "r2_agent":
+        rec = _rec_t2s(dv, device.rsplit("-", 1)[1], model)
+    if rec is None:
+        rec = {"status": NOT_MEASURED, "basis": f"no run of {model} for this workload on {device}",
+               "settings": _empty_settings(), "outcome": [], "caveats": [], "register_ids": [], "alternatives": []}
+        if device == "evo-x2" and workload == "r2_agent" and model in ("qwen3:32b", "llama3.3:70b"):
+            rec["basis"] = (f"no setting comparison for {model}: the scale probe ran num_ctx 4096 and 32768 only, to "
+                            "test whether rule loss holds at this size (rows H-scale-verdict, "
+                            "x2-scale-real-default-tier)")
+            rec["register_ids"] = ["H-scale-verdict", "x2-scale-real-default-tier"]
+    rec.setdefault("excluded", [])
+    return {"device": device, "model": model, "workload": workload, "max_timeout_share": max_timeout_share, **rec}

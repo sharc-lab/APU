@@ -250,6 +250,7 @@ def build(out_dir: Path = CACHE, backend=None) -> dict:
         "mitigation.json": mitigation(reg),
         "silent.json": views.build_silent(reg, REPO),
     }
+    snap["device.json"] = views.build_device(reg, REPO, snap["r2_sessions.json"])
     sources = [REGISTER, *R2_FILES, *OUTCOME_FILES, "results/x2_chat_template_sources.jsonl"]
     sources += [h["src"] for h in snap["hardware.json"]] + [w["src"] for w in snap["workloads.json"]]
     if (REPO / MITIGATION_FILE).exists():

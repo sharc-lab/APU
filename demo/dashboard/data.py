@@ -95,7 +95,7 @@ def to_dict(obj) -> Any:
 
 
 class Cache:
-    NAMES = ("manifest", "register", "hardware", "workloads", "r2_sessions", "points", "mitigation", "silent")
+    NAMES = ("manifest", "register", "hardware", "workloads", "r2_sessions", "points", "mitigation", "silent", "device")
 
     def __init__(self, directory: Path = CACHE_DIR):
         self.dir = Path(directory)
@@ -197,6 +197,18 @@ def recommendation(cache: Cache, backend: Backend, budget_usd: float, quality_fl
                                            "latency_target_ms": latency_target_ms, "hardware": hardware,
                                            "max_timeout_share": max_timeout_share},
             "backend": backend.pareto_source}
+
+
+def device_recommendation(cache: Cache, backend: Backend, device: str, model: str, workload: str,
+                          max_timeout_share: float = DEFAULT_MAX_TIMEOUT_SHARE) -> dict:
+    """View B: views.device_recommend over the cached device snapshot; single-shot rows use the outcome-table points
+    with the backend's own usability exclusion at max_timeout_share."""
+    from demo.dashboard import views
+    objs, dicts = _points(cache, backend)
+    pts = [dict(d, excluded_reason=_exclusion(backend, o, max_timeout_share)) for o, d in zip(objs, dicts)]
+    rec = views.device_recommend(cache.device, device, model, workload, pts, max_timeout_share)
+    rec["register"] = {i: cache.register[i] for i in rec["register_ids"] if i in cache.register}
+    return rec
 
 
 # ── side-by-side scenario ──────────────────────────────────────────────────────────────────────────

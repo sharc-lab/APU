@@ -64,7 +64,43 @@ function renderSilent(s) {
       <p class="muted small">Gated: rules and metrics the model holds at 90% or more of its own validation baseline. Boxes: sessions with every gated rule intact at turns ${cp.join(", ")}. Source: ${num(v.register_id, R(v.register_id))}.</p>${grid}</details>`;
 }
 
+// ── B: per-device recommendation ──
+const SETTING_NAMES = [["window", "Context window (tokens)"], ["num_keep", "num_keep"], ["kv_precision", "KV cache precision"],
+  ["flash_attention", "Flash attention"], ["context_handling", "Runtime and context handling"]];
+function renderDeviceOptions(o) {
+  const f = $("#devform");
+  f.device.innerHTML = o.devices.map((d) => `<option value="${esc(d.id)}">${esc(d.label)}</option>`).join("");
+  f.model.innerHTML = o.models.map((m) => `<option value="${esc(m)}"${m === "qwen3:14b" ? " selected" : ""}>${esc(m)}</option>`).join("");
+  f.workload.innerHTML = o.workloads.map((w) => `<option value="${esc(w.id)}">${esc(w.label)}</option>`).join("");
+  f.maxtimeout.value = o.default_max_timeout_share;
+}
+function renderDevice(r) {
+  const tile = ([k, name]) => {
+    const s = r.settings[k] || {};
+    return `<div class="tile"><div class="k">${esc(name)} ${lab(s.label)}</div><div class="v small" style="font-size:16px">${num(s.value, s.src)}</div>${s.note ? `<div class="muted small">${esc(s.note)}</div>` : ""}</div>`;
+  };
+  let h = `<p class="hero">${r.status === "not measured" ? lab("not measured") + " " : ""}${esc(r.basis)}</p>`;
+  h += `<div class="settings">${SETTING_NAMES.map(tile).join("")}</div>`;
+  if (r.outcome.length) h += `<h3>Measured outcome</h3><ul>${r.outcome.map((o) => `<li>${lab(o.label)} ${num(o.text, o.src)}</li>`).join("")}</ul>`;
+  if (r.excluded.length) h += `<h3>Excluded by the usability floor (timeout share above ${esc(r.max_timeout_share)})</h3><ul>${r.excluded.map((e) => `<li>${esc(e.config_id)}: ${num(e.reason, e.src)}</li>`).join("")}</ul>`;
+  if (r.caveats.length) h += `<p class="muted small">${r.caveats.map(esc).join("<br>")}</p>`;
+  if (r.alternatives.length) h += `<details><summary>Other measured options (${r.alternatives.length})</summary><pre class="answer">${esc(r.alternatives.map((a) => JSON.stringify(a)).join("\n"))}</pre></details>`;
+  h += `<p class="muted small">Register rows: ${r.register_ids.map((i) => num(i + (r.register[i] ? ` (${r.register[i].status})` : ""), R(i))).join(", ") || "none"}.</p>`;
+  $("#device-body").innerHTML = h;
+}
+async function refreshDevice() {
+  const f = $("#devform");
+  const p = new URLSearchParams({ device: f.device.value, model: f.model.value, workload: f.workload.value, max_timeout_share: f.maxtimeout.value });
+  try { renderDevice(await api(`/api/device/recommend?${p}`)); } catch (e) { $("#device-body").textContent = "Error: " + e.message; }
+}
+
 async function viewsMain() {
   try { renderSilent(await api("/api/silent")); } catch (e) { $("#silent-body").textContent = "Error: " + e.message; }
+  try {
+    renderDeviceOptions(await api("/api/device"));
+    $("#devform").addEventListener("input", refreshDevice);
+    $("#devform").addEventListener("change", refreshDevice);
+    await refreshDevice();
+  } catch (e) { $("#device-body").textContent = "Error: " + e.message; }
 }
 viewsMain();
