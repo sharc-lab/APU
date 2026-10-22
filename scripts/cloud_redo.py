@@ -332,7 +332,8 @@ def warmup(client, model_id: str, thinking: dict | None = None) -> dict:
     res = client.call(model_id=model_id, messages=[{"role": "user", "content": "Reply with the single word OK."}],
                       max_tokens=8, custom_llm_provider="anthropic", **kw)
     return {"record": "warmup", "excluded_from_stats": True, "seconds": time.perf_counter() - t0,
-            "usd_ledger": res.cost_usd, "input_tokens": res.input_tokens, "output_tokens": res.output_tokens}
+            "usd_ledger": res.cost_usd, "usd_ledger_upper_bound": res.cost_usd_upper_bound,
+            "input_tokens": res.input_tokens, "output_tokens": res.output_tokens}
 
 
 # ── summary ─────────────────────────────────────────────────────────────────────────────────────────

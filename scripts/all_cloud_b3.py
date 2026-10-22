@@ -189,6 +189,7 @@ class CloudRuntime:
                            u["output_tokens"], u["input_tokens"])
         usd_unc = CR.call_cost(self.rates, u["input_tokens"], 0, 0, u["output_tokens"], u["input_tokens"])
         self.calls.append({**u, "usd": usd, "usd_all_uncached": usd_unc, "usd_ledger": res.cost_usd,
+                           "usd_ledger_upper_bound": res.cost_usd_upper_bound,
                            "seconds": secs, "tool_choice": kw.get("tool_choice")})
         choice = (resp.get("choices") or [{}])[0] or {}
         msg = choice.get("message") or {}
@@ -300,7 +301,8 @@ def warmup_probe(client, model_id: str) -> tuple[dict, float | None]:
                 continue
             raise
         return ({"record": "warmup", "excluded_from_stats": True, "model_id": model_id,
-                 "seconds": time.perf_counter() - t0, "usd_ledger": res.cost_usd, "input_tokens": res.input_tokens,
+                 "seconds": time.perf_counter() - t0, "usd_ledger": res.cost_usd,
+                 "usd_ledger_upper_bound": res.cost_usd_upper_bound, "input_tokens": res.input_tokens,
                  "output_tokens": res.output_tokens, "temperature_sent": temp, "temperature_rejected": rejected},
                 temp)
     raise RuntimeError("unreachable")
