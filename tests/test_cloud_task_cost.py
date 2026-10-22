@@ -74,11 +74,10 @@ def test_count_phase_records_calls_without_network_and_caps(tmp_path, monkeypatc
     calls = []
 
     class Fake:
-        class messages:  # noqa: N801
-            @staticmethod
-            def count_tokens(model, messages):
-                calls.append(model)
-                return SimpleNamespace(input_tokens=12)
+        @staticmethod
+        def count_tokens(model_id, messages):
+            calls.append(model_id)
+            return 12
 
     m.count(tmp_path, client=Fake())
     m.count(tmp_path, client=Fake())  # already recorded: no new calls
@@ -88,6 +87,20 @@ def test_count_phase_records_calls_without_network_and_caps(tmp_path, monkeypatc
     monkeypatch.setattr(m, "MAX_CALLS", 2)
     with pytest.raises(SystemExit):
         m.count(tmp_path, client=Fake())
+
+
+def test_capped_client_count_tokens_checks_mode_and_provider():
+    sys.path.insert(0, str(REPO))
+    from src.cloud import client as cc
+    with pytest.raises(cc.MissingApiKeyError):
+        cc.CloudClient(mode="stub").count_tokens(model_id="claude-sonnet-5-5", messages=[])
+    real = cc.CloudClient(mode="real", api_key="test-not-a-key", role_override="controller")
+    seen = []
+    n = real.count_tokens(model_id="claude-sonnet-5-5", messages=[{"role": "user", "content": "hi"}],
+                          count_fn=lambda model_id, messages: seen.append(model_id) or 7)
+    assert n == 7 and seen == ["claude-sonnet-5-5"]
+    with pytest.raises(cc.UnknownModelError):
+        real.count_tokens(model_id="not-a-model", messages=[], count_fn=lambda **k: 1)
 
 
 def test_sample_is_fixed_and_bounded():

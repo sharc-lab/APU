@@ -11,7 +11,8 @@ results/traces/agent_step_outputs.parquet and, for a fixed-seed sample of SAMPLE
 final-step full prompt text to a local scratch directory (not committed: raw dataset text).
 
 Phase --count (needs ANTHROPIC_API_KEY in this process's environment; never printed or written): one
-messages.count_tokens call per sampled trajectory (at most MAX_CALLS in total), the final-step prompt sent as one user
+messages.count_tokens call per sampled trajectory through the capped client (src/cloud/client.py
+CloudClient.count_tokens) (at most MAX_CALLS in total), the final-step prompt sent as one user
 message. Appends one record per call to results/anthropic_token_calibration_20261021.jsonl. count_tokens is not
 billed. The reported count includes a few tokens of message framing; against prompts of thousands of tokens it is
 not removed.
@@ -112,7 +113,7 @@ def extract(scratch: Path):
     print(f"wrote {OUT_FILE.relative_to(REPO)} ({len(rows)} steps)")
 
 
-def count(scratch: Path, client=None):
+def count(scratch: Path, client=None, role_override=None):
     files = sorted(scratch.glob("*.json"))
     if len(files) > MAX_CALLS:
         raise SystemExit(f"refused: {len(files)} samples > {MAX_CALLS} calls")
@@ -123,22 +124,25 @@ def count(scratch: Path, client=None):
             > MAX_CALLS:
         raise SystemExit("refused: would exceed the call cap")
     if client is None:
-        import anthropic
-        client = anthropic.Anthropic()  # reads ANTHROPIC_API_KEY from this process only
+        sys.path.insert(0, str(REPO))
+        from src.cloud.client import CloudClient
+        # the capped client (host check: on the controller laptop pass --role-override controller); reads the key from
+        # this process's environment only
+        client = CloudClient(mode="real", role_override=role_override)
     n = 0
     with open(CALIB_FILE, "a", encoding="utf-8") as out:
         for f in files:
             s = json.loads(f.read_text(encoding="utf-8"))
             if s["trajectory_id"] in done:
                 continue
-            r = client.messages.count_tokens(model=COUNT_MODEL, messages=[{"role": "user", "content": s["text"]}])
+            n_tok = client.count_tokens(model_id=COUNT_MODEL, messages=[{"role": "user", "content": s["text"]}])
             n += 1
             out.write(json.dumps({"record": "count_tokens", "ts_utc": datetime.now(timezone.utc).isoformat(),
                                   "endpoint": "messages.count_tokens", "model": COUNT_MODEL,
                                   "dataset": s["dataset"], "trajectory_id": s["trajectory_id"],
                                   "text_sha256": hashlib.sha256(s["text"].encode("utf-8")).hexdigest(),
                                   "chars": len(s["text"]), "qwen_tokens": s["qwen_tokens"],
-                                  "anthropic_tokens": int(r.input_tokens),
+                                  "anthropic_tokens": int(n_tok),
                                   "basis": "final-step full prompt (agent_traces cumulative text) as one user message"})
                       + "\n")
             out.flush()
@@ -150,8 +154,9 @@ if __name__ == "__main__":
     ap.add_argument("--extract", action="store_true")
     ap.add_argument("--count", action="store_true")
     ap.add_argument("--scratch", required=True, type=Path)
+    ap.add_argument("--role-override", default=None, help="CloudClient host role, e.g. controller")
     a = ap.parse_args()
     if a.extract:
         extract(a.scratch)
     if a.count:
-        count(a.scratch)
+        count(a.scratch, role_override=a.role_override)
