@@ -4,7 +4,10 @@ Status: outline for advisor review, 2026-10-08; updated 2026-10-10 (NVIDIA-dGPU 
 mechanism rows; predictor result; open finding O1); updated 2026-10-14 (R2 counts recomputed on the strengthened run
 v1 + v1b, excess over the default tier with bootstrap CIs; confound check result for O1; mitigation verdict); updated
 2026-10-20 (prose drafts of Sections 4.3, 4.6a, 4.6b and 4.7; the outline text they replace is in the appendix
-"Outline (superseded 2026-10-20)"; prose marks each number with its register id in an HTML comment). Not a
+"Outline (superseded 2026-10-20)"; prose marks each number with its register id in an HTML comment); updated
+2026-10-22 (4.3, 4.6a, 4.6b and 4.7 brought up to the register of commit 7fc16ff: qwen3:8b at 10 seeds, the protocol
+check on qwen3:14b alone, B5 detail, qwen3:32b default tier; qwen3:14b at 4096 explained by `[R2-qwen3-14b-4096-reconciliation]`, G16; trimming's side effect;
+design constants commented with their source file). Not a
 submission. Double-blind is assumed: this file names no
 author, affiliation, machine owner or repository. Author and internal labels are in `docs/PAPER1_COVER_NOTE.md`.
 
@@ -250,9 +253,9 @@ Numbers that stay out of the paper because they rest on assumptions:
 - **Gaps:** RouterBench bib entry (G14); StreamingLLM and Scissorhands are "not independently verified" in
   `docs/PRIOR_ART.md` and need citation checks (G14).
 
-### 4.3 Platforms, harness and methodology (prose draft, 2026-10-20; 1.25 pages)
+### 4.3 Platforms, harness and methodology (prose draft, 2026-10-20; updated 2026-10-22; 1.25 pages)
 
-<!-- Convention: measured numbers carry their register id; harness design constants are marked "design". -->
+<!-- Convention: measured numbers carry their register id; harness design constants carry "design: <source file>". -->
 
 **Platforms and runtimes.** We study three consumer platforms from three GPU vendors: an AMD Ryzen AI Max+ (Strix
 Halo) APU whose Radeon iGPU shares unified memory with the CPU; a laptop with an NVIDIA RTX 4070 Laptop GPU and 8188
@@ -260,25 +263,24 @@ MiB <!-- blade-k1-layer-split --> of discrete VRAM; and an Intel Core Ultra (Pan
 unified memory. Ollama's device detection drops the Intel iGPU and falls back to the CPU
 <!-- x2-device-detect-mechanism -->, so we measure Intel twice: on the CPU, as shipped, and on the iGPU, enabled only in
 the environment of the job's own server process. All agent runs use Ollama, which serves models through a bundled
-llama.cpp server; the AMD and NVIDIA runs use one pinned Ollama release and the same model files. Versions and
+llama.cpp server; the AMD and NVIDIA runs share one pinned release and the model files. Versions and
 drivers are listed in Table 1 and have no register row yet (gap G13).
 
 **The R2 agent harness.** A session is a seeded, deterministic agent conversation of 40 turns
-<!-- R2-v1b-qwen3-8b-reversal -->. The system prompt carries five <!-- design --> checkable rules (JSON answer with
-fixed keys, call a `log_event` tool, never print a forbidden token, lengths in metres, end with a session code), a
-two-tool schema and recall facts. Each turn is two <!-- design --> calls: on the first the model emits tool calls and
-the harness simulates the results, including a long filler payload that grows the context as real tool output does;
-the second asks for the final answer. Tool validity and arguments are scored per call; rules, canaries and recall on
-the final answer. Temperature is 0 <!-- design -->. Canaries in the system prompt and history tags in the first user message, which a
-message-level trim drops first, detect lost context; each canary turn asks for a pair never asked before, because in
-our first validation a model copied a reused canary forward from its own earlier answer and hid a real truncation
-(positive-control truncation turn [None] <!-- R2-validation-baseline -->). A miss counts as truncation only while the
-final prompt exceeds the context Ollama reports as loaded (`/api/ps`, read every turn), never by the runtime's prompt
-count.
+<!-- R2-v1b-qwen3-8b-reversal -->. The system prompt carries five <!-- design: harness/x2_r2_agent.py --> checkable
+rules (JSON answer with fixed keys, call a `log_event` tool, never print a forbidden token, lengths in metres, end with
+a session code), a two-tool schema and recall facts. Each turn is two <!-- design: harness/x2_r2_agent.py --> calls:
+on the first the model emits tool calls and the harness simulates results with a long filler payload that grows the
+context as real tool output does; the second asks for the final answer. Temperature is 0
+<!-- design: harness/x2_r2_agent.py -->. Canaries in the system prompt and history tags in the first user message,
+which a message-level trim drops first, detect lost context; each canary turn asks for a new pair, because in our
+first validation a model copied a reused canary from its own earlier answer and hid a real truncation (positive-control truncation turn [None] <!-- R2-validation-baseline -->). A miss counts as truncation
+only while the final prompt exceeds the context Ollama reports as loaded (`/api/ps`, read every turn), never by the
+runtime's prompt count.
 
-**Call-2 protocol.** With tools also offered on the second call, llama3.1:8b often answered with a tool call and no
-text (empty final answers 20 <!-- R2-validation-baseline -->); with tools withheld on that call only, it gave none
-(empty final answers 0 <!-- R2-validation-call2-notools -->). All R2 runs below withhold tools on the final call (the
+**Call-2 protocol.** With tools offered on the second call, llama3.1:8b often answered with a tool call and no text
+(empty final answers 20 <!-- R2-validation-baseline -->); with tools withheld there, it gave none (empty final
+answers 0 <!-- R2-validation-call2-notools -->). All R2 runs below withhold tools on the final call (the
 v1 protocol); Section 4.6 repeats the main contrast with tools on every call.
 
 **Validation gates.** Before any real run, each model passes a validation at a window where nothing is truncated,
@@ -298,18 +300,19 @@ the first turn whose prompt exceeded the loaded window; otherwise it is *baselin
 rather than context loss. The window effect is the *excess over default*: a tier's after-window rate minus the Ollama
 default tier's, with a 95% percentile bootstrap CI over sessions (10000 <!-- R2-v1b-excess-over-default -->
 resamples, stratified by tier and model). A 0/n or n/n cell has no bootstrap variance, so its CI understates
-uncertainty at five seeds per cell <!-- R2-real-v1b-first-events -->.
+uncertainty at five seeds per cell <!-- R2-real-v1b-first-events -->; one cell was later extended to 10 seeds
+<!-- R2-qwen3-8b-reversal-10seed --> by its own pre-registration.
 
 **Pre-registration and provenance.** The R2 kill criterion was written before any session ran: the claim fails if,
 in every arm, the first failure comes only after an explicit error has surfaced in the same session. The gated
 definition came later, as analysis, and is reported beside the criterion, never in its place. Every follow-up below
 was pre-registered the same way, with hypothesis, verdict rule and validity conditions committed before its code was
-deployed, and we report verdicts in that wording, refutations included. Every number is pasted from a numbers
-register that one script regenerates from the raw result files, recording function, commit and date; a row whose data
-are not synced is pending and has no value, and a claim with no verified row is not made. Rows are never pooled
-across platforms, every direct llama-server harness checks before each call that the listening server is the one it
-started, and a configuration flag counts only when the runtime's log shows it applied: an earlier sweep passed a
-KV-cache precision setting that the runtime silently ignored.
+deployed, and we report verdicts in that wording, refutations and inconclusive outcomes included. Every number is
+pasted from a numbers register that one script regenerates from the raw result files; a claim with no verified row
+is not made. One provenance gap remains: runs before 2026-10-14 did not record the harness file's blob, so their
+harness identity rests on byte-identical outputs across reruns (identical final text 120/120 <!-- R2-qwen3-14b-4096-reconciliation -->). Rows are never pooled across platforms, and a configuration flag counts
+only when the runtime's log shows it applied: an earlier sweep passed a KV-cache precision setting that the runtime
+silently ignored.
 
 ### 4.4 Memory-architecture boundaries (2.00 pages)
 
@@ -468,65 +471,78 @@ wrong on at least two of the three. If space is short, FH1 replaces F2 and F3 (t
 
 ### 4.6 Agent consequences (1.50 pages)
 
-#### 4.6a The window result (prose draft, 2026-10-20)
+#### 4.6a The window result (prose draft, 2026-10-20; updated 2026-10-22)
 
 **A default the user never sees.** On the Intel laptop, with no window requested, the same Ollama and the same two
 models loaded 4096 <!-- t2s-r2-real-cpu --> tokens on the CPU and 32768 <!-- t2s-r2-real-igpu --> on the iGPU. On the
 CPU every session crossed the window at turn [3] <!-- t2s-r2-real-cpu --> and then failed silently, 5/5
 <!-- t2s-r2-real-cpu --> for llama3.1:8b and 5/5 <!-- t2s-r2-real-cpu --> for qwen3:14b. On the iGPU no failure came
-after the window (0/5 <!-- t2s-r2-real-igpu --> and 1/5 baseline-type <!-- t2s-r2-real-igpu -->). The CPU is what an
-Intel user gets by default <!-- x2-device-detect-mechanism -->; the same tiering gives llama3.1:8b 4096
+after the window (0/5 <!-- t2s-r2-real-igpu --> and 1/5 baseline-type <!-- t2s-r2-real-igpu -->). The CPU is the Intel
+default <!-- x2-device-detect-mechanism -->; the same tiering gives llama3.1:8b 4096
 <!-- T2S-vs-X2-default-ctx --> on Intel, 131072 <!-- T2S-vs-X2-default-ctx --> on the AMD APU and 4096
-<!-- blade-k1-layer-split --> on the NVIDIA laptop. A user who never touches the setting can land in the
-smallest-window regime below. This contrast changes backend and window together, on one machine with two models, so
-it motivates the controlled result rather than replacing it.
+<!-- blade-k1-layer-split --> on the NVIDIA laptop. This contrast changes backend and window together, so it motivates
+the controlled result rather than replacing it.
 
 **The controlled result.** On the AMD APU we ran three models at the Ollama default and at 32768, 16384, 8192 and
 4096 <!-- R2-v1b-excess-over-default -->, five seeds per cell: 75 sessions and 3000 turns
-<!-- R2-real-v1b-first-events -->, none of which surfaced an error before its first failure
-<!-- R2-real-v1b-first-events -->. After-window silent failures rise as the window shrinks: 0/15 at 32768 <!-- R2-v1b-excess-over-default -->, 2/15 at
-16384 (excess over default +0.133, 95% CI +0.000 to +0.267) <!-- R2-v1b-excess-over-default -->, 8/15 at 8192 (+0.533, 95% CI +0.333 to +0.667) <!-- R2-v1b-excess-over-default --> and
-10/15 at 4096 (+0.667, 95% CI +0.533 to +0.800) <!-- R2-v1b-excess-over-default -->, over a default tier with 0/15 <!-- R2-v1b-excess-over-default -->.
-The CI excludes zero at 8192 and 4096 <!-- R2-v1b-excess-over-default -->. Rule failures, as distinct from recall misses, appear only at 8192 and 4096
-<!-- R2-real-v1b-first-events -->, and at 4096 no session of any model kept its history to the first canary turn
-(intact 0/0/0/0/0/0/0/0 of 5 <!-- R2-real-v1b-survival --> for each model).
+<!-- R2-real-v1b-first-events -->, none surfacing an error before its first failure
+<!-- R2-real-v1b-first-events -->. After-window silent failures rise as the window shrinks: 0/15 at 32768
+<!-- R2-v1b-excess-over-default -->, 2/15 at 16384 (excess over default +0.133, 95% CI +0.000 to +0.267)
+<!-- R2-v1b-excess-over-default -->, 8/15 at 8192 (+0.533, 95% CI +0.333 to +0.667) <!-- R2-v1b-excess-over-default -->
+and 10/15 at 4096 (+0.667, 95% CI +0.533 to +0.800) <!-- R2-v1b-excess-over-default -->, over a default tier with
+0/15 <!-- R2-v1b-excess-over-default -->. The CI excludes zero at 8192 and 4096 <!-- R2-v1b-excess-over-default -->.
+Rule failures, as distinct from recall misses, appear only at 8192 and 4096 <!-- R2-real-v1b-first-events -->, and at
+4096 no session of any model kept its history to the first canary turn (intact 0/0/0/0/0/0/0/0 of 5
+<!-- R2-real-v1b-survival --> for each model).
 
-The default tier's gated count is 3/15 <!-- R2-v1b-default-baseline-type -->, all llama3.1:8b recall misses in
-sessions that never exceeded the window. The pre-registered kill criterion counts every metric and finds 10/15
-<!-- R2-real-v1b-kill-criterion --> silent sessions at the default, all baseline-type: tool-argument and recall misses
-at turn 4 <!-- R2-v1b-default-baseline-type --> on metrics below the bar in the qwen3 baselines. The criterion is
-therefore not killed (killed=False <!-- R2-real-v1b-kill-criterion -->), but at the default nothing it counts is
-context loss; the evidence for context loss is the after-window excess.
+The default tier's gated count is 3/15 <!-- R2-v1b-default-baseline-type -->, all llama3.1:8b recall misses
+inside the window. The pre-registered kill criterion, counting every metric, finds 10/15
+<!-- R2-real-v1b-kill-criterion --> silent sessions there, all baseline-type: not killed (killed=False
+<!-- R2-real-v1b-kill-criterion -->), but none of it is context loss.
 
-Models differ (Table R2-gated). At 4096 the excess is +1.000 for llama3.1:8b (5/5) <!-- R2-v1b-excess-over-default -->, +0.800 for qwen3:14b (4/5, 95%
-CI +0.400 to +1.000) <!-- R2-v1b-excess-over-default --> and +0.200 for qwen3:8b (1/5, 95% CI +0.000 to +0.600) <!-- R2-v1b-excess-over-default -->.
-qwen3:14b has no after-window failure above 4096 <!-- R2-v1b-gated-per-model -->; llama3.1:8b already fails in 2/5 <!-- R2-v1b-gated-per-model -->
-at 16384. qwen3:8b reverses the ordering, 4/5 at 8192 <!-- R2-v1b-qwen3-8b-reversal --> against 1/5 at 4096 <!-- R2-v1b-qwen3-8b-reversal -->. The same
-metrics are gated at both tiers, so this is not a gating artifact, and at n = 5 the difference is within noise (Fisher
-exact two-sided p = 0.206 <!-- R2-v1b-qwen3-8b-reversal -->). Turn-level counts point the same way (18 <!-- R2-v1b-qwen3-8b-reversal --> against 3 rule
-failure turns <!-- R2-v1b-qwen3-8b-reversal -->), which we note as a hypothesis only; we do not claim 4096 is safer
-for this model.
+**Models differ** (Table R2-gated). llama3.1:8b already fails at 16384, 2/5
+<!-- R2-v1b-gated-per-model -->, and 5/5 at 4096, excess +1.000 <!-- R2-v1b-excess-over-default -->.
+qwen3:14b has no after-window failure above 4096 <!-- R2-v1b-gated-per-model -->, and its 4096 sessions lapse on
+different rules: the first gated failures are rule 5 or rule 3 at turns 5 to 30 <!-- R2-qwen3-14b-4096-reconciliation -->, while rule 2 held on 40/40
+turns in every seed <!-- R2-qwen3-14b-4096-reconciliation -->; we name the failing rule per model rather than say rules broke.
+qwen3:8b reversed the ordering at five seeds; a pre-registered extension to 10 seeds per tier
+<!-- R2-qwen3-8b-reversal-10seed --> tested whether that was noise. Pooled, qwen3:8b failed silently in 6/10 sessions at 8192 and 2/10 at 4096
+<!-- R2-qwen3-8b-reversal-10seed --> (Fisher exact two-sided p = 0.170 <!-- R2-qwen3-8b-reversal-10seed -->), which
+the pre-registered rule reads as resolved as noise <!-- R2-qwen3-8b-reversal-10seed -->. The direction persisted: the
+new seeds alone gave 2/5 at 8192 and 1/5 at 4096 <!-- R2-qwen3-8b-reversal-10seed -->, and the excess over default is
++0.600 (95% CI +0.300 to +0.900) at 8192 but +0.200 (95% CI +0.000 to +0.500) at 4096, where no excess is shown
+<!-- R2-qwen3-8b-reversal-10seed -->. We report the cell as within noise and do
+not claim that 4096 is safe for qwen3:8b.
 
-**Protocol check: tools on every call.** We pre-registered a rerun that offers tools on every call, on a different
-task workload, for qwen3:14b with five seeds per tier and a `num_keep` tier (Section 4.7). The pre-registered reading
-was that the effect *holds* at 4096 <!-- x2-evalset-tasks-real-v2-gated-excess --> if the excess CI lies above zero. It held: 5/5 <!-- x2-evalset-tasks-real-v2-gated-excess --> against 0/5 at the default <!-- x2-evalset-tasks-real-v2-gated-excess -->, excess
-+1.000 (95% CI +1.000 to +1.000) <!-- x2-evalset-tasks-real-v2-gated-excess -->. At 16384 and 8192 the reading was
-"no excess in either protocol" <!-- x2-evalset-tasks-real-v2-gated-excess -->. The share of task turns ending in a
-wrong state was 11.3% <!-- x2-evalset-tasks-real-v2-wrong-rate --> at the default, 12.7% <!-- x2-evalset-tasks-real-v2-wrong-rate --> at 16384, 35.3% <!-- x2-evalset-tasks-real-v2-wrong-rate --> at 8192 and 42.0% <!-- x2-evalset-tasks-real-v2-wrong-rate --> at 4096, every wrong turn silent
-<!-- x2-evalset-tasks-real-v2-wrong-rate -->: excess +24.0 points (95% CI +18.7 to +29.3) <!-- x2-evalset-tasks-real-v2-wrong-rate --> at 8192 and +30.7 points
-(95% CI +26.0 to +34.7) at 4096, none shown at 16384 <!-- x2-evalset-tasks-real-v2-wrong-rate -->. A deviation was
-declared before the data: qwen3:14b reached the task end state on 80/90 <!-- x2-evalset-val-v2-gates --> validation
-turns, below the bar, so absolute wrong rates include baseline errors.
+**Protocol check: tools on every call.** A pre-registered rerun offers tools on every call, on a different task
+workload, with five seeds per tier and a `num_keep` tier (Section 4.7). It rests on qwen3:14b alone.
+llama3.1:8b failed the task validation <!-- x2-evalset-val-v2-gates -->, and qwen3:8b, added by a later
+pre-registration with no waiver, failed it too: it called the task tool correctly on 61/81 baseline turns and reached
+the task end state on 65/90 (72.2%) <!-- x2-evalset-tasks-val-v2-qwen3-8b-gates -->, so its real run refused to start,
+as designed <!-- x2-evalset-tasks-real-v2-qwen3-8b-wrong-rate -->. For qwen3:14b the pre-registered reading was that
+the effect holds at 4096 <!-- x2-evalset-tasks-real-v2-gated-excess --> if the excess CI lies above zero. Within this
+run it held: 5/5 <!-- x2-evalset-tasks-real-v2-gated-excess --> against 0/5 at the default
+<!-- x2-evalset-tasks-real-v2-gated-excess -->, excess +1.000 (95% CI +1.000 to +1.000)
+<!-- x2-evalset-tasks-real-v2-gated-excess -->. Wrong task end states were 11.3%
+<!-- x2-evalset-tasks-real-v2-wrong-rate --> at the default, 12.7% <!-- x2-evalset-tasks-real-v2-wrong-rate --> at
+16384, 35.3% <!-- x2-evalset-tasks-real-v2-wrong-rate --> at 8192 and 42.0% <!-- x2-evalset-tasks-real-v2-wrong-rate -->
+at 4096, every wrong turn silent <!-- x2-evalset-tasks-real-v2-wrong-rate -->: excess +24.0 points (95% CI +18.7 to
++29.3) <!-- x2-evalset-tasks-real-v2-wrong-rate --> at 8192 and +30.7 points (95% CI +26.0 to +34.7) at 4096, none
+shown at 16384 <!-- x2-evalset-tasks-real-v2-wrong-rate --> <!-- TODO: session-level CI recompute pending for x2-evalset-tasks-real-v2 rows; update these CIs -->. A deviation was declared before the data: qwen3:14b
+reached the task end state on 80/90 <!-- x2-evalset-val-v2-gates --> validation turns, below the bar, so absolute
+wrong rates include baseline errors.
 
-**Scope: scale and family.** The pre-registered H-scale hypothesis stated that both R2 findings, rule loss at 4096 and
-history loss with rules intact at 32768 <!-- H-scale-verdict -->, hold from 30B to 70B, with three seeds per cell. qwen3:32b lost rules at 4096
-in 2/3 <!-- H-scale-verdict --> sessions but showed history loss with rules intact in only 1/3 <!-- H-scale-verdict --> at 32768 (mixed); llama3.3:70b lost no rules at
-4096 (0/3 <!-- H-scale-verdict -->, every session over the window) and lost history with rules intact in 3/3 <!-- H-scale-verdict --> at 32768, the pre-registered
-alternative "resists rule loss" <!-- H-scale-verdict -->. The 30B mixture-of-experts model was refused by its own
-validation. The overall verdict is mixed, so H-scale is not supported <!-- H-scale-verdict -->. mistral-small3.2:24b,
-from another family, also resisted rule loss (0/3 at 4096 <!-- H-scale-family-verdict -->, history loss 2/3 at 32768) <!-- H-scale-family-verdict -->.
-Within what we tested, silent history loss holds at every size, while silent rule loss is a property of the 8B and
-14B models, and we state it for those only.
+**Scope: scale and family.** The pre-registered H-scale hypothesis stated that both R2 findings, rule loss at 4096
+and history loss with rules intact at 32768 <!-- H-scale-verdict -->, hold from 30B to 70B, with three seeds per
+cell. qwen3:32b lost rules at 4096 in 2/3 <!-- H-scale-verdict --> sessions but showed history loss with rules intact
+in only 1/3 <!-- H-scale-verdict --> at 32768 (mixed); at its default it loaded 40960 tokens and crossed the window
+late, at turns 24, 25 and 26 <!-- x2-scale-real-default-tier -->. llama3.3:70b lost no rules at 4096 (0/3
+<!-- H-scale-verdict -->, every session over the window) and lost history with rules intact in 3/3
+<!-- H-scale-verdict --> at 32768, the pre-registered alternative "resists rule loss" <!-- H-scale-verdict -->. Overall the verdict is mixed: H-scale is not supported
+<!-- H-scale-verdict -->. mistral-small3.2:24b, from another family, also resisted rule loss (0/3 at 4096
+<!-- H-scale-family-verdict -->, history loss 2/3 at 32768) <!-- H-scale-family-verdict -->. Within what we tested, silent
+history loss is universal, from 8B to 70B; rule loss is model-dependent, present from 8B to 32B and absent for the
+70B and 24B models at three seeds, and we do not claim it in general.
 
 **4.6a outline items kept (table, history, figure, gaps).**
 
@@ -541,6 +557,13 @@ Within what we tested, silent history loss holds at every size, while silent rul
   | 8192 | 4 / 4 / 0; intact 5/0/0/0/0/0/0/0 | 0 / 0 / 0; intact 5/0/0/0/0/0/0/0 | 4 / 4 / 0; intact 3/0/0/0/0/0/0/0 |
   | 4096 | 5 / 5 / 0; intact 0/0/0/0/0/0/0/0 | 4 / 4 / 0; intact 0/0/0/0/0/0/0/0 | 1 / 1 / 0; intact 0/0/0/0/0/0/0/0 |
 
+  Table notes (2026-10-22): the qwen3:14b 4096 cell counts lapses of rule 3 and rule 5, not rule 2, per
+  `[R2-qwen3-14b-4096-reconciliation]` ("gated first failure 20260901 5 rule5_session_code; 20260902 20
+  rule3_no_zebra; 20260903 5 rule5_session_code"; v1b "20260904 30 rule3_no_zebra; 20260905 none"). The qwen3:8b 8192
+  and 4096 cells are five seeds here; the paper quotes the 10-seed pooled cell `[R2-qwen3-8b-reversal-10seed]`
+  ("num_ctx_8192: 6/10 gated silent", "num_ctx_4096: 2/10 gated silent", "Fisher exact two-sided p (8192 vs 4096) =
+  0.170", "verdict: resolved as noise").
+
 - **History (v1 only, superseded for citation):** the first run alone (two models, three seeds, three tiers) gave
   "num_ctx_32768 1/6 silent, 0 after window exceeded; num_ctx_4096 6/6 silent, 6 after window exceeded; ollama_default
   1/6 silent, 0 after window exceeded" `[R2-real-v1-gated-kill]`. Its v1 cells are part of the strengthened run above;
@@ -551,14 +574,16 @@ Within what we tested, silent history loss holds at every size, while silent rul
   variance (its CI is a point, which understates uncertainty); qwen3-4b-2507 was refused by its validation gate
   ("qwen3-4b-2507 (x2_r2_validation_v2b.jsonl) 5/30 fail; preflight without the gate pass, with it refuse"
   `[R2-task-tool-gate]`), so three of the four planned models are in these rows. Fill: T2S week item 2 (R2 native
-  Intel); H-scale (30B to 70B, rows PENDING). Blade night 1 (b) (R2 native) did not run: the validation gate failed
-  (open finding O1, Section 5b).
+  Intel). H-scale landed (`[H-scale-verdict]`, three seeds per cell). Blade night 1 (b) (R2 native) did not run: the
+  validation gate failed (open finding O1, Section 5b). Added 2026-10-22: the protocol check rests on qwen3:14b alone, because qwen3:8b failed its B3 v2 validation
+  (`[x2-evalset-tasks-val-v2-qwen3-8b-gates]`) and its real run refused (`[x2-evalset-tasks-real-v2-qwen3-8b-wrong-rate]`);
+  a second model (mistral-small3.2:24b) is being validated (G17); the qwen3:8b 20-seed extension is queued.
 
-#### 4.6b The mechanism on AMD and NVIDIA (prose draft, 2026-10-20)
+#### 4.6b The mechanism on AMD and NVIDIA (prose draft, 2026-10-20; checked 2026-10-22)
 
 **What the runtime removes.** We reran llama3.1:8b on the AMD APU, one session per tier (80 calls each <!-- R2-mechanism-lowlevel -->), with Ollama in debug
 mode, its log sliced per call, and a render-only copy of each request. The rendered prompt matched the runtime's
-token count on every check (9/9 within 1% at 4096 <!-- R2-mechanism-verdict -->; render/log disagreements 0 <!-- R2-mechanism-verdict -->). Three
+count on every check (9/9 within 1% at 4096 <!-- R2-mechanism-verdict -->; render/log disagreements 0 <!-- R2-mechanism-verdict -->). Three
 mechanisms appear. First, Ollama drops whole messages from the front once the conversation outgrows the window, on
 54/80 <!-- R2-mechanism-lowlevel --> calls at 16384, 68/80 <!-- R2-mechanism-lowlevel --> at 8192 and 76/80 at 4096 <!-- R2-mechanism-lowlevel -->, always keeping the system
 message ("system kept on all True" <!-- R2-mechanism-verdict -->) and usually cutting mid-turn. This loses history
@@ -566,17 +591,16 @@ but keeps the rules in view. At 4096 <!-- R2-mechanism-lowlevel --> two lower-le
 fired on 34 <!-- R2-mechanism-lowlevel --> calls from turn 4 <!-- R2-mechanism-lowlevel -->, each keeping n_keep [5] <!-- R2-mechanism-lowlevel --> tokens and discarding the next [2045] <!-- R2-mechanism-lowlevel -->, 29 of them on the
 final-answer call <!-- R2-mechanism-lowlevel -->; and once Ollama's own token cut reduced a prompt of 4097 <!-- R2-mechanism-lowlevel --> tokens to
 2050 <!-- R2-mechanism-lowlevel -->, keeping 4 <!-- R2-mechanism-lowlevel -->. That is the runtime's overflow rule, which returns success and keeps
-num_ctx/2 + 2 tokens (4096->2050 <!-- ollama-overflow-keeps-half -->). At 32768, 10 <!-- R2-mechanism-lowlevel --> shifts occurred, none on the
-final-answer call <!-- R2-mechanism-lowlevel -->. No step raised an error (exceed-context errors 0
+num_ctx/2 + 2 tokens (4096->2050 <!-- ollama-overflow-keeps-half -->). No step raised an error (exceed-context errors 0
 <!-- R2-mechanism-verdict -->). The report's working hypothesis, "drop old turns, keep the system message", is
 therefore refuted over the citable tiers by the 4096 token cut (verdict refuted <!-- R2-mechanism-verdict -->) and
 confirmed tier by tier at 32768, 16384 and 8192.
 
 **NVIDIA replicates the first two steps.** One session at 4096 on the NVIDIA laptop passed the same render check (9/9 within 1% <!-- blade-mechanism-4096 -->).
 Ollama trimmed whole messages on 75/80 <!-- blade-mechanism-4096 --> calls from turn 3 <!-- blade-mechanism-4096 --> and kept the system message on every one, and the context
-shift fired 33 <!-- blade-mechanism-4096 --> times; no token cut occurred and no error surfaced <!-- blade-mechanism-4096 -->. That row does not
-report n_keep, so we claim the shift discards the system prompt on AMD only, and whether the token cut occurs on
-NVIDIA is open after one session.
+shift fired 33 <!-- blade-mechanism-4096 --> times; no token cut occurred and no error surfaced <!-- blade-mechanism-4096 -->. That row lacks
+n_keep, so the claim that the shift discards the system prompt is AMD-only; whether the token cut occurs on NVIDIA
+is open.
 
 **A second silent difference: tool calls as text.** In the NVIDIA validation, llama3.1:8b's negative control at
 32768, where nothing is truncated, missed canaries in two of five sessions (seeds 20260903 and 20260905, 2 misses
@@ -584,20 +608,22 @@ each <!-- blade-r2-gate-v2 -->): the final answer was a tool call written as pla
 this held back the NVIDIA real runs. Three pre-registered checks on the AMD APU kept model files, seeds and settings
 and moved one factor toward the NVIDIA configuration each. At 32768 on AMD's ROCm backend there were 0 of 20 <!-- x2-r2-llama-val-32k --> misses,
 so the window does not reproduce it ("backend or offload effect" <!-- x2-r2-llama-val-32k -->). Forcing NVIDIA's CPU
-offload split (VRAM share 0.656 <!-- blade-k1-layer-split -->) on AMD, 22 of 33 <!-- x2-r2-llama-val-32k-offload --> layers on the GPU with VRAM share
+offload split on AMD, 22 of 33 <!-- x2-r2-llama-val-32k-offload --> layers on the GPU with VRAM share
 0.656 <!-- x2-r2-llama-val-32k-offload -->, again gave 0 of 20 ("backend effect" <!-- x2-r2-llama-val-32k-offload -->). Switching only the backend, to
 Vulkan on the same AMD GPU and verified in 5/5 <!-- x2-r2-llama-val-32k-vulkan --> sessions, gave 2 of 20 <!-- x2-r2-llama-val-32k-vulkan --> misses, at seed 20260903, turn 5 <!-- x2-r2-llama-val-32k-vulkan -->, as a text call
 to `lookup_fact`: "backend implementation, not the vendor" <!-- x2-r2-llama-val-32k-vulkan -->. The failure follows
-the llama.cpp backend implementation (CUDA and Vulkan, not ROCm, in these seeds), not the GPU vendor. With five seeds
-a zero does not show the event cannot occur, and the check does not identify the kernel; the point is that identical
-model files and settings yield a different agent on a different backend, again with no error.
+the llama.cpp backend implementation (CUDA and Vulkan, not ROCm, in these seeds), not the GPU vendor: one fragile
+decision point, turn 5 of seed 20260903 <!-- x2-r2-llama-val-32k-vulkan --> on Vulkan, in the seed that also missed
+on CUDA <!-- blade-r2-gate-v2 -->, separates a correct agent from a silent miss. Five seeds cannot
+show a zero is impossible, and the kernel is not identified; identical model files and settings still yield a
+different agent on a different backend, with no error.
 
 **How the window is set, and whether it sticks.** On the AMD APU, where llama3.1:8b defaults to 131072 <!-- window-override-methods -->, a
 per-request `num_ctx` of 12288 loaded 12288 <!-- window-override-methods --> but a plain request after a restart was back at 131072 <!-- window-override-methods -->; a Modelfile
-`PARAMETER num_ctx` of 10240 on a derived tag loaded 10240 <!-- window-override-methods --> and survived the restart, leaving the base tag unchanged;
+`PARAMETER num_ctx` of 10240 on a derived tag loaded 10240 <!-- window-override-methods --> and survived the restart;
 and `OLLAMA_CONTEXT_LENGTH` of 6144 applied while set and reverted once the server restarted without it
-<!-- window-override-methods -->. Only a derived tag persists: any client that omits the per-request option, such as a
-second tool on the same machine, silently gets the default back. This check has not yet run on NVIDIA or Intel.
+<!-- window-override-methods -->. Only a derived tag persists: a client that omits the per-request option silently gets the
+default back. This check has not yet run on NVIDIA or Intel.
 
 **4.6b outline items kept (figure, gaps).**
 
@@ -617,46 +643,58 @@ second tool on the same machine, silently gets the default back. This check has 
 - **Figure:** none until complete.
 - **Gaps:** x2_outcome_table_v3 completion; T2S week item 5 (outcome-table subset).
 
-### 4.7 Fixes (prose draft, 2026-10-20; with the predictor outline kept below; 1.00 page)
+### 4.7 Fixes (prose draft, 2026-10-20; updated 2026-10-22; with the predictor outline kept below; 1.00 page)
 
-**Client-side trimming splits by model, on two vendors.** If the system prompt is lost because the runtime cuts the
-front of an over-length prompt, a client that never sends one should prevent it. We pre-registered that fix: before
+**Client-side trimming splits by model, on two vendors.** A client that never sends an over-length prompt should keep
+the runtime from cutting the system prompt. We pre-registered that fix: before
 every call the client renders and counts the request with the model's tokenizer and drops whole old turns until the
-system prompt, the kept turns and the answer budget fit the window with a 5% <!-- design: margin 0.05 --> margin,
-always keeping the system prompt. A model *recovers* when every rule in use is at or above 90%
-<!-- design: pre-registered verdict rule -->, and the hypothesis needed both models to recover at 4096 <!-- R2-mitigation-v1-verdict -->. The fix worked
-mechanically: 0 context shifts, 0 token cuts, 0 Ollama message drops and 0 exceed-context errors in every cell
-<!-- R2-mitigation-v1-observed -->. The verdict is *refuted* <!-- R2-mitigation-v1-verdict -->. On the AMD APU
-llama3.1:8b recovered at 8192 and 4096 <!-- R2-mitigation-v1-verdict -->; qwen3:14b recovered at 8192 but not at 4096 <!-- R2-mitigation-v1-verdict -->,
-where its `log_event` rule fell to 61.7% <!-- R2-mitigation-v1-4096 -->, failing first at turn 3 in every seed (3/3/3 <!-- R2-mitigation-v1-4096 -->), against 100.0% unmitigated
-<!-- R2-mitigation-v1-4096 -->. On the Intel laptop's CPU at 4096 <!-- t2s-r2-mitigation-cpu --> the split replicates: llama3.1:8b recovered,
-qwen3:14b did not, again on `log_event`, overall refuted <!-- t2s-r2-mitigation-cpu -->. By the pre-registered
-refutation clause, losing the system prompt to the context shift is not the whole explanation of qwen3:14b's rule
-loss at 4096 <!-- R2-mitigation-v1-verdict -->. There the budget leaves room for only 1-2 <!-- R2-mitigation-v1-observed --> turns besides the system
-prompt, so even where the fix works it trades silent rule loss for deliberate history loss.
+system prompt, the kept turns and the answer budget fit the window with a 5% <!-- design: harness/x2_r2_client_trim.py -->
+margin, always keeping the system prompt. A model *recovers* when every rule in use is at or above 90%
+<!-- design: analysis/r2_mitigation_report.py -->, and the hypothesis needed both models to recover at 4096
+<!-- R2-mitigation-v1-verdict -->. Mechanically it worked: 0 context shifts, 0 token cuts, 0 Ollama message drops and 0
+exceed-context errors in every cell <!-- R2-mitigation-v1-observed -->. The verdict is *refuted*
+<!-- R2-mitigation-v1-verdict -->. On the AMD APU llama3.1:8b recovered at 8192 and 4096
+<!-- R2-mitigation-v1-verdict -->; qwen3:14b recovered at 8192 but not at 4096 <!-- R2-mitigation-v1-verdict -->, where
+its `log_event` rule fell to 61.7% <!-- R2-mitigation-v1-4096 -->, failing first at turn 3 in every seed (3/3/3
+<!-- R2-mitigation-v1-4096 -->). On the Intel laptop's CPU at 4096 <!-- t2s-r2-mitigation-cpu --> the split
+replicates: llama3.1:8b recovered, qwen3:14b did not, again on `log_event`, overall refuted
+<!-- t2s-r2-mitigation-cpu -->. The cause is the fix itself: untrimmed, qwen3:14b kept rule 2 on 40/40 turns in every
+seed <!-- R2-qwen3-14b-4096-reconciliation -->. On the first failing trimmed turn its first call
+requested only `lookup_fact`, where the untrimmed run called `log_event` and then `lookup_fact` <!-- R2-qwen3-14b-4096-reconciliation -->: at 4096 the
+budget leaves room for only 1-2 <!-- R2-mitigation-v1-observed --> turns besides the system prompt, so trimming
+removes the in-context examples of the two-call pattern the model imitates. Naive trimming swaps silent context loss
+for deliberate history loss and, for this model, a new rule failure.
 
-**num_keep is a one-line fix for one model's rules.** Ollama exposes the number of leading tokens the context shift
-and the token cut keep as the request option `num_keep`. We pre-registered a test for llama3.1:8b at 4096 with
-`num_keep` set to the system prompt's measured token length (601, 594 and 597 per seed
-<!-- num-keep-guardrail-test -->). The log showed it applied: all 105 <!-- num-keep-guardrail-test --> context shifts kept n_keep [595, 598, 602]
-<!-- num-keep-guardrail-test -->. The rules in use held (rule 1 at 94.2% <!-- num-keep-guardrail-test -->, rules 3 and 4 at 100.0%
-<!-- num-keep-guardrail-test -->), which the pre-registered rule reads as "one-line fix" <!-- num-keep-guardrail-test -->.
-It fixes the rules and nothing else: Ollama still dropped messages on 224 of 239 <!-- num-keep-guardrail-test --> calls, the history canary was missed
-on 24 of 24 <!-- num-keep-guardrail-test --> checks, the system canary 6 <!-- num-keep-guardrail-test --> times, and 2 turns returned errors <!-- num-keep-guardrail-test -->. Nor does it
-remove the window effect for another model. In the protocol check, `num_keep` at 4096 lowered qwen3:14b's wrong-task
-rate from 42.0% <!-- x2-evalset-tasks-real-v2-wrong-rate --> to 30.0% <!-- x2-evalset-tasks-real-v2-wrong-rate -->, but its excess over the default stayed at +18.7 points (95% CI +16.0 to +21.3)
-<!-- x2-evalset-tasks-real-v2-wrong-rate --> and its gated excess at +1.000 <!-- x2-evalset-tasks-real-v2-gated-excess -->; the pre-registered reading is that
-`num_keep` does not remove it <!-- x2-evalset-tasks-real-v2-gated-excess -->.
+**num_keep fixes one model's rules, on the token-cut path.** The request option `num_keep` sets how many leading tokens
+the context shift and the token cut keep. It matters only where a shift or a cut happens; a whole-message drop keeps
+the system message anyway (Section 4.6b). We
+pre-registered a test for llama3.1:8b at 4096, the path where both steps fired, with `num_keep` set to the system
+prompt's measured token length (601, 594 and 597 per seed <!-- num-keep-guardrail-test -->). All 105
+<!-- num-keep-guardrail-test --> context shifts kept n_keep [595, 598, 602] <!-- num-keep-guardrail-test -->. The rules in use held (rule 1 at 94.2% <!-- num-keep-guardrail-test -->, rules 3 and
+4 at 100.0% <!-- num-keep-guardrail-test -->), which the pre-registered rule reads as "one-line fix"
+<!-- num-keep-guardrail-test -->. It fixes the rules and nothing else: Ollama still dropped messages on 224 of 239
+<!-- num-keep-guardrail-test --> calls and the history canary was missed on 24 of 24 <!-- num-keep-guardrail-test -->
+checks. Nor does it remove the window effect in the protocol check: within that run the
+`num_keep` tier at 4096 lowered qwen3:14b's wrong-task rate from 42.0% <!-- x2-evalset-tasks-real-v2-wrong-rate --> to
+30.0% <!-- x2-evalset-tasks-real-v2-wrong-rate -->, but its excess over the default stayed at +18.7 points (95% CI
++16.0 to +21.3) <!-- x2-evalset-tasks-real-v2-wrong-rate --> <!-- TODO: session-level CI recompute pending for x2-evalset-tasks-real-v2 rows; update these CIs --> and its gated excess at +1.000
+<!-- x2-evalset-tasks-real-v2-gated-excess -->; the pre-registered reading is that `num_keep` does not remove it
+<!-- x2-evalset-tasks-real-v2-gated-excess -->. In the R2 harness a num_keep run for qwen3:14b at 4096 reproduced the
+unflagged run turn for turn (identical final text 120/120 <!-- R2-qwen3-14b-4096-reconciliation -->), so for this model the flag changed nothing there,
+and what lowered the task-workload rate is not established.
 
-**A router does not dominate.** We also pre-registered a comparison of eight <!-- design: policies (a) to (h) -->
-context policies on the same sessions (runtime default, largest window that starts, client trimming, a router that
-escalates to a cloud model, an auto-sized window, `num_keep`, and two quantized KV caches), with the hypothesis that
-the router is on the Pareto frontier of rules, history, time and cost on every platform. It is *refuted*: on the AMD
-APU the router was dominated for both models <!-- b5-verdict -->. For llama3.1:8b the q4_0 KV policy reached history
-100.0% in 6.6 min <!-- b5-policy-metrics --> per session against the router's 95.8% in 43.5 min <!-- b5-policy-metrics -->; for qwen3:14b the q8_0 KV policy took 75.4 min <!-- b5-policy-metrics -->
-against the router's 135.1 min and USD 0.8419 <!-- b5-policy-metrics -->. Only the AMD platform has run, under
-labelled cloud-scoring assumptions, and its default window is the model's native one, so no policy faced the
-small-window regime where loss occurs.
+**A router does not dominate.** We pre-registered a comparison of eight
+<!-- design: harness/policy_compare.py --> context policies (runtime default, largest window that starts, client
+trimming, a router escalating to a cloud model, an auto-sized window, `num_keep`, q8_0 and q4_0 KV caches), with the
+hypothesis that the router is on the Pareto frontier of rules, history, time and cost on every
+platform. It is *refuted*: on the AMD APU the router was dominated for both models <!-- b5-verdict -->. Every policy
+kept every rule (rule 100.0% in every cell <!-- b5-policy-metrics -->), and the frontier held one KV-cache policy
+per model <!-- b5-policy-metrics -->. For llama3.1:8b, q4_0 reached history 100.0% in 6.6 min <!-- b5-policy-metrics --> per
+session against the router's 95.8% in 43.5 min <!-- b5-policy-metrics -->. For qwen3:14b, q8_0 cut session time from
+214.8 min at the runtime default to 75.4 min at the same history recall, 62.5% <!-- b5-policy-metrics -->, while the
+router took 135.1 min and USD 0.8419 per session for no gain <!-- b5-policy-metrics -->. The refutation holds on the
+unconstrained AMD platform, whose default window is the model's native one, so no policy there faced the
+small-window regime where loss occurs; the constrained platforms are pending.
 
 #### 4.7p Predictor (outline, not yet prose)
 
@@ -676,16 +714,21 @@ small-window regime where loss occurs.
   (observed part), `results/x2_r2_real_v1.jsonl` (predicted part).
 - **Scope of the claim:** it predicts the context shift (where the system prompt goes on AMD-iGPU), not rule
   failure: the real-run qwen3:14b failures are not explained by it. Built and scored on the same mechanism sessions;
-  no tunable parameter, but no held-out observed sessions yet.
+  no tunable parameter, but no held-out observed sessions yet. (2026-10-22: the qwen3:14b 4096 statement above
+  is consistent with `[R2-qwen3-14b-4096-reconciliation]`: qwen3:14b's 4096 lapses are rule 3 and rule 5, and the
+  num_keep rerun reproduced v1 turn for turn ("identical final text 120/120").)
+
 **4.7 outline items kept (figure and gaps, mitigation and predictor).**
 
 - **Figure:** F8: rule compliance per rule in use at 4096 and 8192, mitigation vs real run, per model, from
-  `[R2-mitigation-v1-4096]` and `[R2-mitigation-v1-8192]`.
+  `[R2-mitigation-v1-4096]` and `[R2-mitigation-v1-8192]`. The qwen3:14b 4096 panel should show that rule 2
+  falls only with trimming (40/40 untrimmed vs 24/40, 25/40, 25/40 trimmed, `[R2-qwen3-14b-4096-reconciliation]`).
 - **Gaps:** two models, three seeds per cell, one runtime, no CI; the 4096 comparison is against the v1 cells (three
   seeds), the 8192 comparison against v1b's first three seeds. Predictor scored on observed shifts outside the sessions
   it was checked on (G6): the NVIDIA-dGPU 4096 session (`[blade-mechanism-4096]`, its shift count is registered but the
   per-call confusion is not) and any later mechanism-logged run. T2S week item 3 (mitigation at 4096). Blade night 1
-  (c) (mitigation) did not run (open finding O1).
+  (c) (mitigation) did not run (open finding O1). num_keep is tested for llama3.1:8b only in the prose; the qwen3:14b
+  num_keep run is cited only through `[R2-qwen3-14b-4096-reconciliation]`, not its own row. B5 has run on AMD-iGPU only (`[b5-verdict]`: evo-t2s and blade "not run").
 
 ### 4.8 Threats to validity (0.50 page)
 
@@ -881,7 +924,12 @@ Backup figure if one slips: first-call TTFT stall per cell (`[ttft-first-call-st
    plus Blade night 2 (d) (C3 sysmem fallback). Without it, "three vendors, two memory architectures" is not
    supported in the text and the abstract sentence on discrete spill is cut.
 5. **G5. AMD-iGPU boundary rows.** Register rows for `results/mx2_validation.jsonl` and `results/mx2_spill_stats.jsonl`
-   (analysis only), plus x2_70b_edge_reps for the non-deterministic 70B boundary.
+   (analysis only), plus x2_70b_edge_reps for the non-deterministic 70B boundary. Note (2026-10-22): the rows
+   `fh1-amd-boundary-llama-3.3-70b` and `fh1-amd-boundary-qwen3-32b` were computed on a branch (commit 2a9e338) but
+   the merge into main (bfb4d80) kept only a regenerated register; their compute functions, test and FINDINGS section
+   are not on main and the rows are absent from the current register. They cannot be cited until restored. When
+   cited, the AMD boundary is reported as measured, last pass and first fail with no rounding (the llama3.3:70b first
+   spill is the served n_ctx, not the requested one).
 6. **G6. Predictor held-out check.** Built and scored on AMD-iGPU (`[R2-shift-predictor-confusion]`, verified).
    Still open: score it on observed shifts from sessions it was not checked on (the NVIDIA-dGPU 4096 session, any
    later mechanism-logged run); x2_r2_real_v1b has no server log, so it gives predictions, not observations. Analysis
@@ -904,6 +952,13 @@ Backup figure if one slips: first-call TTFT stall per cell (`[ttft-first-call-st
 14. **G14. Citations:** RouterBench into `docs/references.bib`; verify StreamingLLM and Scissorhands.
 15. **G15. K2 strengthening** (harder task set, sub-tick responsiveness probe) and x2_k2_pause_resume_v1. Lowest
     priority for this paper; P1-15 can be dropped without hurting the story.
+16. **G16. qwen3:14b at 4096 (added 2026-10-22, explained).** `[R2-qwen3-14b-4096-reconciliation]`: different
+    things counted plus a real trimming effect, not seed variance or drift. Remaining gap: the harness blob was not
+    recorded per run before 2026-10-14 ("harness blob not recorded" in all four runs); identity rests on byte-identical
+    outputs. The qwen3:14b num_keep row itself is not cited in prose.
+17. **G17. Second model for the protocol check (added 2026-10-22).** The tools-on-every-call check rests on
+    qwen3:14b alone after qwen3:8b failed its validation (`[x2-evalset-tasks-val-v2-qwen3-8b-gates]`);
+    mistral-small3.2:24b is being validated. Also queued: the qwen3:8b 20-seed extension of the 8192 vs 4096 cell.
 
 Not resolved here: the submission deadline (Dec 2 vs mid-December estimate) and the 2027 page limit.
 
@@ -1027,6 +1082,9 @@ follow the outline convention of this file.
   Files: `results/x2_r2_mechanism.jsonl`, `results/blade_r2_mechanism_4096_v2.jsonl.report.json`.
 
 ### 4.7 mitigation outline bullets (claim, reading)
+
+(Note 2026-10-22: the reading below that the context shift is "not the whole explanation" is superseded by
+`[R2-qwen3-14b-4096-reconciliation]`: trimming removes the in-context two-call examples; see Section 4.7.)
 
 - **Claim (verified on AMD-iGPU, two models, three seeds): the obvious fix works for one model and fails for another
   at the smallest window.** The fix is client-side trimming: before every call the client drops whole old turns so
