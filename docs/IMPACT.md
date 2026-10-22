@@ -69,27 +69,28 @@ replaces the earlier projection (row impact-v2-detection-value, now marked super
 predictor's precision and recall from a different model and job. The detector is now scored on the B3 v2 real run
 itself (qwen3:14b, five tiers, 150 task turns per tier): flag a task when its turn's prompt exceeded the loaded window
 (over_loaded_window), and count it right when the task ended wrong (end_state_ok false). Cloud USD compares escalating
-every task with escalating only the flagged ones, at the tier's cloud redo USD per task (row
-cloud-redo-cost-per-wrong-task, priced, not executed). Pasted from [impact-v3-detection-value-measured]:
+every task with escalating only the flagged ones, at the tier's mean full-history redo USD per task (row
+cloud-redo-full-context, claude-sonnet-5-5, measured; operator decision 2026-10-22: no value in this row comes from the
+first, truncated-history redo, cloud-redo-cost-per-wrong-task). Pasted from [impact-v3-detection-value-measured]:
 - "ollama_ctx_4096: TP 63 FP 84 FN 0 TN 3, precision 42.9%, recall 100.0%, wrong tasks missed 0/63 (0.0%); escalate
-  all 150 USD 4.2098 vs flagged 147 USD 4.1256 (saves USD 0.0842 and leaves 0 wrong unfixed; USD 0.0281 per task)"
+  all 150 USD 2.5401 vs flagged 147 USD 2.4893 (saves USD 0.0508 and leaves 0 wrong unfixed; USD 0.0169 per task)"
 - "ollama_ctx_4096_numkeep: TP 45 FP 102 FN 0 TN 3, precision 30.6%, recall 100.0%, wrong tasks missed 0/45 (0.0%);
-  escalate all 150 USD 4.0355 vs flagged 147 USD 3.9548 (saves USD 0.0807 and leaves 0 wrong unfixed; USD 0.0269 per
+  escalate all 150 USD 3.1643 vs flagged 147 USD 3.1010 (saves USD 0.0633 and leaves 0 wrong unfixed; USD 0.0211 per
   task)"
 - "ollama_ctx_8192: TP 48 FP 58 FN 5 TN 39, precision 45.3%, recall 90.6%, wrong tasks missed 5/53 (9.4%); escalate
-  all 150 USD 4.5423 vs flagged 106 USD 3.2099 (saves USD 1.3324 and leaves 5 wrong unfixed; USD 0.0303 per task)"
+  all 150 USD 3.0725 vs flagged 106 USD 2.1712 (saves USD 0.9013 and leaves 5 wrong unfixed; USD 0.0205 per task)"
 - "ollama_ctx_16384: TP 4 FP 22 FN 15 TN 109, precision 15.4%, recall 21.1%, wrong tasks missed 15/19 (78.9%);
-  escalate all 150 USD 4.0764 vs flagged 26 USD 0.7066 (saves USD 3.3698 and leaves 15 wrong unfixed; USD 0.0272 per
+  escalate all 150 USD 5.3287 vs flagged 26 USD 0.9236 (saves USD 4.4051 and leaves 15 wrong unfixed; USD 0.0355 per
   task)"
-- "ollama_default: TP 0 FP 0 FN 17 TN 133, precision n/a, recall 0.0%, wrong tasks missed 17/17 (100.0%)"
+- "ollama_default: TP 0 FP 0 FN 17 TN 133, precision n/a, recall 0.0%, wrong tasks missed 17/17 (100.0%); escalate all
+  150 USD 6.1360 vs flagged 0 USD 0.0000 (saves USD 6.1360 and leaves 17 wrong unfixed; USD 0.0409 per task)"
 
 Reading: at the profile cell (num_ctx 4096) the window check catches every wrong task, but it flags 147 of 150 tasks,
 so it saves almost nothing over escalating everything; it is a "this whole configuration is unsafe" signal, not a
 per-task filter. At 8192 it is a useful filter (90.6% recall on 106 of 150 tasks). At 16384 and the default window
-most wrong tasks happen inside the window, so the check misses them (78.9% and 100.0%). Assumed: a redo of any task
-costs the tier's mean redo of a wrong one; a fixed task is right after the redo (cloud correctness is not measured in
-stub mode). When a live cloud redo file exists, the USD labels switch to measured automatically (the same
-cloud_redo_data stub flag as P1).
+most wrong tasks happen inside the window, so the check misses them (78.9% and 100.0%). Assumed: a redo of any task,
+flagged or not, costs the tier's mean full-history redo of a wrong one. The full-history redo fixed 167 of 197 wrong
+tasks [cloud-redo-full-context], so an escalated wrong task is not always fixed.
 
 **P2 valuation: machine capacity (operator decision 2026-10-21; row impact-v2-P2, status mixed since b5-fa-control
 is VERIFIED).** The measured session minutes of the runtime default (B5 policy a) and the fastest measured B5 setting
@@ -152,12 +153,62 @@ USD 0.03 (priced, not executed); the cost is that the failure is silent, so you 
 num_ctx 4096, qwen3:14b got 42.0% of tasks wrong and every one was silent [x2-evalset-tasks-real-v2-wrong-rate]. In
 that cell, a check for "the prompt exceeded the loaded window" caught every wrong task (recall 100.0%) but flagged 147
 of 150 tasks (precision 42.9%), so escalating only flagged tasks costs about the same as escalating all of them (USD
-4.1256 vs 4.2098 for the run's 150 tasks); measured on the same run [impact-v3-detection-value-measured]. The configuration saving is KV precision, not flash attention, per
+2.4893 vs 2.5401 for the run's 150 tasks, at the full-history redo cost); measured on the same run
+[impact-v3-detection-value-measured]. The configuration saving is KV precision, not flash attention, per
 the flash-attention control [b5-fa-control]: valued as machines, it is half the hardware, 3 of 6 machines (USD 5.48/day
 at the USD 2,000 list price, Liliputing, 2025-04-15, and an assumed 3-year life), with waiting time an upper bound of
 USD 1,497.62/day if a quarter of sessions are interactive [impact-v2-P2]."
 
 ## Hybrid savings vs all-cloud at matched quality (2026-10-22; operator item 3, framing per the 2026-10-22 decisions)
+
+### Why the product decides at session start (rows late-escalation-cost-vs-fresh, hybrid-route-at-start)
+
+Operator decision 2026-10-22. Escalating a task to the cloud after the local model got it wrong is the costly and
+incomplete way to buy quality, so the product decides per device and per workload at session start: either the whole
+session runs local at the device's recommended setting, or the whole session goes to the cloud from the start.
+Step-level escalation stays only as a narrow middle case. The two measured reasons, from register row
+late-escalation-cost-vs-fresh:
+
+- Costly. The late full-history escalation re-sends the whole local session. On claude-sonnet-5-5 it costs USD 0.0227
+  mean and 0.0169 median per task, against USD 0.0102 mean and 0.0090 median for a fresh all-cloud run (2.22x on the
+  mean, 1.87x on the median). Matched on the same task and seed (119 redo rows over 53 tasks, the 3 shared seeds) the
+  ratio is 1.76x on the mean and 1.64x on the median.
+- Incomplete. It fixed 167 of 197 wrong tasks (84.8%, 95% CI 79.1% to 89.1%). Of the 30 it did not fix, 28 inherited
+  actions the local model had already executed (earlier_state_repair), which a later cloud call cannot undo, and 2
+  were cloud model errors.
+
+The same row quotes hybrid-savings-tradeoff for the weakest device: on evo-t2s's Intel CPU at its 4096 default
+(projected from evo-x2's 4096 tier) the window flag escalates 88 of 90 tasks, and the window-flag hybrid costs more than
+all-cloud against claude-sonnet-5-5 (USD -35.98 / -359.80 / -3,597.97 per month at 100 / 1,000 / 10,000 tasks/day, at
+the same 90/90 accuracy).
+
+The route-at-start table below applies the rule with existing measured rows only. With the default tolerance of 0
+(matched quality) every measured device and tier routes the whole session to the cloud, because no device's local
+accuracy at its recommended setting matches all-cloud yet; the gap column shows the tolerance at which each would route
+local. The evo-t2s local accuracy is an R2 session pass rate over 5 sessions, not B3 task accuracy, until the evo-t2s B5
+results land.
+
+<!-- route_at_start:begin -->
+
+Generated by `py -3.12 analysis/impact_model.py --write-hybrid` (register row hybrid-route-at-start). Do not edit by hand.
+
+Rule: route the whole session local if local accuracy at the device's recommended setting >= all-cloud accuracy minus a tolerance (percentage points; default 0 = matched quality), otherwise send the whole session to the cloud from the start at the fresh all-cloud cost. Savings in USD per 30-day month at 100 / 1,000 / 10,000 tasks/day (a stated range), measured B3 v2 point, 3 shared seeds. evo-t2s local accuracy is measured by R2 session pass rate (not B3 task accuracy). evo-t2s late-escalation and naive columns are at its Intel CPU 4096 default, projected from evo-x2's ollama_ctx_4096 tier (no B3 run on evo-t2s). Late-escalation and naive columns from hybrid-savings-tradeoff; escalation cost interim for claude-haiku-5-5: all-cloud per-task cost (the full-history redo ran on claude-sonnet-5-5 only); measured for claude-sonnet-5-5: cloud-redo-full-context mean USD per task. The "every wrong task" column is a ceiling, no such detector.
+
+| Device vs cloud tier | Recommended setting: local accuracy [label] | All-cloud accuracy | Gap, points | Route at start, tolerance 0: route / saves at 100 / 1,000 / 10,000 / accuracy | Route at start, tolerance 5: route / saves at 100 / 1,000 / 10,000 / accuracy | Route at start, tolerance 10: route / saves at 100 / 1,000 / 10,000 / accuracy | Late escalation, window-flag hybrid: saves at 100 / 1,000 / 10,000 / accuracy | Late escalation of every wrong task (ceiling, no such detector): saves at 100 / 1,000 / 10,000 / accuracy | Naive local: saves at 100 / 1,000 / 10,000 / accuracy |
+|---|---|---|---|---|---|---|---|---|---|
+| evo-x2 vs claude-haiku-5-5 | ollama_default, default = best: 80/90 (88.9%) [measured, B3 task accuracy] | 87/90 (96.7%) | 7.8 | cloud / 0.00 / 0.00 / 0.00 / 87/90 (96.7%) | cloud / 0.00 / 0.00 / 0.00 / 87/90 (96.7%) | local / 2.01 / 20.12 / 201.25 / 80/90 (88.9%) | 2.01 / 20.12 / 201.25 / 80/90 (88.9%) | 1.67 / 16.70 / 167.03 / 90/90 (100.0%) [all-cloud outcome and cost per escalated task (interim)] | 2.01 / 20.12 / 201.25 / 80/90 (88.9%) [ollama_default, default = best] |
+| evo-x2 vs claude-sonnet-5-5 | ollama_default, default = best: 80/90 (88.9%) [measured, B3 task accuracy] | 90/90 (100.0%) | 11.1 | cloud / 0.00 / 0.00 / 0.00 / 90/90 (100.0%) | cloud / 0.00 / 0.00 / 0.00 / 90/90 (100.0%) | cloud / 0.00 / 0.00 / 0.00 / 90/90 (100.0%) | 30.61 / 306.10 / 3,060.99 / 80/90 (88.9%) | 23.04 / 230.43 / 2,304.29 / 89/90 (98.9%) [measured redo outcome per task and tier, mean redo USD] | 30.61 / 306.10 / 3,060.99 / 80/90 (88.9%) [ollama_default, default = best] |
+| evo-t2s vs claude-haiku-5-5 | Intel iGPU, Ollama default, loaded window 32768: 4/5 (80.0%) [measured by R2 session pass rate (not B3 task accuracy)] | 87/90 (96.7%) | 16.7 | cloud / 0.00 / 0.00 / 0.00 / 87/90 (96.7%) | cloud / 0.00 / 0.00 / 0.00 / 87/90 (96.7%) | cloud / 0.00 / 0.00 / 0.00 / 87/90 (96.7%) | 0.04 / 0.44 / 4.41 / 87/90 (96.7%) | 1.06 / 10.65 / 106.47 / 89/90 (98.9%) [all-cloud outcome and cost per escalated task (interim), projected from evo-x2's ollama_ctx_4096 tier] | 2.01 / 20.12 / 201.25 / 53/90 (58.9%) [Intel CPU default, loaded window 4096, projected from evo-x2's ollama_ctx_4096 tier] |
+| evo-t2s vs claude-sonnet-5-5 | Intel iGPU, Ollama default, loaded window 32768: 4/5 (80.0%) [measured by R2 session pass rate (not B3 task accuracy)] | 90/90 (100.0%) | 20.0 | cloud / 0.00 / 0.00 / 0.00 / 90/90 (100.0%) | cloud / 0.00 / 0.00 / 0.00 / 90/90 (100.0%) | cloud / 0.00 / 0.00 / 0.00 / 90/90 (100.0%) | -35.98 / -359.80 / -3,597.97 / 90/90 (100.0%) | 2.61 / 26.12 / 261.20 / 83/90 (92.2%) [measured redo outcome per task and tier, mean redo USD, projected from evo-x2's ollama_ctx_4096 tier] | 30.61 / 306.10 / 3,060.99 / 53/90 (58.9%) [Intel CPU default, loaded window 4096, projected from evo-x2's ollama_ctx_4096 tier] |
+
+If routed local, savings at real agent task sizes (projected: local quality on long tasks not measured; cloud-cost-per-real-task, realistic caching), USD/month at 1,000 tasks/day:
+
+- evo-x2 vs claude-haiku-5-5: SWE-Gym median 41.24; nebius-rebench-openhands median 4,060.84; nebius-rebench-openhands p90 7,360.72.
+- evo-x2 vs claude-sonnet-5-5: SWE-Gym median 798.27; nebius-rebench-openhands median 75,921.17; nebius-rebench-openhands p90 130,160.11.
+- evo-t2s vs claude-haiku-5-5: SWE-Gym median 41.24; nebius-rebench-openhands median 4,060.84; nebius-rebench-openhands p90 7,360.72.
+- evo-t2s vs claude-sonnet-5-5: SWE-Gym median 798.27; nebius-rebench-openhands median 75,921.17; nebius-rebench-openhands p90 130,160.11.
+
+<!-- route_at_start:end -->
 
 ### Measured trade-off first (row hybrid-savings-tradeoff)
 
@@ -212,7 +263,7 @@ row hybrid-savings-tradeoff; copy it as is, and regenerate rather than edit numb
 
 <!-- oct29_demo_text:begin -->
 
-Generated by `py -3.12 analysis/impact_model.py --write-hybrid` from register row hybrid-savings-tradeoff. Do not edit by hand. Prepared text for the Oct 29 summary and the demo's story step 4.
+Generated by `py -3.12 analysis/impact_model.py --write-hybrid` from register rows hybrid-savings-tradeoff, late-escalation-cost-vs-fresh, hybrid-route-at-start. Do not edit by hand. Prepared text for the Oct 29 summary and the demo's story step 4.
 
 **Oct 29 summary, savings paragraph:**
 
@@ -224,6 +275,11 @@ We lead with the measured trade-off, not a ceiling: every option is shown as sav
   At a real agent task size (nebius-rebench-openhands median, projected: local quality on long tasks not measured; accuracy B3 accuracy carried over) naive local saves USD 75,921.17/month at 80/90 (88.9%).
 
 **Demo story step 4 (one screen):**
+
+"Fix after the fact: about 2 cents, 84.8% fixed, but executed actions cannot be undone; decide up front instead." (Late full-history escalation on claude-sonnet-5-5: USD 0.0227 mean per task, 2.22x a fresh all-cloud run (1.76x matched on the same task and seed, 119 redo rows over 53 tasks); fixed 167/197 (84.8%), 95% CI 79.1% to 89.1%; of the 30 not fixed, 28 inherited actions the local model had already executed; 2 cloud model errors.)
+- evo-x2, recommended ollama_default, default = best: local 80/90 (88.9%) [measured, B3 task accuracy] vs all-cloud 90/90 (100.0%), gap 11.1 points. At matched quality the whole session goes to the cloud from the start; a team that accepts that gap runs it local and saves USD 306.10 a month at 1,000 tasks/day.
+- evo-t2s, recommended Intel iGPU, Ollama default, loaded window 32768: local 4/5 (80.0%) [measured by R2 session pass rate (not B3 task accuracy)] vs all-cloud 90/90 (100.0%), gap 20.0 points. At matched quality the whole session goes to the cloud from the start; a team that accepts that gap runs it local and saves USD 306.10 a month at 1,000 tasks/day.
+- Late escalation by window flag on evo-t2s's Intel CPU 4096 default (projected from evo-x2's ollama_ctx_4096 tier) escalates 88 of 90 tasks and costs USD 359.80 a month more than all-cloud at 1,000 tasks/day.
 
 "Local saves money, and the screen shows what it costs. Against claude-sonnet-5-5 at 1,000 tasks/day: all local on evo-x2 saves USD 306.10 a month at 80/90 (88.9%) correct versus 90/90 (100.0%) all-cloud, and 10 wrong answers are silent. The only measured detector, window overflow, escalates 0 tasks at this window. Catching in-window wrong answers needs a verifier we do not claim; the dotted line is that ceiling, no such detector."
 
