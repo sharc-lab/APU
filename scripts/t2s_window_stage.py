@@ -5,7 +5,8 @@ on its own t2s_o26_preflight, loaded at the window with `python t2s_week_queue.p
 The earlier second file queues/t2s_window_20261026_staged.json (B5 for llama3.1:8b on the iGPU only, 3 seeds, and a
 3-seed iGPU-only B6, gated on the previous window's t2s_wk_* ids) was retired on 2026-10-22: two files for one window
 with different B6 designs and gates pointing at a finished queue invited loading the wrong one. B5 is now in the
-canonical file as four entries (t2s_week_queue.OCT26_B5_CELLS), and the B6 entries follow B5.
+canonical file (t2s_week_queue.oct26_b5_cells: since 2026-10-21 the two llama3.1:8b cells at 5 seeds, qwen3:14b on
+the CPU at 3 seeds only if qwen_decision says it fits), and the B6 entries follow B5.
 
   py -3.12 scripts/t2s_window_stage.py build      # rebuilds queues/t2s_oct26_queue.json (same as build-oct26)
   py -3.12 scripts/t2s_window_stage.py dry-run    # every entry through the week queue's checks; no machine, no SSH
@@ -21,7 +22,7 @@ Order of the window (docs/T2S_WEEK_PLAN.md "Staged for 2026-10-26"; process rule
      the sync and switches it back.
   2. Deploy the window's files, then `python t2s_week_queue.py load-window t2s_oct26_queue.json` (one read-modify-write
      under the queue pause, cleared in its finally block: this is the release of the handover pause).
-  3. The queue runs: preflight, A5, B5 (four cells), then B6. The B5 job stops at a session boundary at the deadline.
+  3. The queue runs: preflight, A5, B5 (the staged cells), then B6. The B5 job stops at a session boundary at the deadline.
 
 HOURS ARE ESTIMATES. B5: harness/policy_compare.estimate_t2s, from MEASURED evo-t2s session minutes
 (register row t2s-r2-session-minutes); B6: no timing of those models on evo-t2s, no estimate.
@@ -58,14 +59,34 @@ def available_h() -> float:
     return (_ts(NO_LAUNCH_AFTER_UTC) - _ts(WINDOW_START_UTC)) / 3600.0 - START_ALLOWANCE_H
 
 
+def qwen_decision() -> dict:
+    """Operator decision 2026-10-21: after the llama3.1:8b cells at 5 seeds (and A5 before them), do the hours left
+    before the no-launch time hold qwen3:14b at 3 seeds on the Intel CPU (default window 4096)? ESTIMATES from measured
+    evo-t2s session minutes (harness/policy_compare.estimate_t2s, row t2s-r2-session-minutes)."""
+    import policy_compare as pc
+    seeds5 = tuple(int(x) for x in wq.OCT26_B5_SEEDS.split(","))
+    seeds3 = tuple(int(x) for x in wq.OCT26_QWEN_SEEDS.split(","))
+    llama = {f"{p} {m}": round(pc.estimate_t2s(p, [m], seeds=seeds5)["models"][m]["total_h"], 1)
+             for p, m in wq.OCT26_B5_CELLS}
+    before = sum(NOMINAL_H.values()) + sum(llama.values())
+    plat, model = wq.OCT26_QWEN_CELL
+    q = pc.estimate_t2s(plat, [model], seeds=seeds3)["models"][model]
+    qwen_h = round(q["total_h"], 1)
+    left = available_h() - before
+    return {"label": "ESTIMATE (hours)", "available_h": round(available_h(), 1), "a5_h": sum(NOMINAL_H.values()),
+            "llama_h": llama, "before_qwen_h": round(before, 1), "left_h": round(left, 1),
+            "qwen_cell": f"{plat} {model}", "qwen_seeds": len(seeds3), "qwen_per_seed_h": round(q["per_seed_h"], 1),
+            "qwen_h": qwen_h, "fits": qwen_h <= left}
+
+
 def plan(items=None) -> dict:
     """Entries in queue order with estimated hours, cumulative start/end, and whether each fits before the no-launch
     time. A B5 entry that starts but does not finish gets the number of whole seeds that fit (the job stops at a
     session boundary at the deadline; a cell counts for the verdict at 5 seeds, or at the first 3)."""
     import policy_compare as pc
     items = items if items is not None else json.loads(CANONICAL.read_text(encoding="utf-8"))
-    cells = {wq.OCT26_PREFIX + "b5_" + wq._b5_slug(p, m): (p, m) for p, m in wq.OCT26_B5_CELLS}
-    est = {p: pc.estimate_t2s(p) for p in {p for p, _m in wq.OCT26_B5_CELLS}}
+    cells = {wq.OCT26_PREFIX + "b5_" + wq._b5_slug(p, m): (p, m) for p, m in (*wq.OCT26_B5_CELLS, wq.OCT26_QWEN_CELL)}
+    est = {p: pc.estimate_t2s(p) for p in {p for p, _m in cells.values()}}
     avail, cum, rows = available_h(), 0.0, []
     for it in items:
         h = it.get("est_hours")
@@ -88,8 +109,9 @@ def plan(items=None) -> dict:
                 p, m = cells[it["id"]]
                 e = est[p]["models"][m]
                 fixed = e["probe_h"]
-                k = 0 if cum >= avail else min(5, max(0, math.floor((avail - cum - fixed) / e["per_seed_h"])))
-                r.update(per_seed_h=round(e["per_seed_h"], 1), seeds_that_fit=k,
+                n = len(it["cmd"][it["cmd"].index("--seeds") + 1].split(","))
+                k = 0 if cum >= avail else min(n, max(0, math.floor((avail - cum - fixed) / e["per_seed_h"])))
+                r.update(per_seed_h=round(e["per_seed_h"], 1), seeds_that_fit=k, seeds_staged=n,
                          cell_counts=("yes (5 seeds)" if k >= 5 else "yes (first 3 seeds)" if k >= 3 else "no"))
             cum = end
         rows.append(r)
@@ -99,6 +121,7 @@ def plan(items=None) -> dict:
             "start_allowance_h": START_ALLOWANCE_H, "available_h": round(avail, 1), "entries": rows,
             "b5_total_h": round(sum(r["est_hours"] for r in b5), 1),
             "b5_cells_counting": [r["id"] for r in b5 if r.get("cell_counts", "no") != "no"],
+            "qwen_decision": qwen_decision(),
             "estimate_basis": pc.T2S_ESTIMATE_ASSUMPTIONS}
 
 
@@ -108,13 +131,22 @@ def plan_value(p=None) -> str:
     for r in p["entries"]:
         s = f"{r['id']} {('n/a' if r['est_hours'] is None else r['est_hours'])} h ({r['fits']}"
         if "seeds_that_fit" in r:
-            s += f"; {r['per_seed_h']} h/seed, {r['seeds_that_fit']} of 5 seeds fit, cell counts {r['cell_counts']}"
+            s += (f"; {r['per_seed_h']} h/seed, {r['seeds_that_fit']} of {r['seeds_staged']} seeds fit, cell counts "
+                  f"{r['cell_counts']}")
         parts.append(s + ")")
     return (f"evo-t2s window {p['window'][0]} to {p['window'][1]} ESTIMATE: available {p['available_h']} h "
             f"({p['window_start_utc']} to no-launch {p['no_launch_after_utc']} minus an assumed "
-            f"{p['start_allowance_h']} h start allowance); B5 all four cells {p['b5_total_h']} h; in queue order: "
-            + "; ".join(parts) + f"; B5 cells that count: {', '.join(p['b5_cells_counting']) or 'none'}; basis: "
-            + p["estimate_basis"])
+            f"{p['start_allowance_h']} h start allowance); B5 staged cells {p['b5_total_h']} h; in queue order: "
+            + "; ".join(parts) + f"; B5 cells that count: {', '.join(p['b5_cells_counting']) or 'none'}; "
+            + qwen_text(p["qwen_decision"]) + "; basis: " + p["estimate_basis"])
+
+
+def qwen_text(q) -> str:
+    return (f"qwen3:14b decision (operator 2026-10-21): after A5 {q['a5_h']} h and the llama3.1:8b cells at 5 seeds ("
+            + ", ".join(f"{k} {v} h" for k, v in q["llama_h"].items()) + f"), {q['left_h']} h are left of "
+            f"{q['available_h']} h; {q['qwen_cell']} at {q['qwen_seeds']} seeds needs {q['qwen_h']} h "
+            f"({q['qwen_per_seed_h']} h/seed): " + ("fits, staged after the llama3.1:8b cells" if q["fits"] else
+                                                   "does not fit, not staged; qwen3:14b on Intel is future work"))
 
 
 def main(argv=None):
