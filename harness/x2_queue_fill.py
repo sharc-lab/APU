@@ -116,6 +116,28 @@ ENTRIES = {
                 "docs/FINDINGS.md 2026-10-22 (777ee78). ESTIMATE 0.36 h (high 1.03 h; register row "
                 "x2-queue-fill-1022-hours). " + RELEASE,
     },
+    "x2_evalset_tasks_val_v2_mistral_small32": {
+        "projected_duration_h": 0.35,
+        "cmd": [PY, "evalv2ms\\x2_r2_evalset.py", "--design", "v2", "--mode", "validation", "--workload", "evalset",
+                "--guardrails", "off", "--models", "mistral-small3.2:24b", "--out",
+                f"{RESULTS}\\x2_evalset_tasks_val_v2_mistral_small32.jsonl"],
+        "note": "B3 v2 tasks validation for mistral-small3.2:24b, pre-registered in docs/FINDINGS.md 2026-10-22 "
+                "(80ce6f8; protocol consistency extended to mistral-small3.2:24b). ESTIMATE 0.35 h (high 0.54 h; "
+                "register row x2-queue-fill-1022-hours). " + RELEASE,
+    },
+    "x2_evalset_tasks_real_v2_mistral_small32": {
+        "projected_duration_h": 3.01,
+        "gate": {"requires_done": "x2_evalset_tasks_val_v2_mistral_small32"},
+        "cmd": [PY, "evalv2ms\\x2_r2_evalset.py", "--design", "v2", "--mode", "real", "--workload", "evalset",
+                "--guardrails", "off", "--models", "mistral-small3.2:24b", "--plan", "tasks_v2_mistral_small32",
+                "--preflight", "v2_strict", "--rules-from",
+                f"{RESULTS}\\x2_evalset_tasks_val_v2_mistral_small32.jsonl", "--out",
+                f"{RESULTS}\\x2_evalset_tasks_real_v2_mistral_small32.jsonl"],
+        "note": "B3 v2 task real run for mistral-small3.2:24b, pre-registered in docs/FINDINGS.md 2026-10-22 (80ce6f8): "
+                "tasks_v2 tiers and seeds; queue gate requires_done x2_evalset_tasks_val_v2_mistral_small32, and the "
+                "v2_strict preflight refuses unless mistral passes every gate of that validation (no waiver). "
+                "ESTIMATE 3.01 h (high 3.66 h; register row x2-queue-fill-1022-hours). " + RELEASE,
+    },
 }
 
 

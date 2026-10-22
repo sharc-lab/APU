@@ -5649,6 +5649,75 @@ def compute_fh1_amd_qwen3_32b_spill_sweep(repo):
 
 
 
+X2_EVALSET_TASKS_VAL_V2_MS = "results/x2_evalset_tasks_val_v2_mistral_small32.jsonl"
+X2_EVALSET_TASKS_REAL_V2_MS = "results/x2_evalset_tasks_real_v2_mistral_small32.jsonl"
+MS_MODEL = "mistral-small3.2:24b"
+
+
+def compute_x2_evalset_tasks_val_v2_ms_gates(repo):
+    """mistral-small3.2:24b v2 tasks validation: every gate with its numbers, the failing gates, and whether the real
+    run's strict preflight (v2_strict, mistral only) admits it."""
+    _r2_agent_module()
+    import x2_r2_evalset as ev
+    rows = ev.ag.read_rows(repo / X2_EVALSET_TASKS_VAL_V2_MS)
+    if not rows:
+        raise FileNotFoundError(repo / X2_EVALSET_TASKS_VAL_V2_MS)
+    rep = ev.evaluate_gates_ext(rows, "evalset", False, "off", design=ev.file_design(rows))
+    g = rep["gates"]
+    m = MS_MODEL
+    gates = [x for x in EVALSET_V2_GATE_ORDER if x in g]
+    failing = [x for x in gates if g[x].get(m) is not None and not g[x][m]["pass"]
+               and not (x == "rules678" and not g[x][m]["applies"])]
+    pf = ev.strict_preflight_v2(rows, [m], allowed_models=ev.TASKS_V2_MS_MODELS)
+    finished = any(r.get("record") == "run_end" for r in rows)
+    return {"value": f"tasks {m} (run finished {finished}, design {ev.file_design(rows)}): "
+                     + "; ".join(_evalset_v2_gate_text(x, g, rep, m) for x in gates)
+                     + f"; failing gates: {', '.join(failing) or 'none'}; strict preflight (v2_strict): "
+                     + ("admits " + m if pf["ok"] else "refuses (" + "; ".join(pf["refused"].get(m, [])) + ")"),
+            "n": f"{sum(1 for r in rows if r.get('record') == 'r2a_turn')} turns"}
+
+
+def ms_protocol_reading(tier, ci, valid) -> str:
+    """The 2026-10-22 rule for mistral (no v1b cells; R2 at 4096 had 0/3 gated after the window)."""
+    if not valid:
+        return "inconclusive (run not valid)"
+    if tier == "num_ctx_4096":
+        return "v2 shows an excess R2 did not" if ci[0] is not None and ci[0] > 0 else "no excess in either protocol"
+    return "no R2 counterpart"
+
+
+def compute_x2_evalset_tasks_real_v2_ms_gated_excess(repo):
+    """mistral-small3.2:24b B3 v2 real run: the gated excess per tier (as for qwen3:14b) with the mistral protocol
+    reading (R2 cells at 4096 and 32768 only, no default tier) and the num_keep reading."""
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "analysis"))
+    import r2_real_report as rr
+    _r2_agent_module()
+    import x2_r2_evalset as ev
+    rows = ev.ag.read_rows(repo / X2_EVALSET_TASKS_REAL_V2_MS)
+    if not rows:
+        raise FileNotFoundError(repo / X2_EVALSET_TASKS_REAL_V2_MS)
+    base = compute_x2_evalset_tasks_real_v2_gated_excess(repo, MS_MODEL, X2_EVALSET_TASKS_REAL_V2_MS,
+                                                         X2_EVALSET_TASKS_VAL_V2_MS)
+    d = ev.tasks_real_v2_outcome(rows, models=(MS_MODEL,))["models"].get(MS_MODEL, {})
+    valid = bool(d.get("valid"))
+    x = rr.excess_over_default(rr.build_combined([repo / X2_EVALSET_TASKS_REAL_V2_MS],
+                                                 validation_paths=[repo / X2_EVALSET_TASKS_VAL_V2_MS]))
+    reads = []
+    for tier in ("num_ctx_16384", "num_ctx_8192", "num_ctx_4096"):
+        v = x.get("per_tier", {}).get(tier, {}).get(MS_MODEL)
+        if v is not None:
+            reads.append(f"{tier}: {ms_protocol_reading(tier, v['ci95'], valid)}")
+    return {"value": base["value"] + "; mistral protocol readings (R2 4096 0/3 gated, no R2 default tier): "
+                     + "; ".join(reads), "n": base["n"]}
+
+
+def compute_x2_evalset_tasks_real_v2_ms_wrong_rate(repo):
+    return compute_x2_evalset_tasks_real_v2_wrong_rate(repo, MS_MODEL, X2_EVALSET_TASKS_REAL_V2_MS)
+
+
+
+
 def compute_num_keep_qwen3_14b(repo):
     """x2_num_keep_qwen3_14b: the num_keep guardrail test's measures and pre-registered verdict for qwen3:14b
     (harness/x2_num_keep.verdict with model qwen3:14b)."""
@@ -6605,6 +6674,20 @@ NUMBER_ENTRIES = [
      "the pre-registered readings, per-point shared-usage delta",
      "compute": compute_fh1_amd_qwen3_32b_spill_sweep, "data_files": [SPILL32_FILE], "pending_ok": True,
      "script_function": "harness/mx2_qwen32b_spill_sweep.py::summarize"},
+    {"claim_id": "x2-evalset-tasks-val-v2-mistral-small32-gates", "description": "B3 v2 tasks validation for "
+     "mistral-small3.2:24b: every gate with its numbers, failing gates, and whether the strict preflight admits it",
+     "compute": compute_x2_evalset_tasks_val_v2_ms_gates, "data_files": [X2_EVALSET_TASKS_VAL_V2_MS],
+     "pending_ok": True, "script_function": "analysis/numbers_register.py::compute_x2_evalset_tasks_val_v2_ms_gates"},
+    {"claim_id": "x2-evalset-tasks-real-v2-mistral-small32-gated-excess", "description": "B3 v2 task real run, "
+     "mistral-small3.2:24b: gated after-window silent failures and excess over the default per tier with the mistral "
+     "protocol reading and the num_keep reading",
+     "compute": compute_x2_evalset_tasks_real_v2_ms_gated_excess,
+     "data_files": [X2_EVALSET_TASKS_REAL_V2_MS, X2_EVALSET_TASKS_VAL_V2_MS] + R2_V1B_DATA, "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_x2_evalset_tasks_real_v2_ms_gated_excess"},
+    {"claim_id": "x2-evalset-tasks-real-v2-mistral-small32-wrong-rate", "description": "B3 v2 task real run, "
+     "mistral-small3.2:24b: wrong-task rate per tier and its excess over the default with the pre-registered reading",
+     "compute": compute_x2_evalset_tasks_real_v2_ms_wrong_rate, "data_files": [X2_EVALSET_TASKS_REAL_V2_MS],
+     "pending_ok": True, "script_function": "harness/x2_r2_evalset.py::tasks_real_v2_outcome"},
     {"claim_id": "x2-scale-real-default-tier", "description": "H-scale real job, Ollama default tier: completed "
      "default-tier sessions per model (turns, wall hours, loaded context, first over-window turn)",
      "compute": compute_x2_scale_real_default_tier, "data_files": [X2_SCALE_REAL],

@@ -62,19 +62,53 @@ def b5_check(side: Path, results: Path) -> dict:
     return out
 
 
+# What the B3 v2 tool loop needs a chat template to render (tools offered on every call, the assistant's own tool
+# calls, and tool results fed back), as constructs of Ollama's Go templates; each entry lists alternatives.
+TOOL_TEMPLATE_NEEDS = {
+    "tools_offered": (".Tools",),
+    "assistant_tool_calls": (".ToolCalls",),
+    "tool_results": ('eq .Role "tool"', "eq .Role \"tool\"", "TOOL_RESULTS", "ipython"),
+}
+
+
+def template_check(tag: str) -> dict:
+    """The tag's chat template from its manifest's template layer on disk (no server, no model load) and whether it
+    has every construct of TOOL_TEMPLATE_NEEDS."""
+    sys.path.insert(0, str(OVN))
+    import chat_template_source as cts
+    md = cts._models_dir(None)
+    man = json.loads(cts.manifest_path(md, tag).read_text(encoding="utf-8"))
+    info = cts.classify_manifest(tag, man)
+    out = {"tag": tag, "chat_template_source": info["chat_template_source"],
+           "template_sha256": info["template_layer_sha256"]}
+    if not info["template_layer_sha256"]:
+        out["problems"] = ["no template layer in the manifest"]
+        return out
+    text = (Path(md) / "blobs" / ("sha256-" + info["template_layer_sha256"])).read_text(encoding="utf-8",
+                                                                                      errors="replace")
+    found = {k: [a for a in alts if a in text] for k, alts in TOOL_TEMPLATE_NEEDS.items()}
+    out.update({"template_chars": len(text), "found": found,
+                "problems": [f"template lacks {k}" for k, v in found.items() if not v],
+                "template_head": text[:1200]})
+    return out
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--verify", nargs="+", default=None)
     ap.add_argument("--b5", default=None)
     ap.add_argument("--results", default=str(OVN / "results"))
+    ap.add_argument("--template", default=None, help="an Ollama tag: its chat template's tool constructs")
     args = ap.parse_args(argv)
     out = {}
     if args.verify:
         out["verify"] = verify([Path(d) for d in args.verify])
     if args.b5:
         out["b5"] = b5_check(Path(args.b5), Path(args.results))
+    if args.template:
+        out["template"] = template_check(args.template)
     if not out:
-        ap.error("nothing to do (--verify and/or --b5)")
+        ap.error("nothing to do (--verify, --b5 and/or --template)")
     print(json.dumps(out, indent=1, default=str))
     return 0
 
