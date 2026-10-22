@@ -83,5 +83,5 @@ def test_real_data_block_if_available():
     if h["redo"] is None:
         assert all(c["esc_label"] == im.INTERIM_ESC for c in h["cells"])
     block = im.render_hybrid_block(h)
-    assert "Blade" in block and "not measured" in block and "UPPER BOUND" in block
+    assert "Blade" in block and "not measured" in block and "ceiling, no such detector" in block and "UPPER BOUND" not in block
     assert "\u2014" not in block and "\u2014" not in im.hybrid_savings_text(h)

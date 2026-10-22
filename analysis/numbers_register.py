@@ -3010,6 +3010,26 @@ def compute_t2s_r2_real(repo, backend):
             "n": f"{len(sess)} sessions"}
 
 
+def t2s_r2_real_data(repo, backend) -> dict:
+    """{model: {"loaded": [windows], "silent": gated silent sessions, "n": sessions}} from the same report the row
+    t2s-r2-real-<backend> reads (gated variant). Shared with analysis/impact_model.py::t2s_config_comparison."""
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "analysis"))
+    import r2_real_report as rr
+    if not (repo / T2S_REAL[backend]).exists():
+        raise FileNotFoundError(repo / T2S_REAL[backend])
+    rep = rr.build_combined([repo / T2S_REAL[backend]], validation_paths=[repo / T2S_VAL[backend]])
+    sess = [r for r in _r2_agent_module().read_rows(repo / T2S_REAL[backend]) if r.get("record") == "r2a_session"]
+    g = rr.gated_per_model(rep)
+    out = {}
+    for model in sorted({r["model_id"] for r in sess}):
+        c = g[f"ollama_default|{model}"]
+        out[model] = {"loaded": sorted({x for r in sess if r["model_id"] == model
+                                        for x in r.get("loaded_context_values") or []}),
+                      "silent": c["silent"], "n": c["n"]}
+    return out
+
+
 def compute_t2s_r2_mitigation_cpu(repo):
     """evo-t2s CPU: client-side trimming at num_ctx 4096 (margin 0.05), 3 seeds x 40 turns, the pre-registered
     mitigation rule per model against the CPU validation baseline. No evo-t2s untrimmed real run at an explicit 4096
@@ -4359,12 +4379,16 @@ def compute_impact_ranking_v2(repo):
 
 
 def compute_impact_ref_machine_price(repo):
-    """ASSUMPTION INPUT (must be verified): the reference machine's list price for impact v2 P2, with its source."""
-    m = _impact().ref_machine(repo)
-    return {"value": f"ASSUMPTION, must be verified: USD {m['usd']:,.0f} for {m['machine']}; quoted \"{m['figure_quoted']}\" "
+    """The reference machine's cited public list price for impact v2 P2 and hybrid savings, labelled "list price,
+    <source>, <date>" (operator decision 2026-10-22), with its source and the 2026-10-22 vendor check."""
+    im = _impact()
+    m = im.ref_machine(repo)
+    vc = m.get("vendor_check_20261022")
+    vct = (f"; vendor listing checked {vc['fetched_utc']} ({vc['url']}): {vc['finding']}" if vc else "")
+    return {"value": f"{im.price_label(m)}: USD {m['usd']:,.0f} for {m['machine']}; quoted \"{m['figure_quoted']}\" "
                      f"({m['publisher']}, {m['article_date']}, {m['source_url']}; fetched {m['fetched_utc']}); "
                      f"{m['meaning']}; not the repo's own purchase price (configs/hardware/evox2_strix_halo_128gb.yaml "
-                     f"bom_cost_usd is null)", "n": "1"}
+                     f"bom_cost_usd is null){vct}", "n": "1"}
 
 
 def compute_impact_v2_p2(repo):
@@ -4416,6 +4440,41 @@ def compute_hybrid_savings_v1(repo):
     if h["status"] != "VERIFIED":
         return {"value": im.hybrid_savings_text(h), "n": "0"}
     return {"value": im.hybrid_savings_text(h), "n": f"{len(h['cells'])} cells x {h['cells'][0]['n']} tasks"}
+
+
+CURVE_FILES = sorted(set(HYBRID_SAVINGS_FILES) | {"results/traces/agent_step_lengths.parquet",
+                                                  "results/traces/agent_step_outputs.parquet",
+                                                  "results/anthropic_token_calibration_20261021.jsonl",
+                                                  "results/cloud_prices_anthropic_20261014.json"})
+_CURVE_CACHE = {}
+
+
+def _hybrid_curve(repo):
+    key = str(repo)
+    if key not in _CURVE_CACHE:
+        im = _impact()
+        h = im.hybrid_savings(repo, _impact_v2(repo)["rows"]["P2"])
+        _CURVE_CACHE[key] = im.hybrid_curve(repo, h) if h["status"] == "VERIFIED" else \
+            {"status": "PENDING", "pending": h["pending"]}
+    return _CURVE_CACHE[key]
+
+
+def compute_hybrid_savings_curve(repo):
+    """Savings as a formula over task size (operator decision 2026-10-22, item 1): savings/month = B x k - X at the
+    measured B3 point (evo-x2 default) and projected real agent task sizes, 100 / 1,000 / 10,000 tasks/day."""
+    im = _impact()
+    c = _hybrid_curve(repo)
+    n = f"{len(c['tiers'])} tiers x {len(c['tiers'][0]['points'])} points" if c["status"] == "VERIFIED" else "0"
+    return {"value": im.hybrid_curve_text(c), "n": n}
+
+
+def compute_t2s_config_comparison(repo):
+    """evo-t2s per-device configuration (operator decision 2026-10-22, item 3): naive Intel CPU default vs recommended
+    Intel iGPU, from the measured R2 real runs; kept-local share and savings per device."""
+    im = _impact()
+    t = im.t2s_config_comparison(repo, _hybrid_curve(repo))
+    return {"value": im.t2s_config_text(t), "n": f"{len(t['rows'])} device x model rows" if t["status"] == "VERIFIED"
+            else "0"}
 
 
 def compute_impact_p2(repo):
@@ -5958,7 +6017,23 @@ def cost_cut_config_time_data(repo) -> dict:
                       "best_name": pc.FA_POLICY_NAME if best == "i" else pc.POLICIES[best]["name"],
                       "best_min": b[0], "best_rule": b[1], "best_hist": b[2], "best_window": b[3],
                       "saved_min": a[0] - b[0], "seeds": c["balanced_seeds"] and len(c["balanced_seeds"])}
-    return {"models": out, "fa_included": bool(fa)}
+    readings = {model: x.get("reading") for model, x in fa.items()}
+    return {"models": out, "fa_included": bool(fa), "fa_readings": readings,
+            "fa_attribution": fa_attribution(readings)}
+
+
+FA_KV_READING = "the B5 speedup is KV precision, not flash attention"
+
+
+def fa_attribution(readings: dict) -> str | None:
+    """One sentence naming what the flash-attention control attributes the B5 speedup to (operator decision 2026-10-22,
+    item 4), or None when the control is missing or its per-model readings disagree."""
+    vals = set(readings.values())
+    if vals == {FA_KV_READING}:
+        return "the flash-attention control attributes the speedup to KV precision, not flash attention (b5-fa-control)"
+    if len(vals) == 1 and vals != {None}:
+        return f"the flash-attention control reads: {next(iter(vals))} (b5-fa-control)"
+    return None
 
 
 def compute_cost_cut_config_time(repo):
@@ -5973,8 +6048,9 @@ def compute_cost_cut_config_time(repo):
                      f"({x['best']}) {x['best_name']} {x['best_min']:.1f} min, rule {100 * x['best_rule']:.1f}% hist "
                      f"{100 * x['best_hist']:.1f}%, window {x['best_window']}; saved {x['saved_min']:.1f} min per "
                      f"session ({100 * x['saved_min'] / x['default_min']:.0f}%), over {x['seeds']} seeds")
-    return {"value": "MEASURED; " + " / ".join(parts) + ("; flash-attention control "
-                     + ("included" if d["fa_included"] else "not synced yet (policy i not in the comparison)")),
+    fa = ("included; " + (d["fa_attribution"] or "per-model readings differ (b5-fa-control)") if d["fa_included"]
+          else "not synced yet (policy i not in the comparison)")
+    return {"value": "MEASURED; " + " / ".join(parts) + "; flash-attention control " + fa,
             "n": f"{len(d['models'])} models"}
 
 
@@ -7061,9 +7137,9 @@ NUMBER_ENTRIES = [
                     "+ wrong-turn wall time), one profile",
      "compute": compute_impact_v2_p1, "data_files": _IMPACT_V2_FILES,
      "script_function": "analysis/impact_model.py::p1_v2"},
-    {"claim_id": "impact-ref-machine-price", "description": "ASSUMPTION INPUT, must be verified: reference "
-                    "machine (evo-x2 class, Ryzen AI Max+ 395 128 GB mini PC) list price with its public source, for "
-                    "impact v2 P2 machine capacity",
+    {"claim_id": "impact-ref-machine-price", "description": "Reference machine (evo-x2 class, Ryzen AI Max+ 395 "
+                    "128 GB mini PC) cited public list price, labelled list price, source, date, for impact v2 P2 "
+                    "machine capacity and hybrid savings",
      "compute": compute_impact_ref_machine_price, "data_files": ["results/hardware_price_evox2_20261021.json"],
      "script_function": "analysis/impact_model.py::ref_machine"},
     {"claim_id": "impact-v2-detection-value", "description": "SUPERSEDED by impact-v3-detection-value-measured (kept "
@@ -7084,12 +7160,27 @@ NUMBER_ENTRIES = [
     {"claim_id": "hybrid-savings-v1", "description": "Hybrid savings vs ALL-CLOUD at matched quality on the 30 B3 v2 "
      "tasks (qwen3:14b local, 3 shared seeds): per device (evo-x2 default = best, measured; evo-t2s Intel CPU at its "
      "4096 default, PROJECTED from evo-x2's 4096 tier; Blade not measured), cloud tier and policy (all-cloud, naive "
-     "local, escalate window-overflow flagged tasks, escalate every wrong task as a perfect-detector upper bound): "
+     "local, escalate window-overflow flagged tasks, escalate every wrong task: ceiling, no such detector): "
      "correct share, USD per task, savings per task and per 30-day month at 100 / 1,000 / 10,000 tasks/day (stated "
      "range); escalated task cost INTERIM (all-cloud per-task cost) until cloud-redo-full-context is VERIFIED; P2 "
      "hardware capacity beside it",
      "compute": compute_hybrid_savings_v1, "data_files": HYBRID_SAVINGS_FILES,
      "script_function": "analysis/impact_model.py::hybrid_savings"},
+    {"claim_id": "hybrid-savings-curve", "description": "Hybrid savings as a formula over task size: savings/month = "
+     "all-cloud bill x share kept local at matched quality - escalation cost, per cloud tier, at 100 / 1,000 / 10,000 "
+     "tasks/day; measured point = the B3 v2 tasks on evo-x2 default (hybrid-savings-v1 inputs); projected points = real "
+     "agent task sizes from cloud-cost-per-real-task (SWE-Gym median, OpenHands median and p90, realistic caching) "
+     "applying the measured share, labelled projected: local quality on long tasks not measured; escalation cost "
+     "INTERIM until cloud-redo-full-context is VERIFIED, then automatic",
+     "compute": compute_hybrid_savings_curve, "data_files": CURVE_FILES,
+     "script_function": "analysis/impact_model.py::hybrid_curve"},
+    {"claim_id": "t2s-config-comparison", "description": "evo-t2s per-device configuration: naive Intel CPU default "
+     "(Ollama loaded 4096) vs recommended Intel iGPU (Ollama loaded 32768) from measured R2 real data (t2s-r2-real-cpu, "
+     "t2s-r2-real-igpu): loaded window, gated silent failures, kept-local share (sessions with no silent failure) and "
+     "savings per month per cloud tier; to be replaced by the evo-t2s B5 results (2026-10-26 to 2026-11-08)",
+     "compute": compute_t2s_config_comparison,
+     "data_files": sorted(set(CURVE_FILES) | {T2S_REAL["cpu"], T2S_VAL["cpu"], T2S_REAL["igpu"], T2S_VAL["igpu"]}),
+     "script_function": "analysis/impact_model.py::t2s_config_comparison"},
     {"claim_id": "impact-v2-P2", "description":"Impact v2 P2 configuration: sessions per machine per day (default vs "
                     "fastest measured B5 setting), machines needed for the profile's sessions/day, USD/day of machines "
                     "saved (assumed 3-year life), waiting-time upper bound on the interactive share; PENDING until "
