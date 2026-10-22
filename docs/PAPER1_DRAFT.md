@@ -369,162 +369,168 @@ harness identity rests on byte-identical outputs across reruns (identical final 
 only when the runtime's log shows it applied: an earlier sweep passed a KV-cache precision setting that the runtime
 silently ignored.
 
-### 4.4 Memory-architecture boundaries (2.00 pages)
+### 4.4 Memory-architecture boundaries (prose draft, 2026-10-22; 2.00 pages)
 
-**Headline figure for H1 (planned, added 2026-10-08): cross-vendor spill cost, FH1.** One figure, three panels, same
-x axis (requested context as a fraction of the platform's memory boundary), y axis = cost of crossing it:
-- **AMD-iGPU (unified, evo-x2 class):** spill cost near zero, i.e. decode and TTFT nearly unchanged past the device-local
-  heap. Data: `[fh1-amd-boundary-llama-3.3-70b]`, `[fh1-amd-boundary-qwen3-32b]` (registered 2026-10-21; FINDINGS
-  "FH1 AMD panel: what is measured and what is missing"). Gaps: qwen3-32b has no unclamped spill point (no spill
-  cost); the measured onset sits at the 65536 MiB dedicated carve-out, not the Vulkan device-local heap, so the x
-  axis normalizer must be stated; reps are 1 call per fresh start with no warm-up; launch flags differ between runs.
-- **INTEL-iGPU (unified, budget wall):** no gradual cost; the server either starts or refuses at one shared-heap limit
-  (hard fail). Data: `[A-24-effective-heap-limit]`, `[A-24-flip-point-per-model]`.
-- **NVIDIA-dGPU (discrete):** decode slowdown proportional to the spilled fraction past VRAM. Data: the x axis
-  placement is now registered: the Ollama layer split puts both measured models fully in VRAM at the two smallest
-  windows and partly on the CPU above them, "VRAM share by num_ctx 4096: 1.000, 8192: 1.000, 16384: 0.870, 32768:
-  0.656" (llama3.1:8b) and "VRAM share by num_ctx 4096: 1.000, 8192: 1.000, 16384: 0.805, 32768: 0.592" (qwen3:8b)
-  `[blade-k1-layer-split]`. The y axis (decode slowdown) is still the Blade C1 files with no register row (G4), so
-  this panel stays **pending G4**. Caveat: the K1 split is Ollama moving layers to the CPU, a different
-  overflow path from the driver's system-memory spill measured in C1 (llama-server direct); the
-  panel must label which path each point is.
-The claim the figure carries: the same "context exceeds memory" event has three different cost shapes depending on the
-memory architecture (near-free spill, hard wall, proportional slowdown), so a hardware-blind router or sizing rule is
-wrong on at least two of the three. If space is short, FH1 replaces F2 and F3 (their detail moves to the supplement).
+**Claim.** The same event, a context window whose KV cache no longer fits the memory the GPU is meant to use, has a
+different cost shape on each memory architecture: on the AMD APU the server keeps running past the boundary at almost
+unchanged speed, on the Intel iGPU the server either starts or refuses at one shared-heap limit, and on the discrete
+GPU the cost is expected to grow with the share of the model pushed out of VRAM. A sizing rule or a router that
+ignores the architecture is wrong on at least two of the three. Figure FH1 carries this claim; the AMD and Intel
+panels are measured and the NVIDIA panel is not yet complete.
 
-**4.4a INTEL-iGPU shared-heap budget and first-principles flip point.**
+**AMD APU: a soft spill, then a hard crash far beyond it.** We ran llama-3.3-70b and qwen3-32b in llama-server with
+the Vulkan backend and every layer on the GPU (`-ngl 99` <!-- fh1-amd-boundary-llama-3.3-70b -->), stepping the
+window and recording per-process dedicated and shared GPU memory, decode rate and time to first token (TTFT). The
+platform offers three candidate boundaries: a firmware-reserved dedicated block of 65536 MiB, a Vulkan device-local
+heap of 76218 MiB, and a Vulkan total of 114327 MiB <!-- fh1-amd-boundary-llama-3.3-70b -->. We call a point a spill
+when shared GPU usage grows by more than 1024 MiB over the smallest window <!-- fh1-amd-boundary-llama-3.3-70b -->.
+For llama-3.3-70b the last window without spill is 65536 and the first window with spill is 100096, the window the
+server reported for a request of 100000 <!-- fh1-amd-boundary-llama-3.3-70b -->. At 100096 the process held 1.122 of
+the dedicated block but only 0.965 of the device-local heap <!-- fh1-amd-boundary-llama-3.3-70b -->: the onset
+follows the dedicated block, not the heap the Vulkan driver advertises, so FH1 normalizes the AMD x axis by the
+dedicated block and says so. Crossing the onset is nearly free. The decode ratio across it is 0.983 and the TTFT ratio
+1.004 <!-- fh1-amd-boundary-llama-3.3-70b -->; decode fell from 5.284 +/- 0.004 tok/s at 65536 to 5.196 +/- 0.010
+tok/s at 100096, and at 131072, with 18540 MiB more in shared memory than at the smallest window, it was still 5.176
++/- 0.015 tok/s <!-- fh1-amd-boundary-llama-3.3-70b -->. Nothing in the server's response tells the client it has
+spilled.
 
-- **Claim:** a model start on INTEL-iGPU succeeds or fails at one shared-heap limit that also counts host-visible
-  buffers, and weights + KV + compute accounting against that limit predicts the measured flip point.
-- **Evidence:** "budget boundary 47482-47969 MiB projected, 5 models" `[A-24-budget-boundary]`; "shared-heap L in
-  (48112.7, 48124.0] MiB, consistent across all 5 models (92 lower / 22 upper bounds), +247 MiB vs the 47866 MiB
-  budget; device-only accounting is inconsistent (max start 47945.2 > min refusal 47562.5 MiB)"
-  `[A-24-effective-heap-limit]`; prediction error "A file-size -2890 to -820 tokens (-3.48% to -0.60%); B device-only
-  -1092 to +968 tokens (-0.34% to +4.11%); C shared-heap LOO -257 to -26 tokens (-0.11% to -0.01%)"
-  `[A-24-flip-point-prediction]`; per-model inputs and results `[A-24-flip-point-inputs]`,
-  `[A-24-flip-point-per-model]`. Files: `results/t2s_amech_20260926T181456Z.jsonl`,
-  `results/t2s_night2_20260929T034014Z.jsonl` and their `_srv_bis_*` logs.
-- **Figure:** F2. Existing `figures/fig_a24_budget_boundary.png` predates the llama-3.3-70b bisection and shows
-  projected memory only; needs regeneration with all models of `[A-24-budget-boundary]` ("5 models") and the three
-  accountings (A/B/C) against the measured interval.
-- **Gaps:** start-only, and beyond the trained context for qwen3-8b, qwen3-30b-a3b-2507 and llama31-8b (the flip is
-  the memory flip, not usable context);
-  AMD-iGPU equivalent not measured (G5). One driver and boot state; the margin over the reported budget is not
-  claimed to transfer.
+The hard boundary sits much further out and is reached only through clamping. The model's trained context is 131072
+<!-- fh1-amd-boundary-llama-3.3-70b -->, and a request above it is served at that value: the last window that started
+was 221440, clamped to 131072, and the first that failed was 221696, with exit code 3221226505
+<!-- fh1-amd-boundary-llama-3.3-70b -->. At 221696, fresh server processes crashed with STATUS_STACK_BUFFER_OVERRUN at
+warm-up 5 whether the model file was read cold after a standby purge or warm from the file cache
+<!-- fh1-amd-boundary-llama-3.3-70b -->. So the AMD platform has three regimes for this model: it fits, it spills
+silently at almost no cost, and, for requests far above the trained context, it crashes.
 
-**4.4b AMD-iGPU spill and crash regimes (MX2).**
+qwen3-32b gives the fail side but not the spill side. The largest unclamped window without spill is 20480, and no
+unclamped spill point was measured, so the row has no spill cost <!-- fh1-amd-boundary-qwen3-32b -->. A request for
+290000 was served at 40960 and did spill (shared +28159 MiB), at 11.190 +/- 0.011 tok/s against 11.451 +/- 0.005
+tok/s at 20480 <!-- fh1-amd-boundary-qwen3-32b -->; because that point is clamped, it is plotted but not used as a
+boundary. In the start-only bisection the last start was 367104, clamped to 131072, and the first failure 367360,
+with exit code 3221226505 <!-- fh1-amd-boundary-qwen3-32b -->. The two qwen3-32b runs clamp to different values (40960
+and 131072 <!-- fh1-amd-boundary-qwen3-32b -->) because their launch flags differ; the panel labels each point with
+its launch. A dedicated qwen3-32b spill sweep between these points is registered but has not computed yet
+<!-- pending row: fh1-amd-qwen3-32b-spill-sweep, no number cited -->, so the qwen3-32b onset is reported as "above
+20480" only.
 
-- **Claim (not yet citable):** on AMD-iGPU, large contexts pass through a silent-spill regime before a hard failure,
-  and requests above the trained context are clamped without error.
-- **Evidence:** result files exist (`results/mx2_validation.jsonl`, `results/mx2_spill_stats.jsonl`), FINDINGS
-  sections "PRE-REGISTRATION: MX2 validation" and "CORRECTION (2026-10-06)", but NO register row. Nothing from MX2 is
-  stated numerically here.
-- **Figure:** needs figure: decode tok/s and TTFT with 95% CI versus n_ctx for llama-3.3-70b at the spill-stats
-  points, with per-process dedicated/shared GPU memory on a second axis; regime bands FITS / SILENT_SPILL / HARD_FAIL.
-- **Gaps:** register rows for MX2 regime boundaries and spill cost (G5); the llama-3.3-70b crash boundary is
-  non-deterministic and needs x2_70b_edge_reps (warm-read vs standby-purge, ABAB).
+**Intel iGPU: a hard wall that first-principles accounting predicts.** On the Intel iGPU there is no soft regime: a
+model either starts or the runtime refuses it. Across five models, the refusal point is consistent with one
+shared-heap limit L in (48112.7, 48124.0] MiB, 247 MiB above the 47866 MiB budget the driver reports, from 92 lower
+and 22 upper bounds <!-- A-24-effective-heap-limit -->. The limit counts host-visible buffers as well as device memory:
+accounting for device memory alone is inconsistent, because the largest start (47945.2 MiB) exceeds the smallest
+refusal (47562.5 MiB) <!-- A-24-effective-heap-limit -->. Counting weights, KV cache and compute buffers against the
+shared heap, with L fitted leave-one-model-out, predicts each model's flip point within -257 to -26 tokens (-0.11% to
+-0.01%), against -2890 to -820 tokens for model file size alone and -1092 to +968 tokens for device-only accounting
+<!-- A-24-flip-point-prediction -->. The flip points span an order of magnitude: (23296, 23552] tokens for
+llama-3.3-70b and (115712, 115968] for qwen3-32b <!-- A-24-flip-point-per-model -->. Two limits apply. These are
+start tests only, and for several models the flip point lies beyond the trained context, so it is a memory boundary,
+not a usable window. And the result is for one driver and boot state; we do not claim the 247 MiB margin transfers.
 
-**4.4c NVIDIA-dGPU discrete VRAM spill (C1/C2).**
+**NVIDIA discrete GPU: placement measured, cost pending.** On the discrete GPU the runtime itself decides how much of
+the model leaves VRAM. With 8188 MiB of VRAM <!-- blade-k1-layer-split -->, Ollama keeps llama3.1:8b fully on the GPU
+at windows of 4096 and 8192 and moves layers to the CPU above them, with VRAM shares of 0.870 at 16384 and 0.656 at
+32768; for qwen3:8b the shares are 0.805 and 0.592 <!-- blade-k1-layer-split -->. This places the NVIDIA points on the
+FH1 x axis. The y axis, decode slowdown as a function of the spilled share, comes from an earlier sweep with
+llama-server driving the driver's system-memory fallback directly; that sweep has no register row yet (gap G4), and the
+forced-failure point with the fallback disabled needs a run on the discrete-GPU laptop that has not been done. The
+NVIDIA panel is therefore pending, and the two overflow paths (the runtime moving layers to the CPU, and the driver
+spilling allocations into system memory) will be labelled separately when it lands.
 
-- **Claim (not yet citable):** on the discrete GPU with the default driver policy, exceeding VRAM causes a silent
-  slowdown with a sharp onset, no error and unchanged answers.
-- **Evidence:** result files exist (`results/blade_m1_vram_spill_20260925T041415Z.jsonl`,
-  `results/blade_c1_spill_sweep_20260925T053651Z.jsonl`, `results/blade_c2_spill_correctness_20260925T110739Z.jsonl`),
-  FINDINGS sections C1 and C2, but NO register row.
-- **Figure:** F3. Existing `figures/fig_blade_c1_spill.png` (M1 ladder); needs regeneration from the C1 sweep with
-  bootstrap CIs and the excess-shared-memory axis, plus the C3 forced-failure point.
-- **Gaps:** register rows for C1/C2 (G4); the driver Sysmem Fallback Policy value was not recorded; the
-  forced-failure half: Blade night 2 (d) (C3 sysmem fallback).
+**Co-running work on unified memory.** On both unified-memory platforms the GPU shares memory bandwidth with the CPU,
+so a CPU-side workload is part of the boundary. On the Intel platform a co-runner raised llama-3.3-70b's TTFT by a
+factor of 1.42x <!-- P70-TTFT-ratio -->. On the AMD APU the largest TTFT ratio under any co-runner was 1.129x
+<!-- PX2-full-ratio-table -->, and the decode rate separates a bandwidth hog from a compute hog (0.905x-0.928x against
+0.987x-1.000x of the no-load rate <!-- PX2-decode-ratio -->), while package power for the two large models stayed
+flat at about 83.6 W across every condition <!-- PX2-power -->. The Intel platform has no bandwidth-hog run, so the two
+vendors are not yet compared on the same metric.
 
-**4.4d Unified-memory co-runner effects (B3, PX2, M3).**
+**Figure specs (kept from the outline).**
 
-- **Claim:** on unified memory a CPU-side co-runner slows LLM inference, more on INTEL-iGPU than on AMD-iGPU, and the
-  metric where it shows differs by vendor.
-- **Evidence:**
-  - INTEL-iGPU TTFT under the 12-core co-runner: "mean 1.429x (+42.9%)" `[B3-corunner-6model]`; llama-3.3-70b "1.42x"
-    `[P70-TTFT-ratio]`; graded by E-core count, "e6:+14.3%, e8:+30.2%, e8_lp4:+41.4%" `[b4_32b-dose-response]`.
-  - AMD-iGPU: "max TTFT ratio on evo-x2: 1.129x (qwen3-8b/S28)" `[PX2-full-ratio-table]`; bandwidth versus compute hog
-    gap on TTFT only "2.1-2.6% (B4 vs S4 TTFT gap range across 5 models)" `[PX2-TTFT-gap]`, but separable on decode:
-    "B4 0.905x-0.928x of N0; S4 0.987x-1.000x of N0" `[PX2-decode-ratio]`; "qwen3-32b/llama-3.3-70b flat ~83.6W
-    across every condition" `[PX2-power]`.
-  - Files: `results/t2s_night2_20260928T004924Z.jsonl`, `results/t2s_night2_20260929T034014Z.jsonl`,
-    `results/t2s_night2_20260930T135145Z.jsonl`.
-- **Figure:** F4. Existing `figures/fig_power_effect_b1_b3.png` and `figures/fig_b4_ecore_threshold.png` (INTEL-iGPU
-  only); needs a combined cross-vendor panel: TTFT ratio and decode ratio per co-runner condition, INTEL-iGPU vs
-  AMD-iGPU.
-- **Gaps:** INTEL-iGPU mechanism is open (package power alone does not explain it; M3 and Section B have no register
-  row, so their numbers are not used); INTEL-iGPU has no bandwidth hog, so the two vendors are not measured on the
-  same metric: T2S week item 4 (Intel bandwidth hog). One run per condition, small n.
+- **FH1 (headline).** Three panels, shared x axis = requested or served window as a fraction of the platform's
+  boundary (AMD: the 65536 MiB dedicated block, stated in the caption; Intel: the shared-heap limit; NVIDIA: VRAM),
+  y axis = cost of crossing it (decode and TTFT ratio; for Intel, start or refuse). Clamped points are drawn but
+  marked; each point is labelled with its launch and its overflow path. Measurement note for the caption: each AMD
+  point is one call per fresh server start without a warm-up call (5 or 3 calls per point), which departs from this
+  paper's 1 warm-up + N convention. If space is short, FH1 replaces F2 and F3.
+- **F2.** Intel flip point: measured (last start, first refusal] per model against accountings A (file size), B
+  (device only) and C (shared heap), all five models; `figures/fig_a24_budget_boundary.png` must be regenerated.
+- **F3.** NVIDIA spill onset: TTFT and decode slowdown against window with the spilled share, plus the forced-failure
+  point; pending G4 and the forced-failure run.
+- **F4.** Co-runner effects by vendor: TTFT and decode ratio per condition, Intel against AMD; Intel decode under a
+  bandwidth hog is missing.
 
-### 4.5 Runtime policy (1.50 pages)
+### 4.5 Runtime policy (prose draft, 2026-10-22; 1.50 pages)
 
-**4.5a Default context selection per device (K1 v3).**
+**Claim.** The window an agent actually gets is set by the runtime's policy for the device it detects, not by the
+model or the memory, and when a prompt outgrows that window the runtime reports success and silently keeps half of
+it. Paragraph labels 4.5a to 4.5d match the claim index.
 
-- **Claim:** the same runtime selects the default context window from its own device-detection policy, so two
-  integrated GPUs get very different windows for the same model, and the discrete GPU gets a small one.
-- **H1 cross-vendor default-context and truncation table** (all cells pasted from the register; one runtime, Ollama;
-  the per-platform version is in Section 3):
+**Default windows follow the detected device (4.5a).** Ollama's Vulkan backend drops both integrated GPUs by the same
+policy, but Ollama also discovers the AMD iGPU through ROCm, with no opt-out, so the AMD APU runs on its iGPU while the
+Intel laptop, which has no ROCm path, falls through to the CPU <!-- x2-device-detect-mechanism -->. The default window
+follows. On the Intel laptop the runtime loaded 4096 tokens for each of three models, while on the AMD APU it loaded
+262144 for qwen3-4b-2507, 131072 for llama3.1:8b and 40960 for qwen3:8b <!-- T2S-vs-X2-default-ctx -->, in each case
+the model's native window (capped only for qwen3:8b <!-- K1v3-X2-table -->). The discrete GPU also got 4096 for both
+models we could measure there <!-- blade-k1-layer-split -->. The runtime's own log reports the rule behind the two
+small values: a default sized from detected VRAM, 4096 for the discrete GPU's 8.0 GiB and 32768 for the Intel iGPU's
+36.2 GiB when that iGPU is enabled <!-- gpu-memory-readonly -->. Table 2 lists the values. The spread from 4096 to 262144 for the
+same weights comes from device detection, not from capacity: the Intel laptop has 36.2 GiB visible to the runtime
+<!-- gpu-memory-readonly --> and still gets 4096 when its iGPU is dropped.
 
-| platform | default context per model | GPU placement at the default and above | overflow at the default | register rows |
-|---|---|---|---|---|
-| INTEL-iGPU | "qwen3-4b-2507": {"t2s_default_ctx": 4096, ...}, "llama3.1:8b": {"t2s_default_ctx": 4096, ...}, "qwen3:8b": {"t2s_default_ctx": 4096, ...} | "evo-t2s (no ROCm path for Intel) falls through to CPU once Vulkan drops it" | "processed = num_ctx/2 + 2 in all 4 checked cases: 4096->2050; 32768->16386; 40960->20482; 8192->4098" (cases pooled over INTEL-iGPU and AMD-iGPU files) | T2S-vs-X2-default-ctx, x2-device-detect-mechanism, ollama-overflow-keeps-half |
-| AMD-iGPU | {"qwen3-4b-2507": {"capped": false, "native_ctx": 262144, "ollama_default_ctx": 262144}, "llama3.1:8b": {"capped": false, "native_ctx": 131072, "ollama_default_ctx": 131072}, "qwen3:8b": {"capped": true, "native_ctx": 40960, "ollama_default_ctx": 40960}} | "evo-x2 uses the iGPU via ROCm" | as the INTEL-iGPU row (pooled) | K1v3-X2-table, T2S-vs-X2-default-ctx, x2-device-detect-mechanism, ollama-overflow-keeps-half |
-| NVIDIA-dGPU | "llama3.1:8b: default ctx 4096"; "qwen3:8b: default ctx 4096"; "qwen3-4b-2507-tools: not measured (model not present)" | "fully on GPU at default True" (both models); llama3.1:8b "VRAM share by num_ctx 4096: 1.000, 8192: 1.000, 16384: 0.870, 32768: 0.656"; qwen3:8b "VRAM share by num_ctx 4096: 1.000, 8192: 1.000, 16384: 0.805, 32768: 0.592"; "device VRAM 8188 MiB" | llama3.1:8b "4096 tok -> HTTP 200, evaluated 3337; 8192 tok -> HTTP 200, evaluated 2050; 16384 tok -> HTTP 200, evaluated 2050; 32768 tok -> HTTP 200, evaluated 2050"; qwen3:8b "4096 tok -> HTTP 200, evaluated 4082; 8192 tok -> HTTP 200, evaluated 2050; 16384 tok -> HTTP 200, evaluated 2050; 32768 tok -> HTTP 200, evaluated 2050" | blade-k1-layer-split |
+| platform (device used) | default window, three models | over-length prompt at the default |
+|---|---|---|
+| AMD APU (iGPU via ROCm) | 262144 / 131072 / 40960 <!-- T2S-vs-X2-default-ctx --> | success, half kept <!-- ollama-overflow-keeps-half --> |
+| Intel laptop (CPU) | 4096 / 4096 / 4096 <!-- T2S-vs-X2-default-ctx --> | success, half kept <!-- ollama-overflow-keeps-half --> |
+| NVIDIA laptop (discrete GPU) | not measured / 4096 / 4096 <!-- blade-k1-layer-split --> | HTTP 200, evaluated 2050 <!-- blade-k1-layer-split --> |
 
-  Reading: on all three platforms an over-length prompt returns success and is evaluated at the half-window value
-  ("4096->2050" `[ollama-overflow-keeps-half]`; "evaluated 2050" at the default `[blade-k1-layer-split]`). The
-  NVIDIA-dGPU probe at the window size itself ("4096 tok") is evaluated below the window and is not an overflow case;
-  the probe length is the harness's target token count (`target_tokens` in `results/blade_k1_v2.summary.json`), not
-  the model's own count, so it is not read as a truncation.
-- **Evidence:** `[T2S-vs-X2-default-ctx]`: {"qwen3-4b-2507": {"t2s_default_ctx": 4096, "x2_default_ctx": 262144},
-  "llama3.1:8b": {"t2s_default_ctx": 4096, "x2_default_ctx": 131072}, "qwen3:8b": {"t2s_default_ctx": 4096,
-  "x2_default_ctx": 40960}}; mechanism `[x2-device-detect-mechanism]`: "Vulkan backend drops the AMD iGPU by the same
-  policy as Intel, but Ollama also discovers it via ROCm (no opt-out), so evo-x2 uses the iGPU via ROCm while evo-t2s
-  (no ROCm path for Intel) falls through to CPU once Vulkan drops it"; `[K1v3-X2-table]`. Files:
-  `results/apu_results__t2s_k1_ollama_evo-t2s_20261001T074622Z.jsonl`,
-  `results/t2s_k1_ollama_evo-x2_20260930T205515Z.jsonl`, `results/x2_template_mechanism_test.jsonl`.
-- **Figure:** F5: default window per (platform, model) overlaid on the CDF of real agent step lengths
-  (`figures/fig_trace_cdf.png` exists for the CDF; the overlay is new).
-- **Gaps:** NVIDIA-dGPU default: landed (Blade night 1 (a), K1, `[blade-k1-layer-split]`); two models there, the
-  third not present on that machine. The NVIDIA-dGPU row shows the small default but not why (device detection vs a
-  VRAM-size rule); no register row separates the two, so the device-detection mechanism is claimed for the two iGPUs
-  only. Ollama version differs between INTEL-iGPU and the other two platforms (Section 3). The `OLLAMA_IGPU_ENABLE=1` control on INTEL-iGPU has no register row (G12).
+Table 2: default context window per platform for qwen3-4b-2507 / llama3.1:8b / qwen3:8b, one runtime (Ollama).
 
-**4.5b Overflow behaviour.**
+**The default decides the outcome.** On the Intel laptop we ran the same agent sessions twice, once as shipped on the
+CPU and once with the iGPU enabled for the job's own server process. On the CPU both models loaded a 4096-token window,
+crossed it at turn [3], and failed silently in 5/5 sessions each, every failure after the window was exceeded
+<!-- t2s-r2-real-cpu -->. On the iGPU the same models loaded 32768, crossed it only at turn [23] and [20, 21], and no
+failure came after the window: 0/5 for llama3.1:8b and, for qwen3:14b, 1/5 of baseline type
+<!-- t2s-r2-real-igpu -->. The pre-registered kill criterion was not triggered on either backend
+<!-- t2s-r2-real-cpu --> <!-- t2s-r2-real-igpu -->. This contrast changes backend and window together, so it shows
+that the default decides whether a session fails, not that the window alone does; Section 4.6a isolates the window.
 
-- **Claim:** when a prompt exceeds the loaded window, the runtime returns success and silently keeps half the window.
-- **Evidence:** "processed = num_ctx/2 + 2 in all 4 checked cases: 4096->2050; 32768->16386; 40960->20482;
-  8192->4098. Mechanism: Ollama's own '--context-shift --keep 4' llama-server flag" `[ollama-overflow-keeps-half]`.
-  NVIDIA-dGPU, both measured models at the default: "8192 tok -> HTTP 200, evaluated 2050; 16384 tok -> HTTP 200,
-  evaluated 2050; 32768 tok -> HTTP 200, evaluated 2050" `[blade-k1-layer-split]` (full row in the 4.5a table).
-- **Figure:** folded into F7.
-- **Gaps:** NVIDIA-dGPU: landed (Blade night 1 (a)); the overflow probes there ran at the default window only.
+**Overflow is silent (4.5b).** When a prompt exceeds the loaded window, the runtime returns success and processes
+num_ctx/2 + 2 tokens, in all 4 checked cases (4096->2050, 8192->4098, 32768->16386, 40960->20482), through its own
+`--context-shift --keep 4` server flag <!-- ollama-overflow-keeps-half -->. On the discrete GPU, prompts of 8192,
+16384 and 32768 tokens sent to a 4096 window each returned HTTP 200 with 2050 tokens evaluated, for both models
+<!-- blade-k1-layer-split -->. No error, warning or response field tells the client.
 
-**4.5c Install-path effects.**
+**Changing the window, and what persists.** A user can override the default in three ways, and they differ in how long
+the override lasts. On the AMD APU, whose baseline for llama3.1:8b is 131072, a per-request `num_ctx` of 12288 was
+applied but reverted to 131072 after a restart; a Modelfile `PARAMETER num_ctx 10240` on a derived tag persisted across
+a restart while the base tag stayed at 131072; and `OLLAMA_CONTEXT_LENGTH` of 6144 applied while the variable was set
+and reverted to 131072 when the server restarted without it <!-- window-override-methods -->. Only the derived tag
+survives a restart without the client's help. This was measured on the AMD APU only; the other two platforms have not
+run it <!-- window-override-methods -->.
 
-- **Claim:** the same weights behave differently as an agent depending on how they were installed into the runtime.
-- **Evidence:** `[R2-install-path-4b-comparison]`: "change bare -> library template: call-1 native 11/30 -> 2/30,
-  text tool calls 30/30 -> 30/30, task tool correct 5/30 -> 5/30"; bare tag alone `[R2-install-path-4b-bare]`;
-  template source per outcome row `[x2-chat-template-source]`. Files: `results/x2_r2_validation_v2b.jsonl`,
-  `results/x2_r2_validation_v2c.jsonl`, `results/x2_chat_template_sources.jsonl`.
-- **Figure:** none (a small table).
-- **Gaps:** both install paths fail the task-tool gate for this model, so the finding is "behaviour follows the
-  install path", not "one path works". The K1 item-1b result (bare create hard-errors on overflow, library pull
-  truncates silently, same file) has no register row (G12).
+**Within the window, KV precision is the lever.** We pre-registered a comparison of eight context policies on the
+Pareto frontier of rules, history, time and cost (Section 4.7 gives the router verdict). On the AMD APU every policy
+kept every rule, and the frontier held one KV-cache policy per model <!-- b5-policy-metrics -->. For llama3.1:8b a
+q4_0 KV cache took 6.6 min per session at history 100.0%, against 43.7 min at 95.8% for the runtime default; for
+qwen3:14b a q8_0 cache took 75.4 min against 214.8 min, at the same history recall of 62.5%
+<!-- b5-policy-metrics -->. Our quantized-cache policies also turn on flash attention
+<!-- design: harness/policy_compare.py -->, so we ran a control with
+flash attention on and the cache at f16: 43.4 min for llama3.1:8b and 206.6 min for qwen3:14b, within tolerance of
+the default, so the speedup is KV precision, not flash attention <!-- b5-fa-control -->. The first f16 recall
+measurement for llama3.1:8b had an errored call <!-- b5-kv-recall -->; a rerun found 11/24 needles at f16 against
+13/24 at q8_0 (Fisher p = 0.773) and 14/24 at q4_0 (p = 0.564), no difference shown, with needles within a call not
+independent <!-- b5-kv-recall-f16-rerun -->. All of this is on the unconstrained AMD APU, where the default is the
+native window. The simulated-constraint version, with the window capped at 8192 and 4096, has not computed yet
+<!-- pending row: b5-sim-constraint, no number cited -->, and the constrained platforms have not run B5
+<!-- b5-verdict -->.
 
-**4.5d TTFT first-call stall.**
-
-- **Claim:** the first request on a new prompt waits for the previous request's KV state to be moved, at a fixed
-  per-machine rate, which dominates TTFT error on AMD-iGPU.
-- **Evidence:** "evo-x2: 658/919 rep-0 calls >1.5x their rep 1, stall median 15.7-40.8 s, displaced KV state
-  29.0-29.3 MiB/s" and "evo-t2s: 242/424 rep-0 calls >1.5x their rep 1, stall median 1.9-4.0 s, displaced KV state
-  134.0-141.0 MiB/s" `[ttft-first-call-stall]`; removing those rows: "drop_first_call_rep0 0.95-1.00 (6 models)"
-  `[ttft-x2-refit-by-hypothesis]`; out-of-sample check "median abs % error 0.4-2.3% with the stall term vs 48.3-89.6%
-  without, 6 models" `[ttft-x2-section0-stall-check]`; per cell `[ttft-first-call-stall-per-cell]`.
-- **Figure:** optional (cut first if space is short).
-- **Gaps:** the mechanism (llama-server host-RAM prompt cache) is inferred, not confirmed: a `--cache-ram 0` control
-  is needed and NO queue job exists for it (G11). `[ttft-cross-machine-transfer]` and `[ttft-few-point-calibration]`
-  were computed on pooled rows and must be recomputed on rep>=1 rows before they are cited (G11).
+**Install path and first-call stall (4.5c, 4.5d).** Two further runtime choices change behaviour without changing the
+weights. Installing qwen3-4b-2507 from a bare model file instead of with the library template changed native tool
+calls on the first call from 11/30 to 2/30, while task-tool correctness stayed at 5/30
+<!-- R2-install-path-4b-comparison -->: behaviour follows the install path, and neither path passes our task-tool
+gate. And the first request on a new prompt waits while the previous request's KV state is moved: on the AMD APU
+658/919 first calls were more than 1.5x slower than the repeat, with a stall median of 15.7-40.8 s
+<!-- ttft-first-call-stall -->, a runtime cost that a first-call TTFT measurement mistakes for a model property.
 
 ### 4.6 Agent consequences (1.50 pages)
 
@@ -698,7 +704,7 @@ default back. This check has not yet run on NVIDIA or Intel.
 - **Figure:** none until complete.
 - **Gaps:** x2_outcome_table_v3 completion; T2S week item 5 (outcome-table subset).
 
-### 4.7 Fixes (prose draft, 2026-10-20; updated 2026-10-22; with the predictor outline kept below; 1.00 page)
+### 4.7 Fixes (prose draft, 2026-10-20; updated 2026-10-22; with the predictor prose below; 1.00 page)
 
 **Client-side trimming splits by model, on two vendors.** A client that never sends an over-length prompt should keep
 the runtime from cutting the system prompt. We pre-registered that fix: before
@@ -751,27 +757,53 @@ router took 135.1 min and USD 0.8419 per session for no gain <!-- b5-policy-metr
 unconstrained AMD platform, whose default window is the model's native one, so no policy there faced the
 small-window regime where loss occurs; the constrained platforms are pending.
 
-#### 4.7p Predictor (outline, not yet prose)
+**Recovering after a silent failure is costly and incomplete.** The fallback for a session that has already failed is
+to hand the whole history to a cloud model late and let it finish the task. We measured that on every wrong task of
+the protocol-check task run (Section 4.6a): a cloud model with the full client-side history fixed 167/197 (84.8%) of
+them, 95% Wilson CI [79.1%, 89.1%] <!-- cloud-redo-full-context -->, at a mean of USD 0.0227 per task
+<!-- cloud-redo-full-context -->. The same cloud model running the same tasks from the start cost a mean of USD
+0.01020 per task <!-- all-cloud-b3-cost -->, so late escalation cost more than twice a fresh cloud run (the two runs
+cover different task sets, wrong tasks over five tiers against three seeds of all tasks, so the comparison is of means,
+not matched pairs). It also cannot undo what the local model already did: of the 30 tasks still wrong, 28 needed a
+repair of state the local model's earlier actions had changed, and 2 were cloud-model errors
+<!-- cloud-redo-full-context -->. An agent's tool calls are executed, not drafted, so a late redo inherits them. The
+practical fix is to decide per device and workload at session start whether a session runs locally, which Sections
+4.4 and 4.5 make predictable from the platform and its default window, and to treat step-level escalation as a
+narrow middle case, since window overflow does not pick out the wrong steps (Section 4.7p). A measured comparison of
+routing at session start is not yet registered.
 
-- **Claim (verified on AMD-iGPU, one session per tier):** a context shift, the step that discards the system prompt
-  at the smallest window, happens on a call exactly when the post-trim prompt plus the generated tokens exceed the
-  loaded window; the rule is taken from the llama.cpp source, not fitted. Using the generation budget in place of the
-  generated count gives a before-the-call flag that misses no shift at the cost of false alarms.
-- **Evidence:** `[R2-shift-predictor-confusion]`: "num_ctx_4096 TP 34 FP 0 FN 0 TN 46 precision 100.0% recall
-  100.0%", "num_ctx_32768 TP 10 FP 0 FN 0 TN 70 precision 100.0% recall 100.0%", "misses 0"; variants "exact
-  P+C>n_ctx: TP 44 FP 0 FN 0", "budget P+num_predict>n_ctx: TP 44 FP 22 FN 0", "prompt only P>=n_ctx-1: TP 0 FP 0 FN
-  44". Applied to the real run as a prediction only (no server log there, nothing observed):
-  `[R2-shift-predicted-real-v1]`: "num_ctx_4096 llama3.1:8b: predicted 102/240 calls" and "num_ctx_4096 qwen3:14b:
-  predicted 0/240 calls"; predicted shifts line up with the first rule failure only partly, and the qwen3:14b rule
-  failures at 4096 happen with no predicted shift (`docs/FINDINGS.md`, "R2 context-shift predictor and orphaned messages"). What the message-level trim
-  leaves at the front of the window: `[R2-orphan-rates]`: "num_ctx_4096: 76/80 truncated; first kept user 15,
-  assistant tool-call 47, assistant final 6, tool 8; orphaned 61/76 (80.3%)". File: `results/x2_r2_mechanism.jsonl`
-  (observed part), `results/x2_r2_real_v1.jsonl` (predicted part).
-- **Scope of the claim:** it predicts the context shift (where the system prompt goes on AMD-iGPU), not rule
-  failure: the real-run qwen3:14b failures are not explained by it. Built and scored on the same mechanism sessions;
-  no tunable parameter, but no held-out observed sessions yet. (2026-10-22: the qwen3:14b 4096 statement above
-  is consistent with `[R2-qwen3-14b-4096-reconciliation]`: qwen3:14b's 4096 lapses are rule 3 and rule 5, and the
-  num_keep rerun reproduced v1 turn for turn ("identical final text 120/120").)
+#### 4.7p Predictor (prose draft, 2026-10-22)
+
+**A context shift is predictable before the call.** The step that discards the system prompt at the smallest window
+is llama.cpp's context shift (Section 4.6b), and its trigger can be read from the llama.cpp source rather than fitted:
+a shift happens on a call when the prompt left after the message-level trim, plus the tokens generated, exceeds the
+loaded window. We scored that rule on the AMD mechanism sessions, one per tier, against the shifts the server log
+recorded. At 4096 it gave TP 34 FP 0 FN 0 TN 46, and at 32768 TP 10 FP 0 FN 0 TN 70, precision and recall 100.0% in
+both, with misses 0 over all tiers <!-- R2-shift-predictor-confusion -->. The exact form matters, which is evidence
+that the rule is the mechanism and not a correlate: P+C>n_ctx gives TP 44 FP 0 FN 0, while the prompt alone,
+P>=n_ctx-1, gives TP 0 FP 0 FN 44 <!-- R2-shift-predictor-confusion -->. The generated count is not known before the
+call, so a client substitutes the generation budget: P+num_predict>n_ctx gives TP 44 FP 22 FN 0
+<!-- R2-shift-predictor-confusion -->, a before-the-call flag that misses no shift at the cost of false alarms. The
+rule has no tunable parameter, but it was built and scored on the same sessions; no held-out observed sessions exist
+yet.
+
+**It predicts the shift, not the failure.** Applied to the real run as a prediction only, where no server log exists,
+the rule flags 102/240 calls for llama3.1:8b at 4096 and 0/240 for qwen3:14b <!-- R2-shift-predicted-real-v1 -->, yet
+qwen3:14b also loses rules at 4096. Its lapses there come with no predicted shift, consistent with the reconciliation
+in Section 4.7: for that model the loss runs through what the message-level trim removes, not through the shift
+<!-- R2-qwen3-14b-4096-reconciliation -->. What the trim leaves at the front of the window is usually a fragment: at
+4096, 61/76 (80.3%) of truncated calls began with an orphaned message <!-- R2-orphan-rates -->.
+
+**Window overflow is not a general wrong-answer detector.** A tempting use of the flag is to escalate exactly the
+steps that overflowed. We measured it as a detector of wrong task outcomes on the protocol-check task run of Section 4.6a
+(qwen3:14b, AMD APU), with the predictor "this task turn's prompt exceeded the loaded window" and the outcome "the task
+ended wrong" <!-- impact-v3-detection-value-measured -->. At the runtime default no turn overflowed, and the flag
+missed 17/17 wrong tasks (recall 0.0%). At 16384 it reached precision 15.4% and recall 21.1%; at 8192 precision 45.3%
+and recall 90.6%; at 4096 recall 100.0% but precision 42.9%, flagging 147 of 150 turns (TP 63 FP 84)
+<!-- impact-v3-detection-value-measured -->. Where the window is large, wrong answers have other causes that the flag
+cannot see; where it is small, nearly every step overflows and the flag no longer separates good steps from bad. The
+predictor is therefore a tool for explaining and anticipating system-prompt loss, not a cheap filter for which steps
+to send to a cloud model.
 
 **4.7 outline items kept (figure and gaps, mitigation and predictor).**
 
@@ -1266,6 +1298,185 @@ would turn the model-dependence of rule loss from an observation into a predicta
 
 **Superseded 2026-10-21.** The outline text of 4.1 (with the 4.1a motivation draft), 4.2, 4.8 and 4.9, replaced by
 the prose drafts of 2026-10-21, is moved here verbatim below; the 2026-10-20 material follows it.
+
+### 4.4 Memory-architecture boundaries (2.00 pages) (outline as of 2026-10-21; superseded 2026-10-22)
+
+**Headline figure for H1 (planned, added 2026-10-08): cross-vendor spill cost, FH1.** One figure, three panels, same
+x axis (requested context as a fraction of the platform's memory boundary), y axis = cost of crossing it:
+- **AMD-iGPU (unified, evo-x2 class):** spill cost near zero, i.e. decode and TTFT nearly unchanged past the device-local
+  heap. Data: `[fh1-amd-boundary-llama-3.3-70b]`, `[fh1-amd-boundary-qwen3-32b]` (registered 2026-10-21; FINDINGS
+  "FH1 AMD panel: what is measured and what is missing"). Gaps: qwen3-32b has no unclamped spill point (no spill
+  cost); the measured onset sits at the 65536 MiB dedicated carve-out, not the Vulkan device-local heap, so the x
+  axis normalizer must be stated; reps are 1 call per fresh start with no warm-up; launch flags differ between runs.
+- **INTEL-iGPU (unified, budget wall):** no gradual cost; the server either starts or refuses at one shared-heap limit
+  (hard fail). Data: `[A-24-effective-heap-limit]`, `[A-24-flip-point-per-model]`.
+- **NVIDIA-dGPU (discrete):** decode slowdown proportional to the spilled fraction past VRAM. Data: the x axis
+  placement is now registered: the Ollama layer split puts both measured models fully in VRAM at the two smallest
+  windows and partly on the CPU above them, "VRAM share by num_ctx 4096: 1.000, 8192: 1.000, 16384: 0.870, 32768:
+  0.656" (llama3.1:8b) and "VRAM share by num_ctx 4096: 1.000, 8192: 1.000, 16384: 0.805, 32768: 0.592" (qwen3:8b)
+  `[blade-k1-layer-split]`. The y axis (decode slowdown) is still the Blade C1 files with no register row (G4), so
+  this panel stays **pending G4**. Caveat: the K1 split is Ollama moving layers to the CPU, a different
+  overflow path from the driver's system-memory spill measured in C1 (llama-server direct); the
+  panel must label which path each point is.
+The claim the figure carries: the same "context exceeds memory" event has three different cost shapes depending on the
+memory architecture (near-free spill, hard wall, proportional slowdown), so a hardware-blind router or sizing rule is
+wrong on at least two of the three. If space is short, FH1 replaces F2 and F3 (their detail moves to the supplement).
+
+**4.4a INTEL-iGPU shared-heap budget and first-principles flip point.**
+
+- **Claim:** a model start on INTEL-iGPU succeeds or fails at one shared-heap limit that also counts host-visible
+  buffers, and weights + KV + compute accounting against that limit predicts the measured flip point.
+- **Evidence:** "budget boundary 47482-47969 MiB projected, 5 models" `[A-24-budget-boundary]`; "shared-heap L in
+  (48112.7, 48124.0] MiB, consistent across all 5 models (92 lower / 22 upper bounds), +247 MiB vs the 47866 MiB
+  budget; device-only accounting is inconsistent (max start 47945.2 > min refusal 47562.5 MiB)"
+  `[A-24-effective-heap-limit]`; prediction error "A file-size -2890 to -820 tokens (-3.48% to -0.60%); B device-only
+  -1092 to +968 tokens (-0.34% to +4.11%); C shared-heap LOO -257 to -26 tokens (-0.11% to -0.01%)"
+  `[A-24-flip-point-prediction]`; per-model inputs and results `[A-24-flip-point-inputs]`,
+  `[A-24-flip-point-per-model]`. Files: `results/t2s_amech_20260926T181456Z.jsonl`,
+  `results/t2s_night2_20260929T034014Z.jsonl` and their `_srv_bis_*` logs.
+- **Figure:** F2. Existing `figures/fig_a24_budget_boundary.png` predates the llama-3.3-70b bisection and shows
+  projected memory only; needs regeneration with all models of `[A-24-budget-boundary]` ("5 models") and the three
+  accountings (A/B/C) against the measured interval.
+- **Gaps:** start-only, and beyond the trained context for qwen3-8b, qwen3-30b-a3b-2507 and llama31-8b (the flip is
+  the memory flip, not usable context);
+  AMD-iGPU equivalent not measured (G5). One driver and boot state; the margin over the reported budget is not
+  claimed to transfer.
+
+**4.4b AMD-iGPU spill and crash regimes (MX2).**
+
+- **Claim (not yet citable):** on AMD-iGPU, large contexts pass through a silent-spill regime before a hard failure,
+  and requests above the trained context are clamped without error.
+- **Evidence:** result files exist (`results/mx2_validation.jsonl`, `results/mx2_spill_stats.jsonl`), FINDINGS
+  sections "PRE-REGISTRATION: MX2 validation" and "CORRECTION (2026-10-06)", but NO register row. Nothing from MX2 is
+  stated numerically here.
+- **Figure:** needs figure: decode tok/s and TTFT with 95% CI versus n_ctx for llama-3.3-70b at the spill-stats
+  points, with per-process dedicated/shared GPU memory on a second axis; regime bands FITS / SILENT_SPILL / HARD_FAIL.
+- **Gaps:** register rows for MX2 regime boundaries and spill cost (G5); the llama-3.3-70b crash boundary is
+  non-deterministic and needs x2_70b_edge_reps (warm-read vs standby-purge, ABAB).
+
+**4.4c NVIDIA-dGPU discrete VRAM spill (C1/C2).**
+
+- **Claim (not yet citable):** on the discrete GPU with the default driver policy, exceeding VRAM causes a silent
+  slowdown with a sharp onset, no error and unchanged answers.
+- **Evidence:** result files exist (`results/blade_m1_vram_spill_20260925T041415Z.jsonl`,
+  `results/blade_c1_spill_sweep_20260925T053651Z.jsonl`, `results/blade_c2_spill_correctness_20260925T110739Z.jsonl`),
+  FINDINGS sections C1 and C2, but NO register row.
+- **Figure:** F3. Existing `figures/fig_blade_c1_spill.png` (M1 ladder); needs regeneration from the C1 sweep with
+  bootstrap CIs and the excess-shared-memory axis, plus the C3 forced-failure point.
+- **Gaps:** register rows for C1/C2 (G4); the driver Sysmem Fallback Policy value was not recorded; the
+  forced-failure half: Blade night 2 (d) (C3 sysmem fallback).
+
+**4.4d Unified-memory co-runner effects (B3, PX2, M3).**
+
+- **Claim:** on unified memory a CPU-side co-runner slows LLM inference, more on INTEL-iGPU than on AMD-iGPU, and the
+  metric where it shows differs by vendor.
+- **Evidence:**
+  - INTEL-iGPU TTFT under the 12-core co-runner: "mean 1.429x (+42.9%)" `[B3-corunner-6model]`; llama-3.3-70b "1.42x"
+    `[P70-TTFT-ratio]`; graded by E-core count, "e6:+14.3%, e8:+30.2%, e8_lp4:+41.4%" `[b4_32b-dose-response]`.
+  - AMD-iGPU: "max TTFT ratio on evo-x2: 1.129x (qwen3-8b/S28)" `[PX2-full-ratio-table]`; bandwidth versus compute hog
+    gap on TTFT only "2.1-2.6% (B4 vs S4 TTFT gap range across 5 models)" `[PX2-TTFT-gap]`, but separable on decode:
+    "B4 0.905x-0.928x of N0; S4 0.987x-1.000x of N0" `[PX2-decode-ratio]`; "qwen3-32b/llama-3.3-70b flat ~83.6W
+    across every condition" `[PX2-power]`.
+  - Files: `results/t2s_night2_20260928T004924Z.jsonl`, `results/t2s_night2_20260929T034014Z.jsonl`,
+    `results/t2s_night2_20260930T135145Z.jsonl`.
+- **Figure:** F4. Existing `figures/fig_power_effect_b1_b3.png` and `figures/fig_b4_ecore_threshold.png` (INTEL-iGPU
+  only); needs a combined cross-vendor panel: TTFT ratio and decode ratio per co-runner condition, INTEL-iGPU vs
+  AMD-iGPU.
+- **Gaps:** INTEL-iGPU mechanism is open (package power alone does not explain it; M3 and Section B have no register
+  row, so their numbers are not used); INTEL-iGPU has no bandwidth hog, so the two vendors are not measured on the
+  same metric: T2S week item 4 (Intel bandwidth hog). One run per condition, small n.
+
+### 4.5 Runtime policy (1.50 pages) (outline as of 2026-10-21; superseded 2026-10-22)
+
+**4.5a Default context selection per device (K1 v3).**
+
+- **Claim:** the same runtime selects the default context window from its own device-detection policy, so two
+  integrated GPUs get very different windows for the same model, and the discrete GPU gets a small one.
+- **H1 cross-vendor default-context and truncation table** (all cells pasted from the register; one runtime, Ollama;
+  the per-platform version is in Section 3):
+
+| platform | default context per model | GPU placement at the default and above | overflow at the default | register rows |
+|---|---|---|---|---|
+| INTEL-iGPU | "qwen3-4b-2507": {"t2s_default_ctx": 4096, ...}, "llama3.1:8b": {"t2s_default_ctx": 4096, ...}, "qwen3:8b": {"t2s_default_ctx": 4096, ...} | "evo-t2s (no ROCm path for Intel) falls through to CPU once Vulkan drops it" | "processed = num_ctx/2 + 2 in all 4 checked cases: 4096->2050; 32768->16386; 40960->20482; 8192->4098" (cases pooled over INTEL-iGPU and AMD-iGPU files) | T2S-vs-X2-default-ctx, x2-device-detect-mechanism, ollama-overflow-keeps-half |
+| AMD-iGPU | {"qwen3-4b-2507": {"capped": false, "native_ctx": 262144, "ollama_default_ctx": 262144}, "llama3.1:8b": {"capped": false, "native_ctx": 131072, "ollama_default_ctx": 131072}, "qwen3:8b": {"capped": true, "native_ctx": 40960, "ollama_default_ctx": 40960}} | "evo-x2 uses the iGPU via ROCm" | as the INTEL-iGPU row (pooled) | K1v3-X2-table, T2S-vs-X2-default-ctx, x2-device-detect-mechanism, ollama-overflow-keeps-half |
+| NVIDIA-dGPU | "llama3.1:8b: default ctx 4096"; "qwen3:8b: default ctx 4096"; "qwen3-4b-2507-tools: not measured (model not present)" | "fully on GPU at default True" (both models); llama3.1:8b "VRAM share by num_ctx 4096: 1.000, 8192: 1.000, 16384: 0.870, 32768: 0.656"; qwen3:8b "VRAM share by num_ctx 4096: 1.000, 8192: 1.000, 16384: 0.805, 32768: 0.592"; "device VRAM 8188 MiB" | llama3.1:8b "4096 tok -> HTTP 200, evaluated 3337; 8192 tok -> HTTP 200, evaluated 2050; 16384 tok -> HTTP 200, evaluated 2050; 32768 tok -> HTTP 200, evaluated 2050"; qwen3:8b "4096 tok -> HTTP 200, evaluated 4082; 8192 tok -> HTTP 200, evaluated 2050; 16384 tok -> HTTP 200, evaluated 2050; 32768 tok -> HTTP 200, evaluated 2050" | blade-k1-layer-split |
+
+  Reading: on all three platforms an over-length prompt returns success and is evaluated at the half-window value
+  ("4096->2050" `[ollama-overflow-keeps-half]`; "evaluated 2050" at the default `[blade-k1-layer-split]`). The
+  NVIDIA-dGPU probe at the window size itself ("4096 tok") is evaluated below the window and is not an overflow case;
+  the probe length is the harness's target token count (`target_tokens` in `results/blade_k1_v2.summary.json`), not
+  the model's own count, so it is not read as a truncation.
+- **Evidence:** `[T2S-vs-X2-default-ctx]`: {"qwen3-4b-2507": {"t2s_default_ctx": 4096, "x2_default_ctx": 262144},
+  "llama3.1:8b": {"t2s_default_ctx": 4096, "x2_default_ctx": 131072}, "qwen3:8b": {"t2s_default_ctx": 4096,
+  "x2_default_ctx": 40960}}; mechanism `[x2-device-detect-mechanism]`: "Vulkan backend drops the AMD iGPU by the same
+  policy as Intel, but Ollama also discovers it via ROCm (no opt-out), so evo-x2 uses the iGPU via ROCm while evo-t2s
+  (no ROCm path for Intel) falls through to CPU once Vulkan drops it"; `[K1v3-X2-table]`. Files:
+  `results/apu_results__t2s_k1_ollama_evo-t2s_20261001T074622Z.jsonl`,
+  `results/t2s_k1_ollama_evo-x2_20260930T205515Z.jsonl`, `results/x2_template_mechanism_test.jsonl`.
+- **Figure:** F5: default window per (platform, model) overlaid on the CDF of real agent step lengths
+  (`figures/fig_trace_cdf.png` exists for the CDF; the overlay is new).
+- **Gaps:** NVIDIA-dGPU default: landed (Blade night 1 (a), K1, `[blade-k1-layer-split]`); two models there, the
+  third not present on that machine. The NVIDIA-dGPU row shows the small default but not why (device detection vs a
+  VRAM-size rule); no register row separates the two, so the device-detection mechanism is claimed for the two iGPUs
+  only. Ollama version differs between INTEL-iGPU and the other two platforms (Section 3). The `OLLAMA_IGPU_ENABLE=1` control on INTEL-iGPU has no register row (G12).
+
+**4.5b Overflow behaviour.**
+
+- **Claim:** when a prompt exceeds the loaded window, the runtime returns success and silently keeps half the window.
+- **Evidence:** "processed = num_ctx/2 + 2 in all 4 checked cases: 4096->2050; 32768->16386; 40960->20482;
+  8192->4098. Mechanism: Ollama's own '--context-shift --keep 4' llama-server flag" `[ollama-overflow-keeps-half]`.
+  NVIDIA-dGPU, both measured models at the default: "8192 tok -> HTTP 200, evaluated 2050; 16384 tok -> HTTP 200,
+  evaluated 2050; 32768 tok -> HTTP 200, evaluated 2050" `[blade-k1-layer-split]` (full row in the 4.5a table).
+- **Figure:** folded into F7.
+- **Gaps:** NVIDIA-dGPU: landed (Blade night 1 (a)); the overflow probes there ran at the default window only.
+
+**4.5c Install-path effects.**
+
+- **Claim:** the same weights behave differently as an agent depending on how they were installed into the runtime.
+- **Evidence:** `[R2-install-path-4b-comparison]`: "change bare -> library template: call-1 native 11/30 -> 2/30,
+  text tool calls 30/30 -> 30/30, task tool correct 5/30 -> 5/30"; bare tag alone `[R2-install-path-4b-bare]`;
+  template source per outcome row `[x2-chat-template-source]`. Files: `results/x2_r2_validation_v2b.jsonl`,
+  `results/x2_r2_validation_v2c.jsonl`, `results/x2_chat_template_sources.jsonl`.
+- **Figure:** none (a small table).
+- **Gaps:** both install paths fail the task-tool gate for this model, so the finding is "behaviour follows the
+  install path", not "one path works". The K1 item-1b result (bare create hard-errors on overflow, library pull
+  truncates silently, same file) has no register row (G12).
+
+**4.5d TTFT first-call stall.**
+
+- **Claim:** the first request on a new prompt waits for the previous request's KV state to be moved, at a fixed
+  per-machine rate, which dominates TTFT error on AMD-iGPU.
+- **Evidence:** "evo-x2: 658/919 rep-0 calls >1.5x their rep 1, stall median 15.7-40.8 s, displaced KV state
+  29.0-29.3 MiB/s" and "evo-t2s: 242/424 rep-0 calls >1.5x their rep 1, stall median 1.9-4.0 s, displaced KV state
+  134.0-141.0 MiB/s" `[ttft-first-call-stall]`; removing those rows: "drop_first_call_rep0 0.95-1.00 (6 models)"
+  `[ttft-x2-refit-by-hypothesis]`; out-of-sample check "median abs % error 0.4-2.3% with the stall term vs 48.3-89.6%
+  without, 6 models" `[ttft-x2-section0-stall-check]`; per cell `[ttft-first-call-stall-per-cell]`.
+- **Figure:** optional (cut first if space is short).
+- **Gaps:** the mechanism (llama-server host-RAM prompt cache) is inferred, not confirmed: a `--cache-ram 0` control
+  is needed and NO queue job exists for it (G11). `[ttft-cross-machine-transfer]` and `[ttft-few-point-calibration]`
+  were computed on pooled rows and must be recomputed on rep>=1 rows before they are cited (G11).
+
+### 4.7p Predictor (outline, not yet prose) [superseded 2026-10-22]
+
+- **Claim (verified on AMD-iGPU, one session per tier):** a context shift, the step that discards the system prompt
+  at the smallest window, happens on a call exactly when the post-trim prompt plus the generated tokens exceed the
+  loaded window; the rule is taken from the llama.cpp source, not fitted. Using the generation budget in place of the
+  generated count gives a before-the-call flag that misses no shift at the cost of false alarms.
+- **Evidence:** `[R2-shift-predictor-confusion]`: "num_ctx_4096 TP 34 FP 0 FN 0 TN 46 precision 100.0% recall
+  100.0%", "num_ctx_32768 TP 10 FP 0 FN 0 TN 70 precision 100.0% recall 100.0%", "misses 0"; variants "exact
+  P+C>n_ctx: TP 44 FP 0 FN 0", "budget P+num_predict>n_ctx: TP 44 FP 22 FN 0", "prompt only P>=n_ctx-1: TP 0 FP 0 FN
+  44". Applied to the real run as a prediction only (no server log there, nothing observed):
+  `[R2-shift-predicted-real-v1]`: "num_ctx_4096 llama3.1:8b: predicted 102/240 calls" and "num_ctx_4096 qwen3:14b:
+  predicted 0/240 calls"; predicted shifts line up with the first rule failure only partly, and the qwen3:14b rule
+  failures at 4096 happen with no predicted shift (`docs/FINDINGS.md`, "R2 context-shift predictor and orphaned messages"). What the message-level trim
+  leaves at the front of the window: `[R2-orphan-rates]`: "num_ctx_4096: 76/80 truncated; first kept user 15,
+  assistant tool-call 47, assistant final 6, tool 8; orphaned 61/76 (80.3%)". File: `results/x2_r2_mechanism.jsonl`
+  (observed part), `results/x2_r2_real_v1.jsonl` (predicted part).
+- **Scope of the claim:** it predicts the context shift (where the system prompt goes on AMD-iGPU), not rule
+  failure: the real-run qwen3:14b failures are not explained by it. Built and scored on the same mechanism sessions;
+  no tunable parameter, but no held-out observed sessions yet. (2026-10-22: the qwen3:14b 4096 statement above
+  is consistent with `[R2-qwen3-14b-4096-reconciliation]`: qwen3:14b's 4096 lapses are rule 3 and rule 5, and the
+  num_keep rerun reproduced v1 turn for turn ("identical final text 120/120").)
 
 ### 4.1 Introduction and 4.1a motivation draft (outline as of 2026-10-20; superseded 2026-10-21)
 
