@@ -5456,6 +5456,17 @@ def compute_cloud_redo_cost_per_wrong_task(repo, path=CLOUD_REDO_V1):
             "n": f"{s['n']} wrong tasks"}
 
 
+def compute_cloud_redo_diagnosis(repo):
+    """Offline diagnosis of the live cloud redo: what transcript and environment it sent, the model and tier, and every
+    cloud failure in exactly one class (analysis/cloud_redo_diagnosis.py::compute)."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("cloud_redo_diagnosis", repo / "analysis" / "cloud_redo_diagnosis.py")
+    cd = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cd)
+    d = cd.compute(repo)
+    return {"value": cd.value_text(d), "n": f"{d['n_fail']} failed of {d['n_tasks']} redo tasks"}
+
+
 def compute_cloud_cost_per_real_task(repo):
     """Cloud USD per real agent task (trajectory), no machine time: billed input (every step re-sends its full prompt)
     and output tokens per trajectory, median / p90 USD per trace set, tier (claude-haiku-5-5, claude-sonnet-5-5) and
@@ -7109,6 +7120,12 @@ NUMBER_ENTRIES = [
      "tier, mode (priced, not executed vs executed) and n. In stub mode correctness and seconds are not measured",
      "compute": compute_cloud_redo_cost_per_wrong_task, "data_files": [CLOUD_REDO_V1, X2_EVALSET_TASKS_REAL_V2],
      "script_function": "scripts/cloud_redo.py::summarize"},
+    {"claim_id": "cloud-redo-diagnosis", "description": "Why the live cloud redo fixed only part of the wrong tasks, "
+     "offline: transcript sent (full client-side history vs truncated), environment it started from, model and tier, "
+     "and each cloud failure in exactly one class (output cap, earlier-state repair, tool-round cap, grader issue, "
+     "missing information, cloud model error)",
+     "compute": compute_cloud_redo_diagnosis, "data_files": [CLOUD_REDO_V1, X2_EVALSET_TASKS_REAL_V2],
+     "script_function": "analysis/cloud_redo_diagnosis.py::compute"},
     {"claim_id": "cloud-cost-per-real-task", "description": "Cloud cost per real agent task, priced, not executed: per "
      "trajectory of the uncensored traces (nebius-rebench-openhands, SWE-Gym) the billed input (each step re-sends its "
      "full prompt) and output tokens, USD median and p90 at claude-haiku-5-5 and claude-sonnet-5-5 for no caching, "
