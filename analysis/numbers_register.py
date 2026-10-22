@@ -5444,6 +5444,19 @@ def compute_cloud_redo_cost_per_wrong_task(repo, path=CLOUD_REDO_V1):
             "n": f"{s['n']} wrong tasks"}
 
 
+def compute_cloud_cost_per_real_task(repo):
+    """Cloud USD per real agent task (trajectory), no machine time: billed input (every step re-sends its full prompt)
+    and output tokens per trajectory, median / p90 USD per trace set, tier (claude-haiku-5-5, claude-sonnet-5-5) and
+    caching case (none, realistic ASSUMPTION hit rate 0.7, best). Output per step is a labelled stand-in
+    (analysis/cloud_task_cost.py)."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("cloud_task_cost", repo / "analysis" / "cloud_task_cost.py")
+    ct = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ct)
+    res = ct.compute(repo)
+    return {"value": ct.value_text(res), "n": f"{sum(e['n_tasks'] for e in res['sets'].values())} trajectories"}
+
+
 # ───────────────────────────────────────────────── evo-x2 queue fill of 2026-10-21 (docs/X2_QUEUE_PLAN.md)
 # Jobs pre-registered in docs/FINDINGS.md on 2026-10-20/21: num_keep for qwen3:14b, B3 v2 for qwen3:8b (tasks
 # validation + real run), qwen3:8b 8192 vs 4096 with 10 seeds. The hours row is an ESTIMATE from measured session times;
@@ -7075,6 +7088,14 @@ NUMBER_ENTRIES = [
      "tier, mode (priced, not executed vs executed) and n. In stub mode correctness and seconds are not measured",
      "compute": compute_cloud_redo_cost_per_wrong_task, "data_files": [CLOUD_REDO_V1, X2_EVALSET_TASKS_REAL_V2],
      "script_function": "scripts/cloud_redo.py::summarize"},
+    {"claim_id": "cloud-cost-per-real-task", "description": "Cloud cost per real agent task, priced, not executed: per "
+     "trajectory of the uncensored traces (nebius-rebench-openhands, SWE-Gym) the billed input (each step re-sends its "
+     "full prompt) and output tokens, USD median and p90 at claude-haiku-5-5 and claude-sonnet-5-5 for no caching, "
+     "realistic caching (ASSUMPTION hit rate 0.7) and best-case caching; output per step is a labelled stand-in",
+     "compute": compute_cloud_cost_per_real_task,
+     "data_files": ["results/traces/agent_step_lengths.parquet", "results/cloud_prices_anthropic_20261014.json",
+                    "results/x2_r2_real_v1.jsonl"],
+     "script_function": "analysis/cloud_task_cost.py::compute"},
     {"claim_id": "x2-queue-fill-1020-hours", "description": "ESTIMATE, not a measurement: hours per job of the "
      "2026-10-21 evo-x2 queue fill from measured session times, back-to-back projected dates from the first launch, "
      "slack before 2026-11-10 and idle capacity",
