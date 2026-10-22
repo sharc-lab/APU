@@ -5034,3 +5034,89 @@ calls per point with a fixed 2048-token prompt, so the cost is for that request 
 Windows' per-process GPU counter (the 2026-10-02 MX2 note explains why vulkaninfo cannot see another process's
 spill). Duration: an ESTIMATE in register row `x2-queue-fill-1022-hours` from the MX2 qwen3-32b point times. The job
 calls tq.advance() on exit and sets no pause.
+
+## PRE-REGISTRATION: protocol consistency extended to mistral-small3.2:24b, B3 v2 tasks validation and task real run (x2_evalset_tasks_val_v2_mistral_small32, x2_evalset_tasks_real_v2_mistral_small32) on evo-x2 (2026-10-22, NOT YET RUN)
+
+**Status:** PRE-REGISTRATION, written and committed before these jobs are deployed or queued. No data for either job
+exists. It is a further extension of "PRE-REGISTRATION: protocol consistency, B3 v2 task real runs
+x2_evalset_tasks_real_v2" (2026-10-19) and of its qwen3:8b extension (2026-10-21), whose texts are not edited; the
+measures, bootstrap and decision rules are theirs unless this section says otherwise. The 2026-10-19 task end-state
+waiver is qwen3:14b-only and is not extended.
+
+**Why.** P1 rests on one model under the v2 protocol: qwen3:8b was refused by its own validation (register row
+`x2-evalset-tasks-val-v2-qwen3-8b-gates`, pasted: "task tool FAIL 61/81 (0.753)" and "task end state FAIL 65/90
+(72.2%, bar 90%)", as quoted in the 2026-10-22 results section) and llama3.1:8b earlier. mistral-small3.2:24b passed
+its R2 validation (row `x2-family-validation`, pasted: "rule1 96.7%, rule2 100.0%, rule3 100.0%, rule4 100.0%, rule5
+96.7%; tool validity 97.7% of 44 calls; tool args 100.0%; recall 100.0% (n=6); canary C 100.0%, H 100.0% (n=6); empty
+final answers 0; task tool 29/30; thinking-present calls 0; preflight pass") and ran its R2 real cells (row
+`H-scale-family-verdict`, pasted: "mistral-small3.2:24b: R4096 0/3 (window exceeded 3/3, gated 0/3), H32768 2/3 (window
+exceeded 3/3); resists rule loss; history loss with rules holding holds"). It is a second model family (not qwen3, not
+llama3.1), so a P1 effect on it would not be a qwen3-family effect.
+
+**Job 1, validation.** Queue id `x2_evalset_tasks_val_v2_mistral_small32`, output
+`results/x2_evalset_tasks_val_v2_mistral_small32.jsonl`: the tasks validation exactly as `x2_evalset_tasks_val_v2`
+and the qwen3:8b validation ran it (`harness/x2_r2_evalset.py --design v2 --mode validation --workload evalset
+--guardrails off`, tool loop with tools on every call and up to 4 tool rounds, negative control at num_ctx 131072 on
+seeds 20260901 to 20260903, positive control at num_ctx 8192 on seed 20260901, temperature 0, seed 42, num_predict
+384), with `--models mistral-small3.2:24b`. "think" is not sent for this model (the harness's model table has no
+entry for it, as in its R2 runs, whose run_start recorded `"think": {"mistral-small3.2:24b": null}`). Gates: those of
+`x2-evalset-val-v2-gates` for a tasks validation. Register row `x2-evalset-tasks-val-v2-mistral-small32-gates`
+(PENDING until synced).
+
+**Native tool-call template, checked before queueing (dry, no model call).** The B3 v2 loop needs the chat template
+to render the tools on every call, the assistant's own tool calls, and tool results fed back. The check reads the
+tag's template layer from its manifest on disk (`harness/x2_deploy_check.py --template mistral-small3.2:24b`) and
+requires `.Tools`, `.ToolCalls` and a tool-result construct (a "tool" role branch or `TOOL_RESULTS`). If any is
+missing, neither job is queued and this is reported. The validation itself is the live check: its task-tool and
+negative-control gates fail if native calls do not work through the loop.
+
+**Job 2, real run, gated.** Queue id `x2_evalset_tasks_real_v2_mistral_small32`, output
+`results/x2_evalset_tasks_real_v2_mistral_small32.jsonl`, new harness options `--plan tasks_v2_mistral_small32`
+(TASKS_V2_TIERS x TASKS_V2_SEEDS x 30 task turns, model list mistral-small3.2:24b only) and `--preflight v2_strict`,
+which go together. Tiers `ollama_default`, num_ctx 16384, 8192, 4096, and 4096 with options.num_keep = S (S measured
+per session with the model's own tokenizer, render and count); seeds 20260901 to 20260905 (the same five tiers and
+seeds as the qwen3:14b and qwen3:8b real runs); 25 sessions. Two independent locks:
+1. Queue gate `{"gate": {"requires_done": "x2_evalset_tasks_val_v2_mistral_small32"}}`, entry after the validation.
+2. `strict_preflight_v2` on the validation file with only mistral-small3.2:24b allowed: admitted only if
+   `validation_preflight_ext` (design v2) admits it with no waiver AND every gate passes (baseline rules 1 to 5 each at
+   least 90%, negative control, positive control, content non-empty, thinking off, task tool, negative-control window,
+   task end state at least 90%). Otherwise the job writes refused rows, ends "stopped: refused", makes no model call,
+   and the register rows read "refused". No waiver of any kind.
+
+**Measures, fixed now** (register rows `x2-evalset-tasks-real-v2-mistral-small32-gated-excess` and
+`x2-evalset-tasks-real-v2-mistral-small32-wrong-rate`, PENDING): measures 1 to 3 of the 2026-10-19 pre-registration for
+this model (gated after-window silent failures with the gated metrics from its own v2 validation; excess over the
+default with the v1b bootstrap; wrong-task rate over all task turns and its session-bootstrap excess over the default,
+10000 resamples, seed 20261014), with the 2026-10-19 readings for the wrong-task excess ("<tier> raises the wrong-task
+rate" / "no excess shown" / "lower at <tier>").
+
+**mistral's R2 values, and what they mean for the protocol rule.** The 2026-10-19 rule compares the v2 excess at a
+tier with the v1b excess at that tier (`R2-v1b-excess-over-default`). mistral has no v1b cells: its R2 real run covered
+num_ctx 4096 and 32768 only, with no default tier, so no R2 excess over the default exists for it at any tier. Its
+v1b-equivalent values are the two `H-scale-family-verdict` cells pasted above: at 4096, "R4096 0/3 (window exceeded
+3/3, gated 0/3)", i.e. no gated rule failure after the window in 3 sessions; nothing at 16384 or 8192. The rule is
+applied as follows, fixed now:
+- **4096**: the R2 cell has no failure (0/3, no default reference, so read as "no R2 effect"). v2 CI lower bound above
+  0: "v2 shows an excess R2 did not"; otherwise "no excess in either protocol". The "holds" and "protocol artifact"
+  outcomes cannot occur for this model, because R2 showed nothing to hold or explain away; 3 R2 sessions against 5 v2
+  sessions, and an absolute R2 count against a v2 excess, are noted with the reading.
+- **16384 and 8192**: no R2 counterpart; the v2 excess and its reading are reported alone, with "no R2 counterpart"
+  in place of a protocol reading.
+- **num_keep**: the 2026-10-19 rule unchanged ("num_keep removes the 4096 excess for mistral-small3.2:24b" / "num_keep
+  does not remove it" / "not shown either way").
+
+**P1 on two models, fixed now** (the 2026-10-21 rule with mistral in qwen3:8b's place). Per tier, the wrong-task
+reading of qwen3:14b (`x2-evalset-tasks-real-v2-wrong-rate`) and of mistral-small3.2:24b. A tier where both read
+"raises the wrong-task rate" is reported as a P1 effect on two models (two families); a tier where only one does is
+reported as one model only, naming it. If mistral is refused or its run is invalid, P1 stays on one model and is
+reported so.
+
+**Validity (mechanical).** As in the 2026-10-21 extension: run finished; mistral not refused; 25 sessions with 30 task
+turns; every row requested its tier's num_ctx (none at the default); every request of every num_keep session carried
+options.num_keep = S > 0; no turn rows of another model; run_start of both files records the harness and agent blobs.
+
+**Known limits, stated before the run.** All limits of the 2026-10-19 pre-registration apply. mistral's R2 evidence
+is 3 sessions at two tiers, so the protocol comparison is weaker than for qwen3:14b. mistral's default window under
+Ollama 0.34.4 on evo-x2 is not yet measured (its R2 run had no default tier); the real run records it. A 24B model is
+slower per token than qwen3:14b at small windows (R2 session times, register row `x2-queue-fill-1022-hours`). Both
+jobs call tq.advance() on exit and set no pause.
