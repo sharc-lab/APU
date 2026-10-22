@@ -1023,7 +1023,7 @@ def session_time_value(res) -> str:
 # wall time of the wrong task turn, valued 0 to the full hour value). P2 (operator decision 2026-10-21) = machine
 # capacity: measured session minutes of the default and the fastest measured B5 setting for the profile model [row
 # cost-cut-config-time] give sessions per machine per day, machines needed for the profile's sessions/day (ceil) and
-# the machines saved x the reference machine price [row impact-ref-machine-price, an ASSUMPTION input to verify] /
+# the machines saved x the reference machine price [row impact-ref-machine-price, a cited public list price] /
 # an ASSUMED 3-year life; waiting time at the hour value is an UPPER BOUND on the interactive-session share only
 # (ASSUMED 0.25). P2 is PENDING (values shown, not ranked) until row b5-fa-control is VERIFIED. P3 as in
 # v1. P4 to P7: the v1 row functions at the same profile. Every row carries a status: measured / mixed / assumed /
@@ -1162,15 +1162,21 @@ def v2_rows(repo=REPO, base_profile=None, inputs=None) -> dict:
     return {"profile": prof, "rows": out}
 
 
-REF_MACHINE_FILE = "results/hardware_price_evox2_20261021.json"   # ASSUMPTION input, must be verified (row impact-ref-machine-price)
+REF_MACHINE_FILE = "results/hardware_price_evox2_20261021.json"   # cited public list price (row impact-ref-machine-price)
 MACHINE_LIFE_YEARS = 3.0    # ASSUMED amortization life of the reference machine
 INTERACTIVE_SHARE = 0.25    # ASSUMED share of sessions a person waits on (the waiting-time upper bound applies only here)
 MINUTES_PER_DAY = 24 * 60
 
 
 def ref_machine(repo=REPO) -> dict:
-    """The reference machine's price record (results/hardware_price_evox2_20261021.json): an ASSUMPTION input."""
+    """The reference machine's price record (results/hardware_price_evox2_20261021.json): a cited public list price
+    with its label ("list price, <source>, <date>", operator decision 2026-10-22)."""
     return json.loads((Path(repo) / REF_MACHINE_FILE).read_text(encoding="utf-8"))
+
+
+def price_label(machine) -> str:
+    """The machine price's label as recorded in its file; files without one are an unverified assumption."""
+    return (machine or {}).get("label") or "ASSUMPTION, must be verified"
 
 
 def p2_capacity(sessions_day, default_min, best_min, machine_usd, life_years=MACHINE_LIFE_YEARS, concurrency=1):
@@ -1191,7 +1197,7 @@ def p2_v2(profile, cc=None, machine=None, fa_verified=False, interactive_share=I
     """P2 at the v2 profile (operator decision 2026-10-21). Primary USD = machine capacity from the measured session
     minutes of the runtime default and the fastest measured B5 setting for the profile model (cost_cut_config_time_data
     shape: {"models": {model: {"default_min", "best_min", "saved_min", ...}}, "fa_included"}) at the profile's
-    sessions/day (ASSUMED), with the reference machine price (machine: {"usd", ...}, an ASSUMPTION input) amortized over
+    sessions/day (ASSUMED), with the reference machine price (machine: {"usd", "label", ...}, a cited list price) amortized over
     MACHINE_LIFE_YEARS (ASSUMED). Waiting time at the hour value is an UPPER BOUND on top, applied only to the
     interactive-session share (ASSUMED). Status PENDING (values still computed and shown) until row b5-fa-control is
     VERIFIED; the ranking does not place a PENDING row."""
@@ -1206,11 +1212,11 @@ def p2_v2(profile, cc=None, machine=None, fa_verified=False, interactive_share=I
     cap = p2_capacity(spd, x["default_min"], x["best_min"], float(machine["usd"]))
     wait_full = spd * max(0.0, x["saved_min"]) / 60.0 * hv
     wait_ub = wait_full * interactive_share
-    caveat = (P2_CAVEAT_FA_INCLUDED if cc.get("fa_included") else P2_CAVEAT_FA_PENDING)
+    caveat = ((cc.get("fa_attribution") or P2_CAVEAT_FA_INCLUDED) if cc.get("fa_included") else P2_CAVEAT_FA_PENDING)
     r.update(usd_day=cap["usd_day"], low=cap["usd_day"], high=cap["usd_day"] + wait_ub,
              status="mixed" if fa_verified else "PENDING", pending=[] if fa_verified else ["b5-fa-control"],
              cell=dict(x, model=model), caveat=caveat, fa_included=bool(cc.get("fa_included")), capacity=cap,
-             machine_usd=float(machine["usd"]), wait_upper_bound=wait_ub, wait_full_share=wait_full,
+             machine_usd=float(machine["usd"]), machine_label=price_label(machine), wait_upper_bound=wait_ub, wait_full_share=wait_full,
              interactive_share=interactive_share)
     return r
 
@@ -1389,8 +1395,10 @@ def p2_v2_value(r) -> str:
             f"{x['best_min']:.1f} min = {c['sessions_per_machine_day_best']:.2f} (MEASURED minutes, cost-cut-config-time; "
             f"24 h / session minutes, one session at a time, no measured concurrency row); machines for the profile's "
             f"sessions/day (ASSUMED volume): {c['machines_default']} default vs {c['machines_best']} "
-            f"best (ceil), {c['machines_saved']} saved x USD {r['machine_usd']:,.0f} (impact-ref-machine-price, "
-            f"ASSUMPTION, must be verified) / {c['life_years']:.0f}-year life (ASSUMED) = USD {c['usd_day']:.2f}/day; "
+            f"best (ceil{', half the hardware' if 2 * c['machines_best'] == c['machines_default'] else ''}), "
+            f"{c['machines_saved']} saved "
+            f"x USD {r['machine_usd']:,.0f} (impact-ref-machine-price, {r.get('machine_label', price_label(None))}) / "
+            f"{c['life_years']:.0f}-year life (ASSUMED) = USD {c['usd_day']:.2f}/day; "
             f"upper bound: waiting time {x['saved_min']:.1f} min saved per session x hour value x interactive-session "
             f"share {r['interactive_share']:.2f} (ASSUMED) = USD {r['wait_upper_bound']:,.2f}/day on top; {r['caveat']}")
 
@@ -1652,7 +1660,8 @@ HYBRID_REQUIRED = ("all-cloud-b3-quality", "all-cloud-b3-cost", "x2-evalset-task
                    "impact-v3-detection-value-measured")
 HYBRID_POLICIES = (("all_cloud", "all-cloud (reference)"), ("naive_local", "naive local"),
                    ("hybrid_flag", "hybrid: escalate window-overflow flagged tasks"),
-                   ("hybrid_perfect", "hybrid: escalate every wrong task (perfect detector, UPPER BOUND)"))
+                   ("hybrid_perfect", "escalate every wrong task (ceiling, no such detector)"))
+CEILING_LABEL = "ceiling, no such detector"   # operator decision 2026-10-22, item 2: never a headline
 INTERIM_ESC = "interim: all-cloud per-task cost, full-history redo pending"
 HYBRID_ALL_TIERS = ("ollama_default",) + B3_V2_TIERS
 HYB_BEGIN, HYB_END = "<!-- hybrid_savings:begin -->", "<!-- hybrid_savings:end -->"
@@ -1808,6 +1817,188 @@ def hybrid_savings(repo=REPO, p2_row=None) -> dict:
             "blade": "not measured (no B3 v2 run on the Blade)", "p2": hybrid_p2(repo, p2_row)}
 
 
+# Savings as a formula over task size (operator decision 2026-10-22, item 1; row hybrid-savings-curve):
+#   savings/month = B x k - X
+#   B = all-cloud bill/month = all-cloud USD per task x tasks/day x 30
+#   k = share kept local at matched quality (hybrid-savings-v1's "kept local at matched quality": local correct and the
+#       all-cloud tier correct on the same task and seed); realizing k needs every other task found and escalated, which
+#       needs a verifier for in-window wrong answers that we do not claim
+#   X = escalation cost/month beyond the all-cloud bill of the escalated share = (USD of the escalated tasks per task -
+#       (1 - k) x all-cloud USD per task) x tasks/day x 30; the escalated tasks' USD uses the same input
+#       hybrid-savings-v1 uses (INTERIM: their all-cloud cost; the full-history redo mean once cloud-redo-full-context
+#       is VERIFIED and finished unstopped), so X is nonzero today only because the escalated tasks are not average ones
+# Measured point: the 30 B3 v2 tasks (3 shared seeds), evo-x2 default. Projected points: real agent task sizes from
+# cloud-cost-per-real-task (SWE-Gym median, nebius-rebench-openhands median and p90, realistic caching), with k and
+# X / B taken from the measured point: "projected: local quality on long tasks not measured".
+CURVE_ROW = "hybrid-savings-curve"
+CURVE_CASE = "realistic"
+CURVE_POINTS = (("SWE-Gym", "median"), ("nebius-rebench-openhands", "median"), ("nebius-rebench-openhands", "p90"))
+CURVE_PROJ_LABEL = "projected: local quality on long tasks not measured"
+CURVE_REQUIRED = HYBRID_REQUIRED + ("cloud-cost-per-real-task",)
+
+
+def savings_formula(bill_task, k, x_ratio, volume, days=DAYS_PER_MONTH) -> dict:
+    """Pure: B = bill_task x volume x days; X = x_ratio x B; savings = B x k - X."""
+    b = bill_task * volume * days
+    return {"bill": b, "kept": b * k, "escalation": x_ratio * b, "savings": b * k - x_ratio * b}
+
+
+def curve_inputs(local: dict, cloud: dict, seeds, esc_usd=None) -> dict:
+    """Pure, same matching as hybrid_policies: k = kept local at matched quality / n; the escalated set is every other
+    task; x_ratio = X / B per task = (escalated USD per task - (1 - k) x all-cloud USD per task) / all-cloud USD per
+    task. esc_usd None = INTERIM (the escalated task's own all-cloud USD)."""
+    seeds = set(seeds)
+    keys = sorted(x for x in local if x in cloud and x[0] in seeds)
+    if not keys:
+        raise ValueError("no shared (seed, task) pairs")
+    n = len(keys)
+    kept = [x for x in keys if not local[x][1] and cloud[x][0]]
+    esc = [x for x in keys if x not in set(kept)]
+    c = sum(cloud[x][1] for x in keys) / n
+    esc_task = sum(cloud[x][1] if esc_usd is None else esc_usd for x in esc) / n
+    k = len(kept) / n
+    return {"n": n, "kept": len(kept), "k": k, "bill_task": c, "esc_task": esc_task,
+            "x_ratio": (esc_task - (1 - k) * c) / c}
+
+
+def all_cloud_task_input_tokens(repo=REPO) -> dict:
+    """{model: {(seed, task_id): billed input tokens (provider usage, cache reads and writes included)}}."""
+    import numbers_register as nr
+    d = nr.all_cloud_b3_data(Path(repo))
+    out = {}
+    for r in d["ac"].CR.load_rows(Path(repo) / nr.ALL_CLOUD_B3_V1):
+        if r.get("record") == "r2a_turn" and r.get("item_kind") == "task" and r.get("end_state_ok") is not None:
+            out.setdefault(r["model_id"], {})[(r["seed"], r["task_id"])] = int(r["input_tokens"])
+    return out
+
+
+def _cloud_task_cost_module(repo):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("cloud_task_cost", Path(repo) / "analysis" / "cloud_task_cost.py")
+    ct = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ct)
+    return ct
+
+
+def hybrid_curve(repo=REPO, h=None, real=None) -> dict:
+    """Per cloud tier: the measured B3 point and the projected real-task points with B, k x B, X and savings per month
+    at HYBRID_VOLUMES. h: hybrid_savings() output; real: cloud_task_cost.compute() output (read when None)."""
+    missing = [c for c in CURVE_REQUIRED if not register_has(repo, c)]
+    if missing:
+        return {"status": "PENDING", "pending": missing}
+    h = h or hybrid_savings(repo)
+    if h["status"] != "VERIFIED":
+        return {"status": "PENDING", "pending": h["pending"]}
+    real = real or _cloud_task_cost_module(repo).compute(Path(repo))
+    ac, local = all_cloud_task_outcomes(repo), b3_v2_task_outcomes(repo)
+    toks = all_cloud_task_input_tokens(repo)
+    redo = h["redo"]
+    tiers = []
+    for m in sorted(ac["models"]):
+        esc = redo["usd"] if redo and redo["model"] == m else None
+        ci = curve_inputs(local[DEFAULT_TIER], ac["models"][m], h["seeds"], esc)
+        cell = next(c for c in h["cells"] if c["model"] == m and c["tier"] == DEFAULT_TIER)
+        flag = cell["policies"]["hybrid_flag"]
+        keys = [x for x in local[DEFAULT_TIER] if x in ac["models"][m] and x[0] in set(h["seeds"])]
+        size = statistics.median(toks[m][x] for x in keys)
+        pts = [{"name": "B3 v2 tasks (30 tasks x 3 seeds), median", "size": size, "bill_task": ci["bill_task"],
+                "label": "measured", "steps": None}]
+        for label, q in CURVE_POINTS:
+            e = real["sets"][label]
+            pts.append({"name": f"{label} {q}", "size": e[f"input_{q}"], "steps": e["steps_median"] if q == "median"
+                        else None, "bill_task": e["usd"][(m, CURVE_CASE)][q], "label": CURVE_PROJ_LABEL})
+        for p in pts:
+            p["volumes"] = {v: savings_formula(p["bill_task"], ci["k"], ci["x_ratio"], v) for v in HYBRID_VOLUMES}
+        tiers.append({"model": m, **ci, "points": pts, "redo_premium": esc / ci["bill_task"] - 1 if esc is not None
+                      else 0.0,
+                      "esc_label": "measured: cloud-redo-full-context mean USD per task" if esc is not None
+                      else INTERIM_ESC,
+                      "flag_matched": flag["matched"], "flag_kept": flag["kept_local"],
+                      "flag_k": flag["kept_local"] / flag["n"] if flag["matched"] else 0.0})
+    return {"status": "VERIFIED", "tiers": tiers, "device": f"evo-x2 {DEFAULT_TIER}", "seeds": h["seeds"],
+            "case": CURVE_CASE, "hit_rate": real["hit_rate"], "volumes": HYBRID_VOLUMES}
+
+
+def hybrid_curve_text(c) -> str:
+    if c["status"] != "VERIFIED":
+        return f"PENDING: rows {', '.join(c['pending'])} not VERIFIED"
+    parts = []
+    for t in c["tiers"]:
+        pts = []
+        for p in t["points"]:
+            pts.append(f"{p['name']} [{p['label']}]: billed input {p['size']:,.0f} tokens, all-cloud USD "
+                       f"{p['bill_task']:.5f}/task; " + ", ".join(
+                           f"{v:,}/day B {x['bill']:,.2f} x k = {x['kept']:,.2f} - X {x['escalation']:,.2f} = saves USD "
+                           f"{x['savings']:,.2f}/month" for v, x in p["volumes"].items()))
+        parts.append(f"{t['model']}: k = kept local at matched quality {t['kept']}/{t['n']} = {t['k']:.3f}; X / B = "
+                     f"{t['x_ratio']:.3f} (escalated tasks USD {t['esc_task']:.5f} per task over all tasks vs (1 - k) x "
+                     f"{t['bill_task']:.5f}; escalation cost {t['esc_label']}); window-overflow flag (the only measured "
+                     f"detector) at matched quality: "
+                     + (f"k {t['flag_k']:.3f}" if t["flag_matched"] else "does not reach all-cloud quality, k 0")
+                     + "; " + "; ".join(pts))
+    return (f"savings/month = B x k - X (B = all-cloud bill, k = share kept local at matched quality, X = escalation "
+            f"cost beyond the all-cloud bill of the escalated share); k and X / B measured on {c['device']} qwen3:14b, "
+            f"B3 v2 tasks, {len(c['seeds'])} shared seeds; projected points apply them to real agent task sizes "
+            f"(cloud-cost-per-real-task, {c['case']} caching, ASSUMPTION hit rate {c['hit_rate']}); k assumes every "
+            f"other task is found and escalated ({CEILING_LABEL}: in-window wrong answers need a general verifier, not "
+            f"claimed); the window-overflow flag column is what a measured detector reaches; 30-day month; "
+            + " / ".join(parts))
+
+
+# Per-device configuration (operator decision 2026-10-22, item 3; row t2s-config-comparison): evo-t2s naive Intel CPU
+# default (Ollama loaded 4096) vs the recommended setting (Intel iGPU, Ollama loaded 32768), from the measured R2 real
+# runs (rows t2s-r2-real-cpu, t2s-r2-real-igpu, gated variant). Kept-local share per device and model = share of R2
+# sessions with no gated silent failure. Savings per device: the same formula, B from the measured all-cloud B3
+# per-task cost (all-cloud-b3-cost) and X = (1 - k) x B x (escalation USD per escalated task / all-cloud USD per task -
+# 1), which is 0 while the escalation cost is INTERIM (an escalated task costs its all-cloud price) and switches to the
+# full-history redo mean automatically (ASSUMPTION: an R2 session's silent-failure share stands for the task share). To
+# be replaced by the evo-t2s B5 results (window 2026-10-26 to 2026-11-08).
+T2S_CONFIG_ROW = "t2s-config-comparison"
+T2S_CONFIGS = (("cpu", "naive: Intel CPU, Ollama default"), ("igpu", "recommended: Intel iGPU, Ollama default"))
+T2S_CONFIG_REQUIRED = ("t2s-r2-real-cpu", "t2s-r2-real-igpu")
+T2S_CONFIG_LABEL = ("measured R2 data (evo-t2s R2 real, 5 seeds x 40 turns); to be replaced by the evo-t2s B5 results "
+                    "(2026-10-26 to 2026-11-08) when they land")
+
+
+def t2s_config_comparison(repo=REPO, curve=None, r2=None) -> dict:
+    """Per evo-t2s configuration and model: loaded window, gated silent sessions, kept-local share (sessions with no
+    silent failure) and savings per month per cloud tier at HYBRID_VOLUMES (needs the curve for B and X / B)."""
+    missing = [c for c in T2S_CONFIG_REQUIRED if not register_has(repo, c)]
+    if missing:
+        return {"status": "PENDING", "pending": missing}
+    import numbers_register as nr
+    r2 = r2 or {b: nr.t2s_r2_real_data(Path(repo), b) for b, _ in T2S_CONFIGS}
+    curve = curve if curve is not None else hybrid_curve(repo)
+    tiers = ({t["model"]: t for t in curve["tiers"]} if curve.get("status") == "VERIFIED" else {})
+    rows = []
+    for b, name in T2S_CONFIGS:
+        for model, d in sorted(r2[b].items()):
+            k = (d["n"] - d["silent"]) / d["n"]
+            sav = {m: {v: savings_formula(t["bill_task"], k, (1 - k) * t["redo_premium"], v) for v in HYBRID_VOLUMES}
+                   for m, t in tiers.items()}
+            rows.append({"backend": b, "config": name, "model": model, "loaded": d["loaded"], "silent": d["silent"],
+                         "n": d["n"], "k": k, "savings": sav})
+    return {"status": "VERIFIED", "rows": rows, "label": T2S_CONFIG_LABEL,
+            "savings_pending": None if tiers else curve.get("pending")}
+
+
+def t2s_config_text(t) -> str:
+    if t["status"] != "VERIFIED":
+        return f"PENDING: rows {', '.join(t['pending'])} not VERIFIED"
+    parts = []
+    for r in t["rows"]:
+        s = "; ".join(f"vs {m}: saves USD " + ", ".join(f"{x['savings']:,.2f} at {v:,}/day" for v, x in vols.items())
+                      + "/month" for m, vols in r["savings"].items()) or f"savings PENDING ({t['savings_pending']})"
+        parts.append(f"{r['config']} {r['model']}: loaded window {'/'.join(map(str, r['loaded']))}, gated silent "
+                     f"{r['silent']}/{r['n']} sessions, kept-local share {r['n'] - r['silent']}/{r['n']} = {r['k']:.2f}; "
+                     + s)
+    return (f"evo-t2s configuration, {t['label']}; kept-local share = share of R2 sessions with no gated silent failure "
+            f"(t2s-r2-real-cpu, t2s-r2-real-igpu); savings = B x k - X with B the measured all-cloud B3 per-task cost "
+            f"and X = (1 - k) x B x (escalation USD per escalated task / all-cloud USD per task - 1), 0 while the "
+            f"escalation cost is interim ({INTERIM_ESC}) (ASSUMPTION: R2 session share stands for the task "
+            f"share); 30-day month; " + " / ".join(parts))
+
+
 def _usd(v, nd=5):
     return f"{v:,.{nd}f}"
 
@@ -1821,7 +2012,7 @@ def hybrid_savings_text(h) -> str:
         ps = []
         for k, _ in HYBRID_POLICIES:
             p = c["policies"][k]
-            ps.append(f"{k} {p['correct']}/{p['n']}, USD {_usd(p['usd_task'])}/task, saves USD {_usd(p['savings_task'])}"
+            ps.append(f"{k}{' (' + CEILING_LABEL + ')' if k == 'hybrid_perfect' else ''} {p['correct']}/{p['n']}, USD {_usd(p['usd_task'])}/task, saves USD {_usd(p['savings_task'])}"
                       f"/task (USD/month " + ", ".join(f"{p['savings_month'][v]:,.2f} at {v:,}/day"
                                                      for v in HYBRID_VOLUMES)
                       + f"), escalated {p['escalated']}, {'matched' if p['matched'] else 'below'} all-cloud quality")
@@ -1834,12 +2025,13 @@ def hybrid_savings_text(h) -> str:
     if p2:
         r, cap = p2["row"], p2["row"]["capacity"]
         p2t = (f"; P2 hardware capacity (impact-v2-P2; b5-fa-control {'VERIFIED' if p2['fa_verified'] else 'PENDING'}: "
-               f"the speedup is KV precision, not flash attention): machines at the P2 profile {cap['machines_default']} "
+               f"{r.get('caveat')}): machines at the P2 profile {cap['machines_default']} "
                f"default vs {cap['machines_best']} best; at the volumes (ASSUMED 1 task = 1 turn of a {p2['turns']}-turn "
                f"session) " + ", ".join(f"{v:,}/day {c['machines_default']} vs {c['machines_best']} (USD "
                                         f"{c['usd_saved']:,.0f} upfront avoided, USD {c['usd_day']:.2f}/day amortized)"
                                         for v, c in p2["volumes"].items())
-               + f"; USD {r['machine_usd']:,.0f} per machine (impact-ref-machine-price, ASSUMPTION)")
+               + f"; USD {r['machine_usd']:,.0f} per machine (impact-ref-machine-price, "
+               f"{r.get('machine_label', price_label(None))})")
     return (f"qwen3:14b B3 v2 tasks vs all-cloud, matched on the {len(h['seeds'])} shared seeds "
             f"{', '.join(map(str, h['seeds']))} (local run has {len(h['local_seeds'])}); escalated task cost: "
             f"{h['cells'][0]['esc_label']}; best evo-x2 tier {h['best']}; evo-t2s = PROJECTION from evo-x2 "
@@ -1882,19 +2074,21 @@ def render_hybrid_block(h) -> str:
     p2 = h.get("p2")
     if p2:
         r, cap, x = p2["row"], p2["row"]["capacity"], p2["row"]["cell"]
-        L += ["P2 hardware capacity (impact-v2-P2). The speedup is KV precision, not flash attention (b5-fa-control"
-              + ("" if p2["fa_verified"] else ", still PENDING") + f"). {x['model']} default (a) {x['default_min']:.1f} "
+        cav = r.get("caveat") or ""
+        L += ["P2 hardware capacity (impact-v2-P2). " + cav[:1].upper() + cav[1:]
+              + ("" if p2["fa_verified"] else " (b5-fa-control still PENDING)") + f". {x['model']} default (a) {x['default_min']:.1f} "
               f"min per session vs ({x['best']}) {x['best_name']} {x['best_min']:.1f} min (measured), one session at a "
               "time per machine.", "",
               f"| Agent tasks/day (ASSUMED 1 task = 1 turn of a {p2['turns']}-turn session) | Machines, default | "
-              "Machines, best | Upfront hardware avoided, USD (ASSUMPTION price) | Amortized USD/day (secondary) |",
+              "Machines, best | Upfront hardware avoided, USD (list price) | Amortized USD/day (secondary) |",
               "|---|---|---|---|---|",
               f"| impact-v2-P2 profile | {cap['machines_default']} | {cap['machines_best']} | {cap['usd_saved']:,.0f} | "
               f"{cap['usd_day']:.2f} |"]
         for v, c in p2["volumes"].items():
             L.append(f"| {v:,} | {c['machines_default']} | {c['machines_best']} | {c['usd_saved']:,.0f} | "
                      f"{c['usd_day']:.2f} |")
-        L += ["", f"Machine price USD {r['machine_usd']:,.0f} (impact-ref-machine-price: ASSUMPTION, must be verified); "
+        L += ["", f"Machine price USD {r['machine_usd']:,.0f} (impact-ref-machine-price: "
+              f"{r.get('machine_label', price_label(None))}); "
               f"{cap['life_years']:.0f}-year life (ASSUMED) for the amortized column.", ""]
     L.append(HYB_END)
     return "\n".join(L)

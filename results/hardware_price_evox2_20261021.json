@@ -1,7 +1,8 @@
 {
-  "purpose": "Reference machine price for analysis/impact_model.py (impact v2 P2 machine capacity). ASSUMPTION INPUT, MUST BE VERIFIED: a launch list price quoted by a press article, not a purchase record, not a current street price, and not the repo's own evo-x2 purchase price (configs/hardware/evox2_strix_halo_128gb.yaml bom_cost_usd is null).",
+  "purpose": "Reference machine price for analysis/impact_model.py (impact v2 P2 machine capacity, hybrid savings): a launch list price quoted by a press article, not a purchase record, not a current street price, and not the repo's own evo-x2 purchase price (configs/hardware/evox2_strix_halo_128gb.yaml bom_cost_usd is null).",
   "machine": "evo-x2 class: AMD Ryzen AI Max+ 395, 128 GB LPDDR5X mini PC (GMKtec EVO-X2, 128 GB / 2 TB configuration)",
   "usd": 2000.0,
+  "label": "list price, Liliputing, 2025-04-15",
   "figure_quoted": "Starting May 7th, the 64GB model will sell for $1500 while the 128GB version will run $2000.",
   "also_quoted": "A 128GB/2TB model is expected to sell for $1800, although it's listed as \"currently unavailable.\" (pre-order price before May 7, 2025; not used)",
   "publisher": "Liliputing",
@@ -9,6 +10,13 @@
   "article_date": "published 2025-04-15, updated 2025-04-30",
   "fetched_utc": "2026-10-21",
   "fetch_method": "WebFetch (page converted to text and read back); figure transcribed from that text",
-  "status": "ASSUMPTION, must be verified against a current vendor listing or the actual purchase invoice before it is quoted as a price",
+  "status": "cited public list price (operator decision 2026-10-22 replaced the earlier 'ASSUMPTION, must be verified' label); a launch price, not a current street price",
+  "vendor_check_20261022": {
+    "url": "https://www.gmktec.com/products/amd-ryzen%E2%84%A2-ai-max-395-evo-x2-ai-mini-pc",
+    "fetched_utc": "2026-10-22",
+    "fetch_method": "WebFetch (page converted to text and read back)",
+    "finding": "no 128 GB price listed: both 128 GB variants (1 TB and 2 TB SSD) marked 'Variant sold out or unavailable'; the only price block ('Sale price $2,199.99 Regular price $2,599.99') belongs to the default 64 GB RAM + 1 TB SSD selection, so it is not used",
+    "used": false
+  },
   "meaning": "hardware list price only; no power, rack, support, tax or shipping"
 }
