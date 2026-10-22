@@ -944,6 +944,7 @@ def estimate_t2s(platform, models=None, seeds=T2S_SEEDS, repo=REPO) -> dict:
         out["models"][m] = {"D": D, "L_assumed": L, "min_per_session": per, "aliases": aliases,
                             "x2_ratio_L_over_D": ratio_L, "measured_n": e["n"], "sessions_h": sess_h,
                             "recall_h": rec_h, "probe_h": probe_h, "total_h": tot,
+                            "unknown_minutes": [p for p, v in per.items() if v is None],
                             "per_seed_h": sum(v or 0.0 for v in per.values()) / 60.0}
         out["total_h"] += tot
     return out
