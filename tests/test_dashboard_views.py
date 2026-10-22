@@ -180,6 +180,18 @@ def test_device_rules_on_fakes(tmp_path):
         views.device_recommend(dv, "toaster", "m1", "r2_agent")
 
 
+def test_fa_control_reading_only_when_read():
+    unread = reg(**{"b5-fa-control": "llama3.1:8b: (i) f16+FA 44.7 min; valid False (no run_end); reading: not read "
+                                      "(incomplete) / qwen3:14b: reading: not read (incomplete)"})
+    assert views.fa_control_reading(unread) is None  # VERIFIED row, but no reading: attribution stays open
+    read = reg(**{"b5-fa-control": "llama3.1:8b: valid True; reading: the B5 speedup is KV precision, not flash "
+                                    "attention; qwen3:14b: x"})
+    assert views.fa_control_reading(read) == "the B5 speedup is KV precision, not flash attention"
+    pending = reg(**{"b5-fa-control": "the B5 speedup is flash attention"})
+    pending["b5-fa-control"]["status"] = "PENDING"
+    assert views.fa_control_reading(pending) is None
+
+
 def test_single_shot_timeout_floor():
     pts = [{"machine": "evo-x2", "runtime": "llama_server", "model": "m-1", "config_id": "ls", "quality": 1.0,
             "quality_n": 10, "latency_p50_ms": 1000, "timeout_latency_share": 0.11, "excluded_reason": "timeout 0.11"},

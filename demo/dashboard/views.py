@@ -182,6 +182,16 @@ def b5_verdict(register: dict) -> str | None:
     return m[1] if m else None
 
 
+def fa_control_reading(register: dict) -> str | None:
+    """The flash-attention control's reading, only when row b5-fa-control is VERIFIED and states one (harness
+    policy_compare.fa_control_summary: 'the B5 speedup is flash attention, not KV precision' or the reverse). A VERIFIED
+    row whose reading is 'not read (incomplete)' returns None: the attribution is still open."""
+    if not _verified(register, "b5-fa-control"):
+        return None
+    m = re.search(r"the B5 speedup is [^;/()]+", register["b5-fa-control"]["value"])
+    return m[0].strip() if m else None
+
+
 def router_savings_supported(register: dict) -> bool:
     """A router savings figure may be shown only if register row b5-verdict exists, is VERIFIED and is not refuted."""
     v = b5_verdict(register)
@@ -368,6 +378,7 @@ def build_device(register: dict, repo: Path = REPO, r2_sessions: dict | None = N
         "usability": parse_usability(val("x2-v3-usability")),
         "x2_default_window": x2_default,
         "status": {rid: (register[rid]["status"] if rid in register else "MISSING") for rid in DEVICE_IDS},
+        "fa_reading": fa_control_reading(register),
     }
 
 
@@ -397,14 +408,17 @@ def _rec_b5(dv: dict, model: str) -> dict | None:
     env, wrapper = c.get("env"), c.get("wrapper")
     rsrc, msrc = cfg.get("resolution_src"), reg_src("b5-policy-metrics")
     kvc = (cfg.get("kv_check") or {}).get(env) or {}
-    fa_pending = dv["status"].get("b5-fa-control") != "VERIFIED"
+    fa_reading = dv.get("fa_reading")
+    fa_pending = fa_reading is None
+    fa_state = ("PENDING" if dv["status"].get("b5-fa-control") != "VERIFIED" else "not read yet (run incomplete)")
     s = {"window": _set(c.get("effective_ctx"), MEASURED, rsrc,
                         "num_ctx sent" if c.get("num_ctx_sent") else "runtime default (no num_ctx sent)"),
          "kv_precision": (_set(env, MEASURED, kvc.get("src"), "OLLAMA_KV_CACHE_TYPE, verified in the server log"
                                if kvc.get("verified") else "OLLAMA_KV_CACHE_TYPE")
                           if env in ("q8_0", "q4_0") else _set("f16 (runtime default)", MEASURED, rsrc)),
          "flash_attention": (_set("on (OLLAMA_FLASH_ATTENTION=1)", MEASURED, kvc.get("src"),
-                                  "not separated from KV precision: b5-fa-control PENDING" if fa_pending else None)
+                                  f"not separated from KV precision: b5-fa-control {fa_state}" if fa_pending
+                                  else f"b5-fa-control: {fa_reading}")
                              if kvc.get("flash_attention") else _set("not set (runtime default)", MEASURED, rsrc)),
          "num_keep": (_set("system prompt tokens, per seed " + ", ".join(
              str(v["num_keep"]) for v in (cfg.get("num_keep") or {}).values()), MEASURED,
@@ -425,7 +439,9 @@ def _rec_b5(dv: dict, model: str) -> dict | None:
     caveats = []
     if fa_pending:
         caveats.append("Flash attention was switched on together with the KV precision; the control that separates "
-                       "them (b5-fa-control) is PENDING.")
+                       f"them (b5-fa-control) is {fa_state}.")
+    else:
+        caveats.append(f"Flash-attention control (b5-fa-control): {fa_reading}.")
     caveats.append("The router policy (d) did not make the frontier (row b5-verdict); no router saving is shown.")
     return {"status": MEASURED, "basis": f"B5 policy comparison: frontier policy ({p}) {POLICY_NAMES.get(p, p)}, "
                                          f"3 seeds x 40 turns", "settings": s, "outcome": out, "caveats": caveats,
@@ -647,8 +663,9 @@ def build_cost(register: dict) -> dict:
         items.append({"what": f"Time saved by the measured setting, {c['model']}",
                       "text": f"{c['saved_min']:.1f} min per 40-turn session ({c['saved_pct']}%): default "
                               f"{c['default_min']:.1f} min vs {c['setting']} {c['fast_min']:.1f} min" +
-                              ("" if _verified(register, "b5-fa-control") else
-                               " (flash attention and KV precision changed together; b5-fa-control PENDING)"),
+                              (f" (b5-fa-control: {fa_control_reading(register)})" if fa_control_reading(register)
+                               else " (flash attention and KV precision changed together; b5-fa-control has no "
+                                    "reading yet)"),
                       "label": MEASURED, "src": reg_src("cost-cut-config-time")})
     if redo:
         items.append({"what": "Cloud redo of each wrong task",

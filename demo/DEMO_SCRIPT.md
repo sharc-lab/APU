@@ -75,7 +75,7 @@ Say:
   attention on, no num_keep, full history. Same rule and history scores as the default, 75.4 minutes per session
   instead of 214.8." Measured, rows b5-policy-metrics and cost-cut-config-time.
 - Read the caveat line: "Flash attention was switched on together with q8_0; the control that separates them is still
-  pending." Row b5-fa-control is PENDING.
+  open." Row b5-fa-control has no reading yet (its run is incomplete: "reading: not read (incomplete)").
 - evo-t2s CPU / qwen3:14b: "Here nothing we measured holds the rules: the default loses them, and client-side trimming
   did not recover qwen3:14b. So the tool says not measured and does not invent a setting." Rows t2s-r2-real-cpu,
   t2s-r2-mitigation-cpu. (Switch the model to llama3.1:8b to show the one that trimming did recover.)
@@ -139,7 +139,7 @@ show it only where we measured it, and fixing one answer in the cloud is cheap. 
 | Excess +30.7 points at 4096 (95% CI +26.0 to +34.7) | measured | x2-evalset-tasks-real-v2-ci-units |
 | Rule loss per model and window, evo-x2, 5 seeds | measured | R2-v1b-gated-per-model |
 | evo-x2 qwen3:14b: q8_0 + flash attention, 40960, 75.4 vs 214.8 min | measured | b5-policy-metrics, cost-cut-config-time |
-| Flash attention vs KV precision attribution | not measured (PENDING) | b5-fa-control |
+| Flash attention vs KV precision attribution | not measured (no reading yet) | b5-fa-control |
 | evo-t2s CPU qwen3:14b: no setting holds the rules | measured (what failed); setting not measured | t2s-r2-real-cpu, t2s-r2-mitigation-cpu |
 | Blade: every setting | not measured | none |
 | 5% timeout floor exclusions | measured | x2-v3-usability |
