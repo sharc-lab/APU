@@ -4737,3 +4737,94 @@ edited. No result data for these jobs existed when each was queued.
   6.18 h, loaded [40960], first over window 24; seed 20260902: 40 turns, 6.01 h, loaded [40960], first over window 25;
   seed 20260903: 40 turns, 4.66 h, loaded [40960], first over window 26)"). A new run would duplicate pre-registered,
   completed cells, so nothing was queued and no new pre-registration was written.
+
+## PRE-REGISTRATION: R2 window result at 10 seeds on the v1b harness blob, llama3.1:8b and qwen3:14b at default, 16384, 8192 and 4096 with a reproduction check first (x2_r2_v1b_seeds_06_10 on evo-x2) (2026-10-22, NOT YET RUN)
+
+**Status:** PRE-REGISTRATION, written and committed before the code for this job is written or deployed and before
+evo-x2's queue is edited for it. No data for this job exists. It adds seeds to the R2 strengthened run v1/v1b; that
+run's sections and the reconciliation section above ("qwen3:14b at num_ctx 4096: reconciliation", 2026-10-22) are not
+edited. No new hypothesis is tested: the purpose is narrower confidence intervals for the FR-window figure.
+
+**Why.** The pooled window result (register row `R2-v1b-excess-over-default`, pasted per model at the tiers of this
+job): num_ctx_16384 "llama3.1:8b 2/5 vs default 0/5, excess +0.400 (95% CI +0.000 to +0.800), qwen3:14b 0/5 vs default
+0/5, excess +0.000 (95% CI +0.000 to +0.000)"; num_ctx_8192 "llama3.1:8b 4/5 vs default 0/5, excess +0.800 (95% CI
++0.400 to +1.000), qwen3:14b 0/5 vs default 0/5, excess +0.000 (95% CI +0.000 to +0.000)"; num_ctx_4096 "llama3.1:8b
+5/5 vs default 0/5, excess +1.000 (95% CI +1.000 to +1.000), qwen3:14b 4/5 vs default 0/5, excess +0.800 (95% CI +0.400
+to +1.000)". Five sessions per cell give wide intervals (a 0/5 or 5/5 cell has no bootstrap variance at all).
+
+**Harness: the v1b blob, and how it was identified.** The operator requires the same x2_r2_agent harness as v1b. v1b's
+run_start does not record the blob (reconciliation row `R2-qwen3-14b-4096-reconciliation`, pasted: "harness blob not
+recorded"). It is identified from deploy records as git blob a4c4a928fc7a9b6ac985d473b789b41b9a4b1c12
+(`harness/x2_r2_agent.py` at commit 087e790, unchanged through 056b145):
+1. The FINDINGS deploy constraint of 2026-10-10 ("`C:\apu\ovn\x2_r2_agent.py` must not be replaced until x2_r2_real_v1b
+   and x2_r2_mitigation_v1 have finished") kept the file fixed from before v1b started (2026-10-10 13:25Z, v1b
+   run_start) until the mitigation run ended.
+2. The provenance manifest of the next job, `results/t2s_k2_pause_resume_20261012T021512Z_manifest.json` (launch
+   2026-10-12 02:15:14Z, the queue's next job after the mitigation run), verified the deployed `x2_r2_agent.py` bytes as
+   blob a4c4a928 (expected and actual).
+3. docs/STATE.md (2026-10-13) records that x2_r2_agent.py was redeployed from main (b3bc741) only after v1b and the
+   mitigation run were done.
+4. `tests/golden/x2_r2_agent_defaults_087e790.json`, the backward-compatibility golden file for every later agent
+   version, was generated from this same blob.
+Records 1 to 3 bracket the v1b run but none is a v1b record itself, so identity is also tested directly (reproduction
+check below). If the check fails, no new seed runs and nothing is claimed from this job.
+
+**Deployment, fixed now.** The blob's bytes are committed unchanged (a frozen copy whose git blob is a4c4a928) and
+deployed with `scripts/deploy_evo.py` into a new side directory `C:\apu\ovn\r2v1b` next to a small committed launcher.
+The launcher puts that directory first and `C:\apu\ovn` second on sys.path, refuses to start unless the side copy's
+git blob is a4c4a928 and each module the agent imports from `C:\apu\ovn` has the blob recorded in the 2026-10-12
+manifest (`t2s_r2_session_growth.py` 878952c7, `host_config.py` 3e542ba8, `x2_r2_client_trim.py` c96930d7,
+`x2_r2_mechanism.py` a80926e3, `t2s_queue.py` 22398580, `proc_util.py` 74cfea98, `t2s_k1_ollama.py` 5857352a), and
+adds the agent blob, the launcher blob and those module blobs to the run_start record of both output files. It changes
+nothing else in the agent: it narrows the plan the agent's own `strong_plan` returns (the agent at this blob has no
+--tiers/--seeds options) and calls the agent's own `main(argv, advance=False)`; the launcher calls tq.advance() once on
+exit.
+
+**Stage 1, reproduction check** (output `results/x2_r2_v1b_repro_check.jsonl`). Rerun one existing v1b session, the
+shortest: llama3.1:8b, arm `ollama_ctx_4096_call2_notools`, seed 20260904, 40 turns, with the v1b flags (`--mode real
+--plan strong --call2-tools off --rules-from C:\apu\ovn\results\x2_r2_validation_v2.jsonl --require-validation-gates
+--per-model-refusal --order seed_major --models llama3.1:8b`). **Pass**, fixed now: the session completes with 40
+turns and, for every turn index 1 to 40, its `final_text` is byte-identical to the `final_text` of the same turn of the
+completed llama3.1:8b / `ollama_ctx_4096_call2_notools` / seed 20260904 session in `results/x2_r2_real_v1b.jsonl`
+(the copy on evo-x2, whose sha256 is recorded). **Fail**: any other outcome (a differing turn, a missing turn, an
+error, a refusal). On fail the launcher writes a `repro_check` record with every mismatching turn index, the first
+mismatch's two texts (truncated), and the counts, ends with the note "stopped: reproduction check failed ...", runs no
+new seed and makes no further model call. On pass it writes the same record with `pass: true` and continues.
+Precedent for expecting a pass: the num_keep run reproduced v1 "identical final text 120/120" on Ollama 0.34.4 days
+later (`R2-qwen3-14b-4096-reconciliation`).
+
+**Stage 2, the new sessions** (output `results/x2_r2_v1b_seeds_06_10.jsonl`). Models llama3.1:8b and qwen3:14b; arms
+`ollama_default_call2_notools`, `ollama_ctx_16384_call2_notools`, `ollama_ctx_8192_call2_notools`,
+`ollama_ctx_4096_call2_notools` (v1 call-2 protocol, tools withheld on a turn's second call); seeds 20260906 to
+20260910; 40 turns; temperature 0, seed 42, num_predict 384, as the blob sends; `--order seed_major`; per-model
+preflight on `x2_r2_validation_v2.jsonl` as in v1b (rules in use as v1b recorded them: llama3.1:8b rules 1, 3, 4;
+qwen3:14b rules 1 to 5). 40 sessions. 32768 is not run (not asked for; v1b showed no excess there for either model).
+Statistics convention as in v1b: no warm-up call, every turn scored.
+
+**Measures, fixed now** (register row `R2-v1b-excess-10seed`, PENDING until the file is synced). Pooled per model and
+tier: the five v1/v1b sessions (seeds 20260901 to 20260905, `results/x2_r2_real_v1.jsonl` and
+`results/x2_r2_real_v1b.jsonl`) plus the five new ones, 10 sessions per cell.
+1. Gated silent failures after the window was exceeded, the v1b definition unchanged
+   (`analysis/r2_real_report.py::build_combined` with `x2_r2_validation_v2.jsonl`; llama3.1:8b gates nothing out,
+   qwen3:14b excludes tool_args and recall, as `R2-real-v1b-gated-kill` states).
+2. Excess over the default per model and tier, with the v1b bootstrap unchanged: 95% percentile CI, 10000 resamples,
+   unit the session, stratified by tier x model, `random.Random(20261014)`.
+Readings, fixed now, per model and tier (16384, 8192, 4096): CI lower bound above 0, "excess at <tier>"; CI upper
+bound below 0, "lower at <tier> than at the default"; otherwise "no excess shown at <tier>". **A sign reversal is
+reported as such:** if at 8192 or 4096 a model's pooled point excess is below 0 where its five-seed excess
+(`R2-v1b-excess-over-default`) was above 0, the row and the paper say "sign reversed at <tier> for <model>" with both
+values, whatever the CI. Also reported, not read: the new seeds alone per cell (a replication look, 5 vs 5), the
+baseline-type failures at the default (gated failures before any window was exceeded), and the CI widths at 5 and at
+10 seeds side by side.
+
+**Validity (mechanical).** The reproduction check passed; run_end present in both files; neither model refused; all
+40 new sessions completed with 40 turns; every turn row requested its tier's num_ctx (none at the default); run_start
+of both files records agent blob a4c4a928. A failing run is reported "incomplete" with what is missing; nothing is read.
+
+**Known limits, stated before the run.** One machine and runtime (Ollama 0.34.4 on evo-x2). The five new sessions per
+cell run about twelve days after v1b. Seeds 20260906 to 20260910 generate new session content with the same generator
+(`t2s_r2_session_growth.py` at the blob v1b used). v1's cells (seeds 20260901 to 20260903 at default and 4096) ran
+on a still earlier agent blob, as in every pooled v1b figure already reported. qwen3:14b's default tier sessions are
+long (Ollama loads 40960 for it); llama3.1:8b's default loads 131072 and is not expected to exceed it, so its
+after-window default rate is 0 by construction, as before. Duration: an ESTIMATE in register row
+`x2-queue-fill-1022-hours` from measured v1/v1b session times. The job calls tq.advance() on exit and sets no pause.
