@@ -7,7 +7,10 @@ v1 + v1b, excess over the default tier with bootstrap CIs; confound check result
 "Outline (superseded 2026-10-20)"; prose marks each number with its register id in an HTML comment); updated
 2026-10-22 (4.3, 4.6a, 4.6b and 4.7 brought up to the register of commit 7fc16ff: qwen3:8b at 10 seeds, the protocol
 check on qwen3:14b alone, B5 detail, qwen3:32b default tier; qwen3:14b at 4096 explained by `[R2-qwen3-14b-4096-reconciliation]`, G16; trimming's side effect;
-design constants commented with their source file). Not a
+design constants commented with their source file); revised 2026-10-22 (abstract written as prose, 249 words; 4.1,
+4.2, 4.8 and 4.9 revised to the current story: cost trade-off motivation, model-dependent rule loss, KV-precision fix,
+routing and verification related work, cost-figure and cloud-redo threats; replaced text is in the superseded-outline
+appendix under "Superseded 2026-10-22"). Not a
 submission. Double-blind is assumed: this file names no
 author, affiliation, machine owner or repository. Author and internal labels are in `docs/PAPER1_COVER_NOTE.md`.
 
@@ -76,6 +79,7 @@ Claims behind each abstract sentence (register rows; all VERIFIED on 2026-10-22)
   attention, by `[b5-fa-control]`; recall check `[b5-kv-recall-f16-rerun]` (no difference shown, descriptive).
 - Trimming side effect: `[R2-qwen3-14b-4096-reconciliation]`, `[R2-mitigation-v1-verdict]`. num_keep scope:
   `[num-keep-guardrail-test]`, `[x2-evalset-tasks-real-v2-gated-excess]`.
+
 ---
 
 ## 2. Contributions
@@ -248,6 +252,7 @@ We make four contributions.
 
 Section 4.2 covers background, Section 4.3 the platforms and harness, Sections 4.4 to 4.7 the results, Section 4.8
 threats to validity, and Section 4.9 concludes.
+
 ### 4.2 Background and related work (prose draft, 2026-10-21; revised 2026-10-22; 0.75 page)
 
 <!-- Every citation below is a placeholder to verify; see "References (to verify)" at the end of this file. -->
@@ -302,6 +307,7 @@ flash [Alizadeh et al. 2024, LLM in a Flash; to verify] characterize or accelera
 and flash-backed devices in terms of throughput, memory and energy. We add a cross-vendor characterization of
 behavioural correctness under each runtime's memory and context policy, including how the GPU backend alone changes
 an agent's output.
+
 ### 4.3 Platforms, harness and methodology (prose draft, 2026-10-20; updated 2026-10-22; 1.25 pages)
 
 <!-- Convention: measured numbers carry their register id; harness design constants carry "design: <source file>". -->
@@ -820,26 +826,34 @@ rate measured the token budget, not the cloud model. We cite no fix rate or cost
 **Provenance.** Runs before 2026-10-14 did not record the harness file's hash ("harness blob not recorded"
 <!-- R2-qwen3-14b-4096-reconciliation -->). Their identity rests on reruns: the same seeds gave identical final text on
 120/120 <!-- R2-qwen3-14b-4096-reconciliation --> turns in runs days apart.
-### 4.9 Conclusion (prose draft, 2026-10-21; 0.50 page)
+
+### 4.9 Conclusion (prose draft, 2026-10-21; revised 2026-10-22; 0.50 page)
 
 Local LLM agents lose context without telling anyone. On every platform we measured, a conversation that outgrows the
 window is trimmed, shifted or cut, and the request still succeeds. Rule loss appears in the 8B and 14B models (5 seeds) and in qwen3:32b (2 of 3 sessions at 4096) <!-- H-scale-verdict -->, and not in llama3.3:70b or mistral-small3.2:24b (0 of 3 each) <!-- H-scale-verdict --> <!-- H-scale-family-verdict -->. History loss appears in all of them <!-- H-scale-verdict --> <!-- H-scale-family-verdict -->. Rule loss depends on the model as well as the window, and we do not claim it in general. The window is often not the user's
 choice: the runtime picks it from the detected device, and an unmodified install on an Intel CPU ran agents at 4096
 tokens <!-- t2s-r2-real-cpu -->. That is the window at which, on the AMD APU, qwen3:14b ended 42.0% of tasks in a wrong
-state against 11.3% at its default, all silently <!-- x2-evalset-tasks-real-v2-wrong-rate -->.
+state against 11.3% at its default, all silently <!-- x2-evalset-tasks-real-v2-wrong-rate -->. Running locally removes
+the cloud bill, but the wrong answers it adds carry no signal, and the one signal a runtime could raise, window
+overflow, misses every wrong answer produced inside the window <!-- impact-v3-detection-value-measured -->.
 
-For practitioners, four lessons follow. Set the window explicitly and verify the loaded value, because a per-request
-setting does not survive a restart and any client that omits it silently gets the default back
-<!-- window-override-methods -->. Prefer an explicit window sized to the session over the runtime default, and log
-when the prompt exceeds it, since nothing else will. Treat trimming as a change to the prompt rather than a neutral
-fix: dropping old turns also drops the examples the model imitates <!-- R2-qwen3-14b-4096-reconciliation -->, and
-`num_keep` protects the prompt prefix only where the runtime shifts or cuts tokens. Finally, validate an agent on the
-backend it will run on, because identical model files and settings behaved differently on CUDA, Vulkan and ROCm.
+For practitioners, five lessons follow. Set the window explicitly for each device and verify the loaded value,
+because a per-request setting does not survive a restart and any client that omits it silently gets the default back
+<!-- window-override-methods -->. Log when a prompt exceeds the loaded window, since nothing else will, but do not
+treat that log as a correctness check. Try a quantized KV cache before a smaller window: on the AMD APU it cut session
+time by 85% and 65% with no measured loss of rules or recall <!-- cost-cut-config-time --> <!-- b5-kv-recall-f16-rerun -->.
+Treat trimming as a change to the prompt rather than a neutral fix: dropping old turns also drops the examples the
+model imitates <!-- R2-qwen3-14b-4096-reconciliation -->, and `num_keep` protects the prompt prefix only where the
+runtime shifts or cuts tokens. Finally, validate an agent on the backend it will run on, because identical model files
+and settings behaved differently on CUDA, Vulkan and ROCm <!-- blade-r2-gate-v2 --> <!-- x2-r2-llama-val-32k-vulkan -->
+<!-- x2-r2-llama-val-32k-offload -->.
 
 Future work follows from what is pending. The router and context-policy comparison, refuted on the unconstrained AMD
-platform <!-- b5-verdict -->, must run on the Intel and NVIDIA platforms, where default windows are small and loss
-occurs. More models per size and family, more seeds, further runtime versions and guardrail compliance at full context
-would turn the model-dependence of rule loss from an observation into a predictable property.
+platform <!-- b5-verdict -->, must run on the Intel laptop, whose default window is small enough that loss occurs, and
+on the NVIDIA laptop. A hybrid local and cloud deployment needs a general verifier that catches wrong answers produced
+inside the window; we measured only the window flag, and the cloud cost of fixing a wrong answer is being measured.
+More models per size and family, more seeds, further runtime versions and guardrail compliance at full context would
+turn the model-dependence of rule loss from an observation into a predictable property.
 
 ---
 
@@ -1227,6 +1241,28 @@ were refused by their gates.
 **Provenance.** Runs before 2026-10-14 did not record the harness file's hash ("harness blob not recorded"
 <!-- R2-qwen3-14b-4096-reconciliation -->). Their identity rests on reruns: the same seeds gave identical final text on
 120/120 <!-- R2-qwen3-14b-4096-reconciliation --> turns in runs days apart.
+
+### 4.9 Conclusion (prose draft as of 2026-10-21; superseded 2026-10-22)
+
+
+Local LLM agents lose context without telling anyone. On every platform we measured, a conversation that outgrows the
+window is trimmed, shifted or cut, and the request still succeeds. Rule loss appears in the 8B and 14B models (5 seeds) and in qwen3:32b (2 of 3 sessions at 4096) <!-- H-scale-verdict -->, and not in llama3.3:70b or mistral-small3.2:24b (0 of 3 each) <!-- H-scale-verdict --> <!-- H-scale-family-verdict -->. History loss appears in all of them <!-- H-scale-verdict --> <!-- H-scale-family-verdict -->. Rule loss depends on the model as well as the window, and we do not claim it in general. The window is often not the user's
+choice: the runtime picks it from the detected device, and an unmodified install on an Intel CPU ran agents at 4096
+tokens <!-- t2s-r2-real-cpu -->. That is the window at which, on the AMD APU, qwen3:14b ended 42.0% of tasks in a wrong
+state against 11.3% at its default, all silently <!-- x2-evalset-tasks-real-v2-wrong-rate -->.
+
+For practitioners, four lessons follow. Set the window explicitly and verify the loaded value, because a per-request
+setting does not survive a restart and any client that omits it silently gets the default back
+<!-- window-override-methods -->. Prefer an explicit window sized to the session over the runtime default, and log
+when the prompt exceeds it, since nothing else will. Treat trimming as a change to the prompt rather than a neutral
+fix: dropping old turns also drops the examples the model imitates <!-- R2-qwen3-14b-4096-reconciliation -->, and
+`num_keep` protects the prompt prefix only where the runtime shifts or cuts tokens. Finally, validate an agent on the
+backend it will run on, because identical model files and settings behaved differently on CUDA, Vulkan and ROCm.
+
+Future work follows from what is pending. The router and context-policy comparison, refuted on the unconstrained AMD
+platform <!-- b5-verdict -->, must run on the Intel and NVIDIA platforms, where default windows are small and loss
+occurs. More models per size and family, more seeds, further runtime versions and guardrail compliance at full context
+would turn the model-dependence of rule loss from an observation into a predictable property.
 
 **Superseded 2026-10-21.** The outline text of 4.1 (with the 4.1a motivation draft), 4.2, 4.8 and 4.9, replaced by
 the prose drafts of 2026-10-21, is moved here verbatim below; the 2026-10-20 material follows it.
