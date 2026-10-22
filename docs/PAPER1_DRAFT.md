@@ -1,3 +1,11 @@
+# Paper 1 Draft (ISPASS 2027 target, anonymized)
+
+Status (2026-10-22): advisor version. This file is the paper only: title, abstract, Sections 4.1 to 4.9 (paper
+Sections 1 to 9), figure and table specs, and references. Internal tracking material (status history, claim table,
+open findings, "Obvious?" defense, figure-source list, gaps, claim-to-evidence index, superseded outlines) is in
+`docs/paper1/INTERNAL_TRACKING.md`; author and label mapping in `docs/PAPER1_COVER_NOTE.md`. The typeset version is
+`docs/paper1/paper1.tex`. Every measured number carries its register id in an HTML comment (a LaTeX comment in the
+typeset version); design constants carry "design: <source>".
 
 ---
 
@@ -11,7 +19,7 @@ Alternatives:
 2. *The Runtime Picks Your Context Window: A Cross-Vendor Characterization of Local LLM Inference on AI PCs*
 3. *No Error, No Rules: Characterizing Silent Failure of Local LLM Agents Across Unified and Discrete Memory*
 
-**Abstract (prose draft, 2026-10-22; word count by `wc -w` on the paragraph below with HTML comments removed):**
+**Abstract.**
 
 When a local agent's conversation outgrows the context window, runtimes such as Ollama and llama.cpp trim it and
 still report success. We measure what is lost
@@ -31,12 +39,9 @@ time by 65% to 85% with no measured loss of rules or recall <!-- cost-cut-config
 <!-- b5-kv-recall-f16-rerun -->; client-side trimming removes the in-context examples a model imitates; and
 `num_keep` protects the system prompt only where the runtime shifts or cuts tokens.
 
-
 ---
 
-
-### 4.1 Introduction (prose draft, 2026-10-21; revised 2026-10-22; 1.00 page)
-
+### 4.1 Introduction
 <!-- Convention as in 4.3: measured numbers carry their register id; design constants carry "design: <source file>". -->
 
 Runtimes such as Ollama and llama.cpp serve open-weight models of 8B to 70B parameters on laptops and small APU
@@ -113,8 +118,7 @@ We make four contributions.
 Section 4.2 covers background, Section 4.3 the platforms and harness, Sections 4.4 to 4.7 the results, Section 4.8
 threats to validity, and Section 4.9 concludes.
 
-### 4.2 Background and related work (prose draft, 2026-10-21; revised 2026-10-22; 0.75 page)
-
+### 4.2 Background and related work
 <!-- Every citation below is a placeholder to verify; see "References (to verify)" at the end of this file. -->
 
 **Context windows in local runtimes.** llama.cpp allocates a KV cache for a fixed number of tokens, n_ctx, when a
@@ -168,8 +172,7 @@ and flash-backed devices in terms of throughput, memory and energy. We add a cro
 behavioural correctness under each runtime's memory and context policy, including how the GPU backend alone changes
 an agent's output.
 
-### 4.3 Platforms, harness and methodology (prose draft, 2026-10-20; updated 2026-10-22; 1.25 pages)
-
+### 4.3 Platforms, harness and methodology
 <!-- Convention: measured numbers carry their register id; harness design constants carry "design: <source file>". -->
 
 **Platforms and runtimes.** We study three consumer platforms from three GPU vendors: an AMD Ryzen AI Max+ (Strix
@@ -179,7 +182,7 @@ unified memory. Ollama's device detection drops the Intel iGPU and falls back to
 <!-- x2-device-detect-mechanism -->, so we measure Intel twice: on the CPU, as shipped, and on the iGPU, enabled only in
 the environment of the job's own server process. All agent runs use Ollama, which serves models through a bundled
 llama.cpp server; the AMD and NVIDIA runs share one pinned release and the model files. Versions and
-drivers are listed in Table 1 and have no register row yet (gap G13).
+drivers are listed in Table 1.
 
 **The R2 agent harness.** A session is a seeded, deterministic agent conversation of 40 turns
 <!-- R2-v1b-qwen3-8b-reversal -->. The system prompt carries five <!-- design: harness/x2_r2_agent.py --> checkable
@@ -229,8 +232,15 @@ harness identity rests on byte-identical outputs across reruns (identical final 
 only when the runtime's log shows it applied: an earlier sweep passed a KV-cache precision setting that the runtime
 silently ignored.
 
-### 4.4 Memory-architecture boundaries (prose draft, 2026-10-22; 2.00 pages)
+**Table 1 and figure spec.**
 
+- **Table 1.** Platforms and versions: CPU and GPU, memory architecture, GPU driver, llama.cpp build for direct runs,
+  Ollama version and the GPU backend Ollama actually used, OS build, per platform. Configuration record, not a measured
+  result; the values come from the platform configuration record and are pasted when its register row lands.
+- **F1.** Platform and memory-architecture diagram: the three platforms, where KV cache, weights and host-visible
+  buffers live, and which runtime backend is used (drawing only).
+
+### 4.4 Memory-architecture boundaries
 **Claim.** The same event, a context window whose KV cache no longer fits the memory the GPU is meant to use, has a
 different cost shape on each memory architecture: on the AMD APU the server keeps running past the boundary at almost
 unchanged speed, on the Intel iGPU the server either starts or refuses at one shared-heap limit, and on the discrete
@@ -269,7 +279,7 @@ tok/s at 20480 <!-- fh1-amd-boundary-qwen3-32b -->; because that point is clampe
 boundary. In the start-only bisection the last start was 367104, clamped to 131072, and the first failure 367360,
 with exit code 3221226505 <!-- fh1-amd-boundary-qwen3-32b -->. The two qwen3-32b runs clamp to different values (40960
 and 131072 <!-- fh1-amd-boundary-qwen3-32b -->) because their launch flags differ; the panel labels each point with
-its launch. A dedicated qwen3-32b spill sweep between these points is registered but has not computed yet
+its launch. A dedicated qwen3-32b spill sweep between these points is planned but not yet complete
 <!-- pending row: fh1-amd-qwen3-32b-spill-sweep, no number cited -->, so the qwen3-32b onset is reported as "above
 20480" only.
 
@@ -291,7 +301,7 @@ the model leaves VRAM. With 8188 MiB of VRAM <!-- blade-k1-layer-split -->, Olla
 at windows of 4096 and 8192 and moves layers to the CPU above them, with VRAM shares of 0.870 at 16384 and 0.656 at
 32768; for qwen3:8b the shares are 0.805 and 0.592 <!-- blade-k1-layer-split -->. This places the NVIDIA points on the
 FH1 x axis. The y axis, decode slowdown as a function of the spilled share, comes from an earlier sweep with
-llama-server driving the driver's system-memory fallback directly; that sweep has no register row yet (gap G4), and the
+llama-server driving the driver's system-memory fallback directly; that sweep is not yet part of our verified results, and the
 forced-failure point with the fallback disabled needs a run on the discrete-GPU laptop that has not been done. The
 NVIDIA panel is therefore pending, and the two overflow paths (the runtime moving layers to the CPU, and the driver
 spilling allocations into system memory) will be labelled separately when it lands.
@@ -304,7 +314,7 @@ factor of 1.42x <!-- P70-TTFT-ratio -->. On the AMD APU the largest TTFT ratio u
 flat at about 83.6 W across every condition <!-- PX2-power -->. The Intel platform has no bandwidth-hog run, so the two
 vendors are not yet compared on the same metric.
 
-**Figure specs (kept from the outline).**
+**Figure specs.**
 
 - **FH1 (headline).** Three panels, shared x axis = requested or served window as a fraction of the platform's
   boundary (AMD: the 65536 MiB dedicated block, stated in the caption; Intel: the shared-heap limit; NVIDIA: VRAM),
@@ -313,19 +323,26 @@ vendors are not yet compared on the same metric.
   point is one call per fresh server start without a warm-up call (5 or 3 calls per point), which departs from this
   paper's 1 warm-up + N convention. If space is short, FH1 replaces F2 and F3.
 - **F2.** Intel flip point: measured (last start, first refusal] per model against accountings A (file size), B
-  (device only) and C (shared heap), all five models; `figures/fig_a24_budget_boundary.png` must be regenerated.
+  (device only) and C (shared heap), all five models <!-- A-24-flip-point-per-model --> <!-- A-24-flip-point-prediction -->.
 - **F3.** NVIDIA spill onset: TTFT and decode slowdown against window with the spilled share, plus the forced-failure
-  point; pending G4 and the forced-failure run.
+  point; pending (the spill sweep is not yet verified and the forced-failure run has not been done).
 - **F4.** Co-runner effects by vendor: TTFT and decode ratio per condition, Intel against AMD; Intel decode under a
-  bandwidth hog is missing.
+  bandwidth hog is missing. Values, all from the recomputed register rows (the three rows marked CORRECTED; their
+  computed values replace the earlier reported ones, and the figure note says so): Intel CPU co-runner TTFT ratio per
+  model 1.417x to 1.437x, mean 1.429x (+42.9%) over six models <!-- B3-corunner-6model -->; Intel qwen3-32b TTFT dose
+  response by co-runner placement e2:+2.0%, lp4:+3.2%, e4_clusterA:+5.7%, e4_clusterB:+5.3%, e4_split:+6.0%,
+  e6:+14.3%, e8:+30.2%, e8_lp4:+41.4% <!-- b4_32b-dose-response -->; AMD bandwidth-hog against compute-hog TTFT gap
+  2.1-2.6% across 5 models <!-- PX2-TTFT-gap -->; AMD decode ratios under a bandwidth hog (B4) 0.905x-0.928x and a compute hog (S4) 0.987x-1.000x of the
+  no-load rate <!-- PX2-decode-ratio -->; AMD largest TTFT ratio 1.129x <!-- PX2-full-ratio-table -->. Figure note:
+  "Intel co-runner ratios, the Intel dose response and the AMD TTFT gap are recomputed from the raw result files;
+  earlier drafts reported rounded values (1.43x; lp4 +3.1% and e4 +5.4-6.0%; 2-3%)."
 
-### 4.5 Runtime policy (prose draft, 2026-10-22; 1.50 pages)
-
+### 4.5 Runtime policy
 **Claim.** The window an agent actually gets is set by the runtime's policy for the device it detects, not by the
 model or the memory, and when a prompt outgrows that window the runtime reports success and silently keeps half of
-it. Paragraph labels 4.5a to 4.5d match the claim index.
+it.
 
-**Default windows follow the detected device (4.5a).** Ollama's Vulkan backend drops both integrated GPUs by the same
+**Default windows follow the detected device.** Ollama's Vulkan backend drops both integrated GPUs by the same
 policy, but Ollama also discovers the AMD iGPU through ROCm, with no opt-out, so the AMD APU runs on its iGPU while the
 Intel laptop, which has no ROCm path, falls through to the CPU <!-- x2-device-detect-mechanism -->. The default window
 follows. On the Intel laptop the runtime loaded 4096 tokens for each of three models, while on the AMD APU it loaded
@@ -354,7 +371,7 @@ failure came after the window: 0/5 for llama3.1:8b and, for qwen3:14b, 1/5 of ba
 <!-- t2s-r2-real-cpu --> <!-- t2s-r2-real-igpu -->. This contrast changes backend and window together, so it shows
 that the default decides whether a session fails, not that the window alone does; Section 4.6a isolates the window.
 
-**Overflow is silent (4.5b).** When a prompt exceeds the loaded window, the runtime returns success and processes
+**Overflow is silent.** When a prompt exceeds the loaded window, the runtime returns success and processes
 num_ctx/2 + 2 tokens, in all 4 checked cases (4096->2050, 8192->4098, 32768->16386, 40960->20482), through its own
 `--context-shift --keep 4` server flag <!-- ollama-overflow-keeps-half -->. On the discrete GPU, prompts of 8192,
 16384 and 32768 tokens sent to a 4096 window each returned HTTP 200 with 2050 tokens evaluated, for both models
@@ -381,10 +398,10 @@ measurement for llama3.1:8b had an errored call <!-- b5-kv-recall -->; a rerun f
 13/24 at q8_0 (Fisher p = 0.773) and 14/24 at q4_0 (p = 0.564), no difference shown, with needles within a call not
 independent <!-- b5-kv-recall-f16-rerun -->. All of this is on the unconstrained AMD APU, where the default is the
 native window. The simulated-constraint version, with the window capped at 8192 and 4096, has not computed yet
-<!-- pending row: b5-sim-constraint, no number cited -->, and the constrained platforms have not run B5
+<!-- pending row: b5-sim-constraint, no number cited -->, and the constrained platforms have not run this comparison
 <!-- b5-verdict -->.
 
-**Install path and first-call stall (4.5c, 4.5d).** Two further runtime choices change behaviour without changing the
+**Install path and first-call stall.** Two further runtime choices change behaviour without changing the
 weights. Installing qwen3-4b-2507 from a bare model file instead of with the library template changed native tool
 calls on the first call from 11/30 to 2/30, while task-tool correctness stayed at 5/30
 <!-- R2-install-path-4b-comparison -->: behaviour follows the install path, and neither path passes our task-tool
@@ -392,10 +409,13 @@ gate. And the first request on a new prompt waits while the previous request's K
 658/919 first calls were more than 1.5x slower than the repeat, with a stall median of 15.7-40.8 s
 <!-- ttft-first-call-stall -->, a runtime cost that a first-call TTFT measurement mistakes for a model property.
 
-### 4.6 Agent consequences (1.50 pages)
+**Figure spec.**
 
-#### 4.6a The window result (prose draft, 2026-10-20; updated 2026-10-22)
+- **F5.** Default window per platform and model over the CDF of agent step lengths in public traces
+  <!-- T2S-vs-X2-default-ctx --> <!-- blade-k1-layer-split --> <!-- trace-fraction-exceeds-4096 -->.
 
+### 4.6 Agent consequences
+#### 4.6a The window result
 **A default the user never sees.** On the Intel laptop, with no window requested, the same Ollama and the same two
 models loaded 4096 <!-- t2s-r2-real-cpu --> tokens on the CPU and 32768 <!-- t2s-r2-real-igpu --> on the iGPU. On the
 CPU every session crossed the window at turn [3] <!-- t2s-r2-real-cpu --> and then failed silently, 5/5
@@ -465,9 +485,27 @@ late, at turns 24, 25 and 26 <!-- x2-scale-real-default-tier -->. llama3.3:70b l
 <!-- H-scale-verdict -->. mistral-small3.2:24b, from another family, also resisted rule loss (0/3 at 4096
 <!-- H-scale-family-verdict -->, history loss 2/3 at 32768) <!-- H-scale-family-verdict -->. Within what we tested: Rule loss appears in the 8B and 14B models (5 seeds) and in qwen3:32b (2 of 3 sessions at 4096) <!-- H-scale-verdict -->, and not in llama3.3:70b or mistral-small3.2:24b (0 of 3 each) <!-- H-scale-verdict --> <!-- H-scale-family-verdict -->. History loss appears in all of them <!-- H-scale-verdict --> <!-- H-scale-family-verdict -->. We do not claim rule loss in general.
 
+**Table R2-gated and figure spec.**
 
-#### 4.6b The mechanism on AMD and NVIDIA (prose draft, 2026-10-20; checked 2026-10-22)
+Table R2-gated: silent / after window / baseline-type gated failures, of 5 sessions per cell; intact = sessions with no
+gated failure and no canary miss at turns 5/10/15/20/25/30/35/40 <!-- R2-v1b-gated-per-model --> <!-- R2-real-v1b-survival -->.
 
+| tier | llama3.1:8b | qwen3:14b | qwen3:8b |
+|---|---|---|---|
+| Ollama default | 3 / 0 / 3; intact 4/4/4/2/2/2/1/1 | 0 / 0 / 0; intact 5/5/5/5/5/0/0/0 | 0 / 0 / 0; intact 5/5/5/4/4/0/0/0 |
+| 32768 | 1 / 0 / 1; intact 5/5/5/3/3/0/0/0 | 0 / 0 / 0; intact 5/5/5/5/0/0/0/0 | 0 / 0 / 0; intact 5/5/5/4/0/0/0/0 |
+| 16384 | 2 / 2 / 0; intact 5/5/0/0/0/0/0/0 | 0 / 0 / 0; intact 5/5/0/0/0/0/0/0 | 0 / 0 / 0; intact 5/5/0/0/0/0/0/0 |
+| 8192 | 4 / 4 / 0; intact 5/0/0/0/0/0/0/0 | 0 / 0 / 0; intact 5/0/0/0/0/0/0/0 | 4 / 4 / 0; intact 3/0/0/0/0/0/0/0 |
+| 4096 | 5 / 5 / 0; intact 0/0/0/0/0/0/0/0 | 4 / 4 / 0; intact 0/0/0/0/0/0/0/0 | 1 / 1 / 0; intact 0/0/0/0/0/0/0/0 |
+
+Table note: the qwen3:14b 4096 cell counts lapses of rule 3 and rule 5, not rule 2
+<!-- R2-qwen3-14b-4096-reconciliation -->. The qwen3:8b 8192 and 4096 cells are five seeds here; the text quotes the
+10-seed pooled cell <!-- R2-qwen3-8b-reversal-10seed -->.
+
+- **F6.** Per-tier session survival curve (intact sessions against turn) <!-- R2-real-v1b-survival -->, with the
+  after-window excess per tier and its 95% CI as a second panel <!-- R2-v1b-excess-over-default -->.
+
+#### 4.6b The mechanism on AMD and NVIDIA
 **What the runtime removes.** We reran llama3.1:8b on the AMD APU, one session per tier (80 calls each <!-- R2-mechanism-lowlevel -->), with Ollama in debug
 mode, its log sliced per call, and a render-only copy of each request. The rendered prompt matched the runtime's
 count on every check (9/9 within 1% at 4096 <!-- R2-mechanism-verdict -->; render/log disagreements 0 <!-- R2-mechanism-verdict -->). Three
@@ -512,9 +550,12 @@ and `OLLAMA_CONTEXT_LENGTH` of 6144 applied while set and reverted once the serv
 <!-- window-override-methods -->. Only a derived tag persists: a client that omits the per-request option silently gets the
 default back. This check has not yet run on NVIDIA or Intel.
 
+**Figure spec.**
 
-### 4.7 Fixes (prose draft, 2026-10-20; updated 2026-10-22; with the predictor prose below; 1.00 page)
+- **F7.** Per-turn event raster per tier (message drops, context shifts, token cut), one row per tier, with the NVIDIA
+  4096 session as an extra row next to the AMD 4096 row <!-- R2-mechanism-lowlevel --> <!-- blade-mechanism-4096 -->.
 
+### 4.7 Fixes
 **Client-side trimming splits by model, on two vendors.** A client that never sends an over-length prompt should keep
 the runtime from cutting the system prompt. We pre-registered that fix: before
 every call the client renders and counts the request with the model's tokenizer and drops whole old turns until the
@@ -581,8 +622,7 @@ practical fix is to decide per device and workload at session start whether a se
 narrow middle case, since window overflow does not pick out the wrong steps (Section 4.7p). A measured comparison of
 routing at session start is not yet registered.
 
-#### 4.7p Predictor (prose draft, 2026-10-22)
-
+#### 4.7p Predictor
 **A context shift is predictable before the call.** The step that discards the system prompt at the smallest window
 is llama.cpp's context shift (Section 4.6b), and its trigger can be read from the llama.cpp source rather than fitted:
 a shift happens on a call when the prompt left after the message-level trim, plus the tokens generated, exceeds the
@@ -614,9 +654,13 @@ cannot see; where it is small, nearly every step overflows and the flag no longe
 predictor is therefore a tool for explaining and anticipating system-prompt loss, not a cheap filter for which steps
 to send to a cloud model.
 
+**Figure spec.**
 
-### 4.8 Threats to validity (prose draft, 2026-10-21; revised 2026-10-22; 0.50 page)
+- **F8.** Rule compliance per rule in use at 4096 and 8192, mitigation against the real run, per model
+  <!-- R2-mitigation-v1-4096 --> <!-- R2-mitigation-v1-8192 -->. The qwen3:14b 4096 panel shows that rule 2 falls only
+  with trimming (40/40 untrimmed against 24/40, 25/40, 25/40 trimmed <!-- R2-qwen3-14b-4096-reconciliation -->).
 
+### 4.8 Threats to validity
 **Platforms and versions.** We measure one machine per vendor, so a platform effect cannot be separated from that
 machine's driver and memory configuration. Agent runs use Ollama 0.34.4 <!-- R2-qwen3-14b-4096-reconciliation --> and
 direct runs llama.cpp b10970 <!-- design: docs/HARDWARE.md (version record; no register row, gap G13) -->; default
@@ -657,8 +701,7 @@ rate measured the token budget, not the cloud model. We cite no fix rate or cost
 <!-- R2-qwen3-14b-4096-reconciliation -->). Their identity rests on reruns: the same seeds gave identical final text on
 120/120 <!-- R2-qwen3-14b-4096-reconciliation --> turns in runs days apart.
 
-### 4.9 Conclusion (prose draft, 2026-10-21; revised 2026-10-22; 0.50 page)
-
+### 4.9 Conclusion
 Local LLM agents lose context without telling anyone. On every platform we measured, a conversation that outgrows the
 window is trimmed, shifted or cut, and the request still succeeds. Rule loss appears in the 8B and 14B models (5 seeds) and in qwen3:32b (2 of 3 sessions at 4096) <!-- H-scale-verdict -->, and not in llama3.3:70b or mistral-small3.2:24b (0 of 3 each) <!-- H-scale-verdict --> <!-- H-scale-family-verdict -->. History loss appears in all of them <!-- H-scale-verdict --> <!-- H-scale-family-verdict -->. Rule loss depends on the model as well as the window, and we do not claim it in general. The window is often not the user's
 choice: the runtime picks it from the detected device, and an unmodified install on an Intel CPU ran agents at 4096
@@ -686,7 +729,6 @@ More models per size and family, more seeds, further runtime versions and guardr
 turn the model-dependence of rule loss from an observation into a predictable property.
 
 ---
-
 
 ## References (to verify)
 
