@@ -1,0 +1,553 @@
+{
+ "platform": "evo-x2",
+ "metrics": {
+  "llama3.1:8b": {
+   "configs": {
+    "a": {
+     "policy": "a",
+     "name": "default",
+     "arm_id": "b5_a_default_call2_notools",
+     "num_ctx_sent": 8192,
+     "effective_ctx": 8192,
+     "env": "base",
+     "wrapper": null,
+     "alias_of": null,
+     "skip": null
+    },
+    "b": {
+     "policy": "b",
+     "name": "largest",
+     "arm_id": "b5_b_largest_call2_notools",
+     "num_ctx_sent": 8192,
+     "effective_ctx": 8192,
+     "env": "base",
+     "wrapper": null,
+     "alias_of": "a",
+     "skip": null
+    },
+    "c": {
+     "policy": "c",
+     "name": "trim",
+     "arm_id": "b5_c_trim_call2_notools",
+     "num_ctx_sent": 8192,
+     "effective_ctx": 8192,
+     "env": "base",
+     "wrapper": "client_trim",
+     "alias_of": null,
+     "skip": null
+    },
+    "d": {
+     "policy": "d",
+     "name": "router",
+     "arm_id": "b5_d_router_call2_notools",
+     "num_ctx_sent": 8192,
+     "effective_ctx": 8192,
+     "env": "base",
+     "wrapper": "router",
+     "alias_of": null,
+     "skip": null,
+     "proxy_ctx": 131072
+    },
+    "e": {
+     "policy": "e",
+     "name": "autosize",
+     "arm_id": "b5_e_autosize_call2_notools",
+     "num_ctx_sent": 8192,
+     "effective_ctx": 8192,
+     "env": "base",
+     "wrapper": null,
+     "alias_of": "a",
+     "skip": null
+    },
+    "f": {
+     "policy": "f",
+     "name": "num_keep",
+     "arm_id": "b5_f_num_keep_call2_notools",
+     "num_ctx_sent": 8192,
+     "effective_ctx": 8192,
+     "env": "base",
+     "wrapper": "num_keep",
+     "alias_of": null,
+     "skip": null
+    },
+    "g": {
+     "policy": "g",
+     "name": "kv_q8_0",
+     "arm_id": "b5_g_kv_q8_0_call2_notools",
+     "num_ctx_sent": 8192,
+     "effective_ctx": 8192,
+     "env": "q8_0",
+     "wrapper": null,
+     "alias_of": null,
+     "skip": null
+    },
+    "h": {
+     "policy": "h",
+     "name": "kv_q4_0",
+     "arm_id": "b5_h_kv_q4_0_call2_notools",
+     "num_ctx_sent": 8192,
+     "effective_ctx": 8192,
+     "env": "q4_0",
+     "wrapper": null,
+     "alias_of": null,
+     "skip": null
+    }
+   },
+   "balanced_seeds": [
+    20260901,
+    20260902,
+    20260903,
+    20260904,
+    20260905
+   ],
+   "complete": true,
+   "policies": {
+    "a": {
+     "rule_pass_rate": 0.98,
+     "history_recall": 0.125,
+     "wall_min": 10.993489999999293,
+     "wall_min_proxy_measured": 10.993489999999293,
+     "cloud_usd": 0.0,
+     "cloud_usd_no_cache": 0.0,
+     "cloud_usd_cheap_model": 0.0,
+     "n_sessions": 5,
+     "targets": {
+      "local": 0,
+      "local_trimmed": 0,
+      "cloud": 0,
+      "refuse": 0
+     },
+     "window": 8192
+    },
+    "c": {
+     "rule_pass_rate": 1.0,
+     "history_recall": 0.125,
+     "wall_min": 8.987449999999566,
+     "wall_min_proxy_measured": 8.987449999999566,
+     "cloud_usd": 0.0,
+     "cloud_usd_no_cache": 0.0,
+     "cloud_usd_cheap_model": 0.0,
+     "n_sessions": 5,
+     "targets": {
+      "local": 0,
+      "local_trimmed": 0,
+      "cloud": 0,
+      "refuse": 0
+     },
+     "window": 8192
+    },
+    "d": {
+     "rule_pass_rate": 0.996,
+     "history_recall": 0.8,
+     "wall_min": 6.396190000000876,
+     "wall_min_proxy_measured": 20.0726466666682,
+     "cloud_usd": 0.0,
+     "cloud_usd_no_cache": 0.0,
+     "cloud_usd_cheap_model": 0.0,
+     "n_sessions": 5,
+     "targets": {
+      "local": 40,
+      "local_trimmed": 280,
+      "cloud": 80,
+      "refuse": 0
+     },
+     "window": 8192
+    },
+    "f": {
+     "rule_pass_rate": 0.988,
+     "history_recall": 0.125,
+     "wall_min": 10.985423333330546,
+     "wall_min_proxy_measured": 10.985423333330546,
+     "cloud_usd": 0.0,
+     "cloud_usd_no_cache": 0.0,
+     "cloud_usd_cheap_model": 0.0,
+     "n_sessions": 5,
+     "targets": {
+      "local": 0,
+      "local_trimmed": 0,
+      "cloud": 0,
+      "refuse": 0
+     },
+     "window": 8192
+    },
+    "g": {
+     "rule_pass_rate": 1.0,
+     "history_recall": 0.125,
+     "wall_min": 11.139369999998404,
+     "wall_min_proxy_measured": 11.139369999998404,
+     "cloud_usd": 0.0,
+     "cloud_usd_no_cache": 0.0,
+     "cloud_usd_cheap_model": 0.0,
+     "n_sessions": 5,
+     "targets": {
+      "local": 0,
+      "local_trimmed": 0,
+      "cloud": 0,
+      "refuse": 0
+     },
+     "window": 8192
+    },
+    "h": {
+     "rule_pass_rate": 1.0,
+     "history_recall": 0.125,
+     "wall_min": 10.731049999999813,
+     "wall_min_proxy_measured": 10.731049999999813,
+     "cloud_usd": 0.0,
+     "cloud_usd_no_cache": 0.0,
+     "cloud_usd_cheap_model": 0.0,
+     "n_sessions": 5,
+     "targets": {
+      "local": 0,
+      "local_trimmed": 0,
+      "cloud": 0,
+      "refuse": 0
+     },
+     "window": 8192
+    },
+    "b": {
+     "rule_pass_rate": 0.98,
+     "history_recall": 0.125,
+     "wall_min": 10.993489999999293,
+     "wall_min_proxy_measured": 10.993489999999293,
+     "cloud_usd": 0.0,
+     "cloud_usd_no_cache": 0.0,
+     "cloud_usd_cheap_model": 0.0,
+     "n_sessions": 5,
+     "targets": {
+      "local": 0,
+      "local_trimmed": 0,
+      "cloud": 0,
+      "refuse": 0
+     },
+     "window": 8192,
+     "alias_of": "a"
+    },
+    "e": {
+     "rule_pass_rate": 0.98,
+     "history_recall": 0.125,
+     "wall_min": 10.993489999999293,
+     "wall_min_proxy_measured": 10.993489999999293,
+     "cloud_usd": 0.0,
+     "cloud_usd_no_cache": 0.0,
+     "cloud_usd_cheap_model": 0.0,
+     "n_sessions": 5,
+     "targets": {
+      "local": 0,
+      "local_trimmed": 0,
+      "cloud": 0,
+      "refuse": 0
+     },
+     "window": 8192,
+     "alias_of": "a"
+    }
+   },
+   "problems": [],
+   "rules_in_use": [
+    "rule1_json_keys",
+    "rule3_no_zebra",
+    "rule4_metres"
+   ]
+  },
+  "qwen3:14b": {
+   "configs": {
+    "a": {
+     "policy": "a",
+     "name": "default",
+     "arm_id": "b5_a_default_call2_notools",
+     "num_ctx_sent": 8192,
+     "effective_ctx": 8192,
+     "env": "base",
+     "wrapper": null,
+     "alias_of": null,
+     "skip": null
+    },
+    "b": {
+     "policy": "b",
+     "name": "largest",
+     "arm_id": "b5_b_largest_call2_notools",
+     "num_ctx_sent": 8192,
+     "effective_ctx": 8192,
+     "env": "base",
+     "wrapper": null,
+     "alias_of": "a",
+     "skip": null
+    },
+    "c": {
+     "policy": "c",
+     "name": "trim",
+     "arm_id": "b5_c_trim_call2_notools",
+     "num_ctx_sent": 8192,
+     "effective_ctx": 8192,
+     "env": "base",
+     "wrapper": "client_trim",
+     "alias_of": null,
+     "skip": null
+    },
+    "d": {
+     "policy": "d",
+     "name": "router",
+     "arm_id": "b5_d_router_call2_notools",
+     "num_ctx_sent": 8192,
+     "effective_ctx": 8192,
+     "env": "base",
+     "wrapper": "router",
+     "alias_of": null,
+     "skip": null,
+     "proxy_ctx": 40960
+    },
+    "e": {
+     "policy": "e",
+     "name": "autosize",
+     "arm_id": "b5_e_autosize_call2_notools",
+     "num_ctx_sent": 8192,
+     "effective_ctx": 8192,
+     "env": "base",
+     "wrapper": null,
+     "alias_of": "a",
+     "skip": null
+    },
+    "f": {
+     "policy": "f",
+     "name": "num_keep",
+     "arm_id": "b5_f_num_keep_call2_notools",
+     "num_ctx_sent": 8192,
+     "effective_ctx": 8192,
+     "env": "base",
+     "wrapper": "num_keep",
+     "alias_of": null,
+     "skip": null
+    },
+    "g": {
+     "policy": "g",
+     "name": "kv_q8_0",
+     "arm_id": "b5_g_kv_q8_0_call2_notools",
+     "num_ctx_sent": 8192,
+     "effective_ctx": 8192,
+     "env": "q8_0",
+     "wrapper": null,
+     "alias_of": null,
+     "skip": null
+    },
+    "h": {
+     "policy": "h",
+     "name": "kv_q4_0",
+     "arm_id": "b5_h_kv_q4_0_call2_notools",
+     "num_ctx_sent": 8192,
+     "effective_ctx": 8192,
+     "env": "q4_0",
+     "wrapper": null,
+     "alias_of": null,
+     "skip": null
+    }
+   },
+   "balanced_seeds": [
+    20260901,
+    20260902,
+    20260903,
+    20260904,
+    20260905
+   ],
+   "complete": true,
+   "policies": {
+    "a": {
+     "rule_pass_rate": 1.0,
+     "history_recall": 0.125,
+     "wall_min": 24.124689999999635,
+     "wall_min_proxy_measured": 24.124689999999635,
+     "cloud_usd": 0.0,
+     "cloud_usd_no_cache": 0.0,
+     "cloud_usd_cheap_model": 0.0,
+     "n_sessions": 5,
+     "targets": {
+      "local": 0,
+      "local_trimmed": 0,
+      "cloud": 0,
+      "refuse": 0
+     },
+     "window": 8192
+    },
+    "c": {
+     "rule_pass_rate": 0.9922222222222222,
+     "history_recall": 0.0,
+     "wall_min": 18.289126666667872,
+     "wall_min_proxy_measured": 18.289126666667872,
+     "cloud_usd": 0.0,
+     "cloud_usd_no_cache": 0.0,
+     "cloud_usd_cheap_model": 0.0,
+     "n_sessions": 5,
+     "targets": {
+      "local": 0,
+      "local_trimmed": 0,
+      "cloud": 0,
+      "refuse": 0
+     },
+     "window": 8192
+    },
+    "d": {
+     "rule_pass_rate": 1.0,
+     "history_recall": 0.625,
+     "wall_min": 15.4869599999963,
+     "wall_min_proxy_measured": 67.10031666666502,
+     "cloud_usd": 0.0,
+     "cloud_usd_no_cache": 0.0,
+     "cloud_usd_cheap_model": 0.0,
+     "n_sessions": 5,
+     "targets": {
+      "local": 40,
+      "local_trimmed": 280,
+      "cloud": 80,
+      "refuse": 0
+     },
+     "window": 8192
+    },
+    "f": {
+     "rule_pass_rate": 1.0,
+     "history_recall": 0.125,
+     "wall_min": 24.064626666664456,
+     "wall_min_proxy_measured": 24.064626666664456,
+     "cloud_usd": 0.0,
+     "cloud_usd_no_cache": 0.0,
+     "cloud_usd_cheap_model": 0.0,
+     "n_sessions": 5,
+     "targets": {
+      "local": 0,
+      "local_trimmed": 0,
+      "cloud": 0,
+      "refuse": 0
+     },
+     "window": 8192
+    },
+    "g": {
+     "rule_pass_rate": 1.0,
+     "history_recall": 0.125,
+     "wall_min": 22.17177000000219,
+     "wall_min_proxy_measured": 22.17177000000219,
+     "cloud_usd": 0.0,
+     "cloud_usd_no_cache": 0.0,
+     "cloud_usd_cheap_model": 0.0,
+     "n_sessions": 5,
+     "targets": {
+      "local": 0,
+      "local_trimmed": 0,
+      "cloud": 0,
+      "refuse": 0
+     },
+     "window": 8192
+    },
+    "h": {
+     "rule_pass_rate": 1.0,
+     "history_recall": 0.125,
+     "wall_min": 21.73218666666653,
+     "wall_min_proxy_measured": 21.73218666666653,
+     "cloud_usd": 0.0,
+     "cloud_usd_no_cache": 0.0,
+     "cloud_usd_cheap_model": 0.0,
+     "n_sessions": 5,
+     "targets": {
+      "local": 0,
+      "local_trimmed": 0,
+      "cloud": 0,
+      "refuse": 0
+     },
+     "window": 8192
+    },
+    "b": {
+     "rule_pass_rate": 1.0,
+     "history_recall": 0.125,
+     "wall_min": 24.124689999999635,
+     "wall_min_proxy_measured": 24.124689999999635,
+     "cloud_usd": 0.0,
+     "cloud_usd_no_cache": 0.0,
+     "cloud_usd_cheap_model": 0.0,
+     "n_sessions": 5,
+     "targets": {
+      "local": 0,
+      "local_trimmed": 0,
+      "cloud": 0,
+      "refuse": 0
+     },
+     "window": 8192,
+     "alias_of": "a"
+    },
+    "e": {
+     "rule_pass_rate": 1.0,
+     "history_recall": 0.125,
+     "wall_min": 24.124689999999635,
+     "wall_min_proxy_measured": 24.124689999999635,
+     "cloud_usd": 0.0,
+     "cloud_usd_no_cache": 0.0,
+     "cloud_usd_cheap_model": 0.0,
+     "n_sessions": 5,
+     "targets": {
+      "local": 0,
+      "local_trimmed": 0,
+      "cloud": 0,
+      "refuse": 0
+     },
+     "window": 8192,
+     "alias_of": "a"
+    }
+   },
+   "problems": [],
+   "rules_in_use": [
+    "rule1_json_keys",
+    "rule2_log_event_called",
+    "rule3_no_zebra",
+    "rule4_metres",
+    "rule5_session_code"
+   ]
+  }
+ },
+ "recall": {
+  "llama3.1:8b": {
+   "f16": {
+    "window": 8192,
+    "truncated": 0,
+    "errors": 0,
+    "recall_mean": 1.0,
+    "calls": 3
+   },
+   "q8_0": {
+    "window": 8192,
+    "truncated": 0,
+    "errors": 0,
+    "recall_mean": 1.0,
+    "calls": 3
+   },
+   "q4_0": {
+    "window": 8192,
+    "truncated": 0,
+    "errors": 0,
+    "recall_mean": 1.0,
+    "calls": 3
+   }
+  },
+  "qwen3:14b": {
+   "f16": {
+    "window": 8192,
+    "truncated": 0,
+    "errors": 0,
+    "recall_mean": 1.0,
+    "calls": 3
+   },
+   "q8_0": {
+    "window": 8192,
+    "truncated": 0,
+    "errors": 0,
+    "recall_mean": 1.0,
+    "calls": 3
+   },
+   "q4_0": {
+    "window": 8192,
+    "truncated": 0,
+    "errors": 0,
+    "recall_mean": 1.0,
+    "calls": 3
+   }
+  }
+ },
+ "refused": {},
+ "missing": [],
+ "deadline_reached": false,
+ "prices_loaded": false
+}

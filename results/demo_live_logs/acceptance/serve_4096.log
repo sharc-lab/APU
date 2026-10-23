@@ -1,0 +1,734 @@
+time=2026-10-23T06:37:27.456-07:00 level=INFO source=routes.go:2005 msg="server config" env="map[CUDA_VISIBLE_DEVICES: GGML_VK_VISIBLE_DEVICES: GPU_DEVICE_ORDINAL: HIP_VISIBLE_DEVICES: HSA_OVERRIDE_GFX_VERSION: HTTPS_PROXY: HTTP_PROXY: LLAMA_ARG_FIT: LLAMA_ARG_FIT_TARGET: NO_PROXY: OLLAMA_CONTEXT_LENGTH:0 OLLAMA_CREATE_REMOTE:false OLLAMA_DEBUG:DEBUG OLLAMA_DEBUG_LOG_REQUESTS:false OLLAMA_EDITOR: OLLAMA_FLASH_ATTENTION:false OLLAMA_GO_TEMPLATE:true OLLAMA_GPU_OVERHEAD:0 OLLAMA_HOST:http://127.0.0.1:11541 OLLAMA_IGPU_ENABLE: OLLAMA_KEEP_ALIVE:5m0s OLLAMA_KV_CACHE_TYPE: OLLAMA_LLM_LIBRARY: OLLAMA_LOAD_TIMEOUT:5m0s OLLAMA_MAX_LOADED_MODELS:0 OLLAMA_MAX_QUEUE:512 OLLAMA_MAX_TRANSFER_STREAMS:4 OLLAMA_MODELS:C:\\Users\\Ritz\\.ollama\\models OLLAMA_NOHISTORY:false OLLAMA_NOPRUNE:false OLLAMA_NO_CLOUD:false OLLAMA_NUM_PARALLEL:1 OLLAMA_ORIGINS:[http://localhost https://localhost http://localhost:* https://localhost:* http://127.0.0.1 https://127.0.0.1 http://127.0.0.1:* https://127.0.0.1:* http://0.0.0.0 https://0.0.0.0 http://0.0.0.0:* https://0.0.0.0:* app://* file://* tauri://* vscode-webview://* vscode-file://*] OLLAMA_REMOTES:[ollama.com] OLLAMA_SCHED_SPREAD:false OLLAMA_VULKAN:true ROCR_VISIBLE_DEVICES:]"
+time=2026-10-23T06:37:27.457-07:00 level=INFO source=routes.go:2007 msg="Ollama cloud disabled: false"
+time=2026-10-23T06:37:27.461-07:00 level=INFO source=images.go:922 msg="total blobs: 37"
+time=2026-10-23T06:37:27.463-07:00 level=INFO source=images.go:930 msg="total unused blobs removed: 0"
+time=2026-10-23T06:37:27.464-07:00 level=DEBUG source=model_recommendations.go:57 msg="starting model recommendations cache" default_recommendations=6 refresh_interval=4h0m0s fetch_timeout=3s
+time=2026-10-23T06:37:27.464-07:00 level=DEBUG source=model_show_cache.go:128 msg="starting model show cache"
+time=2026-10-23T06:37:27.464-07:00 level=INFO source=routes.go:2065 msg="Listening on 127.0.0.1:11541 (version 0.34.4)"
+time=2026-10-23T06:37:27.464-07:00 level=DEBUG source=sched.go:220 msg="starting llm scheduler"
+time=2026-10-23T06:37:27.464-07:00 level=DEBUG source=model_recommendations.go:265 msg="loaded model recommendations snapshot" path=C:\windows\system32\config\systemprofile\.ollama\cache\model-recommendations.json count=7
+time=2026-10-23T06:37:27.464-07:00 level=DEBUG source=model_recommendations.go:192 msg="refreshing model recommendations from remote" url=https://ollama.com/api/experimental/model-recommendations
+time=2026-10-23T06:37:27.465-07:00 level=INFO source=runner.go:60 msg="discovering available GPUs..."
+time=2026-10-23T06:37:27.507-07:00 level=DEBUG source=llama_server.go:121 msg="llama-server discovery: stopped subprocess after collecting GPU info" exit=1 libDirs="[C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\cuda_v12]"
+time=2026-10-23T06:37:27.596-07:00 level=DEBUG source=native_probe.go:259 msg="native GPU discovery failed" error="exit status 1" stderr="load_backend: failed to load C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\cuda_v12\\ggml-cuda.dll: \r\nError: failed to load nvcuda.dll: The specified module could not be found.\n" libDirs="[C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\cuda_v12]"
+time=2026-10-23T06:37:27.596-07:00 level=DEBUG source=llama_server.go:52 msg="llama-server device discovery took" duration=129.4692ms libDirs="[C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\cuda_v12]"
+time=2026-10-23T06:37:27.596-07:00 level=DEBUG source=runner.go:494 msg="bootstrap discovery took" duration=129.4692ms OLLAMA_LIBRARY_PATH="[C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\cuda_v12]" extra_envs=map[]
+time=2026-10-23T06:37:27.666-07:00 level=DEBUG source=model_recommendations.go:228 msg="model recommendations refreshed" count=7
+time=2026-10-23T06:37:27.674-07:00 level=DEBUG source=model_recommendations.go:305 msg="persisted model recommendations snapshot" path=C:\windows\system32\config\systemprofile\.ollama\cache\model-recommendations.json count=7
+time=2026-10-23T06:37:27.674-07:00 level=INFO source=model_recommendations.go:177 msg="model recommendations cache sleep scheduled" wait=3h40m43.284428867s consecutive_failures=0
+time=2026-10-23T06:37:27.730-07:00 level=DEBUG source=llama_server.go:121 msg="llama-server discovery: stopped subprocess after collecting GPU info" exit=1 libDirs="[C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\cuda_v13]"
+time=2026-10-23T06:37:27.987-07:00 level=DEBUG source=native_probe.go:259 msg="native GPU discovery failed" error="exit status 1" stderr="ggml_cuda_init: failed to initialize CUDA: (null)\r\nload_backend: loaded CUDA backend from C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\cuda_v13\\ggml-cuda.dll\r\nError: failed to load nvcuda.dll: The specified module could not be found.\n" libDirs="[C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\cuda_v13]"
+time=2026-10-23T06:37:27.987-07:00 level=DEBUG source=llama_server.go:52 msg="llama-server device discovery took" duration=390.0335ms libDirs="[C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\cuda_v13]"
+time=2026-10-23T06:37:27.987-07:00 level=DEBUG source=runner.go:494 msg="bootstrap discovery took" duration=390.5556ms OLLAMA_LIBRARY_PATH="[C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\cuda_v13]" extra_envs=map[]
+time=2026-10-23T06:37:27.992-07:00 level=DEBUG source=rocm_windows.go:174 msg="keeping bundled ROCm runtime because companion DLL version is unavailable" name=amd_comgr_3.dll bundled=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\amd_comgr_3.dll system=C:\windows\system32\amd_comgr_3.dll
+time=2026-10-23T06:37:27.992-07:00 level=DEBUG source=rocm_windows.go:76 msg="selected windows ROCm runtime" runtime_source=bundled name=amdhip64_7.dll path=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\amdhip64_7.dll bundled=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\amdhip64_7.dll bundled_version=10.0.3665.0 system=C:\windows\system32\amdhip64_7.dll system_version=10.0.3679.0
+time=2026-10-23T06:37:28.052-07:00 level=DEBUG source=llama_server.go:121 msg="llama-server discovery: stopped subprocess after collecting GPU info" exit=1 libDirs="[C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\rocm_v7_1]"
+time=2026-10-23T06:37:28.234-07:00 level=DEBUG source=rocm_windows.go:174 msg="keeping bundled ROCm runtime because companion DLL version is unavailable" name=amd_comgr_3.dll bundled=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\amd_comgr_3.dll system=C:\windows\system32\amd_comgr_3.dll
+time=2026-10-23T06:37:28.234-07:00 level=DEBUG source=rocm_windows.go:76 msg="selected windows ROCm runtime" runtime_source=bundled name=amdhip64_7.dll path=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\amdhip64_7.dll bundled=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\amdhip64_7.dll bundled_version=10.0.3665.0 system=C:\windows\system32\amdhip64_7.dll system_version=10.0.3679.0
+time=2026-10-23T06:37:28.417-07:00 level=DEBUG source=llama_server.go:52 msg="llama-server device discovery took" duration=429.1225ms libDirs="[C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\rocm_v7_1]"
+time=2026-10-23T06:37:28.419-07:00 level=DEBUG source=runner.go:494 msg="bootstrap discovery took" duration=431.2489ms OLLAMA_LIBRARY_PATH="[C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\rocm_v7_1]" extra_envs=map[]
+time=2026-10-23T06:37:28.420-07:00 level=DEBUG source=vulkan_windows.go:37 msg="selected windows Vulkan loader" path=C:\windows\system32\vulkan-1.dll
+time=2026-10-23T06:37:28.512-07:00 level=DEBUG source=llama_server.go:121 msg="llama-server discovery: stopped subprocess after collecting GPU info" exit=1 libDirs="[C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\vulkan]"
+time=2026-10-23T06:37:28.602-07:00 level=DEBUG source=vulkan_windows.go:37 msg="selected windows Vulkan loader" path=C:\windows\system32\vulkan-1.dll
+time=2026-10-23T06:37:28.728-07:00 level=DEBUG source=vulkan.go:138 msg="windows vulkan device refinement applied" devices=1
+time=2026-10-23T06:37:28.728-07:00 level=DEBUG source=llama_server.go:52 msg="llama-server device discovery took" duration=309.0373ms libDirs="[C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\vulkan]"
+time=2026-10-23T06:37:28.728-07:00 level=DEBUG source=runner.go:494 msg="bootstrap discovery took" duration=309.0373ms OLLAMA_LIBRARY_PATH="[C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\vulkan]" extra_envs=map[]
+time=2026-10-23T06:37:28.728-07:00 level=INFO source=runner.go:405 msg="dropping integrated GPU; to enable, set OLLAMA_IGPU_ENABLE=1" id=0 library=Vulkan compute=0.0 name=Vulkan0 description="AMD Radeon(TM) 8060S Graphics" pci_id=""
+time=2026-10-23T06:37:28.728-07:00 level=DEBUG source=runner.go:131 msg="evaluating which, if any, devices to filter out" initial_count=1
+time=2026-10-23T06:37:28.728-07:00 level=DEBUG source=runner.go:153 msg="verifying if device is supported" library=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1 description="AMD Radeon(TM) 8060S Graphics" compute=gfx1151 id=0 pci_id=0000:c5:00.0
+time=2026-10-23T06:37:28.730-07:00 level=DEBUG source=rocm_windows.go:174 msg="keeping bundled ROCm runtime because companion DLL version is unavailable" name=amd_comgr_3.dll bundled=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\amd_comgr_3.dll system=C:\windows\system32\amd_comgr_3.dll
+time=2026-10-23T06:37:28.730-07:00 level=DEBUG source=rocm_windows.go:76 msg="selected windows ROCm runtime" runtime_source=bundled name=amdhip64_7.dll path=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\amdhip64_7.dll bundled=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\amdhip64_7.dll bundled_version=10.0.3665.0 system=C:\windows\system32\amdhip64_7.dll system_version=10.0.3679.0
+time=2026-10-23T06:37:28.783-07:00 level=DEBUG source=llama_server.go:121 msg="llama-server discovery: stopped subprocess after collecting GPU info" exit=1 libDirs="[C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\rocm_v7_1]"
+time=2026-10-23T06:37:28.932-07:00 level=DEBUG source=rocm_windows.go:174 msg="keeping bundled ROCm runtime because companion DLL version is unavailable" name=amd_comgr_3.dll bundled=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\amd_comgr_3.dll system=C:\windows\system32\amd_comgr_3.dll
+time=2026-10-23T06:37:28.932-07:00 level=DEBUG source=rocm_windows.go:76 msg="selected windows ROCm runtime" runtime_source=bundled name=amdhip64_7.dll path=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\amdhip64_7.dll bundled=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\amdhip64_7.dll bundled_version=10.0.3665.0 system=C:\windows\system32\amdhip64_7.dll system_version=10.0.3679.0
+time=2026-10-23T06:37:29.089-07:00 level=DEBUG source=llama_server.go:52 msg="llama-server device discovery took" duration=359.9193ms libDirs="[C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\rocm_v7_1]"
+time=2026-10-23T06:37:29.090-07:00 level=DEBUG source=runner.go:494 msg="bootstrap discovery took" duration=361.9725ms OLLAMA_LIBRARY_PATH="[C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\rocm_v7_1]" extra_envs="map[GGML_CUDA_INIT:1 HIP_VISIBLE_DEVICES:0]"
+time=2026-10-23T06:37:29.090-07:00 level=DEBUG source=runner.go:200 msg="adjusting filtering IDs" FilterID=0 new_ID=0
+time=2026-10-23T06:37:29.090-07:00 level=DEBUG source=runner.go:42 msg="GPU bootstrap discovery took" duration=1.6259712s
+time=2026-10-23T06:37:29.090-07:00 level=INFO source=types.go:32 msg="inference compute" id=0 filter_id=0 library=ROCm compute=gfx1151 name=ROCm0 description="AMD Radeon(TM) 8060S Graphics" libdirs=ollama,rocm_v7_1 driver=0.0 pci_id=0000:c5:00.0 type=iGPU total="99.7 GiB" available="99.6 GiB"
+time=2026-10-23T06:37:29.090-07:00 level=INFO source=routes.go:2115 msg="vram-based default context" total_vram="99.7 GiB" default_num_ctx=262144
+[GIN] 2026/10/23 - 06:37:29 | 200 |            0s |       127.0.0.1 | GET      "/api/version"
+time=2026-10-23T06:37:29.130-07:00 level=DEBUG source=runner.go:272 msg="refreshing free memory"
+time=2026-10-23T06:37:29.130-07:00 level=DEBUG source=runner.go:336 msg="unable to refresh all GPUs with existing runners, performing bootstrap discovery"
+time=2026-10-23T06:37:29.133-07:00 level=DEBUG source=rocm_windows.go:174 msg="keeping bundled ROCm runtime because companion DLL version is unavailable" name=amd_comgr_3.dll bundled=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\amd_comgr_3.dll system=C:\windows\system32\amd_comgr_3.dll
+time=2026-10-23T06:37:29.133-07:00 level=DEBUG source=rocm_windows.go:76 msg="selected windows ROCm runtime" runtime_source=bundled name=amdhip64_7.dll path=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\amdhip64_7.dll bundled=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\amdhip64_7.dll bundled_version=10.0.3665.0 system=C:\windows\system32\amdhip64_7.dll system_version=10.0.3679.0
+time=2026-10-23T06:37:29.187-07:00 level=DEBUG source=llama_server.go:121 msg="llama-server discovery: stopped subprocess after collecting GPU info" exit=1 libDirs="[C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\rocm_v7_1]"
+time=2026-10-23T06:37:29.341-07:00 level=DEBUG source=rocm_windows.go:174 msg="keeping bundled ROCm runtime because companion DLL version is unavailable" name=amd_comgr_3.dll bundled=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\amd_comgr_3.dll system=C:\windows\system32\amd_comgr_3.dll
+time=2026-10-23T06:37:29.341-07:00 level=DEBUG source=rocm_windows.go:76 msg="selected windows ROCm runtime" runtime_source=bundled name=amdhip64_7.dll path=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\amdhip64_7.dll bundled=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\amdhip64_7.dll bundled_version=10.0.3665.0 system=C:\windows\system32\amdhip64_7.dll system_version=10.0.3679.0
+time=2026-10-23T06:37:29.500-07:00 level=DEBUG source=llama_server.go:52 msg="llama-server device discovery took" duration=369.4575ms libDirs="[C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\rocm_v7_1]"
+time=2026-10-23T06:37:29.502-07:00 level=DEBUG source=runner.go:494 msg="bootstrap discovery took" duration=371.5637ms OLLAMA_LIBRARY_PATH="[C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\rocm_v7_1]" extra_envs=map[HIP_VISIBLE_DEVICES:0]
+time=2026-10-23T06:37:29.502-07:00 level=DEBUG source=runner.go:42 msg="overall device VRAM discovery took" duration=371.5637ms
+time=2026-10-23T06:37:29.502-07:00 level=DEBUG source=sched.go:295 msg="updating default concurrency" OLLAMA_MAX_LOADED_MODELS=3 gpu_count=1
+time=2026-10-23T06:37:29.502-07:00 level=DEBUG source=sched.go:304 msg="loading first model" model=C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e
+time=2026-10-23T06:37:29.522-07:00 level=INFO source=server.go:100 msg="using llama-server for model" model=C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e
+time=2026-10-23T06:37:29.524-07:00 level=DEBUG source=rocm_windows.go:174 msg="keeping bundled ROCm runtime because companion DLL version is unavailable" name=amd_comgr_3.dll bundled=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\amd_comgr_3.dll system=C:\windows\system32\amd_comgr_3.dll
+time=2026-10-23T06:37:29.524-07:00 level=DEBUG source=rocm_windows.go:76 msg="selected windows ROCm runtime" runtime_source=bundled name=amdhip64_7.dll path=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\amdhip64_7.dll bundled=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\amdhip64_7.dll bundled_version=10.0.3665.0 system=C:\windows\system32\amdhip64_7.dll system_version=10.0.3679.0
+time=2026-10-23T06:37:29.524-07:00 level=INFO source=llama_server.go:436 msg="starting llama-server" cmd="C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\llama-server.exe --model C:\\Users\\Ritz\\.ollama\\models\\blobs\\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e --port 64396 --host 127.0.0.1 --no-webui --offline -c 4096 -np 1 --log-verbosity 4 --no-log-prefix --no-log-timestamps --no-jinja --chat-template chatml --flash-attn auto -b 512 -ub 512 --context-shift --keep 4"
+time=2026-10-23T06:37:29.525-07:00 level=DEBUG source=llama_server.go:437 msg=subprocess PATH="C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama;C:\\Users\\Ritz\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\rocm_v7_1;C:\\Program Files\\OpenSSH\\;C:\\windows\\system32;C:\\windows;C:\\windows\\System32\\Wbem;C:\\windows\\System32\\WindowsPowerShell\\v1.0\\;C:\\windows\\System32\\OpenSSH\\;C:\\Program Files\\Tailscale\\;C:\\windows\\system32\\config\\systemprofile\\AppData\\Local\\Microsoft\\WindowsApps" HIP_VISIBLE_DEVICES=0 GGML_BACKEND_PATH=C:\Users\Ritz\AppData\Local\Programs\Ollama\lib\ollama\rocm_v7_1\ggml-hip.dll
+time=2026-10-23T06:37:29.533-07:00 level=INFO source=sched.go:618 msg="system memory" total="63.6 GiB" free="50.6 GiB" free_swap="228.5 GiB"
+time=2026-10-23T06:37:29.533-07:00 level=INFO source=sched.go:625 msg="gpu memory" id=0 library=ROCm available="99.1 GiB" free="99.6 GiB" minimum="457.0 MiB" overhead="0 B"
+time=2026-10-23T06:37:29.533-07:00 level=INFO source=llama_server.go:1054 msg="loading model via llama-server" model=C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e
+time=2026-10-23T06:37:29.533-07:00 level=INFO source=llama_server.go:1307 msg="waiting for llama-server to start responding"
+time=2026-10-23T06:37:29.533-07:00 level=INFO source=llama_server.go:1362 msg="waiting for llama-server to become available" status="llm server error"
+0.00.000.587 I srv  llama_server: initializing ...
+cmn  common_param: common_params_print_info: build 1 (161755f29) with Clang 18.1.8 for Windows AMD64
+cmn  common_param: common_params_print_info: verbosity = 4 (adjust with the `-lv N` CLI arg)
+cmn  common_param: device_info:
+cmn  common_param:   - CPU     : AMD RYZEN AI MAX+ 395 w/ Radeon 8060S           (65174 MiB, 51794 MiB free)
+cmn  common_param:   - ROCm0   : AMD Radeon(TM) 8060S Graphics (102129 MiB, 101974 MiB free)
+cmn  common_param: system_info: n_threads = 16 (n_threads_batch = 16) / 32 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | AVX512 = 1 | AVX512_VBMI = 1 | AVX512_VNNI = 1 | AVX512_BF16 = 1 | LLAMAFILE = 1 | OPENMP = 1 | REPACK = 1 | ROCm : NO_VMM = 1 | NO_PEER_COPY = 1 | FA_QUANTS = q4_0-q4_0,q8_0-q8_0,f16-f16,bf16-bf16 | 
+srv          init: using 31 threads for HTTP server
+srv          init: The UI is disabled
+srv          init: Use --ui/--no-ui (or deprecated --webui/--no-webui) to enable/disable
+srv  llama_server: security: no API key is set and CORS allows all origins (see https://github.com/ggml-org/llama.cpp/pull/25655)
+srv         start: binding port with default address family
+srv    load_model: loading model 'C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e'
+srv    load_model: local path 'C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e'
+cmn  common_init_: fitting params to device memory ...
+cmn  common_init_: (for bugs during this step try to reproduce them with -fit off, or provide --verbose logs if the bug only occurs with -fit on)
+common_params_fit_impl: getting device memory data for initial parameters:
+time=2026-10-23T06:37:29.785-07:00 level=INFO source=llama_server.go:1362 msg="waiting for llama-server to become available" status="llm server loading model"
+common_memory_breakdown_print: | memory breakdown [MiB]                |  total     free    self   model   context   compute    unaccounted |
+common_memory_breakdown_print: |   - ROCm0 (Radeon(TM) 8060S Graphics) | 102129 = 101832 + (9199 =  8423 +     640 +     136) +       -8902 |
+common_memory_breakdown_print: |   - Host                              |                     441 =   417 +       0 +      24                |
+common_params_fit_impl: projected to use 9199 MiB of device memory vs. 101832 MiB of free device memory
+common_params_fit_impl: will leave 92632 >= 1024 MiB of free device memory, no changes needed
+common_fit_params: successfully fit params to free device memory
+common_fit_params: fitting params to free memory took 0.20 seconds
+llama_model_loader: loaded meta data with 27 key-value pairs and 443 tensors from C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e (version GGUF V3 (latest))
+llama_model_loader: Dumping metadata keys/values. Note: KV overrides do not apply in this output.
+llama_model_loader: - kv   0:                       general.architecture str              = qwen3
+llama_model_loader: - kv   1:                               general.type str              = model
+llama_model_loader: - kv   2:                               general.name str              = Qwen3 14B
+llama_model_loader: - kv   3:                           general.basename str              = Qwen3
+llama_model_loader: - kv   4:                         general.size_label str              = 14B
+llama_model_loader: - kv   5:                          qwen3.block_count u32              = 40
+llama_model_loader: - kv   6:                       qwen3.context_length u32              = 40960
+llama_model_loader: - kv   7:                     qwen3.embedding_length u32              = 5120
+llama_model_loader: - kv   8:                  qwen3.feed_forward_length u32              = 17408
+llama_model_loader: - kv   9:                 qwen3.attention.head_count u32              = 40
+llama_model_loader: - kv  10:              qwen3.attention.head_count_kv u32              = 8
+llama_model_loader: - kv  11:                       qwen3.rope.freq_base f32              = 1000000.000000
+llama_model_loader: - kv  12:     qwen3.attention.layer_norm_rms_epsilon f32              = 0.000001
+llama_model_loader: - kv  13:                 qwen3.attention.key_length u32              = 128
+llama_model_loader: - kv  14:               qwen3.attention.value_length u32              = 128
+llama_model_loader: - kv  15:                       tokenizer.ggml.model str              = gpt2
+llama_model_loader: - kv  16:                         tokenizer.ggml.pre str              = qwen2
+llama_model_loader: - kv  17:                      tokenizer.ggml.tokens arr[str,151936]  = ["!", "\"", "#", "$", "%", "&", "'", ...
+llama_model_loader: - kv  18:                  tokenizer.ggml.token_type arr[i32,151936]  = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, ...
+llama_model_loader: - kv  19:                      tokenizer.ggml.merges arr[str,151387]  = ["Ġ Ġ", "ĠĠ ĠĠ", "i n", "Ġ t",...
+llama_model_loader: - kv  20:                tokenizer.ggml.eos_token_id u32              = 151645
+llama_model_loader: - kv  21:            tokenizer.ggml.padding_token_id u32              = 151643
+llama_model_loader: - kv  22:                tokenizer.ggml.bos_token_id u32              = 151643
+llama_model_loader: - kv  23:               tokenizer.ggml.add_bos_token bool             = false
+llama_model_loader: - kv  24:                    tokenizer.chat_template str              = {%- if tools %}\n    {{- '<|im_start|>...
+llama_model_loader: - kv  25:               general.quantization_version u32              = 2
+llama_model_loader: - kv  26:                          general.file_type u32              = 15
+llama_model_loader: - type  f32:  161 tensors
+llama_model_loader: - type  f16:   40 tensors
+llama_model_loader: - type q4_K:  221 tensors
+llama_model_loader: - type q6_K:   21 tensors
+print_info: file format = GGUF V3 (latest)
+print_info: file type   = Q4_K - Medium
+print_info: file size   = 8.63 GiB (5.02 BPW) 
+llama_prepare_model_devices: using device ROCm0 (AMD Radeon(TM) 8060S Graphics) (0000:c5:00.0) - 101974 MiB free
+load: 0 unused tokens
+load: control-looking token: 128247 '</s>' was not control-type; this is probably a bug in the model. its type will be overridden
+load: printing all EOG tokens:
+load:   - 128247 ('</s>')
+load:   - 151643 ('<|endoftext|>')
+load:   - 151645 ('<|im_end|>')
+load:   - 151662 ('<|fim_pad|>')
+load:   - 151663 ('<|repo_name|>')
+load:   - 151664 ('<|file_sep|>')
+load: special tokens cache size = 27
+load: token to piece cache size = 0.9311 MB
+print_info: arch                  = qwen3
+print_info: vocab_only            = 0
+print_info: no_alloc              = 0
+print_info: n_ctx_train           = 40960
+print_info: n_embd_inp            = 5120
+print_info: n_embd                = 5120
+print_info: n_embd_out            = 5120
+print_info: n_layer               = 40
+print_info: n_layer_all           = 40
+print_info: n_head                = 40
+print_info: n_head_kv             = 8
+print_info: n_rot                 = 128
+print_info: n_swa                 = 0
+print_info: is_swa_any            = 0
+print_info: non_causal_type       = 0
+print_info: n_embd_head_k         = 128
+print_info: n_embd_head_v         = 128
+print_info: n_gqa                 = 5
+print_info: n_embd_k_gqa          = 1024
+print_info: n_embd_v_gqa          = 1024
+print_info: f_norm_eps            = 0.0e+00
+print_info: f_norm_rms_eps        = 1.0e-06
+print_info: f_clamp_kqv           = 0.0e+00
+print_info: f_max_alibi_bias      = 0.0e+00
+print_info: f_logit_scale         = 0.0e+00
+print_info: f_attn_scale          = 0.0e+00
+print_info: f_attn_value_scale    = 0.0000
+print_info: n_ff                  = 17408
+print_info: n_expert              = 0
+print_info: n_expert_used         = 0
+print_info: n_expert_groups       = 0
+print_info: n_group_used          = 0
+print_info: causal attn           = 1
+print_info: pooling type          = -1
+print_info: rope type             = 2
+print_info: rope scaling          = linear
+print_info: freq_base_train       = 1000000.0
+print_info: freq_scale_train      = 1
+print_info: n_ctx_orig_yarn       = 40960
+print_info: rope_yarn_log_mul     = 0.0000
+print_info: rope_finetuned        = unknown
+print_info: model type            = 14B
+print_info: model params          = 14.77 B
+print_info: general.name          = Qwen3 14B
+print_info: vocab type            = BPE
+print_info: n_vocab               = 151936
+print_info: n_merges              = 151387
+print_info: BOS token             = 151643 '<|endoftext|>'
+print_info: EOS token             = 151645 '<|im_end|>'
+print_info: EOT token             = 151645 '<|im_end|>'
+print_info: PAD token             = 151643 '<|endoftext|>'
+print_info: LF token              = 198 'Ċ'
+print_info: FIM PRE token         = 151659 '<|fim_prefix|>'
+print_info: FIM SUF token         = 151661 '<|fim_suffix|>'
+print_info: FIM MID token         = 151660 '<|fim_middle|>'
+print_info: FIM PAD token         = 151662 '<|fim_pad|>'
+print_info: FIM REP token         = 151663 '<|repo_name|>'
+print_info: FIM SEP token         = 151664 '<|file_sep|>'
+print_info: EOG token             = 128247 '</s>'
+print_info: EOG token             = 151643 '<|endoftext|>'
+print_info: EOG token             = 151645 '<|im_end|>'
+print_info: EOG token             = 151662 '<|fim_pad|>'
+print_info: EOG token             = 151663 '<|repo_name|>'
+print_info: EOG token             = 151664 '<|file_sep|>'
+print_info: max token length      = 256
+load_tensors: loading model tensors, this can take a while... (load_mode = none)
+load_tensors: offloading output layer to GPU
+load_tensors: offloading 39 repeating layers to GPU
+load_tensors: offloaded 41/41 layers to GPU
+load_tensors:        ROCm0 model buffer size =  8423.47 MiB
+load_tensors:    ROCm_Host model buffer size =   417.30 MiB
+cmn  common_init_: added </s> logit bias = -inf
+cmn  common_init_: added <|endoftext|> logit bias = -inf
+cmn  common_init_: added <|im_end|> logit bias = -inf
+cmn  common_init_: added <|fim_pad|> logit bias = -inf
+cmn  common_init_: added <|repo_name|> logit bias = -inf
+cmn  common_init_: added <|file_sep|> logit bias = -inf
+llama_context: constructing llama_context
+llama_context: n_seq_max             = 1
+llama_context: n_ctx                 = 4096
+llama_context: n_ctx_seq             = 4096
+llama_context: n_batch               = 512
+llama_context: n_ubatch              = 512
+llama_context: causal_attn           = 1
+llama_context: flash_attn            = auto
+llama_context: kv_unified            = false
+llama_context: freq_base             = 1000000.0
+llama_context: freq_scale            = 1
+llama_context: n_rs_seq              = 0
+llama_context: n_outputs_max         = 1
+llama_context: n_outputs_max_per_seq = 1
+llama_context: n_ctx_seq (4096) < n_ctx_train (40960) -- the full capacity of the model will not be utilized
+llama_context:  ROCm_Host  output buffer size =     0.58 MiB
+llama_kv_cache:      ROCm0 KV buffer size =   640.00 MiB
+llama_kv_cache: size =  640.00 MiB (  4096 cells,  40 layers,  1/1 seqs), K (f16):  320.00 MiB, V (f16):  320.00 MiB
+llama_kv_cache: attn_rot_k = 0, n_embd_head_k_all = 128
+llama_kv_cache: attn_rot_v = 0, n_embd_head_k_all = 128
+sched_reserve: reserving ...
+resolve_fused_ops: Flash Attention enabled
+resolve_fused_ops: resolving fused DeepSeek V4 HC support:
+resolve_fused_ops: fused DeepSeek V4 HC pre enabled
+resolve_fused_ops: fused DeepSeek V4 HC comb enabled
+resolve_fused_ops: fused DeepSeek V4 HC post enabled
+sched_reserve:      ROCm0 compute buffer size =   136.01 MiB
+sched_reserve:  ROCm_Host compute buffer size =    24.01 MiB
+sched_reserve: graph nodes  = 1406
+sched_reserve: graph splits = 2
+sched_reserve: reserve took 18.61 ms, sched copies = 1
+cmn          init: llama threadpool init, n_threads = 16
+cmn  common_init_: warming up the model with an empty run - please wait ... (--no-warmup to disable)
+srv    load_model: initializing, n_slots = 1, n_ctx_slot = 4096, kv_unified = 'false'
+spec common_specu: no implementations specified for speculative decoding
+slot   load_model: id  0 | task -1 | new slot, n_ctx = 4096
+srv    load_model: prompt cache is enabled, size limit: 8192 MiB
+srv    load_model: use `--cache-ram 0` to disable the prompt cache
+srv    load_model: for more info see https://github.com/ggml-org/llama.cpp/pull/16391
+srv    load_model: context checkpoints enabled, max = 32, min spacing = 8192
+srv          init: idle slots will be saved to prompt cache upon starting a new task
+srv          init: init: chat template, example_format: '<|im_start|>system
+You are a helpful assistant<|im_end|>
+<|im_start|>user
+Hello<|im_end|>
+<|im_start|>assistant
+Hi there<|im_end|>
+<|im_start|>user
+How are you?<|im_end|>
+<|im_start|>assistant
+'
+srv          init: init: chat template, thinking = 0
+srv          init: preserve_reasoning kwarg: not supported by template
+srv  llama_server: model loaded
+srv  llama_server: listening on http://127.0.0.1:64396
+srv  update_slots: all slots are idle
+time=2026-10-23T06:37:33.558-07:00 level=INFO source=llama_server.go:1374 msg="llama-server started in 4.03 seconds"
+time=2026-10-23T06:37:33.558-07:00 level=INFO source=images.go:383 msg="template selection" model=registry.ollama.ai/library/qwen3:14b selected=go_template renderer="" parser="" go_template="[completion tools thinking]" chat_template="[tools thinking completion]" harmony=null renderer_parser=null
+time=2026-10-23T06:37:33.558-07:00 level=INFO source=sched.go:733 msg="loaded runners" count=1
+time=2026-10-23T06:37:33.558-07:00 level=INFO source=llama_server.go:1307 msg="waiting for llama-server to start responding"
+time=2026-10-23T06:37:33.558-07:00 level=INFO source=llama_server.go:1374 msg="llama-server started in 4.03 seconds"
+time=2026-10-23T06:37:33.558-07:00 level=DEBUG source=sched.go:745 msg="finished setting up" runner.size="9.0 GiB" runner.vram="9.0 GiB" runner.parallel=1 runner.model=C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e
+time=2026-10-23T06:37:33.880-07:00 level=DEBUG source=prompt.go:77 msg="truncating input messages which exceed context length" truncated=7
+time=2026-10-23T06:37:33.880-07:00 level=DEBUG source=llama_server.go:1624 msg="llama-server completion request" media=0 prompt_len=12633
+srv  server_strea: conv_id= (empty=1)
+slot get_availabl: id  0 | task -1 |  - skipping, slot is empty
+slot get_availabl: id  0 | task -1 | selected slot by LRU, t_last = -1
+srv  get_availabl: updating prompt cache
+srv          load:  - looking for better prompt, base f_keep = -1.000, f_sim = 0.000
+srv        update:  - cache state: 0 prompts, 0.000 MiB (limits: 8192.000 MiB, 4096 tokens, 8589934592 est)
+srv  get_availabl: prompt cache update took 0.01 ms
+slot launch_slot_: id  0 | task -1 | sampler chain: logits -> ?penalties -> ?dry -> ?top-n-sigma -> top-k -> ?typical -> top-p -> ?min-p -> ?xtc -> temp-ext -> dist 
+slot launch_slot_: id  0 | task -1 | sampler params: 
+	repeat_last_n = 64, repeat_penalty = 1.000, frequency_penalty = 0.000, presence_penalty = 0.000
+	dry_multiplier = 0.000, dry_base = 1.750, dry_allowed_length = 2, dry_penalty_last_n = 64
+	top_k = 20, top_p = 0.950, min_p = 0.000, xtc_probability = 0.000, xtc_threshold = 0.100, typical_p = 1.000, top_n_sigma = -1.000, temp = 0.000
+	mirostat = 0, mirostat_lr = 0.100, mirostat_ent = 5.000, adaptive_target = -1.000, adaptive_decay = 0.900
+slot launch_slot_: id  0 | task 0 | processing task, is_child = 0
+slot   operator(): id  0 | task 0 | new prompt, n_ctx_slot = 4096, n_keep = 4, task.n_tokens = 3922
+slot   operator(): id  0 | task 0 | cached n_tokens = 0, memory_seq_rm [0, end)
+slot   operator(): id  0 | task 0 | cached n_tokens = 512, memory_seq_rm [512, end)
+slot   operator(): id  0 | task 0 | cached n_tokens = 1024, memory_seq_rm [1024, end)
+slot   operator(): id  0 | task 0 | cached n_tokens = 1536, memory_seq_rm [1536, end)
+slot   operator(): id  0 | task 0 | cached n_tokens = 2048, memory_seq_rm [2048, end)
+slot print_timing: id  0 | task 0 | prompt processing, n_tokens =   2560, progress = 0.65, t =   3.00 s / 852.04 tokens per second
+slot   operator(): id  0 | task 0 | cached n_tokens = 2560, memory_seq_rm [2560, end)
+slot print_timing: id  0 | task 0 | prompt processing, n_tokens =   3072, progress = 0.78, t =   3.74 s / 821.45 tokens per second
+slot   operator(): id  0 | task 0 | cached n_tokens = 3072, memory_seq_rm [3072, end)
+slot print_timing: id  0 | task 0 | prompt processing, n_tokens =   3584, progress = 0.91, t =   4.52 s / 792.30 tokens per second
+slot   operator(): id  0 | task 0 | cached n_tokens = 3584, memory_seq_rm [3584, end)
+slot init_sampler: id  0 | task 0 | init sampler, took 1.13 ms, tokens: text = 3922, total = 3922
+slot print_timing: id  0 | task 0 | prompt eval time =    6064.30 ms /  3922 tokens (    1.55 ms per token,   646.74 tokens per second)
+slot print_timing: id  0 | task 0 |        eval time =    3177.90 ms /    64 tokens (   50.44 ms per token,    19.82 tokens per second)
+slot print_timing: id  0 | task 0 |       total time =    9242.20 ms /  3986 tokens
+slot print_timing: id  0 | task 0 |    graphs reused =         63
+slot      release: id  0 | task 0 | stop processing: n_tokens = 3985, truncated = 0
+srv  update_slots: all slots are idle
+[GIN] 2026/10/23 - 06:37:43 | 200 |   14.0050768s |       127.0.0.1 | POST     "/api/chat"
+time=2026-10-23T06:37:43.130-07:00 level=DEBUG source=sched.go:753 msg="context for request finished"
+time=2026-10-23T06:37:43.130-07:00 level=DEBUG source=sched.go:399 msg="runner with non-zero duration has gone idle, adding timer" runner.size="9.0 GiB" runner.vram="9.0 GiB" runner.parallel=1 runner.model=C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e duration=30m0s
+time=2026-10-23T06:37:43.130-07:00 level=DEBUG source=sched.go:417 msg="after processing request finished event" runner.size="9.0 GiB" runner.vram="9.0 GiB" runner.parallel=1 runner.model=C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e refCount=0
+[GIN] 2026/10/23 - 06:37:43 | 200 |            0s |       127.0.0.1 | GET      "/api/ps"
+time=2026-10-23T06:37:43.177-07:00 level=DEBUG source=sched.go:1391 msg="evaluating already loaded" model=C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e
+time=2026-10-23T06:37:43.534-07:00 level=DEBUG source=prompt.go:77 msg="truncating input messages which exceed context length" truncated=10
+time=2026-10-23T06:37:43.534-07:00 level=DEBUG source=llama_server.go:1624 msg="llama-server completion request" media=0 prompt_len=13108
+srv  server_strea: conv_id= (empty=1)
+slot get_availabl: id  0 | task -1 |  - checking sim = 0.971 (3918/4037) > 0.100
+slot get_availabl: id  0 | task -1 | selected slot by LCP similarity, f_sim_best = 0.971 (> 0.100 thold), f_keep = 0.983
+slot launch_slot_: id  0 | task -1 | sampler chain: logits -> ?penalties -> ?dry -> ?top-n-sigma -> top-k -> ?typical -> top-p -> ?min-p -> ?xtc -> temp-ext -> dist 
+slot launch_slot_: id  0 | task -1 | sampler params: 
+	repeat_last_n = 64, repeat_penalty = 1.000, frequency_penalty = 0.000, presence_penalty = 0.000
+	dry_multiplier = 0.000, dry_base = 1.750, dry_allowed_length = 2, dry_penalty_last_n = 64
+	top_k = 20, top_p = 0.950, min_p = 0.000, xtc_probability = 0.000, xtc_threshold = 0.100, typical_p = 1.000, top_n_sigma = -1.000, temp = 0.000
+	mirostat = 0, mirostat_lr = 0.100, mirostat_ent = 5.000, adaptive_target = -1.000, adaptive_decay = 0.900
+slot launch_slot_: id  0 | task 72 | processing task, is_child = 0
+slot   operator(): id  0 | task 72 | new prompt, n_ctx_slot = 4096, n_keep = 4, task.n_tokens = 4037
+slot   operator(): id  0 | task 72 | cached n_tokens = 3918, memory_seq_rm [3918, end)
+slot init_sampler: id  0 | task 72 | init sampler, took 0.36 ms, tokens: text = 4037, total = 4037
+slot print_timing: id  0 | task 72 | prompt eval time =     235.38 ms /   119 tokens (    1.98 ms per token,   505.56 tokens per second)
+slot print_timing: id  0 | task 72 |        eval time =    2157.31 ms /    44 tokens (   50.17 ms per token,    19.93 tokens per second)
+slot print_timing: id  0 | task 72 |       total time =    2392.69 ms /   163 tokens
+slot print_timing: id  0 | task 72 |    graphs reused =        105
+slot      release: id  0 | task 72 | stop processing: n_tokens = 4080, truncated = 0
+srv  update_slots: all slots are idle
+[GIN] 2026/10/23 - 06:37:45 | 200 |    2.7616075s |       127.0.0.1 | POST     "/api/chat"
+time=2026-10-23T06:37:45.934-07:00 level=DEBUG source=sched.go:494 msg="context for request finished" runner.name=registry.ollama.ai/library/qwen3:14b runner.inference="[{ID:0 Library:ROCm}]" runner.pid=22588 runner.num_ctx=4096 runner.size="9.0 GiB" runner.vram="9.0 GiB" runner.parallel=1 runner.model=C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e
+time=2026-10-23T06:37:45.935-07:00 level=DEBUG source=sched.go:399 msg="runner with non-zero duration has gone idle, adding timer" runner.size="9.0 GiB" runner.vram="9.0 GiB" runner.parallel=1 runner.model=C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e duration=30m0s
+time=2026-10-23T06:37:45.935-07:00 level=DEBUG source=sched.go:417 msg="after processing request finished event" runner.size="9.0 GiB" runner.vram="9.0 GiB" runner.parallel=1 runner.model=C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e refCount=0
+[GIN] 2026/10/23 - 06:37:45 | 200 |            0s |       127.0.0.1 | GET      "/api/ps"
+time=2026-10-23T06:38:12.303-07:00 level=DEBUG source=sched.go:1391 msg="evaluating already loaded" model=C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e
+time=2026-10-23T06:38:12.459-07:00 level=DEBUG source=prompt.go:77 msg="truncating input messages which exceed context length" truncated=8
+time=2026-10-23T06:38:12.460-07:00 level=DEBUG source=llama_server.go:1624 msg="llama-server completion request" media=0 prompt_len=13507
+srv  server_strea: conv_id= (empty=1)
+slot get_availabl: id  0 | task -1 |  - checking sim = 0.051 (210/4079) > 0.100
+slot get_availabl: id  0 | task -1 | selected slot by LRU, t_last = 16371453
+srv  get_availabl: updating prompt cache
+srv   prompt_save:  - saving prompt with length 4080, total state size = 637.548 MiB (draft: 0.000 MiB)
+srv          load:  - looking for better prompt, base f_keep = 0.051, f_sim = 0.051
+srv          load:    - prompt with length    4080, lcp =     210, f_keep = 0.051, f_sim = 0.051
+srv        update:  - cache state: 1 prompts, 637.548 MiB (limits: 8192.000 MiB, 4096 tokens, 52424 est)
+srv        update:    - prompt 000001A0A436CCB0:    4080 tokens, checkpoints:  0,   637.548 MiB
+srv  get_availabl: prompt cache update took 95.16 ms
+slot launch_slot_: id  0 | task -1 | sampler chain: logits -> ?penalties -> ?dry -> ?top-n-sigma -> top-k -> ?typical -> top-p -> ?min-p -> ?xtc -> temp-ext -> dist 
+slot launch_slot_: id  0 | task -1 | sampler params: 
+	repeat_last_n = 64, repeat_penalty = 1.000, frequency_penalty = 0.000, presence_penalty = 0.000
+	dry_multiplier = 0.000, dry_base = 1.750, dry_allowed_length = 2, dry_penalty_last_n = 64
+	top_k = 20, top_p = 0.950, min_p = 0.000, xtc_probability = 0.000, xtc_threshold = 0.100, typical_p = 1.000, top_n_sigma = -1.000, temp = 0.000
+	mirostat = 0, mirostat_lr = 0.100, mirostat_ent = 5.000, adaptive_target = -1.000, adaptive_decay = 0.900
+slot launch_slot_: id  0 | task 117 | processing task, is_child = 0
+slot   operator(): id  0 | task 117 | new prompt, n_ctx_slot = 4096, n_keep = 4, task.n_tokens = 4079
+slot   operator(): id  0 | task 117 | cached n_tokens = 210, memory_seq_rm [210, end)
+slot   operator(): id  0 | task 117 | cached n_tokens = 722, memory_seq_rm [722, end)
+slot   operator(): id  0 | task 117 | cached n_tokens = 1234, memory_seq_rm [1234, end)
+slot   operator(): id  0 | task 117 | cached n_tokens = 1746, memory_seq_rm [1746, end)
+slot   operator(): id  0 | task 117 | cached n_tokens = 2258, memory_seq_rm [2258, end)
+slot print_timing: id  0 | task 117 | prompt processing, n_tokens =   2560, progress = 0.68, t =   3.18 s / 804.77 tokens per second
+slot   operator(): id  0 | task 117 | cached n_tokens = 2770, memory_seq_rm [2770, end)
+slot print_timing: id  0 | task 117 | prompt processing, n_tokens =   3072, progress = 0.80, t =   3.97 s / 774.12 tokens per second
+slot   operator(): id  0 | task 117 | cached n_tokens = 3282, memory_seq_rm [3282, end)
+slot print_timing: id  0 | task 117 | prompt processing, n_tokens =   3584, progress = 0.93, t =   4.83 s / 742.03 tokens per second
+slot   operator(): id  0 | task 117 | cached n_tokens = 3794, memory_seq_rm [3794, end)
+slot init_sampler: id  0 | task 117 | init sampler, took 1.17 ms, tokens: text = 4079, total = 4079
+slot   operator(): id  0 | task 117 | slot context shift, n_keep = 4, n_left = 4091, n_discard = 2045
+slot print_timing: id  0 | task 117 | prompt eval time =    6226.37 ms /  3869 tokens (    1.61 ms per token,   621.39 tokens per second)
+slot print_timing: id  0 | task 117 |        eval time =    4670.01 ms /    94 tokens (   50.22 ms per token,    19.91 tokens per second)
+slot print_timing: id  0 | task 117 |       total time =   10896.37 ms /  3963 tokens
+slot print_timing: id  0 | task 117 |    graphs reused =        196
+slot      release: id  0 | task 117 | stop processing: n_tokens = 2127, truncated = 1
+srv  update_slots: all slots are idle
+[GIN] 2026/10/23 - 06:38:23 | 200 |   11.1610845s |       127.0.0.1 | POST     "/api/chat"
+time=2026-10-23T06:38:23.459-07:00 level=DEBUG source=sched.go:494 msg="context for request finished" runner.name=registry.ollama.ai/library/qwen3:14b runner.inference="[{ID:0 Library:ROCm}]" runner.pid=22588 runner.num_ctx=4096 runner.size="9.0 GiB" runner.vram="9.0 GiB" runner.parallel=1 runner.model=C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e
+time=2026-10-23T06:38:23.460-07:00 level=DEBUG source=sched.go:399 msg="runner with non-zero duration has gone idle, adding timer" runner.size="9.0 GiB" runner.vram="9.0 GiB" runner.parallel=1 runner.model=C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e duration=30m0s
+time=2026-10-23T06:38:23.460-07:00 level=DEBUG source=sched.go:417 msg="after processing request finished event" runner.size="9.0 GiB" runner.vram="9.0 GiB" runner.parallel=1 runner.model=C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e refCount=0
+[GIN] 2026/10/23 - 06:38:23 | 200 |            0s |       127.0.0.1 | GET      "/api/ps"
+time=2026-10-23T06:38:23.494-07:00 level=DEBUG source=sched.go:1391 msg="evaluating already loaded" model=C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e
+time=2026-10-23T06:38:23.655-07:00 level=DEBUG source=prompt.go:77 msg="truncating input messages which exceed context length" truncated=10
+time=2026-10-23T06:38:23.656-07:00 level=DEBUG source=llama_server.go:1624 msg="llama-server completion request" media=0 prompt_len=13087
+srv  server_strea: conv_id= (empty=1)
+slot get_availabl: id  0 | task -1 |  - checking sim = 0.001 (4/4028) > 0.100
+slot get_availabl: id  0 | task -1 | selected slot by LRU, t_last = 53902353
+srv  get_availabl: updating prompt cache
+srv   prompt_save:  - saving prompt with length 2127, total state size = 332.369 MiB (draft: 0.000 MiB)
+srv          load:  - looking for better prompt, base f_keep = 0.002, f_sim = 0.001
+srv          load:    - prompt with length    4080, lcp =     210, f_keep = 0.051, f_sim = 0.052
+srv          load:    - prompt with length    2127, lcp =       4, f_keep = 0.002, f_sim = 0.001
+srv        update:  - cache state: 2 prompts, 969.917 MiB (limits: 8192.000 MiB, 4096 tokens, 52424 est)
+srv        update:    - prompt 000001A0A436CCB0:    4080 tokens, checkpoints:  0,   637.548 MiB
+srv        update:    - prompt 000001A0A2E7FDF0:    2127 tokens, checkpoints:  0,   332.369 MiB
+srv  get_availabl: prompt cache update took 62.23 ms
+slot launch_slot_: id  0 | task -1 | sampler chain: logits -> ?penalties -> ?dry -> ?top-n-sigma -> top-k -> ?typical -> top-p -> ?min-p -> ?xtc -> temp-ext -> dist 
+slot launch_slot_: id  0 | task -1 | sampler params: 
+	repeat_last_n = 64, repeat_penalty = 1.000, frequency_penalty = 0.000, presence_penalty = 0.000
+	dry_multiplier = 0.000, dry_base = 1.750, dry_allowed_length = 2, dry_penalty_last_n = 64
+	top_k = 20, top_p = 0.950, min_p = 0.000, xtc_probability = 0.000, xtc_threshold = 0.100, typical_p = 1.000, top_n_sigma = -1.000, temp = 0.000
+	mirostat = 0, mirostat_lr = 0.100, mirostat_ent = 5.000, adaptive_target = -1.000, adaptive_decay = 0.900
+slot launch_slot_: id  0 | task 219 | processing task, is_child = 0
+slot   operator(): id  0 | task 219 | new prompt, n_ctx_slot = 4096, n_keep = 4, task.n_tokens = 4028
+slot   operator(): id  0 | task 219 | cached n_tokens = 4, memory_seq_rm [4, end)
+slot   operator(): id  0 | task 219 | cached n_tokens = 516, memory_seq_rm [516, end)
+slot   operator(): id  0 | task 219 | cached n_tokens = 1028, memory_seq_rm [1028, end)
+slot   operator(): id  0 | task 219 | cached n_tokens = 1540, memory_seq_rm [1540, end)
+slot   operator(): id  0 | task 219 | cached n_tokens = 2052, memory_seq_rm [2052, end)
+slot   operator(): id  0 | task 219 | cached n_tokens = 2564, memory_seq_rm [2564, end)
+slot print_timing: id  0 | task 219 | prompt processing, n_tokens =   3072, progress = 0.76, t =   3.71 s / 827.97 tokens per second
+slot   operator(): id  0 | task 219 | cached n_tokens = 3076, memory_seq_rm [3076, end)
+slot print_timing: id  0 | task 219 | prompt processing, n_tokens =   3584, progress = 0.89, t =   4.52 s / 793.76 tokens per second
+slot   operator(): id  0 | task 219 | cached n_tokens = 3588, memory_seq_rm [3588, end)
+slot init_sampler: id  0 | task 219 | init sampler, took 1.16 ms, tokens: text = 4028, total = 4028
+slot print_timing: id  0 | task 219 | prompt eval time =    6219.80 ms /  4024 tokens (    1.55 ms per token,   646.97 tokens per second)
+slot print_timing: id  0 | task 219 |        eval time =    3389.12 ms /    68 tokens (   50.58 ms per token,    19.77 tokens per second)
+slot print_timing: id  0 | task 219 |       total time =    9608.92 ms /  4092 tokens
+slot print_timing: id  0 | task 219 |    graphs reused =        262
+slot      release: id  0 | task 219 | stop processing: n_tokens = 4095, truncated = 0
+srv  update_slots: all slots are idle
+[GIN] 2026/10/23 - 06:38:33 | 200 |    9.8471208s |       127.0.0.1 | POST     "/api/chat"
+time=2026-10-23T06:38:33.335-07:00 level=DEBUG source=sched.go:494 msg="context for request finished" runner.name=registry.ollama.ai/library/qwen3:14b runner.inference="[{ID:0 Library:ROCm}]" runner.pid=22588 runner.num_ctx=4096 runner.size="9.0 GiB" runner.vram="9.0 GiB" runner.parallel=1 runner.model=C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e
+time=2026-10-23T06:38:33.335-07:00 level=DEBUG source=sched.go:399 msg="runner with non-zero duration has gone idle, adding timer" runner.size="9.0 GiB" runner.vram="9.0 GiB" runner.parallel=1 runner.model=C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e duration=30m0s
+time=2026-10-23T06:38:33.335-07:00 level=DEBUG source=sched.go:417 msg="after processing request finished event" runner.size="9.0 GiB" runner.vram="9.0 GiB" runner.parallel=1 runner.model=C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e refCount=0
+[GIN] 2026/10/23 - 06:38:33 | 200 |            0s |       127.0.0.1 | GET      "/api/ps"
+time=2026-10-23T06:38:52.797-07:00 level=DEBUG source=sched.go:1391 msg="evaluating already loaded" model=C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e
+time=2026-10-23T06:38:53.145-07:00 level=DEBUG source=prompt.go:77 msg="truncating input messages which exceed context length" truncated=8
+time=2026-10-23T06:38:53.145-07:00 level=DEBUG source=llama_server.go:1624 msg="llama-server completion request" media=0 prompt_len=13578
+srv  server_strea: conv_id= (empty=1)
+slot get_availabl: id  0 | task -1 |  - checking sim = 0.051 (210/4078) > 0.100
+slot get_availabl: id  0 | task -1 | selected slot by LRU, t_last = 63779087
+srv  get_availabl: updating prompt cache
+srv   prompt_save:  - saving prompt with length 4095, total state size = 639.892 MiB (draft: 0.000 MiB)
+srv          load:  - looking for better prompt, base f_keep = 0.051, f_sim = 0.051
+srv          load:    - prompt with length    4080, lcp =     210, f_keep = 0.051, f_sim = 0.051
+srv          load:    - prompt with length    2127, lcp =       4, f_keep = 0.002, f_sim = 0.001
+srv          load:    - prompt with length    4095, lcp =     210, f_keep = 0.051, f_sim = 0.051
+srv        update:  - cache state: 3 prompts, 1609.808 MiB (limits: 8192.000 MiB, 4096 tokens, 52424 est)
+srv        update:    - prompt 000001A0A436CCB0:    4080 tokens, checkpoints:  0,   637.548 MiB
+srv        update:    - prompt 000001A0A2E7FDF0:    2127 tokens, checkpoints:  0,   332.369 MiB
+srv        update:    - prompt 000001A0A40BE910:    4095 tokens, checkpoints:  0,   639.892 MiB
+srv  get_availabl: prompt cache update took 88.07 ms
+slot launch_slot_: id  0 | task -1 | sampler chain: logits -> ?penalties -> ?dry -> ?top-n-sigma -> top-k -> ?typical -> top-p -> ?min-p -> ?xtc -> temp-ext -> dist 
+slot launch_slot_: id  0 | task -1 | sampler params: 
+	repeat_last_n = 64, repeat_penalty = 1.000, frequency_penalty = 0.000, presence_penalty = 0.000
+	dry_multiplier = 0.000, dry_base = 1.750, dry_allowed_length = 2, dry_penalty_last_n = 64
+	top_k = 20, top_p = 0.950, min_p = 0.000, xtc_probability = 0.000, xtc_threshold = 0.100, typical_p = 1.000, top_n_sigma = -1.000, temp = 0.000
+	mirostat = 0, mirostat_lr = 0.100, mirostat_ent = 5.000, adaptive_target = -1.000, adaptive_decay = 0.900
+slot launch_slot_: id  0 | task 295 | processing task, is_child = 0
+slot   operator(): id  0 | task 295 | new prompt, n_ctx_slot = 4096, n_keep = 4, task.n_tokens = 4078
+slot   operator(): id  0 | task 295 | cached n_tokens = 210, memory_seq_rm [210, end)
+slot   operator(): id  0 | task 295 | cached n_tokens = 722, memory_seq_rm [722, end)
+slot   operator(): id  0 | task 295 | cached n_tokens = 1234, memory_seq_rm [1234, end)
+slot   operator(): id  0 | task 295 | cached n_tokens = 1746, memory_seq_rm [1746, end)
+slot   operator(): id  0 | task 295 | cached n_tokens = 2258, memory_seq_rm [2258, end)
+slot print_timing: id  0 | task 295 | prompt processing, n_tokens =   2560, progress = 0.68, t =   3.40 s / 753.46 tokens per second
+slot   operator(): id  0 | task 295 | cached n_tokens = 2770, memory_seq_rm [2770, end)
+slot print_timing: id  0 | task 295 | prompt processing, n_tokens =   3072, progress = 0.80, t =   4.32 s / 711.48 tokens per second
+slot   operator(): id  0 | task 295 | cached n_tokens = 3282, memory_seq_rm [3282, end)
+slot print_timing: id  0 | task 295 | prompt processing, n_tokens =   3584, progress = 0.93, t =   5.22 s / 686.19 tokens per second
+slot   operator(): id  0 | task 295 | cached n_tokens = 3794, memory_seq_rm [3794, end)
+slot init_sampler: id  0 | task 295 | init sampler, took 1.17 ms, tokens: text = 4078, total = 4078
+slot   operator(): id  0 | task 295 | slot context shift, n_keep = 4, n_left = 4091, n_discard = 2045
+slot print_timing: id  0 | task 295 | prompt eval time =    6613.31 ms /  3868 tokens (    1.71 ms per token,   584.88 tokens per second)
+slot print_timing: id  0 | task 295 |        eval time =    4247.63 ms /    85 tokens (   50.57 ms per token,    19.78 tokens per second)
+slot print_timing: id  0 | task 295 |       total time =   10860.94 ms /  3953 tokens
+slot print_timing: id  0 | task 295 |    graphs reused =        344
+slot      release: id  0 | task 295 | stop processing: n_tokens = 2117, truncated = 1
+srv  update_slots: all slots are idle
+[GIN] 2026/10/23 - 06:39:04 | 200 |   11.3095124s |       127.0.0.1 | POST     "/api/chat"
+time=2026-10-23T06:39:04.102-07:00 level=DEBUG source=sched.go:494 msg="context for request finished" runner.name=registry.ollama.ai/library/qwen3:14b runner.inference="[{ID:0 Library:ROCm}]" runner.pid=22588 runner.num_ctx=4096 runner.size="9.0 GiB" runner.vram="9.0 GiB" runner.parallel=1 runner.model=C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e
+time=2026-10-23T06:39:04.103-07:00 level=DEBUG source=sched.go:399 msg="runner with non-zero duration has gone idle, adding timer" runner.size="9.0 GiB" runner.vram="9.0 GiB" runner.parallel=1 runner.model=C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e duration=30m0s
+time=2026-10-23T06:39:04.103-07:00 level=DEBUG source=sched.go:417 msg="after processing request finished event" runner.size="9.0 GiB" runner.vram="9.0 GiB" runner.parallel=1 runner.model=C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e refCount=0
+[GIN] 2026/10/23 - 06:39:04 | 200 |            0s |       127.0.0.1 | GET      "/api/ps"
+time=2026-10-23T06:39:04.172-07:00 level=DEBUG source=sched.go:1391 msg="evaluating already loaded" model=C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e
+time=2026-10-23T06:39:04.557-07:00 level=DEBUG source=prompt.go:77 msg="truncating input messages which exceed context length" truncated=10
+time=2026-10-23T06:39:04.557-07:00 level=DEBUG source=llama_server.go:1624 msg="llama-server completion request" media=0 prompt_len=13159
+srv  server_strea: conv_id= (empty=1)
+slot get_availabl: id  0 | task -1 |  - checking sim = 0.001 (4/4012) > 0.100
+slot get_availabl: id  0 | task -1 | selected slot by LRU, t_last = 94551182
+srv  get_availabl: updating prompt cache
+srv   prompt_save:  - saving prompt with length 2117, total state size = 330.806 MiB (draft: 0.000 MiB)
+srv          load:  - looking for better prompt, base f_keep = 0.002, f_sim = 0.001
+srv          load:    - prompt with length    4080, lcp =     210, f_keep = 0.051, f_sim = 0.052
+srv          load:    - prompt with length    2127, lcp =       4, f_keep = 0.002, f_sim = 0.001
+srv          load:    - prompt with length    4095, lcp =     210, f_keep = 0.051, f_sim = 0.052
+srv          load:    - prompt with length    2117, lcp =       4, f_keep = 0.002, f_sim = 0.001
+srv        update:  - cache state: 4 prompts, 1940.615 MiB (limits: 8192.000 MiB, 4096 tokens, 52424 est)
+srv        update:    - prompt 000001A0A436CCB0:    4080 tokens, checkpoints:  0,   637.548 MiB
+srv        update:    - prompt 000001A0A2E7FDF0:    2127 tokens, checkpoints:  0,   332.369 MiB
+srv        update:    - prompt 000001A0A40BE910:    4095 tokens, checkpoints:  0,   639.892 MiB
+srv        update:    - prompt 000001A0A2D60560:    2117 tokens, checkpoints:  0,   330.806 MiB
+srv  get_availabl: prompt cache update took 57.49 ms
+slot launch_slot_: id  0 | task -1 | sampler chain: logits -> ?penalties -> ?dry -> ?top-n-sigma -> top-k -> ?typical -> top-p -> ?min-p -> ?xtc -> temp-ext -> dist 
+slot launch_slot_: id  0 | task -1 | sampler params: 
+	repeat_last_n = 64, repeat_penalty = 1.000, frequency_penalty = 0.000, presence_penalty = 0.000
+	dry_multiplier = 0.000, dry_base = 1.750, dry_allowed_length = 2, dry_penalty_last_n = 64
+	top_k = 20, top_p = 0.950, min_p = 0.000, xtc_probability = 0.000, xtc_threshold = 0.100, typical_p = 1.000, top_n_sigma = -1.000, temp = 0.000
+	mirostat = 0, mirostat_lr = 0.100, mirostat_ent = 5.000, adaptive_target = -1.000, adaptive_decay = 0.900
+slot launch_slot_: id  0 | task 388 | processing task, is_child = 0
+slot   operator(): id  0 | task 388 | new prompt, n_ctx_slot = 4096, n_keep = 4, task.n_tokens = 4012
+slot   operator(): id  0 | task 388 | cached n_tokens = 4, memory_seq_rm [4, end)
+slot   operator(): id  0 | task 388 | cached n_tokens = 516, memory_seq_rm [516, end)
+slot   operator(): id  0 | task 388 | cached n_tokens = 1028, memory_seq_rm [1028, end)
+slot   operator(): id  0 | task 388 | cached n_tokens = 1540, memory_seq_rm [1540, end)
+slot   operator(): id  0 | task 388 | cached n_tokens = 2052, memory_seq_rm [2052, end)
+slot   operator(): id  0 | task 388 | cached n_tokens = 2564, memory_seq_rm [2564, end)
+slot print_timing: id  0 | task 388 | prompt processing, n_tokens =   3072, progress = 0.77, t =   3.69 s / 833.44 tokens per second
+slot   operator(): id  0 | task 388 | cached n_tokens = 3076, memory_seq_rm [3076, end)
+slot print_timing: id  0 | task 388 | prompt processing, n_tokens =   3584, progress = 0.89, t =   4.49 s / 797.97 tokens per second
+slot   operator(): id  0 | task 388 | cached n_tokens = 3588, memory_seq_rm [3588, end)
+slot init_sampler: id  0 | task 388 | init sampler, took 1.18 ms, tokens: text = 4012, total = 4012
+slot print_timing: id  0 | task 388 | prompt eval time =    6169.20 ms /  4008 tokens (    1.54 ms per token,   649.68 tokens per second)
+slot print_timing: id  0 | task 388 |        eval time =    2758.55 ms /    56 tokens (   50.16 ms per token,    19.94 tokens per second)
+slot print_timing: id  0 | task 388 |       total time =    8927.75 ms /  4064 tokens
+slot print_timing: id  0 | task 388 |    graphs reused =        398
+slot      release: id  0 | task 388 | stop processing: n_tokens = 4067, truncated = 0
+srv  update_slots: all slots are idle
+[GIN] 2026/10/23 - 06:39:13 | 200 |    9.3838874s |       127.0.0.1 | POST     "/api/chat"
+time=2026-10-23T06:39:13.551-07:00 level=DEBUG source=sched.go:494 msg="context for request finished" runner.name=registry.ollama.ai/library/qwen3:14b runner.inference="[{ID:0 Library:ROCm}]" runner.pid=22588 runner.num_ctx=4096 runner.size="9.0 GiB" runner.vram="9.0 GiB" runner.parallel=1 runner.model=C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e
+time=2026-10-23T06:39:13.551-07:00 level=DEBUG source=sched.go:399 msg="runner with non-zero duration has gone idle, adding timer" runner.size="9.0 GiB" runner.vram="9.0 GiB" runner.parallel=1 runner.model=C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e duration=30m0s
+time=2026-10-23T06:39:13.551-07:00 level=DEBUG source=sched.go:417 msg="after processing request finished event" runner.size="9.0 GiB" runner.vram="9.0 GiB" runner.parallel=1 runner.model=C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e refCount=0
+[GIN] 2026/10/23 - 06:39:13 | 200 |            0s |       127.0.0.1 | GET      "/api/ps"
+time=2026-10-23T06:39:36.076-07:00 level=DEBUG source=sched.go:1391 msg="evaluating already loaded" model=C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e
+time=2026-10-23T06:39:36.306-07:00 level=DEBUG source=prompt.go:77 msg="truncating input messages which exceed context length" truncated=9
+time=2026-10-23T06:39:36.307-07:00 level=DEBUG source=llama_server.go:1624 msg="llama-server completion request" media=0 prompt_len=13459
+srv  server_strea: conv_id= (empty=1)
+slot get_availabl: id  0 | task -1 |  - checking sim = 0.052 (210/4065) > 0.100
+slot get_availabl: id  0 | task -1 | selected slot by LRU, t_last = 104001193
+srv  get_availabl: updating prompt cache
+srv   prompt_save:  - saving prompt with length 4067, total state size = 635.516 MiB (draft: 0.000 MiB)
+srv          load:  - looking for better prompt, base f_keep = 0.052, f_sim = 0.052
+srv          load:    - prompt with length    4080, lcp =     210, f_keep = 0.051, f_sim = 0.052
+srv          load:    - prompt with length    2127, lcp =       4, f_keep = 0.002, f_sim = 0.001
+srv          load:    - prompt with length    4095, lcp =    3369, f_keep = 0.823, f_sim = 0.829
+srv          load:    - prompt with length    2117, lcp =       4, f_keep = 0.002, f_sim = 0.001
+srv          load:    - prompt with length    4067, lcp =     210, f_keep = 0.052, f_sim = 0.052
+srv          load:  - found better prompt with f_keep = 0.823, f_sim = 0.829
+srv        update:  - cache state: 4 prompts, 1936.239 MiB (limits: 8192.000 MiB, 4096 tokens, 52424 est)
+srv        update:    - prompt 000001A0A436CCB0:    4080 tokens, checkpoints:  0,   637.548 MiB
+srv        update:    - prompt 000001A0A2E7FDF0:    2127 tokens, checkpoints:  0,   332.369 MiB
+srv        update:    - prompt 000001A0A2D60560:    2117 tokens, checkpoints:  0,   330.806 MiB
+srv        update:    - prompt 000001A0A2D39060:    4067 tokens, checkpoints:  0,   635.516 MiB
+srv  get_availabl: prompt cache update took 146.28 ms
+slot launch_slot_: id  0 | task -1 | sampler chain: logits -> ?penalties -> ?dry -> ?top-n-sigma -> top-k -> ?typical -> top-p -> ?min-p -> ?xtc -> temp-ext -> dist 
+slot launch_slot_: id  0 | task -1 | sampler params: 
+	repeat_last_n = 64, repeat_penalty = 1.000, frequency_penalty = 0.000, presence_penalty = 0.000
+	dry_multiplier = 0.000, dry_base = 1.750, dry_allowed_length = 2, dry_penalty_last_n = 64
+	top_k = 20, top_p = 0.950, min_p = 0.000, xtc_probability = 0.000, xtc_threshold = 0.100, typical_p = 1.000, top_n_sigma = -1.000, temp = 0.000
+	mirostat = 0, mirostat_lr = 0.100, mirostat_ent = 5.000, adaptive_target = -1.000, adaptive_decay = 0.900
+slot launch_slot_: id  0 | task 452 | processing task, is_child = 0
+slot   operator(): id  0 | task 452 | new prompt, n_ctx_slot = 4096, n_keep = 4, task.n_tokens = 4065
+slot   operator(): id  0 | task 452 | cached n_tokens = 3369, memory_seq_rm [3369, end)
+slot   operator(): id  0 | task 452 | cached n_tokens = 3881, memory_seq_rm [3881, end)
+slot init_sampler: id  0 | task 452 | init sampler, took 0.36 ms, tokens: text = 4065, total = 4065
+slot   operator(): id  0 | task 452 | slot context shift, n_keep = 4, n_left = 4091, n_discard = 2045
+slot print_timing: id  0 | task 452 | prompt eval time =    1232.58 ms /   696 tokens (    1.77 ms per token,   564.67 tokens per second)
+slot print_timing: id  0 | task 452 |        eval time =    4790.04 ms /    96 tokens (   50.42 ms per token,    19.83 tokens per second)
+slot print_timing: id  0 | task 452 |       total time =    6022.62 ms /   792 tokens
+slot print_timing: id  0 | task 452 |    graphs reused =        491
+slot      release: id  0 | task 452 | stop processing: n_tokens = 2115, truncated = 1
+srv  update_slots: all slots are idle
+[GIN] 2026/10/23 - 06:39:42 | 200 |    6.4139052s |       127.0.0.1 | POST     "/api/chat"
+time=2026-10-23T06:39:42.486-07:00 level=DEBUG source=sched.go:494 msg="context for request finished" runner.name=registry.ollama.ai/library/qwen3:14b runner.inference="[{ID:0 Library:ROCm}]" runner.pid=22588 runner.num_ctx=4096 runner.size="9.0 GiB" runner.vram="9.0 GiB" runner.parallel=1 runner.model=C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e
+time=2026-10-23T06:39:42.487-07:00 level=DEBUG source=sched.go:399 msg="runner with non-zero duration has gone idle, adding timer" runner.size="9.0 GiB" runner.vram="9.0 GiB" runner.parallel=1 runner.model=C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e duration=30m0s
+time=2026-10-23T06:39:42.487-07:00 level=DEBUG source=sched.go:417 msg="after processing request finished event" runner.size="9.0 GiB" runner.vram="9.0 GiB" runner.parallel=1 runner.model=C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e refCount=0
+[GIN] 2026/10/23 - 06:39:42 | 200 |            0s |       127.0.0.1 | GET      "/api/ps"
+time=2026-10-23T06:39:42.545-07:00 level=DEBUG source=sched.go:1391 msg="evaluating already loaded" model=C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e
+time=2026-10-23T06:39:42.790-07:00 level=DEBUG source=prompt.go:77 msg="truncating input messages which exceed context length" truncated=9
+time=2026-10-23T06:39:42.791-07:00 level=DEBUG source=llama_server.go:1624 msg="llama-server completion request" media=0 prompt_len=12936
+srv  server_strea: conv_id= (empty=1)
+slot get_availabl: id  0 | task -1 |  - checking sim = 0.001 (4/3961) > 0.100
+slot get_availabl: id  0 | task -1 | selected slot by LRU, t_last = 132941336
+srv  get_availabl: updating prompt cache
+srv   prompt_save:  - saving prompt with length 2115, total state size = 330.494 MiB (draft: 0.000 MiB)
+srv          load:  - looking for better prompt, base f_keep = 0.002, f_sim = 0.001
+srv          load:    - prompt with length    4080, lcp =     210, f_keep = 0.051, f_sim = 0.053
+srv          load:    - prompt with length    2127, lcp =       4, f_keep = 0.002, f_sim = 0.001
+srv          load:    - prompt with length    2117, lcp =       4, f_keep = 0.002, f_sim = 0.001
+srv          load:    - prompt with length    4067, lcp =     210, f_keep = 0.052, f_sim = 0.053
+srv          load:    - prompt with length    2115, lcp =       4, f_keep = 0.002, f_sim = 0.001
+srv        update:  - cache state: 5 prompts, 2266.733 MiB (limits: 8192.000 MiB, 4096 tokens, 52424 est)
+srv        update:    - prompt 000001A0A436CCB0:    4080 tokens, checkpoints:  0,   637.548 MiB
+srv        update:    - prompt 000001A0A2E7FDF0:    2127 tokens, checkpoints:  0,   332.369 MiB
+srv        update:    - prompt 000001A0A2D60560:    2117 tokens, checkpoints:  0,   330.806 MiB
+srv        update:    - prompt 000001A0A2D39060:    4067 tokens, checkpoints:  0,   635.516 MiB
+srv        update:    - prompt 000001A0A428A710:    2115 tokens, checkpoints:  0,   330.494 MiB
+srv  get_availabl: prompt cache update took 60.45 ms
+slot launch_slot_: id  0 | task -1 | sampler chain: logits -> ?penalties -> ?dry -> ?top-n-sigma -> top-k -> ?typical -> top-p -> ?min-p -> ?xtc -> temp-ext -> dist 
+slot launch_slot_: id  0 | task -1 | sampler params: 
+	repeat_last_n = 64, repeat_penalty = 1.000, frequency_penalty = 0.000, presence_penalty = 0.000
+	dry_multiplier = 0.000, dry_base = 1.750, dry_allowed_length = 2, dry_penalty_last_n = 64
+	top_k = 20, top_p = 0.950, min_p = 0.000, xtc_probability = 0.000, xtc_threshold = 0.100, typical_p = 1.000, top_n_sigma = -1.000, temp = 0.000
+	mirostat = 0, mirostat_lr = 0.100, mirostat_ent = 5.000, adaptive_target = -1.000, adaptive_decay = 0.900
+slot launch_slot_: id  0 | task 550 | processing task, is_child = 0
+slot   operator(): id  0 | task 550 | new prompt, n_ctx_slot = 4096, n_keep = 4, task.n_tokens = 3961
+slot   operator(): id  0 | task 550 | cached n_tokens = 4, memory_seq_rm [4, end)
+slot   operator(): id  0 | task 550 | cached n_tokens = 516, memory_seq_rm [516, end)
+slot   operator(): id  0 | task 550 | cached n_tokens = 1028, memory_seq_rm [1028, end)
+slot   operator(): id  0 | task 550 | cached n_tokens = 1540, memory_seq_rm [1540, end)
+slot   operator(): id  0 | task 550 | cached n_tokens = 2052, memory_seq_rm [2052, end)
+slot   operator(): id  0 | task 550 | cached n_tokens = 2564, memory_seq_rm [2564, end)
+slot print_timing: id  0 | task 550 | prompt processing, n_tokens =   3072, progress = 0.78, t =   3.70 s / 830.11 tokens per second
+slot   operator(): id  0 | task 550 | cached n_tokens = 3076, memory_seq_rm [3076, end)
+slot print_timing: id  0 | task 550 | prompt processing, n_tokens =   3584, progress = 0.91, t =   4.51 s / 795.35 tokens per second
+slot   operator(): id  0 | task 550 | cached n_tokens = 3588, memory_seq_rm [3588, end)
+slot init_sampler: id  0 | task 550 | init sampler, took 1.31 ms, tokens: text = 3961, total = 3961
+slot print_timing: id  0 | task 550 | prompt eval time =    6082.46 ms /  3957 tokens (    1.54 ms per token,   650.56 tokens per second)
+slot print_timing: id  0 | task 550 |        eval time =    2973.05 ms /    60 tokens (   50.39 ms per token,    19.84 tokens per second)
+slot print_timing: id  0 | task 550 |       total time =    9055.51 ms /  4017 tokens
+slot print_timing: id  0 | task 550 |    graphs reused =        549
+slot      release: id  0 | task 550 | stop processing: n_tokens = 4020, truncated = 0
+srv  update_slots: all slots are idle
+[GIN] 2026/10/23 - 06:39:51 | 200 |    9.3746662s |       127.0.0.1 | POST     "/api/chat"
+time=2026-10-23T06:39:51.915-07:00 level=DEBUG source=sched.go:494 msg="context for request finished" runner.name=registry.ollama.ai/library/qwen3:14b runner.inference="[{ID:0 Library:ROCm}]" runner.pid=22588 runner.num_ctx=4096 runner.size="9.0 GiB" runner.vram="9.0 GiB" runner.parallel=1 runner.model=C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e
+time=2026-10-23T06:39:51.916-07:00 level=DEBUG source=sched.go:399 msg="runner with non-zero duration has gone idle, adding timer" runner.size="9.0 GiB" runner.vram="9.0 GiB" runner.parallel=1 runner.model=C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e duration=30m0s
+time=2026-10-23T06:39:51.916-07:00 level=DEBUG source=sched.go:417 msg="after processing request finished event" runner.size="9.0 GiB" runner.vram="9.0 GiB" runner.parallel=1 runner.model=C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e refCount=0
+[GIN] 2026/10/23 - 06:39:51 | 200 |            0s |       127.0.0.1 | GET      "/api/ps"
+time=2026-10-23T06:40:02.988-07:00 level=DEBUG source=sched.go:1391 msg="evaluating already loaded" model=C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e
+time=2026-10-23T06:40:03.239-07:00 level=DEBUG source=prompt.go:77 msg="truncating input messages which exceed context length" truncated=9
+time=2026-10-23T06:40:03.240-07:00 level=DEBUG source=llama_server.go:1624 msg="llama-server completion request" media=0 prompt_len=13560
+srv  server_strea: conv_id= (empty=1)
+slot get_availabl: id  0 | task -1 |  - checking sim = 0.051 (210/4086) > 0.100
+slot get_availabl: id  0 | task -1 | selected slot by LRU, t_last = 142371360
+srv  get_availabl: updating prompt cache
+srv   prompt_save:  - saving prompt with length 4020, total state size = 628.172 MiB (draft: 0.000 MiB)
+srv          load:  - looking for better prompt, base f_keep = 0.052, f_sim = 0.051
+srv          load:    - prompt with length    4080, lcp =     210, f_keep = 0.051, f_sim = 0.051
+srv          load:    - prompt with length    2127, lcp =       4, f_keep = 0.002, f_sim = 0.001
+srv          load:    - prompt with length    2117, lcp =       4, f_keep = 0.002, f_sim = 0.001
+srv          load:    - prompt with length    4067, lcp =    3369, f_keep = 0.828, f_sim = 0.825
+srv          load:    - prompt with length    2115, lcp =       4, f_keep = 0.002, f_sim = 0.001
+srv          load:    - prompt with length    4020, lcp =     210, f_keep = 0.052, f_sim = 0.051
+srv          load:  - found better prompt with f_keep = 0.828, f_sim = 0.825
+srv        update:  - cache state: 5 prompts, 2259.389 MiB (limits: 8192.000 MiB, 4096 tokens, 52424 est)
+srv        update:    - prompt 000001A0A436CCB0:    4080 tokens, checkpoints:  0,   637.548 MiB
+srv        update:    - prompt 000001A0A2E7FDF0:    2127 tokens, checkpoints:  0,   332.369 MiB
+srv        update:    - prompt 000001A0A2D60560:    2117 tokens, checkpoints:  0,   330.806 MiB
+srv        update:    - prompt 000001A0A428A710:    2115 tokens, checkpoints:  0,   330.494 MiB
+srv        update:    - prompt 000001A0A2D5E7D0:    4020 tokens, checkpoints:  0,   628.172 MiB
+srv  get_availabl: prompt cache update took 144.82 ms
+slot launch_slot_: id  0 | task -1 | sampler chain: logits -> ?penalties -> ?dry -> ?top-n-sigma -> top-k -> ?typical -> top-p -> ?min-p -> ?xtc -> temp-ext -> dist 
+slot launch_slot_: id  0 | task -1 | sampler params: 
+	repeat_last_n = 64, repeat_penalty = 1.000, frequency_penalty = 0.000, presence_penalty = 0.000
+	dry_multiplier = 0.000, dry_base = 1.750, dry_allowed_length = 2, dry_penalty_last_n = 64
+	top_k = 20, top_p = 0.950, min_p = 0.000, xtc_probability = 0.000, xtc_threshold = 0.100, typical_p = 1.000, top_n_sigma = -1.000, temp = 0.000
+	mirostat = 0, mirostat_lr = 0.100, mirostat_ent = 5.000, adaptive_target = -1.000, adaptive_decay = 0.900
+slot launch_slot_: id  0 | task 618 | processing task, is_child = 0
+slot   operator(): id  0 | task 618 | new prompt, n_ctx_slot = 4096, n_keep = 4, task.n_tokens = 4086
+slot   operator(): id  0 | task 618 | cached n_tokens = 3369, memory_seq_rm [3369, end)
+slot   operator(): id  0 | task 618 | cached n_tokens = 3881, memory_seq_rm [3881, end)
+slot init_sampler: id  0 | task 618 | init sampler, took 0.37 ms, tokens: text = 4086, total = 4086
+slot   operator(): id  0 | task 618 | slot context shift, n_keep = 4, n_left = 4091, n_discard = 2045
+slot print_timing: id  0 | task 618 | prompt eval time =    1418.40 ms /   717 tokens (    1.98 ms per token,   505.50 tokens per second)
+slot print_timing: id  0 | task 618 |        eval time =    4245.63 ms /    85 tokens (   50.54 ms per token,    19.79 tokens per second)
+slot print_timing: id  0 | task 618 |       total time =    5664.02 ms /   802 tokens
+slot print_timing: id  0 | task 618 |    graphs reused =        631
+slot      release: id  0 | task 618 | stop processing: n_tokens = 2125, truncated = 1
+srv  update_slots: all slots are idle
+[GIN] 2026/10/23 - 06:40:09 | 200 |    6.0727262s |       127.0.0.1 | POST     "/api/chat"
+time=2026-10-23T06:40:09.057-07:00 level=DEBUG source=sched.go:494 msg="context for request finished" runner.name=registry.ollama.ai/library/qwen3:14b runner.inference="[{ID:0 Library:ROCm}]" runner.pid=22588 runner.num_ctx=4096 runner.size="9.0 GiB" runner.vram="9.0 GiB" runner.parallel=1 runner.model=C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e
+time=2026-10-23T06:40:09.057-07:00 level=DEBUG source=sched.go:399 msg="runner with non-zero duration has gone idle, adding timer" runner.size="9.0 GiB" runner.vram="9.0 GiB" runner.parallel=1 runner.model=C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e duration=30m0s
+time=2026-10-23T06:40:09.057-07:00 level=DEBUG source=sched.go:417 msg="after processing request finished event" runner.size="9.0 GiB" runner.vram="9.0 GiB" runner.parallel=1 runner.model=C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e refCount=0
+[GIN] 2026/10/23 - 06:40:09 | 200 |            0s |       127.0.0.1 | GET      "/api/ps"
+time=2026-10-23T06:40:09.121-07:00 level=DEBUG source=sched.go:1391 msg="evaluating already loaded" model=C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e
+time=2026-10-23T06:40:09.386-07:00 level=DEBUG source=prompt.go:77 msg="truncating input messages which exceed context length" truncated=9
+time=2026-10-23T06:40:09.386-07:00 level=DEBUG source=llama_server.go:1624 msg="llama-server completion request" media=0 prompt_len=13006
+srv  server_strea: conv_id= (empty=1)
+slot get_availabl: id  0 | task -1 |  - checking sim = 0.001 (4/3965) > 0.100
+slot get_availabl: id  0 | task -1 | selected slot by LRU, t_last = 159515563
+srv  get_availabl: updating prompt cache
+srv   prompt_save:  - saving prompt with length 2125, total state size = 332.057 MiB (draft: 0.000 MiB)
+srv          load:  - looking for better prompt, base f_keep = 0.002, f_sim = 0.001
+srv          load:    - prompt with length    4080, lcp =     210, f_keep = 0.051, f_sim = 0.053
+srv          load:    - prompt with length    2127, lcp =       4, f_keep = 0.002, f_sim = 0.001
+srv          load:    - prompt with length    2117, lcp =       4, f_keep = 0.002, f_sim = 0.001
+srv          load:    - prompt with length    2115, lcp =       4, f_keep = 0.002, f_sim = 0.001
+srv          load:    - prompt with length    4020, lcp =     210, f_keep = 0.052, f_sim = 0.053
+srv          load:    - prompt with length    2125, lcp =       4, f_keep = 0.002, f_sim = 0.001
+srv        update:  - cache state: 6 prompts, 2591.445 MiB (limits: 8192.000 MiB, 4096 tokens, 52424 est)
+srv        update:    - prompt 000001A0A436CCB0:    4080 tokens, checkpoints:  0,   637.548 MiB
+srv        update:    - prompt 000001A0A2E7FDF0:    2127 tokens, checkpoints:  0,   332.369 MiB
+srv        update:    - prompt 000001A0A2D60560:    2117 tokens, checkpoints:  0,   330.806 MiB
+srv        update:    - prompt 000001A0A428A710:    2115 tokens, checkpoints:  0,   330.494 MiB
+srv        update:    - prompt 000001A0A2D5E7D0:    4020 tokens, checkpoints:  0,   628.172 MiB
+srv        update:    - prompt 000001A0A428AAD0:    2125 tokens, checkpoints:  0,   332.057 MiB
+srv  get_availabl: prompt cache update took 60.93 ms
+slot launch_slot_: id  0 | task -1 | sampler chain: logits -> ?penalties -> ?dry -> ?top-n-sigma -> top-k -> ?typical -> top-p -> ?min-p -> ?xtc -> temp-ext -> dist 
+slot launch_slot_: id  0 | task -1 | sampler params: 
+	repeat_last_n = 64, repeat_penalty = 1.000, frequency_penalty = 0.000, presence_penalty = 0.000
+	dry_multiplier = 0.000, dry_base = 1.750, dry_allowed_length = 2, dry_penalty_last_n = 64
+	top_k = 20, top_p = 0.950, min_p = 0.000, xtc_probability = 0.000, xtc_threshold = 0.100, typical_p = 1.000, top_n_sigma = -1.000, temp = 0.000
+	mirostat = 0, mirostat_lr = 0.100, mirostat_ent = 5.000, adaptive_target = -1.000, adaptive_decay = 0.900
+slot launch_slot_: id  0 | task 705 | processing task, is_child = 0
+slot   operator(): id  0 | task 705 | new prompt, n_ctx_slot = 4096, n_keep = 4, task.n_tokens = 3965
+slot   operator(): id  0 | task 705 | cached n_tokens = 4, memory_seq_rm [4, end)
+slot   operator(): id  0 | task 705 | cached n_tokens = 516, memory_seq_rm [516, end)
+slot   operator(): id  0 | task 705 | cached n_tokens = 1028, memory_seq_rm [1028, end)
+slot   operator(): id  0 | task 705 | cached n_tokens = 1540, memory_seq_rm [1540, end)
+slot   operator(): id  0 | task 705 | cached n_tokens = 2052, memory_seq_rm [2052, end)
+slot print_timing: id  0 | task 705 | prompt processing, n_tokens =   2560, progress = 0.65, t =   3.35 s / 764.26 tokens per second
+slot   operator(): id  0 | task 705 | cached n_tokens = 2564, memory_seq_rm [2564, end)
+slot print_timing: id  0 | task 705 | prompt processing, n_tokens =   3072, progress = 0.78, t =   4.14 s / 742.30 tokens per second
+slot   operator(): id  0 | task 705 | cached n_tokens = 3076, memory_seq_rm [3076, end)
+slot print_timing: id  0 | task 705 | prompt processing, n_tokens =   3584, progress = 0.90, t =   4.94 s / 725.12 tokens per second
+slot   operator(): id  0 | task 705 | cached n_tokens = 3588, memory_seq_rm [3588, end)
+slot init_sampler: id  0 | task 705 | init sampler, took 1.19 ms, tokens: text = 3965, total = 3965
+slot print_timing: id  0 | task 705 | prompt eval time =    6689.92 ms /  3961 tokens (    1.69 ms per token,   592.08 tokens per second)
+slot print_timing: id  0 | task 705 |        eval time =    2687.60 ms /    54 tokens (   50.71 ms per token,    19.72 tokens per second)
+slot print_timing: id  0 | task 705 |       total time =    9377.52 ms /  4015 tokens
+slot print_timing: id  0 | task 705 |    graphs reused =        683
+slot      release: id  0 | task 705 | stop processing: n_tokens = 4018, truncated = 0
+srv  update_slots: all slots are idle
+[GIN] 2026/10/23 - 06:40:18 | 200 |    9.7179173s |       127.0.0.1 | POST     "/api/chat"
+time=2026-10-23T06:40:18.833-07:00 level=DEBUG source=sched.go:494 msg="context for request finished" runner.name=registry.ollama.ai/library/qwen3:14b runner.inference="[{ID:0 Library:ROCm}]" runner.pid=22588 runner.num_ctx=4096 runner.size="9.0 GiB" runner.vram="9.0 GiB" runner.parallel=1 runner.model=C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e
+time=2026-10-23T06:40:18.834-07:00 level=DEBUG source=sched.go:399 msg="runner with non-zero duration has gone idle, adding timer" runner.size="9.0 GiB" runner.vram="9.0 GiB" runner.parallel=1 runner.model=C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e duration=30m0s
+time=2026-10-23T06:40:18.834-07:00 level=DEBUG source=sched.go:417 msg="after processing request finished event" runner.size="9.0 GiB" runner.vram="9.0 GiB" runner.parallel=1 runner.model=C:\Users\Ritz\.ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e refCount=0
+[GIN] 2026/10/23 - 06:40:18 | 200 |       572.5µs |       127.0.0.1 | GET      "/api/ps"
