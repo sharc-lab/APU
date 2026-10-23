@@ -12,7 +12,7 @@ Scenarios (operator decisions of 2026-10-23):
            "Intel graphics-chip setting, simulated": window only, base server, OLLAMA_IGPU_ENABLE is not set on evo-x2;
            else claude-haiku-5-5 from the first call); All cloud on claude-haiku-5-5.
 
-Lanes run sequentially per task: default, ours, cloud. One Ollama server per configuration (server env, num_ctx).
+Local lanes run one after another per task (default, then ours); the cloud lane runs alongside them. One Ollama server per configuration (server env, num_ctx).
 Ours uses the headline row's rule: need = the projected task-turn prompt from the task definition
 (demo_live.projected_task_prompt), local iff need <= window (margin 0).
 
@@ -65,11 +65,24 @@ def decide(scenario: str, profile: dict, task: dict, budget_left: float) -> dict
     return d
 
 
-def run_task(scenario: str, profile: dict, task: dict, local, cloud, budget_left, emit=lambda ev: None) -> dict:
-    """The three lanes on one task, in order. budget_left: callable -> USD left under the demo cap."""
+def run_task(scenario: str, profile: dict, task: dict, local, cloud, budget_left, emit=lambda ev: None,
+             cloud_concurrent: bool = True) -> dict:
+    """The three lanes on one task. Local lanes one after another (Default local, then Ours), never overlapping; the
+    All cloud lane alongside them in a thread (operator decision 2026-10-23: it does not use the GPU). Each lane's
+    seconds are its own. budget_left: callable -> USD left under the demo cap."""
+    import threading
     sc = SCENARIOS[scenario]
     out = {"scenario": scenario, "seed": task["seed"], "task_id": task["task_id"], "turn_idx": task["turn_idx"],
            "projected_prompt": task["projected_prompt"], "history_turns": task["history_turns"], "lanes": {}}
+
+    def cloud_lane():
+        emit({"event": "lane_start", "lane": "cloud", **_key(out)})
+        c = cloud("cloud", task, sc["cloud_model"])
+        out["lanes"]["cloud"] = {**c, "route": "cloud"}
+        emit({"event": "lane_end", "lane": "cloud", "result": out["lanes"]["cloud"], **_key(out)})
+    th = threading.Thread(target=cloud_lane, daemon=True) if cloud_concurrent else None
+    if th:
+        th.start()
     emit({"event": "lane_start", "lane": "default", **_key(out)})
     r = local("default", task, sc["default_ctx"])
     out["lanes"]["default"] = {**r, "route": "local", "num_ctx": sc["default_ctx"]}
@@ -92,10 +105,11 @@ def run_task(scenario: str, profile: dict, task: dict, local, cloud, budget_left
     out["lanes"]["ours"] = res
     emit({"event": "lane_end", "lane": "ours", "result": res, **_key(out)})
 
-    emit({"event": "lane_start", "lane": "cloud", **_key(out)})
-    c = cloud("cloud", task, sc["cloud_model"])
-    out["lanes"]["cloud"] = {**c, "route": "cloud"}
-    emit({"event": "lane_end", "lane": "cloud", "result": out["lanes"]["cloud"], **_key(out)})
+    if th:
+        th.join()
+    else:
+        cloud_lane()
+    out["lanes"] = {k: out["lanes"][k] for k in LANES}
     return out
 
 

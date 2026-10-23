@@ -7098,6 +7098,75 @@ def compute_long_task_cloud_priced_vs_billed(repo):
     return {"value": "; ".join(parts), "n": f"{len(tr)} cloud task runs"}
 
 
+# ───────────────────────────────────────────────── live demo (2026-10-23; docs/EXPERIMENTS.md "Live demo: detector
+# check and acceptance run"). PENDING until the file has run_end.
+DEMO_DETECTOR_FILE = "results/demo_detector_check.jsonl"
+
+
+def compute_demo_detector_check(repo):
+    """harness/demo_live_x2.py --mode detector-check: per arm (num_ctx 4096, runtime default) how many of the frozen
+    picks the cut-off detector flagged, per task the largest total prompt the server used vs the prompt's own size,
+    and the pre-registered reading (passes iff it fired on every pick whose own prompt exceeds 4096 at num_ctx 4096
+    and on none at the default window)."""
+    rows = _read_jsonl(repo / DEMO_DETECTOR_FILE)
+    tr = [r for r in rows if r.get("record") == "detector_task"]
+    if not tr:
+        raise ValueError("no detector_task rows")
+    parts, ok = [], True
+    for arm in ("num_ctx_4096", "default"):
+        g = [r for r in tr if r["arm"] == arm]
+        fired = sum(1 for r in g if r["flagged"])
+        over = [r for r in g if r["max_own_tokens"] > 4096]
+        want = len(over) if arm == "num_ctx_4096" else 0
+        got = sum(1 for r in over if r["flagged"]) if arm == "num_ctx_4096" else fired
+        ok = ok and got == want
+        calls = [c for r in g for c in r["calls"]]
+        total_eq = sum(1 for c in calls if c.get("used_tokens") is not None
+                       and c.get("prompt_eval_count") == c.get("used_tokens"))
+        per = ", ".join(f"{r['task_id']} (seed {r['seed']}, turn {r['turn_idx']}): used {r['max_used_tokens']} of "
+                        f"about {r['max_own_tokens']}, flagged {r['flagged']}, end state {r['end_state_ok']}"
+                        for r in g)
+        parts.append(f"{arm}: fired on {fired}/{len(g)} tasks (prompt over 4096 on {len(over)}); calls {len(calls)}, "
+                     f"prompt_eval_count equal to the server total on {total_eq}; {per}")
+    reading = "detector check passed" if ok else "detector check failed"
+    return {"value": f"{reading}; " + "; ".join(parts), "n": f"{len(tr)} task runs"}
+
+
+DEMO_LIVE_RUN_FILE = "results/demo_live_run_20261023.jsonl"   # dated by the picks freeze (demo/live/picks_v1.json)
+
+
+def compute_demo_live_run(repo):
+    """The 5-task acceptance run (evo-x2 local parts + controller cloud parts): per scenario and lane correct / n,
+    wrong silent / flagged, kept local, cloud USD per task (ledger and cache-priced), minutes (each lane's own time),
+    LIVE / REPLAYED labels; and the pre-registered plain statements (Ours vs Default local: more correct; Ours vs All
+    cloud: more correct, or as many at lower cloud USD)."""
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "harness"))
+    import demo_run as dr
+    rows = _read_jsonl(repo / DEMO_LIVE_RUN_FILE)
+    tr = [r for r in rows if r.get("record") == "task_result"]
+    if not tr:
+        raise ValueError("no task_result rows")
+    parts = []
+    for sc in dict.fromkeys(r["scenario"] for r in tr):
+        t = dr.tally([r for r in tr if r["scenario"] == sc])
+        lanes = []
+        for lane in dr.LANES:
+            x = t[lane]
+            lanes.append(f"{lane}: {x['correct']}/{x['graded']} correct (wrong {x['wrong']}: silent {x['wrong_silent']}, "
+                         f"flagged {x['wrong_flagged']}), kept local {x['kept_local']}/{x['graded']}, escalated "
+                         f"{x['escalated']}, cloud USD/task ledger {x['usd_ledger_per_task']} cache-priced "
+                         f"{x['usd_cache_priced_per_task']}, {x['seconds'] / 60:.2f} min, labels {x['labels']}, "
+                         f"not available {x['unavailable']}")
+        o, d, c = t["ours"], t["default"], t["cloud"]
+        vs_d = "Ours beats Default local" if o["correct"] > d["correct"] else "Ours does NOT beat Default local"
+        beats_c = o["correct"] > c["correct"] or (o["correct"] == c["correct"] and (o["usd_ledger_per_task"] or 0)
+                                                    < (c["usd_ledger_per_task"] or 0))
+        vs_c = "Ours beats All cloud" if beats_c else "Ours does NOT beat All cloud"
+        parts.append(f"{sc} ({dr.SCENARIOS[sc]['label']}): " + "; ".join(lanes) + f"; {vs_d}; {vs_c}")
+    return {"value": "; ".join(parts), "n": f"{len(tr)} task runs"}
+
+
 NUMBER_ENTRIES = [
     {"claim_id": "PX2-TTFT-gap", "description": "PX2 B4-vs-S4 TTFT gap range across 5 models",
      "compute": compute_px2_ttft_gap, "data_files": ["results/t2s_night2_20260930T135145Z.jsonl"],
@@ -8123,6 +8192,18 @@ NUMBER_ENTRIES = [
      "compute": compute_long_task_cloud_priced_vs_billed, "data_files": [LONGTASK_CLOUD_FILE], "pending_ok": True,
      "require_run_end": [LONGTASK_CLOUD_FILE],
      "script_function": "analysis/numbers_register.py::compute_long_task_cloud_priced_vs_billed"},
+    {"claim_id": "demo-detector-check", "description": "live demo cut-off detector on the 5 frozen picks (qwen3:14b, "
+     "evo-x2, task at its real session position, history rebuilt from the recorded run) at num_ctx 4096 and at the "
+     "runtime default: fired / not fired per task; PENDING until the file has run_end",
+     "compute": compute_demo_detector_check, "data_files": [DEMO_DETECTOR_FILE], "pending_ok": True,
+     "require_run_end": [DEMO_DETECTOR_FILE],
+     "script_function": "analysis/numbers_register.py::compute_demo_detector_check"},
+    {"claim_id": "demo-live-run", "description": "live demo 5-task acceptance run (frozen picks, scenarios amd8192 and "
+     "intel; local lanes on evo-x2 one after another, cloud on the controller): per lane correct, wrong silent / "
+     "flagged, kept local, cloud USD per task, minutes; PENDING until the file has run_end",
+     "compute": compute_demo_live_run, "data_files": [DEMO_LIVE_RUN_FILE], "pending_ok": True,
+     "require_run_end": [DEMO_LIVE_RUN_FILE],
+     "script_function": "analysis/numbers_register.py::compute_demo_live_run"},
     {"claim_id": "cost-cut-config-time", "description": "MEASURED: per model, session minutes saved per 40-turn R2 "
      "session on evo-x2 by the fastest measured non-router setting (B5 policies b-h, plus the flash-attention control "
      "once synced) against the runtime default (B5 policy a), with both settings' rule pass rate and history recall",

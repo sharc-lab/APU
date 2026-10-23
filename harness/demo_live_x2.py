@@ -60,9 +60,15 @@ class Emitter:
         if out:
             Path(out).parent.mkdir(parents=True, exist_ok=True)
 
+    _lock = __import__("threading").Lock()
+
     def __call__(self, row: dict):
         row = {"ts_utc": utc_iso(), **row}
         line = json.dumps(row, default=str)
+        with self._lock:
+            self._write(line)
+
+    def _write(self, line):
         if self.out:
             with open(self.out, "a", encoding="utf-8") as fh:
                 fh.write(line + "\n")
@@ -118,6 +124,8 @@ def provenance(args, picks_path) -> dict:
     return {"host": socket.gethostname(), "harness_blobs": {f: L.EV.git_blob_sha1(_here / f) for f in
                                                             ("demo_live.py", "demo_run.py", "demo_servers.py",
                                                              "demo_overflow.py", "demo_live_x2.py")},
+            "imported": {m.__name__: {"file": str(Path(m.__file__).resolve()), "blob": L.EV.git_blob_sha1(m.__file__)}
+                         for m in (L.EV, L.ag, L.E, L.DO, L.DO.mech)},
             "picks_file": str(picks_path), "picks_sha256": sha256_file(picks_path), "model": L.MODEL,
             "argv": sys.argv[1:]}
 
@@ -176,7 +184,8 @@ def agent(args, emit, results_dir: Path) -> str:
     servers = Servers(log_root(args, results_dir) / "agent", emit)
     run = local_runner(servers, prof["calibration"]["ratio"], emit, args.model)
     cache = {}
-    emit({"record": "agent_ready", **(provenance(args, args.picks) if args.picks else {})})
+    emit({"record": "agent_ready", "host": socket.gethostname(), "model": args.model,
+          **(provenance(args, args.picks) if args.picks else {})})
     try:
         for line in sys.stdin:
             if not line.strip():
@@ -203,6 +212,28 @@ def log_root(args, results_dir: Path) -> Path:
     return Path(args.log_dir) if args.log_dir else results_dir / LOG_DIR_NAME
 
 
+def check_plan(args, results_dir: Path) -> int:
+    """Dry check (no server start, no model call): the picks, each task's rebuilt history against the recorded
+    transcript estimate, projected prompts, the scenarios' decisions and configurations, the imported files."""
+    picks = load_picks(args.picks)
+    rows = L.read_jsonl(results_dir / L.B3_FILE)
+    prof = load_profile()
+    out = {"provenance": provenance(args, args.picks), "tasks": [], "configurations": {}}
+    ok = True
+    for p in picks:
+        t = L.build_task(rows, p["seed"], p["task_id"], with_cloud=False)
+        hc = t["history_check"]
+        ok = ok and hc["rebuilt_est"] == hc["recorded_est"] and t["turn_idx"] == p.get("turn_idx", t["turn_idx"])
+        out["tasks"].append({**strip_task(t), "decisions": {sc: {k: DR.decide(sc, prof, t, 3.0).get(k) for k in
+                                                                 ("route", "window", "setting_label", "model")}
+                                                            for sc in DR.SCENARIOS}})
+    for sc in DR.SCENARIOS:
+        out["configurations"][sc] = DR.configurations(sc, prof)
+    out["ok"] = ok
+    print(json.dumps(out, indent=1, default=str))
+    return 0 if ok else 1
+
+
 def load_profile() -> dict:
     import route_at_start as R
     return R.load_profiles()
@@ -210,7 +241,7 @@ def load_profile() -> dict:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--mode", choices=("detector-check", "acceptance", "agent"), required=True)
+    ap.add_argument("--mode", choices=("detector-check", "acceptance", "agent", "check-plan"), required=True)
     ap.add_argument("--picks", default=None)
     ap.add_argument("--out", default=None)
     ap.add_argument("--results-dir", default=None)
@@ -221,6 +252,8 @@ def main(argv=None) -> int:
     ap.add_argument("--queued", action="store_true", help="call t2s_queue.advance() on exit")
     args = ap.parse_args(argv)
     results_dir = Path(args.results_dir) if args.results_dir else (L.REPO / "results")
+    if args.mode == "check-plan":
+        return check_plan(args, results_dir)
     if args.mode == "agent":
         agent(args, Emitter(stream=sys.stdout), results_dir)
         return 0

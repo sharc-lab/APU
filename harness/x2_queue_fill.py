@@ -178,6 +178,30 @@ ENTRIES = {
                 f"{LT_HOURS['point']:.2f} h (high {LT_HOURS['high']:.2f} h; register row long-task-local-hours). "
                 + RELEASE,
     },
+    # ── live demo (2026-10-23; docs/EXPERIMENTS.md "Live demo: detector check and acceptance run"; operator decision
+    # 4: directly after the running B5 job x2_b5_simcap_8192, inserted with --insert-after) ──
+    "x2_demo_detector_check": {
+        "projected_duration_h": 0.10,
+        "cmd": [PY, "demo\\demo_live_x2.py", "--mode", "detector-check", "--picks", "demo\\picks_v1.json",
+                "--results-dir", RESULTS, "--out", f"{RESULTS}\\demo_detector_check.jsonl", "--queued"],
+        "note": "Live demo cut-off detector check, pre-registered in docs/EXPERIMENTS.md 2026-10-23: the 5 frozen picks "
+                "(demo\\picks_v1.json) at num_ctx 4096 and at the runtime default, qwen3:14b, own Ollama servers on "
+                "ports 11541/11544 (OLLAMA_DEBUG=1, started and stopped by the job). ESTIMATE 0.10 h (high 0.3 h) "
+                "(from the B3 v2 run's own call timings: prefill 637 tok/s median, decode 19.3 tok/s, 2.08 calls per turn; "
+                "the frozen picks' prompts 6.6k to 9.1k tokens). "
+                + RELEASE,
+    },
+    "x2_demo_live_acceptance": {
+        "projected_duration_h": 0.15,
+        "cmd": [PY, "demo\\demo_live_x2.py", "--mode", "acceptance", "--picks", "demo\\picks_v1.json",
+                "--scenarios", "amd8192,intel", "--results-dir", RESULTS, "--out",
+                f"{RESULTS}\\demo_live_run_local_v1.jsonl", "--queued"],
+        "note": "Live demo 5-task acceptance run, local parts (scenarios amd8192 and intel, local lanes one after another), "
+                "pre-registered in docs/EXPERIMENTS.md 2026-10-23; cloud parts completed on the controller. Own Ollama "
+                "servers on ports 11541-11543, started and stopped by the job. ESTIMATE 0.15 h (high 0.4 h) "
+                "(from the B3 v2 run's own call timings: prefill 637 tok/s median, decode 19.3 tok/s, 2.08 calls per turn; "
+                "the frozen picks' prompts 6.6k to 9.1k tokens). " + RELEASE,
+    },
 }
 
 
@@ -206,6 +230,48 @@ def append_entries(items: list[dict], job_ids: list[str]) -> list[dict]:
     return items
 
 
+def insert_entries_after(items: list[dict], after: str, job_ids: list[str]) -> list[dict]:
+    """Pure: the queue with the named entries inserted, in order, directly after entry `after` (which must be in the
+    queue and running or pending). Every other entry is kept as it is."""
+    items = list(items)
+    ids = [it["id"] for it in items]
+    if after not in ids:
+        raise ValueError(f"{after} is not in the queue")
+    if items[ids.index(after)].get("status") not in ("running", "pending"):
+        raise ValueError(f"{after} is {items[ids.index(after)].get('status')}, not running or pending")
+    pos = ids.index(after) + 1
+    have = set(ids)
+    new = []
+    for j in job_ids:
+        if j in have:
+            raise ValueError(f"{j} is already in the queue")
+        e = entry(j)
+        req = (e.get("gate") or {}).get("requires_done")
+        if req and req not in have:
+            raise ValueError(f"{j} is gated on {req}, which is not in the queue ahead of it")
+        new.append(e)
+        have.add(j)
+    return items[:pos] + new + items[pos:]
+
+
+def queue_insert_after(after: str, job_ids: list[str], log=print) -> list[dict]:
+    import t2s_queue as tq
+    tq.set_pause(f"x2_queue_fill --insert-after {after} {','.join(job_ids)}: one read-modify-write inserting these "
+                 "entries; released by clear_pause() in this same script's finally block within seconds")
+    try:
+        new = insert_entries_after(tq.read_queue(), after, job_ids)
+        tq.write_queue(new)
+    finally:
+        tq.clear_pause()
+    if tq.is_paused() is not None:
+        raise RuntimeError("pause flag still present after clear_pause()")
+    ids = [it["id"] for it in new]
+    log(json.dumps({"positions": {j: ids.index(j) for j in job_ids}, "pause_flag_present": False,
+                    "pending_or_running": [(k, it["id"], it["status"]) for k, it in enumerate(new)
+                                           if it.get("status") in ("pending", "running")]}))
+    return new
+
+
 def queue_append(job_ids: list[str], log=print) -> list[dict]:
     import t2s_queue as tq
     tq.set_pause(f"x2_queue_fill --append {','.join(job_ids)}: one read-modify-write appending these entries; "
@@ -228,7 +294,16 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--append", nargs="+", default=None)
     ap.add_argument("--show", action="store_true")
+    ap.add_argument("--insert-after", nargs="+", default=None, metavar=("AFTER_ID", "JOB_ID"),
+                    help="insert the named entries directly after AFTER_ID (running or pending)")
     args = ap.parse_args(argv)
+    if args.insert_after:
+        after, jobs = args.insert_after[0], args.insert_after[1:]
+        unknown = [j for j in jobs if j not in ENTRIES]
+        if not jobs or unknown:
+            ap.error(f"--insert-after needs AFTER_ID and known job id(s); unknown {unknown}")
+        queue_insert_after(after, jobs)
+        return 0
     if args.show:
         print(json.dumps({j: entry(j) for j in ENTRIES}, indent=1))
         return 0

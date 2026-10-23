@@ -12,12 +12,17 @@ Inputs:
 Output: a dict with route "local" (and the chosen settings) or "cloud" (the whole task on the cloud from turn 1), the
 numbers behind it, and a one-line reason in plain words.
 
-Rule (fixed before the demo runs; docs/FINDINGS.md "PRE-REGISTRATION: live demo"):
-  1. need = ratio * (est_now + expected_turns * growth_p90) + num_predict, where est_now is the harness's chars/4
-     estimate of the prompt so far (x2_r2_agent.prompt_tokens_est), ratio the B3 v2 tokenizer calibration (median of
-     the sessions' token_calib_ratio) and growth_p90 the 90th percentile per-turn transcript growth of the B3 v2
-     default-window sessions (estimate units).
-  2. A local setting fits when need <= floor(window * (1 - MARGIN)) (MARGIN as the client trim of R2's mitigation).
+Rule (fixed before the demo runs; docs/EXPERIMENTS.md "2026-10-23: Live demo: detector check and acceptance run"):
+  1. need is passed in (route(..., need_tokens, ..., need_source)). Two definitions:
+     - context_need: ratio * (est_now + expected_turns * growth_p90) + num_predict, where est_now is the harness's
+       chars/4 estimate of the prompt so far (x2_r2_agent.prompt_tokens_est), ratio the B3 v2 tokenizer calibration
+       (median of the sessions' token_calib_ratio) and growth_p90 the 90th percentile per-turn transcript growth of
+       the B3 v2 default-window sessions (estimate units);
+     - the live demo (operator decision of 2026-10-23, to match the headline row hybrid-route-at-start-measured): the
+       projected task-turn prompt from the task definition (system prompt, tool schema, every user message so far,
+       PROJ_NONFILLER_PER_TURN per turn, times PROJ_CALIB; harness/demo_live.projected_task_prompt), with margin 0.
+  2. A local setting fits when need <= floor(window * (1 - margin)); margin MARGIN (as the client trim of R2's
+     mitigation) by default, 0 for the headline rule.
   3. Local settings are tried in the profile's preference order (the measured faster setting first); the first that
      fits is chosen.
   4. If none fits: the cloud from turn 1, when the budget left covers the projected cloud cost; otherwise local at the

@@ -5916,3 +5916,17 @@ Long-task cloud priced vs billed", committed before either job ran (harness at 5
 - **Cloud check** `longtask_cloud_v1` (controller, 5 tasks x seed 20260901, claude-haiku-5-5, job cap USD 6; Sonnet
   only if its pilot-based estimate is under USD 5): billed vs upper bound vs the `cloud-cost-per-real-task` pricing
   method. Row `long-task-cloud-priced-vs-billed` (PENDING until run_end).
+
+## PRE-REGISTRATION (2026-10-23): live demo detector check and acceptance run (pointer)
+
+The pre-registration is in docs/EXPERIMENTS.md, entry "2026-10-23: Live demo: detector check and acceptance run". In short: one
+B3 v2 task at its real session position (earlier history REPLAYED from the recorded default-window session, the task
+turn LIVE, end-state grader); the cut-off detector (harness/demo_overflow.py) reads the server's total prompt and
+Ollama's own cut lines, never prompt_eval_count alone; queued evo-x2 jobs `x2_demo_detector_check` (5 frozen picks at
+num_ctx 4096 and at the default; passes iff it fires on every pick over 4096 at 4096 and on none at the default) and
+`x2_demo_live_acceptance` (scenarios amd8192, the headline's constrained memory 8192 with claude-sonnet-5-5, and intel,
+4096 vs the Intel graphics-chip window 32768 simulated, with claude-haiku-5-5; local lanes one after another, the cloud
+lane alongside), cloud parts on the controller. Rows `demo-detector-check` and `demo-live-run` (PENDING until run_end).
+Picks frozen before any run in demo/live/picks_v1.json by the operator's rule of 2026-10-23 (3 tasks wrong at 4096 in
+at least 3 of 5 seeds and right at the default in at least 4 of 5; 2 right in at least 4 of 5 seeds in every arm; ties
+by task id): cal_cancel, cal_default_len, file_write_standing; cal_rename, eml_internal.

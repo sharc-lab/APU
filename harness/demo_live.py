@@ -47,8 +47,9 @@ else:                                   # deployed side directory on evo-x2 (C:\
 
 import demo_overflow as DO  # noqa: E402
 import evalset_env as E  # noqa: E402
-import x2_r2_agent as ag  # noqa: E402
-import x2_r2_evalset as EV  # noqa: E402
+import x2_r2_evalset as EV  # noqa: E402  (before x2_r2_agent, which puts its own directory first on sys.path: in a
+import x2_r2_agent as ag  # noqa: E402     side directory this keeps the side directory's x2_r2_evalset; see EXPERIMENTS.md
+                          #                "AMENDMENT (2026-10-22 ...)" of the long-task job)
 
 MODEL = "qwen3:14b"
 DEFAULT_ARM = "ollama_default_call2_notools"

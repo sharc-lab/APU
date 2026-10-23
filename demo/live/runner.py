@@ -137,6 +137,11 @@ class LiveRun:
                    "label": "LIVE" if self.mode == "live" else "LIVE (development, controller laptop)",
                    "n_tasks": len(picks)})
         agent = self.agent_factory(lambda r: self._agent_line(r))
+        host = str((agent.ready or {}).get("host") or "")
+        self.push({"event": "agent", "host": host})
+        if self.mode == "live" and host.upper() != "EVO-X2":
+            agent.close()
+            raise RuntimeError(f"the agent answered from {host!r}, not EVO-X2; refusing to run")
         try:
             for p in picks:
                 task = L.build_task(b3, p["seed"], p["task_id"], with_cloud=True)

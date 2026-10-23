@@ -82,7 +82,8 @@ def test_amd8192_routes_a_long_task_to_the_cloud_and_runs_default_locally(prof, 
     o = res["lanes"]["ours"]
     assert o["route"] == "cloud" and o["model"] == "claude-sonnet-5-5"
     assert o["decision"]["need_tokens"] == 8708 and o["decision"]["margin"] == 0.0
-    assert cloud.calls == [("ours", "claude-sonnet-5-5"), ("cloud", "claude-sonnet-5-5")]
+    assert sorted(cloud.calls) == [("cloud", "claude-sonnet-5-5"), ("ours", "claude-sonnet-5-5")]
+    assert list(res["lanes"]) == ["default", "ours", "cloud"]
     t = DR.tally([res])
     assert t["default"]["wrong_flagged"] == 1 and t["default"]["kept_local"] == 1
     assert t["ours"]["correct"] == 1 and t["ours"]["kept_local"] == 0 and t["ours"]["usd_ledger_per_task"] == 0.05
@@ -186,6 +187,62 @@ def test_agent_protocol_with_a_fake_process():
     assert r == {"end_state_ok": True} and seen[0]["record"] == "call"
     assert json.loads(a.proc.stdin.getvalue().splitlines()[0])["num_ctx"] == 4096
     a.close()
+
+
+def test_frozen_picks_match_the_rule_and_the_source(b3):
+    from demo.live import picks as P
+    import hashlib
+    frozen = json.loads((REPO / "demo" / "live" / "picks_v1.json").read_text(encoding="utf-8"))
+    r = P.rule_v1(b3)
+    assert r["enough"] and not r["filled_beyond_rule"]
+    assert [(p["seed"], p["task_id"]) for p in frozen["picks"]] == [(p["seed"], p["task_id"]) for p in r["picks"]]
+    assert frozen["source_sha256"] == hashlib.sha256((REPO / "results" / L.B3_FILE).read_bytes()).hexdigest()
+    assert frozen["rule"] == P.RULE_V1 and "—" not in frozen["rule"]
+    fail = [p for p in frozen["picks"] if p["class"].startswith("wrong")]
+    assert len(fail) == 3 and all(sum(x is False for x in p["recorded"]["ollama_ctx_4096_call2_notools"]) >= 3
+                                  and sum(x is True for x in p["recorded"]["ollama_default_call2_notools"]) >= 4
+                                  for p in fail)
+    ok = [p for p in frozen["picks"] if p["class"] == "right in every arm"]
+    assert len(ok) == 2 and all(sum(v) >= 4 for p in ok for v in p["recorded"].values())
+    with pytest.raises(SystemExit):
+        P.freeze(REPO / "demo" / "live" / "picks_v1.json", b3)
+
+
+def test_register_rows_for_the_demo(tmp_path, prof, task8):
+    sys.path.insert(0, str(REPO / "analysis"))
+    import numbers_register as nr
+    res = DR.run_task("amd8192", prof, task8, _fake_local({("default", 8192): {"end_state_ok": False,
+                                                                                 "flagged": True}}), FakeCloud(),
+                      lambda: 3.0)
+    (tmp_path / "results").mkdir()
+    (tmp_path / nr.DEMO_LIVE_RUN_FILE).write_text("\n".join(json.dumps(x) for x in [
+        {"record": "run_start"}, {"record": "task_result", **res}, {"record": "run_end"}]) + "\n", encoding="utf-8")
+    v = nr.compute_demo_live_run(tmp_path)["value"]
+    assert "default: 0/1 correct (wrong 1: silent 0, flagged 1)" in v and "Ours beats Default local" in v
+    assert "Ours does NOT beat All cloud" in v
+    det = [{"record": "detector_task", "arm": a, "flagged": f, "max_own_tokens": 8000, "max_used_tokens": u,
+            "task_id": "t", "seed": 1, "turn_idx": 9, "end_state_ok": True,
+            "calls": [{"used_tokens": u, "prompt_eval_count": u}]}
+           for a, f, u in (("num_ctx_4096", True, 4000), ("default", False, 8000))]
+    (tmp_path / nr.DEMO_DETECTOR_FILE).write_text("\n".join(json.dumps(x) for x in det + [{"record": "run_end"}]),
+                                                 encoding="utf-8")
+    assert nr.compute_demo_detector_check(tmp_path)["value"].startswith("detector check passed")
+
+
+def test_queue_insert_after_places_demo_jobs_directly_after_the_running_b5_job():
+    import x2_queue_fill as qf
+    q = [{"id": "done_job", "status": "done"}, {"id": "x2_b5_simcap_8192", "status": "running"},
+         {"id": "x2_b5_simcap_4096", "status": "pending"}]
+    new = qf.insert_entries_after(q, "x2_b5_simcap_8192", ["x2_demo_detector_check", "x2_demo_live_acceptance"])
+    assert [it["id"] for it in new] == ["done_job", "x2_b5_simcap_8192", "x2_demo_detector_check",
+                                         "x2_demo_live_acceptance", "x2_b5_simcap_4096"]
+    for e in new[2:4]:
+        assert e["status"] == "pending" and "--queued" in e["cmd"] and "tq.advance()" in e["note"]
+        assert "sets no pause" in e["note"] and "demo\\picks_v1.json" in e["cmd"]
+    with pytest.raises(ValueError):
+        qf.insert_entries_after(q, "done_job", ["x2_demo_detector_check"])
+    with pytest.raises(ValueError):
+        qf.insert_entries_after(new, "x2_b5_simcap_8192", ["x2_demo_detector_check"])
 
 
 def test_lane_server_guard_refuses_a_held_port(tmp_path):

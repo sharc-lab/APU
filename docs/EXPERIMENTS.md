@@ -457,3 +457,108 @@ never written to the cache. The realistic case of `cloud-cost-per-real-task` ass
 read from cache, which needs a breakpoint that moves with the transcript. So the billed cost here is the cost under
 this placement, and the realistic priced figure is reached only by a client that caches the growing transcript. The
 accuracy on 5 tasks is descriptive only.
+
+## 2026-10-23: Live demo: detector check and acceptance run (PRE-REGISTRATION, written before any data; picks frozen in demo/live/picks_v1.json)
+
+### Metadata
+
+- Date: 2026-10-23
+- Git hash: c13822d (harness/demo_live.py, demo_run.py, demo_servers.py, demo_overflow.py, demo_live_x2.py,
+  src/dse/route_at_start.py, demo/live/), plus the commit that adds this entry
+- Branch: demo/oct28
+- Machines: evo-x2 (local lanes, as queued jobs only) and the controller laptop (cloud parts; the key never leaves it)
+
+### Configuration
+
+- Purpose: (1) check the live demo's cut-off detector on real B3 v2 tasks on evo-x2; (2) run the 5-task live demo end
+  to end once as the acceptance run, and record per lane: correct, wrong (silent / flagged), cloud USD, minutes.
+- Task unit (operator decision, 2026-10-23): one B3 v2 task (results/x2_evalset_tasks_real_v2.jsonl, qwen3:14b,
+  design v2, guardrails off) at its real position in its session. The session's earlier history is rebuilt from the
+  recorded default-window session of that seed (each user message exactly, each assistant message as recorded, each
+  tool result recomputed on the environment as that run left it; check: the rebuilt transcript estimate equals the
+  recorded row's transcript_tokens_est) and is shown as REPLAYED; the task turn runs LIVE in each lane (B3 v2 tool loop,
+  4 tool rounds, num_predict 384, temperature 0, seed 42, think false) and is graded by the B3 v2 end-state grader.
+- Pick rule (operator, 2026-10-23), frozen to demo/live/picks_v1.json (with the source file's sha256) by
+  `py -3.12 -m demo.live.picks --freeze demo/live/picks_v1.json` before any run; no swaps after the first run; the
+  picks file's sha256 is recorded in every run_start. 3 task turns that were wrong at num_ctx 4096 in at least 3 of 5
+  seeds AND right at the default window in at least 4 of 5 seeds, plus 2 task turns that were right in at least 4 of
+  5 seeds in every recorded arm; one pick per task id; ties broken by task id. A task occurs once per seed at a
+  seed-dependent position, so each pick is that task in the session of the lowest seed whose own recorded outcomes
+  match its class (wrong at 4096 and right at the default; right in every arm), preferring a turn position 6 to 12;
+  the limit is dropped for a class only if it leaves fewer picks than needed (it did not: 6 of 8 qualifying tasks in
+  each class have a matching seed inside 6 to 12). Qualifying: 8 tasks in each class; nothing filled beyond the rule.
+  Frozen picks (seed, task, turn): (20260905, cal_cancel, 11), (20260904, cal_default_len, 6), (20260901,
+  file_write_standing, 11) wrong at 4096 / right at the default; (20260904, cal_rename, 8), (20260901, eml_internal, 9)
+  right in every arm. The rule reads only results/x2_evalset_tasks_real_v2.jsonl and never any Ours, cloud or demo
+  result.
+- Detector (harness/demo_overflow.py): after every local call, cut = Ollama dropped messages (its truncation line with
+  kept < sent), a token cut, a context shift or an exceed-context error in that call's server log slice, or the
+  server's total prompt (llama-server task.n_tokens, cached prefix included) below 90% of the prompt's own calibrated
+  size. Never prompt_eval_count alone. Servers run with OLLAMA_DEBUG=1, one per configuration.
+- Scenarios (operator decisions, 2026-10-23). Per task the local lanes run one after another (Default local, then
+  Ours; one Ollama server per configuration, started and stopped by the job, never two local lanes at once); the All
+  cloud lane runs alongside them (it does not use the GPU). Each lane's time is its own run's time:
+  - amd8192, "AMD workstation, constrained memory (8192)": Default local at num_ctx 8192; Ours = route_at_start on the
+    evo-x2-8192 profile with the headline row's rule (local iff the projected task-turn prompt from the task
+    definition, analysis/impact_model.projected_task_prompts, is <= 8192; else the whole task on claude-sonnet-5-5
+    from its first call), plus escalation of a local task whose detector fired (the task turn re-run on the cloud with
+    the full history, scripts/cloud_redo full-history protocol, max_tokens 2048, thinking off); All cloud =
+    claude-sonnet-5-5. A real run on evo-x2 with a simulated device window.
+  - intel, "Intel laptop default, simulated on AMD": Default local at num_ctx 4096 (t2s-r2-real-cpu); Ours on the
+    evo-t2s profile (local at 32768, the measured Intel graphics-chip window of t2s-r2-real-igpu, labelled "Intel
+    graphics-chip setting, simulated"; window only on the base server, OLLAMA_IGPU_ENABLE not set on evo-x2; else
+    claude-haiku-5-5 from the first call); All cloud = claude-haiku-5-5.
+- Budget: demo ledger demo/ledger/cloud_ledger_demo.jsonl, cap USD 10 (client spend_cap_usd), session limit USD 3;
+  a cloud part whose projected ledger cost does not fit is REPLAYED from results/all_cloud_b3_v1.jsonl (seeds
+  20260901-03 only; otherwise "not available", which is the case for the three picks on seeds 20260904-05),
+  labelled.
+- Seeds: those of the frozen picks. 1 run per scenario (n = 5 tasks): descriptive, no test.
+- Projected times (ESTIMATE, from the B3 v2 run's own call timings: prefill 637 tok/s median, decode 19.3 tok/s,
+  2.08 calls per turn; the picks' own prompts 6.6k to 9.1k tokens): detector check 0.10 h (high 0.3 h); acceptance
+  local parts, both scenarios, 0.15 h (high 0.4 h). Per scenario with the cloud lane alongside: amd8192 about 2.5 min,
+  intel about 3.5 min.
+- Dry check before queueing (no server start, no model call): `py -3.12 demo\demo_live_x2.py --mode check-plan --picks
+  demo\picks_v1.json --results-dir C:\apu\ovn\results` on evo-x2 must report ok (every rebuilt history equals the
+  recorded transcript estimate).
+
+### Command
+
+- Detector check (queued, evo-x2, side directory C:\apu\ovn\demo): `py -3.12 demo\demo_live_x2.py --mode
+  detector-check --picks demo\picks_v1.json --results-dir C:\apu\ovn\results --out
+  C:\apu\ovn\results\demo_detector_check.jsonl --queued`
+- Acceptance, local parts (queued, evo-x2): `py -3.12 demo\demo_live_x2.py --mode acceptance --picks
+  demo\picks_v1.json --scenarios amd8192,intel --results-dir C:\apu\ovn\results --out
+  C:\apu\ovn\results\demo_live_run_local_v1.jsonl --queued`
+- Acceptance, cloud parts (controller, after results sync): `py -3.12 -m demo.live.complete_run --local
+  results/demo_live_run_local_v1.jsonl --out results/demo_live_run_20261023.jsonl` (dated by the picks freeze) with
+  DEMO_CLOUD_LIVE=1 and the key in that process only.
+- Queue placement (operator decision 4): both entries inserted directly after the running x2_b5_simcap_8192 with
+  `x2_queue_fill.py --insert-after x2_b5_simcap_8192 x2_demo_detector_check x2_demo_live_acceptance`; each releases
+  itself via tq.advance() on exit and sets no pause.
+
+### Replay Cache State
+
+- Prior history: REPLAYED from results/x2_evalset_tasks_real_v2.jsonl (default-window sessions). Cloud fallback:
+  results/all_cloud_b3_v1.jsonl. No prompt cache is assumed for local lanes; the cloud uses the provider's prompt
+  cache (breakpoints on the system prompt and the last user message).
+
+### Result Summary
+
+- Detector check readings, fixed now (row `demo-detector-check`, PENDING until run_end): "passed" iff the detector
+  fired at num_ctx 4096 on every pick whose own prompt exceeds 4096, and on no pick at the runtime default (40960 on
+  evo-x2 for qwen3:14b, which holds every pick's prompt). Also recorded: on how many calls prompt_eval_count equals the
+  server total (it did on 400 of 400 calls of the R2 mechanism run).
+- Acceptance readings, fixed now (row `demo-live-run`, PENDING until run_end): per scenario and lane: correct / 5, wrong silent / flagged, kept local, cloud USD per task (ledger
+  and cache-priced), minutes. Stated plainly if Ours does not beat Default local (more correct) or All cloud (as many
+  correct at lower cloud USD, or more correct).
+- Output artifacts: results/demo_detector_check.jsonl, results/demo_live_run_local_v1.jsonl,
+  results/demo_live_run_20261023.jsonl, server logs under results/demo_live_logs/.
+
+### Validity Flags
+
+- 5 tasks per scenario: a working demonstration, not an accuracy estimate; the recorded headline
+  (hybrid-route-at-start-measured, 90 tasks) is the measured comparison and is shown beside the live tally.
+- The earlier history is the default-window run's, also in the 4096 and 8192 lanes; in the recorded tiers each tier
+  had its own history.
+- The Intel scenario simulates the device by its window only (no Intel hardware, no Intel speed).
+- Deviations from protocol: none yet. A blocked command is not run another way; the exact command goes to the operator.
