@@ -149,6 +149,7 @@ import agent_trace_replay as R  # noqa: E402
 import evalset_env as E  # noqa: E402
 import t2s_r2_session_growth as r2  # noqa: E402
 import x2_r2_agent as ag  # noqa: E402
+import own_compaction as OCX  # noqa: E402
 
 HARNESS = "x2_r2_evalset"
 
@@ -637,6 +638,10 @@ def _run_session_body(runtime, model, arm, seed, emit, log, workload, es, base, 
         if workload == "replay":
             row["replay_prompt_calibrated"] = round(row["calls"][0]["prompt_tokens_est"] * ratio)
         row["over_loaded_window"] = loaded is not None and row["final_call_prompt_tokens_calibrated"] > loaded
+        drain = getattr(runtime, "drain_turn", None)   # PolicySessionRuntime (--plan own_compaction_v1 / probe) only
+        if callable(drain):
+            # over_loaded_window above is about the FULL transcript; what was sent is in sent_final_prompt_proj
+            row.update(OCX.turn_fields(drain()))
         emit(row)
         rows.append(row)
         log(f"  {model} {arm} seed={seed} turn {turn.idx}/{len(es.turns)} {item.item_id} "
@@ -823,6 +828,62 @@ STRICT_PLAN_MODELS = {TASKS_V2_Q8_PLAN: TASKS_V2_Q8_MODELS, TASKS_V2_MS_PLAN: TA
 # per strict plan, (tiers, seeds) when not the tasks_v2 ones
 STRICT_PLAN_SHAPE = {TASKS_V2_L70_PLAN: (TASKS_V2_L70_TIERS, TASKS_V2_L70_SEEDS),
                      TASKS_V2_T2S_PLAN: (TASKS_V2_T2S_TIERS, TASKS_V2_T2S_SEEDS)}
+
+
+# own-compaction (2026-10-23, docs/EXPERIMENTS.md "own-compaction", harness/own_compaction.py): qwen3:14b, the B3 v2
+# task session (30 task turns, design v2), seeds 20260901-05, four arms: the client-side context manager at num_ctx
+# 4096 and 8192, and the existing client trim (x2_r2_client_trim, margin 0.05, never run on B3 v2 before) at the same
+# windows as comparison arms. Every arm runs under the job's own Ollama server with OLLAMA_DEBUG=1 and its own log file,
+# so each call carries the detector-v2 verdict (Ollama's own cut-off lines). --tiers may name a subset of the arms
+# (queue parts); --seeds a subset of the seeds. Same validation file and declared deviation as tasks_v2.
+OWN_COMPACTION_PLAN = "own_compaction_v1"
+OWN_COMPACTION_ARMS = ("own_compaction_4096", "own_compaction_8192", "client_trim_4096", "client_trim_8192")
+OWN_COMPACTION_SEEDS = tuple(ag.SEEDS_STRONG)
+OWN_COMPACTION_MODELS = ("qwen3:14b",)
+# own-config-search probe (2026-10-23, docs/EXPERIMENTS.md "own-config-search"): B3 v2 tasks at the window a q8_0 or
+# q4_0 KV cache buys inside the KV memory that f16 uses at 8192 for qwen3:14b (1280 MiB measured), seeds 20260901-03,
+# one KV type per job (the server env OLLAMA_KV_CACHE_TYPE must match the tier); detector v2 on every call and the
+# server's own llama_kv_cache size lines recorded (record kv_cache_log).
+OWN_CONFIG_PLAN = "own_config_probe_v1"
+OWN_CONFIG_TIERS = {"ollama_ctx_15360": "q8_0", "ollama_ctx_28928": "q4_0"}
+OWN_CONFIG_SEEDS = (20260901, 20260902, 20260903)
+CTX_POLICY_PLANS = (OWN_COMPACTION_PLAN, OWN_CONFIG_PLAN)
+for _a, _n in (("own_compaction_4096", 4096), ("own_compaction_8192", 8192), ("client_trim_4096", 4096),
+               ("client_trim_8192", 8192), ("ollama_ctx_15360", 15360), ("ollama_ctx_28928", 28928)):
+    for _m, _sfx in ag.MODE_SUFFIX.items():
+        ag.ARMS.setdefault(_a + _sfx, {"num_ctx": _n, "call2_tools": _m != "off", "call2_mode": _m})
+
+
+def ctx_policy_of(arm: str) -> str | None:
+    b = ag.base_arm(arm)
+    if b.startswith("own_compaction_"):
+        return "own_compaction"
+    if b.startswith("client_trim_"):
+        return "client_trim"
+    return None
+
+
+def ctx_policy_plan(plan_name, tiers_text=None, seeds_text=None, call2_mode="off"):
+    """[(arm, seeds, turns)] of --plan own_compaction_v1 / own_config_probe_v1, restricted to --tiers / --seeds if
+    given (each must belong to the plan; own_config_probe_v1 needs exactly one tier)."""
+    allowed = OWN_COMPACTION_ARMS if plan_name == OWN_COMPACTION_PLAN else tuple(OWN_CONFIG_TIERS)
+    seeds_all = OWN_COMPACTION_SEEDS if plan_name == OWN_COMPACTION_PLAN else OWN_CONFIG_SEEDS
+    tiers = [t.strip() for t in tiers_text.split(",") if t.strip()] if tiers_text else list(allowed)
+    bad = [t for t in tiers if t not in allowed]
+    if bad or len(set(tiers)) != len(tiers):
+        raise ValueError(f"--tiers for {plan_name} must be distinct names from {allowed}; got {tiers}")
+    if plan_name == OWN_CONFIG_PLAN and len(tiers) != 1:
+        raise ValueError(f"{plan_name} runs one KV type per job: pass exactly one of {allowed} in --tiers")
+    seeds = ag.parse_seeds(seeds_text) if seeds_text else list(seeds_all)
+    if any(s not in seeds_all for s in seeds):
+        raise ValueError(f"--seeds for {plan_name} must be a subset of {seeds_all}; got {seeds}")
+    return ag.strong_plan(call2_mode, tiers=tuple(tiers), seeds=tuple(seeds), turns=session_turns("evalset", False))
+
+
+def kv_cache_lines(log_text: str) -> list[str]:
+    """llama.cpp's own KV cache size lines from the server log (llama_kv_cache: size = ... K (type): ..., V ...)."""
+    return sorted({ln.strip()[ln.find("llama_kv_cache"):][:240] for ln in (log_text or "").splitlines()
+                   if "llama_kv_cache" in ln and "size =" in ln})
 
 
 def tasks_v2_l70_plan(call2_mode="off"):
@@ -1344,7 +1405,8 @@ def build_arg_parser():
     ap.add_argument("--check-plan", action="store_true",
                     help="print the plan and session shape, then exit (no server, no model call, no queue)")
     ap.add_argument("--plan", choices=("default", TASKS_PLAN, TASKS_V2_PLAN, TASKS_V2_Q8_PLAN, TASKS_V2_MS_PLAN,
-                                         TASKS_V2_L70_PLAN, TASKS_V2_T2S_PLAN), default="default",
+                                         TASKS_V2_L70_PLAN, TASKS_V2_T2S_PLAN, OWN_COMPACTION_PLAN, OWN_CONFIG_PLAN),
+                    default="default",
                     help="real mode: default = --tiers/--seeds or STRONG_TIERS x SEEDS; tasks_v1 = the B3 task real "
                          "run (Ollama default and 4096, SEEDS, 30 task turns; needs --workload evalset --guardrails off); "
                          "tasks_v2 = the B3 v2 task real run (TASKS_V2_TIERS x SEEDS_STRONG, 30 task turns, design v2, "
@@ -1382,6 +1444,8 @@ def plan_for(args, schedule=None):
         return tasks_v2_plan(args.call2_tools)
     if args.plan == TASKS_V2_L70_PLAN:
         return tasks_v2_l70_plan(args.call2_tools)
+    if args.plan in CTX_POLICY_PLANS:
+        return ctx_policy_plan(args.plan, args.tiers, args.seeds, args.call2_tools)
     if args.plan in STRICT_PLAN_SHAPE:
         tiers, seeds = STRICT_PLAN_SHAPE[args.plan]
         return real_plan("evalset", False, args.call2_tools, tiers=tiers, seeds=seeds)
@@ -1586,8 +1650,25 @@ def main(argv=None, advance=True):
     if args.preflight == "end_state" and (args.mode != "real" or args.workload != "evalset"
                                           or args.guardrails != "off"):
         ap.error("--preflight end_state needs --mode real --workload evalset --guardrails off")
-    if (args.plan == TASKS_V2_PLAN) != (args.preflight == PREFLIGHT_TE_DEVIATION) and args.mode == "real":
-        ap.error("--plan tasks_v2 and --preflight v2_te_deviation go together")
+    te_plans = (TASKS_V2_PLAN,) + CTX_POLICY_PLANS
+    if (args.plan in te_plans) != (args.preflight == PREFLIGHT_TE_DEVIATION) and args.mode == "real":
+        ap.error("--plan tasks_v2 / own_compaction_v1 / own_config_probe_v1 and --preflight v2_te_deviation go "
+                 "together")
+    if args.plan in CTX_POLICY_PLANS:
+        if args.mode != "real" or args.workload != "evalset" or args.guardrails != "off" or args.design != "v2":
+            ap.error(f"--plan {args.plan} needs --mode real --workload evalset --guardrails off --design v2")
+        try:
+            ctx_policy_plan(args.plan, args.tiers, args.seeds, args.call2_tools)
+        except ValueError as e:
+            ap.error(str(e))
+        if args.models and [m for m in args.models.split(",") if m] != list(OWN_COMPACTION_MODELS):
+            ap.error(f"--plan {args.plan} runs {OWN_COMPACTION_MODELS} only")
+        if args.plan == OWN_CONFIG_PLAN:
+            kv = OWN_CONFIG_TIERS[args.tiers.strip()]
+            env = dict(e.split("=", 1) for e in (args.server_env or []) if "=" in e)
+            if env.get("OLLAMA_KV_CACHE_TYPE") != kv or env.get("OLLAMA_FLASH_ATTENTION") != "1":
+                ap.error(f"--plan {args.plan} --tiers {args.tiers}: needs --server-env OLLAMA_KV_CACHE_TYPE={kv} "
+                         "--server-env OLLAMA_FLASH_ATTENTION=1")
     if args.plan == TASKS_V2_PLAN:
         if args.mode != "real" or args.workload != "evalset" or args.guardrails != "off" or args.design != "v2":
             ap.error("--plan tasks_v2 needs --mode real --workload evalset --guardrails off --design v2")
@@ -1646,6 +1727,8 @@ def main(argv=None, advance=True):
         schedule = R.load_schedule() if args.workload == "replay" else None
         plan = plan_for(args, schedule)
         models = [m for m in (args.models.split(",") if args.models else ag.DEFAULT_MODELS) if m]
+        if args.plan in CTX_POLICY_PLANS:
+            models = list(OWN_COMPACTION_MODELS)
         if args.mode == "validation" and args.design != "v1":
             check_plan(args)   # raises if the negative-control projection is over the v2 budget
         if out_path.exists():
@@ -1664,7 +1747,9 @@ def main(argv=None, advance=True):
             elif args.preflight == PREFLIGHT_TE_DEVIATION:
                 preflight = validation_preflight_ext(vrows, models, args.workload, guard, c2, args.design,
                                                      waive_task_end_state=TE_DEVIATION,
-                                                     allowed_models=TASKS_V2_MODELS)
+                                                     allowed_models=(OWN_COMPACTION_MODELS
+                                                                     if args.plan in CTX_POLICY_PLANS
+                                                                     else TASKS_V2_MODELS))
             elif args.preflight == PREFLIGHT_STRICT:
                 preflight = strict_preflight_v2(vrows, models, c2, allowed_models=STRICT_PLAN_MODELS[args.plan])
             else:
@@ -1679,6 +1764,12 @@ def main(argv=None, advance=True):
               "validation_preflight": preflight,
               "rules_in_use": (preflight or {}).get("rules_in_use") if args.mode == "real" else None,
               "num_keep_tiers": sorted(NUMKEEP_ARMS & {a for a, _, _ in plan}) or None,
+              "ctx_policy": ({"trigger_frac": OCX.TRIGGER_FRAC, "target_frac": OCX.TARGET_FRAC,
+                              "trim_margin": OCX.ct.DEFAULT_MARGIN,
+                              "own_compaction_file": str(Path(OCX.__file__).resolve()),
+                              "own_compaction_blob": git_blob_sha1(OCX.__file__),
+                              "detector": "v2 (server cut lines only)"}
+                             if args.plan in CTX_POLICY_PLANS else None),
               "max_tokens_per_call": ag.MAX_TOKENS_PER_CALL,
               "keep_alive": ag.KEEP_ALIVE, "hw_id": host_cfg.get("hw_id"), "interactive_session": interactive,
               "server_env_extra": server_env,
@@ -1692,16 +1783,32 @@ def main(argv=None, advance=True):
                                                                   for r in rs))[:400]
             log(note)
             return note
-        ag._start_server(hc, server_env) if server_env else ag._start_server(hc)
+        serve_log = None
+        if args.plan in CTX_POLICY_PLANS:
+            import x2_num_keep as nk
+            import x2_r2_mechanism as mech
+            if nk.tray_app_running():   # operator rule: never touch the Ollama tray app; refuse instead of stopping it
+                raise RuntimeError("the Ollama tray app is running; this plan needs the job's own debug server")
+            server_env = dict(server_env or {}, **mech.OLLAMA_DEBUG_ENV)
+            serve_log = str(out_path.parent / (out_path.stem + "_ollama_serve.log"))
+            hc.stop_ollama_server()   # start_ollama_server is a no-op while any Ollama runs; the env must take effect
+        start = (lambda: ag._start_server(hc, server_env, serve_log)) if serve_log else (
+            (lambda: ag._start_server(hc, server_env)) if server_env else (lambda: ag._start_server(hc)))
+        start()
         started = True
         if not hc.wait_for_ollama_ready(timeout_s=60):
             hc.stop_ollama_server()
-            ag._start_server(hc, server_env) if server_env else ag._start_server(hc)
+            start()
             if not hc.wait_for_ollama_ready(timeout_s=90):
                 raise RuntimeError("ollama did not become ready")
         runtime = ag.OllamaRuntime()
         if any(a in NUMKEEP_ARMS for a, _, _ in plan):
             runtime = NumKeepSessionRuntime(runtime, host_measure(runtime), emit)
+        if serve_log:
+            import x2_r2_mechanism as mech
+            if not mech.debug_enabled(mech.read_log(serve_log, 0)):
+                raise RuntimeError(f"OLLAMA_DEBUG not active in {serve_log}; detector v2 needs the debug lines")
+            runtime = OCX.PolicySessionRuntime(runtime, serve_log, emit, ctx_policy_of)
         avail = runtime.available_models()
         missing = [m for m in models if not any(ag.same_tag(m, a) for a in avail)]
         if missing:
@@ -1731,6 +1838,12 @@ def main(argv=None, advance=True):
             if args.plan == TASKS_V2_PLAN:
                 # run_end is emitted right after this report is written; the outcome is computed as of that point
                 report["tasks_real_v2_outcome"] = tasks_real_v2_outcome(rows + [{"record": "run_end"}], c2)
+            if args.plan in CTX_POLICY_PLANS:
+                report["own_compaction_outcome"] = OCX.outcome(rows)
+                report["own_compaction_verdict"] = OCX.verdict(report["own_compaction_outcome"])
+                import x2_r2_mechanism as mech
+                emit({"record": "kv_cache_log", "lines": kv_cache_lines(mech.read_log(serve_log, 0)),
+                      "server_env_extra": server_env, "ts_utc": ag.utc_iso()})
             if args.plan in STRICT_PLAN_MODELS:
                 tiers, seeds = STRICT_PLAN_SHAPE.get(args.plan, (TASKS_V2_TIERS, TASKS_V2_SEEDS))
                 report["tasks_real_v2_outcome"] = tasks_real_v2_outcome(rows + [{"record": "run_end"}], c2,
