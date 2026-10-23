@@ -7164,6 +7164,181 @@ OWN_PROFILER_FILES = (list(_OP.SESSION_DATA_FILES) + [f for _d, f in _OP.SINGLE_
 OWN_DSE_V1_FILES = list(dict.fromkeys(list(_OP.SESSION_DATA_FILES) + ROUTE_MEASURED_FILES + [
     "results/hardware_price_evox2_20261021.json", ENERGY_PRICE_EIA_FILE, "results/t2s_night2_20260930T135145Z.jsonl"]))
 
+# ── own-compaction, own-config-search, hybrid-route-at-start-v2, E1/E2 reserve (operator, 2026-10-23; docs/
+# EXPERIMENTS.md "own-compaction" and the sections after it). Result rows are PENDING until their files have run_end. ──
+OC_PARTS = {"a": "results/x2_own_compaction_v1_a.jsonl", "b": "results/x2_own_compaction_v1_b.jsonl"}
+OC_PROBES = {"q8": "results/x2_own_config_probe_q8_15360.jsonl", "q4": "results/x2_own_config_probe_q4_28928.jsonl"}
+MITIGATION_X2_FILE = "results/x2_r2_mitigation_v1.jsonl"
+# Queue anchor: x2_b5_simcap_4096 (running) started 2026-10-23T13:40:29Z (run_start of the synced partial file
+# results/x2_policy_compare_simcap4096.jsonl; epoch 1792762828 in the detector v2 queue amendment). A constant, so the
+# row does not wait for that run's run_end.
+OWN_ANCHOR_UTC = "2026-10-23T13:40:29+00:00"
+# x2_demo_detector_check_v2 (position 80): ESTIMATE 0.10 h, high 0.30 h, from its own queue amendment (docs/
+# EXPERIMENTS.md on branch demo/oct28, commit 788635b; the v1 check ran 3.1 min). Not on main, copied here.
+DETECTOR_V2_HOURS = (0.10, 0.30)
+E1_BLOCK_START_UTC = "2026-10-26T01:00:00+00:00"   # Sun 2026-10-25 18:00 PT (PDT, UTC-7)
+DEMO_HOLD_FALLBACK_UTC = "2026-10-29T15:00:00+00:00"   # 2026-10-29 08:00 PT, docs/X2_QUEUE_PLAN.md pending demo hold
+E1_TASKS = 200
+
+
+def _oc_modules(repo):
+    import sys as _sys
+    _r2_agent_module()
+    _sys.path.insert(0, str(repo / "harness"))
+    _sys.path.insert(0, str(repo / "analysis"))
+    import own_compaction as oc
+    import own_config_search as cs
+    return oc, cs
+
+
+def e1_e2_hours(repo) -> dict:
+    """ESTIMATE (not a measurement) of Zach's E1 and E2 on evo-x2 (not registered yet): E1 = qwen3:14b at the Ollama
+    default window (40960) vs an explicit num_ctx 4096 on E1_TASKS fresh B3-style tasks; E2 = local cost per session
+    from session minutes at the default vs KV q8_0 on the same draw (reuses E1's default-window timing, so only the
+    q8_0 arm is extra). Per task: B3 v2 measured turn_wall_s (x2_evalset_tasks_real_v2), point = the tier's mean over
+    seeds, high = its slowest seed; q8_0 point = the default per-task mean x B5's measured qwen3:14b (g) kv_q8_0 / (a)
+    session-minute ratio (cost-cut-config-time data), high = no speedup. Task sessions as in B3 v2 (30 tasks each);
+    a fresh draw with longer tasks would take longer (not modelled)."""
+    oc, _cs = _oc_modules(repo)
+    ag = _r2_agent_module()
+    pt = oc.per_task_seconds(ag.read_rows(repo / X2_EVALSET_TASKS_REAL_V2))
+    b5 = cost_cut_config_time_data(repo)["models"]["qwen3:14b"]
+    ratio = b5["best_min"] / b5["default_min"]
+    d, k4 = pt["ollama_default"], pt["ollama_ctx_4096"]
+    e1 = {"default": (E1_TASKS * d["mean"] / 3600, E1_TASKS * d["max_seed"] / 3600),
+          "num_ctx_4096": (E1_TASKS * k4["mean"] / 3600, E1_TASKS * k4["max_seed"] / 3600)}
+    e2 = {"kv_q8_0": (E1_TASKS * d["mean"] * ratio / 3600, E1_TASKS * d["max_seed"] / 3600)}
+    tot = tuple(sum(v[i] for v in (*e1.values(), *e2.values())) for i in (0, 1))
+    return {"e1": e1, "e2": e2, "total": tot, "ratio": ratio, "b5": b5, "per_task": pt}
+
+
+def compute_e1_e2_x2_hours(repo):
+    e = e1_e2_hours(repo)
+    from datetime import datetime, timedelta
+    start = datetime.fromisoformat(E1_BLOCK_START_UTC)
+    pt = e["per_task"]
+    return {"value": f"ESTIMATE, not a measurement (E1/E2 not registered yet; from Zach's 2026-10-22 email, relayed): "
+                     f"E1 {E1_TASKS} tasks x 2 arms on evo-x2, qwen3:14b: default window (40960) "
+                     f"{e['e1']['default'][0]:.2f} h (high {e['e1']['default'][1]:.2f} h; B3 v2 per task "
+                     f"{pt['ollama_default']['mean']:.2f} s mean, slowest seed {pt['ollama_default']['max_seed']:.2f} s), "
+                     f"num_ctx 4096 {e['e1']['num_ctx_4096'][0]:.2f} h (high {e['e1']['num_ctx_4096'][1]:.2f} h; "
+                     f"{pt['ollama_ctx_4096']['mean']:.2f} s, {pt['ollama_ctx_4096']['max_seed']:.2f} s); E2 beyond E1 "
+                     f"timing: KV q8_0 arm at the default window {e['e2']['kv_q8_0'][0]:.2f} h (high "
+                     f"{e['e2']['kv_q8_0'][1]:.2f} h; point x B5 qwen3:14b (g)/(a) session minutes "
+                     f"{e['b5']['best_min']:.1f}/{e['b5']['default_min']:.1f} = {e['ratio']:.3f}, high no speedup); "
+                     f"total {e['total'][0]:.2f} h (high {e['total'][1]:.2f} h), plus validation of the fresh draw if "
+                     f"E1 needs one (not included); reserve block start {start.strftime('%Y-%m-%d %H:%MZ')} "
+                     f"(Sun 2026-10-25 18:00 PT), end at the high case "
+                     f"{(start + timedelta(hours=e['total'][1])).strftime('%m-%d %H:%MZ')}; not queued",
+            "n": "estimate from 750 B3 v2 task turns"}
+
+
+def own_queue_projection(repo) -> dict:
+    """Back-to-back projection (point and high) of the evo-x2 queue from the running x2_b5_simcap_4096 (its run_start
+    in the synced file) through the jobs ahead in queue order, then the own-compaction and probe jobs appended at the
+    end; whether the existing queue reaches the E1 block start, and where the own jobs land."""
+    from datetime import datetime, timedelta
+    import sys as _sys
+    oc, _cs = _oc_modules(repo)
+    ag = _r2_agent_module()
+    fill = queue_fill_1022_estimates(repo)
+    l70 = l70_b3v2_estimates(repo)
+    _lt, xl = _longtask_modules()
+    lt = xl.hours_estimate(ag.read_rows(repo / B5_X2_FILE))["total"]
+    start = OWN_ANCHOR_UTC
+    ahead = [("x2_b5_simcap_4096 (running)", fill["x2_b5_simcap_4096"]["point_h"], fill["x2_b5_simcap_4096"]["high_h"]),
+             ("x2_demo_detector_check_v2", *DETECTOR_V2_HOURS)]
+    for j in FILL_1022_ORDER[FILL_1022_ORDER.index("x2_r2_v1b_seeds_06_10"):]:
+        ahead.append((j, fill[j]["point_h"], fill[j]["high_h"]))
+    for j in L70_JOBS:
+        ahead.append((j, l70[j]["point_h"], l70[j]["high_h"]))
+    ahead.append(("x2_longtask_local_v1", lt["point_h"], lt["high_h"]))
+    est = oc.hours_estimate(ag.read_rows(repo / X2_EVALSET_TASKS_REAL_V2), ag.read_rows(repo / MITIGATION_X2_FILE))
+    own = [("x2_own_compaction_v1_a", est["part_a"]["point_h"], est["part_a"]["high_h"]),
+           ("x2_own_compaction_v1_b", est["part_b"]["point_h"], est["part_b"]["high_h"]),
+           ("x2_own_config_probe_q8_15360", est["probe_q8_15360"]["point_h"], est["probe_q8_15360"]["high_h"]),
+           ("x2_own_config_probe_q4_28928", est["probe_q4_28928"]["point_h"], est["probe_q4_28928"]["high_h"])]
+    stop = datetime.fromisoformat(xl.STOP_AFTER_UTC)
+    t = [datetime.fromisoformat(start)] * 2
+    table = []
+    for name, p, h in ahead + own:
+        s = list(t)
+        e = [t[0] + timedelta(hours=p), t[1] + timedelta(hours=h)]
+        if name == "x2_longtask_local_v1":
+            e = [min(x, max(stop, y)) for x, y in zip(e, s)]   # no new task after STOP_AFTER_UTC
+        table.append({"job": name, "point_h": p, "high_h": h, "start": s, "end": e, "own": (name, p, h) in own})
+        t = e
+    block = datetime.fromisoformat(E1_BLOCK_START_UTC)
+    at_block = [next((r["job"] for r in table if r["start"][i] <= block < r["end"][i]), None) for i in (0, 1)]
+    return {"table": table, "block": block, "at_block": at_block, "anchor": start, "est": est,
+            "demo_hold": datetime.fromisoformat(DEMO_HOLD_FALLBACK_UTC)}
+
+
+def compute_own_jobs_hours(repo):
+    q = own_queue_projection(repo)
+
+    def f(x):
+        return x.strftime("%m-%d %H:%MZ")
+    rows = "; ".join(f"{r['job']}{' [own]' if r['own'] else ''} {r['point_h']:.2f} h (high {r['high_h']:.2f} h) "
+                     f"{f(r['start'][0])} to {f(r['end'][0])} (high {f(r['start'][1])} to {f(r['end'][1])})"
+                     for r in q["table"])
+    own_end = [q["table"][-1]["end"][i] for i in (0, 1)]
+    e = q["est"]
+    arms = "; ".join(f"{a} {e[a]['point_h']:.2f} h (high {e[a]['high_h']:.2f} h)"
+                     for a in ("own_compaction_8192", "own_compaction_4096", "client_trim_4096", "client_trim_8192",
+                               "probe_q8_15360", "probe_q4_28928"))
+    return {"value": f"ESTIMATE, not a measurement; per arm (harness/own_compaction.py::hours_estimate from B3 v2 "
+                     f"turn_wall_s and the R2 mitigation trim_wall_s): {arms}; queue projection back to back from "
+                     f"x2_b5_simcap_4096's run_start {q['anchor'][:19]}Z with the registered estimates of the jobs "
+                     f"ahead (x2-queue-fill-1022-hours, x2-llama33-70b-b3v2-hours, long-task-local-hours, detector v2 "
+                     f"re-check 0.10/0.30 h): {rows}; E1 block start {f(q['block'])}: job running then (point) "
+                     f"{q['at_block'][0]}, (high) {q['at_block'][1]}, so the existing queue "
+                     + ("runs into the block" if any(q["at_block"]) else "is done before the block")
+                     + f"; own jobs appended after x2_longtask_local_v1 end {f(own_end[0])} (high {f(own_end[1])}); "
+                     f"before the 2026-10-29 demo hold fallback start {f(q['demo_hold'])}: "
+                     + ("yes" if own_end[1] <= q["demo_hold"] else "NO") + " (high case)",
+            "n": "1 queue projection (estimate)"}
+
+
+def compute_own_compaction(repo, w):
+    oc, _cs = _oc_modules(repo)
+    ag = _r2_agent_module()
+    rows = [r for f in OC_PARTS.values() for r in _finished_attempt_rows(ag.read_rows(repo / f))]
+    out = oc.outcome(rows)
+    v = oc.verdict(out)[w]
+    parts = []
+    for a in (f"own_compaction_{w}", f"client_trim_{w}"):
+        c = out.get(a)
+        if not c:
+            parts.append(f"{a}: no completed session")
+            continue
+        parts.append(f"{a}: wrong {c['wrong']}/{c['n']} ({100 * c['wrong_rate']:.1f}%), flagged (detector v2) "
+                     f"{c['flagged_wrong']}, silent {c['silent_wrong']}; turns flagged {c['flagged_turns']}, turns "
+                     f"without a log slice {c['no_log_turns']}; loaded {c['loaded']}; seeds {c['seeds']}; summary "
+                     f"calls {c['summary_calls']} (flagged {c['summary_flagged']}); example sent on "
+                     f"{c['example_sent_calls']}/{c['task_calls']} task calls; floor over trigger on "
+                     f"{c['floor_over_trigger_calls']}")
+    b = oc.BASELINE_WRONG[w]
+    tail = (f"pre-registered target wrong < {100 * oc.TARGETS[w]:.0f}%: " + ("met" if v.get("meets_target") else "NOT met")
+            + f"; vs plain num_ctx {w} {b[0]}/{b[1]} ({100 * b[0] / b[1]:.1f}%): beats {v.get('beats_plain')}; vs "
+            f"client trim at {w}: beats {v.get('beats_trim')}")
+    if w == 4096:
+        tail += f"; vs 4096+num_keep 45/150 (30.0%): beats {v.get('beats_numkeep')}"
+    return {"value": " / ".join(parts) + "; " + tail, "n": f"{sum(c['n'] for c in out.values())} task turns"}
+
+
+def compute_own_config_search(repo):
+    _oc, cs = _oc_modules(repo)
+    return {"value": cs.config_text(cs.config_search(repo)), "n": "90 tasks x 3 KV settings + 2 Intel profiles"}
+
+
+def compute_hybrid_route_at_start_v2(repo):
+    _oc, cs = _oc_modules(repo)
+    d = cs.hybrid_v2(repo)
+    if d["status"] != "VERIFIED":
+        raise ValueError(cs.hybrid_v2_text(d))
+    return {"value": cs.hybrid_v2_text(d), "n": f"{len(d['cells'])} tier x policy cells x 90 tasks"}
+
 
 NUMBER_ENTRIES = [
     {"claim_id": "PX2-TTFT-gap", "description": "PX2 B4-vs-S4 TTFT gap range across 5 models",
@@ -8213,6 +8388,42 @@ NUMBER_ENTRIES = [
      "compute": compute_long_task_cloud_priced_vs_billed, "data_files": [LONGTASK_CLOUD_FILE], "pending_ok": True,
      "require_run_end": [LONGTASK_CLOUD_FILE],
      "script_function": "analysis/numbers_register.py::compute_long_task_cloud_priced_vs_billed"},
+    {"claim_id": "e1-e2-x2-hours", "description": "ESTIMATE, not a measurement: evo-x2 hours of Zach's E1 (qwen3:14b "
+     "default window vs num_ctx 4096, 200 fresh B3-style tasks) and E2 (plus a KV q8_0 arm) from the measured B3 v2 "
+     "per-task times, and the reserve block start (E1/E2 not registered yet, not queued)",
+     "compute": compute_e1_e2_x2_hours, "data_files": [X2_EVALSET_TASKS_REAL_V2, B5_X2_FILE],
+     "script_function": "analysis/numbers_register.py::e1_e2_hours"},
+    {"claim_id": "own-jobs-hours", "description": "ESTIMATE, not a measurement: hours of the own-compaction parts "
+     "and the own-config-search probes from measured B3 v2 and trim times, and their projected place in the evo-x2 "
+     "queue against the E1 block start and the 2026-10-29 demo hold",
+     "compute": compute_own_jobs_hours,
+     "data_files": [X2_EVALSET_TASKS_REAL_V2, MITIGATION_X2_FILE, B5_X2_FILE] + FILL_1022_DATA
+     + L70_HOURS_DATA, "script_function": "harness/own_compaction.py::hours_estimate"},
+    {"claim_id": "own-compaction-4096", "description": "own-compaction at num_ctx 4096 (qwen3:14b, B3 v2, seeds "
+     "20260901-05) with client trim at 4096 as comparison: wrong rate, every failure silent vs flagged (detector v2), "
+     "pre-registered target < 20%, against plain 4096, 4096+num_keep and trim; PENDING until both parts have run_end",
+     "compute": lambda repo: compute_own_compaction(repo, 4096), "data_files": list(OC_PARTS.values()),
+     "pending_ok": True, "require_run_end": list(OC_PARTS.values()),
+     "script_function": "harness/own_compaction.py::outcome"},
+    {"claim_id": "own-compaction-8192", "description": "own-compaction at num_ctx 8192 with client trim at 8192 as "
+     "comparison: wrong rate, silent vs flagged (detector v2), pre-registered target < 15%, against plain 8192 and "
+     "trim; PENDING until both parts have run_end",
+     "compute": lambda repo: compute_own_compaction(repo, 8192), "data_files": list(OC_PARTS.values()),
+     "pending_ok": True, "require_run_end": list(OC_PARTS.values()),
+     "script_function": "harness/own_compaction.py::outcome"},
+    {"claim_id": "own-config-search", "description": "KV precision x window x backend search for the 8192-constrained "
+     "AMD profile and the Intel profiles over measured probes: B3 v2 tasks kept local by projection at matched "
+     "accuracy, before (21/90) and after; unmeasured cells named with their minimal probe job",
+     "compute": compute_own_config_search,
+     "data_files": [X2_EVALSET_TASKS_REAL_V2, "results/demo_live_logs/acceptance/serve_8192.log"],
+     "script_function": "analysis/own_config_search.py::config_search"},
+    {"claim_id": "hybrid-route-at-start-v2", "description": "Measured hybrid by replay with own-compaction and the "
+     "config search in place: kept local, accuracy, cloud USD per task vs claude-sonnet-5-5 all-cloud; target >= 50/90 "
+     "kept local at >= 97%; PENDING until the own-compaction parts and the probes have run_end",
+     "compute": compute_hybrid_route_at_start_v2,
+     "data_files": list(OC_PARTS.values()) + list(OC_PROBES.values()), "pending_ok": True,
+     "require_run_end": list(OC_PARTS.values()) + list(OC_PROBES.values()),
+     "script_function": "analysis/own_config_search.py::hybrid_v2"},
     {"claim_id": "cost-cut-config-time", "description": "MEASURED: per model, session minutes saved per 40-turn R2 "
      "session on evo-x2 by the fastest measured non-router setting (B5 policies b-h, plus the flash-attention control "
      "once synced) against the runtime default (B5 policy a), with both settings' rule pass rate and history recall",

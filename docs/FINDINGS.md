@@ -6034,3 +6034,24 @@ Every escalated task still wrong is class earlier_state_repair (8192: 4 of 4; 40
 stand-in signal, 33 (8192) and 51 (4096) escalations were of tasks the local model got right; they are imputed at the
 tier's mean redo USD with the all-cloud outcome. Even the oracle ceiling stays below all-cloud accuracy, and the gap is
 exactly the repair class; with the stand-in signal the hybrid costs more per task than all-cloud at both tiers.
+
+## PRE-REGISTRATION (2026-10-23): own-compaction, own-config-search, hybrid-route-at-start-v2 (pointer)
+
+The contracts are in docs/EXPERIMENTS.md, entries "2026-10-23: own-compaction", "2026-10-23: own-config-search",
+"2026-10-23: hybrid-route-at-start-v2" and "2026-10-23: PLAN ONLY (no run): growth predictor", committed before any
+job of them was deployed, queued or run (harness at e11b7cb). In short:
+
+- **own-compaction** (evo-x2, qwen3:14b, B3 v2, seeds 20260901-05): a client-side context manager (pinned system
+  rules, the log_event + task-tool example turn kept verbatim, the rest summarized by the local model; compaction when
+  the projected next prompt exceeds 0.85 x num_ctx) at num_ctx 4096 and 8192, with the existing client trim at the
+  same windows as comparison arms (first time on B3 v2). Targets: wrong < 20% at 4096 (vs 42.0%) and < 15% at 8192
+  (vs 35.3%); every failure silent vs flagged by detector v2 (Ollama's own cut-off lines). Written before data: at
+  4096 the pinned system prompt and tools already exceed the trigger, so compaction there is expected to send system +
+  current turn only and to miss its target. Rows `own-compaction-4096`, `own-compaction-8192` (PENDING).
+- **own-config-search**: KV precision x window x backend for the 8192-constrained AMD profile and the Intel profiles
+  from measured probes only; the missing measurements are two evo-x2 probes (KV q8_0 at 15360, q4_0 at 28928, B3 v2,
+  3 seeds). Row `own-config-search` (computed from committed files; before 21/90).
+- **hybrid-route-at-start-v2**: the replay of `hybrid-route-at-start-measured` with both in place; target at least
+  50/90 kept local at >= 97% accuracy vs claude-sonnet-5-5 all-cloud; written before data: not expected to be met,
+  because in-window wrong answers are silent. Row `hybrid-route-at-start-v2` (PENDING).
+- Hours (ESTIMATE): rows `own-jobs-hours` and, for Zach's E1/E2 reserve, `e1-e2-x2-hours`.

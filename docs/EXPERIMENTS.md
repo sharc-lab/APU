@@ -465,6 +465,12 @@ docs/FINDINGS.md "PRE-REGISTRATION: own-profiler and own-dse-v1".
 
 ## 2026-10-23: Own-rollback redo and the local-first hybrid with rollback (PRE-REGISTRATION; cloud run ON HOLD for the operator's decision)
 
+## 2026-10-23: own-compaction, a client-side context manager for B3 v2 sessions (PRE-REGISTRATION, written before any data of this job)
+
+Operator item of 2026-10-23 (renumbered item 2 later the same day). Pointer in docs/FINDINGS.md: "PRE-REGISTRATION
+(2026-10-23): own-compaction, own-config-search, hybrid-route-at-start-v2". This entry is the contract; it is not
+edited after data exists (later changes go in dated amendments below it).
+
 ### Metadata
 
 - Date: 2026-10-23
@@ -711,3 +717,186 @@ full-history redo, or neither.
 - The window signal is a stand-in for detector v2 (no server logs in the B3 v2 run).
 - Deviations from protocol: none yet. If the live launch is blocked by the permission system, it is not run another
   way; the exact command goes to the operator.
+
+- Git hash: e11b7cb (harness and analysis committed; no job deployed, queued or run)
+- Branch: worktree-agent-a01f959bd6a1bf5ee
+- Machine: evo-x2 (EVO-X2), Ollama with the job's own server (OLLAMA_DEBUG=1, own log file), qwen3:14b
+
+### Configuration
+
+- Mechanism (harness/own_compaction.py, wired into harness/x2_r2_evalset.py as `--plan own_compaction_v1`):
+  - (a) pinned rules: the system message (rules, canaries, recorded facts, workspace directory) on every call; the
+    standing instructions of the first user message are re-sent at the top of the summary message once turn 1 is no
+    longer sent verbatim.
+  - (b) one tool-call example kept verbatim and never folded: the earliest completed turn whose tool calls include
+    log_event and at least one other tool. This is the pattern client trimming removed (rows
+    `R2-qwen3-14b-4096-reconciliation`, `R2-mitigation-v1-verdict`).
+  - (c) the rest of the history summarized by the same local model (qwen3:14b, think off, no tools, num_predict 384),
+    a running summary placed as a user message plus a one-word assistant acknowledgement.
+  - Trigger rule, before every task call: projected next prompt = round((chars/4 estimate of what would be sent +
+    tools) x r), r = llama-server's own task.n_tokens of the previous call (from its server-log slice) over the same
+    estimate (bounded to x2_r2_agent.CALIB_RATIO_BOUNDS; 1.20 before the first call). Compaction fires when projected >
+    floor(0.85 x num_ctx); it folds the oldest foldable turns (not the example, not the current turn) until the
+    projection with a 448-token summary reserve is <= floor(0.60 x num_ctx). If system + current turn alone is already
+    over the trigger, nothing is folded and the call goes out as system + current turn ("floor over trigger"). After
+    folding, if still over the trigger, the example and then the summary are left out of that call. Each summarizer
+    prompt is chunked to fit num_ctx - 384 - 256.
+  - The harness transcript is never modified; scoring reads the full transcript as in every B3 v2 run.
+- Arms (one job in two queue parts, same harness): `own_compaction_4096`, `own_compaction_8192` (part a);
+  `client_trim_4096`, `client_trim_8192` (part b): the existing trimming mechanism (harness/x2_r2_client_trim.py,
+  margin 0.05, render-and-tokenize count) applied to B3 v2 for the first time (client trim was never run on B3 v2:
+  every call record of results/x2_evalset_tasks_real_v2.jsonl has client_trim null).
+- Compared with the existing measured tiers of x2_evalset_tasks_real_v2 (row `x2-evalset-tasks-real-v2-wrong-rate`,
+  quoted): ollama_default 17/150 (11.3%), ollama_ctx_16384 19/150 (12.7%), ollama_ctx_8192 53/150 (35.3%),
+  ollama_ctx_4096 63/150 (42.0%), ollama_ctx_4096_numkeep 45/150 (30.0%); all silent.
+- Model: qwen3:14b only. Seeds: 20260901, 20260902, 20260903, 20260904, 20260905. Task subset: the 30 B3 v2 task turns
+  per session (design v2, guardrails off), 150 task turns per arm. Judge: the recorded end state (end_state_ok).
+- Preflight: `--preflight v2_te_deviation` on results/x2_evalset_tasks_val_v2.jsonl, the same validation file and
+  declared task end-state deviation as the compared tasks_v2 tiers.
+- Flag (detector v2): a task call is flagged when its own server-log slice shows Ollama's message drop (first kept
+  message index > 0), a token-level cut, a llama.cpp context shift, or an exceeds-context error (the definition of
+  harness/demo_overflow.py cut_v2 on demo/oct28; never the token-count comparison of v1). A task turn is flagged when
+  any of its task calls is; summarizer calls are counted apart.
+
+### Command
+
+- Part a: `py -3.12 owncomp\x2_r2_evalset.py --design v2 --mode real --workload evalset --guardrails off --models
+  qwen3:14b --preflight v2_te_deviation --rules-from C:\apu\ovn\results\x2_evalset_tasks_val_v2.jsonl --plan
+  own_compaction_v1 --tiers own_compaction_8192,own_compaction_4096 --out
+  C:\apu\ovn\results\x2_own_compaction_v1_a.jsonl`
+- Part b: the same with `--tiers client_trim_4096,client_trim_8192 --out ...\x2_own_compaction_v1_b.jsonl`.
+- Queue entries `x2_own_compaction_v1_a` and `x2_own_compaction_v1_b` (harness/x2_queue_fill.py, side directory
+  `C:\apu\ovn\owncomp`). Each calls tq.advance() on exit and sets no pause.
+
+### Replay Cache State
+
+- Replay mode: none (live local runs). No cloud call, no spend.
+
+### Result Summary (pre-registered measures and criteria; no result exists yet)
+
+- Rows `own-compaction-4096` and `own-compaction-8192`, PENDING until both part files have run_end.
+- Primary: wrong task turns over 150 per arm, each split flagged (detector v2) vs silent.
+- Success criteria: own_compaction_4096 wrong rate < 20% (vs 42.0% plain); own_compaction_8192 wrong rate < 15%
+  (vs 35.3% plain).
+- Comparisons stated plainly in the result: own compaction vs 4096+num_keep (45/150) and vs client trim at the same
+  window; "beats" = a strictly lower wrong count over the same 150 task turns. If compaction does not beat num_keep or
+  trim, the result says so in those words.
+- Also reported: summarizer calls per session and any flagged, the share of task calls that sent the example, calls
+  where the floor was over the trigger, and the loaded window (must equal num_ctx).
+- Prediction written before any data (from the session definition and one measured number, not fitted): at num_ctx
+  4096 the system prompt plus tools plus the first user message was 3760 tokens on the server (x2_evalset_tasks_real_v2,
+  ollama_default seed 20260901 turn 1, first call prompt_eval_count), above the trigger floor(0.85 x 4096) = 3481. A
+  dry run of the policy on a fake runtime gave "floor over trigger" on 60 of 60 calls at 4096 and 0 of 60 at 8192. So
+  at 4096 the policy is expected to send system + current turn only on every call (no example, no summary, no
+  history), much like trimming everything, and the 20% target is not expected to be met. If that happens, the reading
+  is: at 4096 the pinned system prompt and tools leave no room for history; compaction needs a smaller pinned part,
+  not a better summary. At 8192 the example and a summary fit (dry run: example sent on 56 of 60 calls).
+
+### Validity Flags
+
+- A part counts only with run_end; sessions without an r2a_session row are not counted.
+- Every arm's loaded context must equal its num_ctx; a run whose server log lacks the debug lines refuses to start.
+- Log slices without a GIN line are counted (turns without a complete slice reported); a call with no log slice is
+  flagged None, never False.
+- No warm-up call: the session design of the compared B3 v2 tiers (30 task turns, first turn includes model load) is
+  kept so the arms are comparable; this is the harness's own convention, not the 1 + N call convention.
+- Hours: ESTIMATE in row `own-jobs-hours`.
+
+## 2026-10-23: own-config-search, KV precision x window x backend (PRE-REGISTRATION, written before either probe ran)
+
+### Metadata
+
+- Date: 2026-10-23; Git hash: e11b7cb; Branch: worktree-agent-a01f959bd6a1bf5ee
+- Machine: analysis on the controller laptop from committed files; probes on evo-x2
+
+### Configuration
+
+- Profiles: the 8192-constrained AMD profile (evo-x2, qwen3:14b, the KV memory f16 uses at num_ctx 8192) and the
+  Intel profiles (evo-t2s CPU, default window 4096; evo-t2s iGPU with OLLAMA_IGPU_ENABLE=1, window 32768).
+- Search space: KV f16 / q8_0 / q4_0 x window (the largest multiple of 256 whose KV fits the budget) x backend.
+  - KV budget: llama.cpp's own line for qwen3:14b at 8192 on evo-x2 (results/demo_live_logs/acceptance/serve_8192.log):
+    1280 MiB for 8192 cells, 40 layers, f16, i.e. 160 KiB per token (measured). q8_0 and q4_0 bytes per token are the
+    ggml block sizes (34 and 18 bytes per 32 values, against f16's 64): NOT measured; windows 15360 (q8_0) and 28928
+    (q4_0). Each probe records the server's own llama_kv_cache line, which replaces this arithmetic once synced.
+  - Backend: on evo-x2 Ollama uses the iGPU via ROCm only (row `x2-device-detect-mechanism`: Vulkan drops the AMD iGPU,
+    ROCm has no opt-out), so there is one backend; on evo-t2s CPU and iGPU (rows `t2s-r2-real-cpu`,
+    `t2s-r2-real-igpu`). Windows are set by num_ctx per request (row `window-override-methods`, evo-x2).
+- Kept local: route at start on seeds 20260901-03 (90 tasks): a task stays local iff its projected task-turn prompt
+  (impact_model.projected_task_prompts, the `hybrid-route-at-start-measured` projection) <= the window.
+- Matched accuracy (pre-registered): the setting's local accuracy on its kept tasks is not below the Ollama default
+  window's accuracy on the same tasks by more than 5 points (0 points also shown). Counted only where a B3 v2 run at
+  that exact KV type and window exists; otherwise "not measured" (the default-window outcome of the same tasks is
+  shown as a proxy and never counted).
+- Measured inputs used: x2_evalset_tasks_real_v2 (all tiers), the KV line above, b5-kv-recall and b5-kv-recall-f16-rerun
+  (qwen3:14b recall 100% at 40960 for f16, q8_0, q4_0), b5-policy-metrics and b5-fa-control (rule pass unchanged by
+  KV precision; the B5 speedup is KV precision, not flash attention), x2-device-detect-mechanism,
+  window-override-methods, t2s-r2-real-cpu / -igpu. b5-sim-constraint is PENDING (its 4096 part is running) and is
+  not used.
+- Minimal probes (the measurement the search lacks): `x2_own_config_probe_q8_15360` and `x2_own_config_probe_q4_28928`:
+  `--plan own_config_probe_v1`, qwen3:14b, B3 v2 tasks, seeds 20260901-03, `--server-env OLLAMA_KV_CACHE_TYPE=q8_0`
+  (or q4_0) and `OLLAMA_FLASH_ATTENTION=1`, num_ctx 15360 (or 28928), detector v2 on every call, the KV line recorded
+  (record kv_cache_log). Intel: the B3 v2 CPU and iGPU runs already staged for the evo-t2s window
+  (queues/t2s_oct26_queue.json) are the minimal probes for those profiles; KV q8_0 / q4_0 on evo-t2s is not measured
+  and not staged (B5 there runs policies a to f only, row `t2s-b5-plan-hours`); the minimal probe would be the same B3 v2
+  run on the iGPU with OLLAMA_KV_CACHE_TYPE=q8_0, listed only (no SSH to evo-t2s from this work).
+
+### Result Summary (pre-registered; row `own-config-search` computes from committed files and updates when the probes land)
+
+- Before: 21/90 kept local (f16, 8192; `hybrid-route-at-start-measured`). After: the measured setting with the most
+  kept local among those that pass the matched-accuracy rule.
+- Projection-only counts, known before any probe (from the task definition, not outcomes): q8_0 at 15360 would keep
+  54/90 local, q4_0 at 28928 90/90. Their accuracy is not measured; the default-window accuracy on the same tasks
+  (proxy, not counted) is 92.6% and 88.9%.
+
+### Validity Flags
+
+- A probe counts only with run_end and loaded context = its num_ctx, and only if the recorded KV line shows the
+  requested type. Projection, not recorded prompts, decides "kept local" (as in `hybrid-route-at-start-measured`).
+- Hours: ESTIMATE in row `own-jobs-hours`.
+
+## 2026-10-23: hybrid-route-at-start-v2 (PRE-REGISTRATION, NOT YET COMPUTED)
+
+- Replay, as `hybrid-route-at-start-measured` does, of recorded runs: the own-compaction parts, the probes, the B3 v2
+  tiers, all_cloud_b3_v1 and the full-history redo. Seeds 20260901-03, 90 tasks, cloud claude-sonnet-5-5 (cache-priced
+  USD). No new run, no cloud call.
+- Policies per constrained tier (8192, and 4096 where defined), analysis/own_config_search.py::hybrid_v2_policy:
+  - config (8192 profile only): projected <= the best measured config-search window: local at the probe's outcome
+    (the over-window flag escalates); else the cloud from the first call.
+  - compaction_all: every task local under own compaction at the tier; the detector-v2 flag escalates.
+  - fit_plain_else_compaction: projected <= the tier window: plain local (as measured); else own compaction at the
+    same window (same server and KV, only the client policy differs); flags escalate.
+  - fit_plain_else_trim: the same with client trim.
+- Escalated tasks: outcome of the claude-sonnet-5-5 all-cloud row of the task, USD = the tier's mean full-history redo
+  USD (IMPUTED: no redo exists for these histories), labelled.
+- Measures: kept local, hybrid accuracy over 90, cloud USD per task against all-cloud Sonnet (90/90, row
+  `all-cloud-b3-quality`).
+- Target (pre-registered): at least 50/90 kept local at >= 97% hybrid accuracy.
+- Expectation written before data: a task kept local and wrong is silent unless it was cut off (the flag catches cuts,
+  not wrong answers in the window); the default-window local wrong rate is 11.3%, so 50 tasks kept local at that rate
+  would carry about 6 wrong and the hybrid would sit near 93%. The target needs a local accuracy on the kept tasks
+  near 100%; it is not expected to be met by any policy above.
+- Row `hybrid-route-at-start-v2`, PENDING until the two own-compaction parts and both probes have run_end.
+
+## 2026-10-23: PLAN ONLY (no run): growth predictor, "will this task overflow" from its first 2 turns
+
+Item 4(a) of the operator's 2026-10-23 list (item 4(b), checkpoint and rollback, moved to a separate implementation by
+another agent and is not planned here).
+
+- Question: from a task's first 2 model calls (prompt sizes and what they contain), predict its final context, and
+  from that whether it will exceed a window W in {4096, 8192, 16384}.
+- Data already on main (no new run): (1) B3 v2 sessions at the Ollama default window, the untruncated reference
+  (x2_evalset_tasks_real_v2 ollama_default: per call prompt_tokens_est and prompt_eval_count, 5 seeds x 30 task turns;
+  the unit is the session, the label its final prompt); (2) the uncensored agent trajectories
+  (harness/agent_trace_steps_uncensored.json: per step prompt length, many trajectories; the unit is the trajectory);
+  (3) the long-task local run once it has run_end (unit: one work order, many steps).
+- Predictors to compare: (a) linear extrapolation p1 + (p2 - p1) x (n - 1) with n the median step count of the
+  task's category; (b) per-category median growth per step from training folds; (c) a small regression on p1, p2 - p1,
+  tool-result sizes in steps 1-2 and the task category.
+- Label: final prompt > W. Precision and recall of "will overflow" by leave-one-seed-out on B3 v2 (5 folds) and
+  leave-one-source-out on the traces (SWE-Gym vs nebius-rebench-openhands), with Wilson 95% intervals; a confusion
+  table per W; the cost of each error priced with existing rows (a missed overflow costs a wrong local task, measured
+  wrong rates per tier; a false alarm costs an unneeded cloud task, all-cloud-b3-cost).
+- Output: a register row `growth-predictor-confusion` (computed from committed files, not an estimate) and the
+  comparison with the route-at-start projection (which uses the task definition, not the first 2 turns).
+- ESTIMATE: 6 to 10 h of offline analysis on the controller laptop (no machine time, no cloud spend): about 2 h data
+  extraction and labels, 2 to 3 h the three predictors, 2 h folds and intervals, 1 to 3 h write-up and tests.
