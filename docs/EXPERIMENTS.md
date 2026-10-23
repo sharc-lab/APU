@@ -562,3 +562,28 @@ accuracy on 5 tasks is descriptive only.
   had its own history.
 - The Intel scenario simulates the device by its window only (no Intel hardware, no Intel speed).
 - Deviations from protocol: none yet. A blocked command is not run another way; the exact command goes to the operator.
+
+## AMENDMENT (2026-10-23, before any data of these jobs): live demo jobs deployed and queued on evo-x2
+
+This note follows "2026-10-23: Live demo: detector check and acceptance run (PRE-REGISTRATION ...)" (9268b76), whose
+protocol is not changed.
+
+- **Two harness fixes after the pre-registration commit, before any model call; no protocol change.** 89d637f detects
+  the repo vs side-directory layout by harness/ + src/dse (not scripts/). 14b34d0 puts the side directory first on
+  sys.path in order: the first dry check on evo-x2 failed at import because the loop had inserted the parent
+  `C:\apu\ovn` ahead of it, so its older x2_r2_evalset.py was taken; check-plan now also asserts that x2_r2_evalset and
+  evalset_env come from the side directory.
+- **Deploy.** Side directory `C:\apu\ovn\demo` at 14b34d0 (demo_live.py, demo_run.py, demo_servers.py,
+  demo_overflow.py, demo_live_x2.py, route_at_start.py, route_profiles.json, picks_v1.json, x2_r2_evalset.py 482a0a5d,
+  evalset_env.py 4eae225f, agent_trace_replay.py 6d89277a) and `C:\apu\ovn\qfill` (x2_queue_fill.py);
+  `verify_deployed_blobs` no problems for both. x2_r2_agent from `C:\apu\ovn` (blob 38882113, the one the B3 v2 run
+  used); x2_r2_mechanism and prompt_token_check from `C:\apu\ovn` (same blobs as the repo).
+- **Dry check on evo-x2 (no server start, no model call).** `--mode check-plan`: ok; host EVO-X2; every pick's rebuilt
+  history equals the recorded transcript estimate (cal_cancel 5979, cal_default_len 4052, file_write_standing 6131,
+  cal_rename 4818, eml_internal 5200); projected task-turn prompts 10631, 7399, 10679, 8688, 9350; decisions: amd8192
+  local only for cal_default_len, the cloud for the other four; intel local at 32768 for all five. Ports 11541 to
+  11544 free.
+- **Queue.** `x2_queue_fill.py --insert-after x2_b5_simcap_8192 x2_demo_detector_check x2_demo_live_acceptance`, one
+  read-modify-write under `t2s_queue.set_pause` cleared in its finally block: positions 77 and 78, directly after the
+  running x2_b5_simcap_8192 (position 76) and before x2_b5_simcap_4096; pause flag absent afterwards. Each releases
+  itself via tq.advance() on exit and sets no pause.
