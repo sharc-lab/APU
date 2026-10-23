@@ -369,6 +369,16 @@ Facts and changes: `results/t2s_window_20261015_preflight.json`, `docs/T2S_CHANG
 
 ## Staged for 2026-10-26 to 2026-11-08 (pending Zach's confirmation; NOT loaded)
 
+**Update 2026-10-22 (later): B3 v2 Intel laptop task accuracy staged after A5, before B5.** Four entries,
+`t2s_o26_b3_val_cpu`, `t2s_o26_b3_real_cpu`, `t2s_o26_b3_val_igpu`, `t2s_o26_b3_real_igpu` (qwen3:14b, tasks_v2 task
+set, seeds 20260901-03, Ollama default window: Intel CPU 4096, Intel iGPU 32768; each real run gated on its own
+validation and the strict preflight, no waiver). Pre-registration: docs/EXPERIMENTS.md "2026-10-22: Intel laptop task
+accuracy", pointer in docs/FINDINGS.md. Hours (ESTIMATES) are in rows t2s-evalset-tasks-hours and t2s-b5-plan-hours:
+everything that was staged still fits with at least 24 h before no-launch, nothing new is cut, and the B6 real runs
+stay not staged as before. The handover verification (`harness/t2s_deadline.py open-window`) stays the first step.
+**Deploy list addition:** `harness/t2s_evalset.py harness/x2_r2_evalset.py harness/evalset_env.py
+harness/agent_trace_replay.py` (now in `t2s_week_preflight.DEPLOYED_FILES`; the preflight fails without them).
+
 **Update 2026-10-22 (operator decision: per-cell policy sets, qwen3:14b staged without (b)).** The llama3.1:8b cells
 keep a, b, c, d, e, f; the qwen3:14b cell on the Intel CPU at 4096 runs a, c, d, e, f at 3 seeds. Each B5 entry passes
 its own `--policies` (`scripts/t2s_week_queue.oct26_cell_policies`). Pasted from [t2s-b5-plan-hours] (ESTIMATES; B5

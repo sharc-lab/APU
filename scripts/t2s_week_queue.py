@@ -294,6 +294,43 @@ def oct26_b5_specs() -> list[dict]:
     return out
 
 
+# B3 v2 Intel laptop task accuracy (2026-10-22, docs/FINDINGS.md "PRE-REGISTRATION: Intel laptop task accuracy"):
+# qwen3:14b, the tasks_v2 task set (30 task turns, design v2, guardrails off), seeds 20260901-03, at the Ollama default
+# window of each Intel backend (CPU 4096, iGPU 32768 with OLLAMA_IGPU_ENABLE=1), each real run gated on its own
+# backend's B3 v2 tasks validation and admitted only by the strict preflight (v2_strict, no waiver). Order (operator
+# wants B3 and B5 both; everything fits the launch budget, scripts/t2s_window_stage.py plan): after A5 and BEFORE the
+# B5 cells, CPU then iGPU, because these four short entries replace the projected Intel accuracy in rows
+# hybrid-savings-tradeoff and hybrid-route-at-start and should not wait behind about 210 h of B5.
+OCT26_B3_MODEL = "qwen3:14b"
+OCT26_B3_BACKENDS = (("cpu", "cpu_default"), ("igpu", "igpu_enable"))
+
+
+def oct26_b3_specs() -> list[dict]:
+    import t2s_window_stage as ws
+    import x2_r2_evalset as ev
+    est = ws.b3_estimates()
+    base = ["--design", "v2", "--workload", "evalset", "--guardrails", "off", "--models", OCT26_B3_MODEL]
+    out = []
+    for be, rc in OCT26_B3_BACKENDS:
+        val, real = f"results/t2s_evalset_tasks_val_v2_{be}.jsonl", f"results/t2s_evalset_tasks_real_v2_{be}.jsonl"
+        label = ("Intel CPU (stock Ollama, default 4096)" if be == "cpu"
+                 else "Intel iGPU (OLLAMA_IGPU_ENABLE=1, default 32768)")
+        ev_, er = est[f"b3_val_{be}"], est[f"b3_real_{be}"]
+        out += [
+            {"id": OCT26_PREFIX + f"b3_val_{be}", "gate": OCT26_PREFIX + "preflight",
+             "cmd": [T2S_PY, "t2s_evalset.py", "--runtime-config", rc, *base, "--mode", "validation", "--out", val],
+             "out": val, "est": None if ev_["hours"] is None else round(ev_["hours"], 1), "basis": ev_["basis"],
+             "what": f"B3 v2 tasks validation, {OCT26_B3_MODEL}, {label}"},
+            {"id": OCT26_PREFIX + f"b3_real_{be}", "gate": OCT26_PREFIX + f"b3_val_{be}",
+             "cmd": [T2S_PY, "t2s_evalset.py", "--runtime-config", rc, *base, "--mode", "real",
+                     "--plan", ev.TASKS_V2_T2S_PLAN, "--preflight", ev.PREFLIGHT_STRICT, "--rules-from", val,
+                     "--out", real],
+             "out": real, "est": None if er["hours"] is None else round(er["hours"], 1), "basis": er["basis"],
+             "what": f"B3 v2 task real run, {OCT26_B3_MODEL}, {label}, default window, seeds 20260901-03 x 30 task "
+                     "turns, strict preflight"}]
+    return out
+
+
 def oct26_specs() -> list[dict]:
     """Every spec of the window in queue order: preflight, A5, the staged B5 cells, then the B6 entries that
     t2s_window_stage.select_b6 keeps (estimated entries that fit the launch budget, in order; unestimated last)."""
@@ -321,6 +358,7 @@ def oct26_all_specs() -> list[dict]:
          "cmd": [T2S_PY, "window_override_methods.py", "--out", "results/t2s_window_override_methods_v1.jsonl",
                  "--queue"],
          "out": "results/t2s_window_override_methods_v1.jsonl", "what": "A5 Ollama window override checks (0.3 h)"},
+        *oct26_b3_specs(),
         *oct26_b5_specs(),
         {"id": p + "b6_model_pull", "gate": p + "preflight",
          "cmd": [T2S_PY, "t2s_model_pull.py", "--tags", OCT26_MODELS, "--out", "results/t2s_model_pull_b6_v1.jsonl"],
@@ -477,6 +515,7 @@ ADVANCING_SCRIPTS = {  # script -> the test that proves one tq.advance() on exit
     "t2s_model_pull.py": "tests/test_t2s_model_pull.py::test_main_advances_exactly_once_*",
     "window_override_methods.py":
         "tests/test_window_override_methods.py::test_main_queue_advances_once_and_writes_every_record",
+    "t2s_evalset.py": "tests/test_t2s_evalset.py::test_main_advances_exactly_once_*",
 }
 
 
@@ -568,6 +607,15 @@ def check_entry(item, earlier_ids, x2_result_names, prefix=ID_PREFIX) -> dict:
             for m in (ns.get("models") or "").split(","):
                 if m and m not in ag_models():
                     problems.append(f"x2_r2_agent.MODELS has no think value for {m!r}")
+    elif script == "t2s_evalset.py":
+        import t2s_evalset as te
+        rep = te.dry_run(*te.build_parser().parse_known_args(argv), te._import_ev())
+        info["forwarded_argv"] = rep["forwarded_argv"]
+        info["parse_ok"] = rep["parse_ok"]
+        if not rep["parse_ok"]:
+            problems.append(f"x2_r2_evalset rejects the forwarded argv: {rep['parse_error']}")
+        if rep["out_name_problem"]:
+            problems.append(rep["out_name_problem"])
     elif script == "t2s_week_preflight.py":
         info["parse_ok"] = not argv
         if argv:

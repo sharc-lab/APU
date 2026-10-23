@@ -61,7 +61,10 @@ DEPLOYED_FILES = ("t2s_queue.py", "queue_watchdog.py", "stale_server_cleanup.py"
                   "t2s_amech.py", "level_zero_sysman.py", "win_cpu_topology.py", "bw_hog.py",
                   "spin_hog_affinity.py", "t2s_m3_power_coupling.py", "run_provenance.py", "server_guard.py",
                   "t2s_deadline.py", "t2s_model_pull.py", "window_override_methods.py",
-                  "policy_compare.py")
+                  "policy_compare.py",
+                  # B3 v2 Intel laptop task accuracy (2026-10-22, entries t2s_o26_b3_*): the wrapper and what
+                  # x2_r2_evalset imports at load (x2_num_keep.py only for the num_keep tier, not used there)
+                  "t2s_evalset.py", "x2_r2_evalset.py", "evalset_env.py", "agent_trace_replay.py")
 # t2s_outcome_table.py's flat layout reads these relative to C:\apu\ovn (analysis/ next to it marks that layout).
 DATA_FILES = (Path("results") / "workload_pack" / "item_weights_trace_weighted.json",
               Path("results") / "workload_pack" / "grade.py",

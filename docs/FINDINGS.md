@@ -5884,3 +5884,18 @@ recorded runs; nothing new was run.
 Register audit (same day): rows whose data file is a run with run_start / run_end are now PENDING with "partial: no
 run_end" until the run ends (multi-part runs judged by their last part). One row changed: `t2s-r2-mechanism-cpu`
 VERIFIED to PENDING (results/t2s_r2_mechanism_cpu_v1.jsonl has no run_end).
+
+## PRE-REGISTRATION: Intel laptop task accuracy, qwen3:14b B3 v2 tasks validation and default-window task real run on evo-t2s Intel CPU (4096) and Intel iGPU (32768) (2026-10-22, NOT YET RUN)
+
+**Status:** PRE-REGISTRATION, committed before the jobs are loaded or run; staged only in queues/t2s_oct26_queue.json
+(entries t2s_o26_b3_val_cpu, t2s_o26_b3_real_cpu, t2s_o26_b3_val_igpu, t2s_o26_b3_real_igpu, after A5 and before the
+B5 cells). The full entry, in the Mandatory Run Template, is docs/EXPERIMENTS.md "2026-10-22: Intel laptop task
+accuracy". Summary: qwen3:14b, the tasks_v2 task set (30 task turns), seeds 20260901-03, tier ollama_default only, on
+the Intel CPU (stock Ollama, default 4096) and the Intel iGPU (OLLAMA_IGPU_ENABLE=1, default 32768); each real run is
+gated on its own backend's validation and admitted only by the strict preflight (v2_strict, no waiver). Only a valid
+run replaces the projected evo-t2s accuracy in rows hybrid-savings-tradeoff and hybrid-route-at-start. Rows:
+t2s-evalset-tasks-cpu and t2s-evalset-tasks-igpu (PENDING), hours t2s-evalset-tasks-hours (ESTIMATE). Known risk: the
+same validation on evo-x2 scored qwen3:14b task end state 80/90 against the 90% bar (row
+x2-evalset-val-v2-task-end-state), so a strict refusal is a likely, reportable outcome. The B5 and B6
+pre-registrations are not edited: the B5 cells keep their order, seeds and policy sets and start later by the B3
+entries' estimated hours (row t2s-b5-plan-hours); every estimated entry still ends at least 24 h before no-launch.

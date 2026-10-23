@@ -157,3 +157,95 @@ Use this block for every new experiment entry.
 - Seed variance flags: 3 seeds, 90 tasks per cell; no interval claimed.
 - Tool-locality caveats: replay assumptions (a) and (b) above.
 - Any deviations from protocol: none at pre-registration.
+
+## 2026-10-22: Intel laptop task accuracy, qwen3:14b B3 v2 on evo-t2s Intel CPU and Intel iGPU (PRE-REGISTRATION, NOT YET RUN)
+
+Written and committed before any of these jobs is loaded or run. Staged only (queues/t2s_oct26_queue.json, entries
+t2s_o26_b3_*); evo-t2s is not reachable until its window opens 2026-10-26 04:00 UTC. Pointer in docs/FINDINGS.md
+"PRE-REGISTRATION: Intel laptop task accuracy".
+
+### Metadata
+
+- Date: 2026-10-22 (pre-registration); runs in the evo-t2s window 2026-10-26 to 2026-11-08
+- Git hash: staged on branch worktree-agent-a4680d405bc7764d5 after 7e3a6a0 (the run records its own harness blob in
+  run_start, harness_provenance)
+- Branch: worktree-agent-a4680d405bc7764d5 (to be merged by the operator)
+- Machine: evo-t2s (Intel laptop; Intel CPU with stock Ollama, and the Arc iGPU with OLLAMA_IGPU_ENABLE=1 for the
+  job's own server only). Not evo-x2, not the Blade.
+
+### Why
+
+Rows hybrid-savings-tradeoff and hybrid-route-at-start carry evo-t2s task accuracy as a projection: "evo-t2s projected
+from evo-x2's ollama_ctx_4096 tier" and "evo-t2s local accuracy measured by R2 session pass rate (not B3 task
+accuracy)". These jobs measure B3 v2 task accuracy on the Intel laptop itself at each backend's Ollama default window,
+so that projection can be replaced by a measurement (or, if the strict preflight refuses, stay labelled projected).
+
+### Configuration
+
+- Model: qwen3:14b only (think false, as in every B3 v2 run).
+- Backends and windows: Intel CPU, `--runtime-config cpu_default` (stock Ollama; default window 4096 measured on
+  evo-t2s, row t2s-r2-session-minutes); Intel iGPU, `--runtime-config igpu_enable` (OLLAMA_IGPU_ENABLE=1; default
+  window 32768 for qwen3:14b measured on evo-t2s, same row). Tier `ollama_default` only: no num_ctx is sent in the
+  real run. The wrapper's runtime check records the loaded window of every ollama_default turn (t2s_runtime_check).
+- Seeds: 20260901, 20260902, 20260903 (the all-cloud baseline's seeds). Statistics: every task turn counts, no warm-up
+  call, as in every B3 v2 run (the harness's own convention).
+- Task subset: the tasks_v2 task set, design v2 (tool loop, up to 4 tool rounds, v2 filler), guardrails off: 30 task
+  turns per session, 90 per backend. The projected largest prompt of each session is about 23,100 tokens
+  (`x2_r2_evalset.py --check-plan`), so the CPU's 4096 window truncates and the iGPU's 32768 does not.
+- Judge config: none. Correct = the programmatic task end-state grader (`end_state_ok`), as in x2_evalset_tasks_real_v2.
+- Order in the window (operator wants B3 and B5 both; everything fits): the handover verification on the controller
+  first (`harness/t2s_deadline.py open-window`, it stays first), then the queue: preflight, A5, these four entries (CPU
+  validation, CPU real, iGPU validation, iGPU real), then the B5 cells, then the B6 pull and validations.
+
+### Command
+
+Per backend `<be>` in (cpu, igpu) with `<rc>` = cpu_default or igpu_enable, deployed flat to C:\apu\ovn:
+
+1. Validation, queue id `t2s_o26_b3_val_<be>`, gate `t2s_o26_preflight`:
+   `python t2s_evalset.py --runtime-config <rc> --design v2 --workload evalset --guardrails off --models qwen3:14b
+   --mode validation --out results/t2s_evalset_tasks_val_v2_<be>.jsonl` (negative control at num_ctx 131072, which
+   loads qwen3:14b's 40960, seeds 20260901-03; positive control at num_ctx 8192, seed 20260901).
+2. Real run, queue id `t2s_o26_b3_real_<be>`, gate `t2s_o26_b3_val_<be>`:
+   `python t2s_evalset.py --runtime-config <rc> --design v2 --workload evalset --guardrails off --models qwen3:14b
+   --mode real --plan tasks_v2_t2s_qwen3_14b --preflight v2_strict --rules-from
+   results/t2s_evalset_tasks_val_v2_<be>.jsonl --out results/t2s_evalset_tasks_real_v2_<be>.jsonl`.
+
+Two locks on each real run: the queue gate, and `strict_preflight_v2` on the same backend's validation file with only
+qwen3:14b allowed and no waiver (baseline rules 1 to 5 each at least 90%, negative control, positive control, content
+non-empty, thinking off, task tool, negative-control window, task end state at least 90%). The 2026-10-19 task
+end-state waiver (TE_DEVIATION, evo-x2 only) is not used. Each job calls tq.advance() once on exit and sets no pause.
+
+### Replay Cache State
+
+- Replay mode (`APU_REPLAY_MODE`): not used (live local Ollama).
+- Trace roots used: none (evalset workload, not replay).
+- Cache warm/cold note: each session starts with the model unloaded (recorded as model_unloaded_before_session).
+
+### Result Summary (fixed now, filled after the runs)
+
+- Primary metric per backend: correct / 90 task turns at the backend's default window, per seed counts, wrong split
+  silent / surfaced (register rows t2s-evalset-tasks-cpu and t2s-evalset-tasks-igpu, PENDING; read only after
+  run_end). Beside it, as context and not a test: the evo-x2 tier the hybrid rows projected from, on the same 3 seeds
+  (ollama_ctx_4096 for the CPU, ollama_default for the iGPU), and the difference in points. No significance test (90
+  vs 90 task turns, 3 seeds, descriptive).
+- Valid run (mechanical): run_end present; qwen3:14b not refused; 3 completed sessions of 30 task turns at
+  ollama_default, one per seed; the runtime check shows loaded window 4096 (CPU) or 32768 (iGPU) on every turn. A run
+  that is not valid reads "inconclusive (run not valid)". A strict refusal reads "refused", and the projection in the
+  hybrid rows stays, labelled projected.
+- What replaces the projection: only a valid run. Making hybrid-savings-tradeoff and hybrid-route-at-start read these
+  rows is a separate later change.
+- Output artifacts: results/t2s_evalset_tasks_{val,real}_v2_{cpu,igpu}.jsonl and their .report.json files.
+
+### Validity Flags (stated before the run)
+
+- Hours are ESTIMATES (row t2s-evalset-tasks-hours): measured evo-t2s R2 session minutes (row t2s-r2-session-minutes)
+  scaled by the B3 v2 task-turn profile, that is evo-x2 qwen3:14b task session minutes times the qwen3:14b evo-t2s /
+  evo-x2 R2 ratio of the backend; the CPU validation's high case carries an ASSUMED factor 2 for its 40960-window
+  negative control. The row holds the values.
+- Strict preflight risk, known now: on evo-x2 the same qwen3:14b tasks validation scored task end state 80/90 (88.9%)
+  against the 90% bar (row x2-evalset-val-v2-task-end-state, gate FAIL; the evo-x2 real run went ahead only under the
+  2026-10-19 waiver). With no waiver here, a refusal of the real run on one or both backends is a likely, reportable
+  outcome, not a failure of the staging.
+- Seed variance: 3 seeds only. One model on one laptop. The validation's negative control runs at a 40960 window that
+  the CPU real run never uses; only the real run is the measure.
+- Deviations from protocol: none planned. Any change after this commit is a dated amendment in docs/FINDINGS.md.
