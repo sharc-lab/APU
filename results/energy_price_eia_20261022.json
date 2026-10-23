@@ -1,0 +1,22 @@
+{
+ "record": "external_input",
+ "label": "EXTERNAL INPUT (published EIA figure, not a measurement from this repo)",
+ "quantity": "US average retail price of electricity, commercial sector",
+ "units": "cents per kWh",
+ "value_cents_per_kwh": 14.53,
+ "refers_to_month": "2026-07",
+ "same_month_prior_year_cents_per_kwh": 14.05,
+ "ytd_through_month_cents_per_kwh": 13.97,
+ "ytd_prior_year_cents_per_kwh": 13.23,
+ "source": "U.S. Energy Information Administration, Electric Power Monthly",
+ "table": "Table 5.6.A. Average Price of Electricity to Ultimate Customers by End-Use Sector, by State, July 2026 and 2025 (Cents per Kilowatthour)",
+ "url": "https://www.eia.gov/electricity/monthly/epm_table_grapher.php?t=epmt_5_6_a",
+ "release_date": "2026-09-24",
+ "raw_us_total_row": "U.S. Total 18.31 17.45 14.53 14.05 9.77 9.33 14.97 14.27 14.99 14.36",
+ "raw_columns": "Residential Jul-2026 Jul-2025 | Commercial Jul-2026 Jul-2025 | Industrial Jul-2026 Jul-2025 | Transportation Jul-2026 Jul-2025 | All Sectors Jul-2026 Jul-2025",
+ "ytd_table": "Table 5.6.B. Average Price of Electricity to Ultimate Customers by End-Use Sector, by State, Year-to-Date through July 2026 and 2025 (Cents per Kilowatthour)",
+ "ytd_url": "https://www.eia.gov/electricity/monthly/epm_table_grapher.php?t=epmt_5_6_b",
+ "ytd_raw_us_total_row": "U.S. Total 18.19 17.01 13.97 13.23 9.03 8.53 15.75 13.52 14.29 13.46",
+ "fetched_utc_date": "2026-10-22",
+ "note": "The next EPM issue (August 2026 data) is due about the 24th of the month; re-fetch before reuse if newer data matters."
+}

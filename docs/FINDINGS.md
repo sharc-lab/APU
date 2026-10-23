@@ -5735,3 +5735,184 @@ every task. The evo-t2s figure is 5 R2 sessions and is to be replaced by the evo
 local run) and now prices escalate-all vs escalate-flagged at the full-history redo's per-tier mean USD per task; the
 first, truncated-history redo file (results/cloud_redo_v1.jsonl) is no longer an input. At num_ctx 4096: escalate all
 150 USD 2.5401 vs flagged 147 USD 2.4893, USD 0.0169 per task.
+
+## PRE-REGISTRATION: a larger local option for the route-at-start comparison, llama3.3:70b B3 v2 tasks validation and default-window task real run (x2_evalset_tasks_val_v2_llama33_70b, x2_evalset_tasks_real_v2_llama33_70b) on evo-x2 (2026-10-22, NOT YET RUN)
+
+**Status:** PRE-REGISTRATION, written and committed before these jobs are deployed or queued. No data for either job
+exists. Operator request of 2026-10-22, an approved draw on the 150 h reserve of docs/X2_QUEUE_PLAN.md (queue fill of
+2026-10-22). It reuses the design, gates and strict preflight of "PRE-REGISTRATION: protocol consistency extended to
+qwen3:8b" (2026-10-21) and its mistral-small3.2:24b extension (2026-10-22), whose texts are not edited. The
+2026-10-19 task end-state waiver is qwen3:14b-only and is not extended.
+
+**Why.** "FINDING (2026-10-22): late escalation is costly and incomplete, so the product decides at session start"
+and row `hybrid-route-at-start` compare one local model per device (qwen3:14b on evo-x2) with the all-cloud baseline
+(`all-cloud-b3-quality`), and at matched quality every measured device routes to the cloud. This job adds a larger
+local option on the same device: llama3.3:70b at Ollama's default window, on the same 30 tasks and the same 3 seeds as
+the all-cloud baseline. It answers whether a larger local model closes the accuracy gap that sends evo-x2 to the
+cloud. llama3.3:70b passed its R2 validation (row `x2-scale-validation`, pasted: "llama3.3:70b: rule1 83.3%, rule2
+50.0%, rule3 100.0%, rule4 100.0%, rule5 83.3%; tool validity 96.7% of 30 calls; tool args 100.0%; recall 100.0%
+(n=6); canary C 100.0%, H 100.0% (n=6); empty final answers 0; task tool 29/30; thinking-present calls 0; preflight
+pass"). The R2 gates are not the B3 v2 gates; the v2 baseline gate needs each of rules 1 to 5 at least 90%, so a
+strict refusal is possible and is a reportable outcome.
+
+**Job 1, validation.** Queue id `x2_evalset_tasks_val_v2_llama33_70b`, output
+`results/x2_evalset_tasks_val_v2_llama33_70b.jsonl`: the tasks validation exactly as `x2_evalset_tasks_val_v2`, the
+qwen3:8b and the mistral validations ran it (`harness/x2_r2_evalset.py --design v2 --mode validation --workload
+evalset --guardrails off`, tool loop with tools on every call and up to 4 tool rounds, negative control at num_ctx
+131072 on seeds 20260901 to 20260903, positive control at num_ctx 8192 on seed 20260901, temperature 0, seed 42,
+num_predict 384), with `--models llama3.3:70b`. "think" is not sent for this model (the harness's model table maps it
+to None, as in its R2 validation, whose run_start recorded `"llama3.3:70b": null`). Gates: those of
+`x2-evalset-val-v2-gates` for a tasks validation. Register row `x2-evalset-tasks-val-v2-llama33-70b-gates` (PENDING
+until synced).
+
+**Native tool-call template, checked before queueing (dry, no model call).** As for mistral: `harness/x2_deploy_check.py
+--template llama3.3:70b` reads the tag's template layer from its manifest on disk and requires `.Tools`, `.ToolCalls`
+and a tool-result construct. If any is missing, neither job is queued and this is reported. The validation is the live
+check: its task-tool and negative-control gates fail if native calls do not work through the v2 tool loop.
+
+**Job 2, real run, gated, default window only.** Queue id `x2_evalset_tasks_real_v2_llama33_70b`, output
+`results/x2_evalset_tasks_real_v2_llama33_70b.jsonl`, new harness option `--plan tasks_v2_llama33_70b` (tier
+`ollama_default` only, no num_ctx sent; seeds 20260901, 20260902, 20260903; the 30 task turns of the tasks_v2 task set;
+model list llama3.3:70b only) with `--preflight v2_strict`; 3 sessions, 90 task turns. Only the default window is run:
+this job measures the local option a product would route to at session start, not the window effect (llama3.3:70b
+resisted rule loss in R2, `H-scale-verdict`). run_start records the harness and agent blobs (harness_provenance). Two
+independent locks:
+1. Queue gate `{"gate": {"requires_done": "x2_evalset_tasks_val_v2_llama33_70b"}}`, entry after the validation.
+2. `strict_preflight_v2` on the validation file with only llama3.3:70b allowed: admitted only if
+   `validation_preflight_ext` (design v2) admits it with no waiver AND every gate passes (baseline rules 1 to 5 each at
+   least 90%, negative control, positive control, content non-empty, thinking off, task tool, negative-control window,
+   task end state at least 90%). Otherwise the job writes refused rows, ends "stopped: refused", makes no model call,
+   and the register rows read "refused". No waiver of any kind.
+
+**What counts as passing, fixed now.**
+- Validation passes: the strict preflight admits llama3.3:70b (every gate above passing).
+- Real run valid (mechanical): run finished; llama3.3:70b not refused; 3 completed sessions of 30 task turns at
+  `ollama_default`, one per seed 20260901 to 20260903; no request carried a num_ctx; no turn rows of another model;
+  run_start records the harness blob. A run that is not valid reads "inconclusive (run not valid)".
+
+**Measures, fixed now** (register row `x2-evalset-tasks-real-v2-llama33-70b-route`, PENDING): over the 90 task turns,
+correct = task end state graded correct (`end_state_ok`, the grader of x2_evalset_tasks_real_v2 and all_cloud_b3_v1);
+local accuracy = correct / 90, with per seed counts, the wrong-task count split silent / surfaced, and the loaded
+window Ollama reports. Against each cloud tier of `all-cloud-b3-quality` (same 3 seeds, same tasks): the gap in
+points and the route at tolerance 0 (matched quality), 5 and 10, by `impact_model.route_decision` (local if 100 x
+local accuracy >= 100 x all-cloud accuracy - tolerance). Readings, per cloud tier:
+- "llama3.3:70b routes local at matched quality" if the route at tolerance 0 is local;
+- otherwise "cloud at matched quality; routes local at tolerance >= <gap>" (gap rounded to 0.1 point), or "cloud at
+  every tolerance shown" if the gap is over 10 points.
+Overall reading: "a larger local option changes the route-at-start answer on evo-x2" if llama3.3:70b routes local at
+tolerance 0 against at least one cloud tier; otherwise "at matched quality evo-x2 still routes to the cloud with a
+larger local model". Beside it, as context and not a test, qwen3:14b's default-window accuracy on the same seeds
+(80/90 in `hybrid-route-at-start`) and llama3.3:70b minus qwen3:14b in points; no significance test (90 vs 90 task
+turns, 3 seeds, descriptive).
+
+**Duration.** ESTIMATE in register row `x2-llama33-70b-b3v2-hours` from measured times: qwen3:14b's v2 tasks session
+times scaled by the llama3.3:70b / qwen3:14b ratio of the same R2 validation arms (x2_r2_scale_validation vs
+x2_r2_validation_v2), high at the largest llama3.3:70b / qwen3:14b R2 session ratio (validation arms and the
+x2_r2_scale_real 4096 and 32768 tiers). Both jobs call tq.advance() on exit and set no pause.
+
+**Known limits, stated before the run.** One model at one window on one device, 3 seeds; the route uses accuracy
+only (llama3.3:70b's local cost is not priced here, so the savings column of `hybrid-route-at-start` is not extended
+to it by this job). The validation's negative control (num_ctx 131072, seeds 20260901 to 20260903) and the default
+real run (Ollama loads 131072 for this model on evo-x2, `x2-scale-probe-hours`) share seeds and window; they are
+separate runs and only the real run is the measure. A 70B model at a 131072 window is the slowest local cell measured
+on evo-x2.
+
+## AMENDMENT (2026-10-22, before any data of these jobs): llama3.3:70b B3 v2 jobs deployed and queued on evo-x2
+
+This note follows "PRE-REGISTRATION: a larger local option for the route-at-start comparison" (2ddba00), whose text is
+not edited; it was committed before deploy and queueing.
+
+- **Harness.** `--plan tasks_v2_llama33_70b` in `harness/x2_r2_evalset.py` (ollama_default only, seeds 20260901 to
+  20260903, 30 task turns, model llama3.3:70b only, joined to the strict preflight through STRICT_PLAN_MODELS; the run's
+  report computes `tasks_real_v2_outcome` over this plan's tier and seeds), commit 505d0b8, tests in
+  `tests/test_x2_evalset_tasks_v2_llama33_70b.py`. Register rows `x2-evalset-tasks-val-v2-llama33-70b-gates` and
+  `x2-evalset-tasks-real-v2-llama33-70b-route` (PENDING), and `x2-llama33-70b-b3v2-hours` (ESTIMATE).
+- **Deploy.** Side directory `C:\apu\ovn\evalv2l70` (`x2_r2_evalset.py` e803555a, `evalset_env.py` 4eae225f,
+  `x2_num_keep.py` c2bb7c2d, `x2_deploy_check.py` 64be80f0) and `C:\apu\ovn\qfill` (`x2_queue_fill.py` 64f32013),
+  `verify_deployed_blobs` no problems for both. As for the other v2 jobs, `x2_r2_agent` is taken from `C:\apu\ovn`
+  (blob 38882113, recorded in run_start with the harness blob); its model table maps llama3.3:70b to think None.
+- **Dry checks on evo-x2 (no server start, no model call).** `--check-plan`: validation negative control 131072 x
+  seeds 20260901 to 20260903 and positive control 8192 x seed 20260901, 30 task turns each, projected largest prompt
+  23074 to 23080 tokens within the v2 negative-control budget 30720; real plan `ollama_default_call2_notools` x seeds
+  20260901 to 20260903 x 30 task turns. The strict preflight with only llama3.3:70b allowed refuses it on the qwen3:14b
+  validation file (no llama3.3:70b sessions), as it must. The model's manifest is in the Ollama store; neither output
+  file exists yet.
+- **Native tool-call template (dry check):** `x2_deploy_check.py --template llama3.3:70b` (library template, sha256
+  948af274...) found `.Tools`, `.ToolCalls` and tool-result branches (`eq .Role "tool"`, rendered under the `ipython`
+  header), no problems, so the check passed. Stated for the reading, as for mistral: this template renders the function
+  list inside the last user message only (`if and $.Tools $last` on the user branch), so on a second or later tool
+  round within one turn, when the last message is a tool result, the tool list is sent in the request but not rendered
+  into the prompt. The validation's task-tool gate is the live test of whether this matters.
+- **Queue.** `x2_queue_fill.py --append x2_evalset_tasks_val_v2_llama33_70b x2_evalset_tasks_real_v2_llama33_70b`, one
+  read-modify-write under `t2s_queue.set_pause` cleared in its finally block; positions 82 and 83, the real-run entry
+  carrying `{"gate": {"requires_done": "x2_evalset_tasks_val_v2_llama33_70b"}}`; the pause flag was absent afterwards
+  (`is_paused()` None, checked separately). Both entries' notes say they release themselves via tq.advance() on exit and
+  set no pause. The running job (x2_b5_simcap_8192) was not touched. Order and hours: docs/X2_QUEUE_PLAN.md "Reserve
+  draw of 2026-10-22".
+
+## PRE-REGISTRATION (2026-10-22, NOT YET COMPUTED): measured hybrid by replay (per-task route-at-start plus the window-overflow flag) and task latency by policy
+
+Offline, cached replay of recorded runs; no live cloud call, no new spend. Full protocol in docs/EXPERIMENTS.md,
+entry "2026-10-22 - Measured hybrid by replay". New rows `hybrid-route-at-start-measured` (per-task policy: the device
+profile projects each task's prompt from the task definition at job start, the task runs local if it fits the tier's
+window, else it goes to the cloud from its first call; a local task the window-overflow flag fires on is escalated at
+its full-history redo outcome and cost) and `task-latency-by-policy` (median and p90 wall seconds per task for
+all-cloud, local and that hybrid). Tiers ollama_ctx_8192 and ollama_ctx_4096 on evo-x2, qwen3:14b, seeds
+20260901-03, Sonnet and Haiku (Haiku escalation interim, labelled). Every figure is labelled "measured by replay of
+recorded runs". The existing row `hybrid-route-at-start` (whole-device tolerance rule) is kept unchanged.
+
+## RESULTS (2026-10-22): measured hybrid by replay, per-task route-at-start plus the window flag, and task latency by policy
+
+Computed after the pre-registration above, as registered; rows `hybrid-route-at-start-measured` and
+`task-latency-by-policy` in docs/NUMBERS_REGISTER.md (quote from there). Every figure is measured by replay of
+recorded runs; nothing new was run.
+
+- evo-x2 num_ctx 8192: the projection keeps 21 of 90 tasks local (the first 7 task turns of each session; 19 of the 21
+  correct locally) and sends 69 to the cloud from their first call. The window flag fired on none of the 21 kept local
+  (the projection is conservative: it sent 6 tasks to the cloud whose recorded prompt stayed inside the window), so no
+  task was escalated. Against claude-sonnet-5-5: 88/90 (97.8%) at USD 0.00819 per task vs all-cloud 90/90 (100.0%) at
+  USD 0.01020 and naive local 57/90 (63.3%). Against claude-haiku-5-5: 85/90 (94.4%) at USD 0.00055 vs all-cloud
+  87/90 (96.7%) at USD 0.00067.
+- evo-x2 num_ctx 4096: no task's projected prompt fits (the first task turn alone projects above 4096), so the policy
+  is all-cloud: 90/90 on Sonnet and 87/90 on Haiku at the all-cloud cost, kept local 0/90.
+- Latency (median / p90 seconds per task): all-cloud Sonnet 4.59 / 6.27, Haiku 2.50 / 3.84; local qwen3:14b at 8192
+  27.27 / 41.78 and at 4096 16.79 / 26.81; the 8192 hybrid 4.84 / 11.45 on Sonnet and 2.66 / 10.24 on Haiku.
+  Long-task runs: PENDING (no results/long_task_*.jsonl on main).
+- Replay assumptions as pre-registered: a routed task's cloud cost and outcome come from a run whose earlier tasks were
+  on the cloud (a real deployment would also pay a cache write of the local history on the first routed task).
+
+Register audit (same day): rows whose data file is a run with run_start / run_end are now PENDING with "partial: no
+run_end" until the run ends (multi-part runs judged by their last part). One row changed: `t2s-r2-mechanism-cpu`
+VERIFIED to PENDING (results/t2s_r2_mechanism_cpu_v1.jsonl has no run_end).
+
+## PRE-REGISTRATION: Intel laptop task accuracy, qwen3:14b B3 v2 tasks validation and default-window task real run on evo-t2s Intel CPU (4096) and Intel iGPU (32768) (2026-10-22, NOT YET RUN)
+
+**Status:** PRE-REGISTRATION, committed before the jobs are loaded or run; staged only in queues/t2s_oct26_queue.json
+(entries t2s_o26_b3_val_cpu, t2s_o26_b3_real_cpu, t2s_o26_b3_val_igpu, t2s_o26_b3_real_igpu, after A5 and before the
+B5 cells). The full entry, in the Mandatory Run Template, is docs/EXPERIMENTS.md "2026-10-22: Intel laptop task
+accuracy". Summary: qwen3:14b, the tasks_v2 task set (30 task turns), seeds 20260901-03, tier ollama_default only, on
+the Intel CPU (stock Ollama, default 4096) and the Intel iGPU (OLLAMA_IGPU_ENABLE=1, default 32768); each real run is
+gated on its own backend's validation and admitted only by the strict preflight (v2_strict, no waiver). Only a valid
+run replaces the projected evo-t2s accuracy in rows hybrid-savings-tradeoff and hybrid-route-at-start. Rows:
+t2s-evalset-tasks-cpu and t2s-evalset-tasks-igpu (PENDING), hours t2s-evalset-tasks-hours (ESTIMATE). Known risk: the
+same validation on evo-x2 scored qwen3:14b task end state 80/90 against the 90% bar (row
+x2-evalset-val-v2-task-end-state), so a strict refusal is a likely, reportable outcome. The B5 and B6
+pre-registrations are not edited: the B5 cells keep their order, seeds and policy sets and start later by the B3
+entries' estimated hours (row t2s-b5-plan-hours); every estimated entry still ends at least 24 h before no-launch.
+
+## PRE-REGISTRATION (2026-10-22): long-task local accuracy and long-task cloud priced vs billed (pointer)
+
+Both pre-registrations are in docs/EXPERIMENTS.md, entries "2026-10-22: Long-task local accuracy" and "2026-10-22:
+Long-task cloud priced vs billed", committed before either job ran (harness at 54d3a19). In short:
+
+- **Tasks.** Real SWE-Gym / OpenHands tasks are not feasible offline on evo-x2 by 2026-10-27 (no Docker, no git, WSL
+  not installed; installing them needs administrator feature changes and a reboot). The tasks are 20 **long-horizon
+  synthetic, trace-length matched** work orders in the B3 v2 tool environment (harness/longtask_env.py), step counts
+  matched to SWE-Gym and nebius-rebench-openhands trace quantiles; the OpenHands stratum's prompts are shorter than
+  its traces' (stated limit). Never to be reported as SWE-Gym.
+- **Local job** `x2_longtask_local_v1` (evo-x2, qwen3:14b, ollama_default and kv_q8_0 = B5 policy (g), seeds
+  20260901-03): accuracy, silent failure share, minutes per task, per-task wall clock. Rows `long-task-local-accuracy`
+  (PENDING until run_end) and `long-task-local-hours` (ESTIMATE).
+- **Cloud check** `longtask_cloud_v1` (controller, 5 tasks x seed 20260901, claude-haiku-5-5, job cap USD 6; Sonnet
+  only if its pilot-based estimate is under USD 5): billed vs upper bound vs the `cloud-cost-per-real-task` pricing
+  method. Row `long-task-cloud-priced-vs-billed` (PENDING until run_end).

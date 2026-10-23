@@ -136,6 +136,7 @@ class CloudRuntime:
         self.thinking = thinking if thinking is not None else THINKING_OFF.get(model_id)
         self.max_tokens, self.temperature, self.log, self.retry_wait_s = max_tokens, temperature, log, retry_wait_s
         self.calls: list[dict] = []
+        self.final_tools = None   # tools kept defined on a final call (tool_choice none); None = the B3 v2 tools
 
     def drain(self) -> list[dict]:
         out, self.calls = self.calls, []
@@ -167,7 +168,7 @@ class CloudRuntime:
         if tools is not None:
             kw["tools"] = tools
         elif has_tool_calls(pmsgs):   # final call after the round cap: tools stay defined, choice none
-            kw["tools"] = EV.tools_payload(DESIGN)
+            kw["tools"] = self.final_tools if self.final_tools is not None else EV.tools_payload(DESIGN)
             kw["tool_choice"] = "none"
         err = None
         for attempt in (1, 2):

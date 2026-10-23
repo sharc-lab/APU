@@ -4391,6 +4391,25 @@ def compute_impact_ref_machine_price(repo):
                      f"bom_cost_usd is null){vct}", "n": "1"}
 
 
+ENERGY_PRICE_EIA_FILE = "results/energy_price_eia_20261022.json"
+# The rows the later net-savings row (energy cost of local runs netted against cloud savings) will read; it is not
+# computed here (operator 2026-10-22: after the long-task runs).
+NET_SAVINGS_INPUT_ROWS = ("energy-price-eia-commercial", "PX2-power", "cost-cut-config-time", "impact-ref-machine-price")
+
+
+def compute_energy_price_eia(repo):
+    """EXTERNAL INPUT: the EIA Electric Power Monthly US average commercial electricity price (Table 5.6.A), with the
+    month it refers to, the release, the URL and the fetch date. Not a measurement; no savings computed here."""
+    d = json.loads((repo / ENERGY_PRICE_EIA_FILE).read_text(encoding="utf-8"))
+    return {"value": f"EXTERNAL INPUT (not measured): US average commercial electricity price "
+                     f"{d['value_cents_per_kwh']:.2f} cents/kWh for {d['refers_to_month']} (same month a year earlier "
+                     f"{d['same_month_prior_year_cents_per_kwh']:.2f}; year to date {d['ytd_through_month_cents_per_kwh']:.2f}); "
+                     f"{d['source']}, Table 5.6.A, "
+                     f"released {d['release_date']}, {d['url']}, fetched {d['fetched_utc_date']}; raw row "
+                     f"\"{d['raw_us_total_row']}\" (commercial is the 3rd and 4th numbers); for the net-savings row, "
+                     f"which also needs rows {', '.join(NET_SAVINGS_INPUT_ROWS[1:])}", "n": "1"}
+
+
 def compute_impact_v2_p2(repo):
     """Impact v2 P2 (operator decision 2026-10-21): machine capacity from measured session minutes (default vs the
     fastest measured B5 setting), machines needed for the profile's sessions/day, USD of machines saved per day over an
@@ -4516,6 +4535,30 @@ def compute_hybrid_route_at_start(repo):
     r = im.route_at_start_full(repo, h, t, cfg)
     return {"value": im.route_text(r), "n": f"{len(r['rows'])} device x tier rows" if r["status"] == "VERIFIED"
             else "0"}
+
+
+ROUTE_MEASURED_FILES = ["results/x2_evalset_tasks_real_v2.jsonl", "results/all_cloud_b3_v1.jsonl",
+                        "results/cloud_redo_full_context_v1.jsonl", "results/cloud_redo_full_context_v1_part2.jsonl",
+                        "results/cloud_redo_full_context_v1_part3.jsonl"]
+
+
+def compute_hybrid_route_at_start_measured(repo):
+    """Per-task route at job start plus the window-overflow flag, by replay of recorded runs (pre-registered in
+    docs/EXPERIMENTS.md, 2026-10-22 'Measured hybrid by replay')."""
+    im = _impact()
+    d = im.route_at_start_measured(repo)
+    return {"value": im.route_measured_text(d),
+            "n": f"{len(d['cells'])} tier x cloud-tier cells x {d['cells'][0]['hybrid']['n']} tasks"
+            if d["status"] == "VERIFIED" else "0"}
+
+
+def compute_task_latency_by_policy(repo):
+    """Wall seconds per task, median and p90, all-cloud vs local vs the per-task hybrid (replayed)."""
+    im = _impact()
+    d = im.task_latency_by_policy(repo)
+    return {"value": im.latency_text(d),
+            "n": f"{len(d['all_cloud']) + len(d['local']) + len(d['hybrid'])} policy cells"
+            if d["status"] == "VERIFIED" else "0"}
 
 
 def compute_impact_p2(repo):
@@ -6075,6 +6118,304 @@ def compute_x2_queue_fill_1022_hours(repo):
     return {"value": "; ".join(parts), "n": f"{len(jobs)} jobs (estimate)"}
 
 
+# ── llama3.3:70b B3 v2 (reserve draw of 2026-10-22; docs/FINDINGS.md "PRE-REGISTRATION: a larger local option for the
+# route-at-start comparison") ──
+L70_MODEL = "llama3.3:70b"
+L70_JOBS = ("x2_evalset_tasks_val_v2_llama33_70b", "x2_evalset_tasks_real_v2_llama33_70b")
+# Schedule anchor: queue_state.json on evo-x2, read 2026-10-23 00:02Z: x2_b5_simcap_8192 "running", started_ts
+# 1792686688.39 = 2026-10-22T16:31:28Z (x2_b5_fa_control ended then). The rest of the 2026-10-22 fill follows it in
+# FILL_1022_ORDER (all still pending), then the two llama3.3:70b jobs (appended at the end of the queue).
+L70_ANCHOR_JOB = "x2_b5_simcap_8192"
+L70_ANCHOR_UTC = "2026-10-22T16:31:28+00:00"
+L70_CUTOFF_UTC = "2026-10-27T19:00:00+00:00"   # operator: finish and register by 2026-10-27 12:00 PT (PDT, UTC-7)
+L70_SYNC_INTERVAL_H = 2.0                      # APU-SyncResults repeats every 2 h (scripts/install_sync_results_task.ps1)
+L70_REAL_SEEDS = (20260901, 20260902, 20260903)
+X2_EVALSET_TASKS_VAL_V2_L70 = "results/x2_evalset_tasks_val_v2_llama33_70b.jsonl"
+X2_EVALSET_TASKS_REAL_V2_L70 = "results/x2_evalset_tasks_real_v2_llama33_70b.jsonl"
+L70_HOURS_DATA = [X2_SCALE_VALIDATION, X2_SCALE_REAL, R2_VALIDATION_V2_FILE, X2_EVALSET_TASKS_VAL_V2,
+                  X2_EVALSET_TASKS_REAL_V2]
+
+
+def l70_b3v2_estimates(repo) -> dict:
+    """ESTIMATE (hours, point and high) of the two llama3.3:70b B3 v2 jobs: qwen3:14b's measured v2 tasks sessions x
+    the llama3.3:70b / qwen3:14b ratio of the same R2 validation arm (negative control at num_ctx 131072, positive
+    control at 8192: x2_r2_scale_validation vs x2_r2_validation_v2); high = every session at the largest
+    llama3.3:70b / qwen3:14b R2 ratio (those two arms and the x2_r2_scale_real 4096 and 32768 tiers vs the qwen3:14b
+    v1/v1b medians), and the real run at the slowest qwen3:14b default session."""
+    import statistics
+    ag = _r2_agent_module()
+    import x2_r2_evalset as ev
+    sfx = "_call2_notools"
+    neg_arm, pos_arm = ag.NEG_ARM + sfx, ag.POS_ARM + sfx
+    sv = ag.read_rows(repo / X2_SCALE_VALIDATION)
+    v2 = ag.read_rows(repo / R2_VALIDATION_V2_FILE)
+    sr = ag.read_rows(repo / X2_SCALE_REAL)
+
+    def med(rows, m, a):
+        w = _session_walls_s(rows, m, a, mode=None)
+        if not w:
+            raise ValueError(f"no completed sessions for {m} {a}")
+        return statistics.median(w)
+    ratios = {"R2 validation negative control 131072": med(sv, L70_MODEL, neg_arm) / med(v2, "qwen3:14b", neg_arm),
+              "R2 validation positive control 8192": med(sv, L70_MODEL, pos_arm) / med(v2, "qwen3:14b", pos_arm),
+              "R2 real 4096": med(sr, L70_MODEL, "ollama_ctx_4096" + sfx) / _r2_median_s(repo, "qwen3:14b",
+                                                                                          "num_ctx_4096"),
+              "R2 real 32768": med(sr, L70_MODEL, "ollama_ctx_32768" + sfx) / _r2_median_s(repo, "qwen3:14b",
+                                                                                            "num_ctx_32768")}
+    r_neg = ratios["R2 validation negative control 131072"]
+    r_pos = ratios["R2 validation positive control 8192"]
+    rmax = max(ratios.values())
+    e = ev.tasks_v2_hours_estimate(ag.read_rows(repo / X2_EVALSET_TASKS_VAL_V2))
+    neg, pos = sum(e["neg_session_s"]), sum(e["pos_session_s"])
+    rr = ag.read_rows(repo / X2_EVALSET_TASKS_REAL_V2)
+    dflt = _session_walls_s(rr, "qwen3:14b", ev.TASKS_V2_DEFAULT_TIER + sfx, mode="real")
+    n = len(L70_REAL_SEEDS)
+    rtxt = ", ".join(f"{k} {v:.2f}" for k, v in ratios.items())
+    return {
+        "x2_evalset_tasks_val_v2_llama33_70b": {
+            "point_h": (neg * r_neg + pos * r_pos) / 3600, "high_h": (neg + pos) * rmax / 3600,
+            "basis": f"qwen3:14b v2 tasks validation (negative control {neg / 60:.1f} min over "
+                     f"{len(e['neg_session_s'])} sessions, positive control {pos / 60:.1f} min) x llama3.3:70b/qwen3:14b "
+                     f"ratio of the same R2 validation arm (negative {r_neg:.2f}, positive {r_pos:.2f}); high = x "
+                     f"{rmax:.2f} throughout"},
+        "x2_evalset_tasks_real_v2_llama33_70b": {
+            "point_h": n * statistics.mean(dflt) * r_neg / 3600, "high_h": n * max(dflt) * rmax / 3600,
+            "basis": f"{n} default-window sessions x qwen3:14b x2_evalset_tasks_real_v2 ollama_default session (mean "
+                     f"{statistics.mean(dflt) / 60:.1f} min, slowest {max(dflt) / 60:.1f} min, {len(dflt)} sessions) x "
+                     f"the negative-control ratio {r_neg:.2f} (high: slowest x {rmax:.2f}); runs only if the "
+                     "validation passes every gate (a refusal takes minutes)"},
+        "_ratios": rtxt}
+
+
+def compute_x2_llama33_70b_b3v2_hours(repo):
+    """ESTIMATE (not a measurement) of the two llama3.3:70b B3 v2 jobs, the projected schedule behind the rest of the
+    2026-10-22 fill from the running job's start, whether they finish and can be registered by the operator's cutoff
+    (2026-10-27 12:00 PT), and the hours drawn from the 150 h reserve."""
+    from datetime import datetime, timedelta, timezone
+    fill = queue_fill_1022_estimates(repo)
+    l70 = l70_b3v2_estimates(repo)
+    pt_tz = timezone(timedelta(hours=-7), "PT")
+    cut = datetime.fromisoformat(L70_CUTOFF_UTC)
+
+    def f(t):
+        return f"{t.strftime('%m-%d %H:%MZ')} ({t.astimezone(pt_tz).strftime('%m-%d %H:%M')} PT)"
+    order = list(FILL_1022_ORDER[FILL_1022_ORDER.index(L70_ANCHOR_JOB):]) + list(L70_JOBS)
+    jobs = {**fill, **{k: v for k, v in l70.items() if not k.startswith("_")}}
+    t_pt = t_hi = datetime.fromisoformat(L70_ANCHOR_UTC)
+    parts, ahead = [], []
+    for j in order:
+        e = jobs[j]
+        s_pt, s_hi = t_pt, t_hi
+        t_pt += timedelta(hours=e["point_h"])
+        t_hi += timedelta(hours=e["high_h"])
+        if j in L70_JOBS:
+            parts.append(f"{j} ESTIMATE {e['point_h']:.2f} h (high {e['high_h']:.2f} h; {e['basis']}); projected "
+                         f"{f(s_pt)} to {f(t_pt)} (high case {f(s_hi)} to {f(t_hi)})")
+        else:
+            ahead.append(f"{j} {e['point_h']:.2f} h (high {e['high_h']:.2f})")
+    reg_pt = t_pt + timedelta(hours=L70_SYNC_INTERVAL_H)
+    reg_hi = t_hi + timedelta(hours=L70_SYNC_INTERVAL_H)
+    drawn_pt = sum(l70[j]["point_h"] for j in L70_JOBS)
+    drawn_hi = sum(l70[j]["high_h"] for j in L70_JOBS)
+    parts.insert(0, f"queue ahead from {L70_ANCHOR_JOB} start {f(datetime.fromisoformat(L70_ANCHOR_UTC))}, register "
+                    f"row x2-queue-fill-1022-hours estimates: " + ", ".join(ahead))
+    parts.append(f"llama3.3:70b jobs end {f(t_pt)} (high case {f(t_hi)}); with up to one {L70_SYNC_INTERVAL_H:.0f} h "
+                 f"results-sync interval, registered by {f(reg_pt)} (high case {f(reg_hi)}); cutoff {f(cut)}: "
+                 + ("met" if reg_pt <= cut else "NOT met") + " (high case "
+                 + ("met" if reg_hi <= cut else "NOT met") + f"), margin {(cut - reg_pt).total_seconds() / 3600:.1f} h "
+                 f"(high case {(cut - reg_hi).total_seconds() / 3600:.1f} h)")
+    parts.append(f"drawn from the {FILL_1022_RESERVE_H:.0f} h reserve: {drawn_pt:.2f} h (high {drawn_hi:.2f} h); "
+                 f"R2 session ratios llama3.3:70b/qwen3:14b: {l70['_ratios']}")
+    return {"value": "ESTIMATE; " + "; ".join(parts), "n": "2 jobs (estimate)"}
+
+
+def compute_x2_evalset_tasks_val_v2_l70_gates(repo):
+    """llama3.3:70b v2 tasks validation: every gate with its numbers, the failing gates, and whether the real run's
+    strict preflight (v2_strict, llama3.3:70b only) admits it."""
+    _r2_agent_module()
+    import x2_r2_evalset as ev
+    rows = ev.ag.read_rows(repo / X2_EVALSET_TASKS_VAL_V2_L70)
+    if not rows:
+        raise FileNotFoundError(repo / X2_EVALSET_TASKS_VAL_V2_L70)
+    rep = ev.evaluate_gates_ext(rows, "evalset", False, "off", design=ev.file_design(rows))
+    g = rep["gates"]
+    m = L70_MODEL
+    gates = [x for x in EVALSET_V2_GATE_ORDER if x in g]
+    failing = [x for x in gates if g[x].get(m) is not None and not g[x][m]["pass"]
+               and not (x == "rules678" and not g[x][m]["applies"])]
+    pf = ev.strict_preflight_v2(rows, [m], allowed_models=ev.TASKS_V2_L70_MODELS)
+    finished = any(r.get("record") == "run_end" for r in rows)
+    return {"value": f"tasks {m} (run finished {finished}, design {ev.file_design(rows)}): "
+                     + "; ".join(_evalset_v2_gate_text(x, g, rep, m) for x in gates)
+                     + f"; failing gates: {', '.join(failing) or 'none'}; strict preflight (v2_strict): "
+                     + ("admits " + m if pf["ok"] else "refuses (" + "; ".join(pf["refused"].get(m, [])) + ")"),
+            "n": f"{sum(1 for r in rows if r.get('record') == 'r2a_turn')} turns"}
+
+
+# Intel laptop task accuracy (docs/EXPERIMENTS.md and docs/FINDINGS.md "PRE-REGISTRATION: Intel laptop task accuracy",
+# 2026-10-22): staged for the evo-t2s window 2026-10-26 to 2026-11-08 (entries t2s_o26_b3_*). The hours row is an
+# ESTIMATE from measured times; the result rows are PENDING until the files are synced and read only after run_end.
+T2S_EVALSET_FILES = {be: (f"results/t2s_evalset_tasks_val_v2_{be}.jsonl", f"results/t2s_evalset_tasks_real_v2_{be}.jsonl")
+                     for be in ("cpu", "igpu")}
+T2S_EVALSET_EXPECTED_CTX = {"cpu": 4096, "igpu": 32768}
+T2S_EVALSET_X2_PROJECTION_TIER = {"cpu": "ollama_ctx_4096", "igpu": "ollama_default"}
+
+
+def compute_t2s_evalset_tasks_hours(repo):
+    """ESTIMATE (not a measurement) of the four staged B3 v2 entries on evo-t2s (scripts/t2s_window_stage.py
+    b3_estimates), point and high."""
+    import sys as _sys
+    _sys.path[:0] = [str(repo / "scripts"), str(repo / "harness")]
+    import t2s_window_stage as ws
+    est = ws.b3_estimates()
+    order = ("b3_val_cpu", "b3_real_cpu", "b3_val_igpu", "b3_real_igpu")
+    tot, hi = sum(est[k]["hours"] for k in order), sum(est[k]["high_h"] for k in order)
+    return {"value": "ESTIMATE; " + "; ".join(f"t2s_o26_{k} {est[k]['hours']:.1f} h (high {est[k]['high_h']:.1f} h; "
+                                              f"{est[k]['basis']})" for k in order)
+                     + f"; total {tot:.1f} h (high {hi:.1f} h)", "n": "4 entries (estimate)"}
+
+
+def compute_t2s_evalset_tasks(repo, be):
+    """B3 v2 task real run on evo-t2s for one backend (cpu: Intel CPU, default 4096; igpu: OLLAMA_IGPU_ENABLE=1,
+    default 32768), qwen3:14b, seeds 20260901-03: the strict preflight's verdict, validity, task accuracy over the 90
+    task turns, and, beside it, the evo-x2 tier that hybrid-savings-tradeoff / hybrid-route-at-start projected from.
+    Read only after run_end (a file without run_end raises, so the row is not VERIFIED)."""
+    _r2_agent_module()
+    import x2_r2_evalset as ev
+    val_name, real_name = T2S_EVALSET_FILES[be]
+    rows = ev.ag.read_rows(repo / real_name)
+    if not any(r.get("record") == "run_end" for r in rows):
+        raise ValueError(f"{real_name} has no run_end (unfinished); not read")
+    m = ev.TASKS_V2_T2S_MODELS[0]
+    o = ev.tasks_real_v2_outcome(rows, tiers=ev.TASKS_V2_T2S_TIERS, seeds=ev.TASKS_V2_T2S_SEEDS,
+                                 models=ev.TASKS_V2_T2S_MODELS)
+    d = o["models"].get(m, {})
+    if d.get("refused") or any(r.get("record") == "refused_model" and r.get("model_id") == m for r in rows):
+        reasons = d.get("reasons") or [x for r in rows if r.get("record") == "refused_model" for x in r["reasons"]]
+        return {"value": f"{m} {be}: refused by the strict preflight (v2_strict, no waiver) on {val_name} "
+                         f"({'; '.join(reasons)}); no Intel task accuracy measured, the projection stays",
+                "n": "0 task turns"}
+    problems = list(d.get("problems") or [])
+    chk = next((r for r in rows if r.get("record") == "t2s_runtime_check"), None)
+    want = T2S_EVALSET_EXPECTED_CTX[be]
+    if chk is None:
+        problems.append("no t2s_runtime_check row")
+    elif chk.get("loaded_context_by_model", {}).get(m) != [want]:
+        problems.append(f"loaded window {chk.get('loaded_context_by_model', {}).get(m)} != {want}")
+    att = {s["attempt_id"] for s in ev.ag.completed_sessions(rows) if s.get("mode") == "real" and s["model_id"] == m}
+    tt = [r for r in rows if r.get("record") == "r2a_turn" and r.get("attempt_id") in att
+          and r.get("item_kind") == "task" and r.get("end_state_ok") is not None]
+    n, ok = len(tt), sum(1 for r in tt if r["end_state_ok"])
+    if n != 90:
+        problems.append(f"{n} task turns, not 90")
+    if not n:
+        return {"value": f"{m} {be}: no task turns; " + "; ".join(problems), "n": "0 task turns"}
+    per_seed = ", ".join(f"{s} {sum(1 for r in tt if r['seed'] == s and r['end_state_ok'])}/"
+                         f"{sum(1 for r in tt if r['seed'] == s)}" for s in ev.TASKS_V2_T2S_SEEDS)
+    info = (d.get("tiers") or {}).get(ev.TASKS_V2_DEFAULT_TIER, {})
+    xr = ev.ag.read_rows(repo / X2_EVALSET_TASKS_REAL_V2)
+    xt = T2S_EVALSET_X2_PROJECTION_TIER[be] + "_call2_notools"
+    xatt = {s["attempt_id"] for s in ev.ag.completed_sessions(xr) if s["model_id"] == m and s["arm_id"] == xt}
+    xx = [r for r in xr if r.get("record") == "r2a_turn" and r.get("attempt_id") in xatt and r.get("item_kind") == "task"
+          and r.get("end_state_ok") is not None and r.get("seed") in ev.TASKS_V2_T2S_SEEDS]
+    xok = sum(1 for r in xx if r["end_state_ok"])
+    proj = (f"evo-x2 {T2S_EVALSET_X2_PROJECTION_TIER[be]} on the same seeds {xok}/{len(xx)} "
+            f"({100 * xok / len(xx):.1f}%), difference {100 * ok / n - 100 * xok / len(xx):+.1f} points" if xx
+            else "evo-x2 comparison tier has no turns on these seeds")
+    return {"value": f"{m} Intel {be.upper() if be == 'cpu' else 'iGPU'} default window {want}: valid {not problems}"
+                     + (f" ({'; '.join(problems)})" if problems else "")
+                     + f"; correct {ok}/{n} ({100 * ok / n:.1f}%) (per seed {per_seed}); wrong {info.get('wrong')} "
+                     f"(silent {info.get('silent_wrong')}, surfaced {info.get('surfaced_wrong')}); beside it, the "
+                     f"tier the hybrid rows projected from: {proj}", "n": f"{n} task turns"}
+
+
+def compute_t2s_evalset_tasks_cpu(repo):
+    return compute_t2s_evalset_tasks(repo, "cpu")
+
+
+def compute_t2s_evalset_tasks_igpu(repo):
+    return compute_t2s_evalset_tasks(repo, "igpu")
+
+
+def l70_route_reading(local_correct, local_n, cloud_correct, cloud_n, tolerances=(0, 5, 10)) -> dict:
+    """Pure: the pre-registered route-at-start reading of llama3.3:70b against one cloud tier (impact_model's
+    route_decision: local if 100 x local accuracy >= 100 x cloud accuracy - tolerance)."""
+    import sys as _sys
+    _sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import impact_model as im
+    lq, cq = local_correct / local_n, cloud_correct / cloud_n
+    routes = {t: im.route_decision(lq, cq, t) for t in tolerances}
+    gap = 100 * (cq - lq)
+    if routes[0] == "local":
+        reading = "llama3.3:70b routes local at matched quality"
+    elif gap > max(tolerances):
+        reading = "cloud at every tolerance shown"
+    else:
+        reading = f"cloud at matched quality; routes local at tolerance >= {gap:.1f}"
+    return {"gap": gap, "routes": routes, "reading": reading}
+
+
+def compute_x2_evalset_tasks_real_v2_l70_route(repo):
+    """llama3.3:70b B3 v2 real run at the default window: validity, task accuracy over the 90 task turns, and the
+    pre-registered route-at-start reading against each cloud tier of all_cloud_b3_v1 (same seeds and tasks)."""
+    _r2_agent_module()
+    import x2_r2_evalset as ev
+    rows = ev.ag.read_rows(repo / X2_EVALSET_TASKS_REAL_V2_L70)
+    if not rows:
+        raise FileNotFoundError(repo / X2_EVALSET_TASKS_REAL_V2_L70)
+    m = L70_MODEL
+    o = ev.tasks_real_v2_outcome(rows, tiers=ev.TASKS_V2_L70_TIERS, seeds=ev.TASKS_V2_L70_SEEDS,
+                                 models=ev.TASKS_V2_L70_MODELS)
+    d = o["models"].get(m, {})
+    if d.get("refused"):
+        return {"value": f"run finished {o['run_finished']}; {m}: refused ({'; '.join(d['reasons'] or [])}); no "
+                         "larger local option measured", "n": "0 task turns"}
+    problems = list(d.get("problems") or ["no sessions"])
+    if not any(r.get("record") == "run_start" and r.get("harness_blob") for r in rows):
+        problems.append("run_start has no harness_blob")
+    valid = not problems
+    att = {s["attempt_id"] for s in ev.ag.completed_sessions(rows) if s.get("mode") == "real" and s["model_id"] == m}
+    tt = [r for r in rows if r.get("record") == "r2a_turn" and r.get("attempt_id") in att
+          and r.get("item_kind") == "task" and r.get("end_state_ok") is not None]
+    n, ok = len(tt), sum(1 for r in tt if r["end_state_ok"])
+    per_seed = {s: (sum(1 for r in tt if r["seed"] == s and r["end_state_ok"]), sum(1 for r in tt if r["seed"] == s))
+                for s in ev.TASKS_V2_L70_SEEDS}
+    info = (d.get("tiers") or {}).get(ev.TASKS_V2_DEFAULT_TIER, {})
+    head = (f"run finished {o['run_finished']}; {m} ollama_default: valid {valid}"
+            + (f" ({'; '.join(problems)})" if problems else "")
+            + f"; correct {ok}/{n} ({100 * ok / n:.1f}%)" if n else f"run finished {o['run_finished']}; no task turns")
+    if not n:
+        return {"value": head, "n": "0 task turns"}
+    head += (" (per seed " + ", ".join(f"{s} {a}/{b}" for s, (a, b) in per_seed.items()) + f"); wrong "
+             f"{info.get('wrong')} (silent {info.get('silent_wrong')}, surfaced {info.get('surfaced_wrong')}); loaded "
+             f"context {info.get('loaded_context_values')}")
+    if not valid:
+        return {"value": head + "; reading: inconclusive (run not valid)", "n": f"{n} task turns"}
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "analysis"))
+    import impact_model as im
+    cloud = im.all_cloud_task_outcomes(repo)["models"]
+    keys = {(r["seed"], r["task_id"]) for r in tt}
+    reads, local_any = [], False
+    for cm in sorted(cloud):
+        c = cloud[cm]
+        shared = sorted(keys & set(c))
+        cc = sum(1 for k in shared if c[k][0])
+        rd = l70_route_reading(ok, n, cc, len(shared))
+        local_any = local_any or rd["routes"][0] == "local"
+        reads.append(f"vs {cm} {cc}/{len(shared)} ({100 * cc / len(shared):.1f}%): gap {rd['gap']:.1f} points; "
+                     + ", ".join(f"tolerance {t}: {r}" for t, r in rd["routes"].items()) + f"; {rd['reading']}")
+    q = im.b3_v2_task_outcomes(repo).get(ev.TASKS_V2_DEFAULT_TIER, {})
+    qk = [k for k in q if k[0] in ev.TASKS_V2_L70_SEEDS]
+    qok = sum(1 for k in qk if not q[k][1])
+    overall = ("a larger local option changes the route-at-start answer on evo-x2" if local_any else
+               "at matched quality evo-x2 still routes to the cloud with a larger local model")
+    return {"value": head + "; " + "; ".join(reads) + f"; overall: {overall}; context, not a test: qwen3:14b "
+                     f"ollama_default {qok}/{len(qk)} ({100 * qok / len(qk):.1f}%) on the same seeds, llama3.3:70b minus "
+                     f"qwen3:14b {100 * ok / n - 100 * qok / len(qk):+.1f} points (descriptive)",
+            "n": f"{n} task turns"}
+
+
 def cost_cut_config_time_data(repo) -> dict:
     """Per model: the runtime default (B5 policy a) and the fastest measured non-router setting on evo-x2 (B5 policies
     b-h, and the flash-attention control's policy i once synced and valid): {"models": {model: {"default_min",
@@ -6573,6 +6914,188 @@ def compute_x2_scale_real_default_tier(repo):
             n += 1
         parts.append(f"{m}: {len(ss)} default-tier sessions completed ({'; '.join(segs)})")
     return {"value": " / ".join(parts), "n": f"{n} sessions"}
+
+
+# ── long-task local accuracy and long-task cloud priced vs billed (2026-10-22; docs/EXPERIMENTS.md "Long-task local
+# accuracy" and "Long-task cloud priced vs billed"). Tasks: harness/longtask_env.py, long-horizon synthetic,
+# trace-length matched (never SWE-Gym). Result rows are PENDING until their file exists AND holds a run_end record. ──
+LONGTASK_LOCAL_FILE = "results/x2_longtask_local_v1.jsonl"
+LONGTASK_CLOUD_FILE = "results/longtask_cloud_v1.jsonl"
+LONGTASK_JOB = "x2_longtask_local_v1"
+LONGTASK_TRACE_FILE = "harness/agent_trace_steps_uncensored.json"
+
+
+def _longtask_modules():
+    import sys as _sys
+    _r2_agent_module()
+    _sys.path.insert(0, str(REPO / "harness"))
+    import longtask_env as lt
+    import x2_longtask as xl
+    return lt, xl
+
+
+def _finished_attempt_rows(rows):
+    """The rows of the attempt that wrote run_end (the last such attempt)."""
+    ends = [r for r in rows if r.get("record") == "run_end"]
+    if not ends:
+        raise ValueError("no run_end record (partial file)")
+    att = ends[-1].get("attempt_id")
+    return [r for r in rows if r.get("attempt_id") == att] if att else rows
+
+
+def _lt_schedule(repo):
+    return json.loads((repo / LONGTASK_TRACE_FILE).read_text(encoding="utf-8"))
+
+
+def compute_long_task_local_hours(repo):
+    """ESTIMATE (not a measurement) of x2_longtask_local_v1: every reference step plus the final answer one call at
+    B5's measured median qwen3:14b call time of its prompt band for the matching policy ((a) for ollama_default, (g)
+    for kv_q8_0; high = 1.5 x the calls at the band's 75th percentile), and its projected place behind the queue."""
+    from datetime import datetime, timedelta, timezone
+    _lt, xl = _longtask_modules()
+    ag = _r2_agent_module()
+    est = xl.hours_estimate(ag.read_rows(repo / B5_X2_FILE))
+    fill = queue_fill_1022_estimates(repo)
+    l70 = l70_b3v2_estimates(repo)
+    pt_tz = timezone(timedelta(hours=-7), "PT")
+    cut = datetime.fromisoformat(L70_CUTOFF_UTC)
+    stop = datetime.fromisoformat(xl.STOP_AFTER_UTC)
+
+    def f(t):
+        return f"{t.strftime('%m-%d %H:%MZ')} ({t.astimezone(pt_tz).strftime('%m-%d %H:%M')} PT)"
+    order = list(FILL_1022_ORDER[FILL_1022_ORDER.index(L70_ANCHOR_JOB):]) + list(L70_JOBS)
+    jobs = {**fill, **{k: v for k, v in l70.items() if not k.startswith("_")}}
+    t_pt = t_hi = datetime.fromisoformat(L70_ANCHOR_UTC)
+    for j in order:
+        t_pt += timedelta(hours=jobs[j]["point_h"])
+        t_hi += timedelta(hours=jobs[j]["high_h"])
+    s_pt, s_hi = t_pt, t_hi
+    e_pt = s_pt + timedelta(hours=est["total"]["point_h"])
+    e_hi = s_hi + timedelta(hours=est["total"]["high_h"])
+    r_pt, r_hi = e_pt + timedelta(hours=L70_SYNC_INTERVAL_H), e_hi + timedelta(hours=L70_SYNC_INTERVAL_H)
+    arms = "; ".join(f"{a} {est[a]['point_h']:.2f} h (high {est[a]['high_h']:.2f} h; B5 call time per 10k prompt "
+                     "band median/p75 s: " + ", ".join(f"{b * 10}k {v['median_s']:.1f}/{v['p75_s']:.1f} (n={v['n']})"
+                                                         for b, v in sorted(est[a]["bands"].items())) + ")"
+                     for a in xl.ARM_ORDER)
+    return {"value": f"ESTIMATE; {LONGTASK_JOB} (qwen3:14b, 20 long-horizon synthetic tasks x 3 seeds x 2 arms): "
+                     f"total {est['total']['point_h']:.2f} h (high {est['total']['high_h']:.2f} h); {arms}; queued "
+                     f"after x2_evalset_tasks_real_v2_llama33_70b, projected start {f(s_pt)} (high case {f(s_hi)}), "
+                     f"finish {f(e_pt)} (high case {f(e_hi)}); with one {L70_SYNC_INTERVAL_H:.0f} h results-sync "
+                     f"interval registered by {f(r_pt)} (high case {f(r_hi)}); cutoff {f(cut)}: "
+                     + ("met" if r_pt <= cut else "NOT met") + " (high case " + ("met" if r_hi <= cut else "NOT met")
+                     + f"); the job starts no new task after {f(stop)} (--stop-after-utc); "
+                     + _longtask_profile_text(repo),
+            "n": "1 job (estimate)"}
+
+
+def _longtask_profile_text(repo) -> str:
+    """Task-set profile: reference steps and the oracle transcript's final prompt (est x 1.20) per stratum against the
+    matched traces (median steps, first and final prompt, qwen tokens)."""
+    import statistics
+    lt, xl = _longtask_modules()
+    prof = lt.trace_profile(_lt_schedule(repo))
+    out = []
+    for name, _ds in lt.STRATA:
+        idx = [i for i, t in enumerate(lt.LONG_TASKS) if t[1] == name]
+        ref, first, fin = [], [], []
+        for s in xl.SEEDS:
+            steps = xl.oracle_prompt_steps(s)
+            tasks = lt.build_tasks(s)
+            for i in idx:
+                ref.append(tasks[i][0].ref_steps)
+                first.append(steps[i][0])
+                fin.append(steps[i][-1])
+        p = prof[name]
+        out.append(f"{name} stratum (10 tasks x 3 seeds): reference steps median {statistics.median(ref):.0f} (range "
+                   f"{min(ref)} to {max(ref)}), oracle first prompt median {statistics.median(first):.0f}, final prompt "
+                   f"median {statistics.median(fin):.0f} (max {max(fin)}) model tokens; matched traces (n={p['n']}): "
+                   f"median {p['median_steps']:.0f} steps, first prompt {p['median_first_prompt']:.0f}, final prompt "
+                   f"{p['median_final_prompt']:.0f} qwen tokens")
+    return "task profile: " + "; ".join(out)
+
+
+def compute_long_task_local_accuracy(repo):
+    """x2_longtask_local_v1: per arm accuracy (Wilson 95%), wrong split silent / surfaced, minutes per task, by
+    stratum, and the per-call prompt profile against the matched traces."""
+    import statistics
+    lt, xl = _longtask_modules()
+    ag = _r2_agent_module()
+    rows = _finished_attempt_rows(ag.read_rows(repo / LONGTASK_LOCAL_FILE))
+    end = [r for r in rows if r.get("record") == "run_end"][-1]
+    tr = xl.task_rows(rows)
+    if not tr:
+        raise ValueError("no task rows")
+    prof = lt.trace_profile(_lt_schedule(repo))
+    parts = [f"{lt.LABEL} (not SWE-Gym, not OpenHands tasks): qwen3:14b on evo-x2, {len(lt.LONG_TASKS)} tasks "
+             f"(10 matched to SWE-Gym step quantiles, 10 to nebius-rebench-openhands), seeds "
+             f"{sorted({r['seed'] for r in tr})}; run_end note: {end.get('note')}"]
+    sm = {}
+    for a in xl.ARM_ORDER:
+        g = xl.task_rows(rows, xl.ARMS[a]["arm_id"])
+        if not g:
+            parts.append(f"{a}: no task rows")
+            continue
+        s = sm[a] = xl.arm_summary(g)
+        lo, hi = s["wilson95"]
+        strata = ", ".join(f"{k} {v['correct']}/{v['n']} (silent {v['silent_wrong']}, {v['minutes_mean']:.1f} "
+                           f"min/task)" for k, v in s["by_stratum"].items())
+        seeds = ", ".join(f"{k}: {v['correct']}/{v['n']}" for k, v in s["by_seed"].items())
+        fin = {k: statistics.median(r["max_prompt_tokens_est"] for r in g if r["stratum"] == k)
+               for k in s["by_stratum"]}
+        parts.append(
+            f"{a} (B5 policy {xl.ARMS[a]['b5_policy']}, num_ctx sent {xl.ARMS[a]['num_ctx']}, loaded window "
+            f"{s['loaded_context']}): accuracy {s['correct']}/{s['n_tasks']} ({_pct(s['accuracy'])}, Wilson 95% "
+            f"{_pct(lo)} to {_pct(hi)}); wrong {s['wrong']}: silent {s['silent_wrong']} (share of wrong "
+            f"{_pct(s['silent_share_of_wrong'])}, of all tasks {_pct(s['silent_share_of_all'])}), surfaced "
+            f"{s['surfaced_wrong']} (step cap {s['step_cap_hits']}, HTTP error {s['http_error_tasks']}); thinking "
+            f"present {s['thinking_tasks']}; minutes per task mean {s['minutes_per_task_mean']:.2f}, median "
+            f"{s['minutes_per_task_median']:.2f}; calls per task mean {s['calls_per_task_mean']:.1f}; by stratum: "
+            f"{strata}; by seed: {seeds}; median final prompt est per stratum "
+            + ", ".join(f"{k} {v:.0f}" for k, v in fin.items()) + " (traces' median final prompt: "
+            + ", ".join(f"{k} {v['median_final_prompt']:.0f}" for k, v in prof.items()) + " qwen tokens)")
+    if len(sm) == 2:
+        d = 100 * (sm["kv_q8_0"]["accuracy"] - sm["ollama_default"]["accuracy"])
+        parts.append(f"kv_q8_0 minus ollama_default: {d:+.1f} points accuracy, "
+                     f"{sm['kv_q8_0']['minutes_per_task_mean'] - sm['ollama_default']['minutes_per_task_mean']:+.2f} "
+                     "min per task (descriptive, no test)")
+    parts.append(f"per-task wall-clock: {len(tr)} rows in {LONGTASK_LOCAL_FILE}.report.json per_task_wall")
+    return {"value": "; ".join(parts), "n": f"{len(tr)} task runs"}
+
+
+def compute_long_task_cloud_priced_vs_billed(repo):
+    """longtask_cloud_v1: per model and task, provider tokens, billed USD, upper-bound USD, the
+    cloud-cost-per-real-task pricing method on the run's own per-call tokens (none / realistic / best), seconds and
+    correct; billed over priced-realistic and whether billed lies within [best, none]."""
+    rows = _finished_attempt_rows(_read_jsonl(repo / LONGTASK_CLOUD_FILE))
+    end = [r for r in rows if r.get("record") == "run_end"][-1]
+    tr = [r for r in rows if r.get("record") == "longtask_cloud_task"]
+    sn = end.get("sonnet") or {}
+    parts = [f"long-horizon synthetic, trace-length matched tasks (not SWE-Gym), seed "
+             f"{sorted({r['seed'] for r in tr}) or 'none'}; decision {end.get('decision')}, stopped "
+             f"{end.get('stopped')}; job billed USD {end.get('job_spend_billed_usd', 0):.4f}, upper bound USD "
+             f"{end.get('job_spend_upper_bound_usd', 0):.4f} (warm-up and pilot included); Sonnet: "
+             + (f"estimate USD {sn['estimate_usd']:.4f} vs threshold {sn.get('threshold_usd', 0):.2f}, run "
+                f"{sn.get('run')}" if sn.get("estimate_usd") is not None else "not reached")]
+    for m in sorted({r["model_id"] for r in tr}):
+        g = [r for r in tr if r["model_id"] == m]
+        b = sum(r["usd_billed"] for r in g)
+        ub = sum(r["usd_upper_bound"] for r in g)
+        pr = {c: sum(r["priced_estimate_usd"][c] for r in g) for c in ("none", "realistic", "best")}
+        within = sum(1 for r in g if r["priced_estimate_usd"]["best"] - 1e-9 <= r["usd_billed"]
+                     <= r["priced_estimate_usd"]["none"] + 1e-9)
+        per = "; ".join(
+            f"{r['task_id']} (ref {r['ref_steps']} steps, {r['n_calls']} calls): input {r['input_tokens']:,} "
+            f"(uncached {r['uncached_input_tokens']:,}, cache read {r['cache_read_tokens']:,}, write "
+            f"{r['cache_write_tokens']:,}), output {r['output_tokens']:,}; billed ${r['usd_billed']:.4f}, upper bound "
+            f"${r['usd_upper_bound']:.4f}, priced none/realistic/best ${r['priced_estimate_usd']['none']:.4f}/"
+            f"${r['priced_estimate_usd']['realistic']:.4f}/${r['priced_estimate_usd']['best']:.4f}; "
+            f"{r['task_wall_s']:.0f} s; correct {r['correct']}" for r in g)
+        parts.append(f"{m}: {sum(1 for r in g if r['correct'])}/{len(g)} correct; tasks billed USD {b:.4f} vs upper "
+                     f"bound {ub:.4f} (billed/upper {b / ub:.3f}); priced none {pr['none']:.4f}, realistic (ASSUMPTION "
+                     f"hit rate 0.7) {pr['realistic']:.4f}, best {pr['best']:.4f}; billed / realistic "
+                     f"{b / pr['realistic']:.3f}; billed within [best, none] for {within}/{len(g)} tasks; per task: "
+                     + per)
+    return {"value": "; ".join(parts), "n": f"{len(tr)} cloud task runs"}
 
 
 NUMBER_ENTRIES = [
@@ -7227,6 +7750,11 @@ NUMBER_ENTRIES = [
                     "machine capacity and hybrid savings",
      "compute": compute_impact_ref_machine_price, "data_files": ["results/hardware_price_evox2_20261021.json"],
      "script_function": "analysis/impact_model.py::ref_machine"},
+    {"claim_id": "energy-price-eia-commercial", "description": "EXTERNAL INPUT, not measured: EIA Electric Power "
+                    "Monthly Table 5.6.A US average retail electricity price, commercial sector, latest month, with "
+                    "URL, release and fetch date; input to the later net-savings row (not computed yet)",
+     "compute": compute_energy_price_eia, "data_files": [ENERGY_PRICE_EIA_FILE],
+     "script_function": "analysis/numbers_register.py::compute_energy_price_eia"},
     {"claim_id": "impact-v2-detection-value", "description": "SUPERSEDED by impact-v3-detection-value-measured (kept "
                     "computing for traceability, not used in docs/IMPACT.md). PROJECTION: value of detecting silent "
                     "wrong tasks at "
@@ -7303,6 +7831,21 @@ NUMBER_ENTRIES = [
                                               CLOUD_REDO_FULL_CONTEXT, CLOUD_REDO_FULL_CONTEXT_PART2,
                                               "results/cloud_redo_full_context_v1_part3.jsonl"}),
      "script_function": "analysis/impact_model.py::route_at_start"},
+    {"claim_id": "hybrid-route-at-start-measured", "description": "Measured hybrid by replay of recorded runs, the "
+     "per-task policy (pre-registered 2026-10-22): at job start the device profile projects each task turn's prompt "
+     "from the task definition and the task runs local if it fits the tier's window, else the whole task goes to the "
+     "cloud from its first call; a local task the window-overflow flag fires on is escalated at its full-history redo "
+     "outcome and cost (Sonnet; Haiku interim). evo-x2 num_ctx 8192 and 4096, qwen3:14b, B3 v2 tasks, seeds "
+     "20260901-03: accuracy, cloud USD per task, share kept local per tier and cloud tier vs all-cloud and naive local "
+     "(the whole-device tolerance rule stays in hybrid-route-at-start)",
+     "compute": compute_hybrid_route_at_start_measured, "data_files": ROUTE_MEASURED_FILES,
+     "script_function": "analysis/impact_model.py::route_at_start_measured"},
+    {"claim_id": "task-latency-by-policy", "description": "Wall-clock seconds per task, median and p90, by replay of "
+     "recorded runs: all-cloud (all_cloud_b3_v1 seconds, each cloud tier), local (x2_evalset_tasks_real_v2 "
+     "turn_wall_s, each B3 v2 tier) and the per-task hybrid of hybrid-route-at-start-measured; seeds 20260901-03; "
+     "long-task runs PENDING until results/long_task_*.jsonl exist",
+     "compute": compute_task_latency_by_policy, "data_files": ROUTE_MEASURED_FILES,
+     "script_function": "analysis/impact_model.py::task_latency_by_policy"},
     {"claim_id": "impact-v2-P2", "description":"Impact v2 P2 configuration: sessions per machine per day (default vs "
                     "fastest measured B5 setting), machines needed for the profile's sessions/day, USD/day of machines "
                     "saved (assumed 3-year life), waiting-time upper bound on the interactive share; PENDING until "
@@ -7526,6 +8069,60 @@ NUMBER_ENTRIES = [
      "results-by date, slack before 2026-11-10 and the hours left beyond the 150 h reserve",
      "compute": compute_x2_queue_fill_1022_hours, "data_files": FILL_1022_DATA,
      "script_function": "analysis/numbers_register.py::compute_x2_queue_fill_1022_hours"},
+    {"claim_id": "x2-llama33-70b-b3v2-hours", "description": "ESTIMATE, not a measurement: hours of the llama3.3:70b "
+     "B3 v2 tasks validation and default-window real run (reserve draw of 2026-10-22) from measured times, projected "
+     "start and finish behind the rest of the 2026-10-22 fill, the 2026-10-27 12:00 PT cutoff and the reserve hours "
+     "drawn",
+     "compute": compute_x2_llama33_70b_b3v2_hours, "data_files": FILL_1022_DATA + L70_HOURS_DATA,
+     "script_function": "analysis/numbers_register.py::compute_x2_llama33_70b_b3v2_hours"},
+    {"claim_id": "x2-evalset-tasks-val-v2-llama33-70b-gates", "description": "B3 v2 tasks validation for "
+     "llama3.3:70b: every gate with its numbers, failing gates, and whether the strict preflight admits it",
+     "compute": compute_x2_evalset_tasks_val_v2_l70_gates, "data_files": [X2_EVALSET_TASKS_VAL_V2_L70],
+     "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_x2_evalset_tasks_val_v2_l70_gates"},
+    {"claim_id": "x2-evalset-tasks-real-v2-llama33-70b-route", "description": "B3 v2 task real run, llama3.3:70b at "
+     "the Ollama default window, seeds 20260901-03: validity, task accuracy over 90 task turns, and the pre-registered "
+     "route-at-start reading against each all-cloud tier (tolerance 0, 5, 10)",
+     "compute": compute_x2_evalset_tasks_real_v2_l70_route,
+     "data_files": [X2_EVALSET_TASKS_REAL_V2_L70, ALL_CLOUD_B3_V1, X2_EVALSET_TASKS_REAL_V2], "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_x2_evalset_tasks_real_v2_l70_route"},
+    {"claim_id": "t2s-evalset-tasks-hours", "description": "ESTIMATE, not a measurement: hours of the four staged B3 "
+     "v2 entries on evo-t2s (qwen3:14b tasks validation and real run, Intel CPU 4096 and iGPU 32768), from measured "
+     "evo-t2s R2 session minutes scaled by the B3 v2 task-turn profile",
+     "compute": compute_t2s_evalset_tasks_hours,
+     "data_files": ["results/t2s_r2_real_cpu_v1.jsonl", "results/t2s_r2_real_igpu_v1.jsonl", "results/x2_r2_real_v1.jsonl",
+                    "results/x2_r2_real_v1b.jsonl", X2_EVALSET_TASKS_VAL_V2, X2_EVALSET_TASKS_REAL_V2],
+     "script_function": "scripts/t2s_window_stage.py::b3_estimates"},
+    {"claim_id": "t2s-evalset-tasks-cpu", "description": "B3 v2 task real run on evo-t2s Intel CPU (stock Ollama, "
+     "default window 4096), qwen3:14b, seeds 20260901-03, strict preflight: validity, task accuracy over 90 task "
+     "turns, beside the evo-x2 ollama_ctx_4096 tier the hybrid rows projected from",
+     "compute": compute_t2s_evalset_tasks_cpu,
+     "data_files": [*T2S_EVALSET_FILES["cpu"], X2_EVALSET_TASKS_REAL_V2], "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_t2s_evalset_tasks"},
+    {"claim_id": "t2s-evalset-tasks-igpu", "description": "B3 v2 task real run on evo-t2s Intel iGPU "
+     "(OLLAMA_IGPU_ENABLE=1, default window 32768), qwen3:14b, seeds 20260901-03, strict preflight: validity, task "
+     "accuracy over 90 task turns, beside the evo-x2 ollama_default tier",
+     "compute": compute_t2s_evalset_tasks_igpu,
+     "data_files": [*T2S_EVALSET_FILES["igpu"], X2_EVALSET_TASKS_REAL_V2], "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_t2s_evalset_tasks"},
+
+    {"claim_id": "long-task-local-hours", "description": "ESTIMATE, not a measurement: hours of the long-task local "
+     "accuracy job (qwen3:14b, 20 long-horizon synthetic tasks x 3 seeds, ollama_default and kv_q8_0) from B5's "
+     "measured call times, projected start and finish behind the queue and the 2026-10-27 12:00 PT cutoff",
+     "compute": compute_long_task_local_hours, "data_files": [B5_X2_FILE] + FILL_1022_DATA + L70_HOURS_DATA,
+     "script_function": "harness/x2_longtask.py::hours_estimate"},
+    {"claim_id": "long-task-local-accuracy", "description": "qwen3:14b on evo-x2, long-horizon synthetic tasks "
+     "(trace-length matched, not SWE-Gym), ollama_default vs kv_q8_0, 3 seeds: accuracy, silent failure share, minutes "
+     "per task, by stratum; PENDING until the file has run_end",
+     "compute": compute_long_task_local_accuracy, "data_files": [LONGTASK_LOCAL_FILE, LONGTASK_TRACE_FILE],
+     "pending_ok": True, "require_run_end": [LONGTASK_LOCAL_FILE],
+     "script_function": "analysis/numbers_register.py::compute_long_task_local_accuracy"},
+    {"claim_id": "long-task-cloud-priced-vs-billed", "description": "all-cloud on 5 of the long-horizon synthetic "
+     "tasks (seed 20260901, claude-haiku-5-5; Sonnet only if its estimate is under USD 5): per task tokens, billed USD, "
+     "upper bound USD, the cloud-cost-per-real-task pricing on the run's own tokens, seconds, correct",
+     "compute": compute_long_task_cloud_priced_vs_billed, "data_files": [LONGTASK_CLOUD_FILE], "pending_ok": True,
+     "require_run_end": [LONGTASK_CLOUD_FILE],
+     "script_function": "analysis/numbers_register.py::compute_long_task_cloud_priced_vs_billed"},
     {"claim_id": "cost-cut-config-time", "description": "MEASURED: per model, session minutes saved per 40-turn R2 "
      "session on evo-x2 by the fastest measured non-router setting (B5 policies b-h, plus the flash-attention control "
      "once synced) against the runtime default (B5 policy a), with both settings' rule pass rate and history recall",
@@ -7604,7 +8201,132 @@ def _pending(entry, repo=None) -> list[str]:
     if not entry.get("pending_ok"):
         return []
     repo = repo or REPO
-    return [f for f in entry["data_files"] if not (repo / f).exists()]
+    missing = [f for f in entry["data_files"] if not (repo / f).exists()]
+    for f in entry.get("require_run_end", ()):   # a partial file (no run_end record yet) stays PENDING
+        if (repo / f).exists() and not _has_run_end(repo / f):
+            missing.append(f + " (partial: no run_end)")
+    return missing
+
+
+def _has_run_end(path) -> bool:
+    with open(path, encoding="utf-8") as fh:
+        return any('"run_end"' in line and json.loads(line).get("record") == "run_end" for line in fh if line.strip())
+
+
+# Run completeness (2026-10-22): a row must not be VERIFIED from a partial run file. Every data file of a row (globs
+# expanded) that is a run file (a .jsonl with a run_start record) must be complete, else the row is PENDING with
+# "partial: no run_end" and is not computed. Complete means:
+#   - single file: a run_end record after the file's last run_start; or a run that refused to start at its preflight
+#     (run_start with an empty model list and validation_preflight.ok false: the harness returns before run_end by
+#     design, e.g. harness/x2_r2_evalset.py on a strict-preflight refusal);
+#   - multi-part run (<stem>.jsonl plus <stem>_partN.jsonl continuations, scripts/cloud_redo.py --resume): every part
+#     is judged by the LAST part, which must have a run_end after its last run_start that did not stop; for a
+#     cloud_redo run also every wrong task must have a merged row (scripts/cloud_redo.py::merged_rows, superseded rows
+#     excluded) -- a stop or crash in an earlier part does not count, because the next part resumed it.
+# Files that legitimately never write a run_end are opted out explicitly here, each with its reason.
+RUN_END_OPT_OUT = {
+    "results/blade_dryrun/*.jsonl": "Blade dry runs stop on their time budget with a run_stopped record by design "
+                                    "(harness/blade_common.py); they estimate rates, not results",
+    "results/all_cloud_b3_v1_attempt*_aborted.jsonl": "aborted all-cloud attempts kept only so their billed spend is "
+                                                      "counted (cloud-spend-billed-vs-upper-bound); no result is read",
+}
+_RUN_SCAN_CACHE = {}
+
+
+def _run_scan(path: Path) -> dict:
+    """run_start / run_end positions of a .jsonl run file (cached on size and mtime)."""
+    st = path.stat()
+    key = (str(path), st.st_size, st.st_mtime_ns)
+    if key in _RUN_SCAN_CACHE:
+        return _RUN_SCAN_CACHE[key]
+    out = {"starts": [], "ends": [], "last_start": None, "last_end": None}
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        for i, line in enumerate(fh):
+            if '"run_start"' not in line and '"run_end"' not in line:
+                continue
+            try:
+                r = json.loads(line)
+            except ValueError:
+                continue
+            if r.get("record") == "run_start":
+                out["starts"].append(i)
+                out["last_start"] = r
+            elif r.get("record") == "run_end":
+                out["ends"].append(i)
+                out["last_end"] = r
+    _RUN_SCAN_CACHE[key] = out
+    return out
+
+
+def _opted_out(rel: str) -> bool:
+    import fnmatch
+    return any(fnmatch.fnmatch(rel, pat) for pat in RUN_END_OPT_OUT)
+
+
+def _part_family(path: Path) -> list[Path]:
+    """[first, part2, ...] when path is a multi-part run (the first file or one of its continuations), else []."""
+    import re
+    m = re.match(r"^(.*)_part(\d+)$", path.stem)
+    first = path.with_name(m.group(1) + ".jsonl") if m else path
+    parts = sorted(((int(q.stem.rsplit("_part", 1)[1]), q) for q in first.parent.glob(f"{first.stem}_part*.jsonl")
+                    if q.stem.rsplit("_part", 1)[1].isdigit()), key=lambda x: x[0])
+    if not parts or not first.exists():
+        return []
+    return [first] + [q for _n, q in parts]
+
+
+def _single_complete(s: dict) -> bool:
+    if not s["starts"]:
+        return True
+    if s["ends"] and s["ends"][-1] > s["starts"][-1]:
+        return True
+    st = s["last_start"] or {}
+    pf = st.get("validation_preflight")
+    return st.get("models") == [] and isinstance(pf, dict) and pf.get("ok") is False
+
+
+def run_file_incomplete(repo: Path, rel: str) -> str | None:
+    """None if the file is not a run file, is opted out, or is complete (see the comment above); else the reason."""
+    path = Path(repo) / rel
+    if not rel.endswith(".jsonl") or not path.exists() or _opted_out(rel):
+        return None
+    fam = _part_family(path)
+    if fam:
+        last = fam[-1]
+        s = _run_scan(last)
+        lrel = last.relative_to(repo).as_posix() if last.is_relative_to(repo) else str(last)
+        if not s["starts"] or not (s["ends"] and s["ends"][-1] > s["starts"][-1]):
+            return f"partial: no run_end in the last part {lrel}"
+        if (s["last_end"] or {}).get("stopped"):
+            return f"partial: the last part {lrel} stopped ({str(s['last_end']['stopped'])[:80]})"
+        first_start = _run_scan(fam[0])["last_start"] or {}
+        if first_start.get("harness") == "cloud_redo" and first_start.get("n_wrong_tasks") is not None:
+            import importlib.util
+            spec = importlib.util.spec_from_file_location("cloud_redo_nr", Path(repo) / "scripts" / "cloud_redo.py")
+            cr = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(cr)
+            n = len(cr.merged_rows(fam))
+            if n < first_start["n_wrong_tasks"]:
+                return f"partial: {n}/{first_start['n_wrong_tasks']} tasks across the parts"
+        return None
+    if not _single_complete(_run_scan(path)):
+        return f"partial: no run_end in {rel}"
+    return None
+
+
+def _incomplete(entry, repo=None) -> list[str]:
+    """Reasons a row's run data files are partial (empty list: compute it normally)."""
+    import glob as _glob
+    repo = Path(repo or REPO)
+    out = []
+    for d in entry["data_files"]:
+        rels = sorted(Path(m).relative_to(repo).as_posix() for m in _glob.glob(str(repo / d))) if any(
+            c in d for c in "*?[") else [d]
+        for rel in rels:
+            why = run_file_incomplete(repo, rel)
+            if why and why not in out:
+                out.append(why)
+    return out
 
 
 def _values_match(reported, computed_value, tolerance_note=False):
@@ -7627,6 +8349,16 @@ def build_register():
             rows.append({
                 "claim_id": entry["claim_id"], "status": "PENDING",
                 "value": "not computed: data file(s) not synced yet: " + ", ".join(missing), "n": "n/a",
+                "reported_value": entry.get("reported_value", "(none previously reported)"),
+                "data_files": entry["data_files"], "script_function": entry["script_function"],
+                "commit": head, "date": date,
+            })
+            continue
+        partial = _incomplete(entry)
+        if partial:
+            rows.append({
+                "claim_id": entry["claim_id"], "status": "PENDING",
+                "value": "not computed: " + "; ".join(partial), "n": "n/a",
                 "reported_value": entry.get("reported_value", "(none previously reported)"),
                 "data_files": entry["data_files"], "script_function": entry["script_function"],
                 "commit": head, "date": date,
