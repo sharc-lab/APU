@@ -151,9 +151,34 @@ dialog .close { float: right; }
 .settings { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin: 10px 0; }
 .answer { white-space: pre-wrap; font: 13px/1.4 ui-monospace, Consolas, monospace; background: var(--page);
   border: 1px solid var(--border); border-radius: 6px; padding: 8px; max-height: 260px; overflow: auto; }
-/* story mode */
+/* story mode: presenter sizes (headline numbers >= 72px, body >= 24px), plain main screen */
 body:not(.story-on) #story { display: none; }
 body.story-on main > section:not(#story) { display: none; }
+body.story-on header.top { display: none; }
+#story { position: relative; font-size: 24px; }
+.story h2#story-title { font-size: 44px; margin: 12px 0 20px; }
+.eng-link { position: absolute; right: 16px; top: 12px; font-size: 16px; color: var(--ink-2); }
+.s-big { font-size: 72px; font-weight: 800; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.s-cards, .s-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+.s-card, .s-tile { border: 2px solid var(--border); border-radius: 14px; padding: 20px 24px; font-size: 24px; }
+.s-card p, .s-tile p { font-size: 24px; margin: 10px 0; }
+.s-card.bad { border-color: var(--critical); }
+.s-card.good { border-color: var(--good); }
+.s-bars { display: grid; gap: 14px; }
+.s-bar-row { display: flex; align-items: center; gap: 16px; font-size: 24px; }
+.s-bar-label { min-width: 220px; }
+.s-bar { display: inline-block; height: 44px; background: var(--series-1); border-radius: 6px; }
+.s-caption, .s-take { font-size: 28px; font-weight: 600; margin: 18px 0; }
+.s-slider { font-size: 24px; margin-top: 12px; }
+.s-slider input[type=range] { width: 360px; vertical-align: middle; }
+.s-line { font-size: 24px; margin: 6px 0; }
+.s-pick select { font-size: 24px; }
+.s-head { font-size: 40px; font-weight: 700; margin-bottom: 8px; }
+.s-note { font-size: 24px; color: var(--ink-2); }
+.tag-s { font-size: 16px; font-weight: 600; color: var(--ink-2); border: 1px solid var(--axis); border-radius: 4px;
+  padding: 0 6px; vertical-align: middle; white-space: nowrap; }
+.s-details { margin-top: 24px; font-size: 15px; }
+.s-details summary { font-size: 18px; }
 .story h2 { font-size: 22px; margin: 8px 0 12px; }
 .story-steps { display: flex; gap: 8px; list-style: none; padding: 0; margin: 0; }
 .story-steps button { width: 34px; height: 34px; border-radius: 50%; padding: 0; min-height: 0; }

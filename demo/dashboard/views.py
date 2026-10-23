@@ -940,6 +940,76 @@ def late_escalation_text(le: dict) -> str:
             f"{le['model']}")
 
 
+ANTHROPIC_PRICES = "results/cloud_prices_anthropic_20261014.json"
+
+
+def build_cloud_measured(register: dict) -> dict:
+    """The engineering view's cloud rows (2026-10-22: no OpenAI STUB rows): measured all-cloud quality and cost per B3
+    task (all-cloud-b3-quality, all-cloud-b3-cost), the measured full-history redo (cloud-redo-full-context) and the
+    priced cost of a long agent task (cloud-cost-per-real-task), all at the Anthropic shared price table."""
+    def val(rid):
+        r = _row(register, rid)
+        return r["value"] if r else ""
+
+    rows = []
+    q = {m[1]: (m[2], m[3]) for m in re.finditer(r"(claude-[\w.-]+): correct (\d+/\d+) \(([\d.]+)%\)",
+                                                   val("all-cloud-b3-quality"))}
+    c = {m[1]: (float(m[2]), float(m[3])) for m in re.finditer(
+        r"(claude-[\w.-]+): USD per task mean \$([\d.]+), median \$([\d.]+)", val("all-cloud-b3-cost"))}
+    for model in sorted(set(q) | set(c)):
+        rows.append({"model": model, "what": "B3 v2 tasks fully on the cloud (90 task turns)",
+                     "accuracy": f"{q[model][0]} ({q[model][1]}%)" if model in q else None,
+                     "usd_per_task": (f"mean USD {c[model][0]:.5f}, median USD {c[model][1]:.5f}"
+                                      if model in c else None),
+                     "label": MEASURED, "src": reg_src("all-cloud-b3-cost" if model in c else "all-cloud-b3-quality")})
+    fr = parse_full_redo(val("cloud-redo-full-context"))
+    if fr:
+        rows.append({"model": fr["model"], "what": f"Full-history redo of the {fr['n']} wrong local tasks",
+                     "accuracy": (f"fixed {fr['fixed']}/{fr['n']} ({fr['pct']:.1f}%, 95% Wilson CI {fr['ci_lo']:.1f}% "
+                                  f"to {fr['ci_hi']:.1f}%); {fr['classes'].get('earlier_state_repair', 0)} of the "
+                                  f"{fr['n'] - fr['fixed']} unfixed inherited the local model's earlier executed "
+                                  f"actions"),
+                     "usd_per_task": f"mean USD {fr['mean_usd']:.4f}, median USD {fr['median_usd']:.4f}",
+                     "label": MEASURED, "src": reg_src("cloud-redo-full-context")})
+    tc = parse_task_cost(val("cloud-cost-per-real-task"))
+    for model, v in sorted((tc.get("models") or {}).items()):
+        rows.append({"model": model, "what": f"One long agent task ({tc['trace_set']}, median {tc['median_steps']} "
+                                             f"steps), realistic caching", "accuracy": None,
+                     "usd_per_task": f"median USD {v['realistic'][0]:.4f}, p90 USD {v['realistic'][1]:.4f}",
+                     "label": PRICED, "src": reg_src("cloud-cost-per-real-task")})
+    return {"prices": ANTHROPIC_PRICES, "rows": rows}
+
+
+def register_summary(rid: str, row: dict) -> dict:
+    """One plain sentence above a collapsed verbatim register block, using only figures that appear in the row."""
+    v = (row or {}).get("value") or ""
+    label = MEASURED if (row or {}).get("status") == "VERIFIED" else NOT_MEASURED
+    s = None
+    if rid.endswith("gated-kill"):
+        a = re.search(r"ollama_default (\d+)/(\d+) silent", v)
+        b = re.search(r"num_ctx_4096 (\d+)/(\d+) silent, (\d+) after window exceeded", v)
+        if a and b:
+            s = (f"At num_ctx 4096, {b[1]} of {b[2]} sessions failed silently ({b[3]} after the window was exceeded), "
+                 f"against {a[1]} of {a[2]} at the Ollama default.")
+    elif rid == "R2-v1b-excess-over-default":
+        m = re.search(r"num_ctx_4096: overall (\d+)/(\d+) vs default (\d+)/(\d+), excess ([+-][\d.]+) \(95% CI "
+                      r"([+-][\d.]+) to ([+-][\d.]+)\)", v)
+        if m:
+            s = (f"At num_ctx 4096, {m[1]} of {m[2]} sessions failed silently against {m[3]} of {m[4]} at the default: "
+                 f"excess {m[5]} (95% CI {m[6]} to {m[7]}).")
+    elif "mitigation" in rid and "verdict" in rid:
+        verdict = re.search(r"verdict at num_ctx_4096: (\w+)", v)
+        mit = parse_mitigation(v)
+        rec = [k.split("|")[1] for k, r in mit.items() if k.startswith("num_ctx_4096|") and r == "recovered"]
+        nrec = [k.split("|")[1] for k, r in mit.items() if k.startswith("num_ctx_4096|") and r != "recovered"]
+        if verdict:
+            s = (f"The pre-registered verdict at num_ctx 4096 is {verdict[1]}: client-side trimming recovered "
+                 f"{', '.join(rec) or 'none'} and not {', '.join(nrec) or 'none'}.")
+    if s is None:  # fallback: the row's own first clause, verbatim
+        s = v.split(";")[0].strip() + ("." if v and not v.split(";")[0].strip().endswith(".") else "")
+    return {"id": rid, "summary": s, "label": label, "verbatim": v, "status": (row or {}).get("status")}
+
+
 def optional_row(register: dict, rid: str) -> dict:
     """A row that may not be on main yet (2026-10-22: hybrid-route-at-start, late-escalation-cost-vs-fresh): its first
     clause, labelled measured, when VERIFIED; otherwise 'being measured'."""
@@ -1062,7 +1132,7 @@ STORY_IDS = ["t2s-r2-real-cpu", "t2s-r2-real-igpu", "x2-evalset-tasks-real-v2-wr
              "R2-qwen3-14b-4096-reconciliation", "H-scale-verdict", "H-scale-family-verdict", "R2-v1b-gated-per-model",
              "cloud-cost-per-real-task", "b5-fa-control", "b5-policy-metrics", "cloud-redo-full-context",
              "hybrid-savings-tradeoff", "t2s-config-comparison", "hybrid-route-at-start",
-             "late-escalation-cost-vs-fresh"]
+             "late-escalation-cost-vs-fresh", "impact-session-time-by-window", "fh1-amd-boundary-qwen3-32b"]
 
 
 def parse_reconciliation_rule2(value: str) -> dict:
@@ -1132,8 +1202,10 @@ def impact_step4_text(repo: Path = REPO) -> str | None:
     return " ".join(paras[-1].split()) if paras else None
 
 
-def build_story(register: dict, silent: dict, cost: dict, escalation: dict | None = None,
-                repo: Path = REPO) -> dict:
+def _build_story_details(register: dict, silent: dict, cost: dict, escalation: dict | None = None,
+                         repo: Path = REPO) -> dict:
+    """The evidence behind the story (labelled items with sources), grouped as the earlier five steps; the
+    audience-facing story (build_story) shows one idea per step and puts these items in each step's Details."""
     def val(rid):
         r = _row(register, rid)
         return r["value"] if r else ""
@@ -1279,6 +1351,149 @@ def build_story(register: dict, silent: dict, cost: dict, escalation: dict | Non
     steps.append({"n": 5, "title": "One live escalation: send the wrong task to the cloud", "minutes": 1,
                   "items": s5, "panel": "escalate"})
     return {"steps": steps, "register_ids": STORY_IDS, "total_minutes": sum(s["minutes"] for s in steps)}
+
+
+# ── story mode for a non-expert audience (operator 2026-10-22): one idea and one big number per step ──────────────
+
+MACHINE_NAMES = {"evo-x2": "AMD workstation", "evo-t2s": "Intel laptop", "blade": "NVIDIA laptop"}
+MACHINE_ORDER = ["AMD workstation", "Intel laptop", "NVIDIA laptop"]
+STEP_WORD_LIMIT = 30         # "about 25 words" of visible text per step (titles and tags not counted)
+STEP4_WORD_LIMIT = 45        # step 4 carries the operator's three sentences plus the slider caption
+STORY_TAKEAWAY = ROUTE_TAKEAWAY
+
+
+def _num_item(big: str, text: str, tag: str, src: dict | None, tone: str | None = None) -> dict:
+    return {"big": big, "text": text, "tag": "measured" if tag == MEASURED else ("priced" if tag == PRICED else tag),
+            "src": src, "tone": tone}
+
+
+def build_story(register: dict, silent: dict, cost: dict, escalation: dict | None = None,
+                repo: Path = REPO) -> dict:
+    """Five steps, one idea and one big number each, plain words on the main screen; every number traces to a
+    VERIFIED register row listed in that step's closed Details (the evidence items from _build_story_details)."""
+    def val(rid):
+        r = _row(register, rid)
+        return r["value"] if r else ""
+
+    ev = {s["n"]: s for s in _build_story_details(register, silent, cost, escalation, repo)["steps"]}
+    steps = []
+    # 1. same laptop, two settings (llama3.1:8b, Intel CPU default vs Intel iGPU)
+    pair = silent.get("device_pair", {})
+    cpu = next((m for m in (pair.get("cpu") or {}).get("models", []) if m["model"] == "llama3.1:8b"), None)
+    gpu = next((m for m in (pair.get("igpu") or {}).get("models", []) if m["model"] == "llama3.1:8b"), None)
+    shown = ((pair.get("cpu") or {}).get("evidence") or {}).get("totals", {}).get("calls_surfaced_error")
+    cards = []
+    if cpu and gpu:
+        cards = [_num_item(f"{cpu['gated_silent']} of {cpu['n']}",
+                           f"Default setting: {cpu['gated_silent']} of {cpu['n']} agent sessions broke their own "
+                           "rules." + (" No error shown." if shown == 0 else ""), MEASURED,
+                           reg_src("t2s-r2-real-cpu"), "bad"),
+                 # "kept their rules", not "ran correctly": the iGPU sessions lost no gated rule, but their
+                 # history recall did not survive every checkpoint (row t2s-r2-real-igpu, intact counts)
+                 _num_item(f"{gpu['n'] - gpu['gated_silent']} of {gpu['n']}",
+                           f"Right setting: {gpu['n'] - gpu['gated_silent']} of {gpu['n']} kept their rules.",
+                           MEASURED, reg_src("t2s-r2-real-igpu"), "good")]
+    steps.append({"n": 1, "title": "Same laptop, two settings", "kind": "cards", "minutes": 1,
+                  "main": {"cards": cards}, "items": ev[1]["items"]})
+    # 2. how often answers are silently wrong (qwen3:14b task run, rounded on screen)
+    tiers = {t["tier"]: t for t in (silent.get("wrong_rate") or {}).get("tiers", [])}
+    bars = []
+    for tier, name in (("ollama_default", "Enough memory"), ("ollama_ctx_8192", "Tight"),
+                       ("ollama_ctx_4096", "Tighter")):
+        if tier in tiers:
+            bars.append({"label": name, "value": round(tiers[tier]["pct"]), "tag": "measured",
+                         "src": reg_src("x2-evalset-tasks-real-v2-wrong-rate")})
+    surfaced = sum(t["surfaced"] for t in tiers.values()) if tiers else None
+    d2 = [_item(f"{t['tier']}: wrong {t['wrong']}/{t['n']} ({t['pct']:.1f}%, shown rounded to {round(t['pct'])}%), "
+                f"silent {t['silent']}, error shown {t['surfaced']}; memory setting {t['loaded_context']}",
+                MEASURED, "x2-evalset-tasks-real-v2-wrong-rate") for t in tiers.values()]
+    steps.append({"n": 2, "title": "How often answers are silently wrong", "kind": "bars", "minutes": 1,
+                  "main": {"bars": bars, "caption": f"Error messages shown: {surfaced}" if surfaced is not None
+                           else None, "caption_tag": "measured"}, "items": d2})
+    # 3. why not just change one setting?
+    st = re.search(r"qwen3:14b: ollama_default median ([\d.]+) min/session \(n=\d+\), num_ctx_4096 median ([\d.]+)",
+                   val("impact-session-time-by-window"))
+    fail = re.search(r"first fail (\d+) \(exit (\d+)\)", val("fh1-amd-boundary-qwen3-32b"))
+    nk = tiers.get("ollama_ctx_4096_numkeep")
+    rc = parse_reconciliation_rule2(val("R2-qwen3-14b-4096-reconciliation"))
+    tiles = []
+    d3 = list(ev[2]["items"])
+    if st:
+        slow = int(float(st[1]) / float(st[2]))
+        tiles.append(_num_item(f"{slow}x", f"Bigger memory setting: up to {slow}x slower" +
+                               (", or will not start" if fail else ""), MEASURED,
+                               reg_src("impact-session-time-by-window")))
+        d3.append(_item(f"qwen3:14b on the AMD workstation: {st[1]} min per 40-turn session at the default memory "
+                        f"setting vs {st[2]} min at 4096 (shown as up to {slow}x)", MEASURED,
+                        "impact-session-time-by-window"))
+    if fail:
+        d3.append(_item(f"Will not start: qwen3-32b on the AMD workstation first failed to start at a memory setting "
+                        f"of {fail[1]} (exit {fail[2]})", MEASURED, "fh1-amd-boundary-qwen3-32b"))
+    if nk:
+        tiles.append(_num_item(f"{round(nk['pct'])}%", f"The quick fix: still {round(nk['pct'])}% wrong", MEASURED,
+                               reg_src("x2-evalset-tasks-real-v2-wrong-rate")))
+    if rc["trimmed"]:
+        tiles.append(_num_item("", "Trimming old history: breaks a different rule", MEASURED,
+                               reg_src("R2-qwen3-14b-4096-reconciliation")))
+    steps.append({"n": 3, "title": "Why not just change one setting?", "kind": "tiles", "minutes": 1,
+                  "main": {"tiles": tiles}, "items": d3})
+    # 4. what it costs, then the accuracy-tolerance slider
+    tc = parse_task_cost(val("cloud-cost-per-real-task"))
+    son = (tc.get("models") or {}).get("claude-sonnet-5-5")
+    fr = parse_full_redo(val("cloud-redo-full-context"))
+    money = []
+    if son:
+        money.append(_num_item(f"${son['realistic'][0]:.2f}", "per long task in the cloud", PRICED,
+                               reg_src("cloud-cost-per-real-task")))
+    if fr:
+        money.append(_num_item(f"about {round(fr['mean_usd'] * 100):.0f} cents",
+                               "Fixing a wrong answer later: about "
+                               f"{round(fr['mean_usd'] * 100):.0f} cents, but actions already taken cannot be undone",
+                               MEASURED, reg_src("cloud-redo-full-context")))
+    routes = parse_route_at_start(val("hybrid-route-at-start"))
+    for r in routes:
+        r["machine"] = MACHINE_NAMES.get(r["device"].split()[0], r["device"])
+    d4 = list(ev[4]["items"]) + [_item(f"Slider: {r['machine']} ({r['device']}, {r['setting']}) vs {r['model']}: "
+                                       f"local {r['local']} ({r['local_pct']:.1f}%) [{r['basis']}] vs cloud "
+                                       f"{r['cloud']} ({r['cloud_pct']:.1f}%), routes local at a gap of "
+                                       f"{r['tolerance_local']:.1f} points or more", MEASURED,
+                                       "hybrid-route-at-start") for r in routes]
+    steps.append({"n": 4, "title": "What it costs", "kind": "money", "minutes": 1,
+                  "main": {"numbers": money, "takeaway": STORY_TAKEAWAY,
+                           "slider": {"entries": routes, "default": ROUTE_DEFAULT_TOL, "min": 0, "max": 20,
+                                      "volume": 1000}},
+                  "items": d4, "tradeoff": ev[4].get("tradeoff")})
+    # 5. what our tool does: pick a machine, one card
+    machines = MACHINE_ORDER
+    d5 = [_item(f"{r['machine']}: recommended {r['setting']}; vs {r['model']}: local {r['local']} "
+                f"({r['local_pct']:.1f}%, {r['basis']}), cloud {r['cloud']} ({r['cloud_pct']:.1f}%), local saves "
+                f"USD {(r['saves_local'] or {}).get('1000', 0):,.2f} a month at 1,000 tasks a day", MEASURED,
+                "hybrid-route-at-start") for r in routes]
+    missing = [m for m in machines if m not in {r["machine"] for r in routes}]
+    if missing:
+        d5.append(_item(", ".join(missing) + ": not measured", NOT_MEASURED))
+    steps.append({"n": 5, "title": "What our tool does", "kind": "tool", "minutes": 1,
+                  "main": {"machines": machines, "entries": routes, "default_tier": "claude-sonnet-5-5",
+                           "volume": 1000}, "items": d5})
+    for s in steps:
+        s["visible"] = story_visible_text(s)
+    return {"steps": steps, "register_ids": STORY_IDS, "total_minutes": sum(s["minutes"] for s in steps)}
+
+
+def story_visible_text(step: dict) -> list[str]:
+    """The static main-screen text of a step (what the word-count rule applies to), title excluded."""
+    m = step["main"]
+    out = []
+    for c in m.get("cards", []) + m.get("tiles", []) + m.get("numbers", []):
+        out.append(c["text"])
+    for b in m.get("bars", []):
+        out.append(f"{b['label']} {b['value']}%")
+    for k in ("caption", "takeaway"):
+        if m.get(k):
+            out.append(m[k])
+    if step["kind"] == "tool":
+        out += ["Run locally with this setting", "Expected accuracy", "Saves per month"]
+    return out
 
 
 def story_view(cache) -> dict:

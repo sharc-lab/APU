@@ -66,7 +66,9 @@ def test_frontier(app):
     pts = f["machines"]["evo-x2"]["points"]
     assert pts and all(p["src"]["file"].startswith("results/") for p in pts)
     assert f["machines"]["evo-x2"]["frontier_ids"]
-    assert all(p["stub"] for p in f["cloud"]) and f["cloud"]
+    # 2026-10-22: no OpenAI STUB cloud rows; the measured Anthropic cloud rows instead
+    assert f["cloud"] == [] and f["cloud_measured"]["rows"]
+    assert "gpt-" not in json.dumps(f)
     assert any("bare template" in p["flags"] for p in pts)
 
 

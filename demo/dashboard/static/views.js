@@ -174,7 +174,7 @@ function storyNav(index, n, action) {
   return { index, explore: false };
 }
 const STORY_PANELS = { silent: "#silent-body", device: "#device-wrap", escalate: "#esc-wrap" };
-const story = { data: null, index: 0, on: false };
+const story = { data: null, index: 0, on: false, tol: 5, machine: "AMD workstation" };
 function returnPanels() {
   for (const [k, sel] of Object.entries(STORY_PANELS)) {
     const node = $(sel), home = document.querySelector(`.home[data-home="${k}"]`);
@@ -247,24 +247,71 @@ function bindRoute(r) {
 function renderStory() {
   const steps = story.data.steps, st = steps[story.index], n = steps.length;
   $("#story-steps").innerHTML = steps.map((s, i) => `<li class="${i === story.index ? "cur" : i < story.index ? "done" : ""}"><button type="button" data-step="${i}">${s.n}</button></li>`).join("");
-  $("#story-title").textContent = `${st.n}. ${st.title}`;
-  $("#story-items").innerHTML = st.items.map((i) => `<li>${lab(i.label)} ${i.src ? num(i.text, i.src) : esc(i.text)}</li>`).join("");
-  $("#story-indicator").textContent = `Step ${st.n} of ${n}, about ${st.minutes} min`;
+  $("#story-title").textContent = st.title;
+  $("#story-indicator").textContent = `Step ${st.n} of ${n}`;
   $("#story-back").disabled = story.index === 0;
-  $("#story-next").textContent = story.index === n - 1 ? "Finish: explore freely" : "Next";
+  $("#story-next").textContent = story.index === n - 1 ? "Finish" : "Next";
   returnPanels();
-  const tolParam = parseFloat(new URLSearchParams(location.search).get("tol"));
-  const tol = isNaN(tolParam) ? (st.route ? st.route.default_tolerance : 0) : tolParam;
-  $("#story-panel").innerHTML = st.panel === "tradeoff" ? tradeoffHTML(st.tradeoff) : st.panel === "route" ? routeHTML(st.route, tol) : "";
-  if (st.panel === "route") bindRoute(st.route);
-  const sel = STORY_PANELS[st.panel];
-  if (sel && $(sel)) $("#story-panel").appendChild($(sel));
-  if (st.panel === "device" && st.defaults && !story.deviceSet) {
-    const f = $("#devform");
-    for (const [k, v] of Object.entries(st.defaults)) if (f[k]) f[k].value = v;
-    story.deviceSet = true;
-    refreshDevice();
+  $("#story-items").innerHTML = "";
+  $("#story-panel").innerHTML = storyMainHTML(st) + storyDetailsHTML(st);
+  if (st.kind === "money") bindTolerance(st);
+  if (st.kind === "tool") bindTool(st);
+}
+// ── plain main screens (no links, ids or paths); evidence in a closed Details panel per step ──
+const TAG = (t) => (t ? `<span class="tag-s">${esc(t)}</span>` : "");
+function storyMainHTML(st) {
+  const m = st.main || {};
+  if (st.kind === "cards") return `<div class="s-cards">${(m.cards || []).map((c) => `<div class="s-card ${c.tone || ""}"><div class="s-big">${esc(c.big)}</div><p>${esc(c.text)} ${TAG(c.tag)}</p></div>`).join("")}</div>`;
+  if (st.kind === "bars") {
+    const max = Math.max(50, ...(m.bars || []).map((b) => b.value));
+    return `<div class="s-bars">${(m.bars || []).map((b) => `<div class="s-bar-row"><span class="s-bar-label">${esc(b.label)}</span><span class="s-bar" style="width:${(b.value / max) * 60}%"></span><span class="s-big s-bar-v">${b.value}%</span> ${TAG(b.tag)}</div>`).join("")}</div>${m.caption ? `<p class="s-caption">${esc(m.caption)} ${TAG(m.caption_tag)}</p>` : ""}`;
   }
+  if (st.kind === "tiles") return `<div class="s-tiles">${(m.tiles || []).map((t) => `<div class="s-tile">${t.big ? `<div class="s-big">${esc(t.big)}</div>` : ""}<p>${esc(t.text)} ${TAG(t.tag)}</p></div>`).join("")}</div>`;
+  if (st.kind === "money") {
+    const sl = m.slider;
+    return `<div class="s-cards">${(m.numbers || []).map((c) => `<div class="s-card"><div class="s-big">${esc(c.big)}</div><p>${esc(c.text)} ${TAG(c.tag)}</p></div>`).join("")}</div>
+      <p class="s-take">${esc(m.takeaway)}</p>
+      <div class="s-slider"><label>Accuracy gap you accept <input type="range" id="s-tol" min="${sl.min}" max="${sl.max}" step="0.1" value="${story.tol}"> <b id="s-tol-v">${story.tol.toFixed(1)}</b> points</label>
+      <div id="s-tol-out">${toleranceLines(sl, story.tol)}</div></div>`;
+  }
+  if (st.kind === "tool") {
+    return `<div class="s-pick"><label>Machine <select id="s-machine">${m.machines.map((x) => `<option${x === story.machine ? " selected" : ""}>${esc(x)}</option>`).join("")}</select></label></div><div id="s-tool-card">${toolCard(st)}</div>`;
+  }
+  return "";
+}
+function tierEntries(entries, machine, tier) { return entries.filter((e) => e.machine === machine && e.model === tier); }
+function toleranceLines(sl, tol) {
+  const seen = {};
+  return sl.entries.filter((e) => e.model === "claude-sonnet-5-5").map((e) => {
+    if (seen[e.machine]) return ""; seen[e.machine] = 1;
+    const d = routeAt(e, tol);
+    return `<p class="s-line">${esc(e.machine)}: ${d.route === "local" ? "runs locally, saves $" + Math.round(d.saves).toLocaleString() + " a month" : "goes to the cloud"} ${TAG("measured")}</p>`;
+  }).join("");
+}
+function bindTolerance(st) {
+  const s = $("#s-tol");
+  if (!s || !s.addEventListener) return;
+  s.addEventListener("input", () => { story.tol = +s.value; $("#s-tol-v").textContent = story.tol.toFixed(1); $("#s-tol-out").innerHTML = toleranceLines(st.main.slider, story.tol); });
+}
+function toolCard(st) {
+  const m = st.main, e = tierEntries(m.entries, story.machine, m.default_tier)[0];
+  if (!e) return `<div class="s-card"><div class="s-big">not measured</div><p>No measurements for this machine yet. ${TAG("not measured")}</p></div>`;
+  const d = routeAt(e, story.tol), local = d.route === "local";
+  const acc = local ? e.local_pct : e.cloud_pct;
+  return `<div class="s-card ${local ? "good" : ""}"><div class="s-head">${local ? "Run locally with this setting" : "Send to the cloud from the start"}</div>
+    <p>Expected accuracy <span class="s-big">${Math.round(acc)}%</span> ${TAG(local && e.r2_basis ? "measured (session pass rate)" : "measured")}</p>
+    <p>Saves per month <span class="s-big">$${Math.round(d.saves || 0).toLocaleString()}</span> ${TAG("measured")}</p>
+    <p class="s-note">At an accuracy gap of ${story.tol.toFixed(1)} points (step 4).</p></div>`;
+}
+function bindTool(st) {
+  const s = $("#s-machine");
+  if (!s || !s.addEventListener) return;
+  s.addEventListener("change", () => { story.machine = s.value; $("#s-tool-card").innerHTML = toolCard(st); });
+}
+function storyDetailsHTML(st) {
+  const items = (st.items || []).map((i) => `<li>${lab(i.label)} ${i.src ? num(i.text, i.src) : esc(i.text)}</li>`).join("");
+  const extra = st.tradeoff ? tradeoffHTML(st.tradeoff) : "";
+  return `<details class="s-details"><summary>Details: the measurements behind this step</summary><ul class="small">${items}</ul>${extra}</details>`;
 }
 function storyGo(action) {
   const r = storyNav(story.index, story.data.steps.length, action);
@@ -279,13 +326,22 @@ async function initStory() {
   $("#story-explore").addEventListener("click", () => storyGo("explore"));
   $("#story-steps").addEventListener("click", (ev) => { const b = ev.target.closest && ev.target.closest("button[data-step]"); if (b) storyGo(+b.dataset.step); });
   $("#story-open").addEventListener("click", (ev) => { ev.preventDefault(); setStoryMode(true); storyGo(0); });
+  $("#eng-link").addEventListener("click", (ev) => { ev.preventDefault(); storyGo("explore"); });
   document.addEventListener("keydown", (ev) => {
     if (!story.on || /INPUT|SELECT|TEXTAREA/.test((ev.target && ev.target.tagName) || "")) return;
     if (ev.key === "ArrowRight") storyGo("next");
     if (ev.key === "ArrowLeft") storyGo("back");
   });
   const params = new URLSearchParams(location.search);
-  if (params.get("explore") !== "1") { setStoryMode(true); storyGo(+(params.get("step") || 1) - 1); }
+  const s4 = story.data.steps.find((s) => s.kind === "money");
+  story.tol = s4 ? s4.main.slider.default : 5;
+  const t = parseFloat(params.get("tol"));
+  if (!isNaN(t)) story.tol = t;
+  if (params.get("machine")) story.machine = params.get("machine");
+  // story mode is the landing page; ?explore=1 (or ?view=engineering) opens the engineering view
+  if (params.get("explore") !== "1" && params.get("view") !== "engineering") {
+    setStoryMode(true); storyGo(+(params.get("step") || 1) - 1);
+  }
 }
 
 async function viewsMain() {

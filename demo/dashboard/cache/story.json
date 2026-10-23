@@ -2,8 +2,31 @@
  "steps": [
   {
    "n": 1,
-   "title": "The problem: a default nobody chose, a failure nobody sees",
+   "title": "Same laptop, two settings",
+   "kind": "cards",
    "minutes": 1,
+   "main": {
+    "cards": [
+     {
+      "big": "5 of 5",
+      "text": "Default setting: 5 of 5 agent sessions broke their own rules. No error shown.",
+      "tag": "measured",
+      "src": {
+       "register": "t2s-r2-real-cpu"
+      },
+      "tone": "bad"
+     },
+     {
+      "big": "5 of 5",
+      "text": "Right setting: 5 of 5 kept their rules.",
+      "tag": "measured",
+      "src": {
+       "register": "t2s-r2-real-igpu"
+      },
+      "tone": "good"
+     }
+    ]
+   },
    "items": [
     {
      "text": "Intel CPU, llama3.1:8b: Ollama loads 4096 tokens; 5/5 sessions silently lost a rule, 5 after the window filled",
@@ -57,12 +80,126 @@
      }
     }
    ],
-   "panel": "silent"
+   "visible": [
+    "Default setting: 5 of 5 agent sessions broke their own rules. No error shown.",
+    "Right setting: 5 of 5 kept their rules."
+   ]
   },
   {
    "n": 2,
-   "title": "Why it is hard: the obvious fixes do not hold, and it depends on the model",
+   "title": "How often answers are silently wrong",
+   "kind": "bars",
    "minutes": 1,
+   "main": {
+    "bars": [
+     {
+      "label": "Enough memory",
+      "value": 11,
+      "tag": "measured",
+      "src": {
+       "register": "x2-evalset-tasks-real-v2-wrong-rate"
+      }
+     },
+     {
+      "label": "Tight",
+      "value": 35,
+      "tag": "measured",
+      "src": {
+       "register": "x2-evalset-tasks-real-v2-wrong-rate"
+      }
+     },
+     {
+      "label": "Tighter",
+      "value": 42,
+      "tag": "measured",
+      "src": {
+       "register": "x2-evalset-tasks-real-v2-wrong-rate"
+      }
+     }
+    ],
+    "caption": "Error messages shown: 0",
+    "caption_tag": "measured"
+   },
+   "items": [
+    {
+     "text": "ollama_default: wrong 17/150 (11.3%, shown rounded to 11%), silent 17, error shown 0; memory setting [40960]",
+     "label": "measured",
+     "src": {
+      "register": "x2-evalset-tasks-real-v2-wrong-rate"
+     }
+    },
+    {
+     "text": "ollama_ctx_16384: wrong 19/150 (12.7%, shown rounded to 13%), silent 19, error shown 0; memory setting [16384]",
+     "label": "measured",
+     "src": {
+      "register": "x2-evalset-tasks-real-v2-wrong-rate"
+     }
+    },
+    {
+     "text": "ollama_ctx_8192: wrong 53/150 (35.3%, shown rounded to 35%), silent 53, error shown 0; memory setting [8192]",
+     "label": "measured",
+     "src": {
+      "register": "x2-evalset-tasks-real-v2-wrong-rate"
+     }
+    },
+    {
+     "text": "ollama_ctx_4096: wrong 63/150 (42.0%, shown rounded to 42%), silent 63, error shown 0; memory setting [4096]",
+     "label": "measured",
+     "src": {
+      "register": "x2-evalset-tasks-real-v2-wrong-rate"
+     }
+    },
+    {
+     "text": "ollama_ctx_4096_numkeep: wrong 45/150 (30.0%, shown rounded to 30%), silent 45, error shown 0; memory setting [4096]",
+     "label": "measured",
+     "src": {
+      "register": "x2-evalset-tasks-real-v2-wrong-rate"
+     }
+    }
+   ],
+   "visible": [
+    "Enough memory 11%",
+    "Tight 35%",
+    "Tighter 42%",
+    "Error messages shown: 0"
+   ]
+  },
+  {
+   "n": 3,
+   "title": "Why not just change one setting?",
+   "kind": "tiles",
+   "minutes": 1,
+   "main": {
+    "tiles": [
+     {
+      "big": "16x",
+      "text": "Bigger memory setting: up to 16x slower, or will not start",
+      "tag": "measured",
+      "src": {
+       "register": "impact-session-time-by-window"
+      },
+      "tone": null
+     },
+     {
+      "big": "30%",
+      "text": "The quick fix: still 30% wrong",
+      "tag": "measured",
+      "src": {
+       "register": "x2-evalset-tasks-real-v2-wrong-rate"
+      },
+      "tone": null
+     },
+     {
+      "big": "",
+      "text": "Trimming old history: breaks a different rule",
+      "tag": "measured",
+      "src": {
+       "register": "R2-qwen3-14b-4096-reconciliation"
+      },
+      "tone": null
+     }
+    ]
+   },
    "items": [
     {
      "text": "The one-line fix, num_keep (keep the system prompt) at 4096: 30.0% wrong, down from 42.0% but still above 11.3% at the default window",
@@ -91,137 +228,144 @@
      "src": {
       "register": "H-scale-verdict"
      }
-    }
-   ],
-   "panel": null
-  },
-  {
-   "n": 3,
-   "title": "The tool: decide at session start, per device and model",
-   "minutes": 1,
-   "items": [
-    {
-     "text": "How much accuracy gap you accept decides where it runs; we measure that gap per device.",
-     "label": null,
-     "src": null
     },
     {
-     "text": "evo-t2s Intel iGPU: kept local, measured by R2 session pass rate (not B3 task accuracy): llama3.1:8b 5/5, qwen3:14b 4/5 sessions",
+     "text": "qwen3:14b on the AMD workstation: 202.3 min per 40-turn session at the default memory setting vs 12.2 min at 4096 (shown as up to 16x)",
      "label": "measured",
      "src": {
-      "register": "t2s-config-comparison"
+      "register": "impact-session-time-by-window"
      }
     },
     {
-     "text": "evo-t2s Intel CPU: kept local, measured by R2 session pass rate (not B3 task accuracy): llama3.1:8b 0/5, qwen3:14b 0/5 sessions",
+     "text": "Will not start: qwen3-32b on the AMD workstation first failed to start at a memory setting of 367360 (exit 3221226505)",
      "label": "measured",
      "src": {
-      "register": "t2s-config-comparison"
-     }
-    },
-    {
-     "text": "Route local with the recommended setting if local accuracy is at least the cloud tier's accuracy minus the tolerance you accept; otherwise the whole session goes to the cloud from the start, and saves nothing.",
-     "label": "measured",
-     "src": {
-      "register": "hybrid-route-at-start"
+      "register": "fh1-amd-boundary-qwen3-32b"
      }
     }
    ],
-   "panel": "route",
-   "route": {
-    "entries": [
-     {
-      "device": "evo-x2",
-      "model": "claude-haiku-5-5",
-      "setting": "ollama_default, default = best",
-      "local": "80/90",
-      "local_pct": 88.9,
-      "basis": "measured, B3 task accuracy",
-      "cloud": "87/90",
-      "cloud_pct": 96.7,
-      "gap": 7.8,
-      "tolerance_local": 7.8,
-      "at_matched": "cloud",
-      "saves_local": {
-       "100": 2.01,
-       "1000": 20.12,
-       "10000": 201.25
-      },
-      "r2_basis": false
-     },
-     {
-      "device": "evo-x2",
-      "model": "claude-sonnet-5-5",
-      "setting": "ollama_default, default = best",
-      "local": "80/90",
-      "local_pct": 88.9,
-      "basis": "measured, B3 task accuracy",
-      "cloud": "90/90",
-      "cloud_pct": 100.0,
-      "gap": 11.1,
-      "tolerance_local": 11.1,
-      "at_matched": "cloud",
-      "saves_local": {
-       "100": 30.61,
-       "1000": 306.1,
-       "10000": 3060.99
-      },
-      "r2_basis": false
-     },
-     {
-      "device": "evo-t2s",
-      "model": "claude-haiku-5-5",
-      "setting": "Intel iGPU, Ollama default, loaded window 32768",
-      "local": "4/5",
-      "local_pct": 80.0,
-      "basis": "measured by R2 session pass rate (not B3 task accuracy)",
-      "cloud": "87/90",
-      "cloud_pct": 96.7,
-      "gap": 16.7,
-      "tolerance_local": 16.7,
-      "at_matched": "cloud",
-      "saves_local": {
-       "100": 2.01,
-       "1000": 20.12,
-       "10000": 201.25
-      },
-      "r2_basis": true
-     },
-     {
-      "device": "evo-t2s",
-      "model": "claude-sonnet-5-5",
-      "setting": "Intel iGPU, Ollama default, loaded window 32768",
-      "local": "4/5",
-      "local_pct": 80.0,
-      "basis": "measured by R2 session pass rate (not B3 task accuracy)",
-      "cloud": "90/90",
-      "cloud_pct": 100.0,
-      "gap": 20.0,
-      "tolerance_local": 20.0,
-      "at_matched": "cloud",
-      "saves_local": {
-       "100": 30.61,
-       "1000": 306.1,
-       "10000": 3060.99
-      },
-      "r2_basis": true
-     }
-    ],
-    "default_tolerance": 5,
-    "min": 0,
-    "max": 20,
-    "volume": 1000,
-    "src": {
-     "register": "hybrid-route-at-start"
-    },
-    "basis_label": "measured by R2 session pass rate (not B3 task accuracy)",
-    "not_measured": "Every other device and model pair: not measured (row hybrid-route-at-start covers: evo-t2s, evo-x2)."
-   }
+   "visible": [
+    "Bigger memory setting: up to 16x slower, or will not start",
+    "The quick fix: still 30% wrong",
+    "Trimming old history: breaks a different rule"
+   ]
   },
   {
    "n": 4,
-   "title": "The money: local saves the bill, and the screen shows what it costs",
+   "title": "What it costs",
+   "kind": "money",
    "minutes": 1,
+   "main": {
+    "numbers": [
+     {
+      "big": "$2.53",
+      "text": "per long task in the cloud",
+      "tag": "priced",
+      "src": {
+       "register": "cloud-cost-per-real-task"
+      },
+      "tone": null
+     },
+     {
+      "big": "about 2 cents",
+      "text": "Fixing a wrong answer later: about 2 cents, but actions already taken cannot be undone",
+      "tag": "measured",
+      "src": {
+       "register": "cloud-redo-full-context"
+      },
+      "tone": null
+     }
+    ],
+    "takeaway": "How much accuracy gap you accept decides where it runs; we measure that gap per device.",
+    "slider": {
+     "entries": [
+      {
+       "device": "evo-x2",
+       "model": "claude-haiku-5-5",
+       "setting": "ollama_default, default = best",
+       "local": "80/90",
+       "local_pct": 88.9,
+       "basis": "measured, B3 task accuracy",
+       "cloud": "87/90",
+       "cloud_pct": 96.7,
+       "gap": 7.8,
+       "tolerance_local": 7.8,
+       "at_matched": "cloud",
+       "saves_local": {
+        "100": 2.01,
+        "1000": 20.12,
+        "10000": 201.25
+       },
+       "r2_basis": false,
+       "machine": "AMD workstation"
+      },
+      {
+       "device": "evo-x2",
+       "model": "claude-sonnet-5-5",
+       "setting": "ollama_default, default = best",
+       "local": "80/90",
+       "local_pct": 88.9,
+       "basis": "measured, B3 task accuracy",
+       "cloud": "90/90",
+       "cloud_pct": 100.0,
+       "gap": 11.1,
+       "tolerance_local": 11.1,
+       "at_matched": "cloud",
+       "saves_local": {
+        "100": 30.61,
+        "1000": 306.1,
+        "10000": 3060.99
+       },
+       "r2_basis": false,
+       "machine": "AMD workstation"
+      },
+      {
+       "device": "evo-t2s",
+       "model": "claude-haiku-5-5",
+       "setting": "Intel iGPU, Ollama default, loaded window 32768",
+       "local": "4/5",
+       "local_pct": 80.0,
+       "basis": "measured by R2 session pass rate (not B3 task accuracy)",
+       "cloud": "87/90",
+       "cloud_pct": 96.7,
+       "gap": 16.7,
+       "tolerance_local": 16.7,
+       "at_matched": "cloud",
+       "saves_local": {
+        "100": 2.01,
+        "1000": 20.12,
+        "10000": 201.25
+       },
+       "r2_basis": true,
+       "machine": "Intel laptop"
+      },
+      {
+       "device": "evo-t2s",
+       "model": "claude-sonnet-5-5",
+       "setting": "Intel iGPU, Ollama default, loaded window 32768",
+       "local": "4/5",
+       "local_pct": 80.0,
+       "basis": "measured by R2 session pass rate (not B3 task accuracy)",
+       "cloud": "90/90",
+       "cloud_pct": 100.0,
+       "gap": 20.0,
+       "tolerance_local": 20.0,
+       "at_matched": "cloud",
+       "saves_local": {
+        "100": 30.61,
+        "1000": 306.1,
+        "10000": 3060.99
+       },
+       "r2_basis": true,
+       "machine": "Intel laptop"
+      }
+     ],
+     "default": 5,
+     "min": 0,
+     "max": 20,
+     "volume": 1000
+    }
+   },
    "items": [
     {
      "text": "Local saves money, and the screen shows what it costs. Against claude-sonnet-5-5 at 1,000 tasks/day: all local on evo-x2 saves USD 306.10 a month at 80/90 (88.9%) correct versus 90/90 (100.0%) all-cloud, and 10 wrong answers are silent. The only measured detector, window overflow, escalates 0 tasks at this window. Catching in-window wrong answers needs a verifier we do not claim; the dotted line is that ceiling, no such detector.",
@@ -262,9 +406,36 @@
      "src": {
       "register": "cloud-cost-per-real-task"
      }
+    },
+    {
+     "text": "Slider: AMD workstation (evo-x2, ollama_default, default = best) vs claude-haiku-5-5: local 80/90 (88.9%) [measured, B3 task accuracy] vs cloud 87/90 (96.7%), routes local at a gap of 7.8 points or more",
+     "label": "measured",
+     "src": {
+      "register": "hybrid-route-at-start"
+     }
+    },
+    {
+     "text": "Slider: AMD workstation (evo-x2, ollama_default, default = best) vs claude-sonnet-5-5: local 80/90 (88.9%) [measured, B3 task accuracy] vs cloud 90/90 (100.0%), routes local at a gap of 11.1 points or more",
+     "label": "measured",
+     "src": {
+      "register": "hybrid-route-at-start"
+     }
+    },
+    {
+     "text": "Slider: Intel laptop (evo-t2s, Intel iGPU, Ollama default, loaded window 32768) vs claude-haiku-5-5: local 4/5 (80.0%) [measured by R2 session pass rate (not B3 task accuracy)] vs cloud 87/90 (96.7%), routes local at a gap of 16.7 points or more",
+     "label": "measured",
+     "src": {
+      "register": "hybrid-route-at-start"
+     }
+    },
+    {
+     "text": "Slider: Intel laptop (evo-t2s, Intel iGPU, Ollama default, loaded window 32768) vs claude-sonnet-5-5: local 4/5 (80.0%) [measured by R2 session pass rate (not B3 task accuracy)] vs cloud 90/90 (100.0%), routes local at a gap of 20.0 points or more",
+     "label": "measured",
+     "src": {
+      "register": "hybrid-route-at-start"
+     }
     }
    ],
-   "panel": "tradeoff",
    "tradeoff": {
     "featured": {
      "device": "evo-x2",
@@ -374,36 +545,149 @@
     "src": {
      "register": "hybrid-savings-tradeoff"
     }
-   }
+   },
+   "visible": [
+    "per long task in the cloud",
+    "Fixing a wrong answer later: about 2 cents, but actions already taken cannot be undone",
+    "How much accuracy gap you accept decides where it runs; we measure that gap per device."
+   ]
   },
   {
    "n": 5,
-   "title": "One live escalation: send the wrong task to the cloud",
+   "title": "What our tool does",
+   "kind": "tool",
    "minutes": 1,
+   "main": {
+    "machines": [
+     "AMD workstation",
+     "Intel laptop",
+     "NVIDIA laptop"
+    ],
+    "entries": [
+     {
+      "device": "evo-x2",
+      "model": "claude-haiku-5-5",
+      "setting": "ollama_default, default = best",
+      "local": "80/90",
+      "local_pct": 88.9,
+      "basis": "measured, B3 task accuracy",
+      "cloud": "87/90",
+      "cloud_pct": 96.7,
+      "gap": 7.8,
+      "tolerance_local": 7.8,
+      "at_matched": "cloud",
+      "saves_local": {
+       "100": 2.01,
+       "1000": 20.12,
+       "10000": 201.25
+      },
+      "r2_basis": false,
+      "machine": "AMD workstation"
+     },
+     {
+      "device": "evo-x2",
+      "model": "claude-sonnet-5-5",
+      "setting": "ollama_default, default = best",
+      "local": "80/90",
+      "local_pct": 88.9,
+      "basis": "measured, B3 task accuracy",
+      "cloud": "90/90",
+      "cloud_pct": 100.0,
+      "gap": 11.1,
+      "tolerance_local": 11.1,
+      "at_matched": "cloud",
+      "saves_local": {
+       "100": 30.61,
+       "1000": 306.1,
+       "10000": 3060.99
+      },
+      "r2_basis": false,
+      "machine": "AMD workstation"
+     },
+     {
+      "device": "evo-t2s",
+      "model": "claude-haiku-5-5",
+      "setting": "Intel iGPU, Ollama default, loaded window 32768",
+      "local": "4/5",
+      "local_pct": 80.0,
+      "basis": "measured by R2 session pass rate (not B3 task accuracy)",
+      "cloud": "87/90",
+      "cloud_pct": 96.7,
+      "gap": 16.7,
+      "tolerance_local": 16.7,
+      "at_matched": "cloud",
+      "saves_local": {
+       "100": 2.01,
+       "1000": 20.12,
+       "10000": 201.25
+      },
+      "r2_basis": true,
+      "machine": "Intel laptop"
+     },
+     {
+      "device": "evo-t2s",
+      "model": "claude-sonnet-5-5",
+      "setting": "Intel iGPU, Ollama default, loaded window 32768",
+      "local": "4/5",
+      "local_pct": 80.0,
+      "basis": "measured by R2 session pass rate (not B3 task accuracy)",
+      "cloud": "90/90",
+      "cloud_pct": 100.0,
+      "gap": 20.0,
+      "tolerance_local": 20.0,
+      "at_matched": "cloud",
+      "saves_local": {
+       "100": 30.61,
+       "1000": 306.1,
+       "10000": 3060.99
+      },
+      "r2_basis": true,
+      "machine": "Intel laptop"
+     }
+    ],
+    "default_tier": "claude-sonnet-5-5",
+    "volume": 1000
+   },
    "items": [
     {
-     "text": "The local model (qwen3:14b, 4096 window) set duration_min = 60; the standing instruction gives 50. HTTP error: no.",
+     "text": "AMD workstation: recommended ollama_default, default = best; vs claude-haiku-5-5: local 80/90 (88.9%, measured, B3 task accuracy), cloud 87/90 (96.7%), local saves USD 20.12 a month at 1,000 tasks a day",
      "label": "measured",
      "src": {
-      "file": "results/x2_evalset_tasks_real_v2.jsonl",
-      "line": 488
+      "register": "hybrid-route-at-start"
      }
     },
     {
-     "text": "Recorded full-history cloud redo of this task: USD 0.0243, 4.2 s",
+     "text": "AMD workstation: recommended ollama_default, default = best; vs claude-sonnet-5-5: local 80/90 (88.9%, measured, B3 task accuracy), cloud 90/90 (100.0%), local saves USD 306.10 a month at 1,000 tasks a day",
      "label": "measured",
      "src": {
-      "file": "results/cloud_redo_full_context_v1_part3.jsonl",
-      "line": 39
+      "register": "hybrid-route-at-start"
      }
     },
     {
-     "text": "One click sends that turn to the cloud through the capped client (one call per demo run); without a network or key the recorded full-history redo of the same task is shown.",
-     "label": null,
+     "text": "Intel laptop: recommended Intel iGPU, Ollama default, loaded window 32768; vs claude-haiku-5-5: local 4/5 (80.0%, measured by R2 session pass rate (not B3 task accuracy)), cloud 87/90 (96.7%), local saves USD 20.12 a month at 1,000 tasks a day",
+     "label": "measured",
+     "src": {
+      "register": "hybrid-route-at-start"
+     }
+    },
+    {
+     "text": "Intel laptop: recommended Intel iGPU, Ollama default, loaded window 32768; vs claude-sonnet-5-5: local 4/5 (80.0%, measured by R2 session pass rate (not B3 task accuracy)), cloud 90/90 (100.0%), local saves USD 306.10 a month at 1,000 tasks a day",
+     "label": "measured",
+     "src": {
+      "register": "hybrid-route-at-start"
+     }
+    },
+    {
+     "text": "NVIDIA laptop: not measured",
+     "label": "not measured",
      "src": null
     }
    ],
-   "panel": "escalate"
+   "visible": [
+    "Run locally with this setting",
+    "Expected accuracy",
+    "Saves per month"
+   ]
   }
  ],
  "register_ids": [
@@ -421,7 +705,9 @@
   "hybrid-savings-tradeoff",
   "t2s-config-comparison",
   "hybrid-route-at-start",
-  "late-escalation-cost-vs-fresh"
+  "late-escalation-cost-vs-fresh",
+  "impact-session-time-by-window",
+  "fh1-amd-boundary-qwen3-32b"
  ],
  "total_minutes": 5
 }

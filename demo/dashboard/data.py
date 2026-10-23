@@ -169,7 +169,8 @@ def frontier_view(cache: Cache, backend: Backend, selected: list[str] | None = N
                   "excluded": [{"id": p["id"], "config_id": p["config_id"], "model": p["model"],
                                 "runtime": p["runtime"], "timeout_latency_share": p.get("timeout_latency_share"),
                                 "reason": p["excluded_reason"], "src": p["src"]} for p in pts if p["excluded_reason"]]}
-    return {"machines": per, "cloud": [d for d in dicts if d.get("stub")], "files": cache.points["files"],
+    return {"machines": per, "cloud": [d for d in dicts if d.get("stub")],
+            "cloud_measured": cache.points.get("cloud_measured") or {"rows": []}, "files": cache.points["files"],
             "backend": cache.points["backend"], "max_timeout_share": max_timeout_share}
 
 
@@ -237,7 +238,18 @@ def scenario_list(cache: Cache) -> dict:
                          for s in r2["sessions"]],
             "sources": r2.get("sources", [r2["source"]]),
             "register": {i: reg[i] for i in cache.manifest["scenario_register_ids"] if i in reg},
+            # each verbatim register block shown on the page: a one-sentence summary plus the verbatim text, which
+            # the page puts in a closed Details disclosure
+            "evidence": [_views().register_summary(i, reg.get(i)) for i in EVIDENCE_IDS if i in reg],
             "mitigation": cache.mitigation}
+
+
+EVIDENCE_IDS = ("R2-real-v1b-gated-kill", "R2-v1b-excess-over-default", "R2-mitigation-v1-verdict")
+
+
+def _views():
+    from demo.dashboard import views
+    return views
 
 
 def _session(cache: Cache, key: str) -> dict:

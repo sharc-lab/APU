@@ -148,10 +148,15 @@ class App:
 
     def meta(self, q) -> Response:
         c = self.cache
+        measured = set(data.machines(c))
+        hw_m = [h for h in c.hardware if h.get("machine") in measured]
+        hw_n = [h for h in c.hardware if h.get("machine") not in measured]
         return _json({"manifest": c.manifest, "backend": {"router": self.backend.router_source,
                                                           "pareto": self.backend.pareto_source,
                                                           "fake": self.backend.is_fake},
                       "cache_backend": c.manifest.get("backend"), "hardware": c.hardware,
+                      "hardware_measured": hw_m, "hardware_not_measured": hw_n,
+                      "cloud_prices": views.ANTHROPIC_PRICES,
                       "machines": data.machines(c), "workloads": c.workloads, "defaults": DEFAULTS,
                       "mitigation": c.mitigation})
 

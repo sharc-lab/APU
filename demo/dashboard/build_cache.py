@@ -231,6 +231,9 @@ def points(backend) -> dict:
     from demo.dashboard.fakes import machine_for_file
     pts = backend.pareto.load_points([(machine_for_file(f), f) for f in files], cloud_source="stub")
     as_dict = [dataclasses.asdict(p) if dataclasses.is_dataclass(p) else dict(vars(p)) for p in pts]
+    # 2026-10-22: no STUB cloud points (the pareto module prices OpenAI models from its own table); the engineering
+    # view shows the measured Anthropic cloud rows instead (views.build_cloud_measured).
+    as_dict = [d for d in as_dict if not d.get("stub")]
     for d in as_dict:  # repo-relative, so the committed cache carries no local user path
         if d.get("source_files"):
             d["source_files"] = [_repo_rel(s) for s in d["source_files"]]
@@ -254,6 +257,7 @@ def build(out_dir: Path = CACHE, backend=None) -> dict:
     }
     snap["device.json"] = views.build_device(reg, REPO, snap["r2_sessions.json"])
     snap["cost.json"] = views.build_cost(reg)
+    snap["points.json"]["cloud_measured"] = views.build_cloud_measured(reg)
     from demo.dashboard import escalate
     snap["escalation.json"] = escalate.build_escalation(REPO)
     snap["story.json"] = views.build_story(reg, snap["silent.json"], snap["cost.json"], snap["escalation.json"], REPO)

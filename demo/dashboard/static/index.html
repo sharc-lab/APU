@@ -9,13 +9,13 @@
 <body>
 <header class="top">
   <div class="wrap">
-    <h1>Hybrid routing demo</h1>
+    <h1>Hybrid routing demo: engineering view</h1>
     <p class="sub">Measured hardware envelope, offline snapshot. Every number links to its register row or result file and carries a label:
       <span class="lab measured">measured</span> <span class="lab projected">projected</span> <span class="lab simulated">simulated</span>
       <span class="lab priced">priced, not executed</span> <span class="lab simulated">pending flash-attention control</span> <span class="lab notmeasured">being measured</span> <span class="lab notmeasured">not measured</span></p>
     <div id="banners"></div>
     <nav class="steps">
-      <a href="#story" id="story-open">Story mode</a>
+      <a href="/" id="story-open">Story mode</a>
       <a href="#silent">A Silent failure</a><a href="#device">B Device setting</a><a href="#cost">C Cost</a><a href="#escalate">D Live escalation</a>
       <a href="#inputs">1 Inputs</a><a href="#frontier">2 Frontier</a><a href="#rec">3 Recommendation</a><a href="#live">4 Replay</a>
     </nav>
@@ -23,6 +23,7 @@
 </header>
 <main class="wrap">
   <section id="story" class="card story" aria-live="polite">
+    <a id="eng-link" class="eng-link" href="?explore=1">Engineering view</a>
     <ol id="story-steps" class="story-steps"></ol>
     <h2 id="story-title"></h2>
     <ul id="story-items" class="story-items"></ul>
@@ -30,7 +31,7 @@
     <div class="controls story-nav">
       <button type="button" id="story-back">Back</button>
       <span id="story-indicator" class="muted small"></span>
-      <button type="button" id="story-explore" class="linkish">Explore freely</button>
+      <button type="button" id="story-explore" class="linkish">Engineering view</button>
       <button type="button" id="story-next">Next</button>
     </div>
   </section>
@@ -88,7 +89,7 @@
   <section id="frontier" class="card">
     <h2>2. Frontier per hardware</h2>
     <p class="muted">Quality (y) against p50 latency (x) per local config. The line joins the non-dominated configs.
-      Hollow markers are STUB cloud points; a ring marks a bare-template Ollama tag (install path, not model capability);
+      A ring marks a bare-template Ollama tag (install path, not model capability);
       a cross marks a config excluded by the usability constraint (timeout_latency share above the max timeout share).</p>
     <div id="legend" class="legend"></div>
     <div id="charts" class="charts"></div>

@@ -37,7 +37,7 @@ setTimeout(() => {
   const snap = () => ({ title: el("#story-title").textContent, indicator: el("#story-indicator").textContent,
     back_disabled: el("#story-back").disabled, next: el("#story-next").textContent,
     story_on: el("body").classList.contains("story-on"), panel: el("#story-panel").children.slice(-1)[0] || null,
-    items: text(el("#story-items").innerHTML) });
+    items: text(el("#story-panel").innerHTML), html: el("#story-panel").innerHTML });
   walk.push(snap());
   for (let i = 0; i < 4; i++) { R.storyGo("next"); walk.push(snap()); }
   R.storyGo("back"); walk.push(snap());
@@ -45,11 +45,10 @@ setTimeout(() => {
   out.story = walk;
   out.nav = [R.storyNav(0, 5, "back"), R.storyNav(0, 5, "next"), R.storyNav(4, 5, "next"), R.storyNav(2, 5, 9),
              R.storyNav(3, 5, "explore")];
-  const route = (dump["/api/story"].steps.find((s) => s.panel === "route") || {}).route;
-  if (route) {
+  const money = dump["/api/story"].steps.find((s) => s.kind === "money");
+  if (money) {
     out.route = {};
-    for (const t of [0, 5, 12, 20]) out.route[t] = route.entries.map((e) => R.routeAt(e, t));
-    out.routeHTML5 = text(R.routeHTML(route, route.default_tolerance));
+    for (const t of [0, 5, 12, 20]) out.route[t] = money.main.slider.entries.map((e) => R.routeAt(e, t));
   }
   R.renderEscalationResult(dump.POST);
   out["#esc-result"] = text(el("#esc-result").innerHTML);

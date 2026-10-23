@@ -65,7 +65,7 @@ class FakeRouter:
     oldest history turns until the request fits num_ctx, escalate to the (stub) cloud only if even that does not
     fit. It never predicts latency (None) because it has no latency model."""
 
-    CLOUD_MODEL = "gpt-4o-mini"
+    CLOUD_MODEL = "claude-sonnet-5-5"  # Anthropic shared price table, priced, not executed
 
     def __init__(self, envelope, budget_usd, quality_floor, latency_target_ms, hardware, runtime, model,
                  cloud_client=None):

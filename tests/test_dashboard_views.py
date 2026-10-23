@@ -547,17 +547,22 @@ def test_views_js_renders_every_view(app, tmp_path):
     assert [s["indicator"].split(",")[0] for s in w[:5]] == [f"Step {i} of 5" for i in range(1, 6)]
     assert w[0]["story_on"] and w[0]["back_disabled"] and not w[1]["back_disabled"]
     assert w[4]["next"].startswith("Finish") and w[5]["indicator"].startswith("Step 4 of 5")
-    assert w[0]["panel"] == "#silent-body" and w[4]["panel"] == "#esc-wrap"
-    assert views.ROUTE_TAKEAWAY in w[2]["items"]
-    # the slider (JS routeAt) agrees with views.route_at at 0, 5, 12 and 20 points, and renders at the default 5
-    route = next(st for st in get(app, "/api/story")["steps"] if st["panel"] == "route")["route"]
+    assert w[6]["story_on"] is False  # the engineering view after the last step
+    # the slider (JS routeAt) agrees with views.route_at at 0, 5, 12 and 20 points
+    slider = next(st for st in get(app, "/api/story")["steps"] if st["kind"] == "money")["main"]["slider"]
     for t in ("0", "5", "12", "20"):
-        assert [d["route"] for d in out["route"][t]] == [views.route_at(e, float(t))["route"] for e in route["entries"]]
-    assert "5.0" in out["routeHTML5"] and "measured by R2 session pass rate (not B3 task accuracy)" in out["routeHTML5"]
-    assert w[6]["story_on"] is False  # free exploration after step 5
-    assert "5/5" in w[0]["items"] and "42.0%" in w[0]["items"] and "30.0%" in w[1]["items"]
-    assert "Fix after the fact: about 2 cents" in w[3]["items"] and "40.1" not in w[3]["items"]
-    assert "ceiling, no such detector" in w[3]["items"]
+        assert [d["route"] for d in out["route"][t]] == [views.route_at(e, float(t))["route"] for e in slider["entries"]]
+    # main screens: plain words, presenter numbers; evidence only inside the closed Details panel
+    assert "5 of 5" in w[0]["items"] and "No error shown" in w[0]["items"]
+    assert "Enough memory" in w[1]["items"] and "42%" in w[1]["items"] and "Error messages shown: 0" in w[1]["items"]
+    assert "16x" in w[2]["items"] and "30% wrong" in w[2]["items"]
+    assert "$2.53" in w[3]["items"] and views.ROUTE_TAKEAWAY in w[3]["items"] and 'value="5"' in w[3]["html"]
+    assert "Saves per month" in w[4]["items"]
+    for s in w[:5]:
+        main, _, details = s["html"].partition('<details class="s-details">')
+        assert details and "<details" not in main and " open" not in details.split(">")[0]  # closed by default
+        assert "<a" not in main and "register" not in main.lower() and "results/" not in main  # no links, ids, paths
+        assert not re.search(r"\b(qwen|llama|claude|evo-|num_ctx|window|surfaced|excess)\b", main.lower()), main
     assert out["nav"] == [{"index": 0, "explore": False}, {"index": 1, "explore": False},
                           {"index": 4, "explore": True}, {"index": 4, "explore": False}, {"index": 3, "explore": True}]
 
@@ -568,13 +573,40 @@ def test_story_steps_from_committed_files(app):
     s = get(app, "/api/story")
     steps = s["steps"]
     assert [st["n"] for st in steps] == [1, 2, 3, 4, 5] and s["total_minutes"] == 5
-    assert [st["panel"] for st in steps] == ["silent", None, "route", "tradeoff", "escalate"]
+    assert [st["kind"] for st in steps] == ["cards", "bars", "tiles", "money", "tool"]
+    assert [st["title"] for st in steps] == ["Same laptop, two settings", "How often answers are silently wrong",
+                                             "Why not just change one setting?", "What it costs", "What our tool does"]
+    # main screen: about 25 words per step (step 4 carries the operator's three sentences), one tag per number
+    for st in steps:
+        words = sum(len(t.split()) for t in st["visible"])
+        assert words <= (views.STEP4_WORD_LIMIT if st["n"] == 4 else views.STEP_WORD_LIMIT), (st["n"], words)
+        main = json.dumps(st["main"])
+        for k in ("cards", "tiles", "numbers"):
+            for c in st["main"].get(k, []):
+                assert c["tag"] in ("measured", "priced", "projected") and c["src"], c
+        for b in st["main"].get("bars", []):
+            assert b["tag"] == "measured" and b["src"]
+    s1, s2, s3, s4, s5 = (st["main"] for st in steps)
+    assert [c["text"] for c in s1["cards"]] == ["Default setting: 5 of 5 agent sessions broke their own rules. No error "
+                                                "shown.", "Right setting: 5 of 5 kept their rules."]
+    assert [(b["label"], b["value"]) for b in s2["bars"]] == [("Enough memory", 11), ("Tight", 35), ("Tighter", 42)]
+    assert s2["caption"] == "Error messages shown: 0"
+    assert [t["text"] for t in s3["tiles"]] == ["Bigger memory setting: up to 16x slower, or will not start",
+                                                "The quick fix: still 30% wrong",
+                                                "Trimming old history: breaks a different rule"]
+    assert s4["numbers"][0]["big"] == "$2.53" and s4["numbers"][0]["tag"] == "priced"
+    assert s4["numbers"][1]["text"] == ("Fixing a wrong answer later: about 2 cents, but actions already taken "
+                                        "cannot be undone") and s4["numbers"][1]["tag"] == "measured"
+    assert s4["takeaway"] == views.ROUTE_TAKEAWAY and s4["slider"]["default"] == 5
+    assert s5["machines"] == ["AMD workstation", "Intel laptop", "NVIDIA laptop"]
+    assert {e["machine"] for e in s5["entries"]} == {"AMD workstation", "Intel laptop"}  # NVIDIA: not measured
+    assert any("NVIDIA laptop: not measured" in i["text"] for i in steps[4]["items"])
     allowed = set(views.LABELS) | {None}
     for st in steps:
         assert st["items"], st["title"]
         for it in st["items"]:
             assert it["label"] in allowed, it
-            if it["label"] not in (None, views.BEING_MEASURED):
+            if it["label"] not in (None, views.BEING_MEASURED, views.NOT_MEASURED):
                 assert it["src"], it  # every labelled number links to its source
     text = " ".join(it["text"] for st in steps for it in st["items"])
     assert "4096" in text and "32768" in text and "5/5" in text and "11.3%" in text and "42.0%" in text
@@ -600,9 +632,12 @@ def test_story_steps_from_committed_files(app):
     assert set(t) >= {"all_cloud", "naive_local", "hybrid_flag", "ceiling"} and t["model"] == "claude-sonnet-5-5"
     assert t["naive_local"]["silent"] == 10 and t["device_label"] == "measured"
     assert "40.1" not in text and "savings" not in text.lower()
-    # step 3: the decision at session start and the kept-local label; step 5: the recorded full-history redo
-    assert views.ROUTE_TAKEAWAY in text and "measured by R2 session pass rate (not B3 task accuracy)" in text
-    assert any(i["text"].startswith("Recorded full-history cloud redo of this task") for i in steps[4]["items"])
+    # Details: the kept-local basis on the Intel laptop rows, the 16x and will-not-start sources, rounding stated
+    assert "measured by R2 session pass rate (not B3 task accuracy)" in text
+    assert any(i["src"] == {"register": "impact-session-time-by-window"} for i in steps[2]["items"])
+    assert any(i["src"] == {"register": "fh1-amd-boundary-qwen3-32b"} and "first failed to start" in i["text"]
+               for i in steps[2]["items"])
+    assert all("shown rounded to" in i["text"] for i in steps[1]["items"])
 
 
 def test_story_tradeoff_parsers():
@@ -680,15 +715,14 @@ def test_route_and_late_escalation_parsers():
     assert views.parse_late_escalation("") is None and views.parse_route_at_start("") == []
 
 
-def test_story_step3_tolerance_slider(app):
-    st = get(app, "/api/story")["steps"][2]
-    text = " ".join(i["text"] for i in st["items"])
+def test_story_tolerance_slider(app):
+    st = get(app, "/api/story")["steps"][3]  # step 4, "What it costs"
     assert views.ROUTE_TAKEAWAY == ("How much accuracy gap you accept decides where it runs; we measure that gap per "
                                     "device.")
-    assert st["items"][0]["text"] == views.ROUTE_TAKEAWAY and "being measured" not in text
-    r = st["route"]
-    assert r["default_tolerance"] == 5 and (r["min"], r["max"]) == (0, 20) and r["volume"] == 1000
-    assert r["src"] == {"register": "hybrid-route-at-start"} and "not measured" in r["not_measured"]
+    assert st["main"]["takeaway"] == views.ROUTE_TAKEAWAY
+    sl = st["main"]["slider"]
+    assert sl["default"] == 5 and (sl["min"], sl["max"]) == (0, 20) and sl["volume"] == 1000
+    r = {"entries": sl["entries"]}
     gaps = {(e["device"], e["model"]): e["tolerance_local"] for e in r["entries"]}
     assert gaps == {("evo-x2", "claude-haiku-5-5"): 7.8, ("evo-x2", "claude-sonnet-5-5"): 11.1,
                     ("evo-t2s", "claude-haiku-5-5"): 16.7, ("evo-t2s", "claude-sonnet-5-5"): 20.0}
@@ -763,6 +797,66 @@ def test_register_row_with_pipe_in_value(tmp_path):
                  "| a | VERIFIED | left part | right part | 3 | x | f1; f2 | s | c | d |\n", encoding="utf-8")
     r = build_cache.parse_register(p)
     assert r["a"]["value"] == "left part | right part" and r["a"]["files"] == ["f1", "f2"]
+
+
+# ── landing page and engineering view (operator 2026-10-22) ──
+
+STATIC = REPO / "demo" / "dashboard" / "static"
+
+
+def test_landing_is_story_and_engineering_view_is_reachable(app):
+    html = app.handle("GET", "/").body.decode("utf-8")
+    js = (STATIC / "views.js").read_text(encoding="utf-8")
+    assert 'id="story"' in html and 'id="eng-link"' in html and 'href="?explore=1"' in html
+    assert "Engineering view" in html
+    # story mode unless ?explore=1 or ?view=engineering
+    assert 'params.get("explore") !== "1" && params.get("view") !== "engineering"' in js
+    assert "setStoryMode(true)" in js
+
+
+def test_presenter_font_sizes():
+    css = (STATIC / "app.css").read_text(encoding="utf-8")
+    px = lambda sel: int(re.search(re.escape(sel) + r"\s*\{[^}]*font-size:\s*(\d+)px", css)[1])  # noqa: E731
+    assert px(".s-big") >= 72
+    for sel in ("#story", ".s-card, .s-tile", ".s-card p, .s-tile p", ".s-bar-row", ".s-line", ".s-note"):
+        assert px(sel) >= 24, sel
+    assert "body.story-on header.top { display: none; }" in css  # no header links in story mode
+
+
+def test_engineering_view_has_no_openai_stub_rows(app):
+    for path in ("/api/meta", "/api/frontier", "/api/recommend"):
+        body = json.dumps(get(app, path))
+        assert "gpt-" not in body and "openai" not in body.lower(), path
+    f = get(app, "/api/frontier")
+    assert f["cloud"] == [] and {r["label"] for r in f["cloud_measured"]["rows"]} <= {"measured", "priced, not executed"}
+    rows = {r["src"]["register"] for r in f["cloud_measured"]["rows"]}
+    assert rows >= {"all-cloud-b3-cost", "cloud-redo-full-context", "cloud-cost-per-real-task"}
+    assert f["cloud_measured"]["prices"] == "results/cloud_prices_anthropic_20261014.json"
+    assert "gpt-" not in (STATIC / "app.js").read_text(encoding="utf-8")
+
+
+def test_unmeasured_hardware_only_in_one_line(app):
+    m = get(app, "/api/meta")
+    measured = {h["machine"] for h in m["hardware_measured"]}
+    assert measured == set(m["machines"]) and m["hardware_not_measured"]
+    assert not ({h["name"] for h in m["hardware_not_measured"]} & {h["name"] for h in m["hardware_measured"]})
+    js = (STATIC / "app.js").read_text(encoding="utf-8")
+    assert 'id="hw-not-measured">Not measured: ' in js and "no measured envelope" not in js
+
+
+def test_register_blocks_in_closed_details_with_summary(app):
+    s = get(app, "/api/scenario")
+    ev = {e["id"]: e for e in s["evidence"]}
+    assert set(ev) == {"R2-real-v1b-gated-kill", "R2-v1b-excess-over-default", "R2-mitigation-v1-verdict"}
+    for e in ev.values():
+        assert e["summary"] and e["verbatim"] and e["label"] == "measured"
+        assert len(re.findall(r"[.!?](\s|$)", e["summary"])) == 1  # one sentence
+        for n in re.findall(r"[+-]?\d+(?:\.\d+)?", e["summary"]):  # only figures that appear in the row
+            assert n.lstrip("+") in e["verbatim"] or n in e["verbatim"], (e["id"], n)
+    js = (STATIC / "app.js").read_text(encoding="utf-8")
+    assert '<details class="reg-details"><summary>Details (register row' in js and "esc(e.verbatim)" in js
+    assert "reg[id].value" not in js  # no verbatim register text outside the details element
+    assert '<details class="reg-details" open' not in js
 
 
 def test_recommendation_hides_router_savings(app):
