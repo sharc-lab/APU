@@ -5916,3 +5916,18 @@ Long-task cloud priced vs billed", committed before either job ran (harness at 5
 - **Cloud check** `longtask_cloud_v1` (controller, 5 tasks x seed 20260901, claude-haiku-5-5, job cap USD 6; Sonnet
   only if its pilot-based estimate is under USD 5): billed vs upper bound vs the `cloud-cost-per-real-task` pricing
   method. Row `long-task-cloud-priced-vs-billed` (PENDING until run_end).
+
+## PRE-REGISTRATION (2026-10-23): own-profiler and own-dse-v1 (pointer)
+
+Both are pre-registered in docs/EXPERIMENTS.md, entry "2026-10-23: own-profiler ... and own-dse-v1", committed before
+any result of either was computed. Offline, committed files only. In short: the own-profiler predicts task accuracy
+and mean seconds per task of a configuration from a probe of at most 600 s (the first turns of one fixed-seed session
+of the target workload), with ratios fit on the other device; tested leave-one-device-out between evo-x2 and evo-t2s
+on R2 / B5 / B3 v2 / scale sessions; the Blade has no task-level data (blade_r2_real_v1 has 0 turns), so the Blade test
+is NOT RUN. Target: median absolute percentage error < 10% for both seconds per task and accuracy (baseline
+ttft-few-point-calibration, median 22.6%). Row own-profiler-loo. The own-dse-v1 ranks {hardware, model, window, KV,
+backend, routing policy} by total monthly cost (hardware at USD 2,000 / 36 months, PX2-power watts at 14.53 c/kWh,
+measured cloud USD) under an accuracy target 0.90 and a USD 500/month cloud budget, using probe predictions; its pick is
+validated against the brute-force best over measured configurations for short B3 tasks, long tasks and a 50/50 mix at
+100 / 1,000 / 10,000 tasks/day (long and mixed PENDING unless long-task-local-accuracy is VERIFIED). Target: within
+10% of the brute-force best total cost. Row own-dse-v1; code src/dse/dse_v1.py.
