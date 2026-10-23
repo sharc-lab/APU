@@ -34,7 +34,7 @@ import time
 from pathlib import Path
 
 _here = Path(__file__).resolve().parent
-if (_here.parent / "scripts").is_dir():
+if _here.name == "harness" and (_here.parent / "src" / "dse").is_dir():
     REPO = _here.parent
     for _p in (str(_here), str(REPO / "scripts"), str(REPO / "src" / "dse"), str(REPO / "src"), str(REPO)):
         if _p not in sys.path:
