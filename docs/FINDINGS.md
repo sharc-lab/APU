@@ -5849,3 +5849,20 @@ not edited; it was committed before deploy and queueing.
   (`is_paused()` None, checked separately). Both entries' notes say they release themselves via tq.advance() on exit and
   set no pause. The running job (x2_b5_simcap_8192) was not touched. Order and hours: docs/X2_QUEUE_PLAN.md "Reserve
   draw of 2026-10-22".
+
+## PRE-REGISTRATION (2026-10-22): long-task local accuracy and long-task cloud priced vs billed (pointer)
+
+Both pre-registrations are in docs/EXPERIMENTS.md, entries "2026-10-22: Long-task local accuracy" and "2026-10-22:
+Long-task cloud priced vs billed", committed before either job ran (harness at 54d3a19). In short:
+
+- **Tasks.** Real SWE-Gym / OpenHands tasks are not feasible offline on evo-x2 by 2026-10-27 (no Docker, no git, WSL
+  not installed; installing them needs administrator feature changes and a reboot). The tasks are 20 **long-horizon
+  synthetic, trace-length matched** work orders in the B3 v2 tool environment (harness/longtask_env.py), step counts
+  matched to SWE-Gym and nebius-rebench-openhands trace quantiles; the OpenHands stratum's prompts are shorter than
+  its traces' (stated limit). Never to be reported as SWE-Gym.
+- **Local job** `x2_longtask_local_v1` (evo-x2, qwen3:14b, ollama_default and kv_q8_0 = B5 policy (g), seeds
+  20260901-03): accuracy, silent failure share, minutes per task, per-task wall clock. Rows `long-task-local-accuracy`
+  (PENDING until run_end) and `long-task-local-hours` (ESTIMATE).
+- **Cloud check** `longtask_cloud_v1` (controller, 5 tasks x seed 20260901, claude-haiku-5-5, job cap USD 6; Sonnet
+  only if its pilot-based estimate is under USD 5): billed vs upper bound vs the `cloud-cost-per-real-task` pricing
+  method. Row `long-task-cloud-priced-vs-billed` (PENDING until run_end).

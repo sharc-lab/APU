@@ -6855,8 +6855,35 @@ def compute_long_task_local_hours(repo):
                      f"finish {f(e_pt)} (high case {f(e_hi)}); with one {L70_SYNC_INTERVAL_H:.0f} h results-sync "
                      f"interval registered by {f(r_pt)} (high case {f(r_hi)}); cutoff {f(cut)}: "
                      + ("met" if r_pt <= cut else "NOT met") + " (high case " + ("met" if r_hi <= cut else "NOT met")
-                     + f"); the job starts no new task after {f(stop)} (--stop-after-utc)",
+                     + f"); the job starts no new task after {f(stop)} (--stop-after-utc); "
+                     + _longtask_profile_text(repo),
             "n": "1 job (estimate)"}
+
+
+def _longtask_profile_text(repo) -> str:
+    """Task-set profile: reference steps and the oracle transcript's final prompt (est x 1.20) per stratum against the
+    matched traces (median steps, first and final prompt, qwen tokens)."""
+    import statistics
+    lt, xl = _longtask_modules()
+    prof = lt.trace_profile(_lt_schedule(repo))
+    out = []
+    for name, _ds in lt.STRATA:
+        idx = [i for i, t in enumerate(lt.LONG_TASKS) if t[1] == name]
+        ref, first, fin = [], [], []
+        for s in xl.SEEDS:
+            steps = xl.oracle_prompt_steps(s)
+            tasks = lt.build_tasks(s)
+            for i in idx:
+                ref.append(tasks[i][0].ref_steps)
+                first.append(steps[i][0])
+                fin.append(steps[i][-1])
+        p = prof[name]
+        out.append(f"{name} stratum (10 tasks x 3 seeds): reference steps median {statistics.median(ref):.0f} (range "
+                   f"{min(ref)} to {max(ref)}), oracle first prompt median {statistics.median(first):.0f}, final prompt "
+                   f"median {statistics.median(fin):.0f} (max {max(fin)}) model tokens; matched traces (n={p['n']}): "
+                   f"median {p['median_steps']:.0f} steps, first prompt {p['median_first_prompt']:.0f}, final prompt "
+                   f"{p['median_final_prompt']:.0f} qwen tokens")
+    return "task profile: " + "; ".join(out)
 
 
 def compute_long_task_local_accuracy(repo):
