@@ -6055,3 +6055,53 @@ job of them was deployed, queued or run (harness at e11b7cb). In short:
   50/90 kept local at >= 97% accuracy vs claude-sonnet-5-5 all-cloud; written before data: not expected to be met,
   because in-window wrong answers are silent. Row `hybrid-route-at-start-v2` (PENDING).
 - Hours (ESTIMATE): rows `own-jobs-hours` and, for Zach's E1/E2 reserve, `e1-e2-x2-hours`.
+
+## PRE-REGISTRATION (2026-10-23): own-rollback redo, cascaded variant (pointer)
+
+Full entry in docs/EXPERIMENTS.md, "2026-10-23: Own-rollback redo, cascaded variant", committed before any spend of
+this job. Operator decision: run the cascaded variant. The 28 earlier_state_repair tasks are redone on
+claude-sonnet-5-5 from a state where every earlier wrong local task was rolled back and replaced by its reference calls
+(a stand-in for a successful escalation of that earlier task, stated as such), with a matching stand-in transcript; the
+grader is unchanged. Projection USD 0.6699 billed (from the same tasks' full-history redo), job cap USD 1.50 billed.
+Target >= 25/28 fixed. Row `own-rollback-redo`.
+
+## RESULTS (2026-10-23): cascaded rollback fixes 28 of 28 earlier_state_repair tasks (target >= 25/28 met)
+
+Run as pre-registered in docs/EXPERIMENTS.md, "2026-10-23: Own-rollback redo, cascaded variant". Row
+`own-rollback-redo` (VERIFIED, read from results/own_rollback_redo_v1.jsonl after run_end; the run completed, no stop).
+
+**Result.** claude-sonnet-5-5, thinking {"type": "between_tools"}, max_tokens 2048, full client-side history, cascaded
+rollback (every earlier wrong task turn rolled back and replaced by its reference calls, a STAND-IN for a successful
+escalation; 144 earlier turns replaced over the 28 tasks; state differs from the pre-task state in 28/28), grader
+unchanged: fixed 28/28, 95% Wilson CI [87.9%, 100.0%]. Target >= 25/28: met. The same 28 tasks were 0/28 in the
+full-history redo, which started from the pre-task state with the earlier damage in place.
+
+**Spend.** USD 0.8926 billed (cache-priced) for the 28 tasks, USD 2.3267 with every input token uncached; projection
+was USD 0.6699 billed; job cap USD 1.50 billed, not reached. Main ledger before the run: billed USD 40.6831, upper
+bound USD 40.9298; after: billed USD 41.5758, upper bound USD 43.2566 (the warm-up call is included in the ledger
+difference).
+
+**Hybrid recomputed** (row `hybrid-local-first-rollback`, by replay; escalated tasks graded from the cascaded rollback
+rows where they exist, 4 at ollama_ctx_8192 and 7 at ollama_ctx_4096 on seeds 20260901-03, else the full-history redo):
+
+| evo-x2 tier | Policy | Accuracy | Cloud USD / task | Kept local |
+|---|---|---|---|---|
+| ollama_ctx_8192 | local first, rollback, oracle signal (ceiling) | 90/90 (100.0%) | 0.00805 | 57/90 (63.3%) |
+| ollama_ctx_8192 | local first, rollback, over_loaded_window (stand-in for detector v2) | 87/90 (96.7%) | 0.01485 | 27/90 (30.0%) |
+| ollama_ctx_8192 | all-cloud | 90/90 (100.0%) | 0.01020 | 0 |
+| ollama_ctx_8192 | naive local | 57/90 (63.3%) | 0 | 90/90 |
+| ollama_ctx_4096 | local first, rollback, oracle signal (ceiling) | 90/90 (100.0%) | 0.00800 | 53/90 (58.9%) |
+| ollama_ctx_4096 | local first, rollback, over_loaded_window (stand-in for detector v2) | 90/90 (100.0%) | 0.01760 | 2/90 (2.2%) |
+| ollama_ctx_4096 | all-cloud | 90/90 (100.0%) | 0.01020 | 0 |
+| ollama_ctx_4096 | naive local | 53/90 (58.9%) | 0 | 90/90 |
+
+With the oracle signal (a ceiling), local first with cascaded rollback matches all-cloud accuracy at about 79% of its
+cloud cost per task at both tiers. With the over-window stand-in it costs more per task than all-cloud at both tiers
+(it escalates many tasks the local model got right), and at 8192 it misses the 3 wrong tasks it does not flag.
+
+**Limits.** (1) The earlier escalations are a stand-in (reference calls). Within this replay, every escalation under the
+oracle signal at these tiers is graded fixed, so the stand-in matches the replay's own outcomes there; under the
+over-window signal, the 3 unflagged wrong tasks at 8192 would leave damage the cascaded rows assume was fixed. (2) The
+stand-in transcript for earlier wrong turns is synthetic. (3) The other escalated tasks are graded from the
+full-history redo (pre-task state, earlier damage in place), so the table mixes the two protocols; the counts are in
+the row.

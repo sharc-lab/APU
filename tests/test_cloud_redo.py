@@ -517,3 +517,75 @@ def test_rollback_refuses_projection_over_job_cap(tmp_path):
 
 def test_main_rollback_needs_thinking_off(tmp_path):
     assert CR.main(["--rollback", "pre_task", "--out", str(tmp_path / "o.jsonl")]) == 2
+    assert CR.main(["--rollback", "cascaded", "--out", str(tmp_path / "o.jsonl")]) == 2
+
+
+def _wrong_with_earlier_wrong(src, k=3):
+    wt = CR.wrong_tasks(src)
+    out = []
+    for r in wt:
+        prior = [x for x in CR.session_rows(src, r["attempt_id"]) if x["turn_idx"] < r["turn_idx"]]
+        if any(x.get("item_kind") == "task" and x.get("end_state_ok") is False for x in prior):
+            out.append((r, prior))
+        if len(out) == k:
+            break
+    return out
+
+
+def test_rebuild_cascaded_replaces_earlier_wrong_turns_with_reference():
+    sys.path.insert(0, str(REPO / "analysis"))
+    import own_rollback as orb
+    src = CR.load_rows(CR.SOURCE)
+    cache = {}
+    for r, prior in _wrong_with_earlier_wrong(src):
+        es = CR.build_session_for(r, cache)
+        cb = CR.rebuild_cascaded(es, prior, r["turn_idx"])
+        n_wrong = sum(1 for x in prior if x.get("item_kind") == "task" and x.get("end_state_ok") is False)
+        assert cb["earlier_wrong_replaced"] == n_wrong >= 1
+        assert cb["env_before"] == orb.clean_pre_task_env(CR.E, es, prior)
+        assert cb["item"].task.task_id == r["task_id"]
+        stand_ins = [m for m in cb["messages"] if m["role"] == "assistant" and '"source": "tool results"' in m["content"]]
+        assert len(stand_ins) == n_wrong and es.session_code in stand_ins[0]["content"]
+        # same number of user messages as the plain rebuild (no turn dropped)
+        plain = CR.rebuild(es, prior, r["turn_idx"])
+        assert sum(m["role"] == "user" for m in cb["messages"]) == sum(m["role"] == "user" for m in plain["messages"])
+
+
+def test_cascaded_live_run_with_fake_client(tmp_path):
+    src = CR.load_rows(CR.SOURCE)
+    pairs = _wrong_with_earlier_wrong(src, 2)
+    keys = {(r["attempt_id"], r["turn_idx"]) for r, _ in pairs}
+    proj_rows = [{"record": "cloud_redo_task", "attempt_id": a, "turn_idx": t, "usd": 0.02, "usd_all_uncached": 0.09}
+                 for a, t in keys]
+
+    def fake(*, model_id, messages, api_key, **kw):
+        return _resp_fr('{"answer": "no idea"}')
+
+    rows = CR.run(True, out=tmp_path / "o.jsonl", client=_client(tmp_path, fake), thinking_off=True, max_tokens=2048,
+                  rollback="cascaded", only_keys=keys, projection_rows=proj_rows, job_cap=1.5)
+    assert rows[0]["rollback"] == "cascaded" and rows[0]["projected_ledger_usd_used"] == pytest.approx(0.04)
+    tasks = [r for r in rows if r["record"] == "cloud_redo_task"]
+    assert len(tasks) == 2 and all(t["rollback"] == "cascaded" and t["earlier_wrong_replaced"] >= 1 for t in tasks)
+    assert all(t["env_differs_from_pre_task"] in (True, False) for t in tasks)
+    assert rows[-1]["record"] == "run_end"
+
+
+def test_cascaded_client_cap_stops_before_passing_job_cap(tmp_path):
+    src = CR.load_rows(CR.SOURCE)
+    pairs = _wrong_with_earlier_wrong(src, 2)
+    keys = {(r["attempt_id"], r["turn_idx"]) for r, _ in pairs}
+    proj_rows = [{"record": "cloud_redo_task", "attempt_id": a, "turn_idx": t, "usd": 0.0001, "usd_all_uncached": 0.0001}
+                 for a, t in keys]
+    n = []
+
+    def fake(*, model_id, messages, api_key, **kw):
+        n.append(1)
+        return _resp_fr('{"answer": "x"}', usage=(300, 5, 0, 0))
+
+    # client cap tiny: the run stops on the spend cap before a call that would pass it, and still writes run_end
+    rows = CR.run(True, out=tmp_path / "o.jsonl", client=_client(tmp_path, fake, cap=0.01), thinking_off=True,
+                  max_tokens=2048, rollback="cascaded", only_keys=keys, projection_rows=proj_rows, job_cap=1.5)
+    assert rows[-1]["record"] == "run_end" and rows[-1]["stopped"] and "spend cap" in rows[-1]["stopped"]
+    assert not [r for r in rows if r["record"] == "cloud_redo_task"]   # no task call passed the cap
+    led = [json.loads(x) for x in (tmp_path / "ledger.jsonl").read_text().splitlines() if x.strip()]
+    assert all(x.get("running_total_usd", 0) <= 0.01 for x in led)

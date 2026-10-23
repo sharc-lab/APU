@@ -900,3 +900,71 @@ another agent and is not planned here).
   comparison with the route-at-start projection (which uses the task definition, not the first 2 turns).
 - ESTIMATE: 6 to 10 h of offline analysis on the controller laptop (no machine time, no cloud spend): about 2 h data
   extraction and labels, 2 to 3 h the three predictors, 2 h folds and intervals, 1 to 3 h write-up and tests.
+
+## 2026-10-23: Own-rollback redo, cascaded variant (PRE-REGISTRATION, written before any spend of this job)
+
+### Metadata
+
+- Date: 2026-10-23
+- Git hash: the commit that adds this entry (scripts/cloud_redo.py --rollback cascaded, rebuild_cascaded; tests in
+  tests/test_cloud_redo.py)
+- Branch: worktree-agent-a30c5d4aa0d169d89
+- Machine: controller laptop; Anthropic API through src/cloud/client.py (CLOUD_CLIENT_HOST_ROLE=controller)
+
+### Why
+
+Operator decision 2026-10-23 on "Own-rollback redo and the local-first hybrid with rollback" (entry above, not edited):
+run option (1), cascaded rollback. The pre-task rollback equals the full-history redo's state in 28/28 (row
+own-rollback-analysis) and cannot fix the 28 earlier_state_repair tasks by construction; the cascaded variant removes
+the earlier local damage they repaired.
+
+### Configuration
+
+- Tasks: the 28 earlier_state_repair tasks of `cloud-redo-full-context` (cloud_redo.repair_keys), unchanged.
+- State (scripts/cloud_redo.py::rebuild_cascaded): the local session replayed on evalset_env.SnapshotLog. At every
+  earlier task turn that ended wrong (end_state_ok false), the turn's local calls are applied, the environment is
+  restored to that turn's pre-turn snapshot, and the task's reference calls are applied instead. STAND-IN, stated
+  plainly: earlier wrong turns are replaced by their reference calls in place of a successful escalation (the
+  full-history redo fixed 167 of 197, so real escalations do not always succeed). Correct earlier turns and guardrail
+  turns stay as the local model ran them. The redone task's own failed turn is rolled back (pre-task state of this
+  cascaded session).
+- Transcript: correct earlier turns and guardrail turns as recorded; each earlier wrong turn = its user message, one
+  assistant message carrying the reference calls with their results recomputed on the environment, and a stand-in
+  final reply `{"answer": "Done. <answer values for an information task> <session code>", "source": "tool results"}`
+  (not a recorded cloud reply). Then the redone task's user message.
+- Grader: unchanged (evalset_env.check_task; expected = the task's reference applied to this env_before).
+- Model and protocol: claude-sonnet-5-5, thinking {"type": "between_tools"} (--thinking-off), no temperature sent,
+  max_tokens 2048 per call (declared difference from the local 384, as in the full-history redo's parts 2 and 3),
+  prompt caching on, the same tool loop, stop on an empty reply at max_tokens.
+- Statistics: 1 warm-up call (excluded) + each of the 28 tasks once.
+- Budget: projection from the same 28 tasks' measured billed (cache-priced) cost in the full-history redo, USD 0.6699
+  (upper bound, every input token uncached, USD 2.6915). Job cap USD 1.50 on the billed basis (--job-cap 1.5): run()
+  refuses up front if the billed projection exceeds it, and the client cap = main ledger billed total at start + 1.50,
+  checked before every call with that call's upper-bound reservation, so no call can push the job past USD 1.50. The
+  ledger total (billed and upper bound) is recorded before and after the run.
+- Target (fixed now, unchanged): >= 25/28 fixed. Row `own-rollback-redo` reads results/own_rollback_redo_v1.jsonl from
+  run_end only; row `hybrid-local-first-rollback` then uses these rows for the 28 tasks where they occur.
+
+### Command
+
+- `$env:ANTHROPIC_API_KEY = [Environment]::GetEnvironmentVariable('ANTHROPIC_API_KEY','User');
+  $env:CLOUD_CLIENT_HOST_ROLE='controller'; py -3.12 scripts/cloud_redo.py --live --thinking-off --rollback cascaded
+  --max-tokens 2048 --job-cap 1.5 --ledger <main checkout>\results\cloud_ledger.jsonl; Remove-Item
+  Env:\ANTHROPIC_API_KEY` (the key lives in that one process only, never printed or written).
+
+### Replay Cache State
+
+- Replay mode: not used (live provider calls). Cache: provider prompt cache, 5-minute writes.
+
+### Result Summary
+
+- Primary metric: fixed / 28 with a 95% Wilson CI against the target >= 25/28; billed and upper-bound USD; ledger
+  totals before and after. Filled in FINDINGS after run_end; this entry is not edited.
+
+### Validity Flags
+
+- The earlier escalations are a stand-in (reference calls), so the result is an upper side of what cascaded rollback
+  gives when earlier escalations can themselves fail.
+- The stand-in transcript is synthetic for the earlier wrong turns.
+- Deviations from protocol: none yet. If the launch is blocked by the permission system, it is not run another way;
+  the exact command goes to the operator.
