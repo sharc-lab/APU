@@ -83,6 +83,11 @@ Use this block for every new experiment entry.
 
 ## 2026-10-22 - Measured hybrid by replay: per-task route-at-start plus the window-overflow flag, and task latency by policy (PRE-REGISTERED, NOT YET COMPUTED)
 
+## 2026-10-22: Long-task local accuracy (PRE-REGISTRATION, written before any data of this job)
+
+Pointer in docs/FINDINGS.md: "PRE-REGISTRATION (2026-10-22): long-task local accuracy and long-task cloud priced vs
+billed". The contract is this entry; it is not edited after data exists (later changes go in dated amendments).
+
 ### Metadata
 
 - Date: 2026-10-22
@@ -249,3 +254,206 @@ end-state waiver (TE_DEVIATION, evo-x2 only) is not used. Each job calls tq.adva
 - Seed variance: 3 seeds only. One model on one laptop. The validation's negative control runs at a 40960 window that
   the CPU real run never uses; only the real run is the measure.
 - Deviations from protocol: none planned. Any change after this commit is a dated amendment in docs/FINDINGS.md.
+
+- Git hash: 54d3a19 (harness/longtask_env.py, harness/x2_longtask.py, tests/test_longtask.py, register rows)
+- Branch: worktree-agent-a25303b0ad4cff8ce (to be merged by the operator)
+- Machine: evo-x2 (hostname EVO-X2), Ollama, qwen3:14b; queue job `x2_longtask_local_v1`
+
+### Configuration
+
+- Why this exists: the long-task savings rows (`hybrid-savings-tradeoff`, `hybrid-route-at-start`) apply the short
+  B3 v2 task accuracy to real agent task sizes (`cloud-cost-per-real-task`), labelled "local quality on long tasks not
+  measured". This job measures local accuracy on long tasks.
+- Task choice, and why. Real SWE-Gym or OpenHands tasks were checked first and are not feasible offline by
+  2026-10-27: on evo-x2 (read-only SSH check, 2026-10-22) there is no Docker, no git, no pytest, and WSL is not
+  installed (`wsl.exe --status`: "not installed"). Those tasks need a per-task repository and a Linux test environment
+  (Docker images); installing WSL2 or Docker Desktop means Windows feature changes with administrator rights and a
+  reboot, which this program does not do. So the tasks are **long-horizon synthetic, trace-length matched** work
+  orders built in the B3 v2 tool environment (harness/evalset_env.py tables, tool definitions and apply_call
+  unchanged). They are never to be called SWE-Gym or OpenHands tasks.
+- Task set (harness/longtask_env.py LONG_TASKS, frozen; a test rebuilds it from
+  harness/agent_trace_steps_uncensored.json): 20 tasks, two strata of 10. Within each uncensored trace set of
+  `cloud-cost-per-real-task` (SWE-Gym/OpenHands-Sampled-Trajectories, nebius/SWE-rebench-openhands-trajectories),
+  trajectories sorted by step count and task i takes the one at quantile (i + 0.5) / 10; its step count is the task's
+  target. A task is a work order file (one item per line: ticket triage, restock, tier change, customer email, event
+  move, payment, price change) in a seeded workspace of 64 items, 64 tickets, 48 events, 40 customers, 10 accounts, 6
+  payees. The user message names the file only; the directory is not in the prompt, so the model must read the work
+  order and each record an item depends on. Reference steps = 1 + reads + writes; items are added until the target is
+  reached. Profile against the traces: register row `long-task-local-hours` ("task profile"). Step counts match (both
+  strata); the SWE-Gym stratum's prompt length matches; the OpenHands stratum's prompt length does NOT match (see
+  Validity Flags).
+- Policies (arms, both on the job's own `ollama serve`, as harness/policy_compare.py's EvoServer):
+  `ollama_default` = B5 policy (a): base server env, no num_ctx sent (Ollama loads 40960 for qwen3:14b on evo-x2,
+  b5_resolution in results/x2_policy_compare.jsonl); `kv_q8_0` = B5 policy (g): OLLAMA_KV_CACHE_TYPE=q8_0 and
+  OLLAMA_FLASH_ATTENTION=1, num_ctx 40960 = L(q8_0) from the same b5_resolution row. The server log's KV type is
+  checked after the warm-up (same rule as policy_compare.kv_check); an arm whose check fails is not run and is recorded
+  (`arm_skipped`). think false, max_tokens 384, temperature 0, keep_alive 30m (the B3 v2 request options).
+- Turn protocol: one task = one fresh conversation; tools on every call (the 8 B3 v2 tools a work order can need, same
+  definitions; a call to any other tool returns an error and changes nothing); every tool call of a response is
+  executed in order (numeric strings coerced and text-written calls parsed as in B3 v2); the task ends at the first
+  response without a tool call, or after step_cap = ceil(1.5 x reference steps) + 5 tool-bearing calls, followed by one
+  final call without tools.
+- Budget levels: none (local only; no cloud call, no spend).
+- Seeds: 20260901, 20260902, 20260903. Order per seed: ollama_default then kv_q8_0, the 20 tasks in LONG_TASKS order.
+  Statistics convention: after each server start, 1 warm-up call (excluded), then the measured tasks.
+- Judge config: none. Deterministic end-state grader (longtask_env.check_long_task): expected = the reference writes
+  applied to the starting workspace; actual = the workspace after the model's executed calls; correct iff every table
+  is equal and the outbox is equal as a multiset. A task whose response carried thinking is scored wrong.
+
+### Command
+
+- Deploy (scripts/deploy_evo.py, side directory `C:\apu\ovn\longtask`): x2_longtask.py, longtask_env.py,
+  evalset_env.py, x2_r2_evalset.py, agent_trace_replay.py, agent_trace_steps_uncensored.json, x2_num_keep.py;
+  x2_r2_agent, t2s_r2_session_growth, host_config and t2s_queue from `C:\apu\ovn` (blobs recorded in run_start).
+  Checks before queueing, no model call: `qfill\x2_deploy_check.py --verify C:\apu\ovn\longtask` and
+  `longtask\x2_longtask.py --check-plan` (plan, oracle self-check: every reference solution passes the grader).
+- Queue entry (harness/x2_queue_fill.py `x2_longtask_local_v1`, appended after the currently queued jobs):
+  `python longtask\x2_longtask.py --out C:\apu\ovn\results\x2_longtask_local_v1.jsonl --stop-after-utc
+  2026-10-27T16:00:00+00:00`. Calls tq.advance() exactly once on exit; sets no pause.
+- Duration: ESTIMATE in register row `long-task-local-hours` (B5's measured qwen3:14b call times per prompt band for
+  policies (a) and (g), one call per reference step plus the final answer; high = 1.5 x the calls at the band's 75th
+  percentile).
+
+### Replay Cache State
+
+- Replay mode (`APU_REPLAY_MODE`): not used (live Ollama calls).
+- Trace roots used: harness/agent_trace_steps_uncensored.json (step counts only).
+- Cache warm/cold note: the model stays loaded within an arm (keep_alive 30m); the server restarts between arms.
+
+### Result Summary
+
+- Primary metrics (register row `long-task-local-accuracy`, PENDING until the file has run_end), per arm: accuracy =
+  correct / task runs (60 per arm when complete), Wilson 95% interval; silent failure share = wrong tasks that ended
+  with the model's own final answer, with no HTTP or transport error and no step cap ("wrong with no error shown"), as
+  a share of the wrong tasks and of all tasks; surfaced = wrong with an HTTP error or the step cap; minutes per task
+  (mean, median of task wall clock); per-task wall clock for every run (`<out>.report.json` per_task_wall, for a later
+  latency row); the same by stratum and seed.
+- Readings, fixed now:
+  - per arm, against qwen3:14b's B3 v2 short-task accuracy at the default window (80/90, 88.9%, register row
+    `hybrid-route-at-start`): "long tasks lower than short tasks" if the Wilson 95% upper bound is below 88.9%;
+    "long tasks higher" if the lower bound is above 88.9%; otherwise "not distinguishable from the short-task accuracy
+    at this sample";
+  - kv_q8_0 minus ollama_default: accuracy in points and minutes per task, descriptive (no test; 3 seeds x 20 tasks);
+    "q8_0 KV keeps long-task accuracy" if the difference is -5 points or better, otherwise "q8_0 KV loses long-task
+    accuracy";
+  - the OpenHands stratum minus the SWE-Gym stratum, per arm, descriptive.
+- What it does not change by itself: the savings rows keep their current inputs until a separate, dated change to
+  their compute functions names this row as the long-task accuracy source (labelled synthetic, trace-length matched).
+- Output artifacts: results/x2_longtask_local_v1.jsonl (+ .report.json).
+
+### Validity Flags
+
+- Prompt length, stated before the run: the OpenHands stratum matches the traces' step counts but not their prompt
+  length (oracle final prompt median about 7.8k model tokens vs the traces' median 50,559 qwen tokens; both in
+  `long-task-local-hours`). The traces' median final prompt is over qwen3:14b's 40960 window on evo-x2, and B5's
+  ollama_default call time in the 30k to 40k band (median 222.5 s per call, same row) makes trace-length prompts
+  infeasible by 2026-10-27; the window-overflow case is the window-overflow detector's (measured elsewhere). So this
+  job measures long-horizon accuracy (many steps) within the window, not long-context accuracy.
+- Seed variance flags: 3 seeds; the workspace and item values change with the seed, the step targets do not.
+- Tool-locality caveats: simulated tools (pure functions), no file system or network.
+- Deviations from protocol: none yet. Refusals: wrong host, Ollama tray app running, oracle self-check failure, an
+  output file that already holds a finished run. No new task starts after 2026-10-27 16:00Z; if that stops the run,
+  the run_end note says so and the row reports what ran.
+
+## 2026-10-22: Long-task cloud priced vs billed (PRE-REGISTRATION, written before any data of this job)
+
+### Metadata
+
+- Date: 2026-10-22
+- Git hash: 54d3a19 (scripts/longtask_cloud.py, tests/test_longtask_cloud.py, register row)
+- Branch: worktree-agent-a25303b0ad4cff8ce
+- Machine: controller laptop (Anthropic API through src/cloud/client.py, CLOUD_CLIENT_HOST_ROLE=controller)
+
+### Configuration
+
+- Purpose: check the priced estimate of `cloud-cost-per-real-task` (its pricing method, including the ASSUMPTION
+  cache hit rate 0.7) against what the provider bills on long agent tasks (the client records billed cost; row
+  `cloud-spend-billed-vs-upper-bound`).
+- Tasks: the same definitions, tool loop and grader as "Long-task local accuracy" above (x2_longtask.run_long_task),
+  5 tasks spanning the step range: lt_swegym_06, lt_swegym_10, lt_openhands_03, lt_openhands_06, lt_openhands_10,
+  seed 20260901. Long-horizon synthetic, trace-length matched, never SWE-Gym.
+- Policies: all-cloud, claude-haiku-5-5, thinking disabled as scripts/all_cloud_b3.py ({"type": "disabled"}),
+  temperature 0 (provider default if rejected, recorded), max_tokens 384, prompt caching on (breakpoints on the system
+  prompt and the last user message; all_cloud_b3.CloudRuntime, whose only change is that a final call after the step
+  cap keeps this task set's tools with tool_choice none). No context window applies.
+- Sonnet: run only if the estimate for the same 5 tasks on claude-sonnet-5-5 (the haiku calls' measured token
+  breakdown priced at Sonnet rates, x 1.5) is under USD 5 and the job total stays within the cap; otherwise skipped
+  (recorded either way, `sonnet_decision`).
+- Budget levels: job cap USD 6: client spend_cap_usd = main ledger running total at start + 6 (ledger
+  `results/cloud_ledger.jsonl` of the main checkout, passed with --ledger). Before any measured task: 1 warm-up call
+  (excluded) and a one-call pilot (the first task's first call, excluded) giving the provider/estimate token ratio;
+  projection = every reference step of the 5 tasks as one call at the upper-bound price (all input uncached, 160
+  output tokens), x 1.5 (step cap) x 1.5 (margin). Over the cap: refuse, no measured task.
+- Seeds: 20260901 (1 seed).
+- Judge config: none (end-state grader).
+
+### Command
+
+- `$env:ANTHROPIC_API_KEY = [Environment]::GetEnvironmentVariable('ANTHROPIC_API_KEY','User');
+  $env:CLOUD_CLIENT_HOST_ROLE = 'controller'; py -3.12 scripts/longtask_cloud.py --live --ledger <main
+  checkout>\results\cloud_ledger.jsonl; Remove-Item Env:\ANTHROPIC_API_KEY` (the key lives in that one process only).
+
+### Replay Cache State
+
+- Replay mode: not used (live provider calls). Trace roots: none. Cache: provider prompt cache, 5-minute writes.
+
+### Result Summary
+
+- Primary metrics (register row `long-task-cloud-priced-vs-billed`, PENDING until the file has run_end): per task
+  provider tokens (input, uncached, cache read, cache write, output), billed USD, upper-bound USD, seconds, correct;
+  the priced estimate = analysis/cloud_task_cost.task_cost (the method of `cloud-cost-per-real-task`) on the run's
+  own per-call input and output tokens, cases none / realistic / best.
+- Readings, fixed now: billed / priced-realistic over the 5 tasks; "the priced estimate is conservative" if billed <=
+  realistic, "the priced estimate is optimistic" otherwise; and the count of tasks whose billed cost lies within the
+  [best, none] band (all 5 expected if the pricing method is right). Accuracy on 5 tasks is descriptive only.
+- Output artifacts: results/longtask_cloud_v1.jsonl.
+
+### Validity Flags
+
+- One seed, 5 tasks: a cost check, not an accuracy estimate.
+- The run's own token counts are the provider's; no Anthropic/qwen calibration factor enters this comparison.
+- Deviations from protocol: none yet. If the launch command is blocked by the permission system, it is not run another
+  way; the exact command goes to the operator.
+
+## AMENDMENT (2026-10-22, before any data of x2_longtask_local_v1): deployed and queued on evo-x2
+
+This note follows "2026-10-22: Long-task local accuracy (PRE-REGISTRATION ...)" (2bdeb73), whose text is not edited.
+
+- **Two harness fixes after the pre-registration commit, before any model call; no protocol change.** The first
+  `--check-plan` on evo-x2 failed at import: x2_r2_agent (taken from `C:\apu\ovn`) puts its own directory first on
+  sys.path, so `C:\apu\ovn`'s older x2_r2_evalset.py was imported in place of the side directory's. 00a8149 imports
+  the side directory's x2_r2_evalset before x2_r2_agent; 86b6ce2 does the same for x2_num_keep (tray-app check) and
+  records both files in run_start's provenance.
+- **Deploy.** Side directory `C:\apu\ovn\longtask` (x2_longtask.py 8cc02eba, longtask_env.py f859f4c3, evalset_env.py
+  4eae225f, x2_r2_evalset.py e803555a, agent_trace_replay.py 6d89277a, agent_trace_steps_uncensored.json 4775fa9c,
+  x2_num_keep.py c2bb7c2d) and `C:\apu\ovn\qfill` (x2_queue_fill.py be6721a6); `verify_deployed_blobs` no problems for
+  both. x2_r2_agent from `C:\apu\ovn` (blob 38882113, as the other v2 jobs).
+- **Dry check on evo-x2 (no server start, no model call).** `--check-plan`: oracle self-check passes for every task and
+  seed (reference steps 767, 764, 767 per seed), think false, kv_q8_0 num_ctx 40960, ollama_default no num_ctx. The
+  output file does not exist yet.
+- **Queue.** `x2_queue_fill.py --append x2_longtask_local_v1`, one read-modify-write under `t2s_queue.set_pause`
+  cleared in its finally block; position 84, after every running and pending job; pause flag absent afterwards. Order
+  and hours: docs/X2_QUEUE_PLAN.md "Long-task local accuracy".
+
+## RESULT (2026-10-22): long-task cloud priced vs billed (longtask_cloud_v1)
+
+Run as pre-registered ("2026-10-22: Long-task cloud priced vs billed"), file results/longtask_cloud_v1.jsonl (run_end
+present). The provider rejected temperature 0 on the warm-up, so the provider default was used (recorded in run_start,
+the pre-registered fallback). The Sonnet estimate was under USD 5, so Sonnet ran on the same 5 tasks.
+
+Register row `long-task-cloud-priced-vs-billed`, pasted:
+
+> long-horizon synthetic, trace-length matched tasks (not SWE-Gym), seed [20260901]; decision run, stopped None; job billed USD 1.7686, upper bound USD 2.0153 (warm-up and pilot included); Sonnet: estimate USD 3.3710 vs threshold 5.00, run True; claude-haiku-5-5: 5/5 correct; tasks billed USD 0.1132 vs upper bound 0.1284 (billed/upper 0.882); priced none 0.1284, realistic (ASSUMPTION hit rate 0.7) 0.0726, best 0.0368; billed / realistic 1.559; billed within [best, none] for 5/5 tasks; per task: lt_swegym_06 (ref 11 steps, 6 calls): input 19,840 (uncached 9,442, cache read 10,398, write 0), output 1,817; billed $0.0020, upper bound $0.0029, priced none/realistic/best $0.0029/$0.0022/$0.0016; 11 s; correct True; lt_swegym_10 (ref 31 steps, 13 calls): input 87,678 (uncached 65,149, cache read 22,385, write 144), output 4,379; billed $0.0089, upper bound $0.0110, priced none/realistic/best $0.0110/$0.0069/$0.0042; 23 s; correct True; lt_openhands_03 (ref 50 steps, 21 calls): input 200,346 (uncached 163,953, cache read 36,249, write 144), output 7,410; billed $0.0205, upper bound $0.0237, priced none/realistic/best $0.0237/$0.0138/$0.0075; 56 s; correct True; lt_openhands_06 (ref 63 steps, 23 calls): input 240,582 (uncached 200,723, cache read 39,715, write 144), output 8,229; billed $0.0246, upper bound $0.0282, priced none/realistic/best $0.0282/$0.0162/$0.0085; 41 s; correct True; lt_openhands_10 (ref 92 steps, 35 calls): input 563,703 (uncached 503,048, cache read 60,511, write 144), output 12,598; billed $0.0572, upper bound $0.0627, priced none/realistic/best $0.0627/$0.0335/$0.0149; 68 s; correct True; claude-sonnet-5-5: 3/5 correct; tasks billed USD 1.6551 vs upper bound 1.8866 (billed/upper 0.877); priced none 1.8866, realistic (ASSUMPTION hit rate 0.7) 1.0301, best 0.4882; billed / realistic 1.607; billed within [best, none] for 5/5 tasks; per task: lt_swegym_06 (ref 11 steps, 6 calls): input 20,203 (uncached 9,805, cache read 8,665, write 1,733), output 1,713; billed $0.0419, upper bound $0.0575, priced none/realistic/best $0.0575/$0.0416/$0.0305; 57 s; correct True; lt_swegym_10 (ref 31 steps, 11 calls): input 65,776 (uncached 46,713, cache read 18,919, write 144), output 3,854; billed $0.1342, upper bound $0.1701, priced none/realistic/best $0.1701/$0.1084/$0.0679; 34 s; correct True; lt_openhands_03 (ref 50 steps, 10 calls): input 65,321 (uncached 47,991, cache read 17,186, write 144), output 3,419; billed $0.1323, upper bound $0.1648, priced none/realistic/best $0.1648/$0.1052/$0.0657; 30 s; correct False; lt_openhands_06 (ref 63 steps, 10 calls): input 71,860 (uncached 54,530, cache read 17,186, write 144), output 3,555; billed $0.1467, upper bound $0.1793, priced none/realistic/best $0.1793/$0.1139/$0.0705; 33 s; correct False; lt_openhands_10 (ref 92 steps, 35 calls): input 592,574 (uncached 531,919, cache read 60,511, write 144), output 12,974; billed $1.2000, upper bound $1.3149, priced none/realistic/best $1.3149/$0.6609/$0.2537; 111 s; correct True
+
+**Readings (pre-registered rules).** billed / priced-realistic is 1.559 (claude-haiku-5-5) and 1.607
+(claude-sonnet-5-5), both over 1: "the priced estimate is optimistic" for both tiers. Billed lies within the [best,
+none] band for 5/5 tasks on both tiers.
+
+**Why, from the token columns of the same row (an observation, not a test).** Cache reads are a small part of the
+input on every long task (lt_openhands_10: 60,511 of 563,703 input tokens on haiku). The client inherited from
+scripts/all_cloud_b3.py places cache breakpoints on the system prompt and the last user message only; in a single-turn
+tool loop the last user message is the work-order request near the start, so the growing tool transcript after it is
+never written to the cache. The realistic case of `cloud-cost-per-real-task` assumes 70% of every re-sent prefix is
+read from cache, which needs a breakpoint that moves with the transcript. So the billed cost here is the cost under
+this placement, and the realistic priced figure is reached only by a client that caches the growing transcript. The
+accuracy on 5 tasks is descriptive only.
