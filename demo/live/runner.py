@@ -94,12 +94,13 @@ class Agent:
 
 class LiveRun:
     def __init__(self, scenario: str, mode: str, picks_path: Path = PICKS, agent_factory=None, cloud=None,
-                 replay_file: Path | None = None, clock=time.monotonic, sleep=time.sleep):
+                 replay_file: Path | None = None, clock=time.monotonic, sleep=time.sleep, idle_speedup: float = 1.0):
         if scenario not in DR.SCENARIOS:
             raise ValueError(scenario)
         self.scenario, self.mode, self.picks_path = scenario, mode, Path(picks_path)
         self.agent_factory, self.cloud, self.replay_file = agent_factory, cloud, replay_file
         self.clock, self.sleep = clock, sleep
+        self.idle_speedup = idle_speedup
         self.events, self.lock = [], threading.Lock()
         self.done = False
         self.results = []
@@ -171,19 +172,49 @@ class LiveRun:
             self.push({"event": "task_start", "seed": r["seed"], "task_id": r["task_id"], "turn_idx": r["turn_idx"],
                        "history_turns": r["history_turns"], "projected_prompt": r["projected_prompt"],
                        "task_type": r.get("task_type")})
-            for lane in DR.LANES:
-                res = r["lanes"][lane]
-                self.push({"event": "lane_start", "lane": lane})
-                if lane == "ours" and res.get("decision"):
-                    self.push({"event": "decision", "lane": "ours", "decision": res["decision"]})
-                for c in res.get("calls") or []:
-                    self.sleep(float(c.get("seconds") or 0))
-                    self.push({"event": "call", "lane": lane, **c})
-                if res.get("route") == "cloud" or res.get("escalated"):
-                    if res.get("escalated"):
-                        self.push({"event": "escalate", "lane": lane})
-                    self.sleep(float((res.get("cloud") or res).get("seconds") or 0))
-                self.push({"event": "lane_end", "lane": lane, "result": res})
+            self._play(replay_timeline(r))
             self.results.append(r)
             self.push({"event": "task_end", "seed": r["seed"], "task_id": r["task_id"]})
             self.push({"event": "tally", "tally": DR.tally(self.results)})
+
+    def _play(self, timeline: list[tuple[float, dict]]):
+        """Events at their recorded offsets. With idle_speedup (the backup clip only), a gap longer than IDLE_S in
+        which nothing changes on screen is played at that speed, with a visible speed event before and after."""
+        now = 0.0
+        for at, ev in timeline:
+            gap = max(0.0, at - now)
+            if self.idle_speedup > 1 and gap > IDLE_S:
+                self.push({"event": "speed", "x": self.idle_speedup})
+                self.sleep(gap / self.idle_speedup)
+                self.push({"event": "speed", "x": 1})
+            else:
+                self.sleep(gap)
+            now = max(now, at)
+            self.push(ev)
+
+
+IDLE_S = 3.0
+
+
+def replay_timeline(r: dict) -> list[tuple[float, dict]]:
+    """(offset seconds from task start, event) for one recorded task: Default local then Ours one after another (each
+    call at its recorded duration), the All cloud lane from the task start alongside them (as recorded)."""
+    out, t = [], 0.0
+    for lane in ("default", "ours"):
+        res = r["lanes"][lane]
+        out.append((t, {"event": "lane_start", "lane": lane}))
+        if lane == "ours" and res.get("decision"):
+            out.append((t, {"event": "decision", "lane": "ours", "decision": res["decision"]}))
+        for c in res.get("calls") or []:
+            t += float(c.get("seconds") or 0)
+            out.append((t, {"event": "call", "lane": lane, **c}))
+        if res.get("escalated"):
+            out.append((t, {"event": "escalate", "lane": lane}))
+        if res.get("route") == "cloud" or res.get("escalated"):
+            t += float((res.get("cloud") or res).get("seconds") or 0)
+        out.append((t, {"event": "lane_end", "lane": lane, "result": res}))
+    c = r["lanes"]["cloud"]
+    out.append((0.0, {"event": "lane_start", "lane": "cloud"}))
+    out.append((float(c.get("seconds") or 0), {"event": "lane_end", "lane": "cloud", "result": c}))
+    end = max(a for a, _ in out)
+    return sorted(out, key=lambda x: x[0]) + [(end, {"event": "task_idle_end"})]

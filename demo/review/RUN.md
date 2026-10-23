@@ -33,17 +33,31 @@ touches the Ollama tray app or system-wide settings.
 **Budget.** Cloud calls go to the demo ledger (`demo/ledger/cloud_ledger_demo.jsonl`), capped at USD 10, with a
 session limit of USD 3. A cloud task that would not fit is shown REPLAYED instead.
 
+## The acceptance run: one controller step
+
+The queued evo-x2 job records the local lanes only; the key never goes to evo-x2. After the results sync, the cloud
+parts are completed by one command on the controller (under USD 3 per session):
+
+```
+py -3.12 -m demo.live.complete_run --local results/demo_live_run_local_v1.jsonl --out results/demo_live_run_20261023.jsonl
+```
+
+## Keeping evo-x2 free on demo day
+
+A queued hold job (`x2_demo_hold`) blocks the queue from its launch until a fixed release time and then releases
+itself; no pause flag. It is queued only with the operator's window (fallback: 2026-10-29 08:00 to 18:00 PT).
+
 ## If evo-x2 is unreachable (or busy)
 
 Use the recorded acceptance run. Every number is then labelled REPLAYED:
 
 ```
-py -3.12 -m demo.live --mode replay --replay results/demo_live_run_<date>.jsonl --port 8800
+py -3.12 -m demo.live --mode replay --replay results/demo_live_run_20261023.jsonl --port 8800
 ```
 
 The screen shows "REPLAYED" in the mode badge. The run plays back with its recorded timings.
 
-The backup recording is `demo/review/demo_live_run.webm`.
+The recordings: `demo/review/demo_live_amd8192.webm` (main, real speed) and `demo/review/demo_live_intel.webm` (backup; "2x speed" shown on stretches where nothing changes).
 
 ## What to say if something falls back
 

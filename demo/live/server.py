@@ -44,8 +44,10 @@ def headline(register_text: str) -> dict:
 
 
 class App:
-    def __init__(self, mode: str = "live", replay_file=None, agent_factory=None, cloud=None, picks=RN.PICKS):
+    def __init__(self, mode: str = "live", replay_file=None, agent_factory=None, cloud=None, picks=RN.PICKS,
+                 idle_speedup: float = 1.0):
         self.mode, self.replay_file, self.picks = mode, replay_file, Path(picks)
+        self.idle_speedup = idle_speedup
         self.agent_factory, self.cloud = agent_factory, cloud
         self.run = None
         self.meta = {"scenarios": DR.SCENARIOS, "mode": mode,
@@ -56,7 +58,8 @@ class App:
         if self.run is not None and not self.run.done:
             return {"started": False, "reason": "a run is in progress"}
         self.run = RN.LiveRun(scenario, self.mode, picks_path=self.picks, agent_factory=self.agent_factory, cloud=self.cloud,
-                              replay_file=Path(self.replay_file) if self.replay_file else None)
+                              replay_file=Path(self.replay_file) if self.replay_file else None,
+                              idle_speedup=self.idle_speedup if self.mode == "replay" else 1.0)
         self.run.start()
         return {"started": True, "scenario": scenario, "mode": self.mode}
 
@@ -111,6 +114,8 @@ def main(argv=None) -> int:
     ap.add_argument("--replay", default=None)
     ap.add_argument("--laptop-model", default="qwen3:4b-instruct")
     ap.add_argument("--picks", default=str(RN.PICKS))
+    ap.add_argument("--idle-speedup", type=float, default=1.0,
+                    help="replay only: play stretches where nothing changes at this speed, labelled on screen")
     a = ap.parse_args(argv)
     cloud, factory = None, None
     if a.mode == "replay":
@@ -121,7 +126,7 @@ def main(argv=None) -> int:
         cloud = cloud_lane.CloudLane()
         argv_agent = RN.x2_agent_argv() if a.mode == "live" else RN.laptop_agent_argv(a.laptop_model)
         factory = lambda on_line: RN.Agent(argv_agent, on_line=on_line)  # noqa: E731
-    app = App(a.mode, a.replay, factory, cloud, a.picks)
+    app = App(a.mode, a.replay, factory, cloud, a.picks, a.idle_speedup)
     srv = make_server(a.port, app)
     print(f"live demo on http://127.0.0.1:{srv.server_address[1]}/  (mode {a.mode})", flush=True)
     try:

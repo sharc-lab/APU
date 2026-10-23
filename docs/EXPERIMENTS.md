@@ -587,3 +587,22 @@ protocol is not changed.
   read-modify-write under `t2s_queue.set_pause` cleared in its finally block: positions 77 and 78, directly after the
   running x2_b5_simcap_8192 (position 76) and before x2_b5_simcap_4096; pause flag absent afterwards. Each releases
   itself via tq.advance() on exit and sets no pause.
+- **The one controller step (operator decision, 2026-10-23).** The cloud parts run only on the controller laptop, in
+  one command after the results sync: `py -3.12 -m demo.live.complete_run --local
+  results/demo_live_run_local_v1.jsonl --out results/demo_live_run_20261023.jsonl`, under USD 3 per session. The API
+  key stays on the controller; the evo-x2 jobs have no key handling.
+
+## 2026-10-23: Demo hold job (OPERATIONAL ENTRY, not a measurement; NOT QUEUED until the operator gives the window)
+
+- Purpose: keep evo-x2 free for the live demo on 2026-10-29 without a pause flag. `harness/x2_demo_hold.py` (deployed
+  to `C:\apu\ovn\demo`) touches nothing (no Ollama start or stop, no model, no GPU), prints a heartbeat line every 5
+  minutes (the watchdog's queue log heartbeat), and calls t2s_queue.advance() once at the release time; if it starts
+  at or after the release time it releases at once. It sets no pause flag, so nothing depends on a person to resume.
+- Parameters: `--start-utc` (window start, recorded; `launched_after_window_start` says whether a measurement job may
+  have run inside the window) and `--release-utc` (the automatic release). The queue has no time gate, so the hold
+  holds from its launch: it must be placed to launch at or before the window start.
+- Queue entry: `x2_queue_fill.py --hold-start-utc <start> --hold-release-utc <release> --insert-after <id>
+  x2_demo_hold` (or `--append x2_demo_hold`); the note states the window and the release time.
+- Fallback named by the operator (if no window by 2026-10-28 18:00 PT): 2026-10-29 08:00 to 18:00 PT, that is
+  `--hold-start-utc 2026-10-29T08:00:00-07:00 --hold-release-utc 2026-10-29T18:00:00-07:00` (15:00 to 01:00 UTC).
+- Dry run on evo-x2 (no wait, no advance) before queueing; queued only when the operator gives the times.

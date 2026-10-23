@@ -205,6 +205,33 @@ ENTRIES = {
 }
 
 
+HOLD_ID = "x2_demo_hold"
+
+
+def hold_entry(release_utc: str, start_utc: str) -> dict:
+    """The demo hold (docs/EXPERIMENTS.md "2026-10-23: Demo hold job"): the window and the release time are part of the
+    command and of the note, so the queue state itself says when the machine resumes. Added to ENTRIES only by
+    --hold-release-utc with --hold-start-utc."""
+    from datetime import datetime, timezone
+
+    def utc(s, flag):
+        dt = datetime.fromisoformat(s)
+        if dt.tzinfo is None:
+            raise ValueError(f"{flag} needs an explicit UTC offset")
+        return dt.astimezone(timezone.utc)
+    r, s = utc(release_utc, "--hold-release-utc"), utc(start_utc, "--hold-start-utc")
+    if s >= r:
+        raise ValueError("the hold window start must be before its release")
+    rel, st = r.isoformat(), s.isoformat()
+    return {"projected_duration_h": None,
+            "cmd": [PY, "demo\\x2_demo_hold.py", "--start-utc", st, "--release-utc", rel, "--out",
+                    f"{RESULTS}\\demo_hold.jsonl", "--queued"],
+            "note": f"Demo hold for the live demo window {st} to {rel}, pre-registered in docs/EXPERIMENTS.md "
+                    f"2026-10-23: touches nothing (no Ollama, no model, no GPU), holds the queue from its launch until "
+                    f"{rel} and then releases itself via tq.advance(); if it starts at or after {rel} it releases at "
+                    f"once. Sets no pause."}
+
+
 def entry(job_id: str) -> dict:
     e = ENTRIES[job_id]
     out = {"id": job_id, "status": "pending", "projected_duration_h": e.get("projected_duration_h"),
@@ -296,7 +323,14 @@ def main(argv=None):
     ap.add_argument("--show", action="store_true")
     ap.add_argument("--insert-after", nargs="+", default=None, metavar=("AFTER_ID", "JOB_ID"),
                     help="insert the named entries directly after AFTER_ID (running or pending)")
+    ap.add_argument("--hold-release-utc", default=None,
+                    help=f"defines the {HOLD_ID} entry with this release time (ISO 8601 with offset)")
+    ap.add_argument("--hold-start-utc", default=None, help="the demo window start, required with --hold-release-utc")
     args = ap.parse_args(argv)
+    if args.hold_release_utc:
+        if not args.hold_start_utc:
+            ap.error("--hold-release-utc needs --hold-start-utc")
+        ENTRIES[HOLD_ID] = hold_entry(args.hold_release_utc, args.hold_start_utc)
     if args.insert_after:
         after, jobs = args.insert_after[0], args.insert_after[1:]
         unknown = [j for j in jobs if j not in ENTRIES]
