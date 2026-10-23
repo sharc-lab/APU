@@ -6788,6 +6788,161 @@ def compute_x2_scale_real_default_tier(repo):
     return {"value": " / ".join(parts), "n": f"{n} sessions"}
 
 
+# ── long-task local accuracy and long-task cloud priced vs billed (2026-10-22; docs/EXPERIMENTS.md "Long-task local
+# accuracy" and "Long-task cloud priced vs billed"). Tasks: harness/longtask_env.py, long-horizon synthetic,
+# trace-length matched (never SWE-Gym). Result rows are PENDING until their file exists AND holds a run_end record. ──
+LONGTASK_LOCAL_FILE = "results/x2_longtask_local_v1.jsonl"
+LONGTASK_CLOUD_FILE = "results/longtask_cloud_v1.jsonl"
+LONGTASK_JOB = "x2_longtask_local_v1"
+LONGTASK_TRACE_FILE = "harness/agent_trace_steps_uncensored.json"
+
+
+def _longtask_modules():
+    import sys as _sys
+    _r2_agent_module()
+    _sys.path.insert(0, str(REPO / "harness"))
+    import longtask_env as lt
+    import x2_longtask as xl
+    return lt, xl
+
+
+def _finished_attempt_rows(rows):
+    """The rows of the attempt that wrote run_end (the last such attempt)."""
+    ends = [r for r in rows if r.get("record") == "run_end"]
+    if not ends:
+        raise ValueError("no run_end record (partial file)")
+    att = ends[-1].get("attempt_id")
+    return [r for r in rows if r.get("attempt_id") == att] if att else rows
+
+
+def _lt_schedule(repo):
+    return json.loads((repo / LONGTASK_TRACE_FILE).read_text(encoding="utf-8"))
+
+
+def compute_long_task_local_hours(repo):
+    """ESTIMATE (not a measurement) of x2_longtask_local_v1: every reference step plus the final answer one call at
+    B5's measured median qwen3:14b call time of its prompt band for the matching policy ((a) for ollama_default, (g)
+    for kv_q8_0; high = 1.5 x the calls at the band's 75th percentile), and its projected place behind the queue."""
+    from datetime import datetime, timedelta, timezone
+    _lt, xl = _longtask_modules()
+    ag = _r2_agent_module()
+    est = xl.hours_estimate(ag.read_rows(repo / B5_X2_FILE))
+    fill = queue_fill_1022_estimates(repo)
+    l70 = l70_b3v2_estimates(repo)
+    pt_tz = timezone(timedelta(hours=-7), "PT")
+    cut = datetime.fromisoformat(L70_CUTOFF_UTC)
+    stop = datetime.fromisoformat(xl.STOP_AFTER_UTC)
+
+    def f(t):
+        return f"{t.strftime('%m-%d %H:%MZ')} ({t.astimezone(pt_tz).strftime('%m-%d %H:%M')} PT)"
+    order = list(FILL_1022_ORDER[FILL_1022_ORDER.index(L70_ANCHOR_JOB):]) + list(L70_JOBS)
+    jobs = {**fill, **{k: v for k, v in l70.items() if not k.startswith("_")}}
+    t_pt = t_hi = datetime.fromisoformat(L70_ANCHOR_UTC)
+    for j in order:
+        t_pt += timedelta(hours=jobs[j]["point_h"])
+        t_hi += timedelta(hours=jobs[j]["high_h"])
+    s_pt, s_hi = t_pt, t_hi
+    e_pt = s_pt + timedelta(hours=est["total"]["point_h"])
+    e_hi = s_hi + timedelta(hours=est["total"]["high_h"])
+    r_pt, r_hi = e_pt + timedelta(hours=L70_SYNC_INTERVAL_H), e_hi + timedelta(hours=L70_SYNC_INTERVAL_H)
+    arms = "; ".join(f"{a} {est[a]['point_h']:.2f} h (high {est[a]['high_h']:.2f} h; B5 call time per 10k prompt "
+                     "band median/p75 s: " + ", ".join(f"{b * 10}k {v['median_s']:.1f}/{v['p75_s']:.1f} (n={v['n']})"
+                                                         for b, v in sorted(est[a]["bands"].items())) + ")"
+                     for a in xl.ARM_ORDER)
+    return {"value": f"ESTIMATE; {LONGTASK_JOB} (qwen3:14b, 20 long-horizon synthetic tasks x 3 seeds x 2 arms): "
+                     f"total {est['total']['point_h']:.2f} h (high {est['total']['high_h']:.2f} h); {arms}; queued "
+                     f"after x2_evalset_tasks_real_v2_llama33_70b, projected start {f(s_pt)} (high case {f(s_hi)}), "
+                     f"finish {f(e_pt)} (high case {f(e_hi)}); with one {L70_SYNC_INTERVAL_H:.0f} h results-sync "
+                     f"interval registered by {f(r_pt)} (high case {f(r_hi)}); cutoff {f(cut)}: "
+                     + ("met" if r_pt <= cut else "NOT met") + " (high case " + ("met" if r_hi <= cut else "NOT met")
+                     + f"); the job starts no new task after {f(stop)} (--stop-after-utc)",
+            "n": "1 job (estimate)"}
+
+
+def compute_long_task_local_accuracy(repo):
+    """x2_longtask_local_v1: per arm accuracy (Wilson 95%), wrong split silent / surfaced, minutes per task, by
+    stratum, and the per-call prompt profile against the matched traces."""
+    import statistics
+    lt, xl = _longtask_modules()
+    ag = _r2_agent_module()
+    rows = _finished_attempt_rows(ag.read_rows(repo / LONGTASK_LOCAL_FILE))
+    end = [r for r in rows if r.get("record") == "run_end"][-1]
+    tr = xl.task_rows(rows)
+    if not tr:
+        raise ValueError("no task rows")
+    prof = lt.trace_profile(_lt_schedule(repo))
+    parts = [f"{lt.LABEL} (not SWE-Gym, not OpenHands tasks): qwen3:14b on evo-x2, {len(lt.LONG_TASKS)} tasks "
+             f"(10 matched to SWE-Gym step quantiles, 10 to nebius-rebench-openhands), seeds "
+             f"{sorted({r['seed'] for r in tr})}; run_end note: {end.get('note')}"]
+    sm = {}
+    for a in xl.ARM_ORDER:
+        g = xl.task_rows(rows, xl.ARMS[a]["arm_id"])
+        if not g:
+            parts.append(f"{a}: no task rows")
+            continue
+        s = sm[a] = xl.arm_summary(g)
+        lo, hi = s["wilson95"]
+        strata = ", ".join(f"{k} {v['correct']}/{v['n']} (silent {v['silent_wrong']}, {v['minutes_mean']:.1f} "
+                           f"min/task)" for k, v in s["by_stratum"].items())
+        seeds = ", ".join(f"{k}: {v['correct']}/{v['n']}" for k, v in s["by_seed"].items())
+        fin = {k: statistics.median(r["max_prompt_tokens_est"] for r in g if r["stratum"] == k)
+               for k in s["by_stratum"]}
+        parts.append(
+            f"{a} (B5 policy {xl.ARMS[a]['b5_policy']}, num_ctx sent {xl.ARMS[a]['num_ctx']}, loaded window "
+            f"{s['loaded_context']}): accuracy {s['correct']}/{s['n_tasks']} ({_pct(s['accuracy'])}, Wilson 95% "
+            f"{_pct(lo)} to {_pct(hi)}); wrong {s['wrong']}: silent {s['silent_wrong']} (share of wrong "
+            f"{_pct(s['silent_share_of_wrong'])}, of all tasks {_pct(s['silent_share_of_all'])}), surfaced "
+            f"{s['surfaced_wrong']} (step cap {s['step_cap_hits']}, HTTP error {s['http_error_tasks']}); thinking "
+            f"present {s['thinking_tasks']}; minutes per task mean {s['minutes_per_task_mean']:.2f}, median "
+            f"{s['minutes_per_task_median']:.2f}; calls per task mean {s['calls_per_task_mean']:.1f}; by stratum: "
+            f"{strata}; by seed: {seeds}; median final prompt est per stratum "
+            + ", ".join(f"{k} {v:.0f}" for k, v in fin.items()) + " (traces' median final prompt: "
+            + ", ".join(f"{k} {v['median_final_prompt']:.0f}" for k, v in prof.items()) + " qwen tokens)")
+    if len(sm) == 2:
+        d = 100 * (sm["kv_q8_0"]["accuracy"] - sm["ollama_default"]["accuracy"])
+        parts.append(f"kv_q8_0 minus ollama_default: {d:+.1f} points accuracy, "
+                     f"{sm['kv_q8_0']['minutes_per_task_mean'] - sm['ollama_default']['minutes_per_task_mean']:+.2f} "
+                     "min per task (descriptive, no test)")
+    parts.append(f"per-task wall-clock: {len(tr)} rows in {LONGTASK_LOCAL_FILE}.report.json per_task_wall")
+    return {"value": "; ".join(parts), "n": f"{len(tr)} task runs"}
+
+
+def compute_long_task_cloud_priced_vs_billed(repo):
+    """longtask_cloud_v1: per model and task, provider tokens, billed USD, upper-bound USD, the
+    cloud-cost-per-real-task pricing method on the run's own per-call tokens (none / realistic / best), seconds and
+    correct; billed over priced-realistic and whether billed lies within [best, none]."""
+    rows = _finished_attempt_rows(_read_jsonl(repo / LONGTASK_CLOUD_FILE))
+    end = [r for r in rows if r.get("record") == "run_end"][-1]
+    tr = [r for r in rows if r.get("record") == "longtask_cloud_task"]
+    sn = end.get("sonnet") or {}
+    parts = [f"long-horizon synthetic, trace-length matched tasks (not SWE-Gym), seed "
+             f"{sorted({r['seed'] for r in tr}) or 'none'}; decision {end.get('decision')}, stopped "
+             f"{end.get('stopped')}; job billed USD {end.get('job_spend_billed_usd', 0):.4f}, upper bound USD "
+             f"{end.get('job_spend_upper_bound_usd', 0):.4f} (warm-up and pilot included); Sonnet: "
+             + (f"estimate USD {sn['estimate_usd']:.4f} vs threshold {sn.get('threshold_usd', 0):.2f}, run "
+                f"{sn.get('run')}" if sn.get("estimate_usd") is not None else "not reached")]
+    for m in sorted({r["model_id"] for r in tr}):
+        g = [r for r in tr if r["model_id"] == m]
+        b = sum(r["usd_billed"] for r in g)
+        ub = sum(r["usd_upper_bound"] for r in g)
+        pr = {c: sum(r["priced_estimate_usd"][c] for r in g) for c in ("none", "realistic", "best")}
+        within = sum(1 for r in g if r["priced_estimate_usd"]["best"] - 1e-9 <= r["usd_billed"]
+                     <= r["priced_estimate_usd"]["none"] + 1e-9)
+        per = "; ".join(
+            f"{r['task_id']} (ref {r['ref_steps']} steps, {r['n_calls']} calls): input {r['input_tokens']:,} "
+            f"(uncached {r['uncached_input_tokens']:,}, cache read {r['cache_read_tokens']:,}, write "
+            f"{r['cache_write_tokens']:,}), output {r['output_tokens']:,}; billed ${r['usd_billed']:.4f}, upper bound "
+            f"${r['usd_upper_bound']:.4f}, priced none/realistic/best ${r['priced_estimate_usd']['none']:.4f}/"
+            f"${r['priced_estimate_usd']['realistic']:.4f}/${r['priced_estimate_usd']['best']:.4f}; "
+            f"{r['task_wall_s']:.0f} s; correct {r['correct']}" for r in g)
+        parts.append(f"{m}: {sum(1 for r in g if r['correct'])}/{len(g)} correct; tasks billed USD {b:.4f} vs upper "
+                     f"bound {ub:.4f} (billed/upper {b / ub:.3f}); priced none {pr['none']:.4f}, realistic (ASSUMPTION "
+                     f"hit rate 0.7) {pr['realistic']:.4f}, best {pr['best']:.4f}; billed / realistic "
+                     f"{b / pr['realistic']:.3f}; billed within [best, none] for {within}/{len(g)} tasks; per task: "
+                     + per)
+    return {"value": "; ".join(parts), "n": f"{len(tr)} cloud task runs"}
+
+
 NUMBER_ENTRIES = [
     {"claim_id": "PX2-TTFT-gap", "description": "PX2 B4-vs-S4 TTFT gap range across 5 models",
      "compute": compute_px2_ttft_gap, "data_files": ["results/t2s_night2_20260930T135145Z.jsonl"],
@@ -7756,6 +7911,23 @@ NUMBER_ENTRIES = [
      "compute": compute_x2_evalset_tasks_real_v2_l70_route,
      "data_files": [X2_EVALSET_TASKS_REAL_V2_L70, ALL_CLOUD_B3_V1, X2_EVALSET_TASKS_REAL_V2], "pending_ok": True,
      "script_function": "analysis/numbers_register.py::compute_x2_evalset_tasks_real_v2_l70_route"},
+    {"claim_id": "long-task-local-hours", "description": "ESTIMATE, not a measurement: hours of the long-task local "
+     "accuracy job (qwen3:14b, 20 long-horizon synthetic tasks x 3 seeds, ollama_default and kv_q8_0) from B5's "
+     "measured call times, projected start and finish behind the queue and the 2026-10-27 12:00 PT cutoff",
+     "compute": compute_long_task_local_hours, "data_files": [B5_X2_FILE] + FILL_1022_DATA + L70_HOURS_DATA,
+     "script_function": "harness/x2_longtask.py::hours_estimate"},
+    {"claim_id": "long-task-local-accuracy", "description": "qwen3:14b on evo-x2, long-horizon synthetic tasks "
+     "(trace-length matched, not SWE-Gym), ollama_default vs kv_q8_0, 3 seeds: accuracy, silent failure share, minutes "
+     "per task, by stratum; PENDING until the file has run_end",
+     "compute": compute_long_task_local_accuracy, "data_files": [LONGTASK_LOCAL_FILE, LONGTASK_TRACE_FILE],
+     "pending_ok": True, "require_run_end": [LONGTASK_LOCAL_FILE],
+     "script_function": "analysis/numbers_register.py::compute_long_task_local_accuracy"},
+    {"claim_id": "long-task-cloud-priced-vs-billed", "description": "all-cloud on 5 of the long-horizon synthetic "
+     "tasks (seed 20260901, claude-haiku-5-5; Sonnet only if its estimate is under USD 5): per task tokens, billed USD, "
+     "upper bound USD, the cloud-cost-per-real-task pricing on the run's own tokens, seconds, correct",
+     "compute": compute_long_task_cloud_priced_vs_billed, "data_files": [LONGTASK_CLOUD_FILE], "pending_ok": True,
+     "require_run_end": [LONGTASK_CLOUD_FILE],
+     "script_function": "analysis/numbers_register.py::compute_long_task_cloud_priced_vs_billed"},
     {"claim_id": "cost-cut-config-time", "description": "MEASURED: per model, session minutes saved per 40-turn R2 "
      "session on evo-x2 by the fastest measured non-router setting (B5 policies b-h, plus the flash-attention control "
      "once synced) against the runtime default (B5 policy a), with both settings' rule pass rate and history recall",
@@ -7834,7 +8006,16 @@ def _pending(entry, repo=None) -> list[str]:
     if not entry.get("pending_ok"):
         return []
     repo = repo or REPO
-    return [f for f in entry["data_files"] if not (repo / f).exists()]
+    missing = [f for f in entry["data_files"] if not (repo / f).exists()]
+    for f in entry.get("require_run_end", ()):   # a partial file (no run_end record yet) stays PENDING
+        if (repo / f).exists() and not _has_run_end(repo / f):
+            missing.append(f + " (partial: no run_end)")
+    return missing
+
+
+def _has_run_end(path) -> bool:
+    with open(path, encoding="utf-8") as fh:
+        return any('"run_end"' in line and json.loads(line).get("record") == "run_end" for line in fh if line.strip())
 
 
 def _values_match(reported, computed_value, tolerance_note=False):

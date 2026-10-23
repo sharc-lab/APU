@@ -30,6 +30,8 @@ RESULTS = r"C:\apu\ovn\results"
 RELEASE = "Releases itself via tq.advance() on exit; sets no pause."
 # register row x2-llama33-70b-b3v2-hours (ESTIMATE), copied here because the queue entry is built on evo-x2
 L70_HOURS = {"val": 1.76, "val_high": 2.07, "real": 0.97, "real_high": 1.25}
+# register row long-task-local-hours (ESTIMATE), copied here for the same reason
+LT_HOURS = {"point": 9.63, "high": 16.92}
 
 ENTRIES = {
     "x2_num_keep_qwen3_14b": {
@@ -163,6 +165,18 @@ ENTRIES = {
                 "preflight refuses unless llama3.3:70b passes every gate of that validation (no waiver). ESTIMATE "
                 f"{L70_HOURS['real']:.2f} h (high {L70_HOURS['real_high']:.2f} h; register row "
                 "x2-llama33-70b-b3v2-hours). " + RELEASE,
+    },
+    # ── long-task local accuracy (2026-10-22; docs/EXPERIMENTS.md "Long-task local accuracy"; hours: register row
+    # long-task-local-hours) ──
+    "x2_longtask_local_v1": {
+        "projected_duration_h": LT_HOURS["point"],
+        "cmd": [PY, "longtask\\x2_longtask.py", "--out", f"{RESULTS}\\x2_longtask_local_v1.jsonl",
+                "--stop-after-utc", "2026-10-27T16:00:00+00:00"],
+        "note": "Long-task local accuracy, pre-registered in docs/EXPERIMENTS.md 2026-10-22: qwen3:14b on 20 "
+                "long-horizon synthetic, trace-length matched work orders (not SWE-Gym), ollama_default and kv_q8_0 "
+                "(B5 policy g), seeds 20260901-03; no new task after 2026-10-27 16:00Z. ESTIMATE "
+                f"{LT_HOURS['point']:.2f} h (high {LT_HOURS['high']:.2f} h; register row long-task-local-hours). "
+                + RELEASE,
     },
 }
 

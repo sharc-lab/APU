@@ -42,6 +42,7 @@ CONTROLLER_SCRIPTS = [
 NO_SUBPROCESS_SCRIPTS = [
     REPO / "harness" / "policy_compare.py",
     REPO / "scripts" / "t2s_window_stage.py",
+    REPO / "scripts" / "longtask_cloud.py",
 ]
 
 
