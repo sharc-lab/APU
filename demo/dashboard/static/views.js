@@ -269,7 +269,7 @@ function storyMainHTML(st) {
   if (st.kind === "tiles") return `<div class="s-tiles">${(m.tiles || []).map((t) => `<div class="s-tile">${t.big ? `<div class="s-big">${esc(t.big)}</div>` : ""}<p>${esc(t.text)} ${TAG(t.tag)}</p></div>`).join("")}</div>`;
   if (st.kind === "money") {
     const sl = m.slider;
-    return `<div class="s-cards">${(m.numbers || []).map((c) => `<div class="s-card"><div class="s-big">${esc(c.big)}</div><p>${esc(c.text)} ${TAG(c.tag)}</p></div>`).join("")}</div>
+    return `<div class="s-cards">${(m.numbers || []).map((c, i) => `<div class="s-card"><div class="s-big">${esc(c.big)}</div><p>${esc(c.text)} ${TAG(c.tag)}</p>${i === 1 ? `<button type="button" id="s-live" class="s-live">${esc(m.live_button)}</button><div id="s-live-out"></div>` : ""}</div>`).join("")}</div>
       <p class="s-take">${esc(m.takeaway)}</p>
       <div class="s-slider"><label>Accuracy gap you accept <input type="range" id="s-tol" min="${sl.min}" max="${sl.max}" step="0.1" value="${story.tol}"> <b id="s-tol-v">${story.tol.toFixed(1)}</b> points</label>
       <div id="s-tol-out">${toleranceLines(sl, story.tol)}</div></div>`;
@@ -285,13 +285,31 @@ function toleranceLines(sl, tol) {
   return sl.entries.filter((e) => e.model === "claude-sonnet-5-5").map((e) => {
     if (seen[e.machine]) return ""; seen[e.machine] = 1;
     const d = routeAt(e, tol);
-    return `<p class="s-line">${esc(e.machine)}: ${d.route === "local" ? "runs locally, saves $" + Math.round(d.saves).toLocaleString() + " a month" : "goes to the cloud"} ${TAG("measured")}</p>`;
+    // the decision is measured; a dollar figure is measured per-task cost x an assumed volume, so it is projected
+    return `<p class="s-line">${esc(e.machine)}: ${d.route === "local" ? `runs locally ${TAG("measured")}, saves $${Math.round(d.saves).toLocaleString()} a month at ${sl.volume.toLocaleString()} tasks a day ${TAG("projected")}` : `goes to the cloud ${TAG("measured")}`}</p>`;
   }).join("");
+}
+function liveHTML(r) {
+  const cents = r.usd == null ? null : (r.usd * 100).toFixed(1);
+  const tag = r.label === "measured" ? "measured" : "recorded";
+  const head = r.mode === "executed" ? "Live fix" : "Recorded fix of the same answer";
+  let ans = r.answer ? String(r.answer) : "";
+  try { const o = JSON.parse(ans); if (o && typeof o.answer === "string") ans = o.answer; } catch (e) { /* plain text */ }
+  if (ans.length > 220) ans = ans.slice(0, 217) + "...";
+  return `<p class="s-line"><b>${head}:</b> ${cents == null ? "not available" : cents + " cents"}${r.seconds != null ? ", " + r.seconds.toFixed(1) + " s" : ""} ${TAG(tag)}</p>${ans ? `<p class="s-answer">"${esc(ans)}"</p>` : ""}`;
 }
 function bindTolerance(st) {
   const s = $("#s-tol");
-  if (!s || !s.addEventListener) return;
-  s.addEventListener("input", () => { story.tol = +s.value; $("#s-tol-v").textContent = story.tol.toFixed(1); $("#s-tol-out").innerHTML = toleranceLines(st.main.slider, story.tol); });
+  if (s && s.addEventListener) s.addEventListener("input", () => { story.tol = +s.value; $("#s-tol-v").textContent = story.tol.toFixed(1); $("#s-tol-out").innerHTML = toleranceLines(st.main.slider, story.tol); });
+  const b = $("#s-live");
+  if (b && b.addEventListener) b.addEventListener("click", async () => {
+    b.disabled = true;
+    $("#s-live-out").innerHTML = `<p class="s-line">sending</p>`;
+    try { const r = await fetch("/api/fix-now", { method: "POST" }); story.live = await r.json(); $("#s-live-out").innerHTML = liveHTML(story.live); }
+    catch (e) { $("#s-live-out").textContent = "Error: " + e.message; }
+    b.disabled = false;
+  });
+  if (story.live && $("#s-live-out")) $("#s-live-out").innerHTML = liveHTML(story.live);
 }
 function toolCard(st) {
   const m = st.main, e = tierEntries(m.entries, story.machine, m.default_tier)[0];
@@ -300,7 +318,7 @@ function toolCard(st) {
   const acc = local ? e.local_pct : e.cloud_pct;
   return `<div class="s-card ${local ? "good" : ""}"><div class="s-head">${local ? "Run locally with this setting" : "Send to the cloud from the start"}</div>
     <p>Expected accuracy <span class="s-big">${Math.round(acc)}%</span> ${TAG(local && e.r2_basis ? "measured (session pass rate)" : "measured")}</p>
-    <p>Saves per month <span class="s-big">$${Math.round(d.saves || 0).toLocaleString()}</span> ${TAG("measured")}</p>
+    <p>Saves per month at ${m.volume.toLocaleString()} tasks a day <span class="s-big">$${Math.round(d.saves || 0).toLocaleString()}</span> ${TAG("projected")}</p>
     <p class="s-note">At an accuracy gap of ${story.tol.toFixed(1)} points (step 4).</p></div>`;
 }
 function bindTool(st) {
@@ -323,7 +341,6 @@ async function initStory() {
   story.data = await api("/api/story");
   $("#story-next").addEventListener("click", () => storyGo("next"));
   $("#story-back").addEventListener("click", () => storyGo("back"));
-  $("#story-explore").addEventListener("click", () => storyGo("explore"));
   $("#story-steps").addEventListener("click", (ev) => { const b = ev.target.closest && ev.target.closest("button[data-step]"); if (b) storyGo(+b.dataset.step); });
   $("#story-open").addEventListener("click", (ev) => { ev.preventDefault(); setStoryMode(true); storyGo(0); });
   $("#eng-link").addEventListener("click", (ev) => { ev.preventDefault(); storyGo("explore"); });

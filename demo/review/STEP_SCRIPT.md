@@ -29,7 +29,12 @@ corner.
 - **Number:** $2.53 (priced) and about 2 cents (measured).
 - **Say:** "Sending a whole long task to a top cloud model costs about $2.53. Fixing one wrong answer later costs
   about 2 cents, but actions the agent already took cannot be undone. How much accuracy gap you accept decides where
-  it runs; we measure that gap per device." Move the slider to 12, then back to 5.
+  it runs; we measure that gap per device." Move the slider to 12, then back to 5. The dollar figures beside it are
+  projected: measured cost per task times an assumed 1,000 tasks a day.
+- **Live button:** click "Fix one wrong answer now (live)" once. Live (tag measured): "That is a real wrong answer
+  sent to the cloud just now: here is the fix, what it cost in cents and how long it took." If it falls back (tag
+  recorded): "No live connection here, so this is the recorded fix of the same answer from our test run: same task,
+  same protocol." A second click shows the same result; there is one live call per demo run.
 - **Likely question:** "Does the cloud fix every wrong answer?" **Answer:** "No: 84.8% (95% confidence interval 79.1%
   to 89.1%); most of the rest inherited actions the local model had already taken."
 

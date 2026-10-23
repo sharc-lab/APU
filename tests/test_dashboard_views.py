@@ -480,7 +480,9 @@ def test_escalation_one_live_call_then_stub(app, tmp_path):
     assert FAKE_KEY not in ledger and FAKE_KEY not in json.dumps(r)
     assert r["ledger_total_usd"] == pytest.approx(r["usd"]) and r["cap_usd"] == 10.0
     again = e.run()  # one live call per demo run
-    assert again["mode"] in STUB_MODES and "used" in again["reason"] and len(rec) == 1
+    # a second click shows the result already obtained, without a second provider call
+    assert again["mode"] == "executed" and again["repeat"] is True and "already made" in again["reason"]
+    assert len(rec) == 1
 
 
 def test_escalation_failure_falls_back_and_scrubs_key(app, tmp_path):
@@ -857,6 +859,62 @@ def test_register_blocks_in_closed_details_with_summary(app):
     assert '<details class="reg-details"><summary>Details (register row' in js and "esc(e.verbatim)" in js
     assert "reg[id].value" not in js  # no verbatim register text outside the details element
     assert '<details class="reg-details" open' not in js
+
+
+# ── story step 4 live button, volume tags, single engineering link (operator 2026-10-22 final pass) ──
+
+def test_fix_now_falls_back_to_recorded_redo(app, tmp_path):
+    other = server.App(app.cache, app.backend, escalator=make_escalator(app, tmp_path, fake_completion([], []),
+                                                                         env_live=False))
+    assert other.handle("GET", "/api/fix-now").status == 405
+    r = other.handle("POST", "/api/fix-now").json()
+    rd = app.cache.escalation["redo"]
+    assert r["label"] == "recorded" and r["mode"] == "recorded redo" and r["usd"] == rd["usd"]
+    assert r["seconds"] == rd["seconds"] and r["answer"] == rd["cloud_final_text"]
+    assert "live calls are off" in r["reason"] and not (tmp_path / "ledger.jsonl").exists()
+
+
+def test_fix_now_live_counts_against_the_budget(app, tmp_path):
+    rec = []
+    calls = [{"name": "log_event", "arguments": {"event": "booking"}}] + app.cache.escalation["expected_calls"]
+    esc = make_escalator(app, tmp_path, fake_completion(calls, rec))
+    other = server.App(app.cache, app.backend, escalator=esc)
+    first = other.handle("POST", "/api/fix-now").json()
+    assert first["mode"] == "executed" and first["label"] == "measured" and first["protocol"] == "full", first
+    assert first["usd"] > 0 and first["seconds"] >= 0 and first["answer"] == '{"answer": "booked"}'
+    n = len(rec)
+    assert n >= 2  # the full-history protocol's tool loop: tool rounds, then a final call
+    second = other.handle("POST", "/api/fix-now").json()  # a second click shows the result already obtained
+    assert second["repeat"] is True and second["usd"] == first["usd"] and len(rec) == n
+    view_d = other.handle("POST", "/api/escalate").json()  # the same one-call budget as view D
+    assert view_d.get("repeat") is True and len(rec) == n
+    for body in (first, second, view_d):
+        assert FAKE_KEY not in json.dumps(body)
+    assert FAKE_KEY not in (tmp_path / "ledger.jsonl").read_text(encoding="utf-8")
+
+
+def test_fix_now_provider_error_falls_back_and_scrubs_key(app, tmp_path):
+    from demo.dashboard import escalate
+
+    def boom(**kw):
+        raise RuntimeError(f"auth failed for {kw['api_key']}")
+    esc = make_escalator(app, tmp_path, boom)
+    esc.env = {escalate.ENV_LIVE: "1", "ANTHROPIC_API_KEY": FAKE_KEY}
+    r = server.App(app.cache, app.backend, escalator=esc).handle("POST", "/api/fix-now").json()
+    assert r["label"] == "recorded" and "live call failed" in r["reason"] and FAKE_KEY not in json.dumps(r)
+
+
+def test_story_live_button_volume_tags_and_single_engineering_link(app):
+    st = next(s for s in get(app, "/api/story")["steps"] if s["kind"] == "money")
+    assert st["main"]["live_button"] == "Fix one wrong answer now (live)"
+    js = (STATIC / "views.js").read_text(encoding="utf-8")
+    assert 'fetch("/api/fix-now", { method: "POST" })' in js and 'id="s-live"' in js
+    assert 'a month at ${sl.volume.toLocaleString()} tasks a day ${TAG("projected")}' in js
+    assert 'tasks a day <span class="s-big">' in js and '${TAG("projected")}</p>' in js
+    html = app.handle("GET", "/").body.decode("utf-8")
+    assert html.count("Engineering view") == 1 and 'id="story-explore"' not in html
+    tool = next(s for s in get(app, "/api/story")["steps"] if s["kind"] == "tool")
+    assert "Saves per month at 1,000 tasks a day" in tool["visible"]
 
 
 def test_recommendation_hides_router_savings(app):

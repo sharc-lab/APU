@@ -155,19 +155,25 @@ dialog .close { float: right; }
 body:not(.story-on) #story { display: none; }
 body.story-on main > section:not(#story) { display: none; }
 body.story-on header.top { display: none; }
-#story { position: relative; font-size: 24px; }
-.story h2#story-title { font-size: 44px; margin: 12px 0 20px; }
+#story { position: relative; font-size: 24px; min-height: calc(100vh - 32px); display: flex; flex-direction: column; }
+body.story-on main.wrap { max-width: 1520px; }
+.story h2#story-title { font-size: 52px; margin: 12px 0 20px; }
+#story-panel { flex: 1; display: flex; flex-direction: column; justify-content: center; }
 .eng-link { position: absolute; right: 16px; top: 12px; font-size: 16px; color: var(--ink-2); }
-.s-big { font-size: 72px; font-weight: 800; line-height: 1.05; font-variant-numeric: tabular-nums; }
-.s-cards, .s-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
-.s-card, .s-tile { border: 2px solid var(--border); border-radius: 14px; padding: 20px 24px; font-size: 24px; }
-.s-card p, .s-tile p { font-size: 24px; margin: 10px 0; }
+.s-big { font-size: 96px; font-weight: 800; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.s-cards, .s-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 28px; }
+.s-card, .s-tile { border: 2px solid var(--border); border-radius: 16px; padding: 28px 32px; font-size: 28px;
+  min-height: 240px; display: flex; flex-direction: column; justify-content: center; }
+.s-card p, .s-tile p { font-size: 28px; margin: 10px 0; }
+.s-live { font-size: 24px; padding: 10px 18px; margin-top: 10px; align-self: flex-start; }
+.s-answer { font-size: 18px; color: var(--ink-2); margin: 4px 0; }
 .s-card.bad { border-color: var(--critical); }
 .s-card.good { border-color: var(--good); }
 .s-bars { display: grid; gap: 14px; }
 .s-bar-row { display: flex; align-items: center; gap: 16px; font-size: 24px; }
 .s-bar-label { min-width: 220px; }
-.s-bar { display: inline-block; height: 44px; background: var(--series-1); border-radius: 6px; }
+.s-bar { display: inline-block; height: 64px; background: var(--series-1); border-radius: 6px; }
+.s-bar-row { font-size: 32px; }
 .s-caption, .s-take { font-size: 28px; font-weight: 600; margin: 18px 0; }
 .s-slider { font-size: 24px; margin-top: 12px; }
 #story label { font-size: 24px; color: var(--ink); }

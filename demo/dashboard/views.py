@@ -1360,6 +1360,7 @@ MACHINE_ORDER = ["AMD workstation", "Intel laptop", "NVIDIA laptop"]
 STEP_WORD_LIMIT = 30         # "about 25 words" of visible text per step (titles and tags not counted)
 STEP4_WORD_LIMIT = 45        # step 4 carries the operator's three sentences plus the slider caption
 STORY_TAKEAWAY = ROUTE_TAKEAWAY
+LIVE_BUTTON = "Fix one wrong answer now (live)"
 
 
 def _num_item(big: str, text: str, tag: str, src: dict | None, tone: str | None = None) -> dict:
@@ -1461,7 +1462,7 @@ def build_story(register: dict, silent: dict, cost: dict, escalation: dict | Non
                                        f"{r['tolerance_local']:.1f} points or more", MEASURED,
                                        "hybrid-route-at-start") for r in routes]
     steps.append({"n": 4, "title": "What it costs", "kind": "money", "minutes": 1,
-                  "main": {"numbers": money, "takeaway": STORY_TAKEAWAY,
+                  "main": {"numbers": money, "takeaway": STORY_TAKEAWAY, "live_button": LIVE_BUTTON,
                            "slider": {"entries": routes, "default": ROUTE_DEFAULT_TOL, "min": 0, "max": 20,
                                       "volume": 1000}},
                   "items": d4, "tradeoff": ev[4].get("tradeoff")})
@@ -1490,11 +1491,12 @@ def story_visible_text(step: dict) -> list[str]:
         out.append(c["text"])
     for b in m.get("bars", []):
         out.append(f"{b['label']} {b['value']}%")
-    for k in ("caption", "takeaway"):
+    for k in ("caption", "takeaway", "live_button"):
         if m.get(k):
             out.append(m[k])
     if step["kind"] == "tool":
-        out += ["Run locally with this setting", "Expected accuracy", "Saves per month"]
+        out += ["Run locally with this setting", "Expected accuracy",
+                f"Saves per month at {m.get('volume', 1000):,} tasks a day"]
     return out
 
 

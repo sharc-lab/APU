@@ -6,7 +6,7 @@
 Python 3.8 because that is the interpreter with Playwright 1.48 (chromium-1140) on the controller laptop; the
 dashboard itself runs under Python 3.12, started here as a hidden child process on 127.0.0.1 and always stopped in a
 finally block (no process is left running). The child gets no ANTHROPIC_API_KEY and no DEMO_CLOUD_LIVE, so the
-escalation step shows "being measured" and no cloud call can happen. No audio.
+escalation step and the step 4 live button show the recorded redo and no cloud call can happen. No audio.
 """
 import os
 import sys
@@ -69,6 +69,12 @@ def shots(pw):
     page.goto(BASE + "/?step=4&tol=12")
     settle(page)
     page.screenshot(path=str(SHOTS / "story_step4_t12.png"))
+    page.goto(BASE + "/?step=4")
+    settle(page)
+    page.click("#s-live")  # no key in this server: the recorded fallback
+    page.wait_for_selector("#s-live-out .s-line b")
+    settle(page, 300)
+    page.screenshot(path=str(SHOTS / "story_step4_live.png"))
     page.goto(BASE + "/?step=5&machine=Intel%20laptop")
     settle(page)
     page.screenshot(path=str(SHOTS / "story_step5_intel.png"))
@@ -121,7 +127,10 @@ def video(pw, seconds_per_step=36):
     settle(page, 300)
     for n in range(1, 6):
         start = time.time()
-        if n == 4:  # move the accuracy-tolerance slider: 5 -> 12 -> 20 -> 5
+        if n == 4:  # the live button (recorded fallback: no key here), then the slider: 5 -> 12 -> 20 -> 5
+            page.wait_for_timeout(5000)
+            page.click("#s-live")
+            page.wait_for_selector("#s-live-out .s-line b")
             for v in (12, 20, 5):
                 page.wait_for_timeout(7000)
                 page.evaluate("(v) => { const s = document.querySelector('#s-tol'); s.value = v; "

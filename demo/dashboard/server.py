@@ -26,6 +26,8 @@ Endpoints (all GET):
   POST /api/escalate        view D: one live call through src/cloud/client.py (USD 10 cap, demo ledger, at most one per
                             server process), or the stub "priced, not executed" with the reason
   /api/story                story mode: five guided steps (problem, why it is hard, the tool, the money, escalation)
+  POST /api/fix-now         story step 4: the same one live call, full-history redo protocol (thinking between tools,
+                            max_tokens 2048); any non-live outcome returns the task's recorded redo, tagged recorded
   /api/register[?id=]       register rows from the snapshot
   /api/source?file=&line=   one raw line of a whitelisted source file
   /api/source?file=&match=k:v,k:v   line numbers of rows matching every k:v
@@ -111,10 +113,16 @@ class App:
         u = urlsplit(target)
         q = parse_qs(u.query)
         path = u.path.rstrip("/") or "/"
-        if path == "/api/escalate":  # the only POST: it may spend money, so never on a GET
+        if path in ("/api/escalate", "/api/fix-now"):  # the only POSTs: they may spend money, so never on a GET
             if method != "POST":
                 return _json({"error": "POST only"}, 405)
-            return _json(self.escalator.run())
+            if path == "/api/escalate":
+                return _json(self.escalator.run())
+            # story step 4: the full-history protocol; any non-live outcome shows the recorded redo, tagged recorded
+            res = self.escalator.run("full")
+            if res.get("mode") != "executed":
+                res = self.escalator.recorded(res.get("reason") or "not sent live")
+            return _json(res)
         if method not in ("GET", "HEAD"):
             return _json({"error": "method not allowed"}, 405)
         try:

@@ -290,6 +290,22 @@ def checklist(app, a, recs, c, tests: str, main_ledger, demo_ledger, scope_files
                                                       zip(sl["entries"], got[t])) for t in (0, 5, 12, 20))))
     html = app.handle("GET", "/").body.decode("utf-8")
     js = (REPO / "demo" / "dashboard" / "static" / "views.js").read_text(encoding="utf-8")
+    tool = next(st for st in story["steps"] if st["kind"] == "tool")
+    ok = ('tasks a day ${TAG("projected")}' in js and 'tasks a day <span class="s-big">' in js
+          and "Saves per month at 1,000 tasks a day" in tool["visible"])
+    items.append(("Story: every volume-based dollar figure says 'at 1,000 tasks a day' and is tagged projected",
+                  ok, "step 4 slider lines and the step 5 card"))
+    items.append(("Story: a single Engineering view link (top right)",
+                  html.count("Engineering view") == 1 and 'id="story-explore"' not in html,
+                  f"{html.count('Engineering view')} link"))
+    probe = server.App(app.cache, app.backend, escalator=escalate.Escalator(
+        app.cache.escalation, env={}, ledger=HERE / "generated" / "_unused_ledger.jsonl"))
+    fb = probe.handle("POST", "/api/fix-now").json()
+    money_main = next(st for st in story["steps"] if st["kind"] == "money")["main"]
+    items.append(("Story step 4: live button present; without a live call it shows the recorded redo, tagged recorded",
+                  money_main.get("live_button") == views.LIVE_BUTTON and fb.get("label") == "recorded"
+                  and fb.get("usd") is not None,
+                  f"button '{money_main.get('live_button')}'; fallback {fb.get('label')}, USD {fb.get('usd')}"))
     items.append(("Landing page is story mode; the engineering view is behind a link (?explore=1)",
                   'id="eng-link"' in html and 'href="?explore=1"' in html and 'params.get("explore") !== "1"' in js,
                   "story section first, engineering view link in its corner and on the step bar"))

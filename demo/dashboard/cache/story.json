@@ -282,6 +282,7 @@
      }
     ],
     "takeaway": "How much accuracy gap you accept decides where it runs; we measure that gap per device.",
+    "live_button": "Fix one wrong answer now (live)",
     "slider": {
      "entries": [
       {
@@ -554,7 +555,8 @@
    "visible": [
     "per long task in the cloud",
     "Fixing a wrong answer later: about 2 cents, but actions already taken cannot be undone",
-    "How much accuracy gap you accept decides where it runs; we measure that gap per device."
+    "How much accuracy gap you accept decides where it runs; we measure that gap per device.",
+    "Fix one wrong answer now (live)"
    ]
   },
   {
@@ -691,7 +693,7 @@
    "visible": [
     "Run locally with this setting",
     "Expected accuracy",
-    "Saves per month"
+    "Saves per month at 1,000 tasks a day"
    ]
   }
  ],

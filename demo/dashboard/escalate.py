@@ -46,6 +46,8 @@ KEY_ENV = "ANTHROPIC_API_KEY"
 PRICED = "priced, not executed"
 MEASURED = "measured"
 BEING_MEASURED = "being measured"
+RECORDED = "recorded"
+FULL_MAX_TOKENS = 2048  # the full-history redo protocol (row cloud-redo-full-context)
 FIX_COST_TEXT = "Cost to fix a wrong answer: being measured"
 V1_NOTE = ("The earlier cloud redo (results/cloud_redo_v1.jsonl) was a broken protocol run: thinking consumed the "
            "output budget (docs/FINDINGS.md, cloud redo diagnosis). Its cost and answers are not shown.")
@@ -206,6 +208,7 @@ class Escalator:
         self.client_factory = client_factory or _default_client_factory
         self.max_live_calls = max_live_calls
         self.live_calls = 0
+        self.last_live = None  # the run's live result, returned again on a later click
         self._lock = threading.Lock()
 
     def live_requested(self) -> bool:
@@ -236,20 +239,59 @@ class Escalator:
                 "answer": None, "tool_calls": None, "seconds": None, "usd": None, "usd_src": None,
                 "usd_basis": FIX_COST_TEXT, **self.status()}
 
-    def run(self) -> dict:
+    def run(self, protocol: str = "single") -> dict:
+        """One live escalation per demo run, shared by view D (protocol 'single': one request, no tool round trips)
+        and story step 4's button (protocol 'full': the full-history redo protocol of row cloud-redo-full-context,
+        scripts/cloud_redo.py live_turn with thinking between tools and max_tokens 2048). A later click returns the
+        result already obtained (or the recorded fallback if the one attempt failed)."""
         if not self.task.get("available"):
             return self.stub(self.task.get("reason") or "no task")
         if not self.live_requested():
             return self.stub(f"live calls are off ({ENV_LIVE} is not 1)")
         with self._lock:
             if self.live_calls >= self.max_live_calls:
+                if self.last_live is not None:
+                    return {**self.last_live, "reason": "the one live call for this demo run was already made; "
+                                                        "showing its result", "repeat": True, **self.status()}
                 return self.stub(f"the one live call for this demo run is used ({self.live_calls}/"
                                  f"{self.max_live_calls}); restart the dashboard for another")
             self.live_calls += 1  # counted before sending: a failed attempt still uses the run's one call
         try:
-            return self._live()
+            res = self._live_full() if protocol == "full" else self._live()
         except Exception as e:  # noqa: BLE001 - every failure falls back to the stub
             return self.stub(f"live call failed: {type(e).__name__}: {_scrub(e, self.env)}")
+        if res.get("mode") == "executed":
+            self.last_live = res
+        return res
+
+    def _live_full(self) -> dict:
+        """The full-history redo protocol: the task's whole transcript, the tool loop of scripts/cloud_redo.py
+        (live_turn), thinking per THINKING_OFF (between tools on claude-sonnet-5-5) and max_tokens 2048."""
+        client = self.client_factory(cap_usd(self.env), self.ledger)
+        if getattr(client, "stub_mode", True):
+            return self.stub("no real-mode client (no key in this process)")
+        cr = _cloud_redo()
+        t = self.task
+        src_rows = cr.load_rows(self.repo / SOURCE)
+        _row, es, built = _rebuild(cr, src_rows, t["attempt_id"], t["turn_idx"])
+        if built["item"].task is None or built["item"].task.task_id != t["task_id"]:
+            raise RuntimeError("rebuilt task does not match the cached task")
+        model = t["cloud_model"]
+        rates = cr.model_rates(cr.load_price_table(), model)
+        res = cr.live_turn(client, model, es, built, rates, FULL_MAX_TOKENS, cr.THINKING_OFF.get(model))
+        return {"mode": "executed", "label": MEASURED, "protocol": "full",
+                "reason": f"one live fix through src/cloud/client.py ({FULL_REDO_NOTE})",
+                "answer": res.get("cloud_final_text"), "tool_calls": None, "seconds": res.get("seconds"),
+                "usd": res.get("usd"), "usd_ledger": res.get("usd_ledger"), "n_calls": res.get("n_calls"),
+                "usd_basis": "cache-priced on the provider's usage (as row cloud-redo-full-context)",
+                **self.status()}
+
+    def recorded(self, reason: str) -> dict:
+        """Story step 4's fallback: this task's recorded full-history redo, tagged 'recorded'."""
+        out = self.stub(reason)
+        if out.get("usd") is not None:
+            out = {**out, "label": RECORDED, "mode": "recorded redo"}
+        return out
 
     def _live(self) -> dict:
         client = self.client_factory(cap_usd(self.env), self.ledger)

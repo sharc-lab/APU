@@ -16,13 +16,19 @@ Fix rate shown only with its 95\% Wilson CI and the inherited-actions caveat & \
 
 The detector ceiling is never a headline (not on any main screen; in Details only as a side note) & \textbf{PASS} & no main screen mentions it; Details of step 4 keep the trade-off with the ceiling as a dotted line / side note \\
 
-Story: about 25 visible words per step (step 4: the operator's three sentences) & \textbf{PASS} & visible words per step 1: 22, 2: 11, 3: 24, 4: 37, 5: 10 \\
+Story: about 25 visible words per step (step 4: the operator's three sentences) & \textbf{PASS} & visible words per step 1: 22, 2: 11, 3: 24, 4: 43, 5: 15 \\
 
 Story: no model tags, ids, paths or jargon on main screens; each number has one tag and a VERIFIED source in Details & \textbf{PASS} & 10 numbers tagged \\
 
-Story: presenter sizes (headline numbers \textgreater{}= 72px, body \textgreater{}= 24px); Details closed by default & \textbf{PASS} & headline numbers 72px, body 24px; Details rendered without the open attribute \\
+Story: presenter sizes (headline numbers \textgreater{}= 72px, body \textgreater{}= 24px); Details closed by default & \textbf{PASS} & headline numbers 96px, body 24px; Details rendered without the open attribute \\
 
 Accuracy-tolerance slider: default 5; decisions match row hybrid-route-at-start at 0, 5, 12, 20 & \textbf{PASS} & 0: AMD workstation vs claude-haiku-5-5 cloud, AMD workstation vs claude-sonnet-5-5 cloud, Intel laptop vs claude-haiku-5-5 cloud, Intel laptop vs claude-sonnet-5-5 cloud; 5: AMD workstation vs claude-haiku-5-5 cloud, AMD workstation vs claude-sonnet-5-5 cloud, Intel laptop vs claude-haiku-5-5 cloud, Intel laptop vs claude-sonnet-5-5 cloud; 12: AMD workstation vs claude-haiku-5-5 local, AMD workstation vs claude-sonnet-5-5 local, Intel laptop vs claude-haiku-5-5 cloud, Intel laptop vs claude-sonnet-5-5 cloud; 20: AMD workstation vs claude-haiku-5-5 local, AMD workstation vs claude-sonnet-5-5 local, Intel laptop vs claude-haiku-5-5 local, Intel laptop vs claude-sonnet-5-5 local \\
+
+Story: every volume-based dollar figure says 'at 1,000 tasks a day' and is tagged projected & \textbf{PASS} & step 4 slider lines and the step 5 card \\
+
+Story: a single Engineering view link (top right) & \textbf{PASS} & 1 link \\
+
+Story step 4: live button present; without a live call it shows the recorded redo, tagged recorded & \textbf{PASS} & button 'Fix one wrong answer now (live)'; fallback recorded, USD 0.024299599999999998 \\
 
 Landing page is story mode; the engineering view is behind a link (?explore=1) & \textbf{PASS} & story section first, engineering view link in its corner and on the step bar \\
 
@@ -40,7 +46,7 @@ Live view fallback shows the task's recorded full-history redo (no live call) & 
 
 Scope: every changed file vs main is in demo/, src/dse/ or the dashboard tests & \textbf{PASS} & 72 files changed \\
 
-Full test suite & \textbf{PASS} & 2545 passed, 14 skipped \\
+Full test suite & \textbf{FAIL} & not run \\
 
 Cloud spend so far (read-only ledgers) & \textbf{PASS} & main results/cloud\_ledger.jsonl USD 38.9145 over 1288 rows; demo ledger USD 0.0174 over 1 call(s) \\
 
