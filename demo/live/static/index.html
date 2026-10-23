@@ -50,6 +50,7 @@ footer { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
     <span id="speed" class="mode REPLAYED" style="display:none">2x speed</span>
   </header>
   <div class="sub" id="what"></div>
+  <div class="sub" id="detector-note"></div>
   <section class="tally" id="tally"></section>
   <section class="lanes">
     <div class="lane" id="lane-default"></div>
@@ -132,7 +133,7 @@ function onEvent(e) {
   if (e.event === "task_start") { state.cur = e; state.tasks.push(e); for (const l in state.lanes) state.lanes[l].now = null; }
   if (e.event === "lane_start") L.now = {steps: 0, secs: 0, tools: [], route: e.lane === "cloud" ? "cloud" : "local",
                                          model: e.lane === "cloud" ? meta.scenarios[state.sc].cloud_model : null};
-  if (e.event === "call") { const n = L.now || (L.now = {steps: 0, secs: 0, tools: []}); n.steps = e.n; n.secs += e.seconds || 0; n.used = e.used_tokens; n.own = e.own_tokens; n.win = e.loaded_window || e.num_ctx; const direct = (e.evidence || []).some(x => !String(x).startsWith("model saw")); n.cut = n.cut || (e.cut && direct); n.countOnly = n.countOnly || (e.cut && !direct); n.tools = n.tools.concat(e.tool_calls || []); }
+  if (e.event === "call") { const n = L.now || (L.now = {steps: 0, secs: 0, tools: []}); n.steps = e.n; n.secs += e.seconds || 0; n.used = e.used_tokens; n.own = e.own_tokens; n.win = e.loaded_window || e.num_ctx; const direct = (e.evidence || []).some(x => !String(x).startsWith("model saw")); n.cut = n.cut || (e.cut && direct) || (meta.detector === "v2" && !!e.cut_v2); n.countOnly = meta.detector !== "v2" && (n.countOnly || (e.cut && !direct)); n.tools = n.tools.concat(e.tool_calls || []); }
   if (e.event === "decision") { L.now.decision = e.decision.reason; if (e.decision.route === "cloud") { L.now.route = "cloud"; L.now.model = e.decision.model; } }
   if (e.event === "escalate") { L.now.escalated = true; }
   if (e.event === "lane_end") {
@@ -160,6 +161,9 @@ async function init() {
   $("#hl-sub").textContent = h && h.status === "VERIFIED" ? `Recorded headline (MEASURED, replay of recorded runs): AMD workstation at memory 8,192, ${h.ours.n} tasks, cloud ${h.cloud_model}; register row ${h.row}. Cloud cost per task: billed by the provider from the demo ledger, prompt cache included (a second cloud call on the same task can read the first one's cache).` : "";
   $("#mode").textContent = meta.mode === "replay" ? "REPLAYED" : meta.mode === "laptop" ? "LIVE (development)" : "LIVE";
   $("#mode").className = "mode " + (meta.mode === "replay" ? "REPLAYED" : "LIVE");
+  $("#detector-note").textContent = meta.detector === "v2"
+    ? "Cut-off signal: Ollama's own truncation and context-shift log lines only. Token-count check (detector v1) not used: false alarms at the default window (see detector-precision-recall)."
+    : "Cut-off signal: detector v1 (Ollama's own cut lines, or a token-count check). A token-count flag alone is a known false alarm and is shown as such.";
   const auto = new URLSearchParams(location.search);
   if (auto.get("scenario")) $("#scenario").value = auto.get("scenario");
   $("#go").onclick = start;

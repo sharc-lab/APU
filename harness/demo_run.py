@@ -36,6 +36,15 @@ SCENARIOS = {
               "headline_row": None},
 }
 LANES = ("default", "ours", "cloud")
+# Which cut-off detector drives Ours' escalation and the flags (harness/demo_overflow.py): "v1" as pre-registered for
+# the 2026-10-23 runs (server cut lines or the token-count comparison), "v2" the server's own cut lines only. The screen
+# switches to "v2" only after the v2 re-check passes on evo-x2 (docs/EXPERIMENTS.md, 2026-10-23).
+DETECTOR = "v1"
+FLAG_KEY = {"v1": "flagged", "v2": "flagged_v2"}
+
+
+def flagged(r: dict, detector: str | None = None) -> bool:
+    return bool(r.get(FLAG_KEY[detector or DETECTOR]))
 NEED_SOURCE = "projected task-turn prompt (hybrid-route-at-start-measured rule)"
 
 
@@ -94,7 +103,7 @@ def run_task(scenario: str, profile: dict, task: dict, local, cloud, budget_left
     if d["route"] == "local":
         r = local("ours", task, d["window"])
         res = {**r, "route": "local", "num_ctx": d["window"], "decision": d}
-        if r.get("flagged"):
+        if flagged(r):
             emit({"event": "escalate", "lane": "ours", **_key(out)})
             c = cloud("ours", task, sc["cloud_model"])
             res = {**res, "escalated": True, "local_end_state_ok": r.get("end_state_ok"), "cloud": c,
@@ -149,11 +158,11 @@ def tally(task_results: list[dict]) -> dict:
         out[lane] = {
             "tasks": len(rs), "graded": n, "correct": n - len(wrong), "wrong": len(wrong),
             "wrong_flagged": sum(1 for r in wrong if r.get("route") == "local" and not r.get("escalated")
-                                 and r.get("flagged")),
+                                 and flagged(r)),
             "wrong_silent": sum(1 for r in wrong if not (r.get("route") == "local" and not r.get("escalated")
-                                                       and r.get("flagged"))),
+                                                       and flagged(r))),
             "kept_local": len(local_answer), "escalated": sum(1 for r in done if r.get("escalated")),
-            "flagged_calls_tasks": sum(1 for r in done if r.get("flagged")),
+            "flagged_calls_tasks": sum(1 for r in done if flagged(r)),
             "usd_ledger_total": round(usd, 6), "usd_ledger_per_task": round(usd / n, 6) if n else None,
             "usd_cache_priced_per_task": round(sum(lane_usd_cache(r) for r in done) / n, 6) if n else None,
             "seconds": round(sum(float(r.get("seconds") or 0) + float((r.get("cloud") or {}).get("seconds") or 0)

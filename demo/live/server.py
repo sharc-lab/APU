@@ -50,7 +50,7 @@ class App:
         self.idle_speedup = idle_speedup
         self.agent_factory, self.cloud = agent_factory, cloud
         self.run = None
-        self.meta = {"scenarios": DR.SCENARIOS, "mode": mode,
+        self.meta = {"scenarios": DR.SCENARIOS, "mode": mode, "detector": DR.DETECTOR,
                      "headline": headline((REPO / "docs" / "NUMBERS_REGISTER.md").read_text(encoding="utf-8")),
                      "replay_source": Path(replay_file).name if replay_file else None}
 

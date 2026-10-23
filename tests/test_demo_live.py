@@ -106,6 +106,22 @@ def test_intel_runs_ours_locally_at_the_graphics_chip_window_and_escalates_on_a_
     assert DR.configurations("amd8192", prof) == [{"num_ctx": 8192, "server_env": {}}]
 
 
+def test_detector_switch_drives_escalation_and_flags(prof, task8, monkeypatch):
+    local = _fake_local({("default", 4096): {"end_state_ok": False, "flagged": True, "flagged_v2": True},
+                         ("ours", 32768): {"end_state_ok": True, "flagged": True, "flagged_v2": False}})
+    assert DR.DETECTOR == "v1"          # the screen stays on v1 until the v2 re-check passes on evo-x2
+    r1 = DR.run_task("intel", prof, task8, local, FakeCloud(), lambda: 3.0)
+    assert r1["lanes"]["ours"].get("escalated")
+    monkeypatch.setattr(DR, "DETECTOR", "v2")
+    r2 = DR.run_task("intel", prof, task8, local, FakeCloud(), lambda: 3.0)
+    assert not r2["lanes"]["ours"].get("escalated") and r2["lanes"]["ours"]["route"] == "local"
+    t = DR.tally([r2])
+    assert t["ours"]["kept_local"] == 1 and t["default"]["wrong_flagged"] == 1
+    from demo.live import server as SV
+    html = (SV.STATIC / "index.html").read_text(encoding="utf-8")
+    assert "Token-count check (detector v1) not used" in html and "known false alarm" in html
+
+
 def test_pending_cloud_parts_are_not_graded(prof, task8):
     pend = lambda lane, task, model: {"pending": True, "model": model}  # noqa: E731
     res = DR.run_task("amd8192", prof, task8, _fake_local({("default", 8192): {"end_state_ok": True,
