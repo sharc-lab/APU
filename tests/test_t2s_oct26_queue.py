@@ -32,6 +32,8 @@ def test_oct26_is_separate_from_the_week_and_gated_on_its_own_preflight():
         elif "_b6_" in it["id"]:   # amendment 2026-10-21 (later): measured-rate estimates, labelled, or nominal
             assert it["est_hours"] is None or (it["est_hours"] > 0 and it["est_basis"].startswith(("ESTIMATE",
                                                                                                    "nominal")))
+        elif "_b3_" in it["id"]:   # B3 v2 Intel task accuracy (2026-10-22): measured-rate estimates, labelled
+            assert it["est_hours"] > 0 and it["est_basis"].startswith("ESTIMATE")
         else:
             assert it["est_hours"] is None and it["est_basis"] == "none"
 

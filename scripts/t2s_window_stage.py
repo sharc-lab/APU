@@ -151,6 +151,75 @@ def b6_estimates() -> dict:
                                          f"; iGPU-enabled window ASSUMED {B6_IGPU_WINDOW_ASSUMED}")}
 
 
+# B3 v2 Intel laptop task accuracy (docs/FINDINGS.md "PRE-REGISTRATION: Intel laptop task accuracy", 2026-10-22):
+# hours from MEASURED evo-t2s R2 session minutes (row t2s-r2-session-minutes) scaled by the B3 v2 task-turn profile,
+# i.e. evo-x2 qwen3:14b B3 v2 task session minutes (validation: x2_evalset_tasks_val_v2; real: x2_evalset_tasks_real_v2
+# at the matching window) x the qwen3:14b evo-t2s / evo-x2 R2 session ratio of the backend at its default window.
+B3_X2_VAL = "x2_evalset_tasks_val_v2.jsonl"
+B3_X2_REAL = "x2_evalset_tasks_real_v2.jsonl"
+B3_MODEL = "qwen3:14b"
+# evo-x2 tier whose task sessions stand for the evo-t2s default window: CPU 4096 = the same window; iGPU 32768 = the
+# evo-x2 default (40960), the smallest measured window above 32768 (the task session's projected largest prompt is
+# about 23,100 tokens, so neither truncates)
+B3_X2_TIER = {"cpu": "ollama_ctx_4096", "igpu": "ollama_default"}
+B3_PLATFORM = {"cpu": "evo-t2s-cpu", "igpu": "evo-t2s"}
+B3_CPU_LONG_CTX_HIGH = 2.0   # ASSUMED (not measured): CPU validation negative control runs at qwen3:14b's 40960
+                             # window, where CPU attention cost per token is above the 4096-window ratio used
+
+
+def _x2_task_session_s(name, model, arm) -> list[float]:
+    import policy_compare as pc
+    ag = pc.ag
+    rows = ag.read_rows(REPO / "results" / name)
+    att = {s["attempt_id"] for s in ag.completed_sessions(rows) if s["model_id"] == model and s["arm_id"] == arm}
+    walls = {}
+    for r in rows:
+        if r.get("record") == "r2a_turn" and r.get("attempt_id") in att:
+            walls[r["attempt_id"]] = walls.get(r["attempt_id"], 0.0) + (r.get("turn_wall_s") or 0.0)
+    return sorted(walls.values())
+
+
+def b3_estimates() -> dict:
+    """{key: {"hours", "high_h", "basis"}} for t2s_o26_b3_{val,real}_{cpu,igpu} (key without the prefix). ESTIMATES:
+    point = evo-x2 qwen3:14b task session seconds x the qwen3:14b evo-t2s/evo-x2 R2 ratio of the backend; high = the
+    slowest sessions x the largest ratio of the backend (both models), and for the CPU validation also x
+    B3_CPU_LONG_CTX_HIGH (ASSUMED)."""
+    import statistics as st
+    import x2_r2_evalset as ev
+    sfx = "_call2_notools"
+    e = ev.tasks_v2_hours_estimate(ev.ag.read_rows(REPO / "results" / B3_X2_VAL), model=B3_MODEL)
+    neg, pos = e["neg_session_s"], e["pos_session_s"]
+    n = len(ev.TASKS_V2_T2S_SEEDS)
+    out = {}
+    for be in ("cpu", "igpu"):
+        f = _t2s_x2_factor(B3_PLATFORM[be])
+        r, rmax, win = f["ratios"].get(B3_MODEL), f["factor"], f["windows"].get(B3_MODEL)
+        real = _x2_task_session_s(B3_X2_REAL, B3_MODEL, B3_X2_TIER[be] + sfx)
+        if r is None or not real or not neg or not pos:
+            out[f"b3_val_{be}"] = out[f"b3_real_{be}"] = {"hours": None, "high_h": None, "basis": "none"}
+            continue
+        extra = B3_CPU_LONG_CTX_HIGH if be == "cpu" else 1.0
+        fac = (f"qwen3:14b evo-t2s/evo-x2 R2 session ratio {r:.2f} at {win} (row t2s-r2-session-minutes over the "
+               f"evo-x2 R2 median); high = slowest x largest ratio {rmax:.2f}")
+        out[f"b3_val_{be}"] = {
+            "hours": (sum(neg) + sum(pos)) * r / 3600, "high_h": (max(neg) * len(neg) + max(pos)) * rmax * extra / 3600,
+            "basis": f"ESTIMATE: evo-x2 {B3_X2_VAL} qwen3:14b sessions (negative control {sum(neg) / 60:.1f} min over "
+                     f"{len(neg)}, positive control {sum(pos) / 60:.1f} min) x {fac}"
+                     + (f" x {B3_CPU_LONG_CTX_HIGH} ASSUMED for the 40960-window negative control on the CPU"
+                        if be == "cpu" else "")}
+        out[f"b3_real_{be}"] = {
+            "hours": n * st.mean(real) * r / 3600, "high_h": n * max(real) * rmax / 3600,
+            "basis": f"ESTIMATE: {n} sessions x evo-x2 {B3_X2_REAL} qwen3:14b {B3_X2_TIER[be]} session (mean "
+                     f"{st.mean(real) / 60:.1f} min, slowest {max(real) / 60:.1f} min, {len(real)} sessions) x {fac}; "
+                     "runs only if the strict preflight admits qwen3:14b (a refusal takes minutes)"}
+    return out
+
+
+def b3_h() -> float:
+    """Point-estimate hours of the staged B3 entries (0 for an unestimated one)."""
+    return sum(v["hours"] or 0.0 for v in b3_estimates().values())
+
+
 def b5_end_h() -> float:
     """Estimated end of A5 and the staged B5 cells (hours from the window start, after the start allowance)."""
     q = qwen_decision()
@@ -194,13 +263,14 @@ def qwen_decision() -> dict:
     seeds3 = tuple(int(x) for x in wq.OCT26_QWEN_SEEDS.split(","))
     llama = {f"{p} {m}": round(pc.estimate_t2s(p, [m], seeds=seeds5, policies=pols)["models"][m]["total_h"], 1)
              for p, m in wq.OCT26_B5_CELLS}
-    before = sum(NOMINAL_H.values()) + sum(llama.values())
+    b3 = round(sum(round(v["hours"], 1) for v in b3_estimates().values() if v["hours"] is not None), 1)
+    before = sum(NOMINAL_H.values()) + b3 + sum(llama.values())
     plat, model = wq.OCT26_QWEN_CELL
     q = pc.estimate_t2s(plat, [model], seeds=seeds3, policies=qpols)["models"][model]
     qwen_h = round(q["total_h"], 1)
     left = budget_h() - before
     return {"label": "ESTIMATE (hours)", "available_h": round(available_h(), 1), "slack_h": SLACK_H,
-            "budget_h": round(budget_h(), 1), "a5_h": sum(NOMINAL_H.values()),
+            "budget_h": round(budget_h(), 1), "a5_h": sum(NOMINAL_H.values()), "b3_h": b3,
             "llama_h": llama, "before_qwen_h": round(before, 1), "left_h": round(left, 1),
             "qwen_cell": f"{plat} {model}", "qwen_seeds": len(seeds3), "qwen_per_seed_h": round(q["per_seed_h"], 1),
             "qwen_h": qwen_h, "fits": qwen_h <= left, "policies": list(qpols), "llama_policies": list(pols)}
@@ -296,7 +366,8 @@ def plan_value(p=None) -> str:
 
 
 def qwen_text(q) -> str:
-    return (f"qwen3:14b decision (amendments 2026-10-21 later and 2026-10-22): after A5 {q['a5_h']} h and the llama3.1:8b cells at 5 "
+    return (f"qwen3:14b decision (amendments 2026-10-21 later and 2026-10-22): after A5 {q['a5_h']} h, the B3 v2 task "
+            f"entries {q['b3_h']} h and the llama3.1:8b cells at 5 "
             "seeds (" + ", ".join(f"{k} {v} h" for k, v in q["llama_h"].items()) + f"), {q['left_h']} h are left of "
             f"the {q['budget_h']} h launch budget; {q['qwen_cell']} at {q['qwen_seeds']} seeds on policies "
             f"{','.join(q['policies'])} needs {q['qwen_h']} h "

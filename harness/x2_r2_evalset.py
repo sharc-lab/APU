@@ -122,6 +122,10 @@ deployed to the side directory C:\\apu\\ovn\\evalv2q8 with evalset_env.py and x2
   --plan tasks_v2_llama33_70b : (2026-10-22, docs/FINDINGS.md "PRE-REGISTRATION: a larger local option for the
                              route-at-start comparison", side directory C:\\apu\\ovn\\evalv2l70) ollama_default only,
                              seeds 20260901-03, 30 task turns, model llama3.3:70b only; with --preflight v2_strict.
+  --plan tasks_v2_t2s_qwen3_14b : (2026-10-22, docs/FINDINGS.md "PRE-REGISTRATION: Intel laptop task accuracy", staged
+                             for evo-t2s through harness/t2s_evalset.py) ollama_default only, seeds 20260901-03, 30 task
+                             turns, model qwen3:14b only; with --preflight v2_strict.
+  --server-env KEY=VALUE   : extra env for this job's own Ollama server (OLLAMA_IGPU_ENABLE=1 for the evo-t2s iGPU).
 """
 from __future__ import annotations
 
@@ -805,10 +809,20 @@ TASKS_V2_L70_PLAN = "tasks_v2_llama33_70b"
 TASKS_V2_L70_MODELS = ("llama3.3:70b",)
 TASKS_V2_L70_TIERS = (TASKS_V2_DEFAULT_TIER,)
 TASKS_V2_L70_SEEDS = (20260901, 20260902, 20260903)
+# Intel laptop task accuracy (2026-10-22, staged for the evo-t2s window 2026-10-26 to 2026-11-08, docs/FINDINGS.md
+# "PRE-REGISTRATION: Intel laptop task accuracy"): qwen3:14b at the Ollama default window only (no num_ctx sent; on
+# evo-t2s that is 4096 on the Intel CPU and 32768 with OLLAMA_IGPU_ENABLE=1, the backend chosen by
+# harness/t2s_evalset.py --runtime-config), seeds 20260901-03, the 30 task turns of the tasks_v2 task set, strict
+# preflight (no waiver, every gate passing).
+TASKS_V2_T2S_PLAN = "tasks_v2_t2s_qwen3_14b"
+TASKS_V2_T2S_MODELS = ("qwen3:14b",)
+TASKS_V2_T2S_TIERS = (TASKS_V2_DEFAULT_TIER,)
+TASKS_V2_T2S_SEEDS = (20260901, 20260902, 20260903)
 STRICT_PLAN_MODELS = {TASKS_V2_Q8_PLAN: TASKS_V2_Q8_MODELS, TASKS_V2_MS_PLAN: TASKS_V2_MS_MODELS,
-                      TASKS_V2_L70_PLAN: TASKS_V2_L70_MODELS}
+                      TASKS_V2_L70_PLAN: TASKS_V2_L70_MODELS, TASKS_V2_T2S_PLAN: TASKS_V2_T2S_MODELS}
 # per strict plan, (tiers, seeds) when not the tasks_v2 ones
-STRICT_PLAN_SHAPE = {TASKS_V2_L70_PLAN: (TASKS_V2_L70_TIERS, TASKS_V2_L70_SEEDS)}
+STRICT_PLAN_SHAPE = {TASKS_V2_L70_PLAN: (TASKS_V2_L70_TIERS, TASKS_V2_L70_SEEDS),
+                     TASKS_V2_T2S_PLAN: (TASKS_V2_T2S_TIERS, TASKS_V2_T2S_SEEDS)}
 
 
 def tasks_v2_l70_plan(call2_mode="off"):
@@ -1330,7 +1344,7 @@ def build_arg_parser():
     ap.add_argument("--check-plan", action="store_true",
                     help="print the plan and session shape, then exit (no server, no model call, no queue)")
     ap.add_argument("--plan", choices=("default", TASKS_PLAN, TASKS_V2_PLAN, TASKS_V2_Q8_PLAN, TASKS_V2_MS_PLAN,
-                                         TASKS_V2_L70_PLAN), default="default",
+                                         TASKS_V2_L70_PLAN, TASKS_V2_T2S_PLAN), default="default",
                     help="real mode: default = --tiers/--seeds or STRONG_TIERS x SEEDS; tasks_v1 = the B3 task real "
                          "run (Ollama default and 4096, SEEDS, 30 task turns; needs --workload evalset --guardrails off); "
                          "tasks_v2 = the B3 v2 task real run (TASKS_V2_TIERS x SEEDS_STRONG, 30 task turns, design v2, "
@@ -1343,6 +1357,9 @@ def build_arg_parser():
                          "validation_preflight_ext with the declared task end-state deviation (TE_DEVIATION) and only "
                          "TASKS_V2_MODELS allowed (for --plan tasks_v2); v2_strict = no waiver and every gate "
                          "passing, only TASKS_V2_Q8_MODELS allowed (for --plan tasks_v2_qwen3_8b)")
+    ap.add_argument("--server-env", action="append", default=None, metavar="KEY=VALUE",
+                    help="extra environment for this job's own Ollama server only (repeatable; x2_r2_agent."
+                         "parse_server_env), e.g. OLLAMA_IGPU_ENABLE=1 on evo-t2s (set by harness/t2s_evalset.py)")
     ap.add_argument("--queue-insert-tasks-v2", action="store_true",
                     help="on evo-x2: insert x2_evalset_tasks_real_v2 directly before x2_window_override_methods in one "
                          "read-modify-write under a pause cleared in finally")
@@ -1365,6 +1382,9 @@ def plan_for(args, schedule=None):
         return tasks_v2_plan(args.call2_tools)
     if args.plan == TASKS_V2_L70_PLAN:
         return tasks_v2_l70_plan(args.call2_tools)
+    if args.plan in STRICT_PLAN_SHAPE:
+        tiers, seeds = STRICT_PLAN_SHAPE[args.plan]
+        return real_plan("evalset", False, args.call2_tools, tiers=tiers, seeds=seeds)
     if args.plan in STRICT_PLAN_MODELS:
         return tasks_v2_q8_plan(args.call2_tools)
     return real_plan(args.workload, guard, args.call2_tools, ag.parse_tiers(args.tiers), ag.parse_seeds(args.seeds))
@@ -1586,6 +1606,10 @@ def main(argv=None, advance=True):
         ap.error("--preflight v2_strict needs --mode real --plan tasks_v2_qwen3_8b")
     if args.workload == "replay" and args.guardrails == "off":
         ap.error("the replay workload always runs with guardrails on")
+    try:
+        server_env = ag.parse_server_env(args.server_env)
+    except ValueError as e:
+        ap.error(str(e))
     if args.check_plan:
         print(json.dumps(check_plan(args), indent=1, default=str))
         return "checked"
@@ -1657,6 +1681,7 @@ def main(argv=None, advance=True):
               "num_keep_tiers": sorted(NUMKEEP_ARMS & {a for a, _, _ in plan}) or None,
               "max_tokens_per_call": ag.MAX_TOKENS_PER_CALL,
               "keep_alive": ag.KEEP_ALIVE, "hw_id": host_cfg.get("hw_id"), "interactive_session": interactive,
+              "server_env_extra": server_env,
               "design": args.design, "turn_protocol": TURN_PROTOCOL[args.design], "max_tool_rounds":
               MAX_TOOL_ROUNDS if args.design != "v1" else None,
               "filler_tokens_per_turn": filler_tokens_per_turn(args.design), **harness_provenance(),
@@ -1667,11 +1692,11 @@ def main(argv=None, advance=True):
                                                                   for r in rs))[:400]
             log(note)
             return note
-        ag._start_server(hc)
+        ag._start_server(hc, server_env)
         started = True
         if not hc.wait_for_ollama_ready(timeout_s=60):
             hc.stop_ollama_server()
-            ag._start_server(hc)
+            ag._start_server(hc, server_env)
             if not hc.wait_for_ollama_ready(timeout_s=90):
                 raise RuntimeError("ollama did not become ready")
         runtime = ag.OllamaRuntime()

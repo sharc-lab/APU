@@ -32,6 +32,138 @@
   }
  },
  {
+  "id": "t2s_o26_b3_val_cpu",
+  "cmd": [
+   "C:\\Users\\sharc\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+   "t2s_evalset.py",
+   "--runtime-config",
+   "cpu_default",
+   "--design",
+   "v2",
+   "--workload",
+   "evalset",
+   "--guardrails",
+   "off",
+   "--models",
+   "qwen3:14b",
+   "--mode",
+   "validation",
+   "--out",
+   "results/t2s_evalset_tasks_val_v2_cpu.jsonl"
+  ],
+  "status": "pending",
+  "note": "STAGED for the 2026-10-26 window (not loaded): B3 v2 tasks validation, qwen3:14b, Intel CPU (stock Ollama, default 4096); est hours: 7.1 (ESTIMATE: evo-x2 x2_evalset_tasks_val_v2.jsonl qwen3:14b sessions (negative control 15.6 min over 3, positive control 12.5 min) x qwen3:14b evo-t2s/evo-x2 R2 session ratio 15.12 at 4096 (row t2s-r2-session-minutes over the evo-x2 R2 median); high = slowest x largest ratio 15.12 x 2.0 ASSUMED for the 40960-window negative control on the CPU; scripts/t2s_window_stage.py plan)",
+  "est_hours": 7.1,
+  "est_basis": "ESTIMATE: evo-x2 x2_evalset_tasks_val_v2.jsonl qwen3:14b sessions (negative control 15.6 min over 3, positive control 12.5 min) x qwen3:14b evo-t2s/evo-x2 R2 session ratio 15.12 at 4096 (row t2s-r2-session-minutes over the evo-x2 R2 median); high = slowest x largest ratio 15.12 x 2.0 ASSUMED for the 40960-window negative control on the CPU",
+  "expected_out": "results/t2s_evalset_tasks_val_v2_cpu.jsonl",
+  "staged_for": "2026-10-26..2026-11-08",
+  "gate": {
+   "requires_done": "t2s_o26_preflight"
+  }
+ },
+ {
+  "id": "t2s_o26_b3_real_cpu",
+  "cmd": [
+   "C:\\Users\\sharc\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+   "t2s_evalset.py",
+   "--runtime-config",
+   "cpu_default",
+   "--design",
+   "v2",
+   "--workload",
+   "evalset",
+   "--guardrails",
+   "off",
+   "--models",
+   "qwen3:14b",
+   "--mode",
+   "real",
+   "--plan",
+   "tasks_v2_t2s_qwen3_14b",
+   "--preflight",
+   "v2_strict",
+   "--rules-from",
+   "results/t2s_evalset_tasks_val_v2_cpu.jsonl",
+   "--out",
+   "results/t2s_evalset_tasks_real_v2_cpu.jsonl"
+  ],
+  "status": "pending",
+  "note": "STAGED for the 2026-10-26 window (not loaded): B3 v2 task real run, qwen3:14b, Intel CPU (stock Ollama, default 4096), default window, seeds 20260901-03 x 30 task turns, strict preflight; est hours: 7.0 (ESTIMATE: 3 sessions x evo-x2 x2_evalset_tasks_real_v2.jsonl qwen3:14b ollama_ctx_4096 session (mean 9.3 min, slowest 10.2 min, 5 sessions) x qwen3:14b evo-t2s/evo-x2 R2 session ratio 15.12 at 4096 (row t2s-r2-session-minutes over the evo-x2 R2 median); high = slowest x largest ratio 15.12; runs only if the strict preflight admits qwen3:14b (a refusal takes minutes); scripts/t2s_window_stage.py plan)",
+  "est_hours": 7.0,
+  "est_basis": "ESTIMATE: 3 sessions x evo-x2 x2_evalset_tasks_real_v2.jsonl qwen3:14b ollama_ctx_4096 session (mean 9.3 min, slowest 10.2 min, 5 sessions) x qwen3:14b evo-t2s/evo-x2 R2 session ratio 15.12 at 4096 (row t2s-r2-session-minutes over the evo-x2 R2 median); high = slowest x largest ratio 15.12; runs only if the strict preflight admits qwen3:14b (a refusal takes minutes)",
+  "expected_out": "results/t2s_evalset_tasks_real_v2_cpu.jsonl",
+  "staged_for": "2026-10-26..2026-11-08",
+  "gate": {
+   "requires_done": "t2s_o26_b3_val_cpu"
+  }
+ },
+ {
+  "id": "t2s_o26_b3_val_igpu",
+  "cmd": [
+   "C:\\Users\\sharc\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+   "t2s_evalset.py",
+   "--runtime-config",
+   "igpu_enable",
+   "--design",
+   "v2",
+   "--workload",
+   "evalset",
+   "--guardrails",
+   "off",
+   "--models",
+   "qwen3:14b",
+   "--mode",
+   "validation",
+   "--out",
+   "results/t2s_evalset_tasks_val_v2_igpu.jsonl"
+  ],
+  "status": "pending",
+  "note": "STAGED for the 2026-10-26 window (not loaded): B3 v2 tasks validation, qwen3:14b, Intel iGPU (OLLAMA_IGPU_ENABLE=1, default 32768); est hours: 1.7 (ESTIMATE: evo-x2 x2_evalset_tasks_val_v2.jsonl qwen3:14b sessions (negative control 15.6 min over 3, positive control 12.5 min) x qwen3:14b evo-t2s/evo-x2 R2 session ratio 3.73 at 32768 (row t2s-r2-session-minutes over the evo-x2 R2 median); high = slowest x largest ratio 7.57; scripts/t2s_window_stage.py plan)",
+  "est_hours": 1.7,
+  "est_basis": "ESTIMATE: evo-x2 x2_evalset_tasks_val_v2.jsonl qwen3:14b sessions (negative control 15.6 min over 3, positive control 12.5 min) x qwen3:14b evo-t2s/evo-x2 R2 session ratio 3.73 at 32768 (row t2s-r2-session-minutes over the evo-x2 R2 median); high = slowest x largest ratio 7.57",
+  "expected_out": "results/t2s_evalset_tasks_val_v2_igpu.jsonl",
+  "staged_for": "2026-10-26..2026-11-08",
+  "gate": {
+   "requires_done": "t2s_o26_preflight"
+  }
+ },
+ {
+  "id": "t2s_o26_b3_real_igpu",
+  "cmd": [
+   "C:\\Users\\sharc\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+   "t2s_evalset.py",
+   "--runtime-config",
+   "igpu_enable",
+   "--design",
+   "v2",
+   "--workload",
+   "evalset",
+   "--guardrails",
+   "off",
+   "--models",
+   "qwen3:14b",
+   "--mode",
+   "real",
+   "--plan",
+   "tasks_v2_t2s_qwen3_14b",
+   "--preflight",
+   "v2_strict",
+   "--rules-from",
+   "results/t2s_evalset_tasks_val_v2_igpu.jsonl",
+   "--out",
+   "results/t2s_evalset_tasks_real_v2_igpu.jsonl"
+  ],
+  "status": "pending",
+  "note": "STAGED for the 2026-10-26 window (not loaded): B3 v2 task real run, qwen3:14b, Intel iGPU (OLLAMA_IGPU_ENABLE=1, default 32768), default window, seeds 20260901-03 x 30 task turns, strict preflight; est hours: 1.0 (ESTIMATE: 3 sessions x evo-x2 x2_evalset_tasks_real_v2.jsonl qwen3:14b ollama_default session (mean 5.3 min, slowest 5.6 min, 5 sessions) x qwen3:14b evo-t2s/evo-x2 R2 session ratio 3.73 at 32768 (row t2s-r2-session-minutes over the evo-x2 R2 median); high = slowest x largest ratio 7.57; runs only if the strict preflight admits qwen3:14b (a refusal takes minutes); scripts/t2s_window_stage.py plan)",
+  "est_hours": 1.0,
+  "est_basis": "ESTIMATE: 3 sessions x evo-x2 x2_evalset_tasks_real_v2.jsonl qwen3:14b ollama_default session (mean 5.3 min, slowest 5.6 min, 5 sessions) x qwen3:14b evo-t2s/evo-x2 R2 session ratio 3.73 at 32768 (row t2s-r2-session-minutes over the evo-x2 R2 median); high = slowest x largest ratio 7.57; runs only if the strict preflight admits qwen3:14b (a refusal takes minutes)",
+  "expected_out": "results/t2s_evalset_tasks_real_v2_igpu.jsonl",
+  "staged_for": "2026-10-26..2026-11-08",
+  "gate": {
+   "requires_done": "t2s_o26_b3_val_igpu"
+  }
+ },
+ {
   "id": "t2s_o26_b5_cpu_llama31_8b",
   "cmd": [
    "C:\\Users\\sharc\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",

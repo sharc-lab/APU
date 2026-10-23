@@ -6228,6 +6228,91 @@ def compute_x2_evalset_tasks_val_v2_l70_gates(repo):
             "n": f"{sum(1 for r in rows if r.get('record') == 'r2a_turn')} turns"}
 
 
+# Intel laptop task accuracy (docs/EXPERIMENTS.md and docs/FINDINGS.md "PRE-REGISTRATION: Intel laptop task accuracy",
+# 2026-10-22): staged for the evo-t2s window 2026-10-26 to 2026-11-08 (entries t2s_o26_b3_*). The hours row is an
+# ESTIMATE from measured times; the result rows are PENDING until the files are synced and read only after run_end.
+T2S_EVALSET_FILES = {be: (f"results/t2s_evalset_tasks_val_v2_{be}.jsonl", f"results/t2s_evalset_tasks_real_v2_{be}.jsonl")
+                     for be in ("cpu", "igpu")}
+T2S_EVALSET_EXPECTED_CTX = {"cpu": 4096, "igpu": 32768}
+T2S_EVALSET_X2_PROJECTION_TIER = {"cpu": "ollama_ctx_4096", "igpu": "ollama_default"}
+
+
+def compute_t2s_evalset_tasks_hours(repo):
+    """ESTIMATE (not a measurement) of the four staged B3 v2 entries on evo-t2s (scripts/t2s_window_stage.py
+    b3_estimates), point and high."""
+    import sys as _sys
+    _sys.path[:0] = [str(repo / "scripts"), str(repo / "harness")]
+    import t2s_window_stage as ws
+    est = ws.b3_estimates()
+    order = ("b3_val_cpu", "b3_real_cpu", "b3_val_igpu", "b3_real_igpu")
+    tot, hi = sum(est[k]["hours"] for k in order), sum(est[k]["high_h"] for k in order)
+    return {"value": "ESTIMATE; " + "; ".join(f"t2s_o26_{k} {est[k]['hours']:.1f} h (high {est[k]['high_h']:.1f} h; "
+                                              f"{est[k]['basis']})" for k in order)
+                     + f"; total {tot:.1f} h (high {hi:.1f} h)", "n": "4 entries (estimate)"}
+
+
+def compute_t2s_evalset_tasks(repo, be):
+    """B3 v2 task real run on evo-t2s for one backend (cpu: Intel CPU, default 4096; igpu: OLLAMA_IGPU_ENABLE=1,
+    default 32768), qwen3:14b, seeds 20260901-03: the strict preflight's verdict, validity, task accuracy over the 90
+    task turns, and, beside it, the evo-x2 tier that hybrid-savings-tradeoff / hybrid-route-at-start projected from.
+    Read only after run_end (a file without run_end raises, so the row is not VERIFIED)."""
+    _r2_agent_module()
+    import x2_r2_evalset as ev
+    val_name, real_name = T2S_EVALSET_FILES[be]
+    rows = ev.ag.read_rows(repo / real_name)
+    if not any(r.get("record") == "run_end" for r in rows):
+        raise ValueError(f"{real_name} has no run_end (unfinished); not read")
+    m = ev.TASKS_V2_T2S_MODELS[0]
+    o = ev.tasks_real_v2_outcome(rows, tiers=ev.TASKS_V2_T2S_TIERS, seeds=ev.TASKS_V2_T2S_SEEDS,
+                                 models=ev.TASKS_V2_T2S_MODELS)
+    d = o["models"].get(m, {})
+    if d.get("refused") or any(r.get("record") == "refused_model" and r.get("model_id") == m for r in rows):
+        reasons = d.get("reasons") or [x for r in rows if r.get("record") == "refused_model" for x in r["reasons"]]
+        return {"value": f"{m} {be}: refused by the strict preflight (v2_strict, no waiver) on {val_name} "
+                         f"({'; '.join(reasons)}); no Intel task accuracy measured, the projection stays",
+                "n": "0 task turns"}
+    problems = list(d.get("problems") or [])
+    chk = next((r for r in rows if r.get("record") == "t2s_runtime_check"), None)
+    want = T2S_EVALSET_EXPECTED_CTX[be]
+    if chk is None:
+        problems.append("no t2s_runtime_check row")
+    elif chk.get("loaded_context_by_model", {}).get(m) != [want]:
+        problems.append(f"loaded window {chk.get('loaded_context_by_model', {}).get(m)} != {want}")
+    att = {s["attempt_id"] for s in ev.ag.completed_sessions(rows) if s.get("mode") == "real" and s["model_id"] == m}
+    tt = [r for r in rows if r.get("record") == "r2a_turn" and r.get("attempt_id") in att
+          and r.get("item_kind") == "task" and r.get("end_state_ok") is not None]
+    n, ok = len(tt), sum(1 for r in tt if r["end_state_ok"])
+    if n != 90:
+        problems.append(f"{n} task turns, not 90")
+    if not n:
+        return {"value": f"{m} {be}: no task turns; " + "; ".join(problems), "n": "0 task turns"}
+    per_seed = ", ".join(f"{s} {sum(1 for r in tt if r['seed'] == s and r['end_state_ok'])}/"
+                         f"{sum(1 for r in tt if r['seed'] == s)}" for s in ev.TASKS_V2_T2S_SEEDS)
+    info = (d.get("tiers") or {}).get(ev.TASKS_V2_DEFAULT_TIER, {})
+    xr = ev.ag.read_rows(repo / X2_EVALSET_TASKS_REAL_V2)
+    xt = T2S_EVALSET_X2_PROJECTION_TIER[be] + "_call2_notools"
+    xatt = {s["attempt_id"] for s in ev.ag.completed_sessions(xr) if s["model_id"] == m and s["arm_id"] == xt}
+    xx = [r for r in xr if r.get("record") == "r2a_turn" and r.get("attempt_id") in xatt and r.get("item_kind") == "task"
+          and r.get("end_state_ok") is not None and r.get("seed") in ev.TASKS_V2_T2S_SEEDS]
+    xok = sum(1 for r in xx if r["end_state_ok"])
+    proj = (f"evo-x2 {T2S_EVALSET_X2_PROJECTION_TIER[be]} on the same seeds {xok}/{len(xx)} "
+            f"({100 * xok / len(xx):.1f}%), difference {100 * ok / n - 100 * xok / len(xx):+.1f} points" if xx
+            else "evo-x2 comparison tier has no turns on these seeds")
+    return {"value": f"{m} Intel {be.upper() if be == 'cpu' else 'iGPU'} default window {want}: valid {not problems}"
+                     + (f" ({'; '.join(problems)})" if problems else "")
+                     + f"; correct {ok}/{n} ({100 * ok / n:.1f}%) (per seed {per_seed}); wrong {info.get('wrong')} "
+                     f"(silent {info.get('silent_wrong')}, surfaced {info.get('surfaced_wrong')}); beside it, the "
+                     f"tier the hybrid rows projected from: {proj}", "n": f"{n} task turns"}
+
+
+def compute_t2s_evalset_tasks_cpu(repo):
+    return compute_t2s_evalset_tasks(repo, "cpu")
+
+
+def compute_t2s_evalset_tasks_igpu(repo):
+    return compute_t2s_evalset_tasks(repo, "igpu")
+
+
 def l70_route_reading(local_correct, local_n, cloud_correct, cloud_n, tolerances=(0, 5, 10)) -> dict:
     """Pure: the pre-registered route-at-start reading of llama3.3:70b against one cloud tier (impact_model's
     route_decision: local if 100 x local accuracy >= 100 x cloud accuracy - tolerance)."""
@@ -7780,6 +7865,25 @@ NUMBER_ENTRIES = [
      "compute": compute_x2_evalset_tasks_real_v2_l70_route,
      "data_files": [X2_EVALSET_TASKS_REAL_V2_L70, ALL_CLOUD_B3_V1, X2_EVALSET_TASKS_REAL_V2], "pending_ok": True,
      "script_function": "analysis/numbers_register.py::compute_x2_evalset_tasks_real_v2_l70_route"},
+    {"claim_id": "t2s-evalset-tasks-hours", "description": "ESTIMATE, not a measurement: hours of the four staged B3 "
+     "v2 entries on evo-t2s (qwen3:14b tasks validation and real run, Intel CPU 4096 and iGPU 32768), from measured "
+     "evo-t2s R2 session minutes scaled by the B3 v2 task-turn profile",
+     "compute": compute_t2s_evalset_tasks_hours,
+     "data_files": ["results/t2s_r2_real_cpu_v1.jsonl", "results/t2s_r2_real_igpu_v1.jsonl", "results/x2_r2_real_v1.jsonl",
+                    "results/x2_r2_real_v1b.jsonl", X2_EVALSET_TASKS_VAL_V2, X2_EVALSET_TASKS_REAL_V2],
+     "script_function": "scripts/t2s_window_stage.py::b3_estimates"},
+    {"claim_id": "t2s-evalset-tasks-cpu", "description": "B3 v2 task real run on evo-t2s Intel CPU (stock Ollama, "
+     "default window 4096), qwen3:14b, seeds 20260901-03, strict preflight: validity, task accuracy over 90 task "
+     "turns, beside the evo-x2 ollama_ctx_4096 tier the hybrid rows projected from",
+     "compute": compute_t2s_evalset_tasks_cpu,
+     "data_files": [*T2S_EVALSET_FILES["cpu"], X2_EVALSET_TASKS_REAL_V2], "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_t2s_evalset_tasks"},
+    {"claim_id": "t2s-evalset-tasks-igpu", "description": "B3 v2 task real run on evo-t2s Intel iGPU "
+     "(OLLAMA_IGPU_ENABLE=1, default window 32768), qwen3:14b, seeds 20260901-03, strict preflight: validity, task "
+     "accuracy over 90 task turns, beside the evo-x2 ollama_default tier",
+     "compute": compute_t2s_evalset_tasks_igpu,
+     "data_files": [*T2S_EVALSET_FILES["igpu"], X2_EVALSET_TASKS_REAL_V2], "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_t2s_evalset_tasks"},
     {"claim_id": "cost-cut-config-time", "description": "MEASURED: per model, session minutes saved per 40-turn R2 "
      "session on evo-x2 by the fastest measured non-router setting (B5 policies b-h, plus the flash-attention control "
      "once synced) against the runtime default (B5 policy a), with both settings' rule pass rate and history recall",
