@@ -5916,3 +5916,24 @@ Long-task cloud priced vs billed", committed before either job ran (harness at 5
 - **Cloud check** `longtask_cloud_v1` (controller, 5 tasks x seed 20260901, claude-haiku-5-5, job cap USD 6; Sonnet
   only if its pilot-based estimate is under USD 5): billed vs upper bound vs the `cloud-cost-per-real-task` pricing
   method. Row `long-task-cloud-priced-vs-billed` (PENDING until run_end).
+
+## PRE-REGISTRATION (2026-10-23): own-rollback redo and the local-first hybrid with rollback (pointer)
+
+Full entry in docs/EXPERIMENTS.md, "2026-10-23: Own-rollback redo and the local-first hybrid with rollback",
+committed before any cloud call and before row `hybrid-local-first-rollback` was computed. In short:
+
+- **Snapshots.** harness/evalset_env.py now has SnapshotLog: a deep copy of the environment before every
+  state-changing tool call, named marks (pre-task, session start), exact restore. scripts/cloud_redo.py --rollback
+  pre_task replays the local session on it, applies the failed turn's own calls, and restores the pre-task mark.
+- **Rollback to the pre-task state cannot fix the 28 earlier_state_repair tasks by construction.** The grader's
+  expected state is the reference applied to the actual pre-task state, and the full-history redo already started from
+  that state: the rollback state equals the redo's env_before in 28/28. In 28/28 the session had earlier wrong local
+  tasks, and every record the cloud changed outside the task was one those earlier tasks broke (28/28).
+- **Proposed instead (operator decision pending, no cloud call made):** cascaded rollback, where each earlier failed
+  task was itself rolled back and escalated, so the redone task starts from a clean state with nothing to repair;
+  grader unchanged. Cost estimate from the full-history redo of the same 28: billed USD 0.6699 (upper bound USD
+  2.6915). Target if run: >= 25/28. Row `own-rollback-redo` (PENDING).
+- **Hybrid by replay** (row `hybrid-local-first-rollback`): local first on every task at ollama_ctx_8192 and
+  ollama_ctx_4096, roll back and escalate to claude-sonnet-5-5 on (a) the oracle signal (ceiling) or (b) the recorded
+  over_loaded_window condition (stand-in for detector v2); escalated tasks graded from the own-rollback redo where it
+  exists, else the full-history redo (labelled).
