@@ -1,5 +1,30 @@
 # evo-x2 queue plan
 
+## Reserve draw of 2026-10-22: llama3.3:70b B3 v2 at the default window
+
+Operator request of 2026-10-22, an approved draw on the 150 h reserve below. Pre-registered in docs/FINDINGS.md
+"PRE-REGISTRATION: a larger local option for the route-at-start comparison" (2ddba00), committed before deploy and
+queueing. Appended at the end of the queue, after every running and pending job of the 2026-10-22 fill, in the plan's
+order: the B5 jobs keep their results-by date and the R2, spill and mistral jobs keep their places; the end of the queue
+still finishes before the 2026-10-27 12:00 PT cutoff, so no move ahead of the plan's order was needed. Hours are
+ESTIMATEs, register row `x2-llama33-70b-b3v2-hours`, projected back to back from the running job's start
+(x2_b5_simcap_8192, queue_state.json started_ts 2026-10-22 16:31:28Z) with the 2026-10-22 fill's own estimates for the
+jobs ahead.
+
+| pos | queue id | ESTIMATE h (high) | projected start | projected finish (high case) |
+|---|---|---|---|---|
+| 82 | x2_evalset_tasks_val_v2_llama33_70b | 1.76 (2.07) | 10-26 13:52Z (06:52 PT) | 10-26 15:38Z, 08:38 PT (21:34Z, 14:34 PT) |
+| 83 | x2_evalset_tasks_real_v2_llama33_70b (gate: requires_done 82; v2_strict, no waiver) | 0.97 (1.25) | 10-26 15:38Z (08:38 PT) | 10-26 16:37Z, 09:37 PT (22:49Z, 15:49 PT) |
+
+**Cutoff and reserve** (register row `x2-llama33-70b-b3v2-hours`, pasted): "with up to one 2 h results-sync interval,
+registered by 10-26 18:37Z (10-26 11:37 PT) (high case 10-27 00:49Z (10-26 17:49 PT)); cutoff 10-27 19:00Z (10-27
+12:00 PT): met (high case met), margin 24.4 h (high case 18.2 h); drawn from the 150 h reserve: 2.74 h (high 3.32
+h)".
+
+**Risk to the projection.** x2_b5_fa_control ran from 03:13:40Z to 16:31:28Z (queue state), about 13.3 h against its
+4.85 h ESTIMATE (high 13.92 h), so the jobs ahead can run near their high cases; the high-case margin above (18.2 h)
+covers that. If the strict preflight refuses llama3.3:70b, job 83 ends in minutes and the reading is "refused".
+
 ## Queue fill of 2026-10-22 (to 2026-11-10, 150 h held back)
 
 evo-x2 was idle from about 2026-10-21 23:00Z (`queue_empty.flag`, no pause) until the watchdog launched the first job

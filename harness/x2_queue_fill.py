@@ -28,6 +28,8 @@ if not (_here / "t2s_queue.py").exists():
 PY = sys.executable   # the machine's own interpreter when run there (no user path in the source)
 RESULTS = r"C:\apu\ovn\results"
 RELEASE = "Releases itself via tq.advance() on exit; sets no pause."
+# register row x2-llama33-70b-b3v2-hours (ESTIMATE), copied here because the queue entry is built on evo-x2
+L70_HOURS = {"val": 1.76, "val_high": 2.07, "real": 0.97, "real_high": 1.25}
 
 ENTRIES = {
     "x2_num_keep_qwen3_14b": {
@@ -137,6 +139,30 @@ ENTRIES = {
                 "tasks_v2 tiers and seeds; queue gate requires_done x2_evalset_tasks_val_v2_mistral_small32, and the "
                 "v2_strict preflight refuses unless mistral passes every gate of that validation (no waiver). "
                 "ESTIMATE 3.01 h (high 3.66 h; register row x2-queue-fill-1022-hours). " + RELEASE,
+    },
+    # ── reserve draw of 2026-10-22 (operator; docs/X2_QUEUE_PLAN.md; hours: register row x2-llama33-70b-b3v2-hours) ──
+    "x2_evalset_tasks_val_v2_llama33_70b": {
+        "projected_duration_h": L70_HOURS["val"],
+        "cmd": [PY, "evalv2l70\\x2_r2_evalset.py", "--design", "v2", "--mode", "validation", "--workload", "evalset",
+                "--guardrails", "off", "--models", "llama3.3:70b", "--out",
+                f"{RESULTS}\\x2_evalset_tasks_val_v2_llama33_70b.jsonl"],
+        "note": "B3 v2 tasks validation for llama3.3:70b, pre-registered in docs/FINDINGS.md 2026-10-22 (a larger local "
+                f"option for the route-at-start comparison). ESTIMATE {L70_HOURS['val']:.2f} h (high "
+                f"{L70_HOURS['val_high']:.2f} h; register row x2-llama33-70b-b3v2-hours). " + RELEASE,
+    },
+    "x2_evalset_tasks_real_v2_llama33_70b": {
+        "projected_duration_h": L70_HOURS["real"],
+        "gate": {"requires_done": "x2_evalset_tasks_val_v2_llama33_70b"},
+        "cmd": [PY, "evalv2l70\\x2_r2_evalset.py", "--design", "v2", "--mode", "real", "--workload", "evalset",
+                "--guardrails", "off", "--models", "llama3.3:70b", "--plan", "tasks_v2_llama33_70b", "--preflight",
+                "v2_strict", "--rules-from", f"{RESULTS}\\x2_evalset_tasks_val_v2_llama33_70b.jsonl", "--out",
+                f"{RESULTS}\\x2_evalset_tasks_real_v2_llama33_70b.jsonl"],
+        "note": "B3 v2 task real run for llama3.3:70b at the Ollama default window only, seeds 20260901-03, 30 task "
+                "turns, pre-registered in docs/FINDINGS.md 2026-10-22 (a larger local option for the route-at-start "
+                "comparison); queue gate requires_done x2_evalset_tasks_val_v2_llama33_70b, and the v2_strict "
+                "preflight refuses unless llama3.3:70b passes every gate of that validation (no waiver). ESTIMATE "
+                f"{L70_HOURS['real']:.2f} h (high {L70_HOURS['real_high']:.2f} h; register row "
+                "x2-llama33-70b-b3v2-hours). " + RELEASE,
     },
 }
 

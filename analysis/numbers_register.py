@@ -6075,6 +6075,219 @@ def compute_x2_queue_fill_1022_hours(repo):
     return {"value": "; ".join(parts), "n": f"{len(jobs)} jobs (estimate)"}
 
 
+# ── llama3.3:70b B3 v2 (reserve draw of 2026-10-22; docs/FINDINGS.md "PRE-REGISTRATION: a larger local option for the
+# route-at-start comparison") ──
+L70_MODEL = "llama3.3:70b"
+L70_JOBS = ("x2_evalset_tasks_val_v2_llama33_70b", "x2_evalset_tasks_real_v2_llama33_70b")
+# Schedule anchor: queue_state.json on evo-x2, read 2026-10-23 00:02Z: x2_b5_simcap_8192 "running", started_ts
+# 1792686688.39 = 2026-10-22T16:31:28Z (x2_b5_fa_control ended then). The rest of the 2026-10-22 fill follows it in
+# FILL_1022_ORDER (all still pending), then the two llama3.3:70b jobs (appended at the end of the queue).
+L70_ANCHOR_JOB = "x2_b5_simcap_8192"
+L70_ANCHOR_UTC = "2026-10-22T16:31:28+00:00"
+L70_CUTOFF_UTC = "2026-10-27T19:00:00+00:00"   # operator: finish and register by 2026-10-27 12:00 PT (PDT, UTC-7)
+L70_SYNC_INTERVAL_H = 2.0                      # APU-SyncResults repeats every 2 h (scripts/install_sync_results_task.ps1)
+L70_REAL_SEEDS = (20260901, 20260902, 20260903)
+X2_EVALSET_TASKS_VAL_V2_L70 = "results/x2_evalset_tasks_val_v2_llama33_70b.jsonl"
+X2_EVALSET_TASKS_REAL_V2_L70 = "results/x2_evalset_tasks_real_v2_llama33_70b.jsonl"
+L70_HOURS_DATA = [X2_SCALE_VALIDATION, X2_SCALE_REAL, R2_VALIDATION_V2_FILE, X2_EVALSET_TASKS_VAL_V2,
+                  X2_EVALSET_TASKS_REAL_V2]
+
+
+def l70_b3v2_estimates(repo) -> dict:
+    """ESTIMATE (hours, point and high) of the two llama3.3:70b B3 v2 jobs: qwen3:14b's measured v2 tasks sessions x
+    the llama3.3:70b / qwen3:14b ratio of the same R2 validation arm (negative control at num_ctx 131072, positive
+    control at 8192: x2_r2_scale_validation vs x2_r2_validation_v2); high = every session at the largest
+    llama3.3:70b / qwen3:14b R2 ratio (those two arms and the x2_r2_scale_real 4096 and 32768 tiers vs the qwen3:14b
+    v1/v1b medians), and the real run at the slowest qwen3:14b default session."""
+    import statistics
+    ag = _r2_agent_module()
+    import x2_r2_evalset as ev
+    sfx = "_call2_notools"
+    neg_arm, pos_arm = ag.NEG_ARM + sfx, ag.POS_ARM + sfx
+    sv = ag.read_rows(repo / X2_SCALE_VALIDATION)
+    v2 = ag.read_rows(repo / R2_VALIDATION_V2_FILE)
+    sr = ag.read_rows(repo / X2_SCALE_REAL)
+
+    def med(rows, m, a):
+        w = _session_walls_s(rows, m, a, mode=None)
+        if not w:
+            raise ValueError(f"no completed sessions for {m} {a}")
+        return statistics.median(w)
+    ratios = {"R2 validation negative control 131072": med(sv, L70_MODEL, neg_arm) / med(v2, "qwen3:14b", neg_arm),
+              "R2 validation positive control 8192": med(sv, L70_MODEL, pos_arm) / med(v2, "qwen3:14b", pos_arm),
+              "R2 real 4096": med(sr, L70_MODEL, "ollama_ctx_4096" + sfx) / _r2_median_s(repo, "qwen3:14b",
+                                                                                          "num_ctx_4096"),
+              "R2 real 32768": med(sr, L70_MODEL, "ollama_ctx_32768" + sfx) / _r2_median_s(repo, "qwen3:14b",
+                                                                                            "num_ctx_32768")}
+    r_neg = ratios["R2 validation negative control 131072"]
+    r_pos = ratios["R2 validation positive control 8192"]
+    rmax = max(ratios.values())
+    e = ev.tasks_v2_hours_estimate(ag.read_rows(repo / X2_EVALSET_TASKS_VAL_V2))
+    neg, pos = sum(e["neg_session_s"]), sum(e["pos_session_s"])
+    rr = ag.read_rows(repo / X2_EVALSET_TASKS_REAL_V2)
+    dflt = _session_walls_s(rr, "qwen3:14b", ev.TASKS_V2_DEFAULT_TIER + sfx, mode="real")
+    n = len(L70_REAL_SEEDS)
+    rtxt = ", ".join(f"{k} {v:.2f}" for k, v in ratios.items())
+    return {
+        "x2_evalset_tasks_val_v2_llama33_70b": {
+            "point_h": (neg * r_neg + pos * r_pos) / 3600, "high_h": (neg + pos) * rmax / 3600,
+            "basis": f"qwen3:14b v2 tasks validation (negative control {neg / 60:.1f} min over "
+                     f"{len(e['neg_session_s'])} sessions, positive control {pos / 60:.1f} min) x llama3.3:70b/qwen3:14b "
+                     f"ratio of the same R2 validation arm (negative {r_neg:.2f}, positive {r_pos:.2f}); high = x "
+                     f"{rmax:.2f} throughout"},
+        "x2_evalset_tasks_real_v2_llama33_70b": {
+            "point_h": n * statistics.mean(dflt) * r_neg / 3600, "high_h": n * max(dflt) * rmax / 3600,
+            "basis": f"{n} default-window sessions x qwen3:14b x2_evalset_tasks_real_v2 ollama_default session (mean "
+                     f"{statistics.mean(dflt) / 60:.1f} min, slowest {max(dflt) / 60:.1f} min, {len(dflt)} sessions) x "
+                     f"the negative-control ratio {r_neg:.2f} (high: slowest x {rmax:.2f}); runs only if the "
+                     "validation passes every gate (a refusal takes minutes)"},
+        "_ratios": rtxt}
+
+
+def compute_x2_llama33_70b_b3v2_hours(repo):
+    """ESTIMATE (not a measurement) of the two llama3.3:70b B3 v2 jobs, the projected schedule behind the rest of the
+    2026-10-22 fill from the running job's start, whether they finish and can be registered by the operator's cutoff
+    (2026-10-27 12:00 PT), and the hours drawn from the 150 h reserve."""
+    from datetime import datetime, timedelta, timezone
+    fill = queue_fill_1022_estimates(repo)
+    l70 = l70_b3v2_estimates(repo)
+    pt_tz = timezone(timedelta(hours=-7), "PT")
+    cut = datetime.fromisoformat(L70_CUTOFF_UTC)
+
+    def f(t):
+        return f"{t.strftime('%m-%d %H:%MZ')} ({t.astimezone(pt_tz).strftime('%m-%d %H:%M')} PT)"
+    order = list(FILL_1022_ORDER[FILL_1022_ORDER.index(L70_ANCHOR_JOB):]) + list(L70_JOBS)
+    jobs = {**fill, **{k: v for k, v in l70.items() if not k.startswith("_")}}
+    t_pt = t_hi = datetime.fromisoformat(L70_ANCHOR_UTC)
+    parts, ahead = [], []
+    for j in order:
+        e = jobs[j]
+        s_pt, s_hi = t_pt, t_hi
+        t_pt += timedelta(hours=e["point_h"])
+        t_hi += timedelta(hours=e["high_h"])
+        if j in L70_JOBS:
+            parts.append(f"{j} ESTIMATE {e['point_h']:.2f} h (high {e['high_h']:.2f} h; {e['basis']}); projected "
+                         f"{f(s_pt)} to {f(t_pt)} (high case {f(s_hi)} to {f(t_hi)})")
+        else:
+            ahead.append(f"{j} {e['point_h']:.2f} h (high {e['high_h']:.2f})")
+    reg_pt = t_pt + timedelta(hours=L70_SYNC_INTERVAL_H)
+    reg_hi = t_hi + timedelta(hours=L70_SYNC_INTERVAL_H)
+    drawn_pt = sum(l70[j]["point_h"] for j in L70_JOBS)
+    drawn_hi = sum(l70[j]["high_h"] for j in L70_JOBS)
+    parts.insert(0, f"queue ahead from {L70_ANCHOR_JOB} start {f(datetime.fromisoformat(L70_ANCHOR_UTC))}, register "
+                    f"row x2-queue-fill-1022-hours estimates: " + ", ".join(ahead))
+    parts.append(f"llama3.3:70b jobs end {f(t_pt)} (high case {f(t_hi)}); with up to one {L70_SYNC_INTERVAL_H:.0f} h "
+                 f"results-sync interval, registered by {f(reg_pt)} (high case {f(reg_hi)}); cutoff {f(cut)}: "
+                 + ("met" if reg_pt <= cut else "NOT met") + " (high case "
+                 + ("met" if reg_hi <= cut else "NOT met") + f"), margin {(cut - reg_pt).total_seconds() / 3600:.1f} h "
+                 f"(high case {(cut - reg_hi).total_seconds() / 3600:.1f} h)")
+    parts.append(f"drawn from the {FILL_1022_RESERVE_H:.0f} h reserve: {drawn_pt:.2f} h (high {drawn_hi:.2f} h); "
+                 f"R2 session ratios llama3.3:70b/qwen3:14b: {l70['_ratios']}")
+    return {"value": "ESTIMATE; " + "; ".join(parts), "n": "2 jobs (estimate)"}
+
+
+def compute_x2_evalset_tasks_val_v2_l70_gates(repo):
+    """llama3.3:70b v2 tasks validation: every gate with its numbers, the failing gates, and whether the real run's
+    strict preflight (v2_strict, llama3.3:70b only) admits it."""
+    _r2_agent_module()
+    import x2_r2_evalset as ev
+    rows = ev.ag.read_rows(repo / X2_EVALSET_TASKS_VAL_V2_L70)
+    if not rows:
+        raise FileNotFoundError(repo / X2_EVALSET_TASKS_VAL_V2_L70)
+    rep = ev.evaluate_gates_ext(rows, "evalset", False, "off", design=ev.file_design(rows))
+    g = rep["gates"]
+    m = L70_MODEL
+    gates = [x for x in EVALSET_V2_GATE_ORDER if x in g]
+    failing = [x for x in gates if g[x].get(m) is not None and not g[x][m]["pass"]
+               and not (x == "rules678" and not g[x][m]["applies"])]
+    pf = ev.strict_preflight_v2(rows, [m], allowed_models=ev.TASKS_V2_L70_MODELS)
+    finished = any(r.get("record") == "run_end" for r in rows)
+    return {"value": f"tasks {m} (run finished {finished}, design {ev.file_design(rows)}): "
+                     + "; ".join(_evalset_v2_gate_text(x, g, rep, m) for x in gates)
+                     + f"; failing gates: {', '.join(failing) or 'none'}; strict preflight (v2_strict): "
+                     + ("admits " + m if pf["ok"] else "refuses (" + "; ".join(pf["refused"].get(m, [])) + ")"),
+            "n": f"{sum(1 for r in rows if r.get('record') == 'r2a_turn')} turns"}
+
+
+def l70_route_reading(local_correct, local_n, cloud_correct, cloud_n, tolerances=(0, 5, 10)) -> dict:
+    """Pure: the pre-registered route-at-start reading of llama3.3:70b against one cloud tier (impact_model's
+    route_decision: local if 100 x local accuracy >= 100 x cloud accuracy - tolerance)."""
+    import sys as _sys
+    _sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import impact_model as im
+    lq, cq = local_correct / local_n, cloud_correct / cloud_n
+    routes = {t: im.route_decision(lq, cq, t) for t in tolerances}
+    gap = 100 * (cq - lq)
+    if routes[0] == "local":
+        reading = "llama3.3:70b routes local at matched quality"
+    elif gap > max(tolerances):
+        reading = "cloud at every tolerance shown"
+    else:
+        reading = f"cloud at matched quality; routes local at tolerance >= {gap:.1f}"
+    return {"gap": gap, "routes": routes, "reading": reading}
+
+
+def compute_x2_evalset_tasks_real_v2_l70_route(repo):
+    """llama3.3:70b B3 v2 real run at the default window: validity, task accuracy over the 90 task turns, and the
+    pre-registered route-at-start reading against each cloud tier of all_cloud_b3_v1 (same seeds and tasks)."""
+    _r2_agent_module()
+    import x2_r2_evalset as ev
+    rows = ev.ag.read_rows(repo / X2_EVALSET_TASKS_REAL_V2_L70)
+    if not rows:
+        raise FileNotFoundError(repo / X2_EVALSET_TASKS_REAL_V2_L70)
+    m = L70_MODEL
+    o = ev.tasks_real_v2_outcome(rows, tiers=ev.TASKS_V2_L70_TIERS, seeds=ev.TASKS_V2_L70_SEEDS,
+                                 models=ev.TASKS_V2_L70_MODELS)
+    d = o["models"].get(m, {})
+    if d.get("refused"):
+        return {"value": f"run finished {o['run_finished']}; {m}: refused ({'; '.join(d['reasons'] or [])}); no "
+                         "larger local option measured", "n": "0 task turns"}
+    problems = list(d.get("problems") or ["no sessions"])
+    if not any(r.get("record") == "run_start" and r.get("harness_blob") for r in rows):
+        problems.append("run_start has no harness_blob")
+    valid = not problems
+    att = {s["attempt_id"] for s in ev.ag.completed_sessions(rows) if s.get("mode") == "real" and s["model_id"] == m}
+    tt = [r for r in rows if r.get("record") == "r2a_turn" and r.get("attempt_id") in att
+          and r.get("item_kind") == "task" and r.get("end_state_ok") is not None]
+    n, ok = len(tt), sum(1 for r in tt if r["end_state_ok"])
+    per_seed = {s: (sum(1 for r in tt if r["seed"] == s and r["end_state_ok"]), sum(1 for r in tt if r["seed"] == s))
+                for s in ev.TASKS_V2_L70_SEEDS}
+    info = (d.get("tiers") or {}).get(ev.TASKS_V2_DEFAULT_TIER, {})
+    head = (f"run finished {o['run_finished']}; {m} ollama_default: valid {valid}"
+            + (f" ({'; '.join(problems)})" if problems else "")
+            + f"; correct {ok}/{n} ({100 * ok / n:.1f}%)" if n else f"run finished {o['run_finished']}; no task turns")
+    if not n:
+        return {"value": head, "n": "0 task turns"}
+    head += (" (per seed " + ", ".join(f"{s} {a}/{b}" for s, (a, b) in per_seed.items()) + f"); wrong "
+             f"{info.get('wrong')} (silent {info.get('silent_wrong')}, surfaced {info.get('surfaced_wrong')}); loaded "
+             f"context {info.get('loaded_context_values')}")
+    if not valid:
+        return {"value": head + "; reading: inconclusive (run not valid)", "n": f"{n} task turns"}
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "analysis"))
+    import impact_model as im
+    cloud = im.all_cloud_task_outcomes(repo)["models"]
+    keys = {(r["seed"], r["task_id"]) for r in tt}
+    reads, local_any = [], False
+    for cm in sorted(cloud):
+        c = cloud[cm]
+        shared = sorted(keys & set(c))
+        cc = sum(1 for k in shared if c[k][0])
+        rd = l70_route_reading(ok, n, cc, len(shared))
+        local_any = local_any or rd["routes"][0] == "local"
+        reads.append(f"vs {cm} {cc}/{len(shared)} ({100 * cc / len(shared):.1f}%): gap {rd['gap']:.1f} points; "
+                     + ", ".join(f"tolerance {t}: {r}" for t, r in rd["routes"].items()) + f"; {rd['reading']}")
+    q = im.b3_v2_task_outcomes(repo).get(ev.TASKS_V2_DEFAULT_TIER, {})
+    qk = [k for k in q if k[0] in ev.TASKS_V2_L70_SEEDS]
+    qok = sum(1 for k in qk if not q[k][1])
+    overall = ("a larger local option changes the route-at-start answer on evo-x2" if local_any else
+               "at matched quality evo-x2 still routes to the cloud with a larger local model")
+    return {"value": head + "; " + "; ".join(reads) + f"; overall: {overall}; context, not a test: qwen3:14b "
+                     f"ollama_default {qok}/{len(qk)} ({100 * qok / len(qk):.1f}%) on the same seeds, llama3.3:70b minus "
+                     f"qwen3:14b {100 * ok / n - 100 * qok / len(qk):+.1f} points (descriptive)",
+            "n": f"{n} task turns"}
+
+
 def cost_cut_config_time_data(repo) -> dict:
     """Per model: the runtime default (B5 policy a) and the fastest measured non-router setting on evo-x2 (B5 policies
     b-h, and the flash-attention control's policy i once synced and valid): {"models": {model: {"default_min",
@@ -7526,6 +7739,23 @@ NUMBER_ENTRIES = [
      "results-by date, slack before 2026-11-10 and the hours left beyond the 150 h reserve",
      "compute": compute_x2_queue_fill_1022_hours, "data_files": FILL_1022_DATA,
      "script_function": "analysis/numbers_register.py::compute_x2_queue_fill_1022_hours"},
+    {"claim_id": "x2-llama33-70b-b3v2-hours", "description": "ESTIMATE, not a measurement: hours of the llama3.3:70b "
+     "B3 v2 tasks validation and default-window real run (reserve draw of 2026-10-22) from measured times, projected "
+     "start and finish behind the rest of the 2026-10-22 fill, the 2026-10-27 12:00 PT cutoff and the reserve hours "
+     "drawn",
+     "compute": compute_x2_llama33_70b_b3v2_hours, "data_files": FILL_1022_DATA + L70_HOURS_DATA,
+     "script_function": "analysis/numbers_register.py::compute_x2_llama33_70b_b3v2_hours"},
+    {"claim_id": "x2-evalset-tasks-val-v2-llama33-70b-gates", "description": "B3 v2 tasks validation for "
+     "llama3.3:70b: every gate with its numbers, failing gates, and whether the strict preflight admits it",
+     "compute": compute_x2_evalset_tasks_val_v2_l70_gates, "data_files": [X2_EVALSET_TASKS_VAL_V2_L70],
+     "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_x2_evalset_tasks_val_v2_l70_gates"},
+    {"claim_id": "x2-evalset-tasks-real-v2-llama33-70b-route", "description": "B3 v2 task real run, llama3.3:70b at "
+     "the Ollama default window, seeds 20260901-03: validity, task accuracy over 90 task turns, and the pre-registered "
+     "route-at-start reading against each all-cloud tier (tolerance 0, 5, 10)",
+     "compute": compute_x2_evalset_tasks_real_v2_l70_route,
+     "data_files": [X2_EVALSET_TASKS_REAL_V2_L70, ALL_CLOUD_B3_V1, X2_EVALSET_TASKS_REAL_V2], "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_x2_evalset_tasks_real_v2_l70_route"},
     {"claim_id": "cost-cut-config-time", "description": "MEASURED: per model, session minutes saved per 40-turn R2 "
      "session on evo-x2 by the fastest measured non-router setting (B5 policies b-h, plus the flash-attention control "
      "once synced) against the runtime default (B5 policy a), with both settings' rule pass rate and history recall",
