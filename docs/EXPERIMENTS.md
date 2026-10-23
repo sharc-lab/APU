@@ -606,3 +606,34 @@ protocol is not changed.
 - Fallback named by the operator (if no window by 2026-10-28 18:00 PT): 2026-10-29 08:00 to 18:00 PT, that is
   `--hold-start-utc 2026-10-29T08:00:00-07:00 --hold-release-utc 2026-10-29T18:00:00-07:00` (15:00 to 01:00 UTC).
 - Dry run on evo-x2 (no wait, no advance) before queueing; queued only when the operator gives the times.
+
+## RESULT (2026-10-23): live demo detector check (x2_demo_detector_check), the pre-registered reading FAILED
+
+Run as pre-registered, file results/demo_detector_check.jsonl (run_end present), server logs in
+results/demo_live_logs/detector_check/. Register row `demo-detector-check` reads "detector check failed": the detector
+fired at num_ctx 4096 on 5/5 picks (every call with a server cut line: Ollama's message drop on all 10 calls, a
+context shift on 4) and at the runtime default (loaded window 40960) on 2/5 picks, where 0/5 was expected.
+
+**Diagnosis of the 2 default-window fires (from the job's own rows and server log): false positives, both from the
+token-count comparison.** cal_cancel (calls used 7949 and 8062 tokens of a 40960 window) and file_write_standing
+(8158 and 8290). In serve_default.log every call ends "stop processing: ... truncated = 0", and there is no message-drop
+line, token cut, context shift or exceed-context error; the evidence on all 4 flagged calls is only "model saw N of
+about M tokens". The prompt's own size M is the chars/4 estimate times the tokenizer ratio 1.2022, which was
+calibrated on B3 v2 turn-1 calls (system prompt and tool schema dominate). On these long-history prompts the real
+ratio (server total over the chars/4 estimate) is 1.077 to 1.113 on the 10 default-window calls, so M overstates the
+size by 8% to 12%, and the 10% tolerance (fire below 0.9 M, that is a real ratio below 1.082) is crossed on the 4
+calls with ratios 1.077 to 1.082. At num_ctx 4096 the same ratio is 0.52 to 0.75 on every call.
+
+**The same signal in the acceptance run's local parts (results/demo_live_run_local_v1.jsonl, detector as
+pre-registered):** Default local in amd8192 flagged cal_cancel by the count alone (answer correct) and
+file_write_standing by real cut lines (context shift, message drop; answer wrong). Ours in intel (window 32768)
+flagged cal_cancel and file_write_standing by the count alone, so both were escalated to the cloud as the protocol
+says, though their local answers were correct. These rows are reported as they are; the protocol is not changed after
+the fact.
+
+**Proposed follow-up (not applied; needs the operator's approval and its own re-check on evo-x2 before the demo uses
+it):** detector v2 = the server's own cut lines only (message drop with kept < sent, token cut, context shift,
+exceed-context error), plus the count comparison against the chars/4 estimate at ratio 1.0 (no tokenizer
+calibration): every uncut call observed here has a ratio of 1.077 or more, every 4096 call 0.75 or less. A cut that
+leaves the total near the estimate (one amd8192 call at 1.031) is still caught by its cut lines. Re-check: the same 5 picks at 4096 and the default, the same pass rule.
+Until then the live screen must not show a count-only flag as "Cut off".

@@ -7123,11 +7123,16 @@ def compute_demo_detector_check(repo):
         calls = [c for r in g for c in r["calls"]]
         total_eq = sum(1 for c in calls if c.get("used_tokens") is not None
                        and c.get("prompt_eval_count") == c.get("used_tokens"))
+        direct = sum(1 for c in calls if any(not e.startswith("model saw") for e in c.get("evidence") or []))
+        count_only = sum(1 for c in calls if c.get("cut") and all(e.startswith("model saw")
+                                                                  for e in c.get("evidence") or []))
         per = ", ".join(f"{r['task_id']} (seed {r['seed']}, turn {r['turn_idx']}): used {r['max_used_tokens']} of "
                         f"about {r['max_own_tokens']}, flagged {r['flagged']}, end state {r['end_state_ok']}"
                         for r in g)
         parts.append(f"{arm}: fired on {fired}/{len(g)} tasks (prompt over 4096 on {len(over)}); calls {len(calls)}, "
-                     f"prompt_eval_count equal to the server total on {total_eq}; {per}")
+                     f"flagged by a server cut line (message drop, token cut, context shift, exceed) on {direct}, by "
+                     f"the token-count comparison alone on {count_only}; prompt_eval_count equal to the server total "
+                     f"on {total_eq}; {per}")
     reading = "detector check passed" if ok else "detector check failed"
     return {"value": f"{reading}; " + "; ".join(parts), "n": f"{len(tr)} task runs"}
 
