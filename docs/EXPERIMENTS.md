@@ -457,3 +457,141 @@ never written to the cache. The realistic case of `cloud-cost-per-real-task` ass
 read from cache, which needs a breakpoint that moves with the transcript. So the billed cost here is the cost under
 this placement, and the realistic priced figure is reached only by a client that caches the growing transcript. The
 accuracy on 5 tasks is descriptive only.
+
+## 2026-10-23: own-profiler (10-minute probe predicts task accuracy and seconds per task) and own-dse-v1 (PRE-REGISTRATION, written before any result of either is computed)
+
+Offline only: no machine time, no SSH, no cloud calls. Both analyses read committed result files only. Pointer in
+docs/FINDINGS.md "PRE-REGISTRATION: own-profiler and own-dse-v1".
+
+### Metadata
+
+- Date: 2026-10-23
+- Git hash: written on top of 0feee62 (main at the time)
+- Branch: worktree-agent-acb7f30fedd42238f
+- Machine: controller laptop (offline analysis of committed files)
+
+### Part A: own-profiler (row own-profiler-loo)
+
+Goal: predict, for a (device, model, window, KV, backend) configuration, its task accuracy and its mean seconds per
+task from a probe of at most 10 minutes, trained on evo-x2 and evo-t2s data, tested leave-one-device-out and on the
+Blade where data exists.
+
+**The probe (what a real probe runs in at most 600 s of wall clock on the target configuration).**
+
+1. Load the model at the configuration (num_ctx / window, KV cache type, backend) and record the loaded window
+   (`ollama ps` context) and the KV type check. Load time is inside the first turn's wall clock, as in every B3 v2 and
+   R2 run ("first turn includes model load"), so it is inside the 600 s budget.
+2. Run the target workload's own session from its first turn, fixed seed (the lowest committed seed of the
+   configuration; 20260901 for B3 v2 tasks), in order, and stop at the last turn whose cumulative wall clock is at most
+   600 s. Per turn record turn_wall_s, the calibrated final-call prompt tokens and the task grade (B3 v2: end_state_ok
+   on task turns; R2 / B5 / scale: task_tool_ok).
+3. Features: probe seconds per turn (mean turn_wall_s of the probe turns), probe accuracy (share of graded probe turns
+   correct), the loaded window, and the projected final prompt of the session (least-squares line through the probe
+   turns' prompt tokens against turn index, extrapolated to the session's last turn; a single probe turn extrapolates
+   at zero slope).
+4. A configuration whose first turn alone exceeds 600 s has no probe: no prediction, counted as a miss (error set to
+   infinity, so it counts against the median).
+
+No such probe was ever run as a dedicated job. Offline, step 2 is simulated exactly by the turn prefix of the lowest
+committed seed's completed session of each configuration (same harness, same seed order, same wall clock). The only
+real short probe in the repo is results/x2_scale_timing_probe.jsonl (2 turns per configuration, evo-x2); it is a
+secondary check against x2_r2_scale_real (5 matching configurations).
+
+**Predictor (fit on the training device only).** seconds per task = probe seconds per turn x R_s, accuracy =
+min(1, probe accuracy x R_a), where R_s (R_a) is the median over the training device's configurations of (actual
+mean seconds per task / probe seconds per turn) (and the same for accuracy), taken within the configuration's stratum:
+"overflow" if the projected final prompt exceeds the loaded window, else "fits"; pooled median over all training
+configurations if the stratum has none. The raw probe (R = 1) is reported next to it as a reference.
+
+**Targets (what is predicted).** Per configuration: mean turn_wall_s and accuracy over every graded turn of every
+completed session whose seed is not the probe seed (completed = the attempt has an r2a_session record; latest attempt
+per seed). A configuration with only the probe seed is not a test target (listed, not scored).
+
+**Configurations (session domain, the primary test).** One configuration = (device, run family, model, arm):
+evo-x2: x2_evalset_tasks_real_v2 (B3 v2, 5 arms, qwen3:14b); x2_r2_real_v1 + x2_r2_real_v1b +
+x2_r2_qwen3_8b_seeds_06_10 merged per (model, arm) (R2 real); x2_policy_compare + x2_policy_compare_fa_control (B5,
+KV f16 / q8_0 / q4_0 and policies); x2_r2_scale_real; x2_r2_family_mistral_small32_real. evo-t2s: t2s_r2_real_cpu_v1,
+t2s_r2_real_igpu_v1 (device = the physical machine; CPU and iGPU are backends of evo-t2s).
+
+**Training / test pairs that exist in committed results (checked before computing anything).**
+- evo-x2 to evo-t2s and evo-t2s to evo-x2 (session domain): exist, R2 real sessions on both devices with the same
+  harness; evo-t2s has 4 configurations (llama3.1:8b and qwen3:14b at the CPU default 4096 and the iGPU default
+  32768). B3 v2 tasks exist on evo-x2 only (the evo-t2s B3 v2 jobs are PRE-REGISTERED, not run), so B3 v2
+  configurations are training data for the evo-t2s fold and test targets only in the evo-t2s-to-evo-x2 fold.
+- Blade: NO task-level data. results/blade_r2_real_v1.jsonl has 0 turns (the run refused the model); the Blade has
+  K1 prefill/decode rates and validation runs only. Testing on the Blade needs a probe and a reference task run on the
+  Blade that were never run. Reported as NOT RUN.
+- Single-shot outcome tables (secondary domain): x2_outcome_table_v3 (12 configurations) and t2s_outcome_table_full
+  (3 configurations, many llama-server load failures, row t2s-llamaserver-load-failures). Probe = items in file order
+  until cumulative latency_s reaches 600 s; target = the remaining items; same ratio predictor fit per domain on the
+  training device. Reported separately, not part of the target decision.
+
+**Error metric and target.** Absolute percentage error |pred - actual| / actual per configuration, for seconds per
+task and for accuracy separately; medians pooled over both folds' test configurations of the session domain.
+Baseline: row ttft-few-point-calibration, k=2 median 22.6% (a latency error, comparable to seconds per task).
+Pre-registered target: median error < 10% for seconds per task AND < 10% for accuracy. Reported plainly if missed,
+with per-fold medians and the raw-probe reference.
+
+### Part B: own-dse-v1 (row own-dse-v1, code src/dse/dse_v1.py)
+
+**Input:** workload (task mix, tasks/day), accuracy target, monthly cloud budget. **Output:** candidates ranked by
+total monthly cost among those predicted to meet the accuracy target and the budget, each {hardware, model, window, KV,
+backend, routing policy}, plus the quality x cloud spend x hardware cost Pareto frontier.
+
+**Cost model (per 30-day month).** Local machines = ceil(tasks/day x local share x seconds per task / 86,400), at
+least 1 if any task runs locally (one task at a time per machine; no measured concurrency row). Hardware = machines x
+list price / 36 months (impact-ref-machine-price, USD 2,000 for evo-x2; no other device has a cited price, so other
+devices are not priced and are left out of the ranking). Electricity = tasks/month x local share x seconds per task /
+3600 x watts / 1000 x 14.53 c/kWh (energy-price-eia-commercial), watts = row PX2-power's per-model package power
+(measured on evo-t2s; applied to evo-x2 as an ASSUMPTION; active time only, idle power not counted). Cloud =
+tasks/month x cloud USD per task (all-cloud-b3-cost for all-cloud, hybrid-route-at-start-measured for hybrids).
+
+**What the DSE sees vs what validation uses.** The DSE ranks on predicted values: local accuracy and seconds per task
+from the own-profiler probe (prefix of seed 20260901 up to 600 s, R ratios trained on evo-t2s only, so no evo-x2 target
+data enters); cloud accuracy and USD per task from the all-cloud rows (a vendor service is priced, not probed); a
+hybrid's local share from the task-definition projection (route-at-start routes tasks whose projected prompt exceeds
+the window: share = 1 - routed/n), its accuracy = share x probe accuracy + (1 - share) x cloud accuracy, its cloud USD
+per task = (1 - share) x the cloud tier's all-cloud USD per task. Validation evaluates the DSE's pick with its MEASURED
+accuracy, seconds and cost and compares it with the brute-force best over all MEASURED configurations (minimum
+measured total cost among those whose measured accuracy meets the target and whose measured cloud spend fits the
+budget). A pick whose measured accuracy misses the target or whose measured cloud spend exceeds the budget is a miss.
+
+**Measured configurations (short B3 workload).** evo-x2 qwen3:14b Ollama KV f16 local at ollama_default,
+ollama_ctx_16384, ollama_ctx_8192, ollama_ctx_4096, ollama_ctx_4096_numkeep (x2_evalset_tasks_real_v2, seeds
+20260901-03, 90 tasks each); all-cloud claude-haiku-5-5 and claude-sonnet-5-5 (all_cloud_b3_v1); hybrids at
+ollama_ctx_8192 and ollama_ctx_4096 x each cloud tier (hybrid-route-at-start-measured). evo-t2s and the Blade have no
+B3 v2 measurement and are not candidates.
+
+**Workloads and parameters (fixed now).** Accuracy target 0.90, monthly cloud budget USD 500, volumes 100 / 1,000 /
+10,000 tasks/day.
+1. Short: B3 v2 tasks.
+2. Long: trace-length-matched long tasks, only if row long-task-local-accuracy is VERIFIED when this runs; otherwise
+   PENDING (no number).
+3. Mixed: 50% short B3 v2 tasks and 50% long tasks by count; PENDING whenever the long workload is.
+
+**Target.** Within 10% of the brute-force best total cost in every computed (workload, volume) cell. Gap = (measured
+total of the pick - brute-force best) / brute-force best. Reported per cell; PENDING cells are not counted as met.
+
+## RESULT (2026-10-23): own-profiler-loo and own-dse-v1
+
+Computed after the pre-registration above was committed (92aade5). Numbers below are fragments of rows
+own-profiler-loo and own-dse-v1 in docs/NUMBERS_REGISTER.md, pasted, not retyped.
+
+**own-profiler-loo: target MISSED.** "seconds per task median APE 70.2%, accuracy median APE 1.5% (raw probe without
+ratios: 58.4%, 0.9%)"; "pre-registered target < 10% on both: MISSED (seconds missed, accuracy met)". The seconds error
+is worse than the baseline (ttft-few-point-calibration "median 22.6%") and worse than using the raw probe with no
+ratio. Reading: the first 10 minutes of a session are not representative of its mean turn time (the first turn carries
+the model load, and turn time later grows or saturates with the window), and the actual/probe ratio learned on one
+device does not transfer to the other. The accuracy "met" is not strong evidence: most configurations sit near the
+ceiling of their task grade, so any probe close to 1.0 scores a small error. The real 2-turn scale probe agrees
+("seconds median APE 71.7% (raw probe 85.9%)"). Blade: "NOT RUN (blade_r2_real_v1 has 0 task turns; a Blade test needs
+a probe and a reference task run on the Blade, never run)". The evo-t2s fold has only 4 configurations.
+
+**own-dse-v1: target MET in the 3 computed cells, but trivially.** In every short-B3 cell the DSE's pick and the
+brute-force best are the same configuration, all-cloud claude-haiku-5-5 ("gap 0.0% -> within 10%" at 100, 1,000 and
+10,000 tasks/day). No option with a local machine is cheaper at these volumes ("cheapest measured feasible option using
+a local machine: ... USD 57.24", "USD 72.36", "USD 223.62" against the all-cloud "USD 2.01", "USD 20.12", "USD
+201.25"), and the all-cloud values the DSE ranks on are the measured ones, so the probe's seconds error never had a
+chance to change a pick. This validates the cost model and the ranking code, not the probe-driven choice between local
+configurations. Long and mixed workloads: "PENDING: row long-task-local-accuracy not VERIFIED" (6 cells), and the
+long-task candidate builder is not written yet; "MET (3/3 computed cells, 6 PENDING)".

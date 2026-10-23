@@ -7098,6 +7098,37 @@ def compute_long_task_cloud_priced_vs_billed(repo):
     return {"value": "; ".join(parts), "n": f"{len(tr)} cloud task runs"}
 
 
+# ── own-profiler and own-dse-v1 (pre-registered 2026-10-23, docs/EXPERIMENTS.md) ──
+def _src_dse(name):
+    import importlib
+    import sys as _sys
+    if str(REPO) not in _sys.path:
+        _sys.path.insert(0, str(REPO))
+    return importlib.import_module(f"src.dse.{name}")
+
+
+def compute_own_profiler_loo(repo):
+    """Row own-profiler-loo: 10-minute probe -> task accuracy and seconds per task, leave-one-device-out."""
+    op = _src_dse("own_profiler")
+    d = op.own_profiler_loo(repo)
+    return {"value": op.own_profiler_text(d), "n": f"{d['session']['n']} configs"}
+
+
+def compute_own_dse_v1(repo):
+    """Row own-dse-v1: DSE pick vs brute-force best over measured configurations."""
+    dv = _src_dse("dse_v1")
+    d = dv.own_dse_v1(repo)
+    n = sum(1 for c in d["cells"].values() if c.get("status") == "computed")
+    return {"value": dv.own_dse_v1_text(d), "n": f"{n} computed cells of {len(d['cells'])}"}
+
+
+_OP = _src_dse("own_profiler")
+OWN_PROFILER_FILES = (list(_OP.SESSION_DATA_FILES) + [f for _d, f in _OP.SINGLE_FILES]
+                      + [_OP.SCALE_PROBE_FILE, _OP.BLADE_TASK_FILE])
+OWN_DSE_V1_FILES = list(dict.fromkeys(list(_OP.SESSION_DATA_FILES) + ROUTE_MEASURED_FILES + [
+    "results/hardware_price_evox2_20261021.json", ENERGY_PRICE_EIA_FILE, "results/t2s_night2_20260930T135145Z.jsonl"]))
+
+
 NUMBER_ENTRIES = [
     {"claim_id": "PX2-TTFT-gap", "description": "PX2 B4-vs-S4 TTFT gap range across 5 models",
      "compute": compute_px2_ttft_gap, "data_files": ["results/t2s_night2_20260930T135145Z.jsonl"],
@@ -8193,6 +8224,19 @@ NUMBER_ENTRIES = [
      "default",
      "compute": compute_r2_qwen3_8b_reversal_10seed, "data_files": [R2_Q8_SEEDS_06_10_FILE] + R2_V1B_DATA,
      "pending_ok": True, "script_function": "analysis/numbers_register.py::compute_r2_qwen3_8b_reversal_10seed"},
+    {"claim_id": "own-profiler-loo", "description": "own-profiler (pre-registered 2026-10-23): a probe of at most 600 s "
+     "(first turns of the lowest committed seed's session) predicts task accuracy and mean seconds per task of a "
+     "(device, model, window, KV, backend) configuration; ratios fit on the other device; leave-one-device-out "
+     "evo-x2 / evo-t2s median absolute percentage error vs the < 10% target; Blade where data exists",
+     "compute": compute_own_profiler_loo, "data_files": OWN_PROFILER_FILES, "pending_ok": True,
+     "script_function": "src/dse/own_profiler.py::own_profiler_loo"},
+    {"claim_id": "own-dse-v1", "description": "own-dse-v1 (pre-registered 2026-10-23): ranks {hardware, model, window, "
+     "KV, backend, routing policy} by total monthly cost (hardware amortized 3 years at the cited list price, PX2-power "
+     "electricity at the EIA price, measured cloud USD) under accuracy target 0.90 and USD 500/month cloud budget from "
+     "own-profiler predictions; pick vs brute-force best over measured configurations per workload and volume vs the "
+     "within-10% target",
+     "compute": compute_own_dse_v1, "data_files": OWN_DSE_V1_FILES, "pending_ok": True,
+     "script_function": "src/dse/dse_v1.py::own_dse_v1"},
 ]
 
 
