@@ -113,3 +113,19 @@ scripts used for the facts and the update pause are in `C:\apu\ovn` (t2s_facts.p
 **Why:** operator instructions 2026-10-14, docs/T2S_WEEK_PLAN.md.
 **Revert:** at handover the deadline job pauses the queue by itself. To stop sooner: `Disable-ScheduledTask
 APU-QueueWatchdog`; `Remove-Item C:\apu\ovn\queue_deadline.json` removes the deadline (only with the watchdog stopped).
+
+## 2026-10-23 -- incident: SSH to evo-t2s outside the access window (stray `--help` directory)
+
+**What:** at about 2026-10-23T20:20Z, from the controller, `py -3.12 scripts/deploy_evo.py --help` was run to read the
+script's usage. The script had no help flag and defaulted to `--host evo-t2s`, so it treated `--help` as the remote
+directory and ran against evo-t2s: `hostname` (answered EVO-T2S), `New-Item -ItemType Directory -Force --help` (a
+directory named `--help`, expected under `%USERPROFILE%` of the SSH account, the remote shell's start directory), a read of
+`--help\expected_blobs.json` (absent), and an scp of a fresh `expected_blobs.json` with an empty blob list into that
+directory. Nothing else: no job, queue file, scheduled task, Ollama or setting was touched, and no reboot. This was
+outside the access window (the next one opens 2026-10-26), so it breaks the no-SSH rule for evo-t2s.
+**Why it happened:** deploy_evo.py had a default host and no argument check.
+**Fixed:** deploy_evo.py now requires `--host` and refuses any other `-` argument or a call with no repo paths before
+any SSH (`parse_args`, test in tests/test_deploy_evo_merge.py).
+**Not cleaned up yet:** removing it needs another SSH session, so it waits for the window or the operator's say-so.
+**Revert (in the window):** `Remove-Item -LiteralPath "$env:USERPROFILE\--help" -Recurse -Force` (first check that
+it holds only `expected_blobs.json`).

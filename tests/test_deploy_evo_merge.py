@@ -26,3 +26,13 @@ def test_second_deploy_keeps_earlier_files_and_replaces_redeployed_ones():
 def test_unreadable_prior_file_starts_fresh():
     m = de.merge_expected("{not json", "h1", {"a.py": "s1"}, {})
     assert m["blobs"] == {"a.py": "s1"} and m["paths"] == {"a.py": "a.py"}
+
+
+def test_parse_args_refuses_before_any_ssh():
+    """2026-10-23: `--help` fell through to the old evo-t2s default. No default host, no unknown flags."""
+    import pytest
+    for bad in (["--help"], ["C:/x", "harness/a.py"], ["C:/x", "harness/a.py", "--host"],
+                ["C:/x", "--force", "harness/a.py", "--host", "evo-x2"], ["C:/x", "--host", "evo-x2"]):
+        with pytest.raises(SystemExit):
+            de.parse_args(bad)
+    assert de.parse_args(["C:/x", "harness/a.py", "--host", "evo-x2"]) == ("evo-x2", "C:/x", ["harness/a.py"])

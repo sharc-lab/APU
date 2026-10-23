@@ -13,23 +13,25 @@ default-window timing). Registration is due Sat 2026-10-24 12:00 ET; the block d
   03:23Z; not queued".
 - **The existing queue runs into the block** (row `own-jobs-hours`, pasted): "E1 block start 10-26 01:00Z: job running
   then (point) x2_evalset_tasks_real_v2_mistral_small32, (high) x2_r2_v1b_seeds_06_10, so the existing queue runs into
-  the block". Reported, not fixed: no other job was moved. The queue has no time gate, so E1 starts when the queue
-  reaches it unless the operator places it ahead of jobs already queued.
+  the block". Reported, not fixed: no other job was moved.
+- **Operator rule (2026-10-23): E1 starts when the job running at Sun 2026-10-25 18:00 PT finishes; no preemption.**
+  E1 is not registered yet, so nothing is reserved or queued until it is. Once registered, E1/E2 go in directly behind
+  the job running at 10-26 01:00Z (ahead of every job still pending then), never by stopping a running job.
 
 **own-compaction and own-config-search jobs (pre-registered in docs/EXPERIMENTS.md 2026-10-23, 6fd58f4).** Built and
 tested; entries in harness/x2_queue_fill.py (side directory `C:\apu\ovn\owncomp`, queue tool in a separate
-`C:\apu\ovn\qfill_oc` so the demo branch's qfill copy is not overwritten). **Not deployed and not queued**: SSH to
-evo-x2 from this session was refused by the permission system (the exact commands are in the session report). None
-of them can finish before the block without moving other jobs, so the proposed placement is after every queued job
-(after x2_longtask_local_v1), and after the E1/E2 entries once those are queued (E1/E2 go in ahead of these jobs; they
-have no deadline). Projection (row `own-jobs-hours`, back to back, UTC; add 1.83 h, high 2.38 h, if E1/E2 sit ahead):
+`C:\apu\ovn\qfill_oc` so the demo branch's qfill copy is not overwritten). **Deployed and queued 2026-10-23 20:31Z**
+(operator approval of the same day, git head ce3d6d0): deploy verified by x2_deploy_check.py `--verify` with no
+problems, `--check-plan` returned 0 for all four, then `x2_queue_fill.py --append` put them at positions 88 to 91, after
+x2_longtask_local_v1 (pause cleared by the tool's own finally). If E1/E2 are queued later they go ahead of these four.
+Projection (row `own-jobs-hours`, back to back, UTC; add 1.83 h, high 2.38 h, if E1/E2 sit ahead):
 
-| proposed pos | queue id | ESTIMATE h (high) | projected start (high) | projected finish (high) |
+| queue pos | queue id | ESTIMATE h (high) | projected start (high) | projected finish (high) |
 |---|---|---|---|---|
-| after x2_longtask_local_v1 | x2_own_compaction_v1_a (own compaction 8192, 4096) | 1.04 (3.07) | 10-26 14:24 (10-27 03:18) | 10-26 15:27 (10-27 06:22) |
-| next | x2_own_compaction_v1_b (client trim 4096, 8192) | 1.89 (2.08) | 10-26 15:27 (10-27 06:22) | 10-26 17:21 (10-27 08:27) |
-| next | x2_own_config_probe_q8_15360 | 0.27 (0.66) | 10-26 17:21 (10-27 08:27) | 10-26 17:37 (10-27 09:06) |
-| next | x2_own_config_probe_q4_28928 | 0.27 (0.66) | 10-26 17:37 (10-27 09:06) | 10-26 17:53 (10-27 09:46) |
+| 88 (after x2_longtask_local_v1) | x2_own_compaction_v1_a (own compaction 8192, 4096) | 1.04 (3.07) | 10-26 14:24 (10-27 03:18) | 10-26 15:27 (10-27 06:22) |
+| 89 | x2_own_compaction_v1_b (client trim 4096, 8192) | 1.89 (2.08) | 10-26 15:27 (10-27 06:22) | 10-26 17:21 (10-27 08:27) |
+| 90 | x2_own_config_probe_q8_15360 | 0.27 (0.66) | 10-26 17:21 (10-27 08:27) | 10-26 17:37 (10-27 09:06) |
+| 91 | x2_own_config_probe_q4_28928 | 0.27 (0.66) | 10-26 17:37 (10-27 09:06) | 10-26 17:53 (10-27 09:46) |
 
 All four end before the 2026-10-29 demo hold's fallback start (10-29 15:00Z) in the high case, even with E1/E2 ahead.
 They run on evo-x2 only and do not touch the evo-t2s handover on 2026-10-26. Each releases itself via tq.advance() on
