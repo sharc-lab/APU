@@ -571,3 +571,27 @@ B3 v2 measurement and are not candidates.
 
 **Target.** Within 10% of the brute-force best total cost in every computed (workload, volume) cell. Gap = (measured
 total of the pick - brute-force best) / brute-force best. Reported per cell; PENDING cells are not counted as met.
+
+## RESULT (2026-10-23): own-profiler-loo and own-dse-v1
+
+Computed after the pre-registration above was committed (92aade5). Numbers below are fragments of rows
+own-profiler-loo and own-dse-v1 in docs/NUMBERS_REGISTER.md, pasted, not retyped.
+
+**own-profiler-loo: target MISSED.** "seconds per task median APE 70.2%, accuracy median APE 1.5% (raw probe without
+ratios: 58.4%, 0.9%)"; "pre-registered target < 10% on both: MISSED (seconds missed, accuracy met)". The seconds error
+is worse than the baseline (ttft-few-point-calibration "median 22.6%") and worse than using the raw probe with no
+ratio. Reading: the first 10 minutes of a session are not representative of its mean turn time (the first turn carries
+the model load, and turn time later grows or saturates with the window), and the actual/probe ratio learned on one
+device does not transfer to the other. The accuracy "met" is not strong evidence: most configurations sit near the
+ceiling of their task grade, so any probe close to 1.0 scores a small error. The real 2-turn scale probe agrees
+("seconds median APE 71.7% (raw probe 85.9%)"). Blade: "NOT RUN (blade_r2_real_v1 has 0 task turns; a Blade test needs
+a probe and a reference task run on the Blade, never run)". The evo-t2s fold has only 4 configurations.
+
+**own-dse-v1: target MET in the 3 computed cells, but trivially.** In every short-B3 cell the DSE's pick and the
+brute-force best are the same configuration, all-cloud claude-haiku-5-5 ("gap 0.0% -> within 10%" at 100, 1,000 and
+10,000 tasks/day). No option with a local machine is cheaper at these volumes ("cheapest measured feasible option using
+a local machine: ... USD 57.24", "USD 72.36", "USD 223.62" against the all-cloud "USD 2.01", "USD 20.12", "USD
+201.25"), and the all-cloud values the DSE ranks on are the measured ones, so the probe's seconds error never had a
+chance to change a pick. This validates the cost model and the ranking code, not the probe-driven choice between local
+configurations. Long and mixed workloads: "PENDING: row long-task-local-accuracy not VERIFIED" (6 cells), and the
+long-task candidate builder is not written yet; "MET (3/3 computed cells, 6 PENDING)".
