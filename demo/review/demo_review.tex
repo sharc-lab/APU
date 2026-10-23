@@ -67,7 +67,11 @@ What the demo shows:
   (view B, Table~\ref{tab:b}).
 \item \textbf{The money:} story step 4 shows USD 2.53 per long task in the cloud (priced) and about 2 cents to fix a
   wrong answer later (measured; fix rate, 95\% Wilson CI and the inherited-actions caveat in its Details), then the
-  accuracy-tolerance slider: how much accuracy gap you accept decides where it runs. The measured hybrid trade-off,
+  accuracy-tolerance slider: how much accuracy gap you accept decides where it runs. Every dollar figure that depends
+  on volume says ``at 1,000 tasks a day'' and is tagged projected (measured cost per task times an assumed volume).
+  The ``Fix one wrong answer now (live)'' button sends the view D task through the capped client with the
+  full-history protocol (one live call per demo run) and falls back to that task's recorded redo, tagged recorded
+  (Figure~\ref{fig:s4l}). The measured hybrid trade-off,
   with the ceiling only as a side note, is in its Details and in view C (Table~\ref{tab:c}).
 \item \textbf{One live escalation} (engineering view D) of a real wrong task through the capped client, with the
   task's recorded full-history redo as the fallback (Table~\ref{tab:d}).
@@ -94,8 +98,10 @@ What it deliberately does not claim:
 The dashboard lands in story mode, written for a non-expert audience: five steps, one idea and one big number each,
 plain words (Intel laptop, AMD workstation, NVIDIA laptop; memory setting; wrong answers), presenter-size type, one
 small tag per number, and every source in a closed ``Details'' panel per step (Figures~\ref{fig:s1} to
-\ref{fig:s5b}). The engineering view (Section~\ref{sec:eng} and the view sections) is behind a link. The story runs
-entirely from the cache. A three-minute backup recording (no audio, no live call) is
+\ref{fig:s5b}). The engineering view (Section~\ref{sec:eng} and the view sections) is behind a single link, top
+right. Cards and type are sized for a 1600x1000 full-screen view. The story runs entirely from the cache, apart from
+the one optional live call in step 4. A three-minute backup recording (no audio, no live call; the step 4 button shows
+its recorded fallback) is
 \texttt{demo/review/demo\_story.webm}; the two-page leave-behind is \texttt{demo/review/LEAVE\_BEHIND.pdf}; the
 rehearsal sheet is \texttt{demo/review/STEP\_SCRIPT.md}.
 \shot{story_step1}{Step 1, the landing page: same laptop, two settings.}{fig:s1}
@@ -104,6 +110,8 @@ rehearsal sheet is \texttt{demo/review/STEP\_SCRIPT.md}.
 \shot{story_step3}{Step 3: why not just change one setting.}{fig:s3}
 \shot{story_step4}{Step 4: what it costs, with the accuracy-tolerance slider at its default of 5 points.}{fig:s4}
 \shot{story_step4_t12}{Step 4 with the slider at 12 points: the AMD workstation routes local.}{fig:s4b}
+\shot{story_step4_live}{Step 4 after ``Fix one wrong answer now (live)'' with no live connection: the recorded
+full-history redo of the same task, tagged recorded.}{fig:s4l}
 \shot{story_step5}{Step 5: what our tool does, on the AMD workstation at the default gap.}{fig:s5}
 \shot{story_step5_intel}{Step 5 on the Intel laptop (local accuracy measured by R2 session pass rate).}{fig:s5b}
 
@@ -172,7 +180,8 @@ docs/OCT29\_COST\_\allowbreak SUMMARY.md not present & The file landing on main;
 When it lands on main\\
 Blade and evo-t2s B5 settings not measured & Runs on those machines; the views pick them up after a cache rebuild &
 Next access windows\\
-Live escalation is one call (n = 1) per demo run, tools offered, no tool round trips & By design (USD 10 cap, one call
+Live escalation is one live fix (n = 1) per demo run: view D sends a single call; the step 4 button runs one
+full-history redo turn, which may take several provider requests while it uses tools & By design (USD 10 cap, one call
 per run); the full-history redo of all wrong tasks is the measured basis & Not planned\\
 Token counts in priced figures use the harness estimate, not Anthropic's tokenizer & Re-pricing on provider usage &
 Not planned for the freeze\\
