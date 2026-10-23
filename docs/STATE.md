@@ -420,3 +420,9 @@ Every report states status against these three checkpoints.
 - Smoke test 2026-10-22 05:04 UTC through CloudClient: claude-haiku-5-5, 32 input / 4 output tokens, USD 0.0000052
   (ledger), remaining USD 49.999995 of 50. Cap-refusal and cloud client tests pass (81). litellm 1.106.2 installed on
   the controller (required by the live path; already in pyproject.toml).
+
+### 2026-10-23, API key removed from evo-x2
+
+- The 2026-10-22 copy of ANTHROPIC_API_KEY on evo-x2 (user environment variable) was removed on the operator's
+  decision: the key exists only on the controller laptop. Verified absent (user and machine lookups empty, no
+  registry value, no file holds one); details in docs/X2_CHANGELOG.md (2026-10-23).
