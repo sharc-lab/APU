@@ -248,3 +248,23 @@ billed". The contract is this entry; it is not edited after data exists (later c
 - The run's own token counts are the provider's; no Anthropic/qwen calibration factor enters this comparison.
 - Deviations from protocol: none yet. If the launch command is blocked by the permission system, it is not run another
   way; the exact command goes to the operator.
+
+## AMENDMENT (2026-10-22, before any data of x2_longtask_local_v1): deployed and queued on evo-x2
+
+This note follows "2026-10-22: Long-task local accuracy (PRE-REGISTRATION ...)" (2bdeb73), whose text is not edited.
+
+- **Two harness fixes after the pre-registration commit, before any model call; no protocol change.** The first
+  `--check-plan` on evo-x2 failed at import: x2_r2_agent (taken from `C:\apu\ovn`) puts its own directory first on
+  sys.path, so `C:\apu\ovn`'s older x2_r2_evalset.py was imported in place of the side directory's. 00a8149 imports
+  the side directory's x2_r2_evalset before x2_r2_agent; 86b6ce2 does the same for x2_num_keep (tray-app check) and
+  records both files in run_start's provenance.
+- **Deploy.** Side directory `C:\apu\ovn\longtask` (x2_longtask.py 8cc02eba, longtask_env.py f859f4c3, evalset_env.py
+  4eae225f, x2_r2_evalset.py e803555a, agent_trace_replay.py 6d89277a, agent_trace_steps_uncensored.json 4775fa9c,
+  x2_num_keep.py c2bb7c2d) and `C:\apu\ovn\qfill` (x2_queue_fill.py be6721a6); `verify_deployed_blobs` no problems for
+  both. x2_r2_agent from `C:\apu\ovn` (blob 38882113, as the other v2 jobs).
+- **Dry check on evo-x2 (no server start, no model call).** `--check-plan`: oracle self-check passes for every task and
+  seed (reference steps 767, 764, 767 per seed), think false, kv_q8_0 num_ctx 40960, ollama_default no num_ctx. The
+  output file does not exist yet.
+- **Queue.** `x2_queue_fill.py --append x2_longtask_local_v1`, one read-modify-write under `t2s_queue.set_pause`
+  cleared in its finally block; position 84, after every running and pending job; pause flag absent afterwards. Order
+  and hours: docs/X2_QUEUE_PLAN.md "Long-task local accuracy".

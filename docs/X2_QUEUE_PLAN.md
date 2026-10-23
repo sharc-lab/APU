@@ -1,5 +1,27 @@
 # evo-x2 queue plan
 
+## Long-task local accuracy (queued 2026-10-22, after the reserve draw)
+
+Operator request of 2026-10-22. Pre-registered in docs/EXPERIMENTS.md "2026-10-22: Long-task local accuracy" (2bdeb73,
+pointer in docs/FINDINGS.md), committed before deploy and queueing. Appended at the end of the queue, after every
+running and pending job, so nothing ahead moves; it uses unallocated hours, not the 150 h reserve (which starts
+2026-11-03 18:00Z). Hours are ESTIMATEs, register row `long-task-local-hours`, projected back to back behind the jobs
+ahead with the same anchor and estimates as `x2-llama33-70b-b3v2-hours`.
+
+| pos | queue id | ESTIMATE h (high) | projected start | projected finish (high case) |
+|---|---|---|---|---|
+| 84 | x2_longtask_local_v1 (side directory C:\apu\ovn\longtask; no new task after 2026-10-27 16:00Z) | 9.63 (16.92) | 10-26 16:37Z (high case 22:49Z) | 10-27 02:14Z (high case 15:45Z) |
+
+**Cutoff** (register row `long-task-local-hours`, pasted): "with one 2 h results-sync interval registered by 10-27
+04:14Z (10-26 21:14 PT) (high case 10-27 17:45Z (10-27 10:45 PT)); cutoff 10-27 19:00Z (10-27 12:00 PT): met (high
+case met); the job starts no new task after 10-27 16:00Z (10-27 09:00 PT) (--stop-after-utc)".
+
+**Checks before queueing (no model call).** `qfill\x2_deploy_check.py --verify C:\apu\ovn\longtask C:\apu\ovn\qfill`:
+no problems. `longtask\x2_longtask.py --check-plan` on evo-x2: oracle self-check passes for every task and seed, think
+false, kv_q8_0 num_ctx 40960, ollama_default no num_ctx, side-directory modules imported (x2_r2_agent from
+C:\apu\ovn, blob 38882113, as the other v2 jobs). Queue edit: `x2_queue_fill.py --append x2_longtask_local_v1`,
+position 84, pause flag absent afterwards. The job releases itself via tq.advance() on exit and sets no pause.
+
 ## Reserve draw of 2026-10-22: llama3.3:70b B3 v2 at the default window
 
 Operator request of 2026-10-22, an approved draw on the 150 h reserve below. Pre-registered in docs/FINDINGS.md
