@@ -637,3 +637,28 @@ exceed-context error), plus the count comparison against the chars/4 estimate at
 calibration): every uncut call observed here has a ratio of 1.077 or more, every 4096 call 0.75 or less. A cut that
 leaves the total near the estimate (one amd8192 call at 1.031) is still caught by its cut lines. Re-check: the same 5 picks at 4096 and the default, the same pass rule.
 Until then the live screen must not show a count-only flag as "Cut off".
+
+## RESULT (2026-10-23): live demo 5-task acceptance run (x2_demo_live_acceptance + the controller step)
+
+Local parts on evo-x2 (results/demo_live_run_local_v1.jsonl, run_end, wall 298.9 s for both scenarios), cloud parts
+by the one controller step (results/demo_live_run_20261023.jsonl, run_end; every cloud part LIVE; demo ledger USD
+0.017432 before, 0.183851 after, session spend USD 0.166419 billed). Register row `demo-live-run`, pasted:
+
+> amd8192 (AMD workstation, constrained memory (8192)): default: 4/5 correct (wrong 1: silent 0, flagged 1), kept local 5/5, escalated 0, cloud USD/task ledger 0.0 cache-priced 0.0, 1.79 min, labels ['LIVE'], not available 0; ours: 5/5 correct (wrong 0: silent 0, flagged 0), kept local 1/5, escalated 0, cloud USD/task ledger 0.021041 cache-priced 0.021041, 0.71 min, labels ['LIVE'], not available 0; cloud: 5/5 correct (wrong 0: silent 0, flagged 0), kept local 0/5, escalated 0, cloud USD/task ledger 0.010656 cache-priced 0.010656, 0.34 min, labels ['LIVE'], not available 0; Ours beats Default local; Ours does NOT beat All cloud; intel (Intel laptop default, simulated on AMD): default: 3/5 correct (wrong 2: silent 0, flagged 2), kept local 5/5, escalated 0, cloud USD/task ledger 0.0 cache-priced 0.0, 1.51 min, labels ['LIVE'], not available 0; ours: 5/5 correct (wrong 0: silent 0, flagged 0), kept local 3/5, escalated 2, cloud USD/task ledger 0.000767 cache-priced 0.000767, 1.51 min, labels ['LIVE'], not available 0; cloud: 5/5 correct (wrong 0: silent 0, flagged 0), kept local 0/5, escalated 0, cloud USD/task ledger 0.000821 cache-priced 0.000821, 0.20 min, labels ['LIVE'], not available 0; Ours beats Default local; Ours beats All cloud
+
+Readings and caveats (5 tasks per scenario: descriptive, no test):
+- **amd8192: Ours does NOT beat All cloud** by the pre-registered rule: both 5/5, and Ours' billed cloud USD per task
+  (0.0210) is higher than All cloud's (0.0107). The billed figure carries an order effect: on each task the controller
+  ran Ours' cloud call first and All cloud's second, so All cloud read the provider's prompt cache that Ours had
+  written (same model, same history). On the demo ledger's upper bound (every input token at the input rate, no cache
+  either way) the same calls cost 0.0417 per task for Ours and 0.0503 for All cloud. Reported as context, not as a
+  re-reading of the rule.
+- **intel: Ours beats both**, but its 2 escalations (cal_cancel, file_write_standing) were triggered by the
+  token-count false alarm diagnosed above; their local answers were correct as well.
+- Every wrong Default local answer was flagged by the server's own cut lines (amd8192 file_write_standing: context
+  shift and message drop; intel cal_default_len and file_write_standing at 4096: message drops). Default local in
+  amd8192 also has one count-only flag on a correct answer (cal_cancel).
+- Lane times are each lane's own: local lanes on evo-x2 one after another; the cloud times were measured on the
+  controller.
+- Recordings (replaying this file, labelled REPLAYED): demo/review/demo_live_amd8192.webm, 152 s, real speed (main);
+  demo/review/demo_live_intel.webm, 105 s, "2x speed" shown on the stretches where nothing changes (backup).
