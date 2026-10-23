@@ -164,12 +164,21 @@ def own_rollback_redo(repo: Path = REPO, path: str = ROLLBACK_FILE) -> dict:
 
 def own_rollback_redo_text(r: dict) -> str:
     st, s = r["start"], r["summary"]
-    eq = sum(1 for t in r["tasks"] if t.get("rollback_env_equals_rebuild"))
+    nt = len(r["tasks"])
+    if st.get("rollback") == "cascaded":
+        diff = sum(1 for t in r["tasks"] if t.get("env_differs_from_pre_task"))
+        rep = sum(t.get("earlier_wrong_replaced", 0) for t in r["tasks"])
+        state = (f"cascaded rollback: every earlier wrong task turn rolled back and replaced by its reference calls "
+                 f"(STAND-IN for a successful escalation; {rep} earlier turns replaced over the {nt} tasks), state "
+                 f"differs from the pre-task state in {diff}/{nt}; grader unchanged")
+    else:
+        eq = sum(1 for t in r["tasks"] if t.get("rollback_env_equals_rebuild"))
+        state = f"rollback env equals the full-history redo env_before {eq}/{nt}"
     return (f"model {st['model_id']}, rollback {st.get('rollback')}, thinking {st.get('thinking_sent')}, max_tokens "
             f"{st.get('max_tokens')}, full client-side history; fixed {r['fixed']}/{r['n_all']} "
             f"[{r['ci'][0]:.1%}, {r['ci'][1]:.1%}] (target >= {TARGET_FIXED}/{r['n_all']}: "
-            f"{'met' if r['target_met'] else 'not met'}); rollback env equals the full-history redo env_before "
-            f"{eq}/{len(r['tasks'])}; USD billed (cache-priced) total {s['total_usd']:.4f}, all input uncached "
+            f"{'met' if r['target_met'] else 'not met'}); {state}; USD billed (cache-priced) total "
+            f"{s['total_usd']:.4f}, all input uncached "
             f"{s['total_usd_all_uncached']:.4f}; stopped: {r['end'].get('stopped') if r['end'] else 'no run_end'}")
 
 
@@ -225,9 +234,11 @@ def local_first_rollback(repo: Path = REPO) -> dict:
     seeds = set(ac["seeds"])
     cloud = ac["models"][model]
     rbp = Path(repo) / ROLLBACK_FILE
-    rb_all = {}
+    rb_all, rb_mode = {}, None
     if rbp.exists():
         for r in (json.loads(x) for x in rbp.read_text(encoding="utf-8").splitlines() if x.strip()):
+            if r.get("record") == "run_start":
+                rb_mode = r.get("rollback")
             if r.get("record") == "cloud_redo_task" and r.get("mode") == "executed":
                 rb_all[(r["tier"], r["seed"], r["task_id"])] = {"ok": bool(r.get("cloud_end_state_ok")),
                                                                  "usd": float(r["usd"])}
@@ -247,7 +258,7 @@ def local_first_rollback(repo: Path = REPO) -> dict:
         cells.append({"tier": tier, "window": im.tier_window(tier), "n": len(keys), "tier_mean_redo_usd": t_usd,
                       **ref, "policies": pol})
     return {"status": "VERIFIED", "cells": cells, "model": model, "seeds": sorted(seeds),
-            "rollback_rows": len(rb_all), "label": im.REPLAY_LABEL}
+            "rollback_rows": len(rb_all), "rollback_mode": rb_mode, "label": im.REPLAY_LABEL}
 
 
 def _pc(c, n):
@@ -274,7 +285,10 @@ def local_first_rollback_text(d: dict) -> str:
                      f"naive local {_pc(c['naive_local']['correct'], n)}, USD 0")
     return (f"{d['label']}: local first on every task, roll back (local snapshots, USD 0) and escalate on the signal; "
             f"B3 v2 tasks, qwen3:14b, seeds {', '.join(map(str, d['seeds']))}; cloud USD cache-priced (billed basis); "
-            f"own-rollback redo rows available: {d['rollback_rows']}; replay assumes a task's local outcome does not "
+            f"own-rollback redo rows available: {d['rollback_rows']}"
+            + (" (cascaded rollback: earlier wrong tasks replaced by their reference calls, a STAND-IN for successful "
+               "escalations)" if d.get("rollback_mode") == "cascaded" else "")
+            + "; replay assumes a task's local outcome does not "
             f"depend on earlier escalations (in the recorded run every earlier task ran local) / " + " / ".join(parts))
 
 
