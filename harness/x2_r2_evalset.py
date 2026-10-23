@@ -147,9 +147,12 @@ if not (_here / "t2s_queue.py").exists():
 
 import agent_trace_replay as R  # noqa: E402
 import evalset_env as E  # noqa: E402
+# own_compaction (and through it x2_r2_client_trim, x2_r2_mechanism, prompt_token_check) and x2_num_keep are imported
+# before x2_r2_agent, which puts C:\apu\ovn first on sys.path: a side directory's copies are the ones used
+import own_compaction as OCX  # noqa: E402
+import x2_num_keep as NK  # noqa: E402
 import t2s_r2_session_growth as r2  # noqa: E402
 import x2_r2_agent as ag  # noqa: E402
-import own_compaction as OCX  # noqa: E402
 
 HARNESS = "x2_r2_evalset"
 
@@ -1768,6 +1771,10 @@ def main(argv=None, advance=True):
                               "trim_margin": OCX.ct.DEFAULT_MARGIN,
                               "own_compaction_file": str(Path(OCX.__file__).resolve()),
                               "own_compaction_blob": git_blob_sha1(OCX.__file__),
+                              "module_blobs": {Path(m.__file__).name: git_blob_sha1(m.__file__)
+                                               for m in (OCX.ct, OCX.mech, OCX.mech.ptc, NK)},
+                              "module_files": [str(Path(m.__file__).resolve())
+                                               for m in (OCX, OCX.ct, OCX.mech, OCX.mech.ptc, NK)],
                               "detector": "v2 (server cut lines only)"}
                              if args.plan in CTX_POLICY_PLANS else None),
               "max_tokens_per_call": ag.MAX_TOKENS_PER_CALL,
@@ -1785,11 +1792,9 @@ def main(argv=None, advance=True):
             return note
         serve_log = None
         if args.plan in CTX_POLICY_PLANS:
-            import x2_num_keep as nk
-            import x2_r2_mechanism as mech
-            if nk.tray_app_running():   # operator rule: never touch the Ollama tray app; refuse instead of stopping it
+            if NK.tray_app_running():   # operator rule: never touch the Ollama tray app; refuse instead of stopping it
                 raise RuntimeError("the Ollama tray app is running; this plan needs the job's own debug server")
-            server_env = dict(server_env or {}, **mech.OLLAMA_DEBUG_ENV)
+            server_env = dict(server_env or {}, **OCX.mech.OLLAMA_DEBUG_ENV)
             serve_log = str(out_path.parent / (out_path.stem + "_ollama_serve.log"))
             hc.stop_ollama_server()   # start_ollama_server is a no-op while any Ollama runs; the env must take effect
         start = (lambda: ag._start_server(hc, server_env, serve_log)) if serve_log else (
@@ -1805,7 +1810,7 @@ def main(argv=None, advance=True):
         if any(a in NUMKEEP_ARMS for a, _, _ in plan):
             runtime = NumKeepSessionRuntime(runtime, host_measure(runtime), emit)
         if serve_log:
-            import x2_r2_mechanism as mech
+            mech = OCX.mech
             if not mech.debug_enabled(mech.read_log(serve_log, 0)):
                 raise RuntimeError(f"OLLAMA_DEBUG not active in {serve_log}; detector v2 needs the debug lines")
             runtime = OCX.PolicySessionRuntime(runtime, serve_log, emit, ctx_policy_of)
@@ -1841,8 +1846,7 @@ def main(argv=None, advance=True):
             if args.plan in CTX_POLICY_PLANS:
                 report["own_compaction_outcome"] = OCX.outcome(rows)
                 report["own_compaction_verdict"] = OCX.verdict(report["own_compaction_outcome"])
-                import x2_r2_mechanism as mech
-                emit({"record": "kv_cache_log", "lines": kv_cache_lines(mech.read_log(serve_log, 0)),
+                emit({"record": "kv_cache_log", "lines": kv_cache_lines(OCX.mech.read_log(serve_log, 0)),
                       "server_env_extra": server_env, "ts_utc": ag.utc_iso()})
             if args.plan in STRICT_PLAN_MODELS:
                 tiers, seeds = STRICT_PLAN_SHAPE.get(args.plan, (TASKS_V2_TIERS, TASKS_V2_SEEDS))

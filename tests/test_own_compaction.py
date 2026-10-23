@@ -291,3 +291,54 @@ def test_hours_estimate_on_the_committed_files():
     for a in ev.OWN_COMPACTION_ARMS:
         assert 0 < e[a]["point_h"] <= e[a]["high_h"] < 5
     assert set(e["_trim_overhead"]) >= {4096, 8192}
+
+
+# ── queue entries, hours constants, config search ────────────────────────────────────────────────────
+
+OC_JOBS = ("x2_own_compaction_v1_a", "x2_own_compaction_v1_b", "x2_own_config_probe_q8_15360",
+           "x2_own_config_probe_q4_28928")
+
+
+def test_queue_entries_parse_as_check_plan_commands(capsys):
+    import x2_queue_fill as qf
+    for j in OC_JOBS:
+        e = qf.entry(j)
+        assert e["cmd"][1] == "owncomp\\x2_r2_evalset.py" and "tq.advance()" in e["note"]
+        assert ev.main(e["cmd"][2:] + ["--check-plan"], advance=False) == "checked"
+    capsys.readouterr()
+
+
+def test_queue_hours_match_the_estimate():
+    import x2_queue_fill as qf
+    e = oc.hours_estimate(ag.read_rows(REPO / "results/x2_evalset_tasks_real_v2.jsonl"),
+                          ag.read_rows(REPO / "results/x2_r2_mitigation_v1.jsonl"))
+    for k, key in (("part_a", "part_a"), ("part_b", "part_b"), ("probe", "probe_q8_15360")):
+        assert qf.OC_HOURS[k] == (round(e[key]["point_h"], 2), round(e[key]["high_h"], 2))
+
+
+def test_config_search_on_the_committed_files():
+    sys.path.insert(0, str(REPO / "analysis"))
+    import own_config_search as cs
+    d = cs.config_search(REPO)
+    assert d["kv_line"]["bytes_per_token"] == 160 * 1024 and d["kv_line"]["layers"] == 40
+    got = {c["kv"]: (c["window"], c["kept"]) for c in d["candidates"]}
+    assert got == {"f16": (8192, 21), "q8_0": (15360, 54), "q4_0": (28928, 90)}
+    f16 = d["candidates"][0]
+    assert f16["accuracy_source"].startswith("measured") and f16["n_kept"] == 21
+    assert all(c["accuracy_source"] == "NOT MEASURED" for c in d["candidates"][1:])
+    assert cs.hybrid_v2(REPO)["status"] == "PENDING"
+
+
+def test_hybrid_v2_policy_counts():
+    sys.path.insert(0, str(REPO / "analysis"))
+    import own_config_search as cs
+    tasks = [(1, "a"), (1, "b"), (1, "c")]
+    proj = {(1, "a"): 100, (1, "b"): 9000, (1, "c"): 9000}
+    plain = {k: {"ok": True, "flag": False} for k in tasks}
+    comp = {(1, "a"): {"ok": True, "flag_v2": False}, (1, "b"): {"ok": False, "flag_v2": False},
+            (1, "c"): {"ok": True, "flag_v2": True}}
+    cloud = {k: {"ok": True, "usd": 0.01} for k in tasks}
+    r = cs.hybrid_v2_policy("fit_plain_else_compaction", tasks, proj, 8192, plain, comp, comp, None, None, cloud, 0.02)
+    assert (r["kept_local"], r["escalated"], r["correct"], round(r["usd"], 3)) == (2, 1, 2, 0.02)
+    r = cs.hybrid_v2_policy("config", tasks, proj, 8192, plain, comp, comp, plain, 1000, cloud, 0.02)
+    assert (r["kept_local"], r["routed"], r["correct"]) == (1, 2, 3)

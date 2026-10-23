@@ -32,6 +32,10 @@ RELEASE = "Releases itself via tq.advance() on exit; sets no pause."
 L70_HOURS = {"val": 1.76, "val_high": 2.07, "real": 0.97, "real_high": 1.25}
 # register row long-task-local-hours (ESTIMATE), copied here for the same reason
 LT_HOURS = {"point": 9.63, "high": 16.92}
+# register row own-jobs-hours (ESTIMATE; harness/own_compaction.py::hours_estimate), (point, high)
+OC_HOURS = {"part_a": (1.04, 3.07), "part_b": (1.89, 2.08), "probe": (0.27, 0.66)}
+_OC_COMMON = ["--design", "v2", "--mode", "real", "--workload", "evalset", "--guardrails", "off", "--models",
+              "qwen3:14b", "--preflight", "v2_te_deviation", "--rules-from", f"{RESULTS}\\x2_evalset_tasks_val_v2.jsonl"]
 
 ENTRIES = {
     "x2_num_keep_qwen3_14b": {
@@ -177,6 +181,47 @@ ENTRIES = {
                 "(B5 policy g), seeds 20260901-03; no new task after 2026-10-27 16:00Z. ESTIMATE "
                 f"{LT_HOURS['point']:.2f} h (high {LT_HOURS['high']:.2f} h; register row long-task-local-hours). "
                 + RELEASE,
+    },
+    # ── own-compaction and own-config-search (2026-10-23; docs/EXPERIMENTS.md "own-compaction", "own-config-search";
+    # hours: register row own-jobs-hours; side directory owncomp; placement in docs/X2_QUEUE_PLAN.md) ──
+    "x2_own_compaction_v1_a": {
+        "projected_duration_h": OC_HOURS["part_a"][0],
+        "cmd": [PY, "owncomp\\x2_r2_evalset.py", *_OC_COMMON, "--plan", "own_compaction_v1", "--tiers",
+                "own_compaction_8192,own_compaction_4096", "--out", f"{RESULTS}\\x2_own_compaction_v1_a.jsonl"],
+        "note": "own-compaction part a, pre-registered in docs/EXPERIMENTS.md 2026-10-23: qwen3:14b B3 v2 tasks, the "
+                "client-side context manager at num_ctx 8192 and 4096, seeds 20260901-05, detector v2 on every call "
+                f"(own debug server log). ESTIMATE {OC_HOURS['part_a'][0]:.2f} h (high {OC_HOURS['part_a'][1]:.2f} h; "
+                "register row own-jobs-hours). " + RELEASE,
+    },
+    "x2_own_compaction_v1_b": {
+        "projected_duration_h": OC_HOURS["part_b"][0],
+        "cmd": [PY, "owncomp\\x2_r2_evalset.py", *_OC_COMMON, "--plan", "own_compaction_v1", "--tiers",
+                "client_trim_4096,client_trim_8192", "--out", f"{RESULTS}\\x2_own_compaction_v1_b.jsonl"],
+        "note": "own-compaction part b (comparison arms), pre-registered in docs/EXPERIMENTS.md 2026-10-23: the "
+                "existing client trim (margin 0.05) on B3 v2 at num_ctx 4096 and 8192, seeds 20260901-05, detector "
+                f"v2 on every call. ESTIMATE {OC_HOURS['part_b'][0]:.2f} h (high {OC_HOURS['part_b'][1]:.2f} h; "
+                "register row own-jobs-hours). " + RELEASE,
+    },
+    "x2_own_config_probe_q8_15360": {
+        "projected_duration_h": OC_HOURS["probe"][0],
+        "cmd": [PY, "owncomp\\x2_r2_evalset.py", *_OC_COMMON, "--plan", "own_config_probe_v1", "--tiers",
+                "ollama_ctx_15360", "--server-env", "OLLAMA_KV_CACHE_TYPE=q8_0", "--server-env",
+                "OLLAMA_FLASH_ATTENTION=1", "--out", f"{RESULTS}\\x2_own_config_probe_q8_15360.jsonl"],
+        "note": "own-config-search probe, pre-registered in docs/EXPERIMENTS.md 2026-10-23: qwen3:14b B3 v2 tasks "
+                "with KV q8_0 at num_ctx 15360 (the window q8_0 buys in the KV memory f16 uses at 8192), seeds "
+                "20260901-03; records the server's llama_kv_cache size line. ESTIMATE "
+                f"{OC_HOURS['probe'][0]:.2f} h (high {OC_HOURS['probe'][1]:.2f} h; register row own-jobs-hours). "
+                + RELEASE,
+    },
+    "x2_own_config_probe_q4_28928": {
+        "projected_duration_h": OC_HOURS["probe"][0],
+        "cmd": [PY, "owncomp\\x2_r2_evalset.py", *_OC_COMMON, "--plan", "own_config_probe_v1", "--tiers",
+                "ollama_ctx_28928", "--server-env", "OLLAMA_KV_CACHE_TYPE=q4_0", "--server-env",
+                "OLLAMA_FLASH_ATTENTION=1", "--out", f"{RESULTS}\\x2_own_config_probe_q4_28928.jsonl"],
+        "note": "own-config-search probe, pre-registered in docs/EXPERIMENTS.md 2026-10-23: qwen3:14b B3 v2 tasks "
+                "with KV q4_0 at num_ctx 28928, seeds 20260901-03; records the server's llama_kv_cache size line. "
+                f"ESTIMATE {OC_HOURS['probe'][0]:.2f} h (high {OC_HOURS['probe'][1]:.2f} h; register row "
+                "own-jobs-hours). " + RELEASE,
     },
 }
 

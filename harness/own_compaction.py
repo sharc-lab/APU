@@ -573,6 +573,15 @@ def hours_estimate(b3v2_rows, mit_rows, seeds=5, tasks=30) -> dict:
                                   "high_h": (n * pt["ollama_ctx_8192"]["max_seed"] + seeds * sess_hi) / 3600}
     out["own_compaction_4096"] = {"point_h": n * nk["mean"] / 3600,
                                   "high_h": (n * pt["ollama_ctx_4096"]["max_seed"] + seeds * sess_hi) / 3600}
+    # config probes (--plan own_config_probe_v1, 3 seeds): point = the 16384 tier's per-task mean (in-window prefix
+    # reuse); high = the plain 8192 tier's slowest seed (truncation-heavy calls); KV q8_0 / q4_0 speed on ROCm for
+    # B3 v2 is not measured, so neither case assumes the B5 speedup
+    n3 = 3 * tasks
+    for k in ("probe_q8_15360", "probe_q4_28928"):
+        out[k] = {"point_h": n3 * pt["ollama_ctx_16384"]["mean"] / 3600,
+                  "high_h": n3 * pt["ollama_ctx_8192"]["max_seed"] / 3600}
+    out["part_a"] = {x: out["own_compaction_8192"][x] + out["own_compaction_4096"][x] for x in ("point_h", "high_h")}
+    out["part_b"] = {x: out["client_trim_4096"][x] + out["client_trim_8192"][x] for x in ("point_h", "high_h")}
     out["_per_task"] = pt
     out["_trim_overhead"] = ov
     return out
