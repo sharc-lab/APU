@@ -48,6 +48,7 @@ if not (_here / "t2s_queue.py").exists():
 # this side directory's modules are imported before it (x2_r2_evalset imports x2_r2_agent itself, after them).
 import evalset_env as E  # noqa: E402
 import longtask_env as L  # noqa: E402
+import x2_num_keep as NK  # noqa: E402
 import x2_r2_evalset as EV  # noqa: E402
 import x2_r2_agent as ag  # noqa: E402
 
@@ -345,7 +346,8 @@ def git_blob_sha1(path) -> str | None:
 def provenance() -> dict:
     return {"harness_file": str(Path(__file__).resolve()), "harness_blob": git_blob_sha1(__file__),
             "longtask_env_blob": git_blob_sha1(L.__file__), "evalset_env_blob": git_blob_sha1(E.__file__),
-            "x2_r2_evalset_blob": git_blob_sha1(EV.__file__), "agent_file": str(Path(ag.__file__).resolve()),
+            "x2_r2_evalset_blob": git_blob_sha1(EV.__file__), "x2_r2_evalset_file": str(Path(EV.__file__).resolve()),
+            "x2_num_keep_blob": git_blob_sha1(NK.__file__), "agent_file": str(Path(ag.__file__).resolve()),
             "agent_blob": git_blob_sha1(ag.__file__)}
 
 
@@ -424,8 +426,7 @@ def main(argv=None, advance=True, deps=None) -> str:
             note = f"stopped: {e}"[:400]
             return note
         if deps.get("server") is None:
-            import x2_num_keep as nk
-            if nk.tray_app_running():
+            if NK.tray_app_running():
                 raise RuntimeError("the Ollama tray app is running; this job starts its own servers and does not stop "
                                    "the tray app")
         server = deps.get("server") or Server(hc)
