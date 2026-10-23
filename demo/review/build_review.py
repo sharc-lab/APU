@@ -432,7 +432,9 @@ def leave_behind(app) -> str:
         out.append(r"\storystep{" + str(st["n"]) + "}{" + tex(st["title"]) + "}{leave_step" + str(st["n"]) + "}")
         out.append(r"\begin{itemize}\setlength\itemsep{0pt}")
         for c in m.get("cards", []) + m.get("tiles", []) + m.get("numbers", []):
-            out.append(r"\item \lab{" + tex(c["tag"]) + "} " + tex(c["text"]) + mark(c.get("src")))
+            text = c["text"] if (not c.get("big") or c["big"] in c["text"]) else f"{c['big']} {c['text']}"
+            out.append(r"\item \lab{" + tex(c["tag"]) + "} " + tex(text) + mark(c.get("src")) +
+                       "".join(mark(s) for s in c.get("also") or []))
         for b in m.get("bars", []):
             out.append(r"\item \lab{" + tex(b["tag"]) + "} " + tex(f"{b['label']}: {b['value']}% wrong") +
                        mark(b.get("src")))

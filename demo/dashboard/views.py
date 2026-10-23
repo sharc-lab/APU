@@ -1423,6 +1423,8 @@ def build_story(register: dict, silent: dict, cost: dict, escalation: dict | Non
         tiles.append(_num_item(f"{slow}x", f"Bigger memory setting: up to {slow}x slower" +
                                (", or will not start" if fail else ""), MEASURED,
                                reg_src("impact-session-time-by-window")))
+        if fail:
+            tiles[-1]["also"] = [reg_src("fh1-amd-boundary-qwen3-32b")]
         d3.append(_item(f"qwen3:14b on the AMD workstation: {st[1]} min per 40-turn session at the default memory "
                         f"setting vs {st[2]} min at 4096 (shown as up to {slow}x)", MEASURED,
                         "impact-session-time-by-window"))

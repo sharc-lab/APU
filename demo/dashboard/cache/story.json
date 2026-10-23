@@ -178,7 +178,12 @@
       "src": {
        "register": "impact-session-time-by-window"
       },
-      "tone": null
+      "tone": null,
+      "also": [
+       {
+        "register": "fh1-amd-boundary-qwen3-32b"
+       }
+      ]
      },
      {
       "big": "30%",
