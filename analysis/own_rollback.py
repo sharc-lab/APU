@@ -213,7 +213,9 @@ def local_first_policy(local: dict, cloud: dict, redo: dict, rb: dict, signal: s
 
 
 def local_first_rollback(repo: Path = REPO) -> dict:
-    im = _load(repo, "analysis/impact_model.py", "impact_model")
+    if str(Path(repo) / "analysis") not in sys.path:
+        sys.path.insert(0, str(Path(repo) / "analysis"))
+    import impact_model as im
     missing = [c for c in im.ROUTE_M_REQUIRED if not im.register_has(repo, c)]
     if missing:
         return {"status": "PENDING", "pending": missing}
