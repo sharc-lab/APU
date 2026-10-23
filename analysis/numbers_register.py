@@ -4518,6 +4518,30 @@ def compute_hybrid_route_at_start(repo):
             else "0"}
 
 
+ROUTE_MEASURED_FILES = ["results/x2_evalset_tasks_real_v2.jsonl", "results/all_cloud_b3_v1.jsonl",
+                        "results/cloud_redo_full_context_v1.jsonl", "results/cloud_redo_full_context_v1_part2.jsonl",
+                        "results/cloud_redo_full_context_v1_part3.jsonl"]
+
+
+def compute_hybrid_route_at_start_measured(repo):
+    """Per-task route at job start plus the window-overflow flag, by replay of recorded runs (pre-registered in
+    docs/EXPERIMENTS.md, 2026-10-22 'Measured hybrid by replay')."""
+    im = _impact()
+    d = im.route_at_start_measured(repo)
+    return {"value": im.route_measured_text(d),
+            "n": f"{len(d['cells'])} tier x cloud-tier cells x {d['cells'][0]['hybrid']['n']} tasks"
+            if d["status"] == "VERIFIED" else "0"}
+
+
+def compute_task_latency_by_policy(repo):
+    """Wall seconds per task, median and p90, all-cloud vs local vs the per-task hybrid (replayed)."""
+    im = _impact()
+    d = im.task_latency_by_policy(repo)
+    return {"value": im.latency_text(d),
+            "n": f"{len(d['all_cloud']) + len(d['local']) + len(d['hybrid'])} policy cells"
+            if d["status"] == "VERIFIED" else "0"}
+
+
 def compute_impact_p2(repo):
     return _impact_row(repo, "P2")
 
@@ -7516,6 +7540,21 @@ NUMBER_ENTRIES = [
                                               CLOUD_REDO_FULL_CONTEXT, CLOUD_REDO_FULL_CONTEXT_PART2,
                                               "results/cloud_redo_full_context_v1_part3.jsonl"}),
      "script_function": "analysis/impact_model.py::route_at_start"},
+    {"claim_id": "hybrid-route-at-start-measured", "description": "Measured hybrid by replay of recorded runs, the "
+     "per-task policy (pre-registered 2026-10-22): at job start the device profile projects each task turn's prompt "
+     "from the task definition and the task runs local if it fits the tier's window, else the whole task goes to the "
+     "cloud from its first call; a local task the window-overflow flag fires on is escalated at its full-history redo "
+     "outcome and cost (Sonnet; Haiku interim). evo-x2 num_ctx 8192 and 4096, qwen3:14b, B3 v2 tasks, seeds "
+     "20260901-03: accuracy, cloud USD per task, share kept local per tier and cloud tier vs all-cloud and naive local "
+     "(the whole-device tolerance rule stays in hybrid-route-at-start)",
+     "compute": compute_hybrid_route_at_start_measured, "data_files": ROUTE_MEASURED_FILES,
+     "script_function": "analysis/impact_model.py::route_at_start_measured"},
+    {"claim_id": "task-latency-by-policy", "description": "Wall-clock seconds per task, median and p90, by replay of "
+     "recorded runs: all-cloud (all_cloud_b3_v1 seconds, each cloud tier), local (x2_evalset_tasks_real_v2 "
+     "turn_wall_s, each B3 v2 tier) and the per-task hybrid of hybrid-route-at-start-measured; seeds 20260901-03; "
+     "long-task runs PENDING until results/long_task_*.jsonl exist",
+     "compute": compute_task_latency_by_policy, "data_files": ROUTE_MEASURED_FILES,
+     "script_function": "analysis/impact_model.py::task_latency_by_policy"},
     {"claim_id": "impact-v2-P2", "description":"Impact v2 P2 configuration: sessions per machine per day (default vs "
                     "fastest measured B5 setting), machines needed for the profile's sessions/day, USD/day of machines "
                     "saved (assumed 3-year life), waiting-time upper bound on the interactive share; PENDING until "

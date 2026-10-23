@@ -2723,6 +2723,287 @@ def write_hybrid_doc(repo=REPO, block=None, extra=()):
     path.write_text(text, encoding="utf-8")
 
 
+# Measured hybrid by replay (pre-registered in docs/EXPERIMENTS.md, "2026-10-22 - Measured hybrid by replay"; row
+# hybrid-route-at-start-measured): a per-task, deployable route-at-start policy. At job start the device profile
+# projects each task turn's final-call prompt from the task definition (x2_r2_evalset.build_session; the harness's own
+# projection constants PROJ_NONFILLER_PER_TURN and PROJ_CALIB) and compares it with the tier's window (num_ctx). Fits:
+# the task runs local; else the whole task goes to the cloud from its first call. A local task the window-overflow
+# flag fires on (turn_over_window) is escalated. Every figure is replayed from recorded runs, never newly measured:
+# local outcome and time from the B3 v2 real run, routed tasks from all_cloud_b3_v1, escalated tasks from the
+# full-history redo (Sonnet; a flagged task with no redo row is imputed: tier mean redo USD, Sonnet all-cloud outcome
+# and seconds) or, for Haiku, the Haiku all-cloud row (interim). Row task-latency-by-policy uses the same replay.
+ROUTE_M_ROW = "hybrid-route-at-start-measured"
+LATENCY_ROW = "task-latency-by-policy"
+ROUTE_M_TIERS = ("ollama_ctx_8192", "ollama_ctx_4096")
+ROUTE_M_REQUIRED = ("all-cloud-b3-cost", "all-cloud-b3-quality", "x2-evalset-tasks-real-v2-wrong-rate",
+                    "cloud-redo-full-context")
+REPLAY_LABEL = "measured by replay of recorded runs"
+LONG_TASK_GLOB = "results/long_task_*.jsonl"
+
+
+def tier_window(tier: str) -> int:
+    """The window the device profile sets at a forced-num_ctx tier (ollama_ctx_N[_suffix] -> N)."""
+    parts = tier.split("_")
+    if len(parts) < 3 or parts[1] != "ctx" or not parts[2].isdigit():
+        raise ValueError(f"no forced window in tier {tier!r}")
+    return int(parts[2])
+
+
+def projected_task_prompts(repo, seed) -> dict:
+    """{task_id: (turn_idx, projected final-call prompt of that task turn, calibrated tokens)} from the task definition
+    alone (no recorded run): the per-turn form of x2_r2_evalset.projected_max_prompt."""
+    import contextlib
+    import io
+    sys.path.insert(0, str(Path(repo) / "harness"))
+    import x2_r2_evalset as ev
+    with contextlib.redirect_stdout(io.StringIO()):
+        es = ev.build_session(seed, workload="evalset", guardrails=False, design="v2")
+    ag = ev.ag
+    static = ag.est_tokens(es.system_prompt) + ag.est_tokens(json.dumps(ev.tools_payload(es.design)))
+    cum, out = 0, {}
+    for t, it in zip(es.turns, es.items):
+        cum += ag.est_tokens(ev.user_message(t, es)) + ag.PER_MESSAGE_OVERHEAD_TOKENS
+        if it.kind == "task":
+            out[it.item_id] = (t.idx, round((static + cum + t.idx * ev.PROJ_NONFILLER_PER_TURN) * ev.PROJ_CALIB))
+    return out
+
+
+def replay_local_tasks(repo=REPO) -> dict:
+    """{tier: {(seed, task_id): {flag, ok, wall_s, loaded, turn_idx}}} over task turns of completed real qwen3:14b
+    sessions of the B3 v2 real run (the turns b3_v2_task_outcomes scores)."""
+    sys.path.insert(0, str(Path(repo) / "harness"))
+    import x2_r2_evalset as ev
+    rows = ev.ag.read_rows(Path(repo) / B3_V2_REAL_FILE)
+    att = {s["attempt_id"] for s in ev.ag.completed_sessions(rows)
+           if s.get("mode") == "real" and s["model_id"] == B3_V2_MODEL}
+    out = {}
+    for r in rows:
+        if (r.get("record") == "r2a_turn" and r.get("attempt_id") in att and r.get("item_kind") == "task"
+                and r.get("end_state_ok") is not None):
+            t = out.setdefault(r["arm_id"].replace("_call2_notools", ""), {})
+            k = (r["seed"], r["task_id"])
+            if k in t:
+                raise ValueError(f"duplicate local task turn {r['arm_id']} {k}")
+            t[k] = {"flag": turn_over_window(r), "ok": r["end_state_ok"] is True, "wall_s": float(r["turn_wall_s"]),
+                    "loaded": r.get("loaded_context"), "turn_idx": r["turn_idx"]}
+    return out
+
+
+def replay_cloud_tasks(repo=REPO) -> dict:
+    """{"seeds", "models": {model: {(seed, task_id): {ok, usd, seconds}}}} from the all-cloud B3 run's graded task
+    turns (the turns all_cloud_task_outcomes reads)."""
+    import numbers_register as nr
+    d = nr.all_cloud_b3_data(Path(repo))
+    rows = d["ac"].CR.load_rows(Path(repo) / nr.ALL_CLOUD_B3_V1)
+    out = {}
+    for r in rows:
+        if r.get("record") == "r2a_turn" and r.get("item_kind") == "task" and r.get("end_state_ok") is not None:
+            m = out.setdefault(r["model_id"], {})
+            k = (r["seed"], r["task_id"])
+            if k in m:
+                raise ValueError(f"duplicate all-cloud task turn {r['model_id']} {k}")
+            m[k] = {"ok": bool(r["end_state_ok"]), "usd": float(r["usd"]), "seconds": float(r["seconds"])}
+    return {"seeds": list(d["start"]["seeds"]), "models": out}
+
+
+def replay_redo_tasks(repo=REPO) -> tuple:
+    """({(tier, seed, task_id): {ok, usd, seconds}}, model) from the merged full-history redo (superseded excluded)."""
+    tasks, model, _n, _p = redo_rows_and_model(repo)
+    return ({(r["tier"], r["seed"], r["task_id"]): {"ok": bool(r.get("cloud_end_state_ok")), "usd": float(r["usd"]),
+                                                    "seconds": float(r["seconds"])} for r in tasks}, model)
+
+
+def _q(xs, p):
+    """Median (p=50) or p90 (p=90): statistics.quantiles(n=10 or 2, method='inclusive')."""
+    xs = sorted(xs)
+    if len(xs) == 1:
+        return xs[0]
+    if p == 50:
+        return statistics.median(xs)
+    return statistics.quantiles(xs, n=10, method="inclusive")[8]
+
+
+def route_measured_policy(local: dict, cloud: dict, proj: dict, window: int, seeds, redo=None,
+                          redo_tier_usd=None, esc_cloud=None) -> dict:
+    """Pure. local {(seed, task): {flag, ok, wall_s}}; cloud {(seed, task): {ok, usd, seconds}} on the cloud tier;
+    proj {(seed, task): projected prompt}; redo {(seed, task): {ok, usd, seconds}} at this tier or None (no measured
+    escalation for this cloud tier: escalate at esc_cloud, the all-cloud row, INTERIM); redo_tier_usd: mean redo USD
+    at this tier for flagged tasks with no redo row (imputed, outcome and seconds from esc_cloud)."""
+    esc_cloud = esc_cloud if esc_cloud is not None else cloud
+    seeds = set(seeds)
+    keys = sorted(k for k in local if k in cloud and k in proj and k[0] in seeds)
+    if not keys:
+        raise ValueError("no shared (seed, task) pairs")
+    tasks = {}
+    for k in keys:
+        lo = local[k]
+        if proj[k] > window:
+            c = cloud[k]
+            tasks[k] = {"route": "cloud", "ok": c["ok"], "usd": c["usd"], "seconds": c["seconds"], "src": "routed"}
+        elif lo["flag"]:
+            if redo is not None and k in redo:
+                e, src = redo[k], "escalated_redo"
+                usd = e["usd"]
+            elif redo is not None:
+                e, src = esc_cloud[k], "escalated_imputed"
+                usd = redo_tier_usd
+            else:
+                e, src = esc_cloud[k], "escalated_interim"
+                usd = e["usd"]
+            tasks[k] = {"route": "local", "ok": e["ok"], "usd": usd, "seconds": lo["wall_s"] + e["seconds"],
+                        "src": src}
+        else:
+            tasks[k] = {"route": "local", "ok": lo["ok"], "usd": 0.0, "seconds": lo["wall_s"], "src": "local"}
+    n = len(keys)
+    cnt = {s: sum(1 for t in tasks.values() if t["src"] == s)
+           for s in ("local", "routed", "escalated_redo", "escalated_imputed", "escalated_interim")}
+    correct = sum(1 for t in tasks.values() if t["ok"])
+    usd = sum(t["usd"] for t in tasks.values())
+    # predictor vs the run's own flag, on every task (how often the projection disagrees with the recorded window check)
+    pred_fit_flag = sum(1 for k in keys if proj[k] <= window and local[k]["flag"])
+    pred_over_noflag = sum(1 for k in keys if proj[k] > window and not local[k]["flag"])
+    secs = [t["seconds"] for t in tasks.values()]
+    return {"n": n, "correct": correct, "quality": correct / n, "usd_total": usd, "usd_task": usd / n,
+            "kept_local": cnt["local"], "kept_local_share": cnt["local"] / n, **cnt,
+            "local_correct": sum(1 for t in tasks.values() if t["src"] == "local" and t["ok"]),
+            "escalated": cnt["escalated_redo"] + cnt["escalated_imputed"] + cnt["escalated_interim"],
+            "pred_fit_but_flagged": pred_fit_flag, "pred_over_but_not_flagged": pred_over_noflag,
+            "median_s": _q(secs, 50), "p90_s": _q(secs, 90), "tasks": tasks}
+
+
+def _ref_policies(local, cloud, keys) -> dict:
+    ac = [cloud[k] for k in keys]
+    lo = [local[k] for k in keys]
+    n = len(keys)
+    return {"all_cloud": {"n": n, "correct": sum(c["ok"] for c in ac), "quality": sum(c["ok"] for c in ac) / n,
+                          "usd_task": sum(c["usd"] for c in ac) / n, "kept_local_share": 0.0,
+                          "median_s": _q([c["seconds"] for c in ac], 50), "p90_s": _q([c["seconds"] for c in ac], 90)},
+            "naive_local": {"n": n, "correct": sum(x["ok"] for x in lo), "quality": sum(x["ok"] for x in lo) / n,
+                            "usd_task": 0.0, "kept_local_share": 1.0,
+                            "median_s": _q([x["wall_s"] for x in lo], 50), "p90_s": _q([x["wall_s"] for x in lo], 90)}}
+
+
+_ROUTE_M_CACHE = {}
+
+
+def route_at_start_measured(repo=REPO, tiers=ROUTE_M_TIERS) -> dict:
+    """Row hybrid-route-at-start-measured (PENDING with the missing rows named until every input row is VERIFIED)."""
+    missing = [c for c in ROUTE_M_REQUIRED if not register_has(repo, c)]
+    if missing:
+        return {"status": "PENDING", "pending": missing}
+    key = (str(repo), tuple(tiers))
+    if key in _ROUTE_M_CACHE:
+        return _ROUTE_M_CACHE[key]
+    local = replay_local_tasks(repo)
+    ac = replay_cloud_tasks(repo)
+    redo, redo_model = replay_redo_tasks(repo)
+    seeds = ac["seeds"]
+    proj = {}
+    for s in seeds:
+        for tid, (_idx, p) in projected_task_prompts(repo, s).items():
+            proj[(s, tid)] = p
+    cells = []
+    for tier in tiers:
+        w = tier_window(tier)
+        loaded = {v["loaded"] for k, v in local[tier].items() if k[0] in set(seeds)}
+        if loaded != {w}:
+            raise ValueError(f"{tier}: recorded loaded window {sorted(loaded)} != device-profile window {w}")
+        t_redo = {(s, t): v for (tr, s, t), v in redo.items() if tr == tier}
+        t_usd = statistics.fmean(v["usd"] for v in t_redo.values()) if t_redo else None
+        for m in sorted(ac["models"]):
+            measured = m == redo_model
+            res = route_measured_policy(local[tier], ac["models"][m], proj, w, seeds,
+                                        redo=t_redo if measured else None, redo_tier_usd=t_usd,
+                                        esc_cloud=ac["models"][redo_model] if measured else ac["models"][m])
+            keys = sorted(res["tasks"])
+            ref = _ref_policies(local[tier], ac["models"][m], keys)
+            esc_label = (f"escalation measured: full-history redo ({redo_model}), flagged tasks with no redo row "
+                         f"imputed at the tier mean redo USD {t_usd:.5f}" if measured else
+                         f"escalation interim: {m} all-cloud row of the same task (no {m} redo)")
+            cells.append({"tier": tier, "window": w, "model": m, "hybrid": res, **ref, "esc_label": esc_label})
+    out = {"status": "VERIFIED", "cells": cells, "seeds": seeds, "redo_model": redo_model, "label": REPLAY_LABEL}
+    _ROUTE_M_CACHE[key] = out
+    return out
+
+
+def _pc(c, n):
+    return f"{c}/{n} ({100 * c / n:.1f}%)"
+
+
+def route_measured_text(d) -> str:
+    """The register value of hybrid-route-at-start-measured."""
+    if d["status"] != "VERIFIED":
+        return f"PENDING: rows {', '.join(d['pending'])} not VERIFIED"
+    parts = []
+    for c in d["cells"]:
+        h, ac, nv = c["hybrid"], c["all_cloud"], c["naive_local"]
+        parts.append(
+            f"evo-x2 {c['tier']} (window {c['window']}) vs {c['model']}: hybrid accuracy {_pc(h['correct'], h['n'])}, "
+            f"cloud USD {h['usd_task']:.5f}/task, kept local {_pc(h['kept_local'], h['n'])} (correct locally "
+            f"{h['local_correct']}/{h['kept_local']}; routed to the cloud "
+            f"from the first call {h['routed']}, escalated {h['escalated']}: redo row {h['escalated_redo']}, imputed "
+            f"{h['escalated_imputed']}, interim {h['escalated_interim']}; projected fit but flagged "
+            f"{h['pred_fit_but_flagged']}, projected over but not flagged {h['pred_over_but_not_flagged']}); "
+            f"all-cloud {_pc(ac['correct'], ac['n'])}, USD {ac['usd_task']:.5f}/task; naive local "
+            f"{_pc(nv['correct'], nv['n'])}, USD 0; {c['esc_label']}")
+    return (f"{d['label']}: per-task route at job start (projected task-turn prompt from the task definition, "
+            f"x2_r2_evalset PROJ constants, vs the tier's num_ctx; fits = local, else the whole task to the cloud from "
+            f"its first call) plus the window-overflow flag (a local task whose prompt exceeded the loaded window is "
+            f"escalated); B3 v2 tasks, qwen3:14b, seeds {', '.join(map(str, d['seeds']))}, cloud USD cache-priced; "
+            f"replay assumes each task's outcome does not depend on whether earlier tasks ran local or on the cloud / "
+            + " / ".join(parts))
+
+
+def long_task_files(repo=REPO) -> list:
+    return sorted(Path(repo).glob(LONG_TASK_GLOB))
+
+
+def task_latency_by_policy(repo=REPO, route=None) -> dict:
+    """Row task-latency-by-policy: wall seconds per task, median and p90, for all-cloud (each cloud tier), local (each
+    B3 v2 tier) and the per-task hybrid (each tier x cloud tier of hybrid-route-at-start-measured), same seeds."""
+    route = route or route_at_start_measured(repo)
+    if route["status"] != "VERIFIED":
+        return {"status": "PENDING", "pending": route["pending"]}
+    seeds = set(route["seeds"])
+    ac = replay_cloud_tasks(repo)
+    local = replay_local_tasks(repo)
+    cloud_rows = []
+    for m in sorted(ac["models"]):
+        xs = [v["seconds"] for k, v in ac["models"][m].items() if k[0] in seeds]
+        cloud_rows.append({"model": m, "n": len(xs), "median_s": _q(xs, 50), "p90_s": _q(xs, 90)})
+    local_rows = []
+    for t in HYBRID_ALL_TIERS:
+        if t not in local:
+            continue
+        xs = [v["wall_s"] for k, v in local[t].items() if k[0] in seeds]
+        local_rows.append({"tier": t, "n": len(xs), "median_s": _q(xs, 50), "p90_s": _q(xs, 90)})
+    hyb = [{"tier": c["tier"], "model": c["model"], "n": c["hybrid"]["n"], "median_s": c["hybrid"]["median_s"],
+            "p90_s": c["hybrid"]["p90_s"], "esc_label": c["esc_label"]} for c in route["cells"]]
+    lt = long_task_files(repo)
+    return {"status": "VERIFIED", "all_cloud": cloud_rows, "local": local_rows, "hybrid": hyb,
+            "seeds": sorted(seeds), "long_task": [p.name for p in lt], "label": REPLAY_LABEL}
+
+
+def latency_text(d) -> str:
+    """The register value of task-latency-by-policy."""
+    if d["status"] != "VERIFIED":
+        return f"PENDING: rows {', '.join(d['pending'])} not VERIFIED"
+    ac = "; ".join(f"{r['model']} median {r['median_s']:.2f} s, p90 {r['p90_s']:.2f} s (n={r['n']})"
+                   for r in d["all_cloud"])
+    lo = "; ".join(f"{r['tier']} median {r['median_s']:.2f} s, p90 {r['p90_s']:.2f} s (n={r['n']})"
+                   for r in d["local"])
+    hy = "; ".join(f"{r['tier']} vs {r['model']} median {r['median_s']:.2f} s, p90 {r['p90_s']:.2f} s (n={r['n']})"
+                   for r in d["hybrid"])
+    lt = ("long-task runs: present (" + ", ".join(d["long_task"]) + ") but not yet read by this row"
+          if d["long_task"] else "long-task runs: PENDING (no results/long_task_*.jsonl on main)")
+    return (f"{d['label']}: wall-clock seconds per task (median, p90; statistics.quantiles inclusive), B3 v2 tasks, "
+            f"seeds {', '.join(map(str, d['seeds']))}; all-cloud (all_cloud_b3_v1 seconds): {ac}; local qwen3:14b on "
+            f"evo-x2 (x2_evalset_tasks_real_v2 turn_wall_s, first turn includes model load): {lo}; hybrid per-task "
+            f"route-at-start plus window flag (hybrid-route-at-start-measured; local tasks local time, routed tasks "
+            f"all-cloud seconds, escalated tasks local time + redo seconds, Haiku escalation interim at its all-cloud "
+            f"seconds): {hy}; {lt}")
+
+
 def main(argv=None):
     argv = argv or sys.argv[1:]
     if "--write-hybrid" in argv:
