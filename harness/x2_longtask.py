@@ -44,10 +44,12 @@ sys.path.insert(0, str(_here))
 if not (_here / "t2s_queue.py").exists():
     sys.path.insert(1, str(_here.parent))
 
+# Import order matters on evo-x2: x2_r2_agent (taken from C:\apu\ovn) puts its own directory first on sys.path, so
+# this side directory's modules are imported before it (x2_r2_evalset imports x2_r2_agent itself, after them).
 import evalset_env as E  # noqa: E402
 import longtask_env as L  # noqa: E402
-import x2_r2_agent as ag  # noqa: E402
 import x2_r2_evalset as EV  # noqa: E402
+import x2_r2_agent as ag  # noqa: E402
 
 HARNESS = "x2_longtask"
 JOB_ID = "x2_longtask_local_v1"
