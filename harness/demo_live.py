@@ -36,14 +36,12 @@ from pathlib import Path
 _here = Path(__file__).resolve().parent
 if _here.name == "harness" and (_here.parent / "src" / "dse").is_dir():
     REPO = _here.parent
-    for _p in (str(_here), str(REPO / "scripts"), str(REPO / "src" / "dse"), str(REPO / "src"), str(REPO)):
-        if _p not in sys.path:
-            sys.path.insert(0, _p)
+    _front = [str(_here), str(REPO / "scripts"), str(REPO / "src" / "dse"), str(REPO / "src"), str(REPO)]
 else:                                   # deployed side directory on evo-x2 (C:\apu\ovn\<dir>), parent holds the rest
     REPO = _here
-    for _p in (str(_here), str(_here.parent)):
-        if _p not in sys.path:
-            sys.path.insert(0, _p)
+    _front = [str(_here), str(_here.parent)]
+# in this order, ahead of everything else: the side directory's x2_r2_evalset / evalset_env win over the parent's
+sys.path[:] = _front + [p for p in sys.path if p not in _front]
 
 import demo_overflow as DO  # noqa: E402
 import evalset_env as E  # noqa: E402

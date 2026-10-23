@@ -229,9 +229,12 @@ def check_plan(args, results_dir: Path) -> int:
                                                             for sc in DR.SCENARIOS}})
     for sc in DR.SCENARIOS:
         out["configurations"][sc] = DR.configurations(sc, prof)
-    out["ok"] = ok
+    side = Path(L.__file__).resolve().parent
+    same_dir = {m.__name__: Path(m.__file__).resolve().parent == side for m in (L.EV, L.E)}
+    out["evalset_from_this_directory"] = same_dir
+    out["ok"] = ok and all(same_dir.values())
     print(json.dumps(out, indent=1, default=str))
-    return 0 if ok else 1
+    return 0 if out["ok"] else 1
 
 
 def load_profile() -> dict:
