@@ -5816,3 +5816,36 @@ to it by this job). The validation's negative control (num_ctx 131072, seeds 202
 real run (Ollama loads 131072 for this model on evo-x2, `x2-scale-probe-hours`) share seeds and window; they are
 separate runs and only the real run is the measure. A 70B model at a 131072 window is the slowest local cell measured
 on evo-x2.
+
+## AMENDMENT (2026-10-22, before any data of these jobs): llama3.3:70b B3 v2 jobs deployed and queued on evo-x2
+
+This note follows "PRE-REGISTRATION: a larger local option for the route-at-start comparison" (2ddba00), whose text is
+not edited; it was committed before deploy and queueing.
+
+- **Harness.** `--plan tasks_v2_llama33_70b` in `harness/x2_r2_evalset.py` (ollama_default only, seeds 20260901 to
+  20260903, 30 task turns, model llama3.3:70b only, joined to the strict preflight through STRICT_PLAN_MODELS; the run's
+  report computes `tasks_real_v2_outcome` over this plan's tier and seeds), commit 505d0b8, tests in
+  `tests/test_x2_evalset_tasks_v2_llama33_70b.py`. Register rows `x2-evalset-tasks-val-v2-llama33-70b-gates` and
+  `x2-evalset-tasks-real-v2-llama33-70b-route` (PENDING), and `x2-llama33-70b-b3v2-hours` (ESTIMATE).
+- **Deploy.** Side directory `C:\apu\ovn\evalv2l70` (`x2_r2_evalset.py` e803555a, `evalset_env.py` 4eae225f,
+  `x2_num_keep.py` c2bb7c2d, `x2_deploy_check.py` 64be80f0) and `C:\apu\ovn\qfill` (`x2_queue_fill.py` 64f32013),
+  `verify_deployed_blobs` no problems for both. As for the other v2 jobs, `x2_r2_agent` is taken from `C:\apu\ovn`
+  (blob 38882113, recorded in run_start with the harness blob); its model table maps llama3.3:70b to think None.
+- **Dry checks on evo-x2 (no server start, no model call).** `--check-plan`: validation negative control 131072 x
+  seeds 20260901 to 20260903 and positive control 8192 x seed 20260901, 30 task turns each, projected largest prompt
+  23074 to 23080 tokens within the v2 negative-control budget 30720; real plan `ollama_default_call2_notools` x seeds
+  20260901 to 20260903 x 30 task turns. The strict preflight with only llama3.3:70b allowed refuses it on the qwen3:14b
+  validation file (no llama3.3:70b sessions), as it must. The model's manifest is in the Ollama store; neither output
+  file exists yet.
+- **Native tool-call template (dry check):** `x2_deploy_check.py --template llama3.3:70b` (library template, sha256
+  948af274...) found `.Tools`, `.ToolCalls` and tool-result branches (`eq .Role "tool"`, rendered under the `ipython`
+  header), no problems, so the check passed. Stated for the reading, as for mistral: this template renders the function
+  list inside the last user message only (`if and $.Tools $last` on the user branch), so on a second or later tool
+  round within one turn, when the last message is a tool result, the tool list is sent in the request but not rendered
+  into the prompt. The validation's task-tool gate is the live test of whether this matters.
+- **Queue.** `x2_queue_fill.py --append x2_evalset_tasks_val_v2_llama33_70b x2_evalset_tasks_real_v2_llama33_70b`, one
+  read-modify-write under `t2s_queue.set_pause` cleared in its finally block; positions 82 and 83, the real-run entry
+  carrying `{"gate": {"requires_done": "x2_evalset_tasks_val_v2_llama33_70b"}}`; the pause flag was absent afterwards
+  (`is_paused()` None, checked separately). Both entries' notes say they release themselves via tq.advance() on exit and
+  set no pause. The running job (x2_b5_simcap_8192) was not touched. Order and hours: docs/X2_QUEUE_PLAN.md "Reserve
+  draw of 2026-10-22".
