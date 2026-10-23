@@ -460,3 +460,60 @@ def test_multi_part_resume_and_merge(tmp_path):
     assert not [r for r in rows if r["record"] == "supersede"]     # w2 was already superseded in part 2
     merged = CR.merged_rows(CR.part_files(first))
     assert len(merged) == 5
+
+
+# ── own-rollback (2026-10-23) ───────────────────────────────────────────────────────────────────────
+
+def test_rollback_env_equals_rebuild_env_before_and_undoes_failed_turn():
+    src = CR.load_rows(CR.SOURCE)
+    wt = CR.wrong_tasks(src)
+    cache, n_undone = {}, 0
+    for r in wt[:40]:
+        es = CR.build_session_for(r, cache)
+        prior = [x for x in CR.session_rows(src, r["attempt_id"]) if x["turn_idx"] < r["turn_idx"]]
+        built = CR.rebuild(es, prior, r["turn_idx"])
+        rb = CR.rollback_env(es, prior, r)
+        assert rb["env"] == built["env_before"]
+        n_undone += rb["undone_calls"]
+    assert n_undone > 0   # some failed turns made state-changing calls that the rollback undid
+
+
+def test_rollback_live_run_with_fake_client_and_billed_projection(tmp_path):
+    src = CR.load_rows(CR.SOURCE)
+    w = CR.wrong_tasks(src)[:2]
+    keys = {(r["attempt_id"], r["turn_idx"]) for r in w}
+    proj_rows = [{"record": "cloud_redo_task", "attempt_id": r["attempt_id"], "turn_idx": r["turn_idx"], "usd": 0.02,
+                  "usd_all_uncached": 0.09} for r in w]
+    sent = []
+
+    def fake(*, model_id, messages, api_key, **kw):
+        sent.append(kw)
+        return _resp_fr('{"answer": "no idea"}')
+
+    rows = CR.run(True, out=tmp_path / "o.jsonl", client=_client(tmp_path, fake), thinking_off=True, max_tokens=2048,
+                  rollback="pre_task", only_keys=keys, projection_rows=proj_rows, job_cap=1.0)
+    assert rows[0]["rollback"] == "pre_task" and rows[0]["n_tasks_this_run"] == 2
+    assert rows[0]["projection_measured_same_tasks"]["billed_usd"] == pytest.approx(0.04)
+    assert rows[0]["projected_ledger_usd_used"] == pytest.approx(0.04)
+    tasks = [r for r in rows if r["record"] == "cloud_redo_task"]
+    assert len(tasks) == 2 and all(t["rollback_env_equals_rebuild"] for t in tasks)
+    thinking = CR.THINKING_OFF[CR.escalation_model(CR.load_price_table())]
+    assert all(k["max_tokens"] == 2048 and k["thinking"] == thinking for k in sent[1:])   # sent[0] = warm-up
+
+
+def test_rollback_refuses_projection_over_job_cap(tmp_path):
+    def fake(**kw):
+        raise AssertionError("must not be sent")
+
+    src = CR.load_rows(CR.SOURCE)
+    w = CR.wrong_tasks(src)[:2]
+    proj_rows = [{"record": "cloud_redo_task", "attempt_id": r["attempt_id"], "turn_idx": r["turn_idx"], "usd": 1.5,
+                  "usd_all_uncached": 3.0} for r in w]
+    with pytest.raises(SystemExit, match="job cap"):
+        CR.run(True, out=tmp_path / "o.jsonl", client=_client(tmp_path, fake), thinking_off=True, rollback="pre_task",
+               only_keys={(r["attempt_id"], r["turn_idx"]) for r in w}, projection_rows=proj_rows, job_cap=2.0)
+    assert not (tmp_path / "ledger.jsonl").exists()
+
+
+def test_main_rollback_needs_thinking_off(tmp_path):
+    assert CR.main(["--rollback", "pre_task", "--out", str(tmp_path / "o.jsonl")]) == 2
