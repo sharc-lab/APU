@@ -5849,3 +5849,38 @@ not edited; it was committed before deploy and queueing.
   (`is_paused()` None, checked separately). Both entries' notes say they release themselves via tq.advance() on exit and
   set no pause. The running job (x2_b5_simcap_8192) was not touched. Order and hours: docs/X2_QUEUE_PLAN.md "Reserve
   draw of 2026-10-22".
+
+## PRE-REGISTRATION (2026-10-22, NOT YET COMPUTED): measured hybrid by replay (per-task route-at-start plus the window-overflow flag) and task latency by policy
+
+Offline, cached replay of recorded runs; no live cloud call, no new spend. Full protocol in docs/EXPERIMENTS.md,
+entry "2026-10-22 - Measured hybrid by replay". New rows `hybrid-route-at-start-measured` (per-task policy: the device
+profile projects each task's prompt from the task definition at job start, the task runs local if it fits the tier's
+window, else it goes to the cloud from its first call; a local task the window-overflow flag fires on is escalated at
+its full-history redo outcome and cost) and `task-latency-by-policy` (median and p90 wall seconds per task for
+all-cloud, local and that hybrid). Tiers ollama_ctx_8192 and ollama_ctx_4096 on evo-x2, qwen3:14b, seeds
+20260901-03, Sonnet and Haiku (Haiku escalation interim, labelled). Every figure is labelled "measured by replay of
+recorded runs". The existing row `hybrid-route-at-start` (whole-device tolerance rule) is kept unchanged.
+
+## RESULTS (2026-10-22): measured hybrid by replay, per-task route-at-start plus the window flag, and task latency by policy
+
+Computed after the pre-registration above, as registered; rows `hybrid-route-at-start-measured` and
+`task-latency-by-policy` in docs/NUMBERS_REGISTER.md (quote from there). Every figure is measured by replay of
+recorded runs; nothing new was run.
+
+- evo-x2 num_ctx 8192: the projection keeps 21 of 90 tasks local (the first 7 task turns of each session; 19 of the 21
+  correct locally) and sends 69 to the cloud from their first call. The window flag fired on none of the 21 kept local
+  (the projection is conservative: it sent 6 tasks to the cloud whose recorded prompt stayed inside the window), so no
+  task was escalated. Against claude-sonnet-5-5: 88/90 (97.8%) at USD 0.00819 per task vs all-cloud 90/90 (100.0%) at
+  USD 0.01020 and naive local 57/90 (63.3%). Against claude-haiku-5-5: 85/90 (94.4%) at USD 0.00055 vs all-cloud
+  87/90 (96.7%) at USD 0.00067.
+- evo-x2 num_ctx 4096: no task's projected prompt fits (the first task turn alone projects above 4096), so the policy
+  is all-cloud: 90/90 on Sonnet and 87/90 on Haiku at the all-cloud cost, kept local 0/90.
+- Latency (median / p90 seconds per task): all-cloud Sonnet 4.59 / 6.27, Haiku 2.50 / 3.84; local qwen3:14b at 8192
+  27.27 / 41.78 and at 4096 16.79 / 26.81; the 8192 hybrid 4.84 / 11.45 on Sonnet and 2.66 / 10.24 on Haiku.
+  Long-task runs: PENDING (no results/long_task_*.jsonl on main).
+- Replay assumptions as pre-registered: a routed task's cloud cost and outcome come from a run whose earlier tasks were
+  on the cloud (a real deployment would also pay a cache write of the local history on the first routed task).
+
+Register audit (same day): rows whose data file is a run with run_start / run_end are now PENDING with "partial: no
+run_end" until the run ends (multi-part runs judged by their last part). One row changed: `t2s-r2-mechanism-cpu`
+VERIFIED to PENDING (results/t2s_r2_mechanism_cpu_v1.jsonl has no run_end).

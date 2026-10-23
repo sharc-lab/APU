@@ -4518,6 +4518,30 @@ def compute_hybrid_route_at_start(repo):
             else "0"}
 
 
+ROUTE_MEASURED_FILES = ["results/x2_evalset_tasks_real_v2.jsonl", "results/all_cloud_b3_v1.jsonl",
+                        "results/cloud_redo_full_context_v1.jsonl", "results/cloud_redo_full_context_v1_part2.jsonl",
+                        "results/cloud_redo_full_context_v1_part3.jsonl"]
+
+
+def compute_hybrid_route_at_start_measured(repo):
+    """Per-task route at job start plus the window-overflow flag, by replay of recorded runs (pre-registered in
+    docs/EXPERIMENTS.md, 2026-10-22 'Measured hybrid by replay')."""
+    im = _impact()
+    d = im.route_at_start_measured(repo)
+    return {"value": im.route_measured_text(d),
+            "n": f"{len(d['cells'])} tier x cloud-tier cells x {d['cells'][0]['hybrid']['n']} tasks"
+            if d["status"] == "VERIFIED" else "0"}
+
+
+def compute_task_latency_by_policy(repo):
+    """Wall seconds per task, median and p90, all-cloud vs local vs the per-task hybrid (replayed)."""
+    im = _impact()
+    d = im.task_latency_by_policy(repo)
+    return {"value": im.latency_text(d),
+            "n": f"{len(d['all_cloud']) + len(d['local']) + len(d['hybrid'])} policy cells"
+            if d["status"] == "VERIFIED" else "0"}
+
+
 def compute_impact_p2(repo):
     return _impact_row(repo, "P2")
 
@@ -7516,6 +7540,21 @@ NUMBER_ENTRIES = [
                                               CLOUD_REDO_FULL_CONTEXT, CLOUD_REDO_FULL_CONTEXT_PART2,
                                               "results/cloud_redo_full_context_v1_part3.jsonl"}),
      "script_function": "analysis/impact_model.py::route_at_start"},
+    {"claim_id": "hybrid-route-at-start-measured", "description": "Measured hybrid by replay of recorded runs, the "
+     "per-task policy (pre-registered 2026-10-22): at job start the device profile projects each task turn's prompt "
+     "from the task definition and the task runs local if it fits the tier's window, else the whole task goes to the "
+     "cloud from its first call; a local task the window-overflow flag fires on is escalated at its full-history redo "
+     "outcome and cost (Sonnet; Haiku interim). evo-x2 num_ctx 8192 and 4096, qwen3:14b, B3 v2 tasks, seeds "
+     "20260901-03: accuracy, cloud USD per task, share kept local per tier and cloud tier vs all-cloud and naive local "
+     "(the whole-device tolerance rule stays in hybrid-route-at-start)",
+     "compute": compute_hybrid_route_at_start_measured, "data_files": ROUTE_MEASURED_FILES,
+     "script_function": "analysis/impact_model.py::route_at_start_measured"},
+    {"claim_id": "task-latency-by-policy", "description": "Wall-clock seconds per task, median and p90, by replay of "
+     "recorded runs: all-cloud (all_cloud_b3_v1 seconds, each cloud tier), local (x2_evalset_tasks_real_v2 "
+     "turn_wall_s, each B3 v2 tier) and the per-task hybrid of hybrid-route-at-start-measured; seeds 20260901-03; "
+     "long-task runs PENDING until results/long_task_*.jsonl exist",
+     "compute": compute_task_latency_by_policy, "data_files": ROUTE_MEASURED_FILES,
+     "script_function": "analysis/impact_model.py::task_latency_by_policy"},
     {"claim_id": "impact-v2-P2", "description":"Impact v2 P2 configuration: sessions per machine per day (default vs "
                     "fastest measured B5 setting), machines needed for the profile's sessions/day, USD/day of machines "
                     "saved (assumed 3-year life), waiting-time upper bound on the interactive share; PENDING until "
@@ -7837,6 +7876,122 @@ def _pending(entry, repo=None) -> list[str]:
     return [f for f in entry["data_files"] if not (repo / f).exists()]
 
 
+# Run completeness (2026-10-22): a row must not be VERIFIED from a partial run file. Every data file of a row (globs
+# expanded) that is a run file (a .jsonl with a run_start record) must be complete, else the row is PENDING with
+# "partial: no run_end" and is not computed. Complete means:
+#   - single file: a run_end record after the file's last run_start; or a run that refused to start at its preflight
+#     (run_start with an empty model list and validation_preflight.ok false: the harness returns before run_end by
+#     design, e.g. harness/x2_r2_evalset.py on a strict-preflight refusal);
+#   - multi-part run (<stem>.jsonl plus <stem>_partN.jsonl continuations, scripts/cloud_redo.py --resume): every part
+#     is judged by the LAST part, which must have a run_end after its last run_start that did not stop; for a
+#     cloud_redo run also every wrong task must have a merged row (scripts/cloud_redo.py::merged_rows, superseded rows
+#     excluded) -- a stop or crash in an earlier part does not count, because the next part resumed it.
+# Files that legitimately never write a run_end are opted out explicitly here, each with its reason.
+RUN_END_OPT_OUT = {
+    "results/blade_dryrun/*.jsonl": "Blade dry runs stop on their time budget with a run_stopped record by design "
+                                    "(harness/blade_common.py); they estimate rates, not results",
+    "results/all_cloud_b3_v1_attempt*_aborted.jsonl": "aborted all-cloud attempts kept only so their billed spend is "
+                                                      "counted (cloud-spend-billed-vs-upper-bound); no result is read",
+}
+_RUN_SCAN_CACHE = {}
+
+
+def _run_scan(path: Path) -> dict:
+    """run_start / run_end positions of a .jsonl run file (cached on size and mtime)."""
+    st = path.stat()
+    key = (str(path), st.st_size, st.st_mtime_ns)
+    if key in _RUN_SCAN_CACHE:
+        return _RUN_SCAN_CACHE[key]
+    out = {"starts": [], "ends": [], "last_start": None, "last_end": None}
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        for i, line in enumerate(fh):
+            if '"run_start"' not in line and '"run_end"' not in line:
+                continue
+            try:
+                r = json.loads(line)
+            except ValueError:
+                continue
+            if r.get("record") == "run_start":
+                out["starts"].append(i)
+                out["last_start"] = r
+            elif r.get("record") == "run_end":
+                out["ends"].append(i)
+                out["last_end"] = r
+    _RUN_SCAN_CACHE[key] = out
+    return out
+
+
+def _opted_out(rel: str) -> bool:
+    import fnmatch
+    return any(fnmatch.fnmatch(rel, pat) for pat in RUN_END_OPT_OUT)
+
+
+def _part_family(path: Path) -> list[Path]:
+    """[first, part2, ...] when path is a multi-part run (the first file or one of its continuations), else []."""
+    import re
+    m = re.match(r"^(.*)_part(\d+)$", path.stem)
+    first = path.with_name(m.group(1) + ".jsonl") if m else path
+    parts = sorted(((int(q.stem.rsplit("_part", 1)[1]), q) for q in first.parent.glob(f"{first.stem}_part*.jsonl")
+                    if q.stem.rsplit("_part", 1)[1].isdigit()), key=lambda x: x[0])
+    if not parts or not first.exists():
+        return []
+    return [first] + [q for _n, q in parts]
+
+
+def _single_complete(s: dict) -> bool:
+    if not s["starts"]:
+        return True
+    if s["ends"] and s["ends"][-1] > s["starts"][-1]:
+        return True
+    st = s["last_start"] or {}
+    pf = st.get("validation_preflight")
+    return st.get("models") == [] and isinstance(pf, dict) and pf.get("ok") is False
+
+
+def run_file_incomplete(repo: Path, rel: str) -> str | None:
+    """None if the file is not a run file, is opted out, or is complete (see the comment above); else the reason."""
+    path = Path(repo) / rel
+    if not rel.endswith(".jsonl") or not path.exists() or _opted_out(rel):
+        return None
+    fam = _part_family(path)
+    if fam:
+        last = fam[-1]
+        s = _run_scan(last)
+        lrel = last.relative_to(repo).as_posix() if last.is_relative_to(repo) else str(last)
+        if not s["starts"] or not (s["ends"] and s["ends"][-1] > s["starts"][-1]):
+            return f"partial: no run_end in the last part {lrel}"
+        if (s["last_end"] or {}).get("stopped"):
+            return f"partial: the last part {lrel} stopped ({str(s['last_end']['stopped'])[:80]})"
+        first_start = _run_scan(fam[0])["last_start"] or {}
+        if first_start.get("harness") == "cloud_redo" and first_start.get("n_wrong_tasks") is not None:
+            import importlib.util
+            spec = importlib.util.spec_from_file_location("cloud_redo_nr", Path(repo) / "scripts" / "cloud_redo.py")
+            cr = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(cr)
+            n = len(cr.merged_rows(fam))
+            if n < first_start["n_wrong_tasks"]:
+                return f"partial: {n}/{first_start['n_wrong_tasks']} tasks across the parts"
+        return None
+    if not _single_complete(_run_scan(path)):
+        return f"partial: no run_end in {rel}"
+    return None
+
+
+def _incomplete(entry, repo=None) -> list[str]:
+    """Reasons a row's run data files are partial (empty list: compute it normally)."""
+    import glob as _glob
+    repo = Path(repo or REPO)
+    out = []
+    for d in entry["data_files"]:
+        rels = sorted(Path(m).relative_to(repo).as_posix() for m in _glob.glob(str(repo / d))) if any(
+            c in d for c in "*?[") else [d]
+        for rel in rels:
+            why = run_file_incomplete(repo, rel)
+            if why and why not in out:
+                out.append(why)
+    return out
+
+
 def _values_match(reported, computed_value, tolerance_note=False):
     """Loose string-level match: the reported value's key digits/percent must appear in the computed
     value string. Deliberately conservative (prefers a false CORRECTED over a false VERIFIED) -- exact
@@ -7857,6 +8012,16 @@ def build_register():
             rows.append({
                 "claim_id": entry["claim_id"], "status": "PENDING",
                 "value": "not computed: data file(s) not synced yet: " + ", ".join(missing), "n": "n/a",
+                "reported_value": entry.get("reported_value", "(none previously reported)"),
+                "data_files": entry["data_files"], "script_function": entry["script_function"],
+                "commit": head, "date": date,
+            })
+            continue
+        partial = _incomplete(entry)
+        if partial:
+            rows.append({
+                "claim_id": entry["claim_id"], "status": "PENDING",
+                "value": "not computed: " + "; ".join(partial), "n": "n/a",
                 "reported_value": entry.get("reported_value", "(none previously reported)"),
                 "data_files": entry["data_files"], "script_function": entry["script_function"],
                 "commit": head, "date": date,

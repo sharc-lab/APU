@@ -80,3 +80,80 @@ Use this block for every new experiment entry.
 
 - Deterministic task scoring is programmatic where applicable.
 - Open-ended scoring uses an LLM judge (`gpt-4o-mini`) with versioned prompts under `evaluation/judge_prompts/`.
+
+## 2026-10-22 - Measured hybrid by replay: per-task route-at-start plus the window-overflow flag, and task latency by policy (PRE-REGISTERED, NOT YET COMPUTED)
+
+### Metadata
+
+- Date: 2026-10-22
+- Git hash: 7b3fb69 (pre-registration written before any figure of this entry was computed)
+- Branch: worktree-agent-a6ddc0a8806020e15
+- Machine: controller laptop, offline replay of synced result files; no live cloud call, no SSH, no new spend
+
+### Configuration
+
+- Policies (per evo-x2 tier and cloud tier):
+  - all-cloud: every task on the cloud tier (results/all_cloud_b3_v1.jsonl).
+  - naive local: every task local at the tier (results/x2_evalset_tasks_real_v2.jsonl), USD 0.
+  - hybrid route-at-start (new, row `hybrid-route-at-start-measured`): at job start the device profile predicts, per
+    task, whether the task's steps fit the loaded window. Projected prompt of task turn k (calibrated tokens) =
+    round((est(system prompt) + est(tools) + sum over turns t <= k of (est(user message t) + 4) + k x 330) x 1.20),
+    from `harness/x2_r2_evalset.py::build_session(seed, design v2, guardrails off)`; 330 and 1.20 are the harness's
+    own projection constants (PROJ_NONFILLER_PER_TURN, PROJ_CALIB, used by projected_max_prompt), not fitted to these
+    results. Window W = the tier's num_ctx (the loaded window recorded by the local run must equal it, else the row
+    errors). Fits iff projected <= W. Fits: run local. Does not fit: the whole task goes to the cloud from its first
+    call. Combined with the window-overflow flag: a task kept local whose task turn's prompt exceeded the loaded window
+    (`impact_model.turn_over_window`, the flag of impact-v3-detection-value-measured) is escalated.
+- Tiers: evo-x2 ollama_ctx_8192 and ollama_ctx_4096 (qwen3:14b), where routing should matter.
+- Cloud tiers: claude-sonnet-5-5 and claude-haiku-5-5.
+- Seeds: 20260901, 20260902, 20260903 (the seeds shared with the all-cloud run); 30 task turns per seed, 90 tasks per
+  tier.
+- Task subset: the 30 B3 v2 tasks; a task = one task turn (seed, task_id); a step = one model call in it.
+- Judge config: the recorded end-state check (end_state_ok / cloud_end_state_ok); no new grading.
+
+### Command
+
+- `python analysis/numbers_register.py` (rows `hybrid-route-at-start-measured`, `task-latency-by-policy`, computed by
+  `analysis/impact_model.py::route_at_start_measured` and `::task_latency_by_policy`).
+
+### Replay Cache State
+
+- Replay mode: CACHED REPLAY of recorded runs. Every figure is labelled "measured by replay of recorded runs"; nothing
+  is newly measured.
+- Replayed, per task:
+  - local task: outcome = the local run's end_state_ok (same tier, task, seed); USD 0; time = its turn_wall_s.
+  - routed to the cloud: outcome, cache-priced USD (`usd`, the field all-cloud-b3-cost uses) and `seconds` of the same
+    task and seed in all_cloud_b3_v1 on that cloud tier.
+  - escalated, Sonnet: the full-history redo row of that tier, seed and task (results/cloud_redo_full_context_v1*.jsonl,
+    merged, superseded rows excluded): cloud_end_state_ok, usd; time = local turn_wall_s + redo seconds. A flagged task
+    with no redo row (the redo covered wrong tasks only) is IMPUTED: USD = the tier's mean redo USD, outcome and
+    seconds = the Sonnet all-cloud row of the same task; counted and labelled.
+  - escalated, Haiku: INTERIM, labelled: outcome, USD and seconds of the Haiku all-cloud row of the same task (no Haiku
+    redo exists).
+- Replay assumptions stated with the figures: (a) a task's local outcome does not depend on whether earlier tasks ran
+  local (in the replay every earlier task ran local); (b) a routed task's cloud outcome and cost do not depend on the
+  earlier tasks having run local (in the all-cloud run every earlier task ran on the cloud, so its cache reads came
+  from a cloud history; the first routed task of a session would pay a cache write of the local history, not in the
+  replay).
+- Cache warm/cold note: cloud costs are the recorded cache-priced figures.
+
+### Result Summary
+
+- Primary metrics, per tier and cloud tier: accuracy (correct / 90), cloud USD per task (total / 90), share kept
+  local (tasks whose outcome is local / 90), routed, escalated (with a redo row / imputed), against all-cloud and naive
+  local on the same 90 tasks.
+- Latency (row `task-latency-by-policy`): wall-clock seconds per task, median and p90 (statistics.quantiles, n=10,
+  inclusive), for all-cloud (each cloud tier, `seconds`), local (each of the five B3 v2 tiers, `turn_wall_s`), and the
+  hybrid above (replayed). Same 3 seeds. Long-task runs (results/long_task_*.jsonl, another job) included if present
+  on main when this is computed, else that part is PENDING.
+- What counts as passing: nothing is gated; the rows report the replayed figures. A row stays PENDING until every
+  input row (all-cloud-b3-cost, all-cloud-b3-quality, x2-evalset-tasks-real-v2-wrong-rate, cloud-redo-full-context) is
+  VERIFIED.
+- Output artifacts written: docs/NUMBERS_REGISTER.md rows only.
+
+### Validity Flags
+
+- Residual/clock flags: local wall times include model load on the first turn of a session, as recorded.
+- Seed variance flags: 3 seeds, 90 tasks per cell; no interval claimed.
+- Tool-locality caveats: replay assumptions (a) and (b) above.
+- Any deviations from protocol: none at pre-registration.
