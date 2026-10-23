@@ -92,10 +92,12 @@ function render() {
       if (n.route === "cloud") now += `<div>On the cloud${n.model ? " (" + esc(n.model) + ")" : ""}${n.reason ? ": " + esc(n.reason) : ""}</div>`;
       if (win || own) now += `<div class="head">memory for the conversation: ${used != null ? used.toLocaleString() : "?"} of ${own ? own.toLocaleString() : "?"} tokens seen${win ? ", room for " + win.toLocaleString() : ""}</div><div class="meter ${n.cut ? "cut" : ""}"><div style="width:${pct}%"></div></div>`;
       if (n.cut) now += `<div class="cutflag">Cut off: the model did not see the whole conversation</div>`;
+      else if (n.countOnly) now += `<div class="head" style="color:var(--warn)">Token-count flag only; the server showed no cut (a known false alarm of this check)</div>`;
       else if (n.steps && n.route !== "cloud") now += `<div class="okflag">Whole conversation seen</div>`;
       if (n.tools && n.tools.length) now += `<div class="head">tools used: ${esc(n.tools.join(", "))}</div>`;
       if (n.decision) now += `<div class="head">${esc(n.decision)}</div>`;
-      if (n.escalated) now += `<div class="cutflag">Cut off, so this task went to the cloud</div>`;
+      if (n.escalated) now += n.cut ? `<div class="cutflag">Cut off, so this task went to the cloud</div>`
+        : `<div class="head" style="color:var(--warn)">Sent to the cloud on that flag, as the protocol says</div>`;
     }
     const res = L.results.map(r => `<div class="res"><span>${esc(r.task)}</span><span>${r.ok === true ? '<span class="c">correct</span>' : r.ok == null ? "n/a" : '<span class="w">WRONG' + (r.flagged ? ", flagged" : ", silent") + "</span>"} ${r.usd ? money(r.usd) : ""} ${tag(r.label)}</span></div>`).join("");
     $("#lane-" + l).innerHTML = `<h2>${LANE_NAME[l]}</h2><div class="head">${esc(laneHelp(sc, l))}</div><div class="now">${now}</div>${res}`;
@@ -130,14 +132,14 @@ function onEvent(e) {
   if (e.event === "task_start") { state.cur = e; state.tasks.push(e); for (const l in state.lanes) state.lanes[l].now = null; }
   if (e.event === "lane_start") L.now = {steps: 0, secs: 0, tools: [], route: e.lane === "cloud" ? "cloud" : "local",
                                          model: e.lane === "cloud" ? meta.scenarios[state.sc].cloud_model : null};
-  if (e.event === "call") { const n = L.now || (L.now = {steps: 0, secs: 0, tools: []}); n.steps = e.n; n.secs += e.seconds || 0; n.used = e.used_tokens; n.own = e.own_tokens; n.win = e.loaded_window || e.num_ctx; n.cut = n.cut || e.cut; n.tools = n.tools.concat(e.tool_calls || []); }
+  if (e.event === "call") { const n = L.now || (L.now = {steps: 0, secs: 0, tools: []}); n.steps = e.n; n.secs += e.seconds || 0; n.used = e.used_tokens; n.own = e.own_tokens; n.win = e.loaded_window || e.num_ctx; const direct = (e.evidence || []).some(x => !String(x).startsWith("model saw")); n.cut = n.cut || (e.cut && direct); n.countOnly = n.countOnly || (e.cut && !direct); n.tools = n.tools.concat(e.tool_calls || []); }
   if (e.event === "decision") { L.now.decision = e.decision.reason; if (e.decision.route === "cloud") { L.now.route = "cloud"; L.now.model = e.decision.model; } }
   if (e.event === "escalate") { L.now.escalated = true; }
   if (e.event === "lane_end") {
     const r = e.result, c = r.cloud || r;
     const lab = label === "REPLAYED" ? "REPLAYED" : (r.route === "cloud" || r.escalated ? (c.label || "LIVE") : label);
     if (r.route === "cloud") { L.now.route = "cloud"; L.now.model = r.model; L.now.secs = r.seconds || L.now.secs; }
-    L.results.push({task: state.cur ? state.cur.task_id : "", ok: r.end_state_ok, flagged: !!r.flagged && !r.escalated,
+    L.results.push({task: state.cur ? state.cur.task_id : "", ok: r.end_state_ok, flagged: !!r.flagged && !r.escalated && (r.calls || []).some(c => (c.evidence || []).some(x => !String(x).startsWith("model saw"))),
                     usd: r.route === "cloud" ? r.usd_ledger : (r.escalated ? c.usd_ledger : 0), label: lab === "NOT AVAILABLE" ? "REPLAYED" : lab});
   }
   if (e.event === "tally") { $("#tally").innerHTML = tallyHTML(e.tally); }
