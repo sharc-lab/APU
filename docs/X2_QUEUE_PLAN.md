@@ -233,3 +233,16 @@ work is queued. If both evalset real runs refuse at preflight, as the gate note 
 off and everything after them moves earlier by that much (the B3 replay real run would then end about 2026-10-20 17:40). The scale
 rows are the largest uncertainty: 72.2 h for scale real rests on the operator's per-session estimates until the probe
 has run.
+
+## PENDING: Oct 29 demo hold on evo-x2 (noted 2026-10-23)
+
+- Purpose: keep evo-x2 idle for the live demo on 2026-10-29 (meeting window plus 30 minutes before for a warm-up run).
+- Status: NOT queued. The meeting time is not confirmed; the operator sends the PT window once Prof. Hao confirms.
+- Fallback (operator decision 2026-10-23): if no window has arrived by 2026-10-28 18:00 PT, queue the hold for
+  08:00 to 18:00 PT on 2026-10-29 with automatic release at 18:00 PT.
+- Mechanism: a queued hold job (built on demo/oct28, dry-run tested, not queued), not a pause flag. It touches
+  nothing, waits until the release time, then calls tq.advance(); if it starts after the release time it releases at
+  once. Its queue note states the release time, so the state itself shows the machine resumes on its own.
+- Also queued for the demo (demo/oct28): x2_demo_detector_check (ESTIMATE 0.10 h) and x2_demo_live_acceptance
+  (ESTIMATE 0.15 h), directly after x2_b5_simcap_8192; the cloud lane runs from the controller afterwards with
+  `py -3.12 -m demo.live.complete_run` (the API key stays on the controller).

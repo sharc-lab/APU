@@ -550,3 +550,16 @@ hatch for ad-hoc testing. Neither exists yet; flagged as the concrete follow-up.
 **Revert:** queue_state.json entries were repaired by hand (status/note/pid fields corrected) to reflect what
 actually happened; no settings, drivers, or persistent machine state were touched. Fully covered by the affected
 jobs' own `--resume` mechanism -- nothing to revert on the measurement side.
+
+## 2026-10-23: Anthropic API key removed from evo-x2
+
+- Operator decision 2026-10-23: the API key must not exist on evo-x2 at all (it stays only on the controller laptop;
+  never on evo-x2 or evo-t2s). This reverses the 2026-10-22 copy (docs/STATE.md, "Anthropic API key, live-mode
+  scope, spend caps"), which had set it as a user environment variable for the account used over SSH.
+- Removed: the ANTHROPIC_API_KEY user environment variable (HKCU\Environment) on EVO-X2. Before removal: user
+  variable present, machine variable absent.
+- Verified without printing the value: user lookup returns nothing, machine lookup returns nothing, and the
+  HKCU\Environment registry value is absent. A scan of C:\apu and the user profile (.env, .txt, .json, .ps1, .cmd,
+  .bat, .py, .cfg, .ini files under 5 MB) for the Anthropic key pattern found 0 files.
+- Nothing on evo-x2 reads a key: queued jobs make no cloud calls; the live demo's cloud lane runs from the
+  controller (`py -3.12 -m demo.live.complete_run`). src/cloud/client.py falls back to stub mode with no key.
