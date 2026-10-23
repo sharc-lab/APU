@@ -6055,3 +6055,12 @@ job of them was deployed, queued or run (harness at e11b7cb). In short:
   50/90 kept local at >= 97% accuracy vs claude-sonnet-5-5 all-cloud; written before data: not expected to be met,
   because in-window wrong answers are silent. Row `hybrid-route-at-start-v2` (PENDING).
 - Hours (ESTIMATE): rows `own-jobs-hours` and, for Zach's E1/E2 reserve, `e1-e2-x2-hours`.
+
+## PRE-REGISTRATION (2026-10-23): own-rollback redo, cascaded variant (pointer)
+
+Full entry in docs/EXPERIMENTS.md, "2026-10-23: Own-rollback redo, cascaded variant", committed before any spend of
+this job. Operator decision: run the cascaded variant. The 28 earlier_state_repair tasks are redone on
+claude-sonnet-5-5 from a state where every earlier wrong local task was rolled back and replaced by its reference calls
+(a stand-in for a successful escalation of that earlier task, stated as such), with a matching stand-in transcript; the
+grader is unchanged. Projection USD 0.6699 billed (from the same tasks' full-history redo), job cap USD 1.50 billed.
+Target >= 25/28 fixed. Row `own-rollback-redo`.

@@ -245,6 +245,69 @@ def rollback_env(es: EV.EvalSession, prior: list[dict], failed: dict) -> dict:
     return {"env": copy.deepcopy(env), "n_snapshots": len(log.snaps), "undone_calls": undone}
 
 
+def stand_in_final_text(es: EV.EvalSession, task) -> str:
+    """The final assistant message of an earlier wrong task turn in the cascaded transcript (a STAND-IN for the reply of
+    a successful escalation; not a recorded cloud reply): the answer values for an information task, the session code
+    (rule 5), JSON as rule 1 asks."""
+    vals = " ".join(str(v) for v in (task.answer_values or ())) if task.is_info else ""
+    ans = " ".join(x for x in ("Done.", vals, es.session_code) if x)
+    return json.dumps({"answer": ans, "source": "tool results"})
+
+
+def rebuild_cascaded(es: EV.EvalSession, prior: list[dict], turn_idx: int) -> dict:
+    """Cascaded rollback (operator decision 2026-10-23): what a rollback hybrid with the oracle signal leaves before turn
+    turn_idx. The local session is replayed on evalset_env.SnapshotLog; at every earlier task turn that ended wrong
+    (end_state_ok false) the turn's local calls are applied, the environment is restored to that turn's pre-turn mark,
+    and the task's REFERENCE calls are applied instead: a STAND-IN for a successful escalation of that earlier task.
+    Transcript: correct earlier turns and guardrail turns as the local model ran them; an earlier wrong turn as its user
+    message, one assistant message carrying the reference calls (their results recomputed on the environment), and
+    stand_in_final_text. The grader is unchanged (expected = the reference applied to this env_before)."""
+    by_idx = {t.idx: (t, it) for t, it in zip(es.turns, es.items)}
+    messages = [{"role": "system", "content": es.system_prompt}]
+    env = copy.deepcopy(es.env0)
+    log = E.SnapshotLog(env)
+    log.mark("session_start")
+    truncated, replaced, undone = 0, 0, 0
+    for r in prior:
+        t, it = by_idx[r["turn_idx"]]
+        log.mark(f"pre_turn_{r['turn_idx']}")
+        messages.append({"role": "user", "content": EV.user_message(t, es)})
+        if it.task is not None and r.get("end_state_ok") is False:
+            n0 = len(log.snaps)
+            for c in r.get("calls") or []:
+                for call in c.get("tool_calls_parsed") or []:
+                    log.apply(call)
+            undone += len(log.snaps) - n0
+            log.restore_mark(f"pre_turn_{r['turn_idx']}")
+            ref = [dict(c) for c in it.task.reference]
+            prefix = f"s{r['turn_idx']}"
+            if ref:
+                tcs = _oa_tool_calls(ref, prefix)
+                messages.append({"role": "assistant", "content": "", "tool_calls": tcs})
+                for tc, c in zip(tcs, ref):
+                    messages.append({"role": "tool", "tool_call_id": tc["id"],
+                                     "content": json.dumps(log.apply(c))})
+            messages.append({"role": "assistant", "content": stand_in_final_text(es, it.task)})
+            replaced += 1
+            continue
+        for k, c in enumerate(r.get("calls") or []):
+            content = c.get("content") or ""
+            truncated += len(content) >= TRUNC_CHARS
+            calls = c.get("tool_calls_parsed") or []
+            if calls:
+                tcs = _oa_tool_calls(calls, f"h{r['turn_idx']}_{k}")
+                messages.append({"role": "assistant", "content": content, "tool_calls": tcs})
+                for tc, call in zip(tcs, calls):
+                    messages.append({"role": "tool", "tool_call_id": tc["id"], "content": json.dumps(log.apply(call))})
+            else:
+                messages.append({"role": "assistant", "content": content})
+    turn, item = by_idx[turn_idx]
+    messages.append({"role": "user", "content": EV.user_message(turn, es)})
+    return {"messages": messages, "env_before": copy.deepcopy(env), "turn": turn, "item": item,
+            "history_truncated_messages": truncated, "earlier_wrong_replaced": replaced,
+            "earlier_wrong_calls_undone": undone}
+
+
 def repair_keys(repo: Path = REPO) -> set:
     """(attempt_id, turn_idx) of the full-history redo's earlier_state_repair failures (analysis/cloud_redo_diagnosis.py
     over cloud_redo_full_context_v1 and its parts: the classes of row cloud-redo-full-context)."""
@@ -607,7 +670,7 @@ def run(live: bool, source: Path = SOURCE, out: Path = OUT, price_file: Path = P
     and each row records whether it equals rebuild()'s env_before. only_keys: run only these (attempt_id, turn_idx).
     projection_rows: executed rows of the same tasks; the projection is then their measured cache-priced USD (the basis
     the ledger records since 2026-10-22) with the all-uncached upper bound recorded beside it."""
-    if rollback not in (None, "pre_task"):
+    if rollback not in (None, "pre_task", "cascaded"):
         raise SystemExit(f"refused: unknown rollback {rollback!r}")
     table = load_price_table(price_file)
     model_id = escalation_model(table)
@@ -734,6 +797,16 @@ def run(live: bool, source: Path = SOURCE, out: Path = OUT, price_file: Path = P
                     base.update({"rollback": rollback, "rollback_env_equals_rebuild": rb["env"] == built["env_before"],
                                  "rollback_undone_calls": rb["undone_calls"], "rollback_snapshots": rb["n_snapshots"]})
                     built["env_before"] = rb["env"]
+                elif rollback == "cascaded":
+                    cb = rebuild_cascaded(es, prior, r["turn_idx"])
+                    base.update({"rollback": rollback, "earlier_wrong_replaced": cb["earlier_wrong_replaced"],
+                                 "earlier_wrong_calls_undone": cb["earlier_wrong_calls_undone"],
+                                 "env_differs_from_pre_task": cb["env_before"] != built["env_before"],
+                                 "local_regrade_cascaded_end_state_ok": local_regrade(es, cb["item"],
+                                                                                      cb["env_before"], r),
+                                 "history_truncated_messages": cb["history_truncated_messages"],
+                                 "rebuilt_messages": len(cb["messages"])})
+                    built = cb
                 if live:
                     res = live_turn(client, model_id, es, built, rates, max_tokens, thinking)
                 else:
@@ -789,9 +862,11 @@ def main(argv=None) -> int:
     ap.add_argument("--client-cap-total", type=float, default=None,
                     help="absolute client cap in USD on the ledger total (e.g. 43.1913 = original start 21.1913 + "
                          "job cap 22); refuse up front if the projected ledger total would pass it")
-    ap.add_argument("--rollback", choices=("pre_task",), default=None,
-                    help="own-rollback (2026-10-23): only the full-history redo's earlier_state_repair tasks, env_before "
-                         "from transactional snapshots with the failed turn undone (rollback_env); default out "
+    ap.add_argument("--rollback", choices=("pre_task", "cascaded"), default=None,
+                    help="own-rollback (2026-10-23): only the full-history redo's earlier_state_repair tasks. pre_task: "
+                         "env_before from transactional snapshots with the failed turn undone (rollback_env); "
+                         "cascaded: every earlier wrong task turn also rolled back and replaced by its reference calls "
+                         "(rebuild_cascaded, the stand-in for a successful escalation). Default out "
                          "results/own_rollback_redo_v1.jsonl; projection = the same tasks' measured billed USD")
     a = ap.parse_args(argv)
     if a.resume:
