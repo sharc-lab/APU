@@ -101,7 +101,7 @@
    "minutes": 1,
    "items": [
     {
-     "text": "For each device and model the tool decides at session start: run locally with the recommended setting, or send the whole session to the cloud from the start. Every setting carries its label; where we have no data it says not measured.",
+     "text": "How much accuracy gap you accept decides where it runs; we measure that gap per device.",
      "label": null,
      "src": null
     },
@@ -120,32 +120,102 @@
      }
     },
     {
-     "text": "The rule: route local if local accuracy at the recommended setting is at least all-cloud accuracy minus a tolerance (points), else send the whole session to the cloud from the start. At matched quality (tolerance 0) the measured answer for every measured device is cloud from the start.",
-     "label": "measured",
-     "src": {
-      "register": "hybrid-route-at-start"
-     }
-    },
-    {
-     "text": "evo-x2 (ollama_default, default = best) would route local only at tolerance >= 7.8 points vs claude-haiku-5-5, 11.1 points vs claude-sonnet-5-5 (local 80/90 vs all-cloud 87/90, 90/90; measured, B3 task accuracy)",
-     "label": "measured",
-     "src": {
-      "register": "hybrid-route-at-start"
-     }
-    },
-    {
-     "text": "evo-t2s (Intel iGPU, Ollama default, loaded window 32768) would route local only at tolerance >= 16.7 points vs claude-haiku-5-5, 20.0 points vs claude-sonnet-5-5 (local 4/5 vs all-cloud 87/90, 90/90; measured by R2 session pass rate (not B3 task accuracy))",
+     "text": "Route local with the recommended setting if local accuracy is at least the cloud tier's accuracy minus the tolerance you accept; otherwise the whole session goes to the cloud from the start, and saves nothing.",
      "label": "measured",
      "src": {
       "register": "hybrid-route-at-start"
      }
     }
    ],
-   "panel": "device",
-   "defaults": {
-    "device": "evo-x2",
-    "model": "qwen3:14b",
-    "workload": "r2_agent"
+   "panel": "route",
+   "route": {
+    "entries": [
+     {
+      "device": "evo-x2",
+      "model": "claude-haiku-5-5",
+      "setting": "ollama_default, default = best",
+      "local": "80/90",
+      "local_pct": 88.9,
+      "basis": "measured, B3 task accuracy",
+      "cloud": "87/90",
+      "cloud_pct": 96.7,
+      "gap": 7.8,
+      "tolerance_local": 7.8,
+      "at_matched": "cloud",
+      "saves_local": {
+       "100": 2.01,
+       "1000": 20.12,
+       "10000": 201.25
+      },
+      "r2_basis": false
+     },
+     {
+      "device": "evo-x2",
+      "model": "claude-sonnet-5-5",
+      "setting": "ollama_default, default = best",
+      "local": "80/90",
+      "local_pct": 88.9,
+      "basis": "measured, B3 task accuracy",
+      "cloud": "90/90",
+      "cloud_pct": 100.0,
+      "gap": 11.1,
+      "tolerance_local": 11.1,
+      "at_matched": "cloud",
+      "saves_local": {
+       "100": 30.61,
+       "1000": 306.1,
+       "10000": 3060.99
+      },
+      "r2_basis": false
+     },
+     {
+      "device": "evo-t2s",
+      "model": "claude-haiku-5-5",
+      "setting": "Intel iGPU, Ollama default, loaded window 32768",
+      "local": "4/5",
+      "local_pct": 80.0,
+      "basis": "measured by R2 session pass rate (not B3 task accuracy)",
+      "cloud": "87/90",
+      "cloud_pct": 96.7,
+      "gap": 16.7,
+      "tolerance_local": 16.7,
+      "at_matched": "cloud",
+      "saves_local": {
+       "100": 2.01,
+       "1000": 20.12,
+       "10000": 201.25
+      },
+      "r2_basis": true
+     },
+     {
+      "device": "evo-t2s",
+      "model": "claude-sonnet-5-5",
+      "setting": "Intel iGPU, Ollama default, loaded window 32768",
+      "local": "4/5",
+      "local_pct": 80.0,
+      "basis": "measured by R2 session pass rate (not B3 task accuracy)",
+      "cloud": "90/90",
+      "cloud_pct": 100.0,
+      "gap": 20.0,
+      "tolerance_local": 20.0,
+      "at_matched": "cloud",
+      "saves_local": {
+       "100": 30.61,
+       "1000": 306.1,
+       "10000": 3060.99
+      },
+      "r2_basis": true
+     }
+    ],
+    "default_tolerance": 5,
+    "min": 0,
+    "max": 20,
+    "volume": 1000,
+    "src": {
+     "register": "hybrid-route-at-start"
+    },
+    "basis_label": "measured by R2 session pass rate (not B3 task accuracy)",
+    "not_measured": "Every other device and model pair: not measured (row hybrid-route-at-start covers: evo-t2s, evo-x2)."
    }
   },
   {

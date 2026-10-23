@@ -621,6 +621,8 @@ def _rec_b3(dv: dict, model: str) -> dict:
 
 
 KEPT_LOCAL_LABEL = "measured by R2 session pass rate (not B3 task accuracy)"
+ROUTE_TAKEAWAY = "How much accuracy gap you accept decides where it runs; we measure that gap per device."
+ROUTE_DEFAULT_TOL = 5
 
 
 def _rec_t2s(dv: dict, dev: str, model: str) -> dict | None:
@@ -878,19 +880,44 @@ def parse_t2s_config(value: str) -> dict:
 
 
 _ROUTE_RE = re.compile(
-    r"(?P<device>evo-x2|evo-t2s) vs (?P<model>claude-[\w.-]+): recommended (?P<setting>.*?), local accuracy "
+    r"^(?P<device>.+?) vs (?P<model>claude-[\w.-]+): recommended (?P<setting>.*?), local accuracy "
     r"(?P<lk>\d+)/(?P<ln>\d+) \((?P<lp>[\d.]+)%\) \[(?P<basis>[^\]]*)\] vs all-cloud (?P<ck>\d+)/(?P<cn>\d+) "
-    r"\((?P<cp>[\d.]+)%\), gap (?P<gap>[\d.]+) points \(routes local at tolerance >= (?P<tol>[\d.]+)\); tolerance 0: "
-    r"(?P<t0>cloud|local)")
+    r"\((?P<cp>[\d.]+)%\), gap (?P<gap>-?[\d.]+) points \(routes local at tolerance >= (?P<tol>-?[\d.]+)\); "
+    r"tolerance 0: (?P<t0>cloud|local)")
+_VOLS = (100, 1000, 10000)
 
 
 def parse_route_at_start(value: str) -> list[dict]:
-    """Row hybrid-route-at-start: per device and cloud model, local vs all-cloud accuracy, the gap, the tolerance at
-    which the device would route local, and the decision at tolerance 0 (matched quality)."""
-    return [{"device": m["device"], "model": m["model"], "setting": m["setting"], "local": f"{m['lk']}/{m['ln']}",
-             "local_pct": float(m["lp"]), "basis": m["basis"], "cloud": f"{m['ck']}/{m['cn']}",
-             "cloud_pct": float(m["cp"]), "gap": float(m["gap"]), "tolerance_local": float(m["tol"]),
-             "at_matched": m["t0"]} for m in _ROUTE_RE.finditer(value or "")]
+    """Row hybrid-route-at-start: one entry per local option (device, and a model when the row names one) and cloud
+    tier: local vs all-cloud accuracy, the gap, the tolerance at which it routes local, the decision at tolerance 0,
+    and the savings when routed local (the whole all-cloud bill of the tier: the row's savings at a tolerance where it
+    routes local, else its naive-local savings, which are the same bill). Data-driven: any segment of the row in this
+    shape appears, so a new local option (another model or device) shows up when its row segment lands."""
+    out = []
+    # segments start at "<option> vs claude-...: recommended"; savings triples ("a / b / c") also contain " / "
+    for part in re.split(r" / (?=[^/;]+? vs claude-[\w.-]+: recommended )", value or ""):
+        m = _ROUTE_RE.match(part.strip())
+        if not m:
+            continue
+        local_tiers = re.findall(r"tolerance \d+: local, saves ([-\d.,]+) / ([-\d.,]+) / ([-\d.,]+)", part)
+        naive = re.search(r"naive local \([^)]*\): saves ([-\d.,]+) / ([-\d.,]+) / ([-\d.,]+)", part)
+        src = local_tiers[0] if local_tiers else (naive.groups() if naive else None)
+        out.append({"device": m["device"].strip(), "model": m["model"], "setting": m["setting"],
+                    "local": f"{m['lk']}/{m['ln']}", "local_pct": float(m["lp"]), "basis": m["basis"],
+                    "cloud": f"{m['ck']}/{m['cn']}", "cloud_pct": float(m["cp"]), "gap": float(m["gap"]),
+                    "tolerance_local": float(m["tol"]), "at_matched": m["t0"],
+                    # string keys: the same in Python, in the cached JSON and in the page's JS
+                    "saves_local": dict(zip(map(str, _VOLS), map(_num, src))) if src else None,
+                    "r2_basis": "R2 session pass rate" in m["basis"]})
+    return out
+
+
+def route_at(entry: dict, tolerance: float) -> dict:
+    """The decision at a tolerance (points): local with the recommended setting if tolerance >= the entry's
+    route-local threshold, else the whole session to the cloud from the start (savings 0)."""
+    local = tolerance + 1e-9 >= entry["tolerance_local"]
+    saves = (entry["saves_local"] or {}).get("1000") if local else 0.0
+    return {"route": "local" if local else "cloud", "saves_1000": saves}
 
 
 def parse_late_escalation(value: str) -> dict | None:
@@ -1162,9 +1189,7 @@ def build_story(register: dict, silent: dict, cost: dict, escalation: dict | Non
     steps.append({"n": 2, "title": "Why it is hard: the obvious fixes do not hold, and it depends on the model",
                   "minutes": 1, "items": s2, "panel": None})
     # 3. the tool: the per-device decision at session start
-    s3 = [_item("For each device and model the tool decides at session start: run locally with the recommended "
-                "setting, or send the whole session to the cloud from the start. Every setting carries its label; "
-                "where we have no data it says not measured.", None)]
+    s3 = [_item(ROUTE_TAKEAWAY, None)]
     cfg = parse_t2s_config(val("t2s-config-comparison"))
     for key, name in (("igpu", "Intel iGPU"), ("cpu", "Intel CPU")):
         rows = {k.split("|")[1]: v for k, v in cfg.items() if k.startswith(key + "|")}
@@ -1172,28 +1197,24 @@ def build_story(register: dict, silent: dict, cost: dict, escalation: dict | Non
             s3.append(_item(f"evo-t2s {name}: kept local, {KEPT_LOCAL_LABEL}: " + ", ".join(
                 f"{m} {v['kept']}/{v['n']}" for m, v in sorted(rows.items())) + " sessions", MEASURED,
                 "t2s-config-comparison"))
+    # The accuracy-tolerance slider (operator 2026-10-22): the decision per local option and cloud tier is computed
+    # from row hybrid-route-at-start's inputs; the page re-computes it as the slider moves (route_at, mirrored in JS).
     routes = parse_route_at_start(val("hybrid-route-at-start"))
     if routes:
-        matched_cloud = all(r["at_matched"] == "cloud" for r in routes)
-        s3.append(_item("The rule: route local if local accuracy at the recommended setting is at least all-cloud "
-                        "accuracy minus a tolerance (points), else send the whole session to the cloud from the "
-                        "start. " + ("At matched quality (tolerance 0) the measured answer for every measured device "
-                                     "is cloud from the start." if matched_cloud else
-                                     "At matched quality (tolerance 0) some devices route local."),
-                        MEASURED, "hybrid-route-at-start"))
-        by_dev: dict = {}
-        for r in routes:
-            by_dev.setdefault((r["device"], r["basis"], r["setting"]), []).append(r)
-        for (dev, basis, setting), rs in by_dev.items():
-            s3.append(_item(f"{dev} ({setting}) would route local only at tolerance >= " + ", ".join(
-                f"{r['tolerance_local']:.1f} points vs {r['model']}" for r in rs) +
-                f" (local {rs[0]['local']} vs all-cloud " + ", ".join(r["cloud"] for r in rs) + f"; {basis})",
-                MEASURED, "hybrid-route-at-start"))
+        s3.append(_item("Route local with the recommended setting if local accuracy is at least the cloud tier's "
+                        "accuracy minus the tolerance you accept; otherwise the whole session goes to the cloud from "
+                        "the start, and saves nothing.", MEASURED, "hybrid-route-at-start"))
     else:
         s3.append(_item("Routing at session start: being measured", BEING_MEASURED))
+    covered = sorted({r["device"] for r in routes})
     steps.append({"n": 3, "title": "The tool: decide at session start, per device and model", "minutes": 1,
-                  "items": s3, "panel": "device", "defaults": {"device": "evo-x2", "model": "qwen3:14b",
-                                                                "workload": "r2_agent"}})
+                  "items": s3, "panel": "route",
+                  "route": {"entries": routes, "default_tolerance": ROUTE_DEFAULT_TOL, "min": 0, "max": 20,
+                            "volume": 1000, "src": reg_src("hybrid-route-at-start"),
+                            "basis_label": KEPT_LOCAL_LABEL,
+                            "not_measured": "Every other device and model pair: not measured (row "
+                                            "hybrid-route-at-start covers: " + (", ".join(covered) or "none") +
+                                            ")."}})
     # 4. the money: the measured trade-off first; the ceiling only as a side note
     s4 = []
     trade = parse_tradeoff(val("hybrid-savings-tradeoff"))

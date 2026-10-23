@@ -213,6 +213,37 @@ function tradeoffHTML(t) {
   if (t.cpu) h += block(t.cpu, `${t.cpu.device} at 4096 vs ${t.cpu.model}, B3 tasks`, t.cpu.device_label);
   return h;
 }
+// Step 3 accuracy-tolerance slider. routeAt mirrors views.route_at: local if tolerance >= the entry's threshold.
+function routeAt(e, tol) {
+  const local = tol + 1e-9 >= e.tolerance_local;
+  return { route: local ? "local" : "cloud", saves: local ? (e.saves_local ? e.saves_local["1000"] : null) : 0 };
+}
+function routeRows(r, tol) {
+  const usd = (v) => (v == null ? "n/a" : "USD " + v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+  return r.entries.map((e) => {
+    const d = routeAt(e, tol);
+    return `<tr><td>${esc(e.device)}<br><span class="muted small">${esc(e.setting)}</span></td><td>${esc(e.model)}</td>
+      <td class="n">${num(`${e.local} (${e.local_pct.toFixed(1)}%)`, r.src)}${e.r2_basis ? `<br><span class="small">${esc(r.basis_label)}</span>` : ""}</td>
+      <td class="n">${num(`${e.cloud} (${e.cloud_pct.toFixed(1)}%)`, r.src)}</td><td class="n">${num(e.gap.toFixed(1) + " points", r.src)}</td>
+      <td><b>${d.route === "local" ? "local, recommended setting" : "cloud from the start"}</b></td><td class="n">${num(usd(d.saves), r.src)}</td></tr>`;
+  }).join("");
+}
+function routeHTML(r, tol) {
+  if (!r || !r.entries || !r.entries.length) return `<p>${lab("being measured")} routing at session start</p>`;
+  return `<div class="controls"><label>Accuracy gap you accept (points)<input type="range" id="route-tol" min="${r.min}" max="${r.max}" step="0.1" value="${tol}"></label>
+      <span class="big" id="route-tol-v">${tol.toFixed(1)}</span> ${lab("measured")}</div>
+    <div class="scroll"><table id="route-table"><tr><th>local option</th><th>cloud tier</th><th>local accuracy</th><th>cloud accuracy</th><th>gap</th><th>decision at this tolerance</th><th>saves per month at ${r.volume.toLocaleString()} tasks/day</th></tr>${routeRows(r, tol)}</table></div>
+    <p class="muted small">${esc(r.not_measured)} Savings when routed local are the whole all-cloud bill of that tier; 0 when the session goes to the cloud.</p>`;
+}
+function bindRoute(r) {
+  const s = $("#route-tol");
+  if (!s || !s.addEventListener) return;
+  s.addEventListener("input", () => {
+    const t = +s.value;
+    $("#route-tol-v").textContent = t.toFixed(1);
+    $("#route-table").innerHTML = `<tr><th>local option</th><th>cloud tier</th><th>local accuracy</th><th>cloud accuracy</th><th>gap</th><th>decision at this tolerance</th><th>saves per month at ${r.volume.toLocaleString()} tasks/day</th></tr>` + routeRows(r, t);
+  });
+}
 function renderStory() {
   const steps = story.data.steps, st = steps[story.index], n = steps.length;
   $("#story-steps").innerHTML = steps.map((s, i) => `<li class="${i === story.index ? "cur" : i < story.index ? "done" : ""}"><button type="button" data-step="${i}">${s.n}</button></li>`).join("");
@@ -222,7 +253,10 @@ function renderStory() {
   $("#story-back").disabled = story.index === 0;
   $("#story-next").textContent = story.index === n - 1 ? "Finish: explore freely" : "Next";
   returnPanels();
-  $("#story-panel").innerHTML = st.panel === "tradeoff" ? tradeoffHTML(st.tradeoff) : "";
+  const tolParam = parseFloat(new URLSearchParams(location.search).get("tol"));
+  const tol = isNaN(tolParam) ? (st.route ? st.route.default_tolerance : 0) : tolParam;
+  $("#story-panel").innerHTML = st.panel === "tradeoff" ? tradeoffHTML(st.tradeoff) : st.panel === "route" ? routeHTML(st.route, tol) : "";
+  if (st.panel === "route") bindRoute(st.route);
   const sel = STORY_PANELS[st.panel];
   if (sel && $(sel)) $("#story-panel").appendChild($(sel));
   if (st.panel === "device" && st.defaults && !story.deviceSet) {

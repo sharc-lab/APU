@@ -1261,7 +1261,13 @@
    "cloud_pct": 96.7,
    "gap": 7.8,
    "tolerance_local": 7.8,
-   "at_matched": "cloud"
+   "at_matched": "cloud",
+   "saves_local": {
+    "100": 2.01,
+    "1000": 20.12,
+    "10000": 201.25
+   },
+   "r2_basis": false
   },
   {
    "device": "evo-x2",
@@ -1274,7 +1280,13 @@
    "cloud_pct": 100.0,
    "gap": 11.1,
    "tolerance_local": 11.1,
-   "at_matched": "cloud"
+   "at_matched": "cloud",
+   "saves_local": {
+    "100": 30.61,
+    "1000": 306.1,
+    "10000": 3060.99
+   },
+   "r2_basis": false
   },
   {
    "device": "evo-t2s",
@@ -1287,7 +1299,13 @@
    "cloud_pct": 96.7,
    "gap": 16.7,
    "tolerance_local": 16.7,
-   "at_matched": "cloud"
+   "at_matched": "cloud",
+   "saves_local": {
+    "100": 2.01,
+    "1000": 20.12,
+    "10000": 201.25
+   },
+   "r2_basis": true
   },
   {
    "device": "evo-t2s",
@@ -1300,7 +1318,13 @@
    "cloud_pct": 100.0,
    "gap": 20.0,
    "tolerance_local": 20.0,
-   "at_matched": "cloud"
+   "at_matched": "cloud",
+   "saves_local": {
+    "100": 30.61,
+    "1000": 306.1,
+    "10000": 3060.99
+   },
+   "r2_basis": true
   }
  ]
 }

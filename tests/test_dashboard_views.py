@@ -547,7 +547,13 @@ def test_views_js_renders_every_view(app, tmp_path):
     assert [s["indicator"].split(",")[0] for s in w[:5]] == [f"Step {i} of 5" for i in range(1, 6)]
     assert w[0]["story_on"] and w[0]["back_disabled"] and not w[1]["back_disabled"]
     assert w[4]["next"].startswith("Finish") and w[5]["indicator"].startswith("Step 4 of 5")
-    assert w[0]["panel"] == "#silent-body" and w[2]["panel"] == "#device-wrap" and w[4]["panel"] == "#esc-wrap"
+    assert w[0]["panel"] == "#silent-body" and w[4]["panel"] == "#esc-wrap"
+    assert views.ROUTE_TAKEAWAY in w[2]["items"]
+    # the slider (JS routeAt) agrees with views.route_at at 0, 5, 12 and 20 points, and renders at the default 5
+    route = next(st for st in get(app, "/api/story")["steps"] if st["panel"] == "route")["route"]
+    for t in ("0", "5", "12", "20"):
+        assert [d["route"] for d in out["route"][t]] == [views.route_at(e, float(t))["route"] for e in route["entries"]]
+    assert "5.0" in out["routeHTML5"] and "measured by R2 session pass rate (not B3 task accuracy)" in out["routeHTML5"]
     assert w[6]["story_on"] is False  # free exploration after step 5
     assert "5/5" in w[0]["items"] and "42.0%" in w[0]["items"] and "30.0%" in w[1]["items"]
     assert "Fix after the fact: about 2 cents" in w[3]["items"] and "40.1" not in w[3]["items"]
@@ -562,7 +568,7 @@ def test_story_steps_from_committed_files(app):
     s = get(app, "/api/story")
     steps = s["steps"]
     assert [st["n"] for st in steps] == [1, 2, 3, 4, 5] and s["total_minutes"] == 5
-    assert [st["panel"] for st in steps] == ["silent", None, "device", "tradeoff", "escalate"]
+    assert [st["panel"] for st in steps] == ["silent", None, "route", "tradeoff", "escalate"]
     allowed = set(views.LABELS) | {None}
     for st in steps:
         assert st["items"], st["title"]
@@ -595,7 +601,7 @@ def test_story_steps_from_committed_files(app):
     assert t["naive_local"]["silent"] == 10 and t["device_label"] == "measured"
     assert "40.1" not in text and "savings" not in text.lower()
     # step 3: the decision at session start and the kept-local label; step 5: the recorded full-history redo
-    assert "decides at session start" in text and "measured by R2 session pass rate (not B3 task accuracy)" in text
+    assert views.ROUTE_TAKEAWAY in text and "measured by R2 session pass rate (not B3 task accuracy)" in text
     assert any(i["text"].startswith("Recorded full-history cloud redo of this task") for i in steps[4]["items"])
 
 
@@ -674,13 +680,45 @@ def test_route_and_late_escalation_parsers():
     assert views.parse_late_escalation("") is None and views.parse_route_at_start("") == []
 
 
-def test_story_step3_follows_route_at_start(app):
-    s3 = get(app, "/api/story")["steps"][2]["items"]
-    text = " ".join(i["text"] for i in s3)
-    assert "At matched quality (tolerance 0) the measured answer for every measured device is cloud from the start" in text
-    assert "7.8 points vs claude-haiku-5-5" in text and "11.1 points vs claude-sonnet-5-5" in text
-    assert "16.7 points vs claude-haiku-5-5" in text and "20.0 points vs claude-sonnet-5-5" in text
-    assert "being measured" not in text
+def test_story_step3_tolerance_slider(app):
+    st = get(app, "/api/story")["steps"][2]
+    text = " ".join(i["text"] for i in st["items"])
+    assert views.ROUTE_TAKEAWAY == ("How much accuracy gap you accept decides where it runs; we measure that gap per "
+                                    "device.")
+    assert st["items"][0]["text"] == views.ROUTE_TAKEAWAY and "being measured" not in text
+    r = st["route"]
+    assert r["default_tolerance"] == 5 and (r["min"], r["max"]) == (0, 20) and r["volume"] == 1000
+    assert r["src"] == {"register": "hybrid-route-at-start"} and "not measured" in r["not_measured"]
+    gaps = {(e["device"], e["model"]): e["tolerance_local"] for e in r["entries"]}
+    assert gaps == {("evo-x2", "claude-haiku-5-5"): 7.8, ("evo-x2", "claude-sonnet-5-5"): 11.1,
+                    ("evo-t2s", "claude-haiku-5-5"): 16.7, ("evo-t2s", "claude-sonnet-5-5"): 20.0}
+    for e in r["entries"]:
+        # the decision flips exactly at each entry's gap; cloud saves 0, local saves the tier's whole bill
+        below, at = views.route_at(e, e["tolerance_local"] - 0.1), views.route_at(e, e["tolerance_local"])
+        assert below == {"route": "cloud", "saves_1000": 0.0}
+        assert at["route"] == "local" and at["saves_1000"] == e["saves_local"]["1000"] > 0
+        assert e["r2_basis"] == (e["device"] == "evo-t2s")
+        if e["r2_basis"]:
+            assert e["basis"] == "measured by R2 session pass rate (not B3 task accuracy)"
+    at5 = {(e["device"], e["model"]): views.route_at(e, 5)["route"] for e in r["entries"]}
+    assert set(at5.values()) == {"cloud"}
+    at12 = {k: views.route_at(e, 12)["route"] for k, e in zip(gaps, r["entries"])}
+    assert at12[("evo-x2", "claude-haiku-5-5")] == "local" and at12[("evo-x2", "claude-sonnet-5-5")] == "local"
+    assert at12[("evo-t2s", "claude-haiku-5-5")] == "cloud"
+    assert all(views.route_at(e, 20)["route"] == "local" for e in r["entries"])
+
+
+def test_route_parser_picks_up_a_new_local_option():
+    seg = ("evo-x2 llama3.3:70b vs claude-sonnet-5-5: recommended ollama_default, local accuracy 86/90 (95.6%) "
+           "[measured, B3 task accuracy] vs all-cloud 90/90 (100.0%), gap 4.4 points (routes local at tolerance >= "
+           "4.4); tolerance 0: cloud, saves 0.00 / 0.00 / 0.00, accuracy 90/90 (100.0%); tolerance 5: local, saves "
+           "30.61 / 306.10 / 3,060.99, accuracy 86/90 (95.6%)")
+    r = views.parse_route_at_start("rule / " + seg)
+    assert len(r) == 1 and r[0]["device"] == "evo-x2 llama3.3:70b" and r[0]["saves_local"]["1000"] == 306.10
+    assert views.route_at(r[0], 5) == {"route": "local", "saves_1000": 306.10}
+
+
+def test_story_step4_late_escalation(app):
     s4 = " ".join(i["text"] for i in get(app, "/api/story")["steps"][3]["items"])
     assert "1.76x" in s4 and "1.64x" in s4 and "2.22x" in s4 and "being measured" not in s4
     blade = get(app, "/api/device/recommend?device=blade&model=qwen3:14b&workload=r2_agent")

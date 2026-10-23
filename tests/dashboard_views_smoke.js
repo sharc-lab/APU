@@ -28,7 +28,7 @@ global.num = (t, src) => (t == null || t === "" ? "n/a" : (src ? `<a>${esc(t)}</
 global.api = async (p) => { const k = p.split("?")[0]; if (!dump[k]) throw new Error("no dump " + k); return dump[k]; };
 global.fetch = async () => ({ json: async () => dump.POST });
 const text = (h) => h.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-eval(fs.readFileSync(process.argv[2], "utf8") + "\n;global.__r = { renderEscalationResult, storyNav, storyGo, story };");
+eval(fs.readFileSync(process.argv[2], "utf8") + "\n;global.__r = { renderEscalationResult, storyNav, storyGo, story, routeAt, routeHTML };");
 setTimeout(() => {
   const out = {};
   for (const k of ["#silent-body", "#device-body", "#cost-body", "#esc-task"]) out[k] = text(el(k).innerHTML || el(k).textContent);
@@ -45,6 +45,12 @@ setTimeout(() => {
   out.story = walk;
   out.nav = [R.storyNav(0, 5, "back"), R.storyNav(0, 5, "next"), R.storyNav(4, 5, "next"), R.storyNav(2, 5, 9),
              R.storyNav(3, 5, "explore")];
+  const route = (dump["/api/story"].steps.find((s) => s.panel === "route") || {}).route;
+  if (route) {
+    out.route = {};
+    for (const t of [0, 5, 12, 20]) out.route[t] = route.entries.map((e) => R.routeAt(e, t));
+    out.routeHTML5 = text(R.routeHTML(route, route.default_tolerance));
+  }
   R.renderEscalationResult(dump.POST);
   out["#esc-result"] = text(el("#esc-result").innerHTML);
   console.log(JSON.stringify(out));
