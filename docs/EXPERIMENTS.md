@@ -737,7 +737,7 @@ Register row `detector-precision-recall` (analysis entry above), pasted:
 
 ## AMENDMENT (2026-10-23, before any data of it): detector v2 re-check deployed and queued
 
-- Deploy at 2505a1e: `C:pu\ovn\demo` (demo_overflow.py, demo_live.py, demo_live_x2.py) and `C:pu\ovn\qfill`
+- Deploy at 2505a1e: `C:\apu\ovn\demo` (demo_overflow.py, demo_live.py, demo_live_x2.py) and `C:\apu\ovn\qfill`
   (x2_queue_fill.py); verify_deployed_blobs no problems for both. Dry check on evo-x2 (`--mode check-plan --detector
   v2`, no server start, no model call): ok, host EVO-X2, x2_r2_evalset and evalset_env from the side directory.
 - Queue: `x2_queue_fill.py --insert-after x2_b5_simcap_4096 x2_demo_detector_check_v2`: position 80, directly after the
