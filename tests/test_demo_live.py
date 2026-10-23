@@ -60,6 +60,7 @@ def test_projection_equals_the_headline_rows_projection(b3):
 def _fake_local(results):
     def run(lane, task, num_ctx):
         r = dict(results[(lane, num_ctx)])
+        r.setdefault("flagged_v2", r.get("flagged"))     # these fakes stand for a real server cut (both detectors)
         return {"calls": [], "seconds": 1.0, **r}
     return run
 
@@ -156,7 +157,7 @@ def test_screen_api_replay_mode(tmp_path):
     run = tmp_path / "run.jsonl"
     res = {"scenario": "amd8192", "seed": 1, "task_id": "t", "turn_idx": 3, "history_turns": 2,
            "projected_prompt": 5000, "lanes": {
-               "default": {"route": "local", "end_state_ok": False, "flagged": True,
+               "default": {"route": "local", "end_state_ok": False, "flagged": True, "flagged_v2": True,
                            "calls": [{"n": 1, "seconds": 0, "cut": True, "used_tokens": 8000, "own_tokens": 9000}]},
                "ours": {"route": "cloud", "label": "LIVE", "end_state_ok": True, "usd_ledger": 0.05, "seconds": 0,
                         "decision": {"route": "cloud", "reason": "Cloud from the start"}},
