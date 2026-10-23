@@ -4561,6 +4561,42 @@ def compute_task_latency_by_policy(repo):
             if d["status"] == "VERIFIED" else "0"}
 
 
+# ── own-rollback (pre-registered 2026-10-23, docs/EXPERIMENTS.md "Own-rollback redo and the local-first hybrid") ──
+OWN_ROLLBACK_FILE = "results/own_rollback_redo_v1.jsonl"
+
+
+def _own_rollback():
+    import sys as _sys
+    _sys.path.insert(0, str(REPO / "analysis"))
+    import own_rollback as orb
+    return orb
+
+
+def compute_own_rollback_analysis(repo):
+    """Step 2 of own-rollback: the pre-task rollback state vs the full-history redo's env_before, and where the 28
+    earlier_state_repair diffs come from (analysis/own_rollback.py::rollback_analysis)."""
+    orb = _own_rollback()
+    a = orb.rollback_analysis(repo)
+    return {"value": orb.rollback_analysis_text(a), "n": f"{a['n']} tasks"}
+
+
+def compute_own_rollback_redo(repo):
+    """Cloud redo of the 28 earlier_state_repair tasks after rollback (PENDING until its file has run_end)."""
+    orb = _own_rollback()
+    r = orb.own_rollback_redo(repo)
+    return {"value": orb.own_rollback_redo_text(r), "n": f"{len(r['tasks'])} tasks run of {r['n_all']}"}
+
+
+def compute_hybrid_local_first_rollback(repo):
+    """Local first on every task, roll back and escalate on the oracle signal (ceiling) or the over-window stand-in,
+    by replay (analysis/own_rollback.py::local_first_rollback)."""
+    orb = _own_rollback()
+    d = orb.local_first_rollback(repo)
+    return {"value": orb.local_first_rollback_text(d),
+            "n": f"{len(d['cells'])} tiers x {d['cells'][0]['n']} tasks x 2 signals" if d["status"] == "VERIFIED"
+            else "0"}
+
+
 def compute_impact_p2(repo):
     return _impact_row(repo, "P2")
 
@@ -7871,6 +7907,29 @@ NUMBER_ENTRIES = [
      "(the whole-device tolerance rule stays in hybrid-route-at-start)",
      "compute": compute_hybrid_route_at_start_measured, "data_files": ROUTE_MEASURED_FILES,
      "script_function": "analysis/impact_model.py::route_at_start_measured"},
+    {"claim_id": "own-rollback-analysis", "description": "Own-rollback step 2 (pre-registered 2026-10-23, before any "
+     "spend): for the 28 earlier_state_repair tasks of the full-history redo, the pre-task rollback state (evalset_env "
+     "SnapshotLog, failed turn undone) vs the redo's env_before, earlier wrong tasks per session, and whether the redo's "
+     "diff lies only on records broken by earlier wrong local tasks; their measured redo cost",
+     "compute": compute_own_rollback_analysis,
+     "data_files": [X2_EVALSET_TASKS_REAL_V2, CLOUD_REDO_FULL_CONTEXT, CLOUD_REDO_FULL_CONTEXT_PART2,
+                    "results/cloud_redo_full_context_v1_part3.jsonl"],
+     "script_function": "analysis/own_rollback.py::rollback_analysis"},
+    {"claim_id": "own-rollback-redo", "description": "Cloud redo of the 28 earlier_state_repair tasks after rollback "
+     "(claude-sonnet-5-5, thinking off, max_tokens 2048, full history); pre-registered target >= 25/28 fixed; PENDING "
+     "until results/own_rollback_redo_v1.jsonl has run_end (run on hold for the operator's decision: the pre-task "
+     "rollback equals the full-history redo's state, see own-rollback-analysis)",
+     "compute": compute_own_rollback_redo, "data_files": [OWN_ROLLBACK_FILE], "pending_ok": True,
+     "require_run_end": [OWN_ROLLBACK_FILE],
+     "script_function": "analysis/own_rollback.py::own_rollback_redo"},
+    {"claim_id": "hybrid-local-first-rollback", "description": "Local-first hybrid with rollback, by replay of "
+     "recorded runs: every task local first (B3 v2, qwen3:14b, evo-x2 num_ctx 8192 and 4096, seeds 20260901-03), "
+     "rolled back and escalated to claude-sonnet-5-5 on the oracle signal (ceiling) or the recorded over_loaded_window "
+     "condition (stand-in for detector v2); escalated tasks graded and costed from the own-rollback redo where it "
+     "exists, else the full-history redo (labelled); accuracy, cloud USD per task, share kept local vs all-cloud and "
+     "naive local",
+     "compute": compute_hybrid_local_first_rollback, "data_files": ROUTE_MEASURED_FILES,
+     "script_function": "analysis/own_rollback.py::local_first_rollback"},
     {"claim_id": "task-latency-by-policy", "description": "Wall-clock seconds per task, median and p90, by replay of "
      "recorded runs: all-cloud (all_cloud_b3_v1 seconds, each cloud tier), local (x2_evalset_tasks_real_v2 "
      "turn_wall_s, each B3 v2 tier) and the per-task hybrid of hybrid-route-at-start-measured; seeds 20260901-03; "

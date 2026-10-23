@@ -5980,3 +5980,57 @@ a local machine: ... USD 57.24", "USD 72.36", "USD 223.62" against the all-cloud
 chance to change a pick. This validates the cost model and the ranking code, not the probe-driven choice between local
 configurations. Long and mixed workloads: "PENDING: row long-task-local-accuracy not VERIFIED" (6 cells), and the
 long-task candidate builder is not written yet; "MET (3/3 computed cells, 6 PENDING)".
+
+## PRE-REGISTRATION (2026-10-23): own-rollback redo and the local-first hybrid with rollback (pointer)
+
+Full entry in docs/EXPERIMENTS.md, "2026-10-23: Own-rollback redo and the local-first hybrid with rollback",
+committed before any cloud call and before row `hybrid-local-first-rollback` was computed. In short:
+
+- **Snapshots.** harness/evalset_env.py now has SnapshotLog: a deep copy of the environment before every
+  state-changing tool call, named marks (pre-task, session start), exact restore. scripts/cloud_redo.py --rollback
+  pre_task replays the local session on it, applies the failed turn's own calls, and restores the pre-task mark.
+- **Rollback to the pre-task state cannot fix the 28 earlier_state_repair tasks by construction.** The grader's
+  expected state is the reference applied to the actual pre-task state, and the full-history redo already started from
+  that state: the rollback state equals the redo's env_before in 28/28. In 28/28 the session had earlier wrong local
+  tasks, and every record the cloud changed outside the task was one those earlier tasks broke (28/28).
+- **Proposed instead (operator decision pending, no cloud call made):** cascaded rollback, where each earlier failed
+  task was itself rolled back and escalated, so the redone task starts from a clean state with nothing to repair;
+  grader unchanged. Cost estimate from the full-history redo of the same 28: billed USD 0.6699 (upper bound USD
+  2.6915). Target if run: >= 25/28. Row `own-rollback-redo` (PENDING).
+- **Hybrid by replay** (row `hybrid-local-first-rollback`): local first on every task at ollama_ctx_8192 and
+  ollama_ctx_4096, roll back and escalate to claude-sonnet-5-5 on (a) the oracle signal (ceiling) or (b) the recorded
+  over_loaded_window condition (stand-in for detector v2); escalated tasks graded from the own-rollback redo where it
+  exists, else the full-history redo (labelled).
+
+## RESULTS (2026-10-23): local-first hybrid with rollback, by replay; the own-rollback cloud run is on hold
+
+Computed after the pre-registration above (docs/EXPERIMENTS.md, "2026-10-23: Own-rollback redo and the local-first
+hybrid with rollback"), as registered. Rows `own-rollback-analysis` and `hybrid-local-first-rollback` (VERIFIED),
+`own-rollback-redo` (PENDING, not run). No cloud call was made; no spend.
+
+**Rollback to the pre-task state replicates the full-history redo.** Row `own-rollback-analysis`: for the 28
+earlier_state_repair tasks, the rollback state equals the redo's env_before in 28/28, every session had earlier wrong
+local tasks (28/28, 1 to 11 each), and every record the cloud changed outside its task was one an earlier wrong local
+task broke (28/28). The grader's expected state is the reference applied to that same pre-task state, so these 28
+cannot be fixed by rolling back to it. The variant that can (cascaded rollback, each earlier failed task rolled back and
+escalated in turn) awaits the operator's decision.
+
+**Hybrid by replay** (row `hybrid-local-first-rollback`, claude-sonnet-5-5, seeds 20260901-03, 90 tasks per tier;
+escalated tasks graded from the full-history redo, whose state is the pre-task rollback state; no own-rollback redo row
+exists yet):
+
+| evo-x2 tier | Policy | Accuracy | Cloud USD / task | Kept local |
+|---|---|---|---|---|
+| ollama_ctx_8192 | local first, rollback, oracle signal (ceiling) | 86/90 (95.6%) | 0.00802 | 57/90 (63.3%) |
+| ollama_ctx_8192 | local first, rollback, over_loaded_window (stand-in for detector v2) | 83/90 (92.2%) | 0.01482 | 27/90 (30.0%) |
+| ollama_ctx_8192 | all-cloud | 90/90 (100.0%) | 0.01020 | 0 |
+| ollama_ctx_8192 | naive local | 57/90 (63.3%) | 0 | 90/90 |
+| ollama_ctx_4096 | local first, rollback, oracle signal (ceiling) | 83/90 (92.2%) | 0.00699 | 53/90 (58.9%) |
+| ollama_ctx_4096 | local first, rollback, over_loaded_window (stand-in for detector v2) | 83/90 (92.2%) | 0.01658 | 2/90 (2.2%) |
+| ollama_ctx_4096 | all-cloud | 90/90 (100.0%) | 0.01020 | 0 |
+| ollama_ctx_4096 | naive local | 53/90 (58.9%) | 0 | 90/90 |
+
+Every escalated task still wrong is class earlier_state_repair (8192: 4 of 4; 4096: 7 of 7, both signals). With the
+stand-in signal, 33 (8192) and 51 (4096) escalations were of tasks the local model got right; they are imputed at the
+tier's mean redo USD with the all-cloud outcome. Even the oracle ceiling stays below all-cloud accuracy, and the gap is
+exactly the repair class; with the stand-in signal the hybrid costs more per task than all-cloud at both tiers.

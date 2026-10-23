@@ -463,6 +463,8 @@ accuracy on 5 tasks is descriptive only.
 Offline only: no machine time, no SSH, no cloud calls. Both analyses read committed result files only. Pointer in
 docs/FINDINGS.md "PRE-REGISTRATION: own-profiler and own-dse-v1".
 
+## 2026-10-23: Own-rollback redo and the local-first hybrid with rollback (PRE-REGISTRATION; cloud run ON HOLD for the operator's decision)
+
 ### Metadata
 
 - Date: 2026-10-23
@@ -595,3 +597,117 @@ a local machine: ... USD 57.24", "USD 72.36", "USD 223.62" against the all-cloud
 chance to change a pick. This validates the cost model and the ranking code, not the probe-driven choice between local
 configurations. Long and mixed workloads: "PENDING: row long-task-local-accuracy not VERIFIED" (6 cells), and the
 long-task candidate builder is not written yet; "MET (3/3 computed cells, 6 PENDING)".
+
+- Git hash: df10229 (harness/evalset_env.py SnapshotLog, scripts/cloud_redo.py --rollback pre_task) plus the commit
+  that adds this entry and analysis/own_rollback.py
+- Branch: worktree-agent-a30c5d4aa0d169d89
+- Machine: controller laptop; offline analysis and replay; the cloud run (if approved) through src/cloud/client.py
+
+### Why
+
+The full-history redo (row `cloud-redo-full-context`) fixed 167 of 197 wrong tasks; 28 of the 30 it did not fix are
+class earlier_state_repair (analysis/cloud_redo_diagnosis.py). Operator item 1: add transactional snapshots to the B3 v2
+simulated tools, restore the pre-task state on escalation, and redo the task on the cloud from there.
+
+### Step 2 analysis (done before any spend; analysis/own_rollback.py::rollback_analysis, from result files)
+
+What "fixed" means. evalset_env.check_task sets expected = the task's reference calls applied to env_before, and
+actual = the cloud's calls applied to the same env_before; a task is fixed iff the two states are equal (plus the
+answer for an information task). So any change to a record the task does not touch is a diff, including restoring a
+record the local model broke in an EARLIER turn.
+
+Measured over the 28 (verbatim from rollback_analysis_text):
+
+- 28 earlier_state_repair tasks of the full-history redo (claude-sonnet-5-5): pre-task rollback state (snapshots,
+  failed turn undone) equals the redo's env_before in 28/28; failed local turns with state-changing calls undone 14/28
+  (14 calls); sessions with at least one earlier wrong task 28/28 (1 to 11 earlier wrong tasks); guardrail turns that
+  changed state 0/28; redo end-state diff only on records the local model broke in earlier wrong tasks (env_before vs
+  the clean pre-task state) 28/28; measured cost of these 28 in the full-history redo: billed (cache-priced) USD
+  0.6699 (mean 0.02393), all input uncached USD 2.6915.
+
+Conclusion. Rollback to the PRE-TASK snapshot cannot fix these 28 by construction. The full-history redo already
+started each task from the pre-task state (scripts/cloud_redo.py::rebuild applies only the earlier turns' calls, never
+the failed turn's), so the rollback state is byte-identical to the state those 28 failed from (28/28), the transcript
+is the same, and the grader is the same. Re-running them would re-measure the same protocol; any change would be
+sampling noise, not rollback. The failure cause sits in EARLIER turns: in every one of the 28, the records the cloud
+changed outside the task are exactly records broken by earlier wrong local tasks (28/28), and no guardrail turn
+changed state.
+
+Other snapshot points and grader changes considered:
+
+- Session-start snapshot alone: restoring env0 also erases the earlier tasks the local model did right; to get a
+  consistent state the whole session would have to be redone on the cloud, which is route-at-start
+  (`hybrid-route-at-start-measured`), not rollback.
+- Grader change (accept a change to a record outside the task when it moves that record to its clean value): the
+  redo rows do not record the cloud's tool arguments or end state, so the 28 cannot be regraded offline; it would
+  need a rerun, and adopting it now would be a grader change chosen after seeing these 28 results. Not proposed.
+- Cascaded rollback (PROPOSED variant, can fix by construction): what a rollback hybrid with the oracle signal does
+  is roll back and escalate EVERY failed task when it fails, so a later task never inherits earlier local damage.
+  Replay of that: the pre-task state of the redone task = the local session replayed with every earlier wrong task
+  turn rolled back at its own pre-task snapshot and replaced by its reference calls (the stand-in for a successful
+  escalation of that earlier task; analysis/own_rollback.py::clean_pre_task_env), the grader unchanged (expected =
+  reference applied to that clean state). The transcript must agree with that state: the earlier wrong turns' local
+  assistant messages are replaced by the reference calls with their recomputed tool results (a stand-in cloud
+  transcript; the alternative, dropping those turns, hides from the model what was done). Since every diff record of
+  the 28 is a record that is clean in this state, there is nothing left to repair. Stated limits: the earlier
+  escalations are assumed to succeed (167/197 did in the full-history redo), and the stand-in transcript is the
+  reference, not a recorded cloud transcript.
+
+Decision requested from the operator before any cloud call: run the cascaded-rollback variant (needs a small
+extension of cloud_redo.py, not yet written), or run the pre-task rollback as specified knowing it replicates the
+full-history redo, or neither.
+
+### Configuration (for the cloud run, whichever variant is approved)
+
+- Model: claude-sonnet-5-5 (the price file's escalation_mid_tier), thinking {"type": "between_tools"}
+  (--thinking-off), no temperature sent, max_tokens 2048 per call (declared difference from the local 384, as in
+  parts 2 and 3 of the full-history redo), prompt caching on, the same tool loop and grader, stop on an empty reply at
+  max_tokens.
+- Tasks: the 28 earlier_state_repair tasks of `cloud-redo-full-context` (cloud_redo.repair_keys).
+- Statistics: 1 warm-up call (excluded) + each task once.
+- Budget: billed projection = the same 28 tasks' measured cache-priced USD in the full-history redo, USD 0.6699
+  (upper bound, every input token uncached, USD 2.6915). Job cap USD 1 on the billed basis (the ledger records
+  billed cost since 2026-10-22); main ledger passed with --ledger.
+- Target (fixed now): >= 25/28 fixed. Row `own-rollback-redo` (PENDING until results/own_rollback_redo_v1.jsonl has
+  run_end).
+
+### Command (pre-task variant as specified; not run)
+
+- `$env:ANTHROPIC_API_KEY = [Environment]::GetEnvironmentVariable('ANTHROPIC_API_KEY','User');
+  $env:CLOUD_CLIENT_HOST_ROLE='controller'; py -3.12 scripts/cloud_redo.py --live --thinking-off --rollback pre_task
+  --max-tokens 2048 --job-cap 1 --ledger <main checkout>\results\cloud_ledger.jsonl; Remove-Item
+  Env:\ANTHROPIC_API_KEY`
+
+### Replay Cache State (step 4, row hybrid-local-first-rollback)
+
+- Replay mode: CACHED REPLAY of recorded runs, labelled "measured by replay of recorded runs".
+- Tiers: evo-x2 ollama_ctx_8192 and ollama_ctx_4096 (qwen3:14b, the tiers of hybrid-route-at-start-measured); seeds
+  20260901-03 (shared with the all-cloud run); 90 tasks per tier; cloud tier claude-sonnet-5-5 (the only model with a
+  redo).
+- Policy: every task runs local first (results/x2_evalset_tasks_real_v2.jsonl). When the signal fires, the task is
+  rolled back (local snapshots, USD 0) and escalated.
+- Signals: (a) ORACLE, labelled "ceiling, oracle signal": the task ended wrong (end_state_ok false); (b) MEASURED,
+  labelled as a stand-in: detector v2 reads Ollama's own "truncating input prompt" log line, but the B3 v2 run kept no
+  server logs, so the recorded over_loaded_window condition (impact_model.turn_over_window) stands in.
+- Escalated task outcome and cache-priced USD: the own-rollback redo row (results/own_rollback_redo_v1.jsonl) when it
+  exists, else the full-history redo row of the same tier, seed and task (labelled; its env_before is the pre-task
+  rollback state, 28/28 checked above, and every wrong task has a row); a task the window flag escalates that was right
+  locally has no redo row and is IMPUTED as in hybrid-route-at-start-measured (tier mean redo USD, Sonnet all-cloud
+  outcome).
+- Reported per tier and signal: accuracy, cloud USD per task, share kept local, escalated by source, escalated and
+  still wrong (and how many of those are earlier_state_repair), against Sonnet all-cloud and naive local on the same
+  90 tasks. Nothing gated. Computed by analysis/own_rollback.py::local_first_rollback.
+- Assumption stated with the figures: a task's local outcome does not depend on earlier escalations (in the recorded
+  run every earlier task ran local).
+
+### Result Summary
+
+- Filled in FINDINGS after computation; this entry is not edited.
+
+### Validity Flags
+
+- The pre-task rollback, as specified, is identical in state, transcript and grader to the full-history redo for the
+  28 tasks (measured above); its result would not measure rollback.
+- The window signal is a stand-in for detector v2 (no server logs in the B3 v2 run).
+- Deviations from protocol: none yet. If the live launch is blocked by the permission system, it is not run another
+  way; the exact command goes to the operator.

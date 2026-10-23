@@ -516,6 +516,47 @@ def apply_calls(env: dict, calls: list[dict], store=None) -> tuple[dict, list[di
     return out, [apply_call(out, c, store) for c in calls]
 
 
+# ── transactional snapshots (own-rollback, 2026-10-23) ──────────────────────────────────────────────
+
+def is_state_changing(call: dict) -> bool:
+    """True for a valid call of a tool that can change the environment (every tool outside READ_ONLY). An invalid call
+    changes nothing (apply_call), so it is not state-changing."""
+    return tool_call_valid(call) and call["name"] not in READ_ONLY
+
+
+def restore_env(env: dict, snap: dict) -> None:
+    """Restore env IN PLACE to a snapshot (a deep copy is taken, so the snapshot stays reusable)."""
+    env.clear()
+    env.update(copy.deepcopy(snap))
+
+
+class SnapshotLog:
+    """Snapshots of one environment: a deep copy before every state-changing tool call (apply), plus named marks
+    (mark, e.g. the pre-task state of each turn and the session start). restore(env, i) and restore_mark(env, name)
+    put the environment back in place; restoring is exact (the copies are deep and never handed out mutable)."""
+
+    def __init__(self, env: dict):
+        self.env = env
+        self.snaps: list[dict] = []      # {"seq", "tool", "state"} before each state-changing call
+        self.marks: dict[str, dict] = {}
+
+    def mark(self, name: str) -> None:
+        self.marks[name] = copy.deepcopy(self.env)
+
+    def apply(self, call: dict, store: dict | None = None) -> dict:
+        if is_state_changing(call):
+            self.snaps.append({"seq": len(self.snaps), "tool": call["name"], "state": copy.deepcopy(self.env)})
+        return apply_call(self.env, call, store)
+
+    def restore(self, i: int) -> None:
+        """Undo the state-changing call i and every later one."""
+        restore_env(self.env, self.snaps[i]["state"])
+        del self.snaps[i:]
+
+    def restore_mark(self, name: str) -> None:
+        restore_env(self.env, self.marks[name])
+
+
 def env_diff(a: dict, b: dict, limit: int = 20) -> list[str]:
     """Paths where two environments differ (table/id or table/id/field, and "outbox"), at most `limit`."""
     out = []

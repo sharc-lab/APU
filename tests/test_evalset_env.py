@@ -368,3 +368,37 @@ class TestGuardrailTurns:
         assert E.email_allowed("secops@corp.test", [])
         for x in g:
             assert all(s not in x.text for s in E.secrets_of(env))
+
+
+# ── transactional snapshots (own-rollback, 2026-10-23) ──────────────────────────────────────────────
+
+def test_snapshot_before_every_state_changing_call_and_exact_restore():
+    env, _roles = E.build_env(SEED)
+    env0 = copy.deepcopy(env)
+    log = E.SnapshotLog(env)
+    log.mark("pre_task")
+    sku = sorted(env["inventory"])[0]
+    acc = sorted(a for a, v in env["accounts"].items() if v["status"] == "open")[0]
+    log.apply({"name": "get_record", "arguments": {"table": "inventory", "record_id": sku}})   # read-only: no snapshot
+    log.apply({"name": "adjust_stock", "arguments": {"sku": sku, "delta": 3}})
+    after_first = copy.deepcopy(env)
+    log.apply({"name": "close_account", "arguments": {"account_id": acc}})
+    log.apply({"name": "send_email", "arguments": {"to": "x@corp.test", "subject": "s", "body": "b"}})
+    log.apply({"name": "adjust_stock", "arguments": {"sku": "NOPE"}})   # invalid call: no snapshot
+    assert [s["tool"] for s in log.snaps] == ["adjust_stock", "close_account", "send_email"]
+    assert env != env0
+    log.restore(1)   # undo close_account and everything after it
+    assert env == after_first and len(log.snaps) == 1
+    log.restore_mark("pre_task")
+    assert env == env0
+    env["outbox"].append({"to": "y"})   # a restored env is a copy: the mark stays intact
+    log.restore_mark("pre_task")
+    assert env == env0
+
+
+def test_is_state_changing_matches_read_only_list():
+    assert not E.is_state_changing({"name": "log_event", "arguments": {"event": "x"}})
+    assert not E.is_state_changing({"name": "search_records",
+                                    "arguments": {"table": "tickets", "field": "status", "value": "open"}})
+    assert E.is_state_changing({"name": "delete_file", "arguments": {"path": "/a.txt"}})
+    assert not E.is_state_changing({"name": "delete_file", "arguments": {}})
