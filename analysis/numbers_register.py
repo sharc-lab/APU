@@ -7103,7 +7103,10 @@ def compute_long_task_cloud_priced_vs_billed(repo):
 OC_PARTS = {"a": "results/x2_own_compaction_v1_a.jsonl", "b": "results/x2_own_compaction_v1_b.jsonl"}
 OC_PROBES = {"q8": "results/x2_own_config_probe_q8_15360.jsonl", "q4": "results/x2_own_config_probe_q4_28928.jsonl"}
 MITIGATION_X2_FILE = "results/x2_r2_mitigation_v1.jsonl"
-SIMCAP4096_FILE = "results/x2_policy_compare_simcap4096.jsonl"
+# Queue anchor: x2_b5_simcap_4096 (running) started 2026-10-23T13:40:29Z (run_start of the synced partial file
+# results/x2_policy_compare_simcap4096.jsonl; epoch 1792762828 in the detector v2 queue amendment). A constant, so the
+# row does not wait for that run's run_end.
+OWN_ANCHOR_UTC = "2026-10-23T13:40:29+00:00"
 # x2_demo_detector_check_v2 (position 80): ESTIMATE 0.10 h, high 0.30 h, from its own queue amendment (docs/
 # EXPERIMENTS.md on branch demo/oct28, commit 788635b; the v1 check ran 3.1 min). Not on main, copied here.
 DETECTOR_V2_HOURS = (0.10, 0.30)
@@ -7176,7 +7179,7 @@ def own_queue_projection(repo) -> dict:
     l70 = l70_b3v2_estimates(repo)
     _lt, xl = _longtask_modules()
     lt = xl.hours_estimate(ag.read_rows(repo / B5_X2_FILE))["total"]
-    start = next(r for r in ag.read_rows(repo / SIMCAP4096_FILE) if r.get("record") == "run_start")["ts_utc"]
+    start = OWN_ANCHOR_UTC
     ahead = [("x2_b5_simcap_4096 (running)", fill["x2_b5_simcap_4096"]["point_h"], fill["x2_b5_simcap_4096"]["high_h"]),
              ("x2_demo_detector_check_v2", *DETECTOR_V2_HOURS)]
     for j in FILL_1022_ORDER[FILL_1022_ORDER.index("x2_r2_v1b_seeds_06_10"):]:
@@ -8305,7 +8308,7 @@ NUMBER_ENTRIES = [
      "and the own-config-search probes from measured B3 v2 and trim times, and their projected place in the evo-x2 "
      "queue against the E1 block start and the 2026-10-29 demo hold",
      "compute": compute_own_jobs_hours,
-     "data_files": [X2_EVALSET_TASKS_REAL_V2, MITIGATION_X2_FILE, SIMCAP4096_FILE, B5_X2_FILE] + FILL_1022_DATA
+     "data_files": [X2_EVALSET_TASKS_REAL_V2, MITIGATION_X2_FILE, B5_X2_FILE] + FILL_1022_DATA
      + L70_HOURS_DATA, "script_function": "harness/own_compaction.py::hours_estimate"},
     {"claim_id": "own-compaction-4096", "description": "own-compaction at num_ctx 4096 (qwen3:14b, B3 v2, seeds "
      "20260901-05) with client trim at 4096 as comparison: wrong rate, every failure silent vs flagged (detector v2), "
