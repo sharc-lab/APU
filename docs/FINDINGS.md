@@ -5930,3 +5930,15 @@ lane alongside), cloud parts on the controller. Rows `demo-detector-check` and `
 Picks frozen before any run in demo/live/picks_v1.json by the operator's rule of 2026-10-23 (3 tasks wrong at 4096 in
 at least 3 of 5 seeds and right at the default in at least 4 of 5; 2 right in at least 4 of 5 seeds in every arm; ties
 by task id): cal_cancel, cal_default_len, file_write_standing; cal_rename, eml_internal.
+
+
+## ANALYSIS AND PRE-REGISTRATION (2026-10-23): detector false alarms and the detector v2 re-check (pointer)
+
+Both are in docs/EXPERIMENTS.md (entries "ANALYSIS (2026-10-23): detector false alarms ..." and "PRE-REGISTRATION
+(2026-10-23, before any run of it): detector v2 re-check"). In short: the 10 v1 false alarms of the demo runs are
+explained by H2 (our chars/4-based size overstated long qwen3:14b prompts; server / estimate 1.077 to 1.082 against the
+v1 threshold 1.0820), not H1 (task.n_tokens includes the cached prefix on every one). Row `detector-precision-recall`:
+v1 pooled precision 0.588, recall 1.000 (452 calls); proposed v2 (the server's own cut lines only) agrees with the log
+ground truth by construction, independently checked by the mechanism job's render-only prompt on 223/223 calls. The v2
+re-check (same 5 picks, 4096 and default, pass iff 5/5 and 0/5) is queued on evo-x2 after x2_b5_simcap_4096; row
+`demo-detector-check-v2` PENDING until run_end.

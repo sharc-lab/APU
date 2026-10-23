@@ -135,9 +135,11 @@ def detector_check(args, emit, results_dir: Path) -> str:
     rows = L.read_jsonl(results_dir / L.B3_FILE)
     prof = load_profile()
     ratio = prof["calibration"]["ratio"]
+    det = args.detector
     emit({"record": "run_start", "harness": "demo_detector_check", "arms": ["num_ctx_4096", "default"],
-          **provenance(args, args.picks)})
-    servers = Servers(log_root(args, results_dir) / "detector_check", emit)
+          "detector": det, **provenance(args, args.picks)})
+    servers = Servers(log_root(args, results_dir) / ("detector_check" if det == "v1" else f"detector_check_{det}"),
+                      emit)
     fired = {"num_ctx_4096": 0, "default": 0}
     try:
         tasks = [L.build_task(rows, p["seed"], p["task_id"], with_cloud=False) for p in picks]
@@ -145,14 +147,17 @@ def detector_check(args, emit, results_dir: Path) -> str:
         for arm, ctx in (("num_ctx_4096", 4096), ("default", None)):
             for t in tasks:
                 r = run(arm, t, ctx)
-                fired[arm] += bool(r["flagged"])
-                emit({"record": "detector_task", "arm": arm, "num_ctx": ctx, **strip_task(t),
-                      **{k: r[k] for k in ("end_state_ok", "flagged", "calls", "n_calls", "seconds",
-                                           "max_used_tokens", "max_own_tokens", "any_http_error")}})
+                flag = r["flagged"] if det == "v1" else r["flagged_v2"]
+                fired[arm] += bool(flag)
+                emit({"record": "detector_task", "arm": arm, "num_ctx": ctx, "detector": det, **strip_task(t),
+                      **{k: r[k] for k in ("end_state_ok", "calls", "n_calls", "seconds",
+                                           "max_used_tokens", "max_own_tokens", "any_http_error")},
+                      "flagged": bool(flag), "flagged_v1": r["flagged"], "flagged_v2": r["flagged_v2"]})
     finally:
         servers.close()
-    emit({"record": "run_end", "fired": fired, "n_tasks": len(picks)})
-    return f"completed: fired at 4096 {fired['num_ctx_4096']}/{len(picks)}, at default {fired['default']}/{len(picks)}"
+    emit({"record": "run_end", "fired": fired, "n_tasks": len(picks), "detector": det})
+    return (f"completed: detector {det} fired at 4096 {fired['num_ctx_4096']}/{len(picks)}, at default "
+            f"{fired['default']}/{len(picks)}")
 
 
 def acceptance(args, emit, results_dir: Path) -> str:
@@ -250,6 +255,7 @@ def main(argv=None) -> int:
     ap.add_argument("--results-dir", default=None)
     ap.add_argument("--scenarios", default="amd8192,intel")
     ap.add_argument("--budget-usd", default="3.0")
+    ap.add_argument("--detector", choices=("v1", "v2"), default="v1", help="detector-check: which detector is scored")
     ap.add_argument("--model", default=L.MODEL, help="local model (development only; the runs use qwen3:14b)")
     ap.add_argument("--log-dir", default=None)
     ap.add_argument("--queued", action="store_true", help="call t2s_queue.advance() on exit")

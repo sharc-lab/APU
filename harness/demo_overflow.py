@@ -27,7 +27,10 @@ call's log slice is the byte range written between the request and the response)
                 cut ("truncating input prompt", WARN), llama.cpp's context shift ("slot context shift"), or an
                 exceed-context error. Patterns are x2_r2_mechanism._PATTERNS (from Ollama 0.34.4's source).
 
-  cut = any direct cut, or used < own * (1 - COUNT_TOLERANCE).
+  cut (v1) = any direct cut, or used < own * (1 - COUNT_TOLERANCE).
+  cut_v2 (proposed 2026-10-23) = any direct cut only. Why: the v1 count comparison fired at the default window on calls
+  with no cut (row detector-precision-recall): our chars/4-based size overstated these long prompts by 8 to 12% for
+  qwen3:14b and is off by more for llama3.1:8b; the server's own lines report the cut directly.
   Without a log slice (no server log), the fallback is "own > loaded window" (method "window_only"), never
   prompt_eval_count alone.
 
@@ -92,10 +95,22 @@ def detect(own_tokens: int, prompt_eval_count: int | None, log_text: str | None,
         out["method"] = "log_lines_only"
         if loaded_window is not None and own_tokens > loaded_window:
             out["evidence"].append(f"prompt about {own_tokens} tokens, window {loaded_window}")
+    lines = [e for e in out["evidence"] if not e.startswith("prompt about")]
     if out["used_tokens"] is not None and out["used_tokens"] < own_tokens * (1 - tolerance):
         out["evidence"].append(f"model saw {out['used_tokens']} of about {own_tokens} tokens")
     out["cut"] = bool(out["evidence"])
+    # v2 (2026-10-23, docs/EXPERIMENTS.md "detector v2 re-check"; proposed, re-checked on evo-x2 before the screen uses
+    # it): the server's own cut lines only. The token-count comparison above is v1 and stays the recorded `cut`.
+    out["cut_v2"] = bool(lines) if log_text is not None else out["cut"]
+    out["evidence_v2"] = lines
     return out
+
+
+def verdict(v: dict, version: str = "v1") -> bool:
+    """The detector's answer for a version: v1 (as pre-registered for the 2026-10-23 runs) or v2 (cut lines only)."""
+    if version not in ("v1", "v2"):
+        raise ValueError(version)
+    return bool(v["cut"] if version == "v1" else v["cut_v2"])
 
 
 def naive_detect(own_tokens: int, prompt_eval_count: int | None, tolerance: float = COUNT_TOLERANCE) -> bool:

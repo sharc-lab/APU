@@ -191,6 +191,17 @@ ENTRIES = {
                 "the frozen picks' prompts 6.6k to 9.1k tokens). "
                 + RELEASE,
     },
+    "x2_demo_detector_check_v2": {
+        "projected_duration_h": 0.10,
+        "cmd": [PY, "demo\\demo_live_x2.py", "--mode", "detector-check", "--detector", "v2", "--picks",
+                "demo\\picks_v1.json", "--results-dir", RESULTS, "--out", f"{RESULTS}\\demo_detector_check_v2.jsonl",
+                "--queued"],
+        "note": "Live demo cut-off detector v2 re-check (the server's own cut lines only), pre-registered in "
+                "docs/EXPERIMENTS.md 2026-10-23: the same 5 frozen picks at num_ctx 4096 and at the runtime default, "
+                "pass iff it fires on 5/5 at 4096 and 0/5 at the default; own Ollama servers on ports 11541/11544, "
+                "started and stopped by the job. ESTIMATE 0.10 h (high 0.3 h; the v1 check ran 3.1 min, run_start to run_end). "
+                + RELEASE,
+    },
     "x2_demo_live_acceptance": {
         "projected_duration_h": 0.15,
         "cmd": [PY, "demo\\demo_live_x2.py", "--mode", "acceptance", "--picks", "demo\\picks_v1.json",

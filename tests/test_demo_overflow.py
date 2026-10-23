@@ -13,6 +13,7 @@ import pytest
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "harness"))
+sys.path.insert(0, str(REPO / "analysis"))
 
 import demo_overflow as D  # noqa: E402
 
@@ -43,6 +44,26 @@ def test_agrees_with_the_mechanism_runs_own_verdict_on_every_call(calls):
         assert _verdict(r)["cut"] == truly_cut(r), (r["arm_id"], r["turn_idx"], r["call_idx"])
     assert sum(truly_cut(r) for r in calls if r["arm_id"].startswith("ollama_ctx_4096")) == 76
     assert not any(truly_cut(r) for r in calls if r["arm_id"].startswith("ollama_default"))
+
+
+def test_v2_cut_lines_only_matches_the_mechanism_verdict_with_the_real_estimates(calls):
+    rows = {(r["arm_id"], r["seed"], r["turn_idx"]): r for r in map(json.loads, open(
+        REPO / "results" / "x2_r2_mechanism.jsonl", encoding="utf-8")) if r.get("record") == "r2a_turn"}
+    v1_fp = 0
+    for r in calls:
+        t = rows[(r["arm_id"], r["seed"], r["turn_idx"])]
+        own = round(t["calls"][r["call_idx"] - 1]["prompt_tokens_est"] * t["token_calib_ratio"])
+        v = D.detect(own, r["prompt_eval_count"], "\n".join(r["log_excerpt"]), r["num_ctx_requested"] or 131072,
+                     n_messages=r["n_messages_sent"])
+        assert D.verdict(v, "v2") == truly_cut(r)
+        v1_fp += D.verdict(v, "v1") and not truly_cut(r)
+    assert v1_fp > 100          # the v1 count comparison misfires with the real estimates (llama3.1:8b)
+
+
+def test_v2_does_not_fire_on_the_demo_default_window_calls():
+    import demo_detector_analysis as dd   # noqa: PLC0415
+    calls = [c for c in dd.demo_calls(REPO) if c["source"] == "detector check" and c["lane"] == "default"]
+    assert len(calls) == 10 and sum(c["v1"] for c in calls) == 4 and not any(c["v2"] for c in calls)
 
 
 def test_default_window_long_session_does_not_fire_despite_prefix_caching():

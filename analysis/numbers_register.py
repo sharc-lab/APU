@@ -7103,12 +7103,20 @@ def compute_long_task_cloud_priced_vs_billed(repo):
 DEMO_DETECTOR_FILE = "results/demo_detector_check.jsonl"
 
 
-def compute_demo_detector_check(repo):
+DEMO_DETECTOR_V2_FILE = "results/demo_detector_check_v2.jsonl"
+
+
+def compute_demo_detector_check_v2(repo):
+    """The detector v2 re-check (server cut lines only), same picks and pass rule as demo-detector-check."""
+    return compute_demo_detector_check(repo, DEMO_DETECTOR_V2_FILE)
+
+
+def compute_demo_detector_check(repo, path=None):
     """harness/demo_live_x2.py --mode detector-check: per arm (num_ctx 4096, runtime default) how many of the frozen
     picks the cut-off detector flagged, per task the largest total prompt the server used vs the prompt's own size,
     and the pre-registered reading (passes iff it fired on every pick whose own prompt exceeds 4096 at num_ctx 4096
     and on none at the default window)."""
-    rows = _read_jsonl(repo / DEMO_DETECTOR_FILE)
+    rows = _read_jsonl(repo / (path or DEMO_DETECTOR_FILE))
     tr = [r for r in rows if r.get("record") == "detector_task"]
     if not tr:
         raise ValueError("no detector_task rows")
@@ -7135,6 +7143,55 @@ def compute_demo_detector_check(repo):
                      f"on {total_eq}; {per}")
     reading = "detector check passed" if ok else "detector check failed"
     return {"value": f"{reading}; " + "; ".join(parts), "n": f"{len(tr)} task runs"}
+
+
+def compute_detector_precision_recall(repo):
+    """analysis/demo_detector_analysis.py: confusion counts of detector v1 (as run) and of the proposed v2 (server cut
+    lines only) against the log ground truth, per source and pooled; the H1 / H2 reading of every v1 false alarm in
+    the demo runs; and row hybrid-route-at-start-measured re-scored with v1 as the escalation flag."""
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "analysis"))
+    import demo_detector_analysis as dd
+    s = dd.summary(repo)
+
+    def cm(x):
+        p = "n/a" if x["precision"] is None else f"{x['precision']:.3f}"
+        r = "n/a" if x["recall"] is None else f"{x['recall']:.3f}"
+        return f"TP {x['TP']} FP {x['FP']} FN {x['FN']} TN {x['TN']} (precision {p}, recall {r}, n {x['n']})"
+    v1 = "; ".join(f"{k}: {cm(v['v1'])}" for k, v in s["confusion"].items())
+    v2 = "; ".join(f"{k}: {cm(v['v2'])}" for k, v in s["confusion"].items())
+    v2c = "; ".join(f"{k}: {cm(v['v2_count_ratio1'])}" for k, v in s["confusion"].items())
+    fa = s["false_alarm_calls"]
+    h = (f"{len(fa)} v1 false alarms in the demo runs, all explained by "
+         f"{sorted({c['explained_by'] for c in fa})}: H1 (cache) rejected on every one (task.n_tokens = cached + "
+         f"evaluated, prompt_eval_count = task.n_tokens), H2 (our size estimate) server/chars-4 ratio "
+         f"{min(c['H2']['ratio_server_over_chars4'] for c in fa):.3f} to "
+         f"{max(c['H2']['ratio_server_over_chars4'] for c in fa):.3f} against the v1 threshold "
+         f"{dd.RATIO_V1 * (1 - dd.TOL):.4f}" if fa else "no v1 false alarms in the demo runs")
+    ag = s["render_log_agreement"]
+    rs = dd.b3_rescore(repo)
+    rescore = "; ".join(
+        f"{c['tier']} vs {c['model']}: v1 fired on {c['fired_on_local_routed']['fired']} locally routed tasks "
+        f"({c['fired_on_local_routed']['fired_no_cut_possible']} with no cut possible, "
+        f"{c['fired_on_local_routed']['fired_certain_cut']} certain cuts), hybrid {c['v1']['correct']}/{c['v1']['n']}, "
+        f"USD {c['v1']['usd_task']:.5f}/task, kept local {c['v1']['kept_local']}, escalated {c['v1']['escalated']}"
+        + (f" (row: {c['row']['correct']}/{c['row']['n']}, USD {c['row']['usd_task']:.5f}/task, kept local "
+           f"{c['row']['kept_local']})" if c["row"] else " (not a cell of the row: the hybrid at the default window)")
+        for c in rs["cells"])
+    value = (f"detector v1 (as run: server cut lines, or task.n_tokens < 0.9 x chars/4 estimate x calibrated ratio): "
+             f"{v1} / proposed v2, not yet re-checked on evo-x2 (server cut lines only; agrees with the log ground "
+             f"truth by construction; independent check: the mechanism job's render-only prompt agreed with the "
+             f"message-drop line on {ag[0]}/{ag[1]} calls where both exist): {v2} / rejected variant (server lines, "
+             f"or task.n_tokens < 0.9 x chars/4 estimate): {v2c} / ground truth = Ollama's message-drop line (kept < "
+             f"sent), token cut, context shift or exceed-context error; mechanism = 400 calls of the R2 mechanism run "
+             f"(llama3.1:8b, tiers default 131072, 32768, 16384, 8192, 4096, 80 each), uncut server/chars-4 ratio "
+             f"{s['mechanism_uncut_ratio_range'][0]:.3f} to {s['mechanism_uncut_ratio_range'][1]:.3f}, cut max "
+             f"{s['mechanism_cut_ratio_max']:.3f}; demo (qwen3:14b) uncut {s['demo_uncut_ratio_range'][0]:.3f} to "
+             f"{s['demo_uncut_ratio_range'][1]:.3f}; prompt_eval_count = task.n_tokens on "
+             + ", ".join(f"{t} {a}/{b}" for t, (a, b) in s["mechanism_pec_eq_total"].items())
+             + f" / {h} / re-score of hybrid-route-at-start-measured with v1 as the flag ({rs['label']}): {rescore}")
+    n = sum(v["v1"]["n"] for k, v in s["confusion"].items() if k != "pooled")
+    return {"value": value, "n": f"{n} calls"}
 
 
 DEMO_LIVE_RUN_FILE = "results/demo_live_run_20261023.jsonl"   # dated by the picks freeze (demo/live/picks_v1.json)
@@ -8203,6 +8260,20 @@ NUMBER_ENTRIES = [
      "compute": compute_demo_detector_check, "data_files": [DEMO_DETECTOR_FILE], "pending_ok": True,
      "require_run_end": [DEMO_DETECTOR_FILE],
      "script_function": "analysis/numbers_register.py::compute_demo_detector_check"},
+    {"claim_id": "demo-detector-check-v2", "description": "live demo cut-off detector v2 (the server's own cut lines "
+     "only) re-check on the same 5 frozen picks at num_ctx 4096 and at the runtime default, same pass rule as "
+     "demo-detector-check; PENDING until the file has run_end",
+     "compute": compute_demo_detector_check_v2, "data_files": [DEMO_DETECTOR_V2_FILE], "pending_ok": True,
+     "require_run_end": [DEMO_DETECTOR_V2_FILE],
+     "script_function": "analysis/numbers_register.py::compute_demo_detector_check_v2"},
+    {"claim_id": "detector-precision-recall", "description": "cut-off detector v1 (as run) and proposed v2 vs Ollama's "
+     "own cut lines: confusion counts per source (R2 mechanism 400 calls, demo detector check, demo acceptance run) "
+     "and pooled; H1 / H2 reading of the v1 false alarms; hybrid-route-at-start-measured re-scored with v1",
+     "compute": compute_detector_precision_recall,
+     "data_files": [R2_MECHANISM_FILE, DEMO_DETECTOR_FILE, "results/demo_live_run_local_v1.jsonl",
+                    "results/x2_evalset_tasks_real_v2.jsonl"],
+     "pending_ok": True, "require_run_end": [DEMO_DETECTOR_FILE, "results/demo_live_run_local_v1.jsonl"],
+     "script_function": "analysis/numbers_register.py::compute_detector_precision_recall"},
     {"claim_id": "demo-live-run", "description": "live demo 5-task acceptance run (frozen picks, scenarios amd8192 and "
      "intel; local lanes on evo-x2 one after another, cloud on the controller): per lane correct, wrong silent / "
      "flagged, kept local, cloud USD per task, minutes; PENDING until the file has run_end",

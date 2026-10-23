@@ -192,7 +192,7 @@ class LaneRuntime(ag.OllamaRuntime):
             pass
         v = DO.detect(own, resp.get("prompt_eval_count"), self._slice(start), loaded, n_messages=len(messages))
         rec = {"n": len(self.calls) + 1, "seconds": round(self.clock() - t0, 2), "own_tokens": own,
-               "used_tokens": v["used_tokens"], "loaded_window": loaded, "cut": v["cut"], "evidence": v["evidence"],
+               "used_tokens": v["used_tokens"], "loaded_window": loaded, "cut": v["cut"], "evidence": v["evidence"], "cut_v2": v.get("cut_v2"), "evidence_v2": v.get("evidence_v2"),
                "method": v["method"], "prompt_eval_count": resp.get("prompt_eval_count"),
                "tool_calls": [tc.get("function", {}).get("name") for tc in (resp.get("tool_calls") or [])],
                "outcome": resp.get("outcome")}
@@ -249,7 +249,7 @@ def run_local(rt: LaneRuntime, task: dict, num_ctx: int | None, model: str = MOD
     scored.pop("_env_after", None)
     calls = rt.calls
     return {"route": "local", "num_ctx": num_ctx, "end_state_ok": scored["end_state_ok"],
-            "answer_ok": scored["answer_ok"], "state_ok": scored["state_ok"], "flagged": any(c["cut"] for c in calls),
+            "answer_ok": scored["answer_ok"], "state_ok": scored["state_ok"], "flagged": any(c["cut"] for c in calls), "flagged_v2": any(c.get("cut_v2") for c in calls),
             "calls": calls, "n_calls": len(recs), "tool_calls": [c.get("name") for cs in calls_by_call for c in cs],
             "final_text": (final_text or "")[:1000], "seconds": round(time.monotonic() - t0, 2),
             "max_used_tokens": max((c["used_tokens"] or 0 for c in calls), default=0),

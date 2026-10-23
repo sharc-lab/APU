@@ -662,3 +662,75 @@ Readings and caveats (5 tasks per scenario: descriptive, no test):
   controller.
 - Recordings (replaying this file, labelled REPLAYED): demo/review/demo_live_amd8192.webm, 152 s, real speed (main);
   demo/review/demo_live_intel.webm, 105 s, "2x speed" shown on the stretches where nothing changes (backup).
+
+## ANALYSIS (2026-10-23): detector false alarms, H1 (prompt cache) vs H2 (our size estimate); detector precision and recall
+
+Analysis only (no new runs): analysis/demo_detector_analysis.py, register row `detector-precision-recall` (pasted at
+the end of this entry). Ground truth per call = Ollama's own lines in that call's server log slice: message drop
+(kept < sent), token cut, context shift, exceed-context error.
+
+**Which tiers the earlier "prompt_eval_count includes the cache" check covered.** All 400 calls of
+results/x2_r2_mechanism.jsonl: llama3.1:8b, one seed, tiers ollama_default (loaded 131072), 32768, 16384, 8192 and
+4096, 80 calls each. prompt_eval_count equalled task.n_tokens on 80/80 in every tier, including the default window.
+The demo's own default-window calls (qwen3:14b, loaded 40960) agree: 10/10.
+
+**Per fired call (the 10 v1 false alarms; every one has no cut line in its log slice):**
+
+| Source | Server log | Lane | Task, call | task.n_tokens | cached + evaluated | prompt_eval_count | v1 own size | server / chars-4 | Explained by |
+|---|---|---|---|---|---|---|---|---|---|
+| detector check | serve_default | default | cal_cancel 1 | 7949 | 0 + 7949 | 7949 | 8871 | 1.077 | H2 |
+| detector check | serve_default | default | cal_cancel 2 | 8062 | 7945 + 117 | 8062 | 9000 | 1.077 | H2 |
+| detector check | serve_default | default | file_write_standing 1 | 8158 | 210 + 7948 | 8158 | 9065 | 1.082 | H2 |
+| detector check | serve_default | default | file_write_standing 2 | 8290 | 8154 + 136 | 8290 | 9218 | 1.081 | H2 |
+| acceptance | serve_8192 | default (amd8192) | cal_cancel 1 | 7949 | 0 + 7949 | 7949 | 8871 | 1.077 | H2 |
+| acceptance | serve_8192 | default (amd8192) | cal_cancel 2 | 8062 | 7945 + 117 | 8062 | 9000 | 1.077 | H2 |
+| acceptance | serve_32768 | ours (intel) | cal_cancel 1 | 7949 | 0 + 7949 | 7949 | 8871 | 1.077 | H2 |
+| acceptance | serve_32768 | ours (intel) | cal_cancel 2 | 8062 | 7945 + 117 | 8062 | 9000 | 1.077 | H2 |
+| acceptance | serve_32768 | ours (intel) | file_write_standing 1 | 8158 | 210 + 7948 | 8158 | 9065 | 1.082 | H2 |
+| acceptance | serve_32768 | ours (intel) | file_write_standing 2 | 8290 | 8154 + 136 | 8290 | 9218 | 1.081 | H2 |
+
+- **H1 rejected on all 10:** the count the detector compared (task.n_tokens) equals the cached prefix plus the
+  tokens evaluated anew, and prompt_eval_count equals it; nothing cached is missing from it.
+- **H2 explains all 10:** the server's own tokenization of the rendered prompt (task.n_tokens; the mechanism job's
+  render-and-tokenize checks matched fresh prompt_eval_count within 1%) is 1.077 to 1.082 times our chars/4
+  estimate on these calls, below the v1 threshold 1.2022 x 0.9 = 1.0820 (the calibration ratio 1.2022 came from
+  turn-1 calls dominated by the system prompt and tool schema). A render-and-tokenize of these exact prompts was not
+  run (it would need a server; out of this analysis' scope); task.n_tokens is that tokenization for an uncut call.
+- **The count comparison cannot be repaired with a fixed ratio.** For llama3.1:8b in the mechanism run, uncut calls
+  have server / chars-4 ratios 0.697 to 0.864 and cut calls up to 0.674; with its own session calibration v1 fired on
+  77 of 80 default-window calls. A ratio-1.0 variant (first proposed) fires on every one of the 177 uncut mechanism
+  calls. So the proposed v2 drops the count check and uses the server's own cut lines only (preferring the server's
+  own report, as the operator asked).
+- **Precision and recall (row below).** v1: pooled TP 245, FP 172, FN 0, TN 35 (precision 0.588, recall 1.000). v2
+  (proposed, not yet re-checked on evo-x2): pooled TP 245, FP 0, FN 0, TN 207; this agrees with the log ground truth
+  by construction (it is the same lines); the independent check is the mechanism job's render-only prompt, which
+  agreed with the message-drop line on 223/223 calls where both exist.
+- **Re-score of hybrid-route-at-start-measured with v1 as the flag** (B3 v2 per-call prompt_tokens_est and
+  prompt_eval_count_info_only; no server logs were kept for that run, so ground truth is INFERRED: no cut is possible
+  where even 1.21 x the chars/4 estimate fits the window). 8192 tier: v1 would have fired on 0 of the 21 locally
+  routed tasks (early turns, ratio near 1.2), so the row's cells are unchanged (Sonnet 88/90, USD 0.00819/task; Haiku
+  85/90, USD 0.00055/task). The 4096 tier keeps nothing local, so it is unaffected. At the default window (not a cell
+  of the row) v1 would have fired on 63 of 90 tasks with no cut possible: kept local 27, escalated 63, Sonnet 87/90 at
+  USD 0.02903/task (full-history redo, imputed at the tier mean where no redo row exists), Haiku 85/90 at USD
+  0.00052/task (interim: all-cloud rows).
+
+## PRE-REGISTRATION (2026-10-23, before any run of it): detector v2 re-check (x2_demo_detector_check_v2)
+
+- Detector v2 (harness/demo_overflow.py `cut_v2`, `verdict(v, "v2")`): cut = Ollama's message drop (kept < sent),
+  token cut, context shift or exceed-context error in the call's server log slice; no token-count comparison. v1 is
+  still computed and recorded on every call (`cut`, `flagged_v1`).
+- Run: `py -3.12 demo\demo_live_x2.py --mode detector-check --detector v2 --picks demo\picks_v1.json --results-dir
+  C:\apu\ovn\results --out C:\apu\ovn\results\demo_detector_check_v2.jsonl --queued`; the same 5 frozen picks
+  (demo/live/picks_v1.json), num_ctx 4096 and the runtime default, own Ollama servers (OLLAMA_DEBUG=1), qwen3:14b.
+- Pass rule (unchanged from the v1 check): fires on 5/5 picks at num_ctx 4096 and on 0/5 at the default window.
+  Register row `demo-detector-check-v2` (PENDING until run_end).
+- Queue: inserted directly after the running x2_b5_simcap_4096 (not interrupting it); releases itself via
+  tq.advance() on exit; sets no pause. ESTIMATE 0.10 h (high 0.3 h; the v1 check ran 3.1 min).
+- Use: the live screen keeps v1 with the "known false alarm" caveat until this re-check passes, then switches to v2.
+  demo/oct28 is merged into main only after it passes. If it has not passed by 2026-10-27 18:00 PT, the prepared
+  fallback commit switches the screen to Ollama's own cut lines only, labelled as such, with v1 marked "not used:
+  false alarms at default (see detector-precision-recall)".
+
+Register row `detector-precision-recall` (analysis entry above), pasted:
+
+> detector v1 (as run: server cut lines, or task.n_tokens < 0.9 x chars/4 estimate x calibrated ratio): mechanism: TP 223 FP 162 FN 0 TN 15 (precision 0.579, recall 1.000, n 400); demo detector check: TP 10 FP 4 FN 0 TN 6 (precision 0.714, recall 1.000, n 20); demo acceptance run: TP 12 FP 6 FN 0 TN 14 (precision 0.667, recall 1.000, n 32); pooled: TP 245 FP 172 FN 0 TN 35 (precision 0.588, recall 1.000, n 452) / proposed v2, not yet re-checked on evo-x2 (server cut lines only; agrees with the log ground truth by construction; independent check: the mechanism job's render-only prompt agreed with the message-drop line on 223/223 calls where both exist): mechanism: TP 223 FP 0 FN 0 TN 177 (precision 1.000, recall 1.000, n 400); demo detector check: TP 10 FP 0 FN 0 TN 10 (precision 1.000, recall 1.000, n 20); demo acceptance run: TP 12 FP 0 FN 0 TN 20 (precision 1.000, recall 1.000, n 32); pooled: TP 245 FP 0 FN 0 TN 207 (precision 1.000, recall 1.000, n 452) / rejected variant (server lines, or task.n_tokens < 0.9 x chars/4 estimate): mechanism: TP 223 FP 177 FN 0 TN 0 (precision 0.557, recall 1.000, n 400); demo detector check: TP 10 FP 0 FN 0 TN 10 (precision 1.000, recall 1.000, n 20); demo acceptance run: TP 12 FP 0 FN 0 TN 20 (precision 1.000, recall 1.000, n 32); pooled: TP 245 FP 177 FN 0 TN 30 (precision 0.581, recall 1.000, n 452) / ground truth = Ollama's message-drop line (kept < sent), token cut, context shift or exceed-context error; mechanism = 400 calls of the R2 mechanism run (llama3.1:8b, tiers default 131072, 32768, 16384, 8192, 4096, 80 each), uncut server/chars-4 ratio 0.697 to 0.864, cut max 0.674; demo (qwen3:14b) uncut 1.077 to 1.113; prompt_eval_count = task.n_tokens on ollama_ctx_16384 80/80, ollama_ctx_32768 80/80, ollama_ctx_4096 80/80, ollama_ctx_8192 80/80, ollama_default 80/80 / 10 v1 false alarms in the demo runs, all explained by ['H2']: H1 (cache) rejected on every one (task.n_tokens = cached + evaluated, prompt_eval_count = task.n_tokens), H2 (our size estimate) server/chars-4 ratio 1.077 to 1.082 against the v1 threshold 1.0820 / re-score of hybrid-route-at-start-measured with v1 as the flag (re-score by replay with detector v1 as the flag; ground truth INFERRED (no server logs kept)): ollama_ctx_8192 vs claude-haiku-5-5: v1 fired on 0 locally routed tasks (0 with no cut possible, 0 certain cuts), hybrid 85/90, USD 0.00055/task, kept local 21, escalated 0 (row: 85/90, USD 0.00055/task, kept local 21); ollama_ctx_8192 vs claude-sonnet-5-5: v1 fired on 0 locally routed tasks (0 with no cut possible, 0 certain cuts), hybrid 88/90, USD 0.00819/task, kept local 21, escalated 0 (row: 88/90, USD 0.00819/task, kept local 21); ollama_default vs claude-haiku-5-5: v1 fired on 63 locally routed tasks (63 with no cut possible, 0 certain cuts), hybrid 85/90, USD 0.00052/task, kept local 27, escalated 63 (not a cell of the row: the hybrid at the default window); ollama_default vs claude-sonnet-5-5: v1 fired on 63 locally routed tasks (63 with no cut possible, 0 certain cuts), hybrid 87/90, USD 0.02903/task, kept local 27, escalated 63 (not a cell of the row: the hybrid at the default window)
