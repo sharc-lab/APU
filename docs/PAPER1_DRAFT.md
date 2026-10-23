@@ -59,8 +59,8 @@ one with realistic caching <!-- cloud-cost-per-real-task -->. Our own tool-using
 cloud, the small and mid-tier models were correct on 87/90 and 90/90 tasks <!-- all-cloud-b3-quality --> at a mean
 USD 0.00067 and USD 0.01020 per task <!-- all-cloud-b3-cost -->. Running the same tasks locally on qwen3:14b at its
 default window removes the bill but not the risk: 80/90 tasks were correct, and nothing marked the 10 that were not
-<!-- hybrid-savings-v1 -->. The one signal a local runtime could raise, that the prompt exceeded the loaded window,
-does not find them. At the default window it missed all 17/17 wrong tasks; at 4096 it caught every
+<!-- hybrid-savings-v1 -->. A window flag, that the prompt exceeded the loaded window (a condition the runtime itself
+records in its own log; we do not contribute a detector for it), does not find them. At the default window it missed all 17/17 wrong tasks; at 4096 it caught every
 wrong task only by flagging 147 of 150 tasks, at precision 42.9% <!-- impact-v3-detection-value-measured -->. Window
 overflow is a symptom of one failure mode, not a general wrong-answer detector. A perfect detector would reach 90/90
 by escalating 10 tasks <!-- hybrid-savings-v1 -->, but that is a ceiling, and no such detector exists; fixing a wrong answer
@@ -109,13 +109,14 @@ We make four contributions.
 3. **The consequences for agents, with their mechanism** (Section 4.6). Silent failures after the window grow as the
    window shrinks; Ollama drops whole old messages but keeps the system prompt, and at the smallest window llama.cpp's
    context shift and a token cut discard it <!-- R2-mechanism-lowlevel -->.
-4. **Pre-registered fixes and a predictor, with their limits** (Section 4.7). Client-side trimming is refuted as a
+4. **Pre-registered fixes, with their limits, and a characterization of the runtime's shift rule** (Section 4.7). Client-side trimming is refuted as a
    general fix on two vendors <!-- R2-mitigation-v1-verdict --> <!-- t2s-r2-mitigation-cpu -->; `num_keep` lowers
    qwen3:14b's wrong-task rate at 4096 to 30.0% without removing the excess
    <!-- x2-evalset-tasks-real-v2-wrong-rate -->; a router to a cloud model is refuted on the AMD platform
    <!-- b5-verdict -->, where a quantized KV cache was on the frontier instead <!-- b5-policy-metrics -->, with the constrained platforms pending;
-   and a context-shift rule taken from the llama.cpp source predicts every observed shift in the sessions it was
-   checked on (misses 0 <!-- R2-shift-predictor-confusion -->).
+   and the runtime's own context-shift rule, transcribed from the llama.cpp source, matches every observed shift in the
+   sessions it was checked on (misses 0 <!-- R2-shift-predictor-confusion -->); we characterize it to explain
+   system-prompt loss, not as a detector, and it does not predict wrong answers.
 
 Section 4.2 covers background, Section 4.3 the platforms and harness, Sections 4.4 to 4.7 the results, Section 4.8
 threats to validity, and Section 4.9 concludes.
@@ -164,9 +165,21 @@ LLM; to verify] send each query to a small or a large model from a learned estim
 [Chen et al. 2023, FrugalGPT; to verify] escalate when a scorer judges the cheap answer unreliable. Self-verification
 [Weng et al. 2023, Self-Verification; to verify] and sampling-consistency checks [Manakul et al. 2023, SelfCheckGPT;
 to verify] let a model test its own answer. All of these need a signal that correlates with a wrong answer, and none
-uses the local runtime's effective context. We measure the one such signal a runtime could expose, prompt over the
-loaded window, and find it blind to wrong answers produced inside the window (Section 4.1), so a hybrid local and
-cloud deployment needs a general verifier, not a window flag.
+uses the local runtime's effective context. We characterize one such signal, prompt over the loaded window, which
+the runtime itself records (we surface it and do not contribute it), and find it blind to wrong answers produced
+inside the window (Section 4.1), so a hybrid local and cloud deployment needs a general verifier, not a window flag.
+
+**Edge-cloud agent delegation and model fit.** EdgeWise [Shi et al. 2026, EdgeWise; to verify] learns by
+reinforcement learning which steps of a long agent task a small local model delegates to a cloud model; EC2-Bench
+[Huang et al. 2026, EC2-Bench; to verify] benchmarks edge-cloud collaboration strategies on performance, resource use
+and privacy; Minions [Narayan et al. 2025, Minions; to verify] has a cloud model decompose long-document tasks into
+subtasks run by an on-device model; Arch-Router [Tran et al. 2025, Arch-Router; to verify] routes queries by
+user-defined domain and action preferences; ContextPaw [ContextPaw; to verify] is a placeholder whose source we have
+not confirmed; and llmfit [llmfit; to verify] estimates which models fit a machine's memory, including a context
+dimension. An open runtime issue [Ollama issue #14259; to verify] reports that chat-history truncation is silent and
+asks for a warning-level log line. None of these measures how the window a runtime loads changes an agent's
+correctness. We contribute no learned router and no cut-off detector: the cut-off signal is the runtime's own, and we
+characterize the window and shift conditions rather than offer them as detectors.
 
 **Inference on edge hardware.** PagedAttention [Kwon et al. 2023, vLLM; to verify] manages KV memory on servers; MELT
 [Laskaridis et al. 2024, MELTing Point; to verify], PowerInfer [Song et al. 2024, PowerInfer; to verify] and LLM in a
@@ -639,9 +652,9 @@ accepts a stated accuracy gap, or where configuration closes it, which the per-d
 4.5 address and the policy runs on the constrained platforms will test. Step-level escalation stays a narrow middle
 case, since window overflow does not pick out the wrong steps (Section 4.7p).
 
-#### 4.7p Predictor
+#### 4.7p The runtime's shift rule and the window flag, characterized
 
-**A context shift is predictable before the call.** The step that discards the system prompt at the smallest window
+**The runtime's context-shift trigger, characterized.** The step that discards the system prompt at the smallest window
 is llama.cpp's context shift (Section 4.6b), and its trigger can be read from the llama.cpp source rather than fitted:
 a shift happens on a call when the prompt left after the message-level trim, plus the tokens generated, exceeds the
 loaded window. We scored that rule on the AMD mechanism sessions, one per tier, against the shifts the server log
@@ -651,7 +664,8 @@ that the rule is the mechanism and not a correlate: P+C>n_ctx gives TP 44 FP 0 F
 P>=n_ctx-1, gives TP 0 FP 0 FN 44 <!-- R2-shift-predictor-confusion -->. The generated count is not known before the
 call, so a client substitutes the generation budget: P+num_predict>n_ctx gives TP 44 FP 22 FN 0
 <!-- R2-shift-predictor-confusion -->, a before-the-call flag that misses no shift at the cost of false alarms. The
-rule has no tunable parameter, but it was built and scored on the same sessions; no held-out observed sessions exist
+rule is the runtime's own trigger, not a detector we contribute; we score it to confirm the mechanism. It has no
+tunable parameter, but it was built and scored on the same sessions; no held-out observed sessions exist
 yet.
 
 **It predicts the shift, not the failure.** Applied to the real run as a prediction only, where no server log exists,
@@ -662,15 +676,15 @@ in Section 4.7: for that model the loss runs through what the message-level trim
 4096, 61/76 (80.3%) of truncated calls began with an orphaned message <!-- R2-orphan-rates -->.
 
 **Window overflow is not a general wrong-answer detector.** A tempting use of the flag is to escalate exactly the
-steps that overflowed. We measured it as a detector of wrong task outcomes on the protocol-check task run of Section 4.6a
+steps that overflowed. We measured it as a predictor of wrong task outcomes on the protocol-check task run of Section 4.6a
 (qwen3:14b, AMD APU), with the predictor "this task turn's prompt exceeded the loaded window" and the outcome "the task
 ended wrong" <!-- impact-v3-detection-value-measured -->. At the runtime default no turn overflowed, and the flag
 missed 17/17 wrong tasks (recall 0.0%). At 16384 it reached precision 15.4% and recall 21.1%; at 8192 precision 45.3%
 and recall 90.6%; at 4096 recall 100.0% but precision 42.9%, flagging 147 of 150 turns (TP 63 FP 84)
 <!-- impact-v3-detection-value-measured -->. Where the window is large, wrong answers have other causes that the flag
 cannot see; where it is small, nearly every step overflows and the flag no longer separates good steps from bad. The
-predictor is therefore a tool for explaining and anticipating system-prompt loss, not a cheap filter for which steps
-to send to a cloud model.
+shift rule and the window flag are therefore characterizations that explain and anticipate system-prompt loss, not
+contributed detectors and not a cheap filter for which steps to send to a cloud model.
 
 **Figure spec.**
 
@@ -729,13 +743,14 @@ window is trimmed, shifted or cut, and the request still succeeds. Rule loss app
 choice: the runtime picks it from the detected device, and an unmodified install on an Intel CPU ran agents at 4096
 tokens <!-- t2s-r2-real-cpu -->. That is the window at which, on the AMD APU, qwen3:14b ended 42.0% of tasks in a wrong
 state against 11.3% at its default, all silently <!-- x2-evalset-tasks-real-v2-wrong-rate -->. Running locally removes
-the cloud bill, but the wrong answers it adds carry no signal, and the one signal a runtime could raise, window
-overflow, misses every wrong answer produced inside the window <!-- impact-v3-detection-value-measured -->.
+the cloud bill, but the wrong answers it adds carry no signal, and the runtime's own over-window signal misses every
+wrong answer produced inside the window <!-- impact-v3-detection-value-measured -->.
 
 For practitioners, five lessons follow. Set the window explicitly for each device and verify the loaded value,
 because a per-request setting does not survive a restart and any client that omits it silently gets the default back
-<!-- window-override-methods -->. Log when a prompt exceeds the loaded window, since nothing else will, but do not
-treat that log as a correctness check. Try a quantized KV cache before a smaller window: on the AMD APU it cut session
+<!-- window-override-methods -->. Surface the runtime's own cut-off log lines when a prompt exceeds the loaded window
+(an open runtime issue asks for them to be raised from debug to warning level [Ollama issue #14259; to verify]), but
+do not treat them as a correctness check. Try a quantized KV cache before a smaller window: on the AMD APU it cut session
 time by 85% and 65% with no measured loss of rules or recall <!-- cost-cut-config-time --> <!-- b5-kv-recall-f16-rerun -->.
 Treat trimming as a change to the prompt rather than a neutral fix: dropping old turns also drops the examples the
 model imitates <!-- R2-qwen3-14b-4096-reconciliation -->, and `num_keep` protects the prompt prefix only where the
@@ -780,6 +795,13 @@ published paper before it enters `docs/references.bib`; no result of these paper
 - [Chen et al. 2023, FrugalGPT] L. Chen, M. Zaharia, J. Zou, "FrugalGPT: How to Use Large Language Models While Reducing Cost and Improving Performance", arXiv 2023 (TMLR 2024?). To verify (added 2026-10-22).
 - [Weng et al. 2023, Self-Verification] Y. Weng et al., "Large Language Models are Better Reasoners with Self-Verification", Findings of EMNLP 2023. To verify (added 2026-10-22).
 - [Manakul et al. 2023, SelfCheckGPT] P. Manakul, A. Liusie, M. J. F. Gales, "SelfCheckGPT: Zero-Resource Black-Box Hallucination Detection for Generative Large Language Models", EMNLP 2023. To verify (added 2026-10-22).
+- [Shi et al. 2026, EdgeWise] Z. Shi et al., "EdgeWise: Bringing Long-Horizon Agents to the Edge via Selective Cloud Delegation", arXiv:2610.17560, 2026. To verify (added 2026-10-23; arXiv page checked 2026-10-23).
+- [Huang et al. 2026, EC2-Bench] P. Huang et al., "Empowering Edge Agents: A Systematic Analysis of Edge-Cloud Collaboration in LLM Agent Execution", arXiv:2610.17816, 2026. To verify (added 2026-10-23; arXiv page checked 2026-10-23).
+- [Narayan et al. 2025, Minions] A. Narayan et al., "Minions: Cost-efficient Collaboration Between On-device and Cloud Language Models", arXiv:2502.15964, 2025. To verify (added 2026-10-23; arXiv page checked 2026-10-23).
+- [Tran et al. 2025, Arch-Router] C. Tran et al., "Arch-Router: Aligning LLM Routing with Human Preferences", arXiv:2506.16655, 2025. To verify (added 2026-10-23; arXiv page checked 2026-10-23).
+- [ContextPaw] Not verified: no source found on 2026-10-23; no details recorded. To verify (added 2026-10-23).
+- [llmfit] llmfit, open-source model-fit tool (GitHub repository README checked 2026-10-23). To verify (added 2026-10-23).
+- [Ollama issue #14259] "Chat history and embedding truncation happens silently with no user-visible indication", Ollama issue tracker, opened 2026-02-14. To verify (added 2026-10-23; issue page checked 2026-10-23).
 - [Kwon et al. 2023, vLLM] W. Kwon et al., "Efficient Memory Management for Large Language Model Serving with PagedAttention", SOSP 2023. To verify.
 - [Laskaridis et al. 2024, MELTing Point] S. Laskaridis et al., "MELTing Point: Mobile Evaluation of Language Transformers", MobiCom 2024. To verify.
 - [Song et al. 2024, PowerInfer] Y. Song et al., "PowerInfer: Fast Large Language Model Serving with a Consumer-grade GPU", SOSP 2024. To verify.

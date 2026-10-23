@@ -537,3 +537,25 @@ review.
 These are all issue-tracker reports, not measured studies. They confirm the mechanism in claim
 (a) is real and already causing production problems, but none of them measure downstream
 agent/instruction-following quality, which remains the open part of claim (a).
+
+# Prior Art Check -- Edge-cloud delegation, routing, model fit and runtime cut-off signals (2026-10-23)
+
+Fetched 2026-10-23 (abstract or README only; claims about each work go no further). Full citations in
+docs/RELATED_WORK.md section 2.5. One line each on how this work differs:
+
+- **EdgeWise** (arXiv:2610.17560, Shi et al., v1 2026-10-13; verified): learns step-level cloud delegation for long
+  agent tasks by reinforcement learning. We contribute no learned delegation policy; we characterize the memory-setting
+  cut that makes local steps silently wrong and measure route-at-start and late-escalation cost.
+- **EC2-Bench** (arXiv:2610.17816, Huang et al., v1 2026-10-13; verified): benchmarks edge-cloud collaboration
+  strategies on performance, resources and privacy. We do not benchmark strategies; we measure one runtime mechanism
+  (the loaded window) on real unified-memory hardware.
+- **Minions** (arXiv:2502.15964, Narayan et al., 2025-02-21; verified): local-cloud collaboration protocol for
+  long-document tasks with cloud-side decomposition. Our tasks are tool-using agent tasks and we add no protocol.
+- **Arch-Router** (arXiv:2506.16655, Tran et al., 2025-06-19; verified): preference-aligned query router model. Our
+  route is a window-fit condition, not a learned query classifier.
+- **ContextPaw** (not verified): no source found by web search on 2026-10-23; nothing is claimed about it.
+- **llmfit** (GitHub AlexsJones/llmfit, README fetched 2026-10-23; verified): estimates which models fit a machine,
+  including a context dimension. We measure the consequences of the window actually loaded, not a pre-run estimate.
+- **Ollama issue #14259** (opened 2026-02-14 by akuligowski9, open; verified): asks that silent chat-history
+  truncation be logged at warning level instead of debug. It confirms the cut is silent by default; our safety net
+  reads those same runtime lines, so cut-off detection is not claimed as a contribution of this work.

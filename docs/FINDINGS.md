@@ -5939,6 +5939,32 @@ Both are in docs/EXPERIMENTS.md (entries "ANALYSIS (2026-10-23): detector false 
 explained by H2 (our chars/4-based size overstated long qwen3:14b prompts; server / estimate 1.077 to 1.082 against the
 v1 threshold 1.0820), not H1 (task.n_tokens includes the cached prefix on every one). Row `detector-precision-recall`:
 v1 pooled precision 0.588, recall 1.000 (452 calls); proposed v2 (the server's own cut lines only) agrees with the log
-ground truth by construction, independently checked by the mechanism job's render-only prompt on 223/223 calls. The v2
+ground truth by construction, independently checked by the mechanism job's render-only prompt on 223/223 calls; v2
+surfaces the runtime's own signal and is not a contribution of this work (see the DECISION entry below). The v2
 re-check (same 5 picks, 4096 and default, pass iff 5/5 and 0/5) is queued on evo-x2 after x2_b5_simcap_4096; row
 `demo-detector-check-v2` PENDING until run_end.
+
+## DECISION (2026-10-23): cut-off detector v1 retired for routing; v2 is the runtime's own signal, not a contribution
+
+Analysis only, no new runs. Row `detector-precision-recall` was computed on branch demo/oct28 (analysis entry and the
+pasted row are in that branch's docs/EXPERIMENTS.md, "ANALYSIS (2026-10-23): detector false alarms"); it is on the demo
+branch until demo/oct28 merges into main (expected by 2026-10-27), and it is not yet in the regenerated
+docs/NUMBERS_REGISTER.md on either branch. Quoted from that pasted row:
+
+- **Detector v1 is retired for routing.** v1 = Ollama's cut lines in the server log, or task.n_tokens below
+  0.9 x our chars/4 estimate x a calibrated ratio. Against the server log ground truth it has "pooled: TP 245 FP 172
+  FN 0 TN 35 (precision 0.588, recall 1.000, n 452)". All 10 v1 false alarms in the demo runs come from the
+  token-count comparison (our size estimate), not from the prompt cache. In the re-score of
+  `hybrid-route-at-start-measured` with v1 as the flag, at the default window (not a cell of that row) "v1 fired on
+  63 locally routed tasks (63 with no cut possible, 0 certain cuts), hybrid 87/90, USD 0.02903/task, kept local 27,
+  escalated 63" against claude-sonnet-5-5, i.e. 63 of 90 tasks sent to the cloud with no cut possible, at about 3x the
+  all-cloud cost per task (USD 0.02903 vs all-cloud USD 0.01020/task, `hybrid-route-at-start-measured`, Sonnet cell).
+- **Detector v2 = Ollama's own cut-off log lines only:** message drop (kept < sent), token cut, context shift, and the
+  exceed-context error, read from the call's server log slice; no token-count comparison. It surfaces the runtime's
+  own signal and serves as a safety net. It is not a contribution of this work: it agrees with the log ground truth by
+  construction because it is the same lines. Its re-check on evo-x2 (row `demo-detector-check-v2`) is PENDING.
+- **The measured hybrid headline does not depend on either detector.** The flag in `hybrid-route-at-start-measured`
+  is the recorded over-window condition (a local task whose recorded prompt exceeded the loaded window), not v1 or
+  v2. In the re-score at num_ctx 8192, v1 "fired on 0 locally routed tasks" of the 21 kept local, so the row's cells
+  are unchanged ("hybrid 88/90, USD 0.00819/task, kept local 21" on claude-sonnet-5-5). The 4096 tier keeps nothing
+  local, so it is unaffected. The re-score's ground truth is INFERRED (no server logs were kept for the B3 v2 run).

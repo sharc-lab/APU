@@ -431,6 +431,43 @@ artifact position, measurable empirically from budget_ratio × position sweeps.
 
 ---
 
+## Section 7 - Routing: cut-off detection and the measured hybrid (added 2026-10-23)
+
+Row `detector-precision-recall` is on branch demo/oct28 (pasted in that branch's docs/EXPERIMENTS.md, analysis entry
+of 2026-10-23) until demo/oct28 merges into main (expected by 2026-10-27); it is not yet in a regenerated
+docs/NUMBERS_REGISTER.md. See docs/FINDINGS.md, "DECISION (2026-10-23)".
+
+### Claim R-01 (WITHDRAWN as a routing component)
+**Detector v1 (server cut lines, or a token-count comparison against our chars/4 estimate) is retired for routing.**
+
+- Evidence: `detector-precision-recall` (demo branch): v1 "pooled: TP 245 FP 172 FN 0 TN 35 (precision 0.588, recall
+  1.000, n 452)"; at the default window it would have escalated 63 of 90 tasks with no cut possible, Sonnet "hybrid
+  87/90, USD 0.02903/task", about 3x the all-cloud USD 0.01020/task (`hybrid-route-at-start-measured`).
+- Files: results/x2_r2_mechanism.jsonl, results/demo_detector_check.jsonl, results/demo_live_run_20261023.jsonl (the last two on the demo branch).
+- Hardware: evo-x2.
+- **Status: WITHDRAWN.** v1 is not claimed and not used for routing.
+
+### Claim R-02 (NOT A CONTRIBUTION - safety net)
+**Detector v2 reads Ollama's own cut-off log lines (message drop, token cut, context shift, exceed-context error).**
+It surfaces the runtime's own signal; it is a safety net, not a contribution of this work. Its agreement with the
+log ground truth is by construction.
+
+- Evidence: `detector-precision-recall` (proposed v2 part); `demo-detector-check-v2` PENDING.
+- **Status: PENDING** (re-check on evo-x2 queued). Not to be listed as a contribution in any paper or deck.
+
+### Claim R-03 (SUPPORTING)
+**The measured route-at-start hybrid result does not depend on a cut-off detector.** Its flag is the recorded
+over-window condition. In the re-score with v1 as the flag at num_ctx 8192, v1 "fired on 0 locally routed tasks" of
+the 21 kept local, so the cells are unchanged (Sonnet "hybrid 88/90, USD 0.00819/task, kept local 21").
+
+- Files: results/x2_evalset_tasks_real_v2.jsonl, results/all_cloud_b3_v1.jsonl, results/cloud_redo_full_context_v1*.jsonl
+  (`hybrid-route-at-start-measured`, VERIFIED); re-score in `detector-precision-recall` (demo branch; ground truth
+  INFERRED, no server logs kept for the B3 v2 run).
+- Hardware: evo-x2.
+- **Status: ON-TARGET (evo-x2), measured by replay of recorded runs.** Only 21 of 90 tasks are kept local.
+
+---
+
 ## Claims requiring Strix Halo data before submission
 
 The following claims are in CORE or SUPPORTING figures and must also be reproduced on
