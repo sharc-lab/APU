@@ -4391,6 +4391,25 @@ def compute_impact_ref_machine_price(repo):
                      f"bom_cost_usd is null){vct}", "n": "1"}
 
 
+ENERGY_PRICE_EIA_FILE = "results/energy_price_eia_20261022.json"
+# The rows the later net-savings row (energy cost of local runs netted against cloud savings) will read; it is not
+# computed here (operator 2026-10-22: after the long-task runs).
+NET_SAVINGS_INPUT_ROWS = ("energy-price-eia-commercial", "PX2-power", "cost-cut-config-time", "impact-ref-machine-price")
+
+
+def compute_energy_price_eia(repo):
+    """EXTERNAL INPUT: the EIA Electric Power Monthly US average commercial electricity price (Table 5.6.A), with the
+    month it refers to, the release, the URL and the fetch date. Not a measurement; no savings computed here."""
+    d = json.loads((repo / ENERGY_PRICE_EIA_FILE).read_text(encoding="utf-8"))
+    return {"value": f"EXTERNAL INPUT (not measured): US average commercial electricity price "
+                     f"{d['value_cents_per_kwh']:.2f} cents/kWh for {d['refers_to_month']} (same month a year earlier "
+                     f"{d['same_month_prior_year_cents_per_kwh']:.2f}; year to date {d['ytd_through_month_cents_per_kwh']:.2f}); "
+                     f"{d['source']}, Table 5.6.A, "
+                     f"released {d['release_date']}, {d['url']}, fetched {d['fetched_utc_date']}; raw row "
+                     f"\"{d['raw_us_total_row']}\" (commercial is the 3rd and 4th numbers); for the net-savings row, "
+                     f"which also needs rows {', '.join(NET_SAVINGS_INPUT_ROWS[1:])}", "n": "1"}
+
+
 def compute_impact_v2_p2(repo):
     """Impact v2 P2 (operator decision 2026-10-21): machine capacity from measured session minutes (default vs the
     fastest measured B5 setting), machines needed for the profile's sessions/day, USD of machines saved per day over an
@@ -7440,6 +7459,11 @@ NUMBER_ENTRIES = [
                     "machine capacity and hybrid savings",
      "compute": compute_impact_ref_machine_price, "data_files": ["results/hardware_price_evox2_20261021.json"],
      "script_function": "analysis/impact_model.py::ref_machine"},
+    {"claim_id": "energy-price-eia-commercial", "description": "EXTERNAL INPUT, not measured: EIA Electric Power "
+                    "Monthly Table 5.6.A US average retail electricity price, commercial sector, latest month, with "
+                    "URL, release and fetch date; input to the later net-savings row (not computed yet)",
+     "compute": compute_energy_price_eia, "data_files": [ENERGY_PRICE_EIA_FILE],
+     "script_function": "analysis/numbers_register.py::compute_energy_price_eia"},
     {"claim_id": "impact-v2-detection-value", "description": "SUPERSEDED by impact-v3-detection-value-measured (kept "
                     "computing for traceability, not used in docs/IMPACT.md). PROJECTION: value of detecting silent "
                     "wrong tasks at "
