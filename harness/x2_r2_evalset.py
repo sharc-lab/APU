@@ -1692,11 +1692,11 @@ def main(argv=None, advance=True):
                                                                   for r in rs))[:400]
             log(note)
             return note
-        ag._start_server(hc, server_env)
+        ag._start_server(hc, server_env) if server_env else ag._start_server(hc)
         started = True
         if not hc.wait_for_ollama_ready(timeout_s=60):
             hc.stop_ollama_server()
-            ag._start_server(hc, server_env)
+            ag._start_server(hc, server_env) if server_env else ag._start_server(hc)
             if not hc.wait_for_ollama_ready(timeout_s=90):
                 raise RuntimeError("ollama did not become ready")
         runtime = ag.OllamaRuntime()
