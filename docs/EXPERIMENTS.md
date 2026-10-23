@@ -268,3 +268,26 @@ This note follows "2026-10-22: Long-task local accuracy (PRE-REGISTRATION ...)" 
 - **Queue.** `x2_queue_fill.py --append x2_longtask_local_v1`, one read-modify-write under `t2s_queue.set_pause`
   cleared in its finally block; position 84, after every running and pending job; pause flag absent afterwards. Order
   and hours: docs/X2_QUEUE_PLAN.md "Long-task local accuracy".
+
+## RESULT (2026-10-22): long-task cloud priced vs billed (longtask_cloud_v1)
+
+Run as pre-registered ("2026-10-22: Long-task cloud priced vs billed"), file results/longtask_cloud_v1.jsonl (run_end
+present). The provider rejected temperature 0 on the warm-up, so the provider default was used (recorded in run_start,
+the pre-registered fallback). The Sonnet estimate was under USD 5, so Sonnet ran on the same 5 tasks.
+
+Register row `long-task-cloud-priced-vs-billed`, pasted:
+
+> long-horizon synthetic, trace-length matched tasks (not SWE-Gym), seed [20260901]; decision run, stopped None; job billed USD 1.7686, upper bound USD 2.0153 (warm-up and pilot included); Sonnet: estimate USD 3.3710 vs threshold 5.00, run True; claude-haiku-5-5: 5/5 correct; tasks billed USD 0.1132 vs upper bound 0.1284 (billed/upper 0.882); priced none 0.1284, realistic (ASSUMPTION hit rate 0.7) 0.0726, best 0.0368; billed / realistic 1.559; billed within [best, none] for 5/5 tasks; per task: lt_swegym_06 (ref 11 steps, 6 calls): input 19,840 (uncached 9,442, cache read 10,398, write 0), output 1,817; billed $0.0020, upper bound $0.0029, priced none/realistic/best $0.0029/$0.0022/$0.0016; 11 s; correct True; lt_swegym_10 (ref 31 steps, 13 calls): input 87,678 (uncached 65,149, cache read 22,385, write 144), output 4,379; billed $0.0089, upper bound $0.0110, priced none/realistic/best $0.0110/$0.0069/$0.0042; 23 s; correct True; lt_openhands_03 (ref 50 steps, 21 calls): input 200,346 (uncached 163,953, cache read 36,249, write 144), output 7,410; billed $0.0205, upper bound $0.0237, priced none/realistic/best $0.0237/$0.0138/$0.0075; 56 s; correct True; lt_openhands_06 (ref 63 steps, 23 calls): input 240,582 (uncached 200,723, cache read 39,715, write 144), output 8,229; billed $0.0246, upper bound $0.0282, priced none/realistic/best $0.0282/$0.0162/$0.0085; 41 s; correct True; lt_openhands_10 (ref 92 steps, 35 calls): input 563,703 (uncached 503,048, cache read 60,511, write 144), output 12,598; billed $0.0572, upper bound $0.0627, priced none/realistic/best $0.0627/$0.0335/$0.0149; 68 s; correct True; claude-sonnet-5-5: 3/5 correct; tasks billed USD 1.6551 vs upper bound 1.8866 (billed/upper 0.877); priced none 1.8866, realistic (ASSUMPTION hit rate 0.7) 1.0301, best 0.4882; billed / realistic 1.607; billed within [best, none] for 5/5 tasks; per task: lt_swegym_06 (ref 11 steps, 6 calls): input 20,203 (uncached 9,805, cache read 8,665, write 1,733), output 1,713; billed $0.0419, upper bound $0.0575, priced none/realistic/best $0.0575/$0.0416/$0.0305; 57 s; correct True; lt_swegym_10 (ref 31 steps, 11 calls): input 65,776 (uncached 46,713, cache read 18,919, write 144), output 3,854; billed $0.1342, upper bound $0.1701, priced none/realistic/best $0.1701/$0.1084/$0.0679; 34 s; correct True; lt_openhands_03 (ref 50 steps, 10 calls): input 65,321 (uncached 47,991, cache read 17,186, write 144), output 3,419; billed $0.1323, upper bound $0.1648, priced none/realistic/best $0.1648/$0.1052/$0.0657; 30 s; correct False; lt_openhands_06 (ref 63 steps, 10 calls): input 71,860 (uncached 54,530, cache read 17,186, write 144), output 3,555; billed $0.1467, upper bound $0.1793, priced none/realistic/best $0.1793/$0.1139/$0.0705; 33 s; correct False; lt_openhands_10 (ref 92 steps, 35 calls): input 592,574 (uncached 531,919, cache read 60,511, write 144), output 12,974; billed $1.2000, upper bound $1.3149, priced none/realistic/best $1.3149/$0.6609/$0.2537; 111 s; correct True
+
+**Readings (pre-registered rules).** billed / priced-realistic is 1.559 (claude-haiku-5-5) and 1.607
+(claude-sonnet-5-5), both over 1: "the priced estimate is optimistic" for both tiers. Billed lies within the [best,
+none] band for 5/5 tasks on both tiers.
+
+**Why, from the token columns of the same row (an observation, not a test).** Cache reads are a small part of the
+input on every long task (lt_openhands_10: 60,511 of 563,703 input tokens on haiku). The client inherited from
+scripts/all_cloud_b3.py places cache breakpoints on the system prompt and the last user message only; in a single-turn
+tool loop the last user message is the work-order request near the start, so the growing tool transcript after it is
+never written to the cache. The realistic case of `cloud-cost-per-real-task` assumes 70% of every re-sent prefix is
+read from cache, which needs a breakpoint that moves with the transcript. So the billed cost here is the cost under
+this placement, and the realistic priced figure is reached only by a client that caches the growing transcript. The
+accuracy on 5 tasks is descriptive only.
