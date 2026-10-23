@@ -1,0 +1,184 @@
+"""The live run behind the screen (controller side).
+
+Modes:
+  live     local lanes on evo-x2 through the agent (harness/demo_live_x2.py --mode agent) started over SSH; cloud
+           parts through cloud_lane.CloudLane (LIVE within budget, else REPLAYED). Never while an evo-x2 queue job runs
+           (docs/RUN.md has the check).
+  laptop   development only: the same agent run on the controller with a small model; the screen says so.
+  replay   a recorded run file (results/demo_live_run_<date>.jsonl) played back with its recorded timings; every
+           number labelled REPLAYED. The fallback when evo-x2 is unreachable.
+
+Events (one dict each, appended to LiveRun.events, polled by the page): run_start, task_start, lane_start, call,
+decision, escalate, lane_end, task_end, tally, run_end, error.
+"""
+from __future__ import annotations
+
+import json
+import sys
+import threading
+import time
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[2]
+for _p in (REPO / "harness", REPO / "scripts", REPO / "src" / "dse", REPO / "src", REPO):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
+
+import demo_live as L  # noqa: E402
+import demo_run as DR  # noqa: E402
+from proc_util import popen_hidden  # noqa: E402
+
+SSH = r"C:\Windows\System32\OpenSSH\ssh.exe"
+X2_HOST = "evo-x2"
+X2_DIR = r"C:\apu\ovn\demo"
+X2_RESULTS = r"C:\apu\ovn\results"
+X2_PY = "py -3.12"
+PICKS = REPO / "demo" / "live" / "picks_v1.json"
+
+
+def x2_agent_argv(host: str = X2_HOST, py: str = X2_PY) -> list[str]:
+    import host_config as hc
+    target = hc.HOSTS[hc.ALIASES[host]]["ssh_host"]
+    return [SSH, "-o", "BatchMode=yes", "-T", target,
+            f'{py} {X2_DIR}\\demo_live_x2.py --mode agent --results-dir {X2_RESULTS}']
+
+
+def laptop_agent_argv(model: str) -> list[str]:
+    return [sys.executable, str(REPO / "harness" / "demo_live_x2.py"), "--mode", "agent", "--model", model,
+            "--log-dir", str(Path.home() / "AppData" / "Local" / "Temp" / "demo_dev" / "agent")]
+
+
+class Agent:
+    """The local-lane agent as a child process (hidden; SSH for evo-x2), JSON lines both ways."""
+
+    def __init__(self, argv: list[str], popen=popen_hidden, on_line=None):
+        import subprocess
+        self.proc = popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                          text=True, encoding="utf-8", bufsize=1)
+        self.on_line = on_line or (lambda r: None)
+        first = self._read()
+        if first.get("record") != "agent_ready":
+            raise RuntimeError(f"agent did not start: {first}")
+        self.ready = first
+
+    def _read(self) -> dict:
+        while True:
+            line = self.proc.stdout.readline()
+            if not line:
+                raise RuntimeError("agent closed its output")
+            try:
+                return json.loads(line)
+            except ValueError:
+                continue
+
+    def local(self, lane, task, num_ctx) -> dict:
+        self.proc.stdin.write(json.dumps({"cmd": "local", "lane": lane, "seed": task["seed"],
+                                          "task_id": task["task_id"], "num_ctx": num_ctx}) + "\n")
+        self.proc.stdin.flush()
+        while True:
+            r = self._read()
+            if r.get("record") == "local_result":
+                return r["result"]
+            if r.get("record") == "local_error":
+                raise RuntimeError(r.get("error"))
+            self.on_line(r)
+
+    def close(self):
+        try:
+            self.proc.stdin.write(json.dumps({"cmd": "stop"}) + "\n")
+            self.proc.stdin.flush()
+            self.proc.wait(timeout=60)
+        except Exception:
+            self.proc.kill()
+
+
+class LiveRun:
+    def __init__(self, scenario: str, mode: str, picks_path: Path = PICKS, agent_factory=None, cloud=None,
+                 replay_file: Path | None = None, clock=time.monotonic, sleep=time.sleep):
+        if scenario not in DR.SCENARIOS:
+            raise ValueError(scenario)
+        self.scenario, self.mode, self.picks_path = scenario, mode, Path(picks_path)
+        self.agent_factory, self.cloud, self.replay_file = agent_factory, cloud, replay_file
+        self.clock, self.sleep = clock, sleep
+        self.events, self.lock = [], threading.Lock()
+        self.done = False
+        self.results = []
+
+    def push(self, ev: dict):
+        with self.lock:
+            self.events.append({"i": len(self.events), "t": round(self.clock() - self.t0, 2), **ev})
+
+    def since(self, i: int) -> list[dict]:
+        with self.lock:
+            return self.events[i:]
+
+    def start(self):
+        self.t0 = self.clock()
+        threading.Thread(target=self._run, daemon=True).start()
+
+    def _run(self):
+        try:
+            if self.mode == "replay":
+                self._replay()
+            else:
+                self._live()
+        except Exception as e:
+            self.push({"event": "error", "error": f"{type(e).__name__}: {e}"[:400]})
+        finally:
+            self.done = True
+            self.push({"event": "run_end"})
+
+    def _live(self):
+        import route_at_start as R
+        prof = R.load_profiles()
+        picks = json.loads(self.picks_path.read_text(encoding="utf-8"))["picks"]
+        b3 = L.read_jsonl(REPO / "results" / L.B3_FILE)
+        self.push({"event": "run_start", "mode": self.mode, "scenario": self.scenario,
+                   "label": "LIVE" if self.mode == "live" else "LIVE (development, controller laptop)",
+                   "n_tasks": len(picks)})
+        agent = self.agent_factory(lambda r: self._agent_line(r))
+        try:
+            for p in picks:
+                task = L.build_task(b3, p["seed"], p["task_id"], with_cloud=True)
+                self.push({"event": "task_start", "seed": task["seed"], "task_id": task["task_id"],
+                           "turn_idx": task["turn_idx"], "history_turns": task["history_turns"],
+                           "task_type": task["task_type"], "projected_prompt": task["projected_prompt"]})
+                res = DR.run_task(self.scenario, prof, task, agent.local, self.cloud, self.cloud.budget_left,
+                                  emit=self.push)
+                self.results.append(res)
+                self.push({"event": "task_end", "seed": task["seed"], "task_id": task["task_id"]})
+                self.push({"event": "tally", "tally": DR.tally(self.results)})
+        finally:
+            agent.close()
+
+    def _agent_line(self, r: dict):
+        if r.get("record") == "call":
+            self.push({"event": "call", **{k: r.get(k) for k in ("lane", "seed", "task_id", "num_ctx", "n", "seconds",
+                                                                 "own_tokens", "used_tokens", "loaded_window", "cut",
+                                                                 "evidence", "tool_calls")}})
+
+    def _replay(self):
+        rows = L.read_jsonl(self.replay_file)
+        tasks = [r for r in rows if r.get("record") == "task_result" and r.get("scenario") == self.scenario]
+        self.push({"event": "run_start", "mode": "replay", "scenario": self.scenario, "label": "REPLAYED",
+                   "source": str(self.replay_file.name), "n_tasks": len(tasks)})
+        for r in tasks:
+            self.push({"event": "task_start", "seed": r["seed"], "task_id": r["task_id"], "turn_idx": r["turn_idx"],
+                       "history_turns": r["history_turns"], "projected_prompt": r["projected_prompt"],
+                       "task_type": r.get("task_type")})
+            for lane in DR.LANES:
+                res = r["lanes"][lane]
+                self.push({"event": "lane_start", "lane": lane})
+                if lane == "ours" and res.get("decision"):
+                    self.push({"event": "decision", "lane": "ours", "decision": res["decision"]})
+                for c in res.get("calls") or []:
+                    self.sleep(float(c.get("seconds") or 0))
+                    self.push({"event": "call", "lane": lane, **c})
+                if res.get("route") == "cloud" or res.get("escalated"):
+                    if res.get("escalated"):
+                        self.push({"event": "escalate", "lane": lane})
+                    self.sleep(float((res.get("cloud") or res).get("seconds") or 0))
+                self.push({"event": "lane_end", "lane": lane, "result": res})
+            self.results.append(r)
+            self.push({"event": "task_end", "seed": r["seed"], "task_id": r["task_id"]})
+            self.push({"event": "tally", "tally": DR.tally(self.results)})

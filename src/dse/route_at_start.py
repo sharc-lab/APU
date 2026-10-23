@@ -93,16 +93,33 @@ def build_profiles(register_text: str, b3_rows: list[dict]) -> dict:
     t2s_igpu = int(_find(rows, "t2s-r2-real-igpu", r"qwen3:14b: loaded window \[(\d+)\]"))
     _find(rows, "x2-device-detect-mechanism", r"(evo-x2 uses the iGPU via ROCm)")
     t2s_other = _find(rows, "T2S-vs-X2-default-ctx", r'"qwen3:8b": \{"t2s_default_ctx": (\d+)')
-    haiku_ledger = float(_find(rows, "all-cloud-b3-cost",
-                               r"claude-haiku-5-5: .*?ledger basis, all input at the input rate: \$([\d.]+)"))
-    haiku_n = int(_find(rows, "all-cloud-b3-quality", r"claude-haiku-5-5: correct \d+/(\d+)"))
-    haiku_secs = float(_find(rows, "all-cloud-b3-cost", r"claude-haiku-5-5: .*?seconds per task mean ([\d.]+)"))
+    clouds = {}
+    for cm in ("claude-haiku-5-5", "claude-sonnet-5-5"):
+        led = float(_find(rows, "all-cloud-b3-cost", cm + r": .*?ledger basis, all input at the input rate: \$([\d.]+)"))
+        n = int(_find(rows, "all-cloud-b3-quality", cm + r": correct \d+/(\d+)"))
+        cache = float(_find(rows, "all-cloud-b3-cost", cm + r": USD per task mean \$([\d.]+)"))
+        secs = float(_find(rows, "all-cloud-b3-cost", cm + r": .*?seconds per task mean ([\d.]+)"))
+        clouds[cm] = {"model": cm, "usd_per_task_ledger": round(led / n, 6), "usd_per_task_cache_priced": cache,
+                      "seconds_per_task": secs, "rows": ["all-cloud-b3-cost", "all-cloud-b3-quality"]}
+    cap_window = int(_find(rows, "hybrid-route-at-start-measured", r"evo-x2 ollama_ctx_(8192) \(window 8192\)"))
     return {
         "model": MODEL,
         "calibration": calibrate_b3v2(b3_rows),
-        "cloud": {"model": CLOUD_MODEL, "usd_per_task_ledger": round(haiku_ledger / haiku_n, 6),
-                  "seconds_per_task": haiku_secs, "rows": ["all-cloud-b3-cost", "all-cloud-b3-quality"]},
+        "cloud": clouds[CLOUD_MODEL],
+        "clouds": clouds,
         "devices": {
+            "evo-x2-8192": {
+                "label": "AMD workstation, constrained memory (8192)",
+                "default_window": cap_window,
+                "cloud_model": "claude-sonnet-5-5",
+                "settings": [
+                    {"id": "default", "label": f"constrained memory ({cap_window:,})", "window": cap_window,
+                     "server_env": {}, "why": "the simulated device window of the headline row",
+                     "rows": ["hybrid-route-at-start-measured"]},
+                ],
+                "simulated": True,
+                "rows": ["hybrid-route-at-start-measured", "all-cloud-b3-cost"],
+            },
             "evo-x2": {
                 "label": "AMD workstation",
                 "default_window": x2_default,
@@ -119,8 +136,9 @@ def build_profiles(register_text: str, b3_rows: list[dict]) -> dict:
             "evo-t2s": {
                 "label": "Intel laptop",
                 "default_window": t2s_default,
+                "cloud_model": "claude-haiku-5-5",
                 "settings": [
-                    {"id": "igpu", "label": "integrated GPU turned on (OLLAMA_IGPU_ENABLE=1)", "window": t2s_igpu,
+                    {"id": "igpu", "label": "Intel graphics-chip setting (OLLAMA_IGPU_ENABLE=1)", "window": t2s_igpu,
                      "server_env": {"OLLAMA_IGPU_ENABLE": "1"},
                      "why": "the window measured with the integrated GPU enabled", "rows": ["t2s-r2-real-igpu"]},
                     {"id": "default", "label": "runtime default", "window": t2s_default, "server_env": {},
@@ -148,18 +166,22 @@ def fits(need: int, window: int, margin: float = MARGIN) -> bool:
     return need <= math.floor(window * (1 - margin))
 
 
-def route(profile: dict, device: str, est_now: int, expected_turns: int, cloud_budget_usd: float) -> dict:
-    """The routing decision for one task on one device. profile: build_profiles / load_profiles output."""
+def route(profile: dict, device: str, need_tokens: int, cloud_budget_usd: float, expected_turns: int = 1,
+          margin: float = MARGIN, need_source: str = "context_need") -> dict:
+    """The routing decision for one task on one device. profile: build_profiles / load_profiles output.
+    need_tokens: context_need(...), or in the live demo the projected task-turn prompt of the headline row
+    hybrid-route-at-start-measured (need_source names which); margin: MARGIN, or 0 for the headline's rule
+    (local iff projected <= window). The cloud model and price are the device's (cloud_model in the profile)."""
     dev = profile["devices"][device]
-    calib = profile["calibration"]
-    need = context_need(est_now, expected_turns, calib)
-    cloud_cost = round(profile["cloud"]["usd_per_task_ledger"] * max(expected_turns, 1), 6)
-    base = {"device": device, "device_label": dev["label"], "need_tokens": need, "est_now": est_now,
-            "expected_turns": expected_turns, "default_window": dev["default_window"],
+    cloud = profile["clouds"][dev.get("cloud_model", profile["cloud"]["model"])]
+    need = int(need_tokens)
+    cloud_cost = round(cloud["usd_per_task_ledger"] * max(expected_turns, 1), 6)
+    base = {"device": device, "device_label": dev["label"], "need_tokens": need, "need_source": need_source,
+            "margin": margin, "expected_turns": expected_turns, "default_window": dev["default_window"],
             "cloud_budget_usd": cloud_budget_usd, "cloud_cost_projected_usd": cloud_cost}
     for s in dev["settings"]:
-        if fits(need, s["window"]):
-            fits_default = fits(need, dev["default_window"])
+        if fits(need, s["window"], margin):
+            fits_default = fits(need, dev["default_window"], margin)
             extra = "" if s["id"] == "default" else (
                 f"; {s['why']}" if fits_default else f"; the default {dev['default_window']:,} would cut it off")
             return {**base, "route": "local", "setting": s["id"], "setting_label": s["label"],
@@ -168,7 +190,7 @@ def route(profile: dict, device: str, est_now: int, expected_turns: int, cloud_b
                               f"{s['label']} holds {s['window']:,}{extra}."}
     largest = max(dev["settings"], key=lambda s: s["window"])
     if cloud_budget_usd >= cloud_cost:
-        return {**base, "route": "cloud", "setting": None, "model": profile["cloud"]["model"], "window": None,
+        return {**base, "route": "cloud", "setting": None, "model": cloud["model"], "window": None,
                 "server_env": None,
                 "reason": f"Cloud from the start: needs about {need:,} tokens, more than any measured setting on the "
                           f"{dev['label']} holds (largest {largest['window']:,})."}

@@ -12,13 +12,58 @@
  "cloud": {
   "model": "claude-haiku-5-5",
   "usd_per_task_ledger": 0.00365,
+  "usd_per_task_cache_priced": 0.00067,
   "seconds_per_task": 2.69,
   "rows": [
    "all-cloud-b3-cost",
    "all-cloud-b3-quality"
   ]
  },
+ "clouds": {
+  "claude-haiku-5-5": {
+   "model": "claude-haiku-5-5",
+   "usd_per_task_ledger": 0.00365,
+   "usd_per_task_cache_priced": 0.00067,
+   "seconds_per_task": 2.69,
+   "rows": [
+    "all-cloud-b3-cost",
+    "all-cloud-b3-quality"
+   ]
+  },
+  "claude-sonnet-5-5": {
+   "model": "claude-sonnet-5-5",
+   "usd_per_task_ledger": 0.074203,
+   "usd_per_task_cache_priced": 0.0102,
+   "seconds_per_task": 5.08,
+   "rows": [
+    "all-cloud-b3-cost",
+    "all-cloud-b3-quality"
+   ]
+  }
+ },
  "devices": {
+  "evo-x2-8192": {
+   "label": "AMD workstation, constrained memory (8192)",
+   "default_window": 8192,
+   "cloud_model": "claude-sonnet-5-5",
+   "settings": [
+    {
+     "id": "default",
+     "label": "constrained memory (8,192)",
+     "window": 8192,
+     "server_env": {},
+     "why": "the simulated device window of the headline row",
+     "rows": [
+      "hybrid-route-at-start-measured"
+     ]
+    }
+   ],
+   "simulated": true,
+   "rows": [
+    "hybrid-route-at-start-measured",
+    "all-cloud-b3-cost"
+   ]
+  },
   "evo-x2": {
    "label": "AMD workstation",
    "default_window": 40960,
@@ -59,10 +104,11 @@
   "evo-t2s": {
    "label": "Intel laptop",
    "default_window": 4096,
+   "cloud_model": "claude-haiku-5-5",
    "settings": [
     {
      "id": "igpu",
-     "label": "integrated GPU turned on (OLLAMA_IGPU_ENABLE=1)",
+     "label": "Intel graphics-chip setting (OLLAMA_IGPU_ENABLE=1)",
      "window": 32768,
      "server_env": {
       "OLLAMA_IGPU_ENABLE": "1"
