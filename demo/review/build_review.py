@@ -26,6 +26,7 @@ from demo.dashboard import escalate, server, views  # noqa: E402
 from proc_util import check_output_hidden  # noqa: E402
 
 GEN = HERE / "generated"
+ROUTE_DEFAULT = views.ROUTE_DEFAULT_TOL
 STATUS = {"measured": "measured", "projected": "projected", "simulated": "simulated",
           "priced, not executed": "priced, not executed", "not measured": "not measured",
           views.PENDING_FA: "pending", views.BEING_MEASURED: "being measured", None: "context"}
@@ -255,11 +256,59 @@ def checklist(app, a, recs, c, tests: str, main_ledger, demo_ledger, scope_files
                   f"{len(rates)} place(s) show a fix rate; each carries the CI and the caveat" if ok else
                   "a fix rate without its CI or caveat"))
     money = next(st for st in story["steps"] if st["n"] == 4)
-    ok = (not any(i["text"].lower().startswith("ceiling") for i in money["items"])
-          and money["items"][0]["src"] == {"register": "hybrid-savings-tradeoff"}
+    mains = " ".join(t for st in story["steps"] for t in st["visible"]).lower()
+    ok = ("ceiling" not in mains and not any(i["text"].lower().startswith("ceiling") for i in money["items"])
           and set((money.get("tradeoff") or {}).get("featured") or {}) >= {"all_cloud", "naive_local", "hybrid_flag"})
-    items.append(("Story step 4 leads with the measured trade-off; the ceiling is never a headline", ok,
-                  "first item: " + money["items"][0]["text"][:120] + "...; ceiling only as a dotted line / side note"))
+    items.append(("The detector ceiling is never a headline (not on any main screen; in Details only as a side note)",
+                  ok, "no main screen mentions it; Details of step 4 keep the trade-off with the ceiling as a dotted "
+                      "line / side note"))
+    # story rules (operator 2026-10-22)
+    words = {st["n"]: sum(len(t.split()) for t in st["visible"]) for st in story["steps"]}
+    ok = all(w <= (views.STEP4_WORD_LIMIT if n == 4 else views.STEP_WORD_LIMIT) for n, w in words.items())
+    items.append(("Story: about 25 visible words per step (step 4: the operator's three sentences)", ok,
+                  "visible words per step " + ", ".join(f"{n}: {w}" for n, w in words.items())))
+    bad = re.findall(r"\b(qwen\S*|llama\S*|claude\S*|evo-\S*|num_ctx|window|surfaced|excess|results/\S*)", mains)
+    nums = [c for st in story["steps"] for k in ("cards", "tiles", "numbers") for c in st["main"].get(k, [])]
+    nums += [b for st in story["steps"] for b in st["main"].get("bars", [])]
+    ok = not bad and all(c.get("tag") and c.get("src") for c in nums)
+    items.append(("Story: no model tags, ids, paths or jargon on main screens; each number has one tag and a "
+                  "VERIFIED source in Details", ok, f"{len(nums)} numbers tagged" + (f"; found {bad}" if bad else "")))
+    css = (REPO / "demo" / "dashboard" / "static" / "app.css").read_text(encoding="utf-8")
+    big = int(re.search(r"\.s-big\s*\{[^}]*font-size:\s*(\d+)px", css)[1])
+    body = int(re.search(r"#story\s*\{[^}]*font-size:\s*(\d+)px", css)[1])
+    items.append(("Story: presenter sizes (headline numbers >= 72px, body >= 24px); Details closed by default",
+                  big >= 72 and body >= 24 and '<details class="s-details">' in
+                  (REPO / "demo" / "dashboard" / "static" / "views.js").read_text(encoding="utf-8"),
+                  f"headline numbers {big}px, body {body}px; Details rendered without the open attribute"))
+    sl = money["main"]["slider"]
+    expect = {0: "cloud", 5: "cloud", 12: None, 20: "local"}
+    got = {t: [views.route_at(e, t)["route"] for e in sl["entries"]] for t in (0, 5, 12, 20)}
+    row = {t: ["local" if t >= e["tolerance_local"] else "cloud" for e in sl["entries"]] for t in (0, 5, 12, 20)}
+    ok = sl["default"] == 5 and got == row and all(expect[t] is None or set(got[t]) == {expect[t]} for t in got)
+    items.append(("Accuracy-tolerance slider: default 5; decisions match row hybrid-route-at-start at 0, 5, 12, 20",
+                  ok, "; ".join(f"{t}: " + ", ".join(f"{e['machine']} vs {e['model']} {d}" for e, d in
+                                                      zip(sl["entries"], got[t])) for t in (0, 5, 12, 20))))
+    html = app.handle("GET", "/").body.decode("utf-8")
+    js = (REPO / "demo" / "dashboard" / "static" / "views.js").read_text(encoding="utf-8")
+    items.append(("Landing page is story mode; the engineering view is behind a link (?explore=1)",
+                  'id="eng-link"' in html and 'href="?explore=1"' in html and 'params.get("explore") !== "1"' in js,
+                  "story section first, engineering view link in its corner and on the step bar"))
+    fr = get(app, "/api/frontier")
+    ok = fr["cloud"] == [] and fr["cloud_measured"]["rows"] and all(
+        "gpt-" not in json.dumps(get(app, p)) for p in ("/api/meta", "/api/frontier", "/api/recommend"))
+    items.append(("Engineering view: no OpenAI stub rows; measured Anthropic cloud rows instead", bool(ok),
+                  f"{len(fr['cloud_measured']['rows'])} cloud rows from " + ", ".join(sorted(
+                      {r['src']['register'] for r in fr['cloud_measured']['rows']}))))
+    meta = get(app, "/api/meta")
+    items.append(("Engineering view: unmeasured hardware only in one 'Not measured' line",
+                  {h["machine"] for h in meta["hardware_measured"]} == set(meta["machines"]),
+                  "not measured: " + ", ".join(h["name"] for h in meta["hardware_not_measured"])))
+    ev = get(app, "/api/scenario")["evidence"]
+    appjs = (REPO / "demo" / "dashboard" / "static" / "app.js").read_text(encoding="utf-8")
+    items.append(("Engineering view: every verbatim register block in a closed Details with a one-sentence summary",
+                  bool(ev) and all(e["summary"] and e["verbatim"] for e in ev) and "reg[id].value" not in appjs
+                  and '<details class="reg-details" open' not in appjs,
+                  f"{len(ev)} register blocks, each summarised above a closed Details"))
     figs = v1_figures()
     bodies = [json.dumps(get(app, p)) for p in ("/api/cost", "/api/story", "/api/escalation", "/api/register")]
     leaks = [f for f in figs for b in bodies if re.search(r"(?<![\w.])" + re.escape(f), b)]
@@ -369,19 +418,40 @@ def leave_behind(app) -> str:
     s = get(app, "/api/story")
     refs: list[str] = []
     out = []
-    for st in s["steps"]:
+
+    def mark(src):
+        r_ = rid_of(src)
+        if not r_:
+            return ""
+        if r_ not in refs:
+            refs.append(r_)
+        return r"\textsuperscript{" + str(refs.index(r_) + 1) + "}"
+
+    for st in s["steps"]:  # the main screen of each step, as the audience sees it, with its tag and a source mark
+        m = st["main"]
         out.append(r"\storystep{" + str(st["n"]) + "}{" + tex(st["title"]) + "}{leave_step" + str(st["n"]) + "}")
         out.append(r"\begin{itemize}\setlength\itemsep{0pt}")
-        for it in st["items"]:
-            r_ = rid_of(it.get("src"))
-            mark = ""
-            if r_:
-                if r_ not in refs:
-                    refs.append(r_)
-                mark = r"\textsuperscript{" + str(refs.index(r_) + 1) + "}"
-            lab = STATUS.get(it["label"], it["label"])
-            badge = r"\lab{" + tex(lab) + "} " if it["label"] else ""
-            out.append(r"\item " + badge + tex(it["text"]) + mark)
+        for c in m.get("cards", []) + m.get("tiles", []) + m.get("numbers", []):
+            out.append(r"\item \lab{" + tex(c["tag"]) + "} " + tex(c["text"]) + mark(c.get("src")))
+        for b in m.get("bars", []):
+            out.append(r"\item \lab{" + tex(b["tag"]) + "} " + tex(f"{b['label']}: {b['value']}% wrong") +
+                       mark(b.get("src")))
+        if m.get("caption"):
+            out.append(r"\item \lab{measured} " + tex(m["caption"]) + mark(m.get("bars", [{}])[0].get("src")))
+        if m.get("takeaway"):
+            out.append(r"\item " + tex(m["takeaway"]))
+        if st["kind"] == "tool":
+            for e in m.get("entries", []):
+                if e["model"] != m.get("default_tier"):
+                    continue
+                d = views.route_at(e, m.get("tolerance", ROUTE_DEFAULT))
+                out.append(r"\item \lab{measured} " + tex(
+                    f"{e['machine']}: " + ("run locally with the recommended setting" if d["route"] == "local"
+                                           else "send to the cloud from the start") +
+                    f" at an accuracy gap of {ROUTE_DEFAULT} points") + mark({"register": "hybrid-route-at-start"}))
+            missing = [x for x in m["machines"] if x not in {e["machine"] for e in m["entries"]}]
+            if missing:
+                out.append(r"\item \lab{not measured} " + tex(", ".join(missing)))
         out.append(r"\end{itemize}")
         out.append(r"\end{minipage}\end{tabular}\par\medskip")
     srcs = (r"\par\medskip\noindent{\footnotesize\raggedright\textbf{Sources} (row ids in docs/NUMBERS\_REGISTER.md, "

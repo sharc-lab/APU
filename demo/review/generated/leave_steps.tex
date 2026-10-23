@@ -1,46 +1,35 @@
-\storystep{1}{The problem: a default nobody chose, a failure nobody sees}{leave_step1}
+\storystep{1}{Same laptop, two settings}{leave_step1}
 \begin{itemize}\setlength\itemsep{0pt}
-\item \lab{measured} Intel CPU, llama3.1:8b: Ollama loads 4096 tokens; 5/5 sessions silently lost a rule, 5 after the window filled\textsuperscript{1}
-\item \lab{measured} Intel CPU, qwen3:14b: Ollama loads 4096 tokens; 5/5 sessions silently lost a rule, 5 after the window filled\textsuperscript{1}
-\item \lab{measured} Intel CPU: 0 of 800 calls surfaced an error\textsuperscript{2}
-\item \lab{measured} Intel iGPU, llama3.1:8b: Ollama loads 32768 tokens; 0/5 sessions silently lost a rule, 0 after the window filled\textsuperscript{3}
-\item \lab{measured} Intel iGPU, qwen3:14b: Ollama loads 32768 tokens; 1/5 sessions silently lost a rule, 0 after the window filled\textsuperscript{3}
-\item \lab{measured} Intel iGPU: 0 of 800 calls surfaced an error\textsuperscript{4}
-\item \lab{measured} qwen3:14b task results: 11.3\% wrong at the default window, 42.0\% at 4096; 0 of 63 wrong results surfaced an error\textsuperscript{5}
+\item \lab{measured} Default setting: 5 of 5 agent sessions broke their own rules. No error shown.\textsuperscript{1}
+\item \lab{measured} Right setting: 5 of 5 kept their rules.\textsuperscript{2}
 \end{itemize}
 \end{minipage}\end{tabular}\par\medskip
-\storystep{2}{Why it is hard: the obvious fixes do not hold, and it depends on the model}{leave_step2}
+\storystep{2}{How often answers are silently wrong}{leave_step2}
 \begin{itemize}\setlength\itemsep{0pt}
-\item \lab{measured} The one-line fix, num\_keep (keep the system prompt) at 4096: 30.0\% wrong, down from 42.0\% but still above 11.3\% at the default window\textsuperscript{5}
-\item \lab{measured} Client-side trimming has a side effect: qwen3:14b called the logging tool in 24/25/25 of 40 turns per seed with trimming, 40/40/40 of 40 without. Trimming removes the earlier turns that showed the two-call pattern the model imitates (interpretation in docs/FINDINGS.md)\textsuperscript{6}
-\item \lab{measured} Rule loss at 4096 depends on the model: llama3.1:8b 5/5, qwen3:14b 4/5, qwen3:8b 1/5 sessions\textsuperscript{7}
-\item \lab{measured} Larger models at 4096: qwen3:32b 2/3, llama3.3:70b 0/3 (resists rule loss), mistral-small3.2:24b 0/3 (resists rule loss) sessions\textsuperscript{8}
+\item \lab{measured} Enough memory: 11\% wrong\textsuperscript{3}
+\item \lab{measured} Tight: 35\% wrong\textsuperscript{3}
+\item \lab{measured} Tighter: 42\% wrong\textsuperscript{3}
+\item \lab{measured} Error messages shown: 0\textsuperscript{3}
 \end{itemize}
 \end{minipage}\end{tabular}\par\medskip
-\storystep{3}{The tool: decide at session start, per device and model}{leave_step3}
+\storystep{3}{Why not just change one setting?}{leave_step3}
 \begin{itemize}\setlength\itemsep{0pt}
-\item For each device and model the tool decides at session start: run locally with the recommended setting, or send the whole session to the cloud from the start. Every setting carries its label; where we have no data it says not measured.
-\item \lab{measured} evo-t2s Intel iGPU: kept local, measured by R2 session pass rate (not B3 task accuracy): llama3.1:8b 5/5, qwen3:14b 4/5 sessions\textsuperscript{9}
-\item \lab{measured} evo-t2s Intel CPU: kept local, measured by R2 session pass rate (not B3 task accuracy): llama3.1:8b 0/5, qwen3:14b 0/5 sessions\textsuperscript{9}
-\item \lab{measured} The rule: route local if local accuracy at the recommended setting is at least all-cloud accuracy minus a tolerance (points), else send the whole session to the cloud from the start. At matched quality (tolerance 0) the measured answer for every measured device is cloud from the start.\textsuperscript{10}
-\item \lab{measured} evo-x2 (ollama\_default, default = best) would route local only at tolerance \textgreater{}= 7.8 points vs claude-haiku-5-5, 11.1 points vs claude-sonnet-5-5 (local 80/90 vs all-cloud 87/90, 90/90; measured, B3 task accuracy)\textsuperscript{10}
-\item \lab{measured} evo-t2s (Intel iGPU, Ollama default, loaded window 32768) would route local only at tolerance \textgreater{}= 16.7 points vs claude-haiku-5-5, 20.0 points vs claude-sonnet-5-5 (local 4/5 vs all-cloud 87/90, 90/90; measured by R2 session pass rate (not B3 task accuracy))\textsuperscript{10}
+\item \lab{measured} Bigger memory setting: up to 16x slower, or will not start\textsuperscript{4}
+\item \lab{measured} The quick fix: still 30\% wrong\textsuperscript{3}
+\item \lab{measured} Trimming old history: breaks a different rule\textsuperscript{5}
 \end{itemize}
 \end{minipage}\end{tabular}\par\medskip
-\storystep{4}{The money: local saves the bill, and the screen shows what it costs}{leave_step4}
+\storystep{4}{What it costs}{leave_step4}
 \begin{itemize}\setlength\itemsep{0pt}
-\item \lab{measured} Local saves money, and the screen shows what it costs. Against claude-sonnet-5-5 at 1,000 tasks/day: all local on evo-x2 saves USD 306.10 a month at 80/90 (88.9\%) correct versus 90/90 (100.0\%) all-cloud, and 10 wrong answers are silent. The only measured detector, window overflow, escalates 0 tasks at this window. Catching in-window wrong answers needs a verifier we do not claim; the dotted line is that ceiling, no such detector.\textsuperscript{11}
-\item \lab{measured} Fix after the fact: about 2 cents (mean USD 0.0227 per task, cache-priced), 84.8\% fixed (95\% Wilson CI 79.1\% to 89.1\%), but executed actions cannot be undone; decide up front instead. 28 of the 30 unfixed inherited the local model's earlier executed actions. (Full-history redo on claude-sonnet-5-5, up to 2048 output tokens per call; the local run had 384.)\textsuperscript{12}
-\item \lab{projected} evo-t2s Intel CPU at 4096 (projected, from evo-x2's 4096 tier): the window flag escalates 88 tasks and reaches 90/90, but the hybrid costs USD 359.80/month MORE than all-cloud against claude-sonnet-5-5 at 1,000 tasks/day: escalating with the full history costs more per task than a fresh cloud run\textsuperscript{11}
-\item \lab{measured} Late full-history escalation costs 1.76x a fresh cloud run of the same task on the mean (1.64x on the median; matched over 119 rows, 53 tasks; 2.22x / 1.87x unmatched) on claude-sonnet-5-5\textsuperscript{13}
-\item Against claude-haiku-5-5 the escalation cost is interim (its all-cloud price): the full-history redo ran on claude-sonnet-5-5 only.
-\item \lab{priced, not executed} One long agent task (nebius-rebench-openhands, median 62 steps) sent whole to the cloud: USD 2.53 median on claude-sonnet-5-5 at an assumed 70\% cache hit rate\textsuperscript{14}
+\item \lab{priced} per long task in the cloud\textsuperscript{6}
+\item \lab{measured} Fixing a wrong answer later: about 2 cents, but actions already taken cannot be undone\textsuperscript{7}
+\item How much accuracy gap you accept decides where it runs; we measure that gap per device.
 \end{itemize}
 \end{minipage}\end{tabular}\par\medskip
-\storystep{5}{One live escalation: send the wrong task to the cloud}{leave_step5}
+\storystep{5}{What our tool does}{leave_step5}
 \begin{itemize}\setlength\itemsep{0pt}
-\item \lab{measured} The local model (qwen3:14b, 4096 window) set duration\_min = 60; the standing instruction gives 50. HTTP error: no.\textsuperscript{15}
-\item \lab{measured} Recorded full-history cloud redo of this task: USD 0.0243, 4.2 s\textsuperscript{16}
-\item One click sends that turn to the cloud through the capped client (one call per demo run); without a network or key the recorded full-history redo of the same task is shown.
+\item \lab{measured} AMD workstation: send to the cloud from the start at an accuracy gap of 5 points\textsuperscript{8}
+\item \lab{measured} Intel laptop: send to the cloud from the start at an accuracy gap of 5 points\textsuperscript{8}
+\item \lab{not measured} NVIDIA laptop
 \end{itemize}
 \end{minipage}\end{tabular}\par\medskip

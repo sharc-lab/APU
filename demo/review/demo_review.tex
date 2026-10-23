@@ -57,19 +57,20 @@ What the demo shows:
   no call surfaces an error. On evo-x2 the qwen3:14b wrong-task rate rises from the default window to 4096 with every
   wrong result returned as a normal answer (view A, Table~\ref{tab:a}).
 \item \textbf{The obvious fixes do not hold.} num\_keep reduces but does not remove the wrong-task excess; client-side
-  trimming breaks a rule the untrimmed run kept; rule loss depends on the model (story step 2).
+  trimming breaks a rule the untrimmed run kept; a bigger memory setting is up to 16x slower or does not start (story
+  step 3).
 \item \textbf{The tool decides at session start, per device and model}: route local only if local accuracy is at least
   all-cloud accuracy minus a stated tolerance, else send the whole session to the cloud from the start; it shows the
   recommended local setting (window, num\_keep, KV precision, flash attention, each labelled) and the tolerance at
   which each device would route local. On evo-x2 the KV q8\_0 / q4\_0 settings are measured and attributed to KV precision by the verified
   flash-attention control; on evo-t2s ``kept local'' is measured by R2 session pass rate, not B3 task accuracy
   (view B, Table~\ref{tab:b}).
-\item \textbf{The money:} story step 4 leads with the measured trade-off per option (all-cloud, naive local at the
-  device default with its silent wrong answers, hybrid with the window-overflow flag), then ``fix after the fact'':
-  about 2 cents per wrong task with its fix rate, 95\% Wilson CI and the inherited-actions caveat, from the
-  full-history redo (view C, Table~\ref{tab:c}).
-\item \textbf{One live escalation} of a real wrong task through the capped client, with the task's recorded
-  full-history redo as the fallback (view D, Table~\ref{tab:d}).
+\item \textbf{The money:} story step 4 shows USD 2.53 per long task in the cloud (priced) and about 2 cents to fix a
+  wrong answer later (measured; fix rate, 95\% Wilson CI and the inherited-actions caveat in its Details), then the
+  accuracy-tolerance slider: how much accuracy gap you accept decides where it runs. The measured hybrid trade-off,
+  with the ceiling only as a side note, is in its Details and in view C (Table~\ref{tab:c}).
+\item \textbf{One live escalation} (engineering view D) of a real wrong task through the capped client, with the
+  task's recorded full-history redo as the fallback (Table~\ref{tab:d}).
 \end{itemize}
 What it deliberately does not claim:
 \begin{itemize}
@@ -81,28 +82,40 @@ What it deliberately does not claim:
   and the screen says so.
 \item \textbf{No detector ceiling as a headline.} The perfect-detector figure appears only as a dotted line and a side
   note labelled ``ceiling, no such detector''.
-\item \textbf{No local route at matched quality.} The session-start decision follows row hybrid-route-at-start: at
-  matched quality (tolerance 0) every measured device routes the whole session to the cloud from the start; the
-  screen shows the tolerance at which each device would route local, and on evo-t2s that accuracy is the R2 session
-  pass rate, not B3 task accuracy.
+\item \textbf{No local route at matched quality.} The slider and the tool card follow row hybrid-route-at-start: at
+  tolerance 0 every measured device routes the whole session to the cloud from the start; at the default of 5 points
+  too; the AMD workstation routes local from 7.8 (Haiku) / 11.1 (Sonnet) points, the Intel laptop from 16.7 / 20.0
+  (R2 session pass rate, not B3 task accuracy).
+\item \textbf{Story wording.} Step 1's green card says ``kept their rules'', not ``ran correctly'': those sessions lost
+  no gated rule, but their history recall did not survive every checkpoint.
 \end{itemize}
 
 \section{Story mode}
-The dashboard opens in story mode: five steps of about a minute each with Back and Next, a step indicator and
-``Explore freely'' (Figures~\ref{fig:s1} to \ref{fig:s5}). Steps 1 to 4 run from the cache; step 5 alone can use the
-network, and falls back to the task's recorded full-history redo. A three-minute backup recording of story mode (no
-audio, no live call, recorded redo in step 5) is \texttt{demo/review/demo\_story.webm}; the two-page leave-behind is
-\texttt{demo/review/LEAVE\_BEHIND.pdf}.
-\shot{story_step1}{Story step 1, the problem.}{fig:s1}
-\shot{story_step2}{Story step 2, why it is hard.}{fig:s2}
-\shot{story_step3}{Story step 3, the tool: the decision at session start on evo-x2 / qwen3:14b (at matched quality,
-cloud from the start; the tolerance at which it would route local; the recommended local setting KV q8\_0,
-attributed to KV precision).}{fig:s3}
-\shot{story_step3_cpu}{Story step 3 after switching the device to the evo-t2s Intel CPU: the whole session goes to the
-cloud from the start.}{fig:s3b}
-\shot{story_step4}{Story step 4, the money: the measured trade-off first, the ceiling only as a dotted line.}{fig:s4}
-\shot{story_step5_sent}{Story step 5 after ``Send to the cloud'' with live calls off: the task's recorded
-full-history redo.}{fig:s5}
+The dashboard lands in story mode, written for a non-expert audience: five steps, one idea and one big number each,
+plain words (Intel laptop, AMD workstation, NVIDIA laptop; memory setting; wrong answers), presenter-size type, one
+small tag per number, and every source in a closed ``Details'' panel per step (Figures~\ref{fig:s1} to
+\ref{fig:s5b}). The engineering view (Section~\ref{sec:eng} and the view sections) is behind a link. The story runs
+entirely from the cache. A three-minute backup recording (no audio, no live call) is
+\texttt{demo/review/demo\_story.webm}; the two-page leave-behind is \texttt{demo/review/LEAVE\_BEHIND.pdf}; the
+rehearsal sheet is \texttt{demo/review/STEP\_SCRIPT.md}.
+\shot{story_step1}{Step 1, the landing page: same laptop, two settings.}{fig:s1}
+\shot{story_step2}{Step 2: how often answers are silently wrong (rounded on screen; exact counts in Details).}{fig:s2}
+\shot{story_step2_details}{Step 2 with its Details panel opened: the exact counts and register row.}{fig:s2d}
+\shot{story_step3}{Step 3: why not just change one setting.}{fig:s3}
+\shot{story_step4}{Step 4: what it costs, with the accuracy-tolerance slider at its default of 5 points.}{fig:s4}
+\shot{story_step4_t12}{Step 4 with the slider at 12 points: the AMD workstation routes local.}{fig:s4b}
+\shot{story_step5}{Step 5: what our tool does, on the AMD workstation at the default gap.}{fig:s5}
+\shot{story_step5_intel}{Step 5 on the Intel laptop (local accuracy measured by R2 session pass rate).}{fig:s5b}
+
+\section{Engineering view}\label{sec:eng}
+Behind the ``Engineering view'' link: the four views below and the frontier and replay screens. Cloud rows use the
+Anthropic shared price table and the measured cloud rows (no OpenAI stub rows); hardware with no measured envelope is
+listed in one ``Not measured'' line; every verbatim register text sits in a closed ``Details'' disclosure under a
+one-sentence summary.
+\shot{eng_top}{Engineering view, top: banner with the Anthropic price table, then view A.}{fig:e1}
+\shot{eng_inputs}{Engineering view: inputs, with the one-line ``Not measured'' hardware list.}{fig:e1b}
+\shot{eng_frontier}{Engineering view: frontier per machine and the measured Anthropic cloud rows.}{fig:e2}
+\shot{eng_replay}{Engineering view: the replay screen, register rows summarised above closed Details.}{fig:e3}
 
 \section{View A: silent failure}
 \textbf{Takeaway.} The window is a device default nobody chose; when it is small, rules and task results fail, and no

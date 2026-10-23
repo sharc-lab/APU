@@ -59,27 +59,32 @@ def shots(pw):
     SHOTS.mkdir(exist_ok=True)
     b = pw.chromium.launch()
     page = b.new_page(viewport=SIZE)
-    # story steps, viewport only, plus a tight crop of each step for the leave-behind
-    crops = {1: "#story-panel .pair", 2: "#story", 3: "#story-panel", 4: "#story", 5: "#story-panel .pair"}
+    # the landing page is story step 1; each step at 1600x1000, plus a crop of its main screen for the leave-behind
     for n in range(1, 6):
-        page.goto(BASE + "/?step=%d" % n)
+        page.goto(BASE + ("/" if n == 1 else "/?step=%d" % n))
         settle(page)
         page.screenshot(path=str(SHOTS / ("story_step%d.png" % n)))
-        page.locator(crops[n]).first.screenshot(path=str(SHOTS / ("leave_step%d.png" % n)))
-    page.goto(BASE + "/?step=3")
+        page.locator("#story-panel").first.screenshot(path=str(SHOTS / ("leave_step%d.png" % n)))
+    # the accuracy-tolerance slider (step 4) at 12 points, and the tool card (step 5) on the Intel laptop
+    page.goto(BASE + "/?step=4&tol=12")
     settle(page)
-    page.select_option("#devform select[name=device]", "evo-t2s-cpu")
+    page.screenshot(path=str(SHOTS / "story_step4_t12.png"))
+    page.goto(BASE + "/?step=5&machine=Intel%20laptop")
     settle(page)
-    page.screenshot(path=str(SHOTS / "story_step3_cpu.png"))
-    page.goto(BASE + "/?step=5")
+    page.screenshot(path=str(SHOTS / "story_step5_intel.png"))
+    page.goto(BASE + "/?step=2")
     settle(page)
-    page.click("#esc-run")
-    page.wait_for_selector("#esc-result .devcard")
-    settle(page, 500)
-    page.screenshot(path=str(SHOTS / "story_step5_sent.png"))
-    # the four views in free exploration: default state, then one interaction each
+    page.click("#story-panel details summary")
+    page.wait_for_timeout(400)
+    page.screenshot(path=str(SHOTS / "story_step2_details.png"))
+    # the engineering view: header (hardware, cloud banner), then each section in its default state and one
+    # interaction each
     page.goto(BASE + "/?explore=1")
     settle(page, 1500)
+    page.screenshot(path=str(SHOTS / "eng_top.png"))
+    page.locator("#inputs").screenshot(path=str(SHOTS / "eng_inputs.png"))
+    page.locator("#frontier").screenshot(path=str(SHOTS / "eng_frontier.png"))
+    page.locator("#live").screenshot(path=str(SHOTS / "eng_replay.png"))
     page.locator("#silent").screenshot(path=str(SHOTS / "A_default.png"))
     page.click("#silent details summary")
     page.wait_for_timeout(400)
@@ -116,15 +121,15 @@ def video(pw, seconds_per_step=36):
     settle(page, 300)
     for n in range(1, 6):
         start = time.time()
-        if n == 3:
-            page.wait_for_timeout(12000)
-            page.select_option("#devform select[name=device]", "evo-t2s-cpu")
-            page.wait_for_timeout(10000)
-            page.select_option("#devform select[name=device]", "blade")
-        if n == 5:
-            page.wait_for_timeout(8000)
-            page.click("#esc-run")
-            page.wait_for_selector("#esc-result .devcard")
+        if n == 4:  # move the accuracy-tolerance slider: 5 -> 12 -> 20 -> 5
+            for v in (12, 20, 5):
+                page.wait_for_timeout(7000)
+                page.evaluate("(v) => { const s = document.querySelector('#s-tol'); s.value = v; "
+                              "s.dispatchEvent(new Event('input')); }", v)
+        if n == 5:  # pick each machine
+            for m in ("Intel laptop", "NVIDIA laptop", "AMD workstation"):
+                page.wait_for_timeout(6000)
+                page.select_option("#s-machine", m)
         # slow scroll through the step, then back to the top
         for y in (0, 300, 600, 900, 300, 0):
             page.mouse.wheel(0, y - page.evaluate("window.scrollY"))

@@ -170,6 +170,8 @@ body.story-on header.top { display: none; }
 .s-bar { display: inline-block; height: 44px; background: var(--series-1); border-radius: 6px; }
 .s-caption, .s-take { font-size: 28px; font-weight: 600; margin: 18px 0; }
 .s-slider { font-size: 24px; margin-top: 12px; }
+#story label { font-size: 24px; color: var(--ink); }
+.s-slider label { display: flex; flex-direction: row; align-items: center; gap: 12px; flex-wrap: wrap; }
 .s-slider input[type=range] { width: 360px; vertical-align: middle; }
 .s-line { font-size: 24px; margin: 6px 0; }
 .s-pick select { font-size: 24px; }
