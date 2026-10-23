@@ -5849,3 +5849,14 @@ not edited; it was committed before deploy and queueing.
   (`is_paused()` None, checked separately). Both entries' notes say they release themselves via tq.advance() on exit and
   set no pause. The running job (x2_b5_simcap_8192) was not touched. Order and hours: docs/X2_QUEUE_PLAN.md "Reserve
   draw of 2026-10-22".
+
+## PRE-REGISTRATION (2026-10-22, NOT YET COMPUTED): measured hybrid by replay (per-task route-at-start plus the window-overflow flag) and task latency by policy
+
+Offline, cached replay of recorded runs; no live cloud call, no new spend. Full protocol in docs/EXPERIMENTS.md,
+entry "2026-10-22 - Measured hybrid by replay". New rows `hybrid-route-at-start-measured` (per-task policy: the device
+profile projects each task's prompt from the task definition at job start, the task runs local if it fits the tier's
+window, else it goes to the cloud from its first call; a local task the window-overflow flag fires on is escalated at
+its full-history redo outcome and cost) and `task-latency-by-policy` (median and p90 wall seconds per task for
+all-cloud, local and that hybrid). Tiers ollama_ctx_8192 and ollama_ctx_4096 on evo-x2, qwen3:14b, seeds
+20260901-03, Sonnet and Haiku (Haiku escalation interim, labelled). Every figure is labelled "measured by replay of
+recorded runs". The existing row `hybrid-route-at-start` (whole-device tolerance rule) is kept unchanged.
