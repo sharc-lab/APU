@@ -1,0 +1,967 @@
+{
+ "device_pair": {
+  "machine": "evo-t2s",
+  "arm": "ollama_default (no num_ctx sent)",
+  "cpu": {
+   "register_id": "t2s-r2-real-cpu",
+   "status": "VERIFIED",
+   "models": [
+    {
+     "model": "llama3.1:8b",
+     "loaded_window": [
+      4096
+     ],
+     "first_over_window_turn": [
+      3
+     ],
+     "gated_silent": 5,
+     "n": 5,
+     "silent_after_window": 5,
+     "baseline_type": 0,
+     "gate_excludes": "recall",
+     "intact": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "model": "qwen3:14b",
+     "loaded_window": [
+      4096
+     ],
+     "first_over_window_turn": [
+      3
+     ],
+     "gated_silent": 5,
+     "n": 5,
+     "silent_after_window": 5,
+     "baseline_type": 0,
+     "gate_excludes": "recall",
+     "intact": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    }
+   ],
+   "parsed": true,
+   "label": "measured",
+   "evidence": {
+    "file": "results/t2s_r2_real_cpu_v1.jsonl",
+    "present": true,
+    "sessions": [
+     {
+      "model": "llama3.1:8b",
+      "seed": 20260901,
+      "arm_id": "ollama_default_call2_notools",
+      "loaded_window": [
+       4096
+      ],
+      "first_over_window_turn": 3,
+      "first_error_turn": null,
+      "canary_sys_misses": 3,
+      "canary_hist_misses": 8,
+      "canary_checks": 8,
+      "turns": 40,
+      "turns_over_window": 38,
+      "calls": 80,
+      "calls_surfaced_error": 0,
+      "src": {
+       "file": "results/t2s_r2_real_cpu_v1.jsonl",
+       "line": 44
+      }
+     },
+     {
+      "model": "qwen3:14b",
+      "seed": 20260901,
+      "arm_id": "ollama_default_call2_notools",
+      "loaded_window": [
+       4096
+      ],
+      "first_over_window_turn": 3,
+      "first_error_turn": null,
+      "canary_sys_misses": 1,
+      "canary_hist_misses": 8,
+      "canary_checks": 8,
+      "turns": 40,
+      "turns_over_window": 38,
+      "calls": 80,
+      "calls_surfaced_error": 0,
+      "src": {
+       "file": "results/t2s_r2_real_cpu_v1.jsonl",
+       "line": 86
+      }
+     },
+     {
+      "model": "llama3.1:8b",
+      "seed": 20260902,
+      "arm_id": "ollama_default_call2_notools",
+      "loaded_window": [
+       4096
+      ],
+      "first_over_window_turn": 3,
+      "first_error_turn": null,
+      "canary_sys_misses": 5,
+      "canary_hist_misses": 8,
+      "canary_checks": 8,
+      "turns": 40,
+      "turns_over_window": 38,
+      "calls": 80,
+      "calls_surfaced_error": 0,
+      "src": {
+       "file": "results/t2s_r2_real_cpu_v1.jsonl",
+       "line": 128
+      }
+     },
+     {
+      "model": "qwen3:14b",
+      "seed": 20260902,
+      "arm_id": "ollama_default_call2_notools",
+      "loaded_window": [
+       4096
+      ],
+      "first_over_window_turn": 3,
+      "first_error_turn": null,
+      "canary_sys_misses": 0,
+      "canary_hist_misses": 8,
+      "canary_checks": 8,
+      "turns": 40,
+      "turns_over_window": 38,
+      "calls": 80,
+      "calls_surfaced_error": 0,
+      "src": {
+       "file": "results/t2s_r2_real_cpu_v1.jsonl",
+       "line": 170
+      }
+     },
+     {
+      "model": "llama3.1:8b",
+      "seed": 20260903,
+      "arm_id": "ollama_default_call2_notools",
+      "loaded_window": [
+       4096
+      ],
+      "first_over_window_turn": 3,
+      "first_error_turn": null,
+      "canary_sys_misses": 1,
+      "canary_hist_misses": 8,
+      "canary_checks": 8,
+      "turns": 40,
+      "turns_over_window": 38,
+      "calls": 80,
+      "calls_surfaced_error": 0,
+      "src": {
+       "file": "results/t2s_r2_real_cpu_v1.jsonl",
+       "line": 212
+      }
+     },
+     {
+      "model": "qwen3:14b",
+      "seed": 20260903,
+      "arm_id": "ollama_default_call2_notools",
+      "loaded_window": [
+       4096
+      ],
+      "first_over_window_turn": 3,
+      "first_error_turn": null,
+      "canary_sys_misses": 0,
+      "canary_hist_misses": 8,
+      "canary_checks": 8,
+      "turns": 40,
+      "turns_over_window": 38,
+      "calls": 80,
+      "calls_surfaced_error": 0,
+      "src": {
+       "file": "results/t2s_r2_real_cpu_v1.jsonl",
+       "line": 254
+      }
+     },
+     {
+      "model": "llama3.1:8b",
+      "seed": 20260904,
+      "arm_id": "ollama_default_call2_notools",
+      "loaded_window": [
+       4096
+      ],
+      "first_over_window_turn": 3,
+      "first_error_turn": null,
+      "canary_sys_misses": 1,
+      "canary_hist_misses": 8,
+      "canary_checks": 8,
+      "turns": 40,
+      "turns_over_window": 38,
+      "calls": 80,
+      "calls_surfaced_error": 0,
+      "src": {
+       "file": "results/t2s_r2_real_cpu_v1.jsonl",
+       "line": 296
+      }
+     },
+     {
+      "model": "qwen3:14b",
+      "seed": 20260904,
+      "arm_id": "ollama_default_call2_notools",
+      "loaded_window": [
+       4096
+      ],
+      "first_over_window_turn": 3,
+      "first_error_turn": null,
+      "canary_sys_misses": 0,
+      "canary_hist_misses": 8,
+      "canary_checks": 8,
+      "turns": 40,
+      "turns_over_window": 38,
+      "calls": 80,
+      "calls_surfaced_error": 0,
+      "src": {
+       "file": "results/t2s_r2_real_cpu_v1.jsonl",
+       "line": 338
+      }
+     },
+     {
+      "model": "llama3.1:8b",
+      "seed": 20260905,
+      "arm_id": "ollama_default_call2_notools",
+      "loaded_window": [
+       4096
+      ],
+      "first_over_window_turn": 3,
+      "first_error_turn": null,
+      "canary_sys_misses": 4,
+      "canary_hist_misses": 8,
+      "canary_checks": 8,
+      "turns": 40,
+      "turns_over_window": 38,
+      "calls": 80,
+      "calls_surfaced_error": 0,
+      "src": {
+       "file": "results/t2s_r2_real_cpu_v1.jsonl",
+       "line": 380
+      }
+     },
+     {
+      "model": "qwen3:14b",
+      "seed": 20260905,
+      "arm_id": "ollama_default_call2_notools",
+      "loaded_window": [
+       4096
+      ],
+      "first_over_window_turn": 3,
+      "first_error_turn": null,
+      "canary_sys_misses": 0,
+      "canary_hist_misses": 8,
+      "canary_checks": 8,
+      "turns": 40,
+      "turns_over_window": 38,
+      "calls": 80,
+      "calls_surfaced_error": 0,
+      "src": {
+       "file": "results/t2s_r2_real_cpu_v1.jsonl",
+       "line": 422
+      }
+     }
+    ],
+    "totals": {
+     "sessions": 10,
+     "calls": 800,
+     "calls_surfaced_error": 0
+    }
+   }
+  },
+  "igpu": {
+   "register_id": "t2s-r2-real-igpu",
+   "status": "VERIFIED",
+   "models": [
+    {
+     "model": "llama3.1:8b",
+     "loaded_window": [
+      32768
+     ],
+     "first_over_window_turn": [
+      23
+     ],
+     "gated_silent": 0,
+     "n": 5,
+     "silent_after_window": 0,
+     "baseline_type": 0,
+     "gate_excludes": "nothing",
+     "intact": [
+      5,
+      5,
+      5,
+      4,
+      4,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "model": "qwen3:14b",
+     "loaded_window": [
+      32768
+     ],
+     "first_over_window_turn": [
+      20,
+      21
+     ],
+     "gated_silent": 1,
+     "n": 5,
+     "silent_after_window": 0,
+     "baseline_type": 1,
+     "gate_excludes": "recall",
+     "intact": [
+      4,
+      4,
+      4,
+      4,
+      0,
+      0,
+      0,
+      0
+     ]
+    }
+   ],
+   "parsed": true,
+   "label": "measured",
+   "evidence": {
+    "file": "results/t2s_r2_real_igpu_v1.jsonl",
+    "present": true,
+    "sessions": [
+     {
+      "model": "llama3.1:8b",
+      "seed": 20260901,
+      "arm_id": "ollama_default_call2_notools",
+      "loaded_window": [
+       32768
+      ],
+      "first_over_window_turn": 23,
+      "first_error_turn": null,
+      "canary_sys_misses": 0,
+      "canary_hist_misses": 3,
+      "canary_checks": 8,
+      "turns": 40,
+      "turns_over_window": 18,
+      "calls": 80,
+      "calls_surfaced_error": 0,
+      "src": {
+       "file": "results/t2s_r2_real_igpu_v1.jsonl",
+       "line": 44
+      }
+     },
+     {
+      "model": "qwen3:14b",
+      "seed": 20260901,
+      "arm_id": "ollama_default_call2_notools",
+      "loaded_window": [
+       32768
+      ],
+      "first_over_window_turn": 20,
+      "first_error_turn": null,
+      "canary_sys_misses": 2,
+      "canary_hist_misses": 4,
+      "canary_checks": 8,
+      "turns": 40,
+      "turns_over_window": 21,
+      "calls": 80,
+      "calls_surfaced_error": 0,
+      "src": {
+       "file": "results/t2s_r2_real_igpu_v1.jsonl",
+       "line": 86
+      }
+     },
+     {
+      "model": "llama3.1:8b",
+      "seed": 20260902,
+      "arm_id": "ollama_default_call2_notools",
+      "loaded_window": [
+       32768
+      ],
+      "first_over_window_turn": 23,
+      "first_error_turn": null,
+      "canary_sys_misses": 0,
+      "canary_hist_misses": 3,
+      "canary_checks": 8,
+      "turns": 40,
+      "turns_over_window": 18,
+      "calls": 80,
+      "calls_surfaced_error": 0,
+      "src": {
+       "file": "results/t2s_r2_real_igpu_v1.jsonl",
+       "line": 128
+      }
+     },
+     {
+      "model": "qwen3:14b",
+      "seed": 20260902,
+      "arm_id": "ollama_default_call2_notools",
+      "loaded_window": [
+       32768
+      ],
+      "first_over_window_turn": 20,
+      "first_error_turn": null,
+      "canary_sys_misses": 0,
+      "canary_hist_misses": 4,
+      "canary_checks": 8,
+      "turns": 40,
+      "turns_over_window": 21,
+      "calls": 80,
+      "calls_surfaced_error": 0,
+      "src": {
+       "file": "results/t2s_r2_real_igpu_v1.jsonl",
+       "line": 170
+      }
+     },
+     {
+      "model": "llama3.1:8b",
+      "seed": 20260903,
+      "arm_id": "ollama_default_call2_notools",
+      "loaded_window": [
+       32768
+      ],
+      "first_over_window_turn": 23,
+      "first_error_turn": null,
+      "canary_sys_misses": 3,
+      "canary_hist_misses": 3,
+      "canary_checks": 8,
+      "turns": 40,
+      "turns_over_window": 18,
+      "calls": 80,
+      "calls_surfaced_error": 0,
+      "src": {
+       "file": "results/t2s_r2_real_igpu_v1.jsonl",
+       "line": 212
+      }
+     },
+     {
+      "model": "qwen3:14b",
+      "seed": 20260903,
+      "arm_id": "ollama_default_call2_notools",
+      "loaded_window": [
+       32768
+      ],
+      "first_over_window_turn": 21,
+      "first_error_turn": null,
+      "canary_sys_misses": 0,
+      "canary_hist_misses": 4,
+      "canary_checks": 8,
+      "turns": 40,
+      "turns_over_window": 20,
+      "calls": 80,
+      "calls_surfaced_error": 0,
+      "src": {
+       "file": "results/t2s_r2_real_igpu_v1.jsonl",
+       "line": 254
+      }
+     },
+     {
+      "model": "llama3.1:8b",
+      "seed": 20260904,
+      "arm_id": "ollama_default_call2_notools",
+      "loaded_window": [
+       32768
+      ],
+      "first_over_window_turn": 23,
+      "first_error_turn": null,
+      "canary_sys_misses": 0,
+      "canary_hist_misses": 3,
+      "canary_checks": 8,
+      "turns": 40,
+      "turns_over_window": 18,
+      "calls": 80,
+      "calls_surfaced_error": 0,
+      "src": {
+       "file": "results/t2s_r2_real_igpu_v1.jsonl",
+       "line": 296
+      }
+     },
+     {
+      "model": "qwen3:14b",
+      "seed": 20260904,
+      "arm_id": "ollama_default_call2_notools",
+      "loaded_window": [
+       32768
+      ],
+      "first_over_window_turn": 21,
+      "first_error_turn": null,
+      "canary_sys_misses": 0,
+      "canary_hist_misses": 4,
+      "canary_checks": 8,
+      "turns": 40,
+      "turns_over_window": 20,
+      "calls": 80,
+      "calls_surfaced_error": 0,
+      "src": {
+       "file": "results/t2s_r2_real_igpu_v1.jsonl",
+       "line": 338
+      }
+     },
+     {
+      "model": "llama3.1:8b",
+      "seed": 20260905,
+      "arm_id": "ollama_default_call2_notools",
+      "loaded_window": [
+       32768
+      ],
+      "first_over_window_turn": 23,
+      "first_error_turn": null,
+      "canary_sys_misses": 1,
+      "canary_hist_misses": 3,
+      "canary_checks": 8,
+      "turns": 40,
+      "turns_over_window": 18,
+      "calls": 80,
+      "calls_surfaced_error": 0,
+      "src": {
+       "file": "results/t2s_r2_real_igpu_v1.jsonl",
+       "line": 380
+      }
+     },
+     {
+      "model": "qwen3:14b",
+      "seed": 20260905,
+      "arm_id": "ollama_default_call2_notools",
+      "loaded_window": [
+       32768
+      ],
+      "first_over_window_turn": 20,
+      "first_error_turn": null,
+      "canary_sys_misses": 2,
+      "canary_hist_misses": 4,
+      "canary_checks": 8,
+      "turns": 40,
+      "turns_over_window": 21,
+      "calls": 80,
+      "calls_surfaced_error": 0,
+      "src": {
+       "file": "results/t2s_r2_real_igpu_v1.jsonl",
+       "line": 422
+      }
+     }
+    ],
+    "totals": {
+     "sessions": 10,
+     "calls": 800,
+     "calls_surfaced_error": 0
+    }
+   }
+  },
+  "label": "measured",
+  "caption": "Same machine, same models, same 40-turn sessions, Ollama default settings. The only difference is the device Ollama picked, which sets the window it loads."
+ },
+ "wrong_rate": {
+  "register_id": "x2-evalset-tasks-real-v2-wrong-rate",
+  "model": "qwen3:14b",
+  "machine": "evo-x2",
+  "tiers": [
+   {
+    "tier": "ollama_default",
+    "wrong": 17,
+    "n": 150,
+    "pct": 11.3,
+    "silent": 17,
+    "surfaced": 0,
+    "loaded_context": [
+     40960
+    ],
+    "excess_points": null,
+    "ci_lo": null,
+    "ci_hi": null
+   },
+   {
+    "tier": "ollama_ctx_16384",
+    "wrong": 19,
+    "n": 150,
+    "pct": 12.7,
+    "silent": 19,
+    "surfaced": 0,
+    "loaded_context": [
+     16384
+    ],
+    "excess_points": 1.3,
+    "ci_lo": -1.3,
+    "ci_hi": 4.0
+   },
+   {
+    "tier": "ollama_ctx_8192",
+    "wrong": 53,
+    "n": 150,
+    "pct": 35.3,
+    "silent": 53,
+    "surfaced": 0,
+    "loaded_context": [
+     8192
+    ],
+    "excess_points": 24.0,
+    "ci_lo": 18.7,
+    "ci_hi": 29.3
+   },
+   {
+    "tier": "ollama_ctx_4096",
+    "wrong": 63,
+    "n": 150,
+    "pct": 42.0,
+    "silent": 63,
+    "surfaced": 0,
+    "loaded_context": [
+     4096
+    ],
+    "excess_points": 30.7,
+    "ci_lo": 26.0,
+    "ci_hi": 34.7
+   },
+   {
+    "tier": "ollama_ctx_4096_numkeep",
+    "wrong": 45,
+    "n": 150,
+    "pct": 30.0,
+    "silent": 45,
+    "surfaced": 0,
+    "loaded_context": [
+     4096
+    ],
+    "excess_points": 18.7,
+    "ci_lo": 16.0,
+    "ci_hi": 21.3
+   }
+  ],
+  "parsed": true,
+  "label": "measured",
+  "ci_register_id": "x2-evalset-tasks-real-v2-ci-units",
+  "file_check": {
+   "ollama_default": {
+    "wrong_rows": 17,
+    "http_error_rows": 0,
+    "first_line": 19
+   },
+   "ollama_ctx_16384": {
+    "wrong_rows": 19,
+    "http_error_rows": 0,
+    "first_line": 179
+   },
+   "ollama_ctx_8192": {
+    "wrong_rows": 53,
+    "http_error_rows": 0,
+    "first_line": 335
+   },
+   "ollama_ctx_4096": {
+    "wrong_rows": 63,
+    "http_error_rows": 0,
+    "first_line": 488
+   },
+   "ollama_ctx_4096_numkeep": {
+    "wrong_rows": 45,
+    "http_error_rows": 0,
+    "first_line": 649
+   }
+  },
+  "file": "results/x2_evalset_tasks_real_v2.jsonl"
+ },
+ "v1b_per_model": {
+  "register_id": "R2-v1b-gated-per-model",
+  "machine": "evo-x2",
+  "cells": [
+   {
+    "tier": "ollama_default",
+    "model": "llama3.1:8b",
+    "gated_silent": 3,
+    "n": 5,
+    "silent_after_window": 0,
+    "baseline_type": 3,
+    "intact": [
+     4,
+     4,
+     4,
+     2,
+     2,
+     2,
+     1,
+     1
+    ]
+   },
+   {
+    "tier": "ollama_default",
+    "model": "qwen3:14b",
+    "gated_silent": 0,
+    "n": 5,
+    "silent_after_window": 0,
+    "baseline_type": 0,
+    "intact": [
+     5,
+     5,
+     5,
+     5,
+     5,
+     0,
+     0,
+     0
+    ]
+   },
+   {
+    "tier": "ollama_default",
+    "model": "qwen3:8b",
+    "gated_silent": 0,
+    "n": 5,
+    "silent_after_window": 0,
+    "baseline_type": 0,
+    "intact": [
+     5,
+     5,
+     5,
+     4,
+     4,
+     0,
+     0,
+     0
+    ]
+   },
+   {
+    "tier": "num_ctx_32768",
+    "model": "llama3.1:8b",
+    "gated_silent": 1,
+    "n": 5,
+    "silent_after_window": 0,
+    "baseline_type": 1,
+    "intact": [
+     5,
+     5,
+     5,
+     3,
+     3,
+     0,
+     0,
+     0
+    ]
+   },
+   {
+    "tier": "num_ctx_32768",
+    "model": "qwen3:14b",
+    "gated_silent": 0,
+    "n": 5,
+    "silent_after_window": 0,
+    "baseline_type": 0,
+    "intact": [
+     5,
+     5,
+     5,
+     5,
+     0,
+     0,
+     0,
+     0
+    ]
+   },
+   {
+    "tier": "num_ctx_32768",
+    "model": "qwen3:8b",
+    "gated_silent": 0,
+    "n": 5,
+    "silent_after_window": 0,
+    "baseline_type": 0,
+    "intact": [
+     5,
+     5,
+     5,
+     4,
+     0,
+     0,
+     0,
+     0
+    ]
+   },
+   {
+    "tier": "num_ctx_16384",
+    "model": "llama3.1:8b",
+    "gated_silent": 2,
+    "n": 5,
+    "silent_after_window": 2,
+    "baseline_type": 0,
+    "intact": [
+     5,
+     5,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0
+    ]
+   },
+   {
+    "tier": "num_ctx_16384",
+    "model": "qwen3:14b",
+    "gated_silent": 0,
+    "n": 5,
+    "silent_after_window": 0,
+    "baseline_type": 0,
+    "intact": [
+     5,
+     5,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0
+    ]
+   },
+   {
+    "tier": "num_ctx_16384",
+    "model": "qwen3:8b",
+    "gated_silent": 0,
+    "n": 5,
+    "silent_after_window": 0,
+    "baseline_type": 0,
+    "intact": [
+     5,
+     5,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0
+    ]
+   },
+   {
+    "tier": "num_ctx_8192",
+    "model": "llama3.1:8b",
+    "gated_silent": 4,
+    "n": 5,
+    "silent_after_window": 4,
+    "baseline_type": 0,
+    "intact": [
+     5,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0
+    ]
+   },
+   {
+    "tier": "num_ctx_8192",
+    "model": "qwen3:14b",
+    "gated_silent": 0,
+    "n": 5,
+    "silent_after_window": 0,
+    "baseline_type": 0,
+    "intact": [
+     5,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0
+    ]
+   },
+   {
+    "tier": "num_ctx_8192",
+    "model": "qwen3:8b",
+    "gated_silent": 4,
+    "n": 5,
+    "silent_after_window": 4,
+    "baseline_type": 0,
+    "intact": [
+     3,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0
+    ]
+   },
+   {
+    "tier": "num_ctx_4096",
+    "model": "llama3.1:8b",
+    "gated_silent": 5,
+    "n": 5,
+    "silent_after_window": 5,
+    "baseline_type": 0,
+    "intact": [
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0
+    ]
+   },
+   {
+    "tier": "num_ctx_4096",
+    "model": "qwen3:14b",
+    "gated_silent": 4,
+    "n": 5,
+    "silent_after_window": 4,
+    "baseline_type": 0,
+    "intact": [
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0
+    ]
+   },
+   {
+    "tier": "num_ctx_4096",
+    "model": "qwen3:8b",
+    "gated_silent": 1,
+    "n": 5,
+    "silent_after_window": 1,
+    "baseline_type": 0,
+    "intact": [
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0
+    ]
+   }
+  ],
+  "parsed": true,
+  "label": "measured",
+  "checkpoints": [
+   5,
+   10,
+   15,
+   20,
+   25,
+   30,
+   35,
+   40
+  ]
+ },
+ "register_ids": [
+  "t2s-r2-real-cpu",
+  "t2s-r2-real-igpu",
+  "x2-evalset-tasks-real-v2-wrong-rate",
+  "x2-evalset-tasks-real-v2-ci-units",
+  "R2-v1b-gated-per-model",
+  "R2-real-v1b-gated-kill"
+ ]
+}

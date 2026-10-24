@@ -69,15 +69,14 @@ function inputs() {
 function renderMeta(m) {
   const b = [];
   if (m.backend.fake) b.push(`<div class="banner"><b><span class="badge fake">FAKE BACKEND</span></b>router: ${esc(m.backend.router)}; pareto: ${esc(m.backend.pareto)}. Frontier, recommendation and our side of the live run come from the dashboard's stand-in until src/dse lands on main.</div>`);
-  b.push(`<div class="banner"><b>Offline snapshot</b>built ${esc(m.manifest.built_utc)} at commit ${esc(m.manifest.git_commit || "n/a")} from ${Object.keys(m.manifest.sources).length} committed files. Cloud rows are <span class="badge stub">STUB</span> (no key; src/cloud/client.py pricing table).</div>`);
+  b.push(`<div class="banner"><b>Offline snapshot</b>built ${esc(m.manifest.built_utc)} at commit ${esc(m.manifest.git_commit || "n/a")} from ${Object.keys(m.manifest.sources).length} committed files. Cloud rows: the Anthropic shared price table (${esc(m.cloud_prices || "results/cloud_prices_anthropic_20261014.json")}) and the measured cloud rows.</div>`);
   $("#banners").innerHTML = b.join("");
   const f = $("#form");
   f.budget.value = m.defaults.budget_usd; f.floor.value = m.defaults.quality_floor; f.latency.value = m.defaults.latency_target_ms;
   f.maxtimeout.value = m.defaults.max_timeout_share;
-  $("#hw").innerHTML = m.hardware.map((h) => {
-    const on = h.machine && m.machines.includes(h.machine);
-    return `<label class="${on ? "" : "off"}"><input type="checkbox" value="${esc(h.machine || h.name)}" ${on ? "checked" : "disabled"}> ${esc(h.name)}${h.machine ? ` (${esc(h.machine)})` : ""}${h.memory_gb ? `, ${num(h.memory_gb + " GB", { file: h.src })}` : ""}${on ? "" : " <span class='muted'>no measured envelope</span>"}</label>`;
-  }).join("");
+  // only hardware with a measured envelope is selectable; the rest is one line under "not measured"
+  $("#hw").innerHTML = (m.hardware_measured || []).map((h) => `<label><input type="checkbox" value="${esc(h.machine)}" checked> ${esc(h.name)} (${esc(h.machine)})${h.memory_gb ? `, ${num(h.memory_gb + " GB", { file: h.src })}` : ""}</label>`).join("") +
+    ((m.hardware_not_measured || []).length ? `<p class="muted small" id="hw-not-measured">Not measured: ${m.hardware_not_measured.map((h) => esc(h.name)).join(", ")}</p>` : "");
   $("#workload").innerHTML = m.workloads.map((w) => `<option value="${esc(w.id)}">${esc(w.label)}</option>`).join("");
   showWorkload();
 }
@@ -145,8 +144,8 @@ function renderFrontier() {
     const rows = v.points.slice().sort((a, b) => (b.quality || 0) - (a.quality || 0)).map(pointRow).join("");
     return `<div class="chart"><h3>${esc(m)}</h3>${chart(m, v.points, inp, chosen)}<details><summary>Table view (${v.points.length} configs)</summary><div class="scroll"><table>${TABLE_HEAD}${rows}</table></div></details></div>`;
   }).join("") || "<p class='muted'>Select at least one measured hardware option.</p>";
-  fr.cloud.forEach((p) => (state.byId[p.id] = p));
-  $("#cloud").innerHTML = fr.cloud.length ? `<h3>Cloud <span class="badge stub">STUB</span></h3><p class="muted small">No cloud quality is measured yet; costs are the pricing table applied to the outcome rows' mean prompt size.</p><div class="scroll"><table>${TABLE_HEAD}${fr.cloud.map(pointRow).join("")}</table></div>` : "";
+  const cm = fr.cloud_measured || { rows: [] };
+  $("#cloud").innerHTML = cm.rows.length ? `<h3>Cloud (Anthropic, ${esc(cm.prices)})</h3><div class="scroll"><table><tr><th>model</th><th>what</th><th>accuracy</th><th>USD per task</th><th></th></tr>${cm.rows.map((r) => `<tr><td>${esc(r.model)}</td><td>${esc(r.what)}</td><td>${r.accuracy ? num(r.accuracy, r.src) : "n/a"}</td><td>${r.usd_per_task ? num(r.usd_per_task, r.src) : "n/a"}</td><td><span class="lab ${r.label === "measured" ? "measured" : "priced"}">${esc(r.label)}</span></td></tr>`).join("")}</table></div>` : "";
 }
 document.addEventListener("mousemove", (ev) => {
   const t = ev.target.closest && ev.target.closest("circle.hit"), tip = $("#tip");
@@ -173,7 +172,8 @@ function renderRec() {
       <div class="tile"><div class="k">Quality (n ${num(fmt.int(c.quality_n), c.src)})</div><div class="v">${num(fmt.q(c.quality), c.src)}</div></div>
       <div class="tile"><div class="k">p50 latency</div><div class="v">${num(fmt.ms(c.latency_p50_ms), c.src)}</div></div>
       <div class="tile"><div class="k">Cost per 1k steps</div><div class="v">${num(fmt.usd(c.usd_per_1k_steps), c.src)}</div></div>
-      <div class="tile"><div class="k">Savings vs all-cloud per 1k steps ${stub}</div><div class="v">${num(fmt.usd(r.savings_vs_all_cloud_usd_per_1k), r.savings_src)}</div></div>
+      ${r.savings_shown ? `<div class="tile"><div class="k">Savings vs all-cloud per 1k steps ${stub}</div><div class="v">${num(fmt.usd(r.savings_vs_all_cloud_usd_per_1k), r.savings_src)}</div></div>`
+        : `<div class="tile"><div class="k">Router savings</div><div class="v small" style="font-size:14px">${num(r.savings_note, { register: "b5-verdict" })}</div></div>`}
     </div>`;
   } else {
     h += `<p class="hero">No local config meets these inputs</p>`;
@@ -183,7 +183,7 @@ function renderRec() {
   const ex = r.excluded || [];
   h += `<h3>Excluded <span class="muted small">(usability: timeout_latency share above ${esc(r.inputs.max_timeout_share)})</span></h3>`;
   h += ex.length ? `<ul class="excluded">${ex.map((e) => `<li>${esc(e.machine)} / ${esc(e.label)} <span class="muted small">(${esc(e.config_id)})</span>: ${num(e.reason, e.src)}</li>`).join("")}</ul>` : `<p class="muted small">none</p>`;
-  h += `<p class="muted small">Backend: ${esc(r.backend)}. All-cloud comparison uses STUB cloud rows until real cloud rows exist.</p>`;
+  h += `<p class="muted small">Backend: ${esc(r.backend)}.</p>`;
   $("#rec-body").innerHTML = h;
 }
 
@@ -203,16 +203,22 @@ async function refresh() {
 let scen = null;
 function renderScenario(s) {
   scen = s;
-  $("#session").innerHTML = s.sessions.map((x) => `<option value="${esc(x.key)}">${esc(x.model)}, seed ${x.seed}</option>`).join("");
-  const reg = s.register;
-  const cite = (id) => (reg[id] ? `${num(id, { register: id })}: ${esc(reg[id].value)}` : `${esc(id)}: not in register`);
-  $("#evidence").innerHTML = `<p><b>Recorded outcome, all tiers, 3 models x 5 seeds (strengthened run v1 + v1b; the six sessions replayed here are its v1 part)</b> (register, verbatim): ${cite("R2-real-v1b-gated-kill")}</p>
-    <p><b>Excess over the Ollama default tier</b> (after-window silent failure rate minus the default's, 95% bootstrap CI over sessions; register, verbatim): ${cite("R2-v1b-excess-over-default")}</p>
+  $("#session").innerHTML = s.sessions.map((x) => `<option value="${esc(x.key)}">${esc(x.model)}, seed ${x.seed} (${esc((x.source || "").replace("results/", ""))})</option>`).join("");
+  // every verbatim register block sits in a closed Details disclosure under a one-sentence plain summary
+  const ev = {};
+  (s.evidence || []).forEach((e) => (ev[e.id] = e));
+  const cite = (id) => {
+    const e = ev[id];
+    if (!e) return `${esc(id)}: not in register`;
+    return `${esc(e.summary)} <span class="lab ${e.label === "measured" ? "measured" : "notmeasured"}">${esc(e.label)}</span><details class="reg-details"><summary>Details (register row ${num(id, { register: id })}, verbatim)</summary><pre class="answer">${esc(e.verbatim)}</pre></details>`;
+  };
+  $("#evidence").innerHTML = `<p><b>Recorded outcome, all tiers, 3 models x 5 seeds (strengthened run v1 + v1b; the ${s.sessions.length} sessions replayable here are its num_ctx 4096 sessions, v1b first)</b>: ${cite("R2-real-v1b-gated-kill")}</p>
+    <p><b>Excess over the Ollama default tier</b> (after-window silent failure rate minus the default's, 95% bootstrap CI over sessions): ${cite("R2-v1b-excess-over-default")}</p>
     <p><b>Mechanism</b>: ${num("R2-mechanism-verdict", { register: "R2-mechanism-verdict" })}, ${num("R2-mechanism-lowlevel", { register: "R2-mechanism-lowlevel" })} (Ollama keeps the system message; llama.cpp context shift then discards the start of the prompt at 4096).</p>
     ${s.mitigation.measured
-      ? `<p><b>The obvious fix (client-side trimming that keeps the system prompt)</b> (register, verbatim): ${cite("R2-mitigation-v1-verdict")}. It works for one model and fails for another at the smallest window. The live replay below still shows our router's decisions, not a measured outcome of our side.</p>`
+      ? `<p><b>The obvious fix (client-side trimming that keeps the system prompt)</b>: ${cite("R2-mitigation-v1-verdict")} The live replay below still shows our router's decisions, not a measured outcome of our side.</p>`
       : `<p><b>Our side's quality</b>: <span class="badge proj">PROJECTED</span> ${esc(s.mitigation.label || "measured")}${s.mitigation.register_ids.length ? " (" + s.mitigation.register_ids.map((i) => num(i, { register: i })).join(", ") + ")" : ""}. Until ${esc(s.mitigation.file)} is synced and its register rows compute, the screen shows our router's decisions, not a measured outcome.</p>`}`;
-  $("#live-intro").textContent = `Both sides replay the same recorded session from ${s.source} (arm ${s.arm}). The naive side's outcome per step is the recorded turn; our side shows what the router would send instead.`;
+  $("#live-intro").textContent = `Both sides replay the same recorded session from ${(s.sources || [s.source]).join(" or ")} (arm ${s.arm}). The naive side's outcome per step is the recorded turn; our side shows what the router would send instead.`;
 }
 function meter(k, v) { return `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div></div>`; }
 function stateIcon(cls, text) { return `<span class="st ${cls}">${esc(text)}</span>`; }
@@ -225,17 +231,17 @@ function addStep(s) {
     const canary = oc.canary_check ? ` canary sys ${oc.canary_sys_ok ? "kept" : "LOST"}, hist ${oc.canary_hist_ok ? "kept" : "LOST"};` : "";
     out = `${stateIcon(oc.silent ? "bad" : "ok", oc.silent ? "silent failure" : "ok")} HTTP ${num(http, src)}, errors ${num(oc.errors.length, src)}; rules held ${num(oc.rules_held, src)};${canary} ${oc.failures.length ? "failed: " + esc(oc.failures.join(", ")) : ""}<br><span class="muted">transcript ${num(fmt.int(oc.transcript_tokens), src)} tokens vs loaded context ${num(fmt.int(oc.loaded_context), src)}</span>`;
   } else {
-    out = `${stateIcon("warn", "cloud")} <span class="badge stub">STUB</span> ${esc(n.outcome.note)}`;
+    out = `${stateIcon("warn", "cloud")} <span class="lab priced">priced, not executed</span> ${esc(n.outcome.note)}`;
   }
   $("#naive-steps").insertAdjacentHTML("beforeend", `<div class="step"><div class="row1"><span class="turn">turn ${num(s.turn, src)}</span><b>${esc(n.target)}</b><span class="why">${esc(n.reason)}</span></div><div>${out}</div></div>`);
   const tk = d.tokens || {};
-  const cost = d.stub ? `${num(fmt.usd(d.est_cost_usd), src)} <span class="badge stub">STUB</span>` : num(fmt.usd(d.est_cost_usd), src);
+  const cost = d.stub ? `${num(fmt.usd(d.est_cost_usd), src)} <span class="lab priced">priced, not executed</span>` : num(fmt.usd(d.est_cost_usd), src);
   $("#ours-steps").insertAdjacentHTML("beforeend", `<div class="step"><div class="row1"><span class="turn">turn ${num(s.turn, src)}</span><b>${esc(d.target)}</b><span class="why">${esc(d.reason)}</span></div><div>${stateIcon(o.system_prompt_in_request ? "ok" : "warn", o.system_prompt_in_request ? "rules in request" : "rules not sent locally")} num_ctx ${num(fmt.int(d.num_ctx), src)}; tokens system ${num(fmt.int(tk.system), src)} + history ${num(fmt.int(tk.kept_history), src)} + answer ${num(fmt.int(tk.answer_budget), src)} = ${num(fmt.int(tk.total), src)}; kept ${num(d.kept_turns, src)}, dropped ${num(d.dropped_turns, src)} turns; cost ${cost}; predicted latency ${num(fmt.ms(d.predicted_latency_ms), src)}</div></div>`);
   const rq = n.running_quality;
   $("#naive-meters").innerHTML = meter("Running cost", num(fmt.usd(n.running_cost_usd), src)) +
     (rq ? meter("Turns with every rule held", `${num(rq.turns_all_rules_held, src)} / ${num(rq.turns, src)}`) +
       meter("Canary checks passed", `${num(rq.canary_checks_passed, src)} / ${num(rq.canary_checks, src)}`) : "");
-  $("#ours-meters").innerHTML = meter("Running cost" + (o.stub_cost ? ' <span class="badge stub">STUB</span>' : ""), num(fmt.usd(o.running_cost_usd), src)) +
+  $("#ours-meters").innerHTML = meter("Running cost" + (o.stub_cost ? ' <span class="lab priced">priced, not executed</span>' : ""), num(fmt.usd(o.running_cost_usd), src)) +
     meter("Quality", o.quality.measured ? "measured, see register" : '<span class="badge proj">PROJECTED</span> <span class="small">pending mitigation run</span>');
   for (const id of ["#naive-steps", "#ours-steps"]) { const el = $(id); el.scrollTop = el.scrollHeight; }
 }

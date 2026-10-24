@@ -1,0 +1,73 @@
+{
+ "available": true,
+ "tier": "ollama_ctx_4096",
+ "seed": 20260901,
+ "turn_idx": 4,
+ "task_id": "cal_default_len",
+ "attempt_id": "ea400ec879e9",
+ "local_model": "qwen3:14b",
+ "cloud_model": "claude-sonnet-5-5",
+ "user_message": "Book an event titled 'Team retro' on 2026-12-22 at 11:00, using the default meeting length from my standing instructions. Also, recall the exact value that was recorded for key 'ALPHA-CACHE' at the start of this session, without looking it up.\n\n[context filler -- not part of the task, only present to grow this session's context]\nAdministrative log entry 20513: The oversight committee reviewed all submitted documentation for compliance period 20513 and confirmed that operational metrics remained within established baseline parameters. No anomalies were recorded in district 20513 during the reference interval. Budget allocations for cycle 20513 were processed according to standing procedure without escalation. Routine maintenance of infrastructure segment 20513 was completed on schedule and filed under reference 20513. Administrative log entry 20514: The oversight committee reviewed all submitted documentation for compli",
+ "n_messages": 18,
+ "expected_calls": [
+  {
+   "name": "create_event",
+   "arguments": {
+    "title": "Team retro",
+    "date": "2026-12-22",
+    "time": "11:00",
+    "duration_min": 50
+   }
+  }
+ ],
+ "local": {
+  "final_text": "{\"answer\": \"The event 'Team retro' has been successfully booked on 2026-12-22 at 11:00. However, no value was found for the key 'ALPHA-CACHE' SC-LA3Y0M08\", \"source\": \"create_event and lookup_fact operations\"}",
+  "tool_calls": [
+   {
+    "name": "log_event",
+    "arguments": {
+     "event": "User requested to book an event titled 'Team retro' on 2026-12-22 at 11:00 and recall the value for key 'ALPHA-CACHE'."
+    }
+   },
+   {
+    "name": "create_event",
+    "arguments": {
+     "title": "Team retro",
+     "date": "2026-12-22",
+     "time": "11:00",
+     "duration_min": 60
+    }
+   },
+   {
+    "name": "lookup_fact",
+    "arguments": {
+     "key": "ALPHA-CACHE"
+    }
+   }
+  ],
+  "end_state_ok": false,
+  "end_state_diff": [
+   "calendar/EV-909/duration_min"
+  ],
+  "any_http_error": false,
+  "loaded_context": 4096,
+  "src": {
+   "file": "results/x2_evalset_tasks_real_v2.jsonl",
+   "line": 488
+  }
+ },
+ "redo": {
+  "mode": "executed",
+  "label": "measured",
+  "usd": 0.024299599999999998,
+  "seconds": 4.160135700018145,
+  "cloud_final_text": "{\"answer\": \"I booked 'Team retro' on 2026-12-22 at 11:00 for 50 minutes, the default meeting length (event ID EV-909). The value recorded for ALPHA-CACHE at the start of this session is VAL-JNYZ3V SC-LA3Y0M08\", \"source\": \"create_event result; ALPHA-CACHE recalled from the session start message\"}",
+  "model": "claude-sonnet-5-5",
+  "note": "Full-history redo on the cloud model (row cloud-redo-full-context): the whole transcript, thinking between tools, up to 2048 output tokens per call (the local run had 384).",
+  "src": {
+   "file": "results/cloud_redo_full_context_v1_part3.jsonl",
+   "line": 39
+  }
+ },
+ "selection": "tier ollama_ctx_4096, state-changing task with a writes-only reference (one call is gradable), smallest local prompt among the redo file's wrong tasks"
+}

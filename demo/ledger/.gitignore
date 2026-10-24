@@ -1,0 +1,3 @@
+# Demo cloud ledger (demo/dashboard/escalate.py, USD 10 cap): machine-local spend record, never committed.
+*
+!.gitignore

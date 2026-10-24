@@ -1,0 +1,720 @@
+{
+ "steps": [
+  {
+   "n": 1,
+   "title": "Same laptop, two settings",
+   "kind": "cards",
+   "minutes": 1,
+   "main": {
+    "cards": [
+     {
+      "big": "5 of 5",
+      "text": "Default setting: 5 of 5 agent sessions broke their own rules. No error shown.",
+      "tag": "measured",
+      "src": {
+       "register": "t2s-r2-real-cpu"
+      },
+      "tone": "bad"
+     },
+     {
+      "big": "5 of 5",
+      "text": "Right setting: 5 of 5 kept their rules.",
+      "tag": "measured",
+      "src": {
+       "register": "t2s-r2-real-igpu"
+      },
+      "tone": "good"
+     }
+    ]
+   },
+   "items": [
+    {
+     "text": "Intel CPU, llama3.1:8b: Ollama loads 4096 tokens; 5/5 sessions silently lost a rule, 5 after the window filled",
+     "label": "measured",
+     "src": {
+      "register": "t2s-r2-real-cpu"
+     }
+    },
+    {
+     "text": "Intel CPU, qwen3:14b: Ollama loads 4096 tokens; 5/5 sessions silently lost a rule, 5 after the window filled",
+     "label": "measured",
+     "src": {
+      "register": "t2s-r2-real-cpu"
+     }
+    },
+    {
+     "text": "Intel CPU: 0 of 800 calls surfaced an error",
+     "label": "measured",
+     "src": {
+      "file": "results/t2s_r2_real_cpu_v1.jsonl",
+      "line": 44
+     }
+    },
+    {
+     "text": "Intel iGPU, llama3.1:8b: Ollama loads 32768 tokens; 0/5 sessions silently lost a rule, 0 after the window filled",
+     "label": "measured",
+     "src": {
+      "register": "t2s-r2-real-igpu"
+     }
+    },
+    {
+     "text": "Intel iGPU, qwen3:14b: Ollama loads 32768 tokens; 1/5 sessions silently lost a rule, 0 after the window filled",
+     "label": "measured",
+     "src": {
+      "register": "t2s-r2-real-igpu"
+     }
+    },
+    {
+     "text": "Intel iGPU: 0 of 800 calls surfaced an error",
+     "label": "measured",
+     "src": {
+      "file": "results/t2s_r2_real_igpu_v1.jsonl",
+      "line": 44
+     }
+    },
+    {
+     "text": "qwen3:14b task results: 11.3% wrong at the default window, 42.0% at 4096; 0 of 63 wrong results surfaced an error",
+     "label": "measured",
+     "src": {
+      "register": "x2-evalset-tasks-real-v2-wrong-rate"
+     }
+    }
+   ],
+   "visible": [
+    "Default setting: 5 of 5 agent sessions broke their own rules. No error shown.",
+    "Right setting: 5 of 5 kept their rules."
+   ]
+  },
+  {
+   "n": 2,
+   "title": "How often answers are silently wrong",
+   "kind": "bars",
+   "minutes": 1,
+   "main": {
+    "bars": [
+     {
+      "label": "Enough memory",
+      "value": 11,
+      "tag": "measured",
+      "src": {
+       "register": "x2-evalset-tasks-real-v2-wrong-rate"
+      }
+     },
+     {
+      "label": "Tight",
+      "value": 35,
+      "tag": "measured",
+      "src": {
+       "register": "x2-evalset-tasks-real-v2-wrong-rate"
+      }
+     },
+     {
+      "label": "Tighter",
+      "value": 42,
+      "tag": "measured",
+      "src": {
+       "register": "x2-evalset-tasks-real-v2-wrong-rate"
+      }
+     }
+    ],
+    "caption": "Error messages shown: 0",
+    "caption_tag": "measured"
+   },
+   "items": [
+    {
+     "text": "ollama_default: wrong 17/150 (11.3%, shown rounded to 11%), silent 17, error shown 0; memory setting [40960]",
+     "label": "measured",
+     "src": {
+      "register": "x2-evalset-tasks-real-v2-wrong-rate"
+     }
+    },
+    {
+     "text": "ollama_ctx_16384: wrong 19/150 (12.7%, shown rounded to 13%), silent 19, error shown 0; memory setting [16384]",
+     "label": "measured",
+     "src": {
+      "register": "x2-evalset-tasks-real-v2-wrong-rate"
+     }
+    },
+    {
+     "text": "ollama_ctx_8192: wrong 53/150 (35.3%, shown rounded to 35%), silent 53, error shown 0; memory setting [8192]",
+     "label": "measured",
+     "src": {
+      "register": "x2-evalset-tasks-real-v2-wrong-rate"
+     }
+    },
+    {
+     "text": "ollama_ctx_4096: wrong 63/150 (42.0%, shown rounded to 42%), silent 63, error shown 0; memory setting [4096]",
+     "label": "measured",
+     "src": {
+      "register": "x2-evalset-tasks-real-v2-wrong-rate"
+     }
+    },
+    {
+     "text": "ollama_ctx_4096_numkeep: wrong 45/150 (30.0%, shown rounded to 30%), silent 45, error shown 0; memory setting [4096]",
+     "label": "measured",
+     "src": {
+      "register": "x2-evalset-tasks-real-v2-wrong-rate"
+     }
+    }
+   ],
+   "visible": [
+    "Enough memory 11%",
+    "Tight 35%",
+    "Tighter 42%",
+    "Error messages shown: 0"
+   ]
+  },
+  {
+   "n": 3,
+   "title": "Why not just change one setting?",
+   "kind": "tiles",
+   "minutes": 1,
+   "main": {
+    "tiles": [
+     {
+      "big": "16x",
+      "text": "Bigger memory setting: up to 16x slower, or will not start",
+      "tag": "measured",
+      "src": {
+       "register": "impact-session-time-by-window"
+      },
+      "tone": null,
+      "also": [
+       {
+        "register": "fh1-amd-boundary-qwen3-32b"
+       }
+      ]
+     },
+     {
+      "big": "30%",
+      "text": "The quick fix: still 30% wrong",
+      "tag": "measured",
+      "src": {
+       "register": "x2-evalset-tasks-real-v2-wrong-rate"
+      },
+      "tone": null
+     },
+     {
+      "big": "",
+      "text": "Trimming old history: breaks a different rule",
+      "tag": "measured",
+      "src": {
+       "register": "R2-qwen3-14b-4096-reconciliation"
+      },
+      "tone": null
+     }
+    ]
+   },
+   "items": [
+    {
+     "text": "The one-line fix, num_keep (keep the system prompt) at 4096: 30.0% wrong, down from 42.0% but still above 11.3% at the default window",
+     "label": "measured",
+     "src": {
+      "register": "x2-evalset-tasks-real-v2-wrong-rate"
+     }
+    },
+    {
+     "text": "Client-side trimming has a side effect: qwen3:14b called the logging tool in 24/25/25 of 40 turns per seed with trimming, 40/40/40 of 40 without. Trimming removes the earlier turns that showed the two-call pattern the model imitates (interpretation in docs/FINDINGS.md)",
+     "label": "measured",
+     "src": {
+      "register": "R2-qwen3-14b-4096-reconciliation"
+     }
+    },
+    {
+     "text": "Rule loss at 4096 depends on the model: llama3.1:8b 5/5, qwen3:14b 4/5, qwen3:8b 1/5 sessions",
+     "label": "measured",
+     "src": {
+      "register": "R2-v1b-gated-per-model"
+     }
+    },
+    {
+     "text": "Larger models at 4096: qwen3:32b 2/3, llama3.3:70b 0/3 (resists rule loss), mistral-small3.2:24b 0/3 (resists rule loss) sessions",
+     "label": "measured",
+     "src": {
+      "register": "H-scale-verdict"
+     }
+    },
+    {
+     "text": "qwen3:14b on the AMD workstation: 202.3 min per 40-turn session at the default memory setting vs 12.2 min at 4096 (shown as up to 16x)",
+     "label": "measured",
+     "src": {
+      "register": "impact-session-time-by-window"
+     }
+    },
+    {
+     "text": "Will not start: qwen3-32b on the AMD workstation first failed to start at a memory setting of 367360 (exit 3221226505)",
+     "label": "measured",
+     "src": {
+      "register": "fh1-amd-boundary-qwen3-32b"
+     }
+    }
+   ],
+   "visible": [
+    "Bigger memory setting: up to 16x slower, or will not start",
+    "The quick fix: still 30% wrong",
+    "Trimming old history: breaks a different rule"
+   ]
+  },
+  {
+   "n": 4,
+   "title": "What it costs",
+   "kind": "money",
+   "minutes": 1,
+   "main": {
+    "numbers": [
+     {
+      "big": "$2.53",
+      "text": "per long task in the cloud",
+      "tag": "priced",
+      "src": {
+       "register": "cloud-cost-per-real-task"
+      },
+      "tone": null
+     },
+     {
+      "big": "about 2 cents",
+      "text": "Fixing a wrong answer later: about 2 cents, but actions already taken cannot be undone",
+      "tag": "measured",
+      "src": {
+       "register": "cloud-redo-full-context"
+      },
+      "tone": null
+     }
+    ],
+    "takeaway": "How much accuracy gap you accept decides where it runs; we measure that gap per device.",
+    "live_button": "Fix one wrong answer now (live)",
+    "slider": {
+     "entries": [
+      {
+       "device": "evo-x2",
+       "model": "claude-haiku-5-5",
+       "setting": "ollama_default, default = best",
+       "local": "80/90",
+       "local_pct": 88.9,
+       "basis": "measured, B3 task accuracy",
+       "cloud": "87/90",
+       "cloud_pct": 96.7,
+       "gap": 7.8,
+       "tolerance_local": 7.8,
+       "at_matched": "cloud",
+       "saves_local": {
+        "100": 2.01,
+        "1000": 20.12,
+        "10000": 201.25
+       },
+       "r2_basis": false,
+       "machine": "AMD workstation"
+      },
+      {
+       "device": "evo-x2",
+       "model": "claude-sonnet-5-5",
+       "setting": "ollama_default, default = best",
+       "local": "80/90",
+       "local_pct": 88.9,
+       "basis": "measured, B3 task accuracy",
+       "cloud": "90/90",
+       "cloud_pct": 100.0,
+       "gap": 11.1,
+       "tolerance_local": 11.1,
+       "at_matched": "cloud",
+       "saves_local": {
+        "100": 30.61,
+        "1000": 306.1,
+        "10000": 3060.99
+       },
+       "r2_basis": false,
+       "machine": "AMD workstation"
+      },
+      {
+       "device": "evo-t2s",
+       "model": "claude-haiku-5-5",
+       "setting": "Intel iGPU, Ollama default, loaded window 32768",
+       "local": "4/5",
+       "local_pct": 80.0,
+       "basis": "measured by R2 session pass rate (not B3 task accuracy)",
+       "cloud": "87/90",
+       "cloud_pct": 96.7,
+       "gap": 16.7,
+       "tolerance_local": 16.7,
+       "at_matched": "cloud",
+       "saves_local": {
+        "100": 2.01,
+        "1000": 20.12,
+        "10000": 201.25
+       },
+       "r2_basis": true,
+       "machine": "Intel laptop"
+      },
+      {
+       "device": "evo-t2s",
+       "model": "claude-sonnet-5-5",
+       "setting": "Intel iGPU, Ollama default, loaded window 32768",
+       "local": "4/5",
+       "local_pct": 80.0,
+       "basis": "measured by R2 session pass rate (not B3 task accuracy)",
+       "cloud": "90/90",
+       "cloud_pct": 100.0,
+       "gap": 20.0,
+       "tolerance_local": 20.0,
+       "at_matched": "cloud",
+       "saves_local": {
+        "100": 30.61,
+        "1000": 306.1,
+        "10000": 3060.99
+       },
+       "r2_basis": true,
+       "machine": "Intel laptop"
+      }
+     ],
+     "default": 5,
+     "min": 0,
+     "max": 20,
+     "volume": 1000
+    }
+   },
+   "items": [
+    {
+     "text": "Local saves money, and the screen shows what it costs. Against claude-sonnet-5-5 at 1,000 tasks/day: all local on evo-x2 saves USD 306.10 a month at 80/90 (88.9%) correct versus 90/90 (100.0%) all-cloud, and 10 wrong answers are silent. The only measured detector, window overflow, escalates 0 tasks at this window. Catching in-window wrong answers needs a verifier we do not claim; the dotted line is that ceiling, no such detector.",
+     "label": "measured",
+     "src": {
+      "register": "hybrid-savings-tradeoff"
+     }
+    },
+    {
+     "text": "Fix after the fact: about 2 cents (mean USD 0.0227 per task, cache-priced), 84.8% fixed (95% Wilson CI 79.1% to 89.1%), but executed actions cannot be undone; decide up front instead. 28 of the 30 unfixed inherited the local model's earlier executed actions. (Full-history redo on claude-sonnet-5-5, up to 2048 output tokens per call; the local run had 384.)",
+     "label": "measured",
+     "src": {
+      "register": "cloud-redo-full-context"
+     }
+    },
+    {
+     "text": "evo-t2s Intel CPU at 4096 (projected, from evo-x2's 4096 tier): the window flag escalates 88 tasks and reaches 90/90, but the hybrid costs USD 359.80/month MORE than all-cloud against claude-sonnet-5-5 at 1,000 tasks/day: escalating with the full history costs more per task than a fresh cloud run",
+     "label": "projected",
+     "src": {
+      "register": "hybrid-savings-tradeoff"
+     }
+    },
+    {
+     "text": "Late full-history escalation costs 1.76x a fresh cloud run of the same task on the mean (1.64x on the median; matched over 119 rows, 53 tasks; 2.22x / 1.87x unmatched) on claude-sonnet-5-5",
+     "label": "measured",
+     "src": {
+      "register": "late-escalation-cost-vs-fresh"
+     }
+    },
+    {
+     "text": "Against claude-haiku-5-5 the escalation cost is interim (its all-cloud price): the full-history redo ran on claude-sonnet-5-5 only.",
+     "label": null,
+     "src": null
+    },
+    {
+     "text": "One long agent task (nebius-rebench-openhands, median 62 steps) sent whole to the cloud: USD 2.53 median on claude-sonnet-5-5 at an assumed 70% cache hit rate",
+     "label": "priced, not executed",
+     "src": {
+      "register": "cloud-cost-per-real-task"
+     }
+    },
+    {
+     "text": "Slider: AMD workstation (evo-x2, ollama_default, default = best) vs claude-haiku-5-5: local 80/90 (88.9%) [measured, B3 task accuracy] vs cloud 87/90 (96.7%), routes local at a gap of 7.8 points or more",
+     "label": "measured",
+     "src": {
+      "register": "hybrid-route-at-start"
+     }
+    },
+    {
+     "text": "Slider: AMD workstation (evo-x2, ollama_default, default = best) vs claude-sonnet-5-5: local 80/90 (88.9%) [measured, B3 task accuracy] vs cloud 90/90 (100.0%), routes local at a gap of 11.1 points or more",
+     "label": "measured",
+     "src": {
+      "register": "hybrid-route-at-start"
+     }
+    },
+    {
+     "text": "Slider: Intel laptop (evo-t2s, Intel iGPU, Ollama default, loaded window 32768) vs claude-haiku-5-5: local 4/5 (80.0%) [measured by R2 session pass rate (not B3 task accuracy)] vs cloud 87/90 (96.7%), routes local at a gap of 16.7 points or more",
+     "label": "measured",
+     "src": {
+      "register": "hybrid-route-at-start"
+     }
+    },
+    {
+     "text": "Slider: Intel laptop (evo-t2s, Intel iGPU, Ollama default, loaded window 32768) vs claude-sonnet-5-5: local 4/5 (80.0%) [measured by R2 session pass rate (not B3 task accuracy)] vs cloud 90/90 (100.0%), routes local at a gap of 20.0 points or more",
+     "label": "measured",
+     "src": {
+      "register": "hybrid-route-at-start"
+     }
+    }
+   ],
+   "tradeoff": {
+    "featured": {
+     "device": "evo-x2",
+     "setting": "ollama_default, default = best",
+     "device_label": "measured",
+     "model": "claude-sonnet-5-5",
+     "size": "B3 v2 tasks (30 tasks x 3 seeds), median",
+     "size_label": "measured; accuracy measured",
+     "all_cloud": {
+      "saves": {
+       "100": 0.0,
+       "1000": 0.0,
+       "10000": 0.0
+      },
+      "correct": 90,
+      "n": 90,
+      "pct": 100.0
+     },
+     "naive_local": {
+      "saves": {
+       "100": 30.61,
+       "1000": 306.1,
+       "10000": 3060.99
+      },
+      "correct": 80,
+      "n": 90,
+      "pct": 88.9,
+      "silent": 10
+     },
+     "hybrid_flag": {
+      "saves": {
+       "100": 30.61,
+       "1000": 306.1,
+       "10000": 3060.99
+      },
+      "correct": 80,
+      "n": 90,
+      "pct": 88.9,
+      "escalated": 0,
+      "silent": 10
+     },
+     "ceiling": {
+      "saves": {
+       "100": 23.04,
+       "1000": 230.43,
+       "10000": 2304.29
+      },
+      "correct": 90,
+      "n": 90,
+      "pct": 100.0
+     },
+     "escalation_interim": false
+    },
+    "cpu": {
+     "device": "evo-t2s Intel CPU",
+     "setting": "default, loaded window 4096",
+     "device_label": "projected",
+     "model": "claude-sonnet-5-5",
+     "size": "B3 v2 tasks (30 tasks x 3 seeds), median",
+     "size_label": "measured; accuracy projected from evo-x2's ollama_ctx_4096 tier",
+     "all_cloud": {
+      "saves": {
+       "100": 0.0,
+       "1000": 0.0,
+       "10000": 0.0
+      },
+      "correct": 90,
+      "n": 90,
+      "pct": 100.0
+     },
+     "naive_local": {
+      "saves": {
+       "100": 30.61,
+       "1000": 306.1,
+       "10000": 3060.99
+      },
+      "correct": 53,
+      "n": 90,
+      "pct": 58.9,
+      "silent": 37
+     },
+     "hybrid_flag": {
+      "saves": {
+       "100": -35.98,
+       "1000": -359.8,
+       "10000": -3597.97
+      },
+      "correct": 90,
+      "n": 90,
+      "pct": 100.0,
+      "escalated": 88,
+      "silent": 0
+     },
+     "ceiling": {
+      "saves": {
+       "100": 2.61,
+       "1000": 26.12,
+       "10000": 261.2
+      },
+      "correct": 90,
+      "n": 90,
+      "pct": 100.0
+     },
+     "escalation_interim": false
+    },
+    "volume": 1000,
+    "src": {
+     "register": "hybrid-savings-tradeoff"
+    }
+   },
+   "visible": [
+    "per long task in the cloud",
+    "Fixing a wrong answer later: about 2 cents, but actions already taken cannot be undone",
+    "How much accuracy gap you accept decides where it runs; we measure that gap per device.",
+    "Fix one wrong answer now (live)"
+   ]
+  },
+  {
+   "n": 5,
+   "title": "What our tool does",
+   "kind": "tool",
+   "minutes": 1,
+   "main": {
+    "machines": [
+     "AMD workstation",
+     "Intel laptop",
+     "NVIDIA laptop"
+    ],
+    "entries": [
+     {
+      "device": "evo-x2",
+      "model": "claude-haiku-5-5",
+      "setting": "ollama_default, default = best",
+      "local": "80/90",
+      "local_pct": 88.9,
+      "basis": "measured, B3 task accuracy",
+      "cloud": "87/90",
+      "cloud_pct": 96.7,
+      "gap": 7.8,
+      "tolerance_local": 7.8,
+      "at_matched": "cloud",
+      "saves_local": {
+       "100": 2.01,
+       "1000": 20.12,
+       "10000": 201.25
+      },
+      "r2_basis": false,
+      "machine": "AMD workstation"
+     },
+     {
+      "device": "evo-x2",
+      "model": "claude-sonnet-5-5",
+      "setting": "ollama_default, default = best",
+      "local": "80/90",
+      "local_pct": 88.9,
+      "basis": "measured, B3 task accuracy",
+      "cloud": "90/90",
+      "cloud_pct": 100.0,
+      "gap": 11.1,
+      "tolerance_local": 11.1,
+      "at_matched": "cloud",
+      "saves_local": {
+       "100": 30.61,
+       "1000": 306.1,
+       "10000": 3060.99
+      },
+      "r2_basis": false,
+      "machine": "AMD workstation"
+     },
+     {
+      "device": "evo-t2s",
+      "model": "claude-haiku-5-5",
+      "setting": "Intel iGPU, Ollama default, loaded window 32768",
+      "local": "4/5",
+      "local_pct": 80.0,
+      "basis": "measured by R2 session pass rate (not B3 task accuracy)",
+      "cloud": "87/90",
+      "cloud_pct": 96.7,
+      "gap": 16.7,
+      "tolerance_local": 16.7,
+      "at_matched": "cloud",
+      "saves_local": {
+       "100": 2.01,
+       "1000": 20.12,
+       "10000": 201.25
+      },
+      "r2_basis": true,
+      "machine": "Intel laptop"
+     },
+     {
+      "device": "evo-t2s",
+      "model": "claude-sonnet-5-5",
+      "setting": "Intel iGPU, Ollama default, loaded window 32768",
+      "local": "4/5",
+      "local_pct": 80.0,
+      "basis": "measured by R2 session pass rate (not B3 task accuracy)",
+      "cloud": "90/90",
+      "cloud_pct": 100.0,
+      "gap": 20.0,
+      "tolerance_local": 20.0,
+      "at_matched": "cloud",
+      "saves_local": {
+       "100": 30.61,
+       "1000": 306.1,
+       "10000": 3060.99
+      },
+      "r2_basis": true,
+      "machine": "Intel laptop"
+     }
+    ],
+    "default_tier": "claude-sonnet-5-5",
+    "volume": 1000
+   },
+   "items": [
+    {
+     "text": "AMD workstation: recommended ollama_default, default = best; vs claude-haiku-5-5: local 80/90 (88.9%, measured, B3 task accuracy), cloud 87/90 (96.7%), local saves USD 20.12 a month at 1,000 tasks a day",
+     "label": "measured",
+     "src": {
+      "register": "hybrid-route-at-start"
+     }
+    },
+    {
+     "text": "AMD workstation: recommended ollama_default, default = best; vs claude-sonnet-5-5: local 80/90 (88.9%, measured, B3 task accuracy), cloud 90/90 (100.0%), local saves USD 306.10 a month at 1,000 tasks a day",
+     "label": "measured",
+     "src": {
+      "register": "hybrid-route-at-start"
+     }
+    },
+    {
+     "text": "Intel laptop: recommended Intel iGPU, Ollama default, loaded window 32768; vs claude-haiku-5-5: local 4/5 (80.0%, measured by R2 session pass rate (not B3 task accuracy)), cloud 87/90 (96.7%), local saves USD 20.12 a month at 1,000 tasks a day",
+     "label": "measured",
+     "src": {
+      "register": "hybrid-route-at-start"
+     }
+    },
+    {
+     "text": "Intel laptop: recommended Intel iGPU, Ollama default, loaded window 32768; vs claude-sonnet-5-5: local 4/5 (80.0%, measured by R2 session pass rate (not B3 task accuracy)), cloud 90/90 (100.0%), local saves USD 306.10 a month at 1,000 tasks a day",
+     "label": "measured",
+     "src": {
+      "register": "hybrid-route-at-start"
+     }
+    },
+    {
+     "text": "NVIDIA laptop: not measured",
+     "label": "not measured",
+     "src": null
+    }
+   ],
+   "visible": [
+    "Run locally with this setting",
+    "Expected accuracy",
+    "Saves per month at 1,000 tasks a day"
+   ]
+  }
+ ],
+ "register_ids": [
+  "t2s-r2-real-cpu",
+  "t2s-r2-real-igpu",
+  "x2-evalset-tasks-real-v2-wrong-rate",
+  "R2-qwen3-14b-4096-reconciliation",
+  "H-scale-verdict",
+  "H-scale-family-verdict",
+  "R2-v1b-gated-per-model",
+  "cloud-cost-per-real-task",
+  "b5-fa-control",
+  "b5-policy-metrics",
+  "cloud-redo-full-context",
+  "hybrid-savings-tradeoff",
+  "t2s-config-comparison",
+  "hybrid-route-at-start",
+  "late-escalation-cost-vs-fresh",
+  "impact-session-time-by-window",
+  "fh1-amd-boundary-qwen3-32b"
+ ],
+ "total_minutes": 5
+}

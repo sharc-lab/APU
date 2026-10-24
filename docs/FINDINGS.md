@@ -5917,6 +5917,33 @@ Long-task cloud priced vs billed", committed before either job ran (harness at 5
   only if its pilot-based estimate is under USD 5): billed vs upper bound vs the `cloud-cost-per-real-task` pricing
   method. Row `long-task-cloud-priced-vs-billed` (PENDING until run_end).
 
+## PRE-REGISTRATION (2026-10-23): live demo detector check and acceptance run (pointer)
+
+The pre-registration is in docs/EXPERIMENTS.md, entry "2026-10-23: Live demo: detector check and acceptance run". In short: one
+B3 v2 task at its real session position (earlier history REPLAYED from the recorded default-window session, the task
+turn LIVE, end-state grader); the cut-off detector (harness/demo_overflow.py) reads the server's total prompt and
+Ollama's own cut lines, never prompt_eval_count alone; queued evo-x2 jobs `x2_demo_detector_check` (5 frozen picks at
+num_ctx 4096 and at the default; passes iff it fires on every pick over 4096 at 4096 and on none at the default) and
+`x2_demo_live_acceptance` (scenarios amd8192, the headline's constrained memory 8192 with claude-sonnet-5-5, and intel,
+4096 vs the Intel graphics-chip window 32768 simulated, with claude-haiku-5-5; local lanes one after another, the cloud
+lane alongside), cloud parts on the controller. Rows `demo-detector-check` and `demo-live-run` (PENDING until run_end).
+Picks frozen before any run in demo/live/picks_v1.json by the operator's rule of 2026-10-23 (3 tasks wrong at 4096 in
+at least 3 of 5 seeds and right at the default in at least 4 of 5; 2 right in at least 4 of 5 seeds in every arm; ties
+by task id): cal_cancel, cal_default_len, file_write_standing; cal_rename, eml_internal.
+
+
+## ANALYSIS AND PRE-REGISTRATION (2026-10-23): detector false alarms and the detector v2 re-check (pointer)
+
+Both are in docs/EXPERIMENTS.md (entries "ANALYSIS (2026-10-23): detector false alarms ..." and "PRE-REGISTRATION
+(2026-10-23, before any run of it): detector v2 re-check"). In short: the 10 v1 false alarms of the demo runs are
+explained by H2 (our chars/4-based size overstated long qwen3:14b prompts; server / estimate 1.077 to 1.082 against the
+v1 threshold 1.0820), not H1 (task.n_tokens includes the cached prefix on every one). Row `detector-precision-recall`:
+v1 pooled precision 0.588, recall 1.000 (452 calls); proposed v2 (the server's own cut lines only) agrees with the log
+ground truth by construction, independently checked by the mechanism job's render-only prompt on 223/223 calls; v2
+surfaces the runtime's own signal and is not a contribution of this work (see the DECISION entry below). The v2
+re-check (same 5 picks, 4096 and default, pass iff 5/5 and 0/5) is queued on evo-x2 after x2_b5_simcap_4096; row
+`demo-detector-check-v2` PENDING until run_end.
+
 ## DECISION (2026-10-23): cut-off detector v1 retired for routing; v2 is the runtime's own signal, not a contribution
 
 Analysis only, no new runs. Row `detector-precision-recall` was computed on branch demo/oct28 (analysis entry and the

@@ -1,0 +1,28 @@
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.54\textwidth}>{\raggedright\arraybackslash}p{0.25\textwidth}>{\raggedright\arraybackslash}p{0.13\textwidth}}
+\caption{View C: every number shown}\label{tab:c}\\
+\toprule
+\textbf{Value shown} & \textbf{Register id / file} & \textbf{Status} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Value shown} & \textbf{Register id / file} & \textbf{Status} \\
+\midrule
+\endhead
+\small Fixing a wrong answer in the cloud costs about USD 0.02 (mean USD 0.0227, median USD 0.0169 per task, cache-priced); the cost is that the failure is silent. & {\footnotesize \texttt{cloud-\allowbreak{}redo-\allowbreak{}full-\allowbreak{}context}} & \small measured \\
+
+\small How often the answer is wrong, and silent: qwen3:14b on evo-x2: 11.3\% wrong at ollama\_default to 42.0\% at ollama\_ctx\_4096; 0 of 197 wrong results surfaced an error & {\footnotesize \texttt{x2-\allowbreak{}evalset-\allowbreak{}tasks-\allowbreak{}real-\allowbreak{}v2-\allowbreak{}wrong-\allowbreak{}rate}} & \small measured \\
+
+\small Time saved by the measured setting, llama3.1:8b: 37.1 min per 40-turn session (85\%): default 43.7 min vs kv\_q4\_0 6.6 min (b5-fa-control: llama3.1:8b: the B5 speedup is KV precision, not flash attention; qwen3:14b: the B5 speedup is KV precision, not flash attention) & {\footnotesize \texttt{cost-\allowbreak{}cut-\allowbreak{}config-\allowbreak{}time}} & \small measured \\
+
+\small Time saved by the measured setting, qwen3:14b: 139.4 min per 40-turn session (65\%): default 214.8 min vs kv\_q8\_0 75.4 min (b5-fa-control: llama3.1:8b: the B5 speedup is KV precision, not flash attention; qwen3:14b: the B5 speedup is KV precision, not flash attention) & {\footnotesize \texttt{cost-\allowbreak{}cut-\allowbreak{}config-\allowbreak{}time}} & \small measured \\
+
+\small Re-sending the history to the cloud, per session: 1,798,884 tokens re-sent; USD 0.1799 with caching, USD 3.5978 without & {\footnotesize \texttt{impact-\allowbreak{}P3}} & \small priced, not executed \\
+
+\small Today's cost for the reference team, measured parts only: USD 3.60 per day (measured token counts and list prices at the assumed team volume; the register calls this measured-only) & {\footnotesize \texttt{impact-\allowbreak{}total}} & \small projected \\
+
+\small Wrong answers per day for one stated team (P1): being measured (its register row still uses the earlier, broken redo's cost per wrong task; to be recomputed with the full-history redo) & {\footnotesize \texttt{}} & \small being measured \\
+
+\small Router savings: not shown. Row b5-verdict is refuted on evo-x2 (the router policy was dominated); no register row supports a savings figure. & {\footnotesize \texttt{b5-\allowbreak{}verdict}} & \small not shown \\
+
+\bottomrule
+\end{longtable}

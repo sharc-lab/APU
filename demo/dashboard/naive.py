@@ -11,13 +11,14 @@ What it does, per step:
 
 The outcome it shows for a local step is the recorded outcome of that same turn in the replayed session (the
 session ran with exactly this routing: every turn local at num_ctx 4096). A cloud step has no recorded outcome;
-its cost is a STUB estimate from src/cloud/client.py's pricing table.
+its cost is priced, not executed, at the Anthropic shared price table (results/cloud_prices_anthropic_20261014.json,
+through src/cloud/client.py's estimate_cost_usd) for the escalation model.
 """
 from __future__ import annotations
 
 DIFFICULTY_WORDS = 150
 DIFFICULTY_THRESHOLD = 0.5
-CLOUD_MODEL = "gpt-4o-mini"
+CLOUD_MODEL = "claude-sonnet-5-5"  # 2026-10-22: no OpenAI stub pricing in the demo
 
 
 def difficulty(task_words: int) -> float:

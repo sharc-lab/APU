@@ -1,0 +1,80 @@
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.54\textwidth}>{\raggedright\arraybackslash}p{0.25\textwidth}>{\raggedright\arraybackslash}p{0.13\textwidth}}
+\caption{View A: every number shown}\label{tab:a}\\
+\toprule
+\textbf{Value shown} & \textbf{Register id / file} & \textbf{Status} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Value shown} & \textbf{Register id / file} & \textbf{Status} \\
+\midrule
+\endhead
+\small evo-t2s Intel CPU, llama3.1:8b: loaded window [4096] & {\footnotesize \texttt{t2s-\allowbreak{}r2-\allowbreak{}real-\allowbreak{}cpu}} & \small measured \\
+
+\small evo-t2s Intel CPU, llama3.1:8b: 5/5 sessions silently lost a rule, 5 after the window filled & {\footnotesize \texttt{t2s-\allowbreak{}r2-\allowbreak{}real-\allowbreak{}cpu}} & \small measured \\
+
+\small evo-t2s Intel CPU, qwen3:14b: loaded window [4096] & {\footnotesize \texttt{t2s-\allowbreak{}r2-\allowbreak{}real-\allowbreak{}cpu}} & \small measured \\
+
+\small evo-t2s Intel CPU, qwen3:14b: 5/5 sessions silently lost a rule, 5 after the window filled & {\footnotesize \texttt{t2s-\allowbreak{}r2-\allowbreak{}real-\allowbreak{}cpu}} & \small measured \\
+
+\small evo-t2s Intel CPU: 0 of 800 calls surfaced an error & {\footnotesize \texttt{results/\allowbreak{}t2s\_\allowbreak{}r2\_\allowbreak{}real\_\allowbreak{}cpu\_\allowbreak{}v1.\allowbreak{}jsonl}} & \small measured \\
+
+\small evo-t2s Intel iGPU, llama3.1:8b: loaded window [32768] & {\footnotesize \texttt{t2s-\allowbreak{}r2-\allowbreak{}real-\allowbreak{}igpu}} & \small measured \\
+
+\small evo-t2s Intel iGPU, llama3.1:8b: 0/5 sessions silently lost a rule, 0 after the window filled & {\footnotesize \texttt{t2s-\allowbreak{}r2-\allowbreak{}real-\allowbreak{}igpu}} & \small measured \\
+
+\small evo-t2s Intel iGPU, qwen3:14b: loaded window [32768] & {\footnotesize \texttt{t2s-\allowbreak{}r2-\allowbreak{}real-\allowbreak{}igpu}} & \small measured \\
+
+\small evo-t2s Intel iGPU, qwen3:14b: 1/5 sessions silently lost a rule, 0 after the window filled & {\footnotesize \texttt{t2s-\allowbreak{}r2-\allowbreak{}real-\allowbreak{}igpu}} & \small measured \\
+
+\small evo-t2s Intel iGPU: 0 of 800 calls surfaced an error & {\footnotesize \texttt{results/\allowbreak{}t2s\_\allowbreak{}r2\_\allowbreak{}real\_\allowbreak{}igpu\_\allowbreak{}v1.\allowbreak{}jsonl}} & \small measured \\
+
+\small qwen3:14b ollama\_default: wrong 17/150 (11.3\%), silent 17, surfaced 0 & {\footnotesize \texttt{x2-\allowbreak{}evalset-\allowbreak{}tasks-\allowbreak{}real-\allowbreak{}v2-\allowbreak{}wrong-\allowbreak{}rate}} & \small measured \\
+
+\small qwen3:14b ollama\_ctx\_16384: wrong 19/150 (12.7\%), silent 19, surfaced 0 & {\footnotesize \texttt{x2-\allowbreak{}evalset-\allowbreak{}tasks-\allowbreak{}real-\allowbreak{}v2-\allowbreak{}wrong-\allowbreak{}rate}} & \small measured \\
+
+\small ollama\_ctx\_16384: excess +1.3 points (95\% CI -1.3 to +4.0) & {\footnotesize \texttt{x2-\allowbreak{}evalset-\allowbreak{}tasks-\allowbreak{}real-\allowbreak{}v2-\allowbreak{}wrong-\allowbreak{}rate}} & \small measured \\
+
+\small qwen3:14b ollama\_ctx\_8192: wrong 53/150 (35.3\%), silent 53, surfaced 0 & {\footnotesize \texttt{x2-\allowbreak{}evalset-\allowbreak{}tasks-\allowbreak{}real-\allowbreak{}v2-\allowbreak{}wrong-\allowbreak{}rate}} & \small measured \\
+
+\small ollama\_ctx\_8192: excess +24.0 points (95\% CI +18.7 to +29.3) & {\footnotesize \texttt{x2-\allowbreak{}evalset-\allowbreak{}tasks-\allowbreak{}real-\allowbreak{}v2-\allowbreak{}wrong-\allowbreak{}rate}} & \small measured \\
+
+\small qwen3:14b ollama\_ctx\_4096: wrong 63/150 (42.0\%), silent 63, surfaced 0 & {\footnotesize \texttt{x2-\allowbreak{}evalset-\allowbreak{}tasks-\allowbreak{}real-\allowbreak{}v2-\allowbreak{}wrong-\allowbreak{}rate}} & \small measured \\
+
+\small ollama\_ctx\_4096: excess +30.7 points (95\% CI +26.0 to +34.7) & {\footnotesize \texttt{x2-\allowbreak{}evalset-\allowbreak{}tasks-\allowbreak{}real-\allowbreak{}v2-\allowbreak{}wrong-\allowbreak{}rate}} & \small measured \\
+
+\small qwen3:14b ollama\_ctx\_4096\_numkeep: wrong 45/150 (30.0\%), silent 45, surfaced 0 & {\footnotesize \texttt{x2-\allowbreak{}evalset-\allowbreak{}tasks-\allowbreak{}real-\allowbreak{}v2-\allowbreak{}wrong-\allowbreak{}rate}} & \small measured \\
+
+\small ollama\_ctx\_4096\_numkeep: excess +18.7 points (95\% CI +16.0 to +21.3) & {\footnotesize \texttt{x2-\allowbreak{}evalset-\allowbreak{}tasks-\allowbreak{}real-\allowbreak{}v2-\allowbreak{}wrong-\allowbreak{}rate}} & \small measured \\
+
+\small evo-x2 ollama\_default llama3.1:8b: 3/5 silent, 0 after window & {\footnotesize \texttt{R2-\allowbreak{}v1b-\allowbreak{}gated-\allowbreak{}per-\allowbreak{}model}} & \small measured \\
+
+\small evo-x2 ollama\_default qwen3:14b: 0/5 silent, 0 after window & {\footnotesize \texttt{R2-\allowbreak{}v1b-\allowbreak{}gated-\allowbreak{}per-\allowbreak{}model}} & \small measured \\
+
+\small evo-x2 ollama\_default qwen3:8b: 0/5 silent, 0 after window & {\footnotesize \texttt{R2-\allowbreak{}v1b-\allowbreak{}gated-\allowbreak{}per-\allowbreak{}model}} & \small measured \\
+
+\small evo-x2 num\_ctx\_32768 llama3.1:8b: 1/5 silent, 0 after window & {\footnotesize \texttt{R2-\allowbreak{}v1b-\allowbreak{}gated-\allowbreak{}per-\allowbreak{}model}} & \small measured \\
+
+\small evo-x2 num\_ctx\_32768 qwen3:14b: 0/5 silent, 0 after window & {\footnotesize \texttt{R2-\allowbreak{}v1b-\allowbreak{}gated-\allowbreak{}per-\allowbreak{}model}} & \small measured \\
+
+\small evo-x2 num\_ctx\_32768 qwen3:8b: 0/5 silent, 0 after window & {\footnotesize \texttt{R2-\allowbreak{}v1b-\allowbreak{}gated-\allowbreak{}per-\allowbreak{}model}} & \small measured \\
+
+\small evo-x2 num\_ctx\_16384 llama3.1:8b: 2/5 silent, 2 after window & {\footnotesize \texttt{R2-\allowbreak{}v1b-\allowbreak{}gated-\allowbreak{}per-\allowbreak{}model}} & \small measured \\
+
+\small evo-x2 num\_ctx\_16384 qwen3:14b: 0/5 silent, 0 after window & {\footnotesize \texttt{R2-\allowbreak{}v1b-\allowbreak{}gated-\allowbreak{}per-\allowbreak{}model}} & \small measured \\
+
+\small evo-x2 num\_ctx\_16384 qwen3:8b: 0/5 silent, 0 after window & {\footnotesize \texttt{R2-\allowbreak{}v1b-\allowbreak{}gated-\allowbreak{}per-\allowbreak{}model}} & \small measured \\
+
+\small evo-x2 num\_ctx\_8192 llama3.1:8b: 4/5 silent, 4 after window & {\footnotesize \texttt{R2-\allowbreak{}v1b-\allowbreak{}gated-\allowbreak{}per-\allowbreak{}model}} & \small measured \\
+
+\small evo-x2 num\_ctx\_8192 qwen3:14b: 0/5 silent, 0 after window & {\footnotesize \texttt{R2-\allowbreak{}v1b-\allowbreak{}gated-\allowbreak{}per-\allowbreak{}model}} & \small measured \\
+
+\small evo-x2 num\_ctx\_8192 qwen3:8b: 4/5 silent, 4 after window & {\footnotesize \texttt{R2-\allowbreak{}v1b-\allowbreak{}gated-\allowbreak{}per-\allowbreak{}model}} & \small measured \\
+
+\small evo-x2 num\_ctx\_4096 llama3.1:8b: 5/5 silent, 5 after window & {\footnotesize \texttt{R2-\allowbreak{}v1b-\allowbreak{}gated-\allowbreak{}per-\allowbreak{}model}} & \small measured \\
+
+\small evo-x2 num\_ctx\_4096 qwen3:14b: 4/5 silent, 4 after window & {\footnotesize \texttt{R2-\allowbreak{}v1b-\allowbreak{}gated-\allowbreak{}per-\allowbreak{}model}} & \small measured \\
+
+\small evo-x2 num\_ctx\_4096 qwen3:8b: 1/5 silent, 1 after window & {\footnotesize \texttt{R2-\allowbreak{}v1b-\allowbreak{}gated-\allowbreak{}per-\allowbreak{}model}} & \small measured \\
+
+\bottomrule
+\end{longtable}

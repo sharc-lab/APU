@@ -1,0 +1,1 @@
+{"note": "development only (controller-laptop smoke tests with a small model); not the frozen picks", "picks": [{"seed": 20260901, "task_id": "inv_rename"}, {"seed": 20260901, "task_id": "led_balance_info"}]}

@@ -1101,3 +1101,305 @@ task-definition projection, not the probe) before the row was regenerated. This 
 so the row reports both: the pre-registered reading decides the labels, and the hardware-label reading is shown next
 to each cell ("under the hardware-label reading (first implementation, not the pre-registered wording)") and is not
 counted. Under the hardware-label reading all 3 computed cells are NON-TRIVIAL and the verdict would be MET 3/3.
+
+## 2026-10-23: Live demo: detector check and acceptance run (PRE-REGISTRATION, written before any data; picks frozen in demo/live/picks_v1.json)
+
+### Metadata
+
+- Date: 2026-10-23
+- Git hash: c13822d (harness/demo_live.py, demo_run.py, demo_servers.py, demo_overflow.py, demo_live_x2.py,
+  src/dse/route_at_start.py, demo/live/), plus the commit that adds this entry
+- Branch: demo/oct28
+- Machines: evo-x2 (local lanes, as queued jobs only) and the controller laptop (cloud parts; the key never leaves it)
+
+### Configuration
+
+- Purpose: (1) check the live demo's cut-off detector on real B3 v2 tasks on evo-x2; (2) run the 5-task live demo end
+  to end once as the acceptance run, and record per lane: correct, wrong (silent / flagged), cloud USD, minutes.
+- Task unit (operator decision, 2026-10-23): one B3 v2 task (results/x2_evalset_tasks_real_v2.jsonl, qwen3:14b,
+  design v2, guardrails off) at its real position in its session. The session's earlier history is rebuilt from the
+  recorded default-window session of that seed (each user message exactly, each assistant message as recorded, each
+  tool result recomputed on the environment as that run left it; check: the rebuilt transcript estimate equals the
+  recorded row's transcript_tokens_est) and is shown as REPLAYED; the task turn runs LIVE in each lane (B3 v2 tool loop,
+  4 tool rounds, num_predict 384, temperature 0, seed 42, think false) and is graded by the B3 v2 end-state grader.
+- Pick rule (operator, 2026-10-23), frozen to demo/live/picks_v1.json (with the source file's sha256) by
+  `py -3.12 -m demo.live.picks --freeze demo/live/picks_v1.json` before any run; no swaps after the first run; the
+  picks file's sha256 is recorded in every run_start. 3 task turns that were wrong at num_ctx 4096 in at least 3 of 5
+  seeds AND right at the default window in at least 4 of 5 seeds, plus 2 task turns that were right in at least 4 of
+  5 seeds in every recorded arm; one pick per task id; ties broken by task id. A task occurs once per seed at a
+  seed-dependent position, so each pick is that task in the session of the lowest seed whose own recorded outcomes
+  match its class (wrong at 4096 and right at the default; right in every arm), preferring a turn position 6 to 12;
+  the limit is dropped for a class only if it leaves fewer picks than needed (it did not: 6 of 8 qualifying tasks in
+  each class have a matching seed inside 6 to 12). Qualifying: 8 tasks in each class; nothing filled beyond the rule.
+  Frozen picks (seed, task, turn): (20260905, cal_cancel, 11), (20260904, cal_default_len, 6), (20260901,
+  file_write_standing, 11) wrong at 4096 / right at the default; (20260904, cal_rename, 8), (20260901, eml_internal, 9)
+  right in every arm. The rule reads only results/x2_evalset_tasks_real_v2.jsonl and never any Ours, cloud or demo
+  result.
+- Detector (harness/demo_overflow.py): after every local call, cut = Ollama dropped messages (its truncation line with
+  kept < sent), a token cut, a context shift or an exceed-context error in that call's server log slice, or the
+  server's total prompt (llama-server task.n_tokens, cached prefix included) below 90% of the prompt's own calibrated
+  size. Never prompt_eval_count alone. Servers run with OLLAMA_DEBUG=1, one per configuration.
+- Scenarios (operator decisions, 2026-10-23). Per task the local lanes run one after another (Default local, then
+  Ours; one Ollama server per configuration, started and stopped by the job, never two local lanes at once); the All
+  cloud lane runs alongside them (it does not use the GPU). Each lane's time is its own run's time:
+  - amd8192, "AMD workstation, constrained memory (8192)": Default local at num_ctx 8192; Ours = route_at_start on the
+    evo-x2-8192 profile with the headline row's rule (local iff the projected task-turn prompt from the task
+    definition, analysis/impact_model.projected_task_prompts, is <= 8192; else the whole task on claude-sonnet-5-5
+    from its first call), plus escalation of a local task whose detector fired (the task turn re-run on the cloud with
+    the full history, scripts/cloud_redo full-history protocol, max_tokens 2048, thinking off); All cloud =
+    claude-sonnet-5-5. A real run on evo-x2 with a simulated device window.
+  - intel, "Intel laptop default, simulated on AMD": Default local at num_ctx 4096 (t2s-r2-real-cpu); Ours on the
+    evo-t2s profile (local at 32768, the measured Intel graphics-chip window of t2s-r2-real-igpu, labelled "Intel
+    graphics-chip setting, simulated"; window only on the base server, OLLAMA_IGPU_ENABLE not set on evo-x2; else
+    claude-haiku-5-5 from the first call); All cloud = claude-haiku-5-5.
+- Budget: demo ledger demo/ledger/cloud_ledger_demo.jsonl, cap USD 10 (client spend_cap_usd), session limit USD 3;
+  a cloud part whose projected ledger cost does not fit is REPLAYED from results/all_cloud_b3_v1.jsonl (seeds
+  20260901-03 only; otherwise "not available", which is the case for the three picks on seeds 20260904-05),
+  labelled.
+- Seeds: those of the frozen picks. 1 run per scenario (n = 5 tasks): descriptive, no test.
+- Projected times (ESTIMATE, from the B3 v2 run's own call timings: prefill 637 tok/s median, decode 19.3 tok/s,
+  2.08 calls per turn; the picks' own prompts 6.6k to 9.1k tokens): detector check 0.10 h (high 0.3 h); acceptance
+  local parts, both scenarios, 0.15 h (high 0.4 h). Per scenario with the cloud lane alongside: amd8192 about 2.5 min,
+  intel about 3.5 min.
+- Dry check before queueing (no server start, no model call): `py -3.12 demo\demo_live_x2.py --mode check-plan --picks
+  demo\picks_v1.json --results-dir C:\apu\ovn\results` on evo-x2 must report ok (every rebuilt history equals the
+  recorded transcript estimate).
+
+### Command
+
+- Detector check (queued, evo-x2, side directory C:\apu\ovn\demo): `py -3.12 demo\demo_live_x2.py --mode
+  detector-check --picks demo\picks_v1.json --results-dir C:\apu\ovn\results --out
+  C:\apu\ovn\results\demo_detector_check.jsonl --queued`
+- Acceptance, local parts (queued, evo-x2): `py -3.12 demo\demo_live_x2.py --mode acceptance --picks
+  demo\picks_v1.json --scenarios amd8192,intel --results-dir C:\apu\ovn\results --out
+  C:\apu\ovn\results\demo_live_run_local_v1.jsonl --queued`
+- Acceptance, cloud parts (controller, after results sync): `py -3.12 -m demo.live.complete_run --local
+  results/demo_live_run_local_v1.jsonl --out results/demo_live_run_20261023.jsonl` (dated by the picks freeze) with
+  DEMO_CLOUD_LIVE=1 and the key in that process only.
+- Queue placement (operator decision 4): both entries inserted directly after the running x2_b5_simcap_8192 with
+  `x2_queue_fill.py --insert-after x2_b5_simcap_8192 x2_demo_detector_check x2_demo_live_acceptance`; each releases
+  itself via tq.advance() on exit and sets no pause.
+
+### Replay Cache State
+
+- Prior history: REPLAYED from results/x2_evalset_tasks_real_v2.jsonl (default-window sessions). Cloud fallback:
+  results/all_cloud_b3_v1.jsonl. No prompt cache is assumed for local lanes; the cloud uses the provider's prompt
+  cache (breakpoints on the system prompt and the last user message).
+
+### Result Summary
+
+- Detector check readings, fixed now (row `demo-detector-check`, PENDING until run_end): "passed" iff the detector
+  fired at num_ctx 4096 on every pick whose own prompt exceeds 4096, and on no pick at the runtime default (40960 on
+  evo-x2 for qwen3:14b, which holds every pick's prompt). Also recorded: on how many calls prompt_eval_count equals the
+  server total (it did on 400 of 400 calls of the R2 mechanism run).
+- Acceptance readings, fixed now (row `demo-live-run`, PENDING until run_end): per scenario and lane: correct / 5, wrong silent / flagged, kept local, cloud USD per task (ledger
+  and cache-priced), minutes. Stated plainly if Ours does not beat Default local (more correct) or All cloud (as many
+  correct at lower cloud USD, or more correct).
+- Output artifacts: results/demo_detector_check.jsonl, results/demo_live_run_local_v1.jsonl,
+  results/demo_live_run_20261023.jsonl, server logs under results/demo_live_logs/.
+
+### Validity Flags
+
+- 5 tasks per scenario: a working demonstration, not an accuracy estimate; the recorded headline
+  (hybrid-route-at-start-measured, 90 tasks) is the measured comparison and is shown beside the live tally.
+- The earlier history is the default-window run's, also in the 4096 and 8192 lanes; in the recorded tiers each tier
+  had its own history.
+- The Intel scenario simulates the device by its window only (no Intel hardware, no Intel speed).
+- Deviations from protocol: none yet. A blocked command is not run another way; the exact command goes to the operator.
+
+## AMENDMENT (2026-10-23, before any data of these jobs): live demo jobs deployed and queued on evo-x2
+
+This note follows "2026-10-23: Live demo: detector check and acceptance run (PRE-REGISTRATION ...)" (9268b76), whose
+protocol is not changed.
+
+- **Two harness fixes after the pre-registration commit, before any model call; no protocol change.** 89d637f detects
+  the repo vs side-directory layout by harness/ + src/dse (not scripts/). 14b34d0 puts the side directory first on
+  sys.path in order: the first dry check on evo-x2 failed at import because the loop had inserted the parent
+  `C:\apu\ovn` ahead of it, so its older x2_r2_evalset.py was taken; check-plan now also asserts that x2_r2_evalset and
+  evalset_env come from the side directory.
+- **Deploy.** Side directory `C:\apu\ovn\demo` at 14b34d0 (demo_live.py, demo_run.py, demo_servers.py,
+  demo_overflow.py, demo_live_x2.py, route_at_start.py, route_profiles.json, picks_v1.json, x2_r2_evalset.py 482a0a5d,
+  evalset_env.py 4eae225f, agent_trace_replay.py 6d89277a) and `C:\apu\ovn\qfill` (x2_queue_fill.py);
+  `verify_deployed_blobs` no problems for both. x2_r2_agent from `C:\apu\ovn` (blob 38882113, the one the B3 v2 run
+  used); x2_r2_mechanism and prompt_token_check from `C:\apu\ovn` (same blobs as the repo).
+- **Dry check on evo-x2 (no server start, no model call).** `--mode check-plan`: ok; host EVO-X2; every pick's rebuilt
+  history equals the recorded transcript estimate (cal_cancel 5979, cal_default_len 4052, file_write_standing 6131,
+  cal_rename 4818, eml_internal 5200); projected task-turn prompts 10631, 7399, 10679, 8688, 9350; decisions: amd8192
+  local only for cal_default_len, the cloud for the other four; intel local at 32768 for all five. Ports 11541 to
+  11544 free.
+- **Queue.** `x2_queue_fill.py --insert-after x2_b5_simcap_8192 x2_demo_detector_check x2_demo_live_acceptance`, one
+  read-modify-write under `t2s_queue.set_pause` cleared in its finally block: positions 77 and 78, directly after the
+  running x2_b5_simcap_8192 (position 76) and before x2_b5_simcap_4096; pause flag absent afterwards. Each releases
+  itself via tq.advance() on exit and sets no pause.
+- **The one controller step (operator decision, 2026-10-23).** The cloud parts run only on the controller laptop, in
+  one command after the results sync: `py -3.12 -m demo.live.complete_run --local
+  results/demo_live_run_local_v1.jsonl --out results/demo_live_run_20261023.jsonl`, under USD 3 per session. The API
+  key stays on the controller; the evo-x2 jobs have no key handling.
+
+## 2026-10-23: Demo hold job (OPERATIONAL ENTRY, not a measurement; NOT QUEUED until the operator gives the window)
+
+- Purpose: keep evo-x2 free for the live demo on 2026-10-29 without a pause flag. `harness/x2_demo_hold.py` (deployed
+  to `C:\apu\ovn\demo`) touches nothing (no Ollama start or stop, no model, no GPU), prints a heartbeat line every 5
+  minutes (the watchdog's queue log heartbeat), and calls t2s_queue.advance() once at the release time; if it starts
+  at or after the release time it releases at once. It sets no pause flag, so nothing depends on a person to resume.
+- Parameters: `--start-utc` (window start, recorded; `launched_after_window_start` says whether a measurement job may
+  have run inside the window) and `--release-utc` (the automatic release). The queue has no time gate, so the hold
+  holds from its launch: it must be placed to launch at or before the window start.
+- Queue entry: `x2_queue_fill.py --hold-start-utc <start> --hold-release-utc <release> --insert-after <id>
+  x2_demo_hold` (or `--append x2_demo_hold`); the note states the window and the release time.
+- Fallback named by the operator (if no window by 2026-10-28 18:00 PT): 2026-10-29 08:00 to 18:00 PT, that is
+  `--hold-start-utc 2026-10-29T08:00:00-07:00 --hold-release-utc 2026-10-29T18:00:00-07:00` (15:00 to 01:00 UTC).
+- Dry run on evo-x2 (no wait, no advance) before queueing; queued only when the operator gives the times.
+
+## RESULT (2026-10-23): live demo detector check (x2_demo_detector_check), the pre-registered reading FAILED
+
+Run as pre-registered, file results/demo_detector_check.jsonl (run_end present), server logs in
+results/demo_live_logs/detector_check/. Register row `demo-detector-check` reads "detector check failed": the detector
+fired at num_ctx 4096 on 5/5 picks (every call with a server cut line: Ollama's message drop on all 10 calls, a
+context shift on 4) and at the runtime default (loaded window 40960) on 2/5 picks, where 0/5 was expected.
+
+**Diagnosis of the 2 default-window fires (from the job's own rows and server log): false positives, both from the
+token-count comparison.** cal_cancel (calls used 7949 and 8062 tokens of a 40960 window) and file_write_standing
+(8158 and 8290). In serve_default.log every call ends "stop processing: ... truncated = 0", and there is no message-drop
+line, token cut, context shift or exceed-context error; the evidence on all 4 flagged calls is only "model saw N of
+about M tokens". The prompt's own size M is the chars/4 estimate times the tokenizer ratio 1.2022, which was
+calibrated on B3 v2 turn-1 calls (system prompt and tool schema dominate). On these long-history prompts the real
+ratio (server total over the chars/4 estimate) is 1.077 to 1.113 on the 10 default-window calls, so M overstates the
+size by 8% to 12%, and the 10% tolerance (fire below 0.9 M, that is a real ratio below 1.082) is crossed on the 4
+calls with ratios 1.077 to 1.082. At num_ctx 4096 the same ratio is 0.52 to 0.75 on every call.
+
+**The same signal in the acceptance run's local parts (results/demo_live_run_local_v1.jsonl, detector as
+pre-registered):** Default local in amd8192 flagged cal_cancel by the count alone (answer correct) and
+file_write_standing by real cut lines (context shift, message drop; answer wrong). Ours in intel (window 32768)
+flagged cal_cancel and file_write_standing by the count alone, so both were escalated to the cloud as the protocol
+says, though their local answers were correct. These rows are reported as they are; the protocol is not changed after
+the fact.
+
+**Proposed follow-up (not applied; needs the operator's approval and its own re-check on evo-x2 before the demo uses
+it):** detector v2 = the server's own cut lines only (message drop with kept < sent, token cut, context shift,
+exceed-context error), plus the count comparison against the chars/4 estimate at ratio 1.0 (no tokenizer
+calibration): every uncut call observed here has a ratio of 1.077 or more, every 4096 call 0.75 or less. A cut that
+leaves the total near the estimate (one amd8192 call at 1.031) is still caught by its cut lines. Re-check: the same 5 picks at 4096 and the default, the same pass rule.
+Until then the live screen must not show a count-only flag as "Cut off".
+
+## RESULT (2026-10-23): live demo 5-task acceptance run (x2_demo_live_acceptance + the controller step)
+
+Local parts on evo-x2 (results/demo_live_run_local_v1.jsonl, run_end, wall 298.9 s for both scenarios), cloud parts
+by the one controller step (results/demo_live_run_20261023.jsonl, run_end; every cloud part LIVE; demo ledger USD
+0.017432 before, 0.183851 after, session spend USD 0.166419 billed). Register row `demo-live-run`, pasted:
+
+> amd8192 (AMD workstation, constrained memory (8192)): default: 4/5 correct (wrong 1: silent 0, flagged 1), kept local 5/5, escalated 0, cloud USD/task ledger 0.0 cache-priced 0.0, 1.79 min, labels ['LIVE'], not available 0; ours: 5/5 correct (wrong 0: silent 0, flagged 0), kept local 1/5, escalated 0, cloud USD/task ledger 0.021041 cache-priced 0.021041, 0.71 min, labels ['LIVE'], not available 0; cloud: 5/5 correct (wrong 0: silent 0, flagged 0), kept local 0/5, escalated 0, cloud USD/task ledger 0.010656 cache-priced 0.010656, 0.34 min, labels ['LIVE'], not available 0; Ours beats Default local; Ours does NOT beat All cloud; intel (Intel laptop default, simulated on AMD): default: 3/5 correct (wrong 2: silent 0, flagged 2), kept local 5/5, escalated 0, cloud USD/task ledger 0.0 cache-priced 0.0, 1.51 min, labels ['LIVE'], not available 0; ours: 5/5 correct (wrong 0: silent 0, flagged 0), kept local 3/5, escalated 2, cloud USD/task ledger 0.000767 cache-priced 0.000767, 1.51 min, labels ['LIVE'], not available 0; cloud: 5/5 correct (wrong 0: silent 0, flagged 0), kept local 0/5, escalated 0, cloud USD/task ledger 0.000821 cache-priced 0.000821, 0.20 min, labels ['LIVE'], not available 0; Ours beats Default local; Ours beats All cloud
+
+Readings and caveats (5 tasks per scenario: descriptive, no test):
+- **amd8192: Ours does NOT beat All cloud** by the pre-registered rule: both 5/5, and Ours' billed cloud USD per task
+  (0.0210) is higher than All cloud's (0.0107). The billed figure carries an order effect: on each task the controller
+  ran Ours' cloud call first and All cloud's second, so All cloud read the provider's prompt cache that Ours had
+  written (same model, same history). On the demo ledger's upper bound (every input token at the input rate, no cache
+  either way) the same calls cost 0.0417 per task for Ours and 0.0503 for All cloud. Reported as context, not as a
+  re-reading of the rule.
+- **intel: Ours beats both**, but its 2 escalations (cal_cancel, file_write_standing) were triggered by the
+  token-count false alarm diagnosed above; their local answers were correct as well.
+- Every wrong Default local answer was flagged by the server's own cut lines (amd8192 file_write_standing: context
+  shift and message drop; intel cal_default_len and file_write_standing at 4096: message drops). Default local in
+  amd8192 also has one count-only flag on a correct answer (cal_cancel).
+- Lane times are each lane's own: local lanes on evo-x2 one after another; the cloud times were measured on the
+  controller.
+- Recordings (replaying this file, labelled REPLAYED): demo/review/demo_live_amd8192.webm, 152 s, real speed (main);
+  demo/review/demo_live_intel.webm, 105 s, "2x speed" shown on the stretches where nothing changes (backup).
+
+## ANALYSIS (2026-10-23): detector false alarms, H1 (prompt cache) vs H2 (our size estimate); detector precision and recall
+
+Analysis only (no new runs): analysis/demo_detector_analysis.py, register row `detector-precision-recall` (pasted at
+the end of this entry). Ground truth per call = Ollama's own lines in that call's server log slice: message drop
+(kept < sent), token cut, context shift, exceed-context error.
+
+**Which tiers the earlier "prompt_eval_count includes the cache" check covered.** All 400 calls of
+results/x2_r2_mechanism.jsonl: llama3.1:8b, one seed, tiers ollama_default (loaded 131072), 32768, 16384, 8192 and
+4096, 80 calls each. prompt_eval_count equalled task.n_tokens on 80/80 in every tier, including the default window.
+The demo's own default-window calls (qwen3:14b, loaded 40960) agree: 10/10.
+
+**Per fired call (the 10 v1 false alarms; every one has no cut line in its log slice):**
+
+| Source | Server log | Lane | Task, call | task.n_tokens | cached + evaluated | prompt_eval_count | v1 own size | server / chars-4 | Explained by |
+|---|---|---|---|---|---|---|---|---|---|
+| detector check | serve_default | default | cal_cancel 1 | 7949 | 0 + 7949 | 7949 | 8871 | 1.077 | H2 |
+| detector check | serve_default | default | cal_cancel 2 | 8062 | 7945 + 117 | 8062 | 9000 | 1.077 | H2 |
+| detector check | serve_default | default | file_write_standing 1 | 8158 | 210 + 7948 | 8158 | 9065 | 1.082 | H2 |
+| detector check | serve_default | default | file_write_standing 2 | 8290 | 8154 + 136 | 8290 | 9218 | 1.081 | H2 |
+| acceptance | serve_8192 | default (amd8192) | cal_cancel 1 | 7949 | 0 + 7949 | 7949 | 8871 | 1.077 | H2 |
+| acceptance | serve_8192 | default (amd8192) | cal_cancel 2 | 8062 | 7945 + 117 | 8062 | 9000 | 1.077 | H2 |
+| acceptance | serve_32768 | ours (intel) | cal_cancel 1 | 7949 | 0 + 7949 | 7949 | 8871 | 1.077 | H2 |
+| acceptance | serve_32768 | ours (intel) | cal_cancel 2 | 8062 | 7945 + 117 | 8062 | 9000 | 1.077 | H2 |
+| acceptance | serve_32768 | ours (intel) | file_write_standing 1 | 8158 | 210 + 7948 | 8158 | 9065 | 1.082 | H2 |
+| acceptance | serve_32768 | ours (intel) | file_write_standing 2 | 8290 | 8154 + 136 | 8290 | 9218 | 1.081 | H2 |
+
+- **H1 rejected on all 10:** the count the detector compared (task.n_tokens) equals the cached prefix plus the
+  tokens evaluated anew, and prompt_eval_count equals it; nothing cached is missing from it.
+- **H2 explains all 10:** the server's own tokenization of the rendered prompt (task.n_tokens; the mechanism job's
+  render-and-tokenize checks matched fresh prompt_eval_count within 1%) is 1.077 to 1.082 times our chars/4
+  estimate on these calls, below the v1 threshold 1.2022 x 0.9 = 1.0820 (the calibration ratio 1.2022 came from
+  turn-1 calls dominated by the system prompt and tool schema). A render-and-tokenize of these exact prompts was not
+  run (it would need a server; out of this analysis' scope); task.n_tokens is that tokenization for an uncut call.
+- **The count comparison cannot be repaired with a fixed ratio.** For llama3.1:8b in the mechanism run, uncut calls
+  have server / chars-4 ratios 0.697 to 0.864 and cut calls up to 0.674; with its own session calibration v1 fired on
+  77 of 80 default-window calls. A ratio-1.0 variant (first proposed) fires on every one of the 177 uncut mechanism
+  calls. So the proposed v2 drops the count check and uses the server's own cut lines only (preferring the server's
+  own report, as the operator asked).
+- **Precision and recall (row below).** v1: pooled TP 245, FP 172, FN 0, TN 35 (precision 0.588, recall 1.000). v2
+  (proposed, not yet re-checked on evo-x2): pooled TP 245, FP 0, FN 0, TN 207; this agrees with the log ground truth
+  by construction (it is the same lines); the independent check is the mechanism job's render-only prompt, which
+  agreed with the message-drop line on 223/223 calls where both exist.
+- **Re-score of hybrid-route-at-start-measured with v1 as the flag** (B3 v2 per-call prompt_tokens_est and
+  prompt_eval_count_info_only; no server logs were kept for that run, so ground truth is INFERRED: no cut is possible
+  where even 1.21 x the chars/4 estimate fits the window). 8192 tier: v1 would have fired on 0 of the 21 locally
+  routed tasks (early turns, ratio near 1.2), so the row's cells are unchanged (Sonnet 88/90, USD 0.00819/task; Haiku
+  85/90, USD 0.00055/task). The 4096 tier keeps nothing local, so it is unaffected. At the default window (not a cell
+  of the row) v1 would have fired on 63 of 90 tasks with no cut possible: kept local 27, escalated 63, Sonnet 87/90 at
+  USD 0.02903/task (full-history redo, imputed at the tier mean where no redo row exists), Haiku 85/90 at USD
+  0.00052/task (interim: all-cloud rows).
+
+## PRE-REGISTRATION (2026-10-23, before any run of it): detector v2 re-check (x2_demo_detector_check_v2)
+
+- Detector v2 (harness/demo_overflow.py `cut_v2`, `verdict(v, "v2")`): cut = Ollama's message drop (kept < sent),
+  token cut, context shift or exceed-context error in the call's server log slice; no token-count comparison. v1 is
+  still computed and recorded on every call (`cut`, `flagged_v1`).
+- Run: `py -3.12 demo\demo_live_x2.py --mode detector-check --detector v2 --picks demo\picks_v1.json --results-dir
+  C:\apu\ovn\results --out C:\apu\ovn\results\demo_detector_check_v2.jsonl --queued`; the same 5 frozen picks
+  (demo/live/picks_v1.json), num_ctx 4096 and the runtime default, own Ollama servers (OLLAMA_DEBUG=1), qwen3:14b.
+- Pass rule (unchanged from the v1 check): fires on 5/5 picks at num_ctx 4096 and on 0/5 at the default window.
+  Register row `demo-detector-check-v2` (PENDING until run_end).
+- Queue: inserted directly after the running x2_b5_simcap_4096 (not interrupting it); releases itself via
+  tq.advance() on exit; sets no pause. ESTIMATE 0.10 h (high 0.3 h; the v1 check ran 3.1 min).
+- Use: the live screen keeps v1 with the "known false alarm" caveat until this re-check passes, then switches to v2.
+  demo/oct28 is merged into main only after it passes. If it has not passed by 2026-10-27 18:00 PT, the prepared
+  fallback commit switches the screen to Ollama's own cut lines only, labelled as such, with v1 marked "not used:
+  false alarms at default (see detector-precision-recall)".
+
+Register row `detector-precision-recall` (analysis entry above), pasted:
+
+> detector v1 (as run: server cut lines, or task.n_tokens < 0.9 x chars/4 estimate x calibrated ratio): mechanism: TP 223 FP 162 FN 0 TN 15 (precision 0.579, recall 1.000, n 400); demo detector check: TP 10 FP 4 FN 0 TN 6 (precision 0.714, recall 1.000, n 20); demo acceptance run: TP 12 FP 6 FN 0 TN 14 (precision 0.667, recall 1.000, n 32); pooled: TP 245 FP 172 FN 0 TN 35 (precision 0.588, recall 1.000, n 452) / proposed v2, not yet re-checked on evo-x2 (server cut lines only; agrees with the log ground truth by construction; independent check: the mechanism job's render-only prompt agreed with the message-drop line on 223/223 calls where both exist): mechanism: TP 223 FP 0 FN 0 TN 177 (precision 1.000, recall 1.000, n 400); demo detector check: TP 10 FP 0 FN 0 TN 10 (precision 1.000, recall 1.000, n 20); demo acceptance run: TP 12 FP 0 FN 0 TN 20 (precision 1.000, recall 1.000, n 32); pooled: TP 245 FP 0 FN 0 TN 207 (precision 1.000, recall 1.000, n 452) / rejected variant (server lines, or task.n_tokens < 0.9 x chars/4 estimate): mechanism: TP 223 FP 177 FN 0 TN 0 (precision 0.557, recall 1.000, n 400); demo detector check: TP 10 FP 0 FN 0 TN 10 (precision 1.000, recall 1.000, n 20); demo acceptance run: TP 12 FP 0 FN 0 TN 20 (precision 1.000, recall 1.000, n 32); pooled: TP 245 FP 177 FN 0 TN 30 (precision 0.581, recall 1.000, n 452) / ground truth = Ollama's message-drop line (kept < sent), token cut, context shift or exceed-context error; mechanism = 400 calls of the R2 mechanism run (llama3.1:8b, tiers default 131072, 32768, 16384, 8192, 4096, 80 each), uncut server/chars-4 ratio 0.697 to 0.864, cut max 0.674; demo (qwen3:14b) uncut 1.077 to 1.113; prompt_eval_count = task.n_tokens on ollama_ctx_16384 80/80, ollama_ctx_32768 80/80, ollama_ctx_4096 80/80, ollama_ctx_8192 80/80, ollama_default 80/80 / 10 v1 false alarms in the demo runs, all explained by ['H2']: H1 (cache) rejected on every one (task.n_tokens = cached + evaluated, prompt_eval_count = task.n_tokens), H2 (our size estimate) server/chars-4 ratio 1.077 to 1.082 against the v1 threshold 1.0820 / re-score of hybrid-route-at-start-measured with v1 as the flag (re-score by replay with detector v1 as the flag; ground truth INFERRED (no server logs kept)): ollama_ctx_8192 vs claude-haiku-5-5: v1 fired on 0 locally routed tasks (0 with no cut possible, 0 certain cuts), hybrid 85/90, USD 0.00055/task, kept local 21, escalated 0 (row: 85/90, USD 0.00055/task, kept local 21); ollama_ctx_8192 vs claude-sonnet-5-5: v1 fired on 0 locally routed tasks (0 with no cut possible, 0 certain cuts), hybrid 88/90, USD 0.00819/task, kept local 21, escalated 0 (row: 88/90, USD 0.00819/task, kept local 21); ollama_default vs claude-haiku-5-5: v1 fired on 63 locally routed tasks (63 with no cut possible, 0 certain cuts), hybrid 85/90, USD 0.00052/task, kept local 27, escalated 63 (not a cell of the row: the hybrid at the default window); ollama_default vs claude-sonnet-5-5: v1 fired on 63 locally routed tasks (63 with no cut possible, 0 certain cuts), hybrid 87/90, USD 0.02903/task, kept local 27, escalated 63 (not a cell of the row: the hybrid at the default window)
+
+## AMENDMENT (2026-10-23, before any data of it): detector v2 re-check deployed and queued
+
+- Deploy at 2505a1e: `C:\apu\ovn\demo` (demo_overflow.py, demo_live.py, demo_live_x2.py) and `C:\apu\ovn\qfill`
+  (x2_queue_fill.py); verify_deployed_blobs no problems for both. Dry check on evo-x2 (`--mode check-plan --detector
+  v2`, no server start, no model call): ok, host EVO-X2, x2_r2_evalset and evalset_env from the side directory.
+- Queue: `x2_queue_fill.py --insert-after x2_b5_simcap_4096 x2_demo_detector_check_v2`: position 80, directly after the
+  running x2_b5_simcap_4096 (position 79) and before x2_r2_v1b_seeds_06_10; pause flag absent afterwards. By the
+  B5 job's start (epoch 1792762828) and its 26.11 h ESTIMATE it ends around 2026-10-24 15:50 UTC; the re-check
+  (ESTIMATE 0.10 h) follows.
+
+## RESULT (2026-10-24): detector v2 re-check (x2_demo_detector_check_v2), the pre-registered reading PASSED; the live screen switches to v2
+
+Run as pre-registered, file results/demo_detector_check_v2.jsonl (run_end present; synced on main in 53ee83a with
+results/demo_live_logs/detector_check_v2/). Pass rule, fixed before the run: fires on 5/5 picks at num_ctx 4096 and on
+0/5 at the runtime default. Rule met. Register row `demo-detector-check-v2`, pasted:
+
+> detector check passed (detector v2; pre-registered pass rule: fires on every pick (5/5) at num_ctx 4096 and on none (0/5) at the runtime default; rule met); num_ctx_4096: fired on 5/5 tasks (prompt over 4096 on 5); calls 10, flagged by a server cut line (message drop, token cut, context shift, exceed) on 10, by the token-count comparison alone on 0; prompt_eval_count equal to the server total on 10; cal_cancel (seed 20260905, turn 11): used 4037 of about 9004, flagged True, end state True, cal_default_len (seed 20260904, turn 6): used 4079 of about 6712, flagged True, end state False, file_write_standing (seed 20260901, turn 11): used 4078 of about 9217, flagged True, end state False, cal_rename (seed 20260904, turn 8): used 4065 of about 7721, flagged True, end state True, eml_internal (seed 20260901, turn 9): used 4086 of about 8108, flagged True, end state True; default: fired on 0/5 tasks (prompt over 4096 on 5); calls 10, flagged by a server cut line (message drop, token cut, context shift, exceed) on 0, by the token-count comparison alone on 4; prompt_eval_count equal to the server total on 10; cal_cancel (seed 20260905, turn 11): used 8062 of about 9000, flagged False, end state True, cal_default_len (seed 20260904, turn 6): used 6220 of about 6717, flagged False, end state True, file_write_standing (seed 20260901, turn 11): used 8290 of about 9218, flagged False, end state True, cal_rename (seed 20260904, turn 8): used 7035 of about 7718, flagged False, end state True, eml_internal (seed 20260901, turn 9): used 7402 of about 8108, flagged False, end state True
+
+As pre-registered ("the live screen keeps v1 with the 'known false alarm' caveat until this re-check passes, then
+switches to v2"), the live screen now uses v2 (harness/demo_run.DETECTOR = "v2"): the cut-off signal is Ollama's own
+truncation and context-shift log lines, the runtime's own signal and not a contribution of this work. Detector v1 is
+marked on screen "not used: false alarms at default (see detector-precision-recall)". The acceptance run
+(results/demo_live_run_20261023.jsonl) and its two recordings were made under v1 and are not changed; a replay can
+still show the two intel Ours tasks that v1 sent to the cloud on a token-count flag.

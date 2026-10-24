@@ -26,6 +26,10 @@ CONTROLLER_SCRIPTS = [
     REPO / "scripts" / "deploy_evo.py",
     REPO / "scripts" / "t2s_responsiveness_probe.py",
     REPO / "demo" / "dashboard" / "build_cache.py",
+    # live demo (2026-10-23): the screen's runner (SSH to evo-x2, the agent) and the lane servers it can start here
+    REPO / "demo" / "live" / "runner.py",
+    REPO / "demo" / "review" / "capture_live.py",
+    REPO / "harness" / "demo_servers.py",
     # The Blade is the controller laptop: its night jobs run here, unattended (docs/BLADE_PLAN.md).
     REPO / "scripts" / "blade_night.py",
     REPO / "harness" / "blade_common.py",

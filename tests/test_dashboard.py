@@ -66,7 +66,9 @@ def test_frontier(app):
     pts = f["machines"]["evo-x2"]["points"]
     assert pts and all(p["src"]["file"].startswith("results/") for p in pts)
     assert f["machines"]["evo-x2"]["frontier_ids"]
-    assert all(p["stub"] for p in f["cloud"]) and f["cloud"]
+    # 2026-10-22: no OpenAI STUB cloud rows; the measured Anthropic cloud rows instead
+    assert f["cloud"] == [] and f["cloud_measured"]["rows"]
+    assert "gpt-" not in json.dumps(f)
     assert any("bare template" in p["flags"] for p in pts)
 
 
@@ -125,7 +127,9 @@ def test_frontier_marks_usability_excluded_configs(app):
 def test_scenario(app):
     s = get(app, "/api/scenario").json()
     assert s["arm"] == "ollama_ctx_4096_call2_notools"
-    assert len(s["sessions"]) == 6 and all(x["num_ctx"] == 4096 for x in s["sessions"])
+    # the strengthened run's num_ctx 4096 sessions: 3 models x 5 seeds (v1 seeds 1-3 for two models, v1b the rest)
+    assert len(s["sessions"]) == 15 and all(x["num_ctx"] == 4096 for x in s["sessions"])
+    assert len({(x["model"], x["seed"]) for x in s["sessions"]}) == 15
     assert "R2-real-v1-gated-kill" in s["register"]
     assert s["register"]["R2-real-v1-gated-kill"]["status"] == "VERIFIED"
     for rid in ("R2-real-v1b-gated-kill", "R2-v1b-excess-over-default"):   # the evidence text cites v1b
@@ -136,7 +140,8 @@ def test_replay(app):
     r = get(app, f"/api/replay?session={first_session(app)}").json()
     assert len(r["steps"]) == 40
     for st in r["steps"]:
-        assert st["naive"]["src"]["file"] == "results/x2_r2_real_v1.jsonl" and st["naive"]["src"]["line"]
+        assert st["naive"]["src"]["file"] == app.cache.r2_sessions["sessions"][0]["source"]
+        assert st["naive"]["src"]["line"]
         assert st["ours"]["decision"]["target"] in ("local", "local_trimmed", "cloud")
     get(app, "/api/replay?session=nope", 404)
 
@@ -158,9 +163,13 @@ def test_register(app):
 
 
 def test_source(app):
-    line = app.cache.r2_sessions["sessions"][0]["turns"][0]["line"]
-    s = get(app, f"/api/source?file=results/x2_r2_real_v1.jsonl&line={line}").json()
-    assert json.loads(s["text"])["record"] == "r2a_turn" and s["sha256_at_build"]
+    for sess in (app.cache.r2_sessions["sessions"][0], app.cache.r2_sessions["sessions"][-1]):
+        line = sess["turns"][0]["line"]
+        s = get(app, f"/api/source?file={sess['source']}&line={line}").json()
+        assert json.loads(s["text"])["record"] == "r2a_turn" and s["sha256_at_build"]
+    assert {s["source"] for s in app.cache.r2_sessions["sessions"]} == {"results/x2_r2_real_v1.jsonl",
+                                                                       "results/x2_r2_real_v1b.jsonl"}
+    assert app.cache.r2_sessions["sessions"][0]["source"] == "results/x2_r2_real_v1b.jsonl"  # v1b first
     m = get(app, "/api/source?file=results/x2_outcome_table_v3.jsonl&match=record:outcome_row,config:llama_server").json()
     assert m["n_matching_rows"] > 0
     get(app, "/api/source?file=../CLAUDE.md", 403)

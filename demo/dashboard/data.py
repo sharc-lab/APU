@@ -95,7 +95,8 @@ def to_dict(obj) -> Any:
 
 
 class Cache:
-    NAMES = ("manifest", "register", "hardware", "workloads", "r2_sessions", "points", "mitigation")
+    NAMES = ("manifest", "register", "hardware", "workloads", "r2_sessions", "points", "mitigation", "silent", "device", "cost",
+             "escalation", "story")
 
     def __init__(self, directory: Path = CACHE_DIR):
         self.dir = Path(directory)
@@ -104,6 +105,8 @@ class Cache:
             if not p.exists():
                 raise FileNotFoundError(f"{p} missing: run `py -3.12 -m demo.dashboard.build_cache` first")
             setattr(self, n, json.loads(p.read_text(encoding="utf-8")))
+        from demo.dashboard import views
+        self.register = views.redact_register(self.register)
 
 
 # ── points / frontier / recommendation ─────────────────────────────────────────────────────────────
@@ -166,7 +169,8 @@ def frontier_view(cache: Cache, backend: Backend, selected: list[str] | None = N
                   "excluded": [{"id": p["id"], "config_id": p["config_id"], "model": p["model"],
                                 "runtime": p["runtime"], "timeout_latency_share": p.get("timeout_latency_share"),
                                 "reason": p["excluded_reason"], "src": p["src"]} for p in pts if p["excluded_reason"]]}
-    return {"machines": per, "cloud": [d for d in dicts if d.get("stub")], "files": cache.points["files"],
+    return {"machines": per, "cloud": [d for d in dicts if d.get("stub")],
+            "cloud_measured": cache.points.get("cloud_measured") or {"rows": []}, "files": cache.points["files"],
             "backend": cache.points["backend"], "max_timeout_share": max_timeout_share}
 
 
@@ -188,8 +192,14 @@ def recommendation(cache: Cache, backend: Backend, budget_usd: float, quality_fl
         excluded.append({**e, "id": d.get("id"), "src": d.get("src")})
 
     cloud = [d for d in dicts if d.get("stub")]
+    # No router savings figure unless a register row supports it (operator 2026-10-21; row b5-verdict).
+    from demo.dashboard import views
+    shown = views.router_savings_supported(cache.register)
     return {"chosen": deco(rec.get("chosen")), "reason": rec.get("reason"),
-            "savings_vs_all_cloud_usd_per_1k": rec.get("savings_vs_all_cloud_usd_per_1k"),
+            "savings_vs_all_cloud_usd_per_1k": rec.get("savings_vs_all_cloud_usd_per_1k") if shown else None,
+            "savings_shown": shown,
+            "savings_note": None if shown else (f"not shown: register row b5-verdict is "
+                                                f"{views.b5_verdict(cache.register) or 'missing'} on evo-x2"),
             "savings_stub": True,  # all-cloud side is the stub pricing until real cloud rows exist
             "savings_src": {"file": "src/cloud/client.py", "note": "STUB cloud cost from the pricing table"},
             "alternatives": [deco(a) for a in rec.get("alternatives") or []], "excluded": excluded,
@@ -197,6 +207,18 @@ def recommendation(cache: Cache, backend: Backend, budget_usd: float, quality_fl
                                            "latency_target_ms": latency_target_ms, "hardware": hardware,
                                            "max_timeout_share": max_timeout_share},
             "backend": backend.pareto_source}
+
+
+def device_recommendation(cache: Cache, backend: Backend, device: str, model: str, workload: str,
+                          max_timeout_share: float = DEFAULT_MAX_TIMEOUT_SHARE) -> dict:
+    """View B: views.device_recommend over the cached device snapshot; single-shot rows use the outcome-table points
+    with the backend's own usability exclusion at max_timeout_share."""
+    from demo.dashboard import views
+    objs, dicts = _points(cache, backend)
+    pts = [dict(d, excluded_reason=_exclusion(backend, o, max_timeout_share)) for o, d in zip(objs, dicts)]
+    rec = views.device_recommend(cache.device, device, model, workload, pts, max_timeout_share)
+    rec["register"] = {i: cache.register[i] for i in rec["register_ids"] if i in cache.register}
+    return rec
 
 
 # ── side-by-side scenario ──────────────────────────────────────────────────────────────────────────
@@ -211,9 +233,23 @@ def scenario_list(cache: Cache) -> dict:
                           "first_over_window_turn": s["summary"]["first_over_window_turn"],
                           "truncation_detected_turn": s["summary"]["truncation_detected_turn"],
                           "first_error_turn": s["summary"]["first_error_turn"],
-                          "src": {"file": r2["source"], "line": s["summary_line"]}} for s in r2["sessions"]],
+                          "source": s.get("source", r2["source"]),
+                          "src": {"file": s.get("source", r2["source"]), "line": s["summary_line"]}}
+                         for s in r2["sessions"]],
+            "sources": r2.get("sources", [r2["source"]]),
             "register": {i: reg[i] for i in cache.manifest["scenario_register_ids"] if i in reg},
+            # each verbatim register block shown on the page: a one-sentence summary plus the verbatim text, which
+            # the page puts in a closed Details disclosure
+            "evidence": [_views().register_summary(i, reg.get(i)) for i in EVIDENCE_IDS if i in reg],
             "mitigation": cache.mitigation}
+
+
+EVIDENCE_IDS = ("R2-real-v1b-gated-kill", "R2-v1b-excess-over-default", "R2-mitigation-v1-verdict")
+
+
+def _views():
+    from demo.dashboard import views
+    return views
 
 
 def _session(cache: Cache, key: str) -> dict:
@@ -226,7 +262,7 @@ def _session(cache: Cache, key: str) -> dict:
 def replay(cache: Cache, backend: Backend, key: str, budget_usd: float = 50.0, quality_floor: float = 0.9,
            latency_target_ms: float = 30000.0) -> dict:
     s = _session(cache, key)
-    src_file = cache.r2_sessions["source"]
+    src_file = s.get("source", cache.r2_sessions["source"])
     router = backend.router_cls(backend.envelope, budget_usd, quality_floor, latency_target_ms, "evo-x2",
                                 "ollama", s["model"], None)
     decisions = [to_dict(d) for d in router.replay_session([dict(t) for t in s["turns"]])]
@@ -250,7 +286,7 @@ def replay(cache: Cache, backend: Backend, key: str, budget_usd: float = 50.0, q
         row_src = {"file": src_file, "line": t["line"]}
         naive_side = {**nv, "running_cost_usd": n_cost, "src": row_src,
                       "advertised_ctx": adv.get("ctx"),
-                      "advertised_src": {"file": src_file, "line": adv.get("line")}}
+                      "advertised_src": {"file": adv.get("file", src_file), "line": adv.get("line")}}
         if nv["target"] == "local":
             naive_side["outcome"] = {
                 "recorded": True, "http_status": statuses, "errors": errors, "rules": rules,
@@ -285,7 +321,9 @@ def replay(cache: Cache, backend: Backend, key: str, budget_usd: float = 50.0, q
 
 
 def allowed_sources(cache: Cache) -> set[str]:
-    return set(cache.manifest["sources"]) | {"src/cloud/client.py"} | set(cache.points["files"])
+    from demo.dashboard import views
+    return (set(cache.manifest["sources"]) | {"src/cloud/client.py", views.COST_SUMMARY_DOC, views.IMPACT_DOC}
+            | set(cache.points["files"]))
 
 
 def source(cache: Cache, file: str, line: int | None = None, match: dict | None = None,

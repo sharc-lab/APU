@@ -15,6 +15,19 @@ Endpoints (all GET):
   /api/scenario             the 4096 sessions available for the side-by-side, register rows cited
   /api/replay?session=&budget=&floor=&latency=          every step at once (polling clients)
   /api/replay/stream?session=&delay_ms=&...             the same steps as server-sent events
+  /api/silent               view A: silent failure (evo-t2s CPU 4096 vs iGPU 32768; qwen3:14b wrong-task rate by
+                            window; v1b per-model gated silent counts)
+  /api/device               view B options (devices, models, workloads)
+  /api/device/recommend?device=&model=&workload=&max_timeout_share=   view B: recommended window, num_keep, KV
+                            precision, flash attention with the measured outcome, or "not measured"
+  /api/cost                 view C: cost panel (measured parts first; P1 lead; router savings only with a register
+                            row behind it; docs/OCT29_COST_SUMMARY.md and docs/IMPACT.md when present)
+  /api/escalation           view D: the wrong task, its local answer, its priced cost, live-call status (never the key)
+  POST /api/escalate        view D: one live call through src/cloud/client.py (USD 10 cap, demo ledger, at most one per
+                            server process), or the stub "priced, not executed" with the reason
+  /api/story                story mode: five guided steps (problem, why it is hard, the tool, the money, escalation)
+  POST /api/fix-now         story step 4: the same one live call, full-history redo protocol (thinking between tools,
+                            max_tokens 2048); any non-live outcome returns the task's recorded redo, tagged recorded
   /api/register[?id=]       register rows from the snapshot
   /api/source?file=&line=   one raw line of a whitelisted source file
   /api/source?file=&match=k:v,k:v   line numbers of rows matching every k:v
@@ -30,10 +43,10 @@ from pathlib import Path
 from typing import Iterable, Optional
 from urllib.parse import parse_qs, urlsplit
 
-from demo.dashboard import data
+from demo.dashboard import data, views
 
 STATIC = Path(__file__).resolve().parent / "static"
-STATIC_FILES = {"index.html", "app.js", "app.css"}
+STATIC_FILES = {"index.html", "app.js", "app.css", "views.js"}
 DEFAULTS = {"budget_usd": 50.0, "quality_floor": 0.9, "latency_target_ms": 30000.0,
             "max_timeout_share": data.DEFAULT_MAX_TIMEOUT_SHARE}
 
@@ -80,17 +93,38 @@ def _sse(event: str, obj) -> bytes:
 
 
 class App:
-    def __init__(self, cache: data.Cache | None = None, backend: data.Backend | None = None):
+    def __init__(self, cache: data.Cache | None = None, backend: data.Backend | None = None,
+                 repo: Path | None = None, escalator=None):
         self.cache = cache or data.Cache()
         self.backend = backend or data.load_backend()
+        self.repo = Path(repo) if repo else data.REPO  # where the cost view looks for its docs
+        self._escalator = escalator
+
+    @property
+    def escalator(self):
+        """View D's Escalator: one per App, so one live call per demo run (created on first use)."""
+        if self._escalator is None:
+            from demo.dashboard import escalate
+            self._escalator = escalate.Escalator(self.cache.escalation)
+        return self._escalator
 
     # one place for every route
     def handle(self, method: str, target: str) -> Response:
-        if method not in ("GET", "HEAD"):
-            return _json({"error": "method not allowed"}, 405)
         u = urlsplit(target)
         q = parse_qs(u.query)
         path = u.path.rstrip("/") or "/"
+        if path in ("/api/escalate", "/api/fix-now"):  # the only POSTs: they may spend money, so never on a GET
+            if method != "POST":
+                return _json({"error": "POST only"}, 405)
+            if path == "/api/escalate":
+                return _json(self.escalator.run())
+            # story step 4: the full-history protocol; any non-live outcome shows the recorded redo, tagged recorded
+            res = self.escalator.run("full")
+            if res.get("mode") != "executed":
+                res = self.escalator.recorded(res.get("reason") or "not sent live")
+            return _json(res)
+        if method not in ("GET", "HEAD"):
+            return _json({"error": "method not allowed"}, 405)
         try:
             if path == "/":
                 return self._static("index.html")
@@ -99,7 +133,9 @@ class App:
             route = {"/api/meta": self.meta, "/api/frontier": self.frontier, "/api/recommend": self.recommend,
                      "/api/scenario": self.scenario, "/api/replay": self.replay,
                      "/api/replay/stream": self.replay_stream, "/api/register": self.register,
-                     "/api/source": self.source}.get(path)
+                     "/api/source": self.source, "/api/silent": self.silent, "/api/device": self.device,
+                     "/api/device/recommend": self.device_recommend, "/api/cost": self.cost,
+                     "/api/escalation": self.escalation, "/api/story": self.story}.get(path)
             if route is None:
                 return _json({"error": f"no route {path}"}, 404)
             return route(q)
@@ -120,10 +156,15 @@ class App:
 
     def meta(self, q) -> Response:
         c = self.cache
+        measured = set(data.machines(c))
+        hw_m = [h for h in c.hardware if h.get("machine") in measured]
+        hw_n = [h for h in c.hardware if h.get("machine") not in measured]
         return _json({"manifest": c.manifest, "backend": {"router": self.backend.router_source,
                                                           "pareto": self.backend.pareto_source,
                                                           "fake": self.backend.is_fake},
                       "cache_backend": c.manifest.get("backend"), "hardware": c.hardware,
+                      "hardware_measured": hw_m, "hardware_not_measured": hw_n,
+                      "cloud_prices": views.ANTHROPIC_PRICES,
                       "machines": data.machines(c), "workloads": c.workloads, "defaults": DEFAULTS,
                       "mitigation": c.mitigation})
 
@@ -163,6 +204,28 @@ class App:
 
         return Response(200, "text/event-stream; charset=utf-8", stream=gen(),
                         headers={"Cache-Control": "no-cache"})
+
+    def silent(self, q) -> Response:
+        return _json(views.silent_view(self.cache))
+
+    def device(self, q) -> Response:
+        d = self.cache.device
+        return _json({"devices": d["devices"], "models": d["models"], "workloads": d["workloads"],
+                      "default_max_timeout_share": views.DEFAULT_MAX_TIMEOUT_SHARE})
+
+    def device_recommend(self, q) -> Response:
+        one = lambda k, dflt: (q.get(k) or [dflt])[0]  # noqa: E731
+        return _json(data.device_recommendation(self.cache, self.backend, one("device", "evo-x2"),
+                                                one("model", "qwen3:14b"), one("workload", "r2_agent"), _share(q)))
+
+    def cost(self, q) -> Response:
+        return _json(views.cost_view(self.cache, self.repo))
+
+    def story(self, q) -> Response:
+        return _json(views.story_view(self.cache))
+
+    def escalation(self, q) -> Response:
+        return _json({"task": self.cache.escalation, "status": self.escalator.status()})
 
     def register(self, q) -> Response:
         if "id" in q:
