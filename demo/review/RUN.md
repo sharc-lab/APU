@@ -36,8 +36,11 @@ session limit of USD 3. A cloud task that would not fit is shown REPLAYED instea
 **Cut-off signal on screen.** Ollama's own truncation and context-shift log lines (detector v2), which is the
 runtime's own signal. Its re-check on evo-x2 passed: 5/5 picks flagged at num_ctx 4096, 0/5 at the default window
 (register row demo-detector-check-v2). Detector v1, the token-count check, is not used: it gave false alarms at the
-default window (see detector-precision-recall). The acceptance run and its recordings were made under v1, so a replay
-can still show one Ours task sent to the cloud on a v1 token-count flag.
+default window (see detector-precision-recall). The acceptance run was made under v1: in the Intel scenario, Ours sent
+two tasks (cal_cancel, file_write_standing) to the cloud on a v1 token-count flag although the server showed no cut.
+The recordings were re-made on the v2 screen (2026-10-24); the screen's caption says the replay was recorded under v1,
+and those two lanes read "Sent to the cloud by detector v1 when this run was recorded (a token-count flag; the server
+showed no cut). v1 is not used now."
 
 ## The acceptance run: one controller step
 

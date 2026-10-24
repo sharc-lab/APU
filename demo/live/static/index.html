@@ -98,7 +98,9 @@ function render() {
       if (n.tools && n.tools.length) now += `<div class="head">tools used: ${esc(n.tools.join(", "))}</div>`;
       if (n.decision) now += `<div class="head">${esc(n.decision)}</div>`;
       if (n.escalated) now += n.cut ? `<div class="cutflag">Cut off, so this task went to the cloud</div>`
-        : `<div class="head" style="color:var(--warn)">Sent to the cloud on that flag, as the protocol says</div>`;
+        : (meta.detector === "v2"
+          ? `<div class="head" style="color:var(--warn)">Sent to the cloud by detector v1 when this run was recorded (a token-count flag; the server showed no cut). v1 is not used now.</div>`
+          : `<div class="head" style="color:var(--warn)">Sent to the cloud on that flag, as the protocol says</div>`);
     }
     const res = L.results.map(r => `<div class="res"><span>${esc(r.task)}</span><span>${r.ok === true ? '<span class="c">correct</span>' : r.ok == null ? "n/a" : '<span class="w">WRONG' + (r.flagged ? ", flagged" : ", silent") + "</span>"} ${r.usd ? money(r.usd) : ""} ${tag(r.label)}</span></div>`).join("");
     $("#lane-" + l).innerHTML = `<h2>${LANE_NAME[l]}</h2><div class="head">${esc(laneHelp(sc, l))}</div><div class="now">${now}</div>${res}`;
@@ -164,6 +166,8 @@ async function init() {
   $("#detector-note").textContent = meta.detector === "v2"
     ? "Cut-off signal: Ollama's own truncation and context-shift log lines (the runtime's own signal; re-checked on the AMD workstation, row demo-detector-check-v2). Detector v1 (token-count check) not used: false alarms at default (see detector-precision-recall)."
     : "Cut-off signal: detector v1 (Ollama's own cut lines, or a token-count check). A token-count flag alone is a known false alarm and is shown as such.";
+  if (meta.mode === "replay" && meta.detector === "v2")
+    $("#detector-note").textContent += " This replay is the acceptance run of 2026-10-23, recorded while detector v1 decided escalation; any Ours task sent to the cloud on a v1 token-count flag is marked in its lane.";
   const auto = new URLSearchParams(location.search);
   if (auto.get("scenario")) $("#scenario").value = auto.get("scenario");
   $("#go").onclick = start;
