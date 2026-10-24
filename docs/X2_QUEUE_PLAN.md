@@ -38,10 +38,10 @@ They run on evo-x2 only and do not touch the evo-t2s handover on 2026-10-26. Eac
 exit and sets no pause.
 
 **own-profiler-probe (pre-registered in docs/EXPERIMENTS.md 2026-10-23, 67384a7). Deployed and queued 2026-10-24
-02:06Z at position 92** (git head c20b919, side directory `C:pu\ovn\ownprobe`, queue tool `C:pu\ovn\qfill_op`):
+02:06Z at position 92** (git head c20b919, side directory `C:\apu\ovn\ownprobe`, queue tool `C:\apu\ovn\qfill_op`):
 qwen3:14b, seed 20260901, f16 at default/16384/8192/4096, q8_0 at 15360, q4_0 at 28928, at most 600 s per config.
 ESTIMATE 0.78 h (high 1.38 h; row own-profiler-probe-hours). The first `--check-plan` failed because the side
-directory lacked evalset_env.py (the older C:pu\ovn copy has no DESIGNS); evalset_env.py, agent_trace_replay.py
+directory lacked evalset_env.py (the older C:\apu\ovn copy has no DESIGNS); evalset_env.py, agent_trace_replay.py
 and agent_trace_steps_uncensored.json were added to ownprobe (as in owncomp), the deploy check showed no problems and
 `--check-plan` returned 0. Releases itself via tq.advance() on exit; sets no pause.
 
