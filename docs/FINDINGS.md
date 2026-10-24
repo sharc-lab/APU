@@ -5968,3 +5968,207 @@ docs/NUMBERS_REGISTER.md on either branch. Quoted from that pasted row:
   v2. In the re-score at num_ctx 8192, v1 "fired on 0 locally routed tasks" of the 21 kept local, so the row's cells
   are unchanged ("hybrid 88/90, USD 0.00819/task, kept local 21" on claude-sonnet-5-5). The 4096 tier keeps nothing
   local, so it is unaffected. The re-score's ground truth is INFERRED (no server logs were kept for the B3 v2 run).
+
+## PRE-REGISTRATION (2026-10-23): own-profiler and own-dse-v1 (pointer)
+
+Both are pre-registered in docs/EXPERIMENTS.md, entry "2026-10-23: own-profiler ... and own-dse-v1", committed before
+any result of either was computed. Offline, committed files only. In short: the own-profiler predicts task accuracy
+and mean seconds per task of a configuration from a probe of at most 600 s (the first turns of one fixed-seed session
+of the target workload), with ratios fit on the other device; tested leave-one-device-out between evo-x2 and evo-t2s
+on R2 / B5 / B3 v2 / scale sessions; the Blade has no task-level data (blade_r2_real_v1 has 0 turns), so the Blade test
+is NOT RUN. Target: median absolute percentage error < 10% for both seconds per task and accuracy (baseline
+ttft-few-point-calibration, median 22.6%). Row own-profiler-loo. The own-dse-v1 ranks {hardware, model, window, KV,
+backend, routing policy} by total monthly cost (hardware at USD 2,000 / 36 months, PX2-power watts at 14.53 c/kWh,
+measured cloud USD) under an accuracy target 0.90 and a USD 500/month cloud budget, using probe predictions; its pick is
+validated against the brute-force best over measured configurations for short B3 tasks, long tasks and a 50/50 mix at
+100 / 1,000 / 10,000 tasks/day (long and mixed PENDING unless long-task-local-accuracy is VERIFIED). Target: within
+10% of the brute-force best total cost. Row own-dse-v1; code src/dse/dse_v1.py.
+
+## RESULT (2026-10-23): own-profiler-loo and own-dse-v1
+
+Computed after the pre-registration above was committed (92aade5). Numbers below are fragments of rows
+own-profiler-loo and own-dse-v1 in docs/NUMBERS_REGISTER.md, pasted, not retyped.
+
+**own-profiler-loo: target MISSED.** "seconds per task median APE 70.2%, accuracy median APE 1.5% (raw probe without
+ratios: 58.4%, 0.9%)"; "pre-registered target < 10% on both: MISSED (seconds missed, accuracy met)". The seconds error
+is worse than the baseline (ttft-few-point-calibration "median 22.6%") and worse than using the raw probe with no
+ratio. Reading: the first 10 minutes of a session are not representative of its mean turn time (the first turn carries
+the model load, and turn time later grows or saturates with the window), and the actual/probe ratio learned on one
+device does not transfer to the other. The accuracy "met" is not strong evidence: most configurations sit near the
+ceiling of their task grade, so any probe close to 1.0 scores a small error. The real 2-turn scale probe agrees
+("seconds median APE 71.7% (raw probe 85.9%)"). Blade: "NOT RUN (blade_r2_real_v1 has 0 task turns; a Blade test needs
+a probe and a reference task run on the Blade, never run)". The evo-t2s fold has only 4 configurations.
+
+**own-dse-v1: target MET in the 3 computed cells, but trivially.** In every short-B3 cell the DSE's pick and the
+brute-force best are the same configuration, all-cloud claude-haiku-5-5 ("gap 0.0% -> within 10%" at 100, 1,000 and
+10,000 tasks/day). No option with a local machine is cheaper at these volumes ("cheapest measured feasible option using
+a local machine: ... USD 57.24", "USD 72.36", "USD 223.62" against the all-cloud "USD 2.01", "USD 20.12", "USD
+201.25"), and the all-cloud values the DSE ranks on are the measured ones, so the probe's seconds error never had a
+chance to change a pick. This validates the cost model and the ranking code, not the probe-driven choice between local
+configurations. Long and mixed workloads: "PENDING: row long-task-local-accuracy not VERIFIED" (6 cells), and the
+long-task candidate builder is not written yet; "MET (3/3 computed cells, 6 PENDING)".
+
+## PRE-REGISTRATION (2026-10-23): own-rollback redo and the local-first hybrid with rollback (pointer)
+
+Full entry in docs/EXPERIMENTS.md, "2026-10-23: Own-rollback redo and the local-first hybrid with rollback",
+committed before any cloud call and before row `hybrid-local-first-rollback` was computed. In short:
+
+- **Snapshots.** harness/evalset_env.py now has SnapshotLog: a deep copy of the environment before every
+  state-changing tool call, named marks (pre-task, session start), exact restore. scripts/cloud_redo.py --rollback
+  pre_task replays the local session on it, applies the failed turn's own calls, and restores the pre-task mark.
+- **Rollback to the pre-task state cannot fix the 28 earlier_state_repair tasks by construction.** The grader's
+  expected state is the reference applied to the actual pre-task state, and the full-history redo already started from
+  that state: the rollback state equals the redo's env_before in 28/28. In 28/28 the session had earlier wrong local
+  tasks, and every record the cloud changed outside the task was one those earlier tasks broke (28/28).
+- **Proposed instead (operator decision pending, no cloud call made):** cascaded rollback, where each earlier failed
+  task was itself rolled back and escalated, so the redone task starts from a clean state with nothing to repair;
+  grader unchanged. Cost estimate from the full-history redo of the same 28: billed USD 0.6699 (upper bound USD
+  2.6915). Target if run: >= 25/28. Row `own-rollback-redo` (PENDING).
+- **Hybrid by replay** (row `hybrid-local-first-rollback`): local first on every task at ollama_ctx_8192 and
+  ollama_ctx_4096, roll back and escalate to claude-sonnet-5-5 on (a) the oracle signal (ceiling) or (b) the recorded
+  over_loaded_window condition (stand-in for detector v2); escalated tasks graded from the own-rollback redo where it
+  exists, else the full-history redo (labelled).
+
+## RESULTS (2026-10-23): local-first hybrid with rollback, by replay; the own-rollback cloud run is on hold
+
+Computed after the pre-registration above (docs/EXPERIMENTS.md, "2026-10-23: Own-rollback redo and the local-first
+hybrid with rollback"), as registered. Rows `own-rollback-analysis` and `hybrid-local-first-rollback` (VERIFIED),
+`own-rollback-redo` (PENDING, not run). No cloud call was made; no spend.
+
+**Rollback to the pre-task state replicates the full-history redo.** Row `own-rollback-analysis`: for the 28
+earlier_state_repair tasks, the rollback state equals the redo's env_before in 28/28, every session had earlier wrong
+local tasks (28/28, 1 to 11 each), and every record the cloud changed outside its task was one an earlier wrong local
+task broke (28/28). The grader's expected state is the reference applied to that same pre-task state, so these 28
+cannot be fixed by rolling back to it. The variant that can (cascaded rollback, each earlier failed task rolled back and
+escalated in turn) awaits the operator's decision.
+
+**Hybrid by replay** (row `hybrid-local-first-rollback`, claude-sonnet-5-5, seeds 20260901-03, 90 tasks per tier;
+escalated tasks graded from the full-history redo, whose state is the pre-task rollback state; no own-rollback redo row
+exists yet):
+
+| evo-x2 tier | Policy | Accuracy | Cloud USD / task | Kept local |
+|---|---|---|---|---|
+| ollama_ctx_8192 | local first, rollback, oracle signal (ceiling) | 86/90 (95.6%) | 0.00802 | 57/90 (63.3%) |
+| ollama_ctx_8192 | local first, rollback, over_loaded_window (stand-in for detector v2) | 83/90 (92.2%) | 0.01482 | 27/90 (30.0%) |
+| ollama_ctx_8192 | all-cloud | 90/90 (100.0%) | 0.01020 | 0 |
+| ollama_ctx_8192 | naive local | 57/90 (63.3%) | 0 | 90/90 |
+| ollama_ctx_4096 | local first, rollback, oracle signal (ceiling) | 83/90 (92.2%) | 0.00699 | 53/90 (58.9%) |
+| ollama_ctx_4096 | local first, rollback, over_loaded_window (stand-in for detector v2) | 83/90 (92.2%) | 0.01658 | 2/90 (2.2%) |
+| ollama_ctx_4096 | all-cloud | 90/90 (100.0%) | 0.01020 | 0 |
+| ollama_ctx_4096 | naive local | 53/90 (58.9%) | 0 | 90/90 |
+
+Every escalated task still wrong is class earlier_state_repair (8192: 4 of 4; 4096: 7 of 7, both signals). With the
+stand-in signal, 33 (8192) and 51 (4096) escalations were of tasks the local model got right; they are imputed at the
+tier's mean redo USD with the all-cloud outcome. Even the oracle ceiling stays below all-cloud accuracy, and the gap is
+exactly the repair class; with the stand-in signal the hybrid costs more per task than all-cloud at both tiers.
+
+## PRE-REGISTRATION (2026-10-23): own-compaction, own-config-search, hybrid-route-at-start-v2 (pointer)
+
+The contracts are in docs/EXPERIMENTS.md, entries "2026-10-23: own-compaction", "2026-10-23: own-config-search",
+"2026-10-23: hybrid-route-at-start-v2" and "2026-10-23: PLAN ONLY (no run): growth predictor", committed before any
+job of them was deployed, queued or run (harness at e11b7cb). In short:
+
+- **own-compaction** (evo-x2, qwen3:14b, B3 v2, seeds 20260901-05): a client-side context manager (pinned system
+  rules, the log_event + task-tool example turn kept verbatim, the rest summarized by the local model; compaction when
+  the projected next prompt exceeds 0.85 x num_ctx) at num_ctx 4096 and 8192, with the existing client trim at the
+  same windows as comparison arms (first time on B3 v2). Targets: wrong < 20% at 4096 (vs 42.0%) and < 15% at 8192
+  (vs 35.3%); every failure silent vs flagged by detector v2 (Ollama's own cut-off lines). Written before data: at
+  4096 the pinned system prompt and tools already exceed the trigger, so compaction there is expected to send system +
+  current turn only and to miss its target. Rows `own-compaction-4096`, `own-compaction-8192` (PENDING).
+- **own-config-search**: KV precision x window x backend for the 8192-constrained AMD profile and the Intel profiles
+  from measured probes only; the missing measurements are two evo-x2 probes (KV q8_0 at 15360, q4_0 at 28928, B3 v2,
+  3 seeds). Row `own-config-search` (computed from committed files; before 21/90).
+- **hybrid-route-at-start-v2**: the replay of `hybrid-route-at-start-measured` with both in place; target at least
+  50/90 kept local at >= 97% accuracy vs claude-sonnet-5-5 all-cloud; written before data: not expected to be met,
+  because in-window wrong answers are silent. Row `hybrid-route-at-start-v2` (PENDING).
+- Hours (ESTIMATE): rows `own-jobs-hours` and, for Zach's E1/E2 reserve, `e1-e2-x2-hours`.
+
+## PRE-REGISTRATION (2026-10-23): own-rollback redo, cascaded variant (pointer)
+
+Full entry in docs/EXPERIMENTS.md, "2026-10-23: Own-rollback redo, cascaded variant", committed before any spend of
+this job. Operator decision: run the cascaded variant. The 28 earlier_state_repair tasks are redone on
+claude-sonnet-5-5 from a state where every earlier wrong local task was rolled back and replaced by its reference calls
+(a stand-in for a successful escalation of that earlier task, stated as such), with a matching stand-in transcript; the
+grader is unchanged. Projection USD 0.6699 billed (from the same tasks' full-history redo), job cap USD 1.50 billed.
+Target >= 25/28 fixed. Row `own-rollback-redo`.
+
+## RESULTS (2026-10-23): cascaded rollback fixes 28 of 28 earlier_state_repair tasks (target >= 25/28 met)
+
+Run as pre-registered in docs/EXPERIMENTS.md, "2026-10-23: Own-rollback redo, cascaded variant". Row
+`own-rollback-redo` (VERIFIED, read from results/own_rollback_redo_v1.jsonl after run_end; the run completed, no stop).
+
+**Result.** claude-sonnet-5-5, thinking {"type": "between_tools"}, max_tokens 2048, full client-side history, cascaded
+rollback (every earlier wrong task turn rolled back and replaced by its reference calls, a STAND-IN for a successful
+escalation; 144 earlier turns replaced over the 28 tasks; state differs from the pre-task state in 28/28), grader
+unchanged: fixed 28/28, 95% Wilson CI [87.9%, 100.0%]. Target >= 25/28: met. The same 28 tasks were 0/28 in the
+full-history redo, which started from the pre-task state with the earlier damage in place.
+
+**Spend.** USD 0.8926 billed (cache-priced) for the 28 tasks, USD 2.3267 with every input token uncached; projection
+was USD 0.6699 billed; job cap USD 1.50 billed, not reached. Main ledger before the run: billed USD 40.6831, upper
+bound USD 40.9298; after: billed USD 41.5758, upper bound USD 43.2566 (the warm-up call is included in the ledger
+difference).
+
+**Hybrid recomputed** (row `hybrid-local-first-rollback`, by replay; escalated tasks graded from the cascaded rollback
+rows where they exist, 4 at ollama_ctx_8192 and 7 at ollama_ctx_4096 on seeds 20260901-03, else the full-history redo):
+
+| evo-x2 tier | Policy | Accuracy | Cloud USD / task | Kept local |
+|---|---|---|---|---|
+| ollama_ctx_8192 | local first, rollback, oracle signal (ceiling) | 90/90 (100.0%) | 0.00805 | 57/90 (63.3%) |
+| ollama_ctx_8192 | local first, rollback, over_loaded_window (stand-in for detector v2) | 87/90 (96.7%) | 0.01485 | 27/90 (30.0%) |
+| ollama_ctx_8192 | all-cloud | 90/90 (100.0%) | 0.01020 | 0 |
+| ollama_ctx_8192 | naive local | 57/90 (63.3%) | 0 | 90/90 |
+| ollama_ctx_4096 | local first, rollback, oracle signal (ceiling) | 90/90 (100.0%) | 0.00800 | 53/90 (58.9%) |
+| ollama_ctx_4096 | local first, rollback, over_loaded_window (stand-in for detector v2) | 90/90 (100.0%) | 0.01760 | 2/90 (2.2%) |
+| ollama_ctx_4096 | all-cloud | 90/90 (100.0%) | 0.01020 | 0 |
+| ollama_ctx_4096 | naive local | 53/90 (58.9%) | 0 | 90/90 |
+
+With the oracle signal (a ceiling), local first with cascaded rollback matches all-cloud accuracy at about 79% of its
+cloud cost per task at both tiers. With the over-window stand-in it costs more per task than all-cloud at both tiers
+(it escalates many tasks the local model got right), and at 8192 it misses the 3 wrong tasks it does not flag.
+
+**Limits.** (1) The earlier escalations are a stand-in (reference calls). Within this replay, every escalation under the
+oracle signal at these tiers is graded fixed, so the stand-in matches the replay's own outcomes there; under the
+over-window signal, the 3 unflagged wrong tasks at 8192 would leave damage the cascaded rows assume was fixed. (2) The
+stand-in transcript for earlier wrong turns is synthetic. (3) The other escalated tasks are graded from the
+full-history redo (pre-task state, earlier damage in place), so the table mixes the two protocols; the counts are in
+the row.
+
+## PRE-REGISTRATION (2026-10-23): own-profiler-probe and own-dse-v1 trivial cells (pointer)
+
+Full entry in docs/EXPERIMENTS.md, "2026-10-23: own-profiler-probe (measured probe) and own-dse-v1 trivial cells",
+committed before the probe job runs and before any Part B count was computed. In short: own-profiler-probe replaces
+the ratio prediction with a measured probe on evo-x2 (job x2_own_profiler_probe_v1): qwen3:14b, B3 v2 tasks, seed
+20260901, at most 600 s of session per config (per config, not for the sweep), six window x KV configs (f16 at the
+default window, 16384, 8192, 4096; q8_0 at 15360; q4_0 at 28928), recording seconds per task, task grade, the window
+loaded, the llama_kv_cache line and detector v2 (Ollama's own cut-off lines). Reference: the full B3 v2 runs (f16,
+held-out seeds 20260902-05) and the queued own-config-search probes (q8_0, q4_0, held-out seeds 20260902-03). Target
+unchanged: seconds per task median APE < 10%; overflow agreement reported for the configs whose reference has detector
+v2. own-profiler-loo stays as the recorded miss. own-dse-v1: a cell is TRIVIAL if at most one candidate is eligible,
+or if the brute-force best takes no probe input and every local candidate's cost floor (one machine's hardware plus its
+predicted cloud spend) is above it by more than 10%; trivial cells are not counted as validation. Rows
+own-profiler-probe, own-profiler-probe-hours, own-dse-v1.
+
+## RESULT (2026-10-23): own-dse-v1 per-cell explanation; 2 of 3 computed cells are TRIVIAL
+
+Computed after the pre-registration above was committed (67384a7), with the amendment in the same EXPERIMENTS entry
+(the first implementation's reading of "uses a local machine", stated there). Numbers are from row own-dse-v1 in
+docs/NUMBERS_REGISTER.md.
+
+| cell | candidates | eligible (measured accuracy >= 0.90, cloud <= USD 500/month) | eligible using a local machine | label |
+|---|---|---|---|---|
+| short, 100/day | 11 | 6 | 2 | TRIVIAL: "every local candidate's cost floor (lowest USD 55.56/month) is more than 10% above" the best (USD 2.01) |
+| short, 1,000/day | 11 | 6 | 2 | TRIVIAL: same floor, best USD 20.12 |
+| short, 10,000/day | 11 | 3 | 1 | NON-TRIVIAL: "lowest local cost floor USD 55.56/month is not more than 10% above the best's measured USD 201.25, so a probe input could change the pick" |
+| long and mixed, 100 / 1,000 / 10,000/day | n/a | n/a | n/a | PENDING: "row long-task-local-accuracy not VERIFIED" |
+
+**What changes.** The earlier "MET (3/3 computed cells, 6 PENDING)" counted trivial cells: at 100 and 1,000 tasks/day
+no probe input could have made the DSE rank a local configuration first, because one evo-x2 alone (USD 2,000 / 36
+months) costs more than 10% above all-cloud claude-haiku-5-5. Those two cells validate the cost model and the ranking
+code, not the probe-driven choice. The row now reads "pre-registered target within 10% in every non-trivial computed
+cell: MET (1/1 non-trivial cells; 2 TRIVIAL computed cells not counted; 6 PENDING)". The one non-trivial cell, 10,000
+tasks/day, has DSE pick = brute-force best = all-cloud claude-haiku-5-5 ("gap 0.0% -> within 10%"); it is one cell,
+so the probe-driven DSE choice is tested once, not established.
+
+**Disclosed reading change.** Under the first implementation's hardware-label reading all three computed cells are
+NON-TRIVIAL (shown per cell in the row, not counted): the two num_ctx 4096 hybrids route every task to the cloud, use no
+machine, and tie all-cloud haiku on cost. The pre-registered wording ("uses a local machine") decides the labels.

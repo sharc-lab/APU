@@ -1,10 +1,12 @@
 """Deploy committed repo files to a target machine byte-exact (from `git show HEAD:<path>`), and write the
 expected-blob list that harness/run_provenance.verify_deployed_blobs checks on the machine.
 
-Usage: py -3.12 scripts/deploy_evo.py <remote_dir> <repo_path> [<repo_path> ...] [--host evo-t2s|evo-x2]
+Usage: py -3.12 scripts/deploy_evo.py <remote_dir> <repo_path> [<repo_path> ...] --host evo-t2s|evo-x2
 expected_blobs.json on the machine accumulates across deploys (see merge_expected); it is never overwritten wholesale.
---host defaults to evo-t2s. Refuses if any listed path has uncommitted changes, or if the machine that answers on the
-configured SSH host does not report the expected hostname (harness/host_config.py HOSTS). Uses
+--host is required (2026-10-23: a `--help` call fell through to the old evo-t2s default and reached evo-t2s outside
+its access window, creating a directory named `--help` there). Any other argument starting with `-`, or a call with
+no repo paths, is refused before any SSH. Also refuses if any listed path has uncommitted changes, or if the machine
+that answers on the configured SSH host does not report the expected hostname (harness/host_config.py HOSTS). Uses
 C:\\Windows\\System32\\OpenSSH\\ssh.exe and scp.exe, BatchMode.
 """
 
@@ -27,14 +29,27 @@ def git(*a):
     return run_hidden(["git", "-C", str(REPO), *a], capture_output=True, check=True).stdout
 
 
+def parse_args(argv: list[str]) -> tuple[str, str, list[str]]:
+    """(alias, remote_dir, repo_paths). No default host and no SSH on a bad call: --host must be given with a value,
+    any other argument starting with "-" is refused, and at least one repo path is required."""
+    args = list(argv)
+    if "--host" not in args:
+        raise SystemExit("refusing: --host evo-x2|evo-t2s is required (no default host)\n" + __doc__)
+    i = args.index("--host")
+    if i + 1 >= len(args) or args[i + 1].startswith("-"):
+        raise SystemExit("refusing: --host needs a value")
+    alias = args[i + 1]
+    del args[i:i + 2]
+    flags = [a for a in args if a.startswith("-")]
+    if flags:
+        raise SystemExit(f"refusing: unknown option(s) {flags}\n" + __doc__)
+    if len(args) < 2:
+        raise SystemExit("refusing: need <remote_dir> and at least one <repo_path>\n" + __doc__)
+    return alias, args[0], args[1:]
+
+
 def main():
-    args = sys.argv[1:]
-    alias = "evo-t2s"
-    if "--host" in args:
-        i = args.index("--host")
-        alias = args[i + 1]
-        del args[i:i + 2]
-    remote, paths = args[0], args[1:]
+    alias, remote, paths = parse_args(sys.argv[1:])
     key = hc.ALIASES.get(alias.lower())
     if key is None:
         raise SystemExit(f"unknown --host {alias!r}: not in harness/host_config.py ALIASES")

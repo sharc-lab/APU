@@ -64,6 +64,7 @@ from cloud import client as cc  # noqa: E402
 SOURCE = REPO / "results" / "x2_evalset_tasks_real_v2.jsonl"
 OUT = REPO / "results" / "cloud_redo_v1.jsonl"
 OUT_FULL_CONTEXT = REPO / "results" / "cloud_redo_full_context_v1.jsonl"
+OUT_ROLLBACK = REPO / "results" / "own_rollback_redo_v1.jsonl"
 V1_EXECUTED = OUT
 # --thinking-off (2026-10-21, after analysis/cloud_redo_diagnosis.py): v1 sent no thinking parameter and max_tokens 384;
 # both models think by default and thinking counts against max_tokens, so 109 of v1's 118 failures were empty replies at
@@ -218,6 +219,111 @@ def rebuild(es: EV.EvalSession, prior: list[dict], turn_idx: int) -> dict:
     messages.append({"role": "user", "content": EV.user_message(turn, es)})
     return {"messages": messages, "env_before": copy.deepcopy(env), "turn": turn, "item": item,
             "history_truncated_messages": truncated}
+
+
+def rollback_env(es: EV.EvalSession, prior: list[dict], failed: dict) -> dict:
+    """Own-rollback (2026-10-23): the local session replayed on an environment with transactional snapshots
+    (evalset_env.SnapshotLog: a snapshot before every state-changing call, plus a mark at the start of each turn), the
+    failed turn's own local calls applied too (the damage a real escalation would find), then the PRE-TASK mark
+    restored. Returns {"env", "n_snapshots", "undone_calls"}. By construction this equals rebuild()'s env_before (the
+    full-history redo already started from the pre-task state); run() records the comparison per task."""
+    env = copy.deepcopy(es.env0)
+    log = E.SnapshotLog(env)
+    log.mark("session_start")
+    for r in prior:
+        log.mark(f"pre_turn_{r['turn_idx']}")
+        for c in r.get("calls") or []:
+            for call in c.get("tool_calls_parsed") or []:
+                log.apply(call)
+    log.mark("pre_task")
+    n0 = len(log.snaps)
+    for c in failed.get("calls") or []:
+        for call in c.get("tool_calls_parsed") or []:
+            log.apply(call)
+    undone = len(log.snaps) - n0
+    log.restore_mark("pre_task")
+    return {"env": copy.deepcopy(env), "n_snapshots": len(log.snaps), "undone_calls": undone}
+
+
+def stand_in_final_text(es: EV.EvalSession, task) -> str:
+    """The final assistant message of an earlier wrong task turn in the cascaded transcript (a STAND-IN for the reply of
+    a successful escalation; not a recorded cloud reply): the answer values for an information task, the session code
+    (rule 5), JSON as rule 1 asks."""
+    vals = " ".join(str(v) for v in (task.answer_values or ())) if task.is_info else ""
+    ans = " ".join(x for x in ("Done.", vals, es.session_code) if x)
+    return json.dumps({"answer": ans, "source": "tool results"})
+
+
+def rebuild_cascaded(es: EV.EvalSession, prior: list[dict], turn_idx: int) -> dict:
+    """Cascaded rollback (operator decision 2026-10-23): what a rollback hybrid with the oracle signal leaves before turn
+    turn_idx. The local session is replayed on evalset_env.SnapshotLog; at every earlier task turn that ended wrong
+    (end_state_ok false) the turn's local calls are applied, the environment is restored to that turn's pre-turn mark,
+    and the task's REFERENCE calls are applied instead: a STAND-IN for a successful escalation of that earlier task.
+    Transcript: correct earlier turns and guardrail turns as the local model ran them; an earlier wrong turn as its user
+    message, one assistant message carrying the reference calls (their results recomputed on the environment), and
+    stand_in_final_text. The grader is unchanged (expected = the reference applied to this env_before)."""
+    by_idx = {t.idx: (t, it) for t, it in zip(es.turns, es.items)}
+    messages = [{"role": "system", "content": es.system_prompt}]
+    env = copy.deepcopy(es.env0)
+    log = E.SnapshotLog(env)
+    log.mark("session_start")
+    truncated, replaced, undone = 0, 0, 0
+    for r in prior:
+        t, it = by_idx[r["turn_idx"]]
+        log.mark(f"pre_turn_{r['turn_idx']}")
+        messages.append({"role": "user", "content": EV.user_message(t, es)})
+        if it.task is not None and r.get("end_state_ok") is False:
+            n0 = len(log.snaps)
+            for c in r.get("calls") or []:
+                for call in c.get("tool_calls_parsed") or []:
+                    log.apply(call)
+            undone += len(log.snaps) - n0
+            log.restore_mark(f"pre_turn_{r['turn_idx']}")
+            ref = [dict(c) for c in it.task.reference]
+            prefix = f"s{r['turn_idx']}"
+            if ref:
+                tcs = _oa_tool_calls(ref, prefix)
+                messages.append({"role": "assistant", "content": "", "tool_calls": tcs})
+                for tc, c in zip(tcs, ref):
+                    messages.append({"role": "tool", "tool_call_id": tc["id"],
+                                     "content": json.dumps(log.apply(c))})
+            messages.append({"role": "assistant", "content": stand_in_final_text(es, it.task)})
+            replaced += 1
+            continue
+        for k, c in enumerate(r.get("calls") or []):
+            content = c.get("content") or ""
+            truncated += len(content) >= TRUNC_CHARS
+            calls = c.get("tool_calls_parsed") or []
+            if calls:
+                tcs = _oa_tool_calls(calls, f"h{r['turn_idx']}_{k}")
+                messages.append({"role": "assistant", "content": content, "tool_calls": tcs})
+                for tc, call in zip(tcs, calls):
+                    messages.append({"role": "tool", "tool_call_id": tc["id"], "content": json.dumps(log.apply(call))})
+            else:
+                messages.append({"role": "assistant", "content": content})
+    turn, item = by_idx[turn_idx]
+    messages.append({"role": "user", "content": EV.user_message(turn, es)})
+    return {"messages": messages, "env_before": copy.deepcopy(env), "turn": turn, "item": item,
+            "history_truncated_messages": truncated, "earlier_wrong_replaced": replaced,
+            "earlier_wrong_calls_undone": undone}
+
+
+def repair_keys(repo: Path = REPO) -> set:
+    """(attempt_id, turn_idx) of the full-history redo's earlier_state_repair failures (analysis/cloud_redo_diagnosis.py
+    over cloud_redo_full_context_v1 and its parts: the classes of row cloud-redo-full-context)."""
+    import contextlib
+    import importlib.util
+    import io
+    spec = importlib.util.spec_from_file_location("cloud_redo_diagnosis", repo / "analysis" / "cloud_redo_diagnosis.py")
+    cd = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cd)
+    paths = part_files(repo / "results" / OUT_FULL_CONTEXT.name)
+    with contextlib.redirect_stdout(io.StringIO()):
+        d = cd.compute(repo, paths[0].relative_to(repo).as_posix(),
+                       tuple(q.relative_to(repo).as_posix() for q in paths[1:]))
+    want = {(p["tier"], p["seed"], p["turn_idx"]) for p in d["per_task"] if p["cls"] == "earlier_state_repair"}
+    return {(r["attempt_id"], r["turn_idx"]) for r in merged_rows(paths)
+            if (r["tier"], r["seed"], r["turn_idx"]) in want}
 
 
 def grade(es: EV.EvalSession, item, env_before: dict, flat_calls: list[dict], final_text: str) -> dict:
@@ -554,11 +660,18 @@ def run(live: bool, source: Path = SOURCE, out: Path = OUT, price_file: Path = P
         client=None, max_tokens: int = ag.MAX_TOKENS_PER_CALL, emit_print=print, thinking_off: bool = False,
         job_cap: float | None = None, ledger_total_at_start: float | None = None,
         executed_file: Path | None = None, resume_from: Path | None = None,
-        old_limit: int = LOCAL_MAX_TOKENS) -> list[dict]:
+        old_limit: int = LOCAL_MAX_TOKENS, rollback: str | None = None, only_keys: set | None = None,
+        projection_rows: list[dict] | None = None) -> list[dict]:
     """thinking_off: send THINKING_OFF[model] on every call and stop the run at the first call that ends at max_tokens
     with nothing visible. job_cap (live): refuse up front when the projection (from executed_file if it holds an
     executed run of these tasks, else from the local token counts; ledger basis) exceeds it. Rows are written as they
-    are made, so a stop or a cap leaves every finished task on disk."""
+    are made, so a stop or a cap leaves every finished task on disk.
+    rollback "pre_task" (own-rollback, 2026-10-23): env_before comes from rollback_env (snapshots, failed turn undone)
+    and each row records whether it equals rebuild()'s env_before. only_keys: run only these (attempt_id, turn_idx).
+    projection_rows: executed rows of the same tasks; the projection is then their measured cache-priced USD (the basis
+    the ledger records since 2026-10-22) with the all-uncached upper bound recorded beside it."""
+    if rollback not in (None, "pre_task", "cascaded"):
+        raise SystemExit(f"refused: unknown rollback {rollback!r}")
     table = load_price_table(price_file)
     model_id = escalation_model(table)
     rates = model_rates(table, model_id)
@@ -567,6 +680,8 @@ def run(live: bool, source: Path = SOURCE, out: Path = OUT, price_file: Path = P
         raise SystemExit(f"refused: no thinking-off setting known for {model_id}")
     src = load_rows(source)
     wrong = wrong_tasks(src)
+    if only_keys is not None:
+        wrong = [r for r in wrong if (r["attempt_id"], r["turn_idx"]) in only_keys]
     if limit is not None:
         wrong = wrong[:limit]
     n_all = len(wrong)
@@ -617,9 +732,28 @@ def run(live: bool, source: Path = SOURCE, out: Path = OUT, price_file: Path = P
         "resume_from": ([_rel(q) for q in rpaths] if resume_from is not None else None),
         "resume_kept_tasks": len(kept), "resume_superseded_tasks": len(sup), "resume_old_limit": old_limit,
         "projection_calibration": calib,
+        "rollback": rollback, "only_keys_n": None if only_keys is None else len(only_keys),
     }
+    meas = None
+    if projection_rows is not None:
+        ex = {(x["attempt_id"], x["turn_idx"]): x for x in projection_rows if x.get("record") == "cloud_redo_task"}
+        hit = [ex[(r["attempt_id"], r["turn_idx"])] for r in wrong if (r["attempt_id"], r["turn_idx"]) in ex]
+        meas = {"n_matched": len(hit), "n_tasks": len(wrong), "billed_usd": sum(x["usd"] for x in hit),
+                "upper_bound_usd_all_uncached": sum(x["usd_all_uncached"] for x in hit)}
+        start["projection_measured_same_tasks"] = meas
     rows = [start]
-    if live:
+    if live and meas is not None:
+        if meas["n_matched"] != len(wrong):
+            raise SystemExit("refused: projection rows do not cover every task; nothing was sent")
+        projected = meas["billed_usd"]
+        start["projected_ledger_usd_used"] = projected
+        if job_cap is not None and projected > job_cap:
+            raise SystemExit(f"refused: projected ${projected:.2f} (billed, measured on the same tasks) exceeds the "
+                             f"job cap ${job_cap:.2f}; nothing was sent")
+        if projected > client.remaining_budget_usd:
+            raise SystemExit(f"refused: projected ${projected:.2f} exceeds the remaining budget "
+                             f"${client.remaining_budget_usd:.2f} under the ${client.spend_cap_usd:.2f} cap")
+    elif live:
         projected = proj["ledger_usd"] if proj and proj["n_matched"] == len(wrong) else local_proj
         projected *= max(1.0, calib)
         start["projected_ledger_usd_used"] = projected
@@ -658,6 +792,21 @@ def run(live: bool, source: Path = SOURCE, out: Path = OUT, price_file: Path = P
                         "local_regrade_end_state_ok": local_regrade(es, built["item"], built["env_before"], r),
                         "history_truncated_messages": built["history_truncated_messages"],
                         "rebuilt_messages": len(built["messages"])}
+                if rollback == "pre_task":
+                    rb = rollback_env(es, prior, r)
+                    base.update({"rollback": rollback, "rollback_env_equals_rebuild": rb["env"] == built["env_before"],
+                                 "rollback_undone_calls": rb["undone_calls"], "rollback_snapshots": rb["n_snapshots"]})
+                    built["env_before"] = rb["env"]
+                elif rollback == "cascaded":
+                    cb = rebuild_cascaded(es, prior, r["turn_idx"])
+                    base.update({"rollback": rollback, "earlier_wrong_replaced": cb["earlier_wrong_replaced"],
+                                 "earlier_wrong_calls_undone": cb["earlier_wrong_calls_undone"],
+                                 "env_differs_from_pre_task": cb["env_before"] != built["env_before"],
+                                 "local_regrade_cascaded_end_state_ok": local_regrade(es, cb["item"],
+                                                                                      cb["env_before"], r),
+                                 "history_truncated_messages": cb["history_truncated_messages"],
+                                 "rebuilt_messages": len(cb["messages"])})
+                    built = cb
                 if live:
                     res = live_turn(client, model_id, es, built, rates, max_tokens, thinking)
                 else:
@@ -713,6 +862,12 @@ def main(argv=None) -> int:
     ap.add_argument("--client-cap-total", type=float, default=None,
                     help="absolute client cap in USD on the ledger total (e.g. 43.1913 = original start 21.1913 + "
                          "job cap 22); refuse up front if the projected ledger total would pass it")
+    ap.add_argument("--rollback", choices=("pre_task", "cascaded"), default=None,
+                    help="own-rollback (2026-10-23): only the full-history redo's earlier_state_repair tasks. pre_task: "
+                         "env_before from transactional snapshots with the failed turn undone (rollback_env); "
+                         "cascaded: every earlier wrong task turn also rolled back and replaced by its reference calls "
+                         "(rebuild_cascaded, the stand-in for a successful escalation). Default out "
+                         "results/own_rollback_redo_v1.jsonl; projection = the same tasks' measured billed USD")
     a = ap.parse_args(argv)
     if a.resume:
         out = a.out or next_part_path(a.resume_from)
@@ -725,6 +880,15 @@ def main(argv=None) -> int:
             return 2
         if not Path(a.resume_from).exists():
             print(f"refused: {Path(a.resume_from).name} not found; nothing was sent", file=sys.stderr)
+            return 2
+    elif a.rollback:
+        if not a.thinking_off:
+            print("refused: --rollback runs the full-context protocol and needs --thinking-off; nothing was sent",
+                  file=sys.stderr)
+            return 2
+        out = a.out or OUT_ROLLBACK
+        if a.live and Path(out).exists():
+            print(f"refused: {Path(out).name} exists (would be overwritten); nothing was sent", file=sys.stderr)
             return 2
     else:
         out = a.out or (OUT_FULL_CONTEXT if a.thinking_off else OUT)
@@ -749,9 +913,13 @@ def main(argv=None) -> int:
             cap = cc.HARD_SPEND_CAP_USD
         client = cc.CloudClient(mode="real", spend_cap_usd=cap, ledger_path=a.ledger)
         print(f"ledger total at start ${total0:.4f}; client cap ${client.spend_cap_usd:.4f}")
+    rb = {}
+    if a.rollback:
+        rb = {"rollback": a.rollback, "only_keys": repair_keys(REPO),
+              "projection_rows": merged_rows(part_files(OUT_FULL_CONTEXT))}
     rows = run(a.live, a.source, out, limit=a.limit, client=client, thinking_off=a.thinking_off, job_cap=a.job_cap,
-               ledger_total_at_start=total0, executed_file=V1_EXECUTED if a.thinking_off else None,
-               max_tokens=a.max_tokens, resume_from=part_files(a.resume_from) if a.resume else None)
+               ledger_total_at_start=total0, executed_file=V1_EXECUTED if a.thinking_off and not a.rollback else None,
+               max_tokens=a.max_tokens, resume_from=part_files(a.resume_from) if a.resume else None, **rb)
     return 0 if rows[-1].get("stopped") is None else 4
 
 

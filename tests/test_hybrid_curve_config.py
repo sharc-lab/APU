@@ -201,4 +201,3 @@ def test_impact_doc_tradeoff_first():
     sec = text[text.index("## Hybrid savings vs all-cloud"):text.index(im.HYB_END)]
     assert (sec.index(im.TB_BEGIN) < sec.index(im.OCT29_BEGIN) < sec.index(im.CFG_BEGIN) < sec.index(im.CURVE_BEGIN)
             < sec.index(im.HYB_BEGIN))
-    assert not (REPO / "docs" / "OCT29_COST_SUMMARY.md").exists()

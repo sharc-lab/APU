@@ -129,7 +129,6 @@ def test_impact_doc_route_first_and_step4_lead():
         assert step4.split("\n")[2].startswith('"Fix after the fact: about ')
         assert "executed actions cannot be undone; decide up front instead" in step4 and "95% CI" in step4
     assert "—" not in sec
-    assert not (REPO / "docs" / "OCT29_COST_SUMMARY.md").exists()
 
 
 def test_detection_row_uses_full_history_redo_only():

@@ -1,5 +1,50 @@
 # evo-x2 queue plan
 
+## PENDING: E1/E2 reserve block and the own-compaction / own-config-search jobs (noted 2026-10-23)
+
+**E1/E2 reserve (Zach's experiments, from his 2026-10-22 email; NOT registered yet, NOT queued).** E1 = qwen3:14b at
+the Ollama default window (40960) vs an explicit num_ctx 4096 on a fresh 200-task B3-style draw (our 150 tasks as a
+pilot); E2 = local cost per session from session minutes at the default vs KV q8_0 on the same draw (reuses E1's
+default-window timing). Registration is due Sat 2026-10-24 12:00 ET; the block depends on Ritz confirming with Zach.
+
+- Reserve start: Sun 2026-10-25 18:00 PT = **2026-10-26 01:00Z**.
+- ESTIMATE (row `e1-e2-x2-hours`, pasted): "total 1.83 h (high 2.38 h), plus validation of the fresh draw if E1 needs
+  one (not included); reserve block start 2026-10-26 01:00Z (Sun 2026-10-25 18:00 PT), end at the high case 10-26
+  03:23Z; not queued".
+- **The existing queue runs into the block** (row `own-jobs-hours`, pasted): "E1 block start 10-26 01:00Z: job running
+  then (point) x2_evalset_tasks_real_v2_mistral_small32, (high) x2_r2_v1b_seeds_06_10, so the existing queue runs into
+  the block". Reported, not fixed: no other job was moved.
+- **Operator rule (2026-10-23): E1 starts when the job running at Sun 2026-10-25 18:00 PT finishes; no preemption.**
+  E1 is not registered yet, so nothing is reserved or queued until it is. Once registered, E1/E2 go in directly behind
+  the job running at 10-26 01:00Z (ahead of every job still pending then), never by stopping a running job.
+
+**own-compaction and own-config-search jobs (pre-registered in docs/EXPERIMENTS.md 2026-10-23, 6fd58f4).** Built and
+tested; entries in harness/x2_queue_fill.py (side directory `C:\apu\ovn\owncomp`, queue tool in a separate
+`C:\apu\ovn\qfill_oc` so the demo branch's qfill copy is not overwritten). **Deployed and queued 2026-10-23 20:31Z**
+(operator approval of the same day, git head ce3d6d0): deploy verified by x2_deploy_check.py `--verify` with no
+problems, `--check-plan` returned 0 for all four, then `x2_queue_fill.py --append` put them at positions 88 to 91, after
+x2_longtask_local_v1 (pause cleared by the tool's own finally). If E1/E2 are queued later they go ahead of these four.
+Projection (row `own-jobs-hours`, back to back, UTC; add 1.83 h, high 2.38 h, if E1/E2 sit ahead):
+
+| queue pos | queue id | ESTIMATE h (high) | projected start (high) | projected finish (high) |
+|---|---|---|---|---|
+| 88 (after x2_longtask_local_v1) | x2_own_compaction_v1_a (own compaction 8192, 4096) | 1.04 (3.07) | 10-26 14:24 (10-27 03:18) | 10-26 15:27 (10-27 06:22) |
+| 89 | x2_own_compaction_v1_b (client trim 4096, 8192) | 1.89 (2.08) | 10-26 15:27 (10-27 06:22) | 10-26 17:21 (10-27 08:27) |
+| 90 | x2_own_config_probe_q8_15360 | 0.27 (0.66) | 10-26 17:21 (10-27 08:27) | 10-26 17:37 (10-27 09:06) |
+| 91 | x2_own_config_probe_q4_28928 | 0.27 (0.66) | 10-26 17:37 (10-27 09:06) | 10-26 17:53 (10-27 09:46) |
+
+All four end before the 2026-10-29 demo hold's fallback start (10-29 15:00Z) in the high case, even with E1/E2 ahead.
+They run on evo-x2 only and do not touch the evo-t2s handover on 2026-10-26. Each releases itself via tq.advance() on
+exit and sets no pause.
+
+**own-profiler-probe (pre-registered in docs/EXPERIMENTS.md 2026-10-23, 67384a7). Deployed and queued 2026-10-24
+02:06Z at position 92** (git head c20b919, side directory `C:\apu\ovn\ownprobe`, queue tool `C:\apu\ovn\qfill_op`):
+qwen3:14b, seed 20260901, f16 at default/16384/8192/4096, q8_0 at 15360, q4_0 at 28928, at most 600 s per config.
+ESTIMATE 0.78 h (high 1.38 h; row own-profiler-probe-hours). The first `--check-plan` failed because the side
+directory lacked evalset_env.py (the older C:\apu\ovn copy has no DESIGNS); evalset_env.py, agent_trace_replay.py
+and agent_trace_steps_uncensored.json were added to ownprobe (as in owncomp), the deploy check showed no problems and
+`--check-plan` returned 0. Releases itself via tq.advance() on exit; sets no pause.
+
 ## Long-task local accuracy (queued 2026-10-22, after the reserve draw)
 
 Operator request of 2026-10-22. Pre-registered in docs/EXPERIMENTS.md "2026-10-22: Long-task local accuracy" (2bdeb73,
