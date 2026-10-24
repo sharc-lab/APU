@@ -6105,3 +6105,18 @@ over-window signal, the 3 unflagged wrong tasks at 8192 would leave damage the c
 stand-in transcript for earlier wrong turns is synthetic. (3) The other escalated tasks are graded from the
 full-history redo (pre-task state, earlier damage in place), so the table mixes the two protocols; the counts are in
 the row.
+
+## PRE-REGISTRATION (2026-10-23): own-profiler-probe and own-dse-v1 trivial cells (pointer)
+
+Full entry in docs/EXPERIMENTS.md, "2026-10-23: own-profiler-probe (measured probe) and own-dse-v1 trivial cells",
+committed before the probe job runs and before any Part B count was computed. In short: own-profiler-probe replaces
+the ratio prediction with a measured probe on evo-x2 (job x2_own_profiler_probe_v1): qwen3:14b, B3 v2 tasks, seed
+20260901, at most 600 s of session per config (per config, not for the sweep), six window x KV configs (f16 at the
+default window, 16384, 8192, 4096; q8_0 at 15360; q4_0 at 28928), recording seconds per task, task grade, the window
+loaded, the llama_kv_cache line and detector v2 (Ollama's own cut-off lines). Reference: the full B3 v2 runs (f16,
+held-out seeds 20260902-05) and the queued own-config-search probes (q8_0, q4_0, held-out seeds 20260902-03). Target
+unchanged: seconds per task median APE < 10%; overflow agreement reported for the configs whose reference has detector
+v2. own-profiler-loo stays as the recorded miss. own-dse-v1: a cell is TRIVIAL if at most one candidate is eligible,
+or if the brute-force best takes no probe input and every local candidate's cost floor (one machine's hardware plus its
+predicted cloud spend) is above it by more than 10%; trivial cells are not counted as validation. Rows
+own-profiler-probe, own-profiler-probe-hours, own-dse-v1.
