@@ -126,6 +126,9 @@ outside the access window (the next one opens 2026-10-26), so it breaks the no-S
 **Why it happened:** deploy_evo.py had a default host and no argument check.
 **Fixed:** deploy_evo.py now requires `--host` and refuses any other `-` argument or a call with no repo paths before
 any SSH (`parse_args`, test in tests/test_deploy_evo_merge.py).
-**Not cleaned up yet:** removing it needs another SSH session, so it waits for the window or the operator's say-so.
+**Not cleaned up yet:** operator decision 2026-10-24: no SSH to evo-t2s before the window; the removal is step 0
+of the 2026-10-26 handover check (`harness/t2s_deadline.py open-window` runs `remove_stray_help` before
+`check-handover`; it removes the directory only if it holds nothing but `expected_blobs.json`, otherwise it leaves it
+and reports the file list). Record the outcome here when the window opens.
 **Revert (in the window):** `Remove-Item -LiteralPath "$env:USERPROFILE\--help" -Recurse -Force` (first check that
 it holds only `expected_blobs.json`).

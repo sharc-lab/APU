@@ -450,7 +450,9 @@ second file `queues/t2s_window_20261026_staged.json` was retired: it staged B5 f
 seeds and a different, iGPU-only B6, and its gates named the finished week's `t2s_wk_*` ids. Order of the window:
 1. On the controller, first: `py -3.12 harness/t2s_deadline.py open-window --no-launch-after 2026-11-09T04:00:00Z
    --hard-deadline 2026-11-09T04:30:00Z --reason "handover to Zach 2026-11-08; resume only in the next confirmed
-   window"` (times are 23:00 and 23:30 EST on 2026-11-08; DST ends 2026-11-01). It runs the handover check on evo-t2s
+   window"` (times are 23:00 and 23:30 EST on 2026-11-08; DST ends 2026-11-01). Step 0: it removes the stray `--help`
+   directory from the 2026-10-23 out-of-window SSH (only if it holds nothing but expected_blobs.json; see
+   docs/T2S_CHANGELOG.md). Then it runs the handover check on evo-t2s
    (HANDOVER_DONE.json, the pause flag naming its releaser, no process of ours; refuses and changes nothing on a
    failure), widens the results sync to both hosts with a window file that expires at the hard deadline (the
    APU-SyncResults task keeps `--host evo-x2` and is not edited), arms the deadline, waits until the hard deadline, and
