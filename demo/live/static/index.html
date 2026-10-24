@@ -162,7 +162,7 @@ async function init() {
   $("#mode").textContent = meta.mode === "replay" ? "REPLAYED" : meta.mode === "laptop" ? "LIVE (development)" : "LIVE";
   $("#mode").className = "mode " + (meta.mode === "replay" ? "REPLAYED" : "LIVE");
   $("#detector-note").textContent = meta.detector === "v2"
-    ? "Cut-off signal: Ollama's own truncation and context-shift log lines only. Token-count check (detector v1) not used: false alarms at the default window (see detector-precision-recall)."
+    ? "Cut-off signal: Ollama's own truncation and context-shift log lines (the runtime's own signal; re-checked on the AMD workstation, row demo-detector-check-v2). Detector v1 (token-count check) not used: false alarms at default (see detector-precision-recall)."
     : "Cut-off signal: detector v1 (Ollama's own cut lines, or a token-count check). A token-count flag alone is a known false alarm and is shown as such.";
   const auto = new URLSearchParams(location.search);
   if (auto.get("scenario")) $("#scenario").value = auto.get("scenario");

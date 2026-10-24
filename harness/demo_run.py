@@ -38,8 +38,11 @@ SCENARIOS = {
 LANES = ("default", "ours", "cloud")
 # Which cut-off detector drives Ours' escalation and the flags (harness/demo_overflow.py): "v1" as pre-registered for
 # the 2026-10-23 runs (server cut lines or the token-count comparison), "v2" the server's own cut lines only. The screen
-# switches to "v2" only after the v2 re-check passes on evo-x2 (docs/EXPERIMENTS.md, 2026-10-23).
-DETECTOR = "v1"
+# switches to "v2" only after the v2 re-check passes on evo-x2 (docs/EXPERIMENTS.md, 2026-10-23). The re-check passed
+# (results/demo_detector_check_v2.jsonl: fired 5/5 at num_ctx 4096, 0/5 at the default; row demo-detector-check-v2), so
+# the screen uses v2: the runtime's own cut lines. v1 is not used: false alarms at default (see
+# detector-precision-recall).
+DETECTOR = "v2"
 FLAG_KEY = {"v1": "flagged", "v2": "flagged_v2"}
 
 

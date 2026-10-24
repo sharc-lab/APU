@@ -350,6 +350,14 @@ def checklist(app, a, recs, c, tests: str, main_ledger, demo_ledger, scope_files
                    if main_ledger else "main ledger not found") + "; " +
                   (f"demo ledger USD {demo_ledger[0]:.4f} over {demo_ledger[1]} call(s)" if demo_ledger
                    else "demo ledger empty")))
+    sys.path.insert(0, str(REPO / "harness"))
+    import demo_run as _dr
+    live_html = (REPO / "demo" / "live" / "static" / "index.html").read_text(encoding="utf-8")
+    items.append(("Live run screen: cut-off signal is Ollama's own truncation / context-shift lines (detector v2, "
+                  "re-check passed); detector v1 marked not used (false alarms at default, see "
+                  "detector-precision-recall)",
+                  _dr.DETECTOR == "v2" and "Detector v1 (token-count check) not used" in live_html,
+                  f"demo_run.DETECTOR = {_dr.DETECTOR}"))
     return items
 
 

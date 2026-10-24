@@ -110,7 +110,8 @@ def test_intel_runs_ours_locally_at_the_graphics_chip_window_and_escalates_on_a_
 def test_detector_switch_drives_escalation_and_flags(prof, task8, monkeypatch):
     local = _fake_local({("default", 4096): {"end_state_ok": False, "flagged": True, "flagged_v2": True},
                          ("ours", 32768): {"end_state_ok": True, "flagged": True, "flagged_v2": False}})
-    assert DR.DETECTOR == "v1"          # the screen stays on v1 until the v2 re-check passes on evo-x2
+    assert DR.DETECTOR == "v2"          # the v2 re-check passed on evo-x2 (row demo-detector-check-v2)
+    monkeypatch.setattr(DR, "DETECTOR", "v1")
     r1 = DR.run_task("intel", prof, task8, local, FakeCloud(), lambda: 3.0)
     assert r1["lanes"]["ours"].get("escalated")
     monkeypatch.setattr(DR, "DETECTOR", "v2")
@@ -120,7 +121,8 @@ def test_detector_switch_drives_escalation_and_flags(prof, task8, monkeypatch):
     assert t["ours"]["kept_local"] == 1 and t["default"]["wrong_flagged"] == 1
     from demo.live import server as SV
     html = (SV.STATIC / "index.html").read_text(encoding="utf-8")
-    assert "Token-count check (detector v1) not used" in html and "known false alarm" in html
+    assert "Detector v1 (token-count check) not used: false alarms at default (see detector-precision-recall)" in html
+    assert "the runtime's own signal" in html and "known false alarm" in html
 
 
 def test_pending_cloud_parts_are_not_graded(prof, task8):
