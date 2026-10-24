@@ -49,6 +49,7 @@ for _p in (REPO / "harness", REPO / "src"):
 import x2_r2_agent as ag  # noqa: E402
 import x2_r2_evalset as EV  # noqa: E402
 from cloud import client as cc  # noqa: E402
+from cloud import console_gate  # noqa: E402
 
 _spec = importlib.util.spec_from_file_location("cloud_redo", REPO / "scripts" / "cloud_redo.py")
 CR = importlib.util.module_from_spec(_spec)
@@ -472,7 +473,14 @@ def main(argv=None) -> int:
         return 3
     total0 = cc.CloudClient(mode="stub", ledger_path=a.ledger)._read_running_total()
     client = cc.CloudClient(mode="real", spend_cap_usd=total0 + a.job_cap, ledger_path=a.ledger)
-    print(f"ledger total at start ${total0:.4f}; job cap ${a.job_cap:.2f}; client cap ${client.spend_cap_usd:.4f}")
+    print(f"ledger total at start billed ${total0:.4f} (upper bound ${client.running_total_usd_upper_bound:.4f}); "
+          f"job cap ${a.job_cap:.2f}; {client.spend_summary()}")
+    try:   # console check before the first call (pilot included); the job can spend at most its job cap
+        gate = console_gate.require_for_client(client, a.job_cap, None)
+    except console_gate.ConsoleCheckRefused as e:
+        print(str(e), file=sys.stderr)
+        return 2
+    print(console_gate.format_report(gate))
     res = run(client, a.out, job_cap=a.job_cap, ledger_total_at_start=total0)
     return 0 if res["decision"] == "run" and res["stopped"] is None else 4
 

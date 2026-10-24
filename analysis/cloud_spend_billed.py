@@ -78,17 +78,31 @@ def job_files(roots: list[Path]) -> list[Path]:
     return [seen[k] for k in sorted(seen)]
 
 
-def _job(path: Path) -> dict:
+def _in_range(t: datetime | None, start: datetime | None, end: datetime | None) -> bool:
+    """start <= t < end; no range means every row. A row with no timestamp is in range only when no range is set."""
+    if start is None and end is None:
+        return True
+    if t is None:
+        return False
+    return (start is None or t >= start) and (end is None or t < end)
+
+
+def _job(path: Path, rng_start: datetime | None = None, rng_end: datetime | None = None) -> dict:
+    """One job file. The job's window comes from all its rows; with a range [start, end) only the leaf and warm-up
+    rows whose ts_utc falls in it are summed (a row is stamped when its turn finishes, so a turn that straddles a
+    range edge is counted on the side its row lands on)."""
     rows = _read_jsonl(path)
     start = next((r for r in rows if r.get("record") == "run_start"), {})
     end = next((r for r in rows if r.get("record") == "run_end"), None)
     stamps = [_ts(r["ts_utc"]) for r in rows if r.get("ts_utc")]
-    leaf = [r for r in rows if r.get("record") in LEAF_RECORDS and "usd" in r]
-    warm = [r for r in rows if r.get("record") == "warmup"]
+    leaf_all = [r for r in rows if r.get("record") in LEAF_RECORDS and "usd" in r]
+    warm_all = [r for r in rows if r.get("record") == "warmup"]
+    leaf = [r for r in leaf_all if _in_range(_ts(r.get("ts_utc")), rng_start, rng_end)]
+    warm = [r for r in warm_all if _in_range(_ts(r.get("ts_utc")), rng_start, rng_end)]
     t0 = _ts(start.get("ts_utc")) or min(stamps)
     if start.get("harness") == "all_cloud_b3":
         # scripts/all_cloud_b3.py runs its warm-up calls BEFORE it writes run_start (cloud_redo.py after)
-        t0 -= timedelta(seconds=sum(float(r.get("seconds") or 0) for r in warm) + B3_WARMUP_SLACK_S)
+        t0 -= timedelta(seconds=sum(float(r.get("seconds") or 0) for r in warm_all) + B3_WARMUP_SLACK_S)
     return {
         "job": path.stem, "file": path, "t0": t0,
         "t1": _ts(end.get("ts_utc")) if end and end.get("ts_utc") else max(stamps),
@@ -97,7 +111,7 @@ def _job(path: Path) -> dict:
         "billed_rows": sum(float(r["usd"]) for r in leaf),
         "upper_rows": sum(float(r.get("usd_ledger") or 0) for r in leaf),
         "warmup_usd": sum(float(r.get("usd_ledger") or 0) for r in warm),
-        "leaf": leaf, "model_ids": sorted({r.get("model_id") for r in leaf + warm if r.get("model_id")}
+        "leaf": leaf, "model_ids": sorted({r.get("model_id") for r in leaf_all + warm_all if r.get("model_id")}
                                           | ({start["model_id"]} if start.get("model_id") else set())),
     }
 
@@ -129,13 +143,33 @@ def _check_billed(leaf: list[dict]) -> tuple[int, int]:
     return n, ok
 
 
-def compute(roots: list[Path] | None = None) -> dict:
-    roots = [Path(r) for r in (roots or [REPO])]
-    ledger_path = next((r / LEDGER for r in roots if (r / LEDGER).exists()), None)
-    if ledger_path is None:
-        raise FileNotFoundError(LEDGER)
-    ledger = _ledger_rows(ledger_path)
-    jobs = [_job(p) for p in job_files(roots)]
+def _rel_or_name(path: Path, roots: list[Path]) -> str:
+    root = next((r for r in roots if path.is_relative_to(r)), None)
+    return (str(path.relative_to(root)) if root is not None else str(path)).replace("\\", "/")
+
+
+def compute(roots: list[Path] | None = None, ledger_path: Path | None = None,
+            start: datetime | None = None, end: datetime | None = None) -> dict:
+    """The register row's figures. ledger_path: read this ledger instead of the first root's results/cloud_ledger.jsonl
+    (src/cloud/client.py's billed cap basis passes its own ledger); then the job files come from the ledger's
+    repo (its parent's parent, when the ledger sits in a results/ directory) unless roots is given, and a ledger
+    anywhere else has no job files, so every row is taken as written (cost_usd billed when the row is new-shape,
+    else its upper bound). start/end (aware datetimes): count only ledger rows and job rows stamped in [start, end)
+    (the console check compares the Console's date range); job windows still come from the whole job file."""
+    if ledger_path is not None:
+        ledger_path = Path(ledger_path).resolve()
+        if roots is None:
+            roots = [ledger_path.parent.parent] if ledger_path.parent.name == "results" else []
+        roots = [Path(r).resolve() for r in roots]
+        if not ledger_path.exists():
+            raise FileNotFoundError(str(ledger_path))
+    else:
+        roots = [Path(r) for r in (roots or [REPO])]
+        ledger_path = next((r / LEDGER for r in roots if (r / LEDGER).exists()), None)
+        if ledger_path is None:
+            raise FileNotFoundError(LEDGER)
+    ledger = [r for r in _ledger_rows(ledger_path) if _in_range(r["t"], start, end)]
+    jobs = [_job(p, start, end) for p in job_files(roots)]
     jobs.sort(key=lambda j: j["t0"])
     for j, nxt in zip(jobs, jobs[1:]):
         if not j["has_end"]:   # an aborted run: calls after its last row (an unfinished turn) are still its own
@@ -159,8 +193,7 @@ def compute(roots: list[Path] | None = None) -> dict:
                          "ledger_calls": len(idx), "leaf_rows": j["n_leaf"], "calls_with_usage": j["n_calls"],
                          "models": j["model_ids"], "billed_usd": billed, "upper_bound_usd": upper_ledger,
                          "upper_bound_rows_usd": covered, "unrecorded_upper_usd": unrecorded,
-                         "warmup_usd": j["warmup_usd"], "file": str(j["file"].relative_to(
-                             next(r for r in roots if j["file"].is_relative_to(r)))).replace("\\", "/")})
+                         "warmup_usd": j["warmup_usd"], "file": _rel_or_name(j["file"], roots)})
     rest = [ledger[i] for i in range(len(ledger)) if not used[i]]
     rest_upper = sum(r["upper"] for r in rest)
     rest_billed = sum(r["billed_known"] if r["billed_known"] is not None else r["upper"] for r in rest)
@@ -169,7 +202,7 @@ def compute(roots: list[Path] | None = None) -> dict:
     total_billed = sum(j["billed_usd"] for j in out_jobs) + rest_billed
     unrecorded_total = sum(j["unrecorded_upper_usd"] for j in out_jobs) + rest_unrecorded + \
         sum(j["warmup_usd"] for j in out_jobs)
-    return {"ledger": str(ledger_path.relative_to(next(r for r in roots if ledger_path.is_relative_to(r)))).replace("\\", "/"),
+    return {"ledger": _rel_or_name(ledger_path, roots),
             "ledger_calls": len(ledger), "jobs": out_jobs,
             "unattributed": {"ledger_calls": len(rest), "billed_usd": rest_billed, "upper_bound_usd": rest_upper,
                              "windows_utc": sorted({r["t"].isoformat()[:16] for r in rest if r["t"]})[:3]

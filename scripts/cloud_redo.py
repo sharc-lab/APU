@@ -60,6 +60,7 @@ import evalset_env as E  # noqa: E402
 import x2_r2_agent as ag  # noqa: E402
 import x2_r2_evalset as EV  # noqa: E402
 from cloud import client as cc  # noqa: E402
+from cloud import console_gate  # noqa: E402
 
 SOURCE = REPO / "results" / "x2_evalset_tasks_real_v2.jsonl"
 OUT = REPO / "results" / "cloud_redo_v1.jsonl"
@@ -661,7 +662,8 @@ def run(live: bool, source: Path = SOURCE, out: Path = OUT, price_file: Path = P
         job_cap: float | None = None, ledger_total_at_start: float | None = None,
         executed_file: Path | None = None, resume_from: Path | None = None,
         old_limit: int = LOCAL_MAX_TOKENS, rollback: str | None = None, only_keys: set | None = None,
-        projection_rows: list[dict] | None = None) -> list[dict]:
+        projection_rows: list[dict] | None = None, console_check: bool = False,
+        console_freshness_h: float | None = None) -> list[dict]:
     """thinking_off: send THINKING_OFF[model] on every call and stop the run at the first call that ends at max_tokens
     with nothing visible. job_cap (live): refuse up front when the projection (from executed_file if it holds an
     executed run of these tasks, else from the local token counts; ledger basis) exceeds it. Rows are written as they
@@ -669,7 +671,10 @@ def run(live: bool, source: Path = SOURCE, out: Path = OUT, price_file: Path = P
     rollback "pre_task" (own-rollback, 2026-10-23): env_before comes from rollback_env (snapshots, failed turn undone)
     and each row records whether it equals rebuild()'s env_before. only_keys: run only these (attempt_id, turn_idx).
     projection_rows: executed rows of the same tasks; the projection is then their measured cache-priced USD (the basis
-    the ledger records since 2026-10-22) with the all-uncached upper bound recorded beside it."""
+    the ledger records since 2026-10-22) with the all-uncached upper bound recorded beside it.
+    console_check (live, set by main): before anything is sent, src/cloud/console_gate.py must pass (fresh Console
+    reading that agrees with the ledger's billed total; billed cap headroom covers the projection). Tests that drive
+    run() with a fake real-mode client leave it off; stub mode is never gated."""
     if rollback not in (None, "pre_task", "cascaded"):
         raise SystemExit(f"refused: unknown rollback {rollback!r}")
     table = load_price_table(price_file)
@@ -747,22 +752,39 @@ def run(live: bool, source: Path = SOURCE, out: Path = OUT, price_file: Path = P
             raise SystemExit("refused: projection rows do not cover every task; nothing was sent")
         projected = meas["billed_usd"]
         start["projected_ledger_usd_used"] = projected
+        projected_upper = meas["upper_bound_usd_all_uncached"]
         if job_cap is not None and projected > job_cap:
-            raise SystemExit(f"refused: projected ${projected:.2f} (billed, measured on the same tasks) exceeds the "
-                             f"job cap ${job_cap:.2f}; nothing was sent")
+            raise SystemExit(f"refused: projected ${projected:.2f} billed (upper bound ${projected_upper:.2f}), "
+                             f"measured on the same tasks, exceeds the job cap ${job_cap:.2f}; nothing was sent")
         if projected > client.remaining_budget_usd:
-            raise SystemExit(f"refused: projected ${projected:.2f} exceeds the remaining budget "
-                             f"${client.remaining_budget_usd:.2f} under the ${client.spend_cap_usd:.2f} cap")
+            raise SystemExit(f"refused: projected ${projected:.2f} billed (upper bound ${projected_upper:.2f}) "
+                             f"exceeds the remaining budget (billed headroom); {client.spend_summary()}; nothing was sent")
     elif live:
         projected = proj["ledger_usd"] if proj and proj["n_matched"] == len(wrong) else local_proj
         projected *= max(1.0, calib)
         start["projected_ledger_usd_used"] = projected
+        projected_upper = projected   # all input uncached: the projection is itself an upper bound
         if job_cap is not None and projected > job_cap:
-            raise SystemExit(f"refused: projected ${projected:.2f} (ledger basis, all input uncached) exceeds the job "
+            raise SystemExit(f"refused: projected ${projected:.2f} (upper bound, all input uncached) exceeds the job "
                              f"cap ${job_cap:.2f}; nothing was sent")
         if projected > client.remaining_budget_usd:
-            raise SystemExit(f"refused: projected ${projected:.2f} (all input uncached) exceeds the remaining budget "
-                             f"${client.remaining_budget_usd:.2f} under the ${client.spend_cap_usd:.2f} cap")
+            raise SystemExit(f"refused: projected ${projected:.2f} (upper bound, all input uncached) exceeds the "
+                             f"remaining budget (billed headroom); {client.spend_summary()}; nothing was sent")
+    if live:
+        start["spend_at_start"] = {"cap_usd": client.spend_cap_usd, "billed_usd": client.running_total_usd,
+                                   "upper_bound_usd": client.running_total_usd_upper_bound,
+                                   "cap_basis": getattr(client, "cap_basis", None)}
+        start["projected_upper_bound_usd"] = projected_upper
+        emit_print(f"projection: billed ${projected:.4f} (upper bound ${projected_upper:.4f}); "
+                   f"{client.spend_summary()}")
+        if console_check:
+            try:
+                gate = console_gate.require_for_client(client, projected, projected_upper,
+                                                       freshness_h=console_freshness_h)
+            except console_gate.ConsoleCheckRefused as e:
+                raise SystemExit(str(e)) from None
+            start["console_check"] = gate
+            emit_print(console_gate.format_report(gate))
     out.parent.mkdir(parents=True, exist_ok=True)
     stopped = None
     with open(out, "w", encoding="utf-8", newline="\n") as fh:
@@ -868,6 +890,9 @@ def main(argv=None) -> int:
                          "cascaded: every earlier wrong task turn also rolled back and replaced by its reference calls "
                          "(rebuild_cascaded, the stand-in for a successful escalation). Default out "
                          "results/own_rollback_redo_v1.jsonl; projection = the same tasks' measured billed USD")
+    ap.add_argument("--console-freshness-hours", type=float, default=None,
+                    help=f"console check: the Console reading must be newer than this (default "
+                         f"{console_gate.FRESHNESS_HOURS_DEFAULT:g} h, or ${console_gate.FRESHNESS_ENV})")
     a = ap.parse_args(argv)
     if a.resume:
         out = a.out or next_part_path(a.resume_from)
@@ -912,14 +937,16 @@ def main(argv=None) -> int:
         else:
             cap = cc.HARD_SPEND_CAP_USD
         client = cc.CloudClient(mode="real", spend_cap_usd=cap, ledger_path=a.ledger)
-        print(f"ledger total at start ${total0:.4f}; client cap ${client.spend_cap_usd:.4f}")
+        print(f"ledger total at start ${total0:.4f} billed; client cap ${client.spend_cap_usd:.4f} (the projection "
+              "line below prints billed and upper bound side by side)")
     rb = {}
     if a.rollback:
         rb = {"rollback": a.rollback, "only_keys": repair_keys(REPO),
               "projection_rows": merged_rows(part_files(OUT_FULL_CONTEXT))}
     rows = run(a.live, a.source, out, limit=a.limit, client=client, thinking_off=a.thinking_off, job_cap=a.job_cap,
                ledger_total_at_start=total0, executed_file=V1_EXECUTED if a.thinking_off and not a.rollback else None,
-               max_tokens=a.max_tokens, resume_from=part_files(a.resume_from) if a.resume else None, **rb)
+               max_tokens=a.max_tokens, resume_from=part_files(a.resume_from) if a.resume else None,
+               console_check=a.live, console_freshness_h=a.console_freshness_hours, **rb)
     return 0 if rows[-1].get("stopped") is None else 4
 
 
