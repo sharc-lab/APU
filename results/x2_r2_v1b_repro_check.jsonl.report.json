@@ -1,0 +1,20 @@
+{
+ "rules_in_use": {
+  "llama3.1:8b": [
+   "rule1_json_keys",
+   "rule3_no_zebra",
+   "rule4_metres"
+  ]
+ },
+ "refused_models": {},
+ "kill_criterion": {
+  "killed": false,
+  "per_arm": {
+   "ollama_ctx_4096_call2_notools": {
+    "n_sessions": 1,
+    "n_silent_failures": 1,
+    "shows_silent_failure": true
+   }
+  }
+ }
+}
