@@ -586,7 +586,7 @@ def summarize(rows: list[dict], rules=RULE_IDS_EXT) -> dict:
 
 
 def run_session(runtime, model, arm, seed, max_turns, emit, log, mode, workload="evalset", guardrails=True,
-                schedule=None, design="v1") -> dict:
+                schedule=None, design="v1", wall_budget_s=None) -> dict:
     num_ctx = ag.ARMS[arm]["num_ctx"]
     call2_mode = ag.ARMS[arm]["call2_mode"]
     think = ag.MODELS.get(model)
@@ -601,19 +601,25 @@ def run_session(runtime, model, arm, seed, max_turns, emit, log, mode, workload=
     if begin is not None:
         base["num_keep_sent"] = begin(model, arm, seed, es)
     try:
-        return _run_session_body(runtime, model, arm, seed, emit, log, workload, es, base, num_ctx, think, call2_mode)
+        return _run_session_body(runtime, model, arm, seed, emit, log, workload, es, base, num_ctx, think, call2_mode,
+                                 wall_budget_s)
     finally:
         end = getattr(runtime, "end_session", None)
         if end is not None:
             end()
 
 
-def _run_session_body(runtime, model, arm, seed, emit, log, workload, es, base, num_ctx, think, call2_mode):
+def _run_session_body(runtime, model, arm, seed, emit, log, workload, es, base, num_ctx, think, call2_mode,
+                      wall_budget_s=None):
     unloaded = runtime.unload(model)
     messages = [{"role": "system", "content": es.system_prompt}]
     env = copy.deepcopy(es.env0)
     calib, cumulative, rows = None, 0, []
+    stopped = False
     for turn, item in zip(es.turns, es.items):
+        if stop_before_turn([r["turn_wall_s"] for r in rows], wall_budget_s):
+            stopped = True
+            break
         t0 = time.monotonic()
         extra = {}
         if workload == "replay":
@@ -650,10 +656,15 @@ def _run_session_body(runtime, model, arm, seed, emit, log, workload, es, base, 
         log(f"  {model} {arm} seed={seed} turn {turn.idx}/{len(es.turns)} {item.item_id} "
             f"end_state={row['end_state_ok']} r6={row['rule6_no_secret_leak']} r7={row['rule7_no_forbidden_send']} "
             f"r8={row['rule8_confirm_before_destructive']} ctx~{row['final_call_prompt_tokens_calibrated']}/{loaded}")
+    if wall_budget_s is not None:
+        emit({**base, "record": "probe_session", "wall_budget_s": wall_budget_s, "stopped_by_budget": stopped,
+              "n_turns": len(rows), "n_turns_planned": len(es.turns),
+              "cum_turn_wall_s": sum(r["turn_wall_s"] for r in rows), "ts_utc": ag.utc_iso()})
     summary = summarize(rows)
     summary.update(base)
     summary.update({"record": "r2a_session", "ts_utc": ag.utc_iso(), "n_turns": len(rows)})
-    emit(summary)
+    if not stopped:   # a probe session cut by its budget is not a complete session
+        emit(summary)
     try:
         runtime.unload(model)
     except Exception:
@@ -850,7 +861,17 @@ OWN_COMPACTION_MODELS = ("qwen3:14b",)
 OWN_CONFIG_PLAN = "own_config_probe_v1"
 OWN_CONFIG_TIERS = {"ollama_ctx_15360": "q8_0", "ollama_ctx_28928": "q4_0"}
 OWN_CONFIG_SEEDS = (20260901, 20260902, 20260903)
-CTX_POLICY_PLANS = (OWN_COMPACTION_PLAN, OWN_CONFIG_PLAN)
+# own-profiler-probe (2026-10-23, docs/EXPERIMENTS.md "own-profiler-probe"): the measured probe that replaces the
+# own-profiler ratio prediction. One window x KV config per call (harness/x2_own_profiler_probe.py runs the six in
+# turn, each with its own server env), seed 20260901 only, the session stopped by PROBE_WALL_S of cumulative turn wall
+# clock (stop_before_turn). f16 tiers run with no KV / flash-attention env (as the B3 v2 reference did); q8_0 / q4_0 as
+# own_config_probe_v1.
+OWN_PROFILER_PLAN = "own_profiler_probe_v1"
+OWN_PROFILER_TIERS = {"ollama_default": "f16", "ollama_ctx_16384": "f16", "ollama_ctx_8192": "f16",
+                      "ollama_ctx_4096": "f16", "ollama_ctx_15360": "q8_0", "ollama_ctx_28928": "q4_0"}
+OWN_PROFILER_SEEDS = (20260901,)
+PROBE_WALL_S = 600.0
+CTX_POLICY_PLANS = (OWN_COMPACTION_PLAN, OWN_CONFIG_PLAN, OWN_PROFILER_PLAN)
 for _a, _n in (("own_compaction_4096", 4096), ("own_compaction_8192", 8192), ("client_trim_4096", 4096),
                ("client_trim_8192", 8192), ("ollama_ctx_15360", 15360), ("ollama_ctx_28928", 28928)):
     for _m, _sfx in ag.MODE_SUFFIX.items():
@@ -867,20 +888,54 @@ def ctx_policy_of(arm: str) -> str | None:
 
 
 def ctx_policy_plan(plan_name, tiers_text=None, seeds_text=None, call2_mode="off"):
-    """[(arm, seeds, turns)] of --plan own_compaction_v1 / own_config_probe_v1, restricted to --tiers / --seeds if
-    given (each must belong to the plan; own_config_probe_v1 needs exactly one tier)."""
-    allowed = OWN_COMPACTION_ARMS if plan_name == OWN_COMPACTION_PLAN else tuple(OWN_CONFIG_TIERS)
-    seeds_all = OWN_COMPACTION_SEEDS if plan_name == OWN_COMPACTION_PLAN else OWN_CONFIG_SEEDS
+    """[(arm, seeds, turns)] of --plan own_compaction_v1 / own_config_probe_v1 / own_profiler_probe_v1, restricted to
+    --tiers / --seeds if given (each must belong to the plan; the two probe plans need exactly one tier)."""
+    allowed, seeds_all = {OWN_COMPACTION_PLAN: (OWN_COMPACTION_ARMS, OWN_COMPACTION_SEEDS),
+                          OWN_CONFIG_PLAN: (tuple(OWN_CONFIG_TIERS), OWN_CONFIG_SEEDS),
+                          OWN_PROFILER_PLAN: (tuple(OWN_PROFILER_TIERS), OWN_PROFILER_SEEDS)}[plan_name]
     tiers = [t.strip() for t in tiers_text.split(",") if t.strip()] if tiers_text else list(allowed)
     bad = [t for t in tiers if t not in allowed]
     if bad or len(set(tiers)) != len(tiers):
         raise ValueError(f"--tiers for {plan_name} must be distinct names from {allowed}; got {tiers}")
-    if plan_name == OWN_CONFIG_PLAN and len(tiers) != 1:
+    if plan_name in (OWN_CONFIG_PLAN, OWN_PROFILER_PLAN) and len(tiers) != 1:
         raise ValueError(f"{plan_name} runs one KV type per job: pass exactly one of {allowed} in --tiers")
     seeds = ag.parse_seeds(seeds_text) if seeds_text else list(seeds_all)
     if any(s not in seeds_all for s in seeds):
         raise ValueError(f"--seeds for {plan_name} must be a subset of {seeds_all}; got {seeds}")
     return ag.strong_plan(call2_mode, tiers=tuple(tiers), seeds=tuple(seeds), turns=session_turns("evalset", False))
+
+
+def plan_kv_type(plan_name, tier) -> str | None:
+    """The KV cache type a probe plan's tier needs (None for plans without one)."""
+    return {OWN_CONFIG_PLAN: OWN_CONFIG_TIERS, OWN_PROFILER_PLAN: OWN_PROFILER_TIERS}.get(plan_name, {}).get(tier)
+
+
+def server_env_problem(plan_name, tier, server_env_args) -> str | None:
+    """Why --server-env does not fit a probe plan's tier (None if it fits): q8_0 / q4_0 need OLLAMA_KV_CACHE_TYPE=<kv>
+    and OLLAMA_FLASH_ATTENTION=1; an f16 tier of own_profiler_probe_v1 needs neither set (the B3 v2 reference ran with
+    the server defaults)."""
+    kv = plan_kv_type(plan_name, tier)
+    if kv is None:
+        return None
+    env = dict(e.split("=", 1) for e in (server_env_args or []) if "=" in e)
+    if kv == "f16":
+        if "OLLAMA_KV_CACHE_TYPE" in env or "OLLAMA_FLASH_ATTENTION" in env:
+            return (f"--plan {plan_name} --tiers {tier}: an f16 tier runs with the server defaults; do not pass "
+                    "OLLAMA_KV_CACHE_TYPE or OLLAMA_FLASH_ATTENTION")
+        return None
+    if env.get("OLLAMA_KV_CACHE_TYPE") != kv or env.get("OLLAMA_FLASH_ATTENTION") != "1":
+        return (f"--plan {plan_name} --tiers {tier}: needs --server-env OLLAMA_KV_CACHE_TYPE={kv} "
+                "--server-env OLLAMA_FLASH_ATTENTION=1")
+    return None
+
+
+def stop_before_turn(walls: list, budget_s) -> bool:
+    """Probe stop rule (own_profiler_probe_v1): before a turn, stop if the cumulative turn wall clock so far plus the
+    previous turn's would exceed budget_s (never start a turn expected to end after the budget). The first turn
+    always runs."""
+    if budget_s is None or not walls:
+        return False
+    return sum(walls) + walls[-1] > budget_s
 
 
 def kv_cache_lines(log_text: str) -> list[str]:
@@ -1408,7 +1463,8 @@ def build_arg_parser():
     ap.add_argument("--check-plan", action="store_true",
                     help="print the plan and session shape, then exit (no server, no model call, no queue)")
     ap.add_argument("--plan", choices=("default", TASKS_PLAN, TASKS_V2_PLAN, TASKS_V2_Q8_PLAN, TASKS_V2_MS_PLAN,
-                                         TASKS_V2_L70_PLAN, TASKS_V2_T2S_PLAN, OWN_COMPACTION_PLAN, OWN_CONFIG_PLAN),
+                                         TASKS_V2_L70_PLAN, TASKS_V2_T2S_PLAN, OWN_COMPACTION_PLAN, OWN_CONFIG_PLAN,
+                                         OWN_PROFILER_PLAN),
                     default="default",
                     help="real mode: default = --tiers/--seeds or STRONG_TIERS x SEEDS; tasks_v1 = the B3 task real "
                          "run (Ollama default and 4096, SEEDS, 30 task turns; needs --workload evalset --guardrails off); "
@@ -1655,8 +1711,8 @@ def main(argv=None, advance=True):
         ap.error("--preflight end_state needs --mode real --workload evalset --guardrails off")
     te_plans = (TASKS_V2_PLAN,) + CTX_POLICY_PLANS
     if (args.plan in te_plans) != (args.preflight == PREFLIGHT_TE_DEVIATION) and args.mode == "real":
-        ap.error("--plan tasks_v2 / own_compaction_v1 / own_config_probe_v1 and --preflight v2_te_deviation go "
-                 "together")
+        ap.error("--plan tasks_v2 / own_compaction_v1 / own_config_probe_v1 / own_profiler_probe_v1 and --preflight "
+                 "v2_te_deviation go together")
     if args.plan in CTX_POLICY_PLANS:
         if args.mode != "real" or args.workload != "evalset" or args.guardrails != "off" or args.design != "v2":
             ap.error(f"--plan {args.plan} needs --mode real --workload evalset --guardrails off --design v2")
@@ -1666,12 +1722,10 @@ def main(argv=None, advance=True):
             ap.error(str(e))
         if args.models and [m for m in args.models.split(",") if m] != list(OWN_COMPACTION_MODELS):
             ap.error(f"--plan {args.plan} runs {OWN_COMPACTION_MODELS} only")
-        if args.plan == OWN_CONFIG_PLAN:
-            kv = OWN_CONFIG_TIERS[args.tiers.strip()]
-            env = dict(e.split("=", 1) for e in (args.server_env or []) if "=" in e)
-            if env.get("OLLAMA_KV_CACHE_TYPE") != kv or env.get("OLLAMA_FLASH_ATTENTION") != "1":
-                ap.error(f"--plan {args.plan} --tiers {args.tiers}: needs --server-env OLLAMA_KV_CACHE_TYPE={kv} "
-                         "--server-env OLLAMA_FLASH_ATTENTION=1")
+        if args.plan in (OWN_CONFIG_PLAN, OWN_PROFILER_PLAN):
+            prob = server_env_problem(args.plan, args.tiers.strip(), args.server_env)
+            if prob:
+                ap.error(prob)
     if args.plan == TASKS_V2_PLAN:
         if args.mode != "real" or args.workload != "evalset" or args.guardrails != "off" or args.design != "v2":
             ap.error("--plan tasks_v2 needs --mode real --workload evalset --guardrails off --design v2")
@@ -1828,7 +1882,7 @@ def main(argv=None, advance=True):
                   "call2_mode": ag.ARMS[arm]["call2_mode"], "ts_utc": ag.utc_iso()})
             log(f"session: {model} {arm} seed={seed} turns<={turns} workload={args.workload}")
             run_session(runtime, model, arm, seed, turns, emit, log, args.mode, args.workload, guard, schedule,
-                        args.design)
+                        args.design, wall_budget_s=PROBE_WALL_S if args.plan == OWN_PROFILER_PLAN else None)
         rows = ag.read_rows(out_path)
         if args.mode == "validation":
             report = evaluate_gates_ext(rows, args.workload, guard, c2, design=args.design)

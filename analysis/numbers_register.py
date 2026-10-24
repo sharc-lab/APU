@@ -7340,6 +7340,64 @@ def compute_hybrid_route_at_start_v2(repo):
     return {"value": cs.hybrid_v2_text(d), "n": f"{len(d['cells'])} tier x policy cells x 90 tasks"}
 
 
+# ── own-profiler-probe (operator item 3, 2026-10-23; docs/EXPERIMENTS.md "own-profiler-probe"): the measured probe job
+# x2_own_profiler_probe_v1 (harness/x2_own_profiler_probe.py). The result row is PENDING until the driver file has
+# run_end; the hours row is an ESTIMATE. ──
+OWN_PROBE_FILE = "results/x2_own_profiler_probe_v1.jsonl"
+
+
+def _own_probe_module():
+    import sys as _sys
+    _r2_agent_module()
+    if str(REPO / "harness") not in _sys.path:
+        _sys.path.insert(0, str(REPO / "harness"))
+    import x2_own_profiler_probe as opp
+    return opp
+
+
+def own_profiler_probe_data(repo) -> dict:
+    opp = _own_probe_module()
+    ag = _r2_agent_module()
+    probe = {}
+    for c in opp.CONFIGS:
+        f = repo / opp.config_file(OWN_PROBE_FILE, c["tier"])
+        if f.exists():
+            probe[c["tier"]] = ag.read_rows(f)
+    refs = {c["ref"]: ag.read_rows(repo / c["ref"]) for c in opp.CONFIGS if (repo / c["ref"]).exists()}
+    return opp.score(probe, refs)
+
+
+def compute_own_profiler_probe(repo):
+    opp = _own_probe_module()
+    d = own_profiler_probe_data(repo)
+    return {"value": opp.probe_text(d), "n": f"{d['n_scored']} scored configs of {len(d['configs'])}"}
+
+
+def compute_own_profiler_probe_hours(repo):
+    opp = _own_probe_module()
+    ag = _r2_agent_module()
+    e = opp.hours_estimate(ag.read_rows(repo / X2_EVALSET_TASKS_REAL_V2))
+    q = own_queue_projection(repo)
+    from datetime import timedelta
+    last = q["table"][-1]
+    start = last["end"]
+    end = [start[0] + timedelta(hours=e["point_h"]), start[1] + timedelta(hours=e["high_h"])]
+
+    def f(x):
+        return x.strftime("%m-%d %H:%MZ")
+    per = "; ".join(f"{k} {v['point_h']:.2f} h (high {v['high_h']:.2f} h)" for k, v in e["per"].items())
+    return {"value": f"ESTIMATE, not a measurement (harness/x2_own_profiler_probe.py::hours_estimate): per config "
+                     f"session min(600 s, 30 x the tier's B3 v2 mean turn_wall_s) (q8_0 / q4_0: the 16384 tier's), high "
+                     f"600 s + the slowest single B3 v2 turn of the tier (q8_0 / q4_0: of any f16 tier), plus "
+                     f"{opp.OVERHEAD_S['point']:.0f} s (ASSUMPTION; high {opp.OVERHEAD_S['high']:.0f} s, the harness's "
+                     f"own server-ready timeouts) per config; {per}; total {e['point_h']:.2f} h (high "
+                     f"{e['high_h']:.2f} h); queue: appended after {last['job']} (projected end {f(start[0])}, high "
+                     f"{f(start[1])}, row own-jobs-hours), projected {f(start[0])} to {f(end[0])} (high {f(start[1])} "
+                     f"to {f(end[1])}); before the 2026-10-29 demo hold fallback start {f(q['demo_hold'])}: "
+                     + ("yes" if end[1] <= q["demo_hold"] else "NO") + " (high case); not queued by this commit",
+            "n": "6 configs (estimate)"}
+
+
 NUMBER_ENTRIES = [
     {"claim_id": "PX2-TTFT-gap", "description": "PX2 B4-vs-S4 TTFT gap range across 5 models",
      "compute": compute_px2_ttft_gap, "data_files": ["results/t2s_night2_20260930T135145Z.jsonl"],
@@ -8507,6 +8565,19 @@ NUMBER_ENTRIES = [
      "within-10% target",
      "compute": compute_own_dse_v1, "data_files": OWN_DSE_V1_FILES, "pending_ok": True,
      "script_function": "src/dse/dse_v1.py::own_dse_v1"},
+    {"claim_id": "own-profiler-probe", "description": "own-profiler-probe (pre-registered 2026-10-23): measured probe "
+     "on evo-x2, qwen3:14b, B3 v2 tasks, seed 20260901, at most 600 s of session per window x KV config (six configs), "
+     "seconds per task / accuracy / detector-v2 overflow vs the full runs' held-out seeds; seconds median APE vs the "
+     "< 10% target, overflow agreement; PENDING until the probe file has run_end",
+     "compute": compute_own_profiler_probe, "data_files": [OWN_PROBE_FILE, X2_EVALSET_TASKS_REAL_V2],
+     "pending_ok": True, "require_run_end": [OWN_PROBE_FILE],
+     "script_function": "harness/x2_own_profiler_probe.py::score"},
+    {"claim_id": "own-profiler-probe-hours", "description": "ESTIMATE, not a measurement: hours of the probe job "
+     "x2_own_profiler_probe_v1 from measured B3 v2 turn times, and its projected place in the evo-x2 queue after "
+     "x2_own_config_probe_q4_28928",
+     "compute": compute_own_profiler_probe_hours,
+     "data_files": [X2_EVALSET_TASKS_REAL_V2, MITIGATION_X2_FILE, B5_X2_FILE] + FILL_1022_DATA + L70_HOURS_DATA,
+     "script_function": "harness/x2_own_profiler_probe.py::hours_estimate"},
 ]
 
 
