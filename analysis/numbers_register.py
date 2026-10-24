@@ -8297,7 +8297,8 @@ NUMBER_ENTRIES = [
     {"claim_id": "cloud-spend-billed-vs-upper-bound", "description": "Cloud spend so far, billed cost from the "
      "recorded provider usage (cache reads, 5m cache writes, each at its own rate in the shared price file) vs the "
      "every-input-uncached upper bound the ledger recorded, per job; calls whose usage is not on file count at the "
-     "upper bound",
+     "upper bound. This billed total is the spend cap's basis (src/cloud/client.py, 2026-10-23) and the figure the "
+     "pre-job Console check compares (src/cloud/console_gate.py); the upper bound is reported beside it",
      "compute": compute_cloud_spend_billed_vs_upper_bound,
      "data_files": ["results/cloud_ledger.jsonl", CLOUD_REDO_V1, "results/cloud_redo_full_context_v1*.jsonl",
                     "results/all_cloud_b3_v1*.jsonl", "results/cloud_prices_anthropic_20261014.json"],

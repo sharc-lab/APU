@@ -421,6 +421,23 @@ Every report states status against these three checkpoints.
   (ledger), remaining USD 49.999995 of 50. Cap-refusal and cloud client tests pass (81). litellm 1.106.2 installed on
   the controller (required by the live path; already in pyproject.toml).
 
+### 2026-10-23, cap basis: billed spend, checked against the Console (on review, not in effect until merged)
+
+- Operator: "switch the cap check to billed spend (cloud-spend-billed-vs-upper-bound), verified against the
+  Anthropic Console usage total before each cloud job; keep the upper bound reported alongside."
+- Before: src/cloud/client.py's cap check used the ledger's billed column, but every row written before 2026-10-22
+  counted at its upper bound, so the starting total was near the upper bound (the ledger's last row records
+  running_total_usd 41.5758 vs running_total_usd_upper_bound 43.2566).
+- After: the starting total is the register row's billed total (analysis/cloud_spend_billed.py::compute on the
+  client's ledger; rows with no usage on file still count at the upper bound). Register row
+  cloud-spend-billed-vs-upper-bound: billed USD 12.5643 vs upper bound USD 43.2566. The USD 50 hard cap is unchanged;
+  every cap message and pre-job projection prints billed and upper bound side by side.
+- Console check (src/cloud/console_gate.py) before each live job in scripts/cloud_redo.py, scripts/all_cloud_b3.py
+  and scripts/longtask_cloud.py: results/console_usage_check.json (operator-written: Console total, read time UTC,
+  date range, reader) must be under 24 h old, agree with the ledger's billed total for the same range within
+  max(USD 0.50, 5%), and the billed headroom must cover the projection. Stub mode and tests are never gated.
+  The demo cloud lane (demo/live/cloud_lane.py, branch demo/oct28) is not wired yet.
+
 ### 2026-10-23, API key removed from evo-x2
 
 - The 2026-10-22 copy of ANTHROPIC_API_KEY on evo-x2 (user environment variable) was removed on the operator's
