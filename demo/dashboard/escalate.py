@@ -13,6 +13,10 @@ The call. Escalator.run() makes AT MOST ONE provider request per demo run (one E
     above 10) and its own ledger, demo/ledger/cloud_ledger_demo.jsonl (gitignored), not results/cloud_ledger.jsonl;
   - one request with the task's tools offered (no tool round trips); the page shows its cost, seconds and answer, no
     graded result (the redo's fix rate is under diagnosis, operator 2026-10-21).
+Before the request, src/cloud/console_gate.py::pre_job (operator 2026-10-24): the operator's Anthropic Console reading
+must be under 24 h old and agree with the billed ledgers (main + demo, each row once) within max(USD 0.50, 5%), and
+the demo ledger's billed headroom must cover DEMO_SESSION_LIMIT_USD (the one call is estimated at the session limit,
+so no approval is needed); a refusal is shown as the stub with its reason.
 Anything else (no flag, no key, host refused, cap reached, provider error, a second click) returns the stub: nothing
 is sent; the page shows this task's recorded full-history redo (results/cloud_redo_full_context_v1*.jsonl, row
 cloud-redo-full-context: USD, seconds, answer, measured) or, without one, "being measured", with the reason. The key is never printed,
@@ -25,21 +29,46 @@ CLI (development; one live call at most, same rules):
 from __future__ import annotations
 
 import contextlib
+import importlib.util
 import io
 import json
 import os
 import sys
 import threading
 import time
+import uuid
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-LEDGER = Path(__file__).resolve().parent.parent / "ledger" / "cloud_ledger_demo.jsonl"
+
+
+def _console_gate():
+    """src/cloud/console_gate.py loaded by path (this module is imported before REPO may be on sys.path)."""
+    spec = importlib.util.spec_from_file_location("console_gate_for_demo", REPO / "src" / "cloud" / "console_gate.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+# The demo ledger is canonical in the MAIN checkout (operator 2026-10-24), whichever checkout runs the demo, so the
+# pre-job Console comparison finds every demo call without depending on a worktree existing.
+LEDGER = _console_gate().canonical_demo_ledger(REPO)
 SOURCE = "results/x2_evalset_tasks_real_v2.jsonl"
 REDO = "results/cloud_redo_v1.jsonl"
 REGISTER_ID = "cloud-redo-cost-per-wrong-task"
 TIER = "ollama_ctx_4096"
 CAP_CEILING_USD = 10.0  # this agent's cap (operator 2026-10-21); env may lower it, never raise it
+# Operator 2026-10-24: "gate the demo lane the same way on its own USD 10 ledger, USD 3 per session": live demo spend
+# above USD 3 in one session is refused unless the operator's --operator-approval names the session job and an amount
+# at or above the session limit; every live demo path passes src/cloud/console_gate.py::pre_job first.
+DEMO_SESSION_LIMIT_USD = 3.0
+ESCALATION_JOB_ID = "demo_escalation"
+# One demo session budget shared by every live demo path in every process (the live screen's CloudLane and the
+# dashboard's Escalator run in different processes): the session is the latest {"record": "demo_session"} row of the
+# demo ledger (younger than SESSION_MAX_AGE_H), its spend is the demo ledger's billed call rows since its start.
+SESSION_RECORD = "demo_session"
+SESSION_MAX_AGE_H = 12.0
 ENV_LIVE = "DEMO_CLOUD_LIVE"
 ENV_CAP = "DEMO_CLOUD_CAP_USD"
 KEY_ENV = "ANTHROPIC_API_KEY"
@@ -181,6 +210,87 @@ def _default_client_factory(cap: float, ledger: Path):
     return cc.CloudClient(mode="real", spend_cap_usd=cap, ledger_path=ledger)
 
 
+def _ledger_rows(ledger: Path) -> list[dict]:
+    if not Path(ledger).exists():
+        return []
+    out = []
+    for line in Path(ledger).read_text(encoding="utf-8").splitlines():
+        try:
+            r = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(r, dict):
+            out.append(r)
+    return out
+
+
+def _utc(s: str) -> datetime:
+    return datetime.fromisoformat(str(s).replace("Z", "+00:00")).astimezone(timezone.utc)
+
+
+def session_state(ledger: Path = LEDGER, now: datetime | None = None) -> dict | None:
+    """The open demo session (latest demo_session row, started under SESSION_MAX_AGE_H ago), else None."""
+    now = now or datetime.now(timezone.utc)
+    rows = [r for r in _ledger_rows(ledger) if r.get("record") == SESSION_RECORD]
+    if not rows:
+        return None
+    last = rows[-1]
+    start = _utc(last["session_start_utc"])
+    if now - start > timedelta(hours=SESSION_MAX_AGE_H):
+        return None
+    return {"session_id": last["session_id"], "start": start, "limit_usd": float(last["limit_usd"])}
+
+
+def session_spent(ledger: Path, start: datetime) -> float:
+    """Billed spend of the demo ledger's call rows stamped at or after start (all processes)."""
+    return sum(float(r.get("cost_usd") or 0.0) for r in _ledger_rows(ledger)
+               if "record" not in r and r.get("timestamp") and _utc(r["timestamp"]) >= start)
+
+
+def session_remaining(ledger: Path = LEDGER, default_limit: float = DEMO_SESSION_LIMIT_USD,
+                      now: datetime | None = None) -> float:
+    st = session_state(ledger, now)
+    if st is None:
+        return max(0.0, float(default_limit))
+    return max(0.0, st["limit_usd"] - session_spent(ledger, st["start"]))
+
+
+def open_session(ledger: Path, limit_usd: float = DEMO_SESSION_LIMIT_USD, approval_row: dict | None = None,
+                 now: datetime | None = None) -> dict:
+    """Join the open session, or start one; raise its limit only with an operator approval row (pre_job wrote it)."""
+    now = now or datetime.now(timezone.utc)
+    st = session_state(ledger, now)
+    if st is not None and limit_usd <= st["limit_usd"] + 1e-9:
+        return st
+    if limit_usd > DEMO_SESSION_LIMIT_USD + 1e-9 and approval_row is None:
+        raise ValueError(f"a demo session limit above USD {DEMO_SESSION_LIMIT_USD:.2f} needs an operator approval")
+    ts = now.isoformat()
+    row = {"record": SESSION_RECORD, "event": "start" if st is None else "raise_limit",
+           "session_id": st["session_id"] if st else uuid.uuid4().hex[:12],
+           "session_start_utc": (st["start"] if st else now).isoformat(), "limit_usd": float(limit_usd),
+           "approval_ts_utc": (approval_row or {}).get("ts_utc"), "pid": os.getpid(), "ts_utc": ts, "timestamp": ts}
+    Path(ledger).parent.mkdir(parents=True, exist_ok=True)
+    with Path(ledger).open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(row, sort_keys=True) + "\n")
+    return session_state(ledger, now)
+
+
+class SessionBudgetUsed(RuntimeError):
+    """The shared demo session budget has nothing left."""
+
+
+def demo_pre_job(client, *, job_id: str, estimate_usd: float, estimate_basis: str, approval: str | None = None,
+                 **kw):
+    """The pre-job gate for a live demo path, on the demo ledger (the client's): per-session limit USD 3 with the
+    approval exception, then the Console check. Raises console_gate.ConsoleCheckRefused. Stub/fake clients without
+    stub_mode=False are never gated."""
+    from src.cloud import console_gate as CG  # noqa: PLC0415
+    rep = CG.pre_job(client, job_id=job_id, estimate_usd=estimate_usd, estimate_basis=estimate_basis,
+                     projection_billed_usd=estimate_usd, approval=approval, limit_usd=DEMO_SESSION_LIMIT_USD, **kw)
+    print(CG.format_report(rep), flush=True)
+    return rep
+
+
 def ledger_total(ledger: Path = LEDGER) -> float:
     """Sum of cost_usd over the demo ledger's call rows (alerts excluded), as CloudClient counts it."""
     if not ledger.exists():
@@ -200,13 +310,14 @@ class Escalator:
     """One per server process (= one demo run): at most `max_live_calls` provider requests over its lifetime."""
 
     def __init__(self, task: dict, repo: Path = REPO, ledger: Path = LEDGER, env=None, client_factory=None,
-                 max_live_calls: int = 1):
+                 max_live_calls: int = 1, gate_fn=None):
         self.task = task
         self.repo = Path(repo)
         self.ledger = Path(ledger)
         self.env = os.environ if env is None else env
         self.client_factory = client_factory or _default_client_factory
         self.max_live_calls = max_live_calls
+        self.gate_fn = gate_fn or demo_pre_job
         self.live_calls = 0
         self.last_live = None  # the run's live result, returned again on a later click
         self._lock = threading.Lock()
@@ -270,6 +381,7 @@ class Escalator:
         client = self.client_factory(cap_usd(self.env), self.ledger)
         if getattr(client, "stub_mode", True):
             return self.stub("no real-mode client (no key in this process)")
+        self._gate(client)
         cr = _cloud_redo()
         t = self.task
         src_rows = cr.load_rows(self.repo / SOURCE)
@@ -293,10 +405,25 @@ class Escalator:
             out = {**out, "label": RECORDED, "mode": "recorded redo"}
         return out
 
+    def _gate(self, client) -> dict:
+        """pre_job before the one request (refused -> console_gate.ConsoleCheckRefused, shown as the stub), then the
+        shared session budget: the client's cap is lowered to its billed total plus what the session has left, so the
+        client's own per-call reservation keeps the request inside the session."""
+        rep = self.gate_fn(client, job_id=ESCALATION_JOB_ID, estimate_usd=DEMO_SESSION_LIMIT_USD,
+                           estimate_basis="the demo session limit (one request, bounded by it)")
+        open_session(self.ledger)
+        left = session_remaining(self.ledger)
+        if left <= 0:
+            raise SessionBudgetUsed(f"the demo session budget is used (USD {DEMO_SESSION_LIMIT_USD:.2f} per session "
+                                    "unless the operator approved more)")
+        client.spend_cap_usd = min(float(client.spend_cap_usd), float(getattr(client, "running_total_usd", 0.0)) + left)
+        return rep
+
     def _live(self) -> dict:
         client = self.client_factory(cap_usd(self.env), self.ledger)
         if getattr(client, "stub_mode", True):
             return self.stub("no real-mode client (no key in this process)")
+        self._gate(client)
         cr = _cloud_redo()
         t = self.task
         src_rows = cr.load_rows(self.repo / SOURCE)

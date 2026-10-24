@@ -6,7 +6,9 @@ Fake ledgers, fake job files and fake console files under tmp_path only: no netw
 from __future__ import annotations
 
 import json
+import sys
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import pytest
 
@@ -229,7 +231,18 @@ def _real(ledger, cap=50.0):
                        spend_cap_usd=cap)
 
 
+INTERACTIVE = {"interactive": True, "automation_reasons": [], "stdin_tty": True, "console": True,
+               "window_station_visible": True, "session_id": 1, "parent_chain": ["pwsh.exe", "explorer.exe"],
+               "env_markers": {}}
+
+
+def _typed(job, amount):
+    return f"{job} {amount:.2f}"
+
+
 def _pre(client, console, est, approval=None, **kw):
+    kw.setdefault("context_fn", lambda: dict(INTERACTIVE))
+    kw.setdefault("confirm_fn", _typed)
     return g.pre_job(client, job_id="cloud_redo_test_v1", estimate_usd=est, estimate_basis="test",
                      projection_billed_usd=kw.pop("proj", est), approval=approval, check_path=console, now=NOW,
                      head="abc123", **kw)
@@ -267,6 +280,9 @@ def test_valid_approval_is_recorded_once_before_any_call(tmp_path):
     assert (r["approval_text"], r["approved_usd"], r["job_id"], r["git_head"], r["estimate_usd"]) == \
         (text, 5.0, "cloud_redo_test_v1", "abc123", 4.5)
     assert r["ts_utc"] == NOW.isoformat() and r["source"] == "console_gate" and "cost_usd" not in r
+    ctx = r["launch_context"]                                         # the detected launch context is recorded
+    assert ctx["interactive"] is True and ctx["confirmed_on_console"] is True
+    assert ctx["parent_chain"] == ["pwsh.exe", "explorer.exe"] and ctx["stdin_tty"] is True
     # the approval row is not spend: totals unchanged
     c = CloudClient(mode="stub", ledger_path=ledger)
     assert c.running_total_usd == pytest.approx(6.0) and c.running_total_usd_upper_bound == pytest.approx(42.0)
@@ -339,15 +355,51 @@ def test_main_and_demo_streams_counted_once_whichever_checkout_runs(tmp_path):
                   "cost_usd_upper_bound": 2.0} for i in range(3)]
     _jsonl(main / "results" / "cloud_ledger.jsonl", main_rows)
     _jsonl(wt / "results" / "cloud_ledger.jsonl", main_rows[:2])         # a stale committed copy: adds nothing
-    _jsonl(wt / "demo" / "ledger" / "cloud_ledger_demo.jsonl",
-           [{"timestamp": _iso(t + timedelta(minutes=5)), "model_id": MODEL, "cost_usd": 0.25,
-             "cost_usd_upper_bound": 0.5}])
+    demo_row = {"timestamp": _iso(t + timedelta(minutes=5)), "model_id": MODEL, "cost_usd": 0.25,
+                "cost_usd_upper_bound": 0.5}
+    _jsonl(main / "demo" / "ledger" / "cloud_ledger_demo.jsonl", [demo_row])   # canonical: the main checkout
+    _jsonl(wt / "demo" / "ledger" / "cloud_ledger_demo.jsonl", [demo_row])     # an old copy: adds nothing
     for ledger in (main / "results" / "cloud_ledger.jsonl", wt / "results" / "cloud_ledger.jsonl",
                    wt / "demo" / "ledger" / "cloud_ledger_demo.jsonl"):
         side = g.console_side_spend(ledger)
-        assert side["billed_usd"] == pytest.approx(3.25), ledger
+        assert side["problems"] == [] and side["billed_usd"] == pytest.approx(3.25), ledger
         assert side["streams"]["main"]["ledger_calls"] == 3 and side["streams"]["demo"]["ledger_calls"] == 1
     assert g.main_checkout(wt) == main.resolve()
+    assert g.canonical_demo_ledger(wt) == (main / "demo" / "ledger" / "cloud_ledger_demo.jsonl").resolve()
+
+
+def _two_checkouts(tmp_path):
+    main, wt = tmp_path / "main", tmp_path / "wt"
+    common = main / ".git"
+    (common / "worktrees" / "wt").mkdir(parents=True)
+    _fake_checkout(wt, gitfile_to=common / "worktrees" / "wt")
+    (common / "worktrees" / "wt" / "commondir").write_text("../..\n", encoding="utf-8")
+    (common / "worktrees" / "wt" / "gitdir").write_text(str(wt / ".git") + "\n", encoding="utf-8")
+    _jsonl(main / "results" / "cloud_ledger.jsonl",
+           [{"timestamp": _iso(T0), "model_id": MODEL, "cost_usd": 6.0, "cost_usd_upper_bound": 42.0}])
+    return main, wt
+
+
+def test_demo_spend_outside_the_canonical_ledger_is_refused(tmp_path):
+    main, wt = _two_checkouts(tmp_path)
+    _jsonl(wt / "demo" / "ledger" / "cloud_ledger_demo.jsonl",            # only in a worktree: canonical missing
+           [{"timestamp": _iso(T0 + timedelta(minutes=1)), "model_id": MODEL, "cost_usd": 1.0}])
+    console = _console(tmp_path / "c.json", 7.0)
+    with pytest.raises(g.ConsoleCheckRefused) as e:
+        _check(main / "results" / "cloud_ledger.jsonl", console)
+    m = str(e.value)
+    assert "not in the canonical demo ledger" in m and "expected but missing" in m
+    _jsonl(main / "demo" / "ledger" / "cloud_ledger_demo.jsonl", [])     # canonical exists but lacks the row
+    with pytest.raises(g.ConsoleCheckRefused, match="not in the canonical demo ledger"):
+        _check(main / "results" / "cloud_ledger.jsonl", console)
+
+
+def test_demo_ledger_expected_but_missing_is_refused(tmp_path):
+    main, _wt = _two_checkouts(tmp_path)
+    console = _console(tmp_path / "c.json", 6.0, demo_ledger_expected=True)
+    with pytest.raises(g.ConsoleCheckRefused, match="expected but missing"):
+        _check(main / "results" / "cloud_ledger.jsonl", console)
+    assert _check(main / "results" / "cloud_ledger.jsonl", _console(tmp_path / "d.json", 6.0))["gated"]
 
 
 def test_demo_ledger_cap_and_session_limit(tmp_path):
@@ -367,5 +419,202 @@ def test_demo_ledger_cap_and_session_limit(tmp_path):
     with pytest.raises(g.JobApprovalRefused, match="USD 3.00 per-job limit"):
         g.pre_job(c, estimate_usd=4.0, projection_billed_usd=4.0, **kw)
     rep = g.pre_job(c, estimate_usd=4.0, projection_billed_usd=4.0,
-                    approval="approve demo_live_session up to USD 4.00: rehearsal", **kw)
+                    approval="approve demo_live_session up to USD 4.00: rehearsal",
+                    context_fn=lambda: dict(INTERACTIVE), confirm_fn=_typed, **kw)
     assert rep["approval"]["approved_usd"] == 4.0 and _approvals(demo)[0]["job_id"] == "demo_live_session"
+
+
+# -- (a) the approval cannot ride automation -----------------------------------------------------------------------
+
+class _Stdin:
+    def __init__(self, tty):
+        self.tty = tty
+
+    def isatty(self):
+        return self.tty
+
+
+def _ctx(monkeypatch, env=None, tty=True, chain=("pwsh.exe", "WindowsTerminal.exe", "explorer.exe"), console=True,
+         visible=True, session=1):
+    monkeypatch.setattr(g, "_parent_chain", lambda: list(chain))
+    monkeypatch.setattr(g, "_win_interactive_state",
+                        lambda: {"console": console, "window_station_visible": visible, "session_id": session})
+    monkeypatch.setattr(g.os, "name", "nt")
+    return g.launch_context(env=env or {}, stdin=_Stdin(tty))
+
+
+def test_launch_context_interactive_terminal(monkeypatch):
+    ctx = _ctx(monkeypatch)
+    assert ctx["interactive"] is True and ctx["automation_reasons"] == []
+
+
+@pytest.mark.parametrize("kw,reason", [
+    ({"env": {"APU_QUEUE_JOB_ID": "x2_outcome_table_v2"}}, "queue runner"),            # t2s / x2 queue, watchdog
+    ({"env": {"APU_BLADE_QUEUE_JOB": "night4"}}, "queue runner"),                     # Blade queue
+    ({"env": {"APU_AUTOMATION": "1"}}, "queue runner"),
+    ({"tty": False}, "stdin is not a terminal"),
+    ({"chain": ("python.exe", "taskhostw.exe", "svchost.exe")}, "scheduler, service host"),   # Task Scheduler
+    ({"chain": ("pythonw.exe", "svchost.exe")}, "scheduler, service host"),         # APU-SyncResults (pythonw)
+    ({"chain": ("taskeng.exe", "svchost.exe")}, "scheduler, service host"),
+    ({"chain": ("bash.exe", "claude.exe", "Code.exe", "explorer.exe")}, "AI agent session"),
+    ({"console": False}, "no console attached"),
+    ({"visible": False}, "non-interactive window station"),
+    ({"session": 0}, "session 0"),
+])
+def test_launch_context_flags_each_automation_context(monkeypatch, kw, reason):
+    ctx = _ctx(monkeypatch, **kw)
+    assert ctx["interactive"] is False and any(reason in r for r in ctx["automation_reasons"]), ctx
+
+
+def test_launch_context_detection_error_counts_as_automated(monkeypatch):
+    monkeypatch.setattr(g, "_parent_chain", lambda: (_ for _ in ()).throw(OSError("snapshot failed")))
+    monkeypatch.setattr(g, "_win_interactive_state", lambda: (_ for _ in ()).throw(OSError("no user32")))
+    monkeypatch.setattr(g.os, "name", "nt")
+    ctx = g.launch_context(env={}, stdin=_Stdin(True))
+    assert ctx["interactive"] is False and len(ctx["automation_reasons"]) == 2
+
+
+@pytest.mark.parametrize("auto", [
+    {"automation_reasons": ["launched by a queue runner or other automation (APU_QUEUE_JOB_ID set)"]},
+    {"automation_reasons": ["an ancestor process is a scheduler, service host or windowless Python (svchost.exe)"]},
+    {"automation_reasons": ["stdin is not a terminal"]},
+    {"automation_reasons": ["launched from inside an AI agent session (claude.exe)"]},
+])
+def test_approval_refused_in_every_automation_context_and_nothing_written(tmp_path, auto):
+    ledger = _old_repo(tmp_path)
+    before = ledger.read_text(encoding="utf-8")
+    confirm_calls = []
+    with pytest.raises(g.JobApprovalRefused, match="looks automated") as e:
+        _pre(_real(ledger), _console(tmp_path / "a.json", 6.0), 4.5,
+             approval="approve cloud_redo_test_v1 up to USD 5.00",
+             context_fn=lambda: dict(INTERACTIVE, interactive=False, **auto),
+             confirm_fn=lambda *a: confirm_calls.append(a) or "x")
+    assert auto["automation_reasons"][0] in str(e.value) and "Nothing was sent" in str(e.value)
+    assert ledger.read_text(encoding="utf-8") == before and confirm_calls == []
+
+
+def test_approval_needs_the_console_confirmation(tmp_path):
+    ledger = _old_repo(tmp_path)
+    text = "approve cloud_redo_test_v1 up to USD 5.00"
+    with pytest.raises(g.JobApprovalRefused, match="did not match"):
+        _pre(_real(ledger), _console(tmp_path / "a.json", 6.0), 4.5, approval=text,
+             confirm_fn=lambda job, amt: "yes")
+    with pytest.raises(g.JobApprovalRefused, match="could not be confirmed on the console"):
+        _pre(_real(ledger), _console(tmp_path / "a.json", 6.0), 4.5, approval=text,
+             confirm_fn=lambda job, amt: (_ for _ in ()).throw(OSError("CONIN$ unavailable")))
+    assert _approvals(ledger) == []
+
+
+def test_console_confirm_reads_the_console_device_not_stdin(monkeypatch):
+    opened = []
+
+    class _F:
+        def __init__(self, name):
+            self.name = name
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def write(self, s):
+            pass
+
+        def flush(self):
+            pass
+
+        def readline(self):
+            return "job_x 5.00\n"
+
+    monkeypatch.setattr(g.os, "name", "nt")
+    monkeypatch.setattr("builtins.open", lambda name, *a, **k: opened.append(name) or _F(name))
+    monkeypatch.setattr(g.sys, "stdin", None)
+    assert g.console_confirm("job_x", 5.0) == "job_x 5.00" and opened == ["CONOUT$", "CONIN$"]
+
+
+def test_a_forged_confirmed_approval_is_refused(tmp_path):
+    ledger = _old_repo(tmp_path)
+    fake = g.ConfirmedApproval({"approval_text": "approve cloud_redo_test_v1 up to USD 5.00", "approved_usd": 5.0,
+                                "job_id": "cloud_redo_test_v1"}, dict(INTERACTIVE))
+    with pytest.raises(g.JobApprovalRefused, match="not genuine"):
+        _pre(_real(ledger), _console(tmp_path / "a.json", 6.0), 4.5, confirmed=fake)
+    assert _approvals(ledger) == []
+
+
+def test_blade_queue_launcher_sets_the_marker(tmp_path):
+    sys.path.insert(0, str(g.REPO / "harness"))
+    import blade_queue as bq
+    seen = {}
+
+    class _P:
+        def wait(self):
+            return 0
+
+    def popen(argv, **kw):
+        seen.update(kw)
+        return _P()
+
+    bq.run_job_subprocess({"id": "night_job", "argv": ["-c", "pass"]}, tmp_path / "log.txt", popen=popen)
+    assert seen["env"]["APU_BLADE_QUEUE_JOB"] == "night_job"
+
+
+def test_t2s_queue_launcher_sets_the_marker():
+    sys.path.insert(0, str(g.REPO / "harness"))
+    import t2s_queue as tq
+    assert tq.JOB_ID_ENV_VAR == "APU_QUEUE_JOB_ID" and "APU_QUEUE_JOB_ID" in g.QUEUE_ENV_MARKERS
+
+
+# -- (b) fail closed ------------------------------------------------------------------------------------------------
+
+def test_exception_inside_the_gate_refuses(tmp_path, monkeypatch):
+    ledger = _old_repo(tmp_path)
+    c = _real(ledger)
+    monkeypatch.setattr(g, "console_side_spend", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
+    with pytest.raises(g.ConsoleCheckRefused, match="could not complete .RuntimeError: boom"):
+        _pre(c, _console(tmp_path / "a.json", 6.0), 1.0)
+
+
+def test_unreadable_ledger_refuses_but_client_cap_falls_back(tmp_path, monkeypatch):
+    ledger = _old_repo(tmp_path)
+    monkeypatch.setattr(g, "ledger_spend", lambda *a, **k: (_ for _ in ()).throw(PermissionError("denied")))
+    c = _real(ledger)                                               # the cap total falls back (conservative) ...
+    assert c.cap_basis == "per_row_old_rows_at_upper_bound" and c.running_total_usd == pytest.approx(42.0)
+    with pytest.raises(g.ConsoleCheckRefused, match="PermissionError"):   # ... but the Console check still refuses
+        _pre(c, _console(tmp_path / "a.json", 6.0), 1.0)
+
+
+def test_permission_denied_console_file_refuses(tmp_path, monkeypatch):
+    ledger = _old_repo(tmp_path)
+    console = _console(tmp_path / "a.json", 6.0)
+    real_read = Path.read_text
+
+    def read_text(self, *a, **k):
+        if self == console:
+            raise PermissionError(13, "Permission denied")
+        return real_read(self, *a, **k)
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+    with pytest.raises(g.ConsoleCheckRefused, match="cannot be read .PermissionError"):
+        _pre(_real(ledger), console, 1.0)
+
+
+def test_future_dated_and_malformed_readings_refuse(tmp_path):
+    ledger = _old_repo(tmp_path)
+    with pytest.raises(g.ConsoleCheckRefused, match="in the future"):
+        _pre(_real(ledger), _console(tmp_path / "f.json", 6.0, read_at=NOW + timedelta(hours=2)), 1.0)
+    bad = tmp_path / "m.json"
+    bad.write_text(json.dumps({"console_total_usd": "six", "read_at_utc": "2026-10-23T11:00:00Z",
+                               "range_start_utc": "2026-10-22", "range_end_utc": "2026-10-23", "read_by": "x"}))
+    with pytest.raises(g.ConsoleCheckRefused, match="not valid"):
+        _pre(_real(ledger), bad, 1.0)
+    bad.write_text(json.dumps({"console_total_usd": 6.0, "read_at_utc": "2026-10-23T11:00:00",   # no UTC offset
+                               "range_start_utc": "2026-10-22", "range_end_utc": "2026-10-23", "read_by": "x"}))
+    with pytest.raises(g.ConsoleCheckRefused, match="UTC offset"):
+        _pre(_real(ledger), bad, 1.0)
+
+
+def test_a_client_that_is_not_explicitly_real_is_never_treated_as_gated_pass(tmp_path):
+    """Only stub_mode False is gated; a stub returns not-gated (and a stub sends nothing)."""
+    c = CloudClient(mode="stub", ledger_path=_old_repo(tmp_path))
+    assert _pre(c, tmp_path / "missing.json", 9.0)["gated"] is False

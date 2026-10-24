@@ -214,8 +214,11 @@ def run_job_subprocess(job: dict, log_path: Path, python=None, popen=None) -> in
         from proc_util import popen_hidden as popen
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with open(log_path, "ab") as fh:
+        # APU_BLADE_QUEUE_JOB marks the job as queue-launched: src/cloud/console_gate.py refuses an operator approval
+        # flag in any process that carries it (operator 2026-10-24)
+        env = {**os.environ, "APU_BLADE_QUEUE_JOB": str(job.get("id") or job.get("name") or "blade_job")}
         p = popen([python or sys.executable, *job["argv"]], cwd=str(bc.REPO), stdout=fh, stderr=subprocess.STDOUT,
-                  stdin=subprocess.DEVNULL)
+                  stdin=subprocess.DEVNULL, env=env)
         return p.wait()
 
 

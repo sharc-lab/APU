@@ -610,6 +610,8 @@ def test_live_run_with_approval_still_needs_the_console_check(tmp_path, monkeypa
         raise AssertionError("must not be sent")
 
     monkeypatch.setattr(CR.console_gate, "default_check_path", lambda: tmp_path / "missing_console.json")
+    monkeypatch.setattr(CR.console_gate, "launch_context",
+                        lambda: {"interactive": True, "automation_reasons": [], "parent_chain": ["pwsh.exe"]})
     with pytest.raises(SystemExit, match=r"refused \(console check\)"):
         CR.run(True, out=tmp_path / "redo_gate_test.jsonl", limit=2, client=_client(tmp_path, fake),
                thinking_off=True, job_cap=10.0, ledger_total_at_start=0.0, pre_job_gate=True,
@@ -641,3 +643,17 @@ def test_main_passes_the_approval_flag_only_from_its_command_line(monkeypatch, t
     assert CR.main(["--live", "--thinking-off", "--job-cap", "5", "--ledger", str(led), "--out",
                     str(tmp_path / "o.jsonl"), "--operator-approval", "approve o up to USD 5.00"]) == 0
     assert got["operator_approval"] == "approve o up to USD 5.00"
+
+
+def test_live_run_approval_from_automation_is_refused(tmp_path, monkeypatch):
+    """A queued job whose command line carries --operator-approval: refused before the Console check, nothing sent."""
+    def fake(**kw):
+        raise AssertionError("must not be sent")
+
+    monkeypatch.setenv("APU_QUEUE_JOB_ID", "x2_some_queued_job")
+    with pytest.raises(SystemExit, match="looks automated: .*APU_QUEUE_JOB_ID") as e:
+        CR.run(True, out=tmp_path / "redo_gate_test.jsonl", limit=2, client=_client(tmp_path, fake),
+               thinking_off=True, job_cap=10.0, ledger_total_at_start=0.0, pre_job_gate=True,
+               operator_approval="approve redo_gate_test up to USD 10.00: test")
+    assert "Nothing was sent" in str(e.value)
+    assert not (tmp_path / "ledger.jsonl").exists() and not (tmp_path / "redo_gate_test.jsonl").exists()

@@ -452,6 +452,19 @@ Every report states status against these three checkpoints.
     still work.
   - Demo lane: branch demo/oct28-cap-gate (from demo/oct28) gates the lane on its own ledger, USD 10 cap, USD 3 per
     session, with the same approval exception.
+- Operator conditions for approval 2026-10-24, verbatim: "approve if (a) the approval flag cannot be used by a
+  scheduled or queued job unless I added it, (b) an unreachable Console means refuse, not skip, and (c) a test proves
+  the over-USD-2 refusal without the flag."
+  - (a) An approval is refused in any automated launch (queue markers APU_QUEUE_JOB_ID / APU_BLADE_QUEUE_JOB /
+    APU_AUTOMATION, stdin not a terminal, no console, non-interactive window station or session 0, a scheduler,
+    service host, windowless Python or Claude Code ancestor) and must also be typed as "<job id> <amount>" on the
+    console device (CONIN$), never stdin. The detected launch context is in the operator_approval ledger row.
+  - (b) Every failure inside the pre-job gate is a refusal.
+  - (c) Over-limit refusal tests exist for cloud_redo, all_cloud_b3, longtask_cloud and the demo session limit.
+  - Demo: one session budget shared by the live screen and the dashboard through demo_session rows in the demo ledger;
+    the demo ledger is canonical in the main checkout (demo/ledger/cloud_ledger_demo.jsonl there), and the Console
+    check refuses while demo spend exists only in another checkout (one such file exists today, in worktree
+    agent-a9595a5e91d9ad0a7; the operator decides whether to append it to the canonical file).
 
 ### 2026-10-23, API key removed from evo-x2
 

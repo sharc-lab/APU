@@ -116,6 +116,13 @@ def main(argv=None) -> int:
     ap.add_argument("--picks", default=str(RN.PICKS))
     ap.add_argument("--idle-speedup", type=float, default=1.0,
                     help="replay only: play stretches where nothing changes at this speed, labelled on screen")
+    ap.add_argument("--session-limit", type=float, default=3.0,
+                    help="live cloud spend limit for this session in USD (default 3; above 3 needs "
+                         "--operator-approval)")
+    ap.add_argument("--operator-approval", default=None,
+                    help="operator only: approve this session above USD 3, e.g. "
+                         "'approve demo_live_session up to USD <n>: <reason>'; written to the demo ledger before the "
+                         "first live call; never raises the USD 10 cap or skips the Console check")
     a = ap.parse_args(argv)
     cloud, factory = None, None
     if a.mode == "replay":
@@ -123,7 +130,7 @@ def main(argv=None) -> int:
             ap.error("--replay <run file> is required in replay mode")
     else:
         from demo.live import cloud_lane
-        cloud = cloud_lane.CloudLane()
+        cloud = cloud_lane.CloudLane(session_limit=a.session_limit, operator_approval=a.operator_approval)
         argv_agent = RN.x2_agent_argv() if a.mode == "live" else RN.laptop_agent_argv(a.laptop_model)
         factory = lambda on_line: RN.Agent(argv_agent, on_line=on_line)  # noqa: E731
     app = App(a.mode, a.replay, factory, cloud, a.picks, a.idle_speedup)
