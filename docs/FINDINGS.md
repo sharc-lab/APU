@@ -6105,3 +6105,43 @@ over-window signal, the 3 unflagged wrong tasks at 8192 would leave damage the c
 stand-in transcript for earlier wrong turns is synthetic. (3) The other escalated tasks are graded from the
 full-history redo (pre-task state, earlier damage in place), so the table mixes the two protocols; the counts are in
 the row.
+
+## PRE-REGISTRATION (2026-10-23): own-profiler-probe and own-dse-v1 trivial cells (pointer)
+
+Full entry in docs/EXPERIMENTS.md, "2026-10-23: own-profiler-probe (measured probe) and own-dse-v1 trivial cells",
+committed before the probe job runs and before any Part B count was computed. In short: own-profiler-probe replaces
+the ratio prediction with a measured probe on evo-x2 (job x2_own_profiler_probe_v1): qwen3:14b, B3 v2 tasks, seed
+20260901, at most 600 s of session per config (per config, not for the sweep), six window x KV configs (f16 at the
+default window, 16384, 8192, 4096; q8_0 at 15360; q4_0 at 28928), recording seconds per task, task grade, the window
+loaded, the llama_kv_cache line and detector v2 (Ollama's own cut-off lines). Reference: the full B3 v2 runs (f16,
+held-out seeds 20260902-05) and the queued own-config-search probes (q8_0, q4_0, held-out seeds 20260902-03). Target
+unchanged: seconds per task median APE < 10%; overflow agreement reported for the configs whose reference has detector
+v2. own-profiler-loo stays as the recorded miss. own-dse-v1: a cell is TRIVIAL if at most one candidate is eligible,
+or if the brute-force best takes no probe input and every local candidate's cost floor (one machine's hardware plus its
+predicted cloud spend) is above it by more than 10%; trivial cells are not counted as validation. Rows
+own-profiler-probe, own-profiler-probe-hours, own-dse-v1.
+
+## RESULT (2026-10-23): own-dse-v1 per-cell explanation; 2 of 3 computed cells are TRIVIAL
+
+Computed after the pre-registration above was committed (67384a7), with the amendment in the same EXPERIMENTS entry
+(the first implementation's reading of "uses a local machine", stated there). Numbers are from row own-dse-v1 in
+docs/NUMBERS_REGISTER.md.
+
+| cell | candidates | eligible (measured accuracy >= 0.90, cloud <= USD 500/month) | eligible using a local machine | label |
+|---|---|---|---|---|
+| short, 100/day | 11 | 6 | 2 | TRIVIAL: "every local candidate's cost floor (lowest USD 55.56/month) is more than 10% above" the best (USD 2.01) |
+| short, 1,000/day | 11 | 6 | 2 | TRIVIAL: same floor, best USD 20.12 |
+| short, 10,000/day | 11 | 3 | 1 | NON-TRIVIAL: "lowest local cost floor USD 55.56/month is not more than 10% above the best's measured USD 201.25, so a probe input could change the pick" |
+| long and mixed, 100 / 1,000 / 10,000/day | n/a | n/a | n/a | PENDING: "row long-task-local-accuracy not VERIFIED" |
+
+**What changes.** The earlier "MET (3/3 computed cells, 6 PENDING)" counted trivial cells: at 100 and 1,000 tasks/day
+no probe input could have made the DSE rank a local configuration first, because one evo-x2 alone (USD 2,000 / 36
+months) costs more than 10% above all-cloud claude-haiku-5-5. Those two cells validate the cost model and the ranking
+code, not the probe-driven choice. The row now reads "pre-registered target within 10% in every non-trivial computed
+cell: MET (1/1 non-trivial cells; 2 TRIVIAL computed cells not counted; 6 PENDING)". The one non-trivial cell, 10,000
+tasks/day, has DSE pick = brute-force best = all-cloud claude-haiku-5-5 ("gap 0.0% -> within 10%"); it is one cell,
+so the probe-driven DSE choice is tested once, not established.
+
+**Disclosed reading change.** Under the first implementation's hardware-label reading all three computed cells are
+NON-TRIVIAL (shown per cell in the row, not counted): the two num_ctx 4096 hybrids route every task to the cloud, use no
+machine, and tie all-cloud haiku on cost. The pre-registered wording ("uses a local machine") decides the labels.

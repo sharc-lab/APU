@@ -34,6 +34,8 @@ L70_HOURS = {"val": 1.76, "val_high": 2.07, "real": 0.97, "real_high": 1.25}
 LT_HOURS = {"point": 9.63, "high": 16.92}
 # register row own-jobs-hours (ESTIMATE; harness/own_compaction.py::hours_estimate), (point, high)
 OC_HOURS = {"part_a": (1.04, 3.07), "part_b": (1.89, 2.08), "probe": (0.27, 0.66)}
+# register row own-profiler-probe-hours (ESTIMATE; harness/x2_own_profiler_probe.py::hours_estimate), (point, high)
+OP_HOURS = (0.78, 1.38)
 _OC_COMMON = ["--design", "v2", "--mode", "real", "--workload", "evalset", "--guardrails", "off", "--models",
               "qwen3:14b", "--preflight", "v2_te_deviation", "--rules-from", f"{RESULTS}\\x2_evalset_tasks_val_v2.jsonl"]
 
@@ -222,6 +224,17 @@ ENTRIES = {
                 "with KV q4_0 at num_ctx 28928, seeds 20260901-03; records the server's llama_kv_cache size line. "
                 f"ESTIMATE {OC_HOURS['probe'][0]:.2f} h (high {OC_HOURS['probe'][1]:.2f} h; register row "
                 "own-jobs-hours). " + RELEASE,
+    },
+    # ── own-profiler-probe (2026-10-23; docs/EXPERIMENTS.md "own-profiler-probe"; hours: register row
+    # own-profiler-probe-hours; side directory ownprobe; appended after x2_own_config_probe_q4_28928) ──
+    "x2_own_profiler_probe_v1": {
+        "projected_duration_h": OP_HOURS[0],
+        "cmd": [PY, "ownprobe\\x2_own_profiler_probe.py", "--out", f"{RESULTS}\\x2_own_profiler_probe_v1.jsonl"],
+        "note": "own-profiler-probe, pre-registered in docs/EXPERIMENTS.md 2026-10-23: measured probe of qwen3:14b on "
+                "B3 v2 tasks, seed 20260901, at most 600 s of session per config, six window x KV configs in turn (f16 "
+                "default/16384/8192/4096, q8_0 15360, q4_0 28928), each with the job's own debug server, detector v2 "
+                "and the llama_kv_cache line; per-config files x2_own_profiler_probe_v1_<tier>.jsonl. ESTIMATE "
+                f"{OP_HOURS[0]:.2f} h (high {OP_HOURS[1]:.2f} h; register row own-profiler-probe-hours). " + RELEASE,
     },
 }
 

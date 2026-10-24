@@ -968,3 +968,136 @@ the earlier local damage they repaired.
 - The stand-in transcript is synthetic for the earlier wrong turns.
 - Deviations from protocol: none yet. If the launch is blocked by the permission system, it is not run another way;
   the exact command goes to the operator.
+
+## 2026-10-23: own-profiler-probe (measured probe) and own-dse-v1 trivial cells (PRE-REGISTRATION, written before the probe job runs and before any Part B count is computed)
+
+Operator items 3 and 4 of 2026-10-23, verbatim: "3. Profiler: replace prediction with a measured probe: an automated
+<= 10-minute run of the candidate configs (window x KV) on the target device, recording seconds/task and the overflow
+log line. Re-register as own-profiler-probe; keep own-profiler-loo as the recorded miss. 4. own-dse-v1: explain 'met
+trivially' per cell (how many eligible configs each had) and don't count trivial cells as validation."
+
+The entry "2026-10-23: own-profiler ... and own-dse-v1" above and its RESULT are not edited. Row own-profiler-loo
+stays as it is (the recorded miss, seconds per task median APE 70.2% against < 10%). Pointer in docs/FINDINGS.md:
+"PRE-REGISTRATION (2026-10-23): own-profiler-probe and own-dse-v1 trivial cells (pointer)".
+
+### Metadata
+
+- Date: 2026-10-23
+- Git hash: written on top of bbcef74 (main at the time); code in the commits after this entry on the same branch
+- Branch: worktree-agent-ab2c2400491451111
+- Machine: probe job on evo-x2 (not deployed or queued by this work); Part B offline on the controller laptop
+
+### Part A: own-profiler-probe (rows own-profiler-probe and own-profiler-probe-hours)
+
+**What "prediction" means now.** No ratio and no model of the full run: the probe's MEASURED seconds per task, task
+accuracy and overflow rate on the target device stand in for the full run's. The probe is a real job, not a simulated
+prefix of a committed run.
+
+**Probe job `x2_own_profiler_probe_v1`** (harness/x2_own_profiler_probe.py, side directory `C:\apu\ovn\ownprobe`, one
+queue entry): qwen3:14b on the B3 v2 task session (design v2, 30 task turns, guardrails off), seed 20260901 only (the
+probe seed of own-profiler-loo), one config after another in the order below. Each config is one call of
+`x2_r2_evalset.py --plan own_profiler_probe_v1 --tiers <tier>` (advance=False) with the job's own Ollama server
+(stopped and restarted per config so the KV env takes effect; refuses if the Ollama tray app runs), OLLAMA_DEBUG=1 and
+its own log file, the server env below, the B3 v2 validation preflight with the declared task end-state deviation
+(as own_config_probe_v1), and run_start/run_end in each config's own file. The driver writes its own run_start, one
+probe_config record per config and run_end, then calls tq.advance() once on exit; it sets no pause.
+
+| # | config (tier) | KV | window requested | server env beyond OLLAMA_DEBUG=1 | reference (full run, held-out seeds) |
+|---|---|---|---|---|---|
+| 1 | ollama_default | f16 | Ollama default (40960 on evo-x2) | none (as B3 v2) | x2_evalset_tasks_real_v2, seeds 20260902-05 |
+| 2 | ollama_ctx_16384 | f16 | 16384 | none | x2_evalset_tasks_real_v2, seeds 20260902-05 |
+| 3 | ollama_ctx_8192 | f16 | 8192 | none | x2_evalset_tasks_real_v2, seeds 20260902-05 |
+| 4 | ollama_ctx_4096 | f16 | 4096 | none | x2_evalset_tasks_real_v2, seeds 20260902-05 |
+| 5 | ollama_ctx_15360 | q8_0 | 15360 | OLLAMA_KV_CACHE_TYPE=q8_0, OLLAMA_FLASH_ATTENTION=1 | x2_own_config_probe_q8_15360 (queued, pos 90), seeds 20260902-03 |
+| 6 | ollama_ctx_28928 | q4_0 | 28928 | OLLAMA_KV_CACHE_TYPE=q4_0, OLLAMA_FLASH_ATTENTION=1 | x2_own_config_probe_q4_28928 (queued, pos 91), seeds 20260902-03 |
+
+- Candidates: the evo-x2 window x KV configs that own-config-search and own-dse-v1 rank. Left out, stated: the DSE's
+  ollama_ctx_4096_numkeep (num_keep is a request option, not a window x KV config, and the probe's context-policy
+  wrapper does not forward the num_keep session hook, so it would silently run as plain 4096); evo-t2s profiles (no
+  SSH to evo-t2s from this work; the B3 v2 evo-t2s runs are staged for its window).
+- **Time budget: 10 minutes PER CONFIG, not for the whole sweep.** Reason: own-profiler-loo's probe was 600 s per
+  configuration, so a per-config budget is the like-for-like replacement. B3 v2 turns take roughly 10 to 25 s on
+  evo-x2, so 600 s covers most or all of one 30-turn session; a 600 s budget for all six configs (100 s each, model
+  load inside the first turn) would leave a few turns per config, dominated by the load.
+- Stop rule per config: turns run in session order; before each turn after the first, the session stops if the
+  cumulative turn_wall_s so far plus the previous turn's wall clock would exceed 600 s (it never starts a turn it
+  expects to end after 600 s). Scored probe = the longest turn prefix whose cumulative turn_wall_s is <= 600 s
+  (own_profiler.probe_prefix); a turn that runs past 600 s is recorded but not scored. The first turn includes the
+  model load (the model is unloaded before the session), as in the reference sessions. A session stopped by the
+  budget writes a probe_session record and no r2a_session record, so it is never read as a complete session.
+- Per config, recorded: per task turn turn_wall_s, end_state_ok (task grade), loaded_context (the window actually
+  loaded, from /api/ps), the calibrated final-call prompt tokens, and the detector-v2 verdict of every call from the
+  config's own server-log slice (harness/own_compaction.py CutLogRuntime: message drop, token cut, context shift,
+  exceeds-context); per config the server's llama_kv_cache size line(s) (record kv_cache_log).
+- Validity (fixed now): a config's probe counts only if its file has run_end, at least one task turn is in the scored
+  prefix, every scored turn's loaded_context equals the requested window (40960 for ollama_default), and the KV line
+  shows `K (<type>)` of the requested type. A config without a valid probe is a miss (APE infinity, as in
+  own-profiler-loo), listed with the reason.
+
+**Reference (what the probe is compared with).** Per config: mean turn_wall_s and accuracy (end_state_ok) over every
+task turn of every completed session (r2a_session present, latest attempt per seed) of the reference file whose seed
+is not 20260901; overflow = share of those task turns flagged by detector v2 (cut_v2_flagged).
+- f16 configs 1 to 4: a reference exists (B3 v2, seeds 20260902-05, 120 task turns each) for seconds and accuracy.
+  It has NO detector-v2 signal (B3 v2 ran without OLLAMA_DEBUG); its only overflow field is over_loaded_window (the
+  projection compare, detector v1), reported next to the probe's detector-v2 rate as a secondary line and NOT counted
+  in the overflow agreement.
+- q8_0 at 15360 and q4_0 at 28928: no reference exists today. The reference is the own-config-search probes already
+  queued (positions 90 and 91, ahead of this job): `--plan own_config_probe_v1`, seeds 20260901-03, detector v2 on
+  every call; their held-out seeds 20260902-03 give up to 60 task turns each with seconds, accuracy and detector-v2
+  overflow. If a reference file has no run_end when the row is computed, that config is listed "no reference
+  (reference job did not finish)" and not scored.
+- Known differences, stated: the probe server runs with OLLAMA_DEBUG=1, the f16 reference did not; the probe is one
+  seed's first turns, the reference is four (or two) other seeds' full sessions.
+
+**Metrics and target (fixed now).**
+- Primary: median over the scored configs (probe and reference both present; a config with a reference but no valid
+  probe counts as infinity) of |probe seconds per task - reference seconds per task| / reference x 100. Target: < 10%
+  (own-profiler-loo's seconds target, unchanged). MET or MISSED.
+- Overflow agreement: for each config whose reference has detector v2 (configs 5 and 6), the probe and the reference
+  agree if both have at least one flagged task turn or both have none. Reported k/n with both rates; not part of the
+  seconds verdict. f16 configs: the probe's detector-v2 rate next to the reference's over_loaded_window rate, not
+  counted.
+- Secondary: accuracy median APE over the same configs, shown against the same 10% threshold, not part of the verdict.
+- Row own-profiler-probe is PENDING until results/x2_own_profiler_probe_v1.jsonl has run_end. Row
+  own-profiler-probe-hours is an ESTIMATE (harness/x2_own_profiler_probe.py::hours_estimate from B3 v2 turn_wall_s),
+  with a queue projection after position 91.
+
+### Part B: own-dse-v1 trivial cells (row own-dse-v1)
+
+**Per cell, reported:** the number of candidates, the number eligible on measured values (measured accuracy >= 0.90
+and measured cloud spend <= USD 500/month at that volume), and how many eligible candidates use a local machine.
+
+**Definition (fixed now, before any count is computed).** A computed (workload, volume) cell is TRIVIAL if either:
+1. at most one candidate is eligible on measured values (nothing to choose between); or
+2. the brute-force best (cheapest eligible on measured values) takes no probe input (its predicted quality, seconds
+   and cost equal its measured ones: the all-cloud candidates), and every candidate that uses a local machine has a
+   cost floor above that best's measured total by more than the 10% tolerance (floor = one machine's hardware, USD
+   2,000 / 36 months, plus its predicted cloud USD/month, which comes from the task-definition projection and the
+   all-cloud rows, not from the probe; electricity counted as 0). Then no probe input can make the DSE rank a local
+   candidate first, so the cell does not test the probe-driven choice.
+
+A computed cell that is not trivial is NON-TRIVIAL. PENDING cells are neither.
+
+**Row change.** Trivial cells are labelled TRIVIAL in row own-dse-v1 with their counts and are not counted as
+validation. The target (within 10% of the brute-force best) is evaluated on non-trivial computed cells only; with none,
+the row says "validation: 0 non-trivial cells, target not tested". The earlier "MET (3/3 computed cells, 6 PENDING)"
+counted cells that may be trivial under this definition; FINDINGS says so after the row is recomputed (history is not
+rewritten).
+
+### Validity Flags
+
+- No SSH and no cloud call in this work. Deploy, verify, --check-plan and the queue append are handed to the operator.
+- Deviations from protocol: none yet.
+
+### Amendment (2026-10-23, after the Part B counts were first computed; the entry above is not edited)
+
+The first implementation of Part B's rule 2 treated "a candidate that uses a local machine" as any candidate whose
+hardware is not "none". That counts the two per-task hybrids at num_ctx 4096, which route every task to the cloud
+(predicted and measured local share 0, so 0 machines and no probe input), as local candidates; their cost floor is
+then their cloud spend alone, equal to all-cloud claude-haiku-5-5's, and the 100 and 1,000 tasks/day cells came out
+NON-TRIVIAL for that reason only. The pre-registered wording is "uses a local machine", and the same row counts local
+use as machines > 0, so the code was changed to that reading (predicted local share > 0, which comes from the
+task-definition projection, not the probe) before the row was regenerated. This was seen after the first computation,
+so the row reports both: the pre-registered reading decides the labels, and the hardware-label reading is shown next
+to each cell ("under the hardware-label reading (first implementation, not the pre-registered wording)") and is not
+counted. Under the hardware-label reading all 3 computed cells are NON-TRIVIAL and the verdict would be MET 3/3.
