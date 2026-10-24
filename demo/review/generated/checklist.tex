@@ -1,0 +1,54 @@
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.38\textwidth}p{0.07\textwidth}>{\raggedright\arraybackslash}p{0.47\textwidth}}
+\caption{Review checklist, evaluated by demo/review/build\_review.py against the dashboard API}\label{tab:check}\\\toprule
+\textbf{Check} & \textbf{Result} & \textbf{Evidence} \\
+\midrule\endhead
+Silent failure: 5/5 on the Intel CPU default (4096) for both models & \textbf{PASS} & llama3.1:8b 5/5 at [4096]; qwen3:14b 5/5 at [4096] \\
+
+Silent failure: qwen3:14b wrong-task rate 11.3\% to 42.0\%, 0 surfaced & \textbf{PASS} & default 11.3\%, 4096 42.0\% \\
+
+Flash-attention rule: q8\_0 (qwen3:14b) / q4\_0 (llama3.1:8b) measured, attributed to KV precision by b5-fa-control & \textbf{PASS} & qwen3:14b q8\_0: measured; llama3.1:8b q4\_0: measured \\
+
+"not measured" where there is no data (Blade, every field) & \textbf{PASS} & status not measured \\
+
+Cost panel leads with the measured cost to fix a wrong answer (full-history redo, 2048 stated) & \textbf{PASS} & Fixing a wrong answer in the cloud costs about USD 0.02 (mean USD 0.0227, median USD 0.0169 per task, cache-priced); the cost is that the failure is silent. \\
+
+Fix rate shown only with its 95\% Wilson CI and the inherited-actions caveat & \textbf{PASS} & 2 place(s) show a fix rate; each carries the CI and the caveat \\
+
+The detector ceiling is never a headline (not on any main screen; in Details only as a side note) & \textbf{PASS} & no main screen mentions it; Details of step 4 keep the trade-off with the ceiling as a dotted line / side note \\
+
+Story: about 25 visible words per step (step 4: the operator's three sentences) & \textbf{PASS} & visible words per step 1: 22, 2: 11, 3: 24, 4: 43, 5: 15 \\
+
+Story: no model tags, ids, paths or jargon on main screens; each number has one tag and a VERIFIED source in Details & \textbf{PASS} & 10 numbers tagged \\
+
+Story: presenter sizes (headline numbers \textgreater{}= 72px, body \textgreater{}= 24px); Details closed by default & \textbf{PASS} & headline numbers 96px, body 24px; Details rendered without the open attribute \\
+
+Accuracy-tolerance slider: default 5; decisions match row hybrid-route-at-start at 0, 5, 12, 20 & \textbf{PASS} & 0: AMD workstation vs claude-haiku-5-5 cloud, AMD workstation vs claude-sonnet-5-5 cloud, Intel laptop vs claude-haiku-5-5 cloud, Intel laptop vs claude-sonnet-5-5 cloud; 5: AMD workstation vs claude-haiku-5-5 cloud, AMD workstation vs claude-sonnet-5-5 cloud, Intel laptop vs claude-haiku-5-5 cloud, Intel laptop vs claude-sonnet-5-5 cloud; 12: AMD workstation vs claude-haiku-5-5 local, AMD workstation vs claude-sonnet-5-5 local, Intel laptop vs claude-haiku-5-5 cloud, Intel laptop vs claude-sonnet-5-5 cloud; 20: AMD workstation vs claude-haiku-5-5 local, AMD workstation vs claude-sonnet-5-5 local, Intel laptop vs claude-haiku-5-5 local, Intel laptop vs claude-sonnet-5-5 local \\
+
+Story: every volume-based dollar figure says 'at 1,000 tasks a day' and is tagged projected & \textbf{PASS} & step 4 slider lines and the step 5 card \\
+
+Story: a single Engineering view link (top right) & \textbf{PASS} & 1 link \\
+
+Story step 4: live button present; without a live call it shows the recorded redo, tagged recorded & \textbf{PASS} & button 'Fix one wrong answer now (live)'; fallback recorded, USD 0.024299599999999998 \\
+
+Landing page is story mode; the engineering view is behind a link (?explore=1) & \textbf{PASS} & story section first, engineering view link in its corner and on the step bar \\
+
+Engineering view: no OpenAI stub rows; measured Anthropic cloud rows instead & \textbf{PASS} & 5 cloud rows from all-cloud-b3-cost, cloud-cost-per-real-task, cloud-redo-full-context \\
+
+Engineering view: unmeasured hardware only in one 'Not measured' line & \textbf{PASS} & not measured: 16gb\_no\_npu, 32gb\_npu, blade14\_780m, blade14\_rtx4070, evox2\_strix\_halo\_64gb \\
+
+Engineering view: every verbatim register block in a closed Details with a one-sentence summary & \textbf{PASS} & 3 register blocks, each summarised above a closed Details \\
+
+No figure or answer from the v1 cloud redo (results/cloud\_redo\_v1.jsonl) anywhere & \textbf{PASS} & 6 v1 figures checked against cost, story, escalation and the register dump \\
+
+Cost panel shows no router savings & \textbf{PASS} & Router savings: not shown. Row b5-verdict is refuted on evo-x2 (the router policy was dominated); no register row supports a savings figure. \\
+
+Live view fallback shows the task's recorded full-history redo (no live call) & \textbf{PASS} & mode recorded redo, USD 0.0243, 4.2 s, from results/cloud\_redo\_full\_context\_v1\_part3.jsonl \\
+
+Scope: every changed file vs main is in demo/, src/dse/ or the dashboard tests & \textbf{PASS} & 73 files changed \\
+
+Full test suite & \textbf{PASS} & 2549 passed, 14 skipped \\
+
+Cloud spend so far (read-only ledgers) & \textbf{PASS} & main results/cloud\_ledger.jsonl USD 38.9145 over 1288 rows; demo ledger USD 0.0174 over 1 call(s) \\
+
+\bottomrule
+\end{longtable}

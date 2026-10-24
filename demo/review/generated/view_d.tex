@@ -1,0 +1,24 @@
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.54\textwidth}>{\raggedright\arraybackslash}p{0.25\textwidth}>{\raggedright\arraybackslash}p{0.13\textwidth}}
+\caption{View D: every number shown}\label{tab:d}\\
+\toprule
+\textbf{Value shown} & \textbf{Register id / file} & \textbf{Status} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Value shown} & \textbf{Register id / file} & \textbf{Status} \\
+\midrule
+\endhead
+\small task cal\_default\_len, qwen3:14b at ollama\_ctx\_4096, seed 20260901, turn 4 & {\footnotesize \texttt{results/\allowbreak{}x2\_\allowbreak{}evalset\_\allowbreak{}tasks\_\allowbreak{}real\_\allowbreak{}v2.\allowbreak{}jsonl:\allowbreak{}488}} & \small measured \\
+
+\small local tool call create\_event: \{"title": "Team retro", "date": "2026-12-22", "time": "11:00", "duration\_min": 60\} & {\footnotesize \texttt{results/\allowbreak{}x2\_\allowbreak{}evalset\_\allowbreak{}tasks\_\allowbreak{}real\_\allowbreak{}v2.\allowbreak{}jsonl:\allowbreak{}488}} & \small measured \\
+
+\small expected: \{"title": "Team retro", "date": "2026-12-22", "time": "11:00", "duration\_min": 50\} & {\footnotesize \texttt{results/\allowbreak{}x2\_\allowbreak{}evalset\_\allowbreak{}tasks\_\allowbreak{}real\_\allowbreak{}v2.\allowbreak{}jsonl:\allowbreak{}488}} & \small measured \\
+
+\small local end state wrong: True; HTTP error: False & {\footnotesize \texttt{results/\allowbreak{}x2\_\allowbreak{}evalset\_\allowbreak{}tasks\_\allowbreak{}real\_\allowbreak{}v2.\allowbreak{}jsonl:\allowbreak{}488}} & \small measured \\
+
+\small recorded full-history redo of this task (claude-sonnet-5-5): USD 0.0243, 4.2 s & {\footnotesize \texttt{results/\allowbreak{}cloud\_\allowbreak{}redo\_\allowbreak{}full\_\allowbreak{}context\_\allowbreak{}v1\_\allowbreak{}part3.\allowbreak{}jsonl:\allowbreak{}39}} & \small measured \\
+
+\small spend cap for the live call: USD 10.00; live calls per run 1 & {\footnotesize \texttt{demo/\allowbreak{}dashboard/\allowbreak{}escalate.\allowbreak{}py}} & \small configuration \\
+
+\bottomrule
+\end{longtable}

@@ -20,7 +20,8 @@ budget (select_b6) with hours from evo-x2 H-scale minutes times a measured evo-t
 Order of the window (docs/T2S_WEEK_PLAN.md "Staged for 2026-10-26"; process rule 2026-10-20, docs/STATE.md):
   1. On the CONTROLLER, first: `py -3.12 harness/t2s_deadline.py open-window --no-launch-after <NO_LAUNCH_AFTER_UTC>
      --hard-deadline <HARD_DEADLINE_UTC> --reason "<handover to Zach ...; resume only in the next confirmed window>"`.
-     It runs the handover check on evo-t2s (HANDOVER_DONE.json, the pause flag naming its releaser, no process of
+     Step 0: it removes the stray `--help` directory left by the 2026-10-23 out-of-window SSH (only if it holds
+     nothing but expected_blobs.json; docs/T2S_CHANGELOG.md). Then it runs the handover check on evo-t2s (HANDOVER_DONE.json, the pause flag naming its releaser, no process of
      ours; refuses and changes nothing on failure), then widens the results sync to both hosts (an expiring window
      file; the APU-SyncResults task keeps --host evo-x2), arms the handover deadline, waits to the hard deadline, and
      removes the sync window file in its finally block. The same job that arms the deadline is the one that switches

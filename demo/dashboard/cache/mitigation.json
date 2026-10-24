@@ -6,7 +6,8 @@
   "R2-mitigation-v1-4096",
   "R2-mitigation-v1-8192",
   "R2-mitigation-v1-observed",
-  "R2-mitigation-v1-verdict"
+  "R2-mitigation-v1-verdict",
+  "t2s-r2-mitigation-cpu"
  ],
  "label": null
 }

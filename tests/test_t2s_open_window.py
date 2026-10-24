@@ -141,3 +141,24 @@ def test_effective_host_unreadable_never_widens(tmp_path):
 def test_window_file_is_gitignored_and_default_path_matches():
     assert ".sync_host_window.json" in (REPO / ".gitignore").read_text(encoding="utf-8")
     assert sr.SYNC_WINDOW_FILE == REPO / ".sync_host_window.json"
+
+
+def test_stray_help_cleanup_runs_first_and_never_blocks(tmp_path):
+    """2026-10-24: the stray --help directory on evo-t2s is removed as step 0, before the handover check."""
+    order = []
+    rem = Remote(check_ok=False)
+
+    def ps(cmd):
+        order.append("ps")
+        assert "--help" in cmd and "expected_blobs.json" in cmd and "-LiteralPath" in cmd
+        return 0, json.dumps({"present": True, "removed": True, "files": "expected_blobs.json"})
+
+    def remote(argv):
+        order.append(argv[0])
+        return rem(argv)
+    res = tdl.open_window(NO_LAUNCH, HARD, REASON, remote=remote, window_file=tmp_path / "w.json",
+                          log=lambda m: None, remote_ps=ps)
+    assert order == ["ps", "check-handover"]
+    assert res["stray_help"] == {"present": True, "removed": True, "files": ["expected_blobs.json"]}
+    bad = tdl.remove_stray_help(lambda c: (255, "ssh: connect failed"), log=lambda m: None)
+    assert bad["removed"] is False and "unparseable" in bad["error"]

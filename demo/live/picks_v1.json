@@ -1,0 +1,242 @@
+{
+ "frozen": "2026-10-23",
+ "rule": "Operator rule of 2026-10-23 (frozen): 3 task turns that were wrong at num_ctx 4096 in at least 3 of 5 seeds AND right at the default window in at least 4 of 5 seeds, plus 2 task turns that were right in at least 4 of 5 seeds in EVERY recorded arm; one pick per task id; ties broken by task id. A task occurs once per seed, at a seed-dependent position: the pick is that task in the session of the lowest seed whose own recorded outcomes match the class (wrong at 4096 and right at the default; right in every arm), preferring a turn position 6 to 12; the 6 to 12 limit is dropped for a class only if it leaves fewer picks than needed. If fewer tasks qualify than needed, the class is filled with the tasks that failed (resp. succeeded) most often, and the counts are reported. Source: results/x2_evalset_tasks_real_v2.jsonl (qwen3:14b, completed real sessions, 5 seeds). History rebuilt from the recorded default-window session (REPLAYED); the task turn runs LIVE.",
+ "source": "results/x2_evalset_tasks_real_v2.jsonl",
+ "source_sha256": "76855d698bc9ac3debf472f9579998b02937184a4d21dd42f37726237600ffc1",
+ "counts": {
+  "fail": {
+   "qualifying": 8,
+   "with_matching_seed": 8,
+   "inside_6_12": 6,
+   "turn_limit_applied": true
+  },
+  "pass": {
+   "qualifying": 8,
+   "with_matching_seed": 8,
+   "inside_6_12": 6,
+   "turn_limit_applied": true
+  }
+ },
+ "picks": [
+  {
+   "seed": 20260905,
+   "task_id": "cal_cancel",
+   "turn_idx": 11,
+   "class": "wrong at 4096, right at default",
+   "turn_limit_6_12": true,
+   "recorded": {
+    "ollama_ctx_16384_call2_notools": [
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "ollama_ctx_4096_call2_notools": [
+     true,
+     false,
+     false,
+     true,
+     false
+    ],
+    "ollama_ctx_4096_numkeep_call2_notools": [
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "ollama_ctx_8192_call2_notools": [
+     true,
+     true,
+     false,
+     true,
+     true
+    ],
+    "ollama_default_call2_notools": [
+     true,
+     true,
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  {
+   "seed": 20260904,
+   "task_id": "cal_default_len",
+   "turn_idx": 6,
+   "class": "wrong at 4096, right at default",
+   "turn_limit_6_12": true,
+   "recorded": {
+    "ollama_ctx_16384_call2_notools": [
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "ollama_ctx_4096_call2_notools": [
+     false,
+     false,
+     false,
+     false,
+     false
+    ],
+    "ollama_ctx_4096_numkeep_call2_notools": [
+     false,
+     false,
+     false,
+     false,
+     false
+    ],
+    "ollama_ctx_8192_call2_notools": [
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "ollama_default_call2_notools": [
+     true,
+     true,
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  {
+   "seed": 20260901,
+   "task_id": "file_write_standing",
+   "turn_idx": 11,
+   "class": "wrong at 4096, right at default",
+   "turn_limit_6_12": true,
+   "recorded": {
+    "ollama_ctx_16384_call2_notools": [
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "ollama_ctx_4096_call2_notools": [
+     false,
+     false,
+     false,
+     false,
+     false
+    ],
+    "ollama_ctx_4096_numkeep_call2_notools": [
+     false,
+     false,
+     false,
+     false,
+     false
+    ],
+    "ollama_ctx_8192_call2_notools": [
+     false,
+     false,
+     true,
+     false,
+     true
+    ],
+    "ollama_default_call2_notools": [
+     true,
+     true,
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  {
+   "seed": 20260904,
+   "task_id": "cal_rename",
+   "turn_idx": 8,
+   "class": "right in every arm",
+   "turn_limit_6_12": true,
+   "recorded": {
+    "ollama_ctx_16384_call2_notools": [
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "ollama_ctx_4096_call2_notools": [
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "ollama_ctx_4096_numkeep_call2_notools": [
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "ollama_ctx_8192_call2_notools": [
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "ollama_default_call2_notools": [
+     true,
+     true,
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  {
+   "seed": 20260901,
+   "task_id": "eml_internal",
+   "turn_idx": 9,
+   "class": "right in every arm",
+   "turn_limit_6_12": true,
+   "recorded": {
+    "ollama_ctx_16384_call2_notools": [
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "ollama_ctx_4096_call2_notools": [
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "ollama_ctx_4096_numkeep_call2_notools": [
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "ollama_ctx_8192_call2_notools": [
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "ollama_default_call2_notools": [
+     true,
+     true,
+     true,
+     true,
+     true
+    ]
+   }
+  }
+ ]
+}

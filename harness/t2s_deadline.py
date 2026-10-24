@@ -282,12 +282,40 @@ def remove_sync_window(path) -> bool:
         return False
 
 
+# Step 0 of the 2026-10-26 window (operator, 2026-10-24): remove the stray `--help` directory a mistaken
+# `deploy_evo.py --help` created on evo-t2s outside the window on 2026-10-23 (docs/T2S_CHANGELOG.md). Removed only if it
+# holds nothing but expected_blobs.json; anything else is left in place and reported.
+STRAY_HELP_PS = (
+    "$p = Join-Path $env:USERPROFILE '--help'; "
+    "if (-not (Test-Path -LiteralPath $p)) { [pscustomobject]@{present=$false; removed=$false; files=@()} "
+    "| ConvertTo-Json -Compress } else { $f = @(Get-ChildItem -LiteralPath $p -Force | ForEach-Object Name); "
+    "$ok = ($f.Count -eq 1 -and $f[0] -eq 'expected_blobs.json'); "
+    "if ($ok) { Remove-Item -LiteralPath $p -Recurse -Force }; "
+    "[pscustomobject]@{present=$true; removed=$ok; files=$f} | ConvertTo-Json -Compress }")
+
+
+def remove_stray_help(remote_ps, log=print) -> dict:
+    """remote_ps(command) -> (rc, stdout) runs one PowerShell command on evo-t2s. Never raises: a failure is logged and
+    returned, and the window goes on to the handover check either way."""
+    rc, out = remote_ps(STRAY_HELP_PS)
+    try:
+        res = json.loads(out)
+    except Exception:
+        res = {"present": None, "removed": False, "error": f"unparseable output (rc {rc}): {out[:300]!r}"}
+    if isinstance(res.get("files"), str):
+        res["files"] = [res["files"]]
+    log(f"open-window: stray --help directory: {res}")
+    return res
+
+
 def open_window(no_launch_after, hard_deadline, reason, *, remote, window_file, now_fn=time.time,
-                sleep_fn=time.sleep, log=print, poll_s=TICK_INTERVAL_S) -> dict:
+                sleep_fn=time.sleep, log=print, poll_s=TICK_INTERVAL_S, remote_ps=None) -> dict:
     """remote(argv_tail) -> (rc, stdout) runs `<evo-t2s python> <REMOTE_DIR>\\t2s_deadline.py <argv_tail>` on evo-t2s.
-    Order: handover check (refuse on failure, nothing changed) -> widen the sync (window file) -> arm the deadline ->
-    wait until the hard deadline. finally: the sync window file is removed whatever happened."""
+    Order: stray --help cleanup (remote_ps, if given) -> handover check (refuse on failure, nothing changed) -> widen
+    the sync (window file) -> arm the deadline -> wait until the hard deadline. finally: the sync window file is removed
+    whatever happened."""
     rec = build_record(no_launch_after, hard_deadline, reason, armed_by=SYNC_WINDOW_ARMED_BY)  # validates first
+    stray = remove_stray_help(remote_ps, log) if remote_ps else None
     rc, out = remote(["check-handover"])
     try:
         chk = json.loads(out)
@@ -295,8 +323,9 @@ def open_window(no_launch_after, hard_deadline, reason, *, remote, window_file, 
         chk = {"ok": False, "problems": [f"unparseable check output (rc {rc}): {out[:300]!r}"]}
     if rc != 0 or not chk.get("ok"):
         log(f"open-window: refused, handover check failed: {chk.get('problems')}")
-        return {"opened": False, "handover_check": chk, "sync_widened": False}
-    result = {"opened": False, "handover_check": chk, "sync_widened": False, "armed": None, "sync_reverted": None}
+        return {"opened": False, "handover_check": chk, "sync_widened": False, "stray_help": stray}
+    result = {"opened": False, "handover_check": chk, "sync_widened": False, "armed": None, "sync_reverted": None,
+              "stray_help": stray}
     try:
         write_sync_window(window_file, rec["hard_deadline_utc"])
         result["sync_widened"] = True
@@ -329,6 +358,16 @@ def real_remote(argv_tail, timeout=120):
     return p.returncode, p.stdout
 
 
+
+def real_remote_ps(command, timeout=120):
+    """Controller side: one hidden ssh call running a PowerShell command on evo-t2s (its OpenSSH default shell)."""
+    from proc_util import run_hidden
+    import host_config as hc
+    p = run_hidden([r"C:\Windows\System32\OpenSSH\ssh.exe", "-o", "BatchMode=yes", "-o", "ConnectTimeout=30",
+                    hc.HOSTS["EVO-T2S"]["ssh_host"], command], capture_output=True, text=True, timeout=timeout)
+    return p.returncode, p.stdout
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -338,7 +377,7 @@ def main(argv=None):
     a.add_argument("--reason", default=DEFAULT_REASON)
     sub.add_parser("status")
     sub.add_parser("check-handover", help="on evo-t2s: the start-of-window handover check (exit 3 on failure)")
-    o = sub.add_parser("open-window", help="on the CONTROLLER: handover check, widen sync, arm, wait, revert")
+    o = sub.add_parser("open-window", help="on the CONTROLLER: stray --help cleanup, handover check, widen sync, arm, wait, revert")
     o.add_argument("--no-launch-after", required=True)
     o.add_argument("--hard-deadline", required=True)
     o.add_argument("--reason", required=True)
@@ -354,7 +393,8 @@ def main(argv=None):
         wf = args.window_file
         if wf is None:
             wf = Path(__file__).resolve().parents[1] / ".sync_host_window.json"   # sync_results.SYNC_WINDOW_FILE
-        res = open_window(args.no_launch_after, args.hard_deadline, args.reason, remote=real_remote, window_file=wf)
+        res = open_window(args.no_launch_after, args.hard_deadline, args.reason, remote=real_remote, window_file=wf,
+                          remote_ps=real_remote_ps)
         print(json.dumps(res, indent=1, default=str))
         return 0 if res["opened"] else 3
     else:

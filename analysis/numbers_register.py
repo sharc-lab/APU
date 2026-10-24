@@ -7134,6 +7134,138 @@ def compute_long_task_cloud_priced_vs_billed(repo):
     return {"value": "; ".join(parts), "n": f"{len(tr)} cloud task runs"}
 
 
+# ───────────────────────────────────────────────── live demo (2026-10-23; docs/EXPERIMENTS.md "Live demo: detector
+# check and acceptance run"). PENDING until the file has run_end.
+DEMO_DETECTOR_FILE = "results/demo_detector_check.jsonl"
+
+
+DEMO_DETECTOR_V2_FILE = "results/demo_detector_check_v2.jsonl"
+
+
+def compute_demo_detector_check_v2(repo):
+    """The detector v2 re-check (server cut lines only), same picks and pass rule as demo-detector-check."""
+    return compute_demo_detector_check(repo, DEMO_DETECTOR_V2_FILE)
+
+
+def compute_demo_detector_check(repo, path=None):
+    """harness/demo_live_x2.py --mode detector-check: per arm (num_ctx 4096, runtime default) how many of the frozen
+    picks the cut-off detector flagged, per task the largest total prompt the server used vs the prompt's own size,
+    and the pre-registered reading (passes iff it fired on every pick whose own prompt exceeds 4096 at num_ctx 4096
+    and on none at the default window)."""
+    rows = _read_jsonl(repo / (path or DEMO_DETECTOR_FILE))
+    tr = [r for r in rows if r.get("record") == "detector_task"]
+    if not tr:
+        raise ValueError("no detector_task rows")
+    parts, ok = [], True
+    for arm in ("num_ctx_4096", "default"):
+        g = [r for r in tr if r["arm"] == arm]
+        fired = sum(1 for r in g if r["flagged"])
+        over = [r for r in g if r["max_own_tokens"] > 4096]
+        want = len(over) if arm == "num_ctx_4096" else 0
+        got = sum(1 for r in over if r["flagged"]) if arm == "num_ctx_4096" else fired
+        ok = ok and got == want
+        calls = [c for r in g for c in r["calls"]]
+        total_eq = sum(1 for c in calls if c.get("used_tokens") is not None
+                       and c.get("prompt_eval_count") == c.get("used_tokens"))
+        direct = sum(1 for c in calls if any(not e.startswith("model saw") for e in c.get("evidence") or []))
+        count_only = sum(1 for c in calls if c.get("cut") and all(e.startswith("model saw")
+                                                                  for e in c.get("evidence") or []))
+        per = ", ".join(f"{r['task_id']} (seed {r['seed']}, turn {r['turn_idx']}): used {r['max_used_tokens']} of "
+                        f"about {r['max_own_tokens']}, flagged {r['flagged']}, end state {r['end_state_ok']}"
+                        for r in g)
+        parts.append(f"{arm}: fired on {fired}/{len(g)} tasks (prompt over 4096 on {len(over)}); calls {len(calls)}, "
+                     f"flagged by a server cut line (message drop, token cut, context shift, exceed) on {direct}, by "
+                     f"the token-count comparison alone on {count_only}; prompt_eval_count equal to the server total "
+                     f"on {total_eq}; {per}")
+    det = next((r.get("detector") for r in rows if r.get("record") == "run_start"), None) or "v1"
+    reading = "detector check passed" if ok else "detector check failed"
+    rule = (f"detector {det}; pre-registered pass rule: fires on every pick (5/5) at num_ctx 4096 and on none (0/5) "
+            f"at the runtime default; rule {'met' if ok else 'not met'}")
+    return {"value": f"{reading} ({rule}); " + "; ".join(parts), "n": f"{len(tr)} task runs"}
+
+
+def compute_detector_precision_recall(repo):
+    """analysis/demo_detector_analysis.py: confusion counts of detector v1 (as run) and of the proposed v2 (server cut
+    lines only) against the log ground truth, per source and pooled; the H1 / H2 reading of every v1 false alarm in
+    the demo runs; and row hybrid-route-at-start-measured re-scored with v1 as the escalation flag."""
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "analysis"))
+    import demo_detector_analysis as dd
+    s = dd.summary(repo)
+
+    def cm(x):
+        p = "n/a" if x["precision"] is None else f"{x['precision']:.3f}"
+        r = "n/a" if x["recall"] is None else f"{x['recall']:.3f}"
+        return f"TP {x['TP']} FP {x['FP']} FN {x['FN']} TN {x['TN']} (precision {p}, recall {r}, n {x['n']})"
+    v1 = "; ".join(f"{k}: {cm(v['v1'])}" for k, v in s["confusion"].items())
+    v2 = "; ".join(f"{k}: {cm(v['v2'])}" for k, v in s["confusion"].items())
+    v2c = "; ".join(f"{k}: {cm(v['v2_count_ratio1'])}" for k, v in s["confusion"].items())
+    fa = s["false_alarm_calls"]
+    h = (f"{len(fa)} v1 false alarms in the demo runs, all explained by "
+         f"{sorted({c['explained_by'] for c in fa})}: H1 (cache) rejected on every one (task.n_tokens = cached + "
+         f"evaluated, prompt_eval_count = task.n_tokens), H2 (our size estimate) server/chars-4 ratio "
+         f"{min(c['H2']['ratio_server_over_chars4'] for c in fa):.3f} to "
+         f"{max(c['H2']['ratio_server_over_chars4'] for c in fa):.3f} against the v1 threshold "
+         f"{dd.RATIO_V1 * (1 - dd.TOL):.4f}" if fa else "no v1 false alarms in the demo runs")
+    ag = s["render_log_agreement"]
+    rs = dd.b3_rescore(repo)
+    rescore = "; ".join(
+        f"{c['tier']} vs {c['model']}: v1 fired on {c['fired_on_local_routed']['fired']} locally routed tasks "
+        f"({c['fired_on_local_routed']['fired_no_cut_possible']} with no cut possible, "
+        f"{c['fired_on_local_routed']['fired_certain_cut']} certain cuts), hybrid {c['v1']['correct']}/{c['v1']['n']}, "
+        f"USD {c['v1']['usd_task']:.5f}/task, kept local {c['v1']['kept_local']}, escalated {c['v1']['escalated']}"
+        + (f" (row: {c['row']['correct']}/{c['row']['n']}, USD {c['row']['usd_task']:.5f}/task, kept local "
+           f"{c['row']['kept_local']})" if c["row"] else " (not a cell of the row: the hybrid at the default window)")
+        for c in rs["cells"])
+    value = (f"detector v1 (as run: server cut lines, or task.n_tokens < 0.9 x chars/4 estimate x calibrated ratio): "
+             f"{v1} / proposed v2, not yet re-checked on evo-x2 (server cut lines only; agrees with the log ground "
+             f"truth by construction; independent check: the mechanism job's render-only prompt agreed with the "
+             f"message-drop line on {ag[0]}/{ag[1]} calls where both exist): {v2} / rejected variant (server lines, "
+             f"or task.n_tokens < 0.9 x chars/4 estimate): {v2c} / ground truth = Ollama's message-drop line (kept < "
+             f"sent), token cut, context shift or exceed-context error; mechanism = 400 calls of the R2 mechanism run "
+             f"(llama3.1:8b, tiers default 131072, 32768, 16384, 8192, 4096, 80 each), uncut server/chars-4 ratio "
+             f"{s['mechanism_uncut_ratio_range'][0]:.3f} to {s['mechanism_uncut_ratio_range'][1]:.3f}, cut max "
+             f"{s['mechanism_cut_ratio_max']:.3f}; demo (qwen3:14b) uncut {s['demo_uncut_ratio_range'][0]:.3f} to "
+             f"{s['demo_uncut_ratio_range'][1]:.3f}; prompt_eval_count = task.n_tokens on "
+             + ", ".join(f"{t} {a}/{b}" for t, (a, b) in s["mechanism_pec_eq_total"].items())
+             + f" / {h} / re-score of hybrid-route-at-start-measured with v1 as the flag ({rs['label']}): {rescore}")
+    n = sum(v["v1"]["n"] for k, v in s["confusion"].items() if k != "pooled")
+    return {"value": value, "n": f"{n} calls"}
+
+
+DEMO_LIVE_RUN_FILE = "results/demo_live_run_20261023.jsonl"   # dated by the picks freeze (demo/live/picks_v1.json)
+
+
+def compute_demo_live_run(repo):
+    """The 5-task acceptance run (evo-x2 local parts + controller cloud parts): per scenario and lane correct / n,
+    wrong silent / flagged, kept local, cloud USD per task (ledger and cache-priced), minutes (each lane's own time),
+    LIVE / REPLAYED labels; and the pre-registered plain statements (Ours vs Default local: more correct; Ours vs All
+    cloud: more correct, or as many at lower cloud USD)."""
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "harness"))
+    import demo_run as dr
+    rows = _read_jsonl(repo / DEMO_LIVE_RUN_FILE)
+    tr = [r for r in rows if r.get("record") == "task_result"]
+    if not tr:
+        raise ValueError("no task_result rows")
+    parts = []
+    for sc in dict.fromkeys(r["scenario"] for r in tr):
+        t = dr.tally([r for r in tr if r["scenario"] == sc])
+        lanes = []
+        for lane in dr.LANES:
+            x = t[lane]
+            lanes.append(f"{lane}: {x['correct']}/{x['graded']} correct (wrong {x['wrong']}: silent {x['wrong_silent']}, "
+                         f"flagged {x['wrong_flagged']}), kept local {x['kept_local']}/{x['graded']}, escalated "
+                         f"{x['escalated']}, cloud USD/task ledger {x['usd_ledger_per_task']} cache-priced "
+                         f"{x['usd_cache_priced_per_task']}, {x['seconds'] / 60:.2f} min, labels {x['labels']}, "
+                         f"not available {x['unavailable']}")
+        o, d, c = t["ours"], t["default"], t["cloud"]
+        vs_d = "Ours beats Default local" if o["correct"] > d["correct"] else "Ours does NOT beat Default local"
+        beats_c = o["correct"] > c["correct"] or (o["correct"] == c["correct"] and (o["usd_ledger_per_task"] or 0)
+                                                    < (c["usd_ledger_per_task"] or 0))
+        vs_c = "Ours beats All cloud" if beats_c else "Ours does NOT beat All cloud"
+        parts.append(f"{sc} ({dr.SCENARIOS[sc]['label']}): " + "; ".join(lanes) + f"; {vs_d}; {vs_c}")
+    return {"value": "; ".join(parts), "n": f"{len(tr)} task runs"}
 # ── own-profiler and own-dse-v1 (pre-registered 2026-10-23, docs/EXPERIMENTS.md) ──
 def _src_dse(name):
     import importlib
@@ -7155,7 +7287,8 @@ def compute_own_dse_v1(repo):
     dv = _src_dse("dse_v1")
     d = dv.own_dse_v1(repo)
     n = sum(1 for c in d["cells"].values() if c.get("status") == "computed")
-    return {"value": dv.own_dse_v1_text(d), "n": f"{n} computed cells of {len(d['cells'])}"}
+    k = sum(1 for c in d["cells"].values() if c.get("status") == "computed" and not c.get("trivial"))
+    return {"value": dv.own_dse_v1_text(d), "n": f"{n} computed cells of {len(d['cells'])} ({k} non-trivial)"}
 
 
 _OP = _src_dse("own_profiler")
@@ -7338,6 +7471,64 @@ def compute_hybrid_route_at_start_v2(repo):
     if d["status"] != "VERIFIED":
         raise ValueError(cs.hybrid_v2_text(d))
     return {"value": cs.hybrid_v2_text(d), "n": f"{len(d['cells'])} tier x policy cells x 90 tasks"}
+
+
+# ── own-profiler-probe (operator item 3, 2026-10-23; docs/EXPERIMENTS.md "own-profiler-probe"): the measured probe job
+# x2_own_profiler_probe_v1 (harness/x2_own_profiler_probe.py). The result row is PENDING until the driver file has
+# run_end; the hours row is an ESTIMATE. ──
+OWN_PROBE_FILE = "results/x2_own_profiler_probe_v1.jsonl"
+
+
+def _own_probe_module():
+    import sys as _sys
+    _r2_agent_module()
+    if str(REPO / "harness") not in _sys.path:
+        _sys.path.insert(0, str(REPO / "harness"))
+    import x2_own_profiler_probe as opp
+    return opp
+
+
+def own_profiler_probe_data(repo) -> dict:
+    opp = _own_probe_module()
+    ag = _r2_agent_module()
+    probe = {}
+    for c in opp.CONFIGS:
+        f = repo / opp.config_file(OWN_PROBE_FILE, c["tier"])
+        if f.exists():
+            probe[c["tier"]] = ag.read_rows(f)
+    refs = {c["ref"]: ag.read_rows(repo / c["ref"]) for c in opp.CONFIGS if (repo / c["ref"]).exists()}
+    return opp.score(probe, refs)
+
+
+def compute_own_profiler_probe(repo):
+    opp = _own_probe_module()
+    d = own_profiler_probe_data(repo)
+    return {"value": opp.probe_text(d), "n": f"{d['n_scored']} scored configs of {len(d['configs'])}"}
+
+
+def compute_own_profiler_probe_hours(repo):
+    opp = _own_probe_module()
+    ag = _r2_agent_module()
+    e = opp.hours_estimate(ag.read_rows(repo / X2_EVALSET_TASKS_REAL_V2))
+    q = own_queue_projection(repo)
+    from datetime import timedelta
+    last = q["table"][-1]
+    start = last["end"]
+    end = [start[0] + timedelta(hours=e["point_h"]), start[1] + timedelta(hours=e["high_h"])]
+
+    def f(x):
+        return x.strftime("%m-%d %H:%MZ")
+    per = "; ".join(f"{k} {v['point_h']:.2f} h (high {v['high_h']:.2f} h)" for k, v in e["per"].items())
+    return {"value": f"ESTIMATE, not a measurement (harness/x2_own_profiler_probe.py::hours_estimate): per config "
+                     f"session min(600 s, 30 x the tier's B3 v2 mean turn_wall_s) (q8_0 / q4_0: the 16384 tier's), high "
+                     f"600 s + the slowest single B3 v2 turn of the tier (q8_0 / q4_0: of any f16 tier), plus "
+                     f"{opp.OVERHEAD_S['point']:.0f} s (ASSUMPTION; high {opp.OVERHEAD_S['high']:.0f} s, the harness's "
+                     f"own server-ready timeouts) per config; {per}; total {e['point_h']:.2f} h (high "
+                     f"{e['high_h']:.2f} h); queue: appended after {last['job']} (projected end {f(start[0])}, high "
+                     f"{f(start[1])}, row own-jobs-hours), projected {f(start[0])} to {f(end[0])} (high {f(start[1])} "
+                     f"to {f(end[1])}); before the 2026-10-29 demo hold fallback start {f(q['demo_hold'])}: "
+                     + ("yes" if end[1] <= q["demo_hold"] else "NO") + " (high case); not queued by this commit",
+            "n": "6 configs (estimate)"}
 
 
 NUMBER_ENTRIES = [
@@ -8389,6 +8580,32 @@ NUMBER_ENTRIES = [
      "compute": compute_long_task_cloud_priced_vs_billed, "data_files": [LONGTASK_CLOUD_FILE], "pending_ok": True,
      "require_run_end": [LONGTASK_CLOUD_FILE],
      "script_function": "analysis/numbers_register.py::compute_long_task_cloud_priced_vs_billed"},
+    {"claim_id": "demo-detector-check", "description": "live demo cut-off detector on the 5 frozen picks (qwen3:14b, "
+     "evo-x2, task at its real session position, history rebuilt from the recorded run) at num_ctx 4096 and at the "
+     "runtime default: fired / not fired per task; PENDING until the file has run_end",
+     "compute": compute_demo_detector_check, "data_files": [DEMO_DETECTOR_FILE], "pending_ok": True,
+     "require_run_end": [DEMO_DETECTOR_FILE],
+     "script_function": "analysis/numbers_register.py::compute_demo_detector_check"},
+    {"claim_id": "demo-detector-check-v2", "description": "live demo cut-off detector v2 (the server's own cut lines "
+     "only) re-check on the same 5 frozen picks at num_ctx 4096 and at the runtime default, same pass rule as "
+     "demo-detector-check; PENDING until the file has run_end",
+     "compute": compute_demo_detector_check_v2, "data_files": [DEMO_DETECTOR_V2_FILE], "pending_ok": True,
+     "require_run_end": [DEMO_DETECTOR_V2_FILE],
+     "script_function": "analysis/numbers_register.py::compute_demo_detector_check_v2"},
+    {"claim_id": "detector-precision-recall", "description": "cut-off detector v1 (as run) and proposed v2 vs Ollama's "
+     "own cut lines: confusion counts per source (R2 mechanism 400 calls, demo detector check, demo acceptance run) "
+     "and pooled; H1 / H2 reading of the v1 false alarms; hybrid-route-at-start-measured re-scored with v1",
+     "compute": compute_detector_precision_recall,
+     "data_files": [R2_MECHANISM_FILE, DEMO_DETECTOR_FILE, "results/demo_live_run_local_v1.jsonl",
+                    "results/x2_evalset_tasks_real_v2.jsonl"],
+     "pending_ok": True, "require_run_end": [DEMO_DETECTOR_FILE, "results/demo_live_run_local_v1.jsonl"],
+     "script_function": "analysis/numbers_register.py::compute_detector_precision_recall"},
+    {"claim_id": "demo-live-run", "description": "live demo 5-task acceptance run (frozen picks, scenarios amd8192 and "
+     "intel; local lanes on evo-x2 one after another, cloud on the controller): per lane correct, wrong silent / "
+     "flagged, kept local, cloud USD per task, minutes; PENDING until the file has run_end",
+     "compute": compute_demo_live_run, "data_files": [DEMO_LIVE_RUN_FILE], "pending_ok": True,
+     "require_run_end": [DEMO_LIVE_RUN_FILE],
+     "script_function": "analysis/numbers_register.py::compute_demo_live_run"},
     {"claim_id": "e1-e2-x2-hours", "description": "ESTIMATE, not a measurement: evo-x2 hours of Zach's E1 (qwen3:14b "
      "default window vs num_ctx 4096, 200 fresh B3-style tasks) and E2 (plus a KV q8_0 arm) from the measured B3 v2 "
      "per-task times, and the reserve block start (E1/E2 not registered yet, not queued)",
@@ -8505,9 +8722,22 @@ NUMBER_ENTRIES = [
      "KV, backend, routing policy} by total monthly cost (hardware amortized 3 years at the cited list price, PX2-power "
      "electricity at the EIA price, measured cloud USD) under accuracy target 0.90 and USD 500/month cloud budget from "
      "own-profiler predictions; pick vs brute-force best over measured configurations per workload and volume vs the "
-     "within-10% target",
+     "within-10% target; trivial cells (pre-registered definition) labelled TRIVIAL and not counted as validation",
      "compute": compute_own_dse_v1, "data_files": OWN_DSE_V1_FILES, "pending_ok": True,
      "script_function": "src/dse/dse_v1.py::own_dse_v1"},
+    {"claim_id": "own-profiler-probe", "description": "own-profiler-probe (pre-registered 2026-10-23): measured probe "
+     "on evo-x2, qwen3:14b, B3 v2 tasks, seed 20260901, at most 600 s of session per window x KV config (six configs), "
+     "seconds per task / accuracy / detector-v2 overflow vs the full runs' held-out seeds; seconds median APE vs the "
+     "< 10% target, overflow agreement; PENDING until the probe file has run_end",
+     "compute": compute_own_profiler_probe, "data_files": [OWN_PROBE_FILE, X2_EVALSET_TASKS_REAL_V2],
+     "pending_ok": True, "require_run_end": [OWN_PROBE_FILE],
+     "script_function": "harness/x2_own_profiler_probe.py::score"},
+    {"claim_id": "own-profiler-probe-hours", "description": "ESTIMATE, not a measurement: hours of the probe job "
+     "x2_own_profiler_probe_v1 from measured B3 v2 turn times, and its projected place in the evo-x2 queue after "
+     "x2_own_config_probe_q4_28928",
+     "compute": compute_own_profiler_probe_hours,
+     "data_files": [X2_EVALSET_TASKS_REAL_V2, MITIGATION_X2_FILE, B5_X2_FILE] + FILL_1022_DATA + L70_HOURS_DATA,
+     "script_function": "harness/x2_own_profiler_probe.py::hours_estimate"},
 ]
 
 

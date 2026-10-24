@@ -1,0 +1,8 @@
+# LaTeX build by-products and Playwright scratch (the .tex sources, generated/, shots/, the PDFs and the recording
+# are committed)
+*.aux
+*.log
+*.toc
+*.out
+_video/
+generated/_unused_ledger.jsonl

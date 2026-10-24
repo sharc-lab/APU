@@ -5917,6 +5917,33 @@ Long-task cloud priced vs billed", committed before either job ran (harness at 5
   only if its pilot-based estimate is under USD 5): billed vs upper bound vs the `cloud-cost-per-real-task` pricing
   method. Row `long-task-cloud-priced-vs-billed` (PENDING until run_end).
 
+## PRE-REGISTRATION (2026-10-23): live demo detector check and acceptance run (pointer)
+
+The pre-registration is in docs/EXPERIMENTS.md, entry "2026-10-23: Live demo: detector check and acceptance run". In short: one
+B3 v2 task at its real session position (earlier history REPLAYED from the recorded default-window session, the task
+turn LIVE, end-state grader); the cut-off detector (harness/demo_overflow.py) reads the server's total prompt and
+Ollama's own cut lines, never prompt_eval_count alone; queued evo-x2 jobs `x2_demo_detector_check` (5 frozen picks at
+num_ctx 4096 and at the default; passes iff it fires on every pick over 4096 at 4096 and on none at the default) and
+`x2_demo_live_acceptance` (scenarios amd8192, the headline's constrained memory 8192 with claude-sonnet-5-5, and intel,
+4096 vs the Intel graphics-chip window 32768 simulated, with claude-haiku-5-5; local lanes one after another, the cloud
+lane alongside), cloud parts on the controller. Rows `demo-detector-check` and `demo-live-run` (PENDING until run_end).
+Picks frozen before any run in demo/live/picks_v1.json by the operator's rule of 2026-10-23 (3 tasks wrong at 4096 in
+at least 3 of 5 seeds and right at the default in at least 4 of 5; 2 right in at least 4 of 5 seeds in every arm; ties
+by task id): cal_cancel, cal_default_len, file_write_standing; cal_rename, eml_internal.
+
+
+## ANALYSIS AND PRE-REGISTRATION (2026-10-23): detector false alarms and the detector v2 re-check (pointer)
+
+Both are in docs/EXPERIMENTS.md (entries "ANALYSIS (2026-10-23): detector false alarms ..." and "PRE-REGISTRATION
+(2026-10-23, before any run of it): detector v2 re-check"). In short: the 10 v1 false alarms of the demo runs are
+explained by H2 (our chars/4-based size overstated long qwen3:14b prompts; server / estimate 1.077 to 1.082 against the
+v1 threshold 1.0820), not H1 (task.n_tokens includes the cached prefix on every one). Row `detector-precision-recall`:
+v1 pooled precision 0.588, recall 1.000 (452 calls); proposed v2 (the server's own cut lines only) agrees with the log
+ground truth by construction, independently checked by the mechanism job's render-only prompt on 223/223 calls; v2
+surfaces the runtime's own signal and is not a contribution of this work (see the DECISION entry below). The v2
+re-check (same 5 picks, 4096 and default, pass iff 5/5 and 0/5) is queued on evo-x2 after x2_b5_simcap_4096; row
+`demo-detector-check-v2` PENDING until run_end.
+
 ## DECISION (2026-10-23): cut-off detector v1 retired for routing; v2 is the runtime's own signal, not a contribution
 
 Analysis only, no new runs. Row `detector-precision-recall` was computed on branch demo/oct28 (analysis entry and the
@@ -6105,3 +6132,43 @@ over-window signal, the 3 unflagged wrong tasks at 8192 would leave damage the c
 stand-in transcript for earlier wrong turns is synthetic. (3) The other escalated tasks are graded from the
 full-history redo (pre-task state, earlier damage in place), so the table mixes the two protocols; the counts are in
 the row.
+
+## PRE-REGISTRATION (2026-10-23): own-profiler-probe and own-dse-v1 trivial cells (pointer)
+
+Full entry in docs/EXPERIMENTS.md, "2026-10-23: own-profiler-probe (measured probe) and own-dse-v1 trivial cells",
+committed before the probe job runs and before any Part B count was computed. In short: own-profiler-probe replaces
+the ratio prediction with a measured probe on evo-x2 (job x2_own_profiler_probe_v1): qwen3:14b, B3 v2 tasks, seed
+20260901, at most 600 s of session per config (per config, not for the sweep), six window x KV configs (f16 at the
+default window, 16384, 8192, 4096; q8_0 at 15360; q4_0 at 28928), recording seconds per task, task grade, the window
+loaded, the llama_kv_cache line and detector v2 (Ollama's own cut-off lines). Reference: the full B3 v2 runs (f16,
+held-out seeds 20260902-05) and the queued own-config-search probes (q8_0, q4_0, held-out seeds 20260902-03). Target
+unchanged: seconds per task median APE < 10%; overflow agreement reported for the configs whose reference has detector
+v2. own-profiler-loo stays as the recorded miss. own-dse-v1: a cell is TRIVIAL if at most one candidate is eligible,
+or if the brute-force best takes no probe input and every local candidate's cost floor (one machine's hardware plus its
+predicted cloud spend) is above it by more than 10%; trivial cells are not counted as validation. Rows
+own-profiler-probe, own-profiler-probe-hours, own-dse-v1.
+
+## RESULT (2026-10-23): own-dse-v1 per-cell explanation; 2 of 3 computed cells are TRIVIAL
+
+Computed after the pre-registration above was committed (67384a7), with the amendment in the same EXPERIMENTS entry
+(the first implementation's reading of "uses a local machine", stated there). Numbers are from row own-dse-v1 in
+docs/NUMBERS_REGISTER.md.
+
+| cell | candidates | eligible (measured accuracy >= 0.90, cloud <= USD 500/month) | eligible using a local machine | label |
+|---|---|---|---|---|
+| short, 100/day | 11 | 6 | 2 | TRIVIAL: "every local candidate's cost floor (lowest USD 55.56/month) is more than 10% above" the best (USD 2.01) |
+| short, 1,000/day | 11 | 6 | 2 | TRIVIAL: same floor, best USD 20.12 |
+| short, 10,000/day | 11 | 3 | 1 | NON-TRIVIAL: "lowest local cost floor USD 55.56/month is not more than 10% above the best's measured USD 201.25, so a probe input could change the pick" |
+| long and mixed, 100 / 1,000 / 10,000/day | n/a | n/a | n/a | PENDING: "row long-task-local-accuracy not VERIFIED" |
+
+**What changes.** The earlier "MET (3/3 computed cells, 6 PENDING)" counted trivial cells: at 100 and 1,000 tasks/day
+no probe input could have made the DSE rank a local configuration first, because one evo-x2 alone (USD 2,000 / 36
+months) costs more than 10% above all-cloud claude-haiku-5-5. Those two cells validate the cost model and the ranking
+code, not the probe-driven choice. The row now reads "pre-registered target within 10% in every non-trivial computed
+cell: MET (1/1 non-trivial cells; 2 TRIVIAL computed cells not counted; 6 PENDING)". The one non-trivial cell, 10,000
+tasks/day, has DSE pick = brute-force best = all-cloud claude-haiku-5-5 ("gap 0.0% -> within 10%"); it is one cell,
+so the probe-driven DSE choice is tested once, not established.
+
+**Disclosed reading change.** Under the first implementation's hardware-label reading all three computed cells are
+NON-TRIVIAL (shown per cell in the row, not counted): the two num_ctx 4096 hybrids route every task to the cloud, use no
+machine, and tie all-cloud haiku on cost. The pre-registered wording ("uses a local machine") decides the labels.
