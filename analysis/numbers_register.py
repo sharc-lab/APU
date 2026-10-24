@@ -7177,8 +7177,11 @@ def compute_demo_detector_check(repo, path=None):
                      f"flagged by a server cut line (message drop, token cut, context shift, exceed) on {direct}, by "
                      f"the token-count comparison alone on {count_only}; prompt_eval_count equal to the server total "
                      f"on {total_eq}; {per}")
+    det = next((r.get("detector") for r in rows if r.get("record") == "run_start"), None) or "v1"
     reading = "detector check passed" if ok else "detector check failed"
-    return {"value": f"{reading}; " + "; ".join(parts), "n": f"{len(tr)} task runs"}
+    rule = (f"detector {det}; pre-registered pass rule: fires on every pick (5/5) at num_ctx 4096 and on none (0/5) "
+            f"at the runtime default; rule {'met' if ok else 'not met'}")
+    return {"value": f"{reading} ({rule}); " + "; ".join(parts), "n": f"{len(tr)} task runs"}
 
 
 def compute_detector_precision_recall(repo):

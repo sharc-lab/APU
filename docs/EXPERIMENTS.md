@@ -1388,3 +1388,18 @@ Register row `detector-precision-recall` (analysis entry above), pasted:
   running x2_b5_simcap_4096 (position 79) and before x2_r2_v1b_seeds_06_10; pause flag absent afterwards. By the
   B5 job's start (epoch 1792762828) and its 26.11 h ESTIMATE it ends around 2026-10-24 15:50 UTC; the re-check
   (ESTIMATE 0.10 h) follows.
+
+## RESULT (2026-10-24): detector v2 re-check (x2_demo_detector_check_v2), the pre-registered reading PASSED; the live screen switches to v2
+
+Run as pre-registered, file results/demo_detector_check_v2.jsonl (run_end present; synced on main in 53ee83a with
+results/demo_live_logs/detector_check_v2/). Pass rule, fixed before the run: fires on 5/5 picks at num_ctx 4096 and on
+0/5 at the runtime default. Rule met. Register row `demo-detector-check-v2`, pasted:
+
+> detector check passed (detector v2; pre-registered pass rule: fires on every pick (5/5) at num_ctx 4096 and on none (0/5) at the runtime default; rule met); num_ctx_4096: fired on 5/5 tasks (prompt over 4096 on 5); calls 10, flagged by a server cut line (message drop, token cut, context shift, exceed) on 10, by the token-count comparison alone on 0; prompt_eval_count equal to the server total on 10; cal_cancel (seed 20260905, turn 11): used 4037 of about 9004, flagged True, end state True, cal_default_len (seed 20260904, turn 6): used 4079 of about 6712, flagged True, end state False, file_write_standing (seed 20260901, turn 11): used 4078 of about 9217, flagged True, end state False, cal_rename (seed 20260904, turn 8): used 4065 of about 7721, flagged True, end state True, eml_internal (seed 20260901, turn 9): used 4086 of about 8108, flagged True, end state True; default: fired on 0/5 tasks (prompt over 4096 on 5); calls 10, flagged by a server cut line (message drop, token cut, context shift, exceed) on 0, by the token-count comparison alone on 4; prompt_eval_count equal to the server total on 10; cal_cancel (seed 20260905, turn 11): used 8062 of about 9000, flagged False, end state True, cal_default_len (seed 20260904, turn 6): used 6220 of about 6717, flagged False, end state True, file_write_standing (seed 20260901, turn 11): used 8290 of about 9218, flagged False, end state True, cal_rename (seed 20260904, turn 8): used 7035 of about 7718, flagged False, end state True, eml_internal (seed 20260901, turn 9): used 7402 of about 8108, flagged False, end state True
+
+As pre-registered ("the live screen keeps v1 with the 'known false alarm' caveat until this re-check passes, then
+switches to v2"), the live screen now uses v2 (harness/demo_run.DETECTOR = "v2"): the cut-off signal is Ollama's own
+truncation and context-shift log lines, the runtime's own signal and not a contribution of this work. Detector v1 is
+marked on screen "not used: false alarms at default (see detector-precision-recall)". The acceptance run
+(results/demo_live_run_20261023.jsonl) and its two recordings were made under v1 and are not changed; a replay can
+still show the two intel Ours tasks that v1 sent to the cloud on a token-count flag.
