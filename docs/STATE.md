@@ -436,7 +436,22 @@ Every report states status against these three checkpoints.
   and scripts/longtask_cloud.py: results/console_usage_check.json (operator-written: Console total, read time UTC,
   date range, reader) must be under 24 h old, agree with the ledger's billed total for the same range within
   max(USD 0.50, 5%), and the billed headroom must cover the projection. Stub mode and tests are never gated.
-  The demo cloud lane (demo/live/cloud_lane.py, branch demo/oct28) is not wired yet.
+- Operator decisions 2026-10-24, verbatim: "(1) yes, hard refusal in code above USD 2 estimated per job, unless run
+  with an explicit per-job approval flag that records my approval in the ledger; (2) yes, gate the demo lane the same
+  way on its own USD 10 ledger, USD 3 per session; (3) no, gate the OpenAI-key scripts too, or make them refuse to
+  run; (4) 24 h Console freshness and max(USD 0.50, 5%) tolerance confirmed; if billed ledger and Console disagree
+  beyond that, refuse and report."
+  - Per-job limit: a live job estimated above USD 2 refuses unless its own command line carries
+    `--operator-approval "approve <job id> up to USD <n>: <reason>"` (n at or above the estimate), written to the
+    ledger as an `operator_approval` row before the first call and echoed in run_start. Estimates: cloud_redo.py the
+    projection, or max(job cap, projection); all_cloud_b3.py and longtask_cloud.py their job cap (USD 15 and USD 6
+    by default, so both need an approval); trace_output_calibration.py USD 0 (count_tokens is not billed).
+  - The Console compares main plus demo spend, each ledger row once, across every checkout of the repository.
+    The freshness window can only be tightened, and the tolerance is fixed.
+  - Live OpenAI calls refuse (OpenAIDisabledError) in src/cloud/client.py and both OpenAI backends; stub and replay
+    still work.
+  - Demo lane: branch demo/oct28-cap-gate (from demo/oct28) gates the lane on its own ledger, USD 10 cap, USD 3 per
+    session, with the same approval exception.
 
 ### 2026-10-23, API key removed from evo-x2
 

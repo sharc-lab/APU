@@ -363,7 +363,8 @@ def _rel(p: Path) -> str:
 
 def run(client, out: Path = OUT, price_file: Path = PRICE_FILE, local_source: Path = LOCAL_SOURCE, seeds=SEEDS,
         models=None, job_cap: float = JOB_CAP_USD, margin: float = MARGIN, max_turns: int | None = None,
-        ledger_total_at_start: float | None = None, log=print, retry_wait_s: float = 10.0) -> dict:
+        ledger_total_at_start: float | None = None, log=print, retry_wait_s: float = 10.0,
+        pre_job_report: dict | None = None) -> dict:
     table = CR.load_price_table(price_file)
     models = list(models or models_from(table))
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -383,6 +384,7 @@ def run(client, out: Path = OUT, price_file: Path = PRICE_FILE, local_source: Pa
         for m in models:   # warm-up first: it also resolves the temperature each model accepts
             warm[m], temps[m] = warmup_probe(client, m)
         emit({"record": "run_start", "harness": HARNESS, "ts_utc": ag.utc_iso(), "mode": "executed",
+              "pre_job": pre_job_report, "operator_approval": (pre_job_report or {}).get("approval"),
               "script": "scripts/all_cloud_b3.py", "script_git_blob": CR.git_blob(Path(__file__)),
               "harness_git_blob": CR.git_blob(REPO / "harness" / "x2_r2_evalset.py"),
               "evalset_env_git_blob": CR.git_blob(REPO / "harness" / "evalset_env.py"),
@@ -460,6 +462,10 @@ def main(argv=None) -> int:
     ap.add_argument("--ledger", type=Path, default=cc.DEFAULT_LEDGER_PATH)
     ap.add_argument("--redo-file", type=Path, default=REDO_FILE)
     ap.add_argument("--job-cap", type=float, default=JOB_CAP_USD)
+    ap.add_argument(console_gate.APPROVAL_FLAG, dest="operator_approval", default=None,
+                    help="operator only: approve this one job above the USD 2 per-job limit, e.g. "
+                         "'approve <output stem> up to USD <n>: <reason>'; recorded in the ledger before the first "
+                         "call; never raises a cap or skips the Console check")
     a = ap.parse_args(argv)
     if not a.live:
         print("refused: this job only runs live (--live); nothing was sent", file=sys.stderr)
@@ -475,13 +481,16 @@ def main(argv=None) -> int:
     client = cc.CloudClient(mode="real", spend_cap_usd=total0 + a.job_cap, ledger_path=a.ledger)
     print(f"ledger total at start billed ${total0:.4f} (upper bound ${client.running_total_usd_upper_bound:.4f}); "
           f"job cap ${a.job_cap:.2f}; {client.spend_summary()}")
-    try:   # console check before the first call (pilot included); the job can spend at most its job cap
-        gate = console_gate.require_for_client(client, a.job_cap, None)
+    try:   # pre-job gate before the first call (pilot included); estimate = the job cap
+        gate = console_gate.pre_job(client, job_id=Path(a.out).stem, estimate_usd=a.job_cap,
+                                    estimate_basis="job cap (the projection is made after the pilot and refused above "
+                                                   "the job cap)", projection_billed_usd=a.job_cap,
+                                    approval=a.operator_approval)
     except console_gate.ConsoleCheckRefused as e:
         print(str(e), file=sys.stderr)
         return 2
     print(console_gate.format_report(gate))
-    res = run(client, a.out, job_cap=a.job_cap, ledger_total_at_start=total0)
+    res = run(client, a.out, job_cap=a.job_cap, ledger_total_at_start=total0, pre_job_report=gate)
     return 0 if res["decision"] == "run" and res["stopped"] is None else 4
 
 

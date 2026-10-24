@@ -83,6 +83,11 @@ fan_out probe) cannot jointly overshoot the cap.
 The key is never logged or printed in full. `redact_key()` below shows at
 most the first 2 and last 2 characters of any key-shaped string.
 
+OPENAI DISABLED (operator 2026-10-24)
+-------------------------------------
+A real-mode call to an OpenAI model, or with a key read from OPENAI_API_KEY, is refused in prepare() with
+OpenAIDisabledError (OPENAI_DISABLED_MESSAGE): no Console check exists for OpenAI spend. Stub mode is unchanged.
+
 SPEND CAP
 ---------
 HARD_SPEND_CAP_USD = 50.00 USD TOTAL (2026-10-07): the hard cap whenever a real
@@ -124,8 +129,10 @@ billed total, so on the same ledger the billed total, and so the cap headroom, w
 computation fails the client falls back to the old per-row basis (conservative) and says so. A new ledger row's
 running_total_usd is on this basis, so it steps down at the first row written after the switch; the row's
 running_total_basis field names the basis.
-Live jobs also pass the CONSOLE CHECK (src/cloud/console_gate.py) before their first call: the operator's latest
-Anthropic Console reading must be fresh and agree with the ledger's billed total for the same range, and the billed
+Live jobs also pass the PRE-JOB GATE (src/cloud/console_gate.py::pre_job) before their first call: a job estimated
+above USD 2 is refused unless its command line carries an operator approval (--operator-approval, recorded in the
+ledger as its own row before the first call); then the operator's latest Anthropic Console reading must be under
+24 h old and agree with the billed ledgers (main + demo, each row once) within max(USD 0.50, 5%), and the billed
 headroom must cover the job's projection. Stub mode is never gated.
 
 SPEND ALERTS
@@ -278,6 +285,22 @@ class HostRestrictionError(Exception):
 
 class SpendCapExceeded(Exception):
     """Raised when a real call would push running spend past the cap."""
+
+
+class OpenAIDisabledError(RuntimeError):
+    """A live OpenAI call was requested; disabled by operator decision of 2026-10-24 (OPENAI_DISABLED_MESSAGE)."""
+
+
+OPENAI_DISABLED_MESSAGE = (
+    "refused: live OpenAI calls are disabled by operator decision of 2026-10-24. No Console check exists for OpenAI "
+    "spend (the pre-job check in src/cloud/console_gate.py verifies the ledger against the Anthropic Console only), so "
+    "OpenAI spend cannot be verified before a job. Stub, replay and dry modes still work. Nothing was sent."
+)
+
+
+def refuse_live_openai(where: str) -> None:
+    """Raise OpenAIDisabledError naming the refusing entry point. Called by every live OpenAI path."""
+    raise OpenAIDisabledError(f"{OPENAI_DISABLED_MESSAGE} (entry point: {where})")
 
 
 class UnknownModelError(Exception):
@@ -936,6 +959,8 @@ class CloudClient:
             )
         provider = MODEL_PRICING[model_id].get("provider")
         key_provider = KEY_ENV_PROVIDER.get(self.api_key_source or "")
+        if provider == "openai" or key_provider == "openai":
+            refuse_live_openai(f"CloudClient.prepare(model_id='{model_id}')")
         if key_provider is not None and provider != key_provider:
             raise ValueError(
                 f"model '{model_id}' is a {provider} model but this client's key came from "

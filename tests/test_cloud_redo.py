@@ -589,3 +589,55 @@ def test_cascaded_client_cap_stops_before_passing_job_cap(tmp_path):
     assert not [r for r in rows if r["record"] == "cloud_redo_task"]   # no task call passed the cap
     led = [json.loads(x) for x in (tmp_path / "ledger.jsonl").read_text().splitlines() if x.strip()]
     assert all(x.get("running_total_usd", 0) <= 0.01 for x in led)
+
+
+# ── pre-job gate (operator 2026-10-24): USD 2 per-job limit, approval flag, Console check ─────────────────────────
+
+def test_live_run_over_two_dollars_refused_without_approval(tmp_path):
+    def fake(**kw):
+        raise AssertionError("must not be sent")
+
+    out = tmp_path / "redo_gate_test.jsonl"
+    with pytest.raises(SystemExit, match="above the USD 2.00 per-job limit") as e:
+        CR.run(True, out=out, limit=2, client=_client(tmp_path, fake), thinking_off=True, job_cap=10.0,
+               ledger_total_at_start=0.0, pre_job_gate=True)
+    assert "approve redo_gate_test up to USD 10.00" in str(e.value) and "max(job cap, projection)" in str(e.value)
+    assert not (tmp_path / "ledger.jsonl").exists() and not out.exists()
+
+
+def test_live_run_with_approval_still_needs_the_console_check(tmp_path, monkeypatch):
+    def fake(**kw):
+        raise AssertionError("must not be sent")
+
+    monkeypatch.setattr(CR.console_gate, "default_check_path", lambda: tmp_path / "missing_console.json")
+    with pytest.raises(SystemExit, match=r"refused \(console check\)"):
+        CR.run(True, out=tmp_path / "redo_gate_test.jsonl", limit=2, client=_client(tmp_path, fake),
+               thinking_off=True, job_cap=10.0, ledger_total_at_start=0.0, pre_job_gate=True,
+               operator_approval="approve redo_gate_test up to USD 10.00: test")
+    assert not (tmp_path / "ledger.jsonl").exists()
+
+
+def test_main_passes_the_approval_flag_only_from_its_command_line(monkeypatch, tmp_path):
+    got = {}
+    monkeypatch.setenv(CR.KEY_ENV, "test-not-a-key")
+    monkeypatch.setenv("OPERATOR_APPROVAL", "approve x up to USD 99")
+
+    def fake_run(live, source, out, **kw):
+        got.update(kw)
+        return [{"record": "run_end", "stopped": None}]
+
+    class FakeClient:
+        def __init__(self, mode, spend_cap_usd=None, ledger_path=None, **kw):
+            self.spend_cap_usd, self.ledger_path = spend_cap_usd, ledger_path
+
+        def _read_running_total(self):
+            return 1.0
+
+    monkeypatch.setattr(CR, "run", fake_run)
+    monkeypatch.setattr(CR.cc, "CloudClient", FakeClient)
+    led = tmp_path / "l.jsonl"
+    assert CR.main(["--live", "--thinking-off", "--job-cap", "5", "--ledger", str(led)]) == 0
+    assert got["operator_approval"] is None and got["pre_job_gate"] is True
+    assert CR.main(["--live", "--thinking-off", "--job-cap", "5", "--ledger", str(led), "--out",
+                    str(tmp_path / "o.jsonl"), "--operator-approval", "approve o up to USD 5.00"]) == 0
+    assert got["operator_approval"] == "approve o up to USD 5.00"

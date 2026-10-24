@@ -9,6 +9,10 @@ Output schema matches Zachary Johnson's LangGraph harness exactly
 Usage:
     OPENAI_API_KEY=sk-... python claude_code_adapter.py
 
+LIVE OPENAI CALLS DISABLED (operator 2026-10-24): no Console check exists for OpenAI spend, so a live request
+(a replay cache miss in RECORD or AUTO mode) raises OpenAIDisabledError before anything is sent. Replay hits,
+stub-mode clients and --backend ollama still work.
+
 Cloud spend: with --backend openai every live request goes through src/cloud/client.py's capped
 CloudClient (mode="real": USD 50 total hard cap, ledger results/cloud_ledger.jsonl, alerts at
 50/75/90%). The cap check runs before BackendBase's timer starts and the ledger write after it stops,
@@ -46,7 +50,7 @@ from harness.instrumentation import (
     wall_ns, process_cpu_ns, Span,
 )
 from harness.replay import ReplayCache
-from src.cloud.client import CloudClient, local_openai_compatible_client
+from src.cloud.client import CloudClient, local_openai_compatible_client, refuse_live_openai
 
 load_dotenv()
 
@@ -379,6 +383,8 @@ class OpenAIChatBackend(BackendBase):
     def _prepare_capped_call(self, *, model, messages, tools, temperature, seed, **kwargs):
         if self.cloud is None:
             return None
+        if not getattr(self.cloud, "stub_mode", False):   # live OpenAI: disabled, operator 2026-10-24
+            refuse_live_openai("harness/adapters/sdk_direct.py OpenAIChatBackend (--backend openai)")
         return self.cloud.prepare(model_id=model, messages=messages,
                                   **self._payload(tools, temperature, seed, kwargs))
 

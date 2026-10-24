@@ -662,8 +662,9 @@ def run(live: bool, source: Path = SOURCE, out: Path = OUT, price_file: Path = P
         job_cap: float | None = None, ledger_total_at_start: float | None = None,
         executed_file: Path | None = None, resume_from: Path | None = None,
         old_limit: int = LOCAL_MAX_TOKENS, rollback: str | None = None, only_keys: set | None = None,
-        projection_rows: list[dict] | None = None, console_check: bool = False,
-        console_freshness_h: float | None = None) -> list[dict]:
+        projection_rows: list[dict] | None = None, pre_job_gate: bool = False,
+        console_freshness_h: float | None = None, client_cap_total: float | None = None,
+        operator_approval: str | None = None) -> list[dict]:
     """thinking_off: send THINKING_OFF[model] on every call and stop the run at the first call that ends at max_tokens
     with nothing visible. job_cap (live): refuse up front when the projection (from executed_file if it holds an
     executed run of these tasks, else from the local token counts; ledger basis) exceeds it. Rows are written as they
@@ -672,9 +673,13 @@ def run(live: bool, source: Path = SOURCE, out: Path = OUT, price_file: Path = P
     and each row records whether it equals rebuild()'s env_before. only_keys: run only these (attempt_id, turn_idx).
     projection_rows: executed rows of the same tasks; the projection is then their measured cache-priced USD (the basis
     the ledger records since 2026-10-22) with the all-uncached upper bound recorded beside it.
-    console_check (live, set by main): before anything is sent, src/cloud/console_gate.py must pass (fresh Console
-    reading that agrees with the ledger's billed total; billed cap headroom covers the projection). Tests that drive
-    run() with a fake real-mode client leave it off; stub mode is never gated."""
+    pre_job_gate (live, set by main): before anything is sent, src/cloud/console_gate.py::pre_job must pass: the
+    job's estimate is at most USD 2 or operator_approval (main's --operator-approval, this job's command line only)
+    names this job (its output file stem) and an amount at or above it; then the Console check (fresh reading that
+    agrees with the billed ledgers; billed cap headroom covers the projection); then the approval is written to the
+    ledger and echoed in run_start. ESTIMATE: the projection; with --job-cap, the larger of the job cap and the
+    projection; with --client-cap-total, the larger of (client cap total - ledger total at start) and the projection.
+    Tests that drive run() with a fake real-mode client leave it off; stub mode is never gated."""
     if rollback not in (None, "pre_task", "cascaded"):
         raise SystemExit(f"refused: unknown rollback {rollback!r}")
     table = load_price_table(price_file)
@@ -777,13 +782,23 @@ def run(live: bool, source: Path = SOURCE, out: Path = OUT, price_file: Path = P
         start["projected_upper_bound_usd"] = projected_upper
         emit_print(f"projection: billed ${projected:.4f} (upper bound ${projected_upper:.4f}); "
                    f"{client.spend_summary()}")
-        if console_check:
+        if pre_job_gate:
+            room, basis = None, "projection"
+            if job_cap is not None:
+                room, basis = job_cap, "max(job cap, projection)"
+            elif client_cap_total is not None and ledger_total_at_start is not None:
+                room = client_cap_total - ledger_total_at_start
+                basis = "max(client cap total - ledger total, projection)"
+            estimate = projected if room is None else max(room, projected)
             try:
-                gate = console_gate.require_for_client(client, projected, projected_upper,
-                                                       freshness_h=console_freshness_h)
+                gate = console_gate.pre_job(client, job_id=Path(out).stem, estimate_usd=estimate,
+                                            estimate_basis=basis, projection_billed_usd=projected,
+                                            projection_upper_usd=projected_upper, approval=operator_approval,
+                                            freshness_h=console_freshness_h)
             except console_gate.ConsoleCheckRefused as e:
                 raise SystemExit(str(e)) from None
             start["console_check"] = gate
+            start["operator_approval"] = gate.get("approval")
             emit_print(console_gate.format_report(gate))
     out.parent.mkdir(parents=True, exist_ok=True)
     stopped = None
@@ -891,8 +906,12 @@ def main(argv=None) -> int:
                          "(rebuild_cascaded, the stand-in for a successful escalation). Default out "
                          "results/own_rollback_redo_v1.jsonl; projection = the same tasks' measured billed USD")
     ap.add_argument("--console-freshness-hours", type=float, default=None,
-                    help=f"console check: the Console reading must be newer than this (default "
-                         f"{console_gate.FRESHNESS_HOURS_DEFAULT:g} h, or ${console_gate.FRESHNESS_ENV})")
+                    help=f"console check: a SHORTER freshness window than the confirmed "
+                         f"{console_gate.FRESHNESS_HOURS_DEFAULT:g} h (a longer one is refused)")
+    ap.add_argument(console_gate.APPROVAL_FLAG, dest="operator_approval", default=None,
+                    help="operator only: approve this one job above the USD 2 per-job limit, e.g. "
+                         "\"approve <output stem> up to USD <n>: <reason>\"; recorded in the ledger before the first "
+                         "call; never raises a cap or skips the Console check")
     a = ap.parse_args(argv)
     if a.resume:
         out = a.out or next_part_path(a.resume_from)
@@ -946,7 +965,8 @@ def main(argv=None) -> int:
     rows = run(a.live, a.source, out, limit=a.limit, client=client, thinking_off=a.thinking_off, job_cap=a.job_cap,
                ledger_total_at_start=total0, executed_file=V1_EXECUTED if a.thinking_off and not a.rollback else None,
                max_tokens=a.max_tokens, resume_from=part_files(a.resume_from) if a.resume else None,
-               console_check=a.live, console_freshness_h=a.console_freshness_hours, **rb)
+               pre_job_gate=a.live, console_freshness_h=a.console_freshness_hours,
+               client_cap_total=a.client_cap_total, operator_approval=a.operator_approval, **rb)
     return 0 if rows[-1].get("stopped") is None else 4
 
 
