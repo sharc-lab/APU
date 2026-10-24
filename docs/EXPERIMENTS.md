@@ -1088,3 +1088,16 @@ rewritten).
 
 - No SSH and no cloud call in this work. Deploy, verify, --check-plan and the queue append are handed to the operator.
 - Deviations from protocol: none yet.
+
+### Amendment (2026-10-23, after the Part B counts were first computed; the entry above is not edited)
+
+The first implementation of Part B's rule 2 treated "a candidate that uses a local machine" as any candidate whose
+hardware is not "none". That counts the two per-task hybrids at num_ctx 4096, which route every task to the cloud
+(predicted and measured local share 0, so 0 machines and no probe input), as local candidates; their cost floor is
+then their cloud spend alone, equal to all-cloud claude-haiku-5-5's, and the 100 and 1,000 tasks/day cells came out
+NON-TRIVIAL for that reason only. The pre-registered wording is "uses a local machine", and the same row counts local
+use as machines > 0, so the code was changed to that reading (predicted local share > 0, which comes from the
+task-definition projection, not the probe) before the row was regenerated. This was seen after the first computation,
+so the row reports both: the pre-registered reading decides the labels, and the hardware-label reading is shown next
+to each cell ("under the hardware-label reading (first implementation, not the pre-registered wording)") and is not
+counted. Under the hardware-label reading all 3 computed cells are NON-TRIVIAL and the verdict would be MET 3/3.

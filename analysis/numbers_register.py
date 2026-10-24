@@ -7155,7 +7155,8 @@ def compute_own_dse_v1(repo):
     dv = _src_dse("dse_v1")
     d = dv.own_dse_v1(repo)
     n = sum(1 for c in d["cells"].values() if c.get("status") == "computed")
-    return {"value": dv.own_dse_v1_text(d), "n": f"{n} computed cells of {len(d['cells'])}"}
+    k = sum(1 for c in d["cells"].values() if c.get("status") == "computed" and not c.get("trivial"))
+    return {"value": dv.own_dse_v1_text(d), "n": f"{n} computed cells of {len(d['cells'])} ({k} non-trivial)"}
 
 
 _OP = _src_dse("own_profiler")
@@ -8562,7 +8563,7 @@ NUMBER_ENTRIES = [
      "KV, backend, routing policy} by total monthly cost (hardware amortized 3 years at the cited list price, PX2-power "
      "electricity at the EIA price, measured cloud USD) under accuracy target 0.90 and USD 500/month cloud budget from "
      "own-profiler predictions; pick vs brute-force best over measured configurations per workload and volume vs the "
-     "within-10% target",
+     "within-10% target; trivial cells (pre-registered definition) labelled TRIVIAL and not counted as validation",
      "compute": compute_own_dse_v1, "data_files": OWN_DSE_V1_FILES, "pending_ok": True,
      "script_function": "src/dse/dse_v1.py::own_dse_v1"},
     {"claim_id": "own-profiler-probe", "description": "own-profiler-probe (pre-registered 2026-10-23): measured probe "

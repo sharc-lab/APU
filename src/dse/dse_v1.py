@@ -117,7 +117,69 @@ def pareto(cands, tasks_day, usd_kwh, which="pred"):
     return [(c, e) for c, e in evs if not any(dom(e2, e) for _c2, e2 in evs)]
 
 
+def takes_probe_input(c: Candidate) -> bool:
+    """True when the candidate's predicted values come (at least partly) from the probe: any local machine. The
+    all-cloud candidates are priced, not probed (pred is meas)."""
+    return c.hardware != "none" or c.pred != c.meas
+
+
+def cost_floor(c: Candidate, tasks_day, days=DAYS_PER_MONTH, life_months=LIFE_MONTHS) -> float:
+    """Lowest predicted monthly total a local candidate can have under ANY probe input: one machine's hardware plus
+    its predicted cloud USD (from the task-definition projection and the all-cloud rows, not the probe); electricity
+    0 (pre-registered, docs/EXPERIMENTS.md 'own-dse-v1 trivial cells')."""
+    machines = 1 if c.pred.local_share > 0 else 0
+    return machines * (c.hw_usd or 0.0) / life_months + tasks_day * days * c.pred.cloud_usd_task
+
+
+def cell_counts(cands, tasks_day, accuracy_target, budget, usd_kwh) -> dict:
+    """Candidates, eligible on measured values (accuracy target and cloud budget), and eligible using a local machine."""
+    elig = rank(cands, tasks_day, accuracy_target, budget, usd_kwh, "meas")
+    return {"n_candidates": len(cands), "n_eligible": len(elig),
+            "n_eligible_local": sum(1 for _c, e in elig if e["machines"] > 0)}
+
+
+def trivial_cell(cands, tasks_day, accuracy_target, budget, usd_kwh, tol=TARGET_GAP, local_by="share") -> dict:
+    """Pre-registered (docs/EXPERIMENTS.md "own-dse-v1 trivial cells", before any count was computed): a computed cell
+    is TRIVIAL if (1) at most one candidate is eligible on measured values, or (2) the brute-force best takes no probe
+    input and every candidate using a local machine has a cost floor above the best's measured total by more than tol.
+    local_by "share" (the pre-registered wording, used for the row) or "label" (hardware != "none", the first
+    implementation; reported next to it, not counted). Returns {"trivial": bool, "reason": str, "floor_min"}."""
+    brute = rank(cands, tasks_day, accuracy_target, budget, usd_kwh, "meas")
+    if len(brute) <= 1:
+        return {"trivial": True, "reason": f"{len(brute)} eligible", "floor_min": None}
+    best_c, best_ev = brute[0]
+    # "uses a local machine" = predicted local share > 0 (at least one machine; the share comes from the task-definition
+    # projection, not the probe), the same reading as the per-cell count (machines > 0). A per-task hybrid that routes
+    # every task to the cloud (share 0, 0 machines) does not use a local machine and its prediction takes no probe input.
+    local = [c for c in cands if (c.pred.local_share > 0 if local_by == "share" else c.hardware != "none")]
+    floors = [cost_floor(c, tasks_day) for c in local]
+    fmin = min(floors) if floors else None
+    if not takes_probe_input(best_c) and all(f > best_ev["total"] * (1 + tol) for f in floors):
+        return {"trivial": True, "floor_min": fmin,
+                "reason": (f"best takes no probe input and every local candidate's cost floor (lowest USD "
+                           f"{fmin:,.2f}/month) is more than {tol * 100:.0f}% above it" if floors else
+                           "best takes no probe input and no candidate uses a local machine")}
+    if takes_probe_input(best_c):
+        why = "the brute-force best takes probe input"
+    else:
+        why = (f"lowest local cost floor USD {fmin:,.2f}/month is not more than {tol * 100:.0f}% above the best's "
+               f"measured USD {best_ev['total']:,.2f}, so a probe input could change the pick")
+    return {"trivial": False, "floor_min": fmin, "reason": why}
+
+
 def validate_cell(cands, tasks_day, accuracy_target, budget, usd_kwh) -> dict:
+    """validate_cell_core plus the per-cell counts and the trivial-cell label (not counted as validation if trivial)."""
+    v = validate_cell_core(cands, tasks_day, accuracy_target, budget, usd_kwh)
+    v.update(cell_counts(cands, tasks_day, accuracy_target, budget, usd_kwh))
+    if v["status"] == "computed":
+        t = trivial_cell(cands, tasks_day, accuracy_target, budget, usd_kwh)
+        v.update({"trivial": t["trivial"], "trivial_reason": t["reason"], "local_floor_min": t["floor_min"],
+                  "trivial_by_label": trivial_cell(cands, tasks_day, accuracy_target, budget, usd_kwh,
+                                                   local_by="label")["trivial"]})
+    return v
+
+
+def validate_cell_core(cands, tasks_day, accuracy_target, budget, usd_kwh) -> dict:
     """DSE pick (predicted ranking) scored on measured values vs the brute-force best over measured candidates."""
     pred_rank = rank(cands, tasks_day, accuracy_target, budget, usd_kwh, "pred")
     brute = rank(cands, tasks_day, accuracy_target, budget, usd_kwh, "meas")
@@ -247,23 +309,37 @@ def own_dse_v1_text(d) -> str:
         if c.get("status") != "computed":
             parts.append(f"{w} {v:,}/day: {c['status']}")
             continue
-        parts.append(f"{w} {v:,}/day: DSE pick {c['pick']} (predicted USD {c['pick_pred_total']:,.2f}/month, measured "
+        label = (f"TRIVIAL ({c['trivial_reason']}; not counted as validation)" if c["trivial"]
+                 else f"NON-TRIVIAL ({c['trivial_reason']})")
+        alt = ("TRIVIAL" if c["trivial_by_label"] else "NON-TRIVIAL")
+        parts.append(f"{w} {v:,}/day: {label}; {c['n_candidates']} candidates, {c['n_eligible']} eligible (measured "
+                     f"accuracy >= target and cloud within budget), eligible using a local machine: {c['n_eligible_local']}; "
+                     f"under the hardware-label reading (first implementation, not the pre-registered wording) {alt}; "
+                     f"DSE pick {c['pick']} (predicted USD {c['pick_pred_total']:,.2f}/month, measured "
                      f"USD {c['pick_meas_total']:,.2f}, measured accuracy {c['pick_meas_quality']:.3f}); brute-force "
                      f"best {c['best']} USD {c['best_total']:,.2f} (accuracy {c['best_quality']:.3f}); gap "
                      f"{c['gap'] * 100:.1f}% -> {'within 10%' if c['met'] else 'NOT within 10%'}; cheapest measured "
                      f"feasible option using a local machine: "
                      + (f"{c['best_local']} USD {c['best_local_total']:,.2f}" if c["best_local"] else "none"))
     computed = [c for c in d["cells"].values() if c.get("status") == "computed"]
-    met = sum(1 for c in computed if c["met"])
+    nontriv = [c for c in computed if not c["trivial"]]
+    met = sum(1 for c in nontriv if c["met"])
     pending = len(d["cells"]) - len(computed)
+    if nontriv:
+        verdict = (f"pre-registered target within 10% in every non-trivial computed cell: "
+                   f"{'MET' if met == len(nontriv) else 'MISSED'} ({met}/{len(nontriv)} non-trivial cells")
+    else:
+        verdict = "validation: 0 non-trivial cells, target not tested ("
+    verdict += (f"; {len(computed) - len(nontriv)} TRIVIAL computed cells not counted; {pending} PENDING); the earlier "
+                f"'MET (3/3 computed cells, 6 PENDING)' counted trivial cells")
     return (f"accuracy target {d['accuracy_target']:.2f}, cloud budget USD {d['budget']:,.0f}/month, 30-day month; "
             f"{d['n_candidates']} measured candidates (evo-x2 qwen3:14b local tiers, all-cloud, per-task hybrids; seeds "
             f"{', '.join(map(str, inp['seeds']))}); hardware USD {inp['hw_usd']:,.0f} ({inp['hw_label']}, "
             f"impact-ref-machine-price) / 36 months; electricity {inp['watts']:.1f} W (PX2-power qwen3-14b, measured "
             f"on evo-t2s, applied to evo-x2: ASSUMED) x USD {inp['usd_kwh']:.4f}/kWh (energy-price-eia-commercial), "
             f"active time only; one task at a time per machine (ASSUMED); DSE ranks on own-profiler probe predictions "
-            f"(ratios from evo-t2s), validation on measured values; "
-            + "; ".join(parts)
-            + f"; pre-registered target within 10% in every computed cell: "
-              f"{'MET' if computed and met == len(computed) else 'MISSED'} ({met}/{len(computed)} computed cells, "
-              f"{pending} PENDING)")
+            f"(ratios from evo-t2s), validation on measured values; trivial cell (pre-registered 2026-10-23): at most "
+            f"one eligible, or the brute-force best takes no probe input and every candidate using a local machine "
+            f"(predicted local share > 0) has a cost floor (one machine USD {inp['hw_usd'] / LIFE_MONTHS:,.2f}/month "
+            f"plus its predicted cloud USD) more than 10% above it; "
+            + "; ".join(parts) + "; " + verdict)

@@ -71,4 +71,58 @@ def test_pareto_drops_dominated():
 def test_committed_dse_runs():
     d = D.own_dse_v1(REPO)
     assert ("short", 100) in d["cells"] and d["n_candidates"] >= 3
-    assert "pre-registered target" in D.own_dse_v1_text(d)
+    t = D.own_dse_v1_text(d)
+    assert "pre-registered target" in t or "target not tested" in t
+    assert all("trivial" in c for c in d["cells"].values() if c.get("status") == "computed")
+
+
+# ── trivial cells (pre-registered 2026-10-23, docs/EXPERIMENTS.md "own-dse-v1 trivial cells") ─────────────
+
+def test_one_eligible_is_trivial():
+    a = _cand("a", D.Estimate(0.95, 0, 0, 0.001), D.Estimate(0.95, 0, 0, 0.001))
+    b = _cand("b", D.Estimate(0.80, 0, 0, 0.0001), D.Estimate(0.80, 0, 0, 0.0001))
+    t = D.trivial_cell([a, b], 100, 0.9, 1e9, KWH)
+    assert t["trivial"] and t["reason"] == "1 eligible"
+    v = D.validate_cell([a, b], 100, 0.9, 1e9, KWH)
+    assert (v["n_candidates"], v["n_eligible"], v["n_eligible_local"]) == (2, 1, 0) and v["trivial"]
+
+
+def test_cloud_best_far_below_every_local_floor_is_trivial():
+    cloud = _cand("cloud", D.Estimate(0.97, 0, 0, 0.0001), D.Estimate(0.97, 0, 0, 0.0001))   # USD 0.30/month
+    cloud2 = _cand("cloud2", D.Estimate(0.99, 0, 0, 0.001), D.Estimate(0.99, 0, 0, 0.001))
+    local = _cand("local", D.Estimate(0.95, 1, 1, 0), D.Estimate(0.95, 1, 1, 0), hw="dev")    # floor 55.56
+    assert D.cost_floor(local, 100) == pytest.approx(2000 / 36)
+    assert D.trivial_cell([cloud, cloud2, local], 100, 0.9, 1e9, KWH)["trivial"]
+
+
+def test_local_floor_within_tolerance_is_non_trivial():
+    cloud = _cand("cloud", D.Estimate(0.97, 0, 0, 0.002), D.Estimate(0.97, 0, 0, 0.002))      # USD 60/month at 1000
+    local = _cand("local", D.Estimate(0.95, 1, 1, 0), D.Estimate(0.95, 1, 1, 0), hw="dev")    # floor 55.56 < 66
+    assert not D.trivial_cell([cloud, local], 1000, 0.9, 1e9, KWH)["trivial"]
+    v = D.validate_cell([cloud, local], 1000, 0.9, 1e9, KWH)
+    assert v["trivial"] is False and v["n_eligible_local"] == 1
+
+
+def test_best_with_probe_input_is_non_trivial():
+    local = _cand("local", D.Estimate(0.95, 1, 1, 0), D.Estimate(0.95, 1, 1, 0), hw="dev")
+    cloud = _cand("cloud", D.Estimate(0.97, 0, 0, 0.01), D.Estimate(0.97, 0, 0, 0.01))       # USD 3,000 at 10,000
+    assert not D.trivial_cell([local, cloud], 10000, 0.9, 1e9, KWH)["trivial"]
+
+
+def test_hybrid_with_zero_local_share_does_not_count_as_local():
+    cloud = _cand("cloud", D.Estimate(0.97, 0, 0, 0.0007), D.Estimate(0.97, 0, 0, 0.0007))
+    cloud2 = _cand("cloud2", D.Estimate(0.99, 0, 0, 0.01), D.Estimate(0.99, 0, 0, 0.01))
+    hyb = _cand("hyb", D.Estimate(0.97, 0, 70, 0.0007), D.Estimate(0.97, 0, 0, 0.0007), hw="dev")  # routes all
+    assert D.trivial_cell([cloud, cloud2, hyb], 100, 0.9, 1e9, KWH)["trivial"]
+    assert not D.trivial_cell([cloud, cloud2, hyb], 100, 0.9, 1e9, KWH, local_by="label")["trivial"]
+
+
+def test_text_with_no_non_trivial_cell():
+    a = _cand("a", D.Estimate(0.95, 0, 0, 0.001), D.Estimate(0.95, 0, 0, 0.001))
+    cells = {("short", 100): D.validate_cell([a], 100, 0.9, 1e9, KWH),
+             ("long", 100): {"status": "PENDING: x", "met": False}}
+    d = {"cells": cells, "inputs": {"seeds": [1], "hw_usd": 2000, "hw_label": "x", "watts": 90, "usd_kwh": KWH},
+         "n_candidates": 1, "accuracy_target": 0.9, "budget": 500}
+    t = D.own_dse_v1_text(d)
+    assert "validation: 0 non-trivial cells, target not tested" in t and "TRIVIAL (1 eligible" in t
+    assert chr(0x2014) not in t
