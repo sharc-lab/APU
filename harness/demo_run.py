@@ -47,7 +47,13 @@ FLAG_KEY = {"v1": "flagged", "v2": "flagged_v2"}
 
 
 def flagged(r: dict, detector: str | None = None) -> bool:
-    return bool(r.get(FLAG_KEY[detector or DETECTOR]))
+    """A result recorded before v2 existed (the 2026-10-23 acceptance run) has no flagged_v2: v2 is then read from
+    its calls' own evidence (the server's cut lines; "model saw ..." is v1's token-count comparison)."""
+    det = detector or DETECTOR
+    if det == "v2" and FLAG_KEY["v2"] not in r:
+        return any(c.get("cut_v2") or any(not str(e).startswith("model saw") for e in (c.get("evidence") or []))
+                   for c in r.get("calls") or [])
+    return bool(r.get(FLAG_KEY[det]))
 NEED_SOURCE = "projected task-turn prompt (hybrid-route-at-start-measured rule)"
 
 

@@ -125,6 +125,13 @@ def test_detector_switch_drives_escalation_and_flags(prof, task8, monkeypatch):
     assert "the runtime's own signal" in html and "known false alarm" in html
 
 
+def test_v2_reads_pre_v2_results_from_their_cut_lines():
+    real = {"flagged": True, "calls": [{"cut": True, "evidence": ["context shift x1", "model saw 1 of about 2 tokens"]}]}
+    count_only = {"flagged": True, "calls": [{"cut": True, "evidence": ["model saw 7949 of about 8871 tokens"]}]}
+    assert DR.flagged(real, "v2") and not DR.flagged(count_only, "v2")
+    assert DR.flagged(count_only, "v1")
+
+
 def test_pending_cloud_parts_are_not_graded(prof, task8):
     pend = lambda lane, task, model: {"pending": True, "model": model}  # noqa: E731
     res = DR.run_task("amd8192", prof, task8, _fake_local({("default", 8192): {"end_state_ok": True,
