@@ -1,0 +1,129 @@
+{
+ "points": {
+  "20480": {
+   "clamped": false,
+   "served_n_ctx": 20480,
+   "started": true,
+   "shared_mib_median": 459.5078125,
+   "dedicated_mib_median": 24244.1171875,
+   "n_measured": 5,
+   "class": "no_spill",
+   "shared_delta_mib": 0.0,
+   "decode": [
+    11.367869691773139,
+    0.08552030282658472,
+    5
+   ],
+   "ttft": [
+    25708.50337999873,
+    224.74505793511526,
+    5
+   ]
+  },
+  "24576": {
+   "clamped": false,
+   "served_n_ctx": 24576,
+   "started": true,
+   "shared_mib_median": 463.5078125,
+   "dedicated_mib_median": 25238.17578125,
+   "n_measured": 5,
+   "class": "no_spill",
+   "shared_delta_mib": 4.0,
+   "decode": [
+    11.285844621254538,
+    0.02193629941391496,
+    5
+   ],
+   "ttft": [
+    25835.851019993424,
+    175.35097664614355,
+    5
+   ]
+  },
+  "28672": {
+   "clamped": false,
+   "served_n_ctx": 28672,
+   "started": true,
+   "shared_mib_median": 467.5078125,
+   "dedicated_mib_median": 26296.43359375,
+   "n_measured": 5,
+   "class": "no_spill",
+   "shared_delta_mib": 8.0,
+   "decode": [
+    11.271139640069583,
+    0.057337029890570636,
+    5
+   ],
+   "ttft": [
+    25888.90673997812,
+    93.22462649949695,
+    5
+   ]
+  },
+  "32768": {
+   "clamped": false,
+   "served_n_ctx": 32768,
+   "started": true,
+   "shared_mib_median": 471.5078125,
+   "dedicated_mib_median": 27194.29296875,
+   "n_measured": 5,
+   "class": "no_spill",
+   "shared_delta_mib": 12.0,
+   "decode": [
+    11.320106977212346,
+    0.09303268994844573,
+    5
+   ],
+   "ttft": [
+    25788.354260008782,
+    196.59611304042454,
+    5
+   ]
+  },
+  "36864": {
+   "clamped": false,
+   "served_n_ctx": 36864,
+   "started": true,
+   "shared_mib_median": 475.5078125,
+   "dedicated_mib_median": 28380.75,
+   "n_measured": 5,
+   "class": "no_spill",
+   "shared_delta_mib": 16.0,
+   "decode": [
+    11.339674785763767,
+    0.057127252497251264,
+    5
+   ],
+   "ttft": [
+    25807.781259994954,
+    201.70878782620136,
+    5
+   ]
+  },
+  "40960": {
+   "clamped": false,
+   "served_n_ctx": 40960,
+   "started": true,
+   "shared_mib_median": 479.5078125,
+   "dedicated_mib_median": 29278.609375,
+   "n_measured": 5,
+   "class": "no_spill",
+   "shared_delta_mib": 20.0,
+   "decode": [
+    11.29810938713455,
+    0.019575981638851214,
+    5
+   ],
+   "ttft": [
+    25864.96808002703,
+    80.04807342677034,
+    5
+   ]
+  }
+ },
+ "baseline_shared_mib": 459.5078125,
+ "spill_point": null,
+ "last_no_spill": 40960,
+ "cost": null,
+ "threshold_mib": 1024.0
+}
