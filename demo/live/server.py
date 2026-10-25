@@ -70,6 +70,8 @@ class App:
             return 200, "text/html; charset=utf-8", (STATIC / "index.html").read_bytes()
         if method == "GET" and u.path == "/api/meta":
             m = dict(self.meta)
+            m["run_active"] = bool(self.run and not self.run.done)
+            m["run_scenario"] = self.run.scenario if self.run else None
             if self.cloud is not None:
                 m["budget_left_usd"] = round(self.cloud.budget_left(), 4)
             return 200, "application/json", json.dumps(m).encode()

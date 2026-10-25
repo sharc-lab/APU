@@ -277,11 +277,12 @@ ENTRIES = {
 HOLD_ID = "x2_demo_hold"
 
 
-def hold_entry(release_utc: str, start_utc: str) -> dict:
-    """The demo hold (docs/EXPERIMENTS.md "2026-10-23: Demo hold job"): the window and the release time are part of the
-    command and of the note, so the queue state itself says when the machine resumes. Added to ENTRIES only by
-    --hold-release-utc with --hold-start-utc."""
-    from datetime import datetime, timezone
+def hold_entry(release_utc: str, start_utc: str, warmup_min: float = 0.0, rolling: bool = False) -> dict:
+    """The demo hold (docs/EXPERIMENTS.md "2026-10-23: Demo hold job"; rolling variant 2026-10-24 for the Tue
+    2026-10-27 showing): the window, the warm-up and the release time are part of the command and of the note, so the
+    queue state itself says when the machine resumes. Added to ENTRIES only by --hold-release-utc with
+    --hold-start-utc."""
+    from datetime import datetime, timedelta, timezone
 
     def utc(s, flag):
         dt = datetime.fromisoformat(s)
@@ -292,13 +293,22 @@ def hold_entry(release_utc: str, start_utc: str) -> dict:
     if s >= r:
         raise ValueError("the hold window start must be before its release")
     rel, st = r.isoformat(), s.isoformat()
-    return {"projected_duration_h": None,
-            "cmd": [PY, "demo\\x2_demo_hold.py", "--start-utc", st, "--release-utc", rel, "--out",
-                    f"{RESULTS}\\demo_hold.jsonl", "--queued"],
-            "note": f"Demo hold for the live demo window {st} to {rel}, pre-registered in docs/EXPERIMENTS.md "
-                    f"2026-10-23: touches nothing (no Ollama, no model, no GPU), holds the queue from its launch until "
-                    f"{rel} and then releases itself via tq.advance(); if it starts at or after {rel} it releases at "
-                    f"once. Sets no pause."}
+    free = (s - timedelta(minutes=warmup_min)).isoformat()
+    cmd = [PY, "demo\\x2_demo_hold.py", "--start-utc", st, "--release-utc", rel, "--out",
+           f"{RESULTS}\\demo_hold.jsonl", "--queued"]
+    if warmup_min:
+        cmd[6:6] = ["--warmup-min", f"{warmup_min:g}"]
+    if rolling:
+        cmd.insert(-1, "--rolling")
+        how = (f"if the next pending job fits before {free} by its high estimate the hold re-inserts itself after it "
+               f"and lets it run, otherwise it holds the queue until {rel}; a running job is never interrupted")
+    else:
+        how = f"holds the queue from its launch until {rel}"
+    return {"projected_duration_h": None, "cmd": cmd,
+            "note": f"Demo hold for the live demo window {st} to {rel} (machine free from {free}, warm-up "
+                    f"{warmup_min:g} min), pre-registered in docs/EXPERIMENTS.md: touches nothing (no Ollama, no "
+                    f"model, no GPU); {how}; releases itself via tq.advance() at {rel}; if it starts at or after "
+                    f"{rel} it releases at once. Sets no pause flag."}
 
 
 def entry(job_id: str) -> dict:
@@ -395,11 +405,15 @@ def main(argv=None):
     ap.add_argument("--hold-release-utc", default=None,
                     help=f"defines the {HOLD_ID} entry with this release time (ISO 8601 with offset)")
     ap.add_argument("--hold-start-utc", default=None, help="the demo window start, required with --hold-release-utc")
+    ap.add_argument("--hold-warmup-min", type=float, default=0.0, help="minutes the machine is free before the start")
+    ap.add_argument("--hold-rolling", action="store_true", help="the rolling hold (x2_demo_hold.decide)")
+    ap.add_argument("--hold-id", default=HOLD_ID, help=f"queue id of the hold entry (default {HOLD_ID})")
     args = ap.parse_args(argv)
     if args.hold_release_utc:
         if not args.hold_start_utc:
             ap.error("--hold-release-utc needs --hold-start-utc")
-        ENTRIES[HOLD_ID] = hold_entry(args.hold_release_utc, args.hold_start_utc)
+        ENTRIES[args.hold_id] = hold_entry(args.hold_release_utc, args.hold_start_utc, args.hold_warmup_min,
+                                           args.hold_rolling)
     if args.insert_after:
         after, jobs = args.insert_after[0], args.insert_after[1:]
         unknown = [j for j in jobs if j not in ENTRIES]

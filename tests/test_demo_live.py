@@ -271,6 +271,68 @@ def test_queue_insert_after_places_demo_jobs_directly_after_the_running_b5_job()
         qf.insert_entries_after(new, "x2_b5_simcap_8192", ["x2_demo_detector_check"])
 
 
+def _wait_done(run):
+    import time
+    for _ in range(400):
+        if run.done:
+            return
+        time.sleep(0.05)
+    raise AssertionError("run did not finish")
+
+
+def test_live_run_falls_back_to_the_recorded_run_when_the_agent_cannot_start(tmp_path):
+    from demo.live import runner as RN
+    rec = tmp_path / "rec.jsonl"
+    res = {"scenario": "amd8192", "seed": 20260901, "task_id": "t", "turn_idx": 3, "history_turns": 2,
+           "projected_prompt": 5000, "lanes": {
+               "default": {"route": "local", "end_state_ok": True, "calls": [{"n": 1, "seconds": 0}]},
+               "ours": {"route": "cloud", "label": "LIVE", "end_state_ok": True, "usd_ledger": 0.01, "seconds": 0},
+               "cloud": {"route": "cloud", "label": "LIVE", "end_state_ok": True, "usd_ledger": 0.01, "seconds": 0}}}
+    rec.write_text(json.dumps({"record": "task_result", **res}) + "\n", encoding="utf-8")
+
+    def unreachable(on_line):
+        raise RuntimeError("agent closed its output (evo-x2 unreachable or the agent stopped)")
+    run = RN.LiveRun("amd8192", "live", agent_factory=unreachable, cloud=None, fallback_file=rec,
+                     sleep=lambda s: None)
+    run.start()
+    _wait_done(run)
+    kinds = [e["event"] for e in run.events]
+    fb = next(e for e in run.events if e["event"] == "fallback")
+    assert fb["label"] == "REPLAYED" and "unreachable" in fb["reason"] and "error" not in kinds
+    assert kinds.count("task_end") == 1 and kinds[-1] == "run_end"
+
+
+def test_agent_read_times_out_when_a_lane_stalls():
+    import io
+    import threading
+    from demo.live import runner as RN
+
+    class Stalled:
+        def __init__(self):
+            self.stdin = io.StringIO()
+            r, w = __import__("os").pipe()
+            self._w = w
+            self.stdout = __import__("os").fdopen(r, "r")
+            __import__("os").write(w, (json.dumps({"record": "agent_ready"}) + "\n").encode())
+
+        def kill(self):
+            __import__("os").close(self._w)
+
+        def wait(self, timeout=None):
+            return 0
+    a = RN.Agent(["x"], popen=lambda *x, **k: Stalled(), line_timeout=0.3)
+    with pytest.raises(TimeoutError):
+        a.local("default", {"seed": 1, "task_id": "t"}, 4096)
+    a.kill()
+    threading.Event().wait(0.1)
+
+
+def test_x2_agent_argv_has_a_connect_timeout_and_a_rehearsal_override():
+    from demo.live import runner as RN
+    argv = RN.x2_agent_argv(env={RN.ENV_SSH_TARGET: "nobody@192.0.2.1"})
+    assert f"ConnectTimeout={RN.CONNECT_TIMEOUT_S}" in argv and "nobody@192.0.2.1" in argv
+
+
 def test_lane_server_guard_refuses_a_held_port(tmp_path):
     srv = S.LaneServer(11999, {}, str(tmp_path / "s.log"), popen=lambda *a, **k: None, listeners=lambda p: [1234])
     with pytest.raises(S.sg.GuardError):

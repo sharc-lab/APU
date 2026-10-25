@@ -1728,3 +1728,16 @@ Row `e1-e2-draft-hours`: "E2 KV q8_0 at the default window 0.21 h (high 0.63 h)"
 1. Is 23.8% (one weekday shift) the utilization to name as primary, or another value?
 2. Is "session" the 30-turn B3 session, or a different unit he prices?
 3. Should idle power be counted? It is not in this draft, and the register has no idle-power row.
+
+## AMENDMENT (2026-10-24): demo hold job, rolling variant for the Tue 2026-10-27 showing (OPERATIONAL; NOT QUEUED until the operator gives the times)
+
+- harness/x2_demo_hold.py --rolling --warmup-min 30 (queue entry: x2_queue_fill.py --hold-rolling --hold-warmup-min 30
+  --hold-id x2_demo_hold_tue). Inserted directly after the running job. On each launch it decides: if the next pending
+  job fits entirely before the free-from time (window start minus 30 min) by its high estimate (the note's "high X h",
+  else 1.5 x projected_duration_h), the hold re-inserts a pending copy of itself right after that job (one
+  read-modify-write under a pause released in the same function's finally block) and releases, so the job runs;
+  otherwise it holds the queue until the release time and releases with its own tq.advance(). It never interrupts a
+  running job; --check-plan (read-only) projects the walk with high estimates and warns when the running job could
+  overrun the window. Touches nothing else (no Ollama, no model, no GPU). Tests: tests/test_x2_demo_hold.py (fake clock,
+  fake queue).
+- The same mechanism, with the slot's times and no warm-up, gives the idle test slot for the live rehearsal.
