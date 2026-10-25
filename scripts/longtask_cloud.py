@@ -48,6 +48,7 @@ import longtask_env as L  # noqa: E402
 import x2_longtask as X  # noqa: E402
 import x2_r2_agent as ag  # noqa: E402
 from cloud import client as cc  # noqa: E402
+from cloud import console_gate  # noqa: E402
 
 _spec = importlib.util.spec_from_file_location("all_cloud_b3", REPO / "scripts" / "all_cloud_b3.py")
 ACB = importlib.util.module_from_spec(_spec)
@@ -133,7 +134,7 @@ def summarize(rows) -> dict:
 
 
 def run(client, out=OUT, price_file=PRICE_FILE, task_ids=CLOUD_TASKS, seed=SEED, job_cap=JOB_CAP_USD,
-        ledger_total_at_start=None, log=print, retry_wait_s=10.0) -> dict:
+        ledger_total_at_start=None, log=print, retry_wait_s=10.0, pre_job_report=None) -> dict:
     table = CR.load_price_table(price_file)
     prices = json.loads(Path(price_file).read_text(encoding="utf-8"))
     out = Path(out)
@@ -151,6 +152,7 @@ def run(client, out=OUT, price_file=PRICE_FILE, task_ids=CLOUD_TASKS, seed=SEED,
         tasks = L.build_tasks(seed, task_ids)
         warm, temp = ACB.warmup_probe(client, HAIKU)
         emit({"record": "run_start", "harness": HARNESS, "ts_utc": ag.utc_iso(), "mode": "executed",
+              "pre_job": pre_job_report, "operator_approval": (pre_job_report or {}).get("approval"),
               "script": "scripts/longtask_cloud.py", "script_git_blob": CR.git_blob(Path(__file__)),
               "x2_longtask_git_blob": CR.git_blob(REPO / "harness" / "x2_longtask.py"),
               "longtask_env_git_blob": CR.git_blob(REPO / "harness" / "longtask_env.py"),
@@ -219,6 +221,10 @@ def main(argv=None) -> int:
     ap.add_argument("--out", type=Path, default=OUT)
     ap.add_argument("--ledger", type=Path, default=cc.DEFAULT_LEDGER_PATH)
     ap.add_argument("--job-cap", type=float, default=JOB_CAP_USD)
+    ap.add_argument(console_gate.APPROVAL_FLAG, dest="operator_approval", default=None,
+                    help="operator only: approve this one job above the USD 2 per-job limit, e.g. "
+                         "'approve <output stem> up to USD <n>: <reason>'; recorded in the ledger before the first "
+                         "call; never raises a cap or skips the Console check")
     a = ap.parse_args(argv)
     if not a.live:
         print("refused: this job only runs live (--live); nothing was sent", file=sys.stderr)
@@ -231,8 +237,18 @@ def main(argv=None) -> int:
         return 2
     total0 = cc.CloudClient(mode="stub", ledger_path=a.ledger)._read_running_total()
     client = cc.CloudClient(mode="real", spend_cap_usd=total0 + a.job_cap, ledger_path=a.ledger)
-    print(f"ledger total at start ${total0:.4f}; job cap ${a.job_cap:.2f}; client cap ${client.spend_cap_usd:.4f}")
-    res = run(client, a.out, job_cap=a.job_cap, ledger_total_at_start=total0)
+    print(f"ledger total at start billed ${total0:.4f} (upper bound ${client.running_total_usd_upper_bound:.4f}); "
+          f"job cap ${a.job_cap:.2f}; {client.spend_summary()}")
+    try:   # pre-job gate before the first call (pilot included); estimate = the job cap
+        gate = console_gate.pre_job(client, job_id=Path(a.out).stem, estimate_usd=a.job_cap,
+                                    estimate_basis="job cap (the projection is made after the pilot and refused above "
+                                                   "the job cap)", projection_billed_usd=a.job_cap,
+                                    approval=a.operator_approval)
+    except console_gate.ConsoleCheckRefused as e:
+        print(str(e), file=sys.stderr)
+        return 2
+    print(console_gate.format_report(gate))
+    res = run(client, a.out, job_cap=a.job_cap, ledger_total_at_start=total0, pre_job_report=gate)
     return 0 if res["decision"] == "run" and res["stopped"] is None else 4
 
 

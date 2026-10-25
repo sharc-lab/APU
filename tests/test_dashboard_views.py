@@ -380,6 +380,9 @@ def make_escalator(app, tmp_path, completion, env_live=True, **kw):
         return cc.CloudClient(mode="real", api_key=FAKE_KEY, spend_cap_usd=cap, ledger_path=ledger,
                               role_override="controller", completion_fn=completion)
 
+    # the pre-job gate (Console check, operator 2026-10-24) is bypassed here: tests are never gated; the gate itself
+    # is covered by tests/test_demo_cap_gate.py
+    kw.setdefault("gate_fn", lambda client, **gkw: {"gated": False, "reason": "test"})
     return escalate.Escalator(app.cache.escalation, ledger=tmp_path / "ledger.jsonl", env=env,
                               client_factory=factory, **kw)
 

@@ -421,6 +421,67 @@ Every report states status against these three checkpoints.
   (ledger), remaining USD 49.999995 of 50. Cap-refusal and cloud client tests pass (81). litellm 1.106.2 installed on
   the controller (required by the live path; already in pyproject.toml).
 
+### 2026-10-23, cap basis: billed spend, checked against the Console (on review, not in effect until merged)
+
+- Operator: "switch the cap check to billed spend (cloud-spend-billed-vs-upper-bound), verified against the
+  Anthropic Console usage total before each cloud job; keep the upper bound reported alongside."
+- Before: src/cloud/client.py's cap check used the ledger's billed column, but every row written before 2026-10-22
+  counted at its upper bound, so the starting total was near the upper bound (the ledger's last row records
+  running_total_usd 41.5758 vs running_total_usd_upper_bound 43.2566).
+- After: the starting total is the register row's billed total (analysis/cloud_spend_billed.py::compute on the
+  client's ledger; rows with no usage on file still count at the upper bound). Register row
+  cloud-spend-billed-vs-upper-bound: billed USD 12.5643 vs upper bound USD 43.2566. The USD 50 hard cap is unchanged;
+  every cap message and pre-job projection prints billed and upper bound side by side.
+- Console check (src/cloud/console_gate.py) before each live job in scripts/cloud_redo.py, scripts/all_cloud_b3.py
+  and scripts/longtask_cloud.py: results/console_usage_check.json (operator-written: Console total, read time UTC,
+  date range, reader) must be under 24 h old, agree with the ledger's billed total for the same range within
+  max(USD 0.50, 5%), and the billed headroom must cover the projection. Stub mode and tests are never gated.
+- Operator decisions 2026-10-24, verbatim: "(1) yes, hard refusal in code above USD 2 estimated per job, unless run
+  with an explicit per-job approval flag that records my approval in the ledger; (2) yes, gate the demo lane the same
+  way on its own USD 10 ledger, USD 3 per session; (3) no, gate the OpenAI-key scripts too, or make them refuse to
+  run; (4) 24 h Console freshness and max(USD 0.50, 5%) tolerance confirmed; if billed ledger and Console disagree
+  beyond that, refuse and report."
+  - Per-job limit: a live job estimated above USD 2 refuses unless its own command line carries
+    `--operator-approval "approve <job id> up to USD <n>: <reason>"` (n at or above the estimate), written to the
+    ledger as an `operator_approval` row before the first call and echoed in run_start. Estimates: cloud_redo.py the
+    projection, or max(job cap, projection); all_cloud_b3.py and longtask_cloud.py their job cap (USD 15 and USD 6
+    by default, so both need an approval); trace_output_calibration.py USD 0 (count_tokens is not billed).
+  - The Console compares main plus demo spend, each ledger row once, across every checkout of the repository.
+    The freshness window can only be tightened, and the tolerance is fixed.
+  - Live OpenAI calls refuse (OpenAIDisabledError) in src/cloud/client.py and both OpenAI backends; stub and replay
+    still work.
+  - Demo lane: branch demo/oct28-cap-gate (from demo/oct28) gates the lane on its own ledger, USD 10 cap, USD 3 per
+    session, with the same approval exception.
+- Operator conditions for approval 2026-10-24, verbatim: "approve if (a) the approval flag cannot be used by a
+  scheduled or queued job unless I added it, (b) an unreachable Console means refuse, not skip, and (c) a test proves
+  the over-USD-2 refusal without the flag."
+  - (a) An approval is refused in any automated launch (queue markers APU_QUEUE_JOB_ID / APU_BLADE_QUEUE_JOB /
+    APU_AUTOMATION, stdin not a terminal, no console, non-interactive window station or session 0, a scheduler,
+    service host, windowless Python or Claude Code ancestor) and must also be typed as "<job id> <amount>" on the
+    console device (CONIN$), never stdin. The detected launch context is in the operator_approval ledger row.
+  - (b) Every failure inside the pre-job gate is a refusal.
+  - (c) Over-limit refusal tests exist for cloud_redo, all_cloud_b3, longtask_cloud and the demo session limit.
+  - Demo: one session budget shared by the live screen and the dashboard through demo_session rows in the demo ledger;
+    the demo ledger is canonical in the main checkout (demo/ledger/cloud_ledger_demo.jsonl there), and the Console
+    check refuses while demo spend exists only in another checkout (one such file exists today, in worktree
+    agent-a9595a5e91d9ad0a7; the operator decides whether to append it to the canonical file).
+  - 2026-10-25: operator approved the copy; the worktree's demo ledger was copied byte-exact to the canonical path
+    (33 rows, billed USD 0.1839, upper bound USD 0.4957, last running total 0.183851; the demo lane continues from
+    that spend, not from zero). The file is gitignored and stays local.
+- Accepted residual (operator, 2026-10-25: "Accept residual 1 as described"): the console confirmation, not the
+  automation detection, is the real guard for an over-USD-2 approval. A Claude Code Bash-tool process has a terminal
+  stdin, a console, a visible window station and session 1; only its claude.exe ancestor gives it away. Residual 1: a
+  process deliberately detached from an agent's process tree (its parent exited), with the agent also injecting
+  keystrokes into that console's input buffer (WriteConsoleInput), could supply the confirmation. That would let an
+  over-USD-2 job be approved by something other than the operator; it does not bypass the cap itself (the USD 50
+  billed cap, the Console check, the per-call reservation and per-call ledger rows still apply to every call, which
+  all go through src/cloud/client.py). Closed by rule instead of code: CLAUDE.md, "Never work around a sandbox or
+  permission block", now says "Never approve a cloud job on the operator's behalf, including by detaching a process
+  or writing to a console input buffer; over-USD-2 approval is the operator's alone."
+- Merged to main 2026-10-25 (worktree-agent-a4f9da0b53a3cbb95, which carries the demo-lane gate as well; branch
+  demo/oct28-cap-gate holds identical code and is superseded). Before any live job, the operator fills in
+  results/console_usage_check.json in the main checkout.
+
 ### 2026-10-23, API key removed from evo-x2
 
 - The 2026-10-22 copy of ANTHROPIC_API_KEY on evo-x2 (user environment variable) was removed on the operator's

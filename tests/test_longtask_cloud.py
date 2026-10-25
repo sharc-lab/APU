@@ -108,3 +108,24 @@ def test_reprice_and_priced_estimate():
     prices = json.loads(LC.PRICE_FILE.read_text(encoding="utf-8"))
     pe = LC.priced_estimate(prices, LC.HAIKU, calls)
     assert abs(pe["none"] - (1000 * 0.1 + 100 * 0.5) / 1e6) < 1e-12
+
+
+# -- pre-job gate (operator 2026-10-24): over USD 2 without --operator-approval refuses; nothing sent, no ledger row --
+
+def test_main_over_two_dollars_refused_without_approval(monkeypatch, tmp_path, capsys):
+    monkeypatch.setenv(LC.ACB.KEY_ENV, "test-not-a-key")
+    monkeypatch.setattr(LC, "run", lambda *a, **k: (_ for _ in ()).throw(AssertionError("must not run")))
+    sent = []
+    real_cc = cc.CloudClient
+
+    def client(*a, **kw):
+        kw.setdefault("completion_fn", lambda **k: sent.append(k))
+        kw.setdefault("role_override", "controller")
+        return real_cc(*a, **kw)
+
+    monkeypatch.setattr(cc, "CloudClient", client)
+    led = tmp_path / "results" / "cloud_ledger.jsonl"
+    assert LC.main(["--live", "--ledger", str(led), "--out", str(tmp_path / "lt_gate.jsonl")]) == 2
+    err = capsys.readouterr().err
+    assert "above the USD 2.00 per-job limit" in err and "$6.0000" in err
+    assert sent == [] and not led.exists() and not (tmp_path / "lt_gate.jsonl").exists()

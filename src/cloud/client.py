@@ -83,6 +83,11 @@ fan_out probe) cannot jointly overshoot the cap.
 The key is never logged or printed in full. `redact_key()` below shows at
 most the first 2 and last 2 characters of any key-shaped string.
 
+OPENAI DISABLED (operator 2026-10-24)
+-------------------------------------
+A real-mode call to an OpenAI model, or with a key read from OPENAI_API_KEY, is refused in prepare() with
+OpenAIDisabledError (OPENAI_DISABLED_MESSAGE): no Console check exists for OpenAI spend. Stub mode is unchanged.
+
 SPEND CAP
 ---------
 HARD_SPEND_CAP_USD = 50.00 USD TOTAL (2026-10-07): the hard cap whenever a real
@@ -113,9 +118,22 @@ reservation is conservative: it never lets the billed total pass the cap on acco
 The boundary is inclusive: a call that lands exactly on the cap is allowed; a call that would push even
 fractionally past it is refused.
 Old ledger rows (written before 2026-10-22) carry only cost_usd, which was the upper bound and no usage
-breakdown; they stay as they are. When a client reads the running total at start, such a row counts its cost_usd
-toward BOTH the billed and the upper-bound totals (its billed cost is unknown from the ledger, so the billed total
-stays conservative); a new row counts cost_usd (billed) and cost_usd_upper_bound respectively.
+breakdown; they stay as they are.
+BILLED CAP BASIS AT START (operator 2026-10-23, register row cloud-spend-billed-vs-upper-bound): the billed running
+total a client starts from is the register row's billed total, computed by analysis/cloud_spend_billed.py::compute
+on this client's ledger: an old row whose call's usage is on file in a cloud job's result file (the job rows'
+cache-priced "usd") counts at that billed cost; an old row with no usage on file anywhere counts at its upper bound;
+a new row counts cost_usd. The upper-bound total (cost_usd_upper_bound, or an old row's cost_usd) is kept beside it
+and printed next to it in every cap message. Before 2026-10-23 every old row counted at its upper bound toward the
+billed total, so on the same ledger the billed total, and so the cap headroom, was near the upper bound. If that
+computation fails the client falls back to the old per-row basis (conservative) and says so. A new ledger row's
+running_total_usd is on this basis, so it steps down at the first row written after the switch; the row's
+running_total_basis field names the basis.
+Live jobs also pass the PRE-JOB GATE (src/cloud/console_gate.py::pre_job) before their first call: a job estimated
+above USD 2 is refused unless its command line carries an operator approval (--operator-approval, recorded in the
+ledger as its own row before the first call); then the operator's latest Anthropic Console reading must be under
+24 h old and agree with the billed ledgers (main + demo, each row once) within max(USD 0.50, 5%), and the billed
+headroom must cover the job's projection. Stub mode is never gated.
 
 SPEND ALERTS
 ------------
@@ -267,6 +285,22 @@ class HostRestrictionError(Exception):
 
 class SpendCapExceeded(Exception):
     """Raised when a real call would push running spend past the cap."""
+
+
+class OpenAIDisabledError(RuntimeError):
+    """A live OpenAI call was requested; disabled by operator decision of 2026-10-24 (OPENAI_DISABLED_MESSAGE)."""
+
+
+OPENAI_DISABLED_MESSAGE = (
+    "refused: live OpenAI calls are disabled by operator decision of 2026-10-24. No Console check exists for OpenAI "
+    "spend (the pre-job check in src/cloud/console_gate.py verifies the ledger against the Anthropic Console only), so "
+    "OpenAI spend cannot be verified before a job. Stub, replay and dry modes still work. Nothing was sent."
+)
+
+
+def refuse_live_openai(where: str) -> None:
+    """Raise OpenAIDisabledError naming the refusing entry point. Called by every live OpenAI path."""
+    raise OpenAIDisabledError(f"{OPENAI_DISABLED_MESSAGE} (entry point: {where})")
 
 
 class UnknownModelError(Exception):
@@ -642,6 +676,7 @@ class CloudClient:
         self._lock = threading.Lock()
         self._reserved_usd = 0.0
         self._sdk_client: Any = None
+        self.cap_basis = "billed_with_recovered_usage"
 
         # Key resolution: see KEY AND MODE RULE in the module docstring.
         self.api_key, self.api_key_source = self._resolve_key(mode, api_key)
@@ -680,11 +715,33 @@ class CloudClient:
     # -- budget bookkeeping -------------------------------------------------
 
     def _read_running_totals(self) -> tuple[float, float]:
-        """(billed, upper bound) running totals over every existing ledger call row (real calls only).
+        """(billed, upper bound) running totals over every existing ledger call row (real calls only), on the
+        billed cap basis (module docstring, BILLED CAP BASIS AT START): analysis/cloud_spend_billed.py::compute, the
+        register row's own computation, so an old row whose usage is on file counts at its billed cost and one
+        without counts at its upper bound. Falls back to _read_running_totals_per_row if that fails."""
+        if not self.ledger_path.exists():
+            return 0.0, 0.0
+        try:
+            try:
+                from . import console_gate as _cg  # noqa: PLC0415
+            except ImportError:   # run as a script: load the sibling module by path
+                import importlib.util  # noqa: PLC0415
+                spec = importlib.util.spec_from_file_location("console_gate", Path(__file__).with_name("console_gate.py"))
+                _cg = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(_cg)
+            s = _cg.ledger_spend(self.ledger_path)
+            self.cap_basis = "billed_with_recovered_usage"
+            return s["billed_usd"], s["upper_bound_usd"]
+        except Exception as e:  # noqa: BLE001 - any failure falls back to the conservative per-row basis
+            print(f"WARNING: billed cap basis unavailable ({type(e).__name__}: {e}); counting every ledger row "
+                  "without a billed cost at its upper bound (conservative)", flush=True)
+            self.cap_basis = "per_row_old_rows_at_upper_bound"
+            return self._read_running_totals_per_row()
 
-        A new row (2026-10-22 on) counts cost_usd (billed) and cost_usd_upper_bound. An old row has only cost_usd,
-        which was the upper bound, and no usage breakdown: it counts toward both totals (billed stays
-        conservative). Alert rows and unparseable lines are skipped."""
+    def _read_running_totals_per_row(self) -> tuple[float, float]:
+        """Fallback (the pre-2026-10-23 basis): a new row (2026-10-22 on) counts cost_usd (billed) and
+        cost_usd_upper_bound. An old row has only cost_usd, which was the upper bound, and no usage breakdown: it
+        counts toward both totals (billed stays conservative). Alert rows and unparseable lines are skipped."""
         if not self.ledger_path.exists():
             return 0.0, 0.0
         billed = upper = 0.0
@@ -754,8 +811,8 @@ class CloudClient:
             with self.ledger_path.open("a", encoding="utf-8") as fh:
                 fh.write(json.dumps(row, sort_keys=True) + "\n")
             print(
-                f"ALERT: cloud spend ${self._running_total_usd:.4f} reached {frac:.0%} of the "
-                f"${self.spend_cap_usd:.2f} cap",
+                f"ALERT: cloud spend ${self._running_total_usd:.4f} billed (upper bound "
+                f"${self._running_total_upper_usd:.4f}) reached {frac:.0%} of the ${self.spend_cap_usd:.2f} cap",
                 flush=True,
             )
             self._fired_alerts.add(key)
@@ -774,7 +831,19 @@ class CloudClient:
 
     @property
     def remaining_budget_usd(self) -> float:
+        """Cap headroom on the BILLED basis (what the cap check uses)."""
         return max(0.0, self.spend_cap_usd - self._running_total_usd)
+
+    @property
+    def remaining_budget_usd_upper_bound(self) -> float:
+        """Cap headroom if the upper-bound total were charged instead; reported beside the billed headroom only."""
+        return max(0.0, self.spend_cap_usd - self._running_total_upper_usd)
+
+    def spend_summary(self) -> str:
+        """One line, billed and upper bound side by side, for cap messages and pre-job projections."""
+        return (f"cap ${self.spend_cap_usd:.2f}: spent billed ${self._running_total_usd:.4f} (upper bound "
+                f"${self._running_total_upper_usd:.4f}); headroom billed ${self.remaining_budget_usd:.4f} "
+                f"(upper bound ${self.remaining_budget_usd_upper_bound:.4f}); the cap checks the billed figure")
 
     def estimate_cost(self, model_id: str, input_tokens: int, output_tokens: int) -> float:
         return estimate_cost_usd(model_id, input_tokens, output_tokens)
@@ -800,6 +869,7 @@ class CloudClient:
             "cost_usd_upper_bound": ub,
             "running_total_usd": self._running_total_usd + result.cost_usd,
             "running_total_usd_upper_bound": self._running_total_upper_usd + ub,
+            "running_total_basis": self.cap_basis,
         }
         if tool_choice is not None:
             row["tool_choice"] = tool_choice
@@ -889,6 +959,8 @@ class CloudClient:
             )
         provider = MODEL_PRICING[model_id].get("provider")
         key_provider = KEY_ENV_PROVIDER.get(self.api_key_source or "")
+        if provider == "openai" or key_provider == "openai":
+            refuse_live_openai(f"CloudClient.prepare(model_id='{model_id}')")
         if key_provider is not None and provider != key_provider:
             raise ValueError(
                 f"model '{model_id}' is a {provider} model but this client's key came from "
@@ -910,7 +982,8 @@ class CloudClient:
                     f"refused: projected cost ${projected_cost:.4f} would bring running "
                     f"total to ${committed + projected_cost:.4f}, exceeding "
                     f"the ${self.spend_cap_usd:.2f} cap (current running total "
-                    f"${self._running_total_usd:.4f} billed{in_flight}; the projection is an upper bound, every "
+                    f"${self._running_total_usd:.4f} billed, upper bound ${self._running_total_upper_usd:.4f}"
+                    f"{in_flight}; the cap checks the billed total; the projection is an upper bound, every "
                     "input token uncached, since cache hits are unknown before the call)"
                 )
                 raise SpendCapExceeded(reason)

@@ -64,6 +64,13 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--local", required=True)
     ap.add_argument("--out", required=True)
+    ap.add_argument("--session-limit", type=float, default=CL.SESSION_LIMIT_USD,
+                    help="live cloud spend limit for this session in USD (default 3; above 3 needs "
+                         "--operator-approval)")
+    ap.add_argument("--operator-approval", default=None,
+                    help="operator only: approve this session above USD 3, e.g. "
+                         "'approve demo_live_session up to USD <n>: <reason>'; written to the demo ledger before the "
+                         "first live call; never raises the USD 10 cap or skips the Console check")
     a = ap.parse_args(argv)
     out = Path(a.out)
     if out.exists():
@@ -74,7 +81,8 @@ def main(argv=None) -> int:
     def emit(row):
         with open(out, "a", encoding="utf-8") as fh:
             fh.write(json.dumps({"ts_utc": utc_iso(), **row}, default=str) + "\n")
-    complete(local_rows, CL.CloudLane(), b3, emit)
+    lane = CL.CloudLane(session_limit=a.session_limit, operator_approval=a.operator_approval)
+    complete(local_rows, lane, b3, emit)
     print(f"written {out}")
     return 0
 

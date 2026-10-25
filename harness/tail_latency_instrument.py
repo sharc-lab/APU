@@ -16,6 +16,10 @@ Usage:
     python -m harness.tail_latency_instrument --resume       # continue interrupted run
     python -m harness.tail_latency_instrument --no-fsync     # skip disk sync (dev)
 
+LIVE OPENAI CALLS DISABLED (operator 2026-10-24): no Console check exists for OpenAI spend, so a live request
+(a replay cache miss in RECORD or AUTO mode) raises OpenAIDisabledError before anything is sent. Replay hits,
+stub-mode clients and local backends still work.
+
 Cloud spend (2026-10-08):
     Every live request goes through src/cloud/client.py's capped CloudClient (mode="real", key
     OPENAI_API_KEY then CLOUD_API_KEY; USD 50 total hard cap; ledger results/cloud_ledger.jsonl;
