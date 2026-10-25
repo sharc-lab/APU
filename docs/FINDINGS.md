@@ -6172,3 +6172,26 @@ so the probe-driven DSE choice is tested once, not established.
 **Disclosed reading change.** Under the first implementation's hardware-label reading all three computed cells are
 NON-TRIVIAL (shown per cell in the row, not counted): the two num_ctx 4096 hybrids route every task to the cloud, use no
 machine, and tie all-cloud haiku on cost. The pre-registered wording ("uses a local machine") decides the labels.
+
+## DRAFT (pending Zach's agreement 2026-10-25): E1 and E2 pre-registrations (pointer)
+
+**Status: DRAFT. Not registered, not queued, no data.** The full entries, in the Mandatory Run Template, are the two
+docs/EXPERIMENTS.md sections headed "DRAFT (pending Zach's agreement 2026-10-25)".
+
+- **E1:** qwen3:14b on evo-x2 at the Ollama default window vs an explicit num_ctx 4096, plus true-default arms on the
+  evo-t2s Intel CPU and Zach's XPS. The XPS is not configured in this repo.
+  - Draw: a fresh 200-task B3-style draw, seeds 20261101 to 20261107, disjoint by seed from the 150-turn pilot (seeds
+    20260901 to 20260905). It shares the pilot's task templates.
+  - Primary outcome: cloud escalations per 100 tasks at a fixed 97% hybrid accuracy target, under route at start plus
+    detector v2, graded against a claude-sonnet-5-5 pass on the same draw.
+  - Risk written down before data: the pilot predicts about 100 escalations per 100 at 4096 (kept local 0/90 in
+    hybrid-route-at-start-measured), and the default arm may miss 97%.
+- **E2:** local cost per session from measured session minutes, at the default vs KV q8_0. Hardware is USD 2,000 over 3
+  years. Electricity is at the PX2-power qwen3-14b package power, which was measured on evo-t2s and is applied to
+  evo-x2 as an assumption. Utilization is an explicit ASSUMPTION (23.8%, one weekday shift), with a sensitivity table
+  from 10% to 100% (row e2-cost-model-draft).
+- **Hours:** ESTIMATE row e1-e2-draft-hours (AMD arms total 1.83 h, high 2.38 h). Queued behind the job running at
+  2026-10-26 01:00Z, the projection is a start at 10-26 01:46Z (high 06:14Z) and a finish at 03:36Z (high 08:37Z).
+  This is a projection, not a schedule.
+- **Waits on:** Zach's agreement on Sun 2026-10-25, then the operator's commit removing "DRAFT", and the operator's
+  approval of the Sonnet grading pass. That pass is USD 2.04, over the USD 2 per-job cap.

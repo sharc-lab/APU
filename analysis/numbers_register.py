@@ -7530,6 +7530,194 @@ def compute_own_profiler_probe_hours(repo):
                      + ("yes" if end[1] <= q["demo_hold"] else "NO") + " (high case); not queued by this commit",
             "n": "6 configs (estimate)"}
 
+# ── E1/E2 DRAFT pre-registration (docs/EXPERIMENTS.md "DRAFT (pending Zach's agreement 2026-10-25)"): hours of the AMD
+# arms, a queue projection re-anchored on the latest synced finished job, the cloud grading cost of the fresh draw, the
+# n=200 design statistics, and the E2 cost-per-busy-hour sensitivity to the utilization ASSUMPTION. Nothing here is a
+# measurement of E1 or E2; neither is registered or queued. ──
+E1_DRAFT_QUEUE = (   # evo-x2 queue order after x2_b5_simcap_4096 (docs/X2_QUEUE_PLAN.md), with each job's result file
+    ("x2_r2_v1b_seeds_06_10", [R2_V1B_SEEDS_FILE]),
+    ("x2_mx2_qwen3_32b_spill_sweep", [SPILL32_FILE]),
+    ("x2_evalset_tasks_val_v2_mistral_small32", [X2_EVALSET_TASKS_VAL_V2_MS]),
+    ("x2_evalset_tasks_real_v2_mistral_small32", [X2_EVALSET_TASKS_REAL_V2_MS]),
+    ("x2_evalset_tasks_val_v2_llama33_70b", [X2_EVALSET_TASKS_VAL_V2_L70]),
+    ("x2_evalset_tasks_real_v2_llama33_70b", [X2_EVALSET_TASKS_REAL_V2_L70]),
+    ("x2_longtask_local_v1", [LONGTASK_LOCAL_FILE]),
+    ("x2_own_compaction_v1_a", [OC_PARTS["a"]]),
+    ("x2_own_compaction_v1_b", [OC_PARTS["b"]]),
+    ("x2_own_config_probe_q8_15360", ["results/x2_own_config_probe_q8_15360.jsonl"]),
+    ("x2_own_config_probe_q4_28928", ["results/x2_own_config_probe_q4_28928.jsonl"]),
+    ("x2_own_profiler_probe_v1", None),   # per-config files, resolved in e1_draft_projection
+)
+E1_DRAFT_UTILIZATIONS = (0.10, 40 / 168, 0.25, 0.50, 1.00)   # 40/168 = one 8-hour shift on weekdays (the ASSUMPTION)
+E1_DRAFT_SEEDS = tuple(range(20261101, 20261108))            # fresh draw: 6 x 30 + the first 20 turns of the 7th
+
+
+def _run_end_ts(path):
+    """run_end ts_utc of a result file, or None if the file is missing or has no run_end."""
+    if not path.exists():
+        return None
+    for r in _read_jsonl(path):
+        if r.get("record") == "run_end":
+            return r.get("ts_utc")
+    return None
+
+
+def e1_draft_projection(repo) -> dict:
+    """Back-to-back projection (point, high) of the evo-x2 queue from the run_end of the last finished job in
+    E1_DRAFT_QUEUE (synced files), with the registered per-job estimates; the job running at E1_BLOCK_START_UTC;
+    E1/E2 directly behind it (operator rule 2026-10-23: no preemption)."""
+    from datetime import datetime, timedelta
+    oc, _cs = _oc_modules(repo)
+    ag = _r2_agent_module()
+    opp = _own_probe_module()
+    fill = queue_fill_1022_estimates(repo)
+    l70 = l70_b3v2_estimates(repo)
+    _lt, xl = _longtask_modules()
+    lt = xl.hours_estimate(ag.read_rows(repo / B5_X2_FILE))["total"]
+    est = oc.hours_estimate(ag.read_rows(repo / X2_EVALSET_TASKS_REAL_V2), ag.read_rows(repo / MITIGATION_X2_FILE))
+    pe = opp.hours_estimate(ag.read_rows(repo / X2_EVALSET_TASKS_REAL_V2))
+    hours = {**{j: (fill[j]["point_h"], fill[j]["high_h"]) for j in FILL_1022_ORDER if j in fill},
+             **{j: (l70[j]["point_h"], l70[j]["high_h"]) for j in L70_JOBS},
+             "x2_longtask_local_v1": (lt["point_h"], lt["high_h"]),
+             "x2_own_compaction_v1_a": (est["part_a"]["point_h"], est["part_a"]["high_h"]),
+             "x2_own_compaction_v1_b": (est["part_b"]["point_h"], est["part_b"]["high_h"]),
+             "x2_own_config_probe_q8_15360": (est["probe_q8_15360"]["point_h"], est["probe_q8_15360"]["high_h"]),
+             "x2_own_config_probe_q4_28928": (est["probe_q4_28928"]["point_h"], est["probe_q4_28928"]["high_h"]),
+             "x2_own_profiler_probe_v1": (pe["point_h"], pe["high_h"])}
+    anchor, anchor_job, todo = None, None, []
+    for job, files in E1_DRAFT_QUEUE:
+        if files is None:
+            files = [str(opp.config_file(OWN_PROBE_FILE, c["tier"])) for c in opp.CONFIGS]
+        ends = [_run_end_ts(repo / f) for f in files]
+        if all(ends) and not todo:
+            anchor, anchor_job = max(ends), job
+        else:
+            todo.append(job)
+    if anchor is None:
+        raise ValueError("no finished job in E1_DRAFT_QUEUE has a run_end with ts_utc")
+    stop = datetime.fromisoformat(xl.STOP_AFTER_UTC)
+    t = [datetime.fromisoformat(anchor)] * 2
+    table = []
+    for job in todo:
+        p, h = hours[job]
+        s = list(t)
+        e = [t[0] + timedelta(hours=p), t[1] + timedelta(hours=h)]
+        if job == "x2_longtask_local_v1":
+            e = [min(x, max(stop, y)) for x, y in zip(e, s)]   # no new task after STOP_AFTER_UTC
+        table.append({"job": job, "point_h": p, "high_h": h, "start": s, "end": e})
+        t = e
+    block = datetime.fromisoformat(E1_BLOCK_START_UTC)
+    at_block = []
+    for i in (0, 1):
+        run = next((r for r in table if r["start"][i] <= block < r["end"][i]), None)
+        at_block.append((run["job"], run["end"][i]) if run else (None, max(block, t[i])))
+    return {"anchor": anchor, "anchor_job": anchor_job, "table": table, "block": block, "at_block": at_block,
+            "demo_hold": datetime.fromisoformat(DEMO_HOLD_FALLBACK_UTC)}
+
+
+def e1_draft_stats(n=E1_TASKS, target=0.97) -> dict:
+    """Design statistics at n tasks (normal approximation, two-sided 5%, power 80%): Wilson 95% half-width at p=0.5
+    (widest), the unpaired minimum detectable difference between two arms at p=0.5 (worst case; the paired McNemar
+    test on the same tasks needs the discordant fraction, unknown before data), and the Wilson 95% lower bound at the
+    smallest count meeting the target."""
+    import math
+    z, zb = 1.959964, 0.841621
+
+    def wilson(k, m):
+        p = k / m
+        c = (p + z * z / (2 * m)) / (1 + z * z / m)
+        hw = z * math.sqrt(p * (1 - p) / m + z * z / (4 * m * m)) / (1 + z * z / m)
+        return c - hw, c + hw
+    lo, hi = wilson(n / 2, n)
+    k = math.ceil(round(target * n, 9))
+    return {"n": n, "wilson_hw_50": (hi - lo) / 2, "mdd_unpaired": (z + zb) * math.sqrt(2 * 0.25 / n),
+            "target": target, "k_target": k, "wilson_lo_target": wilson(k, n)[0]}
+
+
+def e2_cost_inputs(repo) -> dict:
+    """E2 cost per busy hour by utilization: hardware = list price / (36 30-day months x 24 h x utilization) per busy
+    hour (src/dse/dse_v1.py convention: LIFE_MONTHS, DAYS_PER_MONTH); electricity = PX2-power qwen3-14b watts (measured
+    on evo-t2s, applied to evo-x2: ASSUMED) x energy-price-eia-commercial per busy hour, active time only. Pilot
+    session = 30 x the B3 v2 ollama_default per-task mean (x2_evalset_tasks_real_v2); its q8_0 value is an ESTIMATE
+    (x the B5 qwen3:14b kv_q8_0/default session-minute ratio), not a B3 measurement."""
+    im = _impact()
+    import sys as _sys
+    if str(REPO) not in _sys.path:
+        _sys.path.insert(0, str(REPO))
+    from src.dse import dse_v1 as dv
+    price = im.ref_machine(repo)
+    watts = compute_px2_package_power(repo)["detail"]["qwen3-14b"]
+    eia = json.loads((repo / ENERGY_PRICE_EIA_FILE).read_text(encoding="utf-8"))
+    usd_kwh = float(eia["value_cents_per_kwh"]) / 100.0
+    life_h = dv.LIFE_MONTHS * dv.DAYS_PER_MONTH * 24
+    e = e1_e2_hours(repo)
+    sess_def = 30 * e["per_task"]["ollama_default"]["mean"] / 60
+    elec_h = watts / 1000 * usd_kwh
+    rows = [{"u": u, "hw_h": price["usd"] / (life_h * u), "elec_h": elec_h} for u in E1_DRAFT_UTILIZATIONS]
+    return {"usd": price["usd"], "label": price["label"], "watts": watts, "usd_kwh": usd_kwh, "life_h": life_h,
+            "elec_h": elec_h, "rows": rows, "sess_def_min": sess_def, "sess_q8_min": sess_def * e["ratio"],
+            "ratio": e["ratio"]}
+
+
+def compute_e1_e2_draft_hours(repo):
+    e = e1_e2_hours(repo)
+    q = e1_draft_projection(repo)
+    st = e1_draft_stats()
+    from datetime import timedelta
+    im = _impact()
+    ac = im.replay_cloud_tasks(repo)["models"]
+    cloud = {m: sum(v["usd"] for v in ac[m].values()) / len(ac[m]) for m in ("claude-sonnet-5-5", "claude-haiku-5-5")}
+
+    def f(x):
+        return x.strftime("%m-%d %H:%MZ")
+    proj = "; ".join(f"{r['job']} {r['point_h']:.2f} h (high {r['high_h']:.2f} h) {f(r['start'][0])} to "
+                     f"{f(r['end'][0])} (high {f(r['start'][1])} to {f(r['end'][1])})" for r in q["table"])
+    e1s = [q["at_block"][i][1] for i in (0, 1)]
+    e1e = [e1s[0] + timedelta(hours=e["total"][0]), e1s[1] + timedelta(hours=e["total"][1])]
+    run = [q["at_block"][i][0] or "none (queue empty)" for i in (0, 1)]
+    cl = "; ".join(f"{m} USD {u:.5f}/task x {E1_TASKS} = USD {u * E1_TASKS:.2f}"
+                   + (" (over the USD 2 per-job cap: operator approval required)" if u * E1_TASKS > 2 else "")
+                   for m, u in cloud.items())
+    return {"value": f"ESTIMATE and PROJECTION, not a measurement (E1/E2 DRAFT, pending Zach's agreement 2026-10-25; "
+                     f"not registered, not queued): AMD arms on evo-x2, qwen3:14b, {E1_TASKS} task turns each (fresh "
+                     f"seeds {E1_DRAFT_SEEDS[0]}-{E1_DRAFT_SEEDS[-1]}): E1 default window "
+                     f"{e['e1']['default'][0]:.2f} h (high {e['e1']['default'][1]:.2f} h), E1 num_ctx 4096 "
+                     f"{e['e1']['num_ctx_4096'][0]:.2f} h (high {e['e1']['num_ctx_4096'][1]:.2f} h), E2 KV q8_0 at the "
+                     f"default window {e['e2']['kv_q8_0'][0]:.2f} h (high {e['e2']['kv_q8_0'][1]:.2f} h), total "
+                     f"{e['total'][0]:.2f} h (high {e['total'][1]:.2f} h) (per-task basis as row e1-e2-x2-hours: B3 v2 "
+                     f"measured turn_wall_s, B5 q8_0 ratio {e['ratio']:.3f}); no validation run included; queue "
+                     f"projection back to back from {q['anchor_job']} run_end {q['anchor'][:16]}Z (last finished job "
+                     f"in the synced files) with the registered per-job estimates: {proj}; job running at E1 block "
+                     f"start {f(q['block'])}: (point) {run[0]}, (high) {run[1]}; E1/E2 directly behind it, no "
+                     f"preemption: projected start {f(e1s[0])} (high {f(e1s[1])}), finish {f(e1e[0])} (high "
+                     f"{f(e1e[1])}); before the 2026-10-29 demo hold fallback start {f(q['demo_hold'])}: "
+                     + ("yes" if e1e[1] <= q["demo_hold"] else "NO") + " (high case); jobs behind E1/E2 move later "
+                     f"by the same hours; cloud grading of the fresh draw (all-cloud pass, mean of the B3 v2 all-cloud "
+                     f"per-task USD): {cl}; design statistics at n={st['n']}: Wilson 95% half-width at 50% "
+                     f"{100 * st['wilson_hw_50']:.1f} points, unpaired minimum detectable difference (5% two-sided, "
+                     f"80% power, worst case p=0.5) {100 * st['mdd_unpaired']:.1f} points, target "
+                     f"{100 * st['target']:.0f}% = at least {st['k_target']}/{st['n']} (Wilson 95% lower bound "
+                     f"{100 * st['wilson_lo_target']:.1f}%)",
+            "n": "1 projection (estimate)"}
+
+
+def compute_e2_cost_model_draft(repo):
+    c = e2_cost_inputs(repo)
+    rows = "; ".join(f"utilization {100 * r['u']:.1f}%: hardware USD {r['hw_h']:.4f} + electricity USD "
+                     f"{r['elec_h']:.4f} = USD {r['hw_h'] + r['elec_h']:.4f} per busy hour; pilot session default "
+                     f"USD {(r['hw_h'] + r['elec_h']) * c['sess_def_min'] / 60:.5f}, KV q8_0 (ESTIMATE) USD "
+                     f"{(r['hw_h'] + r['elec_h']) * c['sess_q8_min'] / 60:.5f}" for r in c["rows"])
+    return {"value": f"COST MODEL, DRAFT (E2 pending Zach's agreement 2026-10-25; not an E2 result): hardware USD "
+                     f"{c['usd']:,.0f} ({c['label']}, impact-ref-machine-price) over 36 30-day months = "
+                     f"{c['life_h']:,.0f} h, divided by the busy hours at the utilization (ASSUMPTION; primary 23.8% = "
+                     f"one 8-hour shift on weekdays, 40 of 168 h); electricity {c['watts']:.1f} W (PX2-power "
+                     f"qwen3-14b package power, measured on evo-t2s, applied to evo-x2: ASSUMED) x USD "
+                     f"{c['usd_kwh']:.4f}/kWh (energy-price-eia-commercial), busy time only, idle power not counted; "
+                     f"pilot session = 30 B3 v2 task turns at ollama_default, {c['sess_def_min']:.2f} min (measured "
+                     f"mean); KV q8_0 {c['sess_q8_min']:.2f} min (ESTIMATE: x B5 ratio {c['ratio']:.3f}, not measured "
+                     f"on B3); {rows}",
+            "n": f"{len(c['rows'])} utilization cases"}
+
 
 NUMBER_ENTRIES = [
     {"claim_id": "PX2-TTFT-gap", "description": "PX2 B4-vs-S4 TTFT gap range across 5 models",
@@ -8611,6 +8799,21 @@ NUMBER_ENTRIES = [
      "per-task times, and the reserve block start (E1/E2 not registered yet, not queued)",
      "compute": compute_e1_e2_x2_hours, "data_files": [X2_EVALSET_TASKS_REAL_V2, B5_X2_FILE],
      "script_function": "analysis/numbers_register.py::e1_e2_hours"},
+    {"claim_id": "e1-e2-draft-hours", "description": "ESTIMATE and PROJECTION, not a measurement: evo-x2 hours of the "
+     "E1/E2 DRAFT pre-registration's AMD arms, the queue projection from the last finished synced job to the E1 block "
+     "start, the cloud grading cost of the fresh 200-task draw and the n=200 design statistics (DRAFT, pending Zach's "
+     "agreement 2026-10-25; not registered, not queued)",
+     "compute": compute_e1_e2_draft_hours,
+     "data_files": [X2_EVALSET_TASKS_REAL_V2, B5_X2_FILE, MITIGATION_X2_FILE, ALL_CLOUD_B3_V1, R2_V1B_SEEDS_FILE,
+                    SPILL32_FILE] + FILL_1022_DATA + L70_HOURS_DATA,
+     "script_function": "analysis/numbers_register.py::compute_e1_e2_draft_hours"},
+    {"claim_id": "e2-cost-model-draft", "description": "COST MODEL, DRAFT (not an E2 result): local cost per busy hour "
+     "and per pilot B3 v2 session at USD 2,000 over 3 years, by utilization (ASSUMPTION), electricity at PX2-power "
+     "measured on evo-t2s",
+     "compute": compute_e2_cost_model_draft,
+     "data_files": [X2_EVALSET_TASKS_REAL_V2, B5_X2_FILE, ENERGY_PRICE_EIA_FILE,
+                    "results/hardware_price_evox2_20261021.json", "results/t2s_night2_20260930T135145Z.jsonl"],
+     "script_function": "analysis/numbers_register.py::e2_cost_inputs"},
     {"claim_id": "own-jobs-hours", "description": "ESTIMATE, not a measurement: hours of the own-compaction parts "
      "and the own-config-search probes from measured B3 v2 and trim times, and their projected place in the evo-x2 "
      "queue against the E1 block start and the 2026-10-29 demo hold",
