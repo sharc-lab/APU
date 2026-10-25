@@ -1403,3 +1403,328 @@ truncation and context-shift log lines, the runtime's own signal and not a contr
 marked on screen "not used: false alarms at default (see detector-precision-recall)". The acceptance run
 (results/demo_live_run_20261023.jsonl) and its two recordings were made under v1 and are not changed; a replay can
 still show the two intel Ours tasks that v1 sent to the cloud on a token-count flag.
+
+## DRAFT (pending Zach's agreement 2026-10-25): E1, Ollama default window vs explicit num_ctx 4096, cloud escalations per 100 tasks at a fixed success target, on a fresh 200-task B3-style draw
+
+**Status: DRAFT. Not registered, not queued, not deployed.** Written 2026-10-24 for Zach's agreement on Sun
+2026-10-25 (his experiment, from his 2026-10-22 email, relayed). It becomes the pre-registration only when Zach agrees
+and the operator commits it with "DRAFT" removed; any change agreed on Sunday goes in before that commit, and nothing
+of E1 is run before it. Every number below is pasted from a register row (docs/NUMBERS_REGISTER.md); the two rows
+added for this draft, `e1-e2-draft-hours` and `e2-cost-model-draft`, are an ESTIMATE / PROJECTION and a cost model,
+not measurements. Companion: "DRAFT (pending Zach's agreement 2026-10-25): E2" below. Queue note: docs/X2_QUEUE_PLAN.md
+"PENDING: E1/E2 reserve block".
+
+### Metadata
+
+- Date: 2026-10-24 (draft); runs from the E1 block (Sun 2026-10-25 18:00 PT = 2026-10-26 01:00Z) once approved
+- Git hash: drafted on 39285d7 (each run records its own harness blob in run_start)
+- Branch: worktree-agent-ad1ae92deb17998a4 (to be merged by the operator)
+- Machines:
+  - AMD arms: evo-x2 (hostname EVO-X2, AMD Ryzen AI Max+ 395, Ollama), configured in harness/host_config.py.
+  - T2S CPU arm: evo-t2s Intel CPU with stock Ollama (`--runtime-config cpu_default`), configured in
+    harness/host_config.py.
+  - XPS arm: **no XPS machine is configured in this repo.** harness/host_config.py has two hosts, evo-t2s and
+    evo-x2, and nothing here can reach an XPS. The XPS is Zach's machine (docs/MEETINGS.md, his 2026-10-13
+    update); its arm runs on his side, under his stack, if he takes it on.
+
+### Configuration
+
+- Model: qwen3:14b, think false, as in every B3 v2 run.
+- Arms (tiers of harness/x2_r2_evalset.py):
+  - (D) `ollama_default`: no num_ctx sent. Loaded window 40960 on evo-x2, recorded per turn (row
+    x2-evalset-tasks-real-v2-wrong-rate, pilot: "loaded context [40960]").
+  - (K) `ollama_ctx_4096`: explicit num_ctx 4096.
+  - True-default arms:
+    - T2S CPU: tier `ollama_default` on the evo-t2s Intel CPU. Its default window is 4096 (row
+      t2s-r2-session-minutes: "qwen3:14b default window 4096"), so on that machine the true default and an explicit
+      4096 load the same window. Only one T2S CPU arm is planned; an explicit-4096 twin would repeat it.
+    - XPS: Zach's runtime at its own default, no window set by the client. Zach to state the runtime, model build
+      and default window.
+- **The draw.** Fresh seeds 20261101 to 20261107 (7 seeds). Task set: design v2, the tasks_v2 task catalog (30
+  task turns per session, guardrails off, tool loop, v2 filler), session order shuffled per seed by the harness
+  (`random.Random(seed * 7919 + 3)`).
+  - The 200 task turns are all 30 turns of seeds 20261101 to 20261106 (180) plus the first 20 turns, in session
+    order, of seed 20261107. Turns 21 to 30 of that seventh session are not run. A turn does not depend on later
+    turns, so its first 20 turns are the same as in a full session.
+  - Generation is pure: harness/evalset_env.py `build_env(seed)` and `build_tasks(env, roles, seed, "v2")`, no
+    clock, no network.
+- **Disjoint from the pilot.** The 150 pilot task turns are seeds 20260901 to 20260905 x 30 (x2_evalset_tasks_real_v2,
+  per tier). The fresh seeds differ from these, from the R2 seeds 20260906 to 20260910 and from every other seed in
+  the repo's harness, analysis, scripts, src and docs (none starts with 202611).
+  - Gate, offline, before the run: (1) no fresh seed appears in a seed field of any results/*.jsonl; (2) no
+    instantiated fresh task text equals a pilot task text after whitespace normalisation. A colliding task is
+    dropped and replaced by the next turn of seed 20261107 in session order, and the replacement is logged.
+  - **Stated limit:** the fresh draw shares the 30 task templates with the pilot. Entities, values and environments
+    are new; the task types are not. A template-disjoint draw would need new templates (a docs/EVALSET_DESIGN.md
+    change), which is out of scope unless Zach asks for it.
+- **The pilot.** The 150 pilot task turns per tier, and the hybrid replay on their 90 all-cloud-graded turns (seeds
+  20260901 to 20260903), are the pilot. The pilot only sets expectations and the sample size; it is not pooled into
+  E1's primary result.
+- Correct: the programmatic task end-state grader (`end_state_ok`), as in x2_evalset_tasks_real_v2. No LLM judge.
+- **Cloud model for escalated tasks:** claude-sonnet-5-5, the model of hybrid-route-at-start-v2. One all-cloud pass
+  over the same 200 fresh task turns, graded the same way.
+  - Cost, from row `e1-e2-draft-hours`: "claude-sonnet-5-5 USD 0.01020/task x 200 = USD 2.04 (over the USD 2
+    per-job cap: operator approval required); claude-haiku-5-5 USD 0.00067/task x 200 = USD 0.13".
+  - The Sonnet pass therefore needs the operator's console-confirmed approval under the cloud cap rules. No agent
+    approves it. No live OpenAI call is involved.
+
+### Primary outcome (defined before data)
+
+For arm A and each of the 200 fresh task turns k:
+
+- `local_ok(k)`: the end state of A's local turn.
+- `route(k)`: the route-at-start rule of `hybrid-route-at-start-measured` (analysis/impact_model.py
+  route_at_start_measured). The task goes to the cloud from its first call if its projected task-turn prompt
+  (x2_r2_evalset PROJ constants, from the task definition) exceeds A's loaded window. Otherwise it stays local.
+- `flag(k)`: detector v2 fires on any call of A's local turn. Detector v2 reads Ollama's own cut-off log lines
+  (message drop, token cut, context shift, exceed-context error) from the call's server log slice. Row
+  demo-detector-check-v2 is VERIFIED: "fires on every pick (5/5) at num_ctx 4096 and on none (0/5) at the runtime
+  default".
+- `escalated(k) = route(k) is cloud OR flag(k)`.
+- `hybrid_ok(k)`: the claude-sonnet-5-5 all-cloud outcome of the same task if escalated, else `local_ok(k)`.
+  - A route-at-start task goes to the cloud from its first call, so its all-cloud outcome is the right grade.
+  - For a detector-flagged task this is the replay convention (interim), as `hybrid-route-at-start-measured` uses
+    for claude-haiku-5-5. A full-history redo is not part of E1, because it would cost more cloud spend.
+  - The replay also assumes that a task's outcome does not depend on whether earlier tasks ran local or on the cloud
+    (stated in that row).
+- **Escalations per 100 tasks:** `E_A = 100 x (number escalated) / 200`.
+- **Hybrid accuracy:** `Acc_A = (number hybrid_ok) / 200`.
+- **Fixed success target:** `Acc_A >= 97%`, that is at least 194/200. This matches hybrid-route-at-start-v2's
+  TARGET_ACC (analysis/own_config_search.py) and needs Zach to confirm it. Row `e1-e2-draft-hours`: "target 97% =
+  at least 194/200 (Wilson 95% lower bound 93.6%)".
+- **Primary result:** `E_A` for each arm, reported only with whether that arm meets the target. If both arms meet it,
+  the comparison is `E_K - E_D`.
+- If an arm misses the target, it reads "target not met with this rule", and its `E_A` is not a cost-at-target. As
+  context only, its oracle ceiling is reported: escalate every task that is escalated or wrong locally. No deployable
+  detector does this, as in the "late escalation of every wrong task (ceiling, no such detector)" column of
+  hybrid-route-at-start.
+- **Known before data, from the pilot (a design risk, written down now):**
+  - At 4096 the route-at-start rule sent every pilot task to the cloud from its first call. Row
+    hybrid-route-at-start-measured: "evo-x2 ollama_ctx_4096 (window 4096) vs claude-sonnet-5-5: hybrid accuracy 90/90
+    (100.0%), cloud USD 0.01020/task, kept local 0/90 (0.0%)". So `E_K` is expected near 100 on B3-style tasks,
+    whatever the local 4096 run does.
+  - At the default window the pilot's wrong turns were all silent. Row x2-evalset-tasks-real-v2-wrong-rate:
+    "ollama_default: wrong 17/150 (11.3%) (silent 17, surfaced 0)". Detector v2 fired on 0/5 at the default
+    (demo-detector-check-v2). So arm D is expected to keep almost every task local and may miss 97%.
+  - If both hold, E1's answer is the trade itself: D is cheap but misses the target, and K meets it by sending nearly
+    everything to the cloud. A difference in `E_A` at the target would then not be defined. Open question 1 asks
+    Zach whether that is the experiment he wants.
+
+### Secondary outcomes (reported, not tested)
+
+- Local wrong rate per arm (silent vs surfaced), against the pilot's 17/150 (D) and 63/150 (K) from row
+  x2-evalset-tasks-real-v2-wrong-rate.
+- Detector-v2-only variant: `escalated(k) = flag(k)` with no projection routing, so arm K's local run counts. Same
+  grading and target.
+- Cloud USD per task of the hybrid, at the all-cloud per-task cost of each escalated task.
+- T2S CPU and XPS arms: the same `E_A`, `Acc_A` and wrong rate at each machine's true default, on the same 200
+  task turns and graded against the same Sonnet pass. Not pooled with evo-x2.
+
+### Statistics
+
+- Every task turn counts. There is no warm-up call, and each session starts with the model unloaded. This is
+  harness/x2_r2_evalset.py's own convention, followed by every B3 v2 run, and it is the "script's own docstring says
+  otherwise" exception to the CLAUDE.md 1 warm-up + N measured rule. E1 measures accuracy and routing, not timing.
+  E2's timing treatment is in its own entry.
+- Intervals:
+  - Wilson 95% interval for each `E_A` and `Acc_A`.
+  - For `E_K - E_D` on the same 200 tasks, an exact McNemar test on the paired per-task escalation indicators
+    (two-sided 5%), and a session-cluster bootstrap 95% CI beside it (10,000 resamples, seed 20261014, the repo's
+    bootstrap seed). The session cluster has 7 sessions.
+- Sample size, from row `e1-e2-draft-hours`: "design statistics at n=200: Wilson 95% half-width at 50% 6.9 points,
+  unpaired minimum detectable difference (5% two-sided, 80% power, worst case p=0.5) 14.0 points".
+  - The paired design is more sensitive than the unpaired worst case. How much depends on the discordant fraction,
+    which is unknown before data.
+  - A difference in `E_A` smaller than 14.0 points is not claimed as detected unless the paired test shows it.
+
+### Pass/fail wording (fixed now, before data)
+
+- **"Explicit num_ctx 4096 costs more cloud escalations than the default at the 97% target"** requires all of:
+  - both arms meet 97%;
+  - `E_K > E_D`;
+  - McNemar p < 0.05.
+- **"No difference shown at the target"**: both arms meet 97% and the McNemar test does not reject.
+- **"Target not met: <arm>"**: that arm's `Acc_A < 97%`. That arm has no escalations-at-target number. E1 then
+  reports its `E_A`, its `Acc_A` and its oracle ceiling, and makes no cost comparison at the target.
+- **"Inconclusive (run not valid)"** if any of these holds:
+  - run_end is missing;
+  - fewer than 200 scored task turns in an arm;
+  - a loaded window other than 40960 (D) or 4096 (K) on any turn;
+  - the disjointness gate failed;
+  - the Sonnet pass is incomplete or was not approved.
+- The T2S CPU arm reads the same way on its own. A strict-preflight refusal reads "refused", not "failed".
+
+### Command (not built; harness work needed after approval)
+
+- A new plan in harness/x2_r2_evalset.py, for example `--plan tasks_e1`: tiers ollama_default and ollama_ctx_4096,
+  seeds 20261101 to 20261106 at 30 turns plus 20261107 at 20 turns, qwen3:14b only, design v2, guardrails off,
+  `--preflight v2_strict`.
+- Validation: either reuse results/x2_evalset_tasks_val_v2.jsonl under the 2026-10-19 task end-state waiver, which
+  would be extended to E1 by the operator, or run a fresh validation (open question 3).
+  - A fresh validation is not in the hours. For scale, row x2-evalset-tasks-real-v2-hours lists the earlier
+    measured validation sessions: "negative control 294, 310, 331; positive control 749" seconds.
+- An all-cloud pass with the existing all-cloud B3 harness on the same seeds and turns, claude-sonnet-5-5, at a job
+  cap the operator sets.
+- A queue entry `x2_e1_e2_v1` (name to confirm), added only after approval, directly behind the job running at
+  2026-10-26 01:00Z. It calls tq.advance() on exit and sets no pause.
+
+### Replay Cache State
+
+- Replay mode (`APU_REPLAY_MODE`): not used for the local arms (live local Ollama); the hybrid outcome is computed by
+  replay of the recorded local and cloud rows, as in hybrid-route-at-start-measured.
+- Trace roots used: none (evalset workload).
+- Cache warm/cold note: each session starts with the model unloaded.
+
+### Hours (ESTIMATE, AMD arms only)
+
+From the new register row `e1-e2-draft-hours`, an ESTIMATE and PROJECTION, not a measurement. Its per-task basis is
+the same as the existing row e1-e2-x2-hours: the B3 v2 measured turn_wall_s from 750 task turns, and B5's measured
+q8_0 session-minute ratio. Pasted:
+
+- "E1 default window 0.59 h (high 0.63 h), E1 num_ctx 4096 1.03 h (high 1.13 h), E2 KV q8_0 at the default window
+  0.21 h (high 0.63 h), total 1.83 h (high 2.38 h)".
+- "no validation run included".
+- Projected place in the queue, from the last synced finished job (x2_mx2_qwen3_32b_spill_sweep, run_end
+  2026-10-25T05:47Z) with the registered per-job estimates: "job running at E1 block start 10-26 01:00Z: (point)
+  x2_own_profiler_probe_v1, (high) x2_longtask_local_v1; E1/E2 directly behind it, no preemption: projected start
+  10-26 01:46Z (high 10-26 06:14Z), finish 10-26 03:36Z (high 10-26 08:37Z); before the 2026-10-29 demo hold
+  fallback start 10-29 15:00Z: yes (high case)".
+
+This is a projection. The queue has run ahead of the 2026-10-23 projection (row own-jobs-hours had
+x2_r2_v1b_seeds_06_10 ending 10-25 22:19Z at the point case, while the synced file shows run_end 10-25 05:24Z), so the
+row is recomputed at each sync. Under the operator's 2026-10-23 rule, E1 starts when the job running at 01:00Z
+finishes, with no preemption.
+
+### T2S CPU and XPS arms (what is needed; no hours estimate)
+
+- **T2S CPU (evo-t2s).**
+  - Machine and access: evo-t2s, reachable only in its window, 2026-10-26 04:00Z to 2026-11-08 (the Oct 26 to Nov 8
+    access window).
+  - The Intel B3 v2 jobs are staged first in queues/t2s_oct26_queue.json, in this order: t2s_o26_preflight,
+    t2s_o26_window_override_methods, t2s_o26_b3_val_cpu, t2s_o26_b3_real_cpu, then the iGPU pair, the B5 cells and
+    the B6 pull and validations.
+  - E1's T2S CPU arm would fit either directly after t2s_o26_b3_real_cpu, gated on it and reusing its validation
+    file and strict preflight, which moves the iGPU, B5 and B6 entries later, or at the end of the staged queue
+    after t2s_o26_b6_val_igpu. The operator picks; neither is staged.
+  - If the strict preflight refuses qwen3:14b on the Intel CPU, the E1 arm is refused too. The Intel pre-registration
+    calls that a likely, reportable outcome.
+  - No hours are given. There is no measured B3 task time on the Intel CPU yet; t2s_o26_b3_real_cpu will measure one.
+    The existing row t2s-evalset-tasks-hours is itself an estimate for the 90-turn job, not a measurement. The E1 arm's
+    hours will be computed from t2s_o26_b3_real_cpu's measured turn times once that file is synced.
+- **XPS.** Not configured here (see Metadata). Needed from Zach: the runtime and its default window, the qwen3:14b
+  build (or the closest model he can run), a harness that replays the same 200 task turns and records end state and
+  loaded window, and his machine window. No hours are given because there is no measured basis in this repo.
+
+### Validity Flags (stated before the run)
+
+- One model and one task family. The fresh draw shares templates with the pilot.
+- 7 sessions, so the session-level intervals are coarse.
+- The replay assumption, and the interim grading of detector-flagged tasks, as stated above.
+- The cloud model's own accuracy on the fresh draw is measured, not assumed. A Sonnet miss counts against the hybrid.
+- Any change after Zach's agreement and the operator's commit is a dated amendment in docs/FINDINGS.md.
+
+### Open questions for Zach (Sun 2026-10-25)
+
+1. With route at start, K is expected to escalate about 100 per 100 on B3-style tasks (pilot: kept local 0/90 at
+   4096), and D is expected to keep almost everything local and possibly miss 97%. Is the trade itself the result
+   you want? Or should the primary be the detector-v2-only variant, or a draw with shorter prompts?
+2. Is 97% the right target (hybrid-route-at-start-v2's), or a target relative to the Sonnet pass on the same draw?
+3. Is claude-sonnet-5-5 the right cloud model (USD 2.04, over the per-job cap, operator approval), or
+   claude-haiku-5-5 (USD 0.13)?
+4. For validation: reuse the existing qwen3:14b validation under the 2026-10-19 waiver, or run a fresh one?
+5. Is 200 (6 full sessions + 20 turns) right, or 210 (7 full sessions)?
+6. Is a template-level fresh draw needed, or is a seed-level one enough?
+7. XPS: which runtime, model build and default window, and when can it run?
+
+## DRAFT (pending Zach's agreement 2026-10-25): E2, local cost per session from measured session minutes, Ollama default vs KV q8_0, at USD 2,000 over 3 years
+
+**Status: DRAFT. Not registered, not queued.** It is the companion of the E1 draft above and runs on the same 200
+fresh task turns, in the same queue job. It becomes a pre-registration only with E1.
+
+### Metadata
+
+- Date, git hash, branch: as E1.
+- Machine: evo-x2 (AMD). There is no E2 arm on evo-t2s or the XPS in this draft.
+
+### Configuration
+
+- Arms:
+  - (D) `ollama_default` at the default window (40960), reused from E1 arm D with no extra run;
+  - (Q) KV cache q8_0 at the default window, set as B5's setting (g) (row cost-cut-config-time: "fastest measured
+    setting (g) kv_q8_0 75.4 min ... window 40960"). This is the only new local run E2 adds.
+- Same model, seeds, turns and grader as E1.
+- **Measured quantity:** busy session minutes. That is the wall time of each 30-turn session from its first call to
+  its last turn's end, including the cold model load, over the 6 full sessions per arm. The 20-turn seventh session
+  is reported separately and not mixed in.
+- **Cost per session** = session minutes / 60 x (hardware USD per busy hour + electricity USD per busy hour).
+  - **Hardware:** USD 2,000, the list price from row impact-ref-machine-price, "list price, Liliputing, 2025-04-15:
+    USD 2,000 for evo-x2 class". It is spread over 3 years as 36 30-day months = 25,920 h, the src/dse/dse_v1.py
+    convention (LIFE_MONTHS, DAYS_PER_MONTH). Per busy hour that is USD 2,000 / (25,920 h x utilization). It is a
+    list price only: no tax, shipping, support or rack.
+  - **Electricity:** 90.8 W, row PX2-power's qwen3-14b package power. **It was measured on evo-t2s (Intel), not on
+    evo-x2.** It is applied to evo-x2 as an ASSUMPTION, as own-dse-v1 does, because the register has no evo-x2 power
+    measurement. It is multiplied by USD 0.1453/kWh, row energy-price-eia-commercial (an EXTERNAL INPUT, the US
+    commercial average for 2026-07). Busy time only; idle power is not counted.
+  - **Utilization (ASSUMPTION): 23.8%**, that is 40 of 168 hours a week, one 8-hour shift on weekdays. Reason: a team
+    machine that serves sessions only in working hours is busy at most about that share of the time. A machine shared
+    across time zones or run on batch work overnight would be higher, and a single developer's machine lower. The
+    hardware share is divided by this value, so it drives the result (see the table).
+
+### Utilization sensitivity (cost model only, not an E2 result)
+
+From row `e2-cost-model-draft` (pasted values). "Pilot session" is 30 B3 v2 turns at ollama_default, measured mean
+5.32 min. The q8_0 column is an ESTIMATE: 1.87 min, the default x the B5 ratio 0.351, not measured on B3 tasks. E2
+replaces both with the measured session minutes of the fresh draw.
+
+| utilization | hardware USD / busy h | electricity USD / busy h | total USD / busy h | pilot session, default | pilot session, KV q8_0 (ESTIMATE) |
+|---|---|---|---|---|---|
+| 10.0% | 0.7716 | 0.0132 | 0.7848 | USD 0.06957 | USD 0.02441 |
+| 23.8% (primary ASSUMPTION) | 0.3241 | 0.0132 | 0.3373 | USD 0.02990 | USD 0.01049 |
+| 25.0% | 0.3086 | 0.0132 | 0.3218 | USD 0.02853 | USD 0.01001 |
+| 50.0% | 0.1543 | 0.0132 | 0.1675 | USD 0.01485 | USD 0.00521 |
+| 100.0% | 0.0772 | 0.0132 | 0.0904 | USD 0.00801 | USD 0.00281 |
+
+Hardware is most of the cost at every utilization in the table, so the utilization assumption, not the power
+measurement, decides the answer. E2 reports the full table, never a single number on its own.
+
+### Statistics
+
+- Timing: no warm-up call, and each session starts with the model unloaded, as in E1 and every B3 v2 run (the
+  harness's own convention). To show what the CLAUDE.md warm-up convention would change, E2 also reports session
+  minutes with the first turn (cold load) left out.
+- Per arm: mean session minutes over the 6 full sessions, with each session listed.
+- `Q - D`: the paired difference by seed, with a 95% bootstrap CI over the 6 seed pairs (10,000 resamples, seed
+  20261014).
+- Accuracy guard: Q's wrong rate on the 200 turns, against D's, with an exact McNemar test (two-sided 5%).
+
+### Pass/fail wording (fixed now, before data)
+
+- **"KV q8_0 lowers local cost per session"**: Q's mean session minutes are below D's, the paired 95% CI excludes 0,
+  and Q is not worse on accuracy (McNemar does not show Q worse at 5%). It is reported as USD per session at every
+  utilization in the table, with 23.8% named as the assumption.
+- **"No cost difference shown"**: the CI includes 0.
+- **"Cheaper but less accurate"**: Q is faster, but McNemar shows Q worse. Both are reported, and no cost saving is
+  claimed on its own.
+- **"Inconclusive (run not valid)"** if any of these holds:
+  - run_end is missing;
+  - fewer than 6 full sessions in an arm;
+  - Q's server not running with KV q8_0;
+  - a loaded window other than 40960.
+
+### Hours
+
+Row `e1-e2-draft-hours`: "E2 KV q8_0 at the default window 0.21 h (high 0.63 h)". This is included in E1's total
+1.83 h (high 2.38 h) and runs in the same job after E1's two arms.
+
+### Validity Flags
+
+- The power was measured on a different machine (evo-t2s package power) and the hardware price is a list price.
+  Both are labelled.
+- Utilization is an assumption and is shown as a range.
+- One model, one task family, 6 sessions per arm.
+
+### Open questions for Zach
+
+1. Is 23.8% (one weekday shift) the utilization to name as primary, or another value?
+2. Is "session" the 30-turn B3 session, or a different unit he prices?
+3. Should idle power be counted? It is not in this draft, and the register has no idle-power row.

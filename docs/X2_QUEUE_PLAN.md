@@ -17,6 +17,16 @@ default-window timing). Registration is due Sat 2026-10-24 12:00 ET; the block d
 - **Operator rule (2026-10-23): E1 starts when the job running at Sun 2026-10-25 18:00 PT finishes; no preemption.**
   E1 is not registered yet, so nothing is reserved or queued until it is. Once registered, E1/E2 go in directly behind
   the job running at 10-26 01:00Z (ahead of every job still pending then), never by stopping a running job.
+- **DRAFT pre-registrations exist (2026-10-24, not approved).** The E1 and E2 drafts are in docs/EXPERIMENTS.md
+  under "DRAFT (pending Zach's agreement 2026-10-25)", with a pointer in docs/FINDINGS.md.
+  - They wait on: Zach's agreement on Sun 2026-10-25; the operator's commit removing "DRAFT"; the harness plan and
+    queue entry being built; and the operator's approval of the claude-sonnet-5-5 grading pass (USD 2.04, over the
+    USD 2 per-job cap).
+  - Re-projected hours (row `e1-e2-draft-hours`, ESTIMATE / PROJECTION, anchored on the synced
+    x2_mx2_qwen3_32b_spill_sweep run_end 10-25 05:47Z): "job running at E1 block start 10-26 01:00Z: (point)
+    x2_own_profiler_probe_v1, (high) x2_longtask_local_v1; E1/E2 directly behind it, no preemption: projected start
+    10-26 01:46Z (high 10-26 06:14Z), finish 10-26 03:36Z (high 10-26 08:37Z)".
+  - No queue entry was added and nothing was deployed.
 
 **own-compaction and own-config-search jobs (pre-registered in docs/EXPERIMENTS.md 2026-10-23, 6fd58f4).** Built and
 tested; entries in harness/x2_queue_fill.py (side directory `C:\apu\ovn\owncomp`, queue tool in a separate
