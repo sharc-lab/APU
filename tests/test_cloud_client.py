@@ -170,7 +170,7 @@ def test_real_call_requires_allowed_host(tmp_path):
         completion_fn=_fake_completion_fn,
     )
     with pytest.raises(HostRestrictionError):
-        client.call(model_id="gpt-4o-mini", messages=[{"role": "user", "content": "hi"}])
+        client.call(model_id="claude-haiku-5-5", messages=[{"role": "user", "content": "hi"}])
 
 
 def test_real_call_succeeds_on_allowed_host_and_writes_ledger(tmp_path):
@@ -181,17 +181,17 @@ def test_real_call_succeeds_on_allowed_host_and_writes_ledger(tmp_path):
         role_override="controller",
         completion_fn=_fake_completion_fn,
     )
-    result = client.call(model_id="gpt-4o-mini", messages=[{"role": "user", "content": "hi"}])
+    result = client.call(model_id="claude-haiku-5-5", messages=[{"role": "user", "content": "hi"}])
     assert result.stub is False
     assert result.input_tokens == 100
     assert result.output_tokens == 50
-    expected_cost = estimate_cost_usd("gpt-4o-mini", 100, 50)
+    expected_cost = estimate_cost_usd("claude-haiku-5-5", 100, 50)
     assert result.cost_usd == pytest.approx(expected_cost)
 
     assert ledger_path.exists()
     rows = [json.loads(line) for line in ledger_path.read_text().splitlines()]
     assert len(rows) == 1
-    assert rows[0]["model_id"] == "gpt-4o-mini"
+    assert rows[0]["model_id"] == "claude-haiku-5-5"
     assert rows[0]["input_tokens"] == 100
     assert rows[0]["output_tokens"] == 50
     assert rows[0]["cost_usd"] == pytest.approx(expected_cost)
@@ -238,22 +238,21 @@ def test_spend_cap_refuses_call_that_would_exceed_cap(tmp_path):
     )
     with pytest.raises(SpendCapExceeded, match="exceeding"):
         client.call(
-            model_id="gpt-4o-mini",
+            model_id="claude-haiku-5-5",
             messages=[{"role": "user", "content": "x" * 100}],
             expected_output_tokens=10_000_000,
         )
 
 
 def test_spend_cap_allows_call_landing_exactly_on_cap(tmp_path):
-    # gpt-4o-mini: $0.15/1M in, $0.60/1M out. Pick tokens so the cost is exactly $1.00.
-    # 1,000,000 input tokens -> $0.15; remaining $0.85 of output budget at $0.60/1M
-    # -> 1,416,666.67 output tokens. Use the estimator itself to build an exact-boundary case.
+    # claude-haiku-5-5 (anthropic; live OpenAI calls are disabled, operator 2026-10-24). Cost exactly $1.00.
+    # Use the estimator itself to build an exact-boundary case (short context tier: input under 272,000 tokens).
     cap = 1.00
-    input_tokens = 1_000_000
-    input_cost = estimate_cost_usd("gpt-4o-mini", input_tokens, 0)
+    input_tokens = 200_000
+    input_cost = estimate_cost_usd("claude-haiku-5-5", input_tokens, 0)
     remaining = cap - input_cost
-    output_tokens = int(remaining / (MODEL_PRICING["gpt-4o-mini"]["output_per_1m_usd"] / 1_000_000))
-    projected = estimate_cost_usd("gpt-4o-mini", input_tokens, output_tokens)
+    output_tokens = int(remaining / (MODEL_PRICING["claude-haiku-5-5"]["output_per_1m_usd"] / 1_000_000))
+    projected = estimate_cost_usd("claude-haiku-5-5", input_tokens, output_tokens)
     assert projected <= cap  # sanity: our chosen token counts land at or under the cap
 
     def completion_fn(**kwargs):
@@ -267,7 +266,7 @@ def test_spend_cap_allows_call_landing_exactly_on_cap(tmp_path):
         completion_fn=completion_fn,
     )
     result = client.call(
-        model_id="gpt-4o-mini",
+        model_id="claude-haiku-5-5",
         messages=[{"role": "user", "content": "x"}],
         expected_output_tokens=output_tokens,
     )
@@ -283,9 +282,9 @@ def test_spend_cap_refuses_call_one_cent_over_cap(tmp_path):
     cap = 1.00
     target_projected_cost = cap + 0.01
     output_tokens = int(
-        target_projected_cost / (MODEL_PRICING["gpt-4o-mini"]["output_per_1m_usd"] / 1_000_000)
+        target_projected_cost / (MODEL_PRICING["claude-haiku-5-5"]["output_per_1m_usd"] / 1_000_000)
     ) + 1  # +1 to guard against int() truncation landing exactly on/under cap
-    projected = estimate_cost_usd("gpt-4o-mini", 1, output_tokens)
+    projected = estimate_cost_usd("claude-haiku-5-5", 1, output_tokens)
     assert projected > cap  # sanity: this case must be over the cap
 
     def completion_fn(**kwargs):
@@ -300,7 +299,7 @@ def test_spend_cap_refuses_call_one_cent_over_cap(tmp_path):
     )
     with pytest.raises(SpendCapExceeded):
         client.call(
-            model_id="gpt-4o-mini",
+            model_id="claude-haiku-5-5",
             messages=[{"role": "user", "content": "x"}],
             expected_output_tokens=output_tokens,
         )
@@ -321,7 +320,7 @@ def test_spend_cap_refusal_never_writes_ledger(tmp_path):
     )
     with pytest.raises(SpendCapExceeded):
         client.call(
-            model_id="gpt-4o-mini",
+            model_id="claude-haiku-5-5",
             messages=[{"role": "user", "content": "x"}],
             expected_output_tokens=10_000_000,
         )
@@ -330,11 +329,11 @@ def test_spend_cap_refusal_never_writes_ledger(tmp_path):
 
 def test_spend_cap_accumulates_across_calls(tmp_path):
     ledger_path = tmp_path / "ledger.jsonl"
-    # 250,000 output tokens at $0.60/1M = $0.15 per call (input negligible: 1-word messages).
+    # 300,000 output tokens at $0.50/1M = $0.15 per call (input negligible: 1-word messages).
     # Both the pre-call projection (expected_output_tokens) and the post-call actual
     # usage returned by completion_fn use the same figure so the running total the
     # cap is checked against matches what gets written to the ledger.
-    output_tokens_per_call = 250_000
+    output_tokens_per_call = 300_000
 
     def completion_fn(**kwargs):
         return {"usage": {"prompt_tokens": 1, "completion_tokens": output_tokens_per_call}}
@@ -347,19 +346,19 @@ def test_spend_cap_accumulates_across_calls(tmp_path):
         completion_fn=completion_fn,
     )
     client.call(
-        model_id="gpt-4o-mini",
+        model_id="claude-haiku-5-5",
         messages=[{"role": "user", "content": "a"}],
         expected_output_tokens=output_tokens_per_call,
     )
     client.call(
-        model_id="gpt-4o-mini",
+        model_id="claude-haiku-5-5",
         messages=[{"role": "user", "content": "b"}],
         expected_output_tokens=output_tokens_per_call,
     )
     # two calls at ~$0.15 = ~$0.30; a third would bring total to ~$0.45 > $0.40 cap
     with pytest.raises(SpendCapExceeded):
         client.call(
-            model_id="gpt-4o-mini",
+            model_id="claude-haiku-5-5",
             messages=[{"role": "user", "content": "c"}],
             expected_output_tokens=output_tokens_per_call,
         )

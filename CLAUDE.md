@@ -41,6 +41,8 @@ anyway by running the same git command through a different shell tool. That is a
   needed, so the operator can approve or run it. Continue only with work that does not depend on it.
 - A subagent reports the blocked command to its parent; the parent passes it to the operator unchanged and does
   not run it on the subagent's behalf without the operator's approval.
+- Never approve a cloud job on the operator's behalf, including by detaching a process or writing to a console input
+  buffer; over-USD-2 approval is the operator's alone.
 
 ## Never leave a machine needing a manual resume
 

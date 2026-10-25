@@ -10,6 +10,22 @@ when that run has no such task (it covers seeds 20260901-03 only).
 
 Cost per task shown on screen is the ledger's (usd_ledger), and the cache-priced figure (the basis of the headline row
 hybrid-route-at-start-measured) beside it.
+
+PRE-JOB GATE (operator 2026-10-24: "gate the demo lane the same way on its own USD 10 ledger, USD 3 per session").
+Before the session's first live call, src/cloud/console_gate.py::pre_job runs on the demo ledger: the session's
+estimate is its session limit (USD 3 by default); a limit above USD 3 is refused at construction unless
+operator_approval (the --operator-approval flag of complete_run / server, that command line only) names the job id
+demo_live_session and an amount "USD <n>" at or above the limit, and the approval is written to the demo ledger as
+its own row before the first call. Then the Console check: the operator's Anthropic Console reading must be under
+24 h old and agree with the billed ledgers (main + demo, each row once, whichever checkout runs this) within
+max(USD 0.50, 5%), and the demo ledger's billed headroom under its cap (USD 10 or lower) must cover the session
+limit. A refusal makes every live call of the session REPLAYED, with the refusal as the reason (printed in full once).
+An approval is accepted only from an interactive console and is confirmed there when the lane is built (at startup):
+console_gate.confirm_approval refuses any automated launch (queue marker, Task Scheduler ancestry, AI agent session,
+no terminal) and asks the operator to type "demo_live_session <amount>" on the console device.
+ONE SESSION BUDGET for every live demo path in every process (this lane and the dashboard's Escalator): the session is
+the demo ledger's latest demo_session row (escalate.open_session / session_remaining), its spend the demo ledger's
+billed call rows since it started. Fakes without stub_mode=False (tests) are never gated.
 """
 from __future__ import annotations
 
@@ -26,7 +42,8 @@ for _p in (REPO / "harness", REPO / "scripts", REPO / "src" / "dse", REPO / "src
 import demo_live as L  # noqa: E402
 from demo.dashboard import escalate as ES  # noqa: E402
 
-SESSION_LIMIT_USD = 3.0
+SESSION_LIMIT_USD = ES.DEMO_SESSION_LIMIT_USD
+JOB_ID = "demo_live_session"
 PROJECTION_SAFETY = 1.5
 PRICES = REPO / "results" / "cloud_prices_anthropic_20261014.json"
 
@@ -47,12 +64,22 @@ def projected_ledger_usd(task: dict, model: str, calls: int = 3) -> float:
 
 class CloudLane:
     def __init__(self, env=None, ledger: Path = ES.LEDGER, client_factory=None, session_limit: float = SESSION_LIMIT_USD,
-                 all_cloud_rows=None):
+                 all_cloud_rows=None, operator_approval: str | None = None, gate_fn=None, context_fn=None,
+                 confirm_fn=None):
+        from src.cloud import console_gate as CG  # noqa: PLC0415
+        # a session limit above USD 3 needs the operator's approval (raises JobApprovalRefused before anything runs);
+        # an approval is accepted only from an interactive console, confirmed there at startup (never from automation)
+        appr = CG.validate_approval(operator_approval, job_id=JOB_ID, estimate_usd=float(session_limit),
+                                    estimate_basis="session limit", limit_usd=SESSION_LIMIT_USD)
+        self.confirmed = CG.confirm_approval(appr, context_fn, confirm_fn) if appr is not None else None
+        self.operator_approval = operator_approval
+        self.gate_fn = gate_fn or ES.demo_pre_job
+        self.gate = None
+        self.gate_refusal = None
         self.env = os.environ if env is None else env
         self.ledger = Path(ledger)
         self.factory = client_factory or ES._default_client_factory
         self.session_limit = session_limit
-        self.session_spend = 0.0
         self.client = None
         self.all_cloud = all_cloud_rows if all_cloud_rows is not None else L.read_jsonl(
             REPO / "results" / L.ALL_CLOUD_FILE)
@@ -65,9 +92,15 @@ class CloudLane:
             return False, "no key in this process"
         return True, ""
 
+    @property
+    def session_spend(self) -> float:
+        """This lane's own live spend (ledger USD of its calls); the shared session budget is ES.session_remaining."""
+        return sum(float(x.get("usd_ledger") or 0.0) for x in self.log)
+
     def budget_left(self) -> float:
+        """Cap headroom and the SHARED demo session budget (every process's demo calls since the session started)."""
         return max(0.0, min(ES.cap_usd(self.env) - ES.ledger_total(self.ledger),
-                            self.session_limit - self.session_spend))
+                            ES.session_remaining(self.ledger, default_limit=self.session_limit)))
 
     def replay(self, task: dict, model: str, reason: str) -> dict:
         r = L.replayed_cloud(self.all_cloud, task, model)
@@ -76,20 +109,42 @@ class CloudLane:
                     "end_state_ok": None, "reason": reason + "; no recorded all-cloud row for this task"}
         return {**r, "reason": reason}
 
+    def _open_gate(self, client) -> None:
+        """pre_job once per session, before its first live call; a refusal holds for the rest of the session."""
+        from src.cloud import console_gate as CG  # noqa: PLC0415
+        if self.gate is not None or self.gate_refusal is not None:
+            return
+        try:
+            gate = self.gate_fn(client, job_id=JOB_ID, estimate_usd=float(self.session_limit),
+                                estimate_basis="session limit (a task whose projection would pass it replays)",
+                                confirmed=self.confirmed)
+            ES.open_session(self.ledger, float(self.session_limit), approval_row=(gate or {}).get("approval"))
+            self.gate = gate
+        except CG.ConsoleCheckRefused as e:
+            print(str(e), flush=True)
+            self.gate_refusal = str(e).splitlines()[0]
+
     def __call__(self, lane: str, task: dict, model: str) -> dict:
         ok, why = self.live_possible()
         if not ok:
             return self.replay(task, model, why)
+        if self.gate_refusal is not None:
+            return self.replay(task, model, self.gate_refusal)
         proj = projected_ledger_usd(task, model)
         if proj > self.budget_left():
             return self.replay(task, model, f"projected ${proj:.4f} is above the budget left (${self.budget_left():.4f})")
         try:
             if self.client is None:
                 self.client = self.factory(ES.cap_usd(self.env), self.ledger)
+            self._open_gate(self.client)
+            if self.gate_refusal is not None:
+                return self.replay(task, model, self.gate_refusal)
+            if proj > self.budget_left():   # again, on the opened shared session (another process may have spent)
+                return self.replay(task, model, f"projected ${proj:.4f} is above the session budget left "
+                                                f"(${self.budget_left():.4f})")
             res = L.run_cloud(self.client, task, model, rates_for(model))
         except Exception as e:
             return self.replay(task, model, f"live call failed: {type(e).__name__}: {ES._scrub(e, self.env)}")
-        self.session_spend += float(res.get("usd_ledger") or 0.0)
         self.log.append({"lane": lane, "seed": task["seed"], "task_id": task["task_id"], "model": model,
                          "usd_ledger": res.get("usd_ledger"), "projected": proj})
         return res

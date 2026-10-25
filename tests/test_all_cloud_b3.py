@@ -252,3 +252,26 @@ def test_pilot_empty_at_cap_stops(tmp_path, monkeypatch):
 
 def test_project_nan_ratio_is_infinite():
     assert AC.project("claude-haiku-5-5", float("nan"), {1: [(10, 1)]}) == float("inf")
+
+
+# -- pre-job gate (operator 2026-10-24): over USD 2 without --operator-approval refuses; nothing sent, no ledger row --
+
+def test_main_over_two_dollars_refused_without_approval(monkeypatch, tmp_path, capsys):
+    monkeypatch.setenv(AC.KEY_ENV, "test-not-a-key")
+    monkeypatch.setattr(AC, "redo_finished", lambda p: True)
+    monkeypatch.setattr(AC, "run", lambda *a, **k: (_ for _ in ()).throw(AssertionError("must not run")))
+    sent = []
+    real_cc = AC.cc.CloudClient
+
+    def client(*a, **kw):
+        kw.setdefault("completion_fn", lambda **k: sent.append(k))
+        kw.setdefault("role_override", "controller")
+        return real_cc(*a, **kw)
+
+    monkeypatch.setattr(AC.cc, "CloudClient", client)
+    led = tmp_path / "results" / "cloud_ledger.jsonl"
+    assert AC.main(["--live", "--ledger", str(led), "--out", str(tmp_path / "b3_gate.jsonl")]) == 2
+    err = capsys.readouterr().err
+    assert "above the USD 2.00 per-job limit" in err and "$15.0000" in err
+    assert '--operator-approval "approve b3_gate up to USD 15.00' in err
+    assert sent == [] and not led.exists() and not (tmp_path / "b3_gate.jsonl").exists()

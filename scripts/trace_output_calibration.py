@@ -129,6 +129,15 @@ def count(scratch: Path, client=None, role_override=None):
         # the capped client (host check: on the controller laptop pass --role-override controller); reads the key from
         # this process's environment only
         client = CloudClient(mode="real", role_override=role_override)
+        # pre-job gate (operator 2026-10-24): count_tokens is not billed, so the estimate is USD 0 (no approval
+        # needed), but the Console check still runs before the first call
+        from src.cloud import console_gate
+        try:
+            gate = console_gate.pre_job(client, job_id="trace_output_calibration", estimate_usd=0.0,
+                                        estimate_basis="count_tokens is not billed", projection_billed_usd=0.0)
+        except console_gate.ConsoleCheckRefused as e:
+            raise SystemExit(str(e)) from None
+        print(console_gate.format_report(gate))
     n = 0
     with open(CALIB_FILE, "a", encoding="utf-8") as out:
         for f in files:

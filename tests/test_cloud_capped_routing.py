@@ -13,11 +13,15 @@ import pytest
 from src.cloud.client import (
     CloudClient,
     MissingApiKeyError,
+    OpenAIDisabledError,
     SpendCapExceeded,
     local_openai_compatible_client,
 )
 
 MSG = [{"role": "user", "content": "hello"}]
+# Live OpenAI calls are disabled (operator 2026-10-24); the provider-agnostic mechanics below use an Anthropic model.
+GENERIC = "claude-haiku-5-5"
+DISABLED = "disabled by operator decision of 2026-10-24"
 
 
 @pytest.fixture
@@ -108,7 +112,7 @@ def test_openai_key_is_not_sent_to_another_provider(clean_env, tmp_path):
     clean_env.setenv("OPENAI_API_KEY", "sk-openai")
     fake = FakeProvider()
     client = CloudClient.real(ledger_path=tmp_path / "l.jsonl", role_override="controller", completion_fn=fake)
-    with pytest.raises(ValueError, match="anthropic"):
+    with pytest.raises(OpenAIDisabledError, match=DISABLED):   # an OpenAI key is refused outright now
         client.call(model_id=model, messages=MSG)
     assert fake.calls == []
 
@@ -127,7 +131,7 @@ def test_anthropic_key_is_only_sent_to_anthropic_models(clean_env, tmp_path):
     clean_env.setenv("ANTHROPIC_API_KEY", "sk-ant")
     fake = FakeProvider()
     client = CloudClient.real(ledger_path=tmp_path / "l.jsonl", role_override="controller", completion_fn=fake)
-    with pytest.raises(ValueError, match="openai"):
+    with pytest.raises(OpenAIDisabledError, match=DISABLED):
         client.call(model_id="gpt-4o-mini", messages=MSG)
     assert fake.calls == []
     res = client.call(model_id=model, messages=MSG)
@@ -150,8 +154,8 @@ def test_tools_and_tool_choice_reach_the_provider_unchanged_and_tool_choice_is_l
     ledger = tmp_path / "l.jsonl"
     client = CloudClient(api_key="sk-x", ledger_path=ledger, role_override="controller", completion_fn=fake)
     tools = [{"type": "function", "function": {"name": "calc", "description": "d", "parameters": {"type": "object"}}}]
-    client.call(model_id="gpt-4o-mini", messages=MSG, tools=tools, tool_choice="auto")
-    client.call(model_id="gpt-4o-mini", messages=MSG, tools=tools, tool_choice="none")
+    client.call(model_id=GENERIC, messages=MSG, tools=tools, tool_choice="auto")
+    client.call(model_id=GENERIC, messages=MSG, tools=tools, tool_choice="none")
     assert [c["tool_choice"] for c in fake.calls] == ["auto", "none"]
     assert fake.calls[0]["tools"] is tools and fake.calls[1]["tools"] is tools
     rows = [json.loads(line) for line in ledger.read_text().splitlines()]
@@ -165,16 +169,16 @@ def test_tools_and_tool_choice_reach_the_provider_unchanged_and_tool_choice_is_l
 
 def test_in_flight_reservations_count_against_the_cap(tmp_path):
     fake = FakeProvider()
-    # gpt-4o-mini: 1 input token + 1_000_000 output tokens projects to ~$0.60
-    client = CloudClient(api_key="sk-x", spend_cap_usd=1.0, ledger_path=tmp_path / "l.jsonl",
+    # claude-haiku-5-5: 1 input token + 1_000_000 output tokens projects to ~$0.50
+    client = CloudClient(api_key="sk-x", spend_cap_usd=0.8, ledger_path=tmp_path / "l.jsonl",
                          role_override="controller", completion_fn=fake)
-    first = client.prepare(model_id="gpt-4o-mini", messages=[{"role": "user", "content": "x"}],
+    first = client.prepare(model_id=GENERIC, messages=[{"role": "user", "content": "x"}],
                            expected_output_tokens=1_000_000)
     with pytest.raises(SpendCapExceeded, match="reserved by in-flight"):
-        client.prepare(model_id="gpt-4o-mini", messages=[{"role": "user", "content": "x"}],
+        client.prepare(model_id=GENERIC, messages=[{"role": "user", "content": "x"}],
                        expected_output_tokens=1_000_000)
     first.release()
-    client.prepare(model_id="gpt-4o-mini", messages=[{"role": "user", "content": "x"}],
+    client.prepare(model_id=GENERIC, messages=[{"role": "user", "content": "x"}],
                    expected_output_tokens=1_000_000)
 
 
@@ -184,7 +188,7 @@ def test_failed_send_releases_reservation_and_writes_nothing(tmp_path):
 
     ledger = tmp_path / "l.jsonl"
     client = CloudClient(api_key="sk-x", ledger_path=ledger, role_override="controller", completion_fn=boom)
-    prepared = client.prepare(model_id="gpt-4o-mini", messages=MSG)
+    prepared = client.prepare(model_id=GENERIC, messages=MSG)
     assert client._reserved_usd > 0
     with pytest.raises(RuntimeError):
         prepared.send()
@@ -195,15 +199,15 @@ def test_failed_send_releases_reservation_and_writes_nothing(tmp_path):
 def test_max_tokens_drives_the_projection_when_no_expected_output_given(tmp_path):
     client = CloudClient(api_key="sk-x", ledger_path=tmp_path / "l.jsonl", role_override="controller",
                          completion_fn=FakeProvider())
-    assert client.prepare(model_id="gpt-4o-mini", messages=MSG, max_tokens=1024).expected_output_tokens == 1024
-    assert client.prepare(model_id="gpt-4o-mini", messages=MSG).expected_output_tokens == 256
+    assert client.prepare(model_id=GENERIC, messages=MSG, max_tokens=1024).expected_output_tokens == 1024
+    assert client.prepare(model_id=GENERIC, messages=MSG).expected_output_tokens == 256
 
 
 def test_concurrent_calls_are_all_ledgered(tmp_path):
     fake = FakeProvider(delay_s=0.01)
     ledger = tmp_path / "l.jsonl"
     client = CloudClient(api_key="sk-x", ledger_path=ledger, role_override="controller", completion_fn=fake)
-    threads = [threading.Thread(target=client.call, kwargs={"model_id": "gpt-4o-mini", "messages": MSG})
+    threads = [threading.Thread(target=client.call, kwargs={"model_id": GENERIC, "messages": MSG})
                for _ in range(6)]
     for t in threads:
         t.start()
@@ -227,41 +231,22 @@ def test_local_compat_client_refuses_openai_hosts():
 
 
 # ---------------------------------------------------------------------------
-# routed call sites: cap path is outside the timed region
+# routed OpenAI call sites: refused before any send (operator 2026-10-24)
 # ---------------------------------------------------------------------------
 
 
-def _slow_bookkeeping(monkeypatch, client, delay_s):
-    """Make prepare() and settle() slow so a timer that wrongly wraps them would show it."""
-    real_prepare, real_settle = client.prepare, client._settle
-
-    def slow_prepare(**kw):
-        time.sleep(delay_s)
-        return real_prepare(**kw)
-
-    def slow_settle(*a, **kw):
-        time.sleep(delay_s)
-        return real_settle(*a, **kw)
-
-    monkeypatch.setattr(client, "prepare", slow_prepare)
-    monkeypatch.setattr(client, "_settle", slow_settle)
-
-
-def test_sdk_direct_backend_routes_through_cap_and_times_only_the_send(monkeypatch, tmp_path):
+def test_sdk_direct_backend_live_openai_call_is_refused_before_any_send(tmp_path):
     from harness.adapters.sdk_direct import TOOL_DEFINITIONS, OpenAIChatBackend
     from harness.replay import ReplayCache
 
     fake = FakeProvider()
     ledger = tmp_path / "l.jsonl"
     cloud = CloudClient(api_key="sk-x", ledger_path=ledger, role_override="controller", completion_fn=fake)
-    _slow_bookkeeping(monkeypatch, cloud, 0.3)
     backend = OpenAIChatBackend(cloud=cloud, replay_cache=ReplayCache(mode="RECORD", traces_root=tmp_path / "t"))
-    res = backend.model_call(model="gpt-4o-mini", messages=MSG, tools=TOOL_DEFINITIONS, temperature=None,
-                             seed=None, tool_choice="none", max_tokens=1024)
-    assert res.recorded_latency_ms < 250, res.recorded_latency_ms
-    assert fake.calls[0]["tool_choice"] == "none" and fake.calls[0]["tools"] == TOOL_DEFINITIONS
-    assert fake.calls[0]["max_tokens"] == 1024
-    assert len(ledger.read_text().splitlines()) == 1
+    with pytest.raises(OpenAIDisabledError, match=DISABLED):
+        backend.model_call(model="gpt-4o-mini", messages=MSG, tools=TOOL_DEFINITIONS, temperature=None,
+                           seed=None, tool_choice="none", max_tokens=1024)
+    assert fake.calls == [] and not ledger.exists()
 
 
 def test_sdk_direct_backend_requires_exactly_one_client():
@@ -271,18 +256,16 @@ def test_sdk_direct_backend_requires_exactly_one_client():
         OpenAIChatBackend()
 
 
-def test_cloud_openai_backend_routes_through_cap_and_times_only_the_send(monkeypatch, tmp_path):
+def test_cloud_openai_backend_live_call_is_refused_before_any_send(tmp_path):
     from harness.backends.cloud_openai import CloudOpenAIBackend
 
     fake = FakeProvider()
     ledger = tmp_path / "l.jsonl"
     cloud = CloudClient(api_key="sk-x", ledger_path=ledger, role_override="controller", completion_fn=fake)
-    _slow_bookkeeping(monkeypatch, cloud, 0.3)
     backend = CloudOpenAIBackend(cloud_client=cloud, replay_mode="RECORD", traces_root=tmp_path / "t")
-    res = backend.model_call(messages=MSG, seed=7)
-    assert res.recorded_latency_ms < 250, res.recorded_latency_ms
-    assert fake.calls[0]["seed"] == 7
-    assert len(ledger.read_text().splitlines()) == 1
+    with pytest.raises(OpenAIDisabledError, match=DISABLED):
+        backend.model_call(messages=MSG, seed=7)
+    assert fake.calls == [] and not ledger.exists()
 
 
 def test_cloud_openai_backend_without_key_refuses(clean_env, tmp_path):
@@ -292,56 +275,31 @@ def test_cloud_openai_backend_without_key_refuses(clean_env, tmp_path):
         CloudOpenAIBackend(replay_mode="RECORD", traces_root=tmp_path / "t", ledger_path=tmp_path / "l.jsonl")
 
 
-def test_cap_refusal_reaches_backend_caller_before_any_send(tmp_path):
+def test_openai_refusal_reaches_backend_caller_before_any_send(tmp_path):
     from harness.backends.cloud_openai import CloudOpenAIBackend
 
     fake = FakeProvider()
     cloud = CloudClient(api_key="sk-x", spend_cap_usd=0.0, ledger_path=tmp_path / "l.jsonl",
                         role_override="controller", completion_fn=fake)
     backend = CloudOpenAIBackend(cloud_client=cloud, replay_mode="RECORD", traces_root=tmp_path / "t")
-    with pytest.raises(SpendCapExceeded):
+    with pytest.raises(OpenAIDisabledError, match=DISABLED):
         backend.model_call(messages=MSG)
     assert fake.calls == []
 
 
-def test_default_openai_path_uses_one_sdk_client_and_passes_kwargs(monkeypatch, tmp_path):
-    """No completion_fn injected: the OpenAI SDK path is used (with a fake SDK object, never the network)."""
+def test_default_openai_path_is_refused_before_any_sdk_client_is_made(monkeypatch, tmp_path):
+    """No completion_fn injected: the OpenAI SDK path is never reached (no SDK object is made, never the network)."""
     import src.cloud.client as cc
 
     made = []
-
-    class _Resp:
-        def model_dump(self, exclude_unset=False):
-            return {"usage": {"prompt_tokens": 3, "completion_tokens": 4}, "choices": [{"message": {"content": "hi"}}]}
-
-    class _Completions:
-        def __init__(self):
-            self.calls = []
-
-        def create(self, **kw):
-            self.calls.append(kw)
-            return _Resp()
-
-    class _Chat:
-        def __init__(self):
-            self.completions = _Completions()
-
-    class _SDK:
-        def __init__(self, api_key):
-            self.api_key = api_key
-            self.chat = _Chat()
-
-    def fake_make(api_key):
-        made.append(_SDK(api_key))
-        return made[-1]
-
-    monkeypatch.setattr(cc, "_make_openai_sdk_client", fake_make)
+    monkeypatch.setattr(cc, "_make_openai_sdk_client", lambda api_key: made.append(api_key))
     ledger = tmp_path / "l.jsonl"
     client = CloudClient(api_key="sk-x", ledger_path=ledger, role_override="controller")
-    r1 = client.call(model_id="gpt-4o-mini", messages=MSG, tool_choice="none", tools=[])
-    client.call(model_id="gpt-4o-mini", messages=MSG)
-    assert len(made) == 1 and made[0].api_key == "sk-x"
-    assert made[0].chat.completions.calls[0] == {"model": "gpt-4o-mini", "messages": MSG, "tool_choice": "none",
-                                                 "tools": []}
-    assert r1.content == "hi" and r1.input_tokens == 3 and r1.output_tokens == 4
-    assert len(ledger.read_text().splitlines()) == 2
+    with pytest.raises(OpenAIDisabledError, match=DISABLED):
+        client.call(model_id="gpt-4o-mini", messages=MSG, tool_choice="none", tools=[])
+    assert made == [] and not ledger.exists() and client._reserved_usd == 0
+
+
+def test_openai_stub_mode_still_works(tmp_path):
+    res = CloudClient(mode="stub", ledger_path=tmp_path / "l.jsonl").call(model_id="gpt-4o-mini", messages=MSG)
+    assert res.stub and res.cost_usd == 0.0

@@ -6,6 +6,10 @@ else OPENAI_API_KEY, else CLOUD_API_KEY; with none set, construction raises Miss
 bare OpenAI SDK constructor used here before 2026-10-08 also raised without a key). The cap check runs
 before Backend.model_call's timer starts and the ledger write after it stops, so recorded_latency_ms
 covers the same work as before (the SDK request plus model_dump).
+
+LIVE CALLS DISABLED (operator 2026-10-24): no Console check exists for OpenAI spend, so a live request (a replay
+cache miss in RECORD or AUTO mode) raises OpenAIDisabledError before anything is sent. Replay hits and stub-mode
+clients still work.
 """
 
 from __future__ import annotations
@@ -16,7 +20,7 @@ from typing import Any
 
 from harness.backends.base import Backend
 from harness.replay import ReplayMode
-from src.cloud.client import DEFAULT_LEDGER_PATH, CloudClient
+from src.cloud.client import DEFAULT_LEDGER_PATH, CloudClient, refuse_live_openai
 
 
 class CloudOpenAIBackend(Backend):
@@ -64,6 +68,8 @@ class CloudOpenAIBackend(Backend):
         seed: int | None,
         **kwargs: Any,
     ):
+        if not getattr(self.cloud, "stub_mode", False):   # live OpenAI: disabled, operator 2026-10-24
+            refuse_live_openai("harness/backends/cloud_openai.py CloudOpenAIBackend")
         return self.cloud.prepare(model_id=model, messages=messages,
                                   **self._payload(tools, temperature, seed, kwargs))
 
