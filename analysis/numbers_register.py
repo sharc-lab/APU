@@ -4587,6 +4587,14 @@ def compute_own_rollback_redo(repo):
     return {"value": orb.own_rollback_redo_text(r), "n": f"{len(r['tasks'])} tasks run of {r['n_all']}"}
 
 
+def compute_cloud_rescue_combined(repo):
+    """Full-history redo fixes plus the cascaded rollback redo's fixes of its earlier_state_repair failures
+    (analysis/own_rollback.py::cloud_rescue_combined)."""
+    orb = _own_rollback()
+    c = orb.cloud_rescue_combined(repo)
+    return {"value": orb.cloud_rescue_combined_text(c), "n": f"{c['n']} wrong tasks"}
+
+
 def compute_hybrid_local_first_rollback(repo):
     """Local first on every task, roll back and escalate on the oracle signal (ceiling) or the over-window stand-in,
     by replay (analysis/own_rollback.py::local_first_rollback)."""
@@ -8288,6 +8296,15 @@ NUMBER_ENTRIES = [
      "compute": compute_own_rollback_redo, "data_files": [OWN_ROLLBACK_FILE], "pending_ok": True,
      "require_run_end": [OWN_ROLLBACK_FILE],
      "script_function": "analysis/own_rollback.py::own_rollback_redo"},
+    {"claim_id": "cloud-rescue-combined", "description": "Combined cloud rescue of the 197 wrong local tasks: the "
+     "full-history redo's fixes (cloud-redo-full-context) plus the cascaded rollback redo's fixes of the "
+     "earlier_state_repair tasks it left wrong (own-rollback-redo, a STAND-IN for successful earlier escalations), "
+     "with a 95% Wilson CI and every task still wrong listed with its diagnosis class",
+     "compute": compute_cloud_rescue_combined,
+     "data_files": [CLOUD_REDO_FULL_CONTEXT, CLOUD_REDO_FULL_CONTEXT_PART2,
+                    "results/cloud_redo_full_context_v1_part3.jsonl", X2_EVALSET_TASKS_REAL_V2, OWN_ROLLBACK_FILE],
+     "pending_ok": True, "require_run_end": [OWN_ROLLBACK_FILE],
+     "script_function": "analysis/own_rollback.py::cloud_rescue_combined"},
     {"claim_id": "hybrid-local-first-rollback", "description": "Local-first hybrid with rollback, by replay of "
      "recorded runs: every task local first (B3 v2, qwen3:14b, evo-x2 num_ctx 8192 and 4096, seeds 20260901-03), "
      "rolled back and escalated to claude-sonnet-5-5 on the oracle signal (ceiling) or the recorded over_loaded_window "
