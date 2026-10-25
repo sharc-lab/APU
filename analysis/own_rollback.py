@@ -182,6 +182,43 @@ def own_rollback_redo_text(r: dict) -> str:
             f"{s['total_usd_all_uncached']:.4f}; stopped: {r['end'].get('stopped') if r['end'] else 'no run_end'}")
 
 
+# ── combined cloud rescue (full-history redo + cascaded rollback redo) ──────────────────────────────
+
+def cloud_rescue_combined(repo: Path = REPO, path: str = ROLLBACK_FILE) -> dict:
+    """Row cloud-rescue-combined: of the 197 wrong local tasks, those fixed by the full-history redo, plus the
+    earlier_state_repair tasks it left wrong that the cascaded own-rollback redo fixed (matched by tier, seed and
+    turn). Everything else still wrong is listed with its full-history redo diagnosis class."""
+    import numbers_register as nr
+    _cr, _cd, d, merged = redo_diagnosis(repo)
+    rb = own_rollback_redo(repo, path)
+    key = lambda r: (r["tier"], r["seed"], r["turn_idx"])  # noqa: E731
+    fh_fixed = {key(r) for r in merged if r.get("cloud_end_state_ok")}
+    repair = {key(p) for p in d["per_task"] if p["cls"] == "earlier_state_repair"}
+    rb_rows = {key(t): t for t in rb["tasks"]}
+    rb_fixed = {k for k in repair if rb_rows.get(k, {}).get("cloud_end_state_ok")}
+    n = len(merged)
+    fixed = len(fh_fixed) + len(rb_fixed)
+    lo, hi = nr.wilson_ci(fixed, n)
+    still = [p for p in d["per_task"] if key(p) not in rb_fixed]
+    return {"n": n, "fh_fixed": len(fh_fixed), "repair": len(repair), "rb_matched": len(repair & set(rb_rows)),
+            "rb_fixed": len(rb_fixed), "fixed": fixed, "ci": (lo, hi), "still": still,
+            "rollback": rb["start"].get("rollback"), "model": rb["start"].get("model_id")}
+
+
+def cloud_rescue_combined_text(c: dict) -> str:
+    st = "; ".join(f"{p['task_id']} ({p['tier']}, seed {p['seed']}, turn {p['turn_idx']}): class {p['cls']}, "
+                   f"end-state diff on {len(p['diff'])} field(s) ({', '.join(p['diff'])})" for p in c["still"])
+    return (f"combined over the {c['n']} wrong local tasks (claude-sonnet-5-5): full-history redo fixed "
+            f"{c['fh_fixed']}/{c['n']} (row cloud-redo-full-context); of its {c['repair']} earlier_state_repair "
+            f"failures, the {c['rollback']} rollback redo (row own-rollback-redo, matched by tier, seed and turn: "
+            f"{c['rb_matched']}/{c['repair']}) fixed {c['rb_fixed']}; combined fixed {c['fixed']}/{c['n']} "
+            f"({100 * c['fixed'] / c['n']:.1f}%), 95% Wilson CI [{c['ci'][0]:.1%}, {c['ci'][1]:.1%}]; still wrong "
+            f"{len(c['still'])}: {st or 'none'} (classes from the full-history redo diagnosis; cloud_model_error = "
+            f"the cloud model's own error, not the environment); STAND-IN caveat: the rollback redo replaced every "
+            f"earlier wrong task turn by its reference calls, i.e. it assumes each earlier escalation succeeded, so "
+            f"the {c['rb_fixed']} are fixed under that assumption, not in a live hybrid")
+
+
 # ── local-first hybrid with rollback (replay) ───────────────────────────────────────────────────────
 
 def local_first_policy(local: dict, cloud: dict, redo: dict, rb: dict, signal: str, tier_usd: float,

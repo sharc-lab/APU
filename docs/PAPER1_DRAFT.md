@@ -70,7 +70,7 @@ silent wrong answers, and how many wrong answers depends on settings the user ra
 
 A motivating case shows how easily a user lands in this regime. On an Intel laptop, an unmodified Ollama install
 served two models with a 4096 <!-- t2s-r2-real-cpu --> token window, because device detection drops the integrated GPU
-and falls back to the CPU <!-- x2-device-detect-mechanism -->. Every agent session crossed that window at turn [3]
+and falls back to the CPU <!-- x2-device-detect-mechanism -->. Every agent session crossed that window at turn 3
 <!-- t2s-r2-real-cpu --> and then failed silently, 5/5 <!-- t2s-r2-real-cpu --> sessions for each model. With the
 integrated GPU enabled, the same machine, runtime and models loaded 32768 <!-- t2s-r2-real-igpu --> tokens and no
 failure came after the window. Nobody chose 4096; the runtime did.
@@ -225,7 +225,7 @@ are real behaviour. llama3.1:8b logged events on 60.0% <!-- R2-validation-v2-bas
 session code on 60.0% <!-- R2-validation-v2-baseline -->, so only rules 1, 3 and 4 <!-- R2-validation-v2-baseline -->
 are in use for it; qwen3:14b kept all five. The same bar decides whether tool validity, arguments and recall are
 gated. The negative control must miss no canary (0/12 <!-- R2-validation-v2-baseline --> for both models); the
-positive control, at a small window, must detect truncation (turn [10] <!-- R2-validation-v2-baseline -->); and the
+positive control, at a small window, must detect truncation (turn 10 <!-- R2-validation-v2-baseline -->); and the
 task tool must be called correctly on at least 90% of turns, which refused qwen3-4b-2507 at 5/30
 <!-- R2-task-tool-gate -->. A real job refuses to start unless its model's validation passes.
 
@@ -297,9 +297,10 @@ tok/s at 20480 <!-- fh1-amd-boundary-qwen3-32b -->; because that point is clampe
 boundary. In the start-only bisection the last start was 367104, clamped to 131072, and the first failure 367360,
 with exit code 3221226505 <!-- fh1-amd-boundary-qwen3-32b -->. The two qwen3-32b runs clamp to different values (40960
 and 131072 <!-- fh1-amd-boundary-qwen3-32b -->) because their launch flags differ; the panel labels each point with
-its launch. A dedicated qwen3-32b spill sweep between these points is planned but not yet complete
-<!-- pending row: fh1-amd-qwen3-32b-spill-sweep, no number cited -->, so the qwen3-32b onset is reported as "above
-20480" only.
+its launch. A dedicated qwen3-32b spill sweep (llama-server b10970, Vulkan, `-ngl 99`, 1 warm-up + 5 calls per point)
+from 20480 to 40960 found no unclamped spill point up to 40960: shared GPU memory grew by at most 20 MiB over 20480,
+and decode stayed between 11.271 and 11.368 tok/s <!-- fh1-amd-qwen3-32b-spill-sweep -->. The qwen3-32b onset is
+therefore reported as "above 40960" for unclamped windows only.
 
 **Intel iGPU: a hard wall that first-principles accounting predicts.** On the Intel iGPU there is no soft regime: a
 model either starts or the runtime refuses it. Across five models, the refusal point is consistent with one
@@ -384,8 +385,8 @@ Table 2: default context window per platform for qwen3-4b-2507 / llama3.1:8b / q
 
 **The default decides the outcome.** On the Intel laptop we ran the same agent sessions twice, once as shipped on the
 CPU and once with the iGPU enabled for the job's own server process. On the CPU both models loaded a 4096-token window,
-crossed it at turn [3], and failed silently in 5/5 sessions each, every failure after the window was exceeded
-<!-- t2s-r2-real-cpu -->. On the iGPU the same models loaded 32768, crossed it only at turn [23] and [20, 21], and no
+crossed it at turn 3, and failed silently in 5/5 sessions each, every failure after the window was exceeded
+<!-- t2s-r2-real-cpu -->. On the iGPU the same models loaded 32768, crossed it only at turn 23 (llama3.1:8b) and turns 20 and 21 (qwen3:14b), and no
 failure came after the window: 0/5 for llama3.1:8b and, for qwen3:14b, 1/5 of baseline type
 <!-- t2s-r2-real-igpu -->. The pre-registered kill criterion was not triggered on either backend
 <!-- t2s-r2-real-cpu --> <!-- t2s-r2-real-igpu -->. This contrast changes backend and window together, so it shows
@@ -440,7 +441,7 @@ gate. And the first request on a new prompt waits while the previous request's K
 
 **A default the user never sees.** On the Intel laptop, with no window requested, the same Ollama and the same two
 models loaded 4096 <!-- t2s-r2-real-cpu --> tokens on the CPU and 32768 <!-- t2s-r2-real-igpu --> on the iGPU. On the
-CPU every session crossed the window at turn [3] <!-- t2s-r2-real-cpu --> and then failed silently, 5/5
+CPU every session crossed the window at turn 3 <!-- t2s-r2-real-cpu --> and then failed silently, 5/5
 <!-- t2s-r2-real-cpu --> for llama3.1:8b and 5/5 <!-- t2s-r2-real-cpu --> for qwen3:14b. On the iGPU no failure came
 after the window (0/5 <!-- t2s-r2-real-igpu --> and 1/5 baseline-type <!-- t2s-r2-real-igpu -->). The CPU is the Intel
 default <!-- x2-device-detect-mechanism -->; the same tiering gives llama3.1:8b 4096
@@ -536,7 +537,7 @@ mechanisms appear. First, Ollama drops whole messages from the front once the co
 54/80 <!-- R2-mechanism-lowlevel --> calls at 16384, 68/80 <!-- R2-mechanism-lowlevel --> at 8192 and 76/80 at 4096 <!-- R2-mechanism-lowlevel -->, always keeping the system
 message ("system kept on all True" <!-- R2-mechanism-verdict -->) and usually cutting mid-turn. This loses history
 but keeps the rules in view. At 4096 <!-- R2-mechanism-lowlevel --> two lower-level steps then remove the system prompt. llama.cpp's context shift
-fired on 34 <!-- R2-mechanism-lowlevel --> calls from turn 4 <!-- R2-mechanism-lowlevel -->, each keeping n_keep [5] <!-- R2-mechanism-lowlevel --> tokens and discarding the next [2045] <!-- R2-mechanism-lowlevel -->, 29 of them on the
+fired on 34 <!-- R2-mechanism-lowlevel --> calls from turn 4 <!-- R2-mechanism-lowlevel -->, each keeping n_keep 5 <!-- R2-mechanism-lowlevel --> tokens and discarding the next 2045 <!-- R2-mechanism-lowlevel -->, 29 of them on the
 final-answer call <!-- R2-mechanism-lowlevel -->; and once Ollama's own token cut reduced a prompt of 4097 <!-- R2-mechanism-lowlevel --> tokens to
 2050 <!-- R2-mechanism-lowlevel -->, keeping 4 <!-- R2-mechanism-lowlevel -->. That is the runtime's overflow rule, which returns success and keeps
 num_ctx/2 + 2 tokens (4096->2050 <!-- ollama-overflow-keeps-half -->). No step raised an error (exceed-context errors 0
@@ -605,7 +606,7 @@ the context shift and the token cut keep. It matters only where a shift or a cut
 the system message anyway (Section 4.6b). We
 pre-registered a test for llama3.1:8b at 4096, the path where both steps fired, with `num_keep` set to the system
 prompt's measured token length (601, 594 and 597 per seed <!-- num-keep-guardrail-test -->). All 105
-<!-- num-keep-guardrail-test --> context shifts kept n_keep [595, 598, 602] <!-- num-keep-guardrail-test -->. The rules in use held (rule 1 at 94.2% <!-- num-keep-guardrail-test -->, rules 3 and
+<!-- num-keep-guardrail-test --> context shifts kept n_keep 595, 598 or 602 <!-- num-keep-guardrail-test -->. The rules in use held (rule 1 at 94.2% <!-- num-keep-guardrail-test -->, rules 3 and
 4 at 100.0% <!-- num-keep-guardrail-test -->), which the pre-registered rule reads as "one-line fix"
 <!-- num-keep-guardrail-test -->. It fixes the rules and nothing else: Ollama still dropped messages on 224 of 239
 <!-- num-keep-guardrail-test --> calls and the history canary was missed on 24 of 24 <!-- num-keep-guardrail-test -->
@@ -762,7 +763,7 @@ Future work follows from what is pending. The router and context-policy comparis
 platform <!-- b5-verdict -->, must run on the Intel laptop, whose default window is small enough that loss occurs, and
 on the NVIDIA laptop. A hybrid local and cloud deployment needs a general verifier that catches wrong answers produced
 inside the window; we measured only the window flag; a late cloud redo with the full history fixed 84.8% of wrong tasks
-<!-- cloud-redo-full-context --> at about twice the cost of a fresh cloud run <!-- late-escalation-cost-vs-fresh -->
+<!-- cloud-redo-full-context --> at 1.76x the cost of a fresh cloud run of the same task <!-- late-escalation-cost-vs-fresh -->
 and could not undo executed actions.
 More models per size and family, more seeds, further runtime versions and guardrail compliance at full context would
 turn the model-dependence of rule loss from an observation into a predictable property.
