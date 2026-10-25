@@ -147,6 +147,11 @@ function onEvent(e) {
   }
   if (e.event === "tally") { $("#tally").innerHTML = tallyHTML(e.tally); }
   if (e.event === "speed") { $("#speed").textContent = e.x + "x speed"; $("#speed").style.display = e.x > 1 ? "" : "none"; }
+  if (e.event === "fallback") {
+    label = "REPLAYED"; $("#mode").textContent = "REPLAYED"; $("#mode").className = "mode REPLAYED";
+    $("#detector-note").textContent = "The workstation did not answer, so the remaining tasks are the recorded run of 2026-10-23, played at its real speed. Every number from here on is REPLAYED. (Detail: " + e.reason + "; " + e.source + ")";
+    for (const l in state.lanes) state.lanes[l].now = null;
+  }
   if (e.event === "error") { $("#what").textContent = "Stopped: " + e.error; }
   if (e.event === "run_end") { $("#go").disabled = false; }
 }
@@ -171,6 +176,10 @@ async function init() {
   const auto = new URLSearchParams(location.search);
   if (auto.get("scenario")) $("#scenario").value = auto.get("scenario");
   $("#go").onclick = start;
+  if (meta.run_active) {            // the page was reloaded (F5) during a run: rebuild it from the server's events
+    $("#scenario").value = meta.run_scenario; fresh(meta.run_scenario); $("#go").disabled = true; since = 0; poll();
+    return;
+  }
   fresh($("#scenario").value);
   if (auto.get("autorun") === "1") start();
 }
