@@ -2,11 +2,10 @@
 
 **Before the audience arrives (30 min warm-up, evo-x2 held free by the queued hold job):** in a PowerShell window at
 the repo root run `.\demo\live\start.ps1`, then open the bookmark `http://127.0.0.1:8800/` in the browser and press
-**F11** (full screen). Press **Run 5 tasks** once on the AMD scenario as
-a warm-up (live cloud calls, about 16 cents on the demo ledger), then press **F5** to get a clean screen.
+**F11** (full screen). Press **Run 5 tasks** once on the AMD scenario as a warm-up (live cloud calls, about 16 cents
+on the demo ledger), then press **F5** to get a clean screen. Spare, in a second PowerShell window and a second
+browser tab: `.\demo\live\start.ps1 -Mode replay -Port 8801` and `http://127.0.0.1:8801/` (see "If something fails").
 <!-- 16 cents: register row demo-live-run, amd8192 ours 0.021041 + cloud 0.010656 USD per task, x 5 tasks, billed -->
- (Spare window, already open: `.\demo\live\start.ps1 -Mode replay
--Port 8801`, see "If something fails".)
 
 ## 1. The screen (before pressing anything)
 - **Click:** nothing yet. The scenario box shows "AMD workstation, constrained memory (8192)".
@@ -47,8 +46,8 @@ a warm-up (live cloud calls, about 16 cents on the demo ledger), then press **F5
 - **The cloud is refused (budget or the usage check):** nothing to do. Those cloud results show **REPLAYED** with the
   reason. Say: "The cloud part is the recorded result of the same task."
 - **A lane stalls:** nothing to do. After 5 minutes without progress the screen switches to the recorded run by itself.
-  To switch at once: press **Alt+Tab** to the spare window (REPLAYED screen on port 8801) and click **Run 5 tasks**.
+  To switch at once: press **Ctrl+Tab** to the spare browser tab (REPLAYED screen on port 8801) and click **Run 5 tasks**.
 - **The browser freezes:** press **F5**. The page rebuilds the run in progress from the server. If the browser itself
   is stuck, press **Ctrl+Shift+Esc**, end the browser, open `http://127.0.0.1:8800/` again.
 - **Nothing works:** play the recorded clip: open `demo\review\demo_live_amd8192.webm` (double-click in File Explorer,
-  press **F11** for full screen). Say: "This is the same demo recorded on Friday."
+  press **F11** for full screen). Say: "This is the same demo, recorded from Friday's run."
