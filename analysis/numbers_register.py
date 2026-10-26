@@ -7303,7 +7303,8 @@ _OP = _src_dse("own_profiler")
 OWN_PROFILER_FILES = (list(_OP.SESSION_DATA_FILES) + [f for _d, f in _OP.SINGLE_FILES]
                       + [_OP.SCALE_PROBE_FILE, _OP.BLADE_TASK_FILE])
 OWN_DSE_V1_FILES = list(dict.fromkeys(list(_OP.SESSION_DATA_FILES) + ROUTE_MEASURED_FILES + [
-    "results/hardware_price_evox2_20261021.json", ENERGY_PRICE_EIA_FILE, "results/t2s_night2_20260930T135145Z.jsonl"]))
+    "results/hardware_price_evox2_20261021.json", ENERGY_PRICE_EIA_FILE, "results/t2s_night2_20260930T135145Z.jsonl",
+    LONGTASK_LOCAL_FILE, LONGTASK_CLOUD_FILE]))
 
 # ── own-compaction, own-config-search, hybrid-route-at-start-v2, E1/E2 reserve (operator, 2026-10-23; docs/
 # EXPERIMENTS.md "own-compaction" and the sections after it). Result rows are PENDING until their files have run_end. ──
