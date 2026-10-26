@@ -1741,3 +1741,145 @@ Row `e1-e2-draft-hours`: "E2 KV q8_0 at the default window 0.21 h (high 0.63 h)"
   overrun the window. Touches nothing else (no Ollama, no model, no GPU). Tests: tests/test_x2_demo_hold.py (fake clock,
   fake queue).
 - The same mechanism, with the slot's times and no warm-up, gives the idle test slot for the live rehearsal.
+
+## DRAFT (2026-10-25, estimate only, nothing run): own-plan-execute pilot, cloud planner plus local executor on the long-horizon synthetic tasks
+
+**Status: DRAFT. Not registered, not queued, no cloud call made, no machine time used.** It becomes the
+pre-registration only when the operator commits it with "DRAFT" removed. Every number below is pasted from a register
+row (docs/NUMBERS_REGISTER.md). Row `own-plan-execute-estimate` is an ESTIMATE, not a measurement. Pointer in
+docs/FINDINGS.md, "DRAFT: own-plan-execute pilot (pointer)".
+
+Why: row long-task-local-accuracy, qwen3:14b on evo-x2: "ollama_default ... accuracy 5/60 (8.3%, Wilson 95% 3.6% to
+18.1%); wrong 55: silent 55 (share of wrong 100.0% ...)" and "kv_q8_0 ... accuracy 4/60 (6.7% ...)". Row
+long-task-cloud-priced-vs-billed: "claude-haiku-5-5: 5/5 correct", "claude-sonnet-5-5: 3/5 correct". The operator's
+brief: "own-plan-execute pilot: only after long-task-local-accuracy lands; estimate cost and ask if over USD 2; target
+within 3 points of all-cloud at under 30% of its cost."
+
+### Metadata
+
+- Date: 2026-10-25 (draft)
+- Git hash: drafted on cc4e061 (each run records its own harness blob in run_start)
+- Branch: worktree-agent-ab589be1f7e68f7b6 (to be merged by the operator)
+- Machines: cloud phases on the controller laptop (the only host with the API key); the local phase on evo-x2
+  (qwen3:14b, Ollama, ollama_default, as x2_longtask_local_v1).
+
+### Configuration
+
+- Tasks: the 20 long-horizon synthetic, trace-length matched tasks of harness/longtask_env.py (10 matched to SWE-Gym
+  step quantiles, 10 to nebius-rebench-openhands; not SWE-Gym, not OpenHands tasks), seeds 20260901, 20260902,
+  20260903: 60 tasks per arm, 2298 reference steps, 1510 work-order items (row own-plan-execute-estimate).
+- Grader: longtask_env.check_long_task, end_state_ok, the same as both long-task rows. No LLM judge.
+- Arms:
+  - (P) plan-execute (new): harness/plan_execute.py.
+    - Planner: claude-haiku-5-5, thinking off, temperature as all_cloud_b3 sends it. Call 1 has the task's own system
+      prompt, user message and tools and reads the work order (its tool calls run on a scratch copy; a write is never
+      kept). Call 2 has no tools and returns a JSON plan, one self-contained step per work-order item.
+    - Plan failure (unparseable, or the step count differs from the work order's numbered items): that task runs whole
+      on the cloud (x2_longtask.run_long_task, claude-haiku-5-5) and its cost counts for arm P.
+    - Executor: qwen3:14b on evo-x2, think false, no num_ctx sent (ollama_default). Each step is a fresh short
+      conversation (task system prompt, the step instruction, the same tools), at most 8 tool-bearing calls then one
+      final call without tools, on the environment with the earlier local steps' writes applied.
+    - Checkpoint (a), deterministic, no grader: a step is flagged on a tool error, the step cap, an HTTP error,
+      thinking output, a tool that is not offered, or no tool call.
+    - Checkpoint (b): every 8 unflagged steps, one claude-haiku-5-5 call without tools sees each step's instruction,
+      the records it read and the writes it made, and returns the step numbers to redo. An unparseable verdict redoes
+      the whole batch.
+    - Escalation: every flagged or redo step is run fresh by claude-haiku-5-5 (same step message and step cap) on the
+      environment rebuilt from env_before plus the kept writes of the earlier steps. Escalated steps are not
+      re-verified.
+    - Final environment: env_before plus, per step in order, the kept local writes or the escalated run's own calls.
+  - (C) all-cloud (the baseline, new): scripts/longtask_cloud.py's method (x2_longtask.run_long_task with
+    all_cloud_b3.CloudRuntime, claude-haiku-5-5, prompt caching on, max_tokens 384) on the same 60 tasks. Haiku is the
+    baseline because it was 5/5 on the 5-task check and Sonnet 3/5 (row long-task-cloud-priced-vs-billed).
+  - (L) local only (no new run): row long-task-local-accuracy, ollama_default arm, 5/60.
+- Phases (the live job splits the machines): phase 1 plans (controller), phase 2 executes (evo-x2 queue job, calls
+  tq.advance() on exit, sets no pause), phase 3 checkpoints, escalates and grades (controller). The local phase does
+  not depend on the verifier, so no cloud call runs on evo-x2 and no call crosses machines mid-task.
+
+### Primary outcome (defined before data)
+
+- Accuracy per arm = correct / 60 (end_state_ok).
+- Cost per arm = billed USD of every cloud call of the arm (ledger cost_usd: warm-up, planner, verifier, escalations,
+  plan-failure fallbacks for P; every task call and the warm-up for C). Local machine time is not in this ratio; it is
+  reported beside it (hours below).
+- **Target, verbatim and unmoved: within 3 points of all-cloud accuracy at under 30% of all-cloud cost.**
+
+### Secondary outcomes (reported, not tested)
+
+- P: steps flagged by checkpoint (a), redone by checkpoint (b), escalated; plan failures; silent wrong tasks (wrong
+  with no step flagged or redone).
+- Upper bound USD (all input uncached) per arm; P's cost by role; minutes per task; evo-x2 hours of phase 2.
+- P vs L accuracy, descriptive.
+
+### Statistics
+
+- 60 tasks per arm, the same tasks and seeds in P and C, so the comparison is paired by task.
+- Reported: the difference in accuracy (P minus C, points) with a paired bootstrap 95% CI over the 60 tasks (10,000
+  resamples, seed 20261025), and the cost ratio P / C.
+- Stated limit, before data: at n = 60 the CI on a paired accuracy difference is much wider than 3 points, so a PASS
+  is a point-estimate pass on this pilot, not a demonstration of non-inferiority.
+- Statistics convention: one warm-up call per model per job (excluded), then the measured tasks.
+
+### Pass/fail wording (fixed now, before data)
+
+- **PASS** iff (P accuracy minus C accuracy) >= -3.0 points AND (P billed USD / C billed USD) < 0.30, on point
+  estimates (harness/plan_execute.py::evaluate).
+- **FAIL (accuracy)** if the difference is below -3.0 points; **FAIL (cost)** if the ratio is 0.30 or more; both can
+  hold. The report names which part failed, with the CI and the ratio.
+- If C is not 60 tasks (stopped by the cap or an error), the pilot has no verdict: "not evaluable", with the reason.
+- The target and the wording are not changed after any data.
+
+### Cost estimate (ESTIMATE, row own-plan-execute-estimate)
+
+The row derives it from row long-task-cloud-priced-vs-billed's measured per-call tokens and per-task costs
+(claude-haiku-5-5), the run file of row long-task-local-accuracy, and row x2-evalset-tasks-real-v2-wrong-rate (B3 v2
+qwen3:14b ollama_default wrong 17/150):
+
+| Arm | Point billed | Point upper bound | High billed | High upper bound |
+|---|---|---|---|---|
+| C all-cloud (60 tasks) | USD 1.0060 | USD 1.1489 | USD 1.7234 | USD 1.7234 |
+| P plan-execute, cloud part | USD 0.2465 | USD 0.2797 | USD 1.5780 | USD 1.5780 |
+| L local only (no new run) | USD 0 | USD 0 | USD 0 | USD 0 |
+| Total | USD 1.2525 | USD 1.4286 | USD 3.3014 | USD 3.3014 |
+
+- P's upper bound by role, point: planner 0.0837, verifier 0.0696, escalation 0.1263 (171 escalated steps at share
+  0.113); high: planner 0.1340, verifier 0.0762, escalation 1.1955 (734 steps at share 0.486), plan-failure fallback
+  0.1723.
+- Projected P / C billed ratio: 0.245 (point), 0.916 (high). The escalation share decides whether the cost half of
+  the target can be met.
+- ASSUMPTIONS (all named in the row): escalation share point = the B3 v2 wrong rate (a step behaves like a B3 v2 task
+  turn, and the checkpoints flag exactly the wrong steps), high = the long-task local per-item diff share 0.486 (one
+  diff = one wrong item); plan instruction 150 tokens; plan output 1.5 (high 3.0) x work-order tokens per item;
+  verifier output 40 (high 100) tokens; 3 (high 6) calls per escalated step; plan failure share 0 (high 0.1); all-cloud
+  high = x 1.5; billed point = upper x the measured billed/upper 0.882; billed high = upper (no cache saving).
+- **Per-job limit USD 2: exceeded in the high case** (total USD 3.3014). The point case (USD 1.2525 billed) is under
+  it. The pilot is treated as over the limit: the operator runs it by hand with `--operator-approval` and types the
+  confirmation at their own console. No command here pre-fills that approval, and no agent approves it.
+
+### Command (not built; dry run only)
+
+- Built: harness/plan_execute.py (phases 1 to 3 as runtime-agnostic functions, the checkpoints, the evaluate() reading,
+  the estimate) with `py -3.12 harness/plan_execute.py --dry-run` (fake planner, executor and verifier; no network, no
+  model). Tests: tests/test_plan_execute.py.
+- Not built: the controller cloud script for phases 1 and 3 (console gate and ledger as scripts/longtask_cloud.py,
+  plans file out, step rows in); the evo-x2 queue job for phase 2 (server start, warm-up, plans in, step rows out, as
+  harness/x2_longtask.py); the 60-task all-cloud C run (scripts/longtask_cloud.py with a task-list and seed option).
+
+### Replay Cache State
+
+- Not applicable: live calls only, no replay.
+
+### Hours (ESTIMATE, row own-plan-execute-estimate)
+
+- evo-x2, phase 2 only: 2.20 h (high 5.23 h) = 1510 steps x 3 calls (high 6, ASSUMPTION) x measured short-call
+  seconds median 1.72 (p75 2.06; n=509 calls under 3000 est tokens, ollama_default arm of x2_longtask_local_v1) +
+  120 s. Arm L uses no new machine time.
+
+### Validity Flags (stated before the run)
+
+- The tasks are synthetic and trace-length matched, not SWE-Gym. The plan-execute split suits them because their items
+  are independent and touch distinct records. A real repository task need not split this way.
+- The planner sees the whole work order; checkpoint (b) sees each step's reads and writes. Neither sees the grader's
+  reference writes.
+- The all-cloud baseline accuracy is measured on 5 tasks so far (5/5); arm C on 60 tasks may be lower, which moves
+  the accuracy bar.
