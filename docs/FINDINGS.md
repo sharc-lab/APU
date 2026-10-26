@@ -6195,3 +6195,77 @@ docs/EXPERIMENTS.md sections headed "DRAFT (pending Zach's agreement 2026-10-25)
   This is a projection, not a schedule.
 - **Waits on:** Zach's agreement on Sun 2026-10-25, then the operator's commit removing "DRAFT", and the operator's
   approval of the Sonnet grading pass. That pass is USD 2.04, over the USD 2 per-job cap.
+
+## RESULT (2026-10-25): own-dse-v1 long and mixed cells computed; 2 of 9 cells NON-TRIVIAL, target MET 2/2
+
+Pre-registered in docs/EXPERIMENTS.md, "2026-10-23: own-profiler ... and own-dse-v1" (Part B), and "own-dse-v1 trivial
+cells" plus its amendment. Neither entry is edited. The long and mixed cells were PENDING with "long-task candidate
+builder not written yet". Row long-task-local-accuracy is now VERIFIED, and so is long-task-cloud-priced-vs-billed. The
+builder is now in src/dse/dse_v1.py (build_long_candidates, build_long_candidates_pure, mix_candidates). All numbers
+below are from row own-dse-v1 in docs/NUMBERS_REGISTER.md.
+
+**Verdict (row own-dse-v1, pasted):** "pre-registered target within 10% in every non-trivial computed cell: MET (2/2
+non-trivial cells; 7 TRIVIAL computed cells not counted; 0 PENDING)".
+
+| Cell | Candidates | Eligible | Eligible, local machine | Label | DSE pick vs brute-force best | Gap |
+|---|---|---|---|---|---|---|
+| short 100/day | 11 | 6 | 2 | TRIVIAL (rule 2) | all-cloud claude-haiku-5-5 both, USD 2.01 | 0.0% |
+| short 1,000/day | 11 | 6 | 2 | TRIVIAL (rule 2) | all-cloud claude-haiku-5-5 both, USD 20.12 | 0.0% |
+| short 10,000/day | 11 | 3 | 1 | NON-TRIVIAL | all-cloud claude-haiku-5-5 both, USD 201.25 | 0.0%, within 10% |
+| long 100/day | 8 | 1 | 0 | TRIVIAL (1 eligible) | all-cloud claude-haiku-5-5 both, USD 67.93 | 0.0% |
+| long 1,000/day | 8 | 0 | 0 | TRIVIAL (0 eligible) | no pick | none |
+| long 10,000/day | 8 | 0 | 0 | TRIVIAL (0 eligible) | no pick | none |
+| mixed 100/day | 88 | 8 | 4 | TRIVIAL (rule 2) | claude-haiku-5-5 for short and long tasks both, USD 34.97 | 0.0% |
+| mixed 1,000/day | 88 | 8 | 4 | NON-TRIVIAL | claude-haiku-5-5 for short and long tasks both, USD 349.70 | 0.0%, within 10% |
+| mixed 10,000/day | 88 | 0 | 0 | TRIVIAL (0 eligible) | no pick | none |
+
+**Long candidates (8).** The long candidates are built the same way as the short ones:
+- Local only: evo-x2 qwen3:14b at ollama_default (window 40960) and kv_q8_0 (window 40960). Accuracy and seconds per
+  task are measured over all 60 task runs per arm. Seconds per task is the mean measured task wall-clock.
+- All-cloud: claude-haiku-5-5 and claude-sonnet-5-5, from the 5 tasks of seed 20260901 in longtask_cloud_v1. The cost
+  per task is the mean billed USD.
+- Per-task hybrids (4): each local arm with each cloud tier, under the pre-registered policy (route at start, then the
+  window flag). The route compares the task's projected prompt with the arm's window. The projection uses the largest
+  step of the oracle transcript, in model tokens. The row records "largest projected prompt 11,236 model tokens" and
+  "routed 0/60, flagged 0/60" for both arms. So each hybrid behaves exactly like its local arm. Every long wrong
+  answer was silent (long-task-local-accuracy), so no flag could catch any of them.
+
+No local or hybrid long candidate reaches the 0.90 target. Haiku is the only long candidate that does. It fits the
+USD 500/month budget at 100 tasks/day only.
+
+**Mixed candidates (88).** The mix is the pre-registered one: 50% short B3 v2 tasks and 50% long tasks, by count. Each
+mixed candidate is a pair: one short candidate runs the short tasks and one long candidate runs the long tasks. That
+gives 11 x 8 pairs. When both halves are local, they share the evo-x2 machines, and the machine count comes from the
+pooled local seconds.
+
+**Choices the pre-registration did not fix (labelled in the row):**
+1. *No long-task probe.* own-profiler-probe measured B3 short-task configs only, and the pre-registration names no
+   probe for long tasks. So the DSE sees the long local candidates' measured values as their predictions. The long
+   cells therefore cannot test the probe. All 3 long cells are TRIVIAL by rule 1 anyway, and rule 1 uses measured
+   eligibility only, so this choice does not change any label. In the mixed cells, only the short half carries probe
+   input.
+2. *Long cloud cost = billed USD.* Billed is the measured value. The priced "realistic" figure rests on an assumed
+   cache hit rate of 0.7. The 5 measured tasks are 2 swegym and 3 openhands (the long-task-cloud-priced-vs-billed
+   row), not the local run's 10/10 split.
+3. *Mixed candidate set = every short x long pair.* This is a superset of "one configuration for every task": the
+   same-setup pairs, such as all-Haiku, are included. A larger set gives the DSE more ways to pick wrongly, so it is
+   the more conservative reading for a validation claim.
+4. *A cell with 0 eligible candidates is computed and TRIVIAL by rule 1* ("at most one candidate is eligible"). It
+   has no pick and no gap. Before this change, such a cell would have printed as a non-computed status.
+5. *Machine sharing and power.* Both halves of a mixed pair run on the same machines, and kv_q8_0 uses the same
+   PX2-power watts. Both are ASSUMED, like the short cells' one-task-at-a-time assumption.
+
+**Caveat on mixed 1,000/day.** Its NON-TRIVIAL label follows the pre-registered rule as written: every candidate that
+uses a local machine is checked, whatever its predicted accuracy. The row names the lowest-floor local candidate:
+"short [evo-x2/qwen3:14b/40960 (Ollama default)/f16 (Ollama default)/Ollama/local only] + long
+[evo-x2/qwen3:14b/40960 (Ollama default)/f16 (Ollama default)/Ollama/local only], predicted accuracy 0.503, measured
+0.486". Its long half takes no probe input. So no probe
+value could lift that candidate to the 0.90 target, and its floor is not what could change the pick. The rule is not
+changed here. The label stands and counts. A reader should know that this cell's test of the probe-driven choice is
+weaker than the label suggests. The same row text now names the lowest-floor candidate in short 10,000/day too
+("predicted accuracy 0.922, measured 0.889").
+
+**What this does and does not show.** In both non-trivial cells, the DSE's pick is the brute-force best: all-cloud
+Haiku, for every task. In no computed cell is a configuration that uses a local machine cheapest on measured values.
+On long tasks, local qwen3:14b at a 40960 window is far below the target (5/60 and 4/60). Above 100 long tasks/day,
+the budget rules out Haiku, so no measured configuration meets both the target and the budget.
