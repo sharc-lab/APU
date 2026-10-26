@@ -7142,6 +7142,73 @@ def compute_long_task_cloud_priced_vs_billed(repo):
     return {"value": "; ".join(parts), "n": f"{len(tr)} cloud task runs"}
 
 
+def compute_own_plan_execute_estimate(repo):
+    """ESTIMATE, not a measurement: cloud USD (billed and upper bound, point and high) per arm of the own-plan-execute
+    pilot DRAFT and the evo-x2 hours of its local phase, from the long-task cloud check's measured per-call tokens and
+    per-task costs, the long-task local run's short-call seconds and per-item diff share, and the B3 v2 wrong rate
+    (harness/plan_execute.py::cost_estimate, hours_estimate; every ASSUMPTION named in the value)."""
+    import sys as _sys
+    _r2_agent_module()
+    _sys.path.insert(0, str(repo / "harness"))
+    import plan_execute as pe
+    import x2_r2_evalset as ev
+    cloud = _read_jsonl(repo / LONGTASK_CLOUD_FILE)
+    local = _finished_attempt_rows(_read_jsonl(repo / LONGTASK_LOCAL_FILE))
+    o = ev.tasks_real_v2_outcome(ev.ag.read_rows(repo / X2_EVALSET_TASKS_REAL_V2), models=(V2_PROTOCOL_MODEL,),
+                                 n_boot=100)
+    t = o["models"][V2_PROTOCOL_MODEL]["tiers"]["ollama_default"]
+    wr = t["wrong"] / t["n_task_turns"]
+    m = pe.measured_inputs(cloud, local)
+    specs = pe.task_specs()
+    table = json.loads((repo / ANTHROPIC_PRICES).read_text(encoding="utf-8"))
+    e = pe.cost_estimate(m, specs, pe.model_rates(table, pe.PLANNER), wr)
+    h = pe.hours_estimate(m, specs)
+    A = pe.ASSUME
+
+    def arm(c, k):
+        x = e[c][k]
+        return f"billed USD {x['billed']:.4f}, upper bound USD {x['upper']:.4f}"
+    cases = []
+    for c in ("point", "high"):
+        p = e[c]["plan_execute"]
+        cases.append(
+            f"{c}: all-cloud ({pe.BASELINE}, 60 tasks) {arm(c, 'all_cloud')}; plan-execute cloud part {arm(c, 'plan_execute')}"
+            f" (upper bound by role: planner {p['planner_upper']:.4f}, verifier {p['verifier_upper']:.4f}, escalation "
+            f"{p['escalation_upper']:.4f} for {p['escalated_steps']:.0f} escalated steps at share "
+            f"{e[c]['escalation_share']:.3f}, plan-failure fallback {p['fallback_upper']:.4f}); local only USD 0 (no "
+            f"new run, row long-task-local-accuracy); total {arm(c, 'total')}; plan-execute / all-cloud billed "
+            f"{e[c]['cost_ratio_billed']:.3f}")
+    over = [c for c in ("point", "high") if e[c]["total"]["billed"] > 2.0 or e[c]["total"]["upper"] > 2.0]
+    value = (
+        f"ESTIMATE, not a measurement (DRAFT pre-registration, nothing run); 20 long-horizon synthetic tasks x seeds "
+        f"{list(pe.SEEDS)} = {len(specs)} tasks ({sum(s[2] for s in specs)} reference steps, {h['n_steps']} work-order "
+        f"items); planner, verifier and escalation executor {pe.PLANNER}, local executor {pe.EXECUTOR}; "
+        + "; ".join(cases)
+        + f"; per-job limit USD 2: {'exceeded in the ' + ' and '.join(over) + ' case' if over else 'not exceeded'}; "
+        f"evo-x2 hours of the local phase {h['point']:.2f} h (high {h['high']:.2f} h) = {h['n_steps']} steps x "
+        f"{A['local_calls_per_step']['point']} calls (high {A['local_calls_per_step']['high']}, ASSUMPTION) x measured "
+        f"short-call seconds median {m['local_short_call_s_median']:.2f} (p75 {m['local_short_call_s_p75']:.2f}; "
+        f"n={m['n_local_short_calls']} calls under {A['short_prompt_est']} est tokens, ollama_default arm of "
+        f"x2_longtask_local_v1) + {A['overhead_s_per_arm']:.0f} s; measured inputs (long-task cloud check, "
+        f"{pe.PLANNER}): first call input {m['call1_in']:.0f} / output {m['call1_out']:.0f} tokens, work order "
+        f"{m['wo_tokens_intercept']:.0f} + {m['wo_tokens_per_item']:.1f} tokens per item (least squares, 5 tasks), "
+        f"tool step growth median {m['tool_step_growth']:.1f} tokens (n={m['n_growth']}), billed/upper "
+        f"{m['billed_over_upper']:.3f}, all-cloud per task interpolated on reference steps between the 5 measured "
+        f"tasks (scaled by steps below 11); escalation share point = B3 v2 qwen3:14b ollama_default wrong rate "
+        f"{t['wrong']}/{t['n_task_turns']} (ASSUMPTION: a plan step behaves like a B3 v2 task turn and the "
+        f"checkpoints flag exactly the wrong steps), high = long-task local per-item diff share "
+        f"{m['local_item_diff_share']:.3f} (ASSUMPTION: one diff = one wrong item); ASSUMPTIONS: plan instruction "
+        f"{A['plan_instruction_tokens']} tokens, plan output {A['plan_out_per_item_factor']['point']} (high "
+        f"{A['plan_out_per_item_factor']['high']}) x work-order tokens per item, verifier every {pe.CHECKPOINT_EVERY} "
+        f"steps with input = first call input + per step (item tokens + 2 tool steps), output "
+        f"{A['verify_out_tokens']['point']} (high {A['verify_out_tokens']['high']}) tokens, "
+        f"{A['esc_calls_per_step']['point']} (high {A['esc_calls_per_step']['high']}) calls per escalated step, plan "
+        f"failure share {A['plan_failure_share']['point']} (high {A['plan_failure_share']['high']}) run whole on the "
+        f"cloud, all-cloud high = x {A['all_cloud_high_factor']}, billed point = upper x billed/upper, billed high = "
+        f"upper (no cache saving)")
+    return {"value": value, "n": f"{len(specs)} tasks per arm (estimate)"}
+
+
 # ───────────────────────────────────────────────── live demo (2026-10-23; docs/EXPERIMENTS.md "Live demo: detector
 # check and acceptance run"). PENDING until the file has run_end.
 DEMO_DETECTOR_FILE = "results/demo_detector_check.jsonl"
@@ -8786,6 +8853,13 @@ NUMBER_ENTRIES = [
      "compute": compute_long_task_cloud_priced_vs_billed, "data_files": [LONGTASK_CLOUD_FILE], "pending_ok": True,
      "require_run_end": [LONGTASK_CLOUD_FILE],
      "script_function": "analysis/numbers_register.py::compute_long_task_cloud_priced_vs_billed"},
+    {"claim_id": "own-plan-execute-estimate", "description": "ESTIMATE, not a measurement: cloud USD per arm (billed "
+     "and upper bound, point and high) and evo-x2 hours of the own-plan-execute pilot DRAFT (cloud planner and "
+     "verifier, qwen3:14b executor, 20 long-horizon synthetic tasks x 3 seeds), from the long-task cloud and local "
+     "runs; not run, not queued",
+     "compute": compute_own_plan_execute_estimate,
+     "data_files": [LONGTASK_CLOUD_FILE, LONGTASK_LOCAL_FILE, X2_EVALSET_TASKS_REAL_V2, ANTHROPIC_PRICES],
+     "script_function": "harness/plan_execute.py::cost_estimate"},
     {"claim_id": "demo-detector-check", "description": "live demo cut-off detector on the 5 frozen picks (qwen3:14b, "
      "evo-x2, task at its real session position, history rebuilt from the recorded run) at num_ctx 4096 and at the "
      "runtime default: fired / not fired per task; PENDING until the file has run_end",

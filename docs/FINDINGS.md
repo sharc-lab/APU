@@ -6269,3 +6269,21 @@ weaker than the label suggests. The same row text now names the lowest-floor can
 Haiku, for every task. In no computed cell is a configuration that uses a local machine cheapest on measured values.
 On long tasks, local qwen3:14b at a 40960 window is far below the target (5/60 and 4/60). Above 100 long tasks/day,
 the budget rules out Haiku, so no measured configuration meets both the target and the budget.
+
+## DRAFT: own-plan-execute pilot (pointer)
+
+**Status: DRAFT, estimate only. Not registered, not queued, no cloud call, no machine time.** The full entry, in the
+Mandatory Run Template, is the docs/EXPERIMENTS.md section "DRAFT (2026-10-25, estimate only, nothing run):
+own-plan-execute pilot".
+
+- **Design:** claude-haiku-5-5 plans each long-horizon synthetic task into one self-contained step per work-order item.
+  qwen3:14b on evo-x2 executes each step as its own short conversation. Deterministic checkpoint flags, plus a Haiku
+  verifier every 8 steps, send wrong-looking steps to Haiku to redo. Arms: plan-execute vs all-cloud Haiku (baseline)
+  vs local only (row long-task-local-accuracy, 5/60), 20 tasks x 3 seeds.
+- **Target, verbatim:** within 3 points of all-cloud accuracy at under 30% of all-cloud cost.
+- **Cost (ESTIMATE, row own-plan-execute-estimate):** total billed USD 1.2525, upper bound USD 1.4286 (point); USD
+  3.3014 (high). Over the USD 2 per-job limit in the high case, so the operator runs it by hand with
+  `--operator-approval`.
+- **evo-x2 hours (ESTIMATE, same row):** 2.20 h (high 5.23 h).
+- **Built:** harness/plan_execute.py with `--dry-run`, and tests/test_plan_execute.py (fakes only). **Not built:** the
+  controller cloud script for phases 1 and 3, the evo-x2 queue job for phase 2, and the 60-task all-cloud run.
