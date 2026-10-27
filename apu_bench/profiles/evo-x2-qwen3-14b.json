@@ -1,0 +1,23 @@
+{
+ "schema": "apu-device-profile/1",
+ "profile_id": "evo-x2-qwen3-14b-ollama",
+ "hardware": {"hostname": "EVO-X2", "cpu": "AMD Ryzen AI Max+ 395", "gpu": null, "memory_gb": null, "os": null,
+              "driver": null},
+ "runtime": {"name": "ollama", "version": "0.34.4", "server_cmd": ["ollama", "serve"],
+             "server_env": {}},
+ "model": {"name": "qwen3:14b", "quant": null, "digest": null},
+ "windows": [
+  {"tier": "ollama_default", "window": 40960},
+  {"tier": "ollama_ctx_16384", "window": 16384},
+  {"tier": "ollama_ctx_8192", "window": 8192},
+  {"tier": "ollama_ctx_4096", "window": 4096}
+ ],
+ "cloud_model": "claude-haiku-5-5",
+ "sources": {
+  "hardware.hostname": "results/demo_detector_check_v2.jsonl run_start host",
+  "hardware.cpu": "docs/EXPERIMENTS.md (evo-x2 arm: AMD Ryzen AI Max+ 395)",
+  "runtime.version": "results/x2_evalset_tasks_real_v2.jsonl runtime record ollama_version",
+  "windows": "harness/x2_r2_evalset.py TASKS_V2_TIERS; ollama_default loaded_context 40960 in results/x2_evalset_tasks_real_v2.jsonl",
+  "null fields": "not recorded in any committed file; fill before a submission"
+ }
+}
