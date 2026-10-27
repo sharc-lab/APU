@@ -2221,3 +2221,167 @@ default +30.7 points (95% CI +26.0 to +34.7, 5 vs 5 sessions)".
 - Placeholder row `xruntime-openvino-ceiling`: PENDING until his files are in `results/xruntime_openvino_zach/` with
   a `MANIFEST.json`. **Awaiting Zach's files. No numbers until then.** When they arrive, the operator reviews them,
   a parser is committed, and the row reads his ceiling result as the second runtime's evidence.
+
+## PRE-REGISTRATION (2026-10-26): KV precision x flash attention on llama.cpp server
+
+**Status: pre-registered, not run, not queued by this commit.** Written and committed before any data and before the
+harness for it is committed. Row `kv-fa-interaction-llamacpp` stays PENDING until the result file holds `run_end`. Row
+`kv-fa-interaction-llamacpp-hours` is an ESTIMATE, not a measurement. Pointer in docs/FINDINGS.md, "PRE-REGISTRATION
+(2026-10-26): KV precision x flash attention on llama.cpp server (pointer)".
+
+The operator's brief, verbatim: "Ollama can't run quantized KV with FA off. Add a llama.cpp arm on evo-x2 (same model)
+covering f16/q8_0 x FA on/off where llama.cpp allows, to test the FA x KV interaction. Pre-register; row:
+kv-fa-interaction-llamacpp."
+
+What exists on Ollama (rows pasted): `b5-fa-control`, qwen3:14b: "(i) f16+FA 206.6 min per session (per seed 20260901:
+215.3, 20260902: 212.7, 20260903: 191.7), (g)/(h) 75.4 min, (a) 214.8 min, window 40960; rule 1.0, hist 0.625; ...
+reading: the B5 speedup is KV precision, not flash attention (tolerance 10%)". `cost-cut-config-time`, qwen3:14b:
+"default (a) 214.8 min per session, rule 100.0% hist 62.5%; fastest measured setting (g) kv_q8_0 75.4 min, rule
+100.0% hist 62.5%, window 40960". So on Ollama three of the four cells exist: (a) f16 with FA off, (i) f16 with FA on,
+(g) q8_0 with FA on. The fourth, q8_0 with FA off, cannot be set on Ollama (`harness/policy_compare.KV_ENV` sets
+`OLLAMA_FLASH_ATTENTION=1` with every quantized type).
+
+### Metadata
+
+- Date: 2026-10-26 (pre-registration)
+- Git hash: the commit that adds this section
+- Branch: worktree branch, merged by the operator
+- Machine: evo-x2 (AMD), llama-server b10970 Vulkan at `C:\apu\bin\llama-b10970\llama-server.exe`, the binary and
+  GGUF of harness/xruntime_llamacpp.py (rows xruntime-llamacpp-wrong-rate, xruntime-default-fixed). Queue id
+  `x2_kv_fa_llamacpp`, side directory `C:\apu\ovn\kvfa`, own port 58423 (xruntime uses 58421).
+
+### What llama.cpp b10970 allows (checked offline, before data)
+
+- b10970's own `--help` (the same build, 10970 commit bfdc32183, read from the copy on the controller laptop):
+  "-fa, --flash-attn [on|off|auto] set Flash Attention use ('on', 'off', or 'auto', default: 'auto')"; "-ctk,
+  --cache-type-k TYPE KV cache data type for K, allowed values: f32, f16, bf16, q8_0, q4_0, q4_1, iq4_nl, q5_0, q5_1
+  (default: f16)"; "-ctv, --cache-type-v TYPE" the same for V. The job records evo-x2's own `--help` lines in
+  `run_start`.
+- The build's `llama.dll` holds the strings "%s: quantized V cache requires flash_attn to be enabled" and "%s: enabling
+  flash_attn since it is required for quantized V cache", matching the source citation already in docs/FINDINGS.md
+  (`src/llama-context.cpp:3704-3710` at bfdc32183: with `-fa auto` a quantized V cache forces FA on; with FA disabled
+  the context is not created). So **q8_0 V with FA off is expected to be refused.** It also holds "model does not
+  support different K (%s) and V (%s) cache types", so a K-only cell could in principle be refused for some models;
+  that is recorded the same way if it happens.
+- **Legal cells**, each `-ctk / -ctv / -fa`:
+  - `f16_fa_off`: f16 / f16 / off (Ollama's (a))
+  - `f16_fa_on`: f16 / f16 / on (Ollama's (i))
+  - `q8k_fa_off`: q8_0 / f16 / off. **The closest legal cell to q8_0 with FA off: K quantized, V f16.**
+  - `q8k_fa_on`: q8_0 / f16 / on. Completes a clean K-only square, on which the primary interaction is tested.
+  - `q8_fa_on`: q8_0 / q8_0 / on (Ollama's (g), on llama.cpp)
+- **Refusal probe**, before any session: one server start with q8_0 / q8_0 / off. If the server exits with a refusal
+  line (`REFUSAL_RE`), the result is recorded as **"refused"** (a result, row `refusal_probe`), not as a crash. If it
+  exits with no refusal line, "start_failed". If it loads (not expected), it becomes a sixth cell `q8_fa_off`, run
+  after the others, and the K+V square is reported as a secondary.
+
+### Configuration
+
+- Runtime: llama-server's `/v1/chat/completions`, driven by harness/kv_fa_llamacpp.py, which reuses
+  harness/xruntime_llamacpp.py's adapter (`LlamaCppRuntime`, plus the per-call `timings`) and its call classes.
+- Model: qwen3:14b as the official `Qwen3-14B-Q4_K_M.gguf` at `C:\apu\models` (9,001,752,960 bytes, sha256
+  `500a8806e...ffeb6b81f0`; hashed by the job, refused on a mismatch).
+- Server flags, the same in every cell except the last three: `-m <gguf> --host 127.0.0.1 --port 58423 --no-webui
+  -ngl 99 -np 1 --jinja --reasoning-format deepseek --reasoning-budget 0 --log-file <per-session log> --log-verbosity 4
+  -c 40960 -ctk <k> -ctv <v> -fa <on|off>`. One fresh server per session. Context shift at the server default.
+  Verbosity 4 (xruntime used 3) because the KV buffer and `llama_context` lines are needed: docs/FINDINGS.md records no
+  KV buffer line in a b10970 log at 3, and harness/x2_70b_edge_reps.py read them at 4 on evo-x2. stderr goes to its
+  own file next to the log.
+- **Window:** fixed at `-c 40960` in every cell: the GGUF's trained context and B5's window for qwen3:14b (all four
+  B5 policies above ran at 40960). Asserted from `/props` at every start (guard), recorded per start.
+- **Workload, and why:** the B5 R2 session (harness/x2_r2_agent.run_session, two-call turn, call-2 mode off,
+  temperature 0, seed 42, max_tokens 384, think off, seeds 20260901, 20260902, 20260903, B5's rules in use for qwen3:14b
+  rule1 to rule5), **cut at 24 turns**. Chosen over the B3 v2 tasks because B5 is where the Ollama numbers for f16, f16
+  + FA and q8_0 + FA exist (B3 v2 has no FA or KV arms on Ollama), so only the B5 session gives a like-for-like
+  reference. Cut at 24 because B5's 40-turn session does not fit 40960 on llama-server: in
+  `results/x2_policy_compare.jsonl` policy (a)'s largest prompt (`prompt_eval_count`) per turn is 36,596 tokens at
+  turn 24 and 39,766 at turn 26, and from turn 27 on Ollama caps it near 40,800 (its silent truncation); llama-server
+  rejects an over-window prompt with HTTP 400 (row xruntime-llamacpp-wrong-rate, arm b: flagged_reject), so turns 27
+  to 40 would become instant errors and the minutes would be fast because broken. Turn 24 is the last turn with at
+  least 10% headroom under 40960 (llama-server's template and tokenizer may count a few percent differently). A
+  24-turn session is the exact prefix of B5's 40-turn session (same system prompt, user messages, tool plan and fact
+  values; tested in tests/test_kv_fa_llamacpp.py), with canary turns 5, 10, 15, 20, so B5's own turns 1 to 24 are
+  the Ollama reference for the same work.
+- Run order: seed-major (all cells for one seed, then the next), the cell order rotated by one per seed, so a partial
+  run stays balanced and no cell always runs first. Completed sessions are skipped on a rerun into the same file.
+
+### Outcomes (defined before data)
+
+- **Session minutes**: sum of `turn_wall_s` over the 24 turns (B5's definition, `policy_compare.session_metrics`).
+- **KV buffer MiB** from the server log (`<device> KV buffer size = X MiB`, summed over devices), plus the
+  `llama_kv_cache` line's K and V types and sizes and the compute buffer MiB.
+- **Prefill and decode tok/s** per session: sum of llama-server's `timings.prompt_n` over sum of `prompt_ms`, and
+  `predicted_n` over `predicted_ms`, over all calls (prompt_n counts only tokens not served from the prompt cache).
+- **Quality** (B5's measures): rule pass rate over rule1 to rule5 and history-tag recall on the canary turns.
+- **KV check** at every start (before the session) and again after it: the log's K and V types must be the cell's,
+  and its `flash_attn` line, when written, must say enabled or disabled as set. A mismatch at the start stops the cell
+  before its session (`cell_stopped`); a missing line makes the cell invalid unless the after-session read finds it.
+
+### Interaction test (fixed now, before data)
+
+- **Unit:** the session (3 per cell). **Primary square:** the K-only square, V f16 throughout: f16_fa_off,
+  f16_fa_on, q8k_fa_off, q8k_fa_on. Only `-ctk` and `-fa` vary, so it is the clean 2x2 llama.cpp allows.
+- **Speed (primary):** I = ln(mean min q8k_fa_off / mean min f16_fa_off) - ln(mean min q8k_fa_on / mean min
+  f16_fa_on), the difference of the q8_0 speed ratio with FA off and with FA on. Bootstrap: 10000 resamples, sessions
+  resampled with replacement within each cell (stratified by cell), seed 20261014, 95% percentile CI. Band: B5's 10%
+  tolerance on the ratio scale, ln(1.10).
+  - **"interaction: the q8_0 effect differs with flash attention"** iff the CI excludes 0 and |I| > ln(1.10); I > 0
+    reads "q8_0 helps less or costs more with FA off", I < 0 "q8_0 helps more with FA off".
+  - **"no interaction shown: the q8_0 effect is the same with FA on and off within 10%"** iff the whole CI lies within
+    [-ln 1.10, +ln 1.10].
+  - **"inconclusive"** otherwise.
+- **Memory (primary):** one deterministic value per cell (all starts of a cell must agree, else invalid). d_off = KV
+  MiB(q8k_fa_off) - KV MiB(f16_fa_off), d_on likewise with FA on; interaction = d_off - d_on. **"no memory
+  interaction"** iff |d_off - d_on| <= 1% of f16_fa_on's KV MiB, otherwise **"memory interaction"**. No bootstrap.
+- **Secondary, reported, not tested:** the same I for prefill tok/s and for decode tok/s (with CIs); the operator's
+  literal square f16_fa_off, f16_fa_on, q8k_fa_off, q8_fa_on, labelled **confounded** (K-only q8_0 at FA off against
+  K+V q8_0 at FA on); the K+V square only if the refusal probe loads; per cell rule pass and history recall; the
+  compute buffer MiB per cell; and the Ollama B5 minutes of turns 1 to 24 for (a), (i), (g), (h) as context (another
+  runtime, weights file, template and build, so not a test).
+- **Validity (mechanical):** `run_end` present; the refusal probe recorded; every legal cell has all 3 seeds completed
+  with 24 turns; no `guard_stop`; every start loaded n_ctx 40960; KV check ok; no call in a counted session with a
+  server-log class other than none (rejected, cut or stopped) and no turn with an HTTP error. An invalid run is
+  reported "not read" with its reasons; the per-cell values are still shown.
+
+### Prediction (stated, not a pass condition)
+
+- Memory: q8_0 K stores 34 bytes per 32 values against 64 for f16, so the K half of the cache shrinks to 53% with FA
+  on or off; expected "no memory interaction". The compute buffer is expected to differ between FA on and off.
+- Speed: open. On Ollama the q8_0 + FA cell took 75.4 min against 214.8 (f16, FA off) and 206.6 (f16, FA on) over
+  40 turns (rows above); if that speedup needs the FA kernel's quantized-KV path, the K-only q8_0 effect with FA off
+  will be smaller (I > 0).
+
+### Command
+
+- Deploy (scripts/deploy_evo.py, side directory `C:\apu\ovn\kvfa`): kv_fa_llamacpp.py, xruntime_llamacpp.py,
+  x2_r2_evalset.py, evalset_env.py, agent_trace_replay.py, agent_trace_steps_uncensored.json, x2_num_keep.py,
+  own_compaction.py, x2_r2_client_trim.py, x2_r2_mechanism.py, prompt_token_check.py, server_guard.py, proc_util.py;
+  x2_r2_agent, t2s_r2_session_growth, host_config and t2s_queue from `C:\apu\ovn` (blobs recorded in run_start).
+  x2_queue_fill.py and x2_deploy_check.py to a new queue-tool directory `C:\apu\ovn\qfill_kvfa`.
+- Checks before queueing, no model call: `qfill_kvfa\x2_deploy_check.py --verify C:\apu\ovn\kvfa
+  C:\apu\ovn\qfill_kvfa` and `kvfa\kv_fa_llamacpp.py --check-plan`.
+- Queue entry (harness/x2_queue_fill.py `x2_kv_fa_llamacpp`): `python kvfa\kv_fa_llamacpp.py --out
+  C:\apu\ovn\results\kv_fa_llamacpp_qwen3_14b.jsonl`. The job calls tq.advance() once on exit and sets no pause.
+
+### Replay Cache State
+
+- Not applicable: live calls only, no replay.
+
+### Hours (ESTIMATE, row kv-fa-interaction-llamacpp-hours)
+
+- 11.94 h (high 17.90 h): 5 cells x 3 sessions at the measured Ollama B5 minutes of turns 1 to 24 of qwen3:14b ((a)
+  49.6, (i) 46.6, (g) 7.9 min per session; the K-only cells take their FA setting's f16 policy, ASSUMED no K-only
+  speedup) x the measured llama-server / Ollama turn-wall ratio 1.190 at 40960 (xruntime_llamacpp arm c over
+  x2_evalset_tasks_real_v2 ollama_default, 150 turns each) = 11.91 h, plus 16 server starts at 6.0 s (largest
+  measured stop-to-start gap of the xruntime run); high = x 1.5 (ASSUMED). The row text is the source; these
+  numbers are copied from it.
+
+### Validity Flags (stated before the run)
+
+- Three sessions per cell, as B5; the bootstrap over 3 sessions has few distinct resamples, so the CI is coarse.
+  Sessions are deterministic at temperature 0, so timing noise is expected to be small against the cell effects.
+- The K-only square answers the interaction for the K half of the cache only. The full q8_0 (K+V) cell with FA off
+  cannot be run on this build; the operator's literal square is reported but confounded.
+- The Ollama comparison crosses runtimes (Ollama 0.34.4 bundles b11081, this run b10970), weights files and chat
+  templates: context only.
+- Session minutes include the turns where B5 on Ollama slowed sharply (policy (a)'s turn walls in `results/x2_policy_compare.jsonl` rise from under 60 s to over 140 s at turn 18 or 19), which is where the KV and
+  FA settings are expected to matter; the cut at 24 turns leaves out B5's truncation regime (turns 27 to 40) entirely.

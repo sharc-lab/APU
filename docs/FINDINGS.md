@@ -6351,3 +6351,24 @@ own-plan-execute pilot".
   (ESTIMATE 1.94 h, high 2.91 h); xruntime-openvino-ceiling (awaiting Zach's files, no numbers until then).
 - **LM Studio (third runtime):** plan only. It cannot be confined to one folder on evo-x2 (user-profile data home,
   AppData, PATH), so it needs the operator's approval before any install.
+
+## PRE-REGISTRATION (2026-10-26): KV precision x flash attention on llama.cpp server (pointer)
+
+**Status: pre-registered, not run.** The full entry, in the Mandatory Run Template, is the docs/EXPERIMENTS.md section
+"PRE-REGISTRATION (2026-10-26): KV precision x flash attention on llama.cpp server".
+
+- **Question:** Ollama cannot set a quantized KV cache with flash attention off, so B5 had three of the four KV x FA
+  cells ((a) f16, (i) f16 + FA, (g) q8_0 + FA; row b5-fa-control: "the B5 speedup is KV precision, not flash
+  attention"). Is the q8_0 speed or memory effect the same with FA on and off?
+- **Design:** llama-server b10970 Vulkan on evo-x2 (harness/kv_fa_llamacpp.py, queue id x2_kv_fa_llamacpp), qwen3:14b
+  GGUF, `-c 40960` in every cell, the B5 R2 session cut at 24 turns (the longest prefix of B5's session that fits
+  40960 with 10% headroom; the full 40 turns would hit llama-server's HTTP 400 rejection), seeds 20260901-03. Cells
+  `-ctk/-ctv/-fa`: f16/f16/off, f16/f16/on, q8_0/f16/off, q8_0/f16/on, q8_0/q8_0/on. q8_0/q8_0/off is attempted once
+  first and recorded "refused" if the server does not load (b10970's llama.dll holds "quantized V cache requires
+  flash_attn to be enabled"); q8_0/f16/off is the closest legal cell.
+- **Wording, fixed before data:** on the K-only square, I = ln(q8/f16 minutes at FA off) - ln(q8/f16 at FA on) with a
+  session bootstrap (10000, stratified by cell, seed 20261014): "interaction" iff the 95% CI excludes 0 and |I| >
+  ln 1.10; "no interaction shown" iff the CI lies within +-ln 1.10; else "inconclusive". Memory: "no memory
+  interaction" iff the q8_0 KV saving with FA off and with FA on differ by at most 1% of the f16 FA-on KV buffer.
+- **Rows:** kv-fa-interaction-llamacpp (PENDING until run_end); kv-fa-interaction-llamacpp-hours (ESTIMATE, see the
+  row).
