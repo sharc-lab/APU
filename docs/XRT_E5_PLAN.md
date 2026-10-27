@@ -155,3 +155,10 @@ Model choice for (i) is the operator's and Zach's:
 - **E4** (vLLM on that laptop): no upstream native Windows path. Only a community fork with cp312 wheels; see the
   operator report of 2026-10-26.
 - **Optional evo-t2s item:** docs/T2S_WEEK_PLAN.md, staged section.
+
+## Operator decision 2026-10-27
+
+- **E4: dropped (unofficial vLLM fork not defensible).** Nothing is planned or queued for E4.
+- **E5: waiting on Zach's pick of (a) or (b).** Nothing is queued for either option until he picks.
+- **xrt tool:** the operator will ask Zach for the original `xrt_llamacpp.py`. Until it arrives, the step 3 queue
+  wrapper in option (b) is not written.

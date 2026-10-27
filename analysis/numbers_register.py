@@ -5840,6 +5840,19 @@ def compute_cloud_cost_per_real_task(repo):
     res = ct.compute(repo)
     return {"value": ct.value_text(res), "n": f"{sum(e['n_tasks'] for e in res['sets'].values())} trajectories"}
 
+
+def compute_cloud_cost_per_real_task_all_tiers(repo):
+    """Row cloud-cost-per-real-task's pricing (same trajectories, calibration, caching cases and price file) at every
+    tier in analysis/cloud_task_cost.py TIERS: claude-haiku-5-5, claude-sonnet-5-5, claude-opus-5-5, claude-fable-5-1.
+    Priced, not executed. Opus and Fable added 2026-10-27 on operator request, prices from the same Anthropic file."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("cloud_task_cost", repo / "analysis" / "cloud_task_cost.py")
+    ct = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ct)
+    res = ct.compute(repo)
+    return {"value": ct.all_tiers_text(res),
+            "n": f"{sum(e['n_tasks'] for e in res['sets'].values())} trajectories, {len(ct.TIERS)} tiers"}
+
 # All-cloud baseline on the B3 v2 tasks (scripts/all_cloud_b3.py, pre-registered in docs/FINDINGS.md 2026-10-21): the 30
 # tasks run fully on claude-haiku-5-5 and claude-sonnet-5-5, 3 seeds. The all-cloud reference quality and cost for the
 # hybrid savings model. PENDING until results/all_cloud_b3_v1.jsonl exists.
@@ -8999,6 +9012,18 @@ NUMBER_ENTRIES = [
                     "results/anthropic_token_calibration_20261021.jsonl",
                     "results/cloud_prices_anthropic_20261014.json"],
      "script_function": "analysis/cloud_task_cost.py::compute"},
+    {"claim_id": "cloud-cost-per-real-task-all-tiers", "description": "Cloud cost per real agent task at every "
+     "Anthropic tier, priced, not executed: row cloud-cost-per-real-task's method and inputs unchanged (uncensored "
+     "traces nebius-rebench-openhands and SWE-Gym, each step re-sends its full prompt, output per step measured, "
+     "tokens calibrated with messages.count_tokens) at claude-haiku-5-5, claude-sonnet-5-5, claude-opus-5-5 and "
+     "claude-fable-5-1; USD median and p90 for no caching, realistic caching (ASSUMPTION hit rate 0.7) and best-case "
+     "caching; prices from results/cloud_prices_anthropic_20261014.json (Anthropic's official pricing page, fetched "
+     "2026-10-14), Opus and Fable added 2026-10-27 on operator request",
+     "compute": compute_cloud_cost_per_real_task_all_tiers,
+     "data_files": ["results/traces/agent_step_lengths.parquet", "results/traces/agent_step_outputs.parquet",
+                    "results/anthropic_token_calibration_20261021.jsonl",
+                    "results/cloud_prices_anthropic_20261014.json"],
+     "script_function": "analysis/cloud_task_cost.py::all_tiers_text"},
 
     {"claim_id": "all-cloud-b3-quality", "description": "All-cloud baseline: the 30 B3 v2 tasks run fully on "
      "claude-haiku-5-5 and claude-sonnet-5-5, 3 seeds, same session and end-state grader; correct / graded per model, "

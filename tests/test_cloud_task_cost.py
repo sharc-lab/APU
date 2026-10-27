@@ -120,3 +120,26 @@ def test_real_files_case_ordering():
             assert u[(m, "best")]["median"] <= u[(m, "realistic")]["median"] <= u[(m, "none")]["median"]
     txt = ct.value_text(res)
     assert "MEASURED" in txt and "ASSUMPTION" in txt and "count_tokens" in txt
+
+
+def test_tiers_include_opus_and_fable_priced_from_the_shared_file():
+    prices = ct.load_prices()
+    assert ct.TIERS == ("claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5", "claude-fable-5-1")
+    assert ct.BASE_TIERS == ("claude-haiku-5-5", "claude-sonnet-5-5")
+    for m in ct.TIERS:
+        r = prices["models"][m]["standard"]["short"]
+        assert all(r[k] > 0 for k in ("input", "cache_write", "cached_input", "output"))
+    assert prices["source_url"] == "https://platform.claude.com/docs/en/about-claude/pricing"
+
+
+def test_all_tiers_real_files_sonnet_reproduces_existing_row():
+    if not (REPO / ct.OUTPUT_FILE).exists() or not (REPO / ct.CALIB_FILE).exists():
+        pytest.skip("measured output or calibration file not present")
+    res = ct.compute(REPO)
+    u = res["sets"]["nebius-rebench-openhands"]["usd"]
+    assert f"{u[('claude-sonnet-5-5', 'realistic')]['median']:.4f}" == "2.5307"
+    for m in ct.TIERS:
+        assert u[(m, "best")]["median"] <= u[(m, "realistic")]["median"] <= u[(m, "none")]["median"]
+    base, full = ct.value_text(res), ct.all_tiers_text(res)
+    assert "claude-opus-5-5" not in base and "claude-fable-5-1" not in base  # existing row's text unchanged
+    assert "claude-opus-5-5:" in full and "claude-fable-5-1:" in full and "realistic $2.5307" in full
