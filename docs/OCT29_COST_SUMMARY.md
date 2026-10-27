@@ -10,9 +10,10 @@ and a history, so they are not independent, and the session-level CI is the one 
 ## 1. Lead: correctness first, cost as a hard cap
 
 **Reliability and budget control for local and hybrid agents: correctness is the hook, cost is a hard cap.** On the
-B3 v2 tool-using tasks with qwen3:14b on evo-x2 (AMD), a local model that runs out of memory gets tasks wrong without
-saying so, and routing plus a cloud fallback removes most of those wrong answers while costing less than sending
-everything to the cloud.
+B3 v2 tool-using tasks with qwen3:14b on Ollama 0.34.4 (evo-x2, AMD), a local model that runs out of memory gets tasks
+wrong without saying so, and routing plus a cloud fallback removes most of those wrong answers while costing less than
+sending everything to the cloud. On llama-server (build b10970, evo-x2) the same 4096 window also gets tasks wrong, but
+loudly, with HTTP errors [xruntime-llamacpp-wrong-rate].
 
 - **16x fewer wrong answers, at the 8192 memory setting.** Naive local was wrong on 36.7% (33/90) tasks; route at
   start (claude-sonnet-5-5 as the cloud model) was wrong on 2.2% (2/90): 33 vs 2 = 16.5x
@@ -20,11 +21,19 @@ everything to the cloud.
   seed), so very coarse; 3003 of 10000 resamples had 0 route-at-start wrong and are left out of the ratio
   [headline-ci-session-hybrid]. The setting matters: 8192 is the setting the hybrid also uses, and at the default
   window naive local was wrong on 11.1% (10/90) tasks [hybrid-savings-v1] [cost-target-scenario].
-- **0/197 warnings.** Of the 197 wrong local task turns of the B3 v2 real run (qwen3:14b, 5 memory settings x 5
-  seeds = 25 sessions), 0.0% (0/197) surfaced an HTTP error or an error field to the client; 100.0% (197/197) were
+- **0/197 warnings, on Ollama.** Of the 197 wrong local task turns of the B3 v2 real run (qwen3:14b on Ollama 0.34.4,
+  evo-x2, 5 memory settings x 5 seeds = 25 sessions), 0.0% (0/197) surfaced an HTTP error or an error field to the client; 100.0% (197/197) were
   silent. Task-level 95% Wilson CI for the surfaced share [0.0%, 1.9%] (task turns are nested in sessions, so not
   independent); the session-level bootstrap is a point at 0 (0/n has no bootstrap variance)
   [x2-evalset-tasks-real-v2-silent-total]. "Surfaced" is what the client sees, not the Ollama server log.
+- **Cross-runtime: the 4096 effect replicates on llama-server, with loud failures; "silent" is scoped to Ollama.** On
+  llama-server (build b10970, evo-x2), 4096 over the server default is "+92.0 points (95% CI +88.7 to +94.7, 5 vs 5
+  sessions); reading: replicated", with "wrong 150/150 (100.0%)" at 4096 and "harness-silent wrong (no HTTP error on
+  any call, the Ollama row's definition) 0": 0 silent at the client [xruntime-llamacpp-wrong-rate]. Server-log split
+  "flagged_reject 60, silent_cut 0, ctx_stop 3, error_other 87, none 0"; the server-log silent share is "not read"
+  ("detector validated False") [xruntime-llamacpp-wrong-rate]. "Silent" is measured on Ollama only. At the fixed
+  window llama-server was "wrong 12/150 (8.0%)" with "context-event turns at (c) 0/150", so the residual 8.0% (12/150)
+  is model error, not memory [xruntime-default-fixed].
 - **99% rescue with rollback, under a stand-in.** The cloud (claude-sonnet-5-5) rescued 99.0% (195/197) of those
   wrong tasks: 167 by a redo with the full history plus 28 by rolling the environment back and redoing
   [cloud-rescue-combined]. Task-level 95% Wilson CI [96.4%, 99.7%] [cloud-rescue-combined]; session-level 95% CI
@@ -66,6 +75,12 @@ from their first call [hybrid-route-at-start-measured]. The saving over all-clou
 the local share is the roadmap. At a memory setting of 4096 no task fits, so the policy is all-cloud (kept local
 0.0% (0/90)) [hybrid-route-at-start-measured].
 
+**Cross-runtime.** The table's local runs are Ollama 0.34.4. The 4096 effect replicates on llama-server (build b10970,
+evo-x2): "+92.0 points (95% CI +88.7 to +94.7, 5 vs 5 sessions); reading: replicated", with loud failures, "harness-silent
+wrong (no HTTP error on any call, the Ollama row's definition) 0" of "wrong 150/150 (100.0%)"
+[xruntime-llamacpp-wrong-rate]; "silent" is measured on Ollama only. At the fixed window llama-server's "wrong 12/150
+(8.0%)" has "context-event turns at (c) 0/150", so it is model error, not memory [xruntime-default-fixed].
+
 This result does not depend on a cut-off detector: the flag is the recorded over-window condition. Detector v1 was
 retired for routing (pooled precision 0.588 [detector-precision-recall]; docs/FINDINGS.md "DECISION (2026-10-23)").
 
@@ -83,9 +98,10 @@ of section 2.
 
 ## 4. Supporting measurements (briefly)
 
-- **Naive local is silently wrong** [x2-evalset-tasks-real-v2-wrong-rate] (unit: task turns, 5 seeds, so not the
-  same denominator as the table): qwen3:14b wrong 11.3% (17/150) at the default window, 35.3% (53/150) at 8192 and
-  42.0% (63/150) at 4096; every wrong task silent (surfaced 0). The excess over the default (+24.0 points at 8192,
+- **Naive local on Ollama is silently wrong** [x2-evalset-tasks-real-v2-wrong-rate] (unit: task turns, 5 seeds, so not the
+  same denominator as the table): qwen3:14b on Ollama 0.34.4 (evo-x2) wrong 11.3% (17/150) at the default window, 35.3% (53/150) at 8192 and
+  42.0% (63/150) at 4096; every wrong task silent (surfaced 0). On llama-server the same 4096 setting fails loudly,
+  with HTTP errors (0 harness-silent) [xruntime-llamacpp-wrong-rate]. The excess over the default (+24.0 points at 8192,
   +30.7 at 4096) has session-level 95% CIs [+18.7, +29.3] and [+26.0, +34.7] (5 vs 5 sessions); the task-turn-level
   CIs are wider here, [+14.7, +33.3] and [+21.3, +40.0] [x2-evalset-tasks-real-v2-ci-units].
 - **Late escalation is costly and incomplete** [late-escalation-cost-vs-fresh] [cloud-redo-full-context]: handing a

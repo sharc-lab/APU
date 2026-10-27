@@ -11,25 +11,26 @@ typeset version); design constants carry "design: <source>".
 
 ## 1. Working title and abstract
 
-**Working title:** *Silent by Default: How Memory Architecture and Runtime Policy Shape Local LLM Agents on AI PCs*
+**Working title:** *Silent by Default on Ollama: How Memory Architecture and Runtime Policy Shape Local LLM Agents on AI PCs*
 
 Alternatives:
 
-1. *Where Local Agents Break: Memory Boundaries, Runtime Defaults and Silent Context Loss on Three AI PC Platforms*
+1. *Where Local Agents Break: Memory Boundaries, Runtime Defaults and Silent Context Loss on Ollama Across Three AI PC Platforms*
 2. *The Runtime Picks Your Context Window: A Cross-Vendor Characterization of Local LLM Inference on AI PCs*
-3. *No Error, No Rules: Characterizing Silent Failure of Local LLM Agents Across Unified and Discrete Memory*
+3. *No Error, No Rules: Characterizing Silent Failure of Ollama-Served LLM Agents Across Unified and Discrete Memory*
 
 **Abstract.**
 
-When a local agent's conversation outgrows the context window, runtimes such as Ollama and llama.cpp trim it and
-still report success. We measure what is lost
+When a local agent's conversation outgrows the context window, Ollama trims it and still reports success, while a
+stock llama-server at the same small window fails loudly, with an HTTP error on every wrong task turn <!-- xruntime-llamacpp-wrong-rate -->. We measure what is lost
 with pre-registered experiments on an AMD APU, an NVIDIA laptop GPU and an Intel laptop. At windows of 16384 tokens
 and below, no session of three 8B to 14B models kept its full history <!-- R2-real-v1b-survival -->, and models
 up to 70B lose history once the window is exceeded <!-- H-scale-verdict --> <!-- H-scale-family-verdict -->. Rule loss
 appears in the 8B and 14B models (5 seeds) and in qwen3:32b (2 of 3 sessions at 4096) <!-- H-scale-verdict -->, and
 not in llama3.3:70b or mistral-small3.2:24b (0 of 3 each) <!-- H-scale-verdict --> <!-- H-scale-family-verdict -->.
 History loss appears in all of them. On a tool-using task workload, qwen3:14b's wrong-task rate rises from 11.3% (17/150) at
-its default window to 42.0% (63/150) at 4096, and every wrong task is silent <!-- x2-evalset-tasks-real-v2-wrong-rate -->.
+its default window to 42.0% (63/150) at 4096 on Ollama, and every wrong task is silent <!-- x2-evalset-tasks-real-v2-wrong-rate -->;
+on llama-server the 4096 effect replicates (+92.0 points, 95% CI +88.7 to +94.7) but no wrong task is silent <!-- xruntime-llamacpp-wrong-rate -->.
 Runtime defaults decide how often this happens: an unmodified install loaded a 4096-token window on an Intel CPU
 <!-- t2s-r2-real-cpu --> and 32768 on the same laptop's integrated GPU <!-- t2s-r2-real-igpu -->. The backend matters
 too: with identical model files and settings, llama3.1:8b wrote tool calls as text at an untruncated window on Vulkan
@@ -48,8 +49,9 @@ time by 65% to 85% (139.4 of 214.8 and 37.1 of 43.7 min per session, 3 sessions 
 Runtimes such as Ollama and llama.cpp serve open-weight models of 8B to 70B parameters on laptops and small APU
 workstations, and local agents drive them for tens of turns, appending every tool result to a conversation that only
 grows inside a fixed context window. When the conversation outgrows it, the runtime, not the agent, decides what to
-remove, and it does so silently: the request still returns HTTP 200
-<!-- blade-k1-layer-split -->, the answer is well formed, and the model does not mention the loss (0/960
+remove, and on Ollama it does so silently: the request still returns HTTP 200
+<!-- blade-k1-layer-split -->; llama-server at the same window fails loudly instead, with HTTP errors <!-- xruntime-llamacpp-wrong-rate -->. The
+answer is well formed, and the model does not mention the loss (0/960
 <!-- self-report-truncation-awareness --> self-reports in our probes mentioned truncation).
 
 **Why run locally, and what it costs.** Agent tasks are expensive in the cloud because every step re-sends the whole
@@ -66,7 +68,7 @@ overflow is a symptom of one failure mode, not a general wrong-answer detector. 
 by escalating 10 tasks <!-- hybrid-savings-v1 -->, but that is a ceiling, and no such detector exists; fixing a wrong answer
 afterwards in the cloud fixed 84.8% (167/197) <!-- cloud-redo-full-context --> at a mean of USD 0.0227 per task
 <!-- cloud-redo-full-context -->, but it cannot undo actions already executed (Section 4.7). The trade-off a practitioner faces is therefore between a cloud bill and
-silent wrong answers, and how many wrong answers depends on settings the user rarely sees.
+wrong answers that are silent on Ollama, and how many wrong answers depends on settings the user rarely sees.
 
 A motivating case shows how easily a user lands in this regime. On an Intel laptop, an unmodified Ollama install
 served two models with a 4096 <!-- t2s-r2-real-cpu --> token window, because device detection drops the integrated GPU
@@ -78,7 +80,7 @@ failure came after the window. Nobody chose 4096; the runtime did.
 This paper asks what a local agent loses when its conversation exceeds the context window, whether anything tells the
 user, and what decides how often it happens. We answer with pre-registered experiments on an AMD APU, an NVIDIA
 laptop GPU and an Intel laptop (CPU and integrated GPU), spanning unified and discrete memory. The answer has five
-parts. First, history loss is silent and appears in every model we tested, from 8B to 70B <!-- H-scale-verdict -->
+parts. First, on Ollama history loss is silent and appears in every model we tested, from 8B to 70B <!-- H-scale-verdict -->
 <!-- H-scale-family-verdict -->: at a 16384-token window no session of three 8B to 14B models kept its full history to
 turn 15 (intact 5/5/0/0/0/0/0/0 of 5 for each model <!-- R2-real-v1b-survival -->). Second, rule loss is
 model-dependent. Rule loss appears in the 8B and 14B models (5 seeds) and in qwen3:32b (2 of 3 sessions at 4096)
@@ -86,8 +88,8 @@ model-dependent. Rule loss appears in the 8B and 14B models (5 seeds) and in qwe
 <!-- H-scale-family-verdict -->. History loss appears in all of them <!-- H-scale-verdict -->
 <!-- H-scale-family-verdict -->. We do not claim rule loss in general. Third, the cost is concrete: qwen3:14b's share of
 tasks ending in a wrong state rises from 11.3% (17/150) at the default window to 42.0% (63/150) at 4096, every wrong
-task silent
-<!-- x2-evalset-tasks-real-v2-wrong-rate -->. Fourth, the runtime's defaults and backend decide how often this happens:
+task silent on Ollama
+<!-- x2-evalset-tasks-real-v2-wrong-rate -->, while llama-server at 4096 fails loudly, with HTTP errors <!-- xruntime-llamacpp-wrong-rate -->. Fourth, the runtime's defaults and backend decide how often this happens:
 the window follows the detected device, and with identical model files, settings and seed, llama3.1:8b wrote a tool
 call as text in place of its answer at an untruncated window on CUDA and on Vulkan, and not on ROCm
 <!-- blade-r2-gate-v2 --> <!-- x2-r2-llama-val-32k-vulkan --> <!-- x2-r2-llama-val-32k-offload -->. Fifth, the fixes are
@@ -103,11 +105,12 @@ We make four contributions.
    start succeeds or fails at one shared-heap limit that also counts host-visible buffers, and a first-principles
    accounting of weights, KV cache and compute predicts the measured flip point to within -257 to -26 tokens
    <!-- A-24-flip-point-prediction -->.
-2. **Runtime policy, not hardware, sets the effective window, and overflow is silent** (Section 4.5). The same runtime
+2. **Runtime policy, not hardware, sets the effective window, and on Ollama overflow is silent** (Section 4.5); llama-server fails loudly at the
+   same window <!-- xruntime-llamacpp-wrong-rate -->. The same runtime
    gives llama3.1:8b a default window of 4096 tokens on the Intel laptop and 131072 on the AMD APU
    <!-- T2S-vs-X2-default-ctx -->, and answers an over-length prompt with success after keeping num_ctx/2 + 2 tokens
    <!-- ollama-overflow-keeps-half -->.
-3. **The consequences for agents, with their mechanism** (Section 4.6). Silent failures after the window grow as the
+3. **The consequences for agents, with their mechanism** (Section 4.6). On Ollama, silent failures after the window grow as the
    window shrinks; Ollama drops whole old messages but keeps the system prompt, and at the smallest window llama.cpp's
    context shift and a token cut discard it <!-- R2-mechanism-lowlevel -->.
 4. **Pre-registered fixes, with their limits, and a characterization of the runtime's shift rule** (Section 4.7). Client-side trimming is refuted as a
@@ -289,7 +292,7 @@ was 221440, clamped to 131072, and the first that failed was 221696, with exit c
 <!-- fh1-amd-boundary-llama-3.3-70b -->. At 221696, fresh server processes crashed with STATUS_STACK_BUFFER_OVERRUN at
 warm-up 5 whether the model file was read cold after a standby purge or warm from the file cache
 <!-- fh1-amd-boundary-llama-3.3-70b -->. So the AMD platform has three regimes for this model: it fits, it spills
-silently at almost no cost, and, for requests far above the trained context, it crashes.
+silently at almost no cost (llama-server, Vulkan <!-- fh1-amd-boundary-llama-3.3-70b -->), and, for requests far above the trained context, it crashes.
 
 qwen3-32b gives the fail side but not the spill side. The largest unclamped window without spill is 20480, and no
 unclamped spill point was measured, so the row has no spill cost <!-- fh1-amd-boundary-qwen3-32b -->. A request for
@@ -361,8 +364,8 @@ vendors are not yet compared on the same metric.
 ### 4.5 Runtime policy
 
 **Claim.** The window an agent actually gets is set by the runtime's policy for the device it detects, not by the
-model or the memory, and when a prompt outgrows that window the runtime reports success and silently keeps half of
-it.
+model or the memory, and when a prompt outgrows that window Ollama reports success and silently keeps half of
+it; llama-server at a 4096 window instead fails loudly, with HTTP errors <!-- xruntime-llamacpp-wrong-rate -->.
 
 **Default windows follow the detected device.** Ollama's Vulkan backend drops both integrated GPUs by the same
 policy, but Ollama also discovers the AMD iGPU through ROCm, with no opt-out, so the AMD APU runs on its iGPU while the
@@ -386,18 +389,19 @@ Table 2: default context window per platform for qwen3-4b-2507 / llama3.1:8b / q
 
 **The default decides the outcome.** On the Intel laptop we ran the same agent sessions twice, once as shipped on the
 CPU and once with the iGPU enabled for the job's own server process. On the CPU both models loaded a 4096-token window,
-crossed it at turn 3, and failed silently in 5/5 sessions each, every failure after the window was exceeded
+crossed it at turn 3, and failed silently on Ollama 0.34.4 in 5/5 sessions each, every failure after the window was exceeded
 <!-- t2s-r2-real-cpu -->. On the iGPU the same models loaded 32768, crossed it only at turn 23 (llama3.1:8b) and turns 20 and 21 (qwen3:14b), and no
 failure came after the window: 0/5 for llama3.1:8b and, for qwen3:14b, 1/5 of baseline type
 <!-- t2s-r2-real-igpu -->. The pre-registered kill criterion was not triggered on either backend
 <!-- t2s-r2-real-cpu --> <!-- t2s-r2-real-igpu -->. This contrast changes backend and window together, so it shows
 that the default decides whether a session fails, not that the window alone does; Section 4.6a isolates the window.
 
-**Overflow is silent.** When a prompt exceeds the loaded window, the runtime returns success and processes
+**On Ollama, overflow is silent.** When a prompt exceeds the loaded window, Ollama returns success and processes
 num_ctx/2 + 2 tokens, in all 4 checked cases (4096->2050, 8192->4098, 32768->16386, 40960->20482), through its own
 `--context-shift --keep 4` server flag <!-- ollama-overflow-keeps-half -->. On the discrete GPU, prompts of 8192,
 16384 and 32768 tokens sent to a 4096 window each returned HTTP 200 with 2050 tokens evaluated, for both models
-<!-- blade-k1-layer-split -->. No error, warning or response field tells the client.
+<!-- blade-k1-layer-split -->. No error, warning or response field tells the client on Ollama; a stock llama-server at
+a 4096 window returned an HTTP error on every wrong task turn <!-- xruntime-llamacpp-wrong-rate -->.
 
 **Changing the window, and what persists.** A user can override the default in three ways, and they differ in how long
 the override lasts. On the AMD APU, whose baseline for llama3.1:8b is 131072, a per-request `num_ctx` of 12288 was
@@ -453,7 +457,7 @@ the controlled result rather than replacing it.
 **The controlled result.** On the AMD APU we ran three models at the Ollama default and at 32768, 16384, 8192 and
 4096 <!-- R2-v1b-excess-over-default -->, five seeds per cell: 75 sessions and 3000 turns
 <!-- R2-real-v1b-first-events -->, none surfacing an error before its first failure
-<!-- R2-real-v1b-first-events -->. After-window silent failures rise as the window shrinks: 0/15 at 32768
+<!-- R2-real-v1b-first-events -->. On Ollama, after-window silent failures rise as the window shrinks: 0/15 at 32768
 <!-- R2-v1b-excess-over-default -->, 2/15 at 16384 (excess over default +0.133, 95% CI +0.000 to +0.267)
 <!-- R2-v1b-excess-over-default -->, 8/15 at 8192 (+0.533, 95% CI +0.333 to +0.667) <!-- R2-v1b-excess-over-default -->
 and 10/15 at 4096 (+0.667, 95% CI +0.533 to +0.800) <!-- R2-v1b-excess-over-default -->, over a default tier with
@@ -493,7 +497,8 @@ run it held: 5/5 <!-- x2-evalset-tasks-real-v2-gated-excess --> against 0/5 at t
 <!-- x2-evalset-tasks-real-v2-gated-excess -->. Wrong task end states were 11.3% (17/150)
 <!-- x2-evalset-tasks-real-v2-wrong-rate --> at the default, 12.7% (19/150) <!-- x2-evalset-tasks-real-v2-wrong-rate --> at
 16384, 35.3% (53/150) <!-- x2-evalset-tasks-real-v2-wrong-rate --> at 8192 and 42.0% (63/150) <!-- x2-evalset-tasks-real-v2-wrong-rate -->
-at 4096, every wrong turn silent <!-- x2-evalset-tasks-real-v2-wrong-rate -->: excess +24.0 points (95% CI +18.7 to
+at 4096, every wrong turn silent on Ollama 0.34.4 <!-- x2-evalset-tasks-real-v2-wrong-rate --> (on llama-server the 4096
+effect replicates, +92.0 points, 95% CI +88.7 to +94.7, with 0 silent wrong turns <!-- xruntime-llamacpp-wrong-rate -->): excess +24.0 points (95% CI +18.7 to
 +29.3) <!-- x2-evalset-tasks-real-v2-wrong-rate --> at 8192 and +30.7 points (95% CI +26.0 to +34.7) at 4096, none
 shown at 16384 <!-- x2-evalset-tasks-real-v2-wrong-rate --> <!-- x2-evalset-tasks-real-v2-ci-units: these CIs are the session-level bootstrap (10000 resamples, sessions resampled within tier) -->
 (session-level 95% CIs over 5 vs 5 sessions; the task-turn-level CIs, which treat the 150 turns of a tier as
@@ -554,7 +559,7 @@ shift fired 33 <!-- blade-mechanism-4096 --> times; no token cut occurred and no
 n_keep, so the claim that the shift discards the system prompt is AMD-only; whether the token cut occurs on NVIDIA
 is open.
 
-**A second silent difference: tool calls as text.** In the NVIDIA validation, llama3.1:8b's negative control at
+**A second silent difference on Ollama: tool calls as text.** In the NVIDIA validation, llama3.1:8b's negative control at
 32768, where nothing is truncated, missed canaries in two of five sessions (seeds 20260903 and 20260905, 2 misses
 each <!-- blade-r2-gate-v2 -->): the final answer was a tool call written as plain text. By the gate set in advance,
 this held back the NVIDIA real runs. Three pre-registered checks on the AMD APU kept model files, seeds and settings
@@ -568,7 +573,7 @@ the llama.cpp backend implementation (CUDA and Vulkan, not ROCm, in these seeds)
 decision point, turn 5 of seed 20260903 <!-- x2-r2-llama-val-32k-vulkan --> on Vulkan, in the seed that also missed
 on CUDA <!-- blade-r2-gate-v2 -->, separates a correct agent from a silent miss. Five seeds cannot
 show a zero is impossible, and the kernel is not identified; identical model files and settings still yield a
-different agent on a different backend, with no error.
+different agent on a different backend, with no error from Ollama.
 
 **How the window is set, and whether it sticks.** On the AMD APU, where llama3.1:8b defaults to 131072 <!-- window-override-methods -->, a
 per-request `num_ctx` of 12288 loaded 12288 <!-- window-override-methods --> but a plain request after a restart was back at 131072 <!-- window-override-methods -->; a Modelfile
@@ -601,7 +606,7 @@ replicates: llama3.1:8b recovered, qwen3:14b did not, again on `log_event`, over
 seed <!-- R2-qwen3-14b-4096-reconciliation -->. On the first failing trimmed turn its first call
 requested only `lookup_fact`, where the untrimmed run called `log_event` and then `lookup_fact` <!-- R2-qwen3-14b-4096-reconciliation -->: at 4096 the
 budget leaves room for only 1-2 <!-- R2-mitigation-v1-observed --> turns besides the system prompt, so trimming
-removes the in-context examples of the two-call pattern the model imitates. Naive trimming swaps silent context loss
+removes the in-context examples of the two-call pattern the model imitates. Naive trimming swaps Ollama's silent context loss
 for deliberate history loss and, for this model, a new rule failure.
 
 **num_keep fixes one model's rules, on the token-cut path.** The request option `num_keep` sets how many leading tokens
@@ -637,7 +642,7 @@ router took 135.1 min and USD 0.8419 per session for no gain <!-- b5-policy-metr
 unconstrained AMD platform, whose default window is the model's native one, so no policy there faced the
 small-window regime where loss occurs; the constrained platforms are pending.
 
-**Recovering after a silent failure is costly and incomplete.** The fallback for a session that has already failed is
+**Recovering after a silent failure on Ollama is costly and incomplete.** The fallback for a session that has already failed is
 to hand the whole history to a cloud model late and let it finish the task. We measured that on every wrong task of
 the protocol-check task run (Section 4.6a): a cloud model with the full client-side history fixed 84.8% (167/197) of
 them, task-level 95% Wilson CI [79.1%, 89.1%] <!-- cloud-redo-full-context -->, which treats the 197 tasks as
@@ -747,17 +752,19 @@ rate measured the token budget, not the cloud model. We cite no fix rate or cost
 
 ### 4.9 Conclusion
 
-Local LLM agents lose context without telling anyone. On every platform we measured, a conversation that outgrows the
-window is trimmed, shifted or cut, and the request still succeeds. Rule loss appears in the 8B and 14B models (5 seeds) and in qwen3:32b (2 of 3 sessions at 4096) <!-- H-scale-verdict -->, and not in llama3.3:70b or mistral-small3.2:24b (0 of 3 each) <!-- H-scale-verdict --> <!-- H-scale-family-verdict -->. History loss appears in all of them <!-- H-scale-verdict --> <!-- H-scale-family-verdict -->. Rule loss depends on the model as well as the window, and we do not claim it in general. The window is often not the user's
+On Ollama, local LLM agents lose context without telling anyone. On every platform we measured, Ollama trims, shifts
+or cuts a conversation that outgrows the window, and the request still succeeds. A stock llama-server at a 4096 window
+instead fails loudly, with an HTTP error on every wrong task turn, while the 4096 effect on wrong tasks replicates
+there (+92.0 points, 95% CI +88.7 to +94.7) <!-- xruntime-llamacpp-wrong-rate -->. Rule loss appears in the 8B and 14B models (5 seeds) and in qwen3:32b (2 of 3 sessions at 4096) <!-- H-scale-verdict -->, and not in llama3.3:70b or mistral-small3.2:24b (0 of 3 each) <!-- H-scale-verdict --> <!-- H-scale-family-verdict -->. History loss appears in all of them <!-- H-scale-verdict --> <!-- H-scale-family-verdict -->. Rule loss depends on the model as well as the window, and we do not claim it in general. The window is often not the user's
 choice: the runtime picks it from the detected device, and an unmodified install on an Intel CPU ran agents at 4096
 tokens <!-- t2s-r2-real-cpu -->. That is the window at which, on the AMD APU, qwen3:14b ended 42.0% (63/150) of tasks in a wrong
-state against 11.3% (17/150) at its default, all silently <!-- x2-evalset-tasks-real-v2-wrong-rate -->. Running locally removes
-the cloud bill, but the wrong answers it adds carry no signal, and the runtime's own over-window signal misses every
+state against 11.3% (17/150) at its default, all silently on Ollama 0.34.4 <!-- x2-evalset-tasks-real-v2-wrong-rate -->. Running locally removes
+the cloud bill, but on Ollama the wrong answers it adds carry no signal, and the runtime's own over-window signal misses every
 wrong answer produced inside the window <!-- impact-v3-detection-value-measured -->.
 
 For practitioners, five lessons follow. Set the window explicitly for each device and verify the loaded value,
-because a per-request setting does not survive a restart and any client that omits it silently gets the default back
-<!-- window-override-methods -->. Surface the runtime's own cut-off log lines when a prompt exceeds the loaded window
+because on Ollama a per-request setting does not survive a restart and any client that omits it silently gets the
+default back <!-- window-override-methods -->. Surface the runtime's own cut-off log lines when a prompt exceeds the loaded window
 (an open runtime issue asks for them to be raised from debug to warning level [Ollama issue #14259; to verify]), but
 do not treat them as a correctness check. Try a quantized KV cache before a smaller window: on the AMD APU it cut session
 time by 85% (37.1 of 43.7 min) and 65% (139.4 of 214.8 min, 3 sessions per setting) with no measured loss of rules or recall <!-- cost-cut-config-time --> <!-- b5-kv-recall-f16-rerun -->.

@@ -274,6 +274,10 @@ class OwnCompactionRuntime:
                 smsgs = summarizer_messages(self.summary, [texts[ch[0]][:keep]])
             t0 = self.clock()
             resp = self.inner.chat(model, smsgs, num_ctx, None, think)
+            if resp.get("outcome") == "error" and resp.get("status") is None:   # server gone: session incomplete
+                import x2_r2_agent as ag
+                raise ag.SessionIncomplete(resp.get("error"), {"kind": "summary", "error": resp.get("error"),
+                                                               "turns_folded": [nums[i] for i in ch]})
             text = (resp.get("message") or "").strip()
             ok = resp.get("outcome", "ok") == "ok" and bool(text)
             if ok:
