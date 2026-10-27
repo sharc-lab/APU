@@ -3,8 +3,8 @@ and the agent-trace replay workload, run through the R2 two-step agent turn. doc
 expansion", 2026-10-13) is the spec; harness/evalset_env.py holds the environment, tasks, checkers and scorers;
 harness/agent_trace_replay.py the trace schedule.
 
-A sibling of harness/x2_r2_agent.py: it imports that module for the runtime (OllamaRuntime, _do_call with its
-connection-level retry), the call-2 protocol (ARMS, call2_extra; default call-2 mode "off", v1: tools withheld on the
+A sibling of harness/x2_r2_agent.py: it imports that module for the runtime (OllamaRuntime, _do_call: a
+connection-level error raises SessionIncomplete, no retry), the call-2 protocol (ARMS, call2_extra; default call-2 mode "off", v1: tools withheld on the
 final-answer call), the numbered canaries and history tags, score_final_answer (rules 1, 3, 4, 5, canaries, recall),
 the calibrated-transcript truncation signal, summarize_session, evaluate_gates and validation_preflight. Rows use the
 same record names (r2a_turn, r2a_session) and field names plus harness/workload fields, so the existing gate code reads
@@ -624,7 +624,11 @@ def _run_session_body(runtime, model, arm, seed, emit, log, workload, es, base, 
         extra = {}
         if workload == "replay":
             turn, extra = replay_filler(es, turn, messages, calib)
-        row, env = run_turn(runtime, model, num_ctx, think, es, turn, item, env, messages, log, call2_mode)
+        try:
+            row, env = run_turn(runtime, model, num_ctx, think, es, turn, item, env, messages, log, call2_mode)
+        except ag.SessionIncomplete as e:   # no r2a_session row; the run stops (x2_r2_agent.SessionIncomplete)
+            emit(ag.incomplete_row(base, rows, e, len(es.turns)))
+            raise
         loaded = runtime.loaded_context(model)
         if turn.idx == 1:
             c1 = row["calls"][0]

@@ -1022,20 +1022,36 @@ def _call_tokens(rec: dict) -> int:
     return rec["prompt_tokens_est"] + comp
 
 
+class SessionIncomplete(RuntimeError):
+    """A call failed at the connection level (no HTTP status: the server died, refused the connection, reset it or
+    timed out). Defined behaviour of 2026-10-27 (docs/METHODOLOGY.md, "Server death mid-session"): _do_call raises
+    this with NO retry; run_session (and x2_r2_evalset._run_session_body) emit one r2a_session_incomplete row with the
+    error and no r2a_session row, so the session is not completed for any analysis (completed_sessions), then
+    re-raise, so the run stops without run_end (the register reads the file as partial) and a resume reruns the
+    session. An HTTP error with a status (4xx/5xx) is not this: it is recorded on the call row and scored as before."""
+
+    def __init__(self, error, call: dict | None = None):
+        super().__init__(f"connection-level error, session incomplete, no retry: {error!r}")
+        self.error, self.call = error, call or {}
+
+
+def incomplete_row(base: dict, rows: list, exc: "SessionIncomplete", n_turns_planned=None) -> dict:
+    """The r2a_session_incomplete row for a session stopped by SessionIncomplete (no r2a_session row is written)."""
+    return {**base, "record": "r2a_session_incomplete", "incomplete": True, "error": str(exc.error)[:400],
+            "failed_call": exc.call, "n_turns_completed": len(rows), "n_turns_planned": n_turns_planned,
+            "retried": False, "ts_utc": utc_iso()}
+
+
 def _do_call(runtime, model, messages, num_ctx, tools, think, log, extra=None):
-    def go():
-        if extra:
-            return runtime.chat(model, messages, num_ctx, tools, think, extra=extra)
-        return runtime.chat(model, messages, num_ctx, tools, think)
-    resp = go()
-    retried = False
+    if extra:
+        resp = runtime.chat(model, messages, num_ctx, tools, think, extra=extra)
+    else:
+        resp = runtime.chat(model, messages, num_ctx, tools, think)
     if resp.get("outcome") == "error" and resp.get("status") is None:
-        log(f"  connection-level error ({resp.get('error')!r}); recovering and retrying once")
-        retried = True
-        if runtime.recover():
-            resp = go()
+        log(f"  connection-level error ({resp.get('error')!r}); session incomplete, no retry")
+        raise SessionIncomplete(resp.get("error"), _call_record(resp, messages, tools, extra))
     rec = _call_record(resp, messages, tools, extra)
-    rec["retried_after_connection_error"] = retried
+    rec["retried_after_connection_error"] = False   # kept for the row schema; no call is ever retried
     return resp, rec
 
 
@@ -1133,7 +1149,11 @@ def run_session(runtime, model, arm, seed, max_turns, emit, log, mode) -> dict:
     rows = []
     for turn in ags.spec.turns:
         t0 = time.monotonic()
-        row = run_turn(runtime, model, num_ctx, think, ags, turn, messages, log, call2_tools=call2_mode)
+        try:
+            row = run_turn(runtime, model, num_ctx, think, ags, turn, messages, log, call2_tools=call2_mode)
+        except SessionIncomplete as e:   # no r2a_session row; the run stops (SessionIncomplete docstring)
+            emit(incomplete_row(base, rows, e, len(ags.spec.turns)))
+            raise
         loaded = runtime.loaded_context(model)
         if turn.idx == 1:
             c1 = row["calls"][0]
