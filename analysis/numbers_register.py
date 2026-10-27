@@ -7795,6 +7795,109 @@ def compute_e2_cost_model_draft(repo):
             "n": f"{len(c['rows'])} utilization cases"}
 
 
+# ── Cross-runtime replication on llama.cpp server (2026-10-26; docs/EXPERIMENTS.md "PRE-REGISTRATION (2026-10-26):
+# cross-runtime replication on llama.cpp server"; harness/xruntime_llamacpp.py, queue id x2_xruntime_llamacpp). The
+# hours row is an ESTIMATE from measured times in committed files; the two result rows are PENDING until the file is
+# synced and holds run_end. The OpenVINO row is a placeholder awaiting Zach's files. ──
+XRT_FILE = "results/xruntime_llamacpp_qwen3_14b.jsonl"
+XRT_OUTCOME_TABLE = "results/x2_outcome_table_v3.jsonl"
+XRT_SPILL = "results/x2_mx2_qwen3_32b_spill_sweep.jsonl"
+XRT_OPENVINO_MANIFEST = "results/xruntime_openvino_zach/MANIFEST.json"
+
+
+def _xrt_module():
+    _r2_agent_module()
+    import xruntime_llamacpp as xrt
+    return xrt
+
+
+def _xrt_ci(e):
+    lo, hi = e["ci95"]
+    return (f"{100 * e['excess']:+.1f} points (95% CI " + (f"{100 * lo:+.1f} to {100 * hi:+.1f}" if lo is not None
+                                                            else "n/a")
+            + f", {e['n_sessions']} vs {e['n_default_sessions']} sessions)")
+
+
+def _xrt_arm(k, a):
+    w = a["wrong_by_context_event"]
+    return (f"({'a' if k == 'default' else 'b' if k == '4096' else 'c'}) {a['arm_id']}: wrong "
+            f"{_frac(a['wrong'], a['n_task_turns'])}, loaded n_ctx {a['loaded_n_ctx']}; wrong by server log event: "
+            f"flagged_reject {w['flagged_reject']}, silent_cut {w['silent_cut']}, ctx_stop {w['ctx_stop']}, "
+            f"error_other {w['error_other']}, none {w['none']}; silent share "
+            f"{_pct(a['silent_share']) if a['silent_share'] is not None else 'not read'}; harness-silent wrong (no "
+            f"HTTP error on any call, the Ollama row's definition) {a['harness_silent_wrong']}; task turns with a "
+            f"tool round {_pct(a['tool_turn_share'])}")
+
+
+def compute_xruntime_llamacpp_wrong_rate(repo, path=XRT_FILE):
+    """B3 v2 core on llama-server b10970, qwen3:14b GGUF, seeds 20260901-05: per arm the wrong-task rate, the
+    silent/flagged split from the server log, and the pre-registered primary reading (harness/xruntime_llamacpp.py::
+    outcome)."""
+    xrt = _xrt_module()
+    rows = xrt.ag.read_rows(repo / path)
+    if not rows:
+        raise FileNotFoundError(repo / path)
+    o = xrt.outcome(rows)
+    p = o["primary"]
+    segs = [_xrt_arm(k, o["arms"][k]) for k in xrt.ARM_ORDER]
+    prim = (f"primary: (b) 4096 over {p['comparator_reason']} " + (_xrt_ci(p["excess"]) if p["excess"] else "n/a")
+            + f"; reading: {p['reading']}")
+    return {"value": f"run finished {o['run_finished']}; valid {o['valid']}"
+                     + (f" ({'; '.join(o['problems'])})" if o["problems"] else "")
+                     + f"; server default loaded n_ctx {o['default_loaded_n_ctx']}; detector validated "
+                       f"{o['detector_validated']} (probes {o['detector_probes']}); " + "; ".join(segs) + "; " + prim
+                     + f" (bootstrap {xrt.EV.BOOT_N} resamples, unit session, stratified by arm, seed "
+                       f"{xrt.EV.BOOT_SEED})",
+            "n": f"{sum(a['n_task_turns'] for a in o['arms'].values())} task turns"}
+
+
+def compute_xruntime_default_fixed(repo, path=XRT_FILE, ref=X2_EVALSET_TASKS_REAL_V2):
+    """The default-fixed arm (c), -c 40960, on llama-server: what persists after the obvious fix, against Ollama's
+    default-window sessions of x2_evalset_tasks_real_v2 (harness/xruntime_llamacpp.py::outcome)."""
+    xrt = _xrt_module()
+    rows = xrt.ag.read_rows(repo / path)
+    if not rows:
+        raise FileNotFoundError(repo / path)
+    o = xrt.outcome(rows, xrt.ag.read_rows(repo / ref))
+    f = o["default_fixed"]
+    per = f["persists"] or {}
+    e = per.get("vs_ollama_default")
+    a = f["arm"]
+    return {"value": f"run finished {o['run_finished']}; valid {o['valid']}"
+                     + (f" ({'; '.join(o['problems'])})" if o["problems"] else "") + "; " + _xrt_arm("fixed", a)
+                     + f"; context-event turns at (c) {a['context_event_turns']}/{a['n_task_turns']}; (c) minus "
+                       f"Ollama ollama_default (x2-evalset-tasks-real-v2-wrong-rate, {per.get('ollama_sessions')} "
+                       "sessions) " + (_xrt_ci(e) if e else "n/a") + f"; reading: {per.get('reading')}",
+            "n": f"{a['n_task_turns']} task turns"}
+
+
+def compute_xruntime_llamacpp_hours(repo):
+    """ESTIMATE, not a measurement: evo-x2 hours of x2_xruntime_llamacpp (harness/xruntime_llamacpp.py::
+    hours_estimate)."""
+    xrt = _xrt_module()
+    h = xrt.hours_estimate(_read_jsonl(repo / X2_EVALSET_TASKS_REAL_V2), _read_jsonl(repo / XRT_OUTCOME_TABLE),
+                           _read_jsonl(repo / XRT_SPILL))
+    return {"value": f"ESTIMATE {h['point_h']:.2f} h (high {h['high_h']:.2f} h): 3 arms x {h['n_turns_per_arm']} task "
+                     f"turns at the B3 v2 Ollama run's measured mean turn wall (ollama_default "
+                     f"{h['mean_turn_wall_default_s']:.2f} s for arms a and c, ollama_ctx_4096 "
+                     f"{h['mean_turn_wall_4096_s']:.2f} s for arm b) x the measured llama_server / ollama_default "
+                     f"latency ratio {h['latency_ratio']:.3f} (qwen3-14b, {h['n_ratio_items']} matched items of "
+                     f"x2_outcome_table_v3) = {h['session_h']:.2f} h; + {h['n_starts']} server starts x "
+                     f"{h['start_overhead_s']:.1f} s (largest measured start-and-stop overhead of the qwen3-32b spill "
+                     f"sweep, a larger GGUF); + {h['probe_s_assumed']:.0f} s for the detector probe calls (ASSUMED); "
+                     f"high = x {h['high_factor_assumed']:.1f} (ASSUMED); arm b's rejected calls return at once on "
+                     "llama-server, so its share is likely an overestimate",
+            "n": f"{3 * h['n_turns_per_arm']} task turns"}
+
+
+def compute_xruntime_openvino_ceiling(repo):
+    """Placeholder: Zach's OpenVINO ceiling result as the second runtime's evidence. No parser until his files are
+    in results/xruntime_openvino_zach/ and their format is read; no numbers until then."""
+    files = sorted(p.name for p in (repo / XRT_OPENVINO_MANIFEST).parent.iterdir())
+    return {"value": f"files present ({', '.join(files)}), parser not written yet: no number is read until the "
+                     "operator has reviewed the files and a parser is committed", "n": "0"}
+
+
 NUMBER_ENTRIES = [
     {"claim_id": "PX2-TTFT-gap", "description": "PX2 B4-vs-S4 TTFT gap range across 5 models",
      "compute": compute_px2_ttft_gap, "data_files": ["results/t2s_night2_20260930T135145Z.jsonl"],
@@ -9033,6 +9136,28 @@ NUMBER_ENTRIES = [
      "compute": compute_own_profiler_probe_hours,
      "data_files": [X2_EVALSET_TASKS_REAL_V2, MITIGATION_X2_FILE, B5_X2_FILE] + FILL_1022_DATA + L70_HOURS_DATA,
      "script_function": "harness/x2_own_profiler_probe.py::hours_estimate"},
+    {"claim_id": "xruntime-llamacpp-wrong-rate", "description": "Cross-runtime replication of the B3 v2 core on "
+     "llama-server b10970 (evo-x2, qwen3:14b GGUF, seeds 20260901-05): per arm (server default, -c 4096, -c 40960) the "
+     "wrong-task rate, the silent/flagged split from the server's own log lines, and the pre-registered reading "
+     "(replicated iff the 4096 excess CI excludes 0); PENDING until the file has run_end",
+     "compute": compute_xruntime_llamacpp_wrong_rate, "data_files": [XRT_FILE], "pending_ok": True,
+     "require_run_end": [XRT_FILE], "script_function": "harness/xruntime_llamacpp.py::outcome"},
+    {"claim_id": "xruntime-default-fixed", "description": "Cross-runtime replication, default-fixed arm (c): "
+     "llama-server with -c 40960 (the GGUF's trained context); its wrong rate, silent share and context events, and "
+     "(c) minus Ollama's default-window rate with a session bootstrap: what persists after the obvious fix; PENDING "
+     "until the file has run_end",
+     "compute": compute_xruntime_default_fixed, "data_files": [XRT_FILE, X2_EVALSET_TASKS_REAL_V2],
+     "pending_ok": True, "require_run_end": [XRT_FILE], "script_function": "harness/xruntime_llamacpp.py::outcome"},
+    {"claim_id": "xruntime-llamacpp-hours", "description": "ESTIMATE, not a measurement: evo-x2 hours of the "
+     "cross-runtime replication job x2_xruntime_llamacpp from measured B3 v2 turn times, the measured llama_server / "
+     "Ollama latency ratio and measured server start overhead",
+     "compute": compute_xruntime_llamacpp_hours,
+     "data_files": [X2_EVALSET_TASKS_REAL_V2, XRT_OUTCOME_TABLE, XRT_SPILL],
+     "script_function": "harness/xruntime_llamacpp.py::hours_estimate"},
+    {"claim_id": "xruntime-openvino-ceiling", "description": "Cross-runtime replication, second runtime: Zach's "
+     "OpenVINO ceiling result, recorded once he shares the files (awaiting Zach's files); no number until then",
+     "compute": compute_xruntime_openvino_ceiling, "data_files": [XRT_OPENVINO_MANIFEST], "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_xruntime_openvino_ceiling"},
 ]
 
 

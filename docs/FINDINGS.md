@@ -6287,3 +6287,23 @@ own-plan-execute pilot".
 - **evo-x2 hours (ESTIMATE, same row):** 2.20 h (high 5.23 h).
 - **Built:** harness/plan_execute.py with `--dry-run`, and tests/test_plan_execute.py (fakes only). **Not built:** the
   controller cloud script for phases 1 and 3, the evo-x2 queue job for phase 2, and the 60-task all-cloud run.
+
+## PRE-REGISTRATION (2026-10-26): cross-runtime replication (pointer)
+
+**Status: pre-registered, not run.** The full entry, in the Mandatory Run Template, is the docs/EXPERIMENTS.md section
+"PRE-REGISTRATION (2026-10-26): cross-runtime replication on llama.cpp server".
+
+- **Question:** is the B3 v2 core result (row x2-evalset-tasks-real-v2-wrong-rate, Ollama, qwen3:14b: 42.0% wrong at
+  4096 vs 11.3% at the default window, 5 seeds) an Ollama bug, or does it hold on llama.cpp server too?
+- **Design:** the same B3 v2 session, tasks and seeds 20260901-05 on llama-server b10970 Vulkan on evo-x2
+  (harness/xruntime_llamacpp.py, queue id x2_xruntime_llamacpp), qwen3:14b as the official Q4_K_M GGUF, one fresh server
+  per session, stale-server guard. Arms: (a) the server default window (no `-c`; documented default "0 = loaded from
+  model", the GGUF's 40960, recorded from `/props`), (b) `-c 4096`, (c) "default fixed" `-c 40960`.
+- **Wording, fixed before data:** "replicated" iff the session-bootstrap 95% CI of (b) minus (a) excludes 0 on the
+  positive side (comparator (c) if (a) loads 4096); otherwise "not replicated". Silent vs flagged from the server's own
+  log lines (detector validated by a probe first). What persists after the fix: (c)'s wrong rate and silent share,
+  and (c) minus Ollama's default-window rate (context only: other weights file, template and build).
+- **Rows:** xruntime-llamacpp-wrong-rate, xruntime-default-fixed (PENDING until run_end); xruntime-llamacpp-hours
+  (ESTIMATE 1.94 h, high 2.91 h); xruntime-openvino-ceiling (awaiting Zach's files, no numbers until then).
+- **LM Studio (third runtime):** plan only. It cannot be confined to one folder on evo-x2 (user-profile data home,
+  AppData, PATH), so it needs the operator's approval before any install.

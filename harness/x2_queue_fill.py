@@ -36,6 +36,8 @@ LT_HOURS = {"point": 9.63, "high": 16.92}
 OC_HOURS = {"part_a": (1.04, 3.07), "part_b": (1.89, 2.08), "probe": (0.27, 0.66)}
 # register row own-profiler-probe-hours (ESTIMATE; harness/x2_own_profiler_probe.py::hours_estimate), (point, high)
 OP_HOURS = (0.78, 1.38)
+# register row xruntime-llamacpp-hours (ESTIMATE; harness/xruntime_llamacpp.py::hours_estimate), (point, high)
+XRT_HOURS = (1.94, 2.91)
 _OC_COMMON = ["--design", "v2", "--mode", "real", "--workload", "evalset", "--guardrails", "off", "--models",
               "qwen3:14b", "--preflight", "v2_te_deviation", "--rules-from", f"{RESULTS}\\x2_evalset_tasks_val_v2.jsonl"]
 
@@ -270,6 +272,18 @@ ENTRIES = {
                 "default/16384/8192/4096, q8_0 15360, q4_0 28928), each with the job's own debug server, detector v2 "
                 "and the llama_kv_cache line; per-config files x2_own_profiler_probe_v1_<tier>.jsonl. ESTIMATE "
                 f"{OP_HOURS[0]:.2f} h (high {OP_HOURS[1]:.2f} h; register row own-profiler-probe-hours). " + RELEASE,
+    },
+    # ── cross-runtime replication on llama.cpp server (2026-10-26; docs/EXPERIMENTS.md "PRE-REGISTRATION
+    # (2026-10-26): cross-runtime replication on llama.cpp server"; side directory xrt; queued after the demo hold) ──
+    "x2_xruntime_llamacpp": {
+        "projected_duration_h": XRT_HOURS[0],
+        "cmd": [PY, "xrt\\xruntime_llamacpp.py", "--out", f"{RESULTS}\\xruntime_llamacpp_qwen3_14b.jsonl"],
+        "note": "Cross-runtime replication of the B3 v2 core on llama-server b10970 Vulkan, pre-registered in "
+                "docs/EXPERIMENTS.md 2026-10-26: qwen3:14b (C:\\apu\\models\\Qwen3-14B-Q4_K_M.gguf), 30 task turns x "
+                "seeds 20260901-05 x arms (a) server default window, (b) -c 4096, (c) -c 40960 default fixed; one "
+                "fresh server per session on its own port 58421 with the stale-server guard; detector probe first. "
+                f"ESTIMATE {XRT_HOURS[0]:.2f} h (high {XRT_HOURS[1]:.2f} h; register row xruntime-llamacpp-hours). "
+                + RELEASE,
     },
 }
 

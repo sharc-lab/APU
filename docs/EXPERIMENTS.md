@@ -1883,3 +1883,199 @@ qwen3:14b ollama_default wrong 17/150):
   reference writes.
 - The all-cloud baseline accuracy is measured on 5 tasks so far (5/5); arm C on 60 tasks may be lower, which moves
   the accuracy bar.
+
+## PRE-REGISTRATION (2026-10-26): cross-runtime replication on llama.cpp server ("not just an Ollama bug")
+
+**Status: pre-registered, not run, not queued by this commit.** Written and committed before any data. Rows
+`xruntime-llamacpp-wrong-rate` and `xruntime-default-fixed` stay PENDING until the result file holds `run_end`. Row
+`xruntime-llamacpp-hours` is an ESTIMATE, not a measurement. Pointer in docs/FINDINGS.md, "PRE-REGISTRATION
+(2026-10-26): cross-runtime replication (pointer)".
+
+The operator's brief, verbatim: "pre-register a cross-runtime replication. Run the B3 v2 core result (wrong-task rate
+at a 4096 vs default window, qwen3:14b, 5 seeds) on llama.cpp server (portable build, one folder) on evo-x2, plus a
+'default fixed' arm (correct window set explicitly) to show what persists after the obvious fix. Plan LM Studio as the
+third runtime (install footprint first; ask before installing anything outside one folder). Record Zach's OpenVINO
+ceiling result as the second runtime's evidence once he shares files. Rows: xruntime-llamacpp-wrong-rate,
+xruntime-default-fixed."
+
+The result being replicated, row `x2-evalset-tasks-real-v2-wrong-rate` (Ollama, qwen3:14b, 5 seeds, 150 task turns
+per tier): "ollama_default: wrong 17/150 (11.3%) (silent 17, surfaced 0), loaded context [40960]" and
+"ollama_ctx_4096: wrong 63/150 (42.0%) (silent 63, surfaced 0), loaded context [4096]"; "ollama_ctx_4096 excess over
+default +30.7 points (95% CI +26.0 to +34.7, 5 vs 5 sessions)".
+
+### Metadata
+
+- Date: 2026-10-26 (pre-registration)
+- Git hash: the commit that adds this section (parent 383e498)
+- Branch: worktree branch, merged by the operator
+- Machine: evo-x2 (AMD), llama-server b10970 Vulkan at `C:\apu\bin\llama-b10970\llama-server.exe` (the binary of
+  harness/mx2_validation.py and harness/x2_outcome_table.py; portable, one folder). Queue id `x2_xruntime_llamacpp`,
+  side directory `C:\apu\ovn\xrt`, own port 58421.
+
+### Configuration
+
+- Runtime: llama-server's OpenAI-compatible `/v1/chat/completions`, driven by harness/xruntime_llamacpp.py, a thin
+  adapter around harness/x2_r2_evalset.py's `run_session` (x2_r2_evalset and x2_r2_agent unchanged).
+- Model: qwen3:14b weights as the official `Qwen3-14B-Q4_K_M.gguf` at `C:\apu\models` on evo-x2 (9,001,752,960 bytes,
+  sha256 `500a8806e...ffeb6b81f0`, docs/X2_CHANGELOG.md 2026-09-28; the file the llama_server leg of
+  x2_outcome_table uses). The job hashes it and refuses on a mismatch. GGUF trained context 40960 (docs/STATE.md:
+  llama-server clamps qwen3-8b/14b/32b requests above n_ctx_train 40960).
+- Session: the B3 v2 task session exactly as `x2_evalset_tasks_real_v2` (design v2, tool loop, at most 4 tool rounds,
+  30 task turns, guardrails off, the same evalset_env tasks, checkers and end-state scoring), think off
+  (`chat_template_kwargs.enable_thinking=false` plus `--reasoning-budget 0`), temperature 0, seed 42, max_tokens 384
+  (the Ollama run's num_predict). Seeds 20260901, 20260902, 20260903, 20260904, 20260905.
+- Server flags, the same on every arm: `-m <gguf> --host 127.0.0.1 --port 58421 --no-webui -ngl 99 -np 1 --jinja
+  --reasoning-format deepseek --reasoning-budget 0 --log-file <per-session log> --log-verbosity 3`. Context shift is
+  left at the server default (neither `--context-shift` nor `--no-context-shift`). One fresh server process per
+  session, the counterpart of the Ollama run's model unload before each session. `-np 1` is not the server default
+  (`-1 = auto`); every earlier llama-server harness pins it and the guard asserts one slot.
+- Arms (the only difference is `-c`):
+  - **(a) server default window, `llamacpp_default`: no `-c`.** b10970's own `--help` (read from the binary, build
+    10970 commit bfdc32183): "-c, --ctx-size N size of the prompt context (default: 0, 0 = loaded from model)", and
+    "-fit, --fit [on|off] whether to adjust unset arguments to fit in device memory ('on' or 'off', default: 'on')"
+    with "--fit-ctx N minimum ctx size that can be set by --fit option, default: 4096". So the documented default is
+    the GGUF's trained context, 40960, unless `--fit` lowers it to fit device memory (not below 4096). The value the
+    server actually loads is read from `/props` at every start and recorded (`server_start.props_n_ctx`); the arm is
+    reported by that value. The job records evo-x2's own `--help` lines in `run_start`.
+  - **(b) `llamacpp_ctx_4096`: `-c 4096`.**
+  - **(c) "default fixed", `llamacpp_ctx_40960`: `-c 40960`.** The obvious fix applied: the window set explicitly to
+    the model's full trained context, 40960, which is also the window Ollama's default loaded for qwen3:14b in the
+    run being replicated (`loaded context [40960]` above). Not 131072: that needs YaRN rope scaling, which neither the
+    GGUF default nor Ollama's default applies, and llama-server clamps requests above n_ctx_train.
+- Arm order: (a) then (b) then (c), seeds in order within an arm. A detector probe runs first on its own server start.
+- Expected coincidence, stated now: if (a) loads 40960, (a) and (c) are the same configuration started two ways; their
+  difference is then a reproducibility check, not a fix effect. If (a) loads 4096, (a) and (b) are the same
+  configuration and the primary comparison uses (c) as the comparator (below).
+
+### Detector (ground truth for silent vs flagged)
+
+- The server's own log, per call: the byte slice of the session's server log from before the call to 0.3 s after
+  the response, matched against fixed patterns (harness/xruntime_llamacpp.py `REJECT_RE`, `SHIFT_RE`, `TRUNC_RE`,
+  `CTX_STOP_RE`). What llama.cpp logs, as this repo has verified it on b10970 (harness/llama_server.py docstring,
+  evo-t2s): a prompt over the window is rejected with HTTP 400 `exceed_context_size_error` ("the request exceeds the
+  available context size"); context shift applies only to generation overflow and logs "slot context shift"; context
+  shift is disabled by default on b10970 (its `--help`: "--context-shift, --no-context-shift ... (default:
+  disabled)"). Older builds logged "input truncated" for prompt truncation; that pattern is kept in case it appears.
+- Call classes: **flagged_reject** (HTTP 4xx with the context-size error in the body or the log: the client is told);
+  **silent_cut** (HTTP 200 and a context-shift or truncation line: tokens dropped, the client is not told);
+  **ctx_stop** (HTTP 200, generation stopped at the window: a stop line, or finish_reason "length" with prompt plus
+  completion at the window; visible to a client that reads finish_reason); **error_other** (any other HTTP or
+  connection error); **none**. A turn takes the first class any of its calls has, in that order.
+- Detector probe, before any session, on a server at `-c 1024`: one prompt over the window and one generation over the
+  window (max_tokens 2048). The detector is validated iff the first is classed flagged_reject or silent_cut and the
+  second silent_cut or ctx_stop. If it is not validated, the silent/flagged split is reported as "not read" and only
+  the wrong rate is read. The probe rows keep the matched lines verbatim.
+- The Ollama row's definition (silent = a wrong turn with no HTTP error on any call) is reported alongside, so the two
+  runtimes are compared on the same definition.
+
+### Stale-server guard and queue rules
+
+- harness/server_guard.py at every start: port 58421 free (else the job stops; never reuse a listener); after the
+  start `/props` model path and slot count, and for (b) and (c) `n_ctx`, plus the command line; before every request
+  the listening PID equals the started PID, else the arm stops (`guard_stop` record) and its partial session does not
+  count.
+- `run_start` (exe, GGUF size and sha256, server commands, `--help` lines, detector patterns, module blobs, Ollama's
+  loaded models) and `run_end`; `t2s_queue.advance()` exactly once on exit; no pause set. Completed sessions are
+  skipped on a rerun into the same file.
+- `--check-plan`: plan, sessions, server commands, exe and GGUF presence and size, port listeners, the server's
+  `--help` lines; no server start, no model call, no queue access.
+
+### Primary outcome (defined before data)
+
+- Wrong-task rate per arm over all task turns (end_state_ok false), 5 sessions x 30 task turns per arm.
+- Primary comparison: (b) minus (a), the pooled rate difference with the session-level bootstrap of
+  x2_r2_evalset.session_bootstrap_excess (10000 resamples, sessions resampled within each arm, seed 20261014), the
+  same unit and method as row `x2-evalset-tasks-real-v2-wrong-rate`. If (a)'s recorded `/props` n_ctx is 4096, the
+  comparator is (c) instead (declared fallback, labeled in the row).
+
+### Pass/fail wording (fixed now, before data)
+
+- **"replicated"** iff the 95% CI of (b) minus the comparator excludes 0 on the positive side.
+- **"not replicated"** otherwise.
+- The run is valid only if: `run_end` present; every arm has all 5 seeds completed with 30 task turns; no `guard_stop`;
+  (b) loaded 4096 and (c) loaded 40960 on every start; (a) loaded one value on every start; and the tool-path gate:
+  at least 90% of (c)'s task turns executed at least one tool round (the B3 tasks need tool calls; a lower share
+  means the tool-call path did not work on this runtime, and nothing is read). An invalid run is reported as "not
+  read" with its reasons.
+- **Silent share** at each arm = silent_cut turns / wrong turns (detector validated only). Interpretation, fixed now:
+  replicated with a silent share at (b) under 50% reads "the 4096 window breaks tasks on llama.cpp too, but
+  llama-server reports it; the silence is Ollama's"; replicated with a silent share of 50% or more reads "replicated,
+  silent on both runtimes".
+- **What persists after the obvious fix (row `xruntime-default-fixed`):** at (c), the wrong rate, its silent share on
+  the Ollama row's definition, and the number of (c) turns with any server context event (expected 0: the session's
+  projected largest prompt is about 23,100 tokens, from `--check-plan`). Then (c) minus Ollama's ollama_default
+  sessions of `x2_evalset_tasks_real_v2` (same 5 seeds), session bootstrap as above: a CI including 0 reads "matches
+  Ollama's default-window rate" (what persists is the in-window error rate, not a runtime effect); above 0 "higher on
+  llama.cpp at the fixed window"; below 0 "lower on llama.cpp at the fixed window". This second comparison crosses
+  runtimes, weights files and chat templates, so it is context for the persisting rate, not a test of the window.
+
+### Prediction (stated, not a pass condition)
+
+- b10970 rejects over-window prompts with HTTP 400 (verified behaviour above), so at (b) every call after the session
+  passes 4096 tokens is expected to be rejected: a large excess, almost all flagged_reject, silent share near 0. If
+  that holds, the window hazard replicates on llama.cpp while Ollama's silent truncation does not.
+
+### Command
+
+- Deploy (scripts/deploy_evo.py, side directory `C:\apu\ovn\xrt`): xruntime_llamacpp.py, x2_r2_evalset.py,
+  evalset_env.py, agent_trace_replay.py, agent_trace_steps_uncensored.json, x2_num_keep.py, own_compaction.py,
+  x2_r2_client_trim.py, x2_r2_mechanism.py, prompt_token_check.py, server_guard.py, proc_util.py; x2_r2_agent,
+  t2s_r2_session_growth, host_config and t2s_queue from `C:\apu\ovn` (blobs recorded in run_start). x2_queue_fill.py
+  to `C:\apu\ovn\qfill`.
+- Checks before queueing, no model call: `qfill\x2_deploy_check.py --verify C:\apu\ovn\xrt C:\apu\ovn\qfill` and
+  `xrt\xruntime_llamacpp.py --check-plan`.
+- Queue entry (harness/x2_queue_fill.py `x2_xruntime_llamacpp`), after the running demo hold
+  (`x2_demo_hold_rehearsal`, until 2026-10-27 02:45Z): `python xrt\xruntime_llamacpp.py --out
+  C:\apu\ovn\results\xruntime_llamacpp_qwen3_14b.jsonl`.
+
+### Replay Cache State
+
+- Not applicable: live calls only, no replay.
+
+### Hours (ESTIMATE, row xruntime-llamacpp-hours)
+
+- 1.94 h (high 2.91 h): 3 arms x 150 task turns at the B3 v2 Ollama run's measured mean turn wall (10.64 s for arms a
+  and c, 18.54 s for arm b) x the measured llama_server / ollama_default latency ratio 1.067 (qwen3-14b, 289 matched
+  items of x2_outcome_table_v3), plus 16 server starts at 26.9 s each (measured, qwen3-32b spill sweep) and 180 s of
+  probe calls (ASSUMED); high = x 1.5 (ASSUMED). Arm b's rejected calls return at once, so its share is likely an
+  overestimate.
+
+### Validity Flags (stated before the run)
+
+- The primary comparison is within one runtime (same binary, weights, template and flags; only `-c` differs), so the
+  runtime differences below do not confound it.
+- Against the Ollama run, the weights file differs (official Qwen GGUF vs the Ollama library blob, both Q4_K_M), the
+  chat template differs (row x2-chat-template-source: qwen3-14b ollama_library template sha256 ae370d884f10 vs
+  gguf_embedded_llama_server 57f1fd00f001), the llama.cpp build differs (Ollama 0.34.4 bundles b11081, row
+  impact-v2-detection-value; this run uses b10970), and tool calls are parsed by llama-server's jinja path instead
+  of Ollama's. Hence the (c) vs Ollama reading is context only.
+- `--fit` is on by default and could lower (a)'s window on a machine short of memory; `/props` records what loaded.
+- The 4096 arm on llama-server fails loudly by design of the runtime; a client that retries or trims on HTTP 400
+  would behave differently. This run, like the Ollama run, does not trim or retry (one retry on a connection-level
+  error only, the x2_r2_agent rule).
+
+### Third runtime: LM Studio (plan only; nothing installed)
+
+- **Install footprint (from LM Studio's documentation as known offline; verify against the installer before any
+  install):** the Windows desktop app is a per-user installer into `%LOCALAPPDATA%\Programs\LM Studio`, with its
+  data home at `%USERPROFILE%\.lmstudio` (models, the `lms` CLI at `.lmstudio\bin\lms.exe`, downloaded engine
+  runtimes such as llama.cpp Vulkan) and Electron state under `%APPDATA%\LM Studio`. The headless daemon (`llmster`)
+  installs through a script (`irm https://lmstudio.ai/install.ps1 | iex` on Windows) into the same `.lmstudio` home.
+  A home-pointer file in the user profile can move the data home, but the pointer itself and the app's own state sit
+  outside any one folder. `lms bootstrap` edits the user PATH.
+- **Driving it:** `lms server start --port <p>` serves an OpenAI-compatible `/v1/chat/completions` (tools supported),
+  `lms load <model> --context-length <n> --gpu max` sets the window per load, and `lms import <gguf>` can register
+  the existing `C:\apu\models\Qwen3-14B-Q4_K_M.gguf` (copy, move or link). The same thin-adapter approach as
+  harness/xruntime_llamacpp.py would apply, with the window set by `lms load` instead of `-c`. Its default context
+  length at load is a per-model setting in the app (4096 in versions this repo knows of; to be read from the
+  installed version, not assumed).
+- **Verdict:** it cannot run on evo-x2 from one folder: both the app and the headless daemon write to the user
+  profile (`.lmstudio`, `%APPDATA%`, PATH) and pull engine runtimes at first use. It needs the operator's approval
+  before any install (X2 ask-first: installing outside one folder). Disk: about 1 GB for the app and a runtime pack
+  (estimate, unverified), plus 9.0 GB only if the GGUF is copied instead of linked.
+
+### Second runtime: OpenVINO (Zach), awaiting Zach's files
+
+- Placeholder row `xruntime-openvino-ceiling`: PENDING until his files are in `results/xruntime_openvino_zach/` with
+  a `MANIFEST.json`. **Awaiting Zach's files. No numbers until then.** When they arrive, the operator reviews them,
+  a parser is committed, and the row reads his ceiling result as the second runtime's evidence.
