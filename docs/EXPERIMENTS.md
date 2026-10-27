@@ -1883,3 +1883,145 @@ qwen3:14b ollama_default wrong 17/150):
   reference writes.
 - The all-cloud baseline accuracy is measured on 5 tasks so far (5/5); arm C on 60 tasks may be lower, which moves
   the accuracy bar.
+
+## PLAN (2026-10-26, plan only, nothing built, queued or run): real long agent sessions to replace the 20 synthetic long tasks
+
+**Status: PLAN. Not a pre-registration, not registered, not queued, no machine time, no cloud call.** It becomes a
+pre-registration only as a separate entry written before any data. Hours below are labelled: offline build hours are
+the planner's own ESTIMATE; machine hours are an ESTIMATE computed from measured per-call and per-task times pasted
+from register rows. No new register row was added for this plan.
+
+### Headline long-task number (row long-task-local-accuracy, VERIFIED)
+
+Quoted from the row: "long-horizon synthetic, trace-length matched (not SWE-Gym, not OpenHands tasks): qwen3:14b on
+evo-x2, 20 tasks (10 matched to SWE-Gym step quantiles, 10 to nebius-rebench-openhands), seeds [20260901, 20260902,
+20260903]; ... ollama_default (B5 policy a, num_ctx sent None, loaded window [40960]): accuracy 5/60 (8.3%, Wilson 95%
+3.6% to 18.1%); wrong 55: silent 55 (share of wrong 100.0%, of all tasks 91.7%), surfaced 0 ...; kv_q8_0 (B5 policy
+g, num_ctx sent 40960, loaded window [40960]): accuracy 4/60 (6.7%, Wilson 95% 2.6% to 15.9%); wrong 56: silent 56".
+Per stratum (same row): "openhands 0/30 (silent 30, 1.2 min/task), swegym 5/30 (silent 25, 0.4 min/task)" for
+ollama_default.
+
+Why replace the synthetic tasks: the same row records "median final prompt est per stratum openhands 5774, swegym 1578
+(traces' median final prompt: swegym 2020, openhands 50559 qwen tokens)", so the synthetic OpenHands stratum reaches
+about a ninth of the real traces' final prompt (harness/longtask_env.py docstring: per-step growth about 100 to 250
+tokens vs the traces' about 786). The synthetic tasks match real step counts, not real prompt growth or real task
+content.
+
+### Constraint that shapes the design
+
+harness/longtask_env.py docstring (checked 2026-10-22 on evo-x2, read-only): "no Docker, no git, WSL not installed ...
+no pytest". Installing WSL2 or Docker needs administrator feature changes and a reboot, which this program does not
+do. So every session must replay offline in plain Windows Python 3.12 on evo-x2, with no container, no network, and no
+git on the run host. Task material is prepared on the controller laptop and copied byte-exact (scripts/deploy_evo.py
+pattern).
+
+### Sources
+
+Coding (real recorded agent sessions):
+- nebius/SWE-rebench-openhands-trajectories (already sampled by analysis/agent_traces.py; uncensored, Qwen3-Coder
+  480B, OpenHands v0.54.0; the "openhands" stratum, n=36 in harness/agent_trace_steps_uncensored.json, median 62
+  steps per the longtask_env docstring). Each trajectory names a real repository, base commit and instance tests.
+- SWE-Gym/OpenHands-Sampled-Trajectories (already sampled; "swegym" stratum, n=600, median 6 steps). Only its upper
+  step quantiles are long; use it as the second source, not the main one.
+- Not used: nebius/SWE-agent-trajectories and the Kwai-Klear set (censored at the generator's window, see the
+  analysis/agent_traces.py docstring).
+
+Document review (real documents and real expert labels; no recorded agent session source is known in this repo):
+- Candidate: CUAD (contract understanding, clause-category labels by legal annotators). Candidate alternative:
+  ContractNLI (per-contract hypothesis labels with evidence spans). The session is the local model's own review of a
+  real contract through paged tools; the real parts are the document and the gold labels, not a recorded trajectory.
+  This difference from the coding sessions is stated in the report, not hidden.
+
+Licences (TO VERIFY from each dataset card and each repository before use; not checked in this offline task):
+- Each trajectory dataset's own licence, and separately the licence of every repository snapshot a coding task uses.
+- The contract dataset's licence (attribution terms, if any, go in the report).
+- Rule regardless of licence: task material (repository snapshots, contracts, trajectories) stays out of this public
+  repo. Only a manifest is committed: dataset name and revision, instance id, base commit, sha256 of each copied file,
+  and the licence string as read from the card.
+
+### Making them replayable offline with a deterministic grader
+
+Coding (prefix replay plus continuation):
+- Workspace: the repository at the instance's base commit, exported on the laptop (git archive, laptop only) and
+  copied as a tarball, plus an offline venv built from wheels copied with it (no pip network access on evo-x2).
+- Tools (pure Python, no shell): read_file, list_dir, search (a deterministic Python grep), edit_file (exact string
+  replace), run_tests (runs only the instance's named tests with the stdlib unittest runner or the repo's own runner
+  from the venv, fixed PYTHONHASHSEED, timeout, output captured and truncated deterministically).
+- Prefix replay: the first k recorded steps are fed verbatim (the recorded assistant turns and the recorded tool
+  observations), so the prompt grows at the real per-step rate; the local model then continues to the end. k is
+  chosen per task so the replayed prefix fits the loaded window with room to finish (the traces' median final prompt,
+  50559 qwen tokens, is over qwen3:14b's 40960 window on evo-x2). Recorded observations from the original Linux
+  container are kept as history only, with paths mapped; they are not re-executed.
+- Grader (end-state check, in the spirit of evalset_env's check): after the session, run the instance's FAIL_TO_PASS
+  and PASS_TO_PASS tests in the venv. end_state_ok iff all FAIL_TO_PASS pass and no PASS_TO_PASS fails. No LLM judge.
+- Screening (offline, before any model run): keep an instance only if, on Windows Python 3.12 with the copied venv,
+  base fails its FAIL_TO_PASS tests and base plus the gold patch passes all named tests, identically on two
+  consecutive runs. ASSUMPTION: about one instance in five survives (Linux-only repositories, native builds, network
+  tests), so about 100 candidates are screened to keep 20.
+
+Document review:
+- Workspace: one real contract split into numbered clauses; tools read_section(n) (paged, so the prompt grows with
+  what the model reads), search(term), record_finding(category, clause_id), finish().
+- Task: a review order naming 8 to 12 clause categories to check, sized so the reference session (read every clause
+  once, record each gold finding) reaches 40 to 60 steps.
+- Grader (end-state check): the set of recorded (category, clause_id) pairs equals the gold set for the named
+  categories (order not graded, duplicates ignored). end_state_ok iff equal. A per-category F1 is descriptive only.
+
+### Task count
+
+- 40 tasks: 20 coding (from the screened nebius-rebench-openhands and upper-quantile SWE-Gym instances), 20 document
+  review. Seeds 20260901, 20260902, 20260903, as long-task-local-accuracy.
+- Primary arm kv_q8_0 (B5 policy g, num_ctx 40960), 3 seeds: 120 task runs, 60 per domain, the same n per cell as the
+  synthetic row's 60 per arm.
+- Secondary arm ollama_default (B5 policy a): 1 seed (40 runs) unless the operator asks for 3; see the hours.
+- Pilot first: 4 tasks (2 per domain), 1 seed, kv_q8_0, to measure real per-task minutes before sizing the full job.
+
+### Hours
+
+Offline build hours (planner's ESTIMATE, not measured):
+
+| Work | Hours |
+|---|---|
+| Source download on the laptop, licence check, manifest | 3 |
+| Coding workspace export, wheel venv builder, deploy integration | 8 |
+| Coding tools, prefix replay, path mapping | 8 |
+| Screening runner (about 100 candidates, laptop) and the test-runner grader | 8 |
+| Document review env, clause splitter, review orders, grader | 8 |
+| Job harness on the x2_longtask pattern (server guard, run_start/run_end, report, register compute function) | 6 |
+| Tests with a fake client, dry run, pre-registration text | 4 |
+| Total | 45 |
+
+Machine hours on evo-x2 (ESTIMATE from measured times in register rows; the per-call times are the "B5 call time per
+10k prompt band median/p75 s" pasted in row long-task-local-hours):
+- ollama_default: 0k 7.6/8.9, 10k 12.4/15.2, 20k 20.5/30.4, 30k 222.5/248.1 s; kv_q8_0: 0k 6.6/7.9, 10k 8.1/10.4,
+  20k 10.0/12.1, 30k 14.4/16.0 s.
+- ASSUMPTION: about 60 calls per task (the openhands stratum median of 62 steps), with the prompt growing evenly to
+  near the 40960 window, so 15 calls in each 10k band.
+- Per task, central (medians) / high (p75): kv_q8_0 15 x (6.6 + 8.1 + 10.0 + 14.4) = 586.5 s = 9.8 min (high 696 s =
+  11.6 min); ollama_default 15 x (7.6 + 12.4 + 20.5 + 222.5) = 3945 s = 65.8 min (high 4539 s = 75.7 min).
+- Low bound from the synthetic row's measured rate (row long-task-local-accuracy: kv_q8_0 "minutes per task mean
+  0.81 ... calls per task mean 25.4", 1.91 s per call; ollama_default "minutes per task mean 0.80 ... calls per task
+  mean 23.9", 2.01 s per call), at 60 calls: 1.9 min (kv_q8_0) and 2.0 min (ollama_default) per task. This ignores
+  the longer prompts, so it is a floor.
+
+| Job | Runs | Low | Central | High |
+|---|---|---|---|---|
+| Pilot, kv_q8_0, 4 tasks x 1 seed | 4 | 0.1 h | 0.7 h | 0.8 h |
+| kv_q8_0, 40 tasks x 3 seeds | 120 | 3.8 h | 19.6 h | 23.2 h |
+| ollama_default, 40 tasks x 1 seed | 40 | 1.3 h | 43.8 h | 50.4 h |
+| ollama_default, 40 tasks x 3 seeds (not proposed) | 120 | 4.0 h | 131.5 h | 151.3 h |
+
+- Central total for the proposed jobs (pilot, kv_q8_0 3 seeds, ollama_default 1 seed): about 64 h, dominated by
+  ollama_default's 30k band (222.5 s per call). kv_q8_0 alone with the pilot: about 20 h central.
+- Not included: screening test runs on evo-x2 (ASSUMPTION: about 1 minute per kept instance, under 0.5 h), model load
+  and warm-up (1 warm-up call per arm), results sync intervals.
+- The pilot's measured per-task minutes replace these estimates before the full job is sized or queued.
+
+### Open questions for the operator
+
+- Whether the ollama_default arm is worth about 44 h central at 1 seed, or kv_q8_0 only.
+- Whether CUAD or ContractNLI (or another source the operator prefers) is the document-review source, after the
+  licence check.
+- Whether a coding task with a partially replayed real prefix counts as "a real long agent session" for the paper,
+  or only from-scratch sessions on real instances (from scratch drops the real prompt-growth prefix and makes the
+  sessions shorter on a 14B model).
