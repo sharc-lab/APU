@@ -18,6 +18,51 @@ No status field is valid without a cited file path.
 
 ---
 
+## Lead claims (added 2026-10-26): correctness first, cost as a hard cap
+
+**Reliability and budget control for local and hybrid agents: correctness is the hook, cost is a hard cap.** On the
+B3 v2 tool-using tasks with qwen3:14b on evo-x2 (AMD), a local model that runs out of memory gets tasks wrong without
+saying so, and routing plus a cloud fallback removes most of those wrong answers while costing less than sending
+everything to the cloud. Every figure below is from the register row in brackets, with its condition. A session is one
+30-task local run (one memory setting, one seed); "task-level" CIs treat tasks as independent, "session-level" CIs
+resample whole sessions (10000 resamples, seed 20261014, stratified by memory setting where there is more than one).
+
+### Claim L-01 (LEAD): local wrong answers are silent and frequent under a small memory setting
+**At the 8192 memory setting route at start gives 16x fewer wrong answers than naive local, and 0/197 wrong local
+tasks surfaced a warning.**
+
+- Evidence: naive local wrong 36.7% (33/90), route at start wrong 2.2% (2/90), 16.5x, session-level CI [6.0x, 19.0x]
+  over 3 sessions (very coarse) (`hybrid-route-at-start-measured`, `headline-ci-session-hybrid`); at the default
+  window naive local wrong 11.1% (10/90) (`hybrid-savings-v1`, `cost-target-scenario`); surfaced 0.0% (0/197),
+  task-level Wilson [0.0%, 1.9%], session-level point at 0 over 25 sessions (`x2-evalset-tasks-real-v2-silent-total`).
+- Files: results/x2_evalset_tasks_real_v2.jsonl, results/all_cloud_b3_v1.jsonl, results/cloud_redo_full_context_v1*.jsonl, results/own_rollback_redo_v1.jsonl.
+- Hardware: evo-x2.
+- **Status: ON-TARGET (evo-x2), measured; the 16x is a replay at 8192 only.**
+
+### Claim L-02 (LEAD): the cloud rescues 99% of wrong local tasks with rollback, under a stand-in
+**The cloud rescued 99.0% (195/197) of the wrong local tasks.**
+
+- Evidence: task-level Wilson CI [96.4%, 99.7%] (`cloud-rescue-combined`); session-level [97.5%, 100.0%], 25 sessions
+  (`headline-ci-session-rescue`). Full-history redo alone 84.8% (167/197), task-level [79.1%, 89.1%], session-level
+  [79.4%, 90.4%].
+- Caveat: the 28 rollback fixes replaced every earlier wrong turn by its reference calls (assumes each earlier
+  escalation succeeded); not a live hybrid.
+- Files: results/x2_evalset_tasks_real_v2.jsonl, results/all_cloud_b3_v1.jsonl, results/cloud_redo_full_context_v1*.jsonl, results/own_rollback_redo_v1.jsonl.
+- Hardware: evo-x2 (local run), claude-sonnet-5-5 (cloud).
+- **Status: ON-TARGET (evo-x2), measured, STAND-IN for the rollback part.**
+
+### Claim L-03 (LEAD, cost): measured 20% below all-cloud; 75% is a target scenario only
+**Route at start at 8192 costs 19.7% less than all-cloud (n = 90 tasks), at 97.8% (88/90) vs 100.0% (90/90) correct.**
+
+- Evidence: USD 0.00819 vs 0.01020 per task (`hybrid-route-at-start-measured`); session-level CI for the saving
+  [16.8%, 22.4%], 3 sessions, very coarse (`headline-ci-session-hybrid`). The 75.3% figure is a target scenario
+  under a perfect detector that does not exist (`cost-target-scenario`), not a result.
+- Files: results/x2_evalset_tasks_real_v2.jsonl, results/all_cloud_b3_v1.jsonl, results/cloud_redo_full_context_v1*.jsonl.
+- Hardware: evo-x2.
+- **Status: ON-TARGET (evo-x2), measured by replay; quality not matched.**
+
+---
+
 ## Section 4 — Axis A: Memory vs. Correctness
 
 ### Claim A-01 (Fig 4.1, SUPPORTING — negative result)

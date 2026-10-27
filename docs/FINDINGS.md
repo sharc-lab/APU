@@ -8,6 +8,47 @@ context depth can be attributed to a mechanism rather than reported as generic
 
 ---
 
+## Lead (2026-10-26): correctness first, cost as a hard cap
+
+**Reliability and budget control for local and hybrid agents: correctness is the hook, cost is a hard cap.** On the
+B3 v2 tool-using tasks with qwen3:14b on evo-x2 (AMD), a local model that runs out of memory gets tasks wrong without
+saying so, and routing plus a cloud fallback removes most of those wrong answers while costing less than sending
+everything to the cloud. Every figure below is from the register row in brackets, with its condition. A session is one
+30-task local run (one memory setting, one seed); "task-level" CIs treat tasks as independent, "session-level" CIs
+resample whole sessions (10000 resamples, seed 20261014, stratified by memory setting where there is more than one).
+
+- **16x fewer wrong answers, at the 8192 memory setting.** Naive local was wrong on 36.7% (33/90) tasks; route at
+  start (claude-sonnet-5-5 as the cloud model) was wrong on 2.2% (2/90): 33 vs 2 = 16.5x
+  [hybrid-route-at-start-measured] [headline-ci-session-hybrid]. Session-level 95% CI for the ratio [6.0x, 19.0x]
+  over 3 sessions (one per seed), very coarse; 3003 of 10000 resamples had 0 route-at-start wrong and are left out
+  [headline-ci-session-hybrid]. At the default window naive local was wrong on 11.1% (10/90) tasks
+  [hybrid-savings-v1] [cost-target-scenario], so the 16x holds at 8192, not at the default.
+- **0/197 warnings.** Of the 197 wrong local task turns of the B3 v2 real run (5 memory settings x 5 seeds = 25
+  sessions), 0.0% (0/197) surfaced an HTTP error or an error field to the client; 100.0% (197/197) were silent.
+  Task-level 95% Wilson CI for the surfaced share [0.0%, 1.9%] (turns nested in sessions, not independent);
+  session-level a point at 0 (0/n has no bootstrap variance) [x2-evalset-tasks-real-v2-silent-total]. "Surfaced" is
+  what the client sees, not the Ollama server log.
+- **99% rescue with rollback, under a stand-in.** The cloud (claude-sonnet-5-5) rescued 99.0% (195/197) of those
+  wrong tasks: 167 by a full-history redo plus 28 by rolling the environment back and redoing; task-level 95% Wilson
+  CI [96.4%, 99.7%] [cloud-rescue-combined], session-level [97.5%, 100.0%] (25 sessions)
+  [headline-ci-session-rescue]. Stand-in caveat: the rollback redo replaced every earlier wrong task turn by its
+  reference calls, i.e. it assumes each earlier escalation succeeded; it is not a live hybrid [cloud-rescue-combined].
+- **Cost: measured 20% below all-cloud, quality not matched.** Route at start at 8192 costs USD 0.00819 per task vs
+  all-cloud USD 0.01020, 19.7% lower (n = 90 tasks), at 97.8% (88/90) correct vs 100.0% (90/90)
+  [hybrid-route-at-start-measured]; session-level 95% CI for the saving [16.8%, 22.4%] over 3 sessions, very coarse
+  [headline-ci-session-hybrid]. Replay of recorded runs; only 23.3% (21/90) tasks were kept local.
+- **75% is a target scenario, not measured.** A detector that flagged exactly the wrong local tasks (none exists) at
+  the default window would keep 88.9% (80/90) local and cost USD 0.00252 per task, 75.3% below all-cloud (n = 90
+  tasks); it also assumes escalated tasks cost the measured redo mean and take the all-cloud outcome, on short B3 v2
+  tasks only [cost-target-scenario].
+
+The entries below are kept in their original order; this lead reorders emphasis only. The full results are in the
+sections "RESULTS (2026-10-22): cloud redo with the full history and thinking off fixes 167 of 197 wrong tasks",
+"RESULTS (2026-10-22): measured hybrid by replay, per-task route-at-start plus the window flag, and task latency by
+policy" and "RESULTS (2026-10-23): cascaded rollback fixes 28 of 28 earlier_state_repair tasks".
+
+---
+
 ## KV Cache Quantization — Measured Gains vs Architectural Prediction
 
 **Experiment:** `results/llamaserver_feasibility.json`  
@@ -5659,7 +5700,8 @@ difference from the local 384. The 7 part-1 rows whose replies hit 384 or came b
 2048; the other 34 part-1 rows are kept. Part 2 crashed on a transient provider error (server disconnect) after 19
 tasks; its finished rows are kept, and part 3 (with a bounded retry for transient errors) finished the remaining 144.
 
-**Result.** 167 of 197 fixed (84.8%), 95% Wilson CI over tasks [79.1%, 89.1%]. Per tier: ollama_default 15/17,
+**Result.** 84.8% (167/197) fixed, task-level 95% Wilson CI over tasks [79.1%, 89.1%]; session-level 95% CI
+[79.4%, 90.4%] over 25 sessions, stratified by tier (row headline-ci-session-rescue). Per tier: ollama_default 15/17,
 ollama_ctx_16384 18/19, ollama_ctx_8192 45/53, ollama_ctx_4096 53/63, ollama_ctx_4096_numkeep 36/45. USD per task
 (cache-priced) mean 0.0227, median 0.0169, total 4.4721; on the ledger basis (all input uncached, what the cap counts)
 16.8614. Seconds per task mean 6.54, median 5.89. Ledger total at the last run_end USD 38.9145.
@@ -5703,7 +5745,8 @@ against USD 0.0102 mean and 0.0090 median (n=90) for running the task fresh on t
 median 0.0103, 1.76x on the mean and 1.64x on the median. The redo re-sends the whole local session; a fresh run does
 not.
 
-**Late escalation is incomplete.** It fixed 167 of 197 wrong tasks (84.8%, 95% Wilson CI 79.1% to 89.1%). Of the 30
+**Late escalation is incomplete.** It fixed 84.8% (167/197) wrong tasks (task-level 95% Wilson CI 79.1% to 89.1%;
+session-level 79.4% to 90.4%, 25 sessions, row headline-ci-session-rescue). Of the 30
 it did not fix, 28 inherited the local model's earlier executed actions (earlier_state_repair): a later cloud call
 cannot undo a write the local model already made. The other 2 were cloud model errors.
 
@@ -6100,7 +6143,8 @@ Run as pre-registered in docs/EXPERIMENTS.md, "2026-10-23: Own-rollback redo, ca
 **Result.** claude-sonnet-5-5, thinking {"type": "between_tools"}, max_tokens 2048, full client-side history, cascaded
 rollback (every earlier wrong task turn rolled back and replaced by its reference calls, a STAND-IN for a successful
 escalation; 144 earlier turns replaced over the 28 tasks; state differs from the pre-task state in 28/28), grader
-unchanged: fixed 28/28, 95% Wilson CI [87.9%, 100.0%]. Target >= 25/28: met. The same 28 tasks were 0/28 in the
+unchanged: fixed 100.0% (28/28), task-level 95% Wilson CI [87.9%, 100.0%]; session-level a point at 100.0%
+(12 sessions; 28/28 has no bootstrap variance; row headline-ci-session-rescue). Target >= 25/28: met. The same 28 tasks were 0/28 in the
 full-history redo, which started from the pre-task state with the earlier damage in place.
 
 **Spend.** USD 0.8926 billed (cache-priced) for the 28 tasks, USD 2.3267 with every input token uncached; projection

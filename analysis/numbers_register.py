@@ -4595,6 +4595,95 @@ def compute_cloud_rescue_combined(repo):
     return {"value": orb.cloud_rescue_combined_text(c), "n": f"{c['n']} wrong tasks"}
 
 
+def _session_ci():
+    import sys as _sys
+    _sys.path.insert(0, str(REPO / "analysis"))
+    import session_ci
+    return session_ci
+
+
+def compute_headline_ci_session_rescue(repo):
+    """Session-level bootstrap (whole (tier, seed) sessions, stratified by tier) of the cloud-rescue proportions next
+    to their task-level Wilson CIs (analysis/session_ci.py::rescue_session_ci)."""
+    sc = _session_ci()
+    r = sc.rescue_session_ci(repo)
+    return {"value": sc.rescue_text(r), "n": f"{r['full_history']['n']} wrong tasks in "
+                                             f"{r['full_history']['n_sessions']} sessions"}
+
+
+def compute_x2_evalset_tasks_real_v2_silent_total(repo):
+    """Every wrong local task turn of the B3 v2 real run: surfaced vs silent, with task-level and session-level CIs
+    (analysis/session_ci.py::surfaced_split)."""
+    sc = _session_ci()
+    r = sc.surfaced_split(repo)
+    return {"value": sc.surfaced_text(r), "n": f"{r['b']['n']} wrong task turns in {r['n_sessions_total']} sessions"}
+
+
+def compute_headline_ci_session_hybrid(repo):
+    """Paired session-level bootstrap (3 seeds) of hybrid-route-at-start-measured at 8192 with claude-sonnet-5-5
+    (analysis/session_ci.py::hybrid_bootstrap)."""
+    sc = _session_ci()
+    b = sc.hybrid_bootstrap(sc.hybrid_sessions(repo))
+    return {"value": sc.hybrid_text(b), "n": f"{b['n_sessions']} sessions, {b['n']} tasks"}
+
+
+def compute_paper_percentage_counts(repo):
+    """Counts (k/n) behind percentages the paper and docs/OCT29_COST_SUMMARY.md print from rows that state only a rate
+    or a rate with n: R2 validation v2 baseline rule rates per model, B5 (evo-x2) rule pass and history recall per
+    policy, the num_ctx 4096 mitigation rule rates, the num_keep guardrail test rule rates. Same functions as rows
+    R2-validation-v2-baseline, b5-policy-metrics, R2-mitigation-v1-4096 and num-keep-guardrail-test."""
+    ag = _r2_agent_module()
+    rep = ag.evaluate_gates(ag.read_rows(repo / R2_VALIDATION_V2_FILE), call2_tools=False)
+    parts = []
+    for model, e in sorted(rep["baseline_table"].items()):
+        rr = ", ".join(f"{r.split('_')[0]} {round(d['rate'] * d['n'])}/{d['n']}" for r, d in e["rules"].items())
+        parts.append(f"R2-validation-v2-baseline {model}: {rr}")
+    pc = _harness_module("policy_compare")
+    rows = _b5_rows(repo)
+    if not rows["evo-x2"]:
+        raise FileNotFoundError(repo / B5_FILES["evo-x2"])
+    for m, c in pc.metrics_for_platform(rows["evo-x2"], pc.load_cloud_prices(repo)).items():
+        pol = ", ".join(f"{p} rule {v['rule_k']}/{v['rule_n']} hist {v['hist_k']}/{v['hist_n']}"
+                        for p, v in sorted(c["policies"].items()))
+        parts.append(f"b5-policy-metrics evo-x2 {m}: {pol}")
+    _mr, mrep = _r2_mitigation_report(repo, tiers=("num_ctx_4096",))
+    for key, c in mrep["cells"].items():
+        rr = ", ".join(f"{r.split('_')[0]} {d['n_ok']}/{d['n']}" for r, d in c["mitigation"]["rules"].items())
+        parts.append(f"R2-mitigation-v1-4096 {key.split('|')[1]} mitigation: {rr}")
+    nk = compute_num_keep_guardrail_test(repo)["detail"]["rule_rates"]
+    parts.append("num-keep-guardrail-test llama3.1:8b: " + ", ".join(
+        f"{r.split('_')[0]} {round(d['rate'] * d['n'])}/{d['n']}" for r, d in nk.items()))
+    return {"value": "; ".join(parts), "n": f"{len(parts)} cells"}
+
+
+def compute_cost_target_scenario(repo):
+    """TARGET SCENARIO, not measured: the "75%" cost figure. hybrid-savings-v1's ceiling policy (hybrid_perfect: a
+    detector that flags exactly the wrong local tasks, which does not exist) at evo-x2's default window with
+    claude-sonnet-5-5, expressed as the share of the all-cloud cost saved, with its assumptions."""
+    im = _impact()
+    h = im.hybrid_savings(repo, _impact_v2(repo)["rows"]["P2"])
+    if h["status"] != "VERIFIED":
+        return {"value": f"PENDING: hybrid-savings-v1 {h['status']}", "n": "0"}
+    c = next(x for x in h["cells"] if x["device"] == "evo-x2" and x["tier"] == "ollama_default"
+             and x["model"] == "claude-sonnet-5-5")
+    hp, ac = c["policies"]["hybrid_perfect"], c["policies"]["all_cloud"]
+    share = 1 - hp["usd_task"] / ac["usd_task"]
+    return {"value": (f"TARGET SCENARIO, not measured: evo-x2 ollama_default (qwen3:14b at its default window), "
+                      f"claude-sonnet-5-5, B3 v2 tasks, seeds {', '.join(map(str, h['seeds']))}; ceiling policy "
+                      f"(hybrid-savings-v1 hybrid_perfect): keep local the {hp['kept_local']}/{hp['n']} "
+                      f"({100 * hp['kept_local'] / hp['n']:.1f}%) tasks qwen3:14b got right and escalate exactly the "
+                      f"{hp['escalated']} it got wrong; cloud USD {hp['usd_task']:.5f}/task vs all-cloud "
+                      f"{ac['usd_task']:.5f}/task = {100 * share:.1f}% below all-cloud, accuracy {hp['correct']}/"
+                      f"{hp['n']}; naive local at this window wrong {c['local_wrong']}/{hp['n']} "
+                      f"({100 * c['local_wrong'] / hp['n']:.1f}%); assumptions: (1) a detector that flags exactly the wrong local tasks and no right "
+                      f"ones (none exists: the window flag caught 0 of the {c['local_wrong']} wrong tasks at this "
+                      f"window, flagged {c['flagged']}); (2) each escalated task costs the measured full-history redo "
+                      f"mean ({c['esc_label']}); (3) each escalated task takes the all-cloud outcome of the same task "
+                      f"(ASSUMED; the measured full-history redo did not fix every wrong task, row cloud-redo-full-context); "
+                      f"(4) replay of recorded runs, short B3 v2 tasks only"),
+            "n": f"{hp['n']} tasks"}
+
+
 def compute_hybrid_local_first_rollback(repo):
     """Local first on every task, roll back and escalate on the oracle signal (ceiling) or the over-window stand-in,
     by replay (analysis/own_rollback.py::local_first_rollback)."""
@@ -8561,6 +8650,36 @@ NUMBER_ENTRIES = [
                     "results/cloud_redo_full_context_v1_part3.jsonl", X2_EVALSET_TASKS_REAL_V2, OWN_ROLLBACK_FILE],
      "pending_ok": True, "require_run_end": [OWN_ROLLBACK_FILE],
      "script_function": "analysis/own_rollback.py::cloud_rescue_combined"},
+    {"claim_id": "headline-ci-session-rescue", "description": "Session-level bootstrap CIs (unit the (tier, seed) "
+     "session, stratified by tier, 10000 resamples, seed 20261014) for the cloud rescue of the 197 wrong local tasks: "
+     "full-history redo, rollback redo (STAND-IN) and combined, beside the task-level Wilson CIs of rows "
+     "cloud-redo-full-context, own-rollback-redo and cloud-rescue-combined",
+     "compute": compute_headline_ci_session_rescue,
+     "data_files": [CLOUD_REDO_FULL_CONTEXT, CLOUD_REDO_FULL_CONTEXT_PART2,
+                    "results/cloud_redo_full_context_v1_part3.jsonl", X2_EVALSET_TASKS_REAL_V2, OWN_ROLLBACK_FILE],
+     "pending_ok": True, "require_run_end": [OWN_ROLLBACK_FILE],
+     "script_function": "analysis/session_ci.py::rescue_session_ci"},
+    {"claim_id": "x2-evalset-tasks-real-v2-silent-total", "description": "B3 v2 real run qwen3:14b: every wrong local "
+     "task turn over all tiers and seeds, surfaced (HTTP error or error field) vs silent, task-level Wilson and "
+     "session-level bootstrap CIs",
+     "compute": compute_x2_evalset_tasks_real_v2_silent_total, "data_files": [X2_EVALSET_TASKS_REAL_V2],
+     "script_function": "analysis/session_ci.py::surfaced_split"},
+    {"claim_id": "headline-ci-session-hybrid", "description": "Paired session-level bootstrap (3 sessions, one per "
+     "seed) of hybrid-route-at-start-measured at the 8192 setting with claude-sonnet-5-5: accuracies, saving vs "
+     "all-cloud, naive/hybrid wrong ratio, beside task-level Wilson CIs",
+     "compute": compute_headline_ci_session_hybrid, "data_files": ROUTE_MEASURED_FILES,
+     "script_function": "analysis/session_ci.py::hybrid_bootstrap"},
+    {"claim_id": "paper-percentage-counts", "description": "Counts (k/n) behind rates printed in the paper from rows "
+     "R2-validation-v2-baseline, b5-policy-metrics, R2-mitigation-v1-4096 and num-keep-guardrail-test",
+     "compute": compute_paper_percentage_counts,
+     "data_files": [R2_VALIDATION_V2_FILE, "results/x2_policy_compare.jsonl", R2_MITIGATION_FILE, R2_REAL_V1_FILE,
+                    "results/x2_num_keep_guardrail_test.jsonl"],
+     "script_function": "analysis/numbers_register.py::compute_paper_percentage_counts"},
+    {"claim_id": "cost-target-scenario", "description": "TARGET SCENARIO, not measured: the 75% cost figure, i.e. "
+     "hybrid-savings-v1's ceiling policy (perfect detector, none exists) at evo-x2 default with claude-sonnet-5-5 as "
+     "a share of the all-cloud cost, with its assumptions",
+     "compute": compute_cost_target_scenario, "data_files": ROUTE_MEASURED_FILES,
+     "script_function": "analysis/numbers_register.py::compute_cost_target_scenario"},
     {"claim_id": "hybrid-local-first-rollback", "description": "Local-first hybrid with rollback, by replay of "
      "recorded runs: every task local first (B3 v2, qwen3:14b, evo-x2 num_ctx 8192 and 4096, seeds 20260901-03), "
      "rolled back and escalated to claude-sonnet-5-5 on the oracle signal (ceiling) or the recorded over_loaded_window "
