@@ -11,9 +11,10 @@ context depth can be attributed to a mechanism rather than reported as generic
 ## Lead (2026-10-26): correctness first, cost as a hard cap
 
 **Reliability and budget control for local and hybrid agents: correctness is the hook, cost is a hard cap.** On the
-B3 v2 tool-using tasks with qwen3:14b on evo-x2 (AMD), a local model that runs out of memory gets tasks wrong without
-saying so, and routing plus a cloud fallback removes most of those wrong answers while costing less than sending
-everything to the cloud. Every figure below is from the register row in brackets, with its condition. A session is one
+B3 v2 tool-using tasks with qwen3:14b on Ollama 0.34.4 (evo-x2, AMD), a local model that runs out of memory gets tasks
+wrong without saying so, and routing plus a cloud fallback removes most of those wrong answers while costing less than
+sending everything to the cloud. On llama-server (build b10970, evo-x2) the same 4096 window also gets tasks wrong, but
+loudly, with HTTP errors [xruntime-llamacpp-wrong-rate]. Every figure below is from the register row in brackets, with its condition. A session is one
 30-task local run (one memory setting, one seed); "task-level" CIs treat tasks as independent, "session-level" CIs
 resample whole sessions (10000 resamples, seed 20261014, stratified by memory setting where there is more than one).
 
@@ -23,9 +24,10 @@ resample whole sessions (10000 resamples, seed 20261014, stratified by memory se
   over 3 sessions (one per seed), very coarse; 3003 of 10000 resamples had 0 route-at-start wrong and are left out
   [headline-ci-session-hybrid]. At the default window naive local was wrong on 11.1% (10/90) tasks
   [hybrid-savings-v1] [cost-target-scenario], so the 16x holds at 8192, not at the default.
-- **0/197 warnings.** Of the 197 wrong local task turns of the B3 v2 real run (5 memory settings x 5 seeds = 25
-  sessions), 0.0% (0/197) surfaced an HTTP error or an error field to the client; 100.0% (197/197) were silent.
-  Task-level 95% Wilson CI for the surfaced share [0.0%, 1.9%] (turns nested in sessions, not independent);
+- **0/197 warnings, on Ollama.** Of the 197 wrong local task turns of the B3 v2 real run on Ollama 0.34.4 (evo-x2; 5
+  memory settings x 5 seeds = 25 sessions), 0.0% (0/197) surfaced an HTTP error or an error field to the client;
+  100.0% (197/197) were silent. On llama-server at 4096 the opposite held: "wrong 150/150 (100.0%)" with "harness-silent
+  wrong (no HTTP error on any call, the Ollama row's definition) 0" [xruntime-llamacpp-wrong-rate]. Task-level 95% Wilson CI for the surfaced share [0.0%, 1.9%] (turns nested in sessions, not independent);
   session-level a point at 0 (0/n has no bootstrap variance) [x2-evalset-tasks-real-v2-silent-total]. "Surfaced" is
   what the client sees, not the Ollama server log.
 - **99% rescue with rollback, under a stand-in.** The cloud (claude-sonnet-5-5) rescued 99.0% (195/197) of those
