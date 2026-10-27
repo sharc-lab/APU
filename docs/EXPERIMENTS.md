@@ -2026,6 +2026,21 @@ Machine hours on evo-x2 (ESTIMATE from measured times in register rows; the per-
   or only from-scratch sessions on real instances (from scratch drops the real prompt-growth prefix and makes the
   sessions shorter on a 14B model).
 
+### Operator decision 2026-10-27
+
+The operator's words: "keep the default-window arm at 2 seeds (fit before the Nov 10 freeze). Document review: CUAD
+(deterministic graders). Replayed prefixes only as a labelled secondary analysis; headline from fully live sessions."
+
+- Default-window arm (ollama_default): 2 seeds, 40 tasks x 2 = 80 runs. Hours, ESTIMATE, the per-task times above
+  scaled to 80 runs (not a measurement): low 2.7 h (120.6 s per task), central 87.7 h (3945 s per task), high 100.9 h
+  (4539 s per task).
+- ESTIMATE total for the jobs now proposed (pilot, kv_q8_0 3 seeds, ollama_default 2 seeds): low 6.6 h, central
+  108.0 h, high 124.9 h. The pilot's measured per-task minutes still replace these before anything is queued.
+- Document review source: CUAD, graded deterministically against its clause-category labels. ContractNLI is no
+  longer a candidate. The CUAD licence check is still TO VERIFY from its dataset card before use.
+- Coding sessions: the headline number comes from fully live sessions only. Sessions with a replayed real prefix are
+  reported only as a labelled secondary analysis, never pooled into the headline.
+
 ## PRE-REGISTRATION (2026-10-26): cross-runtime replication on llama.cpp server ("not just an Ollama bug")
 
 **Status: pre-registered, not run, not queued by this commit.** Written and committed before any data. Rows

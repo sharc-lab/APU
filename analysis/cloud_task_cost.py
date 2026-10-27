@@ -34,7 +34,14 @@ CALIB_FILE = "results/anthropic_token_calibration_20261021.jsonl"
 PRICE_FILE = "results/cloud_prices_anthropic_20261014.json"
 TRACE_SETS = (("nebius/SWE-rebench-openhands-trajectories", "nebius-rebench-openhands"),
               ("SWE-Gym/OpenHands-Sampled-Trajectories", "SWE-Gym"))
-TIERS = ("claude-haiku-5-5", "claude-sonnet-5-5")
+# Every tier is priced from PRICE_FILE (Anthropic's official pricing page, platform.claude.com/docs/en/about-claude/
+# pricing, fetched 2026-10-14 local / 2026-10-15T02:55Z, Standard short-context rows, 5-minute cache writes):
+#   claude-haiku-5-5, claude-sonnet-5-5: the original two tiers (row cloud-cost-per-real-task);
+#   claude-opus-5-5 (input 4.0, cache_write 5.0, cached_input 0.2, output 20.0 USD/MTok) and claude-fable-5-1 (input
+#   10.0, cache_write 12.5, cached_input 0.25, output 50.0 USD/MTok): added 2026-10-27 on operator request for row
+#   cloud-cost-per-real-task-all-tiers, same file, same rows, no new price source.
+TIERS = ("claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5", "claude-fable-5-1")
+BASE_TIERS = TIERS[:2]  # the tiers row cloud-cost-per-real-task reports (its text is unchanged by the two additions)
 CASES = ("none", "realistic", "best")
 HIT_RATE = 0.7  # ASSUMPTION: share of the re-sent prefix read from cache in the realistic case
 
@@ -143,11 +150,11 @@ def calibration_text(cal) -> str:
                      f"{v['p90']:.3f}, n={v['n']})" for k, v in cal.items())
 
 
-def value_text(res) -> str:
+def value_text(res, tiers=BASE_TIERS) -> str:
     parts = []
     for label, e in res["sets"].items():
         segs = []
-        for m in TIERS:
+        for m in tiers:
             segs.append(f"{m}: " + ", ".join(
                 f"{c} ${e['usd'][(m, c)]['median']:.4f} / ${e['usd'][(m, c)]['p90']:.4f}" for c in CASES))
         parts.append(f"{label} (n={e['n_tasks']} tasks, median {e['steps_median']:.0f} steps; Anthropic tokens = qwen "
@@ -164,5 +171,16 @@ def value_text(res) -> str:
             + f"; prices {PRICE_FILE} Standard")
 
 
+def all_tiers_text(res) -> str:
+    """Row cloud-cost-per-real-task-all-tiers: the same pricing at every tier in TIERS, with the per-tier price rows."""
+    prices = load_prices()
+    rates = "; ".join(f"{m} input {prices['models'][m]['standard']['short']['input']}, cache_write "
+                      f"{prices['models'][m]['standard']['short']['cache_write']}, cached_input "
+                      f"{prices['models'][m]['standard']['short']['cached_input']}, output "
+                      f"{prices['models'][m]['standard']['short']['output']}" for m in TIERS)
+    return (value_text(res, TIERS) + f"; USD per MTok, Standard short context ({PRICE_FILE}, transcribed from "
+            f"Anthropic's official pricing page, fetched 2026-10-14): " + rates)
+
+
 if __name__ == "__main__":
-    print(value_text(compute()))
+    print(all_tiers_text(compute()) if "--all-tiers" in sys.argv else value_text(compute()))
