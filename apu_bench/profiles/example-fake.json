@@ -1,0 +1,15 @@
+{
+ "schema": "apu-device-profile/1",
+ "profile_id": "example-fake-device",
+ "hardware": {"hostname": "EXAMPLE-HOST", "cpu": "EXAMPLE CPU", "gpu": "EXAMPLE GPU", "memory_gb": 64,
+              "os": "EXAMPLE OS", "driver": "EXAMPLE DRIVER"},
+ "runtime": {"name": "ollama", "version": "0.0.0-example", "server_cmd": ["ollama", "serve"],
+             "server_env": {}},
+ "model": {"name": "qwen3:14b", "quant": "EXAMPLE", "digest": "EXAMPLE"},
+ "windows": [
+  {"tier": "ollama_ctx_8192", "window": 8192},
+  {"tier": "ollama_ctx_4096", "window": 4096}
+ ],
+ "cloud_model": "claude-haiku-5-5",
+ "sources": {"all": "an example profile for the fake runtime and the tests; not a real device"}
+}

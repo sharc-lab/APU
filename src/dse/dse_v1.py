@@ -29,6 +29,8 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from src.dse.fits_locally import fits_locally
+
 DAYS_PER_MONTH = 30
 LIFE_MONTHS = 36
 SECONDS_PER_DAY = 86400.0
@@ -236,7 +238,7 @@ def _window(tier, loaded):
     return str(tier.split("_")[2])
 
 
-def build_b3_candidates(repo) -> tuple:
+def build_b3_candidates(repo, predictor=None) -> tuple:
     """(candidates, inputs) for the short B3 v2 workload: evo-x2 qwen3:14b local tiers, all-cloud tiers, and the
     measured per-task hybrids. Predictions from the own-profiler probe (seed 20260901 prefix to 600 s, ratios from
     evo-t2s configs only); measurements on the matched seeds of hybrid-route-at-start-measured."""
@@ -249,7 +251,7 @@ def build_b3_candidates(repo) -> tuple:
     import json
     eia = json.loads((repo / nr.ENERGY_PRICE_EIA_FILE).read_text(encoding="utf-8"))
     usd_kwh = float(eia["value_cents_per_kwh"]) / 100.0
-    route = im.route_at_start_measured(repo)
+    route = im.route_at_start_measured(repo, predictor=predictor)
     if route["status"] != "VERIFIED":
         raise FileNotFoundError("hybrid-route-at-start-measured not VERIFIED")
     seeds = set(route["seeds"])
@@ -311,7 +313,8 @@ LONG_TIERS = {         # x2_longtask ARMS: window label and KV label per arm
 }
 
 
-def build_long_candidates_pure(local: dict, cloud: dict, proj: dict, windows: dict, hw_usd, watts) -> tuple:
+def build_long_candidates_pure(local: dict, cloud: dict, proj: dict, windows: dict, hw_usd, watts,
+                               predictor=None) -> tuple:
     """Pure. (candidates, notes) for the long workload.
 
     local {arm: {(seed, task): {ok, wall_s, flag}}} (flag = the task's prompt exceeded the loaded window);
@@ -324,7 +327,8 @@ def build_long_candidates_pure(local: dict, cloud: dict, proj: dict, windows: di
     cloud run measured (priced, not probed). Per-task hybrid: the pre-registered policy (route at start: a task whose
     projected prompt exceeds the arm's window goes to the cloud from its first call; window flag: a local task whose
     prompt exceeded the loaded window is escalated to the cloud), over every local task run; a routed or flagged task
-    needs that task's cloud row, else the hybrid is not built (noted). Predicted share = 1 - routed/n."""
+    needs that task's cloud row, else the hybrid is not built (noted). Predicted share = 1 - routed/n. predictor: the
+    "fits locally?" check (src/dse/fits_locally.py; None = projection baseline, fits iff proj <= window)."""
     cands, notes = [], []
     cloud_est = {}
     for m in sorted(cloud):
@@ -350,7 +354,7 @@ def build_long_candidates_pure(local: dict, cloud: dict, proj: dict, windows: di
             continue
         w = windows[arm]
         n = len(tasks)
-        routed = {k for k in tasks if proj[k] > w}
+        routed = {k for k in tasks if not fits_locally(proj[k], w, 0.0, predictor)["fits"]}
         flagged = {k for k in tasks if k not in routed and tasks[k]["flag"]}
         for m in sorted(cloud_est):
             need = [k for k in routed | flagged if k not in cloud[m]]
@@ -404,7 +408,7 @@ def mix_candidates(short: list, long: list, long_share=MIX_LONG_SHARE) -> list:
     return out
 
 
-def build_long_candidates(repo, hw_usd, watts) -> tuple:
+def build_long_candidates(repo, hw_usd, watts, predictor=None) -> tuple:
     """(candidates, inputs) for the long workload from results/x2_longtask_local_v1.jsonl and
     results/longtask_cloud_v1.jsonl (the attempt that wrote run_end), through analysis/numbers_register.py's readers.
     Projected prompt per task = the largest step of its oracle transcript (x2_longtask.oracle_prompt_steps, model
@@ -436,17 +440,18 @@ def build_long_candidates(repo, hw_usd, watts) -> tuple:
         if r.get("record") == "longtask_cloud_task":
             cloud.setdefault(r["model_id"], {})[(r["seed"], r["task_id"])] = {"ok": bool(r["correct"]),
                                                                               "usd": float(r["usd_billed"])}
-    cands, notes = build_long_candidates_pure(local, cloud, proj, windows, hw_usd, watts)
+    cands, notes = build_long_candidates_pure(local, cloud, proj, windows, hw_usd, watts, predictor)
     return cands, {"seeds": seeds, "windows": windows, "notes": notes,
                    "cloud_seeds": sorted({k[0] for t in cloud.values() for k in t}),
                    "cloud_n": {m: len(t) for m, t in cloud.items()}, "max_proj": max(proj.values())}
 
 
-def own_dse_v1(repo, volumes=VOLUMES, accuracy_target=ACCURACY_TARGET, budget=CLOUD_BUDGET_USD_MONTH) -> dict:
+def own_dse_v1(repo, volumes=VOLUMES, accuracy_target=ACCURACY_TARGET, budget=CLOUD_BUDGET_USD_MONTH,
+               predictor=None) -> dict:
     """Everything row own-dse-v1 reports: the short B3 cells, and the long and mixed cells when rows
     long-task-local-accuracy and long-task-cloud-priced-vs-billed are VERIFIED (PENDING otherwise)."""
     im, _nr = _impact(repo)
-    cands, inputs = build_b3_candidates(repo)
+    cands, inputs = build_b3_candidates(repo, predictor)
     cells = {}
     for v in volumes:
         cells[("short", v)] = validate_cell(cands, v, accuracy_target, budget, inputs["usd_kwh"])
@@ -457,7 +462,7 @@ def own_dse_v1(repo, volumes=VOLUMES, accuracy_target=ACCURACY_TARGET, budget=CL
             for v in volumes:
                 cells[(w, v)] = {"status": f"PENDING: row {', '.join(missing)} not VERIFIED", "met": False}
     else:
-        long_c, long_inputs = build_long_candidates(repo, inputs["hw_usd"], inputs["watts"])
+        long_c, long_inputs = build_long_candidates(repo, inputs["hw_usd"], inputs["watts"], predictor)
         mixed_c = mix_candidates(cands, long_c)
         for w, cs in (("long", long_c), ("mixed", mixed_c)):
             for v in volumes:
