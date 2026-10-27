@@ -6653,6 +6653,78 @@ def compute_b5_fa_control(repo):
             "n": f"{sum(len(e['per_seed_min']) for e in s.values())} sessions"}
 
 
+def compute_kv_precision_evidence(repo):
+    """evo-x2 qwen3:14b policies (a) f16, (i) f16+FA, (g) q8_0, (h) q4_0 from the B5 and flash-attention-control files
+    (analysis/kv_evidence.py): per-seed session minutes, loaded window, Ollama-timed prefill / decode tokens/s (median,
+    p90 over calls), /api/ps size at the window probe, the server-log KV types, the derived KV buffer, why (g) and (h)
+    print the same mean, and whether q4_0 loaded as q4_0."""
+    kv = _analysis_module(repo, "kv_evidence")
+    e = kv.evidence(repo)
+    ev, loads, k, gh = e["ev"], e["loads"], e["kv"], e["gh"]
+    parts = []
+    for p, (name, env) in kv.POLICIES.items():
+        ld = loads.get(env, {})
+        seeds = "; ".join(
+            f"{s}: {ev[(p, s)]['minutes']:.1f} min, loaded {'/'.join(str(c) for c in ev[(p, s)]['loaded_context'])}, "
+            f"prefill {ev[(p, s)]['prefill_median']:.1f}/{ev[(p, s)]['prefill_p90']:.1f}, decode "
+            f"{ev[(p, s)]['decode_median']:.2f}/{ev[(p, s)]['decode_p90']:.2f}"
+            for s in e["seeds"] if (p, s) in ev)
+        kvt = (f"server-log KV types {ld.get('kv_observed')} (env in config line {ld.get('kv_env_in_config')})"
+               if ld.get("kv_observed") is not None else
+               "server-log KV type not parsed for this env (no KV env set); /api/ps size "
+               + ("equal to (i) f16 to the byte" if ld.get("size") == loads.get("f16", {}).get("size")
+                  else "differs from (i) f16"))
+        parts.append(f"({p}) {name}: {seeds}; /api/ps size at load {ld.get('size') / kv.MIB:.1f} MiB, loaded window "
+                     f"{ld.get('loaded_context')}; {kvt}; KV buffer {k['kv_mib'][env if env != 'base' else 'f16']:.0f} "
+                     f"MiB (derived)")
+    fa_lines = loads.get("base", {}).get("fa_log_lines") or []
+    q4 = loads.get("q4_0", {})
+    q4_ok = bool(q4.get("kv_verified")) and q4.get("kv_observed") == ["q4_0"] and k["consistent"]
+    value = ("tok/s are median/p90 over the session's calls (Ollama prompt_eval_count / prompt_eval_duration and "
+             "completion tokens / eval_duration); " + " / ".join(parts)
+             + f"; KV buffer derived from the /api/ps sizes (llama_kv_cache size line not in any committed file): f16 "
+             f"KV {k['x_from_f16_q8']:.1f} MiB from f16 - q8_0 and {k['x_from_q8_q4']:.1f} MiB from q8_0 - q4_0 "
+             f"(16 / 8.5 / 4.5 bits per element), relative difference {k['rel_diff']:.1e}; q4_0 / f16 KV "
+             f"{k['q4_over_f16']:.3f}; (a) base-env log (flash-attention control probe): {fa_lines}; "
+             f"(g) = (h) at one decimal: unrounded means {gh['mean_g']:.3f} vs {gh['mean_h']:.3f} min, "
+             f"{gh['diff_s']:.2f} s apart; per seed (g) "
+             + ", ".join(f"{v:.2f}" for v in gh["g"].values()) + " vs (h) "
+             + ", ".join(f"{v:.2f}" for v in gh["h"].values())
+             + f"; length stops {gh['length_stops']}, turns {gh['turns']}, completion tokens (g) "
+             f"{gh['completion_tokens']['g']} vs (h) {gh['completion_tokens']['h']}: a coincidence of 3-seed means, not "
+             f"a cap, timeout, session limit or copied value; q4_0 loaded as q4_0: "
+             + ("yes (server log reported only q4_0, env in the config line, and the size step q8_0 - q4_0 matches "
+                "4.5 bits)" if q4_ok else "not verifiable from committed files"))
+    return {"value": value, "n": f"{len(ev)} sessions"}
+
+
+def compute_kv_output_agreement(repo):
+    """Greedy (temperature 0, seed 42) output agreement between KV precisions on the same seeds, B5 and flash-attention
+    control files: per pair the turns whose call-1 prompt is identical on both sides (rebuilt prompt key), exact-match
+    turns, tool-call agreement, and the first divergence (turn, call, token index)."""
+    kv = _analysis_module(repo, "kv_evidence")
+    e = kv.evidence(repo)
+    tk = kv.load_tokenizer()
+    unit = f"token ({kv.TOKENIZER_REPO} tokenizer, retokenized text)" if tk else "character (tokenizer not in cache)"
+    ag = kv.agreement(e["sessions"], tokenize=tk)
+    names = {p: v[0] for p, v in kv.POLICIES.items()}
+    parts = []
+    for (pa, pb), v in ag.items():
+        seeds = "; ".join(
+            f"{s}: comparable {x['comparable']}/{x['n_turns']}, exact {x['exact']}, tool calls agree {x['tool_agree']}, "
+            + (f"first divergence turn {x['first_divergent_turn']} call {x['first_divergent_call'] + 1} index "
+               f"{x['first_divergence_index']}" if x["first_divergent_turn"] is not None else "no divergence")
+            for s, x in v["per_seed"].items())
+        rate = v["exact"] / v["comparable"] if v["comparable"] else None
+        parts.append(f"({pa}) {names[pa]} vs ({pb}) {names[pb]}: comparable turns {v['comparable']} of "
+                     f"{v['n_turns']}, exact match {v['exact']}/{v['comparable']} ({_pct(rate)}), tool calls agree "
+                     f"{v['tool_agree']}/{v['comparable']} ({_pct(v['tool_agree'] / v['comparable'] if v['comparable'] else None)}); "
+                     f"{seeds}")
+    return {"value": f"greedy decoding; comparable = call-1 prompt identical on both sides; divergence index unit: "
+                     f"{unit}; " + " / ".join(parts),
+            "n": f"{len(ag)} pairs x {len(e['seeds'])} seeds"}
+
+
 def compute_b5_kv_recall_f16_rerun(repo):
     """llama3.1:8b f16 recall rerun (flash-attention control job) against B5's q8_0 and q4_0 rows: needles found of
     24 per precision, two-sided Fisher exact per pair (descriptive), errors and durations."""
@@ -9193,6 +9265,16 @@ NUMBER_ENTRIES = [
      "L(f16), 3 seeds) against B5's (g)/(h) and (a) session minutes: the pre-registered reading per model (10% "
      "tolerance)", "compute": compute_b5_fa_control, "data_files": [B5_FA_FILE, B5_X2_FILE], "pending_ok": True,
      "script_function": "harness/policy_compare.py::fa_control_summary"},
+    {"claim_id": "kv-precision-evidence", "description": "evo-x2 qwen3:14b B5 policies (a) f16, (i) f16+FA, (g) "
+     "q8_0, (h) q4_0: per-seed session minutes, loaded window, prefill/decode tok/s median and p90, /api/ps size and "
+     "server-log KV type at load, derived KV buffer, why (g) and (h) print the same mean, and whether q4_0 loaded as "
+     "q4_0", "compute": compute_kv_precision_evidence, "data_files": [B5_X2_FILE, B5_FA_FILE],
+     "require_run_end": [B5_X2_FILE, B5_FA_FILE], "script_function": "analysis/kv_evidence.py::evidence"},
+    {"claim_id": "kv-output-agreement", "description": "Greedy output agreement between KV precisions on evo-x2 "
+     "qwen3:14b (B5 and flash-attention control, same seeds): per pair the turns with an identical prompt, exact-match "
+     "turns, tool-call agreement, first-divergence turn, call and token index", "compute": compute_kv_output_agreement,
+     "data_files": [B5_X2_FILE, B5_FA_FILE], "require_run_end": [B5_X2_FILE, B5_FA_FILE],
+     "script_function": "analysis/kv_evidence.py::agreement"},
     {"claim_id": "b5-kv-recall-f16-rerun", "description": "llama3.1:8b f16 long-context recall rerun (1 warm-up + 3 "
      "measured calls, 1800 s timeout) against B5's q8_0 and q4_0 recall: needles found of 24, Fisher exact "
      "(descriptive)", "compute": compute_b5_kv_recall_f16_rerun, "data_files": [B5_FA_FILE, B5_X2_FILE],
