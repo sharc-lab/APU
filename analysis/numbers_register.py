@@ -7987,6 +7987,80 @@ def compute_xruntime_openvino_ceiling(repo):
                      "operator has reviewed the files and a parser is committed", "n": "0"}
 
 
+
+# ── KV precision x flash attention on llama.cpp server (2026-10-26; docs/EXPERIMENTS.md "PRE-REGISTRATION (2026-10-26):
+# KV precision x flash attention on llama.cpp server"; harness/kv_fa_llamacpp.py, queue id x2_kv_fa_llamacpp). The
+# result row is PENDING until the file is synced and holds run_end; the hours row is an ESTIMATE from measured times. ──
+KVFA_FILE = "results/kv_fa_llamacpp_qwen3_14b.jsonl"
+
+
+def _kvfa_module():
+    _r2_agent_module()
+    import kv_fa_llamacpp as kvfa
+    return kvfa
+
+
+def _kvfa_e(e):
+    if not e:
+        return "n/a"
+    lo, hi = e["ci95"]
+    return (f"I = ln(q8/f16 at FA off) - ln(q8/f16 at FA on) = {e['I']:+.3f} (95% CI {lo:+.3f} to {hi:+.3f}; "
+            f"q8/f16 ratio FA off {e['ratio_fa_off']:.3f}, FA on {e['ratio_fa_on']:.3f})")
+
+
+def compute_kv_fa_interaction_llamacpp(repo, path=KVFA_FILE):
+    """KV precision x flash attention on llama-server b10970, qwen3:14b at 40960, B5 R2 session cut at 24 turns
+    (harness/kv_fa_llamacpp.py::outcome)."""
+    kvfa = _kvfa_module()
+    rows = kvfa.ag.read_rows(repo / path)
+    if not rows:
+        raise FileNotFoundError(repo / path)
+    b5 = kvfa.ag.read_rows(repo / B5_X2_FILE) + kvfa.ag.read_rows(repo / B5_FA_FILE)
+    o = kvfa.outcome(rows, b5 or None)
+    rp = o["refusal_probe"]
+    segs = []
+    for c, a in o["cells"].items():
+        segs.append(f"{c} (-ctk {a['ctk']} -ctv {a['ctv']} -fa {a['fa']}): "
+                    + (f"{a['mean_min']:.1f} min per session" if a["mean_min"] is not None else "no sessions")
+                    + f" ({a['n_sessions']} sessions), KV buffer {a['kv_buffer_mib']} MiB, prefill "
+                    + (f"{a['prefill_tok_s']:.0f}" if a["prefill_tok_s"] else "n/a") + " tok/s, decode "
+                    + (f"{a['decode_tok_s']:.1f}" if a["decode_tok_s"] else "n/a") + " tok/s, rule "
+                    + f"{_frac(a['rule_k'], a['rule_n'])}, hist {_frac(a['hist_k'], a['hist_n'])}")
+    sp, mem = o["primary"]["speed"], o["primary"]["memory"]
+    ol = o.get("ollama_b5_prefix") or {}
+    ref = "; ".join(f"({p}) {v['mean_min']:.1f}" for p, v in ol.items() if v.get("mean_min") is not None)
+    return {"value": f"run finished {o['run_finished']}; valid {o['valid']}"
+                     + (f" ({'; '.join(o['problems'])})" if o["problems"] else "")
+                     + f"; window {o['window']}, {o['turns']} turns; refusal probe {rp['cell']} (-ctk {rp['ctk']} "
+                       f"-ctv {rp['ctv']} -fa {rp['fa']}): {rp['result']}; " + "; ".join(segs)
+                     + f"; primary speed (K-only square, session minutes): {_kvfa_e(sp['estimate'])}; reading: "
+                       f"{sp['reading']}; primary memory: "
+                     + (f"KV saving FA off {mem['d_fa_off_mib']:+.1f} MiB, FA on {mem['d_fa_on_mib']:+.1f} MiB; "
+                        f"reading: {mem['reading']}" if mem else "not read (KV buffer line missing)")
+                     + (f"; Ollama B5 first-24-turn minutes, context only: {ref}" if ref else "")
+                     + f" (bootstrap {kvfa.BOOT_N} resamples, unit session, stratified by cell, seed {kvfa.BOOT_SEED})",
+            "n": f"{sum(a['n_sessions'] for a in o['cells'].values())} sessions"}
+
+
+def compute_kv_fa_interaction_llamacpp_hours(repo):
+    """ESTIMATE, not a measurement: evo-x2 hours of x2_kv_fa_llamacpp (harness/kv_fa_llamacpp.py::hours_estimate)."""
+    kvfa = _kvfa_module()
+    h = kvfa.hours_estimate(_read_jsonl(repo / B5_X2_FILE), _read_jsonl(repo / B5_FA_FILE),
+                            _read_jsonl(repo / XRT_FILE), _read_jsonl(repo / X2_EVALSET_TASKS_REAL_V2))
+    m = h["b5_prefix_mean_min"]
+    cells = ", ".join(f"{c} {v:.2f} h" for c, v in h["per_cell_h"].items())
+    return {"value": f"ESTIMATE {h['point_h']:.2f} h (high {h['high_h']:.2f} h): 5 cells x 3 sessions of 24 turns at "
+                     f"the measured Ollama B5 minutes of turns 1-24 of qwen3:14b (a) {m['a']:.1f}, (i) {m['i']:.1f}, "
+                     f"(g) {m['g']:.1f} min per session; f16 FA off and K-only FA off take (a), f16 FA on and K-only "
+                     f"FA on take (i) (ASSUMED: no K-only speedup), q8_0 FA on takes (g); all x the measured "
+                     f"llama-server / Ollama turn-wall ratio {h['latency_ratio']:.3f} at 40960 (xruntime_llamacpp arm "
+                     f"c over x2_evalset_tasks_real_v2 ollama_default, {h['n_ratio_turns'][0]} and "
+                     f"{h['n_ratio_turns'][1]} turns) = {h['session_h']:.2f} h ({cells}); + {h['n_starts']} server "
+                     f"starts x {h['start_overhead_s']:.1f} s (largest measured stop-to-start gap of the "
+                     f"xruntime_llamacpp run); high = x {h['high_factor_assumed']:.1f} (ASSUMED)",
+            "n": "15 sessions"}
+
+
 NUMBER_ENTRIES = [
     {"claim_id": "PX2-TTFT-gap", "description": "PX2 B4-vs-S4 TTFT gap range across 5 models",
      "compute": compute_px2_ttft_gap, "data_files": ["results/t2s_night2_20260930T135145Z.jsonl"],
@@ -9277,6 +9351,19 @@ NUMBER_ENTRIES = [
      "OpenVINO ceiling result, recorded once he shares the files (awaiting Zach's files); no number until then",
      "compute": compute_xruntime_openvino_ceiling, "data_files": [XRT_OPENVINO_MANIFEST], "pending_ok": True,
      "script_function": "analysis/numbers_register.py::compute_xruntime_openvino_ceiling"},
+    {"claim_id": "kv-fa-interaction-llamacpp", "description": "KV precision x flash attention on llama-server b10970 "
+     "(evo-x2, qwen3:14b GGUF, -c 40960, B5 R2 session cut at 24 turns, seeds 20260901-03): the q8_0 / FA-off refusal "
+     "probe, per cell session minutes, KV buffer MiB, prefill and decode tok/s, rule pass and history recall, and the "
+     "pre-registered interaction readings (speed: bootstrap on the K-only square, 10% band; memory: 1% band); "
+     "PENDING until the file has run_end",
+     "compute": compute_kv_fa_interaction_llamacpp, "data_files": [KVFA_FILE, B5_X2_FILE, B5_FA_FILE],
+     "pending_ok": True, "require_run_end": [KVFA_FILE], "script_function": "harness/kv_fa_llamacpp.py::outcome"},
+    {"claim_id": "kv-fa-interaction-llamacpp-hours", "description": "ESTIMATE, not a measurement: evo-x2 hours of "
+     "the KV x flash-attention job x2_kv_fa_llamacpp from measured B5 Ollama turn times, the measured llama-server / "
+     "Ollama turn-wall ratio and measured server start gaps",
+     "compute": compute_kv_fa_interaction_llamacpp_hours,
+     "data_files": [B5_X2_FILE, B5_FA_FILE, XRT_FILE, X2_EVALSET_TASKS_REAL_V2],
+     "script_function": "harness/kv_fa_llamacpp.py::hours_estimate"},
 ]
 
 
