@@ -1,0 +1,12 @@
+{
+ "git_head": "981ad4d117f68978f927a8a7111cc2e4e956f576",
+ "blobs": {
+  "cloud_prices_anthropic_20261014.json": "d9142b5be29dd192c42f6de2df56e9598591cb5b"
+ },
+ "heads": {
+  "cloud_prices_anthropic_20261014.json": "981ad4d117f68978f927a8a7111cc2e4e956f576"
+ },
+ "paths": {
+  "cloud_prices_anthropic_20261014.json": "results/cloud_prices_anthropic_20261014.json"
+ }
+}
