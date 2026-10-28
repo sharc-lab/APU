@@ -743,6 +743,8 @@ def metrics_for_platform(rows: list[dict], prices=None, seeds=SEEDS, turns=TURNS
             rn, cn = sum(m["rule_n"] for m in ms), sum(m["canary_turns"] for m in ms)
             pol[p] = {"rule_pass_rate": sum(m["rule_pass"] for m in ms) / rn if rn else None,
                       "history_recall": sum(m["hist_ok"] for m in ms) / cn if cn else None,
+                      "rule_k": sum(m["rule_pass"] for m in ms), "rule_n": rn,
+                      "hist_k": sum(m["hist_ok"] for m in ms), "hist_n": cn,
                       "wall_min": st.mean(m["wall_min"] for m in ms),
                       "wall_min_proxy_measured": st.mean(m["wall_min_proxy_measured"] for m in ms),
                       "cloud_usd": st.mean(m["usd"] for m in ms),

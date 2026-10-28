@@ -325,8 +325,9 @@ def test_config_search_on_the_committed_files():
     assert got == {"f16": (8192, 21), "q8_0": (15360, 54), "q4_0": (28928, 90)}
     f16 = d["candidates"][0]
     assert f16["accuracy_source"].startswith("measured") and f16["n_kept"] == 21
-    assert all(c["accuracy_source"] == "NOT MEASURED" for c in d["candidates"][1:])
-    assert cs.hybrid_v2(REPO)["status"] == "PENDING"
+    # the q8_0 / q4_0 probes (x2_own_config_probe_*) were synced 2026-10-25 with run_end, so both are measured now
+    assert all(c["accuracy_source"].startswith("measured") for c in d["candidates"][1:])
+    assert cs.hybrid_v2(REPO)["status"] == "VERIFIED"
 
 
 def test_hybrid_v2_policy_counts():

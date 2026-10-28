@@ -27,10 +27,12 @@ How to read this page:
 
 ## Impact v2: P1 from the measured wrong-task rate, one stated profile (2026-10-22; P1 framing and P2 valuation 2026-10-21 operator decisions)
 
-**Fixing a wrong answer in the cloud costs about USD 0.03 (priced, not executed); the cost is that the failure is
-silent, so you do not know which answers to fix.** Row cloud-redo-cost-per-wrong-task: "USD per wrong task mean
+**Fixing a wrong answer in the cloud costs about USD 0.03 (priced, not executed); the cost is that on Ollama the
+failure is silent, so you do not know which answers to fix.** Row cloud-redo-cost-per-wrong-task: "USD per wrong task mean
 $0.0283" (stub mode, priced from the local run's token counts, no API call), and at the profile cell "ollama_ctx_4096:
-wrong 63/150 (42.0%) (silent 63, surfaced 0)" [x2-evalset-tasks-real-v2-wrong-rate]: every wrong task was silent.
+wrong 63/150 (42.0%) (silent 63, surfaced 0)" [x2-evalset-tasks-real-v2-wrong-rate]: every wrong task was silent on
+Ollama 0.34.4 (evo-x2). On llama-server (build b10970, evo-x2) the same 4096 window fails loudly, with HTTP errors:
+"harness-silent wrong (no HTTP error on any call, the Ollama row's definition) 0" [xruntime-llamacpp-wrong-rate].
 Detection, not the redo, is what is worth paying for (measured detector below).
 
 Operator priority override of 2026-10-21. This section supersedes the v1 P1 "not measured" and the v1 ranking for
@@ -149,8 +151,10 @@ v1 ranking (P5 first) was priced at a different profile (llama3.1:8b at the defa
 so the two rankings are not a like-for-like change of one input.
 
 **Text prepared for docs/OCT29_COST_SUMMARY.md (file not created).** "Fixing a wrong answer in the cloud costs about
-USD 0.03 (priced, not executed); the cost is that the failure is silent, so you do not know which answers to fix. At
-num_ctx 4096, qwen3:14b got 42.0% of tasks wrong and every one was silent [x2-evalset-tasks-real-v2-wrong-rate]. In
+USD 0.03 (priced, not executed); the cost is that on Ollama the failure is silent, so you do not know which answers to
+fix. At num_ctx 4096 on Ollama 0.34.4 (evo-x2), qwen3:14b got 42.0% of tasks wrong and every one was silent
+[x2-evalset-tasks-real-v2-wrong-rate]; on llama-server the same window fails loudly, with HTTP errors
+[xruntime-llamacpp-wrong-rate]. In
 that cell, a check for "the prompt exceeded the loaded window" caught every wrong task (recall 100.0%) but flagged 147
 of 150 tasks (precision 42.9%), so escalating only flagged tasks costs about the same as escalating all of them (USD
 2.4893 vs 2.5401 for the run's 150 tasks, at the full-history redo cost); measured on the same run
@@ -218,7 +222,7 @@ task-size point and volume:
 
 - all-cloud: saves 0, all-cloud accuracy (all-cloud-b3-quality);
 - naive local at the device default: saves the full cloud bill, at the measured local accuracy on the shared seeds
-  (x2-evalset-tasks-real-v2-wrong-rate, as hybrid-savings-v1 uses); its wrong answers are silent;
+  (x2-evalset-tasks-real-v2-wrong-rate, as hybrid-savings-v1 uses); its wrong answers are silent on Ollama 0.34.4 (evo-x2), loud on llama-server (xruntime-llamacpp-wrong-rate);
 - hybrid with the window-overflow flag: hybrid-savings-v1's flag policy, flagged tasks escalated at the escalation cost
   input (interim until cloud-redo-full-context is VERIFIED and complete, then automatic);
 - escalating every wrong task appears only as a separate column labelled "ceiling, no such detector" (in a chart it
@@ -365,7 +369,7 @@ Savings are measured against running every task on the cloud, at matched quality
 v2 tasks. The all-cloud run has seeds 20260901 to 20260903 and the local run has 5 seeds, so the table uses only the 3
 shared seeds. Every number below is from register row hybrid-savings-v1 (analysis/impact_model.py::hybrid_savings).
 
-Policies per device: (1) all-cloud, the reference; (2) naive local: USD 0 cloud spend, every wrong task silent; (3)
+Policies per device: (1) all-cloud, the reference; (2) naive local: USD 0 cloud spend, every wrong task silent on Ollama 0.34.4 (evo-x2) [x2-evalset-tasks-real-v2-wrong-rate]; (3)
 hybrid: escalate every task the window-overflow flag marks (the task turn's prompt exceeded the loaded window); (4)
 escalate every wrong task (ceiling, no such detector): it needs a detector that knows which local answers are wrong,
 which does not exist; it is shown as a ceiling only, never as a headline. An escalated task is assumed to take the
@@ -373,7 +377,7 @@ all-cloud outcome of the same task and seed.
 
 **Window overflow is not a general wrong-answer detector.** It only sees tasks whose prompt outgrew the loaded window.
 It misses every wrong task that stays inside the window: at evo-x2's default window it flags nothing, so policy (3)
-there is the same as naive local, and every default-window wrong task stays silent [hybrid-savings-v1,
+there is the same as naive local, and every default-window wrong task stays silent on Ollama 0.34.4 [hybrid-savings-v1,
 impact-v3-detection-value-measured]. Where the window is small (4096) almost every task overflows, so the flag catches
 the wrong tasks but escalates nearly everything and saves little against all-cloud [hybrid-savings-v1]. Catching
 in-window wrong answers needs a general verifier (prior work on routing and verification), which we do not claim.
@@ -460,7 +464,7 @@ not, the register rows win and this model is the one to fix.
 
 ## Inputs added later
 
-- **2026-10-21: cost of redoing a silent wrong task on the cloud** (register row cloud-redo-cost-per-wrong-task,
+- **2026-10-21: cost of redoing a silent wrong task (Ollama 0.34.4, evo-x2) on the cloud** (register row cloud-redo-cost-per-wrong-task,
   scripts/cloud_redo.py, results/cloud_redo_v1.jsonl). Every B3 v2 wrong task (qwen3:14b, all tiers) priced on the
   escalation model with prompt caching on. Mode: priced, not executed (no API key on the controller): token counts are
   the local run's, the output is a stand-in, and cloud correctness and seconds are not measured. Not yet wired into
@@ -486,7 +490,7 @@ Before any impact number leaves the repo, the model was audited. What changed:
   lower bound is 0 (nobody waits for it), so every time row is "mixed" and contributes 0 to the measured-only total.
   P1 prints "not measured": no B3 task run (tool tasks with end-state checks) exists under two or more windows yet
   (results/x2_evalset_tasks_val_v1.jsonl is the validation gate run, not a measurement, and is excluded), and a silent
-  rule or recall failure is not converted into a wrong task. impact-total is now a measured-only total plus a range.
+  rule or recall failure (R2, on Ollama) is not converted into a wrong task. impact-total is now a measured-only total plus a range.
 
 How the ranking changed (status quo profile). Before the audit (register row impact-total as it stood before this
 change, OpenAI table, P3 = uncached minus cached session cost, time at the full hour value): P3 > P5 > P6 > P2 > P4 >
@@ -497,7 +501,7 @@ P1 drops to last because it is no longer priced at all. The three time rows (P5,
 
 Where the earlier USD 1,933.63/day (USD 40,606.25/month) at num_ctx 4096 came from is laid out term by term in the
 generated block ("Scenario"), recomputed from the same files (register row impact-scenario-one-flag): almost all of
-it (USD 1,858.48/day) is P1 under the assumption that each of the 5/5 silent rule/recall failures is a wrong result
+it (USD 1,858.48/day) is P1 under the assumption that each of the 5/5 silent rule/recall failures (R2, on Ollama) is a wrong result
 costing one full 0.72 h rerun at the full wage. It is a SCENARIO that depends on assumed rework time per silent wrong
 result (not measured), and it is not a lower bound. Its USD/month form, USD 40,606.25, is the same figure.
 

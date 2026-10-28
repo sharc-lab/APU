@@ -4587,6 +4587,103 @@ def compute_own_rollback_redo(repo):
     return {"value": orb.own_rollback_redo_text(r), "n": f"{len(r['tasks'])} tasks run of {r['n_all']}"}
 
 
+def compute_cloud_rescue_combined(repo):
+    """Full-history redo fixes plus the cascaded rollback redo's fixes of its earlier_state_repair failures
+    (analysis/own_rollback.py::cloud_rescue_combined)."""
+    orb = _own_rollback()
+    c = orb.cloud_rescue_combined(repo)
+    return {"value": orb.cloud_rescue_combined_text(c), "n": f"{c['n']} wrong tasks"}
+
+
+def _session_ci():
+    import sys as _sys
+    _sys.path.insert(0, str(REPO / "analysis"))
+    import session_ci
+    return session_ci
+
+
+def compute_headline_ci_session_rescue(repo):
+    """Session-level bootstrap (whole (tier, seed) sessions, stratified by tier) of the cloud-rescue proportions next
+    to their task-level Wilson CIs (analysis/session_ci.py::rescue_session_ci)."""
+    sc = _session_ci()
+    r = sc.rescue_session_ci(repo)
+    return {"value": sc.rescue_text(r), "n": f"{r['full_history']['n']} wrong tasks in "
+                                             f"{r['full_history']['n_sessions']} sessions"}
+
+
+def compute_x2_evalset_tasks_real_v2_silent_total(repo):
+    """Every wrong local task turn of the B3 v2 real run: surfaced vs silent, with task-level and session-level CIs
+    (analysis/session_ci.py::surfaced_split)."""
+    sc = _session_ci()
+    r = sc.surfaced_split(repo)
+    return {"value": sc.surfaced_text(r), "n": f"{r['b']['n']} wrong task turns in {r['n_sessions_total']} sessions"}
+
+
+def compute_headline_ci_session_hybrid(repo):
+    """Paired session-level bootstrap (3 seeds) of hybrid-route-at-start-measured at 8192 with claude-sonnet-5-5
+    (analysis/session_ci.py::hybrid_bootstrap)."""
+    sc = _session_ci()
+    b = sc.hybrid_bootstrap(sc.hybrid_sessions(repo))
+    return {"value": sc.hybrid_text(b), "n": f"{b['n_sessions']} sessions, {b['n']} tasks"}
+
+
+def compute_paper_percentage_counts(repo):
+    """Counts (k/n) behind percentages the paper and docs/OCT29_COST_SUMMARY.md print from rows that state only a rate
+    or a rate with n: R2 validation v2 baseline rule rates per model, B5 (evo-x2) rule pass and history recall per
+    policy, the num_ctx 4096 mitigation rule rates, the num_keep guardrail test rule rates. Same functions as rows
+    R2-validation-v2-baseline, b5-policy-metrics, R2-mitigation-v1-4096 and num-keep-guardrail-test."""
+    ag = _r2_agent_module()
+    rep = ag.evaluate_gates(ag.read_rows(repo / R2_VALIDATION_V2_FILE), call2_tools=False)
+    parts = []
+    for model, e in sorted(rep["baseline_table"].items()):
+        rr = ", ".join(f"{r.split('_')[0]} {round(d['rate'] * d['n'])}/{d['n']}" for r, d in e["rules"].items())
+        parts.append(f"R2-validation-v2-baseline {model}: {rr}")
+    pc = _harness_module("policy_compare")
+    rows = _b5_rows(repo)
+    if not rows["evo-x2"]:
+        raise FileNotFoundError(repo / B5_FILES["evo-x2"])
+    for m, c in pc.metrics_for_platform(rows["evo-x2"], pc.load_cloud_prices(repo)).items():
+        pol = ", ".join(f"{p} rule {v['rule_k']}/{v['rule_n']} hist {v['hist_k']}/{v['hist_n']}"
+                        for p, v in sorted(c["policies"].items()))
+        parts.append(f"b5-policy-metrics evo-x2 {m}: {pol}")
+    _mr, mrep = _r2_mitigation_report(repo, tiers=("num_ctx_4096",))
+    for key, c in mrep["cells"].items():
+        rr = ", ".join(f"{r.split('_')[0]} {d['n_ok']}/{d['n']}" for r, d in c["mitigation"]["rules"].items())
+        parts.append(f"R2-mitigation-v1-4096 {key.split('|')[1]} mitigation: {rr}")
+    nk = compute_num_keep_guardrail_test(repo)["detail"]["rule_rates"]
+    parts.append("num-keep-guardrail-test llama3.1:8b: " + ", ".join(
+        f"{r.split('_')[0]} {round(d['rate'] * d['n'])}/{d['n']}" for r, d in nk.items()))
+    return {"value": "; ".join(parts), "n": f"{len(parts)} cells"}
+
+
+def compute_cost_target_scenario(repo):
+    """TARGET SCENARIO, not measured: the "75%" cost figure. hybrid-savings-v1's ceiling policy (hybrid_perfect: a
+    detector that flags exactly the wrong local tasks, which does not exist) at evo-x2's default window with
+    claude-sonnet-5-5, expressed as the share of the all-cloud cost saved, with its assumptions."""
+    im = _impact()
+    h = im.hybrid_savings(repo, _impact_v2(repo)["rows"]["P2"])
+    if h["status"] != "VERIFIED":
+        return {"value": f"PENDING: hybrid-savings-v1 {h['status']}", "n": "0"}
+    c = next(x for x in h["cells"] if x["device"] == "evo-x2" and x["tier"] == "ollama_default"
+             and x["model"] == "claude-sonnet-5-5")
+    hp, ac = c["policies"]["hybrid_perfect"], c["policies"]["all_cloud"]
+    share = 1 - hp["usd_task"] / ac["usd_task"]
+    return {"value": (f"TARGET SCENARIO, not measured: evo-x2 ollama_default (qwen3:14b at its default window), "
+                      f"claude-sonnet-5-5, B3 v2 tasks, seeds {', '.join(map(str, h['seeds']))}; ceiling policy "
+                      f"(hybrid-savings-v1 hybrid_perfect): keep local the {hp['kept_local']}/{hp['n']} "
+                      f"({100 * hp['kept_local'] / hp['n']:.1f}%) tasks qwen3:14b got right and escalate exactly the "
+                      f"{hp['escalated']} it got wrong; cloud USD {hp['usd_task']:.5f}/task vs all-cloud "
+                      f"{ac['usd_task']:.5f}/task = {100 * share:.1f}% below all-cloud, accuracy {hp['correct']}/"
+                      f"{hp['n']}; naive local at this window wrong {c['local_wrong']}/{hp['n']} "
+                      f"({100 * c['local_wrong'] / hp['n']:.1f}%); assumptions: (1) a detector that flags exactly the wrong local tasks and no right "
+                      f"ones (none exists: the window flag caught 0 of the {c['local_wrong']} wrong tasks at this "
+                      f"window, flagged {c['flagged']}); (2) each escalated task costs the measured full-history redo "
+                      f"mean ({c['esc_label']}); (3) each escalated task takes the all-cloud outcome of the same task "
+                      f"(ASSUMED; the measured full-history redo did not fix every wrong task, row cloud-redo-full-context); "
+                      f"(4) replay of recorded runs, short B3 v2 tasks only"),
+            "n": f"{hp['n']} tasks"}
+
+
 def compute_hybrid_local_first_rollback(repo):
     """Local first on every task, roll back and escalate on the oracle signal (ceiling) or the over-window stand-in,
     by replay (analysis/own_rollback.py::local_first_rollback)."""
@@ -5743,6 +5840,19 @@ def compute_cloud_cost_per_real_task(repo):
     res = ct.compute(repo)
     return {"value": ct.value_text(res), "n": f"{sum(e['n_tasks'] for e in res['sets'].values())} trajectories"}
 
+
+def compute_cloud_cost_per_real_task_all_tiers(repo):
+    """Row cloud-cost-per-real-task's pricing (same trajectories, calibration, caching cases and price file) at every
+    tier in analysis/cloud_task_cost.py TIERS: claude-haiku-5-5, claude-sonnet-5-5, claude-opus-5-5, claude-fable-5-1.
+    Priced, not executed. Opus and Fable added 2026-10-27 on operator request, prices from the same Anthropic file."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("cloud_task_cost", repo / "analysis" / "cloud_task_cost.py")
+    ct = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ct)
+    res = ct.compute(repo)
+    return {"value": ct.all_tiers_text(res),
+            "n": f"{sum(e['n_tasks'] for e in res['sets'].values())} trajectories, {len(ct.TIERS)} tiers"}
+
 # All-cloud baseline on the B3 v2 tasks (scripts/all_cloud_b3.py, pre-registered in docs/FINDINGS.md 2026-10-21): the 30
 # tasks run fully on claude-haiku-5-5 and claude-sonnet-5-5, 3 seeds. The all-cloud reference quality and cost for the
 # hybrid savings model. PENDING until results/all_cloud_b3_v1.jsonl exists.
@@ -6543,6 +6653,78 @@ def compute_b5_fa_control(repo):
             "n": f"{sum(len(e['per_seed_min']) for e in s.values())} sessions"}
 
 
+def compute_kv_precision_evidence(repo):
+    """evo-x2 qwen3:14b policies (a) f16, (i) f16+FA, (g) q8_0, (h) q4_0 from the B5 and flash-attention-control files
+    (analysis/kv_evidence.py): per-seed session minutes, loaded window, Ollama-timed prefill / decode tokens/s (median,
+    p90 over calls), /api/ps size at the window probe, the server-log KV types, the derived KV buffer, why (g) and (h)
+    print the same mean, and whether q4_0 loaded as q4_0."""
+    kv = _analysis_module(repo, "kv_evidence")
+    e = kv.evidence(repo)
+    ev, loads, k, gh = e["ev"], e["loads"], e["kv"], e["gh"]
+    parts = []
+    for p, (name, env) in kv.POLICIES.items():
+        ld = loads.get(env, {})
+        seeds = "; ".join(
+            f"{s}: {ev[(p, s)]['minutes']:.1f} min, loaded {'/'.join(str(c) for c in ev[(p, s)]['loaded_context'])}, "
+            f"prefill {ev[(p, s)]['prefill_median']:.1f}/{ev[(p, s)]['prefill_p90']:.1f}, decode "
+            f"{ev[(p, s)]['decode_median']:.2f}/{ev[(p, s)]['decode_p90']:.2f}"
+            for s in e["seeds"] if (p, s) in ev)
+        kvt = (f"server-log KV types {ld.get('kv_observed')} (env in config line {ld.get('kv_env_in_config')})"
+               if ld.get("kv_observed") is not None else
+               "server-log KV type not parsed for this env (no KV env set); /api/ps size "
+               + ("equal to (i) f16 to the byte" if ld.get("size") == loads.get("f16", {}).get("size")
+                  else "differs from (i) f16"))
+        parts.append(f"({p}) {name}: {seeds}; /api/ps size at load {ld.get('size') / kv.MIB:.1f} MiB, loaded window "
+                     f"{ld.get('loaded_context')}; {kvt}; KV buffer {k['kv_mib'][env if env != 'base' else 'f16']:.0f} "
+                     f"MiB (derived)")
+    fa_lines = loads.get("base", {}).get("fa_log_lines") or []
+    q4 = loads.get("q4_0", {})
+    q4_ok = bool(q4.get("kv_verified")) and q4.get("kv_observed") == ["q4_0"] and k["consistent"]
+    value = ("tok/s are median/p90 over the session's calls (Ollama prompt_eval_count / prompt_eval_duration and "
+             "completion tokens / eval_duration); " + " / ".join(parts)
+             + f"; KV buffer derived from the /api/ps sizes (llama_kv_cache size line not in any committed file): f16 "
+             f"KV {k['x_from_f16_q8']:.1f} MiB from f16 - q8_0 and {k['x_from_q8_q4']:.1f} MiB from q8_0 - q4_0 "
+             f"(16 / 8.5 / 4.5 bits per element), relative difference {k['rel_diff']:.1e}; q4_0 / f16 KV "
+             f"{k['q4_over_f16']:.3f}; (a) base-env log (flash-attention control probe): {fa_lines}; "
+             f"(g) = (h) at one decimal: unrounded means {gh['mean_g']:.3f} vs {gh['mean_h']:.3f} min, "
+             f"{gh['diff_s']:.2f} s apart; per seed (g) "
+             + ", ".join(f"{v:.2f}" for v in gh["g"].values()) + " vs (h) "
+             + ", ".join(f"{v:.2f}" for v in gh["h"].values())
+             + f"; length stops {gh['length_stops']}, turns {gh['turns']}, completion tokens (g) "
+             f"{gh['completion_tokens']['g']} vs (h) {gh['completion_tokens']['h']}: a coincidence of 3-seed means, not "
+             f"a cap, timeout, session limit or copied value; q4_0 loaded as q4_0: "
+             + ("yes (server log reported only q4_0, env in the config line, and the size step q8_0 - q4_0 matches "
+                "4.5 bits)" if q4_ok else "not verifiable from committed files"))
+    return {"value": value, "n": f"{len(ev)} sessions"}
+
+
+def compute_kv_output_agreement(repo):
+    """Greedy (temperature 0, seed 42) output agreement between KV precisions on the same seeds, B5 and flash-attention
+    control files: per pair the turns whose call-1 prompt is identical on both sides (rebuilt prompt key), exact-match
+    turns, tool-call agreement, and the first divergence (turn, call, token index)."""
+    kv = _analysis_module(repo, "kv_evidence")
+    e = kv.evidence(repo)
+    tk = kv.load_tokenizer()
+    unit = f"token ({kv.TOKENIZER_REPO} tokenizer, retokenized text)" if tk else "character (tokenizer not in cache)"
+    ag = kv.agreement(e["sessions"], tokenize=tk)
+    names = {p: v[0] for p, v in kv.POLICIES.items()}
+    parts = []
+    for (pa, pb), v in ag.items():
+        seeds = "; ".join(
+            f"{s}: comparable {x['comparable']}/{x['n_turns']}, exact {x['exact']}, tool calls agree {x['tool_agree']}, "
+            + (f"first divergence turn {x['first_divergent_turn']} call {x['first_divergent_call'] + 1} index "
+               f"{x['first_divergence_index']}" if x["first_divergent_turn"] is not None else "no divergence")
+            for s, x in v["per_seed"].items())
+        rate = v["exact"] / v["comparable"] if v["comparable"] else None
+        parts.append(f"({pa}) {names[pa]} vs ({pb}) {names[pb]}: comparable turns {v['comparable']} of "
+                     f"{v['n_turns']}, exact match {v['exact']}/{v['comparable']} ({_pct(rate)}), tool calls agree "
+                     f"{v['tool_agree']}/{v['comparable']} ({_pct(v['tool_agree'] / v['comparable'] if v['comparable'] else None)}); "
+                     f"{seeds}")
+    return {"value": f"greedy decoding; comparable = call-1 prompt identical on both sides; divergence index unit: "
+                     f"{unit}; " + " / ".join(parts),
+            "n": f"{len(ag)} pairs x {len(e['seeds'])} seeds"}
+
+
 def compute_b5_kv_recall_f16_rerun(repo):
     """llama3.1:8b f16 recall rerun (flash-attention control job) against B5's q8_0 and q4_0 rows: needles found of
     24 per precision, two-sided Fisher exact per pair (descriptive), errors and durations."""
@@ -7134,6 +7316,73 @@ def compute_long_task_cloud_priced_vs_billed(repo):
     return {"value": "; ".join(parts), "n": f"{len(tr)} cloud task runs"}
 
 
+def compute_own_plan_execute_estimate(repo):
+    """ESTIMATE, not a measurement: cloud USD (billed and upper bound, point and high) per arm of the own-plan-execute
+    pilot DRAFT and the evo-x2 hours of its local phase, from the long-task cloud check's measured per-call tokens and
+    per-task costs, the long-task local run's short-call seconds and per-item diff share, and the B3 v2 wrong rate
+    (harness/plan_execute.py::cost_estimate, hours_estimate; every ASSUMPTION named in the value)."""
+    import sys as _sys
+    _r2_agent_module()
+    _sys.path.insert(0, str(repo / "harness"))
+    import plan_execute as pe
+    import x2_r2_evalset as ev
+    cloud = _read_jsonl(repo / LONGTASK_CLOUD_FILE)
+    local = _finished_attempt_rows(_read_jsonl(repo / LONGTASK_LOCAL_FILE))
+    o = ev.tasks_real_v2_outcome(ev.ag.read_rows(repo / X2_EVALSET_TASKS_REAL_V2), models=(V2_PROTOCOL_MODEL,),
+                                 n_boot=100)
+    t = o["models"][V2_PROTOCOL_MODEL]["tiers"]["ollama_default"]
+    wr = t["wrong"] / t["n_task_turns"]
+    m = pe.measured_inputs(cloud, local)
+    specs = pe.task_specs()
+    table = json.loads((repo / ANTHROPIC_PRICES).read_text(encoding="utf-8"))
+    e = pe.cost_estimate(m, specs, pe.model_rates(table, pe.PLANNER), wr)
+    h = pe.hours_estimate(m, specs)
+    A = pe.ASSUME
+
+    def arm(c, k):
+        x = e[c][k]
+        return f"billed USD {x['billed']:.4f}, upper bound USD {x['upper']:.4f}"
+    cases = []
+    for c in ("point", "high"):
+        p = e[c]["plan_execute"]
+        cases.append(
+            f"{c}: all-cloud ({pe.BASELINE}, 60 tasks) {arm(c, 'all_cloud')}; plan-execute cloud part {arm(c, 'plan_execute')}"
+            f" (upper bound by role: planner {p['planner_upper']:.4f}, verifier {p['verifier_upper']:.4f}, escalation "
+            f"{p['escalation_upper']:.4f} for {p['escalated_steps']:.0f} escalated steps at share "
+            f"{e[c]['escalation_share']:.3f}, plan-failure fallback {p['fallback_upper']:.4f}); local only USD 0 (no "
+            f"new run, row long-task-local-accuracy); total {arm(c, 'total')}; plan-execute / all-cloud billed "
+            f"{e[c]['cost_ratio_billed']:.3f}")
+    over = [c for c in ("point", "high") if e[c]["total"]["billed"] > 2.0 or e[c]["total"]["upper"] > 2.0]
+    value = (
+        f"ESTIMATE, not a measurement (DRAFT pre-registration, nothing run); 20 long-horizon synthetic tasks x seeds "
+        f"{list(pe.SEEDS)} = {len(specs)} tasks ({sum(s[2] for s in specs)} reference steps, {h['n_steps']} work-order "
+        f"items); planner, verifier and escalation executor {pe.PLANNER}, local executor {pe.EXECUTOR}; "
+        + "; ".join(cases)
+        + f"; per-job limit USD 2: {'exceeded in the ' + ' and '.join(over) + ' case' if over else 'not exceeded'}; "
+        f"evo-x2 hours of the local phase {h['point']:.2f} h (high {h['high']:.2f} h) = {h['n_steps']} steps x "
+        f"{A['local_calls_per_step']['point']} calls (high {A['local_calls_per_step']['high']}, ASSUMPTION) x measured "
+        f"short-call seconds median {m['local_short_call_s_median']:.2f} (p75 {m['local_short_call_s_p75']:.2f}; "
+        f"n={m['n_local_short_calls']} calls under {A['short_prompt_est']} est tokens, ollama_default arm of "
+        f"x2_longtask_local_v1) + {A['overhead_s_per_arm']:.0f} s; measured inputs (long-task cloud check, "
+        f"{pe.PLANNER}): first call input {m['call1_in']:.0f} / output {m['call1_out']:.0f} tokens, work order "
+        f"{m['wo_tokens_intercept']:.0f} + {m['wo_tokens_per_item']:.1f} tokens per item (least squares, 5 tasks), "
+        f"tool step growth median {m['tool_step_growth']:.1f} tokens (n={m['n_growth']}), billed/upper "
+        f"{m['billed_over_upper']:.3f}, all-cloud per task interpolated on reference steps between the 5 measured "
+        f"tasks (scaled by steps below 11); escalation share point = B3 v2 qwen3:14b ollama_default wrong rate "
+        f"{t['wrong']}/{t['n_task_turns']} (ASSUMPTION: a plan step behaves like a B3 v2 task turn and the "
+        f"checkpoints flag exactly the wrong steps), high = long-task local per-item diff share "
+        f"{m['local_item_diff_share']:.3f} (ASSUMPTION: one diff = one wrong item); ASSUMPTIONS: plan instruction "
+        f"{A['plan_instruction_tokens']} tokens, plan output {A['plan_out_per_item_factor']['point']} (high "
+        f"{A['plan_out_per_item_factor']['high']}) x work-order tokens per item, verifier every {pe.CHECKPOINT_EVERY} "
+        f"steps with input = first call input + per step (item tokens + 2 tool steps), output "
+        f"{A['verify_out_tokens']['point']} (high {A['verify_out_tokens']['high']}) tokens, "
+        f"{A['esc_calls_per_step']['point']} (high {A['esc_calls_per_step']['high']}) calls per escalated step, plan "
+        f"failure share {A['plan_failure_share']['point']} (high {A['plan_failure_share']['high']}) run whole on the "
+        f"cloud, all-cloud high = x {A['all_cloud_high_factor']}, billed point = upper x billed/upper, billed high = "
+        f"upper (no cache saving)")
+    return {"value": value, "n": f"{len(specs)} tasks per arm (estimate)"}
+
+
 # ───────────────────────────────────────────────── live demo (2026-10-23; docs/EXPERIMENTS.md "Live demo: detector
 # check and acceptance run"). PENDING until the file has run_end.
 DEMO_DETECTOR_FILE = "results/demo_detector_check.jsonl"
@@ -7295,7 +7544,8 @@ _OP = _src_dse("own_profiler")
 OWN_PROFILER_FILES = (list(_OP.SESSION_DATA_FILES) + [f for _d, f in _OP.SINGLE_FILES]
                       + [_OP.SCALE_PROBE_FILE, _OP.BLADE_TASK_FILE])
 OWN_DSE_V1_FILES = list(dict.fromkeys(list(_OP.SESSION_DATA_FILES) + ROUTE_MEASURED_FILES + [
-    "results/hardware_price_evox2_20261021.json", ENERGY_PRICE_EIA_FILE, "results/t2s_night2_20260930T135145Z.jsonl"]))
+    "results/hardware_price_evox2_20261021.json", ENERGY_PRICE_EIA_FILE, "results/t2s_night2_20260930T135145Z.jsonl",
+    LONGTASK_LOCAL_FILE, LONGTASK_CLOUD_FILE]))
 
 # ── own-compaction, own-config-search, hybrid-route-at-start-v2, E1/E2 reserve (operator, 2026-10-23; docs/
 # EXPERIMENTS.md "own-compaction" and the sections after it). Result rows are PENDING until their files have run_end. ──
@@ -7529,6 +7779,371 @@ def compute_own_profiler_probe_hours(repo):
                      f"to {f(end[1])}); before the 2026-10-29 demo hold fallback start {f(q['demo_hold'])}: "
                      + ("yes" if end[1] <= q["demo_hold"] else "NO") + " (high case); not queued by this commit",
             "n": "6 configs (estimate)"}
+
+# ── E1/E2 DRAFT pre-registration (docs/EXPERIMENTS.md "DRAFT (pending Zach's agreement 2026-10-25)"): hours of the AMD
+# arms, a queue projection re-anchored on the latest synced finished job, the cloud grading cost of the fresh draw, the
+# n=200 design statistics, and the E2 cost-per-busy-hour sensitivity to the utilization ASSUMPTION. Nothing here is a
+# measurement of E1 or E2; neither is registered or queued. ──
+E1_DRAFT_QUEUE = (   # evo-x2 queue order after x2_b5_simcap_4096 (docs/X2_QUEUE_PLAN.md), with each job's result file
+    ("x2_r2_v1b_seeds_06_10", [R2_V1B_SEEDS_FILE]),
+    ("x2_mx2_qwen3_32b_spill_sweep", [SPILL32_FILE]),
+    ("x2_evalset_tasks_val_v2_mistral_small32", [X2_EVALSET_TASKS_VAL_V2_MS]),
+    ("x2_evalset_tasks_real_v2_mistral_small32", [X2_EVALSET_TASKS_REAL_V2_MS]),
+    ("x2_evalset_tasks_val_v2_llama33_70b", [X2_EVALSET_TASKS_VAL_V2_L70]),
+    ("x2_evalset_tasks_real_v2_llama33_70b", [X2_EVALSET_TASKS_REAL_V2_L70]),
+    ("x2_longtask_local_v1", [LONGTASK_LOCAL_FILE]),
+    ("x2_own_compaction_v1_a", [OC_PARTS["a"]]),
+    ("x2_own_compaction_v1_b", [OC_PARTS["b"]]),
+    ("x2_own_config_probe_q8_15360", ["results/x2_own_config_probe_q8_15360.jsonl"]),
+    ("x2_own_config_probe_q4_28928", ["results/x2_own_config_probe_q4_28928.jsonl"]),
+    ("x2_own_profiler_probe_v1", None),   # per-config files, resolved in e1_draft_projection
+)
+E1_DRAFT_UTILIZATIONS = (0.10, 40 / 168, 0.25, 0.50, 1.00)   # 40/168 = one 8-hour shift on weekdays (the ASSUMPTION)
+E1_DRAFT_SEEDS = tuple(range(20261101, 20261108))            # fresh draw: 6 x 30 + the first 20 turns of the 7th
+
+
+def _run_end_ts(path):
+    """run_end ts_utc of a result file, or None if the file is missing or has no run_end."""
+    if not path.exists():
+        return None
+    for r in _read_jsonl(path):
+        if r.get("record") == "run_end":
+            return r.get("ts_utc")
+    return None
+
+
+def e1_draft_projection(repo) -> dict:
+    """Back-to-back projection (point, high) of the evo-x2 queue from the run_end of the last finished job in
+    E1_DRAFT_QUEUE (synced files), with the registered per-job estimates; the job running at E1_BLOCK_START_UTC;
+    E1/E2 directly behind it (operator rule 2026-10-23: no preemption)."""
+    from datetime import datetime, timedelta
+    oc, _cs = _oc_modules(repo)
+    ag = _r2_agent_module()
+    opp = _own_probe_module()
+    fill = queue_fill_1022_estimates(repo)
+    l70 = l70_b3v2_estimates(repo)
+    _lt, xl = _longtask_modules()
+    lt = xl.hours_estimate(ag.read_rows(repo / B5_X2_FILE))["total"]
+    est = oc.hours_estimate(ag.read_rows(repo / X2_EVALSET_TASKS_REAL_V2), ag.read_rows(repo / MITIGATION_X2_FILE))
+    pe = opp.hours_estimate(ag.read_rows(repo / X2_EVALSET_TASKS_REAL_V2))
+    hours = {**{j: (fill[j]["point_h"], fill[j]["high_h"]) for j in FILL_1022_ORDER if j in fill},
+             **{j: (l70[j]["point_h"], l70[j]["high_h"]) for j in L70_JOBS},
+             "x2_longtask_local_v1": (lt["point_h"], lt["high_h"]),
+             "x2_own_compaction_v1_a": (est["part_a"]["point_h"], est["part_a"]["high_h"]),
+             "x2_own_compaction_v1_b": (est["part_b"]["point_h"], est["part_b"]["high_h"]),
+             "x2_own_config_probe_q8_15360": (est["probe_q8_15360"]["point_h"], est["probe_q8_15360"]["high_h"]),
+             "x2_own_config_probe_q4_28928": (est["probe_q4_28928"]["point_h"], est["probe_q4_28928"]["high_h"]),
+             "x2_own_profiler_probe_v1": (pe["point_h"], pe["high_h"])}
+    anchor, anchor_job, todo = None, None, []
+    for job, files in E1_DRAFT_QUEUE:
+        if files is None:
+            files = [str(opp.config_file(OWN_PROBE_FILE, c["tier"])) for c in opp.CONFIGS]
+        ends = [_run_end_ts(repo / f) for f in files]
+        if all(ends) and not todo:
+            anchor, anchor_job = max(ends), job
+        else:
+            todo.append(job)
+    if anchor is None:
+        raise ValueError("no finished job in E1_DRAFT_QUEUE has a run_end with ts_utc")
+    stop = datetime.fromisoformat(xl.STOP_AFTER_UTC)
+    t = [datetime.fromisoformat(anchor)] * 2
+    table = []
+    for job in todo:
+        p, h = hours[job]
+        s = list(t)
+        e = [t[0] + timedelta(hours=p), t[1] + timedelta(hours=h)]
+        if job == "x2_longtask_local_v1":
+            e = [min(x, max(stop, y)) for x, y in zip(e, s)]   # no new task after STOP_AFTER_UTC
+        table.append({"job": job, "point_h": p, "high_h": h, "start": s, "end": e})
+        t = e
+    block = datetime.fromisoformat(E1_BLOCK_START_UTC)
+    at_block = []
+    for i in (0, 1):
+        run = next((r for r in table if r["start"][i] <= block < r["end"][i]), None)
+        at_block.append((run["job"], run["end"][i]) if run else (None, max(block, t[i])))
+    return {"anchor": anchor, "anchor_job": anchor_job, "table": table, "block": block, "at_block": at_block,
+            "demo_hold": datetime.fromisoformat(DEMO_HOLD_FALLBACK_UTC)}
+
+
+def e1_draft_stats(n=E1_TASKS, target=0.97) -> dict:
+    """Design statistics at n tasks (normal approximation, two-sided 5%, power 80%): Wilson 95% half-width at p=0.5
+    (widest), the unpaired minimum detectable difference between two arms at p=0.5 (worst case; the paired McNemar
+    test on the same tasks needs the discordant fraction, unknown before data), and the Wilson 95% lower bound at the
+    smallest count meeting the target."""
+    import math
+    z, zb = 1.959964, 0.841621
+
+    def wilson(k, m):
+        p = k / m
+        c = (p + z * z / (2 * m)) / (1 + z * z / m)
+        hw = z * math.sqrt(p * (1 - p) / m + z * z / (4 * m * m)) / (1 + z * z / m)
+        return c - hw, c + hw
+    lo, hi = wilson(n / 2, n)
+    k = math.ceil(round(target * n, 9))
+    return {"n": n, "wilson_hw_50": (hi - lo) / 2, "mdd_unpaired": (z + zb) * math.sqrt(2 * 0.25 / n),
+            "target": target, "k_target": k, "wilson_lo_target": wilson(k, n)[0]}
+
+
+def e2_cost_inputs(repo) -> dict:
+    """E2 cost per busy hour by utilization: hardware = list price / (36 30-day months x 24 h x utilization) per busy
+    hour (src/dse/dse_v1.py convention: LIFE_MONTHS, DAYS_PER_MONTH); electricity = PX2-power qwen3-14b watts (measured
+    on evo-t2s, applied to evo-x2: ASSUMED) x energy-price-eia-commercial per busy hour, active time only. Pilot
+    session = 30 x the B3 v2 ollama_default per-task mean (x2_evalset_tasks_real_v2); its q8_0 value is an ESTIMATE
+    (x the B5 qwen3:14b kv_q8_0/default session-minute ratio), not a B3 measurement."""
+    im = _impact()
+    import sys as _sys
+    if str(REPO) not in _sys.path:
+        _sys.path.insert(0, str(REPO))
+    from src.dse import dse_v1 as dv
+    price = im.ref_machine(repo)
+    watts = compute_px2_package_power(repo)["detail"]["qwen3-14b"]
+    eia = json.loads((repo / ENERGY_PRICE_EIA_FILE).read_text(encoding="utf-8"))
+    usd_kwh = float(eia["value_cents_per_kwh"]) / 100.0
+    life_h = dv.LIFE_MONTHS * dv.DAYS_PER_MONTH * 24
+    e = e1_e2_hours(repo)
+    sess_def = 30 * e["per_task"]["ollama_default"]["mean"] / 60
+    elec_h = watts / 1000 * usd_kwh
+    rows = [{"u": u, "hw_h": price["usd"] / (life_h * u), "elec_h": elec_h} for u in E1_DRAFT_UTILIZATIONS]
+    return {"usd": price["usd"], "label": price["label"], "watts": watts, "usd_kwh": usd_kwh, "life_h": life_h,
+            "elec_h": elec_h, "rows": rows, "sess_def_min": sess_def, "sess_q8_min": sess_def * e["ratio"],
+            "ratio": e["ratio"]}
+
+
+def compute_e1_e2_draft_hours(repo):
+    e = e1_e2_hours(repo)
+    q = e1_draft_projection(repo)
+    st = e1_draft_stats()
+    from datetime import timedelta
+    im = _impact()
+    ac = im.replay_cloud_tasks(repo)["models"]
+    cloud = {m: sum(v["usd"] for v in ac[m].values()) / len(ac[m]) for m in ("claude-sonnet-5-5", "claude-haiku-5-5")}
+
+    def f(x):
+        return x.strftime("%m-%d %H:%MZ")
+    proj = "; ".join(f"{r['job']} {r['point_h']:.2f} h (high {r['high_h']:.2f} h) {f(r['start'][0])} to "
+                     f"{f(r['end'][0])} (high {f(r['start'][1])} to {f(r['end'][1])})" for r in q["table"])
+    e1s = [q["at_block"][i][1] for i in (0, 1)]
+    e1e = [e1s[0] + timedelta(hours=e["total"][0]), e1s[1] + timedelta(hours=e["total"][1])]
+    run = [q["at_block"][i][0] or "none (queue empty)" for i in (0, 1)]
+    cl = "; ".join(f"{m} USD {u:.5f}/task x {E1_TASKS} = USD {u * E1_TASKS:.2f}"
+                   + (" (over the USD 2 per-job cap: operator approval required)" if u * E1_TASKS > 2 else "")
+                   for m, u in cloud.items())
+    return {"value": f"ESTIMATE and PROJECTION, not a measurement (E1/E2 DRAFT, pending Zach's agreement 2026-10-25; "
+                     f"not registered, not queued): AMD arms on evo-x2, qwen3:14b, {E1_TASKS} task turns each (fresh "
+                     f"seeds {E1_DRAFT_SEEDS[0]}-{E1_DRAFT_SEEDS[-1]}): E1 default window "
+                     f"{e['e1']['default'][0]:.2f} h (high {e['e1']['default'][1]:.2f} h), E1 num_ctx 4096 "
+                     f"{e['e1']['num_ctx_4096'][0]:.2f} h (high {e['e1']['num_ctx_4096'][1]:.2f} h), E2 KV q8_0 at the "
+                     f"default window {e['e2']['kv_q8_0'][0]:.2f} h (high {e['e2']['kv_q8_0'][1]:.2f} h), total "
+                     f"{e['total'][0]:.2f} h (high {e['total'][1]:.2f} h) (per-task basis as row e1-e2-x2-hours: B3 v2 "
+                     f"measured turn_wall_s, B5 q8_0 ratio {e['ratio']:.3f}); no validation run included; queue "
+                     f"projection back to back from {q['anchor_job']} run_end {q['anchor'][:16]}Z (last finished job "
+                     f"in the synced files) with the registered per-job estimates: {proj}; job running at E1 block "
+                     f"start {f(q['block'])}: (point) {run[0]}, (high) {run[1]}; E1/E2 directly behind it, no "
+                     f"preemption: projected start {f(e1s[0])} (high {f(e1s[1])}), finish {f(e1e[0])} (high "
+                     f"{f(e1e[1])}); before the 2026-10-29 demo hold fallback start {f(q['demo_hold'])}: "
+                     + ("yes" if e1e[1] <= q["demo_hold"] else "NO") + " (high case); jobs behind E1/E2 move later "
+                     f"by the same hours; cloud grading of the fresh draw (all-cloud pass, mean of the B3 v2 all-cloud "
+                     f"per-task USD): {cl}; design statistics at n={st['n']}: Wilson 95% half-width at 50% "
+                     f"{100 * st['wilson_hw_50']:.1f} points, unpaired minimum detectable difference (5% two-sided, "
+                     f"80% power, worst case p=0.5) {100 * st['mdd_unpaired']:.1f} points, target "
+                     f"{100 * st['target']:.0f}% = at least {st['k_target']}/{st['n']} (Wilson 95% lower bound "
+                     f"{100 * st['wilson_lo_target']:.1f}%)",
+            "n": "1 projection (estimate)"}
+
+
+def compute_e2_cost_model_draft(repo):
+    c = e2_cost_inputs(repo)
+    rows = "; ".join(f"utilization {100 * r['u']:.1f}%: hardware USD {r['hw_h']:.4f} + electricity USD "
+                     f"{r['elec_h']:.4f} = USD {r['hw_h'] + r['elec_h']:.4f} per busy hour; pilot session default "
+                     f"USD {(r['hw_h'] + r['elec_h']) * c['sess_def_min'] / 60:.5f}, KV q8_0 (ESTIMATE) USD "
+                     f"{(r['hw_h'] + r['elec_h']) * c['sess_q8_min'] / 60:.5f}" for r in c["rows"])
+    return {"value": f"COST MODEL, DRAFT (E2 pending Zach's agreement 2026-10-25; not an E2 result): hardware USD "
+                     f"{c['usd']:,.0f} ({c['label']}, impact-ref-machine-price) over 36 30-day months = "
+                     f"{c['life_h']:,.0f} h, divided by the busy hours at the utilization (ASSUMPTION; primary 23.8% = "
+                     f"one 8-hour shift on weekdays, 40 of 168 h); electricity {c['watts']:.1f} W (PX2-power "
+                     f"qwen3-14b package power, measured on evo-t2s, applied to evo-x2: ASSUMED) x USD "
+                     f"{c['usd_kwh']:.4f}/kWh (energy-price-eia-commercial), busy time only, idle power not counted; "
+                     f"pilot session = 30 B3 v2 task turns at ollama_default, {c['sess_def_min']:.2f} min (measured "
+                     f"mean); KV q8_0 {c['sess_q8_min']:.2f} min (ESTIMATE: x B5 ratio {c['ratio']:.3f}, not measured "
+                     f"on B3); {rows}",
+            "n": f"{len(c['rows'])} utilization cases"}
+
+
+# ── Cross-runtime replication on llama.cpp server (2026-10-26; docs/EXPERIMENTS.md "PRE-REGISTRATION (2026-10-26):
+# cross-runtime replication on llama.cpp server"; harness/xruntime_llamacpp.py, queue id x2_xruntime_llamacpp). The
+# hours row is an ESTIMATE from measured times in committed files; the two result rows are PENDING until the file is
+# synced and holds run_end. The OpenVINO row is a placeholder awaiting Zach's files. ──
+XRT_FILE = "results/xruntime_llamacpp_qwen3_14b.jsonl"
+XRT_OUTCOME_TABLE = "results/x2_outcome_table_v3.jsonl"
+XRT_SPILL = "results/x2_mx2_qwen3_32b_spill_sweep.jsonl"
+XRT_OPENVINO_MANIFEST = "results/xruntime_openvino_zach/MANIFEST.json"
+
+
+def _xrt_module():
+    _r2_agent_module()
+    import xruntime_llamacpp as xrt
+    return xrt
+
+
+def _xrt_ci(e):
+    lo, hi = e["ci95"]
+    return (f"{100 * e['excess']:+.1f} points (95% CI " + (f"{100 * lo:+.1f} to {100 * hi:+.1f}" if lo is not None
+                                                            else "n/a")
+            + f", {e['n_sessions']} vs {e['n_default_sessions']} sessions)")
+
+
+def _xrt_arm(k, a):
+    w = a["wrong_by_context_event"]
+    return (f"({'a' if k == 'default' else 'b' if k == '4096' else 'c'}) {a['arm_id']}: wrong "
+            f"{_frac(a['wrong'], a['n_task_turns'])}, loaded n_ctx {a['loaded_n_ctx']}; wrong by server log event: "
+            f"flagged_reject {w['flagged_reject']}, silent_cut {w['silent_cut']}, ctx_stop {w['ctx_stop']}, "
+            f"error_other {w['error_other']}, none {w['none']}; silent share "
+            f"{_pct(a['silent_share']) if a['silent_share'] is not None else 'not read'}; harness-silent wrong (no "
+            f"HTTP error on any call, the Ollama row's definition) {a['harness_silent_wrong']}; task turns with a "
+            f"tool round {_pct(a['tool_turn_share'])}")
+
+
+def compute_xruntime_llamacpp_wrong_rate(repo, path=XRT_FILE):
+    """B3 v2 core on llama-server b10970, qwen3:14b GGUF, seeds 20260901-05: per arm the wrong-task rate, the
+    silent/flagged split from the server log, and the pre-registered primary reading (harness/xruntime_llamacpp.py::
+    outcome)."""
+    xrt = _xrt_module()
+    rows = xrt.ag.read_rows(repo / path)
+    if not rows:
+        raise FileNotFoundError(repo / path)
+    o = xrt.outcome(rows)
+    p = o["primary"]
+    segs = [_xrt_arm(k, o["arms"][k]) for k in xrt.ARM_ORDER]
+    prim = (f"primary: (b) 4096 over {p['comparator_reason']} " + (_xrt_ci(p["excess"]) if p["excess"] else "n/a")
+            + f"; reading: {p['reading']}")
+    return {"value": f"run finished {o['run_finished']}; valid {o['valid']}"
+                     + (f" ({'; '.join(o['problems'])})" if o["problems"] else "")
+                     + f"; server default loaded n_ctx {o['default_loaded_n_ctx']}; detector validated "
+                       f"{o['detector_validated']} (probes {o['detector_probes']}); " + "; ".join(segs) + "; " + prim
+                     + f" (bootstrap {xrt.EV.BOOT_N} resamples, unit session, stratified by arm, seed "
+                       f"{xrt.EV.BOOT_SEED})",
+            "n": f"{sum(a['n_task_turns'] for a in o['arms'].values())} task turns"}
+
+
+def compute_xruntime_default_fixed(repo, path=XRT_FILE, ref=X2_EVALSET_TASKS_REAL_V2):
+    """The default-fixed arm (c), -c 40960, on llama-server: what persists after the obvious fix, against Ollama's
+    default-window sessions of x2_evalset_tasks_real_v2 (harness/xruntime_llamacpp.py::outcome)."""
+    xrt = _xrt_module()
+    rows = xrt.ag.read_rows(repo / path)
+    if not rows:
+        raise FileNotFoundError(repo / path)
+    o = xrt.outcome(rows, xrt.ag.read_rows(repo / ref))
+    f = o["default_fixed"]
+    per = f["persists"] or {}
+    e = per.get("vs_ollama_default")
+    a = f["arm"]
+    return {"value": f"run finished {o['run_finished']}; valid {o['valid']}"
+                     + (f" ({'; '.join(o['problems'])})" if o["problems"] else "") + "; " + _xrt_arm("fixed", a)
+                     + f"; context-event turns at (c) {a['context_event_turns']}/{a['n_task_turns']}; (c) minus "
+                       f"Ollama ollama_default (x2-evalset-tasks-real-v2-wrong-rate, {per.get('ollama_sessions')} "
+                       "sessions) " + (_xrt_ci(e) if e else "n/a") + f"; reading: {per.get('reading')}",
+            "n": f"{a['n_task_turns']} task turns"}
+
+
+def compute_xruntime_llamacpp_hours(repo):
+    """ESTIMATE, not a measurement: evo-x2 hours of x2_xruntime_llamacpp (harness/xruntime_llamacpp.py::
+    hours_estimate)."""
+    xrt = _xrt_module()
+    h = xrt.hours_estimate(_read_jsonl(repo / X2_EVALSET_TASKS_REAL_V2), _read_jsonl(repo / XRT_OUTCOME_TABLE),
+                           _read_jsonl(repo / XRT_SPILL))
+    return {"value": f"ESTIMATE {h['point_h']:.2f} h (high {h['high_h']:.2f} h): 3 arms x {h['n_turns_per_arm']} task "
+                     f"turns at the B3 v2 Ollama run's measured mean turn wall (ollama_default "
+                     f"{h['mean_turn_wall_default_s']:.2f} s for arms a and c, ollama_ctx_4096 "
+                     f"{h['mean_turn_wall_4096_s']:.2f} s for arm b) x the measured llama_server / ollama_default "
+                     f"latency ratio {h['latency_ratio']:.3f} (qwen3-14b, {h['n_ratio_items']} matched items of "
+                     f"x2_outcome_table_v3) = {h['session_h']:.2f} h; + {h['n_starts']} server starts x "
+                     f"{h['start_overhead_s']:.1f} s (largest measured start-and-stop overhead of the qwen3-32b spill "
+                     f"sweep, a larger GGUF); + {h['probe_s_assumed']:.0f} s for the detector probe calls (ASSUMED); "
+                     f"high = x {h['high_factor_assumed']:.1f} (ASSUMED); arm b's rejected calls return at once on "
+                     "llama-server, so its share is likely an overestimate",
+            "n": f"{3 * h['n_turns_per_arm']} task turns"}
+
+
+def compute_xruntime_openvino_ceiling(repo):
+    """Placeholder: Zach's OpenVINO ceiling result as the second runtime's evidence. No parser until his files are
+    in results/xruntime_openvino_zach/ and their format is read; no numbers until then."""
+    files = sorted(p.name for p in (repo / XRT_OPENVINO_MANIFEST).parent.iterdir())
+    return {"value": f"files present ({', '.join(files)}), parser not written yet: no number is read until the "
+                     "operator has reviewed the files and a parser is committed", "n": "0"}
+
+
+
+# ── KV precision x flash attention on llama.cpp server (2026-10-26; docs/EXPERIMENTS.md "PRE-REGISTRATION (2026-10-26):
+# KV precision x flash attention on llama.cpp server"; harness/kv_fa_llamacpp.py, queue id x2_kv_fa_llamacpp). The
+# result row is PENDING until the file is synced and holds run_end; the hours row is an ESTIMATE from measured times. ──
+KVFA_FILE = "results/kv_fa_llamacpp_qwen3_14b.jsonl"
+
+
+def _kvfa_module():
+    _r2_agent_module()
+    import kv_fa_llamacpp as kvfa
+    return kvfa
+
+
+def _kvfa_e(e):
+    if not e:
+        return "n/a"
+    lo, hi = e["ci95"]
+    return (f"I = ln(q8/f16 at FA off) - ln(q8/f16 at FA on) = {e['I']:+.3f} (95% CI {lo:+.3f} to {hi:+.3f}; "
+            f"q8/f16 ratio FA off {e['ratio_fa_off']:.3f}, FA on {e['ratio_fa_on']:.3f})")
+
+
+def compute_kv_fa_interaction_llamacpp(repo, path=KVFA_FILE):
+    """KV precision x flash attention on llama-server b10970, qwen3:14b at 40960, B5 R2 session cut at 24 turns
+    (harness/kv_fa_llamacpp.py::outcome)."""
+    kvfa = _kvfa_module()
+    rows = kvfa.ag.read_rows(repo / path)
+    if not rows:
+        raise FileNotFoundError(repo / path)
+    b5 = kvfa.ag.read_rows(repo / B5_X2_FILE) + kvfa.ag.read_rows(repo / B5_FA_FILE)
+    o = kvfa.outcome(rows, b5 or None)
+    rp = o["refusal_probe"]
+    segs = []
+    for c, a in o["cells"].items():
+        segs.append(f"{c} (-ctk {a['ctk']} -ctv {a['ctv']} -fa {a['fa']}): "
+                    + (f"{a['mean_min']:.1f} min per session" if a["mean_min"] is not None else "no sessions")
+                    + f" ({a['n_sessions']} sessions), KV buffer {a['kv_buffer_mib']} MiB, prefill "
+                    + (f"{a['prefill_tok_s']:.0f}" if a["prefill_tok_s"] else "n/a") + " tok/s, decode "
+                    + (f"{a['decode_tok_s']:.1f}" if a["decode_tok_s"] else "n/a") + " tok/s, rule "
+                    + f"{_frac(a['rule_k'], a['rule_n'])}, hist {_frac(a['hist_k'], a['hist_n'])}")
+    sp, mem = o["primary"]["speed"], o["primary"]["memory"]
+    ol = o.get("ollama_b5_prefix") or {}
+    ref = "; ".join(f"({p}) {v['mean_min']:.1f}" for p, v in ol.items() if v.get("mean_min") is not None)
+    return {"value": f"run finished {o['run_finished']}; valid {o['valid']}"
+                     + (f" ({'; '.join(o['problems'])})" if o["problems"] else "")
+                     + f"; window {o['window']}, {o['turns']} turns; refusal probe {rp['cell']} (-ctk {rp['ctk']} "
+                       f"-ctv {rp['ctv']} -fa {rp['fa']}): {rp['result']}; " + "; ".join(segs)
+                     + f"; primary speed (K-only square, session minutes): {_kvfa_e(sp['estimate'])}; reading: "
+                       f"{sp['reading']}; primary memory: "
+                     + (f"KV saving FA off {mem['d_fa_off_mib']:+.1f} MiB, FA on {mem['d_fa_on_mib']:+.1f} MiB; "
+                        f"reading: {mem['reading']}" if mem else "not read (KV buffer line missing)")
+                     + (f"; Ollama B5 first-24-turn minutes, context only: {ref}" if ref else "")
+                     + f" (bootstrap {kvfa.BOOT_N} resamples, unit session, stratified by cell, seed {kvfa.BOOT_SEED})",
+            "n": f"{sum(a['n_sessions'] for a in o['cells'].values())} sessions"}
+
+
+def compute_kv_fa_interaction_llamacpp_hours(repo):
+    """ESTIMATE, not a measurement: evo-x2 hours of x2_kv_fa_llamacpp (harness/kv_fa_llamacpp.py::hours_estimate)."""
+    kvfa = _kvfa_module()
+    h = kvfa.hours_estimate(_read_jsonl(repo / B5_X2_FILE), _read_jsonl(repo / B5_FA_FILE),
+                            _read_jsonl(repo / XRT_FILE), _read_jsonl(repo / X2_EVALSET_TASKS_REAL_V2))
+    m = h["b5_prefix_mean_min"]
+    cells = ", ".join(f"{c} {v:.2f} h" for c, v in h["per_cell_h"].items())
+    return {"value": f"ESTIMATE {h['point_h']:.2f} h (high {h['high_h']:.2f} h): 5 cells x 3 sessions of 24 turns at "
+                     f"the measured Ollama B5 minutes of turns 1-24 of qwen3:14b (a) {m['a']:.1f}, (i) {m['i']:.1f}, "
+                     f"(g) {m['g']:.1f} min per session; f16 FA off and K-only FA off take (a), f16 FA on and K-only "
+                     f"FA on take (i) (ASSUMED: no K-only speedup), q8_0 FA on takes (g); all x the measured "
+                     f"llama-server / Ollama turn-wall ratio {h['latency_ratio']:.3f} at 40960 (xruntime_llamacpp arm "
+                     f"c over x2_evalset_tasks_real_v2 ollama_default, {h['n_ratio_turns'][0]} and "
+                     f"{h['n_ratio_turns'][1]} turns) = {h['session_h']:.2f} h ({cells}); + {h['n_starts']} server "
+                     f"starts x {h['start_overhead_s']:.1f} s (largest measured stop-to-start gap of the "
+                     f"xruntime_llamacpp run); high = x {h['high_factor_assumed']:.1f} (ASSUMED)",
+            "n": "15 sessions"}
 
 
 NUMBER_ENTRIES = [
@@ -8288,6 +8903,45 @@ NUMBER_ENTRIES = [
      "compute": compute_own_rollback_redo, "data_files": [OWN_ROLLBACK_FILE], "pending_ok": True,
      "require_run_end": [OWN_ROLLBACK_FILE],
      "script_function": "analysis/own_rollback.py::own_rollback_redo"},
+    {"claim_id": "cloud-rescue-combined", "description": "Combined cloud rescue of the 197 wrong local tasks: the "
+     "full-history redo's fixes (cloud-redo-full-context) plus the cascaded rollback redo's fixes of the "
+     "earlier_state_repair tasks it left wrong (own-rollback-redo, a STAND-IN for successful earlier escalations), "
+     "with a 95% Wilson CI and every task still wrong listed with its diagnosis class",
+     "compute": compute_cloud_rescue_combined,
+     "data_files": [CLOUD_REDO_FULL_CONTEXT, CLOUD_REDO_FULL_CONTEXT_PART2,
+                    "results/cloud_redo_full_context_v1_part3.jsonl", X2_EVALSET_TASKS_REAL_V2, OWN_ROLLBACK_FILE],
+     "pending_ok": True, "require_run_end": [OWN_ROLLBACK_FILE],
+     "script_function": "analysis/own_rollback.py::cloud_rescue_combined"},
+    {"claim_id": "headline-ci-session-rescue", "description": "Session-level bootstrap CIs (unit the (tier, seed) "
+     "session, stratified by tier, 10000 resamples, seed 20261014) for the cloud rescue of the 197 wrong local tasks: "
+     "full-history redo, rollback redo (STAND-IN) and combined, beside the task-level Wilson CIs of rows "
+     "cloud-redo-full-context, own-rollback-redo and cloud-rescue-combined",
+     "compute": compute_headline_ci_session_rescue,
+     "data_files": [CLOUD_REDO_FULL_CONTEXT, CLOUD_REDO_FULL_CONTEXT_PART2,
+                    "results/cloud_redo_full_context_v1_part3.jsonl", X2_EVALSET_TASKS_REAL_V2, OWN_ROLLBACK_FILE],
+     "pending_ok": True, "require_run_end": [OWN_ROLLBACK_FILE],
+     "script_function": "analysis/session_ci.py::rescue_session_ci"},
+    {"claim_id": "x2-evalset-tasks-real-v2-silent-total", "description": "B3 v2 real run qwen3:14b: every wrong local "
+     "task turn over all tiers and seeds, surfaced (HTTP error or error field) vs silent, task-level Wilson and "
+     "session-level bootstrap CIs",
+     "compute": compute_x2_evalset_tasks_real_v2_silent_total, "data_files": [X2_EVALSET_TASKS_REAL_V2],
+     "script_function": "analysis/session_ci.py::surfaced_split"},
+    {"claim_id": "headline-ci-session-hybrid", "description": "Paired session-level bootstrap (3 sessions, one per "
+     "seed) of hybrid-route-at-start-measured at the 8192 setting with claude-sonnet-5-5: accuracies, saving vs "
+     "all-cloud, naive/hybrid wrong ratio, beside task-level Wilson CIs",
+     "compute": compute_headline_ci_session_hybrid, "data_files": ROUTE_MEASURED_FILES,
+     "script_function": "analysis/session_ci.py::hybrid_bootstrap"},
+    {"claim_id": "paper-percentage-counts", "description": "Counts (k/n) behind rates printed in the paper from rows "
+     "R2-validation-v2-baseline, b5-policy-metrics, R2-mitigation-v1-4096 and num-keep-guardrail-test",
+     "compute": compute_paper_percentage_counts,
+     "data_files": [R2_VALIDATION_V2_FILE, "results/x2_policy_compare.jsonl", R2_MITIGATION_FILE, R2_REAL_V1_FILE,
+                    "results/x2_num_keep_guardrail_test.jsonl"],
+     "script_function": "analysis/numbers_register.py::compute_paper_percentage_counts"},
+    {"claim_id": "cost-target-scenario", "description": "TARGET SCENARIO, not measured: the 75% cost figure, i.e. "
+     "hybrid-savings-v1's ceiling policy (perfect detector, none exists) at evo-x2 default with claude-sonnet-5-5 as "
+     "a share of the all-cloud cost, with its assumptions",
+     "compute": compute_cost_target_scenario, "data_files": ROUTE_MEASURED_FILES,
+     "script_function": "analysis/numbers_register.py::compute_cost_target_scenario"},
     {"claim_id": "hybrid-local-first-rollback", "description": "Local-first hybrid with rollback, by replay of "
      "recorded runs: every task local first (B3 v2, qwen3:14b, evo-x2 num_ctx 8192 and 4096, seeds 20260901-03), "
      "rolled back and escalated to claude-sonnet-5-5 on the oracle signal (ceiling) or the recorded over_loaded_window "
@@ -8504,6 +9158,18 @@ NUMBER_ENTRIES = [
                     "results/anthropic_token_calibration_20261021.jsonl",
                     "results/cloud_prices_anthropic_20261014.json"],
      "script_function": "analysis/cloud_task_cost.py::compute"},
+    {"claim_id": "cloud-cost-per-real-task-all-tiers", "description": "Cloud cost per real agent task at every "
+     "Anthropic tier, priced, not executed: row cloud-cost-per-real-task's method and inputs unchanged (uncensored "
+     "traces nebius-rebench-openhands and SWE-Gym, each step re-sends its full prompt, output per step measured, "
+     "tokens calibrated with messages.count_tokens) at claude-haiku-5-5, claude-sonnet-5-5, claude-opus-5-5 and "
+     "claude-fable-5-1; USD median and p90 for no caching, realistic caching (ASSUMPTION hit rate 0.7) and best-case "
+     "caching; prices from results/cloud_prices_anthropic_20261014.json (Anthropic's official pricing page, fetched "
+     "2026-10-14), Opus and Fable added 2026-10-27 on operator request",
+     "compute": compute_cloud_cost_per_real_task_all_tiers,
+     "data_files": ["results/traces/agent_step_lengths.parquet", "results/traces/agent_step_outputs.parquet",
+                    "results/anthropic_token_calibration_20261021.jsonl",
+                    "results/cloud_prices_anthropic_20261014.json"],
+     "script_function": "analysis/cloud_task_cost.py::all_tiers_text"},
 
     {"claim_id": "all-cloud-b3-quality", "description": "All-cloud baseline: the 30 B3 v2 tasks run fully on "
      "claude-haiku-5-5 and claude-sonnet-5-5, 3 seeds, same session and end-state grader; correct / graded per model, "
@@ -8580,6 +9246,13 @@ NUMBER_ENTRIES = [
      "compute": compute_long_task_cloud_priced_vs_billed, "data_files": [LONGTASK_CLOUD_FILE], "pending_ok": True,
      "require_run_end": [LONGTASK_CLOUD_FILE],
      "script_function": "analysis/numbers_register.py::compute_long_task_cloud_priced_vs_billed"},
+    {"claim_id": "own-plan-execute-estimate", "description": "ESTIMATE, not a measurement: cloud USD per arm (billed "
+     "and upper bound, point and high) and evo-x2 hours of the own-plan-execute pilot DRAFT (cloud planner and "
+     "verifier, qwen3:14b executor, 20 long-horizon synthetic tasks x 3 seeds), from the long-task cloud and local "
+     "runs; not run, not queued",
+     "compute": compute_own_plan_execute_estimate,
+     "data_files": [LONGTASK_CLOUD_FILE, LONGTASK_LOCAL_FILE, X2_EVALSET_TASKS_REAL_V2, ANTHROPIC_PRICES],
+     "script_function": "harness/plan_execute.py::cost_estimate"},
     {"claim_id": "demo-detector-check", "description": "live demo cut-off detector on the 5 frozen picks (qwen3:14b, "
      "evo-x2, task at its real session position, history rebuilt from the recorded run) at num_ctx 4096 and at the "
      "runtime default: fired / not fired per task; PENDING until the file has run_end",
@@ -8611,6 +9284,21 @@ NUMBER_ENTRIES = [
      "per-task times, and the reserve block start (E1/E2 not registered yet, not queued)",
      "compute": compute_e1_e2_x2_hours, "data_files": [X2_EVALSET_TASKS_REAL_V2, B5_X2_FILE],
      "script_function": "analysis/numbers_register.py::e1_e2_hours"},
+    {"claim_id": "e1-e2-draft-hours", "description": "ESTIMATE and PROJECTION, not a measurement: evo-x2 hours of the "
+     "E1/E2 DRAFT pre-registration's AMD arms, the queue projection from the last finished synced job to the E1 block "
+     "start, the cloud grading cost of the fresh 200-task draw and the n=200 design statistics (DRAFT, pending Zach's "
+     "agreement 2026-10-25; not registered, not queued)",
+     "compute": compute_e1_e2_draft_hours,
+     "data_files": [X2_EVALSET_TASKS_REAL_V2, B5_X2_FILE, MITIGATION_X2_FILE, ALL_CLOUD_B3_V1, R2_V1B_SEEDS_FILE,
+                    SPILL32_FILE] + FILL_1022_DATA + L70_HOURS_DATA,
+     "script_function": "analysis/numbers_register.py::compute_e1_e2_draft_hours"},
+    {"claim_id": "e2-cost-model-draft", "description": "COST MODEL, DRAFT (not an E2 result): local cost per busy hour "
+     "and per pilot B3 v2 session at USD 2,000 over 3 years, by utilization (ASSUMPTION), electricity at PX2-power "
+     "measured on evo-t2s",
+     "compute": compute_e2_cost_model_draft,
+     "data_files": [X2_EVALSET_TASKS_REAL_V2, B5_X2_FILE, ENERGY_PRICE_EIA_FILE,
+                    "results/hardware_price_evox2_20261021.json", "results/t2s_night2_20260930T135145Z.jsonl"],
+     "script_function": "analysis/numbers_register.py::e2_cost_inputs"},
     {"claim_id": "own-jobs-hours", "description": "ESTIMATE, not a measurement: hours of the own-compaction parts "
      "and the own-config-search probes from measured B3 v2 and trim times, and their projected place in the evo-x2 "
      "queue against the E1 block start and the 2026-10-29 demo hold",
@@ -8651,6 +9339,16 @@ NUMBER_ENTRIES = [
      "L(f16), 3 seeds) against B5's (g)/(h) and (a) session minutes: the pre-registered reading per model (10% "
      "tolerance)", "compute": compute_b5_fa_control, "data_files": [B5_FA_FILE, B5_X2_FILE], "pending_ok": True,
      "script_function": "harness/policy_compare.py::fa_control_summary"},
+    {"claim_id": "kv-precision-evidence", "description": "evo-x2 qwen3:14b B5 policies (a) f16, (i) f16+FA, (g) "
+     "q8_0, (h) q4_0: per-seed session minutes, loaded window, prefill/decode tok/s median and p90, /api/ps size and "
+     "server-log KV type at load, derived KV buffer, why (g) and (h) print the same mean, and whether q4_0 loaded as "
+     "q4_0", "compute": compute_kv_precision_evidence, "data_files": [B5_X2_FILE, B5_FA_FILE],
+     "require_run_end": [B5_X2_FILE, B5_FA_FILE], "script_function": "analysis/kv_evidence.py::evidence"},
+    {"claim_id": "kv-output-agreement", "description": "Greedy output agreement between KV precisions on evo-x2 "
+     "qwen3:14b (B5 and flash-attention control, same seeds): per pair the turns with an identical prompt, exact-match "
+     "turns, tool-call agreement, first-divergence turn, call and token index", "compute": compute_kv_output_agreement,
+     "data_files": [B5_X2_FILE, B5_FA_FILE], "require_run_end": [B5_X2_FILE, B5_FA_FILE],
+     "script_function": "analysis/kv_evidence.py::agreement"},
     {"claim_id": "b5-kv-recall-f16-rerun", "description": "llama3.1:8b f16 long-context recall rerun (1 warm-up + 3 "
      "measured calls, 1800 s timeout) against B5's q8_0 and q4_0 recall: needles found of 24, Fisher exact "
      "(descriptive)", "compute": compute_b5_kv_recall_f16_rerun, "data_files": [B5_FA_FILE, B5_X2_FILE],
@@ -8738,6 +9436,41 @@ NUMBER_ENTRIES = [
      "compute": compute_own_profiler_probe_hours,
      "data_files": [X2_EVALSET_TASKS_REAL_V2, MITIGATION_X2_FILE, B5_X2_FILE] + FILL_1022_DATA + L70_HOURS_DATA,
      "script_function": "harness/x2_own_profiler_probe.py::hours_estimate"},
+    {"claim_id": "xruntime-llamacpp-wrong-rate", "description": "Cross-runtime replication of the B3 v2 core on "
+     "llama-server b10970 (evo-x2, qwen3:14b GGUF, seeds 20260901-05): per arm (server default, -c 4096, -c 40960) the "
+     "wrong-task rate, the silent/flagged split from the server's own log lines, and the pre-registered reading "
+     "(replicated iff the 4096 excess CI excludes 0); PENDING until the file has run_end",
+     "compute": compute_xruntime_llamacpp_wrong_rate, "data_files": [XRT_FILE], "pending_ok": True,
+     "require_run_end": [XRT_FILE], "script_function": "harness/xruntime_llamacpp.py::outcome"},
+    {"claim_id": "xruntime-default-fixed", "description": "Cross-runtime replication, default-fixed arm (c): "
+     "llama-server with -c 40960 (the GGUF's trained context); its wrong rate, silent share and context events, and "
+     "(c) minus Ollama's default-window rate with a session bootstrap: what persists after the obvious fix; PENDING "
+     "until the file has run_end",
+     "compute": compute_xruntime_default_fixed, "data_files": [XRT_FILE, X2_EVALSET_TASKS_REAL_V2],
+     "pending_ok": True, "require_run_end": [XRT_FILE], "script_function": "harness/xruntime_llamacpp.py::outcome"},
+    {"claim_id": "xruntime-llamacpp-hours", "description": "ESTIMATE, not a measurement: evo-x2 hours of the "
+     "cross-runtime replication job x2_xruntime_llamacpp from measured B3 v2 turn times, the measured llama_server / "
+     "Ollama latency ratio and measured server start overhead",
+     "compute": compute_xruntime_llamacpp_hours,
+     "data_files": [X2_EVALSET_TASKS_REAL_V2, XRT_OUTCOME_TABLE, XRT_SPILL],
+     "script_function": "harness/xruntime_llamacpp.py::hours_estimate"},
+    {"claim_id": "xruntime-openvino-ceiling", "description": "Cross-runtime replication, second runtime: Zach's "
+     "OpenVINO ceiling result, recorded once he shares the files (awaiting Zach's files); no number until then",
+     "compute": compute_xruntime_openvino_ceiling, "data_files": [XRT_OPENVINO_MANIFEST], "pending_ok": True,
+     "script_function": "analysis/numbers_register.py::compute_xruntime_openvino_ceiling"},
+    {"claim_id": "kv-fa-interaction-llamacpp", "description": "KV precision x flash attention on llama-server b10970 "
+     "(evo-x2, qwen3:14b GGUF, -c 40960, B5 R2 session cut at 24 turns, seeds 20260901-03): the q8_0 / FA-off refusal "
+     "probe, per cell session minutes, KV buffer MiB, prefill and decode tok/s, rule pass and history recall, and the "
+     "pre-registered interaction readings (speed: bootstrap on the K-only square, 10% band; memory: 1% band); "
+     "PENDING until the file has run_end",
+     "compute": compute_kv_fa_interaction_llamacpp, "data_files": [KVFA_FILE, B5_X2_FILE, B5_FA_FILE],
+     "pending_ok": True, "require_run_end": [KVFA_FILE], "script_function": "harness/kv_fa_llamacpp.py::outcome"},
+    {"claim_id": "kv-fa-interaction-llamacpp-hours", "description": "ESTIMATE, not a measurement: evo-x2 hours of "
+     "the KV x flash-attention job x2_kv_fa_llamacpp from measured B5 Ollama turn times, the measured llama-server / "
+     "Ollama turn-wall ratio and measured server start gaps",
+     "compute": compute_kv_fa_interaction_llamacpp_hours,
+     "data_files": [B5_X2_FILE, B5_FA_FILE, XRT_FILE, X2_EVALSET_TASKS_REAL_V2],
+     "script_function": "harness/kv_fa_llamacpp.py::hours_estimate"},
 ]
 
 

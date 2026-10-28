@@ -2824,20 +2824,24 @@ def _q(xs, p):
 
 
 def route_measured_policy(local: dict, cloud: dict, proj: dict, window: int, seeds, redo=None,
-                          redo_tier_usd=None, esc_cloud=None) -> dict:
+                          redo_tier_usd=None, esc_cloud=None, predictor=None) -> dict:
     """Pure. local {(seed, task): {flag, ok, wall_s}}; cloud {(seed, task): {ok, usd, seconds}} on the cloud tier;
     proj {(seed, task): projected prompt}; redo {(seed, task): {ok, usd, seconds}} at this tier or None (no measured
     escalation for this cloud tier: escalate at esc_cloud, the all-cloud row, INTERIM); redo_tier_usd: mean redo USD
-    at this tier for flagged tasks with no redo row (imputed, outcome and seconds from esc_cloud)."""
+    at this tier for flagged tasks with no redo row (imputed, outcome and seconds from esc_cloud). predictor: the
+    "fits locally?" check, a src/dse/fits_locally.FitsLocallyPredictor (None: the projection baseline, margin 0,
+    i.e. fits iff proj <= window)."""
+    from src.dse.fits_locally import fits_locally
     esc_cloud = esc_cloud if esc_cloud is not None else cloud
     seeds = set(seeds)
     keys = sorted(k for k in local if k in cloud and k in proj and k[0] in seeds)
     if not keys:
         raise ValueError("no shared (seed, task) pairs")
+    fit = {k: fits_locally(proj[k], window, 0.0, predictor)["fits"] for k in keys}
     tasks = {}
     for k in keys:
         lo = local[k]
-        if proj[k] > window:
+        if not fit[k]:
             c = cloud[k]
             tasks[k] = {"route": "cloud", "ok": c["ok"], "usd": c["usd"], "seconds": c["seconds"], "src": "routed"}
         elif lo["flag"]:
@@ -2860,8 +2864,8 @@ def route_measured_policy(local: dict, cloud: dict, proj: dict, window: int, see
     correct = sum(1 for t in tasks.values() if t["ok"])
     usd = sum(t["usd"] for t in tasks.values())
     # predictor vs the run's own flag, on every task (how often the projection disagrees with the recorded window check)
-    pred_fit_flag = sum(1 for k in keys if proj[k] <= window and local[k]["flag"])
-    pred_over_noflag = sum(1 for k in keys if proj[k] > window and not local[k]["flag"])
+    pred_fit_flag = sum(1 for k in keys if fit[k] and local[k]["flag"])
+    pred_over_noflag = sum(1 for k in keys if not fit[k] and not local[k]["flag"])
     secs = [t["seconds"] for t in tasks.values()]
     return {"n": n, "correct": correct, "quality": correct / n, "usd_total": usd, "usd_task": usd / n,
             "kept_local": cnt["local"], "kept_local_share": cnt["local"] / n, **cnt,
@@ -2886,13 +2890,14 @@ def _ref_policies(local, cloud, keys) -> dict:
 _ROUTE_M_CACHE = {}
 
 
-def route_at_start_measured(repo=REPO, tiers=ROUTE_M_TIERS) -> dict:
+def route_at_start_measured(repo=REPO, tiers=ROUTE_M_TIERS, predictor=None) -> dict:
     """Row hybrid-route-at-start-measured (PENDING with the missing rows named until every input row is VERIFIED)."""
+    # predictor: the "fits locally?" check (src/dse/fits_locally.py); None = the projection baseline (the row as registered).
     missing = [c for c in ROUTE_M_REQUIRED if not register_has(repo, c)]
     if missing:
         return {"status": "PENDING", "pending": missing}
     key = (str(repo), tuple(tiers))
-    if key in _ROUTE_M_CACHE:
+    if predictor is None and key in _ROUTE_M_CACHE:
         return _ROUTE_M_CACHE[key]
     local = replay_local_tasks(repo)
     ac = replay_cloud_tasks(repo)
@@ -2914,7 +2919,8 @@ def route_at_start_measured(repo=REPO, tiers=ROUTE_M_TIERS) -> dict:
             measured = m == redo_model
             res = route_measured_policy(local[tier], ac["models"][m], proj, w, seeds,
                                         redo=t_redo if measured else None, redo_tier_usd=t_usd,
-                                        esc_cloud=ac["models"][redo_model] if measured else ac["models"][m])
+                                        esc_cloud=ac["models"][redo_model] if measured else ac["models"][m],
+                                        predictor=predictor)
             keys = sorted(res["tasks"])
             ref = _ref_policies(local[tier], ac["models"][m], keys)
             esc_label = (f"escalation measured: full-history redo ({redo_model}), flagged tasks with no redo row "
@@ -2922,7 +2928,8 @@ def route_at_start_measured(repo=REPO, tiers=ROUTE_M_TIERS) -> dict:
                          f"escalation interim: {m} all-cloud row of the same task (no {m} redo)")
             cells.append({"tier": tier, "window": w, "model": m, "hybrid": res, **ref, "esc_label": esc_label})
     out = {"status": "VERIFIED", "cells": cells, "seeds": seeds, "redo_model": redo_model, "label": REPLAY_LABEL}
-    _ROUTE_M_CACHE[key] = out
+    if predictor is None:
+        _ROUTE_M_CACHE[key] = out
     return out
 
 

@@ -369,6 +369,31 @@ Facts and changes: `results/t2s_window_20261015_preflight.json`, `docs/T2S_CHANG
 
 ## Staged for 2026-10-26 to 2026-11-08 (pending Zach's confirmation; NOT loaded)
 
+**OPTIONAL, queue only after the operator confirms the evening (added 2026-10-26, PLAN ONLY, not queued, not in
+`queues/t2s_oct26_queue.json`): XRT E2-style boundary at the default share.** This is the "Optional: 64 GB box time
+(only if E5 slips). About 2 h" item in Zach's cross-vendor specs of 2026-10-26.
+
+- **What.** The same E2-style boundary search as E3, on evo-t2s at its default share. KV f16 and q4_0, `-fa on`,
+  ubatch 512, `--fit off -np 1 --cache-ram 0 --no-warmup`. The largest `-c` that loads and prefills N - 64 tokens,
+  bisected at 1,024, with the loaded n_ctx recorded.
+- **No setting changes.** No BIOS, no driver, no restart, no share change. It runs as one normal queued job that
+  calls `tq.advance()` on exit, so it needs no pause flag.
+- **Placement.** Inside the window, after the Intel B3 v2 entries and the B5 cells and before the B6 pull, and only
+  if the hours left still keep the 24 h slack before no-launch.
+- **Build.** The spec names b11559. evo-t2s has b10970 Vulkan (`C:\apu\bin\llama-b10970`). Using b11559 means
+  unzipping `llama-b11559-bin-win-vulkan-x64.zip` (sha256 bf2fb2a7fc5d7669ccabbb6de3f6dd6b54058f213b32e731abc62b590f8566dc)
+  into one new folder; otherwise tell Zach the run used b10970.
+- **Caveat to settle with Zach before queueing.** On evo-t2s a Vulkan start fails loudly at the 47,866 MiB heap
+  budget (CLAIMS_LEDGER). By my arithmetic (144 KiB per token f16 for Qwen3-4B), Qwen3-4B would only hit that budget
+  past about 320k tokens. So with the registered model the 40,960 window binds, not memory. A memory-bound result
+  needs a larger model, for example Qwen3-32B, whose load-only boundary here is 115,712 / 115,968. Zach registers
+  any model change. Hold trials then prefill about 100k tokens on this machine, which may not fit the spec's
+  "About 2 h".
+- **Hours.** About 2 h from the spec. My own unmeasured estimate is longer with a 32B model.
+- **Wrapper.** `xrt_llamacpp.py` (Zach's, not in this repo) uses a bare `subprocess.Popen`, so it needs a small queue
+  wrapper first.
+- See docs/XRT_E5_PLAN.md for the evo-x2 side.
+
 **Update 2026-10-22 (later): B3 v2 Intel laptop task accuracy staged after A5, before B5.** Four entries,
 `t2s_o26_b3_val_cpu`, `t2s_o26_b3_real_cpu`, `t2s_o26_b3_val_igpu`, `t2s_o26_b3_real_igpu` (qwen3:14b, tasks_v2 task
 set, seeds 20260901-03, Ollama default window: Intel CPU 4096, Intel iGPU 32768; each real run gated on its own

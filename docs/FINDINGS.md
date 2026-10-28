@@ -8,6 +8,49 @@ context depth can be attributed to a mechanism rather than reported as generic
 
 ---
 
+## Lead (2026-10-26): correctness first, cost as a hard cap
+
+**Reliability and budget control for local and hybrid agents: correctness is the hook, cost is a hard cap.** On the
+B3 v2 tool-using tasks with qwen3:14b on Ollama 0.34.4 (evo-x2, AMD), a local model that runs out of memory gets tasks
+wrong without saying so, and routing plus a cloud fallback removes most of those wrong answers while costing less than
+sending everything to the cloud. On llama-server (build b10970, evo-x2) the same 4096 window also gets tasks wrong, but
+loudly, with HTTP errors [xruntime-llamacpp-wrong-rate]. Every figure below is from the register row in brackets, with its condition. A session is one
+30-task local run (one memory setting, one seed); "task-level" CIs treat tasks as independent, "session-level" CIs
+resample whole sessions (10000 resamples, seed 20261014, stratified by memory setting where there is more than one).
+
+- **16x fewer wrong answers, at the 8192 memory setting.** Naive local was wrong on 36.7% (33/90) tasks; route at
+  start (claude-sonnet-5-5 as the cloud model) was wrong on 2.2% (2/90): 33 vs 2 = 16.5x
+  [hybrid-route-at-start-measured] [headline-ci-session-hybrid]. Session-level 95% CI for the ratio [6.0x, 19.0x]
+  over 3 sessions (one per seed), very coarse; 3003 of 10000 resamples had 0 route-at-start wrong and are left out
+  [headline-ci-session-hybrid]. At the default window naive local was wrong on 11.1% (10/90) tasks
+  [hybrid-savings-v1] [cost-target-scenario], so the 16x holds at 8192, not at the default.
+- **0/197 warnings, on Ollama.** Of the 197 wrong local task turns of the B3 v2 real run on Ollama 0.34.4 (evo-x2; 5
+  memory settings x 5 seeds = 25 sessions), 0.0% (0/197) surfaced an HTTP error or an error field to the client;
+  100.0% (197/197) were silent. On llama-server at 4096 the opposite held: "wrong 150/150 (100.0%)" with "harness-silent
+  wrong (no HTTP error on any call, the Ollama row's definition) 0" [xruntime-llamacpp-wrong-rate]. Task-level 95% Wilson CI for the surfaced share [0.0%, 1.9%] (turns nested in sessions, not independent);
+  session-level a point at 0 (0/n has no bootstrap variance) [x2-evalset-tasks-real-v2-silent-total]. "Surfaced" is
+  what the client sees, not the Ollama server log.
+- **99% rescue with rollback, under a stand-in.** The cloud (claude-sonnet-5-5) rescued 99.0% (195/197) of those
+  wrong tasks: 167 by a full-history redo plus 28 by rolling the environment back and redoing; task-level 95% Wilson
+  CI [96.4%, 99.7%] [cloud-rescue-combined], session-level [97.5%, 100.0%] (25 sessions)
+  [headline-ci-session-rescue]. Stand-in caveat: the rollback redo replaced every earlier wrong task turn by its
+  reference calls, i.e. it assumes each earlier escalation succeeded; it is not a live hybrid [cloud-rescue-combined].
+- **Cost: measured 20% below all-cloud, quality not matched.** Route at start at 8192 costs USD 0.00819 per task vs
+  all-cloud USD 0.01020, 19.7% lower (n = 90 tasks), at 97.8% (88/90) correct vs 100.0% (90/90)
+  [hybrid-route-at-start-measured]; session-level 95% CI for the saving [16.8%, 22.4%] over 3 sessions, very coarse
+  [headline-ci-session-hybrid]. Replay of recorded runs; only 23.3% (21/90) tasks were kept local.
+- **75% is a target scenario, not measured.** A detector that flagged exactly the wrong local tasks (none exists) at
+  the default window would keep 88.9% (80/90) local and cost USD 0.00252 per task, 75.3% below all-cloud (n = 90
+  tasks); it also assumes escalated tasks cost the measured redo mean and take the all-cloud outcome, on short B3 v2
+  tasks only [cost-target-scenario].
+
+The entries below are kept in their original order; this lead reorders emphasis only. The full results are in the
+sections "RESULTS (2026-10-22): cloud redo with the full history and thinking off fixes 167 of 197 wrong tasks",
+"RESULTS (2026-10-22): measured hybrid by replay, per-task route-at-start plus the window flag, and task latency by
+policy" and "RESULTS (2026-10-23): cascaded rollback fixes 28 of 28 earlier_state_repair tasks".
+
+---
+
 ## KV Cache Quantization — Measured Gains vs Architectural Prediction
 
 **Experiment:** `results/llamaserver_feasibility.json`  
@@ -5659,7 +5702,8 @@ difference from the local 384. The 7 part-1 rows whose replies hit 384 or came b
 2048; the other 34 part-1 rows are kept. Part 2 crashed on a transient provider error (server disconnect) after 19
 tasks; its finished rows are kept, and part 3 (with a bounded retry for transient errors) finished the remaining 144.
 
-**Result.** 167 of 197 fixed (84.8%), 95% Wilson CI over tasks [79.1%, 89.1%]. Per tier: ollama_default 15/17,
+**Result.** 84.8% (167/197) fixed, task-level 95% Wilson CI over tasks [79.1%, 89.1%]; session-level 95% CI
+[79.4%, 90.4%] over 25 sessions, stratified by tier (row headline-ci-session-rescue). Per tier: ollama_default 15/17,
 ollama_ctx_16384 18/19, ollama_ctx_8192 45/53, ollama_ctx_4096 53/63, ollama_ctx_4096_numkeep 36/45. USD per task
 (cache-priced) mean 0.0227, median 0.0169, total 4.4721; on the ledger basis (all input uncached, what the cap counts)
 16.8614. Seconds per task mean 6.54, median 5.89. Ledger total at the last run_end USD 38.9145.
@@ -5703,7 +5747,8 @@ against USD 0.0102 mean and 0.0090 median (n=90) for running the task fresh on t
 median 0.0103, 1.76x on the mean and 1.64x on the median. The redo re-sends the whole local session; a fresh run does
 not.
 
-**Late escalation is incomplete.** It fixed 167 of 197 wrong tasks (84.8%, 95% Wilson CI 79.1% to 89.1%). Of the 30
+**Late escalation is incomplete.** It fixed 84.8% (167/197) wrong tasks (task-level 95% Wilson CI 79.1% to 89.1%;
+session-level 79.4% to 90.4%, 25 sessions, row headline-ci-session-rescue). Of the 30
 it did not fix, 28 inherited the local model's earlier executed actions (earlier_state_repair): a later cloud call
 cannot undo a write the local model already made. The other 2 were cloud model errors.
 
@@ -6100,7 +6145,8 @@ Run as pre-registered in docs/EXPERIMENTS.md, "2026-10-23: Own-rollback redo, ca
 **Result.** claude-sonnet-5-5, thinking {"type": "between_tools"}, max_tokens 2048, full client-side history, cascaded
 rollback (every earlier wrong task turn rolled back and replaced by its reference calls, a STAND-IN for a successful
 escalation; 144 earlier turns replaced over the 28 tasks; state differs from the pre-task state in 28/28), grader
-unchanged: fixed 28/28, 95% Wilson CI [87.9%, 100.0%]. Target >= 25/28: met. The same 28 tasks were 0/28 in the
+unchanged: fixed 100.0% (28/28), task-level 95% Wilson CI [87.9%, 100.0%]; session-level a point at 100.0%
+(12 sessions; 28/28 has no bootstrap variance; row headline-ci-session-rescue). Target >= 25/28: met. The same 28 tasks were 0/28 in the
 full-history redo, which started from the pre-task state with the earlier damage in place.
 
 **Spend.** USD 0.8926 billed (cache-priced) for the 28 tasks, USD 2.3267 with every input token uncached; projection
@@ -6172,3 +6218,159 @@ so the probe-driven DSE choice is tested once, not established.
 **Disclosed reading change.** Under the first implementation's hardware-label reading all three computed cells are
 NON-TRIVIAL (shown per cell in the row, not counted): the two num_ctx 4096 hybrids route every task to the cloud, use no
 machine, and tie all-cloud haiku on cost. The pre-registered wording ("uses a local machine") decides the labels.
+
+## DRAFT (pending Zach's agreement 2026-10-25): E1 and E2 pre-registrations (pointer)
+
+**Status: DRAFT. Not registered, not queued, no data.** The full entries, in the Mandatory Run Template, are the two
+docs/EXPERIMENTS.md sections headed "DRAFT (pending Zach's agreement 2026-10-25)".
+
+- **E1:** qwen3:14b on evo-x2 at the Ollama default window vs an explicit num_ctx 4096, plus true-default arms on the
+  evo-t2s Intel CPU and Zach's XPS. The XPS is not configured in this repo.
+  - Draw: a fresh 200-task B3-style draw, seeds 20261101 to 20261107, disjoint by seed from the 150-turn pilot (seeds
+    20260901 to 20260905). It shares the pilot's task templates.
+  - Primary outcome: cloud escalations per 100 tasks at a fixed 97% hybrid accuracy target, under route at start plus
+    detector v2, graded against a claude-sonnet-5-5 pass on the same draw.
+  - Risk written down before data: the pilot predicts about 100 escalations per 100 at 4096 (kept local 0/90 in
+    hybrid-route-at-start-measured), and the default arm may miss 97%.
+- **E2:** local cost per session from measured session minutes, at the default vs KV q8_0. Hardware is USD 2,000 over 3
+  years. Electricity is at the PX2-power qwen3-14b package power, which was measured on evo-t2s and is applied to
+  evo-x2 as an assumption. Utilization is an explicit ASSUMPTION (23.8%, one weekday shift), with a sensitivity table
+  from 10% to 100% (row e2-cost-model-draft).
+- **Hours:** ESTIMATE row e1-e2-draft-hours (AMD arms total 1.83 h, high 2.38 h). Queued behind the job running at
+  2026-10-26 01:00Z, the projection is a start at 10-26 01:46Z (high 06:14Z) and a finish at 03:36Z (high 08:37Z).
+  This is a projection, not a schedule.
+- **Waits on:** Zach's agreement on Sun 2026-10-25, then the operator's commit removing "DRAFT", and the operator's
+  approval of the Sonnet grading pass. That pass is USD 2.04, over the USD 2 per-job cap.
+
+## RESULT (2026-10-25): own-dse-v1 long and mixed cells computed; 2 of 9 cells NON-TRIVIAL, target MET 2/2
+
+Pre-registered in docs/EXPERIMENTS.md, "2026-10-23: own-profiler ... and own-dse-v1" (Part B), and "own-dse-v1 trivial
+cells" plus its amendment. Neither entry is edited. The long and mixed cells were PENDING with "long-task candidate
+builder not written yet". Row long-task-local-accuracy is now VERIFIED, and so is long-task-cloud-priced-vs-billed. The
+builder is now in src/dse/dse_v1.py (build_long_candidates, build_long_candidates_pure, mix_candidates). All numbers
+below are from row own-dse-v1 in docs/NUMBERS_REGISTER.md.
+
+**Verdict (row own-dse-v1, pasted):** "pre-registered target within 10% in every non-trivial computed cell: MET (2/2
+non-trivial cells; 7 TRIVIAL computed cells not counted; 0 PENDING)".
+
+| Cell | Candidates | Eligible | Eligible, local machine | Label | DSE pick vs brute-force best | Gap |
+|---|---|---|---|---|---|---|
+| short 100/day | 11 | 6 | 2 | TRIVIAL (rule 2) | all-cloud claude-haiku-5-5 both, USD 2.01 | 0.0% |
+| short 1,000/day | 11 | 6 | 2 | TRIVIAL (rule 2) | all-cloud claude-haiku-5-5 both, USD 20.12 | 0.0% |
+| short 10,000/day | 11 | 3 | 1 | NON-TRIVIAL | all-cloud claude-haiku-5-5 both, USD 201.25 | 0.0%, within 10% |
+| long 100/day | 8 | 1 | 0 | TRIVIAL (1 eligible) | all-cloud claude-haiku-5-5 both, USD 67.93 | 0.0% |
+| long 1,000/day | 8 | 0 | 0 | TRIVIAL (0 eligible) | no pick | none |
+| long 10,000/day | 8 | 0 | 0 | TRIVIAL (0 eligible) | no pick | none |
+| mixed 100/day | 88 | 8 | 4 | TRIVIAL (rule 2) | claude-haiku-5-5 for short and long tasks both, USD 34.97 | 0.0% |
+| mixed 1,000/day | 88 | 8 | 4 | NON-TRIVIAL | claude-haiku-5-5 for short and long tasks both, USD 349.70 | 0.0%, within 10% |
+| mixed 10,000/day | 88 | 0 | 0 | TRIVIAL (0 eligible) | no pick | none |
+
+**Long candidates (8).** The long candidates are built the same way as the short ones:
+- Local only: evo-x2 qwen3:14b at ollama_default (window 40960) and kv_q8_0 (window 40960). Accuracy and seconds per
+  task are measured over all 60 task runs per arm. Seconds per task is the mean measured task wall-clock.
+- All-cloud: claude-haiku-5-5 and claude-sonnet-5-5, from the 5 tasks of seed 20260901 in longtask_cloud_v1. The cost
+  per task is the mean billed USD.
+- Per-task hybrids (4): each local arm with each cloud tier, under the pre-registered policy (route at start, then the
+  window flag). The route compares the task's projected prompt with the arm's window. The projection uses the largest
+  step of the oracle transcript, in model tokens. The row records "largest projected prompt 11,236 model tokens" and
+  "routed 0/60, flagged 0/60" for both arms. So each hybrid behaves exactly like its local arm. Every long wrong
+  answer was silent (long-task-local-accuracy), so no flag could catch any of them.
+
+No local or hybrid long candidate reaches the 0.90 target. Haiku is the only long candidate that does. It fits the
+USD 500/month budget at 100 tasks/day only.
+
+**Mixed candidates (88).** The mix is the pre-registered one: 50% short B3 v2 tasks and 50% long tasks, by count. Each
+mixed candidate is a pair: one short candidate runs the short tasks and one long candidate runs the long tasks. That
+gives 11 x 8 pairs. When both halves are local, they share the evo-x2 machines, and the machine count comes from the
+pooled local seconds.
+
+**Choices the pre-registration did not fix (labelled in the row):**
+1. *No long-task probe.* own-profiler-probe measured B3 short-task configs only, and the pre-registration names no
+   probe for long tasks. So the DSE sees the long local candidates' measured values as their predictions. The long
+   cells therefore cannot test the probe. All 3 long cells are TRIVIAL by rule 1 anyway, and rule 1 uses measured
+   eligibility only, so this choice does not change any label. In the mixed cells, only the short half carries probe
+   input.
+2. *Long cloud cost = billed USD.* Billed is the measured value. The priced "realistic" figure rests on an assumed
+   cache hit rate of 0.7. The 5 measured tasks are 2 swegym and 3 openhands (the long-task-cloud-priced-vs-billed
+   row), not the local run's 10/10 split.
+3. *Mixed candidate set = every short x long pair.* This is a superset of "one configuration for every task": the
+   same-setup pairs, such as all-Haiku, are included. A larger set gives the DSE more ways to pick wrongly, so it is
+   the more conservative reading for a validation claim.
+4. *A cell with 0 eligible candidates is computed and TRIVIAL by rule 1* ("at most one candidate is eligible"). It
+   has no pick and no gap. Before this change, such a cell would have printed as a non-computed status.
+5. *Machine sharing and power.* Both halves of a mixed pair run on the same machines, and kv_q8_0 uses the same
+   PX2-power watts. Both are ASSUMED, like the short cells' one-task-at-a-time assumption.
+
+**Caveat on mixed 1,000/day.** Its NON-TRIVIAL label follows the pre-registered rule as written: every candidate that
+uses a local machine is checked, whatever its predicted accuracy. The row names the lowest-floor local candidate:
+"short [evo-x2/qwen3:14b/40960 (Ollama default)/f16 (Ollama default)/Ollama/local only] + long
+[evo-x2/qwen3:14b/40960 (Ollama default)/f16 (Ollama default)/Ollama/local only], predicted accuracy 0.503, measured
+0.486". Its long half takes no probe input. So no probe
+value could lift that candidate to the 0.90 target, and its floor is not what could change the pick. The rule is not
+changed here. The label stands and counts. A reader should know that this cell's test of the probe-driven choice is
+weaker than the label suggests. The same row text now names the lowest-floor candidate in short 10,000/day too
+("predicted accuracy 0.922, measured 0.889").
+
+**What this does and does not show.** In both non-trivial cells, the DSE's pick is the brute-force best: all-cloud
+Haiku, for every task. In no computed cell is a configuration that uses a local machine cheapest on measured values.
+On long tasks, local qwen3:14b at a 40960 window is far below the target (5/60 and 4/60). Above 100 long tasks/day,
+the budget rules out Haiku, so no measured configuration meets both the target and the budget.
+
+## DRAFT: own-plan-execute pilot (pointer)
+
+**Status: DRAFT, estimate only. Not registered, not queued, no cloud call, no machine time.** The full entry, in the
+Mandatory Run Template, is the docs/EXPERIMENTS.md section "DRAFT (2026-10-25, estimate only, nothing run):
+own-plan-execute pilot".
+
+- **Design:** claude-haiku-5-5 plans each long-horizon synthetic task into one self-contained step per work-order item.
+  qwen3:14b on evo-x2 executes each step as its own short conversation. Deterministic checkpoint flags, plus a Haiku
+  verifier every 8 steps, send wrong-looking steps to Haiku to redo. Arms: plan-execute vs all-cloud Haiku (baseline)
+  vs local only (row long-task-local-accuracy, 5/60), 20 tasks x 3 seeds.
+- **Target, verbatim:** within 3 points of all-cloud accuracy at under 30% of all-cloud cost.
+- **Cost (ESTIMATE, row own-plan-execute-estimate):** total billed USD 1.2525, upper bound USD 1.4286 (point); USD
+  3.3014 (high). Over the USD 2 per-job limit in the high case, so the operator runs it by hand with
+  `--operator-approval`.
+- **evo-x2 hours (ESTIMATE, same row):** 2.20 h (high 5.23 h).
+- **Built:** harness/plan_execute.py with `--dry-run`, and tests/test_plan_execute.py (fakes only). **Not built:** the
+  controller cloud script for phases 1 and 3, the evo-x2 queue job for phase 2, and the 60-task all-cloud run.
+
+## PRE-REGISTRATION (2026-10-26): cross-runtime replication (pointer)
+
+**Status: pre-registered, not run.** The full entry, in the Mandatory Run Template, is the docs/EXPERIMENTS.md section
+"PRE-REGISTRATION (2026-10-26): cross-runtime replication on llama.cpp server".
+
+- **Question:** is the B3 v2 core result (row x2-evalset-tasks-real-v2-wrong-rate, Ollama, qwen3:14b: 42.0% wrong at
+  4096 vs 11.3% at the default window, 5 seeds) an Ollama bug, or does it hold on llama.cpp server too?
+- **Design:** the same B3 v2 session, tasks and seeds 20260901-05 on llama-server b10970 Vulkan on evo-x2
+  (harness/xruntime_llamacpp.py, queue id x2_xruntime_llamacpp), qwen3:14b as the official Q4_K_M GGUF, one fresh server
+  per session, stale-server guard. Arms: (a) the server default window (no `-c`; documented default "0 = loaded from
+  model", the GGUF's 40960, recorded from `/props`), (b) `-c 4096`, (c) "default fixed" `-c 40960`.
+- **Wording, fixed before data:** "replicated" iff the session-bootstrap 95% CI of (b) minus (a) excludes 0 on the
+  positive side (comparator (c) if (a) loads 4096); otherwise "not replicated". Silent vs flagged from the server's own
+  log lines (detector validated by a probe first). What persists after the fix: (c)'s wrong rate and silent share,
+  and (c) minus Ollama's default-window rate (context only: other weights file, template and build).
+- **Rows:** xruntime-llamacpp-wrong-rate, xruntime-default-fixed (PENDING until run_end); xruntime-llamacpp-hours
+  (ESTIMATE 1.94 h, high 2.91 h); xruntime-openvino-ceiling (awaiting Zach's files, no numbers until then).
+- **LM Studio (third runtime):** plan only. It cannot be confined to one folder on evo-x2 (user-profile data home,
+  AppData, PATH), so it needs the operator's approval before any install.
+
+## PRE-REGISTRATION (2026-10-26): KV precision x flash attention on llama.cpp server (pointer)
+
+**Status: pre-registered, not run.** The full entry, in the Mandatory Run Template, is the docs/EXPERIMENTS.md section
+"PRE-REGISTRATION (2026-10-26): KV precision x flash attention on llama.cpp server".
+
+- **Question:** Ollama cannot set a quantized KV cache with flash attention off, so B5 had three of the four KV x FA
+  cells ((a) f16, (i) f16 + FA, (g) q8_0 + FA; row b5-fa-control: "the B5 speedup is KV precision, not flash
+  attention"). Is the q8_0 speed or memory effect the same with FA on and off?
+- **Design:** llama-server b10970 Vulkan on evo-x2 (harness/kv_fa_llamacpp.py, queue id x2_kv_fa_llamacpp), qwen3:14b
+  GGUF, `-c 40960` in every cell, the B5 R2 session cut at 24 turns (the longest prefix of B5's session that fits
+  40960 with 10% headroom; the full 40 turns would hit llama-server's HTTP 400 rejection), seeds 20260901-03. Cells
+  `-ctk/-ctv/-fa`: f16/f16/off, f16/f16/on, q8_0/f16/off, q8_0/f16/on, q8_0/q8_0/on. q8_0/q8_0/off is attempted once
+  first and recorded "refused" if the server does not load (b10970's llama.dll holds "quantized V cache requires
+  flash_attn to be enabled"); q8_0/f16/off is the closest legal cell.
+- **Wording, fixed before data:** on the K-only square, I = ln(q8/f16 minutes at FA off) - ln(q8/f16 at FA on) with a
+  session bootstrap (10000, stratified by cell, seed 20261014): "interaction" iff the 95% CI excludes 0 and |I| >
+  ln 1.10; "no interaction shown" iff the CI lies within +-ln 1.10; else "inconclusive". Memory: "no memory
+  interaction" iff the q8_0 KV saving with FA off and with FA on differ by at most 1% of the f16 FA-on KV buffer.
+- **Rows:** kv-fa-interaction-llamacpp (PENDING until run_end); kv-fa-interaction-llamacpp-hours (ESTIMATE, see the
+  row).

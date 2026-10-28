@@ -25,6 +25,8 @@ CONTROLLER_SCRIPTS = [
     REPO / "scripts" / "sync_results.py",
     REPO / "scripts" / "deploy_evo.py",
     REPO / "scripts" / "t2s_responsiveness_probe.py",
+    # apu_bench run reads the git head on the controller (2026-10-26, operator item 5)
+    REPO / "apu_bench" / "bench.py",
     REPO / "demo" / "dashboard" / "build_cache.py",
     # live demo (2026-10-23): the screen's runner (SSH to evo-x2, the agent) and the lane servers it can start here
     REPO / "demo" / "live" / "runner.py",

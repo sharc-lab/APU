@@ -1,0 +1,1082 @@
+{
+ "summary": {
+  "ollama_default": {
+   "n_tasks": 60,
+   "correct": 5,
+   "accuracy": 0.08333333333333333,
+   "wilson95": [
+    0.03612045637312657,
+    0.18068942115539605
+   ],
+   "wrong": 55,
+   "silent_wrong": 55,
+   "surfaced_wrong": 0,
+   "silent_share_of_wrong": 1.0,
+   "silent_share_of_all": 0.9166666666666666,
+   "step_cap_hits": 0,
+   "http_error_tasks": 0,
+   "thinking_tasks": 0,
+   "minutes_per_task_mean": 0.7952186111106615,
+   "minutes_per_task_median": 0.3536499999987427,
+   "calls_per_task_mean": 23.9,
+   "max_prompt_tokens_est": 7820,
+   "loaded_context": [
+    40960
+   ],
+   "by_stratum": {
+    "openhands": {
+     "n": 30,
+     "correct": 0,
+     "silent_wrong": 30,
+     "minutes_mean": 1.212170555555365
+    },
+    "swegym": {
+     "n": 30,
+     "correct": 5,
+     "silent_wrong": 25,
+     "minutes_mean": 0.3782666666659578
+    }
+   },
+   "by_seed": {
+    "20260901": {
+     "n": 20,
+     "correct": 2,
+     "silent_wrong": 18,
+     "minutes_mean": 0.7236741666658781
+    },
+    "20260902": {
+     "n": 20,
+     "correct": 0,
+     "silent_wrong": 20,
+     "minutes_mean": 0.7219683333329158
+    },
+    "20260903": {
+     "n": 20,
+     "correct": 3,
+     "silent_wrong": 17,
+     "minutes_mean": 0.9400133333331906
+    }
+   }
+  },
+  "kv_q8_0": {
+   "n_tasks": 60,
+   "correct": 4,
+   "accuracy": 0.06666666666666667,
+   "wilson95": [
+    0.02622869854224924,
+    0.1592535740874143
+   ],
+   "wrong": 56,
+   "silent_wrong": 56,
+   "surfaced_wrong": 0,
+   "silent_share_of_wrong": 1.0,
+   "silent_share_of_all": 0.9333333333333333,
+   "step_cap_hits": 0,
+   "http_error_tasks": 0,
+   "thinking_tasks": 0,
+   "minutes_per_task_mean": 0.8059188888891368,
+   "minutes_per_task_median": 0.4011750000005122,
+   "calls_per_task_mean": 25.433333333333334,
+   "max_prompt_tokens_est": 8206,
+   "loaded_context": [
+    40960
+   ],
+   "by_stratum": {
+    "openhands": {
+     "n": 30,
+     "correct": 0,
+     "silent_wrong": 30,
+     "minutes_mean": 1.2384977777779569
+    },
+    "swegym": {
+     "n": 30,
+     "correct": 4,
+     "silent_wrong": 26,
+     "minutes_mean": 0.37334000000031664
+    }
+   },
+   "by_seed": {
+    "20260901": {
+     "n": 20,
+     "correct": 2,
+     "silent_wrong": 18,
+     "minutes_mean": 0.7118991666667474
+    },
+    "20260902": {
+     "n": 20,
+     "correct": 0,
+     "silent_wrong": 20,
+     "minutes_mean": 0.8326683333337618
+    },
+    "20260903": {
+     "n": 20,
+     "correct": 2,
+     "silent_wrong": 18,
+     "minutes_mean": 0.873189166666901
+    }
+   }
+  }
+ },
+ "per_task_wall": [
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260901,
+   "task_id": "lt_swegym_01",
+   "task_wall_s": 8.484999999869615,
+   "n_calls": 4,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260901,
+   "task_id": "lt_swegym_02",
+   "task_wall_s": 11.062999999849126,
+   "n_calls": 3,
+   "correct": true
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260901,
+   "task_id": "lt_swegym_03",
+   "task_wall_s": 11.469000000040978,
+   "n_calls": 6,
+   "correct": true
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260901,
+   "task_id": "lt_swegym_04",
+   "task_wall_s": 10.718999999808148,
+   "n_calls": 5,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260901,
+   "task_id": "lt_swegym_05",
+   "task_wall_s": 8.75,
+   "n_calls": 5,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260901,
+   "task_id": "lt_swegym_06",
+   "task_wall_s": 12.640999999828637,
+   "n_calls": 7,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260901,
+   "task_id": "lt_swegym_07",
+   "task_wall_s": 23.781999999890104,
+   "n_calls": 14,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260901,
+   "task_id": "lt_swegym_08",
+   "task_wall_s": 43.98399999993853,
+   "n_calls": 24,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260901,
+   "task_id": "lt_swegym_09",
+   "task_wall_s": 63.89099999982864,
+   "n_calls": 34,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260901,
+   "task_id": "lt_swegym_10",
+   "task_wall_s": 35.45299999997951,
+   "n_calls": 20,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260901,
+   "task_id": "lt_openhands_01",
+   "task_wall_s": 90.06300000008196,
+   "n_calls": 47,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260901,
+   "task_id": "lt_openhands_02",
+   "task_wall_s": 103.64000000013039,
+   "n_calls": 52,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260901,
+   "task_id": "lt_openhands_03",
+   "task_wall_s": 45.70299999997951,
+   "n_calls": 25,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260901,
+   "task_id": "lt_openhands_04",
+   "task_wall_s": 13.984999999869615,
+   "n_calls": 4,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260901,
+   "task_id": "lt_openhands_05",
+   "task_wall_s": 44.34400000004098,
+   "n_calls": 24,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260901,
+   "task_id": "lt_openhands_06",
+   "task_wall_s": 141.6710000000894,
+   "n_calls": 69,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260901,
+   "task_id": "lt_openhands_07",
+   "task_wall_s": 144.15599999995902,
+   "n_calls": 70,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260901,
+   "task_id": "lt_openhands_08",
+   "task_wall_s": 12.172000000020489,
+   "n_calls": 3,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260901,
+   "task_id": "lt_openhands_09",
+   "task_wall_s": 20.515999999828637,
+   "n_calls": 4,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260901,
+   "task_id": "lt_openhands_10",
+   "task_wall_s": 21.92200000002049,
+   "n_calls": 10,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260901,
+   "task_id": "lt_swegym_01",
+   "task_wall_s": 8.672000000020489,
+   "n_calls": 4,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260901,
+   "task_id": "lt_swegym_02",
+   "task_wall_s": 11.141000000061467,
+   "n_calls": 3,
+   "correct": true
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260901,
+   "task_id": "lt_swegym_03",
+   "task_wall_s": 11.5,
+   "n_calls": 6,
+   "correct": true
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260901,
+   "task_id": "lt_swegym_04",
+   "task_wall_s": 13.827999999979511,
+   "n_calls": 8,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260901,
+   "task_id": "lt_swegym_05",
+   "task_wall_s": 8.843000000109896,
+   "n_calls": 5,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260901,
+   "task_id": "lt_swegym_06",
+   "task_wall_s": 12.672000000020489,
+   "n_calls": 7,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260901,
+   "task_id": "lt_swegym_07",
+   "task_wall_s": 24.844000000040978,
+   "n_calls": 14,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260901,
+   "task_id": "lt_swegym_08",
+   "task_wall_s": 43.48399999993853,
+   "n_calls": 24,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260901,
+   "task_id": "lt_swegym_09",
+   "task_wall_s": 62.593000000109896,
+   "n_calls": 34,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260901,
+   "task_id": "lt_swegym_10",
+   "task_wall_s": 35.014999999897555,
+   "n_calls": 20,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260901,
+   "task_id": "lt_openhands_01",
+   "task_wall_s": 86.51500000013039,
+   "n_calls": 47,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260901,
+   "task_id": "lt_openhands_02",
+   "task_wall_s": 95.48400000017136,
+   "n_calls": 50,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260901,
+   "task_id": "lt_openhands_03",
+   "task_wall_s": 44.59400000004098,
+   "n_calls": 25,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260901,
+   "task_id": "lt_openhands_04",
+   "task_wall_s": 13.281999999890104,
+   "n_calls": 4,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260901,
+   "task_id": "lt_openhands_05",
+   "task_wall_s": 43.03099999995902,
+   "n_calls": 24,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260901,
+   "task_id": "lt_openhands_06",
+   "task_wall_s": 144.56299999984913,
+   "n_calls": 75,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260901,
+   "task_id": "lt_openhands_07",
+   "task_wall_s": 141.43699999991804,
+   "n_calls": 73,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260901,
+   "task_id": "lt_openhands_08",
+   "task_wall_s": 11.358999999938533,
+   "n_calls": 3,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260901,
+   "task_id": "lt_openhands_09",
+   "task_wall_s": 18.75,
+   "n_calls": 4,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260901,
+   "task_id": "lt_openhands_10",
+   "task_wall_s": 22.67200000002049,
+   "n_calls": 11,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260902,
+   "task_id": "lt_swegym_01",
+   "task_wall_s": 11.561999999918044,
+   "n_calls": 6,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260902,
+   "task_id": "lt_swegym_02",
+   "task_wall_s": 7.6560000001918525,
+   "n_calls": 4,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260902,
+   "task_id": "lt_swegym_03",
+   "task_wall_s": 11.016000000061467,
+   "n_calls": 6,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260902,
+   "task_id": "lt_swegym_04",
+   "task_wall_s": 8.141000000061467,
+   "n_calls": 3,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260902,
+   "task_id": "lt_swegym_05",
+   "task_wall_s": 10.375,
+   "n_calls": 6,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260902,
+   "task_id": "lt_swegym_06",
+   "task_wall_s": 22.953999999910593,
+   "n_calls": 14,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260902,
+   "task_id": "lt_swegym_07",
+   "task_wall_s": 24.796000000089407,
+   "n_calls": 14,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260902,
+   "task_id": "lt_swegym_08",
+   "task_wall_s": 27.890999999828637,
+   "n_calls": 16,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260902,
+   "task_id": "lt_swegym_09",
+   "task_wall_s": 10.265999999828637,
+   "n_calls": 5,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260902,
+   "task_id": "lt_swegym_10",
+   "task_wall_s": 80.29700000002049,
+   "n_calls": 32,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260902,
+   "task_id": "lt_openhands_01",
+   "task_wall_s": 18.67199999978766,
+   "n_calls": 10,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260902,
+   "task_id": "lt_openhands_02",
+   "task_wall_s": 96.67200000002049,
+   "n_calls": 50,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260902,
+   "task_id": "lt_openhands_03",
+   "task_wall_s": 10.796999999787658,
+   "n_calls": 5,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260902,
+   "task_id": "lt_openhands_04",
+   "task_wall_s": 125.29700000002049,
+   "n_calls": 63,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260902,
+   "task_id": "lt_openhands_05",
+   "task_wall_s": 151.40599999995902,
+   "n_calls": 75,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260902,
+   "task_id": "lt_openhands_06",
+   "task_wall_s": 114.625,
+   "n_calls": 57,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260902,
+   "task_id": "lt_openhands_07",
+   "task_wall_s": 18.453999999910593,
+   "n_calls": 4,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260902,
+   "task_id": "lt_openhands_08",
+   "task_wall_s": 95.68800000008196,
+   "n_calls": 50,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260902,
+   "task_id": "lt_openhands_09",
+   "task_wall_s": 12.547000000020489,
+   "n_calls": 5,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260902,
+   "task_id": "lt_openhands_10",
+   "task_wall_s": 7.25,
+   "n_calls": 2,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260902,
+   "task_id": "lt_swegym_01",
+   "task_wall_s": 11.577999999979511,
+   "n_calls": 6,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260902,
+   "task_id": "lt_swegym_02",
+   "task_wall_s": 7.640000000130385,
+   "n_calls": 4,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260902,
+   "task_id": "lt_swegym_03",
+   "task_wall_s": 11.015999999828637,
+   "n_calls": 6,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260902,
+   "task_id": "lt_swegym_04",
+   "task_wall_s": 8.171000000089407,
+   "n_calls": 3,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260902,
+   "task_id": "lt_swegym_05",
+   "task_wall_s": 10.406000000191852,
+   "n_calls": 6,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260902,
+   "task_id": "lt_swegym_06",
+   "task_wall_s": 23.375,
+   "n_calls": 14,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260902,
+   "task_id": "lt_swegym_07",
+   "task_wall_s": 24.766000000061467,
+   "n_calls": 14,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260902,
+   "task_id": "lt_swegym_08",
+   "task_wall_s": 27.516000000061467,
+   "n_calls": 16,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260902,
+   "task_id": "lt_swegym_09",
+   "task_wall_s": 10.280999999959022,
+   "n_calls": 5,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260902,
+   "task_id": "lt_swegym_10",
+   "task_wall_s": 66.82799999997951,
+   "n_calls": 26,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260902,
+   "task_id": "lt_openhands_01",
+   "task_wall_s": 18.45299999997951,
+   "n_calls": 10,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260902,
+   "task_id": "lt_openhands_02",
+   "task_wall_s": 92.56200000015087,
+   "n_calls": 50,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260902,
+   "task_id": "lt_openhands_03",
+   "task_wall_s": 10.688000000081956,
+   "n_calls": 5,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260902,
+   "task_id": "lt_openhands_04",
+   "task_wall_s": 118.21900000004098,
+   "n_calls": 63,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260902,
+   "task_id": "lt_openhands_05",
+   "task_wall_s": 142.1710000000894,
+   "n_calls": 75,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260902,
+   "task_id": "lt_openhands_06",
+   "task_wall_s": 120.95299999997951,
+   "n_calls": 65,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260902,
+   "task_id": "lt_openhands_07",
+   "task_wall_s": 87.875,
+   "n_calls": 46,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260902,
+   "task_id": "lt_openhands_08",
+   "task_wall_s": 83.75,
+   "n_calls": 46,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260902,
+   "task_id": "lt_openhands_09",
+   "task_wall_s": 6.609999999869615,
+   "n_calls": 2,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260902,
+   "task_id": "lt_openhands_10",
+   "task_wall_s": 116.34400000004098,
+   "n_calls": 63,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260903,
+   "task_id": "lt_swegym_01",
+   "task_wall_s": 12.875,
+   "n_calls": 6,
+   "correct": true
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260903,
+   "task_id": "lt_swegym_02",
+   "task_wall_s": 12.671999999787658,
+   "n_calls": 7,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260903,
+   "task_id": "lt_swegym_03",
+   "task_wall_s": 8.030999999959022,
+   "n_calls": 3,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260903,
+   "task_id": "lt_swegym_04",
+   "task_wall_s": 11.406999999890104,
+   "n_calls": 6,
+   "correct": true
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260903,
+   "task_id": "lt_swegym_05",
+   "task_wall_s": 14.563000000081956,
+   "n_calls": 8,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260903,
+   "task_id": "lt_swegym_06",
+   "task_wall_s": 9.625,
+   "n_calls": 5,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260903,
+   "task_id": "lt_swegym_07",
+   "task_wall_s": 15.828000000212342,
+   "n_calls": 9,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260903,
+   "task_id": "lt_swegym_08",
+   "task_wall_s": 56.10899999993853,
+   "n_calls": 31,
+   "correct": true
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260903,
+   "task_id": "lt_swegym_09",
+   "task_wall_s": 16.5,
+   "n_calls": 9,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260903,
+   "task_id": "lt_swegym_10",
+   "task_wall_s": 78.0789999999106,
+   "n_calls": 42,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260903,
+   "task_id": "lt_openhands_01",
+   "task_wall_s": 112.51600000006147,
+   "n_calls": 58,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260903,
+   "task_id": "lt_openhands_02",
+   "task_wall_s": 113.18700000015087,
+   "n_calls": 59,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260903,
+   "task_id": "lt_openhands_03",
+   "task_wall_s": 20.389999999897555,
+   "n_calls": 10,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260903,
+   "task_id": "lt_openhands_04",
+   "task_wall_s": 124.18799999984913,
+   "n_calls": 62,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260903,
+   "task_id": "lt_openhands_05",
+   "task_wall_s": 150.35900000017136,
+   "n_calls": 73,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260903,
+   "task_id": "lt_openhands_06",
+   "task_wall_s": 78.7960000000894,
+   "n_calls": 42,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260903,
+   "task_id": "lt_openhands_07",
+   "task_wall_s": 28.0,
+   "n_calls": 14,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260903,
+   "task_id": "lt_openhands_08",
+   "task_wall_s": 12.452999999979511,
+   "n_calls": 5,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260903,
+   "task_id": "lt_openhands_09",
+   "task_wall_s": 121.70299999997951,
+   "n_calls": 62,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260903,
+   "task_id": "lt_openhands_10",
+   "task_wall_s": 130.73499999986961,
+   "n_calls": 66,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260903,
+   "task_id": "lt_swegym_01",
+   "task_wall_s": 14.578999999910593,
+   "n_calls": 7,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260903,
+   "task_id": "lt_swegym_02",
+   "task_wall_s": 12.577999999979511,
+   "n_calls": 7,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260903,
+   "task_id": "lt_swegym_03",
+   "task_wall_s": 8.202999999979511,
+   "n_calls": 3,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260903,
+   "task_id": "lt_swegym_04",
+   "task_wall_s": 11.281000000191852,
+   "n_calls": 6,
+   "correct": true
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260903,
+   "task_id": "lt_swegym_05",
+   "task_wall_s": 14.561999999918044,
+   "n_calls": 8,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260903,
+   "task_id": "lt_swegym_06",
+   "task_wall_s": 13.952999999979511,
+   "n_calls": 8,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260903,
+   "task_id": "lt_swegym_07",
+   "task_wall_s": 16.07799999997951,
+   "n_calls": 9,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260903,
+   "task_id": "lt_swegym_08",
+   "task_wall_s": 54.95300000021234,
+   "n_calls": 31,
+   "correct": true
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260903,
+   "task_id": "lt_swegym_09",
+   "task_wall_s": 16.32799999997951,
+   "n_calls": 9,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260903,
+   "task_id": "lt_swegym_10",
+   "task_wall_s": 75.32799999997951,
+   "n_calls": 42,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260903,
+   "task_id": "lt_openhands_01",
+   "task_wall_s": 106.96899999980815,
+   "n_calls": 58,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260903,
+   "task_id": "lt_openhands_02",
+   "task_wall_s": 107.64000000013039,
+   "n_calls": 59,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260903,
+   "task_id": "lt_openhands_03",
+   "task_wall_s": 20.031000000191852,
+   "n_calls": 10,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260903,
+   "task_id": "lt_openhands_04",
+   "task_wall_s": 122.68799999984913,
+   "n_calls": 65,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260903,
+   "task_id": "lt_openhands_05",
+   "task_wall_s": 158.15600000019185,
+   "n_calls": 81,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260903,
+   "task_id": "lt_openhands_06",
+   "task_wall_s": 25.625,
+   "n_calls": 13,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260903,
+   "task_id": "lt_openhands_07",
+   "task_wall_s": 25.32799999997951,
+   "n_calls": 14,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260903,
+   "task_id": "lt_openhands_08",
+   "task_wall_s": 12.187000000150874,
+   "n_calls": 5,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260903,
+   "task_id": "lt_openhands_09",
+   "task_wall_s": 108.25,
+   "n_calls": 59,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_kv_q8_0",
+   "seed": 20260903,
+   "task_id": "lt_openhands_10",
+   "task_wall_s": 123.10999999986961,
+   "n_calls": 66,
+   "correct": false
+  }
+ ]
+}

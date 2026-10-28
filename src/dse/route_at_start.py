@@ -37,6 +37,11 @@ import re
 import statistics
 from pathlib import Path
 
+try:                                    # imported as src.dse.route_at_start
+    from .fits_locally import fits_locally
+except ImportError:                     # imported as a top-level module (src/dse on sys.path: harness/demo_*.py)
+    from fits_locally import fits_locally
+
 MARGIN = 0.05
 NUM_PREDICT = 384            # x2_r2_agent.MAX_TOKENS_PER_CALL, the answer cap every local call sends
 CLOUD_MODEL = "claude-haiku-5-5"
@@ -167,16 +172,18 @@ def context_need(est_now: int, expected_turns: int, calib: dict, num_predict: in
     return math.ceil(calib["ratio"] * (est_now + expected_turns * calib["growth_p90"])) + num_predict
 
 
-def fits(need: int, window: int, margin: float = MARGIN) -> bool:
-    return need <= math.floor(window * (1 - margin))
+def fits(need: int, window: int, margin: float = MARGIN, predictor=None) -> bool:
+    """need <= floor(window * (1 - margin)), through the FitsLocallyPredictor interface (src/dse/fits_locally.py)."""
+    return fits_locally(need, window, margin, predictor)["fits"]
 
 
 def route(profile: dict, device: str, need_tokens: int, cloud_budget_usd: float, expected_turns: int = 1,
-          margin: float = MARGIN, need_source: str = "context_need") -> dict:
+          margin: float = MARGIN, need_source: str = "context_need", predictor=None) -> dict:
     """The routing decision for one task on one device. profile: build_profiles / load_profiles output.
     need_tokens: context_need(...), or in the live demo the projected task-turn prompt of the headline row
     hybrid-route-at-start-measured (need_source names which); margin: MARGIN, or 0 for the headline's rule
-    (local iff projected <= window). The cloud model and price are the device's (cloud_model in the profile)."""
+    (local iff projected <= window). The cloud model and price are the device's (cloud_model in the profile).
+    predictor: a src/dse/fits_locally.FitsLocallyPredictor (None: the projection baseline)."""
     dev = profile["devices"][device]
     cloud = profile["clouds"][dev.get("cloud_model", profile["cloud"]["model"])]
     need = int(need_tokens)
@@ -185,8 +192,8 @@ def route(profile: dict, device: str, need_tokens: int, cloud_budget_usd: float,
             "margin": margin, "expected_turns": expected_turns, "default_window": dev["default_window"],
             "cloud_budget_usd": cloud_budget_usd, "cloud_cost_projected_usd": cloud_cost}
     for s in dev["settings"]:
-        if fits(need, s["window"], margin):
-            fits_default = fits(need, dev["default_window"], margin)
+        if fits(need, s["window"], margin, predictor):
+            fits_default = fits(need, dev["default_window"], margin, predictor)
             extra = "" if s["id"] == "default" else (
                 f"; {s['why']}" if fits_default else f"; the default {dev['default_window']:,} would cut it off")
             return {**base, "route": "local", "setting": s["id"], "setting_label": s["label"],

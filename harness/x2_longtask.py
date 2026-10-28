@@ -18,7 +18,7 @@ step_cap tool-bearing calls (1.5 x reference steps + 5) with one final call with
 longtask_env.check_long_task on the environment as executed.
 
 Per task row (record "longtask_task"): end_state_ok, outcome (correct / wrong_silent / wrong_surfaced; surfaced = an
-HTTP or transport error or the step cap; thinking present = wrong), task_wall_s, calls, tool calls, the per-call prompt
+HTTP error or the step cap; a transport error with no HTTP status stops the run, see main; thinking present = wrong), task_wall_s, calls, tool calls, the per-call prompt
 profile, loaded window. The run report (<out>.report.json) holds summarize().
 
     python longtask\\x2_longtask.py --out C:\\apu\\ovn\\results\\x2_longtask_local_v1.jsonl
@@ -466,7 +466,14 @@ def main(argv=None, advance=True, deps=None) -> str:
                     if stop_at is not None and now() >= stop_at:
                         stopped = True
                         break
-                    row = run_long_task(rt, MODEL, cfg["num_ctx"], ag.MODELS.get(MODEL), task, env, log)
+                    try:
+                        row = run_long_task(rt, MODEL, cfg["num_ctx"], ag.MODELS.get(MODEL), task, env, log)
+                    except ag.SessionIncomplete as e:   # no longtask_task row, no retry; the run stops, no run_end
+                        emit({"record": "longtask_task_incomplete", "incomplete": True, "harness": HARNESS,
+                              "model_id": MODEL, "arm_id": cfg["arm_id"], "arm": a, "seed": s,
+                              "task_id": task.task_id, "error": str(e.error)[:400], "failed_call": e.call,
+                              "retried": False, "ts_utc": utc_iso()})
+                        raise
                     loaded = rt.loaded_context(MODEL)
                     row.update({"record": "longtask_task", "harness": HARNESS, "model_id": MODEL,
                                 "arm_id": cfg["arm_id"], "arm": a, "seed": s, "num_ctx_requested": cfg["num_ctx"],

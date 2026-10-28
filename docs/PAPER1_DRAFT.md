@@ -11,31 +11,32 @@ typeset version); design constants carry "design: <source>".
 
 ## 1. Working title and abstract
 
-**Working title:** *Silent by Default: How Memory Architecture and Runtime Policy Shape Local LLM Agents on AI PCs*
+**Working title:** *Silent by Default on Ollama: How Memory Architecture and Runtime Policy Shape Local LLM Agents on AI PCs*
 
 Alternatives:
 
-1. *Where Local Agents Break: Memory Boundaries, Runtime Defaults and Silent Context Loss on Three AI PC Platforms*
+1. *Where Local Agents Break: Memory Boundaries, Runtime Defaults and Silent Context Loss on Ollama Across Three AI PC Platforms*
 2. *The Runtime Picks Your Context Window: A Cross-Vendor Characterization of Local LLM Inference on AI PCs*
-3. *No Error, No Rules: Characterizing Silent Failure of Local LLM Agents Across Unified and Discrete Memory*
+3. *No Error, No Rules: Characterizing Silent Failure of Ollama-Served LLM Agents Across Unified and Discrete Memory*
 
 **Abstract.**
 
-When a local agent's conversation outgrows the context window, runtimes such as Ollama and llama.cpp trim it and
-still report success. We measure what is lost
+When a local agent's conversation outgrows the context window, Ollama trims it and still reports success, while a
+stock llama-server at the same small window fails loudly, with an HTTP error on every wrong task turn <!-- xruntime-llamacpp-wrong-rate -->. We measure what is lost
 with pre-registered experiments on an AMD APU, an NVIDIA laptop GPU and an Intel laptop. At windows of 16384 tokens
 and below, no session of three 8B to 14B models kept its full history <!-- R2-real-v1b-survival -->, and models
 up to 70B lose history once the window is exceeded <!-- H-scale-verdict --> <!-- H-scale-family-verdict -->. Rule loss
 appears in the 8B and 14B models (5 seeds) and in qwen3:32b (2 of 3 sessions at 4096) <!-- H-scale-verdict -->, and
 not in llama3.3:70b or mistral-small3.2:24b (0 of 3 each) <!-- H-scale-verdict --> <!-- H-scale-family-verdict -->.
-History loss appears in all of them. On a tool-using task workload, qwen3:14b's wrong-task rate rises from 11.3% at
-its default window to 42.0% at 4096, and every wrong task is silent <!-- x2-evalset-tasks-real-v2-wrong-rate -->.
+History loss appears in all of them. On a tool-using task workload, qwen3:14b's wrong-task rate rises from 11.3% (17/150) at
+its default window to 42.0% (63/150) at 4096 on Ollama, and every wrong task is silent <!-- x2-evalset-tasks-real-v2-wrong-rate -->;
+on llama-server the 4096 effect replicates (+92.0 points, 95% CI +88.7 to +94.7) but no wrong task is silent <!-- xruntime-llamacpp-wrong-rate -->.
 Runtime defaults decide how often this happens: an unmodified install loaded a 4096-token window on an Intel CPU
 <!-- t2s-r2-real-cpu --> and 32768 on the same laptop's integrated GPU <!-- t2s-r2-real-igpu -->. The backend matters
 too: with identical model files and settings, llama3.1:8b wrote tool calls as text at an untruncated window on Vulkan
 and CUDA but not on ROCm <!-- x2-r2-llama-val-32k-vulkan --> <!-- blade-r2-gate-v2 --> <!-- x2-r2-llama-val-32k-offload -->.
 The fixes are partial. Setting the window per device removes the hidden default; KV-cache quantization cut session
-time by 65% to 85% with no measured loss of rules or recall <!-- cost-cut-config-time --> <!-- b5-fa-control -->
+time by 65% to 85% (139.4 of 214.8 and 37.1 of 43.7 min per session, 3 sessions per setting) with no measured loss of rules or recall <!-- cost-cut-config-time --> <!-- b5-fa-control -->
 <!-- b5-kv-recall-f16-rerun -->; client-side trimming removes the in-context examples a model imitates; and
 `num_keep` protects the system prompt only where the runtime shifts or cuts tokens.
 
@@ -48,8 +49,9 @@ time by 65% to 85% with no measured loss of rules or recall <!-- cost-cut-config
 Runtimes such as Ollama and llama.cpp serve open-weight models of 8B to 70B parameters on laptops and small APU
 workstations, and local agents drive them for tens of turns, appending every tool result to a conversation that only
 grows inside a fixed context window. When the conversation outgrows it, the runtime, not the agent, decides what to
-remove, and it does so silently: the request still returns HTTP 200
-<!-- blade-k1-layer-split -->, the answer is well formed, and the model does not mention the loss (0/960
+remove, and on Ollama it does so silently: the request still returns HTTP 200
+<!-- blade-k1-layer-split -->; llama-server at the same window fails loudly instead, with HTTP errors <!-- xruntime-llamacpp-wrong-rate -->. The
+answer is well formed, and the model does not mention the loss (0/960
 <!-- self-report-truncation-awareness --> self-reports in our probes mentioned truncation).
 
 **Why run locally, and what it costs.** Agent tasks are expensive in the cloud because every step re-sends the whole
@@ -61,16 +63,16 @@ USD 0.00067 and USD 0.01020 per task <!-- all-cloud-b3-cost -->. Running the sam
 default window removes the bill but not the risk: 80/90 tasks were correct, and nothing marked the 10 that were not
 <!-- hybrid-savings-v1 -->. A window flag, that the prompt exceeded the loaded window (a condition the runtime itself
 records in its own log; we do not contribute a detector for it), does not find them. At the default window it missed all 17/17 wrong tasks; at 4096 it caught every
-wrong task only by flagging 147 of 150 tasks, at precision 42.9% <!-- impact-v3-detection-value-measured -->. Window
+wrong task only by flagging 147 of 150 tasks, at precision 42.9% (63/147) <!-- impact-v3-detection-value-measured -->. Window
 overflow is a symptom of one failure mode, not a general wrong-answer detector. A perfect detector would reach 90/90
 by escalating 10 tasks <!-- hybrid-savings-v1 -->, but that is a ceiling, and no such detector exists; fixing a wrong answer
-afterwards in the cloud fixed 167/197 (84.8%) <!-- cloud-redo-full-context --> at a mean of USD 0.0227 per task
+afterwards in the cloud fixed 84.8% (167/197) <!-- cloud-redo-full-context --> at a mean of USD 0.0227 per task
 <!-- cloud-redo-full-context -->, but it cannot undo actions already executed (Section 4.7). The trade-off a practitioner faces is therefore between a cloud bill and
-silent wrong answers, and how many wrong answers depends on settings the user rarely sees.
+wrong answers that are silent on Ollama, and how many wrong answers depends on settings the user rarely sees.
 
 A motivating case shows how easily a user lands in this regime. On an Intel laptop, an unmodified Ollama install
 served two models with a 4096 <!-- t2s-r2-real-cpu --> token window, because device detection drops the integrated GPU
-and falls back to the CPU <!-- x2-device-detect-mechanism -->. Every agent session crossed that window at turn [3]
+and falls back to the CPU <!-- x2-device-detect-mechanism -->. Every agent session crossed that window at turn 3
 <!-- t2s-r2-real-cpu --> and then failed silently, 5/5 <!-- t2s-r2-real-cpu --> sessions for each model. With the
 integrated GPU enabled, the same machine, runtime and models loaded 32768 <!-- t2s-r2-real-igpu --> tokens and no
 failure came after the window. Nobody chose 4096; the runtime did.
@@ -78,19 +80,20 @@ failure came after the window. Nobody chose 4096; the runtime did.
 This paper asks what a local agent loses when its conversation exceeds the context window, whether anything tells the
 user, and what decides how often it happens. We answer with pre-registered experiments on an AMD APU, an NVIDIA
 laptop GPU and an Intel laptop (CPU and integrated GPU), spanning unified and discrete memory. The answer has five
-parts. First, history loss is silent and appears in every model we tested, from 8B to 70B <!-- H-scale-verdict -->
+parts. First, on Ollama history loss is silent and appears in every model we tested, from 8B to 70B <!-- H-scale-verdict -->
 <!-- H-scale-family-verdict -->: at a 16384-token window no session of three 8B to 14B models kept its full history to
 turn 15 (intact 5/5/0/0/0/0/0/0 of 5 for each model <!-- R2-real-v1b-survival -->). Second, rule loss is
 model-dependent. Rule loss appears in the 8B and 14B models (5 seeds) and in qwen3:32b (2 of 3 sessions at 4096)
 <!-- H-scale-verdict -->, and not in llama3.3:70b or mistral-small3.2:24b (0 of 3 each) <!-- H-scale-verdict -->
 <!-- H-scale-family-verdict -->. History loss appears in all of them <!-- H-scale-verdict -->
 <!-- H-scale-family-verdict -->. We do not claim rule loss in general. Third, the cost is concrete: qwen3:14b's share of
-tasks ending in a wrong state rises from 11.3% at the default window to 42.0% at 4096, every wrong task silent
-<!-- x2-evalset-tasks-real-v2-wrong-rate -->. Fourth, the runtime's defaults and backend decide how often this happens:
+tasks ending in a wrong state rises from 11.3% (17/150) at the default window to 42.0% (63/150) at 4096, every wrong
+task silent on Ollama
+<!-- x2-evalset-tasks-real-v2-wrong-rate -->, while llama-server at 4096 fails loudly, with HTTP errors <!-- xruntime-llamacpp-wrong-rate -->. Fourth, the runtime's defaults and backend decide how often this happens:
 the window follows the detected device, and with identical model files, settings and seed, llama3.1:8b wrote a tool
 call as text in place of its answer at an untruncated window on CUDA and on Vulkan, and not on ROCm
 <!-- blade-r2-gate-v2 --> <!-- x2-r2-llama-val-32k-vulkan --> <!-- x2-r2-llama-val-32k-offload -->. Fifth, the fixes are
-partial. A KV-cache quantization setting cut session time by 85% and 65% for two models with no measured loss of
+partial. A KV-cache quantization setting cut session time by 85% (37.1 of 43.7 min) and 65% (139.4 of 214.8 min, 3 sessions per setting) for two models with no measured loss of
 rules or recall <!-- cost-cut-config-time --> <!-- b5-fa-control --> <!-- b5-kv-recall-f16-rerun -->, on the platform where the
 default window is the model's native one; client-side trimming removes the in-context examples the model imitates
 <!-- R2-qwen3-14b-4096-reconciliation -->; and `num_keep` protects the system prompt only where the runtime shifts or
@@ -102,16 +105,17 @@ We make four contributions.
    start succeeds or fails at one shared-heap limit that also counts host-visible buffers, and a first-principles
    accounting of weights, KV cache and compute predicts the measured flip point to within -257 to -26 tokens
    <!-- A-24-flip-point-prediction -->.
-2. **Runtime policy, not hardware, sets the effective window, and overflow is silent** (Section 4.5). The same runtime
+2. **Runtime policy, not hardware, sets the effective window, and on Ollama overflow is silent** (Section 4.5); llama-server fails loudly at the
+   same window <!-- xruntime-llamacpp-wrong-rate -->. The same runtime
    gives llama3.1:8b a default window of 4096 tokens on the Intel laptop and 131072 on the AMD APU
    <!-- T2S-vs-X2-default-ctx -->, and answers an over-length prompt with success after keeping num_ctx/2 + 2 tokens
    <!-- ollama-overflow-keeps-half -->.
-3. **The consequences for agents, with their mechanism** (Section 4.6). Silent failures after the window grow as the
+3. **The consequences for agents, with their mechanism** (Section 4.6). On Ollama, silent failures after the window grow as the
    window shrinks; Ollama drops whole old messages but keeps the system prompt, and at the smallest window llama.cpp's
    context shift and a token cut discard it <!-- R2-mechanism-lowlevel -->.
 4. **Pre-registered fixes, with their limits, and a characterization of the runtime's shift rule** (Section 4.7). Client-side trimming is refuted as a
    general fix on two vendors <!-- R2-mitigation-v1-verdict --> <!-- t2s-r2-mitigation-cpu -->; `num_keep` lowers
-   qwen3:14b's wrong-task rate at 4096 to 30.0% without removing the excess
+   qwen3:14b's wrong-task rate at 4096 to 30.0% (45/150) without removing the excess
    <!-- x2-evalset-tasks-real-v2-wrong-rate -->; a router to a cloud model is refuted on the AMD platform
    <!-- b5-verdict -->, where a quantized KV cache was on the frontier instead <!-- b5-policy-metrics -->, with the constrained platforms pending;
    and the runtime's own context-shift rule, transcribed from the llama.cpp source, matches every observed shift in the
@@ -221,11 +225,11 @@ v1 protocol); Section 4.6 repeats the main contrast with tools on every call.
 **Validation gates.** Before any real run, each model passes a validation at a window where nothing is truncated,
 with gates fixed in advance. A rule is *in use* for a model only if the model follows it on at least 90%
 <!-- x2-evalset-val-v2-gates --> of baseline turns; rules below the bar are dropped, not repaired, because the failures
-are real behaviour. llama3.1:8b logged events on 60.0% <!-- R2-validation-v2-baseline --> of turns and added the
-session code on 60.0% <!-- R2-validation-v2-baseline -->, so only rules 1, 3 and 4 <!-- R2-validation-v2-baseline -->
+are real behaviour. llama3.1:8b logged events on 60.0% (18/30) <!-- R2-validation-v2-baseline --> <!-- paper-percentage-counts --> of turns and added the
+session code on 60.0% (18/30) <!-- R2-validation-v2-baseline --> <!-- paper-percentage-counts -->, so only rules 1, 3 and 4 <!-- R2-validation-v2-baseline -->
 are in use for it; qwen3:14b kept all five. The same bar decides whether tool validity, arguments and recall are
 gated. The negative control must miss no canary (0/12 <!-- R2-validation-v2-baseline --> for both models); the
-positive control, at a small window, must detect truncation (turn [10] <!-- R2-validation-v2-baseline -->); and the
+positive control, at a small window, must detect truncation (turn 10 <!-- R2-validation-v2-baseline -->); and the
 task tool must be called correctly on at least 90% of turns, which refused qwen3-4b-2507 at 5/30
 <!-- R2-task-tool-gate -->. A real job refuses to start unless its model's validation passes.
 
@@ -288,7 +292,7 @@ was 221440, clamped to 131072, and the first that failed was 221696, with exit c
 <!-- fh1-amd-boundary-llama-3.3-70b -->. At 221696, fresh server processes crashed with STATUS_STACK_BUFFER_OVERRUN at
 warm-up 5 whether the model file was read cold after a standby purge or warm from the file cache
 <!-- fh1-amd-boundary-llama-3.3-70b -->. So the AMD platform has three regimes for this model: it fits, it spills
-silently at almost no cost, and, for requests far above the trained context, it crashes.
+silently at almost no cost (llama-server, Vulkan <!-- fh1-amd-boundary-llama-3.3-70b -->), and, for requests far above the trained context, it crashes.
 
 qwen3-32b gives the fail side but not the spill side. The largest unclamped window without spill is 20480, and no
 unclamped spill point was measured, so the row has no spill cost <!-- fh1-amd-boundary-qwen3-32b -->. A request for
@@ -297,9 +301,10 @@ tok/s at 20480 <!-- fh1-amd-boundary-qwen3-32b -->; because that point is clampe
 boundary. In the start-only bisection the last start was 367104, clamped to 131072, and the first failure 367360,
 with exit code 3221226505 <!-- fh1-amd-boundary-qwen3-32b -->. The two qwen3-32b runs clamp to different values (40960
 and 131072 <!-- fh1-amd-boundary-qwen3-32b -->) because their launch flags differ; the panel labels each point with
-its launch. A dedicated qwen3-32b spill sweep between these points is planned but not yet complete
-<!-- pending row: fh1-amd-qwen3-32b-spill-sweep, no number cited -->, so the qwen3-32b onset is reported as "above
-20480" only.
+its launch. A dedicated qwen3-32b spill sweep (llama-server b10970, Vulkan, `-ngl 99`, 1 warm-up + 5 calls per point)
+from 20480 to 40960 found no unclamped spill point up to 40960: shared GPU memory grew by at most 20 MiB over 20480,
+and decode stayed between 11.271 and 11.368 tok/s <!-- fh1-amd-qwen3-32b-spill-sweep -->. The qwen3-32b onset is
+therefore reported as "above 40960" for unclamped windows only.
 
 **Intel iGPU: a hard wall that first-principles accounting predicts.** On the Intel iGPU there is no soft regime: a
 model either starts or the runtime refuses it. Across five models, the refusal point is consistent with one
@@ -359,8 +364,8 @@ vendors are not yet compared on the same metric.
 ### 4.5 Runtime policy
 
 **Claim.** The window an agent actually gets is set by the runtime's policy for the device it detects, not by the
-model or the memory, and when a prompt outgrows that window the runtime reports success and silently keeps half of
-it.
+model or the memory, and when a prompt outgrows that window Ollama reports success and silently keeps half of
+it; llama-server at a 4096 window instead fails loudly, with HTTP errors <!-- xruntime-llamacpp-wrong-rate -->.
 
 **Default windows follow the detected device.** Ollama's Vulkan backend drops both integrated GPUs by the same
 policy, but Ollama also discovers the AMD iGPU through ROCm, with no opt-out, so the AMD APU runs on its iGPU while the
@@ -384,18 +389,19 @@ Table 2: default context window per platform for qwen3-4b-2507 / llama3.1:8b / q
 
 **The default decides the outcome.** On the Intel laptop we ran the same agent sessions twice, once as shipped on the
 CPU and once with the iGPU enabled for the job's own server process. On the CPU both models loaded a 4096-token window,
-crossed it at turn [3], and failed silently in 5/5 sessions each, every failure after the window was exceeded
-<!-- t2s-r2-real-cpu -->. On the iGPU the same models loaded 32768, crossed it only at turn [23] and [20, 21], and no
+crossed it at turn 3, and failed silently on Ollama 0.34.4 in 5/5 sessions each, every failure after the window was exceeded
+<!-- t2s-r2-real-cpu -->. On the iGPU the same models loaded 32768, crossed it only at turn 23 (llama3.1:8b) and turns 20 and 21 (qwen3:14b), and no
 failure came after the window: 0/5 for llama3.1:8b and, for qwen3:14b, 1/5 of baseline type
 <!-- t2s-r2-real-igpu -->. The pre-registered kill criterion was not triggered on either backend
 <!-- t2s-r2-real-cpu --> <!-- t2s-r2-real-igpu -->. This contrast changes backend and window together, so it shows
 that the default decides whether a session fails, not that the window alone does; Section 4.6a isolates the window.
 
-**Overflow is silent.** When a prompt exceeds the loaded window, the runtime returns success and processes
+**On Ollama, overflow is silent.** When a prompt exceeds the loaded window, Ollama returns success and processes
 num_ctx/2 + 2 tokens, in all 4 checked cases (4096->2050, 8192->4098, 32768->16386, 40960->20482), through its own
 `--context-shift --keep 4` server flag <!-- ollama-overflow-keeps-half -->. On the discrete GPU, prompts of 8192,
 16384 and 32768 tokens sent to a 4096 window each returned HTTP 200 with 2050 tokens evaluated, for both models
-<!-- blade-k1-layer-split -->. No error, warning or response field tells the client.
+<!-- blade-k1-layer-split -->. No error, warning or response field tells the client on Ollama; a stock llama-server at
+a 4096 window returned an HTTP error on every wrong task turn <!-- xruntime-llamacpp-wrong-rate -->.
 
 **Changing the window, and what persists.** A user can override the default in three ways, and they differ in how long
 the override lasts. On the AMD APU, whose baseline for llama3.1:8b is 131072, a per-request `num_ctx` of 12288 was
@@ -408,9 +414,9 @@ run it <!-- window-override-methods -->.
 **Within the window, KV precision is the lever.** We pre-registered a comparison of eight context policies on the
 Pareto frontier of rules, history, time and cost (Section 4.7 gives the router verdict). On the AMD APU every policy
 kept every rule, and the frontier held one KV-cache policy per model <!-- b5-policy-metrics -->. For llama3.1:8b a
-q4_0 KV cache took 6.6 min per session at history 100.0%, against 43.7 min at 95.8% for the runtime default; for
-qwen3:14b a q8_0 cache took 75.4 min against 214.8 min, at the same history recall of 62.5%
-<!-- b5-policy-metrics -->. Our quantized-cache policies also turn on flash attention
+q4_0 KV cache took 6.6 min per session at history 100.0% (24/24), against 43.7 min at 95.8% (23/24) for the runtime
+default; for qwen3:14b a q8_0 cache took 75.4 min against 214.8 min, at the same history recall of 62.5% (15/24)
+<!-- b5-policy-metrics --> <!-- paper-percentage-counts -->. Our quantized-cache policies also turn on flash attention
 <!-- design: harness/policy_compare.py -->, so we ran a control with
 flash attention on and the cache at f16: 43.4 min for llama3.1:8b and 206.6 min for qwen3:14b, within tolerance of
 the default, so the speedup is KV precision, not flash attention <!-- b5-fa-control -->. The first f16 recall
@@ -440,7 +446,7 @@ gate. And the first request on a new prompt waits while the previous request's K
 
 **A default the user never sees.** On the Intel laptop, with no window requested, the same Ollama and the same two
 models loaded 4096 <!-- t2s-r2-real-cpu --> tokens on the CPU and 32768 <!-- t2s-r2-real-igpu --> on the iGPU. On the
-CPU every session crossed the window at turn [3] <!-- t2s-r2-real-cpu --> and then failed silently, 5/5
+CPU every session crossed the window at turn 3 <!-- t2s-r2-real-cpu --> and then failed silently, 5/5
 <!-- t2s-r2-real-cpu --> for llama3.1:8b and 5/5 <!-- t2s-r2-real-cpu --> for qwen3:14b. On the iGPU no failure came
 after the window (0/5 <!-- t2s-r2-real-igpu --> and 1/5 baseline-type <!-- t2s-r2-real-igpu -->). The CPU is the Intel
 default <!-- x2-device-detect-mechanism -->; the same tiering gives llama3.1:8b 4096
@@ -451,7 +457,7 @@ the controlled result rather than replacing it.
 **The controlled result.** On the AMD APU we ran three models at the Ollama default and at 32768, 16384, 8192 and
 4096 <!-- R2-v1b-excess-over-default -->, five seeds per cell: 75 sessions and 3000 turns
 <!-- R2-real-v1b-first-events -->, none surfacing an error before its first failure
-<!-- R2-real-v1b-first-events -->. After-window silent failures rise as the window shrinks: 0/15 at 32768
+<!-- R2-real-v1b-first-events -->. On Ollama, after-window silent failures rise as the window shrinks: 0/15 at 32768
 <!-- R2-v1b-excess-over-default -->, 2/15 at 16384 (excess over default +0.133, 95% CI +0.000 to +0.267)
 <!-- R2-v1b-excess-over-default -->, 8/15 at 8192 (+0.533, 95% CI +0.333 to +0.667) <!-- R2-v1b-excess-over-default -->
 and 10/15 at 4096 (+0.667, 95% CI +0.533 to +0.800) <!-- R2-v1b-excess-over-default -->, over a default tier with
@@ -483,17 +489,20 @@ not claim that 4096 is safe for qwen3:8b.
 workload, with five seeds per tier and a `num_keep` tier (Section 4.7). It rests on qwen3:14b alone.
 llama3.1:8b failed the task validation <!-- x2-evalset-val-v2-gates -->, and qwen3:8b, added by a later
 pre-registration with no waiver, failed it too: it called the task tool correctly on 61/81 baseline turns and reached
-the task end state on 65/90 (72.2%) <!-- x2-evalset-tasks-val-v2-qwen3-8b-gates -->, so its real run refused to start,
+the task end state on 72.2% (65/90) <!-- x2-evalset-tasks-val-v2-qwen3-8b-gates -->, so its real run refused to start,
 as designed <!-- x2-evalset-tasks-real-v2-qwen3-8b-wrong-rate -->. For qwen3:14b the pre-registered reading was that
 the effect holds at 4096 <!-- x2-evalset-tasks-real-v2-gated-excess --> if the excess CI lies above zero. Within this
 run it held: 5/5 <!-- x2-evalset-tasks-real-v2-gated-excess --> against 0/5 at the default
 <!-- x2-evalset-tasks-real-v2-gated-excess -->, excess +1.000 (95% CI +1.000 to +1.000)
-<!-- x2-evalset-tasks-real-v2-gated-excess -->. Wrong task end states were 11.3%
-<!-- x2-evalset-tasks-real-v2-wrong-rate --> at the default, 12.7% <!-- x2-evalset-tasks-real-v2-wrong-rate --> at
-16384, 35.3% <!-- x2-evalset-tasks-real-v2-wrong-rate --> at 8192 and 42.0% <!-- x2-evalset-tasks-real-v2-wrong-rate -->
-at 4096, every wrong turn silent <!-- x2-evalset-tasks-real-v2-wrong-rate -->: excess +24.0 points (95% CI +18.7 to
+<!-- x2-evalset-tasks-real-v2-gated-excess -->. Wrong task end states were 11.3% (17/150)
+<!-- x2-evalset-tasks-real-v2-wrong-rate --> at the default, 12.7% (19/150) <!-- x2-evalset-tasks-real-v2-wrong-rate --> at
+16384, 35.3% (53/150) <!-- x2-evalset-tasks-real-v2-wrong-rate --> at 8192 and 42.0% (63/150) <!-- x2-evalset-tasks-real-v2-wrong-rate -->
+at 4096, every wrong turn silent on Ollama 0.34.4 <!-- x2-evalset-tasks-real-v2-wrong-rate --> (on llama-server the 4096
+effect replicates, +92.0 points, 95% CI +88.7 to +94.7, with 0 silent wrong turns <!-- xruntime-llamacpp-wrong-rate -->): excess +24.0 points (95% CI +18.7 to
 +29.3) <!-- x2-evalset-tasks-real-v2-wrong-rate --> at 8192 and +30.7 points (95% CI +26.0 to +34.7) at 4096, none
-shown at 16384 <!-- x2-evalset-tasks-real-v2-wrong-rate --> <!-- x2-evalset-tasks-real-v2-ci-units: these CIs are the session-level bootstrap (10000 resamples, sessions resampled within tier) -->. A deviation was declared before the data: qwen3:14b
+shown at 16384 <!-- x2-evalset-tasks-real-v2-wrong-rate --> <!-- x2-evalset-tasks-real-v2-ci-units: these CIs are the session-level bootstrap (10000 resamples, sessions resampled within tier) -->
+(session-level 95% CIs over 5 vs 5 sessions; the task-turn-level CIs, which treat the 150 turns of a tier as
+independent, are +14.7 to +33.3 at 8192 and +21.3 to +40.0 at 4096 <!-- x2-evalset-tasks-real-v2-ci-units -->). A deviation was declared before the data: qwen3:14b
 reached the task end state on 80/90 <!-- x2-evalset-val-v2-gates --> validation turns, below the bar, so absolute
 wrong rates include baseline errors.
 
@@ -536,7 +545,7 @@ mechanisms appear. First, Ollama drops whole messages from the front once the co
 54/80 <!-- R2-mechanism-lowlevel --> calls at 16384, 68/80 <!-- R2-mechanism-lowlevel --> at 8192 and 76/80 at 4096 <!-- R2-mechanism-lowlevel -->, always keeping the system
 message ("system kept on all True" <!-- R2-mechanism-verdict -->) and usually cutting mid-turn. This loses history
 but keeps the rules in view. At 4096 <!-- R2-mechanism-lowlevel --> two lower-level steps then remove the system prompt. llama.cpp's context shift
-fired on 34 <!-- R2-mechanism-lowlevel --> calls from turn 4 <!-- R2-mechanism-lowlevel -->, each keeping n_keep [5] <!-- R2-mechanism-lowlevel --> tokens and discarding the next [2045] <!-- R2-mechanism-lowlevel -->, 29 of them on the
+fired on 34 <!-- R2-mechanism-lowlevel --> calls from turn 4 <!-- R2-mechanism-lowlevel -->, each keeping n_keep 5 <!-- R2-mechanism-lowlevel --> tokens and discarding the next 2045 <!-- R2-mechanism-lowlevel -->, 29 of them on the
 final-answer call <!-- R2-mechanism-lowlevel -->; and once Ollama's own token cut reduced a prompt of 4097 <!-- R2-mechanism-lowlevel --> tokens to
 2050 <!-- R2-mechanism-lowlevel -->, keeping 4 <!-- R2-mechanism-lowlevel -->. That is the runtime's overflow rule, which returns success and keeps
 num_ctx/2 + 2 tokens (4096->2050 <!-- ollama-overflow-keeps-half -->). No step raised an error (exceed-context errors 0
@@ -550,7 +559,7 @@ shift fired 33 <!-- blade-mechanism-4096 --> times; no token cut occurred and no
 n_keep, so the claim that the shift discards the system prompt is AMD-only; whether the token cut occurs on NVIDIA
 is open.
 
-**A second silent difference: tool calls as text.** In the NVIDIA validation, llama3.1:8b's negative control at
+**A second silent difference on Ollama: tool calls as text.** In the NVIDIA validation, llama3.1:8b's negative control at
 32768, where nothing is truncated, missed canaries in two of five sessions (seeds 20260903 and 20260905, 2 misses
 each <!-- blade-r2-gate-v2 -->): the final answer was a tool call written as plain text. By the gate set in advance,
 this held back the NVIDIA real runs. Three pre-registered checks on the AMD APU kept model files, seeds and settings
@@ -564,7 +573,7 @@ the llama.cpp backend implementation (CUDA and Vulkan, not ROCm, in these seeds)
 decision point, turn 5 of seed 20260903 <!-- x2-r2-llama-val-32k-vulkan --> on Vulkan, in the seed that also missed
 on CUDA <!-- blade-r2-gate-v2 -->, separates a correct agent from a silent miss. Five seeds cannot
 show a zero is impossible, and the kernel is not identified; identical model files and settings still yield a
-different agent on a different backend, with no error.
+different agent on a different backend, with no error from Ollama.
 
 **How the window is set, and whether it sticks.** On the AMD APU, where llama3.1:8b defaults to 131072 <!-- window-override-methods -->, a
 per-request `num_ctx` of 12288 loaded 12288 <!-- window-override-methods --> but a plain request after a restart was back at 131072 <!-- window-override-methods -->; a Modelfile
@@ -590,14 +599,14 @@ margin, always keeping the system prompt. A model *recovers* when every rule in 
 exceed-context errors in every cell <!-- R2-mitigation-v1-observed -->. The verdict is *refuted*
 <!-- R2-mitigation-v1-verdict -->. On the AMD APU llama3.1:8b recovered at 8192 and 4096
 <!-- R2-mitigation-v1-verdict -->; qwen3:14b recovered at 8192 but not at 4096 <!-- R2-mitigation-v1-verdict -->, where
-its `log_event` rule fell to 61.7% <!-- R2-mitigation-v1-4096 -->, failing first at turn 3 in every seed (3/3/3
+its `log_event` rule fell to 61.7% (74/120) <!-- R2-mitigation-v1-4096 --> <!-- paper-percentage-counts -->, failing first at turn 3 in every seed (3/3/3
 <!-- R2-mitigation-v1-4096 -->). On the Intel laptop's CPU at 4096 <!-- t2s-r2-mitigation-cpu --> the split
 replicates: llama3.1:8b recovered, qwen3:14b did not, again on `log_event`, overall refuted
 <!-- t2s-r2-mitigation-cpu -->. The cause is the fix itself: untrimmed, qwen3:14b kept rule 2 on 40/40 turns in every
 seed <!-- R2-qwen3-14b-4096-reconciliation -->. On the first failing trimmed turn its first call
 requested only `lookup_fact`, where the untrimmed run called `log_event` and then `lookup_fact` <!-- R2-qwen3-14b-4096-reconciliation -->: at 4096 the
 budget leaves room for only 1-2 <!-- R2-mitigation-v1-observed --> turns besides the system prompt, so trimming
-removes the in-context examples of the two-call pattern the model imitates. Naive trimming swaps silent context loss
+removes the in-context examples of the two-call pattern the model imitates. Naive trimming swaps Ollama's silent context loss
 for deliberate history loss and, for this model, a new rule failure.
 
 **num_keep fixes one model's rules, on the token-cut path.** The request option `num_keep` sets how many leading tokens
@@ -605,13 +614,13 @@ the context shift and the token cut keep. It matters only where a shift or a cut
 the system message anyway (Section 4.6b). We
 pre-registered a test for llama3.1:8b at 4096, the path where both steps fired, with `num_keep` set to the system
 prompt's measured token length (601, 594 and 597 per seed <!-- num-keep-guardrail-test -->). All 105
-<!-- num-keep-guardrail-test --> context shifts kept n_keep [595, 598, 602] <!-- num-keep-guardrail-test -->. The rules in use held (rule 1 at 94.2% <!-- num-keep-guardrail-test -->, rules 3 and
-4 at 100.0% <!-- num-keep-guardrail-test -->), which the pre-registered rule reads as "one-line fix"
+<!-- num-keep-guardrail-test --> context shifts kept n_keep 595, 598 or 602 <!-- num-keep-guardrail-test -->. The rules in use held (rule 1 at 94.2% (113/120) <!-- num-keep-guardrail-test --> <!-- paper-percentage-counts -->, rules 3 and
+4 at 100.0% (120/120 and 60/60) <!-- num-keep-guardrail-test --> <!-- paper-percentage-counts -->), which the pre-registered rule reads as "one-line fix"
 <!-- num-keep-guardrail-test -->. It fixes the rules and nothing else: Ollama still dropped messages on 224 of 239
 <!-- num-keep-guardrail-test --> calls and the history canary was missed on 24 of 24 <!-- num-keep-guardrail-test -->
 checks. Nor does it remove the window effect in the protocol check: within that run the
-`num_keep` tier at 4096 lowered qwen3:14b's wrong-task rate from 42.0% <!-- x2-evalset-tasks-real-v2-wrong-rate --> to
-30.0% <!-- x2-evalset-tasks-real-v2-wrong-rate -->, but its excess over the default stayed at +18.7 points (95% CI
+`num_keep` tier at 4096 lowered qwen3:14b's wrong-task rate from 42.0% (63/150) <!-- x2-evalset-tasks-real-v2-wrong-rate --> to
+30.0% (45/150) <!-- x2-evalset-tasks-real-v2-wrong-rate -->, but its excess over the default stayed at +18.7 points (95% CI
 +16.0 to +21.3) <!-- x2-evalset-tasks-real-v2-wrong-rate --> <!-- x2-evalset-tasks-real-v2-ci-units: these CIs are the session-level bootstrap (10000 resamples, sessions resampled within tier) --> and its gated excess at +1.000
 <!-- x2-evalset-tasks-real-v2-gated-excess -->; the pre-registered reading is that `num_keep` does not remove it
 <!-- x2-evalset-tasks-real-v2-gated-excess -->. In the R2 harness a num_keep run for qwen3:14b at 4096 reproduced the
@@ -623,18 +632,22 @@ and what lowered the task-workload rate is not established.
 trimming, a router escalating to a cloud model, an auto-sized window, `num_keep`, q8_0 and q4_0 KV caches), with the
 hypothesis that the router is on the Pareto frontier of rules, history, time and cost on every
 platform. It is *refuted*: on the AMD APU the router was dominated for both models <!-- b5-verdict -->. Every policy
-kept every rule (rule 100.0% in every cell <!-- b5-policy-metrics -->), and the frontier held one KV-cache policy
-per model <!-- b5-policy-metrics -->. For llama3.1:8b, q4_0 reached history 100.0% in 6.6 min <!-- b5-policy-metrics --> per
-session against the router's 95.8% in 43.5 min <!-- b5-policy-metrics -->. For qwen3:14b, q8_0 cut session time from
-214.8 min at the runtime default to 75.4 min at the same history recall, 62.5% <!-- b5-policy-metrics -->, while the
+kept every rule (rule 100.0% in every cell, 300/300 for llama3.1:8b and 540/540 for qwen3:14b <!-- b5-policy-metrics -->
+<!-- paper-percentage-counts -->), and the frontier held one KV-cache policy
+per model <!-- b5-policy-metrics -->. For llama3.1:8b, q4_0 reached history 100.0% (24/24) in 6.6 min <!-- b5-policy-metrics --> per
+session against the router's 95.8% (23/24) in 43.5 min <!-- b5-policy-metrics --> <!-- paper-percentage-counts -->. For qwen3:14b, q8_0 cut session time from
+214.8 min at the runtime default to 75.4 min at the same history recall, 62.5% (15/24) <!-- b5-policy-metrics -->
+<!-- paper-percentage-counts -->, while the
 router took 135.1 min and USD 0.8419 per session for no gain <!-- b5-policy-metrics -->. The refutation holds on the
 unconstrained AMD platform, whose default window is the model's native one, so no policy there faced the
 small-window regime where loss occurs; the constrained platforms are pending.
 
-**Recovering after a silent failure is costly and incomplete.** The fallback for a session that has already failed is
+**Recovering after a silent failure on Ollama is costly and incomplete.** The fallback for a session that has already failed is
 to hand the whole history to a cloud model late and let it finish the task. We measured that on every wrong task of
-the protocol-check task run (Section 4.6a): a cloud model with the full client-side history fixed 167/197 (84.8%) of
-them, 95% Wilson CI [79.1%, 89.1%] <!-- cloud-redo-full-context -->, at a mean of USD 0.0227 per task
+the protocol-check task run (Section 4.6a): a cloud model with the full client-side history fixed 84.8% (167/197) of
+them, task-level 95% Wilson CI [79.1%, 89.1%] <!-- cloud-redo-full-context -->, which treats the 197 tasks as
+independent; resampling whole sessions instead (25 sessions, stratified by tier, 10000 resamples) gives 95% CI
+[79.4%, 90.4%] <!-- headline-ci-session-rescue -->, at a mean of USD 0.0227 per task
 <!-- cloud-redo-full-context -->. Matched on the same task and seed, the late redo cost 1.76x a fresh run of
 that task from the start (mean USD 0.0226 against USD 0.0129 over 119 matched rows) <!-- late-escalation-cost-vs-fresh -->.
 It also cannot undo what the local model already did: of the 30 tasks still wrong, 28 needed a repair of state the
@@ -659,7 +672,7 @@ is llama.cpp's context shift (Section 4.6b), and its trigger can be read from th
 a shift happens on a call when the prompt left after the message-level trim, plus the tokens generated, exceeds the
 loaded window. We scored that rule on the AMD mechanism sessions, one per tier, against the shifts the server log
 recorded. At 4096 it gave TP 34 FP 0 FN 0 TN 46, and at 32768 TP 10 FP 0 FN 0 TN 70, precision and recall 100.0% in
-both, with misses 0 over all tiers <!-- R2-shift-predictor-confusion -->. The exact form matters, which is evidence
+both (34/34 at 4096, 10/10 at 32768), with misses 0 over all tiers <!-- R2-shift-predictor-confusion -->. The exact form matters, which is evidence
 that the rule is the mechanism and not a correlate: P+C>n_ctx gives TP 44 FP 0 FN 0, while the prompt alone,
 P>=n_ctx-1, gives TP 0 FP 0 FN 44 <!-- R2-shift-predictor-confusion -->. The generated count is not known before the
 call, so a client substitutes the generation budget: P+num_predict>n_ctx gives TP 44 FP 22 FN 0
@@ -673,14 +686,15 @@ the rule flags 102/240 calls for llama3.1:8b at 4096 and 0/240 for qwen3:14b <!-
 qwen3:14b also loses rules at 4096. Its lapses there come with no predicted shift, consistent with the reconciliation
 in Section 4.7: for that model the loss runs through what the message-level trim removes, not through the shift
 <!-- R2-qwen3-14b-4096-reconciliation -->. What the trim leaves at the front of the window is usually a fragment: at
-4096, 61/76 (80.3%) of truncated calls began with an orphaned message <!-- R2-orphan-rates -->.
+4096, 80.3% (61/76) of truncated calls began with an orphaned message <!-- R2-orphan-rates -->.
 
 **Window overflow is not a general wrong-answer detector.** A tempting use of the flag is to escalate exactly the
 steps that overflowed. We measured it as a predictor of wrong task outcomes on the protocol-check task run of Section 4.6a
 (qwen3:14b, AMD APU), with the predictor "this task turn's prompt exceeded the loaded window" and the outcome "the task
 ended wrong" <!-- impact-v3-detection-value-measured -->. At the runtime default no turn overflowed, and the flag
-missed 17/17 wrong tasks (recall 0.0%). At 16384 it reached precision 15.4% and recall 21.1%; at 8192 precision 45.3%
-and recall 90.6%; at 4096 recall 100.0% but precision 42.9%, flagging 147 of 150 turns (TP 63 FP 84)
+missed 17/17 wrong tasks (recall 0.0% (0/17)). At 16384 it reached precision 15.4% (4/26) and recall 21.1% (4/19); at
+8192 precision 45.3% (48/106) and recall 90.6% (48/53); at 4096 recall 100.0% (63/63) but precision 42.9% (63/147),
+flagging 147 of 150 turns (TP 63 FP 84)
 <!-- impact-v3-detection-value-measured -->. Where the window is large, wrong answers have other causes that the flag
 cannot see; where it is small, nearly every step overflows and the flag no longer separates good steps from bad. The
 shift rule and the window flag are therefore characterizations that explain and anticipate system-prompt loss, not
@@ -738,20 +752,22 @@ rate measured the token budget, not the cloud model. We cite no fix rate or cost
 
 ### 4.9 Conclusion
 
-Local LLM agents lose context without telling anyone. On every platform we measured, a conversation that outgrows the
-window is trimmed, shifted or cut, and the request still succeeds. Rule loss appears in the 8B and 14B models (5 seeds) and in qwen3:32b (2 of 3 sessions at 4096) <!-- H-scale-verdict -->, and not in llama3.3:70b or mistral-small3.2:24b (0 of 3 each) <!-- H-scale-verdict --> <!-- H-scale-family-verdict -->. History loss appears in all of them <!-- H-scale-verdict --> <!-- H-scale-family-verdict -->. Rule loss depends on the model as well as the window, and we do not claim it in general. The window is often not the user's
+On Ollama, local LLM agents lose context without telling anyone. On every platform we measured, Ollama trims, shifts
+or cuts a conversation that outgrows the window, and the request still succeeds. A stock llama-server at a 4096 window
+instead fails loudly, with an HTTP error on every wrong task turn, while the 4096 effect on wrong tasks replicates
+there (+92.0 points, 95% CI +88.7 to +94.7) <!-- xruntime-llamacpp-wrong-rate -->. Rule loss appears in the 8B and 14B models (5 seeds) and in qwen3:32b (2 of 3 sessions at 4096) <!-- H-scale-verdict -->, and not in llama3.3:70b or mistral-small3.2:24b (0 of 3 each) <!-- H-scale-verdict --> <!-- H-scale-family-verdict -->. History loss appears in all of them <!-- H-scale-verdict --> <!-- H-scale-family-verdict -->. Rule loss depends on the model as well as the window, and we do not claim it in general. The window is often not the user's
 choice: the runtime picks it from the detected device, and an unmodified install on an Intel CPU ran agents at 4096
-tokens <!-- t2s-r2-real-cpu -->. That is the window at which, on the AMD APU, qwen3:14b ended 42.0% of tasks in a wrong
-state against 11.3% at its default, all silently <!-- x2-evalset-tasks-real-v2-wrong-rate -->. Running locally removes
-the cloud bill, but the wrong answers it adds carry no signal, and the runtime's own over-window signal misses every
+tokens <!-- t2s-r2-real-cpu -->. That is the window at which, on the AMD APU, qwen3:14b ended 42.0% (63/150) of tasks in a wrong
+state against 11.3% (17/150) at its default, all silently on Ollama 0.34.4 <!-- x2-evalset-tasks-real-v2-wrong-rate -->. Running locally removes
+the cloud bill, but on Ollama the wrong answers it adds carry no signal, and the runtime's own over-window signal misses every
 wrong answer produced inside the window <!-- impact-v3-detection-value-measured -->.
 
 For practitioners, five lessons follow. Set the window explicitly for each device and verify the loaded value,
-because a per-request setting does not survive a restart and any client that omits it silently gets the default back
-<!-- window-override-methods -->. Surface the runtime's own cut-off log lines when a prompt exceeds the loaded window
+because on Ollama a per-request setting does not survive a restart and any client that omits it silently gets the
+default back <!-- window-override-methods -->. Surface the runtime's own cut-off log lines when a prompt exceeds the loaded window
 (an open runtime issue asks for them to be raised from debug to warning level [Ollama issue #14259; to verify]), but
 do not treat them as a correctness check. Try a quantized KV cache before a smaller window: on the AMD APU it cut session
-time by 85% and 65% with no measured loss of rules or recall <!-- cost-cut-config-time --> <!-- b5-kv-recall-f16-rerun -->.
+time by 85% (37.1 of 43.7 min) and 65% (139.4 of 214.8 min, 3 sessions per setting) with no measured loss of rules or recall <!-- cost-cut-config-time --> <!-- b5-kv-recall-f16-rerun -->.
 Treat trimming as a change to the prompt rather than a neutral fix: dropping old turns also drops the examples the
 model imitates <!-- R2-qwen3-14b-4096-reconciliation -->, and `num_keep` protects the prompt prefix only where the
 runtime shifts or cuts tokens. Finally, validate an agent on the backend it will run on, because identical model files
@@ -761,8 +777,8 @@ and settings behaved differently on CUDA, Vulkan and ROCm <!-- blade-r2-gate-v2 
 Future work follows from what is pending. The router and context-policy comparison, refuted on the unconstrained AMD
 platform <!-- b5-verdict -->, must run on the Intel laptop, whose default window is small enough that loss occurs, and
 on the NVIDIA laptop. A hybrid local and cloud deployment needs a general verifier that catches wrong answers produced
-inside the window; we measured only the window flag; a late cloud redo with the full history fixed 84.8% of wrong tasks
-<!-- cloud-redo-full-context --> at about twice the cost of a fresh cloud run <!-- late-escalation-cost-vs-fresh -->
+inside the window; we measured only the window flag; a late cloud redo with the full history fixed 84.8% (167/197) of wrong tasks
+<!-- cloud-redo-full-context --> at 1.76x the cost of a fresh cloud run of the same task <!-- late-escalation-cost-vs-fresh -->
 and could not undo executed actions.
 More models per size and family, more seeds, further runtime versions and guardrail compliance at full context would
 turn the model-dependence of rule loss from an observation into a predictable property.

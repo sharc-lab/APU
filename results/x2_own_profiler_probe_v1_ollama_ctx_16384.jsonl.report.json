@@ -1,0 +1,98 @@
+{
+ "validation_preflight": {
+  "ok": true,
+  "models_ok": [
+   "qwen3:14b"
+  ],
+  "refused": {},
+  "rules_in_use": {
+   "qwen3:14b": [
+    "rule1_json_keys",
+    "rule2_log_event_called",
+    "rule3_no_zebra",
+    "rule4_metres",
+    "rule5_session_code"
+   ]
+  },
+  "tasks_in_use": {
+   "qwen3:14b": [
+    "cal_cancel",
+    "cal_create",
+    "cal_default_len",
+    "cal_move",
+    "cal_rename",
+    "cust_upgrade",
+    "eml_customer",
+    "eml_customer_by_id",
+    "eml_internal",
+    "file_delete",
+    "file_size_info",
+    "file_write",
+    "file_write_standing",
+    "inv_price",
+    "inv_receive",
+    "inv_rename",
+    "inv_sell",
+    "led_close",
+    "led_pay_by_name",
+    "led_petty_transfer",
+    "led_split",
+    "led_transfer",
+    "tkt_close_id",
+    "tkt_close_title",
+    "tkt_priority"
+   ]
+  },
+  "waived": {
+   "qwen3:14b": {
+    "gate": "task_end_state",
+    "n_ok": 80,
+    "n": 90,
+    "threshold": 0.9,
+    "basis": "declared deviation, docs/FINDINGS.md DEVIATION NOTE (2026-10-19)"
+   }
+  }
+ },
+ "sessions": [
+  {
+   "model_id": "qwen3:14b",
+   "arm_id": "ollama_ctx_16384_call2_notools",
+   "seed": 20260901,
+   "first_failure_turn": 4,
+   "first_end_state_failure_turn": 15,
+   "truncation_detected_turn": null,
+   "n_end_state_ok": 27,
+   "n_task_turns": 30
+  }
+ ],
+ "own_compaction_outcome": {
+  "ollama_ctx_16384": {
+   "n": 30,
+   "wrong": 3,
+   "flagged_wrong": 0,
+   "silent_wrong": 3,
+   "flagged_turns": 0,
+   "no_log_turns": 0,
+   "seeds": [
+    20260901
+   ],
+   "summary_calls": 0,
+   "summary_flagged": 0,
+   "loaded": [
+    16384
+   ],
+   "example_sent_calls": 0,
+   "floor_over_trigger_calls": 0,
+   "task_calls": 60,
+   "wrong_rate": 0.1
+  }
+ },
+ "own_compaction_verdict": {
+  "4096": {
+   "status": "missing"
+  },
+  "8192": {
+   "status": "missing"
+  }
+ }
+}
