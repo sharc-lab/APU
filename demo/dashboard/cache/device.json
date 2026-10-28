@@ -1183,7 +1183,7 @@
   "num-keep-guardrail-test": "VERIFIED",
   "num-keep-qwen3-14b": "VERIFIED",
   "x2-evalset-tasks-real-v2-qwen3-8b-wrong-rate": "VERIFIED",
-  "x2-evalset-tasks-real-v2-mistral-small32-wrong-rate": "PENDING",
+  "x2-evalset-tasks-real-v2-mistral-small32-wrong-rate": "VERIFIED",
   "T2S-vs-X2-default-ctx": "VERIFIED",
   "t2s-config-comparison": "VERIFIED"
  },

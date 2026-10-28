@@ -17,14 +17,11 @@ function renderSilent(s) {
     const d = s.device_pair[dev], ev = d.evidence, rid = d.register_id;
     if (!d.parsed) return `<div class="devcard"><h3>${esc(title)}</h3>${lab("not measured")} register row ${num(rid, R(rid))} not parsed</div>`;
     const anyAfter = d.models.some((m) => m.silent_after_window > 0);
-    const first = ev.sessions[0];
     return `<div class="devcard ${anyAfter ? "bad" : "ok"}"><h3>${esc(title)} ${lab(d.label)}</h3>
       ${d.models.map((m) => `<p><b>${esc(m.model)}</b>: Ollama loaded ${num(m.loaded_window.join(", "), R(rid))} tokens;
         first turn over the window ${num(m.first_over_window_turn.join(", ") || "never", R(rid))}<br>
         <span class="big">${num(m.gated_silent + "/" + m.n, R(rid))}</span> sessions silently lost a rule,
-        ${num(m.silent_after_window, R(rid))} after the window filled ${survival(m.intact, m.n, cp)}</p>`).join("")}
-      <p class="small">Calls that surfaced an error to the client: ${num(ev.totals.calls_surfaced_error + " of " + ev.totals.calls, first ? first.src : { file: ev.file })}
-        (HTTP status other than 200 or an error field, counted over every call in ${esc(ev.file)}).</p></div>`;
+        ${num(m.silent_after_window, R(rid))} after the window filled ${survival(m.intact, m.n, cp)}</p>`).join("")}</div>`;
   };
   const wr = s.wrong_rate;
   let bars = `${lab("not measured")} register row ${num(wr.register_id, R(wr.register_id))} not parsed`;

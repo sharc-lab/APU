@@ -18,9 +18,14 @@ browser tab: `.\demo\live\start.ps1 -Mode replay -Port 8801` and `http://127.0.0
 - **Say, while task 1 runs:** "Each task is one step of a long conversation. The earlier part of the conversation is
   replayed from a recording; this step runs now. Watch the bar: it is how much of the conversation the computer
   could keep in memory."
-- **When a lane turns red ("Cut off"):** "Here the computer had to drop part of the conversation, and it gives no
-  warning. That is when answers go wrong without anyone noticing. The red line comes from the computer's own log,
-  not from a guess."
+- **When a lane turns red ("Cut off"):** "Here the computer had to drop part of the conversation, and with the
+  runtime we use here, Ollama, it gives no warning. That is when answers go wrong without anyone noticing. Another
+  runtime, llama-server, stops with an error at a small memory setting instead. The red line comes from the
+  computer's own log, not from a guess."
+  <!-- silent: Ollama 0.34.4 (evo-x2). llama-server contrast: register row xruntime-llamacpp-wrong-rate (measured at
+  num_ctx 4096: wrong 150/150, harness-silent wrong 0; not measured at the demo's 8192); at its default window
+  llama-server matches Ollama's default-window rate: register row xruntime-default-fixed -->
+
 - **When the middle lane says "On the cloud":** "Our tool saw before starting that this task would not fit, so it sent
   it to the cloud from the first step."
 

@@ -43,14 +43,6 @@
      }
     },
     {
-     "text": "Intel CPU: 0 of 800 calls surfaced an error",
-     "label": "measured",
-     "src": {
-      "file": "results/t2s_r2_real_cpu_v1.jsonl",
-      "line": 44
-     }
-    },
-    {
      "text": "Intel iGPU, llama3.1:8b: Ollama loads 32768 tokens; 0/5 sessions silently lost a rule, 0 after the window filled",
      "label": "measured",
      "src": {
@@ -62,14 +54,6 @@
      "label": "measured",
      "src": {
       "register": "t2s-r2-real-igpu"
-     }
-    },
-    {
-     "text": "Intel iGPU: 0 of 800 calls surfaced an error",
-     "label": "measured",
-     "src": {
-      "file": "results/t2s_r2_real_igpu_v1.jsonl",
-      "line": 44
      }
     },
     {

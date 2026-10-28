@@ -4,7 +4,7 @@ The dashboard opens in story mode, written for a non-expert audience: five steps
 plain words, presenter-size type, Next and Back (or the arrow keys). Each number carries one small tag (measured or
 priced). Every source (register row, result file, exact counts, confidence intervals) is in the step's closed
 "Details" panel; open it only if asked. The "Engineering view" link (corner, and on the step bar; or `?explore=1`)
-opens the full views (A Silent failure, B Device setting, C Cost, D Live escalation, and the frontier and replay
+opens the full views (A Silent failure on Ollama, B Device setting, C Cost, D Live escalation, and the frontier and replay
 screens). "Finish" on step 5 also opens it.
 
 The rehearsal sheet with what to say per step, the one number, and the likely question is
@@ -48,10 +48,12 @@ Say: "Same Intel laptop, same open 8B model. Default setting: 5 of 5 agent sessi
 was shown. Right setting: 5 of 5 kept their rules." Measured (t2s-r2-real-cpu, t2s-r2-real-igpu; the Intel laptop's
 CPU device loads a 4096 memory setting, its graphics chip 32768).
 
-## Step 2 (1:00 to 2:00): How often answers are silently wrong
+## Step 2 (1:00 to 2:00): How often answers are silently wrong on Ollama
 
-Say: "On real tasks a 14B model was wrong 11% of the time with enough memory, 35% when tight, 42% when tighter. Error
-messages shown: zero." Measured (x2-evalset-tasks-real-v2-wrong-rate: 11.3%, 35.3%, 42.0%, shown rounded; 0 of 197
+Say: "On real tasks a 14B model on Ollama was wrong 11% of the time with enough memory, 35% when tight, 42% when
+tighter. Error messages shown: zero. On llama-server the tightest setting also fails, but with an error message."
+(Silent: Ollama 0.34.4 (evo-x2). llama-server: xruntime-llamacpp-wrong-rate, at num_ctx 4096 wrong 150/150 with
+harness-silent wrong 0; at its default window it matches Ollama's default-window rate, xruntime-default-fixed.) Measured (x2-evalset-tasks-real-v2-wrong-rate: 11.3%, 35.3%, 42.0%, shown rounded; 0 of 197
 wrong answers showed an error).
 
 ## Step 3 (2:00 to 3:00): Why not just change one setting?
@@ -77,7 +79,7 @@ locally with this setting, or send the whole session to the cloud from the start
 it saves per month. Where we have no data, it says not measured." Measured (hybrid-route-at-start; the Intel laptop's
 local accuracy is measured by R2 session pass rate, not task accuracy). NVIDIA laptop: not measured.
 
-Close: "The failure is silent, the right setting depends on the machine, and we measure the accuracy gap per device so
+Close: "On Ollama the failure is silent, the right setting depends on the machine, and we measure the accuracy gap per device so
 you can decide where it runs." Then "Finish" for questions in the engineering view.
 
 ## Which claims are measured

@@ -99,9 +99,8 @@ def view_a(app) -> tuple[list, dict]:
             rows.append((f"{name}, {m['model']}: loaded window {m['loaded_window']}", d["register_id"], "measured"))
             rows.append((f"{name}, {m['model']}: {m['gated_silent']}/{m['n']} sessions silently lost a rule, "
                          f"{m['silent_after_window']} after the window filled", d["register_id"], "measured"))
-        t = d["evidence"]["totals"]
-        rows.append((f"{name}: {t['calls_surfaced_error']} of {t['calls']} calls surfaced an error",
-                     d["evidence"]["file"], "measured"))
+        # (2026-10-27, docs/SILENT_SCOPING_20261027.md: the "N of M calls surfaced an error" row is removed; no register
+        # row backs it)
     wr = s["wrong_rate"]
     for t in wr["tiers"]:
         rows.append((f"qwen3:14b {t['tier']}: wrong {t['wrong']}/{t['n']} ({t['pct']:.1f}%), silent {t['silent']}, "

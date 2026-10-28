@@ -1,14 +1,14 @@
 {
- "built_utc": "2026-10-23T00:41:55+00:00",
- "git_commit": "73e9fc7",
+ "built_utc": "2026-10-28T00:39:12+00:00",
+ "git_commit": "de41938",
  "backend": {
   "router": "real: src/dse/router.py",
   "pareto": "real: src/dse/pareto.py"
  },
  "sources": {
   "docs/NUMBERS_REGISTER.md": {
-   "sha256": "b8bba7a2e4f4cb44c3c9e1eb768761d3f3a0e973c7417f3286dcacdc8ab7fca2",
-   "bytes": 283782
+   "sha256": "a18e5a200fec3b143b10bb9139aa66680942a99b21b98e9a979630e0c1d3aed3",
+   "bytes": 377364
   },
   "results/x2_r2_real_v1b.jsonl": {
    "sha256": "00d8fa44202d3f3772f704633ec72ac459774255b00c3a9fdf47cd3bde7fbfc4",
@@ -115,8 +115,8 @@
    "bytes": 261739
   },
   "docs/IMPACT.md": {
-   "sha256": "9eca419e8275594f8d41637993aa0a80f153c6df963dc7ec4c9afcccae57f954",
-   "bytes": 86204
+   "sha256": "d122e88c47cc4b81e17841641b8a37ff4fb3e061a5c94ff404cb9ea0876ed610",
+   "bytes": 86797
   }
  },
  "scenario_register_ids": [
