@@ -132,3 +132,35 @@ of the 2026-10-26 handover check (`harness/t2s_deadline.py open-window` runs `re
 and reports the file list). Record the outcome here when the window opens.
 **Revert (in the window):** `Remove-Item -LiteralPath "$env:USERPROFILE\--help" -Recurse -Force` (first check that
 it holds only `expected_blobs.json`).
+**Cleaned up 2026-10-28 00:37Z:** open-window step 0 found the directory holding only `expected_blobs.json` and removed
+it (`{'present': True, 'removed': True, 'files': ['expected_blobs.json']}`).
+
+## 2026-10-28 -- window opened (operator go 2026-10-27), deadline armed, window queue loaded
+
+**Read-only look first** (operator: stop if any of Zach's files or jobs are found): no ollama, llama, python, vllm,
+lms or openvino process running; under C:\apu only `RESULTS_DIGEST.md` and `watchdog.log` were newer than
+`HANDOVER_DONE.json` (2026-10-19), both written by our own APU-QueueWatchdog (paused no-op ticks and its read-only
+digest). Nothing of Zach's found, so the staged order went ahead.
+**What, in order (UTC 2026-10-28):**
+1. 00:37 open-window: step 0 removed the stray `--help` directory (entry above). The handover check then refused,
+   twice, with an empty output: the deployed `t2s_deadline.py` was the 2026-10-14 copy, without `check-handover`, and
+   the controller sent the quoted python path to PowerShell without the call operator `&`. Fixed in 981ad4d
+   (`remote_command`, test) after deploying the current `t2s_deadline.py`, `t2s_queue.py`, `stale_server_cleanup.py`,
+   `proc_util.py`, `host_config.py`. The check then passed (`ok: true`, no process of ours).
+2. 00:39 open-window: sync widened to both hosts (controller `.sync_host_window.json`, until 2026-11-09T04:30Z), and
+   `queue_deadline.json` armed: no launch after 2026-11-09T04:00Z, running job killed from 04:20Z, hard deadline
+   04:30Z, then the handover pause. The open-window process waits on the controller until the hard deadline and
+   removes the window file in its finally block; if it dies, sync_results ignores and deletes the expired file.
+3. Deploy into C:\apu\ovn of the 35 `t2s_week_preflight.DEPLOYED_FILES` plus `context.py`, `gguf_meta.py`,
+   `llama_server.py`, `quality_suite.py`, `agent_trace_steps_uncensored.json`, `x2_num_keep.py`, `t2s_week_queue.py`
+   and `t2s_oct26_queue.json`; `analysis\` (impact_model, envelope_model, make_failure_map, trace_weighted_pack);
+   the router stack `src\`, `src\cloud\` (client, prices, console_gate), `src\dse\` (router, envelope_data.json,
+   fits_locally); `results\cloud_prices_anthropic_20261014.json`. An import check found `own_compaction.py` missing
+   (x2_r2_evalset imports it since 2026-10-23); added to DEPLOYED_FILES (eeec0f9) and deployed. Import check then
+   passed (router builds, 14 price entries, all job modules import).
+4. `python t2s_week_queue.py load-window t2s_oct26_queue.json`: "loaded 12 pending entries under the queue pause
+   (cleared)", in the staged order (preflight, window_override_methods, B3 v2 CPU and iGPU, the three B5 cells, the
+   B6 pull and validations). The pause it cleared is the release of the 2026-10-18 handover pause.
+**Why:** operator go 2026-10-27, docs/T2S_WEEK_PLAN.md staged order.
+**Revert:** at the deadline the queue pauses itself (handover). To stop sooner: `Disable-ScheduledTask
+APU-QueueWatchdog`, and on the controller stop the open-window process and delete `.sync_host_window.json`.

@@ -18,6 +18,10 @@ import evalset_env as E  # noqa: E402
 import longtask_env as L  # noqa: E402
 import x2_longtask as X  # noqa: E402
 
+# The job default (X.STOP_AFTER_UTC, 2026-10-27T16:00Z) has passed; tests pass a stop time in the future so they do not
+# depend on the clock.
+FUTURE_STOP = "2099-01-01T00:00:00+00:00"
+
 SEEDS = (20260901, 20260902, 20260903)
 
 
@@ -284,7 +288,7 @@ def test_main_runs_both_arms_and_advances_once(tmp_path):
     out = tmp_path / "lt.jsonl"
     tids = ["lt_swegym_01", "lt_swegym_06"]
     srv, tq = FakeServer(), FakeTQ()
-    note = X.main(["--out", str(out), "--seeds", "20260901", "--tasks", ",".join(tids)],
+    note = X.main(["--out", str(out), "--seeds", "20260901", "--tasks", ",".join(tids), "--stop-after-utc", FUTURE_STOP],
                   deps={"hc": FakeHC(), "hostname": "EVO-X2", "server": srv, "runtime": OracleRT(20260901, tids),
                         "tq": tq, "log": lambda *_: None})
     rows = [json.loads(l) for l in out.read_text(encoding="utf-8").splitlines()]
@@ -301,7 +305,7 @@ def test_main_runs_both_arms_and_advances_once(tmp_path):
     assert Path(str(out) + ".report.json").exists()
     # a finished file refuses a second run (and still advances the queue once)
     tq2 = FakeTQ()
-    note2 = X.main(["--out", str(out), "--seeds", "20260901", "--tasks", tids[0]],
+    note2 = X.main(["--out", str(out), "--seeds", "20260901", "--tasks", tids[0], "--stop-after-utc", FUTURE_STOP],
                    deps={"hc": FakeHC(), "hostname": "EVO-X2", "server": FakeServer(),
                          "runtime": OracleRT(20260901, tids), "tq": tq2, "log": lambda *_: None})
     assert note2.startswith("stopped") and len(tq2.notes) == 1
@@ -313,7 +317,7 @@ def test_main_skips_arm_when_kv_check_fails(tmp_path):
             return "server config env=map[]"
     out = tmp_path / "lt.jsonl"
     tids = ["lt_swegym_01"]
-    X.main(["--out", str(out), "--seeds", "20260901", "--tasks", tids[0]],
+    X.main(["--out", str(out), "--seeds", "20260901", "--tasks", tids[0], "--stop-after-utc", FUTURE_STOP],
            deps={"hc": FakeHC(), "hostname": "EVO-X2", "server": BadKV(), "runtime": OracleRT(20260901, tids),
                  "tq": FakeTQ(), "log": lambda *_: None})
     rows = [json.loads(l) for l in out.read_text(encoding="utf-8").splitlines()]

@@ -158,7 +158,7 @@ def test_longtask_main_task_incomplete_and_run_stops(tmp_path):
             return super().chat(model, messages, num_ctx, tools, think, extra)
     out, srv, tq = tmp_path / "lt.jsonl", FakeServer(), FakeTQ()
     rt = DieRT(20260901, ["lt_swegym_01"])
-    note = XL.main(["--out", str(out), "--seeds", "20260901", "--tasks", "lt_swegym_01"],
+    note = XL.main(["--out", str(out), "--seeds", "20260901", "--tasks", "lt_swegym_01", "--stop-after-utc", "2099-01-01T00:00:00+00:00"],
                    deps={"hc": FakeHC(), "hostname": "EVO-X2", "server": srv, "runtime": rt, "tq": tq,
                          "log": lambda *_: None})
     rows = [json.loads(x) for x in out.read_text(encoding="utf-8").splitlines()]
