@@ -780,7 +780,7 @@ def session_start_decision(dv: dict, rec: dict, workload: str) -> dict:
 
 # ── view 3: cost panel ─────────────────────────────────────────────────────────────────────────────────
 
-P1_LEAD = "Fixing a wrong answer in the cloud costs about USD {usd}; the cost is that the failure is silent."
+P1_LEAD = "Fixing a wrong answer in the cloud costs about USD {usd}; the cost is that on Ollama the failure is silent."
 # The figure in P1_LEAD is filled from register row cloud-redo-cost-per-wrong-task at build time, never typed here.
 _ORDER = {MEASURED: 0, PRICED: 1, SIMULATED: 2, PROJECTED: 3, BEING_MEASURED: 4, NOT_MEASURED: 5}
 
@@ -1220,11 +1220,8 @@ def _build_story_details(register: dict, silent: dict, cost: dict, escalation: d
             s1.append(_item(f"{name}, {m['model']}: Ollama loads {', '.join(map(str, m['loaded_window']))} tokens; "
                             f"{m['gated_silent']}/{m['n']} sessions silently lost a rule, {m['silent_after_window']} "
                             f"after the window filled", MEASURED, d.get("register_id")))
-        tot = (d.get("evidence") or {}).get("totals")
-        if tot:
-            first = ((d.get("evidence") or {}).get("sessions") or [{}])[0].get("src")
-            s1.append(_item(f"{name}: {tot['calls_surfaced_error']} of {tot['calls']} calls surfaced an error",
-                            MEASURED, src=first))
+        # (2026-10-27, docs/SILENT_SCOPING_20261027.md: the per-device "N of M calls surfaced an error" item is removed;
+        # no register row backs it)
     tiers = {t["tier"]: t for t in (silent.get("wrong_rate") or {}).get("tiers", [])}
     if "ollama_default" in tiers and "ollama_ctx_4096" in tiers:
         a, b = tiers["ollama_default"], tiers["ollama_ctx_4096"]

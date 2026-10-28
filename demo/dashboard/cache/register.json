@@ -10,8 +10,8 @@
    "results/t2s_night2_20260929T034014Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_a24_budget_boundary",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "A-24-budget-boundary-first-principles": {
   "id": "A-24-budget-boundary-first-principles",
@@ -27,8 +27,8 @@
    "results/t2s_night2_20260929T034014Z_srv_bis_a70_23552_2.txt"
   ],
   "script": "analysis/numbers_register.py::compute_a24_budget_boundary_first_principles",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "A-24-effective-heap-limit": {
   "id": "A-24-effective-heap-limit",
@@ -42,8 +42,8 @@
    "results/t2s_night2_20260929T034014Z_srv_bis_a70_*.txt"
   ],
   "script": "analysis/numbers_register.py::compute_a24_effective_heap_limit",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "A-24-flip-point-inputs": {
   "id": "A-24-flip-point-inputs",
@@ -56,8 +56,8 @@
    "results/t2s_night2_20260929T034014Z_srv_bis_a70_*.txt"
   ],
   "script": "analysis/numbers_register.py::compute_a24_flip_point_inputs",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "A-24-flip-point-per-model": {
   "id": "A-24-flip-point-per-model",
@@ -72,8 +72,8 @@
    "results/t2s_night2_20260929T034014Z_srv_bis_a70_*.txt"
   ],
   "script": "analysis/numbers_register.py::compute_a24_flip_point_per_model",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "A-24-flip-point-prediction": {
   "id": "A-24-flip-point-prediction",
@@ -88,8 +88,8 @@
    "results/t2s_night2_20260929T034014Z_srv_bis_a70_*.txt"
   ],
   "script": "analysis/numbers_register.py::compute_a24_flip_point_prediction",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "B3-corunner-6model": {
   "id": "B3-corunner-6model",
@@ -101,8 +101,8 @@
    "results/t2s_night2_20260928T004924Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_b3_corunner_6model",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "H-scale-family-verdict": {
   "id": "H-scale-family-verdict",
@@ -115,8 +115,8 @@
    "results/x2_r2_family_mistral_small32_validation.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_h_scale_family_verdict",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "H-scale-verdict": {
   "id": "H-scale-verdict",
@@ -129,8 +129,8 @@
    "results/x2_r2_scale_validation.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_h_scale_verdict",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "K1v3-X2-table": {
   "id": "K1v3-X2-table",
@@ -142,8 +142,8 @@
    "results/t2s_k1_ollama_evo-x2_20260930T205515Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k1_v3_x2_table",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "K2-x2-call-timing": {
   "id": "K2-x2-call-timing",
@@ -155,8 +155,8 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_call_timing",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "K2-x2-clean-failures": {
   "id": "K2-x2-clean-failures",
@@ -168,8 +168,8 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_clean_failures",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "K2-x2-decode-by-arm": {
   "id": "K2-x2-decode-by-arm",
@@ -181,8 +181,8 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_decode_by_pressure_arm",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "K2-x2-kill-criterion": {
   "id": "K2-x2-kill-criterion",
@@ -194,8 +194,8 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_kill_criterion_table",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "K2-x2-responsiveness-resolution": {
   "id": "K2-x2-responsiveness-resolution",
@@ -207,8 +207,8 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_responsiveness_resolution",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "K2-x2-score-ceiling": {
   "id": "K2-x2-score-ceiling",
@@ -220,8 +220,8 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_score_ceiling",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "K2-x2-unreached-levels": {
   "id": "K2-x2-unreached-levels",
@@ -233,8 +233,8 @@
    "results/t2s_k2_pressure_20261004T201205Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_k2_x2_unreached_pressure_levels",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "P70-TTFT-ratio": {
   "id": "P70-TTFT-ratio",
@@ -246,8 +246,8 @@
    "results/t2s_night2_20260929T034014Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_p70_ttft_ratio",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "PX2-TTFT-gap": {
   "id": "PX2-TTFT-gap",
@@ -259,8 +259,8 @@
    "results/t2s_night2_20260930T135145Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_px2_ttft_gap",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "PX2-decode-ratio": {
   "id": "PX2-decode-ratio",
@@ -272,8 +272,8 @@
    "results/t2s_night2_20260930T135145Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_px2_decode_ratios",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "PX2-full-ratio-table": {
   "id": "PX2-full-ratio-table",
@@ -285,8 +285,8 @@
    "results/t2s_night2_20260930T135145Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_px2_full_ratio_table",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "PX2-power": {
   "id": "PX2-power",
@@ -298,8 +298,8 @@
    "results/t2s_night2_20260930T135145Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_px2_package_power",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "PX2-thermal": {
   "id": "PX2-thermal",
@@ -312,8 +312,8 @@
    "results/t2s_night2_20260930T135145Z_lhm.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_px2_thermal_ceiling",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "R1-check-agreement": {
   "id": "R1-check-agreement",
@@ -325,8 +325,8 @@
    "results/t2s_night2_20260929T034014Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r1_check_agreement",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "R2-install-path-4b-bare": {
   "id": "R2-install-path-4b-bare",
@@ -339,8 +339,8 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_install_path_4b_bare",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "R2-install-path-4b-comparison": {
   "id": "R2-install-path-4b-comparison",
@@ -354,8 +354,8 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_install_path_4b_comparison",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "R2-mechanism-lowlevel": {
   "id": "R2-mechanism-lowlevel",
@@ -367,8 +367,8 @@
    "results/x2_r2_mechanism.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_mechanism_lowlevel",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "R2-mechanism-verdict": {
   "id": "R2-mechanism-verdict",
@@ -380,8 +380,8 @@
    "results/x2_r2_mechanism.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_mechanism_verdict",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "R2-mitigation-v1-4096": {
   "id": "R2-mitigation-v1-4096",
@@ -395,8 +395,8 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_mitigation_v1_4096",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "R2-mitigation-v1-8192": {
   "id": "R2-mitigation-v1-8192",
@@ -410,8 +410,8 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_mitigation_v1_8192",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "R2-mitigation-v1-observed": {
   "id": "R2-mitigation-v1-observed",
@@ -423,8 +423,8 @@
    "results/x2_r2_mitigation_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_mitigation_v1_observed",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "R2-mitigation-v1-verdict": {
   "id": "R2-mitigation-v1-verdict",
@@ -438,8 +438,8 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_mitigation_v1_verdict",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "R2-orphan-rates": {
   "id": "R2-orphan-rates",
@@ -451,8 +451,8 @@
    "results/x2_r2_mechanism.jsonl"
   ],
   "script": "analysis/r2_shift_predictor.py::orphan_summary",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "R2-qwen3-14b-4096-reconciliation": {
   "id": "R2-qwen3-14b-4096-reconciliation",
@@ -467,8 +467,8 @@
    "results/x2_num_keep_qwen3_14b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_qwen3_14b_4096_reconciliation",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "R2-qwen3-8b-reversal-10seed": {
   "id": "R2-qwen3-8b-reversal-10seed",
@@ -484,8 +484,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_qwen3_8b_reversal_10seed",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "R2-real-v1-first-events": {
   "id": "R2-real-v1-first-events",
@@ -497,8 +497,8 @@
    "results/x2_r2_real_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1_first_events",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "R2-real-v1-gated-kill": {
   "id": "R2-real-v1-gated-kill",
@@ -511,8 +511,8 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1_gated_kill",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "R2-real-v1-kill-criterion": {
   "id": "R2-real-v1-kill-criterion",
@@ -524,8 +524,8 @@
    "results/x2_r2_real_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1_kill_criterion",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "R2-real-v1-loaded-ctx": {
   "id": "R2-real-v1-loaded-ctx",
@@ -537,8 +537,8 @@
    "results/x2_r2_real_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1_loaded_ctx",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "R2-real-v1-survival": {
   "id": "R2-real-v1-survival",
@@ -551,8 +551,8 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1_survival",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "R2-real-v1-token-calib": {
   "id": "R2-real-v1-token-calib",
@@ -564,8 +564,8 @@
    "results/x2_r2_real_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1_token_calib",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "R2-real-v1b-first-events": {
   "id": "R2-real-v1b-first-events",
@@ -580,8 +580,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1b_first_events",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "R2-real-v1b-gated-kill": {
   "id": "R2-real-v1b-gated-kill",
@@ -596,8 +596,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1b_gated_kill",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "R2-real-v1b-kill-criterion": {
   "id": "R2-real-v1b-kill-criterion",
@@ -612,8 +612,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1b_kill_criterion",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "R2-real-v1b-survival": {
   "id": "R2-real-v1b-survival",
@@ -628,8 +628,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_real_v1b_survival",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "R2-shift-predicted-real-v1": {
   "id": "R2-shift-predicted-real-v1",
@@ -641,8 +641,8 @@
    "results/x2_r2_real_v1.jsonl"
   ],
   "script": "analysis/r2_shift_predictor.py::real_summary",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "R2-shift-predictor-confusion": {
   "id": "R2-shift-predictor-confusion",
@@ -654,8 +654,8 @@
    "results/x2_r2_mechanism.jsonl"
   ],
   "script": "analysis/r2_shift_predictor.py::mechanism_summary",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "R2-task-tool-gate": {
   "id": "R2-task-tool-gate",
@@ -668,8 +668,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_task_tool_gate",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "R2-v1b-default-baseline-type": {
   "id": "R2-v1b-default-baseline-type",
@@ -684,14 +684,14 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_v1b_default_baseline_type",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "R2-v1b-excess-10seed": {
   "id": "R2-v1b-excess-10seed",
-  "status": "PENDING",
-  "value": "not computed: data file(s) not synced yet: results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_v1b_repro_check.jsonl",
-  "n": "n/a",
+  "status": "VERIFIED",
+  "value": "valid True; llama3.1:8b: num_ctx_16384 3/10 vs default 0/10, excess +0.300 (95% CI +0.000 to +0.600; 5-seed +0.400, CI width 0.800 -> 0.600); new seeds alone 1/5; reading: no excess shown at num_ctx_16384; num_ctx_8192 5/10 vs default 0/10, excess +0.500 (95% CI +0.200 to +0.800; 5-seed +0.800, CI width 0.600 -> 0.600); new seeds alone 1/5; reading: excess at num_ctx_8192; num_ctx_4096 10/10 vs default 0/10, excess +1.000 (95% CI +1.000 to +1.000; 5-seed +1.000, CI width 0.000 -> 0.000); new seeds alone 5/5; reading: excess at num_ctx_4096; qwen3:14b: num_ctx_16384 0/10 vs default 0/10, excess +0.000 (95% CI +0.000 to +0.000; 5-seed +0.000, CI width 0.000 -> 0.000); new seeds alone 0/5; reading: no excess shown at num_ctx_16384; num_ctx_8192 0/10 vs default 0/10, excess +0.000 (95% CI +0.000 to +0.000; 5-seed +0.000, CI width 0.000 -> 0.000); new seeds alone 0/5; reading: no excess shown at num_ctx_8192; num_ctx_4096 8/10 vs default 0/10, excess +0.800 (95% CI +0.500 to +1.000; 5-seed +0.800, CI width 0.600 -> 0.500); new seeds alone 4/5; reading: excess at num_ctx_4096 (bootstrap 10000 resamples, unit session, stratified by tier x model, seed 20261014)",
+  "n": "115 sessions pooled",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_r2_v1b_seeds_06_10.jsonl",
@@ -702,8 +702,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_v1b_excess_10seed",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "R2-v1b-excess-over-default": {
   "id": "R2-v1b-excess-over-default",
@@ -718,8 +718,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_v1b_excess_over_default",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "R2-v1b-gated-per-model": {
   "id": "R2-v1b-gated-per-model",
@@ -734,8 +734,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_v1b_gated_per_model",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "R2-v1b-qwen3-8b-reversal": {
   "id": "R2-v1b-qwen3-8b-reversal",
@@ -750,8 +750,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_v1b_qwen3_8b_reversal",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "R2-validation-baseline": {
   "id": "R2-validation-baseline",
@@ -763,8 +763,8 @@
    "results/x2_r2_validation.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_baseline",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "R2-validation-call2-notools": {
   "id": "R2-validation-call2-notools",
@@ -776,8 +776,8 @@
    "results/x2_r2_validation.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_call2_notools",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "R2-validation-v2-baseline": {
   "id": "R2-validation-v2-baseline",
@@ -789,8 +789,8 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_v2_baseline",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "R2-validation-v2-spec-diag": {
   "id": "R2-validation-v2-spec-diag",
@@ -802,8 +802,8 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_v2_spec_diag",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "R2-validation-v2b-baseline": {
   "id": "R2-validation-v2b-baseline",
@@ -815,8 +815,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_v2b_baseline",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "R2-validation-v2b-runinfo": {
   "id": "R2-validation-v2b-runinfo",
@@ -828,8 +828,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_v2b_runinfo",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "R2-validation-v2c-baseline": {
   "id": "R2-validation-v2c-baseline",
@@ -841,8 +841,8 @@
    "results/x2_r2_validation_v2c.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_r2_validation_v2c_baseline",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "T2S-vs-X2-default-ctx": {
   "id": "T2S-vs-X2-default-ctx",
@@ -855,8 +855,8 @@
    "results/t2s_k1_ollama_evo-x2_20260930T205515Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_t2s_x2_default_ctx_table",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "all-cloud-b3-cost": {
   "id": "all-cloud-b3-cost",
@@ -868,8 +868,8 @@
    "results/all_cloud_b3_v1.jsonl"
   ],
   "script": "scripts/all_cloud_b3.py::summarize",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "all-cloud-b3-quality": {
   "id": "all-cloud-b3-quality",
@@ -882,8 +882,8 @@
    "results/x2_evalset_tasks_real_v2.jsonl"
   ],
   "script": "scripts/all_cloud_b3.py::summarize",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "b4_32b-dose-response": {
   "id": "b4_32b-dose-response",
@@ -895,8 +895,8 @@
    "results/t2s_night2_20260929T034014Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_b4_32b_dose_response",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "b5-fa-control": {
   "id": "b5-fa-control",
@@ -909,8 +909,8 @@
    "results/x2_policy_compare.jsonl"
   ],
   "script": "harness/policy_compare.py::fa_control_summary",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "b5-kv-recall": {
   "id": "b5-kv-recall",
@@ -922,8 +922,8 @@
    "results/x2_policy_compare.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_b5_kv_recall",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "b5-kv-recall-f16-rerun": {
   "id": "b5-kv-recall-f16-rerun",
@@ -936,8 +936,8 @@
    "results/x2_policy_compare.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_b5_kv_recall_f16_rerun",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "b5-plan-hours": {
   "id": "b5-plan-hours",
@@ -953,8 +953,8 @@
    "src/dse/envelope_data.json"
   ],
   "script": "analysis/numbers_register.py::compute_b5_plan_hours",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "b5-policy-metrics": {
   "id": "b5-policy-metrics",
@@ -967,22 +967,22 @@
    "results/cloud_prices_anthropic_20261014.json"
   ],
   "script": "analysis/numbers_register.py::compute_b5_policy_metrics",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "b5-sim-constraint": {
   "id": "b5-sim-constraint",
-  "status": "PENDING",
-  "value": "not computed: data file(s) not synced yet: results/x2_policy_compare_simcap4096.jsonl",
-  "n": "n/a",
+  "status": "VERIFIED",
+  "value": "simulated constraint; cap8192 llama3.1:8b: a rule 98.0% hist 12.5% 11.0 min $0.0000; b rule 98.0% hist 12.5% 11.0 min $0.0000 (=a); c rule 100.0% hist 12.5% 9.0 min $0.0000; d rule 99.6% hist 80.0% 6.4 min $0.1989; e rule 98.0% hist 12.5% 11.0 min $0.0000 (=a); f rule 98.8% hist 12.5% 11.0 min $0.0000; g rule 100.0% hist 12.5% 11.1 min $0.0000; h rule 100.0% hist 12.5% 10.7 min $0.0000; frontier ['c', 'd']; complete True / cap8192 qwen3:14b: a rule 100.0% hist 12.5% 24.1 min $0.0000; b rule 100.0% hist 12.5% 24.1 min $0.0000 (=a); c rule 99.2% hist 0.0% 18.3 min $0.0000; d rule 100.0% hist 62.5% 15.5 min $1.0507; e rule 100.0% hist 12.5% 24.1 min $0.0000 (=a); f rule 100.0% hist 12.5% 24.1 min $0.0000; g rule 100.0% hist 12.5% 22.2 min $0.0000; h rule 100.0% hist 12.5% 21.7 min $0.0000; frontier ['c', 'd', 'h']; complete True / cap4096 llama3.1:8b: a rule 93.0% hist 0.0% 6.8 min $0.0000; b rule 93.0% hist 0.0% 6.8 min $0.0000 (=a); c rule 99.8% hist 0.0% 5.5 min $0.0000; d rule 99.8% hist 97.5% 4.6 min $0.2016; e rule 93.0% hist 0.0% 6.8 min $0.0000 (=a); f rule 98.8% hist 0.0% 6.3 min $0.0000; g rule 92.8% hist 0.0% 6.7 min $0.0000; h rule 89.4% hist 0.0% 6.7 min $0.0000; frontier ['c', 'd']; complete True / cap4096 qwen3:14b: a rule 99.1% hist 0.0% 12.9 min $0.0000; b rule 99.1% hist 0.0% 12.9 min $0.0000 (=a); c rule 90.6% hist 0.0% 9.2 min $0.0000; d rule 100.0% hist 62.5% 6.1 min $0.4381; e rule 99.1% hist 0.0% 12.9 min $0.0000 (=a); f rule 99.1% hist 0.0% 12.9 min $0.0000; g rule 95.8% hist 0.0% 12.9 min $0.0000; h rule 93.4% hist 0.0% 11.8 min $0.0000; frontier ['c', 'd', 'f', 'h']; complete True; verdict (B5 rule, caps as platforms): refuted (fixed setting(s) on the frontier on every platform: c)",
+  "n": "2 cap files",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_policy_compare_simcap8192.jsonl",
    "results/x2_policy_compare_simcap4096.jsonl"
   ],
   "script": "harness/policy_compare.py::b5_verdict",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "b5-verdict": {
   "id": "b5-verdict",
@@ -995,8 +995,8 @@
    "results/cloud_prices_anthropic_20261014.json"
   ],
   "script": "analysis/numbers_register.py::compute_b5_verdict",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "blade-dryrun-rates": {
   "id": "blade-dryrun-rates",
@@ -1012,8 +1012,8 @@
    "results/blade_dryrun/blade_dryrun_r2_mechanism.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_blade_dryrun_rates",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "blade-k1-layer-split": {
   "id": "blade-k1-layer-split",
@@ -1025,8 +1025,8 @@
    "results/blade_k1_v2.summary.json"
   ],
   "script": "analysis/numbers_register.py::compute_blade_k1_layer_split",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "blade-mechanism-4096": {
   "id": "blade-mechanism-4096",
@@ -1038,8 +1038,8 @@
    "results/blade_r2_mechanism_4096_v2.jsonl.report.json"
   ],
   "script": "analysis/numbers_register.py::compute_blade_mechanism_4096",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "blade-night-hours": {
   "id": "blade-night-hours",
@@ -1061,8 +1061,8 @@
    "results/blade_k1_v2.summary.json"
   ],
   "script": "analysis/numbers_register.py::compute_blade_night_hours",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "blade-r2-gate-v2": {
   "id": "blade-r2-gate-v2",
@@ -1074,8 +1074,8 @@
    "results/blade_r2_gate_v2.json"
   ],
   "script": "analysis/numbers_register.py::compute_blade_r2_gate_v2",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "blade-r2-validation-run1": {
   "id": "blade-r2-validation-run1",
@@ -1087,8 +1087,8 @@
    "results/blade_r2_validation_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_blade_r2_validation_run1",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "blade-r2-validation-run2": {
   "id": "blade-r2-validation-run2",
@@ -1100,8 +1100,8 @@
    "results/blade_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_blade_r2_validation_run2",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "blade-validation-ctx-cap": {
   "id": "blade-validation-ctx-cap",
@@ -1114,8 +1114,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_blade_validation_ctx_cap",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "business-hour-range": {
   "id": "business-hour-range",
@@ -1128,8 +1128,8 @@
    "results/impact_profile_20261014.json"
   ],
   "script": "analysis/business_metrics.py::hour_values",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "business-mid-team": {
   "id": "business-mid-team",
@@ -1181,8 +1181,8 @@
    "src/dse/envelope_data.json"
   ],
   "script": "analysis/business_metrics.py::profile_metrics",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "business-mid-team-qwen3-14b": {
   "id": "business-mid-team-qwen3-14b",
@@ -1234,8 +1234,8 @@
    "src/dse/envelope_data.json"
   ],
   "script": "analysis/business_metrics.py::profile_metrics",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "business-scenario-plus-a": {
   "id": "business-scenario-plus-a",
@@ -1287,8 +1287,8 @@
    "src/dse/envelope_data.json"
   ],
   "script": "analysis/business_metrics.py::scenario_metrics",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "business-sensitivity": {
   "id": "business-sensitivity",
@@ -1340,8 +1340,8 @@
    "src/dse/envelope_data.json"
   ],
   "script": "analysis/business_metrics.py::sensitivity",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "c1b-stall-clean-cells": {
   "id": "c1b-stall-clean-cells",
@@ -1353,8 +1353,8 @@
    "results/t2s_night2_20260930T215303Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_c1b_stall_clean_cells",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "cloud-budget-inputs": {
   "id": "cloud-budget-inputs",
@@ -1371,8 +1371,8 @@
    "docs/DEMO_SPEC.md"
   ],
   "script": "analysis/cloud_budget_forecast.py::load_prices",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "cloud-budget-lines": {
   "id": "cloud-budget-lines",
@@ -1389,8 +1389,8 @@
    "docs/DEMO_SPEC.md"
   ],
   "script": "analysis/cloud_budget_forecast.py::forecast",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "cloud-budget-sensitivity": {
   "id": "cloud-budget-sensitivity",
@@ -1407,8 +1407,8 @@
    "docs/DEMO_SPEC.md"
   ],
   "script": "analysis/cloud_budget_forecast.py::forecast",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "cloud-budget-tokens": {
   "id": "cloud-budget-tokens",
@@ -1425,8 +1425,8 @@
    "docs/DEMO_SPEC.md"
   ],
   "script": "analysis/cloud_budget_forecast.py::r2_sessions",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "cloud-budget-totals": {
   "id": "cloud-budget-totals",
@@ -1443,8 +1443,8 @@
    "docs/DEMO_SPEC.md"
   ],
   "script": "analysis/cloud_budget_forecast.py::forecast",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "cloud-cost-per-real-task": {
   "id": "cloud-cost-per-real-task",
@@ -1459,8 +1459,24 @@
    "results/cloud_prices_anthropic_20261014.json"
   ],
   "script": "analysis/cloud_task_cost.py::compute",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "cloud-cost-per-real-task-all-tiers": {
+  "id": "cloud-cost-per-real-task-all-tiers",
+  "status": "VERIFIED",
+  "value": "USD per real agent task, median / p90, priced, not executed (no generation call): nebius-rebench-openhands (n=36 tasks, median 62 steps; Anthropic tokens = qwen x 1.523; billed input tokens median 2,622,936 p90 4,602,617; billed output median 25,535 p90 38,481, median 183 per step): claude-haiku-5-5: none $0.2731 / $0.5063, realistic $0.1354 / $0.2454, best $0.0495 / $0.0815; claude-sonnet-5-5: none $5.4619 / $9.5990, realistic $2.5307 / $4.3387, best $0.7182 / $1.0996; claude-opus-5-5: none $10.9239 / $19.1980, realistic $5.0614 / $8.6773, best $1.4365 / $2.1992; claude-fable-5-1: none $27.3096 / $47.9950, realistic $12.2122 / $20.9061, best $2.8786 / $4.3734 | SWE-Gym (n=600 tasks, median 6 steps; Anthropic tokens = qwen x 1.506; billed input tokens median 14,404 p90 636,357; billed output median 707 p90 7,784, median 136 per step): claude-haiku-5-5: none $0.0020 / $0.0674, realistic $0.0014 / $0.0353, best $0.0009 / $0.0145; claude-sonnet-5-5: none $0.0405 / $1.3481, realistic $0.0266 / $0.6620, best $0.0173 / $0.2340; claude-opus-5-5: none $0.0810 / $2.6962, realistic $0.0532 / $1.3240, best $0.0345 / $0.4679; claude-fable-5-1: none $0.2024 / $6.7406, realistic $0.1308 / $3.1985, best $0.0834 / $1.0261; cases: none = all input uncached, realistic = ASSUMPTION cache hit rate 0.7 of the re-sent prefix (rest written at the 5-minute cache-write premium), best = every re-sent prefix read from cache, only new tokens written; each step re-sends its full prompt; output tokens per step MEASURED from the traces (assistant content + tool calls per step, results/traces/agent_step_outputs.parquet); token calibration Anthropic/qwen from messages.count_tokens on the final-step prompt of 20 sampled tasks per set (results/anthropic_token_calibration_20261021.jsonl): nebius-rebench-openhands median 1.523 (range 1.430 to 1.588, p10 1.455 p90 1.570, n=20); all median 1.511 (range 1.370 to 1.609, p10 1.457 p90 1.559, n=40); SWE-Gym median 1.506 (range 1.370 to 1.609, p10 1.474 p90 1.546, n=20); prices results/cloud_prices_anthropic_20261014.json Standard; USD per MTok, Standard short context (results/cloud_prices_anthropic_20261014.json, transcribed from Anthropic's official pricing page, fetched 2026-10-14): claude-haiku-5-5 input 0.1, cache_write 0.125, cached_input 0.01, output 0.5; claude-sonnet-5-5 input 2.0, cache_write 2.5, cached_input 0.1, output 10.0; claude-opus-5-5 input 4.0, cache_write 5.0, cached_input 0.2, output 20.0; claude-fable-5-1 input 10.0, cache_write 12.5, cached_input 0.25, output 50.0",
+  "n": "636 trajectories, 4 tiers",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/traces/agent_step_lengths.parquet",
+   "results/traces/agent_step_outputs.parquet",
+   "results/anthropic_token_calibration_20261021.jsonl",
+   "results/cloud_prices_anthropic_20261014.json"
+  ],
+  "script": "analysis/cloud_task_cost.py::all_tiers_text",
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "cloud-prices-anthropic": {
   "id": "cloud-prices-anthropic",
@@ -1472,8 +1488,8 @@
    "results/cloud_prices_anthropic_20261014.json"
   ],
   "script": "analysis/numbers_register.py::compute_cloud_prices_anthropic",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "cloud-redo-cost-per-wrong-task": {
   "id": "cloud-redo-cost-per-wrong-task",
@@ -1486,8 +1502,8 @@
    "results/x2_evalset_tasks_real_v2.jsonl"
   ],
   "script": "scripts/cloud_redo.py::summarize",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "cloud-redo-diagnosis": {
   "id": "cloud-redo-diagnosis",
@@ -1500,8 +1516,8 @@
    "results/x2_evalset_tasks_real_v2.jsonl"
   ],
   "script": "analysis/cloud_redo_diagnosis.py::compute",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "cloud-redo-full-context": {
   "id": "cloud-redo-full-context",
@@ -1516,14 +1532,31 @@
    "results/x2_evalset_tasks_real_v2.jsonl"
   ],
   "script": "scripts/cloud_redo.py::run",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "cloud-rescue-combined": {
+  "id": "cloud-rescue-combined",
+  "status": "VERIFIED",
+  "value": "combined over the 197 wrong local tasks (claude-sonnet-5-5): full-history redo fixed 167/197 (row cloud-redo-full-context); of its 28 earlier_state_repair failures, the cascaded rollback redo (row own-rollback-redo, matched by tier, seed and turn: 28/28) fixed 28; combined fixed 195/197 (99.0%), 95% Wilson CI [96.4%, 99.7%]; still wrong 2: file_write (ollama_default, seed 20260904, turn 24): class cloud_model_error, end-state diff on 1 field(s) (files//srv/notes/handover_82.txt/content); cal_default_len (ollama_ctx_4096, seed 20260904, turn 6): class cloud_model_error, end-state diff on 6 field(s) (calendar/EV-910/date, calendar/EV-910/duration_min, calendar/EV-910/time, calendar/EV-910/title, calendar/EV-911, tickets/T-244/status) (classes from the full-history redo diagnosis; cloud_model_error = the cloud model's own error, not the environment); STAND-IN caveat: the rollback redo replaced every earlier wrong task turn by its reference calls, i.e. it assumes each earlier escalation succeeded, so the 28 are fixed under that assumption, not in a live hybrid",
+  "n": "197 wrong tasks",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/cloud_redo_full_context_v1.jsonl",
+   "results/cloud_redo_full_context_v1_part2.jsonl",
+   "results/cloud_redo_full_context_v1_part3.jsonl",
+   "results/x2_evalset_tasks_real_v2.jsonl",
+   "results/own_rollback_redo_v1.jsonl"
+  ],
+  "script": "analysis/own_rollback.py::cloud_rescue_combined",
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "cloud-spend-billed-vs-upper-bound": {
   "id": "cloud-spend-billed-vs-upper-bound",
   "status": "VERIFIED",
-  "value": "cloud spend so far, billed USD 9.9030 vs upper bound USD 38.9145 (1288 ledger calls in results/cloud_ledger.jsonl; of the billed total, USD 0.1962 is counted at the upper bound because its usage is not recorded); cloud_redo_v1: billed USD 3.9521 vs upper bound USD 13.8990 (385 ledger calls); all_cloud_b3_v1_attempt1_aborted: billed USD 0.0000 vs upper bound USD 0.0000 (1 ledger calls); all_cloud_b3_v1_attempt2_aborted: billed USD 0.0289 vs upper bound USD 0.0659 (39 ledger calls); all_cloud_b3_v1: billed USD 0.9962 vs upper bound USD 7.0324 (384 ledger calls); cloud_redo_full_context_v1: billed USD 1.4460 vs upper bound USD 3.8677 (109 ledger calls); cloud_redo_full_context_v1_part2: billed USD 0.5365 vs upper bound USD 1.7653 (43 ledger calls); cloud_redo_full_context_v1_part3: billed USD 2.7492 vs upper bound USD 12.0901 (319 ledger calls); calls outside every job window (no result file on disk): USD 0.1941 upper bound only (8 ledger calls); billed check: 493/493 sonnet rows match src/cloud/client.py::billed_cost_usd",
-  "n": "1288 ledger calls, 7 job files",
+  "value": "cloud spend so far, billed USD 12.5643 vs upper bound USD 43.2566 (1523 ledger calls in results/cloud_ledger.jsonl; of the billed total, USD 0.1962 is counted at the upper bound because its usage is not recorded); cloud_redo_v1: billed USD 3.9521 vs upper bound USD 13.8990 (385 ledger calls); all_cloud_b3_v1_attempt1_aborted: billed USD 0.0000 vs upper bound USD 0.0000 (1 ledger calls); all_cloud_b3_v1_attempt2_aborted: billed USD 0.0289 vs upper bound USD 0.0659 (39 ledger calls); all_cloud_b3_v1: billed USD 0.9962 vs upper bound USD 7.0324 (384 ledger calls); cloud_redo_full_context_v1: billed USD 1.4460 vs upper bound USD 3.8677 (109 ledger calls); cloud_redo_full_context_v1_part2: billed USD 0.5365 vs upper bound USD 1.7653 (43 ledger calls); cloud_redo_full_context_v1_part3: billed USD 2.7492 vs upper bound USD 12.0901 (319 ledger calls); calls outside every job window (no result file on disk): USD 4.5362 upper bound only (243 ledger calls); billed check: 493/493 sonnet rows match src/cloud/client.py::billed_cost_usd",
+  "n": "1523 ledger calls, 7 job files",
   "reported": "(none previously reported)",
   "files": [
    "results/cloud_ledger.jsonl",
@@ -1533,8 +1566,8 @@
    "results/cloud_prices_anthropic_20261014.json"
   ],
   "script": "analysis/cloud_spend_billed.py::compute",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "cost-cut-config-time": {
   "id": "cost-cut-config-time",
@@ -1546,8 +1579,25 @@
    "results/x2_policy_compare.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_cost_cut_config_time",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "cost-target-scenario": {
+  "id": "cost-target-scenario",
+  "status": "VERIFIED",
+  "value": "TARGET SCENARIO, not measured: evo-x2 ollama_default (qwen3:14b at its default window), claude-sonnet-5-5, B3 v2 tasks, seeds 20260901, 20260902, 20260903; ceiling policy (hybrid-savings-v1 hybrid_perfect): keep local the 80/90 (88.9%) tasks qwen3:14b got right and escalate exactly the 10 it got wrong; cloud USD 0.00252/task vs all-cloud 0.01020/task = 75.3% below all-cloud, accuracy 90/90; naive local at this window wrong 10/90 (11.1%); assumptions: (1) a detector that flags exactly the wrong local tasks and no right ones (none exists: the window flag caught 0 of the 10 wrong tasks at this window, flagged 0); (2) each escalated task costs the measured full-history redo mean (measured for claude-sonnet-5-5: cloud-redo-full-context mean USD per task); (3) each escalated task takes the all-cloud outcome of the same task (ASSUMED; the measured full-history redo did not fix every wrong task, row cloud-redo-full-context); (4) replay of recorded runs, short B3 v2 tasks only",
+  "n": "90 tasks",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_evalset_tasks_real_v2.jsonl",
+   "results/all_cloud_b3_v1.jsonl",
+   "results/cloud_redo_full_context_v1.jsonl",
+   "results/cloud_redo_full_context_v1_part2.jsonl",
+   "results/cloud_redo_full_context_v1_part3.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_cost_target_scenario",
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "decode-rate-per-machine": {
   "id": "decode-rate-per-machine",
@@ -1578,8 +1628,137 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_decode_rate_per_machine",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "demo-detector-check": {
+  "id": "demo-detector-check",
+  "status": "VERIFIED",
+  "value": "detector check failed (detector v1; pre-registered pass rule: fires on every pick (5/5) at num_ctx 4096 and on none (0/5) at the runtime default; rule not met); num_ctx_4096: fired on 5/5 tasks (prompt over 4096 on 5); calls 10, flagged by a server cut line (message drop, token cut, context shift, exceed) on 10, by the token-count comparison alone on 0; prompt_eval_count equal to the server total on 10; cal_cancel (seed 20260905, turn 11): used 4037 of about 9004, flagged True, end state True, cal_default_len (seed 20260904, turn 6): used 4079 of about 6712, flagged True, end state False, file_write_standing (seed 20260901, turn 11): used 4078 of about 9217, flagged True, end state False, cal_rename (seed 20260904, turn 8): used 4065 of about 7721, flagged True, end state True, eml_internal (seed 20260901, turn 9): used 4086 of about 8108, flagged True, end state True; default: fired on 2/5 tasks (prompt over 4096 on 5); calls 10, flagged by a server cut line (message drop, token cut, context shift, exceed) on 0, by the token-count comparison alone on 4; prompt_eval_count equal to the server total on 10; cal_cancel (seed 20260905, turn 11): used 8062 of about 9000, flagged True, end state True, cal_default_len (seed 20260904, turn 6): used 6220 of about 6717, flagged False, end state True, file_write_standing (seed 20260901, turn 11): used 8290 of about 9218, flagged True, end state True, cal_rename (seed 20260904, turn 8): used 7035 of about 7718, flagged False, end state True, eml_internal (seed 20260901, turn 9): used 7402 of about 8108, flagged False, end state True",
+  "n": "10 task runs",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/demo_detector_check.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_demo_detector_check",
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "demo-detector-check-v2": {
+  "id": "demo-detector-check-v2",
+  "status": "VERIFIED",
+  "value": "detector check passed (detector v2; pre-registered pass rule: fires on every pick (5/5) at num_ctx 4096 and on none (0/5) at the runtime default; rule met); num_ctx_4096: fired on 5/5 tasks (prompt over 4096 on 5); calls 10, flagged by a server cut line (message drop, token cut, context shift, exceed) on 10, by the token-count comparison alone on 0; prompt_eval_count equal to the server total on 10; cal_cancel (seed 20260905, turn 11): used 4037 of about 9004, flagged True, end state True, cal_default_len (seed 20260904, turn 6): used 4079 of about 6712, flagged True, end state False, file_write_standing (seed 20260901, turn 11): used 4078 of about 9217, flagged True, end state False, cal_rename (seed 20260904, turn 8): used 4065 of about 7721, flagged True, end state True, eml_internal (seed 20260901, turn 9): used 4086 of about 8108, flagged True, end state True; default: fired on 0/5 tasks (prompt over 4096 on 5); calls 10, flagged by a server cut line (message drop, token cut, context shift, exceed) on 0, by the token-count comparison alone on 4; prompt_eval_count equal to the server total on 10; cal_cancel (seed 20260905, turn 11): used 8062 of about 9000, flagged False, end state True, cal_default_len (seed 20260904, turn 6): used 6220 of about 6717, flagged False, end state True, file_write_standing (seed 20260901, turn 11): used 8290 of about 9218, flagged False, end state True, cal_rename (seed 20260904, turn 8): used 7035 of about 7718, flagged False, end state True, eml_internal (seed 20260901, turn 9): used 7402 of about 8108, flagged False, end state True",
+  "n": "10 task runs",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/demo_detector_check_v2.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_demo_detector_check_v2",
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "demo-live-run": {
+  "id": "demo-live-run",
+  "status": "VERIFIED",
+  "value": "amd8192 (AMD workstation, constrained memory (8192)): default: 4/5 correct (wrong 1: silent 0, flagged 1), kept local 5/5, escalated 0, cloud USD/task ledger 0.0 cache-priced 0.0, 1.79 min, labels ['LIVE'], not available 0; ours: 5/5 correct (wrong 0: silent 0, flagged 0), kept local 1/5, escalated 0, cloud USD/task ledger 0.021041 cache-priced 0.021041, 0.71 min, labels ['LIVE'], not available 0; cloud: 5/5 correct (wrong 0: silent 0, flagged 0), kept local 0/5, escalated 0, cloud USD/task ledger 0.010656 cache-priced 0.010656, 0.34 min, labels ['LIVE'], not available 0; Ours beats Default local; Ours does NOT beat All cloud; intel (Intel laptop default, simulated on AMD): default: 3/5 correct (wrong 2: silent 0, flagged 2), kept local 5/5, escalated 0, cloud USD/task ledger 0.0 cache-priced 0.0, 1.51 min, labels ['LIVE'], not available 0; ours: 5/5 correct (wrong 0: silent 0, flagged 0), kept local 3/5, escalated 2, cloud USD/task ledger 0.000767 cache-priced 0.000767, 1.51 min, labels ['LIVE'], not available 0; cloud: 5/5 correct (wrong 0: silent 0, flagged 0), kept local 0/5, escalated 0, cloud USD/task ledger 0.000821 cache-priced 0.000821, 0.20 min, labels ['LIVE'], not available 0; Ours beats Default local; Ours beats All cloud",
+  "n": "10 task runs",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/demo_live_run_20261023.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_demo_live_run",
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "detector-precision-recall": {
+  "id": "detector-precision-recall",
+  "status": "VERIFIED",
+  "value": "detector v1 (as run: server cut lines, or task.n_tokens < 0.9 x chars/4 estimate x calibrated ratio): mechanism: TP 223 FP 162 FN 0 TN 15 (precision 0.579, recall 1.000, n 400); demo detector check: TP 10 FP 4 FN 0 TN 6 (precision 0.714, recall 1.000, n 20); demo acceptance run: TP 12 FP 6 FN 0 TN 14 (precision 0.667, recall 1.000, n 32); pooled: TP 245 FP 172 FN 0 TN 35 (precision 0.588, recall 1.000, n 452) / proposed v2, not yet re-checked on evo-x2 (server cut lines only; agrees with the log ground truth by construction; independent check: the mechanism job's render-only prompt agreed with the message-drop line on 223/223 calls where both exist): mechanism: TP 223 FP 0 FN 0 TN 177 (precision 1.000, recall 1.000, n 400); demo detector check: TP 10 FP 0 FN 0 TN 10 (precision 1.000, recall 1.000, n 20); demo acceptance run: TP 12 FP 0 FN 0 TN 20 (precision 1.000, recall 1.000, n 32); pooled: TP 245 FP 0 FN 0 TN 207 (precision 1.000, recall 1.000, n 452) / rejected variant (server lines, or task.n_tokens < 0.9 x chars/4 estimate): mechanism: TP 223 FP 177 FN 0 TN 0 (precision 0.557, recall 1.000, n 400); demo detector check: TP 10 FP 0 FN 0 TN 10 (precision 1.000, recall 1.000, n 20); demo acceptance run: TP 12 FP 0 FN 0 TN 20 (precision 1.000, recall 1.000, n 32); pooled: TP 245 FP 177 FN 0 TN 30 (precision 0.581, recall 1.000, n 452) / ground truth = Ollama's message-drop line (kept < sent), token cut, context shift or exceed-context error; mechanism = 400 calls of the R2 mechanism run (llama3.1:8b, tiers default 131072, 32768, 16384, 8192, 4096, 80 each), uncut server/chars-4 ratio 0.697 to 0.864, cut max 0.674; demo (qwen3:14b) uncut 1.077 to 1.113; prompt_eval_count = task.n_tokens on ollama_ctx_16384 80/80, ollama_ctx_32768 80/80, ollama_ctx_4096 80/80, ollama_ctx_8192 80/80, ollama_default 80/80 / 10 v1 false alarms in the demo runs, all explained by ['H2']: H1 (cache) rejected on every one (task.n_tokens = cached + evaluated, prompt_eval_count = task.n_tokens), H2 (our size estimate) server/chars-4 ratio 1.077 to 1.082 against the v1 threshold 1.0820 / re-score of hybrid-route-at-start-measured with v1 as the flag (re-score by replay with detector v1 as the flag; ground truth INFERRED (no server logs kept)): ollama_ctx_8192 vs claude-haiku-5-5: v1 fired on 0 locally routed tasks (0 with no cut possible, 0 certain cuts), hybrid 85/90, USD 0.00055/task, kept local 21, escalated 0 (row: 85/90, USD 0.00055/task, kept local 21); ollama_ctx_8192 vs claude-sonnet-5-5: v1 fired on 0 locally routed tasks (0 with no cut possible, 0 certain cuts), hybrid 88/90, USD 0.00819/task, kept local 21, escalated 0 (row: 88/90, USD 0.00819/task, kept local 21); ollama_default vs claude-haiku-5-5: v1 fired on 63 locally routed tasks (63 with no cut possible, 0 certain cuts), hybrid 85/90, USD 0.00052/task, kept local 27, escalated 63 (not a cell of the row: the hybrid at the default window); ollama_default vs claude-sonnet-5-5: v1 fired on 63 locally routed tasks (63 with no cut possible, 0 certain cuts), hybrid 87/90, USD 0.02903/task, kept local 27, escalated 63 (not a cell of the row: the hybrid at the default window)",
+  "n": "452 calls",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_r2_mechanism.jsonl",
+   "results/demo_detector_check.jsonl",
+   "results/demo_live_run_local_v1.jsonl",
+   "results/x2_evalset_tasks_real_v2.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_detector_precision_recall",
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "e1-e2-draft-hours": {
+  "id": "e1-e2-draft-hours",
+  "status": "VERIFIED",
+  "value": "ESTIMATE and PROJECTION, not a measurement (E1/E2 DRAFT, pending Zach's agreement 2026-10-25; not registered, not queued): AMD arms on evo-x2, qwen3:14b, 200 task turns each (fresh seeds 20261101-20261107): E1 default window 0.59 h (high 0.63 h), E1 num_ctx 4096 1.03 h (high 1.13 h), E2 KV q8_0 at the default window 0.21 h (high 0.63 h), total 1.83 h (high 2.38 h) (per-task basis as row e1-e2-x2-hours: B3 v2 measured turn_wall_s, B5 q8_0 ratio 0.351); no validation run included; queue projection back to back from x2_evalset_tasks_val_v2_mistral_small32 run_end 2026-10-25T06:41Z (last finished job in the synced files) with the registered per-job estimates: x2_evalset_tasks_real_v2_mistral_small32 3.01 h (high 3.66 h) 10-25 06:41Z to 10-25 09:42Z (high 10-25 06:41Z to 10-25 10:21Z); x2_evalset_tasks_val_v2_llama33_70b 1.76 h (high 2.07 h) 10-25 09:42Z to 10-25 11:28Z (high 10-25 10:21Z to 10-25 12:26Z); x2_evalset_tasks_real_v2_llama33_70b 0.97 h (high 1.25 h) 10-25 11:28Z to 10-25 12:26Z (high 10-25 12:26Z to 10-25 13:41Z); x2_longtask_local_v1 9.63 h (high 16.92 h) 10-25 12:26Z to 10-25 22:04Z (high 10-25 13:41Z to 10-26 06:36Z); x2_own_compaction_v1_a 1.04 h (high 3.07 h) 10-25 22:04Z to 10-25 23:07Z (high 10-26 06:36Z to 10-26 09:40Z); x2_own_compaction_v1_b 1.89 h (high 2.08 h) 10-25 23:07Z to 10-26 01:00Z (high 10-26 09:40Z to 10-26 11:45Z); x2_own_config_probe_q8_15360 0.27 h (high 0.66 h) 10-26 01:00Z to 10-26 01:17Z (high 10-26 11:45Z to 10-26 12:25Z); x2_own_config_probe_q4_28928 0.27 h (high 0.66 h) 10-26 01:17Z to 10-26 01:33Z (high 10-26 12:25Z to 10-26 13:04Z); x2_own_profiler_probe_v1 0.78 h (high 1.38 h) 10-26 01:33Z to 10-26 02:20Z (high 10-26 13:04Z to 10-26 14:27Z); job running at E1 block start 10-26 01:00Z: (point) x2_own_compaction_v1_b, (high) x2_longtask_local_v1; E1/E2 directly behind it, no preemption: projected start 10-26 01:00Z (high 10-26 06:36Z), finish 10-26 02:50Z (high 10-26 08:59Z); before the 2026-10-29 demo hold fallback start 10-29 15:00Z: yes (high case); jobs behind E1/E2 move later by the same hours; cloud grading of the fresh draw (all-cloud pass, mean of the B3 v2 all-cloud per-task USD): claude-sonnet-5-5 USD 0.01020/task x 200 = USD 2.04 (over the USD 2 per-job cap: operator approval required); claude-haiku-5-5 USD 0.00067/task x 200 = USD 0.13; design statistics at n=200: Wilson 95% half-width at 50% 6.9 points, unpaired minimum detectable difference (5% two-sided, 80% power, worst case p=0.5) 14.0 points, target 97% = at least 194/200 (Wilson 95% lower bound 93.6%)",
+  "n": "1 projection (estimate)",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_evalset_tasks_real_v2.jsonl",
+   "results/x2_policy_compare.jsonl",
+   "results/x2_r2_mitigation_v1.jsonl",
+   "results/all_cloud_b3_v1.jsonl",
+   "results/x2_r2_v1b_seeds_06_10.jsonl",
+   "results/x2_mx2_qwen3_32b_spill_sweep.jsonl",
+   "results/x2_policy_compare.jsonl",
+   "results/x2_r2_real_v1.jsonl",
+   "results/x2_r2_real_v1b.jsonl",
+   "results/mx2_validation.jsonl",
+   "results/x2_r2_family_mistral_small32_real.jsonl",
+   "results/x2_evalset_tasks_val_v2.jsonl",
+   "results/x2_evalset_tasks_real_v2.jsonl",
+   "results/x2_r2_scale_validation.jsonl",
+   "results/x2_r2_scale_real.jsonl",
+   "results/x2_r2_validation_v2.jsonl",
+   "results/x2_evalset_tasks_val_v2.jsonl",
+   "results/x2_evalset_tasks_real_v2.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_e1_e2_draft_hours",
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "e1-e2-x2-hours": {
+  "id": "e1-e2-x2-hours",
+  "status": "VERIFIED",
+  "value": "ESTIMATE, not a measurement (E1/E2 not registered yet; from Zach's 2026-10-22 email, relayed): E1 200 tasks x 2 arms on evo-x2, qwen3:14b: default window (40960) 0.59 h (high 0.63 h; B3 v2 per task 10.64 s mean, slowest seed 11.29 s), num_ctx 4096 1.03 h (high 1.13 h; 18.54 s, 20.33 s); E2 beyond E1 timing: KV q8_0 arm at the default window 0.21 h (high 0.63 h; point x B5 qwen3:14b (g)/(a) session minutes 75.4/214.8 = 0.351, high no speedup); total 1.83 h (high 2.38 h), plus validation of the fresh draw if E1 needs one (not included); reserve block start 2026-10-26 01:00Z (Sun 2026-10-25 18:00 PT), end at the high case 10-26 03:23Z; not queued",
+  "n": "estimate from 750 B3 v2 task turns",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_evalset_tasks_real_v2.jsonl",
+   "results/x2_policy_compare.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::e1_e2_hours",
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "e2-cost-model-draft": {
+  "id": "e2-cost-model-draft",
+  "status": "VERIFIED",
+  "value": "COST MODEL, DRAFT (E2 pending Zach's agreement 2026-10-25; not an E2 result): hardware USD 2,000 (list price, Liliputing, 2025-04-15, impact-ref-machine-price) over 36 30-day months = 25,920 h, divided by the busy hours at the utilization (ASSUMPTION; primary 23.8% = one 8-hour shift on weekdays, 40 of 168 h); electricity 90.8 W (PX2-power qwen3-14b package power, measured on evo-t2s, applied to evo-x2: ASSUMED) x USD 0.1453/kWh (energy-price-eia-commercial), busy time only, idle power not counted; pilot session = 30 B3 v2 task turns at ollama_default, 5.32 min (measured mean); KV q8_0 1.87 min (ESTIMATE: x B5 ratio 0.351, not measured on B3); utilization 10.0%: hardware USD 0.7716 + electricity USD 0.0132 = USD 0.7848 per busy hour; pilot session default USD 0.06957, KV q8_0 (ESTIMATE) USD 0.02441; utilization 23.8%: hardware USD 0.3241 + electricity USD 0.0132 = USD 0.3373 per busy hour; pilot session default USD 0.02990, KV q8_0 (ESTIMATE) USD 0.01049; utilization 25.0%: hardware USD 0.3086 + electricity USD 0.0132 = USD 0.3218 per busy hour; pilot session default USD 0.02853, KV q8_0 (ESTIMATE) USD 0.01001; utilization 50.0%: hardware USD 0.1543 + electricity USD 0.0132 = USD 0.1675 per busy hour; pilot session default USD 0.01485, KV q8_0 (ESTIMATE) USD 0.00521; utilization 100.0%: hardware USD 0.0772 + electricity USD 0.0132 = USD 0.0904 per busy hour; pilot session default USD 0.00801, KV q8_0 (ESTIMATE) USD 0.00281",
+  "n": "5 utilization cases",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_evalset_tasks_real_v2.jsonl",
+   "results/x2_policy_compare.jsonl",
+   "results/energy_price_eia_20261022.json",
+   "results/hardware_price_evox2_20261021.json",
+   "results/t2s_night2_20260930T135145Z.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::e2_cost_inputs",
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "energy-price-eia-commercial": {
+  "id": "energy-price-eia-commercial",
+  "status": "VERIFIED",
+  "value": "EXTERNAL INPUT (not measured): US average commercial electricity price 14.53 cents/kWh for 2026-07 (same month a year earlier 14.05; year to date 13.97); U.S. Energy Information Administration, Electric Power Monthly, Table 5.6.A, released 2026-09-24, https://www.eia.gov/electricity/monthly/epm_table_grapher.php?t=epmt_5_6_a, fetched 2026-10-22; raw row \"U.S. Total 18.31 17.45 14.53 14.05 9.77 9.33 14.97 14.27 14.99 14.36\" (commercial is the 3rd and 4th numbers); for the net-savings row, which also needs rows PX2-power, cost-cut-config-time, impact-ref-machine-price",
+  "n": "1",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/energy_price_eia_20261022.json"
+  ],
+  "script": "analysis/numbers_register.py::compute_energy_price_eia",
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "fh1-amd-boundary-llama-3.3-70b": {
   "id": "fh1-amd-boundary-llama-3.3-70b",
@@ -1594,8 +1773,8 @@
    "results/x2_70b_edge_reps.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_fh1_amd_boundary_llama70b",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "fh1-amd-boundary-qwen3-32b": {
   "id": "fh1-amd-boundary-qwen3-32b",
@@ -1610,21 +1789,21 @@
    "results/x2_70b_edge_reps.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_fh1_amd_boundary_qwen3_32b",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "fh1-amd-qwen3-32b-spill-sweep": {
   "id": "fh1-amd-qwen3-32b-spill-sweep",
-  "status": "PENDING",
-  "value": "not computed: data file(s) not synced yet: results/x2_mx2_qwen3_32b_spill_sweep.jsonl",
-  "n": "n/a",
+  "status": "VERIFIED",
+  "value": "evo-x2 qwen3-32b, llama-server b10970 Vulkan -ngl 99, 1 warm-up + 5 calls per point; no unclamped spill point up to 40960 // points: n_ctx 20480 (served 20480) no_spill shared +0 MiB vs 20480, decode 11.368 +/- 0.086 tok/s, TTFT 25709 +/- 225 ms (n=5); n_ctx 24576 (served 24576) no_spill shared +4 MiB vs 20480, decode 11.286 +/- 0.022 tok/s, TTFT 25836 +/- 175 ms (n=5); n_ctx 28672 (served 28672) no_spill shared +8 MiB vs 20480, decode 11.271 +/- 0.057 tok/s, TTFT 25889 +/- 93 ms (n=5); n_ctx 32768 (served 32768) no_spill shared +12 MiB vs 20480, decode 11.320 +/- 0.093 tok/s, TTFT 25788 +/- 197 ms (n=5); n_ctx 36864 (served 36864) no_spill shared +16 MiB vs 20480, decode 11.340 +/- 0.057 tok/s, TTFT 25808 +/- 202 ms (n=5); n_ctx 40960 (served 40960) no_spill shared +20 MiB vs 20480, decode 11.298 +/- 0.020 tok/s, TTFT 25865 +/- 80 ms (n=5)",
+  "n": "30 measured calls",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_mx2_qwen3_32b_spill_sweep.jsonl"
   ],
   "script": "harness/mx2_qwen32b_spill_sweep.py::summarize",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "gpu-memory-readonly": {
   "id": "gpu-memory-readonly",
@@ -1640,8 +1819,59 @@
    "results/blade_k1_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_gpu_memory_readonly",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "headline-ci-session-hybrid": {
+  "id": "headline-ci-session-hybrid",
+  "status": "VERIFIED",
+  "value": "session-level bootstrap of hybrid-route-at-start-measured, evo-x2 ollama_ctx_8192 (memory setting 8192) vs claude-sonnet-5-5, replay of recorded runs; 3 sessions (one per seed, 30 tasks each), paired (a drawn seed carries all three policies), 10000 resamples, seed 20261014, percentile CI; with 3 sessions the session bootstrap is very coarse (at most 10 distinct resamples), so read it as a sensitivity check, not a precise interval: route at start 88/90 (97.8%), task-level Wilson [92.3%, 99.4%], session-level [93.3%, 100.0%]; all cloud 90/90 (100.0%), task-level Wilson [95.9%, 100.0%], session-level [100.0%, 100.0%]; naive local (8192) 57/90 (63.3%), task-level Wilson [53.0%, 72.6%], session-level [56.7%, 73.3%]; wrong: route at start 2/90 (2.2%), naive local 33/90 (36.7%); saving vs all-cloud 19.7%, session-level [16.8%, 22.4%]; wrong naive / wrong route at start 33/2 = 16.5x, session-level [6.0x, 19.0x] (3003 of 10000 resamples had 0 route-at-start wrong and are left out of the ratio)",
+  "n": "3 sessions, 90 tasks",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_evalset_tasks_real_v2.jsonl",
+   "results/all_cloud_b3_v1.jsonl",
+   "results/cloud_redo_full_context_v1.jsonl",
+   "results/cloud_redo_full_context_v1_part2.jsonl",
+   "results/cloud_redo_full_context_v1_part3.jsonl"
+  ],
+  "script": "analysis/session_ci.py::hybrid_bootstrap",
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "headline-ci-session-rescue": {
+  "id": "headline-ci-session-rescue",
+  "status": "VERIFIED",
+  "value": "session-level bootstrap of the cloud rescue of the wrong local tasks (B3 v2 real run, qwen3:14b, 5 tiers x 5 seeds; claude-sonnet-5-5; 10000 resamples, seed 20261014, percentile CI): full-history redo fixed 167/197 (84.8%); task-level 95% Wilson CI [79.1%, 89.1%] (unit task, treats the 197 as independent); session-level 95% bootstrap CI [79.4%, 90.4%] (25 sessions, stratified by tier; session = one (tier, seed) local run with at least one wrong task); per tier (full-history redo): ollama_ctx_16384 18/19, session-level [82.4%, 100.0%] (5 sessions); ollama_ctx_4096 53/63, session-level [76.6%, 93.8%] (5 sessions); ollama_ctx_4096_numkeep 36/45, session-level [72.7%, 90.7%] (5 sessions); ollama_ctx_8192 45/53, session-level [71.4%, 100.0%] (5 sessions); ollama_default 15/17, session-level [75.0%, 100.0%] (5 sessions); rollback redo of the earlier_state_repair tasks fixed 28/28 (100.0%); task-level 95% Wilson CI [87.9%, 100.0%] (unit task, treats the 28 as independent); session-level 95% bootstrap CI [100.0%, 100.0%] (12 sessions, stratified by tier; session = one (tier, seed) local run with at least one wrong task) (STAND-IN: earlier wrong turns replaced by reference calls; n/n has no bootstrap variance); combined rescue 195/197 (99.0%); task-level 95% Wilson CI [96.4%, 99.7%] (unit task, treats the 197 as independent); session-level 95% bootstrap CI [97.5%, 100.0%] (25 sessions, stratified by tier; session = one (tier, seed) local run with at least one wrong task) (same STAND-IN for its rollback part)",
+  "n": "197 wrong tasks in 25 sessions",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/cloud_redo_full_context_v1.jsonl",
+   "results/cloud_redo_full_context_v1_part2.jsonl",
+   "results/cloud_redo_full_context_v1_part3.jsonl",
+   "results/x2_evalset_tasks_real_v2.jsonl",
+   "results/own_rollback_redo_v1.jsonl"
+  ],
+  "script": "analysis/session_ci.py::rescue_session_ci",
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "hybrid-local-first-rollback": {
+  "id": "hybrid-local-first-rollback",
+  "status": "VERIFIED",
+  "value": "measured by replay of recorded runs: local first on every task, roll back (local snapshots, USD 0) and escalate on the signal; B3 v2 tasks, qwen3:14b, seeds 20260901, 20260902, 20260903; cloud USD cache-priced (billed basis); own-rollback redo rows available: 28 (cascaded rollback: earlier wrong tasks replaced by their reference calls, a STAND-IN for successful escalations); replay assumes a task's local outcome does not depend on earlier escalations (in the recorded run every earlier task ran local) / evo-x2 ollama_ctx_8192 (window 8192), claude-sonnet-5-5: ceiling, oracle signal (escalate iff the task ended wrong): accuracy 90/90 (100.0%), cloud USD 0.00805/task, kept local 57/90 (63.3%), escalated 33 (graded from the own-rollback redo 4, from the full-history redo 29 (its env_before is the pre-task rollback state), imputed 0 (right locally, no redo row: tier mean redo USD 0.02048, Sonnet all-cloud outcome)); escalated and still wrong 0, of them earlier_state_repair 0; measured signal, STAND-IN: the recorded over_loaded_window condition (detector v2's Ollama cut-off log line was not kept by the B3 v2 run): accuracy 87/90 (96.7%), cloud USD 0.01485/task, kept local 27/90 (30.0%), escalated 63 (graded from the own-rollback redo 4, from the full-history redo 26 (its env_before is the pre-task rollback state), imputed 33 (right locally, no redo row: tier mean redo USD 0.02048, Sonnet all-cloud outcome)); escalated and still wrong 0, of them earlier_state_repair 0; all-cloud 90/90 (100.0%), USD 0.01020/task; naive local 57/90 (63.3%), USD 0 / evo-x2 ollama_ctx_4096 (window 4096), claude-sonnet-5-5: ceiling, oracle signal (escalate iff the task ended wrong): accuracy 90/90 (100.0%), cloud USD 0.00800/task, kept local 53/90 (58.9%), escalated 37 (graded from the own-rollback redo 7, from the full-history redo 30 (its env_before is the pre-task rollback state), imputed 0 (right locally, no redo row: tier mean redo USD 0.01693, Sonnet all-cloud outcome)); escalated and still wrong 0, of them earlier_state_repair 0; measured signal, STAND-IN: the recorded over_loaded_window condition (detector v2's Ollama cut-off log line was not kept by the B3 v2 run): accuracy 90/90 (100.0%), cloud USD 0.01760/task, kept local 2/90 (2.2%), escalated 88 (graded from the own-rollback redo 7, from the full-history redo 30 (its env_before is the pre-task rollback state), imputed 51 (right locally, no redo row: tier mean redo USD 0.01693, Sonnet all-cloud outcome)); escalated and still wrong 0, of them earlier_state_repair 0; all-cloud 90/90 (100.0%), USD 0.01020/task; naive local 53/90 (58.9%), USD 0",
+  "n": "2 tiers x 90 tasks x 2 signals",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_evalset_tasks_real_v2.jsonl",
+   "results/all_cloud_b3_v1.jsonl",
+   "results/cloud_redo_full_context_v1.jsonl",
+   "results/cloud_redo_full_context_v1_part2.jsonl",
+   "results/cloud_redo_full_context_v1_part3.jsonl"
+  ],
+  "script": "analysis/own_rollback.py::local_first_rollback",
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "hybrid-route-at-start": {
   "id": "hybrid-route-at-start",
@@ -1668,8 +1898,41 @@
    "results/x2_policy_compare_fa_control.jsonl"
   ],
   "script": "analysis/impact_model.py::route_at_start",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "hybrid-route-at-start-measured": {
+  "id": "hybrid-route-at-start-measured",
+  "status": "VERIFIED",
+  "value": "measured by replay of recorded runs: per-task route at job start (projected task-turn prompt from the task definition, x2_r2_evalset PROJ constants, vs the tier's num_ctx; fits = local, else the whole task to the cloud from its first call) plus the window-overflow flag (a local task whose prompt exceeded the loaded window is escalated); B3 v2 tasks, qwen3:14b, seeds 20260901, 20260902, 20260903, cloud USD cache-priced; replay assumes each task's outcome does not depend on whether earlier tasks ran local or on the cloud / evo-x2 ollama_ctx_8192 (window 8192) vs claude-haiku-5-5: hybrid accuracy 85/90 (94.4%), cloud USD 0.00055/task, kept local 21/90 (23.3%) (correct locally 19/21; routed to the cloud from the first call 69, escalated 0: redo row 0, imputed 0, interim 0; projected fit but flagged 0, projected over but not flagged 6); all-cloud 87/90 (96.7%), USD 0.00067/task; naive local 57/90 (63.3%), USD 0; escalation interim: claude-haiku-5-5 all-cloud row of the same task (no claude-haiku-5-5 redo) / evo-x2 ollama_ctx_8192 (window 8192) vs claude-sonnet-5-5: hybrid accuracy 88/90 (97.8%), cloud USD 0.00819/task, kept local 21/90 (23.3%) (correct locally 19/21; routed to the cloud from the first call 69, escalated 0: redo row 0, imputed 0, interim 0; projected fit but flagged 0, projected over but not flagged 6); all-cloud 90/90 (100.0%), USD 0.01020/task; naive local 57/90 (63.3%), USD 0; escalation measured: full-history redo (claude-sonnet-5-5), flagged tasks with no redo row imputed at the tier mean redo USD 0.02048 / evo-x2 ollama_ctx_4096 (window 4096) vs claude-haiku-5-5: hybrid accuracy 87/90 (96.7%), cloud USD 0.00067/task, kept local 0/90 (0.0%) (correct locally 0/0; routed to the cloud from the first call 90, escalated 0: redo row 0, imputed 0, interim 0; projected fit but flagged 0, projected over but not flagged 2); all-cloud 87/90 (96.7%), USD 0.00067/task; naive local 53/90 (58.9%), USD 0; escalation interim: claude-haiku-5-5 all-cloud row of the same task (no claude-haiku-5-5 redo) / evo-x2 ollama_ctx_4096 (window 4096) vs claude-sonnet-5-5: hybrid accuracy 90/90 (100.0%), cloud USD 0.01020/task, kept local 0/90 (0.0%) (correct locally 0/0; routed to the cloud from the first call 90, escalated 0: redo row 0, imputed 0, interim 0; projected fit but flagged 0, projected over but not flagged 2); all-cloud 90/90 (100.0%), USD 0.01020/task; naive local 53/90 (58.9%), USD 0; escalation measured: full-history redo (claude-sonnet-5-5), flagged tasks with no redo row imputed at the tier mean redo USD 0.01693",
+  "n": "4 tier x cloud-tier cells x 90 tasks",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_evalset_tasks_real_v2.jsonl",
+   "results/all_cloud_b3_v1.jsonl",
+   "results/cloud_redo_full_context_v1.jsonl",
+   "results/cloud_redo_full_context_v1_part2.jsonl",
+   "results/cloud_redo_full_context_v1_part3.jsonl"
+  ],
+  "script": "analysis/impact_model.py::route_at_start_measured",
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "hybrid-route-at-start-v2": {
+  "id": "hybrid-route-at-start-v2",
+  "status": "VERIFIED",
+  "value": "measured by replay of recorded runs, claude-sonnet-5-5, seeds 20260901-03; all-cloud 90/90, USD 0.01020/task; target >= 50/90 kept local at >= 97% / 8192 config: kept local 90/90, accuracy 79/90 (87.8%), cloud USD 0.00000/task (escalated 0 at the imputed tier mean redo USD 0.02048, routed 0); target met False / 8192 compaction_all: kept local 90/90, accuracy 76/90 (84.4%), cloud USD 0.00000/task (escalated 0 at the imputed tier mean redo USD 0.02048, routed 0); target met False / 8192 fit_plain_else_compaction: kept local 90/90, accuracy 76/90 (84.4%), cloud USD 0.00000/task (escalated 0 at the imputed tier mean redo USD 0.02048, routed 0); target met False / 8192 fit_plain_else_trim: kept local 90/90, accuracy 73/90 (81.1%), cloud USD 0.00000/task (escalated 0 at the imputed tier mean redo USD 0.02048, routed 0); target met False / 4096 compaction_all: kept local 86/90, accuracy 75/90 (83.3%), cloud USD 0.00075/task (escalated 4 at the imputed tier mean redo USD 0.01693, routed 0); target met False / 4096 fit_plain_else_compaction: kept local 86/90, accuracy 75/90 (83.3%), cloud USD 0.00075/task (escalated 4 at the imputed tier mean redo USD 0.01693, routed 0); target met False / 4096 fit_plain_else_trim: kept local 86/90, accuracy 74/90 (82.2%), cloud USD 0.00075/task (escalated 4 at the imputed tier mean redo USD 0.01693, routed 0); target met False",
+  "n": "7 tier x policy cells x 90 tasks",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_own_compaction_v1_a.jsonl",
+   "results/x2_own_compaction_v1_b.jsonl",
+   "results/x2_own_config_probe_q8_15360.jsonl",
+   "results/x2_own_config_probe_q4_28928.jsonl"
+  ],
+  "script": "analysis/own_config_search.py::hybrid_v2",
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "hybrid-savings-curve": {
   "id": "hybrid-savings-curve",
@@ -1690,8 +1953,8 @@
    "results/x2_policy_compare_fa_control.jsonl"
   ],
   "script": "analysis/impact_model.py::hybrid_curve",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "hybrid-savings-tradeoff": {
   "id": "hybrid-savings-tradeoff",
@@ -1712,8 +1975,8 @@
    "results/x2_policy_compare_fa_control.jsonl"
   ],
   "script": "analysis/impact_model.py::hybrid_tradeoff",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "hybrid-savings-v1": {
   "id": "hybrid-savings-v1",
@@ -1730,8 +1993,8 @@
    "results/hardware_price_evox2_20261021.json"
   ],
   "script": "analysis/impact_model.py::hybrid_savings",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "impact-P1": {
   "id": "impact-P1",
@@ -1748,8 +2011,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/impact_model.py::p1",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "impact-P2": {
   "id": "impact-P2",
@@ -1766,8 +2029,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/impact_model.py::p2",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "impact-P3": {
   "id": "impact-P3",
@@ -1784,8 +2047,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/impact_model.py::p3",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "impact-P4": {
   "id": "impact-P4",
@@ -1827,8 +2090,8 @@
    "results/blade_dryrun/blade_dryrun_r2_mechanism.jsonl"
   ],
   "script": "analysis/impact_model.py::p4",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "impact-P5": {
   "id": "impact-P5",
@@ -1846,8 +2109,8 @@
    "src/dse/envelope_data.json"
   ],
   "script": "analysis/impact_model.py::p5",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "impact-P6": {
   "id": "impact-P6",
@@ -1867,8 +2130,8 @@
    "results/workload_pack/items/*.jsonl"
   ],
   "script": "analysis/impact_model.py::p6",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "impact-P7": {
   "id": "impact-P7",
@@ -1885,8 +2148,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/impact_model.py::p7",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "impact-hour-value": {
   "id": "impact-hour-value",
@@ -1898,8 +2161,8 @@
    "results/impact_profile_20261014.json"
   ],
   "script": "analysis/impact_model.py::hour_value",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "impact-ranking-v2": {
   "id": "impact-ranking-v2",
@@ -1949,8 +2212,8 @@
    "src/dse/envelope_data.json"
   ],
   "script": "analysis/impact_model.py::v2_rows",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "impact-ref-machine-price": {
   "id": "impact-ref-machine-price",
@@ -1962,8 +2225,8 @@
    "results/hardware_price_evox2_20261021.json"
   ],
   "script": "analysis/impact_model.py::ref_machine",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "impact-scenario-one-flag": {
   "id": "impact-scenario-one-flag",
@@ -2010,8 +2273,8 @@
    "src/dse/envelope_data.json"
   ],
   "script": "analysis/impact_model.py::previous_basis",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "impact-session-time-by-window": {
   "id": "impact-session-time-by-window",
@@ -2028,8 +2291,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/impact_model.py::session_time_by_window",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "impact-total": {
   "id": "impact-total",
@@ -2075,8 +2338,8 @@
    "src/dse/envelope_data.json"
   ],
   "script": "analysis/impact_model.py::audit_total",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "impact-v2-P1": {
   "id": "impact-v2-P1",
@@ -2126,8 +2389,8 @@
    "src/dse/envelope_data.json"
   ],
   "script": "analysis/impact_model.py::p1_v2",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "impact-v2-P2": {
   "id": "impact-v2-P2",
@@ -2177,8 +2440,8 @@
    "src/dse/envelope_data.json"
   ],
   "script": "analysis/impact_model.py::p2_v2",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "impact-v2-detection-value": {
   "id": "impact-v2-detection-value",
@@ -2229,8 +2492,8 @@
    "src/dse/envelope_data.json"
   ],
   "script": "analysis/impact_model.py::detection_projection",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "impact-v3-detection-value-measured": {
   "id": "impact-v3-detection-value-measured",
@@ -2245,8 +2508,8 @@
    "results/cloud_redo_full_context_v1_part3.jsonl"
   ],
   "script": "analysis/impact_model.py::measured_detection",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "info-loss-by-window": {
   "id": "info-loss-by-window",
@@ -2261,8 +2524,8 @@
    "results/x2_r2_real_v1b.jsonl"
   ],
   "script": "analysis/r2_info_loss.py::info_loss_str",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "kappa-heldout": {
   "id": "kappa-heldout",
@@ -2275,8 +2538,8 @@
    "results/labeling/kappa_heldout_annotator_claude.csv"
   ],
   "script": "analysis/kappa_agreement.py::heldout_stats",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "kappa-heldout-disagreements": {
   "id": "kappa-heldout-disagreements",
@@ -2290,8 +2553,8 @@
    "results/labeling/kappa_heldout_annotator_claude.csv"
   ],
   "script": "analysis/numbers_register.py::compute_kappa_heldout_disagreement_read",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "kappa-heldout-fn-annotator": {
   "id": "kappa-heldout-fn-annotator",
@@ -2304,8 +2567,8 @@
    "results/labeling/kappa_heldout_annotator_claude.csv"
   ],
   "script": "analysis/kappa_agreement.py::heldout_stats",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "kappa-heldout-sample": {
   "id": "kappa-heldout-sample",
@@ -2320,8 +2583,67 @@
    "results/labeling/ritz_spotcheck_30.csv"
   ],
   "script": "analysis/build_kappa_heldout_sample.py::round_robin_sample",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "kv-fa-interaction-llamacpp": {
+  "id": "kv-fa-interaction-llamacpp",
+  "status": "PENDING",
+  "value": "not computed: data file(s) not synced yet: results/kv_fa_llamacpp_qwen3_14b.jsonl",
+  "n": "n/a",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/kv_fa_llamacpp_qwen3_14b.jsonl",
+   "results/x2_policy_compare.jsonl",
+   "results/x2_policy_compare_fa_control.jsonl"
+  ],
+  "script": "harness/kv_fa_llamacpp.py::outcome",
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "kv-fa-interaction-llamacpp-hours": {
+  "id": "kv-fa-interaction-llamacpp-hours",
+  "status": "VERIFIED",
+  "value": "ESTIMATE 11.94 h (high 17.90 h): 5 cells x 3 sessions of 24 turns at the measured Ollama B5 minutes of turns 1-24 of qwen3:14b (a) 49.6, (i) 46.6, (g) 7.9 min per session; f16 FA off and K-only FA off take (a), f16 FA on and K-only FA on take (i) (ASSUMED: no K-only speedup), q8_0 FA on takes (g); all x the measured llama-server / Ollama turn-wall ratio 1.190 at 40960 (xruntime_llamacpp arm c over x2_evalset_tasks_real_v2 ollama_default, 150 and 150 turns) = 11.91 h (f16_fa_off 2.95 h, f16_fa_on 2.77 h, q8k_fa_off 2.95 h, q8k_fa_on 2.77 h, q8_fa_on 0.47 h); + 16 server starts x 6.0 s (largest measured stop-to-start gap of the xruntime_llamacpp run); high = x 1.5 (ASSUMED)",
+  "n": "15 sessions",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_policy_compare.jsonl",
+   "results/x2_policy_compare_fa_control.jsonl",
+   "results/xruntime_llamacpp_qwen3_14b.jsonl",
+   "results/x2_evalset_tasks_real_v2.jsonl"
+  ],
+  "script": "harness/kv_fa_llamacpp.py::hours_estimate",
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "kv-output-agreement": {
+  "id": "kv-output-agreement",
+  "status": "VERIFIED",
+  "value": "greedy decoding; comparable = call-1 prompt identical on both sides; divergence index unit: token (Qwen/Qwen3-8B tokenizer, retokenized text); (a) f16 (default) vs (g) q8_0: comparable turns 105 of 120, exact match 103/105 (98.1%), tool calls agree 104/105 (99.0%); 20260901: comparable 30/40, exact 29, tool calls agree 29, first divergence turn 30 call 1 index 58; 20260902: comparable 35/40, exact 34, tool calls agree 35, first divergence turn 35 call 2 index 38; 20260903: comparable 40/40, exact 40, tool calls agree 40, no divergence / (i) f16+FA vs (g) q8_0: comparable turns 105 of 120, exact match 103/105 (98.1%), tool calls agree 104/105 (99.0%); 20260901: comparable 30/40, exact 29, tool calls agree 29, first divergence turn 30 call 1 index 58; 20260902: comparable 35/40, exact 34, tool calls agree 35, first divergence turn 35 call 2 index 38; 20260903: comparable 40/40, exact 40, tool calls agree 40, no divergence / (a) f16 (default) vs (i) f16+FA: comparable turns 120 of 120, exact match 120/120 (100.0%), tool calls agree 120/120 (100.0%); 20260901: comparable 40/40, exact 40, tool calls agree 40, no divergence; 20260902: comparable 40/40, exact 40, tool calls agree 40, no divergence; 20260903: comparable 40/40, exact 40, tool calls agree 40, no divergence / (a) f16 (default) vs (h) q4_0: comparable turns 5 of 120, exact match 2/5 (40.0%), tool calls agree 4/5 (80.0%); 20260901: comparable 2/40, exact 1, tool calls agree 1, first divergence turn 2 call 1 index 24; 20260902: comparable 2/40, exact 1, tool calls agree 2, first divergence turn 2 call 2 index 9; 20260903: comparable 1/40, exact 0, tool calls agree 1, first divergence turn 1 call 2 index 39 / (g) q8_0 vs (h) q4_0: comparable turns 5 of 120, exact match 2/5 (40.0%), tool calls agree 4/5 (80.0%); 20260901: comparable 2/40, exact 1, tool calls agree 1, first divergence turn 2 call 1 index 24; 20260902: comparable 2/40, exact 1, tool calls agree 2, first divergence turn 2 call 2 index 9; 20260903: comparable 1/40, exact 0, tool calls agree 1, first divergence turn 1 call 2 index 39",
+  "n": "5 pairs x 3 seeds",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_policy_compare.jsonl",
+   "results/x2_policy_compare_fa_control.jsonl"
+  ],
+  "script": "analysis/kv_evidence.py::agreement",
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "kv-precision-evidence": {
+  "id": "kv-precision-evidence",
+  "status": "VERIFIED",
+  "value": "tok/s are median/p90 over the session's calls (Ollama prompt_eval_count / prompt_eval_duration and completion tokens / eval_duration); (a) f16 (default): 20260901: 216.3 min, loaded 40960, prefill 186.3/1990.8, decode 8.23/17.92; 20260902: 224.2 min, loaded 40960, prefill 170.8/2002.5, decode 8.37/17.93; 20260903: 203.9 min, loaded 40960, prefill 189.6/2185.5, decode 8.87/18.06; /api/ps size at load 15511.5 MiB, loaded window 40960; server-log KV type not parsed for this env (no KV env set); /api/ps size equal to (i) f16 to the byte; KV buffer 6400 MiB (derived) / (i) f16+FA: 20260901: 215.3 min, loaded 40960, prefill 179.3/2069.2, decode 8.26/17.98; 20260902: 212.7 min, loaded 40960, prefill 206.3/2123.5, decode 8.37/17.83; 20260903: 191.7 min, loaded 40960, prefill 206.1/2168.8, decode 8.89/18.09; /api/ps size at load 15511.5 MiB, loaded window 40960; server-log KV types ['f16'] (env in config line True); KV buffer 6400 MiB (derived) / (g) q8_0: 20260901: 74.7 min, loaded 40960, prefill 2886.5/4500.2, decode 13.69/19.77; 20260902: 81.1 min, loaded 40960, prefill 3029.7/4375.5, decode 13.74/20.09; 20260903: 70.2 min, loaded 40960, prefill 3316.3/4477.6, decode 14.20/20.08; /api/ps size at load 12511.6 MiB, loaded window 40960; server-log KV types ['q8_0'] (env in config line True); KV buffer 3400 MiB (derived) / (h) q4_0: 20260901: 68.7 min, loaded 40960, prefill 2991.9/4842.8, decode 15.82/20.24; 20260902: 76.5 min, loaded 40960, prefill 3037.5/4232.2, decode 15.83/20.12; 20260903: 80.9 min, loaded 40960, prefill 3004.8/4409.0, decode 15.76/20.18; /api/ps size at load 10911.6 MiB, loaded window 40960; server-log KV types ['q4_0'] (env in config line True); KV buffer 1800 MiB (derived); KV buffer derived from the /api/ps sizes (llama_kv_cache size line not in any committed file): f16 KV 6399.8 MiB from f16 - q8_0 and 6400.0 MiB from q8_0 - q4_0 (16 / 8.5 / 4.5 bits per element), relative difference 2.7e-05; q4_0 / f16 KV 0.281; (a) base-env log (flash-attention control probe): ['FLASH_ATTENTION:false OLLAMA_GO_TEMPLATE:true OLLAMA_GPU_OVERHEAD:0 OLLAMA_', 'Flash Attention enabled', 'flash_attn            = auto']; (g) = (h) at one decimal: unrounded means 75.358 vs 75.369 min, 0.67 s apart; per seed (g) 74.74, 81.09, 70.25 vs (h) 68.68, 76.53, 80.90; length stops 0, turns [40], completion tokens (g) [7387, 6297, 3738] vs (h) [6324, 5791, 6368]: a coincidence of 3-seed means, not a cap, timeout, session limit or copied value; q4_0 loaded as q4_0: yes (server log reported only q4_0, env in the config line, and the size step q8_0 - q4_0 matches 4.5 bits)",
+  "n": "12 sessions",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_policy_compare.jsonl",
+   "results/x2_policy_compare_fa_control.jsonl"
+  ],
+  "script": "analysis/kv_evidence.py::evidence",
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "late-escalation-cost-vs-fresh": {
   "id": "late-escalation-cost-vs-fresh",
@@ -2345,8 +2667,60 @@
    "results/x2_policy_compare_fa_control.jsonl"
   ],
   "script": "analysis/impact_model.py::late_escalation_vs_fresh",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "long-task-cloud-priced-vs-billed": {
+  "id": "long-task-cloud-priced-vs-billed",
+  "status": "VERIFIED",
+  "value": "long-horizon synthetic, trace-length matched tasks (not SWE-Gym), seed [20260901]; decision run, stopped None; job billed USD 1.7686, upper bound USD 2.0153 (warm-up and pilot included); Sonnet: estimate USD 3.3710 vs threshold 5.00, run True; claude-haiku-5-5: 5/5 correct; tasks billed USD 0.1132 vs upper bound 0.1284 (billed/upper 0.882); priced none 0.1284, realistic (ASSUMPTION hit rate 0.7) 0.0726, best 0.0368; billed / realistic 1.559; billed within [best, none] for 5/5 tasks; per task: lt_swegym_06 (ref 11 steps, 6 calls): input 19,840 (uncached 9,442, cache read 10,398, write 0), output 1,817; billed $0.0020, upper bound $0.0029, priced none/realistic/best $0.0029/$0.0022/$0.0016; 11 s; correct True; lt_swegym_10 (ref 31 steps, 13 calls): input 87,678 (uncached 65,149, cache read 22,385, write 144), output 4,379; billed $0.0089, upper bound $0.0110, priced none/realistic/best $0.0110/$0.0069/$0.0042; 23 s; correct True; lt_openhands_03 (ref 50 steps, 21 calls): input 200,346 (uncached 163,953, cache read 36,249, write 144), output 7,410; billed $0.0205, upper bound $0.0237, priced none/realistic/best $0.0237/$0.0138/$0.0075; 56 s; correct True; lt_openhands_06 (ref 63 steps, 23 calls): input 240,582 (uncached 200,723, cache read 39,715, write 144), output 8,229; billed $0.0246, upper bound $0.0282, priced none/realistic/best $0.0282/$0.0162/$0.0085; 41 s; correct True; lt_openhands_10 (ref 92 steps, 35 calls): input 563,703 (uncached 503,048, cache read 60,511, write 144), output 12,598; billed $0.0572, upper bound $0.0627, priced none/realistic/best $0.0627/$0.0335/$0.0149; 68 s; correct True; claude-sonnet-5-5: 3/5 correct; tasks billed USD 1.6551 vs upper bound 1.8866 (billed/upper 0.877); priced none 1.8866, realistic (ASSUMPTION hit rate 0.7) 1.0301, best 0.4882; billed / realistic 1.607; billed within [best, none] for 5/5 tasks; per task: lt_swegym_06 (ref 11 steps, 6 calls): input 20,203 (uncached 9,805, cache read 8,665, write 1,733), output 1,713; billed $0.0419, upper bound $0.0575, priced none/realistic/best $0.0575/$0.0416/$0.0305; 57 s; correct True; lt_swegym_10 (ref 31 steps, 11 calls): input 65,776 (uncached 46,713, cache read 18,919, write 144), output 3,854; billed $0.1342, upper bound $0.1701, priced none/realistic/best $0.1701/$0.1084/$0.0679; 34 s; correct True; lt_openhands_03 (ref 50 steps, 10 calls): input 65,321 (uncached 47,991, cache read 17,186, write 144), output 3,419; billed $0.1323, upper bound $0.1648, priced none/realistic/best $0.1648/$0.1052/$0.0657; 30 s; correct False; lt_openhands_06 (ref 63 steps, 10 calls): input 71,860 (uncached 54,530, cache read 17,186, write 144), output 3,555; billed $0.1467, upper bound $0.1793, priced none/realistic/best $0.1793/$0.1139/$0.0705; 33 s; correct False; lt_openhands_10 (ref 92 steps, 35 calls): input 592,574 (uncached 531,919, cache read 60,511, write 144), output 12,974; billed $1.2000, upper bound $1.3149, priced none/realistic/best $1.3149/$0.6609/$0.2537; 111 s; correct True",
+  "n": "10 cloud task runs",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/longtask_cloud_v1.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_long_task_cloud_priced_vs_billed",
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "long-task-local-accuracy": {
+  "id": "long-task-local-accuracy",
+  "status": "VERIFIED",
+  "value": "long-horizon synthetic, trace-length matched (not SWE-Gym, not OpenHands tasks): qwen3:14b on evo-x2, 20 tasks (10 matched to SWE-Gym step quantiles, 10 to nebius-rebench-openhands), seeds [20260901, 20260902, 20260903]; run_end note: completed; ollama_default (B5 policy a, num_ctx sent None, loaded window [40960]): accuracy 5/60 (8.3%, Wilson 95% 3.6% to 18.1%); wrong 55: silent 55 (share of wrong 100.0%, of all tasks 91.7%), surfaced 0 (step cap 0, HTTP error 0); thinking present 0; minutes per task mean 0.80, median 0.35; calls per task mean 23.9; by stratum: openhands 0/30 (silent 30, 1.2 min/task), swegym 5/30 (silent 25, 0.4 min/task); by seed: 20260901: 2/20, 20260902: 0/20, 20260903: 3/20; median final prompt est per stratum openhands 5774, swegym 1578 (traces' median final prompt: swegym 2020, openhands 50559 qwen tokens); kv_q8_0 (B5 policy g, num_ctx sent 40960, loaded window [40960]): accuracy 4/60 (6.7%, Wilson 95% 2.6% to 15.9%); wrong 56: silent 56 (share of wrong 100.0%, of all tasks 93.3%), surfaced 0 (step cap 0, HTTP error 0); thinking present 0; minutes per task mean 0.81, median 0.40; calls per task mean 25.4; by stratum: openhands 0/30 (silent 30, 1.2 min/task), swegym 4/30 (silent 26, 0.4 min/task); by seed: 20260901: 2/20, 20260902: 0/20, 20260903: 2/20; median final prompt est per stratum openhands 5828, swegym 1626 (traces' median final prompt: swegym 2020, openhands 50559 qwen tokens); kv_q8_0 minus ollama_default: -1.7 points accuracy, +0.01 min per task (descriptive, no test); per-task wall-clock: 120 rows in results/x2_longtask_local_v1.jsonl.report.json per_task_wall",
+  "n": "120 task runs",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_longtask_local_v1.jsonl",
+   "harness/agent_trace_steps_uncensored.json"
+  ],
+  "script": "analysis/numbers_register.py::compute_long_task_local_accuracy",
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "long-task-local-hours": {
+  "id": "long-task-local-hours",
+  "status": "VERIFIED",
+  "value": "ESTIMATE; x2_longtask_local_v1 (qwen3:14b, 20 long-horizon synthetic tasks x 3 seeds x 2 arms): total 9.63 h (high 16.92 h); ollama_default 5.16 h (high 9.01 h; B5 call time per 10k prompt band median/p75 s: 0k 7.6/8.9 (n=36), 10k 12.4/15.2 (n=40), 20k 20.5/30.4 (n=40), 30k 222.5/248.1 (n=30)); kv_q8_0 4.47 h (high 7.91 h; B5 call time per 10k prompt band median/p75 s: 0k 6.6/7.9 (n=36), 10k 8.1/10.4 (n=40), 20k 10.0/12.1 (n=40), 30k 14.4/16.0 (n=30)); queued after x2_evalset_tasks_real_v2_llama33_70b, projected start 10-26 16:37Z (10-26 09:37 PT) (high case 10-26 22:49Z (10-26 15:49 PT)), finish 10-27 02:14Z (10-26 19:14 PT) (high case 10-27 15:45Z (10-27 08:45 PT)); with one 2 h results-sync interval registered by 10-27 04:14Z (10-26 21:14 PT) (high case 10-27 17:45Z (10-27 10:45 PT)); cutoff 10-27 19:00Z (10-27 12:00 PT): met (high case met); the job starts no new task after 10-27 16:00Z (10-27 09:00 PT) (--stop-after-utc); task profile: swegym stratum (10 tasks x 3 seeds): reference steps median 8 (range 4 to 31), oracle first prompt median 1219, final prompt median 2083 (max 4714) model tokens; matched traces (n=600): median 6 steps, first prompt 742, final prompt 2020 qwen tokens; openhands stratum (10 tasks x 3 seeds): reference steps median 62 (range 42 to 92), oracle first prompt median 1220, final prompt median 7825 (max 11236) model tokens; matched traces (n=36): median 62 steps, first prompt 3910, final prompt 50559 qwen tokens",
+  "n": "1 job (estimate)",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_policy_compare.jsonl",
+   "results/x2_policy_compare.jsonl",
+   "results/x2_r2_real_v1.jsonl",
+   "results/x2_r2_real_v1b.jsonl",
+   "results/mx2_validation.jsonl",
+   "results/x2_r2_family_mistral_small32_real.jsonl",
+   "results/x2_evalset_tasks_val_v2.jsonl",
+   "results/x2_evalset_tasks_real_v2.jsonl",
+   "results/x2_r2_scale_validation.jsonl",
+   "results/x2_r2_scale_real.jsonl",
+   "results/x2_r2_validation_v2.jsonl",
+   "results/x2_evalset_tasks_val_v2.jsonl",
+   "results/x2_evalset_tasks_real_v2.jsonl"
+  ],
+  "script": "harness/x2_longtask.py::hours_estimate",
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "num-keep-guardrail-test": {
   "id": "num-keep-guardrail-test",
@@ -2358,8 +2732,8 @@
    "results/x2_num_keep_guardrail_test.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_num_keep_guardrail_test",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "num-keep-qwen3-14b": {
   "id": "num-keep-qwen3-14b",
@@ -2371,8 +2745,8 @@
    "results/x2_num_keep_qwen3_14b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_num_keep_qwen3_14b",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "ollama-overflow-keeps-half": {
   "id": "ollama-overflow-keeps-half",
@@ -2387,8 +2761,220 @@
    "results/x2_template_mechanism_test.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ollama_overflow_keeps_half",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "own-compaction-4096": {
+  "id": "own-compaction-4096",
+  "status": "VERIFIED",
+  "value": "own_compaction_4096: wrong 35/150 (23.3%), flagged (detector v2) 6, silent 29; turns flagged 8, turns without a log slice 0; loaded [4096]; seeds [20260901, 20260902, 20260903, 20260904, 20260905]; summary calls 22 (flagged 0); example sent on 1/339 task calls; floor over trigger on 324 / client_trim_4096: wrong 36/150 (24.0%), flagged (detector v2) 6, silent 30; turns flagged 8, turns without a log slice 0; loaded [4096]; seeds [20260901, 20260902, 20260903, 20260904, 20260905]; summary calls 0 (flagged 0); example sent on 0/340 task calls; floor over trigger on 0; pre-registered target wrong < 20%: NOT met; vs plain num_ctx 4096 63/150 (42.0%): beats True; vs client trim at 4096: beats True; vs 4096+num_keep 45/150 (30.0%): beats True",
+  "n": "600 task turns",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_own_compaction_v1_a.jsonl",
+   "results/x2_own_compaction_v1_b.jsonl"
+  ],
+  "script": "harness/own_compaction.py::outcome",
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "own-compaction-8192": {
+  "id": "own-compaction-8192",
+  "status": "VERIFIED",
+  "value": "own_compaction_8192: wrong 24/150 (16.0%), flagged (detector v2) 0, silent 24; turns flagged 0, turns without a log slice 0; loaded [8192]; seeds [20260901, 20260902, 20260903, 20260904, 20260905]; summary calls 22 (flagged 0); example sent on 293/305 task calls; floor over trigger on 0 / client_trim_8192: wrong 30/150 (20.0%), flagged (detector v2) 0, silent 30; turns flagged 0, turns without a log slice 0; loaded [8192]; seeds [20260901, 20260902, 20260903, 20260904, 20260905]; summary calls 0 (flagged 0); example sent on 0/302 task calls; floor over trigger on 0; pre-registered target wrong < 15%: NOT met; vs plain num_ctx 8192 53/150 (35.3%): beats True; vs client trim at 8192: beats True",
+  "n": "600 task turns",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_own_compaction_v1_a.jsonl",
+   "results/x2_own_compaction_v1_b.jsonl"
+  ],
+  "script": "harness/own_compaction.py::outcome",
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "own-config-search": {
+  "id": "own-config-search",
+  "status": "VERIFIED",
+  "value": "search over measured probes, B3 v2 tasks, qwen3:14b, seeds 20260901-03 (90 tasks), route at start by projected task-turn prompt; KV budget = f16 at 8192 = 1280 MiB (160 KiB/token, measured: 'llama_kv_cache: size = 1280.00 MiB (  8192 cells,  40 layers,  1/1 seqs), K (f16):  640.00 MiB, V (f16):  640.00 MiB', results/demo_live_logs/acceptance/serve_8192.log); matched = local accuracy on kept tasks within 5 points of the default window on the same tasks / AMD 8192-constrained: f16 window 8192 (1280.0 MiB KV, measured, ROCm (Ollama)): kept local by projection 21/90; local accuracy on kept 90.5% vs default window 95.2% on the same tasks (-4.8 points; matched at 5 points True, at 0 False); measured (results/x2_evalset_tasks_real_v2.jsonl ollama_ctx_8192) / q8_0 window 15360 (1275.0 MiB KV, ggml block arithmetic (not measured), ROCm (Ollama)): kept local by projection 54/90; local accuracy on kept 90.7% vs default window 92.6% on the same tasks (-1.9 points; matched at 5 points True, at 0 False); measured (results/x2_own_config_probe_q8_15360.jsonl) / q4_0 window 28928 (1271.2 MiB KV, ggml block arithmetic (not measured), ROCm (Ollama)): kept local by projection 90/90; local accuracy on kept 87.8% vs default window 88.9% on the same tasks (-1.1 points; matched at 5 points True, at 0 False); measured (results/x2_own_config_probe_q4_28928.jsonl); best measured setting q4_0 28928: kept local 90/90 (before 21/90); backend: Ollama on evo-x2 uses ROCm only (x2-device-detect-mechanism), windows set by num_ctx per request (window-override-methods) / Intel: evo-t2s CPU (default) window 4096 (t2s-r2-real-cpu): kept local by projection 0/90, accuracy NOT MEASURED (B3 v2 on evo-t2s staged for the 2026-10-26 window: results/t2s_evalset_tasks_real_v2_cpu.jsonl); KV q8_0/q4_0 on evo-t2s not measured and not staged; evo-t2s iGPU (OLLAMA_IGPU_ENABLE=1) window 32768 (t2s-r2-real-igpu): kept local by projection 90/90, accuracy NOT MEASURED (B3 v2 on evo-t2s staged for the 2026-10-26 window: results/t2s_evalset_tasks_real_v2_igpu.jsonl); KV q8_0/q4_0 on evo-t2s not measured and not staged",
+  "n": "90 tasks x 3 KV settings + 2 Intel profiles",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_evalset_tasks_real_v2.jsonl",
+   "results/demo_live_logs/acceptance/serve_8192.log"
+  ],
+  "script": "analysis/own_config_search.py::config_search",
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "own-dse-v1": {
+  "id": "own-dse-v1",
+  "status": "VERIFIED",
+  "value": "accuracy target 0.90, cloud budget USD 500/month, 30-day month; short workload: 11 measured candidates (evo-x2 qwen3:14b local tiers, all-cloud, per-task hybrids; seeds 20260901, 20260902, 20260903); long workload: 8 candidates (evo-x2 qwen3:14b local arms ollama_default window 40960, kv_q8_0 window 40960, seeds 20260901, 20260902, 20260903, seconds per local task = measured task wall-clock mean; all-cloud claude-haiku-5-5 (5 tasks), claude-sonnet-5-5 (5 tasks), seed 20260901, billed USD per task; per-task route at start + window flag at the arm's window, largest projected prompt 11,236 model tokens: ollama_default (window 40960): routed 0/60, flagged 0/60; kv_q8_0 (window 40960): routed 0/60, flagged 0/60); no long-task probe exists (own-profiler-probe covers B3 short-task configs only and the pre-registration names none), so the long local candidates' predicted values are their measured values (LABELLED); mixed workload: 50% short and 50% long tasks by count (pre-registered), 88 candidates = every short candidate for the short tasks x every long candidate for the long tasks (task type known at start; LABELLED: the pre-registration does not fix the mixed candidate set); hardware USD 2,000 (list price, Liliputing, 2025-04-15, impact-ref-machine-price) / 36 months; electricity 90.8 W (PX2-power qwen3-14b, measured on evo-t2s, applied to evo-x2: ASSUMED) x USD 0.1453/kWh (energy-price-eia-commercial), active time only; one task at a time per machine (ASSUMED); DSE ranks on own-profiler probe predictions (ratios from evo-t2s), validation on measured values; trivial cell (pre-registered 2026-10-23): at most one eligible, or the brute-force best takes no probe input and every candidate using a local machine (predicted local share > 0) has a cost floor (one machine USD 55.56/month plus its predicted cloud USD) more than 10% above it; short 100/day: TRIVIAL (best takes no probe input and every local candidate's cost floor (lowest USD 55.56/month) is more than 10% above it; not counted as validation); 11 candidates, 6 eligible (measured accuracy >= target and cloud within budget), eligible using a local machine: 2; under the hardware-label reading (first implementation, not the pre-registered wording) NON-TRIVIAL; DSE pick none/claude-haiku-5-5/provider/provider/Anthropic API/all-cloud (predicted USD 2.01/month, measured USD 2.01, measured accuracy 0.967); brute-force best none/claude-haiku-5-5/provider/provider/Anthropic API/all-cloud USD 2.01 (accuracy 0.967); gap 0.0% -> within 10%; cheapest measured feasible option using a local machine: evo-x2/qwen3:14b + claude-haiku-5-5/8192/f16 (Ollama default)/Ollama + Anthropic API/per-task route at start + window flag USD 57.24; short 1,000/day: TRIVIAL (best takes no probe input and every local candidate's cost floor (lowest USD 55.56/month) is more than 10% above it; not counted as validation); 11 candidates, 6 eligible (measured accuracy >= target and cloud within budget), eligible using a local machine: 2; under the hardware-label reading (first implementation, not the pre-registered wording) NON-TRIVIAL; DSE pick none/claude-haiku-5-5/provider/provider/Anthropic API/all-cloud (predicted USD 20.12/month, measured USD 20.12, measured accuracy 0.967); brute-force best none/claude-haiku-5-5/provider/provider/Anthropic API/all-cloud USD 20.12 (accuracy 0.967); gap 0.0% -> within 10%; cheapest measured feasible option using a local machine: evo-x2/qwen3:14b + claude-haiku-5-5/8192/f16 (Ollama default)/Ollama + Anthropic API/per-task route at start + window flag USD 72.36; short 10,000/day: NON-TRIVIAL (lowest local cost floor USD 55.56/month is not more than 10% above the best's measured USD 201.25, so a probe input could change the pick; lowest-floor local candidate evo-x2/qwen3:14b/40960 (Ollama default)/f16 (Ollama default)/Ollama/local only, predicted accuracy 0.922, measured 0.889); 11 candidates, 3 eligible (measured accuracy >= target and cloud within budget), eligible using a local machine: 1; under the hardware-label reading (first implementation, not the pre-registered wording) NON-TRIVIAL; DSE pick none/claude-haiku-5-5/provider/provider/Anthropic API/all-cloud (predicted USD 201.25/month, measured USD 201.25, measured accuracy 0.967); brute-force best none/claude-haiku-5-5/provider/provider/Anthropic API/all-cloud USD 201.25 (accuracy 0.967); gap 0.0% -> within 10%; cheapest measured feasible option using a local machine: evo-x2/qwen3:14b + claude-haiku-5-5/8192/f16 (Ollama default)/Ollama + Anthropic API/per-task route at start + window flag USD 223.62; long 100/day: TRIVIAL (1 eligible; not counted as validation); 8 candidates, 1 eligible (measured accuracy >= target and cloud within budget), eligible using a local machine: 0; under the hardware-label reading (first implementation, not the pre-registered wording) TRIVIAL; DSE pick none/claude-haiku-5-5/provider/provider/Anthropic API/all-cloud (predicted USD 67.93/month, measured USD 67.93, measured accuracy 1.000); brute-force best none/claude-haiku-5-5/provider/provider/Anthropic API/all-cloud USD 67.93 (accuracy 1.000); gap 0.0% -> within 10%; cheapest measured feasible option using a local machine: none; long 1,000/day: TRIVIAL (0 eligible; not counted as validation); 8 candidates, 0 eligible (measured accuracy >= target and cloud within budget), eligible using a local machine: 0; no pick, no gap; long 10,000/day: TRIVIAL (0 eligible; not counted as validation); 8 candidates, 0 eligible (measured accuracy >= target and cloud within budget), eligible using a local machine: 0; no pick, no gap; mixed 100/day: TRIVIAL (best takes no probe input and every local candidate's cost floor (lowest USD 55.56/month) is more than 10% above it; not counted as validation); 88 candidates, 8 eligible (measured accuracy >= target and cloud within budget), eligible using a local machine: 4; under the hardware-label reading (first implementation, not the pre-registered wording) NON-TRIVIAL; DSE pick short [none/claude-haiku-5-5/provider/provider/Anthropic API/all-cloud] + long [none/claude-haiku-5-5/provider/provider/Anthropic API/all-cloud] (predicted USD 34.97/month, measured USD 34.97, measured accuracy 0.983); brute-force best short [none/claude-haiku-5-5/provider/provider/Anthropic API/all-cloud] + long [none/claude-haiku-5-5/provider/provider/Anthropic API/all-cloud] USD 34.97 (accuracy 0.983); gap 0.0% -> within 10%; cheapest measured feasible option using a local machine: short [evo-x2/qwen3:14b/40960 (Ollama default)/f16 (Ollama default)/Ollama/local only] + long [none/claude-haiku-5-5/provider/provider/Anthropic API/all-cloud] USD 89.58; mixed 1,000/day: NON-TRIVIAL (lowest local cost floor USD 55.56/month is not more than 10% above the best's measured USD 349.70, so a probe input could change the pick; lowest-floor local candidate short [evo-x2/qwen3:14b/40960 (Ollama default)/f16 (Ollama default)/Ollama/local only] + long [evo-x2/qwen3:14b/40960 (Ollama default)/f16 (Ollama default)/Ollama/local only], predicted accuracy 0.503, measured 0.486); 88 candidates, 8 eligible (measured accuracy >= target and cloud within budget), eligible using a local machine: 4; under the hardware-label reading (first implementation, not the pre-registered wording) NON-TRIVIAL; DSE pick short [none/claude-haiku-5-5/provider/provider/Anthropic API/all-cloud] + long [none/claude-haiku-5-5/provider/provider/Anthropic API/all-cloud] (predicted USD 349.70/month, measured USD 349.70, measured accuracy 0.983); brute-force best short [none/claude-haiku-5-5/provider/provider/Anthropic API/all-cloud] + long [none/claude-haiku-5-5/provider/provider/Anthropic API/all-cloud] USD 349.70 (accuracy 0.983); gap 0.0% -> within 10%; cheapest measured feasible option using a local machine: short [evo-x2/qwen3:14b/40960 (Ollama default)/f16 (Ollama default)/Ollama/local only] + long [none/claude-haiku-5-5/provider/provider/Anthropic API/all-cloud] USD 395.76; mixed 10,000/day: TRIVIAL (0 eligible; not counted as validation); 88 candidates, 0 eligible (measured accuracy >= target and cloud within budget), eligible using a local machine: 0; no pick, no gap; pre-registered target within 10% in every non-trivial computed cell: MET (2/2 non-trivial cells; 7 TRIVIAL computed cells not counted; 0 PENDING); the earlier 'MET (3/3 computed cells, 6 PENDING)' counted trivial cells",
+  "n": "9 computed cells of 9 (2 non-trivial)",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_evalset_tasks_real_v2.jsonl",
+   "results/x2_r2_real_v1.jsonl",
+   "results/x2_r2_real_v1b.jsonl",
+   "results/x2_r2_qwen3_8b_seeds_06_10.jsonl",
+   "results/x2_policy_compare.jsonl",
+   "results/x2_policy_compare_fa_control.jsonl",
+   "results/x2_r2_scale_real.jsonl",
+   "results/x2_r2_family_mistral_small32_real.jsonl",
+   "results/t2s_r2_real_cpu_v1.jsonl",
+   "results/t2s_r2_real_igpu_v1.jsonl",
+   "results/all_cloud_b3_v1.jsonl",
+   "results/cloud_redo_full_context_v1.jsonl",
+   "results/cloud_redo_full_context_v1_part2.jsonl",
+   "results/cloud_redo_full_context_v1_part3.jsonl",
+   "results/hardware_price_evox2_20261021.json",
+   "results/energy_price_eia_20261022.json",
+   "results/t2s_night2_20260930T135145Z.jsonl",
+   "results/x2_longtask_local_v1.jsonl",
+   "results/longtask_cloud_v1.jsonl"
+  ],
+  "script": "src/dse/dse_v1.py::own_dse_v1",
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "own-jobs-hours": {
+  "id": "own-jobs-hours",
+  "status": "VERIFIED",
+  "value": "ESTIMATE, not a measurement; per arm (harness/own_compaction.py::hours_estimate from B3 v2 turn_wall_s and the R2 mitigation trim_wall_s): own_compaction_8192 0.55 h (high 1.66 h); own_compaction_4096 0.49 h (high 1.41 h); client_trim_4096 0.82 h (high 0.91 h); client_trim_8192 1.08 h (high 1.17 h); probe_q8_15360 0.27 h (high 0.66 h); probe_q4_28928 0.27 h (high 0.66 h); queue projection back to back from x2_b5_simcap_4096's run_start 2026-10-23T13:40:29Z with the registered estimates of the jobs ahead (x2-queue-fill-1022-hours, x2-llama33-70b-b3v2-hours, long-task-local-hours, detector v2 re-check 0.10/0.30 h): x2_b5_simcap_4096 (running) 26.11 h (high 27.25 h) 10-23 13:40Z to 10-24 15:46Z (high 10-23 13:40Z to 10-24 16:55Z); x2_demo_detector_check_v2 0.10 h (high 0.30 h) 10-24 15:46Z to 10-24 15:52Z (high 10-24 16:55Z to 10-24 17:13Z); x2_r2_v1b_seeds_06_10 30.44 h (high 32.60 h) 10-24 15:52Z to 10-25 22:19Z (high 10-24 17:13Z to 10-26 01:49Z); x2_mx2_qwen3_32b_spill_sweep 0.36 h (high 1.03 h) 10-25 22:19Z to 10-25 22:40Z (high 10-26 01:49Z to 10-26 02:51Z); x2_evalset_tasks_val_v2_mistral_small32 0.35 h (high 0.54 h) 10-25 22:40Z to 10-25 23:02Z (high 10-26 02:51Z to 10-26 03:23Z); x2_evalset_tasks_real_v2_mistral_small32 3.01 h (high 3.66 h) 10-25 23:02Z to 10-26 02:02Z (high 10-26 03:23Z to 10-26 07:03Z); x2_evalset_tasks_val_v2_llama33_70b 1.76 h (high 2.07 h) 10-26 02:02Z to 10-26 03:48Z (high 10-26 07:03Z to 10-26 09:07Z); x2_evalset_tasks_real_v2_llama33_70b 0.97 h (high 1.25 h) 10-26 03:48Z to 10-26 04:47Z (high 10-26 09:07Z to 10-26 10:22Z); x2_longtask_local_v1 9.63 h (high 16.92 h) 10-26 04:47Z to 10-26 14:24Z (high 10-26 10:22Z to 10-27 03:18Z); x2_own_compaction_v1_a [own] 1.04 h (high 3.07 h) 10-26 14:24Z to 10-26 15:27Z (high 10-27 03:18Z to 10-27 06:22Z); x2_own_compaction_v1_b [own] 1.89 h (high 2.08 h) 10-26 15:27Z to 10-26 17:21Z (high 10-27 06:22Z to 10-27 08:27Z); x2_own_config_probe_q8_15360 [own] 0.27 h (high 0.66 h) 10-26 17:21Z to 10-26 17:37Z (high 10-27 08:27Z to 10-27 09:06Z); x2_own_config_probe_q4_28928 [own] 0.27 h (high 0.66 h) 10-26 17:37Z to 10-26 17:53Z (high 10-27 09:06Z to 10-27 09:46Z); E1 block start 10-26 01:00Z: job running then (point) x2_evalset_tasks_real_v2_mistral_small32, (high) x2_r2_v1b_seeds_06_10, so the existing queue runs into the block; own jobs appended after x2_longtask_local_v1 end 10-26 17:53Z (high 10-27 09:46Z); before the 2026-10-29 demo hold fallback start 10-29 15:00Z: yes (high case)",
+  "n": "1 queue projection (estimate)",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_evalset_tasks_real_v2.jsonl",
+   "results/x2_r2_mitigation_v1.jsonl",
+   "results/x2_policy_compare.jsonl",
+   "results/x2_policy_compare.jsonl",
+   "results/x2_r2_real_v1.jsonl",
+   "results/x2_r2_real_v1b.jsonl",
+   "results/mx2_validation.jsonl",
+   "results/x2_r2_family_mistral_small32_real.jsonl",
+   "results/x2_evalset_tasks_val_v2.jsonl",
+   "results/x2_evalset_tasks_real_v2.jsonl",
+   "results/x2_r2_scale_validation.jsonl",
+   "results/x2_r2_scale_real.jsonl",
+   "results/x2_r2_validation_v2.jsonl",
+   "results/x2_evalset_tasks_val_v2.jsonl",
+   "results/x2_evalset_tasks_real_v2.jsonl"
+  ],
+  "script": "harness/own_compaction.py::hours_estimate",
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "own-plan-execute-estimate": {
+  "id": "own-plan-execute-estimate",
+  "status": "VERIFIED",
+  "value": "ESTIMATE, not a measurement (DRAFT pre-registration, nothing run); 20 long-horizon synthetic tasks x seeds [20260901, 20260902, 20260903] = 60 tasks (2298 reference steps, 1510 work-order items); planner, verifier and escalation executor claude-haiku-5-5, local executor qwen3:14b; point: all-cloud (claude-haiku-5-5, 60 tasks) billed USD 1.0060, upper bound USD 1.1489; plan-execute cloud part billed USD 0.2465, upper bound USD 0.2797 (upper bound by role: planner 0.0837, verifier 0.0696, escalation 0.1263 for 171 escalated steps at share 0.113, plan-failure fallback 0.0000); local only USD 0 (no new run, row long-task-local-accuracy); total billed USD 1.2525, upper bound USD 1.4286; plan-execute / all-cloud billed 0.245; high: all-cloud (claude-haiku-5-5, 60 tasks) billed USD 1.7234, upper bound USD 1.7234; plan-execute cloud part billed USD 1.5780, upper bound USD 1.5780 (upper bound by role: planner 0.1340, verifier 0.0762, escalation 1.1955 for 734 escalated steps at share 0.486, plan-failure fallback 0.1723); local only USD 0 (no new run, row long-task-local-accuracy); total billed USD 3.3014, upper bound USD 3.3014; plan-execute / all-cloud billed 0.916; per-job limit USD 2: exceeded in the high case; evo-x2 hours of the local phase 2.20 h (high 5.23 h) = 1510 steps x 3 calls (high 6, ASSUMPTION) x measured short-call seconds median 1.72 (p75 2.06; n=509 calls under 3000 est tokens, ollama_default arm of x2_longtask_local_v1) + 120 s; measured inputs (long-task cloud check, claude-haiku-5-5): first call input 1737 / output 102 tokens, work order 227 + 44.4 tokens per item (least squares, 5 tasks), tool step growth median 67.2 tokens (n=93), billed/upper 0.882, all-cloud per task interpolated on reference steps between the 5 measured tasks (scaled by steps below 11); escalation share point = B3 v2 qwen3:14b ollama_default wrong rate 17/150 (ASSUMPTION: a plan step behaves like a B3 v2 task turn and the checkpoints flag exactly the wrong steps), high = long-task local per-item diff share 0.486 (ASSUMPTION: one diff = one wrong item); ASSUMPTIONS: plan instruction 150 tokens, plan output 1.5 (high 3.0) x work-order tokens per item, verifier every 8 steps with input = first call input + per step (item tokens + 2 tool steps), output 40 (high 100) tokens, 3 (high 6) calls per escalated step, plan failure share 0.0 (high 0.1) run whole on the cloud, all-cloud high = x 1.5, billed point = upper x billed/upper, billed high = upper (no cache saving)",
+  "n": "60 tasks per arm (estimate)",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/longtask_cloud_v1.jsonl",
+   "results/x2_longtask_local_v1.jsonl",
+   "results/x2_evalset_tasks_real_v2.jsonl",
+   "results/cloud_prices_anthropic_20261014.json"
+  ],
+  "script": "harness/plan_execute.py::cost_estimate",
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "own-profiler-loo": {
+  "id": "own-profiler-loo",
+  "status": "VERIFIED",
+  "value": "probe = first turns of the lowest committed seed's session up to 600 s wall clock (simulated from committed runs; no dedicated probe job was run); predictor = probe x median actual/probe ratio of the other device per stratum (fits / overflow of the projected final prompt vs loaded window); session domain 45 configs (evo-t2s 4, evo-x2 41), 45 scored leave-one-device-out: seconds per task median APE 70.2%, accuracy median APE 1.5% (raw probe without ratios: 58.4%, 0.9%); test evo-t2s (trained on the other device): n=4, seconds median APE 57.1%, accuracy median APE 2.4%, no-probe misses 0; test evo-x2 (trained on the other device): n=41, seconds median APE 70.8%, accuracy median APE 1.5%, no-probe misses 0; pre-registered target < 10% on both: MISSED (seconds missed, accuracy met); baseline ttft-few-point-calibration k=2 median 22.6%; secondary: real 2-turn scale probe (x2_scale_timing_probe) vs x2_r2_scale_real, ratios from evo-t2s: n=5, seconds median APE 71.7% (raw probe 85.9%), accuracy median APE 17.6%; single-shot outcome tables (probe = items to 600 s): n=15, seconds median APE 46.7%, accuracy median APE 52.0%; not scored (only the probe seed): 0; Blade: NOT RUN (blade_r2_real_v1 has 0 task turns; a Blade test needs a probe and a reference task run on the Blade, never run)",
+  "n": "45 configs",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_evalset_tasks_real_v2.jsonl",
+   "results/x2_r2_real_v1.jsonl",
+   "results/x2_r2_real_v1b.jsonl",
+   "results/x2_r2_qwen3_8b_seeds_06_10.jsonl",
+   "results/x2_policy_compare.jsonl",
+   "results/x2_policy_compare_fa_control.jsonl",
+   "results/x2_r2_scale_real.jsonl",
+   "results/x2_r2_family_mistral_small32_real.jsonl",
+   "results/t2s_r2_real_cpu_v1.jsonl",
+   "results/t2s_r2_real_igpu_v1.jsonl",
+   "results/x2_outcome_table_v3.jsonl",
+   "results/t2s_outcome_table_full.jsonl",
+   "results/x2_scale_timing_probe.jsonl",
+   "results/blade_r2_real_v1.jsonl"
+  ],
+  "script": "src/dse/own_profiler.py::own_profiler_loo",
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "own-profiler-probe": {
+  "id": "own-profiler-probe",
+  "status": "VERIFIED",
+  "value": "measured probe on evo-x2 (x2_own_profiler_probe_v1): qwen3:14b, B3 v2 tasks, seed 20260901, at most 600 s of session per config, no ratios; f16 ollama_default: probe 30 task turns in 600 s (30 run), 10.89 s/task, accuracy 0.900, detector v2 flagged 0/30, loaded [40960], KV line K (f16) present; reference 120 task turns (seeds [20260902, 20260903, 20260904, 20260905]) 10.55 s/task, accuracy 0.883, overflow rate 0.000 (v1 projection (over_loaded_window)); seconds APE 3.2%, accuracy APE 1.9%; overflow not compared (v1 projection (over_loaded_window) reference, 0.000); f16 ollama_ctx_16384: probe 30 task turns in 600 s (30 run), 10.97 s/task, accuracy 0.900, detector v2 flagged 0/30, loaded [16384], KV line K (f16) present; reference 120 task turns (seeds [20260902, 20260903, 20260904, 20260905]) 10.72 s/task, accuracy 0.867, overflow rate 0.167 (v1 projection (over_loaded_window)); seconds APE 2.3%, accuracy APE 3.8%; overflow not compared (v1 projection (over_loaded_window) reference, 0.167); f16 ollama_ctx_8192: probe 25 task turns in 600 s (25 run, stopped by the budget), 22.52 s/task, accuracy 0.600, detector v2 flagged 15/25, loaded [8192], KV line K (f16) present; reference 120 task turns (seeds [20260902, 20260903, 20260904, 20260905]) 24.10 s/task, accuracy 0.667, overflow rate 0.708 (v1 projection (over_loaded_window)); seconds APE 6.6%, accuracy APE 10.0%; overflow not compared (v1 projection (over_loaded_window) reference, 0.708); f16 ollama_ctx_4096: probe 30 task turns in 600 s (30 run), 16.63 s/task, accuracy 0.667, detector v2 flagged 29/30, loaded [4096], KV line K (f16) present; reference 120 task turns (seeds [20260902, 20260903, 20260904, 20260905]) 18.93 s/task, accuracy 0.558, overflow rate 0.983 (v1 projection (over_loaded_window)); seconds APE 12.2%, accuracy APE 19.4%; overflow not compared (v1 projection (over_loaded_window) reference, 0.983); q8_0 ollama_ctx_15360: probe 30 task turns in 600 s (30 run), 12.20 s/task, accuracy 0.900, detector v2 flagged 3/30, loaded [15360], KV line K (q8_0) present; reference 60 task turns (seeds [20260902, 20260903]) 9.53 s/task, accuracy 0.883, overflow rate 0.017 (v2); seconds APE 28.0%, accuracy APE 1.9%; overflow agree True; q4_0 ollama_ctx_28928: probe 30 task turns in 600 s (30 run), 14.49 s/task, accuracy 0.900, detector v2 flagged 0/30, loaded [28928], KV line K (q4_0) present; reference 60 task turns (seeds [20260902, 20260903]) 8.78 s/task, accuracy 0.867, overflow rate 0.000 (v2); seconds APE 65.0%, accuracy APE 3.8%; overflow agree True; scored configs 6/6: seconds per task median APE 9.4%, accuracy median APE 3.8% (secondary); overflow agreement (detector-v2 references) 2/2; pre-registered target seconds median APE < 10%: MET; own-profiler-loo (ratio prediction, 70.2%) stays as the recorded miss",
+  "n": "6 scored configs of 6",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_own_profiler_probe_v1.jsonl",
+   "results/x2_evalset_tasks_real_v2.jsonl"
+  ],
+  "script": "harness/x2_own_profiler_probe.py::score",
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "own-profiler-probe-hours": {
+  "id": "own-profiler-probe-hours",
+  "status": "VERIFIED",
+  "value": "ESTIMATE, not a measurement (harness/x2_own_profiler_probe.py::hours_estimate): per config session min(600 s, 30 x the tier's B3 v2 mean turn_wall_s) (q8_0 / q4_0: the 16384 tier's), high 600 s + the slowest single B3 v2 turn of the tier (q8_0 / q4_0: of any f16 tier), plus 60 s (ASSUMPTION; high 180 s, the harness's own server-ready timeouts) per config; ollama_default 0.11 h (high 0.22 h); ollama_ctx_16384 0.11 h (high 0.22 h); ollama_ctx_8192 0.18 h (high 0.23 h); ollama_ctx_4096 0.17 h (high 0.23 h); ollama_ctx_15360 0.11 h (high 0.23 h); ollama_ctx_28928 0.11 h (high 0.23 h); total 0.78 h (high 1.38 h); queue: appended after x2_own_config_probe_q4_28928 (projected end 10-26 17:53Z, high 10-27 09:46Z, row own-jobs-hours), projected 10-26 17:53Z to 10-26 18:40Z (high 10-27 09:46Z to 10-27 11:09Z); before the 2026-10-29 demo hold fallback start 10-29 15:00Z: yes (high case); not queued by this commit",
+  "n": "6 configs (estimate)",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_evalset_tasks_real_v2.jsonl",
+   "results/x2_r2_mitigation_v1.jsonl",
+   "results/x2_policy_compare.jsonl",
+   "results/x2_policy_compare.jsonl",
+   "results/x2_r2_real_v1.jsonl",
+   "results/x2_r2_real_v1b.jsonl",
+   "results/mx2_validation.jsonl",
+   "results/x2_r2_family_mistral_small32_real.jsonl",
+   "results/x2_evalset_tasks_val_v2.jsonl",
+   "results/x2_evalset_tasks_real_v2.jsonl",
+   "results/x2_r2_scale_validation.jsonl",
+   "results/x2_r2_scale_real.jsonl",
+   "results/x2_r2_validation_v2.jsonl",
+   "results/x2_evalset_tasks_val_v2.jsonl",
+   "results/x2_evalset_tasks_real_v2.jsonl"
+  ],
+  "script": "harness/x2_own_profiler_probe.py::hours_estimate",
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "own-rollback-analysis": {
+  "id": "own-rollback-analysis",
+  "status": "VERIFIED",
+  "value": "28 earlier_state_repair tasks of the full-history redo (claude-sonnet-5-5): pre-task rollback state (snapshots, failed turn undone) equals the redo's env_before in 28/28; failed local turns with state-changing calls undone 14/28 (14 calls); sessions with at least one earlier wrong task 28/28 (1 to 11 earlier wrong tasks); guardrail turns that changed state 0/28; redo end-state diff only on records the local model broke in earlier wrong tasks (env_before vs the clean pre-task state) 28/28; measured cost of these 28 in the full-history redo: billed (cache-priced) USD 0.6699 (mean 0.02393), all input uncached USD 2.6915",
+  "n": "28 tasks",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_evalset_tasks_real_v2.jsonl",
+   "results/cloud_redo_full_context_v1.jsonl",
+   "results/cloud_redo_full_context_v1_part2.jsonl",
+   "results/cloud_redo_full_context_v1_part3.jsonl"
+  ],
+  "script": "analysis/own_rollback.py::rollback_analysis",
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "own-rollback-redo": {
+  "id": "own-rollback-redo",
+  "status": "VERIFIED",
+  "value": "model claude-sonnet-5-5, rollback cascaded, thinking {'type': 'between_tools'}, max_tokens 2048, full client-side history; fixed 28/28 [87.9%, 100.0%] (target >= 25/28: met); cascaded rollback: every earlier wrong task turn rolled back and replaced by its reference calls (STAND-IN for a successful escalation; 144 earlier turns replaced over the 28 tasks), state differs from the pre-task state in 28/28; grader unchanged; USD billed (cache-priced) total 0.8926, all input uncached 2.3267; stopped: None",
+  "n": "28 tasks run of 28",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/own_rollback_redo_v1.jsonl"
+  ],
+  "script": "analysis/own_rollback.py::own_rollback_redo",
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "pack-trace-weighted-stats": {
   "id": "pack-trace-weighted-stats",
@@ -2401,8 +2987,25 @@
    "results/traces/agent_step_lengths.parquet"
   ],
   "script": "analysis/numbers_register.py::compute_pack_trace_weighted_stats",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "paper-percentage-counts": {
+  "id": "paper-percentage-counts",
+  "status": "VERIFIED",
+  "value": "R2-validation-v2-baseline llama3.1:8b: rule1 30/30, rule2 18/30, rule3 30/30, rule4 15/15, rule5 18/30; R2-validation-v2-baseline qwen3:14b: rule1 30/30, rule2 30/30, rule3 30/30, rule4 15/15, rule5 30/30; b5-policy-metrics evo-x2 llama3.1:8b: a rule 300/300 hist 23/24, b rule 300/300 hist 23/24, c rule 300/300 hist 23/24, d rule 300/300 hist 23/24, e rule 300/300 hist 23/24, f rule 300/300 hist 23/24, g rule 300/300 hist 23/24, h rule 300/300 hist 24/24; b5-policy-metrics evo-x2 qwen3:14b: a rule 540/540 hist 15/24, b rule 540/540 hist 15/24, c rule 540/540 hist 15/24, d rule 540/540 hist 15/24, e rule 540/540 hist 15/24, f rule 540/540 hist 15/24, g rule 540/540 hist 15/24, h rule 540/540 hist 15/24; R2-mitigation-v1-4096 llama3.1:8b mitigation: rule1 120/120, rule3 120/120, rule4 60/60; R2-mitigation-v1-4096 qwen3:14b mitigation: rule1 120/120, rule2 74/120, rule3 119/120, rule4 60/60, rule5 118/120; num-keep-guardrail-test llama3.1:8b: rule1 113/120, rule3 120/120, rule4 60/60",
+  "n": "7 cells",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_r2_validation_v2.jsonl",
+   "results/x2_policy_compare.jsonl",
+   "results/x2_r2_mitigation_v1.jsonl",
+   "results/x2_r2_real_v1.jsonl",
+   "results/x2_num_keep_guardrail_test.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_paper_percentage_counts",
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "pareto-frontier-x2": {
   "id": "pareto-frontier-x2",
@@ -2417,8 +3020,8 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "src/dse/pareto.py::frontier",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "pareto-sample-recommendation": {
   "id": "pareto-sample-recommendation",
@@ -2433,8 +3036,8 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "src/dse/pareto.py::recommend",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "pareto-sample-recommendation-v2": {
   "id": "pareto-sample-recommendation-v2",
@@ -2449,8 +3052,8 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_pareto_sample_recommendation_v2",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "qwen3-32b-timeout-count": {
   "id": "qwen3-32b-timeout-count",
@@ -2462,8 +3065,8 @@
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_qwen3_32b_timeout_count",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "qwen3-32b-truncation-vs-latency": {
   "id": "qwen3-32b-truncation-vs-latency",
@@ -2475,8 +3078,8 @@
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_qwen3_32b_truncation_vs_latency",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "qwen32b-refusal": {
   "id": "qwen32b-refusal",
@@ -2488,8 +3091,8 @@
    "results/t2s_night2_20260929T205109Z.jsonl"
   ],
   "script": "analysis/r1b_wrong_answer_audit.py::refusal_share_by_model",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "qwen4b-2507-metadata-consistency": {
   "id": "qwen4b-2507-metadata-consistency",
@@ -2501,8 +3104,8 @@
    "results/x2_template_mechanism_test.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_qwen4b_2507_metadata_consistency",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "r2-session-cloud-cost": {
   "id": "r2-session-cloud-cost",
@@ -2516,8 +3119,8 @@
    "results/cloud_prices_*.json"
   ],
   "script": "analysis/r2_session_cost.py::cost_str",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "r2-session-wallclock": {
   "id": "r2-session-wallclock",
@@ -2531,8 +3134,8 @@
    "results/cloud_prices_*.json"
   ],
   "script": "analysis/r2_session_cost.py::wallclock_str",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "reliability-after-guardrail-loss": {
   "id": "reliability-after-guardrail-loss",
@@ -2547,8 +3150,8 @@
    "results/x2_r2_real_v1b.jsonl"
   ],
   "script": "analysis/r2_info_loss.py::reliability_str",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "self-report-truncation-awareness": {
   "id": "self-report-truncation-awareness",
@@ -2561,14 +3164,14 @@
    "results/t2s_night2_20260929T205109Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_self_report_truncation_awareness",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "t2s-b5-plan-hours": {
   "id": "t2s-b5-plan-hours",
   "status": "VERIFIED",
-  "value": "evo-t2s window 2026-10-26 to 2026-11-08 ESTIMATE: available 335.0 h (2026-10-26T04:00:00+00:00 to no-launch 2026-11-09T04:00:00+00:00 minus an assumed 1.0 h start allowance); launch budget 311.0 h (24.0 h slack before no-launch); B5 policy sets per cell on evo-t2s (amendment 2026-10-22): llama3.1:8b cells a,b,c,d,e,f, qwen3:14b CPU cell a,c,d,e,f; B5 staged cells 210.5 h; in queue order: t2s_o26_preflight n/a h (no estimate); t2s_o26_window_override_methods 0.3 h (yes; ends 0.3 h, 334.7 h before no-launch); t2s_o26_b5_cpu_llama31_8b [policies a,b,c,d,e,f] 87.3 h (yes; ends 87.6 h, 247.4 h before no-launch; 17.1 h/seed, 5 of 5 seeds fit, cell counts yes (5 seeds)); t2s_o26_b5_igpu_llama31_8b [policies a,b,c,d,e,f] 85.9 h (yes; ends 173.5 h, 161.5 h before no-launch; 16.9 h/seed, 5 of 5 seeds fit, cell counts yes (5 seeds)); t2s_o26_b5_cpu_qwen3_14b [policies a,c,d,e,f] 37.3 h (yes; ends 210.8 h, 124.2 h before no-launch; 12.0 h/seed, 3 of 3 seeds fit, cell counts yes (first 3 seeds)); t2s_o26_b6_model_pull 1.0 h (yes; ends 211.8 h, 123.2 h before no-launch); t2s_o26_b6_val_cpu 34.6 h (yes; ends 246.4 h, 88.6 h before no-launch); t2s_o26_b6_val_igpu 17.3 h (yes; ends 263.7 h, 71.3 h before no-launch); B5 cells that count: t2s_o26_b5_cpu_llama31_8b, t2s_o26_b5_igpu_llama31_8b, t2s_o26_b5_cpu_qwen3_14b; qwen3:14b decision (amendments 2026-10-21 later and 2026-10-22): after A5 0.3 h and the llama3.1:8b cells at 5 seeds (evo-t2s-cpu llama3.1:8b 87.3 h, evo-t2s llama3.1:8b 85.9 h), 137.5 h are left of the 311.0 h launch budget; evo-t2s-cpu qwen3:14b at 3 seeds on policies a,c,d,e,f needs 37.3 h (12.0 h/seed): fits, staged after the llama3.1:8b cells; B6 not staged: t2s_o26_b6_real_cpu_4096 105.5 h (does not fit: 105.5 h from 263.7 h ends at 369.2 h, budget 311.0 h); t2s_o26_b6_real_igpu_default 299.0 h (does not fit: 299.0 h from 263.7 h ends at 562.7 h, budget 311.0 h); B6 bases: t2s_o26_b6_model_pull: nominal (not measured); t2s_o26_b6_val_cpu: ESTIMATE: evo-x2 x2_r2_scale_validation.jsonl minutes per model (qwen3:32b 41.5, llama3.3:70b 95.7) x factor 15.12 = largest evo-t2s/evo-x2 R2 session ratio at the same window (llama3.1:8b 14.78 at 4096, qwen3:14b 15.12 at 4096); t2s_o26_b6_val_igpu: ESTIMATE: evo-x2 x2_r2_scale_validation.jsonl minutes per model (qwen3:32b 41.5, llama3.3:70b 95.7) x factor 7.57 = largest evo-t2s/evo-x2 R2 session ratio at the same window (llama3.1:8b 7.57 at 32768, qwen3:14b 3.73 at 32768); B5 basis: minutes per session from MEASURED evo-t2s R2 sessions (t2s-r2-real-cpu, t2s-r2-real-igpu; CPU trim from t2s-r2-mitigation-cpu): (a), (d), (f) = the measured default-window session median (d's cloud-proxy steps not added); (c) = CPU: the measured trimming session median at 4096, iGPU: the default median x the evo-x2 trim factor; (b), (g), (h) at L = native context (ASSUMED; probed at run time) = the default median x the evo-x2 ratio of session minutes at L over the default window (x2_r2_real_v1/v1b); (e): skipped on the CPU (no GPU), alias of (b) on the iGPU (G = L assumed), or its own sessions at G = L when (b) is not in the set; only the platform's policy set is counted (evo-t2s: a, b, c, d, e, f, amendments 2026-10-21); recall and window probes as in estimate_platform, only for the server envs the set needs",
-  "n": "8 entries",
+  "value": "evo-t2s window 2026-10-26 to 2026-11-08 ESTIMATE: available 335.0 h (2026-10-26T04:00:00+00:00 to no-launch 2026-11-09T04:00:00+00:00 minus an assumed 1.0 h start allowance); launch budget 311.0 h (24.0 h slack before no-launch); B5 policy sets per cell on evo-t2s (amendment 2026-10-22): llama3.1:8b cells a,b,c,d,e,f, qwen3:14b CPU cell a,c,d,e,f; B5 staged cells 210.5 h; in queue order: t2s_o26_preflight n/a h (no estimate); t2s_o26_window_override_methods 0.3 h (yes; ends 0.3 h, 334.7 h before no-launch); t2s_o26_b3_val_cpu 7.1 h (yes; ends 7.4 h, 327.6 h before no-launch); t2s_o26_b3_real_cpu 7.0 h (yes; ends 14.4 h, 320.6 h before no-launch); t2s_o26_b3_val_igpu 1.7 h (yes; ends 16.1 h, 318.9 h before no-launch); t2s_o26_b3_real_igpu 1.0 h (yes; ends 17.1 h, 317.9 h before no-launch); t2s_o26_b5_cpu_llama31_8b [policies a,b,c,d,e,f] 87.3 h (yes; ends 104.4 h, 230.6 h before no-launch; 17.1 h/seed, 5 of 5 seeds fit, cell counts yes (5 seeds)); t2s_o26_b5_igpu_llama31_8b [policies a,b,c,d,e,f] 85.9 h (yes; ends 190.3 h, 144.7 h before no-launch; 16.9 h/seed, 5 of 5 seeds fit, cell counts yes (5 seeds)); t2s_o26_b5_cpu_qwen3_14b [policies a,c,d,e,f] 37.3 h (yes; ends 227.6 h, 107.4 h before no-launch; 12.0 h/seed, 3 of 3 seeds fit, cell counts yes (first 3 seeds)); t2s_o26_b6_model_pull 1.0 h (yes; ends 228.6 h, 106.4 h before no-launch); t2s_o26_b6_val_cpu 34.6 h (yes; ends 263.2 h, 71.8 h before no-launch); t2s_o26_b6_val_igpu 17.3 h (yes; ends 280.5 h, 54.5 h before no-launch); B5 cells that count: t2s_o26_b5_cpu_llama31_8b, t2s_o26_b5_igpu_llama31_8b, t2s_o26_b5_cpu_qwen3_14b; qwen3:14b decision (amendments 2026-10-21 later and 2026-10-22): after A5 0.3 h, the B3 v2 task entries 16.8 h and the llama3.1:8b cells at 5 seeds (evo-t2s-cpu llama3.1:8b 87.3 h, evo-t2s llama3.1:8b 85.9 h), 120.7 h are left of the 311.0 h launch budget; evo-t2s-cpu qwen3:14b at 3 seeds on policies a,c,d,e,f needs 37.3 h (12.0 h/seed): fits, staged after the llama3.1:8b cells; B6 not staged: t2s_o26_b6_real_cpu_4096 105.5 h (does not fit: 105.5 h from 280.5 h ends at 386.0 h, budget 311.0 h); t2s_o26_b6_real_igpu_default 299.0 h (does not fit: 299.0 h from 280.5 h ends at 579.5 h, budget 311.0 h); B6 bases: t2s_o26_b6_model_pull: nominal (not measured); t2s_o26_b6_val_cpu: ESTIMATE: evo-x2 x2_r2_scale_validation.jsonl minutes per model (qwen3:32b 41.5, llama3.3:70b 95.7) x factor 15.12 = largest evo-t2s/evo-x2 R2 session ratio at the same window (llama3.1:8b 14.78 at 4096, qwen3:14b 15.12 at 4096); t2s_o26_b6_val_igpu: ESTIMATE: evo-x2 x2_r2_scale_validation.jsonl minutes per model (qwen3:32b 41.5, llama3.3:70b 95.7) x factor 7.57 = largest evo-t2s/evo-x2 R2 session ratio at the same window (llama3.1:8b 7.57 at 32768, qwen3:14b 3.73 at 32768); B5 basis: minutes per session from MEASURED evo-t2s R2 sessions (t2s-r2-real-cpu, t2s-r2-real-igpu; CPU trim from t2s-r2-mitigation-cpu): (a), (d), (f) = the measured default-window session median (d's cloud-proxy steps not added); (c) = CPU: the measured trimming session median at 4096, iGPU: the default median x the evo-x2 trim factor; (b), (g), (h) at L = native context (ASSUMED; probed at run time) = the default median x the evo-x2 ratio of session minutes at L over the default window (x2_r2_real_v1/v1b); (e): skipped on the CPU (no GPU), alias of (b) on the iGPU (G = L assumed), or its own sessions at G = L when (b) is not in the set; only the platform's policy set is counted (evo-t2s: a, b, c, d, e, f, amendments 2026-10-21); recall and window probes as in estimate_platform, only for the server envs the set needs",
+  "n": "12 entries",
   "reported": "(none previously reported)",
   "files": [
    "results/t2s_r2_real_cpu_v1.jsonl",
@@ -2582,8 +3185,8 @@
    "queues/t2s_oct26_queue.json"
   ],
   "script": "scripts/t2s_window_stage.py::plan",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "t2s-config-comparison": {
   "id": "t2s-config-comparison",
@@ -2607,8 +3210,56 @@
    "results/x2_policy_compare_fa_control.jsonl"
   ],
   "script": "analysis/impact_model.py::t2s_config_comparison",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "t2s-evalset-tasks-cpu": {
+  "id": "t2s-evalset-tasks-cpu",
+  "status": "PENDING",
+  "value": "not computed: data file(s) not synced yet: results/t2s_evalset_tasks_val_v2_cpu.jsonl, results/t2s_evalset_tasks_real_v2_cpu.jsonl",
+  "n": "n/a",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/t2s_evalset_tasks_val_v2_cpu.jsonl",
+   "results/t2s_evalset_tasks_real_v2_cpu.jsonl",
+   "results/x2_evalset_tasks_real_v2.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_t2s_evalset_tasks",
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "t2s-evalset-tasks-hours": {
+  "id": "t2s-evalset-tasks-hours",
+  "status": "VERIFIED",
+  "value": "ESTIMATE; t2s_o26_b3_val_cpu 7.1 h (high 14.6 h; ESTIMATE: evo-x2 x2_evalset_tasks_val_v2.jsonl qwen3:14b sessions (negative control 15.6 min over 3, positive control 12.5 min) x qwen3:14b evo-t2s/evo-x2 R2 session ratio 15.12 at 4096 (row t2s-r2-session-minutes over the evo-x2 R2 median); high = slowest x largest ratio 15.12 x 2.0 ASSUMED for the 40960-window negative control on the CPU); t2s_o26_b3_real_cpu 7.0 h (high 7.7 h; ESTIMATE: 3 sessions x evo-x2 x2_evalset_tasks_real_v2.jsonl qwen3:14b ollama_ctx_4096 session (mean 9.3 min, slowest 10.2 min, 5 sessions) x qwen3:14b evo-t2s/evo-x2 R2 session ratio 15.12 at 4096 (row t2s-r2-session-minutes over the evo-x2 R2 median); high = slowest x largest ratio 15.12; runs only if the strict preflight admits qwen3:14b (a refusal takes minutes)); t2s_o26_b3_val_igpu 1.7 h (high 3.7 h; ESTIMATE: evo-x2 x2_evalset_tasks_val_v2.jsonl qwen3:14b sessions (negative control 15.6 min over 3, positive control 12.5 min) x qwen3:14b evo-t2s/evo-x2 R2 session ratio 3.73 at 32768 (row t2s-r2-session-minutes over the evo-x2 R2 median); high = slowest x largest ratio 7.57); t2s_o26_b3_real_igpu 1.0 h (high 2.1 h; ESTIMATE: 3 sessions x evo-x2 x2_evalset_tasks_real_v2.jsonl qwen3:14b ollama_default session (mean 5.3 min, slowest 5.6 min, 5 sessions) x qwen3:14b evo-t2s/evo-x2 R2 session ratio 3.73 at 32768 (row t2s-r2-session-minutes over the evo-x2 R2 median); high = slowest x largest ratio 7.57; runs only if the strict preflight admits qwen3:14b (a refusal takes minutes)); total 16.8 h (high 28.1 h)",
+  "n": "4 entries (estimate)",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/t2s_r2_real_cpu_v1.jsonl",
+   "results/t2s_r2_real_igpu_v1.jsonl",
+   "results/x2_r2_real_v1.jsonl",
+   "results/x2_r2_real_v1b.jsonl",
+   "results/x2_evalset_tasks_val_v2.jsonl",
+   "results/x2_evalset_tasks_real_v2.jsonl"
+  ],
+  "script": "scripts/t2s_window_stage.py::b3_estimates",
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "t2s-evalset-tasks-igpu": {
+  "id": "t2s-evalset-tasks-igpu",
+  "status": "PENDING",
+  "value": "not computed: data file(s) not synced yet: results/t2s_evalset_tasks_val_v2_igpu.jsonl, results/t2s_evalset_tasks_real_v2_igpu.jsonl",
+  "n": "n/a",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/t2s_evalset_tasks_val_v2_igpu.jsonl",
+   "results/t2s_evalset_tasks_real_v2_igpu.jsonl",
+   "results/x2_evalset_tasks_real_v2.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_t2s_evalset_tasks",
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "t2s-llamaserver-load-failures": {
   "id": "t2s-llamaserver-load-failures",
@@ -2633,8 +3284,8 @@
    "results/t2s_outcome_table_full.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_t2s_allocation_failures",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "t2s-outcome-error-causes": {
   "id": "t2s-outcome-error-causes",
@@ -2646,8 +3297,8 @@
    "results/t2s_outcome_table_full.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_t2s_outcome_error_causes",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "t2s-outcome-gsm8k-rescore": {
   "id": "t2s-outcome-gsm8k-rescore",
@@ -2660,21 +3311,21 @@
    "results/t2s_outcome_table_smoke.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_t2s_outcome_gsm8k_rescore",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "t2s-r2-mechanism-cpu": {
   "id": "t2s-r2-mechanism-cpu",
-  "status": "VERIFIED",
-  "value": "38/40 turns completed, session closed False, last turn at 2026-10-19T03:20Z; loaded window ['4096']; 36 turns over the loaded window; 9 render-only prompt checks; no session summary, so the mechanism verdict is not computed",
-  "n": "38 turns",
+  "status": "PENDING",
+  "value": "not computed: partial: no run_end in results/t2s_r2_mechanism_cpu_v1.jsonl",
+  "n": "n/a",
   "reported": "(none previously reported)",
   "files": [
    "results/t2s_r2_mechanism_cpu_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_t2s_r2_mechanism_cpu",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "t2s-r2-mitigation-cpu": {
   "id": "t2s-r2-mitigation-cpu",
@@ -2687,8 +3338,8 @@
    "results/t2s_r2_validation_cpu_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_t2s_r2_mitigation_cpu",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "t2s-r2-real-cpu": {
   "id": "t2s-r2-real-cpu",
@@ -2701,8 +3352,8 @@
    "results/t2s_r2_validation_cpu_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_t2s_r2_real",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "t2s-r2-real-igpu": {
   "id": "t2s-r2-real-igpu",
@@ -2715,8 +3366,8 @@
    "results/t2s_r2_validation_igpu_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_t2s_r2_real",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "t2s-r2-session-minutes": {
   "id": "t2s-r2-session-minutes",
@@ -2730,8 +3381,8 @@
    "results/t2s_r2_mitigation_cpu_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_t2s_r2_session_minutes",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "t2s-r2-val-llama-diagnosis": {
   "id": "t2s-r2-val-llama-diagnosis",
@@ -2744,8 +3395,8 @@
    "results/t2s_r2_validation_igpu_v1.jsonl"
   ],
   "script": "analysis/t2s_llama_val_diagnosis.py::register_value",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "t2s-r2-validation-cpu": {
   "id": "t2s-r2-validation-cpu",
@@ -2757,8 +3408,8 @@
    "results/t2s_r2_validation_cpu_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_t2s_r2_validation",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "t2s-r2-validation-igpu": {
   "id": "t2s-r2-validation-igpu",
@@ -2770,8 +3421,25 @@
    "results/t2s_r2_validation_igpu_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_t2s_r2_validation",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "task-latency-by-policy": {
+  "id": "task-latency-by-policy",
+  "status": "VERIFIED",
+  "value": "measured by replay of recorded runs: wall-clock seconds per task (median, p90; statistics.quantiles inclusive), B3 v2 tasks, seeds 20260901, 20260902, 20260903; all-cloud (all_cloud_b3_v1 seconds): claude-haiku-5-5 median 2.50 s, p90 3.84 s (n=90); claude-sonnet-5-5 median 4.59 s, p90 6.27 s (n=90); local qwen3:14b on evo-x2 (x2_evalset_tasks_real_v2 turn_wall_s, first turn includes model load): ollama_default median 9.67 s, p90 14.55 s (n=90); ollama_ctx_16384 median 10.02 s, p90 14.48 s (n=90); ollama_ctx_8192 median 27.27 s, p90 41.78 s (n=90); ollama_ctx_4096 median 16.79 s, p90 26.81 s (n=90); ollama_ctx_4096_numkeep median 11.08 s, p90 16.13 s (n=90); hybrid per-task route-at-start plus window flag (hybrid-route-at-start-measured; local tasks local time, routed tasks all-cloud seconds, escalated tasks local time + redo seconds, Haiku escalation interim at its all-cloud seconds): ollama_ctx_8192 vs claude-haiku-5-5 median 2.66 s, p90 10.24 s (n=90); ollama_ctx_8192 vs claude-sonnet-5-5 median 4.84 s, p90 11.45 s (n=90); ollama_ctx_4096 vs claude-haiku-5-5 median 2.50 s, p90 3.84 s (n=90); ollama_ctx_4096 vs claude-sonnet-5-5 median 4.59 s, p90 6.27 s (n=90); long-task runs: PENDING (no results/long_task_*.jsonl on main)",
+  "n": "11 policy cells",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_evalset_tasks_real_v2.jsonl",
+   "results/all_cloud_b3_v1.jsonl",
+   "results/cloud_redo_full_context_v1.jsonl",
+   "results/cloud_redo_full_context_v1_part2.jsonl",
+   "results/cloud_redo_full_context_v1_part3.jsonl"
+  ],
+  "script": "analysis/impact_model.py::task_latency_by_policy",
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "trace-32k-crossing": {
   "id": "trace-32k-crossing",
@@ -2783,8 +3451,8 @@
    "results/traces/agent_step_lengths.parquet"
   ],
   "script": "analysis/numbers_register.py::compute_trace_cdf_crossing_fractions",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "trace-context-exit-rate": {
   "id": "trace-context-exit-rate",
@@ -2796,8 +3464,8 @@
    "results/traces/exit_status_sample.parquet"
   ],
   "script": "analysis/numbers_register.py::compute_trace_context_exit_rate",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "trace-fraction-exceeds-4096": {
   "id": "trace-fraction-exceeds-4096",
@@ -2809,8 +3477,8 @@
    "results/traces/agent_step_lengths.parquet"
   ],
   "script": "analysis/numbers_register.py::compute_trace_fraction_exceeds_4096",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "ttft-cross-machine-transfer": {
   "id": "ttft-cross-machine-transfer",
@@ -2841,8 +3509,8 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_cross_machine_transfer",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "ttft-few-point-calibration": {
   "id": "ttft-few-point-calibration",
@@ -2873,8 +3541,8 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_few_point_calibration",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "ttft-first-call-stall": {
   "id": "ttft-first-call-stall",
@@ -2891,8 +3559,8 @@
    "results/t2s_night2_20260929T202603Z_srv_R1*_start.txt"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_first_call_stall",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "ttft-first-call-stall-per-cell": {
   "id": "ttft-first-call-stall-per-cell",
@@ -2909,8 +3577,8 @@
    "results/t2s_night2_20260929T202603Z_srv_R1*_start.txt"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_first_call_stall_per_cell",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "ttft-physical-fit-per-machine": {
   "id": "ttft-physical-fit-per-machine",
@@ -2941,8 +3609,8 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_physical_fit_per_machine",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "ttft-t2s-restricted-to-x2-range": {
   "id": "ttft-t2s-restricted-to-x2-range",
@@ -2973,8 +3641,8 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_t2s_restricted_to_x2_range",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "ttft-x2-length-spread": {
   "id": "ttft-x2-length-spread",
@@ -3005,8 +3673,8 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_x2_length_spread",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "ttft-x2-refit-by-hypothesis": {
   "id": "ttft-x2-refit-by-hypothesis",
@@ -3037,8 +3705,8 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_x2_refit_by_hypothesis",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "ttft-x2-refit-per-model": {
   "id": "ttft-x2-refit-per-model",
@@ -3069,8 +3737,8 @@
    "results/t2s_overnight_20260929T071343Z.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_x2_refit_per_model",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "ttft-x2-section0-stall-check": {
   "id": "ttft-x2-section0-stall-check",
@@ -3102,8 +3770,8 @@
    "results/t2s_night2_20260929T205109Z_srv_R1*_start.txt"
   ],
   "script": "analysis/numbers_register.py::compute_ttft_x2_section0_stall_check",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "uncensored-trace-32k-crossing": {
   "id": "uncensored-trace-32k-crossing",
@@ -3115,8 +3783,8 @@
    "results/traces/agent_step_lengths.parquet"
   ],
   "script": "analysis/numbers_register.py::compute_uncensored_trace_32k_crossing",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "window-override-methods": {
   "id": "window-override-methods",
@@ -3128,8 +3796,8 @@
    "results/x2_window_override_methods_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_window_override_methods",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-chat-template-source": {
   "id": "x2-chat-template-source",
@@ -3142,8 +3810,8 @@
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_chat_template_source",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-device-detect-mechanism": {
   "id": "x2-device-detect-mechanism",
@@ -3155,8 +3823,8 @@
    "results/x2_template_mechanism_test.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_device_detect_mechanism",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-evalset-tasks-real-silent": {
   "id": "x2-evalset-tasks-real-silent",
@@ -3169,8 +3837,8 @@
    "results/x2_evalset_tasks_val_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_evalset_tasks_real_silent",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-evalset-tasks-real-v2-ci-units": {
   "id": "x2-evalset-tasks-real-v2-ci-units",
@@ -3182,8 +3850,8 @@
    "results/x2_evalset_tasks_real_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_evalset_tasks_real_v2_ci_units",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-evalset-tasks-real-v2-gated-excess": {
   "id": "x2-evalset-tasks-real-v2-gated-excess",
@@ -3200,8 +3868,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_evalset_tasks_real_v2_gated_excess",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-evalset-tasks-real-v2-hours": {
   "id": "x2-evalset-tasks-real-v2-hours",
@@ -3213,14 +3881,29 @@
    "results/x2_evalset_tasks_val_v2.jsonl"
   ],
   "script": "harness/x2_r2_evalset.py::tasks_v2_hours_estimate",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "x2-evalset-tasks-real-v2-llama33-70b-route": {
+  "id": "x2-evalset-tasks-real-v2-llama33-70b-route",
+  "status": "VERIFIED",
+  "value": "run finished False; llama3.3:70b: refused (llama3.3:70b: negative control failed (canary misses 4 at num_ctx 131072); llama3.3:70b: task tool called correctly on 53/81 baseline turns (< 90%, task-tool gate); llama3.3:70b: task end-state gate failed (58/90 < 90%); llama3.3:70b: strict preflight, gates not passed: ['baseline', 'negative_control', 'task_tool', 'task_end_state']); no larger local option measured",
+  "n": "0 task turns",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_evalset_tasks_real_v2_llama33_70b.jsonl",
+   "results/all_cloud_b3_v1.jsonl",
+   "results/x2_evalset_tasks_real_v2.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_x2_evalset_tasks_real_v2_l70_route",
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-evalset-tasks-real-v2-mistral-small32-gated-excess": {
   "id": "x2-evalset-tasks-real-v2-mistral-small32-gated-excess",
-  "status": "PENDING",
-  "value": "not computed: data file(s) not synced yet: results/x2_evalset_tasks_real_v2_mistral_small32.jsonl, results/x2_evalset_tasks_val_v2_mistral_small32.jsonl",
-  "n": "n/a",
+  "status": "VERIFIED",
+  "value": "mistral-small3.2:24b: valid False (); gated fields  (excluded none) (bootstrap None resamples, unit None, stratified by None, seed None); mistral protocol readings (R2 4096 0/3 gated, no R2 default tier):",
+  "n": "0 sessions",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_evalset_tasks_real_v2_mistral_small32.jsonl",
@@ -3231,21 +3914,21 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_evalset_tasks_real_v2_ms_gated_excess",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-evalset-tasks-real-v2-mistral-small32-wrong-rate": {
   "id": "x2-evalset-tasks-real-v2-mistral-small32-wrong-rate",
-  "status": "PENDING",
-  "value": "not computed: data file(s) not synced yet: results/x2_evalset_tasks_real_v2_mistral_small32.jsonl",
-  "n": "n/a",
+  "status": "VERIFIED",
+  "value": "run finished False; mistral-small3.2:24b: refused (mistral-small3.2:24b: negative control failed (canary misses 16 at num_ctx 131072); mistral-small3.2:24b: task tool called correctly on 30/81 baseline turns (< 90%, task-tool gate); mistral-small3.2:24b: task end-state gate failed (33/90 < 90%); mistral-small3.2:24b: strict preflight, gates not passed: ['baseline', 'negative_control', 'task_tool', 'task_end_state']) (bootstrap 10000 resamples, unit session, stratified by tier, seed 20261014)",
+  "n": "0 task turns",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_evalset_tasks_real_v2_mistral_small32.jsonl"
   ],
   "script": "harness/x2_r2_evalset.py::tasks_real_v2_outcome",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-evalset-tasks-real-v2-qwen3-8b-gated-excess": {
   "id": "x2-evalset-tasks-real-v2-qwen3-8b-gated-excess",
@@ -3262,8 +3945,8 @@
    "results/x2_r2_validation_v2b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_evalset_tasks_real_v2_gated_excess",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-evalset-tasks-real-v2-qwen3-8b-wrong-rate": {
   "id": "x2-evalset-tasks-real-v2-qwen3-8b-wrong-rate",
@@ -3275,8 +3958,21 @@
    "results/x2_evalset_tasks_real_v2_qwen3_8b.jsonl"
   ],
   "script": "harness/x2_r2_evalset.py::tasks_real_v2_outcome",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "x2-evalset-tasks-real-v2-silent-total": {
+  "id": "x2-evalset-tasks-real-v2-silent-total",
+  "status": "VERIFIED",
+  "value": "B3 v2 real run, qwen3:14b, 25 sessions (5 tiers x 5 seeds, 30 task turns each): wrong local task turns 197 (per tier ollama_ctx_16384 19, ollama_ctx_4096 63, ollama_ctx_4096_numkeep 45, ollama_ctx_8192 53, ollama_default 17); surfaced an HTTP error or error field on any call 0/197 (0.0%), silent 197/197 (100.0%); task-level 95% Wilson CI for the surfaced share [0.0%, 1.9%] (unit task turn; the turns are nested in 25 sessions, so not independent); session-level bootstrap [0.0%, 0.0%] (25 sessions, stratified by tier, 10000 resamples, seed 20261014; 0/n has no bootstrap variance); 'surfaced' is what the client sees (HTTP status or error field in the reply), not the Ollama server log",
+  "n": "197 wrong task turns in 25 sessions",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_evalset_tasks_real_v2.jsonl"
+  ],
+  "script": "analysis/session_ci.py::surfaced_split",
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-evalset-tasks-real-v2-wrong-rate": {
   "id": "x2-evalset-tasks-real-v2-wrong-rate",
@@ -3288,8 +3984,8 @@
    "results/x2_evalset_tasks_real_v2.jsonl"
   ],
   "script": "harness/x2_r2_evalset.py::tasks_real_v2_outcome",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-evalset-tasks-real-wrong-rate": {
   "id": "x2-evalset-tasks-real-wrong-rate",
@@ -3302,8 +3998,8 @@
    "results/x2_evalset_tasks_val_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_evalset_tasks_real_wrong_rate",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-evalset-tasks-val-gates": {
   "id": "x2-evalset-tasks-val-gates",
@@ -3315,21 +4011,34 @@
    "results/x2_evalset_tasks_val_v1.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_evalset_tasks_val_gates",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "x2-evalset-tasks-val-v2-llama33-70b-gates": {
+  "id": "x2-evalset-tasks-val-v2-llama33-70b-gates",
+  "status": "VERIFIED",
+  "value": "tasks llama3.3:70b (run finished True, design v2): baseline FAIL (rule1 0.856 of 90, rule2 0.622 of 90, rule3 1.000 of 90, rule4 1.000 of 3, rule5 0.856 of 90; failing ['rule1_json_keys', 'rule2_log_event_called', 'rule5_session_code']); negative control FAIL (canary misses 4 of 36 canaries, 18 checks, 3 sessions, loaded [131072]); positive control pass (truncation detected turns [10], first over window [9], loaded [8192]); content non-empty pass (empty finals 0); thinking off pass (thinking calls 0); task tool FAIL 53/81 (0.654); rules 6-8 not applicable (guardrails off); negative-control window pass (0/90 turns over the loaded window, max final prompt 24882); task end state FAIL 58/90 (64.4%, bar 90%); failing gates: baseline, negative_control, task_tool, task_end_state; strict preflight (v2_strict): refuses (llama3.3:70b: negative control failed (canary misses 4 at num_ctx 131072); llama3.3:70b: task tool called correctly on 53/81 baseline turns (< 90%, task-tool gate); llama3.3:70b: task end-state gate failed (58/90 < 90%); llama3.3:70b: strict preflight, gates not passed: ['baseline', 'negative_control', 'task_tool', 'task_end_state'])",
+  "n": "120 turns",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_evalset_tasks_val_v2_llama33_70b.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_x2_evalset_tasks_val_v2_l70_gates",
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-evalset-tasks-val-v2-mistral-small32-gates": {
   "id": "x2-evalset-tasks-val-v2-mistral-small32-gates",
-  "status": "PENDING",
-  "value": "not computed: data file(s) not synced yet: results/x2_evalset_tasks_val_v2_mistral_small32.jsonl",
-  "n": "n/a",
+  "status": "VERIFIED",
+  "value": "tasks mistral-small3.2:24b (run finished True, design v2): baseline FAIL (rule1 0.489 of 90, rule2 0.956 of 90, rule3 1.000 of 90, rule4 1.000 of 3, rule5 0.489 of 90; failing ['rule1_json_keys', 'rule5_session_code']); negative control FAIL (canary misses 16 of 36 canaries, 18 checks, 3 sessions, loaded [131072]); positive control pass (truncation detected turns [10], first over window [10], loaded [8192]); content non-empty pass (empty finals 0); thinking off pass (thinking calls 0); task tool FAIL 30/81 (0.370); rules 6-8 not applicable (guardrails off); negative-control window pass (0/90 turns over the loaded window, max final prompt 31381); task end state FAIL 33/90 (36.7%, bar 90%); failing gates: baseline, negative_control, task_tool, task_end_state; strict preflight (v2_strict): refuses (mistral-small3.2:24b: negative control failed (canary misses 16 at num_ctx 131072); mistral-small3.2:24b: task tool called correctly on 30/81 baseline turns (< 90%, task-tool gate); mistral-small3.2:24b: task end-state gate failed (33/90 < 90%); mistral-small3.2:24b: strict preflight, gates not passed: ['baseline', 'negative_control', 'task_tool', 'task_end_state'])",
+  "n": "120 turns",
   "reported": "(none previously reported)",
   "files": [
    "results/x2_evalset_tasks_val_v2_mistral_small32.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_evalset_tasks_val_v2_ms_gates",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-evalset-tasks-val-v2-qwen3-8b-gates": {
   "id": "x2-evalset-tasks-val-v2-qwen3-8b-gates",
@@ -3341,8 +4050,8 @@
    "results/x2_evalset_tasks_val_v2_qwen3_8b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_evalset_tasks_val_v2_q8_gates",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-evalset-val-v1-call-times": {
   "id": "x2-evalset-val-v1-call-times",
@@ -3355,8 +4064,8 @@
    "results/x2_evalset_guard_val_v1.jsonl"
   ],
   "script": "analysis/evalset_val_diagnosis.py::call_time_buckets",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-evalset-val-v1-diagnosis": {
   "id": "x2-evalset-val-v1-diagnosis",
@@ -3369,8 +4078,8 @@
    "results/x2_evalset_guard_val_v1.jsonl"
   ],
   "script": "analysis/evalset_val_diagnosis.py::register_value",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-evalset-val-v1-gates": {
   "id": "x2-evalset-val-v1-gates",
@@ -3383,8 +4092,8 @@
    "results/x2_evalset_guard_val_v1.jsonl"
   ],
   "script": "harness/x2_r2_evalset.py::evaluate_gates_ext",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-evalset-val-v2-gates": {
   "id": "x2-evalset-val-v2-gates",
@@ -3398,8 +4107,8 @@
    "results/x2_evalset_replay_val_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_evalset_val_v2_gates",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-evalset-val-v2-task-end-state": {
   "id": "x2-evalset-val-v2-task-end-state",
@@ -3413,8 +4122,8 @@
    "results/x2_evalset_replay_val_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_evalset_val_v2_task_end_state",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-family-smoke": {
   "id": "x2-family-smoke",
@@ -3426,8 +4135,8 @@
    "results/x2_family_smoke_mistral_small32.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_family_smoke",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-family-validation": {
   "id": "x2-family-validation",
@@ -3439,8 +4148,32 @@
    "results/x2_r2_family_mistral_small32_validation.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_family_validation",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "x2-llama33-70b-b3v2-hours": {
+  "id": "x2-llama33-70b-b3v2-hours",
+  "status": "VERIFIED",
+  "value": "ESTIMATE; queue ahead from x2_b5_simcap_8192 start 10-22 16:31Z (10-22 09:31 PT), register row x2-queue-fill-1022-hours estimates: x2_b5_simcap_8192 33.08 h (high 33.90), x2_b5_simcap_4096 26.11 h (high 27.25), x2_r2_v1b_seeds_06_10 30.44 h (high 32.60), x2_mx2_qwen3_32b_spill_sweep 0.36 h (high 1.03), x2_evalset_tasks_val_v2_mistral_small32 0.35 h (high 0.54), x2_evalset_tasks_real_v2_mistral_small32 3.01 h (high 3.66); x2_evalset_tasks_val_v2_llama33_70b ESTIMATE 1.76 h (high 2.07 h; qwen3:14b v2 tasks validation (negative control 15.6 min over 3 sessions, positive control 12.5 min) x llama3.3:70b/qwen3:14b ratio of the same R2 validation arm (negative 3.66, positive 3.91); high = x 4.43 throughout); projected 10-26 13:52Z (10-26 06:52 PT) to 10-26 15:38Z (10-26 08:38 PT) (high case 10-26 19:30Z (10-26 12:30 PT) to 10-26 21:34Z (10-26 14:34 PT)); x2_evalset_tasks_real_v2_llama33_70b ESTIMATE 0.97 h (high 1.25 h; 3 default-window sessions x qwen3:14b x2_evalset_tasks_real_v2 ollama_default session (mean 5.3 min, slowest 5.6 min, 5 sessions) x the negative-control ratio 3.66 (high: slowest x 4.43); runs only if the validation passes every gate (a refusal takes minutes)); projected 10-26 15:38Z (10-26 08:38 PT) to 10-26 16:37Z (10-26 09:37 PT) (high case 10-26 21:34Z (10-26 14:34 PT) to 10-26 22:49Z (10-26 15:49 PT)); llama3.3:70b jobs end 10-26 16:37Z (10-26 09:37 PT) (high case 10-26 22:49Z (10-26 15:49 PT)); with up to one 2 h results-sync interval, registered by 10-26 18:37Z (10-26 11:37 PT) (high case 10-27 00:49Z (10-26 17:49 PT)); cutoff 10-27 19:00Z (10-27 12:00 PT): met (high case met), margin 24.4 h (high case 18.2 h); drawn from the 150 h reserve: 2.74 h (high 3.32 h); R2 session ratios llama3.3:70b/qwen3:14b: R2 validation negative control 131072 3.66, R2 validation positive control 8192 3.91, R2 real 4096 4.43, R2 real 32768 3.02",
+  "n": "2 jobs (estimate)",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_policy_compare.jsonl",
+   "results/x2_r2_real_v1.jsonl",
+   "results/x2_r2_real_v1b.jsonl",
+   "results/mx2_validation.jsonl",
+   "results/x2_r2_family_mistral_small32_real.jsonl",
+   "results/x2_evalset_tasks_val_v2.jsonl",
+   "results/x2_evalset_tasks_real_v2.jsonl",
+   "results/x2_r2_scale_validation.jsonl",
+   "results/x2_r2_scale_real.jsonl",
+   "results/x2_r2_validation_v2.jsonl",
+   "results/x2_evalset_tasks_val_v2.jsonl",
+   "results/x2_evalset_tasks_real_v2.jsonl"
+  ],
+  "script": "analysis/numbers_register.py::compute_x2_llama33_70b_b3v2_hours",
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-model-pulls-scale": {
   "id": "x2-model-pulls-scale",
@@ -3452,8 +4185,8 @@
    "results/x2_model_pulls_scale.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_model_pulls_scale",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-queue-fill-1020-hours": {
   "id": "x2-queue-fill-1020-hours",
@@ -3469,8 +4202,8 @@
    "results/x2_r2_real_v1b.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_queue_fill_1020_hours",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-queue-fill-1022-hours": {
   "id": "x2-queue-fill-1022-hours",
@@ -3488,8 +4221,8 @@
    "results/x2_evalset_tasks_real_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_queue_fill_1022_hours",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-r2-llama-val-32k": {
   "id": "x2-r2-llama-val-32k",
@@ -3501,8 +4234,8 @@
    "results/x2_r2_llama_val_32k.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_r2_llama_val_32k",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-r2-llama-val-32k-offload": {
   "id": "x2-r2-llama-val-32k-offload",
@@ -3514,8 +4247,8 @@
    "results/x2_r2_llama_val_32k_offload.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_r2_llama_val_32k_offload",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-r2-llama-val-32k-vulkan": {
   "id": "x2-r2-llama-val-32k-vulkan",
@@ -3527,8 +4260,8 @@
    "results/x2_r2_llama_val_32k_vulkan.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_r2_llama_val_32k_vulkan",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-r2-llama-val-32k-vulkan-hours": {
   "id": "x2-r2-llama-val-32k-vulkan-hours",
@@ -3540,8 +4273,8 @@
    "results/x2_r2_llama_val_32k.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_r2_llama_val_32k_vulkan_hours",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-scale-probe-hours": {
   "id": "x2-scale-probe-hours",
@@ -3556,8 +4289,8 @@
    "results/x2_r2_validation_v2.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_scale_probe_hours",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-scale-real-default-tier": {
   "id": "x2-scale-real-default-tier",
@@ -3569,8 +4302,8 @@
    "results/x2_r2_scale_real.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_scale_real_default_tier",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-scale-validation": {
   "id": "x2-scale-validation",
@@ -3582,8 +4315,8 @@
    "results/x2_r2_scale_validation.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_scale_validation",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-thinking-verify": {
   "id": "x2-thinking-verify",
@@ -3595,8 +4328,8 @@
    "results/x2_thinking_verify.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_thinking_verify",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-truncation-cliff-qwen3-8b": {
   "id": "x2-truncation-cliff-qwen3-8b",
@@ -3608,8 +4341,8 @@
    "results/traces/agent_step_lengths.parquet"
   ],
   "script": "analysis/numbers_register.py::compute_x2_truncation_cliff",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-v3-canary-gate-lenient": {
   "id": "x2-v3-canary-gate-lenient",
@@ -3622,8 +4355,8 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_canary_gate_lenient",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-v3-canary-gates": {
   "id": "x2-v3-canary-gates",
@@ -3636,8 +4369,8 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_canary_gates",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-v3-error-causes": {
   "id": "x2-v3-error-causes",
@@ -3649,8 +4382,8 @@
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_error_causes",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-v3-gsm8k-strict-vs-lenient": {
   "id": "x2-v3-gsm8k-strict-vs-lenient",
@@ -3662,8 +4395,8 @@
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_gsm8k_strict_vs_lenient",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-v3-progress": {
   "id": "x2-v3-progress",
@@ -3675,8 +4408,8 @@
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_progress",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-v3-scores": {
   "id": "x2-v3-scores",
@@ -3690,8 +4423,8 @@
    "results/x2_chat_template_sources.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_scores",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-v3-truncation-all-models": {
   "id": "x2-v3-truncation-all-models",
@@ -3703,8 +4436,8 @@
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_truncation_all_models",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-v3-usability": {
   "id": "x2-v3-usability",
@@ -3716,8 +4449,8 @@
    "results/x2_outcome_table_v3.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_v3_usability",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-weekend-error-causes": {
   "id": "x2-weekend-error-causes",
@@ -3729,8 +4462,8 @@
    "results/x2_outcome_table_weekend.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_weekend_error_causes",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-weekend-error-causes-by-cell": {
   "id": "x2-weekend-error-causes-by-cell",
@@ -3742,8 +4475,8 @@
    "results/x2_outcome_table_weekend.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_weekend_error_causes_by_cell",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-weekend-ngen-budget": {
   "id": "x2-weekend-ngen-budget",
@@ -3755,8 +4488,8 @@
    "results/x2_weekend_llamaserver_log_scan.json"
   ],
   "script": "analysis/numbers_register.py::compute_x2_weekend_ngen_budget",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-weekend-refused-block": {
   "id": "x2-weekend-refused-block",
@@ -3768,8 +4501,8 @@
    "results/x2_outcome_table_weekend.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_weekend_refused_block",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-weekend-tag-counts": {
   "id": "x2-weekend-tag-counts",
@@ -3781,8 +4514,8 @@
    "results/x2_outcome_table_weekend.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_weekend_tag_counts",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
  },
  "x2-weekend-thinking-scores": {
   "id": "x2-weekend-thinking-scores",
@@ -3794,7 +4527,62 @@
    "results/x2_outcome_table_weekend.jsonl"
   ],
   "script": "analysis/numbers_register.py::compute_x2_weekend_thinking_scores",
-  "commit": "da46a04",
-  "date": "2026-10-22"
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "xruntime-default-fixed": {
+  "id": "xruntime-default-fixed",
+  "status": "VERIFIED",
+  "value": "run finished True; valid True; (c) llamacpp_ctx_40960_call2_notools: wrong 12/150 (8.0%), loaded n_ctx [40960]; wrong by server log event: flagged_reject 0, silent_cut 0, ctx_stop 0, error_other 0, none 12; silent share not read; harness-silent wrong (no HTTP error on any call, the Ollama row's definition) 12; task turns with a tool round 97.3%; context-event turns at (c) 0/150; (c) minus Ollama ollama_default (x2-evalset-tasks-real-v2-wrong-rate, 5 sessions) -3.3 points (95% CI -6.7 to +0.0, 5 vs 5 sessions); reading: matches Ollama's default-window rate",
+  "n": "150 task turns",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/xruntime_llamacpp_qwen3_14b.jsonl",
+   "results/x2_evalset_tasks_real_v2.jsonl"
+  ],
+  "script": "harness/xruntime_llamacpp.py::outcome",
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "xruntime-llamacpp-hours": {
+  "id": "xruntime-llamacpp-hours",
+  "status": "VERIFIED",
+  "value": "ESTIMATE 1.94 h (high 2.91 h): 3 arms x 150 task turns at the B3 v2 Ollama run's measured mean turn wall (ollama_default 10.64 s for arms a and c, ollama_ctx_4096 18.54 s for arm b) x the measured llama_server / ollama_default latency ratio 1.067 (qwen3-14b, 289 matched items of x2_outcome_table_v3) = 1.77 h; + 16 server starts x 26.9 s (largest measured start-and-stop overhead of the qwen3-32b spill sweep, a larger GGUF); + 180 s for the detector probe calls (ASSUMED); high = x 1.5 (ASSUMED); arm b's rejected calls return at once on llama-server, so its share is likely an overestimate",
+  "n": "450 task turns",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/x2_evalset_tasks_real_v2.jsonl",
+   "results/x2_outcome_table_v3.jsonl",
+   "results/x2_mx2_qwen3_32b_spill_sweep.jsonl"
+  ],
+  "script": "harness/xruntime_llamacpp.py::hours_estimate",
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "xruntime-llamacpp-wrong-rate": {
+  "id": "xruntime-llamacpp-wrong-rate",
+  "status": "VERIFIED",
+  "value": "run finished True; valid True; server default loaded n_ctx 40960; detector validated False (probes {'prompt_over_window': 'flagged_reject', 'generation_over_window': 'none'}); (a) llamacpp_default_call2_notools: wrong 12/150 (8.0%), loaded n_ctx [40960]; wrong by server log event: flagged_reject 0, silent_cut 0, ctx_stop 0, error_other 0, none 12; silent share not read; harness-silent wrong (no HTTP error on any call, the Ollama row's definition) 12; task turns with a tool round 97.3%; (b) llamacpp_ctx_4096_call2_notools: wrong 150/150 (100.0%), loaded n_ctx [4096]; wrong by server log event: flagged_reject 60, silent_cut 0, ctx_stop 3, error_other 87, none 0; silent share not read; harness-silent wrong (no HTTP error on any call, the Ollama row's definition) 0; task turns with a tool round 3.3%; (c) llamacpp_ctx_40960_call2_notools: wrong 12/150 (8.0%), loaded n_ctx [40960]; wrong by server log event: flagged_reject 0, silent_cut 0, ctx_stop 0, error_other 0, none 12; silent share not read; harness-silent wrong (no HTTP error on any call, the Ollama row's definition) 12; task turns with a tool round 97.3%; primary: (b) 4096 over the server default (a) +92.0 points (95% CI +88.7 to +94.7, 5 vs 5 sessions); reading: replicated (bootstrap 10000 resamples, unit session, stratified by arm, seed 20261014)",
+  "n": "450 task turns",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/xruntime_llamacpp_qwen3_14b.jsonl"
+  ],
+  "script": "harness/xruntime_llamacpp.py::outcome",
+  "commit": "d361d17",
+  "date": "2026-10-27"
+ },
+ "xruntime-openvino-ceiling": {
+  "id": "xruntime-openvino-ceiling",
+  "status": "PENDING",
+  "value": "not computed: data file(s) not synced yet: results/xruntime_openvino_zach/MANIFEST.json",
+  "n": "n/a",
+  "reported": "(none previously reported)",
+  "files": [
+   "results/xruntime_openvino_zach/MANIFEST.json"
+  ],
+  "script": "analysis/numbers_register.py::compute_xruntime_openvino_ceiling",
+  "commit": "d361d17",
+  "date": "2026-10-27"
  }
 }

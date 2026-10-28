@@ -1,6 +1,6 @@
 {
  "lead": {
-  "text": "Fixing a wrong answer in the cloud costs about USD 0.02 (mean USD 0.0227, median USD 0.0169 per task, cache-priced); the cost is that the failure is silent.",
+  "text": "Fixing a wrong answer in the cloud costs about USD 0.02 (mean USD 0.0227, median USD 0.0169 per task, cache-priced); the cost is that on Ollama the failure is silent.",
   "label": "measured",
   "src": {
    "register": "cloud-redo-full-context"
