@@ -346,13 +346,20 @@ def open_window(no_launch_after, hard_deadline, reason, *, remote, window_file, 
         log(f"open-window: sync window file removed ({result['sync_reverted']}); sync back to --host evo-x2")
 
 
+def remote_command(py, argv_tail) -> str:
+    """The command line sent to evo-t2s, whose OpenSSH default shell is PowerShell: a quoted executable path must be
+    invoked with the call operator `&`, or PowerShell parses it as a string and the line fails before Python starts
+    (2026-10-27: open-window's first real run refused with an empty "unparseable check output (rc 1)" for that)."""
+    return "& " + " ".join([f'"{py}"', f'"{REMOTE_DIR}\\t2s_deadline.py"'] + [f'"{a}"' for a in argv_tail])
+
+
 def real_remote(argv_tail, timeout=120):
     """Controller side: one hidden ssh call to evo-t2s (harness/proc_util.run_hidden: no visible console)."""
     from proc_util import run_hidden
     import host_config as hc
     h = hc.HOSTS["EVO-T2S"]
     py = h["python_exe"].replace("%USERPROFILE%", "C:\\Users\\" + h["user"])
-    remote_cmd = " ".join([f'"{py}"', f'"{REMOTE_DIR}\\t2s_deadline.py"'] + [f'"{a}"' for a in argv_tail])
+    remote_cmd = remote_command(py, argv_tail)
     p = run_hidden([r"C:\Windows\System32\OpenSSH\ssh.exe", "-o", "BatchMode=yes", "-o", "ConnectTimeout=30",
                     h["ssh_host"], remote_cmd], capture_output=True, text=True, timeout=timeout)
     return p.returncode, p.stdout

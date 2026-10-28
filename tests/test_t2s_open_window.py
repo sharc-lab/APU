@@ -162,3 +162,10 @@ def test_stray_help_cleanup_runs_first_and_never_blocks(tmp_path):
     assert res["stray_help"] == {"present": True, "removed": True, "files": ["expected_blobs.json"]}
     bad = tdl.remove_stray_help(lambda c: (255, "ssh: connect failed"), log=lambda m: None)
     assert bad["removed"] is False and "unparseable" in bad["error"]
+
+
+def test_remote_command_uses_the_powershell_call_operator():
+    """2026-10-27: without `&` PowerShell parsed the quoted python path as a string and check-handover never ran."""
+    cmd = tdl.remote_command("C:/py/python.exe", ["check-handover"])
+    assert cmd.startswith('& "C:/py/python.exe" ')
+    assert cmd.endswith('"check-handover"')
